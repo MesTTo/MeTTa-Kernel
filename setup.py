@@ -1,3 +1,12 @@
+"""Purpose: package the petta and pettorch Python libraries with the PeTTa
+runtime bundled, so pip install petta needs no separate checkout and no
+PETTA_PATH; petta[torch] adds the PyTorch integration's dependency.
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None
+"""
+
 import os
 import shutil
 
@@ -13,6 +22,7 @@ RUNTIME_RESOURCES = {
     "src": "src",
     "lib": "lib",
     os.path.join("python", "helper.pl"): os.path.join("python", "helper.pl"),
+    os.path.join("python", "petta", "shim.pl"): os.path.join("python", "petta", "shim.pl"),
 }
 
 
@@ -32,25 +42,32 @@ class build_py_with_runtime(build_py):
 
 setup(
     name="petta",
-    version="0.1.0",
-    packages=["petta"],
+    version="0.2.0",
+    packages=["petta", "pettorch"],
     package_dir={"": "python"},
+    package_data={"petta": ["shim.pl"]},
     include_package_data=True,
     cmdclass={"build_py": build_py_with_runtime},
     entry_points={"console_scripts": ["petta=petta.cli:main"]},
     install_requires=[
-        'janus-swi',
+        "janus-swi",
     ],
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="A Python wrapper for MeTTa",
+    extras_require={
+        # PyTorch builds differ by hardware; the extra names the dependency
+        # and leaves the build choice with the installer.
+        "torch": ["torch"],
+        "test": ["pytest", "hypothesis"],
+    },
+    description="MeTTa in Python on the PeTTa engine, with a deep PyTorch integration",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/your-repo-url",  # Replace with actual repo URL
+    url="https://github.com/trueagi-io/PeTTa",
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",  # Adjust based on LICENSE
+        "Programming Language :: Prolog",
+        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
+        "Intended Audience :: Science/Research",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
 )
