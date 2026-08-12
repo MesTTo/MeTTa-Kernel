@@ -75,10 +75,97 @@ facts behind an answer, and `m.why(pattern)` explains an empty match. A
 `%%metta` cell magic for the ordinary Python kernel ships as
 `%load_ext petta.ipython`.
 
+### Writing MeTTa in Python
+
+The `@m.define` decorator compiles a Python function into MeTTa equations,
+read as syntax and lowered deterministically. It exists because fluency is
+real: people and language models alike write Python readily and
+s-expressions haltingly, and the compiled subset lets that fluency produce
+PeTTa programs.
+
+```python
+@m.define
+def fact(n):
+    if n == 0:
+        return 1
+    return n * fact(n - 1)
+
+m.run("!(fact 5)")       # [[120]]
+fact.py(5)               # 120: the ordinary Python twin, kept callable
+```
+
+A generator compiles to nondeterminism (each yield one answer), a lambda to
+the engine's own `|->`, comprehensions to `map-atom` and `filter-atom`,
+`and`/`or` to short-circuit `if` forms, and `match(parent(gp, mid), ...)` to
+a match against the running space, lowercase pattern names binding as
+variables. Anything outside the subset is a refusal naming the construct,
+the line, and what to write instead, never a silent fallback. Every
+definition keeps its Python twin reachable as `.py`, so the two can be
+checked against each other on any ground input; the test suite fuzzes
+exactly that.
+
+### Integrating any library
+
+`petta.integrate` is the interface a Python library implements to work
+deeply with the engine, and the toolkit that makes it a page of code. The
+frame behind it: MeTTa's own semantics subsume the concepts libraries are
+made of, so integration means mapping onto them rather than inventing
+machinery.
+
+| the library has | it becomes |
+|---|---|
+| functions, methods | grounded MeTTa functions; a call is a reduction |
+| objects with state | grounded atoms with identity |
+| tables, frames, indexes | spaces; a query is a match |
+| dispatch (routes, handlers) | equations over one head; the catch-all is the 404 |
+| generators, search, retrieval | nondeterminism; each yield one answer |
+| schemas, records, enums | constructor expressions and `(: ...)` declarations |
+| configuration, structure | facts that rules match over |
+
+The toolkit covers each row: `module_ops(m, math, ["sqrt", "gcd"])`
+registers callables in bulk; `wrap_object` turns an instance's methods into
+operations (a Python None answers True, the engine's convention for an
+effect); `register_type` teaches the two-way translator in the pytree shape
+(Enums become symbols with declarations, dataclasses become constructor
+expressions, both by default); `register_object_type` makes a protocol a
+type; `install_reflection_ops` gives `(py-field $obj $name)` in both modes,
+enumeration included; and a `SpaceProvider` implements a space in Python, so
+`(match &db (users $id $name) ...)` runs against a database with bound
+positions pushed down as a WHERE clause while the engine keeps unification,
+and therefore soundness, for itself. `petta.integrations.duckdb_space`
+ships as the worked SQL instance. A package advertises itself through the
+`petta.integrations` entry-point group, and `m.integrate(module)` installs
+anything defining `install_petta(m)`.
+
+This leans on Python's metaprogramming the way SQLAlchemy and Pydantic do:
+introspected signatures become arities and types, the AST becomes equations,
+protocols become types, and entry points become discovery.
+
+### Arrays: every DLPack library, one operation set
+
+`petta.arrays` carries tensors for every library speaking the standard
+protocols, not one: recognition is DLPack (`__dlpack__`), semantics are the
+Python array API standard through array-api-compat, so the same MeTTa
+functions serve NumPy, PyTorch, CuPy, JAX and whatever conforms next.
+`install(m, default=numpy)` chooses only what the constructors build in;
+every other operation dispatches on its argument's own library, a mixed
+call converts the right operand through `from_dlpack`, `(t-as $x numpy)`
+converts on request, and `get-type` of any array answers its own classes
+plus `DLTensor`, the protocol type, so one declared
+`(-> DLTensor DLTensor DLTensor)` holds across libraries. The embedding
+store and its nondeterministic `(name-knn $q $k)` retrieval live here too,
+running on whichever library the vectors arrived from.
+
 ### PeTTorch
 
-`pettorch` integrates PyTorch deeply in both directions (install with
-`pip install .[torch]`). Tensors cross the boundary as themselves, so the
+`pettorch` integrates PyTorch in both directions (install with
+`pip install .[torch]`), and it is deliberately thin: the whole tensor set
+is `petta.arrays` with torch as the constructor default, losses come
+through `module_ops` over `torch.nn.functional`, optimizers through
+`wrap_object`, architecture reflection through the reflector registry, and
+what remains genuinely torch is autograd, gelu and the nn.Module packaging.
+The package is the existence proof that the general interface carries a
+deep integration whole. Tensors cross the boundary as themselves, so the
 autograd graph survives the engine.
 
 ```python

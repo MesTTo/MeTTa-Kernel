@@ -43,7 +43,7 @@ class build_py_with_runtime(build_py):
 setup(
     name="petta",
     version="0.2.0",
-    packages=["petta", "pettorch"],
+    packages=["petta", "petta.integrations", "pettorch"],
     package_dir={"": "python"},
     package_data={"petta": ["shim.pl"]},
     include_package_data=True,
@@ -55,8 +55,9 @@ setup(
     extras_require={
         # PyTorch builds differ by hardware; the extra names the dependency
         # and leaves the build choice with the installer.
-        "torch": ["torch"],
+        "torch": ["torch", "array-api-compat"],
         "test": ["pytest", "hypothesis"],
+        "arrays": ["array-api-compat"],
     },
     description="MeTTa in Python on the PeTTa engine, with a deep PyTorch integration",
     long_description=open("README.md").read(),
