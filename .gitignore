@@ -7,3 +7,4 @@ python/petta/__pycache__
 build/
 dist/
 *.egg-info/
+repos/
