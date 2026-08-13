@@ -5,7 +5,9 @@ Source: `python/petta/persistent.py`.
 > Purpose: fixed-schema fact spaces backed by SWI persistency journals.
 > The provider keeps native MeTTa facts in typed dynamic predicates, writes
 > every change through library(persistency), and replays the journal when a
-> new provider attaches to the same path.
+> new provider attaches to the same path. On attach, an incomplete final
+> record is copied to ``&lt;journal&gt;.tail`` and removed only when every earlier
+> newline-terminated record validates. Earlier corruption is refused.
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -26,11 +28,13 @@ class PersistentFactSpace(SpaceProvider):
 > boolean. Live Python objects and nested expressions are refused because
 > they cannot survive journal replay.
 >
-> The journal is schema-bound. Its writes sit outside transaction/1, so a
-> compound update is not a transactional file operation. Compound writes
-> and matching reads use a mutex unique to the generated Prolog module.
-> Only one process may own a journal path at a time. This class also refuses
-> a second live attachment to the same path within the current process.
+> The journal is schema-bound. Generated memory mutations run inside
+> transaction/1, so an append error rolls them back. Journal I/O itself is
+> not transactional, so any updater error makes the provider refuse later
+> writes until it is closed, checked, and reopened. Compound writes and
+> matching reads use a mutex unique to the generated Prolog module. Only one
+> process may own a journal path at a time. This class also refuses a second
+> live attachment to the same path within the current process.
 >
 > `sync` picks the write-sync mode, performance by default: "none" (the
 > default) buffers journal writes, the fastest mode; a clean close()
@@ -116,4 +120,4 @@ def compact(self) -> None:
 def close(self) -> None:
 ```
 
-> Detach the journal and remove its facts from the generated module.
+> Detach the journal, clear its facts, and return its module for reuse.
