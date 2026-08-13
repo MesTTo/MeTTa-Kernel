@@ -9,7 +9,9 @@ Source: `python/petta/convert.py`.
 > choosing, defaults so common types need no registration, and a registry in
 > the shape JAX proved with pytrees: a type, a flatten, an unflatten. project()
 > turns an object into atoms plus the declarations that type them; build() is
-> the missing reverse, rebuilding the object an answer describes.
+> the missing reverse, rebuilding the object an answer describes. Type names
+> have one owning class, and default expression images refuse state they cannot
+> rebuild.
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -117,5 +119,4 @@ def build(atom: Atom, cls: Any = None) -> Any:
 > cls names the Enum; a grounded atom unwraps to its value. cls may be a
 > full annotation, not only a class: Optional[Colour] tries its members,
 > list[Colour] rebuilds each element, Annotated unwraps. Anything else
-> is returned as the atom it is, which is the honest answer for structure
-> with no registered reverse.
+> stays an atom because no registered reverse exists for that structure.
