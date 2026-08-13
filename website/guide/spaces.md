@@ -34,6 +34,42 @@ To enable it, run `sh build.sh` at the repository root: `mork_ffi` ships in the 
 
 Writes queue inside MORK for throughput and every read flushes the queue first, so a program always reads its own writes. `m.space("&mork:name")` addresses a named MORK space, its own store created on first use and fully isolated from the default and from every other name. `(mork-add-atoms space atoms)` lands a whole list in one FFI call, with MORK parsing the batch itself; measured at twenty thousand atoms it answered 76.7k against the per-atom path's 69.8k atoms per second, the write queue already amortizing most of the difference. `lib_mm2` layers the minimal-MeTTa surface on top: `＋` and `－` add and remove, `＋*` bulk-adds a list, `?` queries, and `~>` compiles a transform into an exec rule that MORK's own calculus runs, entirely inside the store.
 
+## Shared spaces over Redis
+
+`lib_redis` binds a space name to a Redis set through the same foreign-space seam, SWI's own `library(redis)` underneath. Load it with `!(import! &self (library lib_redis))`, then `!(redis-attach &shared "localhost:6379")` claims the name: from then on every process attached to the same address and name reads and writes the same facts, and the whole surface just works on it:
+
+```python
+    shared.add(S.stock(S.widget, 5), S.stock(S.gadget, 7))
+    rows = shared.query(S.stock(V.item, V.n))
+    assert sorted(str(row.item) for row in rows) == ["gadget", "widget"]
+    assert shared.count() == 2
+    assert shared.remove(S.stock(S.widget, 5)) is True
+    assert [str(atom) for atom in shared.atoms()] == ["(stock gadget 7)"]
+```
+
+Candidates enumerate from Redis and unify in the engine, and the engine splits conjunctions per conjunct, so a query can join shared facts with native ones in one `match`. Subscriptions reach across processes: every write publishes on a per-space channel carrying the writer's process nonce, so a remote write fires your callbacks asynchronously while your own writes fire them synchronously through the engine, each write heard exactly once per process. Here a second Python process attached to the same address writes, and this process's callback sees it (`_other_process` is the suite's helper that runs one):
+
+```python
+    seen = []
+    subscription = shared.subscribe(
+        S.alert(V.level), lambda event: seen.append(event)
+    )
+    try:
+        _other_process(
+            redis_address,
+            "m.space('&shared-test').add(S.alert(S.red), S.other(S.noise))\n",
+        )
+        deadline = time.monotonic() + 10.0
+        while not seen and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert len(seen) == 1
+        assert seen[0].bindings["level"] == S.red
+    finally:
+        subscription.cancel()
+```
+
+`clear()` deletes the shared set itself, a deliberate cross-process act, and refuses loudly on a foreign space that defines no clear. `!(redis-detach &shared)` releases the binding, stops this process's subscriber and waits for it, and leaves the stored facts in Redis for the next attach; attaching a name twice, detaching a name that is not attached, and a subscription that fails to stop all raise instead of degrading.
+
 ## Python-backed spaces
 
 A `SpaceProvider` keeps atoms in Python or in another storage system. The engine still unifies the candidates returned by the provider. A provider may return an over-approximation, while bound positions can be pushed down for speed.
