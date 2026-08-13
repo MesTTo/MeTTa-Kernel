@@ -1,21 +1,85 @@
 # Web routes
 
-`petta.web` translates route dispatch into space operations. An app is a space. Its route table is facts. A request is a term. Dispatch reads the table on every request and unifies routes in registration order. Typed path converters either produce a value or yield a 422 response. No matching route yields 404.
+Web routing translates into space operations, and the translation is small enough to be an example rather than a package module: `python/examples/15_web_routes.py` builds FastAPI's routing semantics in some eighty lines on the core surface alone. An app is a space. Its route table is facts. A request is a term. Dispatch reads the facts back per request and unifies routes in registration order. Typed path converters run after the structural match, so a parameter refusing its type is a 422 while no matching route is a 404. Handlers are called by name through the engine, which is why a route a MeTTa program adds, naming an equation as its handler, serves through the very same table as the Python decorators.
 
-Handlers are called by name through the engine. A Python operation and a MeTTa equation therefore use the same route table. Middleware wraps dispatch with the `request, call_next` shape.
-
-The example registers Python routes, adds middleware, inspects route facts, then adds a route and handler from MeTTa:
+The example's router, whole:
 
 ```python
-from _common import check, done
+class Router:
+    """Routes on a space. The decorator registers the handler as an
+    ordinary operation and adds the fact (route app GET (users $id)
+    handler k); dispatch reads the facts back per request, so a route a
+    MeTTa program added serves identically. Handler operation names are
+    process-wide, the engine's own rule for functions."""
 
-from petta import MeTTa, S, V, web
+    def __init__(self, m, name: str) -> None:
+        self._m = m
+        self.name = name
+        self._casters: dict[int, tuple] = {}
+        self._count = 0
 
-m = MeTTa().fresh_space()
-app = web.router(m, name="app")
+    def get(self, path: str) -> Callable:
+        def wrap(fn: Callable) -> Callable:
+            handler = fn.__name__.replace("_", "-")
+            self._m.op(fn, name=handler, typed=False)
+            self.add_route("GET", path, handler)
+            return fn
 
+        return wrap
 
-# The FastAPI shape: a decorator, a typed path parameter, a handler.
+    def add_route(self, method: str, path: str, handler: str) -> None:
+        segments, casters = [], []
+        for segment in path.strip("/").split("/"):
+            if segment.startswith("{") and segment.endswith("}"):
+                name, _, converter = segment[1:-1].partition(":")
+                segments.append(Var(name))
+                casters.append(CASTERS[converter or "str"])
+            else:
+                segments.append(Sym(segment))
+        self._casters[self._count] = tuple(casters)
+        self._m.add(
+            expr(S.route, S[self.name], S[method], Expr(segments),
+                 S[handler], self._count)
+        )
+        self._count += 1
+
+    def dispatch(self, method: str, path: str) -> Response:
+        request = Expr([Sym(s) for s in path.strip("/").split("/") if s])
+        table = self._m.query(
+            expr(S.route, S[self.name], S[method.upper()],
+                 V.pattern, V.handler, V.k)
+        )
+        matched = False
+        for row in sorted(table, key=lambda r: int(decode(r.k))):
+            pattern = row.pattern
+            if not isinstance(pattern, Expr) or len(pattern) != len(request):
+                continue
+            bindings = unify(pattern, request)
+            if bindings is None:
+                continue
+            matched = True
+            casters = self._casters.get(
+                int(decode(row.k)),
+                tuple(str for c in pattern.children if isinstance(c, Var)),
+            )
+            try:
+                values = [
+                    caster(str(bindings[name]))
+                    for name, caster in zip(variables(pattern), casters)
+                ]
+            except (ValueError, TypeError):
+                continue  # the parameter refused; a later route may accept
+            answers = self._m.eval(expr(Sym(str(row.handler)),
+                                        *[encode(v) for v in values]))
+            body = answers[0] if answers else None
+            return Response(200, decode(body) if isinstance(body, Gnd) else body)
+        return Response(422 if matched else 404,
+                        "unprocessable" if matched else "not found")
+```
+
+And the demonstration it verifies, typed parameters through MeTTa-added routes:
+
+```python
 @app.get("/users/{id:int}")
 def read_user(id):
     return f"user {id}"
@@ -26,19 +90,10 @@ def karma(id):
     return id * 10
 
 
-check("a typed route", app.dispatch("GET", "/users/7"), web.Response(200, "user 7"))
+check("a typed route", app.dispatch("GET", "/users/7"), Response(200, "user 7"))
 check("params arrive converted", app.dispatch("GET", "/users/7/karma").body, 70)
 check("no match is 404", app.dispatch("GET", "/nowhere").status, 404)
 check("a refused parameter is 422", app.dispatch("GET", "/users/abc").status, 422)
-
-# Middleware wraps dispatch, FastAPI's call_next reading.
-@app.middleware
-def bracket(request, call_next):
-    response = call_next(request)
-    return web.Response(response.status, f"[{response.body}]")
-
-
-check("middleware composes", app.dispatch("GET", "/users/7").body, "[user 7]")
 
 # The table is facts, so MeTTa reads it like any facts...
 handlers = m.query(S.route(S.app, S.GET, V.p, V.h, V.k))
@@ -51,11 +106,8 @@ m.run("!(add-atom (context-space) (route app GET (ping) pong 99))")
 check(
     "a MeTTa-added route serves",
     app.dispatch("GET", "/ping"),
-    web.Response(200, "[pong from metta]"),
+    Response(200, "pong from metta"),
 )
-done("15_web_routes")
 ```
 
-Path converters are extensible per router, Starlette's own extension point: `app.converter("upper", str.upper)` makes `{word:upper}` a valid template, the caster runs after the structural match, and a caster raising `ValueError` or `TypeError` reads as 422. `app.routes` answers every registered route in order, and every HTTP verb has its decorator: `get`, `post`, `put`, `delete`, `patch`, `head`, `options`.
-
-See [`petta.web`](../reference/petta-web) for route registration, router inclusion, middleware, and response types.
+The example is the reference: everything it claims runs in the test suite. Grow it toward whatever your application needs, more verbs, converter registries, router nesting, middleware; each is a few lines on the same core calls.

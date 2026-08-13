@@ -14,8 +14,6 @@ Each page reproduces the public definitions, source signatures, and docstrings o
 | [`petta.measure`](./petta-measure) | weighted superpositions and relations |
 | [`petta.soft`](./petta-soft) | soft unification and proving |
 | [`petta.subscribe`](./petta-subscribe) | standing queries |
-| [`petta.web`](./petta-web) | fact-backed route dispatch |
-| [`petta.multishot`](./petta-multishot) | program parts and external truths |
 | [`petta.foreign`](./petta-foreign) | Python-backed spaces |
 | [`petta.integrate`](./petta-integrate) | library integration tools |
 | [`petta.arrays`](./petta-arrays) | array operations and embedding stores |

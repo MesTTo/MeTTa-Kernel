@@ -26,8 +26,6 @@ MODULES = (
     ModuleSpec("petta.measure", "python/petta/measure.py"),
     ModuleSpec("petta.soft", "python/petta/soft.py"),
     ModuleSpec("petta.subscribe", "python/petta/subscribe.py"),
-    ModuleSpec("petta.web", "python/petta/web.py"),
-    ModuleSpec("petta.multishot", "python/petta/multishot.py"),
     ModuleSpec("petta.foreign", "python/petta/foreign.py"),
     ModuleSpec("petta.integrate", "python/petta/integrate.py"),
     ModuleSpec("petta.arrays", "python/petta/arrays.py"),

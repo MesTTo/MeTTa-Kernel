@@ -118,53 +118,23 @@ composition runs the other way too: a Python subscription on `&petta`
 reacts to control atoms a MeTTa program writes there, which is steering the
 integration from inside MeTTa, no fork needed.
 
-### Routes and multi-shot solving: two more paradigms in the common tongue
+### Two more paradigms in the common tongue, as examples
 
-MeTTa is built to be a lingua franca, and `petta.web` translates web
-routing into it wholesale: an app is a space, the route table is facts,
-a request is a term, dispatch is unification in registration order, path
-parameters are typed variables, the 404 is the absence of a match and the
-422 a parameter refusing its type. Handlers are called by name through the
-engine, so a Python function and a MeTTa equation serve identically, and a
-MeTTa program extends the table by adding a `(route ...)` fact:
-
-```python
-from petta import web
-
-w = MeTTa().fresh_space()
-app = web.router(w, name="app")
-
-@app.get("/users/{id:int}")
-def read_user(id):
-    return f"user {id}"
-
-app.dispatch("GET", "/users/7")     # Response(status=200, body='user 7')
-app.dispatch("GET", "/users/ada")   # Response(status=422, body='unprocessable')
-```
-
-`petta.multishot` translates clingo's multi-shot solving the same way
-(Gebser et al., arXiv 1705.09811): a `part` is a parameterized program
-template grounded once per instantiation, an `external` is a truth toggled
-between solves and ended by `release()`, and the solve side is the query
-surface the space already has, so the incremental loop is ground one more
-step, solve again, while the world persists:
-
-```python
-from petta import multishot
-
-p = MeTTa().fresh_space()
-p.add_table("edge", [(S.a, S.b), (S.b, S.c)])
-p.run("(= (reach a 0) True)")
-step = multishot.part(
-    p,
-    "step",
-    lambda t: f"(= (reach $x {t}) (match (context-space) (edge $y $x) "
-              f"(once (reach $y {t - 1}))))",
-)
-step.ground(1)
-step.ground(2)
-p.eval(p.parse("(reach c 2)"))      # [Gnd(True)]
-```
+MeTTa is built to be a lingua franca, and the examples folder carries two
+whole paradigms translated into it on the core surface alone, deliberately
+as examples rather than package modules, since the point is what the core
+already carries. `python/examples/15_web_routes.py` builds FastAPI's
+routing semantics in some eighty lines: an app is a space, the route table
+is facts, a request is a term, dispatch is unification in registration
+order, path parameters are typed variables, the 404 is the absence of a
+match and the 422 a parameter refusing its type, and a MeTTa program
+extends the running table by adding a `(route ...)` fact whose handler is
+an equation. `python/examples/16_multishot_solving.py` builds clingo's
+multi-shot solving (Gebser et al., arXiv 1705.09811) in two short classes:
+a part is a parameterized program template grounded once per
+instantiation, an external is a truth toggled between solves, and the
+incremental loop grounds one more step and solves again while the world
+persists. Both examples verify themselves in the test suite.
 
 ### Examples
 

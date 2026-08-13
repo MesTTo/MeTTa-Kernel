@@ -76,8 +76,6 @@ export default defineConfig({
           { text: "petta.measure", link: "/reference/petta-measure" },
           { text: "petta.soft", link: "/reference/petta-soft" },
           { text: "petta.subscribe", link: "/reference/petta-subscribe" },
-          { text: "petta.web", link: "/reference/petta-web" },
-          { text: "petta.multishot", link: "/reference/petta-multishot" },
           { text: "petta.foreign", link: "/reference/petta-foreign" },
           { text: "petta.integrate", link: "/reference/petta-integrate" },
           { text: "petta.arrays", link: "/reference/petta-arrays" },
