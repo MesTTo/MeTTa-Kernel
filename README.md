@@ -245,6 +245,31 @@ heuristic scorer or a neural network all feed the algebra identically.
 `python/bench.py` is the performance harness that keeps all of this
 measured.
 
+On top of that closeness sits a prover, `petta.soft.prove`: backward
+chaining where every unification is soft, the reading of End-to-End
+Differentiable Proving (Rocktaschel and Riedel 2017) and IBM's Braid. A
+goal proves through stored facts, through `=` rules whose bodies prove in
+turn, through conjunction goals conjunct by conjunct, and through ground
+guards the engine itself evaluates; degrees aggregate by minimum, every
+step must clear the threshold, and the answer is a `Proof` carrying the
+substitutions, the aggregate similarity and every step:
+
+```python
+from petta import soft
+
+k = MeTTa().fresh_space()
+k.add(S["parent-of"](S.homer, S.bart), S["father-of"](S.abe, S.homer))
+k.run("(= (grandpa-of $x $y) (and (father-of $x $z) (parent-of $z $y)))")
+soft.similar(k, "grandpa-of", "grandfather-of", 0.9)
+
+proof = soft.prove(k, S["grandfather-of"](V.who, S.bart))
+proof.substitutions["who"], proof.similarity     # (Sym('abe'), 0.9)
+```
+
+`grandfather-of` never appears in the knowledge, only `grandpa-of` does;
+the declared similarity carries the proof across, and `proof.steps` names
+every rule, fact and guard on the way.
+
 ### Arrays: every DLPack library, one operation set
 
 `petta.arrays` carries tensors for every library speaking the standard
