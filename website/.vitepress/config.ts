@@ -51,6 +51,7 @@ export default defineConfig({
           { text: "Reflection and steering", link: "/live/reflection" },
           { text: "Web routes", link: "/live/web-routes" },
           { text: "Multi-shot solving", link: "/live/multishot" },
+          { text: "Contexts and remotes", link: "/live/contexts" },
         ],
       },
             {
@@ -66,6 +67,7 @@ export default defineConfig({
           { text: "petta.measure", link: "/reference/petta-measure" },
           { text: "petta_soft", link: "/reference/petta-soft" },
           { text: "petta.subscribe", link: "/reference/petta-subscribe" },
+          { text: "petta.remote", link: "/reference/petta-remote" },
           { text: "petta.foreign", link: "/reference/petta-foreign" },
           { text: "petta.integrate", link: "/reference/petta-integrate" },
           { text: "petta.arrays", link: "/reference/petta-arrays" },

@@ -40,4 +40,6 @@ The translation keeps the concepts visible. A web route is a fact a program can 
 | routes and handlers | facts plus unification in registration order |
 | model outputs | weighted relations over classes |
 
+The design contract: automatic and seamless by default, expert depth underneath. A class fed to the library declares itself, a query answers typed rows, an answer destructures in a match statement; and when you want more, every default has a named, documented lever behind it.
+
 Start with [install and first steps](./guide/getting-started), then follow the sidebar by the kind of system you are translating.

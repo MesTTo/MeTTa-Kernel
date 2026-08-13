@@ -89,9 +89,11 @@ def class_declarations(cls: type) -> list[Expr]:
 ```
 
 > The (: ...) atoms that make a class a MeTTa type: the translator's
-> own declarations for an Enum, dataclass or NamedTuple (constructor
-> arrows, member typings), and the plain (: Name Type) for any other
-> class, whose instances already answer the name to get-type.
+> own declarations for an Enum, dataclass or NamedTuple, constructor
+> arrows and member typings, derived from the class itself. A plain
+> class needs NO declaration: its instances already answer the class
+> name to get-type through the engine's MRO typing bridge, so emitting
+> one would only restate what the engine figures out on its own.
 
 ## `resolved_annotations`
 

@@ -78,3 +78,24 @@ def atom_removed(space: str, wire: list) -> bool:
 ```
 
 No docstring is defined.
+
+## `bridge`
+
+```python
+def bridge(source, pattern, target, template=None, on: str = "add") -> Subscription:
+```
+
+> A bridge rule between spaces, the multi-context-systems reading:
+> when an atom unifying with pattern arrives in source, the template's
+> instantiation under the match's bindings lands in target, and with
+> on="both" a removal in source removes the instantiation from target,
+> the mirrored rule.
+>
+>     rule = petta.bridge(src, S.alarm(V.zone), dst, S.notify(V.zone))
+>     src.add(S.alarm(S.kitchen))        # dst now holds (notify kitchen)
+>     rule.cancel()
+>
+> template defaults to the pattern itself. The rule is a standing
+> query, delivered inside the write that triggered it; target needs
+> only add and remove, so a remote.attach()ed space bridges across
+> engines identically.
