@@ -57,8 +57,16 @@ values, symbols stay symbols, and a Python object stored in a space comes
 back as the very same object.
 
 Python functions become MeTTa functions with a decorator. Annotations become
-a type declaration, a generator is nondeterministic, and returning None
-answers nothing:
+type declarations in the engine's own idiom. A TypeVar declares
+parametrically, so `def first_of(items: Sequence[A]) -> A` is
+`(: first-of (-> Expression $a))`. A Union declares one arrow per member,
+and the members superpose the way the checker already reads repeated
+declarations. `Callable[[int], int]` declares the arrow `(-> Number Number)`
+and `tuple[int, str]` the elementwise `(Number String)`. A dataclass, Enum
+or plain class in a signature becomes a declared type of its own, its
+constructor arrow read from the field annotations. A generator is
+nondeterministic, and returning None answers nothing, which is why an
+Optional return declares the value type:
 
 ```python
 @m.op
