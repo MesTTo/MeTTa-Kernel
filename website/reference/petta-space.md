@@ -94,7 +94,15 @@ def drop(self) -> None:
 ### `MeTTa.run`
 
 ```python
-def run(self, source: str, using: dict[str, Any] | None = None) -> list[list[Atom]]:
+def run(
+    self,
+    source: str,
+    using: dict[str, Any] | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    capture: bool = False,
+) -> list[list[Atom]] | tuple[list[list[Atom]], str]:
 ```
 
 > Run MeTTa source: one list of answers per ! directive.
@@ -111,6 +119,13 @@ def run(self, source: str, using: dict[str, Any] | None = None) -> list[list[Ato
 >
 > Each named symbol substitutes to its value (objects by identity),
 > after reading, before anything runs.
+>
+> `timeout` (seconds) and `inferences` (engine steps) bound the call
+> with the engine's own guards; passing either raises TimeLimitError
+> or InferenceLimitError when the bound is hit, and whatever the
+> source completed before the stop, writes included, stands. With
+> `capture=True` the return value is (groups, text), text being
+> everything the source printed, println! included.
 
 ### `MeTTa.save`
 
@@ -209,6 +224,8 @@ def query(
     *patterns: Any,
     where: Any | None = None,
     limit: int | None = None,
+    timeout: float | None = None,
+    inferences: int | None = None,
 ) -> Rows:
 ```
 
@@ -223,7 +240,10 @@ def query(
 >     m.query(S.person(V.name, V.age), where=V.age &gt;= 18)
 >
 > `limit` bounds the answers, the engine stopping at the count
-> rather than trimming afterwards.
+> rather than trimming afterwards. `timeout` (seconds) and
+> `inferences` (engine steps) bound the whole call, raising
+> TimeLimitError or InferenceLimitError when hit, for joins whose
+> size is not known in advance.
 >
 >     m.query(S.Edge(V.x, V.y), S.Edge(V.y, V.z))
 
@@ -257,7 +277,14 @@ def prepare(self, *patterns: Any, where: Any | None = None) -> "Prepared":
 ### `MeTTa.eval`
 
 ```python
-def eval(self, target: Any) -> list[Atom]:
+def eval(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    capture: bool = False,
+) -> list[Atom] | tuple[list[Atom], str]:
 ```
 
 > Evaluate a term, returning every answer.
@@ -265,11 +292,22 @@ def eval(self, target: Any) -> list[Atom]:
 > This is what !(...) runs, minus the printing: the engine's
 > translate_expr over the term, then its goals. Nondeterminism means
 > the list can hold any number of answers, including none.
+>
+> `timeout` (seconds) and `inferences` (engine steps) bound the call,
+> raising TimeLimitError or InferenceLimitError when hit. With
+> `capture=True` the return value is (answers, text), text being
+> everything the evaluation printed.
 
 ### `MeTTa.value`
 
 ```python
-def value(self, target: Any) -> Any:
+def value(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Any:
 ```
 
 > THE answer of evaluating target, as a plain Python value.
@@ -281,7 +319,28 @@ def value(self, target: Any) -> Any:
 > the count, because a caller asking for the value has asserted
 > there is one. Grounded answers unwrap to their Python values;
 > symbols and structure stay atoms. eval() is the spelling for any
-> number of answers.
+> number of answers, and carries the same timeout/inferences bounds.
+
+### `MeTTa.stats`
+
+```python
+def stats(self) -> "_StatsBlock":
+```
+
+> The engine's own counters over a with-block, as deltas.
+>
+>     with m.stats() as s:
+>         m.query(S.edge(V.x, V.y), S.edge(V.y, V.z))
+>     s.inferences        # engine steps the block spent
+>     s.cputime           # engine CPU seconds
+>     s.walltime          # wall seconds, Python's clock
+>     s.gc_count, s.gc_freed, s.gc_time
+>
+> The counters are the engine's statistics/2, and the engine is one
+> per process, so a block that runs other threads' engine work counts
+> that work too; the honest reading is "what the engine did while
+> this block ran". The z3py Solver.statistics() reading, on the
+> engine this library actually has.
 
 ### `MeTTa.op`
 
@@ -551,7 +610,16 @@ class Prepared:
 ### `Prepared.solve`
 
 ```python
-def solve(self, given: list | None = None, limit: int | None = None) -> Rows:
+def solve(
+    self,
+    given: list | None = None,
+    limit: int | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Rows:
 ```
 
 > Answers now, with `given` facts present for this call alone.
+> `timeout` and `inferences` bound this solve exactly as they bound
+> MeTTa.query().
