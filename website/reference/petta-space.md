@@ -250,6 +250,19 @@ def count(self) -> int:
 
 No docstring is defined.
 
+### `MeTTa.cast`
+
+```python
+def cast(self, value, type_):
+```
+
+> Answer value, narrowed to its Python-most spelling, when this
+> space's type discipline admits it as type_: the same acceptance
+> a typed call compiles, ':' declarations in this space and &amp;self
+> in scope, protocol types included. A refused cast raises
+> petta.CastError naming the value's actual types, the loud
+> spelling of what a typed call does silently.
+
 ### `MeTTa.trace`
 
 ```python

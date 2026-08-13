@@ -18,6 +18,7 @@ Each page reproduces the public definitions, source signatures, and docstrings o
 | [`petta.das`](./petta-das) | the Distributed Atomspace over the command router |
 | [`petta.lint`](./petta-lint) | space diagnostics for the silently-wrong class |
 | [`petta.trace`](./petta-trace) | the reduction trace as events |
+| [`petta.casting`](./petta-casting) | runtime typecasting through the engine's types |
 | [`petta.aio`](./petta-aio) | the engine on an event loop, one dedicated worker thread |
 | [`petta.persistent`](./petta-persistent) | fact spaces backed by persistency journals |
 | [`petta.testing`](./petta-testing) | the hypothesis strategies the suite fuzzes itself with |

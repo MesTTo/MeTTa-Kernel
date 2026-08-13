@@ -202,6 +202,38 @@ MeTTa fails open: a call to a misspelled function stays an unreduced expression,
 
 The kinds: `declared-but-undefined`, `arrow-arity-mismatch` (the arrow's input count against the equations'), `arity-mismatch` (a call with an argument count no equation takes), `unbound-variable` (a body variable the head never bound, exempting equations with their own binding forms), `duplicate-equation` (the same equation stored twice, answering every call twice), and `possibly-undefined-reference`, which says in its own text that it is a heuristic, because an expression head that is no known function may be data on purpose. A healthy space answers an empty list.
 
+## Cast a value
+
+MeTTa's type discipline is checked, not asserted. `m.cast(value, type)` runs that check natively from Python: the exact acceptance the engine compiles for a typed argument position, with `(: name Type)` declarations from the space and `&self` in scope, answering the value narrowed to its Python-most spelling, so a ground atom unwraps to its Python value. What a typed call refuses silently (the mismatched call just reduces to nothing), `cast` refuses loudly:
+
+```python
+    m.run("(: Ann Person)")
+    assert m.cast(S.Ann, "Person") is S.Ann
+    with pytest.raises(CastError) as caught:
+        m.cast(S.Ann, "Robot")
+    assert "Person" in str(caught.value)
+```
+
+The check is duck-typed the way the engine already is. A protocol registered with `register_object_type` makes any object satisfying its predicate cast to the protocol's name, and a Python type as the target spells its MeTTa reading: `bool` is `Bool` before `int` is `Number`, `str` is `String`, and any other class is its own name, the names `get-type` itself answers:
+
+```python
+    integrate.register_object_type(lambda x: hasattr(x, "quack"), "Ducky")
+
+    class Quacks:
+        quack = "yes"
+
+    class Silent:
+        pass
+
+    duck = Quacks()
+    assert m.cast(duck, "Ducky") is duck
+    assert m.cast(duck, Quacks) is duck
+    with pytest.raises(CastError):
+        m.cast(Silent(), "Ducky")
+```
+
+Structural targets work too: casting to `(List $t)` admits anything whose type unifies, and a repeated variable in the target constrains. Targets the engine never checks (`Atom`, `%Undefined%`, `_`) pass unchecked here as well. The surface is in [`petta.casting`](../reference/petta-casting).
+
 `add_table(head, source)` reads a Polars frame, a pandas frame, a mapping of columns, or any iterable of rows into facts shaped as `(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of plain columns accepted by DataFrame constructors, and `rows.to_df()` / `rows.to_pl()` build the pandas or polars frame directly, DuckDB's conversion naming. `rows.build(column, Class)` rebuilds translated objects from a result column. In a notebook, rows render as a table on their own.
 
 Use `derivation(atom)` to obtain proof trees for an answer. Use `why(pattern)` to explain an empty match. The complete runtime surface is in [`petta.space`](../reference/petta-space), and result containers are in [`petta.results`](../reference/petta-results).
