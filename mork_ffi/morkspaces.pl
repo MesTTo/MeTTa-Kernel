@@ -17,6 +17,14 @@ mork_space_name(Space, Name) :- atom(Space),
                                 atom_string(RawName, Name).
 
 mork_call(Space, Command, Payload, Response) :-
+    %A NUL byte truncates at the C boundary mid-form and MORK's loader
+    %panics on the resulting UnexpectedEOF, killing the process. Refuse
+    %it loudly here, the one choke point every command crosses.
+    ( string(Payload), string_code(_, Payload, 0)
+      -> throw(error(domain_error(mork_text, Payload),
+                     context(mork_call/4,
+                             'a NUL byte cannot cross the MORK boundary')))
+    ; true ),
     mork_space_name(Space, Name),
     ( Name == "default"
       -> Request = Payload
