@@ -1,6 +1,6 @@
 # Soft unification and proving
 
-Soft unification keeps expression structure crisp while allowing symbols to be close by a degree. Variables still bind. Degrees combine by minimum. `soft.similar(...)` writes ordinary `(similar a b degree)` facts, and `soft.link_store(...)` can materialize them from an embedding store.
+Soft unification keeps expression structure crisp while allowing symbols to be close by a degree. Variables still bind. Degrees combine by minimum. `soft.similar(...)` writes ordinary `(similar a b degree)` facts, `soft.link_store(...)` materializes them from an embedding store, and `soft.similar_pattern(...)` materializes them from a regex over the space's own symbols, so a pattern names a family the way an embedding store names a neighborhood.
 
 `soft-match` scores every matching candidate in a space. Its `(score candidate)` answers feed the same measure algebra used by custom matchers. `soft-best` selects the closest fact.
 

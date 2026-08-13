@@ -65,3 +65,30 @@ def install_fuzzy(m, name: str = "fuzmatch", threshold: float = 0.0) -> str:
 > forms, the standard library's own sequence similarity.
 >
 >     m.run('!(fuzmatch "clase" "class")')        # (0.8 "class")
+
+## `install_regex`
+
+```python
+def install_regex(
+    m,
+    name: str = "rx-match",
+    lexicon: Iterable[Any] | Callable[[], Iterable[Any]] | None = None,
+) -> str:
+```
+
+> Regex as a matcher: the crisp lexical modality beside fuzzy and
+> semantic. The query IS the pattern; a candidate scores one exactly
+> when the pattern matches its printed form (search semantics, the
+> re-match reading), and the unbound mode generates every lexicon
+> entry the pattern accepts. `lexicon` is an iterable, or a
+> zero-argument callable answered fresh per generation for live
+> sources, a space read included.
+>
+>     matching.install_regex(m, lexicon=["alpha", "beta", "abbey"])
+>     m.run('!(collapse (rx-match "^a" $w))')
+>     # ((1.0 "alpha") (1.0 "abbey"))
+>
+> Patterns compile once and cache; scoring runs Python's re inside
+> the callback, so no boundary is re-crossed per candidate, and
+> inline flags like (?i) work. The pattern language is Python's,
+> which agrees with lib_regex's PCRE2 on this searching subset.

@@ -2,7 +2,7 @@
 
 A matcher is a MeTTa function with two modes. With a bound candidate it scores that candidate. With an unbound candidate it generates candidates best first. Both modes answer `(score value)` pairs, so structural matching and a custom notion of closeness compose through ordinary evaluation.
 
-`install_fuzzy` uses `difflib` for lexical closeness. `EmbeddingStore.matcher()` supplies semantic closeness from vectors. `matching.matcher(...)` accepts your own scoring and generation functions.
+`install_fuzzy` uses `difflib` for lexical closeness. `EmbeddingStore.matcher()` supplies semantic closeness from vectors. `install_regex` is the crisp lexical modality: the query is the pattern, a candidate scores one exactly when it matches, and the unbound mode generates every lexicon entry the pattern accepts, regex being matching all along. `matching.matcher(...)` accepts your own scoring and generation functions.
 
 The self-verifying example uses all three readings:
 

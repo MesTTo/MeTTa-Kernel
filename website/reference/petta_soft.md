@@ -55,6 +55,22 @@ def link_store(m, store, threshold: float = 0.5, top_k: int = 5) -> int:
 > Answers how many facts landed. The similarities become space atoms any
 > rule can read, soft-match's sym-sim first among them.
 
+## `similar_pattern`
+
+```python
+def similar_pattern(m, pattern: str, symbol: Any, degree: float) -> int:
+```
+
+> Declare a symbol family intensionally: every distinct symbol
+> occurring in the space whose name the regex matches becomes similar
+> to `symbol` at `degree`, materialized as the same (similar ...)
+> facts link_store lands, sym-sim reading them both ways. Answers how
+> many facts landed. Regex is matching applied at the symbol level the
+> soft matcher softens, so a pattern names a family the way an
+> embedding store names a neighborhood.
+>
+>     soft.similar_pattern(m, r"^grandpa-", "grandfather-of", 0.9)
+
 ## `score`
 
 ```python
