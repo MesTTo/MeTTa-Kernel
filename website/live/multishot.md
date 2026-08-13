@@ -1,6 +1,6 @@
 # Multi-shot solving
 
-clingo's changing-program vocabulary maps onto the existing space and query surface, and the mapping is small enough to be an example rather than a package module: `python/examples/16_multishot_solving.py` builds it in two short classes on the core calls alone. A `Part` is a parameterized program template grounded once per argument tuple, clingo's `#program`. An `External` is a fact whose truth toggles between solves and ends with `release()`, clingo's `#external`, which on an engine with no grounding step is exactly a togglable fact.
+clingo's changing-program vocabulary maps onto the existing space and query surface, and the mapping is small enough to be an example rather than a package module: `python/examples/integration/multishot_solving.py` builds it in two short classes on the core calls alone. A `Part` is a parameterized program template grounded once per argument tuple, clingo's `#program`. An `External` is a fact whose truth toggles between solves and ends with `release()`, clingo's `#external`, which on an engine with no grounding step is exactly a togglable fact.
 
 The world remains in the space between shots. Solving uses `query`, `prepare`, `assuming`, or `eval`. Grounding a part instantiates its template into the space, and grounding the same instantiation twice is refused, since it would duplicate the rules. Assigning a released external is a hard error.
 

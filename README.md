@@ -123,13 +123,13 @@ integration from inside MeTTa, no fork needed.
 MeTTa is built to be a lingua franca, and the examples folder carries two
 whole paradigms translated into it on the core surface alone, deliberately
 as examples rather than package modules, since the point is what the core
-already carries. `python/examples/15_web_routes.py` builds FastAPI's
+already carries. `python/examples/integration/web_routes.py` builds FastAPI's
 routing semantics in some eighty lines: an app is a space, the route table
 is facts, a request is a term, dispatch is unification in registration
 order, path parameters are typed variables, the 404 is the absence of a
 match and the 422 a parameter refusing its type, and a MeTTa program
 extends the running table by adding a `(route ...)` fact whose handler is
-an equation. `python/examples/16_multishot_solving.py` builds clingo's
+an equation. `python/examples/integration/multishot_solving.py` builds clingo's
 multi-shot solving (Gebser et al., arXiv 1705.09811) in two short classes:
 a part is a parameterized program template grounded once per
 instantiation, an external is a truth toggled between solves, and the
@@ -139,8 +139,9 @@ persists. Both examples verify themselves in the test suite.
 ### Examples
 
 `python/examples/` holds thirteen runnable, self-verifying integrations,
-from first steps through SQL spaces, the one array layer, evolution in a
-space, PLN, standing queries as actors, custom matchers, soft unification,
+grouped by basics, operations, data, integration, reasoning, and live systems.
+They run from first steps through SQL spaces, array interoperability, evolution
+in a space, PLN, standing queries as actors, custom matchers,
 FastAPI-shaped web routes and clingo-shaped multi-shot solving; the test
 suite runs them all, so the folder cannot drift. The torch examples
 (attention as matching, FabricPC, deep routing) travel with the pettorch
@@ -240,7 +241,7 @@ enumeration included; and a `SpaceProvider` implements a space in Python, so
 `(match &db (users $id $name) ...)` runs against a database with bound
 positions pushed down as a WHERE clause while the engine keeps unification,
 and therefore soundness, for itself. The worked SQL instance lives whole
-in `python/examples/04_sql_is_a_space.py`, deliberately as an example: a
+in `python/examples/integration/duckdb_space.py`, deliberately as an example: a
 DuckDB provider is a page of code on this interface. A package advertises itself through the
 `petta.integrations` entry-point group, and `m.integrate(module)` installs
 anything defining `install_petta(m)`.

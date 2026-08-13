@@ -1,4 +1,10 @@
-"""Verify that tutorial code fences are exact excerpts from approved sources."""
+"""Purpose: verify that tutorial code fences are exact excerpts from approved
+sources, including Python examples nested under topical folders.
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None
+"""
 
 from __future__ import annotations
 
@@ -11,7 +17,7 @@ SITE = REPO / "website"
 SOURCE_PATHS = [
     REPO / "README.md",
     REPO / "python" / "examples" / "README.md",
-    *(REPO / "python" / "examples").glob("*.py"),
+    *(REPO / "python" / "examples").rglob("*.py"),
     *(REPO / "python" / "petta").glob("*.py"),
     *(REPO / "python" / "tests").glob("*.py"),
     REPO / "lib" / "lib_measure.metta",

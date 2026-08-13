@@ -18,10 +18,10 @@ m.query(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 
 `run` uses the engine's reader, compiler, and evaluator. It returns one answer list for each `!` directive. Grounded answers compare as Python values. Symbols stay symbols. Stored Python objects return as the same objects.
 
-The repository has sixteen self-verifying examples. Run the first from the repository root:
+The repository has thirteen self-verifying Python examples organised by topic. Run the first from the repository root:
 
 ```bash
-python python/examples/01_first_steps.py
+PYTHONPATH=python/examples python python/examples/basics/first_steps.py
 ```
 
-Examples that need DuckDB, NumPy, PyTorch, or FabricPC skip when that optional dependency is absent. When something misbehaves, `petta.backend_info()` answers the petta, janus, SWI-Prolog, and Python versions plus the consulted runtime tree in one dict, without starting the engine, which is exactly what a bug report needs. Continue with [atoms, operators, and term building](./atoms-terms).
+Examples that need DuckDB, NumPy, or PyTorch skip when that optional dependency is absent. When something misbehaves, `petta.backend_info()` answers the petta, janus, SWI-Prolog, and Python versions plus the consulted runtime tree in one dict, without starting the engine, which is exactly what a bug report needs. Continue with [atoms, operators, and term building](./atoms-terms).
