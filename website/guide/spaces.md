@@ -32,7 +32,7 @@ To enable it, run `sh build.sh` at the repository root: `mork_ffi` ships in the 
     assert [(row.x, row.n) for row in join] == [(S.tim, 30)]
 ```
 
-Writes queue inside MORK for throughput and every read flushes the queue first, so a program always reads its own writes. `lib_mm2` layers the minimal-MeTTa surface on top: `＋` and `－` add and remove, `?` queries, and `~>` compiles a transform into an exec rule that MORK's own calculus runs, entirely inside the store.
+Writes queue inside MORK for throughput and every read flushes the queue first, so a program always reads its own writes. `m.space("&mork:name")` addresses a named MORK space, its own store created on first use and fully isolated from the default and from every other name. `(mork-add-atoms space atoms)` lands a whole list in one FFI call, with MORK parsing the batch itself; measured at twenty thousand atoms it answered 76.7k against the per-atom path's 69.8k atoms per second, the write queue already amortizing most of the difference. `lib_mm2` layers the minimal-MeTTa surface on top: `＋` and `－` add and remove, `＋*` bulk-adds a list, `?` queries, and `~>` compiles a transform into an exec rule that MORK's own calculus runs, entirely inside the store.
 
 ## Python-backed spaces
 
