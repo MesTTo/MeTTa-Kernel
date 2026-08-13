@@ -413,6 +413,7 @@ def stats(self) -> "_StatsBlock":
 >     s.cputime           # engine CPU seconds
 >     s.walltime          # wall seconds, Python's clock
 >     s.gc_count, s.gc_freed, s.gc_time
+>     s.table_bytes       # answer-table bytes grown, tabling's memory
 >
 > The counters are the engine's statistics/2, and the engine is one
 > per process, so a block that runs other threads' engine work counts
