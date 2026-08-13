@@ -27,6 +27,7 @@ MODULES = (
     ModuleSpec("petta_soft", "petta_soft/petta_soft/__init__.py"),
     ModuleSpec("petta.subscribe", "python/petta/subscribe.py"),
     ModuleSpec("petta.remote", "python/petta/remote.py"),
+    ModuleSpec("petta.aio", "python/petta/aio.py"),
     ModuleSpec("petta.foreign", "python/petta/foreign.py"),
     ModuleSpec("petta.integrate", "python/petta/integrate.py"),
     ModuleSpec("petta.arrays", "python/petta/arrays.py"),
