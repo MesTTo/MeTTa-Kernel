@@ -4,18 +4,29 @@
 
 The callable can be a lookup table, a heuristic, or a model. It must return one weight per declared class.
 
-`pettorch.neural_predicate` applies that interface to a PyTorch network. It softmaxes the forward pass, aligns each output with a class term, and registers the resulting weighted relation. The following source registers three classes and selects the maximum-weight answer:
+The torch instance is `pettorch.neural_predicate`, which lives in the pettorch repository beside this one: it softmaxes a network's forward pass, aligns each output with a class term, and registers the result through this very interface, DeepProbLog's nn predicate reading. Its docs travel with that repository.
+
+A weighted relation from a plain callable, registered and consumed through the measure algebra:
 
 ```python
-network = torch.nn.Linear(2, 3, bias=False)
-with torch.no_grad():
-    network.weight.copy_(torch.tensor([[0.1, 0.9], [2.0, 0.1], [0.2, 0.2]]))
-pettorch.neural_predicate(m, "guess", network, [S.zero, S.one, S.two])
+def test_weighted_relation_takes_any_callable(m):
+    from petta import measure
 
-m.run("!(import! (context-space) (library lib_measure))")
-m.run("!(ws-best (collapse (guess (tensor (1.0 0.0)))))")   # [[Sym('one')]]
+    measure.install(m)
+
+    def mood_weights(day):
+        return [0.25, 0.75]
+
+    measure.weighted_relation(m, "mood", mood_weights, [S.calm, S.tense])
+    (pairs,) = m.run("!(collapse (mood today))")[0]
+    assert [(float(p[0]), str(p[1])) for p in pairs] == [
+        (0.25, "calm"),
+        (0.75, "tense"),
+    ]
+    (best,) = m.run("!(ws-best (collapse (mood today)))")[0]
+    assert best == S.tense
+    (scored,) = m.run("!(mood today calm)")[0]
+    assert float(scored[0]) == 0.25 and scored[1] == S.calm
 ```
 
-By default, probabilities cross as Python floats for reasoning. With `with_grad=True`, each probability remains a zero-dimensional tensor on the autograd graph. Downstream work on those values must then use tensor operations.
-
-See [`petta.measure.weighted_relation`](../reference/petta-measure#weighted-relation) and [`pettorch.neural.neural_predicate`](../reference/pettorch-neural#neural-predicate).
+See [`petta.measure.weighted_relation`](../reference/petta-measure#weighted-relation).

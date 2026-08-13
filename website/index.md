@@ -23,9 +23,6 @@ features:
   - title: Live systems
     details: Treat subscriptions, routes, and incremental solving as operations over spaces and facts.
     link: /live/standing-queries
-  - title: PeTTorch
-    details: Keep tensors and autograd graphs intact while MeTTa rules route models and define forward passes.
-    link: /pettorch/tensors
 ---
 
 # One language for several paradigms

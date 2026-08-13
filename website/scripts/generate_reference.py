@@ -24,19 +24,12 @@ MODULES = (
     ModuleSpec("petta.convert", "python/petta/convert.py"),
     ModuleSpec("petta.matching", "python/petta/matching.py"),
     ModuleSpec("petta.measure", "python/petta/measure.py"),
-    ModuleSpec("petta.soft", "python/petta/soft.py"),
+    ModuleSpec("petta_soft", "petta_soft/petta_soft/__init__.py"),
     ModuleSpec("petta.subscribe", "python/petta/subscribe.py"),
     ModuleSpec("petta.foreign", "python/petta/foreign.py"),
     ModuleSpec("petta.integrate", "python/petta/integrate.py"),
     ModuleSpec("petta.arrays", "python/petta/arrays.py"),
     ModuleSpec("petta.results", "python/petta/results.py"),
-    ModuleSpec("pettorch", "python/pettorch/__init__.py"),
-    ModuleSpec("pettorch.tensors", "python/pettorch/tensors.py"),
-    ModuleSpec("pettorch.modules", "python/pettorch/modules.py"),
-    ModuleSpec("pettorch.train", "python/pettorch/train.py"),
-    ModuleSpec("pettorch.reflect", "python/pettorch/reflect.py"),
-    ModuleSpec("pettorch.neural", "python/pettorch/neural.py"),
-    ModuleSpec("pettorch.knn", "python/pettorch/knn.py"),
 )
 
 DEFINITION_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)

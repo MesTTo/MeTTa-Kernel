@@ -66,10 +66,10 @@ def declaration_exprs(name: str, arg_annotations: list, ret_annotation: Any) -> 
 
 > Every (: name (-&gt; ...)) atom a signature declares: the cross product
 > of each argument's alternatives with the return's, one declaration per
-> combination, superposing for the checker exactly as a Union reads.
-> NoneType leaves the return alternatives, because returning None answers
-> nothing rather than a value; a return that was only None declares
-> %Undefined%.
+> combination, superposing for the checker exactly as a Union reads,
+> refused past DECLARATION_LIMIT. NoneType leaves the return
+> alternatives, because returning None answers nothing rather than a
+> value; a return that was only None declares %Undefined%.
 
 ## `referenced_classes`
 

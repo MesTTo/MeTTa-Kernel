@@ -12,7 +12,7 @@ Each page reproduces the public definitions, source signatures, and docstrings o
 | [`petta.convert`](./petta-convert) | two-way object translation |
 | [`petta.matching`](./petta-matching) | custom matchers |
 | [`petta.measure`](./petta-measure) | weighted superpositions and relations |
-| [`petta.soft`](./petta-soft) | soft unification and proving |
+| [`petta_soft`](./petta-soft) | soft unification and proving, layered on the public surface |
 | [`petta.subscribe`](./petta-subscribe) | standing queries |
 | [`petta.foreign`](./petta-foreign) | Python-backed spaces |
 | [`petta.integrate`](./petta-integrate) | library integration tools |
@@ -21,12 +21,6 @@ Each page reproduces the public definitions, source signatures, and docstrings o
 
 ## `pettorch`
 
-| Module | Surface |
-|---|---|
-| [`pettorch`](./pettorch) | package installation |
-| [`pettorch.tensors`](./pettorch-tensors) | array operations with PyTorch constructors and autograd controls |
-| [`pettorch.modules`](./pettorch-modules) | wrapped models and `MettaModule` |
-| [`pettorch.train`](./pettorch-train) | losses, optimizers, and training steps |
-| [`pettorch.reflect`](./pettorch-reflect) | model architecture as facts |
-| [`pettorch.neural`](./pettorch-neural) | neural predicates |
-| [`pettorch.knn`](./pettorch-knn) | compatibility export for `EmbeddingStore` |
+The PyTorch integration lives in its own repository beside this one, docs
+included; it builds on the public surface documented here.
+

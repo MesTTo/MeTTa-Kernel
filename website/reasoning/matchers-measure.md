@@ -7,13 +7,6 @@ A matcher is a MeTTa function with two modes. With a bound candidate it scores t
 The self-verifying example uses all three readings:
 
 ```python
-from _common import check, done, skip
-
-try:
-    import numpy
-except ImportError:
-    skip("numpy is not installed")
-
 from petta import MeTTa, S, V, matching, measure  # noqa: E402
 from petta.arrays import EmbeddingStore  # noqa: E402
 
@@ -53,7 +46,6 @@ m.add(S.person(S.ada), S.person(S.alan), S.person(S.grace))
     "!(collapse (match (context-space) (person $p) (same-initial a $p)))"
 )[0]
 check("composes with structural match", len(hits), 2)
-done("13_custom_matchers")
 ```
 
 ## Weighted superpositions

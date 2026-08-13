@@ -7,8 +7,6 @@ The space is the mailbox and the subscription is the standing query. Writes from
 The actors example starts a ping-pong exchange with one added atom, then demonstrates queued delivery and cancellation:
 
 ```python
-from _common import check, done
-
 from petta import MeTTa, S, V
 
 m = MeTTa().fresh_space()
@@ -55,7 +53,6 @@ for subscription in (ping, pong, audit, inbox):
     subscription.cancel()
 m.add(S.ping(99))
 check("no delivery after cancel", len(transcript), 5)
-done("12_standing_queries")
 ```
 
 An `Event` records the action, space, matched atom, and bindings. A subscription can watch adds, removals, or both. See [`petta.subscribe`](../reference/petta-subscribe).

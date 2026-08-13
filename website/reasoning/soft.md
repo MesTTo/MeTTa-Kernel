@@ -9,9 +9,8 @@ Soft unification keeps expression structure crisp while allowing symbols to be c
 The complete self-verifying example moves from term scoring to a proof across a predicate similarity:
 
 ```python
-from _common import check, done
-
-from petta import MeTTa, S, V, expr, soft
+import petta_soft as soft
+from petta import MeTTa, S, V, expr
 
 m = MeTTa().fresh_space()
 soft.install(m)
@@ -59,7 +58,6 @@ check(
     [s.kind for s in proof.steps],
     ["rule", "fact", "fact"],
 )
-done("14_soft_unification")
 ```
 
-See [`petta.soft`](../reference/petta-soft) for thresholds, proof limits, and all result fields.
+See [`petta_soft`](../reference/petta-soft) for thresholds, proof limits, and all result fields.

@@ -102,13 +102,15 @@ def declarations(cls: type) -> tuple[Expr, ...]:
 ## `build`
 
 ```python
-def build(atom: Atom, cls: type | None = None) -> Any:
+def build(atom: Atom, cls: Any = None) -> Any:
 ```
 
 > The reverse: rebuild the Python value an atom describes.
 >
 > A constructor expression rebuilds through its registered from_atom,
 > children rebuilt recursively; an Enum symbol rebuilds to the member when
-> cls names the Enum; a grounded atom unwraps to its value. Anything else
+> cls names the Enum; a grounded atom unwraps to its value. cls may be a
+> full annotation, not only a class: Optional[Colour] tries its members,
+> list[Colour] rebuilds each element, Annotated unwraps. Anything else
 > is returned as the atom it is, which is the honest answer for structure
 > with no registered reverse.

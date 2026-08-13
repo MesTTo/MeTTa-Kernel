@@ -138,12 +138,13 @@ persists. Both examples verify themselves in the test suite.
 
 ### Examples
 
-`python/examples/` holds sixteen runnable, self-verifying integrations,
-from first steps through SQL spaces, the one array layer, attention as
-matching, FabricPC predictive coding, evolution in a space, PLN, standing
-queries as actors, custom matchers, soft unification, FastAPI-shaped web
-routes and clingo-shaped multi-shot solving; the test suite runs them all,
-so the folder cannot drift. Start there. The engine-side
+`python/examples/` holds thirteen runnable, self-verifying integrations,
+from first steps through SQL spaces, the one array layer, evolution in a
+space, PLN, standing queries as actors, custom matchers, soft unification,
+FastAPI-shaped web routes and clingo-shaped multi-shot solving; the test
+suite runs them all, so the folder cannot drift. The torch examples
+(attention as matching, FabricPC, deep routing) travel with the pettorch
+repository. Start there. The engine-side
 libraries this work added (`lib_measure`, `lib_soft`) test themselves in
 the engine's own convention, `examples/*.metta` with `!(test ...)`, run by
 both `test.sh` and the python suite.
@@ -238,8 +239,9 @@ type; `install_reflection_ops` gives `(py-field $obj $name)` in both modes,
 enumeration included; and a `SpaceProvider` implements a space in Python, so
 `(match &db (users $id $name) ...)` runs against a database with bound
 positions pushed down as a WHERE clause while the engine keeps unification,
-and therefore soundness, for itself. `petta.integrations.duckdb_space`
-ships as the worked SQL instance. A package advertises itself through the
+and therefore soundness, for itself. The worked SQL instance lives whole
+in `python/examples/04_sql_is_a_space.py`, deliberately as an example: a
+DuckDB provider is a page of code on this interface. A package advertises itself through the
 `petta.integrations` entry-point group, and `m.integrate(module)` installs
 anything defining `install_petta(m)`.
 
@@ -272,7 +274,7 @@ disjunctions: `ws-normalize`, `ws-softmax` with a temperature, `ws-best`,
 `(ws-softmax (collapse (semmatch $q $x)) 0.5)` is attention through your
 matcher, and `lib/lib_soft.metta` extends it over terms: Sessa's weak
 unification, structure crisp, symbols close to declared degrees
-(`petta.soft.link_store` materializes them from embeddings), variables
+(`petta_soft.link_store` materializes them from embeddings), variables
 binding as ever. `petta.measure.weighted_relation` closes the loop from the
 producing side: any callable answering one weight per class registers as a
 dual-mode relation in the same `(weight value)` shape, so a lookup table, a
@@ -280,7 +282,9 @@ heuristic scorer or a neural network all feed the algebra identically.
 `python/bench.py` is the performance harness that keeps all of this
 measured.
 
-On top of that closeness sits a prover, `petta.soft.prove`: backward
+On top of that closeness sits a prover, `petta_soft.prove`, layered
+BESIDE the core in its own package because it is built entirely on the
+public surface: backward
 chaining where every unification is soft, the reading of End-to-End
 Differentiable Proving (Rocktaschel and Riedel 2017) and IBM's Braid. A
 goal proves through stored facts, through `=` rules whose bodies prove in
@@ -290,7 +294,7 @@ step must clear the threshold, and the answer is a `Proof` carrying the
 substitutions, the aggregate similarity and every step:
 
 ```python
-from petta import soft
+import petta_soft as soft
 
 k = MeTTa().fresh_space()
 k.add(S["parent-of"](S.homer, S.bart), S["father-of"](S.abe, S.homer))
@@ -322,74 +326,14 @@ running on whichever library the vectors arrived from.
 
 ### PeTTorch
 
-`pettorch` integrates PyTorch in both directions (install with
-`pip install .[torch]`), and it is deliberately thin: the whole tensor set
-is `petta.arrays` with torch as the constructor default, losses come
-through `module_ops` over `torch.nn.functional`, optimizers through
-`wrap_object`, architecture reflection through the reflector registry, and
-what remains genuinely torch is autograd, gelu and the nn.Module packaging.
-The package is the existence proof that the general interface carries a
-deep integration whole. Tensors cross the boundary as themselves, so the
-autograd graph survives the engine.
-
-```python
-import petta, pettorch
-
-m = petta.MeTTa()
-pettorch.install(m)
-m.run("!(t-tolist (matmul (tensor ((1.0 2.0))) (tensor ((3.0) (4.0)))))")
-# [[Expr('((11.0))')]]
-```
-
-An `nn.Module` becomes a MeTTa function with `pettorch.wrap`, so rules
-decide which model runs. The other direction is `pettorch.MettaModule`: an
-`nn.Module` whose forward pass evaluates MeTTa equations, its parameters
-reachable from MeTTa through `(param name)` as the same live tensors, so an
-ordinary optimizer trains a program written as equations:
-
-```python
-import torch
-
-m.run("(= (predict $x) (t-sum (t* (param w) $x)))")
-model = pettorch.MettaModule(m, "predict", params={"w": torch.zeros(2)})
-optimizer = torch.optim.SGD(model.parameters(), lr=0.05)
-x, target = torch.tensor([1.0, 2.0]), torch.tensor(3.0)
-loss = torch.nn.functional.mse_loss(model(x), target)
-loss.backward()                      # gradients reach model.w
-```
-
-`pettorch.neural_predicate` is DeepProbLog's neural predicate: a network
-registered as a probabilistic relation, its softmaxed forward pass
-answering `(probability class)` pairs that feed the measure algebra, so
-`ws-best` is the argmax reading and `ws-sample!` the stochastic one. It is
-`petta.measure.weighted_relation` with the network as the callable; pass
-`with_grad=True` and the probabilities stay on the autograd graph, the
-DeepProbLog training reading:
-
-```python
-network = torch.nn.Linear(2, 3, bias=False)
-with torch.no_grad():
-    network.weight.copy_(torch.tensor([[0.1, 0.9], [2.0, 0.1], [0.2, 0.2]]))
-pettorch.neural_predicate(m, "guess", network, [S.zero, S.one, S.two])
-
-m.run("!(import! (context-space) (library lib_measure))")
-m.run("!(ws-best (collapse (guess (tensor (1.0 0.0)))))")   # [[Sym('one')]]
-```
-
-`pettorch.reflect` lowers a model's architecture into facts
-(`nn-module`, `nn-child`, `nn-param`, `nn-param-shape`, `nn-linear`) that
-rules can match, `pettorch.attach_optimizer` gives an optimizer MeTTa
-spellings so a whole training loop can be MeTTa source, and
-`pettorch.EmbeddingStore` registers `(name-knn $query $k)` as a
-nondeterministic operation yielding `(key score)` pairs best-first, making
-similarity a match modality beside structure.
-
-Grounded host objects participate in the type system: `get-type` of a stored
-tensor answers `Tensor` (then its base classes, nondeterministically, the way
-MeTTa types already work), so a declared `(-> Tensor Tensor Tensor)` is
-checked for real. The CLI-reachable half is `lib/lib_torch.metta`, plain
-`py-call` wrappers usable from a `.metta` file with no Python-side setup; see
-`examples/torch_lib.metta`.
+The PyTorch integration lives in its own repository beside this one,
+`pettorch`, built on the petta library's public surface: the whole tensor
+set through `petta.arrays` with torch as the constructor default, losses
+and optimizers through `petta.integrate`, `MettaModule` running a MeTTa
+forward pass under autograd, architecture reflection as facts, and the
+neural predicate as the torch instance of `measure.weighted_relation`.
+Its docs, tests and torch examples travel with it. The CLI-reachable half
+stays here as `lib/lib_torch.metta`; see `examples/torch_lib.metta`.
 
 ### Extension libraries
 

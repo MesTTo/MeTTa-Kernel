@@ -87,7 +87,9 @@ def drop(self) -> None:
 > Clear this space and release its name for reuse. Dropping a
 > foreign space releases the binding and leaves the provider's own
 > data alone; &amp;self, the engine's own space, is cleared but its name
-> never released.
+> never released. Subscriptions on the space cancel with it: a
+> pooled name reused later must not deliver to the old life's
+> watchers.
 
 ### `MeTTa.run`
 
@@ -161,7 +163,9 @@ def add_table(self, head: Any, data: Any) -> int:
 >
 > The source is read by the interface it offers, never by library:
 > iter_rows() (polars), itertuples() (pandas), a mapping of columns,
-> or any iterable of row sequences. The reverse direction is
+> or any iterable of row sequences. A mapping's fact positions are
+> its own key order, and columns of unequal length are a hard error
+> rather than a silent truncation. The reverse direction is
 > rows.table(), the dict every DataFrame constructor takes.
 
 ### `MeTTa.remove`
@@ -261,6 +265,23 @@ def eval(self, target: Any) -> list[Atom]:
 > This is what !(...) runs, minus the printing: the engine's
 > translate_expr over the term, then its goals. Nondeterminism means
 > the list can hold any number of answers, including none.
+
+### `MeTTa.value`
+
+```python
+def value(self, target: Any) -> Any:
+```
+
+> THE answer of evaluating target, as a plain Python value.
+>
+>     m.value("(+ 1 2)")            # 3
+>     m.value(S.fact(5))            # 120
+>
+> Exactly one answer is the contract: none or several raise naming
+> the count, because a caller asking for the value has asserted
+> there is one. Grounded answers unwrap to their Python values;
+> symbols and structure stay atoms. eval() is the spelling for any
+> number of answers.
 
 ### `MeTTa.op`
 

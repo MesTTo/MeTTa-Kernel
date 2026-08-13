@@ -52,6 +52,25 @@ def column(self, name: str) -> list[Any]:
 
 No docstring is defined.
 
+### `Rows.first`
+
+```python
+def first(self) -> Row | None:
+```
+
+> The first row, or None when there are no answers: the tolerant
+> accessor, SQLAlchemy's own naming.
+
+### `Rows.one`
+
+```python
+def one(self) -> Row:
+```
+
+> THE row, when the query is asserted to have exactly one answer;
+> none or several raise naming the count, so a lookup that silently
+> picked an arbitrary row cannot hide.
+
 ### `Rows.build`
 
 ```python

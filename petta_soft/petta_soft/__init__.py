@@ -1,4 +1,7 @@
-"""Purpose: the Python face of lib_soft, weak unification in Sessa's sense.
+"""Purpose: the Python face of lib_soft, weak unification in Sessa's sense,
+BUILT ON the petta library's public surface rather than into it: every call
+here goes through run, add, eval, atoms and the public atom API, which is
+the point, a soft-reasoning layer any user could have written.
 install() imports the library into a space; similar() declares symbol
 closeness as ordinary (similar a b degree) facts the equations read;
 link_store() materializes those facts from an EmbeddingStore's cosine
@@ -25,7 +28,7 @@ import itertools
 from dataclasses import dataclass
 from typing import Any, Iterator, Mapping
 
-from .atoms import Atom, Expr, Gnd, Sym, Var, expr
+from petta.atoms import Atom, Expr, Gnd, Sym, Var, expr
 
 __all__ = [
     "install",
@@ -278,7 +281,7 @@ def prove_all(
     down the whole proof, and every soft unification must clear the
     threshold, Braid's rule. Proofs come back sorted by similarity.
     """
-    from .atoms import parse
+    from petta.atoms import parse
 
     goal_atom = goal if isinstance(goal, Atom) else (
         parse(goal) if isinstance(goal, str) else expr(goal)
@@ -316,7 +319,7 @@ def prove(
 
 
 def _variables_of(atom: Atom) -> list[str]:
-    from .atoms import variables
+    from petta.atoms import variables
 
     return variables(atom)
 
@@ -402,6 +405,6 @@ def _solve_conjuncts(
 
 
 def _is_ground(atom: Atom) -> bool:
-    from .atoms import is_ground
+    from petta.atoms import is_ground
 
     return is_ground(atom)
