@@ -31,9 +31,10 @@ class AsyncMeTTa:
 >         await am.add(S.edge(1, 2))
 >         rows = await am.query(S.edge(V.a, V.b))
 >
-> Every method mirrors MeTTa's method of the same name, bounds and
-> capture included; call(fn) reaches anything not mirrored by running
-> fn(m) on the engine's thread. interrupt() stops the evaluation the
+> The exact rule should be: every finite request-response method forwards through the worker. Context managers, cursors, decorators, callback registrations, returned synchronous helper objects, and interactive entry points remain call() or synchronous-surface operations.
+>
+> call(fn) reaches anything not mirrored by running fn(m) on the engine's
+> thread. interrupt() stops the evaluation the
 > worker is running right now, and cancelling a waiting task (an
 > asyncio timeout included) interrupts its own call, so the engine
 > stops working for a listener that is gone.
@@ -103,7 +104,7 @@ No docstring is defined.
 ### `AsyncMeTTa.save`
 
 ```python
-async def save(self, path: str) -> int:
+async def save(self, path: str, format: str = "metta") -> int:
 ```
 
 No docstring is defined.
@@ -176,6 +177,133 @@ No docstring is defined.
 
 ```python
 async def value(self, target: Any, **bounds) -> Any:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.fresh_space`
+
+```python
+async def fresh_space(self) -> AsyncMeTTa:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.drop`
+
+```python
+async def drop(self) -> None:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.profile`
+
+```python
+async def profile(
+    self,
+    source: str,
+    using: dict[str, Any] | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Any:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.parse`
+
+```python
+async def parse(self, source: str) -> Any:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.cast`
+
+```python
+async def cast(self, value: Any, type_: Any) -> Any:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.trace`
+
+```python
+async def trace(self, source: str, max_events: int = 1_000_000) -> Any:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.lint`
+
+```python
+async def lint(self) -> Any:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.digest`
+
+```python
+async def digest(self) -> str:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.unregister`
+
+```python
+async def unregister(self, name: str) -> None:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.builtins`
+
+```python
+async def builtins(self) -> list[str]:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.is_function`
+
+```python
+async def is_function(self, name: str) -> bool:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.is_function_here`
+
+```python
+async def is_function_here(self, name: str) -> bool:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.arities`
+
+```python
+async def arities(self, name: str) -> list[int]:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.derivation`
+
+```python
+async def derivation(self, target: Any, depth: int = 30) -> Any:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.why`
+
+```python
+async def why(self, pattern: Any) -> str:
 ```
 
 No docstring is defined.
