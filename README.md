@@ -212,8 +212,9 @@ The toolkit covers each row: `module_ops(m, math, ["sqrt", "gcd"])`
 registers callables in bulk; `wrap_object` turns an instance's methods into
 operations (a Python None answers True, the engine's convention for an
 effect); `register_type` teaches the two-way translator in the pytree shape
-(Enums become symbols with declarations, dataclasses become constructor
-expressions, both by default); `register_object_type` makes a protocol a
+(Enums become symbols with declarations, dataclasses and pydantic models
+become constructor expressions, all by default, a model rebuilding through
+itself so validation runs where pydantic runs it); `register_object_type` makes a protocol a
 type; `install_reflection_ops` gives `(py-field $obj $name)` in both modes,
 enumeration included; and a `SpaceProvider` implements a space in Python, so
 `(match &db (users $id $name) ...)` runs against a database with bound
