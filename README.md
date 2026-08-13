@@ -238,8 +238,12 @@ disjunctions: `ws-normalize`, `ws-softmax` with a temperature, `ws-best`,
 matcher, and `lib/lib_soft.metta` extends it over terms: Sessa's weak
 unification, structure crisp, symbols close to declared degrees
 (`petta.soft.link_store` materializes them from embeddings), variables
-binding as ever. `python/bench.py` is the performance harness that keeps
-all of this measured.
+binding as ever. `petta.measure.weighted_relation` closes the loop from the
+producing side: any callable answering one weight per class registers as a
+dual-mode relation in the same `(weight value)` shape, so a lookup table, a
+heuristic scorer or a neural network all feed the algebra identically.
+`python/bench.py` is the performance harness that keeps all of this
+measured.
 
 ### Arrays: every DLPack library, one operation set
 
