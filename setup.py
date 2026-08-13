@@ -1,6 +1,7 @@
-"""Purpose: package the petta and pettorch Python libraries with the PeTTa
-runtime bundled, so pip install petta needs no separate checkout and no
-PETTA_PATH; petta[torch] adds the PyTorch integration's dependency.
+"""Purpose: package the petta Python library with the PeTTa runtime
+bundled, so pip install petta needs no separate checkout and no
+PETTA_PATH. The PyTorch integration lives in its own package, pettorch,
+built on this one's public surface.
 Open Obligations:
   To Do: None
   Hacks: None
@@ -43,7 +44,7 @@ class build_py_with_runtime(build_py):
 setup(
     name="petta",
     version="0.2.0",
-    packages=["petta", "petta.integrations", "pettorch"],
+    packages=["petta", "petta.integrations"],
     package_dir={"": "python"},
     package_data={"petta": ["shim.pl", "py.typed"]},
     include_package_data=True,
@@ -53,13 +54,10 @@ setup(
         "janus-swi",
     ],
     extras_require={
-        # PyTorch builds differ by hardware; the extra names the dependency
-        # and leaves the build choice with the installer.
-        "torch": ["torch", "array-api-compat"],
         "test": ["pytest", "hypothesis"],
         "arrays": ["array-api-compat"],
     },
-    description="MeTTa in Python on the PeTTa engine, with a deep PyTorch integration",
+    description="MeTTa in Python on the PeTTa engine",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/trueagi-io/PeTTa",
