@@ -36,6 +36,7 @@ export default defineConfig({
           { text: "Python functions in MeTTa", link: "/guide/python-functions" },
           { text: "Write MeTTa in Python", link: "/guide/define" },
           { text: "Spaces", link: "/guide/spaces" },
+          { text: "Jupyter notebooks", link: "/guide/notebook" },
         ],
       },
       {
