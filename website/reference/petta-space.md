@@ -385,6 +385,18 @@ def subscribe(
 > for atoms that were never stored, since the engine's removal is
 > retractall; re-check the space rather than trust the event.
 
+### `MeTTa.prolog`
+
+```python
+def prolog(self) -> None:
+```
+
+> Drop into the engine's own interactive Prolog toplevel, the
+> deepest debugging lever there is: listing/1 shows compiled
+> equations, trace/0 steps through them, and quitting the toplevel
+> returns here with the session intact. janus's own janus.prolog(),
+> surfaced where the debugging happens.
+
 ### `MeTTa.derivation`
 
 ```python
@@ -443,25 +455,34 @@ def define(self, fn: Callable):
 ### `MeTTa.type`
 
 ```python
-def type(self, cls: type | None = None, *, accessors: bool = True):
+def type(self, cls: type | None = None, *, accessors: bool = True, methods: bool = True):
 ```
 
 > Declare a Python class INTO this space, decorator-style: the
-> (: ...) declarations land as atoms, and an expression-image class
-> (a dataclass, a NamedTuple) also gains one accessor equation per
-> field, so the structure is not merely visible but reasoned over.
+> (: ...) declarations land as atoms, an expression-image class
+> (a dataclass, a NamedTuple) gains one accessor equation per
+> field, and its own METHODS register as MeTTa functions, so the
+> class crosses with its behavior, not only its structure.
 >
 >     @m.type
 >     @dataclass
->     class Person:
->         name: str
->         age: int
+>     class Point:
+>         x: float
+>         y: float
+>         def norm(self) -&gt; float:
+>             return (self.x ** 2 + self.y ** 2) ** 0.5
 >
->     m.add(encode := petta.convert.project(Person("Ada", 36)).atom)
->     m.run("!(Person-age (Person \"Ada\" 36))")     # [[36]]
+>     m.run("!(Point-x (Point 3.0 4.0))")        # [[3.0]]
+>     m.run("!(Point-norm (Point 3.0 4.0))")     # [[5.0]]
 >
-> An Enum declares its members; get-type sees them all. Returns the
-> class, so it stacks under @dataclass.
+> A method receives the instance whether it arrives as a
+> constructor TERM (rebuilt through the translator) or as a live
+> handle, and a result the translator knows projects back as a
+> term, so a method answering the class answers something MeTTa
+> keeps matching and Python builds back. An equation over the
+> constructor is then a method written in MeTTa itself, on equal
+> footing. An Enum declares its members; get-type sees them all.
+> Returns the class, so it stacks under @dataclass.
 
 ### `MeTTa.fn`
 

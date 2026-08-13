@@ -15,9 +15,7 @@ Source: `python/petta/remote.py`.
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
->   Future Enhancements: authentication and TLS termination belong to a
->     fronting proxy for now; the protocol itself is deliberately one JSON
->     POST per operation.
+>   Future Enhancements: None
 
 The entries below reproduce the source signatures and docstrings.
 
@@ -70,11 +68,24 @@ No docstring is defined.
 ## `connect`
 
 ```python
-def connect(url: str, timeout: float = 30.0) -> Transport:
+def connect(
+    url: str,
+    timeout: float = 30.0,
+    *,
+    token: str | None = None,
+    headers: dict[str, str] | None = None,
+    ssl_context: Any = None,
+) -> Transport:
 ```
 
 > The HTTP transport for a serve()d engine: one POST per operation,
 > JSON both ways, errors surfaced with the remote's own message.
+>
+> token sends Bearer authentication, headers adds anything else a
+> deployment needs (an API key, a tenant id), and ssl_context is
+> Python's own ssl.SSLContext for https urls, certificate pinning
+> included, so the transport composes with whatever security the
+> serving side asks for.
 
 ## `attach`
 
@@ -106,16 +117,29 @@ No docstring is defined.
 ## `serve`
 
 ```python
-def serve(m, host: str = "127.0.0.1", port: int = 0, spaces: list[str] | None = None) -> Server:
+def serve(
+    m,
+    host: str = "127.0.0.1",
+    port: int = 0,
+    spaces: list[str] | None = None,
+    *,
+    token: str | None = None,
+    authorize: Callable[[Mapping[str, str]], bool] | None = None,
+    ssl_context: Any = None,
+) -> Server:
 ```
 
 > Expose this engine's spaces over HTTP; port 0 picks a free one.
 >
 > Every operation answers for the space the request names, restricted
-> to `spaces` when given (an allowlist is the whole access model here;
-> front anything public with a real proxy). match runs the engine's own
-> match with the pattern as its template, so the instantiated atoms
-> cross, and the caller's engine re-unifies them.
+> to `spaces` when given. Security is the caller's to define, library
+> fashion: token requires Bearer authentication, authorize is the
+> general hook (the request headers in, a verdict out, so any scheme
+> an operator runs fits), and ssl_context, Python's own
+> ssl.SSLContext with a certificate loaded, serves TLS directly;
+> anything heavier still composes behind a fronting proxy. match runs
+> the engine's own match with the pattern as its template, so the
+> instantiated atoms cross, and the caller's engine re-unifies them.
 >
 > A context is a PROCESS: serving and attaching within one process
 > cannot join through the local engine, because one runtime lock guards
