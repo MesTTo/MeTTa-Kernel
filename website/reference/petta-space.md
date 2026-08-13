@@ -167,12 +167,13 @@ def profile(
 ### `MeTTa.save`
 
 ```python
-def save(self, path: str) -> int:
+def save(self, path: str, format: str = "metta") -> int:
 ```
 
 > Write every stored atom of this space, equations included, as
-> MeTTa source load() reads back; answers how many. Atoms carrying
-> live host objects cannot survive a file and are refused.
+> MeTTa source by default, or as a version-pinned trusted cache with
+> format="fast"; answers how many. Atoms carrying live host objects
+> cannot survive either file and are refused.
 
 ### `MeTTa.load`
 
@@ -180,7 +181,7 @@ def save(self, path: str) -> int:
 def load(self, path: str) -> list[list[Atom]]:
 ```
 
-> Load a .metta file the way the CLI does, working directory included.
+> Load a text program or an auto-detected trusted fast cache.
 
 ### `MeTTa.parse`
 
