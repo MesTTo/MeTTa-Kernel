@@ -78,6 +78,24 @@ def upto(n: int):
     yield from range(1, n + 1)       # !(collapse (upto 3)) -> (1 2 3)
 ```
 
+Queries carry guards, bounds, assumptions and preparation. A `where=` term
+is evaluated by the engine per match, `limit=` bounds the answers,
+`assuming` holds facts for a block alone, and `prepare` wires a query once
+to solve many times, with `given=` facts existing for that call only:
+
+```python
+m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
+m.query(S.Age(V.p, V.n), where=(V.n >= 60) & (V.n <= 70))
+# Rows[p, n]([Row(p=Sym('Tom'), n=Gnd(62))])
+
+with m.assuming(S.Parent(S.Ann, S.Zoe)):
+    m.query(S.Parent(S.Ann, V.c))    # Rows[c]([Row(c=Sym('Zoe'))])
+
+grand = m.prepare(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
+grand.solve()
+# Rows[x, y, z]([Row(x=Sym('Tom'), y=Sym('Bob'), z=Sym('Ann'))])
+```
+
 Named spaces isolate both stored atoms and equations, each space compiling
 into its own module; `(context-space)` names the space the current code runs
 in. `m.derivation(atom)` builds proof trees naming the equations and stored
