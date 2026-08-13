@@ -1,3 +1,9 @@
+% Purpose: connect named MeTTa spaces to MORK through its text FFI protocol.
+% Open Obligations:
+%   To Do: None
+%   Hacks: None
+%   Future Enhancements: None
+
 :- multifile match/4.
 :- multifile 'add-atom'/3.
 :- multifile 'remove-atom'/3.
@@ -31,9 +37,31 @@ mork_call(Space, Command, Payload, Response) :-
     ; format(string(Request), "#mork-space ~w~n~w", [Name, Payload]) ),
     mork(Command, Request, Response).
 
+%MORK's bridge consumes swrite text. MeTTa has no quoted-symbol syntax, so a
+%symbol containing syntax characters cannot retain its identity there.
+mork_unsafe_symbol(Symbol) :- atom(Symbol),
+                              atom_codes(Symbol, Codes),
+                              member(Code, Codes),
+                              ( code_type(Code, space)
+                              ; memberchk(Code, [0'(, 0'), 0'"]) ), !.
+mork_bad_text_symbol(Term, Term) :- mork_unsafe_symbol(Term), !.
+mork_bad_text_symbol(Term, Bad) :-
+    compound(Term),
+    compound_name_arguments(Term, Functor, Args),
+    ( mork_bad_text_symbol(Functor, Bad)
+    ; member(Arg, Args), mork_bad_text_symbol(Arg, Bad) ), !.
+
+mork_require_text_safe(Term, Operation) :-
+    ( mork_bad_text_symbol(Term, Bad)
+      -> throw(error(domain_error(mork_text_symbol, Bad),
+                     context(Operation,
+                             'symbol names containing whitespace, parentheses, or quotes cannot cross the MORK text boundary')))
+    ; true ).
+
 %Add an atom to the space. The engine's write hooks fire like on any
 %other space, so subscriptions and reflection see MORK writes too:
 'add-atom'(Space, Atom, true) :- mork_space_name(Space, _), !,
+                                 mork_require_text_safe(Atom, 'add-atom'/3),
                                  swrite(Atom, S),
                                  mork_call(Space, "queue-atom", S, "OK: queued"),
                                  forall(metta_on_atom_added(Space, Atom), true).
@@ -44,14 +72,19 @@ mork_call(Space, Command, Payload, Response) :-
 'mork-add-atoms'(Space, Atoms, true) :-
     mork_space_name(Space, _),
     is_list(Atoms),
+    maplist(mork_require_text_safe_for_add, Atoms),
     maplist(swrite, Atoms, Lines),
     atomics_to_string(Lines, "\n", Payload),
     mork_call(Space, "add-atoms", Payload, "OK: loaded"),
     forall(member(Atom, Atoms),
            forall(metta_on_atom_added(Space, Atom), true)).
 
+mork_require_text_safe_for_add(Atom) :-
+    mork_require_text_safe(Atom, 'mork-add-atoms'/3).
+
 %Remove all same atoms:
 'remove-atom'(Space, Atom, true) :- mork_space_name(Space, _), !,
+                                    mork_require_text_safe(Atom, 'remove-atom'/3),
                                     swrite(Atom, S),
                                     mork_call(Space, "remove-atoms", S, _),
                                     forall(metta_on_atom_removed(Space, Atom), true).
@@ -64,6 +97,7 @@ match(Space, Pattern, OutPattern, Result) :- \+ var(Pattern),
                                              Pattern \= [','|_],
                                              mork_space_name(Space, _), !,
                                              Pattern_Template = [Pattern, Pattern],
+                                             mork_require_text_safe(Pattern_Template, match/4),
                                              swrite(Pattern_Template, MorkPat),
                                              mork_call(Space, "match", MorkPat, Temp),
                                              split_string(Temp, "\n", "", Lines),
