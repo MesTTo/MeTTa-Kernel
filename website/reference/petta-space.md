@@ -266,7 +266,7 @@ def cast(self, value, type_):
 ### `MeTTa.trace`
 
 ```python
-def trace(self, source: str):
+def trace(self, source: str, max_events: int = 1_000_000):
 ```
 
 > Run source under the engine's reduction trace and answer
@@ -274,6 +274,8 @@ def trace(self, source: str):
 > it answered, and which reductions failed (a call with no exit).
 > The source executes for real, writes included, like run(); the
 > wrap exists only while tracing, so untraced calls pay nothing.
+> max_events bounds the recording, raising past it rather than
+> accumulating a long run's trace without limit.
 
 ### `MeTTa.lint`
 

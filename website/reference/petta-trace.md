@@ -29,7 +29,11 @@ class TraceEvent:
 ## `trace`
 
 ```python
-def trace(space, source: str) -> list[TraceEvent]:
+def trace(space, source: str, max_events: int = 1_000_000) -> list[TraceEvent]:
 ```
 
 > Run source in this space under the engine's reduction trace.
+>
+> max_events bounds the recording: past it the trace raises instead
+> of accumulating without limit, the same shape as the timeout and
+> inference bounds elsewhere.
