@@ -102,6 +102,8 @@ def run(
     timeout: float | None = None,
     inferences: int | None = None,
     capture: bool = False,
+    atomic: bool = False,
+    speculative: bool = False,
 ) -> list[list[Atom]] | tuple[list[list[Atom]], str]:
 ```
 
@@ -126,6 +128,41 @@ def run(
 > source completed before the stop, writes included, stands. With
 > `capture=True` the return value is (groups, text), text being
 > everything the source printed, println! included.
+>
+> `atomic=True` runs the whole source inside the engine's own
+> transaction/1: every write, facts and equations alike, commits
+> whole, or rolls back whole when a directive throws; the inline
+> (transaction ...) form does the same for a scope inside a
+> program. `speculative=True` is the what-if twin through
+> snapshot/1: the answers return and every write is discarded.
+> Both cover engine state; a Python operation's side effects, and
+> subscription callbacks already fired, stay where they happened.
+
+### `MeTTa.profile`
+
+```python
+def profile(
+    self,
+    source: str,
+    using: dict[str, Any] | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> tuple[list[list[Atom]], "EngineProfile"]:
+```
+
+> Run source under the engine's statistical profiler, answering
+> (groups, profile): the groups exactly as run() answers them, and
+> the profile carrying sample counters plus one row per predicate,
+> self-ticks first.
+>
+>     groups, prof = m.profile("!(big-computation)")
+>     prof.top(5)     # the five predicates the samples landed in
+>
+> The sampler is statistical: a program that finishes in
+> milliseconds carries few samples, so profile something that runs.
+> Profiling changes execution; it is a debugging surface, not a
+> mode to leave on.
 
 ### `MeTTa.save`
 
@@ -246,6 +283,36 @@ def query(
 > size is not known in advance.
 >
 >     m.query(S.Edge(V.x, V.y), S.Edge(V.y, V.z))
+
+### `MeTTa.stream`
+
+```python
+def stream(
+    self,
+    *patterns: Any,
+    where: Any | None = None,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> "Cursor":
+```
+
+> query(), pulled: the same conjunction and guard, answered one
+> row at a time through a cursor the engine holds open.
+>
+>     with m.stream(S.edge(V.a, V.b), S.edge(V.b, V.c)) as rows:
+>         for row in rows:
+>             if wanted(row):
+>                 break            # nothing further is even joined
+>
+> The join's state lives inside an SWI engine between pulls, each
+> pull is one ordinary call, and unrelated calls interleave freely,
+> so a huge join costs one row of work per row actually taken where
+> query() computes and decodes every answer up front. `timeout`
+> bounds each pull's wall time; `inferences` is one budget for the
+> cursor's whole engine work, spent across pulls, because an
+> engine's inferences are its own. The cursor enumerates under the
+> engine's logical update view: writes made after the first pull
+> are not seen by this cursor.
 
 ### `MeTTa.assuming`
 
@@ -591,6 +658,44 @@ def runtime(self) -> Runtime:
 ```
 
 > The engine bridge itself, for callers going under the surface.
+
+## `Cursor`
+
+```python
+class Cursor:
+```
+
+> MeTTa.stream(): answers pulled one at a time from an engine-held
+> query. Iterate it, close() it, or leave its with-block; exhaustion
+> closes it by itself, a second close is a no-op, and a cursor dropped
+> unclosed is reaped by its finalizer. Rows carry the query's variable
+> names as columns, exactly as query()'s rows do.
+
+### `Cursor.close`
+
+```python
+def close(self) -> None:
+```
+
+> Destroy the held engine; idempotent, and exhaustion calls it.
+
+## `EngineProfile`
+
+```python
+class EngineProfile:
+```
+
+> MeTTa.profile()'s second answer: the sampler's counters and one
+> row per predicate, self-ticks-descending. Each node is (predicate,
+> calls, redos, ticks_self, ticks_siblings).
+
+### `EngineProfile.top`
+
+```python
+def top(self, n: int = 10) -> list[tuple]:
+```
+
+> The n predicates the samples landed in most.
 
 ## `Prepared`
 
