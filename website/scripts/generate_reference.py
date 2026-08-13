@@ -28,6 +28,7 @@ MODULES = (
     ModuleSpec("petta.subscribe", "python/petta/subscribe.py"),
     ModuleSpec("petta.remote", "python/petta/remote.py"),
     ModuleSpec("petta.aio", "python/petta/aio.py"),
+    ModuleSpec("petta.persistent", "python/petta/persistent.py"),
     ModuleSpec("petta.testing", "python/petta/testing.py"),
     ModuleSpec("petta.foreign", "python/petta/foreign.py"),
     ModuleSpec("petta.integrate", "python/petta/integrate.py"),
