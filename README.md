@@ -118,7 +118,7 @@ composition runs the other way too: a Python subscription on `&petta`
 reacts to control atoms a MeTTa program writes there, which is steering the
 integration from inside MeTTa, no fork needed.
 
-### Routes in the common tongue
+### Routes and multi-shot solving: two more paradigms in the common tongue
 
 MeTTa is built to be a lingua franca, and `petta.web` translates web
 routing into it wholesale: an app is a space, the route table is facts,
@@ -142,13 +142,38 @@ app.dispatch("GET", "/users/7")     # Response(status=200, body='user 7')
 app.dispatch("GET", "/users/ada")   # Response(status=422, body='unprocessable')
 ```
 
+`petta.multishot` translates clingo's multi-shot solving the same way
+(Gebser et al., arXiv 1705.09811): a `part` is a parameterized program
+template grounded once per instantiation, an `external` is a truth toggled
+between solves and ended by `release()`, and the solve side is the query
+surface the space already has, so the incremental loop is ground one more
+step, solve again, while the world persists:
+
+```python
+from petta import multishot
+
+p = MeTTa().fresh_space()
+p.add_table("edge", [(S.a, S.b), (S.b, S.c)])
+p.run("(= (reach a 0) True)")
+step = multishot.part(
+    p,
+    "step",
+    lambda t: f"(= (reach $x {t}) (match (context-space) (edge $y $x) "
+              f"(once (reach $y {t - 1}))))",
+)
+step.ground(1)
+step.ground(2)
+p.eval(p.parse("(reach c 2)"))      # [Gnd(True)]
+```
+
 ### Examples
 
-`python/examples/` holds fifteen runnable, self-verifying integrations,
+`python/examples/` holds sixteen runnable, self-verifying integrations,
 from first steps through SQL spaces, the one array layer, attention as
 matching, FabricPC predictive coding, evolution in a space, PLN, standing
-queries as actors, custom matchers, soft unification and FastAPI-shaped
-web routes; the test suite runs them all, so the folder cannot drift. Start there. The engine-side
+queries as actors, custom matchers, soft unification, FastAPI-shaped web
+routes and clingo-shaped multi-shot solving; the test suite runs them all,
+so the folder cannot drift. Start there. The engine-side
 libraries this work added (`lib_measure`, `lib_soft`) test themselves in
 the engine's own convention, `examples/*.metta` with `!(test ...)`, run by
 both `test.sh` and the python suite.
