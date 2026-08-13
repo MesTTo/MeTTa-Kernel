@@ -256,9 +256,12 @@ reachable from MeTTa through `(param name)` as the same live tensors, so an
 ordinary optimizer trains a program written as equations:
 
 ```python
+import torch
+
 m.run("(= (predict $x) (t-sum (t* (param w) $x)))")
 model = pettorch.MettaModule(m, "predict", params={"w": torch.zeros(2)})
 optimizer = torch.optim.SGD(model.parameters(), lr=0.05)
+x, target = torch.tensor([1.0, 2.0]), torch.tensor(3.0)
 loss = torch.nn.functional.mse_loss(model(x), target)
 loss.backward()                      # gradients reach model.w
 ```
