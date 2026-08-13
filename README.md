@@ -274,7 +274,7 @@ disjunctions: `ws-normalize`, `ws-softmax` with a temperature, `ws-best`,
 `(ws-softmax (collapse (semmatch $q $x)) 0.5)` is attention through your
 matcher, and `lib/lib_soft.metta` extends it over terms: Sessa's weak
 unification, structure crisp, symbols close to declared degrees
-(`petta_soft.link_store` materializes them from embeddings), variables
+(`pettaprove.link_store` materializes them from embeddings), variables
 binding as ever. `petta.measure.weighted_relation` closes the loop from the
 producing side: any callable answering one weight per class registers as a
 dual-mode relation in the same `(weight value)` shape, so a lookup table, a
@@ -282,9 +282,9 @@ heuristic scorer or a neural network all feed the algebra identically.
 `python/bench.py` is the performance harness that keeps all of this
 measured.
 
-On top of that closeness sits a prover, `petta_soft.prove`, layered
-BESIDE the core in its own package because it is built entirely on the
-public surface: backward
+On top of that closeness sits a prover, `pettaprove.prove`, layered
+BESIDE the core in its own repository because it is built entirely on
+the public surface: backward
 chaining where every unification is soft, the reading of End-to-End
 Differentiable Proving (Rocktaschel and Riedel 2017) and IBM's Braid. A
 goal proves through stored facts, through `=` rules whose bodies prove in
@@ -294,7 +294,7 @@ step must clear the threshold, and the answer is a `Proof` carrying the
 substitutions, the aggregate similarity and every step:
 
 ```python
-import petta_soft as soft
+import pettaprove as soft
 
 k = MeTTa().fresh_space()
 k.add(S["parent-of"](S.homer, S.bart), S["father-of"](S.abe, S.homer))

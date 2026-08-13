@@ -14,7 +14,6 @@ SOURCE_PATHS = [
     *(REPO / "python" / "examples").glob("*.py"),
     *(REPO / "python" / "petta").glob("*.py"),
     *(REPO / "python" / "tests").glob("*.py"),
-    *(REPO / "petta_soft" / "petta_soft").glob("*.py"),
     REPO / "lib" / "lib_measure.metta",
     REPO / "lib" / "lib_soft.metta",
 ]

@@ -12,7 +12,6 @@ Each page reproduces the public definitions, source signatures, and docstrings o
 | [`petta.convert`](./petta-convert) | two-way object translation |
 | [`petta.matching`](./petta-matching) | custom matchers |
 | [`petta.measure`](./petta-measure) | weighted superpositions and relations |
-| [`petta_soft`](./petta-soft) | soft unification and proving, layered on the public surface |
 | [`petta.subscribe`](./petta-subscribe) | standing queries |
 | [`petta.remote`](./petta-remote) | spaces served and attached across processes |
 | [`petta.das`](./petta-das) | the Distributed Atomspace over the command router |
@@ -27,8 +26,12 @@ Each page reproduces the public definitions, source signatures, and docstrings o
 | [`petta.arrays`](./petta-arrays) | array operations and embedding stores |
 | [`petta.results`](./petta-results) | query rows and tables |
 
-## `pettorch`
+## Sibling repositories
 
-The PyTorch integration lives in its own repository beside this one, docs
-included; it builds on the public surface documented here.
+Three packages live in their own repositories beside this one, docs and
+tests included; each builds on the public surface documented here.
+`pettorch` is the PyTorch integration, `pettaprove` is soft unification
+and goal-directed soft proving (the engine-side equations stay here as
+`lib/lib_soft.metta`), and `pettagrapher` draws terms, spaces, proofs,
+and reductions as self-contained pages.
 

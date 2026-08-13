@@ -42,7 +42,6 @@ export default defineConfig({
         text: "Reasoning",
         items: [
           { text: "Matchers and measures", link: "/reasoning/matchers-measure" },
-          { text: "Soft unification and proving", link: "/reasoning/soft" },
           { text: "Weighted relations", link: "/reasoning/weighted-relations" },
         ],
       },
@@ -69,7 +68,6 @@ export default defineConfig({
           { text: "petta.convert", link: "/reference/petta-convert" },
           { text: "petta.matching", link: "/reference/petta-matching" },
           { text: "petta.measure", link: "/reference/petta-measure" },
-          { text: "petta_soft", link: "/reference/petta-soft" },
           { text: "petta.subscribe", link: "/reference/petta-subscribe" },
           { text: "petta.remote", link: "/reference/petta-remote" },
           { text: "petta.das", link: "/reference/petta-das" },

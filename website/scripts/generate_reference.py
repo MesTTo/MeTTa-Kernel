@@ -24,7 +24,6 @@ MODULES = (
     ModuleSpec("petta.convert", "python/petta/convert.py"),
     ModuleSpec("petta.matching", "python/petta/matching.py"),
     ModuleSpec("petta.measure", "python/petta/measure.py"),
-    ModuleSpec("petta_soft", "petta_soft/petta_soft/__init__.py"),
     ModuleSpec("petta.subscribe", "python/petta/subscribe.py"),
     ModuleSpec("petta.remote", "python/petta/remote.py"),
     ModuleSpec("petta.aio", "python/petta/aio.py"),
