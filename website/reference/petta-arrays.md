@@ -70,9 +70,13 @@ class EmbeddingStore:
 >     store.add(S.dog, numpy.array([1.0, 0.0]))
 >     m.run("!(collapse (emb-knn (tensor (1.0 0.0)) 1))")
 >
-> Cosine similarity over the array API's own operations; the matrix caches
-> between writes. (name-knn $q $k) is nondeterministic retrieval, best
-> first; (name-embed $key) answers the stored vector or nothing.
+> Cosine similarity uses the array API's own operations, and the matrix
+> caches between writes. add() has map semantics: adding an existing key
+> replaces its vector in its first-seen position. (name-knn $q $k) is
+> nondeterministic retrieval, best first; (name-embed $key) answers the
+> stored vector or nothing. Public operation names route through equations
+> in this space to unique internal operations, so the same store name in a
+> different space cannot retarget this store.
 
 ### `EmbeddingStore.add`
 
