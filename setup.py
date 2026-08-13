@@ -44,7 +44,7 @@ class build_py_with_runtime(build_py):
 setup(
     name="petta",
     version="0.2.0",
-    packages=["petta", "petta.integrations"],
+    packages=["petta"],
     package_dir={"": "python"},
     package_data={"petta": ["shim.pl", "py.typed"]},
     include_package_data=True,
