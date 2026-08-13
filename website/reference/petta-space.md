@@ -352,6 +352,7 @@ def eval(
     timeout: float | None = None,
     inferences: int | None = None,
     capture: bool = False,
+    residuals: bool = False,
 ) -> list[Atom] | tuple[list[Atom], str]:
 ```
 
@@ -360,6 +361,15 @@ def eval(
 > This is what !(...) runs, minus the printing: the engine's
 > translate_expr over the term, then its goals. Nondeterminism means
 > the list can hold any number of answers, including none.
+>
+> Every answer carries its truth: an answer that is undefined under
+> Well Founded Semantics (a tabled loop through tnot, reachable via
+> translatePredicate or injected Prolog) arrives as an Undefined
+> holding the answer and the delay condition that makes it
+> undefined, never as an ordinary-looking value. `residuals=True`
+> additionally fills each Undefined's .residual with the residual
+> program, the clauses of the loop itself. run() does not carry the
+> third truth value; evaluate through eval() when it matters.
 >
 > `timeout` (seconds) and `inferences` (engine steps) bound the call,
 > raising TimeLimitError or InferenceLimitError when hit. With

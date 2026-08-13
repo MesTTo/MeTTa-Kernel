@@ -53,7 +53,20 @@ After the block, `s.inferences`, `s.cputime`, `s.walltime`, `s.gc_count`, `s.gc_
 
 Control signals hold everywhere, by engine design: a bound, a Ctrl-C, or an `interrupt()` cannot be eaten by the evaluation it is stopping, not even by a program's own `(catch ...)`. That is the same reasoning that puts `KeyboardInterrupt` outside `Exception` in Python.
 
-## Streaming answers
+## The third truth value
+
+Tabled negation gives this engine Well Founded Semantics: an answer can be true, false, or genuinely undefined, a loop through `tnot`. Before this surface, an undefined answer reached Python as an ordinary-looking unbound variable, which is silently wrong. Now every `eval` answer carries its truth: definite answers stay plain atoms, and an undefined one arrives as an `Undefined` holding the answer, the delay condition that makes it undefined, and, with `residuals=True`, the residual program, the clauses of the loop itself.
+
+```python
+def test_undefined_answers_cross_as_undefined(m, wfs_program):
+    answers = m.eval("(translatePredicate (wfs_loop))")
+    assert len(answers) == 1
+    answer = answers[0]
+    assert isinstance(answer, Undefined)
+    assert "wfs_loop" in answer.why
+```
+
+`Undefined` refuses truthiness on purpose, so code cannot branch on it by accident, and `value()` refuses it outright: a caller asking for THE value has asserted a definite one exists. The carrier is the engine's own `call_delays`, applied per answer inside the enumeration, which is the only place the condition exists. It is unconditional because any "only when tabling" gate would answer silently wrong exactly once, on the first tabled call; the measured cost on the trivial-eval crossing is five to ten percent, amortized below that on real evaluations. `run()` mirrors the CLI and stays two-valued; evaluate through `eval()` when undefined truth matters.
 
 `query()` computes and decodes every answer before you see the first one. `stream()` is the same conjunction and guard, pulled: the join's state stays alive inside an SWI engine between pulls, each pull is one ordinary call, and unrelated engine work interleaves freely.
 

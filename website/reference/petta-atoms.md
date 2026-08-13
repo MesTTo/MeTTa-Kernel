@@ -263,6 +263,23 @@ def decode(atom: Any) -> Any:
 > variables stay atoms. Named for what it does; results already compare
 > ergonomically without it, so it is never on a default path.
 
+## `Undefined`
+
+```python
+class Undefined:
+```
+
+> An answer whose truth is undefined under Well Founded Semantics.
+>
+> eval() yields one of these instead of a plain atom when the answer's
+> derivation hangs on unresolved tabled goals, a loop through tnot.
+> value holds the answer term; why holds the delay condition the engine
+> reported (call_delays); residual, filled when eval(residuals=True)
+> asked for it, holds the residual program, the clauses of the loop
+> itself. Truthiness is refused on purpose: undefined is neither True
+> nor False, so branch on .value and .why explicitly, the reason
+> KeyboardInterrupt lives outside Exception applied to truth.
+
 ## `from_wire`
 
 ```python
