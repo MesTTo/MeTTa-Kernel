@@ -54,6 +54,8 @@ def weighted_relation(
     name: str,
     weights: Callable[[Any], Iterable[Any]],
     classes: Iterable[Any],
+    *,
+    raw_atoms: bool = False,
 ) -> str:
 ```
 
@@ -65,8 +67,11 @@ def weighted_relation(
 >
 > classes are the relation's answer terms, in order; weights(value) must
 > answer one weight per class, each already in its final form (a float,
-> or any atom the caller wants carried, a val() tensor included). The
-> relation is dual-mode: (name $x) superposes every (weight class) pair,
+> or any atom the caller wants carried, a val() tensor included).
+> weights(value) receives a decoded grounded value; symbols and expressions
+> stay atoms. Set raw_atoms=True only when the
+> callable explicitly needs every input atom, including grounded values.
+> The relation is dual-mode: (name $x) superposes every (weight class) pair,
 > and (name $x class) scores the one class, both lib_measure's own shape,
 > so ws-best is argmax, ws-sample! the stochastic reading, and rules
 > compose over the answers as over any weighted alternatives. This is the

@@ -1,3 +1,12 @@
+<!--
+Purpose: explain custom matchers and guarded measure operations through
+executable examples.
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None
+-->
+
 # Custom matchers and the measure algebra
 
 A matcher is a MeTTa function with two modes. With a bound candidate it scores that candidate. With an unbound candidate it generates candidates best first. Both modes answer `(score value)` pairs, so structural matching and a custom notion of closeness compose through ordinary evaluation.
@@ -60,15 +69,23 @@ The first equations define total mass, normalization, and softmax:
 
 ;Scale every weight so the mass is one; a distribution:
 (= (ws-normalize $ps)
-   (let $t (ws-total $ps)
-        (map-atom $ps (|-> ($p) ((/ (index-atom $p 0) $t) (index-atom $p 1))))))
+   (if (== $ps ())
+       ()
+       (let $t (ws-total $ps)
+            (if (<= (abs-math $t) 0.0)
+                (Error $ps "ws-normalize requires nonzero total mass")
+                (map-atom $ps
+                  (|-> ($p) ((/ (index-atom $p 0) $t)
+                              (index-atom $p 1))))))))
 
 ;Softmax with a temperature: scores become a distribution. Low temperature
 ;sharpens toward the best pair, high temperature flattens toward uniform.
 (= (ws-softmax $ps $temp)
-   (ws-normalize
-     (map-atom $ps (|-> ($p) ((exp-math (/ (index-atom $p 0) $temp))
-                              (index-atom $p 1))))))
+   (if (<= (abs-math $temp) 0.0)
+       (Error $ps "ws-softmax requires a nonzero temperature")
+       (ws-normalize
+         (map-atom $ps (|-> ($p) ((exp-math (/ (index-atom $p 0) $temp))
+                                  (index-atom $p 1)))))))
 ```
 
 See [`petta.matching`](../reference/petta-matching) and [`petta.measure`](../reference/petta-measure) for the Python APIs.
