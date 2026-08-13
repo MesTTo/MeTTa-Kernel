@@ -8,7 +8,10 @@ Source: `python/petta/aio.py`.
 > connection, a request queue, results delivered back through the loop), so
 > awaiting a long query lets every other coroutine keep running. One engine
 > per process stays the rule: calls are serialized, and the win is a live
-> event loop, never parallel evaluation.
+> event loop, never parallel evaluation. interrupt() stops the running
+> evaluation through the engine's own thread_signal, the sqlite3 reading,
+> and a cancelled task fires it on its own call, so asyncio timeouts stop
+> the engine instead of abandoning it.
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -30,9 +33,10 @@ class AsyncMeTTa:
 >
 > Every method mirrors MeTTa's method of the same name, bounds and
 > capture included; call(fn) reaches anything not mirrored by running
-> fn(m) on the engine's thread. The worker thread attaches a Prolog
-> engine once, so the fast calling convention holds there, the same
-> pattern remote.serve() runs.
+> fn(m) on the engine's thread. interrupt() stops the evaluation the
+> worker is running right now, and cancelling a waiting task (an
+> asyncio timeout included) interrupts its own call, so the engine
+> stops working for a listener that is gone.
 
 ### `AsyncMeTTa.space_name`
 
@@ -67,6 +71,18 @@ async def call(self, fn: Callable[[MeTTa], Any]) -> Any:
 > Run fn(m) on the engine's thread and await its result: the
 > escape hatch to the entire synchronous surface, subscriptions,
 > derivations, stats blocks and all.
+
+### `AsyncMeTTa.interrupt`
+
+```python
+def interrupt(self) -> bool:
+```
+
+> Stop the evaluation the worker is running right now; answers
+> whether anything was running (idle is a no-op, sqlite3's own
+> reading). The stopped call raises petta.Interrupted; whatever it
+> completed before the stop, writes included, stands. Callable from
+> any thread or task.
 
 ### `AsyncMeTTa.run`
 
