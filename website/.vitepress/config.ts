@@ -70,6 +70,7 @@ export default defineConfig({
           { text: "petta.subscribe", link: "/reference/petta-subscribe" },
           { text: "petta.remote", link: "/reference/petta-remote" },
           { text: "petta.aio", link: "/reference/petta-aio" },
+          { text: "petta.testing", link: "/reference/petta-testing" },
           { text: "petta.foreign", link: "/reference/petta-foreign" },
           { text: "petta.integrate", link: "/reference/petta-integrate" },
           { text: "petta.arrays", link: "/reference/petta-arrays" },
