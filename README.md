@@ -298,6 +298,24 @@ loss = torch.nn.functional.mse_loss(model(x), target)
 loss.backward()                      # gradients reach model.w
 ```
 
+`pettorch.neural_predicate` is DeepProbLog's neural predicate: a network
+registered as a probabilistic relation, its softmaxed forward pass
+answering `(probability class)` pairs that feed the measure algebra, so
+`ws-best` is the argmax reading and `ws-sample!` the stochastic one. It is
+`petta.measure.weighted_relation` with the network as the callable; pass
+`with_grad=True` and the probabilities stay on the autograd graph, the
+DeepProbLog training reading:
+
+```python
+network = torch.nn.Linear(2, 3, bias=False)
+with torch.no_grad():
+    network.weight.copy_(torch.tensor([[0.1, 0.9], [2.0, 0.1], [0.2, 0.2]]))
+pettorch.neural_predicate(m, "guess", network, [S.zero, S.one, S.two])
+
+m.run("!(import! (context-space) (library lib_measure))")
+m.run("!(ws-best (collapse (guess (tensor (1.0 0.0)))))")   # [[Sym('one')]]
+```
+
 `pettorch.reflect` lowers a model's architecture into facts
 (`nn-module`, `nn-child`, `nn-param`, `nn-param-shape`, `nn-linear`) that
 rules can match, `pettorch.attach_optimizer` gives an optimizer MeTTa
