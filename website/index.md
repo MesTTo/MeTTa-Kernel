@@ -4,28 +4,35 @@ layout: home
 hero:
   name: "PeTTa Python"
   text: "Compose Python and MeTTa"
-  tagline: "Atoms, queries, integrations, live systems, and neural relations on one runtime surface."
+  tagline: "Learn the language, use the Python library, and inspect every public module."
   actions:
     - theme: brand
-      text: Get started
+      text: Start the tutorials
+      link: /tutorials/01-atoms-and-expressions
+    - theme: alt
+      text: Open the guide
       link: /guide/getting-started
     - theme: alt
-      text: API reference
+      text: Browse the reference
       link: /reference/
 
 features:
-  - title: Python terms and queries
-    details: Build atoms as Python values, run MeTTa source, and query spaces with joins, guards, assumptions, and prepared shapes.
-    link: /guide/atoms-terms
-  - title: Open reasoning
-    details: Add matchers, weighted relations, soft unification, and goal-directed proofs without changing the term language.
-    link: /reasoning/matchers-measure
-  - title: Live systems
-    details: Treat subscriptions, routes, and incremental solving as operations over spaces and facts.
-    link: /live/standing-queries
+  - title: Learn MeTTa from Python
+    details: Follow eight graded tutorials from atoms and spaces through types, diagnostics, and graph views.
+    link: /tutorials/01-atoms-and-expressions
+  - title: Build with PeTTa
+    details: Use the guide for queries, Python operations, definitions, spaces, notebooks, and Pettorch.
+    link: /guide/getting-started
+  - title: Check the exact surface
+    details: Open generated signatures and source docstrings grouped by the job each module performs.
+    link: /reference/
 ---
 
 # One language for several paradigms
+
+If you know Python and have not used MeTTa, start with [Atoms and expressions](./tutorials/01-atoms-and-expressions). The eight tutorials build one concept at a time and use generated pictures of the terms they teach.
+
+If you already use PeTTa, open the [Guide](./guide/getting-started) for task-oriented explanations, [Integrations](./integrations/dataframes) for library boundaries, or the [API reference](./reference/) for exact signatures and source docstrings.
 
 MeTTa is built to be a lingua franca. Each PeTTa integration translates another paradigm's semantics into MeTTa's own: routing becomes unification over facts, multi-shot solving becomes parts and toggled truths, validation becomes declarations, tables become facts, and neural predicates become weighted relations. Once translated, the paradigms compose with each other in one substrate.
 
@@ -40,6 +47,4 @@ The translation keeps the concepts visible. A web route is a fact a program can 
 | routes and handlers | facts plus unification in registration order |
 | model outputs | weighted relations over classes |
 
-The design contract: automatic and seamless by default, expert depth underneath. A class fed to the library declares itself, a query answers typed rows, an answer destructures in a match statement; and when you want more, every default has a named, documented lever behind it.
-
-Start with [install and first steps](./guide/getting-started), then follow the sidebar by the kind of system you are translating.
+Start with [the tutorials](./tutorials/01-atoms-and-expressions), then use the sidebar to move into deeper guides, reasoning tools, integrations, live systems, and reference pages.

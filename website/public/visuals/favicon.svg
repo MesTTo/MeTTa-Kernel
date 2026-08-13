@@ -1,0 +1,16 @@
+<svg class="pg" xmlns="http://www.w3.org/2000/svg" width="49" height="22" viewBox="0 0 49 22"><style>
+  svg.pg { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+           font-size: 12px; background: #1b1d23; }
+  .pg-expr { stroke: #3d444d; rx: 6; }
+  .pg-sym  { fill: #21262d; stroke: #3d444d; rx: 4; }
+  .pg-var  { fill: #ffa657; stroke: #ffa657; rx: 4; }
+  .pg-gnd  { fill: #21262d; stroke: #3d444d; rx: 4; }
+  .pg-text { fill: #e6edf3; }
+  .pg-var + .pg-text { fill: #1b1d23; }
+  .pg-sym[data-role="operator"] + .pg-text,
+  .pg-sym[data-role="control"] + .pg-text { fill: #ff7b72; }
+  .pg-sym[data-role="spaceref"] + .pg-text { fill: #ffa657; }
+  .pg-sym[data-role="at"] + .pg-text { fill: #d2a8ff; }
+  .pg-gnd[data-role="number"] + .pg-text { fill: #79c0ff; }
+  .pg-gnd[data-role="string"] + .pg-text { fill: #a5d6ff; }
+</style><rect class="pg-sym" data-role="symbol" width="49" height="22"/><text class="pg-text" x="6" y="15">likes</text></svg>

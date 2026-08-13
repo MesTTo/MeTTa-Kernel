@@ -2,29 +2,59 @@
 
 Each page reproduces the public definitions, source signatures, and docstrings of one module. Class pages also include public method docstrings.
 
-## `petta`
+## Core
+
+These modules define atoms, spaces, queries, and the rows returned to Python.
 
 | Module | Surface |
 |---|---|
 | [`petta.atoms`](./petta-atoms) | atoms, constructors, encoding, unification |
 | [`petta.space`](./petta-space) | the `MeTTa` runtime, spaces, queries, operations |
+| [`petta.results`](./petta-results) | query rows and tables |
+
+## Definition
+
+These modules register Python behavior, translate structured objects, and enforce checked type boundaries.
+
+| Module | Surface |
+|---|---|
 | [`petta.ops`](./petta-ops) | Python operation registration and type declarations |
 | [`petta.convert`](./petta-convert) | two-way object translation |
-| [`petta.matching`](./petta-matching) | custom matchers |
+| [`petta.casting`](./petta-casting) | runtime typecasting through the engine's types |
+
+## Diagnostics
+
+These modules expose reduction events, structural findings, similarity scores, and custom match behavior.
+
+| Module | Surface |
+|---|---|
+| [`petta.trace`](./petta-trace) | the reduction trace as events |
+| [`petta.lint`](./petta-lint) | space diagnostics for the silently-wrong class |
 | [`petta.measure`](./petta-measure) | weighted superpositions and relations |
-| [`petta.subscribe`](./petta-subscribe) | standing queries |
+| [`petta.matching`](./petta-matching) | custom matchers |
+
+## Data and stores
+
+These modules persist facts, operate on array protocols, and generate test data for public atoms.
+
+| Module | Surface |
+|---|---|
+| [`petta.persistent`](./petta-persistent) | fact spaces backed by persistency journals |
+| [`petta.arrays`](./petta-arrays) | array operations and embedding stores |
+| [`petta.testing`](./petta-testing) | the hypothesis strategies the suite fuzzes itself with |
+
+## Distribution
+
+These modules connect spaces, processes, event loops, subscriptions, and external providers.
+
+| Module | Surface |
+|---|---|
 | [`petta.remote`](./petta-remote) | spaces served and attached across processes |
 | [`petta.das`](./petta-das) | the Distributed Atomspace over the command router |
-| [`petta.lint`](./petta-lint) | space diagnostics for the silently-wrong class |
-| [`petta.trace`](./petta-trace) | the reduction trace as events |
-| [`petta.casting`](./petta-casting) | runtime typecasting through the engine's types |
 | [`petta.aio`](./petta-aio) | the engine on an event loop, one dedicated worker thread |
-| [`petta.persistent`](./petta-persistent) | fact spaces backed by persistency journals |
-| [`petta.testing`](./petta-testing) | the hypothesis strategies the suite fuzzes itself with |
+| [`petta.subscribe`](./petta-subscribe) | standing queries |
 | [`petta.foreign`](./petta-foreign) | Python-backed spaces |
 | [`petta.integrate`](./petta-integrate) | library integration tools |
-| [`petta.arrays`](./petta-arrays) | array operations and embedding stores |
-| [`petta.results`](./petta-results) | query rows and tables |
 
 ## Sibling repositories
 
@@ -34,4 +64,3 @@ tests included; each builds on the public surface documented here.
 and goal-directed soft proving (the engine-side equations stay here as
 `lib/lib_soft.metta`), and `pettagrapher` draws terms, spaces, proofs,
 and reductions as self-contained pages.
-
