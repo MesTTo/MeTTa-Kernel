@@ -13,6 +13,16 @@ Source: `python/petta/das.py`.
 > read-only space provider, so match and joins over DAS answers run the
 > engine's own unification. Loading knowledge is das-cli's job, and every
 > write path says so instead of pretending.
+>
+> Two router dialects exist in the wild and both are spoken. Current
+> sources take an enveloped {"command", "params"} request, MeTTa-text
+> queries, and enveloped events; the deployed 1.2.0-rc images take a flat
+> {"command_type", "command_text"} request, token-vector queries
+> (LINK_TEMPLATE Expression ...), flat events whose answer chunks ride
+> under "data", and answer handles without MeTTa text, verified against a
+> live das-cli deployment. The dialect negotiates once per connection off
+> the server's own 400 naming the missing legacy fields; anything else
+> stays loud.
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -35,7 +45,10 @@ class DASAnswer:
 ```
 
 > One STI-ordered answer: variable bindings as petta atoms, the
-> matched expressions themselves, and the attention numbers.
+> matched expressions themselves, the raw atom handles, and the
+> attention numbers. A router that maps answers back to MeTTa text
+> binds real terms; the deployed legacy routers answer handles only,
+> which arrive as string values under the same names.
 
 ## `DAS`
 
@@ -64,8 +77,10 @@ def ping(self) -> bool:
 def execute(self, command: str, params: dict) -> str:
 ```
 
-> Start any router command and answer its execution id. The
-> server validates parameters; unknown ones refuse loudly there.
+> Start any router command and answer its execution id, in the
+> current sources' enveloped shape. The server validates
+> parameters; unknown ones refuse loudly there. Legacy routers
+> serve query() and count(), which negotiate the dialect.
 
 ### `DAS.status`
 
@@ -91,9 +106,9 @@ def query(self, *patterns: Any, max_answers: int | None = None,
 ```
 
 > Run a pattern query and collect its STI-ordered answers.
-> Several patterns compose as (and ...), DAS's own query tree, so
-> the conjunction runs server-side. Extra keyword arguments pass
-> through to the router's query parameters verbatim.
+> Several patterns compose as one server-side conjunction, DAS's
+> own query tree. Extra keyword arguments pass through to the
+> router's query parameters verbatim.
 
 ### `DAS.count`
 
