@@ -90,3 +90,21 @@ def table(self) -> dict[str, list[Any]]:
 > DataFrame constructor takes: pl.DataFrame(rows.table()),
 > pd.DataFrame(rows.table()). Grounded values unwrap to Python;
 > symbols and structure become their text.
+
+### `Rows.to_df`
+
+```python
+def to_df(self):
+```
+
+> The rows as a pandas DataFrame, DuckDB's own conversion naming.
+> pandas is the caller's dependency; its absence raises naming the
+> need, and table() stays the constructor-agnostic shape.
+
+### `Rows.to_pl`
+
+```python
+def to_pl(self):
+```
+
+> The rows as a polars DataFrame; the polars twin of to_df().
