@@ -31,6 +31,17 @@ class SpaceProvider:
 > A provider without add/remove is read-only, and the engine's write
 > answers a clear error instead of pretending.
 
+### `SpaceProvider.supports`
+
+```python
+def supports(self, capability: str) -> bool:
+```
+
+> Whether an optional space operation is supported.
+>
+> Unspecified capabilities are permissive so existing providers retain
+> their behavior. A provider declares only the operations it refuses.
+
 ### `SpaceProvider.match`
 
 ```python
@@ -70,6 +81,14 @@ def clear(self) -> None:
 ```
 
 No docstring is defined.
+
+## `require_capability`
+
+```python
+def require_capability(space: str, capability: str, operation: str) -> None:
+```
+
+> Refuse an operation before it creates partial state or enters Prolog.
 
 ## `register_provider`
 
