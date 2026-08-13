@@ -53,6 +53,34 @@ After the block, `s.inferences`, `s.cputime`, `s.walltime`, `s.gc_count`, `s.gc_
 
 Control signals hold everywhere, by engine design: a bound, a Ctrl-C, or an `interrupt()` cannot be eaten by the evaluation it is stopping, not even by a program's own `(catch ...)`. That is the same reasoning that puts `KeyboardInterrupt` outside `Exception` in Python.
 
+## Memoize a function
+
+Tabling is the engine's own memoization: declare a function tabled, and every distinct call computes once, with later calls of the same shape answering from the table. After `!(import! &self (library lib_tabling))`, the declaration is `!(tabled (spin-down $n))`, made after the function is defined, because instrumenting a name that does not exist yet is refused by name and arity instead of silently tabling nothing.
+
+```python
+    with m.stats() as first:
+        assert m.run("!(spin-down 200000)") == [[S.done]]
+    with m.stats() as second:
+        assert m.run("!(spin-down 200000)") == [[S.done]]
+    # The second call answers from the table: orders of magnitude fewer
+    # engine steps than the first recursion.
+    assert second.inferences < first.inferences / 10
+```
+
+Tabling changes what a function means, so the admission burden is yours: it is sound for a pure function whose equations and read spaces stay put while its tables live, whose callers never observe answer order or duplicates, and whose call modes stay bounded. Hyphenated and uppercase names work, repeated declarations are cumulative and idempotent, and a named space's functions instrument their own module. `(untabled ...)` removes the instrumentation, `(table-clear ...)` abolishes one function's cached answers and keeps the declaration, `(table-clear-all)` abolishes every table, and `s.table_bytes` from `m.stats()` watches the memory.
+
+Every live declaration is also a fact: `(tabled space name arity)` in the `&petta` reflection space, input arity, added on declare and removed on undeclare, so a program can ask what is memoized right now:
+
+```python
+    reflection = MeTTa(REFLECTION_SPACE)
+    m.run("(= (reflected-fn $n) (+ $n 1))")
+    assert m.run("!(tabled (reflected-fn $n))") == [[True]]
+    pattern = S.tabled(S[m.space_name], S["reflected-fn"], V.a)
+    assert [row.a for row in reflection.query(pattern)] == [1]
+```
+
+Tabling state dies with the space life. A dropped or cleared space takes its declarations, its tables, and its `&petta` records with it, so a pooled name's next life cannot be answered by a dead life's cache; the suite pins this by redefining a function in a reused space and requiring the new answer.
+
 ## The third truth value
 
 Tabled negation gives this engine Well Founded Semantics: an answer can be true, false, or genuinely undefined, a loop through `tnot`. Before this surface, an undefined answer reached Python as an ordinary-looking unbound variable, which is silently wrong. Now every `eval` answer carries its truth: definite answers stay plain atoms, and an undefined one arrives as an `Undefined` holding the answer, the delay condition that makes it undefined, and, with `residuals=True`, the residual program, the clauses of the loop itself.
