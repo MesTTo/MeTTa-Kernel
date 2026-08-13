@@ -75,6 +75,13 @@ facts behind an answer, and `m.why(pattern)` explains an empty match. A
 `%%metta` cell magic for the ordinary Python kernel ships as
 `%load_ext petta.ipython`.
 
+### Examples
+
+`python/examples/` holds eleven runnable, self-verifying integrations, from
+first steps through SQL spaces, the one array layer, attention as matching,
+FabricPC predictive coding, evolution in a space and PLN; the test suite
+runs them all, so the folder cannot drift. Start there.
+
 ### Writing MeTTa in Python
 
 The `@m.define` decorator compiles a Python function into MeTTa equations,
@@ -93,6 +100,27 @@ def fact(n):
 m.run("!(fact 5)")       # [[120]]
 fact.py(5)               # 120: the ordinary Python twin, kept callable
 ```
+
+Clauses stack the way MeTTa equations do, with a literal default reading as
+the head pattern and the compiler deriving the first-match guards the
+stacked Python means:
+
+```python
+@m.define
+def fib(n=0):
+    return 0
+
+@m.define
+def fib(n=1):
+    return 1
+
+@m.define
+def fib(n):
+    return fib(n - 1) + fib(n - 2)   # m.run("!(fib 10)") -> [[55]]
+```
+
+Annotations declare types, and `m.fn("car-atom")` turns any engine function
+into an ordinary Python callable.
 
 A generator compiles to nondeterminism (each yield one answer), a lambda to
 the engine's own `|->`, comprehensions to `map-atom` and `filter-atom`,
