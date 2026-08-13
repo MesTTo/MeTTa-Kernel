@@ -24,4 +24,4 @@ The repository has sixteen self-verifying examples. Run the first from the repos
 python python/examples/01_first_steps.py
 ```
 
-Examples that need DuckDB, NumPy, PyTorch, or FabricPC skip when that optional dependency is absent. Continue with [atoms, operators, and term building](./atoms-terms).
+Examples that need DuckDB, NumPy, PyTorch, or FabricPC skip when that optional dependency is absent. When something misbehaves, `petta.backend_info()` answers the petta, janus, SWI-Prolog, and Python versions plus the consulted runtime tree in one dict, without starting the engine, which is exactly what a bug report needs. Continue with [atoms, operators, and term building](./atoms-terms).
