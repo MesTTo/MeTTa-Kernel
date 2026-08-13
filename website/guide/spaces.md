@@ -18,6 +18,22 @@ Live host objects have no cross-process identity, so a space holding one refuses
 
 For facts that should persist as they change rather than at save points, `petta.persistent.PersistentFactSpace(path, {"edge": 2})` is a space whose writes journal to an append-only text file and replay when a new process attaches, `library(persistency)` underneath. It is schema-bound and holds natives only, its limits stated in its own docstring. The default sync mode buffers for speed (169k adds/s measured); `flush()` is the on-demand checkpoint, and `sync="flush"` buys per-write crash survival for about two percent, proven in the suite by replaying a journal whose writer died mid-run from SIGKILL. Registered with `m.register_space`, it matches like any space, and it is the event-store half of an event-sourcing page: the journal is the log, projections are `bridge()` subscriptions into read models.
 
+## MORK at scale
+
+[MORK](https://github.com/trueagi-io/MORK) is a PathMap-backed store built for atom counts far past the predicate store's reach. The integration's own measurements set the honest expectations: below roughly ten million atoms the predicate store is faster, and from one hundred to four hundred million atoms MORK kept answering where the predicate store ran out of memory.
+
+To enable it, run `sh build.sh` at the repository root: it clones [mork_ffi](https://github.com/patham9/mork_ffi) beside `src` and builds it against sibling `MORK` and `PathMap` checkouts on nightly Rust. Once `mork_ffi/target/release/libmork_ffi.so` exists, the CLI and the python runtime both detect it and boot the engine with the `&mork` space wired in; nothing else changes.
+
+`m.space("&mork")` then behaves like any space: adds, removes, queries, `count()`, `atoms()`, subscriptions, and `digest()` all run the ordinary surface with MORK as the store, and `digest()` agrees with a native space holding the same atoms because the digest names content, not storage. A conjunction joins in the engine with MORK answering each conjunct:
+
+```python
+    mork.add(S.friend(S.sam, S.tim), S.friend(S.sam, S.joe), S.age(S.tim, 30))
+    join = mork.query(S.friend(S.sam, V.x), S.age(V.x, V.n))
+    assert [(row.x, row.n) for row in join] == [(S.tim, 30)]
+```
+
+Writes queue inside MORK for throughput and every read flushes the queue first, so a program always reads its own writes. `lib_mm2` layers the minimal-MeTTa surface on top: `＋` and `－` add and remove, `?` queries, and `~>` compiles a transform into an exec rule that MORK's own calculus runs, entirely inside the store.
+
 ## Python-backed spaces
 
 A `SpaceProvider` keeps atoms in Python or in another storage system. The engine still unifies the candidates returned by the provider. A provider may return an over-approximation, while bound positions can be pushed down for speed.
