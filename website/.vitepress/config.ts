@@ -74,6 +74,7 @@ export default defineConfig({
           { text: "petta.remote", link: "/reference/petta-remote" },
           { text: "petta.das", link: "/reference/petta-das" },
           { text: "petta.lint", link: "/reference/petta-lint" },
+          { text: "petta.trace", link: "/reference/petta-trace" },
           { text: "petta.aio", link: "/reference/petta-aio" },
           { text: "petta.persistent", link: "/reference/petta-persistent" },
           { text: "petta.testing", link: "/reference/petta-testing" },

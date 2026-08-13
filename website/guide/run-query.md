@@ -172,6 +172,23 @@ Both cover engine state. A Python operation's side effects, and subscription cal
 
 `prof.top(5)` is where the time went. The sampler is statistical, so profile something that runs; and profiling changes execution, so it is a debugging surface, not a mode to leave on.
 
+## Trace a reduction
+
+Where the profiler says where time went, `m.trace(source)` says what happened: it runs source with every compiled MeTTa function wrapped by the engine's own predicate wrapping, and answers one call event per reduction entered, depth-nested through the call tree, and one exit event per answer. A reduction that fails is a call with no exit, which is precisely what failing looks like:
+
+```python
+    m.run("(= (tr-fact $n) (if (== $n 0) 1 (* $n (tr-fact (- $n 1)))))")
+    events = m.trace("!(tr-fact 3)")
+    calls = [e for e in events if e.kind == "call"]
+    exits = [e for e in events if e.kind == "exit"]
+    assert [str(c.term) for c in calls] == [
+        "(tr-fact 3)", "(tr-fact 2)", "(tr-fact 1)", "(tr-fact 0)",
+    ]
+    assert [c.depth for c in calls] == [0, 1, 2, 3]
+```
+
+Builtins inline and stay invisible, so the trace is about your program, not the engine. The source executes for real, writes included, exactly like a `run`; the wrap exists only while tracing, so untraced calls pay nothing. Printing an event indents it by depth, which makes `for e in m.trace(...): print(e)` a readable story of the evaluation.
+
 ## Lint a space
 
 MeTTa fails open: a call to a misspelled function stays an unreduced expression, a call with the wrong argument count matches no equation, and a declared type nothing defines promises a function that cannot answer. `m.lint()` walks a space's declarations and equations against the engine's own registries and answers findings, each naming its kind, its subject, and the atom it stands on:
