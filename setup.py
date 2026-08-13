@@ -45,7 +45,7 @@ setup(
     version="0.2.0",
     packages=["petta", "petta.integrations", "pettorch"],
     package_dir={"": "python"},
-    package_data={"petta": ["shim.pl"]},
+    package_data={"petta": ["shim.pl", "py.typed"]},
     include_package_data=True,
     cmdclass={"build_py": build_py_with_runtime},
     entry_points={"console_scripts": ["petta=petta.cli:main"]},
