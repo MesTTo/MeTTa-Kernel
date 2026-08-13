@@ -33,7 +33,9 @@ or use it in place from a clone with `PETTA_PATH` pointing at the tree.
 
 Atoms are Python values. `S.likes` is the symbol `likes`, `V.x` is the
 variable `$x`, and applying a symbol builds an expression, so structure never
-costs an engine call:
+costs an engine call. Operators build terms too: `V.age >= 18` is the
+expression `(>= $age 18)` and `&`, `|`, `~` compose the boolean terms,
+while arithmetic on grounded values stays ordinary Python arithmetic:
 
 ```python
 from petta import MeTTa, S, V
