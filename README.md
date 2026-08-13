@@ -118,13 +118,37 @@ composition runs the other way too: a Python subscription on `&petta`
 reacts to control atoms a MeTTa program writes there, which is steering the
 integration from inside MeTTa, no fork needed.
 
+### Routes in the common tongue
+
+MeTTa is built to be a lingua franca, and `petta.web` translates web
+routing into it wholesale: an app is a space, the route table is facts,
+a request is a term, dispatch is unification in registration order, path
+parameters are typed variables, the 404 is the absence of a match and the
+422 a parameter refusing its type. Handlers are called by name through the
+engine, so a Python function and a MeTTa equation serve identically, and a
+MeTTa program extends the table by adding a `(route ...)` fact:
+
+```python
+from petta import web
+
+w = MeTTa().fresh_space()
+app = web.router(w, name="app")
+
+@app.get("/users/{id:int}")
+def read_user(id):
+    return f"user {id}"
+
+app.dispatch("GET", "/users/7")     # Response(status=200, body='user 7')
+app.dispatch("GET", "/users/ada")   # Response(status=422, body='unprocessable')
+```
+
 ### Examples
 
-`python/examples/` holds fourteen runnable, self-verifying integrations,
+`python/examples/` holds fifteen runnable, self-verifying integrations,
 from first steps through SQL spaces, the one array layer, attention as
 matching, FabricPC predictive coding, evolution in a space, PLN, standing
-queries as actors, custom matchers and soft unification; the test suite
-runs them all, so the folder cannot drift. Start there. The engine-side
+queries as actors, custom matchers, soft unification and FastAPI-shaped
+web routes; the test suite runs them all, so the folder cannot drift. Start there. The engine-side
 libraries this work added (`lib_measure`, `lib_soft`) test themselves in
 the engine's own convention, `examples/*.metta` with `!(test ...)`, run by
 both `test.sh` and the python suite.
