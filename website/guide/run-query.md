@@ -126,6 +126,17 @@ def test_regex_guards_queries(rx, metta):
 
 The guard is also an optimization: patterns compile once into the engine's cache and every candidate row is tested in C, never crossing to Python. Against an equivalent Python-operation guard on a 2000-row scan, the regex guard measured 2.3x (317 against 138 queries per second, identical rows answered).
 
+## Content hashes
+
+`lib_crypto` opens the engine's own OpenSSL to MeTTa programs: `(crypto-hash sha256 "text")` answers the lowercase hex digest under any `library(crypto)` algorithm name, an unknown name refuses loudly, and `(crypto-random-hex 16)` answers thirty-two hex characters of cryptographically secure randomness for nonces and fresh ids. Hashes make content keys, so a fact can carry the identity of its own payload, and the digests agree with every other tool's:
+
+```python
+    (digest,) = cr.eval('(crypto-hash sha256 "hello")')
+    assert digest == hashlib.sha256(b"hello").hexdigest()
+```
+
+The whole-space version of the same idea is [`digest()`](./spaces), one hash naming everything a space stores.
+
 ## Atomic and what-if runs
 
 The engine has transactions, and a program can already use the inline `(transaction ...)` form for a scope inside itself. `atomic=True` lifts that over a whole `run`: every write, facts and equations alike, commits whole or rolls back whole when a directive throws.
