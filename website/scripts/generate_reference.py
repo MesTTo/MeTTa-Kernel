@@ -31,6 +31,7 @@ MODULES = (
     ModuleSpec("petta.persistent", "python/petta/persistent.py"),
     ModuleSpec("petta.testing", "python/petta/testing.py"),
     ModuleSpec("petta.das", "python/petta/das.py"),
+    ModuleSpec("petta.lint", "python/petta/lint.py"),
     ModuleSpec("petta.foreign", "python/petta/foreign.py"),
     ModuleSpec("petta.integrate", "python/petta/integrate.py"),
     ModuleSpec("petta.arrays", "python/petta/arrays.py"),

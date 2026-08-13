@@ -16,6 +16,7 @@ Each page reproduces the public definitions, source signatures, and docstrings o
 | [`petta.subscribe`](./petta-subscribe) | standing queries |
 | [`petta.remote`](./petta-remote) | spaces served and attached across processes |
 | [`petta.das`](./petta-das) | the Distributed Atomspace over the command router |
+| [`petta.lint`](./petta-lint) | space diagnostics for the silently-wrong class |
 | [`petta.aio`](./petta-aio) | the engine on an event loop, one dedicated worker thread |
 | [`petta.persistent`](./petta-persistent) | fact spaces backed by persistency journals |
 | [`petta.testing`](./petta-testing) | the hypothesis strategies the suite fuzzes itself with |

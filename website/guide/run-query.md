@@ -172,6 +172,19 @@ Both cover engine state. A Python operation's side effects, and subscription cal
 
 `prof.top(5)` is where the time went. The sampler is statistical, so profile something that runs; and profiling changes execution, so it is a debugging surface, not a mode to leave on.
 
+## Lint a space
+
+MeTTa fails open: a call to a misspelled function stays an unreduced expression, a call with the wrong argument count matches no equation, and a declared type nothing defines promises a function that cannot answer. `m.lint()` walks a space's declarations and equations against the engine's own registries and answers findings, each naming its kind, its subject, and the atom it stands on:
+
+```python
+    m.run("(: ghost-fn (-> Number Number))")
+    findings = m.lint()
+    assert _kinds(findings) == ["declared-but-undefined"]
+    assert findings[0].subject == "ghost-fn"
+```
+
+The kinds: `declared-but-undefined`, `arrow-arity-mismatch` (the arrow's input count against the equations'), `arity-mismatch` (a call with an argument count no equation takes), `unbound-variable` (a body variable the head never bound, exempting equations with their own binding forms), `duplicate-equation` (the same equation stored twice, answering every call twice), and `possibly-undefined-reference`, which says in its own text that it is a heuristic, because an expression head that is no known function may be data on purpose. A healthy space answers an empty list.
+
 `add_table(head, source)` reads a Polars frame, a pandas frame, a mapping of columns, or any iterable of rows into facts shaped as `(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of plain columns accepted by DataFrame constructors, and `rows.to_df()` / `rows.to_pl()` build the pandas or polars frame directly, DuckDB's conversion naming. `rows.build(column, Class)` rebuilds translated objects from a result column. In a notebook, rows render as a table on their own.
 
 Use `derivation(atom)` to obtain proof trees for an answer. Use `why(pattern)` to explain an empty match. The complete runtime surface is in [`petta.space`](../reference/petta-space), and result containers are in [`petta.results`](../reference/petta-results).

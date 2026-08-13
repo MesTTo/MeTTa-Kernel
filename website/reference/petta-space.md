@@ -172,8 +172,10 @@ def save(self, path: str, format: str = "metta") -> int:
 
 > Write every stored atom of this space, equations included, as
 > MeTTa source by default, or as a version-pinned trusted cache with
-> format="fast"; answers how many. Atoms carrying live host objects
-> cannot survive either file and are refused.
+> format="fast"; answers how many. A path ending .gz writes gzip
+> compressed in either format, and load and import! read it back
+> under the same name. Atoms carrying live host objects cannot
+> survive either file and are refused.
 
 ### `MeTTa.load`
 
@@ -181,7 +183,9 @@ def save(self, path: str, format: str = "metta") -> int:
 def load(self, path: str) -> list[list[Atom]]:
 ```
 
-> Load a text program or an auto-detected trusted fast cache.
+> Load a text program or an auto-detected trusted fast cache,
+> gzip-compressed or plain; a .gz path sniffs and reads through
+> the decompressed bytes.
 
 ### `MeTTa.parse`
 
@@ -245,6 +249,31 @@ def count(self) -> int:
 ```
 
 No docstring is defined.
+
+### `MeTTa.lint`
+
+```python
+def lint(self):
+```
+
+> Diagnose this space for the silently-wrong class: declared
+> types nothing defines, arity mismatches, unbound body variables,
+> duplicate equations, and references no function or fact carries.
+> Answers petta.lint.Finding records, empty when nothing looks
+> wrong.
+
+### `MeTTa.digest`
+
+```python
+def digest(self) -> str:
+```
+
+> A sha256 hex digest of this space's content: every stored atom,
+> equations included, canonicalized (variables numbered, multiset
+> sorted) so the same atoms answer the same digest in any insertion
+> order and in any process. Two spaces agree on digest() exactly
+> when save() would write the same content. Live host objects have
+> no cross-process identity and are refused, like save().
 
 ### `MeTTa.clear`
 
