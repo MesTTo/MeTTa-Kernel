@@ -12,6 +12,8 @@ export default defineConfig({
   title: "PeTTa Python",
   description: "Use PeTTa as a Python library and compose integrations through MeTTa.",
   base: "/PeTTa/",
+  // localhost examples in docstrings are unreachable at build time by nature
+  ignoreDeadLinks: [/^https?:\/\/localhost/],
   cleanUrls: true,
   markdown: {
     languages: [mettaLanguage],
@@ -52,6 +54,7 @@ export default defineConfig({
           { text: "Web routes", link: "/live/web-routes" },
           { text: "Multi-shot solving", link: "/live/multishot" },
           { text: "Contexts and remotes", link: "/live/contexts" },
+          { text: "The Distributed Atomspace", link: "/live/das" },
           { text: "The loop stays live", link: "/live/async" },
         ],
       },
@@ -69,6 +72,7 @@ export default defineConfig({
           { text: "petta_soft", link: "/reference/petta-soft" },
           { text: "petta.subscribe", link: "/reference/petta-subscribe" },
           { text: "petta.remote", link: "/reference/petta-remote" },
+          { text: "petta.das", link: "/reference/petta-das" },
           { text: "petta.aio", link: "/reference/petta-aio" },
           { text: "petta.persistent", link: "/reference/petta-persistent" },
           { text: "petta.testing", link: "/reference/petta-testing" },
