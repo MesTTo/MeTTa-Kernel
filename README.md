@@ -77,10 +77,14 @@ facts behind an answer, and `m.why(pattern)` explains an empty match. A
 
 ### Examples
 
-`python/examples/` holds eleven runnable, self-verifying integrations, from
-first steps through SQL spaces, the one array layer, attention as matching,
-FabricPC predictive coding, evolution in a space and PLN; the test suite
-runs them all, so the folder cannot drift. Start there.
+`python/examples/` holds fourteen runnable, self-verifying integrations,
+from first steps through SQL spaces, the one array layer, attention as
+matching, FabricPC predictive coding, evolution in a space, PLN, standing
+queries as actors, custom matchers and soft unification; the test suite
+runs them all, so the folder cannot drift. Start there. The engine-side
+libraries this work added (`lib_measure`, `lib_soft`) test themselves in
+the engine's own convention, `examples/*.metta` with `!(test ...)`, run by
+both `test.sh` and the python suite.
 
 ### Writing MeTTa in Python
 
@@ -122,15 +126,26 @@ def fib(n):
 Annotations declare types, and `m.fn("car-atom")` turns any engine function
 into an ordinary Python callable.
 
-A generator compiles to nondeterminism (each yield one answer), a lambda to
-the engine's own `|->`, comprehensions to `map-atom` and `filter-atom`,
-`and`/`or` to short-circuit `if` forms, and `match(parent(gp, mid), ...)` to
-a match against the running space, lowercase pattern names binding as
-variables. Anything outside the subset is a refusal naming the construct,
-the line, and what to write instead, never a silent fallback. Every
-definition keeps its Python twin reachable as `.py`, so the two can be
-checked against each other on any ground input; the test suite fuzzes
-exactly that.
+The subset is Python as Python means it. Rebinding works (`x = x + 1`
+compiles through static single assignment), `while` and `for` become their
+own tail-recursive equations running in constant stack, nested defs
+lambda-lift, a generator compiles to nondeterminism (each yield one
+answer, `yield from` and `for` included), a lambda to the engine's own
+`|->`, comprehensions (several `for` clauses too) to `map-atom` and
+`filter-atom`, and `match(parent(gp, mid), ...)` to a match against the
+running space, lowercase pattern names binding as variables. Semantics are
+exact where the engine's functions differ from Python's: truthiness
+decides every test, `and`/`or` answer the deciding operand, `==` holds
+across `4 == 4.0`, `in` is membership and substring, indexing and slices
+take Python's negatives, `round` banks, f-strings format; each definition
+lists the runtime-backed operations it leaned on as `.runtime_ops`. Both
+decorators share one naming policy (underscores read as hyphens). Anything
+outside the subset is a refusal naming the construct, the line, and what
+to write instead, never a silent fallback; a body only the engine can run
+(a match, a constructor) gets a twin that says so instead of a NameError.
+Every other definition keeps its Python twin callable as `.py`, stacked
+clauses dispatching first-match; a CSmith-style fuzzer generates random
+programs in the subset and holds engine and twin to identical answers.
 
 ### Integrating any library
 
@@ -168,6 +183,35 @@ anything defining `install_petta(m)`.
 This leans on Python's metaprogramming the way SQLAlchemy and Pydantic do:
 introspected signatures become arities and types, the AST becomes equations,
 protocols become types, and entry points become discovery.
+
+Beyond operations and spaces, the surface carries: `@m.type`, which
+declares an Enum, dataclass or NamedTuple into a space with constructor
+declarations and one accessor equation per field, `rows.build(col, Person)`
+rebuilding answers as instances; `m.run(src, using={"df": df})`, naming
+host values by bare symbol with identity intact; `m.subscribe(pattern,
+callback)`, a standing query delivered inside the very write that matched
+it (or queued for `drain()`), which is the actors-and-pub-sub reading of a
+space; `m.save(path)` writing a space back as loadable source; and
+`petta.current_space()`, callable from inside any operation to learn the
+space whose program called it.
+
+### Custom matchers and the measure algebra
+
+Matching is open: `petta.matching.matcher(m, name, score=..., generate=...)`
+registers any notion of closeness as a two-mode MeTTa function, scoring a
+bound candidate or generating unbound ones best first, always answering
+`(score value)` pairs. `install_fuzzy` ships lexical closeness (difflib);
+an `EmbeddingStore.matcher()` is the semantic instance, with an exact
+faiss backend when the package is present. `lib/lib_measure.metta` is the
+algebra those pairs feed, pure MeTTa in the shape of annotated
+disjunctions: `ws-normalize`, `ws-softmax` with a temperature, `ws-best`,
+`ws-top`, `ws-sample!`, `ws-collapse`, `ws-expect`. So
+`(ws-softmax (collapse (semmatch $q $x)) 0.5)` is attention through your
+matcher, and `lib/lib_soft.metta` extends it over terms: Sessa's weak
+unification, structure crisp, symbols close to declared degrees
+(`petta.soft.link_store` materializes them from embeddings), variables
+binding as ever. `python/bench.py` is the performance harness that keeps
+all of this measured.
 
 ### Arrays: every DLPack library, one operation set
 
