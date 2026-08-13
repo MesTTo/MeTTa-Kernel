@@ -61,6 +61,27 @@ class Router:
 > an equation gets dispatched exactly the same way; several routers share
 > one space without sharing tables, since each reads its own app name.
 
+### `Router.routes`
+
+```python
+def routes(self) -> tuple[Route, ...]:
+```
+
+> Every route this router registered, in registration order.
+
+### `Router.converter`
+
+```python
+def converter(self, name: str, caster: Callable[[str], Any]) -> None:
+```
+
+> Teach this router a path converter, Starlette's own extension
+> point: after app.converter("upper", str.upper), a template may
+> say {word:upper} and the parameter arrives converted. A caster
+> raising ValueError or TypeError means the parameter refused, the
+> 422 reading; any other exception is the caster's own bug and
+> propagates.
+
 ### `Router.route`
 
 ```python
@@ -97,6 +118,30 @@ No docstring is defined.
 
 ```python
 def delete(self, path: str) -> Callable:
+```
+
+No docstring is defined.
+
+### `Router.patch`
+
+```python
+def patch(self, path: str) -> Callable:
+```
+
+No docstring is defined.
+
+### `Router.head`
+
+```python
+def head(self, path: str) -> Callable:
+```
+
+No docstring is defined.
+
+### `Router.options`
+
+```python
+def options(self, path: str) -> Callable:
 ```
 
 No docstring is defined.

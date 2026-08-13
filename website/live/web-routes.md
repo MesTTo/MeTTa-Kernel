@@ -56,4 +56,6 @@ check(
 done("15_web_routes")
 ```
 
+Path converters are extensible per router, Starlette's own extension point: `app.converter("upper", str.upper)` makes `{word:upper}` a valid template, the caster runs after the structural match, and a caster raising `ValueError` or `TypeError` reads as 422. `app.routes` answers every registered route in order, and every HTTP verb has its decorator: `get`, `post`, `put`, `delete`, `patch`, `head`, `options`.
+
 See [`petta.web`](../reference/petta-web) for route registration, router inclusion, middleware, and response types.
