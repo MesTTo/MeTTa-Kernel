@@ -96,6 +96,12 @@ grand.solve()
 # Rows[x, y, z]([Row(x=Sym('Tom'), y=Sym('Bob'), z=Sym('Ann'))])
 ```
 
+Tables cross both ways on the same reading: `m.add_table(head, source)`
+reads any tabular source by the interface it offers (polars `iter_rows`,
+pandas `itertuples`, a mapping of columns, any iterable of rows) into
+`(head v1 .. vn)` facts, and `rows.table()` answers the dict of columns
+every DataFrame constructor takes.
+
 Named spaces isolate both stored atoms and equations, each space compiling
 into its own module; `(context-space)` names the space the current code runs
 in. `m.derivation(atom)` builds proof trees naming the equations and stored
