@@ -171,7 +171,8 @@ exclude_dirs = ["tests", "HE", "build"]
 
 [tool.deptry]
 known_first_party = ["petta"]
-extend_exclude = ["HE", "examples", "build"]
+extend_exclude = ["HE", "examples", "build", "bench.py", "benchmarks"]
+optional_dependencies_dev_groups = ["test", "checks"]
 
 [tool.importlinter]
 root_package = "petta"
