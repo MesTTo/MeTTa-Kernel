@@ -36,7 +36,8 @@ Equality is the one inversion: `a == b` is ordinary Python comparison answering
   `where=` is a term the engine evaluates per match: `where=(V.n >= 60) & (V.n <= 70)`.
 `Rows` is a list of `Row` with `.columns`; `row.x` and `row["x"]` both work.
   `rows.one()` (exactly one), `.first()`, `.column(n)`, `.table()` -> dict of columns,
-  `.to_df()`/`.to_pl()` -> pandas/polars, `.build(head)`, `_repr_html_` in notebooks.
+  `.to_dicts()` -> plain row mappings, `.to_df()`/`.to_pl()` -> pandas/polars,
+  `.build(head)`, `_repr_html_` in notebooks.
 `m.prepare(*patterns, where=) -> Prepared`; `.solve(given=...)` many times, `.columns`.
 `m.stream(*patterns) -> Cursor`, engine-held, `.close()`, iterate lazily.
 `m.assuming(*facts)` is a block where those facts exist and then do not.

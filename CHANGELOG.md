@@ -17,6 +17,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Added deterministic inference and retired-instruction regression gates,
   property tests, differential tests, package-install tests, and static checks.
 - Added named MORK spaces and bulk Python space writes.
+- Added `Rows.to_dicts()` for Python-native row mappings.
 - Added machine-readable citation metadata and this release changelog.
 
 ### Changed
