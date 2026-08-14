@@ -43,6 +43,112 @@ test(every_runtime_term_has_a_metatype,
 
 :- end_tests(metta_metatypes).
 
+:- begin_tests(metta_operation_errors).
+
+host_error_case('+', '+'(1, invalid_number, _)).
+host_error_case('+', '+'(1.0e308, 1.0e308, _)).
+host_error_case('-', '-'(1, invalid_number, _)).
+host_error_case('-', '-'(1.0e308, -1.0e308, _)).
+host_error_case('*', '*'(1, invalid_number, _)).
+host_error_case('*', '*'(1.0e308, 2.0, _)).
+host_error_case('/', '/'(1, invalid_number, _)).
+host_error_case('/', '/'(1, 0, _)).
+host_error_case('/', '/'(1.0e308, 1.0e-308, _)).
+host_error_case('%', '%'(1, invalid_number, _)).
+host_error_case('%', '%'(1, 0, _)).
+host_error_case('<', '<'(1, invalid_number, _)).
+host_error_case('>', '>'(1, invalid_number, _)).
+host_error_case('<=', '<='(1, invalid_number, _)).
+host_error_case('>=', '>='(1, invalid_number, _)).
+host_error_case(min, min(1, invalid_number, _)).
+host_error_case(max, max(1, invalid_number, _)).
+host_error_case(exp, exp(invalid_number, _)).
+host_error_case('#+', '#+'(1, invalid_number, _)).
+host_error_case('#-', '#-'(1, invalid_number, _)).
+host_error_case('#*', '#*'(1, invalid_number, _)).
+host_error_case('#div', '#div'(1, invalid_number, _)).
+host_error_case('#//', '#//'(1, invalid_number, _)).
+host_error_case('#mod', '#mod'(1, invalid_number, _)).
+host_error_case('#min', '#min'(1, invalid_number, _)).
+host_error_case('#max', '#max'(1, invalid_number, _)).
+host_error_case('#<', '#<'(1, invalid_number, _)).
+host_error_case('#>', '#>'(1, invalid_number, _)).
+host_error_case('#=', '#='(1, invalid_number, _)).
+host_error_case('#\\=', '#\\='(1, invalid_number, _)).
+host_error_case('pow-math', 'pow-math'(1, invalid_number, _)).
+host_error_case('pow-math', 'pow-math'(0, -1, _)).
+host_error_case('sqrt-math', 'sqrt-math'(invalid_number, _)).
+host_error_case('sqrt-math', 'sqrt-math'(-1, _)).
+host_error_case('abs-math', 'abs-math'(invalid_number, _)).
+host_error_case('log-math', 'log-math'(1, invalid_number, _)).
+host_error_case('exp-math', 'exp-math'(invalid_number, _)).
+host_error_case('exp-math', 'exp-math'(10000, _)).
+host_error_case('trunc-math', 'trunc-math'(invalid_number, _)).
+host_error_case('ceil-math', 'ceil-math'(invalid_number, _)).
+host_error_case('floor-math', 'floor-math'(invalid_number, _)).
+host_error_case('round-math', 'round-math'(invalid_number, _)).
+host_error_case('sin-math', 'sin-math'(invalid_number, _)).
+host_error_case('cos-math', 'cos-math'(invalid_number, _)).
+host_error_case('tan-math', 'tan-math'(invalid_number, _)).
+host_error_case('asin-math', 'asin-math'(invalid_number, _)).
+host_error_case('asin-math', 'asin-math'(2, _)).
+host_error_case('acos-math', 'acos-math'(invalid_number, _)).
+host_error_case('acos-math', 'acos-math'(2, _)).
+host_error_case('atan-math', 'atan-math'(invalid_number, _)).
+host_error_case('isnan-math', 'isnan-math'(invalid_number, _)).
+host_error_case('isinf-math', 'isinf-math'(invalid_number, _)).
+host_error_case('min-atom', 'min-atom'([invalid_number], _)).
+host_error_case('max-atom', 'max-atom'([invalid_number], _)).
+host_error_case('random-int', 'random-int'(1, invalid_number, _)).
+host_error_case('random-float', 'random-float'(1, invalid_number, _)).
+host_error_case('random-float',
+                'random-float'(1.0e308, -1.0e308, _)).
+host_error_case('bind!', 'bind!'([invalid_key], ['new-state', 1], _)).
+host_error_case('change-state!', 'change-state!'([invalid_key], 1, _)).
+host_error_case('get-state', 'get-state'([invalid_key], _)).
+
+test(host_errors_name_the_written_operation,
+     [forall(host_error_case(Operation, Goal))]) :-
+    catch(call(Goal), Error, true),
+    nonvar(Error),
+    Error = error(Formal,
+                  context(Operation, 'while evaluating MeTTa operation')),
+    nonvar(Formal).
+
+boolean_error_case(and, and(true, 5, _)).
+boolean_error_case(or, or(false, 5, _)).
+boolean_error_case(not, not(5, _)).
+boolean_error_case(xor, xor(true, 5, _)).
+boolean_error_case(implies, implies(false, 5, _)).
+
+test(boolean_type_errors_are_loud,
+     [forall(boolean_error_case(Operation, Goal))]) :-
+    catch(call(Goal), Error, true),
+    nonvar(Error),
+    Error = error(type_error(boolean, 5),
+                  context(Operation, 'invalid MeTTa operation argument')).
+
+test(boolean_operations_remain_relational) :-
+    findall(A-B-C, and(A, B, C), Rows),
+    Rows == [true-true-true, true-false-false,
+             false-true-false, false-false-false].
+
+test(non_list_reduce_throws_its_own_type_error,
+     [throws(error(type_error(list, invalid_reduce),
+                   context(reduce, 'invalid MeTTa operation argument')))]) :-
+    reduce(invalid_reduce, _).
+
+test(variable_reduce_keeps_its_existing_empty_answer) :-
+    findall(Input-Out, reduce(Input, Out), Answers),
+    Answers == [[]-[]].
+
+test(control_exceptions_are_not_recontextualized) :-
+    Original = error(resource_error(stack), original_context),
+    catch(rethrow_metta_operation_error('+', Original), Error, true),
+    Error == Original.
+
+:- end_tests(metta_operation_errors).
+
 :- begin_tests(metta_type_answers,
                [ setup(setup_type_answers),
                  cleanup(cleanup_type_answers) ]).

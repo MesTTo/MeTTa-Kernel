@@ -443,15 +443,60 @@ captured_error(Goal, Type) :-
     catch(call(Goal), error(Type, _), true),
     nonvar(Type).
 
+captured_operation_error(Goal, Type, Operation) :-
+    catch(call(Goal), Error, true),
+    nonvar(Error),
+    Error = error(Type, context(Operation, _)).
+
 test(dynamic_and_compiled_calls_report_the_same_error) :-
     captured_error(dynamic_arithmetic_error, DynamicType),
     captured_error(compiled_arithmetic_error, CompiledType),
     DynamicType == type_error(evaluable, undefined_sym/0),
     CompiledType == DynamicType.
 
+test(dynamic_and_compiled_calls_name_the_written_operation) :-
+    captured_operation_error(dynamic_arithmetic_error, DynamicType,
+                             DynamicOperation),
+    captured_operation_error(compiled_arithmetic_error, CompiledType,
+                             CompiledOperation),
+    DynamicType == type_error(evaluable, undefined_sym/0),
+    CompiledType == DynamicType,
+    DynamicOperation == '+',
+    CompiledOperation == DynamicOperation.
+
 test(dynamic_errors_are_not_converted_to_failure,
      [throws(error(type_error(evaluable, undefined_sym/0), _))]) :-
     dynamic_arithmetic_error.
+
+cleanup_builtin_type_declarations(Path, ParsedForms) :-
+    forall(member(parsed(expression, _, Term), ParsedForms),
+           remove_sexp('&self', Term)),
+    retractall(compiled_metta_source(Path)),
+    retractall(imported_metta_source('&self', Path)),
+    retractall(import_life('&self', Path, _)).
+
+test(builtin_type_import_keeps_runtime_errors_loud) :-
+    once(( absolute_file_name('../../lib/lib_builtin_types.metta', Path,
+                              [access(read)]),
+           read_metta_source(Path, Source),
+           parse_metta_source(Source, ParsedForms) )),
+    setup_call_cleanup(
+        once(load_metta_file(Path, _)),
+        once(( captured_operation_error(compiled_arithmetic_error,
+                                        ArithmeticType,
+                                        ArithmeticOperation),
+               ArithmeticType == type_error(evaluable, undefined_sym/0),
+               ArithmeticOperation == '+',
+               translate_expr([and, true, 5], BoolGoals, _),
+               goals_list_to_conj(BoolGoals, BoolGoal),
+               captured_operation_error(BoolGoal, BoolType, BoolOperation),
+               BoolType == type_error(boolean, 5),
+               BoolOperation == and,
+               translate_expr(['min-atom', 5], MinGoals, MinOut),
+               goals_list_to_conj(MinGoals, MinGoal),
+               call(MinGoal),
+               MinOut == [] )),
+        cleanup_builtin_type_declarations(Path, ParsedForms)).
 
 :- end_tests(translator_evaluation_errors).
 
