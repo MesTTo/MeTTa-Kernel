@@ -3,6 +3,7 @@
 Efficient MeTTa language implementation in Prolog.
 
 Please check out the [Wiki](https://github.com/patham9/PeTTa/wiki) for more information.
+Contributor setup, gates, and measurement rules are in [DEVELOPING.md](DEVELOPING.md).
 
 ### Dependencies
 
