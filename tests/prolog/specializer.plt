@@ -24,6 +24,38 @@ load_specializer_regression(File, Results) :-
     directory_file_path('../regression', File, Path),
     load_metta_file(Path, Results).
 
+setup_concurrent_specialization :-
+    set_specializer_test_mode,
+    process_metta_string("\n
+(= (plunit-spec-race-inc $x) (+ $x 1))\n
+(= (plunit-spec-race $f $x) ($f $x))\n
+", _).
+
+cleanup_concurrent_specialization :-
+    cleanup_specializer_symbols(
+        ['plunit-spec-race', 'plunit-spec-race-inc']).
+
+run_concurrent_specialization(_) :-
+    translate_expr(
+        ['plunit-spec-race', 'plunit-spec-race-inc', 1], Goals, Out),
+    goals_list_to_conj(Goals, Goal),
+    once(call(Goal)),
+    Out == 2.
+
+test(concurrent_translation_creates_one_specialization,
+     [ setup(setup_concurrent_specialization),
+       cleanup(cleanup_concurrent_specialization) ]) :-
+    concurrent_forall(between(1, 64, Worker),
+                      run_concurrent_specialization(Worker),
+                      [threads(64)]),
+    findall(SpecName,
+            ho_specialization('plunit-spec-race', SpecName),
+            Specializations),
+    Specializations = [SpecName],
+    functor(Head, SpecName, 3),
+    aggregate_all(count, clause(Head, _), 1),
+    aggregate_all(count, '&self'(=, [SpecName|_], _), 1).
+
 setup_multiclause :-
     set_specializer_test_mode,
     process_metta_string("\n
