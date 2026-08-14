@@ -468,6 +468,16 @@ test(dynamic_errors_are_not_converted_to_failure,
      [throws(error(type_error(evaluable, undefined_sym/0), _))]) :-
     dynamic_arithmetic_error.
 
+test(an_unknown_head_remains_inert_data) :-
+    translate_expr([plunit_inert_head, 1], Goals, Out),
+    Goals == [],
+    Out == [plunit_inert_head, 1].
+
+test(quote_keeps_an_invalid_builtin_call_inert) :-
+    translate_expr([quote, ['+', 1, undefined_sym]], Goals, Out),
+    call_goals(Goals),
+    Out == ['+', 1, undefined_sym].
+
 cleanup_builtin_type_declarations(Path, ParsedForms) :-
     forall(member(parsed(expression, _, Term), ParsedForms),
            remove_sexp('&self', Term)),
