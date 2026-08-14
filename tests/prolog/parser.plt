@@ -117,6 +117,10 @@ test(semicolons_inside_strings_remain_data) :-
     sread("(value \"a;b\")", Term),
     Term == [value, "a;b"].
 
+test(comment_is_a_number_token_boundary) :-
+    sread("(1; ignored ) and (!\n 2)", Term),
+    Term == [1, 2].
+
 :- end_tests(parser_comments).
 
 

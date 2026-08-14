@@ -28,16 +28,12 @@ check_requested_file :-
 
 check_file(File) :-
     read_file_to_string(File, Source, []),
-    string_codes(Source, RawCodes),
-    strip(RawCodes, outside, Codes),
-    phrase(top_forms(Forms, 1), Codes),
-    maplist(parsed_form, Forms, Terms),
+    parse_metta_source(Source, ParsedForms),
+    maplist(parsed_term, ParsedForms, Terms),
     prepare_file_symbols(Terms),
     forall(member(Term, Terms), one_translation(File, Term)).
 
-parsed_form(Form, Term) :-
-    arg(1, Form, Source),
-    sread(Source, Term).
+parsed_term(parsed(_, _, Term), Term).
 
 prepare_file_symbols(Terms) :-
     forall(member([=, [Function|_], _], Terms),

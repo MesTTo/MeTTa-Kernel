@@ -44,8 +44,7 @@ test(translation_error_has_an_engine_message) :-
 
 test(escaped_quote_does_not_close_a_string_or_form) :-
     Source = "!(test \"quote: \\\" and )\" \"quote: \\\" and )\")\n!(quote done)",
-    string_codes(Source, RawCodes),
-    strip(RawCodes, outside, Codes),
+    string_codes(Source, Codes),
     once(phrase(top_forms(Forms, 1), Codes)),
     Forms = [runnable(First), runnable(Second)],
     sread(First, FirstTerm),
@@ -62,6 +61,16 @@ test(loader_and_reader_agree_on_inline_comments) :-
     ReadTerm == [a, b],
     Results == [[a, b]].
 
+test(comment_parentheses_do_not_close_a_form) :-
+    Source = "!(quote (a ; ignored ) and (!( \"\n b))\n!(quote done)",
+    string_codes(Source, Codes),
+    once(phrase(top_forms(Forms, 1), Codes)),
+    Forms = [runnable(First), runnable(Second)],
+    sread(First, FirstTerm),
+    sread(Second, SecondTerm),
+    FirstTerm == [quote, [a, b]],
+    SecondTerm == [quote, done].
+
 test(missing_form_open_reports_its_syntax_error,
      [throws(error(syntax_error(_), none))]) :-
     string_codes("not-a-form", Codes),
@@ -76,11 +85,9 @@ test(missing_form_close_reports_its_syntax_error,
 
 :- begin_tests(filereader_comments).
 
-%A source reaches the reader through two doors: sread/2 on its own for a
-%direct string, and the loader, which strips the whole source once and then
-%reads each split form without stripping it again. The two have to agree, so
-%each case goes through both. parser.plt covers the reader alone; this covers
-%the pair.
+%A source reaches the comment grammar through two doors: sread/2 on its own and
+%the loader's raw-source splitter followed by sread/2. The two have to agree, so
+%each case goes through both. parser.plt covers the reader on its own.
 comment_case("(a ; ignored tokens\n b)", [a, b]).
 comment_case("; a leading comment\n(a b)", [a, b]).
 comment_case("(value \"a;b\")", [value, "a;b"]).
