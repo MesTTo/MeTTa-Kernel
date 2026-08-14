@@ -90,21 +90,29 @@ test(drop_fun_meta_removes_one_variant_only,
 test(engine_state_does_not_use_function_names,
      [ setup((setup_meta_store,
               nb_setval(specneeded, user_spec_state),
-              nb_setval(lambda_counter, user_lambda_state),
-              ( nb_current('$petta_lambda_counter', _)
-                -> nb_delete('$petta_lambda_counter')
-                ; true ))),
+              nb_setval(lambda_counter, user_lambda_state))),
        cleanup((cleanup_meta_store,
                 nb_delete(specneeded),
-                nb_delete(lambda_counter),
-                ( nb_current('$petta_lambda_counter', _)
-                  -> nb_delete('$petta_lambda_counter')
-                  ; true ))) ]) :-
+                nb_delete(lambda_counter))) ]) :-
     translate_clause([=, [specneeded, X], X], _),
     translate_clause([=, [lambda_counter, Y], Y], _),
-    next_lambda_name(lambda_1),
+    next_lambda_name(First),
+    next_lambda_name(Second),
+    First \== Second,
     nb_getval(specneeded, user_spec_state),
     nb_getval(lambda_counter, user_lambda_state).
+
+%A lambda name must be unique across the whole process, not per thread. SWI
+%global variables are thread-local, so a counter kept in one gave each
+%hyperpose worker its own sequence from 1: two threads generated lambda_1 and
+%the second assertz added its body to the first lambda's predicate, so one
+%lambda answered with both branches' results.
+test(lambda_names_are_unique_across_threads) :-
+    next_lambda_name(Main),
+    concurrent_maplist([_,Name]>>next_lambda_name(Name), [1,2,3,4], Workers),
+    msort([Main|Workers], Sorted),
+    sort([Main|Workers], Unique),
+    Sorted == Unique.
 
 :- end_tests(translator_meta_store).
 
@@ -290,8 +298,10 @@ test(output_type_check_waits_for_a_return_value) :-
                           retractall(user:arity(plunit_typed_once, _)),
                           retractall(user:'&self'(:, plunit_typed_once, _)))) ]).
 
+%next_lambda_name/1 counts in gensym's process-wide flag, whose key gensym/2
+%builds as '$gs_' followed by the base.
 lambda_counter_value(Value) :-
-    ( nb_current('$petta_lambda_counter', Value) -> true ; Value = 0 ).
+    flag('$gs_lambda_', Value, Value).
 
 cleanup_generated_lambdas(First) :-
     lambda_counter_value(Last),

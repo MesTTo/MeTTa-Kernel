@@ -105,7 +105,7 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
         true,
         ( catch(user:load_metta_file(Path, _), Error, true),
           Error = error(domain_error(function_input_arities(+, [2]), 3), _),
-          nb_getval('$petta_lambda_counter', LambdaNumber),
+          flag('$gs_lambda_', LambdaNumber, LambdaNumber),
           format(atom(GeneratedLambda), 'lambda_~d', [LambdaNumber]),
           test_lambda_functions(AfterLambdas),
           AfterLambdas == BeforeLambdas,
