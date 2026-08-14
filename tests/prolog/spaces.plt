@@ -46,3 +46,78 @@ test(ordinary_native_match_is_unchanged,
     Result == ordinary.
 
 :- end_tests(spaces_cycles).
+
+:- multifile metta_on_function_changed/1.
+
+metta_on_function_changed(plunit_registration_rollback) :-
+    throw(error(plunit_injected_change_hook_failure, none)).
+
+:- begin_tests(spaces_registration).
+
+registration_terms(F,
+                   [[=, [F, 1], one],
+                    [=, [F, 2], two],
+                    [=, [F, 3], three],
+                    [=, [F, 4], four]]).
+
+cleanup_registered_function(F) :-
+    findall(Ref,
+            ( user:translated_from(Ref, [=, [F|_], _]),
+              \+ clause_property(Ref, erased) ),
+            Refs),
+    forall(member(Ref, Refs),
+           ( erase(Ref), retractall(user:translated_from(Ref, _)) )),
+    retractall(user:'&self'(=, [F|_], _)),
+    user:clear_fun_meta(F),
+    retractall(user:arity(F, _)),
+    retractall(user:fun(F)),
+    user:unregister_fun_everywhere(F).
+
+test(add_atom_records_one_arity_for_many_equations,
+     [ setup(cleanup_registered_function(plunit_add_arity)),
+       cleanup(cleanup_registered_function(plunit_add_arity)) ]) :-
+    registration_terms(plunit_add_arity, Terms),
+    forall(member(Term, Terms), 'add-atom'('&self', Term, true)),
+    findall(Arity, user:arity(plunit_add_arity, Arity), Arities),
+    Arities == [2].
+
+test(file_loader_records_one_arity_for_many_equations,
+     [ setup(cleanup_registered_function(plunit_load_arity)),
+       cleanup(cleanup_registered_function(plunit_load_arity)) ]) :-
+    Source = "(= (plunit_load_arity 1) one)\n\
+(= (plunit_load_arity 2) two)\n\
+(= (plunit_load_arity 3) three)\n\
+(= (plunit_load_arity 4) four)",
+    process_metta_string(Source, _),
+    findall(Arity, user:arity(plunit_load_arity, Arity), Arities),
+    Arities == [2].
+
+test(non_symbol_function_head_is_rejected_before_mutation,
+     [ setup((retractall(user:fun(5)), retractall(user:arity(5, _)),
+              retractall(user:'&self'(=, [5|_], _)))),
+       cleanup((retractall(user:fun(5)), retractall(user:arity(5, _)),
+                retractall(user:'&self'(=, [5|_], _)))) ]) :-
+    Term = [=, [5, X], 4],
+    catch('add-atom'('&self', Term, true), Error, true),
+    nonvar(Error),
+    Error = error(type_error(atom, 5), _),
+    \+ user:fun(5),
+    \+ user:arity(5, _),
+    \+ clause(user:'&self'(=, [5, X], 4), true).
+
+test(change_hook_error_rolls_back_every_registration_write,
+     [ setup(cleanup_registered_function(plunit_registration_rollback)),
+       cleanup(cleanup_registered_function(plunit_registration_rollback)) ]) :-
+    Term = [=, [plunit_registration_rollback, X], X],
+    catch('add-atom'('&self', Term, true), Error, true),
+    nonvar(Error),
+    Error = error(plunit_injected_change_hook_failure, none),
+    \+ user:fun(plunit_registration_rollback),
+    \+ user:arity(plunit_registration_rollback, _),
+    \+ user:fun_meta_clause(plunit_registration_rollback, _, _),
+    \+ user:translated_from(_, Term),
+    \+ clause(user:'&self'(=, [plunit_registration_rollback, X], X), true),
+    functor(Head, plunit_registration_rollback, 2),
+    \+ clause(user:Head, _, _).
+
+:- end_tests(spaces_registration).
