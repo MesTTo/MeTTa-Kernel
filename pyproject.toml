@@ -155,11 +155,17 @@ ignore_missing_imports = true
 follow_imports = "skip"
 
 [tool.interrogate]
-fail-under = 40
+fail-under = 80
 exclude = ["tests", "HE", "examples", "build"]
+ignore-init-method = true
 ignore-init-module = true
 ignore-magic = true
-ignore-private = false
+ignore-nested-classes = true
+ignore-nested-functions = true
+ignore-overloaded-functions = true
+ignore-private = true
+ignore-property-decorators = true
+ignore-semiprivate = true
 
 [tool.vulture]
 min_confidence = 80

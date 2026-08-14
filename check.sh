@@ -141,8 +141,8 @@ run REPORT bandit      in_py "$PY" -m bandit -q -r petta
 # ledger C4: undeclared optional extras
 run REPORT deptry      in_py "$PY" -m deptry .
 run REPORT audit       in_py "$PY" -m pip_audit --progress-spinner off
-# ledger F: 41.9% against an 80% target
-run REPORT interrogate in_py "$PY" -m interrogate petta
+# ledger F: public API documentation is held above the 80% target
+run GATE   interrogate in_py "$PY" -m interrogate petta
 run REPORT codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib python/petta python/bench.py src lib README.md"
 run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' python/petta python/tests"
 
