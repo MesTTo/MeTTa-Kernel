@@ -64,3 +64,46 @@ test(nonterminal_loader_output_has_no_ansi_escapes) :-
     \+ sub_string(Output, _, _, _, "\e[").
 
 :- end_tests(filereader_terminal_output).
+
+:- begin_tests(filereader_control_errors).
+
+test(loader_catches_do_not_consume_control_exceptions) :-
+    tmp_file_stream(text, Path, Stream),
+    format(Stream, "!(plunit-loader-control)~n", []),
+    close(Stream),
+    setup_call_cleanup(
+        ( assertz((user:'plunit-loader-control'(_) :-
+                       throw(inference_limit_exceeded)), ClauseRef),
+          user:register_fun('plunit-loader-control') ),
+        catch(user:load_metta_file(Path, _), Error, true),
+        ( erase(ClauseRef),
+          retractall(user:fun('plunit-loader-control')),
+          retractall(user:arity('plunit-loader-control', _)),
+          retractall(user:compiled_metta_source(Path)),
+          retractall(user:imported_metta_source(_, Path)),
+          delete_file(Path) )),
+    Error == inference_limit_exceeded.
+
+test(cleared_native_space_repopulates_compiled_source) :-
+    Space = '&plunit_loader_life',
+    tmp_file_stream(text, Path, Stream),
+    format(Stream, "(loader-life-marker payload)~n", []),
+    close(Stream),
+    setup_call_cleanup(
+        true,
+        ( user:load_metta_file(Path, _, Space),
+          once(user:'get-atoms'(Space, ['loader-life-marker', payload])),
+          forall(( current_predicate(user:Space/Arity),
+                   functor(Head, Space, Arity) ),
+                 retractall(user:Head)),
+          \+ user:'get-atoms'(Space, ['loader-life-marker', payload]),
+          user:load_metta_file(Path, _, Space),
+          once(user:'get-atoms'(Space, ['loader-life-marker', payload])) ),
+        ( forall(( current_predicate(user:Space/Arity),
+                   functor(Head, Space, Arity) ),
+                 retractall(user:Head)),
+          retractall(user:compiled_metta_source(Path)),
+          retractall(user:imported_metta_source(Space, Path)),
+          delete_file(Path) )).
+
+:- end_tests(filereader_control_errors).

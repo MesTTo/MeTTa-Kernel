@@ -109,7 +109,11 @@ check_translation_determinism() {
     cd "$HERE/tests/prolog" || return 1
     first=$(find "$HERE/examples" -type f -name '*.metta' -print -quit)
     [ -n "$first" ] || return 1
-    find "$HERE/examples" -type f -name '*.metta' -print | LC_ALL=C sort |
+    # This upstream loader fixture is intentionally malformed. Its parent
+    # example asserts that importing it reports the source error.
+    find "$HERE/examples" -type f -name '*.metta' \
+        ! -path "$HERE/examples/imports/import_error_broken.metta" -print |
+    LC_ALL=C sort |
     while IFS= read -r file; do
         swipl -q --on-warning=status --on-error=status \
             translation_determinism.pl -- "$file" || exit 1
