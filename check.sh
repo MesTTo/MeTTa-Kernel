@@ -134,8 +134,8 @@ run GATE   ty          in_py "$PY" -m ty check --python "$(dirname "$(dirname "$
 run REPORT pylint      in_py "$PY" -m pylint petta --disable=C0301,C0114,C0115,C0116,R0913,R0914,R0912,R0915,C0103 --score=n
 # ledger E: 255 findings, hot in the codec
 run REPORT perflint    in_py "$PY" -m pylint --load-plugins=perflint --disable=all --enable=W8201,W8202,W8204,W8205 petta --score=n
-# ledger B2: rank F at 47, rank E at 35
-run REPORT xenon       in_py "$PY" -m xenon petta --max-absolute B --max-modules A --max-average A
+# Complexity is bounded per block and across each module.
+run GATE   xenon       in_py "$PY" -m xenon petta --max-absolute B --max-modules A --max-average A
 run REPORT refurb      in_py "$PY" -m refurb petta bench.py
 run REPORT bandit      in_py "$PY" -m bandit -q -r petta
 # ledger C4: undeclared optional extras
