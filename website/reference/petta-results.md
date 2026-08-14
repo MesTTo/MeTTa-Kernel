@@ -17,6 +17,10 @@ Source: `python/petta/results.py`.
 >     than dynamic class names [tested test_rows_copy_and_pickle_protocols]
 >   - terminal representations bound both rows and individual values and state
 >     the omitted row count [tested test_rows_repr_is_bounded_and_recursive]
+>   - Rows.build preserves its requested class as the list element type [tested
+>     test_target_type_overloads_preserve_the_requested_class]
+>   - Rows.to_dicts returns one Python-native mapping per row, including empty
+>     mappings for zero-column rows [tested test_rows_to_dicts_returns_plain_records]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -117,11 +121,19 @@ def one(self) -> Row:
 ### `Rows.build`
 
 ```python
-def build(self, column: str, cls: type) -> list[Any]:
+def build(self, column: str, cls: type[_BuildT]) -> list[_BuildT]:
 ```
 
 > One column's atoms rebuilt as instances of cls, through the
 > two-way translator: typed rows, one call.
+
+### `Rows.to_dicts`
+
+```python
+def to_dicts(self) -> list[dict[str, Any]]:
+```
+
+> Return one Python-native column-to-value mapping per row.
 
 ### `Rows.table`
 

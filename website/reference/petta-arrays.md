@@ -18,6 +18,8 @@ Source: `python/petta/arrays.py`.
 >   - _top_indices uses 35.26% fewer instructions than the prior full sort for
 >     500 top-10 selections from 100,000 scores [measured 2026-08-14: minimum
 >     of three perf stat instructions:u runs]
+>   - the fixed public constructor vocabulary is marked immutable to type
+>     checkers [tested test_policy_constants_are_final]
 > Guarded by:
 >   - _PROTOCOLS_LOCK serializes one-time protocol registration
 >     [tested test_array_protocol_registration_is_idempotent]

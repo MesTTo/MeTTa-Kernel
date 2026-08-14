@@ -29,6 +29,12 @@ Source: `python/petta/space.py`.
 >     test_define_refuses_callable_objects]
 >   - query, prepare, and stream preserve distinct variable columns in first
 >     appearance order [tested test_query_surfaces_share_column_order]
+>   - public name and save-format annotations distinguish their string
+>     contexts [tested test_public_context_types_are_distinct]
+>   - cast preserves a concrete target class as its static return type and keeps
+>     the target positional-only [tested
+>     test_target_type_overloads_preserve_the_requested_class,
+>     test_cast_target_is_positional_only]
 > Owns:
 >   - MeTTa.save owns its sibling temporary file and removes it after every
 >     failed operation [tested test_save_failure_preserves_existing_file]
@@ -42,7 +48,7 @@ The entries below reproduce the source signatures and docstrings.
 ## `current_space`
 
 ```python
-def current_space(default: str = "&self") -> str:
+def current_space(default: SpaceName = _DEFAULT_SPACE) -> SpaceName:
 ```
 
 > The space whose module the ENGINE is evaluating in right now.
@@ -77,7 +83,7 @@ class MeTTa:
 ### `MeTTa.space_name`
 
 ```python
-def space_name(self) -> str:
+def space_name(self) -> SpaceName:
 ```
 
 No docstring is defined.
@@ -85,7 +91,7 @@ No docstring is defined.
 ### `MeTTa.space`
 
 ```python
-def space(self, name: str) -> MeTTa:
+def space(self, name: SpaceName) -> MeTTa:
 ```
 
 > Another space on the same engine.
@@ -248,7 +254,11 @@ def profile(
 ### `MeTTa.save`
 
 ```python
-def save(self, path: str | os.PathLike[str], format: str = "metta") -> int:
+def save(
+    self,
+    path: str | os.PathLike[str],
+    format: SaveFormat = "metta",
+) -> int:
 ```
 
 > Write every stored atom of this space, equations included, as
@@ -339,7 +349,23 @@ def count(self) -> int:
 ### `MeTTa.cast`
 
 ```python
-def cast(self, value, type_):
+def cast(self, value: Any, type_: _builtins.type[_CastT], /) -> _CastT:
+```
+
+No docstring is defined.
+
+### `MeTTa.cast`
+
+```python
+def cast(self, value: Any, type_: Atom | str, /) -> Any:
+```
+
+No docstring is defined.
+
+### `MeTTa.cast`
+
+```python
+def cast(self, value: Any, type_: Any, /) -> Any:
 ```
 
 > Answer value, narrowed to its Python-most spelling, when this
@@ -618,7 +644,7 @@ def register_op(
     self,
     fn: Callable | None = None,
     *,
-    name: str | None = None,
+    name: MettaName | None = None,
     typed: bool = True,
     raw: bool = False,
     pass_atoms: bool = False,
@@ -647,7 +673,7 @@ def register_op(
 ### `MeTTa.unregister_op`
 
 ```python
-def unregister_op(self, name: str) -> None:
+def unregister_op(self, name: MettaName) -> None:
 ```
 
 > Remove a registered operation, every arity of it.
@@ -663,7 +689,7 @@ def builtins(self) -> list[str]:
 ### `MeTTa.is_function`
 
 ```python
-def is_function(self, name: str) -> bool:
+def is_function(self, name: MettaName) -> bool:
 ```
 
 > Report whether a function is visible from this space.
@@ -671,7 +697,7 @@ def is_function(self, name: str) -> bool:
 ### `MeTTa.is_function_here`
 
 ```python
-def is_function_here(self, name: str) -> bool:
+def is_function_here(self, name: MettaName) -> bool:
 ```
 
 > Whether a function would answer from THIS space: it has clauses
@@ -681,7 +707,7 @@ def is_function_here(self, name: str) -> bool:
 ### `MeTTa.arities`
 
 ```python
-def arities(self, name: str) -> list[int]:
+def arities(self, name: MettaName) -> list[int]:
 ```
 
 > Compiled predicate arities for a name: MeTTa arity plus one each.
@@ -832,7 +858,7 @@ def type(
 ### `MeTTa.fn`
 
 ```python
-def fn(self, name: str) -> _EngineFunction:
+def fn(self, name: MettaName) -> _EngineFunction:
 ```
 
 > Any engine function as an ordinary Python callable.
@@ -855,7 +881,7 @@ def integrate(self, target: Any) -> str:
 ### `MeTTa.register_space`
 
 ```python
-def register_space(self, name: str, provider: Any) -> Any:
+def register_space(self, name: SpaceName, provider: Any) -> Any:
 ```
 
 > A space answered by Python: matches, adds and removals route to
@@ -865,7 +891,7 @@ def register_space(self, name: str, provider: Any) -> Any:
 ### `MeTTa.unregister_space`
 
 ```python
-def unregister_space(self, name: str) -> None:
+def unregister_space(self, name: SpaceName) -> None:
 ```
 
 > Remove a registered Python-backed space.
