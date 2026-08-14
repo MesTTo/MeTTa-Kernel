@@ -214,6 +214,24 @@ test(variable_index_still_enumerates,
 
 :- end_tests(metta_index_atom).
 
+:- begin_tests(metta_alpha_membership).
+
+test(success_does_not_retain_unification_bindings) :-
+    'is-alpha-member'([1, X], [[1, 2], [3, 4]], Bool),
+    Bool == true,
+    var(X).
+
+test(translated_success_leaves_the_query_variable_unbound) :-
+    setup_call_cleanup(
+        assertz(silent(true), Ref),
+        process_metta_string(
+            "!(let $b (is-alpha-member (1 $x) ((1 2) (3 4))) $x)",
+            [Result]),
+        erase(Ref)),
+    var(Result).
+
+:- end_tests(metta_alpha_membership).
+
 :- begin_tests(metta_builtin_outputs).
 
 wrong_prebound_output('car-atom'([a, b], [])).
