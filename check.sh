@@ -92,6 +92,31 @@ check_prolog() {
 }
 run GATE prolog check_prolog
 
+# Run the four reviewed library(check) predicates plus check/0 only after a
+# representative MeTTa function has been compiled. The driver also enables
+# var_branches before consulting the engine, so branch-only variables fail the
+# gate as SWI warnings.
+check_prolog_static() {
+    cd "$HERE/tests/prolog" || return 1
+    swipl -q --on-warning=status --on-error=status static_checks.pl
+}
+run GATE prolog-static check_prolog_static
+
+# Parse every example and reject any form for which the translator exposes a
+# second solution. Each file gets a fresh process because translating lambdas
+# and specializations intentionally registers generated predicates.
+check_translation_determinism() {
+    cd "$HERE/tests/prolog" || return 1
+    first=$(find "$HERE/examples" -type f -name '*.metta' -print -quit)
+    [ -n "$first" ] || return 1
+    find "$HERE/examples" -type f -name '*.metta' -print | LC_ALL=C sort |
+    while IFS= read -r file; do
+        swipl -q --on-warning=status --on-error=status \
+            translation_determinism.pl -- "$file" || exit 1
+    done
+}
+run GATE prolog-determinism check_translation_determinism
+
 # plunit, SWI's own unit test framework. The engine had no direct tests at
 # all before tests/prolog/: every one of its 3187 Prolog lines was reached
 # only through janus from Python or through a whole MeTTa example, so a

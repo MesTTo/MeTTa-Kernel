@@ -160,6 +160,23 @@ test(trace_form_has_one_compilation) :-
 
 :- end_tests(translator_stream_rewrites).
 
+:- begin_tests(translator_prolog_imports).
+
+prolog_importer(import_prolog_functions_from_file).
+prolog_importer(import_prolog_functions_from_module).
+
+test(each_prolog_import_has_one_translation,
+     [ forall(prolog_importer(Importer)),
+       true(Solutions = [_]) ]) :-
+    findall(Goals-Out,
+            translate_expr([Importer, source, [imported_function]], Goals,
+                           Out),
+            Solutions),
+    Solutions = [[Goal]-_],
+    functor(Goal, Importer, 3).
+
+:- end_tests(translator_prolog_imports).
+
 :- begin_tests(translator_translation_depth).
 
 nested_add(0, 0) :- !.
