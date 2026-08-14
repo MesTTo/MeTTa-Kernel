@@ -180,6 +180,28 @@ test(setup_failure_restores_preexisting_sibling_module) :-
 
 :- end_tests(metta_python_import_cleanup).
 
+:- begin_tests(metta_registration).
+
+%A registered name with no predicate records no arity, and
+%incomplete_application_kind/3 reads a missing arity as "not applied far
+%enough", so every call to that name compiles to a partial application: (sqrt
+%4) answered (partial sqrt (4)) rather than computing or failing. A special
+%form is exempt because the translator consumes it before dispatch, and so is
+%a name whose predicate exists under some other arity.
+special_form(Name) :- clause(translate_special_dl(Name, _, _, _, _), _).
+
+test(every_registered_function_is_callable_or_a_special_form,
+     [true(Unbacked == [])]) :-
+    findall(Name,
+            ( fun(Name),
+              \+ arity(Name, _),
+              \+ special_form(Name),
+              \+ current_predicate(Name/_) ),
+            Names),
+    sort(Names, Unbacked).
+
+:- end_tests(metta_registration).
+
 :- begin_tests(metta_set_operations).
 
 %The tuple set operations remove by equality, not by unification. select/3
