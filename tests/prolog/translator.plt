@@ -1,8 +1,7 @@
 % Purpose: direct PlUnit coverage for translator control forms and branch
 %   rewrites whose failures are difficult to localize through whole examples.
 % Open Obligations:
-%   To Do: Add build_branch/4, merge_branch_returns/3, and the remaining
-%     branch cases from the engine review.
+%   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
@@ -160,3 +159,61 @@ test(trace_form_has_one_compilation) :-
     Print =@= 'println!'(1, _).
 
 :- end_tests(translator_stream_rewrites).
+
+:- begin_tests(translator_branch_returns).
+
+test(build_branch_without_goals_unifies_at_runtime) :-
+    build_branch(true, Value, Out, Branch),
+    Value \== Out,
+    Branch == (Out = Value).
+
+test(build_branch_keeps_variable_value_private_until_runtime) :-
+    build_branch(produce(Value), Value, Out, Branch),
+    Value \== Out,
+    Branch == (produce(Value), Out = Value).
+
+test(build_branch_moves_a_ground_value_before_its_goals) :-
+    build_branch(check_value, answer, Out, Branch),
+    Branch == (answer = Out, check_value).
+
+test(private_branch_return_is_merged) :-
+    Head = branch_private(Input, Out),
+    Body0 = (guard -> (produce(Input, Value), Out = Value) ; Out = none),
+    merge_branch_returns(Head, Body0, Body),
+    Value == Out,
+    Body == (guard -> produce(Input, Out) ; Out = none).
+
+test(head_parameter_is_not_merged) :-
+    Head = branch_head(Value, Out),
+    Body0 = (guard -> (produce(Value), Out = Value) ; Out = none),
+    merge_branch_returns(Head, Body0, Body),
+    Value \== Out,
+    Body == Body0.
+
+test(value_used_outside_its_branch_is_not_merged) :-
+    Head = branch_shared(Out),
+    Body0 = (guard -> (produce(Value), Out = Value) ; consume(Value)),
+    merge_branch_returns(Head, Body0, Body),
+    Value \== Out,
+    Body == Body0.
+
+%The generator fuzzer found this third condition: a value produced before the
+%conditional is not private to either arm, even when one arm returns it.
+test(value_produced_before_the_branch_is_not_merged) :-
+    Head = branch_prebound(Input, Out),
+    Body0 = (produce(Input, Value),
+             (guard -> Out = Value ; Out = none)),
+    merge_branch_returns(Head, Body0, Body),
+    Value \== Out,
+    Body == Body0.
+
+test(nested_alternatives_can_produce_one_private_return) :-
+    Head = branch_nested(Out),
+    Body0 = (guard -> ((choice -> left(Value) ; right(Value)),
+                       Out = Value)
+                   ; Out = none),
+    merge_branch_returns(Head, Body0, Body),
+    Value == Out,
+    Body == (guard -> (choice -> left(Out) ; right(Out)) ; Out = none).
+
+:- end_tests(translator_branch_returns).

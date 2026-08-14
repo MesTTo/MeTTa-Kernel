@@ -14,9 +14,7 @@
 % Open Obligations:
 %   To Do: cover sread's error paths once they raise rather than fail.
 %   Hacks: None
-%   Future Enhancements: the same treatment for translator.pl's branch
-%     merge, whose third condition was bought with a fuzzer counterexample
-%     and has no direct test.
+%   Future Enhancements: None
 
 % Load the engine through metta.pl, not main.pl. main.pl carries
 % `:- initialization(main, main).`, which fires on consult and runs
