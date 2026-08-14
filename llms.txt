@@ -121,7 +121,8 @@ constant time, only http/https schemes are accepted.
 `petta.aio`: `AsyncMeTTa` runs engine calls on one worker thread behind async.
 `petta.testing`: the hypothesis strategies this suite fuzzes itself with
 (`atoms`, `expressions`, `names`, `numbers`, `texts`, `symbols`, `variables`,
-`grounded`, `numpy_scalars`) plus the benchmark harness.
+`grounded`, `numpy_scalars`) plus `benchmark_case`, `benchmark_counter_slope`,
+and `measure_instructions` for deterministic benchmark gates.
 
 ## Contracts that cost real debugging
 
@@ -140,4 +141,5 @@ Python `None` from an operation answers nothing, which is why an `Optional` retu
 declares the value type.
 Engine calls belong to the thread that made the engine; `petta.aio` or
 `remote.serve` own the crossing, `engine_thread` and `current_space()` report it.
-Deterministic measurement is `stats().inferences`, not wall clock.
+Deterministic goal-call measurement is `stats().inferences`. Primitive work is
+measured with `perf stat -e instructions:u`. Wall clock is advisory.

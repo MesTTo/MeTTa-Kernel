@@ -335,11 +335,14 @@ dual-mode relation in the same `(weight value)` shape, so a lookup table, a
 heuristic scorer or a neural network all feed the algebra identically.
 `python/bench.py` runs the pytest-benchmark suite. `--list` prints its named
 cases and `--counter-only` runs the deterministic regression gate without
-using wall time. Engine cases compare the minimum of three
-`stats().inferences` samples with `python/benchmarks/baseline.json`.
-`python/benchmarks/check_instructions.py` applies the same policy to the three
-engine-free cases with `perf stat -e instructions:u`. Wall results remain
-advisory and can be written with `--json`.
+using wall time. The gate uses `--keep-going`, so every case reports before a
+failure exits. Engine cases compare the minimum of three `stats().inferences`
+samples with `python/benchmarks/baseline.json`; join and let cases also compare
+inference growth between two fixed workload sizes.
+`python/benchmarks/check_instructions.py` measures the Python codecs and the
+primitive-heavy let, digest, alpha-unique, sort, source-load, Python-method,
+and space-name paths with `perf stat -e instructions:u`. Setup is outside the
+counted interval. Wall results remain advisory and can be written with `--json`.
 
 On top of that closeness sits a prover, `pettaprove.prove`, layered
 BESIDE the core in its own repository because it is built entirely on
