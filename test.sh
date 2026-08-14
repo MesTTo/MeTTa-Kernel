@@ -24,14 +24,20 @@ run_test() {
 }
 
 pids=""
-pidfile=$(mktemp "${TMPDIR:-/tmp}/metta-pid-map.XXXXXX") || exit 2
-trap 'rm -f "$pidfile"' EXIT HUP INT TERM
+work=$(mktemp -d "${TMPDIR:-/tmp}/metta-example-runner.XXXXXX") || exit 2
+pidfile="$work/pids.tsv"
+filelist="$work/examples.txt"
+trap 'rm -rf "$work"' EXIT HUP INT TERM
 
 if [ "$#" -eq 0 ]; then
-    set -- ./examples/*.metta
+    find ./examples -type f -name '*.metta' \
+        ! -path '*/_fixtures/*' -print | LC_ALL=C sort > "$filelist"
+else
+    printf '%s\n' "$@" > "$filelist"
 fi
+[ -s "$filelist" ] || { echo "test.sh: no examples found" >&2; exit 2; }
 
-for f do
+while IFS= read -r f; do
     base=$(basename "$f")
     case "$base" in repl.metta|llm_cities.metta|torch.metta|greedy_chess.metta|git_import2.metta|torch_lib.metta)
         continue ;;
@@ -40,7 +46,7 @@ for f do
     pid=$!
     pids="$pids $pid"
     printf '%s\t%s\n' "$pid" "$f" >> "$pidfile"
-done
+done < "$filelist"
 
 status=0
 for pid in $pids; do

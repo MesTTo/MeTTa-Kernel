@@ -1,2 +1,1 @@
-!(test (collapse (1 2 3))
-       ((1 2 3)))
+control/collapse.metta

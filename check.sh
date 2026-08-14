@@ -112,7 +112,7 @@ check_translation_determinism() {
     # This upstream loader fixture is intentionally malformed. Its parent
     # example asserts that importing it reports the source error.
     find "$HERE/examples" -type f -name '*.metta' \
-        ! -path "$HERE/examples/imports/import_error_broken.metta" -print |
+        ! -path "$HERE/examples/integration/_fixtures/imports/import_error_broken.metta" -print |
     LC_ALL=C sort |
     while IFS= read -r file; do
         swipl -q --on-warning=status --on-error=status \
