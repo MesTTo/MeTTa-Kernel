@@ -157,7 +157,8 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
           \+ user:'get-atoms'('&self',
                               [=, [RuntimeFunction, _], _]),
           \+ user:compiled_metta_source(Path),
-          \+ user:imported_metta_source(_, Path) ),
+          \+ user:imported_metta_source(_, Path),
+          \+ user:import_life(_, Path, _) ),
         ( cleanup_test_function(Outer),
           cleanup_test_function(RuntimeFunction),
           retractall(user:symbol_head(Symbol, _)),
@@ -272,17 +273,47 @@ test(cleared_native_space_repopulates_compiled_source) :-
         true,
         ( user:load_metta_file(Path, _, Space),
           once(user:'get-atoms'(Space, ['loader-life-marker', payload])),
-          forall(( current_predicate(user:Space/Arity),
-                   functor(Head, Space, Arity) ),
-                 retractall(user:Head)),
+          user:clear_native_atoms(Space),
           \+ user:'get-atoms'(Space, ['loader-life-marker', payload]),
           user:load_metta_file(Path, _, Space),
           once(user:'get-atoms'(Space, ['loader-life-marker', payload])) ),
-        ( forall(( current_predicate(user:Space/Arity),
-                   functor(Head, Space, Arity) ),
-                 retractall(user:Head)),
+        ( user:clear_native_atoms(Space),
           retractall(user:compiled_metta_source(Path)),
           retractall(user:imported_metta_source(Space, Path)),
           delete_file(Path) )).
 
 :- end_tests(filereader_control_errors).
+
+:- begin_tests(filereader_import_lifecycle).
+
+test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
+    Space = '&plunit_import_wildcard',
+    tmp_file_stream(text, Path, Stream),
+    format(Stream, "(plunit-import-triple left one)~n", []),
+    format(Stream, "(plunit-import-triple right two)~n", []),
+    close(Stream),
+    setup_call_cleanup(
+        true,
+        ( user:load_metta_file(Path, _, Space),
+          aggregate_all(count,
+                        user:'get-atoms'(Space,
+                                         ['plunit-import-triple', _, _]),
+                        Before),
+          user:'remove-atom'(Space, [_, _], true),
+          aggregate_all(count,
+                        user:'get-atoms'(Space,
+                                         ['plunit-import-triple', _, _]),
+                        AfterRemoval),
+          user:load_metta_file(Path, _, Space),
+          aggregate_all(count,
+                        user:'get-atoms'(Space,
+                                         ['plunit-import-triple', _, _]),
+                        AfterReimport),
+          user:import_life(Space, Path, loaded),
+          [Before, AfterRemoval, AfterReimport] == [2, 2, 2] ),
+        ( user:clear_native_atoms(Space),
+          retractall(user:compiled_metta_source(Path)),
+          retractall(user:imported_metta_source(Space, Path)),
+          delete_file(Path) )).
+
+:- end_tests(filereader_import_lifecycle).
