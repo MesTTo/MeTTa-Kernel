@@ -29,3 +29,23 @@ test(assertion_errors_have_engine_messages) :-
     \+ sub_string(Message, _, _, _, "Unknown error term").
 
 :- end_tests(metta_assertions).
+
+:- begin_tests(metta_translator_rules,
+               [ setup((retractall(user:translator_rule(_)),
+                        assertz(user:translator_rule(first)),
+                        assertz(user:translator_rule(second)))),
+                 cleanup(retractall(user:translator_rule(_))) ]).
+
+test(variable_removal_is_rejected_without_mutation,
+     [throws(error(instantiation_error, _))]) :-
+    catch('remove-translator-rule!'(_, _), Error,
+          ( findall(Rule, user:translator_rule(Rule), Rules),
+            Rules == [first, second],
+            throw(Error) )).
+
+test(ground_removal_only_removes_its_rule,
+     [true(Rules == [second])]) :-
+    'remove-translator-rule!'(first, true),
+    findall(Rule, user:translator_rule(Rule), Rules).
+
+:- end_tests(metta_translator_rules).
