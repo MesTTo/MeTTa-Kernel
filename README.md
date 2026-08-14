@@ -4,11 +4,33 @@ Efficient MeTTa language implementation in Prolog.
 
 Please check out the [Wiki](https://github.com/patham9/PeTTa/wiki) for more information.
 Contributor setup, gates, and measurement rules are in [DEVELOPING.md](DEVELOPING.md).
+Release changes are recorded in [CHANGELOG.md](CHANGELOG.md). Citation metadata
+is available in [CITATION.cff](CITATION.cff).
+
+### Python quick start
+
+From a checkout, install the Python package and run a query:
+
+```bash
+python -m pip install .
+```
+
+```python
+from petta import MeTTa, S, V
+
+m = MeTTa()
+m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
+rows = m.query(S.Parent(S.Tom, V.child))
+assert rows.to_dicts() == [{"child": "Bob"}]
+```
+
+The [Python guide](https://trueagi-io.github.io/PeTTa/guide/) starts with the
+atom model and builds through queries, equations, types, and integrations.
 
 ### Dependencies
 
 - SWI-Prolog >= 9.3.x
-- Python 3.x (for janus Python interop)
+- Python >= 3.11 (for janus Python interop)
 
 ### Usage
 
@@ -28,10 +50,10 @@ The following projects are cloned and built by build.sh:
 
 ### Python library
 
-The `petta` package is a full Python surface for the engine. Install it with
-`pip install .` (the runtime is bundled, so nothing else needs a checkout),
-or use it in place from a clone with `PETTA_PATH` pointing at the tree.
-Install optional integrations by feature:
+The `petta` package is a full Python surface for the engine. The runtime is
+bundled, so nothing else needs a checkout. You can also use it in place from a
+clone with `PETTA_PATH` pointing at the tree. Install optional integrations by
+feature:
 
 ```bash
 pip install "petta[arrays]"       # array API, NumPy, and FAISS
@@ -137,6 +159,11 @@ grand = m.prepare(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 grand.solve()
 # Rows[x, y, z]([Row(x=Sym('Tom'), y=Sym('Bob'), z=Sym('Ann'))])
 ```
+
+An empty result returned directly by `query()` retains its patterns. Call
+`rows.why()` to distinguish a pattern miss, an incompatible join, and a
+`where` guard that rejected every joined row. The explanation reads the
+space's current state.
 
 Tables cross both ways on the same reading: `m.add_table(head, source)`
 reads any tabular source by the interface it offers (polars `iter_rows`,
@@ -289,6 +316,18 @@ DuckDB provider is a page of code on this interface. A package advertises itself
 anything defining `install_petta(m)`. Declare an integration in package
 metadata like this:
 
+Installation is idempotent for one live space. `space.drop()` releases that
+record with the stored facts, so a later space using the same name installs
+again.
+
+Process-wide extension registrations have exact removal counterparts.
+Use `convert.unregister_type`, `integrate.unregister_object_type`,
+`integrate.unregister_repr`, and `integrate.unregister_reflector` with the
+same objects passed at registration. Atom formatters pair
+`register_object_repr` and `register_object_repr_protocol` with their
+`unregister_` counterparts. Removing a registration that is not live raises
+`KeyError`.
+
 ```toml
 [project.entry-points."petta.integrations"]
 my-library = "my_library.petta"
@@ -305,7 +344,9 @@ protocols become types, and entry points become discovery.
 Beyond operations and spaces, the surface carries: `@m.type`, which
 declares an Enum, dataclass or NamedTuple into a space with constructor
 declarations and one accessor equation per field, `rows.build(col, Person)`
-rebuilding answers as instances; `m.run(src, using={"df": df})`, naming
+rebuilding answers as instances and preserving `Person` for type checkers;
+`rows.to_dicts()` returning one plain mapping per answer;
+`m.run(src, using={"df": df})`, naming
 host values by bare symbol with identity intact; `m.subscribe(pattern,
 callback)`, a standing query delivered inside the very write that matched
 it (or queued for `drain()`), which is the actors-and-pub-sub reading of a
@@ -335,11 +376,14 @@ dual-mode relation in the same `(weight value)` shape, so a lookup table, a
 heuristic scorer or a neural network all feed the algebra identically.
 `python/bench.py` runs the pytest-benchmark suite. `--list` prints its named
 cases and `--counter-only` runs the deterministic regression gate without
-using wall time. Engine cases compare the minimum of three
-`stats().inferences` samples with `python/benchmarks/baseline.json`.
-`python/benchmarks/check_instructions.py` applies the same policy to the three
-engine-free cases with `perf stat -e instructions:u`. Wall results remain
-advisory and can be written with `--json`.
+using wall time. The gate uses `--keep-going`, so every case reports before a
+failure exits. Engine cases compare the minimum of three `stats().inferences`
+samples with `python/benchmarks/baseline.json`; join and let cases also compare
+inference growth between two fixed workload sizes.
+`python/benchmarks/check_instructions.py` measures the Python codecs and the
+primitive-heavy let, digest, alpha-unique, sort, source-load, Python-method,
+and space-name paths with `perf stat -e instructions:u`. Setup is outside the
+counted interval. Wall results remain advisory and can be written with `--json`.
 
 On top of that closeness sits a prover, `pettaprove.prove`, layered
 BESIDE the core in its own repository because it is built entirely on

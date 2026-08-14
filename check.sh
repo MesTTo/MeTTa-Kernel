@@ -69,7 +69,7 @@ in_py() { ( cd "$PYDIR" && "$@" ); }
 # The benchmark plugin is disabled here because it refuses parallel timing;
 # the dedicated benchmark gates below own those measurements.
 run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark -n auto --dist loadfile --max-worker-restart=0"
-run GATE benchmarks   in_py "$PY" bench.py --counter-only
+run GATE benchmarks   in_py "$PY" bench.py --counter-only --keep-going
 run GATE instructions in_py "$PY" -m benchmarks.check_instructions
 run GATE shell        sh -c "cd '$HERE' && sh test.sh"
 run GATE examples sh -c "cd '$HERE' && sh tests/regression/test_specializer_regressions.sh"

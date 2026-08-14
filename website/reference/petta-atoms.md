@@ -11,6 +11,8 @@ Source: `python/petta/atoms.py`.
 >     test_map_atoms_handles_depth_as_data_and_validates_transform_results]
 >   - parse uses the engine reader and preserves source variable names [tested
 >     test_parse_keeps_variable_names]
+>   - formatter registrations have exact removal counterparts [tested
+>     test_object_repr_registrations_can_be_removed_exactly]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

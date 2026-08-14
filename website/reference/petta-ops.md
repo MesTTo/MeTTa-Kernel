@@ -6,6 +6,9 @@ Source: `python/petta/ops.py`.
 > signature for arities (defaults yield several), auto-detects nondeterminism
 > (a generator function is one), derives a MeTTa type declaration from the
 > annotations, and registers the whole thing with the engine through shim.pl.
+> Guarantees:
+>   - registration distinguishes a MeTTa function name from its declaration
+>     space [tested test_public_context_types_are_distinct]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -34,11 +37,11 @@ def register(
     runtime,
     fn: Callable,
     *,
-    name: str | None = None,
+    name: MettaName | None = None,
     typed: bool = True,
     raw: bool = False,
     pass_atoms: bool = False,
-    space: str = "&self",
+    space: SpaceName = _DEFAULT_SPACE,
     arities: list[int] | None = None,
 ) -> Callable:
 ```
@@ -54,7 +57,7 @@ def register(
 ## `unregister`
 
 ```python
-def unregister(runtime, name: str) -> None:
+def unregister(runtime, name: MettaName) -> None:
 ```
 
 > Remove every arity of a registered operation, and every declaration

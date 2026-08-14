@@ -36,7 +36,8 @@ Equality is the one inversion: `a == b` is ordinary Python comparison answering
   `where=` is a term the engine evaluates per match: `where=(V.n >= 60) & (V.n <= 70)`.
 `Rows` is a list of `Row` with `.columns`; `row.x` and `row["x"]` both work.
   `rows.one()` (exactly one), `.first()`, `.column(n)`, `.table()` -> dict of columns,
-  `.to_df()`/`.to_pl()` -> pandas/polars, `.build(head)`, `_repr_html_` in notebooks.
+  `.to_dicts()` -> plain row mappings, `.to_df()`/`.to_pl()` -> pandas/polars,
+  `.build(head)`, `_repr_html_` in notebooks.
 `m.prepare(*patterns, where=) -> Prepared`; `.solve(given=...)` many times, `.columns`.
 `m.stream(*patterns) -> Cursor`, engine-held, `.close()`, iterate lazily.
 `m.assuming(*facts)` is a block where those facts exist and then do not.
@@ -74,6 +75,8 @@ A typed call silently answers empty for a mismatched or `%Undefined%` argument,
 so `m.cast(value, type)` is the loud spelling: it returns the value or raises
 `CastError` naming the types the value does admit. `Atom`, `%Undefined%` and `_`
 are unchecked. `bool` spells `Bool` before `int` spells `Number`.
+The target is positional-only. A concrete Python class target is also the static
+return type of `cast`, `convert.build`, and `Rows.build`.
 `m.arities(name)`, `m.is_function(name)` (global), `m.is_function_here` (space-local).
 
 ## Debugging
@@ -83,28 +86,37 @@ kinds `call`/`exit`/`fail`/`redo`.
 `m.derivation(atom, depth=None, timeout=, inferences=) -> list[Derivation]` with
 `.rules`, `.facts`, `.complete`, `.truncations`; proof trees naming the equations
 and stored facts behind an answer.
-`m.why(pattern) -> str` explains an empty match in words.
+`m.why(pattern) -> str` explains one empty match in words. An empty result
+returned directly by `m.query(...)` retains its query context, and
+`rows.why()` identifies a pattern miss, failed join, or rejecting guard.
 `m.lint() -> list[Finding]` reads stored program structure.
 `m.stats()` is a with-block yielding `.inferences` (deterministic, gate on this),
 `.cputime`, `.walltime`, gc counters, `.table_bytes`. `m.profile(src)` per predicate.
 `m.prolog()` opens the SWI toplevel. Errors: `PettaError` base, then
 `EngineError`, `MettaSyntaxError`, `CastError`, `CompileError`, `TimeLimitError`,
 `InferenceLimitError`, `ResourceLimitError`, `Interrupted`.
+Type checkers distinguish `SpaceName`, `MettaName`, and the closed
+`SaveFormat` set. Their constructors are available directly from `petta`.
 
 ## Integrating any library
 
 `petta.convert`: `project(obj)` -> constructor expression, `build(atom)` -> object,
-`register_type`, `declarations`. Dataclasses, enums, pydantic and annotated classes
-all cross; enums project to symbols.
+`register_type`, `unregister_type`, `declarations`. Dataclasses, enums, pydantic
+and annotated classes all cross; enums project to symbols.
 `petta.integrate`: `module_ops(space, module)` registers a whole module's callables,
-`wrap_object`, `reflect`, `register_reflector`, `SpaceProvider`, `Integration`,
-`discover` (entry-point group `petta.integrations`).
+`wrap_object`, `reflect`, paired register/unregister functions for protocol types,
+formatters and reflectors, `SpaceProvider`, `Integration`, `discover` (entry-point
+group `petta.integrations`). Installation is idempotent for a live space, and
+`space.drop()` releases the installation record with that space's state.
 `petta.foreign`: implement `Matcher`/`Enumerable`/`Adder`/`Remover`/`Clearer` and
 `register_provider(name, provider)` to make an external store answer MeTTa matches;
 `capabilities` declares what it supports and unsupported operations refuse loudly.
 Conjunctive queries route per conjunct, so a foreign space joins with a native one.
 
 ## The rest of the surface
+
+These optional integration modules load when first accessed rather than during
+`import petta`. `dir(petta)` still lists each one.
 
 `petta.arrays`: one operation vocabulary over any DLPack library (`install`,
 `namespace_of`, `is_array`, `EmbeddingStore` with an exact faiss backend).
@@ -121,7 +133,8 @@ constant time, only http/https schemes are accepted.
 `petta.aio`: `AsyncMeTTa` runs engine calls on one worker thread behind async.
 `petta.testing`: the hypothesis strategies this suite fuzzes itself with
 (`atoms`, `expressions`, `names`, `numbers`, `texts`, `symbols`, `variables`,
-`grounded`, `numpy_scalars`) plus the benchmark harness.
+`grounded`, `numpy_scalars`) plus `benchmark_case`, `benchmark_counter_slope`,
+and `measure_instructions` for deterministic benchmark gates.
 
 ## Contracts that cost real debugging
 
@@ -140,4 +153,5 @@ Python `None` from an operation answers nothing, which is why an `Optional` retu
 declares the value type.
 Engine calls belong to the thread that made the engine; `petta.aio` or
 `remote.serve` own the crossing, `engine_thread` and `current_space()` report it.
-Deterministic measurement is `stats().inferences`, not wall clock.
+Deterministic goal-call measurement is `stats().inferences`. Primitive work is
+measured with `perf stat -e instructions:u`. Wall clock is advisory.

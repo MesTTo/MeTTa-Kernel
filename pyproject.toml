@@ -25,9 +25,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/patham9/PeTTa"
-Repository = "https://github.com/patham9/PeTTa"
-Issues = "https://github.com/patham9/PeTTa/issues"
+Homepage = "https://github.com/trueagi-io/PeTTa"
+Repository = "https://github.com/trueagi-io/PeTTa"
+Issues = "https://github.com/trueagi-io/PeTTa/issues"
 
 [project.scripts]
 petta = "petta.cli:main"

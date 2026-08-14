@@ -5,7 +5,8 @@ Source: `python/petta/results.py`.
 > Purpose: query results as rows. A Rows is a mutable sequence of Row tuples, one per
 > answer, with the query's variable names as columns and attribute access per
 > column, so rows drop into unpacking, DataFrame constructors and pattern
-> matching without a helper in between.
+> matching without a helper in between. Eager query results retain their
+> patterns so an empty result can explain itself on demand.
 > Guarantees:
 >   - Rows with the same columns share one bounded cached Row subclass [tested
 >     test_row_classes_are_reused_and_bounded]
@@ -17,6 +18,12 @@ Source: `python/petta/results.py`.
 >     than dynamic class names [tested test_rows_copy_and_pickle_protocols]
 >   - terminal representations bound both rows and individual values and state
 >     the omitted row count [tested test_rows_repr_is_bounded_and_recursive]
+>   - Rows.build preserves its requested class as the list element type [tested
+>     test_target_type_overloads_preserve_the_requested_class]
+>   - Rows.to_dicts returns one Python-native mapping per row, including empty
+>     mappings for zero-column rows [tested test_rows_to_dicts_returns_plain_records]
+>   - eager query results explain empty pattern, join, and guard outcomes [tested
+>     test_query_rows_explain_empty_results]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -114,14 +121,34 @@ def one(self) -> Row:
 > none or several raise naming the count, so a lookup that silently
 > picked an arbitrary row cannot hide.
 
+### `Rows.why`
+
+```python
+def why(self) -> str:
+```
+
+> Explain why this eager query returned no rows.
+>
+> The explanation reads the space's current state. A nonempty result
+> has nothing to explain, and a manually constructed or transformed
+> Rows has no query to inspect, so both uses fail loudly.
+
 ### `Rows.build`
 
 ```python
-def build(self, column: str, cls: type) -> list[Any]:
+def build(self, column: str, cls: type[_BuildT]) -> list[_BuildT]:
 ```
 
 > One column's atoms rebuilt as instances of cls, through the
 > two-way translator: typed rows, one call.
+
+### `Rows.to_dicts`
+
+```python
+def to_dicts(self) -> list[dict[str, Any]]:
+```
+
+> Return one Python-native column-to-value mapping per row.
 
 ### `Rows.table`
 
