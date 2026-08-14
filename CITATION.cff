@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use PeTTa, cite the software using this metadata."
+title: "PeTTa"
+type: software
+authors:
+  - family-names: "Hammer"
+    given-names: "Patrick"
+repository-code: "https://github.com/trueagi-io/PeTTa"
+url: "https://github.com/trueagi-io/PeTTa"
+license: MIT
+keywords:
+  - MeTTa
+  - Prolog
+  - symbolic reasoning
