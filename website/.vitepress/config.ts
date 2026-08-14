@@ -23,17 +23,18 @@ export default defineConfig({
   },
   themeConfig: {
     nav: [
-      { text: "Tutorials", link: "/tutorials/01-atoms-and-expressions" },
-      { text: "Guide", link: "/guide/getting-started" },
-      { text: "Reasoning", link: "/reasoning/matchers-measure" },
-      { text: "Integrations", link: "/integrations/dataframes" },
-      { text: "Live systems", link: "/live/standing-queries" },
+      { text: "Tutorials", link: "/tutorials/" },
+      { text: "Guide", link: "/guide/" },
+      { text: "Reasoning", link: "/reasoning/" },
+      { text: "Integrations", link: "/integrations/" },
+      { text: "Live systems", link: "/live/" },
       { text: "Reference", link: "/reference/" },
       { text: "GitHub", link: "https://github.com/trueagi-io/PeTTa" },
     ],
     sidebar: [
       {
         text: "Tutorials",
+        link: "/tutorials/",
         items: [
           { text: "01. Atoms and expressions", link: "/tutorials/01-atoms-and-expressions" },
           { text: "02. Spaces and matching", link: "/tutorials/02-spaces-and-matching" },
@@ -47,6 +48,7 @@ export default defineConfig({
       },
       {
         text: "Guide",
+        link: "/guide/",
         items: [
           { text: "Install and first steps", link: "/guide/getting-started" },
           { text: "Atoms, operators, and terms", link: "/guide/atoms-terms" },
@@ -60,6 +62,7 @@ export default defineConfig({
       },
       {
         text: "Reasoning",
+        link: "/reasoning/",
         items: [
           { text: "Matchers and measures", link: "/reasoning/matchers-measure" },
           { text: "Weighted relations", link: "/reasoning/weighted-relations" },
@@ -67,6 +70,7 @@ export default defineConfig({
       },
       {
         text: "Integrations",
+        link: "/integrations/",
         items: [
           { text: "Dataframes", link: "/integrations/dataframes" },
           { text: "DuckDB as a space", link: "/integrations/duckdb-space" },
@@ -77,6 +81,7 @@ export default defineConfig({
       },
       {
         text: "Live systems",
+        link: "/live/",
         items: [
           { text: "Standing queries", link: "/live/standing-queries" },
           { text: "Reflection and steering", link: "/live/reflection" },

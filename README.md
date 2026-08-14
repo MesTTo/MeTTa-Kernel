@@ -351,7 +351,29 @@ pass a fourth input in the order URL, build command, base directory, commit:
 Pinned imports accept only a full 40-character hexadecimal commit SHA;
 abbreviated SHAs, branches, and tags are rejected.
 
-## Notebooks, Servers, Browser
+### The website
+
+`website/` is a VitePress site that teaches the Python library: eight
+tutorials that assume Python and no MeTTa, feature guides, integration
+walkthroughs, live-system pages, and a generated API reference, with
+pettagrapher renders as the illustrations. Build and preview it locally:
+
+```bash
+cd website
+npm install
+npm run docs:build
+npm run docs:preview
+```
+
+The site is built for project hosting under the `/PeTTa/` path, so the
+preview answers at `http://localhost:4173/PeTTa/` and the server root
+shows the site's 404 page. `npm run docs:dev` serves the same content
+live at `http://localhost:5173/PeTTa/`. The reference pages and the
+visuals are committed; after changing docstrings or the illustrations,
+regenerate them with `scripts/generate_reference.py` and
+`scripts/generate_visuals.py`, and `scripts/audit_snippets.py` verifies
+that every tutorial code fence is an exact excerpt from the repository's
+own sources.
 
 ### Jupyter Notebook Support
 
