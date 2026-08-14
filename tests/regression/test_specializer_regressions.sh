@@ -53,4 +53,8 @@ if grep -Eq 'app_Spec_\[partial\(lambda_1,\[_[0-9]+\]\)\]' "$log"; then
 fi
 grep -Fq 'app_Spec_[partial(lambda_1,[_])]' "$log" || { echo "repro4 missing normalized specialization key"; cat "$log"; exit 1; }
 
+# Generated-clause properties are checked in PlUnit, including per-clause
+# binding, absence of reduce/2, and recursive folding to the specialized name.
+(cd "$ROOT/tests/prolog" && swipl -q -s specializer.plt -g run_tests,halt)
+
 printf 'specializer regression checks passed\n'
