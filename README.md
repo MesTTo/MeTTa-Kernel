@@ -7,10 +7,30 @@ Contributor setup, gates, and measurement rules are in [DEVELOPING.md](DEVELOPIN
 Release changes are recorded in [CHANGELOG.md](CHANGELOG.md). Citation metadata
 is available in [CITATION.cff](CITATION.cff).
 
+### Python quick start
+
+From a checkout, install the Python package and run a query:
+
+```bash
+python -m pip install .
+```
+
+```python
+from petta import MeTTa, S, V
+
+m = MeTTa()
+m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
+rows = m.query(S.Parent(S.Tom, V.child))
+assert rows.to_dicts() == [{"child": "Bob"}]
+```
+
+The [Python guide](https://trueagi-io.github.io/PeTTa/guide/) starts with the
+atom model and builds through queries, equations, types, and integrations.
+
 ### Dependencies
 
 - SWI-Prolog >= 9.3.x
-- Python 3.x (for janus Python interop)
+- Python >= 3.11 (for janus Python interop)
 
 ### Usage
 
@@ -30,10 +50,10 @@ The following projects are cloned and built by build.sh:
 
 ### Python library
 
-The `petta` package is a full Python surface for the engine. Install it with
-`pip install .` (the runtime is bundled, so nothing else needs a checkout),
-or use it in place from a clone with `PETTA_PATH` pointing at the tree.
-Install optional integrations by feature:
+The `petta` package is a full Python surface for the engine. The runtime is
+bundled, so nothing else needs a checkout. You can also use it in place from a
+clone with `PETTA_PATH` pointing at the tree. Install optional integrations by
+feature:
 
 ```bash
 pip install "petta[arrays]"       # array API, NumPy, and FAISS

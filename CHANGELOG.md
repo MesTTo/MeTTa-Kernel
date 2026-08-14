@@ -24,6 +24,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Put an executable Python installation and query example before native backend
+  build instructions in the README.
 - Set Python 3.11 as the package floor and consolidated build metadata in
   `pyproject.toml`.
 - Split Python engine, atom, query, execution, persistence, compiler, and
