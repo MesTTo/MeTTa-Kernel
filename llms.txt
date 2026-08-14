@@ -95,6 +95,9 @@ returned directly by `m.query(...)` retains its query context, and
 `m.prolog()` opens the SWI toplevel. Errors: `PettaError` base, then
 `EngineError`, `MettaSyntaxError`, `CastError`, `CompileError`, `TimeLimitError`,
 `InferenceLimitError`, `ResourceLimitError`, `Interrupted`.
+`MettaOperationError(EngineError)` is a builtin refusing a value, with the parts
+as data: `.operation` is what the source wrote (`+`, `min-atom`), `.kind` the
+formal's functor, `.expected` and `.culprit` the type and offending value.
 Type checkers distinguish `SpaceName`, `MettaName`, and the closed
 `SaveFormat` set. Their constructors are available directly from `petta`.
 
