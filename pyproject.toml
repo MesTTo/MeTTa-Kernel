@@ -141,11 +141,12 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 no_implicit_optional = true
 check_untyped_defs = true
+no_site_packages = true
 
 [[tool.mypy.overrides]]
 module = [
-    "janus_swi.*", "numpy.*", "faiss.*", "array_api_compat.*",
-    "websocket.*", "pandas.*", "polars.*", "torch.*", "duckdb.*",
+    "array_api_compat", "faiss", "hypothesis", "numpy", "pandas",
+    "polars", "websocket",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"

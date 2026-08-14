@@ -123,9 +123,9 @@ run GATE imports    in_py "$PY" -m importlinter.cli lint_imports
 # ledger C3: 250 findings, 196 auto-fixable
 run REPORT ruff        in_py "$PY" -m ruff check --statistics petta tests bench.py
 # ledger C2: 65 errors in 13 files
-run REPORT mypy        in_py "$PY" -m mypy
+run GATE   mypy        in_py "$PY" -m mypy
 # ledger C2: 67 diagnostics, independent engine
-run REPORT ty          in_py "$PY" -m ty check --python "$(dirname "$(dirname "$PY")")" petta
+run GATE   ty          in_py "$PY" -m ty check --python "$(dirname "$(dirname "$PY")")" petta
 # ledger B6: 18 cyclic-import, 80 import-outside-toplevel
 run REPORT pylint      in_py "$PY" -m pylint petta --disable=C0301,C0114,C0115,C0116,R0913,R0914,R0912,R0915,C0103 --score=n
 # ledger E: 255 findings, hot in the codec
