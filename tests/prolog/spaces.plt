@@ -63,8 +63,7 @@ setup_arbitrary_space :-
 
 cleanup_arbitrary_space :-
     arbitrary_space(Space),
-    forall((current_predicate(Space/Arity), functor(Head, Space, Arity)),
-           retractall(user:Head)).
+    clear_native_atoms(Space).
 
 test(get_atoms_preserves_scalars_and_expressions,
      [ setup(setup_arbitrary_space),
@@ -108,6 +107,17 @@ test(removing_singleton_expression_keeps_scalar,
     arbitrary_space(Space),
     remove_sexp(Space, [foo]),
     findall(Atom, ('get-atoms'(Space, Atom), (Atom == foo ; Atom == [foo])), Atoms).
+
+% Scalars live outside the space predicate so expression matches keep clause
+% indexing, which means a caller that wipes only the space predicate leaves
+% them standing and a pooled name's next life inherits them.
+test(clearing_a_space_drops_its_scalars_too,
+     [ setup(setup_arbitrary_space),
+       cleanup(cleanup_arbitrary_space),
+       true(Atoms == []) ]) :-
+    arbitrary_space(Space),
+    clear_native_atoms(Space),
+    findall(Atom, 'get-atoms'(Space, Atom), Atoms).
 
 :- end_tests(spaces_arbitrary_atoms).
 
