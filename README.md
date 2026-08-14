@@ -314,8 +314,13 @@ binding as ever. `petta.measure.weighted_relation` closes the loop from the
 producing side: any callable answering one weight per class registers as a
 dual-mode relation in the same `(weight value)` shape, so a lookup table, a
 heuristic scorer or a neural network all feed the algebra identically.
-`python/bench.py` is the performance harness that keeps all of this
-measured.
+`python/bench.py` runs the pytest-benchmark suite. `--list` prints its named
+cases and `--counter-only` runs the deterministic regression gate without
+using wall time. Engine cases compare the minimum of three
+`stats().inferences` samples with `python/benchmarks/baseline.json`.
+`python/benchmarks/check_instructions.py` applies the same policy to the two
+engine-free cases with `perf stat -e instructions:u`. Wall results remain
+advisory and can be written with `--json`.
 
 On top of that closeness sits a prover, `pettaprove.prove`, layered
 BESIDE the core in its own repository because it is built entirely on

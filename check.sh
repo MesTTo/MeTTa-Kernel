@@ -14,7 +14,8 @@
 #                                            xenon refurb vulture slotscheck
 #                                            bandit deptry audit interrogate
 #                                            codespell imports jscpd prolog
-#                                            pytest shell examples
+#                                            pytest benchmarks instructions
+#                                            shell examples
 #          CHECK_PY=/path/to/python   pick the interpreter
 #          GATE_ONLY=1                skip the REPORT tier
 # Open Obligations:
@@ -63,8 +64,10 @@ in_py() { ( cd "$PYDIR" && "$@" ); }
 # ---------------------------------------------------------------- GATE tier
 # Correctness. These must pass on every commit.
 
-run GATE pytest   sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q"
-run GATE shell    sh -c "cd '$HERE' && sh test.sh"
+run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q"
+run GATE benchmarks   in_py "$PY" bench.py --counter-only
+run GATE instructions in_py "$PY" -m benchmarks.check_instructions
+run GATE shell        sh -c "cd '$HERE' && sh test.sh"
 run GATE examples sh -c "cd '$HERE' && sh tests/regression/test_specializer_regressions.sh"
 run GATE packaged sh -c "cd '$HERE' && sh tests/test_packaged_cli.sh"
 
