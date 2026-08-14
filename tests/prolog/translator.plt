@@ -218,6 +218,32 @@ test(empty_reduce_is_a_value) :-
 
 :- end_tests(translator_empty_forms).
 
+:- begin_tests(translator_evaluation_errors).
+
+dynamic_arithmetic_error :-
+    reduce(['+', 1, undefined_sym], _).
+
+compiled_arithmetic_error :-
+    translate_expr(['+', 1, undefined_sym], Goals, _),
+    goals_list_to_conj(Goals, Conjunction),
+    call(Conjunction).
+
+captured_error(Goal, Type) :-
+    catch(call(Goal), error(Type, _), true),
+    nonvar(Type).
+
+test(dynamic_and_compiled_calls_report_the_same_error) :-
+    captured_error(dynamic_arithmetic_error, DynamicType),
+    captured_error(compiled_arithmetic_error, CompiledType),
+    DynamicType == type_error(evaluable, undefined_sym/0),
+    CompiledType == DynamicType.
+
+test(dynamic_errors_are_not_converted_to_failure,
+     [throws(error(type_error(evaluable, undefined_sym/0), _))]) :-
+    dynamic_arithmetic_error.
+
+:- end_tests(translator_evaluation_errors).
+
 :- begin_tests(translator_test_answers).
 
 test(one_empty_expression_answer_is_a_value) :-
