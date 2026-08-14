@@ -42,6 +42,16 @@ test(loader_and_reader_agree_on_inline_comments) :-
     ReadTerm == [a, b],
     Results == [[a, b]].
 
+test(missing_form_open_reports_its_syntax_error,
+     [throws(error(syntax_error(_), none))]) :-
+    string_codes("not-a-form", Codes),
+    phrase(top_forms(_, 1), Codes).
+
+test(missing_form_close_reports_its_syntax_error,
+     [throws(error(syntax_error(_), none))]) :-
+    string_codes("(not-closed", Codes),
+    phrase(top_forms(_, 1), Codes).
+
 :- end_tests(filereader_form_splitter).
 
 :- begin_tests(filereader_terminal_output).
