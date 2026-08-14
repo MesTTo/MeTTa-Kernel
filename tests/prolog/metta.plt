@@ -437,4 +437,12 @@ test(subtraction_of_a_non_list_is_empty,
      [true(Out == [])]) :-
     'subtraction-atom'(a, [a], Out).
 
+test(subtraction_with_a_non_list_right_operand_is_empty,
+     [true(Out == [])]) :-
+    'subtraction-atom'([a], not_a_list, Out).
+
+test(intersection_with_a_non_list_right_operand_is_empty,
+     [true(Out == [])]) :-
+    'intersection-atom'([a], not_a_list, Out).
+
 :- end_tests(metta_set_operations).

@@ -118,7 +118,7 @@ test(lambda_names_are_unique_across_threads) :-
 
 :- begin_tests(translator_let).
 
-test(self_reference_cannot_create_a_rational_tree,
+test(a_data_self_reference_cannot_create_a_rational_tree,
      [occurs_check(false), timeout(1)]) :-
     translate_expr([let, X, [g, X], X], Goals, _),
     \+ call_goals(Goals).

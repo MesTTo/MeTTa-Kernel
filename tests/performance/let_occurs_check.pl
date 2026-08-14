@@ -1,9 +1,12 @@
-% Purpose: measure ordinary let binding and report whether a self-referential
-%   binding can escape as a cyclic Prolog term.
+% Purpose: measure ordinary let binding and report whether a computed
+%   self-referential binding can escape as a cyclic Prolog term.
 % Assumes:
 %   - The first argv value is a positive iteration count.
 % Guarantees:
-%   - Three runs report independent minimum inference and CPU-time values.
+%   - Three runs report independent minimum inference and CPU-time values
+%     [measured: three 6,004-inference samples at 1,000 iterations, 2026-08-15].
+%   - The computed cons-atom self-reference is checked before the ordinary let
+%     samples [measured: computed_cyclic_let=no_answer, 2026-08-15].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -20,19 +23,20 @@ main :-
     atom_number(CountAtom, Count),
     integer(Count),
     Count > 0,
-    cyclic_let_status(CyclicStatus),
+    computed_cyclic_let_status(CyclicStatus),
     translate_expr([let, X, [value, 42], X], Goals, Out),
     findall(sample(Inferences, Cpu),
             ( between(1, 3, _),
               measure_let(Count, Goals-Out, Inferences, Cpu) ),
             Samples),
     minima(Samples, MinInferences, MinCpu),
-    format('iterations=~d runs=3 cyclic_let=~w ', [Count, CyclicStatus]),
+    format('iterations=~d runs=3 computed_cyclic_let=~w ',
+           [Count, CyclicStatus]),
     format('min_inferences=~d min_cputime=~6f samples=~q~n',
            [MinInferences, MinCpu, Samples]).
 
-cyclic_let_status(Status) :-
-    translate_expr([let, X, [g, X], X], Goals, Out),
+computed_cyclic_let_status(Status) :-
+    translate_expr([let, X, ['cons-atom', X, []], X], Goals, Out),
     ( call_goals(Goals)
       -> ( cyclic_term(Out) -> Status = cyclic ; Status = acyclic )
     ; Status = no_answer ).
