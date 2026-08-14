@@ -114,6 +114,7 @@ run GATE plunit check_plunit
 # Structural checks with a clean baseline today, so a regression is a failure.
 run GATE slotscheck in_py "$PY" -m slotscheck -m petta
 run GATE vulture    in_py "$PY" -m vulture
+run GATE imports    in_py "$PY" -m importlinter.cli lint_imports
 
 # --------------------------------------------------------------- REPORT tier
 # Known backlog. Each entry names its section in the ledger and becomes a
@@ -125,11 +126,6 @@ run REPORT ruff        in_py "$PY" -m ruff check --statistics petta tests bench.
 run REPORT mypy        in_py "$PY" -m mypy
 # ledger C2: 67 diagnostics, independent engine
 run REPORT ty          in_py "$PY" -m ty check --python "$(dirname "$(dirname "$PY")")" petta
-# ledger B6/B7: the layering contract. Fails today by design, and names the
-# two moves that fix it: CONSULTED/CONSULT_LOCK out of __init__.py into
-# _engine.py (which kills the `_engine -> petta -> space` root edge every
-# leaf module currently travels), and _to_atom out of space.py into atoms.py.
-run REPORT imports     in_py "$PY" -m importlinter.cli lint_imports
 # ledger B6: 18 cyclic-import, 80 import-outside-toplevel
 run REPORT pylint      in_py "$PY" -m pylint petta --disable=C0301,C0114,C0115,C0116,R0913,R0914,R0912,R0915,C0103 --score=n
 # ledger E: 255 findings, hot in the codec
