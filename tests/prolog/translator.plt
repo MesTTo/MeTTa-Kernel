@@ -178,6 +178,54 @@ test(nested_calls_compile_with_linear_work,
 
 :- end_tests(translator_translation_depth).
 
+:- begin_tests(translator_special_dispatch).
+
+expected_special_heads([
+    'add-atom', 'and-then', 'catch', 'filter-atom', 'foldall',
+    'foldl-atom', 'forall', 'let*', 'map-atom', 'or-else',
+    'remove-atom', 'test-no-answer', '|->', call, case, chain, collapse,
+    cut, eval, hyperpose, if, let, match, once, prog1, progn, quote,
+    reduce, sealed, superpose, test, transaction, translatePredicate,
+    with_mutex
+]).
+
+special_dispatch_expression([superpose, [1, 2]]).
+special_dispatch_expression([collapse, [quote, answer]]).
+special_dispatch_expression([if, true, yes, no]).
+special_dispatch_expression([let, X, 1, X]).
+special_dispatch_expression([quote, [a, b]]).
+special_dispatch_expression(['catch', [quote, answer]]).
+
+test(each_special_form_clause_has_an_indexable_head) :-
+    findall(Head,
+            clause(user:translate_special_dl(Head, _, _, _, _), _),
+            Heads0),
+    sort(Heads0, Heads),
+    expected_special_heads(Expected0),
+    sort(Expected0, Expected),
+    Heads == Expected.
+
+test(dispatch_uses_a_realised_first_argument_index) :-
+    forall(between(1, 1000, _),
+           once(translate_expr([quote, answer], _, _))),
+    predicate_property(user:translate_special_dl(_, _, _, _, _),
+                       indexed(Indexes)),
+    once(( member(Index, Indexes),
+           Index.arguments == [1],
+           Index.realised == true )).
+
+test(representative_forms_each_have_one_translation,
+     [forall(special_dispatch_expression(Expr))]) :-
+    findall(Goals-Out, translate_expr(Expr, Goals, Out), Solutions),
+    Solutions = [_].
+
+test(variable_heads_are_not_bound_to_a_special_form) :-
+    translate_expr([Head, 1], Goals, _),
+    var(Head),
+    Goals = [reduce([Head, 1], _)].
+
+:- end_tests(translator_special_dispatch).
+
 :- begin_tests(translator_typed_currying,
                [ setup((retractall(user:fun(plunit_typed_curry)),
                         retractall(user:arity(plunit_typed_curry, _)),
