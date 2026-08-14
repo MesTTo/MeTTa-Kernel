@@ -134,6 +134,9 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["petta"]
 
+[tool.pylint.main]
+extension-pkg-allow-list = ["orjson"]
+
 [tool.mypy]
 python_version = "3.11"
 files = ["petta"]
