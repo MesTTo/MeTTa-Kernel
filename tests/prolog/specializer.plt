@@ -1,7 +1,7 @@
 % Purpose: verify higher-order specialization keys, per-clause bindings, and
 %   recursive folding directly against generated Prolog clauses.
 % Open Obligations:
-%   To Do: Port the remaining shell-only failed-specialization regressions.
+%   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
@@ -19,6 +19,10 @@ cleanup_specializer_symbols(Names) :-
              forget_symbol(Name) )),
     retractall(silent(_)),
     assertz(silent(false)).
+
+load_specializer_regression(File, Results) :-
+    directory_file_path('../regression', File, Path),
+    load_metta_file(Path, Results).
 
 setup_multiclause :-
     set_specializer_test_mode,
@@ -101,5 +105,81 @@ test(exact_recursive_key_folds_to_specialized_predicate,
     Goal =.. [SpecName, 'plunit-spec-step', 1000, 0, Result],
     once(call(Goal)),
     Result == 1000.
+
+setup_failed_specialization_memo :-
+    set_specializer_test_mode,
+    load_specializer_regression(
+        'repro1_failed_specialization_memo.metta', [1, 2, 3, 4, 5]).
+
+cleanup_failed_specialization_memo :-
+    cleanup_specializer_symbols([wrap, pass, wrap2, myfun]).
+
+test(repeated_failed_specialization_is_recorded_once_per_function,
+     [ setup(setup_failed_specialization_memo),
+       cleanup(cleanup_failed_specialization_memo) ]) :-
+    findall(F-Arity-Key,
+            ho_specialization_failed(F, Arity, Key),
+            Failures),
+    Failures == [pass-3-[myfun], wrap-3-[myfun]].
+
+setup_failed_specialization_chain :-
+    set_specializer_test_mode,
+    load_specializer_regression(
+        'repro2_exponential_failed_specialization.metta', [1]).
+
+cleanup_failed_specialization_chain :-
+    findall(Name,
+            ( between(1, 12, Index),
+              atom_concat(f, Index, Name) ),
+            Functions),
+    append(Functions, [g, myfun], Names),
+    cleanup_specializer_symbols(Names).
+
+test(branching_failed_specialization_is_linear_in_chain_depth,
+     [ setup(setup_failed_specialization_chain),
+       cleanup(cleanup_failed_specialization_chain) ]) :-
+    aggregate_all(count, ho_specialization_failed(_, _, _), 11),
+    forall(between(1, 11, Index),
+           ( atom_concat(f, Index, Function),
+             ho_specialization_failed(Function, 3, [myfun]) )).
+
+setup_failed_specialization_type :-
+    set_specializer_test_mode,
+    load_specializer_regression(
+        'repro3_failed_specialization_self_leak.metta', _).
+
+cleanup_failed_specialization_type :-
+    cleanup_specializer_symbols([wrap, wrap2, myfun]).
+
+test(failed_specialization_does_not_leak_generated_type,
+     [ setup(setup_failed_specialization_type),
+       cleanup(cleanup_failed_specialization_type) ]) :-
+    '&self'(:, wrap, ['->', 'Number', 'Number', 'Number']),
+    ho_specialization_failed(wrap, 3, [myfun]),
+    \+ ( '&self'(:, Name, _),
+         atom(Name),
+         sub_atom(Name, 0, _, _, 'wrap_Spec_') ).
+
+setup_variant_normalization :-
+    set_specializer_test_mode.
+
+cleanup_variant_normalization :-
+    findall(Name,
+            ( fun(Name),
+              atom(Name),
+              sub_atom(Name, 0, _, _, lambda_) ),
+            LambdaNames),
+    cleanup_specializer_symbols([app|LambdaNames]).
+
+test(compound_partial_key_has_stable_anonymous_variables,
+     [ setup(setup_variant_normalization),
+       cleanup(cleanup_variant_normalization) ]) :-
+    catch(load_specializer_regression(
+              'repro4_variant_normalization.metta', _),
+          Error,
+          true),
+    Error = error(instantiation_error, _),
+    findall(Name, ho_specialization(app, Name),
+            ['app_Spec_[partial(lambda_1,[_])]']).
 
 :- end_tests(specializer).
