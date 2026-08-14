@@ -76,6 +76,29 @@ test(hyperpose_workers_share_the_trace_event_store,
           Expected),
     Sorted == Expected.
 
+cleanup_trace_type_extension :-
+    findall(Ref,
+            ( user:translated_from(
+                  Ref,
+                  [=, ['get-type', plunit_trace_type], _]),
+              \+ clause_property(Ref, erased) ),
+            Refs),
+    forall(member(Ref, Refs),
+           ( erase(Ref), retractall(user:translated_from(Ref, _)) )),
+    retractall(user:'&self'(=, ['get-type', plunit_trace_type], _)),
+    retractall(user:get_type_rule(plunit_trace_type, _)),
+    drop_fun_meta('get-type', [plunit_trace_type], plunit_traced_type),
+    unregister_fun_in(user, 'get-type').
+
+test(type_extensions_keep_the_public_name,
+     [ setup(cleanup_trace_type_extension),
+       cleanup(cleanup_trace_type_extension) ]) :-
+    Source = "(= (get-type plunit_trace_type) plunit_traced_type)\n\
+!(get-type plunit_trace_type)",
+    metta_trace_source(Source, '&self', Events),
+    Events == ["0\tcall\t(get-type plunit_trace_type)\t",
+               "0\texit\t(get-type plunit_trace_type)\tplunit_traced_type"].
+
 test(event_limit_error_removes_every_wrapper,
      [setup(setup_trace_test), cleanup(cleanup_trace_test)]) :-
     process_metta_string("(= (plunit_trace_hyperpose $x) (+ $x 1))", _),

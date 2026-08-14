@@ -344,6 +344,71 @@ test(typed_argument_is_compiled_once) :-
 
 :- end_tests(translator_typed_single_pass).
 
+:- begin_tests(translator_typed_checks,
+               [ setup(setup_typed_checks),
+                 cleanup(cleanup_typed_checks) ]).
+
+typed_check_fact(plunit_typed_x, plunit_a).
+typed_check_fact(plunit_typed_y, plunit_b).
+typed_check_fact([plunit_typed_x, plunit_typed_y],
+                 [plunit_a, plunit_b]).
+typed_check_fact(plunit_multi_type, plunit_a).
+typed_check_fact(plunit_multi_type, plunit_b).
+typed_check_fact(plunit_only_b, plunit_b).
+
+setup_typed_checks :-
+    cleanup_typed_checks,
+    forall(typed_check_fact(Term, Type),
+           assertz(user:'&self'(:, Term, Type))),
+    assertz(user:'&self'(:, plunit_same_type,
+                         [->, Shared, Shared, 'Number'])),
+    assertz(user:fun(plunit_same_type)),
+    assertz(user:arity(plunit_same_type, 3)),
+    assertz(user:plunit_same_type(_, _, 1)).
+
+cleanup_typed_checks :-
+    forall(typed_check_fact(Term, _),
+           retractall(user:'&self'(:, Term, _))),
+    retractall(user:'&self'(:, plunit_same_type, _)),
+    retractall(user:plunit_same_type(_, _, _)),
+    retractall(user:arity(plunit_same_type, _)),
+    retractall(user:fun(plunit_same_type)).
+
+test(argument_checks_do_not_multiply_duplicate_derivations) :-
+    Expr = [plunit_typed_x, plunit_typed_y],
+    translate_expr([plunit_same_type, Expr, Expr], Goals, Out),
+    goals_list_to_conj(Goals, Goal),
+    findall(Out, call(Goal), Answers),
+    Answers == [1].
+
+test(shared_type_variables_can_reach_a_later_consistent_type) :-
+    translate_expr([plunit_same_type, plunit_multi_type, plunit_only_b],
+                   Goals, Out),
+    goals_list_to_conj(Goals, Goal),
+    findall(Out, call(Goal), Answers),
+    Answers == [1].
+
+:- end_tests(translator_typed_checks).
+
+:- begin_tests(translator_type_extensions).
+
+test(get_type_equations_compile_behind_the_answer_boundary) :-
+    Source = [=, ['get-type', plunit_extended_type], plunit_extension],
+    setup_call_cleanup(
+        true,
+        ( translate_clause(Source, Clause),
+          Clause = (Head :- _),
+          functor(Head, get_type_rule, 2),
+          setup_call_cleanup(
+              assertz(user:Clause, Ref),
+              ( findall(Type, 'get-type'(plunit_extended_type, Type), Types),
+                Types == [plunit_extension] ),
+              erase(Ref)) ),
+        drop_fun_meta('get-type', [plunit_extended_type],
+                      plunit_extension)).
+
+:- end_tests(translator_type_extensions).
+
 :- begin_tests(translator_empty_forms).
 
 empty_form_translation([superpose, []], [fail], _).

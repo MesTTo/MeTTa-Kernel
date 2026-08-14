@@ -43,6 +43,52 @@ test(every_runtime_term_has_a_metatype,
 
 :- end_tests(metta_metatypes).
 
+:- begin_tests(metta_type_answers,
+               [ setup(setup_type_answers),
+                 cleanup(cleanup_type_answers) ]).
+
+type_answer_fact(plunit_type_a, plunit_a).
+type_answer_fact(plunit_type_b, plunit_b).
+type_answer_fact([plunit_type_a, plunit_type_b],
+                 [plunit_a, plunit_b]).
+
+setup_type_answers :-
+    cleanup_type_answers,
+    forall(type_answer_fact(Term, Type),
+           assertz(user:'&self'(:, Term, Type))),
+    assertz(user:get_type_rule([plunit_type_a, plunit_type_b],
+                               [plunit_a, plunit_b])).
+
+cleanup_type_answers :-
+    forall(type_answer_fact(Term, _),
+           retractall(user:'&self'(:, Term, _))),
+    retractall(user:get_type_rule([plunit_type_a, plunit_type_b], _)).
+
+test(user_boundary_returns_each_type_once) :-
+    findall(Type,
+            'get-type'([plunit_type_a, plunit_type_b], Type),
+            Types),
+    Types == [[plunit_a, plunit_b]].
+
+test(alpha_equivalent_polymorphic_types_are_one_answer,
+     [ setup((assertz(user:get_type_rule(plunit_poly_type,
+                                        ['->', A, A])),
+              assertz(user:get_type_rule(plunit_poly_type,
+                                        ['->', B, B])))),
+       cleanup(retractall(user:get_type_rule(plunit_poly_type, _)))
+     ]) :-
+    findall(Type, user:'get-type'(plunit_poly_type, Type), Types),
+    Types =@= [['->', T, T]].
+
+test(fixed_internal_check_uses_one_witness) :-
+    findall(true,
+            has_type([plunit_type_a, plunit_type_b],
+                     [plunit_a, plunit_b]),
+            Witnesses),
+    Witnesses == [true].
+
+:- end_tests(metta_type_answers).
+
 :- begin_tests(metta_index_atom).
 
 test(out_of_range_index_returns_the_empty_expression) :-

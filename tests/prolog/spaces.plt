@@ -195,3 +195,40 @@ test(change_hook_error_rolls_back_every_registration_write,
     \+ clause(user:Head, _, _).
 
 :- end_tests(spaces_registration).
+
+:- begin_tests(spaces_type_extensions,
+               [ setup(setup_type_extension_space),
+                 cleanup(cleanup_type_extension_space) ]).
+
+type_extension_space('&plunit_type_extensions').
+type_extension_term(plunit_scoped_one,
+                    [=, ['get-type', plunit_scoped_one], plunit_one]).
+type_extension_term(plunit_scoped_two,
+                    [=, ['get-type', plunit_scoped_two], plunit_two]).
+
+setup_type_extension_space :-
+    cleanup_type_extension_space,
+    type_extension_space(Space),
+    forall(type_extension_term(_, Term),
+           'add-atom'(Space, Term, true)).
+
+cleanup_type_extension_space :-
+    type_extension_space(Space),
+    forall(type_extension_term(_, Term),
+           'remove-atom'(Space, Term, _)),
+    space_module(Space, Module),
+    retractall(Module:get_type_rule(_, _)),
+    unregister_fun_in(Module, 'get-type'),
+    clear_native_atoms(Space).
+
+test(removing_one_rule_keeps_the_other_visible) :-
+    type_extension_space(Space),
+    type_extension_term(plunit_scoped_one, First),
+    'remove-atom'(Space, First, true),
+    space_module(Space, Module),
+    fun_in(Module, 'get-type'),
+    with_metta_module(Module,
+                      'get-type'(plunit_scoped_two, Type)),
+    Type == plunit_two.
+
+:- end_tests(spaces_type_extensions).
