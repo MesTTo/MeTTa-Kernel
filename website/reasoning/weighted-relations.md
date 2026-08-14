@@ -10,8 +10,6 @@ A weighted relation from a plain callable, registered and consumed through the m
 
 ```python
 def test_weighted_relation_takes_any_callable(m):
-    from petta import measure
-
     measure.install(m)
 
     def mood_weights(day):

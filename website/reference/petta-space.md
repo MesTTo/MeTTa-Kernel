@@ -7,6 +7,31 @@ Source: `python/petta/space.py`.
 > edits, conjunctive queries with guards, bounds, scoped assumptions and
 > preparation, evaluation, Python-backed operations, proof-tree derivations
 > and a why-not diagnostic, all in PeTTa's own semantics.
+> Guarantees:
+>   - MeTTa.save preserves an existing target when validation, writing, or
+>     replacement fails [tested test_save_validation_preserves_existing_file,
+>     test_text_save_write_failure_preserves_existing_file,
+>     test_save_failure_preserves_existing_file]
+>   - MeTTa.save fsyncs a completed sibling file before replacing the target
+>     [tested test_save_syncs_before_replacing]
+>   - MeTTa.derivation distinguishes a finite-depth cutoff from no proof and
+>     accepts time and inference guards [tested
+>     test_depth_exhaustion_returns_a_partial_proof,
+>     test_unbounded_derivation_obeys_resource_guards]
+>   - an exhausted Cursor keeps raising StopIteration, while an explicitly
+>     closed Cursor refuses use [tested
+>     test_stream_agrees_with_query_and_closes_on_exhaustion,
+>     test_stream_pulls_rows_lazily_and_interleaves]
+>   - register_op and unregister_op are the paired operation lifecycle names
+>     [tested test_operation_registration_names_are_symmetric]
+>   - define accepts source-bearing Python functions and refuses callable
+>     objects before reading compiler metadata [tested
+>     test_define_refuses_callable_objects]
+>   - query, prepare, and stream preserve distinct variable columns in first
+>     appearance order [tested test_query_surfaces_share_column_order]
+> Owns:
+>   - MeTTa.save owns its sibling temporary file and removes it after every
+>     failed operation [tested test_save_failure_preserves_existing_file]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -37,8 +62,10 @@ class MeTTa:
 >
 > PeTTa keeps one engine per process; every MeTTa instance shares it. The
 > default space is &amp;self, the space the CLI itself uses, so source pasted
-> from a .metta file behaves identically here. Named spaces isolate stored
-> atoms; equations are process-wide, which is the engine's own rule.
+> from a .metta file behaves identically here. Two MeTTa() calls therefore
+> see the same &amp;self state. Use fresh_space() when independent stored state
+> is required. Named spaces isolate stored atoms; equations are process-wide,
+> which is the engine's own rule.
 >
 >     from petta import MeTTa, S, V
 >
@@ -58,7 +85,7 @@ No docstring is defined.
 ### `MeTTa.space`
 
 ```python
-def space(self, name: str) -> "MeTTa":
+def space(self, name: str) -> MeTTa:
 ```
 
 > Another space on the same engine.
@@ -66,7 +93,7 @@ def space(self, name: str) -> "MeTTa":
 ### `MeTTa.fresh_space`
 
 ```python
-def fresh_space(self) -> "MeTTa":
+def fresh_space(self) -> MeTTa:
 ```
 
 > An anonymous space with a name nothing else is using.
@@ -90,6 +117,60 @@ def drop(self) -> None:
 > never released. Subscriptions on the space cancel with it: a
 > pooled name reused later must not deliver to the old life's
 > watchers.
+
+### `MeTTa.run`
+
+```python
+def run(
+    self,
+    source: str,
+    using: dict[str, Any] | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    capture: Literal[False] = False,
+    atomic: bool = False,
+    speculative: bool = False,
+) -> list[list[Atom]]:
+```
+
+No docstring is defined.
+
+### `MeTTa.run`
+
+```python
+def run(
+    self,
+    source: str,
+    using: dict[str, Any] | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    capture: Literal[True],
+    atomic: bool = False,
+    speculative: bool = False,
+) -> tuple[list[list[Atom]], str]:
+```
+
+No docstring is defined.
+
+### `MeTTa.run`
+
+```python
+def run(
+    self,
+    source: str,
+    using: dict[str, Any] | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    capture: bool,
+    atomic: bool = False,
+    speculative: bool = False,
+) -> list[list[Atom]] | tuple[list[list[Atom]], str]:
+```
+
+No docstring is defined.
 
 ### `MeTTa.run`
 
@@ -148,7 +229,7 @@ def profile(
     *,
     timeout: float | None = None,
     inferences: int | None = None,
-) -> tuple[list[list[Atom]], "EngineProfile"]:
+) -> tuple[list[list[Atom]], EngineProfile]:
 ```
 
 > Run source under the engine's statistical profiler, answering
@@ -167,25 +248,29 @@ def profile(
 ### `MeTTa.save`
 
 ```python
-def save(self, path: str, format: str = "metta") -> int:
+def save(self, path: str | os.PathLike[str], format: str = "metta") -> int:
 ```
 
 > Write every stored atom of this space, equations included, as
 > MeTTa source by default, or as a version-pinned trusted cache with
 > format="fast"; answers how many. A path ending .gz writes gzip
 > compressed in either format, and load and import! read it back
-> under the same name. Atoms carrying live host objects cannot
-> survive either file and are refused.
+> under the same name. The completed sibling file is synced and then
+> atomically replaces the target, so a failed save leaves the old file
+> intact. Atoms carrying live host objects cannot survive either file
+> and are refused.
 
 ### `MeTTa.load`
 
 ```python
-def load(self, path: str) -> list[list[Atom]]:
+def load(self, path: str | os.PathLike[str]) -> list[list[Atom]]:
 ```
 
-> Load a text program or an auto-detected trusted fast cache,
-> gzip-compressed or plain; a .gz path sniffs and reads through
-> the decompressed bytes.
+> Add a text program or trusted fast cache to this space.
+>
+> Existing atoms remain, so loading the same file twice adds two copies.
+> Use clear() first or load into fresh_space() when replacement is wanted.
+> A .gz path is detected and read through the decompressed bytes.
 
 ### `MeTTa.parse`
 
@@ -232,7 +317,8 @@ def remove(self, atom: Any) -> bool:
 ```
 
 > Remove an atom, engine semantics: an equation removal reports
-> whether it existed; a plain atom removal removes every copy.
+> whether it existed; a plain atom removal removes every copy and
+> reports whether at least one copy existed.
 
 ### `MeTTa.atoms`
 
@@ -248,7 +334,7 @@ def atoms(self) -> list[Atom]:
 def count(self) -> int:
 ```
 
-No docstring is defined.
+> Return the number of atoms stored in this space.
 
 ### `MeTTa.cast`
 
@@ -350,7 +436,7 @@ def stream(
     where: Any | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
-) -> "Cursor":
+) -> Cursor:
 ```
 
 > query(), pulled: the same conjunction and guard, answered one
@@ -374,7 +460,7 @@ def stream(
 ### `MeTTa.assuming`
 
 ```python
-def assuming(self, *facts: Any) -> "_Assuming":
+def assuming(self, *facts: Any) -> _Assuming:
 ```
 
 > Facts held only inside a with-block: the assumptions reading of
@@ -387,7 +473,7 @@ def assuming(self, *facts: Any) -> "_Assuming":
 ### `MeTTa.prepare`
 
 ```python
-def prepare(self, *patterns: Any, where: Any | None = None) -> "Prepared":
+def prepare(self, *patterns: Any, where: Any | None = None) -> Prepared:
 ```
 
 > A query whose shape is fixed and whose facts are not: the wire
@@ -407,9 +493,57 @@ def eval(
     *,
     timeout: float | None = None,
     inferences: int | None = None,
+    capture: Literal[False] = False,
+    residuals: bool = False,
+) -> list[Atom | Undefined]:
+```
+
+No docstring is defined.
+
+### `MeTTa.eval`
+
+```python
+def eval(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    capture: Literal[True],
+    residuals: bool = False,
+) -> tuple[list[Atom | Undefined], str]:
+```
+
+No docstring is defined.
+
+### `MeTTa.eval`
+
+```python
+def eval(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    capture: bool,
+    residuals: bool = False,
+) -> list[Atom | Undefined] | tuple[list[Atom | Undefined], str]:
+```
+
+No docstring is defined.
+
+### `MeTTa.eval`
+
+```python
+def eval(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
     capture: bool = False,
     residuals: bool = False,
-) -> list[Atom] | tuple[list[Atom], str]:
+) -> list[Atom | Undefined] | tuple[list[Atom | Undefined], str]:
 ```
 
 > Evaluate a term, returning every answer.
@@ -458,7 +592,7 @@ def value(
 ### `MeTTa.stats`
 
 ```python
-def stats(self) -> "_StatsBlock":
+def stats(self) -> _StatsBlock:
 ```
 
 > The engine's own counters over a with-block, as deltas.
@@ -477,10 +611,10 @@ def stats(self) -> "_StatsBlock":
 > this block ran". The z3py Solver.statistics() reading, on the
 > engine this library actually has.
 
-### `MeTTa.op`
+### `MeTTa.register_op`
 
 ```python
-def op(
+def register_op(
     self,
     fn: Callable | None = None,
     *,
@@ -494,11 +628,11 @@ def op(
 
 > Register a Python callable as a MeTTa function, decorator-style.
 >
->     @m.op
+>     @m.register_op
 >     def double(x: int) -&gt; int:
 >         return 2 * x                    # !(double 21) -&gt; 42
 >
->     @m.op
+>     @m.register_op
 >     def neighbours(n: int):
 >         yield n - 1                     # a generator is nondeterministic
 >         yield n + 1
@@ -507,12 +641,13 @@ def op(
 > operation skips the wire encoding both ways, which suits tensor and
 > number work; symbols reach it as plain strings, so keep raw off when
 > the symbol-string distinction matters. pass_atoms hands the callable
-> Atom objects instead of decoded Python values.
+> Atom objects instead of decoded Python values. unregister_op(name)
+> removes every registered arity.
 
-### `MeTTa.unregister`
+### `MeTTa.unregister_op`
 
 ```python
-def unregister(self, name: str) -> None:
+def unregister_op(self, name: str) -> None:
 ```
 
 > Remove a registered operation, every arity of it.
@@ -531,7 +666,7 @@ def builtins(self) -> list[str]:
 def is_function(self, name: str) -> bool:
 ```
 
-No docstring is defined.
+> Report whether a function is visible from this space.
 
 ### `MeTTa.is_function_here`
 
@@ -594,7 +729,14 @@ def prolog(self) -> None:
 ### `MeTTa.derivation`
 
 ```python
-def derivation(self, target: Any, depth: int = 30) -> list[Derivation]:
+def derivation(
+    self,
+    target: Any,
+    depth: int | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> list[Derivation]:
 ```
 
 > Every proof of an answer, as trees in MeTTa terms.
@@ -602,9 +744,11 @@ def derivation(self, target: Any, depth: int = 30) -> list[Derivation]:
 > Each tree names the equations that fired and the stored atoms at the
 > leaves, read from the translated_from links the engine keeps for
 > every compiled clause. Meta-interpreted, so slower than evaluation;
-> a diagnostic, not an evaluation path. Depth bounds the SEARCH, and
-> an evaluation error inside a proof surfaces as itself rather than
-> as an empty proof list.
+> a diagnostic, not an evaluation path. The default walks each proof
+> without a depth cutoff. A positive depth returns a partial tree with
+> Truncated nodes when its budget ends, so an empty list means no proof.
+> `timeout` and `inferences` guard the whole search. An evaluation error
+> inside a proof surfaces as itself rather than as an empty proof list.
 
 ### `MeTTa.why`
 
@@ -620,7 +764,7 @@ def why(self, pattern: Any) -> str:
 ### `MeTTa.define`
 
 ```python
-def define(self, fn: Callable):
+def define(self, fn: types.FunctionType):
 ```
 
 > Compile a Python function into MeTTa equations, decorator-style.
@@ -632,13 +776,14 @@ def define(self, fn: Callable):
 > against on any ground input.
 >
 >     @m.define
->     def fact(n):
->         if n == 0:
->             return 1
->         return n * fact(n - 1)
+>     def add_one(n):
+>         return n + 1
 >
->     m.run("!(fact 5)")          # [[120]]
->     fact.py(5)                  # 120, ordinary Python
+>     m.run("!(add-one 5)")       # [[6]]
+>     add_one.py(5)               # 6, ordinary Python
+>
+> The equation name follows the operation naming rule: underscores
+> in the Python name become hyphens in MeTTa.
 >
 > A generator compiles to nondeterminism (each yield one answer), a
 > lambda to the engine's own |-&gt;, a comprehension to map-atom and
@@ -649,7 +794,13 @@ def define(self, fn: Callable):
 ### `MeTTa.type`
 
 ```python
-def type(self, cls: type | None = None, *, accessors: bool = True, methods: bool = True):
+def type(
+    self,
+    cls: _builtins.type | None = None,
+    *,
+    accessors: bool = True,
+    methods: bool = True,
+):
 ```
 
 > Declare a Python class INTO this space, decorator-style: the
@@ -681,7 +832,7 @@ def type(self, cls: type | None = None, *, accessors: bool = True, methods: bool
 ### `MeTTa.fn`
 
 ```python
-def fn(self, name: str) -> "_EngineFunction":
+def fn(self, name: str) -> _EngineFunction:
 ```
 
 > Any engine function as an ordinary Python callable.
@@ -717,7 +868,7 @@ def register_space(self, name: str, provider: Any) -> Any:
 def unregister_space(self, name: str) -> None:
 ```
 
-No docstring is defined.
+> Remove a registered Python-backed space.
 
 ### `MeTTa.runtime`
 
@@ -726,73 +877,3 @@ def runtime(self) -> Runtime:
 ```
 
 > The engine bridge itself, for callers going under the surface.
-
-## `Cursor`
-
-```python
-class Cursor:
-```
-
-> MeTTa.stream(): answers pulled one at a time from an engine-held
-> query. Iterate it, close() it, or leave its with-block; exhaustion
-> closes it by itself, a second close is a no-op, and a cursor dropped
-> unclosed is reaped by its finalizer. Rows carry the query's variable
-> names as columns, exactly as query()'s rows do.
-
-### `Cursor.close`
-
-```python
-def close(self) -> None:
-```
-
-> Destroy the held engine; idempotent, and exhaustion calls it.
-
-## `EngineProfile`
-
-```python
-class EngineProfile:
-```
-
-> MeTTa.profile()'s second answer: the sampler's counters and one
-> row per predicate, self-ticks-descending. Each node is (predicate,
-> calls, redos, ticks_self, ticks_siblings).
-
-### `EngineProfile.top`
-
-```python
-def top(self, n: int = 10) -> list[tuple]:
-```
-
-> The n predicates the samples landed in most.
-
-## `Prepared`
-
-```python
-class Prepared:
-```
-
-> A prepared query: pattern wires and columns built once, solved many
-> times, optionally with per-call facts. The ladder the clingo API walks
-> (assumptions per solve, inputs per session, rules added), with the rung
-> clingo lacks: rules REMOVED, since this engine erases clauses whole.
->
->     route = m.prepare(S.path(V.a, V.b))
->     route.solve()
->     route.solve(given=[S.edge(S.a, S.b)])   # facts for this call only
-
-### `Prepared.solve`
-
-```python
-def solve(
-    self,
-    given: list | None = None,
-    limit: int | None = None,
-    *,
-    timeout: float | None = None,
-    inferences: int | None = None,
-) -> Rows:
-```
-
-> Answers now, with `given` facts present for this call alone.
-> `timeout` and `inferences` bound this solve exactly as they bound
-> MeTTa.query().

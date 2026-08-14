@@ -15,6 +15,9 @@ Source: `python/petta/matching.py`.
 > composition rule is mettabase's semmatch design: matchers compose through
 > ordinary MeTTa evaluation and nondeterminism, structural match first or
 > last or in between, never through new syntax.
+> Guarantees:
+>   - regex lexicons choose exactly one source mode, iterable or factory
+>     [tested test_regex_lexicon_refuses_ambiguous_source]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

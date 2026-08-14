@@ -10,7 +10,7 @@ Python annotations can create function declarations at registration time:
 def test_annotations_declare_types(metta):
     name = unique("typed")
 
-    @metta.op(name=name)
+    @metta.register_op(name=name)
     def typed_op(x: int) -> int:
         return x
 

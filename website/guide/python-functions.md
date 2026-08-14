@@ -1,13 +1,13 @@
 # Python functions as MeTTa functions
 
-`@m.op` registers a Python callable as a MeTTa function. The signature sets its arities. A generator function is nondeterministic, with one MeTTa answer per yield.
+`@m.register_op` registers a Python callable as a MeTTa function. The signature sets its arities. A generator function is nondeterministic, with one MeTTa answer per yield. `@m.op` is the same decorator under a shorter name, kept so existing code and notebooks keep running.
 
 ```python
-@m.op
+@m.register_op
 def double(x: int) -> int:
     return 2 * x                     # !(double 21) -> 42
 
-@m.op
+@m.register_op
 def upto(n: int):
     yield from range(1, n + 1)       # !(collapse (upto 3)) -> (1 2 3)
 ```
@@ -16,17 +16,15 @@ Annotations become declarations in the running space. A `TypeVar` produces a par
 
 A dataclass, enum, or plain class in a signature becomes a declared type. Its field annotations determine the constructor declaration. Translation is two-way: enums project to symbols, structured objects can project to constructor expressions, and answers can rebuild Python instances.
 
-Defaults register every accepted positional arity. A Python `None` produces no answer unless the integration wrapper uses the engine's effect convention. Registration can be removed with `m.unregister(name)`.
+Defaults register every accepted positional arity. A Python `None` produces no answer unless the integration wrapper uses the engine's effect convention. `m.unregister_op(name)` removes every arity registered under that name.
 
 See [`petta.ops`](../reference/petta-ops) for annotation mapping and registration, and [`petta.convert`](../reference/petta-convert) for object projection and rebuilding.
 
 ## Property-test what you build
 
-`petta.testing` exports the hypothesis strategies this library fuzzes itself with. The generators carry engine truths worth not rediscovering: which names the tokeniser reads back whole, that `true` and `True` are one term on the engine so their spellings canonicalize, and which numbers the printer round-trips. The library's own suite runs on the public module:
+`petta.testing` exports the hypothesis strategies this library fuzzes itself with. The generators carry engine truths worth not rediscovering: which names the tokeniser reads back whole, that `true` and `True` are one term on the engine so their spellings canonicalize, and which numbers the printer round-trips. The library's own suite imports the public module as `from petta import testing as pt` and builds its generators from it:
 
 ```python
-from petta import testing as pt  # noqa: E402
-
 _name = pt.names()
 _numbers = pt.numbers()
 _strings = pt.texts()

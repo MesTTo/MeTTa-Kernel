@@ -9,6 +9,16 @@ Source: `python/petta/foreign.py`.
 > over-approximate its filtering and stay sound; pushing bound parts of the
 > pattern down into the backend is the performance lever, never a correctness
 > requirement.
+> Guarantees:
+>   - capabilities derive from implemented narrow protocols and unknown
+>     operations are refused [tested test_capabilities_follow_implemented_methods]
+>   - providers may decline one concrete request through should_run before its
+>     operation executes [tested test_provider_can_decline_one_request]
+>   - provider registration changes Python state only after the engine accepts
+>     the same change [tested test_provider_registration_is_transactional]
+> Guarded by:
+>   - _PROVIDER_LOCK serializes library registration and provider lookups
+>     [tested test_provider_registration_is_transactional]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -16,41 +26,31 @@ Source: `python/petta/foreign.py`.
 
 The entries below reproduce the source signatures and docstrings.
 
-## `SpaceProvider`
+## `Matcher`
 
 ```python
-class SpaceProvider:
+class Matcher(Protocol):
 ```
 
-> One space backed by Python. Subclass and override what the backend has.
->
-> match(pattern) yields candidate atoms; the pattern's variables arrive as
-> Var atoms, and bound positions as ground atoms, which is what a backend
-> turns into its own filter (a WHERE clause, a mask). Yielding every atom
-> is always correct; yielding fewer than match is never allowed to be.
-> A provider without add/remove is read-only, and the engine's write
-> answers a clear error instead of pretending.
+No docstring is defined.
 
-### `SpaceProvider.supports`
-
-```python
-def supports(self, capability: str) -> bool:
-```
-
-> Whether an optional space operation is supported.
->
-> Unspecified capabilities are permissive so existing providers retain
-> their behavior. A provider declares only the operations it refuses.
-
-### `SpaceProvider.match`
+### `Matcher.match`
 
 ```python
 def match(self, pattern: Atom) -> Iterator[Any]:
 ```
 
-> Candidates for a pattern; the default enumerates everything.
+No docstring is defined.
 
-### `SpaceProvider.atoms`
+## `Enumerable`
+
+```python
+class Enumerable(Protocol):
+```
+
+No docstring is defined.
+
+### `Enumerable.atoms`
 
 ```python
 def atoms(self) -> Iterator[Any]:
@@ -58,7 +58,15 @@ def atoms(self) -> Iterator[Any]:
 
 No docstring is defined.
 
-### `SpaceProvider.add`
+## `Adder`
+
+```python
+class Adder(Protocol):
+```
+
+No docstring is defined.
+
+### `Adder.add`
 
 ```python
 def add(self, atom: Atom) -> None:
@@ -66,7 +74,15 @@ def add(self, atom: Atom) -> None:
 
 No docstring is defined.
 
-### `SpaceProvider.remove`
+## `Remover`
+
+```python
+class Remover(Protocol):
+```
+
+No docstring is defined.
+
+### `Remover.remove`
 
 ```python
 def remove(self, atom: Atom) -> bool:
@@ -74,7 +90,15 @@ def remove(self, atom: Atom) -> bool:
 
 No docstring is defined.
 
-### `SpaceProvider.clear`
+## `Clearer`
+
+```python
+class Clearer(Protocol):
+```
+
+No docstring is defined.
+
+### `Clearer.clear`
 
 ```python
 def clear(self) -> None:
@@ -82,10 +106,63 @@ def clear(self) -> None:
 
 No docstring is defined.
 
+## `SpaceProvider`
+
+```python
+class SpaceProvider:
+```
+
+> One space backed by Python. Implement only what the backend has.
+>
+> match(pattern) yields candidate atoms; the pattern's variables arrive as
+> Var atoms, and bound positions as ground atoms, which is what a backend
+> turns into its own filter (a WHERE clause, a mask). Yielding every atom
+> is always correct; yielding fewer than match is never allowed to be.
+> An Enumerable provider need not implement Matcher: enumeration is the
+> correct default candidate set. Missing methods are unsupported, never
+> assumed present.
+
+### `SpaceProvider.can_run`
+
+```python
+def can_run(self, capability: str, /, **request: Any) -> bool:
+```
+
+> Whether this provider implements the operation for this request.
+
+### `SpaceProvider.should_run`
+
+```python
+def should_run(self, _capability: str, /, **_request: Any) -> bool:
+```
+
+> Policy hook: decline a supported concrete request before execution.
+
+### `SpaceProvider.supports`
+
+```python
+def supports(self, capability: str, /, **request: Any) -> bool:
+```
+
+> Compatibility spelling for can_run().
+
+## `has_provider`
+
+```python
+def has_provider(space: str) -> bool:
+```
+
+> Whether a Python provider currently owns the space.
+
 ## `require_capability`
 
 ```python
-def require_capability(space: str, capability: str, operation: str) -> None:
+def require_capability(
+    space: str,
+    capability: str,
+    operation: str,
+    **request: Any,
+) -> None:
 ```
 
 > Refuse an operation before it creates partial state or enters Prolog.

@@ -12,6 +12,29 @@ Source: `python/petta/aio.py`.
 > evaluation through the engine's own thread_signal, the sqlite3 reading,
 > and a cancelled task fires it on its own call, so asyncio timeouts stop
 > the engine instead of abandoning it.
+> Guarantees:
+>   - interrupt_if_running throws the same reserved structured exception as
+>     shim resource guards [tested test_aio_interrupt_stops_the_running_evaluation]
+>   - close refuses new work, interrupts a running request, rejects queued
+>     requests, and bounds the worker join [tested test_aio_close_interrupts_work]
+>   - the transition drain discards only a structured interrupt and fails
+>     closed on every other error [tested
+>     test_aio_drain_only_discards_structured_interrupt]
+>   - an abandoned live owner emits ResourceWarning and registered workers
+>     detach during interpreter shutdown [tested test_aio_leak_warns_and_stop_joins,
+>     test_aio_shutdown_handler_stops_forgotten_workers]
+>   - interpreter shutdown attempts every worker and reports all expected
+>     stop failures together [tested test_aio_shutdown_handler_attempts_every_worker]
+>   - interpreter shutdown without live workers does not initialize the
+>     optional engine bridge [tested test_aio_empty_shutdown_does_not_import_janus]
+> Owns:
+>   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
+>     engine until aclose(), stop(), or the atexit handler releases it [tested
+>     test_aio_leak_warns_and_stop_joins]
+> Guarded by:
+>   - _state_lock publishes worker state and engine identity; _transition
+>     serializes request completion with interruption [tested
+>     test_aio_interrupt_stops_the_running_evaluation]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -58,7 +81,7 @@ def metta(self) -> MeTTa:
 ### `AsyncMeTTa.start`
 
 ```python
-async def start(self) -> "AsyncMeTTa":
+async def start(self) -> Self:
 ```
 
 > Start the engine thread; connect() and `async with` call this.
@@ -88,10 +111,20 @@ def interrupt(self) -> bool:
 ### `AsyncMeTTa.run`
 
 ```python
-async def run(self, source: str, using: dict | None = None, **bounds) -> Any:
+async def run(
+    self,
+    source: str,
+    using: dict[str, Any] | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    capture: bool = False,
+    atomic: bool = False,
+    speculative: bool = False,
+) -> Any:
 ```
 
-No docstring is defined.
+> Run MeTTa source on the worker and return its result groups.
 
 ### `AsyncMeTTa.load`
 
@@ -99,7 +132,7 @@ No docstring is defined.
 async def load(self, path: str) -> list:
 ```
 
-No docstring is defined.
+> Load source or a fast cache into this space on the worker.
 
 ### `AsyncMeTTa.save`
 
@@ -107,7 +140,7 @@ No docstring is defined.
 async def save(self, path: str, format: str = "metta") -> int:
 ```
 
-No docstring is defined.
+> Save this space and return the number of stored atoms.
 
 ### `AsyncMeTTa.add`
 
@@ -115,7 +148,7 @@ No docstring is defined.
 async def add(self, *atoms: Any) -> None:
 ```
 
-No docstring is defined.
+> Add atoms to this space on the worker.
 
 ### `AsyncMeTTa.add_table`
 
@@ -123,7 +156,7 @@ No docstring is defined.
 async def add_table(self, head: Any, data: Any) -> int:
 ```
 
-No docstring is defined.
+> Add rows from a tabular value and return the number added.
 
 ### `AsyncMeTTa.remove`
 
@@ -131,7 +164,7 @@ No docstring is defined.
 async def remove(self, atom: Any) -> bool:
 ```
 
-No docstring is defined.
+> Remove one matching atom and report whether one existed.
 
 ### `AsyncMeTTa.clear`
 
@@ -139,7 +172,7 @@ No docstring is defined.
 async def clear(self) -> None:
 ```
 
-No docstring is defined.
+> Remove every atom from this space.
 
 ### `AsyncMeTTa.count`
 
@@ -147,7 +180,7 @@ No docstring is defined.
 async def count(self) -> int:
 ```
 
-No docstring is defined.
+> Return the number of atoms in this space.
 
 ### `AsyncMeTTa.atoms`
 
@@ -155,31 +188,52 @@ No docstring is defined.
 async def atoms(self) -> list:
 ```
 
-No docstring is defined.
+> Return a snapshot of every atom in this space.
 
 ### `AsyncMeTTa.query`
 
 ```python
-async def query(self, *patterns: Any, **options) -> Rows:
+async def query(
+    self,
+    *patterns: Any,
+    where: Any | None = None,
+    limit: int | None = None,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Rows:
 ```
 
-No docstring is defined.
+> Query patterns with the synchronous surface's bounds and guard.
 
 ### `AsyncMeTTa.eval`
 
 ```python
-async def eval(self, target: Any, **bounds) -> Any:
+async def eval(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    capture: bool = False,
+    residuals: bool = False,
+) -> Any:
 ```
 
-No docstring is defined.
+> Evaluate a term and return every answer.
 
 ### `AsyncMeTTa.value`
 
 ```python
-async def value(self, target: Any, **bounds) -> Any:
+async def value(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Any:
 ```
 
-No docstring is defined.
+> Evaluate a term that must produce exactly one value.
 
 ### `AsyncMeTTa.fresh_space`
 
@@ -187,7 +241,7 @@ No docstring is defined.
 async def fresh_space(self) -> AsyncMeTTa:
 ```
 
-No docstring is defined.
+> Return an isolated space that borrows this connection's worker.
 
 ### `AsyncMeTTa.drop`
 
@@ -195,7 +249,7 @@ No docstring is defined.
 async def drop(self) -> None:
 ```
 
-No docstring is defined.
+> Drop this named space from the engine.
 
 ### `AsyncMeTTa.profile`
 
@@ -210,7 +264,7 @@ async def profile(
 ) -> Any:
 ```
 
-No docstring is defined.
+> Profile source execution and return its groups and counters.
 
 ### `AsyncMeTTa.parse`
 
@@ -218,7 +272,7 @@ No docstring is defined.
 async def parse(self, source: str) -> Any:
 ```
 
-No docstring is defined.
+> Parse one MeTTa term without evaluating it.
 
 ### `AsyncMeTTa.cast`
 
@@ -226,7 +280,7 @@ No docstring is defined.
 async def cast(self, value: Any, type_: Any) -> Any:
 ```
 
-No docstring is defined.
+> Check and narrow a value through the engine type system.
 
 ### `AsyncMeTTa.trace`
 
@@ -234,7 +288,7 @@ No docstring is defined.
 async def trace(self, source: str, max_events: int = 1_000_000) -> Any:
 ```
 
-No docstring is defined.
+> Trace source execution up to the requested event bound.
 
 ### `AsyncMeTTa.lint`
 
@@ -242,7 +296,7 @@ No docstring is defined.
 async def lint(self) -> Any:
 ```
 
-No docstring is defined.
+> Return static findings for this space.
 
 ### `AsyncMeTTa.digest`
 
@@ -250,15 +304,15 @@ No docstring is defined.
 async def digest(self) -> str:
 ```
 
-No docstring is defined.
+> Return the stable content digest for this space.
 
-### `AsyncMeTTa.unregister`
+### `AsyncMeTTa.unregister_op`
 
 ```python
-async def unregister(self, name: str) -> None:
+async def unregister_op(self, name: str) -> None:
 ```
 
-No docstring is defined.
+> Remove every registered operation overload under a name.
 
 ### `AsyncMeTTa.builtins`
 
@@ -266,7 +320,7 @@ No docstring is defined.
 async def builtins(self) -> list[str]:
 ```
 
-No docstring is defined.
+> Return the names of engine builtins.
 
 ### `AsyncMeTTa.is_function`
 
@@ -274,7 +328,7 @@ No docstring is defined.
 async def is_function(self, name: str) -> bool:
 ```
 
-No docstring is defined.
+> Report whether a function is visible from this space.
 
 ### `AsyncMeTTa.is_function_here`
 
@@ -282,7 +336,7 @@ No docstring is defined.
 async def is_function_here(self, name: str) -> bool:
 ```
 
-No docstring is defined.
+> Report whether this space defines a function itself.
 
 ### `AsyncMeTTa.arities`
 
@@ -290,15 +344,22 @@ No docstring is defined.
 async def arities(self, name: str) -> list[int]:
 ```
 
-No docstring is defined.
+> Return the registered arities for a function name.
 
 ### `AsyncMeTTa.derivation`
 
 ```python
-async def derivation(self, target: Any, depth: int = 30) -> Any:
+async def derivation(
+    self,
+    target: Any,
+    depth: int | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Any:
 ```
 
-No docstring is defined.
+> Build a bounded derivation tree for one target.
 
 ### `AsyncMeTTa.why`
 
@@ -306,12 +367,12 @@ No docstring is defined.
 async def why(self, pattern: Any) -> str:
 ```
 
-No docstring is defined.
+> Explain why a pattern is not currently reducible.
 
 ### `AsyncMeTTa.space`
 
 ```python
-async def space(self, name: str) -> "AsyncMeTTa":
+async def space(self, name: str) -> AsyncMeTTa:
 ```
 
 > Another space through the same engine thread. The connection
@@ -321,10 +382,18 @@ async def space(self, name: str) -> "AsyncMeTTa":
 ### `AsyncMeTTa.aclose`
 
 ```python
-async def aclose(self) -> None:
+async def aclose(self, timeout: float = DEFAULT_CLOSE_TIMEOUT) -> None:
 ```
 
-> Stop accepting, let queued work finish, and end the thread.
+> Interrupt work, reject queued calls, and detach within timeout.
+
+### `AsyncMeTTa.stop`
+
+```python
+def stop(self, timeout: float = DEFAULT_CLOSE_TIMEOUT) -> None:
+```
+
+> Synchronous cleanup for code without a running event loop.
 
 ## `connect`
 

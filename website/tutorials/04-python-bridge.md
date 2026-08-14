@@ -26,7 +26,7 @@ The boundary also goes from MeTTa into Python. Register a Python callable with `
 def test_det_op_composes_with_equations(metta):
     name = unique("dbl")
 
-    @metta.op(name=name)
+    @metta.register_op(name=name)
     def double(x: int) -> int:
         return 2 * x
 

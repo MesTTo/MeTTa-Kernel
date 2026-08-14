@@ -56,6 +56,17 @@ def numbers():
 > tagged-integer range, floats without NaN (never compares equal) or
 > infinity (prints as a symbol), both printer limits, not carried bugs.
 
+## `numpy_scalars`
+
+```python
+def numpy_scalars():
+```
+
+> NumPy integer and real scalar values accepted by PeTTa's Number type.
+>
+> NumPy is optional. Install ``petta[arrays,test]`` before requesting this
+> strategy.
+
 ## `texts`
 
 ```python
@@ -95,4 +106,4 @@ def atoms(max_leaves: int = 8, *, ground: bool = False):
 def expressions(max_leaves: int = 8, *, ground: bool = False):
 ```
 
-> Expression-rooted atoms, the shape spaces store.
+> Non-empty expression-rooted atoms, the shape spaces store.

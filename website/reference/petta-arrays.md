@@ -12,6 +12,15 @@ Source: `python/petta/arrays.py`.
 > Built entirely on the public integration interface; pettorch instantiates it
 > with torch as the constructor default and proves nothing here is
 > torch-shaped.
+> Guarantees:
+>   - _top_indices returns the highest finite scores first and resolves equal
+>     scores by insertion order [tested test_top_indices_match_full_order_and_stabilize_ties]
+>   - _top_indices uses 35.26% fewer instructions than the prior full sort for
+>     500 top-10 selections from 100,000 scores [measured 2026-08-14: minimum
+>     of three perf stat instructions:u runs]
+> Guarded by:
+>   - _PROTOCOLS_LOCK serializes one-time protocol registration
+>     [tested test_array_protocol_registration_is_idempotent]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -111,8 +120,9 @@ def ranked(self, query: Any, k: int):
 > (key atom, cosine) pairs best first: the raw retrieval every
 > surface (knn, the matcher) formats its own way. With faiss present
 > (or asked for), an exact IndexFlatIP over the normalized matrix
-> answers, byte-agreeing with the argsort path by a differential
-> test; argsort otherwise.
+> answers, byte-agreeing with the array path by a differential test.
+> NumPy-like namespaces use argpartition for the candidate set;
+> namespaces exposing only the Array API use argsort.
 
 ### `EmbeddingStore.matcher`
 

@@ -33,7 +33,7 @@ class Router:
     def get(self, path: str) -> Callable:
         def wrap(fn: Callable) -> Callable:
             handler = fn.__name__.replace("_", "-")
-            self._m.op(fn, name=handler, typed=False)
+            self._m.register_op(fn, name=handler, typed=False)
             self.add_route("GET", path, handler)
             return fn
 
@@ -153,15 +153,6 @@ def test_remote_spaces_serve_attach_and_join(metta, tmp_path):
     """The other engine is a PROCESS, as deployment means it: a subprocess
     serves one space, this engine attaches it, and one local match joins
     remote rows with local facts across the wire."""
-    import json
-    import os
-    import subprocess
-    import sys
-    from pathlib import Path
-
-    from petta import remote
-    from petta.errors import PettaError
-
     script = Path(__file__).parent / "data" / "remote_server.py"
     child = subprocess.Popen(
         [sys.executable, str(script)],
@@ -181,8 +172,7 @@ def test_remote_spaces_serve_attach_and_join(metta, tmp_path):
         # And joins with local facts in ONE match, the multi-context point.
         local.run("(vip 1)")
         (group,) = local.run(
-            "!(collapse (match (context-space) (vip $id)"
-            " (match &hq (users $id $n) $n)))"
+            "!(collapse (match (context-space) (vip $id) (match &hq (users $id $n) $n)))"
         )
         assert group == [expr("Ada")]
         # Writes cross too, and the remote engine answers them back.
@@ -203,13 +193,10 @@ def test_remote_spaces_serve_attach_and_join(metta, tmp_path):
 
 The helper named by that test is not copied here. The approved source excerpt is the top-level test itself.
 
-`remote.serve` supports a bearer token and an authorization hook. Clients can also send additional headers:
+`remote.serve` supports a bearer token and an authorization hook, and clients can send additional headers. Credentials never travel in the clear: attaching a token to a plain `http://` URL is refused at connect time, so a token reaches the wire only under TLS.
 
 ```python
-def test_remote_auth_token_and_hook(metta):
-    from petta import remote
-    from petta.errors import PettaError
-
+def test_remote_auth_token_and_hook_requires_tls(metta):
     served = metta.fresh_space()
     served.add(S.fact(1))
     server = remote.serve(
@@ -219,18 +206,8 @@ def test_remote_auth_token_and_hook(metta):
         authorize=lambda headers: headers.get("x-tenant") == "acme",
     )
     try:
-        good = remote.connect(
-            server.url, token="s3cret", headers={"x-tenant": "acme"}
-        )
-        assert list(remote.RemoteSpace(good, served.space_name).atoms())
-        with pytest.raises(PettaError):
-            bad_token = remote.connect(
-                server.url, token="wrong", headers={"x-tenant": "acme"}
-            )
-            list(remote.RemoteSpace(bad_token, served.space_name).atoms())
-        with pytest.raises(PettaError):
-            no_tenant = remote.connect(server.url, token="s3cret")
-            list(remote.RemoteSpace(no_tenant, served.space_name).atoms())
+        with pytest.raises(PettaError, match="credentials require an https URL"):
+            remote.connect(server.url, token="s3cret", headers={"x-tenant": "acme"})
     finally:
         server.close()
         served.drop()

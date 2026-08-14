@@ -23,6 +23,13 @@ Source: `python/petta/das.py`.
 > live das-cli deployment. The dialect negotiates once per connection off
 > the server's own 400 naming the missing legacy fields; anything else
 > stays loud.
+> Guarantees:
+>   - DAS refuses non-HTTP endpoint URLs during construction [tested
+>     test_das_refuses_non_http_urls]
+>   - query and count return data only after a completed terminal event
+>     and close the event stream before returning [tested
+>     test_query_and_count_require_completed_terminal_event,
+>     test_completed_query_closes_its_event_stream]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -88,7 +95,7 @@ def execute(self, command: str, params: dict) -> str:
 def status(self, execution_id: str) -> dict:
 ```
 
-No docstring is defined.
+> Return the router status for one execution.
 
 ### `DAS.cancel`
 
@@ -96,13 +103,14 @@ No docstring is defined.
 def cancel(self, execution_id: str) -> None:
 ```
 
-No docstring is defined.
+> Ask the router to cancel one execution.
 
 ### `DAS.query`
 
 ```python
-def query(self, *patterns: Any, max_answers: int | None = None,
-          unique: bool = False, **extra: Any) -> list[DASAnswer]:
+def query(
+    self, *patterns: Any, max_answers: int | None = None, unique: bool = False, **extra: Any
+) -> list[DASAnswer]:
 ```
 
 > Run a pattern query and collect its STI-ordered answers.
@@ -129,6 +137,14 @@ class DASSpace(SpaceProvider):
 > expressions DAS matched, and the engine unifies them, so joins mix
 > DAS candidates with native facts. Knowledge loads through das-cli;
 > the write paths say so.
+
+### `DASSpace.can_run`
+
+```python
+def can_run(self, capability: str, /, **request: Any) -> bool:
+```
+
+No docstring is defined.
 
 ### `DASSpace.match`
 

@@ -11,6 +11,10 @@ Source: `python/petta/integrate.py`.
 > and printing, two-way value translation, structure reflected into facts,
 > spaces backed by the library's own storage, and reflective py-field
 > reasoning over any object.
+> Assumes:
+>   - inspect.signature reports unsupported callables with TypeError and
+>     unavailable signatures with ValueError [source 2026-08-14:
+>     https://docs.python.org/3/library/inspect.html#inspect.signature]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -143,7 +147,9 @@ def register_repr(predicate: Callable[[Any], bool], formatter: Callable[[Any], s
 ## `register_reflector`
 
 ```python
-def register_reflector(predicate: Callable[[Any], bool], fn: Callable[[Any, str, Any], int]) -> None:
+def register_reflector(
+    predicate: Callable[[Any], bool], fn: Callable[[Any, str, Any], int]
+) -> None:
 ```
 
 > fn(m, name, obj) writes facts about obj into m and returns the count.

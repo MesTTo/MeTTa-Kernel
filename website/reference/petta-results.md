@@ -2,10 +2,21 @@
 
 Source: `python/petta/results.py`.
 
-> Purpose: query results as rows. A Rows is a list of Row tuples, one per
+> Purpose: query results as rows. A Rows is a mutable sequence of Row tuples, one per
 > answer, with the query's variable names as columns and attribute access per
 > column, so rows drop into unpacking, DataFrame constructors and pattern
 > matching without a helper in between.
+> Guarantees:
+>   - Rows with the same columns share one bounded cached Row subclass [tested
+>     test_row_classes_are_reused_and_bounded]
+>   - slicing, copying, concatenation, and repetition preserve Rows and its
+>     columns [tested test_rows_sequence_operations_preserve_columns]
+>   - every mutation validates row width and preserves the named Row type
+>     [tested test_rows_mutations_preserve_invariants]
+>   - Row and Rows pickle through stable module-level rebuild functions rather
+>     than dynamic class names [tested test_rows_copy_and_pickle_protocols]
+>   - terminal representations bound both rows and individual values and state
+>     the omitted row count [tested test_rows_repr_is_bounded_and_recursive]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -31,18 +42,50 @@ class Row(tuple):
 def asdict(self) -> dict[str, Any]:
 ```
 
-No docstring is defined.
+> Return this row as a column-to-value mapping.
 
 ## `Rows`
 
 ```python
-class Rows(list):
+class Rows(UserList[Row]):
 ```
 
 > Every answer to a query, in the order the engine produced them.
 >
-> A list, so len, iteration, indexing and slicing behave as expected;
-> columns names the variables. column(name) projects one column out.
+> Sequence operations retain this type and its columns. ``rows["name"]``
+> projects a column, while integer and slice indexing follow a normal list.
+
+### `Rows.insert`
+
+```python
+def insert(self, i: int, item: Iterable[Any]) -> None:
+```
+
+No docstring is defined.
+
+### `Rows.append`
+
+```python
+def append(self, item: Iterable[Any]) -> None:
+```
+
+No docstring is defined.
+
+### `Rows.extend`
+
+```python
+def extend(self, other: Iterable[Iterable[Any]]) -> None:
+```
+
+No docstring is defined.
+
+### `Rows.copy`
+
+```python
+def copy(self) -> Rows:
+```
+
+No docstring is defined.
 
 ### `Rows.column`
 
@@ -50,7 +93,7 @@ class Rows(list):
 def column(self, name: str) -> list[Any]:
 ```
 
-No docstring is defined.
+> Return one named column as a list.
 
 ### `Rows.first`
 

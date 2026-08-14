@@ -8,6 +8,19 @@ Source: `python/petta/persistent.py`.
 > new provider attaches to the same path. On attach, an incomplete final
 > record is copied to ``&lt;journal&gt;.tail`` and removed only when every earlier
 > newline-terminated record validates. Earlier corruption is refused.
+> Guarantees:
+>   - constructor failure releases its path claim and any unattached reusable
+>     module [tested test_constructor_failure_releases_path_and_unattached_module]
+>   - terminal-tail recovery syncs the backup file and its directory before
+>     truncating the journal [tested test_tail_backup_is_durable_before_truncation]
+> Owns:
+>   - PersistentFactSpace owns one process path claim, one generated module,
+>     and one journal attachment until close or constructor rollback [tested
+>     test_detached_modules_are_reused_without_weakening_path_claims]
+> Guarded by:
+>   - _STATE_LOCK protects active paths and the module pool; each provider's
+>     _call_lock serializes journal operations [tested
+>     test_detached_modules_are_reused_without_weakening_path_claims]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

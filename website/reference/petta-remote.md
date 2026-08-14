@@ -12,6 +12,23 @@ Source: `python/petta/remote.py`.
 > metta-wam's metta_server, translated onto petta's own SpaceProvider
 > protocol; the engine keeps unification for itself, so a remote answer is
 > speed and reach, never trust.
+> Guarantees:
+>   - serve compares Bearer credentials with hmac.compare_digest before
+>     consulting the authorization callback [tested
+>     test_bearer_token_uses_constant_time_comparison]
+>   - connect refuses non-HTTP URLs and refuses credentials over plain HTTP
+>     [tested test_remote_connect_refuses_non_http_urls,
+>     test_remote_connect_refuses_credentials_over_http]
+>   - serve reports worker startup failure before accepting requests and close
+>     waits for both owned threads to finish [tested
+>     test_remote_serve_reports_worker_startup_failure,
+>     test_remote_close_waits_for_worker_detach]
+>   - the HTTP boundary rejects ambiguous lengths, oversized bodies, and
+>     non-object JSON with a response instead of dropping the connection
+>     [tested test_remote_server_rejects_malformed_request_bodies]
+> Owns:
+>   - Server owns the HTTP loop and its attached-engine worker until close()
+>     joins both [tested test_remote_close_waits_for_worker_detach]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -85,7 +102,8 @@ def connect(
 > deployment needs (an API key, a tenant id), and ssl_context is
 > Python's own ssl.SSLContext for https urls, certificate pinning
 > included, so the transport composes with whatever security the
-> serving side asks for.
+> serving side asks for. Only absolute http and https URLs are accepted.
+> Credentials require https.
 
 ## `attach`
 
@@ -109,10 +127,10 @@ class Server:
 ### `Server.close`
 
 ```python
-def close(self) -> None:
+def close(self, timeout: float = _SERVER_TIMEOUT) -> None:
 ```
 
-No docstring is defined.
+> Stop accepting, detach the engine worker, and join both threads.
 
 ## `serve`
 

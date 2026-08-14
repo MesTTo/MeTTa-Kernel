@@ -43,11 +43,11 @@ Explicit conversion uses `t-as`. Mixed binary operations convert the right opera
 
 ```python
 def test_cross_library_conversion_via_dlpack(am):
-    torch = pytest.importorskip("torch")
+    pytest.importorskip("torch")
     space = am.fresh_space()
     space.add(S.np_vec(val(numpy.array([1.0, 2.0], dtype=numpy.float32))))
     (group,) = space.run(
-        '!(t-dtype (t-as (match (context-space) (np_vec $v) $v) torch))'
+        "!(t-dtype (t-as (match (context-space) (np_vec $v) $v) torch))"
     )
     assert "float32" in str(group[0])
 

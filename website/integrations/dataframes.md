@@ -64,10 +64,7 @@ def test_rows_table_is_the_dataframe_shape(m):
     m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
     rows = m.query(S.Age(V.who, V.n))
     table = rows.table()
-    assert table == {"who": ["Tom", "Bob"], "n": [62, 40]} or table == {
-        "who": ["Bob", "Tom"],
-        "n": [40, 62],
-    }
+    assert table in ({"who": ["Tom", "Bob"], "n": [62, 40]}, {"who": ["Bob", "Tom"], "n": [40, 62]})
 ```
 
 `to_pl()` constructs the Polars frame directly:
@@ -90,9 +87,7 @@ def test_rows_to_pl_builds_the_polars_frame(m):
 def test_rows_to_df_builds_or_names_the_need(m):
     m.add_table("score", [("ada", 3)])
     rows = m.query(S.score(V.who, V.points))
-    try:
-        import pandas  # noqa: F401
-    except ImportError:
+    if importlib.util.find_spec("pandas") is None:
         with pytest.raises(ImportError, match="pandas"):
             rows.to_df()
     else:
