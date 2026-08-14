@@ -45,6 +45,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   transactional or atomic at their public boundaries.
 - Corrected reader, compiler, type dispatch, equality, and occurs-check defects
   covered by the regression suites.
+- Reported the reader's syntax diagnostic without Janus's unknown-error wrapper.
 - Made a dropped space release its integration installation records so a new
   space reusing the same name runs each installer again.
 
