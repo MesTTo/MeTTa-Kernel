@@ -1,8 +1,7 @@
 % Purpose: direct PlUnit coverage for core runtime builtins and their error
 %   contracts, independent of the file reader and Python bridge.
 % Open Obligations:
-%   To Do: Add relational builtin and atom-registration cases from the engine
-%     review.
+%   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
@@ -62,6 +61,53 @@ test(variable_index_still_enumerates,
     findall(Index-Elem, 'index-atom'([a, b], Index, Elem), Pairs).
 
 :- end_tests(metta_index_atom).
+
+:- begin_tests(metta_builtin_outputs).
+
+wrong_prebound_output('car-atom'([a, b], [])).
+wrong_prebound_output('cdr-atom'([a, b], [])).
+wrong_prebound_output('is-alpha-member'(a, [a, b], false)).
+wrong_prebound_output('#<'(1, 2, false)).
+wrong_prebound_output('#>'(2, 1, false)).
+wrong_prebound_output('#='(1, 1, false)).
+wrong_prebound_output('#\\='(1, 2, false)).
+wrong_prebound_output(repr(true, true)).
+
+produced_outputs(car, Out) :- 'car-atom'([a, b], Out).
+produced_outputs(cdr, Out) :- 'cdr-atom'([a, b], Out).
+produced_outputs(alpha_member, Out) :- 'is-alpha-member'(a, [a, b], Out).
+produced_outputs(clp_less, Out) :- '#<'(1, 2, Out).
+produced_outputs(clp_greater, Out) :- '#>'(2, 1, Out).
+produced_outputs(clp_equal, Out) :- '#='(1, 1, Out).
+produced_outputs(clp_different, Out) :- '#\\='(1, 2, Out).
+produced_outputs(representation, Out) :- repr(true, Out).
+
+expected_outputs(car, [a]).
+expected_outputs(cdr, [[b]]).
+expected_outputs(alpha_member, [true]).
+expected_outputs(clp_less, [true]).
+expected_outputs(clp_greater, [true]).
+expected_outputs(clp_equal, [true]).
+expected_outputs(clp_different, [true]).
+expected_outputs(representation, ["true"]).
+
+test(prebound_outputs_must_be_producible,
+     [forall(wrong_prebound_output(Goal)), fail]) :-
+    call(Goal).
+
+test(unbound_outputs_remain_exact_and_deterministic,
+     [forall(expected_outputs(Label, Expected))]) :-
+    findall(Out, produced_outputs(Label, Out), Actual),
+    Actual == Expected.
+
+test(translated_let_rejects_an_impossible_comparison_output) :-
+    setup_call_cleanup(assertz(silent(true), Ref),
+                       process_metta_string("!(let false (#< 1 2) WRONG)",
+                                            Results),
+                       erase(Ref)),
+    Results == [].
+
+:- end_tests(metta_builtin_outputs).
 
 :- begin_tests(metta_translator_rules,
                [ setup((retractall(user:translator_rule(_)),
