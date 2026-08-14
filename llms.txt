@@ -90,6 +90,8 @@ and stored facts behind an answer.
 `m.prolog()` opens the SWI toplevel. Errors: `PettaError` base, then
 `EngineError`, `MettaSyntaxError`, `CastError`, `CompileError`, `TimeLimitError`,
 `InferenceLimitError`, `ResourceLimitError`, `Interrupted`.
+Type checkers distinguish `SpaceName`, `MettaName`, and the closed
+`SaveFormat` set. Their constructors are available directly from `petta`.
 
 ## Integrating any library
 
