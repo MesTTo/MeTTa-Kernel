@@ -336,7 +336,7 @@ heuristic scorer or a neural network all feed the algebra identically.
 cases and `--counter-only` runs the deterministic regression gate without
 using wall time. Engine cases compare the minimum of three
 `stats().inferences` samples with `python/benchmarks/baseline.json`.
-`python/benchmarks/check_instructions.py` applies the same policy to the two
+`python/benchmarks/check_instructions.py` applies the same policy to the three
 engine-free cases with `perf stat -e instructions:u`. Wall results remain
 advisory and can be written with `--json`.
 

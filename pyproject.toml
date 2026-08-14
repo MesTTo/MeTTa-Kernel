@@ -49,7 +49,7 @@ dataframes = [
     "polars",
 ]
 orjson = [
-    "orjson",
+    "orjson>=3.10,<4",
 ]
 test = [
     "hypothesis>=6.165",
@@ -64,6 +64,7 @@ checks = [
     "import-linter>=2.13",
     "interrogate>=1.7",
     "mypy>=1.18",
+    "orjson>=3.10,<4",
     "perflint>=0.8",
     "pip-audit>=2.9",
     "pylint>=3.3",
@@ -146,7 +147,7 @@ no_site_packages = true
 [[tool.mypy.overrides]]
 module = [
     "array_api_compat", "faiss", "hypothesis", "numpy", "pandas",
-    "polars", "websocket",
+    "orjson", "polars", "websocket",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"
