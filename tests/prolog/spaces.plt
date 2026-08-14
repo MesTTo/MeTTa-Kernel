@@ -47,6 +47,70 @@ test(ordinary_native_match_is_unchanged,
 
 :- end_tests(spaces_cycles).
 
+:- begin_tests(spaces_arbitrary_atoms).
+
+arbitrary_space('&plunit_arbitrary_atoms').
+
+setup_arbitrary_space :-
+    cleanup_arbitrary_space,
+    arbitrary_space(Space),
+    add_sexp(Space, foo),
+    add_sexp(Space, 5),
+    add_sexp(Space, "text"),
+    add_sexp(Space, []),
+    add_sexp(Space, [foo]),
+    add_sexp(Space, [pair, 1, 2]).
+
+cleanup_arbitrary_space :-
+    arbitrary_space(Space),
+    forall((current_predicate(Space/Arity), functor(Head, Space, Arity)),
+           retractall(user:Head)).
+
+test(get_atoms_preserves_scalars_and_expressions,
+     [ setup(setup_arbitrary_space),
+       cleanup(cleanup_arbitrary_space),
+       true(Sorted == [5, "text", [], foo, [foo], [pair, 1, 2]]) ]) :-
+    arbitrary_space(Space),
+    findall(Atom, 'get-atoms'(Space, Atom), Atoms),
+    msort(Atoms, Sorted).
+
+test(scalar_and_singleton_expression_match_separately,
+     [ setup(setup_arbitrary_space),
+       cleanup(cleanup_arbitrary_space),
+       true((ScalarMatches == [scalar], ExpressionMatches == [expression])) ]) :-
+    arbitrary_space(Space),
+    findall(scalar, match(Space, foo, scalar, scalar), ScalarMatches),
+    findall(expression,
+            match(Space, [foo], expression, expression),
+            ExpressionMatches).
+
+test(scalar_participates_in_native_conjunctions,
+     [ setup(setup_arbitrary_space),
+       cleanup(cleanup_arbitrary_space),
+       true(Matches == [joined]) ]) :-
+    arbitrary_space(Space),
+    findall(joined,
+            match(Space, [',', foo, [pair, 1, 2]], joined, joined),
+            Matches).
+
+test(removing_scalar_keeps_singleton_expression,
+     [ setup(setup_arbitrary_space),
+       cleanup(cleanup_arbitrary_space),
+       true(Atoms == [[foo]]) ]) :-
+    arbitrary_space(Space),
+    remove_sexp(Space, foo),
+    findall(Atom, ('get-atoms'(Space, Atom), (Atom == foo ; Atom == [foo])), Atoms).
+
+test(removing_singleton_expression_keeps_scalar,
+     [ setup(setup_arbitrary_space),
+       cleanup(cleanup_arbitrary_space),
+       true(Atoms == [foo]) ]) :-
+    arbitrary_space(Space),
+    remove_sexp(Space, [foo]),
+    findall(Atom, ('get-atoms'(Space, Atom), (Atom == foo ; Atom == [foo])), Atoms).
+
+:- end_tests(spaces_arbitrary_atoms).
+
 :- multifile metta_on_function_changed/1.
 
 metta_on_function_changed(plunit_registration_rollback) :-
