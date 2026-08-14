@@ -69,10 +69,7 @@ jobs:
           sh check.sh ruff mypy ty pylint perflint xenon refurb bandit \
                       deptry interrogate codespell imports || true
 
-  # The declared python floor, tested rather than asserted. setup.py says
-  # >=3.10 and 3.10 does not work: types.GenericAlias satisfies
-  # isinstance(x, type) there but not from 3.11, so convert.build silently
-  # skips its annotated path, and asyncio.wait_for cancels differently.
+  # The declared Python floor, tested rather than asserted.
   # Minimal environments on purpose: no optional integration package is
   # installed, because the suite must skip those cleanly rather than need
   # them. Add a version here and it is covered from then on.
@@ -83,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.11", "3.12", "3.13"]
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 

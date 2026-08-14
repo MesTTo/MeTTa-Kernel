@@ -68,5 +68,5 @@ setup(
         "Operating System :: OS Independent",
         "Intended Audience :: Science/Research",
     ],
-    python_requires=">=3.10",
+    python_requires=">=3.11",
 )
