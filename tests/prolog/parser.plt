@@ -12,7 +12,7 @@
 %
 %   Run: swipl -g run_tests -t halt tests/prolog/parser.plt
 % Open Obligations:
-%   To Do: cover sread's error paths once they raise rather than fail.
+%   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
@@ -20,6 +20,7 @@
 % `:- initialization(main, main).`, which fires on consult and runs
 % prolog_interop_example, printing into the test output; metta.pl is
 % everything main.pl actually loads.
+:- use_module(library(clpfd)).
 :- initialization(consult('../../src/metta.pl')).
 
 :- begin_tests(parser_roundtrip).
@@ -63,6 +64,44 @@ test(anonymous_never_shares) :-
     A \== B.
 
 :- end_tests(parser_roundtrip).
+
+:- begin_tests(parser_stable_variables).
+
+test(names_follow_first_occurrence) :-
+    swrite([pair, X, Y, X], Written),
+    Written == "(pair $_0 $_1 $_0)",
+    X \== Y.
+
+test(unrelated_allocations_do_not_change_names) :-
+    length(FirstVars, 2),
+    FirstVars = [A, B],
+    swrite([pair, A, B, A], First),
+    length(_, 10000),
+    length(SecondVars, 2),
+    SecondVars = [C, D],
+    swrite([pair, C, D, C], Second),
+    First == Second.
+
+test(printing_does_not_bind_or_strip_source_constraints) :-
+    X #> 0,
+    fd_dom(X, DomainBefore),
+    swrite([value, X], Written),
+    fd_dom(X, DomainAfter),
+    Written == "(value $_0)",
+    DomainAfter == DomainBefore.
+
+test(stable_names_roundtrip_with_sharing) :-
+    swrite([pair, X, _Y, X], Written),
+    sread(Written, Parsed),
+    Parsed = [pair, A, B, C],
+    A == C,
+    A \== B.
+
+test(writer_dcg_has_one_compilation) :-
+    findall(Codes, phrase(seq([1, 2, 3]), Codes), Solutions),
+    Solutions == [[0'1, 0' , 0'2, 0' , 0'3]].
+
+:- end_tests(parser_stable_variables).
 
 :- begin_tests(parser_comments).
 
