@@ -30,6 +30,14 @@ The following projects are cloned and built by build.sh:
 The `petta` package is a full Python surface for the engine. Install it with
 `pip install .` (the runtime is bundled, so nothing else needs a checkout),
 or use it in place from a clone with `PETTA_PATH` pointing at the tree.
+Install optional integrations by feature:
+
+```bash
+pip install "petta[arrays]"       # array API, NumPy, and FAISS
+pip install "petta[das]"          # DAS websocket client
+pip install "petta[dataframes]"   # pandas and polars result conversion
+pip install "petta[orjson]"       # faster remote JSON serialization
+```
 
 Configure process-wide limits before creating the first engine. Stack and
 heartbeat settings freeze after startup because SWI-Prolog owns them for the
@@ -277,7 +285,17 @@ and therefore soundness, for itself. The worked SQL instance lives whole
 in `python/examples/integration/duckdb_space.py`, deliberately as an example: a
 DuckDB provider is a page of code on this interface. A package advertises itself through the
 `petta.integrations` entry-point group, and `m.integrate(module)` installs
-anything defining `install_petta(m)`.
+anything defining `install_petta(m)`. Declare an integration in package
+metadata like this:
+
+```toml
+[project.entry-points."petta.integrations"]
+my-library = "my_library.petta"
+```
+
+The built-in `measure` integration is advertised in that group, so
+`m.integrate("measure")` and `m.discover()` can install it from package
+metadata.
 
 This leans on Python's metaprogramming the way SQLAlchemy and Pydantic do:
 introspected signatures become arities and types, the AST becomes equations,
