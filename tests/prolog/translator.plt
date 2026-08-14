@@ -198,6 +198,26 @@ test(output_type_check_waits_for_a_return_value) :-
 
 :- end_tests(translator_typed_currying).
 
+:- begin_tests(translator_empty_forms).
+
+empty_form_translation([superpose, []], [fail], _).
+empty_form_translation(['let*', [], 42], [], 42).
+empty_form_translation([case, 1, []], [fail], _).
+empty_form_translation([reduce, []], [], []).
+empty_form_translation([progn], [], []).
+
+test(each_empty_special_form_has_defined_translation,
+     [forall(empty_form_translation(Expr, ExpectedGoals, ExpectedOut))]) :-
+    translate_expr(Expr, Goals, Out),
+    Goals =@= ExpectedGoals,
+    Out =@= ExpectedOut.
+
+test(empty_reduce_is_a_value) :-
+    reduce([], Out),
+    Out == [].
+
+:- end_tests(translator_empty_forms).
+
 :- begin_tests(translator_branch_returns).
 
 test(build_branch_without_goals_unifies_at_runtime) :-
