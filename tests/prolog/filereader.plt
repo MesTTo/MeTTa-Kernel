@@ -1,10 +1,30 @@
-% Purpose: verify file-reader form splitting and translation-error reporting.
+% Purpose: verify file-reader splitting, loader rollback, late-definition
+%   repair, and translation-error reporting.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
 :- initialization(consult('../../src/metta.pl')).
+
+test_lambda_functions(Functions) :-
+    findall(F,
+            ( user:fun(F),
+              atom(F),
+              sub_atom(F, 0, 7, _, lambda_) ),
+            Functions0),
+    sort(Functions0, Functions).
+
+cleanup_test_function(F) :-
+    user:forget_symbol(F),
+    retractall(user:symbol_head(F, _)),
+    retractall(user:fun_in(_, F)),
+    retractall(user:fun_scoped(F)).
+
+cleanup_new_lambdas(Before) :-
+    test_lambda_functions(After),
+    subtract(After, Before, Added),
+    maplist(cleanup_test_function, Added).
 
 :- begin_tests(filereader_translation_errors).
 
@@ -64,6 +84,109 @@ test(nonterminal_loader_output_has_no_ansi_escapes) :-
     \+ sub_string(Output, _, _, _, "\e[").
 
 :- end_tests(filereader_terminal_output).
+
+:- begin_tests(filereader_source_rollback).
+
+test(failed_load_removes_compiler_state_and_generated_lambdas) :-
+    Outer = 'plunit-loader-rollback-outer',
+    Symbol = 'plunit-loader-rollback-symbol',
+    RuntimeFunction = 'plunit-loader-runtime-function',
+    test_lambda_functions(BeforeLambdas),
+    tmp_file_stream(text, Path, Stream),
+    format(Stream, "(= (~w) (|-> ($x) (+ $x 1)))~n", [Outer]),
+    format(Stream, "!(~w)~n", [Symbol]),
+    format(Stream,
+           "!(add-atom &self (plunit-loader-runtime-atom value))~n", []),
+    format(Stream, "!(add-atom &self (= (~w $x) (+ $x 2)))~n",
+           [RuntimeFunction]),
+    format(Stream, "!(+ 1 2 3)~n", []),
+    close(Stream),
+    setup_call_cleanup(
+        true,
+        ( catch(user:load_metta_file(Path, _), Error, true),
+          Error = error(domain_error(function_input_arities(+, [2]), 3), _),
+          nb_getval('$petta_lambda_counter', LambdaNumber),
+          format(atom(GeneratedLambda), 'lambda_~d', [LambdaNumber]),
+          test_lambda_functions(AfterLambdas),
+          AfterLambdas == BeforeLambdas,
+          \+ user:fun(Outer),
+          \+ user:arity(Outer, _),
+          \+ user:fun_meta_clause(Outer, _, _),
+          \+ user:symbol_head(Symbol, _),
+          \+ user:fun(GeneratedLambda),
+          \+ user:arity(GeneratedLambda, _),
+          \+ user:fun_meta_clause(GeneratedLambda, _, _),
+          \+ user:fun(RuntimeFunction),
+          \+ user:arity(RuntimeFunction, _),
+          \+ user:fun_meta_clause(RuntimeFunction, _, _),
+          functor(Head, Outer, 1),
+          \+ clause(user:Head, _),
+          functor(LambdaHead, GeneratedLambda, 2),
+          \+ clause(user:LambdaHead, _),
+          functor(RuntimeHead, RuntimeFunction, 2),
+          \+ clause(user:RuntimeHead, _),
+          \+ user:'get-atoms'('&self', [=, [Outer], _]),
+          \+ user:'get-atoms'('&self',
+                              ['plunit-loader-runtime-atom', value]),
+          \+ user:'get-atoms'('&self',
+                              [=, [RuntimeFunction, _], _]),
+          \+ user:compiled_metta_source(Path),
+          \+ user:imported_metta_source(_, Path) ),
+        ( cleanup_test_function(Outer),
+          cleanup_test_function(RuntimeFunction),
+          retractall(user:symbol_head(Symbol, _)),
+          cleanup_new_lambdas(BeforeLambdas),
+          retractall(user:compiled_metta_source(Path)),
+          retractall(user:imported_metta_source(_, Path)),
+          delete_file(Path) )).
+
+test(late_registration_recompile_replaces_metadata,
+     [ setup((cleanup_test_function('plunit-repair-caller'),
+              cleanup_test_function('plunit-repair-late'))),
+       cleanup((cleanup_test_function('plunit-repair-caller'),
+                cleanup_test_function('plunit-repair-late'))) ]) :-
+    user:process_metta_string(
+        "(= (plunit-repair-caller $x) (plunit-repair-late $x))", _),
+    aggregate_all(count,
+                  user:fun_meta_clause('plunit-repair-caller', _, _),
+                  Before),
+    user:process_metta_string(
+        "(= (plunit-repair-late $x) (+ $x 1))", _),
+    aggregate_all(count,
+                  user:fun_meta_clause('plunit-repair-caller', _, _),
+                  After),
+    user:process_metta_string("!(plunit-repair-caller 41)", Results),
+    Before == 1,
+    After == 1,
+    Results == [42].
+
+test(failed_late_definition_does_not_recompile_existing_callers,
+     [ setup((cleanup_test_function('plunit-rollback-caller'),
+              cleanup_test_function('plunit-rollback-late'))),
+       cleanup((cleanup_test_function('plunit-rollback-caller'),
+                cleanup_test_function('plunit-rollback-late'))) ]) :-
+    user:process_metta_string(
+        "(= (plunit-rollback-caller $x) (plunit-rollback-late $x))", _),
+    tmp_file_stream(text, Path, Stream),
+    format(Stream,
+           "(= (plunit-rollback-late $x) (+ $x 1))~n!(+ 1 2 3)~n", []),
+    close(Stream),
+    setup_call_cleanup(
+        true,
+        ( catch(user:load_metta_file(Path, _), Error, true),
+          Error = error(domain_error(function_input_arities(+, [2]), 3), _),
+          user:process_metta_string("!(plunit-rollback-caller 41)", Results),
+          aggregate_all(count,
+                        user:fun_meta_clause('plunit-rollback-caller', _, _),
+                        MetaCount),
+          Results == [['plunit-rollback-late', 41]],
+          MetaCount == 1,
+          \+ user:fun_meta_clause('plunit-rollback-late', _, _) ),
+        ( retractall(user:compiled_metta_source(Path)),
+          retractall(user:imported_metta_source(_, Path)),
+          delete_file(Path) )).
+
+:- end_tests(filereader_source_rollback).
 
 :- begin_tests(filereader_control_errors).
 

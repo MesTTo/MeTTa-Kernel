@@ -161,7 +161,8 @@ test(failed_specialization_does_not_leak_generated_type,
          sub_atom(Name, 0, _, _, 'wrap_Spec_') ).
 
 setup_variant_normalization :-
-    set_specializer_test_mode.
+    retractall(silent(_)),
+    assertz(silent(false)).
 
 cleanup_variant_normalization :-
     findall(Name,
@@ -174,12 +175,21 @@ cleanup_variant_normalization :-
 test(compound_partial_key_has_stable_anonymous_variables,
      [ setup(setup_variant_normalization),
        cleanup(cleanup_variant_normalization) ]) :-
-    catch(load_specializer_regression(
-              'repro4_variant_normalization.metta', _),
-          Error,
-          true),
+    with_output_to(
+        string(Output),
+        catch(load_specializer_regression(
+                  'repro4_variant_normalization.metta', _),
+              Error,
+              true)),
     Error = error(instantiation_error, _),
-    findall(Name, ho_specialization(app, Name),
-            ['app_Spec_[partial(lambda_1,[_])]']).
+    SpecName = 'app_Spec_[partial(lambda_1,[_])]',
+    once(sub_string(Output, _, _, _, SpecName)),
+    \+ ho_specialization(app, _),
+    \+ fun(SpecName),
+    \+ arity(SpecName, _),
+    \+ fun_meta_clause(SpecName, _, _),
+    functor(SpecHead, SpecName, 3),
+    \+ clause(SpecHead, _),
+    \+ '&self'(=, [SpecName|_], _).
 
 :- end_tests(specializer).
