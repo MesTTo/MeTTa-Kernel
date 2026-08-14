@@ -1,0 +1,136 @@
+name: Checks
+
+# The existing ci.yml gates pull requests into main only, so work on any
+# other branch never met a gate. This runs on every push and every pull
+# request, against the same container ci.yml resolves, so the engine and
+# SWI-Prolog are already present.
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Correctness. A failure here blocks.
+  gate:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/patham9/petta-ci:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: "python/pyproject.toml"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install the package and the check tools
+        working-directory: python
+        run: uv sync --locked --all-extras --dev
+
+      - name: Gate
+        env:
+          # Hypothesis derandomizes in CI so a red example is reproducible.
+          HYPOTHESIS_PROFILE: ci
+          CHECK_PY: python
+        run: GATE_ONLY=1 sh check.sh
+
+  # The burn-down surface. Always runs, never blocks, and the log is the
+  # record of what section of ai-code-organisation-and-fixes.md is left.
+  report:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/patham9/petta-ci:latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: "python/pyproject.toml"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install the package and the check tools
+        working-directory: python
+        run: uv sync --locked --all-extras --dev
+
+      - name: Report
+        env:
+          CHECK_PY: python
+        run: |
+          sh check.sh ruff mypy ty pylint perflint xenon refurb bandit \
+                      deptry interrogate codespell imports || true
+
+  # The declared python floor, tested rather than asserted. setup.py says
+  # >=3.10 and 3.10 does not work: types.GenericAlias satisfies
+  # isinstance(x, type) there but not from 3.11, so convert.build silently
+  # skips its annotated path, and asyncio.wait_for cancels differently.
+  # Minimal environments on purpose: no optional integration package is
+  # installed, because the suite must skip those cleanly rather than need
+  # them. Add a version here and it is covered from then on.
+  versions:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/patham9/petta-ci:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      # The PyPI janus_swi wheel links libswipl.so.9; building from source
+      # links whatever SWI the image actually has.
+      - name: Environment for ${{ matrix.python }}
+        run: |
+          uv venv --python ${{ matrix.python }} /tmp/v
+          uv pip install --python /tmp/v/bin/python --no-binary janus_swi \
+                         janus_swi pytest hypothesis
+
+      - name: Suite on ${{ matrix.python }}
+        env:
+          HYPOTHESIS_PROFILE: ci
+        run: /tmp/v/bin/python -m pytest python/tests/ --rootdir=python -c python/pyproject.toml -q
+
+  # A wheel that boots in a clean environment is the only blackbox proof
+  # that packaging works. The runtime resources setup.py copies into
+  # petta/_runtime are exactly what a fresh install has to find.
+  wheel:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/patham9/petta-ci:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: "python/pyproject.toml"
+
+      - name: Build the wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+
+      - name: Install it somewhere else and boot it
+        run: |
+          python -m venv /tmp/wheeltest
+          /tmp/wheeltest/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/wheeltest/bin/python -c "
+          from petta import MeTTa
+          m = MeTTa()
+          assert m.run('!(+ 1 2)') == [[3]], m.run('!(+ 1 2)')
+          print('wheel boots and evaluates outside the checkout')
+          "

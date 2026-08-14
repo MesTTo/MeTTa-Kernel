@@ -1,0 +1,7 @@
+[codespell]
+skip = *.lock,*.pyc,*.svg,./build,./repos,./mork_ffi,./website/node_modules,./python/HE,./python/petta.egg-info,./.git
+# intensional: NARS distinguishes intensional from extensional inheritance,
+#   so every hit in lib_nars.metta is the correct term.
+# DOut, SourceE: Prolog variable names in translator.pl and shim.pl.
+# NotIn: the compiled-subset operator name in define.py.
+ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo
