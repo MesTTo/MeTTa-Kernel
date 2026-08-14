@@ -49,29 +49,44 @@ CORPUS="$WORK/corpus.txt"
 : > "$CORPUS"
 changed=''
 baseonly=''
+ambiguous=''
 for f in "$BASE"/examples/*.metta; do
     name=$(basename "$f")
     case " $SKIP " in *" $name "*) continue ;; esac
-    if [ ! -f "$HERE/examples/$name" ]; then
+    # HEAD groups its examples into topic folders while the base keeps them
+    # flat, so resolve each base file by basename anywhere under HEAD's tree.
+    # Matching on the flat path alone silently dropped 138 of 162 files and
+    # left the comparison claiming parity over a corpus it was not running.
+    matches=$(find "$HERE/examples" -name "$name" -type f | sort)
+    count=$(printf '%s\n' "$matches" | command grep -c . || true)
+    if [ "$count" -eq 0 ]; then
         baseonly="$baseonly $name"
-    elif cmp -s "$f" "$HERE/examples/$name"; then
-        echo "$name" >> "$CORPUS"
+    elif [ "$count" -gt 1 ]; then
+        ambiguous="$ambiguous $name"
     else
-        changed="$changed $name"
+        head_rel=${matches#"$HERE"/}
+        if cmp -s "$f" "$matches"; then
+            printf '%s\t%s\n' "$name" "$head_rel" >> "$CORPUS"
+        else
+            changed="$changed $name"
+        fi
     fi
 done
 total=$(wc -l < "$CORPUS")
 echo "corpus: $total shared identical examples"
 [ -n "$changed" ] && echo "differs between refs, not compared:$changed"
 [ -n "$baseonly" ] && echo "WARNING, base-only examples (lost coverage):$baseonly"
+[ -n "$ambiguous" ] && { echo "FATAL, one base name resolves to several HEAD files:$ambiguous" >&2; exit 2; }
 
 # One engine run: cwd at the tree root, the relative path test.sh uses,
 # plain swipl so neither side preloads mork, the engine's silent flag so
 # stdout is the program's own output.
+# The second argument is the example's path relative to that tree's root,
+# because the base keeps examples flat and HEAD groups them by topic.
 run_one() {
-    tree="$1"; name="$2"
+    tree="$1"; rel="$2"
     ( cd "$tree" && timeout "$FILE_TIMEOUT" \
-        swipl --stack_limit=8g -q -s src/main.pl -- "./examples/$name" silent )
+        swipl --stack_limit=8g -q -s src/main.pl -- "./$rel" silent )
 }
 
 echo "== phase 1: correctness"
@@ -88,13 +103,23 @@ normalize_vars() {
         print out rest
     }' "$1"
 }
+# Output this tree changes on purpose. The base's own output is the thing being
+# improved, so these can never match and are reported with their reason instead
+# of as regressions. Add an entry only with the change that justifies it, and
+# state what the base printed.
+#   nilbc.metta: the engine now numbers printed unbound variables by first
+#   occurrence, so one term prints identically everywhere in a line. The base
+#   printed the same term as two different ids on the same line ($_79050
+#   against $_10110), which is what made its output irreproducible.
+INTENDED='nilbc.metta'
+intended_seen=''
 regressions=''
 nondet=''
 renamed=''
-while IFS= read -r name; do
-    run_one "$BASE" "$name" > "$OUT/base/$name.out" 2> "$OUT/base/$name.err"
+while IFS="$(printf '\t')" read -r name head_rel; do
+    run_one "$BASE" "examples/$name" > "$OUT/base/$name.out" 2> "$OUT/base/$name.err"
     bstat=$?
-    run_one "$HERE" "$name" > "$OUT/head/$name.out" 2> "$OUT/head/$name.err"
+    run_one "$HERE" "$head_rel" > "$OUT/head/$name.out" 2> "$OUT/head/$name.err"
     hstat=$?
     if [ $bstat -ne $hstat ] || ! cmp -s "$OUT/base/$name.out" "$OUT/head/$name.out"; then
         normalize_vars "$OUT/base/$name.out" > "$OUT/base/$name.norm"
@@ -103,7 +128,12 @@ while IFS= read -r name; do
             renamed="$renamed $name"
             continue
         fi
-        run_one "$BASE" "$name" > "$OUT/base/$name.out2" 2>/dev/null
+        case " $INTENDED " in
+            *" $name "*)
+                intended_seen="$intended_seen $name"
+                continue ;;
+        esac
+        run_one "$BASE" "examples/$name" > "$OUT/base/$name.out2" 2>/dev/null
         if cmp -s "$OUT/base/$name.out" "$OUT/base/$name.out2"; then
             regressions="$regressions $name"
             echo "REGRESSION: $name (exit $bstat vs $hstat)"
@@ -115,6 +145,7 @@ while IFS= read -r name; do
     fi
 done < "$CORPUS"
 [ -n "$renamed" ] && echo "identical after variable renaming:$renamed"
+[ -n "$intended_seen" ] && echo "intended output changes, see INTENDED in this script:$intended_seen"
 if [ -z "$regressions" ]; then
     echo "correctness: $total/$total identical stdout and exit codes${nondet:+ (nondeterministic:$nondet)}"
 else
@@ -129,9 +160,10 @@ r=1
 while [ "$r" -le "$RUNS" ]; do
     for side in base head; do
         [ "$side" = base ] && tree="$BASE" || tree="$HERE"
-        while IFS= read -r name; do
+        while IFS="$(printf '\t')" read -r name head_rel; do
+            [ "$side" = base ] && rel="examples/$name" || rel="$head_rel"
             t0=$(now_ms)
-            run_one "$tree" "$name" > /dev/null 2>&1
+            run_one "$tree" "$rel" > /dev/null 2>&1
             t1=$(now_ms)
             echo "$side $name $((t1 - t0))" >> "$TIMES"
         done < "$CORPUS"
@@ -163,10 +195,11 @@ if command -v perf >/dev/null 2>&1; then
     for side in base head; do
         [ "$side" = base ] && tree="$BASE" || tree="$HERE"
         count=$(
-            { while IFS= read -r name; do
+            { while IFS="$(printf '\t')" read -r name head_rel; do
+                  [ "$side" = base ] && rel="examples/$name" || rel="$head_rel"
                   ( cd "$tree" && timeout "$FILE_TIMEOUT" \
                       perf stat -x, -e instructions:u \
-                      swipl --stack_limit=8g -q -s src/main.pl -- "./examples/$name" \
+                      swipl --stack_limit=8g -q -s src/main.pl -- "./$rel" \
                       >/dev/null 2>"$WORK/perf.csv" )
                   awk -F, '$3 == "instructions:u" { print $1 }' "$WORK/perf.csv"
               done < "$CORPUS"
