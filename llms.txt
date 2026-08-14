@@ -106,6 +106,9 @@ Conjunctive queries route per conjunct, so a foreign space joins with a native o
 
 ## The rest of the surface
 
+These optional integration modules load when first accessed rather than during
+`import petta`. `dir(petta)` still lists each one.
+
 `petta.arrays`: one operation vocabulary over any DLPack library (`install`,
 `namespace_of`, `is_array`, `EmbeddingStore` with an exact faiss backend).
 `petta.measure`: `install`, `ws`, `pairs`, `weighted_relation` for answers that
