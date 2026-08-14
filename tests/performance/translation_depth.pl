@@ -34,6 +34,7 @@ main :-
              format('oracle=~d samples=~q~n', [Oracle, Samples]) )).
 
 shape(call, nest_call).
+shape(head, nest_head).
 shape(let, nest_let).
 shape(if, nest_if).
 
@@ -41,6 +42,11 @@ nest_call(0, 0) :- !.
 nest_call(N, ['+', 1, Inner]) :-
     N1 is N - 1,
     nest_call(N1, Inner).
+
+nest_head(0, _) :- !.
+nest_head(N, [Inner]) :-
+    N1 is N - 1,
+    nest_head(N1, Inner).
 
 nest_let(0, 0) :- !.
 nest_let(N, [let, '$v', 1, Inner]) :-
