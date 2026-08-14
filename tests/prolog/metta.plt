@@ -179,3 +179,45 @@ test(setup_failure_restores_preexisting_sibling_module) :-
                        delete_directory_and_contents(Directory)).
 
 :- end_tests(metta_python_import_cleanup).
+
+:- begin_tests(metta_set_operations).
+
+%The tuple set operations remove by equality, not by unification. select/3
+%unified, so (subtraction-atom ($x) (a)) answered () and left $x bound to a
+%afterwards. PeTTa's formalisation removes with removeFirstEq, an == test:
+%MeTTapedia/lean/mettapedia/leanPeTTa/StreamOps.lean.
+test(subtraction_keeps_an_unbound_element,
+     [true(Out == [X])]) :-
+    'subtraction-atom'([X], [a], Out).
+
+test(subtraction_does_not_bind_its_input) :-
+    'subtraction-atom'([X], [a], _),
+    var(X).
+
+test(intersection_does_not_match_a_variable_against_an_atom,
+     [true(Out == [])]) :-
+    'intersection-atom'([_X], [a], Out).
+
+test(intersection_does_not_bind_its_input) :-
+    'intersection-atom'([X], [a], _),
+    var(X).
+
+%Identical variables still cancel, so the operations stay multiset operations
+%over the terms they are given.
+test(subtraction_removes_an_identical_variable,
+     [true(Out == [])]) :-
+    'subtraction-atom'([X], [X], Out).
+
+test(subtraction_keeps_documented_multiplicities,
+     [true(Out == [a, b])]) :-
+    'subtraction-atom'([a, b, b, c], [b, c, c, d], Out).
+
+test(intersection_keeps_documented_multiplicities,
+     [true(Out == [b, c, c])]) :-
+    'intersection-atom'([a, b, c, c], [b, c, c, c, d], Out).
+
+test(subtraction_of_a_non_list_is_empty,
+     [true(Out == [])]) :-
+    'subtraction-atom'(a, [a], Out).
+
+:- end_tests(metta_set_operations).
