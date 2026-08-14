@@ -96,7 +96,7 @@ from petta import MeTTa, S, V
 
 m = MeTTa()
 m.run("(= (foo) boo) !(foo)")        # [[Sym('boo')]]
-m.run("!(+ 40 2)")                   # [[42]]
+m.run("!(+ 40 2)")                   # [[Gnd(42)]]
 
 m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
 m.query(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
@@ -234,7 +234,7 @@ def fact(n):
         return 1
     return n * fact(n - 1)
 
-m.run("!(fact 5)")       # [[120]]
+m.run("!(fact 5)")       # [[Gnd(120)]]
 fact.py(5)               # 120: the ordinary Python twin, kept callable
 ```
 

@@ -18,7 +18,8 @@ Applying a symbol builds an expression: `S.likes(S.Ada, S.Music)` -> `(likes Ada
 Kinds: `Sym`, `Var`, `Gnd`, `Expr`, all immutable, `__slots__`, `__match_args__`.
 `Expr.head`, `.args`, `.children`; `alpha_eq`, `unify`, `is_ground`, `map_atoms`, `variables`.
 Operators build terms, they do not compute: `V.age >= 18` -> `(>= $age 18)`;
-`&` `|` `~` -> `and`/`or`/`not`; `+ - * / // % **` and `@` build arithmetic terms.
+`&` `|` `~` -> `and`/`or`/`not`; `+ - * / % **` and `@` build arithmetic terms.
+There is no `//`: neither the operator nor an engine builtin exists.
 Arithmetic on two grounded values stays ordinary Python. `Expr.__bool__` raises
 on comparison and boolean heads, so `if V.x > 1:` is refused rather than truthy.
 Equality is the one inversion: `a == b` is ordinary Python comparison answering
@@ -35,13 +36,16 @@ Equality is the one inversion: `a == b` is ordinary Python comparison answering
   Variables shared across patterns join. `m.query(S.p(V.x,V.y), S.p(V.y,V.z))`.
   `where=` is a term the engine evaluates per match: `where=(V.n >= 60) & (V.n <= 70)`.
 `Rows` is a list of `Row` with `.columns`; `row.x` and `row["x"]` both work.
-  `rows.one()` (exactly one), `.first()`, `.column(n)`, `.table()` -> dict of columns,
+  `rows.one()` (exactly one), `.first()`, `.column(name)` -> that column's atoms,
+  `.table()` -> dict of columns, decoded to Python values,
   `.to_dicts()` -> plain row mappings, `.to_df()`/`.to_pl()` -> pandas/polars,
-  `.build(head)`, `_repr_html_` in notebooks.
+  `.build(column, cls)` rebuilds one column as that class, `_repr_html_` in notebooks.
 `m.prepare(*patterns, where=) -> Prepared`; `.solve(given=...)` many times, `.columns`.
 `m.stream(*patterns) -> Cursor`, engine-held, `.close()`, iterate lazily.
 `m.assuming(*facts)` is a block where those facts exist and then do not.
-Limits on every call: `timeout=` seconds, `inferences=` count, `capture=` stdout.
+Bounds on the evaluating calls: `timeout=` seconds and `inferences=` count on
+`run`, `eval`, `value`, `query`, `stream` and `derivation`; `capture=` stdout on
+`run` and `eval` only.
 `m.parse`, `m.load(path)`, `m.save(path, format="metta"|"fast")` (atomic, fsynced),
 `m.digest()` -> content hash of the space, store-independent.
 
@@ -82,14 +86,14 @@ return type of `cast`, `convert.build`, and `Rows.build`.
 ## Debugging
 
 `m.trace(src, max_events=1_000_000) -> list[TraceEvent(depth, kind, term, answer)]`,
-kinds `call`/`exit`/`fail`/`redo`.
+kinds `call` and `exit`; a reduction that fails leaves its call with no exit.
 `m.derivation(atom, depth=None, timeout=, inferences=) -> list[Derivation]` with
 `.rules`, `.facts`, `.complete`, `.truncations`; proof trees naming the equations
 and stored facts behind an answer.
 `m.why(pattern) -> str` explains one empty match in words. An empty result
 returned directly by `m.query(...)` retains its query context, and
 `rows.why()` identifies a pattern miss, failed join, or rejecting guard.
-`m.lint() -> list[Finding]` reads stored program structure.
+`m.lint() -> list[petta.lint.Finding]` reads stored program structure.
 `m.stats()` is a with-block yielding `.inferences` (deterministic, gate on this),
 `.cputime`, `.walltime`, gc counters, `.table_bytes`. `m.profile(src)` per predicate.
 `m.prolog()` opens the SWI toplevel. Errors: `PettaError` base, then
@@ -107,7 +111,8 @@ Type checkers distinguish `SpaceName`, `MettaName`, and the closed
 
 ## Integrating any library
 
-`petta.convert`: `project(obj)` -> constructor expression, `build(atom)` -> object,
+`petta.convert`: `project(obj)` -> `Projected`, whose `.atom` is the constructor
+expression; `build(atom)` -> object, returning the atom unchanged when it cannot,
 `register_type`, `unregister_type`, `declarations`. Dataclasses, enums, pydantic
 and annotated classes all cross; enums project to symbols.
 `petta.integrate`: `module_ops(space, module)` registers a whole module's callables,
@@ -116,14 +121,17 @@ formatters and reflectors, `SpaceProvider`, `Integration`, `discover` (entry-poi
 group `petta.integrations`). Installation is idempotent for a live space, and
 `space.drop()` releases the installation record with that space's state.
 `petta.foreign`: implement `Matcher`/`Enumerable`/`Adder`/`Remover`/`Clearer` and
-`register_provider(name, provider)` to make an external store answer MeTTa matches;
-`capabilities` declares what it supports and unsupported operations refuse loudly.
+`register_provider(runtime, name, provider)`, name starting with `&`, to make an
+external store answer MeTTa matches; subclass `SpaceProvider` and answer `can_run`
+per call, and an unsupported operation refuses loudly.
 Conjunctive queries route per conjunct, so a foreign space joins with a native one.
 
 ## The rest of the surface
 
-These optional integration modules load when first accessed rather than during
-`import petta`. `dir(petta)` still lists each one.
+Eight of these load when first accessed rather than during `import petta`:
+`aio`, `arrays`, `das`, `matching`, `measure`, `persistent`, `remote`, `testing`.
+`dir(petta)` still lists each one. `subscribe` is eager, being part of the
+write path.
 
 `petta.arrays`: one operation vocabulary over any DLPack library (`install`,
 `namespace_of`, `is_array`, `EmbeddingStore` with an exact faiss backend).
@@ -151,7 +159,8 @@ MeTTa equations are alternatives, not sequential clauses; a literal-headed defau
 needs a guard or it also fires.
 A typed call rejects a bad argument by answering empty, not by raising: use `cast`.
 Strings carry hyperon's five escapes (quote, backslash, `\n`, `\t`, `\r`); a raw
-newline would split a MORK dump, and a NUL byte is refused outright.
+newline would split a MORK dump. A NUL byte is refused at the MORK boundary; the
+native store carries it through save and load.
 Symbols with whitespace, parentheses or quotes are refused at save, digest and the
 MORK boundary rather than written unreadably.
 An unreduced call is a non-empty answer, so test for truth with `any(a == True)`,
