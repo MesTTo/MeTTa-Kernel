@@ -64,6 +64,22 @@ test(anonymous_never_shares) :-
 
 :- end_tests(parser_roundtrip).
 
+:- begin_tests(parser_comments).
+
+test(inline_comment_ends_at_newline) :-
+    sread("(a ; ignored tokens\n b)", Term),
+    Term == [a, b].
+
+test(comment_without_newline_cannot_supply_a_closing_parenthesis,
+     [throws(error(syntax_error(_), _))]) :-
+    sread("(a;b c)", _).
+
+test(semicolons_inside_strings_remain_data) :-
+    sread("(value \"a;b\")", Term),
+    Term == [value, "a;b"].
+
+:- end_tests(parser_comments).
+
 
 :- begin_tests(parser_escapes).
 
