@@ -30,6 +30,20 @@ test(assertion_errors_have_engine_messages) :-
 
 :- end_tests(metta_assertions).
 
+:- begin_tests(metta_metatypes).
+
+metatype_case(partial(f, [1]), 'Grounded').
+metatype_case(f(1), 'Grounded').
+metatype_case([f, 1], 'Expression').
+metatype_case(f, 'Symbol').
+
+test(every_runtime_term_has_a_metatype,
+     [forall(metatype_case(Term, Expected))]) :-
+    'get-metatype'(Term, Actual),
+    Actual == Expected.
+
+:- end_tests(metta_metatypes).
+
 :- begin_tests(metta_translator_rules,
                [ setup((retractall(user:translator_rule(_)),
                         assertz(user:translator_rule(first)),

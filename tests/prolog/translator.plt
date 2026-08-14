@@ -178,6 +178,26 @@ test(nested_calls_compile_with_linear_work,
 
 :- end_tests(translator_translation_depth).
 
+:- begin_tests(translator_typed_currying,
+               [ setup((retractall(user:fun(plunit_typed_curry)),
+                        retractall(user:arity(plunit_typed_curry, _)),
+                        retractall(user:'&self'(:, plunit_typed_curry, _)),
+                        assertz(user:fun(plunit_typed_curry)),
+                        assertz(user:arity(plunit_typed_curry, 3)),
+                        assertz(user:'&self'(:, plunit_typed_curry,
+                                             [->, 'Number', 'Number', 'Number'])))),
+                 cleanup((retractall(user:fun(plunit_typed_curry)),
+                          retractall(user:arity(plunit_typed_curry, _)),
+                          retractall(user:'&self'(:, plunit_typed_curry, _)))) ]).
+
+test(output_type_check_waits_for_a_return_value) :-
+    translate_expr([plunit_typed_curry, 1], Goals, Partial),
+    goals_list_to_conj(Goals, Goal),
+    call(Goal),
+    Partial == partial(plunit_typed_curry, [1]).
+
+:- end_tests(translator_typed_currying).
+
 :- begin_tests(translator_branch_returns).
 
 test(build_branch_without_goals_unifies_at_runtime) :-
