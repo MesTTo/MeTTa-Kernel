@@ -160,6 +160,11 @@ grand.solve()
 # Rows[x, y, z]([Row(x=Sym('Tom'), y=Sym('Bob'), z=Sym('Ann'))])
 ```
 
+An empty result returned directly by `query()` retains its patterns. Call
+`rows.why()` to distinguish a pattern miss, an incompatible join, and a
+`where` guard that rejected every joined row. The explanation reads the
+space's current state.
+
 Tables cross both ways on the same reading: `m.add_table(head, source)`
 reads any tabular source by the interface it offers (polars `iter_rows`,
 pandas `itertuples`, a mapping of columns, any iterable of rows) into

@@ -236,4 +236,10 @@ Structural targets work too: casting to `(List $t)` admits anything whose type u
 
 `add_table(head, source)` reads a Polars frame, a pandas frame, a mapping of columns, or any iterable of rows into facts shaped as `(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of plain columns accepted by DataFrame constructors, and `rows.to_df()` / `rows.to_pl()` build the pandas or polars frame directly, DuckDB's conversion naming. `rows.build(column, Class)` rebuilds translated objects from a result column. In a notebook, rows render as a table on their own.
 
-Use `derivation(atom)` to obtain proof trees for an answer. Use `why(pattern)` to explain an empty match. The complete runtime surface is in [`petta.space`](../reference/petta-space), and result containers are in [`petta.results`](../reference/petta-results).
+Use `derivation(atom)` to obtain proof trees for an answer. Use `why(pattern)`
+to explain one empty match. An empty result returned directly by `query()`
+retains the query context, so `rows.why()` identifies a pattern miss, a join
+with no shared binding, or a `where` guard that rejected every joined row. It
+reads the space's current state. The complete runtime surface is in
+[`petta.space`](../reference/petta-space), and result containers are in
+[`petta.results`](../reference/petta-results).

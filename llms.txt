@@ -86,7 +86,9 @@ kinds `call`/`exit`/`fail`/`redo`.
 `m.derivation(atom, depth=None, timeout=, inferences=) -> list[Derivation]` with
 `.rules`, `.facts`, `.complete`, `.truncations`; proof trees naming the equations
 and stored facts behind an answer.
-`m.why(pattern) -> str` explains an empty match in words.
+`m.why(pattern) -> str` explains one empty match in words. An empty result
+returned directly by `m.query(...)` retains its query context, and
+`rows.why()` identifies a pattern miss, failed join, or rejecting guard.
 `m.lint() -> list[Finding]` reads stored program structure.
 `m.stats()` is a with-block yielding `.inferences` (deterministic, gate on this),
 `.cputime`, `.walltime`, gc counters, `.table_bytes`. `m.profile(src)` per predicate.
