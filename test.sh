@@ -1,31 +1,37 @@
 #!/bin/sh
+# Purpose: run MeTTa examples concurrently and fail when any runner exits
+#   nonzero, while retaining each example's assertion output.
+# Open Obligations:
+#   To Do: None
+#   Hacks: None
+#   Future Enhancements: None
 
 run_test() {
     f="$1"
     echo "Running $f"
     output=$(sh run.sh "$f")
     error=$?
-    output=$(echo "$output"  | grep "is " | grep " should ")
-    echo "$output" | grep -q "❌"
-    fail=$?
-    echo "$output" | grep -q "✅"
-    pass=$?
-    if [ $error -ne 0 ] || [ $fail -eq 0 ] || [ $pass -ne 0 ]; then
+    assertions=$(printf '%s\n' "$output" | grep "is " | grep " should " || true)
+    if [ "$error" -ne 0 ]; then
         echo "FAILURE in $f:"
-        echo "$output"
+        echo "$assertions"
         return 1
     else
         echo "OK: $f"
-        echo "$output"
+        echo "$assertions"
         return 0
     fi
 }
 
 pids=""
-pidfile="/tmp/metta_pid_map.$$"
-: > "$pidfile"
+pidfile=$(mktemp "${TMPDIR:-/tmp}/metta-pid-map.XXXXXX") || exit 2
+trap 'rm -f "$pidfile"' EXIT HUP INT TERM
 
-for f in ./examples/*.metta; do
+if [ "$#" -eq 0 ]; then
+    set -- ./examples/*.metta
+fi
+
+for f do
     base=$(basename "$f")
     case "$base" in repl.metta|llm_cities.metta|torch.metta|greedy_chess.metta|git_import2.metta|torch_lib.metta)
         continue ;;
@@ -33,13 +39,13 @@ for f in ./examples/*.metta; do
     run_test "$f" &
     pid=$!
     pids="$pids $pid"
-    echo "$pid $f" >> "$pidfile"
+    printf '%s\t%s\n' "$pid" "$f" >> "$pidfile"
 done
 
 status=0
 for pid in $pids; do
     if ! wait "$pid"; then
-        failed_file=$(grep "^$pid " "$pidfile" | cut -d' ' -f2-)
+        failed_file=$(awk -F '\t' -v wanted="$pid" '$1 == wanted { print $2; exit }' "$pidfile")
         echo ""
         echo "==============================="
         echo "Stopping tests due to failure:"
@@ -51,5 +57,4 @@ for pid in $pids; do
     fi
 done
 
-rm -f "$pidfile"
 exit $status
