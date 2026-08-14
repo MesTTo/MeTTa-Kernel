@@ -263,6 +263,42 @@ test(output_type_check_waits_for_a_return_value) :-
 
 :- end_tests(translator_typed_currying).
 
+:- begin_tests(translator_typed_single_pass,
+               [ setup((retractall(user:fun(plunit_typed_once)),
+                        retractall(user:arity(plunit_typed_once, _)),
+                        retractall(user:'&self'(:, plunit_typed_once, _)),
+                        assertz(user:fun(plunit_typed_once)),
+                        assertz(user:arity(plunit_typed_once, 3)),
+                        assertz(user:'&self'(:, plunit_typed_once,
+                                             [->, '%Undefined%', 'Number',
+                                              'Number'])))),
+                 cleanup((retractall(user:fun(plunit_typed_once)),
+                          retractall(user:arity(plunit_typed_once, _)),
+                          retractall(user:'&self'(:, plunit_typed_once, _)))) ]).
+
+lambda_counter_value(Value) :-
+    ( nb_current('$petta_lambda_counter', Value) -> true ; Value = 0 ).
+
+cleanup_generated_lambdas(First) :-
+    lambda_counter_value(Last),
+    Start is First + 1,
+    forall(between(Start, Last, Number),
+           ( format(atom(Name), 'lambda_~d', [Number]),
+             forget_symbol(Name) )).
+
+test(typed_argument_is_compiled_once) :-
+    lambda_counter_value(Before),
+    setup_call_cleanup(
+        true,
+        ( translate_expr(
+              [plunit_typed_once, ['|->', [X], ['+', X, 1]], 41],
+              _Goals, _Out),
+          lambda_counter_value(After),
+          After - Before =:= 1 ),
+        cleanup_generated_lambdas(Before)).
+
+:- end_tests(translator_typed_single_pass).
+
 :- begin_tests(translator_empty_forms).
 
 empty_form_translation([superpose, []], [fail], _).
