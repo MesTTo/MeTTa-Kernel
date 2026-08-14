@@ -20,7 +20,15 @@ Source: `python/petta/integrate.py`.
 >     exact removal counterparts [tested
 >     test_protocol_and_reflector_registrations_can_be_removed,
 >     test_type_registration_can_be_removed_and_its_name_reclaimed]
+>   - installation idempotence ends with the lifetime of its space [tested
+>     test_dropped_space_name_reinstalls_integrations]
+> Owns:
+>   - _INSTALLED retains one target per live space and integration name;
+>     MeTTa.drop releases every record for that space [tested
+>     test_dropped_space_name_reinstalls_integrations]
 > Guarded by:
+>   - _INSTALLED_LOCK serializes integration installation and invalidation
+>     [tested test_dropped_space_name_reinstalls_integrations]
 >   - _REFLECTOR_LOCK protects reflector registrations [tested
 >     test_protocol_and_reflector_registrations_can_be_removed]
 > Open Obligations:

@@ -311,6 +311,10 @@ DuckDB provider is a page of code on this interface. A package advertises itself
 anything defining `install_petta(m)`. Declare an integration in package
 metadata like this:
 
+Installation is idempotent for one live space. `space.drop()` releases that
+record with the stored facts, so a later space using the same name installs
+again.
+
 Process-wide extension registrations have exact removal counterparts.
 Use `convert.unregister_type`, `integrate.unregister_object_type`,
 `integrate.unregister_repr`, and `integrate.unregister_reflector` with the

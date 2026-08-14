@@ -35,6 +35,8 @@ Source: `python/petta/space.py`.
 >     the target positional-only [tested
 >     test_target_type_overloads_preserve_the_requested_class,
 >     test_cast_target_is_positional_only]
+>   - dropping a space releases its integration installation records [tested
+>     test_dropped_space_name_reinstalls_integrations]
 > Owns:
 >   - MeTTa.save owns its sibling temporary file and removes it after every
 >     failed operation [tested test_save_failure_preserves_existing_file]
