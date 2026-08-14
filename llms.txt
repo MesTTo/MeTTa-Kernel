@@ -74,6 +74,8 @@ A typed call silently answers empty for a mismatched or `%Undefined%` argument,
 so `m.cast(value, type)` is the loud spelling: it returns the value or raises
 `CastError` naming the types the value does admit. `Atom`, `%Undefined%` and `_`
 are unchecked. `bool` spells `Bool` before `int` spells `Number`.
+The target is positional-only. A concrete Python class target is also the static
+return type of `cast`, `convert.build`, and `Rows.build`.
 `m.arities(name)`, `m.is_function(name)` (global), `m.is_function_here` (space-local).
 
 ## Debugging

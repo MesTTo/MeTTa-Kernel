@@ -26,6 +26,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Split Python engine, atom, query, execution, persistence, compiler, and
   diagnostic responsibilities into focused modules.
 - Made optional Python integration modules load on first access.
+- Preserved concrete target classes through the static return types of `cast`
+  and `build`, and made cast targets positional-only.
 - Pointed package metadata at the canonical `trueagi-io/PeTTa` repository.
 
 ### Fixed
