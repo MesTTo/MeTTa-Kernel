@@ -1,6 +1,6 @@
 % Purpose: verify file-reader form splitting and translation-error reporting.
 % Open Obligations:
-%   To Do: Add escaped-quote form-splitter coverage from the engine review.
+%   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
@@ -43,3 +43,14 @@ test(loader_and_reader_agree_on_inline_comments) :-
     Results == [[a, b]].
 
 :- end_tests(filereader_form_splitter).
+
+:- begin_tests(filereader_terminal_output).
+
+test(nonterminal_loader_output_has_no_ansi_escapes) :-
+    with_output_to(string(Output),
+                   process_metta_string("!(quote answer)", Results)),
+    Results == [answer],
+    once(sub_string(Output, _, _, _, "--> metta runnable  -->")),
+    \+ sub_string(Output, _, _, _, "\e[").
+
+:- end_tests(filereader_terminal_output).

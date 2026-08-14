@@ -244,6 +244,18 @@ test(dynamic_errors_are_not_converted_to_failure,
 
 :- end_tests(translator_evaluation_errors).
 
+:- begin_tests(translator_terminal_output).
+
+test(nonterminal_compiler_output_has_no_ansi_escapes) :-
+    with_output_to(string(Output),
+                   maybe_print_compiled_clause(test_label,
+                                               [=, [f, x], x],
+                                               (f(X, X) :- true))),
+    once(sub_string(Output, _, _, _, "-->  test_label  -->")),
+    \+ sub_string(Output, _, _, _, "\e[").
+
+:- end_tests(translator_terminal_output).
+
 :- begin_tests(translator_test_answers).
 
 test(one_empty_expression_answer_is_a_value) :-
