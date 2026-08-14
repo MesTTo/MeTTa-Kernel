@@ -218,6 +218,36 @@ test(empty_reduce_is_a_value) :-
 
 :- end_tests(translator_empty_forms).
 
+:- begin_tests(translator_test_answers).
+
+test(one_empty_expression_answer_is_a_value) :-
+    translate_expr([test, [quote, []], []], Goals, Out),
+    goals_list_to_conj(Goals, Goal),
+    with_output_to(string(Output), call(Goal)),
+    Out == true,
+    Output == "is (), should (). ✅ \n".
+
+test(no_answer_is_not_an_empty_expression,
+     [throws(error(petta_test_no_answer, _))]) :-
+    translate_expr([test, [empty], []], Goals, _),
+    goals_list_to_conj(Goals, Goal),
+    call(Goal).
+
+test(explicit_no_answer_assertion_keeps_the_existing_output) :-
+    translate_expr(['test-no-answer', [empty]], Goals, Out),
+    goals_list_to_conj(Goals, Goal),
+    with_output_to(string(Output), call(Goal)),
+    Out == true,
+    Output == "is (), should (). ✅ \n".
+
+test(explicit_no_answer_rejects_an_empty_value,
+     [throws(error(petta_test_failed([[]], []), _))]) :-
+    translate_expr(['test-no-answer', [quote, []]], Goals, _),
+    goals_list_to_conj(Goals, Goal),
+    with_output_to(string(_), call(Goal)).
+
+:- end_tests(translator_test_answers).
+
 :- begin_tests(translator_branch_returns).
 
 test(build_branch_without_goals_unifies_at_runtime) :-

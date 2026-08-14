@@ -44,6 +44,25 @@ test(every_runtime_term_has_a_metatype,
 
 :- end_tests(metta_metatypes).
 
+:- begin_tests(metta_index_atom).
+
+test(out_of_range_index_returns_the_empty_expression) :-
+    'index-atom'([a, b], 5, Out),
+    Out == [].
+
+test(noninteger_index_returns_the_empty_expression) :-
+    'index-atom'([a, b], bad, Out),
+    Out == [].
+
+test(prebound_wrong_output_is_rejected, [fail]) :-
+    'index-atom'([a, b], 0, wrong).
+
+test(variable_index_still_enumerates,
+     [true(Pairs == [0-a, 1-b])]) :-
+    findall(Index-Elem, 'index-atom'([a, b], Index, Elem), Pairs).
+
+:- end_tests(metta_index_atom).
+
 :- begin_tests(metta_translator_rules,
                [ setup((retractall(user:translator_rule(_)),
                         assertz(user:translator_rule(first)),
