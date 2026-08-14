@@ -10,6 +10,14 @@ The selected `(fact 4)` root has the label `24`. A label describes the result as
 
 Pettagrapher accepts real PeTTa atoms. Call `pettagrapher.graph_svg` for a raw SVG or `graph_page` for a self-contained HTML page. `term_svg` uses nested blocks instead of connected nodes. `space_page` lists stored atoms, `derivation_page` draws proof trees, and `reduction_page` turns `m.trace` events into an animated HTML page.
 
-The SVGs in these tutorials were generated ahead of the site build. The committed files under `public/visuals` are ordinary static assets, so reading the site does not require a pettagrapher checkout or a running engine.
+## Watch a reduction run
+
+`reduction_page` needs a traced program. The frame below comes from the factorial function traced through `!(fact 3)`: eight trace events become animation steps, each step morphs the terms of one rewrite into the next, and the last step lands on the answer `6`. It starts playing on load, and the Prev, Play, and Next buttons step it by hand.
+
+<iframe src="../visuals/08-graph-view-reduction.html" title="The factorial reduction, animated" style="width: 100%; height: 620px; border: 1px solid #30363d; border-radius: 8px; background: #1b1d23;" loading="lazy"></iframe>
+
+<a href="../visuals/08-graph-view-reduction.html" target="_blank" rel="noreferrer">Open the animation in its own tab</a>.
+
+The SVGs and the animation page in these tutorials were generated ahead of the site build. The committed files under `public/visuals` are ordinary static assets, so reading the site does not require a pettagrapher checkout or a running engine.
 
 You now have the path from atoms through spaces, rewrites, Python boundaries, definitions, types, diagnostics, and graph views. Continue with the [Guide](../guide/getting-started) for deeper runtime features or open the [API reference](../reference/) for exact signatures and docstrings.

@@ -1,0 +1,676 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>The factorial reduction, animated</title>
+<style>
+html, body { min-height: 100%; }
+body { margin: 0; padding: 24px; box-sizing: border-box; background: #0d1117;
+  color: #e6edf3; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+h1 { margin: 0 0 16px; font-size: 1.1rem; font-weight: 600; }
+.mg-stage { width: min(100%, 800px); }
+.mg-trace-svg { width: 100%; height: auto; display: block; overflow: hidden;
+  background: #1b1d23; user-select: none; border-radius: 8px;
+  font-family: ui-monospace, monospace; }
+.mg-edge { stroke-width: 1.6; }
+.mg-var-link { stroke: #ffa657; stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.45; }
+.mg-node text { font-size: 12px; text-anchor: middle; dominant-baseline: central; }
+.mg-node-shape { stroke-width: 1.6; }
+.mg-active-ring { fill: none; stroke: #38bdf8; stroke-width: 2.5; }
+.mg-control-ring { fill: none; stroke: #f2cc60; stroke-width: 2.5; }
+.mg-answer-label { font-size: 11px; fill: #f87171; text-anchor: middle;
+  dominant-baseline: central; }
+.mg-controls { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.mg-controls button { border: 1px solid #3d444d; border-radius: 5px; padding: 5px 10px;
+  background: #21262d; color: #e6edf3; font: inherit; cursor: pointer; }
+.mg-controls button:disabled { opacity: 0.45; cursor: default; }
+.mg-status { margin-left: 4px; color: #9ca3af; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>The factorial reduction, animated</h1>
+<main class="mg-stage">
+<svg id="mg-trace" class="mg-trace-svg" xmlns="http://www.w3.org/2000/svg"
+     width="800" height="440" viewBox="0 0 800 440" role="img"
+     aria-label="PeTTa reduction trace">
+  <defs>
+    <filter id="mg-goo" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blurred"/>
+      <feColorMatrix in="blurred" type="matrix"
+        values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -8" result="goo"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2"
+        seed="7" result="noise"/>
+      <feDisplacementMap in="goo" in2="noise" scale="14"
+        xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+  <rect id="mg-canvas" x="0" y="0" width="800" height="440" fill="#1b1d23"/>
+  <g id="mg-viewport">
+    <g id="mg-halo"></g>
+    <g id="mg-edges"></g>
+    <g id="mg-merge" filter="url(#mg-goo)"></g>
+    <g id="mg-nodes"></g>
+  </g>
+</svg>
+<div class="mg-controls">
+  <button id="mg-prev" type="button">Prev</button>
+  <button id="mg-play" type="button">Play</button>
+  <button id="mg-next" type="button">Next</button>
+  <output id="mg-status" class="mg-status" aria-live="polite"></output>
+</div>
+</main>
+<script id="mg-trace-data" type="application/json">{"events":[{"depth":0,"kind":"call","term":"(fact 3)","answer":null},{"depth":1,"kind":"call","term":"(fact 2)","answer":null},{"depth":2,"kind":"call","term":"(fact 1)","answer":null},{"depth":3,"kind":"call","term":"(fact 0)","answer":null},{"depth":3,"kind":"exit","term":"(fact 0)","answer":"1"},{"depth":2,"kind":"exit","term":"(fact 1)","answer":"1"},{"depth":1,"kind":"exit","term":"(fact 2)","answer":"2"},{"depth":0,"kind":"exit","term":"(fact 3)","answer":"6"}],"frames":[{"nodes":[{"key":"h0","leaf":false,"x":12.0,"y":0.0,"name":"fact","kind":"symbol","role":"symbol","width":40,"text":"fact","fill":"#454c5a","textColor":"#e6edf3","hollow":false,"active":true,"control":false,"label":""},{"key":"h0.0","leaf":true,"x":12.0,"y":48.0,"name":"3","kind":"symbol","role":"number","width":24,"text":"3","fill":"#79c0ff","textColor":"#0d1117","hollow":false,"active":false,"control":false,"label":""}],"edges":[{"key":"h0\u003eh0.0","a":"h0","b":"h0.0","colorA":"#454c5a","colorB":"#79c0ff"}],"viewport":{"scale":1.5,"panX":382.0,"panY":184.0}},{"nodes":[{"key":"h0","leaf":false,"x":12.0,"y":0.0,"name":"fact","kind":"symbol","role":"symbol","width":40,"text":"fact","fill":"#454c5a","textColor":"#e6edf3","hollow":false,"active":true,"control":false,"label":""},{"key":"h0.0","leaf":true,"x":12.0,"y":48.0,"name":"2","kind":"symbol","role":"number","width":24,"text":"2","fill":"#79c0ff","textColor":"#0d1117","hollow":false,"active":false,"control":false,"label":""}],"edges":[{"key":"h0\u003eh0.0","a":"h0","b":"h0.0","colorA":"#454c5a","colorB":"#79c0ff"}],"viewport":{"scale":1.5,"panX":382.0,"panY":184.0}},{"nodes":[{"key":"h0","leaf":false,"x":12.0,"y":0.0,"name":"fact","kind":"symbol","role":"symbol","width":40,"text":"fact","fill":"#454c5a","textColor":"#e6edf3","hollow":false,"active":true,"control":false,"label":""},{"key":"h0.0","leaf":true,"x":12.0,"y":48.0,"name":"1","kind":"symbol","role":"number","width":24,"text":"1","fill":"#79c0ff","textColor":"#0d1117","hollow":false,"active":false,"control":false,"label":""}],"edges":[{"key":"h0\u003eh0.0","a":"h0","b":"h0.0","colorA":"#454c5a","colorB":"#79c0ff"}],"viewport":{"scale":1.5,"panX":382.0,"panY":184.0}},{"nodes":[{"key":"h0","leaf":false,"x":12.0,"y":0.0,"name":"fact","kind":"symbol","role":"symbol","width":40,"text":"fact","fill":"#454c5a","textColor":"#e6edf3","hollow":false,"active":true,"control":false,"label":""},{"key":"h0.0","leaf":true,"x":12.0,"y":48.0,"name":"0","kind":"symbol","role":"number","width":24,"text":"0","fill":"#79c0ff","textColor":"#0d1117","hollow":false,"active":false,"control":false,"label":""}],"edges":[{"key":"h0\u003eh0.0","a":"h0","b":"h0.0","colorA":"#454c5a","colorB":"#79c0ff"}],"viewport":{"scale":1.5,"panX":382.0,"panY":184.0}},{"nodes":[{"key":"h0","leaf":true,"x":12.0,"y":0.0,"name":"1","kind":"symbol","role":"number","width":24,"text":"1","fill":"#f85149","textColor":"#0d1117","hollow":false,"active":false,"control":false,"label":"answer"}],"edges":[],"viewport":{"scale":1.5,"panX":382.0,"panY":220.0}},{"nodes":[{"key":"h0","leaf":true,"x":12.0,"y":0.0,"name":"1","kind":"symbol","role":"number","width":24,"text":"1","fill":"#f85149","textColor":"#0d1117","hollow":false,"active":false,"control":false,"label":"answer"}],"edges":[],"viewport":{"scale":1.5,"panX":382.0,"panY":220.0}},{"nodes":[{"key":"h0","leaf":true,"x":12.0,"y":0.0,"name":"2","kind":"symbol","role":"number","width":24,"text":"2","fill":"#f85149","textColor":"#0d1117","hollow":false,"active":false,"control":false,"label":"answer"}],"edges":[],"viewport":{"scale":1.5,"panX":382.0,"panY":220.0}},{"nodes":[{"key":"h0","leaf":true,"x":12.0,"y":0.0,"name":"6","kind":"symbol","role":"number","width":24,"text":"6","fill":"#f85149","textColor":"#0d1117","hollow":false,"active":false,"control":false,"label":"answer"}],"edges":[],"viewport":{"scale":1.5,"panX":382.0,"panY":220.0}}],"duration":550,"colors":{"canvas":"#1b1d23","running":"#141a2e","answer":"#f85149"}}</script>
+<script>
+"use strict";
+const SVG_NS = "http://www.w3.org/2000/svg";
+const payload = JSON.parse(document.getElementById("mg-trace-data").textContent);
+const svg = document.getElementById("mg-trace");
+const canvas = document.getElementById("mg-canvas");
+const viewportG = document.getElementById("mg-viewport");
+const haloG = document.getElementById("mg-halo");
+const edgesG = document.getElementById("mg-edges");
+const mergeG = document.getElementById("mg-merge");
+const nodesG = document.getElementById("mg-nodes");
+const status = document.getElementById("mg-status");
+const prevButton = document.getElementById("mg-prev");
+const nextButton = document.getElementById("mg-next");
+const playButton = document.getElementById("mg-play");
+const SHAPE_N = 40;
+const CORNER_SEG = 6;
+
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+
+function arcPoint(ax, ay, bx, by, t) {
+  const mx = lerp(ax, bx, t);
+  const my = lerp(ay, by, t);
+  const dx = bx - ax;
+  const dy = by - ay;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 1) return { x: mx, y: my };
+  const off = Math.sin(Math.PI * t) * Math.min(dist * 0.16, 36);
+  return { x: mx + (-dy / dist) * off, y: my + (dx / dist) * off };
+}
+
+const srgbToLinear = (c) => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+const linearToSrgb = (c) => c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+
+function hexToOklab(hex) {
+  const match = /^#([0-9a-fA-F]{6})$/.exec(hex);
+  if (match === null) throw new Error(`trace color must use #rrggbb syntax: ${hex}`);
+  const value = parseInt(match[1], 16);
+  const red = srgbToLinear(((value >> 16) & 255) / 255);
+  const green = srgbToLinear(((value >> 8) & 255) / 255);
+  const blue = srgbToLinear((value & 255) / 255);
+  const light = Math.cbrt(0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue);
+  const medium = Math.cbrt(0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue);
+  const short = Math.cbrt(0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue);
+  return [
+    0.2104542553 * light + 0.793617785 * medium - 0.0040720468 * short,
+    1.9779984951 * light - 2.428592205 * medium + 0.4505937099 * short,
+    0.0259040371 * light + 0.7827717662 * medium - 0.808675766 * short,
+  ];
+}
+
+function oklabToHex(color) {
+  const [L, A, B] = color;
+  const light0 = L + 0.3963377774 * A + 0.2158037573 * B;
+  const medium0 = L - 0.1055613458 * A - 0.0638541728 * B;
+  const short0 = L - 0.0894841775 * A - 1.291485548 * B;
+  const light = light0 * light0 * light0;
+  const medium = medium0 * medium0 * medium0;
+  const short = short0 * short0 * short0;
+  const red = linearToSrgb(4.0767416621 * light - 3.3077115913 * medium + 0.2309699292 * short);
+  const green = linearToSrgb(-1.2684380046 * light + 2.6097574011 * medium - 0.3413193965 * short);
+  const blue = linearToSrgb(-0.0041960863 * light - 0.7034186147 * medium + 1.707614701 * short);
+  const channel = (c) => Math.max(0, Math.min(255, Math.round(c * 255))).toString(16).padStart(2, "0");
+  return `#${channel(red)}${channel(green)}${channel(blue)}`;
+}
+
+function lerpColor(first, second, t) {
+  const left = hexToOklab(first);
+  const right = hexToOklab(second);
+  return oklabToHex([
+    lerp(left[0], right[0], t),
+    lerp(left[1], right[1], t),
+    lerp(left[2], right[2], t),
+  ]);
+}
+
+function luminance(hex) {
+  const match = /^#([0-9a-fA-F]{6})$/.exec(hex);
+  if (match === null) return null;
+  const value = parseInt(match[1], 16);
+  return 0.299 * ((value >> 16) & 255) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255);
+}
+
+function haloTint(color, background) {
+  const colorLight = luminance(color);
+  const backgroundLight = luminance(background);
+  if (colorLight === null || backgroundLight === null || Math.abs(colorLight - backgroundLight) >= 80) {
+    return color;
+  }
+  return lerpColor(color, backgroundLight < 128 ? "#ffffff" : "#000000", 0.55);
+}
+
+function ellipse(halfWidth, halfHeight) {
+  const points = [];
+  for (let index = 0; index < 24; index++) {
+    const angle = 2 * Math.PI * index / 24;
+    points.push([halfWidth * Math.cos(angle), halfHeight * Math.sin(angle)]);
+  }
+  return points;
+}
+
+function roundedRect(halfWidth, halfHeight, radius) {
+  const bounded = Math.min(radius, halfWidth, halfHeight);
+  const corners = [
+    [halfWidth - bounded, halfHeight - bounded, 0],
+    [-(halfWidth - bounded), halfHeight - bounded, Math.PI / 2],
+    [-(halfWidth - bounded), -(halfHeight - bounded), Math.PI],
+    [halfWidth - bounded, -(halfHeight - bounded), 3 * Math.PI / 2],
+  ];
+  const points = [];
+  for (const [cx, cy, start] of corners) {
+    for (let index = 0; index <= CORNER_SEG; index++) {
+      const angle = start + (index / CORNER_SEG) * (Math.PI / 2);
+      points.push([cx + bounded * Math.cos(angle), cy + bounded * Math.sin(angle)]);
+    }
+  }
+  return points;
+}
+
+function shapePolygon(role, width) {
+  const halfWidth = width / 2;
+  const halfHeight = 11;
+  if (role === "operator" || role === "control") {
+    return [[0, -halfHeight], [halfWidth, 0], [0, halfHeight], [-halfWidth, 0]];
+  }
+  if (role === "variable") return ellipse(halfWidth, halfHeight);
+  if (role === "number" || role === "string") return roundedRect(halfWidth, halfHeight, halfHeight);
+  if (role === "boolean") return roundedRect(halfWidth, halfHeight, 3);
+  if (role === "list") {
+    return [
+      [-halfWidth + 7, -halfHeight], [halfWidth - 7, -halfHeight], [halfWidth, 0],
+      [halfWidth - 7, halfHeight], [-halfWidth + 7, halfHeight], [-halfWidth, 0],
+    ];
+  }
+  return roundedRect(halfWidth, halfHeight, 5);
+}
+
+function raycast(polygon, angle) {
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+  let best = Infinity;
+  let hit = [0, 0];
+  for (let index = 0; index < polygon.length; index++) {
+    const [x1, y1] = polygon[index];
+    const [x2, y2] = polygon[(index + 1) % polygon.length];
+    const edgeX = x2 - x1;
+    const edgeY = y2 - y1;
+    const determinant = edgeX * dy - dx * edgeY;
+    if (Math.abs(determinant) < 1e-9) continue;
+    const distance = (edgeX * y1 - edgeY * x1) / determinant;
+    const position = (dx * y1 - dy * x1) / determinant;
+    if (distance > 0 && position >= -1e-6 && position <= 1 + 1e-6 && distance < best) {
+      best = distance;
+      hit = [distance * dx, distance * dy];
+    }
+  }
+  return hit;
+}
+
+function shapePoints(node, count) {
+  const polygon = shapePolygon(node.role, node.width);
+  const points = [];
+  for (let index = 0; index < count; index++) {
+    points.push(raycast(polygon, 2 * Math.PI * index / count));
+  }
+  return points;
+}
+
+const pointsAttr = (points) => points.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
+
+function pointsRadius(points) {
+  let radius = 0;
+  for (const [x, y] of points) radius = Math.max(radius, Math.hypot(x, y));
+  return radius;
+}
+
+function prepareFrame(frame) {
+  return {
+    ...frame,
+    slots: frame.nodes.map((node) => {
+      const points = shapePoints(node, SHAPE_N);
+      return { ...node, points, radius: pointsRadius(points) };
+    }),
+  };
+}
+
+function morphPlacement(from, to, t) {
+  const point = arcPoint(from.x, from.y, to.x, to.y, t);
+  const points = to.points.map((target, index) => {
+    const source = from.points[index] || target;
+    return [lerp(source[0], target[0], t), lerp(source[1], target[1], t)];
+  });
+  const texts = from.text === to.text
+    ? [{ text: to.text, color: lerpColor(from.textColor, to.textColor, t), op: 1 }]
+    : [
+        { text: from.text, color: from.textColor, op: 1 - t },
+        { text: to.text, color: to.textColor, op: t },
+      ];
+  return {
+    x: point.x,
+    y: point.y,
+    op: 1,
+    points,
+    fill: lerpColor(from.fill, to.fill, t),
+    fillOp: lerp(from.hollow ? 0 : 1, to.hollow ? 0 : 1, t),
+    texts,
+    active: t < 0.5 ? from.active : to.active,
+    control: t < 0.5 ? from.control : to.control,
+    label: to.label,
+    labelOp: to.label ? t : 0,
+  };
+}
+
+function singlePlacement(slot, opacity) {
+  return {
+    x: slot.x,
+    y: slot.y,
+    op: opacity,
+    points: slot.points,
+    fill: slot.fill,
+    fillOp: slot.hollow ? 0 : 1,
+    texts: [{ text: slot.text, color: slot.textColor, op: 1 }],
+    active: slot.active,
+    control: slot.control,
+    label: slot.label,
+    labelOp: opacity,
+  };
+}
+
+function ancestorTarget(key, targets) {
+  let current = key;
+  for (;;) {
+    const dot = current.lastIndexOf(".");
+    if (dot < 0) return undefined;
+    current = current.slice(0, dot);
+    const target = targets.get(current);
+    if (target !== undefined) return target;
+  }
+}
+
+function collapsePlacement(slot, target, t) {
+  const distance = Math.hypot(slot.x - target.x, slot.y - target.y);
+  const text = [{ text: slot.text, color: slot.textColor, op: 1 }];
+  if (distance < slot.radius + target.radius) {
+    return {
+      ...singlePlacement(slot, 1 - t),
+      texts: text,
+      active: false,
+      control: slot.control,
+      label: "",
+      labelOp: 0,
+    };
+  }
+  const x = lerp(slot.x, target.x, t);
+  const y = lerp(slot.y, target.y, t);
+  const merge = Math.max(0, Math.min(1, 1 - ((1 - t) * distance) / (slot.radius + target.radius)));
+  const points = merge <= 0 ? slot.points : target.points.map((targetPoint, index) => {
+    const sourcePoint = slot.points[index] || targetPoint;
+    return [lerp(sourcePoint[0], targetPoint[0], merge), lerp(sourcePoint[1], targetPoint[1], merge)];
+  });
+  return {
+    x,
+    y,
+    op: merge < 0.7 ? 1 : (1 - merge) / 0.3,
+    points,
+    fill: lerpColor(slot.fill, target.fill, merge),
+    fillOp: slot.hollow ? 0 : 1,
+    texts: text,
+    active: false,
+    control: slot.control,
+    label: "",
+    labelOp: 0,
+    merging: merge > 0.001,
+  };
+}
+
+function findRedex(from, used, targets, t) {
+  const opacity = Math.max(0, 1 - t * 1.7);
+  if (opacity <= 0.01) return undefined;
+  let root;
+  let depth = Infinity;
+  for (const slot of from.slots) {
+    const target = targets.get(slot.key);
+    const changed = !used.has(slot) || (target !== undefined && target.text !== slot.text);
+    const candidateDepth = slot.key.split(".").length;
+    if (changed && candidateDepth < depth) {
+      depth = candidateDepth;
+      root = slot;
+    }
+  }
+  if (root === undefined) return undefined;
+  const prefix = `${root.key}.`;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const slot of from.slots) {
+    if (slot.key !== root.key && !slot.key.startsWith(prefix)) continue;
+    minX = Math.min(minX, slot.x - slot.radius);
+    maxX = Math.max(maxX, slot.x + slot.radius);
+    minY = Math.min(minY, slot.y - slot.radius);
+    maxY = Math.max(maxY, slot.y + slot.radius);
+  }
+  return {
+    x: (minX + maxX) / 2,
+    y: (minY + maxY) / 2,
+    rx: (maxX - minX) / 2 + 8,
+    ry: (maxY - minY) / 2 + 8,
+    op: opacity,
+    color: root.fill,
+  };
+}
+
+function interpolateTrace(from, to, t) {
+  const fromByKey = new Map(from.slots.map((slot) => [slot.key, slot]));
+  const toByKey = new Map(to.slots.map((slot) => [slot.key, slot]));
+  const used = new Set();
+  const matches = new Map();
+  for (const slot of to.slots) {
+    const previous = fromByKey.get(slot.key);
+    if (previous !== undefined && !(previous.leaf && !slot.leaf)) {
+      matches.set(slot.key, previous);
+      used.add(previous);
+    }
+  }
+  const byTo = new Map();
+  const byFrom = new Map();
+  const nodes = [];
+  for (const slot of to.slots) {
+    const previous = matches.get(slot.key);
+    const placement = previous !== undefined
+      ? morphPlacement(previous, slot, t)
+      : singlePlacement(slot, t);
+    byTo.set(slot.key, placement);
+    if (previous !== undefined) byFrom.set(previous.key, placement);
+    nodes.push(placement);
+  }
+  for (const slot of from.slots) {
+    if (used.has(slot)) continue;
+    const target = toByKey.get(slot.key) || ancestorTarget(slot.key, toByKey);
+    const placement = target !== undefined
+      ? collapsePlacement(slot, target, t)
+      : singlePlacement(slot, 1 - t);
+    byFrom.set(slot.key, placement);
+    nodes.push(placement);
+  }
+  const edges = [];
+  const toKeys = new Set(to.edges.map((edge) => edge.key));
+  const fromKeys = new Set(from.edges.map((edge) => edge.key));
+  const pushEdge = (edge, a, b, presence) => {
+    if (a === undefined || b === undefined) return;
+    const opacity = Math.min(a.op, b.op, presence);
+    if (opacity > 0.02) {
+      edges.push({
+        colorA: edge.colorA,
+        colorB: edge.colorB,
+        x1: a.x,
+        y1: a.y,
+        x2: b.x,
+        y2: b.y,
+        op: opacity,
+      });
+    }
+  };
+  for (const edge of to.edges) {
+    pushEdge(edge, byTo.get(edge.a), byTo.get(edge.b), fromKeys.has(edge.key) ? 1 : t);
+  }
+  for (const edge of from.edges) {
+    if (!toKeys.has(edge.key)) {
+      pushEdge(edge, byFrom.get(edge.a), byFrom.get(edge.b), 1 - t);
+    }
+  }
+  return {
+    nodes: nodes.filter((node) => node.op > 0.02),
+    edges,
+    viewport: {
+      panX: lerp(from.viewport.panX, to.viewport.panX, t),
+      panY: lerp(from.viewport.panY, to.viewport.panY, t),
+      scale: lerp(from.viewport.scale, to.viewport.scale, t),
+    },
+    redex: findRedex(from, used, toByKey, t),
+  };
+}
+
+function element(tag, attributes) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value));
+  return node;
+}
+
+function blendEdge(edge) {
+  const elements = [];
+  for (let index = 0; index < 8; index++) {
+    const start = index / 8;
+    const end = (index + 1) / 8;
+    elements.push(element("line", {
+      class: "mg-edge",
+      x1: lerp(edge.x1, edge.x2, start),
+      y1: lerp(edge.y1, edge.y2, start),
+      x2: lerp(edge.x1, edge.x2, end),
+      y2: lerp(edge.y1, edge.y2, end),
+      stroke: lerpColor(edge.colorA, edge.colorB, (index + 0.5) / 8),
+      opacity: edge.op,
+    }));
+  }
+  return elements;
+}
+
+function shapeBounds(points) {
+  return {
+    minX: Math.min(...points.map((point) => point[0])),
+    maxX: Math.max(...points.map((point) => point[0])),
+    minY: Math.min(...points.map((point) => point[1])),
+    maxY: Math.max(...points.map((point) => point[1])),
+  };
+}
+
+function render(frame) {
+  const viewport = frame.viewport;
+  viewportG.setAttribute("transform", `translate(${viewport.panX} ${viewport.panY}) scale(${viewport.scale})`);
+
+  if (frame.redex === undefined) {
+    haloG.replaceChildren();
+  } else {
+    const redex = frame.redex;
+    const haloColor = haloTint(
+      redex.color,
+      playing ? payload.colors.running : payload.colors.canvas,
+    );
+    const gradient = element("radialGradient", { id: "mg-halo-gradient" });
+    gradient.append(
+      element("stop", { offset: "0%", "stop-color": haloColor, "stop-opacity": "0.5" }),
+      element("stop", { offset: "55%", "stop-color": haloColor, "stop-opacity": "0.2" }),
+      element("stop", { offset: "100%", "stop-color": haloColor, "stop-opacity": "0" }),
+    );
+    haloG.replaceChildren(
+      gradient,
+      element("ellipse", {
+        cx: redex.x.toFixed(2), cy: redex.y.toFixed(2),
+        rx: redex.rx.toFixed(2), ry: redex.ry.toFixed(2),
+        fill: "url(#mg-halo-gradient)", opacity: redex.op.toFixed(3),
+      }),
+    );
+  }
+
+  const mergeElements = [];
+  for (const placement of frame.nodes) {
+    if (!placement.merging || placement.op <= 0.02) continue;
+    mergeElements.push(element("polygon", {
+      points: pointsAttr(placement.points),
+      transform: `translate(${placement.x.toFixed(1)} ${placement.y.toFixed(1)})`,
+      fill: placement.fill,
+      opacity: placement.op.toFixed(3),
+    }));
+  }
+  mergeG.replaceChildren(...mergeElements);
+
+  const edgeElements = [];
+  for (const edge of frame.edges) {
+    if (edge.colorA === "") {
+      edgeElements.push(element("line", {
+        class: "mg-var-link", x1: edge.x1, y1: edge.y1,
+        x2: edge.x2, y2: edge.y2, opacity: edge.op,
+      }));
+    } else {
+      edgeElements.push(...blendEdge(edge));
+    }
+  }
+  edgesG.replaceChildren(...edgeElements);
+
+  const nodeElements = [];
+  for (const placement of frame.nodes) {
+    const group = element("g", {
+      class: "mg-node",
+      transform: `translate(${placement.x} ${placement.y})`,
+      opacity: placement.op,
+    });
+    const bounds = shapeBounds(placement.points);
+    if (placement.control || placement.active) {
+      group.appendChild(element("rect", {
+        class: placement.active ? "mg-active-ring" : "mg-control-ring",
+        x: bounds.minX - 5,
+        y: bounds.minY - 5,
+        width: bounds.maxX - bounds.minX + 10,
+        height: bounds.maxY - bounds.minY + 10,
+        rx: 9,
+      }));
+    }
+    if (!placement.merging) {
+      group.appendChild(element("polygon", {
+        class: "mg-node-shape",
+        points: pointsAttr(placement.points),
+        fill: placement.fill,
+        "fill-opacity": placement.fillOp.toFixed(3),
+        stroke: placement.fill,
+        "stroke-opacity": (1 - placement.fillOp * 0.7).toFixed(3),
+      }));
+    }
+    for (const textSpec of placement.texts) {
+      const text = element("text", { x: 0, y: 0, fill: textSpec.color, opacity: textSpec.op });
+      text.textContent = textSpec.text;
+      group.appendChild(text);
+    }
+    if (placement.label && placement.labelOp > 0.02) {
+      const label = element("text", {
+        class: "mg-answer-label", x: 0, y: bounds.maxY + 14, opacity: placement.labelOp,
+      });
+      label.textContent = placement.label;
+      group.appendChild(label);
+    }
+    nodeElements.push(group);
+  }
+  nodesG.replaceChildren(...nodeElements);
+}
+
+const frames = payload.frames.map(prepareFrame);
+let index = 0;
+let playing = false;
+let animationId = 0;
+let holdId = 0;
+
+function eventText(event) {
+  if (event.kind === "exit") return `exit depth ${event.depth}: ${event.term} = ${event.answer}`;
+  return `call depth ${event.depth}: ${event.term}`;
+}
+
+function updateControls() {
+  status.textContent = `${index + 1}/${frames.length}  ${eventText(payload.events[index])}`;
+  prevButton.disabled = index === 0;
+  nextButton.disabled = index === frames.length - 1;
+  playButton.textContent = playing ? "Pause" : index === frames.length - 1 ? "Replay" : "Play";
+  canvas.setAttribute("fill", playing ? payload.colors.running : payload.colors.canvas);
+  svg.style.background = playing ? payload.colors.running : payload.colors.canvas;
+}
+
+function cancelMotion() {
+  if (animationId !== 0) cancelAnimationFrame(animationId);
+  if (holdId !== 0) clearTimeout(holdId);
+  animationId = 0;
+  holdId = 0;
+}
+
+function settle(targetIndex) {
+  index = targetIndex;
+  render(interpolateTrace(frames[index], frames[index], 1));
+  updateControls();
+}
+
+function animateTo(targetIndex, complete) {
+  cancelMotion();
+  const from = frames[index];
+  const to = frames[targetIndex];
+  const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reducedMotion) {
+    settle(targetIndex);
+    complete();
+    return;
+  }
+  const start = performance.now();
+  const step = (now) => {
+    const progress = Math.min(1, (now - start) / payload.duration);
+    render(interpolateTrace(from, to, ease(progress)));
+    if (progress < 1) {
+      animationId = requestAnimationFrame(step);
+    } else {
+      animationId = 0;
+      settle(targetIndex);
+      complete();
+    }
+  };
+  animationId = requestAnimationFrame(step);
+}
+
+function advancePlayback() {
+  if (!playing) return;
+  if (index >= frames.length - 1) {
+    playing = false;
+    updateControls();
+    return;
+  }
+  animateTo(index + 1, () => {
+    if (!playing) return;
+    holdId = window.setTimeout(advancePlayback, 180);
+  });
+}
+
+function togglePlayback() {
+  if (playing) {
+    playing = false;
+    cancelMotion();
+    settle(index);
+    return;
+  }
+  if (index === frames.length - 1) settle(0);
+  playing = true;
+  updateControls();
+  advancePlayback();
+}
+
+prevButton.addEventListener("click", () => {
+  playing = false;
+  animateTo(Math.max(0, index - 1), updateControls);
+});
+nextButton.addEventListener("click", () => {
+  playing = false;
+  animateTo(Math.min(frames.length - 1, index + 1), updateControls);
+});
+playButton.addEventListener("click", togglePlayback);
+settle(0);
+window.setTimeout(togglePlayback, 120);
+</script>
+</body>
+</html>

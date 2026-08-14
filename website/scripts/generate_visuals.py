@@ -1,5 +1,7 @@
-"""Purpose: render the tutorial terms as deterministic SVG assets with the
-sibling pettagrapher checkout and this checkout's petta Python package.
+"""Purpose: render the tutorial visuals as deterministic committed assets
+with the sibling pettagrapher checkout and this checkout's petta Python
+package: one SVG per tutorial page, the site favicon, and the animated
+factorial reduction page tutorial 08 embeds.
 Open Obligations:
   To Do: None
   Hacks: None
@@ -54,7 +56,7 @@ sys.path[:0] = [str(PETTA_PYTHON), str(PETTAGRAPHER_PYTHON)]
 os.environ.setdefault("PETTA_PATH", str(PETTA_PYTHON.parent))
 
 import pettagrapher as pg
-from petta import S, V
+from petta import MeTTa, S, V
 
 
 def _visuals() -> dict[str, str]:
@@ -141,10 +143,36 @@ def _visuals() -> dict[str, str]:
     }
 
 
+def _animations() -> dict[str, str]:
+    """The animated reduction page tutorial 08 embeds: the factorial
+    trace played through pettagrapher's own transition vocabulary."""
+    with MeTTa().fresh_space() as m:
+        m.run("(= (fact $n) (if (== $n 0) 1 (* $n (fact (- $n 1)))))")
+        events = m.trace("!(fact 3)")
+        if len(events) != 8 or str(events[-1].answer) != "6":
+            raise RuntimeError(
+                f"the factorial trace changed shape: {len(events)} events, "
+                f"last answer {events[-1].answer if events else None!r}"
+            )
+        return {
+            "08-graph-view-reduction.html": pg.reduction_page(
+                m, "!(fact 3)", title="The factorial reduction, animated"
+            ),
+        }
+
+
 def _check_svg(name: str, svg: str) -> None:
     root = ElementTree.fromstring(svg)
     if root.tag != "{http://www.w3.org/2000/svg}svg":
         raise ValueError(f"{name} did not render an SVG root")
+
+
+def _check_html(name: str, html: str) -> None:
+    lowered = html.lower()
+    if "<html" not in lowered or "</html>" not in lowered:
+        raise ValueError(f"{name} did not render a complete HTML page")
+    if "svg" not in lowered:
+        raise ValueError(f"{name} carries no SVG to animate")
 
 
 def main() -> None:
@@ -152,11 +180,21 @@ def main() -> None:
     second = _visuals()
     if first != second:
         raise RuntimeError("pettagrapher returned different SVG bytes in one run")
+    first_pages = _animations()
+    second_pages = _animations()
+    if first_pages != second_pages:
+        raise RuntimeError("pettagrapher returned different page bytes in one run")
     OUTPUT.mkdir(parents=True, exist_ok=True)
     for name, svg in first.items():
         _check_svg(name, svg)
         (OUTPUT / name).write_text(svg + "\n", encoding="utf8")
-    print(f"generated and parsed {len(first)} deterministic SVGs in {OUTPUT}")
+    for name, page in first_pages.items():
+        _check_html(name, page)
+        (OUTPUT / name).write_text(page, encoding="utf8")
+    print(
+        f"generated and parsed {len(first)} deterministic SVGs and "
+        f"{len(first_pages)} animation page(s) in {OUTPUT}"
+    )
 
 
 if __name__ == "__main__":
