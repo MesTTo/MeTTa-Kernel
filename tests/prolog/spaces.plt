@@ -1,11 +1,16 @@
-% Purpose: verify native and foreign space matching rejects cyclic answers
-%   while preserving ordinary acyclic matches.
+% Purpose: verify native and foreign space storage, isolation, registration,
+%   matching, and lifecycle behavior.
+% Guarantees:
+%   - Native storage modules do not inherit user predicates, while execution
+%     modules keep undefined calls loud [tested: spaces_storage_modules].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
 :- initialization(consult('../../src/metta.pl')).
+
+:- dynamic plunit_storage_added_event/2.
 
 metta_foreign_space('&plunit_cycle_foreign').
 metta_foreign_match('&plunit_cycle_foreign', [fact, X, X]) :-
@@ -141,7 +146,7 @@ cleanup_registered_function(F) :-
             Refs),
     forall(member(Ref, Refs),
            ( erase(Ref), retractall(user:translated_from(Ref, _)) )),
-    retractall(user:'&self'(=, [F|_], _)),
+    remove_sexp('&self', [=, [F|_], _]),
     user:clear_fun_meta(F),
     retractall(user:arity(F, _)),
     retractall(user:fun(F)),
@@ -168,16 +173,16 @@ test(file_loader_records_one_arity_for_many_equations,
 
 test(non_symbol_function_head_is_rejected_before_mutation,
      [ setup((retractall(user:fun(5)), retractall(user:arity(5, _)),
-              retractall(user:'&self'(=, [5|_], _)))),
+              remove_sexp('&self', [=, [5|_], _]))),
        cleanup((retractall(user:fun(5)), retractall(user:arity(5, _)),
-                retractall(user:'&self'(=, [5|_], _)))) ]) :-
+                remove_sexp('&self', [=, [5|_], _]))) ]) :-
     Term = [=, [5, X], 4],
     catch('add-atom'('&self', Term, true), Error, true),
     nonvar(Error),
     Error = error(type_error(atom, 5), _),
     \+ user:fun(5),
     \+ user:arity(5, _),
-    \+ clause(user:'&self'(=, [5, X], 4), true).
+    \+ get_native_atom('&self', [=, [5, X], 4]).
 
 test(change_hook_error_rolls_back_every_registration_write,
      [ setup(cleanup_registered_function(plunit_registration_rollback)),
@@ -190,11 +195,120 @@ test(change_hook_error_rolls_back_every_registration_write,
     \+ user:arity(plunit_registration_rollback, _),
     \+ user:fun_meta_clause(plunit_registration_rollback, _, _),
     \+ user:translated_from(_, Term),
-    \+ clause(user:'&self'(=, [plunit_registration_rollback, X], X), true),
+    \+ get_native_atom('&self',
+                        [=, [plunit_registration_rollback, X], X]),
     functor(Head, plunit_registration_rollback, 2),
     \+ clause(user:Head, _, _).
 
+test(failed_first_registration_keeps_storage_reusable,
+     [ cleanup(clear_native_atoms('&plunit_registration_first_failure')) ]) :-
+    Space = '&plunit_registration_first_failure',
+    clear_native_atoms(Space),
+    Term = [=, [plunit_registration_rollback, X], X],
+    catch('add-atom'(Space, Term, true), Error, true),
+    Error = error(plunit_injected_change_hook_failure, none),
+    native_storage_module_ready(Space, _),
+    \+ get_native_atom(Space, Term),
+    add_sexp(Space, [after_failure]),
+    once(get_native_atom(Space, [after_failure])).
+
+test(rolled_back_first_write_keeps_storage_reusable,
+     [ cleanup(clear_native_atoms('&plunit_transaction_first_write')) ]) :-
+    Space = '&plunit_transaction_first_write',
+    clear_native_atoms(Space),
+    \+ transaction((add_sexp(Space, [rolled_back]), fail)),
+    native_storage_module(Space, Module),
+    native_storage_ready(Module),
+    \+ native_storage_module_cache(Space, _),
+    add_sexp(Space, [after_rollback]),
+    once(get_native_atom(Space, [after_rollback])).
+
 :- end_tests(spaces_registration).
+
+:- begin_tests(spaces_storage_modules,
+               [ setup(setup_storage_module_space),
+                 cleanup(cleanup_storage_module_space) ]).
+
+storage_module_space('&plunit_storage_module').
+storage_module_function(plunit_storage_identity).
+
+setup_storage_module_space :-
+    cleanup_storage_module_space,
+    storage_module_space(Space),
+    assertz(user:plunit_storage_leak),
+    assertz(user:'&plunit_storage_module'(from_user)),
+    add_sexp(Space, [from_space]),
+    storage_module_function(Function),
+    'add-atom'(Space, [=, [Function, X], X], true).
+
+cleanup_storage_module_space :-
+    storage_module_space(Space),
+    storage_module_function(Function),
+    'remove-atom'(Space, [=, [Function, X], X], _),
+    clear_native_atoms(Space),
+    retractall(user:plunit_storage_leak),
+    retractall(user:'&plunit_storage_module'(from_user)).
+
+test(atoms_live_only_in_the_private_module) :-
+    storage_module_space(Space),
+    native_storage_module(Space, Module),
+    native_storage_ready(Module),
+    current_prolog_flag(Module:unknown, fail),
+    \+ default_module(Module, user),
+    functor(StoredHead, Space, 1),
+    arg(1, StoredHead, from_space),
+    clause(Module:StoredHead, true),
+    \+ clause(user:StoredHead, true),
+    \+ Module:plunit_storage_leak.
+
+test(user_predicates_do_not_appear_as_space_atoms) :-
+    storage_module_space(Space),
+    findall(Atom, 'get-atoms'(Space, Atom), Atoms),
+    memberchk([from_space], Atoms),
+    \+ member([from_user], Atoms).
+
+test(missing_storage_arities_fail_without_changing_execution_errors) :-
+    storage_module_space(Space),
+    \+ native_expression(Space, plunit_missing_storage_predicate, []),
+    space_module(Space, ExecutionModule),
+    catch(ExecutionModule:plunit_missing_execution_predicate,
+          Error,
+          true),
+    nonvar(Error),
+    Error = error(existence_error(procedure, _), _).
+
+test(concurrent_first_writes_publish_one_storage_module,
+     [ cleanup(clear_native_atoms('&plunit_concurrent_storage')) ]) :-
+    Space = '&plunit_concurrent_storage',
+    concurrent_forall(between(1, 64, Row),
+                      add_sexp(Space, [row, Row]),
+                      [threads(64)]),
+    findall(Row, get_native_atom(Space, [row, Row]), Rows),
+    sort(Rows, UniqueRows),
+    length(UniqueRows, 64),
+    native_storage_module(Space, Module),
+    native_storage_ready(Module),
+    findall(CachedModule,
+            native_storage_module_cache(Space, CachedModule),
+            CachedModules),
+    CachedModules == [Module].
+
+test(custom_added_hooks_keep_every_batch_event,
+     [ cleanup((clear_native_atoms('&plunit_hooked_batch'),
+                retractall(user:plunit_storage_added_event(_, _)))) ]) :-
+    Space = '&plunit_hooked_batch',
+    setup_call_cleanup(
+        assertz(user:(metta_on_atom_added(EventSpace, Term) :-
+                         assertz(plunit_storage_added_event(
+                             EventSpace, Term))), HookRef),
+        metta_add_atoms(Space, [[observed, 1], [observed, 2]]),
+        erase(HookRef)),
+    findall(Term,
+            user:plunit_storage_added_event(Space, Term),
+            Events),
+    Events == [[observed, 1], [observed, 2]].
+
+:- end_tests(spaces_storage_modules).
 
 :- begin_tests(spaces_type_extensions,
                [ setup(setup_type_extension_space),

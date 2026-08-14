@@ -16,7 +16,7 @@ cleanup_trace_function(F) :-
             Refs),
     forall(member(Ref, Refs),
            ( erase(Ref), retractall(user:translated_from(Ref, _)) )),
-    retractall(user:'&self'(=, [F|_], _)),
+    remove_sexp('&self', [=, [F|_], _]),
     user:clear_fun_meta(F),
     retractall(user:arity(F, _)),
     retractall(user:fun(F)),
@@ -85,7 +85,7 @@ cleanup_trace_type_extension :-
             Refs),
     forall(member(Ref, Refs),
            ( erase(Ref), retractall(user:translated_from(Ref, _)) )),
-    retractall(user:'&self'(=, ['get-type', plunit_trace_type], _)),
+    remove_sexp('&self', [=, ['get-type', plunit_trace_type], _]),
     retractall(user:get_type_rule(plunit_trace_type, _)),
     drop_fun_meta('get-type', [plunit_trace_type], plunit_traced_type),
     unregister_fun_in(user, 'get-type').

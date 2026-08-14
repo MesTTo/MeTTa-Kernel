@@ -161,13 +161,13 @@ type_answer_fact([plunit_type_a, plunit_type_b],
 setup_type_answers :-
     cleanup_type_answers,
     forall(type_answer_fact(Term, Type),
-           assertz(user:'&self'(:, Term, Type))),
+           add_sexp('&self', [':', Term, Type])),
     assertz(user:get_type_rule([plunit_type_a, plunit_type_b],
                                [plunit_a, plunit_b])).
 
 cleanup_type_answers :-
     forall(type_answer_fact(Term, _),
-           retractall(user:'&self'(:, Term, _))),
+           remove_sexp('&self', [':', Term, _])),
     retractall(user:get_type_rule([plunit_type_a, plunit_type_b], _)).
 
 test(user_boundary_returns_each_type_once) :-

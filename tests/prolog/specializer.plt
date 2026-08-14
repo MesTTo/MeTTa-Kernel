@@ -54,7 +54,9 @@ test(concurrent_translation_creates_one_specialization,
     Specializations = [SpecName],
     functor(Head, SpecName, 3),
     aggregate_all(count, clause(Head, _), 1),
-    aggregate_all(count, '&self'(=, [SpecName|_], _), 1).
+    aggregate_all(count,
+                  get_native_atom('&self', [=, [SpecName|_], _]),
+                  1).
 
 setup_multiclause :-
     set_specializer_test_mode,
@@ -186,9 +188,10 @@ cleanup_failed_specialization_type :-
 test(failed_specialization_does_not_leak_generated_type,
      [ setup(setup_failed_specialization_type),
        cleanup(cleanup_failed_specialization_type) ]) :-
-    '&self'(:, wrap, ['->', 'Number', 'Number', 'Number']),
+    once(get_native_atom(
+        '&self', [':', wrap, ['->', 'Number', 'Number', 'Number']])),
     ho_specialization_failed(wrap, 3, [myfun]),
-    \+ ( '&self'(:, Name, _),
+    \+ ( get_native_atom('&self', [':', Name, _]),
          atom(Name),
          sub_atom(Name, 0, _, _, 'wrap_Spec_') ).
 
@@ -222,6 +225,6 @@ test(compound_partial_key_has_stable_anonymous_variables,
     \+ fun_meta_clause(SpecName, _, _),
     functor(SpecHead, SpecName, 3),
     \+ clause(SpecHead, _),
-    \+ '&self'(=, [SpecName|_], _).
+    \+ get_native_atom('&self', [=, [SpecName|_], _]).
 
 :- end_tests(specializer).

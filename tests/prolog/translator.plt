@@ -284,19 +284,37 @@ test(variable_heads_are_not_bound_to_a_special_form) :-
     var(Head),
     Goals = [reduce([Head, 1], _)].
 
+test(space_predicates_use_space_storage,
+     [ setup(add_sexp('&self', [plunit_space_predicate, a, b])),
+       cleanup(remove_sexp('&self',
+                           [plunit_space_predicate, _, _])) ]) :-
+    translate_expr(
+        [translatePredicate, ['&self', plunit_space_predicate, A, B]],
+        Goals,
+        _),
+    goals_list_to_conj(Goals, Goal),
+    once(call(Goal)),
+    A-B == a-b,
+    'Predicate'(['&self', plunit_space_predicate, C, D], Constructed),
+    once(call(Constructed)),
+    C-D == a-b.
+
 :- end_tests(translator_special_dispatch).
 
 :- begin_tests(translator_typed_currying,
                [ setup((retractall(user:fun(plunit_typed_curry)),
                         retractall(user:arity(plunit_typed_curry, _)),
-                        retractall(user:'&self'(:, plunit_typed_curry, _)),
+                        remove_sexp('&self',
+                                    [':', plunit_typed_curry, _]),
                         assertz(user:fun(plunit_typed_curry)),
                         assertz(user:arity(plunit_typed_curry, 3)),
-                        assertz(user:'&self'(:, plunit_typed_curry,
-                                             [->, 'Number', 'Number', 'Number'])))),
+                        add_sexp('&self',
+                                 [':', plunit_typed_curry,
+                                  [->, 'Number', 'Number', 'Number']]))),
                  cleanup((retractall(user:fun(plunit_typed_curry)),
                           retractall(user:arity(plunit_typed_curry, _)),
-                          retractall(user:'&self'(:, plunit_typed_curry, _)))) ]).
+                          remove_sexp('&self',
+                                      [':', plunit_typed_curry, _]))) ]).
 
 test(output_type_check_waits_for_a_return_value) :-
     translate_expr([plunit_typed_curry, 1], Goals, Partial),
@@ -309,15 +327,16 @@ test(output_type_check_waits_for_a_return_value) :-
 :- begin_tests(translator_typed_single_pass,
                [ setup((retractall(user:fun(plunit_typed_once)),
                         retractall(user:arity(plunit_typed_once, _)),
-                        retractall(user:'&self'(:, plunit_typed_once, _)),
+                        remove_sexp('&self', [':', plunit_typed_once, _]),
                         assertz(user:fun(plunit_typed_once)),
                         assertz(user:arity(plunit_typed_once, 3)),
-                        assertz(user:'&self'(:, plunit_typed_once,
-                                             [->, '%Undefined%', 'Number',
-                                              'Number'])))),
+                        add_sexp('&self',
+                                 [':', plunit_typed_once,
+                                  [->, '%Undefined%', 'Number', 'Number']]))),
                  cleanup((retractall(user:fun(plunit_typed_once)),
                           retractall(user:arity(plunit_typed_once, _)),
-                          retractall(user:'&self'(:, plunit_typed_once, _)))) ]).
+                          remove_sexp('&self',
+                                      [':', plunit_typed_once, _]))) ]).
 
 %next_lambda_name/1 counts in gensym's process-wide flag, whose key gensym/2
 %builds as '$gs_' followed by the base.
@@ -359,17 +378,18 @@ typed_check_fact(plunit_only_b, plunit_b).
 setup_typed_checks :-
     cleanup_typed_checks,
     forall(typed_check_fact(Term, Type),
-           assertz(user:'&self'(:, Term, Type))),
-    assertz(user:'&self'(:, plunit_same_type,
-                         [->, Shared, Shared, 'Number'])),
+           add_sexp('&self', [':', Term, Type])),
+    add_sexp('&self',
+             [':', plunit_same_type,
+              [->, Shared, Shared, 'Number']]),
     assertz(user:fun(plunit_same_type)),
     assertz(user:arity(plunit_same_type, 3)),
     assertz(user:plunit_same_type(_, _, 1)).
 
 cleanup_typed_checks :-
     forall(typed_check_fact(Term, _),
-           retractall(user:'&self'(:, Term, _))),
-    retractall(user:'&self'(:, plunit_same_type, _)),
+           remove_sexp('&self', [':', Term, _])),
+    remove_sexp('&self', [':', plunit_same_type, _]),
     retractall(user:plunit_same_type(_, _, _)),
     retractall(user:arity(plunit_same_type, _)),
     retractall(user:fun(plunit_same_type)).
