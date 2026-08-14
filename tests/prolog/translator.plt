@@ -160,6 +160,24 @@ test(trace_form_has_one_compilation) :-
 
 :- end_tests(translator_stream_rewrites).
 
+:- begin_tests(translator_translation_depth).
+
+nested_add(0, 0) :- !.
+nested_add(N, ['+', 1, Inner]) :-
+    N1 is N - 1,
+    nested_add(N1, Inner).
+
+test(nested_calls_compile_with_linear_work,
+     [ true((GoalCount == 400, Inferences < 50000)) ]) :-
+    nested_add(400, Expr),
+    statistics(inferences, I0),
+    translate_expr(Expr, Goals, _),
+    statistics(inferences, I1),
+    Inferences is I1 - I0,
+    length(Goals, GoalCount).
+
+:- end_tests(translator_translation_depth).
+
 :- begin_tests(translator_branch_returns).
 
 test(build_branch_without_goals_unifies_at_runtime) :-
