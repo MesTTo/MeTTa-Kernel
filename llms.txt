@@ -98,6 +98,10 @@ returned directly by `m.query(...)` retains its query context, and
 `MettaOperationError(EngineError)` is a builtin refusing a value, with the parts
 as data: `.operation` is what the source wrote (`+`, `min-atom`), `.kind` the
 formal's functor, `.expected` and `.culprit` the type and offending value.
+`m.run(src, strict=True)` and `m.eval(atom, strict=True)` raise `StrictError`
+when a directive answers nothing or answers an unreduced head naming neither a
+function nor stored data, with the near miss named. Opt-in, never the default:
+keeping an unreduced term is the point of the language.
 Type checkers distinguish `SpaceName`, `MettaName`, and the closed
 `SaveFormat` set. Their constructors are available directly from `petta`.
 
