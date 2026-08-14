@@ -1361,7 +1361,7 @@ requires-dist = [
     { name = "perflint", marker = "extra == 'checks'", specifier = ">=0.8" },
     { name = "pip-audit", marker = "extra == 'checks'", specifier = ">=2.9" },
     { name = "polars", marker = "extra == 'dataframes'" },
-    { name = "pylint", marker = "extra == 'checks'", specifier = ">=3.3" },
+    { name = "pylint", marker = "extra == 'checks'", specifier = ">=3.3,<4" },
     { name = "pytest", marker = "extra == 'checks'", specifier = ">=8.4.2" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.4.2" },
     { name = "pytest-benchmark", marker = "extra == 'checks'", specifier = ">=5.2" },
