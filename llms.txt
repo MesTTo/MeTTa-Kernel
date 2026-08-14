@@ -99,11 +99,12 @@ Type checkers distinguish `SpaceName`, `MettaName`, and the closed
 ## Integrating any library
 
 `petta.convert`: `project(obj)` -> constructor expression, `build(atom)` -> object,
-`register_type`, `declarations`. Dataclasses, enums, pydantic and annotated classes
-all cross; enums project to symbols.
+`register_type`, `unregister_type`, `declarations`. Dataclasses, enums, pydantic
+and annotated classes all cross; enums project to symbols.
 `petta.integrate`: `module_ops(space, module)` registers a whole module's callables,
-`wrap_object`, `reflect`, `register_reflector`, `SpaceProvider`, `Integration`,
-`discover` (entry-point group `petta.integrations`).
+`wrap_object`, `reflect`, paired register/unregister functions for protocol types,
+formatters and reflectors, `SpaceProvider`, `Integration`, `discover` (entry-point
+group `petta.integrations`).
 `petta.foreign`: implement `Matcher`/`Enumerable`/`Adder`/`Remover`/`Clearer` and
 `register_provider(name, provider)` to make an external store answer MeTTa matches;
 `capabilities` declares what it supports and unsupported operations refuse loudly.

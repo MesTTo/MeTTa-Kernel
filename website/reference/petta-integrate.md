@@ -15,6 +15,14 @@ Source: `python/petta/integrate.py`.
 >   - inspect.signature reports unsupported callables with TypeError and
 >     unavailable signatures with ValueError [source 2026-08-14:
 >     https://docs.python.org/3/library/inspect.html#inspect.signature]
+> Guarantees:
+>   - protocol type, formatter, conversion, and reflector registrations have
+>     exact removal counterparts [tested
+>     test_protocol_and_reflector_registrations_can_be_removed,
+>     test_type_registration_can_be_removed_and_its_name_reclaimed]
+> Guarded by:
+>   - _REFLECTOR_LOCK protects reflector registrations [tested
+>     test_protocol_and_reflector_registrations_can_be_removed]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -136,6 +144,14 @@ def register_object_type(predicate: Callable[[Any], bool], name: str) -> None:
 >
 >     register_object_type(lambda x: hasattr(x, "__dlpack__"), "DLTensor")
 
+## `unregister_object_type`
+
+```python
+def unregister_object_type(predicate: Callable[[Any], bool], name: str) -> None:
+```
+
+> Remove the latest exact protocol type registration.
+
 ## `register_repr`
 
 ```python
@@ -143,6 +159,16 @@ def register_repr(predicate: Callable[[Any], bool], formatter: Callable[[Any], s
 ```
 
 > How objects satisfying a protocol print when stored as atoms.
+
+## `unregister_repr`
+
+```python
+def unregister_repr(
+    predicate: Callable[[Any], bool], formatter: Callable[[Any], str]
+) -> None:
+```
+
+> Remove the latest exact protocol formatter registration.
 
 ## `register_reflector`
 
@@ -153,6 +179,16 @@ def register_reflector(
 ```
 
 > fn(m, name, obj) writes facts about obj into m and returns the count.
+
+## `unregister_reflector`
+
+```python
+def unregister_reflector(
+    predicate: Callable[[Any], bool], fn: Callable[[Any, str, Any], int]
+) -> None:
+```
+
+> Remove the latest reflector matching both callables exactly.
 
 ## `reflect`
 

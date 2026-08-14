@@ -18,6 +18,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   property tests, differential tests, package-install tests, and static checks.
 - Added named MORK spaces and bulk Python space writes.
 - Added `Rows.to_dicts()` for Python-native row mappings.
+- Added exact unregister counterparts for Python type, object formatter,
+  protocol type, protocol formatter, and reflector registrations.
 - Added machine-readable citation metadata and this release changelog.
 
 ### Changed

@@ -291,6 +291,14 @@ DuckDB provider is a page of code on this interface. A package advertises itself
 anything defining `install_petta(m)`. Declare an integration in package
 metadata like this:
 
+Process-wide extension registrations have exact removal counterparts.
+Use `convert.unregister_type`, `integrate.unregister_object_type`,
+`integrate.unregister_repr`, and `integrate.unregister_reflector` with the
+same objects passed at registration. Atom formatters pair
+`register_object_repr` and `register_object_repr_protocol` with their
+`unregister_` counterparts. Removing a registration that is not live raises
+`KeyError`.
+
 ```toml
 [project.entry-points."petta.integrations"]
 my-library = "my_library.petta"
