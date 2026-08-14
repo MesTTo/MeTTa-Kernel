@@ -232,6 +232,31 @@ test(translated_success_leaves_the_query_variable_unbound) :-
 
 :- end_tests(metta_alpha_membership).
 
+:- begin_tests(metta_alpha_unique).
+
+test(synthetic_hash_collision_keeps_inequivalent_terms) :-
+    empty_assoc(Empty),
+    alpha_bucket_insert(forced_hash, alpha, Empty, SeenAlpha, true),
+    alpha_bucket_insert(forced_hash, beta, SeenAlpha, SeenBoth, true),
+    get_assoc(forced_hash, SeenBoth, Bucket),
+    Bucket == [beta, alpha].
+
+test(identity_inside_a_hash_bucket_rejects_a_duplicate) :-
+    empty_assoc(Empty),
+    alpha_bucket_insert(forced_hash, alpha, Empty, Seen, true),
+    alpha_bucket_insert(forced_hash, alpha, Seen, SeenAgain, false),
+    SeenAgain == Seen.
+
+test(surface_deduplication_keeps_first_alpha_variant) :-
+    'alpha-unique-atom'([[link, X, human],
+                        [link, Y, human],
+                        [child, Z, human]],
+                        Unique),
+    Unique == [[link, X, human], [child, Z, human]],
+    X \== Y.
+
+:- end_tests(metta_alpha_unique).
+
 :- begin_tests(metta_builtin_outputs).
 
 wrong_prebound_output('car-atom'([a, b], [])).
