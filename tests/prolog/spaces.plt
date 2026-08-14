@@ -1,7 +1,7 @@
 % Purpose: verify native and foreign space matching rejects cyclic answers
 %   while preserving ordinary acyclic matches.
 % Open Obligations:
-%   To Do: Add direct coverage for arbitrary non-expression atoms.
+%   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
