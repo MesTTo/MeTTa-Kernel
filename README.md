@@ -31,6 +31,29 @@ The `petta` package is a full Python surface for the engine. Install it with
 `pip install .` (the runtime is bundled, so nothing else needs a checkout),
 or use it in place from a clone with `PETTA_PATH` pointing at the tree.
 
+Configure process-wide limits before creating the first engine. Stack and
+heartbeat settings freeze after startup because SWI-Prolog owns them for the
+process. Declaration and row-display limits remain live:
+
+```python
+import logging
+import petta
+
+petta.config.configure(
+    declaration_limit=256,
+    display_rows=50,
+)
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("petta").setLevel(logging.DEBUG)
+```
+
+The same settings accept `PETTA_STACK_LIMIT`, `PETTA_HEARTBEAT_INTERVAL`,
+`PETTA_DECLARATION_LIMIT` and `PETTA_DISPLAY_ROWS` as positive decimal
+integers. Set `petta.config.stack_limit` and
+`petta.config.heartbeat_interval` before creating the first engine when you
+configure them in Python. The package installs only a `NullHandler`, so
+applications choose where `petta.*` lifecycle and recovery records go.
+
 Atoms are Python values. `S.likes` is the symbol `likes`, `V.x` is the
 variable `$x`, and applying a symbol builds an expression, so structure never
 costs an engine call. Operators build terms too: `V.age >= 18` is the
