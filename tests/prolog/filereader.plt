@@ -74,6 +74,32 @@ test(missing_form_close_reports_its_syntax_error,
 
 :- end_tests(filereader_form_splitter).
 
+:- begin_tests(filereader_comments).
+
+%A source reaches the reader through two doors: sread/2 on its own for a
+%direct string, and the loader, which strips the whole source once and then
+%reads each split form without stripping it again. The two have to agree, so
+%each case goes through both. parser.plt covers the reader alone; this covers
+%the pair.
+comment_case("(a ; ignored tokens\n b)", [a, b]).
+comment_case("; a leading comment\n(a b)", [a, b]).
+comment_case("(value \"a;b\")", [value, "a;b"]).
+comment_case("(a b) ; a comment with no trailing newline", [a, b]).
+
+test(the_loader_and_the_reader_agree_on_comments,
+     [forall(comment_case(Source, Expected))]) :-
+    sread(Source, Direct),
+    Direct == Expected,
+    %The wrapper's own ) goes on the next line: a comment that runs to end of
+    %input would otherwise swallow it, which is what it is supposed to do.
+    format(string(Runnable), "!(quote ~s~n)", [Source]),
+    setup_call_cleanup(assertz(silent(true), Ref),
+                       process_metta_string(Runnable, Results),
+                       erase(Ref)),
+    Results == [Expected].
+
+:- end_tests(filereader_comments).
+
 :- begin_tests(filereader_terminal_output).
 
 test(nonterminal_loader_output_has_no_ansi_escapes) :-
