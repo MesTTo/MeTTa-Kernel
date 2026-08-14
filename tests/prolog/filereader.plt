@@ -1,5 +1,5 @@
-% Purpose: verify file-reader splitting, loader rollback, late-definition
-%   repair, and translation-error reporting.
+% Purpose: verify file-reader splitting, loader rollback, global function
+%   scope, late-definition repair, and translation-error reporting.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -187,6 +187,36 @@ test(failed_late_definition_does_not_recompile_existing_callers,
           delete_file(Path) )).
 
 :- end_tests(filereader_source_rollback).
+
+:- begin_tests(filereader_global_function_scope).
+
+test(file_function_remains_a_global_fallback_after_a_named_homonym) :-
+    Function = 'plunit-global-file-function',
+    NamedSpace = '&plunit_file_homonym',
+    OtherSpace = '&plunit_file_other',
+    cleanup_test_function(Function),
+    tmp_file_stream(text, Path, Stream),
+    format(Stream, "(= (~w $x) (+ $x 1))~n", [Function]),
+    close(Stream),
+    NamedTerm = [=, [Function, X], [+, X, 100]],
+    setup_call_cleanup(
+        assertz(user:silent(true), SilentRef),
+        setup_call_cleanup(
+            true,
+            ( user:load_metta_file(Path, _),
+              user:'add-atom'(NamedSpace, NamedTerm, true),
+              user:process_metta_string(
+                  "!(plunit-global-file-function 41)", Results, OtherSpace),
+              user:fun_in(user, Function),
+              Results == [42] ),
+            ( user:'remove-atom'(NamedSpace, NamedTerm, _),
+              cleanup_test_function(Function),
+              retractall(user:compiled_metta_source(Path)),
+              retractall(user:imported_metta_source(_, Path)),
+              delete_file(Path) )),
+        erase(SilentRef)).
+
+:- end_tests(filereader_global_function_scope).
 
 :- begin_tests(filereader_control_errors).
 
