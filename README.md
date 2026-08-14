@@ -3,6 +3,7 @@
 Efficient MeTTa language implementation in Prolog.
 
 Please check out the [Wiki](https://github.com/patham9/PeTTa/wiki) for more information.
+Contributor setup, gates, and measurement rules are in [DEVELOPING.md](DEVELOPING.md).
 
 ### Dependencies
 
@@ -30,6 +31,37 @@ The following projects are cloned and built by build.sh:
 The `petta` package is a full Python surface for the engine. Install it with
 `pip install .` (the runtime is bundled, so nothing else needs a checkout),
 or use it in place from a clone with `PETTA_PATH` pointing at the tree.
+Install optional integrations by feature:
+
+```bash
+pip install "petta[arrays]"       # array API, NumPy, and FAISS
+pip install "petta[das]"          # DAS websocket client
+pip install "petta[dataframes]"   # pandas and polars result conversion
+pip install "petta[orjson]"       # faster remote JSON serialization
+```
+
+Configure process-wide limits before creating the first engine. Stack and
+heartbeat settings freeze after startup because SWI-Prolog owns them for the
+process. Declaration and row-display limits remain live:
+
+```python
+import logging
+import petta
+
+petta.config.configure(
+    declaration_limit=256,
+    display_rows=50,
+)
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("petta").setLevel(logging.DEBUG)
+```
+
+The same settings accept `PETTA_STACK_LIMIT`, `PETTA_HEARTBEAT_INTERVAL`,
+`PETTA_DECLARATION_LIMIT` and `PETTA_DISPLAY_ROWS` as positive decimal
+integers. Set `petta.config.stack_limit` and
+`petta.config.heartbeat_interval` before creating the first engine when you
+configure them in Python. The package installs only a `NullHandler`, so
+applications choose where `petta.*` lifecycle and recovery records go.
 
 Atoms are Python values. `S.likes` is the symbol `likes`, `V.x` is the
 variable `$x`, and applying a symbol builds an expression, so structure never
@@ -48,6 +80,14 @@ m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
 m.query(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 # Rows[x, y, z]([Row(x=Sym('Tom'), y=Sym('Bob'), z=Sym('Ann'))])
 ```
+
+`map_atoms(term, transform)` rebuilds an atom tree from the leaves upward.
+Its iterative walk handles deeply nested terms without a Python recursion
+limit, and leaves unchanged expression objects intact.
+
+Every `MeTTa()` handle names the same `&self` space. Use
+`with m.fresh_space() as scratch:` when you need independent stored state.
+`load()` adds a program to the current space and keeps what is already there.
 
 `run` returns one list of answers per `!` directive, computed by the engine's
 own reader, compiler and evaluator, so pasted CLI programs behave
@@ -69,14 +109,16 @@ nondeterministic, and returning None answers nothing, which is why an
 Optional return declares the value type:
 
 ```python
-@m.op
+@m.register_op
 def double(x: int) -> int:
     return 2 * x                     # !(double 21) -> 42
 
-@m.op
+@m.register_op
 def upto(n: int):
     yield from range(1, n + 1)       # !(collapse (upto 3)) -> (1 2 3)
 ```
+
+`m.unregister_op(name)` removes every arity registered under that name.
 
 Queries carry guards, bounds, assumptions and preparation. A `where=` term
 is evaluated by the engine per match, `limit=` bounds the answers,
@@ -244,7 +286,17 @@ and therefore soundness, for itself. The worked SQL instance lives whole
 in `python/examples/integration/duckdb_space.py`, deliberately as an example: a
 DuckDB provider is a page of code on this interface. A package advertises itself through the
 `petta.integrations` entry-point group, and `m.integrate(module)` installs
-anything defining `install_petta(m)`.
+anything defining `install_petta(m)`. Declare an integration in package
+metadata like this:
+
+```toml
+[project.entry-points."petta.integrations"]
+my-library = "my_library.petta"
+```
+
+The built-in `measure` integration is advertised in that group, so
+`m.integrate("measure")` and `m.discover()` can install it from package
+metadata.
 
 This leans on Python's metaprogramming the way SQLAlchemy and Pydantic do:
 introspected signatures become arities and types, the AST becomes equations,
@@ -257,7 +309,8 @@ rebuilding answers as instances; `m.run(src, using={"df": df})`, naming
 host values by bare symbol with identity intact; `m.subscribe(pattern,
 callback)`, a standing query delivered inside the very write that matched
 it (or queued for `drain()`), which is the actors-and-pub-sub reading of a
-space; `m.save(path)` writing a space back as loadable source; and
+space; `m.save(path)` writing a space back as loadable source, with
+`m.load(path)` adding that source rather than replacing current atoms; and
 `petta.current_space()`, callable from inside any operation to learn the
 space whose program called it.
 
@@ -280,8 +333,13 @@ binding as ever. `petta.measure.weighted_relation` closes the loop from the
 producing side: any callable answering one weight per class registers as a
 dual-mode relation in the same `(weight value)` shape, so a lookup table, a
 heuristic scorer or a neural network all feed the algebra identically.
-`python/bench.py` is the performance harness that keeps all of this
-measured.
+`python/bench.py` runs the pytest-benchmark suite. `--list` prints its named
+cases and `--counter-only` runs the deterministic regression gate without
+using wall time. Engine cases compare the minimum of three
+`stats().inferences` samples with `python/benchmarks/baseline.json`.
+`python/benchmarks/check_instructions.py` applies the same policy to the three
+engine-free cases with `perf stat -e instructions:u`. Wall results remain
+advisory and can be written with `--json`.
 
 On top of that closeness sits a prover, `pettaprove.prove`, layered
 BESIDE the core in its own repository because it is built entirely on

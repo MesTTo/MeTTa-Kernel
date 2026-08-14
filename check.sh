@@ -14,7 +14,8 @@
 #                                            xenon refurb vulture slotscheck
 #                                            bandit deptry audit interrogate
 #                                            codespell imports jscpd prolog
-#                                            pytest shell examples
+#                                            pytest benchmarks instructions
+#                                            shell examples
 #          CHECK_PY=/path/to/python   pick the interpreter
 #          GATE_ONLY=1                skip the REPORT tier
 # Open Obligations:
@@ -63,8 +64,14 @@ in_py() { ( cd "$PYDIR" && "$@" ); }
 # ---------------------------------------------------------------- GATE tier
 # Correctness. These must pass on every commit.
 
-run GATE pytest   sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q"
-run GATE shell    sh -c "cd '$HERE' && sh test.sh"
+# Each worker is a process with its own engine. Keeping one test file whole
+# preserves module fixtures, and a worker crash fails instead of being retried.
+# The benchmark plugin is disabled here because it refuses parallel timing;
+# the dedicated benchmark gates below own those measurements.
+run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark -n auto --dist loadfile --max-worker-restart=0"
+run GATE benchmarks   in_py "$PY" bench.py --counter-only
+run GATE instructions in_py "$PY" -m benchmarks.check_instructions
+run GATE shell        sh -c "cd '$HERE' && sh test.sh"
 run GATE examples sh -c "cd '$HERE' && sh tests/regression/test_specializer_regressions.sh"
 run GATE packaged sh -c "cd '$HERE' && sh tests/test_packaged_cli.sh"
 
@@ -140,36 +147,42 @@ run GATE plunit check_plunit
 # Structural checks with a clean baseline today, so a regression is a failure.
 run GATE slotscheck in_py "$PY" -m slotscheck -m petta
 run GATE vulture    in_py "$PY" -m vulture
+run GATE imports    in_py "$PY" -m importlinter.cli lint_imports
 
 # --------------------------------------------------------------- REPORT tier
 # Known backlog. Each entry names its section in the ledger and becomes a
 # GATE once that section is cleared.
 
-# ledger C3: 250 findings, 196 auto-fixable
+# Two residuals remain: the CLI executes a fixed argv without a shell, and
+# upstream's import-overhaul fixture owns its import grouping.
 run REPORT ruff        in_py "$PY" -m ruff check --statistics petta tests bench.py
 # ledger C2: 65 errors in 13 files
-run REPORT mypy        in_py "$PY" -m mypy
+run GATE   mypy        in_py "$PY" -m mypy
 # ledger C2: 67 diagnostics, independent engine
-run REPORT ty          in_py "$PY" -m ty check --python "$(dirname "$(dirname "$PY")")" petta
-# ledger B6/B7: the layering contract. Fails today by design, and names the
-# two moves that fix it: CONSULTED/CONSULT_LOCK out of __init__.py into
-# _engine.py (which kills the `_engine -> petta -> space` root edge every
-# leaf module currently travels), and _to_atom out of space.py into atoms.py.
-run REPORT imports     in_py "$PY" -m importlinter.cli lint_imports
-# ledger B6: 18 cyclic-import, 80 import-outside-toplevel
+run GATE   ty          in_py "$PY" -m ty check --python "$(dirname "$(dirname "$PY")")" petta
+# Residual Pylint findings describe deliberate facades, compiler mixins,
+# resource cleanup catches, and public compatibility surfaces.
 run REPORT pylint      in_py "$PY" -m pylint petta --disable=C0301,C0114,C0115,C0116,R0913,R0914,R0912,R0915,C0103 --score=n
-# ledger E: 255 findings, hot in the codec
+# Perflint remains a measured queue. A suggestion moves only after the exact
+# instruction counter proves a win; the first attractive rewrite regressed.
 run REPORT perflint    in_py "$PY" -m pylint --load-plugins=perflint --disable=all --enable=W8201,W8202,W8204,W8205 petta --score=n
-# ledger B2: rank F at 47, rank E at 35
-run REPORT xenon       in_py "$PY" -m xenon petta --max-absolute B --max-modules A --max-average A
+# Complexity is bounded per block and across each module.
+run GATE   xenon       in_py "$PY" -m xenon petta --max-absolute B --max-modules A --max-average A
+# Refurb's residual type-normalization and clarity rewrites are not semantic
+# equivalents at the package boundaries they flag.
 run REPORT refurb      in_py "$PY" -m refurb petta bench.py
+# Both Bandit findings are the fixed swipl argv call with shell mode disabled.
 run REPORT bandit      in_py "$PY" -m bandit -q -r petta
-# ledger C4: undeclared optional extras
+# These packages enter through deliberate lazy imports, which deptry cannot
+# observe statically; each one is declared in its matching extra.
 run REPORT deptry      in_py "$PY" -m deptry .
-run REPORT audit       in_py "$PY" -m pip_audit --progress-spinner off
-# ledger F: 41.9% against an 80% target
-run REPORT interrogate in_py "$PY" -m interrogate petta
+run GATE   audit       in_py "$PY" -m pip_audit --progress-spinner off
+# ledger F: public API documentation is held above the 80% target
+run GATE   interrogate in_py "$PY" -m interrogate petta
+# All residual spellings are in engine-owned src and lib paths.
 run REPORT codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib python/petta python/bench.py src lib README.md"
+# The remaining clones are small facade, protocol, and test-fixture mirrors;
+# extracting them would couple layers or hide the local contract.
 run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' python/petta python/tests"
 
 # -------------------------------------------------------------------- report

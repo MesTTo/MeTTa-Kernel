@@ -126,7 +126,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: "python/pyproject.toml"
+          python-version-file: "pyproject.toml"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -134,12 +134,10 @@ jobs:
           enable-cache: true
 
       - name: Install PyPeTTa
-        run: uv sync --locked --all-extras --dev
-        working-directory: python
+        run: uv sync --locked --extra checks
 
       - name: Run Python tests
-        run: uv run pytest tests
-        working-directory: python
+        run: uv run pytest python/tests --rootdir=python -c python/pyproject.toml
 
       - name: Run shell tests
         run: |

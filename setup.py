@@ -1,20 +1,21 @@
-"""Purpose: package the petta Python library with the PeTTa runtime
-bundled, so pip install petta needs no separate checkout and no
-PETTA_PATH. The PyTorch integration lives in its own package, pettorch,
-built on this one's public surface.
+"""Purpose: copy the PeTTa runtime into wheels built from pyproject.toml.
+Owns:
+  - build_py_with_runtime writes only beneath setuptools' build directory;
+    the wheel gate builds and boots that copy outside the checkout
+    [source .github/workflows/checks.yml:116]
 Open Obligations:
   To Do: None
   Hacks: None
   Future Enhancements: None
 """
 
-import os
 import shutil
+from pathlib import Path
 
 from setuptools import setup
 from setuptools.command.build_py import build_py
 
-HERE = os.path.abspath(os.path.dirname(__file__))
+HERE = Path(__file__).resolve().parent
 
 # Runtime resources living outside the package that must ship inside the wheel,
 # mapped to their destination under petta/_runtime/ (preserving the src/ and
@@ -22,51 +23,27 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 RUNTIME_RESOURCES = {
     "src": "src",
     "lib": "lib",
-    os.path.join("python", "helper.pl"): os.path.join("python", "helper.pl"),
-    os.path.join("python", "petta", "shim.pl"): os.path.join("python", "petta", "shim.pl"),
+    "python/helper.pl": "python/helper.pl",
+    "python/petta/shim.pl": "python/petta/shim.pl",
 }
 
 
 class build_py_with_runtime(build_py):
+    """Build Python modules, then copy the runtime tree beside them."""
+
     def run(self):
         super().run()
-        runtime_root = os.path.join(self.build_lib, "petta", "_runtime")
+        runtime_root = Path(self.build_lib) / "petta" / "_runtime"
         for src_rel, dst_rel in RUNTIME_RESOURCES.items():
-            src = os.path.join(HERE, src_rel)
-            dst = os.path.join(runtime_root, dst_rel)
-            if os.path.isdir(src):
+            src = HERE / src_rel
+            dst = runtime_root / dst_rel
+            if src.is_dir():
                 shutil.copytree(src, dst, dirs_exist_ok=True)
             else:
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, dst)
 
 
 setup(
-    name="petta",
-    version="0.2.0",
-    packages=["petta"],
-    package_dir={"": "python"},
-    package_data={"petta": ["shim.pl", "py.typed"]},
-    include_package_data=True,
     cmdclass={"build_py": build_py_with_runtime},
-    entry_points={"console_scripts": ["petta=petta.cli:main"]},
-    install_requires=[
-        "janus-swi",
-    ],
-    extras_require={
-        "test": ["pytest", "hypothesis"],
-        "arrays": ["array-api-compat"],
-    },
-    description="MeTTa in Python on the PeTTa engine",
-    long_description=open("README.md").read(),
-    long_description_content_type="text/markdown",
-    url="https://github.com/trueagi-io/PeTTa",
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Prolog",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-        "Intended Audience :: Science/Research",
-    ],
-    python_requires=">=3.10",
 )
