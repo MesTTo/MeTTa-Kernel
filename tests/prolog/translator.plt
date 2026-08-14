@@ -108,3 +108,18 @@ test(engine_state_does_not_use_function_names,
     nb_getval(lambda_counter, user_lambda_state).
 
 :- end_tests(translator_meta_store).
+
+:- begin_tests(translator_let).
+
+test(self_reference_cannot_create_a_rational_tree,
+     [occurs_check(false), timeout(1)]) :-
+    translate_expr([let, X, [g, X], X], Goals, _),
+    \+ call_goals(Goals).
+
+test(acyclic_binding_keeps_let_semantics,
+     [occurs_check(false)]) :-
+    translate_expr([let, X, [value, 42], X], Goals, Out),
+    once(call_goals(Goals)),
+    Out == [value, 42].
+
+:- end_tests(translator_let).
