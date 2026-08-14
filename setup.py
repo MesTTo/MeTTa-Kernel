@@ -38,7 +38,16 @@ class build_py_with_runtime(build_py):
             src = HERE / src_rel
             dst = runtime_root / dst_rel
             if src.is_dir():
-                shutil.copytree(src, dst, dirs_exist_ok=True)
+                # Whatever sits in the working tree is copied verbatim, so an
+                # ignored __pycache__ would ship interpreter-specific bytecode
+                # inside a py3-none-any wheel, including orphans whose source
+                # was deleted.
+                shutil.copytree(
+                    src,
+                    dst,
+                    dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns("__pycache__", "*.py[co]"),
+                )
             else:
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, dst)
