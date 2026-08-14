@@ -1,5 +1,5 @@
-% Purpose: direct PlUnit coverage for core runtime builtins and their error
-%   contracts, independent of the file reader and Python bridge.
+% Purpose: direct PlUnit coverage for core runtime builtins, their error
+%   contracts, and Python import state cleanup.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -128,3 +128,54 @@ test(ground_removal_only_removes_its_rule,
     findall(Rule, user:translator_rule(Rule), Rules).
 
 :- end_tests(metta_translator_rules).
+
+:- begin_tests(metta_python_import_cleanup).
+
+write_import_fixture(Path) :-
+    setup_call_cleanup(open(Path, write, Out),
+                       format(Out, 'VALUE = 1~n', []),
+                       close(Out)).
+
+clear_python_test_module(Name) :-
+    ( py_call(sys:modules:'__contains__'(Name), @(true))
+      -> py_call(sys:modules:pop(Name), _)
+       ; true ).
+
+exercise_python_import_setup_failure(Directory) :-
+    gensym(petta_cleanup_, Suffix),
+    format(atom(MainName), 'petta_cleanup_main_~w', [Suffix]),
+    format(atom(SiblingName), 'petta_cleanup_sibling_~w', [Suffix]),
+    file_name_extension(MainName, py, MainFile),
+    file_name_extension(SiblingName, py, SiblingFile),
+    directory_file_path(Directory, MainFile, MainPath),
+    directory_file_path(Directory, SiblingFile, SiblingPath),
+    write_import_fixture(MainPath),
+    write_import_fixture(SiblingPath),
+    py_call(builtins:object(), OriginalModule, [py_object(true)]),
+    py_call(builtins:id(OriginalModule), OriginalId),
+    py_call(importlib:util, ImportUtil, [py_object(true)]),
+    py_call(ImportUtil:spec_from_file_location, OriginalSpec,
+            [py_object(true)]),
+    py_call(builtins:int, RaisingCallable, [py_object(true)]),
+    setup_call_cleanup(
+        py_call(sys:modules:'__setitem__'(SiblingName, OriginalModule), _),
+        setup_call_cleanup(
+            py_setattr(ImportUtil, spec_from_file_location, RaisingCallable),
+            ( catch(load_python_source(MainPath), Error, true),
+              nonvar(Error),
+              py_call(sys:modules:'__contains__'(SiblingName), Present),
+              Present == @(true),
+              py_call(sys:modules:get(SiblingName), RestoredModule,
+                      [py_object(true)]),
+              py_call(builtins:id(RestoredModule), RestoredId),
+              RestoredId =:= OriginalId ),
+            py_setattr(ImportUtil, spec_from_file_location, OriginalSpec)),
+        clear_python_test_module(SiblingName)).
+
+test(setup_failure_restores_preexisting_sibling_module) :-
+    tmp_file(petta_python_import, Directory),
+    setup_call_cleanup(make_directory(Directory),
+                       exercise_python_import_setup_failure(Directory),
+                       delete_directory_and_contents(Directory)).
+
+:- end_tests(metta_python_import_cleanup).
