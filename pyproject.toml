@@ -55,6 +55,7 @@ test = [
     "hypothesis>=6.165",
     "pytest>=8.4.2",
     "pytest-benchmark>=5.2",
+    "pytest-xdist>=3.8,<4",
 ]
 checks = [
     "bandit>=1.9",
@@ -70,6 +71,7 @@ checks = [
     "pylint>=3.3",
     "pytest>=8.4.2",
     "pytest-benchmark>=5.2",
+    "pytest-xdist>=3.8,<4",
     "radon>=6.0",
     "refurb>=2.3",
     "ruff>=0.14",
