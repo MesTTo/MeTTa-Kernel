@@ -49,6 +49,10 @@ m.query(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 # Rows[x, y, z]([Row(x=Sym('Tom'), y=Sym('Bob'), z=Sym('Ann'))])
 ```
 
+Every `MeTTa()` handle names the same `&self` space. Use
+`with m.fresh_space() as scratch:` when you need independent stored state.
+`load()` adds a program to the current space and keeps what is already there.
+
 `run` returns one list of answers per `!` directive, computed by the engine's
 own reader, compiler and evaluator, so pasted CLI programs behave
 identically; a differential suite in `python/tests` holds the library to the
@@ -69,14 +73,16 @@ nondeterministic, and returning None answers nothing, which is why an
 Optional return declares the value type:
 
 ```python
-@m.op
+@m.register_op
 def double(x: int) -> int:
     return 2 * x                     # !(double 21) -> 42
 
-@m.op
+@m.register_op
 def upto(n: int):
     yield from range(1, n + 1)       # !(collapse (upto 3)) -> (1 2 3)
 ```
+
+`m.unregister_op(name)` removes every arity registered under that name.
 
 Queries carry guards, bounds, assumptions and preparation. A `where=` term
 is evaluated by the engine per match, `limit=` bounds the answers,
@@ -257,7 +263,8 @@ rebuilding answers as instances; `m.run(src, using={"df": df})`, naming
 host values by bare symbol with identity intact; `m.subscribe(pattern,
 callback)`, a standing query delivered inside the very write that matched
 it (or queued for `drain()`), which is the actors-and-pub-sub reading of a
-space; `m.save(path)` writing a space back as loadable source; and
+space; `m.save(path)` writing a space back as loadable source, with
+`m.load(path)` adding that source rather than replacing current atoms; and
 `petta.current_space()`, callable from inside any operation to learn the
 space whose program called it.
 
