@@ -2,7 +2,7 @@
 %   rewrites whose failures are difficult to localize through whole examples.
 % Open Obligations:
 %   To Do: Add build_branch/4, merge_branch_returns/3, and the remaining
-%     stream-rewrite determinism cases from the engine review.
+%     branch cases from the engine review.
 %   Hacks: None
 %   Future Enhancements: None
 
@@ -123,3 +123,40 @@ test(acyclic_binding_keeps_let_semantics,
     Out == [value, 42].
 
 :- end_tests(translator_let).
+
+:- begin_tests(translator_stream_rewrites).
+
+stream_rewrite_case(['trace!', 1, 2],
+                    [progn, ['println!', 1], 2]).
+stream_rewrite_case([unique, [superpose, a, a]],
+                    [call, [superpose,
+                            ['unique-atom', [collapse, [superpose, a, a]]]]]).
+stream_rewrite_case(['alpha-unique', [superpose, a, a]],
+                    [call, [superpose,
+                            ['alpha-unique-atom',
+                             [collapse, [superpose, a, a]]]]]).
+stream_rewrite_case([union, [superpose, a], [superpose, b]],
+                    [call, [superpose,
+                            ['union-atom', [collapse, [superpose, a]],
+                                           [collapse, [superpose, b]]]]]).
+stream_rewrite_case([intersection, [superpose, a], [superpose, b]],
+                    [call, [superpose,
+                            ['intersection-atom', [collapse, [superpose, a]],
+                                                  [collapse, [superpose, b]]]]]).
+stream_rewrite_case([subtraction, [superpose, a], [superpose, b]],
+                    [call, [superpose,
+                            ['subtraction-atom', [collapse, [superpose, a]],
+                                                 [collapse, [superpose, b]]]]]).
+
+test(each_stream_rewrite_has_exactly_one_solution,
+     [ forall(stream_rewrite_case(Input, Expected)),
+       true(Solutions == [Expected]) ]) :-
+    findall(Out, rewrite_streamops(Input, Out), Solutions).
+
+test(trace_form_has_one_compilation) :-
+    findall(Goals-Out, translate_expr(['trace!', 1, 2], Goals, Out),
+            Solutions),
+    Solutions = [[Print]-2],
+    Print =@= 'println!'(1, _).
+
+:- end_tests(translator_stream_rewrites).
