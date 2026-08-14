@@ -72,6 +72,10 @@ m.query(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 # Rows[x, y, z]([Row(x=Sym('Tom'), y=Sym('Bob'), z=Sym('Ann'))])
 ```
 
+`map_atoms(term, transform)` rebuilds an atom tree from the leaves upward.
+Its iterative walk handles deeply nested terms without a Python recursion
+limit, and leaves unchanged expression objects intact.
+
 Every `MeTTa()` handle names the same `&self` space. Use
 `with m.fresh_space() as scratch:` when you need independent stored state.
 `load()` adds a program to the current space and keeps what is already there.
