@@ -133,15 +133,27 @@ run GATE prolog-determinism check_translation_determinism
 # only through janus from Python or through a whole MeTTa example, so a
 # parser or translator defect surfaced as a wrong example output with
 # nothing pointing at the cause.
+#
+# Every suite runs in each configuration the engine ships in. A bare swipl
+# invocation has an empty argv, so metta.pl's mork branch never fires and the
+# suites booted an engine nothing ships: run.sh, the packaged CLI and the
+# Python library all append mork when the FFI is built. That gap hid a real
+# failure, spaces_storage_modules:matching_requires_a_named_space, which was
+# green here and red in what shipped.
 check_plunit() {
     cd "$HERE/tests/prolog" || return 1
     ok=0
     for suite in *.plt; do
         [ -e "$suite" ] || continue
         swipl -g "set_test_options([format(log)]), run_tests" -t halt "$suite" || ok=1
+        [ -f "$MORK_LIB" ] || continue
+        echo "--- $suite (mork) ---"
+        LD_PRELOAD="$MORK_LIB" swipl -g "set_test_options([format(log)]), run_tests" \
+            -t halt "$suite" -- mork || ok=1
     done
     return $ok
 }
+MORK_LIB="$HERE/mork_ffi/target/release/libmork_ffi.so"
 run GATE plunit check_plunit
 
 # Structural checks with a clean baseline today, so a regression is a failure.
