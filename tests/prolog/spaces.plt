@@ -288,7 +288,8 @@ test(user_predicates_do_not_appear_as_space_atoms) :-
 
 test(missing_storage_arities_fail_without_changing_execution_errors) :-
     storage_module_space(Space),
-    \+ native_expression(Space, plunit_missing_storage_predicate, []),
+    native_storage_module_ready(Space, StorageModule),
+    \+ native_expression(StorageModule, Space, plunit_missing_storage_predicate, []),
     space_module(Space, ExecutionModule),
     catch(ExecutionModule:plunit_missing_execution_predicate,
           Error,
