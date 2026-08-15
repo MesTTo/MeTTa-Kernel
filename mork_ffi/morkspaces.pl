@@ -58,18 +58,9 @@ mork_call(Space, Command, Payload, Response) :-
 
 %MORK's bridge consumes swrite text. MeTTa has no quoted-symbol syntax, so a
 %symbol whose spelling does not read back as itself cannot retain its
-%identity there; the grammar owns that rule [source: src/parser.pl,
-%metta_symbol_writable/1]. A quote is MORK's own reader's string delimiter,
-%which PeTTa's grammar allows inside a symbol, so it is refused here alone.
-mork_unsafe_symbol(Symbol) :- atom(Symbol),
-                              ( \+ metta_symbol_writable(Symbol)
-                              ; sub_atom(Symbol, _, 1, _, '"') ), !.
-mork_bad_text_symbol(Term, Term) :- mork_unsafe_symbol(Term), !.
-mork_bad_text_symbol(Term, Bad) :-
-    compound(Term),
-    compound_name_arguments(Term, Functor, Args),
-    ( mork_bad_text_symbol(Functor, Bad)
-    ; member(Arg, Args), mork_bad_text_symbol(Arg, Bad) ), !.
+%identity there, and the grammar owns that rule, quotes included
+%[source: src/parser.pl, metta_symbol_writable/1].
+mork_bad_text_symbol(Term, Bad) :- metta_unwritable_symbol(Term, Bad).
 
 mork_require_text_safe(Term, Operation) :-
     ( mork_bad_text_symbol(Term, Bad)
