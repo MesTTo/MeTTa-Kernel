@@ -238,6 +238,30 @@ test(nested_heads_compile_with_linear_work,
 
 :- end_tests(translator_translation_depth).
 
+:- begin_tests(translator_reduction_status).
+
+test(a_called_function_reports_reduced) :-
+    reduce(['+', 1, 2], Out, Status),
+    Out == 3,
+    Status == reduced.
+
+test(an_uncallable_head_reports_not_reducible) :-
+    reduce([plunit_no_such_head, 1], Out, Status),
+    Out == [plunit_no_such_head, 1],
+    Status == 'not-reducible'.
+
+test(the_empty_expression_reports_not_reducible) :-
+    reduce([], Out, Status),
+    Out == [],
+    Status == 'not-reducible'.
+
+test(reduce_of_arity_two_keeps_its_exact_behaviour) :-
+    % Every compiled call site uses reduce/2; the status must be additive.
+    reduce(['+', 1, 2], Out),
+    Out == 3.
+
+:- end_tests(translator_reduction_status).
+
 :- begin_tests(translator_special_dispatch).
 
 expected_special_heads([
@@ -280,9 +304,11 @@ test(representative_forms_each_have_one_translation,
     Solutions = [_].
 
 test(variable_heads_are_not_bound_to_a_special_form) :-
+    % The emitted goal is reduce/3: a variable head is decided at runtime,
+    % and that is the decision the evaluation status comes from.
     translate_expr([Head, 1], Goals, _),
     var(Head),
-    Goals = [reduce([Head, 1], _)].
+    Goals = [reduce([Head, 1], _, _)].
 
 test(space_predicates_use_space_storage,
      [ setup(add_sexp('&self', [plunit_space_predicate, a, b])),

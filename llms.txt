@@ -102,6 +102,13 @@ returned directly by `m.query(...)` retains its query context, and
 `MettaOperationError(EngineError)` is a builtin refusing a value, with the parts
 as data: `.operation` is what the source wrote (`+`, `min-atom`), `.kind` the
 formal's functor, `.expected` and `.culprit` the type and offending value.
+`m.eval_status(atom)` and `m.run_status(src)` pair each answer with the path
+that produced it: `value` (an equation, builtin or special form applied),
+`not-reducible` (no rule applied, the answer is the term itself), `empty` (the
+branch pruned, answer `None`). A pruned branch and an unevaluated term are
+different things that the answers alone cannot tell apart. `strict=True` on
+`run` raises `StrictError` on a `not-reducible` directive, opt-in, since an
+unreduced term is an ordinary MeTTa value.
 Type checkers distinguish `SpaceName`, `MettaName`, and the closed
 `SaveFormat` set. Their constructors are available directly from `petta`.
 
