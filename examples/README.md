@@ -10,7 +10,7 @@ Run the self-checking corpus with:
 
 `test.sh` discovers examples recursively. It excludes `_fixtures` and the six
 interactive, network-backed, or optional-dependency examples named in the
-runner. The merged corpus contains 171 examples that run in the shell suite.
+runner. The merged corpus contains 172 examples that run in the shell suite.
 Selected root paths remain as symlink aliases for package differential tests
 and existing documentation. Each canonical source file lives in one topic
 folder, and recursive discovery does not run an alias twice.
