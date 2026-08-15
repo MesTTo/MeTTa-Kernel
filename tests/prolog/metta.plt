@@ -45,23 +45,12 @@ test(every_runtime_term_has_a_metatype,
 
 :- begin_tests(metta_operation_errors).
 
-host_error_case('+', '+'(1, invalid_number, _)).
 host_error_case('+', '+'(1.0e308, 1.0e308, _)).
-host_error_case('-', '-'(1, invalid_number, _)).
 host_error_case('-', '-'(1.0e308, -1.0e308, _)).
-host_error_case('*', '*'(1, invalid_number, _)).
 host_error_case('*', '*'(1.0e308, 2.0, _)).
-host_error_case('/', '/'(1, invalid_number, _)).
 host_error_case('/', '/'(1, 0, _)).
 host_error_case('/', '/'(1.0e308, 1.0e-308, _)).
-host_error_case('%', '%'(1, invalid_number, _)).
 host_error_case('%', '%'(1, 0, _)).
-host_error_case('<', '<'(1, invalid_number, _)).
-host_error_case('>', '>'(1, invalid_number, _)).
-host_error_case('<=', '<='(1, invalid_number, _)).
-host_error_case('>=', '>='(1, invalid_number, _)).
-host_error_case(min, min(1, invalid_number, _)).
-host_error_case(max, max(1, invalid_number, _)).
 host_error_case(exp, exp(invalid_number, _)).
 host_error_case('#+', '#+'(1, invalid_number, _)).
 host_error_case('#-', '#-'(1, invalid_number, _)).
@@ -106,6 +95,27 @@ host_error_case('random-float',
 host_error_case('bind!', 'bind!'([invalid_key], ['new-state', 1], _)).
 host_error_case('change-state!', 'change-state!'([invalid_key], 1, _)).
 host_error_case('get-state', 'get-state'([invalid_key], _)).
+
+%The guarded operators refuse a non-number argument themselves rather than
+%letting is/2 coerce it, so these are argument refusals, not host errors.
+number_operand_case('+', '+'(1, invalid_number, _)).
+number_operand_case('-', '-'(1, invalid_number, _)).
+number_operand_case('*', '*'(1, invalid_number, _)).
+number_operand_case('/', '/'(1, invalid_number, _)).
+number_operand_case('%', '%'(1, invalid_number, _)).
+number_operand_case('<', '<'(1, invalid_number, _)).
+number_operand_case('>', '>'(1, invalid_number, _)).
+number_operand_case('<=', '<='(1, invalid_number, _)).
+number_operand_case('>=', '>='(1, invalid_number, _)).
+number_operand_case(min, min(1, invalid_number, _)).
+number_operand_case(max, max(1, invalid_number, _)).
+
+test(arithmetic_refuses_a_non_number_argument,
+     [forall(number_operand_case(Operation, Goal))]) :-
+    catch(call(Goal), Error, true),
+    nonvar(Error),
+    Error = error(type_error(number, invalid_number),
+                  context(Operation, 'invalid MeTTa operation argument')).
 
 test(host_errors_name_the_written_operation,
      [forall(host_error_case(Operation, Goal))]) :-
@@ -235,6 +245,35 @@ test(a_scoped_user_function_stays_scoped,
     \+ with_metta_module(user, fun_here(plunit_scoped_fn)).
 
 :- end_tests(metta_builtin_scoping).
+
+:- begin_tests(metta_arithmetic_operands).
+
+arith_refusal(Goal, Culprit) :-
+    catch(( call(Goal), fail ), error(type_error(number, Culprit), _), true).
+
+test(a_one_element_expression_is_not_a_character_code) :-
+    % (+ 1 (g)) answered 104, the character code of g.
+    arith_refusal('+'(1, [g], _), [g]),
+    arith_refusal('*'(2, [z], _), [z]).
+
+test(a_string_is_not_a_character_code) :-
+    arith_refusal('+'(1, "s", _), "s").
+
+test(an_evaluable_atom_does_not_outrank_a_metta_definition) :-
+    % SWI's pi answered 3.14159 over a user's own (= pi 3.14).
+    arith_refusal('+'(1, pi, _), pi).
+
+test(comparisons_refuse_the_same_operands) :-
+    arith_refusal('<'(1, [f, 2], _), [f, 2]),
+    arith_refusal(max([a], 1, _), [a]).
+
+test(numbers_still_compute) :-
+    '+'(1, 2, Three), Three == 3,
+    '+'(1.5, 2.5, Four), Four == 4.0,
+    max(3, 7, Seven), Seven == 7,
+    '<'(1.5, 2, True), True == true.
+
+:- end_tests(metta_arithmetic_operands).
 
 :- begin_tests(metta_index_atom).
 

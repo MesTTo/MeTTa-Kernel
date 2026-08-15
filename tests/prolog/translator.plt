@@ -497,7 +497,7 @@ captured_operation_error(Goal, Type, Operation) :-
 test(dynamic_and_compiled_calls_report_the_same_error) :-
     captured_error(dynamic_arithmetic_error, DynamicType),
     captured_error(compiled_arithmetic_error, CompiledType),
-    DynamicType == type_error(evaluable, undefined_sym/0),
+    DynamicType == type_error(number, undefined_sym),
     CompiledType == DynamicType.
 
 test(dynamic_and_compiled_calls_name_the_written_operation) :-
@@ -505,13 +505,13 @@ test(dynamic_and_compiled_calls_name_the_written_operation) :-
                              DynamicOperation),
     captured_operation_error(compiled_arithmetic_error, CompiledType,
                              CompiledOperation),
-    DynamicType == type_error(evaluable, undefined_sym/0),
+    DynamicType == type_error(number, undefined_sym),
     CompiledType == DynamicType,
     DynamicOperation == '+',
     CompiledOperation == DynamicOperation.
 
 test(dynamic_errors_are_not_converted_to_failure,
-     [throws(error(type_error(evaluable, undefined_sym/0), _))]) :-
+     [throws(error(type_error(number, undefined_sym), _))]) :-
     dynamic_arithmetic_error.
 
 test(an_unknown_head_remains_inert_data) :-
@@ -541,7 +541,7 @@ test(builtin_type_import_keeps_runtime_errors_loud) :-
         once(( captured_operation_error(compiled_arithmetic_error,
                                         ArithmeticType,
                                         ArithmeticOperation),
-               ArithmeticType == type_error(evaluable, undefined_sym/0),
+               ArithmeticType == type_error(number, undefined_sym),
                ArithmeticOperation == '+',
                translate_expr([and, true, 5], BoolGoals, _),
                goals_list_to_conj(BoolGoals, BoolGoal),
