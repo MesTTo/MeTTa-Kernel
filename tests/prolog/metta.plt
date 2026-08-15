@@ -157,6 +157,8 @@ type_answer_fact(plunit_type_a, plunit_a).
 type_answer_fact(plunit_type_b, plunit_b).
 type_answer_fact([plunit_type_a, plunit_type_b],
                  [plunit_a, plunit_b]).
+type_answer_fact(plunit_pair_one, ['Pair', plunit_ta]).
+type_answer_fact(plunit_pair_one, ['Pair', plunit_tb]).
 
 setup_type_answers :-
     cleanup_type_answers,
@@ -190,6 +192,22 @@ test(fixed_internal_check_uses_one_witness) :-
     findall(true,
             has_type([plunit_type_a, plunit_type_b],
                      [plunit_a, plunit_b]),
+            Witnesses),
+    Witnesses == [true].
+
+test(a_parametric_expected_type_enumerates_its_witnesses) :-
+    % (Pair $t) is nonvar but not ground, so a first-witness commit here
+    % binds $t from whichever declaration came first and never reaches the
+    % assignment a second argument needs.
+    findall(T,
+            has_type(plunit_pair_one, ['Pair', T]),
+            Types),
+    msort(Types, Sorted),
+    Sorted == [plunit_ta, plunit_tb].
+
+test(a_ground_expected_type_still_stops_at_one_witness) :-
+    findall(true,
+            has_type(plunit_pair_one, ['Pair', plunit_ta]),
             Witnesses),
     Witnesses == [true].
 
