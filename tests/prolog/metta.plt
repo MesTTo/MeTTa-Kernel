@@ -537,3 +537,37 @@ test(union_atom_keeps_its_multiplicities) :-
     Out == [a, b, b, c, b, c, c, d].
 
 :- end_tests(metta_set_operations).
+
+
+% An operation error names its culprit in the syntax the program wrote it
+% in. The ISO formal term is unchanged, because the MeTTa catch form and
+% the host's structured surface both read it; only the rendering differs.
+
+:- begin_tests(metta_operation_error_message).
+
+operation_error_text(Operation, Expected, Culprit, Text) :-
+    catch(throw_metta_type_error(Operation, Expected, Culprit), Error, true),
+    message_to_string(Error, Text).
+
+test(the_culprit_reads_as_metta) :-
+    operation_error_text('+', number, ['State', 5], Text),
+    Text == "+: number expected, found (State 5)".
+
+test(a_scalar_culprit_reads_as_itself) :-
+    operation_error_text('<', number, foo, Text),
+    Text == "<: number expected, found foo".
+
+test(the_formal_term_stays_iso) :-
+    catch(throw_metta_type_error('+', number, ['State', 5]), Error, true),
+    Error = error(Formal, context(Operation, Explanation)),
+    Formal == type_error(number, ['State', 5]),
+    Operation == '+',
+    Explanation == 'invalid MeTTa operation argument'.
+
+%Every other error SWI renders keeps its own message.
+test(an_unrelated_type_error_is_untouched) :-
+    catch(type_error(number, ['State', 5]), Error, true),
+    message_to_string(Error, Text),
+    sub_string(Text, _, _, _, "['State',5]").
+
+:- end_tests(metta_operation_error_message).
