@@ -268,7 +268,7 @@ expected_special_heads([
     'add-atom', 'and-then', 'catch', 'filter-atom', 'foldall',
     'foldl-atom', 'forall', 'let*', 'map-atom', 'or-else',
     'remove-atom', 'test-no-answer', '|->', call, case, chain, collapse,
-    cut, eval, hyperpose, if, let, match, once, prog1, progn, quote,
+    cut, eval, evalc, hyperpose, if, let, match, once, prog1, progn, quote,
     reduce, sealed, superpose, test, transaction, translatePredicate,
     with_mutex
 ]).
