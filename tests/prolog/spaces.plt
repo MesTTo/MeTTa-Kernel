@@ -297,6 +297,14 @@ test(missing_storage_arities_fail_without_changing_execution_errors) :-
     nonvar(Error),
     Error = error(existence_error(procedure, _), _).
 
+test(matching_requires_a_named_space,
+     [ throws(error(instantiation_error, _)) ]) :-
+    % An unbound space would enumerate every space that has ever been
+    % written to, so a program in one space could read another it never
+    % names.
+    match(_AnySpace, [plunit_secret, _X], conj, conj).
+
+
 test(concurrent_first_writes_publish_one_storage_module,
      [ cleanup(clear_native_atoms('&plunit_concurrent_storage')) ]) :-
     Space = '&plunit_concurrent_storage',
