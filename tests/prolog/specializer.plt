@@ -49,7 +49,7 @@ test(concurrent_translation_creates_one_specialization,
                       run_concurrent_specialization(Worker),
                       [threads(64)]),
     findall(SpecName,
-            ho_specialization('plunit-spec-race', SpecName),
+            ho_specialization(_, 'plunit-spec-race', SpecName),
             Specializations),
     Specializations = [SpecName],
     functor(Head, SpecName, 3),
@@ -72,7 +72,7 @@ cleanup_multiclause :-
 
 test(all_clauses_are_bound_independently,
      [setup(setup_multiclause), cleanup(cleanup_multiclause)]) :-
-    ho_specialization('plunit-spec-t2', SpecName),
+    ho_specialization(_, 'plunit-spec-t2', SpecName),
     SpecName == 'plunit-spec-t2_Spec_[plunit-spec-inc]',
     functor(Head, SpecName, 3),
     findall(Head-Body, clause(Head, Body), Clauses),
@@ -102,7 +102,7 @@ cleanup_two_bindings :-
 
 test(global_key_covers_every_specialized_argument_position,
      [setup(setup_two_bindings), cleanup(cleanup_two_bindings)]) :-
-    ho_specialization('plunit-spec-p2', SpecName),
+    ho_specialization(_, 'plunit-spec-p2', SpecName),
     SpecName ==
         'plunit-spec-p2_Spec_[plunit-spec-inc2,plunit-spec-dbl2]',
     functor(Head, SpecName, 4),
@@ -130,7 +130,7 @@ cleanup_recursive :-
 
 test(exact_recursive_key_folds_to_specialized_predicate,
      [setup(setup_recursive), cleanup(cleanup_recursive)]) :-
-    ho_specialization('plunit-spec-rep', SpecName),
+    ho_specialization(_, 'plunit-spec-rep', SpecName),
     functor(Head, SpecName, 4),
     forall(clause(Head, Body),
            \+ ( sub_term(GenericCall, Body),
@@ -219,12 +219,32 @@ test(compound_partial_key_has_stable_anonymous_variables,
     Error = error(instantiation_error, _),
     SpecName = 'app_Spec_[partial(lambda_1,[_])]',
     once(sub_string(Output, _, _, _, SpecName)),
-    \+ ho_specialization(app, _),
+    \+ ho_specialization(_, app, _),
     \+ fun(SpecName),
     \+ arity(SpecName, _),
     \+ fun_meta_clause(SpecName, _, _),
     functor(SpecHead, SpecName, 3),
     \+ clause(SpecHead, _),
     \+ get_native_atom('&self', [=, [SpecName|_], _]).
+
+setup_named_space_specialization :-
+    set_specializer_test_mode,
+    process_metta_string("\n
+(= (plunit-spec-ns-bump $n) (+ $n 1))\n
+(= (plunit-spec-ns-twice $f $x) ($f ($f $x)))\n
+", _, '&plunit_spec_ns').
+
+cleanup_named_space_specialization :-
+    cleanup_specializer_symbols(['plunit-spec-ns-twice', 'plunit-spec-ns-bump']),
+    clear_native_atoms('&plunit_spec_ns').
+
+test(higher_order_code_runs_inside_a_named_space,
+     [ setup(setup_named_space_specialization),
+       cleanup(cleanup_named_space_specialization) ]) :-
+    % The generated clause used to be asserted into user, where the space's
+    % own functions do not exist, so this crashed on its first call with
+    % Unknown procedure: plunit-spec-ns-bump/2.
+    process_metta_string("!(plunit-spec-ns-twice plunit-spec-ns-bump 0)",
+                         [2], '&plunit_spec_ns').
 
 :- end_tests(specializer).
