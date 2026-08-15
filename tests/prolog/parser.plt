@@ -163,3 +163,56 @@ test(quote_is_escaped_not_bare) :-
     !.
 
 :- end_tests(parser_escapes).
+
+
+% Which symbol spellings survive a MeTTa text round trip. The rule is
+% derived from the grammar rather than from a character blacklist, so this
+% suite checks it against what sread/2 actually answers rather than against
+% a table someone wrote down.
+
+:- begin_tests(parser_symbol_text).
+
+symbol_spelling(plain).          symbol_spelling('a-b').
+symbol_spelling('$notvar').      symbol_spelling('$').
+symbol_spelling('semi;colon').   symbol_spelling(';leading').
+symbol_spelling('42').           symbol_spelling('-3').
+symbol_spelling('1.5').          symbol_spelling('1e5').
+symbol_spelling('1.0e10').       symbol_spelling('+5').
+symbol_spelling('-0').           symbol_spelling('0x1f').
+symbol_spelling('0b101').        symbol_spelling('1_000').
+symbol_spelling('.5').           symbol_spelling('5.').
+symbol_spelling('1e').           symbol_spelling('3x').
+symbol_spelling('1-2').          symbol_spelling('-abc').
+symbol_spelling('with space').   symbol_spelling('paren(here').
+symbol_spelling('"lead').        symbol_spelling('trail"').
+symbol_spelling('').             symbol_spelling('True').
+symbol_spelling('False').        symbol_spelling(true).
+symbol_spelling(-).              symbol_spelling(+).
+symbol_spelling(<=).             symbol_spelling('#+').
+symbol_spelling(nil).            symbol_spelling('tab\there').
+
+%What the text form actually answers for a symbol standing inside a term,
+%read the way a saved file is read: as a whole form off the top-level
+%scanner, then parsed. sread/2 alone is not that test, because the scanner
+%tracks a string state sread/2 never sees, and a quote inside a symbol
+%swallowed the rest of the form there while sread/2 read it back intact.
+reads_back_the_same(Symbol) :-
+    swrite([holds, Symbol], Text),
+    catch(parse_metta_source(Text, Forms), _, fail),
+    Forms = [parsed(_, _, Back)],
+    Back == [holds, Symbol].
+
+test(writable_says_exactly_what_reads_back,
+     [forall(symbol_spelling(Symbol))]) :-
+    ( metta_symbol_writable(Symbol)
+      -> reads_back_the_same(Symbol)
+    ;  \+ reads_back_the_same(Symbol) ).
+
+test(a_term_reports_its_first_unwritable_symbol) :-
+    metta_unwritable_symbol([holds, plain, '$notvar', '42'], Bad),
+    Bad == '$notvar'.
+
+test(a_writable_term_reports_nothing) :-
+    \+ metta_unwritable_symbol([holds, plain, 'a-b', <=], _).
+
+:- end_tests(parser_symbol_text).
