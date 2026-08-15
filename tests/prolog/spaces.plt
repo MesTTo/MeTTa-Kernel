@@ -223,6 +223,25 @@ test(rolled_back_first_write_keeps_storage_reusable,
     add_sexp(Space, [after_rollback]),
     once(get_native_atom(Space, [after_rollback])).
 
+test(naming_the_storage_module_does_not_claim_it,
+     [ cleanup(( retractall(native_storage_module_cache('&plunit_named', _)),
+                 clear_native_atoms('&plunit_named') )) ]) :-
+    % SWI creates a module as a side effect of merely naming it, including
+    % from read-only introspection, so an ownership test cannot be
+    % current_module/1: this once made the space throw on every later write
+    % for the life of the process, with no way back.
+    native_storage_module('&plunit_named', Module),
+    ( catch(predicate_property(Module:anything, dynamic), _, true) -> true ; true ),
+    add_sexp('&plunit_named', [fact, one]),
+    findall(P, get_native_atom('&plunit_named', P), Atoms),
+    Atoms == [[fact, one]].
+
+test(an_occupied_storage_module_is_still_refused,
+     [ setup(assertz('$petta_atoms:&plunit_taken':squatter(1))),
+       cleanup(retractall('$petta_atoms:&plunit_taken':squatter(_))),
+       throws(error(permission_error(create, native_space_storage, _), _)) ]) :-
+    ensure_native_storage_module('&plunit_taken', _).
+
 :- end_tests(spaces_registration).
 
 :- begin_tests(spaces_storage_modules,
