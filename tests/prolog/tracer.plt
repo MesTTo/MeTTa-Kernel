@@ -45,8 +45,8 @@ test(function_defined_in_source_is_traced,
     Source = "(= (plunit_trace_new $x) (+ $x 1))\n\
 !(plunit_trace_new 1)",
     metta_trace_source(Source, '&self', Events),
-    Events == ["0\tcall\t(plunit_trace_new 1)\t",
-               "0\texit\t(plunit_trace_new 1)\t2"].
+    Events == [event(0, call, [plunit_trace_new, 1], '', []),
+               event(0, exit, [plunit_trace_new, 1], 2, [])].
 
 test(function_defined_in_named_trace_stays_in_that_space,
      [setup(setup_trace_test), cleanup(cleanup_trace_test)]) :-
@@ -59,8 +59,8 @@ test(function_defined_in_named_trace_stays_in_that_space,
     clause(Module:Head, _, Ref),
     clause_property(Ref, module(Module)),
     \+ clause(user:Head, _, _),
-    Events == ["0\tcall\t(plunit_trace_named 1)\t",
-               "0\texit\t(plunit_trace_named 1)\t2"].
+    Events == [event(0, call, [plunit_trace_named, 1], '', []),
+               event(0, exit, [plunit_trace_named, 1], 2, [])].
 
 test(hyperpose_workers_share_the_trace_event_store,
      [setup(setup_trace_test), cleanup(cleanup_trace_test)]) :-
@@ -69,10 +69,10 @@ test(hyperpose_workers_share_the_trace_event_store,
         "!(hyperpose ((plunit_trace_hyperpose 1) (plunit_trace_hyperpose 2)))",
         '&self', Events),
     msort(Events, Sorted),
-    msort(["0\tcall\t(plunit_trace_hyperpose 1)\t",
-           "0\tcall\t(plunit_trace_hyperpose 2)\t",
-           "0\texit\t(plunit_trace_hyperpose 1)\t2",
-           "0\texit\t(plunit_trace_hyperpose 2)\t3"],
+    msort([event(0, call, [plunit_trace_hyperpose, 1], '', []),
+           event(0, call, [plunit_trace_hyperpose, 2], '', []),
+           event(0, exit, [plunit_trace_hyperpose, 1], 2, []),
+           event(0, exit, [plunit_trace_hyperpose, 2], 3, [])],
           Expected),
     Sorted == Expected.
 
@@ -96,8 +96,44 @@ test(type_extensions_keep_the_public_name,
     Source = "(= (get-type plunit_trace_type) plunit_traced_type)\n\
 !(get-type plunit_trace_type)",
     metta_trace_source(Source, '&self', Events),
-    Events == ["0\tcall\t(get-type plunit_trace_type)\t",
-               "0\texit\t(get-type plunit_trace_type)\tplunit_traced_type"].
+    Events == [event(0, call, ['get-type', plunit_trace_type], '', []),
+               event(0, exit, ['get-type', plunit_trace_type],
+                     plunit_traced_type, [])].
+
+%The events carried the term's text and the reader parsed it back, so a
+%symbol whose spelling reads as something else arrived as something else.
+%A stored (holds $notvar) traced as a variable, a semicolon truncated the
+%rest of the term at the comment it starts, and a tab inside a symbol
+%split the record into the wrong fields.
+%In source $notvar is a variable, so the symbol of that spelling can only
+%arrive from a store or from a host, which is where it used to be lost.
+test(a_symbol_that_looks_like_a_variable_stays_a_symbol,
+     [ setup(setup_trace_test),
+       cleanup(( remove_sexp('&self', [plunit_trace_holds, _]),
+                 cleanup_trace_test )) ]) :-
+    process_metta_string("(= (plunit_trace_new $x) $x)", _),
+    'add-atom'('&self', [plunit_trace_holds, '$notvar'], _),
+    metta_trace_source(
+        "!(match &self (plunit_trace_holds $v) (plunit_trace_new $v))",
+        '&self', Events),
+    Events == [event(0, call, [plunit_trace_new, '$notvar'], '', []),
+               event(0, exit, [plunit_trace_new, '$notvar'],
+                     '$notvar', [])].
+
+%A semicolon cannot be written in source, where it starts a comment, so
+%the symbol is stored and reached through a match.
+test(a_symbol_holding_a_comment_character_stays_whole,
+     [ setup(setup_trace_test),
+       cleanup(( remove_sexp('&self', [plunit_trace_holds, _]),
+                 cleanup_trace_test )) ]) :-
+    process_metta_string("(= (plunit_trace_new $x) $x)", _),
+    'add-atom'('&self', [plunit_trace_holds, 'semi;colon'], _),
+    metta_trace_source(
+        "!(match &self (plunit_trace_holds $v) (plunit_trace_new $v))",
+        '&self', Events),
+    Events == [event(0, call, [plunit_trace_new, 'semi;colon'], '', []),
+               event(0, exit, [plunit_trace_new, 'semi;colon'],
+                     'semi;colon', [])].
 
 test(event_limit_error_removes_every_wrapper,
      [setup(setup_trace_test), cleanup(cleanup_trace_test)]) :-
@@ -111,7 +147,7 @@ test(event_limit_error_removes_every_wrapper,
     \+ current_predicate_wrapper(user:plunit_trace_hyperpose(_, _),
                                   petta_tracer, _, _),
     metta_trace_source("!(plunit_trace_hyperpose 2)", '&self', Events),
-    Events == ["0\tcall\t(plunit_trace_hyperpose 2)\t",
-               "0\texit\t(plunit_trace_hyperpose 2)\t3"].
+    Events == [event(0, call, [plunit_trace_hyperpose, 2], '', []),
+               event(0, exit, [plunit_trace_hyperpose, 2], 3, [])].
 
 :- end_tests(tracer).
