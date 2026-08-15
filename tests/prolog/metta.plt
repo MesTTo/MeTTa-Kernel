@@ -213,6 +213,29 @@ test(a_ground_expected_type_still_stops_at_one_witness) :-
 
 :- end_tests(metta_type_answers).
 
+:- begin_tests(metta_builtin_scoping).
+
+test(a_named_space_defining_a_builtin_name_keeps_it_working_elsewhere,
+     [ cleanup(( retractall(fun_in('&plunit_shadow', '+')),
+                 retractall(fun_scoped('+')) )) ]) :-
+    % One named space defining + once turned + into inert data in every
+    % other space, and in engines built afterwards.
+    assertz(fun_in('&plunit_shadow', '+')),
+    assertz(fun_scoped('+')),
+    with_metta_module(user, fun_here('+')).
+
+test(a_scoped_user_function_stays_scoped,
+     [ cleanup(( retractall(fun(plunit_scoped_fn)),
+                 retractall(fun_in('&plunit_shadow', plunit_scoped_fn)),
+                 retractall(fun_scoped(plunit_scoped_fn)) )) ]) :-
+    % The builtin fallback must not make every scoped name global.
+    assertz(fun(plunit_scoped_fn)),
+    assertz(fun_in('&plunit_shadow', plunit_scoped_fn)),
+    assertz(fun_scoped(plunit_scoped_fn)),
+    \+ with_metta_module(user, fun_here(plunit_scoped_fn)).
+
+:- end_tests(metta_builtin_scoping).
+
 :- begin_tests(metta_index_atom).
 
 test(out_of_range_index_returns_the_empty_expression) :-
