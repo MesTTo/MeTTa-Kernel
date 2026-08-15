@@ -10,7 +10,7 @@ Run the self-checking corpus with:
 
 `test.sh` discovers examples recursively. It excludes `_fixtures` and the six
 interactive, network-backed, or optional-dependency examples named in the
-runner. The merged corpus contains 169 examples that run in the shell suite.
+runner. The merged corpus contains 171 examples that run in the shell suite.
 Selected root paths remain as symlink aliases for package differential tests
 and existing documentation. Each canonical source file lives in one topic
 folder, and recursive discovery does not run an alias twice.
@@ -25,11 +25,12 @@ folder, and recursive discovery does not run an alias twice.
 | `libraries/` | crypto, HE, memoization, regex, Roman, Patrick, date, and tabling libraries |
 | `performance/` | larger workloads and optimized variants |
 | `reasoning/` | logic programs, Peano arithmetic, PLN, NARS, measures, and puzzles |
-| `spaces/` | matching, mutation, transactions, state, and rewrite systems |
+| `spaces/` | matching, mutation, transactions, state, evaluating in a named space, and rewrite systems |
 | `syntax/` | parsing, rendering, comments, and string edge cases |
 | `translation/` | call, quote, eval, reduce, translator rules, and staged execution |
 | `types/` | concrete, parametric, recursive, dependent, and nondeterministic types |
 
 `integration/_fixtures/` contains imported MeTTa, Python, and Prolog helper
 files. They are dependencies of the integration examples, not standalone
-programs.
+programs. One of them, `git_fixture.pl`, builds a throwaway local git
+repository so `git_import.metta` exercises acquisition without a network.
