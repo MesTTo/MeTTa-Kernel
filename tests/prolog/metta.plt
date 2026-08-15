@@ -525,4 +525,15 @@ test(intersection_with_a_non_list_right_operand_is_empty,
      [true(Out == [])]) :-
     'intersection-atom'([a], not_a_list, Out).
 
+test(union_atom_answers_the_empty_tuple_for_a_non_list) :-
+    % Its two siblings already did. A non-list left operand failed silently,
+    % and a non-list right operand built the improper list printed as
+    % (cons a b), which no tuple operation can consume.
+    'union-atom'(a, [b], Left), Left == [],
+    'union-atom'([a], b, Right), Right == [].
+
+test(union_atom_keeps_its_multiplicities) :-
+    'union-atom'([a, b, b, c], [b, c, c, d], Out),
+    Out == [a, b, b, c, b, c, c, d].
+
 :- end_tests(metta_set_operations).

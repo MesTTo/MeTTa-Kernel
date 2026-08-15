@@ -297,6 +297,13 @@ test(missing_storage_arities_fail_without_changing_execution_errors) :-
     nonvar(Error),
     Error = error(existence_error(procedure, _), _).
 
+test(reading_atoms_requires_a_named_space,
+     [ throws(error(instantiation_error, _)) ]) :-
+    % The read sibling of the match guard: an unbound space enumerated every
+    % space ever written to, so one space could read another's atoms.
+    get_native_atom(_AnySpace, _Pattern).
+
+
 test(matching_requires_a_named_space,
      [ throws(error(instantiation_error, _)) ]) :-
     % An unbound space would enumerate every space that has ever been
