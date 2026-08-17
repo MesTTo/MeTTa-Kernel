@@ -63,10 +63,28 @@ class RemoteSpace(SpaceProvider):
 ### `RemoteSpace.match`
 
 ```python
-def match(self, pattern: Atom) -> Iterator[Atom]:
+def match(self, pattern: Atom, *, limit: int | None = None) -> Iterator[Atom]:
 ```
 
-No docstring is defined.
+> Candidates for a pattern; `limit` crosses as the wire's optional
+> `bound` field. Sending it is sound whatever the server does: a
+> server that honors it exactly saves the work, one that ignores it
+> over-answers, and the local engine re-unifies and truncates either
+> way. Whether it is honored is advertised in
+> `server_capabilities()`.
+
+### `RemoteSpace.server_capabilities`
+
+```python
+def server_capabilities(self) -> dict[str, Any]:
+```
+
+> The server's own advertisement from GET /health: `capabilities`
+> names the seam operations it admits, so a client can ask before
+> writing, and `bound` says whether /match honors the bound field
+> exactly. A transport built by connect() knows its URL; a
+> hand-built transport must carry its own `health` callable, or
+> this refuses rather than guessing.
 
 ### `RemoteSpace.atoms`
 

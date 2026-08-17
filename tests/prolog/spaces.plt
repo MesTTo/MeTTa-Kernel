@@ -450,6 +450,21 @@ test(an_undeclared_space_provides_everything) :-
 
 :- begin_tests(spaces_native_shape).
 
+test(a_rational_tree_candidate_is_never_a_match_answer,
+     [ setup(add_sexp('&plunit_rational', [rt, [f, X], X])),
+       cleanup(( retractall(native_storage_module_cache('&plunit_rational', _)),
+                 clear_native_atoms('&plunit_rational') )) ]) :-
+    % The arbiter's matcher occurs-checks its variable cases, so
+    % (rt $y $y) against a stored (rt (f $x) $x) has no answer, whatever
+    % the out template mentions. Before the guard in native_expression,
+    % the ground template answered while the pattern-as-template failed:
+    % one match, two answers.
+    \+ match('&plunit_rational', [rt, Y, Y], hit, _),
+    \+ match('&plunit_rational', [rt, Y2, Y2], [rt, Y2, Y2], _),
+    % The acyclic twin still answers through the same clause.
+    add_sexp('&plunit_rational', [rt, ok, ok]),
+    findall(R, match('&plunit_rational', [rt, Z, Z], hit, R), [hit]).
+
 % add_sexp_in/4 writes the two clause bodies out rather than calling
 % native_atom_clause/3, because calling it cost one goal per write, +2 on a
 % seven-inference path [measured 2026-08-16: add-batch 62027 to 64028 over a

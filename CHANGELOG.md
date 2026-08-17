@@ -111,6 +111,44 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and documented as the watcher recipe: equations are atoms, so
   `subscribe("(= (f $x) $body)", callback, on="both")` fires on every
   equation added or removed, bindings included.
+- The remote space protocol is revision 2, and what crosses the wire is
+  now stated instead of implied: the caller's answer limit crosses as an
+  optional `bound` field on `/match` that a server may honor exactly
+  (only sound for an exact matcher; ignoring it over-answers and stays
+  sound), `GET /health` carries `capabilities` and whether bound is
+  honored, `RemoteSpace.server_capabilities()` reads the advertisement
+  client-side, and the protocol page gained a projection table naming
+  every seam capability, whether it crosses, and why. Both TypeScript
+  reference servers updated: the store server honors bound, the
+  MeTTaScript server deliberately does not (its match over-approximates,
+  and truncating an over-approximation can drop true answers).
+- Fixed three holes in `serve()` the compliance suite never saw because
+  it was only ever pointed at the reference servers: `add_many` was
+  documented and sent by the client but unhandled, so bulk adds against
+  our own server failed; `GET /health` was documented but unimplemented;
+  and non-POST methods answered 501 where the contract says 405. The
+  suite now certifies our own `serve()` too, and removal by a bare
+  variable (`$everything`, the protocol's own cleanup idiom) removes
+  every stored atom, equations and their compiled clauses included.
+- The match law is now stated as the engine actually matches:
+  occurs-checked unification, the arbiter's own variable cases, so a
+  rational-tree pair is never an answer a server owes, and answering one
+  anyway is legal surplus the client discards. The conformance kit's
+  unifier gained the occurs check, and its match contract accepts a
+  candidate either as the stored atom or as the pattern's unification
+  result with it, both of which preserve the pattern's answer set, so a
+  gateway that answers instantiations (as `serve()` does) certifies.
+- Fixed a crash and a divergence around rational-tree candidates: a
+  repeated-variable query like `(rt $y $y)` over a stored
+  `(rt (f $x) $x)` once died in the row encoder at a 53-million-frame
+  walk (the cyclic join passed match_native's template guard because the
+  bindings live outside the template), and the same match answered
+  differently depending on whether the out template mentioned the cyclic
+  variable. The occurs check now runs once per candidate in
+  native_expression and once per row in the query lanes: the cyclic
+  candidate fails that answer and enumeration continues. The measured
+  cost is one inference per answer row on the query lanes, rebaselined
+  with the attribution in the benchmark ledger.
 - Added `m.transaction(callable)` and the `m.transactional` decorator:
   the Python door of the MeTTa `(transaction ...)` form, riding the
   same `petta_transaction/1`, so foreign-space enlistment and nesting
