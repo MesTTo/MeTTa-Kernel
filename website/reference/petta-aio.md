@@ -241,10 +241,10 @@ async def value(
 
 > Evaluate a term that must produce exactly one value.
 
-### `AsyncMeTTa.fresh_space`
+### `AsyncMeTTa.new_space`
 
 ```python
-async def fresh_space(self) -> AsyncMeTTa:
+async def new_space(self) -> AsyncMeTTa:
 ```
 
 > Return an isolated space that borrows this connection's worker.

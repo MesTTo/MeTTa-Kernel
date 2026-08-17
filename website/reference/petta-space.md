@@ -83,7 +83,7 @@ class MeTTa:
 > PeTTa keeps one engine per process; every MeTTa instance shares it. The
 > default space is &self, the space the CLI itself uses, so source pasted
 > from a .metta file behaves identically here. Two MeTTa() calls therefore
-> see the same &self state. Use fresh_space() when independent stored state
+> see the same &self state. Use new_space() when independent stored state
 > is required.
 >
 > A named space isolates both its atoms and its EQUATIONS, and the rule for
@@ -100,7 +100,7 @@ class MeTTa:
 > So a helper put in &self is reachable from every space, one put in a named
 > space is private to it, and a name defined in both resolves to the local
 > one where it exists. Registrations are the thing that really is
-> process-wide, which fresh_space() says.
+> process-wide, which new_space() says.
 >
 >     from petta import MeTTa, S, V
 >
@@ -125,10 +125,10 @@ def space(self, name: str) -> MeTTa:
 
 > Another space on the same engine.
 
-### `MeTTa.fresh_space`
+### `MeTTa.new_space`
 
 ```python
-def fresh_space(self) -> MeTTa:
+def new_space(self) -> MeTTa:
 ```
 
 > An anonymous space with a name nothing else is using.
@@ -137,12 +137,12 @@ def fresh_space(self) -> MeTTa:
 > churn of short-lived spaces reuses names instead of growing the
 > engine's module table.
 >
->     with m.fresh_space() as scratch:
+>     with m.new_space() as scratch:
 >         scratch.add(...)
 >
 > What it isolates is STORED STATE: atoms and equations. Registrations
 > are process-wide, so a register_prolog, a register_op or a define made
-> on a fresh space is visible from every other one. Reach for this to
+> on a new space is visible from every other one. Reach for this to
 > isolate the data a test writes, not the names it registers; to isolate
 > a name, unregister it.
 
@@ -310,7 +310,7 @@ def load(self, path: str | os.PathLike[str]) -> list[list[Atom]]:
 > Add a text program or trusted fast cache to this space.
 >
 > Existing atoms remain, so loading the same file twice adds two copies.
-> Use clear() first or load into fresh_space() when replacement is wanted.
+> Use clear() first or load into new_space() when replacement is wanted.
 > A .gz path is detected and read through the decompressed bytes.
 
 ### `MeTTa.parse`
@@ -946,7 +946,7 @@ def register_prolog(
 >
 > **This is a method on a space and it registers PROCESS-WIDE.** So do
 > register_op and define. Only equations are space-scoped, so a
-> fresh_space() isolates one of the three things you can register and
+> new_space() isolates one of the three things you can register and
 > shares the other two. That is deliberate rather than overlooked: a
 > Prolog predicate lives in `user`, every space has to be able to call
 > it, and a library loaded inside a named space would define itself

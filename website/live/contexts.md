@@ -6,8 +6,8 @@ Spaces already isolate contexts inside one engine. Two mechanisms extend that ac
 
 ```python
 def test_bridge_rules_connect_spaces(metta):
-    src = metta.fresh_space()
-    dst = metta.fresh_space()
+    src = metta.new_space()
+    dst = metta.new_space()
     rule = bridge(src, S.alarm(V.zone), dst, S.notify(V.zone), on="both")
     try:
         src.add(S.alarm(S.kitchen))

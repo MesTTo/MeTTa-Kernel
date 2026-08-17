@@ -306,7 +306,7 @@ Structural match reads terms; strings stay opaque to it. `lib_regex` opens them 
 
 ```python
 def test_regex_guards_queries(rx, metta):
-    with metta.fresh_space() as m:
+    with metta.new_space() as m:
         m.add(S.person(S.Ada), S.person(S.alan), S.person(S.Alice))
         rows = m.query(S.person(V.name), where='(re-match "^A" $name)')
         assert [row.name for row in rows] == [S.Ada, S.Alice]

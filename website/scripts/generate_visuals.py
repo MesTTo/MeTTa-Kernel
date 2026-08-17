@@ -146,7 +146,7 @@ def _visuals() -> dict[str, str]:
 def _animations() -> dict[str, str]:
     """The animated reduction page tutorial 08 embeds: the factorial
     trace played through pettagrapher's own transition vocabulary."""
-    with MeTTa().fresh_space() as m:
+    with MeTTa().new_space() as m:
         m.run("(= (fact $n) (if (== $n 0) 1 (* $n (fact (- $n 1)))))")
         events = m.trace("!(fact 3)")
         if len(events) != 8 or str(events[-1].answer) != "6":

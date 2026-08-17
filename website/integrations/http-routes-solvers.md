@@ -92,7 +92,7 @@ class Router:
 The decorator shape registers Python handlers as operations. The route table remains facts, so MeTTa can query and extend it:
 
 ```python
-m = MeTTa().fresh_space()
+m = MeTTa().new_space()
 app = Router(m, "app")
 
 
@@ -130,7 +130,7 @@ check(
 For a smaller routing model, equations provide dispatch and middleware directly:
 
 ```python
-app = MeTTa().fresh_space()
+app = MeTTa().new_space()
 app.run(
     '(= (route home) (Page 200 "Welcome"))\n'
     '(= (route about) (Page 200 "About us"))\n'
@@ -161,7 +161,7 @@ def test_remote_spaces_serve_attach_and_join(metta, tmp_path):
         text=True,
         env={**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)},
     )
-    local = metta.fresh_space()
+    local = metta.new_space()
     try:
         line = child.stdout.readline()
         assert line, child.stderr.read()
@@ -197,7 +197,7 @@ The helper named by that test is not copied here. The approved source excerpt is
 
 ```python
 def test_remote_auth_token_and_hook_requires_tls(metta):
-    served = metta.fresh_space()
+    served = metta.new_space()
     served.add(S.fact(1))
     server = remote.serve(
         metta,
@@ -261,7 +261,7 @@ class Part:
 The solve loop adds one reachability step at a time and reuses the same space between shots:
 
 ```python
-m = MeTTa().fresh_space()
+m = MeTTa().new_space()
 
 # The base part: a graph as tabular facts, and step zero of reachability.
 m.add_table("edge", [(S.a, S.b), (S.b, S.c), (S.c, S.d)])

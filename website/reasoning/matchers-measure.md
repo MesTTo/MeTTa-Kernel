@@ -34,7 +34,7 @@ class Interval:
         if isinstance(value, (int, float)) and self.lo <= value <= self.hi:
             yield other
 
-m = MeTTa().fresh_space()
+m = MeTTa().new_space()
 inside = Gnd(Interval(1, 5))
 m.eval(expr(S.unify, inside, 3, S.inside, S.outside))   # [inside]
 m.eval(expr(S.unify, inside, 9, S.inside, S.outside))   # [outside]

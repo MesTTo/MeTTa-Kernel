@@ -62,7 +62,7 @@ def attach(m, name: str, database: Any = ":memory:", tables: list[str] | None = 
 The normal use path creates tables, registers `&crm`, enumerates rows, and binds a ground position:
 
 ```python
-m = MeTTa().fresh_space()
+m = MeTTa().new_space()
 conn = duckdb.connect(":memory:")
 conn.execute("create table users (id integer, name text)")
 conn.execute("insert into users values (1, 'Ada'), (2, 'Bob'), (3, 'Cy')")

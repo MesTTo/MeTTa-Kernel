@@ -50,7 +50,7 @@ class Part:
 The incremental loop grows reachability one step at a time until the goal proves, then toggles an external fact:
 
 ```python
-m = MeTTa().fresh_space()
+m = MeTTa().new_space()
 
 # The base part: a graph as tabular facts, and step zero of reachability.
 m.add_table("edge", [(S.a, S.b), (S.b, S.c), (S.c, S.d)])

@@ -1,6 +1,6 @@
 # Spaces
 
-`MeTTa()` binds to `&self`, the same space used by the CLI. `m.space(name)` selects another named space on the same engine. `m.fresh_space()` creates an unused name and can be used as a context manager. Inside any space, source that says `&self` means that hosting space itself: the reader substitutes the token for the space's name, so the same program text runs unchanged wherever it is loaded. Leaving the block drops that space, and a drop clears the whole life: atoms, equations, subscriptions, import markers, and tabling state all go, so a pooled name's next life starts from nothing.
+`MeTTa()` binds to `&self`, the same space used by the CLI. `m.space(name)` selects another named space on the same engine. `m.new_space()` creates an unused name and can be used as a context manager. Inside any space, source that says `&self` means that hosting space itself: the reader substitutes the token for the space's name, so the same program text runs unchanged wherever it is loaded. Leaving the block drops that space, and a drop clears the whole life: atoms, equations, subscriptions, import markers, and tabling state all go, so a pooled name's next life starts from nothing.
 
 Spaces isolate stored atoms and equations. `(context-space)` names the space where the current code runs. `save(path)` writes serializable atoms and equations as loadable MeTTa source. `load(path)` loads a `.metta` file with the CLI's working-directory behavior. `save(path, format="fast")` writes the same atoms as a version-pinned binary cache instead, measured 10.4x faster than text over twenty thousand atoms, and `load` auto-detects it by its header; the header pins the exact SWI-Prolog version and carries a sha256 of the payload, so a version mismatch refuses with a re-save message and a corrupt payload, even one flipped byte, refuses on integrity before the binary reader sees any of it. The proof costs about six milliseconds on the twenty-thousand-atom corpus, and text stays the durable interchange format. A path ending `.gz` compresses either format through zlib on the engine side and gzip on the Python side, interchangeably: over the same twenty thousand atoms, text shrank 4.7x and the fast cache 5.1x, with load time within two milliseconds of the uncompressed file either way. `import!` and the CLI read `.metta.gz` programs under their ordinary names too, and a corrupt archive refuses loudly, naming the file.
 
@@ -77,7 +77,7 @@ A `SpaceProvider` keeps atoms in Python or in another storage system. The engine
 The DuckDB integration maps each table to a relation. The example below registers an in-memory database as `&crm`, queries it, writes through the space, and joins SQL rows with native facts:
 
 ```python
-m = MeTTa().fresh_space()
+m = MeTTa().new_space()
 conn = duckdb.connect(":memory:")
 conn.execute("create table users (id integer, name text)")
 conn.execute("insert into users values (1, 'Ada'), (2, 'Bob'), (3, 'Cy')")

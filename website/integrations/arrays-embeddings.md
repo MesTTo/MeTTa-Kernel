@@ -16,7 +16,7 @@ except ImportError:
 from petta import MeTTa, S, V, decode, expr, val
 from petta import arrays
 
-m = MeTTa().fresh_space()
+m = MeTTa().new_space()
 arrays.install(m, default=numpy)
 
 check("matmul over numpy",
@@ -44,7 +44,7 @@ Explicit conversion uses `t-as`. Mixed binary operations convert the right opera
 ```python
 def test_cross_library_conversion_via_dlpack(am):
     pytest.importorskip("torch")
-    space = am.fresh_space()
+    space = am.new_space()
     space.add(S.np_vec(val(numpy.array([1.0, 2.0], dtype=numpy.float32))))
     (group,) = space.run(
         "!(t-dtype (t-as (match (context-space) (np_vec $v) $v) torch))"
@@ -56,7 +56,7 @@ def test_mixed_library_binary_op_converts_rightward(am):
     torch = pytest.importorskip("torch")
     left = numpy.ones((2, 2), dtype=numpy.float32)
     right = torch.ones(2, 2)
-    space = am.fresh_space()
+    space = am.new_space()
     space.add(S.pairT(val(left), val(right)))
     (group,) = space.run(
         "!(t-item (t-sum (match (context-space) (pairT $a $b) (matmul $a $b))))"
@@ -70,7 +70,7 @@ An `EmbeddingStore` owns copied vectors and returns nearest keys in score order:
 
 ```python
 def test_embedding_store_runs_on_numpy(am):
-    space = am.fresh_space()
+    space = am.new_space()
     store = arrays.EmbeddingStore(space, name="npk")
     store.add(S.dog, numpy.array([1.0, 0.0, 0.0]))
     store.add(S.cat, numpy.array([0.9, 0.1, 0.0]))
@@ -94,7 +94,7 @@ from petta import Bindings, MeTTa, S, V, expr  # noqa: E402
 from petta.arrays import EmbeddingStore  # noqa: E402
 from petta.atoms import Gnd  # noqa: E402
 
-m = MeTTa().fresh_space()
+m = MeTTa().new_space()
 store = EmbeddingStore(m, name="vec", mirror=False)
 store.add(S.espresso, numpy.array([0.9, 0.1, 0.0]))
 store.add(S.latte, numpy.array([0.8, 0.3, 0.0]))
@@ -114,7 +114,7 @@ Adding the same key replaces its vector. The store copies inputs so later caller
 
 ```python
 def test_embedding_store_replaces_duplicate_keys_and_owns_vectors(metta):
-    with metta.fresh_space() as space:
+    with metta.new_space() as space:
         store = arrays.EmbeddingStore(space, name="replace-emb")
         original = numpy.array([1.0, 0.0])
         store.add(S.same, original)
@@ -142,14 +142,14 @@ Vectors must be finite, nonzero, one-dimensional, and the same width. Retrieval 
     ],
 )
 def test_embedding_store_validates_added_vectors(metta, vector, message):
-    with metta.fresh_space() as space:
+    with metta.new_space() as space:
         store = arrays.EmbeddingStore(space, name="validated-emb")
         with pytest.raises(ValueError, match=message):
             store.add(S.bad, vector)
 
 
 def test_embedding_store_requires_one_width_and_positive_integer_k(metta):
-    with metta.fresh_space() as space:
+    with metta.new_space() as space:
         store = arrays.EmbeddingStore(space, name="bounded-emb")
         store.add(S.good, numpy.array([1.0, 0.0]))
         with pytest.raises(ValueError, match="width must be 2"):

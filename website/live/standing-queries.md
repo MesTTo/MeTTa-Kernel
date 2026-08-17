@@ -9,7 +9,7 @@ The actors example starts a ping-pong exchange with one added atom, then demonst
 ```python
 from petta import MeTTa, S, V
 
-m = MeTTa().fresh_space()
+m = MeTTa().new_space()
 
 # The ping actor: every (ping $n) mails back (pong $n), until three.
 transcript = []

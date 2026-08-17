@@ -62,6 +62,6 @@ Three things to know before using it.
 
 **There is no `inferences=` bound.** The engine's inference limit counts the calling thread, and every branch runs in a worker, so a limit of 50,000 will not stop two branches spending six million. `timeout=` does bound the call and is the one to use. An unenforceable bound is worse than an absent one, so the parameter is not offered.
 
-**Give each engine its own space.** Two connections share `&self`, and defining an equation is not idempotent: the same recursive equation defined twice answers 2^n times, which reads as a hang rather than an error. Use `fresh_space()` per worker.
+**Give each engine its own space.** Two connections share `&self`, and defining an equation is not idempotent: the same recursive equation defined twice answers 2^n times, which reads as a hang rather than an error. Use `new_space()` per worker.
 
 The other two engine-level forms are available from MeTTa source: `(with_mutex <name> <body>)` for a named lock, and `(transaction <body>)` for an all-or-nothing write, which `m.run(source, atomic=True)` also wraps a whole source string in.

@@ -20,7 +20,7 @@ build with that bridge.
 ```python
 from petta import Answer, MeTTa, S
 
-m = MeTTa().fresh_space()
+m = MeTTa().new_space()
 
 def mood(day, chosen=None):
     yield Answer(value=S.calm, k=0.25)
