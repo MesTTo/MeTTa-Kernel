@@ -16,6 +16,10 @@ Spaces isolate stored atoms and equations. `(context-space)` names the space whe
 
 Live host objects have no cross-process identity, so a space holding one refuses to digest, the same contract as `save()`.
 
+When two digests disagree, `petta.spaces.diff(a, b)` says HOW: it answers `(only_in_a, only_in_b)` as the multiset difference over enumeration, so a space holding an atom twice against one holding it once differs by the one copy, and alpha-equivalent atoms count as the same atom, digest's own equivalence. Either side is anything the combinators accept, a `MeTTa` handle or a provider.
+
+`m.copy()` goes the other way: this space's contents in a new anonymous space, cloned through the bulk door, so equations copy as equations and keep running, "a scratch space set up like production" in one line. `copy.copy(m)` answers the same through the copy protocol, and the clone is `new_space()`'s kind of handle, so dropping it returns the name.
+
 For facts that should persist as they change rather than at save points, `petta.persistent.PersistentFactSpace(path, {"edge": 2})` is a space whose writes journal to an append-only text file and replay when a new process attaches, `library(persistency)` underneath. It is schema-bound and holds natives only, its limits stated in its own docstring. The default sync mode buffers for speed (169k adds/s measured); `flush()` is the on-demand checkpoint, and `sync="flush"` buys per-write crash survival for about two percent, proven in the suite by replaying a journal whose writer died mid-run from SIGKILL. Registered with `m.register_space`, it matches like any space, and it is the event-store half of an event-sourcing page: the journal is the log, projections are `bridge()` subscriptions into read models.
 
 ## A space is a Python container

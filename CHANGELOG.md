@@ -8,6 +8,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added `petta.spaces.diff(a, b)`, what `digest()` cannot say: HOW two
+  spaces differ, as the multiset difference over enumeration with
+  alpha-equivalent atoms counting as the same atom, digest's own
+  equivalence; each side is a `MeTTa` handle or a provider and is
+  enumerated exactly once. And added `m.copy()` with the `copy.copy`
+  protocol: this space's contents in a new anonymous space through the
+  bulk door, so equations copy as equations and keep running; there is
+  deliberately no `__deepcopy__`, since stored Python objects keep
+  their identity across the clone.
 - Added the MeTTa half of the documentation pipeline:
   `python/tools/libdoc.py` generates
   `website/reference/metta-libraries.md` from each `lib_*.metta`

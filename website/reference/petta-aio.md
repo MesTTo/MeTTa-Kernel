@@ -251,6 +251,15 @@ async def new_space(self) -> AsyncMeTTa:
 
 > Return an isolated space that borrows this connection's worker.
 
+### `AsyncMeTTa.copy`
+
+```python
+async def copy(self) -> AsyncMeTTa:
+```
+
+> This space's contents in a new anonymous space; MeTTa.copy,
+> the clone borrowing this connection's worker.
+
 ### `AsyncMeTTa.drop`
 
 ```python

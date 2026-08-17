@@ -71,3 +71,19 @@ def overlay(front: Any, back: Any) -> _Overlay:
 > Both layers read as one; every write lands on front. The
 > explicitly chosen form union() refuses to be: ChainMap semantics
 > for spaces, deletes not forwarded to back.
+
+## `diff`
+
+```python
+def diff(a: Any, b: Any) -> tuple[list[Atom], list[Atom]]:
+```
+
+> What digest() cannot say: HOW two spaces differ.
+>
+> Answers (only_in_a, only_in_b), the multiset difference over
+> enumeration, so a space holding an atom twice against one holding it
+> once differs by the one copy. Alpha-equivalent atoms count as the
+> same atom, digest()'s own equivalence, and each side's extras come
+> back in that side's enumeration order. Both arguments are anything
+> the combinators accept: a MeTTa handle or a provider. Each side is
+> enumerated exactly once, so a live space is compared at one moment.

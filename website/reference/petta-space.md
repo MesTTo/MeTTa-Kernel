@@ -452,6 +452,22 @@ def lint(self):
 > Answers petta.lint.Finding records, empty when nothing looks
 > wrong.
 
+### `MeTTa.copy`
+
+```python
+def copy(self) -> MeTTa:
+```
+
+> This space's contents in a new anonymous space, cloned through
+> the bulk door, so equations copy as equations and keep running:
+> "a scratch space set up like production" is one line. The handle
+> is new_space()'s kind, so drop it, or use it as a context
+> manager, to return the name. copy.copy(m) answers the same
+> through the copy protocol. There is deliberately no __deepcopy__:
+> stored Python objects keep their identity across the clone, the
+> shallow reading, and a deep clone of a live engine handle has no
+> meaning to promise.
+
 ### `MeTTa.digest`
 
 ```python
