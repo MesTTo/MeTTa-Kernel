@@ -8,6 +8,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added source positions without touching the engine's hot path:
+  between top-level forms the grammar allows only whitespace and
+  comments, and the reader's form texts are verbatim slices, so a
+  deterministic walk recovers every form's exact line and column and
+  refuses loudly if the reader and locator ever disagree, the
+  subterm_positions philosophy with consumers paying and the compile
+  path paying nothing. `petta.lint.lint_file(path)` anchors each
+  finding to its source form through alpha-matching and carries
+  file/line/column in the payload; `python -m petta lint` prints
+  `path:line:` findings; and the MeTTa library reference cites each
+  `@doc` entry's source line.
 - Added the LSP diagnostic vocabulary to lint findings: `severity`
   (error/warning/information/hint, assigned across every existing
   check), `suggestion` (possibly-undefined references now carry a

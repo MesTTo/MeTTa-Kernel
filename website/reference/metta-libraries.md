@@ -45,11 +45,15 @@ beside its definitions.
 
 ### `ft-empty`
 
+*lib_datastructures.metta:45*
+
 The empty finger tree; every other tree grows from it with ft-push-front and ft-push-back.
 
 Returns: FTEmpty
 
 ### `ft-is-empty`
+
+*lib_datastructures.metta:50*
 
 Whether a finger tree holds nothing.
 
@@ -59,6 +63,8 @@ Returns: True or False
 
 ### `ft-pop-front`
 
+*lib_datastructures.metta:79*
+
 The front element and the remaining tree, as the pair ($x $rest). Popping the empty tree has no answer.
 
 1. a nonempty finger tree
@@ -66,6 +72,8 @@ The front element and the remaining tree, as the pair ($x $rest). Popping the em
 Returns: ($front $rest)
 
 ### `ft-pop-back`
+
+*lib_datastructures.metta:100*
 
 The back element and the remaining tree, as the pair ($x $rest): ft-pop-front's mirror.
 
@@ -75,6 +83,8 @@ Returns: ($back $rest)
 
 ### `ft-front`
 
+*lib_datastructures.metta:119*
+
 The front element, the tree untouched.
 
 1. a nonempty finger tree
@@ -82,6 +92,8 @@ The front element, the tree untouched.
 Returns: the first element
 
 ### `ft-back`
+
+*lib_datastructures.metta:126*
 
 The back element, the tree untouched.
 
@@ -91,6 +103,8 @@ Returns: the last element
 
 ### `ft-from-list`
 
+*lib_datastructures.metta:136*
+
 A finger tree holding the expression's elements in order.
 
 1. an expression, for instance (1 2 3)
@@ -99,6 +113,8 @@ Returns: a finger tree
 
 ### `ft-to-list`
 
+*lib_datastructures.metta:146*
+
 The elements front to back, as an expression: ft-from-list's inverse.
 
 1. a finger tree
@@ -106,6 +122,8 @@ The elements front to back, as an expression: ft-from-list's inverse.
 Returns: an expression
 
 ### `ft-concat`
+
+*lib_datastructures.metta:197*
 
 Both trees' elements, left then right, in O(log n): the operation finger trees exist to make cheap.
 
@@ -120,6 +138,8 @@ Undocumented: `FTDeep`, `FTEmpty`, `FTSingle`, `FTree`, `add-unique-or-fail`, `d
 
 ### `file-exists`
 
+*lib_file.metta:40*
+
 True when a regular file exists at the path, False otherwise
 
 1. the path
@@ -127,6 +147,8 @@ True when a regular file exists at the path, False otherwise
 Returns: Bool
 
 ### `dir-exists`
+
+*lib_file.metta:44*
 
 True when a directory exists at the path, False otherwise
 
@@ -138,6 +160,8 @@ Returns: Bool
 
 ### `import_prolog_functions_from_file`
 
+*lib_import.metta:32*
+
 Consults a Prolog file and registers the named predicates as MeTTa functions
 
 1. the Prolog file, as (library name.pl) or a path
@@ -146,6 +170,8 @@ Consults a Prolog file and registers the named predicates as MeTTa functions
 Returns: unit
 
 ### `import_prolog_functions_from_module`
+
+*lib_import.metta:37*
 
 Loads a Prolog module and registers the named predicates as MeTTa functions
 
@@ -158,21 +184,31 @@ Returns: unit
 
 ### `builtins`
 
+*lib_reflect.metta:29*
+
 Every builtin name, one per solution
 
 ### `special-forms`
+
+*lib_reflect.metta:32*
 
 Every translator special form, one per solution. These are compiled rather than called, so they are in no registry
 
 ### `functions`
 
+*lib_reflect.metta:36*
+
 Every function the engine knows, builtin or not
 
 ### `user-functions`
 
+*lib_reflect.metta:39*
+
 Every function this space defines itself
 
 ### `arity-of`
+
+*lib_reflect.metta:42*
 
 The registered arities for a name, one per solution
 
@@ -182,6 +218,8 @@ Returns: an arity
 
 ### `knows?`
 
+*lib_reflect.metta:48*
+
 Whether the engine knows a name at all, as True or False
 
 1. the name
@@ -190,17 +228,23 @@ Returns: True or False
 
 ### `extension-points`
 
+*lib_reflect.metta:66*
+
 Every extension point the engine declares, as (name arity kind), one per solution
 
 Returns: (name arity kind)
 
 ### `surface-counts`
 
+*lib_reflect.metta:71*
+
 How many builtins, special forms, functions and user functions
 
 Returns: ((key count) ...)
 
 ### `surface-json`
+
+*lib_reflect.metta:78*
 
 The engine's whole surface as a JSON string, for external tools
 
