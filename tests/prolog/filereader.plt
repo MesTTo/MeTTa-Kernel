@@ -241,7 +241,11 @@ test(file_function_remains_a_global_fallback_after_a_named_homonym) :-
               user:'add-atom'(NamedSpace, NamedTerm, _),
               user:process_metta_string(
                   "!(plunit-global-file-function 41)", Results, OtherSpace),
-              user:fun_in(user, Function),
+              %fun_in/2 is a relation; whether a bound-bound probe runs
+              %determinate is JIT-index luck (the engine's own callers
+              %always wrap it in -> or once), so the at-most-once intent
+              %is stated here rather than assumed.
+              once(user:fun_in(user, Function)),
               Results == [42] ),
             ( user:'remove-atom'(NamedSpace, NamedTerm, _),
               cleanup_test_function(Function),

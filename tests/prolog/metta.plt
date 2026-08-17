@@ -781,9 +781,17 @@ test(the_table_is_built_from_the_file_rather_than_written_twice) :-
                   ( member(parsed(expression, _, [':', Name, _]), Forms),
                     atom(Name) ),
                   InFile),
+    %The table has exactly two legitimate sources: the file, and the
+    %engine prelude's declarations, whose ledger
+    %(prelude_type_declaration/2) mirrors its rows one for one so
+    %eviction can purge them. File + ledger == table is the same
+    %no-double-writes claim with the second source named.
+    aggregate_all(count, prelude_type_declaration(_, _), FromPrelude),
     aggregate_all(count, builtin_type_declaration(_, _), Loaded),
-    InFile == Loaded,
-    InFile > 0.
+    Expected is InFile + FromPrelude,
+    Expected == Loaded,
+    InFile > 0,
+    FromPrelude > 0.
 
 %The declarations are FACTS, not atoms in &self. Putting them in &self changes
 %what every program sees of its own space, which is not the engine's to do.

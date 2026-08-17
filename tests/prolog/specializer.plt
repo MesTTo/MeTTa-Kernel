@@ -195,16 +195,26 @@ test(failed_specialization_does_not_leak_generated_type,
          atom(Name),
          sub_atom(Name, 0, _, _, 'wrap_Spec_') ).
 
+:- dynamic variant_normalization_preexisting_lambda/1.
+
 setup_variant_normalization :-
     retractall(silent(_)),
-    assertz(silent(false)).
+    assertz(silent(false)),
+    %Snapshot the lambdas that exist BEFORE the repro runs: the engine
+    %prelude compiles a foldl lambda of its own at boot, and sweeping
+    %every lambda_ name in cleanup would unregister the prelude's.
+    retractall(variant_normalization_preexisting_lambda(_)),
+    forall(( fun(Name), atom(Name), sub_atom(Name, 0, _, _, lambda_) ),
+           assertz(variant_normalization_preexisting_lambda(Name))).
 
 cleanup_variant_normalization :-
     findall(Name,
             ( fun(Name),
               atom(Name),
-              sub_atom(Name, 0, _, _, lambda_) ),
+              sub_atom(Name, 0, _, _, lambda_),
+              \+ variant_normalization_preexisting_lambda(Name) ),
             LambdaNames),
+    retractall(variant_normalization_preexisting_lambda(_)),
     cleanup_specializer_symbols([app|LambdaNames]).
 
 test(compound_partial_key_has_stable_anonymous_variables,
@@ -217,8 +227,15 @@ test(compound_partial_key_has_stable_anonymous_variables,
               Error,
               true)),
     Error = error(instantiation_error, _),
-    SpecName = 'app_Spec_[partial(lambda_1,[_])]',
-    once(sub_string(Output, _, _, _, SpecName)),
+    %The subject here is the STABLE `_` in the variant key, not the
+    %lambda's index: boot-time compiles (the engine prelude's own foldl
+    %lambda among them) advance the shared sequence before this file
+    %loads, so the index is whatever the boot left. Match the key by its
+    %stable frame and recover the actual name from the output.
+    re_matchsub("app_Spec_\\[partial\\(lambda_\\d+,\\[_\\]\\)\\]",
+                Output, Sub, []),
+    get_dict(0, Sub, SpecStr),
+    atom_string(SpecName, SpecStr),
     \+ ho_specialization(_, app, _),
     \+ fun(SpecName),
     \+ arity(SpecName, _),

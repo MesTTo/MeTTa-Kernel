@@ -594,7 +594,9 @@ test(removing_one_rule_keeps_the_other_visible) :-
     type_extension_term(plunit_scoped_one, First),
     'remove-atom'(Space, First, _),
     space_module(Space, Module),
-    fun_in(Module, 'get-type'),
+    %fun_in/2 is a relation; the at-most-once intent is explicit, as at
+    %every engine call site (filereader.plt:244 records the reasoning).
+    once(fun_in(Module, 'get-type')),
     with_metta_module(Module,
                       'get-type'(plunit_scoped_two, Type)),
     Type == plunit_two.

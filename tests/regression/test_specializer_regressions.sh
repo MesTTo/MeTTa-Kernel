@@ -46,12 +46,15 @@ timeout 15s sh "$ROOT/run.sh" "$ROOT/tests/regression/repro4_variant_normalizati
 status=$?
 set -e
 [ "$status" -eq 2 ] || { echo "repro4 expected current arithmetic instantiation error status 2, got $status"; cat "$log"; exit 1; }
-if grep -Eq 'app_Spec_\[partial\(lambda_1,\[_[0-9]+\]\)\]' "$log"; then
+# The lambda's index is whatever boot-time compiles left (the engine
+# prelude's own foldl lambda advances the sequence), so both checks match
+# any index; the subject is the normalized `[_]` in the key.
+if grep -Eq 'app_Spec_\[partial\(lambda_[0-9]+,\[_[0-9]+\]\)\]' "$log"; then
     echo "repro4 specialization key still contains fresh variable id"
     cat "$log"
     exit 1
 fi
-grep -Fq 'app_Spec_[partial(lambda_1,[_])]' "$log" || { echo "repro4 missing normalized specialization key"; cat "$log"; exit 1; }
+grep -Eq 'app_Spec_\[partial\(lambda_[0-9]+,\[_\]\)\]' "$log" || { echo "repro4 missing normalized specialization key"; cat "$log"; exit 1; }
 
 # Generated-clause properties are checked in PlUnit, including per-clause
 # binding, absence of reduce/2, and recursive folding to the specialized name.

@@ -8,6 +8,40 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added the engine prelude: the Hyperon-Experimental vocabulary that lived
+  in `lib_he` is part of the core engine now, compiled from
+  `src/prelude.metta` at startup by the same translator that compiles a
+  program's own equations. Every form is reachable with no `import!`,
+  shadowable per named space exactly as builtins are, and stored as an
+  atom in no space, so a program enumerating `&self` sees only its own
+  writes. The promoted forms: the `assert` family (`assertEqual`,
+  `assertAlphaEqual`, the `ToResult` and `Msg` variants,
+  `assertIncludes`), `if-equal`, `if-equal2`, `if-error`,
+  `return-on-error`, `for-each-in-atom`, `unquote`, `noreduce-eq`,
+  `is-function`, `match-types`, `match-type-or`, and `type-cast`.
+  `get-type-space` is a native builtin taking ANY space, where the
+  library stub matched the literal `&self` only. Prelude declarations
+  live in their own engine register, read after a program's own, so a
+  user redeclaration wins; an `Atom` parameter declared there masks call
+  sites the way the `my-if` tutorial mechanism describes.
+- A user definition WINS over the prelude, entirely: compiling an
+  equation for a prelude-owned name in `&self` evicts the prelude's
+  clauses and declarations for that name first, at every compile door,
+  so a program defining its own `match-types` means ITS `match-types`,
+  exactly as it did before the name was promoted. Eviction is one-way,
+  the same as redefining any function; named spaces need none of this
+  because their clauses already shadow through their own module.
+- Several promotions fix the library's contracts against the mechanised
+  arbiter (LeaTTa, measured against pinned Hyperon 0.2.10), the way
+  `add-reduct`'s promotion fixed its: `if-equal` compares by
+  alpha-equivalence, not `==`; `assertEqual` and `assertAlphaEqual` take
+  `Atom` parameters and compare result sets, as their `Msg` twins always
+  did; `match-types` is unification with `%Undefined%`/`Atom` wildcards, not
+  equality; `match-type-or` takes upstream's `(folded next type)`
+  parameter order; and `type-cast` is undeclared on purpose, so an
+  ill-typed subject reports its own error instead of being swallowed by
+  an `Atom` mask.
+
 - Added the stdlib `unify` special form: `(unify a b then else)` runs the
   then branch once per binding set under which the operands match and the
   else branch exactly when none exists, operands unevaluated, only the
