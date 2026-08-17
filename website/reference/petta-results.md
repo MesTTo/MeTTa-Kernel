@@ -94,14 +94,6 @@ def copy(self) -> Rows:
 
 No docstring is defined.
 
-### `Rows.column`
-
-```python
-def column(self, name: str) -> list[Any]:
-```
-
-> Return one named column as a list.
-
 ### `Rows.first`
 
 ```python
