@@ -53,6 +53,22 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   parameter order; and `type-cast` is undeclared on purpose, so an
   ill-typed subject reports its own error instead of being swallowed by
   an `Atom` mask.
+- Completed the container and operator protocols on `MeTTa`: an empty
+  space is `True` (a space is a handle, not a value that dwindles);
+  `m[pattern]` answers `query(pattern)` and `m[p1, p2]` spells the join,
+  with slices refused toward `query(limit=)` and `stream()`;
+  `del m[pattern]` removes every unifying occurrence and raises
+  `KeyError` when nothing unified, `remove()` staying the door that
+  reports absence as `False`; and `m |= other` is the bulk merge, taking
+  another space (equations included, compiled on arrival), a registered
+  space name, or an iterable of atoms, while `+=` keeps `add()`'s
+  one-atom lifted reading so the two spellings never read one operand
+  two ways. A dict is refused by `|=` because `add()` lifts the same
+  dict into one grounded atom.
+- Added `m.space_names()` and the engine predicate `metta_space_names/1`
+  behind it: every space name the engine registers, sorted, `&self` and
+  `&petta` from boot, every written native space, every bound foreign
+  space. Naming a space never registers it; writing or binding does.
 
 - Added the stdlib `unify` special form: `(unify a b then else)` runs the
   then branch once per binding set under which the operands match and the

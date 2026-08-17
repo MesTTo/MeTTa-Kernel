@@ -308,6 +308,19 @@ test(an_occupied_storage_module_is_still_refused,
        throws(error(permission_error(create, native_space_storage, _), _)) ]) :-
     ensure_native_storage_module('&plunit_taken', _).
 
+test(space_names_enumerate_the_registered_spaces,
+     [ setup(add_sexp('&plunit_names', [present])),
+       cleanup(( retractall(native_storage_module_cache('&plunit_names', _)),
+                 clear_native_atoms('&plunit_names') )) ]) :-
+    metta_space_names(Names),
+    % The boot spaces, a written native space, and a foreign provider all
+    % appear; a name nothing ever wrote does not, because registration is
+    % a side effect of writing or binding, never of naming.
+    subtract(['&self', '&petta', '&plunit_names', '&plunit_enum_only'],
+             Names, []),
+    \+ memberchk('&plunit_never_written', Names),
+    sort(Names, Names).
+
 :- end_tests(spaces_registration).
 
 % Two providers in the shape a library actually ships: one that enumerates and

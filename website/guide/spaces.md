@@ -18,6 +18,30 @@ Live host objects have no cross-process identity, so a space holding one refuses
 
 For facts that should persist as they change rather than at save points, `petta.persistent.PersistentFactSpace(path, {"edge": 2})` is a space whose writes journal to an append-only text file and replay when a new process attaches, `library(persistency)` underneath. It is schema-bound and holds natives only, its limits stated in its own docstring. The default sync mode buffers for speed (169k adds/s measured); `flush()` is the on-demand checkpoint, and `sync="flush"` buys per-write crash survival for about two percent, proven in the suite by replaying a journal whose writer died mid-run from SIGKILL. Registered with `m.register_space`, it matches like any space, and it is the event-store half of an event-sourcing page: the journal is the log, projections are `bridge()` subscriptions into read models.
 
+## A space is a Python container
+
+The protocols Python containers speak all answer on a space, each mapped to the engine operation it already names. `len(m)` is `count()`, `atom in m` asks whether anything stored unifies, and `for atom in m` iterates `atoms()`. An empty space is still `True`: a space is a handle to a store, not a value that dwindles, so `if space:` never skips one that happens to be empty.
+
+Subscription is query. `m[pattern]` answers `query(pattern)`, and because Python delivers `m[p1, p2]` as a tuple, the comma spells the join:
+
+```python
+    m.add(S.edge(S.a, S.b), S.edge(S.b, S.c))
+    rows = m[S.edge(V.x, V.y), S.edge(V.y, V.z)]
+    assert [(row.x, row.z) for row in rows] == [(S.a, S.c)]
+```
+
+A str key parses first, so `m["(edge $x $y)"]` works, and a slice is refused: `query(limit=n)` bounds an answer set, `stream()` pulls rows until you stop. Deletion pairs with subscription the way `d[k]` and `del d[k]` pair: `del m[pattern]` removes every unifying occurrence, and raises `KeyError` when nothing unified, where `remove()` reports absence as `False` instead.
+
+The in-place operators split by what their operand means. `m += x` is `add(x)` exactly, one atom per use, so a list lifts into one expression atom the same way `add` reads it; `m -= x` is `remove(x)`. The bulk door is `|=`, whose operand has no lifted reading: another space (equations included, compiled on arrival), a registered space name, or an iterable adding each element. A dict is refused there, because `add` reads the same dict as one grounded atom and its values would silently vanish.
+
+```python
+    m |= other_space
+    m |= "&kb"
+    m |= [S.note(1), "(note 2)"]
+```
+
+`m.space_names()` lists every space the engine registers, sorted: `&self` and `&petta` from boot, every native space that has been written to, and every foreign space currently bound. Naming a space never registers it; writing does.
+
 ## MORK at scale
 
 [MORK](https://github.com/trueagi-io/MORK) is a PathMap-backed store built for atom counts far past the predicate store's reach. The integration's own measurements set the honest expectations: below roughly ten million atoms the predicate store is faster, and from one hundred to four hundred million atoms MORK kept answering where the predicate store ran out of memory.

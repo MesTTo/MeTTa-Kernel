@@ -49,6 +49,13 @@ Source: `python/petta/space.py`.
 >   - register_prolog reads a metta_export declaration from inline source as it
 >     does from a file [tested 2026-08-16:
 >     test_inline_source_declares_its_own_exports_too]
+>   - del m[pattern] removes every unifying occurrence and raises KeyError
+>     when none unified, remove() reporting the same absence as False
+>     [tested test_delitem_removes_every_unifying_occurrence]
+>   - |= merges a space, a registered space name, or an iterable, and refuses
+>     an operand add() would lift into one atom [tested
+>     test_ior_merges_a_space_equations_included,
+>     test_ior_refuses_the_operands_add_would_lift]
 > Owns:
 >   - MeTTa.save owns its sibling temporary file and removes it after every
 >     failed operation [tested test_save_failure_preserves_existing_file]
@@ -124,6 +131,18 @@ def space(self, name: str) -> MeTTa:
 ```
 
 > Another space on the same engine.
+
+### `MeTTa.space_names`
+
+```python
+def space_names(self) -> list[str]:
+```
+
+> Every space name this engine registers, sorted: '&self' and
+> '&petta' from boot, every native space that has been written to,
+> and every foreign space currently bound. Naming a space never
+> registers it, only writing or binding does, so a bind! token's
+> target appears here once something is stored under it.
 
 ### `MeTTa.new_space`
 
