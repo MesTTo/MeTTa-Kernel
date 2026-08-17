@@ -57,6 +57,7 @@ export default defineConfig({
           { text: "Python functions in MeTTa", link: "/guide/python-functions" },
           { text: "Write MeTTa in Python", link: "/guide/define" },
           { text: "Spaces", link: "/guide/spaces" },
+          { text: "Data structures", link: "/guide/structures" },
           { text: "Jupyter notebooks", link: "/guide/notebook" },
           { text: "Pettorch", link: "/guide/pettorch" },
         ],
@@ -130,6 +131,7 @@ export default defineConfig({
             collapsed: true,
             items: [
               { text: "petta.persistent", link: "/reference/petta-persistent" },
+              { text: "petta.structures", link: "/reference/petta-structures" },
               { text: "petta.arrays", link: "/reference/petta-arrays" },
               { text: "petta.testing", link: "/reference/petta-testing" },
             ],

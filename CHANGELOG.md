@@ -122,6 +122,38 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `overlay(front, back)` reads both layers and writes, removes, and
   clears the front only, ChainMap's rule stated loudly. Combinators
   take combinators, and overlay and mapped pass the conformance kit.
+- Fixed a divergence the new ClosureView surfaced: the specializer
+  cloned a TABLED function when a call's argument happened to name a
+  defined function (a graph node called `d`, with `(= (d $x) ...)`
+  defined anywhere in the process), and the clone lost its tabling, so
+  the recursion SLG resolution terminated ran to a 27,525-frame loop.
+  maybe_specialize_call now refuses to specialize a tabled function,
+  read from lib_tabling's own `(tabled ...)` reflection facts, one
+  indexed probe at translate time.
+- Added `petta.structures`, data structures with MeTTa's semantics,
+  each implemented where it is fastest. The pure tier runs on the atom
+  kernel and imports without janus in the process: `PatternMap` (a
+  MutableMapping whose ground keys hash like dict keys and whose
+  `matching()` answers the dispatch question through head/arity
+  buckets), `MatchIndex` (many patterns, one atom, answered sublinearly
+  through an imperfect discrimination tree with unify confirming, so
+  nonlinear patterns are exact; property-tested against the brute-force
+  oracle), and `AlphaSet` (membership modulo variable renaming, through
+  canonical renaming, property-tested against pairwise alpha_eq). The
+  engine-backed tier crosses deliberately: `TabledMap` (a view of a
+  tabled function; a write to a space it reads by literal name
+  invalidates exactly the affected tables, the safety functools.cache
+  lacks), `LiveView` (one pattern materialised and maintained by
+  subscription events, seeded and subscribed inside one transaction so
+  no write falls between, mirroring multiset removal exactly), and
+  `ClosureView` (reachability over a stored relation, tabled from birth
+  so cyclic and symmetric closures terminate and stay fresh).
+- `lib_datastructures` grows a Hinze-Paterson 2-3 finger tree: push and
+  pop at both ends in amortized O(1), concatenation in O(log n), so one
+  term-shaped structure serves as sequence, deque, and staging buffer
+  for programs written in MeTTa itself, every form @doc-documented,
+  exercised under the gate by
+  examples/libraries/datastructures_fingertree.metta.
 - Added `petta.atoms.substitute(atom, bindings)`, unify's companion:
   the atom with every bound variable replaced, so
   `substitute(pattern, unify(pattern, atom))` is the matched instance.

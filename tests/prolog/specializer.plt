@@ -291,4 +291,22 @@ test(an_invalidation_cycle_terminates,
     assertion(\+ user:ho_specialization(_, plunit_cycle_a, _)),
     assertion(\+ user:ho_specialization(_, plunit_cycle_b, _)).
 
+test(a_tabled_function_never_specializes,
+     [ setup(( sread("(= (spt-loop $x $y) (spt-loop $y $x))", Eq),
+               add_sexp('&self', Eq),
+               translate_clause(Eq, Clause),
+               assertz(Clause),
+               assertz(fun('spt-loop')),
+               assertz(arity('spt-loop', 3)),
+               add_sexp('&petta', [tabled, '&self', 'spt-loop', 2]) )),
+       cleanup(( remove_sexp('&petta', [tabled, '&self', 'spt-loop', 2]),
+                 remove_sexp('&self', [=, ['spt-loop'|_], _]),
+                 retractall(fun('spt-loop')),
+                 retractall(arity('spt-loop', _)) )) ]) :-
+    % The reflection fact says spt-loop is tabled, so a call whose
+    % argument names a defined function must NOT plan a specialization:
+    % the clone would carry the recursion without the tabling. The
+    % 27,525-frame precedent is recorded at maybe_specialize_call.
+    \+ maybe_specialize_call('spt-loop', [d, x], _, _).
+
 :- end_tests(specializer_invalidation).
