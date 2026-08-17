@@ -44,4 +44,17 @@ The repository has thirteen self-verifying Python examples organised by topic. R
 PYTHONPATH=python/examples python python/examples/basics/first_steps.py
 ```
 
+The installed wheel is a complete command-line tool too, `-m` fashion:
+
+```bash
+python -m petta run program.metta        # run files, print each ! answer group
+python -m petta repl                     # interactive loop, multi-line forms
+python -m petta serve kb.metta --port 8700   # expose spaces over HTTP
+python -m petta boot app.metta           # assemble a (boot ...) manifest
+python -m petta lint program.metta       # diagnostics; nonzero exit on findings
+python -m petta doc car-atom             # a name's (@doc ...) documentation
+```
+
+Each subcommand exits nonzero on failure, so all of them script. The bare `petta` console command keeps upstream's launcher contract, running a file through `swipl` directly.
+
 Examples that need DuckDB, NumPy, or PyTorch skip when that optional dependency is absent. When something misbehaves, `petta.backend_info()` answers the petta, janus, SWI-Prolog, and Python versions plus the consulted runtime tree in one dict, without starting the engine, which is exactly what a bug report needs. Continue with [atoms, operators, and term building](./atoms-terms).

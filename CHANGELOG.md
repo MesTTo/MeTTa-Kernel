@@ -8,6 +8,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added `python -m petta` subcommands on the library engine, the stdlib
+  "Command-line usage" chapter for the installed wheel: `run` prints
+  each `!` answer group, `repl` is an interactive loop that reads
+  multi-line forms (strings and comments included) and reports errors
+  without dying, `serve` exposes spaces over HTTP with host/port/
+  allowlist/token flags, `boot` assembles a `(boot ...)` manifest and
+  blocks while its servers run, `lint` exits nonzero on findings, and
+  `doc` prints a name's `(@doc ...)` documentation. The bare `petta`
+  console script keeps upstream's swipl-launcher contract exactly.
 - Added `examples/integration/networkx_space.py`: the metagraph reading
   made executable on the public surface alone. Any space's links view as
   a networkx graph, an nx algorithm answers what no match can express,
