@@ -22,6 +22,26 @@ A symbol and a grounded string are different atoms. Use `sym(name)` when a symbo
 
 The atom helpers also expose `variables`, `is_ground`, `alpha_eq`, and `unify`. See [`petta.atoms`](../reference/petta-atoms) for their source docstrings.
 
+## Destructuring with match/case
+
+Every atom class declares `__match_args__`, so Python's structural pattern matching destructures atoms the way a MeTTa pattern does, two pattern languages over the same data:
+
+```python
+match atom:
+    case Expr([Sym("edge"), a, b]):        # the MeTTa pattern (edge $a $b)
+        connect(a, b)
+    case Expr([Sym("edge"), *nodes]):      # (edge $a $b $c ...), any arity
+        hyperconnect(nodes)
+    case Sym(name):                        # any bare symbol, name bound
+        note(name)
+    case Gnd(int() | float() as number):   # a grounded number
+        accumulate(number)
+    case Var(_):
+        pass                               # an unbound hole
+```
+
+The correspondence is direct: `Expr([Sym("edge"), a, b])` is `(edge $a $b)` with `a` and `b` as the captures, `*rest` is the tail a MeTTa `$xs` would take, and a literal like `Sym("edge")` plays the ground-symbol role. What `case` does not do is unification: a repeated capture name is a Python error rather than an equality constraint, and nothing binds inside the atom. When you want real unification, ask for it, `unify(pattern, atom)` answers the bindings or `None`; `case` is for shape dispatch in Python code, `match` in a space is for knowledge.
+
 ## Sorting atoms
 
 `sorted(atoms)` raises, and the message says why: `S.a < S.b` builds the term `(< a b)`, because building terms is what the operators are for. Pass the key instead:

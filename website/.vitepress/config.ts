@@ -59,6 +59,7 @@ export default defineConfig({
           { text: "Spaces", link: "/guide/spaces" },
           { text: "Data structures", link: "/guide/structures" },
           { text: "Threads, tasks, and pickling", link: "/guide/threads" },
+          { text: "Observability", link: "/guide/observability" },
           { text: "Jupyter notebooks", link: "/guide/notebook" },
           { text: "Pettorch", link: "/guide/pettorch" },
         ],

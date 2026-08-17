@@ -8,6 +8,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added the observability guide page: nine doors (`why()`, derivation
+  trees, `.explain()`, trace, stats, profile, table-stats, lint, and
+  standing queries) mapped to the nine questions they answer, with
+  sibling pointers in the key docstrings. Beside it, a match/case
+  section in the atoms guide showing `case Expr([Sym("edge"), a, b])`
+  as the Python twin of `(edge $a $b)` and where case deliberately is
+  not unification; per-attribute slot docstrings on the atom classes,
+  so `help(Expr)` documents `children` in place; compliance suites that
+  refuse a collectible `Test*` subclass with no `provider` or
+  `gateway_url` fixture at class-definition time, where the traceback
+  points at the class; the `petta` logger namespace and `tqdm`
+  composition each documented in one line; and the deprecation policy
+  stated: a surface removal warns with `DeprecationWarning` for one
+  release before it goes.
 - Added the thread-safety and serialization guarantees page: per type
   and per operation, what is atomic, what locks, and what a caller must
   serialize, Python's own documentation convention pointed at PeTTa.

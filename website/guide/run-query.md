@@ -92,7 +92,7 @@ with m.stream(pattern) as cursor:
 
 Over 2,000 stored atoms those measured 26,055, 2,232 and 20 inferences for the same three rows, and the first gap grows with the space. Reach for `limit=` when you want a bounded answer set and for `stream` when you want to take rows until you have seen enough; the cursor keeps the join's state inside an engine between pulls, so a huge join costs one row of work per row actually taken.
 
-A cursor refuses what would need the whole stream, and each refusal says why: `len(cursor)` (use `space.count(pattern)`), `cursor[-1]`, `cursor[-3:]` and `cursor[::2]`. Skipping a row still pulls it, and counting from the end means knowing where the end is.
+A cursor refuses what would need the whole stream, and each refusal says why: `len(cursor)` (use `space.count(pattern)`), `cursor[-1]`, `cursor[-3:]` and `cursor[::2]`. Skipping a row still pulls it, and counting from the end means knowing where the end is. Because a cursor implements the iterator protocol exactly, wrappers compose with no adapter: `tqdm(m.stream(pattern))` shows progress one pulled row at a time.
 
 ## Explain a query
 
