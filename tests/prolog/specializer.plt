@@ -309,4 +309,20 @@ test(a_tabled_function_never_specializes,
     % 27,525-frame precedent is recorded at maybe_specialize_call.
     \+ maybe_specialize_call('spt-loop', [d, x], _, _).
 
+test(string_run_equation_invalidates_specializations,
+     [ setup(assertz(user:ho_specialization(plunit_door_caller,
+                                            'plunit-door-fn',
+                                            plunit_door_spec))),
+       cleanup(( retractall(user:ho_specialization(plunit_door_caller, _, _)),
+                 remove_sexp('&self', [=, ['plunit-door-fn'|_], _]),
+                 retractall(fun('plunit-door-fn')),
+                 retractall(arity('plunit-door-fn', _)) )) ]) :-
+    % The string-run door (process_form/3) used to notify
+    % metta_on_function_changed and skip invalidate_specializations, so a
+    % specialization of a name survived new equations for it. The one
+    % compile door notifies completely; this pins that a run-defined
+    % equation retracts the stale specialization record.
+    process_metta_string("(= (plunit-door-fn $x) $x)", _),
+    \+ user:ho_specialization(_, 'plunit-door-fn', _).
+
 :- end_tests(specializer_invalidation).

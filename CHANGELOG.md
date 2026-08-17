@@ -513,6 +513,18 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- One equation-compile door. Three doors used to carry the compile spine
+  separately (spaces.pl's add_function_atom and filereader.pl's two
+  process_form clauses), so a cross-cutting rule had to be hooked one
+  door at a time, and one rule HAD drifted: the loader doors notified
+  metta_on_function_changed but never invalidate_specializations, so an
+  equation added by `m.run` or a compile-mode load left a prior
+  specialization of the same name answering stale clauses.
+  compile_metta_equation/4 now carries eviction, registration,
+  translation, provenance, and the COMPLETE notification for all three,
+  pinned by a plunit test, and the invalidation walk is guarded so a
+  function with no specializations, which is nearly all of them, pays
+  nothing: source-load's counter lane passes its unchanged floor.
 - Pool `map`/`starmap` now report EVERY failure: one raises plainly and
   several raise together as one `ExceptionGroup` in input order, the
   library's raise_for_errors policy, where only the first in input order
