@@ -8,6 +8,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added `examples/integration/networkx_space.py`: the metagraph reading
+  made executable on the public surface alone. Any space's links view as
+  a networkx graph, an nx algorithm answers what no match can express,
+  and the answer writes back as atoms; the same call runs unchanged
+  against the SQL bridge because it rides the one seam. An n-ary link
+  has no default graph reading, so the projection is the caller's to
+  name, pairwise or bipartite, and anything else is refused.
 - Added `Rows.pipe(fn, *args, **kwargs)`, pandas' chaining shape, so a
   post-processing pipeline reads left to right; `__rich__` on Rows, so a
   rich console draws query answers as a real table with the same

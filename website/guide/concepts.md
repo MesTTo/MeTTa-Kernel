@@ -58,6 +58,12 @@ engine can do, because they are the same thing.
 named space is any other `&name`. The current context resolves the way
 `bind!` tokens do.
 
+A space of expressions is also a knowledge graph, links connecting
+atoms including other links, and that reading needs no engine support:
+[`examples/integration/networkx_space.py`](https://github.com/trueagi-io/PeTTa/blob/main/python/examples/integration/networkx_space.py)
+views any space as a networkx graph on the public surface alone, runs
+an algorithm no match can express, and writes the answer back as atoms.
+
 ## Namespaces are spaces
 
 Python already has spaces; it calls them namespaces, and the analogy is
