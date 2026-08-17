@@ -8,6 +8,22 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added the LSP diagnostic vocabulary to lint findings: `severity`
+  (error/warning/information/hint, assigned across every existing
+  check), `suggestion` (possibly-undefined references now carry a
+  did-you-mean from the engine's own 208 known names plus the space's
+  vocabulary), `docs_link`, a structured `payload`, and `autofix`, an
+  ATOM carrying the stored equation with the simplification applied, so
+  applying a fix is remove-then-add with no source positions needed.
+  And added the nine checks the LSP comparison showed buildable: the
+  seven syntactic simplification rules (`constant-if-true`,
+  `constant-if-false`, `if-same-branches`, `if-true-false`,
+  `superposed-empty`, `superposed-single`, `duplicate-binder`, each
+  with its rewrite where one exists), `inconsistent-arity`
+  (information, silenced by an arrow, because multi-arity dispatch is
+  legal and the arrow states intent), and `type-mismatch` (error: a
+  ground argument whose engine `get-type` contradicts the declared
+  arrow slot, conservative around metatypes and parametric slots).
 - Added the observability guide page: nine doors (`why()`, derivation
   trees, `.explain()`, trace, stats, profile, table-stats, lint, and
   standing queries) mapped to the nine questions they answer, with
