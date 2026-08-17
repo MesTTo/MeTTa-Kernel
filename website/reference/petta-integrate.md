@@ -79,6 +79,37 @@ def installed() -> dict[tuple[str, str], Any]:
 
 > (space, integration name) -> the installed target.
 
+## `entry_points`
+
+```python
+def entry_points(group: str = SPACES_GROUP) -> dict[str, metadata.EntryPoint]:
+```
+
+> The names installed packages advertise for one group, UNLOADED:
+> asking imports nothing and registers nothing, so discovery is free to
+> call and the app keeps deciding what loads.
+
+## `load_entry_point`
+
+```python
+def load_entry_point(name: str, /, *args: Any, group: str = SPACES_GROUP, **kwargs: Any) -> Any:
+```
+
+> Load one advertised entry point by name, calling a callable target
+> with the given arguments, the factory contract:
+>
+>     m.register_space(integrate.load_entry_point("duck"), "&duck")
+>     m.register_library_path(
+>         integrate.load_entry_point("nars", group=integrate.LIBRARIES_GROUP),
+>         "nars",
+>     )
+>
+> A petta.spaces target is a provider class or factory; a
+> petta.libraries target answers the directory of sources the package
+> ships. A non-callable target answers as-is, the module-level-instance
+> form, and refuses arguments it cannot take. An unknown name refuses,
+> listing what IS installed, so a typo reads as one.
+
 ## `discover`
 
 ```python

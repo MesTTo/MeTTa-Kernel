@@ -8,6 +8,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added the provider ecosystem's entry-point groups beside
+  `petta.integrations`: a package advertises a provider factory under
+  `petta.spaces` or the directory of sources it ships under
+  `petta.libraries`, and the app loads by NAME through
+  `integrate.entry_points(group)` (unloaded discovery) and
+  `integrate.load_entry_point(name, *args, group=...)` (a callable
+  target is a factory, called with your arguments; a non-callable one
+  answers as-is). Nothing auto-registers on import, and an unknown name
+  refuses by listing what is installed.
 - Added the subscription lifecycle pair: a `Subscription` is a context
   manager, cancelling on exit, and `events(timeout=None)` streams the
   no-callback queue to a consumer thread that sleeps on a condition
