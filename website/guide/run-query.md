@@ -293,7 +293,7 @@ def test_undefined_answers_cross_as_undefined(m, wfs_program):
         assert (first.a, first.b, first.c) == (0, 1, 2)
         # Unrelated engine work interleaves while the cursor stays open,
         # which a raw janus cursor forbids.
-        assert m.value("(+ 1 2)") == 3
+        assert m.one("(+ 1 2)") == 3
         second = next(rows)
         assert (second.a, second.b, second.c) == (1, 2, 3)
 ```

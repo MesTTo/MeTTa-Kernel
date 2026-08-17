@@ -931,8 +931,8 @@ import, which is how Prolog has resolved this for thirty years:
 m.register_prolog(path="liba.pl", names={"norm": "liba-norm"})
 m.register_prolog(path="libb.pl", names={"norm": "libb-norm"})
 
-m.value("(liba-norm -5)")     # 5
-m.value("(libb-norm -5)")     # 25
+m.one("(liba-norm -5)")     # 5
+m.one("(libb-norm -5)")     # 25
 ```
 
 `names` as a mapping is `{the module's own name: the MeTTa name}`. The arity

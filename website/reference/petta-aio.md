@@ -227,10 +227,10 @@ async def eval(
 
 > Evaluate a term and return every answer.
 
-### `AsyncMeTTa.value`
+### `AsyncMeTTa.one`
 
 ```python
-async def value(
+async def one(
     self,
     target: Any,
     *,

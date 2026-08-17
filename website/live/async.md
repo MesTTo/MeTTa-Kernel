@@ -8,7 +8,7 @@ An event loop and a reasoning engine want the same thread, and the engine usuall
             await am.add(S.edge(1, 2), S.edge(2, 3))
             rows = await am.query(S.edge(V.a, V.b), S.edge(V.b, V.c))
             groups = await am.run("!(+ 1 2)")
-            value = await am.value("(+ 2 3)")
+            value = await am.one("(+ 2 3)")
             count = await am.count()
             return rows, groups, value, count
 ```
