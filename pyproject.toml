@@ -207,7 +207,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "array_api_compat", "faiss", "hypothesis", "numpy", "pandas",
-    "polars", "websocket",
+    "polars", "rich.*", "websocket",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"
@@ -278,8 +278,11 @@ optional_dependencies_dev_groups = ["test", "checks"]
 # cannot see the use.
 [tool.deptry.per_rule_ignores]
 # pytest is imported only by the pytest11 plugin module, which pytest
-# itself loads; it is not a runtime dependency of the library.
+# itself loads; it is not a runtime dependency of the library. rich is
+# imported only inside the __rich__ protocol method, which only rich
+# itself calls, so its presence is the precondition of the call.
 DEP004 = ["pytest"]
+DEP003 = ["rich"]
 DEP002 = [
     "janus-swi",
     "array-api-compat",

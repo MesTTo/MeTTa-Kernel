@@ -8,6 +8,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added `Rows.pipe(fn, *args, **kwargs)`, pandas' chaining shape, so a
+  post-processing pipeline reads left to right; `__rich__` on Rows, so a
+  rich console draws query answers as a real table with the same
+  display_rows bound and why() hint the notebook table carries; and
+  `__rich_repr__` on expressions, so rich.pretty prints a deep term as
+  an indented tree of its children. rich stays the caller's dependency:
+  only rich itself calls the protocol methods.
 - Added engine injection into registered operations: a parameter
   annotated `petta.MeTTa` is the framework's to fill, FastAPI's Depends
   read with the house convention that the annotation is the request. The

@@ -220,6 +220,17 @@ def to_pl(self):
 
 > The rows as a polars DataFrame; the polars twin of to_df().
 
+### `Rows.pipe`
+
+```python
+def pipe(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+```
+
+> fn(self, *args, **kwargs), pandas' chaining shape, so a
+> pipeline reads left to right instead of inside out:
+>
+>     m.query(pattern).pipe(clean).pipe(score, weight=2)
+
 ## `rows_into`
 
 ```python
