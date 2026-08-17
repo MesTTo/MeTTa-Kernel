@@ -51,6 +51,7 @@ export default defineConfig({
         link: "/guide/",
         items: [
           { text: "Install and first steps", link: "/guide/getting-started" },
+          { text: "Concepts and names", link: "/guide/concepts" },
           { text: "Atoms, operators, and terms", link: "/guide/atoms-terms" },
           { text: "Run and query", link: "/guide/run-query" },
           { text: "Python functions in MeTTa", link: "/guide/python-functions" },

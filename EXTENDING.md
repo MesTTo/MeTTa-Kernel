@@ -1970,6 +1970,14 @@ and deriving both directions is the bidirectional-transformations
 literature's third approach, and MeTTa's pattern pairs are already the
 right notation for it.
 
+One rule governs every name an extension adds, on either side of the
+seam: one concept has one name, and its two spellings map mechanically,
+hyphen to underscore, ceremony dropped, never a synonym. `add-atom` is
+`add`, `new-space` is `new_space`, and a Python method that stores
+`(on ...)` atoms is named after `on`, not after a metaphor. If the
+Python name cannot be derived from the MeTTa name by that rule, it is
+the wrong name; the guide's Concepts page holds the full table.
+
 ## Choosing
 
 | you want to | use |
