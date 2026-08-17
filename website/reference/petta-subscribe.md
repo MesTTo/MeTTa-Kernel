@@ -61,6 +61,22 @@ def drain(self) -> list[Event]:
 
 > Every queued event, oldest first; the queue empties.
 
+### `Subscription.events`
+
+```python
+def events(self, timeout: float | None = None):
+```
+
+> Incoming events as a blocking stream: the no-callback queue
+> mode consumed without polling, so a consumer thread writes
+> `for event in sub.events(): ...` and sleeps on a condition
+> variable between arrivals. The stream ends when the subscription
+> cancels, queued leftovers delivered first, or when `timeout`
+> seconds pass with nothing arriving. A callback subscription
+> delivers through its callback and has no queue, so it refuses.
+> Bare `iter(sub)` is deliberately absent: iteration that blocks
+> should say so by name.
+
 ### `Subscription.cancel`
 
 ```python

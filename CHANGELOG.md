@@ -8,6 +8,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added the subscription lifecycle pair: a `Subscription` is a context
+  manager, cancelling on exit, and `events(timeout=None)` streams the
+  no-callback queue to a consumer thread that sleeps on a condition
+  variable between arrivals instead of polling `drain()`. The stream
+  ends at cancellation, queued leftovers delivered first, or after
+  `timeout` quiet seconds; a callback subscription refuses it, and bare
+  `iter(sub)` stays deliberately absent because iteration that blocks
+  should say so by name.
 - Added `petta.spaces.diff(a, b)`, what `digest()` cannot say: HOW two
   spaces differ, as the multiset difference over enumeration with
   alpha-equivalent atoms counting as the same atom, digest's own
@@ -454,6 +462,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Pool `map`/`starmap` now report EVERY failure: one raises plainly and
+  several raise together as one `ExceptionGroup` in input order, the
+  library's raise_for_errors policy, where only the first in input order
+  was raised before and the rest were silently dropped after draining. A
+  worker's `KeyboardInterrupt` still reaches the caller, grouped when it
+  arrived beside other failures.
 - `petta.testing.check_space_provider`'s `atoms_to_store` now stores the
   atoms through the provider's own add, as its name always said, and
   refuses a provider that cannot add rather than comparing against
@@ -483,9 +497,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `%Undefined%` opts out. Declarations arriving through `add_atom` are reported
   by `lint()` as `declaration-types-the-symbol` instead, because a build that
   writes its declarations one at a time is momentarily in that state.
-
-### Changed
-
 - In-place type annotations are spelled `(: $x T)`, plain colon, told apart
   from stored `(: name type)` declarations by POSITION rather than by a second
   spelling. A pattern that is itself a colon expression stays structural, so a
@@ -540,6 +551,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   the in-language `lib_measure`/`lib_soft` libraries are unchanged.
   `EmbeddingStore.matcher()` went with them; the custom_matchers example
   builds fuzzy, regex and semantic matchers on the public surface.
+
 
 ## [1.0.5] - 2026-03-02
 

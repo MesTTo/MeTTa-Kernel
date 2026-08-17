@@ -55,4 +55,17 @@ m.add(S.ping(99))
 check("no delivery after cancel", len(transcript), 5)
 ```
 
-An `Event` records the action, space, matched atom, and bindings. A subscription can watch adds, removals, or both. See [`petta.subscribe`](../reference/petta-subscribe).
+An `Event` records the action, space, matched atom, and bindings. A subscription can watch adds, removals, or both.
+
+A subscription is a context manager, so `with m.subscribe(pattern) as sub:` cancels on exit, exceptions included. And the queue mode has a blocking reading: `sub.events()` streams incoming events to a consumer thread that sleeps on a condition variable between arrivals instead of polling `drain()`:
+
+```python
+with m.subscribe(S.order(V.id)) as sub:
+    for event in sub.events(timeout=5.0):   # ends after 5 quiet seconds
+        handle(event)
+# leaving the block cancels, which also ends an events() stream
+```
+
+The stream ends when the subscription cancels, queued leftovers delivered first, or when `timeout` seconds pass with nothing arriving; with no timeout it blocks until cancellation. A callback subscription refuses `events()`, because it delivers through its callback and has no queue. Bare `iter(sub)` is deliberately absent: iteration that blocks should say so by name. On the async surface the stream IS the delivery, `async for event in am.subscribe(...)`.
+
+See [`petta.subscribe`](../reference/petta-subscribe).
