@@ -94,6 +94,22 @@ Over 2,000 stored atoms those measured 26,055, 2,232 and 20 inferences for the s
 
 A cursor refuses what would need the whole stream, and each refusal says why: `len(cursor)` (use `space.count(pattern)`), `cursor[-1]`, `cursor[-3:]` and `cursor[::2]`. Skipping a row still pulls it, and counting from the end means knowing where the end is.
 
+## Explain a query
+
+`prepare(...).explain()` and a cursor's `explain()` answer the query's plan without running it, polars' `LazyFrame.explain` and SQL's `EXPLAIN` pointed at the space seam. When a query over a Python-backed space is slow, the first question is what pushed down, and this is that answer:
+
+```python
+sp = m.space("&db")
+print(sp.prepare(parse("(edge $a $b)"), parse("(other $b $c)")).explain())
+# query over &db: (edge $a $b), (other $b $c)
+#   (edge $a $b)   exact    the provider's own pushdown method
+#   (other $b $c)  inexact  unclaimed; silence is inexact and candidates re-unify
+#   conjunction: no provider claim; the engine joins left to right
+#   a bound reaches the provider only where the class is exact
+```
+
+Each pattern's line shows its pushdown class and which rule decided it: a declared `(handles ...)` entry, the provider's own `pushdown` method, or silence, in exactly the precedence the match uses. The conjunction line names what a planning provider claimed whole and what the engine joins. A shape a declaration refuses reports as `REFUSED` with the entry that said so, a stored space answers the one true line (engine unification), and a `where=` guard shows where it runs. Nothing is executed and no row is pulled; the report reflects decisions the seam has already made.
+
 ## Memoize a function
 
 Tabling is the engine's own memoization: declare a function tabled, and every distinct call computes once, with later calls of the same shape answering from the table. After `!(import! &self (library lib_tabling))`, the declaration is `!(tabled (spin-down $n))`, made after the function is defined, because instrumenting a name that does not exist yet is refused by name and arity instead of silently tabling nothing.

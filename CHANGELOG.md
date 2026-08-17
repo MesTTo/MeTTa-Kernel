@@ -8,6 +8,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added `.explain()` on prepared queries and cursors, and on their async
+  twins: the query's plan reflected rather than run, polars'
+  `LazyFrame.explain` and SQL's `EXPLAIN` pointed at the space seam.
+  Per pattern it shows the pushdown class and which rule decided it, a
+  declared `(handles ...)` entry, the provider's own `pushdown` method,
+  or silence, in exactly the precedence the match uses; a conjunction
+  line names what a planning provider claimed whole and what the engine
+  joins; refused shapes report the refusing entry; stored spaces answer
+  the one true line. The engine door, `petta_py_explain`, preflights the
+  same refuse guard the match consults and answers claimed/rest as
+  indexes so the caller's variable names survive rendering.
 - Added `petta.boot(manifest)`: deployment as knowledge. A manifest is a
   MeTTa file of `(boot ...)` forms over a closed vocabulary, each sugar
   for exactly one existing call: `(load "rules.metta")` for `m.load`
