@@ -917,6 +917,19 @@ def arities(self, name: str) -> list[int]:
 
 > Compiled predicate arities for a name: MeTTa arity plus one each.
 
+### `MeTTa.disassemble`
+
+```python
+def disassemble(self, name: str) -> str:
+```
+
+> The Prolog clauses a function name compiled to, dis for the
+> translator: one listing per registered arity, resolved in this
+> space's module. What the engine RUNS for a call, which is the
+> debuggability bytecode has and homoiconicity alone does not
+> give, since (= ...) atoms are the source, not the compilation.
+> Also reachable as m.fn(name).compiled.
+
 ### `MeTTa.register_prolog`
 
 ```python

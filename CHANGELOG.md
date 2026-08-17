@@ -91,6 +91,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   intact, instead of an `EngineError` holding a transcript of it. An op
   author's own exception classes still arrive wrapped in `EngineError`,
   the boundary they crossed staying visible.
+- `m.fn()` speaks the whole function protocol now, answering from
+  MeTTa's own declarations: `__name__` and space-qualified
+  `__qualname__`; `__doc__` formatted from the space's `(@doc ...)`
+  atom, with builtins answering from the engine's register, so
+  `help(m.fn("inc"))` shows documentation written in MeTTa;
+  `__signature__` built from the declared arrow, so
+  `inspect.signature()` shows arity and parameter types, `(*args)` when
+  no arrow is declared; `.type` as the declared type atom or None; and
+  `.equations` as the stored `(= ...)` atoms, live from the space.
+  `functools.partial` composes because the object is an ordinary
+  callable; `__defaults__` and `__annotations__` are deliberately
+  absent, because MeTTa has neither.
+- Added `m.disassemble(name)` and `fn.compiled`: the Prolog clauses a
+  name compiled to, one listing per registered arity in the space's own
+  module. The `(= ...)` atoms are the source; this is what the engine
+  runs, the translator's own `dis`.
+- Watching a function change needs no new machinery and is now tested
+  and documented as the watcher recipe: equations are atoms, so
+  `subscribe("(= (f $x) $body)", callback, on="both")` fires on every
+  equation added or removed, bindings included.
 
 - Added the stdlib `unify` special form: `(unify a b then else)` runs the
   then branch once per binding set under which the operands match and the

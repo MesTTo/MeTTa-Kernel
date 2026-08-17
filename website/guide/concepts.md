@@ -38,7 +38,9 @@ Three words that are one small system:
   boundary it is just the class: `(get-metatype x)` corresponds to
   `type(atom)` and `isinstance` checks against the four classes;
 - the **type** is what declarations say: `(get-type x)` reads `(: x T)`
-  declarations and arrows, and `m.type()` is its Python door.
+  declarations and arrows, and `m.fn(name).type` is the Python reading
+  of a function's declared arrow. `m.type()` points the other way,
+  declaring a Python class INTO the space.
 
 `%Undefined%` is the deliberate absence of a type, spelled `Undefined`
 in Python, and it is an answer, not an error.

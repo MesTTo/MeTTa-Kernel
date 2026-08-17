@@ -40,3 +40,27 @@ def test_python_wire_round_trip(atom):
 ```
 
 `atoms(ground=True)` drops variables for space-content generators, `expressions()` roots every example at the shape spaces store, and hypothesis is only imported when a strategy is built, so the module costs nothing at import. The complete surface is in [`petta.testing`](../reference/petta-testing).
+
+## The other direction: a MeTTa function as a Python callable
+
+`m.fn(name)` answers any engine function as an ordinary Python callable, and the object speaks the whole function protocol, answering from MeTTa's own declarations. `__doc__` reads the space's `(@doc name ...)` atom, so `help(m.fn("inc"))` shows the documentation written in MeTTa, and a builtin answers from the engine's own register with no import. `inspect.signature()` reads the declared arrow, one positional-only parameter per arrow slot with the type as its annotation; a name with no arrow answers an honest `(*args)`. `.type` is the declared type atom or `None`, and `.equations` answers the stored `(= ...)` atoms, live rather than as a snapshot:
+
+```python
+m.run("(: inc (-> Number Number))")
+m.run("(= (inc $x) (+ $x 1))")
+f = m.fn("inc")
+inspect.signature(f)     # (x1: 'Number', /) -> 'Number'
+f.equations              # [Expr('(= (inc $_1) (+ $_1 1))')]
+```
+
+Because the object is an ordinary callable, `functools.partial(m.fn("add"), 10)` composes with stdlib machinery, which is the whole bound-method story; there is deliberately no `__defaults__`, because MeTTa has no default arguments.
+
+`.compiled`, also reachable as `m.disassemble(name)`, answers the Prolog clauses the name compiled to, one listing per registered arity. Homoiconicity shows the source for free, since `(= ...)` atoms are data; this is the other half, what the engine actually runs for a call, the same debuggability bytecode's `dis` gives Python:
+
+```python
+print(m.disassemble("inc"))
+# inc(A, B) :-
+#     +(A, 1, B).
+```
+
+Watching a function change is a subscription, because a function is a set of equations and equations are atoms: `m.subscribe("(= (inc $x) $body)", callback, on="both")` fires on every equation added or removed for the name, bindings included, which is the function-watcher story with no new machinery.
