@@ -90,6 +90,7 @@ export default defineConfig({
           { text: "Web routes", link: "/live/web-routes" },
           { text: "Multi-shot solving", link: "/live/multishot" },
           { text: "Contexts and remotes", link: "/live/contexts" },
+          { text: "Deployment as knowledge", link: "/live/boot" },
           { text: "The remote space protocol", link: "/live/remote-protocol" },
           { text: "The Distributed Atomspace", link: "/live/das" },
           { text: "The loop stays live", link: "/live/async" },
@@ -132,6 +133,7 @@ export default defineConfig({
             items: [
               { text: "petta.persistent", link: "/reference/petta-persistent" },
               { text: "petta.structures", link: "/reference/petta-structures" },
+              { text: "petta.tables", link: "/reference/petta-tables" },
               { text: "petta.arrays", link: "/reference/petta-arrays" },
               { text: "petta.testing", link: "/reference/petta-testing" },
             ],
@@ -147,6 +149,7 @@ export default defineConfig({
               { text: "petta.subscribe", link: "/reference/petta-subscribe" },
               { text: "petta.foreign", link: "/reference/petta-foreign" },
               { text: "petta.integrate", link: "/reference/petta-integrate" },
+              { text: "petta.manifest", link: "/reference/petta-manifest" },
             ],
           },
         ],

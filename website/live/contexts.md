@@ -26,4 +26,4 @@ A context is a process: serving and attaching within one process cannot join thr
 
 The shape follows SingularityNET's DAS gateway, a single transport method carrying the space and pattern, and metta-wam's `metta_server`; the transport is injectable, so tests and other carriers replace HTTP with any callable of the same contract. The target of a bridge rule only needs `add` and `remove`, so a bridge into an attached remote space propagates facts between engines.
 
-See [`petta.remote`](../reference/petta-remote) for the surface.
+See [`petta.remote`](../reference/petta-remote) for the surface. A whole deployment of loads, attaches, bridges, and servers can also be declared as one MeTTa manifest; [Deployment as knowledge](./boot.md) is that story.

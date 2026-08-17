@@ -8,6 +8,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added `petta.boot(manifest)`: deployment as knowledge. A manifest is a
+  MeTTa file of `(boot ...)` forms over a closed vocabulary, each sugar
+  for exactly one existing call: `(load "rules.metta")` for `m.load`
+  resolved against the manifest's directory, `(attach &crm "url")` for
+  `petta.remote.attach`, `(bridge &db <shape> <row>)` for a declared and
+  registered `TableBridge` (live connections cross through the
+  `connections=` mapping, checked both directions), and
+  `(serve (&self &crm) 8700)` for `petta.remote.serve`. The whole
+  manifest validates before anything performs, with every problem
+  listed; forms perform in source order and each lands as its own
+  `(boot ...)` atom, so the running app can query its own topology. The
+  answered `Boot` handle owns the started servers and closes them, on
+  the mid-way failure path too, while performed writes stand, the same
+  law the engine's own guards follow. The engine door underneath,
+  `petta_py_read_forms`, reads a source's forms without compiling,
+  storing, or running any.
+- Added a reference page for `petta.tables`, which had none, and listed
+  `petta.tables`, `petta.spaces`, and `petta.structures` in the module
+  index tables they were missing from. `petta.tables` now also resolves
+  lazily as a package attribute like its peer modules.
 - Added `@petta.record`, one decorator that makes a dataclass, NamedTuple,
   or Enum a full citizen of the type story: two-way conversion registers
   at decoration (an unregistrable class fails right there), and the

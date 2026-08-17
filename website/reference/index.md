@@ -38,6 +38,8 @@ These modules persist facts, operate on array protocols, and generate test data 
 | Module | Surface |
 |---|---|
 | [`petta.persistent`](./petta-persistent) | fact spaces backed by persistency journals |
+| [`petta.structures`](./petta-structures) | pattern-keyed maps, indexes, and engine-backed views |
+| [`petta.tables`](./petta-tables) | SQL tables bridged in as declared shapes |
 | [`petta.arrays`](./petta-arrays) | array operations and embedding stores |
 | [`petta.testing`](./petta-testing) | the hypothesis strategies the suite fuzzes itself with |
 
@@ -48,6 +50,8 @@ These modules connect spaces, processes, event loops, subscriptions, and externa
 | Module | Surface |
 |---|---|
 | [`petta.remote`](./petta-remote) | spaces served and attached across processes |
+| [`petta.spaces`](./petta-spaces) | union, readonly, mapped, and overlay combinators |
+| [`petta.manifest`](./petta-manifest) | app assembly from a (boot ...) manifest |
 | [`petta.das`](./petta-das) | the Distributed Atomspace over the command router |
 | [`petta.aio`](./petta-aio) | the engine on an event loop, one dedicated worker thread |
 | [`petta.subscribe`](./petta-subscribe) | standing queries |
