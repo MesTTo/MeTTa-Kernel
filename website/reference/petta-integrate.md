@@ -77,7 +77,7 @@ def integrate(m, target: Any) -> str:
 def installed() -> dict[tuple[str, str], Any]:
 ```
 
-> (space, integration name) -&gt; the installed target.
+> (space, integration name) -> the installed target.
 
 ## `discover`
 
@@ -139,7 +139,7 @@ def wrap_object(m, name: str, obj: Any, methods: dict[str, str] | Iterable[str])
 > mangle by the usual rule. A method returning None answers True, the
 > engine's own convention for an effectful builtin, since a Python method
 > returning None almost always is one. The object itself also lands in the
-> space as (wrapped name &lt;obj&gt;), so rules can enumerate what is wrapped.
+> space as (wrapped name &lt;obj>), so rules can enumerate what is wrapped.
 
 ## `register_object_type`
 
@@ -171,9 +171,7 @@ def register_repr(predicate: Callable[[Any], bool], formatter: Callable[[Any], s
 ## `unregister_repr`
 
 ```python
-def unregister_repr(
-    predicate: Callable[[Any], bool], formatter: Callable[[Any], str]
-) -> None:
+def unregister_repr(predicate: Callable[[Any], bool], formatter: Callable[[Any], str]) -> None:
 ```
 
 > Remove the latest exact protocol formatter registration.
@@ -182,7 +180,8 @@ def unregister_repr(
 
 ```python
 def register_reflector(
-    predicate: Callable[[Any], bool], fn: Callable[[Any, str, Any], int]
+    predicate: Callable[[Any], bool],
+    fn: Callable[[Any, str, Any], int],
 ) -> None:
 ```
 
@@ -192,7 +191,8 @@ def register_reflector(
 
 ```python
 def unregister_reflector(
-    predicate: Callable[[Any], bool], fn: Callable[[Any, str, Any], int]
+    predicate: Callable[[Any], bool],
+    fn: Callable[[Any, str, Any], int],
 ) -> None:
 ```
 

@@ -32,7 +32,7 @@ In Python, import `petta` and `pettorch`, create `m = petta.MeTTa()`, and call `
 
 A wrapped PyTorch module lets MeTTa rules choose which model runs. `MettaModule` goes the other way: its `forward` evaluates a named MeTTa function, and parameters are available to equations through `(param name)`. The forward pass must answer exactly one tensor.
 
-`neural_predicate` sends a network's softmax output through `petta.measure.weighted_relation`. Its answers are `(probability class)` pairs, so the same measure operations can select, normalize, or sample them.
+`neural_predicate` registers a network as an annotated relation: each class answers with its softmax probability as the answer's annotation, so `(top 1 ...)` selects the argmax and `(annotation)` reads each probability beside its class.
 
 Reflection writes ordinary facts such as `nn-module`, `nn-child`, `nn-param`, `nn-param-shape`, and `nn-linear`. Rules can match model structure beside application facts.
 

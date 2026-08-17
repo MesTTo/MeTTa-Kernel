@@ -124,8 +124,19 @@ jobs:
           /tmp/wheeltest/bin/pip install dist/*.whl
           cd /tmp
           /tmp/wheeltest/bin/python -c "
+          from pathlib import Path
+          import petta
           from petta import MeTTa
           m = MeTTa()
           assert m.run('!(+ 1 2)') == [[3]], m.run('!(+ 1 2)')
-          print('wheel boots and evaluates outside the checkout')
+          # The engine globs backends/*.pl on every boot, and expand_file_name
+          # answers [] for a missing directory exactly as it does for one
+          # holding no built backend. So an unshipped seam is indistinguishable
+          # from an unbuilt backend at run time and only a packaging check can
+          # tell them apart. It was unshipped until 2026-08-17.
+          runtime = Path(petta.__file__).parent / '_runtime'
+          for required in ('src', 'lib', 'backends'):
+              assert (runtime / required).is_dir(), f'{required}/ missing from the wheel'
+          assert list((runtime / 'backends').glob('*.pl')), 'backends/ shipped empty'
+          print('wheel boots, evaluates outside the checkout, and carries the backend seam')
           "

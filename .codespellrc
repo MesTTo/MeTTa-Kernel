@@ -1,7 +1,19 @@
 [codespell]
-skip = *.lock,*.pyc,*.svg,./build,./repos,./mork_ffi,./website/node_modules,./python/HE,./python/petta.egg-info,./.git
+# Bare directory names, because codespell prunes a walked subdirectory by its
+# NAME and a file by its full path. A ./-prefixed entry only matches when the
+# walk starts at ., so it silently stops skipping the moment the runner passes
+# explicit paths, which is how website/node_modules came back.
+#
+# ai-* is the workspace's own marker for agent scratch, local plans, todos and
+# handoff notes. Skipping the prefix rather than each file keeps a new note
+# from blocking a push over a typo in something that never ships.
+skip = *.lock,*.pyc,*.svg,package-lock.json,.git,node_modules,__pycache__,build,dist,target,repos,ai-*,HE,petta.egg-info
 # intensional: NARS distinguishes intensional from extensional inheritance,
 #   so every hit in lib_nars.metta is the correct term.
 # DOut, SourceE: Prolog variable names in translator.pl and shim.pl.
 # NotIn: the compiled-subset operator name in define.py.
-ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo
+# anc: the ancestor relation in first_steps.py, a MeTTa function name.
+# checkking: check-king, greedy_chess.metta's function for whether a side's
+#   king is in check. Its parameter is $king_side_to_check.
+# Zar: a person, who wrote most of nilbc.metta and is credited by handle.
+ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo,anc,checkking,zar

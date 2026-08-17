@@ -333,9 +333,9 @@ same objects passed at registration. Atom formatters pair
 my-library = "my_library.petta"
 ```
 
-The built-in `measure` integration is advertised in that group, so
-`m.integrate("measure")` and `m.discover()` can install it from package
-metadata.
+The library ships no built-in integration of its own; sibling packages
+publish into that group from their own manifests and `m.discover()`
+finds them.
 
 This leans on Python's metaprogramming the way SQLAlchemy and Pydantic do:
 introspected signatures become arities and types, the AST becomes equations,
@@ -355,25 +355,27 @@ space; `m.save(path)` writing a space back as loadable source, with
 `petta.current_space()`, callable from inside any operation to learn the
 space whose program called it.
 
-### Custom matchers and the measure algebra
+### Custom matching
 
-Matching is open: `petta.matching.matcher(m, name, score=..., generate=...)`
-registers any notion of closeness as a two-mode MeTTa function, scoring a
-bound candidate or generating unbound ones best first, always answering
-`(score value)` pairs. `install_fuzzy` ships lexical closeness (difflib);
-an `EmbeddingStore.matcher()` is the semantic instance, with an exact
-faiss backend when the package is present. `lib/lib_measure.metta` is the
-algebra those pairs feed, pure MeTTa in the shape of annotated
-disjunctions: `ws-normalize`, `ws-softmax` with a temperature, `ws-best`,
-`ws-top`, `ws-sample!`, `ws-collapse`, `ws-expect`. So
-`(ws-softmax (collapse (semmatch $q $x)) 0.5)` is attention through your
-matcher, and `lib/lib_soft.metta` extends it over terms: Sessa's weak
+Matching is open the way MeTTa itself says it is: a grounded value can
+define its own matching logic. Any Python object whose class defines
+`match_` participates in `(unify ...)` with no registration, yielding
+bindings for the operand it met, and a space operand routes through the
+engine's own match, which is how `(unify &self (friend $who Alice) $who
+no-friends)` answers each friend. Scored matching is an ordinary
+operation: answer each candidate with the degree as the answer's
+annotation, declare the semiring, and `(top k ...)` orders while
+`(annotation)` reads the degree beside its answer. Fuzzy, regex and
+semantic closeness are each a few lines on that surface;
+`python/examples/reasoning/custom_matchers.py` builds all three.
+`lib/lib_measure.metta` stays pure MeTTa over explicit `(weight value)`
+pairs, annotated-disjunction shaped: `ws-normalize`, `ws-softmax` with a
+temperature, `ws-best`, `ws-top`, `ws-sample!`, `ws-collapse`,
+`ws-expect`; `lib/lib_soft.metta` extends it over terms with Sessa's weak
 unification, structure crisp, symbols close to declared degrees
 (`pettaprove.link_store` materializes them from embeddings), variables
-binding as ever. `petta.measure.weighted_relation` closes the loop from the
-producing side: any callable answering one weight per class registers as a
-dual-mode relation in the same `(weight value)` shape, so a lookup table, a
-heuristic scorer or a neural network all feed the algebra identically.
+binding as ever. `(pair (annotation) $answer)` bridges an annotated
+operation's answers into that pair world when you want them there.
 `python/bench.py` runs the pytest-benchmark suite. `--list` prints its named
 cases and `--counter-only` runs the deterministic regression gate without
 using wall time. The gate uses `--keep-going`, so every case reports before a
@@ -434,7 +436,7 @@ The PyTorch integration lives in its own repository beside this one,
 set through `petta.arrays` with torch as the constructor default, losses
 and optimizers through `petta.integrate`, `MettaModule` running a MeTTa
 forward pass under autograd, architecture reflection as facts, and the
-neural predicate as the torch instance of `measure.weighted_relation`.
+neural predicate as an annotated relation on the same surface.
 Its docs, tests and torch examples travel with it. The CLI-reachable half
 stays here as `lib/lib_torch.metta`; see `examples/torch_lib.metta`.
 

@@ -157,7 +157,123 @@ test(control_exceptions_are_not_recontextualized) :-
     catch(rethrow_metta_operation_error('+', Original), Error, true),
     Error == Original.
 
+% SWI's own errors carry context(PI, _) with the second argument UNBOUND, so a
+% message clause that matched context(Operation, 'invalid MeTTa operation
+% argument') in its head BOUND that variable and then rendered every ordinary
+% type error in PeTTa's operation vocabulary. `X is foo+1` was reported as
+% "system:(is)/2: evaluable expected, found (/ foo 0)", naming an engine
+% internal and a culprit the program never wrote, which is exactly what an
+% extension author saw when their own predicate's is/2 refused a value.
+test(an_unrelated_type_error_keeps_swi_s_own_message) :-
+    catch(_ is foo + 1, Error, true),
+    message_to_string(Error, Text),
+    assertion(sub_string(Text, _, _, _, "is not a function")),
+    assertion(\+ sub_string(Text, _, _, _, "expected, found")).
+
+test(an_unknown_procedure_keeps_swi_s_own_message) :-
+    catch(plunit_no_such_predicate(1, 2), Error, true),
+    message_to_string(Error, Text),
+    assertion(sub_string(Text, _, _, _, "Unknown procedure")).
+
+test(a_metta_operation_error_still_names_the_operation) :-
+    catch('+'(foo, 1, _), Error, true),
+    message_to_string(Error, Text),
+    assertion(sub_string(Text, _, _, _, "+: number expected, found foo")).
+
 :- end_tests(metta_operation_errors).
+
+:- dynamic plunit_break_type_bridge/0.
+:- multifile py_object_type_names/2.
+py_object_type_names(_, _) :- plunit_break_type_bridge, throw(plunit_broken_bridge).
+
+% evalc's space argument selects the module the goals resolve in and nothing
+% else. PeTTa's eval is a full evaluation of compiled goals rather than
+% minimal MeTTa's single rewriting step, and evalc keeps that, so the two
+% agree everywhere except which space's equations answer.
+:- begin_tests(metta_evalc,
+               [ setup(setup_evalc), cleanup(cleanup_evalc) ]).
+
+setup_evalc :-
+    retractall(user:silent(_)),
+    assertz(user:silent(true)),
+    process_metta_string("(= (plunit-evalc-pick) here)", _),
+    'add-atom'('&plunit_evalc_kb', [=, ['plunit-evalc-pick'], there], _),
+    process_metta_string("(= (plunit-evalc-echo $x) $x)", _),
+    sread("(= (plunit-evalc-echo $x) $x)", KbEcho),
+    'add-atom'('&plunit_evalc_kb', KbEcho, _).
+
+cleanup_evalc :-
+    'remove-atom'('&plunit_evalc_kb', [=, ['plunit-evalc-pick'], there], _),
+    'remove-atom'('&self', [=, ['plunit-evalc-pick'], here], _),
+    sread("(= (plunit-evalc-echo $x) $x)", KbEcho),
+    'remove-atom'('&plunit_evalc_kb', KbEcho, _),
+    sread("(= (plunit-evalc-echo $x) $x)", SelfEcho),
+    'remove-atom'('&self', SelfEcho, _),
+    clear_native_atoms('&plunit_evalc_kb').
+
+test(evalc_answers_from_the_space_it_is_given) :-
+    evalc(['plunit-evalc-pick'], '&self', InSelf),
+    assertion(InSelf == here),
+    evalc(['plunit-evalc-pick'], '&plunit_evalc_kb', InKb),
+    assertion(InKb == there).
+
+test(evalc_agrees_with_eval_in_the_default_space) :-
+    eval(['plunit-evalc-pick'], ViaEval),
+    evalc(['plunit-evalc-pick'], '&self', ViaEvalc),
+    assertion(ViaEval == ViaEvalc).
+
+% A space is an atom beginning with &, so an argument that is not one is a
+% type error rather than a silently empty space.
+test(evalc_refuses_an_argument_that_is_not_a_space,
+     [throws(error(type_error(_, not_a_space), _))]) :-
+    evalc(['plunit-evalc-pick'], not_a_space, _).
+
+% &self is a reader token: it resolves where source text is parsed, and
+% nowhere later, so a term built at run time keeps the literal atom
+% through both eval doors. evalc especially must not substitute, because
+% a reader-pinned token is lexical (the space hosting the source), and
+% re-aiming it at evalc's dynamic target would change what pinned code
+% means. The runtime walks that once substituted here also cost
+% alpha-unique's counter twelve percent [measured 2026-08-17].
+test(evalc_keeps_a_runtime_literal_self_as_written) :-
+    sread("(plunit-evalc-echo &self)", T),
+    evalc(T, '&plunit_evalc_kb', Out),
+    assertion(Out == '&self').
+
+test(eval_keeps_a_runtime_literal_self_as_written) :-
+    sread("(plunit-evalc-echo &self)", T),
+    eval(T, Out),
+    assertion(Out == '&self').
+
+:- end_tests(metta_evalc).
+
+:- begin_tests(metta_object_types).
+
+% A bridge whose py_object_type_names/2 clause THROWS used to be read as "no
+% bridge answered", and the class walk ran instead. One broken protocol
+% predicate therefore destroyed typing for every host object in the process,
+% and get-type answered Box, the envelope's own class, for all of them, with
+% no error at any point. python/petta/_ops.py states the rule for the same
+% probe on its own side: a broken probe is the registrant's bug.
+% The clause is static and flag-guarded, because py_object_type_names/2 is
+% multifile without being dynamic: a bridge contributes its clause at load
+% time and cannot be installed later.
+test(a_throwing_type_bridge_is_the_registrants_bug,
+     [ setup(assertz(user:plunit_break_type_bridge)),
+       cleanup(retractall(user:plunit_break_type_bridge)),
+       throws(plunit_broken_bridge) ]) :-
+    py_object_type(plunit_not_really_an_object, _).
+
+% A bridge that is ABSENT is an ordinary configuration, not a failure: a
+% program reaching Python through py-call alone still gets its objects typed
+% by the class walk.
+test(an_absent_type_bridge_falls_back_to_the_class_walk) :-
+    py_call(datetime:datetime(2020, 1, 1), Object),
+    findall(T, py_object_type(Object, T), Types),
+    assertion(memberchk(datetime, Types)),
+    assertion(\+ memberchk(object, Types)).
+
+:- end_tests(metta_object_types).
 
 :- begin_tests(metta_type_answers,
                [ setup(setup_type_answers),
@@ -564,10 +680,523 @@ test(the_formal_term_stays_iso) :-
     Operation == '+',
     Explanation == 'invalid MeTTa operation argument'.
 
-%Every other error SWI renders keeps its own message.
+%Every other error SWI renders keeps its own message. once/1 because this asks
+%whether the text CONTAINS the fragment, and sub_string/5 with every position
+%unbound is a search: it answers, then keeps a choice point open looking for
+%another occurrence.
 test(an_unrelated_type_error_is_untouched) :-
     catch(type_error(number, ['State', 5]), Error, true),
     message_to_string(Error, Text),
-    sub_string(Text, _, _, _, "['State',5]").
+    once(sub_string(Text, _, _, _, "['State',5]")).
 
 :- end_tests(metta_operation_error_message).
+
+:- begin_tests(metta_decons_total).
+
+%decons-atom answers for EVERY expression including the empty one, because
+%failing there does not mean "no decomposition", it drops the whole
+%continuation: (chain (decons-atom ()) $l TEMPLATE) never runs its template
+%and the branch after it is unreachable.
+test(decons_atom_is_total) :-
+    'decons-atom'([a, b, c], Split),
+    Split == [a, [b, c]],
+    'decons-atom'([], Empty),
+    Empty = ['Error', ['decons-atom', []], Message],
+    string(Message).
+
+%Three elements, and that is load-bearing. lib_measure.metta and
+%lib_soft.metta write (let ($h $t) (decons-atom $ps) ...) and rely on the
+%empty case not matching, so a two-element error would bind $h to Error and
+%answer a wrong result in silence.
+test(the_empty_error_does_not_destructure_as_a_pair) :-
+    'decons-atom'([], Empty),
+    \+ Empty = [_, _].
+
+:- end_tests(metta_decons_total).
+
+:- begin_tests(metta_builtin_type_surface).
+
+%get-type has to report the engine's own surface, or every tool reading it is
+%told the engine has no types for its own builtins. != is the worked case: it
+%IS a builtin, IS registered and IS declared in lib_builtin_types.metta, and
+%before this it answered %Undefined% for an operation that works.
+surface_case('!=',        [->, _, _, 'Bool']).
+surface_case('==',        [->, _, _, 'Bool']).
+surface_case('+',         [->, 'Number', 'Number', 'Number']).
+surface_case('sqrt-math', [->, 'Number', 'Number']).
+
+test(get_type_reports_the_engines_own_builtins,
+     [forall(surface_case(Name, Shape))]) :-
+    'get-type'(Name, Type),
+    subsumes_term(Shape, Type).
+
+%A declared type is a claim that the operation can be CALLED that way, and
+%this one could not be called at all. exists_file was registered bare, so the
+%engine read SWI's exists_file/1's only argument as the output slot and made
+%it a zero-input operation: a path could never be passed in. Declaring
+%(-> %Undefined% Bool) for it said otherwise.
+%
+%Answering false rather than failing is the other half. A test that FAILS is
+%indistinguishable from a test that was never reached, which is how the
+%original symptom stayed hidden: lib_import.metta records dropping a guard
+%because "It made a missing file fail SILENTLY, with no answer".
+%An operator whose name a LIBRARY also exports had every one of that
+%library's arities recorded as its own. library(yall) exports //2 through //9
+%into user as its free-variables lambda, so `/` was registered at seven
+%arities where + and * have one, and (/ 1 2 3) compiled to a direct
+%'/'(1,2,3,_) call, which is yall's lambda: it answered
+%`type_error(lambda_free, 1)` where every other operator answers the engine's
+%own error naming the operator. Nothing was ever wrong with the ANSWERS,
+%currying included; the message was simply unactionable.
+test(metta_registration_arities,
+     [forall(member(Operator, ['/', '+', '-', '*', min, max]))]) :-
+    findall(Arity, arity(Operator, Arity), Arities),
+    sort(Arities, Sorted),
+    assertion(Sorted == [3]).
+
+test(metta_arity_errors_name_the_operator,
+     [forall(member(Operator, ['/', '+', '-', '*', min, max]))]) :-
+    catch(( reduce([Operator, 1, 2, 3], _, _), Formal = none ),
+          error(Formal, _), true),
+    assertion(Formal = domain_error(function_input_arities(Operator, _), _)).
+
+test(builtin_exists_file) :-
+    library('lib_builtin_types.metta', Present),
+    'exists_file'(Present, Found),
+    assertion(Found == true),
+    'exists_file'('/nonexistent/petta/definitely-not-here', Missing),
+    assertion(Missing == false),
+    %The declaration and the callable shape agree, which is the pairing that
+    %was broken: get-type promised one input and the registration took none.
+    'get-type'(exists_file, Type),
+    assertion(subsumes_term([->, _, 'Bool'], Type)),
+    catch('exists_file'(5, _), error(Formal, _), true),
+    assertion(nonvar(Formal)).
+
+test(the_table_is_built_from_the_file_rather_than_written_twice) :-
+    library('lib_builtin_types.metta', Path),
+    read_file_to_string(Path, Text, []),
+    parse_metta_source(Text, Forms),
+    aggregate_all(count,
+                  ( member(parsed(expression, _, [':', Name, _]), Forms),
+                    atom(Name) ),
+                  InFile),
+    aggregate_all(count, builtin_type_declaration(_, _), Loaded),
+    InFile == Loaded,
+    InFile > 0.
+
+%The declarations are FACTS, not atoms in &self. Putting them in &self changes
+%what every program sees of its own space, which is not the engine's to do.
+test(the_surface_is_invisible_to_a_program_enumerating_its_own_space) :-
+    \+ ( 'get-atoms'('&self', Atom),
+         Atom = [':', Name, _],
+         builtin_type_declaration(Name, _) ).
+
+%Last in the candidate order, so a program's own declaration wins.
+test(a_program_declaration_is_answered_before_the_engines,
+     [ setup(( retractall(silent(_)), assertz(silent(true)),
+               'add-atom'('&self', [':', 'sqrt-math', 'PlunitOverride'], _) )),
+       cleanup(( 'remove-atom'('&self', [':', 'sqrt-math', 'PlunitOverride'], _),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    findall(T, 'get-type'('sqrt-math', T), Types),
+    Types = ['PlunitOverride'|_].
+
+:- end_tests(metta_builtin_type_surface).
+
+:- begin_tests(metta_constraint_domains).
+
+%CLP(Q) and CLP(B) each arrive as ONE entry point taking its constraint as
+%written, rather than as a prefixed operator family like `#`. Mirroring `#`
+%would have needed about thirty names; these are five.
+constraint_case("!(let True (clpq (= (* 2 $x) 1)) (repr $x))", ["1r2"]).
+constraint_case("!(let True (clpq (= (* 2 $x) 1)) (* 2 $x))", [1]).
+constraint_case("!(collapse (let True (clpq (>= $a 0)) (clpq-entailed (>= $a 0))))",
+                [[true]]).
+constraint_case("!(collapse (let True (clpq (>= $b 0)) (clpq-entailed (>= $b 5))))",
+                [[false]]).
+constraint_case("!(collapse (let True (clpq (= $c 1)) (clpq (= $c 2))))", [[]]).
+constraint_case("!(collapse (let True (clpb (card (1) ($m $n))) \c
+                              (clpb-labeling ($m $n))))",
+                [[[0, 1], [1, 0]]]).
+constraint_case("!(clpb-taut (+ $t (~ $t)))", [true]).
+constraint_case("!(clpb-taut (* $u (~ $u)))", [false]).
+
+test(each_constraint_domain_answers,
+     [ forall(constraint_case(Source, Expected)),
+       setup(( retractall(silent(_)), assertz(silent(true)),
+               process_metta_string(
+                   "!(import! &self (library lib_constraints))", _) )),
+       cleanup(( retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    process_metta_string(Source, Results),
+    Results == Expected.
+
+%The constraint arrives AS WRITTEN. Evaluated first, (* 2 $x) would run as
+%ordinary arithmetic and raise before the solver saw it. The Atom parameter
+%in the library's declarations is what does it, which is the documented way a
+%Prolog-registered predicate takes an argument unevaluated.
+test(a_constraint_is_not_evaluated_before_the_solver_sees_it,
+     [setup(( retractall(silent(_)), assertz(silent(true)),
+              process_metta_string(
+                  "!(import! &self (library lib_constraints))", _) )),
+      cleanup(( retractall(silent(_)), assertz(silent(false)) ))]) :-
+    translate_runnable_expr([clpq, [=, [*, 2, _X], 1]], Goals, _),
+    term_string(Goals, Text),
+    %the constraint reaches clpq/2 as the list it was written as, with no
+    %arithmetic goal emitted ahead of it
+    once(sub_string(Text, _, _, _, "clpq([=,[*,2,")),
+    \+ sub_string(Text, _, _, _, "*(2,").
+
+%A list whose head is a symbol is an operator application; any other list
+%stays a list, because these solvers take lists as arguments too.
+test(a_list_argument_stays_a_list,
+     [setup(( retractall(silent(_)), assertz(silent(true)),
+              process_metta_string(
+                  "!(import! &self (library lib_constraints))", _) )),
+      cleanup(( retractall(silent(_)), assertz(silent(false)) ))]) :-
+    metta_constraint_term([card, [1], [A, B]], Term),
+    Term = card(Counts, Vars),
+    Counts == [1],
+    Vars = [A1, B1],
+    A1 == A, B1 == B.
+
+:- end_tests(metta_constraint_domains).
+
+:- begin_tests(metta_subtyping).
+
+%`:<` is upstream's spelling, SUB_TYPE_SYMBOL at lib/src/metta/mod.rs:22, and
+%the arrow points from the subtype UP to the supertype: `(:< Dog Animal)` says
+%Dog is below Animal. It is not `:>`.
+%
+%The mechanism is the part that is easy to get wrong. Upstream never DECIDES a
+%subtyping relation while checking an argument; it WIDENS the argument's type
+%LIST and runs the ordinary check against the wider list, so the matcher learns
+%nothing about subtyping and `get-type` is where it shows. Every expectation
+%below is the arbiter's measured answer from pinned hyperon 0.2.10 at 3f76dc4
+%[source: /home/user/Dev/LeaTTa/ai-report-subtype-graph.md].
+
+subtype_case(Setup, Query, Expected) :-
+    forall(member(Form, Setup), process_metta_string(Form, _)),
+    format(atom(Ask), "!(collapse (get-type ~w))", [Query]),
+    process_metta_string(Ask, [Answered]),
+    assertion(Answered == Expected).
+
+test(a_declared_type_widens_to_its_supertype) :-
+    subtype_case(["(: sub-a A1)", "(:< A1 B1)"], 'sub-a', ['A1', 'B1']).
+
+%A grounded literal's built-in type is NOT widened: upstream's
+%get_atom_types_internal queries the space only for symbols and expressions.
+test(a_literals_builtin_type_is_not_widened) :-
+    subtype_case(["(:< Number SubFoo)"], 1, ['Number']).
+
+%Nor is an application's return type.
+test(an_application_return_type_is_not_widened) :-
+    subtype_case(["(: sub-c C1)", "(: sub-f (-> C1 D1))", "(:< D1 E1)"],
+                 '(sub-f sub-c)', ['D1']).
+
+%Tuple products first, then the direct declarations already widened, then one
+%more widening over the whole list. A single pass answers ((A B) D C E) and
+%upstream answers ((A B) D E C), so the order is the test.
+test(an_expression_widens_in_two_phases) :-
+    subtype_case(["(: sub-p P1)", "(: sub-q Q1)", "(: (sub-p sub-q) R1)",
+                  "(:< (P1 Q1) S1)", "(:< R1 T1)"],
+                 '(sub-p sub-q)', [['P1', 'Q1'], 'R1', 'T1', 'S1']).
+
+%The diamond answers D TWICE. add_super_types checks presence against the list
+%as it stood when the round BEGAN, so both B and C reach D in the same round
+%and both append it. Reproducing the duplicate is what makes this parity rather
+%than a tidier answer of our own.
+test(the_diamond_reproduces_upstreams_duplicate) :-
+    subtype_case(["(:< DA DB)", "(:< DA DC)", "(:< DB DD)", "(:< DC DD)",
+                  "(: sub-x DA)"],
+                 'sub-x', ['DA', 'DB', 'DC', 'DD', 'DD']).
+
+%And it reaches the argument check, which is what the feature is FOR: a value
+%declared Dog satisfies a parameter declared Animal.
+test(an_argument_is_accepted_through_its_supertype) :-
+    forall(member(Form, ["(: Rex ADog)", "(:< ADog AnAnimal)",
+                         "(: sub-speak (-> AnAnimal String))",
+                         "(= (sub-speak $a) \"woof\")"]),
+           process_metta_string(Form, _)),
+    process_metta_string("!(sub-speak Rex)", Answer),
+    assertion(Answer == ["woof"]).
+
+%With no edge declared the type path is untouched, which is what keeps this
+%free for every program that does not use it.
+test(no_edge_leaves_types_alone) :-
+    process_metta_string("(: sub-plain PlainType)", _),
+    process_metta_string("!(collapse (get-type sub-plain))", [Types]),
+    assertion(Types == ['PlainType']).
+
+:- end_tests(metta_subtyping).
+
+:- begin_tests(metta_metatype_parameters).
+
+%A parameter written as a metatype accepts any atom of that kind. Before this
+%none of the five checked at all, so `(: PyList (-> Expression PyList))` typed
+%a call to it as the tuple product of its arguments, and a container, which has
+%no fixed arity, could not be declared. `Expression` is how HE declares
+%`(: superpose (-> Expression Atom))`.
+%
+%The mechanism is one equality with a wildcard, not the `:<` graph:
+%`*typ == ATOM_TYPE_ATOM || *typ == get_meta_type(atom)`
+%[source: LeaTTa tests/semantics/types-meta/00_metatypes.metta, quoting
+%hyperon-experimental@3f76dc4 lib/src/metta/types.rs:606-617].
+
+metatype_call(Declaration, Argument, Answer) :-
+    process_metta_string(Declaration, _),
+    format(atom(Ask), "!(collapse ~w)", [Argument]),
+    process_metta_string(Ask, [Answer]).
+
+test(a_variadic_constructor_can_be_declared) :-
+    process_metta_string("(: MetaPyList (-> Expression MetaPyList))", _),
+    process_metta_string("!(collapse (get-type (MetaPyList (1 2 3))))", [Types]),
+    assertion(Types == ['MetaPyList']).
+
+test(a_symbol_parameter_takes_a_symbol_and_nothing_else) :-
+    process_metta_string("(: meta-sym (-> Symbol Atom))", _),
+    process_metta_string("(= (meta-sym $s) (got $s))", _),
+    metatype_call("", "(meta-sym foo)", Accepted),
+    assertion(Accepted == [[got, foo]]),
+    metatype_call("", "(meta-sym (1 2))", RejectsExpression),
+    assertion(RejectsExpression == []),
+    metatype_call("", "(meta-sym 7)", RejectsNumber),
+    assertion(RejectsNumber == []).
+
+test(an_expression_parameter_takes_an_expression_and_nothing_else) :-
+    process_metta_string("(: meta-expr (-> Expression Atom))", _),
+    process_metta_string("(= (meta-expr $e) (got $e))", _),
+    metatype_call("", "(meta-expr (1 2))", Accepted),
+    assertion(Accepted == [[got, [1, 2]]]),
+    metatype_call("", "(meta-expr foo)", Rejected),
+    assertion(Rejected == []).
+
+%Atom is the wildcard, which is the whole of what the tutorial's "supertype"
+%wording means once it is read off the source rather than the prose.
+%A distinct name per case: plunit's forall re-runs the whole body, so one
+%shared name would redefine the equation and answer once more each time round.
+test(an_atom_parameter_takes_every_kind,
+     [forall(member(Name-Argument, ["meta-any-sym"-"foo",
+                                    "meta-any-expr"-"(1 2)",
+                                    "meta-any-num"-"7",
+                                    "meta-any-str"-"\"s\""]))]) :-
+    format(atom(Declare), "(: ~w (-> Atom Atom))", [Name]),
+    process_metta_string(Declare, _),
+    format(atom(Define), "(= (~w $a) (got $a))", [Name]),
+    process_metta_string(Define, _),
+    format(atom(Ask), "!(collapse (~w ~w))", [Name, Argument]),
+    process_metta_string(Ask, [Answer]),
+    assertion(Answer = [[got, _]]).
+
+%get-metatype/2 was only correct with its second argument UNBOUND. The clauses
+%are ordered and cut on the value, so asking with it bound let an earlier
+%clause's head fail to unify and the catch-all at the bottom claim the call,
+%which made every value answer Grounded. Both callers ask with it bound.
+test(a_grounded_parameter_rejects_a_symbol) :-
+    process_metta_string("(: meta-gr (-> Grounded Atom))", _),
+    process_metta_string("(= (meta-gr $g) (got $g))", _),
+    metatype_call("", "(meta-gr 7)", Accepted),
+    assertion(Accepted == [[got, 7]]),
+    metatype_call("", "(meta-gr foo)", Rejected),
+    assertion(Rejected == []).
+
+test(get_metatype_answers_the_same_bound_or_unbound,
+     [forall(member(Value-Metatype, [foo-'Symbol', 7-'Grounded',
+                                     "s"-'Grounded', [1,2]-'Expression']))]) :-
+    'get-metatype'(Value, Computed),
+    assertion(Computed == Metatype),
+    assertion('get-metatype'(Value, Metatype)),
+    forall(( member(Other, ['Symbol', 'Grounded', 'Expression', 'Variable']),
+             Other \== Metatype ),
+           assertion(\+ 'get-metatype'(Value, Other))).
+
+:- end_tests(metta_metatype_parameters).
+
+:- begin_tests(metta_module_context).
+
+% current_metta_module/1 is one of the seven services src/ext_points.pl
+% publishes for extensions to CALL, and it was the only one of the seven with
+% no test of its own: EXTENDING.md has told handler authors to read it for
+% longer than anything declared it, and lib_memo and lib_thread do. A published
+% predicate nothing exercises can change under every extension at once.
+
+test(the_default_context_is_user) :-
+    current_metta_module(Module),
+    assertion(Module == user).
+
+test(a_named_module_is_in_force_inside_the_switch) :-
+    with_metta_module('&probe', current_metta_module(Inside)),
+    assertion(Inside == '&probe').
+
+test(the_previous_module_is_restored_after) :-
+    with_metta_module('&probe', true),
+    current_metta_module(After),
+    assertion(After == user).
+
+% The restore is setup_call_cleanup/3's, so it has to survive the goal
+% throwing. Without that a library that raises inside a named space leaves
+% every later compile pointed at a module the caller never asked for.
+test(the_previous_module_is_restored_after_a_throw) :-
+    catch(with_metta_module('&probe', throw(deliberate)), deliberate, true),
+    current_metta_module(After),
+    assertion(After == user).
+
+test(switches_nest_and_unwind_in_order) :-
+    with_metta_module('&outer',
+                      ( current_metta_module(Outer),
+                        with_metta_module('&inner',
+                                          current_metta_module(Inner)),
+                        current_metta_module(Back),
+                        assertion(Outer == '&outer'),
+                        assertion(Inner == '&inner'),
+                        assertion(Back == '&outer') )),
+    current_metta_module(Final),
+    assertion(Final == user).
+
+:- end_tests(metta_module_context).
+
+:- begin_tests(metta_handles_route).
+
+% (handles Ctx Pattern Fidelity [Det]) entries route a query by the most
+% specific matching pattern, (in $x) marks a position that must arrive
+% bound, and two maximal entries that disagree are a loud conflict.
+
+handles_declare(Entry) :- 'add-atom'('&petta', Entry, _).
+handles_retract(Entry) :- catch('remove-atom'('&petta', Entry, _), _, true).
+
+test(strip_keeps_a_variable_headed_pair_entry) :-
+    petta_adorn_strip([F, A], Stripped, Requirements),
+    assertion(Stripped == [F, A]),
+    assertion(Requirements == []),
+    assertion(var(F)).
+
+test(strip_keeps_the_symbol_in_as_data_mid_expression) :-
+    petta_adorn_strip([foo, in, X], Stripped, Requirements),
+    assertion(Stripped == [foo, in, X]),
+    assertion(Requirements == []).
+
+test(strip_collects_the_adorned_position) :-
+    petta_adorn_strip([edge, [in, A], B], Stripped, Requirements),
+    assertion(Stripped == [edge, A, B]),
+    assertion(Requirements == [A]).
+
+test(strip_handles_a_nested_wrapper) :-
+    petta_adorn_strip([f, [in, [g, [in, X]]]], Stripped, Requirements),
+    assertion(Stripped == [f, [g, X]]),
+    assertion(Requirements == [[g, X], X]).
+
+test(route_picks_the_most_specific_entry,
+     [ setup(( handles_declare([handles, '&plunit_hr', [edge, _, _], 'Exact']),
+               handles_declare([handles, '&plunit_hr', [edge, S, S], 'Sound']) )),
+       cleanup(( handles_retract([handles, '&plunit_hr', [edge, _, _], 'Exact']),
+                 handles_retract([handles, '&plunit_hr', [edge, S2, S2], 'Sound']) )) ]) :-
+    petta_handles_route('&plunit_hr', [edge, Q, Q], Repeated, _),
+    assertion(Repeated == 'Sound'),
+    petta_handles_route('&plunit_hr', [edge, _, _], Distinct, _),
+    assertion(Distinct == 'Exact').
+
+test(route_reads_the_det_slot_and_defaults_it,
+     [ setup(( handles_declare([handles, '&plunit_hr5', [p, _], 'Exact', det]),
+               handles_declare([handles, '&plunit_hr5', [q, _], 'Exact']) )),
+       cleanup(( handles_retract([handles, '&plunit_hr5', [p, _], 'Exact', det]),
+                 handles_retract([handles, '&plunit_hr5', [q, _], 'Exact']) )) ]) :-
+    petta_handles_route('&plunit_hr5', [p, _], _, DetP),
+    assertion(DetP == det),
+    petta_handles_route('&plunit_hr5', [q, _], _, DetQ),
+    assertion(DetQ == none).
+
+test(route_fails_where_nothing_is_declared) :-
+    \+ petta_handles_route('&plunit_hr_nobody', [p, _], _, _).
+
+test(disagreeing_maximal_entries_throw_a_conflict,
+     [ setup(( handles_declare([handles, '&plunit_hrc', [edge, a, _], 'Exact']),
+               handles_declare([handles, '&plunit_hrc', [edge, _, b], 'Sound']) )),
+       cleanup(( handles_retract([handles, '&plunit_hrc', [edge, a, _], 'Exact']),
+                 handles_retract([handles, '&plunit_hrc', [edge, _, b], 'Sound']) )),
+       throws(error(petta_contract_conflict('&plunit_hrc', _, _, _), _)) ]) :-
+    petta_handles_route('&plunit_hrc', [edge, a, b], _, _).
+
+test(agreeing_maximal_entries_answer_their_shared_claim,
+     [ setup(( handles_declare([handles, '&plunit_hra', [edge, a, _], 'Exact']),
+               handles_declare([handles, '&plunit_hra', [edge, _, b], 'Exact']) )),
+       cleanup(( handles_retract([handles, '&plunit_hra', [edge, a, _], 'Exact']),
+                 handles_retract([handles, '&plunit_hra', [edge, _, b], 'Exact']) )) ]) :-
+    petta_handles_route('&plunit_hra', [edge, a, b], Fidelity, _),
+    assertion(Fidelity == 'Exact').
+
+test(an_adorned_entry_requires_the_bound_argument,
+     [ setup(handles_declare([handles, '&plunit_hri', [edge, [in, _], _], 'Refuse'])),
+       cleanup(handles_retract([handles, '&plunit_hri', [edge, [in, _], _], 'Refuse'])) ]) :-
+    petta_handles_route('&plunit_hri', [edge, bound, _], Bound, _),
+    assertion(Bound == 'Refuse'),
+    \+ petta_handles_route('&plunit_hri', [edge, _, _], _, _).
+
+test(subsumption_never_binds_the_query,
+     [ setup(handles_declare([handles, '&plunit_hrb', [edge, a, _], 'Exact'])),
+       cleanup(handles_retract([handles, '&plunit_hrb', [edge, a, _], 'Exact'])) ]) :-
+    % (edge $q b) is outside (edge a $y): routing it must not bind $q to a.
+    \+ petta_handles_route('&plunit_hrb', [edge, _Q, b], _, _).
+
+test(coherence_accepts_specificity_resolved_overlaps,
+     [ setup(( handles_declare([handles, '&plunit_hco', [edge, _, _], 'Exact']),
+               handles_declare([handles, '&plunit_hco', [edge, C, C], 'Sound']) )),
+       cleanup(( handles_retract([handles, '&plunit_hco', [edge, _, _], 'Exact']),
+                 handles_retract([handles, '&plunit_hco', [edge, C2, C2], 'Sound']) )) ]) :-
+    % The overlap exists and the repeated-variable entry wins it by
+    % specificity, so there is no conflict to find.
+    petta_handles_coherent('&plunit_hco').
+
+test(coherence_throws_on_a_disagreeing_tie,
+     [ setup(( handles_declare([handles, '&plunit_hct', [edge, a, _], 'Exact']),
+               handles_declare([handles, '&plunit_hct', [edge, _, b], 'Sound']) )),
+       cleanup(( handles_retract([handles, '&plunit_hct', [edge, a, _], 'Exact']),
+                 handles_retract([handles, '&plunit_hct', [edge, _, b], 'Sound']) )),
+       throws(error(petta_contract_conflict('&plunit_hct', _, _, _), _)) ]) :-
+    petta_handles_coherent('&plunit_hct').
+
+test(the_scan_only_idiom_is_coherent_and_routes_by_adornment,
+     [ setup(( handles_declare([handles, '&plunit_hcb', [edge, [in, _], _], 'Refuse']),
+               handles_declare([handles, '&plunit_hcb', [edge, _, _], 'Exact']) )),
+       cleanup(( handles_retract([handles, '&plunit_hcb', [edge, [in, _], _], 'Refuse']),
+                 handles_retract([handles, '&plunit_hcb', [edge, _, _], 'Exact']) )) ]) :-
+    % The adorned entry matches strictly fewer queries, so it is the more
+    % specific one: bound-subject lookups are refused, the free scan stays
+    % exact, and the pair is coherent rather than a tie.
+    petta_handles_coherent('&plunit_hcb'),
+    petta_handles_route('&plunit_hcb', [edge, bound, _], Bound, _),
+    assertion(Bound == 'Refuse'),
+    petta_handles_route('&plunit_hcb', [edge, _, _], Free, _),
+    assertion(Free == 'Exact').
+
+test(strip_reports_renaming_invariant_paths) :-
+    petta_adorn_strip([edge, [in, A], [in, B]], Stripped, Requirements, Paths),
+    assertion(Stripped == [edge, A, B]),
+    assertion(Requirements == [A, B]),
+    assertion(Paths == [[1], [2]]).
+
+test(a_narrower_pattern_outranks_any_adornment,
+     [ setup(( handles_declare([handles, '&plunit_hcn', [edge, S, S], 'Sound']),
+               handles_declare([handles, '&plunit_hcn', [edge, [in, _], _], 'Refuse']) )),
+       cleanup(( handles_retract([handles, '&plunit_hcn', [edge, S2, S2], 'Sound']),
+                 handles_retract([handles, '&plunit_hcn', [edge, [in, _], _], 'Refuse']) )) ]) :-
+    % A bound self-loop query falls under both; the repeated-variable
+    % pattern is narrower than the adorned one, so its claim wins.
+    petta_handles_route('&plunit_hcn', [edge, a, a], Fidelity, _),
+    assertion(Fidelity == 'Sound').
+
+test(the_conflict_error_names_both_entries) :-
+    message_to_string(error(petta_contract_conflict('&c', [edge, a, _],
+                                                    [edge, _, b], [edge, a, b]),
+                            none), Message),
+    once(sub_string(Message, _, _, _, "disagree")),
+    once(sub_string(Message, _, _, _, "&c")),
+    \+ sub_string(Message, _, _, _, "Unknown error term").
+
+test(the_refusal_error_names_the_space_and_shape) :-
+    message_to_string(error(petta_refused_shape('&c', [secret, s1],
+                                                [secret, [in, _]]), none),
+                      Message),
+    once(sub_string(Message, _, _, _, "Refuse")),
+    once(sub_string(Message, _, _, _, "&c")),
+    \+ sub_string(Message, _, _, _, "Unknown error term").
+
+:- end_tests(metta_handles_route).

@@ -64,7 +64,7 @@ export default defineConfig({
         text: "Reasoning",
         link: "/reasoning/",
         items: [
-          { text: "Matchers and measures", link: "/reasoning/matchers-measure" },
+          { text: "Custom matching", link: "/reasoning/matchers-measure" },
           { text: "Weighted relations", link: "/reasoning/weighted-relations" },
         ],
       },
@@ -88,6 +88,7 @@ export default defineConfig({
           { text: "Web routes", link: "/live/web-routes" },
           { text: "Multi-shot solving", link: "/live/multishot" },
           { text: "Contexts and remotes", link: "/live/contexts" },
+          { text: "The remote space protocol", link: "/live/remote-protocol" },
           { text: "The Distributed Atomspace", link: "/live/das" },
           { text: "The loop stays live", link: "/live/async" },
         ],
@@ -121,8 +122,6 @@ export default defineConfig({
             items: [
               { text: "petta.trace", link: "/reference/petta-trace" },
               { text: "petta.lint", link: "/reference/petta-lint" },
-              { text: "petta.measure", link: "/reference/petta-measure" },
-              { text: "petta.matching", link: "/reference/petta-matching" },
             ],
           },
           {

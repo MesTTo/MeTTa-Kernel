@@ -29,7 +29,7 @@ class TraceEvent:
 ## `trace`
 
 ```python
-def trace(space, source: str, max_events: int = 1_000_000) -> list[TraceEvent]:
+def trace(space, source: str, max_events: int = 1000000) -> list[TraceEvent]:
 ```
 
 > Run source in this space under the engine's reduction trace.

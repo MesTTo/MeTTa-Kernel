@@ -1,30 +1,43 @@
+<!--
+Purpose: show weighted relations built on the general surface: an
+operation answering its classes with weights as annotations.
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None
+-->
+
 # Weighted relations and neural predicates
 
-`petta.measure.weighted_relation` turns a weights-producing Python callable into a dual-mode MeTTa relation. The unbound mode returns one `(weight class)` pair for every class. The bound mode scores one chosen class. Both modes use the shape consumed by `ws-best`, `ws-sample!`, and the other measure operations.
-
-The callable can be a lookup table, a heuristic, or a model. It must return one weight per declared class.
-
-The torch instance is `pettorch.neural_predicate`, which lives in the pettorch repository beside this one: it softmaxes a network's forward pass, aligns each output with a class term, and registers the result through this very interface, DeepProbLog's nn predicate reading. Its docs travel with that repository.
-
-A weighted relation from a plain callable, registered and consumed through the measure algebra:
+A weighted relation is an ordinary operation whose answers carry their
+weights as annotations. There is no dedicated machinery: `register_op`
+registers the callable, each answer names its class as the value and its
+weight as `k`, and `declare_annotations` states the semiring. `top`
+orders the answers, `(annotation)` reads each weight beside its class,
+and the in-language measure library consumes `(weight value)` pairs you
+build with that bridge.
 
 ```python
-def test_weighted_relation_takes_any_callable(m):
-    measure.install(m)
+from petta import Answer, MeTTa, S
 
-    def mood_weights(day):
-        return [0.25, 0.75]
+m = MeTTa().fresh_space()
 
-    measure.weighted_relation(m, "mood", mood_weights, [S.calm, S.tense])
-    (pairs,) = m.run("!(collapse (mood today))")[0]
-    assert [(float(p[0]), str(p[1])) for p in pairs] == [
-        (0.25, "calm"),
-        (0.75, "tense"),
-    ]
-    (best,) = m.run("!(ws-best (collapse (mood today)))")[0]
-    assert best == S.tense
-    (scored,) = m.run("!(mood today calm)")[0]
-    assert float(scored[0]) == 0.25 and scored[1] == S.calm
+def mood(day, chosen=None):
+    yield Answer(value=S.calm, k=0.25)
+    yield Answer(value=S.tense, k=0.75)
+
+m.register_op(mood, name="mood", typed=False)
+m.declare_annotations("mood", "prob")
+
+m.run("!(collapse (mood today))")                 # (calm tense)
+m.run("!(collapse (top 1 (mood today)))")         # (tense)
+m.run("!(collapse (let $c (mood today) (pair (annotation) $c)))")
+# ((pair 0.25 calm) (pair 0.75 tense))
 ```
 
-See [`petta.measure.weighted_relation`](../reference/petta-measure#weighted-relation).
+The callable can be a lookup table, a heuristic, or a model. The torch
+instance is `pettorch.neural_predicate`, which lives in the pettorch
+repository beside this one: it softmaxes a network's forward pass and
+answers each class with its probability as the annotation, DeepProbLog's
+nn predicate reading, built entirely on the surface above. Its docs
+travel with that repository.

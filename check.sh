@@ -15,7 +15,7 @@
 #                                            bandit deptry audit interrogate
 #                                            codespell imports jscpd prolog
 #                                            pytest benchmarks instructions
-#                                            shell examples
+#                                            shell examples leatta
 #          CHECK_PY=/path/to/python   pick the interpreter
 #          GATE_ONLY=1                skip the REPORT tier
 # Open Obligations:
@@ -53,13 +53,40 @@ run() {
     if "$@"; then
         status=ok
     else
-        status=FAIL
-        [ "$tier" = GATE ] && FAILED="$FAILED $name"
+        # A REPORT that exits nonzero has FINDINGS, which is its working state
+        # and not a break. Calling both of them FAIL made a burn-down queue
+        # read like a defect in the summary, and the two need different words
+        # for the summary to mean anything.
+        if [ "$tier" = GATE ]; then
+            status=FAIL
+            FAILED="$FAILED $name"
+        else
+            status=findings
+        fi
     fi
     printf '%s\t%s\t%s\n' "$tier" "$name" "$status" >> "$SUMMARY"
 }
 
 in_py() { ( cd "$PYDIR" && "$@" ); }
+
+# Build the C extension example so the examples gate exercises the C tier for
+# real rather than taking its skip branch. swipl-ld is part of SWI-Prolog, so
+# this is available wherever the engine is, but a toolchain can still be
+# missing; say so instead of letting the example quietly skip.
+build_c_extension_example() {
+    ext="$HERE/examples/integration/c_extension"
+    [ -d "$ext" ] || return 0
+    if ! command -v swipl-ld >/dev/null 2>&1; then
+        echo "note: swipl-ld not found, the C extension example will skip" >&2
+        return 0
+    fi
+    for unit in cbump handle; do
+        [ -f "$ext/$unit.c" ] || continue
+        ( cd "$ext" && swipl-ld -shared -o "$unit" "$unit.c" ) ||
+            { echo "note: the C extension example $unit failed to build" >&2; }
+    done
+}
+build_c_extension_example
 
 # ---------------------------------------------------------------- GATE tier
 # Correctness. These must pass on every commit.
@@ -82,10 +109,12 @@ run GATE packaged sh -c "cd '$HERE' && sh tests/test_packaged_cli.sh"
 #   mettafunc/2  asserted at runtime by process_metta_string inside
 #                prolog_interop_example/0 (src/main.pl:18). SWI's own advice
 #                is `:- dynamic mettafunc/2.`, which would clear it properly.
-#   mork_test/0  only defined when the mork module loads, and this check runs
-#                plain swipl so neither side preloads mork.
 # Anything else is a regression and fails. Shrink this list, never grow it.
-PROLOG_KNOWN_UNDEFINED='mettafunc/2|mork_test/0'
+# mork_test/0 used to be here too, because src/main.pl called it by name behind
+# a `mork` branch; it is metta_backend_selftest/0 now, declared multifile, so a
+# process with no backend has a predicate with no clauses rather than a call to
+# something absent.
+PROLOG_KNOWN_UNDEFINED='mettafunc/2'
 check_prolog() {
     cd "$HERE" || return 1
     unexpected=$(
@@ -108,6 +137,21 @@ check_prolog_static() {
     swipl -q --on-warning=status --on-error=status static_checks.pl
 }
 run GATE prolog-static check_prolog_static
+
+# The same walk as the backend GATE above, over lib/ instead, and a REPORT
+# because the backend answer is settled and the library one is not. A backend
+# is third-party and arm's length by construction; a shipped library sits
+# somewhere between that and the engine, and roughly twenty predicates are
+# involved that are not one kind of thing. Publishing them wholesale would make
+# `service` mean "whatever anyone happens to call", which is worse than leaving
+# them undeclared, so they are listed until each is decided. Three of them were
+# already published in EXTENDING.md's prose and are declared now, which is what
+# clearing an entry looks like. See ai-code-organisation-and-fixes.md.
+check_library_surface() {
+    cd "$HERE/tests/prolog" || return 1
+    swipl -q --on-error=status library_surface.pl
+}
+run REPORT lib-surface check_library_surface
 
 # Parse every example and reject any form for which the translator exposes a
 # second solution. Each file gets a fresh process because translating lambdas
@@ -135,26 +179,81 @@ run GATE prolog-determinism check_translation_determinism
 # nothing pointing at the cause.
 #
 # Every suite runs in each configuration the engine ships in. A bare swipl
-# invocation has an empty argv, so metta.pl's mork branch never fires and the
-# suites booted an engine nothing ships: run.sh, the packaged CLI and the
-# Python library all append mork when the FFI is built. That gap hid a real
-# failure, spaces_storage_modules:matching_requires_a_named_space, which was
-# green here and red in what shipped.
+# invocation has an empty argv, so no backend loads and the suites booted an
+# engine nothing ships: run.sh, the packaged CLI and the Python library all
+# append `backends`. That gap hid a real failure,
+# spaces_storage_modules:matching_requires_a_named_space, which was green here
+# and red in what shipped.
+# A leftover choicepoint fails this gate, not just prints. plunit has been
+# detecting them all along and nothing acted on the warning, which is a free
+# detector thrown away. Two of them were real defects rather than untidiness:
+# reduce/3 held one on every call, and a 200,000 element map-atom through the
+# dispatch path then retained 86,400,000 bytes of local stack because a choice
+# point defeats last call optimisation; and parse_metta_source/2 held one whose
+# retry did not offer a second parse but THREW a syntax error.
+#
+# A test that is legitimately nondeterministic says so with plunit's own
+# [nondet] option; that is the escape hatch, and it is explicit.
 check_plunit() {
     cd "$HERE/tests/prolog" || return 1
     ok=0
+    log=$(mktemp)
+    out=$(mktemp)
+    # Redirect to a file rather than piping to tee: a pipeline's exit status is
+    # the LAST command's, so swipl failing would be masked by tee succeeding.
     for suite in *.plt; do
         [ -e "$suite" ] || continue
-        swipl -g "set_test_options([format(log)]), run_tests" -t halt "$suite" || ok=1
-        [ -f "$MORK_LIB" ] || continue
-        echo "--- $suite (mork) ---"
-        LD_PRELOAD="$MORK_LIB" swipl -g "set_test_options([format(log)]), run_tests" \
-            -t halt "$suite" -- mork || ok=1
+        swipl -g "set_test_options([format(log)]), run_tests" -t halt "$suite" \
+            >"$out" 2>&1 || ok=1
+        cat "$out"; cat "$out" >>"$log"
+        [ -d "$HERE/backends" ] || continue
+        echo "--- $suite (backends) ---"
+        swipl -g "set_test_options([format(log)]), run_tests" \
+            -t halt "$suite" -- backends >"$out" 2>&1 || ok=1
+        cat "$out"; cat "$out" >>"$log"
     done
+    if grep -q "succeeded with choicepoint" "$log"; then
+        echo "plunit: a test succeeded with a choicepoint:"
+        grep -B1 "succeeded with choicepoint" "$log"
+        ok=1
+    fi
+    rm -f "$log" "$out"
     return $ok
 }
-MORK_LIB="$HERE/mork_ffi/target/release/libmork_ffi.so"
 run GATE plunit check_plunit
+
+# Conformance against the semantics arbiter. LeaTTa is a mechanised MeTTa whose
+# tests/semantics corpus carries, in every file, the answers its interpreter
+# printed verbatim and the pinned hyperon build they were checked against. This
+# runs each file here and diffs the answer groups, which is the difference
+# between "LeaTTa is the oracle" as a habit and as a check.
+#
+# REPORT, and it is the honest tier for it: the corpus covers surfaces this
+# engine has never claimed, and the metatype split alone (section B35 of
+# ai-metta-to-python-boundary.md) accounts for a large part of what differs. It
+# becomes a GATE per AREA as each area clears, rather than all at once.
+#
+# It lives outside this repository, so with LeaTTa absent the script says so and
+# exits 0 instead of failing a checkout that never had it.
+run REPORT leatta      sh -c "cd '$HERE' && '$PY' tests/conformance/leatta.py --timeout 25 --show 12"
+
+# The obligation headers are the contract a library author reads, and a
+# [tested X] tag is the strongest evidence in the scheme. Thirteen of them
+# named tests that had never existed in the tree's history, including three
+# cited by the engine pool's Guarantees block, and nothing anywhere would have
+# said so: a claim with nothing behind it reads exactly like the many that are
+# real. This is the linter the scheme has always implied. It reads only, needs
+# no engine, and finishes in under a second, so it runs before anything that
+# can hang.
+run GATE evidence   "$PY" "$HERE/tests/check_evidence_tags.py"
+
+# Every website/reference/petta-*.md page says "The entries below reproduce the
+# source signatures and docstrings", and across nineteen pages that promise was
+# false in 20 places by omission and 47 by a signature that had moved on: a
+# reader checking MeTTa.run against the reference read a shape it had not had
+# for some time. They are generated now, so the promise holds by construction
+# and this asks only whether what is checked in is what the source says.
+run GATE reference  "$PY" "$HERE/python/tools/reference.py"
 
 # Structural checks with a clean baseline today, so a regression is a failure.
 run GATE slotscheck in_py "$PY" -m slotscheck -m petta
@@ -165,34 +264,90 @@ run GATE imports    in_py "$PY" -m importlinter.cli lint_imports
 # Known backlog. Each entry names its section in the ledger and becomes a
 # GATE once that section is cleared.
 
+# EXTENDING.md's cost table, remeasured and held to a committed baseline. It
+# was produced by a throwaway outside the repo that hardcoded an absolute path
+# and was run by nobody, so one of its five rows stopped reproducing with
+# nothing to say so.
+#
+# A REPORT until 2026-08-16, on the reasoning that these numbers compare tiers
+# rather than fix a budget. That was wrong in the way that matters: a
+# with_metta_module/2 fast path moved the annotated @m.define tier from 20.00
+# to 22.00 and the run said nothing, and it was found by reading the table. The
+# counts are exact and reproduce identically across rounds, so there is nothing
+# to be tolerant of. Rebaseline deliberately with --update when a row is meant
+# to move, which is the same contract the other counter gates hold.
+run GATE extcost       in_py "$PY" -m benchmarks.extension_cost
+
+# Which registered library predicates declare their determinism, and which do
+# not. A leftover choice point costs its caller about twice and is invisible to
+# the inference counter, and two things already catch one: plunit fails the
+# gate on a test that succeeds with a choicepoint, and det/1 raises at the
+# predicate's own door for anything declared. This reports the gap between
+# them, a predicate no test happens to call that declares nothing.
+#
+# A REPORT rather than a GATE because plenty of them are correctly
+# nondeterministic (get-keys answers one key per solution, the way get-atoms
+# does), so a gate would demand a declaration for its own sake. The list is
+# for deciding, once, which each one is.
+check_determinism_coverage() {
+    ( cd "$HERE/tests/prolog" && swipl -q determinism_coverage.pl )
+}
+run REPORT determinism check_determinism_coverage
+
 # Two residuals remain: the CLI executes a fixed argv without a shell, and
 # upstream's import-overhaul fixture owns its import grouping.
-run REPORT ruff        in_py "$PY" -m ruff check --statistics petta tests bench.py
+run GATE   ruff        in_py "$PY" -m ruff check petta tests bench.py
 # ledger C2: 65 errors in 13 files
 run GATE   mypy        in_py "$PY" -m mypy
 # ledger C2: 67 diagnostics, independent engine
 run GATE   ty          in_py "$PY" -m ty check --python "$(dirname "$(dirname "$PY")")" petta
 # Residual Pylint findings describe deliberate facades, compiler mixins,
 # resource cleanup catches, and public compatibility surfaces.
-run REPORT pylint      in_py "$PY" -m pylint petta --disable=C0301,C0114,C0115,C0116,R0913,R0914,R0912,R0915,C0103 --score=n
+run GATE   pylint      in_py "$PY" -m pylint petta --score=n
 # Perflint remains a measured queue. A suggestion moves only after the exact
 # instruction counter proves a win; the first attractive rewrite regressed.
+#
+# Where the queue stands, 2026-08-17, so its FAIL is a state and not a backlog.
+# 296 findings: 217 loop-invariant-statement, which flags expressions whose
+# CALLEE is invariant while the argument varies, so isinstance(child, seq) in
+# the codec reads as hoistable and is not; and 79 loop-global-usage and
+# dotted-import-in-loop, every one of them in import-time, plugin-discovery,
+# @m.define compile-time or benchmarking code. The hot paths the benchmark
+# suite actually measures report ZERO of the latter two, because the hoists
+# are already there and carry their measurement: _atom_wire.py binds
+# wire_sym, gnd and seq before its loop.
+#
+# One finding sits on a per-call path, _rebox looked up per yield in
+# dispatch_raw_many. Hoisting it was measured on a workload that is nothing
+# but raw generator yields, 1.2M of them, min of 3:
+# 20,329,291,854 to 20,307,302,649 instructions:u, -0.108%. Not taken: a
+# tenth of a percent in the most favourable case buys less than the line costs
+# a reader, and 79 of them in cold code buys nothing at all.
 run REPORT perflint    in_py "$PY" -m pylint --load-plugins=perflint --disable=all --enable=W8201,W8202,W8204,W8205 petta --score=n
 # Complexity is bounded per block and across each module.
-run GATE   xenon       in_py "$PY" -m xenon petta --max-absolute B --max-modules A --max-average A
+# max-absolute C since 2026-08-17 by the user's own ruling: rank-C blocks in
+# the wire decoder, the derived table bridge and the conformance kit are the
+# accepted price of their coverage, and averages still gate at A.
+run GATE   xenon       in_py "$PY" -m xenon petta --max-absolute C --max-modules A --max-average A
 # Refurb's residual type-normalization and clarity rewrites are not semantic
 # equivalents at the package boundaries they flag.
-run REPORT refurb      in_py "$PY" -m refurb petta bench.py
+run GATE   refurb      in_py "$PY" -m refurb petta bench.py
 # Both Bandit findings are the fixed swipl argv call with shell mode disabled.
-run REPORT bandit      in_py "$PY" -m bandit -q -r petta
+run GATE   bandit      in_py "$PY" -m bandit -q -c pyproject.toml -r petta
 # These packages enter through deliberate lazy imports, which deptry cannot
 # observe statically; each one is declared in its matching extra.
-run REPORT deptry      in_py "$PY" -m deptry .
+run GATE   deptry      in_py "$PY" -m deptry .
 run GATE   audit       in_py "$PY" -m pip_audit --progress-spinner off
 # ledger F: public API documentation is held above the 80% target
 run GATE   interrogate in_py "$PY" -m interrogate petta
-# All residual spellings are in engine-owned src and lib paths.
-run REPORT codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib python/petta python/bench.py src lib README.md"
+# Every source path the project ships, and clean, so this gates. It used to
+# read src, lib and README alone, which left the docs and examples a reader
+# meets first unchecked: widening it turned up 27 more spellings against the
+# one in engine code. .codespellrc carries the skips and the words that only
+# look wrong, and its entries are bare names because codespell prunes a walked
+# directory by NAME, so a ./-prefixed skip stops matching the moment a runner
+# passes explicit paths.
+run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib python/petta python/bench.py python/examples python/tests src lib backends examples tests website notebooks mork_ffi *.md"
 # The remaining clones are small facade, protocol, and test-fixture mirrors;
 # extracting them would couple layers or hide the local contract.
 run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' python/petta python/tests"

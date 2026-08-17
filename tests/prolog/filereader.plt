@@ -238,7 +238,7 @@ test(file_function_remains_a_global_fallback_after_a_named_homonym) :-
         setup_call_cleanup(
             true,
             ( user:load_metta_file(Path, _),
-              user:'add-atom'(NamedSpace, NamedTerm, true),
+              user:'add-atom'(NamedSpace, NamedTerm, _),
               user:process_metta_string(
                   "!(plunit-global-file-function 41)", Results, OtherSpace),
               user:fun_in(user, Function),
@@ -261,9 +261,13 @@ test(loader_catches_do_not_consume_control_exceptions) :-
     setup_call_cleanup(
         ( assertz((user:'plunit-loader-control'(_) :-
                        throw(inference_limit_exceeded)), ClauseRef),
-          user:register_fun('plunit-loader-control') ),
+          % The public route, not register_fun/1: registering a Prolog
+          % predicate is what import_prolog_function/2 is for, and it is what
+          % records the arity the call compiles against.
+          user:import_prolog_function('plunit-loader-control', _) ),
         catch(user:load_metta_file(Path, _), Error, true),
         ( erase(ClauseRef),
+          user:unregister_fun_everywhere('plunit-loader-control'),
           retractall(user:fun('plunit-loader-control')),
           retractall(user:arity('plunit-loader-control', _)),
           retractall(user:compiled_metta_source(Path)),
@@ -306,7 +310,18 @@ test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
                         user:'get-atoms'(Space,
                                          ['plunit-import-triple', _, _]),
                         Before),
-          user:'remove-atom'(Space, [_, _], true),
+          % false, and that is the assertion. A wildcard of the wrong SHAPE
+          % matches nothing, and the report says so: this used to be `true`
+          % unconditionally, so the counts below were the only evidence that
+          % nothing had been removed.
+          %
+          % Asked of metta_remove_atom/3 rather than of `remove-atom`, because
+          % the language-facing one answers the unit value now: its type is
+          % `(-> spaceType Atom (->))` and absence is explicitly not reported
+          % there. The report is still made, one layer in, where the engine
+          % itself reads it.
+          user:'remove-atom'(Space, [_, _], []),
+          user:metta_remove_atom(Space, [_, _], false),
           aggregate_all(count,
                         user:'get-atoms'(Space,
                                          ['plunit-import-triple', _, _]),
@@ -324,3 +339,78 @@ test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
           delete_file(Path) )).
 
 :- end_tests(filereader_import_lifecycle).
+
+:- begin_tests(filereader_untypable_declaration).
+
+%The evidence the refusal rests on, and it is the whole reason this is an
+%error rather than a warning: an arrow declaration puts has_type/2 around the
+%call and a non-arrow one leaves the call bare, so the same wrong argument is
+%either refused at the function's door or carried into whatever finally
+%breaks on it.
+compiled_call_goals(Declaration, Goals) :-
+    Function = 'plunit-untypable-inc',
+    format(atom(Source), "~w~n(= (~w $x) (+ $x 1))~n",
+           [Declaration, Function]),
+    setup_call_cleanup(
+        assertz(user:silent(true), SilentRef),
+        setup_call_cleanup(
+            user:process_metta_string(Source, _),
+            user:translate_runnable_expr([Function, "s"], Goals, _),
+            ( user:'remove-atom'('&self', [':', Function, _], _),
+              user:'remove-atom'('&self', [=, [Function, _], _], _),
+              cleanup_test_function(Function),
+              retractall(user:arity(Function, _)) )),
+        erase(SilentRef)).
+
+test(an_arrow_declaration_compiles_the_check_a_non_arrow_one_cannot) :-
+    compiled_call_goals("(: plunit-untypable-inc (-> Number Number))",
+                        Guarded),
+    compiled_call_goals("", Bare),
+    term_string(Guarded, GuardedText),
+    term_string(Bare, BareText),
+    once(sub_string(GuardedText, _, _, _, "has_type")),
+    \+ sub_string(BareText, _, _, _, "has_type").
+
+test(a_non_arrow_declaration_for_a_function_is_refused,
+     [throws(error(petta_untypable_declaration('plunit-untypable-inc',
+                                               'Number'), _))]) :-
+    compiled_call_goals("(: plunit-untypable-inc Number)", _).
+
+test(the_refusal_names_the_declaration_and_the_arrow_to_write) :-
+    message_to_string(
+        error(petta_untypable_declaration(inc, ['List', 'Number']), none),
+        Message),
+    once(sub_string(Message, _, _, _, "(: inc (List Number))")),
+    once(sub_string(Message, _, _, _, "(: inc (-> ...))")),
+    once(sub_string(Message, _, _, _, "%Undefined%")).
+
+test(an_explicitly_undefined_type_is_the_way_to_opt_out) :-
+    compiled_call_goals("(: plunit-untypable-inc %Undefined%)", Goals),
+    Goals \== [].
+
+%MeTTa lets a name carry several declarations, so the rule asks whether any of
+%them is an arrow rather than whether all of them are.
+test(one_arrow_among_several_declarations_is_enough) :-
+    compiled_call_goals("(: plunit-untypable-inc Number)\c
+                         \n(: plunit-untypable-inc (-> Number Number))",
+                        Goals),
+    term_string(Goals, Text),
+    once(sub_string(Text, _, _, _, "has_type")).
+
+%lib_nars.metta writes NARS inheritance as (--> $a $b) and
+%lib_combinatorics.metta writes a lambda as (|-> ...). Both are deliberate
+%atoms in data positions, and a spelling rule would have rejected them.
+test(a_declaration_for_a_name_with_no_equations_is_data) :-
+    Name = 'plunit-untypable-belief',
+    setup_call_cleanup(
+        assertz(user:silent(true), SilentRef),
+        setup_call_cleanup(
+            true,
+            ( user:process_metta_string("(: plunit-untypable-belief \c
+                                         (--> Cat Animal))", _),
+              user:type_declaration(Name, Type),
+              Type == ['-->', 'Cat', 'Animal'] ),
+            user:'remove-atom'('&self', [':', Name, _], _)),
+        erase(SilentRef)).
+
+:- end_tests(filereader_untypable_declaration).

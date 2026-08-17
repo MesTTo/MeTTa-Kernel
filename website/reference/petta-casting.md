@@ -7,7 +7,7 @@ Source: `python/petta/casting.py`.
 > spelling, when the engine admits it as that type: the exact
 > ('get-type' then 'get-metatype') acceptance the translator compiles
 > for a typed argument position, run in the space's scope so its ':'
-> declarations and &amp;self's both answer. Protocol types registered
+> declarations and &self's both answer. Protocol types registered
 > through petta.integrate.register_object_type participate, which makes
 > this duck typing through the type system: an object satisfying the
 > predicate casts to the protocol's name. A refused cast raises
@@ -36,22 +36,6 @@ class CastError(PettaError, TypeError):
 ```
 
 > A cast the engine's type discipline refuses.
-
-## `cast`
-
-```python
-def cast(space: Any, value: Any, type_: type[_CastT], /) -> _CastT:
-```
-
-No docstring is defined.
-
-## `cast`
-
-```python
-def cast(space: Any, value: Any, type_: Atom | str, /) -> Any:
-```
-
-No docstring is defined.
 
 ## `cast`
 

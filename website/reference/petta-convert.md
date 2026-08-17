@@ -17,4 +17,3 @@ Source: `python/petta/convert.py`.
 
 The entries below reproduce the source signatures and docstrings.
 
-The module defines no public functions or classes.

@@ -167,3 +167,90 @@ test(an_inheriting_space_shares_the_one_cache,
     findall(R, with_metta_module(user, reduce([isoshared, 1], R)), [8]).
 
 :- end_tests(memo_space_isolation).
+
+
+% The gap this closes was demonstrated rather than imagined: lib_memo will
+% happily cache a side-effecting registered predicate, because nothing recorded
+% whether caching it was sound, and the second call then skips the effect.
+% PostgreSQL's ladder is the shape, with one deliberate difference: its default
+% is the pessimistic rung and this one's is not, because memoization here is
+% already opt-in by the CALLER and making silence a refusal would break every
+% existing (memoize f) without telling anyone anything they did not know.
+:- begin_tests(lib_memo_volatility).
+
+user:plunit_memo_volatile(X, X).
+user:plunit_memo_pure(X, X).
+
+test(a_volatile_function_refuses_memoization,
+     [ setup(( import_prolog_function(plunit_memo_volatile, _),
+               declare_function_volatility(plunit_memo_volatile, volatile) )),
+       cleanup(( retractall(user:metta_function_volatility(plunit_memo_volatile, _)),
+                 release_function_name(plunit_memo_volatile),
+                 unregister_fun_everywhere(plunit_memo_volatile),
+                 retractall(user:fun(plunit_memo_volatile)),
+                 retractall(user:arity(plunit_memo_volatile, _)) )),
+       throws(error(permission_error(memoize, volatile_function,
+                                     plunit_memo_volatile), _)) ]) :-
+    'memoize'(plunit_memo_volatile, true).
+
+test(an_undeclared_function_still_memoizes,
+     [ setup(import_prolog_function(plunit_memo_pure, _)),
+       cleanup(( catch('clear-memoize'(plunit_memo_pure, _), _, true),
+                 release_function_name(plunit_memo_pure),
+                 unregister_fun_everywhere(plunit_memo_pure),
+                 retractall(user:fun(plunit_memo_pure)),
+                 retractall(user:arity(plunit_memo_pure, _)) )) ]) :-
+    assertion(metta_function_cacheable(plunit_memo_pure)),
+    'memoize'(plunit_memo_pure, true).
+
+%(cache Name unchecked) in &petta is the caller's declared acceptance of
+%staleness: the purity walk is skipped for that function, so an impure body
+%memoizes. The declaration is loud and queryable, which is what separates it
+%from the silent fail-open default this library used to have.
+test(an_unchecked_declaration_memoizes_an_impure_body,
+     [ setup(process_metta_string(
+                 "(= (plunit-memo-unchecked $k) (let $i (println! $k) $k))", _)),
+       cleanup(( catch('clear-memoize'('plunit-memo-unchecked', _), _, true),
+                 catch('remove-atom'('&petta',
+                                     [cache, 'plunit-memo-unchecked', unchecked],
+                                     _), _, true) )) ]) :-
+    catch(( 'memoize'('plunit-memo-unchecked', _), Refused = none ),
+          error(permission_error(memoize, impure_function, _), _),
+          Refused = impure),
+    assertion(Refused == impure),
+    process_metta_string(
+        "!(add-atom &petta (cache plunit-memo-unchecked unchecked))", _),
+    'memoize'('plunit-memo-unchecked', true).
+
+%The precedence, pinned: a library's explicit volatile outranks the caller's
+%unchecked, because the author said the answers are not reproducible and the
+%caller cannot know better.
+test(a_volatile_declaration_outranks_unchecked,
+     [ setup(( import_prolog_function(plunit_memo_volatile, _),
+               declare_function_volatility(plunit_memo_volatile, volatile),
+               process_metta_string(
+                   "!(add-atom &petta (cache plunit_memo_volatile unchecked))", _) )),
+       cleanup(( retractall(user:metta_function_volatility(plunit_memo_volatile, _)),
+                 catch('remove-atom'('&petta',
+                                     [cache, plunit_memo_volatile, unchecked],
+                                     _), _, true),
+                 release_function_name(plunit_memo_volatile),
+                 unregister_fun_everywhere(plunit_memo_volatile),
+                 retractall(user:fun(plunit_memo_volatile)),
+                 retractall(user:arity(plunit_memo_volatile, _)) )),
+       throws(error(permission_error(memoize, volatile_function,
+                                     plunit_memo_volatile), _)) ]) :-
+    'memoize'(plunit_memo_volatile, true).
+
+test(an_immutable_function_memoizes,
+     [ setup(( import_prolog_function(plunit_memo_pure, _),
+               declare_function_volatility(plunit_memo_pure, immutable) )),
+       cleanup(( retractall(user:metta_function_volatility(plunit_memo_pure, _)),
+                 catch('clear-memoize'(plunit_memo_pure, _), _, true),
+                 release_function_name(plunit_memo_pure),
+                 unregister_fun_everywhere(plunit_memo_pure),
+                 retractall(user:fun(plunit_memo_pure)),
+                 retractall(user:arity(plunit_memo_pure, _)) )) ]) :-
+    'memoize'(plunit_memo_pure, true).
+
+:- end_tests(lib_memo_volatility).

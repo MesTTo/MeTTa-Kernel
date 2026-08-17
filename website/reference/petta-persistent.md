@@ -6,7 +6,7 @@ Source: `python/petta/persistent.py`.
 > The provider keeps native MeTTa facts in typed dynamic predicates, writes
 > every change through library(persistency), and replays the journal when a
 > new provider attaches to the same path. On attach, an incomplete final
-> record is copied to ``&lt;journal&gt;.tail`` and removed only when every earlier
+> record is copied to ``<journal>.tail`` and removed only when every earlier
 > newline-terminated record validates. Earlier corruption is refused.
 > Guarantees:
 >   - constructor failure releases its path claim and any unattached reusable

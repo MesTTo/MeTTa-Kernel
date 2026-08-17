@@ -109,6 +109,72 @@ fn parse_query(
     Ok(Some((pattern, template)))
 }
 
+//MORK's own worst-case-optimal conjunctive query, answered read-only.
+//
+//Space::dump_sexpr already runs this engine. It wraps the caller's single
+//pattern into a ONE-factor (, pattern) and hands that to Space::query_multi,
+//which is the multi-pattern join. So a conjunction sent to "match" arrived as
+//(, (, p1 p2)) -- one factor, and that factor a comma expression no atom
+//matches -- and answered nothing. That is why the engine split conjunctions
+//itself and a MORK join was unreachable through the seam.
+//
+//This is dump_sexpr with the wrapping removed, so (, p1 .. pn) reaches
+//query_multi as the n-factor query it already is. Nothing new is computed and
+//no MORK source changes; the join was always there.
+//
+//&self.btm is an immutable borrow, so this answers without mutating the space.
+//The alternative reachable today, writing an (exec ...) atom and running
+//mm2-exec, runs the space's whole calculus and leaves its results behind,
+//which is what ~> is for and not what a match may do.
+fn query_multi_sexpr<W: std::io::Write>(
+    space: &Space,
+    pattern: Expr,
+    template: Expr,
+    w: &mut W,
+) -> usize {
+    //Sized and cleared exactly as dump_sexpr does: the reservation is virtual
+    //and every apply writes from index 0 after a clear.
+    let mut buffer = Vec::with_capacity(1 << 32);
+    unsafe {
+        buffer.set_len(1 << 32);
+    }
+    let mut stack = Vec::new();
+    let mut assignments = Vec::new();
+    Space::query_multi(&space.btm, pattern, |refs_bindings, _loc| 'query: {
+        match refs_bindings {
+            Ok(_refs) => break 'query true,
+            Err(ref bindings) => {
+                //The PATTERN is applied first for its variable numbering, and
+                //the template applied at the offsets that produces. Applying
+                //the template alone renumbers its variables independently and
+                //the row comes back with the wrong bindings.
+                buffer.clear();
+                let (oi, ni, true) = mork_expr::apply_e_clears_stacks_and_cycles_check!(
+                    0, 0, 0, pattern, bindings, buffer, stack, assignments
+                ) else {
+                    break 'query true;
+                };
+                buffer.clear();
+                let (_, _, true) = mork_expr::apply_e_clears_stacks_and_cycles_check!(
+                    0, oi, ni, template, bindings, buffer, stack, assignments
+                ) else {
+                    break 'query true;
+                };
+            }
+        }
+        Expr {
+            ptr: buffer.as_ptr().cast_mut(),
+        }
+        .serialize2(
+            w,
+            |s| unsafe { std::mem::transmute(std::str::from_utf8_unchecked(s)) },
+            |i, _intro| Expr::VARNAMES[i as usize],
+        );
+        let _ = w.write(&[b'\n']);
+        true
+    })
+}
+
 fn write_output(outbuf: &mut Vec<u8>, bytes: &[u8]) -> RustBuffer {
     outbuf.clear();
     outbuf.extend_from_slice(bytes);
@@ -148,7 +214,7 @@ fn flush_pending_atoms(state: &mut MorkState) -> Result<(), ()> {
     }
 }
 
-//Foreign Funcion Interface:
+//Foreign Function Interface:
 #[no_mangle]
 pub extern "C" fn rust_mork(command: *const c_char, input: *const c_char) -> RustBuffer {
     if command.is_null() || input.is_null() {
@@ -206,6 +272,26 @@ pub extern "C" fn rust_mork(command: *const c_char, input: *const c_char) -> Rus
             //Run the MM2 calculus inside this space
             s.space.metta_calculus(num);
             result = write_output(&mut outbuf, b"OK: executed");
+        } else if cmd.eq_ignore_ascii_case(b"query-multi") {
+            if flush_pending_atoms(s).is_err() {
+                result = write_output(&mut outbuf, b"ERR: load failed");
+                return;
+            }
+            let mut parsebuf = [0u8; 4096];
+            let (pattern, template) = match parse_query(&s.space, inp, &mut parsebuf) {
+                Ok(Some(parts)) => parts,
+                Ok(None) => {
+                    result = write_output(&mut outbuf, b"ERR: invalid query tuple");
+                    return;
+                }
+                Err(_) => {
+                    result = write_output(&mut outbuf, b"ERR: parse failed");
+                    return;
+                }
+            };
+            outbuf.clear();
+            query_multi_sexpr(&s.space, pattern, template, &mut *outbuf);
+            result = output_existing_buffer(&outbuf);
         } else if cmd.eq_ignore_ascii_case(b"flush") {
             match flush_pending_atoms(s) {
                 Ok(_) => result = write_output(&mut outbuf, b"OK: flushed"),
@@ -240,7 +326,7 @@ pub extern "C" fn rust_mork(command: *const c_char, input: *const c_char) -> Rus
                 }
             };
             outbuf.clear();
-            //Now dump the query results into the outbut buffer:
+            //Now dump the query results into the output buffer:
             s.space.dump_sexpr(pattern, template, &mut *outbuf);
             result = output_existing_buffer(&outbuf);
         } else {

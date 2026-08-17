@@ -35,15 +35,17 @@ def class_declarations(cls: type) -> list[Expr]:
 ```python
 def register(
     runtime,
-    fn: Callable,
+    fn: Callable[_P, _R],
     *,
-    name: MettaName | None = None,
+    name: str | None = None,
     typed: bool = True,
     raw: bool = False,
     pass_atoms: bool = False,
-    space: SpaceName = _DEFAULT_SPACE,
+    space: str = _DEFAULT_SPACE,
     arities: list[int] | None = None,
-) -> Callable:
+    inverse: Callable | None = None,
+    pure: bool = False,
+) -> Callable[_P, _R]:
 ```
 
 > Make fn callable from MeTTa. Returns fn unchanged.
@@ -53,11 +55,24 @@ def register(
 > plain function is deterministic; returning None or raising Decline
 > answers nothing. Defaults yield one registration per reachable arity;
 > a variadic callable names its call forms with arities=[...].
+>
+> inverse supplies the BACKWARDS direction, so the operation can stand in a
+> pattern position the way a MeTTa equation does. It takes the result and
+> returns the arguments, as a tuple, or the bare value at arity one; a
+> generator enumerates every preimage, and None or Decline means there is
+> none. It only ever runs when the arguments are not ground and the result
+> is, so a forward call never reaches it and an operation without one
+> compiles exactly what it compiled before.
+>
+> pure declares that the operation has no effect a cache could hide, which
+> is what lets it appear in a `(tabled ...)` or memoized body. It is an
+> allow-list on purpose: an operation that does not say so is refused there
+> by name, loudly, rather than cached and quietly wrong.
 
 ## `unregister`
 
 ```python
-def unregister(runtime, name: MettaName) -> None:
+def unregister(runtime, name: str) -> None:
 ```
 
 > Remove every arity of a registered operation, and every declaration

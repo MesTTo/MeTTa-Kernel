@@ -21,3 +21,30 @@ Operators on atoms build terms. `V.age >= 18` builds `(>= $age 18)`. `&`, `|`, a
 A symbol and a grounded string are different atoms. Use `sym(name)` when a symbol name is not a Python identifier, `var(name)` for a variable, `val(value)` to carry a host object, and `expr(...)` to build an expression from parts. `parse(source)` reads one form without evaluating it.
 
 The atom helpers also expose `variables`, `is_ground`, `alpha_eq`, and `unify`. See [`petta.atoms`](../reference/petta-atoms) for their source docstrings.
+
+## Sorting atoms
+
+`sorted(atoms)` raises, and the message says why: `S.a < S.b` builds the term `(< a b)`, because building terms is what the operators are for. Pass the key instead:
+
+```python
+from petta import order_key
+
+sorted(atoms, key=order_key)
+```
+
+The order is Prolog's standard order of terms: variables, then numbers, then symbols, then strings, then compounds by arity, then functor, then argument by argument. `True` sorts with the symbols it reads as rather than with the numbers Python inherits it from.
+
+## Atoms as JSON
+
+An atom's wire form is a JSON document, and it round-trips, keeping the variable's name:
+
+```python
+import json
+from petta import atom_from_wire
+
+text = json.dumps(S.edge(S.a, 1, V.x).to_wire())
+# '["e", [["s", "edge"], ["s", "a"], ["n", 1], ["v", "x"]]]'
+atom_from_wire(json.loads(text))       # (edge a 1 $x)
+```
+
+That is the interchange for anything web-facing, and it preserves what storage does not: a variable that goes through a space comes back with a machine name, and one that goes through JSON comes back as `$x`.

@@ -248,3 +248,30 @@ test(higher_order_code_runs_inside_a_named_space,
                          [2], '&plunit_spec_ns').
 
 :- end_tests(specializer).
+
+:- begin_tests(specializer_invalidation).
+
+% invalidate_specializations/1 recurses through ho_specialization/3 and
+% retracts only AFTER descending, so a cycle among those facts would not
+% terminate. It is called unguarded from three engine write sites and, since
+% the register-an-operation path stopped swallowing its failures, from there
+% too, where a hang is worse than the swallowed failure it replaced.
+%
+% No cycle is reachable today, because the recursive-specialization fold
+% reuses the active name rather than recording a new fact. This constructs one
+% directly, which is the only way to exercise the guard at all: without the
+% visited set the goal below does not return.
+test(an_invalidation_cycle_terminates,
+     [ setup(( assertz(user:ho_specialization(plunit_cycle_a, plunit_cycle_a,
+                                              plunit_cycle_b)),
+               assertz(user:ho_specialization(plunit_cycle_b, plunit_cycle_b,
+                                              plunit_cycle_a)) )),
+       cleanup(( retractall(user:ho_specialization(plunit_cycle_a, _, _)),
+                 retractall(user:ho_specialization(plunit_cycle_b, _, _)) )) ]) :-
+    call_with_inference_limit(invalidate_specializations(plunit_cycle_a),
+                              100000, Outcome),
+    assertion(Outcome \== inference_limit_exceeded),
+    assertion(\+ user:ho_specialization(_, plunit_cycle_a, _)),
+    assertion(\+ user:ho_specialization(_, plunit_cycle_b, _)).
+
+:- end_tests(specializer_invalidation).

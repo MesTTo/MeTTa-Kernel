@@ -6,7 +6,7 @@ Source: `python/petta/remote.py`.
 > is a context, serve() exposes its spaces over HTTP speaking the same tagged
 > wire the local boundary speaks, connect() answers a transport, and attach()
 > registers a remote engine's space here as a foreign space, so
-> (match &amp;remote (users $id $n) ...) crosses the network exactly as it
+> (match &remote (users $id $n) ...) crosses the network exactly as it
 > crosses into DuckDB. The shape is SingularityNET's DAS gateway (a single
 > transport method carrying {space, pattern} and answering atoms) and
 > metta-wam's metta_server, translated onto petta's own SpaceProvider
@@ -35,6 +35,16 @@ Source: `python/petta/remote.py`.
 >   Future Enhancements: None
 
 The entries below reproduce the source signatures and docstrings.
+
+## `Request`
+
+```python
+class Request:
+```
+
+> What an authorize hook decides about: who is asking, what they ask
+> for, and which space they name. A hook given the headers alone could
+> not tell a read from a write, so read-only was inexpressible.
 
 ## `RemoteSpace`
 
@@ -74,6 +84,16 @@ def add(self, atom: Atom) -> None:
 
 No docstring is defined.
 
+### `RemoteSpace.add_many`
+
+```python
+def add_many(self, atoms: list[Atom]) -> None:
+```
+
+> One request carries the batch, the engine's own bulk-door law on
+> the wire: a batch is a transport optimisation and never a semantic
+> one, and the engine already routes only plain stores through it.
+
 ### `RemoteSpace.remove`
 
 ```python
@@ -108,13 +128,13 @@ def connect(
 ## `attach`
 
 ```python
-def attach(m, name: str, url_or_transport: Any, remote_space: str = "&self") -> RemoteSpace:
+def attach(m, name: str, url_or_transport: Any, remote_space: str = '&self') -> RemoteSpace:
 ```
 
 > Register a remote engine's space here under a local name.
 >
-> petta.remote.attach(m, "&amp;hq", "http://127.0.0.1:8700")
-> m.run('!(match &amp;hq (users $id $n) $n)')
+> petta.remote.attach(m, "&hq", "http://127.0.0.1:8700")
+> m.run('!(match &hq (users $id $n) $n)')
 
 ## `Server`
 
@@ -137,12 +157,12 @@ def close(self, timeout: float = _SERVER_TIMEOUT) -> None:
 ```python
 def serve(
     m,
-    host: str = "127.0.0.1",
+    host: str = '127.0.0.1',
     port: int = 0,
     spaces: list[str] | None = None,
     *,
     token: str | None = None,
-    authorize: Callable[[Mapping[str, str]], bool] | None = None,
+    authorize: Callable[[Request], bool] | None = None,
     ssl_context: Any = None,
 ) -> Server:
 ```
@@ -152,8 +172,9 @@ def serve(
 > Every operation answers for the space the request names, restricted
 > to `spaces` when given. Security is the caller's to define, library
 > fashion: token requires Bearer authentication, authorize is the
-> general hook (the request headers in, a verdict out, so any scheme
-> an operator runs fits), and ssl_context, Python's own
+> general hook (a Request in, carrying the operation, the space and
+> the headers, and a verdict out, so read-only, per-space and
+> per-tenant policies all fit), and ssl_context, Python's own
 > ssl.SSLContext with a certificate loaded, serves TLS directly;
 > anything heavier still composes behind a fronting proxy. match runs
 > the engine's own match with the pattern as its template, so the

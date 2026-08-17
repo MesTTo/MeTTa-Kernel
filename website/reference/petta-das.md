@@ -45,6 +45,20 @@ class DASError(PettaError):
 
 > A DAS request failed, or an answer could not be read.
 
+## `is_transport_failure`
+
+```python
+def is_transport_failure(error: BaseException) -> bool:
+```
+
+> Whether this DASError is the router being ABSENT rather than wrong.
+>
+> The trichotomy this draws became the seam's own error vocabulary and
+> now lives in petta.errors; this name stays as the DAS spelling of it.
+> A caller retries or gives up on a transport failure; a protocol error,
+> a bad status or a malformed answer is the router being wrong and is
+> not retryable, which is why this is not simply "did anything go wrong".
+
 ## `DASAnswer`
 
 ```python
@@ -109,7 +123,11 @@ def cancel(self, execution_id: str) -> None:
 
 ```python
 def query(
-    self, *patterns: Any, max_answers: int | None = None, unique: bool = False, **extra: Any
+    self,
+    *patterns: Any,
+    max_answers: int | None = None,
+    unique: bool = False,
+    **extra: Any,
 ) -> list[DASAnswer]:
 ```
 
@@ -145,6 +163,20 @@ def can_run(self, capability: str, /, **request: Any) -> bool:
 ```
 
 No docstring is defined.
+
+### `DASSpace.refusal`
+
+```python
+def refusal(self, capability: str, /, **_request: Any) -> str | None:
+```
+
+> The one place this rule is written.
+>
+> It used to be written twice and only the worse spelling was
+> reachable: _require_provider consults can_run BEFORE calling add, so
+> the DASError bodies below never ran, and the caller was told "its
+> DASSpace provider does not implement add", which is false on its face
+> and says nothing about what to do instead.
 
 ### `DASSpace.match`
 

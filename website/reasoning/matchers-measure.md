@@ -1,91 +1,75 @@
 <!--
-Purpose: explain custom matchers and guarded measure operations through
-executable examples.
+Purpose: explain custom matching as a property of grounded atoms, with the
+measure library as the in-language companion, through executable examples.
 Open Obligations:
   To Do: None
   Hacks: None
   Future Enhancements: None
 -->
 
-# Custom matchers and the measure algebra
+# Custom matching
 
-A matcher is a MeTTa function with two modes. With a bound candidate it scores that candidate. With an unbound candidate it generates candidates best first. Both modes answer `(score value)` pairs, so structural matching and a custom notion of closeness compose through ordinary evaluation.
+In MeTTa, a grounded value can define its own matching logic. A space is
+the standard instance: in Hyperon a space is a grounded atom whose custom
+matching is query, which is why `unify` accepts a space as an operand. The
+same door is open to your own values. Any Python object whose class
+defines `match_` participates in `(unify ...)` the moment it appears
+there, with no registration.
 
-`install_fuzzy` uses `difflib` for lexical closeness. `EmbeddingStore.matcher()` supplies semantic closeness from vectors. `install_regex` is the crisp lexical modality: the query is the pattern, a candidate scores one exactly when it matches, and the unbound mode generates every lexicon entry the pattern accepts, regex being matching all along. `matching.matcher(...)` accepts your own scoring and generation functions.
-
-The self-verifying example uses all three readings:
+`match_(other)` receives the atom your value met and yields one item per
+binding set: a `Bindings` or `Answer` binding the variables of `other`, a
+plain atom the operand must equal, or nothing at all for no match. An
+interval that matches the numbers inside it is three lines:
 
 ```python
-from petta import MeTTa, S, V, matching, measure  # noqa: E402
-from petta.arrays import EmbeddingStore  # noqa: E402
+from petta import MeTTa, S, expr
+from petta.atoms import Gnd
+
+class Interval:
+    def __init__(self, lo, hi):
+        self.lo, self.hi = lo, hi
+
+    def match_(self, other):
+        value = other.value if isinstance(other, Gnd) else other
+        if isinstance(value, (int, float)) and self.lo <= value <= self.hi:
+            yield other
 
 m = MeTTa().fresh_space()
-measure.install(m)
-
-# Lexical closeness, the standard library's own: a matcher in one call.
-matching.install_fuzzy(m, name="fuzmatch")
-(scored,) = m.run('!(fuzmatch "recieve" "receive")')[0]
-check("fuzzy scores typos", float(scored[0]) > 0.85)
-
-# Semantic closeness: an embedding store IS a matcher.
-store = EmbeddingStore(m, name="vec", mirror=False)
-store.add(S.espresso, numpy.array([0.9, 0.1, 0.0]))
-store.add(S.latte, numpy.array([0.8, 0.3, 0.0]))
-store.add(S.granite, numpy.array([0.0, 0.1, 0.9]))
-store.matcher(name="semmatch", threshold=0.0)
-
-(best,) = m.run("!(ws-best (collapse (semmatch espresso $k)))")[0]
-check("nearest neighbour", best, S.espresso)
-
-# Attention through a matcher: softmax the matches, a distribution over
-# candidates by THIS matcher's closeness.
-(dist,) = m.run("!(ws-softmax (collapse (semmatch latte $k)) 0.5)")[0]
-weights = {str(pair[1]): float(pair[0]) for pair in dist}
-check("a distribution", abs(sum(weights.values()) - 1.0) < 1e-9)
-check("coffee outweighs rock", weights["latte"] > weights["granite"])
-
-# Your own closeness: any scoring function, same shape, same algebra.
-def initials(query, candidate):
-    a, b = str(query), matching.text_of(candidate)
-    return 1.0 if a[:1] == b[:1] else 0.0
-
-matching.matcher(m, "same-initial", score=initials, threshold=0.5)
-m.add(S.person(S.ada), S.person(S.alan), S.person(S.grace))
-(hits,) = m.run(
-    "!(collapse (match (context-space) (person $p) (same-initial a $p)))"
-)[0]
-check("composes with structural match", len(hits), 2)
+inside = Gnd(Interval(1, 5))
+m.eval(expr(S.unify, inside, 3, S.inside, S.outside))   # [inside]
+m.eval(expr(S.unify, inside, 9, S.inside, S.outside))   # [outside]
 ```
 
-## Weighted superpositions
+Variables are never sent to your logic: `$x` against a matchable value
+binds `$x` to the value whole, which is the arbiter's own case order. A
+value with no matching logic compares by identity. And because a space is
+an operand like any other, `(unify &self (friend $who Alice) $who
+no-friends)` answers each friend, or the else branch when there are none.
 
-`measure.install(m)` imports `lib_measure` into the current space. The library treats a weighted superposition as a tuple of `(weight value)` pairs. Its operations include total mass, normalization, temperature softmax, maximum, ranking, top-k selection, sampling, duplicate collapse, expectation, filtering, and nondeterministic choice.
+A matchable can bind the variables it is handed, which is how a value
+becomes a solver rather than a filter:
 
-The first equations define total mass, normalization, and softmax:
-
-```metta
-(= (ws-total $ps)
-   (foldl-atom (map-atom $ps (|-> ($p) (index-atom $p 0))) 0.0 +))
-
-;Scale every weight so the mass is one; a distribution:
-(= (ws-normalize $ps)
-   (if (== $ps ())
-       ()
-       (let $t (ws-total $ps)
-            (if (<= (abs-math $t) 0.0)
-                (Error $ps "ws-normalize requires nonzero total mass")
-                (map-atom $ps
-                  (|-> ($p) ((/ (index-atom $p 0) $t)
-                              (index-atom $p 1))))))))
-
-;Softmax with a temperature: scores become a distribution. Low temperature
-;sharpens toward the best pair, high temperature flattens toward uniform.
-(= (ws-softmax $ps $temp)
-   (if (<= (abs-math $temp) 0.0)
-       (Error $ps "ws-softmax requires a nonzero temperature")
-       (ws-normalize
-         (map-atom $ps (|-> ($p) ((exp-math (/ (index-atom $p 0) $temp))
-                                  (index-atom $p 1)))))))
+```python
+class Nearest:
+    def match_(self, other):
+        query, out = other.children[0], other.children[1]
+        key, _score = next(iter(store.ranked(query, 1)))
+        yield Bindings({out: key})
 ```
 
-See [`petta.matching`](../reference/petta-matching) and [`petta.measure`](../reference/petta-measure) for the Python APIs.
+Matching that carries a score is an ordinary operation instead: answer
+each candidate as the value with the degree as the answer's annotation,
+declare the semiring, and `top` orders while `(annotation)` reads the
+degree beside its answer. Nothing about scores is built into the library;
+the whole of it is `register_op`, `Answer(value=..., k=...)` and
+`declare_annotations`, so fuzzy, regex and semantic closeness are each a
+few lines in your own code. The executable version of everything on this
+page is `python/examples/reasoning/custom_matchers.py`.
+
+The measure library, `lib/lib_measure.metta`, stays what it always was:
+pure MeTTa over explicit `(weight value)` pair data, with `ws-total`,
+`ws-normalize`, `ws-softmax`, `ws-best`, `ws-sample!` and friends.
+`lib/lib_soft.metta` extends it over terms. Both import with
+`!(import! (context-space) (library lib_measure))` and operate on pairs
+you build in the language; when you want an annotated operation's answers
+as pairs, `(pair (annotation) $answer)` is the bridge.

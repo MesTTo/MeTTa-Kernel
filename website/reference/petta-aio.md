@@ -143,7 +143,7 @@ async def load(self, path: str) -> list:
 ### `AsyncMeTTa.save`
 
 ```python
-async def save(self, path: str, format: SaveFormat = "metta") -> int:
+async def save(self, path: str, format: SaveFormat = 'metta') -> int:
 ```
 
 > Save this space and return the number of stored atoms.
@@ -283,22 +283,6 @@ async def parse(self, source: str) -> Any:
 ### `AsyncMeTTa.cast`
 
 ```python
-async def cast(self, value: Any, type_: type[_CastT], /) -> _CastT:
-```
-
-No docstring is defined.
-
-### `AsyncMeTTa.cast`
-
-```python
-async def cast(self, value: Any, type_: Atom | str, /) -> Any:
-```
-
-No docstring is defined.
-
-### `AsyncMeTTa.cast`
-
-```python
 async def cast(self, value: Any, type_: Any, /) -> Any:
 ```
 
@@ -307,7 +291,7 @@ async def cast(self, value: Any, type_: Any, /) -> Any:
 ### `AsyncMeTTa.trace`
 
 ```python
-async def trace(self, source: str, max_events: int = 1_000_000) -> Any:
+async def trace(self, source: str, max_events: int = 1000000) -> Any:
 ```
 
 > Trace source execution up to the requested event bound.
@@ -331,7 +315,7 @@ async def digest(self) -> str:
 ### `AsyncMeTTa.unregister_op`
 
 ```python
-async def unregister_op(self, name: MettaName) -> None:
+async def unregister_op(self, name: str) -> None:
 ```
 
 > Remove every registered operation overload under a name.
@@ -347,7 +331,7 @@ async def builtins(self) -> list[str]:
 ### `AsyncMeTTa.is_function`
 
 ```python
-async def is_function(self, name: MettaName) -> bool:
+async def is_function(self, name: str) -> bool:
 ```
 
 > Report whether a function is visible from this space.
@@ -355,7 +339,7 @@ async def is_function(self, name: MettaName) -> bool:
 ### `AsyncMeTTa.is_function_here`
 
 ```python
-async def is_function_here(self, name: MettaName) -> bool:
+async def is_function_here(self, name: str) -> bool:
 ```
 
 > Report whether this space defines a function itself.
@@ -363,7 +347,7 @@ async def is_function_here(self, name: MettaName) -> bool:
 ### `AsyncMeTTa.arities`
 
 ```python
-async def arities(self, name: MettaName) -> list[int]:
+async def arities(self, name: str) -> list[int]:
 ```
 
 > Return the registered arities for a function name.
@@ -394,7 +378,7 @@ async def why(self, pattern: Any) -> str:
 ### `AsyncMeTTa.space`
 
 ```python
-async def space(self, name: SpaceName) -> AsyncMeTTa:
+async def space(self, name: str) -> AsyncMeTTa:
 ```
 
 > Another space through the same engine thread. The connection
@@ -420,11 +404,7 @@ def stop(self, timeout: float = DEFAULT_CLOSE_TIMEOUT) -> None:
 ## `connect`
 
 ```python
-async def connect(
-    space: SpaceName = _DEFAULT_SPACE,
-    *,
-    metta: MeTTa | None = None,
-) -> AsyncMeTTa:
+async def connect(space: str = _DEFAULT_SPACE, *, metta: MeTTa | None = None) -> AsyncMeTTa:
 ```
 
 > An AsyncMeTTa with its engine thread already running, aiosqlite's

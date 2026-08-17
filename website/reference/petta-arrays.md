@@ -125,14 +125,3 @@ def ranked(self, query: Any, k: int):
 > answers, byte-agreeing with the array path by a differential test.
 > NumPy-like namespaces use argpartition for the candidate set;
 > namespaces exposing only the Array API use argsort.
-
-### `EmbeddingStore.matcher`
-
-```python
-def matcher(self, name: str = "semmatch", threshold: float = 0.0) -> str:
-```
-
-> This store as a first-class matcher: (name $q $key) scores a
-> candidate by cosine, (name $q $unbound) generates best first, both
-> answering (score value) pairs for the measure algebra. The
-> embedding-similarity move of neural theorem proving, packaged.

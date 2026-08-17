@@ -1,4 +1,4 @@
-;nondeterministically returning integers withing range:
+;nondeterministically returning integers within range:
 (= (range $K $N)
    (if (< $K $N)
        (superpose ($K (range (+ $K 1) $N)))
@@ -9,7 +9,7 @@
          (|-> ($x)
               (add-atom &s1 (num $x)))) ;shortcuts when one returns false
 
-;Add only one commited option: (select)
+;Add only one committed option: (select)
 !(let $x (once (range 1 5))
          (add-atom &s2 (num $x)))
 

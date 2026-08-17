@@ -46,12 +46,12 @@
                 ((|-> ($z) (g $z)) $w) 0)
        5)
 
-;lambdas as arg directly within syntatic construct:
+;lambdas as arg directly within syntactic construct:
 !(test (foldall (if True (let $f (|-> ($x $y) (+ $x $y)) $f) (empty))
                 ((|-> ($z) (g $z)) $w) 0)
        5)
 
-;lambdas as arg directly within syntatic construct:
+;lambdas as arg directly within syntactic construct:
 !(test (foldall (if True (let $f (|-> ($x $y) (+ $x $y)) $f) (empty))
                 ((|-> ($z) (* 2 (g $z))) $w) 0)
        10)

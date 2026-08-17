@@ -31,4 +31,21 @@ printf '!(import! &self (library lib_roman))\n!(map-flat (+ 1) (1 2 3))\n' \
 grep -Fxq '2' "$fixture/basic.log"
 grep -Fq '(2 3 4)' "$fixture/roman.log"
 
+# The runtime tree an installed PeTTa has to find, checked in the install
+# rather than in the checkout. backends/ is here because the engine GLOBS it on
+# every boot and expand_file_name/2 answers [] for a missing directory exactly
+# as it does for one holding no built backend: an unshipped seam and an unbuilt
+# backend are the same thing at run time, so nothing but a packaging check
+# tells them apart. setup.py did not ship it until 2026-08-17, which made
+# EXTENDING.md's "a backend is a file in backends/" false for every wheel.
+"$fixture/venv/bin/python" - <<'PY'
+from pathlib import Path
+import petta
+
+runtime = Path(petta.__file__).parent / "_runtime"
+for required in ("src", "lib", "backends"):
+    assert (runtime / required).is_dir(), f"{required}/ is missing from the wheel"
+assert list((runtime / "backends").glob("*.pl")), "backends/ shipped empty"
+PY
+
 echo "packaged petta CLI tests passed"

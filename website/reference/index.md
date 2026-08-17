@@ -30,8 +30,6 @@ These modules expose reduction events, structural findings, similarity scores, a
 |---|---|
 | [`petta.trace`](./petta-trace) | the reduction trace as events |
 | [`petta.lint`](./petta-lint) | space diagnostics for the silently-wrong class |
-| [`petta.measure`](./petta-measure) | weighted superpositions and relations |
-| [`petta.matching`](./petta-matching) | custom matchers |
 
 ## Data and stores
 

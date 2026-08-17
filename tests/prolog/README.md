@@ -5,13 +5,17 @@ build step:
 
     swipl --stack_limit=8g -q -s src/main.pl -- examples/basics/fib.metta silent
 
-`sh run.sh` selects MORK mode when
-`mork_ffi/target/release/libmork_ffi.so` exists. Otherwise it runs the plain
-engine. Run `sh build.sh` to build the optional MORK and FAISS native backends.
-That script clones the pinned MORK and PathMap sources beside this repository,
-so it needs network access, Git, Rust, and a C toolchain. Do not treat a
-successful plain run as evidence that MORK loaded. Verify the native mode by
-adding an atom to `m.space("&mork")` and querying it through the Python API.
+`sh run.sh` adds `backends`, which asks the engine to load every native backend
+that is built. There is no mode and no backend is named: the engine globs
+`backends/*.pl`, and each of those files decides for itself whether its own
+artefact is there. A backend that is not built loads nothing and says nothing,
+so a successful run is not evidence that any particular one loaded. Check the
+one you care about by using it, which for MORK means adding an atom to
+`m.space("&mork")` and querying it back.
+
+Run `sh build.sh` to build the optional MORK and FAISS native backends. That
+script clones the pinned MORK and PathMap sources beside this repository, so it
+needs network access, Git, Rust, and a C toolchain.
 
 The Python library and differential tests need a Python interpreter with
 `janus_swi` linked to the installed SWI version. Select it explicitly when the

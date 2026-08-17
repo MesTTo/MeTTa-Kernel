@@ -1,0 +1,220 @@
+% Purpose: test the Python bridge's wire codec directly, in Prolog.
+% Assumes:
+%   - shim.pl loads without the engine, since the codec touches no engine
+%     state [tested: every suite below consults only shim.pl].
+% Guarantees:
+%   - Every wire tag decodes to its term in both the atom and the string
+%     spelling janus may deliver [tested: shim_wire_decoding].
+%   - A malformed wire term fails rather than decoding to something
+%     [tested: shim_wire_decoding:a_malformed_wire_term_fails].
+% Open Obligations:
+%   To Do: None
+%   Hacks: None
+%   Future Enhancements: None
+
+:- consult('../../python/petta/shim.pl').
+
+% Both tables sit at file scope because a plunit unit is its own module and
+% the suites below share them.
+%
+% tag, payload, the term it must decode to
+decodes('n', 1, 1).
+decodes('n', -2.5, -2.5).
+decodes('s', "foo", foo).
+decodes('s', bar, bar).
+decodes('g', "text", "text").
+decodes('b', true, true).
+decodes('b', false, false).
+decodes('b', '@'(true), true).
+decodes('b', "true", true).
+decodes('o', an_opaque_object, an_opaque_object).
+
+malformed(['zz', 1]).            % a tag no clause claims
+malformed([1, 2]).               % a tag that is neither atom nor string
+malformed([f(x), 1]).            % a compound tag, which must not reach atom_string/2
+malformed(['n']).                % a payload short of one
+malformed(['n', 1, 2]).          % a payload long by one
+malformed([]).
+malformed(notalist).
+malformed(['e', "notalist"]).
+
+% The decoder used to decide a tag by asking petta_py_tag/2 about each
+% candidate in turn, so every clause carried its own copy of that question and
+% the shape of a wire term was never stated in one place. It is stated here
+% instead: nothing else in the tree tests the codec from the Prolog side, and
+% the Python side cannot see a leftover choicepoint or an unreachable clause.
+:- begin_tests(shim_wire_decoding).
+
+test(every_tag_decodes, [forall(decodes(Tag, Payload, Expected))]) :-
+    petta_py_decode([Tag, Payload], Term),
+    Term == Expected.
+
+% janus delivers a Python str as either an atom or a string depending on the
+% call, so both spellings of the tag itself have to reach the same clause.
+test(a_tag_may_arrive_as_an_atom_or_a_string,
+     [forall(decodes(Tag, Payload, Expected))]) :-
+    atom_string(Tag, TagString),
+    petta_py_decode([TagString, Payload], Term),
+    Term == Expected.
+
+test(an_unknown_boolean_payload_reads_as_false) :-
+    petta_py_decode(['b', neither], Term),
+    Term == false.
+
+test(a_variable_decodes_to_a_variable) :-
+    petta_py_decode(['v', "x"], Term),
+    var(Term).
+
+test(a_nested_expression_decodes_through) :-
+    petta_py_decode(['e', [['s', "f"], ['n', 1], ['e', [['s', "g"], ['n', 2]]]]],
+                    Term),
+    Term == [f, 1, [g, 2]].
+
+test(a_malformed_wire_term_fails, [forall(malformed(Wire)), fail]) :-
+    petta_py_decode(Wire, _).
+
+test(a_malformed_wire_term_fails_when_sharing,
+     [forall(malformed(Wire)), fail]) :-
+    petta_py_decode_shared(Wire, _, _).
+
+:- end_tests(shim_wire_decoding).
+
+% Sharing is the half of the codec that reading a query's answers depends on,
+% and it is decided by the variable's NAME rather than by its position.
+:- begin_tests(shim_wire_variable_sharing).
+
+test(one_name_decodes_to_one_variable) :-
+    petta_py_decode_shared(['e', [['v', "x"], ['v', "x"]]], Term, Bindings),
+    Term = [A, B],
+    A == B,
+    Bindings == ['x'-A].
+
+test(two_names_decode_to_two_variables) :-
+    petta_py_decode_shared(['e', [['v', "x"], ['v', "y"]]], Term, Bindings),
+    Term = [A, B],
+    A \== B,
+    length(Bindings, 2).
+
+% The anonymous variable is fresh at every occurrence, exactly as the reader
+% treats $_ in source. Recording it would make two underscores constrain each
+% other, which is a wrong answer rather than an untidy one.
+test(anonymous_variables_never_share) :-
+    petta_py_decode_shared(['e', [['v', "_"], ['v', "_"]]], Term, Bindings),
+    Term = [A, B],
+    A \== B,
+    Bindings == [].
+
+test(a_name_shares_across_nesting) :-
+    petta_py_decode_shared(['e', [['v', "x"], ['e', [['s', "f"], ['v', "x"]]]]],
+                           Term, _),
+    Term = [A, [f, B]],
+    A == B.
+
+% Every leaf below a shared decode is the plain decode with the bindings
+% unchanged, so the two halves cannot answer different terms.
+test(sharing_decodes_leaves_as_the_plain_decode_does,
+     [forall(decodes(Tag, Payload, Expected))]) :-
+    petta_py_decode_shared([Tag, Payload], Term, Bindings),
+    Term == Expected,
+    Bindings == [].
+
+:- end_tests(shim_wire_variable_sharing).
+
+:- begin_tests(shim_answer_form).
+
+% The explicit answer wire: ["a", Theta, Residue, K] with an optional
+% trailing value. Theta binds the query frame's variables BY NAME, the
+% names petta_py_encode/2 wrote, so these build the pattern first and ask
+% for its variable's name the same way the encoder does.
+
+answer_name(Variable, Name) :- term_to_atom(Variable, A), atom_string(A, Name).
+
+test(theta_binds_the_pattern_variable_by_name) :-
+    Pattern = [edge, a, Y],
+    answer_name(Y, N),
+    petta_py_answer_match(["a", [[N, ["s", "b"]]], '@'(true), '@'(none)], Pattern, '&plunit_ctx'),
+    assertion(Y == b).
+
+test(the_atom_tag_spelling_is_accepted_too) :-
+    Pattern = [edge, a, Y],
+    answer_name(Y, N),
+    petta_py_answer_match([a, [[N, ["s", "b"]]], '@'(true), '@'(none)], Pattern, '&plunit_ctx'),
+    assertion(Y == b).
+
+test(an_explicit_value_unifies_under_theta) :-
+    Pattern = [edge, a, Y],
+    answer_name(Y, N),
+    petta_py_answer_match(["a", [[N, ["s", "b"]]], '@'(true), '@'(none),
+                           ["e", [["s", "edge"], ["s", "a"], ["s", "b"]]]],
+                          Pattern, '&plunit_ctx'),
+    assertion(Y == b).
+
+test(a_value_contradicting_theta_drops_the_answer, [fail]) :-
+    Pattern = [edge, a, Y],
+    answer_name(Y, N),
+    petta_py_answer_match(["a", [[N, ["s", "clash"]]], '@'(true), '@'(none),
+                           ["e", [["s", "edge"], ["s", "a"], ["s", "b"]]]],
+                          Pattern, '&plunit_ctx').
+
+test(unknown_theta_names_stay_fresh_and_harmless) :-
+    Pattern = [edge, a, Y],
+    petta_py_answer_match(["a", [["nobody", ["n", 3]]], '@'(true), '@'(none)],
+                          Pattern, '&plunit_ctx'),
+    assertion(var(Y)).
+
+test(theta_values_may_alias_the_patterns_own_variables) :-
+    Pattern = [edge, X, Y],
+    answer_name(X, NX),
+    answer_name(Y, NY),
+    petta_py_answer_match(["a", [[NY, ["v", NX]]], '@'(true), '@'(none)],
+                          Pattern, '&plunit_ctx'),
+    assertion(X == Y).
+
+test(a_plain_wire_still_decodes_and_unifies) :-
+    Pattern = [edge, a, Y],
+    petta_py_answer_match(["e", [["s", "edge"], ["s", "a"], ["s", "b"]]],
+                          Pattern, '&plunit_ctx'),
+    assertion(Y == b).
+
+test(a_residue_under_a_pushed_bound_is_refused,
+     [throws(error(petta_answer_conditional_under_bound(_, _), _))]) :-
+    petta_py_answer_match(["a", [], ["e", [["s", "check"]]], '@'(none)],
+                          [edge, a, _], 2, '&plunit_ctx').
+
+test(an_op_result_without_a_value_is_unit) :-
+    Args = [X],
+    answer_name(X, N),
+    petta_py_answer_result(["a", [[N, ["n", 1]]], '@'(true), '@'(none)],
+                           plunit_op, Args, Result),
+    assertion(X == 1),
+    assertion(Result == []).
+
+test(an_op_result_with_a_value_decodes_under_theta) :-
+    Args = [X],
+    answer_name(X, N),
+    petta_py_answer_result(["a", [[N, ["n", 1]]], '@'(true), '@'(none),
+                            ["e", [["s", "pair"], ["v", N], ["s", "done"]]]],
+                           plunit_op, Args, Result),
+    assertion(X == 1),
+    assertion(Result == [pair, 1, done]).
+
+test(a_plain_op_result_shares_the_argument_variable) :-
+    Args = [X],
+    answer_name(X, N),
+    petta_py_answer_result(["v", N], plunit_op, Args, Result),
+    assertion(Result == X).
+
+test(the_answer_errors_have_engine_messages) :-
+    message_to_string(error(petta_answer_conditional_under_bound([edge, a, _],
+                                                                 [check]),
+                            none), M1),
+    once(sub_string(M1, _, _, _, "residue")),
+    once(sub_string(M1, _, _, _, "Sound")),
+    \+ sub_string(M1, _, _, _, "Unknown error term"),
+    message_to_string(error(petta_answer_annotation_undeclared('&c', 0.5), none),
+                      M2),
+    once(sub_string(M2, _, _, _, "annotation")),
+    once(sub_string(M2, _, _, _, "ranked")),
+    \+ sub_string(M2, _, _, _, "Unknown error term").
+
+:- end_tests(shim_answer_form).

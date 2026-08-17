@@ -82,7 +82,7 @@ def test_embedding_store_runs_on_numpy(am):
     assert scores == sorted(scores, reverse=True)
 ```
 
-Expose the store as a custom matcher when similarity should compose with the measure algebra:
+Give the store its own matching logic when similarity should run inside `unify`. An object with `match_` participates as any grounded atom does, binding the variable it was handed to the nearest key:
 
 ```python
 try:
@@ -90,25 +90,23 @@ try:
 except ImportError:
     skip("numpy is not installed")
 
-from petta import MeTTa, S, V, matching, measure  # noqa: E402
+from petta import Bindings, MeTTa, S, V, expr  # noqa: E402
 from petta.arrays import EmbeddingStore  # noqa: E402
+from petta.atoms import Gnd  # noqa: E402
 
 m = MeTTa().fresh_space()
-measure.install(m)
-
-# Lexical closeness, the standard library's own: a matcher in one call.
-matching.install_fuzzy(m, name="fuzmatch")
-(scored,) = m.run('!(fuzmatch "recieve" "receive")')[0]
-check("fuzzy scores typos", float(scored[0]) > 0.85)
-
-# Semantic closeness: an embedding store IS a matcher.
 store = EmbeddingStore(m, name="vec", mirror=False)
 store.add(S.espresso, numpy.array([0.9, 0.1, 0.0]))
 store.add(S.latte, numpy.array([0.8, 0.3, 0.0]))
 store.add(S.granite, numpy.array([0.0, 0.1, 0.9]))
-store.matcher(name="semmatch", threshold=0.0)
 
-(best,) = m.run("!(ws-best (collapse (semmatch espresso $k)))")[0]
+class Nearest:
+    def match_(self, other):
+        query, out = other.children[0], other.children[1]
+        key, _score = next(iter(store.ranked(query, 1)))
+        yield Bindings({out: key})
+
+(best,) = m.eval(expr(S.unify, Gnd(Nearest()), expr(S.espresso, V.k), V.k, S.none))
 check("nearest neighbour", best, S.espresso)
 ```
 
@@ -166,4 +164,4 @@ def test_embedding_store_requires_one_width_and_positive_integer_k(metta):
             list(store.ranked([1.0, 0.0, 0.0], 1))
 ```
 
-Continue with [Custom matchers and the measure algebra](../reasoning/matchers-measure), [`petta.arrays`](../reference/petta-arrays), [`petta.matching`](../reference/petta-matching), and [`petta.measure`](../reference/petta-measure).
+Continue with [Custom matching](../reasoning/matchers-measure) and [`petta.arrays`](../reference/petta-arrays).

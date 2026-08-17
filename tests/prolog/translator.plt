@@ -7,6 +7,30 @@
 
 :- initialization(consult('../../src/metta.pl')).
 
+%Take a test function back out completely: its registration, its symbol
+%records, its arities, and its compiled predicate at every arity it might have
+%been compiled at. forget_symbol/1 alone leaves the PREDICATE, which is enough
+%to make a second setup in the same process compile a second clause and answer
+%twice.
+forget_test_function(F) :-
+    catch(user:forget_symbol(F), _, true),
+    retractall(user:symbol_head(F, _)),
+    retractall(user:fun_in(_, F)),
+    retractall(user:fun_scoped(F)),
+    retractall(user:fun(F)),
+    retractall(user:arity(F, _)),
+    %current_predicate/1 first, because retractall/1 CREATES an undefined
+    %predicate as dynamic rather than failing, and the next
+    %ensure_fun_registered/1 then records an arity for every one of them: this
+    %helper without the guard left arity(F, A) for 1 and 4 through 8.
+    %abolish/1 after, so the predicate record goes too rather than staying
+    %defined and empty.
+    forall(( between(1, 8, A),
+             current_predicate(F/A),
+             functor(Head, F, A) ),
+           ( catch(retractall(user:Head), _, true),
+             catch(abolish(user:F/A), _, true) )).
+
 :- begin_tests(translator_hyperpose).
 
 hyperpose_space('&plunit_hyperpose').
@@ -17,7 +41,7 @@ hyperpose_form("(= (plunit-viahyper) (hyperpose ((plunit-viamap) (plunit-viamap)
 
 add_hyperpose_form(Space, Text) :-
     sread(Text, Term),
-    'add-atom'(Space, Term, true).
+    'add-atom'(Space, Term, _).
 
 remove_hyperpose_form(Space, Text) :-
     sread(Text, Term),
@@ -264,13 +288,22 @@ test(reduce_of_arity_two_keeps_its_exact_behaviour) :-
 
 :- begin_tests(translator_special_dispatch).
 
+% get-metatype and noeval are here for one reason: the ATOM MASK. Their
+% declarations say the argument is not reduced, and only the compiler can act
+% on that, so the call site has to be built rather than the predicate called
+% with an evaluated argument. Compiled here rather than by honouring the
+% engine's declaration register wholesale, because several of those
+% declarations describe the argument a CALLER writes rather than the value the
+% predicate receives; the reasoning is at call_site_type_chains/2.
 expected_special_heads([
-    'add-atom', 'and-then', 'catch', 'filter-atom', 'foldall',
-    'foldl-atom', 'forall', 'let*', 'map-atom', 'or-else',
-    'remove-atom', 'test-no-answer', '|->', call, case, chain, collapse,
-    cut, eval, evalc, hyperpose, if, let, match, once, prog1, progn, quote,
-    reduce, sealed, superpose, test, transaction, translatePredicate,
-    with_mutex
+    'add-atom', 'add-atoms', 'add-reduct', 'add-reducts', annotation,
+    'and-then', 'catch', 'filter-atom', 'foldall',
+    'foldl-atom', 'forall', 'get-metatype', 'let*', 'map-atom', 'not-provable',
+    'or-else', 'remove-atom', 'test-no-answer', '|->', call, case, chain,
+    collapse, cut, elapsed, eval, evalc, explain, hyperpose, if, let, match,
+    noeval,
+    once, prog1, progn, quote, reduce, sealed, superpose, take, test, timeout,
+    top, transaction, translatePredicate, unify, with_mutex
 ]).
 
 special_dispatch_expression([superpose, [1, 2]]).
@@ -288,6 +321,28 @@ test(each_special_form_clause_has_an_indexable_head) :-
     expected_special_heads(Expected0),
     sort(Expected0, Expected),
     Heads == Expected.
+
+% metta_translated_head/1 is the "does the engine give this head meaning"
+% question, and the translator answers it two ways: translate_special_dl/5
+% and the stream rewrites. A head missed there is reported as a
+% possibly-undefined reference in correct code, which is what asking fun/1
+% alone did to `if`. Derived from the clause heads rather than a literal
+% list, so adding a third compilation route without widening the predicate
+% fails here.
+test(every_translated_head_is_answered_for) :-
+    findall(H, clause(user:translate_special_dl(H, _, _, _, _), _), Special),
+    findall(H, ( clause(user:rewrite_streamops(P, _), _),
+                 nonvar(P), P = [H|_] ), Stream),
+    append(Special, Stream, All0),
+    sort(All0, All),
+    forall(member(Head, All), metta_translated_head(Head)).
+
+% rewrite_streamops/2's last clause is the identity fallthrough, whose head
+% argument is a bare variable. Reading it with clause/2 without a nonvar
+% guard answers true for every symbol in the language and silently disables
+% the linter check this predicate exists for.
+test(an_ordinary_name_is_not_a_translated_head, [fail]) :-
+    metta_translated_head('no-such-head-anywhere').
 
 test(dispatch_uses_a_realised_first_argument_index) :-
     forall(between(1, 1000, _),
@@ -325,7 +380,187 @@ test(space_predicates_use_space_storage,
     once(call(Constructed)),
     C-D == a-b.
 
+% Every other special form may fall through to data dispatch when a clause does
+% not fit its arguments, which is what lets a program use a name like case or
+% if as a symbol. The two Prolog seams are the exception: no program means them
+% as data, so each shape below used to compile into a list named after the form
+% and answer without complaint, and (translatePredicate (p $x) (p $x)) even
+% evaluated both arguments before discarding them into it.
+malformed_seam([translatePredicate, plunit_seam_target]).
+malformed_seam([translatePredicate,
+                [plunit_seam_target, _], [plunit_seam_target, _]]).
+malformed_seam([translatePredicate]).
+malformed_seam([call, plunit_seam_target]).
+malformed_seam([call]).
+
+test(malformed_seam_is_refused,
+     [ forall(malformed_seam(Expr)),
+       throws(error(petta_uncompilable_seam(_, _), _)) ]) :-
+    translate_expr(Expr, _, _).
+
 :- end_tests(translator_special_dispatch).
+
+% A translator rule is called as a Prolog predicate, so a rule whose MeTTa body
+% is one call to a registered predicate has its whole expansion written in
+% Prolog. Together with translatePredicate that is a library deciding how its
+% own forms compile: the review's X4 proposed a second mechanism for this
+% before the composition was tried.
+:- begin_tests(translator_prolog_authored_rules,
+               [ setup(( assertz(( user:plunit_x4_add(A, B, Out, Gs) :-
+                                     ( integer(A), integer(B)
+                                     -> C is A + B,
+                                        Gs = [translatePredicate, [=, Out, C]]
+                                     ;  Gs = [translatePredicate,
+                                              [plus, A, B, Out]] ) )),
+                        assertz(( user:plunit_x4_quoted(Out, Gs) :-
+                                     Gs = [quote, [translatePredicate,
+                                                   [=, Out, 42]]] )),
+                        assertz(user:translator_rule(plunit_x4_add)),
+                        assertz(user:translator_rule(plunit_x4_quoted)) )),
+                 cleanup(( retractall(user:translator_rule(plunit_x4_add)),
+                           retractall(user:translator_rule(plunit_x4_quoted)),
+                           abolish(user:plunit_x4_add/4),
+                           abolish(user:plunit_x4_quoted/2) )) ]).
+
+test(a_prolog_rule_folds_a_constant_at_compile_time) :-
+    translate_expr([plunit_x4_add, 20, 22, V], Goals, _),
+    % Nothing is left to run but the unification the rule chose.
+    Goals = [V = 42].
+
+test(a_prolog_rule_emits_a_goal_when_it_cannot_fold) :-
+    translate_expr([plunit_x4_add, A, B, V], Goals, _),
+    Goals = [plus(A, B, V)],
+    A = 6, B = 7,
+    once(plus(A, B, V)),
+    V == 13.
+
+test(quoted_seam_expansion_is_refused,
+     [throws(error(petta_seam_expansion_as_data(plunit_x4_quoted,
+                                                translatePredicate), _))]) :-
+    translate_expr([plunit_x4_quoted, _], _, _).
+
+:- end_tests(translator_prolog_authored_rules).
+
+% A symbol may carry several type declarations at different arities. That is
+% nondeterminism over declarations, not a conflict, and a declaration whose
+% shape does not fit a call simply does not apply to it. Before this worked,
+% the branches were built with maplist, so ONE inapplicable declaration failed
+% the whole form and (plunit_multi_arity a b 1) would not translate at all.
+:- begin_tests(translator_multi_arity_declarations,
+               [ setup((retractall(user:fun(plunit_multi_arity)),
+                        retractall(user:arity(plunit_multi_arity, _)),
+                        remove_sexp('&self', [':', plunit_multi_arity, _]),
+                        assertz(user:fun(plunit_multi_arity)),
+                        assertz(user:arity(plunit_multi_arity, 3)),
+                        assertz(user:arity(plunit_multi_arity, 4)),
+                        add_sexp('&self',
+                                 [':', plunit_multi_arity,
+                                  [->, 'Number', 'Number', 'Number']]),
+                        add_sexp('&self',
+                                 [':', plunit_multi_arity,
+                                  [->, 'Number', 'Number', 'Number',
+                                   'Number']]))),
+                 cleanup((retractall(user:fun(plunit_multi_arity)),
+                          retractall(user:arity(plunit_multi_arity, _)),
+                          remove_sexp('&self',
+                                      [':', plunit_multi_arity, _]))) ]).
+
+test(each_arity_translates) :-
+    translate_expr([plunit_multi_arity, 1, 2], _, _),
+    translate_expr([plunit_multi_arity, 1, 2, 3], _, _).
+
+% The wider declaration must not also build a branch for the shorter call,
+% which would answer the same thing twice.
+test(an_exact_arity_match_excludes_the_wider_declaration) :-
+    findall(Goals, translate_expr([plunit_multi_arity, 1, 2], Goals, _),
+            Translations),
+    length(Translations, 1).
+
+:- end_tests(translator_multi_arity_declarations).
+
+%An argument whose declared type is a type variable occurring nowhere else in
+%the chain constrains nothing: the check cannot fail, because it falls back to
+%get-metatype/2, and nothing reads the type it computes. Dropping it took a
+%call from 83 inferences to 12 [measured 2026-08-15, 1000 runs of a call site
+%compiled once].
+:- begin_tests(translator_importer_arguments).
+
+% An importer's second argument is a list of NAMES, and it has to stay data.
+% Only two of the four spellings were kept literal, so lib_zar's pair compiled
+% the list as an expression once any name in it had already become a function:
+% (zar_add zar_typo) became a partial application of zar_add, the declared
+% Expression check on it failed, and the whole import answered nothing with no
+% error at any point.
+test(an_importer_name_list_stays_data,
+     [ setup(( assertz(user:plunit_tr_importable(_, _)),
+               import_prolog_function(plunit_tr_importable, _) )),
+       cleanup(( abolish(user:plunit_tr_importable/2),
+                 unregister_fun_everywhere(plunit_tr_importable),
+                 release_function_name(plunit_tr_importable),
+                 retractall(fun(plunit_tr_importable)),
+                 retractall(arity(plunit_tr_importable, _)) )) ]) :-
+    forall(prolog_function_importer(Importer),
+           ( Call = [Importer, "lib.pl", [plunit_tr_importable, other]],
+             translate_expr(Call, Goals, _),
+             % One goal, with the list intact: no call to the registered name.
+             Goals = [Goal],
+             Goal =.. [Importer, "lib.pl", Names, _],
+             assertion(Names == [plunit_tr_importable, other]) )).
+
+test(all_four_importer_spellings_are_covered) :-
+    findall(I, prolog_function_importer(I), Importers),
+    msort(Importers, Sorted),
+    Sorted == [import_prolog_functions_from_file,
+               import_prolog_functions_from_file_pred,
+               import_prolog_functions_from_module,
+               import_prolog_functions_from_module_pred].
+
+:- end_tests(translator_importer_arguments).
+
+:- begin_tests(translator_unconstraining_types).
+
+typed_call_goal(TypeChain, Goal) :-
+    setup_call_cleanup(
+        ( assertz(user:fun(plunit_free_types)),
+          assertz(user:arity(plunit_free_types, 3)),
+          add_sexp('&self', [':', plunit_free_types, TypeChain]) ),
+        ( translate_expr([plunit_free_types, 1, 2], Goals, _),
+          goals_list_to_conj(Goals, Goal) ),
+        ( retractall(user:fun(plunit_free_types)),
+          retractall(user:arity(plunit_free_types, _)),
+          remove_sexp('&self', [':', plunit_free_types, _]) )).
+
+has_type_check(Goal) :-
+    once(( sub_term(Sub, Goal), nonvar(Sub), Sub = has_type(_, _) )).
+
+test(a_singleton_type_variable_generates_no_check) :-
+    typed_call_goal([->, _A, _B, 'Bool'], Goal),
+    findall(Type, ( sub_term(S, Goal), nonvar(S), S = has_type(_, Type) ),
+            Checked),
+    %Only the concrete output type is worth checking.
+    Checked == ['Bool'].
+
+test(a_repeated_type_variable_keeps_its_checks) :-
+    typed_call_goal([->, A, A, 'Bool'], Goal),
+    findall(x, ( sub_term(S, Goal), nonvar(S), S = has_type(_, T), var(T) ),
+            Kept),
+    length(Kept, Count),
+    Count =:= 2.
+
+test(a_concrete_type_keeps_its_check) :-
+    typed_call_goal([->, 'Number', 'Number', 'Bool'], Goal),
+    has_type_check(Goal).
+
+%A variable nested inside a structured type is not a bare singleton argument
+%type, so its check stays.
+test(a_type_variable_inside_a_structure_keeps_its_check) :-
+    typed_call_goal([->, ['List', _C], 'Number', 'Bool'], Goal),
+    findall(Type, ( sub_term(S, Goal), nonvar(S), S = has_type(_, Type),
+                    nonvar(Type), Type = ['List'|_] ),
+            Kept),
+    Kept \== [].
+
+:- end_tests(translator_unconstraining_types).
 
 :- begin_tests(translator_typed_currying,
                [ setup((retractall(user:fun(plunit_typed_curry)),
@@ -433,6 +668,33 @@ test(shared_type_variables_can_reach_a_later_consistent_type) :-
     goals_list_to_conj(Goals, Goal),
     findall(Out, call(Goal), Answers),
     Answers == [1].
+
+% Where the OUTPUT shares a type variable with an argument, as in (-> $a $a),
+% committing the argument check before the call picks a witness the output
+% cannot satisfy: with (: at A), (: at T), (: t T) and (= (testf at) t), the
+% argument check binds $a to A and the answer t, of type T, is rejected. Both
+% halves have to solve together, after the call.
+test(a_shared_type_variable_is_assigned_after_the_call,
+     [ setup(( add_sexp('&self', [':', plunit_at, 'PlunitA']),
+               add_sexp('&self', [':', plunit_at, 'PlunitT']),
+               add_sexp('&self', [':', plunit_t, 'PlunitT']),
+               add_sexp('&self', [':', plunit_testf, [->, Shared, Shared]]),
+               assertz(user:fun(plunit_testf)),
+               assertz(user:arity(plunit_testf, 2)),
+               assertz(user:plunit_testf(_, plunit_t)) )),
+       cleanup(( remove_sexp('&self', [':', plunit_at, _]),
+                 remove_sexp('&self', [':', plunit_t, _]),
+                 remove_sexp('&self', [':', plunit_testf, _]),
+                 retractall(user:plunit_testf(_, _)),
+                 retractall(user:arity(plunit_testf, _)),
+                 retractall(user:fun(plunit_testf)) )) ]) :-
+    translate_expr([plunit_testf, plunit_at], Goals, Out),
+    goals_list_to_conj(Goals, Goal),
+    findall(Out, call(Goal), Answers),
+    % PlunitT is the assignment that satisfies both ends. Committing to
+    % PlunitA first, which is the type the argument happens to match earliest,
+    % answered nothing at all.
+    assertion(Answers == [plunit_t]).
 
 :- end_tests(translator_typed_checks).
 
@@ -598,6 +860,109 @@ test(explicit_no_answer_rejects_an_empty_value,
 
 :- end_tests(translator_test_answers).
 
+:- begin_tests(translator_sealed).
+
+% sealed had NO test and NO example anywhere in the tree, and the case it
+% exists for did not work: the rename was emitted as a runtime goal over the
+% already-translated body, so an outer binding had already bound the variable
+% and there was nothing left to rename.
+
+% The canonical use. Without the compile-time rename this had no answer at all,
+% because the inner let ran as (let 1 2 1).
+test(a_sealed_variable_shadows_an_outer_binding) :-
+    findall(V, eval([let, X, 1, [sealed, [X], [let, X, 2, X]]], V), Answers),
+    Answers == [2].
+
+test(a_sealed_variable_is_local_to_its_expression) :-
+    findall(V, eval([sealed, [Y], [let, Y, 5, Y]], V), Answers),
+    Answers == [5].
+
+% Only the listed variables are renamed. Everything else stays shared, which is
+% what copy_term/4 gives and what makes sealed useful rather than a full copy.
+test(an_unlisted_variable_stays_shared) :-
+    findall(V, eval([let, Z, 7, [sealed, [_W], [Z, _]]], V), Answers),
+    Answers = [[7, Fresh]],
+    var(Fresh).
+
+test(sealing_nothing_is_the_expression_itself) :-
+    findall(V, eval([sealed, [], 42], V), Answers),
+    Answers == [42].
+
+% sealed and lambda are the same operation, capture-avoiding renaming, in two
+% places: a lambda renames its BINDERS on every application, sealed renames
+% variables you NAME in an atom that has no binders. So a sealed variable
+% inside a lambda body is not free in that lambda and must not be captured.
+% It was: (= (mk) (|-> ($a) (sealed ($v) (pair $a $v)))) compiled mk to arity
+% 2 while every call was arity 1, which made the function uncallable.
+test(a_lambda_does_not_capture_a_sealed_variable) :-
+    sread("(= (plunit-seal-mk) (|-> ($a) (sealed ($v) (pair $a $v))))", Term),
+    translate_clause(Term, (Head :- _)),
+    functor(Head, _, Arity),
+    Arity == 1.
+
+% An ordinary free variable IS still captured, so this stays arity 3 rather
+% than 2: a function whose body is a partial application is eta-expanded, and
+% the captured $k, the lambda's own parameter and the output are all arguments.
+% That is the difference the test above measures. Before the fix the sealed
+% version was arity 3 too, and ((plunit-seal-mk) 1) raised "Unknown procedure:
+% plunit-seal-mk/1"; it answers (pair 1 $_) now.
+test(a_lambda_still_captures_an_ordinary_free_variable) :-
+    sread("(= (plunit-seal-cap $k) (|-> ($a) (pair $a $k)))", Term),
+    translate_clause(Term, (Head :- _)),
+    functor(Head, _, Arity),
+    Arity == 3.
+
+% Freshness per application comes from the clause mechanism rather than from
+% any copying here: "Variables are local to a clause ... ensured by renaming
+% the variables appearing in a clause each time the clause is chosen to effect
+% a reduction" [The Art of Prolog, section 4, The Computation Model].
+test(each_application_gets_its_own_sealed_variable) :-
+    findall(V, eval([let, F, ['|->', [A], [sealed, [S], [tagged, A, S]]],
+                     [superpose, [[F, 1], [F, 2]]]], V), Answers),
+    Answers = [[tagged, 1, One], [tagged, 2, Two]],
+    var(One), var(Two), One \== Two.
+
+:- end_tests(translator_sealed).
+
+:- begin_tests(translator_occurs_checks).
+
+% A let unifies under an occurs check so a binding cannot build a term
+% containing itself. The check is only capable of firing when the pattern
+% variable could already be inside the value, and it walks the WHOLE value, so
+% where it is left standing naming a term costs time proportional to that
+% term's size. These tests pin which ones are demoted to =/2 and which stay.
+
+body_of(Source, Body) :-
+    sread(Source, Term),
+    translate_clause(Term, (_ :- Body)).
+
+% The pattern variable is fresh here, so it cannot be inside the value and the
+% check cannot fail. Measured 2026-08-15: a let* chain of four bindings over a
+% 2000 element list, 20,000 times, went from 0.8730s to 0.0026s, and became
+% flat in the list's size rather than linear in it.
+test(a_fresh_pattern_variable_is_demoted) :-
+    body_of("(= (plunit-uwoc-fresh $l) (let $y $l (car-atom $y)))", Body),
+    Body = (Bind, _),
+    Bind = (_ = _).
+
+% The pattern variable comes from the HEAD, so the caller may already have put
+% it inside the value: (f $z (g $z)) makes the binding cyclic. The check stays.
+test(a_head_variable_keeps_its_check) :-
+    body_of("(= (plunit-uwoc-head $y $l) (let $y $l (car-atom $y)))", Body),
+    once(( sub_term(Goal, Body), nonvar(Goal),
+           Goal = unify_with_occurs_check(_, _) )).
+
+% The end to end behaviour the check exists for. This must have no answers.
+test(a_self_referential_binding_is_still_refused) :-
+    findall(X, eval([let, X, ['cons-atom', X, []], X], _), Answers),
+    Answers == [].
+
+test(an_ordinary_binding_still_works) :-
+    findall(V, eval([let, V, 5, V], _), Answers),
+    Answers == [5].
+
+:- end_tests(translator_occurs_checks).
+
 :- begin_tests(translator_branch_returns).
 
 test(build_branch_without_goals_unifies_at_runtime) :-
@@ -655,3 +1020,508 @@ test(nested_alternatives_can_produce_one_private_return) :-
     Body == (guard -> (choice -> left(Out) ; right(Out)) ; Out = none).
 
 :- end_tests(translator_branch_returns).
+
+% A runnable is compiled whole before any of it runs, so an import written in
+% the same runnable as a call to what it imports cannot affect its own
+% compilation: the call compiled while the name was unregistered, fell through
+% to data dispatch, and the runnable answered the expression rather than the
+% value. Both C-extension examples in the tree carry a comment telling the next
+% reader to split the runnable, which is the shape of a trap.
+:- begin_tests(translator_own_import,
+               [ cleanup(( retractall(user:runnable_import(_)),
+                           retractall(user:fun('plunit-own-import')) )) ]).
+
+own_import_runnable(Importer, Expr) :-
+    prolog_function_importer(Importer),
+    Expr = [progn,
+            [Importer, "some.pl", ['plunit-own-import']],
+            ['plunit-own-import', 1]].
+
+test(a_call_to_a_name_this_runnable_imports_is_refused,
+     [ forall(own_import_runnable(_, Expr)),
+       throws(error(petta_call_to_own_import('plunit-own-import'), _)) ]) :-
+    translate_runnable_expr(Expr, _, _).
+
+test(the_import_alone_is_fine) :-
+    translate_runnable_expr(
+        [import_prolog_functions_from_file, "some.pl", ['plunit-own-import']],
+        _, _).
+
+test(a_call_to_an_ALREADY_registered_name_is_fine,
+     [ setup(assertz(user:fun('plunit-own-import'))),
+       cleanup(retractall(user:fun('plunit-own-import'))) ]) :-
+    % Re-importing a name that already resolves is ordinary: the call compiles
+    % to a real call, so there is nothing to warn about.
+    translate_runnable_expr(
+        [progn,
+         [import_prolog_functions_from_file, "some.pl", ['plunit-own-import']],
+         ['plunit-own-import', 1]],
+        _, _).
+
+test(an_ordinary_runnable_records_no_import) :-
+    translate_runnable_expr([progn, [+, 1, 2]], _, _),
+    \+ user:runnable_import(_).
+
+:- end_tests(translator_own_import).
+
+:- begin_tests(translator_lambda_space_scope).
+
+%A lambda's body is compiled into a clause of its own, and that clause has to
+%land where the lambda was written. A bare assertz/2 puts it in `user`, and a
+%module inherits from `user` rather than the reverse, so the body could not
+%see the space it was written in.
+lambda_scope_space('&plunit_lambda_scope').
+lambda_scope_other('&plunit_lambda_other').
+
+lambda_scope_definition(Space, Factor, Definition) :-
+    format(atom(Text), "(= (plunit-lambda-local $x) (* $x ~d))", [Factor]),
+    sread(Text, Definition),
+    'add-atom'(Space, Definition, _).
+
+setup_lambda_scope :-
+    retractall(silent(_)),
+    assertz(silent(true)),
+    lambda_scope_space(Space),
+    lambda_scope_definition(Space, 2, _).
+
+cleanup_lambda_scope :-
+    lambda_scope_space(Space),
+    forall(( 'get-atoms'(Space, Atom),
+             Atom = [=, ['plunit-lambda-local'|_], _] ),
+           'remove-atom'(Space, Atom, _)),
+    retractall(silent(_)),
+    assertz(silent(false)).
+
+test(a_lambda_reaches_the_space_local_function_it_names,
+     [setup(setup_lambda_scope), cleanup(cleanup_lambda_scope)]) :-
+    lambda_scope_space(Space),
+    process_metta_string("!(map-atom (1 2 3) $x (plunit-lambda-local $x))",
+                         Results, Space),
+    Results == [[2, 4, 6]].
+
+%Every lambda form shares the one '|->' clause, so each is checked rather than
+%assumed from the one above.
+lambda_scope_form("!(map-atom (1 2 3) $x (plunit-lambda-local $x))", [2, 4, 6]).
+lambda_scope_form("!(filter-atom (1 2 3) $x (> (plunit-lambda-local $x) 2))",
+                  [2, 3]).
+lambda_scope_form("!(foldl-atom (1 2 3) 0 $a $x (+ $a (plunit-lambda-local $x)))",
+                  12).
+lambda_scope_form("!((|-> ($y) (plunit-lambda-local $y)) 21)", 42).
+
+test(every_lambda_form_reaches_the_space_it_was_written_in,
+     [ forall(lambda_scope_form(Source, Expected)),
+       setup(setup_lambda_scope), cleanup(cleanup_lambda_scope) ]) :-
+    lambda_scope_space(Space),
+    process_metta_string(Source, Results, Space),
+    Results == [Expected].
+
+test(the_lambda_clause_is_not_in_user,
+     [setup(setup_lambda_scope), cleanup(cleanup_lambda_scope)]) :-
+    lambda_scope_space(Space),
+    space_module(Space, Module),
+    process_metta_string("!(map-atom (1 2) $x (plunit-lambda-local $x))",
+                         _, Space),
+    findall(Name, ( fun_in(Module, Name),
+                    sub_atom(Name, 0, 7, _, lambda_) ), Names),
+    Names \== [],
+    forall(member(Name, Names),
+           ( arity(Name, Arity),
+             functor(Head, Name, Arity),
+             \+ catch(nth_clause(user:Head, 1, _), _, fail),
+             catch(nth_clause(Module:Head, 1, _), _, fail) )).
+
+%F6.2: the same lambda text, in two spaces, over two different definitions of
+%the name it calls. Each has to answer its own.
+test(two_spaces_compiling_the_same_lambda_do_not_share_it,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( forall(( member(S, ['&plunit_lambda_scope',
+                                     '&plunit_lambda_other']),
+                          'get-atoms'(S, Atom),
+                          Atom = [=, ['plunit-lambda-local'|_], _] ),
+                        'remove-atom'(S, Atom, _)),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    lambda_scope_space(One),
+    lambda_scope_other(Other),
+    lambda_scope_definition(One, 2, _),
+    lambda_scope_definition(Other, 10, _),
+    Source = "!(map-atom (1 2 3) $x (plunit-lambda-local $x))",
+    process_metta_string(Source, OneResults, One),
+    process_metta_string(Source, OtherResults, Other),
+    OneResults == [[2, 4, 6]],
+    OtherResults == [[10, 20, 30]].
+
+:- end_tests(translator_lambda_space_scope).
+
+:- begin_tests(translator_literal_type_checks).
+
+%A literal's type is settled while the call site is compiled, so the check
+%emitted for it can only succeed. Dropping it is only sound in that direction:
+%it must never decide a literal FAILS a type, because a get-type extension may
+%give one a second type.
+literal_check_source("
+(: tlc-sq (-> Number Number))
+(= (tlc-sq $x) (* $x $x))
+(: tlc-tag (-> String Number Bool))
+(= (tlc-tag $s $n) true)
+(: tlc-flag (-> Bool Bool))
+(= (tlc-flag $b) $b)
+(: tlc-id (-> $t $t))
+(= (tlc-id $x) $x)
+(: tlc-sym Bool)").
+
+setup_literal_checks :-
+    retractall(silent(_)), assertz(silent(true)),
+    literal_check_source(Source),
+    process_metta_string(Source, _).
+
+cleanup_literal_checks :-
+    forall(member(F, ['tlc-sq', 'tlc-tag', 'tlc-flag', 'tlc-id']),
+           ( 'remove-atom'('&self', [':', F, _], _),
+             'remove-atom'('&self', [=, [F|_], _], _),
+             forget_test_function(F) )),
+    'remove-atom'('&self', [':', 'tlc-sym', _], _),
+    retractall(silent(_)), assertz(silent(false)).
+
+%Every literal a type is decided for, and one of each that is not.
+dropped_check("(tlc-sq 4)").
+dropped_check("(tlc-tag \"a\" 1)").
+dropped_check("(tlc-flag true)").
+dropped_check("(tlc-flag false)").
+
+test(a_literal_argument_compiles_no_type_check,
+     [ forall(dropped_check(Call)),
+       setup(setup_literal_checks), cleanup(cleanup_literal_checks) ]) :-
+    sread(Call, Term),
+    translate_runnable_expr(Term, Goals, _),
+    term_string(Goals, Text),
+    \+ sub_string(Text, _, _, _, "has_type(4"),
+    \+ sub_string(Text, _, _, _, "has_type(\"a\""),
+    \+ sub_string(Text, _, _, _, "has_type(true"),
+    \+ sub_string(Text, _, _, _, "has_type(false").
+
+test(an_unknown_argument_keeps_its_check,
+     [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
+    sread("(tlc-sq $x)", Term),
+    translate_runnable_expr(Term, Goals, _),
+    term_string(Goals, Text),
+    once(sub_string(Text, _, _, _, "has_type")).
+
+%A check that cannot be dropped is SPECIALISED instead: the declared type is a
+%compile-time constant, and three of them are decided by one Prolog builtin.
+%The check still has to be there, so both are asserted, and the emitted text is
+%what says the fast test is in FRONT rather than merely present somewhere.
+specialised_check("(tlc-sq $x)",   "number(").
+specialised_check("(tlc-tag $s 1)", "string(").
+specialised_check("(tlc-flag $b)", "==true").
+
+test(an_intrinsic_type_check_is_specialised,
+     [ forall(specialised_check(Call, Fast)),
+       setup(setup_literal_checks), cleanup(cleanup_literal_checks) ]) :-
+    sread(Call, Term),
+    translate_runnable_expr(Term, Goals, _),
+    term_string(Goals, Spaced),
+    split_string(Spaced, " ", " ", Pieces),
+    atomic_list_concat(Pieces, Text),
+    once(sub_atom(Text, FastAt, _, _, Fast)),
+    once(sub_atom(Text, SlowAt, _, _, has_type)),
+    assertion(FastAt < SlowAt).
+
+%The one that would break under a cut instead of a fall-through. number/1 is
+%SOUND for has_type/2 and not complete: `(: tlc-sym Bool)` makes
+%has_type(tlc-sym, 'Bool') true while the intrinsic test says nothing, so the
+%general check behind it is what still answers. It has to run in both
+%positions here, since tlc-sym is the argument AND the result.
+test(a_symbol_declared_with_an_intrinsic_type_still_passes,
+     [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
+    process_metta_string("!(collapse (tlc-flag tlc-sym))", Results),
+    assertion(Results == [['tlc-sym']]),
+    process_metta_string("!(collapse (tlc-flag nope))", Refused),
+    assertion(Refused == [[]]).
+
+%A parametric declaration leaves the type an unbound VARIABLE at compile time,
+%and intrinsic_type_test/3's head would bind it to 'Number' and emit a number/1
+%test for a type nobody wrote. The nonvar/1 guard is what stops it, and this is
+%what says so.
+test(a_parametric_type_is_not_specialised,
+     [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
+    sread("(tlc-id $x)", Term),
+    translate_runnable_expr(Term, Goals, _),
+    term_string(Goals, Text),
+    assertion(\+ sub_string(Text, _, _, _, "number(")),
+    assertion(\+ sub_string(Text, _, _, _, "string(")),
+    process_metta_string("!(collapse (tlc-id foo))", Results),
+    assertion(Results == [[foo]]).
+
+%The drop is one-directional: a literal of the WRONG type keeps its check and
+%is still refused at run time.
+refused_call("(tlc-sq \"s\")").
+refused_call("(tlc-sq true)").
+refused_call("(tlc-tag 1 \"a\")").
+refused_call("(tlc-flag 1)").
+
+test(a_literal_of_the_wrong_type_is_still_refused,
+     [ forall(refused_call(Call)),
+       setup(setup_literal_checks), cleanup(cleanup_literal_checks) ]) :-
+    format(atom(Source), "!(collapse ~w)", [Call]),
+    process_metta_string(Source, Results),
+    Results == [[]].
+
+test(a_literal_of_the_right_type_still_answers,
+     [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
+    process_metta_string("!(collapse (tlc-sq 4))", Results),
+    Results == [[16]].
+
+%The drop must not BIND what it is inspecting. Written with the literal in the
+%head, `intrinsic_literal_type(true, 'Bool')` unifies with an unbound Value and
+%binds it, and the thing it binds is the call site's compile-time variable: the
+%clause for a caller of a Bool-typed function compiled as `f(true, A, B)` and
+%`(f False ...)` then matched nothing and answered nothing. The shape needs a
+%Bool, Number or String parameter reached from ANOTHER function's body with a
+%variable, which no example in the corpus had.
+frozen_parameter_case("(: tfp-bool (-> Bool Atom Bool))",
+                      "(= (tfp-bool $b $rest) $b)",
+                      "(= (tfp-via $x $y) (tfp-bool $x $y))",
+                      "!(collapse (tfp-via False anything))", [[false]]).
+frozen_parameter_case("(: tfp-num (-> Number Number))",
+                      "(= (tfp-num $n) $n)",
+                      "(= (tfp-nvia $x) (tfp-num $x))",
+                      "!(collapse (tfp-nvia 7))", [[7]]).
+frozen_parameter_case("(: tfp-str (-> String String))",
+                      "(= (tfp-str $s) $s)",
+                      "(= (tfp-svia $x) (tfp-str $x))",
+                      "!(collapse (tfp-svia \"z\"))", [["z"]]).
+
+test(a_typed_parameter_is_not_frozen_at_compile_time,
+     [ forall(frozen_parameter_case(Decl, Def, Caller, Call, Expected)),
+       setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( forall(member(F, ['tfp-bool', 'tfp-num', 'tfp-str',
+                                   'tfp-via', 'tfp-nvia', 'tfp-svia']),
+                        ( 'remove-atom'('&self', [':', F, _], _),
+                          'remove-atom'('&self', [=, [F|_], _], _),
+                          forget_test_function(F) )),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    format(atom(Source), "~w~n~w~n~w~n", [Decl, Def, Caller]),
+    process_metta_string(Source, _),
+    process_metta_string(Call, Results),
+    Results == Expected.
+
+:- end_tests(translator_literal_type_checks).
+
+:- begin_tests(translator_match_modifiers).
+
+%(:= X) in a match pattern is the match-by-EQUALITY modifier. Lifted at
+%compile time: the position becomes a fresh variable so the space read keeps
+%its ordinary shape, and the equality is a ==/2 goal after the match.
+setup_match_modifiers :-
+    retractall(silent(_)), assertz(silent(true)),
+    'add-atom'('&self', ['plunit-mod-fact', a], _),
+    'add-atom'('&self', ['plunit-mod-fact', b], _),
+    'add-atom'('&self', ['plunit-mod-holds', [':=', p, q]], _).
+
+cleanup_match_modifiers :-
+    forall(( 'get-atoms'('&self', Atom),
+             ( Atom = ['plunit-mod-fact'|_] ; Atom = ['plunit-mod-holds'|_] ) ),
+           'remove-atom'('&self', Atom, _)),
+    retractall(silent(_)), assertz(silent(false)).
+
+modifier_case("(match &self (plunit-mod-fact $x) $x)",        [a, b]).
+modifier_case("(match &self (plunit-mod-fact (:= a)) hit)",   [hit]).
+modifier_case("(match &self (plunit-mod-fact (:= c)) hit)",   []).
+%A free variable does not match a := operand, which is the whole point.
+modifier_case("(let $y (superpose ($z)) \c
+                (match &self (plunit-mod-fact (:= $y)) hit))", []).
+%THE ARITY GATE. Three elements stay data and match structurally, which
+%examples/libraries/minimal_metta.metta already asserts for unify-mod.
+modifier_case("(match &self (plunit-mod-holds (:= $m $n)) ($m $n))", [[p, q]]).
+
+test(a_match_pattern_honours_the_equality_modifier,
+     [ forall(modifier_case(Call, Expected)),
+       setup(setup_match_modifiers), cleanup(cleanup_match_modifiers) ]) :-
+    format(atom(Source), "!(collapse ~w)", [Call]),
+    process_metta_string(Source, Results),
+    Results == [Expected].
+
+%A pattern with no modifier compiles to exactly what it always did, so the
+%space read pays nothing for a feature it is not using.
+test(a_pattern_without_a_modifier_is_unchanged) :-
+    lift_pattern_modifiers([fact, X, [inner, Y]], Lifted, Guards),
+    Lifted == [fact, X, [inner, Y]],
+    Guards == [].
+
+test(the_modifier_position_becomes_a_variable_and_the_equality_a_guard) :-
+    lift_pattern_modifiers([fact, [':=', a]], Lifted, Guards),
+    Lifted = [fact, Fresh],
+    var(Fresh),
+    Guards = [Fresh0 == a],
+    Fresh0 == Fresh.
+
+:- end_tests(translator_match_modifiers).
+
+:- begin_tests(translator_capturing_lambda_curries).
+
+%A function whose body is a CAPTURING lambda is eta-expanded, so its compiled
+%clause takes more arguments than its equation's head. The arity registered
+%from the source shape then named a predicate that never existed, and the
+%capturing case raised `Unknown procedure` where the non-capturing one curried.
+capturing_source("
+(= (plunit-pfree) (|-> ($a) (solo $a)))
+(= (plunit-pcap $k) (|-> ($a) (pair $a $k)))").
+
+setup_capturing :-
+    retractall(silent(_)), assertz(silent(true)),
+    capturing_source(Source),
+    process_metta_string(Source, _).
+
+%The compiled clause has to go too. forget_symbol/1 removes the registration
+%and not the predicate, so a second setup in the same process compiled a
+%SECOND plunit-pcap/3 clause and the fully applied call then answered twice.
+cleanup_capturing :-
+    forall(member(F, ['plunit-pfree', 'plunit-pcap']),
+           ( 'remove-atom'('&self', [=, [F|_], _], _),
+             forget_test_function(F) )),
+    retractall(silent(_)), assertz(silent(false)).
+
+%The non-capturing case, which always worked, and the capturing one beside it.
+curry_case("(collapse ((plunit-pfree) 1))",   [[solo, 1]]).
+curry_case("(collapse ((plunit-pcap 5) 1))",  [[pair, 1, 5]]).
+curry_case("(collapse (plunit-pcap 5 1))",    [[pair, 1, 5]]).
+
+test(a_capturing_lambda_curries_like_a_free_one,
+     [ forall(curry_case(Call, Expected)),
+       setup(setup_capturing), cleanup(cleanup_capturing) ]) :-
+    format(atom(Source), "!~w", [Call]),
+    process_metta_string(Source, Results),
+    Results == [Expected].
+
+%Under-applied, it answers the residual closure that partial/2 exists for
+%rather than raising.
+test(an_under_applied_capturing_function_answers_a_closure,
+     [setup(setup_capturing), cleanup(cleanup_capturing)]) :-
+    process_metta_string("!(collapse (plunit-pcap 5))", Results),
+    Results = [[partial('plunit-pcap', [5])]].
+
+%The superseded arity is dropped, the compiled one kept.
+test(only_the_compiled_arity_stays_registered,
+     [setup(setup_capturing), cleanup(cleanup_capturing)]) :-
+    findall(A, user:arity('plunit-pcap', A), Arities),
+    sort(Arities, Sorted),
+    Sorted == [3].
+
+:- end_tests(translator_capturing_lambda_curries).
+
+:- begin_tests(translator_inplace_annotations).
+
+%hyperon-experimental issue #177's dynamic half: a type where it can PRUNE, in
+%a head or a match query rather than only in a top-level declaration. The
+%spelling is `:` and not `:`, and the corpus is what decides that: see the
+%collision test at the end.
+annotation_source("
+(: ann-Ann Person)
+(: ann-Ann Employee)
+(: ann-Bob Person)
+(: ann-Rex Dog)
+(= (ann-only-person (: $x Person)) $x)
+(= (ann-type-of (: $x $t)) $t)
+(= (ann-same-kind (: $x $t) (: $y $t)) ($x $y))
+(= (ann-fmap $f (: $c Symbol)) ($f $c))").
+
+setup_annotations :-
+    retractall(silent(_)), assertz(silent(true)),
+    annotation_source(Source),
+    process_metta_string(Source, _).
+
+cleanup_annotations :-
+    forall(member(F, ['ann-only-person', 'ann-type-of', 'ann-same-kind',
+                      'ann-fmap']),
+           ( 'remove-atom'('&self', [=, [F|_], _], _),
+             forget_test_function(F) )),
+    forall(( 'get-atoms'('&self', Atom), Atom = [':', N, _],
+             atom(N), sub_atom(N, 0, 4, _, 'ann-') ),
+           'remove-atom'('&self', Atom, _)),
+    retractall(silent(_)), assertz(silent(false)).
+
+%Issue #177's own fixtures, each measured before it was written here.
+annotation_case("(ann-only-person ann-Ann)",           ['ann-Ann']).
+annotation_case("(ann-only-person ann-Rex)",           []).
+annotation_case("(ann-type-of ann-Ann)",               ['Person', 'Employee']).
+annotation_case("(ann-type-of ann-Rex)",               ['Dog']).
+annotation_case("(ann-same-kind ann-Ann ann-Bob)",     [['ann-Ann', 'ann-Bob']]).
+annotation_case("(ann-same-kind ann-Ann ann-Rex)",     []).
+annotation_case("(ann-fmap g sym)",                    [[g, sym]]).
+annotation_case("(ann-fmap g 42)",                     []).
+
+test(an_annotated_head_parameter_restricts_and_binds,
+     [ forall(annotation_case(Call, Expected)),
+       setup(setup_annotations), cleanup(cleanup_annotations) ]) :-
+    format(atom(Source), "!(collapse ~w)", [Call]),
+    process_metta_string(Source, Results),
+    Results == [Expected].
+
+%The same in a match query, issue #177's third fixture, including the
+%shared-type-variable form that constrains two positions to agree.
+test(a_match_pattern_restricts_by_type,
+     [ setup(( setup_annotations,
+               'add-atom'('&self', ['ann-knows', 'ann-Ann', 'ann-Bob'], _),
+               'add-atom'('&self', ['ann-knows', 'ann-Ann', 'ann-Rex'], _) )),
+       cleanup(( forall(( 'get-atoms'('&self', A), A = ['ann-knows'|_] ),
+                        'remove-atom'('&self', A, _)),
+                 cleanup_annotations )) ]) :-
+    process_metta_string(
+        "!(collapse (match &self (ann-knows (: $x Person) (: $y Person)) \c
+                      ($x $y)))", Restricted),
+    Restricted == [[['ann-Ann', 'ann-Bob']]],
+    process_metta_string(
+        "!(collapse (match &self (ann-knows (: $x $t) (: $y $t)) ($x $y $t)))",
+        Shared),
+    Shared == [[['ann-Ann', 'ann-Bob', 'Person']]].
+
+%THE COLLISION, and the reason the spelling is `:`. Reinterpreting `(: ...)`
+%would break a program whose subject matter IS type judgements, and this tree
+%has one: examples/reasoning/nilbc.metta is a backward-chaining proof search
+%using `(: $proof $theorem)` in exactly the nested head and match positions a
+%position gate would reinterpret. `(: ...)` still retrieves stored type atoms.
+%THE SECOND COLLISION, found by the gate catching it: an annotation annotates
+%a VARIABLE, so anything else in that position stays structural.
+%tests/prolog/duals.plt writes `(= (pat-starts-a (: a $rest)) True)` as an
+%ordinary cons-shaped pattern, and without the var/1 gate `:` would collide
+%in this repository exactly as `:` does.
+test(a_non_variable_in_the_annotation_position_stays_structural,
+     [ setup(( retractall(silent(_)), assertz(silent(true)),
+               process_metta_string(
+                   "(= (ann-shape (: a $rest)) $rest)", _) )),
+       cleanup(( 'remove-atom'('&self', [=, ['ann-shape'|_], _], _),
+                 forget_test_function('ann-shape'),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    process_metta_string("!(collapse (ann-shape (: a tail)))", Matched),
+    Matched == [[tail]],
+    process_metta_string("!(collapse (ann-shape (: z tail)))", Unmatched),
+    Unmatched == [[]].
+
+test(a_colon_pattern_still_matches_stored_type_atoms,
+     [setup(setup_annotations), cleanup(cleanup_annotations)]) :-
+    process_metta_string("!(collapse (match &self (: ann-Rex $t) $t))", Results),
+    Results == [['Dog']].
+
+%THE THIRD COLLISION, and the reason the spelling is `:` rather than `::`.
+%`::` is what metta-lang.dev's tutorials use as an ordinary cons constructor,
+%in (= (length (:: $x $xs)) (+ 1 (length $xs))) and every list example after
+%it. While `::` was the annotation, a reader following those against PeTTa got
+%$xs bound to the value's TYPE and a recursion that did not terminate: the
+%annotation quietly reinterpreted their data constructor.
+%
+%A spelling the language's own teaching material uses for something else is
+%the wrong spelling however good the argument for it was. This is the
+%tutorial's program, run verbatim [source: metta-lang.dev/docs/learn, Recursion
+%and control].
+test(a_cons_list_is_ordinary_structure,
+     [ setup(( retractall(silent(_)), assertz(silent(true)),
+               process_metta_string("(= (ann-length ()) 0)", _),
+               process_metta_string(
+                   "(= (ann-length (:: $x $xs)) (+ 1 (ann-length $xs)))", _) )),
+       cleanup(( 'remove-atom'('&self', [=, ['ann-length'|_], _], _),
+                 forget_test_function('ann-length'),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    process_metta_string("!(ann-length (:: A (:: B (:: C ()))))", Length),
+    assertion(Length == [3]).
+
+:- end_tests(translator_inplace_annotations).

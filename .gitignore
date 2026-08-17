@@ -10,3 +10,10 @@ python/petta/__pycache__
 python/__pycache__
 python/tests/__pycache__
 repos/
+
+# Compiled C extension example, built by check.sh when a compiler is present
+examples/integration/c_extension/*.so
+
+# Agent scratch: books, cloned prior art, gate logs, tree copies. Never
+# released, and skipped by .codespellrc for the same reason.
+ai-tmp/

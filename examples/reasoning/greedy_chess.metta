@@ -1719,7 +1719,7 @@
 ;                and initial 2-step logic.
 ;*******************************************************************************
 
-; Return True if there is a clear route for piece else False. The first parm is starting square, 2nd parm destination, returns BOOL.
+; Return True if there is a clear route for piece else False. The first param is starting square, 2nd param destination, returns BOOL.
 ; Note: prior to calling clear_route verify that the piece is moving to a different square and
 ; if the square is occupied it is occupied by the opponent's color. These tests are not duplicated by clear_route!
 

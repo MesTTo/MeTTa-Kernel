@@ -15,16 +15,27 @@
 
 %The seam, not the core predicates. Declaring match/4, 'add-atom'/3,
 %'remove-atom'/3 and 'get-atoms'/2 multifile put MORK's clauses ahead of the
-%engine's, because this file loads before spaces.pl, so the engine's
+%engine's, because this file used to load before spaces.pl, so the engine's
 %instantiation guards were unreachable whenever MORK was present. That is
 %every shipping configuration on a machine that built the FFI, and it made
 %(get-atoms $any) answer from MORK rather than refuse. lib_redis.pl and
 %python/petta/shim.pl are behind this same seam.
+%
+%Load ORDER is no longer load-bearing either, which is the part worth
+%checking rather than assuming: the seam dispatches on
+%metta_foreign_space/1 rather than on clause position, so this file was moved
+%AFTER spaces in src/metta.pl's boot list and the whole gate, the fifteen MORK
+%tests included, passes unchanged [verified 2026-08-16]. Before the port,
+%precedence came from a position in an ensure_loaded list and nothing
+%declared it.
 :- multifile metta_foreign_space/1.
 :- multifile metta_foreign_add/2.
+:- multifile metta_foreign_add_many/2.
 :- multifile metta_foreign_remove/3.
 :- multifile metta_foreign_atoms/2.
-:- multifile metta_foreign_match/2.
+:- multifile metta_foreign_match/3.
+:- multifile metta_foreign_capability/2.
+:- multifile metta_foreign_plan/5.
 
 %MORK spaces address from MeTTa as &mork (the default space) or
 %&mork:<name>, each name its own store inside MORK, created on first
@@ -58,12 +69,13 @@ mork_call(Space, Command, Payload, Response) :-
 
 %MORK's bridge consumes swrite text. MeTTa has no quoted-symbol syntax, so a
 %symbol whose spelling does not read back as itself cannot retain its
-%identity there, and the grammar owns that rule, quotes included
-%[source: src/parser.pl, metta_symbol_writable/1].
-mork_bad_text_symbol(Term, Bad) :- metta_unwritable_symbol(Term, Bad).
-
+%identity there, and the grammar owns that rule, quotes included. Asking is
+%metta_unwritable_symbol/2, one of the four text services the engine publishes
+%for exactly this [source: src/ext_points.pl, "Services a backend may call"].
+%It was wrapped here under a private name until those were declared, which is
+%what an undeclared dependency looks like from the outside.
 mork_require_text_safe(Term, Operation) :-
-    ( mork_bad_text_symbol(Term, Bad)
+    ( metta_unwritable_symbol(Term, Bad)
       -> throw(error(domain_error(mork_text_symbol, Bad),
                      context(Operation,
                              'symbol names containing whitespace, parentheses, or quotes cannot cross the MORK text boundary')))
@@ -80,6 +92,25 @@ mork_require_text_safe(Term, Operation) :-
 metta_foreign_space(Space) :- atom(Space),
                               sub_atom(Space, 0, 5, _, '&mork'),
                               mork_space_name(Space, _).
+
+%Four of the five, declared. MORK has no clear, and saying so is what turns
+%(clear &mork) from a silent nothing into a refusal that names the space and
+%the operation. The same cheap prefix test guards this as guards the space
+%itself, so an unrelated space costs one sub_atom/5 to reject.
+%rules is declared because MORK holds whatever atoms it is given, EQUATIONS
+%included. That is the whole of what the capability asks: the engine compiles
+%an equation added to this space and MORK stores the atom, so a rule here is
+%the same compiled clause a native one is. Without the declaration an equation
+%would be refused, and before the capability existed it was stored and inert.
+%
+%What it does NOT cover is an equation that reaches MORK another way, an
+%mm2-exec write or MORK's own loader: the engine is told about an add, so an
+%equation nothing added is stored and inert.
+metta_foreign_capability(Space, Capability) :-
+    atom(Space),
+    sub_atom(Space, 0, 5, _, '&mork'),
+    mork_space_name(Space, _),
+    member(Capability, [add, remove, match, enumerate, rules, plan]).
 
 %Add an atom to the space. The engine fires the write hooks around
 %metta_add_atom/3, so subscriptions and reflection see MORK writes too:
@@ -103,6 +134,11 @@ metta_foreign_add(Space, Atom) :- mork_require_text_safe(Atom, 'add-atom'/3),
 mork_require_text_safe_for_add(Atom) :-
     mork_require_text_safe(Atom, 'mork-add-atoms'/3).
 
+%The engine's batch seam, answered with the same crossing. It routes only atoms
+%whose add is a store and nothing more through here, so a batch that reaches
+%MORK has nothing for the per-atom path to have done differently.
+metta_foreign_add_many(Space, Atoms) :- 'mork-add-atoms'(Space, Atoms, true).
+
 %Remove all same atoms. MORK answers every removal with "OK: loaded" and no
 %count, so whether anything was there is a separate question, and it is asked
 %through MORK's own matching rather than a dump of the space. Answering true
@@ -119,19 +155,56 @@ metta_foreign_remove(Space, Atom, Removed) :-
 mork_holds(Space, Atom) :-
     \+ \+ ( var(Atom)
             -> metta_foreign_atoms(Space, Atom)
-            ;  metta_foreign_match(Space, Atom) ).
+            ;  metta_foreign_match(Space, Atom, []) ).
 
 %Match one pattern, MORK's own matching rather than a scan. The engine
 %hands over one non-conjunctive, bound pattern at a time: it splits a
 %conjunction per conjunct and answers an unbound pattern through
 %metta_foreign_atoms/2, so joins over this space are the engine's joins,
 %each conjunct answered by MORK.
-metta_foreign_match(Space, Pattern) :- Pattern_Template = [Pattern, Pattern],
+metta_foreign_match(Space, Pattern, _Options) :- Pattern_Template = [Pattern, Pattern],
                                        mork_require_text_safe(Pattern_Template, match/4),
                                        swrite(Pattern_Template, MorkPat),
                                        mork_call(Space, "match", MorkPat, Temp),
                                        mork_response_term(Temp, MatchedPattern),
                                        Pattern = MatchedPattern.
+
+%MORK's own worst-case-optimal join, claimed WHOLE.
+%
+%The engine splits a conjunction one pattern at a time and re-dispatches the
+%next on every binding of the previous, which is a nested-loop plan. MORK's
+%query_multi is worst-case-optimal over the whole conjunction, so a partial
+%claim would hand the interesting half back as a nested loop; there is no shape
+%of conjunction where taking part of it beats taking all of it here.
+%
+%It declines rather than throws for anything it cannot express, which is what
+%the seam asks of a claim: an atom whose symbols do not survive MORK's text
+%boundary, or a conjunct that is not a written pattern. Declining costs the
+%caller the ordinary split and nothing else.
+metta_foreign_plan(Space, Conjuncts, Conjuncts, [], mork_query_multi(Space, Conjuncts)) :-
+    mork_space_name(Space, _),
+    forall(member(Conjunct, Conjuncts), mork_plannable_pattern(Conjunct)).
+
+%A pattern MORK can be asked for: written, not a bare variable, and every
+%symbol in it round-trips through the text boundary. It asks
+%metta_unwritable_symbol/2 directly rather than mork_require_text_safe/2,
+%because a claim DECLINES what it cannot express where a write refuses it: the
+%caller gets the ordinary split and a correct answer either way.
+mork_plannable_pattern(Conjunct) :- nonvar(Conjunct),
+                                    Conjunct = [_|_],
+                                    \+ metta_unwritable_symbol(Conjunct, _).
+
+%The claim, answered. One crossing for the whole join, and the row carries the
+%conjunction's variables in term_variables order, which is stable for the same
+%term on both sides of the call.
+mork_query_multi(Space, Conjuncts) :-
+    term_variables(Conjuncts, Vars),
+    Row = ['petta-join-row'|Vars],
+    swrite([[','|Conjuncts], Row], Payload),
+    mork_call(Space, "query-multi", Payload, Response),
+    mork_response_term(Response, Answer),
+    Answer = ['petta-join-row'|Values],
+    Vars = Values.
 
 %Get all atoms in space, irregard of arity:
 metta_foreign_atoms(Space, Pattern) :- mork_call(Space, "get-atoms", "", Temp),
@@ -177,8 +250,20 @@ mork_response_term(Response, Term) :- split_string(Response, "\n", "", Lines),
    ; throw(error(existence_error(procedure, mork/3),
                  context(ShimLib, 'mork/3 did not register on load'))) ).
 
-%Test MORK:
-mork_test :- 'add-atom'('&mork', [friend,sam,tim], true),
-             'add-atom'('&mork', [friend,sam,joe], true),
-             findall(C, match('&mork',[friend,sam,X], [friend,sam,X], C), Cs),
-             format(string(SC), "MORK query result: ~w ~n", [Cs]), writeln(SC).
+%The builtins this bridge provides, named where they are defined. The engine
+%registers whatever is declared and knows none of these names; they exist only
+%when this file loads, which is the condition it would otherwise have to test.
+:- multifile metta_backend_builtin/1.
+metta_backend_builtin('mm2-exec').
+metta_backend_builtin('mork-add-atoms').
+metta_backend_builtin('mork-flush').
+
+%This backend's smoke test, run by the CLI demo. It was mork_test/0 called by
+%name from src/main.pl, which is why that file had a `mork` branch at all.
+:- multifile metta_backend_selftest/0.
+metta_backend_selftest :-
+    'add-atom'('&mork', [friend,sam,tim], true),
+    'add-atom'('&mork', [friend,sam,joe], true),
+    findall(C, match('&mork', [friend,sam,X], [friend,sam,X], C), Cs),
+    format(string(SC), "MORK query result: ~w ~n", [Cs]),
+    writeln(SC).

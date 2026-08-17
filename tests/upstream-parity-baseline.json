@@ -1,0 +1,1231 @@
+{
+ "//": {
+  "our_boot": 1095254946,
+  "status": "meta",
+  "upstream_boot": 436857087
+ },
+ "examples/and_or.metta": {
+  "our_inferences": 11588,
+  "our_instructions": 27989891,
+  "status": "measured",
+  "upstream_instructions": 33924053
+ },
+ "examples/basics/and_or.metta": {
+  "our_inferences": 11588,
+  "our_instructions": 28036867,
+  "status": "measured",
+  "upstream_instructions": 33959529
+ },
+ "examples/basics/booleansolver.metta": {
+  "our_inferences": 12168,
+  "our_instructions": 28457272,
+  "status": "measured",
+  "upstream_instructions": 34509341
+ },
+ "examples/basics/comments.metta": {
+  "our_inferences": 13242,
+  "our_instructions": 30169662,
+  "status": "measured",
+  "upstream_instructions": 31354783
+ },
+ "examples/basics/constraint_domains.metta": {
+  "status": "upstream-error"
+ },
+ "examples/basics/factorial.metta": {
+  "our_inferences": 16274,
+  "our_instructions": 33503602,
+  "status": "measured",
+  "upstream_instructions": 34661045
+ },
+ "examples/basics/fib.metta": {
+  "our_inferences": 17518471,
+  "our_instructions": 7592094219,
+  "status": "measured",
+  "upstream_instructions": 7117493322
+ },
+ "examples/basics/fibsmart.metta": {
+  "our_inferences": 18562,
+  "our_instructions": 35308658,
+  "status": "measured",
+  "upstream_instructions": 36258214
+ },
+ "examples/basics/fibsmartimport.metta": {
+  "our_inferences": 21707,
+  "our_instructions": 38112501,
+  "status": "measured",
+  "upstream_instructions": 39709547
+ },
+ "examples/basics/identity.metta": {
+  "our_inferences": 14333,
+  "our_instructions": 32004592,
+  "status": "measured",
+  "upstream_instructions": 33303999
+ },
+ "examples/basics/ifsimple.metta": {
+  "our_inferences": 10880,
+  "our_instructions": 27402941,
+  "status": "measured",
+  "upstream_instructions": 29094213
+ },
+ "examples/basics/math.metta": {
+  "our_inferences": 32832,
+  "our_instructions": 46261738,
+  "status": "measured",
+  "upstream_instructions": 78197892
+ },
+ "examples/basics/math_exp_random.metta": {
+  "status": "upstream-error"
+ },
+ "examples/basics/reading_forms.metta": {
+  "status": "upstream-error"
+ },
+ "examples/basics/relational_arithmetic.metta": {
+  "status": "upstream-error"
+ },
+ "examples/basics/repl.metta": {
+  "status": "upstream-error"
+ },
+ "examples/basics/string.metta": {
+  "our_inferences": 11257,
+  "our_instructions": 27506552,
+  "status": "measured",
+  "upstream_instructions": 29267172
+ },
+ "examples/basics/time_and_pragmas.metta": {
+  "status": "upstream-error"
+ },
+ "examples/basics/xor.metta": {
+  "our_inferences": 17890,
+  "our_instructions": 34824444,
+  "status": "measured",
+  "upstream_instructions": 36027716
+ },
+ "examples/case.metta": {
+  "our_inferences": 15905,
+  "our_instructions": 33155613,
+  "status": "measured",
+  "upstream_instructions": 34279974
+ },
+ "examples/collapse.metta": {
+  "our_inferences": 11194,
+  "our_instructions": 27509850,
+  "status": "measured",
+  "upstream_instructions": 29360182
+ },
+ "examples/control/and_then_or_else.metta": {
+  "our_inferences": 44458,
+  "our_instructions": 57684742,
+  "status": "measured",
+  "upstream_instructions": 65685998
+ },
+ "examples/control/case.metta": {
+  "our_inferences": 15905,
+  "our_instructions": 33209203,
+  "status": "measured",
+  "upstream_instructions": 34306779
+ },
+ "examples/control/case2.metta": {
+  "our_inferences": 15951,
+  "our_instructions": 33372459,
+  "status": "measured",
+  "upstream_instructions": 34454585
+ },
+ "examples/control/caseconstrain.metta": {
+  "our_inferences": 11341,
+  "our_instructions": 27759608,
+  "status": "measured",
+  "upstream_instructions": 29482822
+ },
+ "examples/control/caseempty.metta": {
+  "our_inferences": 17317,
+  "our_instructions": 34113922,
+  "status": "measured",
+  "upstream_instructions": 35324548
+ },
+ "examples/control/casenew.metta": {
+  "our_inferences": 15337,
+  "our_instructions": 32501896,
+  "status": "measured",
+  "upstream_instructions": 33305556
+ },
+ "examples/control/chain.metta": {
+  "our_inferences": 13805,
+  "our_instructions": 29778134,
+  "status": "measured",
+  "upstream_instructions": 39617373
+ },
+ "examples/control/collapse.metta": {
+  "our_inferences": 11194,
+  "our_instructions": 27572135,
+  "status": "measured",
+  "upstream_instructions": 29401763
+ },
+ "examples/control/cut.metta": {
+  "our_inferences": 19127,
+  "our_instructions": 36114223,
+  "status": "measured",
+  "upstream_instructions": 37200747
+ },
+ "examples/control/empty.metta": {
+  "our_inferences": 13170,
+  "our_instructions": 30277408,
+  "status": "measured",
+  "upstream_instructions": 31449280
+ },
+ "examples/control/eval.metta": {
+  "our_inferences": 25639,
+  "our_instructions": 41653826,
+  "status": "measured",
+  "upstream_instructions": 43795289
+ },
+ "examples/control/forall.metta": {
+  "our_inferences": 56339,
+  "our_instructions": 68829945,
+  "status": "measured",
+  "upstream_instructions": 75181975
+ },
+ "examples/control/if.metta": {
+  "our_inferences": 11631,
+  "our_instructions": 27982417,
+  "status": "measured",
+  "upstream_instructions": 32672547
+ },
+ "examples/control/if2.metta": {
+  "our_inferences": 13083,
+  "our_instructions": 29893648,
+  "status": "measured",
+  "upstream_instructions": 35357188
+ },
+ "examples/control/if3.metta": {
+  "our_inferences": 13340,
+  "our_instructions": 30164228,
+  "status": "measured",
+  "upstream_instructions": 34270286
+ },
+ "examples/control/if4.metta": {
+  "our_inferences": 12586,
+  "our_instructions": 28906514,
+  "status": "measured",
+  "upstream_instructions": 34724266
+ },
+ "examples/control/if_branch_binding.metta": {
+  "status": "upstream-error"
+ },
+ "examples/control/ifcasenondet.metta": {
+  "our_inferences": 20031,
+  "our_instructions": 37193300,
+  "status": "measured",
+  "upstream_instructions": 38003161
+ },
+ "examples/control/let_superpose_if_case.metta": {
+  "our_inferences": 21587,
+  "our_instructions": 37850967,
+  "status": "measured",
+  "upstream_instructions": 38389232
+ },
+ "examples/control/letext.metta": {
+  "our_inferences": 12316,
+  "our_instructions": 28623779,
+  "status": "measured",
+  "upstream_instructions": 34591593
+ },
+ "examples/control/letlet.metta": {
+  "our_inferences": 14420,
+  "our_instructions": 31257944,
+  "status": "measured",
+  "upstream_instructions": 32376528
+ },
+ "examples/control/letstar.metta": {
+  "our_inferences": 11433,
+  "our_instructions": 27900488,
+  "status": "measured",
+  "upstream_instructions": 32549852
+ },
+ "examples/control/metta4_prog.metta": {
+  "our_inferences": 15410,
+  "our_instructions": 31093710,
+  "status": "measured",
+  "upstream_instructions": 32998043
+ },
+ "examples/control/metta4_streams.metta": {
+  "our_inferences": 28437,
+  "our_instructions": 44006726,
+  "status": "measured",
+  "upstream_instructions": 46309585
+ },
+ "examples/control/once.metta": {
+  "our_inferences": 18208,
+  "our_instructions": 35271968,
+  "status": "measured",
+  "upstream_instructions": 36524298
+ },
+ "examples/control/sealed.metta": {
+  "status": "upstream-error"
+ },
+ "examples/control/supercollapse.metta": {
+  "our_inferences": 20590,
+  "our_instructions": 37141061,
+  "status": "measured",
+  "upstream_instructions": 37513989
+ },
+ "examples/control/superpose_nested.metta": {
+  "our_inferences": 21981,
+  "our_instructions": 37842759,
+  "status": "measured",
+  "upstream_instructions": 37334122
+ },
+ "examples/control/take.metta": {
+  "status": "upstream-error"
+ },
+ "examples/control/test_unify_eval_branches.metta": {
+  "our_inferences": 95509,
+  "our_instructions": 102747272,
+  "status": "measured",
+  "upstream_instructions": 89117400
+ },
+ "examples/control/tests.metta": {
+  "our_inferences": 27365,
+  "our_instructions": 43150342,
+  "status": "measured",
+  "upstream_instructions": 44106201
+ },
+ "examples/control/thin_forms.metta": {
+  "status": "upstream-error"
+ },
+ "examples/control/unify.metta": {
+  "status": "upstream-error"
+ },
+ "examples/data/atomops.metta": {
+  "our_inferences": 33044,
+  "our_instructions": 46727145,
+  "status": "measured",
+  "upstream_instructions": 73160293
+ },
+ "examples/data/constanthead.metta": {
+  "our_inferences": 15393,
+  "our_instructions": 32804037,
+  "status": "measured",
+  "upstream_instructions": 34042479
+ },
+ "examples/data/foldall.metta": {
+  "our_inferences": 49755,
+  "our_instructions": 62080953,
+  "status": "measured",
+  "upstream_instructions": 68475505
+ },
+ "examples/data/foldallmatch.metta": {
+  "our_inferences": 18119,
+  "our_instructions": 34586786,
+  "status": "measured",
+  "upstream_instructions": 38404232
+ },
+ "examples/data/foldallspacecount.metta": {
+  "our_inferences": 16312,
+  "our_instructions": 32702653,
+  "status": "measured",
+  "upstream_instructions": 34994160
+ },
+ "examples/data/holfunctions.metta": {
+  "status": "upstream-error"
+ },
+ "examples/data/holfunctions_intrinsicop.metta": {
+  "our_inferences": 22430,
+  "our_instructions": 39576636,
+  "status": "measured",
+  "upstream_instructions": 39805949
+ },
+ "examples/data/is_alpha_member_test.metta": {
+  "our_inferences": 51988,
+  "our_instructions": 62325975,
+  "status": "measured",
+  "upstream_instructions": 99995948
+ },
+ "examples/data/iter.metta": {
+  "our_inferences": 20241,
+  "our_instructions": 37148242,
+  "status": "measured",
+  "upstream_instructions": 38263872
+ },
+ "examples/data/listhead.metta": {
+  "our_inferences": 20322,
+  "our_instructions": 36696592,
+  "status": "measured",
+  "upstream_instructions": 38177817
+ },
+ "examples/data/mettaset.metta": {
+  "our_inferences": 19614,
+  "our_instructions": 35733398,
+  "status": "measured",
+  "upstream_instructions": 38935570
+ },
+ "examples/data/multiset_operations.metta": {
+  "our_inferences": 24061,
+  "our_instructions": 39093006,
+  "status": "measured",
+  "upstream_instructions": 52728745
+ },
+ "examples/data/nestedcons.metta": {
+  "our_inferences": 14630,
+  "our_instructions": 32235817,
+  "status": "measured",
+  "upstream_instructions": 33495258
+ },
+ "examples/data/streamops.metta": {
+  "our_inferences": 24354,
+  "our_instructions": 40649880,
+  "status": "measured",
+  "upstream_instructions": 44006765
+ },
+ "examples/data/test_alpha_unique_atom.metta": {
+  "our_inferences": 50975,
+  "our_instructions": 61214224,
+  "status": "measured",
+  "upstream_instructions": 104021159
+ },
+ "examples/factorial.metta": {
+  "our_inferences": 16274,
+  "our_instructions": 33446691,
+  "status": "measured",
+  "upstream_instructions": 34630611
+ },
+ "examples/fib.metta": {
+  "our_inferences": 17518471,
+  "our_instructions": 7592046813,
+  "status": "measured",
+  "upstream_instructions": 7117472118
+ },
+ "examples/functions/curry.metta": {
+  "our_inferences": 36635,
+  "our_instructions": 51561237,
+  "status": "measured",
+  "upstream_instructions": 53525804
+ },
+ "examples/functions/functionhead.metta": {
+  "our_inferences": 23342,
+  "our_instructions": 39060581,
+  "status": "measured",
+  "upstream_instructions": 40930910
+ },
+ "examples/functions/functionhead2.metta": {
+  "our_inferences": 26288,
+  "our_instructions": 42991967,
+  "status": "measured",
+  "upstream_instructions": 43827199
+ },
+ "examples/functions/functionhead3.metta": {
+  "our_inferences": 28230,
+  "our_instructions": 43467332,
+  "status": "measured",
+  "upstream_instructions": 45349291
+ },
+ "examples/functions/functionremoval.metta": {
+  "our_inferences": 26085,
+  "our_instructions": 44066070,
+  "status": "measured",
+  "upstream_instructions": 43642128
+ },
+ "examples/functions/functionremovalspec.metta": {
+  "our_inferences": 24544,
+  "our_instructions": 42260127,
+  "status": "measured",
+  "upstream_instructions": 42344113
+ },
+ "examples/functions/invertfunction.metta": {
+  "our_inferences": 23764,
+  "our_instructions": 39757548,
+  "status": "measured",
+  "upstream_instructions": 41199130
+ },
+ "examples/functions/invertpeanoplus.metta": {
+  "our_inferences": 32395,
+  "our_instructions": 46883623,
+  "status": "measured",
+  "upstream_instructions": 53957436
+ },
+ "examples/functions/lambda.metta": {
+  "our_inferences": 37217,
+  "our_instructions": 51111156,
+  "status": "measured",
+  "upstream_instructions": 54429072
+ },
+ "examples/functions/multicall.metta": {
+  "our_inferences": 16237,
+  "our_instructions": -77658966,
+  "status": "measured",
+  "upstream_instructions": 34682473
+ },
+ "examples/functions/partialdef.metta": {
+  "our_inferences": 16935,
+  "our_instructions": 34115661,
+  "status": "measured",
+  "upstream_instructions": 36548643
+ },
+ "examples/functions/smartdispatch.metta": {
+  "our_inferences": 22087,
+  "our_instructions": 39557338,
+  "status": "measured",
+  "upstream_instructions": 40280544
+ },
+ "examples/functions/specialize.metta": {
+  "our_inferences": 80991,
+  "our_instructions": 91165271,
+  "status": "measured",
+  "upstream_instructions": 91859841
+ },
+ "examples/functions/specialize_recursive_wrap.metta": {
+  "our_inferences": 21946,
+  "our_instructions": 38891797,
+  "status": "measured",
+  "upstream_instructions": 41544223
+ },
+ "examples/functions/specializecyclic.metta": {
+  "our_inferences": 35226,
+  "our_instructions": 52089310,
+  "status": "measured",
+  "upstream_instructions": 49084611
+ },
+ "examples/functions/specializefunctiontypes.metta": {
+  "our_inferences": 20236,
+  "our_instructions": 37669726,
+  "status": "measured",
+  "upstream_instructions": 38743492
+ },
+ "examples/if_branch_binding.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/_fixtures/imports/import_error_broken.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/_fixtures/imports/import_order/defines.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/_fixtures/imports/import_order/index.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/_fixtures/imports/import_order/uses.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/_fixtures/imports/overhaul/cycle_a.metta": {
+  "status": "upstream-timeout"
+ },
+ "examples/integration/_fixtures/imports/overhaul/cycle_b.metta": {
+  "status": "upstream-timeout"
+ },
+ "examples/integration/_fixtures/imports/overhaul/duplicate.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/_fixtures/imports/overhaul/space_payload.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/_fixtures/imports/relative/root.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/_fixtures/imports/relative/second.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/_fixtures/imports/relative/subdir/parent.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/_fixtures/imports/relative/subdir/sibling.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/c_extension/c_extension.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/c_extension/handle.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/git_import.metta": {
+  "our_inferences": 67681,
+  "our_instructions": 105325308,
+  "status": "measured",
+  "upstream_instructions": 108075946
+ },
+ "examples/integration/git_import2.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/import_duplicate_cycle.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/import_error_surface.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/import_order_independence.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/import_relative_nested.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/import_space_identity.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/llm_cities.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/prologimport.metta": {
+  "our_inferences": 94284,
+  "our_instructions": 104948301,
+  "status": "measured",
+  "upstream_instructions": 112203420
+ },
+ "examples/integration/py_numpy.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/py_surface.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/python.metta": {
+  "our_inferences": 27624,
+  "our_instructions": 176132346,
+  "status": "measured",
+  "upstream_instructions": 177462607
+ },
+ "examples/integration/python_booleans.metta": {
+  "status": "upstream-error"
+ },
+ "examples/integration/python_import.metta": {
+  "our_inferences": 20657,
+  "our_instructions": 177290635,
+  "status": "measured",
+  "upstream_instructions": 172781238
+ },
+ "examples/integration/torch.metta": {
+  "our_inferences": 30468,
+  "our_instructions": 9045217428,
+  "status": "measured",
+  "upstream_instructions": 9590906137
+ },
+ "examples/integration/torch_lib.metta": {
+  "status": "upstream-error"
+ },
+ "examples/lambda.metta": {
+  "our_inferences": 37217,
+  "our_instructions": 51021938,
+  "status": "measured",
+  "upstream_instructions": 54385292
+ },
+ "examples/let_superpose_if_case.metta": {
+  "our_inferences": 21587,
+  "our_instructions": 37793926,
+  "status": "measured",
+  "upstream_instructions": 38359458
+ },
+ "examples/libraries/conformance.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/crypto_lib.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/doc_lib.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/foreign_rules.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/he_assert.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/he_atomspace.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/he_equalreduct.metta": {
+  "our_inferences": 84420,
+  "our_instructions": 93598173,
+  "status": "measured",
+  "upstream_instructions": 76582603
+ },
+ "examples/libraries/he_error.metta": {
+  "our_inferences": 89326,
+  "our_instructions": 97630143,
+  "status": "measured",
+  "upstream_instructions": 80602460
+ },
+ "examples/libraries/he_evaluation.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/he_math.metta": {
+  "our_inferences": 32832,
+  "our_instructions": 46305516,
+  "status": "measured",
+  "upstream_instructions": 78212994
+ },
+ "examples/libraries/he_minimalmetta.metta": {
+  "our_inferences": 32986475,
+  "our_instructions": 21231048883,
+  "status": "measured",
+  "upstream_instructions": 32070097441
+ },
+ "examples/libraries/he_quoting.metta": {
+  "our_inferences": 88123,
+  "our_instructions": 96460545,
+  "status": "measured",
+  "upstream_instructions": 79749362
+ },
+ "examples/libraries/he_types.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/json_lib.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/lib_roman_pair_helpers.metta": {
+  "our_inferences": 137449,
+  "our_instructions": 144288029,
+  "status": "measured",
+  "upstream_instructions": 130182164
+ },
+ "examples/libraries/library.metta": {
+  "our_inferences": 133873,
+  "our_instructions": 140950106,
+  "status": "measured",
+  "upstream_instructions": 126851304
+ },
+ "examples/libraries/memo_spaces.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/minimal_metta.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/patrick_iterate_fib.metta": {
+  "our_inferences": 38707,
+  "our_instructions": 52601373,
+  "status": "measured",
+  "upstream_instructions": 55192622
+ },
+ "examples/libraries/patrick_iterate_quad.metta": {
+  "our_inferences": 10051890,
+  "our_instructions": 4998454931,
+  "status": "measured",
+  "upstream_instructions": 11937432416
+ },
+ "examples/libraries/patrick_test.metta": {
+  "our_inferences": 43026,
+  "our_instructions": 56496838,
+  "status": "measured",
+  "upstream_instructions": 58753807
+ },
+ "examples/libraries/regex_lib.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/roman_test.metta": {
+  "our_inferences": 195600,
+  "our_instructions": 193662878,
+  "status": "measured",
+  "upstream_instructions": 183048641
+ },
+ "examples/libraries/tabling_equation_change.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/tabling_fib.metta": {
+  "our_inferences": 93752,
+  "our_instructions": 105647777,
+  "status": "measured",
+  "upstream_instructions": 49893616
+ },
+ "examples/libraries/tabling_space_write.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/tabling_statistics.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/test_datetime.metta": {
+  "our_inferences": 68829,
+  "our_instructions": 81916103,
+  "status": "measured",
+  "upstream_instructions": 94243196
+ },
+ "examples/libraries/test_memo_aggregate.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/test_memo_dependency_invalidation.metta": {
+  "our_inferences": 150612,
+  "our_instructions": 155021902,
+  "status": "measured",
+  "upstream_instructions": 107930470
+ },
+ "examples/libraries/test_memo_multi_answer.metta": {
+  "our_inferences": 152343,
+  "our_instructions": 156315964,
+  "status": "measured",
+  "upstream_instructions": 109712393
+ },
+ "examples/libraries/test_memo_per_arity.metta": {
+  "our_inferences": 156309,
+  "our_instructions": 159863951,
+  "status": "measured",
+  "upstream_instructions": 113272074
+ },
+ "examples/libraries/test_memo_same_name_multi_arity.metta": {
+  "our_inferences": 162759,
+  "our_instructions": 166139867,
+  "status": "measured",
+  "upstream_instructions": 118628984
+ },
+ "examples/libraries/test_memo_stats.metta": {
+  "our_inferences": 151669,
+  "our_instructions": 155824818,
+  "status": "measured",
+  "upstream_instructions": 108841898
+ },
+ "examples/libraries/test_memo_variant_nonground.metta": {
+  "our_inferences": 151741,
+  "our_instructions": 155893382,
+  "status": "measured",
+  "upstream_instructions": 109333349
+ },
+ "examples/libraries/text_lib.metta": {
+  "status": "upstream-error"
+ },
+ "examples/libraries/thread_lib.metta": {
+  "status": "upstream-error"
+ },
+ "examples/listhead.metta": {
+  "our_inferences": 20322,
+  "our_instructions": 36660096,
+  "status": "measured",
+  "upstream_instructions": 38158207
+ },
+ "examples/matchsingle.metta": {
+  "our_inferences": 21966,
+  "our_instructions": 38619809,
+  "status": "measured",
+  "upstream_instructions": 39615025
+ },
+ "examples/math.metta": {
+  "our_inferences": 32832,
+  "our_instructions": 46210179,
+  "status": "measured",
+  "upstream_instructions": 78162302
+ },
+ "examples/math_exp_random.metta": {
+  "status": "upstream-error"
+ },
+ "examples/measure.metta": {
+  "status": "upstream-error"
+ },
+ "examples/nars_tuffy.metta": {
+  "our_inferences": 3234227,
+  "our_instructions": 2207773784,
+  "status": "measured",
+  "upstream_instructions": 5533121618
+ },
+ "examples/peano.metta": {
+  "our_inferences": 1298364,
+  "our_instructions": 36036920962,
+  "status": "measured",
+  "upstream_instructions": 35864118485
+ },
+ "examples/performance/holbenchmark.metta": {
+  "our_inferences": 28870783,
+  "our_instructions": 15059995819,
+  "status": "measured",
+  "upstream_instructions": 69354401287
+ },
+ "examples/performance/hyperpose_primes.metta": {
+  "status": "upstream-nondeterministic"
+ },
+ "examples/performance/matespacefast.metta": {
+  "status": "upstream-error"
+ },
+ "examples/performance/peanofast.metta": {
+  "our_inferences": 62701,
+  "our_instructions": 5952887483,
+  "status": "measured",
+  "upstream_instructions": 5937548092
+ },
+ "examples/performance/scale.metta": {
+  "our_inferences": 20238481,
+  "our_instructions": 22826036771,
+  "status": "measured",
+  "upstream_instructions": 14794174191
+ },
+ "examples/performance/superpose_primes.metta": {
+  "our_inferences": 375421,
+  "our_instructions": 187824156,
+  "status": "measured",
+  "upstream_instructions": 169278005
+ },
+ "examples/python.metta": {
+  "our_inferences": 27624,
+  "our_instructions": 175954631,
+  "status": "measured",
+  "upstream_instructions": 177469694
+ },
+ "examples/python_booleans.metta": {
+  "status": "upstream-error"
+ },
+ "examples/python_import.metta": {
+  "our_inferences": 20657,
+  "our_instructions": 177130049,
+  "status": "measured",
+  "upstream_instructions": 172867241
+ },
+ "examples/reasoning/constructive_negation.metta": {
+  "status": "upstream-error"
+ },
+ "examples/reasoning/greedy_chess.metta": {
+  "status": "upstream-timeout"
+ },
+ "examples/reasoning/logicprog.metta": {
+  "our_inferences": 23659,
+  "our_instructions": 39639312,
+  "status": "measured",
+  "upstream_instructions": 41508606
+ },
+ "examples/reasoning/logicprogset.metta": {
+  "our_inferences": 17184,
+  "our_instructions": 34316264,
+  "status": "measured",
+  "upstream_instructions": 35570151
+ },
+ "examples/reasoning/measure.metta": {
+  "status": "upstream-error"
+ },
+ "examples/reasoning/nars_direct.metta": {
+  "our_inferences": 365143,
+  "our_instructions": 321879507,
+  "status": "measured",
+  "upstream_instructions": 313630275
+ },
+ "examples/reasoning/nars_tuffy.metta": {
+  "our_inferences": 3234227,
+  "our_instructions": 2207853695,
+  "status": "measured",
+  "upstream_instructions": 5533168014
+ },
+ "examples/reasoning/newtons_method.metta": {
+  "our_inferences": 159569,
+  "our_instructions": 162950272,
+  "status": "measured",
+  "upstream_instructions": 113789463
+ },
+ "examples/reasoning/nilbc.metta": {
+  "our_inferences": 19638279,
+  "our_instructions": 9073310163,
+  "status": "measured",
+  "upstream_instructions": 11848904704
+ },
+ "examples/reasoning/peano.metta": {
+  "our_inferences": 1298364,
+  "our_instructions": 36044543394,
+  "status": "measured",
+  "upstream_instructions": 35864122464
+ },
+ "examples/reasoning/permutations.metta": {
+  "our_inferences": 14699219,
+  "our_instructions": 13013798491,
+  "status": "measured",
+  "upstream_instructions": 12600404399
+ },
+ "examples/reasoning/pln_direct.metta": {
+  "our_inferences": 420024,
+  "our_instructions": 372914327,
+  "status": "measured",
+  "upstream_instructions": 342906015
+ },
+ "examples/reasoning/pln_roman.metta": {
+  "our_inferences": 1483803,
+  "our_instructions": 1066384569,
+  "status": "measured",
+  "upstream_instructions": 1357627461
+ },
+ "examples/reasoning/pln_tuffy.metta": {
+  "our_inferences": 470764,
+  "our_instructions": 408374335,
+  "status": "measured",
+  "upstream_instructions": 399413711
+ },
+ "examples/reasoning/plntest.metta": {
+  "our_inferences": 62171,
+  "our_instructions": 72820431,
+  "status": "measured",
+  "upstream_instructions": 69366438
+ },
+ "examples/reasoning/plntestdirect.metta": {
+  "our_inferences": 62861,
+  "our_instructions": 73133212,
+  "status": "measured",
+  "upstream_instructions": 69890379
+ },
+ "examples/reasoning/soft.metta": {
+  "status": "upstream-error"
+ },
+ "examples/reasoning/tilepuzzle.metta": {
+  "our_inferences": 22615549,
+  "our_instructions": 27428880456,
+  "status": "measured",
+  "upstream_instructions": 23968057234
+ },
+ "examples/soft.metta": {
+  "status": "upstream-error"
+ },
+ "examples/spaces/add_atom_fun_space.metta": {
+  "our_inferences": 14495,
+  "our_instructions": 31464569,
+  "status": "measured",
+  "upstream_instructions": 32856516
+ },
+ "examples/spaces/evalc.metta": {
+  "status": "upstream-error"
+ },
+ "examples/spaces/fibadd.metta": {
+  "our_inferences": 17520027,
+  "our_instructions": 7594283825,
+  "status": "measured",
+  "upstream_instructions": 7120768736
+ },
+ "examples/spaces/matchnested.metta": {
+  "our_inferences": 24034,
+  "our_instructions": 40598964,
+  "status": "measured",
+  "upstream_instructions": 43148163
+ },
+ "examples/spaces/matchnested2.metta": {
+  "our_inferences": 23803,
+  "our_instructions": 40443031,
+  "status": "measured",
+  "upstream_instructions": 42866421
+ },
+ "examples/spaces/matchsingle.metta": {
+  "our_inferences": 21966,
+  "our_instructions": 38680817,
+  "status": "measured",
+  "upstream_instructions": 39644439
+ },
+ "examples/spaces/matespace.metta": {
+  "our_inferences": 15373683,
+  "our_instructions": 100113541841,
+  "status": "measured",
+  "upstream_instructions": 98024662384
+ },
+ "examples/spaces/matespace2.metta": {
+  "our_inferences": 22740630,
+  "our_instructions": 150399344864,
+  "status": "measured",
+  "upstream_instructions": 147094308309
+ },
+ "examples/spaces/mutex_and_transaction.metta": {
+  "status": "upstream-nondeterministic"
+ },
+ "examples/spaces/selfprog.metta": {
+  "our_inferences": 16577,
+  "our_instructions": 33441960,
+  "status": "measured",
+  "upstream_instructions": 34666841
+ },
+ "examples/spaces/spacefunction.metta": {
+  "our_inferences": 22371,
+  "our_instructions": 39271709,
+  "status": "measured",
+  "upstream_instructions": 40500097
+ },
+ "examples/spaces/spaces.metta": {
+  "our_inferences": 16349,
+  "our_instructions": 32867533,
+  "status": "measured",
+  "upstream_instructions": 33903357
+ },
+ "examples/spaces/spaces2.metta": {
+  "our_inferences": 20402,
+  "our_instructions": 36069783,
+  "status": "measured",
+  "upstream_instructions": 37863875
+ },
+ "examples/spaces/spaces3.metta": {
+  "our_inferences": 23189,
+  "our_instructions": 38953753,
+  "status": "measured",
+  "upstream_instructions": 46277391
+ },
+ "examples/spaces/spaces_find.metta": {
+  "our_inferences": 36779,
+  "our_instructions": 51495059,
+  "status": "measured",
+  "upstream_instructions": 54913836
+ },
+ "examples/spaces/spaces_removeallatoms.metta": {
+  "our_inferences": 37649,
+  "our_instructions": 54567780,
+  "status": "measured",
+  "upstream_instructions": 56968710
+ },
+ "examples/spaces/spaces_succeedspredicate.metta": {
+  "our_inferences": 34672,
+  "our_instructions": 49406667,
+  "status": "measured",
+  "upstream_instructions": 53390968
+ },
+ "examples/spaces/state.metta": {
+  "our_inferences": 14725,
+  "our_instructions": 31265169,
+  "status": "measured",
+  "upstream_instructions": 37786321
+ },
+ "examples/state.metta": {
+  "our_inferences": 14725,
+  "our_instructions": 31216082,
+  "status": "measured",
+  "upstream_instructions": 37763492
+ },
+ "examples/string.metta": {
+  "our_inferences": 11257,
+  "our_instructions": 27441910,
+  "status": "measured",
+  "upstream_instructions": 29244813
+ },
+ "examples/superpose_nested.metta": {
+  "our_inferences": 21981,
+  "our_instructions": 37789827,
+  "status": "measured",
+  "upstream_instructions": 37301097
+ },
+ "examples/syntax/parse.metta": {
+  "our_inferences": 22519,
+  "our_instructions": 37630289,
+  "status": "measured",
+  "upstream_instructions": 53739475
+ },
+ "examples/syntax/repr.metta": {
+  "our_inferences": 18344,
+  "our_instructions": 34308185,
+  "status": "measured",
+  "upstream_instructions": 43819088
+ },
+ "examples/syntax/test_string_comments.metta": {
+  "our_inferences": 22795,
+  "our_instructions": 38732208,
+  "status": "measured",
+  "upstream_instructions": 40185246
+ },
+ "examples/torch_lib.metta": {
+  "status": "upstream-error"
+ },
+ "examples/translation/callquoteevalreduce.metta": {
+  "our_inferences": 57958,
+  "our_instructions": 69629965,
+  "status": "measured",
+  "upstream_instructions": 68805472
+ },
+ "examples/translation/callquoteevalreduce2.metta": {
+  "our_inferences": 27547,
+  "our_instructions": 44122858,
+  "status": "measured",
+  "upstream_instructions": 45712219
+ },
+ "examples/translation/myinterpreter.metta": {
+  "our_inferences": 20457,
+  "our_instructions": 37360886,
+  "status": "measured",
+  "upstream_instructions": 39164850
+ },
+ "examples/translation/translatepredicate.metta": {
+  "our_inferences": 11903,
+  "our_instructions": 28211237,
+  "status": "measured",
+  "upstream_instructions": 29933970
+ },
+ "examples/translation/translatorrule.metta": {
+  "our_inferences": 21177,
+  "our_instructions": 38074929,
+  "status": "measured",
+  "upstream_instructions": 38945028
+ },
+ "examples/translation/translatorrule_fib.metta": {
+  "our_inferences": 20960,
+  "our_instructions": 38241693,
+  "status": "measured",
+  "upstream_instructions": 38489159
+ },
+ "examples/translation/translatorrule_for.metta": {
+  "our_inferences": 20668,
+  "our_instructions": 37419168,
+  "status": "measured",
+  "upstream_instructions": 38130984
+ },
+ "examples/translation/twostage.metta": {
+  "our_inferences": 15975,
+  "our_instructions": 33559303,
+  "status": "measured",
+  "upstream_instructions": 34642933
+ },
+ "examples/types.metta": {
+  "our_inferences": 35198,
+  "our_instructions": 49965839,
+  "status": "measured",
+  "upstream_instructions": 52632527
+ },
+ "examples/types/builin_types.metta": {
+  "our_inferences": 187752,
+  "our_instructions": 167108676,
+  "status": "measured",
+  "upstream_instructions": 100054706
+ },
+ "examples/types/engine_surface.metta": {
+  "status": "upstream-error"
+ },
+ "examples/types/functiontypes.metta": {
+  "our_inferences": 26943,
+  "our_instructions": 43143702,
+  "status": "measured",
+  "upstream_instructions": 46372726
+ },
+ "examples/types/inplace_annotations.metta": {
+  "status": "upstream-error"
+ },
+ "examples/types/matchtypes.metta": {
+  "our_inferences": 24294,
+  "our_instructions": 40564413,
+  "status": "measured",
+  "upstream_instructions": 42545189
+ },
+ "examples/types/meta_types.metta": {
+  "our_inferences": 16380,
+  "our_instructions": 32325191,
+  "status": "measured",
+  "upstream_instructions": 43660552
+ },
+ "examples/types/outputtype.metta": {
+  "our_inferences": 22009,
+  "our_instructions": 38949696,
+  "status": "measured",
+  "upstream_instructions": 40076765
+ },
+ "examples/types/parametric_types.metta": {
+  "our_inferences": 20876,
+  "our_instructions": 38126628,
+  "status": "measured",
+  "upstream_instructions": 38607419
+ },
+ "examples/types/recursive_types.metta": {
+  "our_inferences": 20927,
+  "our_instructions": 36587131,
+  "status": "measured",
+  "upstream_instructions": 38674957
+ },
+ "examples/types/recursive_types2.metta": {
+  "our_inferences": 23903,
+  "our_instructions": 40622706,
+  "status": "measured",
+  "upstream_instructions": 40773555
+ },
+ "examples/types/subtyping.metta": {
+  "status": "upstream-error"
+ },
+ "examples/types/types.metta": {
+  "our_inferences": 35198,
+  "our_instructions": 50030418,
+  "status": "measured",
+  "upstream_instructions": 52655783
+ },
+ "examples/types/types_dependent.metta": {
+  "our_inferences": 27097,
+  "our_instructions": 43289826,
+  "status": "measured",
+  "upstream_instructions": 43841801
+ },
+ "examples/types/types_nondet.metta": {
+  "our_inferences": 28561,
+  "our_instructions": 44895064,
+  "status": "measured",
+  "upstream_instructions": 46682067
+ }
+}

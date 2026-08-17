@@ -32,9 +32,6 @@ Issues = "https://github.com/trueagi-io/PeTTa/issues"
 [project.scripts]
 petta = "petta.cli:main"
 
-[project.entry-points."petta.integrations"]
-measure = "petta.measure"
-
 [project.optional-dependencies]
 arrays = [
     "array-api-compat",
@@ -47,9 +44,6 @@ das = [
 dataframes = [
     "pandas",
     "polars",
-]
-orjson = [
-    "orjson>=3.10,<4",
 ]
 test = [
     "hypothesis>=6.165",
@@ -65,7 +59,6 @@ checks = [
     "import-linter>=2.13",
     "interrogate>=1.7",
     "mypy>=1.18",
-    "orjson>=3.10,<4",
     "perflint>=0.8",
     "pip-audit>=2.9",
     "pylint>=3.3,<4",
@@ -127,15 +120,70 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S", "BLE", "PLW", "SIM", "RUF059"]
+"tests/**" = ["S", "BLE", "PLW", "SIM", "RUF059", "PLC0415"]
 "bench.py" = ["S", "PLW"]
 "petta/__init__.py" = ["PLW0603", "PTH"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["petta"]
 
-[tool.pylint.main]
-extension-pkg-allow-list = ["orjson"]
+# Every disable below is a judgement with a reason, not a flag list. pylint is
+# a GATE, so an entry here says "this rule is wrong for this codebase" and a
+# finding that is not covered by one is a real finding.
+[tool.pylint."messages control"]
+disable = [
+    # Style the project settles elsewhere: ruff owns line length and import
+    # order, and interrogate owns docstring coverage with a threshold.
+    "line-too-long",
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "invalid-name",
+    # Size and shape, which xenon already bounds by complexity rather than by
+    # counting. order_key/1 returns seven times because Prolog's standard
+    # order of terms has seven cases, and MeTTa's surface is ledger item B1.
+    "too-many-arguments",
+    "too-many-locals",
+    "too-many-branches",
+    "too-many-statements",
+    "too-many-return-statements",
+    "too-many-instance-attributes",
+    "too-many-public-methods",
+    "too-few-public-methods",
+    "too-many-lines",
+    # A typing.Protocol's members have `...` bodies. A class satisfying one
+    # structurally does not "override" anything, so every hit is a Protocol.
+    "abstract-method",
+    # The underscore marks the PACKAGE boundary, not a per-module one: these
+    # are sibling internals of one package reading each other, which is what
+    # the leading underscore on the module name already says.
+    "protected-access",
+    # Judged per site and marked there for ruff, which sees the same three:
+    # E402 in the bootstrap, BLE001 where a BaseException must reach the
+    # caller, PLC0415 where a module is deliberately lazy.
+    "wrong-import-position",
+    "broad-exception-caught",
+    "import-outside-toplevel",
+    # Counts a function-level deferred import as a module edge. results.py
+    # imports space inside why() precisely to break the cycle, and says so.
+    # import-linter models the real rule and is a passing gate.
+    "cyclic-import",
+    # Every hit is `annotation is type(None)`, which compares an annotation to
+    # the NoneType CLASS by identity. isinstance cannot express that.
+    "unidiomatic-typecheck",
+    # `format` is a public parameter name on save() and load(). The shadow is
+    # function-local; renaming it would break the API to please a linter.
+    "redefined-builtin",
+    # Visitor dispatch: getattr(self, f"_x_{...}") guarded by an is-None
+    # raise, so the value pylint cannot infer is always a bound method.
+    "not-callable",
+    # PEP 562. The name resolves through the module __getattr__ below it, and
+    # ruff's F822 is annotated at the same line for the same reason.
+    "undefined-all-variable",
+    # The three remaining are __all__ lists, which are two modules' public
+    # surfaces rather than duplicated logic.
+    "duplicate-code",
+]
 
 [tool.mypy]
 python_version = "3.11"
@@ -152,7 +200,7 @@ no_site_packages = true
 [[tool.mypy.overrides]]
 module = [
     "array_api_compat", "faiss", "hypothesis", "numpy", "pandas",
-    "orjson", "polars", "websocket",
+    "polars", "websocket",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"
@@ -175,13 +223,62 @@ min_confidence = 80
 paths = ["petta", "bench.py"]
 ignore_names = ["exc_type", "exc_val", "exc_tb", "tb", "exc"]
 
+# Six of refurb's rules are wrong for this codebase rather than unfixed, and
+# the reason is written here so nobody re-opens them one at a time.
+#
+# FURB123  "redundant cast". It reads an annotation as a fact, and here an
+#          annotation is a claim about what a caller SHOULD pass: the casts
+#          are what make it true. Removing tuple(columns) in results.py would
+#          break outright, since the next line indexes what a generator
+#          argument would already have consumed.
+# FURB149  `truth is True` at the janus boundary means EXACTLY the boolean and
+#          not merely truthy, which is the distinction the boundary exists to
+#          keep.
+# FURB138  the loop it wants comprehended deduplicates against the list being
+#          built, and a comprehension cannot reference that list.
+# FURB107  contextlib.suppress costs a context manager per call where
+#          try/except costs nothing on the success path, and the site is an
+#          attribute-cache lookup.
+# FURB140  starmap erases the names the comprehension gives its pair, which is
+#          what says what the pair IS.
+# FURB184  chaining away a named intermediate is a style preference, and this
+#          codebase's is the named one.
+[tool.refurb]
+ignore = ["FURB123", "FURB149", "FURB138", "FURB107", "FURB140", "FURB184"]
+
 [tool.bandit]
 exclude_dirs = ["tests", "HE", "build"]
+
+# _compliance.py and _gateway_compliance.py are pytest suites that happen to
+# ship: their asserts ARE the contract a space provider or gateway is held to,
+# and B101 exists because asserts vanish under -O, which is not how a test
+# suite is run. ruff's S101 is already ignored project-wide for the same
+# reason, so this only makes the two tools agree.
+[tool.bandit.assert_used]
+skips = ["*/_compliance.py", "*/_gateway_compliance.py"]
 
 [tool.deptry]
 known_first_party = ["petta"]
 extend_exclude = ["HE", "examples", "build", "bench.py", "benchmarks"]
 optional_dependencies_dev_groups = ["test", "checks"]
+
+# Every one of these is imported, and none of them by a statement a static
+# scan can see. janus_swi goes through importlib.import_module so that
+# importing petta does not start an engine, which is a property the suite
+# tests for by name (test_package_import_does_not_require_janus); the rest go
+# through require_module, which raises installation guidance instead of an
+# ImportError when an extra is absent. Declaring them is correct and deptry
+# cannot see the use.
+[tool.deptry.per_rule_ignores]
+DEP002 = [
+    "janus-swi",
+    "array-api-compat",
+    "faiss-cpu",
+    "numpy",
+    "pandas",
+    "polars",
+    "websocket-client",
+]
 
 [tool.importlinter]
 root_package = "petta"

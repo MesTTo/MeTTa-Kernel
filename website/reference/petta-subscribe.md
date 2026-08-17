@@ -77,7 +77,7 @@ def subscribe(
     space: str,
     pattern: Atom,
     callback: Callable[[Event], None] | None = None,
-    on: str = "add",
+    on: str = 'add',
 ) -> Subscription:
 ```
 
@@ -102,7 +102,7 @@ No docstring is defined.
 ## `bridge`
 
 ```python
-def bridge(source, pattern, target, template=None, on: str = "add") -> Subscription:
+def bridge(source, pattern, target, template=None, on: str = 'add') -> Subscription:
 ```
 
 > A bridge rule between spaces, the multi-context-systems reading:

@@ -97,13 +97,23 @@
 ;; Claude Opus 4.1 rewrote the variable names :D
 
 ;; Match the knowledge base
-(= (bc $knowledge_base $_ (: $proof $theorem)) (match $knowledge_base (: $proof $theorem) (: $proof $theorem)))
+;;
+;; The query is destructured in the BODY rather than in the head. A head
+;; parameter of the form (: $variable $type) is an in-place type annotation,
+;; so writing it there would ask the engine to check $proof's type instead of
+;; matching a proof term. Everything else in this file is untouched: a colon
+;; whose value slot is an expression, as in (: ($rule $premise) $theorem)
+;; below, is ordinary data, and a match pattern that IS a colon expression
+;; still retrieves stored declarations.
+(= (bc $knowledge_base $_ $query)
+   (let (: $proof $theorem) $query
+        (match $knowledge_base (: $proof $theorem) (: $proof $theorem))))
 
 ;; Recursive steps
 
 ;; Unary proof application
 (= (bc $knowledge_base (S $depth) (: ($proof_rule $premise_proof) $theorem))
-   (let* (;; Recurse on abtraction
+   (let* (;; Recurse on abstraction
           ((: $proof_rule (-> (: $premise_proof $premise_type) $theorem))
            (bc $knowledge_base $depth (: $proof_rule (-> (: $premise_proof $premise_type) $theorem))))
           ;; Recurse on premise

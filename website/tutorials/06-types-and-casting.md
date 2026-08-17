@@ -19,6 +19,17 @@ def test_annotations_declare_types(metta):
 
 `get-type` asks what type the current space can derive. The arrow's final atom is the result type; preceding atoms are input types. A typed call that refuses an argument can disappear as an empty branch during nondeterministic evaluation.
 
+A function's type has to be an arrow, and a source that gets this wrong is refused rather than accepted quietly. `(: inc Number)` beside `(= (inc $x) (+ $x 1))` reads like a type but is one: it types the symbol `inc`, not a call to it, so every `(inc ...)` compiles with no check and a wrong argument surfaces wherever it finally breaks, deep inside `+` rather than at `inc`'s own door. Writing `(: inc (-> Number Number))` is what puts the check on the call. The engine refuses the first form when it loads the source:
+
+```
+(: inc Number) is not an arrow, so it types the symbol inc and not a call to
+it: every (inc ...) compiles with no check at all, and a wrong argument
+surfaces wherever it finally breaks instead of here. Write (: inc (-> ...)),
+or (: inc %Undefined%) to say inc is deliberately untyped.
+```
+
+Three things pass. A name may carry several declarations, MeTTa's ad-hoc polymorphism, and one arrow among them is enough. `%Undefined%` says the function is deliberately untyped. And a declaration for a name nothing defines is data, not a defect, which is what lets `(: nars-belief (--> Cat Animal))` mean inheritance rather than a mistyped arrow.
+
 At a Python boundary, use `m.cast` when refusal must raise instead:
 
 ```python

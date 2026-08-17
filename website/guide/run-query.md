@@ -53,6 +53,21 @@ After the block, `s.inferences`, `s.cputime`, `s.walltime`, `s.gc_count`, `s.gc_
 
 Control signals hold everywhere, by engine design: a bound, a Ctrl-C, or an `interrupt()` cannot be eaten by the evaluation it is stopping, not even by a program's own `(catch ...)`. That is the same reasoning that puts `KeyboardInterrupt` outside `Exception` in Python.
 
+## Take the first few, without computing the rest
+
+`query` is eager, so slicing it trims after the work is done:
+
+```python
+rows = m.query(pattern)[:3]        # computes every row, keeps three
+rows = m.query(pattern, limit=3)   # the engine stops at three
+with m.stream(pattern) as cursor:
+    rows = cursor[:3]              # pulls three and stops
+```
+
+Over 2,000 stored atoms those measured 26,055, 2,232 and 20 inferences for the same three rows, and the first gap grows with the space. Reach for `limit=` when you want a bounded answer set and for `stream` when you want to take rows until you have seen enough; the cursor keeps the join's state inside an engine between pulls, so a huge join costs one row of work per row actually taken.
+
+A cursor refuses what would need the whole stream, and each refusal says why: `len(cursor)` (use `space.count(pattern)`), `cursor[-1]`, `cursor[-3:]` and `cursor[::2]`. Skipping a row still pulls it, and counting from the end means knowing where the end is.
+
 ## Memoize a function
 
 Tabling is the engine's own memoization: declare a function tabled, and every distinct call computes once, with later calls of the same shape answering from the table. After `!(import! &self (library lib_tabling))`, the declaration is `!(tabled (spin-down $n))`, made after the function is defined, because instrumenting a name that does not exist yet is refused by name and arity instead of silently tabling nothing.
@@ -80,6 +95,179 @@ Every live declaration is also a fact: `(tabled space name arity)` in the `&pett
 ```
 
 Tabling state dies with the space life. A dropped or cleared space takes its declarations, its tables, and its `&petta` records with it, so a pooled name's next life cannot be answered by a dead life's cache; the suite pins this by redefining a function in a reused space and requiring the new answer.
+
+## Put a type where it prunes
+
+A type declaration says what a function accepts. `(: $x T)` says it in the
+**pattern**, where it can cut the search rather than only check the call:
+
+```metta
+(: Ann Person)
+(: Rex Dog)
+(= (greet (: $x Person)) (hello $x))
+!(greet Ann)                            ; (hello Ann)
+!(greet Rex)                            ; nothing, Rex never reaches the body
+```
+
+It is not a new type relation. `(: $x T)` desugars to a plain variable plus
+exactly the acceptance a declared parameter of type `T` compiles, so the two
+agree by construction. That is also why a **metatype** restriction needs
+nothing extra: `has_type` fails on a symbol nobody declared, so `(: $c Symbol)`
+falls through to `get-metatype` and accepts any symbol.
+
+Leave the type a variable and it binds, one branch per declared type, and one
+variable used twice constrains two positions to agree:
+
+```metta
+(= (type-of (: $x $t)) $t)
+(= (same-kind (: $x $t) (: $y $t)) ($x $y))
+```
+
+The same works in a match query, which is where it prunes the search:
+
+```metta
+!(match &self (knows (: $x Human) (: $y Human)) ($x $y))
+```
+
+`(: ...)` is also ordinary data that a program may be about, and both readings
+are wanted. Two gates keep them apart, and neither is a preference:
+
+**A pattern that IS a colon expression stays structural.** So a knowledge base
+query still retrieves the declarations somebody wrote, and an annotation is
+always nested inside something:
+
+```metta
+!(match &self (: $x Human) $x)          ; retrieves stored (: Plato Human)
+!(match &self (knows (: $x Human) $y) $y)   ; annotates
+```
+
+**Below that, the annotated position must hold a variable.** `(: a $rest)` is
+an ordinary pattern, and nothing looks inside a colon whose value slot is not a
+variable. That is what lets this repository's own `nilbc.metta`, a proof search
+over 134 `(: proof theorem)` terms, keep every one of them.
+
+Issue #177 proposes a separate spelling, `::`, "when position cannot
+distinguish the two uses". Position can, so there is no second spelling to
+learn.
+
+## Match something already known
+
+A match pattern binds. `(:= X)` makes one position **check** instead:
+
+```metta
+!(add-atom &self (fact a))
+!(match &self (fact $x) $x)             ; a, $x binds
+!(match &self (fact (:= a)) hit)        ; hit, the atom already IS a
+!(match &self (fact (:= c)) hit)        ; nothing
+```
+
+A free variable does not match a `:=` operand, which is the difference from an
+ordinary pattern and the reason to reach for it: `(:= $y)` with `$y` unbound
+matches nothing rather than everything.
+
+The gate is arity. Exactly two elements is the modifier; `(:= a b)` is three,
+so it stays ordinary data and matches structurally. That is not a PeTTa
+convention, it is the reference's own registry rule, and it exists because
+three-element `(:= ...)` atoms already appear in real programs.
+
+`unify-mod` in `lib/minimal_metta_lib.pl` has read `:=` all along; the engine's
+own `match` reads it too now. It costs nothing when you do not use it: the
+modifier is lifted while the call site compiles, so a pattern without one
+compiles to exactly what it always did.
+
+## Arithmetic that runs backwards
+
+`+` computes. `#+` **relates**, and the difference is what you can ask it.
+Every `#` operation is a CLP(FD) constraint rather than an evaluation, so give
+it any two of the three and it solves for the third by propagation rather than
+by search:
+
+```metta
+!(#+ 1 2)                        ; 3, the same as +
+!(let 5 (#+ $x 2) $x)            ; 3, which + cannot answer at all
+!(let 20 (#* (#+ $a 1) 4) $a)    ; 4, solved through two constraints
+```
+
+`(+ $x 2)` with `$x` unbound raises `Arguments are not sufficiently
+instantiated`. `(#+ $x 2)` posts a constraint and waits, so the same expression
+is a definition in one direction and a question in the other.
+
+The family is `#+ #- #* #div #// #mod #min #max` for arithmetic and
+`#< #> #= #\= #=< #>=` for comparison. The comparisons answer `True` or
+`False` rather than succeeding or failing, so they compose with `if` the way
+the ordinary ones do, and a comparison on an unbound variable narrows its
+domain instead of raising:
+
+```metta
+!(collapse (let $q (#+ $p 1) (#< $q 4)))   ; (True), with $p constrained below 3
+```
+
+Integers only: CLP(FD) is a finite-domain solver, so `(#* 2 $x)` cannot answer
+`1/2`. `examples/basics/relational_arithmetic.metta` runs the whole family
+forwards and backwards.
+
+Two more solvers sit beside it, in a library rather than in the engine:
+`!(import! &self (library lib_constraints))` gives each of them **one** entry
+point taking its constraint as written, rather than another operator family.
+
+```metta
+!(let True (clpq (= (* 2 $x) 1)) (repr $x))    ; "1r2", an exact rational
+!(clpq-entailed (>= $x 0))                      ; is this already implied?
+!(clpb (card (1) ($p $q)))                      ; exactly one of these is true
+!(clpb-labeling ($p $q))                        ; (0 1) and (1 0)
+!(clpb-taut (+ $t (~ $t)))                      ; True, decided not enumerated
+```
+
+`clpq` is the rationals: exact arithmetic, entailment, disequations, and
+projection, which reads the implied relation between two variables after
+eliminating the others. `clpb` is the booleans over BDDs. Neither replaces the
+engine's own `and`/`or`/`not`, which are generate-and-test over two values and
+cheaper until a formula constrains every variable at once; on "exactly one of
+N is true" the crossover is at twelve variables, and above it the gap grows
+without bound, 16,777,154 inferences against 289,037 at twenty.
+`examples/basics/constraint_domains.metta` has all of it.
+
+Constructive negation reads these, which is the payoff. Negate a rule whose
+body is a `#` bound and the answer is the opposite bound rather than an
+enumeration:
+
+```metta
+(= (small $n) (#< $n 5))
+!(collapse (let True (not-provable (small $x)) (residual-goals $x)))
+; (((: clpfd (in $x (.. 5 sup)))))
+```
+
+`$x` comes back carrying `5..sup`, so "which n is not small" is answered over
+an infinite set without visiting any of it. Negating a bare `(#< $y 4)` at top
+level is the one shape that does not work: there is no rule to take the dual
+OF, and a universally quantified variable carrying a finite-domain constraint
+is refused by name rather than answered wrongly.
+
+## Say two things stay different
+
+`(!= $a $b)` and `(dif $a $b)` look like the same question and are not, and
+picking the wrong one is the kind of mistake that works until it doesn't.
+
+`!=` asks whether the two terms are identical **now**. It is Prolog's `\==`,
+a test rather than a claim, so on an unbound variable it answers `True` and a
+later binding may contradict it:
+
+```metta
+!(let $x 1 (!= $x 1))      ; False, $x is already 1
+!(!= $x 1)                 ; True, and then $x may still become 1
+```
+
+`dif` answers `True` and **constrains** the two terms never to become
+identical, so the later binding fails instead. That is what makes a
+constructive negation constructive: the answer to "which bird is not a
+penguin" is every bird except polly, carried as a constraint rather than
+enumerated over a domain that may be infinite. `(residual-goals $x)` reads the
+constraints an answer is still carrying, which is how an answer that prints as
+a bare variable turns out to be saying something.
+
+Neither replaces the other, and `!=` was deliberately not redefined as `dif`:
+changing an existing builtin's meaning is not a fix, and the constraint is
+available under its own name.
 
 ## The third truth value
 
@@ -200,7 +388,13 @@ MeTTa fails open: a call to a misspelled function stays an unreduced expression,
     assert findings[0].subject == "ghost-fn"
 ```
 
-The kinds: `declared-but-undefined`, `arrow-arity-mismatch` (the arrow's input count against the equations'), `arity-mismatch` (a call with an argument count no equation takes), `unbound-variable` (a body variable the head never bound, exempting equations with their own binding forms), `duplicate-equation` (the same equation stored twice, answering every call twice), and `possibly-undefined-reference`, which says in its own text that it is a heuristic, because an expression head that is no known function may be data on purpose. A healthy space answers an empty list.
+The kinds: `declared-but-undefined`, `arrow-arity-mismatch` (the arrow's input count against the equations'), `declaration-types-the-symbol` (a declaration that is not an arrow, so it types the name and not a call to it), `arity-mismatch` (a call with an argument count no equation takes), `unbound-variable` (a body variable the head never bound, exempting equations with their own binding forms), `duplicate-equation` (the same equation stored twice, answering every call twice), `tabled-answer-order-read` (a `car-atom` or `index-atom` picking out of a collapse of a tabled function), and `possibly-undefined-reference`, which says in its own text that it is a heuristic, because an expression head that is no known function may be data on purpose. A healthy space answers an empty list.
+
+"Known" there means known to the engine, and the engine gives a head meaning two ways. A function is one, and `fun/1` answers for it. A special form is the other: `if`, `case`, `collapse`, `unify`, `chain`, `once` and 20 more are compiled by the translator instead of being defined by equations, and 29 of the 47 answer `False` to `fun/1`, as do the six stream rewrites `trace!`, `unique`, `alpha-unique`, `union`, `intersection` and `subtraction`. The linter asks `metta_translated_head/1` as well, which reads the translator's clause heads rather than keeping a list, so a form added to the engine is known to the linter the day it is added.
+
+`tabled-answer-order-read` is the one that catches a program working today for a reason that will not last. Tabling preserves the answer *set* and not its order, so `(car-atom (collapse (pick a)))` over a tabled `pick` answers whatever the trie happens to hold first, and that moves when something unrelated moves: adding three facts nothing calls to another engine file flipped one from `(one two)` to `(two one)`, and removing them flipped it back. Wrapping the collapse in `sort-atom` fixes it and silences the finding, which is what the tabling examples do.
+
+`declaration-types-the-symbol` only reaches the linter from `add_atom`, because a source file is refused outright: see [types and casting](../tutorials/06-types-and-casting) for what the engine checks at load. Building a name's declarations one atom at a time passes through a state where only the first is stored, so the check that can refuse a whole source cannot refuse a single write.
 
 ## Cast a value
 

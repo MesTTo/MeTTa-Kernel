@@ -216,3 +216,95 @@ test(a_writable_term_reports_nothing) :-
     \+ metta_unwritable_symbol([holds, plain, 'a-b', <=], _).
 
 :- end_tests(parser_symbol_text).
+
+
+:- begin_tests(parser_commands).
+
+% CPython names this as THE hard part of a console: "determine when the user
+% has entered an incomplete command that can be completed by entering more
+% text (as opposed to a complete command or a syntax error)". sread/2 answers
+% one way and four different situations collapsed into it.
+test(parser_command_tells_incomplete_from_malformed) :-
+    assertion(sread_command("(f a)", complete([f, a]))),
+    % Still typing.
+    assertion(sread_command("(f a", incomplete)),
+    assertion(sread_command("(a (b (c", incomplete)),
+    assertion(sread_command("(= (f $x)", incomplete)),
+    % An empty line re-prompts; it is the commonest input in any console.
+    assertion(sread_command("", incomplete)),
+    assertion(sread_command("   ", incomplete)),
+    assertion(sread_command("; only a comment", incomplete)),
+    % A bare atom is a whole form.
+    assertion(sread_command("hello", complete(hello))),
+    % One bracket too many is MALFORMED: no further typing repairs it, so the
+    % reader's own error is the answer.
+    catch(sread_command("(f a))", _), Malformed, true),
+    assertion(Malformed = error(syntax_error(_), _)).
+
+% Not "just count parens", which is why this is worth exposing rather than
+% leaving every console to re-implement it: a bracket inside a string or a
+% comment must not count, and string_state/3 is what knows the difference.
+test(parser_command_ignores_brackets_inside_strings_and_comments) :-
+    assertion(sread_command("(f \"a)b\")", complete([f, "a)b"]))),
+    % An unterminated string is incomplete, because a MeTTa string may span
+    % lines: a newline inside one keeps the string state.
+    assertion(sread_command("(f \"a", incomplete)),
+    assertion(sread_command("(f a) ; )))", complete([f, a]))).
+
+% The consequence the finding is really about: examples/basics/repl.metta
+% could not accept a multi-line form at all, because 'readln!'/1 is one
+% read_line_to_string then sread/2. 'read-form!'/1 buffers until the brackets
+% balance, and the DECISION it buffers on has no I/O in it, which is CPython's
+% split between InteractiveInterpreter and InteractiveConsole.
+test(parser_reads_a_form_across_lines) :-
+    Source = "(= (f $x)\n   (+ $x 1))\n\n(f 41)\n",
+    with_console_input(Source, Forms),
+    Forms = [Spanning, Next, End],
+    assertion(Spanning = [=, [f, X], [+, X, 1]]),
+    % A blank line between forms re-prompts rather than erroring.
+    assertion(Next == [f, 41]),
+    assertion(End == end_of_file).
+
+%'read-form!'/1 reads the user_input ALIAS, the way a console does and the way
+%'readln!'/1 already does, so redirecting current_input is not enough: the
+%alias itself is rebound and put back.
+with_console_input(Source, Forms) :-
+    stream_property(Original, alias(user_input)),
+    open_string(Source, In),
+    setup_call_cleanup(
+        set_stream(In, alias(user_input)),
+        findall(Form, ( between(1, 3, _), 'read-form!'(Form) ), Forms),
+        ( set_stream(Original, alias(user_input)), close(In) )).
+
+:- end_tests(parser_commands).
+
+:- begin_tests(parser_writes_what_is_not_metta).
+
+%The writer's last three clauses are the three ways of not being a MeTTa term,
+%and each one used to be able to take the whole run down or say nothing useful.
+
+%=../2 refuses a zero-arity compound: it raises `compound_non_zero_arity'
+%rather than failing, and the writer had an empty-argument branch it could
+%never reach. The raise escaped the writer and killed the program, which is how
+%`!(py-atom "()")` printed nothing at all and ended the run, janus encoding
+%Python's empty tuple as exactly this term.
+test(an_empty_compound_prints) :-
+    Empty = -(),
+    assertion(compound(Empty)),
+    assertion(\+ catch(Empty =.. _, _, fail)),
+    swrite(Empty, Text),
+    assertion(string(Text)).
+
+%And a non-empty one still writes as it did.
+test(a_compound_prints_as_a_form) :-
+    swrite(foo(a, 1), Text),
+    assertion(Text == "(foo a 1)").
+
+%A term that is neither a MeTTa term nor a compound writes as its own text
+%rather than failing. The writer is never the thing that fails, so a value
+%whose provider is not loaded still prints something.
+test(a_value_with_no_provider_still_prints) :-
+    swrite("a string", Text),
+    assertion(Text == "\"a string\"").
+
+:- end_tests(parser_writes_what_is_not_metta).
