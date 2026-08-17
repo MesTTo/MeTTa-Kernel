@@ -205,3 +205,93 @@ test(importing_the_tombstoned_library_is_a_noop) :-
     memberchk(yes, Results).
 
 :- end_tests(prelude).
+
+:- begin_tests(prelude_docs).
+
+doc_eval(Text, Results) :-
+    sread(Text, Term),
+    findall(R, eval(Term, R), Results).
+
+test(get_doc_answers_the_engine_register_with_no_import) :-
+    doc_eval("(get-doc type-cast)", [Doc]),
+    Doc = ['@doc', 'type-cast' | _].
+
+test(get_doc_answers_a_program_atom_as_written,
+     [setup(metta_add_atom('&self',
+                           ['@doc', 'plunit-doc-greet',
+                            ['@desc', "Greets"]], _)),
+      cleanup(metta_remove_atom('&self',
+                                ['@doc', 'plunit-doc-greet', _], _))]) :-
+    doc_eval("(get-doc plunit-doc-greet)",
+             [['@doc', 'plunit-doc-greet', ['@desc', "Greets"]]]).
+
+test(get_doc_of_an_undocumented_name_answers_nothing) :-
+    doc_eval("(collapse (get-doc plunit-doc-nobody))", [[]]).
+
+test(get_doc_space_selects_the_space,
+     [setup(metta_add_atom('&plunit-doc-space',
+                           ['@doc', 'plunit-doc-remote',
+                            ['@desc', "Remote"]], _)),
+      cleanup(metta_remove_atom('&plunit-doc-space',
+                                ['@doc', 'plunit-doc-remote', _], _))]) :-
+    doc_eval("(get-doc-space &plunit-doc-space plunit-doc-remote)",
+             [['@doc', 'plunit-doc-remote', ['@desc', "Remote"]]]),
+    %And the current context does NOT see it: the twin is the selection.
+    doc_eval("(collapse (get-doc plunit-doc-remote))", [[]]).
+
+test(help_prints_and_answers_unit,
+     [setup(metta_add_atom('&self',
+                           ['@doc', 'plunit-doc-help',
+                            ['@desc', "For help"]], _)),
+      cleanup(metta_remove_atom('&self',
+                                ['@doc', 'plunit-doc-help', _], _))]) :-
+    with_output_to(string(Out), doc_eval("(help! plunit-doc-help)", [[]])),
+    once(sub_string(Out, _, _, _, "For help")),
+    with_output_to(string(Missing), doc_eval("(help! plunit-doc-nobody)", [[]])),
+    once(sub_string(Missing, _, _, _, "No documentation")).
+
+test(enumerators_are_program_scoped,
+     [setup(( metta_add_atom('&self',
+                             [=, ['plunit-doc-fn', X], X], _),
+              metta_add_atom('&self',
+                             ['@doc', 'plunit-doc-fn',
+                              ['@desc', "Mine"]], _),
+              metta_add_atom('&self',
+                             [=, ['plunit-doc-bare', Y], Y], _) )),
+      cleanup(( metta_remove_atom('&self',
+                                  [=, ['plunit-doc-fn', X2], X2], _),
+                metta_remove_atom('&self',
+                                  ['@doc', 'plunit-doc-fn', _], _),
+                metta_remove_atom('&self',
+                                  [=, ['plunit-doc-bare', Y2], Y2], _) ))]) :-
+    %documented answers the program's names, never the engine's.
+    doc_eval("(collapse (documented))", [Documented]),
+    memberchk('plunit-doc-fn', Documented),
+    \+ memberchk('type-cast', Documented),
+    %undocumented reports the program's gap, engine vocabulary excluded.
+    doc_eval("(collapse (undocumented))", [Undocumented]),
+    memberchk('plunit-doc-bare', Undocumented),
+    \+ memberchk('plunit-doc-fn', Undocumented),
+    \+ memberchk('if-equal', Undocumented),
+    %defined-name sees both program functions and no builtins.
+    doc_eval("(collapse (defined-name))", [Defined]),
+    memberchk('plunit-doc-fn', Defined),
+    memberchk('plunit-doc-bare', Defined),
+    \+ memberchk('assertEqual', Defined).
+
+test(eviction_takes_the_prelude_docs_with_the_name,
+     [setup(metta_add_atom('&self',
+                           [=, ['type-cast', A, B, C], [shadow, A, B, C]],
+                           _)),
+      cleanup(( metta_remove_atom('&self',
+                                  [=, ['type-cast', A2, B2, C2],
+                                   [shadow, A2, B2, C2]], _),
+                load_engine_prelude ))]) :-
+    \+ prelude_doc_atom('type-cast', _),
+    doc_eval("(collapse (get-doc type-cast))", [[]]).
+
+test(the_doc_example_still_speaks_for_the_library,
+     [condition(exists_file('../../examples/libraries/doc_lib.metta'))]) :-
+    load_metta_file('../../examples/libraries/doc_lib.metta', _).
+
+:- end_tests(prelude_docs).

@@ -24,6 +24,18 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   live in their own engine register, read after a program's own, so a
   user redeclaration wins; an `Atom` parameter declared there masks call
   sites the way the `my-if` tutorial mechanism describes.
+- Added the documentation vocabulary as engine builtins, promoted from
+  `lib_doc` with the design it already had, documentation is atoms in a
+  space and retrieval is a match: `get-doc`, `help!`, `documented`,
+  `defined-name`, `undocumented`, each with a `-space` twin selecting
+  any space, resolving against the CURRENT context rather than the
+  literal `&self` the library matched. `get-doc` and `help!` fall back
+  to the engine's own doc register, where the prelude documents every
+  form it ships, so `(help! type-cast)` answers with no import; the
+  enumerators stay program-scoped on purpose, so "what have I
+  documented" and "what did I forget" are answers about YOUR program,
+  never padded with engine vocabulary. `@doc` forms remain inert data
+  constructors, and a user program's own doc atoms answer as written.
 - A user definition WINS over the prelude, entirely: compiling an
   equation for a prelude-owned name in `&self` evicts the prelude's
   clauses and declarations for that name first, at every compile door,
