@@ -741,6 +741,11 @@ def one(self, target: Any, *, timeout: float | None = None, inferences: int | No
 > collapse), first() takes the first and tolerates absence, one()
 > demands exactly one. fn() and Rows carry the same triple, and
 > the same timeout/inferences bounds apply throughout.
+>
+> An `(Error ...)` answer raises MettaResultError carrying the
+> atom: an error among the answers is the evaluation reporting
+> failure, and failure outranks the count. eval() is the door
+> that keeps errors as data.
 
 ### `MeTTa.first`
 
@@ -750,10 +755,14 @@ def first(self, target: Any, *, timeout: float | None = None, inferences: int | 
 
 > The first answer as a plain Python value, or None for no answers.
 >
-> The tolerant member of value()'s family: value() asserts exactly
+> The tolerant member of one()'s family: one() asserts exactly
 > one, eval() answers all, first() answers the first or nothing,
-> decoded by the same rule as value(). An Undefined first answer
-> still raises, since None here MEANS no answers.
+> decoded by the same rule as one(). An Undefined first answer
+> still raises, since None here MEANS no answers. Tolerance is
+> about cardinality, not content: a first answer that is an
+> `(Error ...)` atom raises MettaResultError exactly as one()
+> does, because None must keep meaning "no answers" and an error
+> used as a value is the silent kind of wrong.
 
 ### `MeTTa.stats`
 

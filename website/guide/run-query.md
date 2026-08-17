@@ -53,6 +53,32 @@ After the block, `s.inferences`, `s.cputime`, `s.walltime`, `s.gc_count`, `s.gc_
 
 Control signals hold everywhere, by engine design: a bound, a Ctrl-C, or an `interrupt()` cannot be eaten by the evaluation it is stopping, not even by a program's own `(catch ...)`. That is the same reasoning that puts `KeyboardInterrupt` outside `Exception` in Python.
 
+## Errors are data, until you ask for a value
+
+MeTTa reports a soft failure by answering an `(Error culprit reason)` atom: an error is a RESULT, one element of the answer multiset, so one failed branch never kills the others. Write the idiom with an `if` guard, because every matching equation runs:
+
+```python
+m.run('(= (safe-div $x $y) (if (== $y 0) '
+      '(Error (safe-div $x $y) "division by zero") (/ $x $y)))')
+m.eval("(safe-div 1 0)")
+# [Expr('(Error (safe-div 1 0) "division by zero")')]
+```
+
+The doors split by what they answer. The aggregation doors, `eval()`, `run()`, `fn.all()` and the streams, keep error atoms as data, exactly as the multiset semantics says. A door that answers a single value has no multiset for the error to be data in, so `one()`, `first()` and calling a function raise `MettaResultError` instead, carrying the parts:
+
+```python
+try:
+    m.fn("safe-div")(1, 0)
+except petta.MettaResultError as e:
+    e.atom                  # (Error (safe-div 1 0) "division by zero")
+    e.culprit               # (safe-div 1 0)
+    petta.decode(e.reason)  # 'division by zero'
+```
+
+Query rows are bindings rather than evaluation answers, so a stored error record flows through every `Rows` door untouched; `rows.raise_for_errors()` is the explicit bridge for callers who want the `raise_for_status` reading, raising one error plainly and several as one `ExceptionGroup`.
+
+Two more things hold across the whole library. Every exception it raises on purpose carries machine-readable parts beside the message, the way `OSError.errno` does: `.atom`, `.space`, `.operation` and `.capability`, each `None` when the error has no such part. And an exception the library raises inside a Python callback, a space provider refusing a write for instance, crosses the engine and re-arrives as the very same object with its fields intact, rather than as a transcript of itself.
+
 ## Take the first few, without computing the rest
 
 `query` is eager, so slicing it trims after the work is done:

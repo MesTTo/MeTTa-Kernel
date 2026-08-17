@@ -69,6 +69,28 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   behind it: every space name the engine registers, sorted, `&self` and
   `&petta` from boot, every written native space, every bound foreign
   space. Naming a space never registers it; writing or binding does.
+- Added structured fields on the whole `PettaError` family, the way
+  `OSError.errno` rides beside its message: `.atom` (the MeTTa atom the
+  error is about), `.space`, `.operation` and `.capability`, each None
+  when the error has no such part, the message unchanged either way. A
+  provider capability refusal now carries all three of its parts as
+  data instead of only as a sentence.
+- Added `MettaResultError` and the one-sentence error policy behind it:
+  an `(Error culprit reason)` answer stays DATA at every multiset door
+  (`eval`, `run`, `fn.all`, streams) and RAISES at every single-value
+  door (`one`, `first`, calling a function), carrying `.atom`,
+  `.culprit` and `.reason`. `first()`'s tolerance covers absence, not
+  errors, because None must keep meaning "no answers".
+- Added `Rows.raise_for_errors()`: query rows are bindings, so stored
+  `(Error ...)` records stay data through every Rows door; this is the
+  explicit bridge, answering self when clean so it chains, raising one
+  error plainly and several as one `ExceptionGroup`.
+- A `PettaError` raised inside a Python callback (a provider refusing a
+  write, a seam contract violation) now crosses the engine and
+  re-arrives as the very same exception object, structured fields
+  intact, instead of an `EngineError` holding a transcript of it. An op
+  author's own exception classes still arrive wrapped in `EngineError`,
+  the boundary they crossed staying visible.
 
 - Added the stdlib `unify` special form: `(unify a b then else)` runs the
   then branch once per binding set under which the operands match and the

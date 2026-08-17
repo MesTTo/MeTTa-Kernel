@@ -24,12 +24,44 @@ Source: `python/petta/results.py`.
 >     mappings for zero-column rows [tested test_rows_to_dicts_returns_plain_records]
 >   - eager query results explain empty pattern, join, and guard outcomes [tested
 >     test_query_rows_explain_empty_results]
+>   - error_answer recognizes (Error ...) by head symbol alone, so quoted and
+>     nested errors stay data, and raise_for_errors chains when clean [tested
+>     test_raise_for_errors_chains_when_clean_and_raises_one_plainly]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
 >   Future Enhancements: None
 
 The entries below reproduce the source signatures and docstrings.
+
+## `error_answer`
+
+```python
+def error_answer(answer: object, *, space: str | None = None) -> MettaResultError | None:
+```
+
+> The structured exception for an `(Error ...)` answer, or None.
+>
+> The head symbol alone decides, MeTTa's own shape `(Error culprit
+> reason)`, so a quoted or nested error stays data.
+
+## `raise_error_answers`
+
+```python
+def raise_error_answers(
+    answers: Iterable[object],
+    *,
+    space: str | None = None,
+    target: object = None,
+) -> None:
+```
+
+> Raise the first `(Error ...)` member of answers, if any.
+>
+> The check every single-value door runs before decoding: an error
+> among the answers is the evaluation reporting failure, and failure
+> outranks a count. The target rides as a note, so the traceback names
+> the call without the message growing.
 
 ## `Row`
 
@@ -112,6 +144,23 @@ def one(self) -> Row:
 > THE row, when the query is asserted to have exactly one answer;
 > none or several raise naming the count, so a lookup that silently
 > picked an arbitrary row cannot hide.
+
+### `Rows.raise_for_errors`
+
+```python
+def raise_for_errors(self) -> Self:
+```
+
+> Raise when any cell carries an `(Error ...)` atom; answer self
+> otherwise, so the call chains.
+>
+>     m.query(pattern).raise_for_errors()
+>
+> Query rows are BINDINGS, not evaluation answers, so a stored
+> error record stays data through every Rows door, one() and
+> first() included; this is the explicit bridge for callers who
+> want the raise_for_status reading. One error raises it plainly,
+> several raise one ExceptionGroup carrying each.
 
 ### `Rows.why`
 

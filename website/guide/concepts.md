@@ -89,6 +89,12 @@ three readings. The triple is spelled the same at every door:
 otherwise; `first` tolerates absence. Calling a function object is
 sugar for its `one()`, because a Python call means one value.
 
+The same axis settles the error story in one sentence: an
+`(Error ...)` answer stays data at every multiset door and raises
+`MettaResultError` at every single-value door, and
+`Rows.raise_for_errors()` is the explicit bridge from the data
+reading to the exception reading.
+
 ## Special symbols
 
 Three symbols the interpreter treats specially, and the words used for
