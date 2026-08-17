@@ -8,6 +8,18 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added the thread-safety and serialization guarantees page: per type
+  and per operation, what is atomic, what locks, and what a caller must
+  serialize, Python's own documentation convention pointed at PeTTa.
+  Every claim is pinned by a named test, two of them new: bare threads
+  sharing the home engine answer correctly under contention, and a
+  `with m.limits(...)` block on the event loop bounds engine work on
+  the async worker thread, because scoped state rides contextvars and
+  each request runs inside the submitting task's context. The page also
+  records why the current-space scope needs no Python-side migration:
+  it is an engine global, per engine and therefore per thread, and the
+  package's one `threading.local` is deliberately thread-keyed because
+  Prolog engines attach per OS thread.
 - Added the provider ecosystem's entry-point groups beside
   `petta.integrations`: a package advertises a provider factory under
   `petta.spaces` or the directory of sources it ships under
