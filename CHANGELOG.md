@@ -8,6 +8,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added `@petta.record`, one decorator that makes a dataclass, NamedTuple,
+  or Enum a full citizen of the type story: two-way conversion registers
+  at decoration (an unregistrable class fails right there), and the
+  class's `(: ...)` declarations land in the default space the moment an
+  engine exists, on the first `MeTTa()` construction otherwise, so the
+  decorator runs at module import time without booting anything. The
+  declared class then works as a `cast` and `query(into=)` target.
+  `petta.ops.class_declarations(cls)` exposes the emitted atoms, and
+  every underlying registration call stays public for custom shapes.
 - Added the engine prelude: the Hyperon-Experimental vocabulary that lived
   in `lib_he` is part of the core engine now, compiled from
   `src/prelude.metta` at startup by the same translator that compiles a

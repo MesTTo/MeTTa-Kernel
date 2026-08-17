@@ -20,6 +20,26 @@ Defaults register every accepted positional arity. A Python `None` produces no a
 
 See [`petta.ops`](../reference/petta-ops) for annotation mapping and registration, and [`petta.convert`](../reference/petta-convert) for object projection and rebuilding.
 
+## Declaring a data class without a function
+
+Signatures are one road into the type registry; `@petta.record` is the direct one. Stack it on a dataclass, NamedTuple, or Enum and the class converts both ways, its `(: ...)` declarations land in the default space, and it works as a `cast` and `query(into=)` target:
+
+```python
+@petta.record
+@dataclass
+class Edge:
+    a: str
+    b: str
+
+m = petta.MeTTa()
+m.query("(: Edge $t)")               # [(-> String String Edge)]
+m.query("(Edge $a $b)", into=Edge)   # [Edge(a=..., b=...)] once stored
+```
+
+The decorator does not boot the engine. Conversion registers immediately, so an unregistrable class fails at the decorator rather than at first use, but the declarations are engine-side atoms and land the moment an engine exists: on the first `MeTTa()` construction, or immediately if one is already running. That is what lets `record` sit at module import time in a library that may never start an engine at all.
+
+`cast` checks admission and narrows; it does not construct. Building instances from answers is `query(into=Edge)` or `petta.convert.build(atom, Edge)`.
+
 ## Property-test what you build
 
 `petta.testing` exports the hypothesis strategies this library fuzzes itself with. The generators carry engine truths worth not rediscovering: which names the tokeniser reads back whole, that `true` and `True` are one term on the engine so their spellings canonicalize, and which numbers the printer round-trips. The library's own suite imports the public module as `from petta import testing as pt` and builds its generators from it:

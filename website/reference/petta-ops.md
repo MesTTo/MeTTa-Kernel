@@ -17,6 +17,41 @@ Source: `python/petta/ops.py`.
 
 The entries below reproduce the source signatures and docstrings.
 
+## `record`
+
+```python
+def record(cls: type) -> type:
+```
+
+> The declarative-record wiring, attrs' and pydantic's shape: one
+> decorator over a dataclass, NamedTuple, or Enum and the class
+> converts both ways, its `(: ...)` declarations land in &self, and it
+> serves as a cast and query(into=) target.
+>
+>     @petta.record
+>     @dataclass
+>     class Edge:
+>         a: str
+>         b: str
+>
+> Conversion registers immediately (an unregistrable class fails at
+> the decorator, not at first use). The declarations are engine-side
+> atoms, so they land the moment an engine exists: immediately when
+> one is already booted, or on the first MeTTa construction otherwise,
+> which is what lets the decorator run at import time without booting
+> anything. Every underlying registration call stays public for the
+> classes that need custom shapes.
+
+## `declare_recorded`
+
+```python
+def declare_recorded() -> None:
+```
+
+> Land every pending recorded class's declarations in &self; a
+> no-op when nothing is pending, called by MeTTa construction so a
+> decorator that ran before any engine existed still declares.
+
 ## `class_declarations`
 
 ```python
