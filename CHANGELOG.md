@@ -111,6 +111,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and documented as the watcher recipe: equations are atoms, so
   `subscribe("(= (f $x) $body)", callback, on="both")` fires on every
   equation added or removed, bindings included.
+- AsyncMeTTa reaches full parity with the synchronous surface, and the
+  parity is computed rather than curated: the suite asserts every public
+  MeTTa method exists on AsyncMeTTa minus a three-entry ledger with
+  stated reasons (`pool`, asyncio's fan-out being workers plus gather;
+  `prolog`, an interactive toplevel; `transactional`, a transaction body
+  being a closed synchronous goal). The mechanical members are one
+  worker round trip each; the structural ones take their async shapes:
+  `stats()` and `assuming()` as async context managers, `prepare()`
+  with awaitable solve, `stream()` as an async cursor pulling one row
+  per round trip, `subscribe()` as an async event stream fed through
+  call_soon_threadsafe (a class, not an async generator, so aclose() is
+  explicit), `fn()` as an async callable with the one/first/all triple,
+  and `transaction(fn)` running fn on the worker inside one engine
+  transaction, fn receiving the worker's own synchronous handle.
 - The remote space protocol is revision 2, and what crosses the wire is
   now stated instead of implied: the caller's answer limit crosses as an
   optional `bound` field on `/match` that a server may honor exactly

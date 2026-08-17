@@ -29,6 +29,43 @@ Anything not mirrored is one `call` away: `await am.call(lambda m: m.derivation(
 
 Be clear about what this buys. The engine is one per process and calls are serialized, so `petta.aio` does not evaluate two things at once; it keeps every other coroutine running while one evaluation works. The suite pins exactly that: a heartbeat task keeps ticking while the engine spins through a three-million-step recursion. The worker holds an attached Prolog engine (`janus.attach_engine()`), the same pattern `petta.remote.serve()` runs, so the fast calling convention holds off the main thread. When the work should happen in another process entirely, that is what [contexts and remotes](./contexts) are for; the two compose, an `AsyncMeTTa` in front of an engine that `attach`es a remote one behind.
 
+## The whole surface, and the async shapes
+
+Parity with the synchronous surface is computed, not curated: the suite asserts every public `MeTTa` method exists here, minus three with stated reasons (`pool`, because asyncio's fan-out is N workers and `asyncio.gather`; `prolog`, an interactive toplevel; `transactional`, because a transaction body is a closed synchronous goal and `transaction()` is the async spelling). The `declare_*` and `register_*` families, `first`, `parallel`, `space_names`, `disassemble` and the rest are one worker round trip each.
+
+The structural pieces take their async shapes rather than a thread wrapper's:
+
+```python
+async with am.stats() as s:                  # counters over the block
+    await am.query(S.edge(V.a, V.b))
+s.inferences
+
+async with am.assuming(S.closed(S.gate)):    # what-if facts, scoped
+    detour = await am.query(S.route(V.r))
+
+route = await am.prepare(S.path(V.a, V.b))   # shape once, solve many
+rows = await route.solve(given=[S.edge(S.a, S.b)])
+
+async with am.stream(S.edge(V.a, V.b)) as rows:
+    async for row in rows:                   # one row per round trip
+        if wanted(row):
+            break
+
+async with am.subscribe(S.order(V.n), on="both") as events:
+    async for event in events:               # a standing query as a stream
+        handle(event)
+
+inc = am.fn("inc")
+await inc(41)                                # the cardinality triple:
+await inc.first(1); await inc.all(2)         # one, first, all
+```
+
+`subscribe` here answers a stream rather than taking a callback, because the loop is the delivery mechanism: the engine-side callback forwards each event through `call_soon_threadsafe` onto an asyncio queue. `transaction` passes your function the worker's own synchronous handle, since the body runs inside the engine's transaction on the engine's thread:
+
+```python
+await am.transaction(lambda m: (m.add(S.schema(2)), m.remove(S.schema(1))))
+```
+
 The complete surface is in [`petta.aio`](../reference/petta-aio).
 
 

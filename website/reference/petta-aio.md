@@ -385,6 +385,454 @@ async def space(self, name: str) -> AsyncMeTTa:
 > owns the thread; spaces borrow it, so closing a borrowed space is
 > a no-op and closing the owner ends them all.
 
+### `AsyncMeTTa.first`
+
+```python
+async def first(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Any:
+```
+
+> The first answer decoded, or None for no answers.
+
+### `AsyncMeTTa.parallel`
+
+```python
+async def parallel(self, *targets: Any, timeout: float | None = None) -> list:
+```
+
+> Evaluate every target concurrently inside the engine.
+
+### `AsyncMeTTa.hyperpose`
+
+```python
+async def hyperpose(self, *targets: Any, timeout: float | None = None) -> list:
+```
+
+> parallel() under its MeTTa name.
+
+### `AsyncMeTTa.integrate`
+
+```python
+async def integrate(self, target: Any) -> str:
+```
+
+> Install a library integration; see petta.integrate.
+
+### `AsyncMeTTa.profile_extension`
+
+```python
+async def profile_extension(
+    self,
+    source: str,
+    using: dict[str, Any] | None = None,
+    *,
+    extension: str | None = None,
+    names: Sequence[str] | None = None,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> tuple:
+```
+
+> Run source and report per-function engine cost.
+
+### `AsyncMeTTa.eval_status`
+
+```python
+async def eval_status(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> list:
+```
+
+> Evaluate and report each answer's outcome kind.
+
+### `AsyncMeTTa.run_status`
+
+```python
+async def run_status(
+    self,
+    source: str,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> list:
+```
+
+> Run source and report each directive's outcome kinds.
+
+### `AsyncMeTTa.space_names`
+
+```python
+async def space_names(self) -> list[str]:
+```
+
+> Every space name this engine registers, sorted.
+
+### `AsyncMeTTa.disassemble`
+
+```python
+async def disassemble(self, name: str) -> str:
+```
+
+> The Prolog clauses a function name compiled to.
+
+### `AsyncMeTTa.declare_admits`
+
+```python
+async def declare_admits(self, name: str, type_name: str) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_annotations`
+
+```python
+async def declare_annotations(
+    self,
+    name: str,
+    semiring: Literal['bool', 'bag', 'set', 'ranked', 'prob', 'prov'],
+) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_capacity`
+
+```python
+async def declare_capacity(self, name: str, limit: int) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_context`
+
+```python
+async def declare_context(self, name: str, world: Literal['closed-world', 'open-world']) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_emits`
+
+```python
+async def declare_emits(self, name: str, policy: Literal['depth', 'fair', 'best-first']) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_handles`
+
+```python
+async def declare_handles(
+    self,
+    name: str,
+    pattern: str | Atom,
+    fidelity: Literal['Exact', 'Partial', 'Sound', 'Refuse'],
+    *,
+    det: str | None = None,
+) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_merge`
+
+```python
+async def declare_merge(
+    self,
+    pattern: str | Atom,
+    policy: Literal['depth', 'fair', 'best-first'],
+) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_on_error`
+
+```python
+async def declare_on_error(
+    self,
+    name: str,
+    pattern: str | Atom,
+    mode: Literal['keep', 'empty', 'abort'],
+) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_reaction`
+
+```python
+async def declare_reaction(self, name: str, pattern: str | Atom, operation: str | Atom) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_source`
+
+```python
+async def declare_source(self, name: str, kind: Literal['linear', 'repeated', 'peek']) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_writes`
+
+```python
+async def declare_writes(
+    self,
+    name: str,
+    atomicity: Literal['transactional', 'atomic-single', 'best-effort'],
+) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.register_op`
+
+```python
+async def register_op(
+    self,
+    fn: Callable,
+    /,
+    *,
+    name: str | None = None,
+    typed: bool = True,
+    raw: bool = False,
+    pass_atoms: bool = False,
+    arities: list[int] | None = None,
+    inverse: Callable | None = None,
+    pure: bool = False,
+) -> Callable:
+```
+
+> Register a Python callable as a MeTTa function. The engine
+> calls it synchronously on the worker thread, exactly as the
+> synchronous surface does; the decorator spelling stays with the
+> synchronous surface, since decoration cannot await.
+
+### `AsyncMeTTa.op`
+
+```python
+async def op(
+    self,
+    fn: Callable,
+    /,
+    *,
+    name: str | None = None,
+    typed: bool = True,
+    raw: bool = False,
+    pass_atoms: bool = False,
+    arities: list[int] | None = None,
+    inverse: Callable | None = None,
+    pure: bool = False,
+) -> Callable:
+```
+
+> register_op under its short name.
+
+### `AsyncMeTTa.define`
+
+```python
+async def define(
+    self,
+    fn: Callable | None = None,
+    /,
+    *,
+    prolog: str | os.PathLike[str] | None = None,
+) -> Any:
+```
+
+> Compile a Python function into equations on the worker. The
+> returned handle's own calls are synchronous doors; evaluate
+> through fn(name) or run() from async code.
+
+### `AsyncMeTTa.type`
+
+```python
+async def type(
+    self,
+    cls: _builtins.type,
+    /,
+    *,
+    accessors: bool = True,
+    methods: bool = True,
+) -> _builtins.type:
+```
+
+> Declare a Python class into this space. A call, not a
+> decorator: decoration cannot await.
+
+### `AsyncMeTTa.register_prolog`
+
+```python
+async def register_prolog(
+    self,
+    source: str | None = None,
+    *,
+    path: str | os.PathLike[str] | None = None,
+    names: Sequence[str] | Mapping[str, str] = (),
+) -> tuple[str, ...]:
+```
+
+> Register Prolog predicates as MeTTa functions.
+
+### `AsyncMeTTa.register_space`
+
+```python
+async def register_space(self, provider: Any, name: str) -> Any:
+```
+
+> Register a Python-backed space. Its methods run on whichever
+> thread the engine is answering from, exactly as in sync use.
+
+### `AsyncMeTTa.register_foreign_library`
+
+```python
+async def register_foreign_library(
+    self,
+    path: str | os.PathLike[str],
+    *,
+    entry: str | None = None,
+    names: Sequence[str] = (),
+) -> tuple[str, ...]:
+```
+
+> Load a foreign library of Prolog predicates.
+
+### `AsyncMeTTa.register_library_path`
+
+```python
+async def register_library_path(self, directory: Any, name: str) -> None:
+```
+
+> Register a directory for (library ...) imports.
+
+### `AsyncMeTTa.unregister_prolog`
+
+```python
+async def unregister_prolog(self, extension: str) -> tuple[str, ...]:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.unregister_space`
+
+```python
+async def unregister_space(self, name: str) -> None:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.transaction`
+
+```python
+async def transaction(self, fn: Callable[[MeTTa], Any], /) -> Any:
+```
+
+> Run fn inside one engine transaction on the worker thread,
+> answering its return value. fn receives the worker's own
+> synchronous MeTTa, because a transaction body is a closed
+> synchronous goal (SWI's transaction/1 takes one), which is also
+> why there is no async body and no transactional decorator here.
+> A raise rolls every engine write back and re-raises as itself.
+>
+>     await am.transaction(lambda m: m.add(S.fact(1)))
+
+### `AsyncMeTTa.runtime`
+
+```python
+def runtime(self) -> Runtime:
+```
+
+> The engine bridge itself, for callers going under the surface.
+> Every call on it blocks the calling thread; from async code, wrap
+> such work in call().
+
+### `AsyncMeTTa.stats`
+
+```python
+def stats(self) -> _AsyncStats:
+```
+
+> The engine's counters over an async with-block, as deltas.
+>
+> async with am.stats() as s:
+>     await am.query(...)
+> s.inferences
+
+### `AsyncMeTTa.assuming`
+
+```python
+def assuming(self, *facts: Any) -> _AsyncAssuming:
+```
+
+> Facts held only inside an async with-block: added on entry,
+> removed on exit, exceptions included.
+
+### `AsyncMeTTa.prepare`
+
+```python
+async def prepare(self, *patterns: Any, where: Any | None = None) -> _AsyncPrepared:
+```
+
+> A prepared query whose solve() is awaitable; the shape builds
+> once on the worker, columns readable without a round trip.
+
+### `AsyncMeTTa.stream`
+
+```python
+def stream(
+    self,
+    *patterns: Any,
+    where: Any | None = None,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> _AsyncCursor:
+```
+
+> query(), pulled asynchronously: one row per worker round trip.
+>
+>     async with am.stream(S.edge(V.a, V.b)) as rows:
+>         async for row in rows:
+>             ...
+>
+> Iterating without the async-with also works; aclose() is then the
+> caller's duty, the finalization reading the data model gives
+> asynchronous iterators.
+
+### `AsyncMeTTa.subscribe`
+
+```python
+def subscribe(self, pattern: Any, *, on: str = 'add') -> _AsyncSubscription:
+```
+
+> A standing query as an async event stream: every matching
+> write becomes an Event on an asyncio queue, consumed with
+> async-for. The synchronous surface's callback form stays there;
+> here the stream IS the delivery.
+>
+>     async with am.subscribe(S.order(V.id), on="add") as events:
+>         async for event in events:
+>             ...
+
+### `AsyncMeTTa.fn`
+
+```python
+def fn(self, name: str) -> _AsyncEngineFunction:
+```
+
+> An engine function as an async callable: await f(3), with
+> .one, .first and .all carrying the same cardinality triple.
+
 ### `AsyncMeTTa.aclose`
 
 ```python
