@@ -1395,21 +1395,28 @@ def declare_context(self, name: str, world: Literal['closed-world', 'open-world'
 > an undeclared one refuses under negation loudly. Native spaces
 > are the engine's own database and closed by construction.
 
-### `MeTTa.declare_bridge`
+### `MeTTa.declare_reaction`
 
 ```python
-def declare_bridge(self, name: str, pattern: str | Atom, operation: str | Atom) -> Atom:
+def declare_reaction(self, name: str, pattern: str | Atom, operation: str | Atom) -> Atom:
 ```
 
-> Declare a bridge: when an atom matching PATTERN lands in the
-> space, OPERATION runs under the match's bindings.
+> Declare a reaction, stored as an (on ...) atom: when an atom
+> matching PATTERN lands in the space, OPERATION runs under the
+> match's bindings.
 >
 > The managed heads are (insert &lt;ctx> &lt;atom>), (retract &lt;ctx>
-> &lt;atom>) and (revise &lt;ctx> &lt;old> &lt;new>), MCS bridge rules routed
-> through the same write paths as direct writes; the subscribe
-> callback is the special case this generalises. Declaring installs
-> the engine's write hook, which is why bridges go through here or
-> petta_install_bridges rather than a bare add-atom.
+> &lt;atom>) and (revise &lt;ctx> &lt;old> &lt;new>), engine-routed rules
+> going through the same write paths as direct writes. Declaring
+> installs the engine's write hook, which is why reactions go
+> through here or petta_install_bridges rather than a bare
+> add-atom.
+>
+> petta.bridge() is the NEIGHBOUR, not a special case of this: a
+> reaction's operation runs engine-side, so it reaches registered
+> spaces, while a bridge rule delivers Python-side to anything
+> with add and remove, an unregistered or remote target included.
+> Same multi-context-systems idea, two delivery tiers.
 
 ### `MeTTa.declare_admits`
 

@@ -1941,7 +1941,7 @@ both and the query they disagree on.
 | `(annotations <ctx> bool\|bag\|set\|ranked\|prob\|prov)` | the semiring answer annotations live in; `ranked` is what `(top k ...)` consumes, `prov` carries source terms readable via `(annotation)` | `declare_annotations` |
 | `(emits <ctx> depth\|fair\|best-first)` | the context's own emission order; best-first lets `top` push its bound | `declare_emits` |
 | `(merge <pattern> depth\|fair\|best-first)` | how the engine merges one shape's answers ACROSS contexts | `declare_merge` |
-| `(on <ctx> <pattern> <op>)` | a bridge: when a matching atom lands, run `(insert ...)`, `(retract ...)` or `(revise ...)` under the match's bindings | `declare_bridge` |
+| `(on <ctx> <pattern> <op>)` | a bridge: when a matching atom lands, run `(insert ...)`, `(retract ...)` or `(revise ...)` under the match's bindings | `declare_reaction` |
 | `(admits <pool> <Type>)`, `(capacity <pool> <n>)` | a typed, bounded pool; a space of spaces is the thread-pool reading | `declare_admits`, `declare_capacity` |
 
 Ask the seam itself what it will do: `!(explain (match &s <pattern> $x))`
