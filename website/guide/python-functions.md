@@ -18,6 +18,17 @@ A dataclass, enum, or plain class in a signature becomes a declared type. Its fi
 
 Defaults register every accepted positional arity. A Python `None` produces no answer unless the integration wrapper uses the engine's effect convention. `m.unregister_op(name)` removes every arity registered under that name.
 
+An operation that wants to query the knowledge base does not have to close over `m`. Annotate a parameter as `petta.MeTTa` and the engine fills it, FastAPI's `Depends` read with the house convention that the annotation is the request:
+
+```python
+@m.register_op
+def related(term, engine: petta.MeTTa):
+    for row in engine.query(expr(S.link, term, V.x)):
+        yield row[0]                 # !(related a) never passes the engine
+```
+
+The injected engine is bound to the calling context's space, so an operation invoked from a program running in another space queries that space, which is the `&self` reading and what lets one operation compose across spaces without a space argument. The slot never counts toward MeTTa arities or the declared arrow, and only operations that ask pay for the weaving.
+
 See [`petta.ops`](../reference/petta-ops) for annotation mapping and registration, and [`petta.convert`](../reference/petta-convert) for object projection and rebuilding.
 
 ## Declaring a data class without a function

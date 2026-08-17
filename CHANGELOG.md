@@ -8,6 +8,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added engine injection into registered operations: a parameter
+  annotated `petta.MeTTa` is the framework's to fill, FastAPI's Depends
+  read with the house convention that the annotation is the request. The
+  engine injects itself bound to the calling context's space, so an
+  operation invoked from a program running in &kb queries &kb; the slot
+  never counts toward MeTTa arities or the declared arrow, and only
+  operations that ask pay the weaving.
 - Added `.explain()` on prepared queries and cursors, and on their async
   twins: the query's plan reflected rather than run, polars'
   `LazyFrame.explain` and SQL's `EXPLAIN` pointed at the space seam.
