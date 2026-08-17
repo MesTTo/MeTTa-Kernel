@@ -111,6 +111,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and documented as the watcher recipe: equations are atoms, so
   `subscribe("(= (f $x) $body)", callback, on="both")` fires on every
   equation added or removed, bindings included.
+- Added `m.transaction(callable)` and the `m.transactional` decorator:
+  the Python door of the MeTTa `(transaction ...)` form, riding the
+  same `petta_transaction/1`, so foreign-space enlistment and nesting
+  behave identically in both languages. The callable runs now and its
+  return value comes back identity-preserved; a raise is the one
+  rollback trigger, re-raised as itself with the boundary in its chain,
+  stored atoms and compiled equations rolled back together; an inner
+  commit stays relative to its outer transaction. There is deliberately
+  no `with` form, because SWI's transaction/1 takes a closed goal and
+  an open begin/commit would lie about the isolation provided.
 
 - Added the stdlib `unify` special form: `(unify a b then else)` runs the
   then branch once per binding set under which the operands match and the

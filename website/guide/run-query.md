@@ -373,6 +373,17 @@ The engine has transactions, and a program can already use the inline `(transact
 
 Both cover engine state. A Python operation's side effects, and subscription callbacks that already fired, stay where they happened; that is what rolling back a database can honestly mean.
 
+For your OWN logic rather than a source string, `m.transaction(callable)` runs a zero-argument callable inside one engine transaction now and answers its return value, the same `petta_transaction/1` the MeTTa form compiles to, so foreign-space enlistment and nesting behave identically in both languages. A raise is the one rollback trigger, and it re-raises as itself: your `ValueError` arrives as `ValueError`, the engine boundary in its chain, with every stored atom and compiled equation rolled back. Transactions nest, an inner commit staying relative to its outer transaction. `m.transactional` is the decorator twin, one transaction per call:
+
+```python
+@m.transactional
+def migrate():
+    m.add(S.schema(2))
+    m.remove(S.schema(1))
+```
+
+There is deliberately no `with m.transaction():` form: SWI's `transaction/1` takes a closed goal, there is no open begin/commit to hold across a block, and pretending otherwise would lie about the isolation actually provided.
+
 ## Profile a run
 
 `m.profile(source)` runs source under the engine's statistical profiler and answers the groups beside a profile: sample counters, and one row per predicate with its calls, redos, and ticks, self-ticks first.

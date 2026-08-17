@@ -551,6 +551,59 @@ def assuming(self, *facts: Any) -> _Assuming:
 >     with m.assuming(S.closed(S.bridge)):
 >         detour = m.query(S.route(V.r), where=...)
 
+### `MeTTa.transaction`
+
+```python
+def transaction(self, callable_: Callable[[], _R], /) -> _R:
+```
+
+> Run a zero-argument callable inside one engine transaction,
+> now, answering its return value: the Python door of the MeTTa
+> (transaction ...) form, riding the same petta_transaction/1, so
+> foreign-space enlistment and nesting behave identically in both
+> languages.
+>
+>     m.transaction(lambda: migrate(m))
+>
+> Every engine write the callable makes, stored atoms, equations
+> and their compiled clauses included, commits or rolls back
+> together. An exception is the one rollback trigger, because a
+> Python callable cannot fail the Prolog way, and it re-raises AS
+> ITSELF: your ValueError arrives as ValueError with the engine
+> boundary in its chain. Only the engine's dynamic state rolls
+> back; what the callable did on the Python side (a list appended,
+> a file written) is yours to undo, SWI transactions being
+> database-scoped.
+>
+> Transactions nest, SWI's own semantics: an inner commit is
+> relative to its outer transaction, so an outer rollback discards
+> inner work too.
+>
+> There is deliberately no `with m.transaction():` form. SWI's
+> transaction/1 takes a closed goal; there is no open begin/commit
+> to hold across a block, and pretending otherwise would lie about
+> the isolation actually provided. transactional() is the
+> decorator twin.
+
+### `MeTTa.transactional`
+
+```python
+def transactional(self, fn: Callable[_P, _R], /) -> Callable[_P, _R]:
+```
+
+> transaction()'s decorator twin, the atomic shape Django made
+> familiar: each CALL of the wrapped function runs inside its own
+> engine transaction. Decorating runs nothing, exactly as a
+> decorator should not; reach for transaction() to run one
+> callable now.
+>
+>     @m.transactional
+>     def migrate():
+>         m.add(...)
+>         m.remove(...)
+>
+>     migrate()     # one transaction; a raise rolls it all back
+
 ### `MeTTa.prepare`
 
 ```python
