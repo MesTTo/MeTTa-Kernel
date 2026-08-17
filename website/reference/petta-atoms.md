@@ -140,6 +140,17 @@ def alpha_eq(a: Atom, b: Atom) -> bool:
 > A named function rather than ==, because two atoms must not compare
 > differently depending on which variable names they happen to carry.
 
+## `substitute`
+
+```python
+def substitute(atom: Any, bindings: Mapping[str, Atom]) -> Atom:
+```
+
+> The atom with every bound variable replaced, unify's companion:
+> substitute(pattern, unify(pattern, atom)) is the matched instance.
+> An unbound variable stays itself, so a partial substitution is a
+> narrower pattern rather than an error.
+
 ## `unify`
 
 ```python

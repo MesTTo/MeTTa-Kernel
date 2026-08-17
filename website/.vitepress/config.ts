@@ -139,6 +139,7 @@ export default defineConfig({
             collapsed: true,
             items: [
               { text: "petta.remote", link: "/reference/petta-remote" },
+              { text: "petta.spaces", link: "/reference/petta-spaces" },
               { text: "petta.das", link: "/reference/petta-das" },
               { text: "petta.aio", link: "/reference/petta-aio" },
               { text: "petta.subscribe", link: "/reference/petta-subscribe" },

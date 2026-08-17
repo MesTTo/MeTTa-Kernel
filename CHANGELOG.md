@@ -111,6 +111,22 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and documented as the watcher recipe: equations are atoms, so
   `subscribe("(= (f $x) $body)", callback, on="both")` fires on every
   equation added or removed, bindings included.
+- Added `petta.spaces`, combinators composing existing spaces into new
+  ones with zero engine changes, each an ordinary provider on the public
+  seam: `union(*spaces)` reads every member as one space and refuses
+  writes by capability (rdflib's aggregate reading; a union of multisets
+  answers duplicates twice); `readonly(inner)` strips every write;
+  `mapped(inner, declaration)` derives a shape view from one
+  `(bridge <outer> <inner>)` pair, the tables bridge with unification
+  where tables emits WHERE, both directions from the shared variables;
+  `overlay(front, back)` reads both layers and writes, removes, and
+  clears the front only, ChainMap's rule stated loudly. Combinators
+  take combinators, and overlay and mapped pass the conformance kit.
+- Added `petta.atoms.substitute(atom, bindings)`, unify's companion:
+  the atom with every bound variable replaced, so
+  `substitute(pattern, unify(pattern, atom))` is the matched instance.
+  The remote server's bounded match and the mapped combinator both
+  ride it.
 - AsyncMeTTa reaches full parity with the synchronous surface, and the
   parity is computed rather than curated: the suite asserts every public
   MeTTa method exists on AsyncMeTTa minus a three-entry ledger with

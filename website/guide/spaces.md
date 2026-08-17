@@ -42,6 +42,23 @@ The in-place operators split by what their operand means. `m += x` is `add(x)` e
 
 `m.space_names()` lists every space the engine registers, sorted: `&self` and `&petta` from boot, every native space that has been written to, and every foreign space currently bound. Naming a space never registers it; writing does.
 
+## Combinators: spaces composed from spaces
+
+`petta.spaces` composes existing spaces into new ones with zero engine changes, each combinator an ordinary provider you register under a name. `union(*spaces)` reads every member as one space, the way rdflib aggregates graphs: overlapping shapes answer as a nondeterministic union exactly as overlapping equations do, duplicates across members answer twice (a union of multisets), and no write operation exists, so `add-atom` on it meets the engine's capability refusal with `.capability` filled in. `readonly(inner)` is the one-line spelling for handing a space to code that must not mutate it.
+
+```python
+m.register_space(petta.spaces.union(kb, rules), "&all")
+m.run("!(match &all (edge $a $b) $b)")
+```
+
+`mapped(inner, declaration)` is a shape view over any space, the tables bridge with unification where tables emits WHERE: one `(bridge <outer> <inner>)` pair derives both directions, so renames, projections, and legacy-shape adapters stop being custom providers.
+
+```python
+view = petta.spaces.mapped(kb, "(bridge (edge $a $b) (triple $a linked-to $b))")
+```
+
+The view presents the inner space's `(triple ...)` atoms as `(edge ...)` atoms, adds map right-to-left, removal maps the pattern through, and atoms the declaration does not map are invisible here and untouched there. `overlay(front, back)` reads both layers and writes, removes, and clears the front only, `ChainMap`'s own rule, stated loudly because for multisets silent routing would invent placement decisions; `union` refuses writes precisely so nobody widens it into this. Combinators take combinators, `readonly(union(a, b))` included, because everything is the one seam, and `overlay` and `mapped` pass the same conformance kit any provider does.
+
 ## MORK at scale
 
 [MORK](https://github.com/trueagi-io/MORK) is a PathMap-backed store built for atom counts far past the predicate store's reach. The integration's own measurements set the honest expectations: below roughly ten million atoms the predicate store is faster, and from one hundred to four hundred million atoms MORK kept answering where the predicate store ran out of memory.
