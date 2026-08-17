@@ -114,6 +114,25 @@ def expressions(max_leaves: int = 8, *, ground: bool = False):
 
 > Non-empty expression-rooted atoms, the shape spaces store.
 
+## `ground_atoms`
+
+```python
+def ground_atoms(max_leaves: int = 8):
+```
+
+> Atoms carrying no variables: what a store holds after matching.
+> atoms(ground=True) under the name provider fuzzing reaches for.
+
+## `patterns`
+
+```python
+def patterns(max_leaves: int = 8):
+```
+
+> Expression-rooted atoms guaranteed to carry at least one variable:
+> the query side of match, built rather than filtered so hypothesis
+> never discards an example.
+
 ## `check_space_provider`
 
 ```python

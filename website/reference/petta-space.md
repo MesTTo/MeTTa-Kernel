@@ -392,7 +392,10 @@ def remove(self, atom: Any) -> bool:
 
 > Remove an atom, engine semantics: an equation removal reports
 > whether it existed; a plain atom removal removes every copy and
-> reports whether at least one copy existed.
+> reports whether at least one copy existed. A bare variable is
+> the remove-everything reading a multiset space gives it, each
+> atom leaving through its own proper path, equations and their
+> compiled clauses included.
 
 ### `MeTTa.atoms`
 
@@ -480,7 +483,8 @@ def query(
     limit: int | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
-) -> Rows:
+    into: _builtins.type | None = None,
+) -> Any:
 ```
 
 > Match patterns against this space as one conjunction.
@@ -505,6 +509,11 @@ def query(
 > for `stream(pat)[:3]`, which pulls three and stops. Reach for `limit`
 > when you want a bounded answer set, and for stream() when you want to
 > take rows until you have seen enough.
+>
+> `into=` shapes each row into a dataclass, NamedTuple, or
+> TypedDict matched by field name, sqlite3's row_factory reading:
+> `m.query(S.edge(V.a, V.b), into=Edge)` answers `list[Edge]`,
+> and Rows stays the default so nothing is lost.
 >
 >     m.query(S.Edge(V.x, V.y), S.Edge(V.y, V.z))
 
@@ -584,6 +593,48 @@ def transaction(self, callable_: Callable[[], _R], /) -> _R:
 > to hold across a block, and pretending otherwise would lie about
 > the isolation actually provided. transactional() is the
 > decorator twin.
+
+### `MeTTa.limits`
+
+```python
+def limits(self, *, timeout: float | None = None, inferences: int | None = None) -> ScopedLimits:
+```
+
+> Scoped default bounds for every call in the with-block:
+>
+>     with m.limits(inferences=1_000_000, timeout=2.0):
+>         m.query(...)      # bounded without saying so again
+>
+> decimal.localcontext's shape, contextvars underneath, so the
+> scope is async-correct and per-task. A per-call timeout= or
+> inferences= still overrides, which is the whole ladder: one
+> block replaces the parameter forest, and the forest remains
+> for whoever wants per-call control.
+
+### `MeTTa.batch`
+
+```python
+def batch(self) -> _Batch:
+```
+
+> Collect this space's add() calls and cross once at exit:
+>
+>     with m.batch():
+>         for edge in edges:
+>             m.add(edge)          # collected, no crossing yet
+>     # one add_many crossing happened here
+>
+> The write ladder reads: add one; add(*atoms) several; batch a
+> region; transaction all-or-nothing; a provider's own bulk door
+> underneath. A batch is a transport economy and must not invent
+> semantics, so the sharp edges are stated and enforced: reads
+> inside the block see the space WITHOUT the pending adds; a
+> remove() or clear() on this space inside the block refuses,
+> because it would otherwise silently order around writes the
+> program already made; and an exception discards the pending
+> batch rather than landing writes the code after the raise never
+> saw. Compose with transaction() for atomicity: batch for
+> economy, transaction for all-or-nothing, or both.
 
 ### `MeTTa.transactional`
 

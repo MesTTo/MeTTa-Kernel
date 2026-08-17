@@ -206,10 +206,12 @@ async def query(
     limit: int | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
-) -> Rows:
+    into: _builtins.type | None = None,
+) -> Any:
 ```
 
-> Query patterns with the synchronous surface's bounds and guard.
+> Query patterns with the synchronous surface's bounds, guard,
+> and into= row shaping.
 
 ### `AsyncMeTTa.eval`
 
@@ -731,6 +733,28 @@ async def unregister_space(self, name: str) -> None:
 ```
 
 No docstring is defined.
+
+### `AsyncMeTTa.limits`
+
+```python
+def limits(self, *, timeout: float | None = None, inferences: int | None = None):
+```
+
+> Scoped default bounds, the synchronous surface's own block:
+> enter and exit only touch a contextvar, so this is an ordinary
+> `with` inside async code, and every awaited call in the scope
+> carries it to the worker.
+
+### `AsyncMeTTa.batch`
+
+```python
+def batch(self) -> _AsyncBatch:
+```
+
+> Collect this space's add() calls and cross once at exit,
+> the synchronous batch's async twin: `async with am.batch():`.
+> The same stated edges apply: reads see the pre-batch space,
+> remove and clear refuse, an exception discards.
 
 ### `AsyncMeTTa.transaction`
 

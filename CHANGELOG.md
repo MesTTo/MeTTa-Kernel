@@ -122,6 +122,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `overlay(front, back)` reads both layers and writes, removes, and
   clears the front only, ChainMap's rule stated loudly. Combinators
   take combinators, and overlay and mapped pass the conformance kit.
+- Added the ladder's sugar tier, every rung documented as sugar for the
+  rung below and the long spelling never leaving. Module-level
+  `petta.run/query/add/remove/eval/fn/space` over one lazily created
+  default engine, `petta.default_engine()` the named escape hatch
+  (random's and logging's shape). `with m.limits(timeout=,
+  inferences=)` sets scoped default bounds, contextvars underneath so
+  the scope is async-correct, per-call kwargs still overriding.
+  `m.query(..., into=Edge)` shapes each row into a dataclass,
+  NamedTuple, or TypedDict matched by field name, sqlite3's row_factory
+  reading, with primitive annotations CHECKED at the door and typed
+  fields built through the two-way translator. `with m.batch():`
+  collects a region's adds and crosses once at exit, with the sharp
+  edges stated and enforced: reads inside see the pre-batch space,
+  remove and clear refuse inside their space's block, an exception
+  discards, and a batch inside transaction() composes economy with
+  atomicity. A shipped pytest plugin (pytest11 entry point) provides
+  `metta` and `scratch_space` fixtures a project's conftest can
+  override, and `petta.testing` exports `ground_atoms()` and
+  `patterns()` beside the existing strategies, so anyone can fuzz
+  their own provider the way the kit does.
 - Fixed a divergence the new ClosureView surfaced: the specializer
   cloned a TABLED function when a call's argument happened to name a
   defined function (a graph node called `d`, with `(= (d $x) ...)`

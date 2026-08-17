@@ -29,6 +29,9 @@ Homepage = "https://github.com/trueagi-io/PeTTa"
 Repository = "https://github.com/trueagi-io/PeTTa"
 Issues = "https://github.com/trueagi-io/PeTTa/issues"
 
+[project.entry-points.pytest11]
+petta = "petta.pytest_plugin"
+
 [project.scripts]
 petta = "petta.cli:main"
 
@@ -198,6 +201,10 @@ check_untyped_defs = true
 no_site_packages = true
 
 [[tool.mypy.overrides]]
+module = ["pytest"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = [
     "array_api_compat", "faiss", "hypothesis", "numpy", "pandas",
     "polars", "websocket",
@@ -270,6 +277,9 @@ optional_dependencies_dev_groups = ["test", "checks"]
 # ImportError when an extra is absent. Declaring them is correct and deptry
 # cannot see the use.
 [tool.deptry.per_rule_ignores]
+# pytest is imported only by the pytest11 plugin module, which pytest
+# itself loads; it is not a runtime dependency of the library.
+DEP004 = ["pytest"]
 DEP002 = [
     "janus-swi",
     "array-api-compat",

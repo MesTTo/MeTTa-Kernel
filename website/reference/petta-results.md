@@ -219,3 +219,16 @@ def to_pl(self):
 ```
 
 > The rows as a polars DataFrame; the polars twin of to_df().
+
+## `rows_into`
+
+```python
+def rows_into(rows: Rows, cls: type) -> list:
+```
+
+> Each row as one cls instance, matched by field name: sqlite3's
+> row_factory reading, over the existing conversion machinery. A field
+> annotated with a registered class builds through the two-way
+> translator; a primitive annotation decodes and is CHECKED, so a
+> symbol landing in an int field is an error at the door rather than
+> a surprise downstream; an unannotated field decodes plainly.
