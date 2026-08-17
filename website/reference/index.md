@@ -58,6 +58,10 @@ These modules connect spaces, processes, event loops, subscriptions, and externa
 | [`petta.foreign`](./petta-foreign) | Python-backed spaces |
 | [`petta.integrate`](./petta-integrate) | library integration tools |
 
+## The MeTTa libraries
+
+[`metta-libraries`](./metta-libraries) reproduces each `lib_*.metta` library's own `(@doc ...)` atoms through `python/tools/libdoc.py`, one pipeline with the Python reference above, with a coverage table as the burn-down surface.
+
 ## Sibling repositories
 
 Three packages live in their own repositories beside this one, docs and

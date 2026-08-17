@@ -8,6 +8,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added the MeTTa half of the documentation pipeline:
+  `python/tools/libdoc.py` generates
+  `website/reference/metta-libraries.md` from each `lib_*.metta`
+  library's own `(@doc ...)` atoms, read through the engine's reader and
+  never run, so a library whose backend is absent still documents. The
+  page's coverage table is the burn-down surface, interrogate's role for
+  the MeTTa side, and the gate holds the page current the way the
+  Python reference gate does.
 - Added `python -m petta` subcommands on the library engine, the stdlib
   "Command-line usage" chapter for the installed wheel: `run` prints
   each `!` answer group, `repl` is an interactive loop that reads

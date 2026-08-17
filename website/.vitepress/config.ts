@@ -152,6 +152,13 @@ export default defineConfig({
               { text: "petta.manifest", link: "/reference/petta-manifest" },
             ],
           },
+          {
+            text: "MeTTa libraries",
+            collapsed: true,
+            items: [
+              { text: "The library reference", link: "/reference/metta-libraries" },
+            ],
+          },
         ],
       },
     ],

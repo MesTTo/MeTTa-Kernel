@@ -255,6 +255,11 @@ run GATE evidence   "$PY" "$HERE/tests/check_evidence_tags.py"
 # and this asks only whether what is checked in is what the source says.
 run GATE reference  "$PY" "$HERE/python/tools/reference.py"
 
+# The MeTTa half of the same promise: metta-libraries.md reproduces each
+# library's own (@doc ...) atoms, and its coverage table is the burn-down
+# surface interrogate provides for the Python side.
+run GATE libdoc     "$PY" "$HERE/python/tools/libdoc.py"
+
 # Structural checks with a clean baseline today, so a regression is a failure.
 run GATE slotscheck in_py "$PY" -m slotscheck -m petta
 run GATE vulture    in_py "$PY" -m vulture
