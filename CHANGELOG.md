@@ -8,6 +8,27 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added in-language resource control and layout, from the MeTTaLog
+  comparison: `(inferences $n $expr)` is `timeout`'s deterministic twin,
+  the same bound `run(inferences=)` applies one tier up, so a program
+  can bound its own subexpression at a step count that is identical on
+  every machine; `(with-pragma! (($key $value) ...) $expr)` scopes
+  interpreter settings to one expression, restoring the previous values
+  in reverse on every exit path; and `(pretty-atom $x)`, with
+  `petta.atoms.pretty(atom, width=78)` as its Python twin, lays a deep
+  term out over lines instead of one 135-character line, the two
+  differentially pinned against each other. Bound expiry now throws the
+  reserved limit envelopes, so a pragma bound classifies as
+  `TimeLimitError`/`InferenceLimitError` exactly as a per-call kwarg
+  does, and is a control signal no `catch` can eat.
+- Added backward integer arithmetic: `+`, `-`, `*` and `/` solve for one
+  unbound argument among integers, so `(let 4 (- $x 1) $x)` answers 5
+  and `(let 6 (* $x 2) $x)` answers 3, MeTTaLog's relational compilation
+  taken at the predicate so every call site inherits it. Exactness is
+  honest, `(let 7 (* $x 2) $x)` answers nothing rather than rounding;
+  ground and float paths are untouched, and two unbound arguments stay
+  an instantiation error, because bounded solving is arithmetic's job
+  and constraint propagation is `lib_constraints`'.
 - Added source positions without touching the engine's hot path:
   between top-level forms the grammar allows only whitespace and
   comments, and the reader's form texts are verbatim slices, so a
@@ -521,6 +542,25 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   self-contained and one whose atoms live in a MeTTaScript space
   (`python/examples/integration/typescript_space/`, with the protocol
   itself documented in the website's live section).
+
+### Fixed
+
+- Six special forms were unusable in every named space: `timeout`,
+  `elapsed`, `take`, `top`, `transaction` and the new bound forms hand
+  their goal to a helper predicate, and the goal lost its module on the
+  way in, so a space's own functions answered "Unknown procedure" for a
+  definition plainly present. The helpers are `meta_predicate` now, the
+  manual's own remedy, which costs +2 inferences per evaluation on the
+  one benchmark lane that runs a wrapper form in a named space.
+- A planning space provider could silently LOSE answers. The Python
+  seam decoded the provider's claimed patterns into fresh copies, which
+  split every join variable, and their identity was restored only as a
+  side effect of the partition check's `msort` unification pairing the
+  two lists in the same order. That coincidence held while plain
+  variable addresses sorted alike on both sides and broke as soon as
+  they did not, pairing the lists crosswise and over-constraining the
+  claim. Claims resolve back to the caller's own terms by wire identity
+  now, and the partition check is a check rather than a mechanism.
 
 ### Changed
 

@@ -298,10 +298,11 @@ test(reduce_of_arity_two_keeps_its_exact_behaviour) :-
 expected_special_heads([
     'add-atom', 'add-atoms', 'add-reduct', 'add-reducts', annotation,
     'and-then', 'catch', 'filter-atom', 'foldall',
+    'with-pragma!',
     'foldl-atom', 'forall', 'get-metatype', 'let*', 'map-atom', 'not-provable',
     'or-else', 'remove-atom', 'test-no-answer', '|->', call, case, chain,
     collapse, cut, elapsed, eval, evalc, explain, hyperpose, if, let, match,
-    noeval,
+    inferences, noeval,
     once, prog1, progn, quote, reduce, sealed, superpose, take, test, timeout,
     top, transaction, translatePredicate, unify, with_mutex
 ]).

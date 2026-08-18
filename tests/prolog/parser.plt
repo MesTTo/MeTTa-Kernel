@@ -308,3 +308,41 @@ test(a_value_with_no_provider_still_prints) :-
     assertion(Text == "\"a string\"").
 
 :- end_tests(parser_writes_what_is_not_metta).
+
+:- begin_tests(parser_pretty_printing).
+
+% A width-aware layout for deep terms, MeTTaLog's metta_printer answer at
+% the scale this engine needs: one line while a term fits, and a break
+% after the head with two-space children when it does not.
+
+test(a_fitting_term_stays_on_one_line) :-
+    sread("(f 1 2)", T),
+    swrite_pretty(T, S),
+    S == "(f 1 2)".
+
+test(a_deep_term_breaks_after_its_head) :-
+    sread("(alpha (beta (gamma delta epsilon) (zeta eta theta)) \c
+          (iota (kappa lambda mu) (nu xi omicron)) \c
+          (pi (rho sigma tau) (upsilon phi chi)))", T),
+    swrite_pretty(T, S),
+    split_string(S, "\n", "", Lines),
+    length(Lines, 4),
+    Lines = [First|Rest],
+    First == "(alpha",
+    forall(member(L, Rest), sub_string(L, 0, 2, _, "  ")).
+
+test(the_width_is_the_caller_s) :-
+    sread("(f (g 1) (h 2))", T),
+    swrite_pretty(T, 78, Wide),
+    swrite_pretty(T, 8, Narrow),
+    Wide == "(f (g 1) (h 2))",
+    split_string(Narrow, "\n", "", NarrowLines),
+    length(NarrowLines, 3).
+
+test(a_pretty_atom_is_the_same_layout_from_metta) :-
+    sread("(f (g 1) (h 2))", T),
+    swrite_pretty(T, Direct),
+    'pretty-atom'(T, ViaBuiltin),
+    Direct == ViaBuiltin.
+
+:- end_tests(parser_pretty_printing).

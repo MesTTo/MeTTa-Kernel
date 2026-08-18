@@ -57,6 +57,18 @@ def expr(*children: Any) -> Expr:
 
 > An expression from parts, each encoded.
 
+## `pretty`
+
+```python
+def pretty(atom: Any, width: int = 78) -> str:
+```
+
+> The atom laid out for reading: a subterm prints inline when it fits
+> the remaining width, and otherwise breaks after its head with each
+> child on its own line two deeper, the classic s-expression
+> convention. The engine's (pretty-atom $x) is the same layout on the
+> MeTTa side, so a dump reads identically from either tier.
+
 ## `parse`
 
 ```python

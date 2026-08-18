@@ -1208,3 +1208,104 @@ test(the_refusal_error_names_the_space_and_shape) :-
     \+ sub_string(Message, _, _, _, "Unknown error term").
 
 :- end_tests(metta_handles_route).
+
+:- begin_tests(relational_arithmetic).
+
+% The four operators run BACKWARDS over integers: one unbound argument
+% among integers solves for it, MeTTaLog's plus/3 compilation adopted at
+% the predicate rather than the compiler, so every call site inherits it.
+
+test(subtraction_solves_for_its_first_argument) :-
+    '-'(X, 1, 4),
+    X == 5.
+
+test(addition_solves_either_slot) :-
+    '+'(A, 3, 10), A == 7,
+    '+'(2, B, 9),  B == 7.
+
+test(multiplication_solves_exact_division) :-
+    '*'(X, 2, 6),
+    X == 3.
+
+test(multiplication_fails_on_inexact_division, [fail]) :-
+    '*'(_, 2, 7).
+
+test(division_solves_both_directions) :-
+    '/'(X, 2, 3), X == 6,
+    '/'(6, B, 2), B == 3.
+
+test(division_fails_on_inexact_backward, [fail]) :-
+    '/'(7, _, 2).
+
+test(ground_and_float_paths_are_unchanged) :-
+    '+'(2, 3, R1), R1 == 5,
+    '/'(7, 2.0, R2), R2 == 3.5.
+
+test(two_unbound_arguments_still_refuse,
+     [throws(error(_, _))]) :-
+    '+'(_, _, _).
+
+test(a_float_beside_a_variable_still_refuses,
+     [throws(error(_, _))]) :-
+    '+'(_, 1.5, _).
+
+:- end_tests(relational_arithmetic).
+
+:- begin_tests(inference_bound_form).
+
+%[nondet] by design: the form answers each value of the bounded goal, so
+%a choicepoint after the first is the multiplicity, not untidiness.
+test(inferences_bounds_and_answers, [nondet]) :-
+    metta_inferences(100000, member(X, [1, 2]), X),
+    X == 1.
+
+test(inferences_keeps_every_answer) :-
+    findall(V, metta_inferences(100000, member(V, [1, 2, 3]), V), Vs),
+    Vs == [1, 2, 3].
+
+test(inferences_expiry_throws_the_reserved_envelope,
+     [throws(error(petta_py_exception(inference_limit, 50), _))]) :-
+    metta_inferences(50, (between(1, 100000, N), N > 99999), N).
+
+test(inferences_refuses_a_non_positive_bound,
+     [throws(error(type_error(_, _), _))]) :-
+    metta_inferences(0, true, _).
+
+:- end_tests(inference_bound_form).
+
+:- begin_tests(scoped_pragmas).
+
+test(with_pragma_scopes_and_restores) :-
+    \+ metta_pragma('max-inferences', _),
+    metta_with_pragmas([['max-inferences', 100000]], member(X, [7]), X),
+    X == 7,
+    \+ metta_pragma('max-inferences', _).
+
+test(with_pragma_expiry_throws_the_reserved_envelope,
+     [throws(error(petta_py_exception(inference_limit, 200), _))]) :-
+    metta_with_pragmas([['max-inferences', 200]],
+                       (between(1, 100000, N), N > 99999), N).
+
+test(with_pragma_restores_after_expiry) :-
+    catch(metta_with_pragmas([['max-inferences', 200]],
+                             (between(1, 100000, N), N > 99999), N),
+          error(petta_py_exception(inference_limit, _), _),
+          true),
+    \+ metta_pragma('max-inferences', _).
+
+test(with_pragma_restores_a_previous_value) :-
+    'pragma!'('max-time', 30, _),
+    metta_with_pragmas([['max-time', 5]], member(X, [1]), X),
+    metta_pragma('max-time', Restored),
+    Restored == 30,
+    'pragma!'('max-time', none, _).
+
+test(limit_expiry_is_a_control_signal_no_recovery_catch_eats) :-
+    control_exception(error(petta_py_exception(inference_limit, 200), c)),
+    control_exception(error(petta_py_exception(time_limit, 1.0), c)).
+
+test(with_pragma_refuses_a_malformed_setting,
+     [throws(error(domain_error(metta_pragma_setting, _), _))]) :-
+    metta_with_pragmas([broken], true, _).
+
+:- end_tests(scoped_pragmas).

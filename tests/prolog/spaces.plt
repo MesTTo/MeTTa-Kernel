@@ -1166,3 +1166,32 @@ test(an_unregistered_name_is_a_plain_symbol, [fail]) :-
     petta_match_atoms('&plunit_never_registered', [edge, a, b]).
 
 :- end_tests(spaces_custom_match).
+
+:- begin_tests(named_space_wrappers).
+
+% Every special form that hands its goal to a HELPER predicate used to
+% lose the module on the way in: the helper's findall called the goal
+% back in user, so timeout, elapsed, take, top, transaction and the
+% bound forms were silently unusable in ANY named space ("Unknown
+% procedure" for a function the space plainly defines). The
+% meta_predicate block above metta_timeout/3 is the fix; this pins it
+% end to end through the loader's own named-space path.
+test(wrapper_forms_run_in_named_spaces,
+     [ setup(process_metta_string(
+                 "(= (plunit-nsw-f $n) (+ $n 1))", _, '&plunit_nsw')),
+       cleanup(( remove_sexp('&plunit_nsw', [=, ['plunit-nsw-f'|_], _]),
+                 retractall(fun('plunit-nsw-f')),
+                 retractall(arity('plunit-nsw-f', _)) )) ]) :-
+    process_metta_string("!(timeout 30 (plunit-nsw-f 1))", [R1], '&plunit_nsw'),
+    assertion(R1 == 2),
+    process_metta_string("!(take 1 (plunit-nsw-f 1))", [R2], '&plunit_nsw'),
+    assertion(R2 == 2),
+    process_metta_string("!(inferences 100000 (plunit-nsw-f 1))", [R3],
+                         '&plunit_nsw'),
+    assertion(R3 == 2),
+    process_metta_string(
+        "!(with-pragma! ((max-inferences 100000)) (plunit-nsw-f 1))",
+        [R4], '&plunit_nsw'),
+    assertion(R4 == 2).
+
+:- end_tests(named_space_wrappers).

@@ -42,3 +42,29 @@
 ;Passing none clears a bound again.
 !(test (pragma! max-time none) True)
 !(test (pragma! max-inferences none) True)
+
+;;; (inferences $n $expr) is timeout's deterministic twin, the same
+;;; kwarg vocabulary the Python tier's run(inferences=) speaks: the bound
+;;; stops at the same step on every machine. A bound not reached is
+;;; invisible, and the whole answer set computes under it.
+!(test (inferences 100000 (spin 100)) done)
+!(test (collapse (inferences 100000 (superpose (1 2 3)))) (1 2 3))
+
+;;; (with-pragma! $settings $expr) scopes settings to ONE expression:
+;;; the previous values come back on every exit path, and a bound that is
+;;; not reached is invisible. Expiry is a CONTROL signal, so no catch can
+;;; eat a budget, the same law the per-call kwargs follow; the expiring
+;;; case is pinned in tests/prolog/metta.plt where a throw is assertable.
+!(test (with-pragma! ((max-inferences 100000)) (+ 20 22)) 42)
+!(test (with-pragma! ((max-time 30) (max-inferences 100000)) (spin 100)) done)
+!(test (spin 2000) done)
+
+;;; Relational integer arithmetic: one unbound argument among integers
+;;; solves for it, so arithmetic runs BACKWARDS through let and unify.
+;;; Exactness is honest: no integer doubles to 7, so that branch answers
+;;; nothing rather than something approximate.
+!(test (let 4 (- $x 1) $x) 5)
+!(test (let 10 (+ $x 3) $x) 7)
+!(test (let 6 (* $x 2) $x) 3)
+!(test (let 3 (/ $x 2) $x) 6)
+!(test (collapse (let 7 (* $x 2) $x)) ())
