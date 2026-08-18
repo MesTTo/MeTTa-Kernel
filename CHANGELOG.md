@@ -74,6 +74,25 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `RemoteSpace` no longer claims the `subscribe` capability. `SpaceProvider`
+  derives it from `add` plus `remove`, which is exact for a space whose every
+  change goes through this process, because the engine's own write hooks are
+  then the event source. A remote space is the one shape where that inference
+  fails: its contents change on the server, which is the whole reason it is
+  remote, and the wire has four operations, `match`, `enumerate`, `add` and
+  `remove`, none of which carries an event.
+
+  Measured 2026-08-19 against an attached space: a subscription was accepted,
+  delivered the one atom this process wrote, and delivered nothing at all for
+  the atom the server added. So a watcher heard only the changes it had
+  already made itself, which is the one set it did not need to be told about.
+
+  The capability is now refused with a sentence naming what is missing and
+  the two routes that do work: poll `match()`, or run the subscription on the
+  engine that owns the space and `bridge()` the changes across, which needs
+  only `add` and `remove` on this side. Everything the wire does carry is
+  unaffected.
+
 - A persistent journal torn mid-record now recovers from every point it can
   be torn at, rather than from most of them. `library(persistency)` writes
   one action and its newline in a single call, so a file ending without that
