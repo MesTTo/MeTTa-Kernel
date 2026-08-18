@@ -99,6 +99,16 @@ run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:bench
 run GATE benchmarks   in_py "$PY" bench.py --counter-only --keep-going
 run GATE instructions in_py "$PY" -m benchmarks.check_instructions
 run GATE shell        sh -c "cd '$HERE' && sh test.sh"
+
+# test.sh's own "FAILURE in $f:" block used to come from
+# `grep "is " | grep " should "` over stdout alone, is/should being the one
+# line a !(test A B) mismatch prints. Every other failure shape, an
+# assertEqual mismatch, a syntax error, an undefined predicate, throws an
+# uncaught exception the engine reports to STDERR, which test.sh never
+# captured, so the block printed empty: the exit code still went nonzero and
+# the shell lane above still caught it, but a human reading a red run saw
+# the file name and nothing about why.
+run GATE shell-failure sh -c "cd '$HERE' && sh tests/test_example_runner_surfaces_failures.sh"
 run GATE examples sh -c "cd '$HERE' && sh tests/regression/test_specializer_regressions.sh"
 
 # The specializer's whole claim, asserted over the whole corpus rather than
