@@ -74,6 +74,30 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A watcher that raises now reaches the writer as `SubscriberError`, which a
+  refused write never is. A subscription callback runs inside the write that
+  triggered it, so its exception comes back out through the writer, and
+  measured 2026-08-19 both of these arrived as `EngineError: Python
+  '<Type>': <text>`, the same class and the same message template: a
+  provider refusing the write, with nothing stored, and a watcher failing
+  after the write landed, with the atom stored. The two call for opposite
+  responses. Retrying a refused write is right; retrying an applied one took
+  the count from 1 to 2 and left it there, because a space is a multiset and
+  no later write undoes the copy.
+
+  `SubscriberError` carries `subscription`, the standing query whose
+  callback raised, `atom` and `space`, `action` as `"add"` or `"remove"`,
+  and `__cause__`, which is what the callback actually raised. Its message
+  says the write was applied and names the one thing that undoes it, an
+  enclosing atomic run or `(transaction ...)` scope, which rolls it back as
+  the error leaves the scope. It is a `PettaError`, so nothing that caught
+  these before stops doing so.
+
+  A rehydrated `PettaError` now keeps the `__cause__` it was raised with
+  instead of having it replaced by the Prolog term it crossed. The boundary
+  is still reachable as `__context__`; what changed is that the diagnosis is
+  no longer displaced by the plumbing.
+
 - `RemoteSpace` no longer claims the `subscribe` capability. `SpaceProvider`
   derives it from `add` plus `remove`, which is exact for a space whose every
   change goes through this process, because the engine's own write hooks are

@@ -22,6 +22,12 @@ Source: `python/petta/subscribe.py`.
 >   - identical subscriptions share one reflection descriptor until the last
 >     subscription cancels [tested
 >     test_identical_subscriptions_share_one_reflection_fact]
+>   - a watcher that raises reaches the writer as SubscriberError, naming the
+>     subscription and saying the write stands, where a refused write does
+>     not [measured 2026-08-19: both arrived as EngineError with the same
+>     "Python '<Type>': <text>" message template, so a caller could only tell
+>     them apart by reading the sentence] [tested
+>     test_a_watcher_failure_is_distinguishable_from_a_failed_write]
 > Guarded by:
 >   - _SubscriptionRegistry._lock protects subscription state, the active
 >     runtime, delivery counts, and engine subscription snapshots [tested
