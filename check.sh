@@ -258,6 +258,19 @@ run REPORT spec-status          "$PY" "$HERE/tests/check_spec_status.py"
 # file is deleted, confirmed OPEN, restored and confirmed FIXED again.
 run GATE   spec-status-selftest "$PY" "$HERE/tests/check_spec_status_selftest.py"
 
+# Phase 11 moves &self's execution out of Prolog's `user` module. SWI's
+# autoloader resolves a missing import ANYWAY, so a module boundary can be
+# broken with every lane still green. Running the corpus with autoload off is
+# how the real boundary stays visible, and it must be a LANE rather than a
+# one-off, because autoload silently repairs whatever regresses.
+#
+# The flag cannot be set with -g: measured that `swipl -g "set_prolog_flag(
+# autoload,false)" -s FILE.pl` and the reverse order both see autoload=true
+# inside FILE.pl's own load-time directives, because -g goals run only after
+# every -s/-l file has finished loading. Hence tests/no_autoload_boot.pl, which
+# run.sh boots through when NO_AUTOLOAD=1 [measured 2026-08-19: 200/200].
+run GATE   no-autoload  sh -c "cd '$HERE' && NO_AUTOLOAD=1 sh test.sh"
+
 # The same walk as the backend GATE above, over lib/ instead, and a REPORT
 # because the backend answer is settled and the library one is not. A backend
 # is third-party and arm's length by construction; a shipped library sits
