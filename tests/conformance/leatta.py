@@ -3,20 +3,44 @@
     mechanised interpreter printed, verbatim, with the pinned hyperon build it
     was checked against named beside them. Running our engine over the same file
     and diffing those lines turns "LeaTTa is the oracle" from a habit into a
-    check.
+    check. --gate-areas-file turns that into a PER-AREA promise: an area a gate
+    file names must have zero differing checkable files right now, and a later
+    regression there fails the run; an area it does not name still runs, still
+    prints its differences, and can never fail the run on its own.
 Assumes:
-  - LeaTTa is checked out; with it absent this reports that and exits 0, the
-    way an optional tool should, because it lives outside this repository.
+  - LeaTTa is checked out; with it absent this reports that and exits 0 in
+    EVERY mode, including a per-area run that names promoted areas, because it
+    lives outside this repository and the CI container that runs check.sh
+    never clones it [source: .github/workflows/checks.yml has no LeaTTa
+    checkout step]. A promoted area is therefore enforced only on a machine
+    that has LeaTTa checked out, never in this repository's CI.
   - tests/conformance/leatta_run.pl prints one answer GROUP per runnable form.
+  - a gate-areas file names only areas discover_areas finds under --corpus; an
+    unrecognised name is a configuration error, not a silent no-op, so it
+    raises rather than gating nothing.
 Guarantees:
   - only the bracketed lines of a MEASURED block are compared, and the count of
     lines skipped for being printed output rather than answers is reported, so
     a partial comparison never reads as a full one.
   - a file whose engine run raises or times out is reported as such rather than
     counted as agreeing.
+  - every area prints its own block under --gate-areas-file, promoted or not,
+    so a REPORT area's failures stay visible in the same run that enforces the
+    promoted ones [tested 2026-08-18: tests/conformance/leatta_gate_selftest.py].
 Fails when:
-  - never by exit code unless --gate is passed. This is a REPORT surface while
-    its backlog is open, which is how every other burn-down check here starts.
+  - the flat mode never fails by exit code unless --gate is passed; that is
+    still a REPORT surface for a single ad hoc run.
+  - the per-area mode fails the run when ANY area named in --gate-areas-file has
+    a differing checkable file; an area left out of that file can print any
+    number of differences without failing the run
+    [tested 2026-08-18: tests/conformance/leatta_gate_selftest.py].
+  - asked to enforce a promotion in CI: this lane's oracle lives at a fixed
+    local path outside the repository, so absence there is indistinguishable
+    from "not yet promoted" and always yields exit 0.
+Decides:
+  - a promoted area gates on ZERO differing checkable files, not a percentage
+    threshold; the existing single-area --gate already committed to that rule
+    and the per-area mode reuses it rather than inventing a softer one.
 Open Obligations:
   To Do: None
   Hacks: None
@@ -211,27 +235,10 @@ def compare(engine: Path, path: Path, timeout: float) -> Comparison:
     return Comparison(path, expected, observed, skipped, error, status)
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--corpus", type=Path, default=CORPUS)
-    parser.add_argument("--engine", type=Path, default=Path(__file__).resolve().parents[2])
-    parser.add_argument("--timeout", type=float, default=60.0)
-    parser.add_argument("--area", default="", help="only files under this subdirectory")
-    parser.add_argument("--show", type=int, default=25, help="how many differences to print")
-    parser.add_argument("--gate", action="store_true", help="exit nonzero on any difference")
-    arguments = parser.parse_args(argv)
-
-    if not arguments.corpus.is_dir():
-        print(f"LeaTTa corpus not found at {arguments.corpus}; nothing to check")
-        return 0
-
-    root = arguments.corpus / arguments.area if arguments.area else arguments.corpus
-    files = sorted(path for path in root.rglob("*.metta"))
-    if not files:
-        print(f"no .metta files under {root}")
-        return 0
-
-    results = [compare(arguments.engine, path, arguments.timeout) for path in files]
+def summarize(corpus: Path, results: list[Comparison], show: int, label: str) -> bool:
+    """Print one block of results exactly as every mode always has, and answer
+    whether any checkable file in it differs, which is the one bit a caller
+    needs to turn a comparison into a GATE or REPORT verdict."""
     checkable = [result for result in results if result.comparable]
     uncheckable = [result for result in results if not result.comparable]
     agreeing = [result for result in checkable if result.agrees]
@@ -240,13 +247,13 @@ def main(argv: list[str] | None = None) -> int:
     comparable = sum(len(result.expected) for result in checkable)
     skipped = sum(result.skipped for result in results)
 
-    for result in differing[: arguments.show]:
-        print(f"{result.path.relative_to(arguments.corpus)}: {result.first_difference}")
-    if len(differing) > arguments.show:
-        print(f"... and {len(differing) - arguments.show} more differing files")
+    for result in differing[:show]:
+        print(f"{result.path.relative_to(corpus)}: {result.first_difference}")
+    if len(differing) > show:
+        print(f"... and {len(differing) - show} more differing files")
 
     print(
-        f"\nLeaTTa conformance: {len(agreeing)}/{len(checkable)} checkable files agree, "
+        f"\n{label}: {len(agreeing)}/{len(checkable)} checkable files agree, "
         f"{comparable} answer groups compared.\n"
         f"  {len(uncheckable)} files state their MEASURED block as prose and can carry "
         f"no diff\n"
@@ -254,7 +261,105 @@ def main(argv: list[str] | None = None) -> int:
         f"arbiter itself has not settled\n"
         f"  {skipped} MEASURED lines are printed output rather than answers"
     )
-    return 1 if (arguments.gate and differing) else 0
+    return bool(differing)
+
+
+def discover_areas(corpus: Path) -> list[str]:
+    """LeaTTa's areas: every immediate subdirectory of the corpus holding at
+    least one .metta file, found rather than named, so a tenth area LeaTTa
+    adds later is seen here without a code change, and defaults to
+    REPORT until a gate-areas file promotes it."""
+    return sorted(
+        child.name
+        for child in corpus.iterdir()
+        if child.is_dir() and next(child.rglob("*.metta"), None) is not None
+    )
+
+
+def read_gated_areas(path: Path, known: list[str]) -> set[str]:
+    """The area names a gate-areas file promotes to GATE.
+
+    One name per line; '#' starts a comment, inline or whole-line; blank lines
+    are ignored. A name this corpus does not have is a configuration error and
+    raises, rather than silently gating nothing: a typo that failed to gate
+    anything would be worse than the typo being loud.
+    """
+    if not path.is_file():
+        raise SystemExit(f"leatta: no gate-areas file at {path}")
+    gated: set[str] = set()
+    for line in path.read_text().splitlines():
+        name = line.split("#", 1)[0].strip()
+        if name:
+            gated.add(name)
+    unknown = gated - set(known)
+    if unknown:
+        raise SystemExit(
+            f"leatta: {path} names unknown area(s) {sorted(unknown)}; "
+            f"known areas are {known}"
+        )
+    return gated
+
+
+def main_per_area(arguments: argparse.Namespace) -> int:
+    """Run every area, print every area, and fail the run only for a
+    promoted one that currently disagrees somewhere."""
+    areas = discover_areas(arguments.corpus)
+    gated = read_gated_areas(arguments.gate_areas_file, areas)
+
+    regressed = []
+    for area in areas:
+        files = sorted((arguments.corpus / area).rglob("*.metta"))
+        results = [compare(arguments.engine, path, arguments.timeout) for path in files]
+        tier = "GATE" if area in gated else "REPORT"
+        has_diff = summarize(
+            arguments.corpus, results, arguments.show,
+            f"LeaTTa conformance [{area}, {tier}]",
+        )
+        if tier == "GATE" and has_diff:
+            regressed.append(area)
+
+    print(f"\n{len(gated)}/{len(areas)} areas promoted to GATE: {sorted(gated) or 'none'}")
+    if regressed:
+        print(f"regressed: {regressed}")
+    else:
+        print("every promoted area conforms")
+    return 1 if regressed else 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--corpus", type=Path, default=CORPUS)
+    parser.add_argument("--engine", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--timeout", type=float, default=60.0)
+    parser.add_argument("--area", default="", help="only files under this subdirectory")
+    parser.add_argument("--show", type=int, default=25, help="how many differences to print")
+    parser.add_argument("--gate", action="store_true", help="exit nonzero on any difference")
+    parser.add_argument(
+        "--gate-areas-file",
+        type=Path,
+        default=None,
+        help="promote the areas this file lists to GATE; every other area stays REPORT",
+    )
+    arguments = parser.parse_args(argv)
+
+    if not arguments.corpus.is_dir():
+        print(f"LeaTTa corpus not found at {arguments.corpus}; nothing to check")
+        return 0
+
+    if arguments.gate_areas_file is not None:
+        if arguments.area or arguments.gate:
+            raise SystemExit("leatta: --gate-areas-file replaces --area and --gate, not both")
+        return main_per_area(arguments)
+
+    root = arguments.corpus / arguments.area if arguments.area else arguments.corpus
+    files = sorted(path for path in root.rglob("*.metta"))
+    if not files:
+        print(f"no .metta files under {root}")
+        return 0
+
+    results = [compare(arguments.engine, path, arguments.timeout) for path in files]
+    has_diff = summarize(arguments.corpus, results, arguments.show, "LeaTTa conformance")
+    return 1 if (arguments.gate and has_diff) else 0
 
 
 if __name__ == "__main__":
