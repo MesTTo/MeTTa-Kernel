@@ -243,6 +243,40 @@ check_reachability_selftest() {
 }
 run GATE prolog-reach-selftest check_reachability_selftest
 
+# A MeTTa equation whose compiled head collides with a name the ENGINE's module
+# already holds does not shadow that predicate, it REPLACES it for the rest of
+# the process, and nothing in the tree looked for that. Two shipped examples do
+# it today [measured 2026-08-19, both confirmed by running the file and
+# re-asking SWI, not inferred]: invertpeanoplus.metta takes user:plus/3 from
+# imported_from(system) to a local definition, after which plus(1,2,X) fails
+# instead of answering 3, and minimal_metta.metta does the same to user:rule/3.
+# Every gate stayed green through both, because nothing that runs afterwards in
+# those processes calls either predicate.
+#
+# REPORT rather than GATE because the two findings are legitimate MeTTa: `plus`
+# is an ordinary function name and the corpus is right to use it. The defect is
+# that `&self` compiles into the engine's own module, and refusing the name
+# instead would forbid 78 ordinary names [measured 2026-08-19]. Phase 11 fixes
+# the cause by giving `&self` a module of its own, and this becomes a GATE at 0.
+check_engine_integrity() {
+    cd "$HERE/tests/prolog" || return 1
+    swipl -q --on-error=status -g engine_integrity_report -t 'halt(0)' engine_integrity.pl
+}
+run REPORT engine-integrity check_engine_integrity
+
+# The report is a claim, so it is checked the way the reachability report is.
+# Four equations are planted, two that must be reported and two that must not,
+# and the arity pair is the one that matters: MeTTa arity and Prolog arity
+# differ by one, and mutating that single line takes the selftest to exit 1
+# naming both planted collisions it stopped seeing [measured 2026-08-19]. The
+# first version of the detector swallowed an existence error and called all 279
+# files clean, which is exactly what this refuses to let happen again.
+check_engine_integrity_selftest() {
+    cd "$HERE/tests/prolog" || return 1
+    swipl -q --on-error=status -g engine_integrity_selftest -t 'halt(0)' engine_integrity.pl
+}
+run GATE engine-integrity-selftest check_engine_integrity_selftest
+
 # The execution plan carries 175 numbered items and no status column, so the
 # integrator dispatched three already-completed items off it in one wave. This
 # derives status by ASKING THE TREE for each item's checkable anchor.
