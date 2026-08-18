@@ -1,0 +1,47 @@
+# The LeaTTa per-area promotion list. tests/conformance/leatta.py
+# --gate-areas-file reads this. One area name per line PROMOTES it to GATE:
+# from then on, if that area has even one differing checkable file, the
+# leatta lane fails check.sh outright, the same way every other GATE line
+# there does. '#' starts a comment, inline or whole-line; blank lines are
+# ignored. An area named here that tests/conformance/leatta.py does not
+# find under LeaTTa's tests/semantics/ is a hard error, not a silent no-op,
+# so a typo cannot silently gate nothing.
+#
+# An area NOT listed here still runs on every check.sh, still prints its
+# differences in full, and can never fail the run by itself: the REPORT
+# tier check.sh already documents, just scoped to one area instead of the
+# whole lane.
+#
+# Promoting an area is a claim, so promote it only once
+#   PY=/home/user/Dev/.venv-pypetta/bin/python
+#   "$PY" tests/conformance/leatta.py --area NAME --gate
+# exits 0 with LeaTTa checked out. Uncomment its line below in the same
+# commit that makes the claim true, and say in the commit message what now
+# holds.
+#
+# Measured 2026-08-18 (301 files total, 236 of them checkable; run
+# `"$PY" tests/conformance/leatta.py --area NAME --show 500` per area).
+# Nothing below qualifies yet: every one of the nine areas has at least one
+# differing checkable file, so every line stays commented out.
+#
+#   area              checkable files agreeing / total checkable
+#   ----------------  -------------------------------------------
+#   control-stdlib     2 / 13
+#   eval-core           7 / 27
+#   grounded            1 / 36
+#   matching            7 / 11
+#   metaprogramming     1 / 9
+#   modules             0 / 28   (57 more files are prose-only MEASURED blocks)
+#   spaces              0 / 17
+#   types-basic        28 / 75
+#   types-meta          4 / 20   (7 more files are prose-only MEASURED blocks)
+
+# control-stdlib
+# eval-core
+# grounded
+# matching
+# metaprogramming
+# modules
+# spaces
+# types-basic
+# types-meta

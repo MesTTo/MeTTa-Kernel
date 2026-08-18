@@ -8,6 +8,30 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- The LeaTTa conformance lane (`tests/conformance/leatta.py`) now gates PER
+  AREA instead of all-or-nothing. `--gate-areas-file PATH` reads a plain
+  list of LeaTTa `tests/semantics/` area names, one per line: an area it
+  names must have zero differing checkable files right now, and a later
+  regression there fails the run the same way every other GATE line in
+  `check.sh` does. An area it does not name still runs on every call, still
+  prints every difference in full, and can never fail the run by itself.
+  Promoting an area is now a one-line data change,
+  `tests/conformance/leatta_gated_areas.txt`, not a code change.
+
+  Measured 2026-08-18 against all 301 files across the nine areas: none
+  qualifies yet. control-stdlib 2/13, eval-core 7/27, grounded 1/36,
+  matching 7/11, metaprogramming 1/9, modules 0/28, spaces 0/17,
+  types-basic 28/75, types-meta 4/20 checkable files agree, so the shipped
+  gate-areas file lists all nine as comments and promotes none of them.
+
+  `tests/conformance/leatta_gate_selftest.py` proves the mechanism itself
+  discriminates, against a small fixture corpus rather than LeaTTa's own: a
+  promoted area's regression fails the run and is named in the failure; an
+  unpromoted area's identical regression prints in full but never fails the
+  run. It needed a fixture because none of LeaTTa's nine real areas is
+  clean enough yet to demonstrate the "a currently clean area regresses"
+  half against.
+
 - The example corpus now runs through BOTH configurations, the engine alone
   and the shipped Python library, and `python/tools/example_parity.py`
   requires them to agree. Until this lane existed the corpus only ever ran
