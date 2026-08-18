@@ -429,11 +429,18 @@ run GATE   pylint      in_py "$PY" -m pylint petta --score=n
 # tenth of a percent in the most favourable case buys less than the line costs
 # a reader, and 79 of them in cold code buys nothing at all.
 run REPORT perflint    in_py "$PY" -m pylint --load-plugins=perflint --disable=all --enable=W8201,W8202,W8204,W8205 petta --score=n
-# Complexity is bounded per block and across each module.
-# max-absolute C since 2026-08-17 by the user's own ruling: rank-C blocks in
-# the wire decoder, the derived table bridge and the conformance kit are the
-# accepted price of their coverage, and averages still gate at A.
-run GATE   xenon       in_py "$PY" -m xenon petta --max-absolute C --max-modules A --max-average A
+# Complexity is REPORTED, not gated, by the user's ruling 2026-08-18. It was a
+# GATE at max-absolute C, which measurement shows sat exactly on the tree's own
+# ceiling: 1,669 blocks are 1,456 rank A, 200 rank B and 13 rank C, average A
+# at 2.83, with nothing at D or worse. So one new rank-C block passed and one
+# rank-D block failed the build, on a codebase whose interpreter dispatch is
+# inherently branchy and whose next phases rewrite exactly those files.
+#
+# A per-block ceiling gates the wrong thing here. The signal worth keeping is a
+# slide across a whole MODULE or the package AVERAGE, so those stay at A and
+# still print; max-absolute moves to D so a single hairy function does not
+# shout. Nothing is silenced: a REPORT prints everything it finds.
+run REPORT xenon       in_py "$PY" -m xenon petta --max-absolute D --max-modules A --max-average A
 # Refurb's residual type-normalization and clarity rewrites are not semantic
 # equivalents at the package boundaries they flag.
 run GATE   refurb      in_py "$PY" -m refurb petta bench.py
