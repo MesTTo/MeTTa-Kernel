@@ -311,6 +311,44 @@ def parse_tables(text: str) -> list[tuple[list[str], list[tuple[int, list[str]]]
     return tables
 
 
+def orphan_rows(text: str) -> list[str]:
+    """Every `|...|` line that does NOT belong to a table.
+
+    A blank line ENDS a GFM table, so rows written after one render as
+    literal text with pipes rather than as table rows, and this tool never
+    sees them either. Measured 2026-08-19: two blank lines had split Phase
+    1's table and one had detached six of Phase 5's rows, and Phase 11's
+    four items had no header row at all, so FIFTEEN items were invisible to
+    the reader and to this tool at once. That is a worse failure than a
+    duplicated id, which at least gets reported, so it is checked here
+    beside it.
+    """
+    lines = text.splitlines()
+    in_table: set[int] = set()
+    for _, rows in parse_tables(text):
+        in_table.update(line_no for line_no, _ in rows)
+    headers: set[int] = set()
+    for i in range(len(lines) - 1):
+        head, nxt = ROW.match(lines[i]), ROW.match(lines[i + 1])
+        if head and nxt:
+            sep = split_table_row(nxt.group(1))
+            if sep and all(SEPARATOR_CELL.match(c.replace(" ", "")) for c in sep if c):
+                headers.add(i + 1)
+    found = []
+    for i, line in enumerate(lines, 1):
+        match = ROW.match(line)
+        if not match or i in in_table or i in headers:
+            continue
+        cells = split_table_row(match.group(1))
+        if cells and all(SEPARATOR_CELL.match(c.replace(" ", "")) for c in cells if c):
+            continue
+        found.append(
+            f"line {i}: a table row outside any table, so it renders as "
+            f"literal text: {line.strip()[:60]}"
+        )
+    return found
+
+
 def parse_items(text: str) -> tuple[dict[str, list[SpecRow]], list[str]]:
     """Every `P<phase>.<n>` item the spec's tables define, keyed by id (more
     than one entry means the spec itself defines that id more than once),
@@ -318,6 +356,7 @@ def parse_items(text: str) -> tuple[dict[str, list[SpecRow]], list[str]]:
     table's header, which this tool skips rather than misaligns)."""
     items: dict[str, list[SpecRow]] = {}
     warnings: list[str] = []
+    warnings.extend(orphan_rows(text))
     for header, rows in parse_tables(text):
         lower = [h.strip().lower() for h in header]
         if "id" not in lower or "item" not in lower:
