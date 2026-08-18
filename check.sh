@@ -109,6 +109,14 @@ run GATE shell        sh -c "cd '$HERE' && sh test.sh"
 # the shell lane above still caught it, but a human reading a red run saw
 # the file name and nothing about why.
 run GATE shell-failure sh -c "cd '$HERE' && sh tests/test_example_runner_surfaces_failures.sh"
+# Written 2026-08-15 in 68cffe2, the commit that REMOVED glyph-based gating, to
+# prove the runner's oracle is process status and not the assertion glyphs it
+# stopped reading. It was wired into nothing: not check.sh, test.sh, bench.sh,
+# checks.yml or ci.yml, so it protected the property it was written for on
+# exactly zero runs [measured 2026-08-18, found independently by two agents].
+# It is the negative twin of the lane above: that one proves a FAILURE reports
+# its diagnostic, this one proves a failure is DETECTED at all.
+run GATE shell-oracle  sh -c "cd '$HERE' && sh tests/regression/test_example_runner.sh"
 run GATE examples sh -c "cd '$HERE' && sh tests/regression/test_specializer_regressions.sh"
 
 # The specializer's whole claim, asserted over the whole corpus rather than

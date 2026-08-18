@@ -108,6 +108,7 @@ SOURCES = (
     "lib/*.py",
     "python/petta/*.py",
     "python/petta/*.pl",
+    "python/examples/*.py",
     "mork_ffi/*.pl",
     "tests/*.py",
 )
