@@ -325,4 +325,24 @@ test(string_run_equation_invalidates_specializations,
     process_metta_string("(= (plunit-door-fn $x) $x)", _),
     \+ user:ho_specialization(_, 'plunit-door-fn', _).
 
+test(a_recursive_specialization_survives_its_compile,
+     [ cleanup(( remove_sexp('&self', [=, ['plunit-tricky'|_], _]),
+                 retractall(fun('plunit-tricky')),
+                 retractall(arity('plunit-tricky', _)),
+                 invalidate_specializations('plunit-tricky') )) ]) :-
+    % A definition whose body calls ITSELF with a ground higher-order
+    % argument compiles a clone for that call and a generic clause that
+    % names it. Invalidating after the compile abolished that clone while
+    % the clause naming it stood, so the generic path called an empty
+    % predicate: the direct call still answered through its own
+    % specialization, and a call arriving through a variable answered
+    % NOTHING. Stale clones are dropped BEFORE the body compiles now.
+    process_metta_string(
+        "(= (plunit-tricky $f) (if (= ($f 1) 2) (plunit-tricky (+ 2)) ($f 1)))",
+        _),
+    process_metta_string("!(plunit-tricky (+ 1))", [Direct]),
+    assertion(Direct == 3),
+    process_metta_string("!(let $g (+ 1) (plunit-tricky $g))", [ViaVariable]),
+    assertion(ViaVariable == 3).
+
 :- end_tests(specializer_invalidation).

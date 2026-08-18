@@ -100,6 +100,43 @@ run GATE benchmarks   in_py "$PY" bench.py --counter-only --keep-going
 run GATE instructions in_py "$PY" -m benchmarks.check_instructions
 run GATE shell        sh -c "cd '$HERE' && sh test.sh"
 run GATE examples sh -c "cd '$HERE' && sh tests/regression/test_specializer_regressions.sh"
+
+# The specializer's whole claim, asserted over the whole corpus rather than
+# trusted: under PETTA_VERIFY_SPECIALIZATIONS every specialization is run
+# against the generic call the first time it fires and the complete answer
+# lists are compared with variant equality, so a specialization that answers
+# differently throws instead of being believed. This is the workspace rule
+# "validate every optimisation with a differential that runs it both ways"
+# made into a property of every gate run rather than a thing a test has to
+# remember. It found one on its first outing: an equation whose body called
+# itself with a ground higher-order argument compiled a generic clause naming
+# a clone that the post-compile invalidation had just abolished, so a call
+# reaching the generic path answered nothing at all.
+# One engine per file, run across the cores this machine has, and skipping
+# exactly what test.sh skips (interactive, optional-dependency and
+# long-running examples), so the lane costs about half a minute.
+check_specialization_differential() {
+    cd "$HERE" || return 1
+    found=$(mktemp)
+    find examples -name '*.metta' ! -path '*_fixtures*' -print0 |
+        xargs -0 -P "$(nproc 2>/dev/null || echo 4)" -I {} sh -c '
+            case "$(basename "$1")" in
+                repl.metta|llm_cities.metta|torch.metta|greedy_chess.metta|\
+                git_import2.metta|torch_lib.metta|import_error_broken.metta)
+                    exit 0 ;;
+            esac
+            out=$(PETTA_VERIFY_SPECIALIZATIONS=1 timeout 120 swipl \
+                      --stack_limit=8g -q -s src/main.pl -- "$1" backends \
+                      silent </dev/null 2>&1) || true
+            case "$out" in
+                *petta_specialization_disagrees*)
+                    printf "%s: %s\n" "$1" "$out" | head -3 ;;
+            esac' _ {} > "$found" 2>&1
+    if [ -s "$found" ]; then cat "$found"; rm -f "$found"; return 1; fi
+    rm -f "$found"
+    return 0
+}
+run GATE spec-differential check_specialization_differential
 run GATE packaged sh -c "cd '$HERE' && sh tests/test_packaged_cli.sh"
 
 # Undefined predicates in the engine. Nothing checked the Prolog side before

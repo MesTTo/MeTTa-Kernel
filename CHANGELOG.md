@@ -8,6 +8,19 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Added a verification mode for the specializer, and a gate lane that
+  runs it over the whole example corpus. Under
+  `PETTA_VERIFY_SPECIALIZATIONS` (or
+  `(pragma! verify-specializations True)`) each specialization is run
+  against the generic call the first time it fires and the complete
+  answer lists are compared with variant equality, so a specialization
+  that answers differently throws instead of being believed. It is off by
+  default and emits a byte-identical goal when off, so production pays
+  nothing, and the checked run is bounded whole and reports what it could
+  not check rather than claiming completeness, translation validation's
+  own shape. The lane costs about ten seconds across the corpus and found
+  a real defect on its first outing, the recursive-specialization bug
+  below.
 - Added in-language resource control and layout, from the MeTTaLog
   comparison: `(inferences $n $expr)` is `timeout`'s deterministic twin,
   the same bound `run(inferences=)` applies one tier up, so a program
@@ -545,6 +558,18 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A recursive definition could silently answer NOTHING. An equation whose
+  body calls itself with a ground higher-order argument compiles a clone
+  for that call and a generic clause naming it, and the invalidation that
+  runs when a function changes was abolishing exactly those clones after
+  the clause naming them had been asserted, so the generic clause called
+  an empty predicate: the direct call still answered through its own
+  specialization, while a call arriving through a variable,
+  `(let $g (+ 1) (f $g))`, answered nothing at all. Stale specializations
+  are dropped BEFORE the new body compiles now, which is what
+  invalidation always meant, and the dependent-recompile hooks still run
+  after. Found by the new specialization differential on its first run
+  over the example corpus.
 - Six special forms were unusable in every named space: `timeout`,
   `elapsed`, `take`, `top`, `transaction` and the new bound forms hand
   their goal to a helper predicate, and the goal lost its module on the
