@@ -163,6 +163,13 @@ Options: `name=`, `typed=True`, `raw=False`, `pass_atoms=False`, `arities=`,
 effects, which licenses the optimiser). `m.unregister_op(name)` removes every
 arity.
 
+The Python name is the MeTTa name, VERBATIM, and nothing is rewritten. Hyphens
+are MeTTa's convention and Python cannot spell one, so ask: `name="p-digit"` on
+`register_op`, `@m.define(name="p-sum")`, `rename=` on `integrate.module_ops`.
+The same holds inside a compiled body, where a called name is resolved exactly
+as written, so a hyphenated engine function is reached through an alias
+equation the body can spell, `(= (sqrt_math $x) (sqrt-math $x))`.
+
 Annotations become declarations in the engine's idiom: a `TypeVar` is
 parametric, a `Union` declares one arrow per member, `Callable[[int],int]` ->
 `(-> Number Number)`, `tuple[int,str]` -> elementwise. A generator is
@@ -170,7 +177,9 @@ nondeterministic, one answer per yield; returning `None` answers nothing, which
 is why an `Optional` return declares the value type.
 
 `@m.define` compiles the Python BODY into MeTTa equations, and `.py` keeps the
-plain function; stacked clauses become a first-match dispatcher.
+plain function; stacked clauses become a first-match dispatcher. It takes
+`name=`, and `prolog=` to make a Prolog file the function with the Python kept
+as the reference twin.
 `@m.type(cls)` declares a class into a space: `(: ...)` atoms, one accessor
 equation per field for an expression-image class, and its methods registered as
 functions, so the class crosses with its behavior.
