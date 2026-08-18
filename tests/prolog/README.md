@@ -35,14 +35,39 @@ Run every blocking check from the repository root:
 
 Run selected Prolog checks by name:
 
-    sh check.sh prolog prolog-static prolog-determinism plunit
+    sh check.sh prolog prolog-static prolog-determinism prolog-reach plunit
 
 The Prolog checks have separate jobs for undefined predicates, SWI source
-checks, translation determinism, and PlUnit. `tests/prolog/static_checks.pl`
-compiles representative MeTTa code before running `list_trivial_fails/0`,
-`list_redefined/0`, `list_void_declarations/0`, `list_autoload/0`, and
-`check/0`. The determinism driver parses every MeTTa example in a fresh
-process and rejects a form with two translations.
+checks, translation determinism, reachability, and PlUnit.
+`tests/prolog/static_checks.pl` compiles representative MeTTa code before
+running `list_trivial_fails/0`, `list_redefined/0`, `list_void_declarations/0`,
+`list_autoload/0`, and `check/0`. The determinism driver parses every MeTTa
+example in a fresh process and rejects a form with two translations.
+
+None of those five SWI checks reports UNREACHABILITY, so a predicate defined
+and never called was invisible to all of them, the way it was to `vulture` and
+`jscpd`, which read only Python. `tests/prolog/reachability.pl` answers that
+question: it walks every clause under `src/`, `lib/`, `backends/`, `mork_ffi/`
+and `python/petta/` with SWI's own `prolog_walk_code/1`, adds one probe clause
+per directive, adds an edge for every goal the engine BUILDS as a term rather
+than calls, and reports what no root reaches.
+
+    cd tests/prolog
+    swipl -q -g reachability_report -t 'halt(0)' reachability.pl
+    swipl -q --on-error=status -g reachability_selftest -t 'halt(0)' reachability.pl
+
+The roots are read as data and each one is written down in the file's header:
+`arity/2` for a name MeTTa can call, a `multifile` declaration for a seam,
+the goals of a load-time directive, and a name appearing in a string literal
+in `python/petta/*.py` for an entry point Python reaches across janus. Tests
+are deliberately neither definitions nor callers, so a predicate only a test
+names is reported and marked `[tests]`.
+
+The report is a REPORT lane and its findings are a burn-down list. The gate is
+the second entry point: `reachability_selftest` writes a fixture of nine
+planted predicates to a temporary directory, one per door, three of which must
+be REPORTED, and fails naming the door that stopped firing. Run it after
+changing anything the analysis reads.
 
 Run all PlUnit files directly with:
 
