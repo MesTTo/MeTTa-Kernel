@@ -1,6 +1,11 @@
 #!/bin/sh
 # Purpose: run MeTTa examples concurrently and fail when any runner exits
-#   nonzero, while retaining each example's assertion output.
+#   nonzero, printing each example's (test ...) trace when it passes and its
+#   whole output, unfiltered, when it does not.
+# Guarantees:
+#   - a failing example's real diagnostic reaches the "FAILURE in $f:" block,
+#     stdout and stderr both, rather than only the lines a passing (test A B)
+#     happens to print [tested tests/test_example_runner_surfaces_failures.sh]
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -9,18 +14,29 @@
 run_test() {
     f="$1"
     echo "Running $f"
-    output=$(sh run.sh "$f")
+    # 2>&1: an assertEqual mismatch throws through assert/2, which prints
+    # "Assertion failed: ..." to STDOUT but reports the uncaught exception to
+    # STDERR ("... MeTTa assertion failed ..."), and a syntax error or an
+    # undefined predicate never prints an is/should line at all. Capturing
+    # stdout only, the way this read before, meant every one of those failure
+    # shapes showed as a blank body under "FAILURE in $f:": the diagnostic
+    # either never entered $output or was filtered back out below, and only a
+    # !(test A B) mismatch (the one shape that prints "is ..., should ...")
+    # ever survived to be shown.
+    output=$(sh run.sh "$f" 2>&1)
     error=$?
-    assertions=$(printf '%s\n' "$output" | grep "is " | grep " should " || true)
     if [ "$error" -ne 0 ]; then
         echo "FAILURE in $f:"
-        echo "$assertions"
+        echo "$output"
         return 1
-    else
-        echo "OK: $f"
-        echo "$assertions"
-        return 0
     fi
+    echo "OK: $f"
+    # Filtered here and only here: a passing file has nothing else worth
+    # reading, and the unfiltered trace is long. examples/basics/math.metta
+    # alone prints 273 lines for five (test ...) forms [measured 2026-08-18].
+    assertions=$(printf '%s\n' "$output" | grep "is " | grep " should " || true)
+    echo "$assertions"
+    return 0
 }
 
 pids=""

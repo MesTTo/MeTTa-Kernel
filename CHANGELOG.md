@@ -80,6 +80,18 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   it, and `done()` also refuses to print `OK` for an example that checked
   nothing before calling it.
 
+- `test.sh`'s `FAILURE in $f:` block now prints an example's whole output
+  instead of the `!(test A B)` trace it used to filter for. That filter,
+  `grep "is " | grep " should "`, only ever matches the one line a `test`
+  mismatch prints; every other failure shape, an `assertEqual` mismatch, a
+  syntax error, an undefined predicate, throws an uncaught exception the
+  engine reports to STDERR, which the runner never captured in the first
+  place, so the block printed blank. The exit code already failed the run
+  either way, but a human reading a red one saw the file name and nothing
+  about why. The filter still runs, now only for a PASSING file, where it
+  is a legitimate summary rather than the unfiltered trace: five checks in
+  one file print 273 lines on their own [measured 2026-08-18].
+
 
 ### Changed
 
