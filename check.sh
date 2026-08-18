@@ -210,6 +210,38 @@ check_prolog_static() {
 }
 run GATE prolog-static check_prolog_static
 
+# vulture and jscpd read Python alone, and none of the SWI checks above reports
+# UNREACHABILITY: a predicate defined and never called is invisible to all of
+# them, across 19,423 lines of Prolog. This walks every clause under src/, lib/,
+# backends/, mork_ffi/ and python/petta/ with prolog_walk_code/1, adds a probe
+# clause per directive, and adds an edge for every goal the engine BUILDS as a
+# term rather than calls, which is most of the analysis and not a refinement:
+# without it the report is 206 rather than 24.
+#
+# REPORT, because findings are a backlog and not a break, the tier lib-surface
+# and determinism sit in [measured 2026-08-18: 1.10s].
+#
+# COUPLED TO PHASE 11: it hardcodes `user:` in 571 of its roots, so the module
+# migration must update it in the same commit or it silently reports nothing.
+check_reachability() {
+    cd "$HERE/tests/prolog" || return 1
+    swipl -q -g reachability_report -t 'halt(0)' reachability.pl
+}
+run REPORT prolog-reach check_reachability
+
+# The report is itself a claim, so it is checked the way the evidence gate is.
+# A fixture of nine planted predicates, one per door and three of them required
+# to be REPORTED, is written to a temporary directory and the analysis runs over
+# it a second time; the check names WHICH door stopped firing. Eleven mutations,
+# each disabling exactly one root class, edge kind or scan, were each caught
+# with the exact set of doors predicted and nothing else, which is what stops
+# the fixture passing vacuously [measured 2026-08-18: 0.90s].
+check_reachability_selftest() {
+    cd "$HERE/tests/prolog" || return 1
+    swipl -q --on-error=status -g reachability_selftest -t 'halt(0)' reachability.pl
+}
+run GATE prolog-reach-selftest check_reachability_selftest
+
 # The same walk as the backend GATE above, over lib/ instead, and a REPORT
 # because the backend answer is settled and the library one is not. A backend
 # is third-party and arm's length by construction; a shipped library sits
