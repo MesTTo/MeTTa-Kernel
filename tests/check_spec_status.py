@@ -686,8 +686,22 @@ def _locate_file(token: str) -> list[Path]:
         return []
     return [
         p for p in ROOT.rglob(token)
-        if not p.is_symlink() and ".git" not in p.parts and "__pycache__" not in p.parts
+        if not p.is_symlink() and not _transient(p.parts)
     ]
+
+
+#`.claude/worktrees/` holds one full copy of the tree per isolated agent and
+#`ai-tmp/` holds project-local scratch, so a bare basename matched 15 copies of
+#tests/prolog/static_checks.pl and resolve_file/2 called the result "ambiguous"
+#because the copies disagreed with each other [measured 2026-08-19, P0.12].
+#Neither directory is part of the tree this document describes.
+_TRANSIENT = frozenset({".git", "__pycache__", ".claude", "ai-tmp", "build", ".venv"})
+
+
+def _transient(parts: tuple[str, ...]) -> bool:
+    """Whether a path lies in a directory that is a COPY of the tree or
+    scratch beside it, rather than the tree itself."""
+    return any(part in _TRANSIENT for part in parts)
 
 
 def _shown_path(location: Path) -> str:
