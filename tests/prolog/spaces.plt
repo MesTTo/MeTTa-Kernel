@@ -1,5 +1,6 @@
 % Purpose: verify native and foreign space storage, isolation, registration,
-%   matching, and lifecycle behavior.
+%   matching, and lifecycle behavior, including what a selective match COSTS
+%   as the space grows, which a scan would answer identically.
 % Guarantees:
 %   - Native storage modules do not inherit user predicates, while execution
 %     modules keep undefined calls loud [tested: spaces_storage_modules].
@@ -54,6 +55,67 @@ test(ordinary_native_match_is_unchanged,
                ordinary,
                Result)),
     Result == ordinary.
+
+scale_size(100).
+scale_size(10000).
+
+scale_space(Count, Space) :-
+    atom_concat('&plunit_cycle_scale_', Count, Space).
+
+fill_scale_space(Count) :-
+    scale_space(Count, Space),
+    forall(between(1, Count, I), add_sexp(Space, [fact, I])).
+
+drop_scale_spaces :-
+    forall(scale_size(Count),
+           ( scale_space(Count, Space),
+             clear_native_atoms(Space),
+             retractall(native_storage_module_cache(Space, _)) )).
+
+%The probe that MISSES, which is the discriminating one. A hit on a low key
+%costs the same at both sizes under a scan too, because a scan stops at the
+%first candidate, so comparing hits would pass whether the read is indexed or
+%not. Concluding a miss is the case a scan cannot shortcut: it has to look at
+%everything [measured 2026-08-18: a hit on the LAST atom costs 6,503 per 500
+%at both sizes, the same as a hit on the first, so the read is indexed today].
+missing_match_cost(Space, Inferences) :-
+    forall(between(1, 200, _), \+ match(Space, [fact, -1], -1, _)),
+    findall(Sample,
+            ( between(1, 3, _),
+              missing_match_sample(Space, Sample) ),
+            Samples),
+    min_list(Samples, Inferences).
+
+missing_match_sample(Space, Inferences) :-
+    garbage_collect,
+    statistics(inferences, I0),
+    forall(between(1, 500, _), \+ match(Space, [fact, -1], -1, _)),
+    statistics(inferences, I1),
+    Inferences is I1 - I0.
+
+% A bound match is one indexed probe, not a scan, and the acyclic guard the
+% tests above rely on does not change that: it runs on the ANSWER rather than
+% on every candidate [source: src/spaces.pl, the comment above
+% native_expression/4]. So the cost of one probe is
+% the same whatever the space holds, which is an equality rather than a bound
+% and needs no threshold.
+%
+% Measured 2026-08-18, min of three over 500 probes: 5,503 inferences to
+% conclude a miss on a space of 100 atoms and 5,503 on one of 10,000. A scan
+% would read 100 against 10,000 clauses to reach the same conclusion.
+%
+% The hits are asserted alongside, because a space that had stopped answering
+% would conclude its misses just as cheaply at both sizes.
+test(a_selective_match_costs_the_same_on_a_hundredfold_larger_space,
+     [ setup(forall(scale_size(Count), fill_scale_space(Count))),
+       cleanup(drop_scale_spaces) ]) :-
+    scale_space(100, Small),
+    scale_space(10000, Large),
+    findall(R, match(Small, [fact, 100], 100, R), [100]),
+    findall(R, match(Large, [fact, 10000], 10000, R), [10000]),
+    missing_match_cost(Small, SmallCost),
+    missing_match_cost(Large, LargeCost),
+    LargeCost == SmallCost.
 
 :- end_tests(spaces_cycles).
 

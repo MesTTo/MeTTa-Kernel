@@ -4,8 +4,9 @@ the tree alone.
 
 check_evidence_tags.py used to ask only whether a cited name existed. A name
 can exist in a file nothing runs, which is how src/translator.pl came to cite
-tests/performance/reduce_dispatch.pl for its operator-table guarantee: the file
-is real, and no runner has ever opened it.
+a tests/performance/reduce_dispatch.pl for its operator-table guarantee: the
+file was real, and no runner ever opened it. This lane is what found it, and
+the citation names a plunit unit now.
 
 Two ways of learning what a runner executes, because neither covers the other:
 

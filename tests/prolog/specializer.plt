@@ -140,6 +140,31 @@ test(exact_recursive_key_folds_to_specialized_predicate,
     once(call(Goal)),
     Result == 1000.
 
+% The test above checks that the recursive step does not name the generic
+% predicate. reduce/2 is the OTHER way back to it, at run time and under a
+% functor the clause body never mentions, so the absence of one is a separate
+% question. It is asked of the two-binding specialization at
+% global_key_covers_every_specialized_argument_position and was asked of the
+% recursive one nowhere.
+%
+% Measured 2026-08-18, min of three: the specialized predicate costs 8,004
+% inferences over 1,000 steps against the generic path's 24,004, and 804
+% against 2,404 over 100, so the saving is per step rather than one-off.
+test(the_recursive_specialization_never_re_enters_the_reducer,
+     [setup(setup_recursive), cleanup(cleanup_recursive)]) :-
+    ho_specialization(_, 'plunit-spec-rep', SpecName),
+    functor(Head, SpecName, 4),
+    findall(Body, clause(Head, Body), Bodies),
+    %The base case and the recursive one. Counted rather than left open,
+    %because "no clause holds a reduce/2" is vacuously true of a predicate
+    %with no clauses, which is what a specialization that failed to publish
+    %would leave behind.
+    length(Bodies, 2),
+    \+ ( member(Body, Bodies),
+         sub_term(Reduce, Body),
+         compound(Reduce),
+         functor(Reduce, reduce, 2) ).
+
 setup_failed_specialization_memo :-
     set_specializer_test_mode,
     load_specializer_regression(
