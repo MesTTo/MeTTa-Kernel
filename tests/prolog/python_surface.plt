@@ -10,6 +10,14 @@
 %     [tested: a_resolved_callable_is_applicable]
 %   - nothing is drained: an unbounded iterator yields one element at a time
 %     [tested: iteration_is_lazy]
+% Fails when:
+%   - the claim is about the SHIPPED configuration. plunit consults
+%     src/metta.pl and never python/petta/shim.pl, so no host bridge answers
+%     py_object_type_names/2 here and anything the shim's presence changes is
+%     invisible. That cost a real defect: the declared-type test below was
+%     green while the shipped library dropped the declaration
+%     [measured 2026-08-18]. A claim of that kind needs a library-door test
+%     beside it, in python/tests/test_ops.py or another pytest module.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -122,6 +130,14 @@ test(a_keyword_value_is_evaluated) :-
 
 % A declared type is kept rather than accepted and dropped, and it rides the
 % py_object_extra_type/2 extension point that already existed for exactly this.
+%
+% This suite is ONE CONFIGURATION. plunit loads src/metta.pl without
+% python/petta/shim.pl, so no host bridge answers py_object_type_names/2 here
+% and this test only ever exercised the branch where none does. The
+% declaration was being dropped in the shipped one for as long as this was
+% green [measured 2026-08-18]. Its counterpart at the library door is
+% python/tests/test_ops.py, test_a_declared_type_survives_the_library_being_loaded,
+% and the pair is the claim: neither alone says the feature works.
 test(a_declared_type_is_reported_beside_the_objects_own) :-
     'py-atom'(len, ['->', 'Atom', 'Number'], Obj),
     findall(T, get_type_candidate(Obj, T), Types),

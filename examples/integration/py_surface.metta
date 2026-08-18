@@ -117,6 +117,15 @@
 !(test (let ($a $b $c) (py-atom "[1, 2, 3]" Expression) (sum $a $b $c)) (sum 1 2 3))
 !(test (py-atom "[[1, 2], (3, 4)]" Expression) ((1 2) (3 4)))
 
+;The same argument DECLARES a type when it is not a metatype, and get-type
+;reports it beside the object's own Python classes. Everything arriving from
+;Python is %Undefined% otherwise, so a Python function could not be reported
+;as anything at all.
+!(test (let $pow (py-atom math.pow (-> Number Number Number)) (collapse (get-type $pow)))
+       (builtin_function_or_method (-> Number Number Number)))
+;Declare nothing and the classes are the whole answer.
+!(test (collapse (get-type (py-atom math.sqrt))) (builtin_function_or_method))
+
 ;The reading in between is py-iter, which is superpose for a Python sequence,
 ;and collapse turns it back into an expression one level deep. Nothing here is
 ;a new way to say something MeTTa could not already say.
