@@ -74,6 +74,27 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A nondeterministic Python operation's answer stream is now closed by the
+  code that consumed it, instead of being left to the garbage collector.
+  The stream is one-shot and can hold a file, a database cursor or a lock
+  open between yields, and a MeTTa program abandons it constantly: `once`
+  cuts, a `timeout=` or `inferences=` guard stops mid-answer, an exception
+  unwinds.
+
+  The release itself was already happening, through CPython's reference
+  counting, at every abandonment shape measured on 2026-08-19 with the
+  cycle collector switched off. What was not happening is being told when
+  it FAILS. A generator whose `finally` raises while letting go of its
+  resource had that exception swallowed by the deallocator, which prints
+  `Exception ignored while closing generator` to stderr and lets the call
+  answer normally, so a cursor that could not be released told nobody.
+  Closing the stream in `dispatch_many`, `dispatch_raw_many` and the
+  inverse path puts the failure back in front of whoever abandoned it.
+
+  PEP 533 is the reason not to keep relying on the collector even where it
+  works: on an implementation that does not reference-count, "calls to
+  `__del__` may be arbitrarily delayed".
+
 - The engine and its libraries now declare every import they actually use,
   instead of getting several of them from SWI's autoloader by accident.
   `set_prolog_flag(autoload, false)` is Phase 11's precondition, because a
