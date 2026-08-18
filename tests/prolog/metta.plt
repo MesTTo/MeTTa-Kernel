@@ -290,13 +290,15 @@ setup_type_answers :-
     cleanup_type_answers,
     forall(type_answer_fact(Term, Type),
            add_sexp('&self', [':', Term, Type])),
-    assertz(user:get_type_rule([plunit_type_a, plunit_type_b],
+    metta_self_module(Self),
+    assertz(Self:get_type_rule([plunit_type_a, plunit_type_b],
                                [plunit_a, plunit_b])).
 
 cleanup_type_answers :-
     forall(type_answer_fact(Term, _),
            remove_sexp('&self', [':', Term, _])),
-    retractall(user:get_type_rule([plunit_type_a, plunit_type_b], _)).
+    metta_self_module(Self),
+    retractall(Self:get_type_rule([plunit_type_a, plunit_type_b], _)).
 
 test(user_boundary_returns_each_type_once) :-
     findall(Type,
@@ -305,11 +307,13 @@ test(user_boundary_returns_each_type_once) :-
     Types == [[plunit_a, plunit_b]].
 
 test(alpha_equivalent_polymorphic_types_are_one_answer,
-     [ setup((assertz(user:get_type_rule(plunit_poly_type,
+     [ setup((metta_self_module(S),
+                assertz(S:get_type_rule(plunit_poly_type,
                                         ['->', A, A])),
-              assertz(user:get_type_rule(plunit_poly_type,
+                assertz(S:get_type_rule(plunit_poly_type,
                                         ['->', B, B])))),
-       cleanup(retractall(user:get_type_rule(plunit_poly_type, _)))
+       cleanup((metta_self_module(S2),
+                retractall(S2:get_type_rule(plunit_poly_type, _))))
      ]) :-
     findall(Type, user:'get-type'(plunit_poly_type, Type), Types),
     Types =@= [['->', T, T]].
@@ -348,7 +352,8 @@ test(a_named_space_defining_a_builtin_name_keeps_it_working_elsewhere,
     % other space, and in engines built afterwards.
     assertz(fun_in('&plunit_shadow', '+')),
     assertz(fun_scoped('+')),
-    with_metta_module(user, fun_here('+')).
+    metta_self_module(Self),
+    with_metta_module(Self, fun_here('+')).
 
 test(a_scoped_user_function_stays_scoped,
      [ cleanup(( retractall(fun(plunit_scoped_fn)),
@@ -358,7 +363,8 @@ test(a_scoped_user_function_stays_scoped,
     assertz(fun(plunit_scoped_fn)),
     assertz(fun_in('&plunit_shadow', plunit_scoped_fn)),
     assertz(fun_scoped(plunit_scoped_fn)),
-    \+ with_metta_module(user, fun_here(plunit_scoped_fn)).
+    metta_self_module(Self),
+    \+ with_metta_module(Self, fun_here(plunit_scoped_fn)).
 
 :- end_tests(metta_builtin_scoping).
 
@@ -1027,40 +1033,90 @@ test(get_metatype_answers_the_same_bound_or_unbound,
 % longer than anything declared it, and lib_memo and lib_thread do. A published
 % predicate nothing exercises can change under every extension at once.
 
-test(the_default_context_is_user) :-
+%&self's own module, not Prolog's `user`: an equation compiled into the
+%module the engine itself resolves in REPLACES a predicate of that name
+%instead of shadowing it.
+test(the_default_context_is_selfs_own_module) :-
     current_metta_module(Module),
-    assertion(Module == user).
+    space_module('&self', Self),
+    assertion(Module == Self),
+    assertion(Module \== user).
 
+% The argument is the module a space compiles into, which space_module/2
+% answers. It used to be the space's own name for every space but &self, and a
+% test that wrote the space name passed by coincidence.
 test(a_named_module_is_in_force_inside_the_switch) :-
-    with_metta_module('&probe', current_metta_module(Inside)),
-    assertion(Inside == '&probe').
+    space_module('&probe', Probe),
+    with_metta_module(Probe, current_metta_module(Inside)),
+    assertion(Inside == Probe).
+
+test(a_space_name_is_refused_where_a_module_is_asked,
+     [throws(error(type_error(metta_execution_module, '&probe'), _))]) :-
+    with_metta_module('&probe', true).
 
 test(the_previous_module_is_restored_after) :-
-    with_metta_module('&probe', true),
+    space_module('&probe', Probe),
+    with_metta_module(Probe, true),
     current_metta_module(After),
-    assertion(After == user).
+    metta_self_module(Self),
+    assertion(After == Self).
 
 % The restore is setup_call_cleanup/3's, so it has to survive the goal
 % throwing. Without that a library that raises inside a named space leaves
 % every later compile pointed at a module the caller never asked for.
 test(the_previous_module_is_restored_after_a_throw) :-
-    catch(with_metta_module('&probe', throw(deliberate)), deliberate, true),
+    space_module('&probe', Probe),
+    catch(with_metta_module(Probe, throw(deliberate)), deliberate, true),
     current_metta_module(After),
-    assertion(After == user).
+    metta_self_module(Self),
+    assertion(After == Self).
 
 test(switches_nest_and_unwind_in_order) :-
-    with_metta_module('&outer',
+    space_module('&outer', OuterModule),
+    space_module('&inner', InnerModule),
+    with_metta_module(OuterModule,
                       ( current_metta_module(Outer),
-                        with_metta_module('&inner',
+                        with_metta_module(InnerModule,
                                           current_metta_module(Inner)),
                         current_metta_module(Back),
-                        assertion(Outer == '&outer'),
-                        assertion(Inner == '&inner'),
-                        assertion(Back == '&outer') )),
+                        assertion(Outer == OuterModule),
+                        assertion(Inner == InnerModule),
+                        assertion(Back == OuterModule) )),
     current_metta_module(Final),
-    assertion(Final == user).
+    metta_self_module(Self),
+    assertion(Final == Self).
 
 :- end_tests(metta_module_context).
+
+:- begin_tests(metta_engine_module).
+
+% `user` was two different jobs wearing one name: the HOST module SWI resolves
+% its own hooks and consulted files in, and the module the ENGINE's clauses
+% happen to be in. Every wrap_predicate/4 target and every clause/2 read of the
+% translator's own compilation tables meant the second one, and asking for it
+% is what lets a space stop being the first one.
+
+test(it_answers_exactly_one_module) :-
+    findall(Module, petta_engine_module(Module), Modules),
+    assertion(Modules = [_]).
+
+% Checked against SWI rather than against the atom `user`, so the test says
+% what the predicate is FOR instead of repeating its current answer.
+test(it_names_the_module_the_engines_own_clauses_are_in) :-
+    petta_engine_module(Engine),
+    functor(Head, reduce, 3),
+    assertion(predicate_property(Engine:Head, defined)),
+    assertion(\+ predicate_property(Engine:Head, imported_from(_))).
+
+% The Group F reads: metta_special_form/1 and metta_translated_head/1 ask the
+% engine's own clause table for which heads the translator gives meaning to. A
+% read pointed at the wrong module answers for no form at all, silently.
+test(the_translators_own_tables_are_read_from_it) :-
+    assertion(metta_special_form(if)),
+    assertion(metta_translated_head(collapse)),
+    assertion(\+ metta_special_form(petta_no_such_form)).
+
+:- end_tests(metta_engine_module).
 
 :- begin_tests(metta_handles_route).
 

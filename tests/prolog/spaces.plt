@@ -438,19 +438,40 @@ forget_late_name(Name) :-
 
 :- begin_tests(spaces_builtin_override).
 
-test(a_builtin_equation_in_self_is_refused_in_metta_terms,
-     [throws(error(petta_builtin_redefinition('+', 2, '&self'), _))]) :-
-    'add-atom'('&self', [=, ['+', 1, 2], nine], _).
+% &self compiles into a module of its own, so an equation for a builtin name is
+% a local SHADOW there exactly as it is in a named space, and the engine's own
+% predicate of that name goes on answering. Before Phase 11 &self compiled into
+% the module the engine itself resolves in, where the same equation REPLACED
+% the predicate for the rest of the process: two shipped examples did that, and
+% tests/prolog/engine_integrity.pl is the gate that would not let it back.
+test(self_may_shadow_a_builtin,
+     [ cleanup(( 'remove-atom'('&self', [=, ['car-atom', _], nine], _),
+                 metta_self_module(S),
+                 retractall(S:'car-atom'(_, nine)) )) ]) :-
+    'add-atom'('&self', [=, ['car-atom', _], nine], _),
+    metta_self_module(Self),
+    with_metta_module(Self, reduce(['car-atom', [1, 2]], Shadowed, _)),
+    assertion(Shadowed == nine),
+    % The engine's own predicate is untouched, which is the whole point.
+    petta_engine_module(Engine),
+    assertion(Engine:'car-atom'([1, 2], 1)).
 
-test(the_refusal_says_where_the_definition_can_go) :-
-    catch('add-atom'('&self', [=, ['car-atom', _], nine], _), Error, true),
+% What is left to refuse is SWI's protected core, and it is refused in EVERY
+% space rather than in &self alone. sort/2 is one of the four names still taken
+% at MeTTa arity 1 [measured 2026-08-19].
+test(prologs_protected_core_is_still_refused,
+     [throws(error(petta_builtin_redefinition(sort, 1, '&self'), _))]) :-
+    'add-atom'('&self', [=, [sort, _], nine], _).
+
+test(the_refusal_names_the_protected_core) :-
+    catch('add-atom'('&self', [=, [call, _], nine], _), Error, true),
     message_to_string(Error, Text),
-    assertion(sub_string(Text, _, _, _, "cannot be redefined in &self")),
-    assertion(sub_string(Text, _, _, _, "named space")).
+    assertion(sub_string(Text, _, _, _, "protected core")),
+    assertion(sub_string(Text, _, _, _, "no space can redefine")),
+    assertion(sub_string(Text, _, _, _, "every other builtin name is free")).
 
-% The other half of the same message: a named space compiles its clauses into
-% a module of its own, so the same equation there shadows the builtin for that
-% space and leaves every other space's alone.
+% The same equation in a named space, so the two sides of the rule are one
+% test apart: a shadow is local to the space that wrote it.
 test(a_named_space_may_shadow_a_builtin,
      [ cleanup(( 'remove-atom'('&plunit_shadow_builtin', [=, ['+', 1, 2], nine], _),
                  clear_native_atoms('&plunit_shadow_builtin') )) ]) :-
@@ -458,7 +479,8 @@ test(a_named_space_may_shadow_a_builtin,
     space_module('&plunit_shadow_builtin', Module),
     with_metta_module(Module, reduce(['+', 1, 2], Shadowed, _)),
     assertion(Shadowed == nine),
-    with_metta_module(user, reduce(['+', 1, 2], Ordinary, _)),
+    metta_self_module(Self),
+    with_metta_module(Self, reduce(['+', 1, 2], Ordinary, _)),
     assertion(Ordinary == 3).
 
 :- end_tests(spaces_builtin_override).
@@ -982,9 +1004,10 @@ test(the_reference_answers_are_the_documented_ones) :-
 test(a_foreign_equation_compiles_into_its_space_module) :-
     forall(between(1, 4, N),
            'add-atom'('&plunit_rules', [=, ['fr-many', N], N], _)),
-    predicate_property('&plunit_rules':'fr-many'(_, _), number_of_clauses(Clauses)),
+    space_module('&plunit_rules', RulesModule),
+    predicate_property(RulesModule:'fr-many'(_, _), number_of_clauses(Clauses)),
     assertion(Clauses == 4),
-    findall(A, with_metta_module('&plunit_rules', reduce(['fr-many', 3], A, _)), As),
+    findall(A, with_metta_module(RulesModule, reduce(['fr-many', 3], A, _)), As),
     assertion(As == [3]).
 
 % And it un-compiles when the atom is removed. The removal path dispatched on

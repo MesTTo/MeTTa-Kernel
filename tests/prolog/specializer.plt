@@ -39,7 +39,10 @@ run_concurrent_specialization(_) :-
     translate_expr(
         ['plunit-spec-race', 'plunit-spec-race-inc', 1], Goals, Out),
     goals_list_to_conj(Goals, Goal),
-    once(call(Goal)),
+    %A specialization is compiled into the module of the space whose code
+    %triggered it, so a test that calls or reads it has to name that module.
+    metta_self_module(Self),
+    once(call(Self:Goal)),
     Out == 2.
 
 test(concurrent_translation_creates_one_specialization,
@@ -53,7 +56,8 @@ test(concurrent_translation_creates_one_specialization,
             Specializations),
     Specializations = [SpecName],
     functor(Head, SpecName, 3),
-    aggregate_all(count, clause(Head, _), 1),
+    metta_self_module(Self),
+    aggregate_all(count, clause(Self:Head, _), 1),
     aggregate_all(count,
                   get_native_atom('&self', [=, [SpecName|_], _]),
                   1).
@@ -75,7 +79,8 @@ test(all_clauses_are_bound_independently,
     ho_specialization(_, 'plunit-spec-t2', SpecName),
     SpecName == 'plunit-spec-t2_Spec_[plunit-spec-inc]',
     functor(Head, SpecName, 3),
-    findall(Head-Body, clause(Head, Body), Clauses),
+    metta_self_module(Self),
+    findall(Head-Body, clause(Self:Head, Body), Clauses),
     length(Clauses, 2),
     forall(member(ClauseHead-_, Clauses),
            arg(1, ClauseHead, 'plunit-spec-inc')),
@@ -106,7 +111,8 @@ test(global_key_covers_every_specialized_argument_position,
     SpecName ==
         'plunit-spec-p2_Spec_[plunit-spec-inc2,plunit-spec-dbl2]',
     functor(Head, SpecName, 4),
-    findall(Body, clause(Head, Body), Bodies),
+    metta_self_module(Self),
+    findall(Body, clause(Self:Head, Body), Bodies),
     length(Bodies, 2),
     \+ ( member(Body, Bodies),
          sub_term(Reduce, Body),
@@ -132,12 +138,13 @@ test(exact_recursive_key_folds_to_specialized_predicate,
      [setup(setup_recursive), cleanup(cleanup_recursive)]) :-
     ho_specialization(_, 'plunit-spec-rep', SpecName),
     functor(Head, SpecName, 4),
-    forall(clause(Head, Body),
+    metta_self_module(Self),
+    forall(clause(Self:Head, Body),
            \+ ( sub_term(GenericCall, Body),
                 compound(GenericCall),
                 functor(GenericCall, 'plunit-spec-rep', 4) )),
     Goal =.. [SpecName, 'plunit-spec-step', 1000, 0, Result],
-    once(call(Goal)),
+    once(call(Self:Goal)),
     Result == 1000.
 
 % The test above checks that the recursive step does not name the generic
@@ -154,7 +161,8 @@ test(the_recursive_specialization_never_re_enters_the_reducer,
      [setup(setup_recursive), cleanup(cleanup_recursive)]) :-
     ho_specialization(_, 'plunit-spec-rep', SpecName),
     functor(Head, SpecName, 4),
-    findall(Body, clause(Head, Body), Bodies),
+    metta_self_module(Self),
+    findall(Body, clause(Self:Head, Body), Bodies),
     %The base case and the recursive one. Counted rather than left open,
     %because "no clause holds a reduce/2" is vacuously true of a predicate
     %with no clauses, which is what a specialization that failed to publish

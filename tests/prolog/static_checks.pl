@@ -399,30 +399,31 @@ library_source(Library) :-
 % of naming `user` beside it: a probe that cannot move with the scan is not a
 % proof the scan still works after the scan's own target moves.
 %
-% A second, DIFFERENT module is planted alongside the first, created at
-% runtime and named and classed the way a Phase 11 execution module will be
-% (leading `$`, so SWI gives it base and class `system`
-% [SWI-Prolog 10.1 Reference Manual sections 6.13, 6.15]), registered as a
-% known space the same way a real one is (src/spaces.pl:79-98's
-% native_storage_module_cache/2). Seeing both is the two-topology proof: one
-% plant lands where TODAY's engine already runs, the other lands in a module
-% shaped like the one Phase 11 introduces, and the walk has to find both
-% without being told where either one is.
+% A second, DIFFERENT space is planted alongside &self, created at runtime and
+% given its execution module by space_module/2 exactly as a real one is, and
+% registered as a known space the same way (src/spaces.pl's
+% native_storage_module_cache/2). Seeing both is the two-space proof: one
+% plant lands in &self's module and the other in a module that did not exist
+% when this file was loaded, and the walk has to find both without being told
+% where either one is. The plant asks space_module/2 for the module rather
+% than using the space's own name: those were the same atom for every space
+% but &self before Phase 11, and are different atoms for all of them now.
 live_scan_sees_a_planted_cut :-
     aggregate_all(count, live_hook_clause(_, _), Live),
     Planted = metta_on_function_removed(_),
     space_module('&self', TodayModule),
     Fixture = '$static-check-fixture:&hook-probe',
+    space_module(Fixture, FixtureModule),
     setup_call_cleanup(
         ( assertz((TodayModule:Planted :- (!, fail))),
           assertz(native_storage_module_cache(Fixture, unused)),
-          assertz((Fixture:Planted :- (!, fail))) ),
+          assertz((FixtureModule:Planted :- (!, fail))) ),
         aggregate_all(count,
                       ( live_hook_clause(_, Body), cut_in_clause_scope(Body) ),
                       Seen),
         ( retract((TodayModule:Planted :- (!, fail))),
           retractall(native_storage_module_cache(Fixture, _)),
-          retract((Fixture:Planted :- (!, fail))) )),
+          retract((FixtureModule:Planted :- (!, fail))) )),
     (   Seen >= 2
     ->  format("static: no cut in any of ~d live clauses of the seams whose \c
                 kind says every clause runs, and the scan saw a planted \c
@@ -584,22 +585,22 @@ no_compile_time_helper_in_a_compiled_body :-
 %
 % Two plants, exactly as live_scan_sees_a_planted_cut/0 above: one in
 % whatever module &self compiles into today, discovered rather than named,
-% and a second in a runtime-created module named and classed the way a
-% Phase 11 execution module will be. Finding the helper in BOTH is the
-% two-topology proof for this check specifically; generated_clause/2 is the
-% predicate the survey measured going from 275 bodies to 1 while still
-% reporting clean, and this is what closes that.
+% and a second in the execution module of a space created at runtime. Finding
+% the helper in BOTH is the two-space proof for this check specifically;
+% generated_clause/2 is the predicate the survey measured going from 275
+% bodies to 1 while still reporting clean, and this is what closes that.
 detector_sees_a_planted_helper(Bodies) :-
     Planted = 'static-check-planted-helper',
     space_module('&self', TodayModule),
     Fixture = '$static-check-fixture:&helper-probe',
+    space_module(Fixture, FixtureModule),
     Head =.. [Planted, In, Out],
     setup_call_cleanup(
         ( assertz(fun(Planted)),
           assertz(arity(Planted, 2)),
           assertz(native_storage_module_cache(Fixture, unused)),
           assertz((TodayModule:Head :- maplist([A]>>(Out = A), [In]))),
-          assertz((Fixture:Head :- maplist([A]>>(Out = A), [In]))) ),
+          assertz((FixtureModule:Head :- maplist([A]>>(Out = A), [In]))) ),
         aggregate_all(count,
                       ( generated_clause(_, Body),
                         body_subterm(Body, Sub),
@@ -611,7 +612,7 @@ detector_sees_a_planted_helper(Bodies) :-
           retractall(native_storage_module_cache(Fixture, _)),
           functor(Gone, Planted, 2),
           retractall(TodayModule:Gone),
-          retractall(Fixture:Gone) )),
+          retractall(FixtureModule:Gone) )),
     (   Seen >= 2
     ->  format("static: no compile-time helper in any of ~d generated \c
                 clause bodies, and the walk saw a planted one in today's \c

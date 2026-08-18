@@ -73,7 +73,10 @@ test(tabling_equation_change_drops_tables,
      [ cleanup(( catch(metta_untabled_decl(['plt-tab-plain', _], true), _, true),
                  'remove-atom'('&self', [=, ['plt-tab-changed', 1], 9], _) )) ]) :-
     metta_tabled_decl(['plt-tab-plain', _], true),
-    'plt-tab-plain'(1, _),
+    %A compiled MeTTa function lives in its space's module, so a test that
+    %calls it as a Prolog predicate has to name that module.
+    metta_self_module(Self),
+    Self:'plt-tab-plain'(1, _),
     tabling_table_count(Before),
     assertion(Before > 0),
     % Any equation, not this function's: the invalidation is deliberately
@@ -91,7 +94,8 @@ test(tabling_statistics_count_invalidations,
                  'remove-atom'('&plt_tab_space', [fact, z, 26], _),
                  'remove-atom'('&plt_tab_space', [fact, a, 2], _) )) ]) :-
     metta_tabled_decl(['plt-tab-reads', _], true),
-    'plt-tab-reads'(a, _),
+    metta_self_module(Self),
+    Self:'plt-tab-reads'(a, _),
     metta_table_statistics(['plt-tab-reads', _], Before),
     assertion(memberchk([invalidated, 0], Before)),
     assertion(memberchk([reevaluated, 0], Before)),
@@ -107,15 +111,18 @@ test(tabling_statistics_count_invalidations,
     assertion(memberchk([invalidated, 1], Invalid)),
     assertion(memberchk([reevaluated, 0], Invalid)),
     % Re-evaluation is on demand, so it takes a call.
-    forall('plt-tab-reads'(a, _), true),
+    forall(Self:'plt-tab-reads'(a, _), true),
     metta_table_statistics(['plt-tab-reads', _], After),
     assertion(memberchk([reevaluated, 1], After)),
     % SWI's spelling on its side, MeTTa's on this one.
     assertion(memberchk(['complete-call', _], After)).
 
+%Tables belong to the module the tabled predicate is in, which for a MeTTa
+%function is its space's module.
 tabling_table_count(Count) :-
+    metta_self_module(Self),
     aggregate_all(count,
-                  ( current_table(user:Goal, _), Goal \== [] ),
+                  ( current_table(Self:Goal, _), Goal \== [] ),
                   Count).
 
 :- end_tests(lib_tabling).

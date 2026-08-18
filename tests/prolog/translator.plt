@@ -221,7 +221,10 @@ test(recording_equations_costs_no_more_than_linear_time,
 test(a_data_self_reference_cannot_create_a_rational_tree,
      [occurs_check(false), timeout(1)]) :-
     translate_expr([let, X, [g, X], X], Goals, _),
-    \+ call_goals(Goals).
+    %call_goals/1 is gone: a compiled goal resolves in the module of the space
+    %that compiled it, and there is no module-blind version left.
+    metta_self_module(Self),
+    \+ call_goals_in_(Self, Goals).
 
 %[g, X] above is data and needs no goals, so the check sees the whole value
 %wherever it is emitted. A value that has to be computed does not: emitted
@@ -230,7 +233,8 @@ test(a_data_self_reference_cannot_create_a_rational_tree,
 test(a_computed_self_reference_cannot_create_a_rational_tree,
      [occurs_check(false), timeout(1)]) :-
     translate_expr([let, X, ['cons-atom', X, []], X], Goals, _),
-    \+ call_goals(Goals).
+    metta_self_module(Self),
+    \+ call_goals_in_(Self, Goals).
 
 %A value that shares no variable with the pattern cannot be built out of the
 %pattern, so its check stays ahead of the value's goals, where it runs on two
@@ -247,7 +251,8 @@ test(a_shared_value_moves_its_check_behind_the_value_goals) :-
 test(acyclic_binding_keeps_let_semantics,
      [occurs_check(false)]) :-
     translate_expr([let, X, [value, 42], X], Goals, Out),
-    once(call_goals(Goals)),
+    metta_self_module(Self),
+    once(call_goals_in_(Self, Goals)),
     Out == [value, 42].
 
 :- end_tests(translator_let).
@@ -892,8 +897,11 @@ test(get_type_equations_compile_behind_the_answer_boundary) :-
         ( translate_clause(Source, Clause),
           Clause = (Head :- _),
           functor(Head, get_type_rule, 2),
+          %A get-type equation compiles into the module of the space that wrote
+          %it, so the clause goes where &self's equations go.
+          metta_self_module(Self),
           setup_call_cleanup(
-              assertz(user:Clause, Ref),
+              assertz(Self:Clause, Ref),
               ( findall(Type, 'get-type'(plunit_extended_type, Type), Types),
                 Types == [plunit_extension] ),
               erase(Ref)) ),
@@ -968,7 +976,8 @@ test(an_unknown_head_remains_inert_data) :-
 
 test(quote_keeps_an_invalid_builtin_call_inert) :-
     translate_expr([quote, ['+', 1, undefined_sym]], Goals, Out),
-    call_goals(Goals),
+    metta_self_module(Self),
+    call_goals_in_(Self, Goals),
     Out == ['+', 1, undefined_sym].
 
 cleanup_builtin_type_declarations(Path, ParsedForms) :-

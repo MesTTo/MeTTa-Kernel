@@ -151,7 +151,8 @@ test(a_registered_predicate_survives_a_named_space_claiming_its_name,
     sread("(= (plunit_pi_scale $x) 999)", Equation),
     'add-atom'('&plunit_pi_kb', Equation, _),
     space_module('&plunit_pi_kb', Kb),
-    with_metta_module(user, reduce([plunit_pi_scale, 3], InSelf, _)),
+    metta_self_module(Self),
+    with_metta_module(Self, reduce([plunit_pi_scale, 3], InSelf, _)),
     with_metta_module(Kb, reduce([plunit_pi_scale, 3], InKb, _)),
     % &self answers from the registered predicate, and the space that defined
     % the equation shadows it, which is the behaviour that should happen.
@@ -168,7 +169,8 @@ test(a_registration_records_arities_for_a_name_that_is_already_a_function,
     assertion(fun(plunit_pi_known)),
     import_prolog_function(plunit_pi_known, true),
     assertion(arity(plunit_pi_known, 3)),
-    with_metta_module(user, reduce([plunit_pi_known, 4, 5], Out, _)),
+    metta_self_module(Self),
+    with_metta_module(Self, reduce([plunit_pi_known, 4, 5], Out, _)),
     assertion(Out == 9).
 
 :- end_tests(prolog_interface).

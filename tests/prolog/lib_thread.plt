@@ -36,7 +36,8 @@ test(par_map_of_the_empty_list_is_empty) :-
 test(par_map_agrees_with_sequential_maplist) :-
     numlist(1, 25, Input),
     par_map('t-inc', Input, Parallel),
-    findall(V, (member(E, Input), eval_metta_in_module(user, ['t-inc', E], V)),
+    metta_self_module(Self),
+    findall(V, (member(E, Input), eval_metta_in_module(Self, ['t-inc', E], V)),
             Sequential),
     Parallel == Sequential.
 

@@ -245,7 +245,8 @@ test(file_function_remains_a_global_fallback_after_a_named_homonym) :-
               %determinate is JIT-index luck (the engine's own callers
               %always wrap it in -> or once), so the at-most-once intent
               %is stated here rather than assumed.
-              once(user:fun_in(user, Function)),
+              user:metta_self_module(Self),
+              once(user:fun_in(Self, Function)),
               Results == [42] ),
             ( user:'remove-atom'(NamedSpace, NamedTerm, _),
               cleanup_test_function(Function),
