@@ -17,13 +17,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   configuration users ship was gated by unit tests alone, and defects lived
   there under green lanes.
 
-  It found seven within the hour, all one root: the library's `load()`
-  does not pre-register the file's function signatures the way
-  `src/filereader.pl:247` does, so a `!` naming a function defined LATER in
-  the same file fails in the library and succeeds in the engine. Six
+  It found seven within the hour, all one root: `run()` and `load()` did not
+  register a source's function signatures before processing its forms the way
+  `src/filereader.pl` does, so a `!` naming a function defined LOWER DOWN in
+  the same file failed in the library and succeeded in the engine. Six
   `test_memo_*` examples and `newtons_method.metta` are written that way.
-  The lane runs as REPORT until they pass, and they are scheduled rather
-  than excluded [measured 2026-08-18: 193/200 agree].
+  They pass now, both paths sharing `prepare_parsed_forms/1`, and the lane is
+  a GATE [measured 2026-08-18: 200/200 agree].
 
   It reads the engine through `tests/conformance/leatta_run.pl`, which
   already existed to print one answer GROUP per runnable form, and compares

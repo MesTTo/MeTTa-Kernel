@@ -302,12 +302,14 @@ run REPORT leatta      sh -c "cd '$HERE' && '$PY' tests/conformance/leatta.py --
 # them because plunit loads the engine without the shim.
 #
 # REPORT rather than GATE, and the reason is written down rather than absorbed:
-# it finds SEVEN examples that pass in the engine and fail in the library, all
-# one root (the library's load() does not pre-register the file's function
-# signatures the way src/filereader.pl:247 does, so a ! naming a function
-# defined LATER in the same file fails there). Those seven are scheduled, not
-# excluded; the lane becomes a GATE when they pass
-# [measured 2026-08-18: 193/200 agree].
+# it found SEVEN examples that passed in the engine and failed in the library,
+# all one root: run() and load() did not register a source's function
+# signatures before processing its forms the way src/filereader.pl does, so a
+# ! naming a function defined LOWER DOWN in the same file failed there. Both
+# paths share prepare_parsed_forms/1 now and all seven pass either way, so
+# this is a GATE [measured 2026-08-18: 200/200 agree, verified on the merged
+# tree; 199 of the 200 by both ANSWERING and examples/libraries/minimal_metta.metta
+# by both failing until its two library files were committed].
 #
 # It reads the engine through tests/conformance/leatta_run.pl, which already
 # existed to print one answer GROUP per runnable form, and compares the groups
@@ -316,7 +318,7 @@ run REPORT leatta      sh -c "cd '$HERE' && '$PY' tests/conformance/leatta.py --
 # !(superpose (1 2)) then !(superpose (3 2)), and comparing text reported the
 # engine's `true` against the library's `True` on 191 of 200 files, which is
 # a spelling and not an answer.
-run REPORT parity      sh -c "cd '$HERE' && '$PY' python/tools/example_parity.py"
+run GATE   parity      sh -c "cd '$HERE' && '$PY' python/tools/example_parity.py"
 
 # The obligation headers are the contract a library author reads, and a
 # [tested X] tag is the strongest evidence in the scheme. Thirteen of them
