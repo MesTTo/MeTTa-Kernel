@@ -6,6 +6,72 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The example corpus now runs through BOTH configurations, the engine alone
+  and the shipped Python library, and `python/tools/example_parity.py`
+  requires them to agree. Until this lane existed the corpus only ever ran
+  through the engine: the `examples` gate invokes `swipl` on `src/main.pl`,
+  `test.sh` and `test_metta_examples.py` shell to `run.sh`, and the plunit
+  suites load `src/metta.pl` without `python/petta/shim.pl`. So the
+  configuration users ship was gated by unit tests alone, and defects lived
+  there under green lanes.
+
+  It found seven within the hour, all one root: the library's `load()`
+  does not pre-register the file's function signatures the way
+  `src/filereader.pl:247` does, so a `!` naming a function defined LATER in
+  the same file fails in the library and succeeds in the engine. Six
+  `test_memo_*` examples and `newtons_method.metta` are written that way.
+  The lane runs as REPORT until they pass, and they are scheduled rather
+  than excluded [measured 2026-08-18: 193/200 agree].
+
+  It reads the engine through `tests/conformance/leatta_run.pl`, which
+  already existed to print one answer GROUP per runnable form, and compares
+  the groups as VALUES rather than as text. Both matter and both were got
+  wrong first. Comparing flat lines could not tell `!(superpose (1 2 3))`
+  then `!(+ 1 1)` from `!(superpose (1 2))` then `!(superpose (3 2))`,
+  since both emit the answers 1 2 3 2; that file's own header says why the
+  grouping is the observation. And comparing text reported the engine's
+  `true` against the library's `True` on 191 of 200 files, which is a
+  spelling and not an answer: both parse to `Gnd(True)`.
+
+- `tests/example_skips.txt`, the one definition of which examples a runner
+  does not run, each with its reason. There were four: six basenames in
+  `test.sh`, six in `bench.sh`, seven in `check.sh`, and all of them
+  matched on basename, which silently skips any future example sharing a
+  name with one of these. `check.sh`'s seventh entry never matched
+  anything: it named a file under `_fixtures/`, which the runners' own
+  `find` excludes before any skip is consulted.
+
+  `test.sh` and `check.sh` now match on PATH; `bench.sh` still derives
+  basenames from the same file, and that difference is real rather than an
+  oversight, because it compares against an upstream base whose examples
+  are flat where this tree groups them into folders.
+
+### Fixed
+
+- An empty Python tuple no longer kills a run through the library. janus
+  renders a Python tuple as a `-` compound, so `(1, 2)` arrives as `1-2`
+  and `()` arrives as SWI's zero-arity compound `-()`; the shim's encoder
+  used `=../2`, which raises `Domain error: compound_non_zero_arity` on
+  that term. It reached ordinary Python return values: `''.split()` of an
+  empty string, `np.shape` of a scalar, a zero-row fetch. Only the library
+  was affected, because the engine has its own writer and never ran that
+  clause, which is why no lane saw it.
+
+- The stated size of the example corpus is now derived from the runners'
+  own definition instead of restated in three places. `examples/README.md`
+  said 184, `llms.txt` said 242 (a glob counting 24 symlink aliases and 12
+  fixtures), and the survey ledger said 169. Two hundred run: 242 paths,
+  218 of them regular files, 206 discovered once fixtures are excluded,
+  200 once the six declared skips are.
+
+- `examples/libraries/test_datetime.metta` checks what is checkable about a
+  clock instead of printing one. Three of its forms printed a live reading
+  and asserted nothing, so the file could not be reproduced and verified
+  none of what it demonstrated.
+
+
 ### Changed
 
 - **Breaking.** The Python name is the MeTTa name, verbatim. Nine places

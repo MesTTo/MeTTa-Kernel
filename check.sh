@@ -118,12 +118,20 @@ run GATE examples sh -c "cd '$HERE' && sh tests/regression/test_specializer_regr
 check_specialization_differential() {
     cd "$HERE" || return 1
     found=$(mktemp)
+    # tests/example_skips.txt is the one definition, read by every runner.
+    # This used to carry its own seven basenames against test.sh's six, and
+    # the seventh, import_error_broken.metta, never matched anything: it
+    # lives under _fixtures/, which the find above excludes before any skip
+    # is consulted [measured 2026-08-18].
+    PETTA_SKIPS=$(command grep -v '^#' tests/example_skips.txt | awk 'NF {print $1}')
+    export PETTA_SKIPS
     find examples -name '*.metta' ! -path '*_fixtures*' -print0 |
         xargs -0 -P "$(nproc 2>/dev/null || echo 4)" -I {} sh -c '
-            case "$(basename "$1")" in
-                repl.metta|llm_cities.metta|torch.metta|greedy_chess.metta|\
-                git_import2.metta|torch_lib.metta|import_error_broken.metta)
-                    exit 0 ;;
+            case "
+$PETTA_SKIPS
+" in *"
+$1
+"*) exit 0 ;;
             esac
             out=$(PETTA_VERIFY_SPECIALIZATIONS=1 timeout 120 swipl \
                       --stack_limit=8g -q -s src/main.pl -- "$1" backends \
@@ -138,6 +146,15 @@ check_specialization_differential() {
 }
 run GATE spec-differential check_specialization_differential
 run GATE packaged sh -c "cd '$HERE' && sh tests/test_packaged_cli.sh"
+
+# A git worktree of this repository silently runs one backend fewer than the
+# checkout it was cut from: mork_ffi/target/ and mork_ffi/morklib.so are
+# gitignored build output, and backends/mork.pl reads their absence as "this
+# backend was not built" rather than as an error, which is right for a tree
+# that never built it and wrong for a worktree of one that did. Every suite
+# then passes while testing less. worktree.sh links them; this shows the
+# difference in both directions [measured 2026-08-18: 0.21s].
+run GATE worktree sh -c "cd '$HERE' && sh tests/test_worktree_configuration.sh"
 
 # Undefined predicates in the engine. Nothing checked the Prolog side before
 # this; SWI has had the check built in all along.
@@ -274,6 +291,33 @@ run GATE plunit check_plunit
 # exits 0 instead of failing a checkout that never had it.
 run REPORT leatta      sh -c "cd '$HERE' && '$PY' tests/conformance/leatta.py --timeout 25 --show 12"
 
+# The example corpus is the executable semantics documentation, and until this
+# lane existed it only ever ran through the ENGINE: the examples gate below
+# invokes swipl on src/main.pl, test.sh and test_metta_examples.py shell to
+# run.sh, and the plunit suites load src/metta.pl without python/petta/shim.pl.
+# So the configuration users actually ship was gated by unit tests alone, and
+# defects lived there under green lanes: !(py-atom "()") answered () in the
+# engine and raised out of the library, and a declared type on a Python object
+# was kept in one and dropped in the other, both with a green plunit test above
+# them because plunit loads the engine without the shim.
+#
+# REPORT rather than GATE, and the reason is written down rather than absorbed:
+# it finds SEVEN examples that pass in the engine and fail in the library, all
+# one root (the library's load() does not pre-register the file's function
+# signatures the way src/filereader.pl:247 does, so a ! naming a function
+# defined LATER in the same file fails there). Those seven are scheduled, not
+# excluded; the lane becomes a GATE when they pass
+# [measured 2026-08-18: 193/200 agree].
+#
+# It reads the engine through tests/conformance/leatta_run.pl, which already
+# existed to print one answer GROUP per runnable form, and compares the groups
+# as VALUES rather than as text. Both matter and both were got wrong first:
+# comparing flat lines could not tell !(superpose (1 2 3)) then !(+ 1 1) from
+# !(superpose (1 2)) then !(superpose (3 2)), and comparing text reported the
+# engine's `true` against the library's `True` on 191 of 200 files, which is
+# a spelling and not an answer.
+run REPORT parity      sh -c "cd '$HERE' && '$PY' python/tools/example_parity.py"
+
 # The obligation headers are the contract a library author reads, and a
 # [tested X] tag is the strongest evidence in the scheme. Thirteen of them
 # named tests that had never existed in the tree's history, including three
@@ -283,6 +327,14 @@ run REPORT leatta      sh -c "cd '$HERE' && '$PY' tests/conformance/leatta.py --
 # no engine, and finishes in under a second, so it runs before anything that
 # can hang.
 run GATE evidence   "$PY" "$HERE/tests/check_evidence_tags.py"
+
+# The evidence gate is itself a claim, so it is checked the same way. A fixture
+# tree carries 15 planted citations, 6 that must be accepted and 9 that must be
+# rejected, and the self-test asserts the exact line each finding lands on AND
+# that nothing else is reported. Nine mutations, each disabling exactly one
+# rule, were each caught with the right complaint and nothing else, which is
+# what stops the fixture passing vacuously [measured 2026-08-18: 0.07s].
+run GATE evidence-selftest "$PY" "$HERE/tests/check_evidence_selftest.py"
 
 # Every website/reference/petta-*.md page says "The entries below reproduce the
 # source signatures and docstrings", and across nineteen pages that promise was

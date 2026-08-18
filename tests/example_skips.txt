@@ -1,0 +1,21 @@
+# Examples the shell suites do not run, one PATH per line, then its reason.
+# Blank lines and lines starting with # are ignored.
+#
+# Why this file exists. The skip list used to be six basenames in test.sh
+# and seven in check.sh, two copies that already disagreed, and both
+# matched on BASENAME rather than path. Basename matching is latent
+# breakage: it silently skips any future example sharing a name with one
+# of these [measured 2026-08-18: 0 collisions among the 206 examples
+# discovery yields, so the exposure is real and not yet realised]. Every runner
+# reads this file now, and a skip carries the reason the two lists could
+# not.
+#
+# check.sh's seventh entry, import_error_broken.metta, is not here: it
+# lives under _fixtures/ and the runners' own find excludes that
+# directory, so the entry never matched anything [measured 2026-08-18].
+examples/basics/repl.metta              needs an interactive terminal
+examples/integration/llm_cities.metta   needs a network and an API key
+examples/integration/torch.metta        needs torch installed
+examples/integration/torch_lib.metta    needs torch installed
+examples/integration/git_import2.metta  clones from the network
+examples/reasoning/greedy_chess.metta   long-running, covered by benchmarks

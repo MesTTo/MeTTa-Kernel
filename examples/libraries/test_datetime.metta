@@ -1,15 +1,17 @@
 !(import! &self (library lib_datetime))
 
-!(let $now-ts (now) ($now-ts))
-
-!(let* (($now-ts (now))
-        ($formatted (format-date $now-ts "%Y-%m-%d %H:%M:%S")))
-    ($formatted))
-
-!(let* (($ts (now))
-        ($plus-3600 (+ $ts 3600))
-        ($formatted (format-date $plus-3600 "%Y-%m-%d %H:%M:%S")))
-    ($formatted))
+;`now` answers the current Unix time, so a form that PRINTS it verifies
+;nothing and cannot be reproduced: the same file run twice a second apart
+;answers two different numbers. These three used to print a live reading,
+;which is why the two-configuration parity lane reported them as a
+;difference that was not one. What is checkable about a clock is that it
+;runs forward from a date already past and that formatting it is stable
+;within one reading; the fixed timestamps below check format-date's output
+;itself.
+!(test (let $ts (now) (< 1735689600 $ts)) True)
+!(test (let $ts (now)
+         (== (format-date $ts "%Y-%m-%d") (format-date $ts "%Y-%m-%d")))
+       True)
 
 !(let* (($ts 1766188800)
         ($dow (day-of-week $ts)))

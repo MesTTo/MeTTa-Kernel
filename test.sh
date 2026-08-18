@@ -37,10 +37,19 @@ else
 fi
 [ -s "$filelist" ] || { echo "test.sh: no examples found" >&2; exit 2; }
 
+# The skips come from tests/example_skips.txt, which is the one definition
+# every runner reads. They used to be six basenames here and seven in
+# check.sh, two copies that disagreed, and matching on BASENAME silently
+# skips any future example that happens to share a name with one of these.
+SKIPS=$(command grep -v '^#' tests/example_skips.txt | awk 'NF {print $1}')
+
 while IFS= read -r f; do
-    base=$(basename "$f")
-    case "$base" in repl.metta|llm_cities.metta|torch.metta|greedy_chess.metta|git_import2.metta|torch_lib.metta)
-        continue ;;
+    rel=${f#./}
+    case "
+$SKIPS
+" in *"
+$rel
+"*) continue ;;
     esac
     run_test "$f" &
     pid=$!

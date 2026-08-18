@@ -44,7 +44,14 @@ echo "head: $(git -C "$HERE" rev-parse --short HEAD)  base: $(git -C "$HERE" rev
 # minus the interactive and hardware-bound files test.sh also skips.
 # Files that exist on both sides with different bytes are named, not
 # silently dropped; files only the base has would be lost coverage.
-SKIP='repl.metta llm_cities.metta torch.metta greedy_chess.metta git_import2.metta torch_lib.metta'
+# DERIVED from tests/example_skips.txt, the one definition every runner
+# reads, but as BASENAMES rather than paths, and that difference is real
+# rather than an oversight: this harness compares against an upstream base
+# whose examples are flat where HEAD groups them into topic folders, so it
+# resolves each file by basename anywhere under HEAD's tree. Matching on
+# path here silently dropped 138 of 162 files once already.
+SKIP=$(command grep -v '^#' "$HERE/tests/example_skips.txt" |
+       awk 'NF {n = split($1, p, "/"); printf "%s ", p[n]}')
 CORPUS="$WORK/corpus.txt"
 : > "$CORPUS"
 changed=''
