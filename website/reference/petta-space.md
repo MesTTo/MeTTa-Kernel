@@ -692,6 +692,7 @@ def eval(
     self,
     target: Any,
     *,
+    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
     capture: bool = False,
@@ -713,6 +714,13 @@ def eval(
 > additionally fills each Undefined's .residual with the residual
 > program, the clauses of the loop itself. run() does not carry the
 > third truth value; evaluate through eval() when it matters.
+>
+> `using` binds named host values into the term before it evaluates,
+> exactly as it does for run(): `m.eval("(decide $x)", using={"x":
+> tensor})` hands the tensor itself to the rule, by identity, rather
+> than a printed form of it. The evaluation doors take the same
+> vocabulary the source door takes, so reaching for a term instead
+> of source text costs no change of spelling.
 >
 > `timeout` (seconds) and `inferences` (engine steps) bound the call,
 > raising TimeLimitError or InferenceLimitError when hit. With
@@ -843,7 +851,14 @@ def run_status(
 ### `MeTTa.one`
 
 ```python
-def one(self, target: Any, *, timeout: float | None = None, inferences: int | None = None) -> Any:
+def one(
+    self,
+    target: Any,
+    *,
+    using: dict[str, Any] | None = None,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Any:
 ```
 
 > THE answer of evaluating target, as a plain Python value.
@@ -870,7 +885,14 @@ def one(self, target: Any, *, timeout: float | None = None, inferences: int | No
 ### `MeTTa.first`
 
 ```python
-def first(self, target: Any, *, timeout: float | None = None, inferences: int | None = None) -> Any:
+def first(
+    self,
+    target: Any,
+    *,
+    using: dict[str, Any] | None = None,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Any:
 ```
 
 > The first answer as a plain Python value, or None for no answers.

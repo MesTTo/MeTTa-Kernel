@@ -346,7 +346,7 @@ declares an Enum, dataclass or NamedTuple into a space with constructor
 declarations and one accessor equation per field, `rows.build(col, Person)`
 rebuilding answers as instances and preserving `Person` for type checkers;
 `rows.to_dicts()` returning one plain mapping per answer;
-`m.run(src, using={"df": df})`, naming
+`using={"df": df}` on `run`, `eval`, `one` and `first`, naming
 host values by bare symbol with identity intact; `m.subscribe(pattern,
 callback)`, a standing query delivered inside the very write that matched
 it (or queued for `drain()`), which is the actors-and-pub-sub reading of a

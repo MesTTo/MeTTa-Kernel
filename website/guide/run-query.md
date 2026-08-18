@@ -192,6 +192,26 @@ Issue #177 proposes a separate spelling, `::`, "when position cannot
 distinguish the two uses". Position can, so there is no second spelling to
 learn.
 
+## Name a host value inside one term
+
+`using=` maps bare symbols to Python objects, and the object crosses by
+identity, not by a copy or a repr:
+
+```python
+model = load_classifier()
+answers = m.eval("(gated v)", using={"v": model.predict(row)})
+verdict = m.one("(gated v)", using={"v": model.predict(row)})
+```
+
+The symbol is bare, `v`, not `$v`: a `$` name is a MeTTa variable the engine
+will bind for you, while `using=` names something you already have. All four
+evaluating doors take it, `run`, `eval`, `one` and `first`, plus their
+`AsyncMeTTa` twins, so a value can be routed through a rule without first
+being written into a space and removed afterwards.
+
+It does not compose with `residuals=`, and the call says so rather than
+quietly dropping one of them.
+
 ## Match something already known
 
 A match pattern binds. `(:= X)` makes one position **check** instead:

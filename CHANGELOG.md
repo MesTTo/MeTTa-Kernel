@@ -8,6 +8,19 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `using=` reaches the term doors, not just `run()`. `eval`, `one` and
+  `first`, and their `AsyncMeTTa` twins, now take the same mapping of
+  bare symbols to host values, so a Python object can be named inside a
+  single expression without being written into a space first. The gap
+  was found by writing a torch example: routing one classifier output
+  through a MeTTa rule needed `m.one("(gated v)", using={"v": tensor})`
+  and only `run` accepted it, which forced the caller to either wrap the
+  term in a `!` directive or add and remove a fact around the call.
+  `using=` and `residuals=` are refused together rather than silently
+  ignoring one: residuals leave the door through a different predicate
+  that has no substitution step, and pretending otherwise would answer
+  an unsubstituted term.
+
 - Added a verification mode for the specializer, and a gate lane that
   runs it over the whole example corpus. Under
   `PETTA_VERIFY_SPECIALIZATIONS` (or

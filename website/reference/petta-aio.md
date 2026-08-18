@@ -220,6 +220,7 @@ async def eval(
     self,
     target: Any,
     *,
+    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
     capture: bool = False,
@@ -236,6 +237,7 @@ async def one(
     self,
     target: Any,
     *,
+    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
 ) -> Any:
@@ -403,6 +405,7 @@ async def first(
     self,
     target: Any,
     *,
+    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
 ) -> Any:
