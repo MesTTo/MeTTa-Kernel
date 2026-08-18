@@ -243,6 +243,21 @@ check_reachability_selftest() {
 }
 run GATE prolog-reach-selftest check_reachability_selftest
 
+# The execution plan carries 175 numbered items and no status column, so the
+# integrator dispatched three already-completed items off it in one wave. This
+# derives status by ASKING THE TREE for each item's checkable anchor.
+#
+# It decides 5 of 158 today, and that low number is the finding rather than a
+# weak tool: 62 items name no checkable anchor at all. Three generous
+# heuristics were tried and each produced CONFIDENT WRONG verdicts, all three
+# recorded in the module's own docstring with the item that caught them, so
+# UNKNOWN is reported wherever a guess would be needed.
+run REPORT spec-status          "$PY" "$HERE/tests/check_spec_status.py"
+# Same split as evidence / prolog-reach: the report is forgiving, the proof
+# that it still discriminates is not. 17 planted cases, plus a FIXED item whose
+# file is deleted, confirmed OPEN, restored and confirmed FIXED again.
+run GATE   spec-status-selftest "$PY" "$HERE/tests/check_spec_status_selftest.py"
+
 # The same walk as the backend GATE above, over lib/ instead, and a REPORT
 # because the backend answer is settled and the library one is not. A backend
 # is third-party and arm's length by construction; a shipped library sits
