@@ -14,6 +14,7 @@
 #                                            xenon refurb vulture slotscheck
 #                                            bandit deptry audit interrogate
 #                                            codespell imports jscpd prolog
+#                                            leatta leatta-gate-selftest
 #                                            pytest benchmarks instructions
 #                                            shell examples leatta
 #          CHECK_PY=/path/to/python   pick the interpreter
@@ -339,7 +340,12 @@ run GATE plunit check_plunit
 #
 # It lives outside this repository, so with LeaTTa absent the script says so and
 # exits 0 instead of failing a checkout that never had it.
-run REPORT leatta      sh -c "cd '$HERE' && '$PY' tests/conformance/leatta.py --timeout 25 --show 12"
+run GATE   leatta       sh -c "cd '$HERE' && '$PY' tests/conformance/leatta.py --timeout 25 --show 12 --gate-areas-file tests/conformance/leatta_gated_areas.txt"
+# The discrimination proof itself. None of LeaTTa's nine real areas is clean
+# enough yet to demonstrate a promoted-area regression against real data, so
+# this runs the real compare() path over a two-area fixture, one promoted and
+# one not, and proves both directions plus the two hard-error paths.
+run GATE   leatta-gate-selftest "$PY" "$HERE/tests/conformance/leatta_gate_selftest.py"
 
 # The example corpus is the executable semantics documentation, and until this
 # lane existed it only ever ran through the ENGINE: the examples gate below
