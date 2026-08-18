@@ -17,7 +17,7 @@
 %     - engine_integrity_report/0 parses every .metta file under examples/,
 %       lib/ and tests/ with the engine's own parser and names each colliding
 %       equation with its file and the module that owns the predicate it takes
-%       over [measured 2026-08-19: 2 collisions over 274 files]
+%       over [measured 2026-08-19: 2 collisions over 267 files]
 %     - both findings were confirmed by running the file and re-asking SWI, not
 %       inferred from the scan [measured 2026-08-19: loading
 %       examples/functions/invertpeanoplus.metta took user:plus/3 from
