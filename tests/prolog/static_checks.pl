@@ -8,6 +8,12 @@
 %     replaced had metta_backend_selftest/0 missing and metta_dispatch_call/4
 %     wrongly present [source: their call sites, main.pl:36 and
 %     translator.pl:350].
+%   - space_module/2 (src/spaces.pl:231-232) and native_storage_module_cache/2
+%     (src/spaces.pl:54) are the engine's own, and correct, record of which
+%     modules exist; candidate_engine_module/1 below discovers modules through
+%     them rather than by naming one, which is what keeps every check in this
+%     file from hardcoding `user` [source: ai-phase11-module-survey.md
+%     section 1.2, workspace root, "space_module/2 is the only door"].
 % Guarantees:
 %   - The driver runs the four reviewed library(check) predicates and check/0
 %     after a function with control flow has been compiled.
@@ -24,8 +30,10 @@
 %     checked twice over because neither reading sees the other's clauses: the
 %     tree's sources including the clauses directives assert, and the live
 %     database after the libraries load, which is the only way to see a
-%     handler installed at run time [measured 2026-08-17: 0 offenders in 18
-%     source clauses and 62 live ones].
+%     handler installed at run time, in every module candidate_engine_module/1
+%     discovers rather than only in `user`
+%     [measured 2026-08-19: 0 offenders in 19 source clauses and 71 live
+%     ones].
 %   - No backend calls an engine predicate that is not published surface: a
 %     declared service, a declared seam, or a MeTTa builtin. The walk is SWI's
 %     own prolog_walk_code/1, the one list_undefined/0 uses, so it reaches a
@@ -35,8 +43,13 @@
 %   - No compile-time-only helper reaches a generated clause body, over source
 %     exercising a lambda, the three collection forms, sealed, and a
 %     higher-order call the specializer takes. The walk covers every COMPOUND
-%     SUBTERM of every clause of every registered function
-%     [measured 2026-08-17: 0 offenders in 241 bodies].
+%     SUBTERM of every clause of every registered function, in every module
+%     candidate_engine_module/1 discovers rather than only in `user`
+%     [measured 2026-08-19: 0 offenders in 276 bodies; up from 241 on
+%     2026-08-17 as the prelude grew, plus one genuinely new body this walk
+%     reaches that the `user`-only one never did: library(yall)'s own `/`/3,
+%     reachable from `system` and distinct from, but same name and arity as,
+%     the engine's MeTTa `/` in `user`].
 %   - Five of the six checks prove themselves non-vacuous against a planted
 %     offender before a clean result is accepted, and report WHICH plant
 %     stopped firing rather than only that one did. This is not ceremony, and
@@ -52,12 +65,92 @@
 %     one that mattered more, a backend's OWN helper taking a goal without
 %     declaring itself a meta-predicate, which is why the walk is SWI's now
 %     and its four doors are asserted as real clauses and walked for real.
+%   - Two of those five, the compile-time-helper walk and the live-hook scan,
+%     plant into a SECOND module as well as the one &self compiles into today,
+%     one created at runtime and named and classed the way a Phase 11
+%     execution module will be, and both plants have to be found for the
+%     check to accept a clean result. That is the module-agnostic discovery
+%     proved against two topologies at once, not just asserted
+%     [measured 2026-08-19: no_compile_time_helper_in_a_compiled_body and
+%     no_cut_in_a_live_hook_clause below].
+% Fails when:
+%   - a function is compiled into a space whose storage is FOREIGN (backed by
+%     an external provider such as MORK) rather than native. See
+%     known_metta_space/1's own note below; this is unchanged from before this
+%     file discovered modules instead of naming `user`, since the `user`-only
+%     walk never looked at a foreign space's module either.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
 :- use_module(library(check)).
+:- use_module(library(solution_sequences)).
+
+%%%% Which modules the engine's predicates can live in %%%%
+%
+% Every check below used to assume `user`, which is where &self's compiled
+% clauses and the engine's own seams happen to live TODAY because nothing in
+% the tree has ever given them a module of their own. Phase 11
+% (ai-phase11-module-survey.md section 2.1, workspace root) gives &self its
+% own execution module, '$petta_exec:&self', based on a shared '$petta_core',
+% and every other space '$petta_exec:<Space>' beside it. A check that keeps
+% naming `user` would then examine the one module nothing compiles into any
+% more and report clean, which is the failure this section exists to close.
+%
+% The fix asks the engine rather than guessing a name. space_module/2 is
+% already the one place that answers "which module does this space compile
+% into" (src/spaces.pl:231-232, ai-phase11-module-survey.md section 1.2's
+% "only door"), so every space the engine currently knows about is walked up
+% its OWN import chain and every module the walk visits is a candidate.
+%
+% default_module/2 is the walk, not current_module/1 or current_predicate/2
+% run with the module argument unbound. Both of those silently skip any
+% module whose SWI class is `system` when asked to GENERATE one, and
+% `system` is exactly the class SWI gives an implicitly-created module named
+% with a leading `$` [SWI-Prolog 10.1 Reference Manual sections 6.13, 6.15]
+% -- precisely how a per-space execution module comes to exist, since a
+% space's name is not known until the MeTTa program that creates it runs.
+% default_module/2 walks from a MODULE THAT IS ALREADY KNOWN rather than
+% generating over every module that exists, and that is what keeps it
+% working: a bound starting point is a lookup, not an enumeration, so the
+% class that hides a module from current_module/1's generate mode never
+% enters into it [measured 2026-08-19: current_predicate(_, M:Head) called
+% with M unbound found a class(user) module holding the target predicate
+% and missed a sibling class(system) module holding the identical predicate
+% under the identical name; default_module/2 walked from a bound starting
+% module reached the class(system) module every time. Confirmed against the
+% fully loaded engine plus a runtime-created second space and, further, a
+% runtime-created module named and classed the way a Phase 11 execution
+% module will be -- see no_compile_time_helper_in_a_compiled_body's and
+% no_cut_in_a_live_hook_clause's anti-vacuity probes below, which are that
+% same rehearsal turned into a standing check].
+%
+% known_metta_space/1 does not need its own proof of completeness: it reads
+% native_storage_module_cache/2, the STORAGE family's own registry
+% (src/spaces.pl:54), which every native add-atom or equation already
+% populates as a side effect of storing into a space
+% (src/spaces.pl:79-98,134-135,399-402), so it grows exactly when a space
+% becomes worth scanning. '&self' is listed explicitly besides, because the
+% invariant that it is always pre-seeded (src/spaces.pl:104) belongs to
+% spaces.pl to keep, not to this file to assume silently.
+%
+% Fails when: a function is compiled into a FOREIGN space (one backed by an
+% external provider such as MORK). add_equation/4's foreign clause
+% (src/spaces.pl:394-398) compiles into that space's execution module the
+% same way a native one does, but deliberately does not touch the native
+% storage cache, so such a space is invisible to known_metta_space/1. This
+% is not a narrowing: the `user`-only walk it replaces never looked at any
+% space but &self either, foreign or native.
+known_metta_space('&self').
+known_metta_space(Space) :- native_storage_module_cache(Space, _).
+
+candidate_engine_module(Module) :-
+    distinct(Module,
+             ( known_metta_space(Space),
+               space_module(Space, SpaceModule),
+               default_module(SpaceModule, Module) )).
+
 :- ensure_loaded(surface_walk).
 :- initialization(main, main).
 
@@ -256,11 +349,25 @@ source_stream_term(Stream, Term) :-
 % installed, and the source one sees a file nothing has loaded. The libraries
 % are loaded first so their handlers are among the clauses, and that happens
 % last in main/0 so a library load cannot perturb an earlier check.
+% Walking every candidate module means a predicate that is only INHERITED
+% (never locally defined) is reachable from more than one of them: SWI
+% resolves a module-qualified clause/current_predicate query through the
+% whole import chain, not just the named module, so the same physical
+% clause answers under every descendant's name too
+% [measured 2026-08-19: clause(Descendant:Head, Body, Ref) and
+% clause(Ancestor:Head, Body, Ref) returned the IDENTICAL clause reference
+% for a predicate defined only in Ancestor]. distinct/2 keyed on that
+% reference, not on the (Module, Body) pair, is what keeps a shared or
+% inherited clause counted once no matter how many candidate modules can
+% see it.
 live_hook_clause(Name/Arity, Body) :-
     ext_point_every_clause_runs(Name/Arity),
     functor(Head, Name, Arity),
-    current_predicate(_, user:Head),
-    catch(clause(user:Head, Body), error(permission_error(_, _, _), _), fail).
+    distinct(Ref,
+             ( candidate_engine_module(Module),
+               current_predicate(_, Module:Head),
+               catch(clause(Module:Head, Body, Ref),
+                     error(permission_error(_, _, _), _), fail) )).
 
 no_cut_in_a_live_hook_clause :-
     forall(library_source(Library), ensure_loaded(Library)),
@@ -286,22 +393,44 @@ library_source(Library) :-
 % line, so the clean result is only accepted after the same walk has been
 % shown to see a planted offender. The seam it plants into is dynamic and its
 % handlers run on function removal, and the clause is retracted either way.
+%
+% The plant itself is discovered rather than named, via the same
+% candidate_engine_module/1 the scan uses, so it moves with the scan instead
+% of naming `user` beside it: a probe that cannot move with the scan is not a
+% proof the scan still works after the scan's own target moves.
+%
+% A second, DIFFERENT module is planted alongside the first, created at
+% runtime and named and classed the way a Phase 11 execution module will be
+% (leading `$`, so SWI gives it base and class `system`
+% [SWI-Prolog 10.1 Reference Manual sections 6.13, 6.15]), registered as a
+% known space the same way a real one is (src/spaces.pl:79-98's
+% native_storage_module_cache/2). Seeing both is the two-topology proof: one
+% plant lands where TODAY's engine already runs, the other lands in a module
+% shaped like the one Phase 11 introduces, and the walk has to find both
+% without being told where either one is.
 live_scan_sees_a_planted_cut :-
     aggregate_all(count, live_hook_clause(_, _), Live),
     Planted = metta_on_function_removed(_),
+    space_module('&self', TodayModule),
+    Fixture = '$static-check-fixture:&hook-probe',
     setup_call_cleanup(
-        assertz((user:Planted :- (!, fail))),
+        ( assertz((TodayModule:Planted :- (!, fail))),
+          assertz(native_storage_module_cache(Fixture, unused)),
+          assertz((Fixture:Planted :- (!, fail))) ),
         aggregate_all(count,
                       ( live_hook_clause(_, Body), cut_in_clause_scope(Body) ),
                       Seen),
-        retract((user:Planted :- (!, fail)))),
-    (   Seen >= 1
+        ( retract((TodayModule:Planted :- (!, fail))),
+          retractall(native_storage_module_cache(Fixture, _)),
+          retract((Fixture:Planted :- (!, fail))) )),
+    (   Seen >= 2
     ->  format("static: no cut in any of ~d live clauses of the seams whose \c
                 kind says every clause runs, and the scan saw a planted \c
+                cut in today's module and in a second, runtime-created \c
                 one~n", [Live])
     ;   format(user_error,
-               'the live hook scan did not see a planted cut, so its clean \c
-                result says nothing~n', []),
+               'the live hook scan saw ~d of 2 planted cuts across two \c
+                modules, so its clean result says nothing~n', [Seen]),
         fail
     ).
 
@@ -400,14 +529,22 @@ compile_time_helper_source("
 % ones. A lambda's clause carries no translated_from record, and the lambda is
 % where A1 lived, so keying on that record would have walked past the defect
 % this exists to catch.
+% distinct/2 on the clause reference, not on (Module, Body): walking every
+% candidate module reaches an INHERITED predicate once per descendant whose
+% chain can see it, and clause/3 on two different descendants of the same
+% definition returns the SAME reference, so keying on the reference is what
+% keeps a shared or core-defined function counted once rather than once per
+% space that can reach it [measured 2026-08-19, see live_hook_clause/2].
 generated_clause(Owner, Body) :-
     fun(Owner),
     arity(Owner, Arity),
     compiled_function_name(Owner, Name),
     functor(Head, Name, Arity),
-    current_predicate(_, user:Head),
-    predicate_property(user:Head, number_of_clauses(_)),
-    clause(user:Head, Body).
+    distinct(Ref,
+             ( candidate_engine_module(Module),
+               current_predicate(_, Module:Head),
+               predicate_property(Module:Head, number_of_clauses(_)),
+               clause(Module:Head, Body, Ref) )).
 
 no_compile_time_helper_in_a_compiled_body :-
     compile_time_helper_source(Source),
@@ -435,29 +572,55 @@ no_compile_time_helper_in_a_compiled_body :-
 % line. So the clean result is only accepted after the same walk has been shown
 % to see a planted offender: one clause, one `>>` in its body, registered the
 % way a generated function is, removed again either way.
+%
+% fun/1 and arity/2 stay unqualified, because generated_clause/2 itself reads
+% them unqualified: they are the compiler's own flat, engine-wide bookkeeping
+% of which names are known functions, not per-space state, and moving them
+% under a module qualifier here would test a shape the real predicate does
+% not have [verified 2026-08-19: a function compiled into a SECOND real space
+% still registers a plain, unqualified fun/1 fact, readable from this file's
+% own module]. Only the COMPILED CLAUSE is module-specific, so only that part
+% is planted into a discovered module rather than a named one.
+%
+% Two plants, exactly as live_scan_sees_a_planted_cut/0 above: one in
+% whatever module &self compiles into today, discovered rather than named,
+% and a second in a runtime-created module named and classed the way a
+% Phase 11 execution module will be. Finding the helper in BOTH is the
+% two-topology proof for this check specifically; generated_clause/2 is the
+% predicate the survey measured going from 275 bodies to 1 while still
+% reporting clean, and this is what closes that.
 detector_sees_a_planted_helper(Bodies) :-
     Planted = 'static-check-planted-helper',
+    space_module('&self', TodayModule),
+    Fixture = '$static-check-fixture:&helper-probe',
+    Head =.. [Planted, In, Out],
     setup_call_cleanup(
-        ( assertz(user:fun(Planted)),
-          assertz(user:arity(Planted, 2)),
-          Head =.. [Planted, In, Out],
-          assertz((user:Head :- maplist([A]>>(Out = A), [In]))) ),
+        ( assertz(fun(Planted)),
+          assertz(arity(Planted, 2)),
+          assertz(native_storage_module_cache(Fixture, unused)),
+          assertz((TodayModule:Head :- maplist([A]>>(Out = A), [In]))),
+          assertz((Fixture:Head :- maplist([A]>>(Out = A), [In]))) ),
         aggregate_all(count,
                       ( generated_clause(_, Body),
                         body_subterm(Body, Sub),
                         functor(Sub, Name, _),
                         compile_time_helper(Name) ),
                       Seen),
-        ( retractall(user:fun(Planted)),
-          retractall(user:arity(Planted, 2)),
+        ( retractall(fun(Planted)),
+          retractall(arity(Planted, 2)),
+          retractall(native_storage_module_cache(Fixture, _)),
           functor(Gone, Planted, 2),
-          retractall(user:Gone) )),
-    (   Seen >= 1
+          retractall(TodayModule:Gone),
+          retractall(Fixture:Gone) )),
+    (   Seen >= 2
     ->  format("static: no compile-time helper in any of ~d generated \c
-                clause bodies, and the walk saw a planted one~n", [Bodies])
+                clause bodies, and the walk saw a planted one in today's \c
+                module and one in a runtime-created second module~n",
+               [Bodies])
     ;   format(user_error,
-               'the compile-time-helper walk did not see a planted `>>`, so \c
-                its clean result says nothing~n', []),
+               'the compile-time-helper walk saw ~d of 2 planted helpers \c
+                across two modules, so its clean result says nothing~n',
+               [Seen]),
         fail
     ).
 
@@ -551,7 +714,7 @@ seam_direction_fault(Seam, Kind, Fault) :-
     ext_point_clauses_from(Kind, engine),
     Seam = Name/Arity,
     functor(Head, Name, Arity),
-    \+ current_predicate(_, user:Head),
+    \+ ( candidate_engine_module(Module), current_predicate(_, Module:Head) ),
     Fault = 'is published but not defined, so a caller reaching for it gets \c
              an existence error'.
 

@@ -8,10 +8,19 @@
 %       makes between its source scan and its live scan]
 %     - the working directory is tests/prolog, which is where check.sh runs
 %       both of its callers from
+%     - candidate_engine_module/1 is defined by the caller. This file has no
+%       module of its own and no fixed name for the engine's: static_checks.pl
+%       loads this file specifically so engine_predicate/1 can ask it which
+%       modules to check rather than naming `user`, which is the one module
+%       Phase 11 stops using for this
+%       [source: ai-phase11-module-survey.md section 2.1, workspace root;
+%       static_checks.pl's own header explains the discovery].
 % Guarantees:
 %     - reaches_past_surface/2 answers every call from a clause under one of
 %       the given directories to a predicate defined under src/ that is neither
-%       a declared extension point nor a MeTTa builtin
+%       a declared extension point nor a MeTTa builtin, in whichever module
+%       candidate_engine_module/1 says the engine's predicates live in rather
+%       than only in `user`
 %     - the walk reaches a call through control structure, through a declared
 %       meta-argument, and through a meta-predicate NOBODY declared, because
 %       SWI infers those [tested: planted_reach/2 in static_checks.pl, one
@@ -108,7 +117,8 @@ tree_directory(Relative, Directory) :-
 
 engine_predicate(Name/Arity) :-
     functor(Head, Name, Arity),
-    catch(predicate_property(user:Head, file(File)), _, fail),
+    candidate_engine_module(Module),
+    catch(predicate_property(Module:Head, file(File)), _, fail),
     tree_directory('../../src', EngineDir),
     sub_atom(File, 0, _, _, EngineDir).
 
