@@ -6,6 +6,77 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking.** The Python name is the MeTTa name, verbatim. Nine places
+  in the surface used to rewrite it, `fn.__name__.replace("_", "-")`, so
+  `@m.register_op def p_digit(...)` registered `p-digit` and the name the
+  author wrote never appeared in the space. Hyphens remain the MeTTa
+  convention, and Python cannot spell one, so a hyphenated name is now
+  ASKED for and visible at the registration:
+
+      @m.register_op(name="p-digit")
+      def p_digit(image, cls): ...
+
+  `@m.define` gained the same `name=`, including alongside `prolog=`,
+  because without it a compiled definition had no way to carry a
+  hyphenated name at all. `integrate.module_ops` and `@m.type`'s method
+  names stopped rewriting too.
+
+  Two lookups went with it. A `@m.define` body used to retry a called
+  identifier hyphenated, so `sqrt_math(x)` silently compiled to
+  `(sqrt-math x)`; it now resolves the name as written, and a body
+  reaches a hyphenated engine function through an alias equation it can
+  spell, `(= (sqrt_math $x) (sqrt-math $x))`. The `why()` diagnostic no
+  longer suggests a hyphenated twin, which `get_close_matches` already
+  covers as an ordinary near miss.
+
+  What prompted it was the inconsistency: the rewrite applied to
+  function names but not to match-pattern heads, so
+  `match(nn_next(b, x, y), ...)` in a define body compiled to
+  `(nn_next ...)`, matched none of the `(nn-next ...)` atoms in the
+  space, and answered nothing without an error. Removing the rewrite
+  removes the class of mismatch rather than extending it to one more
+  position.
+
+### Fixed
+
+- `ClosureView`'s own example did not work. It documented
+  `deps.reachable("app")` and `("app", "libc") in deps`, and a Python
+  `str` is a MeTTa String rather than the symbol of the same spelling, so
+  both answered nothing rather than the closure. The nodes are atoms,
+  `reachable(S.app)`, and the docstring says so now, which is also what
+  the generated reference page carries.
+
+- A registered operation could silently shadow a Prolog predicate the
+  engine itself calls. A MeTTa name compiles to a Prolog predicate of one
+  higher arity, and for several ordinary words that predicate already
+  belongs to SWI: registering an operation called `format` put a
+  `user:format/2` in front of the system's own, after which every
+  `println!` the engine ran reached the operation, printed nothing and
+  raised nothing (reproduced 2026-08-18: captured output went from
+  `"(hi)\n"` to `""`). `succ`, `plus`, `print`, `between` and
+  `nb_getval` were shadowable the same way. The name is now checked
+  before the assert rather than by letting the assert fail, since for
+  these names the assert was succeeding, and the test is
+  defined-and-not-dynamic: a system builtin and a library import are
+  both static, an autoloadable name reports defined before it has ever
+  been loaded, and an operation of ours stays dynamic, so re-registering
+  one is not mistaken for a collision.
+- Where the name really is taken, the refusal is now MeTTa's rather than
+  SWI's. `assertz/2: No permission to modify static procedure
+  'dcg_basics:digit/3'` names a module the author never imported and an
+  arity one higher than the one they wrote; the refusal now names the
+  operation, its MeTTa arity, the Prolog predicate it would collide
+  with, the module that owns it, and the two ways out. This is the
+  operation route's twin of what `assert_function_clause/3` already did
+  for the equation route.
+- Unregistering an operation whose name a protected system predicate
+  shares raised instead of unregistering: the walk asking whether any
+  clause of the name survives called `clause/3` on every arity of it,
+  and `clause/3` refuses a private procedure. A builtin is never a
+  clause of ours, so it is skipped rather than inspected.
+
 ### Added
 
 - Rewrote `llms.txt` and gated it. The file an agent reads instead of the
