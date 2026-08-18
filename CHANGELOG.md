@@ -71,6 +71,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and asserted nothing, so the file could not be reproduced and verified
   none of what it demonstrated.
 
+- An example's `check()` no longer asserts a wrong value, it raises.
+  `python -O` strips `assert` statements outright while the `print` beside
+  one still ran, so a wrong value printed as a passing check and exited 0:
+  every example's self-verification silently vanished under that flag.
+  `check()` raises `CheckFailed` now, an ordinary exception `-O` cannot
+  touch, so a wrong value stops the example the same way with or without
+  it, and `done()` also refuses to print `OK` for an example that checked
+  nothing before calling it.
+
 
 ### Changed
 
