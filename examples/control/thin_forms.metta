@@ -56,7 +56,16 @@
 ;Runs its branches concurrently, so `once` over an expensive branch and a
 ;cheap one answers as soon as the cheap one is done.
 !(test (once (hyperpose ((spin 3000000) (spin 3)))) done)
-!(test (collapse (hyperpose ((+ 1 1) (+ 2 2)))) (2 4))
+;Both branches ran and both answers came back, which is what collapse over
+;hyperpose observes. The msort is the assertion's, not the form's: answers
+;arrive in COMPLETION order, so (4 2) is as correct as (2 4) and this line
+;flaked at 4 runs in 30 without it [measured 2026-08-18, engine alone].
+;concurrent_and/3 is what hyperpose compiles to and its own documentation
+;says answers "may be produced out of order" [source: SWI-Prolog
+;library(thread), concurrent_and/2,3]; website/live/async.md says the same
+;in MeTTa's vocabulary and tells you to compare sets. The same sort for the
+;same reason is at examples/performance/hyperpose_primes.metta:13.
+!(test (msort (collapse (hyperpose ((+ 1 1) (+ 2 2))))) (2 4))
 
 ;--------------------------------------------------------- call
 ;Reaches a Prolog predicate with no registration at all, which is the point:
