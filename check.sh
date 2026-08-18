@@ -297,6 +297,15 @@ run GATE reference  "$PY" "$HERE/python/tools/reference.py"
 # surface interrogate provides for the Python side.
 run GATE libdoc     "$PY" "$HERE/python/tools/libdoc.py"
 
+# llms.txt is the file an agent reads INSTEAD of the tree, so a stale claim
+# there is believed rather than checked. It had gone stale exactly that way:
+# it named m.fresh_space() and m.value() after both were renamed, and
+# documented petta.matching and petta.measure after both were deleted. Every
+# name, path, count and vocabulary word in it is checked against the running
+# engine and the real tree here, and each of those five drift classes was
+# reproduced against this lane before it was wired in.
+run GATE llms       "$PY" "$HERE/python/tools/llmsdoc.py"
+
 # Structural checks with a clean baseline today, so a regression is a failure.
 run GATE slotscheck in_py "$PY" -m slotscheck -m petta
 run GATE vulture    in_py "$PY" -m vulture

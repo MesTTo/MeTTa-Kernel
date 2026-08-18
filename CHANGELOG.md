@@ -8,6 +8,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Rewrote `llms.txt` and gated it. The file an agent reads instead of the
+  tree had gone stale in the way that matters most: it named
+  `m.fresh_space()` and `m.value()` after both were renamed, documented
+  `petta.matching` and `petta.measure` after both were deleted, and
+  omitted the whole `declare_*` family, `petta.spaces`,
+  `petta.structures`, `petta.tables`, the manifest, the CLI and the
+  concurrency surface. It now carries an index of every source of
+  information in the repository beside the packed API, and
+  `python/tools/llmsdoc.py` checks every name, path, count, special form,
+  stream rewrite, builtin and library in it against the running engine
+  and the real tree. Each of the five drift classes above was reproduced
+  against the lane before it was wired in, so the check is known to fail
+  and not merely known to pass.
+
 - `using=` reaches the term doors, not just `run()`. `eval`, `one` and
   `first`, and their `AsyncMeTTa` twins, now take the same mapping of
   bare symbols to host values, so a Python object can be named inside a

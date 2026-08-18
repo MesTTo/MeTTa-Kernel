@@ -1,76 +1,186 @@
 # PeTTa
 
-> MeTTa (the AGI language of Hyperon) implemented in SWI-Prolog, with `petta` as
-> its Python surface. Atoms are Python values, spaces are queryable stores,
+> MeTTa, Hyperon's AGI language, implemented in SWI-Prolog, with `petta` as its
+> Python surface. Atoms are Python values, spaces are queryable stores,
 > equations rewrite, and any Python library maps onto those forms. Every line
-> below is signature, exact return shape, and the contract you cannot guess.
+> below is a signature, an exact return shape, or a contract you cannot guess.
+> Names here are checked against the live engine and the real file tree by
+> `check.sh`'s `llms` lane, so a rename breaks the build instead of misleading
+> you. Counts are dated; treat an undated number as unverified.
 
-Install `pip install .` (runtime bundled) or point `PETTA_PATH` at a clone.
-`from petta import MeTTa, S, V, val, expr, cast`. `m = MeTTa()` binds `&self`,
-the same space the CLI uses.
+## Every source of information in this repository
+
+Prose can drift; the first four rows cannot, because a gate lane regenerates or
+re-runs them.
+
+| source | what it is | kept true by |
+|---|---|---|
+| `examples/**/*.metta` | 242 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every file runs in the gate |
+| `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `python/tools/reference.py` |
+| `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `python/tools/libdoc.py` |
+| `tests/prolog/*.plt` | 21 plunit suites over the engine itself | the `plunit` gate lane |
+| `python/tests/*.py` | 84 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `README.md` | the tour, and the argument for the design | |
+| `CHANGELOG.md` | every user-facing change, with the reasoning | |
+| `website/guide/*.md` | 14 pages of prose: concepts, run-query, spaces, atoms-terms, python-functions, define, structures, threads, observability, notebook, contract, getting-started, pettorch | |
+| `website/tutorials/*.md` | 8 numbered lessons, atoms through graph-view | |
+| `website/integrations/*.md` | dataframes, pydantic, duckdb, arrays and embeddings, http routes | |
+| `website/reasoning/*.md` | weighted relations, matchers and measure | |
+| `python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
+| `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
+| `src/*.pl` | 12,106 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/python.pl`, `src/duals.pl`, `src/tracer.pl`, `src/prelude.metta` | |
+| `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `lib/lib_*.metta` | 31 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
+| `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
+| `EXTENDING.md`, `DEVELOPING.md` | writing an extension; working on the engine | |
+| `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |
+| `python/petta/*.py` | the library. `python/petta/space.py` is the `MeTTa` class; a leading `_` means internal | |
+
+Counts measured 2026-08-18.
+
+## Install and first call
+
+`pip install .` (the runtime is bundled) or point `PETTA_PATH` at a clone.
+
+```python
+from petta import MeTTa, S, V, val, expr, parse, cast
+m = MeTTa()                      # binds &self, the same space the CLI uses
+m.run("(= (f) 1) !(f) !(+ 1 2)") # [[Gnd(1)], [Gnd(3)]]
+```
+
+Module-level `petta.run/query/eval/add/remove/parse/fn/trace` act on one lazily
+created default engine, for scripts that never need a second space.
 
 ## Atoms: built in Python, no engine call
 
-`S.likes` -> symbol `likes`. `S["+"]`, `S["my-name"]` for non-identifiers.
-`V.x` -> variable `$x`. `val(obj)`/`Gnd(obj)` -> grounded Python value.
-Applying a symbol builds an expression: `S.likes(S.Ada, S.Music)` -> `(likes Ada Music)`.
-`expr(S.f, 1, 2)` is the same as `S.f(1, 2)`. `parse("(f $x)")` -> `Atom`.
-Kinds: `Sym`, `Var`, `Gnd`, `Expr`, all immutable, `__slots__`, `__match_args__`.
-`Expr.head`, `.args`, `.children`; `alpha_eq`, `unify`, `is_ground`, `map_atoms`, `variables`.
-Operators build terms, they do not compute: `V.age >= 18` -> `(>= $age 18)`;
-`&` `|` `~` -> `and`/`or`/`not`; `+ - * / % **` and `@` build arithmetic terms.
-There is no `//`: neither the operator nor an engine builtin exists.
+`S.likes` is the symbol `likes`; `S["+"]`, `S["my-name"]` for non-identifiers.
+`V.x` is the variable `$x`. `val(obj)` / `Gnd(obj)` wraps a Python value.
+Applying a symbol builds an expression: `S.likes(S.Ada, S.Music)` ->
+`(likes Ada Music)`. `expr(S.f, 1, 2)` is the same as `S.f(1, 2)`.
+`parse("(f $x)")` reads one form without evaluating it.
+
+Four kinds, all immutable with `__slots__` and `__match_args__`, so
+`match atom: case Expr(head, args): ...` works: `Sym`, `Var`, `Gnd`, `Expr`.
+`Expr.head`, `.args`, `.children`. Free functions in `petta.atoms`:
+`alpha_eq`, `unify`, `substitute`, `is_ground`, `map_atoms`, `variables`,
+`order_key`, `pretty(atom, width=78)`, `encode`/`decode`, `atom_from_wire`,
+`register_object_repr` and `register_object_repr_protocol` (and their
+`unregister_` twins) to control how a foreign object prints as an atom.
+
+Operators BUILD terms, they do not compute. `V.age >= 18` is `(>= $age 18)`;
+`&` `|` `~` build `and`/`or`/`not`; `+ - * / % **` and `@` build arithmetic
+terms. There is no `//`: neither the operator nor an engine builtin exists.
 Arithmetic on two grounded values stays ordinary Python. `Expr.__bool__` raises
-on comparison and boolean heads, so `if V.x > 1:` is refused rather than truthy.
-Equality is the one inversion: `a == b` is ordinary Python comparison answering
-`True`/`False`, while `a.eq(b)`/`a.ne(b)` build the MeTTa terms `(== a b)` and
-`(not (== a b))` for use in `where=` guards and equations.
+on comparison and boolean heads, so `if V.x > 1:` is refused rather than
+silently truthy. Equality is the one inversion: `a == b` is ordinary Python
+comparison answering `True`/`False`, while `a.eq(b)` and `a.ne(b)` build the
+MeTTa terms `(== a b)` and `(not (== a b))` for `where=` guards and equations.
 
-## Running and querying: know the shape
+## Running and querying: exact return shapes
 
-`m.run(src) -> list[list[Atom]]`, one inner list per `!` directive.
-  `m.run("(= (f) 1) !(f) !(+ 1 2)")` -> `[[Gnd(1)], [Gnd(3)]]`.
-`m.eval(atom) -> list[Atom]` for a term already built in Python.
-`m.value(atom) -> Any`, the single answer unwrapped, raises if not exactly one.
-`m.query(*patterns, where=, limit=, timeout=, inferences=) -> Rows`.
-  Variables shared across patterns join. `m.query(S.p(V.x,V.y), S.p(V.y,V.z))`.
-  `where=` is a term the engine evaluates per match: `where=(V.n >= 60) & (V.n <= 70)`.
-`Rows` is a list of `Row` with `.columns`; `row.x` and `row["x"]` both work.
-  `rows.one()` (exactly one), `.first()`, `.column(name)` -> that column's atoms,
-  `.table()` -> dict of columns, decoded to Python values,
-  `.to_dicts()` -> plain row mappings, `.to_df()`/`.to_pl()` -> pandas/polars,
-  `.build(column, cls)` rebuilds one column as that class, `_repr_html_` in notebooks.
-`m.prepare(*patterns, where=) -> Prepared`; `.solve(given=...)` many times, `.columns`.
-`m.stream(*patterns) -> Cursor`, engine-held, `.close()`, iterate lazily.
-`m.assuming(*facts)` is a block where those facts exist and then do not.
-Bounds on the evaluating calls: `timeout=` seconds and `inferences=` count on
-`run`, `eval`, `value`, `query`, `stream` and `derivation`; `capture=` stdout on
-`run` and `eval` only.
-`m.parse`, `m.load(path)`, `m.save(path, format="metta"|"fast")` (atomic, fsynced),
-`m.digest()` -> content hash of the space, store-independent.
+```
+m.run(src, using=None, *, timeout=, inferences=, capture=False,
+      atomic=False, speculative=False, strict=False)
+                       -> list[list[Atom]], one inner list per ! directive
+                          (with capture=True: (groups, printed_text))
+m.eval(target, *, using=, timeout=, inferences=, capture=False,
+       residuals=False)                    -> list[Atom | Undefined]
+m.one(target, *, using=, timeout=, inferences=)   -> Any, THE answer as a plain
+                          Python value; raises EngineError unless exactly one
+m.first(target, *, using=, timeout=, inferences=) -> Any or None
+m.query(*patterns, where=, limit=, timeout=, inferences=, into=) -> Rows
+m.stream(*patterns, where=, timeout=, inferences=)  -> Cursor, engine-held,
+                          lazily iterated, with .columns, .explain() and .close()
+m.prepare(*patterns, where=) -> Prepared; .solve(given=...) many times, .columns
+m.parse(src) -> Atom;  m.load(path) -> list[list[Atom]]
+m.save(path, format="metta"|"fast") -> int   (atomic, fsynced)
+m.digest() -> str, 64-hex content hash of the space, store-independent
+```
+
+`target` may be a string or an already-built atom. `using=` maps BARE SYMBOLS
+(not `$vars`) to Python objects, which cross by identity, not by copy or repr:
+`m.one("(gated v)", using={"v": tensor})`. It works on `run`, `eval`, `one`,
+`first` and their async twins, and is refused together with `residuals=`.
+
+Variables shared across query patterns join: `m.query(S.p(V.x,V.y), S.p(V.y,V.z))`.
+`where=` is a term the engine evaluates per match: `where=(V.n >= 60) & (V.n <= 70)`.
+`into=` builds each row as that class.
+
+`m.run(..., atomic=True)` makes the whole run one transaction; `speculative=True`
+rolls its writes back; `strict=True` raises `StrictError` on a `not-reducible`
+directive (opt-in, because an unreduced term is an ordinary MeTTa value).
+
+`Rows` is a list of `Row` with `.columns`. `row.x` and `row["x"]` both work.
+`rows.one()` (exactly one), `.first()`, `.column(name)` -> that column's atoms,
+`.table()` -> dict of columns decoded to Python values, `.to_dicts()` -> plain
+mappings, `.to_df()` / `.to_pl()` -> pandas / polars, `.build(column, cls)`
+rebuilds one column as that class and keeps `cls` for type checkers,
+`.pipe(fn, *args)` chains, `_repr_html_` renders in notebooks.
+
+`m.assuming(*facts)` is a with-block where those facts exist and then do not.
+`m.batch()` collects `add()` calls and crosses once at exit.
+`m.limits(timeout=, inferences=)` sets scoped defaults for every call inside.
 
 ## Spaces
 
-`m.space(name)` selects, `m.fresh_space()` creates an unused one and is a context
-manager whose exit drops it. A drop clears the whole life: atoms, equations,
-subscriptions, import markers, tabling state. Named spaces compile into their own
-module, so two spaces can define the same function. `(context-space)` names the
-space the running code is in. `m.add(*atoms)`, `m.remove(atom)`, `m.atoms()`,
-`m.count()`, `m.clear()`, `m.add_table(head, source)` reads polars/pandas/mappings/
-iterables into `(head v1 .. vn)` facts. `&mork` and `&mork:name` are MORK-backed
-when built; `&petta` is the library describing itself.
+`m.space(name)` selects; `m.new_space()` creates an unused one and is a context
+manager whose exit drops it; `m.copy()` clones contents into a fresh anonymous
+space through the bulk door, so equations copy as equations and keep running.
+`m.drop()` clears a space and releases its name: a drop clears the whole life,
+atoms, equations, subscriptions, import markers and tabling state. Named spaces
+compile into their own module, so two spaces can define the same function.
+`(context-space)` names the space the running code is in, and
+`petta.current_space()` reports it from inside an operation.
+
+`m.add(*atoms)`, `m.remove(atom)`, `m.atoms()`, `m.count()`, `m.clear()`,
+`m.space_names()`, `m.space_name`, `m.add_table(head, source)` reads polars /
+pandas / mappings / iterables into `(head v1 .. vn)` facts and answers how many.
+
+`petta.spaces` composes spaces without copying: `union(*spaces)` reads a set as
+one, `overlay(front, back)` reads both and writes to the front, `readonly(s)`
+refuses writes by capability, `mapped(s, shape)` is a shape view from one
+declaration, and `diff(a, b)` says HOW two spaces differ where `digest()` only
+says THAT they do.
+
+`petta.structures` holds the stores worth having: `AlphaSet` (atoms modulo
+variable renaming), `PatternMap` (a MutableMapping keyed by atoms),
+`MatchIndex` (many patterns, one atom, which match), `LiveView` (a materialised
+view kept current by the space's own writes), `ClosureView` (reachability over a
+stored relation), `TabledMap` (a computed cache that stays correct).
+
+`&petta` is the space in which the library describes itself, and it is where
+every declaration below is stored.
 
 ## Python functions as MeTTa functions
 
-`@m.register_op` (alias `@m.op`) registers a callable; `m.unregister_op(name)` removes
-every arity. Annotations become declarations in the engine's idiom: a `TypeVar` is
+```python
+@m.register_op            # alias @m.op
+def hypot(a: float, b: float) -> float: ...
+```
+
+Options: `name=`, `typed=True`, `raw=False`, `pass_atoms=False`, `arities=`,
+`inverse=` (the callable that runs it backwards), `pure=` (declares it free of
+effects, which licenses the optimiser). `m.unregister_op(name)` removes every
+arity.
+
+Annotations become declarations in the engine's idiom: a `TypeVar` is
 parametric, a `Union` declares one arrow per member, `Callable[[int],int]` ->
 `(-> Number Number)`, `tuple[int,str]` -> elementwise. A generator is
-nondeterministic, one answer per yield; returning `None` answers nothing.
-Options: `name=`, `typed=`, `raw=`, `pass_atoms=`, `arities=`.
-`@m.define` compiles the Python body itself into MeTTa equations; `.py` keeps the
-plain function. Stacked clauses become first-match dispatchers. `m.fn(name)` calls
-an engine function from Python; `m.type(cls)` registers a class with its methods.
+nondeterministic, one answer per yield; returning `None` answers nothing, which
+is why an `Optional` return declares the value type.
+
+`@m.define` compiles the Python BODY into MeTTa equations, and `.py` keeps the
+plain function; stacked clauses become a first-match dispatcher.
+`@m.type(cls)` declares a class into a space: `(: ...)` atoms, one accessor
+equation per field for an expression-image class, and its methods registered as
+functions, so the class crosses with its behavior.
+`m.fn(name)` calls an engine function from Python (`m.fn("superpose").all(...)`
+for every answer; `.compiled` for the clauses).
+`m.register_prolog(source=..., path=..., names=...)` registers Prolog
+predicates directly, which is the fast path: 7.16 inferences and 0.13us per
+call against 25.16 and 2.34us for the same operation through `register_op`.
+`m.register_foreign_library(path, entry=, names=)` loads a compiled `.so`.
+`m.unregister_prolog(extension)` releases everything one extension registered.
 
 ## Types and cast
 
@@ -78,99 +188,283 @@ Types are optional atoms: `(: Ann Person)`, `(: age (-> Person Number))`.
 A typed call silently answers empty for a mismatched or `%Undefined%` argument,
 so `m.cast(value, type)` is the loud spelling: it returns the value or raises
 `CastError` naming the types the value does admit. `Atom`, `%Undefined%` and `_`
-are unchecked. `bool` spells `Bool` before `int` spells `Number`.
-The target is positional-only. A concrete Python class target is also the static
-return type of `cast`, `convert.build`, and `Rows.build`.
-`m.arities(name)`, `m.is_function(name)` (global), `m.is_function_here` (space-local).
+are unchecked. `bool` spells `Bool` before `int` spells `Number`. The target is
+positional-only, and a concrete Python class target is also the static return
+type of `cast`, `convert.build` and `Rows.build`.
+`m.arities(name)`, `m.is_function(name)` (visible from here),
+`m.is_function_here(name)` (has clauses HERE), `m.builtins()`.
 
-## Debugging
+## Declarations: how a space behaves, written as atoms
 
-`m.trace(src, max_events=1_000_000) -> list[TraceEvent(depth, kind, term, answer)]`,
-kinds `call` and `exit`; a reduction that fails leaves its call with no exit.
-`m.derivation(atom, depth=None, timeout=, inferences=) -> list[Derivation]` with
-`.rules`, `.facts`, `.complete`, `.truncations`; proof trees naming the equations
-and stored facts behind an answer.
-`m.why(pattern) -> str` explains one empty match in words. An empty result
-returned directly by `m.query(...)` retains its query context, and
-`rows.why()` identifies a pattern miss, failed join, or rejecting guard.
-`m.lint() -> list[petta.lint.Finding]` reads stored program structure.
-`m.stats()` is a with-block yielding `.inferences` (deterministic, gate on this),
-`.cputime`, `.walltime`, gc counters, `.table_bytes`. `m.profile(src)` per predicate.
-`m.prolog()` opens the SWI toplevel. Errors: `PettaError` base, then
-`EngineError`, `MettaSyntaxError`, `CastError`, `CompileError`, `TimeLimitError`,
-`InferenceLimitError`, `ResourceLimitError`, `Interrupted`.
+Each `m.declare_*` writes one atom into `&petta` and returns it; removing that
+atom withdraws the declaration. Coherence is checked eagerly in the same
+transaction as the write, so a new entry that could disagree with an existing
+one fails there, naming both, rather than on the first query in their overlap.
+
+```
+declare_handles(name, pattern, "Exact"|"Partial"|"Sound"|"Refuse", det=)
+        how faithfully a space answers one query shape. Exact licenses pushing
+        the caller's bound down to the provider; Partial and Sound stay
+        candidates the engine re-unifies; Refuse makes the query a loud error
+        instead of a silent partial answer. (in $x) at a position matches only
+        queries arriving with it bound, so a scan-only source is three words.
+declare_emits(name, "depth"|"fair"|"best-first")     answer order
+declare_merge(pattern, "depth"|"fair"|"best-first")  how answers merge
+declare_source(name, "linear"|"repeated"|"peek")     consumption discipline
+declare_writes(name, "transactional"|"atomic-single"|"best-effort")
+declare_context(name, "closed-world"|"open-world")   what absence means
+declare_on_error(name, pattern, "keep"|"empty"|"abort")
+declare_annotations(name, "bool"|"bag"|"set"|"ranked"|"prob"|"prov")
+        the semiring answer annotations live in: this is how a space carries
+        scores, probabilities or provenance instead of plain truth
+declare_admits(name, type_name)     only TYPE-carrying atoms enter
+declare_capacity(name, limit)       an add beyond LIMIT is refused loudly
+declare_reaction(name, pattern, operation)   stored as an (on ...) atom
+```
+
+## Observability
+
+```
+m.trace(src, max_events=1_000_000) -> list[TraceEvent(depth, kind, term, answer)]
+        kinds "call" and "exit"; a reduction that fails leaves a call with no exit
+m.derivation(target, depth=None, *, timeout=, inferences=) -> list[Derivation]
+        proof trees in MeTTa terms: .rules, .facts, .complete, .truncations
+m.why(pattern) -> str            one empty match explained in words
+rows.why()                       pattern miss, failed join, or rejecting guard
+m.lint() -> list[lint.Finding]   the silently-wrong class, from stored structure
+petta.lint.lint_file(path, m=None)   the same findings anchored to file:line
+m.eval_status(target) / m.run_status(src)  each answer paired with the path that
+        produced it: "value" (equation, builtin or special form applied),
+        "not-reducible" (no rule applied, the answer is the term itself),
+        "empty" (branch pruned, answer None). A pruned branch and an unevaluated
+        term are different things the answers alone cannot tell apart.
+m.stats()      with-block yielding .inferences (deterministic, gate on this),
+               .cputime, .walltime, .gc_count, .gc_freed, .gc_time, .table_bytes
+m.profile(src) -> (groups, EngineProfile), per predicate
+m.profile_extension(src, extension=, names=)  only YOUR functions
+m.disassemble(name) -> str    the Prolog clauses a function compiled to
+m.prolog()                    the engine's own interactive toplevel
+petta.backend_info() -> versions of petta, janus, swi_prolog, python, petta_path
+```
+
+Errors: `PettaError` is the base, then `EngineError`, `MettaSyntaxError`,
+`CastError`, `CompileError`, `StrictError`, `SourceNotFound`,
+`MettaResultError`, `TransportFailure`, and `ResourceLimitError` with
+`TimeLimitError` and `InferenceLimitError` under it, plus `Interrupted`.
 `MettaOperationError(EngineError)` is a builtin refusing a value, with the parts
 as data: `.operation` is what the source wrote (`+`, `min-atom`), `.kind` the
 formal's functor, `.expected` and `.culprit` the type and offending value.
-`m.eval_status(atom)` and `m.run_status(src)` pair each answer with the path
-that produced it: `value` (an equation, builtin or special form applied),
-`not-reducible` (no rule applied, the answer is the term itself), `empty` (the
-branch pruned, answer `None`). A pruned branch and an unevaluated term are
-different things that the answers alone cannot tell apart. `strict=True` on
-`run` raises `StrictError` on a `not-reducible` directive, opt-in, since an
-unreduced term is an ordinary MeTTa value.
-Type checkers distinguish `SpaceName`, `MettaName`, and the closed
-`SaveFormat` set. Their constructors are available directly from `petta`.
+`DECLINE` / `Decline` is how a provider says "not mine" rather than failing.
+Type checkers get `SpaceName`, `MettaName` and the closed `SaveFormat` set,
+all constructible straight from `petta`.
+
+## Concurrency, transactions, bounds
+
+Engine calls belong to the thread that made the engine. `m.pool(workers)` gives
+each worker its OWN attached engine, which is what makes the calls genuinely
+concurrent (measured 2026-08-15: 1.94x, 3.90x and 7.26x at 2, 4 and 8 workers).
+`m.parallel(*targets)` and its language-side name `m.hyperpose(*targets)`
+evaluate targets at once. `petta.aio.AsyncMeTTa` runs engine calls on one worker
+thread behind `async`; `petta.engine_thread()` and `petta.current_space()`
+report the crossing.
+
+`m.transaction(callable)` and the `@m.transactional` decorator run a callable in
+one engine transaction. Control signals cannot be eaten by the evaluation they
+stop, not even by a program's own `(catch ...)`: a bound, a Ctrl-C and an
+`interrupt()` all reach a running goal, the same reasoning that puts
+`KeyboardInterrupt` outside `Exception`.
 
 ## Integrating any library
 
-`petta.convert`: `project(obj)` -> `Projected`, whose `.atom` is the constructor
-expression; `build(atom)` -> object, returning the atom unchanged when it cannot,
-`register_type`, `unregister_type`, `declarations`. Dataclasses, enums, pydantic
-and annotated classes all cross; enums project to symbols.
-`petta.integrate`: `module_ops(space, module)` registers a whole module's callables,
-`wrap_object`, `reflect`, paired register/unregister functions for protocol types,
-formatters and reflectors, `SpaceProvider`, `Integration`, `discover` (entry-point
-group `petta.integrations`). Installation is idempotent for a live space, and
-`space.drop()` releases the installation record with that space's state.
-`petta.foreign`: implement `Matcher`/`Enumerable`/`Adder`/`Remover`/`Clearer` and
-`register_provider(runtime, name, provider)`, name starting with `&`, to make an
-external store answer MeTTa matches; subclass `SpaceProvider` and answer `can_run`
-per call, and an unsupported operation refuses loudly.
-Conjunctive queries route per conjunct, so a foreign space joins with a native one.
+`petta.convert`: `project(obj) -> Projected` whose `.atom` is the constructor
+expression, `build(atom)` -> object (returning the atom unchanged when it
+cannot), `register_type`, `unregister_type`, `declarations`, `auto_image`.
+Dataclasses, enums, pydantic models and annotated classes all cross; enums
+project to symbols. `@petta.record` marks a class for the round trip.
 
-## The rest of the surface
+`petta.integrate`: `module_ops(m, module, names=, prefix=, rename=, raw=True,
+typed=False)` registers a whole module's callables, `facts(m, atoms)` bulk-writes,
+`wrap_object(m, name, obj, methods)`, `reflect(m, name, obj)`,
+`install_reflection_ops(m)`, `integrate(m, target)`, `Integration`,
+`SpaceProvider`, and `discover(m)` over entry points. Installation is idempotent
+for a live space, and dropping a space releases its installation record.
+Entry-point groups: `petta.integrations`, `petta.spaces`, `petta.libraries`.
 
-Eight of these load when first accessed rather than during `import petta`:
-`aio`, `arrays`, `das`, `matching`, `measure`, `persistent`, `remote`, `testing`.
-`dir(petta)` still lists each one. `subscribe` is eager, being part of the
-write path.
+`petta.arrays`: one operation vocabulary over any DLPack library.
+`install(m, default=xp)` makes numpy, torch or JAX first-class with the same
+words; `namespace_of`, `is_array`, `data_of`, `ARRAY_OPS`, and `EmbeddingStore`
+with an exact faiss backend.
 
-`petta.arrays`: one operation vocabulary over any DLPack library (`install`,
-`namespace_of`, `is_array`, `EmbeddingStore` with an exact faiss backend).
-`petta.measure`: `install`, `ws`, `pairs`, `weighted_relation` for answers that
-carry a score; `petta.matching`: `matcher`, `install_fuzzy`, `install_regex` for
-matching that is a judgment rather than yes/no.
-`petta.subscribe`: `m.subscribe(pattern, callback, on="add")` delivers inside the
-write; without a callback events queue until `drain()`. `bridge` connects spaces.
-`petta.persistent`: `PersistentFactSpace`, journalled, crash-recovering.
-`petta.remote`: `serve(m, spaces=, token=, authorize=, ssl_context=)` and
-`connect(url, token=, headers=)`; credentials require https, tokens compare in
-constant time, only http/https schemes are accepted.
-`petta.das`: SingularityNET Distributed Atomspace as a space.
-`petta.aio`: `AsyncMeTTa` runs engine calls on one worker thread behind async.
-`petta.testing`: the hypothesis strategies this suite fuzzes itself with
-(`atoms`, `expressions`, `names`, `numbers`, `texts`, `symbols`, `variables`,
-`grounded`, `numpy_scalars`) plus `benchmark_case`, `benchmark_counter_slope`,
-and `measure_instructions` for deterministic benchmark gates.
+`petta.tables`: `declare(...)` writes one ctx-scoped bridge declaration into
+`&petta` and `TableBridge` derives every provider operation from it, so a
+DB-API connection (the `Executes` slice) answers MeTTa matches.
+`petta.persistent.PersistentFactSpace` is journalled and crash-recovering.
+`petta.das` is SingularityNET's Distributed Atomspace as a space.
+
+## Foreign spaces and the backend seam
+
+A space can be backed by anything, and the seam is universal rather than
+per-backend. From Python, implement `Matcher` / `Enumerable` / `Adder` /
+`BulkAdder` / `Remover` / `Clearer` / `Planner` / `Transactional` / `CustomMatch`
+and call `petta.foreign.register_provider(runtime, name, provider)` with a name
+starting with `&`; or subclass `SpaceProvider` and answer `can_run` per call.
+Capabilities are declared, not guessed: `match`, `enumerate`, `add`, `add-many`,
+`remove`, `clear`, `subscribe`, `plan`, `rules`, and an unsupported operation
+refuses loudly rather than degrading. Conjunctive queries route per conjunct, so
+a foreign space joins with a native one; on such a conjunction `rows.why()`
+prints which conjunct went where and whether its class was exact.
+
+From Prolog, `src/ext_points.pl` declares every seam WITH ITS KIND: an EVENT runs
+for effect and every handler runs; an OWNERSHIP seam is claimed by the first
+handler that succeeds and declined by failing; a DECLARATION is a fact table read
+as data; a SERVICE runs the other way, a predicate the ENGINE defines that an
+extension may CALL. The service list is the whole permitted inward surface
+(`swrite/2`, `sread/2`, `metta_symbol_writable/1`, `metta_unwritable_symbol/2`,
+`throw_metta_type_error/3`, `rethrow_metta_operation_error/2`,
+`current_metta_module/1`), and it exists so a backend never reaches into
+`src/parser.pl`, the same reason SQLite hands extensions an
+`sqlite3_api_routines` table instead of letting them link against internals.
+
+`backends/*.pl` is globbed at boot and each file decides for itself whether its
+own artefact is present, so there is no backend "mode" to select and the engine
+names no backend. A MORK-backed store is one such backend, supplying `&mork` and
+`&mork:name`; it is present only when its shared library was built.
+
+## Apps, from source
+
+`petta.manifest.boot(manifest, m=None, connections=, host=, token=, authorize=,
+ssl_context=)` assembles an app from `(boot ...)` forms, each sugar for exactly
+one existing call, performed in source order:
+
+```
+(boot (load "rules.metta"))                m.load, manifest-relative
+(boot (attach &crm "http://crm:8700"))     petta.remote.attach
+(boot (bridge &db (edge $a $b) (row ...))) petta.tables declare + bridge
+(boot (serve (&self &crm) 8700))           petta.remote.serve
+```
+
+The vocabulary is closed and validated whole before anything runs; bridged names
+must appear in `connections` and every connection must be claimed. Each
+performed form is stored as its own atom, so the running app answers
+`(match &self (boot $what) $what)` with its own topology. A manifest that fails
+mid-way keeps its performed prefix's writes, closes any servers it started, and
+names the failing form.
+
+`python -m petta` has six subcommands: `run` (files, printing each `!` answer
+group), `repl` (paren-balance aware, readline), `serve`, `boot`, `lint` (nonzero
+exit on findings), `doc` (a name's `(@doc ...)`).
+
+`petta.remote`: `serve(m, spaces=, token=, authorize=, ssl_context=)`,
+`connect(url, token=, headers=)`, `attach`. Credentials require https, tokens
+compare in constant time, and only http/https schemes are accepted.
+
+`petta.subscribe`: `m.subscribe(pattern, callback, on="add")` is a standing
+query delivered INSIDE the write that matched it; without a callback, events
+queue until `drain()`. `bridge(...)` connects two spaces. `Subscription` is a
+context manager and also a blocking event stream.
+
+`petta.testing` ships what the suite fuzzes itself with: hypothesis strategies
+(`atoms`, `expressions`, `patterns`, `names`, `numbers`, `texts`, `symbols`,
+`variables`, `grounded`, `ground_atoms`, `numpy_scalars`), the compliance suites
+(`SpaceComplianceSuite`, `GatewayComplianceSuite`, `check_space_provider`,
+`check_twin`, `check_replay`, `check_minted_handles`), and the deterministic
+benchmark gates (`benchmark_case`, `benchmark_counter_slope`,
+`measure_instructions`, `BenchmarkBaseline`, `count_atoms`), also exported from
+`petta.benchmarking`. `petta.pytest_plugin` gives the `metta` and
+`scratch_space` fixtures; `petta.ipython` gives `%%metta` in a notebook.
+
+Eleven submodules load on first access rather than during `import petta`:
+`aio`, `arrays`, `das`, `manifest`, `parallel`, `persistent`, `remote`, `spaces`,
+`structures`, `tables`, `testing`, and `boot` resolves the same way.
+
+Importing petta therefore never pulls in the HTTP and table machinery boot
+composes over. dir(petta) still lists each one, and subscribe is eager, being
+part of the write path.
+
+## The MeTTa language surface
+
+Special forms are compiled by the translator rather than defined by equations,
+and most answer false to "is this a function", so "no equations" does not mean
+"nothing can prove it":
+
+```
+if case let let* collapse superpose quote sealed unify match
+once forall foldall not-provable and-then or-else prog1 progn cut
+chain eval evalc noeval reduce filter-atom foldl-atom map-atom
+add-atom add-atoms add-reduct add-reducts remove-atom get-metatype
+catch timeout inferences elapsed take top transaction with-pragma!
+with_mutex hyperpose call explain annotation test test-no-answer
+translatePredicate |->
+```
+
+Six more are rewritten one line earlier, at the stream layer: `alpha-unique`,
+`intersection`, `subtraction`, `trace!`, `union`, `unique`.
+
+209 builtins are registered (`m.builtins()` lists them live), among them the
+py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,
+`py-dict`, `py-tuple`, `py-str`, `py-repr`, `py-format`, `py-slice`, `py-range`,
+`py-at`, `py-in`, `py-eq`, `py-truthy`, `py-round`, `py-str-join`), the atom
+algebra (`car-atom`, `cdr-atom`, `cons-atom`, `decons-atom`, `index-atom`,
+`size-atom`, `sort-atom`, `union-atom`, `intersection-atom`, `subtraction-atom`,
+`unique-atom`, `max-atom`, `min-atom`), the assert family
+(`assertEqual`, `assertAlphaEqual`, `assertEqualToResult`, `assertIncludes`) that the
+example corpus is written in, `get-type`, `get-doc`, `help!`, `import!`, `pragma!`, `bind!`,
+`new-space`, `get-state` / `change-state!`, `pretty-atom`, `random-int` /
+`random-float`, `format-time`, and the CLP(FD) relations (`#+`, `#-`, `#*`,
+`#//`, `#div`, `#mod`, `#<`, `#=<`, `#>`, `#>=`, `#=`, `#\=`, `#min`, `#max`),
+which RELATE rather than compute, so giving any two of three solves the third.
+
+31 libraries load with `!(import! &self (library lib_x))`: `lib_builtin_types`,
+`lib_combinatorics`, `lib_conformance`, `lib_constraints`, `lib_crypto`,
+`lib_datastructures`, `lib_datetime`, `lib_doc`, `lib_file`, `lib_he`,
+`lib_import`, `lib_json`, `lib_llm`, `lib_measure`, `lib_memo`, `lib_mm2`,
+`lib_nars`, `lib_patrick`, `lib_pln`, `lib_redis`, `lib_reflect`, `lib_regex`,
+`lib_roman`, `lib_soft`, `lib_spaces`, `lib_string`, `lib_tabling`, `lib_thread`,
+`lib_torch`, `lib_vector`, `lib_zar`. Scored answers and fuzzy or regex matching
+are `lib_measure` and `lib_regex` riding the general seam, not Python modules:
+there is no `petta.measure` and no `petta.matching`.
 
 ## Contracts that cost real debugging
 
 `match` evaluates its space and its body, never its pattern: patterns are
 structural, so compute first and match after with `let`.
-MeTTa equations are alternatives, not sequential clauses; a literal-headed default
-needs a guard or it also fires.
+MeTTa equations ACCUMULATE. Redefining a function ADDS an alternative rather
+than replacing the old one, so a second `(= (f x) ...)` gives `f` two answers.
+Equations are alternatives, not sequential clauses; a literal-headed default
+needs a guard or it fires too.
 A typed call rejects a bad argument by answering empty, not by raising: use `cast`.
-Strings carry hyperon's five escapes (quote, backslash, `\n`, `\t`, `\r`); a raw
-newline would split a MORK dump. A NUL byte is refused at the MORK boundary; the
-native store carries it through save and load.
-Symbols with whitespace, parentheses or quotes are refused at save, digest and the
-MORK boundary rather than written unreadably.
-An unreduced call is a non-empty answer, so test for truth with `any(a == True)`,
+An unreduced call is a non-empty answer, so test truth with `any(a == True)`,
 never "the result was non-empty".
-Python `None` from an operation answers nothing, which is why an `Optional` return
-declares the value type.
-Engine calls belong to the thread that made the engine; `petta.aio` or
-`remote.serve` own the crossing, `engine_thread` and `current_space()` report it.
-Deterministic goal-call measurement is `stats().inferences`. Primitive work is
-measured with `perf stat -e instructions:u`. Wall clock is advisory.
+Python `None` from an operation answers nothing.
+`(empty)` yields no answer at all, which is how a branch prunes itself.
+`collapse` is a special form because ordinary arguments evaluate eagerly: a
+helper "around" `collapse` collapses an already-chosen answer, so inline it.
+`forall` stops its generator when the check fails (it compiles to Prolog's
+`\+ (Gen, \+ Test)`), so a bounded take over an infinite producer is writable
+and terminates where `collapse` cannot run at all.
+`py-iter` is lazy and yields one answer at a time; a Python generator is not
+drained. `py-atom` takes a metatype argument, `Grounded` for the live reference
+and `Expression` for a snapshot.
+Strings carry hyperon's five escapes (quote, backslash, `\n`, `\t`, `\r`).
+Symbols containing whitespace, parentheses or quotes are refused at save and
+digest rather than written unreadably.
+
+## Measuring
+
+Wall clock under ~100ms is bimodal on a loaded box and has produced false
+results here twice. `m.stats().inferences` is deterministic (five runs of one
+workload gave 1,000,601 every time, 0.0000% spread, while wall clock swung
+6.86%), so gate on inferences and let wall clock advise. For pure-Python paths
+where the engine does nothing, use `perf stat -e instructions:u`. Instruction
+counts move with code LAYOUT, so perturb with inert clauses before believing a
+regression. Check `/proc/loadavg` before trusting any timing.
+
+## Downstream packages built on this surface
+
+`pettorch` connects PyTorch through `petta.arrays` and `petta.integrate` and
+adds autograd operations, module wrappers, training helpers and neural
+predicates; `website/guide/pettorch.md` is its page here.
+`petta-fabric-pc` projects a FabricPC predictive-coding network into a space, so
+settling, attention and comparison are MeTTa rather than Python.
+Neither is a special case in the engine: both are ordinary users of
+`register_op`, `arrays.install`, `integrate.facts` and the provider seam.
