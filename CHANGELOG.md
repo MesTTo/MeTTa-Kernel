@@ -74,6 +74,61 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The engine and its libraries now declare every import they actually use,
+  instead of getting several of them from SWI's autoloader by accident.
+  `set_prolog_flag(autoload, false)` is Phase 11's precondition, because a
+  system-based module gets library predicates from autoload rather than
+  from `user`, so an incomplete export list would still be green under
+  autoload and that is exactly the "modular errors slip in silently"
+  failure the migration exists to prevent. Turning it off found eight real
+  gaps, none in `user` code alone: `src/metta.pl`'s own
+  `directory_file_path/3` directive ran before its existing
+  `library(filesex)` import, two full imports (`distinct/2` for
+  `'defined-name'/1`, `library(gensym)` for every compiled `'|->'`,
+  `foldl-atom`, `map-atom` and `filter-atom` closure) were genuinely
+  missing from the engine's own source, and five SWI-shipped libraries
+  turned out to rely on autoload for their OWN internal cross-references:
+  `library(ansi_term)`'s `~@` goal-printing calls a `portray_clause/1` it
+  never imports, `library(ugraphs)`'s `top_sort/2` calls an `append/2` its
+  own partial `:- autoload/2` line does not cover, `library(clpb)` does
+  not declare `library(lists)`, `library(pairs)` or `library(apply)` at
+  all, and `library(pcre)`'s option parsing needs `library(option)`
+  alongside the four it does declare. Each is now either qualified at the
+  call site (`prolog_listing:portray_clause/N`, the only fix that does not
+  touch a shipped library's own namespace) or explicitly imported into
+  that library's own module (`ugraphs:use_module(library(lists),
+  [append/2])` and siblings for clpb and pcre), because this repository
+  does not ship those libraries and cannot fix their own missing
+  declarations any other way.
+
+  One surveyed claim did not survive contact: a residual "one silently
+  lost prelude clause" was real (`type-cast-holds`, 23 clauses against 22)
+  but its blamed cause was a masking symptom, not the defect.
+  `library(gensym)` alone, with nothing else preloaded, restores the
+  clause completely and the `prolog_clause:inlined_unification/7: Unknown
+  procedure: prolog_clause:nth1/3` message some prior loads showed never
+  appears at all once the real cause is fixed: SWI's own
+  initialization-error reporting was trying to build a source-location
+  diagnostic for the ORIGINAL, un-preloaded `gensym/2` error, and that
+  diagnostic call is what hit `library(prolog_clause)`'s own separate,
+  unrelated undeclared dependency on `nth1/3`, replacing the visible
+  message with a secondary failure while the real one stayed hidden.
+
+  `run.sh NO_AUTOLOAD=1` boots with the flag already set (a `-g` goal on
+  the command line cannot: it runs only after every `-s`/`-l` file has
+  already finished loading, in either order, and `src/metta.pl` needs the
+  flag set before its own first directive), so `NO_AUTOLOAD=1 sh test.sh`
+  runs the property over the full corpus [measured 2026-08-18: 200/200
+  examples/, both configurations otherwise identical]. `check.sh` does not
+  gate it yet, since editing that file is outside this change; the line
+  `run GATE   no-autoload  sh -c "cd '$HERE' && NO_AUTOLOAD=1 sh
+  test.sh"` reuses `test.sh`'s own runner and skip list unchanged.
+  Explicit imports cost real instructions: +1.50% on a bare boot with no
+  backend loaded, +0.54% with one loaded, +0.14% amortized over a full
+  example run that also exercises the newly-fixed opt-in libraries
+  [measured 2026-08-18: interleaved min-of-3, `perf stat -e
+  instructions:u`, under 0.003% spread within each side].
+
 - An empty Python tuple no longer kills a run through the library. janus
   renders a Python tuple as a `-` compound, so `(1, 2)` arrives as `1-2`
   and `()` arrives as SWI's zero-arity compound `-()`; the shim's encoder
