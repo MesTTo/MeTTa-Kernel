@@ -17,11 +17,13 @@ What each tag has to carry, and why only this much:
   source    a date or a reference
 
 Existence alone was the whole check until 2026-08-18, and it is the weakest of
-the three. src/translator.pl cited tests/performance/reduce_dispatch.pl for its
-operator-table guarantee: the file is real, its only failure path is a
-cross-run hash comparison that says nothing about operator tables, and no
-runner has ever opened it. So a tested claim now has to survive three
-questions, not one.
+the three. src/translator.pl cited a tests/performance/reduce_dispatch.pl for
+its operator-table guarantee: the file was real, its only failure path was a
+cross-run hash comparison that said nothing about operator tables, and no
+runner had ever opened it. So a tested claim now has to survive three
+questions, not one. That citation names translator_operator_dispatch now and
+the eight scripts under tests/performance/ are gone, each one a measurement
+that printed a number and asserted nothing.
 
 Can it fail? Language by language, because the answer is written differently
 in each:

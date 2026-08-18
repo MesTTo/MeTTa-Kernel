@@ -1,5 +1,8 @@
 % Purpose: direct PlUnit coverage for translator control forms and branch
-%   rewrites whose failures are difficult to localize through whole examples.
+%   rewrites whose failures are difficult to localize through whole examples,
+%   and for the translator's COST guarantees, which no correctness test can
+%   see at all: dispatch goal ordering, equation-store growth and translation
+%   growth each leave every answer exactly as it was.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -30,6 +33,37 @@ forget_test_function(F) :-
              functor(Head, F, A) ),
            ( catch(retractall(user:Head), _, true),
              catch(abolish(user:F/A), _, true) )).
+
+%The repository's counter recipe, read around the operation under test and
+%nothing else [source: tests/prolog/README.md, "Measure engine changes"]. File
+%level because four units below need it and a plunit unit is its own module.
+%call/1 costs one inference of its own; it is the same one in both arms of
+%every comparison here and cancels out of all of them.
+count_inferences(Goal, Inferences) :-
+    garbage_collect,
+    statistics(inferences, I0),
+    call(Goal),
+    statistics(inferences, I1),
+    Inferences is I1 - I0.
+
+%The minimum of three, the second half of that recipe. Belt and braces for an
+%exact counter, and what it guards against is a stray atom collection landing
+%inside one window. The goal is run three times, so it has to be repeatable:
+%every caller here measures a computation that leaves nothing behind.
+min_inferences(Goal, Inferences) :-
+    findall(Sample,
+            ( between(1, 3, _),
+              count_inferences(Goal, Sample) ),
+            Samples),
+    min_list(Samples, Inferences).
+
+%A conditional nested N deep. File level rather than inside one unit, because
+%two of them need it and a plunit unit is its own module: translation depth
+%compiles it, and branch returns merges what that compilation produced.
+nested_conditional(0, 0) :- !.
+nested_conditional(N, [if, [==, 1, 1], Inner, 0]) :-
+    N1 is N - 1,
+    nested_conditional(N1, Inner).
 
 :- begin_tests(translator_hyperpose).
 
@@ -138,6 +172,48 @@ test(lambda_names_are_unique_across_threads) :-
     sort([Main|Workers], Unique),
     Sorted == Unique.
 
+meta_store_size(500).
+meta_store_size(1000).
+
+%A separate name per size rather than one refilled twice, so the second
+%measurement does not start against a store that is already half full. Cleared
+%through the test's own cleanup, which plunit runs even when the body throws.
+clear_sized_meta_stores :-
+    forall(( meta_store_size(Count),
+             atom_concat('$plunit_meta_store_', Count, F) ),
+           ( clear_fun_meta(F),
+             forget_test_function(F) )).
+
+%Measured once rather than min of three: filling the store is destructive, so
+%a second run would measure a different workload.
+meta_store_cost(Count, Inferences) :-
+    atom_concat('$plunit_meta_store_', Count, F),
+    count_inferences(forall(between(1, Count, _),
+                            translate_clause([=, [F, X], X], _)),
+                     Inferences),
+    aggregate_all(count, fun_meta_clause(F, _, _), Count).
+
+% Each equation is one independently indexed fact, so recording a new one does
+% not copy the equations already held for that function [source:
+% src/translator.pl, the comment above record_fun_meta/3]. A store that copied
+% would cost O(n^2) to fill, and nothing said so: the ordering and retraction
+% tests above pass either way.
+%
+% Cost is affine in the equation count, so doubling the count cannot more than
+% double the work. Measured 2026-08-18: 19,757 inferences for 250 equations,
+% 39,507 for 500, 79,007 for 1,000 and 158,007 for 2,000, which is 79 per
+% equation plus a fixed 7 at every size. A copying store would read 4x per
+% doubling instead of 2x.
+%
+% The count is asserted inside the measurement so a store that stopped
+% recording would fail here rather than look like a speedup.
+test(recording_equations_costs_no_more_than_linear_time,
+     [ setup(clear_sized_meta_stores),
+       cleanup(clear_sized_meta_stores) ]) :-
+    meta_store_cost(500, Small),
+    meta_store_cost(1000, Large),
+    Large =< 2 * Small.
+
 :- end_tests(translator_meta_store).
 
 :- begin_tests(translator_let).
@@ -242,23 +318,50 @@ nested_head(N, [Inner]) :-
     N1 is N - 1,
     nested_head(N1, Inner).
 
-test(nested_calls_compile_with_linear_work,
-     [ true((GoalCount == 400, Inferences < 50000)) ]) :-
-    nested_add(400, Expr),
-    statistics(inferences, I0),
-    translate_expr(Expr, Goals, _),
-    statistics(inferences, I1),
-    Inferences is I1 - I0,
-    length(Goals, GoalCount).
+nested_let(0, 0) :- !.
+nested_let(N, [let, '$v', 1, Inner]) :-
+    N1 is N - 1,
+    nested_let(N1, Inner).
 
-test(nested_heads_compile_with_linear_work,
-     [ true((GoalCount == 400, Inferences < 50000)) ]) :-
-    nested_head(400, Expr),
-    statistics(inferences, I0),
+translation_shape(call, nested_add).
+translation_shape(head, nested_head).
+translation_shape(let, nested_let).
+translation_shape(conditional, nested_conditional).
+
+translation_cost(Builder, Depth, Inferences) :-
+    call(Builder, Depth, Expr),
+    min_inferences(translate_expr(Expr, _, _), Inferences).
+
+test(nested_calls_emit_one_goal_per_level) :-
+    nested_add(400, Expr),
     translate_expr(Expr, Goals, _),
-    statistics(inferences, I1),
-    Inferences is I1 - I0,
-    length(Goals, GoalCount).
+    length(Goals, 400).
+
+test(nested_heads_emit_one_goal_per_level) :-
+    nested_head(400, Expr),
+    translate_expr(Expr, Goals, _),
+    length(Goals, 400).
+
+% Two depths rather than a ceiling. `Inferences < 50000` at depth 400 was the
+% assertion here until 2026-08-18, and the shallowest of these shapes costs
+% 3,203 at that depth, so it had room for a fifteenfold regression and could
+% not have reported one. Cost is affine in depth for every shape, so doubling
+% the depth cannot more than double the work, and a per-level cost that grew
+% with depth would break that with no threshold to tune.
+%
+% Measured 2026-08-18, min of three, at depths 200 and 400: call 11,803 and
+% 23,603; head 1,603 and 3,203; let 2,603 and 5,203; conditional 15,803 and
+% 31,603. Per level that is 59.02/59.01, 8.02/8.01, 13.02/13.01 and
+% 79.02/79.01, a constant plus a fixed 3-inference startup.
+test(every_nesting_shape_compiles_in_linear_work,
+     [forall(translation_shape(_Shape, Builder))]) :-
+    translation_cost(Builder, 200, Small),
+    translation_cost(Builder, 400, Large),
+    %The lower bound is the liveness half. Without it a translator that had
+    %stopped descending would cost the same at both depths and read as
+    %perfectly linear.
+    Large > Small,
+    Large =< 2 * Small.
 
 :- end_tests(translator_translation_depth).
 
@@ -285,6 +388,87 @@ test(reduce_of_arity_two_keeps_its_exact_behaviour) :-
     Out == 3.
 
 :- end_tests(translator_reduction_status).
+
+% reduce/3 dispatches on `\+ (Arity =< 2, current_op(_, _, F))`, and the ORDER
+% of those two conjuncts is the guarantee: a call of arity three or more fails
+% `Arity =< 2` and never reaches the operator table. Swapping them changes no
+% answer anywhere, so no correctness test can see the difference; cost is the
+% only witness there is.
+%
+% The measurement is a single-variable differential. One compiled function is
+% reduced twice at the same arity with the same argument, and the only thing
+% that changes between the two runs is whether its head is a declared operator.
+% Equal cost means the operator table's CONTENT did not reach the computation,
+% and content is the only thing current_op/3 can report.
+%
+% The second test is the control, and without it the first could pass because
+% the instrument is blind rather than because the guard is ordered. At arity
+% two the same toggle is not merely visible, it changes the answer.
+:- begin_tests(translator_operator_dispatch,
+               [ setup(setup_operator_dispatch),
+                 cleanup(cleanup_operator_dispatch) ]).
+
+operator_dispatch_head(binary, 'plunit-op-binary').
+operator_dispatch_head(unary, 'plunit-op-unary').
+
+%Registered the way a source file registers one. translate_clause/2 compiles
+%the predicate and records its arity but never asserts fun/1, so reduce/3's
+%first condition fails and the call falls through to data dispatch without
+%ever reaching the guard under test.
+setup_operator_dispatch :-
+    cleanup_operator_dispatch,
+    process_metta_string("(= (plunit-op-binary $a $b) $a)\n\c
+                          (= (plunit-op-unary $a) $a)\n", _).
+
+cleanup_operator_dispatch :-
+    forall(operator_dispatch_head(_, Head),
+           ( op(0, xfx, Head),
+             forget_test_function(Head) )).
+
+%op/3 is global state, so the declaration is undone even when the goal under
+%it throws. A leaked declaration would silently change how every later test in
+%this file reduces that head.
+with_operator(Head, Goal) :-
+    setup_call_cleanup(op(700, xfx, Head), Goal, op(0, xfx, Head)).
+
+%The repository's counter recipe: warm the path, then take the minimum of
+%three runs in one process [source: tests/prolog/README.md, "Measure engine
+%changes"]. The minimum is belt and braces here, because an inference count is
+%exact rather than sampled, but a stray atom collection inside one window is
+%exactly what it protects against.
+reduce_cost(Form, Answer, Inferences) :-
+    Drive = forall(between(1, 500, _), once(reduce(Form, _))),
+    call(Drive),
+    min_inferences(Drive, Inferences),
+    once(reduce(Form, Answer)).
+
+% Measured 2026-08-18 over 500 calls, min of three: 10,002 inferences with the
+% head declared an operator and 10,002 without, delta 0. With the two conjuncts
+% swapped the same measurement reads 10,502 against 10,002, delta 500, which is
+% the one current_op/3 redo per call that the ordering avoids.
+test(a_higher_arity_call_never_reaches_the_operator_table) :-
+    operator_dispatch_head(binary, Head),
+    Form = [Head, 1, 2],
+    reduce_cost(Form, Plain, PlainCost),
+    with_operator(Head, reduce_cost(Form, AsOperator, OperatorCost)),
+    %Both answers are asserted because equal costs mean nothing unless the
+    %dispatch under test actually ran. An unregistered head reduces to itself
+    %down a path that never reaches the guard, and the two arms are then equal
+    %because neither did anything. The first draft of this test passed that
+    %way, and only the control below said so.
+    Plain == 1,
+    AsOperator == 1,
+    OperatorCost == PlainCost.
+
+test(an_arity_two_call_does_reach_it) :-
+    operator_dispatch_head(unary, Head),
+    Form = [Head, 1],
+    once(reduce(Form, Plain)),
+    with_operator(Head, once(reduce(Form, AsOperator))),
+    Plain == 1,
+    AsOperator == partial(Head, [1]).
+
+:- end_tests(translator_operator_dispatch).
 
 :- begin_tests(translator_special_dispatch).
 
@@ -1019,6 +1203,40 @@ test(nested_alternatives_can_produce_one_private_return) :-
     merge_branch_returns(Head, Body0, Body),
     Value == Out,
     Body == (guard -> (choice -> left(Out) ; right(Out)) ; Out = none).
+
+%The body is built outside the measurement, so this reads merge_branch_returns/3
+%alone rather than the translation that produced its input.
+merge_cost(Depth, Inferences) :-
+    nested_conditional(Depth, Expr),
+    translate_expr(Expr, Goals, Out),
+    goals_list_to_conj(Goals, Body),
+    %min_inferences/2 cannot serve here: merge_branch_returns/3 binds the
+    %returns inside the body it walks, so each sample needs a fresh copy, and
+    %the copy has to be made OUTSIDE the counter because copying costs more
+    %the deeper the body is, which is the very thing being measured.
+    findall(Sample,
+            ( between(1, 3, _),
+              copy_term(branch_depth(input, Out)-Body, Head-Copy),
+              count_inferences(merge_branch_returns(Head, Copy, _), Sample) ),
+            Samples),
+    min_list(Samples, Inferences).
+
+% The merge carries its candidate returns in an assoc, an AVL tree, so a body
+% nested n deep costs about n log n [source 2026-08-14:
+% https://www.swi-prolog.org/pldoc/doc/_SWI_/library/assoc.pl]. Held against
+% quadratic rather than against linear, because linear is not what an assoc
+% gives and asserting it would be a test that has to be relaxed the first time
+% someone reads it. A list-backed store, which is the regression the assoc
+% exists to prevent, costs 4x per doubling and fails this.
+%
+% Measured 2026-08-18, min of three: 14,938 inferences at depth 50, 31,909 at
+% 100, 67,844 at 200 and 143,715 at 400. Each doubling costs 2.11x to 2.14x,
+% against 2.26x for exact n log n at these depths and 4x for quadratic.
+test(merging_stays_far_from_quadratic_in_nesting_depth) :-
+    merge_cost(100, Small),
+    merge_cost(200, Large),
+    Large > Small,
+    Large < 3 * Small.
 
 :- end_tests(translator_branch_returns).
 

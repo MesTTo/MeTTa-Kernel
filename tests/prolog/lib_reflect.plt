@@ -93,7 +93,7 @@ test(every_user_function_is_a_function_and_not_a_builtin) :-
 % ones that were wrong while the taxonomy was prose in a comment:
 % metta_backend_selftest/0 is enumerated with forall/2 [source: src/main.pl:36]
 % and was outside the check that enforces the rule, and metta_dispatch_call/4
-% is taken with ->/2 [source: src/translator.pl:350] and was wrongly inside it.
+% is taken with ->/2 [source: src/translator.pl:364] and was wrongly inside it.
 test(extension_points_are_reported) :-
     findall(Point, 'engine-extension-point'(Point), Points),
     forall(member([Name, Arity, Kind], Points),
