@@ -74,6 +74,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A persistent journal torn mid-record now recovers from every point it can
+  be torn at, rather than from most of them. `library(persistency)` writes
+  one action and its newline in a single call, so a file ending without that
+  newline ended inside the write, and which byte it stopped at is chosen by
+  the crash. The classifier asked `read_term_from_atom/3` whether the
+  leftover bytes were a whole term, and that predicate does not require a
+  terminating full stop: its documentation says "It is not required for Atom
+  to end with a full-stop". So `a`, `as`, `ass`, `asse`, `asser` and
+  `assert` all read as complete Prolog atoms, and `assert(edge(a,b))` read
+  as a complete term, and each of those seven torn journals was refused with
+  "ends with a complete but invalid record" for an operator to repair by
+  hand. Measured 2026-08-19: 7 of the 18 truncation points of
+  `assert(edge(a,b)).`
+
+  The terminating full stop is what separates a finished record from a torn
+  one, so the classifier now asks the reader that demands one, `read_term/2`
+  over a string stream. A tail that still carries its full stop is refused
+  exactly as before, because only its newline was lost and truncating would
+  throw away a record the writer finished.
+
 - A nondeterministic Python operation's answer stream is now closed by the
   code that consumed it, instead of being left to the garbage collector.
   The stream is one-shot and can hold a file, a database cursor or a lock
