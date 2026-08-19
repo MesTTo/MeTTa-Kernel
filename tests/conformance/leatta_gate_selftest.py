@@ -174,9 +174,33 @@ def main() -> int:
             complaints.append(
                 f"status breakdown missing:\n{authority.stdout}")
 
+        # The promotion consequence of that model: a PROMOTED area whose only
+        # differences are the arbiter's own commitments and open questions is
+        # CLEAN, or no area could ever promote without adopting every
+        # deliberate divergence. A file claiming agreement while differing is
+        # what blocks, and only that.
+        gamma_gate = root / "gamma-gate.txt"
+        gamma_gate.write_text("alpha\ngamma\n")
+        committed_clean = run(root, gamma_gate)
+        if committed_clean.returncode != 0:
+            complaints.append(
+                "a promoted area regressed on its own committed divergences:\n"
+                f"{committed_clean.stdout}")
+        if "0 of the 2 differing claim agreement" not in committed_clean.stdout:
+            complaints.append(
+                f"blocking split not reported:\n{committed_clean.stdout}")
+        (root / "gamma/stale.metta").write_text(
+            BETA_CLEAN.replace("!(+ 2 2)", "!(+ 4 4)").replace("[4]", "[9]"))
+        stale = run(root, gamma_gate)
+        if stale.returncode == 0 or "gamma" not in stale.stdout:
+            complaints.append(
+                "a conforms-claiming file that differs did not block its "
+                f"promoted area by name:\n{stale.stdout}")
+        (root / "gamma/stale.metta").unlink()
+
     for complaint in complaints:
         print(complaint)
-    print(f"{len(complaints)} defect(s) in the per-area leatta gate, over 10 checks")
+    print(f"{len(complaints)} defect(s) in the per-area leatta gate, over 13 checks")
     return 1 if complaints else 0
 
 

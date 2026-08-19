@@ -19,31 +19,32 @@
 # commit that makes the claim true, and say in the commit message what now
 # holds.
 #
-# Measured 2026-08-20 (305 files total, 238 of them checkable; run
-# `"$PY" tests/conformance/leatta.py --area NAME --show 500` per area).
-# Nothing below qualifies yet: every one of the nine areas has at least one
-# differing checkable file, so every line stays commented out.
+# The gate reads the STATUS now: a file whose status is `diverges` or
+# `ours` is the arbiter's committed ruling, its difference is the recorded
+# state, and it cannot block a promotion; only a file that CLAIMS agreement
+# while differing blocks. So an area promotes at zero BLOCKING files, and
+# the burn-down's finish line is per-area and real.
 #
-#   area              checkable files agreeing / total checkable
-#   ----------------  -------------------------------------------
-#   control-stdlib      2 / 13
-#   eval-core          12 / 27   (1 more file is a prose-only MEASURED block)
-#   grounded           10 / 35
-#   matching            7 / 12
-#   metaprogramming     1 / 9
-#   modules            13 / 29   (59 more files are prose-only MEASURED blocks)
-#   spaces              6 / 17
-#   types-basic        42 / 76
-#   types-meta         12 / 20   (7 more files are prose-only MEASURED blocks)
+# Measured 2026-08-20 on the promotion rule above (305 files total, 238
+# checkable; run `"$PY" tests/conformance/leatta.py --area NAME --show 500`
+# per area). Nothing below qualifies yet, and the BLOCKING column is the
+# distance:
 #
-# A DIFFERING FILE IS NOT ALWAYS A DEFECT HERE, which is what promotion has to
-# reckon with: the count above includes the files whose own STATUS says the
-# arbiter diverges from Hyperon deliberately, and this engine follows Hyperon
-# there rather than the arbiter. 50 of the 133 differing files are those, 12
-# more are the arbiter's own extensions and one awaits its ruling, so the
-# defects proper are the 70 whose status is `conforms`. An area reaches zero
-# differing only by adopting the arbiter's divergences as well, so promoting
-# one means either that decision or a gate that reads the status.
+#   area              agreeing / checkable   blocking (claim agreement, differ)
+#   ----------------  --------------------   ----------------------------------
+#   control-stdlib      2 / 13                7 of 11 differing
+#   eval-core          12 / 27                8 of 15   (1 more file is prose-only)
+#   grounded           10 / 35               17 of 25
+#   matching            7 / 12                3 of 5
+#   metaprogramming     1 / 9                 6 of 8
+#   modules            13 / 29                5 of 16   (59 more files prose-only)
+#   spaces              6 / 17                7 of 11
+#   types-basic        42 / 76               14 of 34
+#   types-meta         12 / 20                3 of 8    (7 more files prose-only)
+#
+# matching and types-meta are three blocking files from promotion each, and
+# modules five; the committed divergences and the undecided no longer stand
+# in the way, which is what the status-reading gate exists for.
 
 # control-stdlib
 # eval-core

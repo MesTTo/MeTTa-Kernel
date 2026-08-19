@@ -4,9 +4,13 @@
     was checked against named beside them. Running our engine over the same file
     and diffing those lines turns "LeaTTa is the oracle" from a habit into a
     check. --gate-areas-file turns that into a PER-AREA promise: an area a gate
-    file names must have zero differing checkable files right now, and a later
-    regression there fails the run; an area it does not name still runs, still
-    prints its differences, and can never fail the run on its own.
+    file names must have zero checkable files that differ FROM A STATUS
+    CLAIMING AGREEMENT, and a later regression there fails the run; a file
+    whose status is diverges or ours is the arbiter's committed ruling, its
+    difference is the recorded state and cannot block, and an undecided one
+    awaits the ruling and cannot block either. An area the file does not name
+    still runs, still prints its differences, and can never fail the run on
+    its own.
 Assumes:
   - LeaTTa is checked out; with it absent this reports that and exits 0 in
     EVERY mode, including a per-area run that names promoted areas, because it
@@ -30,17 +34,20 @@ Guarantees:
 Fails when:
   - the flat mode never fails by exit code unless --gate is passed; that is
     still a REPORT surface for a single ad hoc run.
-  - the per-area mode fails the run when ANY area named in --gate-areas-file has
-    a differing checkable file; an area left out of that file can print any
-    number of differences without failing the run
+  - the per-area mode fails the run when an area named in --gate-areas-file
+    has a checkable file differing from a conforms status; a committed
+    diverges or ours file never blocks, or no area could ever promote without
+    adopting every deliberate divergence, and an area left out of the file can
+    print any number of differences without failing the run
     [tested 2026-08-18: tests/conformance/leatta_gate_selftest.py].
   - asked to enforce a promotion in CI: this lane's oracle lives at a fixed
     local path outside the repository, so absence there is indistinguishable
     from "not yet promoted" and always yields exit 0.
 Decides:
-  - a promoted area gates on ZERO differing checkable files, not a percentage
-    threshold; the existing single-area --gate already committed to that rule
-    and the per-area mode reuses it rather than inventing a softer one.
+  - a promoted area gates on ZERO blocking files, a blocking file being one
+    whose status claims agreement while the engines differ, not on a
+    percentage threshold and not on the committed divergences, whose status IS
+    the ruling; the single-area --gate applies the same rule.
 Open Obligations:
   To Do: None
   Hacks: None
@@ -244,13 +251,24 @@ def compare(engine: Path, path: Path, timeout: float) -> Comparison:
 
 def summarize(corpus: Path, results: list[Comparison], show: int, label: str) -> bool:
     """Print one block of results exactly as every mode always has, and answer
-    whether any checkable file in it differs, which is the one bit a caller
-    needs to turn a comparison into a GATE or REPORT verdict."""
+    whether any checkable file differs FROM A STATUS THAT CLAIMS AGREEMENT,
+    which is the one bit that turns a comparison into a GATE verdict.
+
+    The arbiter's word is the definition, so a `diverges` or `ours` status is
+    the RULING for that file: differing there is the recorded state, engine
+    backlog or a committed extension, and cannot block a promoted area, or no
+    area could ever promote without adopting every deliberate divergence. An
+    `undecided-*` status awaits the ruling and cannot block either. What
+    blocks is a file whose status says the engines agree while they do not:
+    a regression, or a status gone stale. Every differing file still prints,
+    blocking or not."""
     checkable = [result for result in results if result.comparable]
     uncheckable = [result for result in results if not result.comparable]
     agreeing = [result for result in checkable if result.agrees]
     differing = [result for result in checkable if not result.agrees]
     unsettled = [result for result in differing if not result.settled]
+    blocking = [result for result in differing
+                if result.status.startswith("conforms")]
     status_counts = Counter(
         (result.status.split(None, 1)[0].rstrip(".,") if result.status else "(none)")
         for result in differing)
@@ -272,9 +290,11 @@ def summarize(corpus: Path, results: list[Comparison], show: int, label: str) ->
         f"  {len(unsettled)} of the {len(differing)} differing await the arbiter's own "
         f"ruling (an undecided-* status); the rest differ from its commitments\n"
         f"  differing by the arbiter's status: {status_breakdown}\n"
+        f"  {len(blocking)} of the {len(differing)} differing claim agreement and "
+        f"block a promoted area; the commitments and the undecided do not\n"
         f"  {skipped} MEASURED lines are printed output rather than answers"
     )
-    return bool(differing)
+    return bool(blocking)
 
 
 def discover_areas(corpus: Path) -> list[str]:
@@ -324,11 +344,11 @@ def main_per_area(arguments: argparse.Namespace) -> int:
         files = sorted((arguments.corpus / area).rglob("*.metta"))
         results = [compare(arguments.engine, path, arguments.timeout) for path in files]
         tier = "GATE" if area in gated else "REPORT"
-        has_diff = summarize(
+        blocks = summarize(
             arguments.corpus, results, arguments.show,
             f"LeaTTa conformance [{area}, {tier}]",
         )
-        if tier == "GATE" and has_diff:
+        if tier == "GATE" and blocks:
             regressed.append(area)
 
     print(f"\n{len(gated)}/{len(areas)} areas promoted to GATE: {sorted(gated) or 'none'}")
@@ -371,8 +391,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     results = [compare(arguments.engine, path, arguments.timeout) for path in files]
-    has_diff = summarize(arguments.corpus, results, arguments.show, "LeaTTa conformance")
-    return 1 if (arguments.gate and has_diff) else 0
+    blocks = summarize(arguments.corpus, results, arguments.show, "LeaTTa conformance")
+    return 1 if (arguments.gate and blocks) else 0
 
 
 if __name__ == "__main__":
