@@ -341,6 +341,29 @@ test(a_ground_expected_type_still_stops_at_one_witness) :-
             Witnesses),
     Witnesses == [true].
 
+%A tuple type is %Undefined% as soon as one member's type is, so the shape is
+%never reported with a hole sitting inside it. Written against the engine's
+%own answer rather than through janus, because the collapse is a rule of the
+%type derivation and not of the boundary.
+test(a_tuple_with_an_untyped_member_is_undefined) :-
+    findall(T, 'get-type'([plunit_type_a, plunit_type_b], T), Typed),
+    assertion(Typed == [[plunit_a, plunit_b]]),
+    findall(T, 'get-type'([plunit_type_a, plunit_never_declared], T), Holed),
+    assertion(Holed == ['%Undefined%']),
+    findall(T, 'get-type'([plunit_never_declared], T), Alone),
+    assertion(Alone == ['%Undefined%']).
+
+%Bottom-up, so an inner tuple carrying a hole makes the outer one undefined
+%without the rule saying anything about nesting.
+test(the_collapse_reaches_a_nested_tuple) :-
+    findall(T, 'get-type'([plunit_type_a, [plunit_type_a, plunit_type_b]], T),
+            Nested),
+    assertion(Nested == [[plunit_a, [plunit_a, plunit_b]]]),
+    findall(T,
+            'get-type'([plunit_type_a, [plunit_type_a, plunit_never_declared]], T),
+            Holed),
+    assertion(Holed == ['%Undefined%']).
+
 :- end_tests(metta_type_answers).
 
 :- begin_tests(metta_builtin_scoping).
@@ -512,8 +535,12 @@ test(translated_let_rejects_an_impossible_comparison_output) :-
                         assertz(user:translator_rule(second)))),
                  cleanup(retractall(user:translator_rule(_))) ]).
 
+%The refusal NAMES the operation now. It used to be a bare
+%instantiation_error, which told a MeTTa program that a value was missing and
+%not which operation wanted it; the no-mutation half is what this test is
+%really for and is unchanged.
 test(variable_removal_is_rejected_without_mutation,
-     [throws(error(instantiation_error, _))]) :-
+     [throws(error(petta_unbound_input('remove-translator-rule!', 1), _))]) :-
     catch('remove-translator-rule!'(_, _), Error,
           ( findall(Rule, user:translator_rule(Rule), Rules),
             Rules == [first, second],
@@ -779,25 +806,74 @@ test(builtin_exists_file) :-
     catch('exists_file'(5, _), error(Formal, _), true),
     assertion(nonvar(Formal)).
 
+%The table has exactly two legitimate sources: the file, and the engine
+%prelude's declarations. Stated as a SET identity rather than as
+%file + ledger == table, because the two sources are allowed to OVERLAP and
+%the arithmetic identity silently forbade it. get-type is written in both,
+%once for the type surface the file is and once so the call site honours its
+%Atom mask, and counting rows read that legitimate overlap as a double write.
+%The set identity says the same no-foreign-rows thing without the assumption,
+%and the row-count pair says the no-double-writes half directly instead of
+%leaving it to be inferred from a total.
+%
+%Rows are numbervar'd first. Several declarations are non-ground, `(: == (->
+%$t $t Bool))` among them, and every findall renames those variables fresh,
+%so an untreated == compares two structurally identical lists as different
+%and sort/2 keeps two copies of a row written twice. Grounding first makes
+%both comparisons say what they mean.
+%Each row is numbered on its own, from zero, because numbering the whole
+%list would make a row's numbers depend on how many rows preceded it and the
+%two lists arrive in different orders.
+canonical_row(Row, Canonical) :-
+    copy_term(Row, Canonical),
+    numbervars(Canonical, 0, _).
+
+canonical_rows(Rows, Canonical) :-
+    maplist(canonical_row, Rows, Numbered),
+    sort(Numbered, Canonical).
+
 test(the_table_is_built_from_the_file_rather_than_written_twice) :-
     library('lib_builtin_types.metta', Path),
     read_file_to_string(Path, Text, []),
     parse_metta_source(Text, Forms),
-    aggregate_all(count,
-                  ( member(parsed(expression, _, [':', Name, _]), Forms),
-                    atom(Name) ),
-                  InFile),
-    %The table has exactly two legitimate sources: the file, and the
-    %engine prelude's declarations, whose ledger
-    %(prelude_type_declaration/2) mirrors its rows one for one so
-    %eviction can purge them. File + ledger == table is the same
-    %no-double-writes claim with the second source named.
-    aggregate_all(count, prelude_type_declaration(_, _), FromPrelude),
-    aggregate_all(count, builtin_type_declaration(_, _), Loaded),
-    Expected is InFile + FromPrelude,
-    Expected == Loaded,
-    InFile > 0,
-    FromPrelude > 0.
+    findall(Name-Type,
+            ( member(parsed(expression, _, [':', Name, Type]), Forms),
+              atom(Name) ),
+            InFile),
+    findall(Name-Type, prelude_type_declaration(Name, Type), FromPrelude),
+    findall(Name-Type, builtin_type_declaration(Name, Type), Loaded),
+    append(InFile, FromPrelude, Sources),
+    canonical_rows(Sources, ExpectedRows),
+    canonical_rows(Loaded, LoadedRows),
+    assertion(ExpectedRows == LoadedRows),
+    length(Loaded, RowCount),
+    length(LoadedRows, DistinctCount),
+    assertion(RowCount == DistinctCount),
+    InFile \== [],
+    FromPrelude \== [].
+
+%The overlap the row above allows is real and has a mechanism: a row the
+%prelude found already written stays out of its eviction ledger, so a program
+%redeclaring the name takes the prelude's row away and leaves the file's.
+%Without that split, retractall/1 could not tell two identical rows apart and
+%eviction deleted the engine's own type surface entry for the name.
+test(a_shared_declaration_is_evicted_only_from_the_register_that_wrote_it) :-
+    Shared = 'get-type',
+    findall(Type, prelude_type_declaration(Shared, Type), Declared),
+    findall(Type, builtin_type_declaration(Shared, Type), Surface),
+    assertion(Declared \== []),
+    assertion(Surface \== []),
+    %Written by the file, so the prelude found it rather than putting it there.
+    assertion(\+ prelude_wrote_builtin_type(Shared, _)),
+    setup_call_cleanup(
+        true,
+        ( retract_prelude_declarations(Shared),
+          findall(Type, builtin_type_declaration(Shared, Type), Survived),
+          findall(Type, prelude_type_declaration(Shared, Type), Gone),
+          assertion(Survived == Surface),
+          assertion(Gone == []) ),
+        forall(member(Type, Declared),
+               assertz(prelude_type_declaration(Shared, Type)))).
 
 %The declarations are FACTS, not atoms in &self. Putting them in &self changes
 %what every program sees of its own space, which is not the engine's to do.
@@ -816,6 +892,46 @@ test(a_program_declaration_is_answered_before_the_engines,
     Types = ['PlunitOverride'|_].
 
 :- end_tests(metta_builtin_type_surface).
+
+%comparable_operands/3 at the predicate's own door, where the answer is a
+%Prolog one and no MeTTa reduction stands between the operands and the
+%verdict.
+:- begin_tests(comparable_operands).
+
+test(two_known_and_different_kinds_are_refused,
+     [forall(member(A-B, [1-"s", true-1, "s"-1, 1-true]))]) :-
+    catch(( '=='(A, B, _), Formal = none ), error(Formal, _), true),
+    assertion(Formal = type_error(_, _)).
+
+test(a_pair_of_one_kind_is_compared,
+     [forall(member(A-B-R, [1-1-true, 1-2-false, "s"-"s"-true,
+                            true-false-false]))]) :-
+    '=='(A, B, Answer),
+    assertion(Answer == R).
+
+%An operand nothing declares contradicts nothing, so the comparison happens.
+test(an_undeclared_operand_is_compared_rather_than_refused) :-
+    '=='(1, plunit_no_declaration, First),
+    assertion(First == false),
+    '=='(plunit_no_declaration, "s", Second),
+    assertion(Second == false).
+
+%Expressions are the axis the two references disagree on, so the guard leaves
+%them alone and the collapse-and-compare idiom keeps working.
+test(an_expression_operand_is_never_refused,
+     [forall(member(A-B-R, [[1,2,3]-[]-false, []-[]-true, [1,2]-[3,4]-false,
+                            []-1-false, "s"-[]-false]))]) :-
+    '=='(A, B, Answer),
+    assertion(Answer == R).
+
+test(the_refusal_names_the_metta_operation) :-
+    catch('=='(1, "s", _), error(_, Context), true),
+    assertion(Context = context('==', _)),
+    catch('!='(1, "s", _), error(_, NeContext), true),
+    assertion(NeContext = context('!=', _)).
+
+:- end_tests(comparable_operands).
+
 
 :- begin_tests(metta_constraint_domains).
 
@@ -976,13 +1092,27 @@ test(a_symbol_parameter_takes_a_symbol_and_nothing_else) :-
     metatype_call("", "(meta-sym 7)", RejectsNumber),
     assertion(RejectsNumber == []).
 
-test(an_expression_parameter_takes_an_expression_and_nothing_else) :-
+%A metatype parameter refuses a value of a KNOWN and different type, and lets
+%through a value whose type nothing declares, which is the gradual rule and
+%not a hole in the metatype check: %Undefined% is consistent with every type
+%(Siek and Taha's ? relation), so no violation is provable for `foo`.
+%
+%This test used to say "and nothing else" and assert that `foo` was refused.
+%Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+%interpreter, byte-identical across both: `!(meta-expr foo)` answers
+%`(got foo)` and `!(meta-expr 7)` is `(BadArgType 1 Expression Number)`. The
+%source the old comment quoted, `*typ == ATOM_TYPE_ATOM || *typ ==
+%get_meta_type(atom)`, describes ONE of the routes into the check; the
+%declared-type route runs first and admits the unknown.
+test(an_expression_parameter_refuses_a_known_other_type_and_admits_an_unknown) :-
     process_metta_string("(: meta-expr (-> Expression Atom))", _),
     process_metta_string("(= (meta-expr $e) (got $e))", _),
     metatype_call("", "(meta-expr (1 2))", Accepted),
     assertion(Accepted == [[got, [1, 2]]]),
-    metatype_call("", "(meta-expr foo)", Rejected),
-    assertion(Rejected == []).
+    metatype_call("", "(meta-expr 7)", RejectsNumber),
+    assertion(RejectsNumber == []),
+    metatype_call("", "(meta-expr foo)", AdmitsUnknown),
+    assertion(AdmitsUnknown == [[got, foo]]).
 
 %Atom is the wildcard, which is the whole of what the tutorial's "supertype"
 %wording means once it is read off the source rather than the prose.
@@ -1005,13 +1135,22 @@ test(an_atom_parameter_takes_every_kind,
 %are ordered and cut on the value, so asking with it bound let an earlier
 %clause's head fail to unify and the catch-all at the bottom claim the call,
 %which made every value answer Grounded. Both callers ask with it bound.
-test(a_grounded_parameter_rejects_a_symbol) :-
+%The same gradual rule from the Grounded side. This test used to assert that
+%a Grounded parameter REJECTS a symbol; measured 2026-08-19 on hyperon 0.2.10
+%and on the LeaTTa mechanised interpreter, byte-identical across both,
+%`!(meta-gnd foo)` answers `(gotg foo)`. An undeclared symbol has no declared
+%type to contradict Grounded with. A symbol that IS declared does, and that is
+%the half this pins as still refusing.
+test(a_grounded_parameter_admits_an_unknown_and_refuses_a_declared_other) :-
     process_metta_string("(: meta-gr (-> Grounded Atom))", _),
     process_metta_string("(= (meta-gr $g) (got $g))", _),
     metatype_call("", "(meta-gr 7)", Accepted),
     assertion(Accepted == [[got, 7]]),
-    metatype_call("", "(meta-gr foo)", Rejected),
-    assertion(Rejected == []).
+    metatype_call("", "(meta-gr foo)", AdmitsUnknown),
+    assertion(AdmitsUnknown == [[got, foo]]),
+    process_metta_string("(: meta-gr-typed MetaGrOther)", _),
+    metatype_call("", "(meta-gr meta-gr-typed)", RejectsDeclared),
+    assertion(RejectsDeclared == []).
 
 test(get_metatype_answers_the_same_bound_or_unbound,
      [forall(member(Value-Metatype, [foo-'Symbol', 7-'Grounded',
@@ -1365,3 +1504,141 @@ test(with_pragma_refuses_a_malformed_setting,
     metta_with_pragmas([broken], true, _).
 
 :- end_tests(scoped_pragmas).
+
+%petta_transaction/1 at the predicate level, where the answer set is a plain
+%Prolog one and no MeTTa reduction stands between the goal and the count.
+:- begin_tests(transaction_answers).
+
+:- dynamic tx_probe/1.
+
+test(a_transaction_yields_every_solution_of_its_goal) :-
+    findall(X, petta_transaction(member(X, [a,b,c])), Answers),
+    assertion(Answers == [a,b,c]).
+
+test(a_goal_with_no_solution_fails_the_transaction) :-
+    assertion(\+ petta_transaction(fail)),
+    assertion(\+ petta_transaction(member(_, []))).
+
+%Every solution's writes are inside the one transaction, so they land
+%together or not at all. retractall/1 rather than a fixture, because a
+%rolled-back transaction must leave the store exactly as it found it.
+test(every_solution_writes_inside_the_one_transaction) :-
+    retractall(tx_probe(_)),
+    findall(X, petta_transaction(( member(X, [1,2,3]),
+                                   assertz(tx_probe(X)) )), Answers),
+    assertion(Answers == [1,2,3]),
+    findall(P, tx_probe(P), Written),
+    assertion(Written == [1,2,3]),
+    retractall(tx_probe(_)).
+
+test(a_failure_after_several_writes_undoes_all_of_them) :-
+    retractall(tx_probe(_)),
+    assertion(\+ petta_transaction(( member(X, [1,2,3]),
+                                     assertz(tx_probe(X)),
+                                     fail ))),
+    findall(P, tx_probe(P), Written),
+    assertion(Written == []).
+
+test(a_throw_after_several_writes_undoes_all_of_them) :-
+    retractall(tx_probe(_)),
+    catch(petta_transaction(( member(X, [1,2,3]),
+                              assertz(tx_probe(X)),
+                              throw(tx_boom) )),
+          Thrown, true),
+    assertion(Thrown == tx_boom),
+    findall(P, tx_probe(P), Written),
+    assertion(Written == []).
+
+%A nested transaction runs inside the outer one and collects for the same
+%reason: SWI's transaction/1 is once-like at every depth.
+test(a_nested_transaction_yields_every_solution_too) :-
+    findall(X, petta_transaction(petta_transaction(member(X, [a,b]))),
+            Answers),
+    assertion(Answers == [a,b]).
+
+:- end_tests(transaction_answers).
+
+%The generated probe P1.7 and P1.8 ask for: every position the engine's own
+%type surface declares strict, on a builtin PeTTa defines, called with that
+%position unbound and the rest filled. The table is guarded_input_position/3,
+%so this cannot go stale by hand: declaring a type for a new builtin adds a
+%row here in the same stroke.
+:- begin_tests(builtin_input_guards).
+
+guard_filler('Expression', [a, b]) :- !.
+guard_filler('Number', 1) :- !.
+guard_filler('String', "s") :- !.
+guard_filler('Bool', true) :- !.
+guard_filler('Symbol', '&probe-space') :- !.
+guard_filler('Variable', '$probevar') :- !.
+guard_filler(_, a).
+
+%The outcome of calling Name/Arity with Position unbound: `ok` when it refused
+%and named the MeTTa operation, and otherwise a description of what it did
+%instead. A one-second limit, because two of these used to enumerate every
+%list there is.
+guard_outcome(Name, Arity, Position, Outcome) :-
+    builtin_type_declaration(Name, ['->'|Chain]),
+    append(Inputs, [_], Chain),
+    length(Chain, Arity),
+    findall(Value,
+            ( nth1(Index, Inputs, Type),
+              ( Index =:= Position -> true ; guard_filler(Type, Value) ) ),
+            Filled),
+    append(Filled, [Out], Args),
+    Goal =.. [Name|Args],
+    nth1(Position, Filled, Hole),
+    copy_term(Hole, Before),
+    (   catch(call_with_time_limit(1, catch(Goal, Error, true)),
+              time_limit_exceeded, Error = guard_probe_timeout)
+    ->  (   nonvar(Error)
+        ->  guard_refusal(Error, Name, Outcome)
+        ;   guard_success(Hole, Before, Out, Name, Outcome)
+        )
+    ;   Outcome = 'failed silently'
+    ).
+
+guard_refusal(guard_probe_timeout, _, 'ran away') :- !.
+guard_refusal(error(resource_error(R), _), _, Outcome) :- !,
+    format(atom(Outcome), "exhausted ~w", [R]).
+guard_refusal(error(_, context(Named, _)), Name, ok) :- Named == Name, !.
+guard_refusal(error(Formal, Context), _, Outcome) :-
+    format(atom(Outcome), "refused as ~q in ~q, which is not its own name",
+           [Formal, Context]).
+
+guard_success(Hole, Before, _, _, Outcome) :- nonvar(Hole), var(Before), !,
+    format(atom(Outcome), "bound its own input to ~q", [Hole]).
+guard_success(_, _, Out, _, 'answered a fresh variable') :- var(Out), !.
+guard_success(_, _, Out, Name, ok) :-
+    Out = ['Error', [Named|_], _], Named == Name, !.
+guard_success(_, _, Out, _, Outcome) :-
+    format(atom(Outcome), "answered ~q", [Out]).
+
+test(every_builtin_refuses_an_unbound_input_by_name) :-
+    findall(Name-Arity-Position, guarded_input_position(Name, Arity, Position),
+            Rows0),
+    sort(Rows0, Rows),
+    %A table that emptied itself would pass every assertion below.
+    length(Rows, Count),
+    assertion(Count >= 80),
+    findall(Name/Arity-Position-Outcome,
+            ( member(Name-Arity-Position, Rows),
+              guard_outcome(Name, Arity, Position, Outcome),
+              Outcome \== ok ),
+            Wrong),
+    assertion(Wrong == []).
+
+%The same probe over the positions this rule does NOT cover, so the gap stays
+%measured rather than assumed: each still misbehaves, and the day one stops,
+%this test says so and the row comes out of unguarded_input_position/2.
+test(the_uncovered_positions_are_still_uncovered) :-
+    findall(Name-Position,
+            ( unguarded_input_position(Name, Position),
+              arity(Name, Arity),
+              functor(Head, Name, Arity),
+              predicate_property(Head, defined),
+              guard_outcome(Name, Arity, Position, ok) ),
+            Fixed),
+    assertion(Fixed == []).
+
+:- end_tests(builtin_input_guards).

@@ -123,8 +123,12 @@
 ;as anything at all.
 !(test (let $pow (py-atom math.pow (-> Number Number Number)) (collapse (get-type $pow)))
        (builtin_function_or_method (-> Number Number Number)))
-;Declare nothing and the classes are the whole answer.
-!(test (collapse (get-type (py-atom math.sqrt))) (builtin_function_or_method))
+;Declare nothing and the classes are the whole answer. The object is built
+;first, the same way the line above builds it: get-type does not evaluate its
+;argument, so asking about the unreduced (py-atom math.sqrt) reports what
+;that EXPRESSION is declared to be, not what building it would produce.
+!(test (let $sqrt (py-atom math.sqrt) (collapse (get-type $sqrt)))
+       (builtin_function_or_method))
 
 ;The reading in between is py-iter, which is superpose for a Python sequence,
 ;and collapse turns it back into an expression one level deep. Nothing here is

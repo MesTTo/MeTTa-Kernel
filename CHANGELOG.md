@@ -146,6 +146,151 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   against 369. Eleven counter baselines are raised with that attribution and
   no other number moved.
 
+- A builtin handed an unbound variable where it needs a value now says so, by
+  name. Measured 2026-08-19 by a probe generated over every position the
+  engine's own type surface declares strict, this failed four different ways
+  at once: 28 positions BOUND THE CALLER'S VARIABLE, `!(car-atom $u)`
+  unifying `$u` with `[H|_]` through the clause head and answering the fresh
+  head; 13 answered a fresh variable and 12 an answer derived from nothing,
+  `!(union-atom (a b) $u)` giving the partial expression `(a b|_)`; 2
+  EXHAUSTED THE STACK, `!(subtraction-atom $u (a b))` walking a list with both
+  ends open; and 7 raised naming a Prolog predicate the program never wrote,
+  `!(sort-atom $u)` saying `msort/2` and `!(sread $u)` saying `atom_codes/2`.
+
+  83 positions refuse now, each reading like
+  `car-atom: a value expected in argument 1, found an unbound variable`. The
+  table is derived from `builtin_type_declaration/2` rather than listed, so
+  declaring a type for a new builtin guards it in the same stroke, and the
+  probe in `tests/prolog/metta.plt` walks the same table. It costs nothing
+  where it would be felt: `car-atom` on a real expression is 2.0000
+  inferences per call with the guard and 2.0000 without, over 200,000 calls.
+
+  What stays relational is named rather than left to be discovered:
+  `(index-atom (a b) $i)` enumerates, `and`, `or`, `not`, `xor` and `implies`
+  enumerate the truth table, `cons` builds a pattern with an open tail, which
+  the engine's own prelude writes as `(cons Error $_)`, `union-atom` and
+  `member` are `append/3` and `member/2` under MeTTa names and a shipped
+  library splits a list with the first, and the `#` constraint family is
+  relational throughout. A name lent to MeTTa from SWI, `msort`, `append`,
+  `sort`, `maplist`, `length`, keeps Prolog's own behaviour, because under
+  that name it IS the Prolog predicate.
+
+  It costs `let-heavy` 3.35%, 5,054,208,356 instructions against 4,890,210,090
+  without it, and that difference is the guard on `car-atom` alone.
+  Measured 2026-08-19, min of three, spread under 0.001%: an INERT extra
+  clause on `car-atom` costs 3.13% by itself, an SSU rewrite 3.51%, and an
+  unrelated inert predicate of the same size in the same place costs 0.00%,
+  which rules out code layout. The inference count is 2.0000 per call either
+  way, so the engine's own counter cannot see it: it is SWI's clause
+  selection. No arrangement avoids it, and the alternative is
+  `!(car-atom $u)` going on binding the caller's variable, so the counter is
+  rebaselined with this attribution and no other number moved.
+
+  Six positions are NOT covered and the engine says which:
+  `unguarded_input_position/2` names `get-atoms`, `match` and `add-reduct` in
+  `src/spaces.pl`, `sread` in `src/parser.pl`, and `git-import!` and `sleep`
+  in libraries, each in a file this change does not own. A test asserts they
+  are still uncovered, so the day one is fixed the row comes out instead of
+  the gap going quiet.
+
+- `==` and `!=` refuse a comparison across two KNOWN and different types
+  instead of answering `False`. `!(== 1 "S")` answered `False`, which is also
+  the answer for two Numbers that differ, so a conditional took the else
+  branch and nothing said the question was meaningless. Both are declared
+  `(-> $a $a Bool)` now, one type variable, matching upstream's own signature
+  for `==`, and the refusal names the operation and the operand:
+  `==: Number expected, found "S"`.
+
+  Only a PROVEN mismatch is refused. `!(== 1 a)` still answers `False` when
+  nothing declares `a`, because nothing is contradicted, and expressions are
+  left alone entirely: `!(== (collapse ...) ())` and `!(== (1 2 3) ())` answer
+  exactly as before. `=alpha` is unchanged and remains the comparison that
+  takes anything, so a program that wants a cross-kind verdict has one.
+
+  Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+  interpreter over 29 shapes; every shape the two references agree on now
+  matches, and the three they disagree on keep the answer PeTTa already gave.
+  Costs nothing on the hot path: a thousand-iteration `==` loop is 4487.45
+  inferences before and after, because two numbers are settled inline.
+
+- `%Undefined%` is the gradual type and is now consistent with every type in
+  both directions, which is what decides whether a typed call admits an
+  argument. This engine had both directions backwards. A parameter declared
+  `%Undefined%` demanded that the argument be UNTYPED, so
+  `(: tensor (-> %Undefined% DLTensor))` refused `1.0` and
+  `!(get-type (tensor (1.0)))` answered `((-> %Undefined% DLTensor) (Number))`
+  instead of `DLTensor`; and an argument nothing declares failed a concrete
+  parameter, so a typo'd symbol was refused where both references accept it.
+
+  A call site refuses only a PROVEN conflict now: with
+  `(: f (-> Number Atom))`, `!(f "s")` is still refused and `!(f undeclared)`
+  answers. What does NOT change is a contract, because a contract asks the
+  other question: `(admits &pool Space)` still demands a witness, since an
+  atom nothing declares is not evidence of a Space.
+
+  Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+  interpreter, byte-identical across both, over concrete, metatype and `Bool`
+  parameters. Three shipped tests asserted the stricter rule and were
+  corrected against that measurement.
+
+- An expression no arrow types is read element-wise, and the tuple it reads is
+  now `%Undefined%` as soon as one member's type is. Nothing is known about a
+  tuple one of whose components is unknown, so reporting the shape while a
+  hole sits inside it claimed more than had been derived:
+  `!(get-type (some-undeclared-call))` answered `(%Undefined%)`, a one-element
+  tuple, where the answer is that nothing is known at all. A fully typed
+  expression is unaffected, so `(typed-sym typed-sym)` is still
+  `(Number Number)`. The collapse is recursive because the walk is bottom-up:
+  an inner tuple carrying a hole makes the outer one `%Undefined%` too.
+
+  Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+  interpreter, byte-identical across both, over fourteen shapes.
+
+- `(transaction ...)` answers everything its body answers. It used to answer
+  the first one only and say nothing: `!(collapse (petta-three))` with three
+  equations for the name answered `(1 2 3)` and
+  `!(collapse (transaction (petta-three)))` answered `(1)`, because SWI's
+  `transaction/1` runs its goal as `once/1`. Dropping answers is an opacity
+  violation in the transactional-memory sense, since a reader of the result
+  sees a state no serial run of the body produces.
+
+  The form collects its body's answers inside the transaction, commits, and
+  replays them after, so the atomicity is unchanged and now covers the whole
+  answer set: every answer's writes land together, a body that ends with no
+  answer rolls all of them back and fails, and one that raises rolls all of
+  them back and re-raises. Refusing a nondeterministic body was the other
+  option and it is not cheaper: knowing a Prolog goal is nondeterministic
+  means running it to a second answer, at which point the answers are in hand
+  and refusing them throws away work already done.
+
+  The cost is that the answers are materialized. A body with an unbounded
+  answer set now exhausts the stack and raises where it used to yield once,
+  which is the honest price of atomicity over a whole answer set. Measured
+  2026-08-19 over a three-answer body: 557.04 inferences plain against 773.05
+  through `transaction`.
+
+- `get-type` and `get-type-space` no longer run the expression they are asked
+  about. Asking for a type is a question about an expression, and the engine
+  was answering it by running the expression first: an operation appending to
+  a Python list fired on `!(get-type (petta-effectful))`, taking a counter
+  from 0 to 1, and the answer was `Number`, the type of what it returned.
+  Every linter walk and every REPL inspection was invisibly effectful on a
+  seam whose whole purpose is arbitrary effects.
+
+  What changes for a program: `(get-type EXPR)` now answers what `EXPR` is
+  DECLARED to be, not what running it would produce. A declared function
+  answers its return type, `!(get-type (literal-return 2))` being `Atom` for
+  `(: literal-return (-> Number Atom))`; a builtin application answers its
+  arrow's return type, `!(get-type (+ 1 2))` being `Number`; and an
+  application of a name nothing declares answers `%Undefined%` where it used
+  to answer the type of the value the call produced. To ask about a VALUE,
+  produce it first: `!(let $v (f 1) (get-type $v))`.
+
+  Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+  interpreter, byte-identical across both, over seven probes: the effectful
+  argument does not fire on either, and each of the four answers above is
+  what both of them give.
+
 ### Fixed
 
 - `(case Key Cases)` no longer allocates 7.5 Gb and dies when its cases are
@@ -170,8 +315,28 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   cases; handing them over as a value costs one translation per call, 78, 258
   and 498 inferences for the same three sizes. A `case` on a hot path is
   worth writing out. `examples/control/casecomputed.metta` runs all of it.
-
 ### Added
+
+- `(atomically EXPR)`, the atomic block under the name the concurrency
+  vocabulary uses for it: Haskell's STM spells it `atomically`, Clojure's
+  spells it `dosync`, and PeTTa's `transaction` is the same operation under
+  the database name. It did not exist, so `!(atomically (+ 1 1))` answered
+  `(atomically 2)`, an unknown head applied to its evaluated argument, rather
+  than running anything atomically.
+
+  It is sugar over `(transaction ...)`, deliberately, so the two cannot
+  drift: every guarantee is `transaction`'s, answer preservation and
+  whole-answer-set commit-or-rollback included, and there is one
+  implementation of them.
+
+  They are still not one operation wearing two names. `transaction` is a
+  special form and compiles its body into the call site, so the body has to
+  be written there and `(let $b <a term> (transaction $b))` answers the term
+  unrun. `atomically` takes its body as an unreduced atom and evaluates it,
+  so the body may be a term the program computed. Measured 2026-08-19 over a
+  three-answer body: 773.05 inferences through `transaction` against 956.07
+  through `atomically`, which is what evaluating a runtime term costs against
+  compiling the body in place.
 
 - `(super (f a b))`, the relative way to reach the definition a space's own
   equation shadows. A space can redefine a function it inherits, and until now
