@@ -488,13 +488,22 @@ test(engine_operations_saturate_where_raw_is_still_raises,
     '/'(Big, 3, Converted), Converted == Infinity,
     _ is 1.0e308 * 10.
 
-% The retry itself can hit a DIFFERENT fault in a compound expression: base 1
-% divides the saturated -inf by log(1) = 0.0, and that residual keeps the
-% operation context instead of escaping raw.
-test(a_saturated_retry_still_funnels_its_residual_error,
+% A compound expression can fault twice: base 1 overflows in log(0.0) and
+% then divides the saturated -inf by log(1) = 0.0. The retry runs under all
+% the IEEE flags at once, so the answer is the arbiter's -inf rather than a
+% second error.
+test(a_twice_faulting_compound_saturates_all_the_way) :-
+    NegativeInfinity is -inf,
+    'log-math'(1, 0.0, Out),
+    Out == NegativeInfinity.
+
+% Integer division by zero is OUTSIDE the retry: the arbiter's answer there
+% is the DivisionByZero Error atom, a different shape, so the error keeps
+% raising with its operation context.
+test(integer_division_by_zero_keeps_raising,
      [throws(error(evaluation_error(zero_divisor),
-                   context('log-math', _)))]) :-
-    'log-math'(1, 0.0, _).
+                   context('/', _)))]) :-
+    '/'(1, 0, _).
 
 % An infinity the reader legally produced carries THROUGH arithmetic: SWI's
 % error mode rejects any non-finite result, operands included, so before the

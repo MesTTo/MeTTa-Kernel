@@ -45,16 +45,15 @@ test(every_runtime_term_has_a_metatype,
 
 :- begin_tests(metta_operation_errors).
 
-%The float cases raise from the NaN family (evaluation_error(undefined)) and
-%from division by a float zero, not from overflow: a result past binary64
-%saturates now, agreeing with the reader's literals, so an overflowing pair
-%answers inf instead of erroring [tested:
-%engine_operations_saturate_where_raw_is_still_raises].
-host_error_case('+', '+'(1.0Inf, -1.0Inf, _)).
-host_error_case('-', '-'(1.0Inf, 1.0Inf, _)).
-host_error_case('*', '*'(1.0Inf, 0.0, _)).
+%+, - and * have no evaluation-error case: on two numbers they are TOTAL
+%now, the whole IEEE family saturating to values the way the reader's
+%literals do (overflow to the infinities, the NaN class to NaN) [tested:
+%engine_operations_saturate_where_raw_is_still_raises,
+%a_twice_faulting_compound_saturates_all_the_way], and a non-number operand
+%raises the argument GUARD's error, which is the next unit's context.
+%Integer division by zero is the fault that remains, deliberately: the
+%operand guard keeps it outside the IEEE retry.
 host_error_case('/', '/'(1, 0, _)).
-host_error_case('/', '/'(1.0, 0.0, _)).
 host_error_case('%', '%'(1, 0, _)).
 host_error_case(exp, exp(invalid_number, _)).
 host_error_case('#+', '#+'(1, invalid_number, _)).
@@ -76,7 +75,6 @@ host_error_case('sqrt-math', 'sqrt-math'(-1, _)).
 host_error_case('abs-math', 'abs-math'(invalid_number, _)).
 host_error_case('log-math', 'log-math'(1, invalid_number, _)).
 host_error_case('exp-math', 'exp-math'(invalid_number, _)).
-host_error_case('exp-math', 'exp-math'(1.5NaN, _)).
 host_error_case('trunc-math', 'trunc-math'(invalid_number, _)).
 host_error_case('ceil-math', 'ceil-math'(invalid_number, _)).
 host_error_case('floor-math', 'floor-math'(invalid_number, _)).
