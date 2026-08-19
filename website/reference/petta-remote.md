@@ -13,6 +13,21 @@ Source: `python/petta/remote.py`.
 > protocol; the engine keeps unification for itself, so a remote answer is
 > speed and reach, never trust.
 > Guarantees:
+>   - the ask/next/stop lifecycle answers a chunk at a time and never looks
+>     ahead, so taking two answers of an enumeration costs two answers'
+>     engine work whatever the enumeration's size [measured 2026-08-20 over
+>     real HTTP: 1,250 inferences for two answers whether the space held 10
+>     atoms or 10,000, against 1,839 and 1,490,407 for the eager door]
+>     [tested test_two_answers_cross_the_wire_without_the_third_being_computed]
+>   - a cursor nobody pulls from is released after cursor_idle seconds and
+>     a gateway refuses to hold more than cursor_limit at once [tested
+>     test_an_idle_cursor_is_released,
+>     test_a_gateway_refuses_more_cursors_than_it_holds]
+>   - close() releases every cursor a client left open [tested
+>     test_closing_the_server_releases_open_cursors]
+>   - the authorize hook judges /next and /stop against the space the
+>     cursor's answers come from, not the request's absent space field
+>     [tested test_authorize_sees_the_cursors_own_space]
 >   - serve compares Bearer credentials with hmac.compare_digest before
 >     consulting the authorization callback [tested
 >     test_bearer_token_uses_constant_time_comparison]
@@ -35,6 +50,9 @@ Source: `python/petta/remote.py`.
 > Owns:
 >   - Server owns the HTTP loop and its attached-engine worker until close()
 >     joins both [tested test_remote_close_waits_for_worker_detach]
+>   - a Gateway owns every cursor ask/next/stop holds open, one engine each,
+>     released by close(), by the stream ending, or by the idle deadline
+>     [tested test_closing_the_server_releases_open_cursors]
 > Fails when:
 >   - a program wants to watch a remote space. There is no event channel to
 >     build that on, so the capability is refused rather than half-kept; the
@@ -56,6 +74,39 @@ class Request:
 > for, and which space they name. A hook given the headers alone could
 > not tell a read from a write, so read-only was inexpressible.
 
+## `RemoteCursor`
+
+```python
+class RemoteCursor:
+```
+
+> A remote answer stream: `/ask` opened it, `/next` pulls the next
+> chunk, `/stop` releases it.
+>
+> MeTTa.stream()'s Cursor with a wire under it, and the same discipline:
+> iterate it, close() it, or leave its with-block. Exhaustion releases
+> the server's cursor and stays ordinary iterator exhaustion; an
+> explicit close is the separate state that refuses further pulls.
+>
+>     with space.stream(pattern) as answers:
+>         for atom in answers:
+>             if wanted(atom):
+>                 break          # the server computes nothing further
+>
+> `batch` is how many answers one crossing carries. One is the fully
+> lazy reading and the protocol's default; raising it trades an answer
+> that may go unwanted for a saved round trip, the same choice a
+> database driver's fetch size makes.
+
+### `RemoteCursor.close`
+
+```python
+def close(self) -> None:
+```
+
+> Release the server's cursor; idempotent, and distinct from
+> exhaustion, which released it already.
+
 ## `RemoteSpace`
 
 ```python
@@ -69,6 +120,14 @@ class RemoteSpace(SpaceProvider):
 > through; atoms enumerates. The local engine unifies every candidate
 > against the local pattern, so a lying or stale remote can only cost
 > time, not soundness.
+>
+> `batch` chooses which door match() uses, and the choice is the one
+> query() and stream() make in-process. Left None, match() is the eager
+> /match: one crossing carrying the whole answer set, which is what a
+> space whose answers fit in an HTTP body wants. Set to a count, match()
+> rides the ask/next/stop lifecycle in chunks of that size, so a caller
+> that stops early stops the server's work with it and an answer set
+> larger than one body still crosses.
 >
 > It does NOT subscribe, and that is the one capability the base class
 > would have given it for free. See can_run.
@@ -115,6 +174,41 @@ def match(self, pattern: Atom, *, limit: int | None = None) -> Iterator[Atom]:
 > over-answers, and the local engine re-unifies and truncates either
 > way. Whether it is honored is advertised in
 > `server_capabilities()`.
+>
+> One crossing carries the whole answer set unless this space was
+> built with a `batch`, in which case the ask/next/stop lifecycle
+> carries it a chunk at a time and an engine that stops pulling
+> stops the server.
+
+### `RemoteSpace.stream`
+
+```python
+def stream(
+    self,
+    pattern: Atom,
+    *,
+    batch: int = _DEFAULT_BATCH,
+    limit: int | None = None,
+) -> RemoteCursor:
+```
+
+> The lazy door: answers pulled a chunk at a time, so taking two
+> of a large enumeration costs the server two answers' work instead
+> of the whole join's.
+>
+> match() is the eager door and stays it, the split query() and
+> stream() already make in-process. Reach for this to take answers
+> until you have seen enough, or when the answer set is larger than
+> one HTTP body.
+>
+> `limit` is the wire's `bound` and carries the same advice it
+> carries on match(): a server that can honor it exactly stops at
+> the count, one that cannot ignores it and over-answers. It is not
+> truncated again here, because a server may answer candidates
+> rather than answers, and cutting an over-approximated stream at
+> the count is the under-approximation the protocol forbids. The
+> first ask crosses when the cursor is built, as the in-process
+> cursor opens its engine when it is built.
 
 ### `RemoteSpace.server_capabilities`
 
@@ -189,13 +283,79 @@ def connect(
 ## `attach`
 
 ```python
-def attach(m, name: str, url_or_transport: Any, remote_space: str = '&self') -> RemoteSpace:
+def attach(
+    m,
+    name: str,
+    url_or_transport: Any,
+    remote_space: str = '&self',
+    *,
+    batch: int | None = None,
+) -> RemoteSpace:
 ```
 
 > Register a remote engine's space here under a local name.
 >
 > petta.remote.attach(m, "&hq", "http://127.0.0.1:8700")
 > m.run('!(match &hq (users $id $n) $n)')
+>
+> `batch` puts the attached space's matching on the lazy door, so a
+> MeTTa query that stops early stops the serving engine with it:
+>
+>     petta.remote.attach(m, "&hq", url, batch=1)
+>     m.run('!(once (match &hq (users $id $n) $n))')  # one answer computed
+
+## `Gateway`
+
+```python
+class Gateway:
+```
+
+> This engine's spaces as the protocol's server side, transport-free.
+>
+> Call it with (operation, payload) and it answers the reply dict, which
+> is the shape `Transport` has on the client side, so both halves of the
+> wire carry one signature. serve() wraps a Gateway in the bundled HTTP
+> server; mount one on the framework a deployment already runs, or call
+> it directly, which is how a test watches the engine's own counters
+> while the protocol runs, an HTTP server answering on a thread of its
+> own.
+>
+> A Gateway OWNS the cursors ask/next/stop hold open, so close() it when
+> the process is done with it. Server.close() does that for the one
+> serve() made.
+>
+> It serializes NOTHING of its own: serve() runs every call on one
+> attached-engine worker, and a Gateway called directly runs on the
+> calling thread, so a caller that shares one across threads owns that
+> arrangement.
+
+### `Gateway.health`
+
+```python
+def health(self) -> dict:
+```
+
+> The transport-side spelling of GET /health, so a Gateway is a
+> drop-in Transport and RemoteSpace.server_capabilities() can ask
+> one the same question it asks a connected server.
+
+### `Gateway.cursor_space`
+
+```python
+def cursor_space(self, token: object) -> str | None:
+```
+
+> Which space an open cursor's answers come from, so a transport
+> can hand its authorization hook the space /next and /stop are
+> really about; None once the cursor is gone.
+
+### `Gateway.close`
+
+```python
+def close(self) -> None:
+```
+
+> Release every cursor still open, and the engine behind each.
 
 ## `Server`
 
@@ -211,7 +371,13 @@ class Server:
 def close(self, timeout: float = _SERVER_TIMEOUT) -> None:
 ```
 
-> Stop accepting, detach the engine worker, and join both threads.
+> Stop accepting, detach the engine worker, join both threads, and
+> release every answer cursor a client left open.
+>
+> The cursors go LAST, once nothing can pull from them: each holds an
+> engine, and a client that walked away from a stream would otherwise
+> leave one behind until the idle deadline that no longer has a server
+> to fire on.
 
 ## `serve`
 
@@ -225,6 +391,8 @@ def serve(
     token: str | None = None,
     authorize: Callable[[Request], bool] | None = None,
     ssl_context: Any = None,
+    cursor_idle: float = _CURSOR_IDLE,
+    cursor_limit: int = _CURSOR_LIMIT,
 ) -> Server:
 ```
 
@@ -241,9 +409,16 @@ def serve(
 > the engine's own match with the pattern as its template, so the
 > instantiated atoms cross, and the caller's engine re-unifies them.
 >
+> `cursor_idle` and `cursor_limit` bound the ask/next/stop lifecycle's
+> server-side state: how long a cursor nobody pulls from survives, and
+> how many live at once before a further ask is refused. The defaults
+> are pengines' own, 300 seconds and a ceiling.
+>
 > A context is a PROCESS: serving and attaching within one process
 > cannot join through the local engine, because one runtime lock guards
 > both sides of that call and the serving thread would wait on the very
 > evaluation that is waiting on it. Two engines, two processes, is the
 > deployment this exists for; in-process, spaces already share the
-> engine and need no wire.
+> engine and need no wire. Gateway is the same protocol with no
+> transport under it, for a test or a framework that wants the
+> operations without a socket.
