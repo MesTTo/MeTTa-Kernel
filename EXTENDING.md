@@ -1895,9 +1895,12 @@ and a declared `(-> Tensor Tensor Tensor)` can hold for values the host made.
 `metta_grounded_type_names/2` replaces the walk entirely, for a bridge that
 knows how to read its own objects and answers every name at once.
 
-**`metta_host_builtin/1`, `metta_host_import/1` and `metta_form_rewriter/1`**
-are how a whole HOST plugs in, and the shipped Python bridge is their one
-worked example. `metta_host_builtin/1` declares the bridge's own operations
+**`metta_host_builtin/1`, `metta_host_import/1`, `metta_form_rewriter/1` and
+`metta_host_object/1`** are how a whole HOST plugs in, and the shipped Python
+bridge is their one worked example. `metta_host_object/1` answers whether a
+value is a live object of the bridge at all, the question in front of every
+grounded-type lookup, so an engine with no host loaded answers no at one
+failed lookup and never initializes anything. `metta_host_builtin/1` declares the bridge's own operations
 (`py-call`, `py-atom` and their family there); the engine's registry
 directive registers whatever was declared, so no list inside the engine
 names a host. `metta_host_import/1` lets a bridge CLAIM an import whose
