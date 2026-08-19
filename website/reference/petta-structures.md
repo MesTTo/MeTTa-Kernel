@@ -16,7 +16,15 @@ Source: `python/petta/structures.py`.
 >   - PatternMap's ground keys behave exactly like dict keys, the no-tax
 >     rule [tested test_patternmap_ground_keys_are_dict_keys]
 >   - MatchIndex.matches agrees with brute-force unification over every
->     registered pattern [tested test_matchindex_agrees_with_brute_force]
+>     registered pattern, including two distinct NaN values, which the kernel
+>     calls equal and dict lookup does not [measured 2026-08-19: the tree
+>     answered nothing where unify answered a match] [tested
+>     test_matchindex_agrees_with_brute_force]
+>   - MatchIndex.matches answers in REGISTRATION order whatever order the
+>     tree walk reached the entries in, and a remove does not disturb it
+>     [measured 2026-08-19: register a, b; remove a; register c; the answer
+>     was c before b] [tested
+>     test_dispatch_through_the_index_delivers_the_same_subscribers_in_the_same_order]
 >   - AlphaSet membership is alpha_eq membership [tested
 >     test_alphaset_is_alpha_membership]
 > Decides:
@@ -109,8 +117,9 @@ def matches(self, atom: Any) -> Iterator[tuple[Atom, Any]]:
 ```
 
 > Every registered (pattern, value) whose pattern matches the
-> ground atom, in registration order per node. The tree answers
-> candidates; unify confirms, so nonlinearity is exact.
+> ground atom, in REGISTRATION order, whatever order the tree walk
+> reached them in. The tree answers candidates; unify confirms, so
+> nonlinearity is exact.
 
 ## `AlphaSet`
 

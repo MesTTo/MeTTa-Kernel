@@ -87,6 +87,48 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Subscription dispatch goes through the discrimination tree this package
+  already ships instead of unifying the atom against every subscription on
+  the space. `MatchIndex` was referenced only by its own tests and one
+  benchmark, while its docstring names pub/sub topic matching first and the
+  write path ran the linear scan.
+
+  Measured 2026-08-19, 1000 standing queries on one space and 200 writes
+  with exactly one subscription matching each, controlled `instructions:u`,
+  minimum of three: **4,012,009,981 scanning against 48,243,634 indexed,
+  83.2x**. Both delivered 200 of 200, so that is the same work done two
+  ways. Stated honestly, the scan already filtered by space and by `on`, so
+  N was per-space and a program with ten subscriptions gains little; this is
+  the many-subscriptions case, not every program.
+
+  Delivery ORDER is part of the contract, because delivery is synchronous
+  and inside the write, so two subscribers on one atom compose in the order
+  they were registered. Routing through the tree changed that order before
+  two defects in `MatchIndex` itself were fixed, and every subscriber still
+  fired, which is what makes it worth a test of its own:
+
+  - its entry ids were `(id(atom), live entry count)`, and the count goes
+    back DOWN on remove, so a later registration took a number a survivor
+    already held and the two then sorted by whichever the tree walk reached
+    first. Measured: register a, b; remove a; register c; the answer came
+    back c before b. The id half was no help either, since CPython reuses an
+    address as soon as the object at it is freed. Ids are now a counter that
+    only goes up.
+  - a NaN token was looked up as a dict key, and a NaN is not equal to a
+    different NaN, so two atoms the kernel calls equal took different edges
+    and one was never retrieved. Measured: two distinct `float("nan")`
+    values, the tree answered nothing where `unify` answered a match. This
+    broke `MatchIndex`'s own documented guarantee that it agrees with brute
+    force.
+
+  A probe carrying variables goes down the registration list instead, which
+  is a shape the write path meets: `(rule $x)` is a real atom to store and
+  reads back as `(rule $_608)`. The tree reads probe tokens literally, so a
+  variable there would need every edge followed at once.
+
+  `subscription-dispatch` joins the benchmark lane with its A/B in the
+  baseline comment.
+
 - A subscription's event queue is bounded. `Subscription._queue` was a plain
   list, so a no-callback subscription that nobody drains grew for the life
   of the process: measured 2000 events queued after 2000 adds, at roughly

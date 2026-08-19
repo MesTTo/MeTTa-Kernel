@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 21 plunit suites over the engine itself | the `plunit` gate lane |
-| `python/tests/*.py` | 86 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `python/tests/*.py` | 92 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `README.md` | the tour, and the argument for the design | |
 | `CHANGELOG.md` | every user-facing change, with the reasoning | |
 | `website/guide/*.md` | 14 pages of prose: concepts, run-query, spaces, atoms-terms, python-functions, define, structures, threads, observability, notebook, contract, getting-started, pettorch | |
@@ -36,7 +36,8 @@ re-runs them.
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |
 | `python/petta/*.py` | the library. `python/petta/space.py` is the `MeTTa` class; a leading `_` means internal | |
 
-Counts measured 2026-08-18.
+Counts measured 2026-08-19, each one re-checked by the `llms` gate lane on
+every run.
 
 ## Install and first call
 
@@ -92,7 +93,8 @@ m.query(*patterns, where=, limit=, timeout=, inferences=, into=) -> Rows
 m.stream(*patterns, where=, timeout=, inferences=)  -> Cursor, engine-held,
                           lazily iterated, with .columns, .explain() and .close()
 m.prepare(*patterns, where=) -> Prepared; .solve(given=...) many times, .columns
-m.parse(src) -> Atom;  m.load(path) -> list[list[Atom]]
+m.parse(src) -> Atom
+m.load(path, *, timeout=, inferences=) -> list[list[Atom]]
 m.save(path, format="metta"|"fast") -> int   (atomic, fsynced)
 m.digest() -> str, 64-hex content hash of the space, store-independent
 ```
@@ -367,10 +369,15 @@ exit on findings), `doc` (a name's `(@doc ...)`).
 `connect(url, token=, headers=)`, `attach`. Credentials require https, tokens
 compare in constant time, and only http/https schemes are accepted.
 
-`petta.subscribe`: `m.subscribe(pattern, callback, on="add")` is a standing
-query delivered INSIDE the write that matched it; without a callback, events
-queue until `drain()`. `bridge(...)` connects two spaces. `Subscription` is a
-context manager and also a blocking event stream.
+`petta.subscribe`: `m.subscribe(pattern, callback, on="add", queue_max=10000)`
+is a standing query delivered INSIDE the write that matched it; without a
+callback, events queue until `drain()`, and a full queue raises rather than
+discarding the oldest. A callback that raises reaches the writer as
+`SubscriberError`, which carries `.subscription` and says the write was
+applied, so it is not a failed write and retrying it duplicates.
+`bridge(...)` connects two spaces. `Subscription` is a context manager and
+also a blocking event stream. A `RemoteSpace` refuses `subscribe`: there is
+no event channel on the wire.
 
 `petta.testing` ships what the suite fuzzes itself with: hypothesis strategies
 (`atoms`, `expressions`, `patterns`, `names`, `numbers`, `texts`, `symbols`,
