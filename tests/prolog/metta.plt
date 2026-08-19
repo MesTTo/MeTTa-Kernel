@@ -1506,7 +1506,47 @@ test(with_pragma_refuses_a_malformed_setting,
      [throws(error(domain_error(metta_pragma_setting, _), _))]) :-
     metta_with_pragmas([broken], true, _).
 
+%with-pragma! is the ENGINE's own scoped form, so it keeps the key check
+%pragma! gave up: a scope that sets nothing does nothing, silently, for as
+%long as it lasts.
+test(with_pragma_refuses_an_unknown_key,
+     [throws(error(domain_error(metta_pragma_key, 'invented-by-a-typo'), _))]) :-
+    metta_with_pragmas([['invented-by-a-typo', 1]], true, _).
+
 :- end_tests(scoped_pragmas).
+
+:- begin_tests(interpreter_pragmas).
+
+%pragma! answers the UNIT value and accepts any key. An unrecognised key is
+%not an error there: "an Error would introduce key validation that the pinned
+%operation does not perform" [source: LeaTTa
+%tests/semantics/eval-core/pragma-unknown-key.metta, STATUS conforms].
+test(pragma_answers_unit_for_any_key) :-
+    'pragma!'('completely-invented-key', 42, Unknown),
+    'pragma!'('type-check', auto, Known),
+    Unknown == [], Known == [],
+    'pragma!'('completely-invented-key', none, _),
+    'pragma!'('type-check', none, _).
+
+%The one key the arbiter validates, and the whole of what it validates
+%[measured 2026-08-19 against the arbiter: `abc`, `1.5` and `-1` each answer
+%the error below, while (pragma! type-check -1) and
+%(pragma! completely-invented-key -1) both answer ()].
+test(max_stack_depth_answers_its_own_error_for_a_value_that_is_not_a_count,
+     [forall(member(Bad, [-1, 1.5, abc]))]) :-
+    'pragma!'('max-stack-depth', Bad, Result),
+    Result == ['Error', ['pragma!', 'max-stack-depth', Bad],
+               'UnsignedIntegerIsExpected'],
+    \+ metta_pragma('max-stack-depth', _).
+
+test(max_stack_depth_accepts_a_count) :-
+    'pragma!'('max-stack-depth', 0, Result),
+    Result == [],
+    metta_pragma('max-stack-depth', 0),
+    'pragma!'('max-stack-depth', none, _),
+    \+ metta_pragma('max-stack-depth', _).
+
+:- end_tests(interpreter_pragmas).
 
 %petta_transaction/1 at the predicate level, where the answer set is a plain
 %Prolog one and no MeTTa reduction stands between the goal and the count.

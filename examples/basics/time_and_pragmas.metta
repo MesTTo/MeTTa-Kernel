@@ -34,14 +34,24 @@
 !(test (metta (+ 1 2) %Undefined% &self) 3)
 !(test (evalc (+ 1 2) &self) 3)
 
-;;; Pragmas. An unknown key is an ERROR naming the keys that exist, because a
-;;; typo is far likelier than forward compatibility, and a setting that
-;;; silently never applies is worse than one that refuses.
-!(test (pragma! max-time 30) True)
-!(test (pragma! max-inferences 100000000) True)
+;;; Pragmas. Each answers the unit value (), the way add-atom and println! do.
+;;; Any key is accepted, including one this engine does not enforce and one it
+;;; has never heard of: pragma! performs no key validation. The scoped form
+;;; below is PeTTa's own and does refuse a key it cannot set.
+!(test (pragma! max-time 30) ())
+!(test (pragma! max-inferences 100000000) ())
+!(test (pragma! completely-invented-key 42) ())
 ;Passing none clears a bound again.
-!(test (pragma! max-time none) True)
-!(test (pragma! max-inferences none) True)
+!(test (pragma! max-time none) ())
+!(test (pragma! max-inferences none) ())
+!(test (pragma! completely-invented-key none) ())
+
+;;; max-stack-depth is the one key with a value contract: a count, and
+;;; anything else answers its own error rather than raising.
+!(test (pragma! max-stack-depth 0) ())
+!(test (pragma! max-stack-depth -1)
+       (Error (pragma! max-stack-depth -1) UnsignedIntegerIsExpected))
+!(test (pragma! max-stack-depth none) ())
 
 ;;; (inferences $n $expr) is timeout's deterministic twin, the same
 ;;; kwarg vocabulary the Python tier's run(inferences=) speaks: the bound
