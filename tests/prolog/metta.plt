@@ -1154,9 +1154,12 @@ test(a_symbol_parameter_takes_a_symbol_and_nothing_else) :-
     metatype_call("", "(meta-sym foo)", Accepted),
     assertion(Accepted == [[got, foo]]),
     metatype_call("", "(meta-sym (1 2))", RejectsExpression),
-    assertion(RejectsExpression == []),
+    assertion(RejectsExpression == [['Error', ['meta-sym', [1, 2]],
+                                     ['BadArgType', 1, 'Symbol',
+                                      ['Number', 'Number']]]]),
     metatype_call("", "(meta-sym 7)", RejectsNumber),
-    assertion(RejectsNumber == []).
+    assertion(RejectsNumber == [['Error', ['meta-sym', 7],
+                                 ['BadArgType', 1, 'Symbol', 'Number']]]).
 
 %A metatype parameter refuses a value of a KNOWN and different type, and lets
 %through a value whose type nothing declares, which is the gradual rule and
@@ -1176,7 +1179,8 @@ test(an_expression_parameter_refuses_a_known_other_type_and_admits_an_unknown) :
     metatype_call("", "(meta-expr (1 2))", Accepted),
     assertion(Accepted == [[got, [1, 2]]]),
     metatype_call("", "(meta-expr 7)", RejectsNumber),
-    assertion(RejectsNumber == []),
+    assertion(RejectsNumber == [['Error', ['meta-expr', 7],
+                                 ['BadArgType', 1, 'Expression', 'Number']]]),
     metatype_call("", "(meta-expr foo)", AdmitsUnknown),
     assertion(AdmitsUnknown == [[got, foo]]).
 
@@ -1216,7 +1220,9 @@ test(a_grounded_parameter_admits_an_unknown_and_refuses_a_declared_other) :-
     assertion(AdmitsUnknown == [[got, foo]]),
     process_metta_string("(: meta-gr-typed MetaGrOther)", _),
     metatype_call("", "(meta-gr meta-gr-typed)", RejectsDeclared),
-    assertion(RejectsDeclared == []).
+    assertion(RejectsDeclared == [['Error', ['meta-gr', 'meta-gr-typed'],
+                                   ['BadArgType', 1, 'Grounded',
+                                    'MetaGrOther']]]).
 
 test(get_metatype_answers_the_same_bound_or_unbound,
      [forall(member(Value-Metatype, [foo-'Symbol', 7-'Grounded',

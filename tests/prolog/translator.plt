@@ -2119,10 +2119,12 @@ test(a_symbol_declared_with_an_intrinsic_type_still_passes,
     assertion(Results == [['tlc-sym']]),
     process_metta_string("(: tlc-other TlcOther)", _),
     process_metta_string("!(collapse (tlc-flag tlc-other))", Refused),
-    assertion(Refused == [[]]),
+    assertion(Refused == [[['Error', ['tlc-flag', 'tlc-other'],
+                            ['BadArgType', 1, 'Bool', 'TlcOther']]]]),
     'remove-atom'('&self', [':', 'tlc-other', _], _),
     process_metta_string("!(collapse (tlc-flag 7))", RefusesNumber),
-    assertion(RefusesNumber == [[]]).
+    assertion(RefusesNumber == [[['Error', ['tlc-flag', 7],
+                                  ['BadArgType', 1, 'Bool', 'Number']]]]).
 
 %A parametric declaration leaves the type an unbound VARIABLE at compile time,
 %and intrinsic_type_test/3's head would bind it to 'Number' and emit a number/1
@@ -2139,18 +2141,32 @@ test(a_parametric_type_is_not_specialised,
     assertion(Results == [[foo]]).
 
 %The drop is one-directional: a literal of the WRONG type keeps its check and
-%is still refused at run time.
-refused_call("(tlc-sq \"s\")").
-refused_call("(tlc-sq true)").
-refused_call("(tlc-tag 1 \"a\")").
-refused_call("(tlc-flag 1)").
+%is still refused at run time, and the refusal is an ANSWER naming the
+%position, the declared type and the literal's own
+%[source: LeaTTa tests/semantics/types-basic/44-badargtype-per-actual.metta].
+%
+%Three of the four are byte-identical to the arbiter [measured 2026-08-19].
+%The fourth is not, and the difference is the ARBITER's: it answers
+%`((* True True))` for `(tlc-sq true)`, accepting a Bool through a Number
+%parameter, while answering `(BadArgType 1 Bool Number)` for the mirror
+%`(tlc-flag 1)` and `(BadArgType 1 Number String)` for `(tlc-sq "s")`, with
+%`!(get-type True)` answering `Bool` throughout. No corpus file pins the
+%asymmetry, so this engine keeps the consistent reading.
+refused_call("(tlc-sq \"s\")",
+             ['Error', ['tlc-sq', "s"], ['BadArgType', 1, 'Number', 'String']]).
+refused_call("(tlc-sq true)",
+             ['Error', ['tlc-sq', true], ['BadArgType', 1, 'Number', 'Bool']]).
+refused_call("(tlc-tag 1 \"a\")",
+             ['Error', ['tlc-tag', 1, "a"], ['BadArgType', 1, 'String', 'Number']]).
+refused_call("(tlc-flag 1)",
+             ['Error', ['tlc-flag', 1], ['BadArgType', 1, 'Bool', 'Number']]).
 
 test(a_literal_of_the_wrong_type_is_still_refused,
-     [ forall(refused_call(Call)),
+     [ forall(refused_call(Call, Refusal)),
        setup(setup_literal_checks), cleanup(cleanup_literal_checks) ]) :-
     format(atom(Source), "!(collapse ~w)", [Call]),
     process_metta_string(Source, Results),
-    Results == [[]].
+    Results == [[Refusal]].
 
 test(a_literal_of_the_right_type_still_answers,
      [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
