@@ -75,10 +75,11 @@
 %     no_cut_in_a_live_hook_clause below].
 % Fails when:
 %   - a function is compiled into a space whose storage is FOREIGN (backed by
-%     an external provider such as MORK) rather than native. See
-%     known_metta_space/1's own note below; this is unchanged from before this
-%     file discovered modules instead of naming `user`, since the `user`-only
-%     walk never looked at a foreign space's module either.
+%     an external provider such as MORK) rather than native. The module
+%     discovery is surface_walk.pl's candidate_engine_module/1, and the note
+%     beside it says why; this is unchanged from before the checks discovered
+%     modules instead of naming `user`, since the `user`-only walk never
+%     looked at a foreign space's module either.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -86,71 +87,6 @@
 
 :- use_module(library(check)).
 :- use_module(library(solution_sequences)).
-
-%%%% Which modules the engine's predicates can live in %%%%
-%
-% Every check below used to assume `user`, which is where &self's compiled
-% clauses and the engine's own seams happen to live TODAY because nothing in
-% the tree has ever given them a module of their own. Phase 11
-% (ai-phase11-module-survey.md section 2.1, workspace root) gives &self its
-% own execution module, '$petta_exec:&self', based on a shared '$petta_core',
-% and every other space '$petta_exec:<Space>' beside it. A check that keeps
-% naming `user` would then examine the one module nothing compiles into any
-% more and report clean, which is the failure this section exists to close.
-%
-% The fix asks the engine rather than guessing a name. space_module/2 is
-% already the one place that answers "which module does this space compile
-% into" (src/spaces.pl:231-232, ai-phase11-module-survey.md section 1.2's
-% "only door"), so every space the engine currently knows about is walked up
-% its OWN import chain and every module the walk visits is a candidate.
-%
-% default_module/2 is the walk, not current_module/1 or current_predicate/2
-% run with the module argument unbound. Both of those silently skip any
-% module whose SWI class is `system` when asked to GENERATE one, and
-% `system` is exactly the class SWI gives an implicitly-created module named
-% with a leading `$` [SWI-Prolog 10.1 Reference Manual sections 6.13, 6.15]
-% -- precisely how a per-space execution module comes to exist, since a
-% space's name is not known until the MeTTa program that creates it runs.
-% default_module/2 walks from a MODULE THAT IS ALREADY KNOWN rather than
-% generating over every module that exists, and that is what keeps it
-% working: a bound starting point is a lookup, not an enumeration, so the
-% class that hides a module from current_module/1's generate mode never
-% enters into it [measured 2026-08-19: current_predicate(_, M:Head) called
-% with M unbound found a class(user) module holding the target predicate
-% and missed a sibling class(system) module holding the identical predicate
-% under the identical name; default_module/2 walked from a bound starting
-% module reached the class(system) module every time. Confirmed against the
-% fully loaded engine plus a runtime-created second space and, further, a
-% runtime-created module named and classed the way a Phase 11 execution
-% module will be -- see no_compile_time_helper_in_a_compiled_body's and
-% no_cut_in_a_live_hook_clause's anti-vacuity probes below, which are that
-% same rehearsal turned into a standing check].
-%
-% known_metta_space/1 does not need its own proof of completeness: it reads
-% native_storage_module_cache/2, the STORAGE family's own registry
-% (src/spaces.pl:54), which every native add-atom or equation already
-% populates as a side effect of storing into a space
-% (src/spaces.pl:79-98,134-135,399-402), so it grows exactly when a space
-% becomes worth scanning. '&self' is listed explicitly besides, because the
-% invariant that it is always pre-seeded (src/spaces.pl:104) belongs to
-% spaces.pl to keep, not to this file to assume silently.
-%
-% Fails when: a function is compiled into a FOREIGN space (one backed by an
-% external provider such as MORK). add_equation/4's foreign clause
-% (src/spaces.pl:394-398) compiles into that space's execution module the
-% same way a native one does, but deliberately does not touch the native
-% storage cache, so such a space is invisible to known_metta_space/1. This
-% is not a narrowing: the `user`-only walk it replaces never looked at any
-% space but &self either, foreign or native.
-known_metta_space('&self').
-known_metta_space(Space) :- native_storage_module_cache(Space, _).
-
-candidate_engine_module(Module) :-
-    distinct(Module,
-             ( known_metta_space(Space),
-               space_module(Space, SpaceModule),
-               default_module(SpaceModule, Module) )).
-
 :- ensure_loaded(surface_walk).
 :- initialization(main, main).
 
