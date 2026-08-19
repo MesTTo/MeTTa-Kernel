@@ -436,6 +436,121 @@ forget_late_name(Name) :-
 
 :- end_tests(spaces_late_type_declaration).
 
+% The topology Phase 11 establishes, asserted rather than assumed. Nothing
+% else in the tree would notice it drifting back, and drifting back is
+% silent: an equation compiled into the module the engine resolves in
+% REPLACES a predicate of that name instead of shadowing it.
+:- begin_tests(spaces_execution_modules).
+
+test(every_space_compiles_into_a_module_of_its_own) :-
+    space_module('&self', Self),
+    space_module('&plunit_exec_a', A),
+    space_module('&plunit_exec_b', B),
+    petta_engine_module(Engine),
+    assertion(Self \== A), assertion(A \== B), assertion(Self \== B),
+    assertion(Self \== Engine),
+    assertion(Self \== user),
+    assertion(A \== '&plunit_exec_a').
+
+% system -> engine -> &self's module -> every other space's. Read off SWI with
+% import_module/2 rather than believed: SWI decides an implicitly created
+% module's base from the first character of its name, which would have given a
+% `$`-prefixed one `system` and no way to reach the engine at all.
+test(the_chain_is_engine_then_self_then_space) :-
+    petta_engine_module(Engine),
+    space_module('&self', Self),
+    space_module('&plunit_exec_chain', Space),
+    assertion(import_module(Self, Engine)),
+    assertion(import_module(Space, Self)),
+    assertion(\+ import_module(Self, Self)).
+
+% metta_self_module/1 writes the name and space_module/2 computes it. They are
+% two places, deliberately: the first is inlined at compile time so the hot
+% paths pay nothing to read it, and the second is the mapping every other space
+% goes through. This is what stops them drifting apart.
+test(the_written_self_module_is_the_mapped_one) :-
+    metta_self_module(Written),
+    space_module('&self', Mapped),
+    assertion(Written == Mapped),
+    current_metta_module(Default),
+    assertion(Default == Written).
+
+test(the_module_to_space_map_is_the_inverse) :-
+    forall(member(Space, ['&self', '&plunit_exec_inv', '&petta']),
+           ( space_module(Space, Module),
+             metta_module_space(Module, Back),
+             assertion(Back == Space) )),
+    % It fails on a module that is not a space's rather than passing one
+    % through, because every caller has one in hand.
+    petta_engine_module(Engine),
+    assertion(\+ metta_module_space(Engine, _)),
+    assertion(\+ metta_module_space(user, _)).
+
+% The collision surface, as a check rather than as a claim. Each of these
+% names is held by the module the ENGINE resolves in, an equation for it is
+% accepted in &self, and what the engine holds is unchanged afterwards. Before
+% Phase 11 the arity-2 `plus` was accepted and DESTROYED the predicate, which
+% is what examples/functions/invertpeanoplus.metta did on every run
+% [measured 2026-08-19 on c7126f1].
+%
+% Two tables, because the two ways the engine can hold a name need different
+% evidence. An IMPORTED one keeps its imported_from/1; a name the engine
+% DEFINES keeps its clause count.
+engine_imports(plus, 2).
+engine_imports(atom_number, 1).
+engine_imports(with_output_to, 1).
+
+engine_defines('car-atom', 1).
+engine_defines(repr, 1).
+
+shadow_in_self(Name, MettaArity, Self, Arity) :-
+    Arity is MettaArity + 1,
+    length(Args, MettaArity),
+    'add-atom'('&self', [=, [Name|Args], plunit_shadowed], _),
+    space_module('&self', Self).
+
+unshadow_in_self(Name, MettaArity, Arity) :-
+    length(Args, MettaArity),
+    'remove-atom'('&self', [=, [Name|Args], plunit_shadowed], _),
+    space_module('&self', Self),
+    functor(Gone, Name, Arity),
+    retractall(Self:Gone).
+
+test(an_imported_engine_name_is_free_in_a_space,
+     [forall(engine_imports(Name, MettaArity))]) :-
+    petta_engine_module(Engine),
+    Arity is MettaArity + 1,
+    functor(Probe, Name, Arity),
+    predicate_property(Engine:Probe, imported_from(Owner)),
+    setup_call_cleanup(
+        shadow_in_self(Name, MettaArity, Self, _),
+        ( functor(Local, Name, Arity),
+          % Asked as properties rather than with clause/3, which raises rather
+          % than failing for a predicate it may not show: if the shadow had NOT
+          % been created these would be the system predicate's, and clause/3
+          % would report a permission error instead of the difference.
+          assertion(predicate_property(Self:Local, number_of_clauses(1))),
+          assertion(\+ predicate_property(Self:Local, imported_from(_))),
+          assertion(predicate_property(Engine:Probe, imported_from(Owner))) ),
+        unshadow_in_self(Name, MettaArity, Arity)).
+
+test(a_name_the_engine_defines_is_free_in_a_space,
+     [forall(engine_defines(Name, MettaArity))]) :-
+    petta_engine_module(Engine),
+    Arity is MettaArity + 1,
+    functor(Probe, Name, Arity),
+    predicate_property(Engine:Probe, number_of_clauses(Before)),
+    setup_call_cleanup(
+        shadow_in_self(Name, MettaArity, Self, _),
+        ( functor(Local, Name, Arity),
+          assertion(predicate_property(Self:Local, number_of_clauses(1))),
+          assertion(\+ predicate_property(Self:Local, imported_from(_))),
+          assertion(predicate_property(Engine:Probe,
+                                       number_of_clauses(Before))) ),
+        unshadow_in_self(Name, MettaArity, Arity)).
+
+:- end_tests(spaces_execution_modules).
+
 :- begin_tests(spaces_builtin_override).
 
 % &self compiles into a module of its own, so an equation for a builtin name is

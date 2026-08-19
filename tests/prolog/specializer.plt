@@ -378,4 +378,83 @@ test(a_recursive_specialization_survives_its_compile,
     process_metta_string("!(let $g (+ 1) (plunit-tricky $g))", [ViaVariable]),
     assertion(ViaVariable == 3).
 
+% Forgetting a specialization has to take its PROVENANCE with its clauses and
+% its source atoms out of the space that holds them. It erased the clauses and
+% left translated_from/2 naming the dead references, so removing the
+% specialization's own atom found one, called erase/1 on it, and FAILED: every
+% caller of the removal failed with it, and dropping a Python space that had
+% specialized a higher-order function raised
+% "the engine refused petta_py_clear". And it removed the source atoms from
+% '&self' by name while the specializer writes them into the space that
+% triggered it, so a named space kept the atoms of a specialization whose
+% clauses were gone.
+test(a_removed_equation_forgets_its_specialization,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( forall(member(E, [['plunit-forget'|_], ['plunit-forget-inc'|_],
+                                   ['plunit-forget-use'|_]]),
+                        remove_sexp('&plunit_spec_forget', [=, E, _])),
+                 forall(member(N, ['plunit-forget', 'plunit-forget-inc',
+                                   'plunit-forget-use']),
+                        ( invalidate_specializations(N), forget_symbol(N) )),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    Space = '&plunit_spec_forget',
+    space_module(Space, Module),
+    'add-atom'(Space, [=, ['plunit-forget-inc', X], ['+', X, 1]], _),
+    'add-atom'(Space, [=, ['plunit-forget', F, Y], [F, Y]], _),
+    % The call site with a ground higher-order argument is what makes the
+    % specializer clone plunit-forget, and it is compiled into THIS space's
+    % module, not the engine's.
+    'add-atom'(Space, [=, ['plunit-forget-use', Z],
+                          ['plunit-forget', 'plunit-forget-inc', Z]], _),
+    with_metta_module(Module, reduce(['plunit-forget-use', 1], Answer, _)),
+    assertion(Answer == 2),
+    ho_specialization(Module, 'plunit-forget', SpecName),
+    % The clone, its provenance and its source atom all exist first, so the
+    % check below is about them going rather than about them never arriving.
+    functor(SpecHead, SpecName, 3),
+    assertion(( clause(Module:SpecHead, _, SpecRef),
+                clause_property(SpecRef, module(Module)) )),
+    assertion(get_native_atom(Space, [=, [SpecName|_], _])),
+    % Removing the equation the clone came from forgets it.
+    'remove-atom'(Space, [=, ['plunit-forget', F2, Y2], [F2, Y2]], _),
+    assertion(\+ ho_specialization(Module, 'plunit-forget', _)),
+    assertion(\+ ( clause(Module:SpecHead, _, R2),
+                   clause_property(R2, module(Module)) )),
+    % No dangling provenance is left behind, which is the half that made the
+    % next removal fail.
+    assertion(\+ ( translated_from(Ref, [=, [SpecName|_], _]),
+                   \+ catch(clause_property(Ref, module(_)), _, fail) )),
+    % And the source atom went out of the space that held it, not out of &self.
+    assertion(\+ get_native_atom(Space, [=, [SpecName|_], _])).
+
+% The verifying mode runs the clone and the generic function it was cloned
+% from and compares their whole answer sets. Both live in the module of the
+% space that triggered the specialization, and both used to be called from
+% the engine's module, so with &self no longer being that module every
+% specialization in the corpus raised existence_error under the mode that
+% exists to prove they agree.
+test(the_verifier_runs_a_clone_in_its_own_module,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( forall(member(E, [['plunit-verify'|_], ['plunit-verify-inc'|_],
+                                   ['plunit-verify-use'|_]]),
+                        remove_sexp('&plunit_spec_verify', [=, E, _])),
+                 forall(member(N, ['plunit-verify', 'plunit-verify-inc',
+                                   'plunit-verify-use']),
+                        ( invalidate_specializations(N), forget_symbol(N) )),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    Space = '&plunit_spec_verify',
+    space_module(Space, Module),
+    'add-atom'(Space, [=, ['plunit-verify-inc', X], ['+', X, 1]], _),
+    'add-atom'(Space, [=, ['plunit-verify', F, Y], [F, Y]], _),
+    'add-atom'(Space, [=, ['plunit-verify-use', Z],
+                          ['plunit-verify', 'plunit-verify-inc', Z]], _),
+    with_metta_module(Module, reduce(['plunit-verify-use', 1], _, _)),
+    ho_specialization(Module, 'plunit-verify', SpecName),
+    SpecGoal =.. [SpecName, 'plunit-verify-inc', 1, Out],
+    % Qualified the way a compiled clause in that module qualifies it, which
+    % is what the meta_predicate declaration on the verifier produces.
+    petta_verified_specialization(SpecName, Module:SpecGoal),
+    assertion(Out == 2),
+    assertion(ho_specialization_agrees(SpecName)).
+
 :- end_tests(specializer_invalidation).
