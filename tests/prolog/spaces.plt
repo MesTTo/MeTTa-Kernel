@@ -595,6 +595,77 @@ test(an_engine_emitted_name_cannot_be_taken_in_a_named_space) :-
     assertion(Error = error(petta_engine_goal_redefinition(has_type, 1,
                                                            '&plunit_emitted_probe'), _)).
 
+% A space has two halves and clearing it used to empty one. Storage went and
+% the compiled clauses stayed, so a space holding NOTHING still answered its
+% own functions, and since space names are pooled that is a previous life
+% answering through a recycled name. It was masked by python/petta/shim.pl's
+% clear, which funnels equations through the removal path before calling the
+% engine's own door, so the Python surface was whole and every other caller
+% was not.
+test(clearing_a_space_empties_its_execution_module,
+     [ cleanup(( clear_native_atoms('&plunit_life'),
+                 retractall(fun('plunit-past-life')),
+                 retractall(arity('plunit-past-life', _)) )) ]) :-
+    Space = '&plunit_life',
+    process_metta_string("(= (plunit-past-life) inherited)", _, Space),
+    process_metta_string("!(plunit-past-life)", First, Space),
+    assertion(First == [inherited]),
+    space_module(Space, Module),
+    aggregate_all(count, clause(Module:'plunit-past-life'(_), _), Compiled),
+    assertion(Compiled == 1),
+
+    clear_native_atoms(Space),
+
+    findall(A, get_native_atom(Space, A), Left),
+    assertion(Left == []),
+    aggregate_all(count, clause(Module:'plunit-past-life'(_), _), Remaining),
+    assertion(Remaining == 0),
+    % The name is forgotten too, not just its clauses: nothing defines the
+    % function any more, which is what remove_equation/6 decides for a single
+    % removal and what the sweep used to skip.
+    assertion(\+ fun('plunit-past-life')),
+    % The whole point, asked the way a recycled name would ask it.
+    process_metta_string("!(plunit-past-life)", Second, Space),
+    assertion(Second == [['plunit-past-life']]).
+
+% A declaration is the other shape with a compiled half, and it leaves through
+% its own path for the same reason: dropping the atom alone would leave the
+% call sites it was shaping compiled against a declaration that is gone.
+test(clearing_a_space_takes_its_declarations_through_their_own_path,
+     [ cleanup(( clear_native_atoms('&plunit_life_decl'),
+                 retractall(fun('plunit-declared')),
+                 retractall(arity('plunit-declared', _)) )) ]) :-
+    Space = '&plunit_life_decl',
+    process_metta_string("(: plunit-declared (-> Number Number))", _, Space),
+    process_metta_string("(= (plunit-declared $x) $x)", _, Space),
+    findall(A, get_native_atom(Space, A), Before),
+    assertion(length(Before, 2)),
+    clear_native_atoms(Space),
+    findall(B, get_native_atom(Space, B), After),
+    assertion(After == []),
+    assertion(\+ fun('plunit-declared')),
+    process_metta_string("!(plunit-declared 1)", Answer, Space),
+    assertion(Answer == [['plunit-declared', 1]]).
+
+% Plain atoms have no compiled half, so they stay on the sweep rather than
+% going one at a time through the removal funnel. This is the guard on that:
+% a space of plain atoms clears without any of them reaching remove_equation/6.
+test(clearing_plain_atoms_stays_a_sweep,
+     [ cleanup(clear_native_atoms('&plunit_life_bulk')) ]) :-
+    Space = '&plunit_life_bulk',
+    forall(between(1, 50, N), add_sexp(Space, [bulk, N])),
+    add_sexp(Space, lonely),
+    statistics(inferences, I0),
+    clear_native_atoms(Space),
+    statistics(inferences, I1),
+    Spent is I1 - I0,
+    findall(A, get_native_atom(Space, A), Left),
+    assertion(Left == []),
+    % One removal through the funnel costs more than this whole clear does;
+    % the number is generous because the enumeration that looks for compiled
+    % atoms is itself linear, and what it guards against is 51 removals.
+    assertion(Spent < 1000).
+
 :- end_tests(spaces_execution_modules).
 
 :- begin_tests(spaces_builtin_override).

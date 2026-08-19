@@ -6,6 +6,23 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Clearing a space now empties both of its halves. A space has stored atoms
+  and, for the atoms that compiled, clauses in its own execution module, and
+  the engine's own clear dropped only the first: define
+  `(= (past-life) inherited)` in a space, clear it, and `!(past-life)` in that
+  now-empty space still answered `inherited`. Space names are pooled, so that
+  is a previous life answering through a recycled name.
+
+  The Python surface was never affected, because its clear removes equations
+  through the removal path before reaching the engine door. Every other caller
+  got the half clear, and the reload path will come through the same door.
+  Equations and type declarations now leave through `metta_remove_atom/3`,
+  which un-compiles the clause and forgets the function name when nothing else
+  defines it; plain atoms have no compiled half and stay on the one-retractall
+  sweep.
+
 ### Changed
 
 - `remove-atom` takes ONE occurrence, not every one. A space is a multiset and
