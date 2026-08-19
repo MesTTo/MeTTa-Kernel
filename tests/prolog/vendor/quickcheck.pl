@@ -326,6 +326,28 @@ subset_gen([H |Subset], [H | Set]) :- subset_gen(Subset, Set).
 :- multifile composite/3.
 
 %%%%%%%%%% vendored composite.pl %%%%%%%%%%
+%CHANGED HERE, and it is the one behavioural change in this file. The clause
+%below asks `clause(quickcheck:has_type(Type,_), _)` to find out whether a user
+%wrote a has_type/2 for a composite, which the pack's own README tells them to
+%do. Every SWI module inherits from `user`, so where nobody wrote one that call
+%does not fail: it RESOLVES to user:has_type/2, and this engine defines one
+%[src/metta.pl:1203, MeTTa's own type predicate, which COMPUTES a type by
+%binding its second argument rather than testing it]. The result was that
+%loading this pack beside the engine turned every must_be/2 whose check would
+%have failed into a binding type inference: `must_be(atom, Var)` succeeded and
+%left Var bound to '%Undefined%', so a variable-headed equation the engine
+%refuses was accepted and compiled [measured 2026-08-19,
+%tests/prolog/spaces.plt:a_variable_headed_equation_raises_either_way went red
+%under the typed build and nowhere else].
+%
+%One declaration fixes it. Declaring has_type/2 multifile HERE gives the module
+%a local predicate with no clauses, so the inheritance fallback stops and
+%clause/2 fails as the code expects, while a user's own
+%`quickcheck:has_type(odd, X) :- ...` still lands exactly where the README says
+%it does. The other three extension points, arbitrary/2, shrink/3 and
+%composite/3, were already declared; this one was the omission.
+:- multifile has_type/2.
+
 :- multifile error:has_type/2.
 error:has_type(Type, Term) :-
   (clause(quickcheck:has_type(Type, _), _) -> 
