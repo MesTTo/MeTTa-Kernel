@@ -72,7 +72,53 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   oversight, because it compares against an upstream base whose examples
   are flat where this tree groups them into folders.
 
+### Added
+
+- `MeTTa.load()` and `AsyncMeTTa.load()` take `timeout=` and `inferences=`,
+  the pair twelve sibling entry points already took. `load` is the one most
+  likely to be handed code the caller did not write, since a file carries
+  `!` directives and an import graph, and it was the one with no bound at
+  all. Both go through the engine's own guards, so they raise
+  `TimeLimitError` and `InferenceLimitError` like every other bounded call,
+  and whatever the file completed before the stop stands.
+
+- `MeTTa.subscribe()` takes `queue_max=`, and `petta.SubscriberError` is
+  exported.
+
 ### Fixed
+
+- A subscription's event queue is bounded. `Subscription._queue` was a plain
+  list, so a no-callback subscription that nobody drains grew for the life
+  of the process: measured 2000 events queued after 2000 adds, at roughly
+  152 bytes an Event.
+
+  A full queue REFUSES the event rather than discarding the oldest.
+  `collections.deque(maxlen=N)` is the stdlib bound and the wrong one here,
+  because a silently shortened history is how a stalled consumer stays
+  hidden; `queue.Queue` is the right precedent, where `put_nowait` on a full
+  queue raises `queue.Full`. The refusal arrives as `SubscriberError`,
+  because the write it interrupts still stands.
+
+  The async stream is bounded the same way, and cannot refuse a write
+  because by the time it runs the write has returned: it delivers every
+  event that fit and then ends by raising, naming how many it could not
+  take. Losing them without saying so was the only other option.
+
+- The `S.foo` and `V.x` cache is an LRU rather than a FIFO. It returned on a
+  hit without touching the cache, so `del cache[next(iter(cache))]` evicted
+  by insertion age: a name used on every line aged out on the same schedule
+  as one used once, and the header's promise that "repeated recent names
+  preserve identity" was not true of it. `_atoms_core._wire_intern` in the
+  same package already had the correct version, two tiers taken from
+  CPython's own `re` module cache, so this copies it: an LRU main tier with
+  a small fast tier in front that keeps the hit lock-free and
+  reorder-free.
+
+  Simulated 2026-08-19 at the shipped size of 512, a small hot set
+  interleaved with fresh names: 82.4% FIFO against 88.4% LRU at 200 hot
+  names, 70.4% against 82.4% at 400. Over 2048 touches of one hot name,
+  insertion-age eviction re-minted it five times where two tiers minted it
+  once.
 
 - A watcher that raises now reaches the writer as `SubscriberError`, which a
   refused write never is. A subscription callback runs inside the write that
@@ -124,9 +170,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   the crash. The classifier asked `read_term_from_atom/3` whether the
   leftover bytes were a whole term, and that predicate does not require a
   terminating full stop: its documentation says "It is not required for Atom
-  to end with a full-stop". So `a`, `as`, `ass`, `asse`, `asser` and
-  `assert` all read as complete Prolog atoms, and `assert(edge(a,b))` read
-  as a complete term, and each of those seven torn journals was refused with
+  to end with a full-stop". So every prefix of the action name `assert`,
+  from one letter to six, read as a complete Prolog atom, and
+  `assert(edge(a,b))` read as a complete term, and each of those seven torn
+  journals was refused with
   "ends with a complete but invalid record" for an operator to repair by
   hand. Measured 2026-08-19: 7 of the 18 truncation points of
   `assert(edge(a,b)).`

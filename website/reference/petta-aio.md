@@ -135,7 +135,13 @@ async def run(
 ### `AsyncMeTTa.load`
 
 ```python
-async def load(self, path: str) -> list:
+async def load(
+    self,
+    path: str,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> list:
 ```
 
 > Load source or a fast cache into this space on the worker.
@@ -848,7 +854,13 @@ def stream(
 ### `AsyncMeTTa.subscribe`
 
 ```python
-def subscribe(self, pattern: Any, *, on: str = 'add') -> _AsyncSubscription:
+def subscribe(
+    self,
+    pattern: Any,
+    *,
+    on: str = 'add',
+    queue_max: int = SUBSCRIPTION_QUEUE_MAX,
+) -> _AsyncSubscription:
 ```
 
 > A standing query as an async event stream: every matching

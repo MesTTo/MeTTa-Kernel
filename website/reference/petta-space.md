@@ -323,7 +323,13 @@ def save(self, path: str | os.PathLike[str], format: SaveFormat = 'metta') -> in
 ### `MeTTa.load`
 
 ```python
-def load(self, path: str | os.PathLike[str]) -> list[list[Atom]]:
+def load(
+    self,
+    path: str | os.PathLike[str],
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> list[list[Atom]]:
 ```
 
 > Add a text program or trusted fast cache to this space.
@@ -331,6 +337,13 @@ def load(self, path: str | os.PathLike[str]) -> list[list[Atom]]:
 > Existing atoms remain, so loading the same file twice adds two copies.
 > Use clear() first or load into new_space() when replacement is wanted.
 > A .gz path is detected and read through the decompressed bytes.
+>
+> `timeout` (seconds) and `inferences` (engine steps) bound the load
+> with the engine's own guards, raising TimeLimitError or
+> InferenceLimitError, and whatever the file completed before the stop
+> stands. This is the entry point most likely to be handed code the
+> caller did not write, since a file can carry `!` directives and an
+> import graph, so it takes the same pair its siblings take.
 
 ### `MeTTa.parse`
 
@@ -1264,7 +1277,14 @@ def unregister_prolog(self, extension: str) -> tuple[str, ...]:
 ### `MeTTa.subscribe`
 
 ```python
-def subscribe(self, pattern: Any, callback: Callable | None = None, *, on: str = 'add'):
+def subscribe(
+    self,
+    pattern: Any,
+    callback: Callable | None = None,
+    *,
+    on: str = 'add',
+    queue_max: int = SUBSCRIPTION_QUEUE_MAX,
+):
 ```
 
 > A standing query on this space: every added (or removed, or
@@ -1279,9 +1299,13 @@ def subscribe(self, pattern: Any, callback: Callable | None = None, *, on: str =
 > caused it (the callback may write back; the engine re-enters
 > cleanly; an infinite add-triggers-add loop is the author's own).
 > Without one, events queue on the subscription and drain() empties
-> them: the mailbox reading. Removal events for plain atoms may fire
-> for atoms that were never stored, since the engine's removal is
-> retractall; re-check the space rather than trust the event.
+> them: the mailbox reading. That queue is bounded by `queue_max`,
+> and a write arriving at a full queue raises SubscriberError rather
+> than discarding the oldest event: nobody draining is a bug in the
+> consumer, and a silently shortened history is how it stays hidden.
+> Removal events for plain atoms may fire for atoms that were never
+> stored, since the engine's removal is retractall; re-check the
+> space rather than trust the event.
 
 ### `MeTTa.prolog`
 

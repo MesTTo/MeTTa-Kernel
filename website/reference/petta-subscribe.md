@@ -100,6 +100,8 @@ def subscribe(
     pattern: Atom,
     callback: Callable[[Event], None] | None = None,
     on: str = 'add',
+    *,
+    queue_max: int = SUBSCRIPTION_QUEUE_MAX,
 ) -> Subscription:
 ```
 
