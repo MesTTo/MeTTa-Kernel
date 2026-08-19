@@ -45,11 +45,16 @@ test(every_runtime_term_has_a_metatype,
 
 :- begin_tests(metta_operation_errors).
 
-host_error_case('+', '+'(1.0e308, 1.0e308, _)).
-host_error_case('-', '-'(1.0e308, -1.0e308, _)).
-host_error_case('*', '*'(1.0e308, 2.0, _)).
+%The float cases raise from the NaN family (evaluation_error(undefined)) and
+%from division by a float zero, not from overflow: a result past binary64
+%saturates now, agreeing with the reader's literals, so an overflowing pair
+%answers inf instead of erroring [tested:
+%engine_operations_saturate_where_raw_is_still_raises].
+host_error_case('+', '+'(1.0Inf, -1.0Inf, _)).
+host_error_case('-', '-'(1.0Inf, 1.0Inf, _)).
+host_error_case('*', '*'(1.0Inf, 0.0, _)).
 host_error_case('/', '/'(1, 0, _)).
-host_error_case('/', '/'(1.0e308, 1.0e-308, _)).
+host_error_case('/', '/'(1.0, 0.0, _)).
 host_error_case('%', '%'(1, 0, _)).
 host_error_case(exp, exp(invalid_number, _)).
 host_error_case('#+', '#+'(1, invalid_number, _)).
@@ -71,7 +76,7 @@ host_error_case('sqrt-math', 'sqrt-math'(-1, _)).
 host_error_case('abs-math', 'abs-math'(invalid_number, _)).
 host_error_case('log-math', 'log-math'(1, invalid_number, _)).
 host_error_case('exp-math', 'exp-math'(invalid_number, _)).
-host_error_case('exp-math', 'exp-math'(10000, _)).
+host_error_case('exp-math', 'exp-math'(1.5NaN, _)).
 host_error_case('trunc-math', 'trunc-math'(invalid_number, _)).
 host_error_case('ceil-math', 'ceil-math'(invalid_number, _)).
 host_error_case('floor-math', 'floor-math'(invalid_number, _)).

@@ -463,19 +463,76 @@ test(the_writability_check_answers_instead_of_raising,
                                '1e99999999999999999999']))]) :-
     \+ metta_symbol_writable(Spelling).
 
-% The flag is borrowed for the retry and given back, and ARITHMETIC overflow is
-% a different question with a different answer: it still raises.
+% The flag is borrowed for the retry and given back.
 test(the_overflow_flag_is_restored_after_a_saturating_parse) :-
     current_prolog_flag(float_overflow, Before),
     sread("1e400", _),
     current_prolog_flag(float_overflow, After),
     After == Before.
 
-test(engine_arithmetic_still_raises_on_overflow,
+% The engine's OPERATIONS saturate the same way the reader does, so the two
+% halves of the numeric boundary agree; raw is/2 keeps the flag's error mode,
+% which pins that the saturation lives in the operations' recovery rather
+% than in a global flag flip.
+test(engine_operations_saturate_where_raw_is_still_raises,
      [throws(error(evaluation_error(float_overflow), _))]) :-
+    Infinity is inf,
+    '+'(1.0e308, 1.0e308, Sum), Sum == Infinity,
+    '*'(1.0e308, 10.0, Product), Product == Infinity,
+    'pow-math'(10.0, 400, Power), Power == Infinity,
+    'exp-math'(1000, Grown), Grown == Infinity,
+    NegativeInfinity is -inf,
+    '-'(-1.0e308, 1.0e308, Dropped), Dropped == NegativeInfinity,
+    'log-math'(10, 0.0, Logged), Logged == NegativeInfinity,
+    Big is 10^400,
+    '/'(Big, 3, Converted), Converted == Infinity,
     _ is 1.0e308 * 10.
 
+% The retry itself can hit a DIFFERENT fault in a compound expression: base 1
+% divides the saturated -inf by log(1) = 0.0, and that residual keeps the
+% operation context instead of escaping raw.
+test(a_saturated_retry_still_funnels_its_residual_error,
+     [throws(error(evaluation_error(zero_divisor),
+                   context('log-math', _)))]) :-
+    'log-math'(1, 0.0, _).
+
+% An infinity the reader legally produced carries THROUGH arithmetic: SWI's
+% error mode rejects any non-finite result, operands included, so before the
+% recovery (+ inf 1) raised even though nothing overflowed.
+test(a_read_infinity_survives_further_arithmetic) :-
+    sread("1e400", Read),
+    '+'(Read, 1, Sum),
+    Sum == Read.
+
 :- end_tests(parser_number_overflow).
+
+% The printed spellings are the arbiter's: hyperon prints Rust f64 Display
+% forms and the arbiter's pretty-printer pins infinity by sign and an
+% unsigned NaN. The spelling reads back as a SYMBOL of that name on both
+% sides, which is why the writability refusal below stays.
+:- begin_tests(parser_nonfinite_print).
+
+test(printed_nonfinite_floats_spell_inf_minus_inf_and_nan,
+     [forall(member(Value-Text, [inf-"inf", (-inf)-"-inf", nan-"NaN"]))]) :-
+    Float is Value,
+    swrite(Float, Printed),
+    Printed == Text.
+
+test(a_printed_nonfinite_reads_back_as_a_symbol_so_the_seam_refuses,
+     [forall(member(Value-Symbol, [inf-inf, (-inf)-'-inf', nan-'NaN']))]) :-
+    Float is Value,
+    swrite(Float, Printed),
+    sread(Printed, Read),
+    Read == Symbol,
+    \+ metta_number_writable(Float).
+
+test(finite_floats_keep_the_grammar_spelling,
+     [forall(member(Float, [0.0, -0.0, 2.5, 1.0e10, 1.5e-10]))]) :-
+    swrite(Float, Printed),
+    sread(Printed, Read),
+    Read == Float.
+
+:- end_tests(parser_nonfinite_print).
 
 
 :- begin_tests(parser_commands).
