@@ -415,6 +415,69 @@ test(a_rational_goes_through_the_grammar) :-
 :- end_tests(parser_number_text).
 
 
+% A numeric literal past binary64. dcg/basics' number//1 converts what it
+% scanned with number_codes/2, which RAISES rather than answering, so
+% `(holds 1e400)` neither parsed nor reported a parse error: the raise went
+% out through sread/2 and killed the whole run with `number_codes/2: Syntax
+% error: float_overflow` naming src/main.pl [measured 2026-08-19, found by
+% the generated-spelling law in tests/prolog/property_lane.pl].
+%
+% Upstream saturates, its float token being a regex handed to Rust's f64
+% FromStr [source: hyperon-experimental, lib/src/metta/runner/stdlib/
+% arithmetics.rs and hyperon-atom/src/gnd/number.rs; measured 2026-08-19 by
+% running "1e400".parse::<f64>(), which answers Ok(inf)], so the reader does
+% too, through SWI's own float_overflow flag set for the retry alone.
+
+:- begin_tests(parser_number_overflow).
+
+test(an_overflowing_literal_reads_as_an_infinity,
+     [forall(member(Text-Expression, ["1e400"-inf, "1e309"-inf,
+                                      "9e999999"-inf, "1.5e400"-inf,
+                                      "-1e400"- (-inf)]))]) :-
+    sread(Text, Number),
+    Wanted is Expression,
+    Number == Wanted.
+
+% Underflow needed no change: both sides already answer zero.
+test(an_underflowing_literal_reads_as_zero) :-
+    sread("1e-400", Number),
+    Number == 0.0.
+
+% And the saturation does not widen what counts as a number: a token that only
+% STARTS like an overflowing literal still ends where a token ends, so
+% number_ends//0 refuses it and it reads as the symbol it is.
+test(a_token_that_only_starts_like_an_overflow_is_a_symbol) :-
+    sread("1e400abc", Term),
+    Term == '1e400abc'.
+
+test(a_form_holding_an_overflowing_literal_parses) :-
+    sread("(holds 1e400)", Term),
+    Infinity is inf,
+    Term = [holds, Number],
+    Number == Infinity.
+
+% metta_symbol_writable/1 runs the same grammar, so it raised where it should
+% have answered, and every caller of the text seam raised with it.
+test(the_writability_check_answers_instead_of_raising,
+     [forall(member(Spelling, ['1e400', '9e999999',
+                               '1e99999999999999999999']))]) :-
+    \+ metta_symbol_writable(Spelling).
+
+% The flag is borrowed for the retry and given back, and ARITHMETIC overflow is
+% a different question with a different answer: it still raises.
+test(the_overflow_flag_is_restored_after_a_saturating_parse) :-
+    current_prolog_flag(float_overflow, Before),
+    sread("1e400", _),
+    current_prolog_flag(float_overflow, After),
+    After == Before.
+
+test(engine_arithmetic_still_raises_on_overflow,
+     [throws(error(evaluation_error(float_overflow), _))]) :-
+    _ is 1.0e308 * 10.
+
+:- end_tests(parser_number_overflow).
+
+
 :- begin_tests(parser_commands).
 
 % CPython names this as THE hard part of a console: "determine when the user
