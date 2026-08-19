@@ -1590,42 +1590,33 @@ test(empty_reduce_is_a_value) :-
 
 :- begin_tests(translator_evaluation_errors).
 
-dynamic_arithmetic_error :-
-    reduce(['+', 1, undefined_sym], _).
+%A grounded operation that cannot compute ANSWERS rather than raising, so what
+%these pin is that the two routes answer the SAME thing and that the refusal is
+%an answer rather than a silent failure. `undefined_sym` is undeclared, so its
+%type rules nothing out and the call is left as written
+%[source: LeaTTa tests/semantics/grounded/07-partial-core.metta].
+dynamic_arithmetic_refusal(Answer) :-
+    reduce(['+', 1, undefined_sym], Answer).
 
-compiled_arithmetic_error :-
-    translate_expr(['+', 1, undefined_sym], Goals, _),
+compiled_arithmetic_refusal(Answer) :-
+    translate_expr(['+', 1, undefined_sym], Goals, Answer),
     goals_list_to_conj(Goals, Conjunction),
     call(Conjunction).
 
-captured_error(Goal, Type) :-
-    catch(call(Goal), error(Type, _), true),
-    nonvar(Type).
+compiled_answers(Expression, Answers) :-
+    translate_expr(Expression, Goals, Out),
+    goals_list_to_conj(Goals, Conjunction),
+    findall(Out, Conjunction, Answers).
 
-captured_operation_error(Goal, Type, Operation) :-
-    catch(call(Goal), Error, true),
-    nonvar(Error),
-    Error = error(Type, context(Operation, _)).
+test(dynamic_and_compiled_calls_answer_the_same_refusal) :-
+    findall(A, dynamic_arithmetic_refusal(A), Dynamic),
+    findall(A, compiled_arithmetic_refusal(A), Compiled),
+    Dynamic == [['+', 1, undefined_sym]],
+    Compiled == Dynamic.
 
-test(dynamic_and_compiled_calls_report_the_same_error) :-
-    captured_error(dynamic_arithmetic_error, DynamicType),
-    captured_error(compiled_arithmetic_error, CompiledType),
-    DynamicType == type_error(number, undefined_sym),
-    CompiledType == DynamicType.
-
-test(dynamic_and_compiled_calls_name_the_written_operation) :-
-    captured_operation_error(dynamic_arithmetic_error, DynamicType,
-                             DynamicOperation),
-    captured_operation_error(compiled_arithmetic_error, CompiledType,
-                             CompiledOperation),
-    DynamicType == type_error(number, undefined_sym),
-    CompiledType == DynamicType,
-    DynamicOperation == '+',
-    CompiledOperation == DynamicOperation.
-
-test(dynamic_errors_are_not_converted_to_failure,
-     [throws(error(type_error(number, undefined_sym), _))]) :-
-    dynamic_arithmetic_error.
+test(a_refusal_is_an_answer_and_not_a_failure) :-
+    findall(A, dynamic_arithmetic_refusal(A), Answers),
+    Answers \== [].
 
 test(an_unknown_head_remains_inert_data) :-
     translate_expr([plunit_inert_head, 1], Goals, Out),
@@ -1645,27 +1636,24 @@ cleanup_builtin_type_declarations(Path, ParsedForms) :-
     retractall(imported_metta_source('&self', Path)),
     retractall(import_life('&self', Path, _)).
 
-test(builtin_type_import_keeps_runtime_errors_loud) :-
+%Loading the engine's own declaration file must not mask a refusal into an
+%empty answer: each of the three still answers, and each answers what its own
+%operation says.
+test(builtin_type_import_keeps_runtime_refusals_visible) :-
     once(( absolute_file_name('../../lib/lib_builtin_types.metta', Path,
                               [access(read)]),
            read_metta_source(Path, Source),
            parse_metta_source(Source, ParsedForms) )),
     setup_call_cleanup(
         once(load_metta_file(Path, _)),
-        once(( captured_operation_error(compiled_arithmetic_error,
-                                        ArithmeticType,
-                                        ArithmeticOperation),
-               ArithmeticType == type_error(number, undefined_sym),
-               ArithmeticOperation == '+',
-               translate_expr([and, true, 5], BoolGoals, _),
-               goals_list_to_conj(BoolGoals, BoolGoal),
-               captured_operation_error(BoolGoal, BoolType, BoolOperation),
-               BoolType == type_error(boolean, 5),
-               BoolOperation == and,
-               translate_expr(['min-atom', 5], MinGoals, MinOut),
-               goals_list_to_conj(MinGoals, MinGoal),
-               call(MinGoal),
-               MinOut == [] )),
+        once(( findall(A, compiled_arithmetic_refusal(A), Arithmetic),
+               Arithmetic == [['+', 1, undefined_sym]],
+               compiled_answers([and, true, 5], Boolean),
+               Boolean == [['Error', [and, true, 5],
+                            ['BadArgType', 2, 'Bool', 'Number']]],
+               compiled_answers(['min-atom', 5], Minimum),
+               Minimum == [['Error', ['min-atom', 5],
+                            "Atom is not an ExpressionAtom"]] )),
         cleanup_builtin_type_declarations(Path, ParsedForms)).
 
 :- end_tests(translator_evaluation_errors).

@@ -51,7 +51,6 @@ host_error_case('*', '*'(1.0e308, 2.0, _)).
 host_error_case('/', '/'(1, 0, _)).
 host_error_case('/', '/'(1.0e308, 1.0e-308, _)).
 host_error_case('%', '%'(1, 0, _)).
-host_error_case(exp, exp(invalid_number, _)).
 host_error_case('#+', '#+'(1, invalid_number, _)).
 host_error_case('#-', '#-'(1, invalid_number, _)).
 host_error_case('#*', '#*'(1, invalid_number, _)).
@@ -64,30 +63,11 @@ host_error_case('#<', '#<'(1, invalid_number, _)).
 host_error_case('#>', '#>'(1, invalid_number, _)).
 host_error_case('#=', '#='(1, invalid_number, _)).
 host_error_case('#\\=', '#\\='(1, invalid_number, _)).
-host_error_case('pow-math', 'pow-math'(1, invalid_number, _)).
 host_error_case('pow-math', 'pow-math'(0, -1, _)).
-host_error_case('sqrt-math', 'sqrt-math'(invalid_number, _)).
 host_error_case('sqrt-math', 'sqrt-math'(-1, _)).
-host_error_case('abs-math', 'abs-math'(invalid_number, _)).
-host_error_case('log-math', 'log-math'(1, invalid_number, _)).
-host_error_case('exp-math', 'exp-math'(invalid_number, _)).
 host_error_case('exp-math', 'exp-math'(10000, _)).
-host_error_case('trunc-math', 'trunc-math'(invalid_number, _)).
-host_error_case('ceil-math', 'ceil-math'(invalid_number, _)).
-host_error_case('floor-math', 'floor-math'(invalid_number, _)).
-host_error_case('round-math', 'round-math'(invalid_number, _)).
-host_error_case('sin-math', 'sin-math'(invalid_number, _)).
-host_error_case('cos-math', 'cos-math'(invalid_number, _)).
-host_error_case('tan-math', 'tan-math'(invalid_number, _)).
-host_error_case('asin-math', 'asin-math'(invalid_number, _)).
 host_error_case('asin-math', 'asin-math'(2, _)).
-host_error_case('acos-math', 'acos-math'(invalid_number, _)).
 host_error_case('acos-math', 'acos-math'(2, _)).
-host_error_case('atan-math', 'atan-math'(invalid_number, _)).
-host_error_case('isnan-math', 'isnan-math'(invalid_number, _)).
-host_error_case('isinf-math', 'isinf-math'(invalid_number, _)).
-host_error_case('min-atom', 'min-atom'([invalid_number], _)).
-host_error_case('max-atom', 'max-atom'([invalid_number], _)).
 host_error_case('random-int', 'random-int'(1, invalid_number, _)).
 host_error_case('random-float', 'random-float'(1, invalid_number, _)).
 host_error_case('random-float',
@@ -97,25 +77,84 @@ host_error_case('change-state!', 'change-state!'([invalid_key], 1, _)).
 host_error_case('get-state', 'get-state'([invalid_key], _)).
 
 %The guarded operators refuse a non-number argument themselves rather than
-%letting is/2 coerce it, so these are argument refusals, not host errors.
-number_operand_case('+', '+'(1, invalid_number, _)).
-number_operand_case('-', '-'(1, invalid_number, _)).
-number_operand_case('*', '*'(1, invalid_number, _)).
-number_operand_case('/', '/'(1, invalid_number, _)).
-number_operand_case('%', '%'(1, invalid_number, _)).
-number_operand_case('<', '<'(1, invalid_number, _)).
-number_operand_case('>', '>'(1, invalid_number, _)).
-number_operand_case('<=', '<='(1, invalid_number, _)).
-number_operand_case('>=', '>='(1, invalid_number, _)).
-number_operand_case(min, min(1, invalid_number, _)).
-number_operand_case(max, max(1, invalid_number, _)).
+%letting is/2 coerce it, and the refusal is an ANSWER: `invalid_number` is an
+%undeclared symbol, so its type decides nothing and the call is left as
+%written, which is upstream's NoReduce. Only `/` names itself instead
+%[source: LeaTTa tests/semantics/grounded/07-partial-core.metta].
+number_operand_case('+', '+'(1, invalid_number, R), R).
+number_operand_case('-', '-'(1, invalid_number, R), R).
+number_operand_case('*', '*'(1, invalid_number, R), R).
+number_operand_case('%', '%'(1, invalid_number, R), R).
+number_operand_case('<', '<'(1, invalid_number, R), R).
+number_operand_case('>', '>'(1, invalid_number, R), R).
+number_operand_case('<=', '<='(1, invalid_number, R), R).
+number_operand_case('>=', '>='(1, invalid_number, R), R).
+number_operand_case(min, min(1, invalid_number, R), R).
+number_operand_case(max, max(1, invalid_number, R), R).
 
-test(arithmetic_refuses_a_non_number_argument,
-     [forall(number_operand_case(Operation, Goal))]) :-
+test(arithmetic_answers_a_non_number_argument_rather_than_raising,
+     [forall(number_operand_case(Operation, Goal, Result))]) :-
+    findall(Result, call(Goal), Answers),
+    Answers == [[Operation, 1, invalid_number]].
+
+test(divide_refuses_by_name_where_the_others_leave_the_call) :-
+    findall(R, '/'(1, invalid_number, R), Answers),
+    Answers == [['Error', ['/', 1, invalid_number],
+                 "Divide expects two numbers: dividend and divisor"]].
+
+%A number the function is undefined at is a HOST error and stays one, which is
+%the split metta_math_recovery/4 draws: only an argument that is not a number
+%at all becomes the operation's own answer.
+test(a_number_the_function_is_undefined_at_stays_a_host_error,
+     [forall(member(Goal-Operation, ['sqrt-math'(-1, _)-'sqrt-math',
+                                     'exp-math'(10000, _)-'exp-math',
+                                     'pow-math'(0, -1, _)-'pow-math',
+                                     'asin-math'(2, _)-'asin-math']))]) :-
     catch(call(Goal), Error, true),
     nonvar(Error),
-    Error = error(type_error(number, invalid_number),
-                  context(Operation, 'invalid MeTTa operation argument')).
+    Error = error(_, context(Operation, 'while evaluating MeTTa operation')).
+
+%The same operations handed an argument that is not a number at all. Each
+%answers in upstream's own words, and upstream's noun is not uniform: sqrt-math
+%and abs-math say `number` where every later unary operation says `input
+%number`, and pow-math and log-math name both of theirs
+%[source: LeaTTa tests/semantics/grounded/08-partial-math.metta].
+math_refusal_case('sqrt-math'(invalid_number, R), R,
+                  "sqrt-math expects one argument: number").
+math_refusal_case('abs-math'(invalid_number, R), R,
+                  "abs-math expects one argument: number").
+math_refusal_case('sin-math'(invalid_number, R), R,
+                  "sin-math expects one argument: input number").
+math_refusal_case('isinf-math'(invalid_number, R), R,
+                  "isinf-math expects one argument: input number").
+math_refusal_case(exp(invalid_number, R), R,
+                  "exp expects one argument: input number").
+math_refusal_case('pow-math'(1, invalid_number, R), R,
+                  "pow-math expects two arguments: number (base) and number (power)").
+math_refusal_case('log-math'(1, invalid_number, R), R,
+                  "log-math expects two arguments: base (number) and input value (number)").
+
+test(a_math_operation_answers_its_own_refusal_by_name,
+     [forall(math_refusal_case(Goal, Result, Message))]) :-
+    findall(Result, call(Goal), Answers),
+    Answers = [['Error', _, Reason]],
+    Reason == Message.
+
+%min-atom and max-atom carry three texts for three arguments, and the third
+%quotes the offending expression back the way upstream formats it.
+expression_refusal_case('min-atom'(5, R), R, "Atom is not an ExpressionAtom").
+expression_refusal_case('max-atom'(5, R), R, "Atom is not an ExpressionAtom").
+expression_refusal_case('min-atom'([], R), R, "Empty expression").
+expression_refusal_case('min-atom'([1, u, 3], R), R,
+                        "Only numbers are allowed in expression: (1 u 3)").
+expression_refusal_case('max-atom'([1, u, 3], R), R,
+                        "Only numbers are allowed in expression: (1 u 3)").
+
+test(the_numeric_expression_operations_answer_their_own_refusal,
+     [forall(expression_refusal_case(Goal, Result, Message))]) :-
+    findall(Result, call(Goal), Answers),
+    Answers = [['Error', _, Reason]],
+    Reason == Message.
 
 test(host_errors_name_the_written_operation,
      [forall(host_error_case(Operation, Goal))]) :-
@@ -125,18 +164,20 @@ test(host_errors_name_the_written_operation,
                   context(Operation, 'while evaluating MeTTa operation')),
     nonvar(Formal).
 
-boolean_error_case(and, and(true, 5, _)).
-boolean_error_case(or, or(false, 5, _)).
-boolean_error_case(not, not(5, _)).
-boolean_error_case(xor, xor(true, 5, _)).
-boolean_error_case(implies, implies(false, 5, _)).
+%A Number where a Bool was declared is decided, so it is a BadArgType ANSWER
+%naming the position, not a raise [source: the same file, `(and True n)` is
+%`(BadArgType 2 Bool Number)`].
+boolean_error_case(and, and(true, 5, R), R, 2).
+boolean_error_case(or, or(false, 5, R), R, 2).
+boolean_error_case(not, not(5, R), R, 1).
+boolean_error_case(xor, xor(true, 5, R), R, 2).
+boolean_error_case(implies, implies(false, 5, R), R, 2).
 
-test(boolean_type_errors_are_loud,
-     [forall(boolean_error_case(Operation, Goal))]) :-
-    catch(call(Goal), Error, true),
-    nonvar(Error),
-    Error = error(type_error(boolean, 5),
-                  context(Operation, 'invalid MeTTa operation argument')).
+test(boolean_type_errors_answer_the_position_they_refuse,
+     [forall(boolean_error_case(Operation, Goal, Result, Position))]) :-
+    findall(Result, call(Goal), Answers),
+    Answers = [['Error', _, Reason]],
+    Reason == ['BadArgType', Position, 'Bool', 'Number'].
 
 test(boolean_operations_remain_relational) :-
     findall(A-B-C, and(A, B, C), Rows),
@@ -176,9 +217,9 @@ test(an_unknown_procedure_keeps_swi_s_own_message) :-
     assertion(sub_string(Text, _, _, _, "Unknown procedure")).
 
 test(a_metta_operation_error_still_names_the_operation) :-
-    catch('+'(foo, 1, _), Error, true),
+    catch('#+'(foo, 1, _), Error, true),
     message_to_string(Error, Text),
-    assertion(sub_string(Text, _, _, _, "+: number expected, found foo")).
+    assertion(sub_string(Text, _, _, _, "#+: ")).
 
 :- end_tests(metta_operation_errors).
 
@@ -393,24 +434,32 @@ test(a_scoped_user_function_stays_scoped,
 
 :- begin_tests(metta_arithmetic_operands).
 
-arith_refusal(Goal, Culprit) :-
-    catch(( call(Goal), fail ), error(type_error(number, Culprit), _), true).
-
+%What these three reproductions pin is that the operand is not COERCED, and
+%that is unchanged; how the refusal is DELIVERED did change, from a raise to
+%an answer, so the expectations are written out rather than hidden behind a
+%catch [source: LeaTTa tests/semantics/grounded/07-partial-core.metta].
 test(a_one_element_expression_is_not_a_character_code) :-
     % (+ 1 (g)) answered 104, the character code of g.
-    arith_refusal('+'(1, [g], _), [g]),
-    arith_refusal('*'(2, [z], _), [z]).
+    findall(R, '+'(1, [g], R), Plus),
+    findall(R, '*'(2, [z], R), Times),
+    Plus == [['+', 1, [g]]],
+    Times == [['*', 2, [z]]].
 
 test(a_string_is_not_a_character_code) :-
-    arith_refusal('+'(1, "s", _), "s").
+    findall(R, '+'(1, "s", R), Answers),
+    Answers == [['Error', ['+', 1, "s"],
+                 ['BadArgType', 2, 'Number', 'String']]].
 
 test(an_evaluable_atom_does_not_outrank_a_metta_definition) :-
     % SWI's pi answered 3.14159 over a user's own (= pi 3.14).
-    arith_refusal('+'(1, pi, _), pi).
+    findall(R, '+'(1, pi, R), Answers),
+    Answers == [['+', 1, pi]].
 
 test(comparisons_refuse_the_same_operands) :-
-    arith_refusal('<'(1, [f, 2], _), [f, 2]),
-    arith_refusal(max([a], 1, _), [a]).
+    findall(R, '<'(1, [f, 2], R), Less),
+    findall(R, max([a], 1, R), Max),
+    Less == [['<', 1, [f, 2]]],
+    Max == [[max, [a], 1]].
 
 test(numbers_still_compute) :-
     '+'(1, 2, Three), Three == 3,
@@ -901,10 +950,19 @@ test(a_program_declaration_is_answered_before_the_engines,
 %verdict.
 :- begin_tests(comparable_operands).
 
+%The refusal names the position, the type the first operand fixed and the type
+%the second carries, which is what `(-> $a $a Bool)` says and what the arbiter
+%answers [source: LeaTTa tests/semantics/grounded/07-partial-core.metta,
+%`(== 1 a)` with `(: a String)` is `(BadArgType 2 Number String)`].
 test(two_known_and_different_kinds_are_refused,
-     [forall(member(A-B, [1-"s", true-1, "s"-1, 1-true]))]) :-
-    catch(( '=='(A, B, _), Formal = none ), error(Formal, _), true),
-    assertion(Formal = type_error(_, _)).
+     [forall(member(A-B-Reason,
+                    [1-"s"-['BadArgType', 2, 'Number', 'String'],
+                     true-1-['BadArgType', 2, 'Bool', 'Number'],
+                     "s"-1-['BadArgType', 2, 'String', 'Number'],
+                     1-true-['BadArgType', 2, 'Number', 'Bool']]))]) :-
+    findall(R, '=='(A, B, R), Answers),
+    Answers = [['Error', _, Actual]],
+    assertion(Actual == Reason).
 
 test(a_pair_of_one_kind_is_compared,
      [forall(member(A-B-R, [1-1-true, 1-2-false, "s"-"s"-true,
@@ -1514,6 +1572,74 @@ test(with_pragma_refuses_an_unknown_key,
     metta_with_pragmas([['invented-by-a-typo', 1]], true, _).
 
 :- end_tests(scoped_pragmas).
+
+:- begin_tests(operation_answers).
+
+%The multiplicity and the order of BadArgType, on the arbiter's own four
+%programs: one error per rejected ACTUAL type, one per declared ARROW, the two
+%composing arrow-major and actual-minor, and a position whose sibling actual
+%type carried the check forward still reporting its failure before the later
+%position's [source: LeaTTa tests/semantics/types-basic/
+%44-badargtype-per-actual.metta through 49-badargtype-widened-actuals.metta].
+%Each program names its own symbols, so the five run in one space without a
+%teardown between them and one case cannot inherit another's declarations.
+badargtype_program("(: pa-a pa-A)\n(: pa-a pa-B)\n(: pa-g (-> pa-C Number))",
+                   'pa-g', ['pa-a'],
+                   [['BadArgType', 1, 'pa-C', 'pa-A'],
+                    ['BadArgType', 1, 'pa-C', 'pa-B']]).
+badargtype_program("(: pr-a pr-A)\n(: pr-g (-> pr-C Number))\n(: pr-g (-> pr-D Number))",
+                   'pr-g', ['pr-a'],
+                   [['BadArgType', 1, 'pr-C', 'pr-A'],
+                    ['BadArgType', 1, 'pr-D', 'pr-A']]).
+badargtype_program("(: cp-a cp-A)\n(: cp-a cp-B)\n(: cp-g (-> cp-C Number))\n(: cp-g (-> cp-D Number))",
+                   'cp-g', ['cp-a'],
+                   [['BadArgType', 1, 'cp-C', 'cp-A'],
+                    ['BadArgType', 1, 'cp-C', 'cp-B'],
+                    ['BadArgType', 1, 'cp-D', 'cp-A'],
+                    ['BadArgType', 1, 'cp-D', 'cp-B']]).
+badargtype_program("(: ao-a ao-A)\n(: ao-a ao-C)\n(: ao-b ao-B)\n(: ao-g (-> ao-C ao-D Number))",
+                   'ao-g', ['ao-a', 'ao-b'],
+                   [['BadArgType', 1, 'ao-C', 'ao-A'],
+                    ['BadArgType', 2, 'ao-D', 'ao-B']]).
+badargtype_program("(: wa-a wa-A)\n(:< wa-A wa-B)\n(:< wa-B wa-C)\n(: wa-g (-> wa-D Number))",
+                   'wa-g', ['wa-a'],
+                   [['BadArgType', 1, 'wa-D', 'wa-A'],
+                    ['BadArgType', 1, 'wa-D', 'wa-B'],
+                    ['BadArgType', 1, 'wa-D', 'wa-C']]).
+
+test(badargtype_multiplicity_and_order,
+     [forall(badargtype_program(Source, Operation, Arguments, Expected))]) :-
+    ( silent(true) -> true ; assertz(silent(true)) ),
+    process_metta_string(Source, _),
+    findall(Reason,
+            ( metta_operation_answer(Operation, Arguments, Answer),
+              Answer = ['Error', _, Reason] ),
+            Reasons),
+    Reasons == Expected.
+
+%An argument whose type does not DECIDE is not an error: the call is left as
+%written, which is upstream's NoReduce, and only an operation with its own
+%message answers one instead [source: LeaTTa
+%tests/semantics/grounded/07-partial-core.metta, `[(+ 1 b)]` against
+%`[((Error (/ 2 b) Divide expects two numbers: dividend and divisor))]`].
+test(an_undecided_argument_leaves_the_call_unreduced) :-
+    findall(A, metta_operation_answer('+', [1, 'plunit-undeclared'], A), Answers),
+    Answers == [['+', 1, 'plunit-undeclared']].
+
+test(an_operation_with_its_own_message_answers_it) :-
+    findall(A, metta_operation_answer('/', [2, 'plunit-undeclared'], A), Answers),
+    Answers == [['Error', ['/', 2, 'plunit-undeclared'],
+                 "Divide expects two numbers: dividend and divisor"]].
+
+%A chain naming one type variable twice reports the type its FIRST argument
+%fixed, not the variable [source: the same file, `(== 1 a)` is
+%`(BadArgType 2 Number String)` with `(: a String)`].
+test(a_shared_type_variable_reports_what_the_first_argument_fixed) :-
+    findall(A, metta_operation_answer('==', [1, "text"], A), Answers),
+    Answers == [['Error', ['==', 1, "text"],
+                 ['BadArgType', 2, 'Number', 'String']]].
+
+:- end_tests(operation_answers).
 
 :- begin_tests(interpreter_pragmas).
 

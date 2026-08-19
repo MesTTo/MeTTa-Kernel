@@ -124,10 +124,11 @@ test(awaiting_an_unknown_future_is_an_existence_error) :-
     catch(thread_await(999999, _), error(existence_error(petta_future, _), _),
           true).
 
-% (+ 1 foo) is a real MeTTa arithmetic type error; a bare (throw x) is just
-% an unknown function and comes back as data.
+% (/ 1 0) is a real HOST error, which is the only kind left that raises: a
+% wrongly typed operand answers `(Error ...)` now and would come back as data,
+% and a bare (throw x) is just an unknown function and does the same.
 test(a_future_that_raises_re_raises_on_await) :-
-    thread_spawn([+, 1, foo], Handle),
+    thread_spawn([/, 1, 0], Handle),
     catch(thread_await(Handle, _), Ball, true),
     nonvar(Ball).
 
