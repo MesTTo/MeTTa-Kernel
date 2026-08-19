@@ -397,6 +397,16 @@ applied, so it is not a failed write and retrying it duplicates.
 also a blocking event stream. A `RemoteSpace` refuses `subscribe`: there is
 no event channel on the wire.
 
+The wire has both doors the in-process seam has. `RemoteSpace.match` is
+eager, one request carrying the whole answer set, and `RemoteSpace.stream`
+is the protocol's ask/next/stop lifecycle, a chunk per request, so taking
+two answers of a large enumeration costs the serving engine two answers.
+`petta.remote.attach(m, name, url, batch=1)` puts an attached space's
+matching on the lazy door. `petta.remote.Gateway` is the same protocol with
+no transport under it, for mounting on another HTTP framework.
+`website/live/remote-protocol.md` is the contract every binding inherits and
+`petta.testing.GatewayComplianceSuite` certifies it.
+
 `petta.testing` ships what the suite fuzzes itself with: hypothesis strategies
 (`atoms`, `expressions`, `patterns`, `names`, `numbers`, `texts`, `symbols`,
 `variables`, `grounded`, `ground_atoms`, `numpy_scalars`), the compliance suites

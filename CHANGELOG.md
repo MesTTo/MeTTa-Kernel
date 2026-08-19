@@ -17,6 +17,36 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Lazy answers cross the wire. The remote space protocol reaches revision 3
+  with an `ask`/`next`/`stop` lifecycle beside `match`, so a client takes two
+  answers of a large enumeration and stops without the serving engine
+  computing the rest: `/ask` opens a cursor and answers the first chunk,
+  `/next` pulls the next, `/stop` releases it, and the reply's `cursor` field
+  is both the continuation token and the end-of-stream signal, `null` meaning
+  the server has released it already. Measured over real HTTP, two answers
+  cost 1,250 inferences whether the enumeration held ten atoms or ten
+  thousand, against 1,839 and 1,490,407 for the eager door over the same
+  spaces.
+
+  On the client side `RemoteSpace.stream(pattern, batch=...)` is the lazy
+  door and `match()` stays the eager one, the split `m.stream()` and
+  `m.query()` already make in-process, and
+  `petta.remote.attach(m, "&hq", url, batch=1)` puts an attached space's
+  matching on the lazy door so a MeTTa `once` over it stops the serving
+  engine too. `serve()` takes `cursor_idle` and `cursor_limit`, which bound
+  how long an untouched cursor survives and how many stay open at once, and
+  both take their defaults from SWI's `library(pengines)`, whose
+  create/ask/next/stop is the lifecycle's prior art. The TypeScript
+  reference servers speak revision 3 as well, and
+  `petta.testing.GatewayComplianceSuite` certifies it.
+
+- `petta.remote.Gateway` is the protocol's server side with no transport
+  under it: call it with `(operation, payload)` and it answers the reply
+  dict, the shape `Transport` already has on the client side. `serve()`
+  wraps one in the bundled HTTP server; mount one on the framework a
+  deployment already runs, or use one as a transport directly, which is the
+  one way serving and attaching join inside a single process.
+
 - `m.lint()` reports a new kind, `subsumed-equation`: an equation that is a
   strict instance of another stored one, so every answer it gives, the
   general equation gives too, and calls on the overlap answer twice. This is
