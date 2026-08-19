@@ -171,7 +171,8 @@ main :-
     list_autoload,
     check,
     a_backend_calls_only_published_surface,
-    no_cut_in_a_live_hook_clause.
+    no_cut_in_a_live_hook_clause,
+    every_engine_emitted_goal_is_protected.
 
 %%%% Every seam declares one kind %%%%
 %
@@ -636,6 +637,118 @@ body_subterm(Term, Sub) :-
     compound(Term),
     arg(_, Term, Argument),
     body_subterm(Argument, Sub).
+
+
+%%%% Every goal the engine emits into a body is protected %%%%
+%
+% A compiled body resolves its goals in the module the clause went into, so a
+% MeTTa equation for the name of a goal the TRANSLATOR wrote would capture that
+% goal in the space's own bodies: silently, and with a wrong answer rather than
+% an error. metta_engine_emitted/1 (src/translator.pl) names those and
+% protect_engine_emitted/1 (src/spaces.pl) binds each into every space's
+% module, which is what makes the assert refuse.
+%
+% That list is a claim about what the translator emits, so it is RECOMPUTED
+% here rather than read: every equation in the shipped corpus is translated and
+% every goal is taken out of the resulting body. A goal is a finding when it is
+% none of the engine's MeTTa dispatch names, is not already protected, and an
+% assert for it into a fresh module of a space's shape SUCCEEDS, which is the
+% test that says a MeTTa equation could take it.
+%
+% Fails when a translation rule is reachable only from a form no shipped
+% equation uses. The corpus is the widest input the tree has and the check says
+% how much of it it read, so a rule added with no example is visible as a count
+% that did not move [measured 2026-08-19: 102 goal indicators over 1,040
+% equations, 10 of them engine-emitted and capturable, all 10 named].
+engine_emitted_corpus_dir('../../examples').
+engine_emitted_corpus_dir('../../lib').
+
+corpus_equation_body(Body) :-
+    engine_emitted_corpus_dir(Dir),
+    exists_directory(Dir),
+    directory_member(Dir, File, [recursive(true), extensions([metta])]),
+    \+ sub_atom(File, _, _, _, '/_fixtures/'),
+    catch(( read_metta_source(File, Source),
+            parse_metta_source(Source, Forms) ), _, fail),
+    member(parsed(function, _, Form), Forms),
+    Form = [=, _, _],
+    \+ writes_a_raw_prolog_goal(Form),
+    catch(translate_clause(Form, (_ :- Body)), _, fail).
+
+% `Predicate` and `translatePredicate` are the escape hatch that turns a MeTTa
+% expression into a raw Prolog goal, and a goal a PROGRAM writes that way is
+% the program's own: it resolves in the program's space deliberately, and
+% protecting its name would be refusing the feature. In a compiled body it is
+% indistinguishable from one the translator wrote, so the equations that use
+% the hatch are skipped whole. lib/lib_tabling.metta is the shipped instance,
+% and open_string/2 and load_files/2 reach compiled bodies through it
+% [measured 2026-08-19].
+writes_a_raw_prolog_goal(Form) :-
+    sub_term(Sub, Form),
+    atom(Sub),
+    memberchk(Sub, ['Predicate', translatePredicate]),
+    !.
+
+emitted_goal(V, _) :- var(V), !, fail.
+emitted_goal((A, B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
+emitted_goal((A ; B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
+emitted_goal((A -> B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
+emitted_goal((A *-> B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
+emitted_goal(\+ A, I) :- !, emitted_goal(A, I).
+emitted_goal(!, _) :- !, fail.
+emitted_goal(_ : G, I) :- !, emitted_goal(G, I).
+% Only an argument that is itself CONTROL is descended into. Every other
+% argument is data, and reading those as goals reported every symbol a program
+% writes: x/0, y/0 and the rest [measured 2026-08-19, first version of this].
+emitted_goal(Goal, Indicator) :-
+    callable(Goal),
+    functor(Goal, Name, Arity),
+    (   Indicator = Name/Arity
+    ;   compound(Goal),
+        arg(_, Goal, Argument), nonvar(Argument), control_shaped(Argument),
+        emitted_goal(Argument, Indicator)
+    ).
+
+control_shaped(T) :-
+    compound(T),
+    ( T = (_, _) ; T = (_ ; _) ; T = (_ -> _) ; T = (_ *-> _) ; T = (\+ _) ).
+
+% Could a MeTTa equation take this name? Asked of a FRESH module of a space's
+% shape, one per name, so an earlier probe cannot free a later one, and asked
+% by doing the assert the engine would do rather than by reading a property.
+capturable(Name/Arity) :-
+    gensym('$static-check-capture:&probe', Space),
+    space_module(Space, Module),
+    functor(Probe, Name, Arity),
+    catch(setup_call_cleanup(assertz((Module:Probe :- fail), Ref), true, erase(Ref)),
+          error(permission_error(modify, static_procedure, _), _),
+          fail).
+
+every_engine_emitted_goal_is_protected :-
+    findall(Indicator,
+            ( corpus_equation_body(Body), emitted_goal(Body, Indicator) ),
+            All0),
+    sort(All0, All),
+    length(All, Seen),
+    findall(Name/Arity,
+            ( member(Name/Arity, All),
+              \+ metta_dispatch_name(Name, Arity),
+              capturable(Name/Arity) ),
+            Unprotected0),
+    sort(Unprotected0, Unprotected),
+    (   Unprotected == []
+    ->  aggregate_all(count, metta_engine_emitted(_), Protected),
+        format("static: every one of ~d goal indicators the corpus compiles is \c
+                either a MeTTa name or one of the ~d the engine protects~n",
+               [Seen, Protected])
+    ;   forall(member(Indicator, Unprotected),
+               format(user_error,
+                      'the engine emits ~w into compiled bodies and a MeTTa \c
+                       equation can take it: name it in metta_engine_emitted/1 \c
+                       (src/translator.pl) or qualify the goal~n',
+                      [Indicator])),
+        fail
+    ).
 
 %%%% Each kind is declared the way its direction requires %%%%
 %

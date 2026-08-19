@@ -549,6 +549,35 @@ test(a_name_the_engine_defines_is_free_in_a_space,
                                        number_of_clauses(Before))) ),
         unshadow_in_self(Name, MettaArity, Arity)).
 
+% The other half of the shadowing rule. A name the ENGINE compiles into
+% function bodies cannot be taken, in any space, because taking it would
+% capture the engine's own goal in that space's compiled clauses rather than
+% shadowing a function: a wrong answer with no error. The refusal comes from
+% SWI, because protect_engine_emitted/1 binds each of these into every space's
+% module, and it names the right cause rather than calling them Prolog's.
+test(an_engine_emitted_name_cannot_be_taken,
+     [ forall(member(Name/Arity, [include/3, has_type/2, petta_transaction/1])) ]) :-
+    MettaArity is Arity - 1,
+    length(Args, MettaArity),
+    catch('add-atom'('&self', [=, [Name|Args], plunit_captured], _), Error, true),
+    assertion(Error = error(petta_engine_goal_redefinition(Name, MettaArity, '&self'), _)),
+    message_to_string(Error, Text),
+    assertion(sub_string(Text, _, _, _, "compiles into function bodies")),
+    % and the engine's own goal is still the one a space resolves
+    petta_engine_module(Engine),
+    space_module('&self', Self),
+    functor(Head, Name, Arity),
+    assertion(predicate_property(Self:Head, imported_from(_))),
+    assertion(predicate_property(Engine:Head, defined)).
+
+% Every space, not &self alone, which is what makes the protection a property
+% of the topology rather than of one space.
+test(an_engine_emitted_name_cannot_be_taken_in_a_named_space) :-
+    catch('add-atom'('&plunit_emitted_probe', [=, [has_type, _], plunit_captured],
+                     _), Error, true),
+    assertion(Error = error(petta_engine_goal_redefinition(has_type, 1,
+                                                           '&plunit_emitted_probe'), _)).
+
 :- end_tests(spaces_execution_modules).
 
 :- begin_tests(spaces_builtin_override).
