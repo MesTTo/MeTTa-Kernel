@@ -28,7 +28,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `src/*.pl` | 12,923 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/python.pl`, `src/duals.pl`, `src/tracer.pl`, `src/prelude.metta` | |
+| `src/*.pl` | 12,936 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/python.pl`, `src/duals.pl`, `src/tracer.pl`, `src/prelude.metta` | |
 | `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 31 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
@@ -330,7 +330,8 @@ as data; a SERVICE runs the other way, a predicate the ENGINE defines that an
 extension may CALL. The service list is the whole permitted inward surface
 (`swrite/2`, `sread/2`, `metta_symbol_writable/1`, `metta_unwritable_symbol/2`,
 `throw_metta_type_error/3`, `rethrow_metta_operation_error/2`,
-`current_metta_module/1`), and it exists so a backend never reaches into
+`current_metta_module/1`, `space_module/2`, `metta_module_space/2`), and it
+exists so a backend never reaches into
 `src/parser.pl`, the same reason SQLite hands extensions an
 `sqlite3_api_routines` table instead of letting them link against internals.
 
