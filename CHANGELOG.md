@@ -6,6 +6,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The control-signal error term is spelled `metta_control_signal(Kind,
+  Detail)` and the host-interrupt signal `metta_host_interrupted`, in place
+  of the `petta_py_`-spelled names: the shapes are the engine's own and
+  cross every host boundary, not Python's alone. A program or tool matching
+  the old spellings in raw error text must follow; the structured fields on
+  the `petta.errors` classes are unchanged.
+
 ### Added
 
 - `m.lint()` reports a new kind, `subsumed-equation`: an equation that is a

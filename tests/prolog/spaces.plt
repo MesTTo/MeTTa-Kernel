@@ -1576,7 +1576,7 @@ test(the_discipline_error_has_an_engine_message) :-
 % provider's tunnel past catch/3 makes the adapter hook do it instead.
 metta_foreign_space('&plunit_flaky').
 metta_foreign_space('&plunit_ctl').
-metta_foreign_match('&plunit_ctl', _, _) :- throw(petta_py_interrupted).
+metta_foreign_match('&plunit_ctl', _, _) :- throw(metta_host_interrupted).
 metta_foreign_match('&plunit_flaky', Pattern, _Options) :-
     (   Pattern = [edge, a, b]
     ;   throw(error(type_error(backend, fell_over), flaky))
@@ -1606,7 +1606,7 @@ test(empty_ends_the_stream_by_declaration,
 test(a_control_signal_is_never_kept,
      [ setup(erring_declare(['on-error', '&plunit_ctl', [edge, _, _], keep])),
        cleanup(erring_retract(['on-error', '&plunit_ctl', [edge, _, _], keep])),
-       throws(petta_py_interrupted) ]) :-
+       throws(metta_host_interrupted) ]) :-
     petta_match_erring(keep, '&plunit_ctl', [edge, a, _], [], out, _).
 
 :- end_tests(spaces_error_modes).

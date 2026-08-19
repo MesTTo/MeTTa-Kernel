@@ -1616,7 +1616,7 @@ test(inferences_keeps_every_answer) :-
     Vs == [1, 2, 3].
 
 test(inferences_expiry_throws_the_reserved_envelope,
-     [throws(error(petta_py_exception(inference_limit, 50), _))]) :-
+     [throws(error(metta_control_signal(inference_limit, 50), _))]) :-
     metta_inferences(50, (between(1, 100000, N), N > 99999), N).
 
 test(inferences_refuses_a_non_positive_bound,
@@ -1634,14 +1634,14 @@ test(with_pragma_scopes_and_restores) :-
     \+ metta_pragma('max-inferences', _).
 
 test(with_pragma_expiry_throws_the_reserved_envelope,
-     [throws(error(petta_py_exception(inference_limit, 200), _))]) :-
+     [throws(error(metta_control_signal(inference_limit, 200), _))]) :-
     metta_with_pragmas([['max-inferences', 200]],
                        (between(1, 100000, N), N > 99999), N).
 
 test(with_pragma_restores_after_expiry) :-
     catch(metta_with_pragmas([['max-inferences', 200]],
                              (between(1, 100000, N), N > 99999), N),
-          error(petta_py_exception(inference_limit, _), _),
+          error(metta_control_signal(inference_limit, _), _),
           true),
     \+ metta_pragma('max-inferences', _).
 
@@ -1653,8 +1653,8 @@ test(with_pragma_restores_a_previous_value) :-
     'pragma!'('max-time', none, _).
 
 test(limit_expiry_is_a_control_signal_no_recovery_catch_eats) :-
-    control_exception(error(petta_py_exception(inference_limit, 200), c)),
-    control_exception(error(petta_py_exception(time_limit, 1.0), c)).
+    control_exception(error(metta_control_signal(inference_limit, 200), c)),
+    control_exception(error(metta_control_signal(time_limit, 1.0), c)).
 
 test(with_pragma_refuses_a_malformed_setting,
      [throws(error(domain_error(metta_pragma_setting, _), _))]) :-

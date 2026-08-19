@@ -382,7 +382,7 @@ test(an_interrupt_is_not_converted_into_a_catchable_error,
     catch(petta_py_failure(['some-call'],
                            error(python_error(Class, none), none)),
           Thrown, true),
-    assertion(Thrown == petta_py_interrupted),
+    assertion(Thrown == metta_host_interrupted),
     assertion(control_exception(Thrown)).
 
 test(an_engine_control_exception_passes_through_untouched) :-
