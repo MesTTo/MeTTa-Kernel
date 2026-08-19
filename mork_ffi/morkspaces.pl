@@ -80,7 +80,7 @@ mork_require_text_safe(Term, Operation) :-
     ( metta_unwritable_symbol(Term, Bad)
       -> throw(error(domain_error(mork_text_symbol, Bad),
                      context(Operation,
-                             'a symbol name containing whitespace, parentheses or quotes, and a number whose printed form is not read back as that number, cannot cross the MORK text boundary')))
+                             'symbol names containing whitespace, parentheses or quotes, and numbers whose printed form is not read back as the same number, cannot cross the MORK text boundary')))
     ; true ).
 
 %A MORK space is a foreign space: its atoms live outside the Prolog

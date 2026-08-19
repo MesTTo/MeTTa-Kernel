@@ -288,6 +288,9 @@ check_dev_typed() {
     swipl -q --on-error=status -g dev_typed_report -t 'halt(0)' dev_typed.pl || ok=1
     for suite in *.plt; do
         [ -e "$suite" ] || continue
+        # dev_typed.plt consults the engine itself; running it UNDER the
+        # typed build would consult the engine twice into one session.
+        [ "$suite" = dev_typed.plt ] && continue
         swipl -q -g dev_typed_suites -t 'halt(0)' dev_typed.pl -- "$suite" || ok=1
     done
     return $ok
