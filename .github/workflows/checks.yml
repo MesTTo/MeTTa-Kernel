@@ -32,6 +32,20 @@ jobs:
       - name: Install the package and the check tools
         run: uv sync --locked --extra checks
 
+      # The Node binding runs the engine in a WebAssembly SWI, so it needs
+      # node and swipl-wasm and nothing else. Without this step check.sh's
+      # node-binding lane says it cannot run and the conformance kit in
+      # python/tests/test_node_binding.py skips, which is a green run that
+      # tested the seam's second consumer not at all.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: bindings/node/package-lock.json
+
+      - name: Install the Node binding's dependencies
+        run: npm ci --prefix bindings/node
+
       - name: Gate
         env:
           # Hypothesis derandomizes in CI so a red example is reproducible.

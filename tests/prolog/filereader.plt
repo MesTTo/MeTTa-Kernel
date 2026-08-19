@@ -562,3 +562,45 @@ test(a_declaration_for_a_name_with_no_equations_is_data) :-
         erase(SilentRef)).
 
 :- end_tests(filereader_untypable_declaration).
+
+:- begin_tests(filereader_source_digest).
+
+%src/filereader.pl takes a source's digest from library(crypto) when the build
+%has it and from library(sha) when it does not, which is the WebAssembly build
+%[measured 2026-08-20: swipl-wasm 8.0.6 carries sha and not crypto]. That is
+%only safe while the two answer the same, because metta_source_changed/1
+%compares a digest this process took against one an earlier process recorded,
+%and a provider that spelled it differently would call every file changed.
+%
+%So both are computed here whenever both are available, on text that is empty,
+%plain and non-ASCII, and required to be identical. A build with one of them
+%runs the half it has, which is the honest test on a host that cannot run the
+%other.
+digest_providers_agree(Text) :-
+    exists_source(library(crypto)),
+    exists_source(library(sha)),
+    !,
+    crypto:crypto_data_hash(Text, ByCrypto, [algorithm(sha256)]),
+    sha:sha_hash(Text, Bytes, [algorithm(sha256)]),
+    sha:hash_atom(Bytes, BySha),
+    ByCrypto == BySha,
+    user:metta_text_digest(Text, Chosen),
+    Chosen == ByCrypto.
+digest_providers_agree(Text) :-
+    user:metta_text_digest(Text, Digest),
+    atom_length(Digest, 64).
+
+test(both_digest_providers_agree) :-
+    forall(member(Text, ["", "hello", "a line\nand another", "héllo wörld"]),
+           digest_providers_agree(Text)).
+
+%The digest is what makes a reload notice an edit, so it has to separate texts
+%that differ and join texts that do not.
+test(a_digest_separates_texts_and_joins_equal_ones) :-
+    user:metta_text_digest("(= (f) 1)", One),
+    user:metta_text_digest("(= (f) 1)", Again),
+    user:metta_text_digest("(= (f) 2)", Other),
+    One == Again,
+    One \== Other.
+
+:- end_tests(filereader_source_digest).

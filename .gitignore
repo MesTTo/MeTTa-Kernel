@@ -24,3 +24,7 @@ python/petta/*.so
 # Agent scratch: books, cloned prior art, gate logs, tree copies. Never
 # released, and skipped by .codespellrc for the same reason.
 ai-tmp/
+
+# The Node binding fetches swipl-wasm with npm; it is a build input, not
+# source, and the same shape as any other node_modules in the tree.
+bindings/node/node_modules/
