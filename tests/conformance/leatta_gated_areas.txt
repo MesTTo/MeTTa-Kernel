@@ -19,22 +19,31 @@
 # commit that makes the claim true, and say in the commit message what now
 # holds.
 #
-# Measured 2026-08-18 (301 files total, 236 of them checkable; run
+# Measured 2026-08-20 (305 files total, 238 of them checkable; run
 # `"$PY" tests/conformance/leatta.py --area NAME --show 500` per area).
 # Nothing below qualifies yet: every one of the nine areas has at least one
 # differing checkable file, so every line stays commented out.
 #
 #   area              checkable files agreeing / total checkable
 #   ----------------  -------------------------------------------
-#   control-stdlib     2 / 13
-#   eval-core           7 / 27
-#   grounded            1 / 36
-#   matching            7 / 11
+#   control-stdlib      2 / 13
+#   eval-core          12 / 27   (1 more file is a prose-only MEASURED block)
+#   grounded           10 / 35
+#   matching            7 / 12
 #   metaprogramming     1 / 9
-#   modules             0 / 28   (57 more files are prose-only MEASURED blocks)
-#   spaces              0 / 17
-#   types-basic        28 / 75
-#   types-meta          4 / 20   (7 more files are prose-only MEASURED blocks)
+#   modules            13 / 29   (59 more files are prose-only MEASURED blocks)
+#   spaces              6 / 17
+#   types-basic        42 / 76
+#   types-meta         12 / 20   (7 more files are prose-only MEASURED blocks)
+#
+# A DIFFERING FILE IS NOT ALWAYS A DEFECT HERE, which is what promotion has to
+# reckon with: the count above includes the files whose own STATUS says the
+# arbiter diverges from Hyperon deliberately, and this engine follows Hyperon
+# there rather than the arbiter. 50 of the 133 differing files are those, 12
+# more are the arbiter's own extensions and one awaits its ruling, so the
+# defects proper are the 70 whose status is `conforms`. An area reaches zero
+# differing only by adopting the arbiter's divergences as well, so promoting
+# one means either that decision or a gate that reads the status.
 
 # control-stdlib
 # eval-core
