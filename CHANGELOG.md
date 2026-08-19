@@ -145,6 +145,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Copying a space now answers a space that holds what its source holds.
+  `copy()` enumerates a space and re-adds every atom into a fresh one, and a
+  specialization is stored content, so the clone re-derived the specialization
+  while compiling the equation that triggers it and the copied one landed on
+  top: a four-atom space cloned to six and answered its query three times
+  instead of once. The specializer owns the names it generates, so an equation
+  arriving for a name a space's module already derived carries nothing new and
+  is not stored again. `digest()` agrees across a copy for the first time.
+
 - A function's retained equations now belong to the module that compiled
   them, so a definition in one space can no longer add answers to another.
   The specializer reads those equations to build a specialized clause, one
