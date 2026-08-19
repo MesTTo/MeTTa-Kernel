@@ -2056,6 +2056,7 @@ the wrong name; the guide's Concepts page holds the full table.
 | cache calls your own way | `metta_dispatch_call/4` |
 | keep derived state coherent | `metta_on_function_changed/1` |
 | change what counts as a match | a matcher, by convention |
+| reach the engine from a language it has never been used from | the wire codec, [CODEC.md](CODEC.md) |
 
 Three of those are **declared seams** in `src/ext_points.pl`, and a change to
 one is a breaking change: the foreign-space hooks, the atom hooks, and the

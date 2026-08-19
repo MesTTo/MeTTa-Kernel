@@ -84,4 +84,4 @@ text = json.dumps(S.edge(S.a, 1, V.x).to_wire())
 atom_from_wire(json.loads(text))       # (edge a 1 $x)
 ```
 
-That is the interchange for anything web-facing, and it preserves what storage does not: a variable that goes through a space comes back with a machine name, and one that goes through JSON comes back as `$x`.
+That is the interchange for anything web-facing, and it preserves what storage does not: a variable that goes through a space comes back with a machine name, and one that goes through JSON comes back as `$x`. Both spell one identity, which is all a `v` payload ever means; `CODEC.md` is the grammar, for anyone writing the other end in another language.
