@@ -1,0 +1,88 @@
+name: Divergence from a reference
+description: This engine answers differently from a reference you checked it against.
+title: "[divergence]: "
+labels: ["divergence"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A divergence is not the same report as a bug. A bug says an answer is
+        wrong on its own terms; a divergence says an answer disagrees with
+        something else, and the first question is which of the two is right.
+        So this form asks what you checked against before it asks anything
+        else, and a report that names no reference cannot be settled.
+
+  - type: dropdown
+    id: reference
+    attributes:
+      label: Which reference
+      description: What you compared this engine's answer against.
+      options:
+        - The MeTTa language documentation at metta-lang.dev
+        - Hyperon, the hyperon-experimental implementation
+        - Upstream PeTTa on the same program
+        - This repository's own documentation
+        - Another implementation or document, named below
+    validations:
+      required: true
+
+  - type: input
+    id: citation
+    attributes:
+      label: Where in it
+      description: >-
+        The URL, section, or `file:line` that says what you expected, or the
+        exact command you ran against the other implementation. This is what
+        makes the report checkable by somebody who was not there.
+      placeholder: "https://metta-lang.dev/docs/learn/tutorials/..., or hyperon 0.2.6 via metta prog.metta"
+    validations:
+      required: true
+
+  - type: textarea
+    id: program
+    attributes:
+      label: The MeTTa program
+      description: The smallest program on which the two disagree.
+      # See bug.yml for why this is `text` and not `metta`.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: reference-answer
+    attributes:
+      label: What the reference gives
+      description: >-
+        Verbatim. If the reference is prose rather than a run, quote the
+        sentence you are reading it from.
+    validations:
+      required: true
+
+  - type: textarea
+    id: petta-answer
+    attributes:
+      label: What this engine gives
+      description: Verbatim, error text and all.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reading
+    attributes:
+      label: Which one you think is right, and why
+      description: >-
+        Optional, and useful even when you are unsure. A divergence sometimes
+        settles the other way and the reference is what changes.
+    validations:
+      required: false
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: >-
+        The commit or tag of this engine, and the version of whatever you
+        compared it against.
+      placeholder: "4b71a0c against hyperon 0.2.6"
+    validations:
+      required: true

@@ -1,0 +1,12 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/trueagi-io/PeTTa/blob/main/SECURITY.md
+    about: >-
+      Report privately by email rather than here. An issue is public from the
+      moment it is filed, and SECURITY.md says where a report goes instead.
+  - name: Contributing, and the gate
+    url: https://github.com/trueagi-io/PeTTa/blob/main/CONTRIBUTING.md
+    about: >-
+      What a contribution has to be, and the one command that decides whether
+      it is ready.
