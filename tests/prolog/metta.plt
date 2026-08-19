@@ -41,6 +41,81 @@ test(every_runtime_term_has_a_metatype,
     'get-metatype'(Term, Actual),
     Actual == Expected.
 
+% A NAME's metatype is the one answer that is not read off the term, and no
+% registry of this engine's own decides it: `car-atom` is a Prolog predicate
+% here and a standard-library equation there, `superpose` is a compiled special
+% form here and a grounded token there, and the arbiter answers for the name
+% rather than for whichever route an engine took. So the classification is
+% upstream's, adopted whole [source: LeaTTa
+% MettaHyperonFull/Minimal/Interpreter.lean, groundedTokens], and these are the
+% names its corpus pins, tests/semantics/types-meta/02 and 03 and
+% grounded/12-metatypes.metta, all three STATUS conforms and byte-for-byte
+% transcripts of hyperon 0.2.10.
+grounded_name_case('+').             % arithmetic, and a fun/1 here
+grounded_name_case('/').
+grounded_name_case('==').
+grounded_name_case(and).
+grounded_name_case('sqrt-math').
+grounded_name_case('size-atom').
+grounded_name_case(superpose).       % a special form here, a token there
+grounded_name_case(nop).             % the same, since PeTTa's nop is variadic
+grounded_name_case(match).
+grounded_name_case('add-atom').
+grounded_name_case('println!').
+grounded_name_case('&self').         % a space handle, grounded for that reason
+
+symbol_name_case('car-atom').        % a fun/1 here, a stdlib equation there
+symbol_name_case('cdr-atom').
+symbol_name_case('cons-atom').       % a fun/1 here, an instruction there
+symbol_name_case('decons-atom').
+symbol_name_case(empty).
+symbol_name_case('get-doc').
+symbol_name_case('new-state').       % the token is `_new-state`, not this
+symbol_name_case('type-cast').
+symbol_name_case(eval).              % a special form here, an instruction there
+symbol_name_case(chain).
+symbol_name_case(unify).
+symbol_name_case(if).
+symbol_name_case(let).
+symbol_name_case(case).
+symbol_name_case(quote).
+symbol_name_case(collapse).
+symbol_name_case('no-such-operation').
+
+test(a_grounded_token_this_engine_holds_is_grounded,
+     [forall(grounded_name_case(Name))]) :-
+    'get-metatype'(Name, Metatype),
+    Metatype == 'Grounded'.
+
+test(an_instruction_or_equation_name_is_a_symbol,
+     [forall(symbol_name_case(Name))]) :-
+    'get-metatype'(Name, Metatype),
+    Metatype == 'Symbol'.
+
+% Membership in the table is half the answer and this engine holding the
+% operation is the other half, which is the arbiter's own rule: its metaTypeOf
+% asks `groundedTokenNames.contains s && w.opAdmitted s`, and it measured
+% hyperon answering Symbol for `flip` before `!(import! &self random)` and
+% Grounded after. A name nothing here gives meaning to gets the answer an
+% unknown name gets, which is what `no-such-operation` above pins.
+test(a_token_this_engine_does_not_hold_is_a_symbol,
+     [forall(member(Name, ['fuzzy-match', 'near-match', 'div-euclid',
+                           'skel-swap-pair-native']))]) :-
+    assertion(metta_grounded_token(Name)),
+    assertion(\+ metta_operation_admitted(Name)),
+    'get-metatype'(Name, Metatype),
+    Metatype == 'Symbol'.
+
+% The registry decides, so a name the engine gains answers for it. Registering
+% a fun/1 is how a library or a Python binding arrives, and the metatype has to
+% follow the same day rather than at the next edit of the table.
+test(a_token_becomes_grounded_when_the_engine_gains_it,
+     [ setup(( \+ metta_operation_admitted('fuzzy-match'),
+               assertz(user:fun('fuzzy-match')) )),
+       cleanup(retractall(user:fun('fuzzy-match'))) ]) :-
+    'get-metatype'('fuzzy-match', Metatype),
+    Metatype == 'Grounded'.
+
 :- end_tests(metta_metatypes).
 
 :- begin_tests(metta_operation_errors).
