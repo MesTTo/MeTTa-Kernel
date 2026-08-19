@@ -190,6 +190,32 @@
       "note": "The same disagreement at the other end of the range."
     },
     {
+      "id": "float-infinity",
+      "tags": ["n"],
+      "requires": "non_finite",
+      "wire": ["n", {"$float": "inf"}],
+      "written": "inf",
+      "reads_back": false,
+      "note": "The arbiter's spelling, which is hyperon's f64 Display. It prints and it does not read back: `inf` reads as the SYMBOL inf, MeTTa having no literal for a non-finite number, so this case has no text and the seam refuses the whole class rather than storing something that comes back different."
+    },
+    {
+      "id": "float-negative-infinity",
+      "tags": ["n"],
+      "requires": "non_finite",
+      "wire": ["n", {"$float": "-inf"}],
+      "written": "-inf",
+      "reads_back": false
+    },
+    {
+      "id": "float-nan",
+      "tags": ["n"],
+      "requires": "non_finite",
+      "wire": ["n", {"$float": "nan"}],
+      "written": {"engine": "NaN", "python": "nan"},
+      "reads_back": false,
+      "note": "The engine's printer spells it the arbiter's way and the Python side spells it Python's way. Comparing two decodings of it is the one place equality is not enough, since a NaN is not equal to itself; the wire carries THE non-finite value and two readings of it are the same term."
+    },
+    {
       "id": "boolean-true",
       "tags": ["b"],
       "text": "True",

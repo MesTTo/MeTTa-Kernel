@@ -307,6 +307,9 @@ restatement of one.
 | `float-integral` | `"1.0"` | `["n", 1.0]` | `"1.0"` |
 | `float-large-exponent` | `"1.0e10"` | `["n", 10000000000.0]` | engine `"1.0e+10"` / python `"10000000000.0"` |
 | `float-small-exponent` | `"1.0e-300"` | `["n", 1e-300]` | engine `"1.0e-300"` / python `"1e-300"` |
+| `float-infinity` |  | `["n", {"$float": "inf"}]` | `"inf"` |
+| `float-negative-infinity` |  | `["n", {"$float": "-inf"}]` | `"-inf"` |
+| `float-nan` |  | `["n", {"$float": "nan"}]` | engine `"NaN"` / python `"nan"` |
 | `boolean-true` | `"True"` | `["b", "true"]` | `"True"` |
 | `boolean-false` | `"False"` | `["b", "false"]` | `"False"` |
 | `boolean-lowercase-source` | `"true"` | `["b", "true"]` | `"True"` |
