@@ -1,6 +1,6 @@
 % Purpose: report the compile-time rule set's overlaps and its termination.
 %     `add-translator-rule!` registers a NAME (src/metta.pl:4499 keeps a set of
-%     them), and the rules themselves are the space's own (= Lhs Rhs) atoms
+%     them), and the rules themselves arrive through two doors, the space's own (= Lhs Rhs) atoms and the engine's prelude_equation/2 register for the shipped tier
 %     whose left-hand side is rooted at one of those names, plus every equation
 %     reachable from their right-hand sides, because a translator rule's body
 %     is EVALUATED while the program is being compiled. Two libraries that
@@ -126,26 +126,47 @@ space_equation(Space, Head, L ==> R) :-
     expr_term(Lhs, L),
     expr_term(Rhs, R).
 
+% A rule reaches the analysis through one of two doors. The space's own
+% (= ...) atoms are the user tier; the prelude's equations never become
+% atoms (the loader compiles them into &self's module), so the engine's
+% prelude_equation/2 register is the shipped tier's door. Reading only
+% the first missed the eight prelude rules while listing their names as
+% registered [tested: translator_confluence_selftest].
+rule_equation(Space, Head, Rule) :-
+    space_equation(Space, Head, Rule).
+rule_equation(_, Head, Rule) :-
+    prelude_rule_equation(Head, Rule).
+
+prelude_rule_equation(Head, L ==> R) :-
+    user:prelude_equation(Head, ['=', Lhs, Rhs]),
+    nonvar(Lhs),
+    Lhs = [Head|_],
+    expr_term(Lhs, L),
+    expr_term(Rhs, R).
+
 % The compile-time rule set: the registered names, closed under the equations
 % their right-hand sides reach. A translator rule's body runs at compile time,
 % so a function it calls is part of what has to terminate for compilation to
 % terminate; leaving those out would report on a rule set the compiler never
 % executes.
-compile_time_rules(Space, Registered, Names, Rules) :-
+compile_time_rules(Space, Registered, Names, SpaceRules, PreludeRules) :-
     findall(N, user:translator_rule(N), Registered0),
     sort(Registered0, Registered),
     reachable_names(Space, Registered, Registered, Names),
     findall(Rule,
             ( member(Name, Names), space_equation(Space, Name, Rule) ),
-            Rules).
+            SpaceRules),
+    findall(Rule,
+            ( member(Name, Names), prelude_rule_equation(Name, Rule) ),
+            PreludeRules).
 
 reachable_names(Space, Frontier, Seen, Names) :-
     findall(Called,
             ( member(Name, Frontier),
-              space_equation(Space, Name, _ ==> R),
+              rule_equation(Space, Name, _ ==> R),
               called_name(R, Called),
               \+ memberchk(Called, Seen),
-              once(space_equation(Space, Called, _)) ),
+              once(rule_equation(Space, Called, _)) ),
             New0),
     sort(New0, New),
     (   New == []
@@ -166,11 +187,50 @@ called_name(T, F) :-
 % analyse(+Registered, +Rules, -Analysis). Analysis is
 % analysis(Termination, Verdicts), with one verdict per critical pair worth
 % reporting.
-analyse(Registered, Rules, analysis(Termination, Verdicts)) :-
-    termination(Registered, Rules, Termination),
+% The user's tier is the headline; the shipped tier answers beside it,
+% never instead of it. The two are checked TOGETHER for cross-collisions,
+% because a user rule colliding with a shipped one is exactly the silent
+% ordering P2.13 exists to name.
+analyse(Registered, SpaceRules, PreludeRules,
+        analysis(Termination, Shipped, SpaceVs, CrossVs, Specs, ShippedVs)) :-
+    include(has_rule_in(SpaceRules), Registered, SpaceEntries),
+    termination(SpaceEntries, SpaceRules, Termination),
+    (   PreludeRules == []
+    ->  Shipped = no_shipped_tier
+    ;   include(has_rule_in(PreludeRules), Registered, ShippedEntries),
+        termination(ShippedEntries, PreludeRules, Shipped)
+    ),
+    append(SpaceRules, PreludeRules, Combined),
+    length(SpaceRules, S),
     join_bound(Fuel),
-    confluence_check(Rules, Fuel, All),
-    exclude(trivial_self_overlap, All, Verdicts).
+    confluence_check(Combined, Fuel, All),
+    exclude(trivial_self_overlap, All, Verdicts),
+    partition(both_at_most(S), Verdicts, SpaceVs, Rest),
+    partition(both_above(S), Rest, PreludeVs, CrossVs),
+    partition(shipped_specialization(Combined), PreludeVs,
+              Specs, ShippedVs).
+
+has_rule_in(Rules, Name) :-
+    member(L ==> _, Rules),
+    functor(L, Name, _),
+    !.
+
+both_at_most(S, verdict(I, J, _, _, _, _)) :- I =< S, J =< S.
+both_above(S, verdict(I, J, _, _, _, _)) :- I > S, J > S.
+
+% A shipped pair where one head strictly subsumes the other is the ladder
+% the prelude ships on purpose: a specific optimisation rule beside its
+% general form. WHICH applicable rule fires is up to the engine, whatever
+% matches first, and nothing promises whether that is the general or the
+% specific one; so the pair is sound only as an EQUIVALENCE: both
+% expansions must answer alike, and the corpus A/B that admitted the
+% specific rule is the standing evidence (user ruling, 2026-08-19).
+shipped_specialization(Combined, verdict(I, J, [], _, _, _)) :-
+    nth1(I, Combined, LI ==> _),
+    nth1(J, Combined, LJ ==> _),
+    (   subsumes_term(LI, LJ), \+ subsumes_term(LJ, LI) -> true
+    ;   subsumes_term(LJ, LI), \+ subsumes_term(LI, LJ)
+    ).
 
 verdict_is(Kind, verdict(_,_,_,_,_,Kind)).
 
@@ -209,18 +269,25 @@ entry_abstraction(Rules, Name, Abstract) :-
 
 %%%% Printing %%%%
 
-print_analysis(Rules, analysis(Termination, Verdicts)) :-
-    length(Rules, RuleCount),
-    defined_symbols(Rules, Ds),
+print_analysis(SpaceRules, PreludeRules,
+               analysis(Termination, Shipped, SpaceVs, CrossVs, Specs,
+                        ShippedVs)) :-
+    append(SpaceRules, PreludeRules, Combined),
+    length(Combined, RuleCount),
+    defined_symbols(Combined, Ds),
     length(Ds, SymbolCount),
     format("compile-time rule set: ~d rules over ~d defined symbols~n",
            [RuleCount, SymbolCount]),
-    forall(nth1(I, Rules, Rule), print_rule(I, Rule)),
-    print_termination(Rules, Termination),
-    include(verdict_is(joined), Verdicts, Joined),
-    include(verdict_is(counterexample), Verdicts, Divergent),
-    include(verdict_is(unknown), Verdicts, Unknown),
-    length(Verdicts, Overlaps),
+    length(SpaceRules, S),
+    forall(nth1(I, SpaceRules, Rule), print_rule(I, Rule)),
+    forall(( nth1(K, PreludeRules, Rule), I is S + K ),
+           print_shipped_rule(I, Rule)),
+    print_termination(SpaceRules, Termination),
+    append(SpaceVs, CrossVs, Headline),
+    include(verdict_is(joined), Headline, Joined),
+    include(verdict_is(counterexample), Headline, Divergent),
+    include(verdict_is(unknown), Headline, Unknown),
+    length(Headline, Overlaps),
     length(Joined, JoinedCount),
     length(Divergent, DivergentCount),
     length(Unknown, UnknownCount),
@@ -229,8 +296,63 @@ print_analysis(Rules, analysis(Termination, Verdicts)) :-
             ~d divergent, ~d unresolved within ~d steps~n",
            [Overlaps, JoinedCount, DivergentCount, UnknownCount, Fuel]),
     forall(( member(V, Divergent) ; member(V, Unknown) ),
-           print_overlap(Rules, V)),
+           print_overlap(Combined, V)),
+    print_shipped_tier(Combined, PreludeRules, Shipped, Specs, ShippedVs),
     print_conclusion(Termination, DivergentCount, UnknownCount).
+
+print_shipped_rule(I, L ==> R) :-
+    term_expr(L, LE),
+    term_expr(R, RE),
+    user:swrite(['=', LE, RE], Text),
+    format("  ~d. ~w (shipped)~n", [I, Text]).
+
+% The shipped tier's own block. Its termination and its internal pairs are
+% the engine's to answer for, so they never move the headline numbers the
+% caller's rule set is judged by; a cross-collision does, above.
+print_shipped_tier(_, [], no_shipped_tier, _, _) :- !.
+print_shipped_tier(Combined, PreludeRules, Shipped, Specs, ShippedVs) :-
+    length(PreludeRules, N),
+    format("shipped tier: ~d prelude rules; ", [N]),
+    print_shipped_termination(Shipped),
+    length(Specs, SpecCount),
+    (   SpecCount > 0
+    ->  format("  ~d specialization pairs, a specific rule beside its \c
+general form. Which fires is up to the engine, whatever matches first, \c
+nothing promises whether that is the general or the specific; each pair \c
+is therefore an EQUIVALENCE OBLIGATION, both expansions answering alike, \c
+the corpus A/B its standing evidence~n", [SpecCount]),
+        forall(member(V, Specs), print_specialization(Combined, V))
+    ;   true
+    ),
+    (   ShippedVs == []
+    ->  true
+    ;   format("  SHIPPED-TIER OVERLAP, a defect in the engine's own \c
+vocabulary, not in the caller's rules:~n"),
+        forall(member(V, ShippedVs), print_overlap(Combined, V))
+    ).
+
+print_shipped_termination(established(_)) :-
+    !,
+    format("termination: ESTABLISHED~n").
+print_shipped_termination(not_established(Failed, Reason)) :-
+    !,
+    %The reason's NAME only: no_rpo_order carries the whole rule list as
+    %its argument, and eleven rules inside one summary line bury the word
+    %that matters.
+    functor(Reason, ReasonName, _),
+    format("termination: NOT ESTABLISHED, ~w at ~w~n", [ReasonName, Failed]).
+print_shipped_termination(T) :-
+    format("termination: ~w~n", [T]).
+
+print_specialization(Combined, verdict(I, J, _, _, _, _)) :-
+    nth1(I, Combined, LI ==> _),
+    nth1(J, Combined, LJ ==> _),
+    (   subsumes_term(LJ, LI)
+    ->  Spec = I, Gen = J
+    ;   Spec = J, Gen = I
+    ),
+    format("    rules ~d and ~d: ~d is the specific form of ~d~n",
+           [Spec, Gen, Spec, Gen]).
 
 print_rule(I, L ==> R) :-
     term_expr(L, LE),
@@ -366,20 +488,23 @@ translator_confluence_main :-
 translator_confluence_gate :-
     load_engine,
     forall(shipped_library(File), user:load_metta_file(File, _)),
-    compile_time_rules('&self', Registered, _, Rules),
-    (   Rules == []
+    compile_time_rules('&self', Registered, _, SpaceRules, PreludeRules),
+    (   SpaceRules == [], PreludeRules == []
     ->  true
-    ;   analyse(Registered, Rules, Analysis),
-        Analysis = analysis(_, Verdicts),
-        include(verdict_is(counterexample), Verdicts, Divergent),
+    ;   analyse(Registered, SpaceRules, PreludeRules, Analysis),
+        Analysis = analysis(_, _, SpaceVs, CrossVs, _Specs, ShippedVs),
+        %A specialization pair is sanctioned by its equivalence evidence;
+        %every other divergent overlap, whichever tier holds it, breaks.
+        append([SpaceVs, CrossVs, ShippedVs], Gated),
+        include(verdict_is(counterexample), Gated, Divergent),
         (   Divergent == []
         ->  true
-        ;   print_analysis(Rules, Analysis),
+        ;   print_analysis(SpaceRules, PreludeRules, Analysis),
             halt(1) ) ).
 
 report_space(Space) :-
     print_decidable_fragment,
-    compile_time_rules(Space, Registered, Names, Rules),
+    compile_time_rules(Space, Registered, Names, SpaceRules, PreludeRules),
     length(Registered, EntryCount),
     length(Names, NameCount),
     format("registered translator rules: ~d, closed over what they call: ~d \c
@@ -388,11 +513,11 @@ report_space(Space) :-
            (   memberchk(N, Registered)
            ->  format("  ~w (registered)~n", [N])
            ;   format("  ~w (reached)~n", [N]) )),
-    (   Rules == []
+    (   SpaceRules == [], PreludeRules == []
     ->  format("no equations found for them, so there is nothing to \c
                 analyse~n")
-    ;   analyse(Registered, Rules, Analysis),
-        print_analysis(Rules, Analysis) ).
+    ;   analyse(Registered, SpaceRules, PreludeRules, Analysis),
+        print_analysis(SpaceRules, PreludeRules, Analysis) ).
 
 % Which fragment this report can answer in, printed with every report rather
 % than left in a header, because a verdict is worth what its fragment is worth.
@@ -432,17 +557,47 @@ planted(a_recursive_rule_set_is_not_shown_terminating,
         termination(not_established)).
 
 translator_confluence_selftest :-
+    load_engine,
     findall(Name-Expected-Got,
             ( planted(Name, Rules, Expected),
               planted_outcome(Rules, Expected, Got),
               Got \== Expected ),
             Wrong),
+    planted_collection_seen,
     (   Wrong == []
     ->  format("translator confluence selftest: ~d planted rule sets, each on \c
-                the side its shape predicts~n", [5])
+                the side its shape predicts, and the collection door reads \c
+                the prelude register~n", [5])
     ;   forall(member(N-E-G, Wrong),
                format("planted ~w: expected ~w, got ~w~n", [N, E, G])),
         halt(1) ).
+
+% The collection scenario goes through the DOOR the others bypass: two
+% overlapping rules planted in the prelude register under fixture names
+% must be collected by compile_time_rules and their overlap must be
+% reported divergent. This is what stops the report's "0 overlaps" from
+% meaning the shipped tier was never read.
+planted_collection_seen :-
+    setup_call_cleanup(
+        ( assertz(user:translator_rule('$cfl_fixture')),
+          assertz(user:prelude_equation('$cfl_fixture', ['=', ['$cfl_fixture', _], one])),
+          assertz(user:prelude_equation('$cfl_fixture', ['=', ['$cfl_fixture', _], two])) ),
+        ( compile_time_rules('&self', _, Names, _, PreludeRules),
+          memberchk('$cfl_fixture', Names),
+          include(fixture_rule, PreludeRules, Two),
+          length(Two, 2),
+          join_bound(Fuel),
+          confluence_check(Two, Fuel, Verdicts),
+          include(verdict_is(counterexample), Verdicts, [_|_]) ),
+        ( retractall(user:translator_rule('$cfl_fixture')),
+          retractall(user:prelude_equation('$cfl_fixture', _)) )),
+    !.
+planted_collection_seen :-
+    format("planted collection: the prelude register's rules were not \c
+            collected or their overlap was not reported~n", []),
+    halt(1).
+
+fixture_rule(L ==> _) :- functor(L, '$cfl_fixture', _).
 
 planted_outcome(Rules, divergent(_), divergent(Count)) :-
     !,
