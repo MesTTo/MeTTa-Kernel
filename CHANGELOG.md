@@ -8,6 +8,44 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Eight special forms are now written in MeTTa rather than in the compiler.
+  `and-then`, `or-else`, `trace!`, `unique`, `alpha-unique`, `union`,
+  `intersection` and `subtraction` ship as equations in the engine's prelude
+  that say what the call EXPANDS TO, registered with `add-translator-rule!`.
+  The expansion goes back through the ordinary translator, so one definition
+  decides what the form means and the compiler carries eight heads fewer.
+  Nothing about writing them changes: they are reachable with no import, they
+  answer what they always answered, and a program that defines one of the
+  names takes the whole form over as it always could.
+
+  Measured over the 201 corpus examples whose inference count is
+  deterministic: -0.2313% in total, 199 of them cheaper, because the six
+  stream rewrites used to run on every compound the translator walked. The
+  two that got dearer are the two files that write the moved forms, and all
+  of it is compile time: over 200,000 `and-then` evaluations the two spellings
+  cost 1,203,968 and 1,203,986 inferences, the whole difference being the
+  one-time compile. Every corpus answer is unchanged, group for group.
+
+  `KERNEL.md` is the ledger: every head the translator gives meaning to, core
+  or derived, what it corresponds to in the minimal instruction set the
+  arbiter presents, and for a derived form still fused into the compiler, the
+  measurement that keeps it there.
+
+### Added
+
+- `lib/lib_derived.metta`, the derived forms the compiler keeps fused, written
+  out as translator rules for a program that wants the smaller instruction set
+  anyway. `once` is there: `(take 1 ...)` answers what `once` answers over all
+  206 corpus files and costs 2 inferences a call more, which is why the fused
+  clause is still the default. `examples/libraries/derived_forms.metta` runs
+  the swap and `remove-translator-rule!` puts the compiler back in charge.
+
+- A translator rule that does not APPLY now leaves the call to ordinary
+  dispatch instead of failing the equation around it. A rule may carry a
+  guard in its head, which is how `union` names the `(superpose ...)` shape it
+  rewrites, and before this `(= (f) (union foo bar))` did not compile at all,
+  with a message naming `process_form/4`.
+
 - An equation head is a PATTERN at every depth, matched structurally. A head
   argument whose label happened to have equations used to become a CALL, so
   `(= (f (g $x)) $x)` compiled to `f(A, B) :- g(B, A)` and ran `g` backwards.

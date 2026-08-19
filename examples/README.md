@@ -10,7 +10,7 @@ Run the self-checking corpus with:
 
 `test.sh` discovers examples recursively. It excludes `_fixtures` and the six
 interactive, network-backed, or optional-dependency examples named in the
-runner. The merged corpus contains 204 examples that run in the shell suite.
+runner. The merged corpus contains 206 examples that run in the shell suite.
 That count is `len(example_parity.corpus())`, the corpus's one definition in
 `python/tools/example_parity.py`; the `pytest` gate lane fails the moment
 this sentence and the tree disagree. Selected root paths remain as symlink

@@ -295,3 +295,61 @@ test(the_doc_example_still_speaks_for_the_library,
     load_metta_file('../../examples/libraries/doc_lib.metta', _).
 
 :- end_tests(prelude_docs).
+
+% The derived forms: each ships as an equation in src/prelude.metta plus the
+% one runnable the loader accepts, `!(add-translator-rule! NAME)`. That is the
+% whole of what moving a form out of the compiler needs, and the registration
+% is the prelude's to withdraw, because a program that defines the name has
+% taken the form over and its equations are not a compile-time expander.
+:- begin_tests(prelude_derived_forms).
+
+prelude_derived('and-then').
+prelude_derived('or-else').
+prelude_derived('trace!').
+prelude_derived(unique).
+prelude_derived('alpha-unique').
+prelude_derived(union).
+prelude_derived(intersection).
+prelude_derived(subtraction).
+
+test(every_derived_form_is_registered_as_a_translator_rule,
+     [forall(prelude_derived(Name))]) :-
+    assertion(translator_rule(Name)),
+    assertion(prelude_translator_rule(Name)).
+
+%eval_string/2 belongs to the unit above, and a plunit unit is a module of
+%its own, so this one reads the forms the same way for itself.
+derived_answers(Text, Results) :-
+    sread(Text, Term),
+    findall(R, eval(Term, R), Results).
+
+test(a_derived_form_answers_with_no_import) :-
+    derived_answers("(and-then True yes)", [yes]),
+    derived_answers("(or-else False fallback)", [fallback]),
+    derived_answers("(collapse (unique (superpose (1 2 1))))", [[1, 2]]).
+
+%The loader takes exactly one runnable shape, and only for a name the prelude
+%itself defines, so a registration can never point at somebody else's
+%equations.
+test(a_registration_for_a_name_the_prelude_does_not_define_is_refused,
+     [throws(error(existence_error(prelude_definition, 'no-such-prelude-name'),
+                   _))]) :-
+    load_prelude_form(runnable, "(add-translator-rule! no-such-prelude-name)",
+                      ['add-translator-rule!', 'no-such-prelude-name']).
+
+%A program that defines the name takes the whole form over: the prelude's
+%equations go, and so does the registration, or the translator would call the
+%program's own equations as a compile-time expander.
+test(a_user_definition_withdraws_the_registration_with_the_clauses,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( 'remove-atom'('&self', [=, ['or-else'|_], _], _),
+                 retractall(silent(_)), assertz(silent(false)),
+                 load_engine_prelude )) ]) :-
+    assertion(translator_rule('or-else')),
+    process_metta_string("(= (or-else $a $b) taken-over)", _),
+    assertion(\+ translator_rule('or-else')),
+    assertion(\+ prelude_translator_rule('or-else')),
+    process_metta_string("!(or-else True whatever)", Answers),
+    assertion(Answers == ['taken-over']).
+
+:- end_tests(prelude_derived_forms).

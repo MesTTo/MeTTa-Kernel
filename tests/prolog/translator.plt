@@ -273,34 +273,49 @@ test(acyclic_binding_keeps_let_semantics,
 
 :- end_tests(translator_let).
 
-:- begin_tests(translator_stream_rewrites).
+% The derived forms: each one is an equation in src/prelude.metta plus the
+% registration that makes the translator consult it, where it used to be a
+% clause of the compiler. The property that matters is that the call and the
+% expansion written out by hand compile to the SAME goals, which is what
+% "one definition decides what the form means" means operationally.
+:- begin_tests(translator_derived_forms).
 
-stream_rewrite_case(['trace!', 1, 2],
-                    [progn, ['println!', 1], 2]).
-stream_rewrite_case([unique, [superpose, a, a]],
-                    [call, [superpose,
-                            ['unique-atom', [collapse, [superpose, a, a]]]]]).
-stream_rewrite_case(['alpha-unique', [superpose, a, a]],
-                    [call, [superpose,
-                            ['alpha-unique-atom',
-                             [collapse, [superpose, a, a]]]]]).
-stream_rewrite_case([union, [superpose, a], [superpose, b]],
-                    [call, [superpose,
-                            ['union-atom', [collapse, [superpose, a]],
-                                           [collapse, [superpose, b]]]]]).
-stream_rewrite_case([intersection, [superpose, a], [superpose, b]],
-                    [call, [superpose,
-                            ['intersection-atom', [collapse, [superpose, a]],
-                                                  [collapse, [superpose, b]]]]]).
-stream_rewrite_case([subtraction, [superpose, a], [superpose, b]],
-                    [call, [superpose,
-                            ['subtraction-atom', [collapse, [superpose, a]],
-                                                 [collapse, [superpose, b]]]]]).
+derived_form(['trace!', 1, 2],
+             [progn, ['println!', 1], 2]).
+derived_form([unique, [superpose, [a, a]]],
+             [call, [superpose,
+                     ['unique-atom', [collapse, [superpose, [a, a]]]]]]).
+derived_form(['alpha-unique', [superpose, [a, a]]],
+             [call, [superpose,
+                     ['alpha-unique-atom',
+                      [collapse, [superpose, [a, a]]]]]]).
+derived_form([union, [superpose, [a]], [superpose, [b]]],
+             [call, [superpose,
+                     ['union-atom', [collapse, [superpose, [a]]],
+                                    [collapse, [superpose, [b]]]]]]).
+derived_form([intersection, [superpose, [a]], [superpose, [b]]],
+             [call, [superpose,
+                     ['intersection-atom', [collapse, [superpose, [a]]],
+                                           [collapse, [superpose, [b]]]]]]).
+derived_form([subtraction, [superpose, [a]], [superpose, [b]]],
+             [call, [superpose,
+                     ['subtraction-atom', [collapse, [superpose, [a]]],
+                                          [collapse, [superpose, [b]]]]]]).
+%True and False reach the engine as the Prolog atoms true and false
+%[source: src/parser.pl], so the expansions are written that way here.
+derived_form(['and-then', [>, 2, 1], ok], [if, [>, 2, 1], ok, false]).
+derived_form(['or-else', [>, 2, 1], ok], [if, [>, 2, 1], true, ok]).
 
-test(each_stream_rewrite_has_exactly_one_solution,
-     [ forall(stream_rewrite_case(Input, Expected)),
-       true(Solutions == [Expected]) ]) :-
-    findall(Out, rewrite_streamops(Input, Out), Solutions).
+test(a_derived_form_compiles_as_its_expansion,
+     [forall(derived_form(Call, Expansion))]) :-
+    translate_expr(Call, CallGoals, CallOut),
+    translate_expr(Expansion, ExpansionGoals, ExpansionOut),
+    assertion(CallGoals-CallOut =@= ExpansionGoals-ExpansionOut).
+
+test(a_derived_form_has_exactly_one_translation,
+     [forall(derived_form(Call, _))]) :-
+    findall(Goals-Out, translate_expr(Call, Goals, Out), Solutions),
+    assertion(Solutions = [_]).
 
 test(trace_form_has_one_compilation) :-
     findall(Goals-Out, translate_expr(['trace!', 1, 2], Goals, Out),
@@ -308,7 +323,31 @@ test(trace_form_has_one_compilation) :-
     Solutions = [[Print]-2],
     Print =@= 'println!'(1, _).
 
-:- end_tests(translator_stream_rewrites).
+%The set operations name the shape they rewrite. A call that is not that
+%shape is a program using the name as data, and the guard has to LEAVE it
+%there: wired so that a rule which does not match fails the enclosing
+%translation, `(= (f) (union foo bar))` did not compile at all.
+guarded_form(union).
+guarded_form(intersection).
+guarded_form(subtraction).
+
+test(a_guarded_derived_form_leaves_a_call_it_does_not_match_as_data,
+     [forall(guarded_form(Name))]) :-
+    Call = [Name, foo, bar],
+    translate_expr(Call, Goals, Out),
+    assertion(Goals == []),
+    assertion(Out == Call).
+
+test(a_guarded_derived_form_does_not_break_the_equation_around_it,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( 'remove-atom'('&self', [=, ['plunit-guarded-use'|_], _], _),
+                 forget_test_function('plunit-guarded-use'),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    process_metta_string("(= (plunit-guarded-use) (union foo bar))", _),
+    process_metta_string("!(plunit-guarded-use)", Answers),
+    assertion(Answers == [[union, foo, bar]]).
+
+:- end_tests(translator_derived_forms).
 
 :- begin_tests(translator_prolog_imports).
 
@@ -587,10 +626,10 @@ test(a_later_definition_retargets_an_earlier_super,
 % predicate receives; the reasoning is at call_site_type_chains/2.
 expected_special_heads([
     'add-atom', 'add-atoms', 'add-reduct', 'add-reducts', annotation,
-    'and-then', 'catch', 'filter-atom', 'foldall',
+    'catch', 'filter-atom', 'foldall',
     'with-pragma!',
     'foldl-atom', 'forall', 'get-metatype', 'let*', 'map-atom', 'not-provable',
-    'or-else', 'remove-atom', 'test-no-answer', '|->', call, case, chain,
+    'remove-atom', 'test-no-answer', '|->', call, case, chain,
     collapse, cut, elapsed, eval, evalc, explain, hyperpose, if, let, match,
     inferences, noeval,
     once, prog1, progn, quote, reduce, sealed, super, superpose, take, test,
@@ -616,23 +655,28 @@ test(each_special_form_clause_has_an_indexable_head) :-
 
 % metta_translated_head/1 is the "does the engine give this head meaning"
 % question, and the translator answers it two ways: translate_special_dl/5
-% and the stream rewrites. A head missed there is reported as a
+% and the translator rules. A head missed there is reported as a
 % possibly-undefined reference in correct code, which is what asking fun/1
-% alone did to `if`. Derived from the clause heads rather than a literal
-% list, so adding a third compilation route without widening the predicate
-% fails here.
+% alone did to `if`. Derived from the clause heads and the live register
+% rather than a literal list, so adding a third compilation route without
+% widening the predicate fails here.
 test(every_translated_head_is_answered_for) :-
     findall(H, clause(user:translate_special_dl(H, _, _, _, _), _), Special),
-    findall(H, ( clause(user:rewrite_streamops(P, _), _),
-                 nonvar(P), P = [H|_] ), Stream),
-    append(Special, Stream, All0),
+    findall(H, translator_rule(H), Rules),
+    append(Special, Rules, All0),
     sort(All0, All),
     forall(member(Head, All), metta_translated_head(Head)).
 
-% rewrite_streamops/2's last clause is the identity fallthrough, whose head
-% argument is a bare variable. Reading it with clause/2 without a nonvar
-% guard answers true for every symbol in the language and silently disables
-% the linter check this predicate exists for.
+% The prelude's derived forms are the second route, and they have to be
+% answered for by the same predicate: a name the compiler no longer carries a
+% clause for is still a head the engine gives meaning to.
+test(a_derived_form_is_a_translated_head) :-
+    forall(member(Head, ['and-then', 'or-else', 'trace!', unique,
+                         'alpha-unique', union, intersection, subtraction]),
+           metta_translated_head(Head)).
+
+% The check exists to separate the heads the engine translates from every
+% other symbol, so a name nothing gives meaning to must not be answered for.
 test(an_ordinary_name_is_not_a_translated_head, [fail]) :-
     metta_translated_head('no-such-head-anywhere').
 

@@ -16,6 +16,7 @@ beside its definitions.
 | lib_crypto | 2 | 0 |
 | lib_datastructures | 26 | 9 |
 | lib_datetime | 2 | 0 |
+| lib_derived | 1 | 1 |
 | lib_doc | 0 | 0 |
 | lib_file | 2 | 2 |
 | lib_he | 0 | 0 |
@@ -133,6 +134,22 @@ Both trees' elements, left then right, in O(log n): the operation finger trees e
 Returns: one finger tree
 
 Undocumented: `FTDeep`, `FTEmpty`, `FTSingle`, `FTree`, `add-unique-or-fail`, `dequeue`, `empty-queue`, `enqueue`, `ft-app3`, `ft-borrow-l`, `ft-borrow-r`, `ft-node-digit`, `ft-nodes`, `ft-push-back`, `ft-push-front`, `ft-push-list-back`, `ft-push-list-front`
+
+## lib_derived
+
+### `once`
+
+*lib_derived.metta:41*
+
+```metta
+(: once (-> Atom %Undefined%))
+```
+
+The first answer of an expression, and no more. Derived here as (take 1 ...); the engine's own once is the same form fused into the compiler
+
+1. The expression to take one answer of
+
+Returns: Its first answer
 
 ## lib_file
 

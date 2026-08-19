@@ -15,7 +15,7 @@ re-runs them.
 
 | source | what it is | kept true by |
 |---|---|---|
-| `examples/**/*.metta` | 204 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
+| `examples/**/*.metta` | 206 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
 | `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 21 plunit suites over the engine itself | the `plunit` gate lane |
@@ -28,10 +28,11 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `src/*.pl` | 14,085 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/python.pl`, `src/duals.pl`, `src/tracer.pl`, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
-| `lib/lib_*.metta` | 31 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
+| `src/*.pl` | 14,087 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/python.pl`, `src/duals.pl`, `src/tracer.pl`, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
 | `EXTENDING.md`, `DEVELOPING.md` | writing an extension; working on the engine | |
+| `KERNEL.md` | every head the translator gives meaning to, core or derived, with the reason and the numbers | the `plunit` gate lane's `translator_derived_forms` and the `pytest` lane's corpus twin test |
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |
 | `python/petta/*.py` | the library. `python/petta/space.py` is the `MeTTa` class; a leading `_` means internal | |
 
@@ -419,7 +420,7 @@ and most answer false to "is this a function", so "no equations" does not mean
 
 ```
 if case let let* collapse superpose quote sealed unify match
-once forall foldall not-provable and-then or-else prog1 progn cut
+once forall foldall not-provable prog1 progn cut super
 chain eval evalc noeval reduce filter-atom foldl-atom map-atom
 add-atom add-atoms add-reduct add-reducts remove-atom get-metatype
 catch timeout inferences elapsed take top transaction with-pragma!
@@ -427,10 +428,16 @@ with_mutex hyperpose call explain annotation test test-no-answer
 translatePredicate |->
 ```
 
-Six more are rewritten one line earlier, at the stream layer: `alpha-unique`,
-`intersection`, `subtraction`, `trace!`, `union`, `unique`.
+Eight more are written in MeTTa, as prelude equations saying what the call
+expands to: `and-then`, `or-else`, `trace!`, `unique`, `alpha-unique`,
+`union`, `intersection`, `subtraction`.
 
-207 builtins are registered (`m.builtins()` lists them live), among them the
+Each of those is an ordinary equation plus one registration, and KERNEL.md is
+the ledger of which head is which, what it answers to in the minimal
+instruction set the arbiter presents, and for a derived form still fused into
+the compiler, the measurement that keeps it there.
+
+215 builtins are registered (`m.builtins()` lists them live), among them the
 py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,
 `py-dict`, `py-tuple`, `py-str`, `py-repr`, `py-format`, `py-slice`, `py-range`,
 `py-at`, `py-in`, `py-eq`, `py-truthy`, `py-round`, `py-str-join`), the atom
@@ -455,9 +462,10 @@ are `append/3` and `member/2` under MeTTa names, the `#` family throughout,
 and every name lent to MeTTa from SWI (`msort`, `append`, `sort`, `maplist`,
 `length`), which under that name IS the Prolog predicate.
 
-31 libraries load with `!(import! &self (library lib_x))`: `lib_builtin_types`,
+32 libraries load with `!(import! &self (library lib_x))`: `lib_builtin_types`,
 `lib_combinatorics`, `lib_conformance`, `lib_constraints`, `lib_crypto`,
-`lib_datastructures`, `lib_datetime`, `lib_doc`, `lib_file`, `lib_he`,
+`lib_datastructures`, `lib_datetime`, `lib_derived`, `lib_doc`, `lib_file`,
+`lib_he`,
 `lib_import`, `lib_json`, `lib_llm`, `lib_measure`, `lib_memo`, `lib_mm2`,
 `lib_nars`, `lib_patrick`, `lib_pln`, `lib_redis`, `lib_reflect`, `lib_regex`,
 `lib_roman`, `lib_soft`, `lib_spaces`, `lib_string`, `lib_tabling`, `lib_thread`,
