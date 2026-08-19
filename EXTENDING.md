@@ -1895,6 +1895,21 @@ and a declared `(-> Tensor Tensor Tensor)` can hold for values the host made.
 `metta_grounded_type_names/2` replaces the walk entirely, for a bridge that
 knows how to read its own objects and answers every name at once.
 
+**`metta_host_builtin/1`, `metta_host_import/1` and `metta_form_rewriter/1`**
+are how a whole HOST plugs in, and the shipped Python bridge is their one
+worked example. `metta_host_builtin/1` declares the bridge's own operations
+(`py-call`, `py-atom` and their family there); the engine's registry
+directive registers whatever was declared, so no list inside the engine
+names a host. `metta_host_import/1` lets a bridge CLAIM an import whose
+source is its own kind of file and perform the whole job itself, lifecycle
+included, through the same published `import_when/4` the engine uses; with
+no host loaded, or none claiming, every import is a MeTTa import.
+`metta_form_rewriter/1` is a registration slot: a rewriter installed there
+runs over every loaded form, and a bridge installs one only while the
+feature needs it, the way the Python bridge registers its import-as alias
+rewrite when the first alias lands, so a program that never uses the
+feature pays one failed lookup per form and nothing more.
+
 A clause of either that THROWS is your bug and is not caught. Reading a throw
 as "no bridge answered" once ran the class walk instead, and one broken
 protocol predicate silently destroyed typing for every host object in the
