@@ -2,9 +2,12 @@
 (= (in $x $L)
    (let True (is-member $x $L) $x))
 
-(= (myplus (in $X (1 2 3)) 
-           (in $Y (2 3)))
-   (in (+ $X $Y) (3 4 5)))
+;One `let` per constrained argument, each unifying that argument with what
+;`in` produces, so the constraint runs in both directions exactly as before.
+(= (myplus $A $B)
+   (let $A (in $X (1 2 3))
+     (let $B (in $Y (2 3))
+       (in (+ $X $Y) (3 4 5)))))
 
 ;fine:
 !(test (collapse (myplus 1 3)) (4))

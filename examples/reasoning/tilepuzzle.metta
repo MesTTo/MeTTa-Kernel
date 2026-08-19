@@ -168,7 +168,10 @@
 
 !(import! &self (library lib_datastructures))
 
-(= (bfs_loop (empty-queue) $N0) $N0)
+;`empty-queue` is a function, so the base case tests the queue against what it
+;produces rather than writing the call in the head, which would be a pattern
+;matched structurally.
+(= (bfs_loop $Q $N0) (if (== $Q (empty-queue)) $N0 (empty)))
 (= (bfs_loop $Q $N0)
    (let* (($Q1 (once (dequeue $S $Q)))
           ($Ln (collapse (let* (($Snew (move $S $_))

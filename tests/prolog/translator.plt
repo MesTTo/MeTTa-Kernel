@@ -1135,6 +1135,75 @@ test(written_out_bindings_cost_the_same_per_call_however_many_there_are) :-
 
 :- end_tests(translator_letstar_computed_bindings).
 
+% An equation HEAD is a pattern, matched at every depth, and until this it was
+% the one site that turned a pattern position into a CALL. A head argument
+% whose label happened to have equations became Curry's functional pattern:
+% (= (f (g $x)) $x) compiled to f(A, B) :- g(B, A) and ran g backwards. The
+% mechanised semantics has one matching relation and no case in it consults
+% whether a label is defined [source 2026-08-19:
+% LeaTTa/MeTTaIL/Semantics/Reduce.lean:30-46, AST.matchPat; and
+% MettaHyperonFull/Operational/Properties.lean:48-50, firedReducts, which
+% applies an equation by matching its whole left-hand side].
+:- begin_tests(translator_head_is_a_pattern,
+               [ setup(setup_head_pattern), cleanup(cleanup_head_pattern) ]).
+
+head_pattern_head('plunit-hp-src').
+head_pattern_head('plunit-hp-eqh').
+head_pattern_head('plunit-hp-produce').
+head_pattern_head('plunit-hp-nested').
+
+setup_head_pattern :-
+    retractall(silent(_)), assertz(silent(true)),
+    process_metta_string("(= (plunit-hp-src 5) 7)\n\c
+                          (plunit-hp-top 1 (plunit-hp-src 5))\n\c
+                          (: plunit-hp-eqh (-> Atom Atom))\n\c
+                          (= (plunit-hp-eqh \c
+                                (plunit-hp-top 1 (plunit-hp-src 5))) matched)\n\c
+                          (= (plunit-hp-produce) pa3)\n\c
+                          (= (plunit-hp-nested pa3) evaluated)\n\c
+                          (= (plunit-hp-nested (plunit-hp-produce)) held)", _).
+
+cleanup_head_pattern :-
+    forall(head_pattern_head(Head),
+           ( 'remove-atom'('&self', [=, [Head|_], _], _),
+             forget_test_function(Head) )),
+    'remove-atom'('&self', [:, 'plunit-hp-eqh', _], _),
+    'remove-atom'('&self', ['plunit-hp-top'|_], _),
+    retractall(silent(_)), assertz(silent(false)).
+
+%A head argument whose label has equations compiles to STRUCTURE, with no
+%goal in the body running that label backwards.
+test(a_head_argument_that_is_a_call_compiles_to_structure) :-
+    translate_clause([=, ['plunit-hp-eqh',
+                          ['plunit-hp-top', 1, ['plunit-hp-src', 5]]], matched],
+                     (_Head :- Body)),
+    assertion(Body == true).
+
+%The whole item: the head and the match that reads the same shape back agree.
+test(an_equation_head_and_a_match_of_the_same_shape_agree) :-
+    process_metta_string("!(match &self (plunit-hp-top $k (plunit-hp-src $n)) \c
+                          ($k $n))", Structural),
+    assertion(Structural == [[1, 5]]),
+    process_metta_string("!(plunit-hp-eqh \c
+                          (plunit-hp-top 1 (plunit-hp-src 5)))", Called),
+    assertion(Called == [matched]).
+
+%A nullary call in a head is a pattern too, which is the arbiter's own case:
+%the argument evaluates to pa3, so only the equation written against pa3
+%fires. The call-shaped head used to fire as well and answered both.
+test(a_nullary_call_in_a_head_is_a_pattern) :-
+    process_metta_string("!(plunit-hp-nested (plunit-hp-produce))", Answers),
+    assertion(Answers == [evaluated]).
+
+%The in-place annotation is the one head argument that is still a constraint
+%rather than structure, so it still compiles to a goal.
+test(an_in_place_annotation_is_still_a_constraint) :-
+    translate_clause([=, ['plunit-hp-ann', [:, X, 'Number']], X],
+                     (_Head :- Body)),
+    assertion(Body \== true).
+
+:- end_tests(translator_head_is_a_pattern).
+
 % A translator rule is called as a Prolog predicate, so a rule whose MeTTa body
 % is one call to a registered predicate has its whole expansion written in
 % Prolog. Together with translatePredicate that is a library deciding how its

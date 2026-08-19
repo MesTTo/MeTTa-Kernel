@@ -6,6 +6,35 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- An equation head is a PATTERN at every depth, matched structurally. A head
+  argument whose label happened to have equations used to become a CALL, so
+  `(= (f (g $x)) $x)` compiled to `f(A, B) :- g(B, A)` and ran `g` backwards.
+  That made the reading invisible, since nothing in the source said which
+  positions were calls; order-dependent, since defining `g` after writing the
+  head changed how the head compiled; and silent when it went wrong.
+
+  The mechanised semantics has one matching relation. `AST.matchPat` says "a
+  pattern variable matches any subterm (and must match consistently if it
+  recurs); constructors match structurally; everything else matches only
+  itself", four cases with no case reading whether a label is defined, and an
+  equation is applied by matching its whole left-hand side. Two of the
+  arbiter's own cases decide it and this engine failed both:
+  `(= (outer-hold (inner-sum $x $y)) outer-held)` with an `Atom` parameter
+  answers `outer-held` there and RAISED here, and
+  `(= (nested-atom (produce-pa3)) held)` beside `(= (nested-atom pa3) ...)`
+  answers only the second there and answered BOTH here.
+
+  The relational reading is not lost, it moves to where it runs. `(= (h
+  (myfunc (10) $B) $C) ($B $C))` becomes `(= (h $A $C) (let $A (myfunc (10)
+  $B) ($B $C)))`, which unifies the argument with what the call produces and
+  answers exactly the same answers. `examples/functions/functionhead.metta`
+  and its two successors, `examples/libraries/patrick_test.metta` and
+  `examples/reasoning/tilepuzzle.metta` are written that way now, and the
+  204-example corpus answers identically, group for group. An equation whose
+  head relied on evaluation must make the same move.
+
 ### Fixed
 
 - `(case Key Cases)` reads a case pair that is still a variable as a pair

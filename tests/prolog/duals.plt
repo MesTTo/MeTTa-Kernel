@@ -381,14 +381,24 @@ test(an_unnamed_call_cannot_be_negated,
      [throws(error(type_error(dualisable_body, _), _))]) :-
     metta("!(not-provable $g)").
 
-%A head argument that is itself a call is Curry's functional pattern. It
-%compiles to a goal that the retained equation no longer holds, so a dual
-%built from that equation would claim more than it can prove.
-test(a_functional_pattern_head_has_no_dual,
-     [throws(error(type_error(dualisable_function, 'fp-halfof'), _))]) :-
+%An in-place type annotation in a head argument compiles to a goal that the
+%retained equation no longer holds, so a dual built from that equation would
+%ignore the constraint and claim more than it can prove. It is the only head
+%argument that still compiles to a goal: a head argument that is a call is a
+%PATTERN and matches structurally, so it duals like any other structure
+%[tested: a_head_holding_a_call_duals_structurally].
+test(an_annotated_head_has_no_dual,
+     [throws(error(type_error(dualisable_function, 'fp-positive'), _))]) :-
+    metta("(= (fp-positive (: $n Number)) True)"),
+    metta("!(not-provable (fp-positive 10))").
+
+%The control. A head holding a call used to be refused for the same reason,
+%because the call became a goal; matched structurally it is ordinary
+%structure, so it duals like any other structure and no longer raises.
+test(a_head_holding_a_call_is_no_longer_refused) :-
     metta("(= (fp-dbl $n) (#* 2 $n))\n\c
            (= (fp-halfof (fp-dbl $n)) True)"),
-    metta("!(not-provable (fp-halfof 10))").
+    metta_answer("!(not-provable (fp-halfof 10))", true).
 
 :- end_tests(duals_refusals).
 
@@ -623,13 +633,10 @@ test(a_case_the_witness_cannot_settle_still_refuses,
 %Whether a function is dualisable depends on its definition, not on its
 %arguments, so asking first costs nothing and is the whole fix.
 
-%A head that matches a functional pattern has no dual, which is the static
-%property refuse_unsupported_head/1 tests. np-inner has to be a FUNCTION for
-%the head to be functional: with no equations it is an ordinary constructor and
-%the head is a plain pattern.
+%A head that constrains an argument in place has no dual, which is the static
+%property refuse_unsupported_head/2 tests.
 test(a_function_with_no_dual_is_refused_before_its_argument_runs) :-
-    process_metta_string("(= (np-inner $x) $x)", _),
-    process_metta_string("(= (np-effect (np-inner $x)) True)", _),
+    process_metta_string("(= (np-effect (: $x Number)) True)", _),
     catch(( process_metta_string("!(not-provable (np-effect 2))", _),
             Outcome = accepted ),
           error(type_error(dualisable_function, _), _),
@@ -640,8 +647,7 @@ test(a_function_with_no_dual_is_refused_before_its_argument_runs) :-
 %connective is established too rather than only a bare one.
 test(a_nested_call_is_established_as_well) :-
     process_metta_string("(= (np-ok) True)", _),
-    process_metta_string("(= (np-inner2 $x) $x)", _),
-    process_metta_string("(= (np-bad (np-inner2 $x)) True)", _),
+    process_metta_string("(= (np-bad (: $x Number)) True)", _),
     catch(( process_metta_string("!(not-provable (and (np-ok) (np-bad 2)))", _),
             Outcome = accepted ),
           error(type_error(dualisable_function, _), _),
