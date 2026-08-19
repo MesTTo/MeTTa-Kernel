@@ -16,4 +16,6 @@ skip = *.lock,*.pyc,*.svg,package-lock.json,.git,node_modules,__pycache__,build,
 # checkking: check-king, greedy_chess.metta's function for whether a side's
 #   king is in check. Its parameter is $king_side_to_check.
 # Zar: a person, who wrote most of nilbc.metta and is credited by handle.
-ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo,anc,checkking,zar
+# reduct: term rewriting's own word for a term reachable in one step, used
+#   throughout src/trs.pl and the critical-pair oracle.
+ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo,anc,checkking,zar,reduct,reducts
