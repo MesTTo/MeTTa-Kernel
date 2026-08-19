@@ -14,8 +14,10 @@
 !(test (get-type >=) (-> Number Number Bool))
 
 ;; Type definitions of equality and negated equality operators
-!(test (get-type ==) (-> $a $b Bool))
-!(test (get-type !=) (-> $a $b Bool))
+;ONE type variable, twice: == compares two things of one type and refuses
+;two of different KNOWN types, which is upstream's own signature for it.
+!(test (get-type ==) (-> $a $a Bool))
+!(test (get-type !=) (-> $a $a Bool))
 
 ;; Test type definitions of common mathematical functions
 !(test (get-type pow-math) (-> Number Number Number))

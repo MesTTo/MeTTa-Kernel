@@ -57,7 +57,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   ends open; and 7 raised naming a Prolog predicate the program never wrote,
   `!(sort-atom $u)` saying `msort/2` and `!(sread $u)` saying `atom_codes/2`.
 
-  88 positions refuse now, each reading like
+  83 positions refuse now, each reading like
   `car-atom: a value expected in argument 1, found an unbound variable`. The
   table is derived from `builtin_type_declaration/2` rather than listed, so
   declaring a type for a new builtin guards it in the same stroke, and the
@@ -68,15 +68,30 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   What stays relational is named rather than left to be discovered:
   `(index-atom (a b) $i)` enumerates, `and`, `or`, `not`, `xor` and `implies`
   enumerate the truth table, `cons` builds a pattern with an open tail, which
-  the engine's own prelude writes as `(cons Error $_)`, and the `#`
-  constraint family is relational throughout. A name lent to MeTTa from SWI,
-  `msort`, `append`, `sort`, `maplist`, `length`, keeps Prolog's own
-  behaviour, because under that name it IS the Prolog predicate.
+  the engine's own prelude writes as `(cons Error $_)`, `union-atom` and
+  `member` are `append/3` and `member/2` under MeTTa names and a shipped
+  library splits a list with the first, and the `#` constraint family is
+  relational throughout. A name lent to MeTTa from SWI, `msort`, `append`,
+  `sort`, `maplist`, `length`, keeps Prolog's own behaviour, because under
+  that name it IS the Prolog predicate.
 
-  Four positions are NOT covered and the engine says which:
-  `unguarded_input_position/2` names `get-atoms`, `match`, `add-reduct` and
-  `sread`, each in a file this change does not own, and a test asserts they
-  are still uncovered so the day one is fixed the row comes out.
+  It costs `let-heavy` 3.35%, 5,054,208,356 instructions against 4,890,210,090
+  without it, and that difference is the guard on `car-atom` alone.
+  Measured 2026-08-19, min of three, spread under 0.001%: an INERT extra
+  clause on `car-atom` costs 3.13% by itself, an SSU rewrite 3.51%, and an
+  unrelated inert predicate of the same size in the same place costs 0.00%,
+  which rules out code layout. The inference count is 2.0000 per call either
+  way, so the engine's own counter cannot see it: it is SWI's clause
+  selection. No arrangement avoids it, and the alternative is
+  `!(car-atom $u)` going on binding the caller's variable, so the counter is
+  rebaselined with this attribution and no other number moved.
+
+  Six positions are NOT covered and the engine says which:
+  `unguarded_input_position/2` names `get-atoms`, `match` and `add-reduct` in
+  `src/spaces.pl`, `sread` in `src/parser.pl`, and `git-import!` and `sleep`
+  in libraries, each in a file this change does not own. A test asserts they
+  are still uncovered, so the day one is fixed the row comes out instead of
+  the gap going quiet.
 
 - `==` and `!=` refuse a comparison across two KNOWN and different types
   instead of answering `False`. `!(== 1 "S")` answered `False`, which is also
