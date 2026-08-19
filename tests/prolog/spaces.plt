@@ -400,6 +400,20 @@ test(space_names_enumerate_the_registered_spaces,
     \+ memberchk('&plunit_never_written', Names),
     sort(Names, Names).
 
+% match/4's last clause and 'get-atoms'/2 spell "is this a space" as a bare
+% atom/1 rather than calling metta_space_argument/1, because a predicate call
+% cost one inference on every read and the benchmarks saw it. Two spellings of
+% one decision is exactly how they drift apart, so this is the guard: they
+% agree on every kind of term a caller can hand them, and if the named one
+% ever learns something atom/1 does not know, this fails rather than the
+% engine quietly refusing a space it should accept.
+test(the_inlined_space_test_is_the_named_one,
+     [ forall(member(Term, ['&self', '&plunit_names', not_a_space, [], 0, 1.5,
+                            "text", [a, b], f(x), _Unbound])) ]) :-
+    ( atom(Term) -> Inlined = true ; Inlined = false ),
+    ( metta_space_argument(Term) -> Named = true ; Named = false ),
+    assertion(Inlined == Named).
+
 :- end_tests(spaces_registration).
 
 % Two providers in the shape a library actually ships: one that enumerates and
