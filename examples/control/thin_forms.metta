@@ -33,6 +33,20 @@
 !(test (collapse (transaction (add-atom &self (tx-kept a)))) (()))
 !(test (collapse (match &self (tx-kept $x) $x)) (a))
 
+;"whatever its body did" means EVERY answer, not the first one. The body runs
+;to exhaustion inside the transaction and its answers are replayed after the
+;commit, so a three-answer body answers three times and all three answers'
+;writes land or none of them do. Until 2026-08-19 this line answered (1),
+;because SWI's transaction/1 runs its goal as once/1.
+(= (tx-three) 1)
+(= (tx-three) 2)
+(= (tx-three) 3)
+!(test (collapse (transaction (tx-three))) (1 2 3))
+!(test (collapse (transaction (superpose ((add-atom &self (tx-each 1))
+                                          (add-atom &self (tx-each 2))))))
+       (() ()))
+!(test (collapse (match &self (tx-each $x) $x)) (1 2))
+
 ;--------------------------------------------------------- elapsed
 ;Answers the value AND the seconds it took, as a pair, so the value is still
 ;usable rather than being replaced by a measurement.

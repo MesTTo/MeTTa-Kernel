@@ -46,6 +46,29 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   against 369. Eleven counter baselines are raised with that attribution and
   no other number moved.
 
+- `(transaction ...)` answers everything its body answers. It used to answer
+  the first one only and say nothing: `!(collapse (petta-three))` with three
+  equations for the name answered `(1 2 3)` and
+  `!(collapse (transaction (petta-three)))` answered `(1)`, because SWI's
+  `transaction/1` runs its goal as `once/1`. Dropping answers is an opacity
+  violation in the transactional-memory sense, since a reader of the result
+  sees a state no serial run of the body produces.
+
+  The form collects its body's answers inside the transaction, commits, and
+  replays them after, so the atomicity is unchanged and now covers the whole
+  answer set: every answer's writes land together, a body that ends with no
+  answer rolls all of them back and fails, and one that raises rolls all of
+  them back and re-raises. Refusing a nondeterministic body was the other
+  option and it is not cheaper: knowing a Prolog goal is nondeterministic
+  means running it to a second answer, at which point the answers are in hand
+  and refusing them throws away work already done.
+
+  The cost is that the answers are materialized. A body with an unbounded
+  answer set now exhausts the stack and raises where it used to yield once,
+  which is the honest price of atomicity over a whole answer set. Measured
+  2026-08-19 over a three-answer body: 557.04 inferences plain against 773.05
+  through `transaction`.
+
 - `get-type` and `get-type-space` no longer run the expression they are asked
   about. Asking for a type is a question about an expression, and the engine
   was answering it by running the expression first: an operation appending to

@@ -1414,3 +1414,56 @@ test(with_pragma_refuses_a_malformed_setting,
     metta_with_pragmas([broken], true, _).
 
 :- end_tests(scoped_pragmas).
+
+%petta_transaction/1 at the predicate level, where the answer set is a plain
+%Prolog one and no MeTTa reduction stands between the goal and the count.
+:- begin_tests(transaction_answers).
+
+:- dynamic tx_probe/1.
+
+test(a_transaction_yields_every_solution_of_its_goal) :-
+    findall(X, petta_transaction(member(X, [a,b,c])), Answers),
+    assertion(Answers == [a,b,c]).
+
+test(a_goal_with_no_solution_fails_the_transaction) :-
+    assertion(\+ petta_transaction(fail)),
+    assertion(\+ petta_transaction(member(_, []))).
+
+%Every solution's writes are inside the one transaction, so they land
+%together or not at all. retractall/1 rather than a fixture, because a
+%rolled-back transaction must leave the store exactly as it found it.
+test(every_solution_writes_inside_the_one_transaction) :-
+    retractall(tx_probe(_)),
+    findall(X, petta_transaction(( member(X, [1,2,3]),
+                                   assertz(tx_probe(X)) )), Answers),
+    assertion(Answers == [1,2,3]),
+    findall(P, tx_probe(P), Written),
+    assertion(Written == [1,2,3]),
+    retractall(tx_probe(_)).
+
+test(a_failure_after_several_writes_undoes_all_of_them) :-
+    retractall(tx_probe(_)),
+    assertion(\+ petta_transaction(( member(X, [1,2,3]),
+                                     assertz(tx_probe(X)),
+                                     fail ))),
+    findall(P, tx_probe(P), Written),
+    assertion(Written == []).
+
+test(a_throw_after_several_writes_undoes_all_of_them) :-
+    retractall(tx_probe(_)),
+    catch(petta_transaction(( member(X, [1,2,3]),
+                              assertz(tx_probe(X)),
+                              throw(tx_boom) )),
+          Thrown, true),
+    assertion(Thrown == tx_boom),
+    findall(P, tx_probe(P), Written),
+    assertion(Written == []).
+
+%A nested transaction runs inside the outer one and collects for the same
+%reason: SWI's transaction/1 is once-like at every depth.
+test(a_nested_transaction_yields_every_solution_too) :-
+    findall(X, petta_transaction(petta_transaction(member(X, [a,b]))),
+            Answers),
+    assertion(Answers == [a,b]).
+
+:- end_tests(transaction_answers).
