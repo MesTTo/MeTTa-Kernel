@@ -16,7 +16,8 @@ test_lambda_functions(Functions) :-
     sort(Functions0, Functions).
 
 cleanup_test_function(F) :-
-    user:forget_symbol(F),
+    user:metta_self_module(SelfModule),
+    user:forget_symbol(SelfModule, F),
     retractall(user:symbol_head(F, _)),
     retractall(user:fun_in(_, F)),
     retractall(user:fun_scoped(F)).

@@ -14,9 +14,10 @@ set_specializer_test_mode :-
     assertz(silent(true)).
 
 cleanup_specializer_symbols(Names) :-
+    metta_self_module(Module),
     forall(member(Name, Names),
-           ( invalidate_specializations(Name),
-             forget_symbol(Name) )),
+           ( invalidate_specializations(Module, Name),
+             forget_symbol(Module, Name) )),
     retractall(silent(_)),
     assertz(silent(false)).
 
@@ -311,14 +312,18 @@ test(higher_order_code_runs_inside_a_named_space,
 % reuses the active name rather than recording a new fact. This constructs one
 % directly, which is the only way to exercise the guard at all: without the
 % visited set the goal below does not return.
+% Both facts are planted in ONE module, which is the only shape the cycle can
+% take now that the walk is scoped to the writing space's module.
 test(an_invalidation_cycle_terminates,
-     [ setup(( assertz(user:ho_specialization(plunit_cycle_a, plunit_cycle_a,
+     [ setup(( metta_self_module(M),
+               assertz(user:ho_specialization(M, plunit_cycle_a,
                                               plunit_cycle_b)),
-               assertz(user:ho_specialization(plunit_cycle_b, plunit_cycle_b,
+               assertz(user:ho_specialization(M, plunit_cycle_b,
                                               plunit_cycle_a)) )),
-       cleanup(( retractall(user:ho_specialization(plunit_cycle_a, _, _)),
-                 retractall(user:ho_specialization(plunit_cycle_b, _, _)) )) ]) :-
-    call_with_inference_limit(invalidate_specializations(plunit_cycle_a),
+       cleanup(( retractall(user:ho_specialization(_, plunit_cycle_a, _)),
+                 retractall(user:ho_specialization(_, plunit_cycle_b, _)) )) ]) :-
+    metta_self_module(Self),
+    call_with_inference_limit(invalidate_specializations(Self, plunit_cycle_a),
                               100000, Outcome),
     assertion(Outcome \== inference_limit_exceeded),
     assertion(\+ user:ho_specialization(_, plunit_cycle_a, _)),
@@ -343,10 +348,10 @@ test(a_tabled_function_never_specializes,
     \+ maybe_specialize_call('spt-loop', [d, x], _, _).
 
 test(string_run_equation_invalidates_specializations,
-     [ setup(assertz(user:ho_specialization(plunit_door_caller,
-                                            'plunit-door-fn',
-                                            plunit_door_spec))),
-       cleanup(( retractall(user:ho_specialization(plunit_door_caller, _, _)),
+     [ setup(( metta_self_module(M),
+                assertz(user:ho_specialization(M, 'plunit-door-fn',
+                                               plunit_door_spec)) )),
+       cleanup(( retractall(user:ho_specialization(_, 'plunit-door-fn', _)),
                  remove_sexp('&self', [=, ['plunit-door-fn'|_], _]),
                  retractall(fun('plunit-door-fn')),
                  retractall(arity('plunit-door-fn', _)) )) ]) :-
@@ -362,7 +367,8 @@ test(a_recursive_specialization_survives_its_compile,
      [ cleanup(( remove_sexp('&self', [=, ['plunit-tricky'|_], _]),
                  retractall(fun('plunit-tricky')),
                  retractall(arity('plunit-tricky', _)),
-                 invalidate_specializations('plunit-tricky') )) ]) :-
+                 metta_self_module(M),
+                 invalidate_specializations(M, 'plunit-tricky') )) ]) :-
     % A definition whose body calls ITSELF with a ground higher-order
     % argument compiles a clone for that call and a generic clause that
     % names it. Invalidating after the compile abolished that clone while
@@ -393,9 +399,11 @@ test(a_removed_equation_forgets_its_specialization,
        cleanup(( forall(member(E, [['plunit-forget'|_], ['plunit-forget-inc'|_],
                                    ['plunit-forget-use'|_]]),
                         remove_sexp('&plunit_spec_forget', [=, E, _])),
+                 space_module('&plunit_spec_forget', M),
                  forall(member(N, ['plunit-forget', 'plunit-forget-inc',
                                    'plunit-forget-use']),
-                        ( invalidate_specializations(N), forget_symbol(N) )),
+                        ( invalidate_specializations(M, N),
+                          forget_symbol(M, N) )),
                  retractall(silent(_)), assertz(silent(false)) )) ]) :-
     Space = '&plunit_spec_forget',
     space_module(Space, Module),
@@ -438,9 +446,11 @@ test(the_verifier_runs_a_clone_in_its_own_module,
        cleanup(( forall(member(E, [['plunit-verify'|_], ['plunit-verify-inc'|_],
                                    ['plunit-verify-use'|_]]),
                         remove_sexp('&plunit_spec_verify', [=, E, _])),
+                 space_module('&plunit_spec_verify', M),
                  forall(member(N, ['plunit-verify', 'plunit-verify-inc',
                                    'plunit-verify-use']),
-                        ( invalidate_specializations(N), forget_symbol(N) )),
+                        ( invalidate_specializations(M, N),
+                          forget_symbol(M, N) )),
                  retractall(silent(_)), assertz(silent(false)) )) ]) :-
     Space = '&plunit_spec_verify',
     space_module(Space, Module),
@@ -456,5 +466,66 @@ test(the_verifier_runs_a_clone_in_its_own_module,
     petta_verified_specialization(SpecName, Module:SpecGoal),
     assertion(Out == 2),
     assertion(ho_specialization_agrees(SpecName)).
+
+% A specialization belongs to the space whose code triggered it, and
+% ho_specialization/3 has said so in its first argument since it was written.
+% invalidate_specializations/1 read that argument with a WILDCARD, so adding an
+% equation for a name in ANY space invalidated that name's specializations in
+% EVERY space: their compiled clauses went, and so did the equations
+% specialize_call_locked/7 stores into each space, which is a write in one
+% space changing another space's atom count.
+%
+% Reproduced through MeTTa.copy(), which enumerates &self and re-adds every
+% atom into a fresh space: re-adding the base equation there stripped four spec
+% atoms from &self, so the SOURCE of a copy lost atoms to the copy. It was the
+% suite's one known flake, 1 firing in 12 parallel runs, and no concurrency was
+% involved.
+test(writing_in_one_space_leaves_another_alone,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( forall(member(S, ['&self', '&plunit_spec_other']),
+                        forall(member(N, ['plunit-cross', 'plunit-cross-inc',
+                                          'plunit-cross-use']),
+                               remove_sexp(S, [=, [N|_], _]))),
+                 forall(member(S, ['&self', '&plunit_spec_other']),
+                        ( space_module(S, M),
+                          forall(member(N, ['plunit-cross', 'plunit-cross-inc',
+                                            'plunit-cross-use']),
+                                 invalidate_specializations(M, N)) )),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    Other = '&plunit_spec_other',
+    space_module('&self', SelfModule),
+    'add-atom'('&self', [=, ['plunit-cross-inc', X], ['+', X, 1]], _),
+    'add-atom'('&self', [=, ['plunit-cross', F, Y], [F, Y]], _),
+    'add-atom'('&self', [=, ['plunit-cross-use', Z],
+                            ['plunit-cross', 'plunit-cross-inc', Z]], _),
+    with_metta_module(SelfModule, reduce(['plunit-cross-use', 1], Answer, _)),
+    assertion(Answer == 2),
+    % &self now holds the specialization and its stored equation.
+    assertion(ho_specialization(SelfModule, 'plunit-cross', _)),
+    atom_multiset('&self', Before),
+    % The SAME equation written into another space, which is exactly what
+    % MeTTa.copy() does when it re-adds an enumerated atom into a fresh space.
+    'add-atom'(Other, [=, ['plunit-cross', F2, Y2], [F2, Y2]], _),
+    atom_multiset('&self', After),
+    assertion(After == Before),
+    assertion(ho_specialization(SelfModule, 'plunit-cross', _)),
+    % and the other direction: &self writing does not strip the other space
+    'add-atom'(Other, [=, ['plunit-cross-inc', X2], ['+', X2, 2]], _),
+    atom_multiset(Other, OtherBefore),
+    'add-atom'('&self', [=, ['plunit-cross-inc', X3], ['+', X3, 1]], _),
+    atom_multiset(Other, OtherAfter),
+    assertion(OtherAfter == OtherBefore).
+
+% A space's atoms as a comparable multiset. The store hands back a fresh copy
+% each time, so the variables differ between two reads of the same atom and
+% ==/2 on the raw terms compares nothing useful; numbervars over a copy makes
+% two reads of one atom the same term and keeps two atoms that differ apart.
+atom_multiset(Space, Sorted) :-
+    findall(Ground,
+            ( get_native_atom(Space, Atom),
+              copy_term(Atom, Ground),
+              numbervars(Ground, 0, _) ),
+            Atoms),
+    msort(Atoms, Sorted).
 
 :- end_tests(specializer_invalidation).
