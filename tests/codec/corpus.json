@@ -166,6 +166,14 @@
       "written": "-0.25"
     },
     {
+      "id": "float-integral",
+      "tags": ["n"],
+      "text": "1.0",
+      "wire": ["n", 1.0],
+      "written": "1.0",
+      "note": "A float whose value is a whole number is still a float. !(== 1.0 1) answers False, so a transport with one number type must carry the distinction some other way or refuse the value; conflating them returns a different atom, the same failure the exactness rule forbids for wide integers."
+    },
+    {
       "id": "float-large-exponent",
       "tags": ["n"],
       "text": "1.0e10",

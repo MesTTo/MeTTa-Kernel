@@ -129,6 +129,14 @@ round from one it would not; the Python end holds the value exactly and so
 accepts it. Both conform, because the rule is about exactness rather than
 about range.
 
+An integer and a float are different atoms even when they are the same
+number. `!(== 1.0 1)` answers `False`, so `["n", 1]` and `["n", 1.0]` are
+different terms and a transport with one number type has to carry the
+distinction some other way or refuse the value. JavaScript is the case that
+bites: `JSON.stringify(1.0)` writes `1`, so an integral float stored through
+a JSON parser with a single Number type comes back as an integer, which is
+the same failure as rounding a wide integer with a different cause.
+
 Floats are the value, not a spelling. The two shipped printers disagree
 about where exponent form begins, so the same float prints `1.0e+10` from
 the engine and `10000000000.0` from the Python side; the wire carries
@@ -296,6 +304,7 @@ restatement of one.
 | `integer-beyond-machine-word` | `"123456789012345678901234567890"` | `["n", 123456789012345678901234567890]` | `"123456789012345678901234567890"` |
 | `float` | `"1.5"` | `["n", 1.5]` | `"1.5"` |
 | `float-negative` | `"-0.25"` | `["n", -0.25]` | `"-0.25"` |
+| `float-integral` | `"1.0"` | `["n", 1.0]` | `"1.0"` |
 | `float-large-exponent` | `"1.0e10"` | `["n", 10000000000.0]` | engine `"1.0e+10"` / python `"10000000000.0"` |
 | `float-small-exponent` | `"1.0e-300"` | `["n", 1e-300]` | engine `"1.0e-300"` / python `"1e-300"` |
 | `boolean-true` | `"True"` | `["b", "true"]` | `"True"` |
@@ -386,12 +395,18 @@ portable over that wire today. That is a real limit rather than a rounding
 of one, and it is written down here so a binding does not discover it by
 storing an atom that never comes back.
 
-`space_server.ts` accepts any payload under `g`, where this page says `g`
-carries text and both petta-side codecs refuse a structure there. Measured
-2026-08-20: `["g", {"a": [1, 2]}]` is stored by that server and refused by
-`petta.remote.serve()`. The server is a reference implementation under
-`python/examples/`, not one of the two shipped codecs, and tightening it
-belongs with whoever next edits that file.
+Running the corpus against the TypeScript reference server, which shares no
+code with this package, turned up three divergences on first contact and all
+three are pinned in `python/tests/test_codec_typescript.py`. Two share one
+cause: `isWireAtom` validates the `g` tag with `case "g": return true`, so
+`["g", 1]` and `["g", {"a": 1}]` are both stored there and both refused by
+the petta-side codecs. The third is the number model: `JSON.stringify(1.0)`
+writes `1`, so `["n", 1.0]` comes back as `["n", 1]`, and `1.0` and `1` are
+different atoms. The first two are a check that server does not make; the
+third is a limit any implementation over a single-Number-type JSON parser
+has to answer for. That server is a reference implementation under
+`python/examples/` rather than one of the two shipped codecs, so the
+divergences are recorded rather than patched here.
 
 The two shipped printers disagree about float exponent form and about NaN,
 which the tables above pin, and about variables: the engine's printer
