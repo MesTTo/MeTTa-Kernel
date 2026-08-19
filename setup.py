@@ -1,14 +1,31 @@
-"""Purpose: copy the PeTTa runtime into wheels built from pyproject.toml.
+"""Purpose: copy the PeTTa runtime into wheels built from pyproject.toml, and
+  offer the wire codec as a compiled extension when a builder asks for one.
+Assumes:
+  - PETTA_USE_MYPYC is unset for the wheel that ships, so the default build
+    stays pure Python and platform-independent [tested
+    test_the_codec_builds_under_mypyc_as_an_option]
+Guarantees:
+  - the default build is byte-identical to the one before compilation was
+    offered: mypycify is not imported, mypy is not required, and ext_modules
+    is empty [tested test_the_codec_builds_under_mypyc_as_an_option]
+  - PETTA_USE_MYPYC=1 without mypy installed stops the build naming the fix,
+    rather than quietly producing the pure-Python wheel the builder did not
+    ask for [tested test_the_codec_builds_under_mypyc_as_an_option]
 Owns:
   - build_py_with_runtime writes only beneath setuptools' build directory;
     the wheel gate builds and boots that copy outside the checkout
     [source .github/workflows/checks.yml:116]
+Decides:
+  - which modules compile, and which are excluded with their reason.
+    Compiling a module turns its classes native, which is a behaviour
+    change, so the list is a contract rather than a convenience
 Open Obligations:
   To Do: None
   Hacks: None
   Future Enhancements: None
 """
 
+import os
 import shutil
 from pathlib import Path
 
@@ -16,6 +33,82 @@ from setuptools import setup
 from setuptools.command.build_py import build_py
 
 HERE = Path(__file__).resolve().parent
+
+# The wire codec, and nothing else: _atom_wire decodes and atoms is the
+# public surface over it. Every atom crossing the boundary passes through
+# both. Measured 2026-08-19, minimum of three instructions:u runs of the
+# wire-codec lane, 3457054691 interpreted against 2984812403 compiled, 1.16x.
+MYPYC_MODULES = ("python/petta/_atom_wire.py", "python/petta/atoms.py")
+
+# _atoms_core.py is NOT in that list, and the reason is behaviour rather than
+# taste. An exclusion list with its reasons is mypy's own shape for this
+# [source: MYPYC_BLACKLIST in https://github.com/python/mypy/blob/master/setup.py].
+#
+# The prize for adding it is real: measured 2026-08-19 with the whole codec
+# compiled, the wire-codec lane runs 1547302231 against 3377380576, 2.18x,
+# and term-operators 2.01x. What that build gets wrong, each observed by
+# running the suite against it rather than predicted:
+#
+#   - Gnd stops answering __index__, so range(Gnd(3)) raises TypeError.
+#     mypyc native classes do not fill that slot and there is no annotation
+#     that makes them; this alone disqualifies the build, because the
+#     casting protocol is documented and tested and would fail silently.
+#   - dict-form __slots__ documentation is dropped, so help() no longer
+#     describes an attribute [tested test_slot_docstrings_reach_help].
+#   - Box cannot hold __weakref__, so the box intern table cannot be built.
+#     The workaround is @mypyc_attr(native_class=False), which needs
+#     mypy_extensions imported at RUN time, and a runtime dependency added
+#     for an opt-in build is exactly what this item forbids. A try/except
+#     import does not help: mypy knows the module is installed, marks the
+#     handler unreachable, and mypyc compiles it to a raise.
+#   - functools.singledispatch compiles to an object with register and
+#     registry but no dispatch, which encode's fast table is built from.
+#     Spelling it singledispatch(fn) rather than @singledispatch keeps the
+#     real functools object, so this one is fixable.
+#   - a compiled function has no __dict__, so encode.register cannot be
+#     attached to it and the extension point disappears.
+#   - getattr(self, "_wire", None) on an unset slot raises rather than
+#     answering the default, so Sym and Var lose their lazy wire cell.
+#     try/except AttributeError is the spelling that works in both, and it
+#     is 2.30% FASTER interpreted as well (wire-codec 3457054691 to
+#     3377380576), so it is worth taking on its own terms.
+#
+# __match_args__ is fixable and worth recording: bare assignment becomes a
+# getset descriptor and breaks `case [head, *args]`, while annotating it
+# ClassVar or Final keeps the tuple.
+
+# --explicit-package-bases with MYPYPATH=python, because python/__init__.py
+# exists (upstream's conftest imports python.petta and deleting it is not an
+# option), so without them mypy names the module python.petta._atoms_core and
+# the extension never shadows the real one.
+# --no-warn-unused-configs, because the shared [tool.mypy] overrides here
+# describe the whole package and mypy exits nonzero over the ones a
+# three-file build does not reach.
+MYPYC_FLAGS = ("--explicit-package-bases", "--no-warn-unused-configs")
+
+
+def compiled_modules():
+    """The codec as C extensions when asked for, and nothing otherwise.
+
+    Opt-in rather than default. A compiled wheel is platform-specific where
+    the shipped one is py3-none-any, and compiling turns these classes into
+    native ones, which is a real behaviour change for anything that reaches
+    them reflectively. The variable, the explicit module list and the
+    all-or-nothing failure follow mypy's own setup.py
+    [source: https://github.com/python/mypy/blob/master/setup.py].
+    """
+    if os.environ.get("PETTA_USE_MYPYC") != "1":
+        return []
+    try:
+        from mypyc.build import mypycify
+    except ImportError:
+        raise SystemExit(
+            "PETTA_USE_MYPYC=1 asks for a compiled codec and mypy is not "
+            "installed. Install it (pip install mypy) and build again, or "
+            "unset PETTA_USE_MYPYC to build the pure-Python wheel."
+        ) from None
+    os.environ["MYPYPATH"] = str(HERE / "python")
+    return mypycify([*MYPYC_FLAGS, *MYPYC_MODULES])
 
 # Runtime resources living outside the package that must ship inside the wheel,
 # mapped to their destination under petta/_runtime/ (preserving the src/ and
@@ -77,4 +170,5 @@ class build_py_with_runtime(build_py):
 
 setup(
     cmdclass={"build_py": build_py_with_runtime},
+    ext_modules=compiled_modules(),
 )
