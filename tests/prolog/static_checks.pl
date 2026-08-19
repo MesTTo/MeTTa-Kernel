@@ -107,6 +107,7 @@ main :-
     list_autoload,
     check,
     a_backend_calls_only_published_surface,
+    a_host_binding_calls_only_published_surface,
     no_cut_in_a_live_hook_clause,
     every_engine_emitted_goal_is_protected.
 
@@ -810,6 +811,31 @@ a_backend_calls_only_published_surface :-
                        internal rather than published surface~ndeclare it \c
                        ext_point_kind(~w, service) in src/ext_points.pl if a \c
                        backend is meant to call it~n',
+                      [Caller, Callee, Callee])),
+        fail
+    ).
+
+%%%% The host binding calls only published surface %%%%
+%
+% The backends' check aimed the other way down the same wire: what the HOST
+% BINDING's transport may call back. python/petta/shim.pl is the shipped
+% transport, the host_service kind in src/ext_points.pl is its measured,
+% declared list, and this walk keeps the list honest: a shim call to an
+% engine internal fails here naming the pair. The walker's own eyesight is
+% proven by the backend check's planted reaches in the same run, one proof
+% for one shared walker.
+a_host_binding_calls_only_published_surface :-
+    ensure_loaded('../../python/petta/shim.pl'),
+    reaches_past_surface(['../../python/petta'], Reaches),
+    (   Reaches == []
+    ->  format("static: the host binding calls only published surface~n")
+    ;   forall(member(Caller-Callee, Reaches),
+               format(user_error,
+                      'the shim predicate ~w calls ~w, an engine internal \c
+                       rather than published surface~ndeclare it \c
+                       ext_point_kind(~w, host_service) in \c
+                       src/ext_points.pl if the host transport is meant to \c
+                       call it~n',
                       [Caller, Callee, Callee])),
         fail
     ).

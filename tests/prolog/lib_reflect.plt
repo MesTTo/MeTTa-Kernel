@@ -100,7 +100,7 @@ test(extension_points_are_reported) :-
            ( assertion(atom(Name)),
              assertion(integer(Arity)),
              assertion(memberchk(Kind, [event, ownership, declaration,
-                                        service])) )),
+                                        service, host_service])) )),
     forall(member(Expected, [[metta_backend_selftest, 0, event],
                              [metta_dispatch_call, 4, ownership],
                              [metta_on_atom_added, 2, event],
