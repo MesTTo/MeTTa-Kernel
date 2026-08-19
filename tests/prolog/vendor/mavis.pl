@@ -131,7 +131,21 @@ build_type_assertions(Slash, Head, TypeGoal) :-
 
     Head =.. [Name|HeadArgs],
     maplist(type_declaration, HeadArgs, ModeArgs, AllTypes),
-    exclude(=@=(the(any, _)), AllTypes, Types),
+    %CHANGED HERE, `=@=` was `subsumes_term`'s job. An argument with no declared
+    %type gets the(any, Arg), which checks nothing, and this line drops those.
+    %=@=/2 only matched when Arg was a plain VARIABLE, so an argument written as
+    %a pattern in the clause head kept its any check: translate_clause/3's
+    %second argument is `(Head :- BodyConj)`, and the surviving
+    %`the(any, (Head:-BodyConj))` attached a when/2 coroutine to every variable
+    %in the clause being built. A term carrying one is no longer a VARIANT of
+    %the same term without one, so =@=/2 comparisons the engine makes on stored
+    %terms changed answer under the development build and two suites went red
+    %[measured 2026-08-19: translator_meta_store:function_store_keeps_newest_first
+    %and specializer:compound_partial_key_has_stable_anonymous_variables].
+    %subsumes_term/2 drops every the(any, _) whatever the argument is, which is
+    %what the line meant, and dropping a check that checks nothing cannot change
+    %what is checked.
+    exclude(subsumes_term(the(any, _)), AllTypes, Types),
     xfy_list(',', TypeGoal, Types).
 
 user:term_expansion((Head:-Body), (Head:-TypeGoal,Body)) :-
