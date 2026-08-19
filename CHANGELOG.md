@@ -8,6 +8,25 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A conjunctive `match` now finds every row before any output template runs,
+  which the language specifies: "match first finds all the matches, and then
+  instantiates the output pattern with them, which is evaluated outside match.
+  If `remove-atom` and `add-atom` would be executed right away for each found
+  matching, the condition of circular links would be broken after the first
+  rewrite." On the doc's own graph-rewriting example, upstream reverses all
+  three links of a loop and this reversed ONE, the first template's
+  `remove-atom` breaking the cycle for every conjunct that had not run yet.
+
+  A single pattern always had the guarantee and still streams: it is one goal
+  over one dynamic predicate, and Prolog's logical update view already fixes
+  what it sees at the call, so `(once (match &big (foo $x) $x))` does not walk
+  a big space. A conjunction is where that ran out, because each later conjunct
+  is a fresh goal started after the previous row's template wrote. Its rows are
+  now collected first, annotations included.
+
+  `examples/spaces/match_snapshot.metta` runs the doc's example and the
+  arbiter's own two-row detector under the gate.
+
 - Clearing a space now empties both of its halves. A space has stored atoms
   and, for the atoms that compiled, clauses in its own execution module, and
   the engine's own clear dropped only the first: define

@@ -668,6 +668,85 @@ test(clearing_plain_atoms_stays_a_sweep,
 
 :- end_tests(spaces_execution_modules).
 
+:- begin_tests(spaces_match_snapshot).
+
+% The language specifies this rather than leaving it open: "match first finds
+% all the matches, and then instantiates the output pattern with them, which
+% is evaluated outside match. If remove-atom and add-atom would be executed
+% right away for each found matching, the condition of circular links would be
+% broken after the first rewrite" [source: the language's Working with spaces].
+% The arbiter pins it with an experiment built to tell an eager snapshot from
+% a lazy query that happens to be fully consumed, and only the effect ORDER is
+% a recorded free divergence [source: LeaTTa tests/semantics/matching/
+% nondeterministic_match_snapshot.metta].
+setup_snapshot_space :-
+    cleanup_snapshot_space,
+    forall(member(P, [[snap_link, a, b], [snap_link, b, c],
+                      [snap_link, c, a], [snap_link, c, e]]),
+           add_sexp('&plunit_snapshot', P)).
+
+cleanup_snapshot_space :- clear_native_atoms('&plunit_snapshot').
+
+% Upstream's own graph-rewrite example, which is where the divergence was
+% measured: every row is found before the first template's remove-atom breaks
+% the cycle for the rest. Reversing ONE edge instead of three is what a lazy
+% conjunction does.
+test(a_conjunction_finds_every_row_before_any_template_runs,
+     [ setup(setup_snapshot_space), cleanup(cleanup_snapshot_space) ]) :-
+    Space = '&plunit_snapshot',
+    Pattern = [',', [snap_link, X, Y], [snap_link, Y, Z], [snap_link, Z, X]],
+    findall(X-Y, ( match(Space, Pattern, out, out),
+                   'remove-atom'(Space, [snap_link, X, Y], []),
+                   'add-atom'(Space, [snap_link, Y, X], _) ),
+            Rewritten),
+    % Three loop rotations, all of them, and the fourth link is not in a loop.
+    assertion(Rewritten == [a-b, b-c, c-a]),
+    findall(L, get_native_atom(Space, L), Left),
+    msort(Left, Sorted),
+    assertion(Sorted == [[snap_link, a, c], [snap_link, b, a],
+                         [snap_link, c, b], [snap_link, c, e]]).
+
+% A single pattern needed no snapshot and must not have grown one: the logical
+% update view already fixes what one goal over one dynamic predicate sees, so
+% a template that removes the OTHER row still leaves that row to answer.
+test(a_single_pattern_snapshots_through_the_logical_update_view,
+     [ setup(setup_snapshot_space), cleanup(cleanup_snapshot_space) ]) :-
+    Space = '&plunit_snapshot',
+    findall(X-Y, ( match(Space, [snap_link, X, Y], out, out),
+                   ( 'remove-atom'(Space, [snap_link, c, e], _) -> true ; true ) ),
+            Rows),
+    % Four rows, including the one the first template removed.
+    assertion(length(Rows, 4)),
+    assertion(memberchk(c-e, Rows)).
+
+% And it still STREAMS, which is what the snapshot costs everywhere it is not
+% needed: a first solution off a big space must not walk the space.
+test(a_single_pattern_still_answers_the_first_row_without_walking_the_space,
+     [ setup(setup_snapshot_space), cleanup(cleanup_snapshot_space) ]) :-
+    Space = '&plunit_snapshot',
+    forall(between(1, 2000, N), add_sexp(Space, [snap_bulk, N])),
+    statistics(inferences, I0),
+    once(match(Space, [snap_bulk, _], out, out)),
+    statistics(inferences, I1),
+    Spent is I1 - I0,
+    % Walking two thousand atoms costs thousands; taking the first costs tens.
+    assertion(Spent < 200).
+
+% A conjunction's rows carry their annotation, which rides a BACKTRACKABLE
+% global that the snapshot's findall would otherwise undo.
+test(a_conjunction_keeps_each_row_annotation,
+     [ setup(setup_snapshot_space), cleanup(cleanup_snapshot_space) ]) :-
+    Space = '&plunit_snapshot',
+    Pattern = [',', [snap_link, X, Y], [snap_link, Y, Z]],
+    findall(K, ( match(Space, Pattern, out, out), petta_annotation(K) ), Ks),
+    % Unannotated atoms read the semiring's 1, once per row rather than a
+    % stale neighbour's value or nothing at all.
+    assertion(Ks \== []),
+    assertion(forall(member(K1, Ks), K1 == 1)),
+    assertion(Z == Z).
+
+:- end_tests(spaces_match_snapshot).
+
 :- begin_tests(spaces_builtin_override).
 
 % &self compiles into a module of its own, so an equation for a builtin name is
