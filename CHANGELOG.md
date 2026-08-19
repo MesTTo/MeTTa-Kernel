@@ -46,6 +46,37 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `(super (f a b))`, the relative way to reach the definition a space's own
+  equation shadows. A space can redefine a function it inherits, and until now
+  an override was replace-or-nothing: a guard that wanted to check a call and
+  then let it through had no way through. `super` names the next definition up
+  the space's own chain, so the guard delegates without naming its target, and
+  the target includes the ENGINE's own definitions, so a builtin can be
+  wrapped rather than only replaced.
+
+  ```metta
+  (= (store $atom) (stored $atom))
+  !(bind! &guarded (new-space))
+  !(add-atom &guarded (= (store $atom)
+                         (if (== $atom bad) refused (super (store $atom)))))
+  !(evalc (store good) &guarded)   ; (stored good)
+  !(evalc (store bad) &guarded)    ; refused
+  ```
+
+  `evalc` is the other direction and both are worth having: it names the space
+  to evaluate in, absolutely, where `super` names the next definition along,
+  relatively. Absolute addressing does not compose. Two guards on one name,
+  each delegating to the same named space, both run, and an atom the first
+  refuses is stored anyway by the second, because neither of them names the
+  other.
+
+  The target is resolved when the equation COMPILES, so it costs nothing at
+  the call and nothing above to reach is an error where the equation is
+  written rather than a silent empty answer where it runs. A space that later
+  gains a definition of the name becomes the nearer target, and the callers
+  are rebuilt when it does. `examples/spaces/super.metta` runs all of it.
+
+
 - The LeaTTa conformance lane (`tests/conformance/leatta.py`) now gates PER
   AREA instead of all-or-nothing. `--gate-areas-file PATH` reads a plain
   list of LeaTTa `tests/semantics/` area names, one per line: an area it
