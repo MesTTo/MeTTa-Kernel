@@ -8,6 +8,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- `remove-atom` distinguishes a removal that happened from one that found
+  nothing. Removing an atom the space holds still answers the unit value;
+  removing one it does not hold now answers
+  `(Error (remove-atom <space> <atom>) "remove-atom: atom is not in the
+  space")` instead of the same silent unit.
+
+  The language's own text is what asks for this. "If the given atom is not in
+  the space, `remove-atom` currently neither raises a error nor returns the
+  empty result" is a complaint, and upstream carries the same question
+  unanswered as a TODO at `stdlib/space.rs:219`, "Is it necessary to
+  distinguish whether the atom was removed or not?". The arbiter answers it:
+  LeaTTa's Hyperon-Hacks-Register row 15 rules "Implement. Keep the
+  distinction", and `Metta.Minimal.removeAtomStep` is where it holds. This is
+  a deliberate divergence from Hyperon as shipped, which answers unit for
+  both, towards the specification the two of them share.
+
+  The refusal is an answer and not a throw, so `(collapse (remove-atom ...))`
+  holds it and a program can branch on it. `metta_remove_atom/3` still answers
+  the plain boolean the engine's own callers read.
+
 - `get-atoms` and `match` refuse a first argument that is not a space by
   answering a MeTTa error naming themselves, the way `add-atom` already did.
   Both used to raise SWI's bare `Arguments are not sufficiently instantiated`,

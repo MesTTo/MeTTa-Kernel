@@ -152,23 +152,26 @@ test(an_effectful_operation_answers_unit,
     assertion(Meta == 'Expression'),
     assertion([] \== true).
 
-test(spaces_removal_answers_unit_and_reports_internally,
+test(spaces_removal_answers_unit_for_success_and_an_error_for_absence,
      [ setup(cleanup_arbitrary_space), cleanup(cleanup_arbitrary_space) ]) :-
     arbitrary_space(Space),
     add_sexp(Space, [pair, 1, 2]),
     add_sexp(Space, lonely),
-    % The LANGUAGE-facing answer is unit whether or not anything went, and the
-    % language says so: "if the given atom is not in the space, remove-atom
-    % currently neither raises a error nor returns the empty result"
-    % [source: the language's Working with spaces]. This test used to assert
-    % true and false here, which was PeTTa reporting something real through a
-    % slot the specification reserves for unit.
+    % Unit for a removal that happened and an error for one that found
+    % nothing. The language's own complaint is what asks for the second half,
+    % "if the given atom is not in the space, remove-atom currently neither
+    % raises a error nor returns the empty result", and upstream carries the
+    % same question unanswered as the TODO at stdlib/space.rs:219. The arbiter
+    % rules it: LeaTTa Hyperon-Hacks-Register row 15, error for absence and
+    % unit for success, SATISFIED in Metta.Minimal.removeAtomStep. This test
+    % used to assert unit for all three.
     'remove-atom'(Space, [pair, 1, 2], Present),
     assertion(Present == []),
     'remove-atom'(Space, [pair, 1, 2], Repeated),
-    assertion(Repeated == []),
+    assertion(Repeated = ['Error', ['remove-atom', Space, [pair, 1, 2]], _]),
     'remove-atom'(Space, [never, there], Absent),
-    assertion(Absent == []),
+    assertion(Absent = ['Error', ['remove-atom', Space, [never, there]],
+                        "remove-atom: atom is not in the space"]),
     % The information is not lost, it moved to where the ENGINE uses it:
     % metta_remove_atom/3 still answers whether anything was there, which is
     % what the loader's rollback and the storage modules read.
