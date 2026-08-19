@@ -69,6 +69,38 @@ planted predicates to a temporary directory, one per door, three of which must
 be REPORTED, and fails naming the door that stopped firing. Run it after
 changing anything the analysis reads.
 
+`tests/prolog/translator_confluence.pl` answers a different question again:
+whether the COMPILE-TIME rule set terminates, and whether it is confluent.
+`add-translator-rule!` registers a NAME; the rules are the space's own
+`(= Lhs Rhs)` atoms rooted at one of those names, plus every equation their
+right-hand sides reach, because a translator rule's body runs while the program
+is being compiled. Two libraries registering overlapping rules is unchecked
+today: with `(= (m2 a) (quote one))` written before `(= (m2 $x) (quote two))`
+the program answers `one`, and with the two lines swapped it answers `two`.
+
+    cd tests/prolog
+    swipl -q --on-error=status -g translator_confluence_report -t 'halt(0)' translator_confluence.pl
+    swipl -q --on-error=status -g translator_confluence_selftest -t 'halt(0)' translator_confluence.pl
+    swipl -q --on-error=status -g translator_confluence_main -t 'halt(0)' translator_confluence.pl -- FILE.metta
+
+The report names each overlapping pair, the position they overlap at and what
+each rule gives, and it states the fragment its verdict is worth in: confluence
+is decidable for TERMINATING rewrite systems, and today's translator rules are
+unconditional, so the rule set sits inside that fragment. A guarded rule would
+be a conditional rule and would take it back out.
+
+Termination is reported first because it is that fragment's precondition, and
+it comes back ESTABLISHED with the route that decided it, or as a NAMED
+failure. There is no third answer. The route is Nishida and Vidal's: declare
+which arguments of the entry are ground, infer the rest through the call graph,
+filter every possibly-variable argument away, and hand the result to a
+termination method for rewriting. `src/narrowing.pl` implements it,
+`src/trs.pl` is the rewriting library underneath (an adaptation of Markus
+Triska's public-domain trs.pl), `tests/prolog/trs.plt` and
+`tests/prolog/narrowing.plt` cover both, and
+`python/tests/test_critical_pair_oracle.py` runs the critical-pair enumerator
+against the kernel-checked one in LeaTTa's `MeTTaILProofs/CPExecutable.lean`.
+
 Run all PlUnit files directly with:
 
     cd tests/prolog
