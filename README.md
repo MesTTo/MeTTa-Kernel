@@ -4,6 +4,20 @@ Efficient MeTTa language implementation in Prolog.
 
 Please check out the [Wiki](https://github.com/patham9/PeTTa/wiki) for more information.
 Contributor setup, gates, and measurement rules are in [DEVELOPING.md](DEVELOPING.md).
+
+### Lineage
+
+PeTTa is Patrick Hammer's MeTTa implementation. Its canonical repository is
+[trueagi-io/PeTTa](https://github.com/trueagi-io/PeTTa), begun under
+[patham9/PeTTa](https://github.com/patham9/PeTTa), where the Wiki still
+lives. The `python-library` branch develops the `petta` Python package on
+top of the engine: the engine's behaviour is the upstream contract, held by
+a gate that runs every shipped example through both the engine and the
+library and requires identical verdicts, and the Python surface is this
+branch's own. `mork_ffi/` vendors
+[patham9/mork_ffi](https://github.com/patham9/mork_ffi) over
+[trueagi-io/mork](https://github.com/trueagi-io/mork) for the optional
+MORK backend.
 Release changes are recorded in [CHANGELOG.md](CHANGELOG.md). Citation metadata
 is available in [CITATION.cff](CITATION.cff).
 
