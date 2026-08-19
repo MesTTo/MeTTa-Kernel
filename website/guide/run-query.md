@@ -471,7 +471,7 @@ A healthy space answers an empty list. A finding carries nine fields: `kind`, `s
 |---|---|---|
 | `error` | the program is wrong | `arrow-arity-mismatch`, `arity-mismatch`, `unbound-variable`, `type-mismatch` |
 | `warning` | almost certainly not what was meant | `declared-but-undefined`, `declaration-types-the-symbol`, `duplicate-equation`, `tabled-answer-order-read` |
-| `information` | true and worth knowing | the seven simplifications, `inconsistent-arity` |
+| `information` | true and worth knowing | the seven simplifications, `inconsistent-arity`, `subsumed-equation` |
 | `hint` | a heuristic that can be wrong | `possibly-undefined-reference` |
 
 `autofix` is an **atom**, not a text edit: the stored atom with the simplification already applied. So applying one is two calls and needs no source positions at all.
@@ -485,7 +485,7 @@ for finding in m.lint():
 
 ### The catalogue
 
-**Declarations and definitions.** `declared-but-undefined` (an arrow nothing defines, so every call stays unreduced). `arrow-arity-mismatch` (the arrow's input count against the equations'). `declaration-types-the-symbol` (a declaration that is not an arrow, so it types the name and not a call to it). `inconsistent-arity` (one name defined at two arities with no arrow saying so). `duplicate-equation` (the same equation stored twice, up to variable renaming, answering every call twice).
+**Declarations and definitions.** `declared-but-undefined` (an arrow nothing defines, so every call stays unreduced). `arrow-arity-mismatch` (the arrow's input count against the equations'). `declaration-types-the-symbol` (a declaration that is not an arrow, so it types the name and not a call to it). `inconsistent-arity` (one name defined at two arities with no arrow saying so). `duplicate-equation` (the same equation stored twice, up to variable renaming, answering every call twice). `subsumed-equation` (an equation that is a strict instance of another stored one, so every answer it gives the general equation gives too and calls on the overlap answer twice; the check is pairwise against single equations, Plotkin's reduction step, and redundancy through combinations of equations is not searched).
 
 **Calls.** `arity-mismatch` (an argument count no equation takes). `type-mismatch` (an argument whose `get-type` the arrow's input type refuses, which is the engine's own answer rather than a second type system). `possibly-undefined-reference`, the only `hint`, because an expression head that is no known function may be data on purpose; when a known name is one edit away it arrives with a `suggestion`.
 

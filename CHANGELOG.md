@@ -8,6 +8,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `m.lint()` reports a new kind, `subsumed-equation`: an equation that is a
+  strict instance of another stored one, so every answer it gives, the
+  general equation gives too, and calls on the overlap answer twice. This is
+  the semantic tier above `duplicate-equation`, which keeps the exact-twin
+  case. The check is Plotkin's program reduction step (1972) bounded to
+  pairwise instance subsumption, and the finding says so, because the full
+  test needs resolution and this one deliberately does not search redundancy
+  through combinations of equations. Severity `information`.
+
 - `SECURITY.md`, `CONTRIBUTING.md` and GitHub issue templates. The project is
   alpha and now says so: versions are `0.y.z`, every release is labelled alpha,
   and a breaking change is expected at each one, because MeTTa itself is alpha
