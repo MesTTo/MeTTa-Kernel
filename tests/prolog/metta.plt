@@ -1703,6 +1703,57 @@ test(a_written_path_is_not_rewritten) :-
 
 :- end_tests(module_colon_paths).
 
+:- begin_tests(module_inclusion).
+
+%`include` PASTES a module's source into the space that included it and
+%answers what its LAST directive answered, where import! gives the file its
+%own space and answers unit [source: LeaTTa
+%MettaHyperonFull/Minimal/Interpreter.lean, the include dispatch;
+%tests/semantics/modules/04-include-no-directive.metta and
+%05-include-directive.metta].
+plunit_include_tree(Top, Quiet, Loud) :-
+    tmp_file(include, Top),
+    make_directory(Top),
+    atomic_list_concat([Top, '/quiet.metta'], Quiet),
+    atomic_list_concat([Top, '/loud.metta'], Loud),
+    setup_call_cleanup(open(Quiet, write, QuietOut),
+                       write(QuietOut, '(= (plunit-included) pasted)\n'),
+                       close(QuietOut)),
+    setup_call_cleanup(open(Loud, write, LoudOut),
+                       write(LoudOut,
+                             '(= (plunit-included-loud) pasted)\n!(+ 1 2)\n'),
+                       close(LoudOut)).
+
+test(include_pastes_a_module_and_answers_its_last_directive,
+     [setup(( silent(true) -> true ; assertz(silent(true)) ))]) :-
+    plunit_include_tree(Top, _, _),
+    setup_call_cleanup(
+        asserta(user:working_dir(Top)),
+        ( findall(A, include(quiet, A), Quiet),
+          findall(A, include(loud, A), Loud),
+          Quiet == [],
+          Loud == [3],
+          process_metta_string("!(plunit-included)", Quietly),
+          process_metta_string("!(plunit-included-loud)", Loudly),
+          Quietly == [pasted],
+          Loudly == [pasted] ),
+        ( retract(user:working_dir(Top)),
+          delete_directory_and_contents(Top) )).
+
+%`self` and `top` are BASES rather than modules, and a name that resolves to
+%nothing is refused in upstream's own words [measured 2026-08-19 against the
+%arbiter: `!(include nosuchfile)` answers
+%`(Error (include nosuchfile) no module named nosuchfile is available)`].
+test(include_refuses_a_base_and_a_name_that_resolves_to_nothing) :-
+    findall(A, include(self, A), Base),
+    Base == [['Error', [include, self],
+              "include: the running context is not a module"]],
+    findall(A, include('plunit-no-such-module', A), Missing),
+    Missing == [['Error', [include, 'plunit-no-such-module'],
+                 "no module named plunit-no-such-module is available"]].
+
+:- end_tests(module_inclusion).
+
 :- begin_tests(runtime_format_strings).
 
 %format-args interpolates through the dyn_fmt crate's Arguments, not Rust's

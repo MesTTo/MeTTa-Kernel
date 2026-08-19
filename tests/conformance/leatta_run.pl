@@ -26,7 +26,7 @@ main :-
     ->  true
     ;   throw(error(existence_error(argument, '--file'), _))
     ),
-    catch(( run_grouped(File, Groups),
+    catch(( load_metta_source_groups(File, '&self', Groups),
             forall(member(Group, Groups),
                    ( swrite(Group, Written),
                      format("LEATTA-ANSWER ~w~n", [Written]) )) ),
@@ -34,26 +34,10 @@ main :-
           report_error(Error)),
     halt.
 
-%The loader's own path flattens the per-form groups with append/2, which is
-%right for a program and wrong here: the arbiter records one bracketed line per
-%form, so the grouping IS the observation. These are the engine's own
-%predicates, called in the engine's own order, with the flattening left out.
-run_grouped(File, Groups) :-
-    setup_call_cleanup(
-        push_working_dir(File),
-        ( read_metta_source(File, Source),
-          prepare_metta_source(Source, Forms),
-          maplist(process_form('&self', compile), Forms, PerForm),
-          runnable_groups(Forms, PerForm, Groups) ),
-        pop_working_dir).
-
-runnable_groups([], [], []).
-runnable_groups([Form|Forms], [Group|Rest], Groups) :-
-    (   Form = parsed(runnable, _, _)
-    ->  Groups = [Group|More]
-    ;   Groups = More
-    ),
-    runnable_groups(Forms, Rest, More).
+%The loader's own flattening path is right for a program and wrong here: the
+%arbiter records one bracketed line per form, so the grouping IS the
+%observation. load_metta_source_groups/3 is the engine's own grouped loader,
+%which `include` also reads, so this file no longer keeps a second copy of it.
 
 report_error(Error) :-
     message_to_text(Error, Text),
