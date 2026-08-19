@@ -309,8 +309,8 @@ test(a_metta_operation_error_still_names_the_operation) :-
 :- end_tests(metta_operation_errors).
 
 :- dynamic plunit_break_type_bridge/0.
-:- multifile py_object_type_names/2.
-py_object_type_names(_, _) :- plunit_break_type_bridge, throw(plunit_broken_bridge).
+:- multifile metta_grounded_type_names/2.
+metta_grounded_type_names(_, _) :- plunit_break_type_bridge, throw(plunit_broken_bridge).
 
 % evalc's space argument selects the module the goals resolve in and nothing
 % else. PeTTa's eval is a full evaluation of compiled goals rather than
@@ -375,27 +375,27 @@ test(eval_keeps_a_runtime_literal_self_as_written) :-
 
 :- begin_tests(metta_object_types).
 
-% A bridge whose py_object_type_names/2 clause THROWS used to be read as "no
+% A bridge whose metta_grounded_type_names/2 clause THROWS used to be read as "no
 % bridge answered", and the class walk ran instead. One broken protocol
 % predicate therefore destroyed typing for every host object in the process,
 % and get-type answered Box, the envelope's own class, for all of them, with
 % no error at any point. python/petta/_ops.py states the rule for the same
 % probe on its own side: a broken probe is the registrant's bug.
-% The clause is static and flag-guarded, because py_object_type_names/2 is
+% The clause is static and flag-guarded, because metta_grounded_type_names/2 is
 % multifile without being dynamic: a bridge contributes its clause at load
 % time and cannot be installed later.
 test(a_throwing_type_bridge_is_the_registrants_bug,
      [ setup(assertz(user:plunit_break_type_bridge)),
        cleanup(retractall(user:plunit_break_type_bridge)),
        throws(plunit_broken_bridge) ]) :-
-    py_object_type(plunit_not_really_an_object, _).
+    metta_grounded_type(plunit_not_really_an_object, _).
 
 % A bridge that is ABSENT is an ordinary configuration, not a failure: a
 % program reaching Python through py-call alone still gets its objects typed
 % by the class walk.
 test(an_absent_type_bridge_falls_back_to_the_class_walk) :-
     py_call(datetime:datetime(2020, 1, 1), Object),
-    findall(T, py_object_type(Object, T), Types),
+    findall(T, metta_grounded_type(Object, T), Types),
     assertion(memberchk(datetime, Types)),
     assertion(\+ memberchk(object, Types)).
 

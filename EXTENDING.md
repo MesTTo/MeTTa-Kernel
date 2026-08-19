@@ -1882,13 +1882,18 @@ which is why a library should install its handler when its feature is first
 used rather than when its file loads: a resident handler clause measured four
 inferences on every compiled equation.
 
-**`py_object_extra_type/2` and `py_object_type_names/2`** are how a host value
-gets a TYPE. The engine walks a Python object's class chain by default, so a
-`torch.Linear` is a `Linear` and a `Module`; `py_object_extra_type/2` adds
-names beyond that, which is how a protocol an object satisfies can name a type
+**`metta_grounded_extra_type/2`, `metta_grounded_type_names/2` and
+`metta_grounded_class_type/2`** are how a host value gets a TYPE. The class
+walk itself is the host bridge's clause of `metta_grounded_class_type/2`,
+because enumerating a value's classes is host code by nature: the shipped
+Python bridge answers every class on the object's MRO except `object`, so a
+`torch.Linear` is a `Linear` and a `Module`, and an engine with no host
+loaded has no clause there, which is the right answer for a configuration in
+which no host value can exist. `metta_grounded_extra_type/2` adds names
+beyond the walk, which is how a protocol an object satisfies can name a type
 and a declared `(-> Tensor Tensor Tensor)` can hold for values the host made.
-`py_object_type_names/2` replaces the walk entirely, for a bridge that knows
-how to read its own objects and answers every name at once.
+`metta_grounded_type_names/2` replaces the walk entirely, for a bridge that
+knows how to read its own objects and answers every name at once.
 
 A clause of either that THROWS is your bug and is not caught. Reading a throw
 as "no bridge answered" once ran the class walk instead, and one broken
