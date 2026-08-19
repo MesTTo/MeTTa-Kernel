@@ -213,11 +213,11 @@ run GATE prolog-static check_prolog_static
 
 # vulture and jscpd read Python alone, and none of the SWI checks above reports
 # UNREACHABILITY: a predicate defined and never called is invisible to all of
-# them, across 19,423 lines of Prolog. This walks every clause under src/, lib/,
+# them, across 22,791 lines of Prolog [measured 2026-08-19]. This walks every clause under src/, lib/,
 # backends/, mork_ffi/ and python/petta/ with prolog_walk_code/1, adds a probe
 # clause per directive, and adds an edge for every goal the engine BUILDS as a
 # term rather than calls, which is most of the analysis and not a refinement:
-# without it the report is 206 rather than 24.
+# without it the 2026-08-18 report was 206 rather than 24; the tally stands at 19 [measured 2026-08-19].
 #
 # REPORT, because findings are a backlog and not a break, the tier lib-surface
 # and determinism sit in [measured 2026-08-18: 1.10s].
@@ -242,6 +242,35 @@ check_reachability_selftest() {
     swipl -q --on-error=status -g reachability_selftest -t 'halt(0)' reachability.pl
 }
 run GATE prolog-reach-selftest check_reachability_selftest
+
+# src/trs.pl and src/narrowing.pl are libraries the engine does not load, so
+# the `prolog` lane's consult of src/main.pl never reaches them. Verified both
+# ways: rc=0 as shipped, rc=1 with a planted undefined call.
+check_prolog_metatheory() {
+    cd "$HERE/tests/prolog" || return 1
+    unexpected=$(
+        swipl -q -g "use_module('../../src/trs.pl'), \
+                     use_module('../../src/narrowing.pl'), \
+                     list_undefined, halt." -t 'halt(1)' 2>&1 \
+            | grep -E 'which is referenced by'
+    )
+    [ -z "$unexpected" ] && return 0
+    echo "$unexpected"
+    return 1
+}
+run GATE prolog-metatheory check_prolog_metatheory
+
+# The compile-time rule set's overlaps, termination and local confluence.
+# REPORT, because the shipped set's termination is NOT ESTABLISHED while
+# lib_spaces' succeedsPredicate carries right-hand-only variables; that is
+# P2.26's burn-down, and translator_confluence_gate is the promotion path
+# once it clears.
+run REPORT translator-confluence sh -c "cd '$HERE/tests/prolog' && swipl -q --on-error=status -g translator_confluence_report -t 'halt(0)' translator_confluence.pl"
+
+# The detector's own selftest: five planted rule sets, each required on the
+# side its shape predicts, which is what stops "0 overlaps" from meaning the
+# detector stopped detecting.
+run GATE translator-confluence-selftest sh -c "cd '$HERE/tests/prolog' && swipl -q --on-error=status -g translator_confluence_selftest -t 'halt(0)' translator_confluence.pl"
 
 # A MeTTa equation whose compiled head collides with a name the module it
 # compiles into already holds does not shadow that predicate, it REPLACES it
