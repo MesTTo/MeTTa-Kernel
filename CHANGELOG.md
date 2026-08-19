@@ -8,6 +8,24 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- `get-atoms` and `match` refuse a first argument that is not a space by
+  answering a MeTTa error naming themselves, the way `add-atom` already did.
+  Both used to raise SWI's bare `Arguments are not sufficiently instantiated`,
+  which names neither the operation nor the call, aborts the whole file under
+  `run.sh` and arrives in Python as an `EngineError` whose `operation` field
+  is `None`. Now `!(get-atoms $u)` answers
+  `(Error (get-atoms $u) "get-atoms expects a space as its argument")` and
+  `!(match $u (foo $x) $x)` answers
+  `(Error (match $u (foo $x) $x) "match expects a space as the first
+  argument")`, both as data a `collapse` can hold rather than as a throw that
+  would empty it. The wording follows upstream, which words the one-argument
+  operation differently from the two-argument ones: pinned `space.rs:143` says
+  "its argument" where `:172` and `:199` say "the first argument".
+
+  The refusal reaches the conjunctive form too, `!(match $u (, (foo $x)
+  (bar $x)) $x)`, which used to commit to the conjunction router before the
+  space was ever examined.
+
 - Every space now compiles its equations into a Prolog module of its own,
   `&self` included, and `space_module/2` names it. `&self` used to compile
   into the module the engine's own predicates are in, so an equation whose

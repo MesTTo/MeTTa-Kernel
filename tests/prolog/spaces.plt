@@ -779,12 +779,20 @@ test(reading_atoms_requires_a_named_space,
     get_native_atom(_AnySpace, _Pattern).
 
 
-test(matching_requires_a_named_space,
-     [ throws(error(instantiation_error, _)) ]) :-
+test(matching_requires_a_named_space) :-
     % An unbound space would enumerate every space that has ever been
     % written to, so a program in one space could read another it never
-    % names.
-    match(_AnySpace, [plunit_secret, _X], conj, conj).
+    % names. match/4 is a door a MeTTa program comes through, so the refusal
+    % is the write path's answer rather than a throw: this used to raise
+    % SWI's bare instantiation_error, which named neither the operation nor
+    % the call [source: the note above match/4's last clause].
+    findall(R, match(_AnySpace, [plunit_secret, _X], conj, R), Answers),
+    Answers = [['Error', ['match', _, [plunit_secret, _], conj], Message]],
+    Message == "match expects a space as the first argument",
+    % A conjunctive pattern reaches its own routing clause and is refused
+    % there too, rather than losing the refusal in match_routed/4's conj slot.
+    findall(C, match(_Other, [',', [plunit_secret, _]], conj, C), Conjunctive),
+    Conjunctive = [['Error', ['match'|_], _]].
 
 
 test(concurrent_first_writes_publish_one_storage_module,
