@@ -72,7 +72,180 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   oversight, because it compares against an upstream base whose examples
   are flat where this tree groups them into folders.
 
+### Added
+
+- `MeTTa.load()` and `AsyncMeTTa.load()` take `timeout=` and `inferences=`,
+  the pair twelve sibling entry points already took. `load` is the one most
+  likely to be handed code the caller did not write, since a file carries
+  `!` directives and an import graph, and it was the one with no bound at
+  all. Both go through the engine's own guards, so they raise
+  `TimeLimitError` and `InferenceLimitError` like every other bounded call,
+  and whatever the file completed before the stop stands.
+
+- `MeTTa.subscribe()` takes `queue_max=`, and `petta.SubscriberError` is
+  exported.
+
 ### Fixed
+
+- Subscription dispatch goes through the discrimination tree this package
+  already ships instead of unifying the atom against every subscription on
+  the space. `MatchIndex` was referenced only by its own tests and one
+  benchmark, while its docstring names pub/sub topic matching first and the
+  write path ran the linear scan.
+
+  Measured 2026-08-19, 1000 standing queries on one space and 200 writes
+  with exactly one subscription matching each, controlled `instructions:u`,
+  minimum of three: **4,012,009,981 scanning against 48,243,634 indexed,
+  83.2x**. Both delivered 200 of 200, so that is the same work done two
+  ways. Stated honestly, the scan already filtered by space and by `on`, so
+  N was per-space and a program with ten subscriptions gains little; this is
+  the many-subscriptions case, not every program.
+
+  Delivery ORDER is part of the contract, because delivery is synchronous
+  and inside the write, so two subscribers on one atom compose in the order
+  they were registered. Routing through the tree changed that order before
+  two defects in `MatchIndex` itself were fixed, and every subscriber still
+  fired, which is what makes it worth a test of its own:
+
+  - its entry ids were `(id(atom), live entry count)`, and the count goes
+    back DOWN on remove, so a later registration took a number a survivor
+    already held and the two then sorted by whichever the tree walk reached
+    first. Measured: register a, b; remove a; register c; the answer came
+    back c before b. The id half was no help either, since CPython reuses an
+    address as soon as the object at it is freed. Ids are now a counter that
+    only goes up.
+  - a NaN token was looked up as a dict key, and a NaN is not equal to a
+    different NaN, so two atoms the kernel calls equal took different edges
+    and one was never retrieved. Measured: two distinct `float("nan")`
+    values, the tree answered nothing where `unify` answered a match. This
+    broke `MatchIndex`'s own documented guarantee that it agrees with brute
+    force.
+
+  A probe carrying variables goes down the registration list instead, which
+  is a shape the write path meets: `(rule $x)` is a real atom to store and
+  reads back as `(rule $_608)`. The tree reads probe tokens literally, so a
+  variable there would need every edge followed at once.
+
+  `subscription-dispatch` joins the benchmark lane with its A/B in the
+  baseline comment.
+
+- A subscription's event queue is bounded. `Subscription._queue` was a plain
+  list, so a no-callback subscription that nobody drains grew for the life
+  of the process: measured 2000 events queued after 2000 adds, at roughly
+  152 bytes an Event.
+
+  A full queue REFUSES the event rather than discarding the oldest.
+  `collections.deque(maxlen=N)` is the stdlib bound and the wrong one here,
+  because a silently shortened history is how a stalled consumer stays
+  hidden; `queue.Queue` is the right precedent, where `put_nowait` on a full
+  queue raises `queue.Full`. The refusal arrives as `SubscriberError`,
+  because the write it interrupts still stands.
+
+  The async stream is bounded the same way, and cannot refuse a write
+  because by the time it runs the write has returned: it delivers every
+  event that fit and then ends by raising, naming how many it could not
+  take. Losing them without saying so was the only other option.
+
+- The `S.foo` and `V.x` cache is an LRU rather than a FIFO. It returned on a
+  hit without touching the cache, so `del cache[next(iter(cache))]` evicted
+  by insertion age: a name used on every line aged out on the same schedule
+  as one used once, and the header's promise that "repeated recent names
+  preserve identity" was not true of it. `_atoms_core._wire_intern` in the
+  same package already had the correct version, two tiers taken from
+  CPython's own `re` module cache, so this copies it: an LRU main tier with
+  a small fast tier in front that keeps the hit lock-free and
+  reorder-free.
+
+  Simulated 2026-08-19 at the shipped size of 512, a small hot set
+  interleaved with fresh names: 82.4% FIFO against 88.4% LRU at 200 hot
+  names, 70.4% against 82.4% at 400. Over 2048 touches of one hot name,
+  insertion-age eviction re-minted it five times where two tiers minted it
+  once.
+
+- A watcher that raises now reaches the writer as `SubscriberError`, which a
+  refused write never is. A subscription callback runs inside the write that
+  triggered it, so its exception comes back out through the writer, and
+  measured 2026-08-19 both of these arrived as `EngineError: Python
+  '<Type>': <text>`, the same class and the same message template: a
+  provider refusing the write, with nothing stored, and a watcher failing
+  after the write landed, with the atom stored. The two call for opposite
+  responses. Retrying a refused write is right; retrying an applied one took
+  the count from 1 to 2 and left it there, because a space is a multiset and
+  no later write undoes the copy.
+
+  `SubscriberError` carries `subscription`, the standing query whose
+  callback raised, `atom` and `space`, `action` as `"add"` or `"remove"`,
+  and `__cause__`, which is what the callback actually raised. Its message
+  says the write was applied and names the one thing that undoes it, an
+  enclosing atomic run or `(transaction ...)` scope, which rolls it back as
+  the error leaves the scope. It is a `PettaError`, so nothing that caught
+  these before stops doing so.
+
+  A rehydrated `PettaError` now keeps the `__cause__` it was raised with
+  instead of having it replaced by the Prolog term it crossed. The boundary
+  is still reachable as `__context__`; what changed is that the diagnosis is
+  no longer displaced by the plumbing.
+
+- `RemoteSpace` no longer claims the `subscribe` capability. `SpaceProvider`
+  derives it from `add` plus `remove`, which is exact for a space whose every
+  change goes through this process, because the engine's own write hooks are
+  then the event source. A remote space is the one shape where that inference
+  fails: its contents change on the server, which is the whole reason it is
+  remote, and the wire has four operations, `match`, `enumerate`, `add` and
+  `remove`, none of which carries an event.
+
+  Measured 2026-08-19 against an attached space: a subscription was accepted,
+  delivered the one atom this process wrote, and delivered nothing at all for
+  the atom the server added. So a watcher heard only the changes it had
+  already made itself, which is the one set it did not need to be told about.
+
+  The capability is now refused with a sentence naming what is missing and
+  the two routes that do work: poll `match()`, or run the subscription on the
+  engine that owns the space and `bridge()` the changes across, which needs
+  only `add` and `remove` on this side. Everything the wire does carry is
+  unaffected.
+
+- A persistent journal torn mid-record now recovers from every point it can
+  be torn at, rather than from most of them. `library(persistency)` writes
+  one action and its newline in a single call, so a file ending without that
+  newline ended inside the write, and which byte it stopped at is chosen by
+  the crash. The classifier asked `read_term_from_atom/3` whether the
+  leftover bytes were a whole term, and that predicate does not require a
+  terminating full stop: its documentation says "It is not required for Atom
+  to end with a full-stop". So every prefix of the action name `assert`,
+  from one letter to six, read as a complete Prolog atom, and
+  `assert(edge(a,b))` read as a complete term, and each of those seven torn
+  journals was refused with
+  "ends with a complete but invalid record" for an operator to repair by
+  hand. Measured 2026-08-19: 7 of the 18 truncation points of
+  `assert(edge(a,b)).`
+
+  The terminating full stop is what separates a finished record from a torn
+  one, so the classifier now asks the reader that demands one, `read_term/2`
+  over a string stream. A tail that still carries its full stop is refused
+  exactly as before, because only its newline was lost and truncating would
+  throw away a record the writer finished.
+
+- A nondeterministic Python operation's answer stream is now closed by the
+  code that consumed it, instead of being left to the garbage collector.
+  The stream is one-shot and can hold a file, a database cursor or a lock
+  open between yields, and a MeTTa program abandons it constantly: `once`
+  cuts, a `timeout=` or `inferences=` guard stops mid-answer, an exception
+  unwinds.
+
+  The release itself was already happening, through CPython's reference
+  counting, at every abandonment shape measured on 2026-08-19 with the
+  cycle collector switched off. What was not happening is being told when
+  it FAILS. A generator whose `finally` raises while letting go of its
+  resource had that exception swallowed by the deallocator, which prints
+  `Exception ignored while closing generator` to stderr and lets the call
+  answer normally, so a cursor that could not be released told nobody.
+  Closing the stream in `dispatch_many`, `dispatch_raw_many` and the
+  inverse path puts the failure back in front of whoever abandoned it.
+
+  PEP 533 is the reason not to keep relying on the collector even where it
+  works: on an implementation that does not reference-count, "calls to
+  `__del__` may be arbitrarily delayed".
 
 - The engine and its libraries now declare every import they actually use,
   instead of getting several of them from SWI's autoloader by accident.

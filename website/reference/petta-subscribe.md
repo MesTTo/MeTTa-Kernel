@@ -8,6 +8,13 @@ Source: `python/petta/subscribe.py`.
 > events for drain(). This is the actors-and-pub-sub reading of a space: the
 > mailbox is the space, the subscription is the standing query that maintains
 > itself, and the engine's own write hooks deliver.
+>
+> Every write consults the subscriptions on its space, so the dispatch is on
+> the write path and its cost is the write's. It goes through the
+> discrimination tree in petta.structures rather than one unify per
+> subscription [measured 2026-08-19, 1000 standing queries on one space and
+> 200 writes, controlled instructions:u min of 3: 4012009981 scanning against
+> 48243634 indexed, 83.2x, both delivering 200 of 200].
 > Guarantees:
 >   - registry snapshots and queued event mutation are locked for
 >     free-threaded Python [tested test_subscription_queue_is_thread_safe,
@@ -22,6 +29,17 @@ Source: `python/petta/subscribe.py`.
 >   - identical subscriptions share one reflection descriptor until the last
 >     subscription cancels [tested
 >     test_identical_subscriptions_share_one_reflection_fact]
+>   - a watcher that raises reaches the writer as SubscriberError, naming the
+>     subscription and saying the write stands, where a refused write does
+>     not [measured 2026-08-19: both arrived as EngineError with the same
+>     "Python '<Type>': <text>" message template, so a caller could only tell
+>     them apart by reading the sentence] [tested
+>     test_a_watcher_failure_is_distinguishable_from_a_failed_write]
+>   - dispatch answers the same subscriptions in the same order the linear
+>     scan did, cancels and re-subscriptions included [measured 2026-08-19:
+>     routed through the tree before its entry ids were made monotonic, every
+>     subscriber still fired and two swapped places] [tested
+>     test_dispatch_through_the_index_delivers_the_same_subscribers_in_the_same_order]
 > Guarded by:
 >   - _SubscriptionRegistry._lock protects subscription state, the active
 >     runtime, delivery counts, and engine subscription snapshots [tested
@@ -94,6 +112,8 @@ def subscribe(
     pattern: Atom,
     callback: Callable[[Event], None] | None = None,
     on: str = 'add',
+    *,
+    queue_max: int = SUBSCRIPTION_QUEUE_MAX,
 ) -> Subscription:
 ```
 

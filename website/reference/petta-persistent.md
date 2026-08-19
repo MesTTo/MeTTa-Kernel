@@ -13,6 +13,13 @@ Source: `python/petta/persistent.py`.
 >     module [tested test_constructor_failure_releases_path_and_unattached_module]
 >   - terminal-tail recovery syncs the backup file and its directory before
 >     truncating the journal [tested test_tail_backup_is_durable_before_truncation]
+>   - EVERY proper prefix of a record classifies as an incomplete tail and is
+>     recovered, and a tail carrying its terminating full stop is refused
+>     instead of truncated [measured 2026-08-19: 7 of the 18 truncation points
+>     of `assert(edge(a,b)).` were refused before this, six of them prefixes
+>     of the action name] [tested
+>     test_every_truncation_point_of_the_torn_tail_classifies,
+>     test_a_terminated_record_is_refused_rather_than_truncated]
 > Owns:
 >   - PersistentFactSpace owns one process path claim, one generated module,
 >     and one journal attachment until close or constructor rollback [tested
