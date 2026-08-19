@@ -8,6 +8,32 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- `remove-atom` takes ONE occurrence, not every one. A space is a multiset and
+  removal is multiset subtraction, so three `(add-atom &self (dup 1))` and one
+  `(remove-atom &self (dup 1))` now leave two; they used to leave none. The
+  same holds for a pattern: `(remove-atom &self (edge a $any))` takes one of
+  the atoms unifying with it, and `del m[pattern]` is the bulk spelling that
+  drains them all.
+
+  The old reading's stated reason argued for the opposite of what it
+  concluded, "a MeTTa space is a multiset unless something forbids it, SO
+  removal takes EVERY occurrence", and the tree it produced was a multiset on
+  add and a set on remove. The arbiter reads the premise the other way:
+  `remove-atom` "must behave as multiset subtraction on the reader-visible
+  view of `&self`", and its own model "removes the first exact occurrence and
+  returns unit". This engine had already decided it everywhere else, in the
+  seam's own `metta_foreign_remove/3` ("remove one") and in the retained
+  equations, which go one variant-equivalent clause at a time.
+
+  One law now, whichever space holds the atoms. `PersistentFactSpace` retracts
+  one journalled fact instead of a `retractall` sweep, so its journal records
+  `retract(Fact)`; the TypeScript reference servers, the C store example, the
+  CeTTa and DuckDB example providers and the remote protocol's conformance
+  suite all subtract one. `LiveView` mirrors it: a removal event carries the
+  pattern that was asked for rather than the occurrence that left, so a ground
+  removal decrements locally and a pattern removal re-reads the space rather
+  than guessing which copy went.
+
 - `remove-atom` distinguishes a removal that happened from one that found
   nothing. Removing an atom the space holds still answers the unit value;
   removing one it does not hold now answers

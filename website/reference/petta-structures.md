@@ -27,6 +27,9 @@ Source: `python/petta/structures.py`.
 >     test_dispatch_through_the_index_delivers_the_same_subscribers_in_the_same_order]
 >   - AlphaSet membership is alpha_eq membership [tested
 >     test_alphaset_is_alpha_membership]
+>   - LiveView holds exactly what the space holds for its pattern, through
+>     adds and through removals whose event cannot say which occurrence left
+>     [tested test_liveview_mirrors_the_space]
 > Decides:
 >   - source text is NOT parsed here, because parsing needs the engine and
 >     this module's contract is engine-freedom; parse() first, or build

@@ -11,9 +11,9 @@
 %   - no match clause, deliberately: enumerate is declared, so the engine
 %     filters the enumeration against a bound pattern itself, and
 %     unification never leaves the engine
-%   - removal is by unification over the enumeration, so it means what
-%     remove-atom means everywhere; the store itself only ever compares
-%     exact text
+%   - removal is by unification over the enumeration and takes ONE
+%     occurrence, so it means what remove-atom means everywhere; the store
+%     itself only ever compares exact text
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -51,19 +51,24 @@ metta_foreign_add('&cstore', Atom) :-
         cstore_add(Text)
     ).
 
-%Removal takes every stored occurrence that UNIFIES with the pattern,
-%the multiset reading remove-atom has everywhere, and answers whether
-%any was there. Unification happens here; the store removes exact lines.
+%Removal takes ONE stored occurrence that UNIFIES with the pattern, the
+%multiset subtraction remove-atom is everywhere, and answers whether one
+%was there. Unification happens here; the store removes an exact line.
+%
+%\+ Atom \= Pattern rather than Atom = Pattern, so the pattern comes back
+%as it went in: remove-atom answers unit, not a binding.
+%
+%cstore_remove_text/2 is asked for 1 rather than handed a free variable
+%because the enumeration walks a snapshot: another thread may take the
+%line between finding it and removing it, and then nothing was removed
+%here and the answer has to say so.
 metta_foreign_remove('&cstore', Pattern, Removed) :-
-    findall(Text,
-            ( cstore_text(Text),
-              sread(Text, Atom),
-              \+ Atom \= Pattern ),
-            Texts),
-    (   Texts == []
-    ->  Removed = false
-    ;   forall(member(Text, Texts), cstore_remove_text(Text, _)),
-        Removed = true
+    (   once(( cstore_text(Text),
+               sread(Text, Atom),
+               \+ Atom \= Pattern )),
+        cstore_remove_text(Text, 1)
+    ->  Removed = true
+    ;   Removed = false
     ).
 
 metta_foreign_atoms('&cstore', Atom) :-

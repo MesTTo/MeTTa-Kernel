@@ -139,10 +139,16 @@ mork_require_text_safe_for_add(Atom) :-
 %MORK has nothing for the per-atom path to have done differently.
 metta_foreign_add_many(Space, Atoms) :- 'mork-add-atoms'(Space, Atoms, true).
 
-%Remove all same atoms. MORK answers every removal with "OK: loaded" and no
-%count, so whether anything was there is a separate question, and it is asked
-%through MORK's own matching rather than a dump of the space. Answering true
-%unconditionally would report a removal that did not happen.
+%MORK answers every removal with "OK: loaded" and no count, so whether
+%anything was there is a separate question, and it is asked through MORK's
+%own matching rather than a dump of the space. Answering true unconditionally
+%would report a removal that did not happen.
+%
+%The seam's "remove one" and MORK's remove-atoms coincide here because MORK
+%is a SET on the way in: three adds of (dup 1) leave one atom and a count of
+%1 [measured 2026-08-19], so there is never a second copy for a sweep to take.
+%That is a divergence from the multiset a space is meant to be, and it is on
+%the ADD side rather than this one.
 metta_foreign_remove(Space, Atom, Removed) :-
     ( mork_holds(Space, Atom) -> Removed = true ; Removed = false ),
     mork_require_text_safe(Atom, 'remove-atom'/3),

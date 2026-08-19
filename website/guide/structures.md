@@ -44,7 +44,7 @@ prices.stats()              # {'tables': ..., 'invalidated': ..., 'reevaluated':
 
 The engine refuses to table a function whose space reads it cannot resolve to one literal space, `(match (context-space) ...)` included, because a cached answer would hide whatever the dynamic read does; name the space.
 
-`LiveView` materialises one pattern and keeps it current from the space's own subscription events, so dashboards and "the current set of X" read locally. The seed query and the subscription install run inside one engine transaction, so no write falls between them, and the view mirrors the engine's multiset exactly: one removal operation takes every copy of every unifying atom, and so does the view.
+`LiveView` materialises one pattern and keeps it current from the space's own subscription events, so dashboards and "the current set of X" read locally. The seed query and the subscription install run inside one engine transaction, so no write falls between them, and the view mirrors the engine's multiset exactly: one removal operation takes one occurrence, and so does the view. A removal event carries the pattern that was asked for rather than the occurrence that left, so where the two differ, `m.remove(S.alert(V.q))` over two alerts, the view re-reads the space instead of guessing. A ground removal needs no read and costs the same whether the view holds ten atoms or a thousand.
 
 ```python
 with LiveView(m, S.alert(V.level)) as alerts:

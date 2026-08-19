@@ -13,8 +13,8 @@
  *     remove never skips or doubles a line it did not touch
  *     [tested: examples/integration/c_space/c_space.metta and
  *     python/tests/test_c_space.py, the threaded block]
- *   - removal takes every exact-text occurrence at once and answers how
- *     many went, so the store is honestly a multiset
+ *   - removal takes ONE exact-text occurrence, the oldest, and answers 1
+ *     or 0, so the store is honestly a multiset under subtraction
  * Owns:
  *   - the store's strdup'ed lines, freed by removal and clear; each
  *     snapshot's copies, freed when its enumeration completes, fails or
@@ -70,12 +70,14 @@ static foreign_t pl_cstore_add(term_t text)
   return TRUE;
 }
 
-/* Remove EVERY line equal to the text and answer how many went, which is
-   what makes the store a multiset the way remove-atom expects. */
+/* Remove the FIRST line equal to the text and answer 1 or 0, which is what
+   makes the store a multiset the way remove-atom expects: three identical
+   lines take three removals. Insertion order is preserved by shifting the
+   tail down, so the store keeps answering enumerations in the order it was
+   written and the removal takes the oldest copy, as retract/1 does. */
 static foreign_t pl_cstore_remove_text(term_t text, term_t removed)
 { char *s;
   int64_t gone = 0;
-  size_t kept = 0;
   size_t i;
   if ( !PL_get_chars(text, &s,
                      CVT_ATOM|CVT_STRING|BUF_STACK|REP_UTF8|CVT_EXCEPTION) )
@@ -84,12 +86,12 @@ static foreign_t pl_cstore_remove_text(term_t text, term_t removed)
   for ( i = 0; i < line_count; i++ )
   { if ( strcmp(lines[i], s) == 0 )
     { free(lines[i]);
-      gone++;
-    } else
-    { lines[kept++] = lines[i];
+      memmove(&lines[i], &lines[i+1], (line_count - i - 1) * sizeof(char *));
+      line_count--;
+      gone = 1;
+      break;
     }
   }
-  line_count = kept;
   pthread_mutex_unlock(&store_lock);
   return PL_unify_int64(removed, gone);
 }

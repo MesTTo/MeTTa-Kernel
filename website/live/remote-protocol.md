@@ -116,11 +116,11 @@ afternoon: filtering is an optimisation, not a correctness burden.
 verifies exactly this, and its repeated-variable probes are the ones
 that catch real matchers being subtly narrower than the law.
 
-**Removal is by unification, every occurrence.** `remove` carries an
-atom that may contain variables, and every stored atom unifying with it
-goes, the multiset reading `remove-atom` has everywhere. Rename the
-pattern's and the stored atom's variables apart before unifying:
-`(f $x 1)` must remove a stored `(f 2 $x)`.
+**Removal is by unification, one occurrence.** `remove` carries an atom
+that may contain variables, and ONE stored atom unifying with it goes,
+the multiset subtraction `remove-atom` is everywhere. Two stored copies
+need two removals. Rename the pattern's and the stored atom's variables
+apart before unifying: `(f $x 1)` must remove a stored `(f 2 $x)`.
 
 **A space is a multiset.** Adding twice stores twice; `atoms` answers
 duplicates; order promises nothing.

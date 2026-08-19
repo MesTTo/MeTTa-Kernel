@@ -179,13 +179,27 @@ test(spaces_removal_answers_unit_for_success_and_an_error_for_absence,
     assertion(Removed == true),
     metta_remove_atom(Space, nonesuch, Missing),
     assertion(Missing == false),
-    % Removal still takes EVERY occurrence: a space is a multiset.
+    % Removal takes ONE occurrence, because a space is a multiset and
+    % subtracting from a multiset takes one. This used to assert that two
+    % adds and one removal left NOTHING, on the reasoning that "a MeTTa space
+    % is a multiset unless something forbids it, so removal takes EVERY
+    % occurrence", which argues for the opposite of what it concludes. The
+    % arbiter agrees with the premise: MettaHyperonFullTests/Properties.lean
+    % requires multiset subtraction on the reader-visible view of &self.
     add_sexp(Space, [twice, x]),
     add_sexp(Space, [twice, x]),
-    'remove-atom'(Space, [twice, x], Both),
-    assertion(Both == []),
-    findall(A, get_native_atom(Space, A), Left),
-    assertion(Left == []).
+    'remove-atom'(Space, [twice, x], One),
+    assertion(One == []),
+    findall(A, get_native_atom(Space, A), Half),
+    assertion(Half == [[twice, x]]),
+    'remove-atom'(Space, [twice, x], Other),
+    assertion(Other == []),
+    findall(B, get_native_atom(Space, B), Left),
+    assertion(Left == []),
+    % And the two rulings compose: once the copies are gone the next removal
+    % is an absence rather than a third silent unit.
+    'remove-atom'(Space, [twice, x], Gone),
+    assertion(Gone = ['Error', ['remove-atom', Space, [twice, x]], _]).
 
 setup_arbitrary_space :-
     cleanup_arbitrary_space,
