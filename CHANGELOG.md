@@ -46,6 +46,38 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   against 369. Eleven counter baselines are raised with that attribution and
   no other number moved.
 
+- A builtin handed an unbound variable where it needs a value now says so, by
+  name. Measured 2026-08-19 by a probe generated over every position the
+  engine's own type surface declares strict, this failed four different ways
+  at once: 28 positions BOUND THE CALLER'S VARIABLE, `!(car-atom $u)`
+  unifying `$u` with `[H|_]` through the clause head and answering the fresh
+  head; 13 answered a fresh variable and 12 an answer derived from nothing,
+  `!(union-atom (a b) $u)` giving the partial expression `(a b|_)`; 2
+  EXHAUSTED THE STACK, `!(subtraction-atom $u (a b))` walking a list with both
+  ends open; and 7 raised naming a Prolog predicate the program never wrote,
+  `!(sort-atom $u)` saying `msort/2` and `!(sread $u)` saying `atom_codes/2`.
+
+  88 positions refuse now, each reading like
+  `car-atom: a value expected in argument 1, found an unbound variable`. The
+  table is derived from `builtin_type_declaration/2` rather than listed, so
+  declaring a type for a new builtin guards it in the same stroke, and the
+  probe in `tests/prolog/metta.plt` walks the same table. It costs nothing
+  where it would be felt: `car-atom` on a real expression is 2.0000
+  inferences per call with the guard and 2.0000 without, over 200,000 calls.
+
+  What stays relational is named rather than left to be discovered:
+  `(index-atom (a b) $i)` enumerates, `and`, `or`, `not`, `xor` and `implies`
+  enumerate the truth table, `cons` builds a pattern with an open tail, which
+  the engine's own prelude writes as `(cons Error $_)`, and the `#`
+  constraint family is relational throughout. A name lent to MeTTa from SWI,
+  `msort`, `append`, `sort`, `maplist`, `length`, keeps Prolog's own
+  behaviour, because under that name it IS the Prolog predicate.
+
+  Four positions are NOT covered and the engine says which:
+  `unguarded_input_position/2` names `get-atoms`, `match`, `add-reduct` and
+  `sread`, each in a file this change does not own, and a test asserts they
+  are still uncovered so the day one is fixed the row comes out.
+
 - `==` and `!=` refuse a comparison across two KNOWN and different types
   instead of answering `False`. `!(== 1 "S")` answered `False`, which is also
   the answer for two Numbers that differ, so a conditional took the else

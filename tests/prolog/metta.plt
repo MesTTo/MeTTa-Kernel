@@ -535,8 +535,12 @@ test(translated_let_rejects_an_impossible_comparison_output) :-
                         assertz(user:translator_rule(second)))),
                  cleanup(retractall(user:translator_rule(_))) ]).
 
+%The refusal NAMES the operation now. It used to be a bare
+%instantiation_error, which told a MeTTa program that a value was missing and
+%not which operation wanted it; the no-mutation half is what this test is
+%really for and is unchanged.
 test(variable_removal_is_rejected_without_mutation,
-     [throws(error(instantiation_error, _))]) :-
+     [throws(error(petta_unbound_input('remove-translator-rule!', 1), _))]) :-
     catch('remove-translator-rule!'(_, _), Error,
           ( findall(Rule, user:translator_rule(Rule), Rules),
             Rules == [first, second],
@@ -1553,3 +1557,88 @@ test(a_nested_transaction_yields_every_solution_too) :-
     assertion(Answers == [a,b]).
 
 :- end_tests(transaction_answers).
+
+%The generated probe P1.7 and P1.8 ask for: every position the engine's own
+%type surface declares strict, on a builtin PeTTa defines, called with that
+%position unbound and the rest filled. The table is guarded_input_position/3,
+%so this cannot go stale by hand: declaring a type for a new builtin adds a
+%row here in the same stroke.
+:- begin_tests(builtin_input_guards).
+
+guard_filler('Expression', [a, b]) :- !.
+guard_filler('Number', 1) :- !.
+guard_filler('String', "s") :- !.
+guard_filler('Bool', true) :- !.
+guard_filler('Symbol', '&probe-space') :- !.
+guard_filler('Variable', '$probevar') :- !.
+guard_filler(_, a).
+
+%The outcome of calling Name/Arity with Position unbound: `ok` when it refused
+%and named the MeTTa operation, and otherwise a description of what it did
+%instead. A one-second limit, because two of these used to enumerate every
+%list there is.
+guard_outcome(Name, Arity, Position, Outcome) :-
+    builtin_type_declaration(Name, ['->'|Chain]),
+    append(Inputs, [_], Chain),
+    length(Chain, Arity),
+    findall(Value,
+            ( nth1(Index, Inputs, Type),
+              ( Index =:= Position -> true ; guard_filler(Type, Value) ) ),
+            Filled),
+    append(Filled, [Out], Args),
+    Goal =.. [Name|Args],
+    nth1(Position, Filled, Hole),
+    copy_term(Hole, Before),
+    (   catch(call_with_time_limit(1, catch(Goal, Error, true)),
+              time_limit_exceeded, Error = guard_probe_timeout)
+    ->  (   nonvar(Error)
+        ->  guard_refusal(Error, Name, Outcome)
+        ;   guard_success(Hole, Before, Out, Name, Outcome)
+        )
+    ;   Outcome = 'failed silently'
+    ).
+
+guard_refusal(guard_probe_timeout, _, 'ran away') :- !.
+guard_refusal(error(resource_error(R), _), _, Outcome) :- !,
+    format(atom(Outcome), "exhausted ~w", [R]).
+guard_refusal(error(_, context(Named, _)), Name, ok) :- Named == Name, !.
+guard_refusal(error(Formal, Context), _, Outcome) :-
+    format(atom(Outcome), "refused as ~q in ~q, which is not its own name",
+           [Formal, Context]).
+
+guard_success(Hole, Before, _, _, Outcome) :- nonvar(Hole), var(Before), !,
+    format(atom(Outcome), "bound its own input to ~q", [Hole]).
+guard_success(_, _, Out, _, 'answered a fresh variable') :- var(Out), !.
+guard_success(_, _, Out, Name, ok) :-
+    Out = ['Error', [Named|_], _], Named == Name, !.
+guard_success(_, _, Out, _, Outcome) :-
+    format(atom(Outcome), "answered ~q", [Out]).
+
+test(every_builtin_refuses_an_unbound_input_by_name) :-
+    findall(Name-Arity-Position, guarded_input_position(Name, Arity, Position),
+            Rows0),
+    sort(Rows0, Rows),
+    %A table that emptied itself would pass every assertion below.
+    length(Rows, Count),
+    assertion(Count >= 80),
+    findall(Name/Arity-Position-Outcome,
+            ( member(Name-Arity-Position, Rows),
+              guard_outcome(Name, Arity, Position, Outcome),
+              Outcome \== ok ),
+            Wrong),
+    assertion(Wrong == []).
+
+%The same probe over the positions this rule does NOT cover, so the gap stays
+%measured rather than assumed: each still misbehaves, and the day one stops,
+%this test says so and the row comes out of unguarded_input_position/2.
+test(the_uncovered_positions_are_still_uncovered) :-
+    findall(Name-Position,
+            ( unguarded_input_position(Name, Position),
+              arity(Name, Arity),
+              functor(Head, Name, Arity),
+              predicate_property(Head, defined),
+              guard_outcome(Name, Arity, Position, ok) ),
+            Fixed),
+    assertion(Fixed == []).
+
+:- end_tests(builtin_input_guards).
