@@ -1303,7 +1303,7 @@ Four of them are about text.
 swrite(Term, Text)                  % a MeTTa atom as text
 sread(Text, Term)                   % text back as a MeTTa atom
 metta_symbol_writable(Symbol)       % does this name survive the round trip
-metta_unwritable_symbol(Term, Bad)  % the first name in Term that does not
+metta_unwritable_symbol(Term, Bad)  % the first value in Term that does not
 
 throw_metta_type_error(Op, Expected, Got)   % raise as a builtin would
 rethrow_metta_operation_error(Op, Error)    % put your name on somebody else's
