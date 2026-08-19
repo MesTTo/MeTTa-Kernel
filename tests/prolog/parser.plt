@@ -124,6 +124,122 @@ test(comment_is_a_number_token_boundary) :-
 :- end_tests(parser_comments).
 
 
+:- begin_tests(parser_unicode_layout).
+
+% Whitespace is the other half of layout, and the reader used to define it
+% twice: metta_layout//0 skipped whatever SWI calls a space, while token//1
+% ended at seven ASCII characters. Where the two disagreed a token swallowed
+% the separator, so `(1<NBSP>2)` read as the single symbol `1<NBSP>2` and
+% `(superpose (1<NBSP>2))` answered one atom instead of two, silently
+% [measured 2026-08-19].
+%
+% The Unicode White_Space property, one member/2 pair per line of PropList's
+% White_Space block. parser.pl's table lists the same 25 code by code, so
+% this is a second reading of one file and a transcription slip there fails
+% here [source: https://www.unicode.org/Public/UCD/latest/ucd/PropList.txt,
+% PropList-17.0.0, "Total code points: 25"]. That property is the class
+% because MeTTa's grammar ends a word at char::is_whitespace, which is the
+% property exactly [source: hyperon-experimental v0.2.10-25-g0559a5e2,
+% lib/src/metta/text.rs, parse_word].
+white_space_property(Codes) :-
+    findall(C,
+            ( member(Lo-Hi, [0x0009-0x000D, 0x0020-0x0020, 0x0085-0x0085,
+                             0x00A0-0x00A0, 0x1680-0x1680, 0x2000-0x200A,
+                             0x2028-0x2029, 0x202F-0x202F, 0x205F-0x205F,
+                             0x3000-0x3000]),
+              between(Lo, Hi, C) ),
+            Codes).
+
+% A table of ground facts enumerates, so this closes over the whole range
+% rather than sampling it.
+test(the_layout_class_is_the_unicode_white_space_property) :-
+    findall(C, metta_token_boundary(C, layout), Found),
+    msort(Found, Sorted),
+    white_space_property(Expected),
+    Sorted == Expected.
+
+% And SWI's own class stays a cross-check on the table rather than its
+% source. code_type/2 answers for 21 of the 25: it follows the C library,
+% where a space is a character a line may break at, so it omits the three
+% NO-BREAK spaces and NEL. Containment is the part that must hold, and it
+% fails the moment either side moves [measured 2026-08-19: 21 codes].
+test(swi_calls_nothing_a_space_that_the_table_does_not) :-
+    forall(code_type(C, space), metta_token_boundary(C, layout)).
+
+% Nothing but the three punctuation marks ends a token without being layout,
+% so a token boundary is the property plus a closed, named set.
+test(the_only_other_token_boundaries_are_punctuation) :-
+    findall(C, metta_token_boundary(C, punctuation), Found),
+    msort(Found, Sorted),
+    Sorted == [0'(, 0'), 0';].
+
+between_atoms(Code, Text) :-
+    atom_codes(Text, [0'(, 0'1, Code, 0'2, 0')]).
+
+test(every_layout_character_separates_two_atoms,
+     [forall(metta_token_boundary(Code, layout))]) :-
+    between_atoms(Code, Text),
+    sread(Text, Term),
+    Term == [1, 2].
+
+test(a_run_of_layout_separates_two_atoms,
+     [forall(metta_token_boundary(Code, layout))]) :-
+    atom_codes(Text, [0'(, 0'a, Code, 0' , Code, 0'b, 0')]),
+    sread(Text, Term),
+    Term == [a, b].
+
+% The skipper outside a form reads the same class as the scanner inside one.
+test(layout_around_a_form_is_skipped, [forall(metta_token_boundary(Code, layout))]) :-
+    atom_codes(Text, [Code, 0'(, 0'a, 0' , 0'b, 0'), Code]),
+    sread(Text, Term),
+    Term == [a, b].
+
+% Closed in the other direction too, so the fix cannot be a blanket
+% widening. The first four are str.isspace() in Python, which adds the ASCII
+% record separators to the property; U+180E was White_Space until Unicode
+% 6.3.0 and is a format character now; the last two have zero width.
+test(a_character_outside_the_class_stays_inside_a_token,
+     [forall(member(Code, [0x001C, 0x001D, 0x001E, 0x001F,
+                           0x180E, 0x200B, 0xFEFF]))]) :-
+    atom_codes(Text, [0'(, 0'a, Code, 0'b, 0')]),
+    atom_codes(Joined, [0'a, Code, 0'b]),
+    sread(Text, Term),
+    Term == [Joined].
+
+% Layout inside a string literal is data: the literal ends at its closing
+% quote and nowhere else, so widening what separates atoms must not reach
+% inside one.
+test(layout_inside_a_string_literal_is_data,
+     [forall(metta_token_boundary(Code, layout))]) :-
+    atom_codes(Text, [0'(, 0's, 0' , 0'", 0'a, Code, 0'b, 0'", 0')]),
+    atom_codes(Body, [0'a, Code, 0'b]),
+    sread(Text, Term),
+    Term = [s, Read],
+    atom_string(Body, Read).
+
+% The console reads the same class, so a line holding only layout re-prompts.
+% It did not, and the two definitions gave the two answers: a line holding
+% one IDEOGRAPHIC SPACE answered incomplete, while the same line holding one
+% NO-BREAK SPACE answered complete(C) with C that very character, so the
+% console evaluated a symbol the user never typed [measured 2026-08-19,
+% sread_command/2 at 3de90e9].
+test(a_line_holding_only_layout_is_incomplete,
+     [forall(metta_token_boundary(Code, layout))]) :-
+    atom_codes(Text, [Code]),
+    sread_command(Text, Result),
+    Result == incomplete.
+
+% And the round trip stays honest. A symbol holding layout no longer has a
+% text spelling that reads back as itself, so swrite/2 and sread/2 remain
+% inverse and the text seam refuses it rather than corrupting a dump.
+test(a_symbol_holding_layout_has_no_text_form,
+     [forall(metta_token_boundary(Code, layout))]) :-
+    atom_codes(Symbol, [0'a, Code, 0'b]),
+    \+ metta_symbol_writable(Symbol).
+
+:- end_tests(parser_unicode_layout).
+
+
 :- begin_tests(parser_escapes).
 
 % sread/2 unifies its second argument as it parses, so a partially bound

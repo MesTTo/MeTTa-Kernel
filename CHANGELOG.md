@@ -183,6 +183,34 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The reader separates atoms on every Unicode whitespace character now, not
+  on seven ASCII ones. 21 of the 25 characters carrying the Unicode
+  `White_Space` property left `(1<sep>2)` a single symbol, so
+  `!(superpose (1<sep>2))` answered one atom where it should answer two, and
+  it did so silently rather than as an error. NO-BREAK SPACE is the one that
+  arrives by the most ordinary route there is, since it is what HTML's
+  `&nbsp;` renders to: `(foo bar)` pasted out of a browser became one symbol,
+  matched nothing, and reported no problem. The file loader and `sread/2`
+  also disagreed about the same question, so
+  `(= (a) 1)<IDEOGRAPHIC SPACE>(= (b) 2)` loaded while the same file written
+  with a NO-BREAK SPACE raised `expected '(' or '!('`.
+
+  One table, `metta_token_boundary/2`, says where a token ends, and the
+  layout skipper, the token scanner, the number terminator, the console's
+  incomplete-line test and the file loader all read it. It is upstream
+  MeTTa's own rule, a word ending at `c.is_whitespace()`, `(`, `)` or `;`.
+  The class no longer moves with the locale either. `code_type/2` follows the
+  C library, which answers 21 characters under a UTF-8 locale and 6 under
+  `LC_ALL=C`, so a leading IDEOGRAPHIC SPACE used to parse under one and
+  raise under the other.
+
+  What a program can do changes with it. A symbol whose name holds whitespace
+  has no text spelling that reads back as itself, so `save()` and the text
+  seam refuse it now rather than writing a dump that reads back one atom
+  short. Reading the shipped corpus while asking `metta_unwritable_symbol/2`
+  about every form also got cheaper, 22.06M inferences against 24.30M and
+  13.01G instructions:u against 18.38G, min of 3 interleaved runs.
+
 - Copying a space now answers a space that holds what its source holds.
   `copy()` enumerates a space and re-adds every atom into a fresh one, and a
   specialization is stored content, so the clone re-derived the specialization
