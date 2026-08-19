@@ -1727,6 +1727,77 @@ test(a_shared_type_variable_reports_what_the_first_argument_fixed) :-
 
 :- end_tests(operation_answers).
 
+% A BUILT-IN MODULE is one the engine ships rather than one a program keeps in
+% a file, and `!(import! &self skel)` names it directly. Upstream loads six of
+% them at startup and `skel` is its own skeleton, the one that uses every tier
+% at once: three declarations, one MeTTa equation, and one grounded operation
+% [source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean, skelBuiltin,
+% transcribed from upstream's builtin_mods/skel.metta and skel.rs; corpus
+% tests/semantics/grounded/28-builtin-module-skel.metta, 29 and 32, all three
+% STATUS conforms]. This engine resolved every import against the filesystem,
+% so all three read `existence_error(source_sink, skel)`.
+:- begin_tests(builtin_modules).
+
+test(skel_admits_both_tiers_and_is_idempotent,
+     [ cleanup(( forget_registered_function('skel-swap-pair-native'),
+                 forget_registered_function('skel-swap-pair'),
+                 remove_sexp('&self', [':', 'PairType', _]),
+                 remove_sexp('&self', [':', 'Pair', _]) )) ]) :-
+    %The tier discriminator before the import: an operation the engine does not
+    %hold yet is a Symbol, which is the arbiter's own answer for it.
+    process_metta_string("!(get-metatype skel-swap-pair-native)", Before),
+    assertion(Before == ['Symbol']),
+    process_metta_string("!(import! &self skel)", Imported),
+    assertion(Imported == [[]]),
+    process_metta_string("!(skel-swap-pair (Pair a b))", Equation),
+    assertion(Equation == [['Pair', b, a]]),
+    process_metta_string("!(skel-swap-pair-native (Pair a b))", Native),
+    assertion(Native == [['Pair', b, a]]),
+    %A repeated import is a no-op and does not duplicate the equation.
+    process_metta_string("!(import! &self skel)", Again),
+    assertion(Again == [[]]),
+    process_metta_string("!(skel-swap-pair (Pair a b))", Once),
+    assertion(Once == [['Pair', b, a]]),
+    %The two tiers report what they are.
+    process_metta_string("!(get-metatype skel-swap-pair)", EquationKind),
+    assertion(EquationKind == ['Symbol']),
+    process_metta_string("!(get-metatype skel-swap-pair-native)", NativeKind),
+    assertion(NativeKind == ['Grounded']).
+
+%A module cannot reach a built-in by its bare name, because a built-in is a
+%child of the TOP and the same name written inside a module is relative to that
+%module. Accepting it there would be worse than refusing: the import would
+%report success while the operation stayed unreduced
+%[source: LeaTTa tests/semantics/modules/35-builtin-from-module, whose STATUS
+%is diverges because the two engines word the refusal differently, both
+%refusing]. The two files are the arbiter's own shape: the top imports a
+%module, and the MODULE writes the bare built-in name.
+plunit_builtin_module_tree(Directory) :-
+    tmp_file(builtin_from_module, Directory),
+    make_directory(Directory),
+    directory_file_path(Directory, 'usesskel.metta', Module),
+    open(Module, write, ModuleStream),
+    write(ModuleStream, "!(import! &self skel)\n"),
+    close(ModuleStream),
+    directory_file_path(Directory, 'main.metta', Main),
+    open(Main, write, MainStream),
+    write(MainStream, "!(import! &self usesskel)\n"),
+    close(MainStream).
+
+test(a_module_cannot_reach_a_builtin_by_its_bare_name,
+     [ setup(( plunit_builtin_module_tree(Directory),
+               nb_setval(plunit_builtin_dir, Directory) )),
+       cleanup(( nb_getval(plunit_builtin_dir, Old),
+                 delete_directory_and_contents(Old) )) ]) :-
+    nb_getval(plunit_builtin_dir, Directory),
+    directory_file_path(Directory, 'main.metta', Main),
+    catch(( load_metta_file(Main, _), Outcome = imported ),
+          error(existence_error(source_sink, Name), _),
+          Outcome = refused(Name)),
+    assertion(Outcome == refused(skel)).
+
+:- end_tests(builtin_modules).
+
 :- begin_tests(module_colon_paths).
 
 %A module NAME may be a COLON PATH: `pkg:child` names pkg/child.metta beside
