@@ -1664,3 +1664,52 @@ test(wrapper_forms_run_in_named_spaces,
     assertion(R4 == 2).
 
 :- end_tests(named_space_wrappers).
+
+% A space handle is a VALUE of the language rather than a bare symbol, and both
+% questions about it have an answer: its metatype is Grounded and its declared
+% type is SpaceType, which is upstream's own name for it
+% [source: LeaTTa tests/semantics/spaces/space_identity.metta, STATUS conforms,
+% whose transcript is hyperon 0.2.10 printing Grounded and SpaceType for &self,
+% the same pair for a bound space, and SpaceType for a fresh (new-space) that
+% nothing has been written to yet].
+%
+% The engine's own registry answers both, so a handle a program makes at
+% runtime is covered the moment it exists rather than by naming it here.
+:- begin_tests(space_handle_type).
+
+test(the_ambient_space_is_grounded_and_typed) :-
+    findall(M, 'get-metatype'('&self', M), Metatypes),
+    assertion(Metatypes == ['Grounded']),
+    findall(T, 'get-type'('&self', T), Types),
+    assertion(Types == ['SpaceType']).
+
+% Freshness is the case a write-registered handle would miss: `(new-space)`
+% answers a space that exists, and asking its type must not be what makes it.
+test(a_fresh_space_is_one_before_anything_is_written_to_it) :-
+    'new-space'(Space),
+    findall(M, 'get-metatype'(Space, M), Metatypes),
+    assertion(Metatypes == ['Grounded']),
+    findall(T, 'get-type'(Space, T), Types),
+    assertion(Types == ['SpaceType']).
+
+% Through the surface, where bind! makes the handle reachable by a name the
+% reader substitutes away before the engine sees it.
+test(a_bound_space_answers_the_same_through_its_token,
+     [cleanup(retractall(metta_token('&plunit-handle-space', _)))]) :-
+    process_metta_string("!(bind! &plunit-handle-space (new-space))", _),
+    process_metta_string("!(add-atom &plunit-handle-space (handle-canary 1))",
+                         _),
+    process_metta_string("!(get-metatype &plunit-handle-space)", Metatypes),
+    assertion(Metatypes == ['Grounded']),
+    process_metta_string("!(get-type &plunit-handle-space)", Types),
+    assertion(Types == ['SpaceType']).
+
+% A symbol that names no space is untouched by any of it, which is the half
+% that keeps the answer a fact about the handle rather than about the spelling.
+test(a_symbol_that_names_no_space_is_unchanged) :-
+    findall(M, 'get-metatype'('plunit-handle-not-a-space', M), Metatypes),
+    assertion(Metatypes == ['Symbol']),
+    findall(T, 'get-type'('plunit-handle-not-a-space', T), Types),
+    assertion(Types == ['%Undefined%']).
+
+:- end_tests(space_handle_type).
