@@ -631,7 +631,7 @@ expected_special_heads([
     'foldl-atom', 'forall', 'get-metatype', 'let*', 'map-atom', 'not-provable',
     'remove-atom', 'test-no-answer', '|->', call, case, chain,
     collapse, cut, elapsed, eval, evalc, explain, hyperpose, if, let, match,
-    inferences, noeval,
+    inferences, noeval, nop,
     once, prog1, progn, quote, reduce, sealed, super, superpose, take, test,
     timeout,
     top, transaction, translatePredicate, unify, with_mutex
@@ -700,6 +700,36 @@ test(variable_heads_are_not_bound_to_a_special_form) :-
     translate_expr([Head, 1], Goals, _),
     var(Head),
     Goals = [reduce([Head, 1], _, _)].
+
+% nop takes any number of arguments and answers unit at all of them, which is
+% the one operation upstream's standard library says out loud it could not
+% write: "there is no way to define operation which consumes any number of
+% arguments and returns unit", directly above nop's own doc block
+% [source: hyperon-experimental@3f76dc4 stdlib.metta:608-609, quoted in LeaTTa
+% tests/semantics/types-basic/71-variadic-nop.metta]. Upstream answers it in
+% Rust instead, `grounded_op!(NopOp, "nop")` ignoring its whole argument list
+% (core.rs:58,61-63,70-74); a variadic special form is this engine's own way to
+% ignore an argument list. Measured on hyperon 0.2.10 at that pin on 2026-08-16
+% and on LeaTTa the same day, all three calls answer `[()]` on both.
+test(nop_answers_unit_at_every_arity,
+     [forall(member(Source, ["!(nop)", "!(nop 1)", "!(nop 1 2 3)"]))]) :-
+    process_metta_string(Source, Answers),
+    Answers == [[]].
+
+% The arguments are still EVALUATED, which is what upstream's grounded op does
+% before it ignores them, so a call with an effect in it keeps the effect.
+test(nop_evaluates_the_arguments_it_discards) :-
+    process_metta_string("!(nop (+ 1 2) (nop-effect-marker))", Answers),
+    Answers == [[]].
+
+% Nothing is DECLARED for it. The variadic declaration LeaTTa carries is its
+% own divergence, taken under the marker above, and upstream's generated
+% reference gives nop the undeclared `%Undefined%` instead
+% [source: LeaTTa tests/semantics/types-basic/71-variadic-nop.metta, STATUS
+% "diverges from Hyperon 0.2.10 on the first and last answers"].
+test(nop_carries_no_declared_type) :-
+    process_metta_string("!(get-type nop)", Answers),
+    Answers == ['%Undefined%'].
 
 test(space_predicates_use_space_storage,
      [ setup(add_sexp('&self', [plunit_space_predicate, a, b])),
