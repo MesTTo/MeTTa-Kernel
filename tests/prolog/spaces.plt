@@ -1073,6 +1073,32 @@ test(removing_one_rule_keeps_the_other_visible) :-
 
 :- end_tests(spaces_type_extensions).
 
+% A space may EXTEND an engine operation by writing an equation for its name,
+% and taking that equation back must leave the engine's own operation where it
+% was. It did not: removing the last equation asked whether any COMPILED clause
+% for the name was left, the engine's builtin is not one, so the name-wide
+% `fun/1` registration went with the equation and `!(get-type 1)` answered
+% `(get-type 1)` unreduced for the rest of the process. Reproduced 2026-08-20
+% through this file's own spaces_type_extensions cleanup, which left every
+% later MeTTa-level get-type call unreduced.
+:- begin_tests(builtin_survives_equation_removal).
+
+builtin_extension_space('&plunit_builtin_survives').
+builtin_extension_equation([=, ['get-type', 'plunit-bse-subject'],
+                            'plunit-bse-type']).
+
+test(removing_a_space_equation_leaves_the_builtin_registered,
+     [cleanup(clear_native_atoms('&plunit_builtin_survives'))]) :-
+    builtin_extension_space(Space),
+    builtin_extension_equation(Equation),
+    'add-atom'(Space, Equation, _),
+    'remove-atom'(Space, Equation, _),
+    assertion(fun('get-type')),
+    process_metta_string("!(get-type 1)", Answers),
+    assertion(Answers == ['Number']).
+
+:- end_tests(builtin_survives_equation_removal).
+
 
 % A foreign space holds RULES, not only facts. In MeTTa a space is BOTH a data
 % source and where the program lives: evaluation is match against (= lhs rhs)
