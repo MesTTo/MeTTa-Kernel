@@ -509,7 +509,10 @@ expected_outputs(clp_less, [true]).
 expected_outputs(clp_greater, [true]).
 expected_outputs(clp_equal, [true]).
 expected_outputs(clp_different, [true]).
-expected_outputs(representation, ["true"]).
+%`True`, not `true`: repr/2 is swrite/2, which writes the language's own
+%spelling of the boolean the reader mapped onto Prolog's
+%[tested: parser_roundtrip:booleans_print_in_the_languages_own_spelling].
+expected_outputs(representation, ["True"]).
 
 test(prebound_outputs_must_be_producible,
      [forall(wrong_prebound_output(Goal)), fail]) :-

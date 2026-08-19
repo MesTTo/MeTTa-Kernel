@@ -48,6 +48,19 @@ test(deep, [forall(between(1, 6, Depth))]) :-
 nest(0, leaf) :- !.
 nest(N, [node, Inner]) :- M is N - 1, nest(M, Inner).
 
+%The language's booleans are spelled `True` and `False`. The reader maps both
+%onto Prolog's own true/false so a compiled guard can call them directly, and
+%the writer maps them back: without that half the round trip renamed the
+%language's own constants, `!(== 1 2)` answering `false` where the arbiter
+%answers `False` [source: LeaTTa tests/semantics/grounded/07-partial-core.metta
+%and 04-boolean.metta, both STATUS conforms].
+test(booleans_print_in_the_languages_own_spelling) :-
+    swrite(true, T), swrite(false, F),
+    swrite([pair, true, false], Pair),
+    T == "True", F == "False", Pair == "(pair True False)".
+
+test(booleans_round_trip) :- roundtrip([pair, true, false]).
+
 test(shared_variable_stays_shared) :-
     sread("(= (f $x) $x)", Term),
     Term = [=, [f, A], B],
