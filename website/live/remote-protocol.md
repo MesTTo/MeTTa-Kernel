@@ -82,20 +82,23 @@ that crosses is a decision, not drift. The projection:
 ## Atoms on the wire
 
 An atom is a tagged JSON array, the same wire the local Python boundary
-speaks:
+speaks: `["e", [["s","edge"], ["s","a"], ["v","x"]]]` is `(edge a $x)`.
 
-```json
-["s", "edge"]                 a symbol
-["v", "x"]                    a variable
-["n", 42]                     a number
-["g", "text"]                 a grounded value; strings cross this way
-["e", [["s","edge"], ["s","a"], ["v","x"]]]   an expression
-```
+`CODEC.md` in the repository root is the grammar, and it is the one
+authority for it: the tags and their payloads, the identity law for
+variables, the exactness law for numbers, and
+`tests/codec/corpus.json`, the golden corpus your server can be run
+against. A gateway speaks the CORE PROFILE, `s v n g e`. Read that page
+before writing the parsing half of a server; everything below is the
+HTTP half, which is this page's own.
 
-Wide integers deserve a decision, not an accident: PeTTa's own numbers
-are exact at any width, so a server whose JSON parser rounds past 2^53
-must refuse such a payload rather than store a different atom. The
-reference implementation answers 400 naming the literal.
+Two of its rules bite a gateway in particular, both about answering a
+different atom than the one you were given. PeTTa's numbers are exact at
+any width, so a server whose JSON parser rounds past 2^53 must refuse
+the payload; the reference implementation answers 400 naming the
+literal. And an integer and a float are different atoms even at the same
+value, `!(== 1.0 1)` being `False`, so a language with one number type
+has to carry the distinction some other way or refuse it.
 
 ## Semantics a server must keep
 

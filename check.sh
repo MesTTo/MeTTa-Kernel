@@ -14,7 +14,7 @@
 #                                            xenon refurb vulture slotscheck
 #                                            bandit deptry audit interrogate
 #                                            codespell imports jscpd prolog
-#                                            leatta leatta-gate-selftest
+#                                            codec-doc leatta leatta-gate-selftest
 #                                            pytest benchmarks instructions
 #                                            shell examples leatta
 #          CHECK_PY=/path/to/python   pick the interpreter
@@ -524,6 +524,13 @@ run GATE reference  "$PY" "$HERE/python/tools/reference.py"
 # library's own (@doc ...) atoms, and its coverage table is the burn-down
 # surface interrogate provides for the Python side.
 run GATE libdoc     "$PY" "$HERE/python/tools/libdoc.py"
+
+# The codec grammar and its conformance corpus are one authority, so CODEC.md's
+# tables are generated from tests/codec/corpus.json and this asks only whether
+# what is checked in is what the corpus says. Before the document existed, a new
+# binding reverse-engineered shim.pl, and the two shipped codecs disagreed about
+# six payloads with nothing to say which was right.
+run GATE codec-doc  "$PY" "$HERE/python/tools/codecdoc.py"
 
 # llms.txt is the file an agent reads INSTEAD of the tree, so a stale claim
 # there is believed rather than checked. It had gone stale exactly that way:

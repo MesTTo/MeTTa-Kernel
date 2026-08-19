@@ -138,5 +138,11 @@ jobs:
           for required in ('src', 'lib', 'backends', 'hosts'):
               assert (runtime / required).is_dir(), f'{required}/ missing from the wheel'
           assert list((runtime / 'backends').glob('*.pl')), 'backends/ shipped empty'
+          # The codec's golden corpus is data a third party reads out of an
+          # installed tree to certify their own codec, so it ships or the kit
+          # is checkout-only. Loaded rather than stat'ed, because a truncated
+          # copy would pass a file test.
+          from petta.testing import codec_corpus
+          assert codec_corpus()['grammar'] == 'CODEC.md', 'the codec corpus did not ship'
           print('wheel boots, evaluates outside the checkout, and carries the backend seam')
           "
