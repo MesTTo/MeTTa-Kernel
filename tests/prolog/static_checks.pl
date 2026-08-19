@@ -824,15 +824,25 @@ a_backend_calls_only_published_surface :-
 % engine internal fails here naming the pair. The walker's own eyesight is
 % proven by the backend check's planted reaches in the same run, one proof
 % for one shared walker.
+% Every shipped host transport: the file that loads it, and the directory its
+% clauses live in. A fact each, so the next binding is a line here rather than
+% a second copy of the walk, and so the count below is the tree's rather than a
+% number in this comment.
+host_transport('../../python/petta/shim.pl', '../../python/petta').
+host_transport('../../bindings/node/bridge.pl', '../../bindings/node').
+
 a_host_binding_calls_only_published_surface :-
-    ensure_loaded('../../python/petta/shim.pl'),
-    reaches_past_surface(['../../python/petta'], Reaches),
+    forall(host_transport(Entry, _), ensure_loaded(Entry)),
+    findall(Directory, host_transport(_, Directory), Directories),
+    reaches_past_surface(Directories, Reaches),
+    length(Directories, Bindings),
     (   Reaches == []
-    ->  format("static: the host binding calls only published surface~n")
+    ->  format("static: every one of ~d host bindings calls only published \c
+                surface~n", [Bindings])
     ;   forall(member(Caller-Callee, Reaches),
                format(user_error,
-                      'the shim predicate ~w calls ~w, an engine internal \c
-                       rather than published surface~ndeclare it \c
+                      'the host transport predicate ~w calls ~w, an engine \c
+                       internal rather than published surface~ndeclare it \c
                        ext_point_kind(~w, host_service) in \c
                        src/ext_points.pl if the host transport is meant to \c
                        call it~n',
