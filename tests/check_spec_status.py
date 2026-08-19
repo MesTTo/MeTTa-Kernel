@@ -79,8 +79,8 @@ Assumes:
   - ai-spec-execution.md sits one directory above the repository's MAIN
     checkout (not necessarily above `this` worktree), and the LeaTTa
     arbiter corpus one directory above THAT, per this workspace's own
-    standing layout [source: /home/user/Dev/PyPeTTa1/CLAUDE.md, "Ledgers"
-    and "the arbiter corpus in /home/user/Dev/LeaTTa"] [assumed 2026-08-18]
+    standing layout [source: the workspace CLAUDE.md, "Ledgers"
+    and "the arbiter corpus", LeaTTa] [assumed 2026-08-18]
   - GFM table cells split on `|`, except one escaped as `\\|` or one that
     falls inside a matched run of backticks, which is how three of this
     spec's own rows carry a literal `|` (`shim.pl:92`'s `[F\\|Args]`, the
@@ -173,7 +173,7 @@ from evidence_runners import COLLECTORS, LANE, ROOT, Execution, executed
 def _main_checkout(here: Path) -> Path:
     """The repository's PRIMARY checkout, even when `here` is a git-worktree
     copy of it (an isolated agent's own worktree, per this workspace's own
-    convention: see /home/user/Dev/PyPeTTa1/CLAUDE.md and worktree.sh). A
+    convention: see the workspace CLAUDE.md and worktree.sh). A
     worktree's `.git` is a FILE, not a directory, reading
     `gitdir: <main>/.git/worktrees/<name>`; three parents up from that path
     is `<main>`, the same fact `worktree.sh` derives via `git worktree list`
@@ -697,7 +697,7 @@ def _is_test_shaped(path: Path) -> bool:
 
 
 # Every literal root a cited path is checked against, outermost fallback
-# last. WORKSPACE.parent is `/home/user/Dev`-equivalent, derived the same
+# last. WORKSPACE.parent is the workspace's own parent, derived the same
 # worktree-safe way WORKSPACE is (never a literal `/home` path in this
 # file): the arbiter corpus `LeaTTa` sits there as a normative sibling per
 # this workspace's own CLAUDE.md, and P2.13's acceptance cites

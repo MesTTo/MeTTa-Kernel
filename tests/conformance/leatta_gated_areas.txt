@@ -13,7 +13,7 @@
 # whole lane.
 #
 # Promoting an area is a claim, so promote it only once
-#   PY=/home/user/Dev/.venv-pypetta/bin/python
+#   PY=<the checks venv's python; DEVELOPING.md names it>
 #   "$PY" tests/conformance/leatta.py --area NAME --gate
 # exits 0 with LeaTTa checked out. Uncomment its line below in the same
 # commit that makes the claim true, and say in the commit message what now

@@ -1153,7 +1153,7 @@ test(a_list_argument_stays_a_list,
 %LIST and runs the ordinary check against the wider list, so the matcher learns
 %nothing about subtyping and `get-type` is where it shows. Every expectation
 %below is the arbiter's measured answer from pinned hyperon 0.2.10 at 3f76dc4
-%[source: /home/user/Dev/LeaTTa/ai-report-subtype-graph.md].
+%[source: LeaTTa ai-report-subtype-graph.md].
 
 subtype_case(Setup, Query, Expected) :-
     forall(member(Form, Setup), process_metta_string(Form, _)),
