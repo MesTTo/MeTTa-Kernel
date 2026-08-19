@@ -156,9 +156,27 @@ def main() -> int:
                 f"--area with --gate-areas-file was silently accepted:\n{combined.stderr}"
             )
 
+        # The authority model: the arbiter's word settles. A STATUS of
+        # diverges is a commitment, the arbiter ruling against upstream, so
+        # a difference there is engine backlog; only an undecided-* status
+        # awaits the arbiter's own ruling.
+        (root / "gamma").mkdir()
+        (root / "gamma/committed.metta").write_text(
+            BETA_CLEAN.replace("[4]", "[9]").replace("conforms", "diverges"))
+        (root / "gamma/open.metta").write_text(
+            BETA_CLEAN.replace("!(+ 2 2)", "!(+ 3 3)").replace("[4]", "[9]")
+            .replace("conforms", "undecided-upstream"))
+        authority = run(root, None)
+        if "await the arbiter's own ruling" not in authority.stdout:
+            complaints.append(
+                f"authority split not reported:\n{authority.stdout}")
+        if "diverges: 1" not in authority.stdout or "undecided-upstream: 1" not in authority.stdout:
+            complaints.append(
+                f"status breakdown missing:\n{authority.stdout}")
+
     for complaint in complaints:
         print(complaint)
-    print(f"{len(complaints)} defect(s) in the per-area leatta gate, over 8 checks")
+    print(f"{len(complaints)} defect(s) in the per-area leatta gate, over 10 checks")
     return 1 if complaints else 0
 
 

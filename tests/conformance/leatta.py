@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import argparse
 import re
+from collections import Counter
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -89,8 +90,14 @@ class Comparison:
 
     @property
     def settled(self) -> bool:
-        """Whether the arbiter itself claims to have settled this behaviour."""
-        return self.status.startswith("conforms")
+        """Whether the arbiter has committed to this behaviour.
+
+        The arbiter's word is the definition, so conforms, diverges and
+        ours are all commitments: a diverges file is the arbiter RULING
+        against upstream, and a difference against it is engine backlog.
+        Only an undecided-* status still awaits the arbiter's own ruling.
+        """
+        return not self.status.startswith("undecided")
 
     @property
     def agrees(self) -> bool:
@@ -244,6 +251,10 @@ def summarize(corpus: Path, results: list[Comparison], show: int, label: str) ->
     agreeing = [result for result in checkable if result.agrees]
     differing = [result for result in checkable if not result.agrees]
     unsettled = [result for result in differing if not result.settled]
+    status_counts = Counter(
+        result.status.rstrip(".") or "(none)" for result in differing)
+    status_breakdown = ", ".join(
+        f"{name}: {count}" for name, count in sorted(status_counts.items()))
     comparable = sum(len(result.expected) for result in checkable)
     skipped = sum(result.skipped for result in results)
 
@@ -257,8 +268,9 @@ def summarize(corpus: Path, results: list[Comparison], show: int, label: str) ->
         f"{comparable} answer groups compared.\n"
         f"  {len(uncheckable)} files state their MEASURED block as prose and can carry "
         f"no diff\n"
-        f"  {len(unsettled)} of the {len(differing)} differing are on behaviour the "
-        f"arbiter itself has not settled\n"
+        f"  {len(unsettled)} of the {len(differing)} differing await the arbiter's own "
+        f"ruling (an undecided-* status); the rest differ from its commitments\n"
+        f"  differing by the arbiter's status: {status_breakdown}\n"
         f"  {skipped} MEASURED lines are printed output rather than answers"
     )
     return bool(differing)
