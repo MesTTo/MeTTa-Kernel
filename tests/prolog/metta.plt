@@ -889,6 +889,46 @@ test(a_program_declaration_is_answered_before_the_engines,
 
 :- end_tests(metta_builtin_type_surface).
 
+%comparable_operands/3 at the predicate's own door, where the answer is a
+%Prolog one and no MeTTa reduction stands between the operands and the
+%verdict.
+:- begin_tests(comparable_operands).
+
+test(two_known_and_different_kinds_are_refused,
+     [forall(member(A-B, [1-"s", true-1, "s"-1, 1-true]))]) :-
+    catch(( '=='(A, B, _), Formal = none ), error(Formal, _), true),
+    assertion(Formal = type_error(_, _)).
+
+test(a_pair_of_one_kind_is_compared,
+     [forall(member(A-B-R, [1-1-true, 1-2-false, "s"-"s"-true,
+                            true-false-false]))]) :-
+    '=='(A, B, Answer),
+    assertion(Answer == R).
+
+%An operand nothing declares contradicts nothing, so the comparison happens.
+test(an_undeclared_operand_is_compared_rather_than_refused) :-
+    '=='(1, plunit_no_declaration, First),
+    assertion(First == false),
+    '=='(plunit_no_declaration, "s", Second),
+    assertion(Second == false).
+
+%Expressions are the axis the two references disagree on, so the guard leaves
+%them alone and the collapse-and-compare idiom keeps working.
+test(an_expression_operand_is_never_refused,
+     [forall(member(A-B-R, [[1,2,3]-[]-false, []-[]-true, [1,2]-[3,4]-false,
+                            []-1-false, "s"-[]-false]))]) :-
+    '=='(A, B, Answer),
+    assertion(Answer == R).
+
+test(the_refusal_names_the_metta_operation) :-
+    catch('=='(1, "s", _), error(_, Context), true),
+    assertion(Context = context('==', _)),
+    catch('!='(1, "s", _), error(_, NeContext), true),
+    assertion(NeContext = context('!=', _)).
+
+:- end_tests(comparable_operands).
+
+
 :- begin_tests(metta_constraint_domains).
 
 %CLP(Q) and CLP(B) each arrive as ONE entry point taking its constraint as

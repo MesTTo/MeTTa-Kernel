@@ -46,6 +46,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   against 369. Eleven counter baselines are raised with that attribution and
   no other number moved.
 
+- `==` and `!=` refuse a comparison across two KNOWN and different types
+  instead of answering `False`. `!(== 1 "S")` answered `False`, which is also
+  the answer for two Numbers that differ, so a conditional took the else
+  branch and nothing said the question was meaningless. Both are declared
+  `(-> $a $a Bool)` now, one type variable, matching upstream's own signature
+  for `==`, and the refusal names the operation and the operand:
+  `==: Number expected, found "S"`.
+
+  Only a PROVEN mismatch is refused. `!(== 1 a)` still answers `False` when
+  nothing declares `a`, because nothing is contradicted, and expressions are
+  left alone entirely: `!(== (collapse ...) ())` and `!(== (1 2 3) ())` answer
+  exactly as before. `=alpha` is unchanged and remains the comparison that
+  takes anything, so a program that wants a cross-kind verdict has one.
+
+  Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+  interpreter over 29 shapes; every shape the two references agree on now
+  matches, and the three they disagree on keep the answer PeTTa already gave.
+  Costs nothing on the hot path: a thousand-iteration `==` loop is 4487.45
+  inferences before and after, because two numbers are settled inline.
+
 - `%Undefined%` is the gradual type and is now consistent with every type in
   both directions, which is what decides whether a typed call admits an
   argument. This engine had both directions backwards. A parameter declared
