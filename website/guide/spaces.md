@@ -34,7 +34,7 @@ Subscription is query. `m[pattern]` answers `query(pattern)`, and because Python
     assert [(row.x, row.z) for row in rows] == [(S.a, S.c)]
 ```
 
-A str key parses first, so `m["(edge $x $y)"]` works, and a slice is refused: `query(limit=n)` bounds an answer set, `stream()` pulls rows until you stop. Deletion pairs with subscription the way `d[k]` and `del d[k]` pair: `del m[pattern]` removes every unifying occurrence, and raises `KeyError` when nothing unified, where `remove()` reports absence as `False` instead.
+A str key parses first, so `m["(edge $x $y)"]` works, and a slice is refused: `query(limit=n)` bounds an answer set, `stream()` pulls rows until you stop. Deletion pairs with subscription the way `d[k]` and `del d[k]` pair. The two removal doors differ in how much they take: `remove()` is multiset subtraction, one unifying occurrence per call, reporting absence as `False`; `del m[pattern]` is the bulk spelling that drains every unifying occurrence, since `m[pattern]` is a query answering many rows, and it raises `KeyError` when nothing unified.
 
 The in-place operators split by what their operand means. `m += x` is `add(x)` exactly, one atom per use, so a list lifts into one expression atom the same way `add` reads it; `m -= x` is `remove(x)`. The bulk door is `|=`, whose operand has no lifted reading: another space (equations included, compiled on arrival), a registered space name, or an iterable adding each element. A dict is refused there, because `add` reads the same dict as one grounded atom and its values would silently vanish.
 

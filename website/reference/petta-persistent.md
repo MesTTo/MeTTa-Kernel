@@ -9,6 +9,10 @@ Source: `python/petta/persistent.py`.
 > record is copied to ``<journal>.tail`` and removed only when every earlier
 > newline-terminated record validates. Earlier corruption is refused.
 > Guarantees:
+>   - removal subtracts ONE stored fact and journals one `retract(Fact)` for
+>     it, the same multiset law a native space obeys, so a provider swap does
+>     not change what `remove-atom` means [tested
+>     test_a_persistent_space_subtracts_one_fact_like_a_native_one]
 >   - constructor failure releases its path claim and any unattached reusable
 >     module [tested test_constructor_failure_releases_path_and_unattached_module]
 >   - terminal-tail recovery syncs the backup file and its directory before

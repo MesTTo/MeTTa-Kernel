@@ -28,11 +28,29 @@
             (test (collapse (match &cstore (edge a $x) $x)) (b c)))
      True)
 
-;Removal means what remove-atom means everywhere: every occurrence that
-;unifies goes, and the store answers whether any was there.
+;Removal means what remove-atom means everywhere: ONE occurrence that
+;unifies goes, multiset subtraction, and the store answers whether one was
+;there. Two stored atoms match (edge a $any), so clearing them takes two
+;removals rather than one.
 !(if (file-exists "./examples/integration/c_space/cstore.so")
      (progn (remove-atom &cstore (edge a $any))
+            (test (size-atom (collapse (match &cstore (edge $x $y) ($x $y)))) 2)
+            (remove-atom &cstore (edge a $other))
             (test (collapse (match &cstore (edge $x $y) ($x $y))) ((b c))))
+     True)
+
+;Identical copies are where the reading matters most, and where this store
+;used to disagree with the seam it implements: three adds gave count 3 and
+;one removal gave count 0. Subtraction walks the count down one at a time.
+!(if (file-exists "./examples/integration/c_space/cstore.so")
+     (progn (add-atom &cstore (dup 1))
+            (add-atom &cstore (dup 1))
+            (add-atom &cstore (dup 1))
+            (remove-atom &cstore (dup 1))
+            (test (size-atom (collapse (match &cstore (dup $n) $n))) 2)
+            (remove-atom &cstore (dup 1))
+            (remove-atom &cstore (dup 1))
+            (test (size-atom (collapse (match &cstore (dup $n) $n))) 0))
      True)
 
 ;The seam's own proof harness, asked of the C provider: every declared

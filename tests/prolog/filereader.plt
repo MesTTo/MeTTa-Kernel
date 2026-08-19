@@ -316,17 +316,19 @@ test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
                         user:'get-atoms'(Space,
                                          ['plunit-import-triple', _, _]),
                         Before),
-          % false, and that is the assertion. A wildcard of the wrong SHAPE
-          % matches nothing, and the report says so: this used to be `true`
-          % unconditionally, so the counts below were the only evidence that
-          % nothing had been removed.
+          % Nothing removed, and that is the assertion. A wildcard of the
+          % wrong SHAPE matches nothing, and BOTH doors say so: this used to
+          % report `true` unconditionally, so the counts below were the only
+          % evidence that nothing had been removed.
           %
-          % Asked of metta_remove_atom/3 rather than of `remove-atom`, because
-          % the language-facing one answers the unit value now: its type is
-          % `(-> spaceType Atom (->))` and absence is explicitly not reported
-          % there. The report is still made, one layer in, where the engine
-          % itself reads it.
-          user:'remove-atom'(Space, [_, _], []),
+          % The two doors word it differently on purpose. The language-facing
+          % one answers the absence error a MeTTa program can branch on, and
+          % metta_remove_atom/3 answers the plain boolean the engine's own
+          % callers read, which is the same split 'add-atom'/3 draws against
+          % metta_add_atom/3.
+          user:'remove-atom'(Space, [_, _], Refused),
+          Refused = ['Error', ['remove-atom', Space, [_, _]],
+                     "remove-atom: atom is not in the space"],
           user:metta_remove_atom(Space, [_, _], false),
           aggregate_all(count,
                         user:'get-atoms'(Space,

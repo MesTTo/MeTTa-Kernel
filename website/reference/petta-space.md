@@ -49,9 +49,12 @@ Source: `python/petta/space.py`.
 >   - register_prolog reads a metta_export declaration from inline source as it
 >     does from a file [tested 2026-08-16:
 >     test_inline_source_declares_its_own_exports_too]
->   - del m[pattern] removes every unifying occurrence and raises KeyError
+>   - remove() is multiset subtraction, one unifying occurrence per call,
+>     the same law remove-atom obeys [tested
+>     test_the_python_remove_door_subtracts_one_copy]
+>   - del m[pattern] drains every unifying occurrence and raises KeyError
 >     when none unified, remove() reporting the same absence as False
->     [tested test_delitem_removes_every_unifying_occurrence]
+>     [tested test_delitem_drains_every_unifying_occurrence]
 >   - |= merges a space, a registered space name, or an iterable, and refuses
 >     an operand add() would lift into one atom [tested
 >     test_ior_merges_a_space_equations_included,
@@ -403,9 +406,11 @@ def add_table(self, head: Any, data: Any) -> int:
 def remove(self, atom: Any) -> bool:
 ```
 
-> Remove an atom, engine semantics: an equation removal reports
-> whether it existed; a plain atom removal removes every copy and
-> reports whether at least one copy existed. A bare variable is
+> Remove an atom, engine semantics: multiset subtraction, so ONE
+> unifying occurrence leaves and the answer says whether one did.
+> This is the same law `remove-atom` obeys, so both doors say the
+> same thing about the same operation; `del m[pattern]` is the
+> bulk spelling that drains every occurrence. A bare variable is
 > the remove-everything reading a multiset space gives it, each
 > atom leaving through its own proper path, equations and their
 > compiled clauses included.
@@ -1303,9 +1308,13 @@ def subscribe(
 > and a write arriving at a full queue raises SubscriberError rather
 > than discarding the oldest event: nobody draining is a bug in the
 > consumer, and a silently shortened history is how it stays hidden.
-> Removal events for plain atoms may fire for atoms that were never
-> stored, since the engine's removal is retractall; re-check the
-> space rather than trust the event.
+> A removal event fires only when something was removed, and carries
+> the pattern that was asked for rather than the occurrence that
+> left. The two are the same atom for a ground removal and differ
+> for a pattern one: removal is multiset subtraction, so
+> `remove(S.alert(V.q))` takes one of the alerts and the event
+> cannot say which. Re-read the space when you need to know;
+> `petta.structures.LiveView` is the worked instance.
 
 ### `MeTTa.prolog`
 

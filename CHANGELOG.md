@@ -6,7 +6,107 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A conjunctive `match` now finds every row before any output template runs,
+  which the language specifies: "match first finds all the matches, and then
+  instantiates the output pattern with them, which is evaluated outside match.
+  If `remove-atom` and `add-atom` would be executed right away for each found
+  matching, the condition of circular links would be broken after the first
+  rewrite." On the doc's own graph-rewriting example, upstream reverses all
+  three links of a loop and this reversed ONE, the first template's
+  `remove-atom` breaking the cycle for every conjunct that had not run yet.
+
+  A single pattern always had the guarantee and still streams: it is one goal
+  over one dynamic predicate, and Prolog's logical update view already fixes
+  what it sees at the call, so `(once (match &big (foo $x) $x))` does not walk
+  a big space. A conjunction is where that ran out, because each later conjunct
+  is a fresh goal started after the previous row's template wrote. Its rows are
+  now collected first, annotations included.
+
+  `examples/spaces/match_snapshot.metta` runs the doc's example and the
+  arbiter's own two-row detector under the gate.
+
+- Clearing a space now empties both of its halves. A space has stored atoms
+  and, for the atoms that compiled, clauses in its own execution module, and
+  the engine's own clear dropped only the first: define
+  `(= (past-life) inherited)` in a space, clear it, and `!(past-life)` in that
+  now-empty space still answered `inherited`. Space names are pooled, so that
+  is a previous life answering through a recycled name.
+
+  The Python surface was never affected, because its clear removes equations
+  through the removal path before reaching the engine door. Every other caller
+  got the half clear, and the reload path will come through the same door.
+  Equations and type declarations now leave through `metta_remove_atom/3`,
+  which un-compiles the clause and forgets the function name when nothing else
+  defines it; plain atoms have no compiled half and stay on the one-retractall
+  sweep.
+
 ### Changed
+
+- `remove-atom` takes ONE occurrence, not every one. A space is a multiset and
+  removal is multiset subtraction, so three `(add-atom &self (dup 1))` and one
+  `(remove-atom &self (dup 1))` now leave two; they used to leave none. The
+  same holds for a pattern: `(remove-atom &self (edge a $any))` takes one of
+  the atoms unifying with it, and `del m[pattern]` is the bulk spelling that
+  drains them all.
+
+  The old reading's stated reason argued for the opposite of what it
+  concluded, "a MeTTa space is a multiset unless something forbids it, SO
+  removal takes EVERY occurrence", and the tree it produced was a multiset on
+  add and a set on remove. The arbiter reads the premise the other way:
+  `remove-atom` "must behave as multiset subtraction on the reader-visible
+  view of `&self`", and its own model "removes the first exact occurrence and
+  returns unit". This engine had already decided it everywhere else, in the
+  seam's own `metta_foreign_remove/3` ("remove one") and in the retained
+  equations, which go one variant-equivalent clause at a time.
+
+  One law now, whichever space holds the atoms. `PersistentFactSpace` retracts
+  one journalled fact instead of a `retractall` sweep, so its journal records
+  `retract(Fact)`; the TypeScript reference servers, the C store example, the
+  CeTTa and DuckDB example providers and the remote protocol's conformance
+  suite all subtract one. `LiveView` mirrors it: a removal event carries the
+  pattern that was asked for rather than the occurrence that left, so a ground
+  removal decrements locally and a pattern removal re-reads the space rather
+  than guessing which copy went.
+
+- `remove-atom` distinguishes a removal that happened from one that found
+  nothing. Removing an atom the space holds still answers the unit value;
+  removing one it does not hold now answers
+  `(Error (remove-atom <space> <atom>) "remove-atom: atom is not in the
+  space")` instead of the same silent unit.
+
+  The language's own text is what asks for this. "If the given atom is not in
+  the space, `remove-atom` currently neither raises a error nor returns the
+  empty result" is a complaint, and upstream carries the same question
+  unanswered as a TODO at `stdlib/space.rs:219`, "Is it necessary to
+  distinguish whether the atom was removed or not?". The arbiter answers it:
+  LeaTTa's Hyperon-Hacks-Register row 15 rules "Implement. Keep the
+  distinction", and `Metta.Minimal.removeAtomStep` is where it holds. This is
+  a deliberate divergence from Hyperon as shipped, which answers unit for
+  both, towards the specification the two of them share.
+
+  The refusal is an answer and not a throw, so `(collapse (remove-atom ...))`
+  holds it and a program can branch on it. `metta_remove_atom/3` still answers
+  the plain boolean the engine's own callers read.
+
+- `get-atoms` and `match` refuse a first argument that is not a space by
+  answering a MeTTa error naming themselves, the way `add-atom` already did.
+  Both used to raise SWI's bare `Arguments are not sufficiently instantiated`,
+  which names neither the operation nor the call, aborts the whole file under
+  `run.sh` and arrives in Python as an `EngineError` whose `operation` field
+  is `None`. Now `!(get-atoms $u)` answers
+  `(Error (get-atoms $u) "get-atoms expects a space as its argument")` and
+  `!(match $u (foo $x) $x)` answers
+  `(Error (match $u (foo $x) $x) "match expects a space as the first
+  argument")`, both as data a `collapse` can hold rather than as a throw that
+  would empty it. The wording follows upstream, which words the one-argument
+  operation differently from the two-argument ones: pinned `space.rs:143` says
+  "its argument" where `:172` and `:199` say "the first argument".
+
+  The refusal reaches the conjunctive form too, `!(match $u (, (foo $x)
+  (bar $x)) $x)`, which used to commit to the conjunction router before the
+  space was ever examined.
 
 - Every space now compiles its equations into a Prolog module of its own,
   `&self` included, and `space_module/2` names it. `&self` used to compile

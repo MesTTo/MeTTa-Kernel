@@ -152,23 +152,26 @@ test(an_effectful_operation_answers_unit,
     assertion(Meta == 'Expression'),
     assertion([] \== true).
 
-test(spaces_removal_answers_unit_and_reports_internally,
+test(spaces_removal_answers_unit_for_success_and_an_error_for_absence,
      [ setup(cleanup_arbitrary_space), cleanup(cleanup_arbitrary_space) ]) :-
     arbitrary_space(Space),
     add_sexp(Space, [pair, 1, 2]),
     add_sexp(Space, lonely),
-    % The LANGUAGE-facing answer is unit whether or not anything went, and the
-    % language says so: "if the given atom is not in the space, remove-atom
-    % currently neither raises a error nor returns the empty result"
-    % [source: the language's Working with spaces]. This test used to assert
-    % true and false here, which was PeTTa reporting something real through a
-    % slot the specification reserves for unit.
+    % Unit for a removal that happened and an error for one that found
+    % nothing. The language's own complaint is what asks for the second half,
+    % "if the given atom is not in the space, remove-atom currently neither
+    % raises a error nor returns the empty result", and upstream carries the
+    % same question unanswered as the TODO at stdlib/space.rs:219. The arbiter
+    % rules it: LeaTTa Hyperon-Hacks-Register row 15, error for absence and
+    % unit for success, SATISFIED in Metta.Minimal.removeAtomStep. This test
+    % used to assert unit for all three.
     'remove-atom'(Space, [pair, 1, 2], Present),
     assertion(Present == []),
     'remove-atom'(Space, [pair, 1, 2], Repeated),
-    assertion(Repeated == []),
+    assertion(Repeated = ['Error', ['remove-atom', Space, [pair, 1, 2]], _]),
     'remove-atom'(Space, [never, there], Absent),
-    assertion(Absent == []),
+    assertion(Absent = ['Error', ['remove-atom', Space, [never, there]],
+                        "remove-atom: atom is not in the space"]),
     % The information is not lost, it moved to where the ENGINE uses it:
     % metta_remove_atom/3 still answers whether anything was there, which is
     % what the loader's rollback and the storage modules read.
@@ -176,13 +179,27 @@ test(spaces_removal_answers_unit_and_reports_internally,
     assertion(Removed == true),
     metta_remove_atom(Space, nonesuch, Missing),
     assertion(Missing == false),
-    % Removal still takes EVERY occurrence: a space is a multiset.
+    % Removal takes ONE occurrence, because a space is a multiset and
+    % subtracting from a multiset takes one. This used to assert that two
+    % adds and one removal left NOTHING, on the reasoning that "a MeTTa space
+    % is a multiset unless something forbids it, so removal takes EVERY
+    % occurrence", which argues for the opposite of what it concludes. The
+    % arbiter agrees with the premise: MettaHyperonFullTests/Properties.lean
+    % requires multiset subtraction on the reader-visible view of &self.
     add_sexp(Space, [twice, x]),
     add_sexp(Space, [twice, x]),
-    'remove-atom'(Space, [twice, x], Both),
-    assertion(Both == []),
-    findall(A, get_native_atom(Space, A), Left),
-    assertion(Left == []).
+    'remove-atom'(Space, [twice, x], One),
+    assertion(One == []),
+    findall(A, get_native_atom(Space, A), Half),
+    assertion(Half == [[twice, x]]),
+    'remove-atom'(Space, [twice, x], Other),
+    assertion(Other == []),
+    findall(B, get_native_atom(Space, B), Left),
+    assertion(Left == []),
+    % And the two rulings compose: once the copies are gone the next removal
+    % is an absence rather than a third silent unit.
+    'remove-atom'(Space, [twice, x], Gone),
+    assertion(Gone = ['Error', ['remove-atom', Space, [twice, x]], _]).
 
 setup_arbitrary_space :-
     cleanup_arbitrary_space,
@@ -383,6 +400,20 @@ test(space_names_enumerate_the_registered_spaces,
     \+ memberchk('&plunit_never_written', Names),
     sort(Names, Names).
 
+% match/4's last clause and 'get-atoms'/2 spell "is this a space" as a bare
+% atom/1 rather than calling metta_space_argument/1, because a predicate call
+% cost one inference on every read and the benchmarks saw it. Two spellings of
+% one decision is exactly how they drift apart, so this is the guard: they
+% agree on every kind of term a caller can hand them, and if the named one
+% ever learns something atom/1 does not know, this fails rather than the
+% engine quietly refusing a space it should accept.
+test(the_inlined_space_test_is_the_named_one,
+     [ forall(member(Term, ['&self', '&plunit_names', not_a_space, [], 0, 1.5,
+                            "text", [a, b], f(x), _Unbound])) ]) :-
+    ( atom(Term) -> Inlined = true ; Inlined = false ),
+    ( metta_space_argument(Term) -> Named = true ; Named = false ),
+    assertion(Inlined == Named).
+
 :- end_tests(spaces_registration).
 
 % Two providers in the shape a library actually ships: one that enumerates and
@@ -578,7 +609,157 @@ test(an_engine_emitted_name_cannot_be_taken_in_a_named_space) :-
     assertion(Error = error(petta_engine_goal_redefinition(has_type, 1,
                                                            '&plunit_emitted_probe'), _)).
 
+% A space has two halves and clearing it used to empty one. Storage went and
+% the compiled clauses stayed, so a space holding NOTHING still answered its
+% own functions, and since space names are pooled that is a previous life
+% answering through a recycled name. It was masked by python/petta/shim.pl's
+% clear, which funnels equations through the removal path before calling the
+% engine's own door, so the Python surface was whole and every other caller
+% was not.
+test(clearing_a_space_empties_its_execution_module,
+     [ cleanup(( clear_native_atoms('&plunit_life'),
+                 retractall(fun('plunit-past-life')),
+                 retractall(arity('plunit-past-life', _)) )) ]) :-
+    Space = '&plunit_life',
+    process_metta_string("(= (plunit-past-life) inherited)", _, Space),
+    process_metta_string("!(plunit-past-life)", First, Space),
+    assertion(First == [inherited]),
+    space_module(Space, Module),
+    aggregate_all(count, clause(Module:'plunit-past-life'(_), _), Compiled),
+    assertion(Compiled == 1),
+
+    clear_native_atoms(Space),
+
+    findall(A, get_native_atom(Space, A), Left),
+    assertion(Left == []),
+    aggregate_all(count, clause(Module:'plunit-past-life'(_), _), Remaining),
+    assertion(Remaining == 0),
+    % The name is forgotten too, not just its clauses: nothing defines the
+    % function any more, which is what remove_equation/6 decides for a single
+    % removal and what the sweep used to skip.
+    assertion(\+ fun('plunit-past-life')),
+    % The whole point, asked the way a recycled name would ask it.
+    process_metta_string("!(plunit-past-life)", Second, Space),
+    assertion(Second == [['plunit-past-life']]).
+
+% A declaration is the other shape with a compiled half, and it leaves through
+% its own path for the same reason: dropping the atom alone would leave the
+% call sites it was shaping compiled against a declaration that is gone.
+test(clearing_a_space_takes_its_declarations_through_their_own_path,
+     [ cleanup(( clear_native_atoms('&plunit_life_decl'),
+                 retractall(fun('plunit-declared')),
+                 retractall(arity('plunit-declared', _)) )) ]) :-
+    Space = '&plunit_life_decl',
+    process_metta_string("(: plunit-declared (-> Number Number))", _, Space),
+    process_metta_string("(= (plunit-declared $x) $x)", _, Space),
+    findall(A, get_native_atom(Space, A), Before),
+    assertion(length(Before, 2)),
+    clear_native_atoms(Space),
+    findall(B, get_native_atom(Space, B), After),
+    assertion(After == []),
+    assertion(\+ fun('plunit-declared')),
+    process_metta_string("!(plunit-declared 1)", Answer, Space),
+    assertion(Answer == [['plunit-declared', 1]]).
+
+% Plain atoms have no compiled half, so they stay on the sweep rather than
+% going one at a time through the removal funnel. This is the guard on that:
+% a space of plain atoms clears without any of them reaching remove_equation/6.
+test(clearing_plain_atoms_stays_a_sweep,
+     [ cleanup(clear_native_atoms('&plunit_life_bulk')) ]) :-
+    Space = '&plunit_life_bulk',
+    forall(between(1, 50, N), add_sexp(Space, [bulk, N])),
+    add_sexp(Space, lonely),
+    statistics(inferences, I0),
+    clear_native_atoms(Space),
+    statistics(inferences, I1),
+    Spent is I1 - I0,
+    findall(A, get_native_atom(Space, A), Left),
+    assertion(Left == []),
+    % One removal through the funnel costs more than this whole clear does;
+    % the number is generous because the enumeration that looks for compiled
+    % atoms is itself linear, and what it guards against is 51 removals.
+    assertion(Spent < 1000).
+
 :- end_tests(spaces_execution_modules).
+
+:- begin_tests(spaces_match_snapshot).
+
+% The language specifies this rather than leaving it open: "match first finds
+% all the matches, and then instantiates the output pattern with them, which
+% is evaluated outside match. If remove-atom and add-atom would be executed
+% right away for each found matching, the condition of circular links would be
+% broken after the first rewrite" [source: the language's Working with spaces].
+% The arbiter pins it with an experiment built to tell an eager snapshot from
+% a lazy query that happens to be fully consumed, and only the effect ORDER is
+% a recorded free divergence [source: LeaTTa tests/semantics/matching/
+% nondeterministic_match_snapshot.metta].
+setup_snapshot_space :-
+    cleanup_snapshot_space,
+    forall(member(P, [[snap_link, a, b], [snap_link, b, c],
+                      [snap_link, c, a], [snap_link, c, e]]),
+           add_sexp('&plunit_snapshot', P)).
+
+cleanup_snapshot_space :- clear_native_atoms('&plunit_snapshot').
+
+% Upstream's own graph-rewrite example, which is where the divergence was
+% measured: every row is found before the first template's remove-atom breaks
+% the cycle for the rest. Reversing ONE edge instead of three is what a lazy
+% conjunction does.
+test(a_conjunction_finds_every_row_before_any_template_runs,
+     [ setup(setup_snapshot_space), cleanup(cleanup_snapshot_space) ]) :-
+    Space = '&plunit_snapshot',
+    Pattern = [',', [snap_link, X, Y], [snap_link, Y, Z], [snap_link, Z, X]],
+    findall(X-Y, ( match(Space, Pattern, out, out),
+                   'remove-atom'(Space, [snap_link, X, Y], []),
+                   'add-atom'(Space, [snap_link, Y, X], _) ),
+            Rewritten),
+    % Three loop rotations, all of them, and the fourth link is not in a loop.
+    assertion(Rewritten == [a-b, b-c, c-a]),
+    findall(L, get_native_atom(Space, L), Left),
+    msort(Left, Sorted),
+    assertion(Sorted == [[snap_link, a, c], [snap_link, b, a],
+                         [snap_link, c, b], [snap_link, c, e]]).
+
+% A single pattern needed no snapshot and must not have grown one: the logical
+% update view already fixes what one goal over one dynamic predicate sees, so
+% a template that removes the OTHER row still leaves that row to answer.
+test(a_single_pattern_snapshots_through_the_logical_update_view,
+     [ setup(setup_snapshot_space), cleanup(cleanup_snapshot_space) ]) :-
+    Space = '&plunit_snapshot',
+    findall(X-Y, ( match(Space, [snap_link, X, Y], out, out),
+                   ( 'remove-atom'(Space, [snap_link, c, e], _) -> true ; true ) ),
+            Rows),
+    % Four rows, including the one the first template removed.
+    assertion(length(Rows, 4)),
+    assertion(memberchk(c-e, Rows)).
+
+% And it still STREAMS, which is what the snapshot costs everywhere it is not
+% needed: a first solution off a big space must not walk the space.
+test(a_single_pattern_still_answers_the_first_row_without_walking_the_space,
+     [ setup(setup_snapshot_space), cleanup(cleanup_snapshot_space) ]) :-
+    Space = '&plunit_snapshot',
+    forall(between(1, 2000, N), add_sexp(Space, [snap_bulk, N])),
+    statistics(inferences, I0),
+    once(match(Space, [snap_bulk, _], out, out)),
+    statistics(inferences, I1),
+    Spent is I1 - I0,
+    % Walking two thousand atoms costs thousands; taking the first costs tens.
+    assertion(Spent < 200).
+
+% A conjunction's rows carry their annotation, which rides a BACKTRACKABLE
+% global that the snapshot's findall would otherwise undo.
+test(a_conjunction_keeps_each_row_annotation,
+     [ setup(setup_snapshot_space), cleanup(cleanup_snapshot_space) ]) :-
+    Space = '&plunit_snapshot',
+    Pattern = [',', [snap_link, X, Y], [snap_link, Y, Z]],
+    findall(K, ( match(Space, Pattern, out, out), petta_annotation(K) ), Ks),
+    % Unannotated atoms read the semiring's 1, once per row rather than a
+    % stale neighbour's value or nothing at all.
+    assertion(Ks \== []),
+    assertion(forall(member(K1, Ks), K1 == 1)),
+    assertion(Z == Z).
+
+:- end_tests(spaces_match_snapshot).
 
 :- begin_tests(spaces_builtin_override).
 
@@ -779,12 +960,20 @@ test(reading_atoms_requires_a_named_space,
     get_native_atom(_AnySpace, _Pattern).
 
 
-test(matching_requires_a_named_space,
-     [ throws(error(instantiation_error, _)) ]) :-
+test(matching_requires_a_named_space) :-
     % An unbound space would enumerate every space that has ever been
     % written to, so a program in one space could read another it never
-    % names.
-    match(_AnySpace, [plunit_secret, _X], conj, conj).
+    % names. match/4 is a door a MeTTa program comes through, so the refusal
+    % is the write path's answer rather than a throw: this used to raise
+    % SWI's bare instantiation_error, which named neither the operation nor
+    % the call [source: the note above match/4's last clause].
+    findall(R, match(_AnySpace, [plunit_secret, _X], conj, R), Answers),
+    Answers = [['Error', ['match', _, [plunit_secret, _], conj], Message]],
+    Message == "match expects a space as the first argument",
+    % A conjunctive pattern reaches its own routing clause and is refused
+    % there too, rather than losing the refusal in match_routed/4's conj slot.
+    findall(C, match(_Other, [',', [plunit_secret, _]], conj, C), Conjunctive),
+    Conjunctive = [['Error', ['match'|_], _]].
 
 
 test(concurrent_first_writes_publish_one_storage_module,
