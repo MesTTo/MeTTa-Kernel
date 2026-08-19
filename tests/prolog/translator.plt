@@ -751,6 +751,16 @@ test(the_refusal_names_the_form_and_the_argument_in_metta) :-
     assertion(Text == "case: a list of (pattern value) cases expected, \c
                        found $_0").
 
+%A pair that is still a variable has not arrived either, one level in from
+%the spine. That shape used to reach translate_case/5, whose own head unified
+%[Pattern, Value] INTO it: the source term came back changed, and
+%(= (f $p) (case 1 ($p))) compiled to f([A, B], _) instead of f($p, _), so
+%an argument that was not a two-element list failed silently against a head
+%the program never wrote.
+test(a_pair_that_has_not_arrived_is_not_unified_with_translate_cases_own_pattern) :-
+    translate_expr([case, 1, [Pair]], _, _),
+    assertion(var(Pair)).
+
 %The control, and the reason this item's original title was wrong: an unbound
 %KEY was always fine, because the key is an expression the form compiles
 %around rather than syntax it reads. Only the cases were ever the trigger,
@@ -761,7 +771,7 @@ test(an_unbound_key_is_not_what_this_form_cannot_read) :-
 
 %A cases argument that is no list at all is not cases that have yet to
 %arrive, it is a program using the name as data, and it keeps falling through
-%to data dispatch exactly as it did. open_case_list/1 exists to tell those
+%to data dispatch exactly as it did. unarrived_pairs/1 exists to tell those
 %two apart, which is_list/1 alone cannot.
 test(a_cases_argument_that_is_no_list_still_falls_through_to_data,
      [ setup(( retractall(silent(_)), assertz(silent(true)) )),
@@ -795,6 +805,7 @@ test(loading_a_one_line_case_wrapper_no_longer_dies,
 case_computed_head('plunit-switch').
 case_computed_head('plunit-case-of-nothing').
 case_computed_head('plunit-case-body').
+case_computed_head('plunit-case-onepair').
 case_computed_head('plunit-case-3').
 case_computed_head('plunit-case-24').
 
@@ -803,7 +814,8 @@ setup_case_computed_cases :-
     retractall(silent(_)), assertz(silent(true)),
     process_metta_string("(= (plunit-switch $v $cs) (case $v $cs))\n\c
                           (= (plunit-case-of-nothing $cs) (case (empty) $cs))\n\c
-                          (= (plunit-case-body $x) (* $x 10))", _),
+                          (= (plunit-case-body $x) (* $x 10))\n\c
+                          (= (plunit-case-onepair $p) (case 1 ($p)))", _),
     forall(member(N, [3, 24]),
            ( written_out_case_definition(N, Definition),
              process_metta_string(Definition, _) )).
@@ -827,6 +839,18 @@ computed_cases(N, Cases) :- findall([I, hit], between(1, N, I), Cases).
 test(a_switch_written_as_an_ordinary_definition_answers) :-
     process_metta_string("!(plunit-switch 2 ((1 one) (2 two)))", Answers),
     assertion(Answers == [two]).
+
+%One pair handed over on its own is a pair, and the definition keeps the head
+%it was written with, so an argument that is not a pair is refused rather
+%than failing against a head the program never wrote.
+test(a_pair_arriving_as_a_value_is_a_branch) :-
+    process_metta_string("!(plunit-case-onepair (quote (1 hit)))", Answers),
+    assertion(Answers == [hit]).
+
+test(a_pair_that_is_not_a_pair_is_refused_rather_than_failing_silently,
+     [ throws(error(type_error('a list of (pattern value) cases', _),
+                    context(case, _))) ]) :-
+    process_metta_string("!(plunit-case-onepair 5)", _).
 
 %The same refusal for a value that IS a list but carries something that is
 %not a (pattern value) pair, which is the shape a program is most likely to

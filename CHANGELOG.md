@@ -8,6 +8,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `(case Key Cases)` reads a case pair that is still a variable as a pair
+  that has not arrived, the way it already read a cases list that is still a
+  variable. The rewrite used to unify its own `(pattern value)` shape INTO
+  such a pair, so `(= (f $p) (case 1 ($p)))` compiled to a head demanding a
+  two-element list instead of the head the program wrote, and an argument
+  that was not one failed silently. It compiles to the same runtime path the
+  rest of the form already uses, so the pair is a branch when it arrives and
+  a value that is not a pair is refused naming the form.
+
 - `(let* Bindings Body)` no longer drops its bindings when they are not
   written out. The form rewrites bindings it reads as syntax into nested
   `let`s, and a bindings argument that is still a variable has none to read:

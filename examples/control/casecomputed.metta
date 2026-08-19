@@ -30,6 +30,12 @@
 !(test (collapse (switch 9 ((1 one) (Empty none)))) ())
 !(test (collapse (case 9 ((1 one) (Empty none)))) ())
 
+;One case pair handed over on its own is a pair too, and the definition keeps
+;the head it was written with.
+(= (one-case $pair) (case 1 ($pair)))
+
+!(test (one-case (1 hit)) hit)
+
 ;Cases are checked when they arrive, because nothing after that point can
 ;check them. A value that is not a list of (pattern value) pairs is refused
 ;naming the form, rather than compiling a branch the program never wrote.
