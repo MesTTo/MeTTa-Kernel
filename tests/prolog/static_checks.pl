@@ -660,6 +660,15 @@ body_subterm(Term, Sub) :-
 % how much of it it read, so a rule added with no example is visible as a count
 % that did not move [measured 2026-08-19: 102 goal indicators over 1,040
 % equations, 10 of them engine-emitted and capturable, all 10 named].
+%A name is MeTTa's when the engine's own dispatch registry knows it: arity/2
+%is what reduce/3 and build_call_or_partial_dl/6 consult to decide a head is a
+%call, fun/1 what the translator consults to decide it is not data, and
+%builtin_fun/1 what keeps a builtin visible in every space. A name none of the
+%three holds was written by the translator and by nothing else.
+metta_dispatch_name(Name, Arity) :- arity(Name, Arity), !.
+metta_dispatch_name(Name, _) :- fun(Name), !.
+metta_dispatch_name(Name, _) :- builtin_fun(Name).
+
 engine_emitted_corpus_dir('../../examples').
 engine_emitted_corpus_dir('../../lib').
 

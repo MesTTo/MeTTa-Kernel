@@ -302,7 +302,7 @@ test(higher_order_code_runs_inside_a_named_space,
 
 :- begin_tests(specializer_invalidation).
 
-% invalidate_specializations/1 recurses through ho_specialization/3 and
+% invalidate_specializations/2 recurses through ho_specialization/3 and
 % retracts only AFTER descending, so a cycle among those facts would not
 % terminate. It is called unguarded from three engine write sites and, since
 % the register-an-operation path stopped swallowing its failures, from there
@@ -469,7 +469,7 @@ test(the_verifier_runs_a_clone_in_its_own_module,
 
 % A specialization belongs to the space whose code triggered it, and
 % ho_specialization/3 has said so in its first argument since it was written.
-% invalidate_specializations/1 read that argument with a WILDCARD, so adding an
+% invalidate_specializations/2's predecessor read that argument with a WILDCARD, so adding an
 % equation for a name in ANY space invalidated that name's specializations in
 % EVERY space: their compiled clauses went, and so did the equations
 % specialize_call_locked/7 stores into each space, which is a write in one
