@@ -273,7 +273,7 @@ test(compound_partial_key_has_stable_anonymous_variables,
     \+ ho_specialization(_, app, _),
     \+ fun(SpecName),
     \+ arity(SpecName, _),
-    \+ fun_meta_clause(SpecName, _, _),
+    \+ fun_meta_clause(_, SpecName, _, _),
     functor(SpecHead, SpecName, 3),
     \+ clause(SpecHead, _),
     \+ get_native_atom('&self', [=, [SpecName|_], _]).
@@ -527,5 +527,41 @@ atom_multiset(Space, Sorted) :-
               numbervars(Ground, 0, _) ),
             Atoms),
     msort(Atoms, Sorted).
+
+% The other direction of the same root, and the one that changes ANSWERS
+% rather than atom counts. The specializer reads a function's retained
+% equations to build the specialized clause, one clause per equation, and
+% fun_meta_clause/4 was keyed by NAME alone: two spaces each defining
+% plunit-two-map put two equations under that one key, so the space that
+% specialized generated TWO identical clauses and answered its query twice.
+% Measured at c7126f1 as well, so it is older than the module migration.
+test(a_definition_in_another_space_does_not_double_an_answer,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( forall(member(S, ['&plunit_spec_two_a', '&plunit_spec_two_b']),
+                        ( forall(member(N, ['plunit-two-map', 'plunit-two-inc',
+                                            'plunit-two-use']),
+                                 remove_sexp(S, [=, [N|_], _])),
+                          space_module(S, M),
+                          forall(member(N, ['plunit-two-map', 'plunit-two-inc',
+                                            'plunit-two-use']),
+                                 ( invalidate_specializations(M, N),
+                                   clear_fun_meta(M, N) )) )),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    A = '&plunit_spec_two_a',
+    B = '&plunit_spec_two_b',
+    forall(member(S, [A, B]),
+           ( 'add-atom'(S, [=, ['plunit-two-map', _F, _Y], [_F, _Y]], _),
+             'add-atom'(S, [=, ['plunit-two-inc', _X], ['+', _X, 1]], _) )),
+    'add-atom'(B, [=, ['plunit-two-use', Z],
+                      ['plunit-two-map', 'plunit-two-inc', Z]], _),
+    space_module(B, BModule),
+    findall(Answer,
+            with_metta_module(BModule, reduce(['plunit-two-use', 1], Answer, _)),
+            Answers),
+    assertion(Answers == [2]),
+    %One specialized clause, not one per space that happens to share the name.
+    ho_specialization(BModule, 'plunit-two-map', SpecName),
+    functor(SpecHead, SpecName, 3),
+    aggregate_all(count, clause(BModule:SpecHead, _), 1).
 
 :- end_tests(specializer_invalidation).

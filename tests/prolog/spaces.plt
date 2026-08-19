@@ -275,7 +275,7 @@ cleanup_registered_function(F) :-
     forall(member(Ref, Refs),
            ( erase(Ref), retractall(user:translated_from(Ref, _)) )),
     remove_sexp('&self', [=, [F|_], _]),
-    user:clear_fun_meta(F),
+    user:clear_fun_meta(_, F),
     retractall(user:arity(F, _)),
     retractall(user:fun(F)),
     user:unregister_fun_everywhere(F).
@@ -321,7 +321,7 @@ test(change_hook_error_rolls_back_every_registration_write,
     Error = error(plunit_injected_change_hook_failure, none),
     \+ user:fun(plunit_registration_rollback),
     \+ user:arity(plunit_registration_rollback, _),
-    \+ user:fun_meta_clause(plunit_registration_rollback, _, _),
+    \+ user:fun_meta_clause(_, plunit_registration_rollback, _, _),
     \+ user:translated_from(_, Term),
     \+ get_native_atom('&self',
                         [=, [plunit_registration_rollback, X], X]),
@@ -432,7 +432,7 @@ forget_late_name(Name) :-
     retractall(user:fun(Name)),
     retractall(user:arity(Name, _)),
     user:unregister_fun_everywhere(Name),
-    user:clear_fun_meta(Name).
+    user:clear_fun_meta(_, Name).
 
 :- end_tests(spaces_late_type_declaration).
 

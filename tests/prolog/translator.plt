@@ -122,7 +122,8 @@ meta_store_function('$plunit_meta_store').
 
 setup_meta_store :-
     meta_store_function(F),
-    clear_fun_meta(F),
+    current_metta_module(Module),
+    clear_fun_meta(Module, F),
     retractall(arity(F, _)).
 
 cleanup_meta_store :-
@@ -133,8 +134,9 @@ test(function_store_keeps_newest_first,
     meta_store_function(F),
     translate_clause([=, [F, X], [first, X]], _),
     translate_clause([=, [F, Y], [second, Y]], _),
-    fun_meta_clauses(F, [fun_meta(SecondArgs, SecondBody),
-                         fun_meta(FirstArgs, FirstBody)]),
+    current_metta_module(Module),
+    fun_meta_clauses(Module, F, [fun_meta(SecondArgs, SecondBody),
+                                 fun_meta(FirstArgs, FirstBody)]),
     (SecondArgs-SecondBody) =@= ([Y]-[second, Y]),
     (FirstArgs-FirstBody) =@= ([X]-[first, X]).
 
@@ -143,8 +145,9 @@ test(drop_fun_meta_removes_one_variant_only,
     meta_store_function(F),
     translate_clause([=, [F, X], [same, X]], _),
     translate_clause([=, [F, Y], [same, Y]], _),
-    drop_fun_meta(F, [Z], [same, Z]),
-    aggregate_all(count, fun_meta_clause(F, _, _), 1).
+    current_metta_module(Module),
+    drop_fun_meta(Module, F, [Z], [same, Z]),
+    aggregate_all(count, fun_meta_clause(Module, F, _, _), 1).
 
 test(engine_state_does_not_use_function_names,
      [ setup((setup_meta_store,
@@ -182,7 +185,8 @@ meta_store_size(1000).
 clear_sized_meta_stores :-
     forall(( meta_store_size(Count),
              atom_concat('$plunit_meta_store_', Count, F) ),
-           ( clear_fun_meta(F),
+           ( current_metta_module(Module),
+             clear_fun_meta(Module, F),
              forget_test_function(F) )).
 
 %Measured once rather than min of three: filling the store is destructive, so
@@ -192,7 +196,8 @@ meta_store_cost(Count, Inferences) :-
     count_inferences(forall(between(1, Count, _),
                             translate_clause([=, [F, X], X], _)),
                      Inferences),
-    aggregate_all(count, fun_meta_clause(F, _, _), Count).
+    current_metta_module(Module),
+    aggregate_all(count, fun_meta_clause(Module, F, _, _), Count).
 
 % Each equation is one independently indexed fact, so recording a new one does
 % not copy the equations already held for that function [source:
@@ -992,7 +997,7 @@ test(get_type_equations_compile_behind_the_answer_boundary) :-
               ( findall(Type, 'get-type'(plunit_extended_type, Type), Types),
                 Types == [plunit_extension] ),
               erase(Ref)) ),
-        drop_fun_meta('get-type', [plunit_extended_type],
+        drop_fun_meta(_, 'get-type', [plunit_extended_type],
                       plunit_extension)).
 
 :- end_tests(translator_type_extensions).

@@ -26,9 +26,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and shadows it for `&self` alone, exactly as it already did in a named
   space; the engine's own predicate of that name goes on answering. What is
   still refused is SWI's protected core, and it is refused in every space
-  rather than in `&self` alone: measured over the 428 names the engine
-  imports, 7 at MeTTa arity 0, 4 at arity 1, 2 at arity 2 and 1 at arity 3,
-  against 86, 217, 163 and 64 before.
+  rather than in `&self` alone: measured 2026-08-19 through the shipped
+  guard itself, 8 of the 463 imported names at MeTTa arity 0, 4 at arity 1,
+  3 at arity 2 and 2 at arity 3, against 91, 232, 173 and 66 of 458 before.
+  The four still taken at arity 1 are `call`, `clause`, `copy_term` and
+  `sort`.
 
   For extension authors: `user` is the HOST module and nothing else now. Keep
   consulting Prolog into it, ask `space_module/2` for a space's module, and
@@ -142,6 +144,23 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   are flat where this tree groups them into folders.
 
 ### Fixed
+
+- A function's retained equations now belong to the module that compiled
+  them, so a definition in one space can no longer add answers to another.
+  The specializer reads those equations to build a specialized clause, one
+  clause per equation, and they were held in a table keyed by function NAME
+  alone: two spaces each holding `(= (my-map $f $x) ($f $x))`, the second
+  compiling `(= (my-use $z) (my-map my-inc $z))`, and that space answered
+  `(my-use 1)` TWICE, once per equation in the shared pile. It is older than
+  the module migration, measured the same way at `c7126f1`. A space still
+  sees the equations of the spaces above it, because the read follows its
+  own module chain and stops at the first module that has them, which is how
+  Prolog resolves the clauses those equations became.
+
+  Measured cost: 4.00 inferences per compiled call site, paid while the
+  translator builds the site rather than when the call runs, so seven
+  counter baselines and one instruction floor are raised with that
+  attribution and nothing at run time moved.
 
 - The engine and its libraries now declare every import they actually use,
   instead of getting several of them from SWI's autoloader by accident.
