@@ -500,6 +500,19 @@ test(a_let_star_whose_bindings_have_not_arrived_has_no_dual,
     metta_answer("!(not-provable (lt-written))", true),
     metta("!(not-provable (lt-handed (quote (($a (lt-none))))))").
 
+%case has the same compile-time limit, and refuses the same way: the written
+%cases dual fine (key 1 matches no branch, no answer is not True, the dual
+%answers), and the handed ones name the actual reason instead of falling
+%through to the special-form refusal.
+test(a_case_whose_cases_have_not_arrived_has_no_dual,
+     [ throws(error(type_error(dualisable_body, [case|_]),
+                    context(body_form_dual/5, _))) ]) :-
+    metta("(= (cd-key) 1)\n\c
+           (= (cd-written) (case (cd-key) ((2 (> 1 0)))))\n\c
+           (= (cd-handed $cs) (case (cd-key) $cs))"),
+    metta_answer("!(not-provable (cd-written))", true),
+    metta("!(not-provable (cd-handed (quote ((2 (> 1 0))))))").
+
 %What the generator narrows a variable of the enclosing clause TO belongs in
 %the answer rather than being quantified away, which is what collapse-bind
 %says an answer is. So the dual answers once per distinct narrowing, and once
