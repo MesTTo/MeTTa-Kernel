@@ -46,6 +46,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   against 369. Eleven counter baselines are raised with that attribution and
   no other number moved.
 
+- `%Undefined%` is the gradual type and is now consistent with every type in
+  both directions, which is what decides whether a typed call admits an
+  argument. This engine had both directions backwards. A parameter declared
+  `%Undefined%` demanded that the argument be UNTYPED, so
+  `(: tensor (-> %Undefined% DLTensor))` refused `1.0` and
+  `!(get-type (tensor (1.0)))` answered `((-> %Undefined% DLTensor) (Number))`
+  instead of `DLTensor`; and an argument nothing declares failed a concrete
+  parameter, so a typo'd symbol was refused where both references accept it.
+
+  A call site refuses only a PROVEN conflict now: with
+  `(: f (-> Number Atom))`, `!(f "s")` is still refused and `!(f undeclared)`
+  answers. What does NOT change is a contract, because a contract asks the
+  other question: `(admits &pool Space)` still demands a witness, since an
+  atom nothing declares is not evidence of a Space.
+
+  Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+  interpreter, byte-identical across both, over concrete, metatype and `Bool`
+  parameters. Three shipped tests asserted the stricter rule and were
+  corrected against that measurement.
+
 - An expression no arrow types is read element-wise, and the tuple it reads is
   now `%Undefined%` as soon as one member's type is. Nothing is known about a
   tuple one of whose components is unknown, so reporting the shape while a

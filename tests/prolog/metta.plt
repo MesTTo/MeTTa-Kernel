@@ -1048,13 +1048,27 @@ test(a_symbol_parameter_takes_a_symbol_and_nothing_else) :-
     metatype_call("", "(meta-sym 7)", RejectsNumber),
     assertion(RejectsNumber == []).
 
-test(an_expression_parameter_takes_an_expression_and_nothing_else) :-
+%A metatype parameter refuses a value of a KNOWN and different type, and lets
+%through a value whose type nothing declares, which is the gradual rule and
+%not a hole in the metatype check: %Undefined% is consistent with every type
+%(Siek and Taha's ? relation), so no violation is provable for `foo`.
+%
+%This test used to say "and nothing else" and assert that `foo` was refused.
+%Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+%interpreter, byte-identical across both: `!(meta-expr foo)` answers
+%`(got foo)` and `!(meta-expr 7)` is `(BadArgType 1 Expression Number)`. The
+%source the old comment quoted, `*typ == ATOM_TYPE_ATOM || *typ ==
+%get_meta_type(atom)`, describes ONE of the routes into the check; the
+%declared-type route runs first and admits the unknown.
+test(an_expression_parameter_refuses_a_known_other_type_and_admits_an_unknown) :-
     process_metta_string("(: meta-expr (-> Expression Atom))", _),
     process_metta_string("(= (meta-expr $e) (got $e))", _),
     metatype_call("", "(meta-expr (1 2))", Accepted),
     assertion(Accepted == [[got, [1, 2]]]),
-    metatype_call("", "(meta-expr foo)", Rejected),
-    assertion(Rejected == []).
+    metatype_call("", "(meta-expr 7)", RejectsNumber),
+    assertion(RejectsNumber == []),
+    metatype_call("", "(meta-expr foo)", AdmitsUnknown),
+    assertion(AdmitsUnknown == [[got, foo]]).
 
 %Atom is the wildcard, which is the whole of what the tutorial's "supertype"
 %wording means once it is read off the source rather than the prose.
@@ -1077,13 +1091,22 @@ test(an_atom_parameter_takes_every_kind,
 %are ordered and cut on the value, so asking with it bound let an earlier
 %clause's head fail to unify and the catch-all at the bottom claim the call,
 %which made every value answer Grounded. Both callers ask with it bound.
-test(a_grounded_parameter_rejects_a_symbol) :-
+%The same gradual rule from the Grounded side. This test used to assert that
+%a Grounded parameter REJECTS a symbol; measured 2026-08-19 on hyperon 0.2.10
+%and on the LeaTTa mechanised interpreter, byte-identical across both,
+%`!(meta-gnd foo)` answers `(gotg foo)`. An undeclared symbol has no declared
+%type to contradict Grounded with. A symbol that IS declared does, and that is
+%the half this pins as still refusing.
+test(a_grounded_parameter_admits_an_unknown_and_refuses_a_declared_other) :-
     process_metta_string("(: meta-gr (-> Grounded Atom))", _),
     process_metta_string("(= (meta-gr $g) (got $g))", _),
     metatype_call("", "(meta-gr 7)", Accepted),
     assertion(Accepted == [[got, 7]]),
-    metatype_call("", "(meta-gr foo)", Rejected),
-    assertion(Rejected == []).
+    metatype_call("", "(meta-gr foo)", AdmitsUnknown),
+    assertion(AdmitsUnknown == [[got, foo]]),
+    process_metta_string("(: meta-gr-typed MetaGrOther)", _),
+    metatype_call("", "(meta-gr meta-gr-typed)", RejectsDeclared),
+    assertion(RejectsDeclared == []).
 
 test(get_metatype_answers_the_same_bound_or_unbound,
      [forall(member(Value-Metatype, [foo-'Symbol', 7-'Grounded',

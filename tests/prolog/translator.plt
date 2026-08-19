@@ -1551,12 +1551,24 @@ test(an_intrinsic_type_check_is_specialised,
 %has_type(tlc-sym, 'Bool') true while the intrinsic test says nothing, so the
 %general check behind it is what still answers. It has to run in both
 %positions here, since tlc-sym is the argument AND the result.
+%The refusal is checked with a symbol declared to be something ELSE, not with
+%an undeclared one. An undeclared symbol has type %Undefined%, which is
+%consistent with every type under the gradual rule, so both arbiters admit it:
+%measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+%interpreter, byte-identical across both, `(: bflag (-> Bool Atom))` gives
+%`!(bflag nope)` = `(gotb nope)` while `!(bflag 7)` is
+%`(BadArgType 1 Bool Number)`. This test asserted the `nope` case as a refusal
+%until then, which pinned a stricter rule than either reference has.
 test(a_symbol_declared_with_an_intrinsic_type_still_passes,
      [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
     process_metta_string("!(collapse (tlc-flag tlc-sym))", Results),
     assertion(Results == [['tlc-sym']]),
-    process_metta_string("!(collapse (tlc-flag nope))", Refused),
-    assertion(Refused == [[]]).
+    process_metta_string("(: tlc-other TlcOther)", _),
+    process_metta_string("!(collapse (tlc-flag tlc-other))", Refused),
+    assertion(Refused == [[]]),
+    'remove-atom'('&self', [':', 'tlc-other', _], _),
+    process_metta_string("!(collapse (tlc-flag 7))", RefusesNumber),
+    assertion(RefusesNumber == [[]]).
 
 %A parametric declaration leaves the type an unbound VARIABLE at compile time,
 %and intrinsic_type_test/3's head would bind it to 'Number' and emit a number/1
