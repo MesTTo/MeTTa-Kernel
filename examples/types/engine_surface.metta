@@ -18,7 +18,7 @@
 !(test (get-type quote) (-> Atom Atom))
 !(test (get-type collapse) (-> Atom Atom))
 !(test (get-type superpose) (-> Expression %Undefined%))
-!(test (get-type match) (-> Symbol Atom Atom %Undefined%))
+!(test (get-type match) (-> SpaceType Atom Atom %Undefined%))
 !(test (get-type map-atom) (-> Expression Variable Atom Expression))
 
 ;; Expression structure, from the reference corelib dump.

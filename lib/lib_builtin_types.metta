@@ -56,8 +56,14 @@
 (: timeout (-> Number Atom %Undefined%))
 (: elapsed (-> Atom %Undefined%))
 
-;; Interpreter settings, MeTTa HE's spelling.
-(: pragma! (-> Symbol %Undefined% Bool))
+;; pragma! is UNDECLARED, and the absence is the answer: the official corelib
+;; block for it reads `Type %Undefined%`, which is the gradual default rather
+;; than a type, so `!(get-type pragma!)` answers `%Undefined%` on both engines
+;; even when the program has written `(: pragma! Number)` into the space
+;; [source: LeaTTa wiki/Hyperon-Divergences.md, the grounded-operation-type
+;; row, measured 2026-08-16; tests/semantics/types-basic/
+;; 20-undefined-stdlib-operation.metta, STATUS conforms]. It answers the UNIT
+;; value, for the reason add-atom does.
 
 ;; HE's metta/3: interpret an atom in a named space. The Type argument is
 ;; accepted and ignored, as HE does for %Undefined%.
@@ -69,10 +75,15 @@
 ;; The types come from the reference corelib dump wherever it has one, because
 ;; a type PeTTa does not already have is additive and the reference governs
 ;; there [source: /home/user/Dev/LeaTTa/stdlib.md, 146 typed entries; 39 of
-;; these names are in it]. Two vocabulary translations were needed: HE's unit
-;; result `(->)` is PeTTa's `Bool`, because every one of these answers `true`;
-;; and HE's `SpaceType` is PeTTa's `Symbol`, because `(get-metatype &self)`
-;; answers `Symbol`. Divergences from the dump are marked where they occur.
+;; these names are in it]. One vocabulary translation was needed: HE's unit
+;; result `(->)` is PeTTa's `Bool`, because every one of these answers `true`.
+;; `SpaceType` is written as itself, because a space handle answers `Grounded`
+;; here as it does there and carries that type
+;; [tested: spaces:space_handle_type]. It was written `Symbol` until
+;; 2026-08-20, when `(get-metatype &self)` still answered `Symbol` here, and
+;; the two disagreed the moment the handle gained its own type: every one of
+;; these declarations then REFUSED a space handle as a first argument.
+;; Divergences from the dump are marked where they occur.
 ;;
 ;; THIS FILE HAS TWO ROLES AND THEY DIFFER. The engine reads it at boot into
 ;; `builtin_type_declaration/2`, which `get_type_candidate/2` consults LAST, so
@@ -122,7 +133,7 @@
 
 ;; --- Special forms: evaluation and nondeterminism ---
 (: eval (-> Atom Atom))
-(: evalc (-> Atom Symbol Atom))
+(: evalc (-> Atom SpaceType Atom))
 ;; The argument is a CALL and it arrives unevaluated, because which function is
 ;; being delegated to has to be known before the call runs: the module holding
 ;; it is resolved when the equation compiles.
@@ -143,12 +154,12 @@
 ;UNREDUCED. That is load-bearing for the reducing three: `add-reduct` reduces
 ;the atom itself, and a caller that reduced it first would hand it a value
 ;`reduce/3` has nothing left to do with.
-(: add-atom (-> Symbol Atom (->)))
-(: remove-atom (-> Symbol Atom (->)))
-(: add-atoms (-> Symbol Atom (->)))
-(: add-reduct (-> Symbol Atom (->)))
-(: add-reducts (-> Symbol Atom (->)))
-(: match (-> Symbol Atom Atom %Undefined%))
+(: add-atom (-> SpaceType Atom (->)))
+(: remove-atom (-> SpaceType Atom (->)))
+(: add-atoms (-> SpaceType Atom (->)))
+(: add-reduct (-> SpaceType Atom (->)))
+(: add-reducts (-> SpaceType Atom (->)))
+(: match (-> SpaceType Atom Atom %Undefined%))
 
 ;; --- Special forms: collections ---
 (: map-atom (-> Expression Variable Atom Expression))
@@ -202,7 +213,15 @@
 (: cons (-> Atom Expression Expression))
 (: decons (-> Expression Expression))
 (: first (-> Expression Atom))
-(: first-from-pair (-> Expression Atom))
+;; first-from-pair is UNDECLARED, with empty, nop, pragma!, type-cast,
+;; match-types and match-type-or: each official corelib block reads
+;; `Type %Undefined%`, which is the gradual default rather than a type, so
+;; get-type answers %Undefined% and a wrong-arity call stays unreduced instead
+;; of being refused by an arity the declaration invented
+;; [source: LeaTTa wiki/Hyperon-Divergences.md, the undeclared-helpers row,
+;; measured 2026-08-15; tests/semantics/types-basic/
+;; 61-undeclared-type-helpers-surface.metta and eval-core/
+;; empty-argument-arity.metta].
 (: second-from-pair (-> Expression Atom))
 
 ;; --- Checked on import: set and list operations ---
@@ -212,6 +231,15 @@
 (: unique-atom (-> Expression Atom))
 (: alpha-unique-atom (-> Expression Atom))
 (: sort-atom (-> Expression Expression))
+;; The corelib's own two, whose blocks read `(-> String Expression String)` and
+;; `(-> Expression Expression)`. Both are load-bearing: they are what turns
+;; `(format-args n ())` into `(BadArgType 1 String Number)` and
+;; `(sort-strings s)` into `(BadArgType 1 Expression String)`, where an
+;; argument the type does not decide earns the operation's own words instead
+;; [source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean, the corelib blocks;
+;; tests/semantics/grounded/07-partial-core.metta].
+(: format-args (-> String Expression String))
+(: sort-strings (-> Expression Expression))
 (: exclude-item (-> Atom Expression Expression))
 (: is-member (-> Atom Expression Bool))
 (: is-alpha-member (-> Atom Expression Bool))
@@ -235,13 +263,17 @@
 (: get-type (-> Atom %Undefined%))
 (: =alpha (-> Atom Atom Bool))
 (: id (-> $t $t))
-(: empty (-> %Undefined%))
 
 ;; --- Checked on import: spaces and state ---
-(: get-atoms (-> Symbol Atom))
+(: get-atoms (-> SpaceType Atom))
 (: bind! (-> Symbol %Undefined% Bool))
-(: context-space (-> Symbol))
-(: import! (-> Atom Atom Bool))
+(: context-space (-> SpaceType))
+(: import! (-> Atom Atom (->)))
+;; include pastes a module's source into the space that included it and
+;; answers its LAST directive's answers, so its result type is open where
+;; import!'s is unit [source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean,
+;; the include corelib block].
+(: include (-> Atom %Undefined%))
 ;; DIVERGENCE from the dump, which types these over `(StateMonad $t)`.
 ;; PeTTa's state is a named global: change-state! is nb_setval/2 and get-state
 ;; is nb_getval/2, so the first argument is the NAME and there is no monadic
@@ -327,4 +359,4 @@
 (: Kwargs (-> Atom Atom Atom Atom Atom %Undefined%))
 (: Kwargs (-> Atom Atom Atom Atom Atom Atom %Undefined%))
 (: library (-> %Undefined% %Undefined%))
-(: git-import! (-> String Bool))
+(: git-import! (-> String (->)))

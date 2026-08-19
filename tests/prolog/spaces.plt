@@ -400,19 +400,36 @@ test(space_names_enumerate_the_registered_spaces,
     \+ memberchk('&plunit_never_written', Names),
     sort(Names, Names).
 
-% match/4's last clause and 'get-atoms'/2 spell "is this a space" as a bare
-% atom/1 rather than calling metta_space_argument/1, because a predicate call
-% cost one inference on every read and the benchmarks saw it. Two spellings of
-% one decision is exactly how they drift apart, so this is the guard: they
-% agree on every kind of term a caller can hand them, and if the named one
-% ever learns something atom/1 does not know, this fails rather than the
-% engine quietly refusing a space it should accept.
-test(the_inlined_space_test_is_the_named_one,
-     [ forall(member(Term, ['&self', '&plunit_names', not_a_space, [], 0, 1.5,
-                            "text", [a, b], f(x), _Unbound])) ]) :-
-    ( atom(Term) -> Inlined = true ; Inlined = false ),
-    ( metta_space_argument(Term) -> Named = true ; Named = false ),
-    assertion(Inlined == Named).
+% No door calls one shared space test: each reaches the decision through the
+% work it was already doing, because a test in front of every door cost one to
+% three inferences on every space operation and four benchmarks saw it. Several
+% spellings of one decision is exactly how they drift apart, so this is the
+% guard, and it asks the DOORS rather than the spellings: each refuses exactly
+% the terms petta_space_name/1 refuses, over every kind of term a caller can
+% hand it. A space that exists and has nothing to answer answers nothing, which
+% is not a refusal.
+read_door_refuses('get-atoms', Term, Refused) :-
+    (   'get-atoms'(Term, Answer),
+        nonvar(Answer), Answer = ['Error'|_]
+    ->  Refused = true
+    ;   Refused = false
+    ).
+read_door_refuses(match, Term, Refused) :-
+    (   match(Term, [plunit_door_probe, _], plunit_door_probe, Answer),
+        nonvar(Answer), Answer = ['Error'|_]
+    ->  Refused = true
+    ;   Refused = false
+    ).
+
+test(the_read_doors_refuse_what_the_named_test_refuses,
+     [ forall(( member(Term, ['&self', '&plunit_names', not_a_space, [], 0, 1.5,
+                              "text", [a, b], f(x), _Unbound]),
+                member(Door, ['get-atoms', match]) )) ]) :-
+    ( petta_space_name(Term) -> Named = true ; Named = false ),
+    read_door_refuses(Door, Term, Refused),
+    %Accepted by the named test exactly when the door does not refuse it.
+    assertion(( Named == true, Refused == false
+              ; Named == false, Refused == true )).
 
 :- end_tests(spaces_registration).
 
@@ -1073,6 +1090,32 @@ test(removing_one_rule_keeps_the_other_visible) :-
 
 :- end_tests(spaces_type_extensions).
 
+% A space may EXTEND an engine operation by writing an equation for its name,
+% and taking that equation back must leave the engine's own operation where it
+% was. It did not: removing the last equation asked whether any COMPILED clause
+% for the name was left, the engine's builtin is not one, so the name-wide
+% `fun/1` registration went with the equation and `!(get-type 1)` answered
+% `(get-type 1)` unreduced for the rest of the process. Reproduced 2026-08-20
+% through this file's own spaces_type_extensions cleanup, which left every
+% later MeTTa-level get-type call unreduced.
+:- begin_tests(builtin_survives_equation_removal).
+
+builtin_extension_space('&plunit_builtin_survives').
+builtin_extension_equation([=, ['get-type', 'plunit-bse-subject'],
+                            'plunit-bse-type']).
+
+test(removing_a_space_equation_leaves_the_builtin_registered,
+     [cleanup(clear_native_atoms('&plunit_builtin_survives'))]) :-
+    builtin_extension_space(Space),
+    builtin_extension_equation(Equation),
+    'add-atom'(Space, Equation, _),
+    'remove-atom'(Space, Equation, _),
+    assertion(fun('get-type')),
+    process_metta_string("!(get-type 1)", Answers),
+    assertion(Answers == ['Number']).
+
+:- end_tests(builtin_survives_equation_removal).
+
 
 % A foreign space holds RULES, not only facts. In MeTTa a space is BOTH a data
 % source and where the program lives: evaluation is match against (= lhs rhs)
@@ -1638,3 +1681,120 @@ test(wrapper_forms_run_in_named_spaces,
     assertion(R4 == 2).
 
 :- end_tests(named_space_wrappers).
+
+% A space handle is a VALUE of the language rather than a bare symbol, and both
+% questions about it have an answer: its metatype is Grounded and its declared
+% type is SpaceType, which is upstream's own name for it
+% [source: LeaTTa tests/semantics/spaces/space_identity.metta, STATUS conforms,
+% whose transcript is hyperon 0.2.10 printing Grounded and SpaceType for &self,
+% the same pair for a bound space, and SpaceType for a fresh (new-space) that
+% nothing has been written to yet].
+%
+% The engine's own registry answers both, so a handle a program makes at
+% runtime is covered the moment it exists rather than by naming it here.
+:- begin_tests(space_handle_type).
+
+test(the_ambient_space_is_grounded_and_typed) :-
+    findall(M, 'get-metatype'('&self', M), Metatypes),
+    assertion(Metatypes == ['Grounded']),
+    findall(T, 'get-type'('&self', T), Types),
+    assertion(Types == ['SpaceType']).
+
+% Freshness is the case a write-registered handle would miss: `(new-space)`
+% answers a space that exists, and asking its type must not be what makes it.
+test(a_fresh_space_is_one_before_anything_is_written_to_it) :-
+    'new-space'(Space),
+    findall(M, 'get-metatype'(Space, M), Metatypes),
+    assertion(Metatypes == ['Grounded']),
+    findall(T, 'get-type'(Space, T), Types),
+    assertion(Types == ['SpaceType']).
+
+% Through the surface, where bind! makes the handle reachable by a name the
+% reader substitutes away before the engine sees it.
+test(a_bound_space_answers_the_same_through_its_token,
+     [cleanup(retractall(metta_token('&plunit-handle-space', _)))]) :-
+    process_metta_string("!(bind! &plunit-handle-space (new-space))", _),
+    process_metta_string("!(add-atom &plunit-handle-space (handle-canary 1))",
+                         _),
+    process_metta_string("!(get-metatype &plunit-handle-space)", Metatypes),
+    assertion(Metatypes == ['Grounded']),
+    process_metta_string("!(get-type &plunit-handle-space)", Types),
+    assertion(Types == ['SpaceType']).
+
+% A symbol that names no space is untouched by any of it, which is the half
+% that keeps the answer a fact about the handle rather than about the spelling.
+test(a_symbol_that_names_no_space_is_unchanged) :-
+    findall(M, 'get-metatype'('plunit-handle-not-a-space', M), Metatypes),
+    assertion(Metatypes == ['Symbol']),
+    findall(T, 'get-type'('plunit-handle-not-a-space', T), Types),
+    assertion(Types == ['%Undefined%']).
+
+:- end_tests(space_handle_type).
+
+% A first argument that is not a space is refused BY NAME, with upstream's own
+% text and the call that failed as the subject, and as an ANSWER rather than a
+% throw so a collapse can hold it
+% [source: LeaTTa tests/semantics/spaces/add_atom.metta, add_atoms, add_reduct,
+% add_reducts, get_atoms and match, all six STATUS conforms and all six
+% transcripts of hyperon 0.2.10; the texts are upstream's own `ok_or` strings
+% at space.rs:143, :172 and :199]. The message is a STRING here and prints
+% quoted, where the arbiter's writer prints the same text bare; the corpus
+% comparison drops quotes on both sides and says so at
+% tests/conformance/leatta.py, so the two records differ only in that.
+%
+% A space here is a NAME, so what is refused is a name that is not one: the
+% rule is is-space/2's, an atom beginning with `&`, which evalc/3 has enforced
+% at its own door since it was written and which python/petta/space.py enforces
+% at the library's. The three doors below were the ones that did not, so
+% `(add-atom not-a-space (bad add))` silently made a space called
+% `not-a-space` while `(is-space not-a-space)` answered False in the same
+% program.
+:- begin_tests(space_argument_refusals).
+
+refused_space_call("!(collapse (add-atom not-a-space (bad add)))",
+                   "((Error (add-atom not-a-space (bad add)) \"add-atom expects a space as the first argument\"))").
+refused_space_call("!(collapse (add-atoms not-a-space (bad batch)))",
+                   "((Error (add-atom not-a-space bad) \"add-atom expects a space as the first argument\"))").
+refused_space_call("!(collapse (get-atoms not-a-space))",
+                   "((Error (get-atoms not-a-space) \"get-atoms expects a space as its argument\"))").
+refused_space_call("!(collapse (match not-a-space (q a) a))",
+                   "((Error (match not-a-space (q a) a) \"match expects a space as the first argument\"))").
+%The reducing forms delegate the check to add-atom, so the error names add-atom
+%and the REDUCED atom, which is where the write would have happened.
+refused_space_call("!(collapse (add-reduct not-a-space (+ 7000 1)))",
+                   "((Error (add-atom not-a-space 7001) \"add-atom expects a space as the first argument\"))").
+%The scoped type lookup is a space door too, and the arbiter refuses it in the
+%same shape [source: LeaTTa tests/semantics/spaces/get_type_space.metta and the
+%four get_doc files, whose last line is this refusal reached through it].
+refused_space_call("!(collapse (get-type-space not-a-space scoped-atom))",
+                   "((Error (get-type-space not-a-space scoped-atom) \"get-type-space expects a space as the first argument\"))").
+
+test(a_name_that_is_not_a_space_is_refused_by_name,
+     [forall(refused_space_call(Source, Expected))]) :-
+    process_metta_string(Source, [Answer]),
+    swrite(Answer, Text),
+    assertion(Text == Expected).
+
+% The other half, and the reason the rule is the prefix rather than the
+% registry: a space is still CREATED by writing to it, so a name nothing has
+% bound yet is a space the moment a program uses it as one.
+test(a_fresh_ampersand_name_is_still_created_by_writing_to_it,
+     [cleanup(clear_native_atoms('&plunit-fresh-write'))]) :-
+    process_metta_string("!(add-atom &plunit-fresh-write (canary 1))", Added),
+    assertion(Added == [[]]),
+    process_metta_string("!(match &plunit-fresh-write (canary $x) $x)", Found),
+    assertion(Found == [1]).
+
+% A space that exists and holds nothing answers nothing, which is not the same
+% as a name that is not a space at all.
+test(an_empty_space_answers_nothing_rather_than_refusing,
+     [cleanup(clear_native_atoms('&plunit-empty-read'))]) :-
+    process_metta_string("!(add-atom &plunit-empty-read (canary 1))", _),
+    process_metta_string("!(remove-atom &plunit-empty-read (canary 1))", _),
+    process_metta_string("!(collapse (get-atoms &plunit-empty-read))", Atoms),
+    assertion(Atoms == [[]]),
+    process_metta_string("!(collapse (match &plunit-empty-read (canary $x) $x))",
+                         Found),
+    assertion(Found == [[]]).
+
+:- end_tests(space_argument_refusals).

@@ -1,7 +1,7 @@
 # The kernel and the forms built on it
 
-The translator gives 57 heads a meaning of their own. 49 of them are clauses
-of `translate_special_dl/5` in `src/translator.pl`, 54 clauses over those 49
+The translator gives 58 heads a meaning of their own. 50 of them are clauses
+of `translate_special_dl/5` in `src/translator.pl`, 55 clauses over those 50
 heads, and the remaining 8 are equations in `src/prelude.metta` registered
 with `add-translator-rule!`. A head in the second group costs the compiler
 nothing: the rule says what the call expands to, the expansion goes back
@@ -39,7 +39,7 @@ derived form that is already a prelude rule says `prelude`; a derived form
 still fused into the compiler says why, and every one of those reasons is
 measured.
 
-## `translate_special_dl/5`, 49 heads
+## `translate_special_dl/5`, 50 heads
 
 | head | kind | reason |
 |---|---|---|
@@ -70,6 +70,7 @@ measured.
 | `let*` | derived, fused | nested `let`s, `letstar_to_rec_let/3`; fused for the same reason, and it carries the same runtime path |
 | `progn` | derived, fused | `(let $_ $a $b)` chained. The rule form measured 188 compile-time inferences against 150 and adds one `unify_with_occurs_check/2` goal per call that the fused form does not emit [measured 2026-08-19] |
 | `prog1` | derived, fused | `(let $r $a (let $_ $b $r))`. 205 against 146, and two extra goals a call [measured 2026-08-19] |
+| `nop` | derived, fused | `progn`'s other half, `(let $_ $a (let $_ $b ()))`, and fused for `progn`'s reason: it takes any arity and a translator rule has a fixed one. Upstream cannot write it in MeTTa at all, says so at `stdlib.metta:608-609` and grounds it in Rust instead |
 | `once` | derived, fused | `(take 1 $e)` is the MeTTa spelling, and it answers the same thing over the whole corpus, 206 files with every answer group identical. It compiles to `metta_take/2` where the fused form compiles to Prolog's `once/1`, which costs 2 inferences a CALL: 454,152 against 354,122 over a 50,000-call loop, +28%, and 73 compile-time inferences against 36 [measured 2026-08-19]. The rule ships in `lib/lib_derived.metta` for a program that wants the smaller instruction set anyway |
 | `take` | core, divergence | a bounded take over a generator, with a `match` special case that pushes the bound into the space query |
 | `top` | core, divergence | the same, ordered |
@@ -127,8 +128,8 @@ group for group, and the conformance lane's per-area agreement is unchanged
 
 ## What would move next
 
-`progn`, `prog1` and `once` are derived and their rules are written out in the
-table above, so moving them is a decision about cost rather than about
+`progn`, `prog1`, `nop` and `once` are derived and their rules are written out
+in the table above, so moving them is a decision about cost rather than about
 expressiveness. Each one's rule emits a goal the fused clause does not, and
 the numbers are beside them.
 
@@ -136,10 +137,10 @@ the numbers are beside them.
 ships in `lib/lib_derived.metta` and a program that wants the smaller
 instruction set imports it and pays the two inferences a call.
 `examples/libraries/derived_forms.metta` runs the swap and the swap back.
-`progn` and `prog1` are variadic and a translator rule has a fixed arity, so a
-rule for either would rewrite some calls and leave the rest to the compiler,
-which is two compilations of one form rather than one. That is what would have
-to be solved first.
+`progn`, `prog1` and `nop` are variadic and a translator rule has a fixed
+arity, so a rule for any of them would rewrite some calls and leave the rest to
+the compiler, which is two compilations of one form rather than one. That is
+what would have to be solved first.
 
 The five space-update heads are the interesting case. They are one clause
 shared five ways, and what keeps them in the compiler is not their semantics

@@ -72,10 +72,39 @@ test(comment_parentheses_do_not_close_a_form) :-
     FirstTerm == [quote, [a, b]],
     SecondTerm == [quote, done].
 
-test(missing_form_open_reports_its_syntax_error,
-     [throws(error(syntax_error(_), none))]) :-
+%A top-level form is ONE ATOM, and a parenthesised expression is only the
+%commonest kind. The four splitter tests below pin the reader against the
+%arbiter's own tokenizer rule: a leading `!` before `(`, layout or end of
+%input marks the atom that follows as runnable, and a `!` anywhere else is
+%an ordinary symbol character [source: LeaTTa
+%MettaHyperonFull/Runtime/Parser.lean:85-88].
+test(a_bare_symbol_is_a_top_level_form) :-
     string_codes("not-a-form", Codes),
-    phrase(top_forms(_, 1), Codes).
+    once(phrase(top_forms(Forms, 1), Codes)),
+    Forms == [form("not-a-form")].
+
+test(the_marker_takes_an_atom_of_any_kind) :-
+    string_codes("! untouched-symbol\n! 42\n! \"a b\"\n! $free\n! &first",
+                 Codes),
+    once(phrase(top_forms(Forms, 1), Codes)),
+    Forms == [runnable("untouched-symbol"), runnable("42"),
+              runnable("\"a b\""), runnable("$free"), runnable("&first")].
+
+%`!42` and `!$x` print nothing under the arbiter because its tokenizer keeps
+%the `!` inside the symbol; only `(`, layout and end of input make it the
+%marker [measured 2026-08-19: LeaTTa --observed-file on each exits 0 with no
+%output].
+test(a_marker_before_a_non_boundary_stays_an_ordinary_symbol_character) :-
+    string_codes("!42\n!$x\n!(f)", Codes),
+    once(phrase(top_forms(Forms, 1), Codes)),
+    Forms == [form("!42"), form("!$x"), runnable("(f)")].
+
+%The same measurement: a file ending in a bare `!` exits 0 and prints
+%nothing, so the marker with no atom after it contributes no form.
+test(a_trailing_marker_contributes_no_form) :-
+    string_codes("!(f)\n!", Codes),
+    once(phrase(top_forms(Forms, 1), Codes)),
+    Forms == [runnable("(f)")].
 
 test(missing_form_close_reports_its_syntax_error,
      [throws(error(syntax_error(_), none))]) :-
@@ -83,6 +112,30 @@ test(missing_form_close_reports_its_syntax_error,
     phrase(top_forms(_, 1), Codes).
 
 :- end_tests(filereader_form_splitter).
+
+:- begin_tests(filereader_bare_top_level_atoms).
+
+%Both halves end to end: the marked atom evaluates to itself and the
+%unmarked one is stored, which is what the arbiter does with each
+%[source: LeaTTa tests/semantics/eval-core/self-evaluating-atoms.metta,
+%grounded/25-state-rendering.metta, modules/09-bind/main.metta].
+test(a_marked_bare_atom_evaluates_to_itself) :-
+    setup_call_cleanup(
+        assertz(silent(true), Ref),
+        process_metta_string("! untouched-symbol\n! 42\n! \"text\"", Results),
+        erase(Ref)),
+    Results == ['untouched-symbol', 42, "text"].
+
+test(an_unmarked_bare_atom_is_stored_as_data) :-
+    setup_call_cleanup(
+        assertz(silent(true), Ref),
+        ( process_metta_string("stored-bare-atom", []),
+          process_metta_string("!(match &self stored-bare-atom found)",
+                               Results) ),
+        erase(Ref)),
+    Results == [found].
+
+:- end_tests(filereader_bare_top_level_atoms).
 
 :- begin_tests(filereader_comments).
 
@@ -133,12 +186,15 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
            "!(add-atom &self (plunit-loader-runtime-atom value))~n", []),
     format(Stream, "!(add-atom &self (= (~w $x) (+ $x 2)))~n",
            [RuntimeFunction]),
-    format(Stream, "!(+ 1 2 3)~n", []),
+    %A HOST error, because that is the kind that still raises: a wrong arity
+    %and a wrongly typed operand are both ANSWERS now, and a form that answers
+    %does not roll its source back.
+    format(Stream, "!(/ 1 0)~n", []),
     close(Stream),
     setup_call_cleanup(
         true,
         ( catch(user:load_metta_file(Path, _), Error, true),
-          Error = error(domain_error(function_input_arities(+, [2]), 3), _),
+          Error = error(evaluation_error(zero_divisor), _),
           flag('$gs_lambda_', LambdaNumber, LambdaNumber),
           format(atom(GeneratedLambda), 'lambda_~d', [LambdaNumber]),
           test_lambda_functions(AfterLambdas),
@@ -204,12 +260,12 @@ test(failed_late_definition_does_not_recompile_existing_callers,
         "(= (plunit-rollback-caller $x) (plunit-rollback-late $x))", _),
     tmp_file_stream(text, Path, Stream),
     format(Stream,
-           "(= (plunit-rollback-late $x) (+ $x 1))~n!(+ 1 2 3)~n", []),
+           "(= (plunit-rollback-late $x) (+ $x 1))~n!(/ 1 0)~n", []),
     close(Stream),
     setup_call_cleanup(
         true,
         ( catch(user:load_metta_file(Path, _), Error, true),
-          Error = error(domain_error(function_input_arities(+, [2]), 3), _),
+          Error = error(evaluation_error(zero_divisor), _),
           user:process_metta_string("!(plunit-rollback-caller 41)", Results),
           aggregate_all(count,
                         user:fun_meta_clause(_, 'plunit-rollback-caller', _, _),

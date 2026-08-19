@@ -32,9 +32,9 @@
 
 !(test (alpha-unique-atom 5) ())
 
-!(test (min-atom 5) ())
+!(test (min-atom 5) (Error (min-atom 5) "Atom is not an ExpressionAtom"))
 
-!(test (max-atom 5) ())
+!(test (max-atom 5) (Error (max-atom 5) "Atom is not an ExpressionAtom"))
 
 !(test (intersection-atom 5 (a)) ())
 

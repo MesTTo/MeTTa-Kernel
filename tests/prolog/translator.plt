@@ -631,7 +631,7 @@ expected_special_heads([
     'foldl-atom', 'forall', 'get-metatype', 'let*', 'map-atom', 'not-provable',
     'remove-atom', 'test-no-answer', '|->', call, case, chain,
     collapse, cut, elapsed, eval, evalc, explain, hyperpose, if, let, match,
-    inferences, noeval,
+    inferences, noeval, nop,
     once, prog1, progn, quote, reduce, sealed, super, superpose, take, test,
     timeout,
     top, transaction, translatePredicate, unify, with_mutex
@@ -700,6 +700,36 @@ test(variable_heads_are_not_bound_to_a_special_form) :-
     translate_expr([Head, 1], Goals, _),
     var(Head),
     Goals = [reduce([Head, 1], _, _)].
+
+% nop takes any number of arguments and answers unit at all of them, which is
+% the one operation upstream's standard library says out loud it could not
+% write: "there is no way to define operation which consumes any number of
+% arguments and returns unit", directly above nop's own doc block
+% [source: hyperon-experimental@3f76dc4 stdlib.metta:608-609, quoted in LeaTTa
+% tests/semantics/types-basic/71-variadic-nop.metta]. Upstream answers it in
+% Rust instead, `grounded_op!(NopOp, "nop")` ignoring its whole argument list
+% (core.rs:58,61-63,70-74); a variadic special form is this engine's own way to
+% ignore an argument list. Measured on hyperon 0.2.10 at that pin on 2026-08-16
+% and on LeaTTa the same day, all three calls answer `[()]` on both.
+test(nop_answers_unit_at_every_arity,
+     [forall(member(Source, ["!(nop)", "!(nop 1)", "!(nop 1 2 3)"]))]) :-
+    process_metta_string(Source, Answers),
+    Answers == [[]].
+
+% The arguments are still EVALUATED, which is what upstream's grounded op does
+% before it ignores them, so a call with an effect in it keeps the effect.
+test(nop_evaluates_the_arguments_it_discards) :-
+    process_metta_string("!(nop (+ 1 2) (nop-effect-marker))", Answers),
+    Answers == [[]].
+
+% Nothing is DECLARED for it. The variadic declaration LeaTTa carries is its
+% own divergence, taken under the marker above, and upstream's generated
+% reference gives nop the undeclared `%Undefined%` instead
+% [source: LeaTTa tests/semantics/types-basic/71-variadic-nop.metta, STATUS
+% "diverges from Hyperon 0.2.10 on the first and last answers"].
+test(nop_carries_no_declared_type) :-
+    process_metta_string("!(get-type nop)", Answers),
+    Answers == ['%Undefined%'].
 
 test(space_predicates_use_space_storage,
      [ setup(add_sexp('&self', [plunit_space_predicate, a, b])),
@@ -1590,42 +1620,33 @@ test(empty_reduce_is_a_value) :-
 
 :- begin_tests(translator_evaluation_errors).
 
-dynamic_arithmetic_error :-
-    reduce(['+', 1, undefined_sym], _).
+%A grounded operation that cannot compute ANSWERS rather than raising, so what
+%these pin is that the two routes answer the SAME thing and that the refusal is
+%an answer rather than a silent failure. `undefined_sym` is undeclared, so its
+%type rules nothing out and the call is left as written
+%[source: LeaTTa tests/semantics/grounded/07-partial-core.metta].
+dynamic_arithmetic_refusal(Answer) :-
+    reduce(['+', 1, undefined_sym], Answer).
 
-compiled_arithmetic_error :-
-    translate_expr(['+', 1, undefined_sym], Goals, _),
+compiled_arithmetic_refusal(Answer) :-
+    translate_expr(['+', 1, undefined_sym], Goals, Answer),
     goals_list_to_conj(Goals, Conjunction),
     call(Conjunction).
 
-captured_error(Goal, Type) :-
-    catch(call(Goal), error(Type, _), true),
-    nonvar(Type).
+compiled_answers(Expression, Answers) :-
+    translate_expr(Expression, Goals, Out),
+    goals_list_to_conj(Goals, Conjunction),
+    findall(Out, Conjunction, Answers).
 
-captured_operation_error(Goal, Type, Operation) :-
-    catch(call(Goal), Error, true),
-    nonvar(Error),
-    Error = error(Type, context(Operation, _)).
+test(dynamic_and_compiled_calls_answer_the_same_refusal) :-
+    findall(A, dynamic_arithmetic_refusal(A), Dynamic),
+    findall(A, compiled_arithmetic_refusal(A), Compiled),
+    Dynamic == [['+', 1, undefined_sym]],
+    Compiled == Dynamic.
 
-test(dynamic_and_compiled_calls_report_the_same_error) :-
-    captured_error(dynamic_arithmetic_error, DynamicType),
-    captured_error(compiled_arithmetic_error, CompiledType),
-    DynamicType == type_error(number, undefined_sym),
-    CompiledType == DynamicType.
-
-test(dynamic_and_compiled_calls_name_the_written_operation) :-
-    captured_operation_error(dynamic_arithmetic_error, DynamicType,
-                             DynamicOperation),
-    captured_operation_error(compiled_arithmetic_error, CompiledType,
-                             CompiledOperation),
-    DynamicType == type_error(number, undefined_sym),
-    CompiledType == DynamicType,
-    DynamicOperation == '+',
-    CompiledOperation == DynamicOperation.
-
-test(dynamic_errors_are_not_converted_to_failure,
-     [throws(error(type_error(number, undefined_sym), _))]) :-
-    dynamic_arithmetic_error.
+test(a_refusal_is_an_answer_and_not_a_failure) :-
+    findall(A, dynamic_arithmetic_refusal(A), Answers),
+    Answers \== [].
 
 test(an_unknown_head_remains_inert_data) :-
     translate_expr([plunit_inert_head, 1], Goals, Out),
@@ -1645,27 +1666,24 @@ cleanup_builtin_type_declarations(Path, ParsedForms) :-
     retractall(imported_metta_source('&self', Path)),
     retractall(import_life('&self', Path, _)).
 
-test(builtin_type_import_keeps_runtime_errors_loud) :-
+%Loading the engine's own declaration file must not mask a refusal into an
+%empty answer: each of the three still answers, and each answers what its own
+%operation says.
+test(builtin_type_import_keeps_runtime_refusals_visible) :-
     once(( absolute_file_name('../../lib/lib_builtin_types.metta', Path,
                               [access(read)]),
            read_metta_source(Path, Source),
            parse_metta_source(Source, ParsedForms) )),
     setup_call_cleanup(
         once(load_metta_file(Path, _)),
-        once(( captured_operation_error(compiled_arithmetic_error,
-                                        ArithmeticType,
-                                        ArithmeticOperation),
-               ArithmeticType == type_error(number, undefined_sym),
-               ArithmeticOperation == '+',
-               translate_expr([and, true, 5], BoolGoals, _),
-               goals_list_to_conj(BoolGoals, BoolGoal),
-               captured_operation_error(BoolGoal, BoolType, BoolOperation),
-               BoolType == type_error(boolean, 5),
-               BoolOperation == and,
-               translate_expr(['min-atom', 5], MinGoals, MinOut),
-               goals_list_to_conj(MinGoals, MinGoal),
-               call(MinGoal),
-               MinOut == [] )),
+        once(( findall(A, compiled_arithmetic_refusal(A), Arithmetic),
+               Arithmetic == [['+', 1, undefined_sym]],
+               compiled_answers([and, true, 5], Boolean),
+               Boolean == [['Error', [and, true, 5],
+                            ['BadArgType', 2, 'Bool', 'Number']]],
+               compiled_answers(['min-atom', 5], Minimum),
+               Minimum == [['Error', ['min-atom', 5],
+                            "Atom is not an ExpressionAtom"]] )),
         cleanup_builtin_type_declarations(Path, ParsedForms)).
 
 :- end_tests(translator_evaluation_errors).
@@ -2131,10 +2149,12 @@ test(a_symbol_declared_with_an_intrinsic_type_still_passes,
     assertion(Results == [['tlc-sym']]),
     process_metta_string("(: tlc-other TlcOther)", _),
     process_metta_string("!(collapse (tlc-flag tlc-other))", Refused),
-    assertion(Refused == [[]]),
+    assertion(Refused == [[['Error', ['tlc-flag', 'tlc-other'],
+                            ['BadArgType', 1, 'Bool', 'TlcOther']]]]),
     'remove-atom'('&self', [':', 'tlc-other', _], _),
     process_metta_string("!(collapse (tlc-flag 7))", RefusesNumber),
-    assertion(RefusesNumber == [[]]).
+    assertion(RefusesNumber == [[['Error', ['tlc-flag', 7],
+                                  ['BadArgType', 1, 'Bool', 'Number']]]]).
 
 %A parametric declaration leaves the type an unbound VARIABLE at compile time,
 %and intrinsic_type_test/3's head would bind it to 'Number' and emit a number/1
@@ -2151,18 +2171,32 @@ test(a_parametric_type_is_not_specialised,
     assertion(Results == [[foo]]).
 
 %The drop is one-directional: a literal of the WRONG type keeps its check and
-%is still refused at run time.
-refused_call("(tlc-sq \"s\")").
-refused_call("(tlc-sq true)").
-refused_call("(tlc-tag 1 \"a\")").
-refused_call("(tlc-flag 1)").
+%is still refused at run time, and the refusal is an ANSWER naming the
+%position, the declared type and the literal's own
+%[source: LeaTTa tests/semantics/types-basic/44-badargtype-per-actual.metta].
+%
+%Three of the four are byte-identical to the arbiter [measured 2026-08-19].
+%The fourth is not, and the difference is the ARBITER's: it answers
+%`((* True True))` for `(tlc-sq true)`, accepting a Bool through a Number
+%parameter, while answering `(BadArgType 1 Bool Number)` for the mirror
+%`(tlc-flag 1)` and `(BadArgType 1 Number String)` for `(tlc-sq "s")`, with
+%`!(get-type True)` answering `Bool` throughout. No corpus file pins the
+%asymmetry, so this engine keeps the consistent reading.
+refused_call("(tlc-sq \"s\")",
+             ['Error', ['tlc-sq', "s"], ['BadArgType', 1, 'Number', 'String']]).
+refused_call("(tlc-sq true)",
+             ['Error', ['tlc-sq', true], ['BadArgType', 1, 'Number', 'Bool']]).
+refused_call("(tlc-tag 1 \"a\")",
+             ['Error', ['tlc-tag', 1, "a"], ['BadArgType', 1, 'String', 'Number']]).
+refused_call("(tlc-flag 1)",
+             ['Error', ['tlc-flag', 1], ['BadArgType', 1, 'Bool', 'Number']]).
 
 test(a_literal_of_the_wrong_type_is_still_refused,
-     [ forall(refused_call(Call)),
+     [ forall(refused_call(Call, Refusal)),
        setup(setup_literal_checks), cleanup(cleanup_literal_checks) ]) :-
     format(atom(Source), "!(collapse ~w)", [Call]),
     process_metta_string(Source, Results),
-    Results == [[]].
+    Results == [[Refusal]].
 
 test(a_literal_of_the_right_type_still_answers,
      [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-

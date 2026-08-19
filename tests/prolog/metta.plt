@@ -41,6 +41,81 @@ test(every_runtime_term_has_a_metatype,
     'get-metatype'(Term, Actual),
     Actual == Expected.
 
+% A NAME's metatype is the one answer that is not read off the term, and no
+% registry of this engine's own decides it: `car-atom` is a Prolog predicate
+% here and a standard-library equation there, `superpose` is a compiled special
+% form here and a grounded token there, and the arbiter answers for the name
+% rather than for whichever route an engine took. So the classification is
+% upstream's, adopted whole [source: LeaTTa
+% MettaHyperonFull/Minimal/Interpreter.lean, groundedTokens], and these are the
+% names its corpus pins, tests/semantics/types-meta/02 and 03 and
+% grounded/12-metatypes.metta, all three STATUS conforms and byte-for-byte
+% transcripts of hyperon 0.2.10.
+grounded_name_case('+').             % arithmetic, and a fun/1 here
+grounded_name_case('/').
+grounded_name_case('==').
+grounded_name_case(and).
+grounded_name_case('sqrt-math').
+grounded_name_case('size-atom').
+grounded_name_case(superpose).       % a special form here, a token there
+grounded_name_case(nop).             % the same, since PeTTa's nop is variadic
+grounded_name_case(match).
+grounded_name_case('add-atom').
+grounded_name_case('println!').
+grounded_name_case('&self').         % a space handle, grounded for that reason
+
+symbol_name_case('car-atom').        % a fun/1 here, a stdlib equation there
+symbol_name_case('cdr-atom').
+symbol_name_case('cons-atom').       % a fun/1 here, an instruction there
+symbol_name_case('decons-atom').
+symbol_name_case(empty).
+symbol_name_case('get-doc').
+symbol_name_case('new-state').       % the token is `_new-state`, not this
+symbol_name_case('type-cast').
+symbol_name_case(eval).              % a special form here, an instruction there
+symbol_name_case(chain).
+symbol_name_case(unify).
+symbol_name_case(if).
+symbol_name_case(let).
+symbol_name_case(case).
+symbol_name_case(quote).
+symbol_name_case(collapse).
+symbol_name_case('no-such-operation').
+
+test(a_grounded_token_this_engine_holds_is_grounded,
+     [forall(grounded_name_case(Name))]) :-
+    'get-metatype'(Name, Metatype),
+    Metatype == 'Grounded'.
+
+test(an_instruction_or_equation_name_is_a_symbol,
+     [forall(symbol_name_case(Name))]) :-
+    'get-metatype'(Name, Metatype),
+    Metatype == 'Symbol'.
+
+% Membership in the table is half the answer and this engine holding the
+% operation is the other half, which is the arbiter's own rule: its metaTypeOf
+% asks `groundedTokenNames.contains s && w.opAdmitted s`, and it measured
+% hyperon answering Symbol for `flip` before `!(import! &self random)` and
+% Grounded after. A name nothing here gives meaning to gets the answer an
+% unknown name gets, which is what `no-such-operation` above pins.
+test(a_token_this_engine_does_not_hold_is_a_symbol,
+     [forall(member(Name, ['fuzzy-match', 'near-match', 'div-euclid',
+                           'skel-swap-pair-native']))]) :-
+    assertion(metta_grounded_token(Name)),
+    assertion(\+ metta_operation_admitted(Name)),
+    'get-metatype'(Name, Metatype),
+    Metatype == 'Symbol'.
+
+% The registry decides, so a name the engine gains answers for it. Registering
+% a fun/1 is how a library or a Python binding arrives, and the metatype has to
+% follow the same day rather than at the next edit of the table.
+test(a_token_becomes_grounded_when_the_engine_gains_it,
+     [ setup(( \+ metta_operation_admitted('fuzzy-match'),
+               assertz(user:fun('fuzzy-match')) )),
+       cleanup(retractall(user:fun('fuzzy-match'))) ]) :-
+    'get-metatype'('fuzzy-match', Metatype),
+    Metatype == 'Grounded'.
+
 :- end_tests(metta_metatypes).
 
 :- begin_tests(metta_operation_errors).
@@ -55,7 +130,6 @@ test(every_runtime_term_has_a_metatype,
 %operand guard keeps it outside the IEEE retry.
 host_error_case('/', '/'(1, 0, _)).
 host_error_case('%', '%'(1, 0, _)).
-host_error_case(exp, exp(invalid_number, _)).
 host_error_case('#+', '#+'(1, invalid_number, _)).
 host_error_case('#-', '#-'(1, invalid_number, _)).
 host_error_case('#*', '#*'(1, invalid_number, _)).
@@ -68,29 +142,15 @@ host_error_case('#<', '#<'(1, invalid_number, _)).
 host_error_case('#>', '#>'(1, invalid_number, _)).
 host_error_case('#=', '#='(1, invalid_number, _)).
 host_error_case('#\\=', '#\\='(1, invalid_number, _)).
-host_error_case('pow-math', 'pow-math'(1, invalid_number, _)).
 host_error_case('pow-math', 'pow-math'(0, -1, _)).
-host_error_case('sqrt-math', 'sqrt-math'(invalid_number, _)).
 host_error_case('sqrt-math', 'sqrt-math'(-1, _)).
-host_error_case('abs-math', 'abs-math'(invalid_number, _)).
-host_error_case('log-math', 'log-math'(1, invalid_number, _)).
-host_error_case('exp-math', 'exp-math'(invalid_number, _)).
-host_error_case('trunc-math', 'trunc-math'(invalid_number, _)).
-host_error_case('ceil-math', 'ceil-math'(invalid_number, _)).
-host_error_case('floor-math', 'floor-math'(invalid_number, _)).
-host_error_case('round-math', 'round-math'(invalid_number, _)).
-host_error_case('sin-math', 'sin-math'(invalid_number, _)).
-host_error_case('cos-math', 'cos-math'(invalid_number, _)).
-host_error_case('tan-math', 'tan-math'(invalid_number, _)).
-host_error_case('asin-math', 'asin-math'(invalid_number, _)).
+%The -math family has no invalid_number row and no overflow row: a
+%wrong-typed operand ANSWERS through metta_operation_answer now (the
+%operation_answers unit covers it), and a result past binary64 SATURATES
+%with the reader's literals, so the faults that remain are the all-integer
+%NaN-family ones the float-operand guard keeps outside the retry.
 host_error_case('asin-math', 'asin-math'(2, _)).
-host_error_case('acos-math', 'acos-math'(invalid_number, _)).
 host_error_case('acos-math', 'acos-math'(2, _)).
-host_error_case('atan-math', 'atan-math'(invalid_number, _)).
-host_error_case('isnan-math', 'isnan-math'(invalid_number, _)).
-host_error_case('isinf-math', 'isinf-math'(invalid_number, _)).
-host_error_case('min-atom', 'min-atom'([invalid_number], _)).
-host_error_case('max-atom', 'max-atom'([invalid_number], _)).
 host_error_case('random-int', 'random-int'(1, invalid_number, _)).
 host_error_case('random-float', 'random-float'(1, invalid_number, _)).
 host_error_case('random-float',
@@ -100,25 +160,86 @@ host_error_case('change-state!', 'change-state!'([invalid_key], 1, _)).
 host_error_case('get-state', 'get-state'([invalid_key], _)).
 
 %The guarded operators refuse a non-number argument themselves rather than
-%letting is/2 coerce it, so these are argument refusals, not host errors.
-number_operand_case('+', '+'(1, invalid_number, _)).
-number_operand_case('-', '-'(1, invalid_number, _)).
-number_operand_case('*', '*'(1, invalid_number, _)).
-number_operand_case('/', '/'(1, invalid_number, _)).
-number_operand_case('%', '%'(1, invalid_number, _)).
-number_operand_case('<', '<'(1, invalid_number, _)).
-number_operand_case('>', '>'(1, invalid_number, _)).
-number_operand_case('<=', '<='(1, invalid_number, _)).
-number_operand_case('>=', '>='(1, invalid_number, _)).
-number_operand_case(min, min(1, invalid_number, _)).
-number_operand_case(max, max(1, invalid_number, _)).
+%letting is/2 coerce it, and the refusal is an ANSWER: `invalid_number` is an
+%undeclared symbol, so its type decides nothing and the call is left as
+%written, which is upstream's NoReduce. Only `/` names itself instead
+%[source: LeaTTa tests/semantics/grounded/07-partial-core.metta].
+number_operand_case('+', '+'(1, invalid_number, R), R).
+number_operand_case('-', '-'(1, invalid_number, R), R).
+number_operand_case('*', '*'(1, invalid_number, R), R).
+number_operand_case('%', '%'(1, invalid_number, R), R).
+number_operand_case('<', '<'(1, invalid_number, R), R).
+number_operand_case('>', '>'(1, invalid_number, R), R).
+number_operand_case('<=', '<='(1, invalid_number, R), R).
+number_operand_case('>=', '>='(1, invalid_number, R), R).
+number_operand_case(min, min(1, invalid_number, R), R).
+number_operand_case(max, max(1, invalid_number, R), R).
 
-test(arithmetic_refuses_a_non_number_argument,
-     [forall(number_operand_case(Operation, Goal))]) :-
+test(arithmetic_answers_a_non_number_argument_rather_than_raising,
+     [forall(number_operand_case(Operation, Goal, Result))]) :-
+    findall(Result, call(Goal), Answers),
+    Answers == [[Operation, 1, invalid_number]].
+
+test(divide_refuses_by_name_where_the_others_leave_the_call) :-
+    findall(R, '/'(1, invalid_number, R), Answers),
+    Answers == [['Error', ['/', 1, invalid_number],
+                 "Divide expects two numbers: dividend and divisor"]].
+
+%A number the function is undefined at is a HOST error and stays one, which is
+%the split metta_math_recovery/4 draws: only an argument that is not a number
+%at all becomes the operation's own answer. exp-math over a large integer is
+%NOT in this list: exp IS defined there, the value merely leaves binary64,
+%and a result past binary64 saturates with the reader's literals
+%[tested: engine_operations_saturate_where_raw_is_still_raises].
+test(a_number_the_function_is_undefined_at_stays_a_host_error,
+     [forall(member(Goal-Operation, ['sqrt-math'(-1, _)-'sqrt-math',
+                                     'pow-math'(0, -1, _)-'pow-math',
+                                     'asin-math'(2, _)-'asin-math']))]) :-
     catch(call(Goal), Error, true),
     nonvar(Error),
-    Error = error(type_error(number, invalid_number),
-                  context(Operation, 'invalid MeTTa operation argument')).
+    Error = error(_, context(Operation, 'while evaluating MeTTa operation')).
+
+%The same operations handed an argument that is not a number at all. Each
+%answers in upstream's own words, and upstream's noun is not uniform: sqrt-math
+%and abs-math say `number` where every later unary operation says `input
+%number`, and pow-math and log-math name both of theirs
+%[source: LeaTTa tests/semantics/grounded/08-partial-math.metta].
+math_refusal_case('sqrt-math'(invalid_number, R), R,
+                  "sqrt-math expects one argument: number").
+math_refusal_case('abs-math'(invalid_number, R), R,
+                  "abs-math expects one argument: number").
+math_refusal_case('sin-math'(invalid_number, R), R,
+                  "sin-math expects one argument: input number").
+math_refusal_case('isinf-math'(invalid_number, R), R,
+                  "isinf-math expects one argument: input number").
+math_refusal_case(exp(invalid_number, R), R,
+                  "exp expects one argument: input number").
+math_refusal_case('pow-math'(1, invalid_number, R), R,
+                  "pow-math expects two arguments: number (base) and number (power)").
+math_refusal_case('log-math'(1, invalid_number, R), R,
+                  "log-math expects two arguments: base (number) and input value (number)").
+
+test(a_math_operation_answers_its_own_refusal_by_name,
+     [forall(math_refusal_case(Goal, Result, Message))]) :-
+    findall(Result, call(Goal), Answers),
+    Answers = [['Error', _, Reason]],
+    Reason == Message.
+
+%min-atom and max-atom carry three texts for three arguments, and the third
+%quotes the offending expression back the way upstream formats it.
+expression_refusal_case('min-atom'(5, R), R, "Atom is not an ExpressionAtom").
+expression_refusal_case('max-atom'(5, R), R, "Atom is not an ExpressionAtom").
+expression_refusal_case('min-atom'([], R), R, "Empty expression").
+expression_refusal_case('min-atom'([1, u, 3], R), R,
+                        "Only numbers are allowed in expression: (1 u 3)").
+expression_refusal_case('max-atom'([1, u, 3], R), R,
+                        "Only numbers are allowed in expression: (1 u 3)").
+
+test(the_numeric_expression_operations_answer_their_own_refusal,
+     [forall(expression_refusal_case(Goal, Result, Message))]) :-
+    findall(Result, call(Goal), Answers),
+    Answers = [['Error', _, Reason]],
+    Reason == Message.
 
 test(host_errors_name_the_written_operation,
      [forall(host_error_case(Operation, Goal))]) :-
@@ -128,18 +249,20 @@ test(host_errors_name_the_written_operation,
                   context(Operation, 'while evaluating MeTTa operation')),
     nonvar(Formal).
 
-boolean_error_case(and, and(true, 5, _)).
-boolean_error_case(or, or(false, 5, _)).
-boolean_error_case(not, not(5, _)).
-boolean_error_case(xor, xor(true, 5, _)).
-boolean_error_case(implies, implies(false, 5, _)).
+%A Number where a Bool was declared is decided, so it is a BadArgType ANSWER
+%naming the position, not a raise [source: the same file, `(and True n)` is
+%`(BadArgType 2 Bool Number)`].
+boolean_error_case(and, and(true, 5, R), R, 2).
+boolean_error_case(or, or(false, 5, R), R, 2).
+boolean_error_case(not, not(5, R), R, 1).
+boolean_error_case(xor, xor(true, 5, R), R, 2).
+boolean_error_case(implies, implies(false, 5, R), R, 2).
 
-test(boolean_type_errors_are_loud,
-     [forall(boolean_error_case(Operation, Goal))]) :-
-    catch(call(Goal), Error, true),
-    nonvar(Error),
-    Error = error(type_error(boolean, 5),
-                  context(Operation, 'invalid MeTTa operation argument')).
+test(boolean_type_errors_answer_the_position_they_refuse,
+     [forall(boolean_error_case(Operation, Goal, Result, Position))]) :-
+    findall(Result, call(Goal), Answers),
+    Answers = [['Error', _, Reason]],
+    Reason == ['BadArgType', Position, 'Bool', 'Number'].
 
 test(boolean_operations_remain_relational) :-
     findall(A-B-C, and(A, B, C), Rows),
@@ -179,9 +302,9 @@ test(an_unknown_procedure_keeps_swi_s_own_message) :-
     assertion(sub_string(Text, _, _, _, "Unknown procedure")).
 
 test(a_metta_operation_error_still_names_the_operation) :-
-    catch('+'(foo, 1, _), Error, true),
+    catch('#+'(foo, 1, _), Error, true),
     message_to_string(Error, Text),
-    assertion(sub_string(Text, _, _, _, "+: number expected, found foo")).
+    assertion(sub_string(Text, _, _, _, "#+: ")).
 
 :- end_tests(metta_operation_errors).
 
@@ -396,24 +519,32 @@ test(a_scoped_user_function_stays_scoped,
 
 :- begin_tests(metta_arithmetic_operands).
 
-arith_refusal(Goal, Culprit) :-
-    catch(( call(Goal), fail ), error(type_error(number, Culprit), _), true).
-
+%What these three reproductions pin is that the operand is not COERCED, and
+%that is unchanged; how the refusal is DELIVERED did change, from a raise to
+%an answer, so the expectations are written out rather than hidden behind a
+%catch [source: LeaTTa tests/semantics/grounded/07-partial-core.metta].
 test(a_one_element_expression_is_not_a_character_code) :-
     % (+ 1 (g)) answered 104, the character code of g.
-    arith_refusal('+'(1, [g], _), [g]),
-    arith_refusal('*'(2, [z], _), [z]).
+    findall(R, '+'(1, [g], R), Plus),
+    findall(R, '*'(2, [z], R), Times),
+    Plus == [['+', 1, [g]]],
+    Times == [['*', 2, [z]]].
 
 test(a_string_is_not_a_character_code) :-
-    arith_refusal('+'(1, "s", _), "s").
+    findall(R, '+'(1, "s", R), Answers),
+    Answers == [['Error', ['+', 1, "s"],
+                 ['BadArgType', 2, 'Number', 'String']]].
 
 test(an_evaluable_atom_does_not_outrank_a_metta_definition) :-
     % SWI's pi answered 3.14159 over a user's own (= pi 3.14).
-    arith_refusal('+'(1, pi, _), pi).
+    findall(R, '+'(1, pi, R), Answers),
+    Answers == [['+', 1, pi]].
 
 test(comparisons_refuse_the_same_operands) :-
-    arith_refusal('<'(1, [f, 2], _), [f, 2]),
-    arith_refusal(max([a], 1, _), [a]).
+    findall(R, '<'(1, [f, 2], R), Less),
+    findall(R, max([a], 1, R), Max),
+    Less == [['<', 1, [f, 2]]],
+    Max == [[max, [a], 1]].
 
 test(numbers_still_compute) :-
     '+'(1, 2, Three), Three == 3,
@@ -512,7 +643,10 @@ expected_outputs(clp_less, [true]).
 expected_outputs(clp_greater, [true]).
 expected_outputs(clp_equal, [true]).
 expected_outputs(clp_different, [true]).
-expected_outputs(representation, ["true"]).
+%`True`, not `true`: repr/2 is swrite/2, which writes the language's own
+%spelling of the boolean the reader mapped onto Prolog's
+%[tested: parser_roundtrip:booleans_print_in_the_languages_own_spelling].
+expected_outputs(representation, ["True"]).
 
 test(prebound_outputs_must_be_producible,
      [forall(wrong_prebound_output(Goal)), fail]) :-
@@ -790,11 +924,16 @@ test(metta_registration_arities,
     sort(Arities, Sorted),
     assertion(Sorted == [3]).
 
+%A wrong arity is an ordinary MeTTa error and an ANSWER, not a raise, and the
+%operator it names is the one the program wrote
+%[source: LeaTTa tests/semantics/eval-core/empty-argument-arity.metta;
+%measured 2026-08-19 against the arbiter, which answers
+%`(Error (+ 1 2 3) IncorrectNumberOfArguments)`].
 test(metta_arity_errors_name_the_operator,
      [forall(member(Operator, ['/', '+', '-', '*', min, max]))]) :-
-    catch(( reduce([Operator, 1, 2, 3], _, _), Formal = none ),
-          error(Formal, _), true),
-    assertion(Formal = domain_error(function_input_arities(Operator, _), _)).
+    findall(Answer, reduce([Operator, 1, 2, 3], Answer, _), Answers),
+    assertion(Answers == [['Error', [Operator, 1, 2, 3],
+                           'IncorrectNumberOfArguments']]).
 
 test(builtin_exists_file) :-
     library('lib_builtin_types.metta', Present),
@@ -901,10 +1040,19 @@ test(a_program_declaration_is_answered_before_the_engines,
 %verdict.
 :- begin_tests(comparable_operands).
 
+%The refusal names the position, the type the first operand fixed and the type
+%the second carries, which is what `(-> $a $a Bool)` says and what the arbiter
+%answers [source: LeaTTa tests/semantics/grounded/07-partial-core.metta,
+%`(== 1 a)` with `(: a String)` is `(BadArgType 2 Number String)`].
 test(two_known_and_different_kinds_are_refused,
-     [forall(member(A-B, [1-"s", true-1, "s"-1, 1-true]))]) :-
-    catch(( '=='(A, B, _), Formal = none ), error(Formal, _), true),
-    assertion(Formal = type_error(_, _)).
+     [forall(member(A-B-Reason,
+                    [1-"s"-['BadArgType', 2, 'Number', 'String'],
+                     true-1-['BadArgType', 2, 'Bool', 'Number'],
+                     "s"-1-['BadArgType', 2, 'String', 'Number'],
+                     1-true-['BadArgType', 2, 'Number', 'Bool']]))]) :-
+    findall(R, '=='(A, B, R), Answers),
+    Answers = [['Error', _, Actual]],
+    assertion(Actual == Reason).
 
 test(a_pair_of_one_kind_is_compared,
      [forall(member(A-B-R, [1-1-true, 1-2-false, "s"-"s"-true,
@@ -1091,9 +1239,12 @@ test(a_symbol_parameter_takes_a_symbol_and_nothing_else) :-
     metatype_call("", "(meta-sym foo)", Accepted),
     assertion(Accepted == [[got, foo]]),
     metatype_call("", "(meta-sym (1 2))", RejectsExpression),
-    assertion(RejectsExpression == []),
+    assertion(RejectsExpression == [['Error', ['meta-sym', [1, 2]],
+                                     ['BadArgType', 1, 'Symbol',
+                                      ['Number', 'Number']]]]),
     metatype_call("", "(meta-sym 7)", RejectsNumber),
-    assertion(RejectsNumber == []).
+    assertion(RejectsNumber == [['Error', ['meta-sym', 7],
+                                 ['BadArgType', 1, 'Symbol', 'Number']]]).
 
 %A metatype parameter refuses a value of a KNOWN and different type, and lets
 %through a value whose type nothing declares, which is the gradual rule and
@@ -1113,7 +1264,8 @@ test(an_expression_parameter_refuses_a_known_other_type_and_admits_an_unknown) :
     metatype_call("", "(meta-expr (1 2))", Accepted),
     assertion(Accepted == [[got, [1, 2]]]),
     metatype_call("", "(meta-expr 7)", RejectsNumber),
-    assertion(RejectsNumber == []),
+    assertion(RejectsNumber == [['Error', ['meta-expr', 7],
+                                 ['BadArgType', 1, 'Expression', 'Number']]]),
     metatype_call("", "(meta-expr foo)", AdmitsUnknown),
     assertion(AdmitsUnknown == [[got, foo]]).
 
@@ -1153,7 +1305,9 @@ test(a_grounded_parameter_admits_an_unknown_and_refuses_a_declared_other) :-
     assertion(AdmitsUnknown == [[got, foo]]),
     process_metta_string("(: meta-gr-typed MetaGrOther)", _),
     metatype_call("", "(meta-gr meta-gr-typed)", RejectsDeclared),
-    assertion(RejectsDeclared == []).
+    assertion(RejectsDeclared == [['Error', ['meta-gr', 'meta-gr-typed'],
+                                   ['BadArgType', 1, 'Grounded',
+                                    'MetaGrOther']]]).
 
 test(get_metatype_answers_the_same_bound_or_unbound,
      [forall(member(Value-Metatype, [foo-'Symbol', 7-'Grounded',
@@ -1506,7 +1660,345 @@ test(with_pragma_refuses_a_malformed_setting,
      [throws(error(domain_error(metta_pragma_setting, _), _))]) :-
     metta_with_pragmas([broken], true, _).
 
+%with-pragma! is the ENGINE's own scoped form, so it keeps the key check
+%pragma! gave up: a scope that sets nothing does nothing, silently, for as
+%long as it lasts.
+test(with_pragma_refuses_an_unknown_key,
+     [throws(error(domain_error(metta_pragma_key, 'invented-by-a-typo'), _))]) :-
+    metta_with_pragmas([['invented-by-a-typo', 1]], true, _).
+
 :- end_tests(scoped_pragmas).
+
+:- begin_tests(operation_answers).
+
+%The multiplicity and the order of BadArgType, on the arbiter's own four
+%programs: one error per rejected ACTUAL type, one per declared ARROW, the two
+%composing arrow-major and actual-minor, and a position whose sibling actual
+%type carried the check forward still reporting its failure before the later
+%position's [source: LeaTTa tests/semantics/types-basic/
+%44-badargtype-per-actual.metta through 49-badargtype-widened-actuals.metta].
+%Each program names its own symbols, so the five run in one space without a
+%teardown between them and one case cannot inherit another's declarations.
+badargtype_program("(: pa-a pa-A)\n(: pa-a pa-B)\n(: pa-g (-> pa-C Number))",
+                   'pa-g', ['pa-a'],
+                   [['BadArgType', 1, 'pa-C', 'pa-A'],
+                    ['BadArgType', 1, 'pa-C', 'pa-B']]).
+badargtype_program("(: pr-a pr-A)\n(: pr-g (-> pr-C Number))\n(: pr-g (-> pr-D Number))",
+                   'pr-g', ['pr-a'],
+                   [['BadArgType', 1, 'pr-C', 'pr-A'],
+                    ['BadArgType', 1, 'pr-D', 'pr-A']]).
+badargtype_program("(: cp-a cp-A)\n(: cp-a cp-B)\n(: cp-g (-> cp-C Number))\n(: cp-g (-> cp-D Number))",
+                   'cp-g', ['cp-a'],
+                   [['BadArgType', 1, 'cp-C', 'cp-A'],
+                    ['BadArgType', 1, 'cp-C', 'cp-B'],
+                    ['BadArgType', 1, 'cp-D', 'cp-A'],
+                    ['BadArgType', 1, 'cp-D', 'cp-B']]).
+badargtype_program("(: ao-a ao-A)\n(: ao-a ao-C)\n(: ao-b ao-B)\n(: ao-g (-> ao-C ao-D Number))",
+                   'ao-g', ['ao-a', 'ao-b'],
+                   [['BadArgType', 1, 'ao-C', 'ao-A'],
+                    ['BadArgType', 2, 'ao-D', 'ao-B']]).
+badargtype_program("(: wa-a wa-A)\n(:< wa-A wa-B)\n(:< wa-B wa-C)\n(: wa-g (-> wa-D Number))",
+                   'wa-g', ['wa-a'],
+                   [['BadArgType', 1, 'wa-D', 'wa-A'],
+                    ['BadArgType', 1, 'wa-D', 'wa-B'],
+                    ['BadArgType', 1, 'wa-D', 'wa-C']]).
+
+test(badargtype_multiplicity_and_order,
+     [forall(badargtype_program(Source, Operation, Arguments, Expected))]) :-
+    ( silent(true) -> true ; assertz(silent(true)) ),
+    process_metta_string(Source, _),
+    findall(Reason,
+            ( metta_operation_answer(Operation, Arguments, Answer),
+              Answer = ['Error', _, Reason] ),
+            Reasons),
+    Reasons == Expected.
+
+%An argument whose type does not DECIDE is not an error: the call is left as
+%written, which is upstream's NoReduce, and only an operation with its own
+%message answers one instead [source: LeaTTa
+%tests/semantics/grounded/07-partial-core.metta, `[(+ 1 b)]` against
+%`[((Error (/ 2 b) Divide expects two numbers: dividend and divisor))]`].
+test(an_undecided_argument_leaves_the_call_unreduced) :-
+    findall(A, metta_operation_answer('+', [1, 'plunit-undeclared'], A), Answers),
+    Answers == [['+', 1, 'plunit-undeclared']].
+
+test(an_operation_with_its_own_message_answers_it) :-
+    findall(A, metta_operation_answer('/', [2, 'plunit-undeclared'], A), Answers),
+    Answers == [['Error', ['/', 2, 'plunit-undeclared'],
+                 "Divide expects two numbers: dividend and divisor"]].
+
+%A chain naming one type variable twice reports the type its FIRST argument
+%fixed, not the variable [source: the same file, `(== 1 a)` is
+%`(BadArgType 2 Number String)` with `(: a String)`].
+test(a_shared_type_variable_reports_what_the_first_argument_fixed) :-
+    findall(A, metta_operation_answer('==', [1, "text"], A), Answers),
+    Answers == [['Error', ['==', 1, "text"],
+                 ['BadArgType', 2, 'Number', 'String']]].
+
+:- end_tests(operation_answers).
+
+% A BUILT-IN MODULE is one the engine ships rather than one a program keeps in
+% a file, and `!(import! &self skel)` names it directly. Upstream loads six of
+% them at startup and `skel` is its own skeleton, the one that uses every tier
+% at once: three declarations, one MeTTa equation, and one grounded operation
+% [source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean, skelBuiltin,
+% transcribed from upstream's builtin_mods/skel.metta and skel.rs; corpus
+% tests/semantics/grounded/28-builtin-module-skel.metta, 29 and 32, all three
+% STATUS conforms]. This engine resolved every import against the filesystem,
+% so all three read `existence_error(source_sink, skel)`.
+:- begin_tests(builtin_modules).
+
+test(skel_admits_both_tiers_and_is_idempotent,
+     [ cleanup(( forget_registered_function('skel-swap-pair-native'),
+                 forget_registered_function('skel-swap-pair'),
+                 remove_sexp('&self', [':', 'PairType', _]),
+                 remove_sexp('&self', [':', 'Pair', _]) )) ]) :-
+    %The tier discriminator before the import: an operation the engine does not
+    %hold yet is a Symbol, which is the arbiter's own answer for it.
+    process_metta_string("!(get-metatype skel-swap-pair-native)", Before),
+    assertion(Before == ['Symbol']),
+    process_metta_string("!(import! &self skel)", Imported),
+    assertion(Imported == [[]]),
+    process_metta_string("!(skel-swap-pair (Pair a b))", Equation),
+    assertion(Equation == [['Pair', b, a]]),
+    process_metta_string("!(skel-swap-pair-native (Pair a b))", Native),
+    assertion(Native == [['Pair', b, a]]),
+    %A repeated import is a no-op and does not duplicate the equation.
+    process_metta_string("!(import! &self skel)", Again),
+    assertion(Again == [[]]),
+    process_metta_string("!(skel-swap-pair (Pair a b))", Once),
+    assertion(Once == [['Pair', b, a]]),
+    %The two tiers report what they are.
+    process_metta_string("!(get-metatype skel-swap-pair)", EquationKind),
+    assertion(EquationKind == ['Symbol']),
+    process_metta_string("!(get-metatype skel-swap-pair-native)", NativeKind),
+    assertion(NativeKind == ['Grounded']).
+
+%A module cannot reach a built-in by its bare name, because a built-in is a
+%child of the TOP and the same name written inside a module is relative to that
+%module. Accepting it there would be worse than refusing: the import would
+%report success while the operation stayed unreduced
+%[source: LeaTTa tests/semantics/modules/35-builtin-from-module, whose STATUS
+%is diverges because the two engines word the refusal differently, both
+%refusing]. The two files are the arbiter's own shape: the top imports a
+%module, and the MODULE writes the bare built-in name.
+plunit_builtin_module_tree(Directory) :-
+    tmp_file(builtin_from_module, Directory),
+    make_directory(Directory),
+    directory_file_path(Directory, 'usesskel.metta', Module),
+    open(Module, write, ModuleStream),
+    write(ModuleStream, "!(import! &self skel)\n"),
+    close(ModuleStream),
+    directory_file_path(Directory, 'main.metta', Main),
+    open(Main, write, MainStream),
+    write(MainStream, "!(import! &self usesskel)\n"),
+    close(MainStream).
+
+test(a_module_cannot_reach_a_builtin_by_its_bare_name,
+     [ setup(( plunit_builtin_module_tree(Directory),
+               nb_setval(plunit_builtin_dir, Directory) )),
+       cleanup(( nb_getval(plunit_builtin_dir, Old),
+                 delete_directory_and_contents(Old) )) ]) :-
+    nb_getval(plunit_builtin_dir, Directory),
+    directory_file_path(Directory, 'main.metta', Main),
+    catch(( load_metta_file(Main, _), Outcome = imported ),
+          error(existence_error(source_sink, Name), _),
+          Outcome = refused(Name)),
+    assertion(Outcome == refused(skel)).
+
+:- end_tests(builtin_modules).
+
+:- begin_tests(module_colon_paths).
+
+%A module NAME may be a COLON PATH: `pkg:child` names pkg/child.metta beside
+%the file that imports it, `top:` names the outermost module's directory and
+%`self:` the importing module's own, which is also what a bare path means
+%[source: LeaTTa tests/semantics/modules/22-path-colon, 23-path-top and
+%24-path-self, all STATUS conforms].
+plunit_module_tree(Top, Package, Child) :-
+    tmp_file(modules, Top),
+    make_directory(Top),
+    atomic_list_concat([Top, '/pkg'], Package),
+    make_directory(Package),
+    atomic_list_concat([Package, '/child.metta'], Child),
+    setup_call_cleanup(open(Child, write, Out),
+                       write(Out, '(path-value colon)\n'),
+                       close(Out)).
+
+test(a_colon_path_names_a_file_beside_the_importer) :-
+    plunit_module_tree(Top, _, Child),
+    setup_call_cleanup(
+        asserta(user:working_dir(Top)),
+        ( resolve_metta_import_path('pkg:child', Colon),
+          resolve_metta_import_path('top:pkg:child', FromTop),
+          same_file(Colon, Child),
+          same_file(FromTop, Child) ),
+        ( retract(user:working_dir(Top)),
+          delete_directory_and_contents(Top) )).
+
+%Two modules deep, where the three bases stop agreeing: `self:` and a bare
+%path follow the INNER directory while `top:` follows the outer one.
+test(self_and_top_name_different_directories) :-
+    plunit_module_tree(Top, Package, Child),
+    setup_call_cleanup(
+        ( asserta(user:working_dir(Top)),
+          asserta(user:working_dir(Package)) ),
+        ( resolve_metta_import_path('self:child', Self),
+          resolve_metta_import_path('top:pkg:child', FromTop),
+          same_file(Self, Child),
+          same_file(FromTop, Child),
+          \+ catch(resolve_metta_import_path('pkg:child', _), _, fail) ),
+        ( retract(user:working_dir(Package)),
+          retract(user:working_dir(Top)),
+          delete_directory_and_contents(Top) )).
+
+%A name carrying a separator already is a PATH and is left alone, so nothing
+%that resolved before starts resolving somewhere else.
+test(a_written_path_is_not_rewritten) :-
+    plunit_module_tree(Top, _, Child),
+    setup_call_cleanup(
+        asserta(user:working_dir(Top)),
+        ( resolve_metta_import_path('pkg/child', Written),
+          same_file(Written, Child) ),
+        ( retract(user:working_dir(Top)),
+          delete_directory_and_contents(Top) )).
+
+:- end_tests(module_colon_paths).
+
+:- begin_tests(module_inclusion).
+
+%`include` PASTES a module's source into the space that included it and
+%answers what its LAST directive answered, where import! gives the file its
+%own space and answers unit [source: LeaTTa
+%MettaHyperonFull/Minimal/Interpreter.lean, the include dispatch;
+%tests/semantics/modules/04-include-no-directive.metta and
+%05-include-directive.metta].
+plunit_include_tree(Top, Quiet, Loud) :-
+    tmp_file(include, Top),
+    make_directory(Top),
+    atomic_list_concat([Top, '/quiet.metta'], Quiet),
+    atomic_list_concat([Top, '/loud.metta'], Loud),
+    setup_call_cleanup(open(Quiet, write, QuietOut),
+                       write(QuietOut, '(= (plunit-included) pasted)\n'),
+                       close(QuietOut)),
+    setup_call_cleanup(open(Loud, write, LoudOut),
+                       write(LoudOut,
+                             '(= (plunit-included-loud) pasted)\n!(+ 1 2)\n'),
+                       close(LoudOut)).
+
+test(include_pastes_a_module_and_answers_its_last_directive,
+     [setup(( silent(true) -> true ; assertz(silent(true)) ))]) :-
+    plunit_include_tree(Top, _, _),
+    setup_call_cleanup(
+        asserta(user:working_dir(Top)),
+        ( findall(A, include(quiet, A), Quiet),
+          findall(A, include(loud, A), Loud),
+          Quiet == [],
+          Loud == [3],
+          process_metta_string("!(plunit-included)", Quietly),
+          process_metta_string("!(plunit-included-loud)", Loudly),
+          Quietly == [pasted],
+          Loudly == [pasted] ),
+        ( retract(user:working_dir(Top)),
+          delete_directory_and_contents(Top) )).
+
+%`self` and `top` are BASES rather than modules, and a name that resolves to
+%nothing is refused in upstream's own words [measured 2026-08-19 against the
+%arbiter: `!(include nosuchfile)` answers
+%`(Error (include nosuchfile) no module named nosuchfile is available)`].
+test(include_refuses_a_base_and_a_name_that_resolves_to_nothing) :-
+    findall(A, include(self, A), Base),
+    Base == [['Error', [include, self],
+              "include: the running context is not a module"]],
+    findall(A, include('plunit-no-such-module', A), Missing),
+    Missing == [['Error', [include, 'plunit-no-such-module'],
+                 "no module named plunit-no-such-module is available"]].
+
+:- end_tests(module_inclusion).
+
+:- begin_tests(runtime_format_strings).
+
+%format-args interpolates through the dyn_fmt crate's Arguments, not Rust's
+%own format!, and that formatter is looser than it looks: a `}` in the literal
+%state is dropped and the character after it taken literally, a `}` in the
+%argument state consumes the next argument or produces NOTHING once they run
+%out, and any other character there ends the argument and is taken literally
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean, formatPiece and
+%formatArg; measured 2026-08-19 against the arbiter, each row below].
+format_case("Probability of {} is {}%", [head, 50],
+            "Probability of head is 50%").
+format_case("{} and {}", [only], "only and ").
+format_case("{}", [a, b, c], "a").
+format_case("{{}}{}", [1], "{}1").
+format_case("{x}{}", [1, 2], "x{").
+format_case("a{}b", ["s"], "asb").
+format_case("{", [1], "").
+format_case("no holes", [1], "no holes").
+
+test(format_args_follows_the_arbiters_formatter,
+     [forall(format_case(Format, Arguments, Expected))]) :-
+    'format-args'(Format, Arguments, Out),
+    Out == Expected.
+
+%A first argument that is not a format string earns the long text, a second
+%that is not an expression earns the conversion's own, and a DECIDED wrong
+%type earns a BadArgType before either [source: the same file, formatArgsOp's
+%three cases; LeaTTa tests/semantics/grounded/07-partial-core.metta].
+test(format_args_words_its_refusal_by_which_argument_is_wrong) :-
+    'format-args'(not-a-format, [], First),
+    First == ['Error', ['format-args', not-a-format, []],
+              "format-args expects format string as a first argument and expression as a second argument"],
+    'format-args'("{}", not-an-expression, Second),
+    Second == ['Error', ['format-args', "{}", not-an-expression],
+               "Atom is not an ExpressionAtom"],
+    findall(R, 'format-args'(1, [], R), Decided),
+    Decided == [['Error', ['format-args', 1, []],
+                 ['BadArgType', 1, 'String', 'Number']]].
+
+test(sort_strings_sorts_strings_and_refuses_anything_else) :-
+    'sort-strings'(["pear", "apple", "fig", "apple"], Sorted),
+    Sorted == ["apple", "apple", "fig", "pear"],
+    'sort-strings'([a, b], Symbols),
+    Symbols == ['Error', ['sort-strings', [a, b]],
+                "sort-strings expects expression with strings as a first argument"],
+    findall(R, 'sort-strings'("text", R), Decided),
+    Decided == [['Error', ['sort-strings', "text"],
+                 ['BadArgType', 1, 'Expression', 'String']]].
+
+:- end_tests(runtime_format_strings).
+
+:- begin_tests(interpreter_pragmas).
+
+%pragma! answers the UNIT value and accepts any key. An unrecognised key is
+%not an error there: "an Error would introduce key validation that the pinned
+%operation does not perform" [source: LeaTTa
+%tests/semantics/eval-core/pragma-unknown-key.metta, STATUS conforms].
+test(pragma_answers_unit_for_any_key) :-
+    'pragma!'('completely-invented-key', 42, Unknown),
+    'pragma!'('type-check', auto, Known),
+    Unknown == [], Known == [],
+    'pragma!'('completely-invented-key', none, _),
+    'pragma!'('type-check', none, _).
+
+%The one key the arbiter validates, and the whole of what it validates
+%[measured 2026-08-19 against the arbiter: `abc`, `1.5` and `-1` each answer
+%the error below, while (pragma! type-check -1) and
+%(pragma! completely-invented-key -1) both answer ()].
+test(max_stack_depth_answers_its_own_error_for_a_value_that_is_not_a_count,
+     [forall(member(Bad, [-1, 1.5, abc]))]) :-
+    'pragma!'('max-stack-depth', Bad, Result),
+    Result == ['Error', ['pragma!', 'max-stack-depth', Bad],
+               'UnsignedIntegerIsExpected'],
+    \+ metta_pragma('max-stack-depth', _).
+
+test(max_stack_depth_accepts_a_count) :-
+    'pragma!'('max-stack-depth', 0, Result),
+    Result == [],
+    metta_pragma('max-stack-depth', 0),
+    'pragma!'('max-stack-depth', none, _),
+    \+ metta_pragma('max-stack-depth', _).
+
+:- end_tests(interpreter_pragmas).
 
 %petta_transaction/1 at the predicate level, where the answer set is a plain
 %Prolog one and no MeTTa reduction stands between the goal and the count.

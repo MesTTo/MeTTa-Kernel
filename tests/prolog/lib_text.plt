@@ -119,10 +119,12 @@ test(format_args_matches_hyperons_own_example) :-
     'format-args'("Probability of {} is {}%", [head, 50], S),
     S == "Probability of head is 50%".
 
-% A short argument list must not destroy the template, and a long one must not
-% error, so both leave the remainder standing.
-test(format_args_tolerates_a_short_argument_list) :-
-    'format-args'("{} and {}", [only], S), S == "only and {}".
+% A short argument list produces NOTHING for the placeholders it cannot fill,
+% and a long one is ignored: both are the dyn_fmt formatter upstream uses
+% [source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean, formatArg's empty-args
+% case; measured 2026-08-19 against the arbiter, which answers "only and "].
+test(format_args_empties_the_placeholders_it_cannot_fill) :-
+    'format-args'("{} and {}", [only], S), S == "only and ".
 
 test(format_args_ignores_extra_arguments) :-
     'format-args'("{}", [a, b, c], S), S == "a".

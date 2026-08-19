@@ -168,6 +168,27 @@ warning before treating it as whole-corpus evidence. The topical examples tree
 keeps selected root compatibility aliases, so the current root-glob benchmark
 does not cover every canonical example.
 
+## Every clause says when it applies
+
+A clause of an engine predicate that a compiled MeTTa body can call must be
+true only when it is meant to fire, on its own, without leaning on a cut in the
+clause above it. The derivation walker is why: `m.derivation(...)` proves a
+goal by enumerating `clause/3` and calling each body through `call/1`, where a
+cut inside one body prunes nothing outside it, so a clause guarded only by an
+earlier cut fires on every walk.
+
+The failure does not look like a wrong answer. A refusal clause added to
+`match/4` without its own guard answered BESIDE the rows a real space gave, an
+ancestor rule recursed on the refusal, and the process hung
+[reproduced 2026-08-20, `python/tests/test_derivation.py` and
+`python/tests/test_space_operation_errors.py::test_a_proof_over_a_match_does_not_carry_the_refusal`].
+
+Cuts still belong where they pay: keep the cut for ordinary execution and
+repeat its condition in the clauses below it. `match/4` reads
+`atom(Space), native_storage_module_cache(Space, Module), !` and its refusal
+clause reads `\+ petta_space_name(Space)`, so evaluation commits on the cut and
+a proof walk still reaches one answer.
+
 ## Change requirements
 
 A correctness fix carries a reproducer in the matching PlUnit, shell, or
