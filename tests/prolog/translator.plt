@@ -682,6 +682,267 @@ test(malformed_seam_is_refused,
 
 :- end_tests(translator_special_dispatch).
 
+% (case Key Cases) reads its cases as syntax and compiles one nested
+% conditional out of them, so a cases argument that is still a variable has
+% none to read. That shape used to reach select/3 over an open list, which
+% enumerates longer and longer instances of it forever: 7.5 Gb allocated
+% before anything was answered, bare, under once, under collapse, and on
+% merely LOADING the one-line definition (= (switch $v $cs) (case $v $cs))
+% that a library would write to give case another name.
+%
+% The low ceiling is what keeps a regression here cheap, and both units below
+% run under it. The runaway fills the global stack faster than a person can
+% react, so a low ceiling turns a machine that swaps for minutes into a run
+% that reddens in a fraction of a second, and 256 Mb is far more than any
+% test in either unit needs [measured 2026-08-19 on the defect: a 64 Mb
+% ceiling was exhausted in 0.141 s by !(case 1 $cases) and in 0.154 s by the
+% wrapper definition].
+bound_case_stack :-
+    current_prolog_flag(stack_limit, Limit),
+    nb_setval(plunit_case_stack_limit, Limit),
+    set_prolog_flag(stack_limit, 268_435_456).
+
+restore_case_stack :-
+    nb_getval(plunit_case_stack_limit, Limit),
+    set_prolog_flag(stack_limit, Limit).
+
+% The refusing half. Nothing here defines a MeTTa function, so each test
+% reaches the form on its own: with the guard reverted, the first one below
+% exhausts the ceiling instead of raising, which is the shape of the defect.
+:- begin_tests(translator_case_open_cases,
+               [ setup(bound_case_stack),
+                 cleanup(restore_case_stack) ]).
+
+open_cases_form("!(case 1 $cases)").
+open_cases_form("!(once (case 1 $cases))").
+open_cases_form("!(collapse (case 1 $cases))").
+
+test(test_case_with_an_unbound_pairs_argument_declines_instead_of_allocating,
+     [ forall(open_cases_form(Form)),
+       throws(error(type_error('a list of (pattern value) cases', _),
+                    context(case, _))) ]) :-
+    process_metta_string(Form, _).
+
+%A cases list only partly written has the same open spine one element later,
+%and select/3 ran away on it too. MeTTa has no syntax for one, so it is built
+%here and evaluated the way any runtime-built term reaches the engine.
+test(a_partly_written_cases_list_declines_too,
+     [ throws(error(type_error('a list of (pattern value) cases', _),
+                    context(case, _))) ]) :-
+    eval([case, 1, [[1, one]|_]], _).
+
+%The refusal in the program's own vocabulary: the form's MeTTa name and the
+%value printed as the program would have written it, not as the Prolog term
+%the engine holds and not as a predicate of the engine's.
+test(the_refusal_names_the_form_and_the_argument_in_metta) :-
+    catch(eval([case, 1, _Cases], _), Error, true),
+    assertion(nonvar(Error)),
+    message_to_string(Error, Text),
+    assertion(Text == "case: a list of (pattern value) cases expected, \c
+                       found $_0").
+
+%The control, and the reason this item's original title was wrong: an unbound
+%KEY was always fine, because the key is an expression the form compiles
+%around rather than syntax it reads. Only the cases were ever the trigger,
+%and a guard that caught both would have refused a form that works.
+test(an_unbound_key_is_not_what_this_form_cannot_read) :-
+    process_metta_string("!(case $key ((1 one)))", Answers),
+    assertion(Answers == [one]).
+
+%A cases argument that is no list at all is not cases that have yet to
+%arrive, it is a program using the name as data, and it keeps falling through
+%to data dispatch exactly as it did. open_case_list/1 exists to tell those
+%two apart, which is_list/1 alone cannot.
+test(a_cases_argument_that_is_no_list_still_falls_through_to_data,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    process_metta_string("!(case 1 foo)", Answers),
+    assertion(Answers == [[case, 1, foo]]).
+
+%The symptom as first reported: merely LOADING the wrapper died, before any
+%call, because a definition is compiled whole. It is its own test rather than
+%the next unit's setup, because a setup that dies reads as a broken suite
+%instead of as this defect.
+test(loading_a_one_line_case_wrapper_no_longer_dies,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( 'remove-atom'('&self', [=, ['plunit-case-alias'|_], _], _),
+                 forget_test_function('plunit-case-alias'),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    process_metta_string("(= (plunit-case-alias $v $cs) (case $v $cs))", _),
+    process_metta_string("!(plunit-case-alias 1 ((1 one)))", Answers),
+    assertion(Answers == [one]).
+
+:- end_tests(translator_case_open_cases).
+
+% The answering half, and the item's other acceptance: switch is the ordinary
+% way to give case another name, it is how an alignment library would define
+% it, and the two wrappers this unit's setup defines used to kill the process
+% on the way in.
+:- begin_tests(translator_case_computed_cases,
+               [ setup(setup_case_computed_cases),
+                 cleanup(cleanup_case_computed_cases) ]).
+
+case_computed_head('plunit-switch').
+case_computed_head('plunit-case-of-nothing').
+case_computed_head('plunit-case-body').
+case_computed_head('plunit-case-3').
+case_computed_head('plunit-case-24').
+
+setup_case_computed_cases :-
+    bound_case_stack,
+    retractall(silent(_)), assertz(silent(true)),
+    process_metta_string("(= (plunit-switch $v $cs) (case $v $cs))\n\c
+                          (= (plunit-case-of-nothing $cs) (case (empty) $cs))\n\c
+                          (= (plunit-case-body $x) (* $x 10))", _),
+    forall(member(N, [3, 24]),
+           ( written_out_case_definition(N, Definition),
+             process_metta_string(Definition, _) )).
+
+cleanup_case_computed_cases :-
+    restore_case_stack,
+    forall(case_computed_head(Head),
+           ( 'remove-atom'('&self', [=, [Head|_], _], _),
+             forget_test_function(Head) )),
+    retractall(silent(_)), assertz(silent(false)).
+
+%N cases written out, and the same N as a value, so the cost test below
+%compares the two paths on identical branches rather than on two programs.
+written_out_case_definition(N, Definition) :-
+    computed_cases(N, Cases),
+    swrite(Cases, Text),
+    format(atom(Definition), "(= (plunit-case-~w $v) (case $v ~w))", [N, Text]).
+
+computed_cases(N, Cases) :- findall([I, hit], between(1, N, I), Cases).
+
+test(a_switch_written_as_an_ordinary_definition_answers) :-
+    process_metta_string("!(plunit-switch 2 ((1 one) (2 two)))", Answers),
+    assertion(Answers == [two]).
+
+%The same refusal for a value that IS a list but carries something that is
+%not a (pattern value) pair, which is the shape a program is most likely to
+%build by accident.
+test(the_refusal_prints_a_bad_cases_value_as_metta) :-
+    catch(process_metta_string("!(plunit-switch 1 (quote ((1 one 2))))", _),
+          Error, true),
+    assertion(nonvar(Error)),
+    message_to_string(Error, Text),
+    assertion(Text == "case: a list of (pattern value) cases expected, \c
+                       found ((1 one 2))").
+
+%Cases written out, and the same cases handed over as a value, must answer
+%the same thing. quote is what carries the cases across an ordinary argument
+%without MeTTa evaluating them on the way, which is the third column: fifteen
+%of these sixteen shapes answer the same with or without it, and the one that
+%does not is the functional pattern (cons $h $t), which is a call and is
+%evaluated [measured 2026-08-19: unquoted it answers () where the written-out
+%form answers (1)]. The unquoted comparison is asserted where it holds, so
+%the quote is not quietly hiding a disagreement in the other fifteen.
+computed_case_shape("2",                 "((1 one) (2 two))",             plain).
+computed_case_shape("9",                 "((1 one) (2 two))",             plain).
+computed_case_shape("9",                 "((1 one) (Empty none))",        plain).
+computed_case_shape("3",                 "((Empty none) (3 three))",      plain).
+computed_case_shape("1",                 "((1 first) (1 second))",        plain).
+computed_case_shape("1",                 "((1 (+ 2 3)))",                 plain).
+computed_case_shape("1",                 "((1 (plunit-case-body 4)))",    plain).
+computed_case_shape("1",                 "((1 (superpose (a b))))",       plain).
+computed_case_shape("1",                 "((1 (case 2 ((2 inner)))))",    plain).
+computed_case_shape("(plunit-pair 1)",   "(((plunit-pair $n) $n))",       plain).
+computed_case_shape("(superpose (1 2))", "((1 one) (2 two))",             plain).
+computed_case_shape("True",              "((True yes) (False no))",       plain).
+computed_case_shape("7",                 "()",                            plain).
+computed_case_shape("7",                 "(($x $x))",                     plain).
+computed_case_shape("\"s\"",             "((\"s\" str) (Empty other))",  plain).
+computed_case_shape("(1 2 3)",           "(((cons $h $t) $h))",           needs_quote).
+
+test(computed_cases_answer_what_the_same_cases_written_out_answer,
+     [ forall(computed_case_shape(Key, Cases, Protection)) ]) :-
+    format(atom(Written), "!(collapse (case ~w ~w))", [Key, Cases]),
+    format(atom(Quoted), "!(collapse (plunit-switch ~w (quote ~w)))",
+           [Key, Cases]),
+    process_metta_string(Written, [WrittenAnswers]),
+    process_metta_string(Quoted, [QuotedAnswers]),
+    assertion(QuotedAnswers == WrittenAnswers),
+    ( Protection == plain
+      -> format(atom(Bare), "!(collapse (plunit-switch ~w ~w))",
+                [Key, Cases]),
+         process_metta_string(Bare, [BareAnswers]),
+         assertion(BareAnswers == WrittenAnswers)
+      ;  true ).
+
+%Empty is what a key ANSWERING NOTHING selects, not what a key that matched
+%no branch selects, and the value path decides it the same way: the key runs
+%once under a soft cut and the Empty pair is the else branch. A wrapper
+%cannot be asked this from outside, because MeTTa evaluates the argument
+%before the call, so the key is written inside the definition.
+test(a_key_with_no_answers_takes_the_computed_default) :-
+    process_metta_string("!(collapse (case (empty) ((1 one) (Empty none))))",
+                         [Written]),
+    process_metta_string("!(collapse (plunit-case-of-nothing \c
+                                       (quote ((1 one) (Empty none)))))",
+                         [Computed]),
+    assertion(Written == [none]),
+    assertion(Computed == Written).
+
+test(a_key_with_no_answers_and_no_computed_default_answers_nothing) :-
+    process_metta_string("!(collapse (plunit-case-of-nothing \c
+                                       (quote ((1 one)))))",
+                         [Computed]),
+    assertion(Computed == []).
+
+%Nothing downstream can check these, so they are checked before the cases are
+%compiled. A pair that is not (pattern value) would unify with
+%translate_case/5's own head and compile a branch the program never wrote,
+%and a bare variable element is the same hole one level down.
+bad_computed_cases("foo",         foo).
+bad_computed_cases("((1 one 2))", [[1, one, 2]]).
+bad_computed_cases("(1)",         [1]).
+
+test(a_value_that_is_not_cases_is_refused_by_name,
+     [ forall(bad_computed_cases(Text, Culprit)),
+       throws(error(type_error('a list of (pattern value) cases', Culprit),
+                    context(case, _))) ]) :-
+    format(atom(Form), "!(plunit-switch 1 (quote ~w))", [Text]),
+    process_metta_string(Form, _).
+
+%The trade this design makes, measured rather than asserted. Cases written
+%out are compiled once into a nested conditional, so a call pays the same
+%however many there are. Cases arriving as a value are compiled by the same
+%translate_case/5 on every call, so a call pays for all of them, which is why
+%a case on a hot path is worth writing out [measured 2026-08-19: 3 inferences
+%a call at 3, 12 and 24 written-out cases; 78, 258 and 498 for the same cases
+%handed over]. The slope over 100 and 1,100 calls is what is asserted, so
+%one-off setup falls out of both sides.
+written_out_case_calls(Module, N, Times) :-
+    atom_concat('plunit-case-', N, Head),
+    forall(between(1, Times, _),
+           ( Goal =.. [Head, 1, _], call(Module:Goal) )).
+
+computed_case_calls(Module, N, Times) :-
+    computed_cases(N, Cases),
+    forall(between(1, Times, _),
+           call(Module:'plunit-switch'(1, Cases, _))).
+
+%min_inferences/2 is a file-level predicate, so it calls what it is given in
+%`user`, and both runners are this unit's own: a plunit unit is a module of
+%its own and the qualification is what carries them across.
+case_call_cost(Runner, Cost) :-
+    context_module(Unit),
+    min_inferences(Unit:call(Runner, 100), Base),
+    min_inferences(Unit:call(Runner, 1100), Full),
+    Cost is (Full - Base) // 1000.
+
+test(written_out_cases_cost_the_same_per_call_however_many_there_are) :-
+    metta_self_module(Module),
+    case_call_cost(written_out_case_calls(Module, 3), WrittenSmall),
+    case_call_cost(written_out_case_calls(Module, 24), WrittenLarge),
+    assertion(WrittenSmall == WrittenLarge),
+    case_call_cost(computed_case_calls(Module, 3), ComputedSmall),
+    case_call_cost(computed_case_calls(Module, 24), ComputedLarge),
+    assertion(ComputedLarge > ComputedSmall),
+    assertion(WrittenSmall < ComputedSmall).
+
+:- end_tests(translator_case_computed_cases).
+
 % A translator rule is called as a Prolog predicate, so a rule whose MeTTa body
 % is one call to a registered predicate has its whole expansion written in
 % Prolog. Together with translatePredicate that is a library deciding how its
