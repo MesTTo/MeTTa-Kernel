@@ -42,8 +42,111 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   file had put in a space, rather than leaving the half it finished, because a
   file a space holds half of is not a file it can replace later. `m.run` is the
   entry point that keeps finished work when a bound stops it.
+- Eight special forms are now written in MeTTa rather than in the compiler.
+  `and-then`, `or-else`, `trace!`, `unique`, `alpha-unique`, `union`,
+  `intersection` and `subtraction` ship as equations in the engine's prelude
+  that say what the call EXPANDS TO, registered with `add-translator-rule!`.
+  The expansion goes back through the ordinary translator, so one definition
+  decides what the form means and the compiler carries eight heads fewer.
+  Nothing about writing them changes: they are reachable with no import, they
+  answer what they always answered, and a program that defines one of the
+  names takes the whole form over as it always could.
+
+  Measured over the 201 corpus examples whose inference count is
+  deterministic: -0.2313% in total, 199 of them cheaper, because the six
+  stream rewrites used to run on every compound the translator walked. The
+  two that got dearer are the two files that write the moved forms, and all
+  of it is compile time: over 200,000 `and-then` evaluations the two spellings
+  cost 1,203,968 and 1,203,986 inferences, the whole difference being the
+  one-time compile. Every corpus answer is unchanged, group for group.
+
+  `KERNEL.md` is the ledger: every head the translator gives meaning to, core
+  or derived, what it corresponds to in the minimal instruction set the
+  arbiter presents, and for a derived form still fused into the compiler, the
+  measurement that keeps it there.
+
+### Added
+
+- `lib/lib_derived.metta`, the derived forms the compiler keeps fused, written
+  out as translator rules for a program that wants the smaller instruction set
+  anyway. `once` is there: `(take 1 ...)` answers what `once` answers over all
+  206 corpus files and costs 2 inferences a call more, which is why the fused
+  clause is still the default. `examples/libraries/derived_forms.metta` runs
+  the swap and `remove-translator-rule!` puts the compiler back in charge.
+
+- A translator rule that does not APPLY now leaves the call to ordinary
+  dispatch instead of failing the equation around it. A rule may carry a
+  guard in its head, which is how `union` names the `(superpose ...)` shape it
+  rewrites, and before this `(= (f) (union foo bar))` did not compile at all,
+  with a message naming `process_form/4`.
+
+- An equation head is a PATTERN at every depth, matched structurally. A head
+  argument whose label happened to have equations used to become a CALL, so
+  `(= (f (g $x)) $x)` compiled to `f(A, B) :- g(B, A)` and ran `g` backwards.
+  That made the reading invisible, since nothing in the source said which
+  positions were calls; order-dependent, since defining `g` after writing the
+  head changed how the head compiled; and silent when it went wrong.
+
+  The mechanised semantics has one matching relation. `AST.matchPat` says "a
+  pattern variable matches any subterm (and must match consistently if it
+  recurs); constructors match structurally; everything else matches only
+  itself", four cases with no case reading whether a label is defined, and an
+  equation is applied by matching its whole left-hand side. Two of the
+  arbiter's own cases decide it and this engine failed both:
+  `(= (outer-hold (inner-sum $x $y)) outer-held)` with an `Atom` parameter
+  answers `outer-held` there and RAISED here, and
+  `(= (nested-atom (produce-pa3)) held)` beside `(= (nested-atom pa3) ...)`
+  answers only the second there and answered BOTH here.
+
+  The relational reading is not lost, it moves to where it runs. `(= (h
+  (myfunc (10) $B) $C) ($B $C))` becomes `(= (h $A $C) (let $A (myfunc (10)
+  $B) ($B $C)))`, which unifies the argument with what the call produces and
+  answers exactly the same answers. `examples/functions/functionhead.metta`
+  and its two successors, `examples/libraries/patrick_test.metta` and
+  `examples/reasoning/tilepuzzle.metta` are written that way now, and the
+  204-example corpus answers identically, group for group. An equation whose
+  head relied on evaluation must make the same move.
 
 ### Fixed
+
+- `(case Key Cases)` reads a case pair that is still a variable as a pair
+  that has not arrived, the way it already read a cases list that is still a
+  variable. The rewrite used to unify its own `(pattern value)` shape INTO
+  such a pair, so `(= (f $p) (case 1 ($p)))` compiled to a head demanding a
+  two-element list instead of the head the program wrote, and an argument
+  that was not one failed silently. It compiles to the same runtime path the
+  rest of the form already uses, so the pair is a branch when it arrives and
+  a value that is not a pair is refused naming the form.
+
+- `(let* Bindings Body)` no longer drops its bindings when they are not
+  written out. The form rewrites bindings it reads as syntax into nested
+  `let`s, and a bindings argument that is still a variable has none to read:
+  it used to unify with the empty list under the rewrite's own cut, so
+  `(= (mylet $bs $b) (let* $bs $b))` compiled to `mylet([], A, A)` and every
+  binding a caller wrote was lost without a word. A pair that is still a
+  variable was the same defect one level in, where the rewrite unified its
+  own `(pattern value)` shape INTO the source and `(= (letpair $b) (let* ($b)
+  99))` compiled to a head demanding a two-element list.
+
+  Bindings that are not syntax now compile when their value arrives, through
+  the same rewrite the written-out form uses, so `let*` under another name is
+  an ordinary definition. A value arriving there that is not a list of
+  `(pattern value)` pairs is refused naming the form and printing the
+  argument as MeTTa: `let*: a list of (pattern value) bindings expected,
+  found $_0`. Bindings that are no list at all, `(let* foo ok)`, keep falling
+  through to the unapplied form as before.
+
+  `(not-provable ...)` over such a form refuses too, and used to answer from
+  a dual with the bindings dropped. A dual is built once, out of the equation
+  as it was written, so bindings that only arrive when the program runs have
+  none to expand. Writing them out gives the form a dual, as it always did.
+
+  Measured cost: writing the bindings out is unaffected, the 203-example
+  corpus answering identically group for group, and a flat 3 inferences a
+  call at 2 and at 16 bindings; handing them over costs one rewrite and
+  translation per call, 62 and 370 inferences for the same two sizes. A
+  `let*` on a hot path is worth writing out.
+  `examples/control/letstarcomputed.metta` runs all of it.
 
 - A conjunctive `match` now finds every row before any output template runs,
   which the language specifies: "match first finds all the matches, and then

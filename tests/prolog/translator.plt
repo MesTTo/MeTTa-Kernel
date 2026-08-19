@@ -58,6 +58,16 @@ min_inferences(Goal, Inferences) :-
             Samples),
     min_list(Samples, Inferences).
 
+%The per-call cost of a Runner that takes a call count, as the SLOPE over
+%1,000 calls, so whatever a unit's one-off setup costs falls out of both
+%sides of every comparison. File level because two units need it, and the
+%runner arrives already qualified with its unit's module: a plunit unit is a
+%module of its own and this predicate is not in it.
+call_cost(Runner, Cost) :-
+    min_inferences(call(Runner, 100), Base),
+    min_inferences(call(Runner, 1100), Full),
+    Cost is (Full - Base) // 1000.
+
 %A conditional nested N deep. File level rather than inside one unit, because
 %two of them need it and a plunit unit is its own module: translation depth
 %compiles it, and branch returns merges what that compilation produced.
@@ -263,34 +273,49 @@ test(acyclic_binding_keeps_let_semantics,
 
 :- end_tests(translator_let).
 
-:- begin_tests(translator_stream_rewrites).
+% The derived forms: each one is an equation in src/prelude.metta plus the
+% registration that makes the translator consult it, where it used to be a
+% clause of the compiler. The property that matters is that the call and the
+% expansion written out by hand compile to the SAME goals, which is what
+% "one definition decides what the form means" means operationally.
+:- begin_tests(translator_derived_forms).
 
-stream_rewrite_case(['trace!', 1, 2],
-                    [progn, ['println!', 1], 2]).
-stream_rewrite_case([unique, [superpose, a, a]],
-                    [call, [superpose,
-                            ['unique-atom', [collapse, [superpose, a, a]]]]]).
-stream_rewrite_case(['alpha-unique', [superpose, a, a]],
-                    [call, [superpose,
-                            ['alpha-unique-atom',
-                             [collapse, [superpose, a, a]]]]]).
-stream_rewrite_case([union, [superpose, a], [superpose, b]],
-                    [call, [superpose,
-                            ['union-atom', [collapse, [superpose, a]],
-                                           [collapse, [superpose, b]]]]]).
-stream_rewrite_case([intersection, [superpose, a], [superpose, b]],
-                    [call, [superpose,
-                            ['intersection-atom', [collapse, [superpose, a]],
-                                                  [collapse, [superpose, b]]]]]).
-stream_rewrite_case([subtraction, [superpose, a], [superpose, b]],
-                    [call, [superpose,
-                            ['subtraction-atom', [collapse, [superpose, a]],
-                                                 [collapse, [superpose, b]]]]]).
+derived_form(['trace!', 1, 2],
+             [progn, ['println!', 1], 2]).
+derived_form([unique, [superpose, [a, a]]],
+             [call, [superpose,
+                     ['unique-atom', [collapse, [superpose, [a, a]]]]]]).
+derived_form(['alpha-unique', [superpose, [a, a]]],
+             [call, [superpose,
+                     ['alpha-unique-atom',
+                      [collapse, [superpose, [a, a]]]]]]).
+derived_form([union, [superpose, [a]], [superpose, [b]]],
+             [call, [superpose,
+                     ['union-atom', [collapse, [superpose, [a]]],
+                                    [collapse, [superpose, [b]]]]]]).
+derived_form([intersection, [superpose, [a]], [superpose, [b]]],
+             [call, [superpose,
+                     ['intersection-atom', [collapse, [superpose, [a]]],
+                                           [collapse, [superpose, [b]]]]]]).
+derived_form([subtraction, [superpose, [a]], [superpose, [b]]],
+             [call, [superpose,
+                     ['subtraction-atom', [collapse, [superpose, [a]]],
+                                          [collapse, [superpose, [b]]]]]]).
+%True and False reach the engine as the Prolog atoms true and false
+%[source: src/parser.pl], so the expansions are written that way here.
+derived_form(['and-then', [>, 2, 1], ok], [if, [>, 2, 1], ok, false]).
+derived_form(['or-else', [>, 2, 1], ok], [if, [>, 2, 1], true, ok]).
 
-test(each_stream_rewrite_has_exactly_one_solution,
-     [ forall(stream_rewrite_case(Input, Expected)),
-       true(Solutions == [Expected]) ]) :-
-    findall(Out, rewrite_streamops(Input, Out), Solutions).
+test(a_derived_form_compiles_as_its_expansion,
+     [forall(derived_form(Call, Expansion))]) :-
+    translate_expr(Call, CallGoals, CallOut),
+    translate_expr(Expansion, ExpansionGoals, ExpansionOut),
+    assertion(CallGoals-CallOut =@= ExpansionGoals-ExpansionOut).
+
+test(a_derived_form_has_exactly_one_translation,
+     [forall(derived_form(Call, _))]) :-
+    findall(Goals-Out, translate_expr(Call, Goals, Out), Solutions),
+    assertion(Solutions = [_]).
 
 test(trace_form_has_one_compilation) :-
     findall(Goals-Out, translate_expr(['trace!', 1, 2], Goals, Out),
@@ -298,7 +323,31 @@ test(trace_form_has_one_compilation) :-
     Solutions = [[Print]-2],
     Print =@= 'println!'(1, _).
 
-:- end_tests(translator_stream_rewrites).
+%The set operations name the shape they rewrite. A call that is not that
+%shape is a program using the name as data, and the guard has to LEAVE it
+%there: wired so that a rule which does not match fails the enclosing
+%translation, `(= (f) (union foo bar))` did not compile at all.
+guarded_form(union).
+guarded_form(intersection).
+guarded_form(subtraction).
+
+test(a_guarded_derived_form_leaves_a_call_it_does_not_match_as_data,
+     [forall(guarded_form(Name))]) :-
+    Call = [Name, foo, bar],
+    translate_expr(Call, Goals, Out),
+    assertion(Goals == []),
+    assertion(Out == Call).
+
+test(a_guarded_derived_form_does_not_break_the_equation_around_it,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( 'remove-atom'('&self', [=, ['plunit-guarded-use'|_], _], _),
+                 forget_test_function('plunit-guarded-use'),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    process_metta_string("(= (plunit-guarded-use) (union foo bar))", _),
+    process_metta_string("!(plunit-guarded-use)", Answers),
+    assertion(Answers == [[union, foo, bar]]).
+
+:- end_tests(translator_derived_forms).
 
 :- begin_tests(translator_prolog_imports).
 
@@ -577,10 +626,10 @@ test(a_later_definition_retargets_an_earlier_super,
 % predicate receives; the reasoning is at call_site_type_chains/2.
 expected_special_heads([
     'add-atom', 'add-atoms', 'add-reduct', 'add-reducts', annotation,
-    'and-then', 'catch', 'filter-atom', 'foldall',
+    'catch', 'filter-atom', 'foldall',
     'with-pragma!',
     'foldl-atom', 'forall', 'get-metatype', 'let*', 'map-atom', 'not-provable',
-    'or-else', 'remove-atom', 'test-no-answer', '|->', call, case, chain,
+    'remove-atom', 'test-no-answer', '|->', call, case, chain,
     collapse, cut, elapsed, eval, evalc, explain, hyperpose, if, let, match,
     inferences, noeval,
     once, prog1, progn, quote, reduce, sealed, super, superpose, take, test,
@@ -606,23 +655,28 @@ test(each_special_form_clause_has_an_indexable_head) :-
 
 % metta_translated_head/1 is the "does the engine give this head meaning"
 % question, and the translator answers it two ways: translate_special_dl/5
-% and the stream rewrites. A head missed there is reported as a
+% and the translator rules. A head missed there is reported as a
 % possibly-undefined reference in correct code, which is what asking fun/1
-% alone did to `if`. Derived from the clause heads rather than a literal
-% list, so adding a third compilation route without widening the predicate
-% fails here.
+% alone did to `if`. Derived from the clause heads and the live register
+% rather than a literal list, so adding a third compilation route without
+% widening the predicate fails here.
 test(every_translated_head_is_answered_for) :-
     findall(H, clause(user:translate_special_dl(H, _, _, _, _), _), Special),
-    findall(H, ( clause(user:rewrite_streamops(P, _), _),
-                 nonvar(P), P = [H|_] ), Stream),
-    append(Special, Stream, All0),
+    findall(H, translator_rule(H), Rules),
+    append(Special, Rules, All0),
     sort(All0, All),
     forall(member(Head, All), metta_translated_head(Head)).
 
-% rewrite_streamops/2's last clause is the identity fallthrough, whose head
-% argument is a bare variable. Reading it with clause/2 without a nonvar
-% guard answers true for every symbol in the language and silently disables
-% the linter check this predicate exists for.
+% The prelude's derived forms are the second route, and they have to be
+% answered for by the same predicate: a name the compiler no longer carries a
+% clause for is still a head the engine gives meaning to.
+test(a_derived_form_is_a_translated_head) :-
+    forall(member(Head, ['and-then', 'or-else', 'trace!', unique,
+                         'alpha-unique', union, intersection, subtraction]),
+           metta_translated_head(Head)).
+
+% The check exists to separate the heads the engine translates from every
+% other symbol, so a name nothing gives meaning to must not be answered for.
 test(an_ordinary_name_is_not_a_translated_head, [fail]) :-
     metta_translated_head('no-such-head-anywhere').
 
@@ -741,6 +795,16 @@ test(the_refusal_names_the_form_and_the_argument_in_metta) :-
     assertion(Text == "case: a list of (pattern value) cases expected, \c
                        found $_0").
 
+%A pair that is still a variable has not arrived either, one level in from
+%the spine. That shape used to reach translate_case/5, whose own head unified
+%[Pattern, Value] INTO it: the source term came back changed, and
+%(= (f $p) (case 1 ($p))) compiled to f([A, B], _) instead of f($p, _), so
+%an argument that was not a two-element list failed silently against a head
+%the program never wrote.
+test(a_pair_that_has_not_arrived_is_not_unified_with_translate_cases_own_pattern) :-
+    translate_expr([case, 1, [Pair]], _, _),
+    assertion(var(Pair)).
+
 %The control, and the reason this item's original title was wrong: an unbound
 %KEY was always fine, because the key is an expression the form compiles
 %around rather than syntax it reads. Only the cases were ever the trigger,
@@ -751,7 +815,7 @@ test(an_unbound_key_is_not_what_this_form_cannot_read) :-
 
 %A cases argument that is no list at all is not cases that have yet to
 %arrive, it is a program using the name as data, and it keeps falling through
-%to data dispatch exactly as it did. open_case_list/1 exists to tell those
+%to data dispatch exactly as it did. unarrived_pairs/1 exists to tell those
 %two apart, which is_list/1 alone cannot.
 test(a_cases_argument_that_is_no_list_still_falls_through_to_data,
      [ setup(( retractall(silent(_)), assertz(silent(true)) )),
@@ -785,6 +849,7 @@ test(loading_a_one_line_case_wrapper_no_longer_dies,
 case_computed_head('plunit-switch').
 case_computed_head('plunit-case-of-nothing').
 case_computed_head('plunit-case-body').
+case_computed_head('plunit-case-onepair').
 case_computed_head('plunit-case-3').
 case_computed_head('plunit-case-24').
 
@@ -793,7 +858,8 @@ setup_case_computed_cases :-
     retractall(silent(_)), assertz(silent(true)),
     process_metta_string("(= (plunit-switch $v $cs) (case $v $cs))\n\c
                           (= (plunit-case-of-nothing $cs) (case (empty) $cs))\n\c
-                          (= (plunit-case-body $x) (* $x 10))", _),
+                          (= (plunit-case-body $x) (* $x 10))\n\c
+                          (= (plunit-case-onepair $p) (case 1 ($p)))", _),
     forall(member(N, [3, 24]),
            ( written_out_case_definition(N, Definition),
              process_metta_string(Definition, _) )).
@@ -817,6 +883,18 @@ computed_cases(N, Cases) :- findall([I, hit], between(1, N, I), Cases).
 test(a_switch_written_as_an_ordinary_definition_answers) :-
     process_metta_string("!(plunit-switch 2 ((1 one) (2 two)))", Answers),
     assertion(Answers == [two]).
+
+%One pair handed over on its own is a pair, and the definition keeps the head
+%it was written with, so an argument that is not a pair is refused rather
+%than failing against a head the program never wrote.
+test(a_pair_arriving_as_a_value_is_a_branch) :-
+    process_metta_string("!(plunit-case-onepair (quote (1 hit)))", Answers),
+    assertion(Answers == [hit]).
+
+test(a_pair_that_is_not_a_pair_is_refused_rather_than_failing_silently,
+     [ throws(error(type_error('a list of (pattern value) cases', _),
+                    context(case, _))) ]) :-
+    process_metta_string("!(plunit-case-onepair 5)", _).
 
 %The same refusal for a value that IS a list but carries something that is
 %not a (pattern value) pair, which is the shape a program is most likely to
@@ -922,26 +1000,253 @@ computed_case_calls(Module, N, Times) :-
     forall(between(1, Times, _),
            call(Module:'plunit-switch'(1, Cases, _))).
 
-%min_inferences/2 is a file-level predicate, so it calls what it is given in
-%`user`, and both runners are this unit's own: a plunit unit is a module of
-%its own and the qualification is what carries them across.
-case_call_cost(Runner, Cost) :-
-    context_module(Unit),
-    min_inferences(Unit:call(Runner, 100), Base),
-    min_inferences(Unit:call(Runner, 1100), Full),
-    Cost is (Full - Base) // 1000.
-
 test(written_out_cases_cost_the_same_per_call_however_many_there_are) :-
     metta_self_module(Module),
-    case_call_cost(written_out_case_calls(Module, 3), WrittenSmall),
-    case_call_cost(written_out_case_calls(Module, 24), WrittenLarge),
+    context_module(Unit),
+    call_cost(Unit:written_out_case_calls(Module, 3), WrittenSmall),
+    call_cost(Unit:written_out_case_calls(Module, 24), WrittenLarge),
     assertion(WrittenSmall == WrittenLarge),
-    case_call_cost(computed_case_calls(Module, 3), ComputedSmall),
-    case_call_cost(computed_case_calls(Module, 24), ComputedLarge),
+    call_cost(Unit:computed_case_calls(Module, 3), ComputedSmall),
+    call_cost(Unit:computed_case_calls(Module, 24), ComputedLarge),
     assertion(ComputedLarge > ComputedSmall),
     assertion(WrittenSmall < ComputedSmall).
 
 :- end_tests(translator_case_computed_cases).
+
+% (let* Bindings Body) reads its bindings as syntax and rewrites them into
+% nested lets, so a bindings argument that has not arrived has none to read.
+% That shape used to reach the [] base clause, whose cut then committed to
+% it: the argument was UNIFIED with the empty list and every binding was
+% dropped without a word. (= (mylet $bs $b) (let* $bs $b)) compiled to
+% mylet([], A, A), so the wrapper answered its body unbound instead of the
+% body under the caller's bindings.
+%
+% A pair that is still a variable is the same defect one level in. There the
+% rewrite unified its own [Pattern, Value] pattern INTO the source, so
+% (= (letpair $b) (let* ($b) 99)) compiled to letpair([A, B], 99) and changed
+% the head the program wrote.
+:- begin_tests(translator_letstar_unarrived_bindings).
+
+% Nothing here defines a MeTTa function; each test reaches the form on its
+% own, so the unit reddens on the defect rather than on a broken setup.
+
+test(an_unbound_bindings_list_is_not_unified_with_the_empty_one) :-
+    translate_expr(['let*', Bindings, done], _, _),
+    assertion(var(Bindings)).
+
+test(a_pair_that_has_not_arrived_is_not_unified_with_the_rewrites_own_pattern) :-
+    translate_expr(['let*', [Pair], done], _, _),
+    assertion(var(Pair)).
+
+test(an_unbound_bindings_list_declines_instead_of_dropping_the_bindings,
+     [ throws(error(type_error('a list of (pattern value) bindings', _),
+                    context('let*', _))) ]) :-
+    eval(['let*', _Bindings, done], _).
+
+%A bindings list only partly written has the same open spine one element
+%later. MeTTa has no syntax for one, so it is built here and evaluated the
+%way any runtime-built term reaches the engine.
+test(a_partly_written_bindings_list_declines_too,
+     [ throws(error(type_error('a list of (pattern value) bindings', _),
+                    context('let*', _))) ]) :-
+    eval(['let*', [[_, 1]|_], done], _).
+
+%The refusal in the program's own vocabulary: the form's MeTTa name and the
+%value printed as the program would have written it, not as the Prolog term
+%the engine holds and not as a predicate of the engine's.
+test(the_refusal_names_the_form_and_the_argument_in_metta) :-
+    catch(eval(['let*', _Bindings, done], _), Error, true),
+    assertion(nonvar(Error)),
+    message_to_string(Error, Text),
+    assertion(Text == "let*: a list of (pattern value) bindings expected, \c
+                       found $_0").
+
+%A bindings argument that is no list at all is not bindings that have yet to
+%arrive, it is a program using the name as data, and it keeps falling through
+%to the partial form exactly as it did.
+test(a_bindings_argument_that_is_no_list_still_falls_through_to_data,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    process_metta_string("!(let* foo ok)", Answers),
+    assertion(Answers == [partial('let*', [foo, ok])]).
+
+%Writing the bindings out is untouched: the form is still exactly the nested
+%lets it rewrites to, goal for goal.
+test(written_out_bindings_compile_as_the_nested_lets_they_rewrite_to) :-
+    translate_expr(['let*', [[A, 1], [B, 2]], [+, A, B]], StarGoals, StarOut),
+    translate_expr([let, C, 1, [let, D, 2, [+, C, D]]], LetGoals, LetOut),
+    assertion(StarGoals-StarOut =@= LetGoals-LetOut).
+
+test(no_bindings_at_all_is_still_the_body) :-
+    translate_expr(['let*', [], done], Goals, Out),
+    assertion(Goals == []),
+    assertion(Out == done).
+
+:- end_tests(translator_letstar_unarrived_bindings).
+
+% The answering half: `let*` under another name is an ordinary definition,
+% which is how a library would give the form its own spelling.
+:- begin_tests(translator_letstar_computed_bindings,
+               [ setup(setup_letstar_computed),
+                 cleanup(cleanup_letstar_computed) ]).
+
+letstar_computed_head('plunit-mylet').
+letstar_computed_head('plunit-mylet-atom').
+letstar_computed_head('plunit-letpair').
+letstar_computed_head('plunit-letstar-2').
+letstar_computed_head('plunit-letstar-16').
+
+setup_letstar_computed :-
+    retractall(silent(_)), assertz(silent(true)),
+    process_metta_string("(= (plunit-mylet $bs $b) (let* $bs $b))\n\c
+                          (: plunit-mylet-atom (-> Atom Atom Number))\n\c
+                          (= (plunit-mylet-atom $bs $b) (let* $bs $b))\n\c
+                          (= (plunit-letpair $b) (let* ($b) 99))", _),
+    forall(member(N, [2, 16]),
+           ( written_out_letstar_definition(N, Definition),
+             process_metta_string(Definition, _) )).
+
+cleanup_letstar_computed :-
+    forall(letstar_computed_head(Head),
+           ( 'remove-atom'('&self', [=, [Head|_], _], _),
+             forget_test_function(Head) )),
+    'remove-atom'('&self', [:, 'plunit-mylet-atom', _], _),
+    retractall(silent(_)), assertz(silent(false)).
+
+%N bindings written out, and the same N as a value, so the cost test below
+%compares the two paths on identical bindings rather than on two programs.
+written_out_letstar_definition(N, Definition) :-
+    computed_bindings(N, Bindings),
+    swrite(Bindings, Text),
+    format(atom(Definition),
+           "(= (plunit-letstar-~w) (let* ~w done))", [N, Text]).
+
+computed_bindings(N, Bindings) :-
+    findall([_, I], between(1, N, I), Bindings).
+
+%The whole defect, end to end: the bindings a caller writes decide the
+%bindings, where before they were dropped and the body answered unbound.
+test(bindings_handed_over_as_a_value_bind_the_body) :-
+    process_metta_string("!(plunit-mylet (quote (($x 1))) $x)", Answers),
+    assertion(Answers == [1]).
+
+%The spec row's own probe. The body has to arrive unevaluated for the
+%bindings to reach it, which is what the Atom metatype is for, and then a
+%one-line definition is `let*` under another name.
+test(an_atom_typed_wrapper_answers_what_the_written_out_form_answers) :-
+    process_metta_string("!(plunit-mylet-atom (($x 1) ($y 2)) (+ $x $y))",
+                         Answers),
+    assertion(Answers == [3]),
+    process_metta_string("!(let* (($x 1) ($y 2)) (+ $x $y))", Written),
+    assertion(Written == Answers).
+
+%A pair handed over is a pair, and the head keeps the shape the program
+%wrote: (plunit-letpair 5) has no answer because 5 is not a binding, and
+%that is a refusal rather than a silent failure.
+test(a_pair_arriving_as_a_value_binds_the_body) :-
+    process_metta_string("!(plunit-letpair (quote ($x 7)))", Answers),
+    assertion(Answers == [99]).
+
+test(a_value_that_is_not_bindings_is_refused_by_name,
+     [ throws(error(type_error('a list of (pattern value) bindings', _),
+                    context('let*', _))) ]) :-
+    process_metta_string("!(plunit-mylet (quote ((1 2 3))) $x)", _).
+
+%The trade this design makes, measured rather than asserted. Bindings
+%written out are rewritten into nested lets once, so a call pays the same
+%however many there are. Bindings arriving as a value are rewritten and
+%compiled on every call, so a call pays for all of them.
+written_out_letstar_calls(Module, N, Times) :-
+    atom_concat('plunit-letstar-', N, Head),
+    forall(between(1, Times, _),
+           ( Goal =.. [Head, _], call(Module:Goal) )).
+
+computed_letstar_calls(Module, N, Times) :-
+    computed_bindings(N, Bindings),
+    forall(between(1, Times, _),
+           call(Module:'plunit-mylet'(Bindings, done, _))).
+
+test(written_out_bindings_cost_the_same_per_call_however_many_there_are) :-
+    metta_self_module(Module),
+    context_module(Unit),
+    call_cost(Unit:written_out_letstar_calls(Module, 2), WrittenSmall),
+    call_cost(Unit:written_out_letstar_calls(Module, 16), WrittenLarge),
+    assertion(WrittenSmall == WrittenLarge),
+    call_cost(Unit:computed_letstar_calls(Module, 2), ComputedSmall),
+    call_cost(Unit:computed_letstar_calls(Module, 16), ComputedLarge),
+    assertion(ComputedLarge > ComputedSmall),
+    assertion(WrittenSmall < ComputedSmall).
+
+:- end_tests(translator_letstar_computed_bindings).
+
+% An equation HEAD is a pattern, matched at every depth, and until this it was
+% the one site that turned a pattern position into a CALL. A head argument
+% whose label happened to have equations became Curry's functional pattern:
+% (= (f (g $x)) $x) compiled to f(A, B) :- g(B, A) and ran g backwards. The
+% mechanised semantics has one matching relation and no case in it consults
+% whether a label is defined [source 2026-08-19:
+% LeaTTa/MeTTaIL/Semantics/Reduce.lean:30-46, AST.matchPat; and
+% MettaHyperonFull/Operational/Properties.lean:48-50, firedReducts, which
+% applies an equation by matching its whole left-hand side].
+:- begin_tests(translator_head_is_a_pattern,
+               [ setup(setup_head_pattern), cleanup(cleanup_head_pattern) ]).
+
+head_pattern_head('plunit-hp-src').
+head_pattern_head('plunit-hp-eqh').
+head_pattern_head('plunit-hp-produce').
+head_pattern_head('plunit-hp-nested').
+
+setup_head_pattern :-
+    retractall(silent(_)), assertz(silent(true)),
+    process_metta_string("(= (plunit-hp-src 5) 7)\n\c
+                          (plunit-hp-top 1 (plunit-hp-src 5))\n\c
+                          (: plunit-hp-eqh (-> Atom Atom))\n\c
+                          (= (plunit-hp-eqh \c
+                                (plunit-hp-top 1 (plunit-hp-src 5))) matched)\n\c
+                          (= (plunit-hp-produce) pa3)\n\c
+                          (= (plunit-hp-nested pa3) evaluated)\n\c
+                          (= (plunit-hp-nested (plunit-hp-produce)) held)", _).
+
+cleanup_head_pattern :-
+    forall(head_pattern_head(Head),
+           ( 'remove-atom'('&self', [=, [Head|_], _], _),
+             forget_test_function(Head) )),
+    'remove-atom'('&self', [:, 'plunit-hp-eqh', _], _),
+    'remove-atom'('&self', ['plunit-hp-top'|_], _),
+    retractall(silent(_)), assertz(silent(false)).
+
+%A head argument whose label has equations compiles to STRUCTURE, with no
+%goal in the body running that label backwards.
+test(a_head_argument_that_is_a_call_compiles_to_structure) :-
+    translate_clause([=, ['plunit-hp-eqh',
+                          ['plunit-hp-top', 1, ['plunit-hp-src', 5]]], matched],
+                     (_Head :- Body)),
+    assertion(Body == true).
+
+%The whole item: the head and the match that reads the same shape back agree.
+test(an_equation_head_and_a_match_of_the_same_shape_agree) :-
+    process_metta_string("!(match &self (plunit-hp-top $k (plunit-hp-src $n)) \c
+                          ($k $n))", Structural),
+    assertion(Structural == [[1, 5]]),
+    process_metta_string("!(plunit-hp-eqh \c
+                          (plunit-hp-top 1 (plunit-hp-src 5)))", Called),
+    assertion(Called == [matched]).
+
+%A nullary call in a head is a pattern too, which is the arbiter's own case:
+%the argument evaluates to pa3, so only the equation written against pa3
+%fires. The call-shaped head used to fire as well and answered both.
+test(a_nullary_call_in_a_head_is_a_pattern) :-
+    process_metta_string("!(plunit-hp-nested (plunit-hp-produce))", Answers),
+    assertion(Answers == [evaluated]).
+
+%The in-place annotation is the one head argument that is still a constraint
+%rather than structure, so it still compiles to a goal.
+test(an_in_place_annotation_is_still_a_constraint) :-
+    translate_clause([=, ['plunit-hp-ann', [:, X, 'Number']], X],
+                     (_Head :- Body)),
+    assertion(Body \== true).
+
+:- end_tests(translator_head_is_a_pattern).
 
 % A translator rule is called as a Prolog predicate, so a rule whose MeTTa body
 % is one call to a registered predicate has its whole expansion written in
