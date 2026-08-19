@@ -8,6 +8,36 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `(let* Bindings Body)` no longer drops its bindings when they are not
+  written out. The form rewrites bindings it reads as syntax into nested
+  `let`s, and a bindings argument that is still a variable has none to read:
+  it used to unify with the empty list under the rewrite's own cut, so
+  `(= (mylet $bs $b) (let* $bs $b))` compiled to `mylet([], A, A)` and every
+  binding a caller wrote was lost without a word. A pair that is still a
+  variable was the same defect one level in, where the rewrite unified its
+  own `(pattern value)` shape INTO the source and `(= (letpair $b) (let* ($b)
+  99))` compiled to a head demanding a two-element list.
+
+  Bindings that are not syntax now compile when their value arrives, through
+  the same rewrite the written-out form uses, so `let*` under another name is
+  an ordinary definition. A value arriving there that is not a list of
+  `(pattern value)` pairs is refused naming the form and printing the
+  argument as MeTTa: `let*: a list of (pattern value) bindings expected,
+  found $_0`. Bindings that are no list at all, `(let* foo ok)`, keep falling
+  through to the unapplied form as before.
+
+  `(not-provable ...)` over such a form refuses too, and used to answer from
+  a dual with the bindings dropped. A dual is built once, out of the equation
+  as it was written, so bindings that only arrive when the program runs have
+  none to expand. Writing them out gives the form a dual, as it always did.
+
+  Measured cost: writing the bindings out is unaffected, the 203-example
+  corpus answering identically group for group, and a flat 3 inferences a
+  call at 2 and at 16 bindings; handing them over costs one rewrite and
+  translation per call, 62 and 370 inferences for the same two sizes. A
+  `let*` on a hot path is worth writing out.
+  `examples/control/letstarcomputed.metta` runs all of it.
+
 - A conjunctive `match` now finds every row before any output template runs,
   which the language specifies: "match first finds all the matches, and then
   instantiates the output pattern with them, which is evaluated outside match.

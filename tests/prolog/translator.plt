@@ -58,6 +58,16 @@ min_inferences(Goal, Inferences) :-
             Samples),
     min_list(Samples, Inferences).
 
+%The per-call cost of a Runner that takes a call count, as the SLOPE over
+%1,000 calls, so whatever a unit's one-off setup costs falls out of both
+%sides of every comparison. File level because two units need it, and the
+%runner arrives already qualified with its unit's module: a plunit unit is a
+%module of its own and this predicate is not in it.
+call_cost(Runner, Cost) :-
+    min_inferences(call(Runner, 100), Base),
+    min_inferences(call(Runner, 1100), Full),
+    Cost is (Full - Base) // 1000.
+
 %A conditional nested N deep. File level rather than inside one unit, because
 %two of them need it and a plunit unit is its own module: translation depth
 %compiles it, and branch returns merges what that compilation produced.
@@ -922,26 +932,184 @@ computed_case_calls(Module, N, Times) :-
     forall(between(1, Times, _),
            call(Module:'plunit-switch'(1, Cases, _))).
 
-%min_inferences/2 is a file-level predicate, so it calls what it is given in
-%`user`, and both runners are this unit's own: a plunit unit is a module of
-%its own and the qualification is what carries them across.
-case_call_cost(Runner, Cost) :-
-    context_module(Unit),
-    min_inferences(Unit:call(Runner, 100), Base),
-    min_inferences(Unit:call(Runner, 1100), Full),
-    Cost is (Full - Base) // 1000.
-
 test(written_out_cases_cost_the_same_per_call_however_many_there_are) :-
     metta_self_module(Module),
-    case_call_cost(written_out_case_calls(Module, 3), WrittenSmall),
-    case_call_cost(written_out_case_calls(Module, 24), WrittenLarge),
+    context_module(Unit),
+    call_cost(Unit:written_out_case_calls(Module, 3), WrittenSmall),
+    call_cost(Unit:written_out_case_calls(Module, 24), WrittenLarge),
     assertion(WrittenSmall == WrittenLarge),
-    case_call_cost(computed_case_calls(Module, 3), ComputedSmall),
-    case_call_cost(computed_case_calls(Module, 24), ComputedLarge),
+    call_cost(Unit:computed_case_calls(Module, 3), ComputedSmall),
+    call_cost(Unit:computed_case_calls(Module, 24), ComputedLarge),
     assertion(ComputedLarge > ComputedSmall),
     assertion(WrittenSmall < ComputedSmall).
 
 :- end_tests(translator_case_computed_cases).
+
+% (let* Bindings Body) reads its bindings as syntax and rewrites them into
+% nested lets, so a bindings argument that has not arrived has none to read.
+% That shape used to reach the [] base clause, whose cut then committed to
+% it: the argument was UNIFIED with the empty list and every binding was
+% dropped without a word. (= (mylet $bs $b) (let* $bs $b)) compiled to
+% mylet([], A, A), so the wrapper answered its body unbound instead of the
+% body under the caller's bindings.
+%
+% A pair that is still a variable is the same defect one level in. There the
+% rewrite unified its own [Pattern, Value] pattern INTO the source, so
+% (= (letpair $b) (let* ($b) 99)) compiled to letpair([A, B], 99) and changed
+% the head the program wrote.
+:- begin_tests(translator_letstar_unarrived_bindings).
+
+% Nothing here defines a MeTTa function; each test reaches the form on its
+% own, so the unit reddens on the defect rather than on a broken setup.
+
+test(an_unbound_bindings_list_is_not_unified_with_the_empty_one) :-
+    translate_expr(['let*', Bindings, done], _, _),
+    assertion(var(Bindings)).
+
+test(a_pair_that_has_not_arrived_is_not_unified_with_the_rewrites_own_pattern) :-
+    translate_expr(['let*', [Pair], done], _, _),
+    assertion(var(Pair)).
+
+test(an_unbound_bindings_list_declines_instead_of_dropping_the_bindings,
+     [ throws(error(type_error('a list of (pattern value) bindings', _),
+                    context('let*', _))) ]) :-
+    eval(['let*', _Bindings, done], _).
+
+%A bindings list only partly written has the same open spine one element
+%later. MeTTa has no syntax for one, so it is built here and evaluated the
+%way any runtime-built term reaches the engine.
+test(a_partly_written_bindings_list_declines_too,
+     [ throws(error(type_error('a list of (pattern value) bindings', _),
+                    context('let*', _))) ]) :-
+    eval(['let*', [[_, 1]|_], done], _).
+
+%The refusal in the program's own vocabulary: the form's MeTTa name and the
+%value printed as the program would have written it, not as the Prolog term
+%the engine holds and not as a predicate of the engine's.
+test(the_refusal_names_the_form_and_the_argument_in_metta) :-
+    catch(eval(['let*', _Bindings, done], _), Error, true),
+    assertion(nonvar(Error)),
+    message_to_string(Error, Text),
+    assertion(Text == "let*: a list of (pattern value) bindings expected, \c
+                       found $_0").
+
+%A bindings argument that is no list at all is not bindings that have yet to
+%arrive, it is a program using the name as data, and it keeps falling through
+%to the partial form exactly as it did.
+test(a_bindings_argument_that_is_no_list_still_falls_through_to_data,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    process_metta_string("!(let* foo ok)", Answers),
+    assertion(Answers == [partial('let*', [foo, ok])]).
+
+%Writing the bindings out is untouched: the form is still exactly the nested
+%lets it rewrites to, goal for goal.
+test(written_out_bindings_compile_as_the_nested_lets_they_rewrite_to) :-
+    translate_expr(['let*', [[A, 1], [B, 2]], [+, A, B]], StarGoals, StarOut),
+    translate_expr([let, C, 1, [let, D, 2, [+, C, D]]], LetGoals, LetOut),
+    assertion(StarGoals-StarOut =@= LetGoals-LetOut).
+
+test(no_bindings_at_all_is_still_the_body) :-
+    translate_expr(['let*', [], done], Goals, Out),
+    assertion(Goals == []),
+    assertion(Out == done).
+
+:- end_tests(translator_letstar_unarrived_bindings).
+
+% The answering half: `let*` under another name is an ordinary definition,
+% which is how a library would give the form its own spelling.
+:- begin_tests(translator_letstar_computed_bindings,
+               [ setup(setup_letstar_computed),
+                 cleanup(cleanup_letstar_computed) ]).
+
+letstar_computed_head('plunit-mylet').
+letstar_computed_head('plunit-mylet-atom').
+letstar_computed_head('plunit-letpair').
+letstar_computed_head('plunit-letstar-2').
+letstar_computed_head('plunit-letstar-16').
+
+setup_letstar_computed :-
+    retractall(silent(_)), assertz(silent(true)),
+    process_metta_string("(= (plunit-mylet $bs $b) (let* $bs $b))\n\c
+                          (: plunit-mylet-atom (-> Atom Atom Number))\n\c
+                          (= (plunit-mylet-atom $bs $b) (let* $bs $b))\n\c
+                          (= (plunit-letpair $b) (let* ($b) 99))", _),
+    forall(member(N, [2, 16]),
+           ( written_out_letstar_definition(N, Definition),
+             process_metta_string(Definition, _) )).
+
+cleanup_letstar_computed :-
+    forall(letstar_computed_head(Head),
+           ( 'remove-atom'('&self', [=, [Head|_], _], _),
+             forget_test_function(Head) )),
+    'remove-atom'('&self', [:, 'plunit-mylet-atom', _], _),
+    retractall(silent(_)), assertz(silent(false)).
+
+%N bindings written out, and the same N as a value, so the cost test below
+%compares the two paths on identical bindings rather than on two programs.
+written_out_letstar_definition(N, Definition) :-
+    computed_bindings(N, Bindings),
+    swrite(Bindings, Text),
+    format(atom(Definition),
+           "(= (plunit-letstar-~w) (let* ~w done))", [N, Text]).
+
+computed_bindings(N, Bindings) :-
+    findall([_, I], between(1, N, I), Bindings).
+
+%The whole defect, end to end: the bindings a caller writes decide the
+%bindings, where before they were dropped and the body answered unbound.
+test(bindings_handed_over_as_a_value_bind_the_body) :-
+    process_metta_string("!(plunit-mylet (quote (($x 1))) $x)", Answers),
+    assertion(Answers == [1]).
+
+%The spec row's own probe. The body has to arrive unevaluated for the
+%bindings to reach it, which is what the Atom metatype is for, and then a
+%one-line definition is `let*` under another name.
+test(an_atom_typed_wrapper_answers_what_the_written_out_form_answers) :-
+    process_metta_string("!(plunit-mylet-atom (($x 1) ($y 2)) (+ $x $y))",
+                         Answers),
+    assertion(Answers == [3]),
+    process_metta_string("!(let* (($x 1) ($y 2)) (+ $x $y))", Written),
+    assertion(Written == Answers).
+
+%A pair handed over is a pair, and the head keeps the shape the program
+%wrote: (plunit-letpair 5) has no answer because 5 is not a binding, and
+%that is a refusal rather than a silent failure.
+test(a_pair_arriving_as_a_value_binds_the_body) :-
+    process_metta_string("!(plunit-letpair (quote ($x 7)))", Answers),
+    assertion(Answers == [99]).
+
+test(a_value_that_is_not_bindings_is_refused_by_name,
+     [ throws(error(type_error('a list of (pattern value) bindings', _),
+                    context('let*', _))) ]) :-
+    process_metta_string("!(plunit-mylet (quote ((1 2 3))) $x)", _).
+
+%The trade this design makes, measured rather than asserted. Bindings
+%written out are rewritten into nested lets once, so a call pays the same
+%however many there are. Bindings arriving as a value are rewritten and
+%compiled on every call, so a call pays for all of them.
+written_out_letstar_calls(Module, N, Times) :-
+    atom_concat('plunit-letstar-', N, Head),
+    forall(between(1, Times, _),
+           ( Goal =.. [Head, _], call(Module:Goal) )).
+
+computed_letstar_calls(Module, N, Times) :-
+    computed_bindings(N, Bindings),
+    forall(between(1, Times, _),
+           call(Module:'plunit-mylet'(Bindings, done, _))).
+
+test(written_out_bindings_cost_the_same_per_call_however_many_there_are) :-
+    metta_self_module(Module),
+    context_module(Unit),
+    call_cost(Unit:written_out_letstar_calls(Module, 2), WrittenSmall),
+    call_cost(Unit:written_out_letstar_calls(Module, 16), WrittenLarge),
+    assertion(WrittenSmall == WrittenLarge),
+    call_cost(Unit:computed_letstar_calls(Module, 2), ComputedSmall),
+    call_cost(Unit:computed_letstar_calls(Module, 16), ComputedLarge),
+    assertion(ComputedLarge > ComputedSmall),
+    assertion(WrittenSmall < ComputedSmall).
+
+:- end_tests(translator_letstar_computed_bindings).
 
 % A translator rule is called as a Prolog predicate, so a rule whose MeTTa body
 % is one call to a registered predicate has its whole expansion written in

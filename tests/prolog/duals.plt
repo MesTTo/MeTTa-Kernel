@@ -475,6 +475,21 @@ test(let_star_nests_and_duals) :-
     metta_answer("!(not-provable (lt-both alice))", false),
     metta_answer("!(not-provable (lt-both bob))", true).
 
+%A dual is built ONCE, at compile time, out of the recorded MeTTa body, so
+%bindings that only arrive at run time are not there to expand. That used to
+%be silent: the expansion unified the bindings argument with its own
+%empty-list base clause and produced a dual with the bindings DROPPED, so
+%this answered NOTHING where the same bindings written out answer True.
+%Declining names the form instead, which is the limit case has too.
+test(a_let_star_whose_bindings_have_not_arrived_has_no_dual,
+     [ throws(error(type_error(dualisable_body, ['let*'|_]),
+                    context(body_form_dual/5, _))) ]) :-
+    metta("(= (lt-none) (empty))\n\c
+           (= (lt-written) (let* (($a (lt-none))) (> 1 0)))\n\c
+           (= (lt-handed $bs) (let* $bs (> 1 0)))"),
+    metta_answer("!(not-provable (lt-written))", true),
+    metta("!(not-provable (lt-handed (quote (($a (lt-none))))))").
+
 %What the generator narrows a variable of the enclosing clause TO belongs in
 %the answer rather than being quantified away, which is what collapse-bind
 %says an answer is. So the dual answers once per distinct narrowing, and once

@@ -15,11 +15,11 @@ re-runs them.
 
 | source | what it is | kept true by |
 |---|---|---|
-| `examples/**/*.metta` | 203 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
+| `examples/**/*.metta` | 204 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
 | `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 21 plunit suites over the engine itself | the `plunit` gate lane |
-| `python/tests/*.py` | 110 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `python/tests/*.py` | 111 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `README.md` | the tour, and the argument for the design | |
 | `CHANGELOG.md` | every user-facing change, with the reasoning | |
 | `website/guide/*.md` | 14 pages of prose: concepts, run-query, spaces, atoms-terms, python-functions, define, structures, threads, observability, notebook, contract, getting-started, pettorch | |
@@ -28,7 +28,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `src/*.pl` | 13,929 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/python.pl`, `src/duals.pl`, `src/tracer.pl`, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `src/*.pl` | 14,048 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/python.pl`, `src/duals.pl`, `src/tracer.pl`, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 31 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
 | `EXTENDING.md`, `DEVELOPING.md` | writing an extension; working on the engine | |
@@ -430,7 +430,7 @@ translatePredicate |->
 Six more are rewritten one line earlier, at the stream layer: `alpha-unique`,
 `intersection`, `subtraction`, `trace!`, `union`, `unique`.
 
-210 builtins are registered (`m.builtins()` lists them live), among them the
+207 builtins are registered (`m.builtins()` lists them live), among them the
 py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,
 `py-dict`, `py-tuple`, `py-str`, `py-repr`, `py-format`, `py-slice`, `py-range`,
 `py-at`, `py-in`, `py-eq`, `py-truthy`, `py-round`, `py-str-join`), the atom
