@@ -93,6 +93,27 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `(atomically EXPR)`, the atomic block under the name the concurrency
+  vocabulary uses for it: Haskell's STM spells it `atomically`, Clojure's
+  spells it `dosync`, and PeTTa's `transaction` is the same operation under
+  the database name. It did not exist, so `!(atomically (+ 1 1))` answered
+  `(atomically 2)`, an unknown head applied to its evaluated argument, rather
+  than running anything atomically.
+
+  It is sugar over `(transaction ...)`, deliberately, so the two cannot
+  drift: every guarantee is `transaction`'s, answer preservation and
+  whole-answer-set commit-or-rollback included, and there is one
+  implementation of them.
+
+  They are still not one operation wearing two names. `transaction` is a
+  special form and compiles its body into the call site, so the body has to
+  be written there and `(let $b <a term> (transaction $b))` answers the term
+  unrun. `atomically` takes its body as an unreduced atom and evaluates it,
+  so the body may be a term the program computed. Measured 2026-08-19 over a
+  three-answer body: 773.05 inferences through `transaction` against 956.07
+  through `atomically`, which is what evaluating a runtime term costs against
+  compiling the body in place.
+
 - `(super (f a b))`, the relative way to reach the definition a space's own
   equation shadows. A space can redefine a function it inherits, and until now
   an override was replace-or-nothing: a guard that wanted to check a call and

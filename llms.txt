@@ -28,7 +28,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `src/*.pl` | 12,996 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/python.pl`, `src/duals.pl`, `src/tracer.pl`, `src/prelude.metta` | |
+| `src/*.pl` | 13,101 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/python.pl`, `src/duals.pl`, `src/tracer.pl`, `src/prelude.metta` | |
 | `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 31 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
@@ -279,6 +279,12 @@ evaluate targets at once. `petta.aio.AsyncMeTTa` runs engine calls on one worker
 thread behind `async`; `petta.engine_thread()` and `petta.current_space()`
 report the crossing.
 
+In MeTTa, `(transaction EXPR)` and `(atomically EXPR)` run one atomic block.
+Both answer EVERY answer their body has and commit or roll back the whole
+answer set; `transaction` compiles its body into the call site, `atomically`
+takes the body as an unreduced atom and evaluates it, so only `atomically`
+can run a body the program computed.
+
 `m.transaction(callable)` and the `@m.transactional` decorator run a callable in
 one engine transaction. Control signals cannot be eaten by the evaluation they
 stop, not even by a program's own `(catch ...)`: a bound, a Ctrl-C and an
@@ -417,7 +423,7 @@ translatePredicate |->
 Six more are rewritten one line earlier, at the stream layer: `alpha-unique`,
 `intersection`, `subtraction`, `trace!`, `union`, `unique`.
 
-209 builtins are registered (`m.builtins()` lists them live), among them the
+210 builtins are registered (`m.builtins()` lists them live), among them the
 py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,
 `py-dict`, `py-tuple`, `py-str`, `py-repr`, `py-format`, `py-slice`, `py-range`,
 `py-at`, `py-in`, `py-eq`, `py-truthy`, `py-round`, `py-str-join`), the atom

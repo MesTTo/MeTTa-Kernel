@@ -47,6 +47,27 @@
        (() ()))
 !(test (collapse (match &self (tx-each $x) $x)) (1 2))
 
+;--------------------------------------------------------- atomically
+;The same operation under the name the concurrency vocabulary uses for an
+;atomic block, and sugar over transaction so the guarantees cannot drift.
+;It belongs in this file for the reason the file exists: it is new, so
+;nothing calls it yet, and a form nobody calls is a form nobody would
+;notice breaking.
+!(test (collapse (atomically (tx-three))) (1 2 3))
+
+;What it does that transaction cannot. transaction is a special form and
+;compiles its body into the call site, so a variable there is a value and
+;the term comes back unrun; atomically takes its body as an unreduced Atom
+;and evaluates it, so the body can be a term the program computed.
+;The transaction line is written as a COUNT rather than as the term it
+;answers, because test evaluates its expected side and the whole claim is
+;that this term does not get evaluated: two answers from atomically, one
+;unrun term from transaction.
+(= (tx-body) (noeval (superpose ((+ 1 1) (+ 2 2)))))
+!(test (collapse (let $b (tx-body) (atomically $b))) (2 4))
+!(test (size-atom (collapse (let $b (tx-body) (atomically $b)))) 2)
+!(test (size-atom (collapse (let $b (tx-body) (transaction $b)))) 1)
+
 ;--------------------------------------------------------- elapsed
 ;Answers the value AND the seconds it took, as a pair, so the value is still
 ;usable rather than being replaced by a measurement.
