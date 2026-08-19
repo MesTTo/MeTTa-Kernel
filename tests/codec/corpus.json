@@ -1,0 +1,534 @@
+{
+  "version": 1,
+  "grammar": "CODEC.md",
+  "note": [
+    "The golden corpus for PeTTa's tagged wire codec. Hand-written from the",
+    "grammar in CODEC.md, not generated from any implementation, so passing it",
+    "is evidence about an implementation rather than a restatement of one.",
+    "Every value here was checked against the shipped codecs on 2026-08-20.",
+    "",
+    "A driver implements four operations over one concrete encoding:",
+    "  read(text)      the engine's reader plus this codec's encoder",
+    "  roundtrip(wire) decode to the host's own atom, then encode it back",
+    "  render(wire)    decode, then print with the printer this binding ships",
+    "  transport(wire) serialise to the concrete encoding and parse it back",
+    "Each refuses by raising. Wire terms compare up to a renaming of v",
+    "payloads and byte-exactly everywhere else, because a v payload is an",
+    "identity within its term and never a display name.",
+    "",
+    "Two escapes, because JSON cannot write what the wire can: {\"$float\":",
+    "\"inf\"|\"-inf\"|\"nan\"} is that float, and {\"$host\": \"opaque\"} is a value",
+    "only the host can mint, which a driver supplies for itself."
+  ],
+
+  "tags": {
+    "s": {"class": "term", "payload": "text", "means": "a symbol: a name that denotes itself"},
+    "g": {"class": "term", "payload": "text", "means": "a grounded value carried as text; a string crosses this way"},
+    "n": {"class": "term", "payload": "number", "means": "a grounded number, integer or float, exact at any width"},
+    "b": {"class": "term", "payload": "\"true\" or \"false\"", "means": "a grounded boolean, written True and False in source"},
+    "v": {"class": "term", "payload": "text", "means": "a variable, the payload an identity within this term"},
+    "e": {"class": "term", "payload": "array of terms", "means": "an expression, its children in order; the empty one is unit"},
+    "o": {"class": "term", "payload": "host reference", "means": "a live host value crossing by reference, in process only"},
+    "h": {"class": "term", "payload": "registry id, and its printed text outbound", "means": "a native engine value held by reference"},
+    "u": {"class": "frame", "payload": "term, why, and optionally the residual program", "means": "an answer whose truth is undefined under the well-founded semantics"},
+    "a": {"class": "frame", "payload": "theta, residue, k, and optionally a value", "means": "an answer together with the bindings it is returned under"},
+    "x": {"class": "frame", "payload": "end, declined, or error with a term", "means": "stream control: exhaustion, no answer at all, or a failure kept as a value"}
+  },
+
+  "profiles": {
+    "core": {
+      "tags": ["s", "v", "n", "g", "e"],
+      "note": "What a storage provider must speak. The remote JSON wire is this."
+    },
+    "full": {
+      "tags": ["s", "v", "n", "g", "e", "b", "o", "h"],
+      "frames": ["u", "a", "x"],
+      "note": "The in-process host binding: core plus booleans, host references, native handles, and the three frames."
+    }
+  },
+
+  "frames_note": [
+    "The frames are DIRECTIONAL, so a driver decomposes the ones its own",
+    "side reads. The engine writes u and the host reads it; the host writes",
+    "a and the engine reads it. Nothing shipped decomposes x, so it appears",
+    "here only in the refusal that says a stream-control frame is not an",
+    "atom; its three items are specified in CODEC.md."
+  ],
+
+  "cases": [
+    {
+      "id": "symbol",
+      "tags": ["s"],
+      "text": "foo",
+      "wire": ["s", "foo"],
+      "written": "foo",
+      "note": "A symbol denotes itself. The payload is the name exactly as written, with no sigil and no quoting."
+    },
+    {
+      "id": "symbol-non-ascii",
+      "tags": ["s"],
+      "text": "λ",
+      "wire": ["s", "λ"],
+      "written": "λ",
+      "note": "Names are Unicode text. A token ends at whitespace, parenthesis or semicolon and at nothing else, so a letter from any script is an ordinary name character."
+    },
+    {
+      "id": "symbol-hyphenated",
+      "tags": ["s"],
+      "text": "car-atom",
+      "wire": ["s", "car-atom"],
+      "written": "car-atom",
+      "note": "A hyphen is a name character, not an operator."
+    },
+    {
+      "id": "symbol-space-name",
+      "tags": ["s"],
+      "text": "&self",
+      "wire": ["s", "&self"],
+      "written": "&self",
+      "note": "A space name is an ordinary symbol; the ampersand carries no encoding of its own."
+    },
+    {
+      "id": "string",
+      "tags": ["g"],
+      "text": "\"hi\"",
+      "wire": ["g", "hi"],
+      "written": "\"hi\"",
+      "note": "A string is a grounded value and not a symbol. The payload holds the text without its quotes; the quotes belong to the text form."
+    },
+    {
+      "id": "string-empty",
+      "tags": ["g"],
+      "text": "\"\"",
+      "wire": ["g", ""],
+      "written": "\"\"",
+      "note": "The empty string is a value, distinct from the empty expression."
+    },
+    {
+      "id": "string-escapes",
+      "tags": ["g"],
+      "text": "\"a\\\"b\\\\c\\nd\\te\\rf\"",
+      "wire": ["g", "a\"b\\c\nd\te\rf"],
+      "written": "\"a\\\"b\\\\c\\nd\\te\\rf\"",
+      "note": "The payload holds the DECODED text. Five escapes exist in the text form, quote backslash newline tab return, and a printed string stays on one line so every line-oriented consumer re-parses it to itself."
+    },
+    {
+      "id": "integer",
+      "tags": ["n"],
+      "text": "42",
+      "wire": ["n", 42],
+      "written": "42"
+    },
+    {
+      "id": "integer-negative",
+      "tags": ["n"],
+      "text": "-7",
+      "wire": ["n", -7],
+      "written": "-7"
+    },
+    {
+      "id": "integer-zero",
+      "tags": ["n"],
+      "text": "0",
+      "wire": ["n", 0],
+      "written": "0"
+    },
+    {
+      "id": "integer-beyond-double",
+      "tags": ["n"],
+      "text": "9007199254740993",
+      "wire": ["n", 9007199254740993],
+      "written": "9007199254740993",
+      "requires": "exact_integers",
+      "note": "Two to the fifty-three plus one, the smallest integer a binary64 cannot hold. PeTTa's integers are exact at any width, so a codec that can hold this MUST hold it and one that cannot MUST refuse it; see refuse-integer-beyond-exact-range."
+    },
+    {
+      "id": "integer-beyond-machine-word",
+      "tags": ["n"],
+      "text": "123456789012345678901234567890",
+      "wire": ["n", 123456789012345678901234567890],
+      "written": "123456789012345678901234567890",
+      "requires": "exact_integers",
+      "note": "Past sixty-four bits. The engine's integers are unbounded and the tag carries the value, never a rounding of it."
+    },
+    {
+      "id": "float",
+      "tags": ["n"],
+      "text": "1.5",
+      "wire": ["n", 1.5],
+      "written": "1.5"
+    },
+    {
+      "id": "float-negative",
+      "tags": ["n"],
+      "text": "-0.25",
+      "wire": ["n", -0.25],
+      "written": "-0.25"
+    },
+    {
+      "id": "float-large-exponent",
+      "tags": ["n"],
+      "text": "1.0e10",
+      "wire": ["n", 10000000000.0],
+      "written": {"engine": "1.0e+10", "python": "10000000000.0"},
+      "note": "The two shipped printers disagree on where a float's exponent form begins. The wire does not: it carries the value. Pinned so a change to either printer is visible."
+    },
+    {
+      "id": "float-small-exponent",
+      "tags": ["n"],
+      "text": "1.0e-300",
+      "wire": ["n", 1e-300],
+      "written": {"engine": "1.0e-300", "python": "1e-300"},
+      "note": "The same disagreement at the other end of the range."
+    },
+    {
+      "id": "boolean-true",
+      "tags": ["b"],
+      "text": "True",
+      "wire": ["b", "true"],
+      "written": "True",
+      "note": "The language spells its booleans True and False; the payload is the lowercase text. The two spellings are not a drift: the payload names the value, the text form names the constant."
+    },
+    {
+      "id": "boolean-false",
+      "tags": ["b"],
+      "text": "False",
+      "wire": ["b", "false"],
+      "written": "False"
+    },
+    {
+      "id": "boolean-lowercase-source",
+      "tags": ["b"],
+      "text": "true",
+      "wire": ["b", "true"],
+      "written": "True",
+      "note": "The reader maps both spellings onto the one constant, so lowercase source READS as the boolean and WRITES back capitalised. The term round-trips; the text does not, which is the one place the two forms are not inverse."
+    },
+    {
+      "id": "variable",
+      "tags": ["v"],
+      "text": "$x",
+      "wire": ["v", "x"],
+      "written": {"engine": "$_0", "python": "$x"},
+      "note": "The reader that keeps names writes the source name. The engine's own printer numbers variables by first occurrence, because an engine variable carries no name; a binding that keeps its atoms in the host prints the name it read."
+    },
+    {
+      "id": "expression-empty",
+      "tags": ["e"],
+      "text": "()",
+      "wire": ["e", []],
+      "written": "()",
+      "note": "Unit. An expression with no children, not a missing value and not the empty string."
+    },
+    {
+      "id": "expression",
+      "tags": ["s", "e"],
+      "text": "(likes Ada Coffee)",
+      "wire": ["e", [["s", "likes"], ["s", "Ada"], ["s", "Coffee"]]],
+      "written": "(likes Ada Coffee)"
+    },
+    {
+      "id": "expression-nested",
+      "tags": ["s", "e"],
+      "text": "(a (b (c d)))",
+      "wire": ["e", [["s", "a"], ["e", [["s", "b"], ["e", [["s", "c"], ["s", "d"]]]]]]],
+      "written": "(a (b (c d)))",
+      "note": "Depth is data. A decoder must not meet its host's recursion ceiling on it; see expression-deep."
+    },
+    {
+      "id": "expression-every-tag",
+      "tags": ["s", "g", "n", "b", "v", "e"],
+      "text": "(() \"s\" 1 True $v)",
+      "wire": ["e", [["e", []], ["g", "s"], ["n", 1], ["b", "true"], ["v", "v"]]],
+      "written": {"engine": "(() \"s\" 1 True $_0)", "python": "(() \"s\" 1 True $v)"},
+      "note": "One expression holding a child of every core kind plus a boolean."
+    },
+    {
+      "id": "expression-repeated-variable",
+      "tags": ["s", "v", "e"],
+      "text": "(f $x $x)",
+      "wire": ["e", [["s", "f"], ["v", "x"], ["v", "x"]]],
+      "written": {"engine": "(f $_0 $_0)", "python": "(f $x $x)"},
+      "note": "One name is one variable. Two occurrences of a payload are two occurrences of the same cell, which is what makes the payload an identity."
+    },
+    {
+      "id": "expression-distinct-variables",
+      "tags": ["s", "v", "e"],
+      "text": "(f $x $y)",
+      "wire": ["e", [["s", "f"], ["v", "x"], ["v", "y"]]],
+      "written": {"engine": "(f $_0 $_1)", "python": "(f $x $y)"},
+      "note": "Two names are two variables, so the renaming that compares two wire terms is a bijection and never collapses these onto the repeated case."
+    },
+    {
+      "id": "equation",
+      "tags": ["s", "n", "v", "e"],
+      "text": "(= (double $x) (* $x 2))",
+      "wire": ["e", [["s", "="], ["e", [["s", "double"], ["v", "x"]]], ["e", [["s", "*"], ["v", "x"], ["n", 2]]]]],
+      "written": {"engine": "(= (double $_0) (* $_0 2))", "python": "(= (double $x) (* $x 2))"},
+      "note": "An equation is an ordinary expression headed by =; nothing about a definition is special on the wire."
+    },
+    {
+      "id": "variable-anonymous",
+      "tags": ["v", "e"],
+      "wire": ["e", [["s", "f"], ["v", "_"], ["v", "_"]]],
+      "roundtrip": {
+        "when": "resolves_anonymous",
+        "then": ["e", [["s", "f"], ["v", "a"], ["v", "b"]]],
+        "otherwise": ["e", [["s", "f"], ["v", "_"], ["v", "_"]]]
+      },
+      "written": {"engine": "(f $_0 $_1)", "python": "(f $_ $_)"},
+      "note": "The one reserved payload. `_` is fresh at every occurrence and never shares, exactly as $_ does in source, so two of them constrain nothing and the wire is NOT an identity here. A codec that decodes into a host's own variables resolves it and gives two distinct ones back; a codec that carries wire terms to a store keeps the payload. No encoder ever writes it: reading $_ mints an identity instead, which is why this case has no text."
+    },
+    {
+      "id": "symbol-with-no-text-form",
+      "tags": ["s"],
+      "wire": ["s", "a b"],
+      "written": "a b",
+      "reads_back": false,
+      "note": "The wire is strictly more expressive than the text form. A name holding whitespace prints, and the printed text reads back as two forms rather than one, so it has no text spelling. The same holds for a name that reads as a number, a variable, a string or a boolean: 42, $x, True, a\"b and a;b are all encodable and none round-trips through text."
+    },
+    {
+      "id": "host-reference",
+      "tags": ["o"],
+      "wire": ["o", {"$host": "opaque"}],
+      "note": "A live host value crossing by reference, not by serialisation: the same object comes back, so identity, mutation and accessors all see one thing. Only an in-process encoding can carry it, which is why it is outside the core profile."
+    },
+    {
+      "id": "expression-deep",
+      "tags": ["s", "e"],
+      "generate": {"kind": "nest", "depth": 400, "leaf": ["s", "bottom"]},
+      "note": "Four hundred deep. A recursive decoder in a host with a shallow stack fails here and nowhere else in this corpus, which is the point of the case."
+    }
+  ],
+
+  "refusals": [
+    {
+      "id": "refuse-unknown-tag",
+      "refuse": "roundtrip",
+      "wire": ["z", "x"],
+      "because": "z names no tag, and the tag set is closed"
+    },
+    {
+      "id": "refuse-not-a-term",
+      "refuse": "roundtrip",
+      "wire": "foo",
+      "because": "a wire term is a tagged array and never a bare value"
+    },
+    {
+      "id": "refuse-empty-term",
+      "refuse": "roundtrip",
+      "wire": [],
+      "because": "a wire term carries a tag"
+    },
+    {
+      "id": "refuse-payload-missing",
+      "refuse": "roundtrip",
+      "wire": ["s"],
+      "because": "every term tag takes exactly one payload"
+    },
+    {
+      "id": "refuse-payload-extra",
+      "refuse": "roundtrip",
+      "wire": ["s", "a", "b"],
+      "because": "every term tag takes exactly one payload; the three-element form belongs to h alone"
+    },
+    {
+      "id": "refuse-symbol-payload-number",
+      "refuse": "roundtrip",
+      "wire": ["s", 1],
+      "because": "a tag is a claim about its payload: s carries text"
+    },
+    {
+      "id": "refuse-symbol-payload-array",
+      "refuse": "roundtrip",
+      "wire": ["s", ["a"]],
+      "because": "s carries text, and an array is not text however it prints"
+    },
+    {
+      "id": "refuse-string-payload-number",
+      "refuse": "roundtrip",
+      "wire": ["g", 1],
+      "because": "g carries text; a number belongs under n"
+    },
+    {
+      "id": "refuse-string-payload-object",
+      "refuse": "roundtrip",
+      "wire": ["g", {"a": 1}],
+      "because": "g carries text, not an arbitrary structure. A codec that admits one stores a value no other codec can read back."
+    },
+    {
+      "id": "refuse-number-payload-text",
+      "refuse": "roundtrip",
+      "wire": ["n", "1/3"],
+      "because": "n carries a number. The engine has rationals and the wire has no spelling for one, so a rational is refused here rather than carried as its text."
+    },
+    {
+      "id": "refuse-number-payload-boolean",
+      "refuse": "roundtrip",
+      "wire": ["n", true],
+      "because": "n carries a number; a boolean belongs under b"
+    },
+    {
+      "id": "refuse-variable-payload-number",
+      "refuse": "roundtrip",
+      "wire": ["v", 1],
+      "because": "v carries the identity as text"
+    },
+    {
+      "id": "refuse-boolean-payload-other",
+      "refuse": "roundtrip",
+      "wire": ["b", "maybe"],
+      "because": "b carries exactly true or false. Reading anything else as false answers a question nobody asked."
+    },
+    {
+      "id": "refuse-boolean-payload-number",
+      "refuse": "roundtrip",
+      "wire": ["b", 1],
+      "because": "b carries exactly true or false; truthiness is not the rule here"
+    },
+    {
+      "id": "refuse-expression-payload-text",
+      "refuse": "roundtrip",
+      "wire": ["e", "x"],
+      "because": "e carries an array of wire terms"
+    },
+    {
+      "id": "refuse-expression-payload-number",
+      "refuse": "roundtrip",
+      "wire": ["e", 1],
+      "because": "e carries an array of wire terms"
+    },
+    {
+      "id": "refuse-expression-child-malformed",
+      "refuse": "roundtrip",
+      "wire": ["e", [["z", "x"]]],
+      "because": "a malformed child makes the whole term malformed; nothing decodes partially"
+    },
+    {
+      "id": "refuse-frame-in-atom-position",
+      "refuse": "roundtrip",
+      "wire": ["a", [], true, null],
+      "because": "an answer frame is not an atom, and the position asked for an atom"
+    },
+    {
+      "id": "refuse-stream-control-in-atom-position",
+      "refuse": "roundtrip",
+      "wire": ["x", "end"],
+      "because": "a stream-control frame is not an atom"
+    },
+    {
+      "id": "refuse-integer-beyond-exact-range",
+      "refuse": "transport",
+      "unless": "exact_integers",
+      "wire": ["n", 9007199254740993],
+      "because": "a transport whose numbers are binary64 rounds this, and a store that rounds an atom answers a different atom. Refuse the payload; never round it."
+    },
+    {
+      "id": "refuse-non-finite-number",
+      "refuse": "transport",
+      "unless": "non_finite",
+      "wire": ["n", {"$float": "inf"}],
+      "because": "JSON has no literal for a non-finite number. An in-process encoding carries one; a JSON one refuses it rather than inventing a spelling."
+    }
+  ],
+
+  "frames": [
+    {
+      "id": "answer-bindings",
+      "frame": "a",
+      "wire": ["a", [["x", ["s", "a"]]], true, null],
+      "parts": {"theta": [["x", ["s", "a"]]], "residue": null, "k": null, "value": null},
+      "note": "An answer as bindings for the query's variables. residue true means the provider discharged the whole goal; k null means the degenerate annotation, semiring one."
+    },
+    {
+      "id": "answer-empty-theta",
+      "frame": "a",
+      "wire": ["a", [], true, null],
+      "parts": {"theta": [], "residue": null, "k": null, "value": null},
+      "note": "A ground answer binds nothing and is still an answer, distinct from no answer at all."
+    },
+    {
+      "id": "answer-with-value",
+      "frame": "a",
+      "wire": ["a", [["x", ["s", "a"]]], true, null, ["e", [["s", "edge"], ["s", "a"]]]],
+      "parts": {
+        "theta": [["x", ["s", "a"]]],
+        "residue": null,
+        "k": null,
+        "value": ["e", [["s", "edge"], ["s", "a"]]]
+      },
+      "note": "The candidate-with-bindings reading: the answer atom together with the bindings it is returned under. The value must unify with the pattern under theta, and an answer whose value contradicts its theta drops."
+    },
+    {
+      "id": "answer-with-residue",
+      "frame": "a",
+      "wire": ["a", [["x", ["n", 4]]], ["e", [["s", ">"], ["v", "x"], ["n", 3]]], null],
+      "parts": {
+        "theta": [["x", ["n", 4]]],
+        "residue": ["e", [["s", ">"], ["v", "x"], ["n", 3]]],
+        "k": null,
+        "value": null
+      },
+      "note": "The part of the goal the provider did not discharge. It decodes against theta's own name table, so its variables ARE the query's, and the engine evaluates it: a result that is not false contributes one closure and false drops the answer."
+    },
+    {
+      "id": "undefined-truth",
+      "frame": "u",
+      "wire": ["u", ["s", "p"], "tnot loop"],
+      "parts": {"value": ["s", "p"], "why": "tnot loop", "residual": null},
+      "note": "An answer whose truth is undefined under the well-founded semantics: the value, and the delay condition it hangs on. Never nested inside an expression; it wraps a whole answer."
+    },
+    {
+      "id": "undefined-truth-with-residual",
+      "frame": "u",
+      "wire": ["u", ["s", "p"], "tnot loop", "p :- tnot(q)."],
+      "parts": {"value": ["s", "p"], "why": "tnot loop", "residual": "p :- tnot(q)."},
+      "note": "The residual program, the clauses of the loop itself, present only when the caller asked for it."
+    }
+  ],
+
+  "transcripts": [
+    {
+      "id": "arithmetic",
+      "program": "!(+ 1 2)",
+      "groups": [[["n", 3]]],
+      "note": "One group per ! directive, holding that directive's answers in order."
+    },
+    {
+      "id": "comparison",
+      "program": "!(== 1 2)",
+      "groups": [[["b", "false"]]],
+      "note": "A comparison answers the boolean tag, not the symbol False."
+    },
+    {
+      "id": "nondeterminism",
+      "program": "!(superpose (1 2 3))",
+      "groups": [[["n", 1], ["n", 2], ["n", 3]]],
+      "note": "Three answers in one group. The group is the directive, not the answer."
+    },
+    {
+      "id": "no-answers",
+      "program": "!(match &self (nothing-is-stored-here $x) $x)",
+      "groups": [[]],
+      "note": "An empty group is a directive that answered nothing, which is not the same as a directive that answered ()."
+    },
+    {
+      "id": "string-in-expression",
+      "program": "!(\"hi\")",
+      "groups": [[["e", [["g", "hi"]]]]],
+      "note": "A one-element expression holding a string, so the g tag reaches a transcript."
+    },
+    {
+      "id": "user-equation",
+      "program": "(= (codec-kit-double $x) (* $x 2))\n!(codec-kit-double 21)",
+      "groups": [[["n", 42]]],
+      "note": "A definition contributes no group; only ! directives do."
+    },
+    {
+      "id": "two-directives",
+      "program": "!(+ 1 1)\n!(car-atom (a b))",
+      "groups": [[["n", 2]], [["s", "a"]]],
+      "note": "Two groups, in source order."
+    }
+  ]
+}

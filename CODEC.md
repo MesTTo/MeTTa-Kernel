@@ -1,0 +1,408 @@
+# The wire codec
+
+Every atom that leaves the engine, and every atom that reaches it from
+outside, crosses as a tagged array. This page is that format, written for
+somebody adding a binding in a language PeTTa has never been used from.
+Implement what is here, run `tests/codec/corpus.json` against your
+implementation, and your codec speaks what the two shipped ones speak.
+
+Two encodings ship. The **janus tagged form** carries the arrays as SWI's
+own term conversion between the engine and Python, in one process. The
+**remote JSON wire** carries the same arrays as JSON bytes over HTTP, which
+is what `petta.remote.serve()` and `petta.remote.connect()` put on a socket
+and what the TypeScript reference server in
+`python/examples/integration/typescript_space/` answers. They are one
+grammar with two concrete encodings and two profiles, and the difference
+between the profiles is exactly what each transport can carry.
+
+The engine's reader and writer are one authority and they are not part of
+this format. `sread/2`, `sread_with_names/3` and `swrite/2` in
+`src/parser.pl` relate MeTTa source text to engine terms; a binding reaches
+text through them rather than growing a second reader. What this page
+specifies is the step after that, between an engine term and something
+another language can hold.
+
+## How this page is kept
+
+The prose here is written by hand. Every table of tags, profiles and cases
+is generated from `tests/codec/corpus.json` by `python/tools/codecdoc.py`,
+and the gate fails if the checked-in tables and the corpus disagree, so the
+document and the kit cannot drift apart. Regenerate with
+`python python/tools/codecdoc.py --write`.
+
+Generating the whole page from R19's MeTTaIL presentations was tried first,
+because one authority for spec and kit is the right instinct and the
+`.mettail` format carries labelled BNF productions. It loses, measured
+2026-08-20 on three counts. `tests/mettail/metta.mettail`, the MeTTa
+presentation, carries no `::=` annotation at all: its fourteen declarations
+are abstract, of the form `term AtomExpr : Atom -> Atom`, and the four
+presentations that do carry `::=` are `rholang`, `togl`, `rho-hub` and
+`set-binders`, which present a calculus's surface syntax and not a transport
+encoding. Those presentations describe the OBJECT language, an evaluator's
+instructions, while the tags here are metatype markers plus two host escapes
+plus three frames, which is a different layer. And both the presentations
+and the tool that reads them live outside this repository, so a page only
+regenerable from an absent checkout would be two authorities rather than
+one. The corpus wins because it is the artefact the kit actually runs.
+
+## A term is a tagged array
+
+A wire term is an array of exactly two elements, a tag and a payload. The
+tag is a one-character string naming what the payload is, the tag set is
+closed, and a tag is a claim about its payload rather than a label on it: a
+payload outside the class its tag names makes the term malformed, and a
+decoder refuses it rather than coercing it into something.
+
+    term    ::= [tag, payload]
+    tag     ::= "s" | "g" | "n" | "b" | "v" | "e" | "o" | "h"
+    payload ::= text | number | boolean-text | [term, ...] | host-value
+
+Two shapes break the two-element rule and both are named below: an outbound
+`h` carries three elements, and the frames carry three, four or five.
+
+<!-- generated: tags -->
+| tag | class | payload | what it is |
+|---|---|---|---|
+| `s` | term | text | a symbol: a name that denotes itself |
+| `g` | term | text | a grounded value carried as text; a string crosses this way |
+| `n` | term | number | a grounded number, integer or float, exact at any width |
+| `b` | term | "true" or "false" | a grounded boolean, written True and False in source |
+| `v` | term | text | a variable, the payload an identity within this term |
+| `e` | term | array of terms | an expression, its children in order; the empty one is unit |
+| `o` | term | host reference | a live host value crossing by reference, in process only |
+| `h` | term | registry id, and its printed text outbound | a native engine value held by reference |
+| `u` | frame | term, why, and optionally the residual program | an answer whose truth is undefined under the well-founded semantics |
+| `a` | frame | theta, residue, k, and optionally a value | an answer together with the bindings it is returned under |
+| `x` | frame | end, declined, or error with a term | stream control: exhaustion, no answer at all, or a failure kept as a value |
+<!-- end generated -->
+
+Eight of those are term tags and three are frames. The seven `s g n b v e o`
+were fixed in the 2026-08-13 design; `h` was added afterwards for native
+engine values, and the frames grew with the answer protocol.
+
+A symbol is not a string. `["s", "foo"]` and `["g", "foo"]` are different
+atoms, `foo` the name and `"foo"` the text, and folding them together is the
+ambiguity the tags exist to remove. A boolean is not a symbol either:
+`["b", "true"]` is the constant, `["s", "True"]` is a name that happens to
+spell it, and they do not match each other.
+
+`["e", []]` is unit, the empty expression. It is not a missing value and not
+the empty string, which is `["g", ""]`.
+
+## Variables are identities, not names
+
+A `v` payload identifies a cell within its own term. Two occurrences of the
+same payload in one term are two occurrences of one variable; two different
+payloads are two different variables. Nothing else follows from it: it is
+not a display name, it does not have to survive a crossing, and two terms
+that differ only by a consistent renaming of their `v` payloads are the same
+term.
+
+That is why the conformance kit compares wire terms up to a bijection on
+`v` payloads and byte-exactly everywhere else. Both shipped encoders satisfy
+the law and they spell it differently, which is the point.
+`petta_py_encode/2` writes a process-local machine identity, so a variable
+comes out as something like `["v", "_18756"]`; `petta_py_encode_named/3` and
+`petta_py_parse/2`, which is what `petta.parse()` calls, write the source
+name, so the same variable comes out as `["v", "x"]`. Sending a display name
+where an identity is wanted was measured breaking round-trip identity and
+aliasing two distinct answer variables that happened to share a spelling, so
+a binding that keeps names must keep them as identities.
+
+One payload is reserved. `["v", "_"]` means "a fresh variable here", exactly
+as `$_` does in source, so two of them constrain nothing and never share. It
+is the one place the wire is not an identity, and no encoder writes it:
+reading `$_` mints an identity instead. A codec that decodes into its host's
+own variables resolves `_` and gives two distinct variables back; a codec
+that carries wire terms to a store keeps the payload. Both are conformant
+and the corpus says which by asking the driver.
+
+## Numbers are exact, or refused
+
+PeTTa's integers are unbounded and exact at any width. A codec MUST NOT
+admit a number it cannot hold exactly. If your transport's numbers are
+binary64, `["n", 9007199254740993]` has to be refused, naming the literal,
+because a store that rounds an atom answers a different atom later. The
+TypeScript reference server does this from `JSON.parse`'s reviver, which can
+see the source text of each literal and so can tell an integer it would
+round from one it would not; the Python end holds the value exactly and so
+accepts it. Both conform, because the rule is about exactness rather than
+about range.
+
+Floats are the value, not a spelling. The two shipped printers disagree
+about where exponent form begins, so the same float prints `1.0e+10` from
+the engine and `10000000000.0` from the Python side; the wire carries
+neither, it carries the number.
+
+A non-finite float is carried by an encoding that has a spelling for one and
+refused by an encoding that does not. The janus form carries infinity and
+NaN; JSON has no literal for either, so both ends of the JSON wire refuse
+them rather than inventing one.
+
+A rational has no tag. The engine has rationals, the wire does not, and
+`["n", "1/3"]` is a malformed term rather than a rational in disguise.
+
+## Host values and native handles
+
+`["o", ...]` carries a live host value by reference. The value never
+crosses; handing the reference back reaches the very same object, so
+identity, mutation and accessor calls all see one thing. Only an in-process
+encoding can carry it, which is why it is outside the core profile.
+
+`["h", ...]` carries a native engine value, a C blob, the same way. It is
+the one asymmetric term: the engine writes `["h", id, text]`, three
+elements, so the host can print the value it is holding opaquely, and the
+host writes `["h", id]` back, two elements, because the engine needs only
+the registry id. A stale id is an existence error naming it, never a fresh
+or empty value, because the release is explicit on the host side and
+silence would turn a released handle into a wrong answer.
+
+## The text seam
+
+Text and wire are related through the engine's reader and writer, and the
+relation is not a bijection. Three things are worth knowing before a binding
+assumes it is.
+
+The wire is strictly more expressive than the text form. `["s", "a b"]` is
+an ordinary symbol and it has no text spelling: printed, it reads back as
+two forms rather than one. The same holds for a name that reads as a number,
+a variable, a string or a boolean, so `42`, `$x`, `True`, `a"b` and `a;b`
+are all encodable symbols with no round trip through text.
+`metta_symbol_writable/1` is the engine's own answer to that question and
+`metta_unwritable_symbol/2` answers it for a whole term, including for the
+numbers with no readable spelling.
+
+Booleans have two spellings and both are correct. Source says `True` and
+`False`, the wire payload says `"true"` and `"false"`. The reader also
+accepts lowercase source, so `true` reads as the boolean and writes back as
+`True`; the term round-trips and the text does not.
+
+The engine's writer prints a non-finite float as `inf`, `-inf` or `NaN`, the
+arbiter's spellings, and a rational as `1r3`. Each of those reads back as a
+SYMBOL of that spelling rather than as the number, so the value prints
+faithfully and still does not round-trip, which is why the text seam refuses
+the whole class rather than storing something that comes back different.
+
+`sread_with_names/3` is the reader a binding wants: it reads one form and
+answers the variable names it bound, which is what makes
+`["v", "x"]` rather than `["v", "_18756"]` possible on the way in.
+
+## Frames
+
+A frame is not an atom. It carries an atom or a stream event, it appears
+where an answer is expected, and a position asking for an atom refuses one.
+
+    ["u", term, why]                     an undefined-truth answer
+    ["u", term, why, residual]           with the residual program
+    ["a", theta, residue, k]             an answer with its bindings
+    ["a", theta, residue, k, value]      with an explicit value
+    ["x", "end"]                         the stream is exhausted
+    ["x", "declined"]                    no answer at all, which is failure
+    ["x", "error", term]                 a failure kept as a value
+
+    theta   ::= [[name, term], ...]      may be []
+    residue ::= term | true              true means nothing was left over
+    k       ::= scalar | term | null     null means the degenerate annotation
+
+`theta` binds the query's variables by name, and the names are the ones the
+encoder wrote for those variables, so binding by name is binding the
+caller's own variable. This is Hyperon's `execute_bindings` and LeaTTa's
+`ReduceResult.okBind`: an answer atom together with the bindings it is
+returned under. A `value` is the candidate-with-bindings reading and must
+unify with the pattern under theta; an answer whose value contradicts its
+theta drops, exactly as a non-unifying plain candidate does.
+
+`residue` is the part of the goal the provider did not discharge. It decodes
+against theta's own name table, so its variables ARE the query's, and the
+engine evaluates it: each result that is not `false` contributes one
+closure, and `false` drops the answer. An answer carrying a residue while
+the caller's bound was pushed to the provider is refused loudly, because the
+provider truncated at k and a residue can still drop answers after that.
+
+An item in an answer stream may be a plain term or an `a` frame, and a
+consumer accepts both interchangeably.
+
+The frames are directional, which is why the corpus asks each codec only
+about the ones its side reads. The engine writes `u` and the host reads it;
+the host writes `a` and the engine reads it. Nothing shipped decomposes an
+`x` frame into parts, so the corpus holds only the rule that one is not an
+atom.
+
+<!-- generated: profiles -->
+| profile | tags | frames | what speaks it |
+|---|---|---|---|
+| core | `s` `v` `n` `g` `e` | none | What a storage provider must speak. The remote JSON wire is this. |
+| full | `s` `v` `n` `g` `e` `b` `o` `h` | `u` `a` `x` | The in-process host binding: core plus booleans, host references, native handles, and the three frames. |
+<!-- end generated -->
+
+Every codec carries the core five. An encoding that cannot is not a codec
+for this grammar, and the kit refuses to certify one that declares less.
+
+## The conformance kit
+
+`tests/codec/corpus.json` is the golden corpus, language-neutral JSON. It
+ships inside the wheel beside the engine tree, so a third party certifying
+their own codec installs the package rather than cloning the repository.
+
+An implementation supplies four operations, each of which refuses by raising
+whatever its host raises:
+
+    read(text)       the engine's reader plus this codec's encoder
+    roundtrip(wire)  decode into this host's own atom, then encode it back
+    render(wire)     decode, then print with the printer this binding ships
+    transport(wire)  serialise to the concrete encoding and parse it back
+
+and declares what it carries: its tag set, its frame set, which printer
+column applies to it, whether its transport holds integers exactly, whether
+it carries non-finite numbers, whether decoding resolves the anonymous
+variable, and whether it can run MeTTa programs. Those declarations are how
+a case lands in or out of scope, and `codec_plan` reports what fell out
+rather than dropping it quietly.
+
+From Python:
+
+```python
+from petta.testing import check_codec, codec_plan
+
+def test_my_codec_conforms():
+    assert check_codec(MyCodec()) == []
+```
+
+From another language, read the corpus and drive the same four operations
+against it. Two escapes exist because JSON cannot write what the wire can:
+`{"$float": "inf"}` is that float and `{"$host": "opaque"}` is a value only
+the host can mint, which the driver supplies for itself.
+
+The corpus is hand-written from this page rather than generated from any
+implementation, so passing it is evidence about a codec rather than a
+restatement of one.
+
+### Terms
+
+<!-- generated: cases -->
+| case | text | wire | written |
+|---|---|---|---|
+| `symbol` | `"foo"` | `["s", "foo"]` | `"foo"` |
+| `symbol-non-ascii` | `"λ"` | `["s", "λ"]` | `"λ"` |
+| `symbol-hyphenated` | `"car-atom"` | `["s", "car-atom"]` | `"car-atom"` |
+| `symbol-space-name` | `"&self"` | `["s", "&self"]` | `"&self"` |
+| `string` | `"\"hi\""` | `["g", "hi"]` | `"\"hi\""` |
+| `string-empty` | `"\"\""` | `["g", ""]` | `"\"\""` |
+| `string-escapes` | `"\"a\\\"b\\\\c\\nd\\te\\rf\""` | `["g", "a\"b\\c\nd\te\rf"]` | `"\"a\\\"b\\\\c\\nd\\te\\rf\""` |
+| `integer` | `"42"` | `["n", 42]` | `"42"` |
+| `integer-negative` | `"-7"` | `["n", -7]` | `"-7"` |
+| `integer-zero` | `"0"` | `["n", 0]` | `"0"` |
+| `integer-beyond-double` | `"9007199254740993"` | `["n", 9007199254740993]` | `"9007199254740993"` |
+| `integer-beyond-machine-word` | `"123456789012345678901234567890"` | `["n", 123456789012345678901234567890]` | `"123456789012345678901234567890"` |
+| `float` | `"1.5"` | `["n", 1.5]` | `"1.5"` |
+| `float-negative` | `"-0.25"` | `["n", -0.25]` | `"-0.25"` |
+| `float-large-exponent` | `"1.0e10"` | `["n", 10000000000.0]` | engine `"1.0e+10"` / python `"10000000000.0"` |
+| `float-small-exponent` | `"1.0e-300"` | `["n", 1e-300]` | engine `"1.0e-300"` / python `"1e-300"` |
+| `boolean-true` | `"True"` | `["b", "true"]` | `"True"` |
+| `boolean-false` | `"False"` | `["b", "false"]` | `"False"` |
+| `boolean-lowercase-source` | `"true"` | `["b", "true"]` | `"True"` |
+| `variable` | `"$x"` | `["v", "x"]` | engine `"$_0"` / python `"$x"` |
+| `expression-empty` | `"()"` | `["e", []]` | `"()"` |
+| `expression` | `"(likes Ada Coffee)"` | `["e", [["s", "likes"], ["s", "Ada"], ["s", "Coffee"]]]` | `"(likes Ada Coffee)"` |
+| `expression-nested` | `"(a (b (c d)))"` | `["e", [["s", "a"], ["e", [["s", "b"], ["e", [["s", "c"], ["s", "d"]]]]]]]` | `"(a (b (c d)))"` |
+| `expression-every-tag` | `"(() \"s\" 1 True $v)"` | `["e", [["e", []], ["g", "s"], ["n", 1], ["b", "true"], ["v", "v"]]]` | engine `"(() \"s\" 1 True $_0)"` / python `"(() \"s\" 1 True $v)"` |
+| `expression-repeated-variable` | `"(f $x $x)"` | `["e", [["s", "f"], ["v", "x"], ["v", "x"]]]` | engine `"(f $_0 $_0)"` / python `"(f $x $x)"` |
+| `expression-distinct-variables` | `"(f $x $y)"` | `["e", [["s", "f"], ["v", "x"], ["v", "y"]]]` | engine `"(f $_0 $_1)"` / python `"(f $x $y)"` |
+| `equation` | `"(= (double $x) (* $x 2))"` | `["e", [["s", "="], ["e", [["s", "double"], ["v", "x"]]], ["e", [["s", "*"], ["v", "x"], ["n", 2]]]]]` | engine `"(= (double $_0) (* $_0 2))"` / python `"(= (double $x) (* $x 2))"` |
+| `variable-anonymous` |  | `["e", [["s", "f"], ["v", "_"], ["v", "_"]]]` | engine `"(f $_0 $_1)"` / python `"(f $_ $_)"` |
+| `symbol-with-no-text-form` |  | `["s", "a b"]` | `"a b"` |
+| `host-reference` |  | `["o", {"$host": "opaque"}]` |  |
+| `expression-deep` |  | built, see the corpus |  |
+<!-- end generated -->
+
+### Refusals
+
+<!-- generated: refusals -->
+| case | operation | wire | why it is refused |
+|---|---|---|---|
+| `refuse-unknown-tag` | `roundtrip` | `["z", "x"]` | z names no tag, and the tag set is closed |
+| `refuse-not-a-term` | `roundtrip` | `"foo"` | a wire term is a tagged array and never a bare value |
+| `refuse-empty-term` | `roundtrip` | `[]` | a wire term carries a tag |
+| `refuse-payload-missing` | `roundtrip` | `["s"]` | every term tag takes exactly one payload |
+| `refuse-payload-extra` | `roundtrip` | `["s", "a", "b"]` | every term tag takes exactly one payload; the three-element form belongs to h alone |
+| `refuse-symbol-payload-number` | `roundtrip` | `["s", 1]` | a tag is a claim about its payload: s carries text |
+| `refuse-symbol-payload-array` | `roundtrip` | `["s", ["a"]]` | s carries text, and an array is not text however it prints |
+| `refuse-string-payload-number` | `roundtrip` | `["g", 1]` | g carries text; a number belongs under n |
+| `refuse-string-payload-object` | `roundtrip` | `["g", {"a": 1}]` | g carries text, not an arbitrary structure. A codec that admits one stores a value no other codec can read back. |
+| `refuse-number-payload-text` | `roundtrip` | `["n", "1/3"]` | n carries a number. The engine has rationals and the wire has no spelling for one, so a rational is refused here rather than carried as its text. |
+| `refuse-number-payload-boolean` | `roundtrip` | `["n", true]` | n carries a number; a boolean belongs under b |
+| `refuse-variable-payload-number` | `roundtrip` | `["v", 1]` | v carries the identity as text |
+| `refuse-boolean-payload-other` | `roundtrip` | `["b", "maybe"]` | b carries exactly true or false. Reading anything else as false answers a question nobody asked. |
+| `refuse-boolean-payload-number` | `roundtrip` | `["b", 1]` | b carries exactly true or false; truthiness is not the rule here |
+| `refuse-expression-payload-text` | `roundtrip` | `["e", "x"]` | e carries an array of wire terms |
+| `refuse-expression-payload-number` | `roundtrip` | `["e", 1]` | e carries an array of wire terms |
+| `refuse-expression-child-malformed` | `roundtrip` | `["e", [["z", "x"]]]` | a malformed child makes the whole term malformed; nothing decodes partially |
+| `refuse-frame-in-atom-position` | `roundtrip` | `["a", [], true, null]` | an answer frame is not an atom, and the position asked for an atom |
+| `refuse-stream-control-in-atom-position` | `roundtrip` | `["x", "end"]` | a stream-control frame is not an atom |
+| `refuse-integer-beyond-exact-range` | `transport`, unless `exact_integers` | `["n", 9007199254740993]` | a transport whose numbers are binary64 rounds this, and a store that rounds an atom answers a different atom. Refuse the payload; never round it. |
+| `refuse-non-finite-number` | `transport`, unless `non_finite` | `["n", {"$float": "inf"}]` | JSON has no literal for a non-finite number. An in-process encoding carries one; a JSON one refuses it rather than inventing a spelling. |
+<!-- end generated -->
+
+### Frames
+
+<!-- generated: frames -->
+| case | frame | wire | parts |
+|---|---|---|---|
+| `answer-bindings` | `a` | `["a", [["x", ["s", "a"]]], true, null]` | theta `[["x", ["s", "a"]]]`, residue `null`, k `null`, value `null` |
+| `answer-empty-theta` | `a` | `["a", [], true, null]` | theta `[]`, residue `null`, k `null`, value `null` |
+| `answer-with-value` | `a` | `["a", [["x", ["s", "a"]]], true, null, ["e", [["s", "edge"], ["s", "a"]]]]` | theta `[["x", ["s", "a"]]]`, residue `null`, k `null`, value `["e", [["s", "edge"], ["s", "a"]]]` |
+| `answer-with-residue` | `a` | `["a", [["x", ["n", 4]]], ["e", [["s", ">"], ["v", "x"], ["n", 3]]], null]` | theta `[["x", ["n", 4]]]`, residue `["e", [["s", ">"], ["v", "x"], ["n", 3]]]`, k `null`, value `null` |
+| `undefined-truth` | `u` | `["u", ["s", "p"], "tnot loop"]` | value `["s", "p"]`, why `"tnot loop"`, residual `null` |
+| `undefined-truth-with-residual` | `u` | `["u", ["s", "p"], "tnot loop", "p :- tnot(q)."]` | value `["s", "p"]`, why `"tnot loop"`, residual `"p :- tnot(q)."` |
+<!-- end generated -->
+
+### Answer transcripts
+
+A transcript is a whole MeTTa program and the wire it answers: one group per
+`!` directive, in source order, holding that directive's answers in order.
+An empty group is a directive that answered nothing, which is not the same
+as a directive that answered `()`.
+
+<!-- generated: transcripts -->
+| case | program | answer groups |
+|---|---|---|
+| `arithmetic` | `"!(+ 1 2)"` | `[[["n", 3]]]` |
+| `comparison` | `"!(== 1 2)"` | `[[["b", "false"]]]` |
+| `nondeterminism` | `"!(superpose (1 2 3))"` | `[[["n", 1], ["n", 2], ["n", 3]]]` |
+| `no-answers` | `"!(match &self (nothing-is-stored-here $x) $x)"` | `[[]]` |
+| `string-in-expression` | `"!(\"hi\")"` | `[[["e", [["g", "hi"]]]]]` |
+| `user-equation` | `"(= (codec-kit-double $x) (* $x 2))\n!(codec-kit-double 21)"` | `[[["n", 42]]]` |
+| `two-directives` | `"!(+ 1 1)\n!(car-atom (a b))"` | `[[["n", 2]], [["s", "a"]]]` |
+<!-- end generated -->
+
+## Where the shipped encodings differ, and why
+
+The janus form carries `b`, `o` and `h`, non-finite numbers and every frame,
+because both ends are in one process and the transport is SWI's own term
+conversion. The JSON wire carries the core five and nothing else: JSON has
+no way to hold a host reference or a native handle at all, and the reference
+TypeScript server refuses the `b` tag, so a term carrying a boolean is not
+portable over that wire today. That is a real limit rather than a rounding
+of one, and it is written down here so a binding does not discover it by
+storing an atom that never comes back.
+
+`space_server.ts` accepts any payload under `g`, where this page says `g`
+carries text and both petta-side codecs refuse a structure there. Measured
+2026-08-20: `["g", {"a": [1, 2]}]` is stored by that server and refused by
+`petta.remote.serve()`. The server is a reference implementation under
+`python/examples/`, not one of the two shipped codecs, and tightening it
+belongs with whoever next edits that file.
+
+The two shipped printers disagree about float exponent form and about NaN,
+which the tables above pin, and about variables: the engine's printer
+numbers them by first occurrence because an engine variable carries no name,
+while a binding holding its own atoms prints the name it read. Neither is
+wrong and a binding should expect its own.
+
+## Related pages
+
+`website/live/remote-protocol.md` is the HTTP protocol the JSON wire rides
+on, the five operations and their refusal ladder.
+`python/examples/integration/typescript_space/README.md` is the reference
+server. `EXTENDING.md` section 5 is the in-process space seam, which carries
+atoms without a wire at all.

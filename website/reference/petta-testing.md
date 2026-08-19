@@ -10,6 +10,11 @@ Source: `python/petta/testing.py`.
 > tokeniser reads back whole, that true/false ARE the boolean atoms so their
 > symbol spellings canonicalize, and that `_` is the anonymous variable,
 > fresh at every occurrence.
+>
+> The conformance surfaces live here too, one rung per audience:
+> check_space_provider and check_codec run in process against an author's own
+> object, SpaceComplianceSuite and GatewayComplianceSuite are pytest classes
+> that run the engine's own expectations against a provider or a URL.
 > Guarantees:
 >   - check_space_provider holds match soundness and exact pushdown claims
 >     to the whole pattern family of every stored atom, ground, opened and

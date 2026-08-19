@@ -123,11 +123,18 @@ def compiled_modules():
 # built backend. The files themselves are a dozen lines of Prolog that test for
 # their own artefact and load nothing when it is missing, which is the
 # behaviour a wheel wants anyway.
+#
+# tests/codec/ ships for a different reason: it is the codec's golden corpus,
+# the data petta.testing.check_codec reads, and a third party certifying their
+# own codec installs this package rather than cloning the repository. It is
+# language-neutral JSON, so a binding in another language reads the same file
+# out of an installed tree.
 RUNTIME_RESOURCES = {
     "src": "src",
     "lib": "lib",
     "backends": "backends",
     "hosts": "hosts",
+    "tests/codec": "tests/codec",
     "python/helper.pl": "python/helper.pl",
     "python/petta/shim.pl": "python/petta/shim.pl",
 }
