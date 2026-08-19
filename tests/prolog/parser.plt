@@ -334,6 +334,87 @@ test(a_writable_term_reports_nothing) :-
 :- end_tests(parser_symbol_text).
 
 
+% Which NUMBERS survive the round trip, the same question parser_symbol_text
+% asks of names and for the same reason: swrite/2 prints with number_codes/2,
+% which is SWI's whole numeric syntax, while sexpr_token//3 accepts the MeTTa
+% grammar's, which is narrower. SWI writes a non-finite float as 1.0Inf,
+% -1.0Inf or 1.5NaN and a rational as 1r3, and each of the four comes back a
+% SYMBOL of that spelling.
+%
+% Found by tests/prolog/property_lane.pl's roundtrip law, which shrank its
+% counter-example to a bare 1.0Inf. MeTTa arithmetic cannot make one here,
+% float_overflow, float_zero_div and float_undefined all being `error` and
+% prefer_rationals being false, but `(py-atom "float('inf')")` answers 1.0Inf,
+% so the class is reachable, and metta_unwritable_symbol/2 passed it: the text
+% seam's own service exists to "refuse rather than store an atom that will come
+% back different" [source: src/ext_points.pl] and it answered only for names.
+
+:- begin_tests(parser_number_text).
+
+test(a_value_with_no_text_form_reads_back_as_a_symbol,
+     [forall(member(Expression, [inf, -inf, nan, 1 rdiv 3]))]) :-
+    Number is Expression,
+    swrite(Number, Text),
+    sread(Text, Back),
+    atom(Back),
+    atom_string(Back, Text).
+
+test(the_seam_reports_a_value_with_no_text_form,
+     [forall(member(Expression, [inf, -inf, nan, 1 rdiv 3]))]) :-
+    Number is Expression,
+    metta_unwritable_symbol([holds, Number], Bad),
+    Bad == Number.
+
+% And closed in the other direction, so the refusal cannot be a blanket one.
+% -0.0 is in the list because it is a different float from 0.0 in the standard
+% order, so a round trip that lost the sign would pass an == check against 0.0.
+test(every_number_that_does_survive_is_accepted,
+     [forall(member(Number, [0, 42, -3, 2.5, -0.0, 1.0e10, 1.5e-10,
+                             5.0e-324, 3.141592653589793,
+                             123456789012345678901234567890]))]) :-
+    \+ metta_unwritable_symbol([holds, Number], _),
+    swrite([holds, Number], Text),
+    sread(Text, Back),
+    Back == [holds, Number].
+
+% The two shortcuts inside metta_number_writable/1 are not a second rule about
+% spelling: each has to agree with the grammar wherever it is asked, the way
+% metta_symbol_ordinary/2 has to agree with sexpr_token//3. The float list is
+% the range's edges, the two smallest denormals, the largest finite float and
+% the smallest normal one among them, because the exponent is where a spelling
+% changes shape.
+shortcut_agrees_with_grammar(Number) :-
+    ( metta_number_writable(Number) -> Shortcut = true ; Shortcut = false ),
+    (   catch(( number_codes(Number, Codes),
+                phrase(sexpr_token(Read, [], _), Codes),
+                Read == Number ), _, fail)
+    ->  Grammar = true
+    ;   Grammar = false ),
+    Shortcut == Grammar.
+
+test(the_integer_shortcut_agrees_with_the_grammar,
+     [forall(member(Number, [0, 1, -1, 7, -7, 1000000, -1000000,
+                             123456789012345678901234567890]))]) :-
+    shortcut_agrees_with_grammar(Number).
+
+test(the_float_shortcut_agrees_with_the_grammar,
+     [forall(member(Expression, [0.0, -0.0, 1.0, -1.0, 5.0e-324, -5.0e-324,
+                                 2.2250738585072014e-308, 1.0e-310,
+                                 1.7976931348623157e308, -1.7976931348623157e308,
+                                 3.141592653589793, 1.0e100, 1.0e-100,
+                                 inf, -inf, nan]))]) :-
+    Number is Expression,
+    shortcut_agrees_with_grammar(Number).
+
+test(a_rational_goes_through_the_grammar) :-
+    Number is 1 rdiv 3,
+    \+ integer(Number),
+    \+ float(Number),
+    shortcut_agrees_with_grammar(Number).
+
+:- end_tests(parser_number_text).
+
+
 :- begin_tests(parser_commands).
 
 % CPython names this as THE hard part of a console: "determine when the user

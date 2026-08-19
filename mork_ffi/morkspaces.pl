@@ -67,9 +67,11 @@ mork_call(Space, Command, Payload, Response) :-
     ; format(string(Request), "#mork-space ~w~n~w", [Name, Payload]) ),
     mork(Command, Request, Response).
 
-%MORK's bridge consumes swrite text. MeTTa has no quoted-symbol syntax, so a
-%symbol whose spelling does not read back as itself cannot retain its
-%identity there, and the grammar owns that rule, quotes included. Asking is
+%MORK's bridge consumes swrite text. A value whose printed form does not read
+%back as itself cannot retain its identity there, and the grammar owns that
+%rule: MeTTa has no quoted-symbol syntax, so a name with a delimiter or a quote
+%in it loses its identity, and it has no literal for a non-finite float or a
+%rational either, so 1.0Inf, 1.5NaN and 1r3 come back as symbols. Asking is
 %metta_unwritable_symbol/2, one of the four text services the engine publishes
 %for exactly this [source: src/ext_points.pl, "Services a backend may call"].
 %It was wrapped here under a private name until those were declared, which is
@@ -78,7 +80,7 @@ mork_require_text_safe(Term, Operation) :-
     ( metta_unwritable_symbol(Term, Bad)
       -> throw(error(domain_error(mork_text_symbol, Bad),
                      context(Operation,
-                             'symbol names containing whitespace, parentheses, or quotes cannot cross the MORK text boundary')))
+                             'a symbol name containing whitespace, parentheses or quotes, and a number whose printed form is not read back as that number, cannot cross the MORK text boundary')))
     ; true ).
 
 %A MORK space is a foreign space: its atoms live outside the Prolog
