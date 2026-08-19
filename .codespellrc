@@ -19,3 +19,12 @@ skip = *.lock,*.pyc,*.svg,package-lock.json,.git,node_modules,__pycache__,build,
 # reduct: term rewriting's own word for a term reachable in one step, used
 #   throughout src/trs.pl and the critical-pair oracle.
 ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo,anc,checkking,zar,reduct,reducts
+# Whole LINES that are known and stay unreported, matched verbatim. This is for
+# vendored third-party source under tests/prolog/vendor, where a typo is
+# upstream's text and correcting it would fork the file away from the copy its
+# provenance header names. A word belongs in ignore-words-list when it is not a
+# typo at all; `occurences` in list_util.pl is a typo, just not ours, and the
+# difference matters because ignoring the WORD would stop codespell reporting it
+# in prose this tree does own. An exclusion also expires by itself: change the
+# vendored line and it stops matching.
+exclude-file = .codespell-exclude
