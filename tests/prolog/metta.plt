@@ -1641,6 +1641,57 @@ test(a_shared_type_variable_reports_what_the_first_argument_fixed) :-
 
 :- end_tests(operation_answers).
 
+:- begin_tests(runtime_format_strings).
+
+%format-args interpolates through the dyn_fmt crate's Arguments, not Rust's
+%own format!, and that formatter is looser than it looks: a `}` in the literal
+%state is dropped and the character after it taken literally, a `}` in the
+%argument state consumes the next argument or produces NOTHING once they run
+%out, and any other character there ends the argument and is taken literally
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean, formatPiece and
+%formatArg; measured 2026-08-19 against the arbiter, each row below].
+format_case("Probability of {} is {}%", [head, 50],
+            "Probability of head is 50%").
+format_case("{} and {}", [only], "only and ").
+format_case("{}", [a, b, c], "a").
+format_case("{{}}{}", [1], "{}1").
+format_case("{x}{}", [1, 2], "x{").
+format_case("a{}b", ["s"], "asb").
+format_case("{", [1], "").
+format_case("no holes", [1], "no holes").
+
+test(format_args_follows_the_arbiters_formatter,
+     [forall(format_case(Format, Arguments, Expected))]) :-
+    'format-args'(Format, Arguments, Out),
+    Out == Expected.
+
+%A first argument that is not a format string earns the long text, a second
+%that is not an expression earns the conversion's own, and a DECIDED wrong
+%type earns a BadArgType before either [source: the same file, formatArgsOp's
+%three cases; LeaTTa tests/semantics/grounded/07-partial-core.metta].
+test(format_args_words_its_refusal_by_which_argument_is_wrong) :-
+    'format-args'(not-a-format, [], First),
+    First == ['Error', ['format-args', not-a-format, []],
+              "format-args expects format string as a first argument and expression as a second argument"],
+    'format-args'("{}", not-an-expression, Second),
+    Second == ['Error', ['format-args', "{}", not-an-expression],
+               "Atom is not an ExpressionAtom"],
+    findall(R, 'format-args'(1, [], R), Decided),
+    Decided == [['Error', ['format-args', 1, []],
+                 ['BadArgType', 1, 'String', 'Number']]].
+
+test(sort_strings_sorts_strings_and_refuses_anything_else) :-
+    'sort-strings'(["pear", "apple", "fig", "apple"], Sorted),
+    Sorted == ["apple", "apple", "fig", "pear"],
+    'sort-strings'([a, b], Symbols),
+    Symbols == ['Error', ['sort-strings', [a, b]],
+                "sort-strings expects expression with strings as a first argument"],
+    findall(R, 'sort-strings'("text", R), Decided),
+    Decided == [['Error', ['sort-strings', "text"],
+                 ['BadArgType', 1, 'Expression', 'String']]].
+
+:- end_tests(runtime_format_strings).
+
 :- begin_tests(interpreter_pragmas).
 
 %pragma! answers the UNIT value and accepts any key. An unrecognised key is

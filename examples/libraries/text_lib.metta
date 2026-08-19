@@ -44,9 +44,9 @@
 ;;; format-args is MeTTa HE's spelling, and this is HE's own example.
 !(test (format-args "Probability of {} is {}%" (head 50))
        "Probability of head is 50%")
-;A short argument list leaves the rest of the template standing rather than
-;destroying it.
-!(test (format-args "{} and {}" (only)) "only and {}")
+;A short argument list produces NOTHING for the placeholders it cannot fill,
+;which is the dyn_fmt formatter upstream interpolates through.
+!(test (format-args "{} and {}" (only)) "only and ")
 
 !(test (sort-strings ("pear" "apple" "fig")) ("apple" "fig" "pear"))
 !(test (parse-number "42") 42)
