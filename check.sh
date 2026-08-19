@@ -175,6 +175,32 @@ run GATE packaged sh -c "cd '$HERE' && sh tests/test_packaged_cli.sh"
 # difference in both directions [measured 2026-08-18: 0.21s].
 run GATE worktree sh -c "cd '$HERE' && sh tests/test_worktree_configuration.sh"
 
+# The Node binding, which is the seam's second consumer. It runs the engine in
+# a WebAssembly SWI inside a Node process, so it needs neither the SWI on this
+# machine nor janus, and its own suite covers the boot inventory, the codec and
+# the lazy answer surface. The conformance corpus is compared against the
+# Python host by python/tests/test_node_binding.py, in the pytest lane above.
+#
+# swipl-wasm is an npm dependency and this does not fetch it: a gate that
+# reaches the network is a gate that fails for a reason that is not the tree.
+# It says which step is missing instead, the same shape the C extension example
+# above takes when swipl-ld is absent.
+check_node_binding() {
+    binding="$HERE/bindings/node"
+    [ -d "$binding" ] || return 0
+    if ! command -v node >/dev/null 2>&1; then
+        echo "note: node not found, the Node binding suite will not run" >&2
+        return 0
+    fi
+    if [ ! -d "$binding/node_modules/swipl-wasm" ]; then
+        echo "note: run 'npm ci' in bindings/node, the Node binding suite will \
+not run without swipl-wasm" >&2
+        return 0
+    fi
+    ( cd "$binding" && node --test 'test/*.test.mjs' )
+}
+run GATE node-binding check_node_binding
+
 # Undefined predicates in the engine. Nothing checked the Prolog side before
 # this; SWI has had the check built in all along.
 #

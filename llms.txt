@@ -33,6 +33,7 @@ re-runs them.
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
 | `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
 | `hosts/*.pl` | globbed at every boot; each decider loads its bridge only where the bridge's substrate exists, so the engine names no host | |
+| `bindings/node/*.mjs` | the engine embedded in a Node process over swipl-wasm, the seam's second consumer. `bindings/node/bridge.pl` is its Prolog half and calls published surface only | the `node-binding` gate lane, and `python/tests/test_node_binding.py` answers the same corpus in both hosts |
 | `EXTENDING.md`, `DEVELOPING.md` | writing an extension; working on the engine | |
 | `KERNEL.md` | every head the translator gives meaning to, core or derived, with the reason and the numbers | the `plunit` gate lane's `translator_derived_forms` and the `pytest` lane's corpus twin test |
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |

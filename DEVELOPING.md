@@ -64,6 +64,20 @@ parallel test configuration. Optional integrations must use
 `pytest.importorskip()` so the minimum dependency environment skips them at
 module collection.
 
+Two lanes need Node and do not fetch anything themselves, because a gate that
+reaches the network fails for reasons that are not the tree. Both say which
+step is missing and pass without it, so run this once to have them run for
+real:
+
+```sh
+npm ci --prefix bindings/node
+```
+
+That enables the `node-binding` lane, which is `node --test` over the Node
+binding's own suite, and the conformance corpus in
+`python/tests/test_node_binding.py`, which answers the same cases in the Node
+binding and in this library and compares the two.
+
 ## Python performance measurements
 
 `python/bench.py` is the benchmark entry point. It runs each selected case in
