@@ -341,6 +341,29 @@ test(a_ground_expected_type_still_stops_at_one_witness) :-
             Witnesses),
     Witnesses == [true].
 
+%A tuple type is %Undefined% as soon as one member's type is, so the shape is
+%never reported with a hole sitting inside it. Written against the engine's
+%own answer rather than through janus, because the collapse is a rule of the
+%type derivation and not of the boundary.
+test(a_tuple_with_an_untyped_member_is_undefined) :-
+    findall(T, 'get-type'([plunit_type_a, plunit_type_b], T), Typed),
+    assertion(Typed == [[plunit_a, plunit_b]]),
+    findall(T, 'get-type'([plunit_type_a, plunit_never_declared], T), Holed),
+    assertion(Holed == ['%Undefined%']),
+    findall(T, 'get-type'([plunit_never_declared], T), Alone),
+    assertion(Alone == ['%Undefined%']).
+
+%Bottom-up, so an inner tuple carrying a hole makes the outer one undefined
+%without the rule saying anything about nesting.
+test(the_collapse_reaches_a_nested_tuple) :-
+    findall(T, 'get-type'([plunit_type_a, [plunit_type_a, plunit_type_b]], T),
+            Nested),
+    assertion(Nested == [[plunit_a, [plunit_a, plunit_b]]]),
+    findall(T,
+            'get-type'([plunit_type_a, [plunit_type_a, plunit_never_declared]], T),
+            Holed),
+    assertion(Holed == ['%Undefined%']).
+
 :- end_tests(metta_type_answers).
 
 :- begin_tests(metta_builtin_scoping).

@@ -46,6 +46,19 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   against 369. Eleven counter baselines are raised with that attribution and
   no other number moved.
 
+- An expression no arrow types is read element-wise, and the tuple it reads is
+  now `%Undefined%` as soon as one member's type is. Nothing is known about a
+  tuple one of whose components is unknown, so reporting the shape while a
+  hole sits inside it claimed more than had been derived:
+  `!(get-type (some-undeclared-call))` answered `(%Undefined%)`, a one-element
+  tuple, where the answer is that nothing is known at all. A fully typed
+  expression is unaffected, so `(typed-sym typed-sym)` is still
+  `(Number Number)`. The collapse is recursive because the walk is bottom-up:
+  an inner tuple carrying a hole makes the outer one `%Undefined%` too.
+
+  Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+  interpreter, byte-identical across both, over fourteen shapes.
+
 - `(transaction ...)` answers everything its body answers. It used to answer
   the first one only and say nothing: `!(collapse (petta-three))` with three
   equations for the name answered `(1 2 3)` and
