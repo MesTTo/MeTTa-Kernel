@@ -275,18 +275,35 @@ silent wrong answer:
   reported success. The load now raises with the file, the line and the
   column.
 
-The same rule catches a subtler case: your predicate must be in `user`, which
-is where `consult_global/1` puts it. A Prolog library loaded from inside a
-named space defines itself in that space's module, where the registration
-cannot see it, and every call to it used to compile to a partial application.
-That is an error too.
+The same rule catches a subtler case: your predicate must be in the HOST
+module, `user`, which is where `consult_global/1` puts it. A Prolog library
+loaded from inside a named space defines itself in that space's module, where
+the registration cannot see it, and every call to it used to compile to a
+partial application. That is an error too.
+
+`user` is the host, and it is no longer where MeTTa code lives. Every space,
+`&self` included, compiles its equations into a module of its own, which
+`space_module/2` names, and those modules inherit the engine's and through it
+`user`. So a predicate you consult into `user` is reachable from every space,
+and an equation a program writes cannot replace it: the equation lands in the
+space's own module and shadows it there. Two consequences for an extension:
+
+- Ask `space_module/2` for a module; never write one. `with_metta_module/2`
+  takes that module, and it REFUSES a space name, because the two are
+  different atoms now and passing the wrong one would silently run your goal
+  against a module nothing compiles into.
+- If you call a MeTTa function from Prolog, qualify it with that module. An
+  unqualified call resolves where YOUR clause was compiled, which for a
+  consulted extension is `user`, and `user` is the parent: it cannot see a
+  space's clauses. If you hand a goal to one of the engine's own predicates
+  instead, the engine's `meta_predicate` declarations carry the module for
+  you.
 
 A registration also records WHERE its clauses live, which is what keeps it
-working after a named space defines an equation of the same name. Without
-that, one named space claiming a name turned every registered predicate into
-inert data in every space, silently, from code that had not changed. That
-space's own equation still shadows it, which is the behaviour that should
-happen.
+working after a space defines an equation of the same name. Without that, one
+named space claiming a name turned every registered predicate into inert data
+in every space, silently, from code that had not changed. That space's own
+equation still shadows it, which is the behaviour that should happen.
 
 ### Taking an argument unevaluated
 

@@ -6,6 +6,44 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Every space now compiles its equations into a Prolog module of its own,
+  `&self` included, and `space_module/2` names it. `&self` used to compile
+  into the module the engine's own predicates are in, so an equation whose
+  head collided with one of them did not shadow that predicate, it REPLACED
+  it for the rest of the process. Two shipped examples did exactly that:
+  `examples/functions/invertpeanoplus.metta` defines `(= (plus Z $y) $y)` and
+  took the engine's `plus/3` from imported to a local definition, after which
+  `plus(1,2,X)` failed instead of answering `3`, and
+  `examples/libraries/minimal_metta.metta` did the same to `rule/3`. Sharper
+  still, `!(add-atom &self (= (b_setval $a) clash))` used to leave
+  `with_metta_module/2` unable to run, so the very next MeTTa form failed to
+  translate.
+
+  What a program can do changes with it, and in the direction of MORE names
+  rather than fewer. An equation for a builtin's name in `&self` is accepted
+  and shadows it for `&self` alone, exactly as it already did in a named
+  space; the engine's own predicate of that name goes on answering. What is
+  still refused is SWI's protected core, and it is refused in every space
+  rather than in `&self` alone: measured over the 428 names the engine
+  imports, 7 at MeTTa arity 0, 4 at arity 1, 2 at arity 2 and 1 at arity 3,
+  against 86, 217, 163 and 64 before.
+
+  For extension authors: `user` is the HOST module and nothing else now. Keep
+  consulting Prolog into it, ask `space_module/2` for a space's module, and
+  pass THAT to `with_metta_module/2`, which refuses a space name rather than
+  running your goal against a module nothing compiles into. `EXTENDING.md`
+  carries the whole rule.
+
+  `tests/prolog/engine_integrity.pl` is a GATE at zero findings and reports
+  again the day a space's module lands back on the engine's resolution path.
+
+  Measured cost: `space_module/2` 4.00 inferences against 3.00 and
+  `with_metta_module/2` 11.00 against 10.00, so a runnable form is 372
+  against 369. Eleven counter baselines are raised with that attribution and
+  no other number moved.
+
 ### Added
 
 - The LeaTTa conformance lane (`tests/conformance/leatta.py`) now gates PER
