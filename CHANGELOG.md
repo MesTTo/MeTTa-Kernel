@@ -46,6 +46,31 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   against 369. Eleven counter baselines are raised with that attribution and
   no other number moved.
 
+### Fixed
+
+- `(case Key Cases)` no longer allocates 7.5 Gb and dies when its cases are
+  not written out. The form compiles one nested conditional from cases it
+  reads as syntax, and a cases argument that is still a variable has none to
+  read: it used to reach a `select/3` over an open list, which enumerates
+  longer and longer instances of that list forever. `!(case 1 $cases)` did it
+  bare, under `once` and under `collapse` alike, and so did merely LOADING
+  the one-line definition `(= (switch $v $cs) (case $v $cs))` that gives
+  `case` another name.
+
+  Cases that are not syntax now compile when their value arrives, through the
+  same code the written-out form compiles through, so a `switch` written as
+  an ordinary definition loads and answers. A value arriving there that is
+  not a list of `(pattern value)` pairs is refused naming the form and
+  printing the argument as MeTTa: `case: a list of (pattern value) cases
+  expected, found $_0`. Cases that are no list at all, `(case 1 foo)`, keep
+  falling through to data dispatch as before.
+
+  Measured cost: writing the cases out is unaffected, byte-identical compiled
+  goals over twelve case shapes and a flat 3 inferences a call at 3, 12 and 24
+  cases; handing them over as a value costs one translation per call, 78, 258
+  and 498 inferences for the same three sizes. A `case` on a hot path is
+  worth writing out. `examples/control/casecomputed.metta` runs all of it.
+
 ### Added
 
 - `(super (f a b))`, the relative way to reach the definition a space's own
