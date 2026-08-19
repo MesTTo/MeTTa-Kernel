@@ -779,25 +779,74 @@ test(builtin_exists_file) :-
     catch('exists_file'(5, _), error(Formal, _), true),
     assertion(nonvar(Formal)).
 
+%The table has exactly two legitimate sources: the file, and the engine
+%prelude's declarations. Stated as a SET identity rather than as
+%file + ledger == table, because the two sources are allowed to OVERLAP and
+%the arithmetic identity silently forbade it. get-type is written in both,
+%once for the type surface the file is and once so the call site honours its
+%Atom mask, and counting rows read that legitimate overlap as a double write.
+%The set identity says the same no-foreign-rows thing without the assumption,
+%and the row-count pair says the no-double-writes half directly instead of
+%leaving it to be inferred from a total.
+%
+%Rows are numbervar'd first. Several declarations are non-ground, `(: == (->
+%$t $t Bool))` among them, and every findall renames those variables fresh,
+%so an untreated == compares two structurally identical lists as different
+%and sort/2 keeps two copies of a row written twice. Grounding first makes
+%both comparisons say what they mean.
+%Each row is numbered on its own, from zero, because numbering the whole
+%list would make a row's numbers depend on how many rows preceded it and the
+%two lists arrive in different orders.
+canonical_row(Row, Canonical) :-
+    copy_term(Row, Canonical),
+    numbervars(Canonical, 0, _).
+
+canonical_rows(Rows, Canonical) :-
+    maplist(canonical_row, Rows, Numbered),
+    sort(Numbered, Canonical).
+
 test(the_table_is_built_from_the_file_rather_than_written_twice) :-
     library('lib_builtin_types.metta', Path),
     read_file_to_string(Path, Text, []),
     parse_metta_source(Text, Forms),
-    aggregate_all(count,
-                  ( member(parsed(expression, _, [':', Name, _]), Forms),
-                    atom(Name) ),
-                  InFile),
-    %The table has exactly two legitimate sources: the file, and the
-    %engine prelude's declarations, whose ledger
-    %(prelude_type_declaration/2) mirrors its rows one for one so
-    %eviction can purge them. File + ledger == table is the same
-    %no-double-writes claim with the second source named.
-    aggregate_all(count, prelude_type_declaration(_, _), FromPrelude),
-    aggregate_all(count, builtin_type_declaration(_, _), Loaded),
-    Expected is InFile + FromPrelude,
-    Expected == Loaded,
-    InFile > 0,
-    FromPrelude > 0.
+    findall(Name-Type,
+            ( member(parsed(expression, _, [':', Name, Type]), Forms),
+              atom(Name) ),
+            InFile),
+    findall(Name-Type, prelude_type_declaration(Name, Type), FromPrelude),
+    findall(Name-Type, builtin_type_declaration(Name, Type), Loaded),
+    append(InFile, FromPrelude, Sources),
+    canonical_rows(Sources, ExpectedRows),
+    canonical_rows(Loaded, LoadedRows),
+    assertion(ExpectedRows == LoadedRows),
+    length(Loaded, RowCount),
+    length(LoadedRows, DistinctCount),
+    assertion(RowCount == DistinctCount),
+    InFile \== [],
+    FromPrelude \== [].
+
+%The overlap the row above allows is real and has a mechanism: a row the
+%prelude found already written stays out of its eviction ledger, so a program
+%redeclaring the name takes the prelude's row away and leaves the file's.
+%Without that split, retractall/1 could not tell two identical rows apart and
+%eviction deleted the engine's own type surface entry for the name.
+test(a_shared_declaration_is_evicted_only_from_the_register_that_wrote_it) :-
+    Shared = 'get-type',
+    findall(Type, prelude_type_declaration(Shared, Type), Declared),
+    findall(Type, builtin_type_declaration(Shared, Type), Surface),
+    assertion(Declared \== []),
+    assertion(Surface \== []),
+    %Written by the file, so the prelude found it rather than putting it there.
+    assertion(\+ prelude_wrote_builtin_type(Shared, _)),
+    setup_call_cleanup(
+        true,
+        ( retract_prelude_declarations(Shared),
+          findall(Type, builtin_type_declaration(Shared, Type), Survived),
+          findall(Type, prelude_type_declaration(Shared, Type), Gone),
+          assertion(Survived == Surface),
+          assertion(Gone == []) ),
+        forall(member(Type, Declared),
+               assertz(prelude_type_declaration(Shared, Type)))).
 
 %The declarations are FACTS, not atoms in &self. Putting them in &self changes
 %what every program sees of its own space, which is not the engine's to do.

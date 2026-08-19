@@ -46,6 +46,28 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   against 369. Eleven counter baselines are raised with that attribution and
   no other number moved.
 
+- `get-type` and `get-type-space` no longer run the expression they are asked
+  about. Asking for a type is a question about an expression, and the engine
+  was answering it by running the expression first: an operation appending to
+  a Python list fired on `!(get-type (petta-effectful))`, taking a counter
+  from 0 to 1, and the answer was `Number`, the type of what it returned.
+  Every linter walk and every REPL inspection was invisibly effectful on a
+  seam whose whole purpose is arbitrary effects.
+
+  What changes for a program: `(get-type EXPR)` now answers what `EXPR` is
+  DECLARED to be, not what running it would produce. A declared function
+  answers its return type, `!(get-type (literal-return 2))` being `Atom` for
+  `(: literal-return (-> Number Atom))`; a builtin application answers its
+  arrow's return type, `!(get-type (+ 1 2))` being `Number`; and an
+  application of a name nothing declares answers `%Undefined%` where it used
+  to answer the type of the value the call produced. To ask about a VALUE,
+  produce it first: `!(let $v (f 1) (get-type $v))`.
+
+  Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
+  interpreter, byte-identical across both, over seven probes: the effectful
+  argument does not fire on either, and each of the four answers above is
+  what both of them give.
+
 ### Added
 
 - `(super (f a b))`, the relative way to reach the definition a space's own
