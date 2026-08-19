@@ -12,11 +12,12 @@
 
 %Take a test function back out completely: its registration, its symbol
 %records, its arities, and its compiled predicate at every arity it might have
-%been compiled at. forget_symbol/1 alone leaves the PREDICATE, which is enough
+%been compiled at. forget_symbol/2 alone leaves the PREDICATE, which is enough
 %to make a second setup in the same process compile a second clause and answer
 %twice.
 forget_test_function(F) :-
-    catch(user:forget_symbol(F), _, true),
+    user:metta_self_module(SelfModule),
+    catch(user:forget_symbol(SelfModule, F), _, true),
     retractall(user:symbol_head(F, _)),
     retractall(user:fun_in(_, F)),
     retractall(user:fun_scoped(F)),
@@ -121,7 +122,8 @@ meta_store_function('$plunit_meta_store').
 
 setup_meta_store :-
     meta_store_function(F),
-    clear_fun_meta(F),
+    current_metta_module(Module),
+    clear_fun_meta(Module, F),
     retractall(arity(F, _)).
 
 cleanup_meta_store :-
@@ -132,8 +134,9 @@ test(function_store_keeps_newest_first,
     meta_store_function(F),
     translate_clause([=, [F, X], [first, X]], _),
     translate_clause([=, [F, Y], [second, Y]], _),
-    fun_meta_clauses(F, [fun_meta(SecondArgs, SecondBody),
-                         fun_meta(FirstArgs, FirstBody)]),
+    current_metta_module(Module),
+    fun_meta_clauses(Module, F, [fun_meta(SecondArgs, SecondBody),
+                                 fun_meta(FirstArgs, FirstBody)]),
     (SecondArgs-SecondBody) =@= ([Y]-[second, Y]),
     (FirstArgs-FirstBody) =@= ([X]-[first, X]).
 
@@ -142,8 +145,9 @@ test(drop_fun_meta_removes_one_variant_only,
     meta_store_function(F),
     translate_clause([=, [F, X], [same, X]], _),
     translate_clause([=, [F, Y], [same, Y]], _),
-    drop_fun_meta(F, [Z], [same, Z]),
-    aggregate_all(count, fun_meta_clause(F, _, _), 1).
+    current_metta_module(Module),
+    drop_fun_meta(Module, F, [Z], [same, Z]),
+    aggregate_all(count, fun_meta_clause(Module, F, _, _), 1).
 
 test(engine_state_does_not_use_function_names,
      [ setup((setup_meta_store,
@@ -181,7 +185,8 @@ meta_store_size(1000).
 clear_sized_meta_stores :-
     forall(( meta_store_size(Count),
              atom_concat('$plunit_meta_store_', Count, F) ),
-           ( clear_fun_meta(F),
+           ( current_metta_module(Module),
+             clear_fun_meta(Module, F),
              forget_test_function(F) )).
 
 %Measured once rather than min of three: filling the store is destructive, so
@@ -191,7 +196,8 @@ meta_store_cost(Count, Inferences) :-
     count_inferences(forall(between(1, Count, _),
                             translate_clause([=, [F, X], X], _)),
                      Inferences),
-    aggregate_all(count, fun_meta_clause(F, _, _), Count).
+    current_metta_module(Module),
+    aggregate_all(count, fun_meta_clause(Module, F, _, _), Count).
 
 % Each equation is one independently indexed fact, so recording a new one does
 % not copy the equations already held for that function [source:
@@ -221,7 +227,10 @@ test(recording_equations_costs_no_more_than_linear_time,
 test(a_data_self_reference_cannot_create_a_rational_tree,
      [occurs_check(false), timeout(1)]) :-
     translate_expr([let, X, [g, X], X], Goals, _),
-    \+ call_goals(Goals).
+    %call_goals/1 is gone: a compiled goal resolves in the module of the space
+    %that compiled it, and there is no module-blind version left.
+    metta_self_module(Self),
+    \+ call_goals_in_(Self, Goals).
 
 %[g, X] above is data and needs no goals, so the check sees the whole value
 %wherever it is emitted. A value that has to be computed does not: emitted
@@ -230,7 +239,8 @@ test(a_data_self_reference_cannot_create_a_rational_tree,
 test(a_computed_self_reference_cannot_create_a_rational_tree,
      [occurs_check(false), timeout(1)]) :-
     translate_expr([let, X, ['cons-atom', X, []], X], Goals, _),
-    \+ call_goals(Goals).
+    metta_self_module(Self),
+    \+ call_goals_in_(Self, Goals).
 
 %A value that shares no variable with the pattern cannot be built out of the
 %pattern, so its check stays ahead of the value's goals, where it runs on two
@@ -247,7 +257,8 @@ test(a_shared_value_moves_its_check_behind_the_value_goals) :-
 test(acyclic_binding_keeps_let_semantics,
      [occurs_check(false)]) :-
     translate_expr([let, X, [value, 42], X], Goals, Out),
-    once(call_goals(Goals)),
+    metta_self_module(Self),
+    once(call_goals_in_(Self, Goals)),
     Out == [value, 42].
 
 :- end_tests(translator_let).
@@ -470,6 +481,91 @@ test(an_arity_two_call_does_reach_it) :-
 
 :- end_tests(translator_operator_dispatch).
 
+% (super (f a)): the definition of f the NEXT module up this space's chain
+% holds, so a shadow can check a call and then let the original run. The
+% language had the absolute form already, `evalc`, which names the space to
+% evaluate in and does not compose: two guards on one name in one space each
+% delegating to &self both run, and an atom one refused is stored anyway by
+% the other.
+:- begin_tests(translator_super).
+
+super_source("(= (sup-base $x) (base $x))\n\c
+              (= (sup-shadow $x) (base $x))").
+
+setup_super :-
+    retractall(silent(_)), assertz(silent(true)),
+    super_source(Source),
+    process_metta_string(Source, _),
+    'add-atom'('&plunit_super', [=, ['sup-base', X],
+                                    [shadow, [super, ['sup-base', X]]]], _).
+
+cleanup_super :-
+    forall(member(S, ['&self', '&plunit_super']),
+           forall(member(N, ['sup-base', 'sup-shadow']),
+                  remove_sexp(S, [=, [N|_], _]))),
+    retractall(silent(_)), assertz(silent(false)).
+
+test(a_shadow_reaches_the_definition_above_it,
+     [setup(setup_super), cleanup(cleanup_super)]) :-
+    space_module('&plunit_super', Module),
+    with_metta_module(Module, reduce(['sup-base', 1], Shadowed, _)),
+    assertion(Shadowed == [shadow, [base, 1]]),
+    % and the space above is unaffected by the shadow
+    metta_self_module(Self),
+    with_metta_module(Self, reduce(['sup-base', 1], Plain, _)),
+    assertion(Plain == [base, 1]).
+
+% The engine's own predicate is a definition above too, which is what makes a
+% builtin shadowable AND delegable: before Phase 11 an equation for a builtin
+% name in &self was refused outright.
+test(a_shadow_of_a_builtin_reaches_the_engines_own,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( remove_sexp('&self', [=, ['car-atom'|_], _]),
+                 metta_self_module(M), retractall(M:'car-atom'(_, _)),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    'add-atom'('&self', [=, ['car-atom', L], [mine, [super, ['car-atom', L]]]], _),
+    metta_self_module(Self),
+    with_metta_module(Self, reduce(['car-atom', [1, 2, 3]], Out, _)),
+    assertion(Out == [mine, 1]),
+    petta_engine_module(Engine),
+    assertion(Engine:'car-atom'([1, 2, 3], 1)).
+
+% Resolved at COMPILE time, so nothing above to reach is an error where the
+% equation is written rather than a silent empty answer where it runs.
+test(a_super_with_nothing_above_is_refused_at_definition_time,
+     [ throws(error(existence_error(metta_super_definition,
+                                    'sup-absent'/2), _)),
+       setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    'add-atom'('&plunit_super_absent',
+               [=, ['sup-absent', X], [super, ['sup-absent', X]]], _).
+
+test(a_super_over_a_variable_head_is_refused,
+     [ throws(error(type_error(metta_super_call, _), _)) ]) :-
+    translate_expr([super, '$f'], _, _).
+
+% Compile-time resolution can go stale: a space that gains a definition
+% becomes the nearer parent. The change hook rebuilds the callers.
+test(a_later_definition_retargets_an_earlier_super,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( remove_sexp('&self', [=, ['car-atom'|_], _]),
+                 remove_sexp('&plunit_super_retarget', [=, ['car-atom'|_], _]),
+                 metta_self_module(M), retractall(M:'car-atom'(_, _)),
+                 space_module('&plunit_super_retarget', R),
+                 retractall(R:'car-atom'(_, _)),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    Space = '&plunit_super_retarget',
+    space_module(Space, Module),
+    'add-atom'(Space, [=, ['car-atom', L], [outer, [super, ['car-atom', L]]]], _),
+    with_metta_module(Module, reduce(['car-atom', [1, 2, 3]], First, _)),
+    % nothing between this space and the engine yet
+    assertion(First == [outer, 1]),
+    'add-atom'('&self', [=, ['car-atom', L2], [middle, L2]], _),
+    with_metta_module(Module, reduce(['car-atom', [1, 2, 3]], Second, _)),
+    assertion(Second == [outer, [middle, [1, 2, 3]]]).
+
+:- end_tests(translator_super).
+
 :- begin_tests(translator_special_dispatch).
 
 % get-metatype and noeval are here for one reason: the ATOM MASK. Their
@@ -487,7 +583,8 @@ expected_special_heads([
     'or-else', 'remove-atom', 'test-no-answer', '|->', call, case, chain,
     collapse, cut, elapsed, eval, evalc, explain, hyperpose, if, let, match,
     inferences, noeval,
-    once, prog1, progn, quote, reduce, sealed, superpose, take, test, timeout,
+    once, prog1, progn, quote, reduce, sealed, super, superpose, take, test,
+    timeout,
     top, transaction, translatePredicate, unify, with_mutex
 ]).
 
@@ -794,7 +891,7 @@ cleanup_generated_lambdas(First) :-
     Start is First + 1,
     forall(between(Start, Last, Number),
            ( format(atom(Name), 'lambda_~d', [Number]),
-             forget_symbol(Name) )).
+             metta_self_module(M), forget_symbol(M, Name) )).
 
 test(typed_argument_is_compiled_once) :-
     lambda_counter_value(Before),
@@ -892,12 +989,15 @@ test(get_type_equations_compile_behind_the_answer_boundary) :-
         ( translate_clause(Source, Clause),
           Clause = (Head :- _),
           functor(Head, get_type_rule, 2),
+          %A get-type equation compiles into the module of the space that wrote
+          %it, so the clause goes where &self's equations go.
+          metta_self_module(Self),
           setup_call_cleanup(
-              assertz(user:Clause, Ref),
+              assertz(Self:Clause, Ref),
               ( findall(Type, 'get-type'(plunit_extended_type, Type), Types),
                 Types == [plunit_extension] ),
               erase(Ref)) ),
-        drop_fun_meta('get-type', [plunit_extended_type],
+        drop_fun_meta(_, 'get-type', [plunit_extended_type],
                       plunit_extension)).
 
 :- end_tests(translator_type_extensions).
@@ -968,7 +1068,8 @@ test(an_unknown_head_remains_inert_data) :-
 
 test(quote_keeps_an_invalid_builtin_call_inert) :-
     translate_expr([quote, ['+', 1, undefined_sym]], Goals, Out),
-    call_goals(Goals),
+    metta_self_module(Self),
+    call_goals_in_(Self, Goals),
     Out == ['+', 1, undefined_sym].
 
 cleanup_builtin_type_declarations(Path, ParsedForms) :-
@@ -1591,7 +1692,7 @@ setup_capturing :-
     capturing_source(Source),
     process_metta_string(Source, _).
 
-%The compiled clause has to go too. forget_symbol/1 removes the registration
+%The compiled clause has to go too. forget_symbol/2 removes the registration
 %and not the predicate, so a second setup in the same process compiled a
 %SECOND plunit-pcap/3 clause and the fully applied call then answered twice.
 cleanup_capturing :-

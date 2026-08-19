@@ -162,9 +162,10 @@ test(an_inheriting_space_shares_the_one_cache,
     space_module('&memo_iso', Module),
     with_metta_module(Module, user:'memoize'(isoshared, true)),
     with_metta_module(Module, user:'is-memoized'(isoshared, true)),
-    with_metta_module(user, user:'is-memoized'(isoshared, true)),
+    metta_self_module(Self),
+    with_metta_module(Self, user:'is-memoized'(isoshared, true)),
     findall(R, with_metta_module(Module, reduce([isoshared, 1], R)), [8]),
-    findall(R, with_metta_module(user, reduce([isoshared, 1], R)), [8]).
+    findall(R, with_metta_module(Self, reduce([isoshared, 1], R)), [8]).
 
 :- end_tests(memo_space_isolation).
 

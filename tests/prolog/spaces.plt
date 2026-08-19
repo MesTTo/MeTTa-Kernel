@@ -275,7 +275,7 @@ cleanup_registered_function(F) :-
     forall(member(Ref, Refs),
            ( erase(Ref), retractall(user:translated_from(Ref, _)) )),
     remove_sexp('&self', [=, [F|_], _]),
-    user:clear_fun_meta(F),
+    user:clear_fun_meta(_, F),
     retractall(user:arity(F, _)),
     retractall(user:fun(F)),
     user:unregister_fun_everywhere(F).
@@ -321,7 +321,7 @@ test(change_hook_error_rolls_back_every_registration_write,
     Error = error(plunit_injected_change_hook_failure, none),
     \+ user:fun(plunit_registration_rollback),
     \+ user:arity(plunit_registration_rollback, _),
-    \+ user:fun_meta_clause(plunit_registration_rollback, _, _),
+    \+ user:fun_meta_clause(_, plunit_registration_rollback, _, _),
     \+ user:translated_from(_, Term),
     \+ get_native_atom('&self',
                         [=, [plunit_registration_rollback, X], X]),
@@ -432,25 +432,190 @@ forget_late_name(Name) :-
     retractall(user:fun(Name)),
     retractall(user:arity(Name, _)),
     user:unregister_fun_everywhere(Name),
-    user:clear_fun_meta(Name).
+    user:clear_fun_meta(_, Name).
 
 :- end_tests(spaces_late_type_declaration).
 
+% The topology Phase 11 establishes, asserted rather than assumed. Nothing
+% else in the tree would notice it drifting back, and drifting back is
+% silent: an equation compiled into the module the engine resolves in
+% REPLACES a predicate of that name instead of shadowing it.
+:- begin_tests(spaces_execution_modules).
+
+test(every_space_compiles_into_a_module_of_its_own) :-
+    space_module('&self', Self),
+    space_module('&plunit_exec_a', A),
+    space_module('&plunit_exec_b', B),
+    petta_engine_module(Engine),
+    assertion(Self \== A), assertion(A \== B), assertion(Self \== B),
+    assertion(Self \== Engine),
+    assertion(Self \== user),
+    assertion(A \== '&plunit_exec_a').
+
+% system -> engine -> &self's module -> every other space's. Read off SWI with
+% import_module/2 rather than believed: SWI decides an implicitly created
+% module's base from the first character of its name, which would have given a
+% `$`-prefixed one `system` and no way to reach the engine at all.
+test(the_chain_is_engine_then_self_then_space) :-
+    petta_engine_module(Engine),
+    space_module('&self', Self),
+    space_module('&plunit_exec_chain', Space),
+    assertion(import_module(Self, Engine)),
+    assertion(import_module(Space, Self)),
+    assertion(\+ import_module(Self, Self)).
+
+% metta_self_module/1 writes the name and space_module/2 computes it. They are
+% two places, deliberately: the first is inlined at compile time so the hot
+% paths pay nothing to read it, and the second is the mapping every other space
+% goes through. This is what stops them drifting apart.
+test(the_written_self_module_is_the_mapped_one) :-
+    metta_self_module(Written),
+    space_module('&self', Mapped),
+    assertion(Written == Mapped),
+    current_metta_module(Default),
+    assertion(Default == Written).
+
+test(the_module_to_space_map_is_the_inverse) :-
+    forall(member(Space, ['&self', '&plunit_exec_inv', '&petta']),
+           ( space_module(Space, Module),
+             metta_module_space(Module, Back),
+             assertion(Back == Space) )),
+    % It fails on a module that is not a space's rather than passing one
+    % through, because every caller has one in hand.
+    petta_engine_module(Engine),
+    assertion(\+ metta_module_space(Engine, _)),
+    assertion(\+ metta_module_space(user, _)).
+
+% The collision surface, as a check rather than as a claim. Each of these
+% names is held by the module the ENGINE resolves in, an equation for it is
+% accepted in &self, and what the engine holds is unchanged afterwards. Before
+% Phase 11 the arity-2 `plus` was accepted and DESTROYED the predicate, which
+% is what examples/functions/invertpeanoplus.metta did on every run
+% [measured 2026-08-19 on c7126f1].
+%
+% Two tables, because the two ways the engine can hold a name need different
+% evidence. An IMPORTED one keeps its imported_from/1; a name the engine
+% DEFINES keeps its clause count.
+engine_imports(plus, 2).
+engine_imports(atom_number, 1).
+engine_imports(with_output_to, 1).
+
+engine_defines('car-atom', 1).
+engine_defines(repr, 1).
+
+shadow_in_self(Name, MettaArity, Self, Arity) :-
+    Arity is MettaArity + 1,
+    length(Args, MettaArity),
+    'add-atom'('&self', [=, [Name|Args], plunit_shadowed], _),
+    space_module('&self', Self).
+
+unshadow_in_self(Name, MettaArity, Arity) :-
+    length(Args, MettaArity),
+    'remove-atom'('&self', [=, [Name|Args], plunit_shadowed], _),
+    space_module('&self', Self),
+    functor(Gone, Name, Arity),
+    retractall(Self:Gone).
+
+test(an_imported_engine_name_is_free_in_a_space,
+     [forall(engine_imports(Name, MettaArity))]) :-
+    petta_engine_module(Engine),
+    Arity is MettaArity + 1,
+    functor(Probe, Name, Arity),
+    predicate_property(Engine:Probe, imported_from(Owner)),
+    setup_call_cleanup(
+        shadow_in_self(Name, MettaArity, Self, _),
+        ( functor(Local, Name, Arity),
+          % Asked as properties rather than with clause/3, which raises rather
+          % than failing for a predicate it may not show: if the shadow had NOT
+          % been created these would be the system predicate's, and clause/3
+          % would report a permission error instead of the difference.
+          assertion(predicate_property(Self:Local, number_of_clauses(1))),
+          assertion(\+ predicate_property(Self:Local, imported_from(_))),
+          assertion(predicate_property(Engine:Probe, imported_from(Owner))) ),
+        unshadow_in_self(Name, MettaArity, Arity)).
+
+test(a_name_the_engine_defines_is_free_in_a_space,
+     [forall(engine_defines(Name, MettaArity))]) :-
+    petta_engine_module(Engine),
+    Arity is MettaArity + 1,
+    functor(Probe, Name, Arity),
+    predicate_property(Engine:Probe, number_of_clauses(Before)),
+    setup_call_cleanup(
+        shadow_in_self(Name, MettaArity, Self, _),
+        ( functor(Local, Name, Arity),
+          assertion(predicate_property(Self:Local, number_of_clauses(1))),
+          assertion(\+ predicate_property(Self:Local, imported_from(_))),
+          assertion(predicate_property(Engine:Probe,
+                                       number_of_clauses(Before))) ),
+        unshadow_in_self(Name, MettaArity, Arity)).
+
+% The other half of the shadowing rule. A name the ENGINE compiles into
+% function bodies cannot be taken, in any space, because taking it would
+% capture the engine's own goal in that space's compiled clauses rather than
+% shadowing a function: a wrong answer with no error. The refusal comes from
+% SWI, because protect_engine_emitted/1 binds each of these into every space's
+% module, and it names the right cause rather than calling them Prolog's.
+test(an_engine_emitted_name_cannot_be_taken,
+     [ forall(member(Name/Arity, [include/3, has_type/2, petta_transaction/1])) ]) :-
+    MettaArity is Arity - 1,
+    length(Args, MettaArity),
+    catch('add-atom'('&self', [=, [Name|Args], plunit_captured], _), Error, true),
+    assertion(Error = error(petta_engine_goal_redefinition(Name, MettaArity, '&self'), _)),
+    message_to_string(Error, Text),
+    assertion(sub_string(Text, _, _, _, "compiles into function bodies")),
+    % and the engine's own goal is still the one a space resolves
+    petta_engine_module(Engine),
+    space_module('&self', Self),
+    functor(Head, Name, Arity),
+    assertion(predicate_property(Self:Head, imported_from(_))),
+    assertion(predicate_property(Engine:Head, defined)).
+
+% Every space, not &self alone, which is what makes the protection a property
+% of the topology rather than of one space.
+test(an_engine_emitted_name_cannot_be_taken_in_a_named_space) :-
+    catch('add-atom'('&plunit_emitted_probe', [=, [has_type, _], plunit_captured],
+                     _), Error, true),
+    assertion(Error = error(petta_engine_goal_redefinition(has_type, 1,
+                                                           '&plunit_emitted_probe'), _)).
+
+:- end_tests(spaces_execution_modules).
+
 :- begin_tests(spaces_builtin_override).
 
-test(a_builtin_equation_in_self_is_refused_in_metta_terms,
-     [throws(error(petta_builtin_redefinition('+', 2, '&self'), _))]) :-
-    'add-atom'('&self', [=, ['+', 1, 2], nine], _).
+% &self compiles into a module of its own, so an equation for a builtin name is
+% a local SHADOW there exactly as it is in a named space, and the engine's own
+% predicate of that name goes on answering. Before Phase 11 &self compiled into
+% the module the engine itself resolves in, where the same equation REPLACED
+% the predicate for the rest of the process: two shipped examples did that, and
+% tests/prolog/engine_integrity.pl is the gate that would not let it back.
+test(self_may_shadow_a_builtin,
+     [ cleanup(( 'remove-atom'('&self', [=, ['car-atom', _], nine], _),
+                 metta_self_module(S),
+                 retractall(S:'car-atom'(_, nine)) )) ]) :-
+    'add-atom'('&self', [=, ['car-atom', _], nine], _),
+    metta_self_module(Self),
+    with_metta_module(Self, reduce(['car-atom', [1, 2]], Shadowed, _)),
+    assertion(Shadowed == nine),
+    % The engine's own predicate is untouched, which is the whole point.
+    petta_engine_module(Engine),
+    assertion(Engine:'car-atom'([1, 2], 1)).
 
-test(the_refusal_says_where_the_definition_can_go) :-
-    catch('add-atom'('&self', [=, ['car-atom', _], nine], _), Error, true),
+% What is left to refuse is SWI's protected core, and it is refused in EVERY
+% space rather than in &self alone. sort/2 is one of the four names still taken
+% at MeTTa arity 1 [measured 2026-08-19].
+test(prologs_protected_core_is_still_refused,
+     [throws(error(petta_builtin_redefinition(sort, 1, '&self'), _))]) :-
+    'add-atom'('&self', [=, [sort, _], nine], _).
+
+test(the_refusal_names_the_protected_core) :-
+    catch('add-atom'('&self', [=, [call, _], nine], _), Error, true),
     message_to_string(Error, Text),
-    assertion(sub_string(Text, _, _, _, "cannot be redefined in &self")),
-    assertion(sub_string(Text, _, _, _, "named space")).
+    assertion(sub_string(Text, _, _, _, "protected core")),
+    assertion(sub_string(Text, _, _, _, "no space can redefine")),
+    assertion(sub_string(Text, _, _, _, "every other builtin name is free")).
 
-% The other half of the same message: a named space compiles its clauses into
-% a module of its own, so the same equation there shadows the builtin for that
-% space and leaves every other space's alone.
+% The same equation in a named space, so the two sides of the rule are one
+% test apart: a shadow is local to the space that wrote it.
 test(a_named_space_may_shadow_a_builtin,
      [ cleanup(( 'remove-atom'('&plunit_shadow_builtin', [=, ['+', 1, 2], nine], _),
                  clear_native_atoms('&plunit_shadow_builtin') )) ]) :-
@@ -458,7 +623,8 @@ test(a_named_space_may_shadow_a_builtin,
     space_module('&plunit_shadow_builtin', Module),
     with_metta_module(Module, reduce(['+', 1, 2], Shadowed, _)),
     assertion(Shadowed == nine),
-    with_metta_module(user, reduce(['+', 1, 2], Ordinary, _)),
+    metta_self_module(Self),
+    with_metta_module(Self, reduce(['+', 1, 2], Ordinary, _)),
     assertion(Ordinary == 3).
 
 :- end_tests(spaces_builtin_override).
@@ -982,9 +1148,10 @@ test(the_reference_answers_are_the_documented_ones) :-
 test(a_foreign_equation_compiles_into_its_space_module) :-
     forall(between(1, 4, N),
            'add-atom'('&plunit_rules', [=, ['fr-many', N], N], _)),
-    predicate_property('&plunit_rules':'fr-many'(_, _), number_of_clauses(Clauses)),
+    space_module('&plunit_rules', RulesModule),
+    predicate_property(RulesModule:'fr-many'(_, _), number_of_clauses(Clauses)),
     assertion(Clauses == 4),
-    findall(A, with_metta_module('&plunit_rules', reduce(['fr-many', 3], A, _)), As),
+    findall(A, with_metta_module(RulesModule, reduce(['fr-many', 3], A, _)), As),
     assertion(As == [3]).
 
 % And it un-compiles when the atom is removed. The removal path dispatched on

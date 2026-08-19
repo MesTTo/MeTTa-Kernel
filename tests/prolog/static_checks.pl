@@ -75,10 +75,11 @@
 %     no_cut_in_a_live_hook_clause below].
 % Fails when:
 %   - a function is compiled into a space whose storage is FOREIGN (backed by
-%     an external provider such as MORK) rather than native. See
-%     known_metta_space/1's own note below; this is unchanged from before this
-%     file discovered modules instead of naming `user`, since the `user`-only
-%     walk never looked at a foreign space's module either.
+%     an external provider such as MORK) rather than native. The module
+%     discovery is surface_walk.pl's candidate_engine_module/1, and the note
+%     beside it says why; this is unchanged from before the checks discovered
+%     modules instead of naming `user`, since the `user`-only walk never
+%     looked at a foreign space's module either.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -86,71 +87,6 @@
 
 :- use_module(library(check)).
 :- use_module(library(solution_sequences)).
-
-%%%% Which modules the engine's predicates can live in %%%%
-%
-% Every check below used to assume `user`, which is where &self's compiled
-% clauses and the engine's own seams happen to live TODAY because nothing in
-% the tree has ever given them a module of their own. Phase 11
-% (ai-phase11-module-survey.md section 2.1, workspace root) gives &self its
-% own execution module, '$petta_exec:&self', based on a shared '$petta_core',
-% and every other space '$petta_exec:<Space>' beside it. A check that keeps
-% naming `user` would then examine the one module nothing compiles into any
-% more and report clean, which is the failure this section exists to close.
-%
-% The fix asks the engine rather than guessing a name. space_module/2 is
-% already the one place that answers "which module does this space compile
-% into" (src/spaces.pl:231-232, ai-phase11-module-survey.md section 1.2's
-% "only door"), so every space the engine currently knows about is walked up
-% its OWN import chain and every module the walk visits is a candidate.
-%
-% default_module/2 is the walk, not current_module/1 or current_predicate/2
-% run with the module argument unbound. Both of those silently skip any
-% module whose SWI class is `system` when asked to GENERATE one, and
-% `system` is exactly the class SWI gives an implicitly-created module named
-% with a leading `$` [SWI-Prolog 10.1 Reference Manual sections 6.13, 6.15]
-% -- precisely how a per-space execution module comes to exist, since a
-% space's name is not known until the MeTTa program that creates it runs.
-% default_module/2 walks from a MODULE THAT IS ALREADY KNOWN rather than
-% generating over every module that exists, and that is what keeps it
-% working: a bound starting point is a lookup, not an enumeration, so the
-% class that hides a module from current_module/1's generate mode never
-% enters into it [measured 2026-08-19: current_predicate(_, M:Head) called
-% with M unbound found a class(user) module holding the target predicate
-% and missed a sibling class(system) module holding the identical predicate
-% under the identical name; default_module/2 walked from a bound starting
-% module reached the class(system) module every time. Confirmed against the
-% fully loaded engine plus a runtime-created second space and, further, a
-% runtime-created module named and classed the way a Phase 11 execution
-% module will be -- see no_compile_time_helper_in_a_compiled_body's and
-% no_cut_in_a_live_hook_clause's anti-vacuity probes below, which are that
-% same rehearsal turned into a standing check].
-%
-% known_metta_space/1 does not need its own proof of completeness: it reads
-% native_storage_module_cache/2, the STORAGE family's own registry
-% (src/spaces.pl:54), which every native add-atom or equation already
-% populates as a side effect of storing into a space
-% (src/spaces.pl:79-98,134-135,399-402), so it grows exactly when a space
-% becomes worth scanning. '&self' is listed explicitly besides, because the
-% invariant that it is always pre-seeded (src/spaces.pl:104) belongs to
-% spaces.pl to keep, not to this file to assume silently.
-%
-% Fails when: a function is compiled into a FOREIGN space (one backed by an
-% external provider such as MORK). add_equation/4's foreign clause
-% (src/spaces.pl:394-398) compiles into that space's execution module the
-% same way a native one does, but deliberately does not touch the native
-% storage cache, so such a space is invisible to known_metta_space/1. This
-% is not a narrowing: the `user`-only walk it replaces never looked at any
-% space but &self either, foreign or native.
-known_metta_space('&self').
-known_metta_space(Space) :- native_storage_module_cache(Space, _).
-
-candidate_engine_module(Module) :-
-    distinct(Module,
-             ( known_metta_space(Space),
-               space_module(Space, SpaceModule),
-               default_module(SpaceModule, Module) )).
-
 :- ensure_loaded(surface_walk).
 :- initialization(main, main).
 
@@ -171,7 +107,8 @@ main :-
     list_autoload,
     check,
     a_backend_calls_only_published_surface,
-    no_cut_in_a_live_hook_clause.
+    no_cut_in_a_live_hook_clause,
+    every_engine_emitted_goal_is_protected.
 
 %%%% Every seam declares one kind %%%%
 %
@@ -399,30 +336,31 @@ library_source(Library) :-
 % of naming `user` beside it: a probe that cannot move with the scan is not a
 % proof the scan still works after the scan's own target moves.
 %
-% A second, DIFFERENT module is planted alongside the first, created at
-% runtime and named and classed the way a Phase 11 execution module will be
-% (leading `$`, so SWI gives it base and class `system`
-% [SWI-Prolog 10.1 Reference Manual sections 6.13, 6.15]), registered as a
-% known space the same way a real one is (src/spaces.pl:79-98's
-% native_storage_module_cache/2). Seeing both is the two-topology proof: one
-% plant lands where TODAY's engine already runs, the other lands in a module
-% shaped like the one Phase 11 introduces, and the walk has to find both
-% without being told where either one is.
+% A second, DIFFERENT space is planted alongside &self, created at runtime and
+% given its execution module by space_module/2 exactly as a real one is, and
+% registered as a known space the same way (src/spaces.pl's
+% native_storage_module_cache/2). Seeing both is the two-space proof: one
+% plant lands in &self's module and the other in a module that did not exist
+% when this file was loaded, and the walk has to find both without being told
+% where either one is. The plant asks space_module/2 for the module rather
+% than using the space's own name: those were the same atom for every space
+% but &self before Phase 11, and are different atoms for all of them now.
 live_scan_sees_a_planted_cut :-
     aggregate_all(count, live_hook_clause(_, _), Live),
     Planted = metta_on_function_removed(_),
     space_module('&self', TodayModule),
     Fixture = '$static-check-fixture:&hook-probe',
+    space_module(Fixture, FixtureModule),
     setup_call_cleanup(
         ( assertz((TodayModule:Planted :- (!, fail))),
           assertz(native_storage_module_cache(Fixture, unused)),
-          assertz((Fixture:Planted :- (!, fail))) ),
+          assertz((FixtureModule:Planted :- (!, fail))) ),
         aggregate_all(count,
                       ( live_hook_clause(_, Body), cut_in_clause_scope(Body) ),
                       Seen),
         ( retract((TodayModule:Planted :- (!, fail))),
           retractall(native_storage_module_cache(Fixture, _)),
-          retract((Fixture:Planted :- (!, fail))) )),
+          retract((FixtureModule:Planted :- (!, fail))) )),
     (   Seen >= 2
     ->  format("static: no cut in any of ~d live clauses of the seams whose \c
                 kind says every clause runs, and the scan saw a planted \c
@@ -584,22 +522,22 @@ no_compile_time_helper_in_a_compiled_body :-
 %
 % Two plants, exactly as live_scan_sees_a_planted_cut/0 above: one in
 % whatever module &self compiles into today, discovered rather than named,
-% and a second in a runtime-created module named and classed the way a
-% Phase 11 execution module will be. Finding the helper in BOTH is the
-% two-topology proof for this check specifically; generated_clause/2 is the
-% predicate the survey measured going from 275 bodies to 1 while still
-% reporting clean, and this is what closes that.
+% and a second in the execution module of a space created at runtime. Finding
+% the helper in BOTH is the two-space proof for this check specifically;
+% generated_clause/2 is the predicate the survey measured going from 275
+% bodies to 1 while still reporting clean, and this is what closes that.
 detector_sees_a_planted_helper(Bodies) :-
     Planted = 'static-check-planted-helper',
     space_module('&self', TodayModule),
     Fixture = '$static-check-fixture:&helper-probe',
+    space_module(Fixture, FixtureModule),
     Head =.. [Planted, In, Out],
     setup_call_cleanup(
         ( assertz(fun(Planted)),
           assertz(arity(Planted, 2)),
           assertz(native_storage_module_cache(Fixture, unused)),
           assertz((TodayModule:Head :- maplist([A]>>(Out = A), [In]))),
-          assertz((Fixture:Head :- maplist([A]>>(Out = A), [In]))) ),
+          assertz((FixtureModule:Head :- maplist([A]>>(Out = A), [In]))) ),
         aggregate_all(count,
                       ( generated_clause(_, Body),
                         body_subterm(Body, Sub),
@@ -611,7 +549,7 @@ detector_sees_a_planted_helper(Bodies) :-
           retractall(native_storage_module_cache(Fixture, _)),
           functor(Gone, Planted, 2),
           retractall(TodayModule:Gone),
-          retractall(Fixture:Gone) )),
+          retractall(FixtureModule:Gone) )),
     (   Seen >= 2
     ->  format("static: no compile-time helper in any of ~d generated \c
                 clause bodies, and the walk saw a planted one in today's \c
@@ -635,6 +573,127 @@ body_subterm(Term, Sub) :-
     compound(Term),
     arg(_, Term, Argument),
     body_subterm(Argument, Sub).
+
+
+%%%% Every goal the engine emits into a body is protected %%%%
+%
+% A compiled body resolves its goals in the module the clause went into, so a
+% MeTTa equation for the name of a goal the TRANSLATOR wrote would capture that
+% goal in the space's own bodies: silently, and with a wrong answer rather than
+% an error. metta_engine_emitted/1 (src/translator.pl) names those and
+% protect_engine_emitted/1 (src/spaces.pl) binds each into every space's
+% module, which is what makes the assert refuse.
+%
+% That list is a claim about what the translator emits, so it is RECOMPUTED
+% here rather than read: every equation in the shipped corpus is translated and
+% every goal is taken out of the resulting body. A goal is a finding when it is
+% none of the engine's MeTTa dispatch names, is not already protected, and an
+% assert for it into a fresh module of a space's shape SUCCEEDS, which is the
+% test that says a MeTTa equation could take it.
+%
+% Fails when a translation rule is reachable only from a form no shipped
+% equation uses. The corpus is the widest input the tree has and the check says
+% how much of it it read, so a rule added with no example is visible as a count
+% that did not move [measured 2026-08-19: 102 goal indicators over 1,040
+% equations, 10 of them engine-emitted and capturable, all 10 named].
+%A name is MeTTa's when the engine's own dispatch registry knows it: arity/2
+%is what reduce/3 and build_call_or_partial_dl/6 consult to decide a head is a
+%call, fun/1 what the translator consults to decide it is not data, and
+%builtin_fun/1 what keeps a builtin visible in every space. A name none of the
+%three holds was written by the translator and by nothing else.
+metta_dispatch_name(Name, Arity) :- arity(Name, Arity), !.
+metta_dispatch_name(Name, _) :- fun(Name), !.
+metta_dispatch_name(Name, _) :- builtin_fun(Name).
+
+engine_emitted_corpus_dir('../../examples').
+engine_emitted_corpus_dir('../../lib').
+
+corpus_equation_body(Body) :-
+    engine_emitted_corpus_dir(Dir),
+    exists_directory(Dir),
+    directory_member(Dir, File, [recursive(true), extensions([metta])]),
+    \+ sub_atom(File, _, _, _, '/_fixtures/'),
+    catch(( read_metta_source(File, Source),
+            parse_metta_source(Source, Forms) ), _, fail),
+    member(parsed(function, _, Form), Forms),
+    Form = [=, _, _],
+    \+ writes_a_raw_prolog_goal(Form),
+    catch(translate_clause(Form, (_ :- Body)), _, fail).
+
+% `Predicate` and `translatePredicate` are the escape hatch that turns a MeTTa
+% expression into a raw Prolog goal, and a goal a PROGRAM writes that way is
+% the program's own: it resolves in the program's space deliberately, and
+% protecting its name would be refusing the feature. In a compiled body it is
+% indistinguishable from one the translator wrote, so the equations that use
+% the hatch are skipped whole. lib/lib_tabling.metta is the shipped instance,
+% and open_string/2 and load_files/2 reach compiled bodies through it
+% [measured 2026-08-19].
+writes_a_raw_prolog_goal(Form) :-
+    sub_term(Sub, Form),
+    atom(Sub),
+    memberchk(Sub, ['Predicate', translatePredicate]),
+    !.
+
+emitted_goal(V, _) :- var(V), !, fail.
+emitted_goal((A, B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
+emitted_goal((A ; B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
+emitted_goal((A -> B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
+emitted_goal((A *-> B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
+emitted_goal(\+ A, I) :- !, emitted_goal(A, I).
+emitted_goal(!, _) :- !, fail.
+emitted_goal(_ : G, I) :- !, emitted_goal(G, I).
+% Only an argument that is itself CONTROL is descended into. Every other
+% argument is data, and reading those as goals reported every symbol a program
+% writes: x/0, y/0 and the rest [measured 2026-08-19, first version of this].
+emitted_goal(Goal, Indicator) :-
+    callable(Goal),
+    functor(Goal, Name, Arity),
+    (   Indicator = Name/Arity
+    ;   compound(Goal),
+        arg(_, Goal, Argument), nonvar(Argument), control_shaped(Argument),
+        emitted_goal(Argument, Indicator)
+    ).
+
+control_shaped(T) :-
+    compound(T),
+    ( T = (_, _) ; T = (_ ; _) ; T = (_ -> _) ; T = (_ *-> _) ; T = (\+ _) ).
+
+% Could a MeTTa equation take this name? Asked of a FRESH module of a space's
+% shape, one per name, so an earlier probe cannot free a later one, and asked
+% by doing the assert the engine would do rather than by reading a property.
+capturable(Name/Arity) :-
+    gensym('$static-check-capture:&probe', Space),
+    space_module(Space, Module),
+    functor(Probe, Name, Arity),
+    catch(setup_call_cleanup(assertz((Module:Probe :- fail), Ref), true, erase(Ref)),
+          error(permission_error(modify, static_procedure, _), _),
+          fail).
+
+every_engine_emitted_goal_is_protected :-
+    findall(Indicator,
+            ( corpus_equation_body(Body), emitted_goal(Body, Indicator) ),
+            All0),
+    sort(All0, All),
+    length(All, Seen),
+    findall(Name/Arity,
+            ( member(Name/Arity, All),
+              \+ metta_dispatch_name(Name, Arity),
+              capturable(Name/Arity) ),
+            Unprotected0),
+    sort(Unprotected0, Unprotected),
+    (   Unprotected == []
+    ->  aggregate_all(count, metta_engine_emitted(_), Protected),
+        format("static: every one of ~d goal indicators the corpus compiles is \c
+                either a MeTTa name or one of the ~d the engine protects~n",
+               [Seen, Protected])
+    ;   forall(member(Indicator, Unprotected),
+               format(user_error,
+                      'the engine emits ~w into compiled bodies and a MeTTa \c
+                       equation can take it: name it in metta_engine_emitted/1 \c
+                       (src/translator.pl) or qualify the goal~n',
+                      [Indicator])),
+        fail
+    ).
 
 %%%% Each kind is declared the way its direction requires %%%%
 %

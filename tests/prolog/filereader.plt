@@ -16,7 +16,8 @@ test_lambda_functions(Functions) :-
     sort(Functions0, Functions).
 
 cleanup_test_function(F) :-
-    user:forget_symbol(F),
+    user:metta_self_module(SelfModule),
+    user:forget_symbol(SelfModule, F),
     retractall(user:symbol_head(F, _)),
     retractall(user:fun_in(_, F)),
     retractall(user:fun_scoped(F)).
@@ -144,14 +145,14 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
           AfterLambdas == BeforeLambdas,
           \+ user:fun(Outer),
           \+ user:arity(Outer, _),
-          \+ user:fun_meta_clause(Outer, _, _),
+          \+ user:fun_meta_clause(_, Outer, _, _),
           \+ user:symbol_head(Symbol, _),
           \+ user:fun(GeneratedLambda),
           \+ user:arity(GeneratedLambda, _),
-          \+ user:fun_meta_clause(GeneratedLambda, _, _),
+          \+ user:fun_meta_clause(_, GeneratedLambda, _, _),
           \+ user:fun(RuntimeFunction),
           \+ user:arity(RuntimeFunction, _),
-          \+ user:fun_meta_clause(RuntimeFunction, _, _),
+          \+ user:fun_meta_clause(_, RuntimeFunction, _, _),
           functor(Head, Outer, 1),
           \+ clause(user:Head, _),
           functor(LambdaHead, GeneratedLambda, 2),
@@ -182,12 +183,12 @@ test(late_registration_recompile_replaces_metadata,
     user:process_metta_string(
         "(= (plunit-repair-caller $x) (plunit-repair-late $x))", _),
     aggregate_all(count,
-                  user:fun_meta_clause('plunit-repair-caller', _, _),
+                  user:fun_meta_clause(_, 'plunit-repair-caller', _, _),
                   Before),
     user:process_metta_string(
         "(= (plunit-repair-late $x) (+ $x 1))", _),
     aggregate_all(count,
-                  user:fun_meta_clause('plunit-repair-caller', _, _),
+                  user:fun_meta_clause(_, 'plunit-repair-caller', _, _),
                   After),
     user:process_metta_string("!(plunit-repair-caller 41)", Results),
     Before == 1,
@@ -211,11 +212,11 @@ test(failed_late_definition_does_not_recompile_existing_callers,
           Error = error(domain_error(function_input_arities(+, [2]), 3), _),
           user:process_metta_string("!(plunit-rollback-caller 41)", Results),
           aggregate_all(count,
-                        user:fun_meta_clause('plunit-rollback-caller', _, _),
+                        user:fun_meta_clause(_, 'plunit-rollback-caller', _, _),
                         MetaCount),
           Results == [['plunit-rollback-late', 41]],
           MetaCount == 1,
-          \+ user:fun_meta_clause('plunit-rollback-late', _, _) ),
+          \+ user:fun_meta_clause(_, 'plunit-rollback-late', _, _) ),
         ( retractall(user:compiled_metta_source(Path)),
           retractall(user:imported_metta_source(_, Path)),
           delete_file(Path) )).
@@ -245,7 +246,8 @@ test(file_function_remains_a_global_fallback_after_a_named_homonym) :-
               %determinate is JIT-index luck (the engine's own callers
               %always wrap it in -> or once), so the at-most-once intent
               %is stated here rather than assumed.
-              once(user:fun_in(user, Function)),
+              user:metta_self_module(Self),
+              once(user:fun_in(Self, Function)),
               Results == [42] ),
             ( user:'remove-atom'(NamedSpace, NamedTerm, _),
               cleanup_test_function(Function),

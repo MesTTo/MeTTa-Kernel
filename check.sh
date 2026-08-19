@@ -243,26 +243,28 @@ check_reachability_selftest() {
 }
 run GATE prolog-reach-selftest check_reachability_selftest
 
-# A MeTTa equation whose compiled head collides with a name the ENGINE's module
-# already holds does not shadow that predicate, it REPLACES it for the rest of
-# the process, and nothing in the tree looked for that. Two shipped examples do
-# it today [measured 2026-08-19, both confirmed by running the file and
-# re-asking SWI, not inferred]: invertpeanoplus.metta takes user:plus/3 from
-# imported_from(system) to a local definition, after which plus(1,2,X) fails
-# instead of answering 3, and minimal_metta.metta does the same to user:rule/3.
-# Every gate stayed green through both, because nothing that runs afterwards in
-# those processes calls either predicate.
+# A MeTTa equation whose compiled head collides with a name the module it
+# compiles into already holds does not shadow that predicate, it REPLACES it
+# for the rest of the process, and nothing in the tree looked for that. Two
+# shipped examples did it before Phase 11 [measured 2026-08-19 on c7126f1, both
+# confirmed by running the file and re-asking SWI, not inferred]:
+# invertpeanoplus.metta took user:plus/3 from imported_from(system) to a local
+# definition, after which plus(1,2,X) failed instead of answering 3, and
+# minimal_metta.metta did the same to user:rule/3. Every gate stayed green
+# through both, because nothing that ran afterwards in those processes called
+# either predicate.
 #
-# REPORT rather than GATE because the two findings are legitimate MeTTa: `plus`
-# is an ordinary function name and the corpus is right to use it. The defect is
-# that `&self` compiles into the engine's own module, and refusing the name
-# instead would forbid 78 ordinary names [measured 2026-08-19]. Phase 11 fixes
-# the cause by giving `&self` a module of its own, and this becomes a GATE at 0.
+# A GATE since Phase 11, which fixed the cause rather than the instances:
+# `&self` compiles into a module of its own now, so an equation for a builtin
+# name is a local shadow there exactly as it is in a named space, and neither
+# of the two findings is a finding any more. Refusing the names instead would
+# have forbidden 78 ordinary ones [measured 2026-08-19], which is why the
+# report waited for the topology rather than for a guard.
 check_engine_integrity() {
     cd "$HERE/tests/prolog" || return 1
     swipl -q --on-error=status -g engine_integrity_report -t 'halt(0)' engine_integrity.pl
 }
-run REPORT engine-integrity check_engine_integrity
+run GATE engine-integrity check_engine_integrity
 
 # The report is a claim, so it is checked the way the reachability report is.
 # Four equations are planted, two that must be reported and two that must not,

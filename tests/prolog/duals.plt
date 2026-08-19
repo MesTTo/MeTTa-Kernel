@@ -82,7 +82,8 @@ test(default_rule_answers_relationally,
     Results == [Expected].
 
 aop_pension_setup :-
-    (   current_predicate(user:'aop-pension'/3)
+    metta_self_module(Self),
+    (   current_predicate(Self:'aop-pension'/3)
     ->  true
     ;   aop_pension_program(Program),
         metta(Program)
@@ -178,7 +179,10 @@ test(a_dual_that_recurs_to_itself_succeeds_coinductively) :-
 test(the_dual_is_reachable_under_its_own_name) :-
     metta("(= (co-fact tweety) True)"),
     metta_answer("!(not-provable (co-fact polly))", true),
-    call_with_time_limit(10, user:'not-co-fact'(polly, true)).
+    %The dual is compiled into the module of the space that defined the
+    %function it negates, which is &self's own module.
+    metta_self_module(Self),
+    call_with_time_limit(10, Self:'not-co-fact'(polly, true)).
 
 :- end_tests(duals_recursion).
 
@@ -193,7 +197,8 @@ match_program(
      (= (mt-has-child $x) (match &kin (parent $x $y) True))").
 
 match_setup :-
-    (   current_predicate(user:'mt-has-child'/2)
+    metta_self_module(Self),
+    (   current_predicate(Self:'mt-has-child'/2)
     ->  true
     ;   match_program(Program),
         metta(Program)
@@ -303,7 +308,8 @@ test(short_circuiting_connectives_dual_like_their_relational_twins,
     Answer == Expected.
 
 short_circuit_setup :-
-    (   current_predicate(user:'sc-yes'/1)
+    metta_self_module(Self),
+    (   current_predicate(Self:'sc-yes'/1)
     ->  true
     ;   metta("(= (sc-yes) True)\n(= (sc-no) False)")
     ).
@@ -503,7 +509,8 @@ test(a_dual_is_built_exactly_once) :-
     metta("(= (lt-once bob) 40)\n\c
            (= (lt-twice $w) (let* (($a (lt-once $w)) ($b (#+ $a 1))) (> $b 50)))"),
     metta_answer("!(not-provable (lt-twice bob))", true),
-    aggregate_all(count, clause(user:'not-lt-twice'(_, _), _), Clauses),
+    metta_self_module(Self),
+    aggregate_all(count, clause(Self:'not-lt-twice'(_, _), _), Clauses),
     Clauses == 1.
 
 :- end_tests(duals_let).

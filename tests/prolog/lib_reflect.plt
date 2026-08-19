@@ -170,7 +170,8 @@ test(every_tier_names_itself,
     'engine-origin'(plunit_reflect_pred, Prolog),
     assertion(Prolog = [prolog, _]),
     'engine-origin'('plunit-reflect-eq', Equation),
-    assertion(Equation = [equation, user]).
+    metta_self_module(Self),
+    assertion(Equation == [equation, Self]).
 
 test(a_name_the_engine_does_not_know_has_no_origin) :-
     \+ 'engine-origin'(plunit_reflect_absent, _).

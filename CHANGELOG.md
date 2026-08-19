@@ -6,7 +6,78 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Every space now compiles its equations into a Prolog module of its own,
+  `&self` included, and `space_module/2` names it. `&self` used to compile
+  into the module the engine's own predicates are in, so an equation whose
+  head collided with one of them did not shadow that predicate, it REPLACED
+  it for the rest of the process. Two shipped examples did exactly that:
+  `examples/functions/invertpeanoplus.metta` defines `(= (plus Z $y) $y)` and
+  took the engine's `plus/3` from imported to a local definition, after which
+  `plus(1,2,X)` failed instead of answering `3`, and
+  `examples/libraries/minimal_metta.metta` did the same to `rule/3`. Sharper
+  still, `!(add-atom &self (= (b_setval $a) clash))` used to leave
+  `with_metta_module/2` unable to run, so the very next MeTTa form failed to
+  translate.
+
+  What a program can do changes with it, and in the direction of MORE names
+  rather than fewer. An equation for a builtin's name in `&self` is accepted
+  and shadows it for `&self` alone, exactly as it already did in a named
+  space; the engine's own predicate of that name goes on answering. What is
+  still refused is SWI's protected core, and it is refused in every space
+  rather than in `&self` alone: measured 2026-08-19 through the shipped
+  guard itself, 8 of the 463 imported names at MeTTa arity 0, 4 at arity 1,
+  3 at arity 2 and 2 at arity 3, against 91, 232, 173 and 66 of 458 before.
+  The four still taken at arity 1 are `call`, `clause`, `copy_term` and
+  `sort`.
+
+  For extension authors: `user` is the HOST module and nothing else now. Keep
+  consulting Prolog into it, ask `space_module/2` for a space's module, and
+  pass THAT to `with_metta_module/2`, which refuses a space name rather than
+  running your goal against a module nothing compiles into. `EXTENDING.md`
+  carries the whole rule.
+
+  `tests/prolog/engine_integrity.pl` is a GATE at zero findings and reports
+  again the day a space's module lands back on the engine's resolution path.
+
+  Measured cost: `space_module/2` 4.00 inferences against 3.00 and
+  `with_metta_module/2` 11.00 against 10.00, so a runnable form is 372
+  against 369. Eleven counter baselines are raised with that attribution and
+  no other number moved.
+
 ### Added
+
+- `(super (f a b))`, the relative way to reach the definition a space's own
+  equation shadows. A space can redefine a function it inherits, and until now
+  an override was replace-or-nothing: a guard that wanted to check a call and
+  then let it through had no way through. `super` names the next definition up
+  the space's own chain, so the guard delegates without naming its target, and
+  the target includes the ENGINE's own definitions, so a builtin can be
+  wrapped rather than only replaced.
+
+  ```metta
+  (= (store $atom) (stored $atom))
+  !(bind! &guarded (new-space))
+  !(add-atom &guarded (= (store $atom)
+                         (if (== $atom bad) refused (super (store $atom)))))
+  !(evalc (store good) &guarded)   ; (stored good)
+  !(evalc (store bad) &guarded)    ; refused
+  ```
+
+  `evalc` is the other direction and both are worth having: it names the space
+  to evaluate in, absolutely, where `super` names the next definition along,
+  relatively. Absolute addressing does not compose. Two guards on one name,
+  each delegating to the same named space, both run, and an atom the first
+  refuses is stored anyway by the second, because neither of them names the
+  other.
+
+  The target is resolved when the equation COMPILES, so it costs nothing at
+  the call and nothing above to reach is an error where the equation is
+  written rather than a silent empty answer where it runs. A space that later
+  gains a definition of the name becomes the nearer target, and the callers
+  are rebuilt when it does. `examples/spaces/super.metta` runs all of it.
+
 
 - The LeaTTa conformance lane (`tests/conformance/leatta.py`) now gates PER
   AREA instead of all-or-nothing. `--gate-areas-file PATH` reads a plain
@@ -87,6 +158,31 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Copying a space now answers a space that holds what its source holds.
+  `copy()` enumerates a space and re-adds every atom into a fresh one, and a
+  specialization is stored content, so the clone re-derived the specialization
+  while compiling the equation that triggers it and the copied one landed on
+  top: a four-atom space cloned to six and answered its query three times
+  instead of once. The specializer owns the names it generates, so an equation
+  arriving for a name a space's module already derived carries nothing new and
+  is not stored again. `digest()` agrees across a copy for the first time.
+
+- A function's retained equations now belong to the module that compiled
+  them, so a definition in one space can no longer add answers to another.
+  The specializer reads those equations to build a specialized clause, one
+  clause per equation, and they were held in a table keyed by function NAME
+  alone: two spaces each holding `(= (my-map $f $x) ($f $x))`, the second
+  compiling `(= (my-use $z) (my-map my-inc $z))`, and that space answered
+  `(my-use 1)` TWICE, once per equation in the shared pile. It is older than
+  the module migration, measured the same way at `c7126f1`. A space still
+  sees the equations of the spaces above it, because the read follows its
+  own module chain and stops at the first module that has them, which is how
+  Prolog resolves the clauses those equations became.
+
+  Measured cost: 4.00 inferences per compiled call site, paid while the
+  translator builds the site rather than when the call runs, so seven
+  counter baselines and one instruction floor are raised with that
+  attribution and nothing at run time moved.
 - Subscription dispatch goes through the discrimination tree this package
   already ships instead of unifying the atom against every subscription on
   the space. `MatchIndex` was referenced only by its own tests and one
