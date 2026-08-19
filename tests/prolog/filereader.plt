@@ -186,12 +186,15 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
            "!(add-atom &self (plunit-loader-runtime-atom value))~n", []),
     format(Stream, "!(add-atom &self (= (~w $x) (+ $x 2)))~n",
            [RuntimeFunction]),
-    format(Stream, "!(+ 1 2 3)~n", []),
+    %A HOST error, because that is the kind that still raises: a wrong arity
+    %and a wrongly typed operand are both ANSWERS now, and a form that answers
+    %does not roll its source back.
+    format(Stream, "!(/ 1 0)~n", []),
     close(Stream),
     setup_call_cleanup(
         true,
         ( catch(user:load_metta_file(Path, _), Error, true),
-          Error = error(domain_error(function_input_arities(+, [2]), 3), _),
+          Error = error(evaluation_error(zero_divisor), _),
           flag('$gs_lambda_', LambdaNumber, LambdaNumber),
           format(atom(GeneratedLambda), 'lambda_~d', [LambdaNumber]),
           test_lambda_functions(AfterLambdas),
@@ -257,12 +260,12 @@ test(failed_late_definition_does_not_recompile_existing_callers,
         "(= (plunit-rollback-caller $x) (plunit-rollback-late $x))", _),
     tmp_file_stream(text, Path, Stream),
     format(Stream,
-           "(= (plunit-rollback-late $x) (+ $x 1))~n!(+ 1 2 3)~n", []),
+           "(= (plunit-rollback-late $x) (+ $x 1))~n!(/ 1 0)~n", []),
     close(Stream),
     setup_call_cleanup(
         true,
         ( catch(user:load_metta_file(Path, _), Error, true),
-          Error = error(domain_error(function_input_arities(+, [2]), 3), _),
+          Error = error(evaluation_error(zero_divisor), _),
           user:process_metta_string("!(plunit-rollback-caller 41)", Results),
           aggregate_all(count,
                         user:fun_meta_clause(_, 'plunit-rollback-caller', _, _),

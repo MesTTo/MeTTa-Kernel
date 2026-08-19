@@ -339,10 +339,11 @@ test(a_declared_export_publishes_only_its_declared_arity,
     assertion(Sorted == [2]),
     reduce(['plunit-ex-scale', 3], Declared, _),
     assertion(Declared == 30),
-    %and the internal overload is refused by name, with the arity it does take
-    catch(reduce(['plunit-ex-scale', 3, 7], _, _), Error, true),
-    assertion(Error = error(domain_error(
-                  function_input_arities('plunit-ex-scale', [1]), 2), _)).
+    %and the internal overload is refused by name, as an ANSWER: the exported
+    %arity is declared, so the wrong one is IncorrectNumberOfArguments
+    findall(Refused, reduce(['plunit-ex-scale', 3, 7], Refused, _), Answers),
+    assertion(Answers == [['Error', ['plunit-ex-scale', 3, 7],
+                           'IncorrectNumberOfArguments']]).
 
 test(an_undeclared_helper_is_not_published,
      [setup(setup_export_library), cleanup(cleanup_export_library)]) :-

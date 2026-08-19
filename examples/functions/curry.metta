@@ -15,11 +15,13 @@
 !(test (repr (h 42)) "(partial h (42))")
 !(test (map-atom (1 2 3) (+ 1)) (2 3 4))
 
-; Too many arguments are an error, both for compiled and runtime-dispatched calls.
-!(test (repr (catch (+ 1 2 3)))
-       "(Error (domain_error (function_input_arities + (2)) 3) none)")
-!(test (repr (catch (reduce (+ 1 2 3))))
-       "(Error (domain_error (function_input_arities + (2)) 3) none)")
+; Too many arguments are an error, both for compiled and runtime-dispatched
+; calls, and the error is an ANSWER: no catch stands between the call and it,
+; and the form after it still runs. A head nothing TYPES is left as written
+; instead, because there is no arity to be wrong about.
+!(test (+ 1 2 3) (Error (+ 1 2 3) IncorrectNumberOfArguments))
+!(test (reduce (+ 1 2 3)) (Error (+ 1 2 3) IncorrectNumberOfArguments))
+!(test (empty 1 2) (empty 1 2))
 
 ; A gap between overloaded arities is still a valid partial application.
 (= (overloaded-curry $a) $a)

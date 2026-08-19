@@ -839,11 +839,16 @@ test(metta_registration_arities,
     sort(Arities, Sorted),
     assertion(Sorted == [3]).
 
+%A wrong arity is an ordinary MeTTa error and an ANSWER, not a raise, and the
+%operator it names is the one the program wrote
+%[source: LeaTTa tests/semantics/eval-core/empty-argument-arity.metta;
+%measured 2026-08-19 against the arbiter, which answers
+%`(Error (+ 1 2 3) IncorrectNumberOfArguments)`].
 test(metta_arity_errors_name_the_operator,
      [forall(member(Operator, ['/', '+', '-', '*', min, max]))]) :-
-    catch(( reduce([Operator, 1, 2, 3], _, _), Formal = none ),
-          error(Formal, _), true),
-    assertion(Formal = domain_error(function_input_arities(Operator, _), _)).
+    findall(Answer, reduce([Operator, 1, 2, 3], Answer, _), Answers),
+    assertion(Answers == [['Error', [Operator, 1, 2, 3],
+                           'IncorrectNumberOfArguments']]).
 
 test(builtin_exists_file) :-
     library('lib_builtin_types.metta', Present),
