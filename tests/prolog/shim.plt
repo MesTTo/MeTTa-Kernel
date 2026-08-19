@@ -7,6 +7,9 @@
 %     spelling janus may deliver [tested: shim_wire_decoding].
 %   - A malformed wire term fails rather than decoding to something
 %     [tested: shim_wire_decoding:a_malformed_wire_term_fails].
+%   - A payload outside the class its tag names fails too, in both the
+%     plain and the sharing decode
+%     [tested: shim_wire_decoding:a_payload_outside_its_tags_class_fails].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -38,6 +41,22 @@ malformed([]).
 malformed(notalist).
 malformed(['e', "notalist"]).
 
+% A payload of the wrong class for its tag. Each of these decoded to
+% SOMETHING before the tags carried a claim about their payloads: the
+% first two to symbols, the next two to a string and to a number-tagged
+% string, the variable to a fresh variable, and every unadmitted boolean
+% payload to `false`, which answers rather than fails.
+% python/petta/_atom_wire.py refuses all six.
+wrong_class(['s', 1]).
+wrong_class(['s', ["a"]]).
+wrong_class(['g', 1]).
+wrong_class(['n', "1/3"]).
+wrong_class(['n', '@'(true)]).
+wrong_class(['v', 1]).
+wrong_class(['b', neither]).
+wrong_class(['b', 1]).
+wrong_class(['b', "maybe"]).
+
 % The decoder used to decide a tag by asking petta_py_tag/2 about each
 % candidate in turn, so every clause carried its own copy of that question and
 % the shape of a wire term was never stated in one place. It is stated here
@@ -57,9 +76,19 @@ test(a_tag_may_arrive_as_an_atom_or_a_string,
     petta_py_decode([TagString, Payload], Term),
     Term == Expected.
 
-test(an_unknown_boolean_payload_reads_as_false) :-
-    petta_py_decode(['b', neither], Term),
-    Term == false.
+test(both_boolean_payload_spellings_decode,
+     [forall(member(Payload-Expected,
+                    [true-true, false-false, '@'(true)-true, '@'(false)-false,
+                     "true"-true, "false"-false]))]) :-
+    petta_py_decode(['b', Payload], Term),
+    Term == Expected.
+
+test(a_payload_outside_its_tags_class_fails, [forall(wrong_class(Wire)), fail]) :-
+    petta_py_decode(Wire, _).
+
+test(a_payload_outside_its_tags_class_fails_when_sharing,
+     [forall(wrong_class(Wire)), fail]) :-
+    petta_py_decode_shared(Wire, _, _).
 
 test(a_variable_decodes_to_a_variable) :-
     petta_py_decode(['v', "x"], Term),
