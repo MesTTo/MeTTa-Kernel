@@ -1747,7 +1747,7 @@ function name nor a partial application, so an ordinary MeTTa call never
 reaches it.
 
 Nothing in the engine knows what makes a value applicable, which is the point.
-`src/python.pl` claims Python callables, which is what makes
+`hosts/python/bridge.pl` claims Python callables, which is what makes
 `((py-atom numpy.absolute) -5)` work; a bridge for something else claims its
 own.
 
@@ -1790,7 +1790,7 @@ can reject on length alone, which is how matching `($x $y)` against a
 million-element host container costs one question rather than a million.
 
 A value with no structural reading simply has no clause here, and that is a real
-answer rather than a gap: `src/python.pl` gives one to Python sequences and
+answer rather than a gap: `hosts/python/bridge.pl` gives one to Python sequences and
 withholds it from a `dict`, a `set` and a `str`, following PEP 634's rule for
 which objects a sequence pattern may take apart.
 
@@ -1858,7 +1858,7 @@ metta_grounded_text(Obj, Text) :- my_object(Obj), my_render(Obj, Text).
 The writer has no other way to know. With no provider it falls back to the
 term's own text, so this is never required and can never fail a print, but that
 fallback names an address where the value could have named itself:
-`src/python.pl` answers with `repr`, which is why `(py-atom "[1, 2, 3]")`
+`hosts/python/bridge.pl` answers with `repr`, which is why `(py-atom "[1, 2, 3]")`
 displays `[1, 2, 3]` and a numpy array displays `array([1, 2, 3])`.
 
 ### The seams this page did not list

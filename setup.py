@@ -127,6 +127,7 @@ RUNTIME_RESOURCES = {
     "src": "src",
     "lib": "lib",
     "backends": "backends",
+    "hosts": "hosts",
     "python/helper.pl": "python/helper.pl",
     "python/petta/shim.pl": "python/petta/shim.pl",
 }
