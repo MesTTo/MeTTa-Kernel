@@ -16,7 +16,24 @@ check("first grandparent", (rows[0].gp, rows[0].gc), (S.Tom, S.Ann))
 check("eval", m.eval(S.superpose(expr(1, 2, 3))), [1, 2, 3])
 ```
 
-Operators on atoms build terms. `V.age >= 18` builds `(>= $age 18)`. `&`, `|`, and `~` build boolean terms. Arithmetic on grounded Python values keeps Python's value semantics.
+Operators on atoms build terms. `V.age >= 18` builds `(>= $age 18)`, so guards and bodies read as the Python they look like. The full set:
+
+| you write | it builds | | you write | it builds |
+|---|---|---|---|---|
+| `x + y` | `(+ x y)` | | `x & y` | `(and x y)` |
+| `x - y` | `(- x y)` | | `x \| y` | `(or x y)` |
+| `x * y` | `(* x y)` | | `x ^ y` | `(xor x y)` |
+| `x / y` | `(/ x y)` | | `~x` | `(not x)` |
+| `x % y` | `(% x y)` | | `x < y` | `(< x y)` |
+| `x ** y` | `(pow-math x y)` | | `x <= y` | `(<= x y)` |
+| `x @ y` | `(matmul x y)` | | `x > y` | `(> x y)` |
+| `x.ne(y)` | `(not (== x y))` | | `x >= y` | `(>= x y)` |
+
+Reflected forms work too: `1 + V.x` builds `(+ 1 $x)`.
+
+One operator is deliberately not symbolic. **`x.eq(y)` builds the equality term `(== x y)`, while `==` itself compares atoms structurally** and answers a Python `bool`. Atoms are dict keys and test comparands, so `S.a == S.a` must stay `True` rather than becoming a term; equality is the one place where building the term costs a method call, and it is the only operator that behaves unlike its neighbours.
+
+`Gnd` overrides both families with value semantics: comparisons on grounded values answer booleans, engine-exactly, so a grounded number never quietly becomes a program. Arithmetic on grounded Python values keeps Python's value semantics.
 
 A symbol and a grounded string are different atoms. Use `sym(name)` when a symbol name is not a Python identifier, `var(name)` for a variable, `val(value)` to carry a host object, and `expr(...)` to build an expression from parts. `parse(source)` reads one form without evaluating it.
 
