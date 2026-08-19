@@ -556,3 +556,26 @@ Please see the [MettaWamJam README](https://github.com/trueagi-io/MettaWamJam/bl
 Since Swi-Prolog can be compiled to Web Assembly, one can embed PeTTa into websites.
 
 Please see [Execution-in-browser](https://github.com/patham9/PeTTa/wiki/Execution-in-browser) for more information.
+
+### MeTTa in Node
+
+`bindings/node/` runs the engine inside a Node process over the same WebAssembly
+build, so a JavaScript program needs no SWI-Prolog on the machine and no socket:
+
+```js
+import { boot } from "./bindings/node/index.mjs";
+
+const petta = await boot();
+const [answers] = petta.run("(= (double $x) (* $x 2))\n!(double 21)");
+console.log(answers.map(String));   // [ '42' ]
+
+// Answers arrive one at a time, so an unbounded generator is usable.
+petta.run("(= (from $n) (superpose ($n (from (+ $n 1)))))");
+for await (const answer of petta.stream("(from 1)")) {
+  if (answer.text === "5") break;
+}
+```
+
+See [bindings/node/README.md](bindings/node/README.md) for what the WebAssembly
+build does not carry and how the binding is held to the same conformance corpus
+the Python library answers.
