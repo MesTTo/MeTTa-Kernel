@@ -252,20 +252,26 @@ for this grammar, and the kit refuses to certify one that declares less.
 ships inside the wheel beside the engine tree, so a third party certifying
 their own codec installs the package rather than cloning the repository.
 
-An implementation supplies four operations, each of which refuses by raising
-whatever its host raises:
+An implementation supplies up to four operations, each of which refuses by
+raising whatever its host raises:
 
-    read(text)       the engine's reader plus this codec's encoder
     roundtrip(wire)  decode into this host's own atom, then encode it back
-    render(wire)     decode, then print with the printer this binding ships
     transport(wire)  serialise to the concrete encoding and parse it back
+    read(text)       the engine's reader plus this codec's encoder
+    render(wire)     decode, then print with the printer this binding ships
 
-and declares what it carries: its tag set, its frame set, which printer
-column applies to it, whether its transport holds integers exactly, whether
-it carries non-finite numbers, whether decoding resolves the anonymous
-variable, and whether it can run MeTTa programs. Those declarations are how
-a case lands in or out of scope, and `codec_plan` reports what fell out
-rather than dropping it quietly.
+The first two are every codec's. The other two are a whole binding's: a
+storage provider validates and carries wire terms and neither reads MeTTa
+source nor prints an atom, so it declares no reader and no printer and runs
+the two wire legs. The TypeScript reference server is exactly that shape.
+
+An implementation also declares what it carries: its tag set, its frame set,
+which printer column applies to it, whether its transport holds integers
+exactly, whether it carries non-finite numbers, whether decoding resolves
+the anonymous variable, and whether it can run MeTTa programs. Those
+declarations are how a case lands in or out of scope, and `codec_plan`
+reports both the legs it runs and the cases that fell out, rather than
+dropping either quietly.
 
 From Python:
 
