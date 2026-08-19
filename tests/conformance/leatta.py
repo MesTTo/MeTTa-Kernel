@@ -252,7 +252,8 @@ def summarize(corpus: Path, results: list[Comparison], show: int, label: str) ->
     differing = [result for result in checkable if not result.agrees]
     unsettled = [result for result in differing if not result.settled]
     status_counts = Counter(
-        result.status.rstrip(".") or "(none)" for result in differing)
+        (result.status.split(None, 1)[0].rstrip(".,") if result.status else "(none)")
+        for result in differing)
     status_breakdown = ", ".join(
         f"{name}: {count}" for name, count in sorted(status_counts.items()))
     comparable = sum(len(result.expected) for result in checkable)
