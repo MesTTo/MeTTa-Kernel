@@ -1007,6 +1007,31 @@ test(custom_added_hooks_keep_every_batch_event,
             Events),
     Events == [[observed, 1], [observed, 2]].
 
+%stored_atom_of_ref/3 is add_sexp_in/4 read backwards, and a reload depends on
+%it telling an atom's clause reference from the compiled clauses and
+%registrations a load records beside it. Both stored shapes and one negative,
+%because answering for a reference that is not an atom's would send a
+%registration through the removal funnel.
+test(a_stored_atoms_reference_decodes_to_its_atom) :-
+    Space = '&plunit_decode_ref',
+    setup_call_cleanup(
+        ( add_sexp(Space, [pair, a, b], ExprRef),
+          add_sexp(Space, scalar, ScalarRef),
+          assertz(user:plunit_not_an_atom(x), OtherRef) ),
+        ( stored_atom_of_ref(ExprRef, ExprSpace, ExprAtom),
+          stored_atom_of_ref(ScalarRef, ScalarSpace, ScalarAtom),
+          \+ stored_atom_of_ref(OtherRef, _, _) ),
+        ( clear_native_atoms(Space),
+          retractall(user:plunit_not_an_atom(_)) )),
+    ExprSpace-ExprAtom == Space-[pair, a, b],
+    ScalarSpace-ScalarAtom == Space-scalar.
+
+test(an_erased_reference_decodes_to_nothing) :-
+    Space = '&plunit_decode_erased',
+    add_sexp(Space, [gone, once], Ref),
+    erase(Ref),
+    \+ stored_atom_of_ref(Ref, _, _).
+
 :- end_tests(spaces_storage_modules).
 
 :- begin_tests(spaces_type_extensions,

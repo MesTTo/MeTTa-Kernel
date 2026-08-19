@@ -223,6 +223,90 @@ test(failed_late_definition_does_not_recompile_existing_callers,
 
 :- end_tests(filereader_source_rollback).
 
+%The engine's own door onto a reload. The Python library's is tested from the
+%Python side in python/tests/test_reload.py; what these hold is the state the
+%engine keeps about a file, which no Python assertion can see.
+:- begin_tests(filereader_source_reload).
+
+write_reload_source(Path, Text) :-
+    setup_call_cleanup(open(Path, write, Stream),
+                       write(Stream, Text),
+                       close(Stream)).
+
+reload_scratch_file(Path) :-
+    tmp_file(plunit_reload, Base),
+    file_name_extension(Base, metta, Path).
+
+forget_reload_source(Path, Function) :-
+    cleanup_test_function(Function),
+    retractall(user:metta_source_load(Path, _, _, _)),
+    retractall(user:compiled_metta_source(Path)),
+    retractall(user:imported_metta_source(_, Path)),
+    retractall(user:import_life(_, Path, _)),
+    ( exists_file(Path) -> delete_file(Path) ; true ).
+
+test(a_load_records_what_the_file_contributed) :-
+    F = 'plunit-reload-recorded',
+    reload_scratch_file(Path),
+    setup_call_cleanup(
+        write_reload_source(Path, "(= (plunit-reload-recorded) 1)\n"),
+        ( user:load_metta_file(Path, _, '&self'),
+          absolute_file_name(Path, Canon, [access(read)]),
+          once(user:metta_source_load(Canon, Space, LoadId, Digest)),
+          Space == '&self',
+          atom_length(Digest, 64),
+          aggregate_all(count, user:source_load_assertion(LoadId, _), Asserted),
+          Asserted > 0 ),
+        forget_reload_source(Path, F)).
+
+test(an_unchanged_file_is_not_loaded_again) :-
+    F = 'plunit-reload-unchanged',
+    reload_scratch_file(Path),
+    setup_call_cleanup(
+        write_reload_source(Path, "(= (plunit-reload-unchanged) 1)\n"),
+        ( user:load_metta_file(Path, _, '&self'),
+          absolute_file_name(Path, Canon, [access(read)]),
+          once(user:metta_source_load(Canon, '&self', FirstId, _)),
+          user:load_metta_file(Path, _, '&self'),
+          once(user:metta_source_load(Canon, '&self', AgainId, _)),
+          AgainId == FirstId,
+          \+ user:metta_source_changed(Canon) ),
+        forget_reload_source(Path, F)).
+
+%The same length either side, so a check on the modification time would have
+%to see a difference the coarse clock may not have recorded.
+test(an_edit_that_keeps_the_length_is_still_a_change) :-
+    F = 'plunit-reload-samesize',
+    reload_scratch_file(Path),
+    setup_call_cleanup(
+        write_reload_source(Path, "(= (plunit-reload-samesize) 1)\n"),
+        ( user:load_metta_file(Path, _, '&self'),
+          absolute_file_name(Path, Canon, [access(read)]),
+          write_reload_source(Path, "(= (plunit-reload-samesize) 2)\n"),
+          user:metta_source_changed(Canon),
+          user:load_metta_file(Path, _, '&self'),
+          findall(V, user:'get-atoms'('&self', [=, [F], V]), Values),
+          Values == [2] ),
+        forget_reload_source(Path, F)).
+
+test(a_reload_leaves_one_clause_for_a_redefined_function) :-
+    F = 'plunit-reload-oneclause',
+    reload_scratch_file(Path),
+    setup_call_cleanup(
+        write_reload_source(Path, "(= (plunit-reload-oneclause) 1)\n"),
+        ( user:load_metta_file(Path, _, '&self'),
+          write_reload_source(Path, "(= (plunit-reload-oneclause) 2)\n"),
+          user:load_metta_file(Path, _, '&self'),
+          user:metta_self_module(Self),
+          functor(Head, F, 1),
+          aggregate_all(count, clause(Self:Head, _), Clauses),
+          Clauses == 1,
+          findall(T, user:translated_from(_, [=, [F], T]), Sources),
+          Sources == [2] ),
+        forget_reload_source(Path, F)).
+
+:- end_tests(filereader_source_reload).
+
 :- begin_tests(filereader_global_function_scope).
 
 test(file_function_remains_a_global_fallback_after_a_named_homonym) :-

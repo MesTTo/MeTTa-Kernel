@@ -6,6 +6,43 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- A MeTTa source can be reloaded after you edit it, and both doors onto a file
+  now mean the same thing by it. `m.load(path)` is a consult: it always loads,
+  and what it loads replaces what that same file put in the space before.
+  `!(import! &self path)` loads a file that is new or that has been edited, and
+  skips one that is neither. The engine says on stderr which file it replaced
+  and how many atoms it withdrew.
+
+  Both used to be silently wrong, in opposite directions. A file
+  `(= (answer) 1)` edited to `(= (answer) 2)` and loaded again answered `1` and
+  `2` through `load`, because nothing retracted the first definition, and `1`
+  through `import!`, because a second import of the same path was skipped
+  outright. So one door duplicated your program and the other pretended you had
+  not edited it, which between them made the fix-and-reload cycle impossible on
+  MeTTa code.
+
+  A reload is not retract-and-assert. Everything derived from the definitions
+  it replaces goes with them: the specializer's clones, `memoize`'s cached
+  answers, `table`'s answer tables, and any `LiveView` over the atoms that
+  left. That falls out of the atoms leaving through the same removal path a
+  `remove-atom` uses, which is where each of those invalidations already hangs.
+
+  A reload that raises leaves the previous definitions standing, since the
+  withdrawal and the load that follows it are one transaction. A broken edit
+  costs you the error and nothing else.
+
+  This is a behaviour change for `m.load`: loading one file twice used to leave
+  two copies of its atoms and now leaves one. Loading a DIFFERENT file into the
+  same space still adds to it, and atoms you put there yourself are untouched.
+
+  `m.load` is also all or nothing now, which the engine's own door always was:
+  a `timeout` or `inferences` bound that stops a load takes back everything the
+  file had put in a space, rather than leaving the half it finished, because a
+  file a space holds half of is not a file it can replace later. `m.run` is the
+  entry point that keeps finished work when a bound stops it.
+
 ### Fixed
 
 - A conjunctive `match` now finds every row before any output template runs,
