@@ -5,3 +5,4 @@ recursive-exclude lib __pycache__ *.py[co]
 include python/helper.pl
 include CHANGELOG.md
 include CITATION.cff
+include SECURITY.md

@@ -3,7 +3,10 @@
 Efficient MeTTa language implementation in Prolog.
 
 Please check out the [Wiki](https://github.com/patham9/PeTTa/wiki) for more information.
-Contributor setup, gates, and measurement rules are in [DEVELOPING.md](DEVELOPING.md).
+Contributor setup, gates, and measurement rules are in [DEVELOPING.md](DEVELOPING.md),
+and what a contribution has to be is in [CONTRIBUTING.md](CONTRIBUTING.md).
+Report a vulnerability privately, the way [SECURITY.md](SECURITY.md) describes,
+rather than in an issue.
 
 ### Lineage
 

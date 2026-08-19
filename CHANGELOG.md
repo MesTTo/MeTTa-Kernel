@@ -6,6 +6,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `SECURITY.md`, `CONTRIBUTING.md` and GitHub issue templates. The project is
+  alpha and now says so: versions are `0.y.z`, every release is labelled alpha,
+  and a breaking change is expected at each one, because MeTTa itself is alpha
+  and an implementation of an alpha language cannot promise a stable surface it
+  does not control. 1.0 waits on this repository's own surfaces settling and on
+  MeTTa leaving alpha upstream, whichever comes later.
+
+  A release is a tag on a gate-green tree and this file's newest block is its
+  notes, so nothing about a release is written at release time. A vulnerability
+  goes privately to the address the commits carry, with a 90-day coordinated
+  disclosure window and no bounty. A contribution is an atomic pull request
+  that is gate-green with its obligation headers and evidence tags in place,
+  under the repository's MIT license and no contributor license agreement.
+
+  The package metadata says the same thing to an installer that reads nothing
+  else, through `Development Status :: 3 - Alpha`, and `SECURITY.md` now
+  travels in the source archive beside `CHANGELOG.md` and `CITATION.cff`.
+
 ### Changed
 
 - A MeTTa source can be reloaded after you edit it, and both doors onto a file

@@ -14,6 +14,10 @@ dependencies = [
     "janus-swi>=1.5.2",
 ]
 classifiers = [
+    # PeTTa is alpha because MeTTa is, and this is that statement in PyPI's own
+    # vocabulary, so an installer reading nothing but the metadata is told what
+    # SECURITY.md and CONTRIBUTING.md tell a reader.
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
