@@ -452,7 +452,7 @@ Builtins inline and stay invisible, so the trace is about your program, not the 
 
 ## Lint a space
 
-MeTTa fails open: a call to a misspelled function stays an unreduced expression, a call with the wrong argument count matches no equation, and a declared type nothing defines promises a function that cannot answer. `m.lint()` walks a space's declarations and equations against the engine's own registries and answers findings, each naming its kind, its subject, and the atom it stands on:
+MeTTa fails open: a call to a misspelled function stays an unreduced expression, a call with the wrong argument count matches no equation, and a declared type nothing defines promises a function that cannot answer. `m.lint()` walks a space's declarations and equations against the engine's own registries and answers findings:
 
 ```python
     m.run("(: ghost-fn (-> Number Number))")
@@ -461,7 +461,53 @@ MeTTa fails open: a call to a misspelled function stays an unreduced expression,
     assert findings[0].subject == "ghost-fn"
 ```
 
-The kinds: `declared-but-undefined`, `arrow-arity-mismatch` (the arrow's input count against the equations'), `declaration-types-the-symbol` (a declaration that is not an arrow, so it types the name and not a call to it), `arity-mismatch` (a call with an argument count no equation takes), `unbound-variable` (a body variable the head never bound, exempting equations with their own binding forms), `duplicate-equation` (the same equation stored twice, answering every call twice), `tabled-answer-order-read` (a `car-atom` or `index-atom` picking out of a collapse of a tabled function), and `possibly-undefined-reference`, which says in its own text that it is a heuristic, because an expression head that is no known function may be data on purpose. A healthy space answers an empty list.
+A healthy space answers an empty list. A finding carries nine fields: `kind`, `subject`, `detail` and the `atom` it stands on, plus `severity`, a `suggestion` when there is a near-miss to offer, a `docs_link` to this section, a structured `payload`, and an `autofix`.
+
+### What a finding says
+
+`severity` is the editor vocabulary, and it ranks the catalogue rather than decorating it:
+
+| severity | means | kinds |
+|---|---|---|
+| `error` | the program is wrong | `arrow-arity-mismatch`, `arity-mismatch`, `unbound-variable`, `type-mismatch` |
+| `warning` | almost certainly not what was meant | `declared-but-undefined`, `declaration-types-the-symbol`, `duplicate-equation`, `tabled-answer-order-read` |
+| `information` | true and worth knowing | the seven simplifications, `inconsistent-arity` |
+| `hint` | a heuristic that can be wrong | `possibly-undefined-reference` |
+
+`autofix` is an **atom**, not a text edit: the stored atom with the simplification already applied. So applying one is two calls and needs no source positions at all.
+
+```python
+for finding in m.lint():
+    if finding.autofix is not None:
+        m.remove(finding.atom)
+        m.add(finding.autofix)
+```
+
+### The catalogue
+
+**Declarations and definitions.** `declared-but-undefined` (an arrow nothing defines, so every call stays unreduced). `arrow-arity-mismatch` (the arrow's input count against the equations'). `declaration-types-the-symbol` (a declaration that is not an arrow, so it types the name and not a call to it). `inconsistent-arity` (one name defined at two arities with no arrow saying so). `duplicate-equation` (the same equation stored twice, up to variable renaming, answering every call twice).
+
+**Calls.** `arity-mismatch` (an argument count no equation takes). `type-mismatch` (an argument whose `get-type` the arrow's input type refuses, which is the engine's own answer rather than a second type system). `possibly-undefined-reference`, the only `hint`, because an expression head that is no known function may be data on purpose; when a known name is one edit away it arrives with a `suggestion`.
+
+**Bodies.** `unbound-variable` (a body variable the head never bound, exempting equations with their own binding forms). `duplicate-binder` (`let*` binding one name twice, where the second unifies rather than shadows, so write `==` if an equality constraint is meant).
+
+**Simplifications, each with an `autofix` where a rewrite exists.** `constant-if-true` and `constant-if-false` (the condition is literal, so only one branch can answer). `if-same-branches` (both branches the same expression, so the condition decides nothing). `if-true-false` (`(if c True False)` answers exactly what `c` answers). `superposed-single` (a superpose of one thing is that thing). `superposed-empty` (a superpose of nothing answers nothing, and every containing expression dies there; no autofix, because the fix is a decision).
+
+**Order.** `tabled-answer-order-read` (a `car-atom` or `index-atom` picking out of a collapse of a tabled function).
+
+### Lint a file, with line numbers
+
+The space holds atoms, not text, so a finding from `m.lint()` has no position to give. `lint_file` recovers one:
+
+```python
+from petta.lint import lint_file
+
+for finding in lint_file("rules.metta"):
+    place = finding.payload
+    print(f"{place['file']}:{place['line']}: [{finding.severity}] {finding.kind}")
+```
+
+The file loads into a scratch space, `lint()` runs there, and every finding whose atom alpha-matches a top-level form carries `file`, `line` and `column` in its `payload`, recovered from the reader's own verbatim form texts. Nothing is tracked on the engine's hot path. A finding about an atom no single form wrote stays unanchored rather than guessed.
 
 "Known" there means known to the engine, and the engine gives a head meaning two ways. A function is one, and `fun/1` answers for it. A special form is the other: `if`, `case`, `collapse`, `unify`, `chain`, `once` and 20 more are compiled by the translator instead of being defined by equations, and 29 of the 47 answer `False` to `fun/1`, as do the six stream rewrites `trace!`, `unique`, `alpha-unique`, `union`, `intersection` and `subtraction`. The linter asks `metta_translated_head/1` as well, which reads the translator's clause heads rather than keeping a list, so a form added to the engine is known to the linter the day it is added.
 
