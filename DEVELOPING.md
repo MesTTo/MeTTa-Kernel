@@ -16,7 +16,7 @@ uv sync --locked --extra checks
 On the maintained development workstation, use this interpreter:
 
 ```sh
-PY=/home/user/Dev/.venv-pypetta/bin/python
+PY=/path/to/your/venv/bin/python
 ```
 
 It is the only local interpreter with `janus_swi` linked against the installed
@@ -132,10 +132,9 @@ but cannot decide the claim.
 
 ## Engine contributor tests
 
-This section is a merge placeholder. The engine-side build, PlUnit, shell
-regression, and measurement instructions arrive from `tests/prolog/README.md`
-with the engine branch. Until that merge, `check.sh` is the authoritative list
-of engine-side gate commands.
+The engine-side build, PlUnit, shell regression, and measurement
+instructions live in `tests/prolog/README.md`, which is in this tree.
+`check.sh` remains the authoritative list of engine-side gate commands.
 
 ## Change requirements
 

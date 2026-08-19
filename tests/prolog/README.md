@@ -25,7 +25,7 @@ default environment does not provide that module:
 
 On the project workstation, the matching interpreter is:
 
-    /home/user/Dev/.venv-pypetta/bin/python
+    /path/to/your/venv/bin/python
 
 ## Test tiers
 
@@ -133,7 +133,7 @@ The full Python oracle runs from the repository root, not from `python/`:
 
     /path/to/python -m pytest python/tests/ -q --rootdir=python -c python/pyproject.toml
 
-`sh test.sh` runs the 169 self-checking MeTTa examples. It uses each process
+`sh test.sh` runs the self-checking MeTTa examples (the corpus size is pinned in `examples/README.md`). It uses each process
 exit status as the verdict and prints the existing assertion lines unchanged.
 
 ## Measure engine changes

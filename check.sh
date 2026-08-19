@@ -272,6 +272,28 @@ run REPORT translator-confluence sh -c "cd '$HERE/tests/prolog' && swipl -q --on
 # detector stopped detecting.
 run GATE translator-confluence-selftest sh -c "cd '$HERE/tests/prolog' && swipl -q --on-error=status -g translator_confluence_selftest -t 'halt(0)' translator_confluence.pl"
 
+# The typed development build: mavis-inserted checks live in development and
+# compile to NOTHING under -O; the selftest proves both directions and the
+# main lane runs every plt suite under the typed build.
+check_dev_typed_selftest() {
+    cd "$HERE/tests/prolog" || return 1
+    swipl -q --on-error=status -g dev_typed_selftest -t 'halt(0)' dev_typed.pl || return 1
+    swipl -O -q --on-error=status -g dev_typed_selftest -t 'halt(0)' dev_typed.pl
+}
+run GATE dev-typed-selftest check_dev_typed_selftest
+
+check_dev_typed() {
+    cd "$HERE/tests/prolog" || return 1
+    ok=0
+    swipl -q --on-error=status -g dev_typed_report -t 'halt(0)' dev_typed.pl || ok=1
+    for suite in *.plt; do
+        [ -e "$suite" ] || continue
+        swipl -q -g dev_typed_suites -t 'halt(0)' dev_typed.pl -- "$suite" || ok=1
+    done
+    return $ok
+}
+run GATE dev-typed check_dev_typed
+
 # A MeTTa equation whose compiled head collides with a name the module it
 # compiles into already holds does not shadow that predicate, it REPLACES it
 # for the rest of the process, and nothing in the tree looked for that. Two
@@ -471,7 +493,7 @@ run GATE   parity      sh -c "cd '$HERE' && '$PY' python/tools/example_parity.py
 
 # The obligation headers are the contract a library author reads, and a
 # [tested X] tag is the strongest evidence in the scheme. Thirteen of them
-# named tests that had never existed in the tree's history, including three
+# named tests that had never existed in the tree's history, including some
 # cited by the engine pool's Guarantees block, and nothing anywhere would have
 # said so: a claim with nothing behind it reads exactly like the many that are
 # real. This is the linter the scheme has always implied. It reads only, needs
@@ -608,7 +630,7 @@ run GATE   interrogate in_py "$PY" -m interrogate petta
 # look wrong, and its entries are bare names because codespell prunes a walked
 # directory by NAME, so a ./-prefixed skip stops matching the moment a runner
 # passes explicit paths.
-run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib python/petta python/bench.py python/examples python/tests src lib backends examples tests website notebooks mork_ffi .github *.md"
+run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib python/petta python/bench.py python/examples python/tests python/tools src lib backends examples tests website notebooks mork_ffi .github *.md"
 # The remaining clones are small facade, protocol, and test-fixture mirrors;
 # extracting them would couple layers or hide the local contract.
 run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' python/petta python/tests"
