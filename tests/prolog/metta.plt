@@ -1641,6 +1641,63 @@ test(a_shared_type_variable_reports_what_the_first_argument_fixed) :-
 
 :- end_tests(operation_answers).
 
+:- begin_tests(module_colon_paths).
+
+%A module NAME may be a COLON PATH: `pkg:child` names pkg/child.metta beside
+%the file that imports it, `top:` names the outermost module's directory and
+%`self:` the importing module's own, which is also what a bare path means
+%[source: LeaTTa tests/semantics/modules/22-path-colon, 23-path-top and
+%24-path-self, all STATUS conforms].
+plunit_module_tree(Top, Package, Child) :-
+    tmp_file(modules, Top),
+    make_directory(Top),
+    atomic_list_concat([Top, '/pkg'], Package),
+    make_directory(Package),
+    atomic_list_concat([Package, '/child.metta'], Child),
+    setup_call_cleanup(open(Child, write, Out),
+                       write(Out, '(path-value colon)\n'),
+                       close(Out)).
+
+test(a_colon_path_names_a_file_beside_the_importer) :-
+    plunit_module_tree(Top, _, Child),
+    setup_call_cleanup(
+        asserta(user:working_dir(Top)),
+        ( resolve_metta_import_path('pkg:child', Colon),
+          resolve_metta_import_path('top:pkg:child', FromTop),
+          same_file(Colon, Child),
+          same_file(FromTop, Child) ),
+        ( retract(user:working_dir(Top)),
+          delete_directory_and_contents(Top) )).
+
+%Two modules deep, where the three bases stop agreeing: `self:` and a bare
+%path follow the INNER directory while `top:` follows the outer one.
+test(self_and_top_name_different_directories) :-
+    plunit_module_tree(Top, Package, Child),
+    setup_call_cleanup(
+        ( asserta(user:working_dir(Top)),
+          asserta(user:working_dir(Package)) ),
+        ( resolve_metta_import_path('self:child', Self),
+          resolve_metta_import_path('top:pkg:child', FromTop),
+          same_file(Self, Child),
+          same_file(FromTop, Child),
+          \+ catch(resolve_metta_import_path('pkg:child', _), _, fail) ),
+        ( retract(user:working_dir(Package)),
+          retract(user:working_dir(Top)),
+          delete_directory_and_contents(Top) )).
+
+%A name carrying a separator already is a PATH and is left alone, so nothing
+%that resolved before starts resolving somewhere else.
+test(a_written_path_is_not_rewritten) :-
+    plunit_module_tree(Top, _, Child),
+    setup_call_cleanup(
+        asserta(user:working_dir(Top)),
+        ( resolve_metta_import_path('pkg/child', Written),
+          same_file(Written, Child) ),
+        ( retract(user:working_dir(Top)),
+          delete_directory_and_contents(Top) )).
+
+:- end_tests(module_colon_paths).
+
 :- begin_tests(runtime_format_strings).
 
 %format-args interpolates through the dyn_fmt crate's Arguments, not Rust's
