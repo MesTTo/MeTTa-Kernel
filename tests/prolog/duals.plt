@@ -676,3 +676,31 @@ test(an_ordinary_negation_still_answers) :-
     assertion(Answer == [true]).
 
 :- end_tests(duals_refuse_before_running).
+
+% The declared Atom mask reaches the DUAL exactly as it reaches the
+% positive path: with (: hh (-> Atom Bool)) the argument arrives written
+% on both sides, so the negation of hh at an unevaluated (dbl 5) holds
+% (no equation covers the written term) while the negation at the covered
+% 10 correctly answers False. The dual used to evaluate the argument its
+% positive path passed written, and the probe answered nothing.
+:- begin_tests(duals_atom_mask).
+
+test(test_not_provable_honours_the_atom_mask_its_positive_path_honours,
+     [ setup(( process_metta_string("(: mask-dbl (-> Number Number))", _),
+               process_metta_string("(= (mask-dbl $x) (* $x 2))", _),
+               process_metta_string("(: mask-hh (-> Atom Bool))", _),
+               process_metta_string("(= (mask-hh 10) True)", _) )),
+       cleanup(( remove_sexp('&self', [=, ['mask-dbl', _], _]),
+                 remove_sexp('&self', [=, ['mask-hh', _], _]),
+                 remove_sexp('&self', [':', 'mask-dbl', _]),
+                 remove_sexp('&self', [':', 'mask-hh', _]) )) ]) :-
+    process_metta_string("!(not-provable (mask-hh (mask-dbl 5)))", Masked),
+    Masked == [true],
+    process_metta_string("!(not-provable (mask-hh 10))", Covered),
+    Covered == [false],
+    % And the positive path's own reading, unchanged: the written argument
+    % matches no equation, so the call answers nothing.
+    process_metta_string("!(collapse (mask-hh (mask-dbl 5)))", Positive),
+    Positive == [[]].
+
+:- end_tests(duals_atom_mask).
