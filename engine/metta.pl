@@ -2790,6 +2790,11 @@ metta_effect_construct(metta_take(_, A), [A]).
 %top's plain form likewise calls its goal; metta_top_match/4 is a read the
 %classifier judges from its shape as it does the bounded take.
 metta_effect_construct(metta_top(_, A, _), [A]).
+%The six-axis dispatcher wraps the generated direct goal. Its policy reads are
+%invalidated through the support graph; the wrapped goal is still where any
+%effect lives, so the purity walk must descend it rather than refuse the
+%engine helper or, worse, call the helper pure as a whole.
+metta_effect_construct(dispatch_policy_execute(_, _, _, Goal, _), [Goal]).
 %Anything else that CALLS one of its arguments, read from SWI's own
 %meta_predicate declaration rather than from a list here. This clause is last,
 %so every construct above keeps its exact handling and this catches the rest.
@@ -4051,6 +4056,11 @@ pure_engine_helper(rethrow_metta_operation_error).
 pure_engine_helper(non_list).
 pure_engine_helper(type_answers).
 pure_engine_helper(satisfies_metatype).
+%These two only choose the language-level residual, failure or Error value.
+%Policy and type changes recompile dependants through the support graph, so
+%neither hides a lasting effect from a cached caller.
+pure_engine_helper(dispatch_mismatch_result).
+pure_engine_helper(dispatch_no_match_result).
 
 pure_arithmetic('+').  pure_arithmetic('-').  pure_arithmetic('*').
 pure_arithmetic('/').  pure_arithmetic('%').  pure_arithmetic(min).

@@ -451,6 +451,9 @@ metta_engine_emitted(petta_run_named/3).
 metta_engine_emitted(petta_transaction/1).
 metta_engine_emitted(function_overapplication/3).
 metta_engine_emitted(metta_bad_argument_error/3).
+metta_engine_emitted(dispatch_mismatch_result/3).
+metta_engine_emitted(dispatch_no_match_result/3).
+metta_engine_emitted(dispatch_policy_execute/5).
 
 %Resolving at compile time means the answer can go stale: a space that gains
 %a definition of the name becomes the nearer parent, and one that loses its
