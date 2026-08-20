@@ -356,6 +356,12 @@ Declare it only where you mean it. An operation whose argument must arrive
 *evaluated* and is declared `Atom` receives the literal expression instead of
 its value, which is a silent wrong answer rather than an error.
 
+The same distinction is visible at the Python decorator. Given
+`(= (side) 42)`, a registered `def anyatom(x: petta.Atom)` receives and may
+return `(side)`, while an otherwise identical unannotated `def anyval(x)`
+receives `42`. The annotation therefore changes the call's evaluation order;
+it is not documentation applied after evaluation.
+
 ### Calling a Prolog goal without registering anything
 
 Registration publishes a name. For a goal you do not want to publish, or a

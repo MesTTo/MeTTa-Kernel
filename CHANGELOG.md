@@ -103,6 +103,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- `petta.Atom` on a registered operation parameter is now documented as an
+  evaluation-order contract: the callable receives the argument as written,
+  while an unconstrained parameter receives its reduced value.
+
 - Compiled definitions now carry their cleaned Python docstring through
   `Defined.doc`, `help()`, and the definition space's `get-doc` result.
 

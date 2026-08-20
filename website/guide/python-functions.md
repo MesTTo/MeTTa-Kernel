@@ -18,6 +18,24 @@ A dataclass, enum, or plain class in a signature becomes a declared type. Its fi
 
 Defaults register every accepted positional arity. A Python `None` produces no answer unless the integration wrapper uses the engine's effect convention. `m.unregister_op(name)` removes every arity registered under that name.
 
+An `Atom` parameter changes evaluation order; it is not merely a static hint.
+The compiler passes that argument as written, before reduction. An
+unconstrained parameter receives the evaluated value:
+
+```python
+@m.register_op
+def anyatom(term: petta.Atom) -> petta.Atom:
+    return term
+
+@m.register_op
+def anyval(term):
+    return term
+```
+
+With `(= (side) 42)`, `!(anyatom (side))` answers `(side)`, while
+`!(anyval (side))` answers `42`. Use `Atom` when the operation intentionally
+implements syntax or a control form.
+
 An operation that wants to query the knowledge base does not have to close over `m`. Annotate a parameter as `petta.MeTTa` and the engine fills it, FastAPI's `Depends` read with the house convention that the annotation is the request:
 
 ```python
