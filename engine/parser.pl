@@ -11,10 +11,10 @@
 %     different term, including Janus tuples and zero-arity compounds
 %     [tested: parser_refuses_non_metta,
 %     test_every_generated_atom_survives_the_write_parse_round_trip;
-%     commit=WORKTREE].
+%     commit=53686aed41e7ff02de69052198afdb537536cbdb].
 %   - sdisplay/2 is the explicitly lossy presentation path used by repr and
 %     console output; it retains host display syntax without pretending that
-%     syntax is readable MeTTa [tested: parser_display; commit=WORKTREE].
+%     syntax is readable MeTTa [tested: parser_display; commit=53686aed41e7ff02de69052198afdb537536cbdb].
 %   - swrite_with_names/3 preserves reader names without binding the source
 %     term; distinct variables carrying one written name receive #N epochs in
 %     first-occurrence order [tested: parser_named_variables; commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
@@ -30,7 +30,7 @@
 %     not only for names: non-finite and rational numbers have no readable
 %     numeric spelling, and non-list compounds and opaque host values are not
 %     MeTTa terms [tested: parser_number_text, parser_refuses_non_metta,
-%     property_roundtrip; commit=WORKTREE].
+%     property_roundtrip; commit=53686aed41e7ff02de69052198afdb537536cbdb].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

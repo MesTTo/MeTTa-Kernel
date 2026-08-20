@@ -653,7 +653,7 @@ ext_point_kind(with_metta_module/2, host_service).
 ext_point_kind(swrite/2, service).
 %Presentation text is deliberately distinct from the inverse writer. A host
 %or extension uses this only where lossless re-reading is not the contract
-%[tested: every_seam_declares_one_kind, parser_display; commit=WORKTREE].
+%[tested: every_seam_declares_one_kind, parser_display; commit=53686aed41e7ff02de69052198afdb537536cbdb].
 ext_point_kind(sdisplay/2, service).
 ext_point_kind(sread/2, service).
 %Moved from the host_service list on 2026-08-20: the host bindings read

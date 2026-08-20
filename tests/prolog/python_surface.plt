@@ -12,9 +12,9 @@
 %     [tested: iteration_is_lazy]
 %   - host values without a MeTTa literal are refused at the text writer
 %     instead of being emitted as Python syntax [tested:
-%     a_python_value_without_a_metta_literal_is_refused; commit=WORKTREE]
+%     a_python_value_without_a_metta_literal_is_refused; commit=53686aed41e7ff02de69052198afdb537536cbdb]
 %   - repr keeps an explicit presentation path for those values [tested:
-%     a_python_value_keeps_its_explicit_display; commit=WORKTREE]
+%     a_python_value_keeps_its_explicit_display; commit=53686aed41e7ff02de69052198afdb537536cbdb]
 % Fails when:
 %   - the claim is about the SHIPPED configuration. plunit consults
 %     engine/metta.pl and never bindings/python/petta/shim.pl, so no host bridge answers

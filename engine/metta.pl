@@ -9,7 +9,7 @@
 %   - repr/2, println!/2 and format-args presentation retain host display text
 %     through sdisplay/2 without weakening swrite/2's reader-inverse contract
 %     [tested: parser_display, a_python_value_keeps_its_explicit_display;
-%     commit=WORKTREE].
+%     commit=53686aed41e7ff02de69052198afdb537536cbdb].
 %   - import! loads a MeTTa source that is new or that has been edited, and
 %     skips one that is neither, which is SWI's if(changed); a Python source
 %     keeps if(not_loaded) [tested 2026-08-19:

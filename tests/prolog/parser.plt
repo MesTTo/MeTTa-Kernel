@@ -12,7 +12,7 @@
 %
 %   Writer entry points accept only the inverse reader domain. Values that
 %   would be renamed or structurally changed are refused before any text is
-%   returned [tested: parser_refuses_non_metta; commit=WORKTREE].
+%   returned [tested: parser_refuses_non_metta; commit=53686aed41e7ff02de69052198afdb537536cbdb].
 %
 %   Run: swipl -g run_tests -t halt tests/prolog/parser.plt
 % Open Obligations:
