@@ -1420,7 +1420,8 @@ test(a_singleton_type_variable_generates_no_check) :-
 
 test(a_repeated_type_variable_keeps_its_checks) :-
     typed_call_goal([->, A, A, 'Bool'], Goal),
-    findall(x, ( sub_term(S, Goal), nonvar(S), S = has_type(_, T), var(T) ),
+    findall(x, ( sub_term(S, Goal), nonvar(S),
+                 S = check_argument_type(_, T, variable), var(T) ),
             Kept),
     length(Kept, Count),
     Count =:= 2.
@@ -1433,7 +1434,8 @@ test(a_concrete_type_keeps_its_check) :-
 %type, so its check stays.
 test(a_type_variable_inside_a_structure_keeps_its_check) :-
     typed_call_goal([->, ['List', _C], 'Number', 'Bool'], Goal),
-    findall(Type, ( sub_term(S, Goal), nonvar(S), S = has_type(_, Type),
+    findall(Type, ( sub_term(S, Goal), nonvar(S),
+                    S = check_argument_type(_, Type, ordinary),
                     nonvar(Type), Type = ['List'|_] ),
             Kept),
     Kept \== [].
