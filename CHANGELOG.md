@@ -76,6 +76,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Modifier-free host queries now choose the empty path before matching, so
+  lazy-path support has a fixed preparation cost instead of a cost per answer.
 - Generated symbolic atom operators now specialize their lowering table entry
   once at import instead of interpreting that entry for every constructed term.
 - Typed local bindings now carry an internal provenance marker, so source-level

@@ -79,13 +79,13 @@ ext_point_kind(ext_point_kind/2, declaration).
 :- multifile builtin_type_declaration/2.
 ext_point_kind(builtin_type_declaration/2, declaration).
 
-%Pattern modifiers are claimed by shape. The engine replaces the modifier
-%position with a fresh variable and runs the owner's guard after matching, so
-%an extension can add a structural view without teaching the store a new term
-%kind. The lifting walk is a host service because a binding that constructs
-%patterns must apply exactly the same modifier semantics as compiled match.
+%Pattern modifiers are expression lists claimed by shape. The engine replaces
+%the modifier position with a fresh variable and runs the owner's guard after
+%matching, so an extension can add a structural view without teaching the
+%store a new term kind. The lifting walk is a host service because a binding
+%that constructs patterns must apply the same semantics as compiled match.
 %[tested: test_a_path_reaches_into_a_handle_without_converting_it;
-%commit=a1b10566194f10c174101fdc05f956b33171613b].
+%commit=WORKTREE].
 :- multifile pattern_modifier/3.
 ext_point_kind(pattern_modifier/3, ownership).
 
