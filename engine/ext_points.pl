@@ -576,6 +576,10 @@ ext_point_kind(metta_host_run_source_status/3, host_service).
 ext_point_kind(metta_host_load_file/3, host_service).
 ext_point_kind(metta_host_read_forms/2, host_service).
 ext_point_kind(metta_reducible_head/2, host_service).
+%Proof tools may open only a dispatch route the engine identifies as its
+%shipped direct path. Every policy-sensitive route is executed engine-side and
+%reported opaque, keeping host derivations out of the six-axis implementation.
+ext_point_kind(metta_host_dispatch_proof_step/6, host_service).
 %Grouped answers carry a reader-name state. Host codecs flatten that state for
 %their variable tag and use the same engine writer for host text.
 ext_point_kind(petta_name_pairs/2, host_service).

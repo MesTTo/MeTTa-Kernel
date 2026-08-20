@@ -1075,6 +1075,22 @@ dispatch_fast_goal(_, Fun, Args, _, Out) :-
     dispatch_policy_value(Fun, 'NoMatchEnum', Policy),
     dispatch_no_match(Policy, Fun, Args, Out).
 
+%A proof interpreter needs to know whether it may open the written goal while
+%preserving dispatch semantics. The shipped fast policy with a matching head
+%is exactly that case. Every other route is executed here by the authoritative
+%policy interpreter and reported opaque, so a host never reimplements fittest
+%ordering, determinism, clause failure or exhaustion.
+%[tested: test_depth_exhaustion_returns_a_partial_proof,
+%test_the_python_binding_calls_only_the_published_host_surface;
+%commit=WORKTREE].
+metta_host_dispatch_proof_step(Module, Fun, Args, Goal, _, direct) :-
+    dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, Exhaustion),
+    dispatch_fast_axes(Order, ResultMode, ClauseMode, Exhaustion),
+    dispatch_any_head_matches(Module, Fun, Args, Goal),
+    !.
+metta_host_dispatch_proof_step(Module, Fun, Args, Goal, Out, opaque) :-
+    dispatch_policy_execute(Module, Fun, Args, Goal, Out).
+
 dispatch_result_goal('Deterministic', Goal) :- !, once(Goal).
 dispatch_result_goal('Nondeterministic', Goal) :- call(Goal).
 
