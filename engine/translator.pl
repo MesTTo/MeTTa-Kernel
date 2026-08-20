@@ -401,7 +401,9 @@ metta_engine_emitted(petta_answer_terms/3).
 metta_engine_emitted(petta_prune_empty/2).
 metta_engine_emitted(petta_prune_empty_answers/2).
 metta_engine_emitted(petta_run_named/3).
+metta_engine_emitted(petta_run_with_fuel/3).
 metta_engine_emitted(petta_transaction/1).
+metta_engine_emitted(petta_fuel_step/2).
 metta_engine_emitted(function_overapplication/3).
 metta_engine_emitted(metta_bad_argument_error/3).
 
@@ -776,11 +778,12 @@ translate_runnable_expr(C, Names, Goals, Out) :-
                                     [RuntimeNames|CollectedNames]),
     goals_list_to_conj(InnerGoals, Conj),
     NamedConj = petta_run_named(CollectedReaderNames, Conj, RuntimeNames),
+    FuelConj = petta_run_with_fuel(Value, FuelValue, NamedConj),
     (   Value == 'Empty'
     ->  Goals = [Out = []]
     ;   nonvar(Value)
-    ->  Goals = [findall('$petta_answer'(Value, NameState), NamedConj, Out)]
-    ;   Goals = [(findall('$petta_answer'(Value, NameState), NamedConj, All),
+    ->  Goals = [findall('$petta_answer'(FuelValue, NameState), FuelConj, Out)]
+    ;   Goals = [(findall('$petta_answer'(FuelValue, NameState), FuelConj, All),
                   petta_prune_empty_answers(All, Out))]
     ).
 

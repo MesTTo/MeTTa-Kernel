@@ -37,6 +37,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `(pragma! max-stack-depth N)` now caps each recursive answer branch with the
+  evaluator's fuel budget. A completed sibling remains in the answer group
+  when another branch reaches `StackOverflow`; zero retains the 100000-step
+  default, invalid counts answer `UnsignedIntegerIsExpected`, and unsupported
+  pragma names raise instead of succeeding as no-ops.
 - Free variables returned by runnable source now keep their written names in
   engine output and host bindings. The reader's name map travels beside each
   collected answer, so `$free` stays `$free` instead of becoming `$_0` while

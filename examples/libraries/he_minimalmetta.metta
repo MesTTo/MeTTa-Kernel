@@ -13,4 +13,7 @@
    )
 )
 
-!(test (chain (eval (div 350000 5 0)) $rr $rr) 70000)
+;The 70000-step interpreter exercise states a budget above the engine default.
+!(test (with-pragma! ((max-stack-depth 1000000))
+                     (chain (eval (div 350000 5 0)) $rr $rr))
+       70000)

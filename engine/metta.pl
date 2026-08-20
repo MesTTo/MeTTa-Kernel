@@ -3943,6 +3943,7 @@ pure_engine_helper(function_overapplication).
 pure_engine_helper(throw_metta_type_error).
 pure_engine_helper(rethrow_metta_operation_error).
 pure_engine_helper(non_list).
+pure_engine_helper(petta_fuel_step).
 pure_engine_helper(type_answers).
 pure_engine_helper(satisfies_metatype).
 
@@ -4463,15 +4464,8 @@ metta_elapsed(Goal, Value, [Value, Seconds]) :-
 %so this is the fallback-to-HE rule applied.
 :- dynamic metta_pragma/2.
 
-%The keys this engine KNOWS. pragma! itself no longer checks against them:
-%the arbiter accepts any key and answers unit, and its corpus states the
-%reason, "an Error would introduce key validation that the pinned operation
-%does not perform" [source: LeaTTa
-%tests/semantics/eval-core/pragma-unknown-key.metta, STATUS conforms]. The
-%register is still the answer to "what does this engine enforce", and
-%with-pragma!, which is PeTTa's own scoped form, still refuses an unknown key
-%there: a scope that sets nothing does nothing, silently, for as long as it
-%lasts [tested: scoped_pragmas:with_pragma_refuses_an_unknown_key].
+%The keys this engine KNOWS. Both pragma doors validate against this registry;
+%an unsupported setting is a hard error rather than a successful no-op.
 %HE's own keys are type-check, interpreter and max-stack-depth
 %[source 2026-08-15: MeTTa HE stdlib reference, pragma!]. The two bounds are
 %PeTTa's, and are the ones this engine can actually enforce.
@@ -4482,16 +4476,24 @@ metta_pragma_key('max-inferences', 'bound every runnable by inference count').
 %swallowed, and tracked in ai-todo-parallel.md B10.1.
 metta_pragma_key('verify-specializations',
                  'check every specialization against the generic call once').
-metta_pragma_key('max-stack-depth', 'HE spelling; accepted, NOT enforced').
+metta_pragma_key('max-stack-depth',
+                 'branch-local reduction fuel; zero selects the default').
 metta_pragma_key('type-check', 'HE spelling; accepted, NOT enforced').
 metta_pragma_key(interpreter, 'HE spelling; accepted, NOT enforced').
 
 'pragma!'(Key, _, _) :- var(Key), !, refuse_unbound_input('pragma!', 1).
+'pragma!'(Key, _, _) :-
+    \+ metta_pragma_key(Key, _),
+    !,
+    findall(K-D, metta_pragma_key(K, D), Known),
+    throw(error(domain_error(metta_pragma_key, Key),
+                context('pragma!'/2, Known))).
 %max-stack-depth is the ONE key the arbiter validates, and a count is the
 %whole of what it validates. The refusal is an ANSWER, not a raise, so the
 %program that wrote it keeps running [measured 2026-08-19 against the
 %arbiter: -1, 1.5 and abc each answer this error, while
-%(pragma! type-check -1) and (pragma! completely-invented-key -1) answer ();
+%(pragma! type-check -1) answers (); the plan's closed engine registry
+%deliberately makes a completely invented key a hard host-facing error here;
 %source: LeaTTa tests/semantics/eval-core/max-stack-depth-negative.metta].
 %`none` is the engine's own "unset" sentinel, which petta_restore_pragma/1
 %passes back on every scope exit, so it is not a value to validate.
@@ -4604,6 +4606,73 @@ run_under_pragmas(Goal) :-
         ;   true
         )
     ;   call(Timed)
+    ).
+
+%Every runnable uses one limit scope. Recursive clauses spend from its
+%backtrackable balance, so trying a sibling restores the balance it started
+%with. Exhaustion records and fails only that branch; after ordinary answers
+%have been enumerated, the recorded unfinished branches are replayed as
+%(Error <current-call> StackOverflow). This keeps a completed sibling instead
+%of letting an exception discard the generator's remaining choice points.
+%A positive max-stack-depth caps the same balance; zero and absence use the
+%LeaTTa runner's default 100000 fuel.
+%[tested: test_a_stack_depth_pragma_bounds_evaluation_instead_of_overflowing].
+:- meta_predicate petta_run_with_fuel(?, ?, 0).
+
+petta_run_with_fuel(Value, Answer, Goal) :-
+    (   nb_current('$petta_fuel_scope', true)
+    ->  call(Goal),
+        Answer = Value
+    ;   setup_call_cleanup(
+            petta_open_fuel_scope,
+            petta_fuel_answer(Value, Answer, Goal),
+            petta_close_fuel_scope)
+    ).
+
+petta_open_fuel_scope :-
+    nb_setval('$petta_fuel_scope', true),
+    nb_setval('$petta_fuel_remaining', unstarted),
+    nb_setval('$petta_fuel_errors', []).
+
+petta_close_fuel_scope :-
+    nb_delete('$petta_fuel_errors'),
+    nb_delete('$petta_fuel_remaining'),
+    nb_delete('$petta_fuel_scope').
+
+petta_fuel_answer(Value, Answer, Goal) :-
+    call(Goal),
+    Answer = Value.
+petta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
+    nb_getval('$petta_fuel_errors', Reverse),
+    reverse(Reverse, Errors),
+    member(Culprit, Errors).
+
+petta_fuel_step(Culprit, Cost) :-
+    (   nb_current('$petta_fuel_scope', true)
+    ->  petta_fuel_step_scoped(Culprit, Cost)
+    ;   true
+    ).
+
+petta_fuel_step_scoped(Culprit, Cost) :-
+    nb_getval('$petta_fuel_remaining', Current),
+    (   Current == unstarted
+    ->  petta_evaluation_fuel(Limit)
+    ;   Limit = Current
+    ),
+    Remaining is Limit - Cost,
+    (   Remaining =< Cost
+    ->  nb_getval('$petta_fuel_errors', Errors),
+        nb_setval('$petta_fuel_errors', [Culprit|Errors]),
+        fail
+    ;   b_setval('$petta_fuel_remaining', Remaining)
+    ).
+
+petta_evaluation_fuel(Limit) :-
+    (   metta_pragma('max-stack-depth', Configured),
+        integer(Configured),
+        Configured > 0
+    ->  Limit = Configured
+    ;   Limit = 100000
     ).
 
 %%% MeTTa HE compatibility: %%%

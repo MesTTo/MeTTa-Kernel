@@ -12,5 +12,8 @@
     (Sentence ((Inheritance C D) (stv 0.5 0.9)) (4))
    ))
 
-!(test (PLN.Query (kb) (Inheritance A D))
+;The bounded proof search is intentionally larger than the evaluator's default
+;100000 fuel, so the example states its own finite budget.
+!(test (with-pragma! ((max-stack-depth 100000000))
+                     (PLN.Query (kb) (Inheritance A D)))
        ((stv 0.5 0.9473684210526316) (1 2 3 4)))

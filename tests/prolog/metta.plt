@@ -2020,21 +2020,21 @@ test(sort_strings_sorts_strings_and_refuses_anything_else) :-
 
 :- begin_tests(interpreter_pragmas).
 
-%pragma! answers the UNIT value and accepts any key. An unrecognised key is
-%not an error there: "an Error would introduce key validation that the pinned
-%operation does not perform" [source: LeaTTa
-%tests/semantics/eval-core/pragma-unknown-key.metta, STATUS conforms].
-test(pragma_answers_unit_for_any_key) :-
-    'pragma!'('completely-invented-key', 42, Unknown),
+%An unsupported name cannot pretend it changed evaluation.
+test(pragma_refuses_an_unknown_key,
+     [throws(error(domain_error(metta_pragma_key,
+                                'completely-invented-key'), _))]) :-
+    'pragma!'('completely-invented-key', 42, _).
+
+test(pragma_answers_unit_for_a_known_key) :-
     'pragma!'('type-check', auto, Known),
-    Unknown == [], Known == [],
-    'pragma!'('completely-invented-key', none, _),
+    Known == [],
     'pragma!'('type-check', none, _).
 
 %The one key the arbiter validates, and the whole of what it validates
 %[measured 2026-08-19 against the arbiter: `abc`, `1.5` and `-1` each answer
-%the error below, while (pragma! type-check -1) and
-%(pragma! completely-invented-key -1) both answer ()].
+%the error below, while (pragma! type-check -1) answers unit; the unknown-key
+%case is the engine-registry divergence pinned separately above].
 test(max_stack_depth_answers_its_own_error_for_a_value_that_is_not_a_count,
      [forall(member(Bad, [-1, 1.5, abc]))]) :-
     'pragma!'('max-stack-depth', Bad, Result),
