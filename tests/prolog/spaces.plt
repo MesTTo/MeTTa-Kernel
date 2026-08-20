@@ -1844,3 +1844,25 @@ test(a_bare_foreign_space_explains_unclaimed_inexact) :-
     Rest == [0].
 
 :- end_tests(spaces_host_explain).
+
+% The mirror of a_space_name_is_refused_where_a_module_is_asked: the
+% space-name doors refuse a module argument by name instead of failing
+% like a miss, so a wrong-argument call can never read as absence.
+:- begin_tests(spaces_module_where_name_wanted).
+
+test(test_a_module_where_a_space_name_is_wanted_refuses_by_name,
+     [ throws(error(type_error(metta_space_name, _), _)) ]) :-
+    metta_self_module(Module),
+    metta_remove_atom(Module, [never, there], _).
+
+test(the_read_door_refuses_the_same_way,
+     [ throws(error(type_error(metta_space_name, _), _)) ]) :-
+    metta_self_module(Module),
+    get_native_atom(Module, _).
+
+test(the_published_stored_door_inherits_the_refusal,
+     [ throws(error(type_error(metta_space_name, _), _)) ]) :-
+    metta_self_module(Module),
+    metta_host_stored(Module, _).
+
+:- end_tests(spaces_module_where_name_wanted).
