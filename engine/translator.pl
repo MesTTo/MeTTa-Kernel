@@ -2065,7 +2065,7 @@ prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
 %lets retain the occurrence-sensitive fast path below [tested:
 %test_an_annotated_binding_emits_its_claim,
 %translator_typed_let:a_source_colon_pair_stays_a_pattern;
-%commit=WORKTREE].
+%commit=c3c8ea60516dc1f45620bbe4dba3b78993ee22e3].
 translate_let_dl([[__petta_typed_binding__, Pattern], Value, In],
                  AfterHead, Goals, Out) :-
     constrain_args(Pattern, ConstrainedPattern, TypeGoals),
