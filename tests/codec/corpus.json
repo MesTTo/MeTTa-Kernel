@@ -215,7 +215,7 @@
       "text": "1.0e10",
       "wire": ["n", 10000000000.0],
       "written": "10000000000.0",
-      "note": "The engine prints the arbiter's layout (LeaTTa RyuLean4/Runtime.lean:371-396: positional while the value has at most sixteen digits before the point), and Python's repr shares both the digits and this threshold, so the two shipped printers agree here where they used to split 1.0e+10 against 10000000000.0. They still part company on one detail: past the threshold Python writes 1e+16 with a plus where the engine writes the arbiter's 1e16. Pinned so a change to either printer is visible."
+      "note": "The engine prints the arbiter's layout (LeaTTa RyuLean4/Runtime.lean:371-396: positional while the value has at most sixteen digits before the point), and Python's repr shares both the digits and this threshold, so the two shipped printers agree here where they used to split 1.0e+10 against 10000000000.0. Gnd's own renderer implements the same law, so the two printers agree everywhere a float prints. Pinned so a change to either printer is visible."
     },
     {
       "id": "float-small-exponent",
@@ -247,9 +247,9 @@
       "tags": ["n"],
       "requires": "non_finite",
       "wire": ["n", {"$float": "nan"}],
-      "written": {"engine": "NaN", "python": "nan"},
+      "written": "NaN",
       "reads_back": false,
-      "note": "The engine's printer spells it the arbiter's way and the Python side spells it Python's way. Comparing two decodings of it is the one place equality is not enough, since a NaN is not equal to itself; the wire carries THE non-finite value and two readings of it are the same term."
+      "note": "Both printers spell it the arbiter's way now, one authority for one atom. Comparing two decodings of it is the one place equality is not enough, since a NaN is not equal to itself; the wire carries THE non-finite value and two readings of it are the same term."
     },
     {
       "id": "boolean-true",

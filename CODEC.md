@@ -339,7 +339,7 @@ restatement of one.
 | `float-small-exponent` | `"1.0e-300"` | `["n", 1e-300]` | `"1e-300"` |
 | `float-infinity` |  | `["n", {"$float": "inf"}]` | `"inf"` |
 | `float-negative-infinity` |  | `["n", {"$float": "-inf"}]` | `"-inf"` |
-| `float-nan` |  | `["n", {"$float": "nan"}]` | engine `"NaN"` / python `"nan"` |
+| `float-nan` |  | `["n", {"$float": "nan"}]` | `"NaN"` |
 | `boolean-true` | `"True"` | `["b", "true"]` | `"True"` |
 | `boolean-false` | `"False"` | `["b", "false"]` | `"False"` |
 | `boolean-lowercase-source` | `"true"` | `["b", "true"]` | `"True"` |
