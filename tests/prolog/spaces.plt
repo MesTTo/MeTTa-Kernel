@@ -1869,7 +1869,7 @@ test(an_empty_space_answers_nothing_rather_than_refusing,
 :- begin_tests(spaces_host_storage_services).
 
 test(a_reporting_removal_says_whether_anything_went,
-     [ cleanup(remove_sexp('&plunit-host-remove', [_|_])) ]) :-
+     [ cleanup(clear_native_atoms('&plunit-host-remove')) ]) :-
     add_sexp('&plunit-host-remove', [stored, thing]),
     metta_host_remove_reported('&plunit-host-remove', [stored, thing], First),
     First == true,
@@ -1879,7 +1879,7 @@ test(a_reporting_removal_says_whether_anything_went,
     Never == false.
 
 test(stored_enumeration_is_pattern_directed,
-     [ cleanup(remove_sexp('&plunit-host-stored', [_|_])) ]) :-
+     [ cleanup(clear_native_atoms('&plunit-host-stored')) ]) :-
     add_sexp('&plunit-host-stored', [edge, a, b]),
     add_sexp('&plunit-host-stored', [edge, b, c]),
     add_sexp('&plunit-host-stored', [node, a]),
@@ -2295,6 +2295,23 @@ test(the_sandbox_accepts_a_pure_raw_goal_and_rejects_file_access,
                                                          _))),
           error(petta_space_capability_required('&restricted-sandbox', open,
                                                  file), _),
+          Refused = true),
+    assertion(Refused == true).
+
+test(removing_an_ordinary_shadow_cannot_unpin_restricted_dispatch,
+     [ cleanup(( clear_native_atoms('&restricted-shadow-owner'),
+                 release_restricted_space('&restricted-after-shadow') )) ]) :-
+    metta_declare_restricted_space('&restricted-after-shadow', []),
+    add_sexp('&restricted-shadow-owner',
+             [=, [exists_file, Path], Path]),
+    metta_remove_atom('&restricted-shadow-owner',
+                      [=, [exists_file, _], _], true),
+    assertion(fun_scoped(exists_file)),
+    space_module('&restricted-after-shadow', Module),
+    catch(with_metta_module(Module,
+                            reduce([exists_file, '/tmp'], _, _)),
+          error(petta_space_capability_required('&restricted-after-shadow',
+                                                 exists_file, file), _),
           Refused = true),
     assertion(Refused == true).
 

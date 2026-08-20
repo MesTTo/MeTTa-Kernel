@@ -2184,9 +2184,12 @@ get_type_candidate(false, 'Bool') :- !.
 get_type_candidate(X, T) :- atomic(X), \+ atom(X),
                             metta_host_object(X),
                             metta_grounded_type(X, T).
-get_type_candidate(X, T) :- \+ petta_space_operand(X), get_function_type(X,T).
-get_type_candidate(X, T) :- \+ petta_space_operand(X),
-                            \+ application_arrow_declared(X),
+get_type_candidate([Family|Parameters], 'SpaceType') :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !.
+get_type_candidate(X, T) :- get_function_type(X,T).
+get_type_candidate(X, T) :- \+ application_arrow_declared(X),
                             is_list(X),
                             metta_self_module(Self),
                             maplist(has_type_in(Self), X, Members),
@@ -2201,7 +2204,7 @@ get_type_candidate(X, T) :- builtin_type_declaration(X, T).
 %and context_space.metta, both STATUS conforms]. Last, like the engine's own
 %declarations above it, so a program that declares something about a handle is
 %still answered first [tested: space_handle_type].
-get_type_candidate(X, 'SpaceType') :- petta_space_operand(X).
+get_type_candidate(X, 'SpaceType') :- atom(X), petta_space_operand(X).
 
 get_type_candidate_in(_, X, T) :- number(X), !, metta_numeric_type(X, T).
 get_type_candidate_in(_, X, _) :- var(X), !.
@@ -2211,17 +2214,19 @@ get_type_candidate_in(_, false, 'Bool') :- !.
 get_type_candidate_in(_, X, T) :- atomic(X), \+ atom(X),
                                   metta_host_object(X),
                                   metta_grounded_type(X, T).
-get_type_candidate_in(Module, X, T) :- \+ petta_space_operand(X),
-                                       get_function_type_in(Module, X, T).
-get_type_candidate_in(Module, X, T) :- \+ petta_space_operand(X),
-                                       \+ application_arrow_declared_in(Module, X),
+get_type_candidate_in(_, [Family|Parameters], 'SpaceType') :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !.
+get_type_candidate_in(Module, X, T) :- get_function_type_in(Module, X, T).
+get_type_candidate_in(Module, X, T) :- \+ application_arrow_declared_in(Module, X),
                                        is_list(X),
                                        maplist(has_type_in(Module), X, Members),
                                        tuple_type(Members, T).
 
 get_type_candidate_in(Module, X, T) :- type_declaration_in(Module, X, T).
 get_type_candidate_in(_, X, T) :- builtin_type_declaration(X, T).
-get_type_candidate_in(_, X, 'SpaceType') :- petta_space_operand(X).
+get_type_candidate_in(_, X, 'SpaceType') :- atom(X), petta_space_operand(X).
 
 %An expression no arrow types is read ELEMENT-WISE, and the tuple it reads is
 %%Undefined% as soon as one member's type is. Nothing is known about a tuple
@@ -2275,11 +2280,13 @@ scoped_type_candidate(_, _, false, 'Bool') :- !.
 scoped_type_candidate(_, _, X, T) :- atomic(X), \+ atom(X),
                                      metta_host_object(X),
                                      metta_grounded_type(X, T).
+scoped_type_candidate(_, _, [Family|Parameters], 'SpaceType') :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !.
 scoped_type_candidate(Space, Module, X, T) :-
-    \+ petta_space_operand(X),
     scoped_function_type(Space, Module, X, T).
 scoped_type_candidate(Space, Module, X, T) :-
-    \+ petta_space_operand(X),
     \+ scoped_function_type(Space, Module, X, _),
     is_list(X),
     maplist(scoped_has_type(Space, Module), X, Members),
@@ -2288,7 +2295,7 @@ scoped_type_candidate(Space, _, X, T) :-
     match_stored(Space, [':', X, T], T, _),
     acyclic_term(T).
 scoped_type_candidate(_, _, X, T) :- builtin_type_declaration(X, T).
-scoped_type_candidate(_, _, X, 'SpaceType') :- petta_space_operand(X).
+scoped_type_candidate(_, _, X, 'SpaceType') :- atom(X), petta_space_operand(X).
 
 scoped_function_type(Space, Module, [F|Args], T) :-
     nonvar(F),
@@ -2435,7 +2442,11 @@ metatype_of(X, 'Grounded') :- atom(X), metta_grounded_token(X),
 %`!(bind! &space-a (new-space))` both print `[Grounded]`
 %[source: LeaTTa tests/semantics/spaces/space_identity.metta, STATUS conforms]
 %[tested: space_handle_type].
-metatype_of(X, 'Grounded') :- petta_space_operand(X), !.
+metatype_of(X, 'Grounded') :- atom(X), petta_space_operand(X), !.
+metatype_of([Family|Parameters], 'Grounded') :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !.
 metatype_of(X, 'Expression') :- is_list(X), !.     % e.g., (+ 1 2), (a b)
 metatype_of(X, 'Symbol') :- atom(X), !.            % e.g., a
 metatype_of(_, 'Grounded').                        % e.g., partial(f,[1]), f(1)
@@ -2872,6 +2883,7 @@ metta_effect_prolog_primitive(petta_prune_empty).
 %lib_tabling_purity:an_impure_goal_is_refused_inside_every_wrapper;
 %commit=f46e45074286c08c4bd8b3d7892b3d7933f11f77].
 metta_effect_prolog_primitive(metta_require_current_capability).
+metta_effect_prolog_primitive(metta_require_safe_goal).
 metta_effect_prolog_primitive(metta_require_space_update_capability).
 metta_effect_prolog_primitive('=@=').    metta_effect_prolog_primitive('\\==').
 metta_effect_prolog_primitive(nth0).     metta_effect_prolog_primitive(nth1).
@@ -6547,7 +6559,10 @@ register_fun_in(Module, N) :- register_fun(N),
 unregister_fun_in(Module, N) :- retractall(fun_in(Module, N)),
                                 metta_self_module(Self),
                                 ( fun_in(Other, N), Other \== Self
-                                  -> true ; retractall(fun_scoped(N)) ).
+                                  -> true
+                                ; restricted_dispatch_name(N)
+                                  -> true
+                                ; retractall(fun_scoped(N)) ).
 
 unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
                                 retractall(fun_scoped(N)).

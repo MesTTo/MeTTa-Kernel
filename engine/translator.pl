@@ -405,6 +405,9 @@ metta_engine_emitted(letstar_runtime/3).
 metta_engine_emitted(metta_ensure_duals/1).
 %engine/duals.pl emits this one, into the dual clause it builds.
 metta_engine_emitted(metta_negation/5).
+metta_engine_emitted(metta_require_current_capability/2).
+metta_engine_emitted(metta_require_safe_goal/1).
+metta_engine_emitted(metta_require_space_update_capability/2).
 metta_engine_emitted(petta_match_atoms/2).
 metta_engine_emitted(petta_answer_terms/3).
 metta_engine_emitted(petta_prune_empty/2).
@@ -433,6 +436,22 @@ metta_engine_emitted(metta_bad_argument_error/3).
 
 note_super_call(Fun) :-
     ( super_call_compiled(Fun) -> true ; assertz(super_call_compiled(Fun)) ).
+
+%A restricted space is fixed before its first use, so its execution module is
+%known while the translator builds a body. Emit guards only into that module:
+%ordinary modules keep their pre-restriction goal lists and pay no guard on a
+%hot call, while a restricted body keeps the check immediately before the
+%operation it protects [tested: translator_restricted_guards;
+%commit=WORKTREE].
+translate_in_restricted_space :-
+    current_metta_module(Module),
+    metta_restricted_exec_module(Module, _).
+
+translate_restricted_guard_dl(Guard, Tail, Goals) :-
+    (   translate_in_restricted_space
+    ->  Goals = [Guard|Tail]
+    ;   Goals = Tail
+    ).
 
 :- multifile metta_on_function_changed/1.
 metta_on_function_changed(Fun) :-
@@ -919,14 +938,10 @@ goals_list_to_conj([G|Gs], (G,R)) :- goals_list_to_conj(Gs, R).
 %here cost between +0.09% and +0.41% inferences across six benchmarks
 %[measured 2026-08-15: weighted-relation 483521 -> 485517].
 resolve_dispatch(Fun, Args, Out, Goal) :-
-    ( metta_dispatch_call(Fun, Args, Out, RawGoal)
+    ( metta_dispatch_call(Fun, Args, Out, Goal)
     -> true
     ; append(Args, [Out], DirectArgs),
-      RawGoal =.. [Fun|DirectArgs]
-    ),
-    (   space_operation_capability(Fun, Capability)
-    ->  Goal = (metta_require_current_capability(Fun, Capability), RawGoal)
-    ;   Goal = RawGoal
+      Goal =.. [Fun|DirectArgs]
     ).
 incomplete_application_kind(Fun, Arity, partial) :- ( arity(Fun, KnownArity), KnownArity >= Arity
                                                      ; \+ arity(Fun, _) ), !.
@@ -1001,11 +1016,8 @@ reduce([F|Args], Out, Status) :- !,
         %call from here would resolve in the ENGINE's module instead, which is
         %the parent and cannot see a child's clauses.
         metta_self_module(Self),
-        current_metta_module(Current),
-        ( fun(F), \+ fun_scoped(F),
-          \+ metta_restricted_exec_module(Current, _)
-        -> Module = Self
-        ; Module = Current, fun_here_in(Module, F) )
+        ( fun(F), \+ fun_scoped(F) -> Module = Self
+        ; current_metta_module(Module), fun_here_in(Module, F) )
     ->  % --- Case 1: callable predicate ---
         length(Args, N),
         Arity is N + 1,
@@ -1900,8 +1912,9 @@ translate_special_dl('add-reducts', Args, AfterHead, Goals, Out) :-
 %door still requires it to be finite, ground and symbol-headed.
 translate_special_dl('new-space', [Space], AfterHead, Goals, Out) :-
     is_list(Space), !,
-    AfterHead = [metta_require_current_capability('new-space', process),
-                 'new-space'(Space, Out)|Goals].
+    translate_restricted_guard_dl(
+        metta_require_current_capability('new-space', process),
+        ['new-space'(Space, Out)|Goals], AfterHead).
 %A literal (superpose (&a &b ...)) space argument is the multi-context
 %idiom, and the SHAPE decides it at translation exactly as take's bound
 %does: those queries route through petta_merged_match/3, where the
@@ -1936,7 +1949,8 @@ translate_special_dl(translatePredicate, [[Predicate|Args]], AfterHead, Goals,
                      _Out) :-
     translate_args_dl(Args, AfterHead, BeforePredicate, ArgValues),
     metta_predicate_goal([Predicate|ArgValues], Goal),
-    BeforePredicate = [metta_require_safe_goal(Goal), Goal|Goals].
+    translate_restricted_guard_dl(metta_require_safe_goal(Goal), [Goal|Goals],
+                                  BeforePredicate).
 %The two Prolog seams are the exception to the fall-through documented above.
 %No program means (translatePredicate ...) or (call ...) as data, so a shape
 %the clause above cannot compile is a mistake worth reporting rather than a
@@ -1950,7 +1964,8 @@ translate_special_dl(call, [[Function|Args]], AfterHead, Goals, Out) :-
     translate_args_dl(Args, AfterHead, BeforeCall, ArgValues),
     append(ArgValues, [Out], CallArgs),
     Goal =.. [Function|CallArgs],
-    BeforeCall = [metta_require_safe_goal(Goal), Goal|Goals].
+    translate_restricted_guard_dl(metta_require_safe_goal(Goal), [Goal|Goals],
+                                  BeforeCall).
 translate_special_dl(call, Args, _, _, _) :-
     refuse_uncompilable_seam(call, Args).
 translate_special_dl(reduce, [Expr], AfterHead, Goals, Out) :-
@@ -1972,8 +1987,9 @@ translate_special_dl(eval, [Arg], AfterHead, Goals, Out) :-
 %function that answers a space name, or (context-space), can name it.
 translate_special_dl(evalc, [Arg, Space], AfterHead, Goals, Out) :-
     translate_space_expr_dl(Space, AfterHead, BeforeEval, SpaceValue),
-    BeforeEval = [metta_require_current_capability(evalc, process),
-                  evalc(Arg, SpaceValue, Out)|Goals].
+    translate_restricted_guard_dl(
+        metta_require_current_capability(evalc, process),
+        [evalc(Arg, SpaceValue, Out)|Goals], BeforeEval).
 %These kernel reads intentionally accept an unwritten atomic &name, so their
 %declarations cannot use a strict SpaceType parameter. Once an expression is
 %registered, however, it is an identity at this space-position just like the
@@ -2284,8 +2300,9 @@ translate_space_update_dl(Operation, [SpaceExpr, Atom], AfterHead, Goals,
                           Out) :-
     translate_space_expr_dl(SpaceExpr, AfterHead, BeforeOperation, Space),
     Goal =.. [Operation, Space, Atom, Out],
-    BeforeOperation = [metta_require_space_update_capability(Operation, Space),
-                       Goal|Goals].
+    translate_restricted_guard_dl(
+        metta_require_space_update_capability(Operation, Space), [Goal|Goals],
+        BeforeOperation).
 
 %A registered expression is an entity identifier in a space position. Every
 %other expression is still evaluated, preserving computed spaces such as
@@ -2317,8 +2334,9 @@ translate_prolog_import_dl(Importer, [File, FunctionNames], Goals0, Goals, Out) 
     translate_expr_dl(File, Goals0, BeforeImport, ResolvedFile),
     Goal =.. [Importer, ResolvedFile, FunctionNames, Out],
     space_operation_capability(Importer, Capability),
-    BeforeImport = [metta_require_current_capability(Importer, Capability),
-                    Goal|Goals].
+    translate_restricted_guard_dl(
+        metta_require_current_capability(Importer, Capability), [Goal|Goals],
+        BeforeImport).
 
 %Recorded only while a runnable is being compiled, which is the only place the
 %mistake this guards against can happen: a stored equation is compiled once

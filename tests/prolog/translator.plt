@@ -5,10 +5,11 @@
 %   growth each leave every answer exactly as it was.
 % Guarantees:
 %   - Restricted-space capability and raw-goal safety guards remain visible in
-%     the compiled goal list ahead of the operation they protect [tested:
-%     translator_prolog_imports, translator_prolog_authored_rules,
-%     translator_importer_arguments;
-%     commit=f46e45074286c08c4bd8b3d7892b3d7933f11f77].
+%     the compiled goal list ahead of the operation they protect, while an
+%     ordinary module retains its original unguarded hot path [tested:
+%     translator_restricted_guards, translator_prolog_imports,
+%     translator_prolog_authored_rules, translator_importer_arguments;
+%     commit=WORKTREE].
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
 %     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
@@ -76,6 +77,17 @@ call_cost(Runner, Cost) :-
     min_inferences(call(Runner, 100), Base),
     min_inferences(call(Runner, 1100), Full),
     Cost is (Full - Base) // 1000.
+
+%Translate one expression with a restricted execution module current. The
+%space is released even when translation raises, so one failing assertion
+%cannot make later suites inherit its topology.
+translate_restricted(Expr, Goals, Out) :-
+    Space = '&plunit_translation_restricted',
+    setup_call_cleanup(
+        metta_declare_restricted_space(Space, []),
+        ( space_module(Space, Module),
+          with_metta_module(Module, translate_expr(Expr, Goals, Out)) ),
+        metta_release_space(Space)).
 
 %A conditional nested N deep. File level rather than inside one unit, because
 %two of them need it and a plunit unit is its own module: translation depth
@@ -367,8 +379,8 @@ test(each_prolog_import_has_one_translation,
      [ forall(prolog_importer(Importer)),
        true(Solutions = [_]) ]) :-
     findall(Goals-Out,
-            translate_expr([Importer, source, [imported_function]], Goals,
-                           Out),
+            translate_restricted([Importer, source, [imported_function]],
+                                 Goals, Out),
             Solutions),
     Solutions = [[metta_require_current_capability(Importer, Capability),
                   Goal]-_],
@@ -1263,7 +1275,7 @@ cleanup_head_pattern :-
            ( 'remove-atom'('&self', [=, [Head|_], _], _),
              forget_test_function(Head) )),
     'remove-atom'('&self', [:, 'plunit-hp-eqh', _], _),
-    'remove-atom'('&self', ['plunit-hp-top'|_], _),
+    'remove-atom'('&self', ['plunit-hp-top', _, _], _),
     retractall(silent(_)), assertz(silent(false)).
 
 %A head argument whose label has equations compiles to STRUCTURE, with no
@@ -1322,13 +1334,13 @@ test(an_in_place_annotation_is_still_a_constraint) :-
                            abolish(user:plunit_x4_quoted/2) )) ]).
 
 test(a_prolog_rule_folds_a_constant_at_compile_time) :-
-    translate_expr([plunit_x4_add, 20, 22, V], Goals, _),
+    translate_restricted([plunit_x4_add, 20, 22, V], Goals, _),
     % Nothing is left to run but the safety guard and the unification the rule
     % chose.
     Goals = [metta_require_safe_goal(V = 42), V = 42].
 
 test(a_prolog_rule_emits_a_goal_when_it_cannot_fold) :-
-    translate_expr([plunit_x4_add, A, B, V], Goals, _),
+    translate_restricted([plunit_x4_add, A, B, V], Goals, _),
     Goals = [metta_require_safe_goal(plus(A, B, V)), plus(A, B, V)],
     A = 6, B = 7,
     once(plus(A, B, V)),
@@ -1401,7 +1413,7 @@ test(an_importer_name_list_stays_data,
                  retractall(arity(plunit_tr_importable, _)) )) ]) :-
     forall(prolog_function_importer(Importer),
            ( Call = [Importer, "lib.pl", [plunit_tr_importable, other]],
-             translate_expr(Call, Goals, _),
+             translate_restricted(Call, Goals, _),
              % The guard and operation keep the list intact: there is no call
              % to the registered name.
              Goals = [metta_require_current_capability(Importer, Capability),
@@ -1419,6 +1431,29 @@ test(all_four_importer_spellings_are_covered) :-
                import_prolog_functions_from_module_pred].
 
 :- end_tests(translator_importer_arguments).
+
+:- begin_tests(translator_restricted_guards).
+
+test(an_ordinary_space_update_keeps_the_unguarded_hot_path) :-
+    translate_expr(['add-atom', '&plunit_plain', [fact, one]], Goals, _),
+    Goals = ['add-atom'('&plunit_plain', [fact, one], _)].
+
+test(a_restricted_space_update_emits_the_guard_first) :-
+    translate_restricted(['add-atom', '&plunit_target', [fact, one]], Goals,
+                         _),
+    Goals = [metta_require_space_update_capability('add-atom',
+                                                   '&plunit_target'),
+             'add-atom'('&plunit_target', [fact, one], _)].
+
+test(an_ordinary_raw_goal_keeps_the_unguarded_hot_path) :-
+    translate_expr([translatePredicate, [atom, plain]], Goals, _),
+    Goals == [atom(plain)].
+
+test(a_restricted_raw_goal_emits_the_safety_guard_first) :-
+    translate_restricted([translatePredicate, [atom, restricted]], Goals, _),
+    Goals == [metta_require_safe_goal(atom(restricted)), atom(restricted)].
+
+:- end_tests(translator_restricted_guards).
 
 :- begin_tests(translator_unconstraining_types).
 

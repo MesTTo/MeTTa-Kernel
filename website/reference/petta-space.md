@@ -37,6 +37,14 @@ Source: `bindings/python/petta/space.py`.
 >     test_cast_target_is_positional_only]
 >   - dropping a space releases its integration installation records [tested
 >     test_dropped_space_name_reinstalls_integrations]
+>   - new_space(inherits=parent) creates a child-first read view whose writes and
+>     lifecycle stay local [tested:
+>     test_a_child_space_reads_through_its_parent_and_writes_locally;
+>     commit=755330de329ece49eddcfb7d6db3061c3350a0ca]
+>   - new_space(restricted=True, grants=...) fixes a capability profile at
+>     creation [tested:
+>     test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
+>     commit=6a08901f4125c2536f5b4032daac9937f793870f]
 >   - eval_status and run_status separate a pruned branch from an unevaluated
 >     term, and strict= refuses only the latter [tested
 >     test_eval_status_reports_the_four_outcomes,
@@ -150,7 +158,13 @@ def space_names(self) -> list[str]:
 ### `MeTTa.new_space`
 
 ```python
-def new_space(self) -> MeTTa:
+def new_space(
+    self,
+    *,
+    inherits: MeTTa | None = None,
+    restricted: bool = False,
+    grants: _abc.Iterable[str] = (),
+) -> MeTTa:
 ```
 
 > An anonymous space with a name nothing else is using.
