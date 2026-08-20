@@ -111,8 +111,11 @@ build_c_extension_example
 # Each worker is a process with its own engine. Keeping one test file whole
 # preserves module fixtures, and a worker crash fails instead of being retried.
 # The benchmark plugin is disabled here because it refuses parallel timing;
-# the dedicated benchmark gates below own those measurements.
-run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark -n auto --dist loadfile --max-worker-restart=0"
+# the dedicated benchmark gates below own those measurements. Four workers is
+# the fixed load-tested ceiling, rather than a machine-size-dependent `auto`
+# expansion [tested: test_the_pytest_lane_is_deterministic_under_load_protocol;
+# commit=WORKTREE].
+run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark -n 4 --dist loadfile --max-worker-restart=0"
 run GATE benchmarks   in_py "$PY" bench.py --counter-only --keep-going
 run GATE instructions in_py "$PY" -m benchmarks.check_instructions
 run_example_corpus() {
