@@ -8,6 +8,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `DontEvalType` is a declarable evaluation mask. Declaring
+  `(: Payload DontEvalType)` makes a `Payload` parameter receive its written
+  expression before evaluation; the compiler consults the declaration, not a
+  type-name convention.
 - `(space-atom-count <space>)` answers how many atoms a space holds from
   the store's own per-predicate clause counts: one property read per
   stored arity, none per atom, so a capacity policy over a million-atom

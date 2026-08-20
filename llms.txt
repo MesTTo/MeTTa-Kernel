@@ -216,16 +216,19 @@ call against 25.16 and 2.34us for the same operation through `register_op`.
 ## Types and cast
 
 Types are optional atoms: `(: Ann Person)`, `(: age (-> Person Number))`.
-A typed call silently answers empty for a mismatched or `%Undefined%` argument,
-so `m.cast(value, type)` is the loud spelling: it returns the value or raises
-`CastError` naming the types the value does admit. `Atom`, `%Undefined%` and `_`
-are unchecked. A float or signed-i64 integer has type `Number`; a wider integer
-has type `BigInt`. A `BigInt` satisfies a declared `Number` parameter, while a
-`Number` does not satisfy `BigInt`. Arithmetic stays exact and result typing
-follows the result width. `bool` spells `Bool` before `int` is classified by
-that boundary. The target is positional-only, and a concrete Python class
-target is also the static return type of `cast`, `convert.build` and
-`Rows.build`.
+A typed mismatch answers an `Error` value whose reason is `BadArgType` or
+`IncorrectNumberOfArguments`, so a MeTTa program can handle it with `if-error`.
+`m.cast(value, type)` returns the value or raises `CastError` naming the types
+the value does admit. `Atom`, `%Undefined%` and `_` are unchecked. A user type
+declared with `(: Payload DontEvalType)` is also an evaluation mask: a function
+parameter of type `Payload` receives its written argument unevaluated. The
+declaration is required; no type-name convention enables the behavior. A float
+or signed-i64 integer has type `Number`; a wider integer has type `BigInt`. A
+`BigInt` satisfies a declared `Number` parameter, while a `Number` does not
+satisfy `BigInt`. Arithmetic stays exact and result typing follows the result
+width. `bool` spells `Bool` before `int` is classified by that boundary. The
+target is positional-only, and a concrete Python class target is also the
+static return type of `cast`, `convert.build` and `Rows.build`.
 `m.arities(name)`, `m.is_function(name)` (visible from here),
 `m.is_function_here(name)` (has clauses HERE), `m.builtins()`.
 

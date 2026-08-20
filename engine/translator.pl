@@ -38,6 +38,9 @@
 %     translator_branch_returns].
 %   - A typed function remains partially applicable until it has produced a
 %     return value [tested 2026-08-14: translator_typed_currying].
+%   - A parameter type declared as DontEvalType receives its written argument
+%     without evaluation, independent of the type's name
+%     [tested: test_a_user_declared_lazy_type_receives_its_argument_unevaluated; commit=WORKTREE].
 %   - The Number fast path admits both signed-i64 Number integers and wider
 %     BigInt integers, matching the type boundary's directed compatibility
 %     rule [tested 2026-08-20:
@@ -2529,7 +2532,7 @@ translate_args_by_type_dl(Args, Types, Goals0, Goals, AVs) :-
 translate_args_by_type_dl([], _, _, Goals, Goals, [], Checks, Checks) :- !.
 translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
                           Goals0, Goals, [AV|AVs], Checks0, Checks) :-
-    ( T == 'Atom'
+    ( non_evaluated_parameter_type(T)
       -> AV = A,
          AfterArg = Goals0,
          AfterCheck = Checks0
@@ -2542,6 +2545,15 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
         Checks0 = [ArgGoal|AfterCheck] ) ),
     translate_args_by_type_dl(As, Ts, Origins, AfterArg, Goals, AVs,
                               AfterCheck, Checks).
+
+%Atom is the shipped evaluation mask. DontEvalType makes that same compiler
+%decision declarative for user types; it deliberately skips the ordinary
+%argument check because the written expression has not yet produced a value
+%whose runtime type could satisfy the declared marker.
+non_evaluated_parameter_type('Atom') :- !.
+non_evaluated_parameter_type(Type) :-
+    nonvar(Type),
+    catch_recover(type_declaration(Type, 'DontEvalType'), fail).
 
 %A check that cannot be DROPPED can still be SPECIALISED. Three types are
 %decided by a single Prolog builtin, and when the declared type is one of them
