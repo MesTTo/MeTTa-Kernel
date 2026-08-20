@@ -75,7 +75,7 @@ ext_point_kind(ext_point_kind/2, declaration).
 %Libraries contribute builtin arrows without replacing the engine's table.
 %It is a declaration seam, so every contributed clause remains reachable
 %[tested: test_a_library_types_its_own_blob_without_destroying_the_table;
-%commit=WORKTREE].
+%commit=65d5fff90323fb92e2415f9fe93c477d5c67f10e].
 :- multifile builtin_type_declaration/2.
 ext_point_kind(builtin_type_declaration/2, declaration).
 
