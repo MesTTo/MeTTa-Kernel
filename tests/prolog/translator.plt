@@ -1734,40 +1734,33 @@ test(explicit_no_answer_rejects_an_empty_value,
 
 :- begin_tests(translator_sealed).
 
-% sealed had NO test and NO example anywhere in the tree, and the case it
-% exists for did not work: the rename was emitted as a runtime goal over the
-% already-translated body, so an outer binding had already bound the variable
-% and there was nothing left to rename.
+% sealed returns an Atom whose variables are renamed before outer evaluation
+% can bind them. The ignore list preserves only the identities it contains,
+% and repeated occurrences use one fresh identity.
+test(sealing_freshens_every_unignored_variable_once) :-
+    once(eval([sealed, [], [pair, X, X]], Answer)),
+    Answer = [pair, Fresh, Fresh],
+    var(Fresh),
+    Fresh \== X.
 
-% The canonical use. Without the compile-time rename this had no answer at all,
-% because the inner let ran as (let 1 2 1).
-test(a_sealed_variable_shadows_an_outer_binding) :-
-    findall(V, eval([let, X, 1, [sealed, [X], [let, X, 2, X]]], V), Answers),
-    Answers == [2].
+test(the_ignore_list_preserves_only_its_variables) :-
+    once(eval([sealed, [X], [triple, X, Y, Y]], Answer)),
+    Answer = [triple, Kept, Fresh, Fresh],
+    Kept == X,
+    Fresh \== Y.
 
-test(a_sealed_variable_is_local_to_its_expression) :-
-    findall(V, eval([sealed, [Y], [let, Y, 5, Y]], V), Answers),
-    Answers == [5].
+test(sealed_returns_data_instead_of_evaluating_it) :-
+    once(eval([sealed, [], ['+', 1, 2]], Answer)),
+    Answer == ['+', 1, 2].
 
-% Only the listed variables are renamed. Everything else stays shared, which is
-% what copy_term/4 gives and what makes sealed useful rather than a full copy.
-test(an_unlisted_variable_stays_shared) :-
-    findall(V, eval([let, Z, 7, [sealed, [_W], [Z, _]]], V), Answers),
-    Answers = [[7, Fresh]],
-    var(Fresh).
+test(sealing_a_ground_atom_returns_that_atom) :-
+    once(eval([sealed, [], 42], Answer)),
+    Answer == 42.
 
-test(sealing_nothing_is_the_expression_itself) :-
-    findall(V, eval([sealed, [], 42], V), Answers),
-    Answers == [42].
-
-% sealed and lambda are the same operation, capture-avoiding renaming, in two
-% places: a lambda renames its BINDERS on every application, sealed renames
-% variables you NAME in an atom that has no binders. So a sealed variable
-% inside a lambda body is not free in that lambda and must not be captured.
-% It was: (= (mk) (|-> ($a) (sealed ($v) (pair $a $v)))) compiled mk to arity
-% 2 while every call was arity 1, which made the function uncallable.
-test(a_lambda_does_not_capture_a_sealed_variable) :-
-    sread("(= (plunit-seal-mk) (|-> ($a) (sealed ($v) (pair $a $v))))", Term),
+% A lambda parameter is ignored so it remains captured. The other variable is
+% freshened by sealed and must not become another lambda argument.
+test(a_lambda_does_not_capture_an_unignored_sealed_variable) :-
+    sread("(= (plunit-seal-mk) (|-> ($a) (sealed ($a) (pair $a $v))))", Term),
     translate_clause(Term, (Head :- _)),
     functor(Head, _, Arity),
     Arity == 1.
@@ -1789,7 +1782,7 @@ test(a_lambda_still_captures_an_ordinary_free_variable) :-
 % the variables appearing in a clause each time the clause is chosen to effect
 % a reduction" [The Art of Prolog, section 4, The Computation Model].
 test(each_application_gets_its_own_sealed_variable) :-
-    findall(V, eval([let, F, ['|->', [A], [sealed, [S], [tagged, A, S]]],
+    findall(V, eval([let, F, ['|->', [A], [sealed, [A], [tagged, A, _S]]],
                      [superpose, [[F, 1], [F, 2]]]], V), Answers),
     Answers = [[tagged, 1, One], [tagged, 2, Two]],
     var(One), var(Two), One \== Two.

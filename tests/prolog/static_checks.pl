@@ -455,7 +455,7 @@ compile_time_helper_source("
 (= (sch-filter $l) (filter-atom $l $x (> (sch-dbl $x) 2)))
 (= (sch-fold $l) (foldl-atom $l 0 $a $x (+ $a (sch-dbl $x))))
 (= (sch-lambda) (|-> ($y) (sch-dbl $y)))
-(= (sch-sealed $x) (sealed ($v) (let $v $x (+ $v 1))))
+(= (sch-sealed $x) (sealed ($x) (let $v $x (+ $v 1))))
 (= (sch-apply $f $x) ($f $x))
 (= (sch-ho $l) (map-atom $l $x (sch-apply sch-dbl $x)))
 !(sch-map (1 2 3))

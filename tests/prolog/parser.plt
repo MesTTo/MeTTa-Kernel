@@ -116,6 +116,51 @@ test(writer_dcg_has_one_compilation) :-
 
 :- end_tests(parser_stable_variables).
 
+:- begin_tests(parser_named_variables).
+
+:- dynamic stored_pattern/1.
+
+test(reader_name_survives_to_the_writer) :-
+    sread_with_names("(pair $left $right $left)", Term, Names),
+    swrite_with_names(Term, Names, Written),
+    Written == "(pair $left $right $left)".
+
+test(distinct_same_named_variables_receive_first_occurrence_epochs) :-
+    Term = [pair, First, Second, First, Second],
+    Names = [x-First, x-Second],
+    swrite_with_names(Term, Names, Written),
+    Written == "(pair $x#0 $x#1 $x#0 $x#1)".
+
+test(an_engine_variable_without_a_reader_name_keeps_the_fallback) :-
+    Term = [pair, Source, _Fresh],
+    swrite_with_names(Term, [source-Source], Written),
+    Written == "(pair $source $_1)".
+
+test(printing_named_variables_does_not_bind_or_strip_constraints) :-
+    X #> 0,
+    fd_dom(X, DomainBefore),
+    swrite_with_names([value, X], [x-X], Written),
+    fd_dom(X, DomainAfter),
+    Written == "(value $x)",
+    DomainAfter == DomainBefore.
+
+test(answer_group_uses_each_collected_side_map) :-
+    Answers = ['$petta_answer'([left, X], [x-X]),
+               '$petta_answer'([right, Y], [y-Y])],
+    swrite_answer_group(Answers, Written),
+    Written == "((left $x) (right $y))".
+
+test(assert_boundary_returns_a_fresh_nameless_variable,
+     [ setup(retractall(stored_pattern(_))),
+       cleanup(retractall(stored_pattern(_))) ]) :-
+    sread_with_names("(stored $source)", Term, [source-_]),
+    assertz(stored_pattern(Term)),
+    stored_pattern(Stored),
+    swrite_with_names(Stored, [], Written),
+    Written == "(stored $_0)".
+
+:- end_tests(parser_named_variables).
+
 :- begin_tests(parser_comments).
 
 test(inline_comment_ends_at_newline) :-
