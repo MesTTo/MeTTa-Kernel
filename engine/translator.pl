@@ -1301,7 +1301,18 @@ reduce([F|Args], Out, Status) :- !,
                               ; current_predicate(Module:F/Arity) ),
             \+ (Arity =< 2, current_op(_, _, F))
         ->  resolve_dispatch(F, Args, Out, Goal),
-            dispatch_policy_execute(Module, F, Args, Goal, Out),
+            % A host or builtin function in &self has no retained equation and
+            % therefore no dispatch policy to interpret. Avoiding the inherited
+            % metadata search keeps the direct Prolog door at its measured
+            % transport cost; a retained MeTTa equation still takes the policy
+            % route, as do named modules whose inherited owner must be resolved.
+            % [tested: prolog_interface:a_registered_predicate_costs_no_more_than_a_metta_function;
+            % commit=WORKTREE]
+            (   Module == Self,
+                \+ fun_meta_clause(Module, F, _, _)
+            ->  call(Module:Goal)
+            ;   dispatch_policy_execute(Module, F, Args, Goal, Out)
+            ),
             Status = reduced
         ;   incomplete_application_kind(F, Arity, partial)
         ->  Out = partial(F,Args),
