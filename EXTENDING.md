@@ -352,7 +352,7 @@ Do not redeclare the predicate in the library. The engine declares it
 clause. The engine's other arrows remain present before, during, and after the
 extension's lifetime [tested:
 `test_a_library_types_its_own_blob_without_destroying_the_table`;
-commit=WORKTREE].
+commit=1a5459b9e81b168ee402bf9eda2c407e55f7eae0].
 
 ### Taking an argument unevaluated
 
