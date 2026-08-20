@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 29 plunit suites over the engine itself | the `plunit` gate lane |
-| `python/tests/*.py` | 130 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `python/tests/*.py` | 131 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |

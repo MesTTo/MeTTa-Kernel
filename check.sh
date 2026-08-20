@@ -15,6 +15,7 @@
 #                                            bandit deptry audit interrogate
 #                                            codespell imports jscpd prolog
 #                                            codec-doc leatta leatta-gate-selftest
+#                                            snippets
 #                                            pytest benchmarks instructions
 #                                            shell examples leatta
 #          CHECK_PY=/path/to/python   pick the interpreter
@@ -711,6 +712,11 @@ run GATE   deptry      in_py "$PY" -m deptry .
 run GATE   audit       in_py "$PY" -m pip_audit --progress-spinner off
 # ledger F: public API documentation is held above the 80% target
 run GATE   interrogate in_py "$PY" -m interrogate petta
+# P0.26's website snippet provenance backlog is enumerated in
+# website/scripts/snippet_backlog.tsv. The script reports the fixed baseline's
+# remaining entries and calls anything outside it UNTRACKED, so the baseline
+# cannot grow silently. Promote this lane when the remaining count reaches zero.
+run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
 # Every source path the project ships, and clean, so this gates. It used to
 # read src, lib and README alone, which left the docs and examples a reader
 # meets first unchecked: widening it turned up 27 more spellings against the
