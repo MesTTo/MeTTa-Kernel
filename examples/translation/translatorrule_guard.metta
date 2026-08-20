@@ -1,3 +1,10 @@
+; Purpose: demonstrate guarded translator rules and their ordinary-dispatch
+;   fallback.
+; Guarantees: a guarded `add-pairs` miss is the empty relational result this
+;   example teaches, selected explicitly from the P3 dispatch catalog.
+; [tested: examples/translation/translatorrule_guard.metta; commit=WORKTREE]
+!(add-atom &petta (dispatch-policy add-pairs NoMatchEnum NoMatchFail))
+
 ;A translator rule rewrites a call at compile time, and the rule's own head is
 ;a pattern like any other equation head. So a rule can carry a GUARD: it names
 ;the shape it rewrites, and a call of another shape is left to ordinary

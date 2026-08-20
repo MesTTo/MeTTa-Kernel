@@ -1,3 +1,17 @@
+; Purpose: demonstrate constructive negation over equations and constraints.
+; Guarantees: a missing `penguin` proof is relational failure, selected
+;   explicitly instead of the P3 residual-call dispatch default.
+; [tested: examples/reasoning/constructive_negation.metta; commit=WORKTREE]
+!(add-atom &petta (dispatch-policy penguin NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy bird NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy student NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy married NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy invalid NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy over-65 NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy paid-up NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy marks NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy edge NoMatchEnum NoMatchFail))
+
 ;Constructive negation. (not-provable E) answers True for the arguments that
 ;E cannot prove and False for the ones it can, and it answers over an infinite
 ;domain by constraining rather than by enumerating.
