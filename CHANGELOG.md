@@ -15,12 +15,25 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   an unbound or non-space argument is refused like the sibling builtins;
   a foreign space is refused by name, because its provider owns its atoms
   and the only general count there is an enumeration.
+- `(has-declared-type $x $type)` answers whether a `(: $x $type)`
+  declaration witnesses the type, about the atom AS ITSELF: the first
+  parameter carries the Atom mask, so a policy written in MeTTa can ask
+  the admission contract's own question of an unreduced atom.
+- `(space-admission-verdict <pool> <atom>)` is the shipped judge over the
+  `(admits <pool> <type>)` and `(capacity <pool> <n>)` contract atoms in
+  `&petta`, answering the pre-add hook's own verdict algebra: `(accept)`,
+  or `(refuse (does-not-carry <type>))` and
+  `(refuse (pool-at-capacity <limit>))` naming the first violated
+  contract. `declare_admits` and `declare_capacity` claim a pool's
+  pre-add hook with it through a one-line guard equation, and
+  `examples/spaces/admission_pools.metta` runs the same judge written in
+  MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
 
 - A space hook consults its handler at a fixed small cost instead of
-  re-translating the call on every write: 64.02 inferences per add
-  against 234.03 before, beside 49.01 for an unhooked add. The handler's
+  re-translating the call on every write: 44.02 inferences per add
+  against 234.03 before, beside 29.01 for an unhooked add. The handler's
   call site is translated once when the claim is made and recompiled
   automatically after any equation or declaration change.
 - Removing the last equation that shadowed a builtin restores the

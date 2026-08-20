@@ -1320,41 +1320,43 @@ test(a_variable_headed_equation_raises_either_way) :-
 
 % Admission gates the write itself, so a pool's batch has to meet the same
 % refusal its atoms meet arriving alone. The store-only crossing used to
-% write behind the admission wrapper's back: a pool at capacity 2 held five
+% write behind the admission door's back: a pool at capacity 2 held five
 % atoms after a three-atom batch landed unrefused [measured 2026-08-20].
+% The door is petta_admission_claim/2's guard on the general pre-add hook,
+% so the refusal arrives as the hook's petta_add_refused with the judge's
+% own words, not a bespoke error.
 setup_batch_admission :-
     clear_native_atoms('&bt-pool'),
     metta_add_atom('&petta', [capacity, '&bt-pool', 2], _),
-    petta_install_admission,
+    petta_admission_claim('&bt-pool', '&self'),
     'add-atom'('&bt-pool', [a, 1], _),
     'add-atom'('&bt-pool', [a, 2], _).
 
-% The wrapper comes off in cleanup so later tests in this process keep the
-% direct write path they were written against. The retract is qualified
-% because a database operation resolves in THIS unit's module where a call
-% follows the inheritance chain: unqualified, it cleared a fresh local flag,
-% the engine's stayed set, and the next setup's install quietly no-opped
-% with the wrapper already off. The unwrap tolerance is
-% disable_metta_atom_hook/1's own idiom.
+% The claim comes off in cleanup so later tests in this process keep the
+% direct write path they were written against; the guard equation comes
+% out of &self so the next setup's claim rewrites it fresh.
 cleanup_batch_admission :-
+    metta_undeclare_hook(pre_add, '&bt-pool'),
     metta_remove_atom('&petta', [capacity, '&bt-pool', 2], _),
-    clear_native_atoms('&bt-pool'),
-    petta_engine_module(Engine),
-    ( unwrap_predicate(Engine:metta_add_atom/3, petta_admission_guard)
-      -> true ; true ),
-    retractall(Engine:petta_admission_installed).
+    (   metta_remove_atom('&self',
+                          [=, ['space-admission-guard-&bt-pool', _], _], _)
+    ->  true
+    ;   true
+    ),
+    clear_native_atoms('&bt-pool').
 
 test(a_batch_beyond_capacity_is_refused_like_lone_adds,
      [ setup(setup_batch_admission),
        cleanup(cleanup_batch_admission),
-       throws(error(petta_pool_full('&bt-pool', 2), _)) ]) :-
+       throws(error(petta_add_refused('&bt-pool', [b, 1],
+                                      ['pool-at-capacity', 2]), _)) ]) :-
     metta_add_atoms('&bt-pool', [[b, 1], [b, 2]]).
 
 test(a_refused_batch_leaves_the_state_lone_adds_leave,
      [ setup(setup_batch_admission),
        cleanup(cleanup_batch_admission) ]) :-
     catch(metta_add_atoms('&bt-pool', [[b, 1], [b, 2]]),
-          error(petta_pool_full('&bt-pool', 2), _),
+          error(petta_add_refused('&bt-pool', _, ['pool-at-capacity', 2]), _),
           true),
     findall(A, 'get-atoms'('&bt-pool', A), Atoms),
     assertion(Atoms == [[a, 1], [a, 2]]).

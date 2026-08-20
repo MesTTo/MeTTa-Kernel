@@ -1,7 +1,9 @@
 % Purpose: PlUnit coverage for the space-hook mechanism in src/metta.pl:
 %   (declare-pre-add! <space> <handler>), the one-claimant rule, the
 %   four-verdict algebra (accept, accept-transformed, refuse, drop), the
-%   stuck state, and the batch door's degrade to per-atom adds.
+%   stuck state, the batch door's degrade to per-atom adds, the
+%   claim-time compiled fire path, and the admits/capacity sugar riding
+%   the same registry through petta_admission_claim/2.
 %
 %   The discipline under test is the interaction-net one (Hassan, Mackie
 %   and Sato, GT-VMT 2008): at most one rule per pair of agents, checked
@@ -372,3 +374,160 @@ test(the_offered_atom_reaches_the_handler_as_itself) :-
     metta_undeclare_hook(pre_add, '&cf-pool').
 
 :- end_tests(hooks_compiled_fire).
+
+% ai-p12-design.md P12.4's acceptance: admits and capacity are sugar over
+% the general hook. The claim is an ordinary petta_hook_claim row visible
+% through the same registry and &petta contract atom as any user handler,
+% the judge is the prelude's space-admission-verdict equations, and the
+% bespoke wrapper family (petta_install_admission/0, petta_admission_check/2,
+% petta_admission_idle/1) is gone from the engine.
+:- begin_tests(hooks_admission_sugar).
+
+sugar_teardown(Pool) :-
+    metta_undeclare_hook(pre_add, Pool),
+    atom_concat('space-admission-guard-', Pool, Guard),
+    findall(T, 'get-atoms'('&petta', [admits, Pool, T]), Admits),
+    forall(member(T, Admits),
+           ( metta_remove_atom('&petta', [admits, Pool, T], _) -> true ; true )),
+    findall(N, 'get-atoms'('&petta', [capacity, Pool, N]), Caps),
+    forall(member(N, Caps),
+           ( metta_remove_atom('&petta', [capacity, Pool, N], _) -> true ; true )),
+    (   metta_remove_atom('&self', [=, [Guard, _], _], _) -> true ; true ),
+    clear_native_atoms(Pool).
+
+test(test_capacity_and_admits_are_sugar_over_the_general_hook_or_are_gone,
+     [ cleanup(sugar_teardown('&as-pool1')) ]) :-
+    metta_add_atom('&petta', [admits, '&as-pool1', 'AsWidget'], _),
+    petta_admission_claim('&as-pool1', '&self'),
+    assertion(petta_hook_claim('&as-pool1', pre_add,
+                               'space-admission-guard-&as-pool1', _)),
+    assertion(\+ \+ 'get-atoms'('&petta',
+                                ['pre-add', '&as-pool1',
+                                 'space-admission-guard-&as-pool1'])),
+    assertion(\+ current_predicate(petta_install_admission/0)),
+    assertion(\+ current_predicate(petta_admission_check/2)),
+    assertion(\+ current_predicate(petta_admission_idle/1)).
+
+% One claimant per (space, slot), both directions: the sugar refuses to
+% pave over a standing user claim, and a user claim refuses to pave over
+% the sugar's. Undeclaring first is the documented way through.
+test(a_standing_user_claim_makes_the_sugar_conflict_loudly,
+     [ cleanup(( metta_undeclare_hook(pre_add, '&as-mine'),
+                 (   metta_remove_atom('&self', [=, ['as-my-guard', _], _], _)
+                 ->  true
+                 ;   true
+                 ) )),
+       throws(error(petta_hook_conflict('&as-mine', 'pre-add', 'as-my-guard',
+                                        'space-admission-guard-&as-mine'),
+                    _)) ]) :-
+    process_metta_string("(= (as-my-guard $x) (accept))", _),
+    metta_declare_hook(pre_add, '&as-mine', 'as-my-guard'),
+    petta_admission_claim('&as-mine', '&self').
+
+test(the_sugar_claim_makes_a_user_claim_conflict_loudly,
+     [ cleanup(( sugar_teardown('&as-pool2'),
+                 (   metta_remove_atom('&self', [=, ['as-late-guard', _], _], _)
+                 ->  true
+                 ;   true
+                 ) )),
+       throws(error(petta_hook_conflict('&as-pool2', 'pre-add',
+                                        'space-admission-guard-&as-pool2',
+                                        'as-late-guard'), _)) ]) :-
+    petta_admission_claim('&as-pool2', '&self'),
+    process_metta_string("(= (as-late-guard $x) (accept))", _),
+    metta_declare_hook(pre_add, '&as-pool2', 'as-late-guard').
+
+% The guard equation lands in the DECLARING space, not &self: admission
+% declared from a named space keeps its machinery out of the base, and the
+% fire still reaches the prelude's judge through the module chain.
+test(the_guard_equation_lives_in_the_declaring_space,
+     [ cleanup(( metta_undeclare_hook(pre_add, '&as-pool3'),
+                 (   metta_remove_atom('&petta',
+                                       [admits, '&as-pool3', 'AsWidget'], _)
+                 ->  true
+                 ;   true
+                 ),
+                 clear_native_atoms('&as-decl'),
+                 clear_native_atoms('&as-pool3') )) ]) :-
+    metta_add_atom('&petta', [admits, '&as-pool3', 'AsWidget'], _),
+    petta_admission_claim('&as-pool3', '&as-decl'),
+    assertion(\+ 'get-atoms'('&self',
+                             [=, ['space-admission-guard-&as-pool3', _], _])),
+    assertion(\+ \+ 'get-atoms'('&as-decl',
+                                [=, ['space-admission-guard-&as-pool3', _],
+                                 _])),
+    catch(metta_add_atom('&as-pool3', ['as-x'], _), E, true),
+    assertion(subsumes_term(error(petta_add_refused('&as-pool3', ['as-x'],
+                                                    ['does-not-carry',
+                                                     'AsWidget']),
+                                  _),
+                            E)).
+
+test(a_typed_atom_enters_and_the_pool_bounds,
+     [ cleanup(( sugar_teardown('&as-pool4'),
+                 (   metta_remove_atom('&self', [:, 'as-w1', 'AsW'], _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&self', [:, 'as-w2', 'AsW'], _)
+                 ->  true
+                 ;   true
+                 ) )) ]) :-
+    metta_add_atom('&petta', [admits, '&as-pool4', 'AsW'], _),
+    metta_add_atom('&petta', [capacity, '&as-pool4', 1], _),
+    metta_add_atom('&self', [:, 'as-w1', 'AsW'], _),
+    metta_add_atom('&self', [:, 'as-w2', 'AsW'], _),
+    petta_admission_claim('&as-pool4', '&self'),
+    metta_add_atom('&as-pool4', 'as-w1', _),
+    catch(metta_add_atom('&as-pool4', 'as-w2', _), E, true),
+    assertion(subsumes_term(error(petta_add_refused('&as-pool4', 'as-w2',
+                                                    ['pool-at-capacity', 1]),
+                                  _),
+                            E)),
+    findall(A, 'get-atoms'('&as-pool4', A), Atoms),
+    assertion(Atoms == ['as-w1']).
+
+% The pool judges the offered atom AS ITSELF: (as-live) has an equation
+% reducing it to as-dead, which carries no type, so acceptance here is
+% only possible if the judge never reduced the offer.
+test(the_sugar_judges_the_offered_atom_as_itself,
+     [ cleanup(( sugar_teardown('&as-pool5'),
+                 (   metta_remove_atom('&self', [=, ['as-live'], 'as-dead'],
+                                       _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&self', [:, ['as-live'], 'AsLiveW'],
+                                       _)
+                 ->  true
+                 ;   true
+                 ) )) ]) :-
+    process_metta_string("(= (as-live) as-dead)\n(: (as-live) AsLiveW)", _),
+    metta_add_atom('&petta', [admits, '&as-pool5', 'AsLiveW'], _),
+    petta_admission_claim('&as-pool5', '&self'),
+    metta_add_atom('&as-pool5', ['as-live'], _),
+    findall(A, 'get-atoms'('&as-pool5', A), Atoms),
+    assertion(Atoms == [['as-live']]).
+
+% Idempotent per pool, including across an undeclare: one registry row,
+% one guard equation, and a pool with no contract atoms accepts freely.
+test(reclaiming_is_idempotent,
+     [ cleanup(sugar_teardown('&as-pool6')) ]) :-
+    petta_admission_claim('&as-pool6', '&self'),
+    petta_admission_claim('&as-pool6', '&self'),
+    findall(H, petta_hook_claim('&as-pool6', pre_add, H, _), Hs),
+    assertion(Hs == ['space-admission-guard-&as-pool6']),
+    findall(x, 'get-atoms'('&self',
+                           [=, ['space-admission-guard-&as-pool6', _], _]),
+            Ones),
+    assertion(Ones == [x]),
+    metta_undeclare_hook(pre_add, '&as-pool6'),
+    petta_admission_claim('&as-pool6', '&self'),
+    findall(x, 'get-atoms'('&self',
+                           [=, ['space-admission-guard-&as-pool6', _], _]),
+            Again),
+    assertion(Again == [x]),
+    metta_add_atom('&as-pool6', ['as-free'], _),
+    assertion(\+ \+ 'get-atoms'('&as-pool6', ['as-free'])).
+
+:- end_tests(hooks_admission_sugar).
