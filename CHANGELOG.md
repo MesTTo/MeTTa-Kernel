@@ -76,6 +76,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Generated symbolic atom operators now specialize their lowering table entry
+  once at import instead of interpreting that entry for every constructed term.
 - Typed local bindings now carry an internal provenance marker, so source-level
   colon pairs remain data patterns even when their third slot looks like a
   concrete type. Existing destructuring programs such as
