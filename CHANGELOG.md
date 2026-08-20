@@ -84,6 +84,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- The tree partitions by seam, staging the kernel-and-satellites form.
+  The engine lives in `engine/` alone; each driver seat lives under
+  `bindings/` with everything it needs (`bindings/python/` carries the
+  package, its decider and bridge, tests, benchmarks, tools, examples
+  and the `lowerings/` seam home; `bindings/node/` is the TypeScript
+  seat); each storage integration lives under `backends/` with its own
+  decider and build (`backends/mork/` carries `mork_ffi`). The engine
+  discovers seats and backends through two globs,
+  `bindings/*/decider.pl` and `backends/*/decider.pl`, and names
+  neither; `test_the_tree_partitions_by_seam` is the fence. The legacy
+  `python.petta` import path still resolves to the canonical package
+  through the unchanged `python/__init__.py` shim, installed wheels keep
+  the same layout under `petta/_runtime/`, and `PETTA_PATH` still names
+  a checkout root.
 - A finite float prints the arbiter's layout over the same
   shortest-round-trip digits: `1e16`, `0.00001` and `1.5e300` where SWI's
   `number_codes/2` wrote `1.0e+16`, `1.0e-05` and `1.5e+300`. The rule is
