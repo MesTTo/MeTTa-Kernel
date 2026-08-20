@@ -215,6 +215,50 @@ test(a_route_cap_demotes_and_refuses_through_the_published_seam,
           error(petta_route_cap_invalid('&cap1', sideways, _), _),
           true).
 
+%Orderedness is a claim in the catalog, so a third-party semiring value
+%claimed ordered serves (top k ...) and an unclaimed one refuses, with no
+%engine edit: the widening idiom is remove-then-redeclare on the
+%vocabulary row, then a claim row for the new value.
+test(a_claimed_ordered_value_orders_and_an_unclaimed_one_does_not,
+     [setup(( 'get-atoms'('&petta', [vocabulary, semiring|Shipped]),
+              metta_remove_atom('&petta', [vocabulary, semiring|Shipped], _),
+              assertz(cat_parked_spec(Shipped)),
+              append([vocabulary, semiring|Shipped], [cost, heap], Widened),
+              add_sexp('&petta', Widened, _),
+              add_sexp('&petta', [claim, semiring, cost, ordered], _),
+              add_sexp('&petta', [annotations, '&ord1', cost], _),
+              add_sexp('&petta', [annotations, '&ord2', heap], _) )),
+      cleanup(( forall(member(A, [[claim, semiring, cost, ordered],
+                                  [annotations, '&ord1', cost],
+                                  [annotations, '&ord2', heap]]),
+                       metta_remove_atom('&petta', A, _)),
+                retract(cat_parked_spec(Shipped)),
+                append([vocabulary, semiring|Shipped], [cost, heap], Widened),
+                metta_remove_atom('&petta', Widened, _),
+                add_sexp('&petta', [vocabulary, semiring|Shipped], _) ))]) :-
+    petta_annotations_ordered('&ord1'),
+    \+ petta_annotations_ordered('&ord2').
+
+%The export parser's word lists are the catalog's volatility vocabulary,
+%consulted as data: widening the row widens what the parser accepts.
+test(the_export_parser_reads_the_volatility_vocabulary,
+     [setup(( 'get-atoms'('&petta', [vocabulary, volatility|Shipped]),
+              metta_remove_atom('&petta', [vocabulary, volatility|Shipped], _),
+              assertz(cat_parked_spec(Shipped)),
+              append([vocabulary, volatility|Shipped], [frozen], Widened),
+              add_sexp('&petta', Widened, _) )),
+      cleanup(( retractall(metta_function_volatility('cat-vol-f', _)),
+                retract(cat_parked_spec(Shipped)),
+                append([vocabulary, volatility|Shipped], [frozen], Widened),
+                metta_remove_atom('&petta', Widened, _),
+                add_sexp('&petta', [vocabulary, volatility|Shipped], _) ))]) :-
+    metta_export("(volatility cat-vol-f frozen)"),
+    metta_function_volatility('cat-vol-f', frozen),
+    catch(( metta_export("(volatility cat-vol-g melty)"),
+            fail ),
+          error(petta_export_form(_), _),
+          true).
+
 %The bulk door refuses the whole batch before any of it lands.
 test(the_bulk_door_checks_before_it_writes) :-
     catch(( metta_add_atoms('&petta', [[source, '&cat4', repeated],
