@@ -480,6 +480,55 @@ test(the_verifier_runs_a_clone_in_its_own_module,
 % atoms from &self, so the SOURCE of a copy lost atoms to the copy. It was the
 % suite's one known flake, 1 firing in 12 parallel runs, and no concurrency was
 % involved.
+%The copy door: MeTTa.copy() enumerates a space and re-adds every atom into
+%a fresh one, generated specializations included. Compiling a copied
+%specialization's body re-enters the specializer with no ho_specialization/3
+%row behind the name, and regenerating there stored every specialization
+%TWICE, the copies orphans nothing would invalidate. Adoption records the
+%row instead: same atom count, one answer, and the clone's specializations
+%are tracked again.
+test(a_copied_space_adopts_its_specializations_instead_of_duplicating,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( forall(member(S, ['&self', '&plunit_spec_clone']),
+                        forall(member(N, ['plunit-copy-hof', 'plunit-copy-inc',
+                                          'plunit-copy-use']),
+                               remove_sexp(S, [=, [N|_], _]))),
+                 forall(member(S, ['&self', '&plunit_spec_clone']),
+                        ( space_module(S, M),
+                          forall(member(N, ['plunit-copy-hof', 'plunit-copy-inc',
+                                            'plunit-copy-use']),
+                                 invalidate_specializations(M, N)) )),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    Clone = '&plunit_spec_clone',
+    space_module('&self', SelfModule),
+    space_module(Clone, CloneModule),
+    'add-atom'('&self', [=, ['plunit-copy-inc', X], ['+', X, 1]], _),
+    'add-atom'('&self', [=, ['plunit-copy-hof', F, Y], [F, Y]], _),
+    'add-atom'('&self', [=, ['plunit-copy-use', Z],
+                            ['plunit-copy-hof', 'plunit-copy-inc', Z]], _),
+    with_metta_module(SelfModule, reduce(['plunit-copy-use', 1], Answer, _)),
+    assertion(Answer == 2),
+    spec_equation_count('&self', SelfSpecs),
+    assertion(SelfSpecs > 0),
+    findall(A, 'get-atoms'('&self', A), Atoms),
+    forall(member(A, Atoms), 'add-atom'(Clone, A, _)),
+    spec_equation_count(Clone, CloneSpecs),
+    assertion(CloneSpecs == SelfSpecs),
+    assertion(ho_specialization(CloneModule, 'plunit-copy-hof', _)),
+    with_metta_module(CloneModule,
+                      findall(Out, reduce(['plunit-copy-use', 5], Out, _),
+                              CloneAnswers)),
+    assertion(CloneAnswers == [6]),
+    spec_equation_count(Clone, CloneSpecsAfter),
+    assertion(CloneSpecsAfter == SelfSpecs).
+
+spec_equation_count(Space, Count) :-
+    findall(Name,
+            ( 'get-atoms'(Space, [=, [Name|_], _]),
+              atom(Name), sub_atom(Name, _, _, _, '_Spec_') ),
+            Names),
+    length(Names, Count).
+
 test(writing_in_one_space_leaves_another_alone,
      [ setup(( retractall(silent(_)), assertz(silent(true)) )),
        cleanup(( forall(member(S, ['&self', '&plunit_spec_other']),
