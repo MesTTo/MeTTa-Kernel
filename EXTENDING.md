@@ -56,18 +56,22 @@ fell from 49.01 when the old global admission wrapper came off.
 | write door | inferences/add | vs plain add |
 |---|---|---|
 | add-atom, no claims on the space | 29.01 | 1.00x |
-| add-atom through an accept-all pre-add hook | 44.02 | 1.52x |
-| add-atom into a pool with a declared admits type | 73.01 | 2.52x |
-| add-atom into a pool with a declared capacity | 106.02 | 3.65x |
+| add-atom through an accept-all pre-add hook | 39.02 | 1.34x |
+| add-atom into a pool with a declared admits type | 51.01 | 1.76x |
+| add-atom into a pool with a declared capacity | 60.01 | 2.07x |
 
 The capacity row used to read 4569.69 at a thousand held atoms and grew
 with every one, because the bespoke check counted the pool by enumeration
-per add; the judge reads `space-atom-count`, the store's own clause
-bookkeeping, so the row's cost no longer depends on what the pool holds.
-The admits and capacity rows carry the whole fire path plus the judge's
-contract reads, and their marginals sit over an untaxed plain add now: the
-old 60.01 admits figure sat beside a plain add the global wrapper had
-already taxed to 49.01.
+per add. A native capacity claim now installs one rollback-safe dynamic
+count, updated only on that pool's accepted writes and reset by its removal
+and clear doors. The judge reads the indexed fact in 3.00 inferences, so the
+row's cost no longer depends on either the atom count or the number of stored
+arities. A pool with no capacity claim owns no counter, and a space with no
+hook claim never probes for one; the 29.01 plain row is therefore unchanged.
+The admits and capacity rows also read their fixed contract heads directly,
+ground type witnesses take an indexed declaration hit before their exact
+fallback, and a compiled hook fire already in its declaring module skips the
+module switch.
 
 **Inferences understate Python.** The janus crossing counts as one inference
 and costs real microseconds, so inferences say a raw Python operation is 1.7
