@@ -3,10 +3,11 @@
 %   '&petta' declarations against the self-describing catalog.
 % Assumes:
 %   - the removal funnel takes a space NAME rather than a handle, so
-%     metta_remove_atom/3, unstore_atom/3 and remove_equation/6 each take an
-%     atom first; remove_equation/6 is reached only for a stored equation, so
-%     its function symbol is an atom; and all three answer whether anything
-%     went in a `true` or `false` last argument [measured 2026-08-19 by
+%     metta_remove_atom/3, unstore_atom/3 and remove_equation/6 each take a
+%     space name first (an atom or a registered ground expression);
+%     remove_equation/6 is reached only for a stored equation, so its function
+%     symbol is an atom; and all three answer whether anything went in a
+%     `true` or `false` last argument [measured 2026-08-19 by
 %     wrapping the three and reading every call the 19 shipped MeTTa files
 %     that remove an atom make]. Each of those is a PlDoc mode line above its
 %     clause, so the development build checks it at run time rather than
@@ -74,6 +75,16 @@
 %     [tested 2026-08-17: spaces_handles_guard] [measured 2026-08-17:
 %     pure-Prolog foreign match 34 to 41 inferences, bounded take 41 to
 %     55].
+%   - a restricted execution module bases on a curated grant profile and a
+%     denied operation names the space, operation, and missing capability
+%     [tested:
+%     test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
+%     commit=6a08901f4125c2536f5b4032daac9937f793870f].
+%   - a ground expression may name a native space; canonical module names and
+%     a fixed per-module storage functor keep distinct instances isolated, and
+%     context-space returns the exact expression to their equations [tested:
+%     test_two_instances_of_a_parametric_space_answer_independently;
+%     commit=3c7bcde6a0670ec5c563584b26977b41cc727580].
 % Guarded by: '$petta_native_storage' serializes private module creation and
 %   publication in native_storage_module_cache/2; '$petta_capacity_count'
 %   serializes installation and replacement of each incremental count.
@@ -82,14 +93,39 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+:- use_module(library(sandbox), [safe_goal/1]).
+
 % Storage modules are separate from execution modules. They inherit nothing,
 % so a user predicate cannot appear as a space atom, and unknown arities fail
-% without a catch on the indexed read path. The fixed prefix maps every space
-% atom injectively to one module name.
+% without a catch on the indexed read path. Atomic names retain their existing
+% module and predicate names. A parametric name uses its canonical term text
+% as the module suffix and one reserved functor inside that private module;
+% the module already supplies the namespace, so no compound ever occupies a
+% Prolog functor position.
 native_storage_module(Space, Module) :-
+    var(Space),
+    !,
+    nonvar(Module),
+    native_storage_module_cache(Space, Module).
+native_storage_module(Space, Module) :-
+    atom(Space), !,
     atom_concat('$petta_atoms:', Space, Module).
+native_storage_module(Space, Module) :-
+    space_parametric(Space),
+    !,
+    space_canonical_atom(Space, Encoded),
+    atom_concat('$petta_param_atoms:', Encoded, Module).
+
+native_storage_functor(Space, Functor) :- atom(Space), !, Functor = Space.
+native_storage_functor(Space, '$petta_parametric_atom') :-
+    space_parametric(Space),
+    !.
+
+space_canonical_atom(Space, Encoded) :-
+    with_output_to(atom(Encoded), write_canonical(Space)).
 
 :- dynamic native_storage_module_cache/2.
+:- dynamic space_parametric/1.
 %Whether a HOST's own atom hooks are idle for a space, the host's clause of
 %it: the shim answers for the Python side, and with no host loaded the seam
 %has no clause and the engine's own no-handlers test already answered. The
@@ -242,6 +278,12 @@ petta_catalog_head(vocabulary).
 petta_catalog_head(claim).
 petta_catalog_head('routed-by-shape').
 
+add_sexp_in(Module, [Family|Parameters], [Rel|Args], Ref) :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    Term =.. ['$petta_parametric_atom', Rel|Args],
+    assertz(Module:Term, Ref).
 add_sexp_in(Module, Space, [Rel|Args], Ref) :- !,
                                                Term =.. [Space, Rel | Args],
                                                assertz(Module:Term, Ref).
@@ -725,6 +767,7 @@ petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
 petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
 petta_catalog_preset([vocabulary, volatility, volatile, stable, immutable]).
 petta_catalog_preset([vocabulary, 'route-key', context, global]).
+petta_catalog_preset([vocabulary, 'space-capability', file, process, network]).
 petta_catalog_preset([kind, kind, symbol, [rest, term]]).
 petta_catalog_preset([kind, 'routed-by-shape', symbol,
                       [optional, ['one-of', 'route-key']]]).
@@ -751,6 +794,11 @@ petta_catalog_preset([kind, tabled, symbol, symbol, integer]).
 petta_catalog_preset([kind, defined, symbol, symbol]).
 petta_catalog_preset([kind, subscription, symbol, pattern,
                       ['one-of', 'subscription-edge']]).
+petta_catalog_preset([kind, inherits, term, term]).
+petta_catalog_preset([kind, restricted, term]).
+petta_catalog_preset([kind, grants, term,
+                      ['one-of', 'space-capability']]).
+petta_catalog_preset([kind, parametric, term]).
 petta_catalog_preset(['routed-by-shape', handles]).
 petta_catalog_preset(['routed-by-shape', 'on-error']).
 petta_catalog_preset(['routed-by-shape', merge, global]).
@@ -799,11 +847,12 @@ petta_catalog_preset_missing(Atom) :-
 stored_atom_of_ref(Ref, Space, Atom) :-
     catch(clause_property(Ref, predicate(Module:Name/_)), _, fail),
     native_storage_module(Space, Module),
+    native_storage_functor(Space, Functor),
     catch(clause(Stored, true, Ref), _, fail),
     strip_module(Stored, _, Head),
     (   Name == '$petta_native_scalar'
     ->  Head = '$petta_native_scalar'(Atom)
-    ;   Name == Space,
+    ;   Name == Functor,
         Head =.. [_, Rel|Args],
         Atom = [Rel|Args]
     ).
@@ -816,7 +865,13 @@ stored_atom_of_ref(Ref, Space, Atom) :-
 %so a static import loaded clauses nothing could read and reported success
 %[tested: native_storage_shapes_agree,
 %import_facts_land_where_the_space_reads_them].
-native_atom_clause(Space, [Rel|Args], Term) :- !, Term =.. [Space, Rel | Args].
+native_atom_clause([Family|Parameters], [Rel|Args], Term) :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    Term =.. ['$petta_parametric_atom', Rel|Args].
+native_atom_clause(Space, [Rel|Args], Term) :- !,
+    Term =.. [Space, Rel | Args].
 native_atom_clause(_, Atom, '$petta_native_scalar'(Atom)).
 
 %Remove ONE atom that unifies with the requested value. Expressions and
@@ -885,6 +940,15 @@ remove_sexp('&petta', [Rel|Args], Removed) :- !,
         )
     ;   Removed = false
     ).
+remove_sexp([Family|Parameters], [Rel|Args], Removed) :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    (   native_storage_module_ready(Space, Module)
+    ->  Term =.. ['$petta_parametric_atom', Rel|Args],
+        native_retract_one(Module:Term, Removed)
+    ;   Removed = false
+    ).
 remove_sexp(Space, [Rel|Args], Removed) :- !,
     (   native_storage_module_ready(Space, Module)
     ->  Term =.. [Space, Rel | Args],
@@ -900,9 +964,11 @@ remove_sexp(Space, Atom, Removed) :-
 native_retract_one(Head, Removed) :-
     ( \+ \+ retract(Head) -> Removed = true ; Removed = false ).
 
-%Which module a space's compiled clauses live in. EVERY space gets one, &self
-%included, and the mapping is the storage one with a different prefix: total,
-%injective, and with no clause for a special case.
+%Which module a space's compiled clauses live in. EVERY registered space gets
+%one, &self included. Atomic names retain their prefix mapping; parametric
+%names use the same canonical identity encoding as storage, under a distinct
+%prefix. Both mappings are total over their respective name classes and
+%injective.
 %
 %&self used to compile into the module the ENGINE itself resolves in, and an
 %equation asserted there does not shadow a predicate of that name, it REPLACES
@@ -929,13 +995,27 @@ native_retract_one(Head, Removed) :-
 space_module(Space, Module) :-
     (   metta_exec_module_known(Space, Module)
     ->  true
-    ;   metta_exec_module_prefix(Prefix),
-        atom_concat(Prefix, Space, Module),
+    ;   metta_exec_module_name(Space, Module),
         with_mutex('$petta_metta_exec',
                    ensure_metta_exec_module_locked(Space, Module))
     ).
 
+metta_exec_module_name(Space, Module) :-
+    atom(Space), !,
+    metta_exec_module_prefix(Prefix),
+    atom_concat(Prefix, Space, Module).
+metta_exec_module_name(Space, Module) :-
+    space_parametric(Space),
+    !,
+    space_canonical_atom(Space, Encoded),
+    atom_concat('$petta_param_exec:', Encoded, Module).
+
 :- dynamic metta_exec_module_known/2.
+:- dynamic space_parent/2.
+:- dynamic metta_exec_module_parent/2.
+:- dynamic space_restricted/2.
+:- dynamic space_grant/2.
+:- dynamic restricted_profile_known/2.
 
 %The chain, and why each link is where it is.
 %
@@ -960,6 +1040,10 @@ space_module(Space, Module) :-
 metta_exec_module_base(Space, Base) :-
     (   Space == '&self'
     ->  petta_engine_module(Base)
+    ;   space_restricted(Space, Grants)
+    ->  ensure_restricted_profile(Grants, Base)
+    ;   space_parent(Space, Parent)
+    ->  space_module(Parent, Base)
     ;   space_module('&self', Base)
     ).
 
@@ -1007,15 +1091,450 @@ protect_metta_exec_modules :-
 %The inverse of space_module/2. It used to be written out by hand in four
 %places, three of them outside this file, each as
 %`Module == user -> Space = '&self' ; Space = Module`
-%[source: ai-phase11-module-survey.md section 1.3]. One prefix strip replaces
-%all four, and the mapping being injective is what makes the inverse a
-%function rather than a search. It FAILS on a module that is not a space's,
-%because every caller has one in hand and a silent pass-through would answer a
-%module name where a space name was asked for
+%[source: ai-phase11-module-survey.md section 1.3]. The exact forward-map
+%cache replaces all four and supports both atomic and canonical parametric
+%names. It FAILS on a module that is not a space's, because every caller has
+%one in hand and a silent pass-through would answer a module name where a
+%space name was asked for
 %[tested: spaces_execution_modules:the_module_to_space_map_is_the_inverse].
 metta_module_space(Module, Space) :-
-    metta_exec_module_prefix(Prefix),
-    atom_concat(Prefix, Space, Module).
+    metta_exec_module_known(Space, Module).
+
+restricted_core_module('$petta_restricted:core').
+
+space_capability(file).
+space_capability(process).
+space_capability(network).
+
+%A capability is attached to the written operation, not to a Prolog helper it
+%happens to call. Names absent from this table are part of the curated compute
+%surface; raw Prolog goals take the sandbox path below.
+space_operation_capability('exists_file', file).
+space_operation_capability('import!', file).
+space_operation_capability(library, file).
+space_operation_capability('readln!', process).
+space_operation_capability('read-form!', process).
+space_operation_capability('sread-command', process).
+space_operation_capability(argv, process).
+space_operation_capability('new-space', process).
+space_operation_capability(evalc, process).
+space_operation_capability(metta, process).
+space_operation_capability(callPredicate, process).
+space_operation_capability(assertaPredicate, process).
+space_operation_capability(assertzPredicate, process).
+space_operation_capability(retractPredicate, process).
+space_operation_capability(import_prolog_function, process).
+space_operation_capability(check_prolog_function_names, process).
+space_operation_capability(import_prolog_functions, process).
+space_operation_capability(import_prolog_functions_from_file, file).
+space_operation_capability(import_prolog_functions_from_file_pred, file).
+space_operation_capability(import_prolog_functions_from_module, process).
+space_operation_capability(import_prolog_functions_from_module_pred, process).
+space_operation_capability(register_metta_library_path, file).
+space_operation_capability('git-import!', network).
+
+restricted_profile_name([], Core) :- !, restricted_core_module(Core).
+restricted_profile_name(Grants, Module) :-
+    atomic_list_concat(Grants, '+', Suffix),
+    atom_concat('$petta_restricted:', Suffix, Module).
+
+ensure_restricted_profile(Grants, Module) :-
+    restricted_profile_known(Grants, Module),
+    !.
+ensure_restricted_profile(Grants, Module) :-
+    restricted_profile_name(Grants, Module),
+    ensure_restricted_core,
+    (   Grants == []
+    ->  true
+    ;   restricted_core_module(Core),
+        set_module(Module:base(Core)),
+        forall(member(Capability, Grants),
+               publish_restricted_capability(Module, Capability))
+    ),
+    assertz(restricted_profile_known(Grants, Module)).
+
+ensure_restricted_core :-
+    restricted_profile_known([], _),
+    !.
+ensure_restricted_core :-
+    pin_restricted_dispatch_names,
+    restricted_core_module(Core),
+    set_module(Core:base(none)),
+    forall(restricted_core_predicate(PI), publish_restricted_pi(Core, PI)),
+    publish_restricted_denials(Core),
+    assertz(restricted_profile_known([], Core)).
+
+%The reducer's existing scoped-name index decides whether a call must retain
+%the current execution module. Capability-bearing names are module-sensitive
+%for the same reason as a user definition: a restricted profile may publish
+%or withhold them. Pinning only those names preserves reduce/3's ordinary
+%base-tier path while a computed restricted call reaches the curated module's
+%grant or refusal [tested:
+%test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
+%commit=9a49e2f81bb8199c0284f8456e4b48c25a804371].
+pin_restricted_dispatch_names :-
+    forall(space_operation_capability(Name, _),
+           (   fun_scoped(Name)
+           ->  true
+           ;   assertz(fun_scoped(Name))
+           )).
+
+restricted_dispatch_name(Name) :-
+    restricted_profile_known([], _),
+    space_operation_capability(Name, _).
+
+%A denied operation is a local refusal in the curated core, not an import of
+%the engine operation. A grant profile imports the permitted operation into
+%the nearer profile module and therefore shadows this stub. The wrapper is
+%built for each callable arity from the same capability table that builds the
+%grant profiles, so literal and computed calls cannot disagree about the
+%boundary [tested:
+%test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
+%commit=9a49e2f81bb8199c0284f8456e4b48c25a804371].
+publish_restricted_denials(Core) :-
+    forall(( space_operation_capability(Name, Capability),
+             arity(Name, Arity),
+             petta_engine_module(Engine),
+             current_predicate(Engine:Name/Arity) ),
+           publish_restricted_denial(Core, Engine, Name, Arity, Capability)).
+
+publish_restricted_denial(Core, Engine, Name, Arity, Capability) :-
+    functor(Head, Name, Arity),
+    assertz(Core:(Head :-
+        Engine:metta_require_current_capability(Name, Capability),
+        Engine:Head)).
+
+%Locally defined engine helpers are needed by compiled safe calls. Registered
+%builtins imported from libraries are included separately. Capability-bearing
+%names are withheld and published only by their grant profile.
+restricted_core_predicate(Name/Arity) :-
+    petta_engine_module(Engine),
+    current_predicate(Engine:Name/Arity),
+    functor(Head, Name, Arity),
+    predicate_property(Engine:Head, defined),
+    \+ predicate_property(Engine:Head, imported_from(_)),
+    \+ space_operation_capability(Name, _).
+restricted_core_predicate(Name/Arity) :-
+    builtin_fun(Name),
+    \+ space_operation_capability(Name, _),
+    arity(Name, Arity),
+    petta_engine_module(Engine),
+    current_predicate(Engine:Name/Arity).
+
+publish_restricted_capability(Module, Capability) :-
+    forall(( space_operation_capability(Name, Capability),
+             arity(Name, Arity),
+             petta_engine_module(Engine),
+             current_predicate(Engine:Name/Arity) ),
+           publish_restricted_pi(Module, Name/Arity)).
+
+publish_restricted_pi(Module, PI) :-
+    petta_engine_module(Engine),
+    PI = Name/Arity,
+    functor(Head, Name, Arity),
+    (   predicate_property(Engine:Head, imported_from(system))
+    ->  true
+    ;   Engine:export(PI),
+        Module:import(Engine:PI)
+    ).
+
+%A parametric space is an entity identifier, not an expression to execute:
+%one finite, ground list headed by a symbol. Validate the complete shape
+%before asserting its registry fact or asking either module cache, so a bad
+%name cannot reserve persistent SWI module state. Repeating the same creation
+%is idempotent and never duplicates its reflected contract atom.
+metta_declare_parametric_space(Space) :-
+    metta_require_parametric_space_name(Space),
+    with_mutex('$petta_metta_exec',
+               metta_declare_parametric_space_locked(Space)).
+
+metta_require_parametric_space_name(Space) :-
+    (   acyclic_term(Space)
+    ->  true
+    ;   throw(error(type_error(acyclic_term, Space),
+                    context('new-space',
+                            'a parametric space name must be finite')))
+    ),
+    (   ground(Space)
+    ->  true
+    ;   throw(error(instantiation_error,
+                    context('new-space',
+                            'a parametric space name must be ground')))
+    ),
+    (   Space = [Family|_], atom(Family)
+    ->  true
+    ;   throw(error(domain_error(parametric_space_name, Space),
+                    context('new-space',
+                            'a parametric space name is a nonempty expression \c
+                             headed by a symbol')))
+    ).
+
+metta_declare_parametric_space_locked(Space) :-
+    (   space_parametric(Space)
+    ->  true
+    ;   transaction(( assertz(space_parametric(Space)),
+                      metta_add_atom('&petta', [parametric, Space], _),
+                      ensure_native_storage_module(Space, _),
+                      space_module(Space, _) ))
+    ).
+
+metta_declare_restricted_space(Space, Grants0) :-
+    metta_require_space_name('new-space', Space),
+    must_be(list, Grants0),
+    maplist(metta_require_space_capability, Grants0),
+    sort(Grants0, Grants),
+    with_mutex('$petta_metta_exec',
+               metta_declare_restricted_space_locked(Space, Grants)).
+
+metta_require_space_capability(Capability) :-
+    (   space_capability(Capability)
+    ->  true
+    ;   throw(error(domain_error(space_capability, Capability),
+                    context('new-space',
+                            'capability must be file, process, or network')))
+    ).
+
+metta_declare_restricted_space_locked(Space, Grants) :-
+    (   space_restricted(Space, Standing)
+    ->  (   Standing == Grants
+        ->  true
+        ;   throw(error(petta_space_restriction_conflict(Space, Standing,
+                                                          Grants), none))
+        )
+    ;   space_parent(Space, Parent)
+    ->  throw(error(petta_space_model_conflict(Space, inherits(Parent),
+                                                restricted(Grants)), none))
+    ;   space_parent_child_used(Space)
+    ->  throw(error(petta_space_restriction_after_use(Space), none))
+    ;   ensure_restricted_profile(Grants, _),
+        transaction(( assertz(space_restricted(Space, Grants)),
+                      forall(member(Capability, Grants),
+                             assertz(space_grant(Space, Capability))),
+                      metta_add_atom('&petta', [restricted, Space], _),
+                      forall(member(Capability, Grants),
+                             metta_add_atom('&petta',
+                                            [grants, Space, Capability], _)),
+                      ensure_native_storage_module(Space, _),
+                      space_module(Space, _) ))
+    ).
+
+metta_restricted_exec_module(Module, Space) :-
+    metta_exec_module_known(Space, Module),
+    space_restricted(Space, _).
+
+metta_require_current_capability(Operation, Capability) :-
+    current_metta_module(Module),
+    (   metta_restricted_exec_module(Module, Space)
+    ->  (   space_grant(Space, Capability)
+        ->  true
+        ;   throw(error(petta_space_capability_required(Space, Operation,
+                                                         Capability), none))
+        )
+    ;   true
+    ).
+
+metta_require_space_update_capability(Operation, Target) :-
+    current_metta_module(Module),
+    (   metta_restricted_exec_module(Module, Space),
+        Target \== Space
+    ->  metta_require_current_capability(Operation, process)
+    ;   true
+    ).
+
+metta_require_safe_goal(Goal) :-
+    current_metta_module(Module),
+    (   metta_restricted_exec_module(Module, _)
+    ->  metta_require_restricted_safe_goal(Goal, Module)
+    ;   true
+    ).
+
+metta_require_restricted_safe_goal(Goal, Module) :-
+    callable(Goal),
+    functor(Goal, Operation, _),
+    (   raw_goal_capability(Operation, Capability)
+    ->  metta_require_current_capability(Operation, Capability)
+    ;   catch(sandbox:safe_goal(Module:Goal), _, fail)
+    ->  true
+    ;   metta_require_current_capability(Operation, process)
+    ).
+
+raw_goal_capability(Operation, Capability) :-
+    space_operation_capability(Operation, Capability),
+    !.
+raw_goal_capability(open, file).
+raw_goal_capability(close, file).
+raw_goal_capability(read, file).
+raw_goal_capability(write, file).
+raw_goal_capability(delete_file, file).
+raw_goal_capability(rename_file, file).
+raw_goal_capability(make_directory, file).
+raw_goal_capability(process_create, process).
+raw_goal_capability(process_wait, process).
+raw_goal_capability(shell, process).
+raw_goal_capability(www_open_url, network).
+raw_goal_capability(http_open, network).
+
+restricted_callable_name(F) :- builtin_fun(F).
+
+%Declare the one parent a space reads and executes through. The ordering is
+%part of the contract: an identical declaration is idempotent, a conflicting
+%one names both parents, a cycle is diagnosed before the less-specific
+%already-used refusal, and only a fresh child reaches the transaction that
+%lands the index, reflection atom and execution-module base together.
+%[tested: test_a_child_space_reads_through_its_parent_and_writes_locally;
+% commit=755330de329ece49eddcfb7d6db3061c3350a0ca]
+metta_declare_space_parent(Child, Parent) :-
+    metta_require_space_name('new-space', Child),
+    metta_require_space_name('new-space', Parent),
+    with_mutex('$petta_metta_exec',
+               metta_declare_space_parent_locked(Child, Parent)).
+
+metta_require_space_name(_, Space) :-
+    petta_space_name(Space),
+    !.
+metta_require_space_name(Operation, Space) :-
+    throw(error(type_error('SpaceType', Space),
+                context(Operation, 'an inherited-space endpoint must be a space'))).
+
+metta_declare_space_parent_locked(Child, Parent) :-
+    (   space_parent(Child, Standing)
+    ->  (   Standing == Parent
+        ->  true
+        ;   throw(error(petta_space_parent_conflict(Child, Standing, Parent),
+                        none))
+        )
+    ;   space_restricted(Child, Grants)
+    ->  throw(error(petta_space_model_conflict(Child, restricted(Grants),
+                                                inherits(Parent)), none))
+    ;   space_parent_cycle(Child, Parent)
+    ->  throw(error(petta_space_parent_cycle(Child, Parent), none))
+    ;   space_parent_child_used(Child)
+    ->  throw(error(petta_space_parent_after_use(Child), none))
+    ;   transaction(( assertz(space_parent(Child, Parent)),
+                      metta_add_atom('&petta', [inherits, Child, Parent], _),
+                      ensure_native_storage_module(Child, _),
+                      space_module(Child, ChildModule),
+                      space_module(Parent, ParentModule),
+                      assertz(metta_exec_module_parent(ChildModule,
+                                                       ParentModule)) ))
+    ).
+
+space_parent_cycle(Child, Parent) :-
+    Child == Parent,
+    !.
+space_parent_cycle(Child, Parent) :-
+    space_parent_reaches(Parent, Child, []).
+
+space_parent_reaches(Space, Target, Seen) :-
+    \+ memberchk(Space, Seen),
+    space_parent(Space, Parent),
+    (   Parent == Target
+    ->  true
+    ;   space_parent_reaches(Parent, Target, [Space|Seen])
+    ).
+
+space_parent_child_used(Child) :- metta_exec_module_known(Child, _), !.
+space_parent_child_used(Child) :- native_storage_module_cache(Child, _), !.
+space_parent_child_used(Child) :- metta_foreign_space(Child).
+
+%Child first, then each ancestor. The seen list is an invariant guard against
+%a corrupt or externally asserted relation; declarations refuse such cycles
+%before they can enter this index.
+space_read_chain(Space, Each) :-
+    space_read_chain_(Space, [], Each).
+
+space_read_chain_(Space, Seen, Each) :-
+    \+ memberchk(Space, Seen),
+    (   Each = Space
+    ;   space_parent(Space, Parent),
+        space_read_chain_(Parent, [Space|Seen], Each)
+    ).
+
+metta_assert_space_releasable(Space) :-
+    (   space_parent(Child, Space)
+    ->  throw(error(petta_space_parent_live_child(Space, Child), none))
+    ;   true
+    ).
+
+%A released name is allowed to acquire a different parent in its next life.
+%Clear while the standing base is still known, then remove the relationship
+%and its reflected atom transactionally and forget the module mapping so the
+%next space_module/2 call sets the persistent SWI module's new base.
+metta_release_space(Space) :-
+    with_mutex('$petta_metta_exec',
+               ( metta_assert_space_releasable(Space),
+                 metta_host_clear_space(Space),
+                 transaction(( metta_forget_space_parent(Space),
+                               metta_forget_space_restriction(Space),
+                               metta_forget_parametric_space(Space),
+                               metta_forget_exec_module_parent(Space),
+                               retractall(metta_exec_module_known(Space, _)),
+                               retractall(native_storage_module_cache(Space, _)) ))
+               )).
+
+metta_forget_exec_module_parent(Space) :-
+    (   metta_exec_module_known(Space, Module)
+    ->  retractall(metta_exec_module_parent(Module, _))
+    ;   true
+    ).
+
+metta_forget_space_parent(Child) :-
+    (   retract(space_parent(Child, Parent))
+    ->  metta_remove_atom('&petta', [inherits, Child, Parent], _)
+    ;   true
+    ).
+
+metta_forget_space_restriction(Space) :-
+    (   retract(space_restricted(Space, Grants))
+    ->  forall(member(Capability, Grants),
+               ( retractall(space_grant(Space, Capability)),
+                 metta_remove_atom('&petta',
+                                   [grants, Space, Capability], _) )),
+        metta_remove_atom('&petta', [restricted, Space], _)
+    ;   true
+    ).
+
+metta_forget_parametric_space(Space) :-
+    (   space_parametric(Space)
+    ->  metta_remove_atom('&petta', [parametric, Space], _),
+        retractall(space_parametric(Space))
+    ;   true
+    ).
+
+:- multifile prolog:error_message//1.
+prolog:error_message(petta_space_parent_conflict(Child, Standing, Requested)) -->
+    [ '~w already inherits from ~w, so it cannot also inherit from ~w; a \c
+       space has one parent fixed before first use'-[Child, Standing,
+                                                     Requested] ].
+prolog:error_message(petta_space_parent_cycle(Child, Parent)) -->
+    [ 'making ~w inherit from ~w would create an inheritance cycle; space \c
+       reads and execution bases must form an acyclic parent chain'-[Child,
+                                                                      Parent] ].
+prolog:error_message(petta_space_parent_after_use(Child)) -->
+    [ '~w has already been created, written, executed, or registered; declare \c
+       its parent with (new-space ~w (inherits <parent>)) before first use'-[
+       Child, Child] ].
+prolog:error_message(petta_space_parent_live_child(Parent, Child)) -->
+    [ '~w cannot be dropped while live child ~w inherits from it; drop the \c
+       child first so its relationship cannot follow a recycled parent name'-[
+       Parent, Child] ].
+prolog:error_message(petta_space_restriction_conflict(Space, Standing,
+                                                       Requested)) -->
+    [ '~w is already restricted with grants ~q, so it cannot be redeclared \c
+       with grants ~q; restriction is fixed at creation'-[Space, Standing,
+                                                           Requested] ].
+prolog:error_message(petta_space_restriction_after_use(Space)) -->
+    [ '~w has already been created, written, executed, or registered; declare \c
+       it restricted with new-space before first use'-[Space] ].
+prolog:error_message(petta_space_model_conflict(Space, Standing, Requested)) -->
+    [ '~w already has space model ~q, so it cannot also use ~q; inheritance \c
+       and restriction are alternative execution bases'-[Space, Standing,
+                                                           Requested] ].
+prolog:error_message(petta_space_capability_required(Space, Operation,
+                                                      Capability)) -->
+    [ '~w cannot run ~w because its restricted base does not publish the ~w \c
+       capability; grant it explicitly when the space is created'-[
+       Space, Operation, Capability] ].
 
 %&self's execution module exists from load, the way its storage module does,
 %so nothing has to create it on a first write and metta_self_module/1
@@ -1093,6 +1612,14 @@ module_owns_function(Module, F) :- compiled_function_name(F, Predicate),
 %because the failure branch runs only when the write did not happen. A write
 %that failed for its own reasons, a foreign provider refusing one, still fails
 %without an answer, which is what it did before.
+'add-atom'([Family|Parameters], Term, Result) :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    (   metta_add_atom(Space, Term, _)
+    ->  Result = []
+    ;   fail
+    ).
 'add-atom'(Space, Term, Result) :-
     (   atom(Space), metta_add_atom(Space, Term, _)
     ->  Result = []
@@ -1339,7 +1866,7 @@ metta_host_clear_space(Space) :-
 metta_host_clear_space(Space) :-
     (   metta_remove_hooks_idle(Space)
     ->  true
-    ;   findall(Atom, 'get-atoms'(Space, Atom), Atoms),
+    ;   findall(Atom, metta_host_stored(Space, Atom), Atoms),
         forall(member(Atom, Atoms), 'remove-atom'(Space, Atom, _))
     ),
     clear_native_atoms(Space),
@@ -1942,12 +2469,12 @@ metta_space_expression(Operation, Terms, _) :-
 %path keeps equations, their compiled clauses, and foreign providers
 %all handled by the code that owns them.
 
-%% metta_remove_atom(+Space:atom, ?Atom, -Removed:boolean) is semidet.
+%% metta_remove_atom(+Space, ?Atom, -Removed:boolean) is semidet.
 metta_remove_atom(Space, _, _) :-
     metta_refuse_module_for_space(Space, metta_remove_atom/3),
     fail.
 metta_remove_atom(Space, Term, Removed) :- var(Term), !,
-    findall(A, 'get-atoms'(Space, A), Atoms),
+    findall(A, metta_host_stored(Space, A), Atoms),
     (   Atoms == []
     ->  Removed = false
     ;   forall(member(A, Atoms),
@@ -2001,6 +2528,17 @@ metta_host_remove_reported(Space, Term, Verdict) :-
 %80-atom &petta cost 303 inferences against 61 on a plain space, and the
 %engine-level remove path profiled flat].
 metta_host_removal_probe(Space, Pattern) :-
+    Space = [_|_],
+    space_parametric(Space),
+    is_list(Pattern),
+    Pattern = [Head|Arguments],
+    atom(Head),
+    native_storage_module(Space, Module),
+    Goal =.. ['$petta_parametric_atom', Head|Arguments],
+    call(Module:Goal),
+    !.
+metta_host_removal_probe(Space, Pattern) :-
+    atom(Space),
     is_list(Pattern),
     Pattern = [Head|Arguments],
     atom(Head),
@@ -2011,7 +2549,7 @@ metta_host_removal_probe(Space, Pattern) :-
           fail),
     !.
 metta_host_removal_probe(Space, Pattern) :-
-    once(('get-atoms'(Space, Stored), Stored = Pattern)).
+    once((metta_host_stored(Space, Stored), Stored = Pattern)).
 
 %Every stored atom unifying Pattern, live from the space: a native space
 %answers through its storage module's clause indexing, a foreign one
@@ -2024,7 +2562,17 @@ metta_host_stored(Space, Pattern) :-
     ;   get_native_atom(Space, Pattern)
     ).
 
-%% remove_equation(+Space:atom, +Equation, +Function:atom, +Arguments, ?Body, -Removed:boolean) is semidet.
+%Decode a native storage goal for proof transports without publishing the
+%storage module cache or its private functor convention to the host. Module
+%and functor must both identify the same registered space [tested:
+%test_a_parametric_fact_leaf_names_its_space; commit=9a49e2f81bb8199c0284f8456e4b48c25a804371].
+metta_host_native_fact(Module, Goal, Space, Fact) :-
+    native_storage_module_cache(Space, Module),
+    native_storage_functor(Space, Functor),
+    functor(Goal, Functor, _),
+    Goal =.. [_|Fact].
+
+%% remove_equation(+Space, +Equation, +Function:atom, +Arguments, ?Body, -Removed:boolean) is semidet.
 remove_equation(Space, Term, F, Args, Body, Removed) :-
     unstore_atom(Space, Term, Stored),
     space_module(Space, Module),
@@ -2110,7 +2658,7 @@ petta_repair_emptied_shadows :-
 %Where an atom comes out of, the counterpart of store_atom/2. Both answer
 %whether the store actually held it.
 
-%% unstore_atom(+Space:atom, ?Atom, -Removed:boolean) is semidet.
+%% unstore_atom(+Space, ?Atom, -Removed:boolean) is semidet.
 unstore_atom(Space, Term, Removed) :- metta_foreign_space(Space), !,
                                       foreign_write(Space, remove,
                                                     metta_foreign_remove(Space, Term,
@@ -2171,11 +2719,20 @@ unstore_atom(Space, Term, Removed) :- remove_sexp(Space, Term, Removed).
 %against 289,819 without it, over 10,000 rows]
 %[tested: test_a_join_multiplies_provenance,
 %test_a_conjunction_carries_each_rows_annotation].
-%atom/1 rather than a space test, and the refusal reached through the SOFT CUT
-%below: a conjunction that answered rows was a space, and only one that
-%answered none has anything left to decide. A space test in the guard cost one
-%inference on every join [measured 2026-08-20: direct-join and prepared-join
-%+10 each].
+%Atomic names retain the atom/1 fast path. Registered parametric names add one
+%indexed registry probe; the refusal is still reached through the SOFT CUT
+%below, so a conjunction that answered rows was a space and only one that
+%answered none has anything left to decide. A general space test in the guard
+%cost one inference on every ordinary join [measured 2026-08-20: direct-join
+%and prepared-join +10 each].
+match([Family|Parameters], Pattern, OutPattern, Result) :-
+    nonvar(Pattern),
+    Pattern = [Comma|_],
+    Comma == ',',
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    conjunctive_match(Space, Pattern, OutPattern, Result).
 match(Space, Pattern, OutPattern, Result) :- nonvar(Pattern), Pattern = [Comma|_], Comma == ',',
                                              atom(Space), !,
                                              (   conjunctive_match(Space, Pattern,
@@ -2210,10 +2767,18 @@ match(Space, Pattern, OutPattern, Result) :- nonvar(Space),
 %match_native/5 exactly as it did and the two clauses below it never run. The
 %CUT is what lets them exist: without it an answered match would produce the
 %refusal as a second answer.
+match([Family|Parameters], Pattern, OutPattern, Result) :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    native_storage_module_cache(Space, Module), !,
+    match_native(Module, Space, Pattern, OutPattern, Result).
 match(Space, Pattern, OutPattern, Result) :-
     atom(Space),
     native_storage_module_cache(Space, Module), !,
-    match_native(Module, Space, Pattern, OutPattern, Result).
+    (   space_parent(Space, _)
+    ->  match_inherited_space(Space, Module, Pattern, OutPattern, Result)
+    ;   match_native(Module, Space, Pattern, OutPattern, Result)
+    ).
 %Only a name the engine holds no space for reaches here, and the question left
 %is which kind it is: a space nothing has written to yet answers nothing, which
 %is what an empty space answers, and anything else is refused by name.
@@ -2259,6 +2824,11 @@ conjunctive_match(Space, Pattern, OutPattern, Result) :-
 match_stored(Space, Pattern, OutPattern, Result) :-
     nonvar(Space), metta_foreign_space(Space), !,
     match_foreign(Space, Pattern, OutPattern, Result).
+match_stored([Family|Parameters], Pattern, OutPattern, Result) :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    native_storage_module_cache(Space, Module),
+    match_native(Module, Space, Pattern, OutPattern, Result).
 match_stored(Space, Pattern, OutPattern, Result) :-
     atom(Space),
     native_storage_module_cache(Space, Module),
@@ -2272,8 +2842,29 @@ match_stored(Space, Pattern, OutPattern, Result) :-
 match_conjunction(Space, Pattern, OutPattern) :- metta_foreign_space(Space), !,
                                                  match_foreign(Space, Pattern, OutPattern, _).
 match_conjunction(Space, Pattern, OutPattern) :- native_storage_module_cache(Space, Module), !,
-                                                 match_native(Module, Space, Pattern, OutPattern, _).
+                                                 (   space_parent(Space, _)
+                                                 ->  match_routed(Space, Pattern,
+                                                                  OutPattern, _)
+                                                 ;   match_native(Module, Space,
+                                                                  Pattern,
+                                                                  OutPattern, _)
+                                                 ).
 match_conjunction(Space, Pattern, OutPattern) :- match_routed(Space, Pattern, OutPattern, _).
+
+match_inherited_space(Space, OwnModule, Pattern, OutPattern, Result) :-
+    space_read_chain(Space, Each),
+    (   Each == Space
+    ->  match_native(OwnModule, Space, Pattern, OutPattern, Result)
+    ;   match_read_link(Each, Pattern, OutPattern, Result)
+    ).
+
+match_read_link(Space, Pattern, OutPattern, Result) :-
+    metta_foreign_space(Space),
+    !,
+    match_foreign(Space, Pattern, OutPattern, Result).
+match_read_link(Space, Pattern, OutPattern, Result) :-
+    native_storage_module_ready(Space, Module),
+    match_native(Module, Space, Pattern, OutPattern, Result).
 
 match_routed(_, LComma, OutPattern, Result) :- LComma == [','], !,
                                                Result = OutPattern.
@@ -2326,18 +2917,22 @@ petta_match_all([X|Xs], [Y|Ys]) :-
 %provider or a native storage module. Both probes are indexed lookups.
 petta_space_operand(S) :-
     atom(S),
+    !,
     (   metta_foreign_space(S)
     ->  true
     ;   native_storage_module_cache(S, _)
     ).
+petta_space_operand(S) :-
+    nonvar(S),
+    space_parametric(S).
 
 
-%Every space name this engine registers: '&self' and '&petta' from load
-%time, every native space that (new-space) made or that has been written
-%to, and every foreign provider currently bound. Naming a space never
-%registers it, only creating it, writing to it or binding one does, so
-%this is the same set petta_space_operand/1 accepts. sort/2 makes the
-%answer stable and duplicate-free.
+%Every space name this engine registers: '&self' and '&petta' from load time,
+%every atomic or parametric native space that new-space made or that has been
+%written to, and every foreign provider currently bound. Naming a space never
+%registers it, only creating it, writing to it or binding one does, so this is
+%the same set petta_space_operand/1 accepts. sort/2 makes the answer stable and
+%duplicate-free.
 metta_space_names(Names) :-
     findall(S, native_storage_module_cache(S, _), Native),
     findall(S, metta_foreign_space(S), Foreign),
@@ -3056,6 +3651,13 @@ match_native(Module, Space, [Rel|PatArgs], OutPattern, Result) :- native_express
 %did, one match with two answers. The arbiter's matcher occurs-checks its
 %variable cases (LeaTTa MettaHyperonFull/Core/Matching.lean matchAtomsWith),
 %so a rational-tree instantiation is never a MeTTa answer.
+native_expression(Module, [Family|Parameters], Rel, PatArgs) :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    Term =.. ['$petta_parametric_atom', Rel|PatArgs],
+    call(Module:Term),
+    acyclic_term(PatArgs).
 native_expression(Module, Space, Rel, PatArgs) :-
     Term =.. [Space, Rel | PatArgs],
     call(Module:Term),
@@ -3078,16 +3680,44 @@ native_expression(Module, Space, Rel, PatArgs) :-
 %space the engine holds pays nothing, and only an unknown name reaches
 %petta_space_name/1. get_native_atom/3 rather than /2 because the lookup /2
 %would repeat has already happened in the condition.
+'get-atoms'([Family|Parameters], Pattern) :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    (   native_storage_module_ready(Space, Module)
+    ->  get_native_atom(Module, Space, Pattern)
+    ;   fail
+    ).
 'get-atoms'(Space, Pattern) :-
     (   atom(Space)
     ->  (   native_storage_module_ready(Space, Module)
-        ->  get_native_atom(Module, Space, Pattern)
+        ->  (   space_parent(Space, _)
+            ->  get_inherited_atom(Space, Module, Pattern)
+            ;   get_native_atom(Module, Space, Pattern)
+            )
         ;   petta_space_name(Space)
         ->  fail
         ;   space_argument_error('get-atoms', [Space], Pattern)
         )
     ;   space_argument_error('get-atoms', [Space], Pattern)
     ).
+
+get_inherited_atom(Space, OwnModule, Pattern) :-
+    space_read_chain(Space, Each),
+    (   Each == Space
+    ->  get_native_atom(OwnModule, Space, Pattern)
+    ;   get_atom_read_link(Each, Pattern)
+    ).
+
+get_atom_read_link(Space, Pattern) :-
+    metta_foreign_space(Space),
+    !,
+    refuse_absent_capability(Space, enumerate),
+    petta_source_guard(Space),
+    metta_foreign_atoms(Space, Pattern).
+get_atom_read_link(Space, Pattern) :-
+    native_storage_module_ready(Space, Module),
+    get_native_atom(Module, Space, Pattern).
 
 %Drop every atom a space holds. Expressions and scalars live in different
 %predicates, so a caller that wipes only the space predicate would leave the
@@ -3203,7 +3833,8 @@ petta_capacity_remove_sexp('&petta', [Rel|Args], Removed) :- !,
     petta_capacity_count_removed_known('&petta', Removed).
 petta_capacity_remove_sexp(Space, [Rel|Args], Removed) :- !,
     (   native_storage_module_ready(Space, Module)
-    ->  Term =.. [Space, Rel|Args],
+    ->  native_storage_functor(Space, Functor),
+        Term =.. [Functor, Rel|Args],
         native_retract_one(Module:Term, Removed)
     ;   Removed = false
     ),
@@ -3283,7 +3914,10 @@ petta_capacity_count_cleared(Space) :-
     ;   true
     ).
 
-%How many atoms a native space holds. A capacity-claimed pool reads its
+%How many atoms a native space OWNS. Inherited match, get-atoms and
+%space-contains read the child-first chain; this count deliberately does not,
+%because capacity constrains the writable front store rather than its parents.
+%A capacity-claimed pool reads its
 %incremental fact; every other space reads the store's own per-predicate
 %clause bookkeeping, the manual's count-asserted-facts idiom
 %[source: https://www.swi-prolog.org/pldoc/man?predicate=predicate_property%2F2].
@@ -3319,8 +3953,9 @@ clear_native_atoms(Space) :-
     ->  findall(Atom, compiled_half_atom(Space, Module, Atom), Compiled),
         forall(member(Atom, Compiled),
                ( metta_remove_atom(Space, Atom, _) -> true ; true )),
-        forall(( current_predicate(Module:Space/Arity),
-                 functor(Head, Space, Arity) ),
+        native_storage_functor(Space, Functor),
+        forall(( current_predicate(Module:Functor/Arity),
+                 functor(Head, Functor, Arity) ),
                retractall(Module:Head)),
         retractall(Module:'$petta_native_scalar'(_))
     ;   true
@@ -3341,11 +3976,13 @@ clear_native_atoms(Space) :-
 %benchmarks saw as +20,002 inferences on py-method-call and +8,000 on
 %handle-round-trip [measured 2026-08-19].
 compiled_half_atom(Space, Module, [=, Head, Body]) :-
-    Term =.. [Space, =, Head, Body],
+    native_storage_functor(Space, Functor),
+    Term =.. [Functor, =, Head, Body],
     call(Module:Term),
     Head = [F|_], atom(F).
 compiled_half_atom(Space, Module, [':', F, Type]) :-
-    Term =.. [Space, ':', F, Type],
+    native_storage_functor(Space, Functor),
+    Term =.. [Functor, ':', F, Type],
     call(Module:Term),
     atom(F), fun(F).
 
@@ -3370,19 +4007,20 @@ get_native_atom(Space, Pattern) :-
 %space MODULE handed where a NAME is wanted read exactly like a miss, the
 %store answering "not held" with no type error, so a wrong-argument call
 %was indistinguishable from absence and a plt cleanup once removed nothing
-%from four of five cases in silence. One prefix probe turns it into a
-%refusal at the door
+%from four of five cases in silence. The two execution-module prefixes turn it
+%into a refusal at the door
 %[tested: test_a_module_where_a_space_name_is_wanted_refuses_by_name].
 metta_refuse_module_for_space(Space, Door) :-
     (   atom(Space),
-        metta_exec_module_prefix(Prefix),
-        sub_atom(Space, 0, _, _, Prefix)
+        (   metta_exec_module_prefix(Prefix),
+            sub_atom(Space, 0, _, _, Prefix)
+        ;   sub_atom(Space, 0, _, _, '$petta_param_exec:')
+        )
     ->  throw(error(type_error(metta_space_name, Space),
                     context(Door,
                             'a space MODULE arrived where a space NAME is \c
-                             wanted; a space is named by its own atom and \c
-                             space_module/2 maps it to this module, not \c
-                             back')))
+                             wanted; space_module/2 maps the exact atomic or \c
+                             expression identifier to this module, not back')))
     ;   true
     ).
 
@@ -3400,6 +4038,17 @@ metta_refuse_module_for_space(Space, Door) :-
 %clause below, and a bound SCALAR skips both, because =../2 on it threw
 %where the store owed a clean miss and the scalar shelf is that atom's
 %own clause anyway [tested: spaces_contains].
+get_native_atom(Module, [Family|Parameters], Pattern) :-
+    is_list(Pattern),
+    Pattern = [_|_],
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    length(Pattern, Arity),
+    functor(Head, '$petta_parametric_atom', Arity),
+    Head =.. ['$petta_parametric_atom'|Pattern],
+    call(Module:Head),
+    acyclic_term(Pattern).
 get_native_atom(Module, Space, Pattern) :-
     is_list(Pattern),
     Pattern = [_|_],
@@ -3409,6 +4058,15 @@ get_native_atom(Module, Space, Pattern) :-
     Head =.. [Space | Pattern],
     call(Module:Head),
     acyclic_term(Pattern).
+get_native_atom(Module, [Family|Parameters], Pattern) :-
+    \+ atomic(Pattern),
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    current_predicate(Module:'$petta_parametric_atom'/Arity),
+    functor(Head, '$petta_parametric_atom', Arity),
+    clause(Module:Head, true),
+    Head =.. ['$petta_parametric_atom'|Pattern].
 get_native_atom(Module, Space, Pattern) :-
     \+ atomic(Pattern),
     current_predicate(Module:Space/Arity),

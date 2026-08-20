@@ -22,6 +22,17 @@
 %   - get-type/2 returns each derived type once, while has_type/2 uses one
 %     witness for a fixed expected type [tested 2026-08-15:
 %     metta_type_answers, translator_typed_checks].
+%   - a child execution module resolves parent equations before the shared
+%     &self and builtin tiers [tested:
+%     test_a_child_space_reads_through_its_parent_and_writes_locally;
+%     commit=755330de329ece49eddcfb7d6db3061c3350a0ca].
+%   - restricted modules resolve only their local equations and curated
+%     builtin surface [tested: spaces_restricted_modules;
+%     commit=6a08901f4125c2536f5b4032daac9937f793870f].
+%   - expression-named spaces are SpaceType values, select their own execution
+%     modules, and report their exact ground identifier through context-space
+%     [tested: test_two_instances_of_a_parametric_space_answer_independently;
+%     commit=3c7bcde6a0670ec5c563584b26977b41cc727580].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction
@@ -322,9 +333,9 @@ register_metta_library_path(Alias, Directory0, true) :-
 %[tested: spaces_execution_modules:the_written_self_module_is_the_mapped_one].
 metta_self_module('$petta_exec:&self').
 
-%And the prefix the mapping is built from, written once for the same reason
-%and read the same way. space_module/2 builds a module name with it,
-%metta_module_space/2 strips it, and with_metta_module/2 tests for it.
+%And the prefix atomic-name mappings are built from, written once for the same
+%reason and read the same way. space_module/2 uses it for atomic spaces;
+%parametric spaces use their separately prefixed canonical term encoding.
 metta_exec_module_prefix('$petta_exec:').
 
 %And read for FREE. A one-clause fact still costs an inference per call, and
@@ -1984,7 +1995,8 @@ direct_type_declaration_in(Module, X, T) :-
 direct_type_declaration_in(Module, X, T) :-
     metta_module_space(Module, Space),
     (   native_storage_module_ready(Space, Storage),
-        Head =.. [Space, ':', X, T],
+        native_storage_functor(Space, Functor),
+        Head =.. [Functor, ':', X, T],
         call(Storage:Head),
         acyclic_term(T)
     ;   '$petta_atoms:&self':'&self'(':', X, T),
@@ -2111,7 +2123,8 @@ native_edge_probe(Space) :-
     native_storage_module_cache(Space, StorageModule),
     (   Space == '&self'
     ->  \+ \+ clause(StorageModule:'&self'(':<', _, _), _)
-    ;   Head =.. [Space, ':<', _, _],
+    ;   native_storage_functor(Space, Functor),
+        Head =.. [Functor, ':<', _, _],
         \+ \+ clause(StorageModule:Head, _)
     ).
 
@@ -2238,6 +2251,10 @@ get_type_candidate(false, 'Bool') :- !.
 get_type_candidate(X, T) :- atomic(X), \+ atom(X),
                             metta_host_object(X),
                             metta_grounded_type(X, T).
+get_type_candidate([Family|Parameters], 'SpaceType') :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !.
 get_type_candidate(X, T) :- get_function_type(X,T).
 get_type_candidate(X, T) :- \+ application_arrow_declared(X),
                             is_list(X),
@@ -2254,7 +2271,7 @@ get_type_candidate(X, T) :- builtin_type_declaration(X, T).
 %and context_space.metta, both STATUS conforms]. Last, like the engine's own
 %declarations above it, so a program that declares something about a handle is
 %still answered first [tested: space_handle_type].
-get_type_candidate(X, 'SpaceType') :- petta_space_operand(X).
+get_type_candidate(X, 'SpaceType') :- atom(X), petta_space_operand(X).
 
 get_type_candidate_in(_, X, T) :- number(X), !, metta_numeric_type(X, T).
 get_type_candidate_in(_, X, _) :- var(X), !.
@@ -2264,6 +2281,10 @@ get_type_candidate_in(_, false, 'Bool') :- !.
 get_type_candidate_in(_, X, T) :- atomic(X), \+ atom(X),
                                   metta_host_object(X),
                                   metta_grounded_type(X, T).
+get_type_candidate_in(_, [Family|Parameters], 'SpaceType') :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !.
 get_type_candidate_in(Module, X, T) :- get_function_type_in(Module, X, T).
 get_type_candidate_in(Module, X, T) :- \+ application_arrow_declared_in(Module, X),
                                        is_list(X),
@@ -2272,7 +2293,7 @@ get_type_candidate_in(Module, X, T) :- \+ application_arrow_declared_in(Module, 
 
 get_type_candidate_in(Module, X, T) :- type_declaration_in(Module, X, T).
 get_type_candidate_in(_, X, T) :- builtin_type_declaration(X, T).
-get_type_candidate_in(_, X, 'SpaceType') :- petta_space_operand(X).
+get_type_candidate_in(_, X, 'SpaceType') :- atom(X), petta_space_operand(X).
 
 %An expression no arrow types is read ELEMENT-WISE, and the tuple it reads is
 %%Undefined% as soon as one member's type is. Nothing is known about a tuple
@@ -2326,6 +2347,10 @@ scoped_type_candidate(_, _, false, 'Bool') :- !.
 scoped_type_candidate(_, _, X, T) :- atomic(X), \+ atom(X),
                                      metta_host_object(X),
                                      metta_grounded_type(X, T).
+scoped_type_candidate(_, _, [Family|Parameters], 'SpaceType') :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !.
 scoped_type_candidate(Space, Module, X, T) :-
     scoped_function_type(Space, Module, X, T).
 scoped_type_candidate(Space, Module, X, T) :-
@@ -2337,7 +2362,7 @@ scoped_type_candidate(Space, _, X, T) :-
     match_stored(Space, [':', X, T], T, _),
     acyclic_term(T).
 scoped_type_candidate(_, _, X, T) :- builtin_type_declaration(X, T).
-scoped_type_candidate(_, _, X, 'SpaceType') :- petta_space_operand(X).
+scoped_type_candidate(_, _, X, 'SpaceType') :- atom(X), petta_space_operand(X).
 
 scoped_function_type(Space, Module, [F|Args], T) :-
     nonvar(F),
@@ -2485,6 +2510,10 @@ metatype_of(X, 'Grounded') :- atom(X), metta_grounded_token(X),
 %[source: LeaTTa tests/semantics/spaces/space_identity.metta, STATUS conforms]
 %[tested: space_handle_type].
 metatype_of(X, 'Grounded') :- atom(X), petta_space_operand(X), !.
+metatype_of([Family|Parameters], 'Grounded') :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !.
 metatype_of(X, 'Expression') :- is_list(X), !.     % e.g., (+ 1 2), (a b)
 metatype_of(X, 'Symbol') :- atom(X), !.            % e.g., a
 metatype_of(_, 'Grounded').                        % e.g., partial(f,[1]), f(1)
@@ -2913,6 +2942,16 @@ metta_effect_prolog_primitive(unify_with_occurs_check).
 %refused a pure body one word inside a collapse
 %[tested: a_pure_body_inside_a_wrapper_still_tables].
 metta_effect_prolog_primitive(petta_prune_empty).
+%Restricted-space translation emits these guards immediately before the
+%operation it protects. They inspect the fixed execution-base declaration and
+%must not hide the operation from the effect walk: classifying them as inert
+%lets the next add-atom, evalc, import or raw goal supply the user-facing
+%effect name [tested:
+%lib_tabling_purity:an_impure_goal_is_refused_inside_every_wrapper;
+%commit=f46e45074286c08c4bd8b3d7892b3d7933f11f77].
+metta_effect_prolog_primitive(metta_require_current_capability).
+metta_effect_prolog_primitive(metta_require_safe_goal).
+metta_effect_prolog_primitive(metta_require_space_update_capability).
 metta_effect_prolog_primitive('=@=').    metta_effect_prolog_primitive('\\==').
 metta_effect_prolog_primitive(nth0).     metta_effect_prolog_primitive(nth1).
 metta_effect_prolog_primitive(between).  metta_effect_prolog_primitive(succ).
@@ -2982,10 +3021,10 @@ metta_pure_operation(Name) :-
     atom(Name),
     petta_contract_fact([effect, Name, immutable]).
 
-%One contract atom, read from &petta's native storage. A space atom
-%[H|Args] is stored as Space(H, Args...) in the space's storage module, the
-%resolution the tabling walk documents; a space that has never been written
-%has no storage module yet, and that absence reads as "not declared".
+%One contract atom, read from &petta's native storage. An expression
+%[H|Args] is stored as '&petta'(H, Args...) in that space's storage module,
+%the resolution the tabling walk documents; a space that has never been
+%written has no storage module yet, and that absence reads as "not declared".
 petta_contract_fact(Args) :-
     native_storage_module('&petta', Module),
     Goal =.. ['&petta'|Args],
@@ -3051,7 +3090,7 @@ petta_source_guard(Space) :-
 petta_source_guard(Space) :-
     (   petta_contract_storage(Module),
         Module:'&petta'(source, Space, linear)
-    ->  atom_concat('$petta_consumed:', Space, Key),
+    ->  petta_space_flag_key('$petta_consumed:', Space, Key),
         (   current_prolog_flag(Key, consumed)
         ->  throw(error(petta_source_discipline(Space, linear), none))
         ;   create_prolog_flag(Key, consumed, [keep(false)])
@@ -3060,11 +3099,18 @@ petta_source_guard(Space) :-
     ).
 
 petta_source_reset(Space) :-
-    atom_concat('$petta_consumed:', Space, Key),
+    petta_space_flag_key('$petta_consumed:', Space, Key),
     (   current_prolog_flag(Key, _)
     ->  set_prolog_flag(Key, fresh)
     ;   true
     ).
+
+petta_space_flag_key(Prefix, Space, Key) :-
+    atom(Space), !,
+    atom_concat(Prefix, Space, Key).
+petta_space_flag_key(Prefix, Space, Key) :-
+    space_canonical_atom(Space, Encoded),
+    atom_concat(Prefix, Encoded, Key).
 
 :- multifile prolog:error_message//1.
 prolog:error_message(petta_source_discipline(Ctx, linear)) -->
@@ -3106,7 +3152,7 @@ petta_k_times(K1, K2, K) :-
 %what instrumented execution then does, which answers the original
 %complaint that the split was invisible.
 petta_explain([match, Space, Pattern, _Template], Out) :-
-    atom(Space), !,
+    petta_space_name(Space), !,
     findall(Item, petta_explain_match_item(Space, Pattern, Item), Out).
 petta_explain([Op|Args], Out) :-
     atom(Op), !,
@@ -4061,7 +4107,7 @@ pure_inspection(has_type).       pure_inspection(metatype_of).
 'is-var'(A,R) :- var(A) -> R=true ; R=false.
 'is-ground'(A,R) :- ground(A) -> R=true ; R=false.
 'is-expr'(A,R) :- is_list(A) -> R=true ; R=false.
-'is-space'(A,R) :- atom(A), atom_concat('&', _, A) -> R=true ; R=false.
+'is-space'(A,R) :- petta_space_name(A) -> R=true ; R=false.
 
 %%% Diagnostics / Testing: %%%
 :- multifile prolog:error_message//1.
@@ -4774,6 +4820,22 @@ petta_evaluation_fuel(Limit) :-
 %symbol in a space position from becoming one.
 'new-space'(Space) :- gensym('&petta-space-', Space),
                       ensure_native_storage_module(Space, _).
+%The one-input form holds its Atom argument as written. A ground expression
+%there is an entity identifier, registered before either canonical module is
+%created; later SpaceType positions recognize that exact term and no other
+%expression as a literal space operand.
+'new-space'(Space, Space) :-
+    metta_declare_parametric_space(Space).
+'new-space'(Child, [inherits, Parent], Child) :- !,
+    metta_declare_space_parent(Child, Parent).
+'new-space'(Space, [restricted], Space) :- !,
+    metta_declare_restricted_space(Space, []).
+'new-space'(Space, [restricted, [grants|Capabilities]], Space) :- !,
+    metta_declare_restricted_space(Space, Capabilities).
+'new-space'(_, Relation, _) :-
+    throw(error(type_error(inheritance_declaration, Relation),
+                context('new-space',
+                        'the second argument is (inherits <parent>)'))).
 
 %%% States: %%%
 'bind!'(Var, _, _) :- var(Var), !, refuse_unbound_input('bind!', 1).
@@ -4933,8 +4995,9 @@ eval(C0, Out) :- translate_runnable_expr(C0, Goals, Out),
 %[source: LeaTTa stdlib.md, evalc's SpaceType is the "Space to
 %evaluate atom in its context"] [tested: metta_evalc].
 %
-%A space is an atom beginning with &, which is what is-space/2 tests, so an
-%argument that is not one is a type error rather than a silently empty space.
+%A space is either an atom beginning with & or a registered ground expression,
+%which is what is-space/2 tests, so anything else is a type error rather than a
+%silently empty space.
 %Like eval, evalc takes the expression as written: &self inside it named
 %the space hosting the SOURCE (the reader pinned it there), not the space
 %evalc is aimed at, so there is nothing left to substitute at run time.
@@ -5899,7 +5962,7 @@ loading_loudly(Goal) :-
 %the Prolog interop constructor's original meaning.
 metta_predicate_goal([Space|Pattern],
                      match(Space, Pattern, matched, matched)) :-
-    atom(Space), atom_concat('&', _, Space), !.
+    petta_space_name(Space), !.
 metta_predicate_goal([F|Args], Term) :- Term =.. [F|Args].
 
 'Predicate'(Parts, _) :- var(Parts), !, refuse_unbound_input('Predicate', 1).
@@ -6028,12 +6091,12 @@ metta_import_base(top, Directory) :-
 %visible while recursive imports run so cycles terminate; success changes the
 %state to loaded. A full space clear owns removal of both states.
 import_life_current(Space, CanonPath) :-
-    atom(Space), !,
+    petta_space_name(Space), !,
     import_life(Space, CanonPath, _).
 import_life_current(_, _).
 
 assert_import_life_marker(Space, CanonPath, Ref) :-
-    atom(Space), !,
+    petta_space_name(Space), !,
     assertz(import_life(Space, CanonPath, loading), Ref).
 assert_import_life_marker(_, _, none).
 
@@ -6056,7 +6119,10 @@ run_with_import_life_marker(Space, CanonPath, Goal) :-
         finish_import_life(Space, CanonPath, Ref, Catcher)).
 
 clear_import_life(Space, CanonPath) :-
-    ( atom(Space) -> retractall(import_life(Space, CanonPath, _)) ; true ).
+    ( petta_space_name(Space)
+    -> retractall(import_life(Space, CanonPath, _))
+    ;  true
+    ).
 
 % Assert both markers before loading to break cycles. Retain them on success
 % and retract them on failure. The recursive mutex serializes the loader graph.
@@ -6113,7 +6179,9 @@ import_load_needed(changed, Space, CanonPath) :-
 %an effect and `()` is what the arbiter records for every one of its module
 %transcripts [source: LeaTTa tests/semantics/modules/18-direct-import-control
 %and 20-cycle-control, both `[()]`].
-'import!'(Space, File, []) :- importer_helper(Space, File).
+'import!'(Space, File, []) :-
+    metta_require_space_update_capability('import!', Space),
+    importer_helper(Space, File).
 %`(: import! (-> Atom Atom Bool))` says both arguments arrive UNREDUCED, which
 %is right: a module name is a name and evaluating it would look for a function
 %called `lib_constraints`. So the forms a module name can take are resolved
@@ -6276,7 +6344,7 @@ current_metta_module(Module) :-
 %space were empty. One indexed cache probe turns that into a refusal at the
 %call [tested: metta_module_context:a_space_name_is_refused_where_a_module_is_asked].
 with_metta_module(Module, Goal) :-
-    (   metta_exec_module_prefix(Prefix), sub_atom(Module, 0, _, _, Prefix)
+    (   metta_exec_module_known(_, Module)
     ->  true
     ;   throw(error(type_error(metta_execution_module, Module),
                     context(with_metta_module/2,
@@ -6622,10 +6690,17 @@ fun_here(F) :- fun(F),
 %clause applying process-wide, and without this the name resolved nowhere: one
 %named space turned + into inert data in every other space and in engines
 %built afterwards [tested: metta_builtin_scoping].
-fun_here_in(Module, F) :- (   fun_in(Module, F) -> true
-                          ;   metta_self_module(Self), Module \== Self,
-                              fun_in(Self, F) -> true
-                          ;   builtin_fun(F) ).
+fun_here_in(Module, F) :-
+    (   fun_in(Module, F)
+    ->  true
+    ;   metta_restricted_exec_module(Module, _)
+    ->  restricted_callable_name(F)
+    ;   metta_exec_module_parent(Module, ParentModule)
+    ->  fun_here_in(ParentModule, F)
+    ;   metta_self_module(Self), Module \== Self, fun_in(Self, F)
+    ->  true
+    ;   builtin_fun(F)
+    ).
 
 %Register a function and record which module its clauses live in. fun/1 stays
 %global because the translator consults it at compile time to decide whether a
@@ -6655,7 +6730,10 @@ register_fun_in(Module, N) :- register_fun(N),
 unregister_fun_in(Module, N) :- retractall(fun_in(Module, N)),
                                 metta_self_module(Self),
                                 ( fun_in(Other, N), Other \== Self
-                                  -> true ; retractall(fun_scoped(N)) ).
+                                  -> true
+                                ; restricted_dispatch_name(N)
+                                  -> true
+                                ; retractall(fun_scoped(N)) ).
 
 unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
                                 retractall(fun_scoped(N)).

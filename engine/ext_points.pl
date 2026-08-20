@@ -613,6 +613,9 @@ ext_point_kind(metta_host_forget_function/1, host_service).
 %existence probe is engine-internal now.
 ext_point_kind(metta_host_stored/2, host_service).
 ext_point_kind(metta_host_remove_reported/3, host_service).
+%The native proof-leaf decoder keeps private module and predicate encodings
+%behind one host call, including expression-named spaces.
+ext_point_kind(metta_host_native_fact/4, host_service).
 %The explain mirror: one call answers what the seam already decided for a
 %query (per-pattern classes with term origins, the plan's claimed and rest
 %indexes, refusals preflighted), so a host renders prose instead of
@@ -630,6 +633,12 @@ ext_point_kind(metta_host_explain_match/3, host_service).
 %seams as an argument.
 ext_point_kind(metta_host_clear_space/1, host_service).
 ext_point_kind(metta_host_clear_defined/1, host_service).
+%Creation-time space topology and lifecycle are engine-owned, while Python's
+%context-manager surface requests those transitions through these calls.
+ext_point_kind(metta_declare_space_parent/2, host_service).
+ext_point_kind(metta_declare_restricted_space/2, host_service).
+ext_point_kind(metta_assert_space_releasable/1, host_service).
+ext_point_kind(metta_release_space/1, host_service).
 %The builtin-refusal classification: operation, kind, expected and culprit
 %read from the error term the engine's own throwers shape, absence left
 %unbound for the host to map to its None (2026-08-20).

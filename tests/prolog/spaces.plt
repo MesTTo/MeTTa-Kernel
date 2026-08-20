@@ -7,6 +7,16 @@
 %   - Every metta_engine_emitted/1 declaration is protected from capture in
 %     a space [tested: test_every_engine_emitted_name_is_protected_by_derivation;
 %     commit=dcfc20be4933c19140ccb5759291401d13058301].
+%   - inherited reads are child-first unions, conjunctions join across
+%     layers, and declaration failures leave no partial relation [tested:
+%     spaces_inheritance;
+%     commit=755330de329ece49eddcfb7d6db3061c3350a0ca].
+%   - restricted spaces select curated grant profiles and raw calls pass the
+%     sandbox boundary [tested: spaces_restricted_modules;
+%     commit=6a08901f4125c2536f5b4032daac9937f793870f].
+%   - parametric-space identifiers map bijectively to canonical modules and a
+%     fixed private storage functor, with validation before cache publication
+%     [tested: spaces_parametric; commit=3c7bcde6a0670ec5c563584b26977b41cc727580].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -1871,7 +1881,7 @@ test(an_empty_space_answers_nothing_rather_than_refusing,
 :- begin_tests(spaces_host_storage_services).
 
 test(a_reporting_removal_says_whether_anything_went,
-     [ cleanup(remove_sexp('&plunit-host-remove', [_|_])) ]) :-
+     [ cleanup(clear_native_atoms('&plunit-host-remove')) ]) :-
     add_sexp('&plunit-host-remove', [stored, thing]),
     metta_host_remove_reported('&plunit-host-remove', [stored, thing], First),
     First == true,
@@ -1881,7 +1891,7 @@ test(a_reporting_removal_says_whether_anything_went,
     Never == false.
 
 test(stored_enumeration_is_pattern_directed,
-     [ cleanup(remove_sexp('&plunit-host-stored', [_|_])) ]) :-
+     [ cleanup(clear_native_atoms('&plunit-host-stored')) ]) :-
     add_sexp('&plunit-host-stored', [edge, a, b]),
     add_sexp('&plunit-host-stored', [edge, b, c]),
     add_sexp('&plunit-host-stored', [node, a]),
@@ -2003,3 +2013,330 @@ test(a_non_space_is_refused,
     'space-contains'(7, [x], _).
 
 :- end_tests(spaces_contains).
+
+:- begin_tests(spaces_inheritance).
+
+release_inheritance_pair(Child, Parent) :-
+    catch(metta_release_space(Child), _, true),
+    catch(metta_release_space(Parent), _, true).
+
+test(reads_are_child_first_and_conjunctions_join_across_layers,
+     [ cleanup(release_inheritance_pair('&inh-child', '&inh-parent')) ]) :-
+    add_sexp('&inh-parent', [edge, a, b]),
+    add_sexp('&inh-parent', [copy, same]),
+    add_sexp('&inh-parent', [layer, parent]),
+    metta_declare_space_parent('&inh-child', '&inh-parent'),
+    add_sexp('&inh-child', [edge, b, c]),
+    add_sexp('&inh-child', [copy, same]),
+    add_sexp('&inh-child', [layer, child]),
+    findall(A, 'get-atoms'('&inh-child', A), Atoms),
+    msort(Atoms, SortedAtoms),
+    msort([[edge, b, c], [copy, same], [layer, child],
+           [edge, a, b], [copy, same], [layer, parent]], SortedExpected),
+    assertion(SortedAtoms == SortedExpected),
+    findall(Layer,
+            match('&inh-child', [layer, Layer], Layer, _),
+            Layers),
+    assertion(Layers == [child, parent]),
+    findall(X-Z,
+            match('&inh-child', [',', [edge, X, Y], [edge, Y, Z]],
+                  X-Z, _),
+            Rows),
+    assertion(Rows == [a-c]),
+    space_atom_count('&inh-child', OwnCount),
+    assertion(OwnCount == 3),
+    'space-contains'('&inh-child', [edge, a, b], Contains),
+    assertion(Contains == true).
+
+test(removing_a_variable_and_clearing_touch_only_the_child,
+     [ cleanup(release_inheritance_pair('&inh-mutate-child',
+                                        '&inh-mutate-parent')) ]) :-
+    add_sexp('&inh-mutate-parent', [kept, parent]),
+    metta_declare_space_parent('&inh-mutate-child', '&inh-mutate-parent'),
+    metta_remove_atom('&inh-mutate-child', _, RemovedEmpty),
+    assertion(RemovedEmpty == false),
+    once(get_native_atom('&inh-mutate-parent', [kept, parent])),
+    add_sexp('&inh-mutate-child', [gone, child]),
+    metta_host_clear_space('&inh-mutate-child'),
+    assertion(\+ get_native_atom('&inh-mutate-child', _)),
+    once(get_native_atom('&inh-mutate-parent', [kept, parent])).
+
+test(the_surface_constructor_returns_the_child_and_is_idempotent,
+     [ cleanup(release_inheritance_pair('&inh-surface-child',
+                                        '&inh-surface-parent')) ]) :-
+    process_metta_string(
+        "!(new-space &inh-surface-child (inherits &inh-surface-parent))",
+        First),
+    process_metta_string(
+        "!(new-space &inh-surface-child (inherits &inh-surface-parent))",
+        Second),
+    assertion(First == ['&inh-surface-child']),
+    assertion(Second == ['&inh-surface-child']),
+    once(petta_contract_fact([inherits, '&inh-surface-child',
+                              '&inh-surface-parent'])).
+
+test(a_different_parent_is_refused,
+     [ cleanup(( catch(metta_release_space('&inh-conflict-child'), _, true),
+                 catch(metta_release_space('&inh-conflict-first'), _, true),
+                 catch(metta_release_space('&inh-conflict-second'), _, true) )),
+       throws(error(petta_space_parent_conflict('&inh-conflict-child',
+                                                '&inh-conflict-first',
+                                                '&inh-conflict-second'), _)) ]) :-
+    metta_declare_space_parent('&inh-conflict-child', '&inh-conflict-first'),
+    metta_declare_space_parent('&inh-conflict-child', '&inh-conflict-second').
+
+test(a_cycle_is_named_before_the_already_used_refusal,
+     [ cleanup(release_inheritance_pair('&inh-cycle-a', '&inh-cycle-b')),
+       throws(error(petta_space_parent_cycle('&inh-cycle-b',
+                                             '&inh-cycle-a'), _)) ]) :-
+    metta_declare_space_parent('&inh-cycle-a', '&inh-cycle-b'),
+    metta_declare_space_parent('&inh-cycle-b', '&inh-cycle-a').
+
+test(a_parent_declared_after_first_use_is_refused,
+     [ cleanup(release_inheritance_pair('&inh-used-child',
+                                        '&inh-used-parent')),
+       throws(error(petta_space_parent_after_use('&inh-used-child'), _)) ]) :-
+    add_sexp('&inh-used-child', [already, used]),
+    metta_declare_space_parent('&inh-used-child', '&inh-used-parent').
+
+test(an_outer_transaction_rolls_back_the_index_and_contract) :-
+    catch(transaction((
+              metta_declare_space_parent('&inh-rollback-child',
+                                         '&inh-rollback-parent'),
+              throw(rollback_probe))),
+          rollback_probe,
+          true),
+    assertion(\+ space_parent('&inh-rollback-child', _)),
+    assertion(\+ petta_contract_fact([inherits, '&inh-rollback-child', _])),
+    assertion(\+ metta_exec_module_known('&inh-rollback-child', _)),
+    assertion(\+ metta_exec_module_parent(_, _)),
+    assertion(\+ native_storage_module_cache('&inh-rollback-child', _)).
+
+:- end_tests(spaces_inheritance).
+
+:- begin_tests(spaces_parametric).
+
+parametric_names([
+    [cache, '&param-kb', 100],
+    [cache, '&param-kb', 100.0],
+    [cache, "&param-kb", 100],
+    [cache, [nested, '&param-kb'], 100]
+]).
+
+release_parametric_spaces :-
+    parametric_names(Names),
+    forall(member(Name, Names), catch(metta_release_space(Name), _, true)),
+    forall(member(Name, [[cache, '&param-left', 8],
+                         [cache, '&param-right', 4],
+                         [cache, '&param-surface', 7],
+                         [cache, '&param-release', 5],
+                         [cache, '&param-rollback', 3]]),
+           catch(metta_release_space(Name), _, true)).
+
+parametric_cache_counts(Parametric, Storage, Exec) :-
+    aggregate_all(count, space_parametric(_), Parametric),
+    aggregate_all(count, native_storage_module_cache(_, _), Storage),
+    aggregate_all(count, metta_exec_module_known(_, _), Exec).
+
+test(canonical_modules_are_distinct_and_invert_exactly,
+     [ cleanup(release_parametric_spaces) ]) :-
+    parametric_names(Names),
+    maplist(metta_declare_parametric_space, Names),
+    maplist(space_module, Names, ExecModules),
+    maplist(native_storage_module, Names, StorageModules),
+    sort(ExecModules, UniqueExec),
+    sort(StorageModules, UniqueStorage),
+    length(Names, Count),
+    assertion(same_length(UniqueExec, Names)),
+    assertion(same_length(UniqueStorage, Names)),
+    forall(nth1(Index, Names, Name),
+           ( nth1(Index, ExecModules, Exec),
+             assertion(metta_module_space(Exec, Name)),
+             assertion(space_parametric(Name)),
+             assertion(petta_space_operand(Name)) )),
+    assertion(Count == 4).
+
+test(storage_equations_types_and_mutation_are_instance_local,
+     [ cleanup(release_parametric_spaces) ]) :-
+    Left = [cache, '&param-left', 8],
+    Right = [cache, '&param-right', 4],
+    metta_declare_parametric_space(Left),
+    metta_declare_parametric_space(Right),
+    add_sexp(Left, [edge, a, b], LeftRef),
+    add_sexp(Left, [edge, b, c]),
+    add_sexp(Left, scalar_left),
+    add_sexp(Right, [edge, x, y]),
+    add_sexp(Right, scalar_right),
+    metta_add_atom(Left, [':', local_token, 'LeftToken'], true),
+    metta_add_atom(Right, [':', local_token, 'RightToken'], true),
+    metta_add_atom(Left, [=, [param_view], ['context-space']], true),
+    metta_add_atom(Right, [=, [param_view], ['context-space']], true),
+    once(stored_atom_of_ref(LeftRef, RefSpace, RefAtom)),
+    assertion(RefSpace == Left),
+    assertion(RefAtom == [edge, a, b]),
+    findall(X-Z,
+            match(Left, [',', [edge, X, Y], [edge, Y, Z]], X-Z, _),
+            Rows),
+    assertion(Rows == [a-c]),
+    assertion(\+ match(Right, [edge, a, _], _, _)),
+    space_module(Left, LeftModule),
+    space_module(Right, RightModule),
+    once(eval_metta_in_module(LeftModule, [param_view], LeftView)),
+    once(eval_metta_in_module(RightModule, [param_view], RightView)),
+    assertion(LeftView == Left),
+    assertion(RightView == Right),
+    once(type_declaration_in(LeftModule, local_token, LeftType)),
+    once(type_declaration_in(RightModule, local_token, RightType)),
+    assertion(LeftType == 'LeftToken'),
+    assertion(RightType == 'RightToken'),
+    metta_remove_atom(Left, [edge, a, b], Removed),
+    assertion(Removed == true),
+    assertion(\+ get_native_atom(Left, [edge, a, b])),
+    assertion(get_native_atom(Right, [edge, x, y])),
+    clear_native_atoms(Left),
+    assertion(\+ get_native_atom(Left, _)),
+    assertion(get_native_atom(Right, scalar_right)).
+
+test(the_surface_constructor_is_idempotent_and_reflected_once,
+     [ cleanup(release_parametric_spaces) ]) :-
+    process_metta_string("!(new-space (cache &param-surface 7))", First),
+    process_metta_string("!(new-space (cache &param-surface 7))", Second),
+    Name = [cache, '&param-surface', 7],
+    assertion(First == [Name]),
+    assertion(Second == [Name]),
+    findall(true, petta_contract_fact([parametric, Name]), Rows),
+    assertion(Rows == [true]).
+
+test(release_clears_the_registry_storage_and_execution_life,
+     [ cleanup(release_parametric_spaces) ]) :-
+    Name = [cache, '&param-release', 5],
+    metta_declare_parametric_space(Name),
+    add_sexp(Name, [entry, live]),
+    native_storage_module_ready(Name, Storage),
+    space_module(Name, Exec),
+    metta_release_space(Name),
+    assertion(\+ space_parametric(Name)),
+    assertion(\+ petta_contract_fact([parametric, Name])),
+    assertion(\+ native_storage_module_cache(Name, _)),
+    assertion(\+ metta_exec_module_known(Name, _)),
+    metta_declare_parametric_space(Name),
+    assertion(native_storage_module_ready(Name, Storage)),
+    assertion(space_module(Name, Exec)),
+    assertion(\+ get_native_atom(Name, _)).
+
+test(invalid_names_are_rejected_before_any_cache_is_published) :-
+    parametric_cache_counts(P0, S0, E0),
+    catch(metta_declare_parametric_space([]),
+          error(domain_error(parametric_space_name, []), _), Empty = refused),
+    catch(metta_declare_parametric_space([[cache], '&bad', 1]),
+          error(domain_error(parametric_space_name, _), _), Head = refused),
+    catch(metta_declare_parametric_space([cache, _Unbound, 1]),
+          error(instantiation_error, _), Ground = refused),
+    Cyclic = [cache|Cyclic],
+    catch(metta_declare_parametric_space(Cyclic),
+          error(type_error(acyclic_term, _), _), Finite = refused),
+    assertion(Empty == refused),
+    assertion(Head == refused),
+    assertion(Ground == refused),
+    assertion(Finite == refused),
+    parametric_cache_counts(P1, S1, E1),
+    assertion(P1-S1-E1 == P0-S0-E0).
+
+test(an_outer_transaction_rolls_back_every_parametric_index) :-
+    Name = [cache, '&param-rollback', 3],
+    catch(transaction(( metta_declare_parametric_space(Name),
+                        throw(rollback_probe) )),
+          rollback_probe,
+          true),
+    assertion(\+ space_parametric(Name)),
+    assertion(\+ petta_contract_fact([parametric, Name])),
+    assertion(\+ native_storage_module_cache(Name, _)),
+    assertion(\+ metta_exec_module_known(Name, _)).
+
+:- end_tests(spaces_parametric).
+
+:- begin_tests(spaces_restricted_modules).
+
+release_restricted_space(Space) :- catch(metta_release_space(Space), _, true).
+
+test(a_restricted_space_bases_on_the_curated_module,
+     [ cleanup(release_restricted_space('&restricted-topology')) ]) :-
+    metta_declare_restricted_space('&restricted-topology', []),
+    metta_declare_restricted_space('&restricted-topology', []),
+    space_module('&restricted-topology', Module),
+    restricted_core_module(Core),
+    assertion(import_module(Module, Core)),
+    assertion(current_predicate(Core:'+'/3)).
+
+test(a_different_grant_set_is_refused,
+     [ cleanup(release_restricted_space('&restricted-conflict')),
+       throws(error(petta_space_restriction_conflict('&restricted-conflict',
+                                                      [file], [process]), _)) ]) :-
+    metta_declare_restricted_space('&restricted-conflict', [file]),
+    metta_declare_restricted_space('&restricted-conflict', [process]).
+
+test(a_missing_capability_names_the_space_operation_and_capability,
+     [ cleanup(release_restricted_space('&restricted-refusal')),
+       throws(error(petta_space_capability_required('&restricted-refusal',
+                                                     exists_file, file), _)) ]) :-
+    metta_declare_restricted_space('&restricted-refusal', []),
+    space_module('&restricted-refusal', Module),
+    with_metta_module(Module,
+                      metta_require_current_capability(exists_file, file)).
+
+test(an_explicit_grant_publishes_only_its_capability,
+     [ cleanup(release_restricted_space('&restricted-file')) ]) :-
+    metta_declare_restricted_space('&restricted-file', [file]),
+    space_module('&restricted-file', Module),
+    with_metta_module(Module,
+                      metta_require_current_capability(exists_file, file)),
+    catch(with_metta_module(Module,
+                            metta_require_current_capability(argv, process)),
+          error(petta_space_capability_required('&restricted-file', argv,
+                                                 process), _),
+          Refused = true),
+    assertion(Refused == true).
+
+test(the_sandbox_accepts_a_pure_raw_goal_and_rejects_file_access,
+     [ cleanup(release_restricted_space('&restricted-sandbox')) ]) :-
+    metta_declare_restricted_space('&restricted-sandbox', []),
+    space_module('&restricted-sandbox', Module),
+    with_metta_module(Module, metta_require_safe_goal(atom(a))),
+    catch(with_metta_module(Module,
+                            metta_require_safe_goal(open('/tmp/nope', read,
+                                                         _))),
+          error(petta_space_capability_required('&restricted-sandbox', open,
+                                                 file), _),
+          Refused = true),
+    assertion(Refused == true).
+
+test(removing_an_ordinary_shadow_cannot_unpin_restricted_dispatch,
+     [ cleanup(( clear_native_atoms('&restricted-shadow-owner'),
+                 release_restricted_space('&restricted-after-shadow') )) ]) :-
+    metta_declare_restricted_space('&restricted-after-shadow', []),
+    add_sexp('&restricted-shadow-owner',
+             [=, [exists_file, Path], Path]),
+    metta_remove_atom('&restricted-shadow-owner',
+                      [=, [exists_file, _], _], true),
+    assertion(fun_scoped(exists_file)),
+    space_module('&restricted-after-shadow', Module),
+    catch(with_metta_module(Module,
+                            reduce([exists_file, '/tmp'], _, _)),
+          error(petta_space_capability_required('&restricted-after-shadow',
+                                                 exists_file, file), _),
+          Refused = true),
+    assertion(Refused == true).
+
+test(a_failed_outer_transaction_leaves_no_restriction) :-
+    catch(transaction((
+              metta_declare_restricted_space('&restricted-rollback', [file]),
+              throw(rollback_probe))),
+          rollback_probe,
+          true),
+    assertion(\+ space_restricted('&restricted-rollback', _)),
+    assertion(\+ space_grant('&restricted-rollback', _)),
+    assertion(\+ petta_contract_fact([restricted, '&restricted-rollback'])),
+    assertion(\+ metta_exec_module_known('&restricted-rollback', _)),
+    assertion(\+ native_storage_module_cache('&restricted-rollback', _)).
+
+:- end_tests(spaces_restricted_modules).

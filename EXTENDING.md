@@ -336,6 +336,66 @@ named space claiming a name turned every registered predicate into inert data
 in every space, silently, from code that had not changed. That space's own
 equation still shadows it, which is the behaviour that should happen.
 
+A space may name one parent at creation:
+
+```metta
+!(new-space &child (inherits &parent))
+```
+
+Its execution module bases on the parent's module, and its stored-atom reads
+form a child-first multiset union over the same chain. Each conjunct routes
+through that union independently, so a child fact can join a parent fact.
+Adds, removals, clear, and `space-atom-count` stay local to the child. Declare
+the parent before first use; the same declaration is idempotent, while a
+different parent, a cycle, or dropping a parent that still has a live child is
+refused by name. Python spells the same constructor
+`runtime.new_space(inherits=parent)` and dropping the child only unlinks the
+child.
+
+A restricted space selects a curated execution base instead of `&self`:
+
+```metta
+!(new-space &locked (restricted))
+!(new-space &reader (restricted (grants file)))
+```
+
+The curated base publishes computation but withholds file, process, and
+network operations. A missing operation raises
+`petta_space_capability_required(Space, Operation, Capability)` at runtime,
+so `catch` can observe it and Python receives `SpaceCapabilityError` with the
+same three fields. Grants are explicit and fixed at creation. Raw
+`translatePredicate` and `call` goals also pass SWI's `sandbox:safe_goal/1`;
+an unsafe unclassified host goal requires the `process` grant. Restriction and
+inheritance are alternative execution bases and cannot be combined.
+
+A ground expression may itself identify a native space:
+
+```metta
+!(new-space (cache &kb 100))
+!(add-atom
+   (cache &kb 100)
+   (= (cache-config)
+      (let (cache $base $limit)
+           (context-space)
+           (config $base $limit))))
+!(evalc (cache-config) (cache &kb 100)) ; (config &kb 100)
+```
+
+The constructor accepts one finite, ground, nonempty expression headed by a
+symbol. It validates that shape before publishing any module cache. The exact
+term is the identity: numeric kind, strings, nesting, and every parameter are
+part of it. Each identity maps through canonical term text to private storage
+and execution modules; stored expressions use one reserved predicate functor
+inside the already-private storage module, because a compound cannot be a
+Prolog functor.
+
+Parameters need no second reflection builtin. Logtalk's parametric-object
+model makes the identifier visible to the entity's predicates; here the
+existing `context-space` supplies that identifier and ordinary head-pattern
+destructuring reads it. A registered expression stays literal in a SpaceType
+position. An unregistered expression still evaluates, preserving computed
+space code such as `(add-atom (space-name) atom)`.
+
 ### Taking an argument unevaluated
 
 Declare the parameter `Atom` and the argument arrives as written:
@@ -2059,6 +2119,9 @@ both and the query they disagree on.
 | `(merge <pattern> depth\|fair\|best-first)` | how the engine merges one shape's answers ACROSS contexts | `declare_merge` |
 | `(on <ctx> <pattern> <op>)` | a bridge: when a matching atom lands, run `(insert ...)`, `(retract ...)` or `(revise ...)` under the match's bindings | `declare_reaction` |
 | `(admits <pool> <Type>)`, `(capacity <pool> <n>)` | a typed, bounded pool; a space of spaces is the thread-pool reading | `declare_admits`, `declare_capacity` |
+| `(inherits <child> <parent>)` | the child's execution base and child-first read chain; writes remain local | `(new-space <child> (inherits <parent>))`, `new_space(inherits=...)` |
+| `(restricted <space>)`, `(grants <space> <capability>)` | a curated execution base; file, process, and network vocabulary is creation-granted | `(new-space <space> (restricted (grants ...)))`, `new_space(restricted=True, grants=...)` |
+| `(parametric <expression>)` | the exact ground expression registered as a native space identifier | `(new-space (<family> <parameter> ...))` |
 
 Ask the seam itself what it will do: `!(explain (match &s <pattern> $x))`
 answers the route as atoms, which entry matched, at what fidelity,

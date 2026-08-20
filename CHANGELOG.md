@@ -8,12 +8,34 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+<<<<<<< HEAD
 - A packaged Ciao-style development grade now applies external `pred`
   assertions to the engine's atom-removal, equation-removal, storage-removal,
   and translation funnels. `assertions@0.0.1`, `rtchecks@0.0.1`, and
   `xlibrary@0.0.2` collect violations as `assrchk/1` data without adding a
   production engine dependency; a clean smoke and a planted bad call gate both
   directions.
+=======
+- A ground expression can name a native space. For example,
+  `!(new-space (cache &kb 100))` creates an isolated storage and execution
+  context whose exact identifier is returned by `context-space`; equations
+  can destructure it with ordinary `let` patterns to read the family
+  parameters. Canonical term encoding gives each instance distinct storage
+  and execution modules while ordinary computed space expressions keep
+  evaluating as before.
+- Restricted spaces use a curated execution base and creation-time
+  `file`, `process`, and `network` grants. A denied operation raises a
+  structured refusal naming the space, operation, and missing capability;
+  raw Prolog calls additionally pass SWI's sandbox classifier. Python exposes
+  the same policy through `new_space(restricted=True, grants=(...))`.
+- Spaces can inherit from one parent at creation with
+  `(new-space &child (inherits &parent))` or
+  `runtime.new_space(inherits=parent)`. Atom reads are a child-first multiset
+  union and conjunctions join across layers, while adds, removals, clear, and
+  `space-atom-count` remain local. The execution module uses the same parent
+  chain for equations. Cycles, late declarations, conflicting parents, and
+  dropping a parent with a live child are refused before mutation.
+>>>>>>> p12-space-model
 - `(space-atom-count <space>)` answers how many atoms a space holds from
   the store's own per-predicate clause counts: one property read per
   stored arity, none per atom, so a capacity policy over a million-atom
