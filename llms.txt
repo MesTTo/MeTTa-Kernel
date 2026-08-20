@@ -227,7 +227,8 @@ that boundary. The target is positional-only, and a concrete Python class
 target is also the static return type of `cast`, `convert.build` and
 `Rows.build`.
 `m.arities(name)`, `m.is_function(name)` (visible from here),
-`m.is_function_here(name)` (has clauses HERE), `m.builtins()`.
+`m.is_function_here(name)` (has clauses HERE), `m.builtins()` (every registered
+function and translator special form, sorted without duplicates).
 
 ## Declarations: how a space behaves, written as atoms
 
@@ -468,7 +469,8 @@ the ledger of which head is which, what it answers to in the minimal
 instruction set the arbiter presents, and for a derived form still fused into
 the compiler, the measurement that keeps it there.
 
-233 builtins are registered (`m.builtins()` lists them live), among them the
+`m.builtins()` lists the live union of registered functions and translator
+special forms. The callable registry includes the
 py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,
 `py-dict`, `py-tuple`, `py-str`, `py-repr`, `py-format`, `py-slice`, `py-range`,
 `py-at`, `py-in`, `py-eq`, `py-truthy`, `py-round`, `py-str-join`), the atom
