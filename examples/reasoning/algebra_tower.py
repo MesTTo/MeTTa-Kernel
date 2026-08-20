@@ -1,4 +1,5 @@
 """Purpose: run the lawless, rate, linear, and amplitude algebra witnesses.
+
 Assumes: execute with PeTTa's documented Python environment and ``PETTA_PATH``.
 Guarantees:
   - the lawless witness uses ``declare_algebra`` plus ordinary tagged facts
@@ -14,7 +15,7 @@ Guarantees:
     the fence lands [tested:
     test_amplitudes_interfere_inside_the_fragment_and_are_refused_outside;
     commit=1822ca53390b180e622f262b766f224ae7a9278f]
-"""  # noqa: D205, D415 -- the file contract is one continuous invariant
+"""
 
 from petta import (
     AlgebraRequirementError,

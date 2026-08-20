@@ -1,10 +1,11 @@
 """Purpose: carry a two-rule provenance derivative into a pettorch module.
+
 Assumes: PeTTa, PyTorch, and the sibling ``pettorch`` package are importable.
 Guarantees: the result is the same live DLPack tensor whose backward pass
   reaches the source tag [tested:
   test_a_declared_gradient_algebra_propagates_derivatives_through_a_derivation;
   commit=1822ca53390b180e622f262b766f224ae7a9278f]
-"""  # noqa: D205, D415 -- the file contract is one continuous invariant
+"""
 
 import pettorch
 import torch
