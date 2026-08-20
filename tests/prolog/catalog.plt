@@ -11,7 +11,7 @@
        [tested: an_undeclared_head_stays_plain_data]
      - materialized annotation and algebra descriptors follow catalog adds,
        removals, and same-name replacements [tested:
-       algebra_descriptor_caches_follow_catalog_edits; commit=WORKTREE]
+       algebra_descriptor_caches_follow_catalog_edits; commit=1822ca53390b180e622f262b766f224ae7a9278f]
    Open Obligations:
      To Do: None
      Hacks: None

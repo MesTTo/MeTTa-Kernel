@@ -3044,7 +3044,7 @@ metta_cache_unchecked(Name) :-
 %The old semiring names are shipped rows in that same table rather than cases
 %in this predicate [tested:
 %test_a_declared_semiring_quadruple_serves_annotations_like_a_builtin_one;
-%commit=496643acc4104702e76e7d325e9ffac8c0cc08c1].
+%commit=1822ca53390b180e622f262b766f224ae7a9278f].
 petta_annotations(Ctx, Algebra) :-
     (   petta_annotations_cache(Ctx, Cached)
     ->  Algebra = Cached

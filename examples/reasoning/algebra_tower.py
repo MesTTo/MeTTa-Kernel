@@ -3,17 +3,17 @@ Assumes: execute with PeTTa's documented Python environment and ``PETTA_PATH``.
 Guarantees:
   - the lawless witness uses ``declare_algebra`` plus ordinary tagged facts
     [tested: test_a_declared_algebra_without_laws_answers_in_order_and_unfused;
-    commit=496643acc4104702e76e7d325e9ffac8c0cc08c1]
+    commit=1822ca53390b180e622f262b766f224ae7a9278f]
   - a local seed selects ordinary tagged alternatives reproducibly [tested:
     test_declared_rates_make_seeded_selection_match_their_distribution;
-    commit=f95becb09e1d83fbb7bfd083fdb5b8b3f84ee225]
+    commit=1822ca53390b180e622f262b766f224ae7a9278f]
   - the linear witness refuses a second spend of one fact occurrence [tested:
     test_a_linear_algebra_refuses_the_second_spend_of_one_premise;
-    commit=84dda69a9e7a73fbe0da50eef9ca6bc40dd9532d]
+    commit=1822ca53390b180e622f262b766f224ae7a9278f]
   - amplitude use names the missing fence and exact opposite paths cancel after
     the fence lands [tested:
     test_amplitudes_interfere_inside_the_fragment_and_are_refused_outside;
-    commit=84dda69a9e7a73fbe0da50eef9ca6bc40dd9532d]
+    commit=1822ca53390b180e622f262b766f224ae7a9278f]
 """  # noqa: D205, D415 -- the file contract is one continuous invariant
 
 from petta import (
