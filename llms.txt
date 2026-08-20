@@ -167,7 +167,17 @@ stored relation), `TabledMap` (a computed cache that stays correct).
 every declaration below is stored. The catalog describes its own kinds there:
 `(kind head argspec...)` rows declare each declaration's shape,
 `(vocabulary name value...)` rows declare the value sets, and
-`(claim vocab value property...)` rows attach per-value facts. One generic
+`(claim vocab value property...)` rows attach per-value facts. A
+`(policy axis knob default)` row names each engine decision point and its
+shipped choice. There is exactly one row for each of dispatch, order, merge,
+agenda, equality, errors, world, algebra, storage, typing, fidelity,
+source-kind, transaction-mode, atomicity, save-format, volatility, and
+determinism. `tests/check_policy_inventory.py` asks the running catalog for
+those rows, joins each one to the implementation seam, and rejects a closed
+list that bypasses the catalog unless the immediately preceding annotation
+records one of mechanism-internal, arbiter-owned-language-law,
+codec-version-identity, or documented-collision-decision with a reason and
+evidence location. One generic
 checker validates every `&petta` write against them, a violation is a hard
 error naming the atom, the position and the argspec, and a head with no kind
 row passes untouched, so third-party declaration kinds are ordinary data

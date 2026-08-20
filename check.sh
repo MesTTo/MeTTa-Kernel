@@ -15,11 +15,17 @@
 #                                            bandit deptry audit interrogate
 #                                            codespell imports jscpd prolog
 #                                            codec-doc leatta leatta-gate-selftest
-#                                            snippets
+#                                            policy-inventory
+#                                            policy-inventory-selftest snippets
 #                                            pytest benchmarks instructions
 #                                            shell examples leatta
 #          CHECK_PY=/path/to/python   pick the interpreter
 #          GATE_ONLY=1                skip the REPORT tier
+# Guarantees:
+#   - the runtime-derived policy inventory and its five-case discrimination
+#     selftest are GATE lanes [tested:
+#     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
+#     commit=WORKTREE].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -403,6 +409,13 @@ run REPORT spec-status          "$PY" "$HERE/tests/check_spec_status.py"
 # that it still discriminates is not. 17 planted cases, plus a FIXED item whose
 # file is deleted, confirmed OPEN, restored and confirmed FIXED again.
 run GATE   spec-status-selftest "$PY" "$HERE/tests/check_spec_status_selftest.py"
+
+# Every engine decision axis is a live (policy axis knob default) row in
+# &petta, joined here to the code seam that consumes it. The second lane plants
+# an unowned list, all four allowed exemptions, two malformed exemptions and
+# both authority-owned exclusions, so an empty report cannot pass vacuously.
+run GATE policy-inventory "$PY" "$HERE/tests/check_policy_inventory.py"
+run GATE policy-inventory-selftest "$PY" "$HERE/tests/check_policy_inventory_selftest.py"
 
 # Phase 11 moves &self's execution out of Prolog's `user` module. SWI's
 # autoloader resolves a missing import ANYWAY, so a module boundary can be

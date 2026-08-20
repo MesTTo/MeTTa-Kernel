@@ -14,6 +14,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `(dispatch-policy <function> <axis> <value>)` override that takes effect on
   already-compiled calls. The conforming no-match default leaves the call
   unreduced.
+- `&petta` now publishes `(policy <axis> <knob> <default>)` rows for exactly
+  seventeen engine decision axes: dispatch, order, merge, agenda, equality,
+  errors, world, algebra, storage, typing, fidelity, source kind, transaction
+  mode, atomicity, save format, volatility, and determinism. The new
+  `policy-inventory` gate derives that table from the running engine, joins
+  every row to its implementation seam, and rejects unowned closed policy
+  lists. Exemptions require an adjacent category, reason, and evidence
+  location. Save formats and memo aggregation values now consume catalog
+  vocabularies rather than duplicate local lists.
 - `DontEvalType` is a declarable evaluation mask. Declaring
   `(: Payload DontEvalType)` makes a `Payload` parameter receive its written
   expression before evaluation; the compiler consults the declaration, not a

@@ -25,6 +25,10 @@
 %   - reporting observers type the empty expression as unit `(->)` while
 %     internal classifier paths retain their gradual empty-expression result
 %     [tested: test_the_empty_expressions_type_follows_the_arbiters_ruling; commit=WORKTREE].
+%   - the include refusal's self/top pair records the arbiter-owned module
+%     bases explicitly, so the inventory's exemption remains checkable
+%     [tested: test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
+%     commit=WORKTREE].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction
@@ -5874,6 +5878,7 @@ include(Module, Answer) :-
     ).
 
 metta_include_refusal(Module, "include: the running context is not a module") :-
+    % policy-inventory-exempt: arbiter-owned-language-law; reason=self and top denote module path bases and cannot themselves be included; evidence=engine/metta.pl:metta_include_refusal/2
     memberchk(Module, [self, top]), !.
 metta_include_refusal(Module, Reason) :-
     \+ catch(resolve_metta_import_path(Module, _), _, fail),

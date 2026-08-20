@@ -25,6 +25,10 @@
 %     it [tested 2026-08-19: parser_number_text]. Generated terms agree,
 %     which is where the class was found [tested 2026-08-19:
 %     property_roundtrip in tests/prolog/property_lane.pl].
+%   - command_wants_more/1's string and escaped states are marked as parser
+%     mechanism states, not silently exempted policy values [tested:
+%     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -476,6 +480,7 @@ command_content([C|Rest], State0) :-
 %state as "wants more" made it hang the console.
 command_wants_more(Codes) :-
     command_balance(Codes, 0, outside, Depth, State),
+    % policy-inventory-exempt: mechanism-internal; reason=string and escaped are internal states of the reader state machine; evidence=engine/parser.pl:command_wants_more/1
     ( Depth > 0 -> true ; memberchk(State, [string, escaped]) ).
 
 %A closing bracket too many is MALFORMED, not incomplete: no amount of further

@@ -47,6 +47,12 @@
 %   - Six dispatch axes publish one documented default and accept at most one
 %     validated per-function override for each axis
 %     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=WORKTREE].
+%   - The policy catalog publishes exactly one knob and shipped default for
+%     each of the seventeen engine decision axes, and the policy-inventory
+%     gate rejects a closed list that has neither a catalog row nor a strict
+%     adjacent exemption [tested:
+%     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
+%     commit=WORKTREE].
 %   - A selective native match is one indexed probe rather than a scan, and
 %     the acyclic guard does not change that because it runs on the answer
 %     [tested 2026-08-18:
@@ -246,6 +252,7 @@ petta_note_ctx_declared(_).
 petta_catalog_head(kind).
 petta_catalog_head(vocabulary).
 petta_catalog_head(claim).
+petta_catalog_head(policy).
 petta_catalog_head('routed-by-shape').
 petta_catalog_head('dispatch-default').
 petta_catalog_head('dispatch-policy').
@@ -535,6 +542,13 @@ petta_check_catalog_semantics(vocabulary, [Name|_], Term) :-
                                   'one vocabulary row per name; remove the old row first')
     ;   true
     ).
+petta_check_catalog_semantics(policy, [Axis|_], Term) :-
+    !,
+    (   petta_catalog_row([policy, Axis, _, _])
+    ->  petta_declaration_refused(Term, 1,
+                                  'one policy row per axis; remove the old row first')
+    ;   true
+    ).
 petta_check_catalog_semantics(claim, [Vocab, Value|_], Term) :-
     !,
     (   petta_vocabulary_values(Vocab, Values)
@@ -764,6 +778,9 @@ petta_catalog_preset([vocabulary, 'source-kind', linear, repeated, peek]).
 petta_catalog_preset([vocabulary, world, 'closed-world', 'open-world']).
 petta_catalog_preset([vocabulary, atomicity,
                       transactional, 'atomic-single', 'best-effort']).
+petta_catalog_preset([vocabulary, 'memo-strategy', wtinylfu, lru]).
+petta_catalog_preset([vocabulary, 'memo-aggregate', none, min, max, sum, count]).
+petta_catalog_preset([vocabulary, 'save-format', metta, fast]).
 petta_catalog_preset([vocabulary, 'cache-mode', unchecked]).
 petta_catalog_preset([vocabulary, 'effect-class', immutable]).
 petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
@@ -787,6 +804,7 @@ petta_catalog_preset([kind, 'routed-by-shape', symbol,
                       [optional, ['one-of', 'route-key']]]).
 petta_catalog_preset([kind, vocabulary, symbol, [rest, symbol]]).
 petta_catalog_preset([kind, claim, symbol, symbol, [rest, symbol]]).
+petta_catalog_preset([kind, policy, symbol, symbol, term]).
 petta_catalog_preset([kind, handles, symbol, pattern, ['one-of', fidelity],
                       [optional, ['one-of', determinism]]]).
 petta_catalog_preset([kind, 'on-error', symbol, pattern,
@@ -813,6 +831,26 @@ petta_catalog_preset([kind, 'dispatch-policy', symbol, symbol, term]).
 petta_catalog_preset(['routed-by-shape', handles]).
 petta_catalog_preset(['routed-by-shape', 'on-error']).
 petta_catalog_preset(['routed-by-shape', merge, global]).
+%One row per engine decision axis. The inventory lane joins these live rows
+%to the implementation seam named for each knob; keeping the defaults here
+%means a program can read the same table the gate checks.
+petta_catalog_preset([policy, dispatch, 'dispatch-policy', 'MismatchOriginal']).
+petta_catalog_preset([policy, order, 'dispatch-policy', 'OrderClause']).
+petta_catalog_preset([policy, merge, merge, depth]).
+petta_catalog_preset([policy, agenda, reduce, 'depth-first']).
+petta_catalog_preset([policy, equality, '==', 'structural-identity']).
+petta_catalog_preset([policy, errors, 'on-error', abort]).
+petta_catalog_preset([policy, world, context, 'closed-world']).
+petta_catalog_preset([policy, algebra, annotations, bool]).
+petta_catalog_preset([policy, storage, 'config-memoize', wtinylfu]).
+petta_catalog_preset([policy, typing, 'typing-rule', strict]).
+petta_catalog_preset([policy, fidelity, handles, 'Exact']).
+petta_catalog_preset([policy, 'source-kind', source, repeated]).
+petta_catalog_preset([policy, 'transaction-mode', transaction, 'all-answers']).
+petta_catalog_preset([policy, atomicity, writes, transactional]).
+petta_catalog_preset([policy, 'save-format', save, metta]).
+petta_catalog_preset([policy, volatility, volatility, stable]).
+petta_catalog_preset([policy, determinism, determinism, nondet]).
 petta_catalog_preset([claim, semiring, ranked, ordered]).
 petta_catalog_preset([claim, semiring, prob, ordered]).
 petta_catalog_preset(['dispatch-default', 'MismatchEnum', 'MismatchOriginal']).
