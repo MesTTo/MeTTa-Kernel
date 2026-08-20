@@ -10,6 +10,11 @@
 %     [tested: a_resolved_callable_is_applicable]
 %   - nothing is drained: an unbounded iterator yields one element at a time
 %     [tested: iteration_is_lazy]
+%   - host values without a MeTTa literal are refused at the text writer
+%     instead of being emitted as Python syntax [tested:
+%     a_python_value_without_a_metta_literal_is_refused; commit=WORKTREE]
+%   - repr keeps an explicit presentation path for those values [tested:
+%     a_python_value_keeps_its_explicit_display; commit=WORKTREE]
 % Fails when:
 %   - the claim is about the SHIPPED configuration. plunit consults
 %     engine/metta.pl and never bindings/python/petta/shim.pl, so no host bridge answers
@@ -256,7 +261,7 @@ test(a_tuple_is_still_a_tuple_going_back) :-
 
 %The empty tuple is a value, and the reason it once took the whole run down was
 %the writer rather than anything about tuples: =../2 refuses a zero-arity
-%compound [tested: an_empty_compound_prints].
+%compound [tested: parser_refuses_non_metta:an_empty_compound_is_refused].
 test(the_empty_tuple_is_a_value_and_not_the_unit) :-
     'py-atom'("()", Empty),
     assertion(Empty \== []),
@@ -314,18 +319,26 @@ test(a_value_that_contains_itself_says_so, [throws(_)]) :-
     'py-atom'("[1]", _),
     petta_py_materialize(Cyclic, _).
 
-%%%% Display %%%%
+%%%% Text boundary %%%%
 
-%A Python object says what it is. It used to print as its address inside
-%brackets, which named nothing a reader could use.
-test(a_value_prints_as_python_shows_it,
+%Python display syntax is not a MeTTa literal. `(1, 2)` in particular reads
+%as the symbol `1,` and the number 2, while `()` reads as the empty expression.
+%The writer therefore refuses every live host value before returning text.
+test(a_python_value_without_a_metta_literal_is_refused,
+     [forall(member(Source, ["[1, 2]", "(1, 2)", "(1,)", "()",
+                              "{'a': 1}"])),
+      throws(error(metta_unwritable_text(_), _))]) :-
+    'py-atom'(Source, Value),
+    swrite(Value, _).
+
+test(a_python_value_keeps_its_explicit_display,
      [forall(member(Source-Expected, ["[1, 2]"-"[1, 2]",
                                       "(1, 2)"-"(1, 2)",
                                       "(1,)"-"(1,)",
                                       "()"-"()",
                                       "{'a': 1}"-"{'a': 1}"]))]) :-
     'py-atom'(Source, Value),
-    swrite(Value, Text),
+    repr(Value, Text),
     assertion(Text == Expected).
 
 %%%% Failure %%%%

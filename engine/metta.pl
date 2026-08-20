@@ -6,6 +6,10 @@
 %     compile-time checks inspect literals and declared return types without
 %     binding source variables
 %     [tested: operation_answers, test_a_repeated_eval_does_not_recompile_and_the_effects_cluster_conforms; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
+%   - repr/2, println!/2 and format-args presentation retain host display text
+%     through sdisplay/2 without weakening swrite/2's reader-inverse contract
+%     [tested: parser_display, a_python_value_keeps_its_explicit_display;
+%     commit=WORKTREE].
 %   - import! loads a MeTTa source that is new or that has been edited, and
 %     skips one that is neither, which is SWI's if(changed); a Python source
 %     keeps if(not_loaded) [tested 2026-08-19:
@@ -401,7 +405,7 @@ id(X, X).
 %the reference defines it [source: metta-lang-docs, types_basics/metatypes:
 %"This is the way noeval function is implemented"].
 noeval(X, X).
-repr(Term, R) :- swrite(Term, Text), R = Text.
+repr(Term, R) :- sdisplay(Term, Text), R = Text.
 repra(Term, R) :- term_to_atom(Term, R).
 parse(Str, _) :- var(Str), !, refuse_unbound_input(parse, 1).
 parse(Str, R) :- sread(Str, R).
@@ -1233,7 +1237,7 @@ format_arg(Arguments, [Code|Rest], [Code|Tail]) :-
 %quotes, which is what lets help! print documentation unquoted
 %[source: the same file, formatArgsString].
 metta_console_text(Value, Text) :- string(Value), !, Text = Value.
-metta_console_text(Value, Text) :- swrite(Value, Text).
+metta_console_text(Value, Text) :- sdisplay(Value, Text).
 
 %Upstream sorts an expression of STRINGS and refuses anything else by name;
 %sort-atom is the general form that orders any atom. The order is the printed
@@ -4081,7 +4085,7 @@ prolog:error_message(permission_error(register, metta_function, Name)) -->
 %readable dump. Data in, data out; the printing stays println!'s job.
 'pretty-atom'(Term, String) :- swrite_pretty(Term, String).
 
-'println!'(Arg, Unit) :- swrite(Arg, RArg),
+'println!'(Arg, Unit) :- sdisplay(Arg, RArg),
                         format('~w~n', [RArg]),
                         Unit = [].
 

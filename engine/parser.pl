@@ -7,6 +7,14 @@
 %   - swrite/2 names variables by first occurrence, independent of SWI's
 %     process-local variable identifiers [tested 2026-08-14:
 %     parser_stable_variables].
+%   - every public writer refuses a value whose text would read back as a
+%     different term, including Janus tuples and zero-arity compounds
+%     [tested: parser_refuses_non_metta,
+%     test_every_generated_atom_survives_the_write_parse_round_trip;
+%     commit=WORKTREE].
+%   - sdisplay/2 is the explicitly lossy presentation path used by repr and
+%     console output; it retains host display syntax without pretending that
+%     syntax is readable MeTTa [tested: parser_display; commit=WORKTREE].
 %   - swrite_with_names/3 preserves reader names without binding the source
 %     term; distinct variables carrying one written name receive #N epochs in
 %     first-occurrence order [tested: parser_named_variables; commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
@@ -19,19 +27,16 @@
 %     parser_unicode_layout,
 %     test_every_unicode_whitespace_separates_atoms].
 %   - metta_unwritable_symbol/2 answers for every value the round trip loses,
-%     not only for names: a non-finite float writes as inf, -inf or NaN (the
-%     arbiter's spellings, via metta_float_codes/2) and a rational as 1r3,
-%     and each reads back as a symbol of that spelling, so the seam refuses
-%     it [tested 2026-08-19: parser_number_text]. Generated terms agree,
-%     which is where the class was found [tested 2026-08-19:
-%     property_roundtrip in tests/prolog/property_lane.pl].
+%     not only for names: non-finite and rational numbers have no readable
+%     numeric spelling, and non-list compounds and opaque host values are not
+%     MeTTa terms [tested: parser_number_text, parser_refuses_non_metta,
+%     property_roundtrip; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
 :- use_module(library(dcg/basics)). %atom//1, number//1, eos//0
-:- use_module(library(occurs)). %sub_term/2
 
 %Read ONE form and answer the variable names it bound, for a caller that
 %carries names across a wire: sread/2 is this without the map, and the map
@@ -47,10 +52,21 @@ sread_with_names(Text, Term, VarMap) :-
        ; format(atom(Msg), 'Parse error in form: ~w', [S]),
          throw(error(syntax_error(Msg), none)) ).
 
-%Generate a MeTTa S-expression string from the Prolog list (inverse parsing):
-swrite(Term, String) :- stable_print_term(Term, Printable),
-                        phrase(swrite_numbered(Printable), Codes),
-                        string_codes(String, Codes).
+%Generate a MeTTa S-expression string from the Prolog list (inverse parsing).
+%A value outside the inverse domain is an error, never lossy display text.
+swrite(Term, String) :-
+    metta_text_writable(Term),
+    stable_print_term(Term, Printable),
+    phrase(swrite_numbered(Printable), Codes),
+    string_codes(String, Codes).
+
+%Display text is presentation, not serialization. It deliberately preserves
+%the old host repr path for repr/2 and consoles while swrite/2 stays an inverse
+%of sread/2 over every value it accepts.
+sdisplay(Term, String) :-
+    stable_print_term(Term, Printable),
+    phrase(sdisplay_numbered(Printable), Codes),
+    string_codes(String, Codes).
 
 %Print one answer with the reader's Name-Var pairs. Term and Names are copied
 %as one template before numbering, the same identity-preserving shape findall
@@ -58,6 +74,7 @@ swrite(Term, String) :- stable_print_term(Term, Printable),
 %it therefore remain untouched [tested: parser_named_variables;
 %commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
 swrite_with_names(Term, Names, String) :-
+    metta_text_writable(Term),
     named_print_term(Term, Names, Printable),
     phrase(swrite_numbered(Printable), Codes),
     string_codes(String, Codes).
@@ -78,16 +95,20 @@ swrite_answer_tail([Answer|Answers]) -->
     " ", swrite_answer_(Answer), swrite_answer_tail(Answers).
 
 swrite_answer_('$petta_answer'(Term, Names)) --> !,
-    { named_print_term(Term, Names, Printable) },
+    { metta_text_writable(Term),
+      named_print_term(Term, Names, Printable) },
     swrite_numbered(Printable).
 swrite_answer_(Term) -->
-    { stable_print_term(Term, Printable) },
+    { metta_text_writable(Term),
+      stable_print_term(Term, Printable) },
     swrite_numbered(Printable).
 %Keep the writer DCGs usable by direct parser clients while the internal
 %forms operate on a numbered copy of the source term.
-swrite_exp(Term) --> { stable_print_term(Term, Printable) },
+swrite_exp(Term) --> { metta_text_writable(Term),
+                       stable_print_term(Term, Printable) },
                       swrite_numbered(Printable).
-seq(Terms) --> { stable_print_term(Terms, Printable) },
+seq(Terms) --> { metta_text_writable(Terms),
+                 stable_print_term(Terms, Printable) },
                seq_numbered(Printable).
 
 stable_print_term(Term, Printable) :-
@@ -186,6 +207,7 @@ apply_named_variable_spellings(Term, _, Term).
 %[tested parser_pretty_printing].
 swrite_pretty(Term, String) :- swrite_pretty(Term, 78, String).
 swrite_pretty(Term, Width, String) :-
+    metta_text_writable(Term),
     stable_print_term(Term, Printable),
     with_output_to(string(String), petta_pretty_print(Printable, 0, Width)).
 
@@ -214,8 +236,11 @@ petta_inline_text(T, S) :-
     phrase(swrite_numbered(T), Codes),
     string_codes(S, Codes).
 
-swrite_numbered('$petta_named_variable'(Name)) --> !, "$", atom(Name).
-swrite_numbered('$petta_variable'(Index)) --> !, "$_", { number_codes(Index, Cs) }, Cs.
+swrite_numbered(Term) --> swrite_mode(Term, strict).
+sdisplay_numbered(Term) --> swrite_mode(Term, display).
+
+swrite_mode('$petta_named_variable'(Name), _) --> !, "$", atom(Name).
+swrite_mode('$petta_variable'(Index), _) --> !, "$_", { number_codes(Index, Cs) }, Cs.
 %The language spells its booleans `True` and `False`. atom_symbol//1 maps both
 %onto Prolog's own true/false so a compiled guard calls them directly, and this
 %is the other half of that map: without it the round trip renamed the
@@ -224,34 +249,44 @@ swrite_numbered('$petta_variable'(Index)) --> !, "$_", { number_codes(Index, Cs)
 %04-boolean.metta]. It also closes a seam: bindings/python/petta already writes `True`,
 %which bindings/python/tools/example_parity.py had to compare around
 %[tested: parser_roundtrip:booleans_print_in_the_languages_own_spelling].
-swrite_numbered(true)  --> !, "True".
-swrite_numbered(false) --> !, "False".
-swrite_numbered(Num)   --> { integer(Num) }, !, { number_codes(Num, Cs) }, Cs.
-swrite_numbered(Num)   --> { float(Num) }, !, { metta_float_codes(Num, Cs) }, Cs.
-swrite_numbered(Num)   --> { number(Num) }, !, { number_codes(Num, Cs) }, Cs.
-swrite_numbered(Str)   --> { string(Str) }, !, "\"", { string_codes(Str, Cs), escape_quotes(Cs, Es) }, Es, "\"".
-swrite_numbered(Atom)  --> { atom(Atom) }, !, atom(Atom).
-swrite_numbered([H|T]) --> { \+ is_list([H|T]) }, !, "(", atom(cons), " ", swrite_numbered(H), " ", swrite_numbered(T), ")".
-swrite_numbered([H|T]) --> !, "(", seq_numbered([H|T]), ")".
-swrite_numbered([])    --> !, "()".
-%Everything below here is not a MeTTa term, and these are the three ways of not
-%being one, each guarded and cutting like the clauses above them.
-%
-%The provider comes first because a Python tuple IS a compound, -/N being
-%janus's encoding for one, and `(- 1 2)` names an operator that is not there.
-swrite_numbered(Term)  --> { metta_grounded_text(Term, Text) }, !, { string_codes(Text, Cs) }, Cs.
-%compound_name_arguments/3 rather than =../2, because =../2 refuses a
-%zero-arity compound outright: it raises `compound_non_zero_arity' before the
-%empty-argument branch below can be reached, and the raise escapes the writer
-%and kills the run. Nothing about that is specific to where the term came from,
-%and janus hands one back for Python's `()`, so `!(py-atom "()")` took the whole
-%program down [tested: an_empty_compound_prints].
-swrite_numbered(Term)  --> { compound(Term), compound_name_arguments(Term, F, Args) }, !, "(", atom(F), ( { Args == [] } -> [] ; " ", seq_numbered(Args) ), ")".
-%A grounded value with no provider loaded: its own text, rather than nothing.
-%The writer is never the thing that fails.
-swrite_numbered(Term)  --> { term_string(Term, Text), string_codes(Text, Cs) }, Cs.
-seq_numbered([X])    --> !, swrite_numbered(X).
-seq_numbered([X|Xs]) --> swrite_numbered(X), " ", seq_numbered(Xs).
+swrite_mode(true, _)  --> !, "True".
+swrite_mode(false, _) --> !, "False".
+swrite_mode(Num, _)   --> { integer(Num) }, !, { number_codes(Num, Cs) }, Cs.
+swrite_mode(Num, strict) --> { float(Num), metta_number_writable(Num) }, !,
+                              { metta_float_codes(Num, Cs) }, Cs.
+swrite_mode(Num, display) --> { float(Num) }, !,
+                               { metta_float_codes(Num, Cs) }, Cs.
+swrite_mode(Num, strict) --> { number(Num), metta_number_writable(Num) }, !,
+                              { number_codes(Num, Cs) }, Cs.
+swrite_mode(Num, display) --> { number(Num) }, !,
+                               { number_codes(Num, Cs) }, Cs.
+swrite_mode(Str, _)   --> { string(Str) }, !, "\"", { string_codes(Str, Cs), escape_quotes(Cs, Es) }, Es, "\"".
+swrite_mode(Atom, strict) --> { atom(Atom), metta_symbol_writable(Atom) }, !,
+                               atom(Atom).
+swrite_mode(Atom, display) --> { atom(Atom) }, !, atom(Atom).
+swrite_mode(List, Mode) --> { is_list(List), List = [_|_] }, !,
+                            "(", seq_mode(List, Mode), ")".
+swrite_mode([], _)    --> !, "()".
+%A Janus tuple is -/N. Python-looking text belongs only to display mode because
+%`(1, 2)` reads as the symbol `1,` beside the number 2, and -() reads as [].
+swrite_mode(Term, display) --> { metta_grounded_text(Term, Text) }, !,
+                               { string_codes(Text, Cs) }, Cs.
+swrite_mode(Term, display) --> { compound(Term),
+                                 compound_name_arguments(Term, F, Args) }, !,
+                               "(", atom(F),
+                               ( { Args == [] }
+                               -> []
+                               ;  " ", seq_mode(Args, display)
+                               ), ")".
+swrite_mode(Term, display) --> { term_string(Term, Text),
+                                 string_codes(Text, Cs) }, Cs.
+%Direct strict-DCG clients receive the same refusal as swrite/2.
+swrite_mode(Term, strict) --> { metta_refuse_text(Term) }.
+
+seq_numbered(Terms) --> seq_mode(Terms, strict).
+
+seq_mode([X], Mode)    --> !, swrite_mode(X, Mode).
+seq_mode([X|Xs], Mode) --> swrite_mode(X, Mode), " ", seq_mode(Xs, Mode).
 
 %Every float class prints the arbiter's way: inf, -inf by sign, an unsigned
 %NaN (the forms hyperon's Rust f64 Display prints and the arbiter's
@@ -734,8 +769,8 @@ metta_number_writable(Number) :-
     ).
 
 %The first value in a term that has no round-trip text spelling. A dedicated
-%walk visits what swrite/2 will print: every list element down the spine, the
-%terminating tail, and a non-list compound's functor name and arguments. It
+%walk visits every proper-list element. Non-list compounds, improper lists and
+%opaque host values are themselves unwritable because none is a MeTTa term. It
 %replaced a sub_term/2 walk whose generic enumeration cost ~120 inferences per
 %three-element atom across a save's whole-space scan and a load's add guard;
 %the type-switched walk measures ~6x cheaper on the same 20,001-atom
@@ -753,32 +788,33 @@ metta_unwritable_symbol(Term, Bad) :-
 metta_unwritable_walk(Term, Bad) :-
     (   var(Term)
     ->  fail
+    ;   Term == []
+    ->  fail
+    ;   string(Term)
+    ->  fail
     ;   atom(Term)
     ->  \+ metta_symbol_writable(Term), Bad = Term
     ;   number(Term)
     ->  \+ metta_number_writable(Term), Bad = Term
-    ;   Term = [Head|Tail]
-    ->  (   metta_unwritable_walk(Head, Bad)
-        ->  true
-        ;   metta_unwritable_walk(Tail, Bad)
-        )
-    ;   compound(Term)
-    ->  functor(Term, Name, Arity),
-        (   \+ metta_symbol_writable(Name)
-        ->  Bad = Name
-        ;   between(1, Arity, I),
-            arg(I, Term, A),
-            metta_unwritable_walk(A, Bad)
-        ->  true
-        )
-    ;   fail
+    ;   is_list(Term)
+    ->  member(Element, Term),
+        metta_unwritable_walk(Element, Bad)
+    ;   Bad = Term
     ).
 
-metta_unwritable_here(Sub, Sub) :- atom(Sub), !, \+ metta_symbol_writable(Sub).
-metta_unwritable_here(Sub, Sub) :- number(Sub), !, \+ metta_number_writable(Sub).
-metta_unwritable_here(Sub, Name) :- compound(Sub), \+ is_list(Sub),
-                                    functor(Sub, Name, _),
-                                    \+ metta_symbol_writable(Name).
+metta_text_writable(Term) :-
+    (   metta_unwritable_symbol(Term, Bad)
+    ->  metta_refuse_text(Bad)
+    ;   true
+    ).
+
+metta_refuse_text(Bad) :-
+    throw(error(metta_unwritable_text(Bad),
+                context(swrite/2,
+                        'printed form would read back as a different value'))).
+
+prolog:error_message(metta_unwritable_text(Bad)) -->
+    [ 'cannot write ~p as MeTTa text because its printed form would read back as a different value'-[Bad] ].
 
 %Just string literal handling from here-on:
 string_lit(S) --> "\"", string_chars(Cs), "\"", { string_codes(S, Cs) }.
