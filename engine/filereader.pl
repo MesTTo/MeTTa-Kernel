@@ -91,12 +91,6 @@
 %     once for repair [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
-%   - A compiled call records the six dispatch-policy roots and every possible
-%     DontEvalType marker root that selected its argument evaluation, so a late
-%     catalog or marker write repairs stored callers [tested:
-%     test_every_dispatch_axis_is_readable_settable_and_defaulted,
-%     test_a_user_declared_lazy_type_receives_its_argument_unevaluated;
-%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -1225,40 +1219,14 @@ record_translated_supports(Ref, [=, [G|_], Body]) :-
     atom(G),
     clause_property(Ref, module(Module)),
     !,
-    findall(View,
-            ( mentioned_symbol(Body, Symbol),
-              Symbol \== G,
-              View = function_view(Module, Symbol) ),
-            Views),
     findall(Support,
             ( mentioned_symbol(Body, Symbol),
-              fun(Symbol),
-              compiled_language_support(Module, Symbol, Support) ),
-            LanguageSupports),
-    append(Views, LanguageSupports, Supports0),
+              Symbol \== G,
+              Support = function_view(Module, Symbol) ),
+            Supports0),
     sort(Supports0, Supports),
     support_publish_compiled_form(Module, G, Ref, Supports).
 record_translated_supports(_, _).
-
-% Dispatch and evaluation masks are compile-time choices. Keep their roots on
-% the source-form node, beside its ordinary function views, so replacing or
-% withdrawing that form removes the policy edges with no separate lifecycle.
-compiled_language_support(Module, Symbol,
-                          dispatch_policy(Module, Symbol, Axis)) :-
-    dispatch_axis_vocabulary(Axis, _).
-compiled_language_support(Module, Symbol, type_marker(Scope, Type)) :-
-    type_declaration_in(Module, Symbol, [->|Types]),
-    append(ParameterTypes, [_], Types),
-    member(Type, ParameterTypes),
-    atom(Type),
-    type_marker_scope(Module, Scope).
-
-% A named space reads its own declarations and &self's shared fallback. Either
-% source can therefore change whether a parameter type masks evaluation.
-type_marker_scope(Module, Module).
-type_marker_scope(Module, Self) :-
-    metta_self_module(Self),
-    Module \== Self.
 
 forget_translated_from(Module, Ref, [=, [G|_], _]) :-
     !,

@@ -360,13 +360,20 @@ petta_catalog_note_added([capacity, Pool, _]) :-
     petta_capacity_contract_added(Pool).
 petta_catalog_note_added(_).
 
-% The support root is module-qualified because a call is compiled in an
-% execution module even though the catalog override is global. Only roots that
-% a compiled form published are visited. Runnable templates are the other
-% compilation owner and are evicted through their existing symbol index.
+% A policy write is rare, while every equation compilation is hot. Materialize
+% the typed root at mutation time over the function-view index the translated
+% forms already maintain, then invalidate it. This gives stored callers the
+% common forward walk without adding six edges to every compiled form.
 petta_dispatch_policy_changed(Function, Axis) :-
-    findall(dispatch_policy(Module, Function, Axis),
-            supports(dispatch_policy(Module, Function, Axis), _),
+    findall(F-Module,
+            dispatch_changed_context(Function, F, Module),
+            Contexts0),
+    sort(Contexts0, Contexts),
+    findall(Root,
+            ( member(F-Module, Contexts),
+              dispatch_changed_axis(Axis, ChangedAxis),
+              Root = dispatch_policy(Module, F, ChangedAxis),
+              support_record(function_view(Module, F), Root) ),
             Roots0),
     sort(Roots0, Roots),
     support_invalidate_many(Roots),
@@ -376,17 +383,19 @@ petta_dispatch_policy_changed(Function, Axis) :-
     ;   clear_translation_cache
     ).
 
+dispatch_changed_context(Pattern, Function, Module) :-
+    support_view_module(Function, Module),
+    ( var(Pattern) -> true ; Function == Pattern ).
+
+dispatch_changed_axis(Pattern, Axis) :-
+    dispatch_axis_vocabulary(Axis, _),
+    ( var(Pattern) -> true ; Axis == Pattern ).
+
 % A default row applies to every function without an override, so invalidating
 % all published roots for that axis is the exact conservative update. Clearing
 % runnable templates avoids a second global dependency index for a rare edit.
 petta_dispatch_default_changed(Axis) :-
-    findall(dispatch_policy(Module, Function, Axis),
-            supports(dispatch_policy(Module, Function, Axis), _),
-            Roots0),
-    sort(Roots0, Roots),
-    support_invalidate_many(Roots),
-    forall(support_repair_invalidations, true),
-    clear_translation_cache.
+    petta_dispatch_policy_changed(_, Axis).
 
 petta_dispatch_all_changed :-
     forall(dispatch_axis_vocabulary(Axis, _),
@@ -2151,10 +2160,17 @@ metta_remove_atom(Space, Term, Removed) :-
     var(Type),
     ( Marker == 'DontEvalType' ; var(Marker) ),
     !,
+    findall(MarkerType,
+            ( match_stored(Space,
+                           [':', MarkerType, 'DontEvalType'], MarkerType, _),
+              atom(MarkerType) ),
+            MarkerTypes0),
+    sort(MarkerTypes0, MarkerTypes),
     unstore_atom(Space, Term, Removed),
     (   Removed == true
     ->  space_module(Space, DeclModule),
-        type_markers_changed(DeclModule)
+        forall(member(MarkerType, MarkerTypes),
+               type_marker_changed(DeclModule, MarkerType))
     ;   true
     ).
 %A declaration decides how call sites compile, so taking one away leaves them
@@ -2168,18 +2184,48 @@ metta_remove_atom(Space, Term, Removed) :- Term = [':', F, _], atom(F), fun(F), 
 metta_remove_atom(Space, Term, Removed) :- unstore_atom(Space, Term, Removed).
 
 type_marker_changed(Module, Type) :-
-    support_invalidate(type_marker(Module, Type)),
-    forall(support_repair_invalidations, true),
-    clear_translation_cache.
-
-type_markers_changed(Module) :-
-    findall(type_marker(Module, Type),
-            supports(type_marker(Module, Type), _),
+    findall(Function-Context,
+            type_marker_dependent(Module, Type, Function, Context),
+            Dependents0),
+    sort(Dependents0, Dependents),
+    findall(Root,
+            ( member(Function-Context, Dependents),
+              Root = type_marker(Module, Type),
+              support_record(function_view(Context, Function), Root) ),
             Roots0),
     sort(Roots0, Roots),
     support_invalidate_many(Roots),
     forall(support_repair_invalidations, true),
     clear_translation_cache.
+
+type_marker_dependent(MarkerModule, Type, Function, Context) :-
+    type_marker_function_context(Function, Context),
+    type_marker_visible_in(MarkerModule, Context),
+    stored_arrow_uses_type_in(Context, Function, Type).
+
+type_marker_function_context(Function, Context) :-
+    support_view_module(Function, Context).
+
+type_marker_visible_in(MarkerModule, Context) :-
+    metta_self_module(Self),
+    ( MarkerModule == Self -> true ; Context == MarkerModule ).
+
+stored_arrow_uses_type_in(Context, Function, Type) :-
+    metta_self_module(Context),
+    !,
+    match_stored('&self', [':', Function, [->|Types]], Types, _),
+    arrow_parameter_type(Types, Type).
+stored_arrow_uses_type_in(Context, Function, Type) :-
+    metta_module_space(Context, Space),
+    (   match_stored(Space, [':', Function, [->|Types]], Types, _)
+    ;   match_stored('&self', [':', Function, [->|Types]], Types, _)
+    ),
+    arrow_parameter_type(Types, Type).
+
+arrow_parameter_type(Types, Type) :-
+    append(ParameterTypes, [_], Types),
+    member(ParameterType, ParameterTypes),
+    ParameterType == Type.
 
 %A host's reporting removal: whether anything actually went. The
 %language-facing `remove-atom` answers the UNIT value, because its type is
