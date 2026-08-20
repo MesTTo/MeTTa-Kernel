@@ -11,6 +11,10 @@
 %   - the change hook does not prune the handlers loaded after it, so a dual
 %     built while tabling is declared is still dropped when its function
 %     changes [tested: duals_survive_tabling]
+%   - a parametric-space read resolves to the reserved predicate in that
+%     identity's canonical storage module
+%     [tested: a_parametric_space_read_resolves_to_its_private_predicate;
+%     commit=WORKTREE]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -51,6 +55,15 @@ test(a_plain_function_tables) :-
 test(a_resolvable_space_read_tables) :-
     metta_tabled_decl(['plt-tab-reads', _], true),
     metta_untabled_decl(['plt-tab-reads', _], true).
+
+test(a_parametric_space_read_resolves_to_its_private_predicate,
+     [ cleanup(catch(metta_release_space([cache, '&plt-tab-param', 4]),
+                     _, true)) ]) :-
+    Space = [cache, '&plt-tab-param', 4],
+    metta_declare_parametric_space(Space),
+    native_storage_module(Space, Storage),
+    metta_tabling_read(match, Space, [fact, _, _], Reads),
+    assertion(Reads == [Storage:'$petta_parametric_atom'/3]).
 
 test(tabling_refuses_unresolvable_reads) :-
     % A computed space: nothing here can say which storage predicate the

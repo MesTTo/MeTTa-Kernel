@@ -65,6 +65,11 @@
 %     and raw-Prolog translation paths [tested:
 %     test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
 %     commit=6a08901f4125c2536f5b4032daac9937f793870f].
+%   - the constructor holds a parametric identifier before it is registered,
+%     and registered identifiers stay literal at space positions while every
+%     unregistered expression keeps the established computed-space path [tested:
+%     test_two_instances_of_a_parametric_space_answer_independently;
+%     commit=WORKTREE].
 %   - A translator rule whose expansion is built in Prolog compiles to the
 %     goals it emits, including a constant folded at compile time, and is
 %     refused when a quote leaves that expansion as data
@@ -1889,6 +1894,14 @@ translate_special_dl('add-reduct', Args, AfterHead, Goals, Out) :-
     translate_space_update_dl('add-reduct', Args, AfterHead, Goals, Out).
 translate_special_dl('add-reducts', Args, AfterHead, Goals, Out) :-
     translate_space_update_dl('add-reducts', Args, AfterHead, Goals, Out).
+%The parametric constructor bootstraps the identity, so its expression cannot
+%be recognized from the registry yet. Hold that one expression by shape even
+%when its family head is already a callable function; validation below the
+%door still requires it to be finite, ground and symbol-headed.
+translate_special_dl('new-space', [Space], AfterHead, Goals, Out) :-
+    is_list(Space), !,
+    AfterHead = [metta_require_current_capability('new-space', process),
+                 'new-space'(Space, Out)|Goals].
 %A literal (superpose (&a &b ...)) space argument is the multi-context
 %idiom, and the SHAPE decides it at translation exactly as take's bound
 %does: those queries route through petta_merged_match/3, where the
@@ -1898,14 +1911,14 @@ translate_special_dl(match, [SpaceExpr, Pattern0, Body], AfterHead, Goals,
                      Out) :-
     SpaceExpr = [superpose, SpaceList],
     is_list(SpaceList), SpaceList = [_, _|_],
-    forall(member(Space, SpaceList), atom(Space)), !,
+    forall(member(Space, SpaceList), petta_space_name(Space)), !,
     lift_pattern_modifiers(Pattern0, Pattern, Guards),
     append([petta_merged_match(SpaceList, Pattern, Out)|Guards],
            AfterMatch, AfterHead),
     translate_expr_dl(Body, AfterMatch, Goals, Out).
 translate_special_dl(match, [SpaceExpr, Pattern0, Body], AfterHead, Goals,
                      Out) :-
-    translate_expr_dl(SpaceExpr, AfterHead, BeforeMatch, Space),
+    translate_space_expr_dl(SpaceExpr, AfterHead, BeforeMatch, Space),
     lift_pattern_modifiers(Pattern0, Pattern, Guards),
     %The template and the result are DISTINCT variables. Fused, the
     %answer-shaped refusal of match/4's last clause could never surface: the
@@ -1958,9 +1971,23 @@ translate_special_dl(eval, [Arg], AfterHead, Goals, Out) :-
 %space argument could select another one. The space itself is evaluated, so a
 %function that answers a space name, or (context-space), can name it.
 translate_special_dl(evalc, [Arg, Space], AfterHead, Goals, Out) :-
-    translate_expr_dl(Space, AfterHead, BeforeEval, SpaceValue),
+    translate_space_expr_dl(Space, AfterHead, BeforeEval, SpaceValue),
     BeforeEval = [metta_require_current_capability(evalc, process),
                   evalc(Arg, SpaceValue, Out)|Goals].
+%These kernel reads intentionally accept an unwritten atomic &name, so their
+%declarations cannot use a strict SpaceType parameter. Once an expression is
+%registered, however, it is an identity at this space-position just like the
+%typed doors above, including when its family head is callable.
+translate_special_dl('space-atom-count', [SpaceExpr], AfterHead, Goals, Out) :-
+    translate_space_expr_dl(SpaceExpr, AfterHead, BeforeRead, Space),
+    BeforeRead = ['space-atom-count'(Space, Out)|Goals].
+translate_special_dl('space-contains', [SpaceExpr, Atom], AfterHead, Goals,
+                     Out) :-
+    translate_space_expr_dl(SpaceExpr, AfterHead, BeforeRead, Space),
+    BeforeRead = ['space-contains'(Space, Atom, Out)|Goals].
+translate_special_dl('get-atoms', [SpaceExpr], AfterHead, Goals, Out) :-
+    translate_space_expr_dl(SpaceExpr, AfterHead, BeforeRead, Space),
+    BeforeRead = ['get-atoms'(Space, Out)|Goals].
 %(super (f a b)): the definition of f the NEXT module up this space's chain
 %holds, so a shadow can check a call and then let the original run.
 %
@@ -2255,10 +2282,22 @@ shares_variable(A, B) :- term_variables(A, VarsA),
 
 translate_space_update_dl(Operation, [SpaceExpr, Atom], AfterHead, Goals,
                           Out) :-
-    translate_expr_dl(SpaceExpr, AfterHead, BeforeOperation, Space),
+    translate_space_expr_dl(SpaceExpr, AfterHead, BeforeOperation, Space),
     Goal =.. [Operation, Space, Atom, Out],
     BeforeOperation = [metta_require_space_update_capability(Operation, Space),
                        Goal|Goals].
+
+%A registered expression is an entity identifier in a space position. Every
+%other expression is still evaluated, preserving computed spaces such as
+%(add-atom (space-name) atom). The registry test is therefore the boundary,
+%not list shape alone.
+translate_space_expr_dl(SpaceExpr, Goals0, Goals, Space) :-
+    nonvar(SpaceExpr),
+    petta_space_operand(SpaceExpr), !,
+    Space = SpaceExpr,
+    Goals0 = Goals.
+translate_space_expr_dl(SpaceExpr, Goals0, Goals, Space) :-
+    translate_expr_dl(SpaceExpr, Goals0, Goals, Space).
 
 %All four spellings of one operation, so all four keep their name list as
 %data. lib_zar's two were missing, and a list holding a name that had ALREADY
@@ -2548,7 +2587,9 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
       -> AV = A,
          AfterArg = Goals0,
          AfterCheck = Checks0
-    ; translate_expr_dl(A, Goals0, AfterArg, AV),
+    ; ( T == 'SpaceType'
+        -> translate_space_expr_dl(A, Goals0, AfterArg, AV)
+        ;  translate_expr_dl(A, Goals0, AfterArg, AV) ),
       ( (T == '%Undefined%' ; T == '_' ; statically_typed_literal(AV, T))
         -> AfterCheck = Checks0
       ; type_check_goal(AV, T,

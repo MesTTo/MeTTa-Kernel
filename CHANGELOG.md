@@ -8,6 +8,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- A ground expression can name a native space. For example,
+  `!(new-space (cache &kb 100))` creates an isolated storage and execution
+  context whose exact identifier is returned by `context-space`; equations
+  can destructure it with ordinary `let` patterns to read the family
+  parameters. Canonical term encoding gives each instance distinct storage
+  and execution modules while ordinary computed space expressions keep
+  evaluating as before.
 - Restricted spaces use a curated execution base and creation-time
   `file`, `process`, and `network` grants. A denied operation raises a
   structured refusal naming the space, operation, and missing capability;

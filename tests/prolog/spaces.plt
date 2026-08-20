@@ -11,6 +11,9 @@
 %   - restricted spaces select curated grant profiles and raw calls pass the
 %     sandbox boundary [tested: spaces_restricted_modules;
 %     commit=6a08901f4125c2536f5b4032daac9937f793870f].
+%   - parametric-space identifiers map bijectively to canonical modules and a
+%     fixed private storage functor, with validation before cache publication
+%     [tested: spaces_parametric; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -2098,6 +2101,147 @@ test(an_outer_transaction_rolls_back_the_index_and_contract) :-
     assertion(\+ native_storage_module_cache('&inh-rollback-child', _)).
 
 :- end_tests(spaces_inheritance).
+
+:- begin_tests(spaces_parametric).
+
+parametric_names([
+    [cache, '&param-kb', 100],
+    [cache, '&param-kb', 100.0],
+    [cache, "&param-kb", 100],
+    [cache, [nested, '&param-kb'], 100]
+]).
+
+release_parametric_spaces :-
+    parametric_names(Names),
+    forall(member(Name, Names), catch(metta_release_space(Name), _, true)),
+    forall(member(Name, [[cache, '&param-left', 8],
+                         [cache, '&param-right', 4],
+                         [cache, '&param-surface', 7],
+                         [cache, '&param-release', 5],
+                         [cache, '&param-rollback', 3]]),
+           catch(metta_release_space(Name), _, true)).
+
+parametric_cache_counts(Parametric, Storage, Exec) :-
+    aggregate_all(count, space_parametric(_), Parametric),
+    aggregate_all(count, native_storage_module_cache(_, _), Storage),
+    aggregate_all(count, metta_exec_module_known(_, _), Exec).
+
+test(canonical_modules_are_distinct_and_invert_exactly,
+     [ cleanup(release_parametric_spaces) ]) :-
+    parametric_names(Names),
+    maplist(metta_declare_parametric_space, Names),
+    maplist(space_module, Names, ExecModules),
+    maplist(native_storage_module, Names, StorageModules),
+    sort(ExecModules, UniqueExec),
+    sort(StorageModules, UniqueStorage),
+    length(Names, Count),
+    assertion(same_length(UniqueExec, Names)),
+    assertion(same_length(UniqueStorage, Names)),
+    forall(nth1(Index, Names, Name),
+           ( nth1(Index, ExecModules, Exec),
+             assertion(metta_module_space(Exec, Name)),
+             assertion(space_parametric(Name)),
+             assertion(petta_space_operand(Name)) )),
+    assertion(Count == 4).
+
+test(storage_equations_types_and_mutation_are_instance_local,
+     [ cleanup(release_parametric_spaces) ]) :-
+    Left = [cache, '&param-left', 8],
+    Right = [cache, '&param-right', 4],
+    metta_declare_parametric_space(Left),
+    metta_declare_parametric_space(Right),
+    add_sexp(Left, [edge, a, b], LeftRef),
+    add_sexp(Left, [edge, b, c]),
+    add_sexp(Left, scalar_left),
+    add_sexp(Right, [edge, x, y]),
+    add_sexp(Right, scalar_right),
+    metta_add_atom(Left, [':', local_token, 'LeftToken'], true),
+    metta_add_atom(Right, [':', local_token, 'RightToken'], true),
+    metta_add_atom(Left, [=, [param_view], ['context-space']], true),
+    metta_add_atom(Right, [=, [param_view], ['context-space']], true),
+    once(stored_atom_of_ref(LeftRef, RefSpace, RefAtom)),
+    assertion(RefSpace == Left),
+    assertion(RefAtom == [edge, a, b]),
+    findall(X-Z,
+            match(Left, [',', [edge, X, Y], [edge, Y, Z]], X-Z, _),
+            Rows),
+    assertion(Rows == [a-c]),
+    assertion(\+ match(Right, [edge, a, _], _, _)),
+    space_module(Left, LeftModule),
+    space_module(Right, RightModule),
+    once(eval_metta_in_module(LeftModule, [param_view], LeftView)),
+    once(eval_metta_in_module(RightModule, [param_view], RightView)),
+    assertion(LeftView == Left),
+    assertion(RightView == Right),
+    once(type_declaration_in(LeftModule, local_token, LeftType)),
+    once(type_declaration_in(RightModule, local_token, RightType)),
+    assertion(LeftType == 'LeftToken'),
+    assertion(RightType == 'RightToken'),
+    metta_remove_atom(Left, [edge, a, b], Removed),
+    assertion(Removed == true),
+    assertion(\+ get_native_atom(Left, [edge, a, b])),
+    assertion(get_native_atom(Right, [edge, x, y])),
+    clear_native_atoms(Left),
+    assertion(\+ get_native_atom(Left, _)),
+    assertion(get_native_atom(Right, scalar_right)).
+
+test(the_surface_constructor_is_idempotent_and_reflected_once,
+     [ cleanup(release_parametric_spaces) ]) :-
+    process_metta_string("!(new-space (cache &param-surface 7))", First),
+    process_metta_string("!(new-space (cache &param-surface 7))", Second),
+    Name = [cache, '&param-surface', 7],
+    assertion(First == [Name]),
+    assertion(Second == [Name]),
+    findall(true, petta_contract_fact([parametric, Name]), Rows),
+    assertion(Rows == [true]).
+
+test(release_clears_the_registry_storage_and_execution_life,
+     [ cleanup(release_parametric_spaces) ]) :-
+    Name = [cache, '&param-release', 5],
+    metta_declare_parametric_space(Name),
+    add_sexp(Name, [entry, live]),
+    native_storage_module_ready(Name, Storage),
+    space_module(Name, Exec),
+    metta_release_space(Name),
+    assertion(\+ space_parametric(Name)),
+    assertion(\+ petta_contract_fact([parametric, Name])),
+    assertion(\+ native_storage_module_cache(Name, _)),
+    assertion(\+ metta_exec_module_known(Name, _)),
+    metta_declare_parametric_space(Name),
+    assertion(native_storage_module_ready(Name, Storage)),
+    assertion(space_module(Name, Exec)),
+    assertion(\+ get_native_atom(Name, _)).
+
+test(invalid_names_are_rejected_before_any_cache_is_published) :-
+    parametric_cache_counts(P0, S0, E0),
+    catch(metta_declare_parametric_space([]),
+          error(domain_error(parametric_space_name, []), _), Empty = refused),
+    catch(metta_declare_parametric_space([[cache], '&bad', 1]),
+          error(domain_error(parametric_space_name, _), _), Head = refused),
+    catch(metta_declare_parametric_space([cache, _Unbound, 1]),
+          error(instantiation_error, _), Ground = refused),
+    Cyclic = [cache|Cyclic],
+    catch(metta_declare_parametric_space(Cyclic),
+          error(type_error(acyclic_term, _), _), Finite = refused),
+    assertion(Empty == refused),
+    assertion(Head == refused),
+    assertion(Ground == refused),
+    assertion(Finite == refused),
+    parametric_cache_counts(P1, S1, E1),
+    assertion(P1-S1-E1 == P0-S0-E0).
+
+test(an_outer_transaction_rolls_back_every_parametric_index) :-
+    Name = [cache, '&param-rollback', 3],
+    catch(transaction(( metta_declare_parametric_space(Name),
+                        throw(rollback_probe) )),
+          rollback_probe,
+          true),
+    assertion(\+ space_parametric(Name)),
+    assertion(\+ petta_contract_fact([parametric, Name])),
+    assertion(\+ native_storage_module_cache(Name, _)),
+    assertion(\+ metta_exec_module_known(Name, _)).
+
+:- end_tests(spaces_parametric).
 
 :- begin_tests(spaces_restricted_modules).
 

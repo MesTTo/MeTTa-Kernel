@@ -368,6 +368,34 @@ same three fields. Grants are explicit and fixed at creation. Raw
 an unsafe unclassified host goal requires the `process` grant. Restriction and
 inheritance are alternative execution bases and cannot be combined.
 
+A ground expression may itself identify a native space:
+
+```metta
+!(new-space (cache &kb 100))
+!(add-atom
+   (cache &kb 100)
+   (= (cache-config)
+      (let (cache $base $limit)
+           (context-space)
+           (config $base $limit))))
+!(evalc (cache-config) (cache &kb 100)) ; (config &kb 100)
+```
+
+The constructor accepts one finite, ground, nonempty expression headed by a
+symbol. It validates that shape before publishing any module cache. The exact
+term is the identity: numeric kind, strings, nesting, and every parameter are
+part of it. Each identity maps through canonical term text to private storage
+and execution modules; stored expressions use one reserved predicate functor
+inside the already-private storage module, because a compound cannot be a
+Prolog functor.
+
+Parameters need no second reflection builtin. Logtalk's parametric-object
+model makes the identifier visible to the entity's predicates; here the
+existing `context-space` supplies that identifier and ordinary head-pattern
+destructuring reads it. A registered expression stays literal in a SpaceType
+position. An unregistered expression still evaluates, preserving computed
+space code such as `(add-atom (space-name) atom)`.
+
 ### Taking an argument unevaluated
 
 Declare the parameter `Atom` and the argument arrives as written:
@@ -2093,6 +2121,7 @@ both and the query they disagree on.
 | `(admits <pool> <Type>)`, `(capacity <pool> <n>)` | a typed, bounded pool; a space of spaces is the thread-pool reading | `declare_admits`, `declare_capacity` |
 | `(inherits <child> <parent>)` | the child's execution base and child-first read chain; writes remain local | `(new-space <child> (inherits <parent>))`, `new_space(inherits=...)` |
 | `(restricted <space>)`, `(grants <space> <capability>)` | a curated execution base; file, process, and network vocabulary is creation-granted | `(new-space <space> (restricted (grants ...)))`, `new_space(restricted=True, grants=...)` |
+| `(parametric <expression>)` | the exact ground expression registered as a native space identifier | `(new-space (<family> <parameter> ...))` |
 
 Ask the seam itself what it will do: `!(explain (match &s <pattern> $x))`
 answers the route as atoms, which entry matched, at what fidelity,
