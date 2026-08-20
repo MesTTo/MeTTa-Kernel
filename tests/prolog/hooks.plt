@@ -49,9 +49,11 @@ ensure_hook_guards :-
 %in this unit's module where a call follows the inheritance chain.
 cleanup_hooks :-
     forall(member(S, ['&hplt-pool', '&hplt-two', '&hplt-open', '&hplt-bad',
-                      '&hplt-batch']),
+                      '&hplt-batch', '&hplt-post', '&hplt-both']),
            ( metta_undeclare_hook(pre_add, S),
+             metta_undeclare_hook(post_add, S),
              clear_native_atoms(S) )),
+    retractall(hplt_observed(_, _)),
     petta_engine_module(Engine),
     (   unwrap_predicate(Engine:metta_add_atom/3, petta_space_hook_guard)
     ->  true
@@ -195,3 +197,93 @@ test(the_metta_surface_declares_and_the_refusal_reaches_the_program,
     assertion(Ball = petta_add_refused('&hplt-pool', _, _)).
 
 :- end_tests(space_hooks).
+
+%The post slot: the same verdicts read against a LANDED atom, beside the
+%event pair that stays pure observation.
+:- dynamic hplt_observed/2.
+
+observe_hplt_post :-
+    assertz(( metta_on_atom_added(Space, Term) :-
+                  ( Space == '&hplt-post'
+                  -> assertz(hplt_observed(Space, Term))
+                  ; true ) )),
+    enable_metta_atom_hook(added).
+
+unobserve_hplt_post :-
+    retract(( metta_on_atom_added(Space, Term) :-
+                  ( Space == '&hplt-post'
+                  -> assertz(hplt_observed(Space, Term))
+                  ; true ) )),
+    sync_metta_atom_hook(added).
+
+:- begin_tests(space_hooks_post).
+
+% P12.2: the post hook TRANSFORMS the landed atom while the event pair,
+% observing the same write, moves nothing: the observer records the raw
+% arrival and the store still ends where the hook put it, because an
+% observer's answer is discarded and a hook's is a verdict.
+test(a_post_add_hook_may_transform_while_the_event_pair_only_observes,
+     [ setup(( setup_hooks, observe_hplt_post )),
+       cleanup(( unobserve_hplt_post, cleanup_hooks )) ]) :-
+    metta_declare_hook(post_add, '&hplt-post', 'hplt-guard'),
+    'add-atom'('&hplt-post', [raw, 1], _),
+    findall(A, 'get-atoms'('&hplt-post', A), Atoms),
+    assertion(Atoms == [[cooked, 1]]),
+    %the observer saw the raw form land; it could not keep it
+    assertion(hplt_observed('&hplt-post', [raw, 1])).
+
+test(a_post_refusal_undoes_the_write_before_it_reaches_the_caller,
+     [ setup(setup_hooks), cleanup(cleanup_hooks) ]) :-
+    metta_declare_hook(post_add, '&hplt-post', 'hplt-guard'),
+    catch('add-atom'('&hplt-post', [secret, 2], _), error(Ball, _), true),
+    assertion(Ball == petta_add_refused('&hplt-post', [secret, 2],
+                                        "no secrets in this pool")),
+    findall(A, 'get-atoms'('&hplt-post', A), Atoms),
+    assertion(Atoms == []).
+
+test(a_post_drop_removes_the_landed_atom_and_the_caller_sees_success,
+     [ setup(setup_hooks), cleanup(cleanup_hooks) ]) :-
+    metta_declare_hook(post_add, '&hplt-post', 'hplt-guard'),
+    'add-atom'('&hplt-post', [dup, 3], Result),
+    assertion(Result == []),
+    findall(A, 'get-atoms'('&hplt-post', A), Atoms),
+    assertion(Atoms == []).
+
+test(a_post_stuck_state_undoes_the_write,
+     [ setup(setup_hooks), cleanup(cleanup_hooks) ]) :-
+    metta_declare_hook(post_add, '&hplt-post', 'hplt-guard'),
+    catch('add-atom'('&hplt-post', [uncovered, 4], _), error(Ball, _), true),
+    assertion(Ball == petta_hook_stuck('&hplt-post', 'post-add',
+                                       'hplt-guard', [uncovered, 4])),
+    findall(A, 'get-atoms'('&hplt-post', A), Atoms),
+    assertion(Atoms == []).
+
+% A pre transform's output is granted on BOTH slots: the post handler is
+% not consulted about the pre handler's decision.
+test(a_pre_transform_skips_the_post_slot_on_the_granted_form,
+     [ setup(setup_hooks), cleanup(cleanup_hooks) ]) :-
+    metta_declare_hook(pre_add, '&hplt-both', 'hplt-guard'),
+    metta_declare_hook(post_add, '&hplt-both', 'hplt-guard'),
+    'add-atom'('&hplt-both', [raw, 5], _),
+    findall(A, 'get-atoms'('&hplt-both', A), Atoms),
+    assertion(Atoms == [[cooked, 5]]).
+
+test(an_atom_the_pre_slot_drops_never_meets_the_post_slot,
+     [ setup(setup_hooks), cleanup(cleanup_hooks) ]) :-
+    metta_declare_hook(pre_add, '&hplt-both', 'hplt-guard'),
+    metta_declare_hook(post_add, '&hplt-both', 'hplt-guard'),
+    'add-atom'('&hplt-both', [dup, 6], _),
+    findall(A, 'get-atoms'('&hplt-both', A), Atoms),
+    assertion(Atoms == []).
+
+% An atom the pre slot accepts AS OFFERED still meets the post slot: the
+% pre handler admits everything, the post handler revises what landed.
+test(both_slots_compose_on_an_accepted_atom,
+     [ setup(setup_hooks), cleanup(cleanup_hooks) ]) :-
+    metta_declare_hook(pre_add, '&hplt-both', 'hplt-open'),
+    metta_declare_hook(post_add, '&hplt-both', 'hplt-guard'),
+    'add-atom'('&hplt-both', [raw, 7], _),
+    findall(A, 'get-atoms'('&hplt-both', A), Atoms),
+    assertion(Atoms == [[cooked, 7]]).
+
+:- end_tests(space_hooks_post).
