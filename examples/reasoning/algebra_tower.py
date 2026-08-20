@@ -6,7 +6,7 @@ Guarantees:
     commit=496643acc4104702e76e7d325e9ffac8c0cc08c1]
   - a local seed selects ordinary tagged alternatives reproducibly [tested:
     test_declared_rates_make_seeded_selection_match_their_distribution;
-    commit=WORKTREE]
+    commit=f95becb09e1d83fbb7bfd083fdb5b8b3f84ee225]
 """  # noqa: D205, D415 -- the file contract is one continuous invariant
 
 from petta import MeTTa, S, V, parse
