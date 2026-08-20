@@ -9,7 +9,7 @@
 %     ordinary module retains its original unguarded hot path [tested:
 %     translator_restricted_guards, translator_prolog_imports,
 %     translator_prolog_authored_rules, translator_importer_arguments;
-%     commit=WORKTREE].
+%     commit=9a49e2f81bb8199c0284f8456e4b48c25a804371].
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
 %     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].

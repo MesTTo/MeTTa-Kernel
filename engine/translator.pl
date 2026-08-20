@@ -442,7 +442,7 @@ note_super_call(Fun) :-
 %ordinary modules keep their pre-restriction goal lists and pay no guard on a
 %hot call, while a restricted body keeps the check immediately before the
 %operation it protects [tested: translator_restricted_guards;
-%commit=WORKTREE].
+%commit=9a49e2f81bb8199c0284f8456e4b48c25a804371].
 translate_in_restricted_space :-
     current_metta_module(Module),
     metta_restricted_exec_module(Module, _).

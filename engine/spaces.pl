@@ -1171,7 +1171,7 @@ ensure_restricted_core :-
 %base-tier path while a computed restricted call reaches the curated module's
 %grant or refusal [tested:
 %test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
-%commit=WORKTREE].
+%commit=9a49e2f81bb8199c0284f8456e4b48c25a804371].
 pin_restricted_dispatch_names :-
     forall(space_operation_capability(Name, _),
            (   fun_scoped(Name)
@@ -1190,7 +1190,7 @@ restricted_dispatch_name(Name) :-
 %grant profiles, so literal and computed calls cannot disagree about the
 %boundary [tested:
 %test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
-%commit=WORKTREE].
+%commit=9a49e2f81bb8199c0284f8456e4b48c25a804371].
 publish_restricted_denials(Core) :-
     forall(( space_operation_capability(Name, Capability),
              arity(Name, Arity),
@@ -2506,7 +2506,7 @@ metta_host_stored(Space, Pattern) :-
 %Decode a native storage goal for proof transports without publishing the
 %storage module cache or its private functor convention to the host. Module
 %and functor must both identify the same registered space [tested:
-%test_a_parametric_fact_leaf_names_its_space; commit=WORKTREE].
+%test_a_parametric_fact_leaf_names_its_space; commit=9a49e2f81bb8199c0284f8456e4b48c25a804371].
 metta_host_native_fact(Module, Goal, Space, Fact) :-
     native_storage_module_cache(Space, Module),
     native_storage_functor(Space, Functor),
