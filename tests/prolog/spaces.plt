@@ -1798,3 +1798,31 @@ test(an_empty_space_answers_nothing_rather_than_refusing,
     assertion(Found == [[]]).
 
 :- end_tests(space_argument_refusals).
+
+% The two storage services a host talks to a space through, and their
+% verdicts: metta_host_remove_reported/3 answers whether anything went
+% (probed before the mutation), and metta_host_stored/2 enumerates stored
+% atoms unifying a pattern without a whole-space walk for an indexed head.
+:- begin_tests(spaces_host_storage_services).
+
+test(a_reporting_removal_says_whether_anything_went,
+     [ cleanup(remove_sexp('&plunit-host-remove', [_|_])) ]) :-
+    add_sexp('&plunit-host-remove', [stored, thing]),
+    metta_host_remove_reported('&plunit-host-remove', [stored, thing], First),
+    First == true,
+    metta_host_remove_reported('&plunit-host-remove', [stored, thing], Again),
+    Again == false,
+    metta_host_remove_reported('&plunit-host-remove', [never, there], Never),
+    Never == false.
+
+test(stored_enumeration_is_pattern_directed,
+     [ cleanup(remove_sexp('&plunit-host-stored', [_|_])) ]) :-
+    add_sexp('&plunit-host-stored', [edge, a, b]),
+    add_sexp('&plunit-host-stored', [edge, b, c]),
+    add_sexp('&plunit-host-stored', [node, a]),
+    findall(X-Y, metta_host_stored('&plunit-host-stored', [edge, X, Y]),
+            Edges),
+    msort(Edges, [a-b, b-c]),
+    \+ metta_host_stored('&plunit-host-stored', [edge, c, _]).
+
+:- end_tests(spaces_host_storage_services).
