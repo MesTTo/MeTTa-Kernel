@@ -1678,6 +1678,21 @@ calls them, while a service is a predicate the engine defines and you call.
 says which way a kind runs, and the cut checks read that rather than the kind,
 so a service is not mistaken for a handler that has gone wrong.
 
+### Owning a pattern modifier
+
+`pattern_modifier/3` is the ownership seam for structural pattern views. A
+clause receives the source pattern, returns the pattern the store should
+match, and returns a guard that runs over the resulting bindings. The first
+clause that succeeds owns that pattern position, so its guard must establish
+the modifier's full semantics rather than acting as an event notification.
+
+Call the engine service `lift_pattern_modifiers/3` when an extension builds a
+pattern outside the ordinary translator. It walks nested patterns, applies the
+same first-success ownership rule at each eligible position, and returns the
+guards in evaluation order. The built-in `(:= value)` equality view and
+`(: $variable Type)` typed-variable view are the reference implementations in
+`engine/translator.pl`.
+
 From MeTTa the same list is `(extension-points)` in `lib_reflect`, answering
 `(name arity kind)` one per solution, both directions included.
 
