@@ -9,11 +9,11 @@ Guarantees:
     commit=f95becb09e1d83fbb7bfd083fdb5b8b3f84ee225]
   - the linear witness refuses a second spend of one fact occurrence [tested:
     test_a_linear_algebra_refuses_the_second_spend_of_one_premise;
-    commit=ab469c3679ab778c91ac73f14797af746a1ea87d]
+    commit=84dda69a9e7a73fbe0da50eef9ca6bc40dd9532d]
   - amplitude use names the missing fence and exact opposite paths cancel after
     the fence lands [tested:
     test_amplitudes_interfere_inside_the_fragment_and_are_refused_outside;
-    commit=WORKTREE]
+    commit=84dda69a9e7a73fbe0da50eef9ca6bc40dd9532d]
 """  # noqa: D205, D415 -- the file contract is one continuous invariant
 
 from petta import (

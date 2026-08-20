@@ -1065,6 +1065,9 @@ petta_catalog_preset([algebra, amplitude, 'amplitude-add',
                        'combine-zero-identity', 'extend-one-identity',
                        'extend-zero-annihilates', contraction],
                       [carrier], [requires, finite, contractive, staged]]).
+%The requirements above are the executable amplitude fence [tested:
+%an_amplitude_context_without_the_whole_fragment_is_refused_by_name;
+%commit=84dda69a9e7a73fbe0da50eef9ca6bc40dd9532d].
 %Presets land only where their subject has no row yet, which makes the
 %directive reconsult-idempotent (a re-consulted engine meets its own rows
 %and the duplicate refusal must not fire) and keeps a program's own
