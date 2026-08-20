@@ -734,14 +734,11 @@ test(nop_evaluates_the_arguments_it_discards) :-
     process_metta_string("!(nop (+ 1 2) (nop-effect-marker))", Answers),
     Answers == [[]].
 
-% Nothing is DECLARED for it. The variadic declaration LeaTTa carries is its
-% own divergence, taken under the marker above, and upstream's generated
-% reference gives nop the undeclared `%Undefined%` instead
-% [source: LeaTTa tests/semantics/types-basic/71-variadic-nop.metta, STATUS
-% "diverges from Hyperon 0.2.10 on the first and last answers"].
-test(nop_carries_no_declared_type) :-
+% The arbiter's unit-type ruling gives nop a variadic argument and the empty
+% expression's `(->)` result through the observer boundary.
+test(nop_carries_a_variadic_unit_type) :-
     process_metta_string("!(get-type nop)", Answers),
-    Answers == ['%Undefined%'].
+    Answers == [['->', ['%Rest%', '%Undefined%'], ['->']]].
 
 test(space_predicates_use_space_storage,
      [ setup(add_sexp('&self', [plunit_space_predicate, a, b])),
