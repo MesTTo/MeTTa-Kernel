@@ -30,7 +30,7 @@ Source: `bindings/python/petta/manifest.py`.
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
->   Future Enhancements: None
+>   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
 
