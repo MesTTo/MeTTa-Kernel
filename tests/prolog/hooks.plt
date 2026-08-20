@@ -13,6 +13,11 @@
 %   trigger's; the transform is one rule step, its output granted and not
 %   re-asked, the bounded prefix of the CHR ω_e semantics the arbiter
 %   mechanizes (LeaTTa MettaHyperonFull/Proofs/ChrOperational.lean).
+% Guarantees:
+%   - compiled fire observes the evaluator's residual unchanged, and the
+%     verdict consumer classifies that residual as the named stuck state
+%     [tested: a_compiled_fire_treats_an_unreduced_eval_as_stuck;
+%     commit=WORKTREE]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -335,8 +340,13 @@ test(a_compiled_fire_treats_an_unreduced_eval_as_stuck) :-
             Residuals),
     Residuals == [['cf-guard', [uncovered, 3]]],
     petta_hook_drop_compiled('&cf-parity', pre_add),
-    \+ petta_hook_eval('&cf-parity', pre_add, 'cf-guard', Module,
-                       [uncovered, 3], _),
+    once(petta_hook_eval('&cf-parity', pre_add, 'cf-guard', Module,
+                         [uncovered, 3], Fired)),
+    Fired == ['cf-guard', [uncovered, 3]],
+    catch(petta_hook_apply(Fired, '&cf-parity', 'cf-guard', [uncovered, 3],
+                           _, true), Error, true),
+    assertion(Error = error(petta_hook_stuck('&cf-parity', 'pre-add',
+                                              'cf-guard', [uncovered, 3]), _)),
     petta_hook_drop_compiled('&cf-parity', pre_add).
 
 test(an_equation_added_after_the_claim_decides_the_next_fire) :-

@@ -3532,8 +3532,7 @@ petta_hook_eval(Space, Slot, Handler, Module, Term, Verdict) :-
     ;   with_metta_module(Module,
                           call(Module:'$petta_hook_fire'(Space, Slot, Term,
                                                          Verdict)))
-    ),
-    \+ (Verdict =@= [Handler, Term]).
+    ).
 
 petta_hook_drop_compiled(Space, Slot) :-
     forall(retract(petta_hook_compiled(Space, Slot, Ref)),
@@ -3621,7 +3620,7 @@ petta_hook_post_apply([refuse, Words], Space, _, Term) :- !,
 petta_hook_post_apply([drop], Space, _, Term) :- !,
     metta_remove_atom(Space, Term, _).
 petta_hook_post_apply(Got, Space, Handler, Term) :-
-    throw(error(petta_hook_bad_verdict(Space, Handler, Term, Got), none)).
+    petta_hook_invalid_verdict('post-add', Got, Space, Handler, Term).
 
 petta_hook_granted_form(Space, Term) :-
     catch(b_getval('$petta_hook_granted', granted(GSpace, GTerm)), _, fail),
@@ -3660,7 +3659,20 @@ petta_hook_apply([refuse, Words], Space, _, Term, _, _) :- !,
     throw(error(petta_add_refused(Space, Term, Words), none)).
 petta_hook_apply([drop], _, _, _, true, _) :- !.
 petta_hook_apply(Got, Space, Handler, Term, _, _) :-
-    throw(error(petta_hook_bad_verdict(Space, Handler, Term, Got), none)).
+    petta_hook_invalid_verdict('pre-add', Got, Space, Handler, Term).
+
+%A residual handler call is the hook's existing stuck state, not a malformed
+%verdict. The fire remains an observer of evaluation; classification happens
+%only after every verdict-algebra clause has missed. Doing the variant
+%comparison after every successful fire added two inferences to each claimed
+%write, while this cold route leaves accepted writes unchanged.
+%[tested: hooks:an_unclaimed_request_is_a_stuck_state_that_says_so,
+%hooks:a_post_stuck_state_undoes_the_write; commit=WORKTREE]
+petta_hook_invalid_verdict(Slot, Got, Space, Handler, Term) :-
+    (   Got =@= [Handler, Term]
+    ->  throw(error(petta_hook_stuck(Space, Slot, Handler, Term), none))
+    ;   throw(error(petta_hook_bad_verdict(Space, Handler, Term, Got), none))
+    ).
 
 %The bulk door's question: a space with a claimed hook on either slot
 %routes its batches through the per-atom door, where the wrapper consults
