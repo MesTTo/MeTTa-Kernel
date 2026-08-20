@@ -99,7 +99,21 @@ build_c_extension_example
 run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark -n auto --dist loadfile --max-worker-restart=0"
 run GATE benchmarks   in_py "$PY" bench.py --counter-only --keep-going
 run GATE instructions in_py "$PY" -m benchmarks.check_instructions
-run GATE shell        sh -c "cd '$HERE' && sh test.sh"
+run_example_corpus() {
+    py_prefix=$(dirname "$(dirname "$PY")")
+    if [ -f "$py_prefix/pyvenv.cfg" ]; then
+        ( cd "$HERE" && VIRTUAL_ENV="$py_prefix" PATH="$py_prefix/bin:$PATH" sh test.sh )
+    else
+        ( cd "$HERE" && sh test.sh )
+    fi
+}
+
+check_examples() {
+    run_example_corpus &&
+        ( cd "$HERE" && sh tests/regression/test_specializer_regressions.sh )
+}
+
+run GATE shell        run_example_corpus
 
 # test.sh's own "FAILURE in $f:" block used to come from
 # `grep "is " | grep " should "` over stdout alone, is/should being the one
@@ -118,7 +132,7 @@ run GATE shell-failure sh -c "cd '$HERE' && sh tests/test_example_runner_surface
 # It is the negative twin of the lane above: that one proves a FAILURE reports
 # its diagnostic, this one proves a failure is DETECTED at all.
 run GATE shell-oracle  sh -c "cd '$HERE' && sh tests/regression/test_example_runner.sh"
-run GATE examples sh -c "cd '$HERE' && sh tests/regression/test_specializer_regressions.sh"
+run GATE examples     check_examples
 
 # The specializer's whole claim, asserted over the whole corpus rather than
 # trusted: under PETTA_VERIFY_SPECIALIZATIONS every specialization is run

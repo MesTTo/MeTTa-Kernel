@@ -12,7 +12,9 @@
        (+ $a $b)
        (a list not a number)))
 
-!(test (wu1 (+ 2 4) (+ 4 2)) (quote (42 6 (+ 4 2))))
+; quote retains its wrapper in LeaTTa types-meta/30_evaluation_control.metta;
+; noeval is the payload-preserving form this expected syntax requires.
+!(test (wu1 (+ 2 4) (+ 4 2)) (noeval (42 6 (+ 4 2))))
 
 !(test (wu2 (+ 2 4) (+ 4 2)) 12)
 

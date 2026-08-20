@@ -8,5 +8,7 @@
 (= (h $x) (+ $x 42))
 
 !(test (f (+ 1 1)) 44)
-!(test (g (+ 1 1)) (quote (+ 2 42)))
-!(test (h (+ 1 1)) (quote (+ (+ 1 1) 42)))
+; quote retains its wrapper in LeaTTa types-meta/30_evaluation_control.metta;
+; noeval is the payload-preserving form these expected expressions require.
+!(test (g (+ 1 1)) (noeval (+ 2 42)))
+!(test (h (+ 1 1)) (noeval (+ (+ 1 1) 42)))

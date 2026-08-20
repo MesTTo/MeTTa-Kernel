@@ -24,9 +24,9 @@
 (= (mother y c) (stv 0.0 0.9))
 
 !(test (? (grandfather a c))
-       (quote (((grandfather a c) (stv 1.0 0.7290000000000001)))))
+       (noeval (((grandfather a c) (stv 1.0 0.7290000000000001)))))
 !(test (? (grandfather $who c))
-       (quote (((grandfather a c) (stv 1.0 0.7290000000000001)))))
+       (noeval (((grandfather a c) (stv 1.0 0.7290000000000001)))))
 !(test (? (old $who))
-       (quote (((old a) (stv 1.0 0.6561000000000001)))))
+       (noeval (((old a) (stv 1.0 0.6561000000000001)))))
 

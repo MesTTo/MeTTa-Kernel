@@ -7,7 +7,7 @@
 ;pairs, which is the shape the rewrite knows how to add.
 (: add-pairs (-> Atom Atom %Undefined%))
 (= (add-pairs (pair $a $b) (pair $c $d))
-   (quote (pair (+ $a $c) (+ $b $d))))
+   (noeval (pair (+ $a $c) (+ $b $d))))
 !(add-translator-rule! add-pairs)
 
 !(test (add-pairs (pair 1 2) (pair 10 20)) (pair 11 22))
@@ -29,8 +29,8 @@
 ;and `noeval` stops the expansion from going round again.
 (: hold-pairs (-> Atom Atom %Undefined%))
 (= (hold-pairs (pair $a $b) (pair $c $d))
-   (quote (pair (+ $a $c) (+ $b $d))))
-(= (hold-pairs $a $b) (quote (noeval (hold-pairs $a $b))))
+   (noeval (pair (+ $a $c) (+ $b $d))))
+(= (hold-pairs $a $b) (noeval (noeval (hold-pairs $a $b))))
 !(add-translator-rule! hold-pairs)
 
 !(test (hold-pairs (pair 1 2) (pair 10 20)) (pair 11 22))

@@ -1,7 +1,7 @@
 (: for (-> Atom Atom Atom %Undefined%))
 (= (for $var $collection $body)
-   (quote (let $var (superpose $collection)
-                    $body)))
+   (noeval (let $var (superpose $collection)
+                     $body)))
 
 !(add-translator-rule! for)
 
