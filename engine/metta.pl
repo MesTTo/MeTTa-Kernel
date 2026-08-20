@@ -2853,6 +2853,15 @@ metta_effect_prolog_primitive(unify_with_occurs_check).
 %refused a pure body one word inside a collapse
 %[tested: a_pure_body_inside_a_wrapper_still_tables].
 metta_effect_prolog_primitive(petta_prune_empty).
+%Restricted-space translation emits these guards immediately before the
+%operation it protects. They inspect the fixed execution-base declaration and
+%must not hide the operation from the effect walk: classifying them as inert
+%lets the next add-atom, evalc, import or raw goal supply the user-facing
+%effect name [tested:
+%lib_tabling_purity:an_impure_goal_is_refused_inside_every_wrapper;
+%commit=WORKTREE].
+metta_effect_prolog_primitive(metta_require_current_capability).
+metta_effect_prolog_primitive(metta_require_space_update_capability).
 metta_effect_prolog_primitive('=@=').    metta_effect_prolog_primitive('\\==').
 metta_effect_prolog_primitive(nth0).     metta_effect_prolog_primitive(nth1).
 metta_effect_prolog_primitive(between).  metta_effect_prolog_primitive(succ).

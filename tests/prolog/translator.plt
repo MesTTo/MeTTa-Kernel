@@ -4,6 +4,10 @@
 %   see at all: dispatch goal ordering, equation-store growth and translation
 %   growth each leave every answer exactly as it was.
 % Guarantees:
+%   - Restricted-space capability and raw-goal safety guards remain visible in
+%     the compiled goal list ahead of the operation they protect [tested:
+%     translator_prolog_imports, translator_prolog_authored_rules,
+%     translator_importer_arguments; commit=WORKTREE].
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
 %     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
@@ -365,7 +369,9 @@ test(each_prolog_import_has_one_translation,
             translate_expr([Importer, source, [imported_function]], Goals,
                            Out),
             Solutions),
-    Solutions = [[Goal]-_],
+    Solutions = [[metta_require_current_capability(Importer, Capability),
+                  Goal]-_],
+    space_operation_capability(Importer, Capability),
     functor(Goal, Importer, 3).
 
 :- end_tests(translator_prolog_imports).
@@ -1314,12 +1320,13 @@ test(an_in_place_annotation_is_still_a_constraint) :-
 
 test(a_prolog_rule_folds_a_constant_at_compile_time) :-
     translate_expr([plunit_x4_add, 20, 22, V], Goals, _),
-    % Nothing is left to run but the unification the rule chose.
-    Goals = [V = 42].
+    % Nothing is left to run but the safety guard and the unification the rule
+    % chose.
+    Goals = [metta_require_safe_goal(V = 42), V = 42].
 
 test(a_prolog_rule_emits_a_goal_when_it_cannot_fold) :-
     translate_expr([plunit_x4_add, A, B, V], Goals, _),
-    Goals = [plus(A, B, V)],
+    Goals = [metta_require_safe_goal(plus(A, B, V)), plus(A, B, V)],
     A = 6, B = 7,
     once(plus(A, B, V)),
     V == 13.
@@ -1392,8 +1399,11 @@ test(an_importer_name_list_stays_data,
     forall(prolog_function_importer(Importer),
            ( Call = [Importer, "lib.pl", [plunit_tr_importable, other]],
              translate_expr(Call, Goals, _),
-             % One goal, with the list intact: no call to the registered name.
-             Goals = [Goal],
+             % The guard and operation keep the list intact: there is no call
+             % to the registered name.
+             Goals = [metta_require_current_capability(Importer, Capability),
+                      Goal],
+             space_operation_capability(Importer, Capability),
              Goal =.. [Importer, "lib.pl", Names, _],
              assertion(Names == [plunit_tr_importable, other]) )).
 
