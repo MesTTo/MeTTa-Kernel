@@ -10,7 +10,7 @@ Run the self-checking corpus with:
 
 `test.sh` discovers examples recursively. It excludes `_fixtures` and the six
 interactive, network-backed, or optional-dependency examples named in the
-runner. The merged corpus contains 209 examples that run in the shell suite.
+runner. The merged corpus contains 210 examples that run in the shell suite.
 That count is `len(example_parity.corpus())`, the corpus's one definition in
 `bindings/python/tools/example_parity.py`; the `pytest` gate lane fails the moment
 this sentence and the tree disagree. Selected root paths remain as symlink
@@ -28,7 +28,7 @@ does not run an alias twice.
 | `libraries/` | crypto, HE, memoization, regex, Roman, Patrick, date, and tabling libraries |
 | `performance/` | larger workloads and optimized variants |
 | `reasoning/` | logic programs, constructive negation, Peano arithmetic, PLN, NARS, measures, and puzzles |
-| `spaces/` | matching, the row snapshot a match takes before its templates run, mutation, transactions, state, evaluating in a named space, delegating to a shadowed definition with `super`, rewrite systems, pre-add hooks, and admission pools with the judge's MeTTa/builtin differential |
+| `spaces/` | matching, inherited child-first reads with front-only writes, the row snapshot a match takes before its templates run, mutation, transactions, state, evaluating in a named space, delegating to a shadowed definition with `super`, rewrite systems, pre-add hooks, and admission pools with the judge's MeTTa/builtin differential |
 | `syntax/` | parsing, rendering, comments, and string edge cases |
 | `translation/` | call, quote, eval, reduce, translator rules, and staged execution |
 | `types/` | concrete, parametric, recursive, dependent, and nondeterministic types |

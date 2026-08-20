@@ -4,6 +4,9 @@
 % Guarantees:
 %   - Native storage modules do not inherit user predicates, while execution
 %     modules keep undefined calls loud [tested: spaces_storage_modules].
+%   - inherited reads are child-first unions, conjunctions join across
+%     layers, and declaration failures leave no partial relation [tested:
+%     spaces_inheritance; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -1991,3 +1994,103 @@ test(a_non_space_is_refused,
     'space-contains'(7, [x], _).
 
 :- end_tests(spaces_contains).
+
+:- begin_tests(spaces_inheritance).
+
+release_inheritance_pair(Child, Parent) :-
+    catch(metta_release_space(Child), _, true),
+    catch(metta_release_space(Parent), _, true).
+
+test(reads_are_child_first_and_conjunctions_join_across_layers,
+     [ cleanup(release_inheritance_pair('&inh-child', '&inh-parent')) ]) :-
+    add_sexp('&inh-parent', [edge, a, b]),
+    add_sexp('&inh-parent', [copy, same]),
+    add_sexp('&inh-parent', [layer, parent]),
+    metta_declare_space_parent('&inh-child', '&inh-parent'),
+    add_sexp('&inh-child', [edge, b, c]),
+    add_sexp('&inh-child', [copy, same]),
+    add_sexp('&inh-child', [layer, child]),
+    findall(A, 'get-atoms'('&inh-child', A), Atoms),
+    msort(Atoms, SortedAtoms),
+    msort([[edge, b, c], [copy, same], [layer, child],
+           [edge, a, b], [copy, same], [layer, parent]], SortedExpected),
+    assertion(SortedAtoms == SortedExpected),
+    findall(Layer,
+            match('&inh-child', [layer, Layer], Layer, _),
+            Layers),
+    assertion(Layers == [child, parent]),
+    findall(X-Z,
+            match('&inh-child', [',', [edge, X, Y], [edge, Y, Z]],
+                  X-Z, _),
+            Rows),
+    assertion(Rows == [a-c]),
+    space_atom_count('&inh-child', OwnCount),
+    assertion(OwnCount == 3),
+    'space-contains'('&inh-child', [edge, a, b], Contains),
+    assertion(Contains == true).
+
+test(removing_a_variable_and_clearing_touch_only_the_child,
+     [ cleanup(release_inheritance_pair('&inh-mutate-child',
+                                        '&inh-mutate-parent')) ]) :-
+    add_sexp('&inh-mutate-parent', [kept, parent]),
+    metta_declare_space_parent('&inh-mutate-child', '&inh-mutate-parent'),
+    metta_remove_atom('&inh-mutate-child', _, RemovedEmpty),
+    assertion(RemovedEmpty == false),
+    once(get_native_atom('&inh-mutate-parent', [kept, parent])),
+    add_sexp('&inh-mutate-child', [gone, child]),
+    metta_host_clear_space('&inh-mutate-child'),
+    assertion(\+ get_native_atom('&inh-mutate-child', _)),
+    once(get_native_atom('&inh-mutate-parent', [kept, parent])).
+
+test(the_surface_constructor_returns_the_child_and_is_idempotent,
+     [ cleanup(release_inheritance_pair('&inh-surface-child',
+                                        '&inh-surface-parent')) ]) :-
+    process_metta_string(
+        "!(new-space &inh-surface-child (inherits &inh-surface-parent))",
+        First),
+    process_metta_string(
+        "!(new-space &inh-surface-child (inherits &inh-surface-parent))",
+        Second),
+    assertion(First == ['&inh-surface-child']),
+    assertion(Second == ['&inh-surface-child']),
+    once(petta_contract_fact([inherits, '&inh-surface-child',
+                              '&inh-surface-parent'])).
+
+test(a_different_parent_is_refused,
+     [ cleanup(( catch(metta_release_space('&inh-conflict-child'), _, true),
+                 catch(metta_release_space('&inh-conflict-first'), _, true),
+                 catch(metta_release_space('&inh-conflict-second'), _, true) )),
+       throws(error(petta_space_parent_conflict('&inh-conflict-child',
+                                                '&inh-conflict-first',
+                                                '&inh-conflict-second'), _)) ]) :-
+    metta_declare_space_parent('&inh-conflict-child', '&inh-conflict-first'),
+    metta_declare_space_parent('&inh-conflict-child', '&inh-conflict-second').
+
+test(a_cycle_is_named_before_the_already_used_refusal,
+     [ cleanup(release_inheritance_pair('&inh-cycle-a', '&inh-cycle-b')),
+       throws(error(petta_space_parent_cycle('&inh-cycle-b',
+                                             '&inh-cycle-a'), _)) ]) :-
+    metta_declare_space_parent('&inh-cycle-a', '&inh-cycle-b'),
+    metta_declare_space_parent('&inh-cycle-b', '&inh-cycle-a').
+
+test(a_parent_declared_after_first_use_is_refused,
+     [ cleanup(release_inheritance_pair('&inh-used-child',
+                                        '&inh-used-parent')),
+       throws(error(petta_space_parent_after_use('&inh-used-child'), _)) ]) :-
+    add_sexp('&inh-used-child', [already, used]),
+    metta_declare_space_parent('&inh-used-child', '&inh-used-parent').
+
+test(an_outer_transaction_rolls_back_the_index_and_contract) :-
+    catch(transaction((
+              metta_declare_space_parent('&inh-rollback-child',
+                                         '&inh-rollback-parent'),
+              throw(rollback_probe))),
+          rollback_probe,
+          true),
+    assertion(\+ space_parent('&inh-rollback-child', _)),
+    assertion(\+ petta_contract_fact([inherits, '&inh-rollback-child', _])),
+    assertion(\+ metta_exec_module_known('&inh-rollback-child', _)),
+    assertion(\+ metta_exec_module_parent(_, _)),
+    assertion(\+ native_storage_module_cache('&inh-rollback-child', _)).
+
+:- end_tests(spaces_inheritance).

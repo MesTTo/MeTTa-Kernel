@@ -751,6 +751,7 @@ petta_catalog_preset([kind, tabled, symbol, symbol, integer]).
 petta_catalog_preset([kind, defined, symbol, symbol]).
 petta_catalog_preset([kind, subscription, symbol, pattern,
                       ['one-of', 'subscription-edge']]).
+petta_catalog_preset([kind, inherits, term, term]).
 petta_catalog_preset(['routed-by-shape', handles]).
 petta_catalog_preset(['routed-by-shape', 'on-error']).
 petta_catalog_preset(['routed-by-shape', merge, global]).
@@ -936,6 +937,8 @@ space_module(Space, Module) :-
     ).
 
 :- dynamic metta_exec_module_known/2.
+:- dynamic space_parent/2.
+:- dynamic metta_exec_module_parent/2.
 
 %The chain, and why each link is where it is.
 %
@@ -960,6 +963,8 @@ space_module(Space, Module) :-
 metta_exec_module_base(Space, Base) :-
     (   Space == '&self'
     ->  petta_engine_module(Base)
+    ;   space_parent(Space, Parent)
+    ->  space_module(Parent, Base)
     ;   space_module('&self', Base)
     ).
 
@@ -1016,6 +1021,127 @@ protect_metta_exec_modules :-
 metta_module_space(Module, Space) :-
     metta_exec_module_prefix(Prefix),
     atom_concat(Prefix, Space, Module).
+
+%Declare the one parent a space reads and executes through. The ordering is
+%part of the contract: an identical declaration is idempotent, a conflicting
+%one names both parents, a cycle is diagnosed before the less-specific
+%already-used refusal, and only a fresh child reaches the transaction that
+%lands the index, reflection atom and execution-module base together.
+%[tested: test_a_child_space_reads_through_its_parent_and_writes_locally;
+% commit=WORKTREE]
+metta_declare_space_parent(Child, Parent) :-
+    metta_require_space_name('new-space', Child),
+    metta_require_space_name('new-space', Parent),
+    with_mutex('$petta_metta_exec',
+               metta_declare_space_parent_locked(Child, Parent)).
+
+metta_require_space_name(_, Space) :-
+    petta_space_name(Space),
+    !.
+metta_require_space_name(Operation, Space) :-
+    throw(error(type_error('SpaceType', Space),
+                context(Operation, 'an inherited-space endpoint must be a space'))).
+
+metta_declare_space_parent_locked(Child, Parent) :-
+    (   space_parent(Child, Standing)
+    ->  (   Standing == Parent
+        ->  true
+        ;   throw(error(petta_space_parent_conflict(Child, Standing, Parent),
+                        none))
+        )
+    ;   space_parent_cycle(Child, Parent)
+    ->  throw(error(petta_space_parent_cycle(Child, Parent), none))
+    ;   space_parent_child_used(Child)
+    ->  throw(error(petta_space_parent_after_use(Child), none))
+    ;   transaction(( assertz(space_parent(Child, Parent)),
+                      metta_add_atom('&petta', [inherits, Child, Parent], _),
+                      ensure_native_storage_module(Child, _),
+                      space_module(Child, ChildModule),
+                      space_module(Parent, ParentModule),
+                      assertz(metta_exec_module_parent(ChildModule,
+                                                       ParentModule)) ))
+    ).
+
+space_parent_cycle(Child, Parent) :-
+    Child == Parent,
+    !.
+space_parent_cycle(Child, Parent) :-
+    space_parent_reaches(Parent, Child, []).
+
+space_parent_reaches(Space, Target, Seen) :-
+    \+ memberchk(Space, Seen),
+    space_parent(Space, Parent),
+    (   Parent == Target
+    ->  true
+    ;   space_parent_reaches(Parent, Target, [Space|Seen])
+    ).
+
+space_parent_child_used(Child) :- metta_exec_module_known(Child, _), !.
+space_parent_child_used(Child) :- native_storage_module_cache(Child, _), !.
+space_parent_child_used(Child) :- metta_foreign_space(Child).
+
+%Child first, then each ancestor. The seen list is an invariant guard against
+%a corrupt or externally asserted relation; declarations refuse such cycles
+%before they can enter this index.
+space_read_chain(Space, Each) :-
+    space_read_chain_(Space, [], Each).
+
+space_read_chain_(Space, Seen, Each) :-
+    \+ memberchk(Space, Seen),
+    (   Each = Space
+    ;   space_parent(Space, Parent),
+        space_read_chain_(Parent, [Space|Seen], Each)
+    ).
+
+metta_assert_space_releasable(Space) :-
+    (   space_parent(Child, Space)
+    ->  throw(error(petta_space_parent_live_child(Space, Child), none))
+    ;   true
+    ).
+
+%A released name is allowed to acquire a different parent in its next life.
+%Clear while the standing base is still known, then remove the relationship
+%and its reflected atom transactionally and forget the module mapping so the
+%next space_module/2 call sets the persistent SWI module's new base.
+metta_release_space(Space) :-
+    with_mutex('$petta_metta_exec',
+               ( metta_assert_space_releasable(Space),
+                 metta_host_clear_space(Space),
+                 transaction(( metta_forget_space_parent(Space),
+                               metta_forget_exec_module_parent(Space),
+                               retractall(metta_exec_module_known(Space, _)),
+                               retractall(native_storage_module_cache(Space, _)) ))
+               )).
+
+metta_forget_exec_module_parent(Space) :-
+    (   metta_exec_module_known(Space, Module)
+    ->  retractall(metta_exec_module_parent(Module, _))
+    ;   true
+    ).
+
+metta_forget_space_parent(Child) :-
+    (   retract(space_parent(Child, Parent))
+    ->  metta_remove_atom('&petta', [inherits, Child, Parent], _)
+    ;   true
+    ).
+
+:- multifile prolog:error_message//1.
+prolog:error_message(petta_space_parent_conflict(Child, Standing, Requested)) -->
+    [ '~w already inherits from ~w, so it cannot also inherit from ~w; a \c
+       space has one parent fixed before first use'-[Child, Standing,
+                                                     Requested] ].
+prolog:error_message(petta_space_parent_cycle(Child, Parent)) -->
+    [ 'making ~w inherit from ~w would create an inheritance cycle; space \c
+       reads and execution bases must form an acyclic parent chain'-[Child,
+                                                                      Parent] ].
+prolog:error_message(petta_space_parent_after_use(Child)) -->
+    [ '~w has already been created, written, executed, or registered; declare \c
+       its parent with (new-space ~w (inherits <parent>)) before first use'-[
+       Child, Child] ].
+prolog:error_message(petta_space_parent_live_child(Parent, Child)) -->
+    [ '~w cannot be dropped while live child ~w inherits from it; drop the \c
+       child first so its relationship cannot follow a recycled parent name'-[
+       Parent, Child] ].
 
 %&self's execution module exists from load, the way its storage module does,
 %so nothing has to create it on a first write and metta_self_module/1
@@ -1339,7 +1465,7 @@ metta_host_clear_space(Space) :-
 metta_host_clear_space(Space) :-
     (   metta_remove_hooks_idle(Space)
     ->  true
-    ;   findall(Atom, 'get-atoms'(Space, Atom), Atoms),
+    ;   findall(Atom, metta_host_stored(Space, Atom), Atoms),
         forall(member(Atom, Atoms), 'remove-atom'(Space, Atom, _))
     ),
     clear_native_atoms(Space),
@@ -1888,7 +2014,7 @@ metta_remove_atom(Space, _, _) :-
     metta_refuse_module_for_space(Space, metta_remove_atom/3),
     fail.
 metta_remove_atom(Space, Term, Removed) :- var(Term), !,
-    findall(A, 'get-atoms'(Space, A), Atoms),
+    findall(A, metta_host_stored(Space, A), Atoms),
     (   Atoms == []
     ->  Removed = false
     ;   forall(member(A, Atoms),
@@ -1952,7 +2078,7 @@ metta_host_removal_probe(Space, Pattern) :-
           fail),
     !.
 metta_host_removal_probe(Space, Pattern) :-
-    once(('get-atoms'(Space, Stored), Stored = Pattern)).
+    once((metta_host_stored(Space, Stored), Stored = Pattern)).
 
 %Every stored atom unifying Pattern, live from the space: a native space
 %answers through its storage module's clause indexing, a foreign one
@@ -2154,7 +2280,10 @@ match(Space, Pattern, OutPattern, Result) :- nonvar(Space),
 match(Space, Pattern, OutPattern, Result) :-
     atom(Space),
     native_storage_module_cache(Space, Module), !,
-    match_native(Module, Space, Pattern, OutPattern, Result).
+    (   space_parent(Space, _)
+    ->  match_inherited_space(Space, Module, Pattern, OutPattern, Result)
+    ;   match_native(Module, Space, Pattern, OutPattern, Result)
+    ).
 %Only a name the engine holds no space for reaches here, and the question left
 %is which kind it is: a space nothing has written to yet answers nothing, which
 %is what an empty space answers, and anything else is refused by name.
@@ -2213,8 +2342,29 @@ match_stored(Space, Pattern, OutPattern, Result) :-
 match_conjunction(Space, Pattern, OutPattern) :- metta_foreign_space(Space), !,
                                                  match_foreign(Space, Pattern, OutPattern, _).
 match_conjunction(Space, Pattern, OutPattern) :- native_storage_module_cache(Space, Module), !,
-                                                 match_native(Module, Space, Pattern, OutPattern, _).
+                                                 (   space_parent(Space, _)
+                                                 ->  match_routed(Space, Pattern,
+                                                                  OutPattern, _)
+                                                 ;   match_native(Module, Space,
+                                                                  Pattern,
+                                                                  OutPattern, _)
+                                                 ).
 match_conjunction(Space, Pattern, OutPattern) :- match_routed(Space, Pattern, OutPattern, _).
+
+match_inherited_space(Space, OwnModule, Pattern, OutPattern, Result) :-
+    space_read_chain(Space, Each),
+    (   Each == Space
+    ->  match_native(OwnModule, Space, Pattern, OutPattern, Result)
+    ;   match_read_link(Each, Pattern, OutPattern, Result)
+    ).
+
+match_read_link(Space, Pattern, OutPattern, Result) :-
+    metta_foreign_space(Space),
+    !,
+    match_foreign(Space, Pattern, OutPattern, Result).
+match_read_link(Space, Pattern, OutPattern, Result) :-
+    native_storage_module_ready(Space, Module),
+    match_native(Module, Space, Pattern, OutPattern, Result).
 
 match_routed(_, LComma, OutPattern, Result) :- LComma == [','], !,
                                                Result = OutPattern.
@@ -3022,13 +3172,33 @@ native_expression(Module, Space, Rel, PatArgs) :-
 'get-atoms'(Space, Pattern) :-
     (   atom(Space)
     ->  (   native_storage_module_ready(Space, Module)
-        ->  get_native_atom(Module, Space, Pattern)
+        ->  (   space_parent(Space, _)
+            ->  get_inherited_atom(Space, Module, Pattern)
+            ;   get_native_atom(Module, Space, Pattern)
+            )
         ;   petta_space_name(Space)
         ->  fail
         ;   space_argument_error('get-atoms', [Space], Pattern)
         )
     ;   space_argument_error('get-atoms', [Space], Pattern)
     ).
+
+get_inherited_atom(Space, OwnModule, Pattern) :-
+    space_read_chain(Space, Each),
+    (   Each == Space
+    ->  get_native_atom(OwnModule, Space, Pattern)
+    ;   get_atom_read_link(Each, Pattern)
+    ).
+
+get_atom_read_link(Space, Pattern) :-
+    metta_foreign_space(Space),
+    !,
+    refuse_absent_capability(Space, enumerate),
+    petta_source_guard(Space),
+    metta_foreign_atoms(Space, Pattern).
+get_atom_read_link(Space, Pattern) :-
+    native_storage_module_ready(Space, Module),
+    get_native_atom(Module, Space, Pattern).
 
 %Drop every atom a space holds. Expressions and scalars live in different
 %predicates, so a caller that wipes only the space predicate would leave the
@@ -3224,7 +3394,10 @@ petta_capacity_count_cleared(Space) :-
     ;   true
     ).
 
-%How many atoms a native space holds. A capacity-claimed pool reads its
+%How many atoms a native space OWNS. Inherited match, get-atoms and
+%space-contains read the child-first chain; this count deliberately does not,
+%because capacity constrains the writable front store rather than its parents.
+%A capacity-claimed pool reads its
 %incremental fact; every other space reads the store's own per-predicate
 %clause bookkeeping, the manual's count-asserted-facts idiom
 %[source: https://www.swi-prolog.org/pldoc/man?predicate=predicate_property%2F2].

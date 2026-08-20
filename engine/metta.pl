@@ -22,6 +22,10 @@
 %   - get-type/2 returns each derived type once, while has_type/2 uses one
 %     witness for a fixed expected type [tested 2026-08-15:
 %     metta_type_answers, translator_typed_checks].
+%   - a child execution module resolves parent equations before the shared
+%     &self and builtin tiers [tested:
+%     test_a_child_space_reads_through_its_parent_and_writes_locally;
+%     commit=WORKTREE].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction
@@ -4637,6 +4641,12 @@ run_under_pragmas(Goal) :-
 %symbol in a space position from becoming one.
 'new-space'(Space) :- gensym('&petta-space-', Space),
                       ensure_native_storage_module(Space, _).
+'new-space'(Child, [inherits, Parent], Child) :- !,
+    metta_declare_space_parent(Child, Parent).
+'new-space'(_, Relation, _) :-
+    throw(error(type_error(inheritance_declaration, Relation),
+                context('new-space',
+                        'the second argument is (inherits <parent>)'))).
 
 %%% States: %%%
 'bind!'(Var, _, _) :- var(Var), !, refuse_unbound_input('bind!', 1).
@@ -6451,10 +6461,15 @@ fun_here(F) :- fun(F),
 %clause applying process-wide, and without this the name resolved nowhere: one
 %named space turned + into inert data in every other space and in engines
 %built afterwards [tested: metta_builtin_scoping].
-fun_here_in(Module, F) :- (   fun_in(Module, F) -> true
-                          ;   metta_self_module(Self), Module \== Self,
-                              fun_in(Self, F) -> true
-                          ;   builtin_fun(F) ).
+fun_here_in(Module, F) :-
+    (   fun_in(Module, F)
+    ->  true
+    ;   metta_exec_module_parent(Module, ParentModule)
+    ->  fun_here_in(ParentModule, F)
+    ;   metta_self_module(Self), Module \== Self, fun_in(Self, F)
+    ->  true
+    ;   builtin_fun(F)
+    ).
 
 %Register a function and record which module its clauses live in. fun/1 stays
 %global because the translator consults it at compile time to decide whether a

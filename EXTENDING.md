@@ -336,6 +336,22 @@ named space claiming a name turned every registered predicate into inert data
 in every space, silently, from code that had not changed. That space's own
 equation still shadows it, which is the behaviour that should happen.
 
+A space may name one parent at creation:
+
+```metta
+!(new-space &child (inherits &parent))
+```
+
+Its execution module bases on the parent's module, and its stored-atom reads
+form a child-first multiset union over the same chain. Each conjunct routes
+through that union independently, so a child fact can join a parent fact.
+Adds, removals, clear, and `space-atom-count` stay local to the child. Declare
+the parent before first use; the same declaration is idempotent, while a
+different parent, a cycle, or dropping a parent that still has a live child is
+refused by name. Python spells the same constructor
+`runtime.new_space(inherits=parent)` and dropping the child only unlinks the
+child.
+
 ### Taking an argument unevaluated
 
 Declare the parameter `Atom` and the argument arrives as written:
@@ -2059,6 +2075,7 @@ both and the query they disagree on.
 | `(merge <pattern> depth\|fair\|best-first)` | how the engine merges one shape's answers ACROSS contexts | `declare_merge` |
 | `(on <ctx> <pattern> <op>)` | a bridge: when a matching atom lands, run `(insert ...)`, `(retract ...)` or `(revise ...)` under the match's bindings | `declare_reaction` |
 | `(admits <pool> <Type>)`, `(capacity <pool> <n>)` | a typed, bounded pool; a space of spaces is the thread-pool reading | `declare_admits`, `declare_capacity` |
+| `(inherits <child> <parent>)` | the child's execution base and child-first read chain; writes remain local | `(new-space <child> (inherits <parent>))`, `new_space(inherits=...)` |
 
 Ask the seam itself what it will do: `!(explain (match &s <pattern> $x))`
 answers the route as atoms, which entry matched, at what fidelity,

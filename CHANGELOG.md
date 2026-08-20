@@ -8,6 +8,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Spaces can inherit from one parent at creation with
+  `(new-space &child (inherits &parent))` or
+  `runtime.new_space(inherits=parent)`. Atom reads are a child-first multiset
+  union and conjunctions join across layers, while adds, removals, clear, and
+  `space-atom-count` remain local. The execution module uses the same parent
+  chain for equations. Cycles, late declarations, conflicting parents, and
+  dropping a parent with a live child are refused before mutation.
 - `(space-atom-count <space>)` answers how many atoms a space holds from
   the store's own per-predicate clause counts: one property read per
   stored arity, none per atom, so a capacity policy over a million-atom
