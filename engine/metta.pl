@@ -2859,7 +2859,7 @@ metta_effect_prolog_primitive(petta_prune_empty).
 %lets the next add-atom, evalc, import or raw goal supply the user-facing
 %effect name [tested:
 %lib_tabling_purity:an_impure_goal_is_refused_inside_every_wrapper;
-%commit=WORKTREE].
+%commit=f46e45074286c08c4bd8b3d7892b3d7933f11f77].
 metta_effect_prolog_primitive(metta_require_current_capability).
 metta_effect_prolog_primitive(metta_require_space_update_capability).
 metta_effect_prolog_primitive('=@=').    metta_effect_prolog_primitive('\\==').

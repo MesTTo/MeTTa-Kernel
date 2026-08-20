@@ -7,7 +7,8 @@
 %   - Restricted-space capability and raw-goal safety guards remain visible in
 %     the compiled goal list ahead of the operation they protect [tested:
 %     translator_prolog_imports, translator_prolog_authored_rules,
-%     translator_importer_arguments; commit=WORKTREE].
+%     translator_importer_arguments;
+%     commit=f46e45074286c08c4bd8b3d7892b3d7933f11f77].
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
 %     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
