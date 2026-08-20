@@ -1798,3 +1798,71 @@ test(an_empty_space_answers_nothing_rather_than_refusing,
     assertion(Found == [[]]).
 
 :- end_tests(space_argument_refusals).
+
+% The two storage services a host talks to a space through, and their
+% verdicts: metta_host_remove_reported/3 answers whether anything went
+% (probed before the mutation), and metta_host_stored/2 enumerates stored
+% atoms unifying a pattern without a whole-space walk for an indexed head.
+:- begin_tests(spaces_host_storage_services).
+
+test(a_reporting_removal_says_whether_anything_went,
+     [ cleanup(remove_sexp('&plunit-host-remove', [_|_])) ]) :-
+    add_sexp('&plunit-host-remove', [stored, thing]),
+    metta_host_remove_reported('&plunit-host-remove', [stored, thing], First),
+    First == true,
+    metta_host_remove_reported('&plunit-host-remove', [stored, thing], Again),
+    Again == false,
+    metta_host_remove_reported('&plunit-host-remove', [never, there], Never),
+    Never == false.
+
+test(stored_enumeration_is_pattern_directed,
+     [ cleanup(remove_sexp('&plunit-host-stored', [_|_])) ]) :-
+    add_sexp('&plunit-host-stored', [edge, a, b]),
+    add_sexp('&plunit-host-stored', [edge, b, c]),
+    add_sexp('&plunit-host-stored', [node, a]),
+    findall(X-Y, metta_host_stored('&plunit-host-stored', [edge, X, Y]),
+            Edges),
+    msort(Edges, [a-b, b-c]),
+    \+ metta_host_stored('&plunit-host-stored', [edge, c, _]).
+
+:- end_tests(spaces_host_storage_services).
+
+% The explain mirror: what the seam already decided for a query, answered
+% to a host as one term report so no binding re-derives routing precedence.
+:- begin_tests(spaces_host_explain).
+
+test(a_stored_space_explains_as_stored) :-
+    metta_host_explain_match('&self', [[edge, _, _]], Report),
+    Report == explain(stored, [], [], []).
+
+test(a_bare_foreign_space_explains_unclaimed_inexact) :-
+    metta_host_explain_match('&plunit_cycle_foreign', [[fact, _, _]], Report),
+    Report = explain(foreign, [class(Class, Origin)], Claimed, Rest),
+    Class == inexact,
+    Origin == unclaimed,
+    Claimed == [],
+    Rest == [0].
+
+:- end_tests(spaces_host_explain).
+
+% The mirror of a_space_name_is_refused_where_a_module_is_asked: the
+% space-name doors refuse a module argument by name instead of failing
+% like a miss, so a wrong-argument call can never read as absence.
+:- begin_tests(spaces_module_where_name_wanted).
+
+test(test_a_module_where_a_space_name_is_wanted_refuses_by_name,
+     [ throws(error(type_error(metta_space_name, _), _)) ]) :-
+    metta_self_module(Module),
+    metta_remove_atom(Module, [never, there], _).
+
+test(the_read_door_refuses_the_same_way,
+     [ throws(error(type_error(metta_space_name, _), _)) ]) :-
+    metta_self_module(Module),
+    get_native_atom(Module, _).
+
+test(the_published_stored_door_inherits_the_refusal,
+     [ throws(error(type_error(metta_space_name, _), _)) ]) :-
+    metta_self_module(Module),
+    metta_host_stored(Module, _).
+
+:- end_tests(spaces_module_where_name_wanted).
