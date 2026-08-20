@@ -264,9 +264,10 @@ record_specialization_support(Module, Source, SpecName) :-
 
 :- multifile support_invalidation_action/1.
 support_invalidation_action(specialization(Module, SpecName)) :-
-    ho_specialization(Module, _, SpecName),
-    !,
-    forget_symbol(Module, SpecName).
+    (   ho_specialization(Module, _, SpecName)
+    ->  forget_symbol(Module, SpecName)
+    ;   true
+    ).
 
 %The specializer's whole claim is that a specialized call answers exactly
 %what the generic one answers. MeTTaLog makes that self-enforcing at run

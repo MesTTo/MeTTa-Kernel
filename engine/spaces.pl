@@ -3587,11 +3587,11 @@ clear_native_atoms(Space) :-
                  functor(Head, Space, Arity) ),
                retractall(Module:Head)),
         retractall(Module:'$petta_native_scalar'(_))
-    ;   true
+    ;   SupportModule = none
     ),
     petta_capacity_count_cleared(Space),
     retractall(import_life(Space, _, _)),
-    (   nonvar(SupportModule)
+    (   SupportModule \== none
     ->  support_forget_module(SupportModule)
     ;   true
     ),

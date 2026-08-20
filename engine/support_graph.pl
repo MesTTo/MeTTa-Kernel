@@ -48,10 +48,15 @@
 :- thread_local support_repairs_deferred/0.
 
 :- multifile support_invalidation_action/1.
+ext_point_kind(support_invalidation_action/1, event).
 :- multifile support_repair_invalidations/0.
+ext_point_kind(support_repair_invalidations/0, event).
 :- multifile support_assertions_tracked/0.
+ext_point_kind(support_assertions_tracked/0, declaration).
 :- multifile support_assertion_record/1.
+ext_point_kind(support_assertion_record/1, event).
 :- multifile support_assertion_records/1.
+ext_point_kind(support_assertion_records/1, event).
 
 :- meta_predicate support_stabilize(+, 1, -).
 :- meta_predicate with_support_repairs_deferred(0).

@@ -922,10 +922,10 @@ support_assertion_record(Ref) :-
 % bookkeeping while rollback still erases every clause precisely.
 :- multifile support_assertion_records/1.
 support_assertion_records(Refs) :-
-    active_source_load(LoadId),
-    !,
-    assertz(source_load_support_assertions(LoadId, Refs)).
-support_assertion_records(_).
+    (   active_source_load(LoadId)
+    ->  assertz(source_load_support_assertions(LoadId, Refs))
+    ;   true
+    ).
 
 %One pass over the stored equations answers the whole batch. Repairing each
 %function separately walked every equation in the system once per function, so
