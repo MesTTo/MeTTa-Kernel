@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 31 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 135 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 136 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
@@ -259,6 +259,8 @@ add_tagged_fact(tag, proposition)     store ordinary (fact tag proposition)
 add_tagged_rule(tag, head, *premises) store the generic threaded rule form
 evaluate_algebra(query, *, algebra, max_rounds=64)
         return tagged answers and observable law-gated plan decisions
+sample_rates(query, *, algebra, draws, seed)
+        stable cumulative selection from nonnegative (rate n) tags
 declare_admits(name, type_name)     only TYPE-carrying atoms enter
 declare_capacity(name, limit)       an add beyond LIMIT is refused loudly
 declare_reaction(name, pattern, operation)   stored as an (on ...) atom
