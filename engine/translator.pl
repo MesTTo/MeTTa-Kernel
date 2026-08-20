@@ -3045,7 +3045,8 @@ metta_condition_holds(Closure, Item) :- call(Closure, Item, true).
 %tax without making a meaningful modifier possible [measured: query-2k-rows
 %minimum 561467 versus 601709 before leaf calls and per-row empty modifier
 %calls were removed; command=python bench.py query-2k-rows --counter-only;
-%fixture=20 queries over 2000 rows; commit=WORKTREE]. Engine-compiled match/4
+%fixture=20 queries over 2000 rows;
+%commit=b54ecaaa1224eabb90f808275003cd9abeef8065]. Engine-compiled match/4
 %pays nothing per row because this walk happens once while its call site compiles.
 %
 %That also matches what the modifier means. The reference states that the

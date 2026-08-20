@@ -85,7 +85,7 @@ ext_point_kind(builtin_type_declaration/2, declaration).
 %store a new term kind. The lifting walk is a host service because a binding
 %that constructs patterns must apply the same semantics as compiled match.
 %[tested: test_a_path_reaches_into_a_handle_without_converting_it;
-%commit=WORKTREE].
+%commit=b54ecaaa1224eabb90f808275003cd9abeef8065].
 :- multifile pattern_modifier/3.
 ext_point_kind(pattern_modifier/3, ownership).
 
