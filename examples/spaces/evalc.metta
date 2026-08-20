@@ -1,7 +1,10 @@
-;evalc evaluates an expression in a space you name, where eval evaluates it
+;Purpose: show evaluation and equation lifetime in a named space.
+;Guarantees: evalc evaluates an expression in a space you name, where eval evaluates it
 ;where it is written. Each space compiles its own equations into its own
 ;module, so the same name can be a different function in each one, and
-;naming the space is how you reach the other definition.
+;naming the space is how you reach the other definition. Removing a named
+;space's equation removes its compiled answer too [tested:
+;test_removing_an_equation_from_a_named_space_stops_its_answers].
 
 !(bind! &metric (new-space))
 !(add-atom &metric (= (distance $x) (* $x 1000)))
@@ -32,3 +35,8 @@
 ;than a silently empty space.
 !(test (repr (catch (evalc (distance 2) 7)))
        "(Error (type_error SpaceType 7) (context evalc invalid MeTTa operation argument))")
+
+;The removal funnel owns both the stored equation and its compiled clause, so
+;the named 2000 answer leaves and the inherited &self equation is visible.
+!(remove-atom &metric (= (distance $x) (* $x 1000)))
+!(test (evalc (distance 2) &metric) 10560)

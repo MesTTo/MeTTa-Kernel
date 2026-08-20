@@ -37,6 +37,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Removing an equation from a named space now has an executable public-surface
+  pin that its stored atom and module-scoped compiled clause leave together;
+  the former function call becomes unreduced data immediately after removal.
 - Numeric math operations now reject computed String operands at their own
   runtime doors. A one-character string can no longer cross into host
   arithmetic as its character code, including either position of binary math.
