@@ -1,3 +1,17 @@
+% Purpose: declare each engine extension seam, its direction and its cut
+%   semantics, and publish the predicates extensions and host bindings may call.
+% Guarantees:
+%   - reader-token registration is an engine-owned host service, while token
+%     construction is claimed by the host that owns the registered callable;
+%     mapping introspection is an ordinary extension service [tested:
+%     test_a_registered_token_class_parses_like_a_shipped_one,
+%     every_seam_declares_one_kind,
+%     every_seam_kind_matches_its_direction; commit=WORKTREE].
+% Open Obligations:
+%   To Do: None
+%   Hacks: None
+%   Future Enhancements: None
+
 %%%% What kind of seam each extension point is %%%%
 %
 %Every seam below is declared multifile and then given a KIND on the line
@@ -600,6 +614,11 @@ ext_point_kind(metta_host_open_function/3, host_service).
 ext_point_kind(metta_host_adopt_function/4, host_service).
 ext_point_kind(metta_host_drop_function/2, host_service).
 ext_point_kind(metta_host_forget_function/1, host_service).
+%Reader classes keep their callable on the engine side. A host registers or
+%removes one mapping through these services and owns construction through the
+%handler seam declared below.
+ext_point_kind(metta_host_register_reader_token/2, host_service).
+ext_point_kind(metta_host_unregister_reader_token/1, host_service).
 %The space read-and-remove pair a host talks to storage through:
 %metta_host_stored/2 enumerates stored atoms unifying a pattern
 %(index-directed native, provider-enumerated foreign), and
@@ -661,6 +680,8 @@ ext_point_kind(sread/2, service).
 %remaining callers are extension libraries (lib_gitimport, lib_import),
 %which is exactly what this kind means.
 ext_point_kind(parse_metta_source/2, service).
+ext_point_kind(metta_reader_token_class/3, service).
+ext_point_kind(metta_reader_token_source/2, service).
 ext_point_kind(metta_symbol_writable/1, service).
 ext_point_kind(metta_unwritable_symbol/2, service).
 
@@ -754,6 +775,12 @@ ext_point_kind(metta_host_import/1, ownership).
 %answers no at one failed lookup and never initializes anything.
 :- multifile metta_host_object/1.
 ext_point_kind(metta_host_object/1, ownership).
+
+%Construct a reader token through the host that owns its retained callable.
+%The token text is the full lexeme, quotes included for a string token, and the
+%answer is the engine term the reader will return.
+:- multifile metta_host_reader_token_construct/3.
+ext_point_kind(metta_host_reader_token_construct/3, ownership).
 
 %A registered rewriter runs over every loaded form; a host installs one only
 %while it is needed (the Python bridge registers its import-as alias rewrite

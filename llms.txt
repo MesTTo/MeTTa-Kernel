@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 31 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 132 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 136 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 19,596 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `engine/*.pl` | 19,839 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
 | `backends/*/decider.pl` | globbed at boot; each integration's decider decides whether its own artefact is present | |
@@ -107,6 +107,8 @@ m.stream(*patterns, where=, timeout=, inferences=)  -> Cursor, engine-held,
                           lazily iterated, with .columns, .explain() and .close()
 m.prepare(*patterns, where=) -> Prepared; .solve(given=...) many times, .columns
 m.parse(src) -> Atom
+m.register_token(pattern, constructor) -> None
+m.unregister_token(pattern) -> None
 m.load(path, *, timeout=, inferences=) -> list[list[Atom]]
 m.save(path, format="metta"|"fast") -> int   (atomic, fsynced)
 m.digest() -> str, 64-hex content hash of the space, store-independent
@@ -193,6 +195,15 @@ literal, or registered reader token is refused before either registry changes.
 The same holds inside a compiled body, where a called name is resolved exactly
 as written, so a hyphenated engine function is reached through an alias
 equation the body can spell, `(= (sqrt_math $x) (sqrt-math $x))`.
+
+Reader classes are full-token regular expressions. `m.register_token(pattern,
+constructor)` gives the constructor the complete matched lexeme and accepts an
+Atom or any value `encode` accepts; registering the same pattern replaces its
+constructor, and `m.unregister_token(pattern)` removes it. Source has the same
+door as `!(register-token! "[A-Z][0-9]+" tagged)`, which parses a later `A7` as
+`(tagged "A7")`; `unregister-token!` removes that class. The shipped number and
+string literals are rows in the same declared mapping, visible through
+`metta_reader_token_class/3`. Registration changes later parses only.
 
 Annotations become declarations in the engine's idiom: a `TypeVar` is
 parametric, a `Union` declares one arrow per member, `Callable[[int],int]` ->
@@ -363,7 +374,8 @@ for effect and every handler runs; an OWNERSHIP seam is claimed by the first
 handler that succeeds and declined by failing; a DECLARATION is a fact table read
 as data; a SERVICE runs the other way, a predicate the ENGINE defines that an
 extension may CALL. The service list is the whole permitted inward surface
-(`swrite/2`, `sread/2`, `metta_symbol_writable/1`, `metta_unwritable_symbol/2`,
+(`swrite/2`, `sdisplay/2`, `sread/2`, `metta_symbol_writable/1`, `metta_unwritable_symbol/2`,
+`metta_reader_token_class/3`, `metta_reader_token_source/2`,
 `throw_metta_type_error/3`, `rethrow_metta_operation_error/2`,
 `current_metta_module/1`, `space_module/2`, `metta_module_space/2`,
 `petta_shape_route/5` for the routed view of any shape-routed declaration
@@ -471,8 +483,8 @@ the ledger of which head is which, what it answers to in the minimal
 instruction set the arbiter presents, and for a derived form still fused into
 the compiler, the measurement that keeps it there.
 
-`m.builtins()` lists the live union of registered functions and translator
-special forms. The callable registry includes the
+266 builtins are registered; `m.builtins()` lists the live union of registered
+functions and translator special forms. The callable registry includes the
 py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,
 `py-dict`, `py-tuple`, `py-str`, `py-repr`, `py-format`, `py-slice`, `py-range`,
 `py-at`, `py-in`, `py-eq`, `py-truthy`, `py-round`, `py-str-join`), the atom
@@ -481,6 +493,7 @@ algebra (`car-atom`, `cdr-atom`, `cons-atom`, `decons-atom`, `index-atom`,
 `unique-atom`, `max-atom`, `min-atom`), the assert family
 (`assertEqual`, `assertAlphaEqual`, `assertEqualToResult`, `assertIncludes`) that the
 example corpus is written in, `get-type`, `get-doc`, `help!`, `import!`, `pragma!`, `bind!`,
+`register-token!`, `unregister-token!`,
 `new-space`, `get-state` / `change-state!`, `pretty-atom`, `random-int` /
 `random-float`, `format-time`, and the CLP(FD) relations (`#+`, `#-`, `#*`,
 `#//`, `#div`, `#mod`, `#<`, `#=<`, `#>`, `#>=`, `#=`, `#\=`, `#min`, `#max`),

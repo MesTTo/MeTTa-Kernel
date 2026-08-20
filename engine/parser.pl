@@ -21,22 +21,117 @@
 %   - a token ends at exactly the Unicode White_Space property plus `(`, `)`
 %     and `;`, and at nothing else, which is upstream MeTTa's own rule.
 %     metta_token_boundary/2 is the one place that says so, and the layout
-%     skipper, the number terminator and metta_symbol_writable/1 all read
+%     skipper, the reader lexeme scanner and metta_symbol_writable/1 all read
 %     it, so a symbol holding whitespace has no text form and the swrite/2
-%     to sread/2 round trip stays inverse [tested 2026-08-19:
+%     to sread/2 round trip stays inverse [tested:
 %     parser_unicode_layout,
-%     test_every_unicode_whitespace_separates_atoms].
+%     test_every_unicode_whitespace_separates_atoms;
+%     commit=WORKTREE].
+%   - metta_reader_token_class/3 is the reader's declared pattern-to-constructor
+%     table. Shipped numbers and strings and custom classes take the same
+%     full-token path; custom registrations replace an equal pattern, affect
+%     only later parses, and invalidate the symbol-writability table so Python
+%     operation names cannot cross the new grammar [tested:
+%     test_a_registered_token_class_parses_like_a_shipped_one;
+%     commit=WORKTREE].
 %   - metta_unwritable_symbol/2 answers for every value the round trip loses,
 %     not only for names: non-finite and rational numbers have no readable
 %     numeric spelling, and non-list compounds and opaque host values are not
 %     MeTTa terms [tested: parser_number_text, parser_refuses_non_metta,
 %     property_roundtrip; commit=53686aed41e7ff02de69052198afdb537536cbdb].
+% Owns resources:
+%   - metta_custom_reader_token/3 retains a host constructor until its pattern
+%     is replaced or unregistered [tested:
+%     test_a_registered_token_class_parses_like_a_shipped_one;
+%     commit=WORKTREE].
+% Guarded by:
+%   - '$petta_reader_tokens' serializes registry replacement and removal; each
+%     mutation commits atomically with its writability-table invalidation.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
 :- use_module(library(dcg/basics)). %atom//1, number//1, eos//0
+:- use_module(library(pcre)).
+
+%The tokenizer is the reader seam upstream: an ordered mapping from a full
+%token regex to a constructor, searched newest first. These shipped rows are
+%the numeric and string literals the old DCG alternatives implemented. The
+%patterns are equivalent to hyperon-experimental's rows, and full matching is
+%enforced by the PCRE options rather than left to every pattern author
+%[source: hyperon-experimental@0559a5e2dd23017c459da3c7b003c7f271e77ac8,
+%lib/src/metta/text.rs:Tokenizer and
+%lib/src/metta/runner/stdlib/{arithmetics,string}.rs; commit=WORKTREE].
+metta_shipped_reader_token('[+-]?[0-9]+', number).
+metta_shipped_reader_token('[+-]?[0-9]+[.][0-9]+', number).
+metta_shipped_reader_token('[+-]?[0-9]+([.][0-9]+)?[eE][+-]?[0-9]+', number).
+metta_shipped_reader_token('(?s)^".*"$', string).
+
+:- dynamic metta_custom_reader_token/3.
+
+%Public reflection over the mapping. A host constructor remains the same live
+%object so a tool inspecting its own registration can identify it.
+metta_reader_token_class(Pattern, Constructor, custom) :-
+    metta_custom_reader_token(Pattern, Descriptor, _),
+    metta_reader_token_descriptor_constructor(Descriptor, Constructor).
+metta_reader_token_class(Pattern, Constructor, shipped) :-
+    metta_shipped_reader_token(Pattern, Constructor).
+
+metta_reader_token_descriptor_constructor(metta(Constructor), Constructor).
+metta_reader_token_descriptor_constructor(host(Constructor), Constructor).
+
+%The host door stores the callable itself. Janus's object blob owns its Python
+%reference, so replacement needs no second registry that could drift; normal
+%Prolog clause and blob reclamation owns the retired constructor's lifetime.
+metta_host_register_reader_token(Pattern, Constructor) :-
+    nonvar(Constructor),
+    metta_register_reader_token(Pattern, host(Constructor)).
+metta_host_unregister_reader_token(Pattern) :-
+    metta_unregister_reader_token(Pattern).
+
+metta_register_reader_token(Pattern0, Descriptor) :-
+    metta_reader_token_pattern(Pattern0, Pattern),
+    re_compile(Pattern, Regex, [anchored(true), endanchored(true)]),
+    with_mutex('$petta_reader_tokens',
+               transaction(( retractall(metta_custom_reader_token(Pattern, _, _)),
+                             asserta(metta_custom_reader_token(Pattern,
+                                                               Descriptor,
+                                                               Regex)),
+                             abolish_table_subgoals(metta_symbol_writable(_)) ))).
+
+metta_unregister_reader_token(Pattern0) :-
+    metta_reader_token_pattern(Pattern0, Pattern),
+    with_mutex('$petta_reader_tokens',
+               (   metta_custom_reader_token(Pattern, _, _)
+               ->  transaction(( retractall(metta_custom_reader_token(Pattern,
+                                                                       _, _)),
+                                  abolish_table_subgoals(
+                                      metta_symbol_writable(_)) ))
+               ;   true
+               )).
+
+metta_reader_token_pattern(Pattern, Pattern) :- string(Pattern), !.
+metta_reader_token_pattern(Pattern0, Pattern) :- atom(Pattern0), !,
+    atom_string(Pattern0, Pattern).
+metta_reader_token_pattern(Pattern, _) :-
+    throw(error(type_error(text, Pattern),
+                context(metta_reader_token_class/3,
+                        'a token pattern is text'))).
+
+%The source-language door names an expression constructor. The name is
+%checked before the mapping changes because an unreadable constructor could
+%never appear in the expression it promises to build.
+'register-token!'(Pattern, Constructor, true) :-
+    (   atom(Constructor), metta_symbol_writable(Constructor)
+    ->  metta_register_reader_token(Pattern, metta(Constructor))
+    ;   throw(error(domain_error(metta_reader_constructor, Constructor),
+                    context('register-token!'/3,
+                            'the constructor must be a readable symbol')))
+    ).
+
+'unregister-token!'(Pattern, true) :-
+    metta_unregister_reader_token(Pattern).
 
 %Read ONE form and answer the variable names it bound, for a caller that
 %carries names across a wire: sread/2 is this without the map, and the map
@@ -241,7 +336,7 @@ sdisplay_numbered(Term) --> swrite_mode(Term, display).
 
 swrite_mode('$petta_named_variable'(Name), _) --> !, "$", atom(Name).
 swrite_mode('$petta_variable'(Index), _) --> !, "$_", { number_codes(Index, Cs) }, Cs.
-%The language spells its booleans `True` and `False`. atom_symbol//1 maps both
+%The language spells its booleans `True` and `False`. metta_reader_default/2 maps both
 %onto Prolog's own true/false so a compiled guard calls them directly, and this
 %is the other half of that map: without it the round trip renamed the
 %language's own constants and `!(== 1 2)` answered `false` where the arbiter
@@ -624,24 +719,15 @@ metta_comment_body --> "\n", !.
 metta_comment_body --> eos, !.
 metta_comment_body --> [_], metta_comment_body.
 
-%An S-Expression is a parentheses-nesting of S-Expressions that are either
-%numbers, variables, strings, or atoms. Surrounding whitespace is skipped once
-%here rather than at the start of each alternative: with a leading blanks//0 in
-%every clause, reading an atom, the commonest token, rescanned the same
-%whitespace five times because the four alternatives ahead of it each skipped
-%it before failing.
+%An S-Expression is a parentheses-nesting of S-Expressions. Parentheses and
+%variables remain syntax; every word or quoted lexeme then crosses the one
+%token table, falling back to a symbol only when no class matches. Surrounding
+%whitespace is skipped once here rather than at each alternative.
 sexpr(T,E0,E) --> metta_layout, sexpr_token(T,E0,E), metta_layout.
 
-sexpr_token(S,E,E)  --> string_lit(S), !.
 sexpr_token(T,E0,E) --> "(", metta_layout, seq(T,E0,E), metta_layout, ")", !.
-sexpr_token(N,E,E)  --> number(N), number_ends, !.
 sexpr_token(V,E0,E) --> var_symbol(V,E0,E), !.
-sexpr_token(A,E,E)  --> atom_symbol(A).
-
-%A number token has to end where any token ends, or at end of input. Without
-%this, 1_2_3 would read as the number 1 followed by junk.
-number_ends([], []) :- !.
-number_ends([Code|Rest], [Code|Rest]) :- metta_token_boundary(Code, _).
+sexpr_token(T,E,E)  --> reader_token(T).
 
 %Recursive processing of S-Expressions within S-Expressions. sexpr//3 has
 %already consumed the whitespace after its own token, so this does not repeat it:
@@ -651,14 +737,78 @@ seq([],E,E)       --> [].
 %Variables start with $, and keep track of them: reusing existing Prolog variables for variables of same name:
 var_symbol(V,E0,E) --> "$", token(Cs), { atom_chars(N, Cs), ( N == '_' -> V = _, E = E0 ; memberchk(N-V0, E0) -> V = V0, E = E0 ; V = _, E = [N-V|E0] ) }.
 
-%Atoms are derived from tokens:
-atom_symbol(A) --> token(Cs), { string_codes("\"", [Q]), ( Cs = [Q|_] -> append([Q|Body], [Q], Cs), %"str" as string
-                                                                         string_codes(A, Body)
-                                                                       ; atom_codes(R, Cs),         %others are atoms
-                                                                         ( R = 'True' -> A = true
-                                                                                       ; R = 'False'
-                                                                                         -> A = false
-                                                                                          ; A = R ))}.
+%A successful class match commits before construction. A constructor that
+%fails or raises therefore cannot silently turn its literal into a symbol or
+%fall through to an older class, matching the tokenizer's newest-first rule.
+reader_token(Term) -->
+    reader_token_text(Text),
+    {   (   metta_reader_token_match(Text, Descriptor)
+        ->  metta_reader_token_construct(Descriptor, Text, Term)
+        ;   metta_reader_default(Text, Term)
+        )
+    }.
+
+%String syntax is one lexeme even when it contains whitespace. Consuming the
+%opening quote commits to this scanner, so an unterminated string cannot fall
+%back to a word that merely happens to start with a quote.
+reader_token_text(Text) -->
+    [0'"], !, reader_quoted_token_tail(Cs),
+    { string_codes(Text, [0'"|Cs]) }.
+reader_token_text(Text) -->
+    token(Cs),
+    { string_codes(Text, Cs) }.
+
+reader_quoted_token_tail([0'"]) --> [0'"], !.
+reader_quoted_token_tail([0'\\, Esc|Cs]) --> [0'\\, Esc], !,
+    reader_quoted_token_tail(Cs).
+reader_quoted_token_tail([C|Cs]) --> [C], { C =\= 0'" },
+    reader_quoted_token_tail(Cs).
+
+%Custom rows are asserted newest first and searched before the shipped table.
+%The compiled custom regex already carries its full-match options. Shipped
+%rows avoid PCRE entirely for ordinary symbol starts, while still matching
+%through their declared patterns for every candidate literal.
+metta_reader_token_match(Text, Descriptor) :-
+    metta_reader_token_resolution(Text, Descriptor, _).
+
+%Diagnostic consumers can distinguish a custom class from shipped literal
+%syntax without running the constructor a second time.
+metta_reader_token_source(Text, Source) :-
+    metta_reader_token_resolution(Text, _, Source).
+
+metta_reader_token_resolution(Text, Descriptor, custom) :-
+    metta_custom_reader_token(_, Descriptor, Regex),
+    re_match(Regex, Text, []), !.
+metta_reader_token_resolution(Text, Descriptor, shipped) :-
+    metta_shipped_reader_token_candidate(Text, Descriptor), !.
+
+metta_shipped_reader_token_candidate(Text, string) :-
+    string_codes(Text, [0'"|_]),
+    metta_shipped_reader_token(Pattern, string),
+    re_match(Pattern, Text, [anchored(true), endanchored(true)]).
+metta_shipped_reader_token_candidate(Text, number) :-
+    string_codes(Text, [First|_]),
+    metta_number_token_start(First),
+    metta_shipped_reader_token(Pattern, number),
+    re_match(Pattern, Text, [anchored(true), endanchored(true)]).
+
+metta_number_token_start(0'+).
+metta_number_token_start(0'-).
+metta_number_token_start(Code) :- code_type(Code, digit).
+
+metta_reader_token_construct(number, Text, Number) :-
+    string_codes(Text, Codes),
+    phrase(number(Number), Codes).
+metta_reader_token_construct(string, Text, String) :-
+    string_codes(Text, Codes),
+    phrase(string_lit(String), Codes).
+metta_reader_token_construct(metta(Constructor), Text, [Constructor, Text]).
+metta_reader_token_construct(host(Constructor), Text, Term) :-
+    metta_host_reader_token_construct(Constructor, Text, Term).
+
+metta_reader_default("True", true) :- !.
+metta_reader_default("False", false) :- !.
+metta_reader_default(Text, Atom) :- atom_string(Atom, Text).
 
 %A token is a non-empty run of characters that end no token. The shape is
 %string_without//2's own, a greedy scan committed per character, with the
@@ -681,10 +831,10 @@ token_codes([]) --> [].
 %number, and True read as the boolean [tested: parser_symbol_text].
 %Reading the whole grammar back costs about three times a single token
 %scan, and every save and every digest asks this of every symbol it
-%carries, so the ordinary name answers without it: once a name is one
-%token holding no quote, only a first character that could begin a number,
-%a variable or a string, or a boolean's own spelling, can make it read
-%back as something else [measured 2026-08-15: the grammar alone cost
+%carries, so the ordinary name answers without it while no custom class is
+%installed: once a name is one token holding no quote, only a first character
+%that could begin a number, a variable or a string, or a boolean's own
+%spelling, can make it read back as something else [measured 2026-08-15: the grammar alone cost
 %+18.9% inferences and +16.8% instructions on space-digest].
 %Writability is a pure function of the name and a save asks it once per
 %OCCURRENCE, 20,001 times for one symbol on the benchmark space, so the
@@ -711,6 +861,7 @@ writable_token([C|Cs]) --> [C], { C =\= 0'", \+ metta_token_boundary(C, _) }, !,
 writable_token([]) --> [].
 
 metta_symbol_ordinary(First, Symbol) :-
+    \+ metta_custom_reader_token(_, _, _),
     \+ metta_symbol_reserved_start(First),
     Symbol \== 'True',
     Symbol \== 'False'.
@@ -757,7 +908,9 @@ metta_symbol_reserved_start(Code) :- code_type(Code, digit).
 %inferences unchecked, 3,240,388 checked, 4,350,800 asking the grammar for
 %every number, min of 3 each].
 metta_number_writable(Number) :-
-    (   integer(Number)
+    (   metta_custom_reader_token(_, _, _)
+    ->  metta_number_roundtrips_under_current_reader(Number)
+    ;   integer(Number)
     ->  true
     ;   float(Number)
     ->  float_class(Number, Class),
@@ -766,6 +919,24 @@ metta_number_writable(Number) :-
     ;   number_codes(Number, Codes),
         phrase(sexpr_token(Read, [], _), Codes),
         Read == Number
+    ).
+
+metta_number_roundtrips_under_current_reader(Number) :-
+    (   float(Number)
+    ->  metta_float_codes(Number, Codes)
+    ;   number_codes(Number, Codes)
+    ),
+    catch(phrase(sexpr_token(Read, [], _), Codes),
+          error(syntax_error(float_overflow), _),
+          metta_saturating_parse(sexpr_token(Read, [], _), Codes)),
+    Read == Number.
+
+metta_string_writable(String) :-
+    (   \+ metta_custom_reader_token(_, _, _)
+    ->  true
+    ;   phrase(swrite_mode(String, display), Codes),
+        phrase(sexpr_token(Read, [], _), Codes),
+        Read == String
     ).
 
 %The first value in a term that has no round-trip text spelling. A dedicated
@@ -791,7 +962,7 @@ metta_unwritable_walk(Term, Bad) :-
     ;   Term == []
     ->  fail
     ;   string(Term)
-    ->  fail
+    ->  \+ metta_string_writable(Term), Bad = Term
     ;   atom(Term)
     ->  \+ metta_symbol_writable(Term), Bad = Term
     ;   number(Term)
