@@ -76,7 +76,7 @@
 %     rebuilding compiled dependents, so all mutation doors share one forward
 %     propagation mechanism [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 %   - match_foreign/5 passes options only to a provider that declared
 %     metta_foreign_match/3, and unification and the caller's own bound stay
 %     on this side, so an option cannot change an answer [tested 2026-08-16:

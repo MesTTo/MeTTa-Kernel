@@ -18,7 +18,7 @@
 %     function invalidates transitive specialization chains through the common
 %     forward walk [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 % Guarded by: '$petta_specializer' serializes the existence check and the
 %   transaction that publishes a specialization.
 % Open Obligations:

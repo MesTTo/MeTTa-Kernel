@@ -37,7 +37,7 @@
 %   - support_graph.pl loads before the specializer and file reader that publish
 %     derived artifact edges [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction

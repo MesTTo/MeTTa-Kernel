@@ -5,7 +5,7 @@
 %     graph state and preserve aggregate links owned by surviving source files
 %     [tested: filereader_source_rollback:failed_load_removes_compiler_state_and_generated_lambdas,
 %     filereader_source_reload:reloading_one_contributor_preserves_another_contributors_support;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

@@ -4,7 +4,7 @@
 %   - A changed callee invalidates transitive caller caches through supports/2
 %     while an unrelated cache survives [tested:
 %     memo_support_graph:a_leaf_change_invalidates_transitive_callers_only;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

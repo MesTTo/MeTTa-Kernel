@@ -4,22 +4,22 @@
 %   - Replacing a derived node's support set removes its former incoming
 %     edges before publishing the new set [tested:
 %     support_graph:replacing_supports_detaches_the_old_source;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 %   - Forward invalidation visits a cycle once and invalidates every reachable
 %     derived node [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports,
 %     support_graph:an_invalidation_cycle_terminates,
 %     support_graph:overlapping_roots_invalidate_the_shared_node_once;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 %   - Stabilization reuses a clean value and cuts off a second propagation
 %     wave when recomputation is variant-equal [tested:
 %     support_graph:an_unchanged_stabilization_cuts_off_propagation;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 %   - Type-marker and dispatch-policy changes are first-class support roots,
 %     so language-policy registries can invalidate compiled dependants through
 %     the same forward graph [tested:
 %     support_graph:language_policy_roots_are_typed_and_module_qualified;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 % Owns resources: supports/2, support_function_module/2,
 %   support_view_module/2, support_dirty_node/1 and support_value/2 are
 %   transactional dynamic state; support_forget/1, support_forget_module/1 and
@@ -60,7 +60,7 @@
 % through the affected trace. The forward index below is that algorithmic
 % choice, rather than a scan over every derived artifact.
 % [source: Umut A. Acar and Ruy Ley-Wild, Self-adjusting computation with
-%   Delta ML, DOI 10.1007/978-3-642-04652-0_1; commit=WORKTREE]
+%   Delta ML, DOI 10.1007/978-3-642-04652-0_1; commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa]
 %
 % Adapton makes dirtying eager and recomputation demand-driven. Incremental's
 % stabilization semantics supplies the variant-equality cutoff: an unchanged
@@ -68,12 +68,12 @@
 % [source: Hammer et al., Adapton, DOI 10.1145/2594291.2594324;
 %   Jane Street Incremental commit
 %   98b5750ec3c006641351bfd858a89136a5dbc52c, src/incremental_intf.ml
-%   symbols necessary_if_alive and cutoff; commit=WORKTREE]
+%   symbols necessary_if_alive and cutoff; commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa]
 %
 % IceDust is the language-level precedent for treating derived values as
 % maintained declarations rather than bespoke cache callbacks.
 % [source: IceDust, DOI 10.4230/LIPIcs.ECOOP.2016.11;
-%   commit=WORKTREE]
+%   commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa]
 
 support_node(function(Module, Name)) :-
     atom(Module),

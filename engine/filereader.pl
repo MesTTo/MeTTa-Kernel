@@ -90,7 +90,7 @@
 %     supports/2, and a function change queues each transitive compiled caller
 %     once for repair [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

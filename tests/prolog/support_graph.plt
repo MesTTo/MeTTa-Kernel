@@ -4,19 +4,19 @@
 %   - The exact P3.6 acceptance test removes a transitive derived fact while
 %     preserving an unrelated fact [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 %   - Cycles are visited once and replacing supports detaches the old source
 %     [tested: support_graph:an_invalidation_cycle_terminates,
 %     support_graph:overlapping_roots_invalidate_the_shared_node_once,
 %     support_graph:replacing_supports_detaches_the_old_source;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 %   - Releasing a module removes only that module's retained graph state
 %     [tested: support_graph:forgetting_a_module_releases_only_its_nodes;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 %   - Type-marker and dispatch-policy roots use the same typed, module-scoped
 %     invalidation API as derived runtime state [tested:
 %     support_graph:language_policy_roots_are_typed_and_module_qualified;
-%     commit=WORKTREE].
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
