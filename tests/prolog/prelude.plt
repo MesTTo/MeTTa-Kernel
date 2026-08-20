@@ -74,9 +74,9 @@ test(expected_set_is_not_evaluated) :-
     Verdict == failed.
 
 test(assertAlphaEqualToResult_over_variables) :-
-    %eval strips the quote, so the produced set is ((f $a)) and the
-    %expected set is written unquoted; =alpha renames the two apart.
-    eval_string("(assertAlphaEqualToResult (quote (f $a)) ((f $b)))",
+    %noeval hands over (f $a), so the produced set is ((f $a)) and the
+    %expected set is written as data; =alpha renames the two apart.
+    eval_string("(assertAlphaEqualToResult (noeval (f $a)) ((f $b)))",
                 [true]).
 
 test(assertIncludes_subset_passes) :-

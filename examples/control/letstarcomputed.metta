@@ -26,16 +26,16 @@
 !(test (collapse (mylet ((5 6)) matched)) ())
 
 ;Without the `Atom` metatype the arguments evaluate on the way in, so this is
-;the other way to hand bindings over: `quote` carries them as data, and the
+;the other way to hand bindings over: `noeval` carries them as data, and the
 ;body is a variable the same call site wrote.
 (= (mylet-evaluating $bindings $body) (let* $bindings $body))
 
-!(test (mylet-evaluating (quote (($x 1))) $x) 1)
+!(test (mylet-evaluating (noeval (($x 1))) $x) 1)
 
 ;Bindings are checked when they arrive, because nothing after that point can
 ;check them. A value that is not a list of (pattern value) pairs is refused
 ;naming the form, rather than binding something the program never wrote.
-!(test (car-atom (catch (mylet-evaluating (quote ((1 2 3))) done))) Error)
+!(test (car-atom (catch (mylet-evaluating (noeval ((1 2 3))) done))) Error)
 
 ;A bindings argument that is no list at all is not bindings, it is a program
 ;using the name as data, and it stays the unapplied form it always was.

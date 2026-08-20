@@ -314,9 +314,10 @@ short_circuit_setup :-
     ;   metta("(= (sc-yes) True)\n(= (sc-no) False)")
     ).
 
-%quote hands its argument back unevaluated, so its value IS that term.
-test(quote_asks_only_whether_the_term_is_true) :-
-    metta_answer("!(not-provable (quote True))", false),
+%A quote value is not the literal True atom, even when its inert payload is
+%True, so its constructive negation succeeds in both cases.
+test(a_quote_value_is_never_the_literal_true_atom) :-
+    metta_answer("!(not-provable (quote True))", true),
     metta_answer("!(not-provable (quote other))", true).
 
 :- end_tests(duals_connectives).
@@ -498,7 +499,7 @@ test(a_let_star_whose_bindings_have_not_arrived_has_no_dual,
            (= (lt-written) (let* (($a (lt-none))) (> 1 0)))\n\c
            (= (lt-handed $bs) (let* $bs (> 1 0)))"),
     metta_answer("!(not-provable (lt-written))", true),
-    metta("!(not-provable (lt-handed (quote (($a (lt-none))))))").
+    metta("!(not-provable (lt-handed (noeval (($a (lt-none))))))").
 
 %case has the same compile-time limit, and refuses the same way: the written
 %cases dual fine (key 1 matches no branch, no answer is not True, the dual
@@ -511,7 +512,7 @@ test(a_case_whose_cases_have_not_arrived_has_no_dual,
            (= (cd-written) (case (cd-key) ((2 (> 1 0)))))\n\c
            (= (cd-handed $cs) (case (cd-key) $cs))"),
     metta_answer("!(not-provable (cd-written))", true),
-    metta("!(not-provable (cd-handed (quote ((2 (> 1 0))))))").
+    metta("!(not-provable (cd-handed (noeval ((2 (> 1 0))))))").
 
 %What the generator narrows a variable of the enclosing clause TO belongs in
 %the answer rather than being quantified away, which is what collapse-bind

@@ -62,7 +62,7 @@ measured.
 | `super` | core, follow-up | reaches the definition a space's parent holds; space configuration |
 | `get-metatype` | core, follow-up | type semantics is a named follow-up presentation |
 | `noeval` | core, follow-up | the Atom mask itself: the argument is the answer |
-| `quote` | core, follow-up | the same mask, and the one the programs write |
+| `quote` | core, follow-up | the same mask, and the one the programs write; the `(quote X)` wrapper survives as the value [tested: test_quote_survives_as_a_value] |
 | `annotation` | core, divergence | reads the answer's own annotation, this engine's weighted-answer channel |
 | `explain` | core, divergence | the derivation of an answer, same channel |
 | `if` | derived, fused | Hyperon's stdlib defines `if` in minimal MeTTa. Fused because it is written 259 times in the corpus, behind only `test`, `collapse` and `let` [measured 2026-08-19], and because its clauses build the branches through `build_branch/4`, which is what lets `and-then` and `or-else` be prelude rules with no runtime cost |
@@ -98,8 +98,8 @@ measured.
 
 Each is an equation in `src/prelude.metta` plus `!(add-translator-rule! NAME)`.
 The `Atom` parameters make the arguments arrive as syntax and the `%Undefined%`
-result type makes the `(quote ...)` body translate, since an `Atom` result
-would leave the body untranslated and hand the quote itself back.
+result type makes the `(noeval ...)` body translate, since an `Atom` result
+would leave the body untranslated and hand noeval itself back.
 
 | head | expands to | measured |
 |---|---|---|

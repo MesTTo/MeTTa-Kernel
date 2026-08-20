@@ -918,7 +918,7 @@ test(a_switch_written_as_an_ordinary_definition_answers) :-
 %it was written with, so an argument that is not a pair is refused rather
 %than failing against a head the program never wrote.
 test(a_pair_arriving_as_a_value_is_a_branch) :-
-    process_metta_string("!(plunit-case-onepair (quote (1 hit)))", Answers),
+    process_metta_string("!(plunit-case-onepair (noeval (1 hit)))", Answers),
     assertion(Answers == [hit]).
 
 test(a_pair_that_is_not_a_pair_is_refused_rather_than_failing_silently,
@@ -930,7 +930,7 @@ test(a_pair_that_is_not_a_pair_is_refused_rather_than_failing_silently,
 %not a (pattern value) pair, which is the shape a program is most likely to
 %build by accident.
 test(the_refusal_prints_a_bad_cases_value_as_metta) :-
-    catch(process_metta_string("!(plunit-switch 1 (quote ((1 one 2))))", _),
+    catch(process_metta_string("!(plunit-switch 1 (noeval ((1 one 2))))", _),
           Error, true),
     assertion(nonvar(Error)),
     message_to_string(Error, Text),
@@ -938,13 +938,13 @@ test(the_refusal_prints_a_bad_cases_value_as_metta) :-
                        found ((1 one 2))").
 
 %Cases written out, and the same cases handed over as a value, must answer
-%the same thing. quote is what carries the cases across an ordinary argument
+%the same thing. noeval is what carries the cases across an ordinary argument
 %without MeTTa evaluating them on the way, which is the third column: fifteen
 %of these sixteen shapes answer the same with or without it, and the one that
 %does not is the functional pattern (cons $h $t), which is a call and is
 %evaluated [measured 2026-08-19: unquoted it answers () where the written-out
 %form answers (1)]. The unquoted comparison is asserted where it holds, so
-%the quote is not quietly hiding a disagreement in the other fifteen.
+%the noeval is not quietly hiding a disagreement in the other fifteen.
 computed_case_shape("2",                 "((1 one) (2 two))",             plain).
 computed_case_shape("9",                 "((1 one) (2 two))",             plain).
 computed_case_shape("9",                 "((1 one) (Empty none))",        plain).
@@ -965,11 +965,11 @@ computed_case_shape("(1 2 3)",           "(((cons $h $t) $h))",           needs_
 test(computed_cases_answer_what_the_same_cases_written_out_answer,
      [ forall(computed_case_shape(Key, Cases, Protection)) ]) :-
     format(atom(Written), "!(collapse (case ~w ~w))", [Key, Cases]),
-    format(atom(Quoted), "!(collapse (plunit-switch ~w (quote ~w)))",
+    format(atom(Protected), "!(collapse (plunit-switch ~w (noeval ~w)))",
            [Key, Cases]),
     process_metta_string(Written, [WrittenAnswers]),
-    process_metta_string(Quoted, [QuotedAnswers]),
-    assertion(QuotedAnswers == WrittenAnswers),
+    process_metta_string(Protected, [ProtectedAnswers]),
+    assertion(ProtectedAnswers == WrittenAnswers),
     ( Protection == plain
       -> format(atom(Bare), "!(collapse (plunit-switch ~w ~w))",
                 [Key, Cases]),
@@ -986,14 +986,14 @@ test(a_key_with_no_answers_takes_the_computed_default) :-
     process_metta_string("!(collapse (case (empty) ((1 one) (Empty none))))",
                          [Written]),
     process_metta_string("!(collapse (plunit-case-of-nothing \c
-                                       (quote ((1 one) (Empty none)))))",
+                                       (noeval ((1 one) (Empty none)))))",
                          [Computed]),
     assertion(Written == [none]),
     assertion(Computed == Written).
 
 test(a_key_with_no_answers_and_no_computed_default_answers_nothing) :-
     process_metta_string("!(collapse (plunit-case-of-nothing \c
-                                       (quote ((1 one)))))",
+                                       (noeval ((1 one)))))",
                          [Computed]),
     assertion(Computed == []).
 
@@ -1009,7 +1009,7 @@ test(a_value_that_is_not_cases_is_refused_by_name,
      [ forall(bad_computed_cases(Text, Culprit)),
        throws(error(type_error('a list of (pattern value) cases', Culprit),
                     context(case, _))) ]) :-
-    format(atom(Form), "!(plunit-switch 1 (quote ~w))", [Text]),
+    format(atom(Form), "!(plunit-switch 1 (noeval ~w))", [Text]),
     process_metta_string(Form, _).
 
 %The trade this design makes, measured rather than asserted. Cases written
@@ -1157,7 +1157,7 @@ computed_bindings(N, Bindings) :-
 %The whole defect, end to end: the bindings a caller writes decide the
 %bindings, where before they were dropped and the body answered unbound.
 test(bindings_handed_over_as_a_value_bind_the_body) :-
-    process_metta_string("!(plunit-mylet (quote (($x 1))) $x)", Answers),
+    process_metta_string("!(plunit-mylet (noeval (($x 1))) $x)", Answers),
     assertion(Answers == [1]).
 
 %The spec row's own probe. The body has to arrive unevaluated for the
@@ -1174,13 +1174,13 @@ test(an_atom_typed_wrapper_answers_what_the_written_out_form_answers) :-
 %wrote: (plunit-letpair 5) has no answer because 5 is not a binding, and
 %that is a refusal rather than a silent failure.
 test(a_pair_arriving_as_a_value_binds_the_body) :-
-    process_metta_string("!(plunit-letpair (quote ($x 7)))", Answers),
+    process_metta_string("!(plunit-letpair (noeval ($x 7)))", Answers),
     assertion(Answers == [99]).
 
 test(a_value_that_is_not_bindings_is_refused_by_name,
      [ throws(error(type_error('a list of (pattern value) bindings', _),
                     context('let*', _))) ]) :-
-    process_metta_string("!(plunit-mylet (quote ((1 2 3))) $x)", _).
+    process_metta_string("!(plunit-mylet (noeval ((1 2 3))) $x)", _).
 
 %The trade this design makes, measured rather than asserted. Bindings
 %written out are rewritten into nested lets once, so a call pays the same
@@ -1312,10 +1312,10 @@ test(a_prolog_rule_emits_a_goal_when_it_cannot_fold) :-
     once(plus(A, B, V)),
     V == 13.
 
-test(quoted_seam_expansion_is_refused,
-     [throws(error(petta_seam_expansion_as_data(plunit_x4_quoted,
-                                                translatePredicate), _))]) :-
-    translate_expr([plunit_x4_quoted, _], _, _).
+test(quoted_seam_expansion_stays_inert) :-
+    translate_expr([plunit_x4_quoted, Out], Goals, Result),
+    Goals == [],
+    Result == [quote, [translatePredicate, [=, Out, 42]]].
 
 :- end_tests(translator_prolog_authored_rules).
 
@@ -1420,7 +1420,8 @@ test(a_singleton_type_variable_generates_no_check) :-
 
 test(a_repeated_type_variable_keeps_its_checks) :-
     typed_call_goal([->, A, A, 'Bool'], Goal),
-    findall(x, ( sub_term(S, Goal), nonvar(S), S = has_type(_, T), var(T) ),
+    findall(x, ( sub_term(S, Goal), nonvar(S),
+                 S = check_argument_type(_, T, variable), var(T) ),
             Kept),
     length(Kept, Count),
     Count =:= 2.
@@ -1433,7 +1434,8 @@ test(a_concrete_type_keeps_its_check) :-
 %type, so its check stays.
 test(a_type_variable_inside_a_structure_keeps_its_check) :-
     typed_call_goal([->, ['List', _C], 'Number', 'Bool'], Goal),
-    findall(Type, ( sub_term(S, Goal), nonvar(S), S = has_type(_, Type),
+    findall(Type, ( sub_term(S, Goal), nonvar(S),
+                    S = check_argument_type(_, Type, ordinary),
                     nonvar(Type), Type = ['List'|_] ),
             Kept),
     Kept \== [].
@@ -1657,7 +1659,7 @@ test(quote_keeps_an_invalid_builtin_call_inert) :-
     translate_expr([quote, ['+', 1, undefined_sym]], Goals, Out),
     metta_self_module(Self),
     call_goals_in_(Self, Goals),
-    Out == ['+', 1, undefined_sym].
+    Out == [quote, ['+', 1, undefined_sym]].
 
 cleanup_builtin_type_declarations(Path, ParsedForms) :-
     forall(member(parsed(expression, _, Term), ParsedForms),
@@ -1703,7 +1705,7 @@ test(nonterminal_compiler_output_has_no_ansi_escapes) :-
 :- begin_tests(translator_test_answers).
 
 test(one_empty_expression_answer_is_a_value) :-
-    translate_expr([test, [quote, []], []], Goals, Out),
+    translate_expr([test, [noeval, []], []], Goals, Out),
     goals_list_to_conj(Goals, Goal),
     with_output_to(string(Output), call(Goal)),
     Out == true,
@@ -1724,7 +1726,7 @@ test(explicit_no_answer_assertion_keeps_the_existing_output) :-
 
 test(explicit_no_answer_rejects_an_empty_value,
      [throws(error(petta_test_failed([[]], []), _))]) :-
-    translate_expr(['test-no-answer', [quote, []]], Goals, _),
+    translate_expr(['test-no-answer', [noeval, []]], Goals, _),
     goals_list_to_conj(Goals, Goal),
     with_output_to(string(_), call(Goal)).
 

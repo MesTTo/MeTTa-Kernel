@@ -7,7 +7,8 @@
 !(test ";" ";")
 
 ; Test 1: Semicolon constant (from set.mm)
-!(test (quote ";") ";")
+; LeaTTa types-meta/30_evaluation_control.metta pins quote as a wrapper value.
+!(test (quote ";") (quote ";"))
 
 ; Test 2: String with semicolon in the middle
 !(test "foo;bar" "foo;bar")

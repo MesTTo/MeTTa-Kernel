@@ -24,9 +24,11 @@
      (reduce-within (reduce (fib 5))))))
 
 !(test (before-call-errors-ofc (before-quote) (before-eval) (before-reduce))
-       (before-call-errors-ofc (quote-before (quote (fib 5))) (eval-before (quote (fib 5))) (reduce-before (quote (fib 5)))))
+       ; quote remains where the result itself is quoted. LeaTTa
+       ; types-meta/30_evaluation_control.metta pins noeval for a bare payload.
+       (before-call-errors-ofc (quote-before (quote (fib 5))) (eval-before (noeval (fib 5))) (reduce-before (noeval (fib 5)))))
 !(test (compilefib)
-       ((within (quote (fib 5))) (call-within 5) (quote-within (quote (fib 5))) (eval-within 5) (reduce-within 5)))
+       ((within (noeval (fib 5))) (call-within 5) (quote-within (quote (fib 5))) (eval-within 5) (reduce-within 5)))
 
 (= (after-call)
    (call-after (call (fib 5))))
@@ -44,4 +46,3 @@
        ((call-before 5) (quote-before (quote (fib 5))) (eval-before 5) (reduce-before 5)))
 !(test ((after-call) (after-quote) (after-eval) (after-reduce))
        ((call-after 5) (quote-after (quote (fib 5))) (eval-after 5) (reduce-after 5)))
-

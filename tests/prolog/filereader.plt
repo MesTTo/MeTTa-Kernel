@@ -56,7 +56,7 @@ test(escaped_quote_does_not_close_a_string_or_form) :-
 test(loader_and_reader_agree_on_inline_comments) :-
     sread("(a ; ignored tokens\n b)", ReadTerm),
     setup_call_cleanup(assertz(silent(true), Ref),
-                       process_metta_string("!(quote (a ; ignored tokens\n b))",
+                       process_metta_string("!(noeval (a ; ignored tokens\n b))",
                                             Results),
                        erase(Ref)),
     ReadTerm == [a, b],
@@ -153,7 +153,7 @@ test(the_loader_and_the_reader_agree_on_comments,
     Direct == Expected,
     %The wrapper's own ) goes on the next line: a comment that runs to end of
     %input would otherwise swallow it, which is what it is supposed to do.
-    format(string(Runnable), "!(quote ~s~n)", [Source]),
+    format(string(Runnable), "!(noeval ~s~n)", [Source]),
     setup_call_cleanup(assertz(silent(true), Ref),
                        process_metta_string(Runnable, Results),
                        erase(Ref)),
@@ -165,7 +165,7 @@ test(the_loader_and_the_reader_agree_on_comments,
 
 test(nonterminal_loader_output_has_no_ansi_escapes) :-
     with_output_to(string(Output),
-                   process_metta_string("!(quote answer)", Results)),
+                   process_metta_string("!(noeval answer)", Results)),
     Results == [answer],
     once(sub_string(Output, _, _, _, "--> metta runnable  -->")),
     \+ sub_string(Output, _, _, _, "\e[").

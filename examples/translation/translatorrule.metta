@@ -5,7 +5,7 @@
    (cons 42 $arg))
 
 (= (compile42 $arg)
-   (quote (cons 42 $arg)))
+   (noeval (cons 42 $arg)))
 
 !(add-translator-rule! compileeval42)
 !(add-translator-rule! compile42)
