@@ -6,7 +6,7 @@
 %     mapping introspection is an ordinary extension service [tested:
 %     test_a_registered_token_class_parses_like_a_shipped_one,
 %     every_seam_declares_one_kind,
-%     every_seam_kind_matches_its_direction; commit=WORKTREE].
+%     every_seam_kind_matches_its_direction; commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

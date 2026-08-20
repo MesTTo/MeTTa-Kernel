@@ -130,7 +130,7 @@
 %   - register-token! and unregister-token! are ordinary registered builtins,
 %     so source programs and host APIs reach the same reader-token mapping
 %     [tested: test_a_registered_token_class_parses_like_a_shipped_one;
-%     commit=WORKTREE].
+%     commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b].
 %   - The engine loads and runs the full examples/ corpus with
 %     set_prolog_flag(autoload, false) already in effect: the
 %     directory_file_path/3 directive below needs library(filesex) before

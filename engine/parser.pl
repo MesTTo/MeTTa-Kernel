@@ -26,14 +26,14 @@
 %     to sread/2 round trip stays inverse [tested:
 %     parser_unicode_layout,
 %     test_every_unicode_whitespace_separates_atoms;
-%     commit=WORKTREE].
+%     commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b].
 %   - metta_reader_token_class/3 is the reader's declared pattern-to-constructor
 %     table. Shipped numbers and strings and custom classes take the same
 %     full-token path; custom registrations replace an equal pattern, affect
 %     only later parses, and invalidate the symbol-writability table so Python
 %     operation names cannot cross the new grammar [tested:
 %     test_a_registered_token_class_parses_like_a_shipped_one;
-%     commit=WORKTREE].
+%     commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b].
 %   - metta_unwritable_symbol/2 answers for every value the round trip loses,
 %     not only for names: non-finite and rational numbers have no readable
 %     numeric spelling, and non-list compounds and opaque host values are not
@@ -43,7 +43,7 @@
 %   - metta_custom_reader_token/3 retains a host constructor until its pattern
 %     is replaced or unregistered [tested:
 %     test_a_registered_token_class_parses_like_a_shipped_one;
-%     commit=WORKTREE].
+%     commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b].
 % Guarded by:
 %   - '$petta_reader_tokens' serializes registry replacement and removal; each
 %     mutation commits atomically with its writability-table invalidation.
@@ -62,7 +62,7 @@
 %enforced by the PCRE options rather than left to every pattern author
 %[source: hyperon-experimental@0559a5e2dd23017c459da3c7b003c7f271e77ac8,
 %lib/src/metta/text.rs:Tokenizer and
-%lib/src/metta/runner/stdlib/{arithmetics,string}.rs; commit=WORKTREE].
+%lib/src/metta/runner/stdlib/{arithmetics,string}.rs; commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b].
 metta_shipped_reader_token('[+-]?[0-9]+', number).
 metta_shipped_reader_token('[+-]?[0-9]+[.][0-9]+', number).
 metta_shipped_reader_token('[+-]?[0-9]+([.][0-9]+)?[eE][+-]?[0-9]+', number).
