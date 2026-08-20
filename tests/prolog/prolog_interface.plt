@@ -16,6 +16,9 @@
 %   - a registration records its arities even when the name is already a
 %     function
 %     [tested: a_registration_records_arities_for_a_name_that_is_already_a_function]
+%   - every head in the translator's own registry is refused before Prolog
+%     function registration can install dead code
+%     [tested: test_registering_any_translator_compiled_head_is_refused_by_name]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -38,6 +41,7 @@ user:plunit_pi_scale(X, Y) :- Y is X * 10.
 user:plunit_pi_known(X, Y, Z) :- Z is X + Y.
 user:plunit_pi_first(X, X).
 user:plunit_pi_second(X, X).
+user:'plunit-p119-translated'(_, translated).
 
 % A registration is process-wide, so a test that makes one has to undo it or
 % the next test inherits it. Everything register_fun_in/2 and
@@ -191,6 +195,18 @@ test(a_builtin_name_is_refused,
 test(a_special_form_name_is_refused,
      [throws(error(permission_error(register, metta_special_form, 'if'), _))]) :-
     import_prolog_function(if, true).
+
+%A translator rule is a live extension of the compiled-head set. Before the
+%refusal asked metta_special_form/1 directly, this name registered successfully
+%even though translate_expr_dl/4 would always take the translator-rule branch
+%before function dispatch.
+test(test_registering_any_translator_compiled_head_is_refused_by_name,
+     [ setup(assertz(user:translator_rule('plunit-p119-translated'))),
+       cleanup(( retractall(user:translator_rule('plunit-p119-translated')),
+                 forget_pi_name('plunit-p119-translated') )),
+       throws(error(permission_error(register, metta_special_form,
+                                      'plunit-p119-translated'), _)) ]) :-
+    import_prolog_function('plunit-p119-translated', true).
 
 % Order is the whole finding. Checking per name inside the registration loop
 % ran AFTER the source had loaded, and by then SWI had already replaced the

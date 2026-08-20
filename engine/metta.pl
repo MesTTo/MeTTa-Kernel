@@ -114,6 +114,9 @@
 %     [tested 2026-08-14: metta_builtin_outputs].
 %   - Function registration performed by a source load participates in that
 %     load's rollback [tested 2026-08-14: filereader_source_rollback].
+%   - Prolog registration refuses every head the translator compiles before
+%     function dispatch, including heads added through translator_rule/1
+%     [tested: test_registering_any_translator_compiled_head_is_refused_by_name].
 %   - Python source imports restore sibling modules and sys.path after setup
 %     or execution errors [tested 2026-08-14:
 %     metta_python_import_cleanup].
@@ -4920,19 +4923,23 @@ prolog_function_source(N, Source) :-
 %exactly this at spaces.pl through petta_builtin_redefinition/3, so this is
 %the same rule reaching the other road in rather than a new one.
 %
-%A special form, because translate_special_dl/5 is tried BEFORE function
-%dispatch, so the registration compiles nothing and can never be reached:
+%A translated head, because translator rules and translate_special_dl/5 are
+%tried BEFORE function dispatch, so the registration compiles nothing and can
+%never be reached:
 %registering a predicate named if left !(if True 1 2) answering 1 from the
 %translator and the library's clauses dead, with nothing said at any point.
 %Accepting a registration that cannot run is telling the author their code is
 %installed when it is not
-%[tested: a_builtin_name_is_refused, a_special_form_name_is_refused].
+%metta_translated_head/1 is the translator's own registry, so a rule added at
+%run time is covered without another hand-maintained list
+%[tested: a_builtin_name_is_refused, a_special_form_name_is_refused,
+%test_registering_any_translator_compiled_head_is_refused_by_name].
 refuse_reserved_registration(N) :-
     (   builtin_fun(N)
     ->  throw(error(permission_error(register, metta_builtin, N),
                     context(import_prolog_function/2,
                             'the engine defines this name')))
-    ;   metta_special_form(N)
+    ;   metta_translated_head(N)
     ->  throw(error(permission_error(register, metta_special_form, N),
                     context(import_prolog_function/2,
                             'the translator compiles this name')))
