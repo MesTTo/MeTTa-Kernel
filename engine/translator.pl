@@ -2550,7 +2550,7 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
 %decision declarative for user types; it deliberately skips the ordinary
 %argument check because the written expression has not yet produced a value
 %whose runtime type could satisfy the declared marker.
-non_evaluated_parameter_type('Atom') :- !.
+non_evaluated_parameter_type(Type) :- Type == 'Atom', !.
 non_evaluated_parameter_type(Type) :-
     nonvar(Type),
     catch_recover(type_declaration(Type, 'DontEvalType'), fail).
