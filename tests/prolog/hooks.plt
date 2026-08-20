@@ -287,3 +287,88 @@ test(both_slots_compose_on_an_accepted_atom,
     assertion(Atoms == [[cooked, 7]]).
 
 :- end_tests(space_hooks_post).
+
+
+:- begin_tests(hooks_compiled_fire,
+               [ setup(hooks_cf_setup), cleanup(hooks_cf_cleanup) ]).
+
+hooks_cf_setup :-
+    process_metta_string(
+        "(= (cf-guard (secret $x)) (refuse \"cf says no\"))\n\
+(= (cf-guard (raw $x)) (accept (cooked $x)))\n\
+(= (cf-guard (plain $x)) (accept))", _).
+
+hooks_cf_cleanup :-
+    metta_undeclare_hook(pre_add, '&cf-pool'),
+    forall(member(F, ['cf-guard', 'cf-typed', 'cf-flip', 'cf-marker']),
+           remove_sexp('&self', [=, [F|_], _])),
+    clear_native_atoms('&cf-pool'),
+    remove_sexp('&self', [':', 'cf-typed', _]).
+
+%The compiled fire is an implementation of the eval path over data-shaped
+%offers, so on every such handler shape the two must answer the same
+%verdicts in the same order. This is the equivalence obligation stated as
+%a test: the algorithm may be anything while the answers hold.
+cf_parity(Handler, Term) :-
+    current_metta_module(Module),
+    findall(V, eval_metta_in_module(Module, [Handler, Term], V), Direct),
+    petta_hook_drop_compiled('&cf-parity', pre_add),
+    findall(V,
+            petta_hook_eval('&cf-parity', pre_add, Handler, Module, Term, V),
+            Fired),
+    petta_hook_drop_compiled('&cf-parity', pre_add),
+    Fired == Direct.
+
+test(a_compiled_fire_answers_what_the_eval_path_answers) :-
+    cf_parity('cf-guard', [secret, 1]),
+    cf_parity('cf-guard', [raw, 7]),
+    cf_parity('cf-guard', [plain, 2]).
+
+test(a_compiled_fire_fails_where_the_eval_path_is_stuck) :-
+    current_metta_module(Module),
+    \+ eval_metta_in_module(Module, ['cf-guard', [uncovered, 3]], _),
+    petta_hook_drop_compiled('&cf-parity', pre_add),
+    \+ petta_hook_eval('&cf-parity', pre_add, 'cf-guard', Module,
+                       [uncovered, 3], _),
+    petta_hook_drop_compiled('&cf-parity', pre_add).
+
+test(an_equation_added_after_the_claim_decides_the_next_fire) :-
+    process_metta_string("(= (cf-flip $a) (accept))", _),
+    metta_declare_hook(pre_add, '&cf-pool', 'cf-flip'),
+    metta_add_atom('&cf-pool', [flip, 1], _),
+    %The redefinition goes through the ordinary equation door, whose
+    %change hook drops every compiled fire clause; the next add must see
+    %the new program, not the baked one.
+    metta_remove_atom('&self', [=, ['cf-flip', _], _], _),
+    process_metta_string(
+        "(= (cf-flip $a) (refuse \"the new program refuses\"))", _),
+    catch(metta_add_atom('&cf-pool', [flip, 2], _), Ball, true),
+    nonvar(Ball),
+    Ball = error(petta_add_refused('&cf-pool', [flip, 2], _), _),
+    metta_undeclare_hook(pre_add, '&cf-pool').
+
+%The offer is DATA. A stored atom whose head happens to name a function
+%must reach the handler as itself: the verdict is about what lands in the
+%space, and what lands is the atom, not its evaluation. The eval-per-fire
+%door got this wrong by construction, judging `evaluated` while the space
+%was offered (cf-marker); a BEFORE trigger sees the row, and a CHR head
+%matches the constraint, never something derived from it.
+test(the_offered_atom_reaches_the_handler_as_itself) :-
+    process_metta_string(
+        "(= (cf-marker) evaluated)\n\
+(= (cf-typed $a) (accept (saw $a)))", _),
+    metta_declare_hook(pre_add, '&cf-pool', 'cf-typed'),
+    metta_add_atom('&cf-pool', ['cf-marker'], _),
+    (   'get-atoms'('&cf-pool', [saw, ['cf-marker']])
+    ->  true
+    ;   throw(cf_expected_the_offer_itself)
+    ),
+    %A later type declaration recompiles the fire through the change
+    %hooks; the offer stays data on the other side of it.
+    process_metta_string("(: cf-typed (-> Atom %Undefined%))", _),
+    metta_add_atom('&cf-pool', ['cf-marker'], _),
+    findall(X, 'get-atoms'('&cf-pool', [saw, X]), Seen),
+    Seen == [['cf-marker'], ['cf-marker']],
+    metta_undeclare_hook(pre_add, '&cf-pool').
+
+:- end_tests(hooks_compiled_fire).

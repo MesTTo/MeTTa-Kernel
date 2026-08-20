@@ -6,7 +6,28 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `(space-atom-count <space>)` answers how many atoms a space holds from
+  the store's own per-predicate clause counts: one property read per
+  stored arity, none per atom, so a capacity policy over a million-atom
+  pool costs what it costs over ten. A never-written space holds nothing;
+  an unbound or non-space argument is refused like the sibling builtins;
+  a foreign space is refused by name, because its provider owns its atoms
+  and the only general count there is an enumeration.
+
 ### Fixed
+
+- A space hook consults its handler at a fixed small cost instead of
+  re-translating the call on every write: 64.02 inferences per add
+  against 234.03 before, beside 49.01 for an unhooked add. The handler's
+  call site is translated once when the claim is made and recompiled
+  automatically after any equation or declaration change.
+- The atom offered to a pre-add or post-add handler reaches it as itself.
+  When the offered atom's head happened to name a function, the handler
+  used to judge the atom's evaluation while the space received the atom,
+  so the verdict was about a term that never landed. The offer is data,
+  as a database BEFORE trigger's row is.
 
 - The engine repairs its own compiled code when a function is removed, with
   no host in the process: the removal-direction recompile used to ride a
