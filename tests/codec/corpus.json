@@ -30,7 +30,7 @@
     "e": {"class": "term", "payload": "array of terms", "means": "an expression, its children in order; the empty one is unit"},
     "o": {"class": "term", "payload": "host reference", "means": "a live host value crossing by reference, in process only"},
     "h": {"class": "term", "payload": "registry id, and its printed text outbound", "means": "a native engine value held by reference"},
-    "u": {"class": "frame", "payload": "term, why, and optionally the residual program", "means": "an answer whose truth is undefined under the well-founded semantics"},
+    "u": {"class": "frame", "payload": "term and why", "means": "an answer whose truth is undefined under the well-founded semantics"},
     "a": {"class": "frame", "payload": "theta, residue, k, and optionally a value", "means": "an answer together with the bindings it is returned under"},
     "x": {"class": "frame", "payload": "end, declined, or error with a term", "means": "stream control: exhaustion, no answer at all, or a failure kept as a value"}
   },
@@ -545,15 +545,8 @@
       "id": "undefined-truth",
       "frame": "u",
       "wire": ["u", ["s", "p"], "tnot loop"],
-      "parts": {"value": ["s", "p"], "why": "tnot loop", "residual": null},
+      "parts": {"value": ["s", "p"], "why": "tnot loop"},
       "note": "An answer whose truth is undefined under the well-founded semantics: the value, and the delay condition it hangs on. Never nested inside an expression; it wraps a whole answer."
-    },
-    {
-      "id": "undefined-truth-with-residual",
-      "frame": "u",
-      "wire": ["u", ["s", "p"], "tnot loop", "p :- tnot(q)."],
-      "parts": {"value": ["s", "p"], "why": "tnot loop", "residual": "p :- tnot(q)."},
-      "note": "The residual program, the clauses of the loop itself, present only when the caller asked for it."
     }
   ],
 

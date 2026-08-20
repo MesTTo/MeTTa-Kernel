@@ -117,6 +117,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   scheduled repair registration always used, and the events are pure
   observations again.
 
+### Removed
+
+- `eval(residuals=...)` and `AsyncMeTTa.eval(residuals=...)` no longer select
+  a second return shape. A term with no applicable rule is the unreduced term
+  returned by ordinary evaluation, while `eval_status()` names that path
+  `not-reducible`. Undefined truth still carries its delay condition, and
+  constraint stores remain inspectable inside MeTTa through `residual-goals`.
+
 ### Changed
 
 - `petta.Atom` on a registered operation parameter is now documented as an

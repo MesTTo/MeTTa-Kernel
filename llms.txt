@@ -102,8 +102,8 @@ m.run(src, using=None, *, timeout=, inferences=, capture=False,
       atomic=False, speculative=False, strict=False)
                        -> list[list[Atom]], one inner list per ! directive
                           (with capture=True: (groups, printed_text))
-m.eval(target, *, using=, timeout=, inferences=, capture=False,
-       residuals=False)                    -> list[Atom | Undefined]
+m.eval(target, *, using=, timeout=, inferences=, capture=False)
+                                           -> list[Atom | Undefined]
 m.one(target, *, using=, timeout=, inferences=)   -> Any, THE answer as a plain
                           Python value; raises EngineError unless exactly one
 m.first(target, *, using=, timeout=, inferences=) -> Any or None
@@ -120,7 +120,8 @@ m.digest() -> str, 64-hex content hash of the space, store-independent
 `target` may be a string or an already-built atom. `using=` maps BARE SYMBOLS
 (not `$vars`) to Python objects, which cross by identity, not by copy or repr:
 `m.one("(gated v)", using={"v": tensor})`. It works on `run`, `eval`, `one`,
-`first` and their async twins, and is refused together with `residuals=`.
+`first` and their async twins. A target with no applicable rule is returned as
+the unreduced term; `eval_status()` names that path `not-reducible`.
 
 Variables shared across query patterns join: `m.query(S.p(V.x,V.y), S.p(V.y,V.z))`.
 `where=` is a term the engine evaluates per match: `where=(V.n >= 60) & (V.n <= 70)`.

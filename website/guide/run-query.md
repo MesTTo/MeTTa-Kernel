@@ -209,8 +209,8 @@ evaluating doors take it, `run`, `eval`, `one` and `first`, plus their
 `AsyncMeTTa` twins, so a value can be routed through a rule without first
 being written into a space and removed afterwards.
 
-It does not compose with `residuals=`, and the call says so rather than
-quietly dropping one of them.
+An unreduced target remains the ordinary answer after substitution. There is
+no alternate residual return shape.
 
 ## Match something already known
 
@@ -333,7 +333,7 @@ available under its own name.
 
 ## The third truth value
 
-Tabled negation gives this engine Well Founded Semantics: an answer can be true, false, or genuinely undefined, a loop through `tnot`. Before this surface, an undefined answer reached Python as an ordinary-looking unbound variable, which is silently wrong. Now every `eval` answer carries its truth: definite answers stay plain atoms, and an undefined one arrives as an `Undefined` holding the answer, the delay condition that makes it undefined, and, with `residuals=True`, the residual program, the clauses of the loop itself.
+Tabled negation gives this engine Well Founded Semantics: an answer can be true, false, or genuinely undefined, a loop through `tnot`. Before this surface, an undefined answer reached Python as an ordinary-looking unbound variable, which is silently wrong. Now every `eval` answer carries its truth: definite answers stay plain atoms, and an undefined one arrives as an `Undefined` holding the answer and the delay condition that makes it undefined. Constraint stores remain inside the language and are inspected there with `residual-goals`; they do not create another Python return shape.
 
 ```python
 def test_undefined_answers_cross_as_undefined(m, wfs_program):
