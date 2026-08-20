@@ -99,6 +99,10 @@
 %     and the prelude's, with each row written once and evicted only by the
 %     register that wrote it [tested 2026-08-19:
 %     metta_builtin_type_surface:a_shared_declaration_is_evicted_only_from_the_register_that_wrote_it].
+%   - External Prolog libraries extend builtin_type_declaration/2 without
+%     replacing the engine's rows, and unloading retires only their own clauses
+%     [tested: test_a_library_types_its_own_blob_without_destroying_the_table;
+%     commit=WORKTREE].
 %   - The prelude loads exactly three form shapes: a declaration, an equation,
 %     and `!(add-translator-rule! NAME)` for a name it defines itself, which
 %     is how a DERIVED form ships. A program that defines such a name takes
@@ -6561,6 +6565,7 @@ unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
 %ONE SOURCE OF TRUTH: the facts are built by parsing lib_builtin_types.metta
 %at boot, so the file a program can still import explicitly and the table the
 %engine answers from cannot drift apart.
+:- multifile builtin_type_declaration/2.
 :- dynamic builtin_type_declaration/2.
 
 load_builtin_type_surface :-

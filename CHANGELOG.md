@@ -44,6 +44,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Prolog extensions may now add `builtin_type_declaration/2` clauses without
+  replacing the engine's built-in type table; unloading removes only the
+  extension's clauses.
+
 - A required dataclass `InitVar` now refuses during conversion registration
   instead of failing only when its incomplete projection is rebuilt.
   `register_op` refuses unreachable `**kwargs`, and a typed zero-parameter
