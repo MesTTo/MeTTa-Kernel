@@ -3,7 +3,7 @@
 ; Guarantees: all five oracles pass through ordinary equations, folds,
 ; stratified not-provable, and set-valued uniqueness.
 ; Guarded by: test_the_scallop_readme_examples_answer_identically_through_the_seams
-; [tested: test_the_scallop_readme_examples_answer_identically_through_the_seams; commit=WORKTREE]
+; [tested: test_the_scallop_readme_examples_answer_identically_through_the_seams; commit=0f93f6aa61e226a8233dfe6989207d050d0419b2]
 
 ; Path over edges: README result {(0,1), (0,2), (1,2)}.
 (sc-edge 0 1)
