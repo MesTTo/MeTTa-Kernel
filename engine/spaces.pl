@@ -1028,7 +1028,7 @@ metta_module_space(Module, Space) :-
 %already-used refusal, and only a fresh child reaches the transaction that
 %lands the index, reflection atom and execution-module base together.
 %[tested: test_a_child_space_reads_through_its_parent_and_writes_locally;
-% commit=WORKTREE]
+% commit=755330de329ece49eddcfb7d6db3061c3350a0ca]
 metta_declare_space_parent(Child, Parent) :-
     metta_require_space_name('new-space', Child),
     metta_require_space_name('new-space', Parent),

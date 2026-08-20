@@ -25,7 +25,7 @@
 %   - a child execution module resolves parent equations before the shared
 %     &self and builtin tiers [tested:
 %     test_a_child_space_reads_through_its_parent_and_writes_locally;
-%     commit=WORKTREE].
+%     commit=755330de329ece49eddcfb7d6db3061c3350a0ca].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction

@@ -6,7 +6,8 @@
 %     modules keep undefined calls loud [tested: spaces_storage_modules].
 %   - inherited reads are child-first unions, conjunctions join across
 %     layers, and declaration failures leave no partial relation [tested:
-%     spaces_inheritance; commit=WORKTREE].
+%     spaces_inheritance;
+%     commit=755330de329ece49eddcfb7d6db3061c3350a0ca].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
