@@ -72,6 +72,13 @@
 %is covered by the cut check like any other.
 ext_point_kind(ext_point_kind/2, declaration).
 
+%Libraries contribute builtin arrows without replacing the engine's table.
+%It is a declaration seam, so every contributed clause remains reachable
+%[tested: test_a_library_types_its_own_blob_without_destroying_the_table;
+%commit=WORKTREE].
+:- multifile builtin_type_declaration/2.
+ext_point_kind(builtin_type_declaration/2, declaration).
+
 %Who writes a seam's clauses. This is the primitive the cut rule derives from,
 %rather than the cut rule naming kinds directly: that rule is about a handler
 %an extension contributed staying reachable, so it can only bite where an
