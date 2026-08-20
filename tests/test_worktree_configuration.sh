@@ -3,8 +3,8 @@
 #   configuration the main checkout runs, once worktree.sh has linked the
 #   build artefacts git does not track.
 #
-#   A fresh worktree has no mork_ffi/target/ and no mork_ffi/morklib.so,
-#   both gitignored build output, and backends/mork.pl reads their absence
+#   A fresh worktree has no backends/mork/mork_ffi/target/ and no backends/mork/mork_ffi/morklib.so,
+#   both gitignored build output, and backends/mork/decider.pl reads their absence
 #   as "this backend was not built" rather than as an error, exactly as it
 #   should for a tree that never built it. The consequence for a worktree
 #   is that every suite passes while testing one backend fewer, and nothing
@@ -27,7 +27,7 @@ command -v swipl >/dev/null
 
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
-if [ ! -e "$project_dir/mork_ffi/target/release/libmork_ffi.so" ]; then
+if [ ! -e "$project_dir/backends/mork/mork_ffi/target/release/libmork_ffi.so" ]; then
     echo "skipped: the main checkout has no MORK build to compare against"
     exit 0
 fi
@@ -49,7 +49,7 @@ git -C "$project_dir" worktree add --quiet -b "$branch" "$tree"
 # that matters.
 probe_backend() {
     swipl --stack_limit=2g -q -g "
-        consult('$1/src/main.pl'),
+        consult('$1/engine/main.pl'),
         ( current_predicate(mork/3) -> writeln(loaded) ; writeln(absent) ),
         halt" -t 'halt(1)' -- backends 2>/dev/null | tail -1
 }

@@ -1,6 +1,6 @@
 # `petta.integrate`
 
-Source: `python/petta/integrate.py`.
+Source: `bindings/python/petta/integrate.py`.
 
 > Purpose: the interface any Python library implements to work deeply with
 > PeTTa, and the toolkit that makes implementing it a page of code rather than

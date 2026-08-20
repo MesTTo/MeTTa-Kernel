@@ -1,5 +1,5 @@
 % Purpose: pin the typed development build's own behaviour as a plunit test,
-%   so evidence tags in src/ headers can name a test the runner executes.
+%   so evidence tags in engine/ headers can name a test the runner executes.
 %   The -O direction (checks stripped to nothing) cannot run inside this
 %   already-started session; check.sh's dev-typed-selftest lane covers it.
 % Guarantees:

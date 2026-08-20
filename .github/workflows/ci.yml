@@ -137,7 +137,7 @@ jobs:
         run: uv sync --locked --extra checks
 
       - name: Run Python tests
-        run: uv run pytest python/tests --rootdir=python -c python/pyproject.toml
+        run: uv run pytest bindings/python/tests --rootdir=python -c bindings/python/pyproject.toml
 
       - name: Run shell tests
         run: |

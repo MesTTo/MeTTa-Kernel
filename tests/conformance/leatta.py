@@ -213,7 +213,7 @@ def observe(engine: Path, path: Path, timeout: float) -> tuple[list[str], str | 
         finished = subprocess.run(
             [
                 "swipl", "--stack_limit=8g", "-q",
-                "-g", f'consult("{engine}/src/metta.pl")',
+                "-g", f'consult("{engine}/engine/metta.pl")',
                 "-s", str(engine / "tests/conformance/leatta_run.pl"),
                 "--", "--file", str(path), "backends",
             ],

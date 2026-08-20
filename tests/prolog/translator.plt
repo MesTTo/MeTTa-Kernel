@@ -12,7 +12,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 %Take a test function back out completely: its registration, its symbol
 %records, its arities, and its compiled predicate at every arity it might have
@@ -215,7 +215,7 @@ meta_store_cost(Count, Inferences) :-
 
 % Each equation is one independently indexed fact, so recording a new one does
 % not copy the equations already held for that function [source:
-% src/translator.pl, the comment above record_fun_meta/3]. A store that copied
+% engine/translator.pl, the comment above record_fun_meta/3]. A store that copied
 % would cost O(n^2) to fill, and nothing said so: the ordering and retraction
 % tests above pass either way.
 %
@@ -277,7 +277,7 @@ test(acyclic_binding_keeps_let_semantics,
 
 :- end_tests(translator_let).
 
-% The derived forms: each one is an equation in src/prelude.metta plus the
+% The derived forms: each one is an equation in engine/prelude.metta plus the
 % registration that makes the translator consult it, where it used to be a
 % clause of the compiler. The property that matters is that the call and the
 % expansion written out by hand compile to the SAME goals, which is what
@@ -306,7 +306,7 @@ derived_form([subtraction, [superpose, [a]], [superpose, [b]]],
                      ['subtraction-atom', [collapse, [superpose, [a]]],
                                           [collapse, [superpose, [b]]]]]]).
 %True and False reach the engine as the Prolog atoms true and false
-%[source: src/parser.pl], so the expansions are written that way here.
+%[source: engine/parser.pl], so the expansions are written that way here.
 derived_form(['and-then', [>, 2, 1], ok], [if, [>, 2, 1], ok, false]).
 derived_form(['or-else', [>, 2, 1], ok], [if, [>, 2, 1], true, ok]).
 

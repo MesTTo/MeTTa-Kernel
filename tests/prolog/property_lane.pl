@@ -14,7 +14,7 @@
 %     Three laws, each one already stated somewhere in this tree over a fixed
 %     corpus and re-stated here over generated values:
 %
-%       roundtrip     src/parser.pl's header promises swrite/2 and sread/2 are
+%       roundtrip     engine/parser.pl's header promises swrite/2 and sread/2 are
 %                     inverse. tests/prolog/parser.plt checks six hand-written
 %                     terms. This checks the same law over generated ones.
 %       symbol text   metta_symbol_writable/1 is supposed to answer EXACTLY
@@ -39,7 +39,7 @@
 %       every Prolog lane from.
 %     - the engine is already consulted into `user` when a law RUNS. Nothing
 %       here calls an engine predicate at load time, so the load order between
-%       this file and src/metta.pl does not matter.
+%       this file and engine/metta.pl does not matter.
 %     - library(random)'s generator is process-global and set_random/1 seeds
 %       it, so seeding once before a quickcheck/1 call fixes that call's whole
 %       sequence [source: SWI-Prolog 10.1 Reference Manual 4.35, set_random/1].
@@ -115,7 +115,7 @@ property_test_count(Count) :-
 %prints the clause it produced unless the session is silent, and a law that
 %translates 100 generated forms would print 100 of them into the test log;
 %asserta so the silence wins over an already-asserted silent(false), which is
-%src/metta.pl's own idiom for the prelude.
+%engine/metta.pl's own idiom for the prelude.
 property_check(Property) :-
     property_seed(Seed),
     (   Seed == random
@@ -478,7 +478,7 @@ property_roundtrip(Term) :-
 % swallowed the rest of the form there while sread/2 read it back intact.
 %
 % SOUND always, and COMPLETE except for names holding a quote. Rejecting every
-% quote is a deliberate shortcut for cost, and src/parser.pl says so where it
+% quote is a deliberate shortcut for cost, and engine/parser.pl says so where it
 % makes it: the form scanner opens a string on a quote, and answering exactly
 % would mean running that scanner over every symbol a save carries, which the
 % one-token scan exists to avoid. So a name with an EVEN number of quotes, none
@@ -561,7 +561,7 @@ prop_translate_clause(Equation:metta_equation) :- property_translate_clause_is_a
 % `swipl -q -g property_lane_selftest -t 'halt(0)' property_lane.pl` from
 % tests/prolog, which is how check.sh runs every other selftest here.
 property_lane_selftest :-
-    consult('../../src/metta.pl'),
+    consult('../../engine/metta.pl'),
     findall(Plant-Verdict,
             ( property_plant_feature(Plant, _),
               property_plant_verdict(Plant, Verdict) ),

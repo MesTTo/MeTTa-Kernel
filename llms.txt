@@ -16,30 +16,30 @@ re-runs them.
 | source | what it is | kept true by |
 |---|---|---|
 | `examples/**/*.metta` | 209 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
-| `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `python/tools/reference.py` |
-| `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `python/tools/libdoc.py` |
+| `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
+| `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 30 plunit suites over the engine itself | the `plunit` gate lane |
-| `python/tests/*.py` | 131 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
-| `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
-| `python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `python/tools/vocabgen.py`, the `vocab-sync` gate lane |
+| `bindings/python/tests/*.py` | 132 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
+| `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
 | `CHANGELOG.md` | every user-facing change, with the reasoning | |
 | `website/guide/*.md` | 14 pages of prose: concepts, run-query, spaces, atoms-terms, python-functions, define, structures, threads, observability, notebook, contract, getting-started, pettorch | |
 | `website/tutorials/*.md` | 8 numbered lessons, atoms through graph-view | |
 | `website/integrations/*.md` | dataframes, pydantic, duckdb, arrays and embeddings, http routes | |
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
-| `python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
+| `bindings/python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `src/*.pl` | 19,594 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, `src/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `src/specializer.pl`, `src/filereader.pl`, `src/duals.pl`, `src/tracer.pl`, `src/trs.pl` and `src/narrowing.pl` metatheory, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `engine/*.pl` | 19,596 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
-| `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
-| `hosts/*.pl` | globbed at every boot; each decider loads its bridge only where the bridge's substrate exists, so the engine names no host | |
-| `bindings/node/*.mjs` | the engine embedded in a Node process over swipl-wasm, the seam's second consumer. `bindings/node/bridge.pl` is its Prolog half and calls published surface only | the `node-binding` gate lane, and `python/tests/test_node_binding.py` answers the same corpus in both hosts |
+| `backends/*/decider.pl` | globbed at boot; each integration's decider decides whether its own artefact is present | |
+| `bindings/*/decider.pl` | globbed at every boot; each seat's decider loads its bridge only where the bridge's substrate exists, so the engine names no host | |
+| `bindings/node/*.mjs` | the engine embedded in a Node process over swipl-wasm, the seam's second consumer. `bindings/node/bridge.pl` is its Prolog half and calls published surface only | the `node-binding` gate lane, and `bindings/python/tests/test_node_binding.py` answers the same corpus in both hosts |
 | `EXTENDING.md`, `DEVELOPING.md` | writing an extension; working on the engine | |
 | `KERNEL.md` | every head the translator gives meaning to, core or derived, with the reason and the numbers | the `plunit` gate lane's `translator_derived_forms` and the `pytest` lane's corpus twin test |
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |
-| `python/petta/*.py` | the library. `python/petta/space.py` is the `MeTTa` class; a leading `_` means internal | |
+| `bindings/python/petta/*.py` | the library. `bindings/python/petta/space.py` is the `MeTTa` class; a leading `_` means internal | |
 
 Counts measured 2026-08-19, each one re-checked by the `llms` gate lane on
 every run.
@@ -355,7 +355,7 @@ refuses loudly rather than degrading. Conjunctive queries route per conjunct, so
 a foreign space joins with a native one; on such a conjunction `rows.why()`
 prints which conjunct went where and whether its class was exact.
 
-From Prolog, `src/ext_points.pl` declares every seam WITH ITS KIND: an EVENT runs
+From Prolog, `engine/ext_points.pl` declares every seam WITH ITS KIND: an EVENT runs
 for effect and every handler runs; an OWNERSHIP seam is claimed by the first
 handler that succeeds and declined by failing; a DECLARATION is a fact table read
 as data; a SERVICE runs the other way, a predicate the ENGINE defines that an
@@ -369,10 +369,10 @@ classifier and capability probe the conformance library consults, and
 `parse_metta_source/2`, which the import libraries read source
 through now that the host bindings run source engine-side), and it
 exists so a backend never reaches into
-`src/parser.pl`, the same reason SQLite hands extensions an
+`engine/parser.pl`, the same reason SQLite hands extensions an
 `sqlite3_api_routines` table instead of letting them link against internals.
 
-`backends/*.pl` is globbed at boot and each file decides for itself whether its
+`backends/*/decider.pl` is globbed at boot and each integration's decider decides for itself whether its
 own artefact is present, so there is no backend "mode" to select and the engine
 names no backend. A MORK-backed store is one such backend, supplying `&mork` and
 `&mork:name`; it is present only when its shared library was built.

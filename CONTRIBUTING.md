@@ -80,7 +80,7 @@ The Python suite runs from the repository root, with the root and the
 configuration made explicit:
 
 ```sh
-python -m pytest python/tests/ -q --rootdir=python -c python/pyproject.toml
+python -m pytest bindings/python/tests/ -q --rootdir=python -c bindings/python/pyproject.toml
 ```
 
 The engine's suites are PlUnit files under `tests/prolog/`. Run one from
@@ -92,12 +92,12 @@ swipl -g "set_test_options([format(log)]), run_tests" -t halt parser.plt
 ```
 
 The `cd` is load-bearing and its absence is easy to misread. Each suite
-consults `../../src/metta.pl` from an initialization goal, and an
+consults `../../engine/metta.pl` from an initialization goal, and an
 initialization goal resolves a relative path against the working directory at
 run time, not against the file. Started from the repository root, the same
 command fails every test in the file with `Unknown procedure:
 plunit_<unit>:swrite/2`, and the line that says why is a single
-`source_sink '../../src/metta.pl' does not exist` above the first failure.
+`source_sink '../../engine/metta.pl' does not exist` above the first failure.
 
 The MeTTa corpus under `examples/` is self-checking and each file runs as a
 program. `sh test.sh` runs the examples the shell suite covers and takes each

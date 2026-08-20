@@ -1,6 +1,6 @@
 # `petta.testing`
 
-Source: `python/petta/testing.py`.
+Source: `bindings/python/petta/testing.py`.
 
 > Purpose: hypothesis strategies for property-testing code built on this
 > library, the pandas.testing reading: the exact generators the library's own

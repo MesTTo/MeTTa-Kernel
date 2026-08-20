@@ -21,7 +21,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 user:'plunit-pi-tag'(X, Y) :- member(X, [a, b, c]), atom_concat(X, '!', Y).
 user:'plunit-pi-is-b'(b).
@@ -29,7 +29,7 @@ user:'plunit-pi-is-b'(b).
 % In user, not in the plunit unit's module, because that is where a consulted
 % Prolog library lands and where register_fun/1 reads arities from. Defining
 % them inside the unit made every registration raise, which is the interface
-% working: src/metta.pl already warned that a library defining itself outside
+% working: engine/metta.pl already warned that a library defining itself outside
 % user has its arities go unregistered and every call compile to a partial
 % application. The guard now turns that silent wrong answer into an error.
 user:plunit_pi_double(X, Y) :- Y is X * 2.
@@ -116,7 +116,7 @@ test(a_non_atom_name_is_refused,
     import_prolog_function(42, true).
 
 % A predicate defined outside user is refused, which is the hazard
-% src/metta.pl documents: register_fun/1 reads arities out of user, so a
+% engine/metta.pl documents: register_fun/1 reads arities out of user, so a
 % library that defines itself elsewhere registers no arity and every call to
 % it compiles to a partial application instead of failing.
 test(a_predicate_outside_user_is_refused,

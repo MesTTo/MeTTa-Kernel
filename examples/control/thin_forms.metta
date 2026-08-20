@@ -77,7 +77,7 @@
 ;--------------------------------------------------------- timeout
 ;A bound that does not fire leaves the answer alone. The firing case cannot be
 ;an assertion here: a resource bound is a CONTROL exception, so a program's own
-;(catch ...) deliberately cannot eat it and the run stops. python/tests covers
+;(catch ...) deliberately cannot eat it and the run stops. bindings/python/tests covers
 ;that half, where the raise is the assertion.
 (= (spin $n) (if (== $n 0) done (spin (- $n 1))))
 !(test (timeout 5 (spin 10)) done)

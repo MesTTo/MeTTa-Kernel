@@ -7,7 +7,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 :- initialization(consult('../../lib/lib_reflect.pl')).
 
 :- begin_tests(lib_reflect).
@@ -91,9 +91,9 @@ test(every_user_function_is_a_function_and_not_a_builtin) :-
 % A seam's kind decides whether a cut in a handler is an optimisation or a
 % soundness bug, so a wrong one is not cosmetic. The two named here are the
 % ones that were wrong while the taxonomy was prose in a comment:
-% metta_backend_selftest/0 is enumerated with forall/2 [source: src/main.pl:36]
+% metta_backend_selftest/0 is enumerated with forall/2 [source: engine/main.pl:36]
 % and was outside the check that enforces the rule, and metta_dispatch_call/4
-% is taken with ->/2 [source: src/translator.pl:364] and was wrongly inside it.
+% is taken with ->/2 [source: engine/translator.pl:364] and was wrongly inside it.
 test(extension_points_are_reported) :-
     findall(Point, 'engine-extension-point'(Point), Points),
     forall(member([Name, Arity, Kind], Points),

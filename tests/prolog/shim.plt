@@ -15,7 +15,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- consult('../../python/petta/shim.pl').
+:- consult('../../bindings/python/petta/shim.pl').
 
 % Both tables sit at file scope because a plunit unit is its own module and
 % the suites below share them.
@@ -46,7 +46,7 @@ malformed(['e', "notalist"]).
 % first two to symbols, the next two to a string and to a number-tagged
 % string, the variable to a fresh variable, and every unadmitted boolean
 % payload to `false`, which answers rather than fails.
-% python/petta/_atom_wire.py refuses all six.
+% bindings/python/petta/_atom_wire.py refuses all six.
 wrong_class(['s', 1]).
 wrong_class(['s', ["a"]]).
 wrong_class(['g', 1]).

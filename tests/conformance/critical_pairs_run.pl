@@ -28,7 +28,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- use_module('../../src/trs.pl').
+:- use_module('../../engine/trs.pl').
 :- use_module(library(lists)).
 :- use_module(library(apply)).
 

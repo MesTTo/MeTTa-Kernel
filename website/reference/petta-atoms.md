@@ -1,6 +1,6 @@
 # `petta.atoms`
 
-Source: `python/petta/atoms.py`.
+Source: `bindings/python/petta/atoms.py`.
 
 > Purpose: public atom construction, parsing, traversal, equivalence, and matching.
 > Guarantees:

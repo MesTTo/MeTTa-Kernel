@@ -3,7 +3,7 @@ tier, so a tested claim can be checked against the gate rather than against
 the tree alone.
 
 check_evidence_tags.py used to ask only whether a cited name existed. A name
-can exist in a file nothing runs, which is how src/translator.pl came to cite
+can exist in a file nothing runs, which is how engine/translator.pl came to cite
 a tests/performance/reduce_dispatch.pl for its operator-table guarantee: the
 file was real, and no runner ever opened it. This lane is what found it, and
 the citation names a plunit unit now.
@@ -11,7 +11,7 @@ the citation names a plunit unit now.
 Two ways of learning what a runner executes, because neither covers the other:
 
   literally    a path written into a runner is executed by it. check.sh names
-               tests/prolog/static_checks.pl and python/tools/reference.py this
+               tests/prolog/static_checks.pl and bindings/python/tools/reference.py this
                way, and reading the paths out needs no model of anything.
   by glob      pytest, the plunit loop and test.sh each select a whole tree.
                Nothing in the text names the files, so each of the three is
@@ -28,7 +28,7 @@ Assumes:
   - `:- initialization(main, main)` exits 1 when main fails, so a Prolog script
     named by a runner reports its failure [measured 2026-08-18: swipl 10 exits
     1 on `main :- fail.` and 0 on `main :- true.`]
-  - python/pyproject.toml leaves pytest's discovery at its documented defaults,
+  - bindings/python/pyproject.toml leaves pytest's discovery at its documented defaults,
     which PYTEST_DISCOVERY_KEYS re-checks on every run
     [source: https://docs.pytest.org/en/stable/explanation/goodpractices.html]
 Guarantees:
@@ -96,7 +96,7 @@ SHELL_VARIABLES = (
 )
 
 # pytest's discovery is documented rather than configured here, so the model
-# below is only right while python/pyproject.toml stays silent about it.
+# below is only right while bindings/python/pyproject.toml stays silent about it.
 PYTEST_DISCOVERY_KEYS = ("python_files", "python_classes", "python_functions", "testpaths")
 
 # A Prolog file a runner names pulls in whatever it loads, and those clauses
@@ -159,7 +159,7 @@ COLLECTORS = (
         tier="GATE",
         lane="pytest",
         anchor="pytest tests -q -p no:benchmark",
-        root="python/tests",
+        root="bindings/python/tests",
         patterns=("test_*.py", "*_test.py"),
         recursive=True,
     ),
@@ -306,10 +306,10 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
                 record(loaded, execution.tier, execution.runner)
                 pending.append(loaded)
 
-    configuration = ROOT / "python/pyproject.toml"
+    configuration = ROOT / "bindings/python/pyproject.toml"
     if not configuration.is_file():
         problems.append(
-            "python/pyproject.toml is absent, so whether pytest still discovers by its "
+            "bindings/python/pyproject.toml is absent, so whether pytest still discovers by its "
             "documented defaults cannot be read"
         )
         return runs, problems
@@ -317,7 +317,7 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
     for key in PYTEST_DISCOVERY_KEYS:
         if re.search(rf"^{key}\s*=", section.partition("\n[")[0], re.M):
             problems.append(
-                f"python/pyproject.toml sets pytest's {key}, so the collectors above "
+                f"bindings/python/pyproject.toml sets pytest's {key}, so the collectors above "
                 f"model a discovery this project no longer uses"
             )
     return runs, problems

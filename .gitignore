@@ -5,10 +5,10 @@ dist/
 *.egg-info/
 __pycache__/
 # Python build artifacts
-python/HE/__pycache__
-python/petta/__pycache__
+bindings/python/HE/__pycache__
+bindings/python/petta/__pycache__
 python/__pycache__
-python/tests/__pycache__
+bindings/python/tests/__pycache__
 repos/
 
 # Compiled C extension example, built by check.sh when a compiler is present
@@ -19,7 +19,7 @@ examples/integration/c_extension/*.so
 # Python module for every later run in the checkout, so it is ignored and
 # check.sh's own build is out of tree.
 python/*.so
-python/petta/*.so
+bindings/python/petta/*.so
 
 # Agent scratch: books, cloned prior art, gate logs, tree copies. Never
 # released, and skipped by .codespellrc for the same reason.

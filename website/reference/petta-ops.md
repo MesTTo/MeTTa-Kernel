@@ -1,6 +1,6 @@
 # `petta.ops`
 
-Source: `python/petta/ops.py`.
+Source: `bindings/python/petta/ops.py`.
 
 > Purpose: registration of Python callables as MeTTa functions. Reads the
 > signature for arities (defaults yield several), auto-detects nondeterminism

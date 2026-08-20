@@ -11,13 +11,13 @@ own term conversion between the engine and Python, in one process. The
 **remote JSON wire** carries the same arrays as JSON bytes over HTTP, which
 is what `petta.remote.serve()` and `petta.remote.connect()` put on a socket
 and what the TypeScript reference server in
-`python/examples/integration/typescript_space/` answers. They are one
+`bindings/python/examples/integration/typescript_space/` answers. They are one
 grammar with two concrete encodings and two profiles, and the difference
 between the profiles is exactly what each transport can carry.
 
 The engine's reader and writer are one authority and they are not part of
 this format. `sread/2`, `sread_with_names/3` and `swrite/2` in
-`src/parser.pl` relate MeTTa source text to engine terms; a binding reaches
+`engine/parser.pl` relate MeTTa source text to engine terms; a binding reaches
 text through them rather than growing a second reader. What this page
 specifies is the step after that, between an engine term and something
 another language can hold.
@@ -25,10 +25,10 @@ another language can hold.
 ## How this page is kept
 
 The prose here is written by hand. Every table of tags, profiles and cases
-is generated from `tests/codec/corpus.json` by `python/tools/codecdoc.py`,
+is generated from `tests/codec/corpus.json` by `bindings/python/tools/codecdoc.py`,
 and the gate fails if the checked-in tables and the corpus disagree, so the
 document and the kit cannot drift apart. Regenerate with
-`python python/tools/codecdoc.py --write`.
+`python bindings/python/tools/codecdoc.py --write`.
 
 Generating the whole page from R19's MeTTaIL presentations was tried first,
 because one authority for spec and kit is the right instinct and the
@@ -431,7 +431,7 @@ storing an atom that never comes back.
 
 Running the corpus against the TypeScript reference server, which shares no
 code with this package, turned up three divergences on first contact and all
-three are pinned in `python/tests/test_codec_typescript.py`. Two share one
+three are pinned in `bindings/python/tests/test_codec_typescript.py`. Two share one
 cause: `isWireAtom` validates the `g` tag with `case "g": return true`, so
 `["g", 1]` and `["g", {"a": 1}]` are both stored there and both refused by
 the petta-side codecs. The third is the number model: `JSON.stringify(1.0)`
@@ -439,7 +439,7 @@ writes `1`, so `["n", 1.0]` comes back as `["n", 1]`, and `1.0` and `1` are
 different atoms. The first two are a check that server does not make; the
 third is a limit any implementation over a single-Number-type JSON parser
 has to answer for. That server is a reference implementation under
-`python/examples/` rather than one of the two shipped codecs, so the
+`bindings/python/examples/` rather than one of the two shipped codecs, so the
 divergences are recorded rather than patched here.
 
 The two shipped printers disagree about float exponent form and about NaN,
@@ -452,6 +452,6 @@ wrong and a binding should expect its own.
 
 `website/live/remote-protocol.md` is the HTTP protocol the JSON wire rides
 on, the five operations and their refusal ladder.
-`python/examples/integration/typescript_space/README.md` is the reference
+`bindings/python/examples/integration/typescript_space/README.md` is the reference
 server. `EXTENDING.md` section 5 is the in-process space seam, which carries
 atoms without a wire at all.

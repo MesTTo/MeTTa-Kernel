@@ -5,7 +5,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 :- begin_tests(metta_assertions).
 
@@ -379,7 +379,7 @@ test(eval_keeps_a_runtime_literal_self_as_written) :-
 % bridge answered", and the class walk ran instead. One broken protocol
 % predicate therefore destroyed typing for every host object in the process,
 % and get-type answered Box, the envelope's own class, for all of them, with
-% no error at any point. python/petta/_ops.py states the rule for the same
+% no error at any point. bindings/python/petta/_ops.py states the rule for the same
 % probe on its own side: a broken probe is the registrant's bug.
 % The clause is static and flag-guarded, because metta_grounded_type_names/2 is
 % multifile without being dynamic: a bridge contributes its clause at load
@@ -1323,7 +1323,7 @@ test(get_metatype_answers_the_same_bound_or_unbound,
 
 :- begin_tests(metta_module_context).
 
-% current_metta_module/1 is one of the seven services src/ext_points.pl
+% current_metta_module/1 is one of the seven services engine/ext_points.pl
 % publishes for extensions to CALL, and it was the only one of the seven with
 % no test of its own: EXTENDING.md has told handler authors to read it for
 % longer than anything declared it, and lib_memo and lib_thread do. A published

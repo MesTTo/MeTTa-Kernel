@@ -4,7 +4,7 @@
 %   Loading this file is the whole mechanism. It puts vendor/ on the library
 %   path and imports mavis, whose expansion is a GLOBAL user:term_expansion, so
 %   every file consulted AFTER it that carries a mode line gets `the/2` goals at
-%   the head of its clause bodies. src/*.pl gains no directive, no import and no
+%   the head of its clause bodies. engine/*.pl gains no directive, no import and no
 %   dependency: a production run never loads this file and never sees mavis, and
 %   a mode line there is a comment like any other.
 %
@@ -58,7 +58,7 @@
 %     optimise flag mavis reads
 %     [tested: test_the_dev_build_checks_a_planted_type_violation_and_optimise_strips_it].
 % Decides:
-%   - the fixture lives here rather than in src/, because a planted defect in
+%   - the fixture lives here rather than in engine/, because a planted defect in
 %     the engine's own source is a defect in the engine's own source.
 %   - an argument that is a term under construction is left UNTYPED rather than
 %     given a type that would both never be tested and change what the engine
@@ -243,7 +243,7 @@ dev_typed_suites :-
 dev_typed_engine :-
     (   current_predicate(user:swrite/2)
     ->  true
-    ;   consult('../../src/metta.pl')
+    ;   consult('../../engine/metta.pl')
     ).
 
 % The funnels annotated so far. Named here rather than discovered, because

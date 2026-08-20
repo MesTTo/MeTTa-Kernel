@@ -17,7 +17,7 @@ lives. The `python-library` branch develops the `petta` Python package on
 top of the engine: the engine's behaviour is the upstream contract, held by
 a gate that runs every shipped example through both the engine and the
 library and requires identical verdicts, and the Python surface is this
-branch's own. `mork_ffi/` vendors
+branch's own. `backends/mork/mork_ffi/` vendors
 [patham9/mork_ffi](https://github.com/patham9/mork_ffi) over
 [trueagi-io/mork](https://github.com/trueagi-io/mork) for the optional
 MORK backend.
@@ -130,7 +130,7 @@ Every `MeTTa()` handle names the same `&self` space. Use
 
 `run` returns one list of answers per `!` directive, computed by the engine's
 own reader, compiler and evaluator, so pasted CLI programs behave
-identically; a differential suite in `python/tests` holds the library to the
+identically; a differential suite in `bindings/python/tests` holds the library to the
 CLI's output program by program. Grounded answers compare as their Python
 values, symbols stay symbols, and a Python object stored in a space comes
 back as the very same object.
@@ -209,13 +209,13 @@ integration from inside MeTTa, no fork needed.
 MeTTa is built to be a lingua franca, and the examples folder carries two
 whole paradigms translated into it on the core surface alone, deliberately
 as examples rather than package modules, since the point is what the core
-already carries. `python/examples/integration/web_routes.py` builds FastAPI's
+already carries. `bindings/python/examples/integration/web_routes.py` builds FastAPI's
 routing semantics in some eighty lines: an app is a space, the route table
 is facts, a request is a term, dispatch is unification in registration
 order, path parameters are typed variables, the 404 is the absence of a
 match and the 422 a parameter refusing its type, and a MeTTa program
 extends the running table by adding a `(route ...)` fact whose handler is
-an equation. `python/examples/integration/multishot_solving.py` builds clingo's
+an equation. `bindings/python/examples/integration/multishot_solving.py` builds clingo's
 multi-shot solving (Gebser et al., arXiv 1705.09811) in two short classes:
 a part is a parameterized program template grounded once per
 instantiation, an external is a truth toggled between solves, and the
@@ -224,7 +224,7 @@ persists. Both examples verify themselves in the test suite.
 
 ### Examples
 
-`python/examples/` holds thirteen runnable, self-verifying integrations,
+`bindings/python/examples/` holds thirteen runnable, self-verifying integrations,
 grouped by basics, operations, data, integration, reasoning, and live systems.
 They run from first steps through SQL spaces, array interoperability, evolution
 in a space, PLN, standing queries as actors, custom matchers,
@@ -329,7 +329,7 @@ enumeration included; and a `SpaceProvider` implements a space in Python, so
 `(match &db (users $id $name) ...)` runs against a database with bound
 positions pushed down as a WHERE clause while the engine keeps unification,
 and therefore soundness, for itself. The worked SQL instance lives whole
-in `python/examples/integration/duckdb_space.py`, deliberately as an example: a
+in `bindings/python/examples/integration/duckdb_space.py`, deliberately as an example: a
 DuckDB provider is a page of code on this interface. A package advertises itself through the
 `petta.integrations` entry-point group, and `m.integrate(module)` installs
 anything defining `install_petta(m)`. Declare an integration in package
@@ -386,7 +386,7 @@ operation: answer each candidate with the degree as the answer's
 annotation, declare the semiring, and `(top k ...)` orders while
 `(annotation)` reads the degree beside its answer. Fuzzy, regex and
 semantic closeness are each a few lines on that surface;
-`python/examples/reasoning/custom_matchers.py` builds all three.
+`bindings/python/examples/reasoning/custom_matchers.py` builds all three.
 `lib/lib_measure.metta` stays pure MeTTa over explicit `(weight value)`
 pairs, annotated-disjunction shaped: `ws-normalize`, `ws-softmax` with a
 temperature, `ws-best`, `ws-top`, `ws-sample!`, `ws-collapse`,
@@ -395,13 +395,13 @@ unification, structure crisp, symbols close to declared degrees
 (`pettaprove.link_store` materializes them from embeddings), variables
 binding as ever. `(pair (annotation) $answer)` bridges an annotated
 operation's answers into that pair world when you want them there.
-`python/bench.py` runs the pytest-benchmark suite. `--list` prints its named
+`bindings/python/bench.py` runs the pytest-benchmark suite. `--list` prints its named
 cases and `--counter-only` runs the deterministic regression gate without
 using wall time. The gate uses `--keep-going`, so every case reports before a
 failure exits. Engine cases compare the minimum of three `stats().inferences`
-samples with `python/benchmarks/baseline.json`; join and let cases also compare
+samples with `bindings/python/benchmarks/baseline.json`; join and let cases also compare
 inference growth between two fixed workload sizes.
-`python/benchmarks/check_instructions.py` measures the Python codecs and the
+`bindings/python/benchmarks/check_instructions.py` measures the Python codecs and the
 primitive-heavy let, digest, alpha-unique, sort, source-load, Python-method,
 and space-name paths with `perf stat -e instructions:u`. Setup is outside the
 counted interval. Wall results remain advisory and can be written with `--json`.

@@ -11,7 +11,7 @@ by how hot the code is, and by which language the work is already in.
 
 ## What each one costs
 
-Measured by `python/benchmarks/extension_cost.py`, which `check.sh` re-runs as
+Measured by `bindings/python/benchmarks/extension_cost.py`, which `check.sh` re-runs as
 a GATE against a committed baseline, so these numbers cannot drift at all.
 Every tier is measured in one process against one driver shape, and the driver's own cost is measured
 separately and subtracted, so a row is the marginal cost of **one call** rather
@@ -516,14 +516,14 @@ predicate has more than one solution, that is `PL_retry`/`PL_foreign_control`
 with the `PL_FA_NONDETERMINISTIC` flag; a deterministic foreign predicate that
 should have been nondeterministic loses answers with no sign that it did.
 
-`mork_ffi/mork.c` is the worked example in this repo, and it shows the other
+`backends/mork/mork_ffi/mork.c` is the worked example in this repo, and it shows the other
 load route: `LD_PRELOAD` in `run.sh`, which is right when the library must be
 present before the engine boots.
 
 ### Hand back a handle, not a serialisation
 
 The expensive mistake at this boundary is converting your structure to text.
-`mork_ffi/mork.c` does exactly that, and it is worth knowing what it costs:
+`backends/mork/mork_ffi/mork.c` does exactly that, and it is worth knowing what it costs:
 reading MORK's answer for a single `(fact a 1)` costs **4.49us and 149
 inferences to parse**, against **0.37us and 2 inferences for the FFI call that
 produced it** [measured 2026-08-16]. The crossing is cheap. The text is not.
@@ -565,7 +565,7 @@ same native object answers, so identity and mutation survive the round
 trip, and a Python function can unpack the structure through whatever
 accessors the extension registered. It used to arrive as its printed
 STRING, silently, which made the round trip impossible [measured
-2026-08-17; pinned in `python/tests/test_c_handle_crossing.py`].
+2026-08-17; pinned in `bindings/python/tests/test_c_handle_crossing.py`].
 `release()` retracts the engine-side registry entry that keeps the blob
 alive; a released handle raises by id instead of answering wrongly.
 
@@ -1068,11 +1068,11 @@ requirement.
 There are two ways in, and they differ in cost the same way tiers 2 and 3 do.
 
 **From Python**, implement the `SpaceProvider` protocol in
-`python/petta/foreign.py` and `register_space`. Every match crosses the janus
+`bindings/python/petta/foreign.py` and `register_space`. Every match crosses the janus
 boundary, which is right when the atoms live somewhere Python already talks to.
 `das.py`, `remote.py` and `persistent.py` are three real instances.
 
-**From Prolog**, add clauses to the multifile seam in `src/spaces.pl`:
+**From Prolog**, add clauses to the multifile seam in `engine/spaces.pl`:
 
 ```prolog
 :- multifile metta_foreign_space/1.     % this space is mine
@@ -1105,13 +1105,13 @@ Prolog-hosted value participates by adding clauses to these seams.
 ```
 
 `metta_foreign_clear/1` is the sixth and is easy to miss: it lived in
-`python/petta/shim.pl` rather than beside the other five, so a Prolog provider
+`bindings/python/petta/shim.pl` rather than beside the other five, so a Prolog provider
 that implemented `clear`, as `lib/lib_redis.pl` does, was reachable only when
 Python happened to be in the process. It is declared with them now.
 
 The engine consults `metta_foreign_space/1` before reaching its own storage, so
 your clauses take the space over entirely, with no boundary crossing. This is
-how MORK plugs a Rust trie in underneath MeTTa: `mork_ffi/morkspaces.pl` is a
+how MORK plugs a Rust trie in underneath MeTTa: `backends/mork/mork_ffi/morkspaces.pl` is a
 complete worked example, and `examples/integration/c_space/` is the
 smallest one, a mutex-guarded C store behind four clauses, proven by
 the conformance kit inside its own example and driven concurrently by
@@ -1119,11 +1119,11 @@ the conformance kit inside its own example and driven concurrently by
 
 Worked instances now exist per language and per backend class, so start
 from the one nearest yours: C (`examples/integration/c_space/`), SQL
-derived from one declaration (`python/petta/tables.py` with
-`python/examples/integration/sqlite_space.py`; DuckDB with pushdown in
+derived from one declaration (`bindings/python/petta/tables.py` with
+`bindings/python/examples/integration/sqlite_space.py`; DuckDB with pushdown in
 `duckdb_space.py` beside it), another MeTTa runtime as a subprocess
 (`cetta_space.py`), TypeScript over the wire
-(`python/examples/integration/typescript_space/`, which also documents
+(`bindings/python/examples/integration/typescript_space/`, which also documents
 the remote protocol itself; `petta.testing.GatewayComplianceSuite`
 certifies any implementation of that protocol by URL), and Redis
 (`lib/lib_redis.pl`).
@@ -1152,7 +1152,7 @@ Write it and `m.add(a, b, c)`, `add-atom` over a list, and any other bulk write
 reach you once with the list. Leave it out and you get one
 `metta_foreign_add/2` per atom, which is what every provider written before
 this gets. The write hooks are yours either way, exactly as they are for your
-per-atom add. `mork_ffi/morkspaces.pl` implements it by joining the atoms into
+per-atom add. `backends/mork/mork_ffi/morkspaces.pl` implements it by joining the atoms into
 one payload that MORK parses itself.
 
 **A batch is a transport optimisation and never a semantic one.** Whatever the
@@ -1315,14 +1315,14 @@ in `backends/mine.pl`, so the names exist exactly when the predicates do.
 Registering a name whose predicate is absent records no arity, and every call
 to it then compiles to a partial application rather than running or failing.
 
-MORK is one of these and used to be none of it. `'../mork_ffi/morkspaces'` was
-written into `src/metta.pl`'s load list, in a second copy of that list behind
+MORK is one of these and used to be none of it. `'../backends/mork/mork_ffi/morkspaces'` was
+written into `engine/metta.pl`'s load list, in a second copy of that list behind
 an argv test, and its three builtin names into a second argv test further down,
-and `mork_test/0` was called by name from `src/main.pl`. So a second native
+and `mork_test/0` was called by name from `engine/main.pl`. So a second native
 backend could not be added without editing the engine, which is the one thing
 this page promises you never have to do, and MORK reached the engine through a
 door no other provider had. It goes through the seam now like everyone else,
-and `backends/mork.pl` is 12 lines.
+and `backends/mork/decider.pl` is 12 lines.
 
 ### What you may call back
 
@@ -1367,7 +1367,7 @@ metta_foreign_add('&mine', Atom) :-
 MeTTa's own builtins are published too and are not repeated in that list. Call
 `'add-atom'/3` or `match/4` the way any program calls them.
 
-Anything else under `src/` is an internal, and calling one is a gate failure
+Anything else under `engine/` is an internal, and calling one is a gate failure
 rather than a style note:
 
 ```
@@ -1376,12 +1376,12 @@ an engine internal rather than published surface
 ```
 
 This exists because MORK reached past the seam for years and nothing said so.
-It called `swrite/2` and `metta_unwritable_symbol/2` out of `src/parser.pl`,
-wrapping the second under a private name of its own, and `python/petta/shim.pl`
+It called `swrite/2` and `metta_unwritable_symbol/2` out of `engine/parser.pl`,
+wrapping the second under a private name of its own, and `bindings/python/petta/shim.pl`
 had independently wrapped the same predicate under a different private name.
 Two extensions inventing two names for one undeclared dependency is what the
 problem looks like from the outside. They are declared now, in
-`src/ext_points.pl` beside the hooks, and `tests/prolog/static_checks.pl` reads
+`engine/ext_points.pl` beside the hooks, and `tests/prolog/static_checks.pl` reads
 that declaration rather than a list of its own, so a backend that reaches for an
 eighth thing fails the gate with the line above. The walk is SWI's
 `prolog_walk_code/1`, which means a call hidden in a `maplist/3` argument or in
@@ -1574,14 +1574,14 @@ pattern you called exact yields anything that does not match. It is the one
 claim in the seam that unification cannot cover for you: everything else you
 say is protected by the engine re-unifying, and this is the one that licenses
 you to stop early. The worked instance is
-`python/examples/integration/duckdb_space.py`, whose `pushdown` reads exactly
+`bindings/python/examples/integration/duckdb_space.py`, whose `pushdown` reads exactly
 the positions its `WHERE` clause covers and whose claim the kit confirms:
 `pushdown: 3 of 3 patterns claimed exact, and are`.
 
 ## 6. Atom hooks: reacting to writes
 
 `metta_on_atom_added/2` and `metta_on_atom_removed/2` are multifile predicates
-in `src/ext_points.pl`. Assert a clause and every write to a space calls it.
+in `engine/ext_points.pl`. Assert a clause and every write to a space calls it.
 This is how Python subscriptions deliver, and how `lib_thread`'s `await-atom`
 blocks on a space without polling.
 
@@ -1628,7 +1628,7 @@ global condition once, `duals.pl`'s invalidation handler was ordered after it
 and never ran, and `(not-provable (pq 2))` answered True and False at once.
 
 The rule differs by seam, so each one carries its kind as a fact beside its
-declaration in `src/ext_points.pl`:
+declaration in `engine/ext_points.pl`:
 
 ```prolog
 ?- ext_point_kind(metta_on_atom_added/2, Kind).
@@ -1778,7 +1778,7 @@ function name nor a partial application, so an ordinary MeTTa call never
 reaches it.
 
 Nothing in the engine knows what makes a value applicable, which is the point.
-`hosts/python/bridge.pl` claims Python callables, which is what makes
+`bindings/python/bridge.pl` claims Python callables, which is what makes
 `((py-atom numpy.absolute) -5)` work; a bridge for something else claims its
 own.
 
@@ -1821,7 +1821,7 @@ can reject on length alone, which is how matching `($x $y)` against a
 million-element host container costs one question rather than a million.
 
 A value with no structural reading simply has no clause here, and that is a real
-answer rather than a gap: `hosts/python/bridge.pl` gives one to Python sequences and
+answer rather than a gap: `bindings/python/bridge.pl` gives one to Python sequences and
 withholds it from a `dict`, a `set` and a `str`, following PEP 634's rule for
 which objects a sequence pattern may take apart.
 
@@ -1889,12 +1889,12 @@ metta_grounded_text(Obj, Text) :- my_object(Obj), my_render(Obj, Text).
 The writer has no other way to know. With no provider it falls back to the
 term's own text, so this is never required and can never fail a print, but that
 fallback names an address where the value could have named itself:
-`hosts/python/bridge.pl` answers with `repr`, which is why `(py-atom "[1, 2, 3]")`
+`bindings/python/bridge.pl` answers with `repr`, which is why `(py-atom "[1, 2, 3]")`
 displays `[1, 2, 3]` and a numpy array displays `array([1, 2, 3])`.
 
 ### The seams this page did not list
 
-`src/ext_points.pl` declares more than the atom hooks, and two of the rest are
+`engine/ext_points.pl` declares more than the atom hooks, and two of the rest are
 exactly what a performance library wants.
 
 **`metta_dispatch_call/4`** is consulted at every compiled call site,
@@ -1928,7 +1928,7 @@ knows how to read its own objects and answers every name at once.
 
 **The `host_service` surface** is the other half of the host contract: the
 engine predicates a host BINDING's transport may call back, measured from the
-shipped shim and declared in `src/ext_points.pl` so the static walk can keep
+shipped shim and declared in `engine/ext_points.pl` so the static walk can keep
 the list honest. Today's list: `catch_recover/2`, `match_foreign/5`,
 `metta_add_atoms/2`, `metta_host_adopt_function/4`,
 `metta_host_clear_defined/1`, `metta_host_clear_space/1`,
@@ -2018,7 +2018,7 @@ re-checks them, exactly as Hyperon's CustomMatch behaves. That is the
 point. An embedding matcher's "close enough" has no structural check
 even in principle, and a space is exactly such a value whose matcher is
 query. The bindings it yields are arbitrary by design, okBind
-semantics; `python/examples/integration/cetta_space.py`'s `CettaMatch`
+semantics; `bindings/python/examples/integration/cetta_space.py`'s `CettaMatch`
 is a worked instance whose bindings come from a different MeTTa
 runtime entirely.
 
@@ -2131,7 +2131,7 @@ The contract language is MeTTa on purpose, and it reaches the boundary
 itself: a backend's whole conversion can be ONE declaration relating
 the atom shape to the backend's shape, `(bridge (edge $a $b)
 (row edges (a $a) (b $b)))`, used in both directions the way any MeTTa
-pattern is. `python/petta/tables.py` derives a complete SQL provider
+pattern is. `bindings/python/petta/tables.py` derives a complete SQL provider
 from such atoms, WHERE from bound positions, the equalities repeated
 variables demand, INSERT from grounding, honest pushdown claims, and
 the conformance kit checks the derived claims the way the lens laws
@@ -2170,7 +2170,7 @@ the wrong name; the guide's Concepts page holds the full table.
 | change what counts as a match | a matcher, by convention |
 | reach the engine from a language it has never been used from | the wire codec, [CODEC.md](CODEC.md) |
 
-Three of those are **declared seams** in `src/ext_points.pl`, and a change to
+Three of those are **declared seams** in `engine/ext_points.pl`, and a change to
 one is a breaking change: the foreign-space hooks, the atom hooks, and the
 memo and function-change hooks. The rest are mechanisms. Custom matchers in
 particular are a **convention** rather than a hook, deliberately: they compose

@@ -1,4 +1,4 @@
-;The HE vocabulary is part of the core engine now (src/prelude.metta),
+;The HE vocabulary is part of the core engine now (engine/prelude.metta),
 ;so no import is needed; this one stays to show it remains a no-op.
 !(import! &self (library lib_he))
 

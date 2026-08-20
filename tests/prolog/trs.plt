@@ -1,4 +1,4 @@
-% Purpose: direct coverage for src/trs.pl, the adapted term-rewriting library.
+% Purpose: direct coverage for engine/trs.pl, the adapted term-rewriting library.
 %   Two things need pinning that no consumer of it can pin: that the PORT still
 %   behaves as the public-domain original it names, which is what makes the
 %   provenance in its header a claim rather than a courtesy, and that the
@@ -6,7 +6,7 @@
 %   them.
 % Assumes:
 %   - the working directory is tests/prolog, which is where check.sh runs every
-%     Prolog lane from. src/trs.pl needs no engine, so this suite loads it
+%     Prolog lane from. engine/trs.pl needs no engine, so this suite loads it
 %     directly and boots nothing.
 % Guarantees:
 %   - the documented 10-rule completion of the three group axioms is the one
@@ -19,7 +19,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- use_module('../../src/trs.pl').
+:- use_module('../../engine/trs.pl').
 
 :- begin_tests(trs_port).
 

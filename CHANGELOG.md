@@ -84,6 +84,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- The tree partitions by seam, staging the kernel-and-satellites form.
+  The engine lives in `engine/` alone; each driver seat lives under
+  `bindings/` with everything it needs (`bindings/python/` carries the
+  package, its decider and bridge, tests, benchmarks, tools, examples
+  and the `lowerings/` seam home; `bindings/node/` is the TypeScript
+  seat); each storage integration lives under `backends/` with its own
+  decider and build (`backends/mork/` carries `mork_ffi`). The engine
+  discovers seats and backends through two globs,
+  `bindings/*/decider.pl` and `backends/*/decider.pl`, and names
+  neither; `test_the_tree_partitions_by_seam` is the fence. The legacy
+  `python.petta` import path still resolves to the canonical package
+  through the unchanged `python/__init__.py` shim, installed wheels keep
+  the same layout under `petta/_runtime/`, and `PETTA_PATH` still names
+  a checkout root.
 - A finite float prints the arbiter's layout over the same
   shortest-round-trip digits: `1e16`, `0.00001` and `1.5e300` where SWI's
   `number_codes/2` wrote `1.0e+16`, `1.0e-05` and `1.5e+300`. The rule is
@@ -511,7 +525,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
   Six positions are NOT covered and the engine says which:
   `unguarded_input_position/2` names `get-atoms`, `match` and `add-reduct` in
-  `src/spaces.pl`, `sread` in `src/parser.pl`, and `git-import!` and `sleep`
+  `engine/spaces.pl`, `sread` in `engine/parser.pl`, and `git-import!` and `sleep`
   in libraries, each in a file this change does not own. A test asserts they
   are still uncovered, so the day one is fixed the row comes out instead of
   the gap going quiet.
@@ -717,17 +731,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   half against.
 
 - The example corpus now runs through BOTH configurations, the engine alone
-  and the shipped Python library, and `python/tools/example_parity.py`
+  and the shipped Python library, and `bindings/python/tools/example_parity.py`
   requires them to agree. Until this lane existed the corpus only ever ran
-  through the engine: the `examples` gate invokes `swipl` on `src/main.pl`,
+  through the engine: the `examples` gate invokes `swipl` on `engine/main.pl`,
   `test.sh` and `test_metta_examples.py` shell to `run.sh`, and the plunit
-  suites load `src/metta.pl` without `python/petta/shim.pl`. So the
+  suites load `engine/metta.pl` without `bindings/python/petta/shim.pl`. So the
   configuration users ship was gated by unit tests alone, and defects lived
   there under green lanes.
 
   It found seven within the hour, all one root: `run()` and `load()` did not
   register a source's function signatures before processing its forms the way
-  `src/filereader.pl` does, so a `!` naming a function defined LOWER DOWN in
+  `engine/filereader.pl` does, so a `!` naming a function defined LOWER DOWN in
   the same file failed in the library and succeeded in the engine. Six
   `test_memo_*` examples and `newtons_method.metta` are written that way.
   They pass now, both paths sharing `prepare_parsed_forms/1`, and the lane is
@@ -991,7 +1005,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   from `user`, so an incomplete export list would still be green under
   autoload and that is exactly the "modular errors slip in silently"
   failure the migration exists to prevent. Turning it off found eight real
-  gaps, none in `user` code alone: `src/metta.pl`'s own
+  gaps, none in `user` code alone: `engine/metta.pl`'s own
   `directory_file_path/3` directive ran before its existing
   `library(filesex)` import, two full imports (`distinct/2` for
   `'defined-name'/1`, `library(gensym)` for every compiled `'|->'`,
@@ -1026,7 +1040,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
   `run.sh NO_AUTOLOAD=1` boots with the flag already set (a `-g` goal on
   the command line cannot: it runs only after every `-s`/`-l` file has
-  already finished loading, in either order, and `src/metta.pl` needs the
+  already finished loading, in either order, and `engine/metta.pl` needs the
   flag set before its own first directive), so `NO_AUTOLOAD=1 sh test.sh`
   runs the property over the full corpus [measured 2026-08-18: 200/200
   examples/, both configurations otherwise identical]. `check.sh` does not
@@ -1163,7 +1177,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `petta.structures`, `petta.tables`, the manifest, the CLI and the
   concurrency surface. It now carries an index of every source of
   information in the repository beside the packed API, and
-  `python/tools/llmsdoc.py` checks every name, path, count, special form,
+  `bindings/python/tools/llmsdoc.py` checks every name, path, count, special form,
   stream rewrite, builtin and library in it against the running engine
   and the real tree. Each of the five drift classes above was reproduced
   against the lane before it was wired in, so the check is known to fail
@@ -1296,7 +1310,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   deliberately no `__deepcopy__`, since stored Python objects keep
   their identity across the clone.
 - Added the MeTTa half of the documentation pipeline:
-  `python/tools/libdoc.py` generates
+  `bindings/python/tools/libdoc.py` generates
   `website/reference/metta-libraries.md` from each `lib_*.metta`
   library's own `(@doc ...)` atoms, read through the engine's reader and
   never run, so a library whose backend is absent still documents. The
@@ -1375,7 +1389,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   every underlying registration call stays public for custom shapes.
 - Added the engine prelude: the Hyperon-Experimental vocabulary that lived
   in `lib_he` is part of the core engine now, compiled from
-  `src/prelude.metta` at startup by the same translator that compiles a
+  `engine/prelude.metta` at startup by the same translator that compiles a
   program's own equations. Every form is reachable with no `import!`,
   shadowable per named space exactly as builtins are, and stored as an
   atom in no space, so a program enumerating `&self` sees only its own
@@ -1724,10 +1738,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   conformance kit: a mutex-guarded C store behind the Prolog seam
   (`examples/integration/c_space/`), SQLite through the derived bridge and
   CeTTa, a sibling MeTTa runtime, as both a storage backend and a
-  bindings-level custom matcher (`python/examples/integration/`), and two
+  bindings-level custom matcher (`bindings/python/examples/integration/`), and two
   production TypeScript servers speaking the remote-space protocol, one
   self-contained and one whose atoms live in a MeTTaScript space
-  (`python/examples/integration/typescript_space/`, with the protocol
+  (`bindings/python/examples/integration/typescript_space/`, with the protocol
   itself documented in the website's live section).
 
 ### Fixed

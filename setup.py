@@ -38,7 +38,7 @@ HERE = Path(__file__).resolve().parent
 # public surface over it. Every atom crossing the boundary passes through
 # both. Measured 2026-08-19, minimum of three instructions:u runs of the
 # wire-codec lane, 3457054691 interpreted against 2984812403 compiled, 1.16x.
-MYPYC_MODULES = ("python/petta/_atom_wire.py", "python/petta/atoms.py")
+MYPYC_MODULES = ("bindings/python/petta/_atom_wire.py", "bindings/python/petta/atoms.py")
 
 # _atoms_core.py is NOT in that list, and the reason is behaviour rather than
 # taste. An exclusion list with its reasons is mypy's own shape for this
@@ -77,9 +77,10 @@ MYPYC_MODULES = ("python/petta/_atom_wire.py", "python/petta/atoms.py")
 # getset descriptor and breaks `case [head, *args]`, while annotating it
 # ClassVar or Final keeps the tuple.
 
-# --explicit-package-bases with MYPYPATH=python, because python/__init__.py
-# exists (upstream's conftest imports python.petta and deleting it is not an
-# option), so without them mypy names the module python.petta._atoms_core and
+# --explicit-package-bases with MYPYPATH=bindings/python, the seat that
+# holds petta; the legacy python/__init__.py shim (upstream's conftest
+# imports python.petta and deleting it is not an option) stays OFF this
+# path so mypy never names the module python.petta._atoms_core and
 # the extension never shadows the real one.
 # --no-warn-unused-configs, because the shared [tool.mypy] overrides here
 # describe the whole package and mypy exits nonzero over the ones a
@@ -107,11 +108,11 @@ def compiled_modules():
             "installed. Install it (pip install mypy) and build again, or "
             "unset PETTA_USE_MYPYC to build the pure-Python wheel."
         ) from None
-    os.environ["MYPYPATH"] = str(HERE / "python")
+    os.environ["MYPYPATH"] = str(HERE / "bindings" / "python")
     return mypycify([*MYPYC_FLAGS, *MYPYC_MODULES])
 
 # Runtime resources living outside the package that must ship inside the wheel,
-# mapped to their destination under petta/_runtime/ (preserving the src/ and
+# mapped to their destination under petta/_runtime/ (preserving the engine/ and
 # lib/ sibling layout that metta.pl relies on for library_path).
 #
 # backends/ ships even though every backend in it needs a compiled artefact no
@@ -130,13 +131,15 @@ def compiled_modules():
 # language-neutral JSON, so a binding in another language reads the same file
 # out of an installed tree.
 RUNTIME_RESOURCES = {
-    "src": "src",
+    "engine": "engine",
     "lib": "lib",
-    "backends": "backends",
-    "hosts": "hosts",
+    "backends/mork/decider.pl": "backends/mork/decider.pl",
     "tests/codec": "tests/codec",
-    "python/helper.pl": "python/helper.pl",
-    "python/petta/shim.pl": "python/petta/shim.pl",
+    "bindings/python/decider.pl": "bindings/python/decider.pl",
+    "bindings/python/bridge.pl": "bindings/python/bridge.pl",
+    "bindings/python/petta_py.py": "bindings/python/petta_py.py",
+    "bindings/python/helper.pl": "bindings/python/helper.pl",
+    "bindings/python/petta/shim.pl": "bindings/python/petta/shim.pl",
 }
 
 
@@ -148,7 +151,7 @@ class build_py_with_runtime(build_py):
         runtime_root = Path(self.build_lib) / "petta" / "_runtime"
         # Emptied first, because copytree(dirs_exist_ok=True) only ever adds.
         # A resource dropped from RUNTIME_RESOURCES kept shipping out of a
-        # stale build/ directory, and so did a source file deleted from src/,
+        # stale build/ directory, and so did a source file deleted from engine/,
         # which made tests/test_packaged_cli.sh green against a wheel the
         # current tree does not describe. Measured 2026-08-17: removing
         # backends/ from the map above and rebuilding produced a wheel that

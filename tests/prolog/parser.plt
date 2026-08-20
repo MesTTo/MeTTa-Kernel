@@ -1,4 +1,4 @@
-% Purpose: plunit tests for the reader and writer in src/parser.pl. Until
+% Purpose: plunit tests for the reader and writer in engine/parser.pl. Until
 %   these existed the Prolog side had no direct tests at all: every one of
 %   the 3187 lines was exercised only through janus from Python or through
 %   a whole MeTTa example, so a parser defect surfaced as a wrong example
@@ -21,7 +21,7 @@
 % prolog_interop_example, printing into the test output; metta.pl is
 % everything main.pl actually loads.
 :- use_module(library(clpfd)).
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 :- begin_tests(parser_roundtrip).
 
@@ -405,7 +405,7 @@ test(a_writable_term_reports_nothing) :-
 % prefer_rationals being false, but `(py-atom "float('inf')")` answers 1.0Inf,
 % so the class is reachable, and metta_unwritable_symbol/2 passed it: the text
 % seam's own service exists to "refuse rather than store an atom that will come
-% back different" [source: src/ext_points.pl] and it answered only for names.
+% back different" [source: engine/ext_points.pl] and it answered only for names.
 
 :- begin_tests(parser_number_text).
 
@@ -503,7 +503,7 @@ test(a_rational_goes_through_the_grammar) :-
 % scanned with number_codes/2, which RAISES rather than answering, so
 % `(holds 1e400)` neither parsed nor reported a parse error: the raise went
 % out through sread/2 and killed the whole run with `number_codes/2: Syntax
-% error: float_overflow` naming src/main.pl [measured 2026-08-19, found by
+% error: float_overflow` naming engine/main.pl [measured 2026-08-19, found by
 % the generated-spelling law in tests/prolog/property_lane.pl].
 %
 % Upstream saturates, its float token being a regex handed to Rust's f64

@@ -1,15 +1,15 @@
 % Purpose: run SWI's source checks after compiling representative MeTTa code,
-%     and enforce the two rules about src/ext_points.pl's seams that no SWI
+%     and enforce the two rules about engine/ext_points.pl's seams that no SWI
 %     check knows about: every seam declares its kind, and a seam whose kind
 %     says every clause runs carries no cut.
 % Assumes:
-%   - ext_point_kind/2 in src/ext_points.pl is the taxonomy. This file reads it
+%   - ext_point_kind/2 in engine/ext_points.pl is the taxonomy. This file reads it
 %     rather than restating it, which is the whole point: the restated list it
 %     replaced had metta_backend_selftest/0 missing and metta_dispatch_call/4
 %     wrongly present [source: their call sites, main.pl:36 and
 %     translator.pl:350].
-%   - space_module/2 (src/spaces.pl:231-232) and native_storage_module_cache/2
-%     (src/spaces.pl:54) are the engine's own, and correct, record of which
+%   - space_module/2 (engine/spaces.pl:231-232) and native_storage_module_cache/2
+%     (engine/spaces.pl:54) are the engine's own, and correct, record of which
 %     modules exist; candidate_engine_module/1 below discovers modules through
 %     them rather than by naming one, which is what keeps every check in this
 %     file from hardcoding `user` [source: ai-phase11-module-survey.md
@@ -19,8 +19,8 @@
 %     after a function with control flow has been compiled.
 %   - var_branches warnings are fatal for repository engine sources without
 %     attributing warnings from SWI's own libraries to the repository.
-%   - Every unqualified multifile seam declared anywhere under src, lib,
-%     python/petta or mork_ffi has exactly one ext_point_kind/2 fact, so a new
+%   - Every unqualified multifile seam declared anywhere under engine, lib,
+%     bindings/python/petta or backends/mork/mork_ffi has exactly one ext_point_kind/2 fact, so a new
 %     seam cannot go quietly unchecked [measured 2026-08-17: 28 seams].
 %   - Each kind is declared the way its direction requires: a handler seam
 %     multifile so an extension can add clauses, a service not, so a caller
@@ -91,7 +91,7 @@
 :- initialization(main, main).
 
 main :-
-    consult('../../src/metta.pl'),
+    consult('../../engine/metta.pl'),
     check_project_var_branches,
     every_seam_declares_one_kind,
     every_seam_kind_matches_its_direction,
@@ -113,7 +113,7 @@ main :-
 
 %%%% Every seam declares one kind %%%%
 %
-% src/ext_points.pl gives each multifile seam an ext_point_kind/2 fact on the
+% engine/ext_points.pl gives each multifile seam an ext_point_kind/2 fact on the
 % line after its declaration, and the two checks below read those rather than
 % keeping a list of their own. That only works if the annotation is TOTAL: a
 % seam added without a kind is silently exempt from the cut check, which is
@@ -163,7 +163,7 @@ every_seam_declares_one_kind :-
 
 %%%% No cut in an event hook %%%%
 %
-% src/ext_points.pl states the rule this enforces: an OWNERSHIP seam answers
+% engine/ext_points.pl states the rule this enforces: an OWNERSHIP seam answers
 % one provider's request and may cut after its ownership test, while an EVENT
 % or DECLARATION seam has every clause read and a cut in one of them silently
 % disables every clause loaded after it. Only the second kind is checked,
@@ -171,7 +171,7 @@ every_seam_declares_one_kind :-
 % and stay.
 %
 % lib/lib_tabling.pl cut after metta_tabling_declared, a global condition
-% rather than an ownership test. With tabling declared, src/duals.pl's
+% rather than an ownership test. With tabling declared, engine/duals.pl's
 % invalidation handler was ordered after it and never ran, so a changed
 % function kept a stale dual and (not-provable (pq 2)) answered True and
 % False at once. Nothing in the tree would have said so.
@@ -224,8 +224,8 @@ source_scan_sees_a_planted_cut :-
     ).
 
 hook_source_file(File) :-
-    member(Directory, ['../../src', '../../lib', '../../python/petta',
-                       '../../mork_ffi']),
+    member(Directory, ['../../engine', '../../lib', '../../bindings/python/petta',
+                       '../../backends/mork/mork_ffi']),
     atom_concat(Directory, '/*.pl', Pattern),
     expand_file_name(Pattern, Files),
     member(File, Files).
@@ -339,7 +339,7 @@ library_source(Library) :-
 %
 % A second, DIFFERENT space is planted alongside &self, created at runtime and
 % given its execution module by space_module/2 exactly as a real one is, and
-% registered as a known space the same way (src/spaces.pl's
+% registered as a known space the same way (engine/spaces.pl's
 % native_storage_module_cache/2). Seeing both is the two-space proof: one
 % plant lands in &self's module and the other in a module that did not exist
 % when this file was loaded, and the walk has to find both without being told
@@ -408,15 +408,15 @@ check_project_var_branches :-
         forall(engine_source(Source), load_files(Source, [if(true)])),
         style_check(-var_branches)).
 
-engine_source('../../src/ext_points.pl').
-engine_source('../../src/parser.pl').
-engine_source('../../src/translator.pl').
-engine_source('../../src/specializer.pl').
-engine_source('../../src/filereader.pl').
+engine_source('../../engine/ext_points.pl').
+engine_source('../../engine/parser.pl').
+engine_source('../../engine/translator.pl').
+engine_source('../../engine/specializer.pl').
+engine_source('../../engine/filereader.pl').
 engine_source('../../lib/lib_gitimport.pl').
-engine_source('../../src/spaces.pl').
-engine_source('../../src/tracer.pl').
-engine_source('../../src/metta.pl').
+engine_source('../../engine/spaces.pl').
+engine_source('../../engine/tracer.pl').
+engine_source('../../engine/metta.pl').
 
 representative_source("
 (= (static-check-inc $x) (+ $x 1))
@@ -581,8 +581,8 @@ body_subterm(Term, Sub) :-
 % A compiled body resolves its goals in the module the clause went into, so a
 % MeTTa equation for the name of a goal the TRANSLATOR wrote would capture that
 % goal in the space's own bodies: silently, and with a wrong answer rather than
-% an error. metta_engine_emitted/1 (src/translator.pl) names those and
-% protect_engine_emitted/1 (src/spaces.pl) binds each into every space's
+% an error. metta_engine_emitted/1 (engine/translator.pl) names those and
+% protect_engine_emitted/1 (engine/spaces.pl) binds each into every space's
 % module, which is what makes the assert refuse.
 %
 % That list is a claim about what the translator emits, so it is RECOMPUTED
@@ -691,7 +691,7 @@ every_engine_emitted_goal_is_protected :-
                format(user_error,
                       'the engine emits ~w into compiled bodies and a MeTTa \c
                        equation can take it: name it in metta_engine_emitted/1 \c
-                       (src/translator.pl) or qualify the goal~n',
+                       (engine/translator.pl) or qualify the goal~n',
                       [Indicator])),
         fail
     ).
@@ -780,9 +780,9 @@ seam_direction_fault(Seam, Kind, Fault) :-
 
 %%%% A backend calls only published surface %%%%
 %
-% The seams in src/ext_points.pl say what the engine calls. This says what a
+% The seams in engine/ext_points.pl say what the engine calls. This says what a
 % backend may call BACK, which is the half that was missing: MORK reached into
-% src/parser.pl for swrite/2 and metta_unwritable_symbol/2, wrapping the
+% engine/parser.pl for swrite/2 and metta_unwritable_symbol/2, wrapping the
 % second under a private name, and nothing said it should not. SQLite publishes
 % the same half deliberately, handing an extension an sqlite3_api_routines
 % table so that it never links against internals [source:
@@ -792,7 +792,7 @@ seam_direction_fault(Seam, Kind, Fault) :-
 % Published surface is three things and all three are read as data rather than
 % listed here: a declared service, a declared seam, and a MeTTa builtin, which
 % a backend calls as the LANGUAGE and builtin_fun/1 already enumerates.
-% Anything else in src/ is an internal that can be renamed under the backend.
+% Anything else in engine/ is an internal that can be renamed under the backend.
 %
 % Backends are discovered the way the engine discovers them, by consulting
 % backends/*.pl, so a backend that is not built loads nothing and is not
@@ -809,7 +809,7 @@ a_backend_calls_only_published_surface :-
                format(user_error,
                       'the backend predicate ~w calls ~w, which is an engine \c
                        internal rather than published surface~ndeclare it \c
-                       ext_point_kind(~w, service) in src/ext_points.pl if a \c
+                       ext_point_kind(~w, service) in engine/ext_points.pl if a \c
                        backend is meant to call it~n',
                       [Caller, Callee, Callee])),
         fail
@@ -818,8 +818,8 @@ a_backend_calls_only_published_surface :-
 %%%% The host binding calls only published surface %%%%
 %
 % The backends' check aimed the other way down the same wire: what the HOST
-% BINDING's transport may call back. python/petta/shim.pl is the shipped
-% transport, the host_service kind in src/ext_points.pl is its measured,
+% BINDING's transport may call back. bindings/python/petta/shim.pl is the shipped
+% transport, the host_service kind in engine/ext_points.pl is its measured,
 % declared list, and this walk keeps the list honest: a shim call to an
 % engine internal fails here naming the pair. The walker's own eyesight is
 % proven by the backend check's planted reaches in the same run, one proof
@@ -828,7 +828,7 @@ a_backend_calls_only_published_surface :-
 % clauses live in. A fact each, so the next binding is a line here rather than
 % a second copy of the walk, and so the count below is the tree's rather than a
 % number in this comment.
-host_transport('../../python/petta/shim.pl', '../../python/petta').
+host_transport('../../bindings/python/petta/shim.pl', '../../bindings/python/petta').
 host_transport('../../bindings/node/bridge.pl', '../../bindings/node').
 
 a_host_binding_calls_only_published_surface :-
@@ -844,7 +844,7 @@ a_host_binding_calls_only_published_surface :-
                       'the host transport predicate ~w calls ~w, an engine \c
                        internal rather than published surface~ndeclare it \c
                        ext_point_kind(~w, host_service) in \c
-                       src/ext_points.pl if the host transport is meant to \c
+                       engine/ext_points.pl if the host transport is meant to \c
                        call it~n',
                       [Caller, Callee, Callee])),
         fail
@@ -855,9 +855,9 @@ backend_entry(Entry) :-
     member(Entry, Files).
 
 % backends/ holds the declaration and the implementation lives beside the
-% shared library it wraps, which is the split backends/mork.pl exists to make,
+% shared library it wraps, which is the split backends/mork/decider.pl exists to make,
 % so both are walked.
-backend_directories(['../../backends', '../../mork_ffi']).
+backend_directories(['../../backends/mork', '../../backends/mork/mork_ffi']).
 
 % The same discipline as the other three walks here, and carried further,
 % because this one delegates to a library: a probe that exercised only code in

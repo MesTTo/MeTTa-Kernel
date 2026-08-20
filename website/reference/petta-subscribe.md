@@ -1,6 +1,6 @@
 # `petta.subscribe`
 
-Source: `python/petta/subscribe.py`.
+Source: `bindings/python/petta/subscribe.py`.
 
 > Purpose: standing queries. A subscription watches one space for atoms
 > unifying with a pattern and reacts to every add or removal: with a callback,

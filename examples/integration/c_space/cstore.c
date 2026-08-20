@@ -12,7 +12,7 @@
  *     open enumeration walks its own snapshot, so a concurrent add or
  *     remove never skips or doubles a line it did not touch
  *     [tested: examples/integration/c_space/c_space.metta and
- *     python/tests/test_c_space.py, the threaded block]
+ *     bindings/python/tests/test_c_space.py, the threaded block]
  *   - removal takes ONE exact-text occurrence, the oldest, and answers 1
  *     or 0, so the store is honestly a multiset under subtraction
  * Owns:

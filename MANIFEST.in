@@ -1,8 +1,8 @@
-recursive-include src *
+recursive-include engine *
 recursive-include lib *
-recursive-exclude src __pycache__ *.py[co]
+recursive-exclude engine __pycache__ *.py[co]
 recursive-exclude lib __pycache__ *.py[co]
-include python/helper.pl
+include bindings/python/helper.pl
 include CHANGELOG.md
 include CITATION.cff
 include SECURITY.md

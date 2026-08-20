@@ -7,7 +7,7 @@
 
 main :-
     current_prolog_flag(argv, [EngineRoot]),
-    atom_concat(EngineRoot, '/src/metta.pl', Engine),
+    atom_concat(EngineRoot, '/engine/metta.pl', Engine),
     consult(Engine),
     format("BOOTED~n").
 

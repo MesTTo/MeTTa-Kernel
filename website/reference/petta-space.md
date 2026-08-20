@@ -1,6 +1,6 @@
 # `petta.space`
 
-Source: `python/petta/space.py`.
+Source: `bindings/python/petta/space.py`.
 
 > Purpose: the MeTTa runtime surface. One class binds a space name to the
 > process's engine and offers running source, loading files, structured space

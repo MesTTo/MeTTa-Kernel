@@ -29,7 +29,7 @@
 % `get-atoms` does, and a gate would demand a declaration for its own sake.
 % What the list is for is deciding, once, which each one is.
 main :-
-    consult('../../src/metta.pl'),
+    consult('../../engine/metta.pl'),
     retractall(silent(_)),
     assertz(silent(true)),
     load_reported_libraries,

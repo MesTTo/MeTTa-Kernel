@@ -1,6 +1,6 @@
 # `petta.results`
 
-Source: `python/petta/results.py`.
+Source: `bindings/python/petta/results.py`.
 
 > Purpose: query results as rows. A Rows is a mutable sequence of Row tuples, one per
 > answer, with the query's variable names as columns and attribute access per

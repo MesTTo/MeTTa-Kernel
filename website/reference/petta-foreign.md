@@ -1,6 +1,6 @@
 # `petta.foreign`
 
-Source: `python/petta/foreign.py`.
+Source: `bindings/python/petta/foreign.py`.
 
 > Purpose: spaces implemented in Python. A SpaceProvider answers match, add,
 > remove and enumeration for a named space whose atoms live wherever the

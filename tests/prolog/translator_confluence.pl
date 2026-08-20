@@ -1,5 +1,5 @@
 % Purpose: report the compile-time rule set's overlaps and its termination.
-%     `add-translator-rule!` registers a NAME (src/metta.pl:4499 keeps a set of
+%     `add-translator-rule!` registers a NAME (engine/metta.pl:4499 keeps a set of
 %     them), and the rules themselves arrive through two doors, the space's own (= Lhs Rhs) atoms and the engine's prelude_equation/2 register for the shipped tier
 %     whose left-hand side is rooted at one of those names, plus every equation
 %     reachable from their right-hand sides, because a translator rule's body
@@ -37,11 +37,11 @@
 % Assumes:
 %     - the working directory is tests/prolog, which is where check.sh runs
 %       every Prolog lane from.
-%     - the engine consults into `user`, so use_module of src/trs.pl here
+%     - the engine consults into `user`, so use_module of engine/trs.pl here
 %       puts its ==> operator in `user` at priority 800. SWI's own ==> is the
 %       single-sided-unification rule operator at 1200, and no Prolog file in
 %       this tree writes one; the only other ==> is MeTTa data in
-%       lib/lib_nars.metta, which the character-level parser in src/parser.pl
+%       lib/lib_nars.metta, which the character-level parser in engine/parser.pl
 %       reads without consulting Prolog's operator table [measured 2026-08-19].
 %     - a MeTTa expression is a proper list, so (f a b) has a first-order term
 %       reading f(a,b). expr_term/2 raises rather than guessing on anything
@@ -76,8 +76,8 @@
 %     Hacks: None
 %     Future Enhancements: None
 
-:- use_module('../../src/trs.pl').
-:- use_module('../../src/narrowing.pl').
+:- use_module('../../engine/trs.pl').
+:- use_module('../../engine/narrowing.pl').
 :- use_module(library(lists)).
 :- use_module(library(apply)).
 
@@ -462,7 +462,7 @@ print_overlap(Rules, verdict(I, J, Pos, L, R, Kind)) :-
 % translator rule today.
 load_engine :-
     set_prolog_flag(argv, [backends]),
-    user:consult('../../src/metta.pl'),
+    user:consult('../../engine/metta.pl'),
     retractall(user:silent(_)),
     assertz(user:silent(true)).
 
@@ -476,7 +476,7 @@ translator_confluence_report :-
 
 % The same report over named MeTTa files instead of the shipped libraries,
 % which is what a caller planting an overlap needs. Read argv BEFORE
-% load_engine, which overwrites it so that src/metta.pl globs the backends.
+% load_engine, which overwrites it so that engine/metta.pl globs the backends.
 translator_confluence_main :-
     current_prolog_flag(argv, Argv),
     (   Argv == []

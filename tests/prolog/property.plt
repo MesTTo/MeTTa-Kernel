@@ -31,11 +31,11 @@
 
 % The engine through metta.pl, not main.pl, whose initialization(main, main)
 % fires on consult and prints its demo into the test output.
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 :- begin_tests(property_lane_laws).
 
-% src/parser.pl's header promises swrite/2 and sread/2 are inverse.
+% engine/parser.pl's header promises swrite/2 and sread/2 are inverse.
 % tests/prolog/parser.plt checks six terms someone wrote down.
 test(the_text_round_trip_is_inverse_over_generated_ascii_terms) :-
     property_check(prop_roundtrip_ascii/1).

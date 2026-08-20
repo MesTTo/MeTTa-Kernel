@@ -1,6 +1,6 @@
 # `petta.casting`
 
-Source: `python/petta/casting.py`.
+Source: `bindings/python/petta/casting.py`.
 
 > Purpose: runtime typecasting against the engine's own type discipline.
 > cast(space, value, type) answers value, narrowed to its Python-most

@@ -41,7 +41,7 @@ m.query(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 The repository has thirteen self-verifying Python examples organised by topic. Run the first from the repository root:
 
 ```bash
-PYTHONPATH=python/examples python python/examples/basics/first_steps.py
+PYTHONPATH=bindings/python/examples python bindings/python/examples/basics/first_steps.py
 ```
 
 The installed wheel is a complete command-line tool too, `-m` fashion:

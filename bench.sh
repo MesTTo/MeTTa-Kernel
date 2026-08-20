@@ -93,7 +93,7 @@ echo "corpus: $total shared identical examples"
 run_one() {
     tree="$1"; rel="$2"
     ( cd "$tree" && timeout "$FILE_TIMEOUT" \
-        swipl --stack_limit=8g -q -s src/main.pl -- "./$rel" silent )
+        swipl --stack_limit=8g -q -s engine/main.pl -- "./$rel" silent )
 }
 
 echo "== phase 1: correctness"
@@ -206,7 +206,7 @@ if command -v perf >/dev/null 2>&1; then
                   [ "$side" = base ] && rel="examples/$name" || rel="$head_rel"
                   ( cd "$tree" && timeout "$FILE_TIMEOUT" \
                       perf stat -x, -e instructions:u \
-                      swipl --stack_limit=8g -q -s src/main.pl -- "./$rel" \
+                      swipl --stack_limit=8g -q -s engine/main.pl -- "./$rel" \
                       >/dev/null 2>"$WORK/perf.csv" )
                   awk -F, '$3 == "instructions:u" { print $1 }' "$WORK/perf.csv"
               done < "$CORPUS"

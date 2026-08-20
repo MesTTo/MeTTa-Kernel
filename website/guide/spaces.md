@@ -67,7 +67,7 @@ The view presents the inner space's `(triple ...)` atoms as `(edge ...)` atoms, 
 
 [MORK](https://github.com/trueagi-io/MORK) is a PathMap-backed store built for atom counts far past the predicate store's reach. The integration's own measurements set the honest expectations: below roughly ten million atoms the predicate store is faster, and from one hundred to four hundred million atoms MORK kept answering where the predicate store ran out of memory.
 
-To enable it, run `sh build.sh` at the repository root: `mork_ffi` ships in the tree, and the script builds it on nightly Rust against `MORK` and `PathMap` checkouts beside the repository, cloned at the validated revisions when absent. Once `mork_ffi/target/release/libmork_ffi.so` exists, the CLI and the python runtime both detect it and boot the engine with the `&mork` space wired in; nothing else changes.
+To enable it, run `sh build.sh` at the repository root: `mork_ffi` ships in the tree, and the script builds it on nightly Rust against `MORK` and `PathMap` checkouts beside the repository, cloned at the validated revisions when absent. Once `backends/mork/mork_ffi/target/release/libmork_ffi.so` exists, the CLI and the python runtime both detect it and boot the engine with the `&mork` space wired in; nothing else changes.
 
 `m.space("&mork")` then behaves like any space: adds, removes, queries, `count()`, `atoms()`, subscriptions, and `digest()` all run the ordinary surface with MORK as the store, and `digest()` agrees with a native space holding the same atoms because the digest names content, not storage. A conjunction is handed to MORK whole, so its own worst-case-optimal join answers it rather than the engine splitting it one pattern at a time:
 

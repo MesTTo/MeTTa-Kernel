@@ -13,7 +13,7 @@
 % user:'t-inc'/2 dies on `Unknown procedure: (+)/3`. Eighteen of these tests
 % failed that way before the order was fixed. The same reason parser.plt uses
 % initialization/1 here rather than a bare ensure_loaded.
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 :- initialization(consult('../../lib/lib_thread.pl')).
 :- initialization(
        process_metta_string("(= (t-inc $x) (+ $x 1))
