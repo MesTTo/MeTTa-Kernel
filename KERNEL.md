@@ -152,6 +152,21 @@ species of `Number`; that glossary relation remains unpublished upstream.
 Arithmetic may cross the boundary in either direction according to the exact
 result value. Integer equality remains exact across the two types.
 
+### Host-width divergence
+
+Integer arithmetic is deliberately unbounded here. Hyperon's current host
+stores an integer in `i64`, implements `+`, `-`, and `*` with the corresponding
+checked operation, and turns overflow into `ArithmeticOverflow`. In particular,
+its multiplication cannot answer `(* 4611686018427387904 4)` as an integer.
+[source: https://github.com/trueagi-io/hyperon-experimental/blob/3f76dc460da6961f57f69f6c3e550c59c74ada83/lib/src/metta/runner/stdlib/arithmetics.rs#L10-L16; commit=WORKTREE]
+
+LeaTTa's host model carries `Int` rather than a fixed-width integer, so the
+exact answer `18446744073709551616` is the arbiter-aligned behavior and the
+Hyperon error is a host-width divergence. The acceptance pin exercises that
+same multiplication at the public Python surface.
+[source: https://github.com/MesTTo/LeaTTa/blob/dae62ced23eb0f30a8c2b86583fd09d88fb24ea5/MettaHyperonFull/Core/Host.lean#L82-L85; commit=WORKTREE]
+[tested: test_integer_arithmetic_is_unbounded_where_hyperon_checks_i64; commit=WORKTREE]
+
 The wire keeps one `n` tag because the exact payload recovers the type. A
 second tag would duplicate that information and add a mismatched
 tag-and-width refusal class. A host that cannot preserve every digit must

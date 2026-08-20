@@ -108,6 +108,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Recorded integer overflow as a deliberate host-width divergence: PeTTa and
+  LeaTTa keep exact unbounded integer results where Hyperon's `i64` carrier
+  answers `ArithmeticOverflow`.
 - The tree partitions by seam, staging the kernel-and-satellites form.
   The engine lives in `engine/` alone; each driver seat lives under
   `bindings/` with everything it needs (`bindings/python/` carries the
