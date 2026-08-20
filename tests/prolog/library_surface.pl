@@ -19,10 +19,10 @@
 %       declaration mean nothing, which is worse than leaving it undeclared,
 %       so the list is printed until somebody decides it one entry at a time.
 % Decides:
-%     - lib/ is in scope and python/petta/shim.pl is not. shim.pl is consulted
+%     - lib/ is in scope and bindings/python/petta/shim.pl is not. shim.pl is consulted
 %       by _engine.py as the Python tier's own implementation, so it is
 %       engine-internal by construction rather than an extension
-%       [source: python/petta/_engine.py, _consult_shim].
+%       [source: bindings/python/petta/_engine.py, _consult_shim].
 % Open Obligations:
 %     To Do: None
 %     Hacks: None

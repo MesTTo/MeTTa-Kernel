@@ -1,6 +1,6 @@
 # `petta.structures`
 
-Source: `python/petta/structures.py`.
+Source: `bindings/python/petta/structures.py`.
 
 > Purpose: data structures with MeTTa's semantics at Python speed, built on
 > the boundary-free atom kernel (unify, alpha_eq, variables, order_key) and

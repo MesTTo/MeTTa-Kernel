@@ -1,6 +1,6 @@
 # `petta.spaces`
 
-Source: `python/petta/spaces.py`.
+Source: `bindings/python/petta/spaces.py`.
 
 > Purpose: space combinators on the public seam: union, readonly, mapped,
 > and overlay compose existing spaces into new ones with zero engine changes,

@@ -1,6 +1,6 @@
 # `petta.manifest`
 
-Source: `python/petta/manifest.py`.
+Source: `bindings/python/petta/manifest.py`.
 
 > Purpose: deployment as knowledge. `petta.boot(path)` assembles an app
 > from a MeTTa manifest of `(boot ...)` forms, each a thin declaration over

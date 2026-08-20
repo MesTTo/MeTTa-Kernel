@@ -48,7 +48,7 @@ None of those five SWI checks reports UNREACHABILITY, so a predicate defined
 and never called was invisible to all of them, the way it was to `vulture` and
 `jscpd`, which read only Python. `tests/prolog/reachability.pl` answers that
 question: it walks every clause under `engine/`, `lib/`, `backends/`, `mork_ffi/`
-and `python/petta/` with SWI's own `prolog_walk_code/1`, adds one probe clause
+and `bindings/python/petta/` with SWI's own `prolog_walk_code/1`, adds one probe clause
 per directive, adds an edge for every goal the engine BUILDS as a term rather
 than calls, and reports what no root reaches.
 
@@ -59,7 +59,7 @@ than calls, and reports what no root reaches.
 The roots are read as data and each one is written down in the file's header:
 `arity/2` for a name MeTTa can call, a `multifile` declaration for a seam,
 the goals of a load-time directive, and a name appearing in a string literal
-in `python/petta/*.py` for an entry point Python reaches across janus. Tests
+in `bindings/python/petta/*.py` for an entry point Python reaches across janus. Tests
 are deliberately neither definitions nor callers, so a predicate only a test
 names is reported and marked `[tests]`.
 
@@ -98,7 +98,7 @@ termination method for rewriting. `engine/narrowing.pl` implements it,
 `engine/trs.pl` is the rewriting library underneath (an adaptation of Markus
 Triska's public-domain trs.pl), `tests/prolog/trs.plt` and
 `tests/prolog/narrowing.plt` cover both, and
-`python/tests/test_critical_pair_oracle.py` runs the critical-pair enumerator
+`bindings/python/tests/test_critical_pair_oracle.py` runs the critical-pair enumerator
 against the kernel-checked one in LeaTTa's `MeTTaILProofs/CPExecutable.lean`.
 
 Run all PlUnit files directly with:
@@ -131,7 +131,7 @@ single PlUnit engine cannot represent:
 
 The full Python oracle runs from the repository root, not from `python/`:
 
-    /path/to/python -m pytest python/tests/ -q --rootdir=python -c python/pyproject.toml
+    /path/to/python -m pytest bindings/python/tests/ -q --rootdir=python -c bindings/python/pyproject.toml
 
 `sh test.sh` runs the self-checking MeTTa examples (the corpus size is pinned in `examples/README.md`). It uses each process
 exit status as the verdict and prints the existing assertion lines unchanged.
@@ -180,8 +180,8 @@ earlier cut fires on every walk.
 The failure does not look like a wrong answer. A refusal clause added to
 `match/4` without its own guard answered BESIDE the rows a real space gave, an
 ancestor rule recursed on the refusal, and the process hung
-[reproduced 2026-08-20, `python/tests/test_derivation.py` and
-`python/tests/test_space_operation_errors.py::test_a_proof_over_a_match_does_not_carry_the_refusal`].
+[reproduced 2026-08-20, `bindings/python/tests/test_derivation.py` and
+`bindings/python/tests/test_space_operation_errors.py::test_a_proof_over_a_match_does_not_carry_the_refusal`].
 
 Cuts still belong where they pay: keep the cut for ordinary execution and
 repeat its condition in the clauses below it. `match/4` reads

@@ -221,8 +221,8 @@ swrite_numbered('$petta_variable'(Index)) --> !, "$_", { number_codes(Index, Cs)
 %is the other half of that map: without it the round trip renamed the
 %language's own constants and `!(== 1 2)` answered `false` where the arbiter
 %answers `False` [source: LeaTTa tests/semantics/grounded/07-partial-core.metta,
-%04-boolean.metta]. It also closes a seam: python/petta already writes `True`,
-%which python/tools/example_parity.py had to compare around
+%04-boolean.metta]. It also closes a seam: bindings/python/petta already writes `True`,
+%which bindings/python/tools/example_parity.py had to compare around
 %[tested: parser_roundtrip:booleans_print_in_the_languages_own_spelling].
 swrite_numbered(true)  --> !, "True".
 swrite_numbered(false) --> !, "False".

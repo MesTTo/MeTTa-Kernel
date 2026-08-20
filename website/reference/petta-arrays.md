@@ -1,6 +1,6 @@
 # `petta.arrays`
 
-Source: `python/petta/arrays.py`.
+Source: `bindings/python/petta/arrays.py`.
 
 > Purpose: arrays as atoms for every library speaking the standard
 > protocols, not one. Recognition is DLPack (__dlpack__), semantics are the

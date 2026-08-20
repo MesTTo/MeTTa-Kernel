@@ -1,6 +1,6 @@
 # `petta.das`
 
-Source: `python/petta/das.py`.
+Source: `bindings/python/petta/das.py`.
 
 > Purpose: first-class client for the Distributed Atomspace (DAS): the
 > command-router protocol, HTTP and WebSocket with JSON both ways. query()

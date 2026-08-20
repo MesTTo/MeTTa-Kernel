@@ -10,7 +10,7 @@
 %   Future Enhancements: None
 
 :- initialization(consult('../../engine/metta.pl')).
-:- initialization(consult('../../python/petta/shim.pl')).
+:- initialization(consult('../../bindings/python/petta/shim.pl')).
 
 :- begin_tests(python_answer_residue).
 

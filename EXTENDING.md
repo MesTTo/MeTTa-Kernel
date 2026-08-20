@@ -11,7 +11,7 @@ by how hot the code is, and by which language the work is already in.
 
 ## What each one costs
 
-Measured by `python/benchmarks/extension_cost.py`, which `check.sh` re-runs as
+Measured by `bindings/python/benchmarks/extension_cost.py`, which `check.sh` re-runs as
 a GATE against a committed baseline, so these numbers cannot drift at all.
 Every tier is measured in one process against one driver shape, and the driver's own cost is measured
 separately and subtracted, so a row is the marginal cost of **one call** rather
@@ -565,7 +565,7 @@ same native object answers, so identity and mutation survive the round
 trip, and a Python function can unpack the structure through whatever
 accessors the extension registered. It used to arrive as its printed
 STRING, silently, which made the round trip impossible [measured
-2026-08-17; pinned in `python/tests/test_c_handle_crossing.py`].
+2026-08-17; pinned in `bindings/python/tests/test_c_handle_crossing.py`].
 `release()` retracts the engine-side registry entry that keeps the blob
 alive; a released handle raises by id instead of answering wrongly.
 
@@ -1068,7 +1068,7 @@ requirement.
 There are two ways in, and they differ in cost the same way tiers 2 and 3 do.
 
 **From Python**, implement the `SpaceProvider` protocol in
-`python/petta/foreign.py` and `register_space`. Every match crosses the janus
+`bindings/python/petta/foreign.py` and `register_space`. Every match crosses the janus
 boundary, which is right when the atoms live somewhere Python already talks to.
 `das.py`, `remote.py` and `persistent.py` are three real instances.
 
@@ -1105,7 +1105,7 @@ Prolog-hosted value participates by adding clauses to these seams.
 ```
 
 `metta_foreign_clear/1` is the sixth and is easy to miss: it lived in
-`python/petta/shim.pl` rather than beside the other five, so a Prolog provider
+`bindings/python/petta/shim.pl` rather than beside the other five, so a Prolog provider
 that implemented `clear`, as `lib/lib_redis.pl` does, was reachable only when
 Python happened to be in the process. It is declared with them now.
 
@@ -1119,11 +1119,11 @@ the conformance kit inside its own example and driven concurrently by
 
 Worked instances now exist per language and per backend class, so start
 from the one nearest yours: C (`examples/integration/c_space/`), SQL
-derived from one declaration (`python/petta/tables.py` with
-`python/examples/integration/sqlite_space.py`; DuckDB with pushdown in
+derived from one declaration (`bindings/python/petta/tables.py` with
+`bindings/python/examples/integration/sqlite_space.py`; DuckDB with pushdown in
 `duckdb_space.py` beside it), another MeTTa runtime as a subprocess
 (`cetta_space.py`), TypeScript over the wire
-(`python/examples/integration/typescript_space/`, which also documents
+(`bindings/python/examples/integration/typescript_space/`, which also documents
 the remote protocol itself; `petta.testing.GatewayComplianceSuite`
 certifies any implementation of that protocol by URL), and Redis
 (`lib/lib_redis.pl`).
@@ -1377,7 +1377,7 @@ an engine internal rather than published surface
 
 This exists because MORK reached past the seam for years and nothing said so.
 It called `swrite/2` and `metta_unwritable_symbol/2` out of `engine/parser.pl`,
-wrapping the second under a private name of its own, and `python/petta/shim.pl`
+wrapping the second under a private name of its own, and `bindings/python/petta/shim.pl`
 had independently wrapped the same predicate under a different private name.
 Two extensions inventing two names for one undeclared dependency is what the
 problem looks like from the outside. They are declared now, in
@@ -1574,7 +1574,7 @@ pattern you called exact yields anything that does not match. It is the one
 claim in the seam that unification cannot cover for you: everything else you
 say is protected by the engine re-unifying, and this is the one that licenses
 you to stop early. The worked instance is
-`python/examples/integration/duckdb_space.py`, whose `pushdown` reads exactly
+`bindings/python/examples/integration/duckdb_space.py`, whose `pushdown` reads exactly
 the positions its `WHERE` clause covers and whose claim the kit confirms:
 `pushdown: 3 of 3 patterns claimed exact, and are`.
 
@@ -1778,7 +1778,7 @@ function name nor a partial application, so an ordinary MeTTa call never
 reaches it.
 
 Nothing in the engine knows what makes a value applicable, which is the point.
-`hosts/python/bridge.pl` claims Python callables, which is what makes
+`bindings/python/bridge.pl` claims Python callables, which is what makes
 `((py-atom numpy.absolute) -5)` work; a bridge for something else claims its
 own.
 
@@ -1821,7 +1821,7 @@ can reject on length alone, which is how matching `($x $y)` against a
 million-element host container costs one question rather than a million.
 
 A value with no structural reading simply has no clause here, and that is a real
-answer rather than a gap: `hosts/python/bridge.pl` gives one to Python sequences and
+answer rather than a gap: `bindings/python/bridge.pl` gives one to Python sequences and
 withholds it from a `dict`, a `set` and a `str`, following PEP 634's rule for
 which objects a sequence pattern may take apart.
 
@@ -1889,7 +1889,7 @@ metta_grounded_text(Obj, Text) :- my_object(Obj), my_render(Obj, Text).
 The writer has no other way to know. With no provider it falls back to the
 term's own text, so this is never required and can never fail a print, but that
 fallback names an address where the value could have named itself:
-`hosts/python/bridge.pl` answers with `repr`, which is why `(py-atom "[1, 2, 3]")`
+`bindings/python/bridge.pl` answers with `repr`, which is why `(py-atom "[1, 2, 3]")`
 displays `[1, 2, 3]` and a numpy array displays `array([1, 2, 3])`.
 
 ### The seams this page did not list
@@ -2018,7 +2018,7 @@ re-checks them, exactly as Hyperon's CustomMatch behaves. That is the
 point. An embedding matcher's "close enough" has no structural check
 even in principle, and a space is exactly such a value whose matcher is
 query. The bindings it yields are arbitrary by design, okBind
-semantics; `python/examples/integration/cetta_space.py`'s `CettaMatch`
+semantics; `bindings/python/examples/integration/cetta_space.py`'s `CettaMatch`
 is a worked instance whose bindings come from a different MeTTa
 runtime entirely.
 
@@ -2131,7 +2131,7 @@ The contract language is MeTTa on purpose, and it reaches the boundary
 itself: a backend's whole conversion can be ONE declaration relating
 the atom shape to the backend's shape, `(bridge (edge $a $b)
 (row edges (a $a) (b $b)))`, used in both directions the way any MeTTa
-pattern is. `python/petta/tables.py` derives a complete SQL provider
+pattern is. `bindings/python/petta/tables.py` derives a complete SQL provider
 from such atoms, WHERE from bound positions, the equalities repeated
 variables demand, INSERT from grounding, honest pushdown claims, and
 the conformance kit checks the derived claims the way the lens laws

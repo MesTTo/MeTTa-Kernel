@@ -717,11 +717,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   half against.
 
 - The example corpus now runs through BOTH configurations, the engine alone
-  and the shipped Python library, and `python/tools/example_parity.py`
+  and the shipped Python library, and `bindings/python/tools/example_parity.py`
   requires them to agree. Until this lane existed the corpus only ever ran
   through the engine: the `examples` gate invokes `swipl` on `engine/main.pl`,
   `test.sh` and `test_metta_examples.py` shell to `run.sh`, and the plunit
-  suites load `engine/metta.pl` without `python/petta/shim.pl`. So the
+  suites load `engine/metta.pl` without `bindings/python/petta/shim.pl`. So the
   configuration users ship was gated by unit tests alone, and defects lived
   there under green lanes.
 
@@ -1163,7 +1163,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `petta.structures`, `petta.tables`, the manifest, the CLI and the
   concurrency surface. It now carries an index of every source of
   information in the repository beside the packed API, and
-  `python/tools/llmsdoc.py` checks every name, path, count, special form,
+  `bindings/python/tools/llmsdoc.py` checks every name, path, count, special form,
   stream rewrite, builtin and library in it against the running engine
   and the real tree. Each of the five drift classes above was reproduced
   against the lane before it was wired in, so the check is known to fail
@@ -1296,7 +1296,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   deliberately no `__deepcopy__`, since stored Python objects keep
   their identity across the clone.
 - Added the MeTTa half of the documentation pipeline:
-  `python/tools/libdoc.py` generates
+  `bindings/python/tools/libdoc.py` generates
   `website/reference/metta-libraries.md` from each `lib_*.metta`
   library's own `(@doc ...)` atoms, read through the engine's reader and
   never run, so a library whose backend is absent still documents. The
@@ -1724,10 +1724,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   conformance kit: a mutex-guarded C store behind the Prolog seam
   (`examples/integration/c_space/`), SQLite through the derived bridge and
   CeTTa, a sibling MeTTa runtime, as both a storage backend and a
-  bindings-level custom matcher (`python/examples/integration/`), and two
+  bindings-level custom matcher (`bindings/python/examples/integration/`), and two
   production TypeScript servers speaking the remote-space protocol, one
   self-contained and one whose atoms live in a MeTTaScript space
-  (`python/examples/integration/typescript_space/`, with the protocol
+  (`bindings/python/examples/integration/typescript_space/`, with the protocol
   itself documented in the website's live section).
 
 ### Fixed

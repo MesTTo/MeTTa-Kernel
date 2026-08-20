@@ -73,7 +73,7 @@ module_or_ancestor(Module, Seen, Ancestor) :-
 
 %A name the module already holds, by whatever route. built_in and nothing
 %wider, which is the same test the Python door performs before registering an
-%operation [source: python/petta/shim.pl, petta_py_probe_op_name/2].
+%operation [source: bindings/python/petta/shim.pl, petta_py_probe_op_name/2].
 module_holds(Module, Name, Arity, Owner) :-
     functor(Head, Name, Arity),
     predicate_property(Module:Head, built_in),

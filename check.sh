@@ -1,7 +1,7 @@
 # Purpose: the single gate. Runs every static check, both test trees, the
 #   shell suites and the Prolog checks, and reports one table. Before this
 #   script the entry points were scattered (test.sh, tests/*.sh,
-#   tests/regression/, python/tests/, bench.sh) and nothing ran them all,
+#   tests/regression/, bindings/python/tests/, bench.sh) and nothing ran them all,
 #   so "the entire suite passes" could not be stated from one command.
 #
 #   Two tiers. GATE checks must pass and a failure exits nonzero. REPORT
@@ -51,7 +51,7 @@ if [ -f "$PETTA_CHECK_PREFIX/pyvenv.cfg" ]; then
     export VIRTUAL_ENV PATH
 fi
 
-PYDIR="$HERE/python"
+PYDIR="$HERE/bindings/python"
 WANT="$*"
 FAILED=''
 SUMMARY=$(mktemp "${TMPDIR:-/tmp}/petta-check.XXXXXX")
@@ -209,7 +209,7 @@ run GATE worktree sh -c "cd '$HERE' && sh tests/test_worktree_configuration.sh"
 # a WebAssembly SWI inside a Node process, so it needs neither the SWI on this
 # machine nor janus, and its own suite covers the boot inventory, the codec and
 # the lazy answer surface. The conformance corpus is compared against the
-# Python host by python/tests/test_node_binding.py, in the pytest lane above.
+# Python host by bindings/python/tests/test_node_binding.py, in the pytest lane above.
 #
 # swipl-wasm is an npm dependency and this does not fetch it: a gate that
 # reaches the network is a gate that fails for a reason that is not the tree.
@@ -270,7 +270,7 @@ run GATE prolog-static check_prolog_static
 # vulture and jscpd read Python alone, and none of the SWI checks above reports
 # UNREACHABILITY: a predicate defined and never called is invisible to all of
 # them, across 22,791 lines of Prolog [measured 2026-08-19]. This walks every clause under engine/, lib/,
-# backends/, mork_ffi/ and python/petta/ with prolog_walk_code/1, adds a probe
+# backends/, mork_ffi/ and bindings/python/petta/ with prolog_walk_code/1, adds a probe
 # clause per directive, and adds an edge for every goal the engine BUILDS as a
 # term rather than calls, which is most of the analysis and not a refinement:
 # without it the 2026-08-18 report was 206 rather than 24; the tally stands at 19 [measured 2026-08-19].
@@ -540,7 +540,7 @@ run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 1
 # The example corpus is the executable semantics documentation, and until this
 # lane existed it only ever ran through the ENGINE: the examples gate below
 # invokes swipl on engine/main.pl, test.sh and test_metta_examples.py shell to
-# run.sh, and the plunit suites load engine/metta.pl without python/petta/shim.pl.
+# run.sh, and the plunit suites load engine/metta.pl without bindings/python/petta/shim.pl.
 # So the configuration users actually ship was gated by unit tests alone, and
 # defects lived there under green lanes: !(py-atom "()") answered () in the
 # engine and raised out of the library, and a declared type on a Python object
@@ -564,7 +564,7 @@ run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 1
 # !(superpose (1 2)) then !(superpose (3 2)), and comparing text reported the
 # engine's `true` against the library's `True` on 191 of 200 files, which is
 # a spelling and not an answer.
-run GATE   parity      sh -c "cd '$HERE' && '$PY' python/tools/example_parity.py"
+run GATE   parity      sh -c "cd '$HERE' && '$PY' bindings/python/tools/example_parity.py"
 
 # The obligation headers are the contract a library author reads, and a
 # [tested X] tag is the strongest evidence in the scheme. Thirteen of them
@@ -590,26 +590,26 @@ run GATE evidence-selftest "$PY" "$HERE/tests/check_evidence_selftest.py"
 # reader checking MeTTa.run against the reference read a shape it had not had
 # for some time. They are generated now, so the promise holds by construction
 # and this asks only whether what is checked in is what the source says.
-run GATE reference  "$PY" "$HERE/python/tools/reference.py"
+run GATE reference  "$PY" "$HERE/bindings/python/tools/reference.py"
 
 # The MeTTa half of the same promise: metta-libraries.md reproduces each
 # library's own (@doc ...) atoms, and its coverage table is the burn-down
 # surface interrogate provides for the Python side.
-run GATE libdoc     "$PY" "$HERE/python/tools/libdoc.py"
+run GATE libdoc     "$PY" "$HERE/bindings/python/tools/libdoc.py"
 
 # The codec grammar and its conformance corpus are one authority, so CODEC.md's
 # tables are generated from tests/codec/corpus.json and this asks only whether
 # what is checked in is what the corpus says. Before the document existed, a new
 # binding reverse-engineered shim.pl, and the two shipped codecs disagreed about
 # six payloads with nothing to say which was right.
-run GATE codec-doc  "$PY" "$HERE/python/tools/codecdoc.py"
+run GATE codec-doc  "$PY" "$HERE/bindings/python/tools/codecdoc.py"
 
 # The catalog's value vocabularies and the binding's Literal types are one
 # authority: petta/vocabularies.py is generated from the engine's own
 # (vocabulary ...) rows, and this asks only whether what is checked in is
 # what the catalog says. Before it, the annotations surface advertised six
 # semirings while the engine acted on two, and nothing said which was right.
-run GATE vocab-sync "$PY" "$HERE/python/tools/vocabgen.py"
+run GATE vocab-sync "$PY" "$HERE/bindings/python/tools/vocabgen.py"
 
 # llms.txt is the file an agent reads INSTEAD of the tree, so a stale claim
 # there is believed rather than checked. It had gone stale exactly that way:
@@ -618,7 +618,7 @@ run GATE vocab-sync "$PY" "$HERE/python/tools/vocabgen.py"
 # name, path, count and vocabulary word in it is checked against the running
 # engine and the real tree here, and each of those five drift classes was
 # reproduced against this lane before it was wired in.
-run GATE llms       "$PY" "$HERE/python/tools/llmsdoc.py"
+run GATE llms       "$PY" "$HERE/bindings/python/tools/llmsdoc.py"
 
 # Structural checks with a clean baseline today, so a regression is a failure.
 run GATE slotscheck in_py "$PY" -m slotscheck -m petta
@@ -724,10 +724,10 @@ run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
 # look wrong, and its entries are bare names because codespell prunes a walked
 # directory by NAME, so a ./-prefixed skip stops matching the moment a runner
 # passes explicit paths.
-run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib python/petta python/bench.py python/examples python/tests python/tools engine lib backends examples tests website notebooks mork_ffi .github *.md"
+run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib bindings/python/petta bindings/python/bench.py bindings/python/examples bindings/python/tests bindings/python/tools engine lib backends examples tests website notebooks mork_ffi .github *.md"
 # The remaining clones are small facade, protocol, and test-fixture mirrors;
 # extracting them would couple layers or hide the local contract.
-run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' python/petta python/tests"
+run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' bindings/python/petta bindings/python/tests"
 
 # -------------------------------------------------------------------- report
 printf '\n================ summary ================\n'

@@ -37,8 +37,8 @@ confident but WRONG verdict, never a merely-missed one:
      (P1.1): plunit `consult`s every engine file transitively and test.sh
      globs every one of the 200 existing examples unconditionally, so BOTH
      were already GATE-tracked before Phase 0 or Phase 1 ever touched them.
-     Fixed with TEST_SHAPED_ROOTS (only tests/, examples/, python/tests/,
-     python/tools/ can count at all) COMBINED with excluding
+     Fixed with TEST_SHAPED_ROOTS (only tests/, examples/, bindings/python/tests/,
+     bindings/python/tools/ can count at all) COMBINED with excluding
      COLLECTOR_RUNNER_LABELS (a file swept in by a blanket pytest/plunit/
      example glob, or transitively loaded from one, does not count either;
      only a path check.sh's own lane text names LITERALLY does).
@@ -130,7 +130,7 @@ Fails when:
     false-negative rather than a fourth heuristic
 Decides:
   - which paths can ever earn a FIXED/OPEN file verdict: tests/, examples/,
-    python/tests/, python/tools/ (TEST_SHAPED_ROOTS), and only when named
+    bindings/python/tests/, bindings/python/tools/ (TEST_SHAPED_ROOTS), and only when named
     literally rather than swept in by a blanket collector
     (COLLECTOR_RUNNER_LABELS)
   - a check.sh LANE anchor counts only when the item's own "item" cell
@@ -503,10 +503,10 @@ def extract_code_spans(row: SpecRow) -> list[str]:
 
 
 # ------------------------------------------------------------- tree facts
-PROLOG_DIRS = ("engine", "lib", "mork_ffi", "backends", "python/petta", "tests")
-METTA_DIRS = ("lib", "examples", "python/examples", "tests")
-PYTHON_DIRS = ("python/petta", "python/tools", "python/examples", "python/benchmarks", "python/HE")
-IMPLEMENTATION_DIRS = ("engine", "lib", "mork_ffi", "backends", "python/petta")
+PROLOG_DIRS = ("engine", "lib", "mork_ffi", "backends", "bindings/python/petta", "tests")
+METTA_DIRS = ("lib", "examples", "bindings/python/examples", "tests")
+PYTHON_DIRS = ("bindings/python/petta", "bindings/python/tools", "bindings/python/examples", "bindings/python/benchmarks", "bindings/python/HE")
+IMPLEMENTATION_DIRS = ("engine", "lib", "mork_ffi", "backends", "bindings/python/petta")
 
 PROLOG_CLAUSE_HEAD = re.compile(r"^([a-z][A-Za-z0-9_]*)\(", re.MULTILINE)
 PROLOG_DECLARATION = re.compile(
@@ -656,7 +656,7 @@ class Verdict:
 # Roots under which a file is something BUILT to demonstrate one item: a
 # test, a fixture, an example, or a single-purpose check script. A file
 # under an IMPLEMENTATION root (engine/, lib/, mork_ffi/, backends/,
-# python/petta/) is excluded on purpose: `evidence_runners.executed()`
+# bindings/python/petta/) is excluded on purpose: `evidence_runners.executed()`
 # marks engine/metta.pl GATE because plunit `consult`s it transitively, which
 # is true of almost every engine file whether or not any given item ever
 # touched it, so "exists and is GATE-tracked" is true of engine/metta.pl both
@@ -665,10 +665,10 @@ class Verdict:
 # live spec gave P0.2b, P2.5, P2.8, P2.9 and others a FIXED verdict purely
 # because their cited predicate/file predates the item that cites it].
 TEST_SHAPED_ROOTS = tuple(
-    Path(root).parts for root in ("tests", "examples", "python/tests", "python/tools")
+    Path(root).parts for root in ("tests", "examples", "bindings/python/tests", "bindings/python/tools")
 )
 
-# The three collectors are BLANKET globs: `python/tests/test_*.py`,
+# The three collectors are BLANKET globs: `bindings/python/tests/test_*.py`,
 # `tests/prolog/*.plt` and (via test.sh) every `examples/**/*.metta` are ALL
 # swept in unconditionally, so "this file is under a test-shaped root and is
 # GATE-tracked" is true of EVERY existing test and EVERY one of the 200
@@ -682,7 +682,7 @@ TEST_SHAPED_ROOTS = tuple(
 # engine file `consult`ed by a swept-in test), inherits the same blindness
 # and is excluded here too. What remains strong is a file check.sh's own
 # lane text names LITERALLY, one path at a time (`tests/
-# test_worktree_configuration.sh`, `python/tools/example_parity.py`): each
+# test_worktree_configuration.sh`, `bindings/python/tools/example_parity.py`): each
 # such line was added deliberately, for one check, which a blanket glob is
 # not.
 COLLECTOR_RUNNER_LABELS = frozenset(f"{c.runner}: {c.lane}" for c in COLLECTORS)
@@ -710,11 +710,11 @@ SEARCH_ROOTS = (ROOT, WORKSPACE, WORKSPACE.parent)
 def _locate_file(token: str) -> list[Path]:
     """Where a cited path actually lives. Checked literally against each of
     SEARCH_ROOTS in turn. A BARE filename with no `/` -- P0.2a's `shim.pl`,
-    meaning `python/petta/shim.pl` -- is resolved by searching the TREE
+    meaning `bindings/python/petta/shim.pl` -- is resolved by searching the TREE
     (ROOT only; WORKSPACE and its siblings are not this tool's to walk) for
     that exact basename, because the spec cites many files by their last
     path component only, and checking only `ROOT / token` reported
-    `shim.pl` as absent when `python/petta/shim.pl` was sitting right there
+    `shim.pl` as absent when `bindings/python/petta/shim.pl` was sitting right there
     [measured 2026-08-18].
     """
     for root in SEARCH_ROOTS:

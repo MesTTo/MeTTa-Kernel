@@ -1,6 +1,6 @@
 # `petta.persistent`
 
-Source: `python/petta/persistent.py`.
+Source: `bindings/python/petta/persistent.py`.
 
 > Purpose: fixed-schema fact spaces backed by SWI persistency journals.
 > The provider keeps native MeTTa facts in typed dynamic predicates, writes

@@ -17,12 +17,12 @@
 %       requires every unqualified multifile seam to declare an
 %       ext_point_kind/2]
 %     - the Python half names its Prolog entry points as text, so a predicate
-%       named inside a string literal in python/petta/*.py is called across
-%       janus [source: python/petta/_engine.py, apply/2 and do/2 take the
+%       named inside a string literal in bindings/python/petta/*.py is called across
+%       janus [source: bindings/python/petta/_engine.py, apply/2 and do/2 take the
 %       predicate NAME and hand it to janus.apply_once/cmd]
 % Guarantees:
 %     - reachability_report/0 walks every clause of every predicate defined
-%       under engine/, lib/, backends/, mork_ffi/ and python/petta/, plus one probe
+%       under engine/, lib/, backends/, mork_ffi/ and bindings/python/petta/, plus one probe
 %       clause per directive, and reports the predicates no root reaches
 %       [measured 2026-08-18: 1550 predicates, 2602 clauses, 6984 call and 760
 %       construct edges, 24 reported, 1.10s min of 3]
@@ -72,7 +72,7 @@
 %       one of them before the walk's results are read.
 % Decides:
 %     - tests are neither definitions nor callers. tests/prolog/*.plt and
-%       python/tests/*.py are excluded from both sides, so a predicate only a
+%       bindings/python/tests/*.py are excluded from both sides, so a predicate only a
 %       test calls is REPORTED. That is the answer a dead-code lane owes: a
 %       helper kept alive by its own test is dead product code, and the report
 %       marks it `[tests]` rather than hiding it. Five of the 24 carry that mark
@@ -100,14 +100,14 @@
 
 %%%% What is analysed %%%%
 %
-% The five directories that ship Prolog. python/petta holds shim.pl, which is
+% The five directories that ship Prolog. bindings/python/petta holds shim.pl, which is
 % the Python library's own half of the engine and 2895 of the tree's 19423
 % Prolog lines; leaving it out would leave the largest single file unchecked.
 tree_directory_relative('../../engine').
 tree_directory_relative('../../lib').
 tree_directory_relative('../../backends').
 tree_directory_relative('../../mork_ffi').
-tree_directory_relative('../../python/petta').
+tree_directory_relative('../../bindings/python/petta').
 
 % With the separator, so that a sibling named src_generated is not read as
 % being inside src. The same rule surface_walk.pl states for the same reason.
@@ -153,7 +153,7 @@ tree_predicate(Predicate) :- tree_predicate_index(_, Predicate).
 
 % Module-qualified throughout, unlike surface_walk.pl's indicator/2, which
 % strips the module because its question is about one module. Here a clause of
-% prolog:message//1 in python/petta/shim.pl and a user predicate of the same
+% prolog:message//1 in bindings/python/petta/shim.pl and a user predicate of the same
 % name are different nodes, and conflating them would rescue one through the
 % other.
 qualified(Module:Goal, Module:Name/Arity) :- !, plain(Goal, Name/Arity).
@@ -279,7 +279,7 @@ subterm(Term, Subterm) :-
 % clause walked twice.
 %
 % Filtered by the CLAUSE's own file, not the predicate's, because a multifile
-% seam is shared: prolog:message//1 has clauses in python/petta/shim.pl and six
+% seam is shared: prolog:message//1 has clauses in bindings/python/petta/shim.pl and six
 % more that arrive with library(prolog_xref), and walking those made the result
 % depend on which libraries this file happens to import [measured 2026-08-18: 27
 % clauses against 33]. A clause with no file is one something asserted at run
@@ -425,7 +425,7 @@ scan_python_entries :-
              \+ python_entry_name_(Name) ),
            assertz(python_entry_name_(Name))).
 
-python_source_directory('../../python/petta').
+python_source_directory('../../bindings/python/petta').
 python_source_directory(Directory) :- analysed_extra_directory(Directory).
 
 string_literal_name(File, Name) :-
@@ -506,8 +506,8 @@ take_name(Rest, Sofar, Sofar, Rest).
 % [measured 2026-08-18: 43 files, 761 called indicators, 0.12s].
 %
 % The Python half is the same string-literal scan the janus root uses, pointed
-% at python/tests, because a Python test names a Prolog goal as text exactly as
-% the library does: python/tests/test_properties.py:70 is
+% at bindings/python/tests, because a Python test names a Prolog goal as text exactly as
+% the library does: bindings/python/tests/test_properties.py:70 is
 % `rt.once("petta_py_swrite(W, Str)")`, which no Prolog reader will ever see.
 named_by_a_test(Name/Arity) :-
     ( test_references_scanned -> true ; scan_test_references ),
@@ -547,7 +547,7 @@ prolog_test_source(File) :-
     \+ sub_atom(File, _, _, 0, 'reachability.pl').
 
 python_test_source(File) :-
-    expand_file_name('../../python/tests/*.py', Files),
+    expand_file_name('../../bindings/python/tests/*.py', Files),
     member(File, Files).
 
 %%%% Loading the configuration that ships %%%%
@@ -590,7 +590,7 @@ load_shipped_configuration(Unimported) :-
            ensure_loaded(F)),
     forall(( expand_file_name('../../backends/*.pl', Backends), member(F, Backends) ),
            ensure_loaded(F)),
-    ensure_loaded('../../python/petta/shim.pl').
+    ensure_loaded('../../bindings/python/petta/shim.pl').
 
 %%%% The report %%%%
 

@@ -55,7 +55,7 @@ Run the Python suite directly with the repository root and configuration made
 explicit:
 
 ```sh
-"$PY" -m pytest python/tests/ -q --rootdir=python -c python/pyproject.toml
+"$PY" -m pytest bindings/python/tests/ -q --rootdir=python -c bindings/python/pyproject.toml
 ```
 
 The gate runs test files in separate worker processes because each process
@@ -75,12 +75,12 @@ npm ci --prefix bindings/node
 
 That enables the `node-binding` lane, which is `node --test` over the Node
 binding's own suite, and the conformance corpus in
-`python/tests/test_node_binding.py`, which answers the same cases in the Node
+`bindings/python/tests/test_node_binding.py`, which answers the same cases in the Node
 binding and in this library and compares the two.
 
 ## Python performance measurements
 
-`python/bench.py` is the benchmark entry point. It runs each selected case in
+`bindings/python/bench.py` is the benchmark entry point. It runs each selected case in
 a fresh process. The harness uses untimed setup and teardown for every round,
 performs warmup rounds, and compares committed counters before wall results.
 

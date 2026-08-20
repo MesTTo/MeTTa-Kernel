@@ -23,7 +23,7 @@ block drives concurrent writers against the store's mutex.
 
 The same provider file registers into Python
 (`m.register_prolog(path=...)`), which is what
-`python/tests/test_c_space.py` does before driving it from a thread
+`bindings/python/tests/test_c_space.py` does before driving it from a thread
 pool.
 
 ## What the provider declares, and what that costs

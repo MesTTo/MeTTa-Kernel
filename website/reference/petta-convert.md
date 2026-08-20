@@ -1,6 +1,6 @@
 # `petta.convert`
 
-Source: `python/petta/convert.py`.
+Source: `bindings/python/petta/convert.py`.
 
 > Purpose: public two-way conversion facade and registration API.
 > Guarantees:

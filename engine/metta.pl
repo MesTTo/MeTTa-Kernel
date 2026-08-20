@@ -67,34 +67,34 @@
 %     Symbol as an unknown name does [tested 2026-08-20: metta_metatypes].
 %   - petta_transaction/1 answers everything its body answers, and every
 %     answer's writes commit or roll back together [tested 2026-08-19:
-%     python/tests/test_atomic_forms.py::test_a_transaction_preserves_every_answer_of_its_body].
+%     bindings/python/tests/test_atomic_forms.py::test_a_transaction_preserves_every_answer_of_its_body].
 %   - Every guarded_input_position/3 refuses an unbound argument and names the
 %     MeTTa operation, so no builtin binds the caller's variable, invents an
 %     answer, runs away or reports a host predicate [tested 2026-08-19:
 %     builtin_input_guards:every_builtin_refuses_an_unbound_input_by_name,
-%     python/tests/test_builtin_inputs.py::test_a_raising_builtin_names_the_metta_operation_not_the_host_predicate].
+%     bindings/python/tests/test_builtin_inputs.py::test_a_raising_builtin_names_the_metta_operation_not_the_host_predicate].
 %   - ==/3 and !=/3 refuse two operands of known and different types and
 %     answer for every other pair, at no cost on two numbers [tested
 %     2026-08-19:
-%     python/tests/test_equality.py::test_cross_kind_equality_answers_what_the_arbiter_answers]
+%     bindings/python/tests/test_equality.py::test_cross_kind_equality_answers_what_the_arbiter_answers]
 %     [measured 2026-08-19: 4487.45 inferences per thousand-iteration loop,
 %     unchanged].
 %   - %Undefined% is consistent with every type in both directions, so a call
 %     site refuses only a PROVEN conflict, while has_declared_type/2 demands a
 %     witness for a contract [tested 2026-08-19:
-%     python/tests/test_gradual_typing.py::test_an_unknown_type_is_consistent_with_every_declared_type,
-%     python/tests/test_answer_protocol.py::test_admission_types_the_pool].
+%     bindings/python/tests/test_gradual_typing.py::test_an_unknown_type_is_consistent_with_every_declared_type,
+%     bindings/python/tests/test_answer_protocol.py::test_admission_types_the_pool].
 %   - An expression no arrow types reads element-wise, and the tuple it reads
 %     is %Undefined% as soon as one member's type is [tested 2026-08-19:
 %     metta_type_answers:a_tuple_with_an_untyped_member_is_undefined].
 %   - get-type/2 and get-type-space/3 answer from declarations without running
 %     the inspected expression, so inspection has no effects of its own
 %     [tested 2026-08-19:
-%     python/tests/test_type_inspection.py::test_get_type_does_not_run_its_arguments_effects].
+%     bindings/python/tests/test_type_inspection.py::test_get_type_does_not_run_its_arguments_effects].
 %   - get-type-space/3 reads only the selected space, and the upstream doc
 %     family builds @doc-formal answers from that scoped type and prose
 %     [tested 2026-08-20:
-%     python/tests/test_doc_family.py::test_the_doc_family_answers_what_upstream_answers].
+%     bindings/python/tests/test_doc_family.py::test_the_doc_family_answers_what_upstream_answers].
 %   - builtin_type_declaration/2 rows are the union of lib_builtin_types.metta
 %     and the prelude's, with each row written once and evicted only by the
 %     register that wrote it [tested 2026-08-19:
@@ -109,7 +109,7 @@
 %   - petta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
 %     reading the message [tested 2026-08-19:
-%     python/tests/test_assertion_failures.py::test_a_failing_assertion_is_a_different_exception_from_an_engine_fault].
+%     bindings/python/tests/test_assertion_failures.py::test_a_failing_assertion_is_a_different_exception_from_an_engine_fault].
 %   - Runtime builtins reject prebound outputs that they would not produce
 %     [tested 2026-08-14: metta_builtin_outputs].
 %   - Function registration performed by a source load participates in that
@@ -120,7 +120,7 @@
 %   - Every metta_grounded_extra_type/2 clause is consulted whether or not a host
 %     bridge answers metta_grounded_type_names/2, so a (py-atom f Type)
 %     declaration survives the Python library being loaded [tested 2026-08-18:
-%     python/tests/test_ops.py::test_a_declared_type_survives_the_library_being_loaded]
+%     bindings/python/tests/test_ops.py::test_a_declared_type_survives_the_library_being_loaded]
 %     [measured 2026-08-18: +2 inferences per get-type on a Python object and
 %     0 on every other value].
 %   - The engine loads and runs the full examples/ corpus with
@@ -342,14 +342,15 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 :- ensure_loaded([ext_points, parser, translator, specializer, filereader,
                   '../lib/lib_gitimport', spaces, tracer, duals, kernel]).
 
-%A host is a file in hosts/, the backends split one directory over: the
+%A host is a seat's decider file under bindings/, the backends split one
+%directory over: the
 %decider file loads unconditionally and whether its bridge is usable is its
-%own business, so the engine names no host and the next host is a dropped
-%file. Hosts load here, before the standard library and the registry
+%own business, so the engine names no host and the next host is a new
+%seat folder with a decider.pl. Hosts load here, before the standard library and the registry
 %directive, so a bridge's declared builtins and seams exist by the time
 %anything reads them.
 :- prolog_load_context(directory, Src),
-   directory_file_path(Src, '../hosts/*.pl', Pattern),
+   directory_file_path(Src, '../bindings/*/decider.pl', Pattern),
    expand_file_name(Pattern, Found),
    msort(Found, Files),
    forall(member(File, Files), ensure_loaded(File)).
@@ -1402,7 +1403,7 @@ non_list(X) :- compound(X), X \= [_|_].
 %The POSITIONS are read off builtin_type_declaration/2 rather than listed, so
 %declaring a type for a new builtin strengthens its guard in the same stroke
 %and the table and the guards cannot drift apart. The probe in
-%python/tests/test_builtin_inputs.py enumerates the same table.
+%bindings/python/tests/test_builtin_inputs.py enumerates the same table.
 %
 %Each guard is a LEADING clause on a var first argument, and it costs nothing
 %where it would be felt: 'car-atom'([1,2], _) is 2.0000 inferences per call
@@ -1885,7 +1886,7 @@ has_type_in(Module, X, T) :-
 %nothing declares is not evidence of a Space. The directed BigInt-to-Number
 %case is explicit here too, so reflective and compiled call checks use the same
 %operational rule
-%[tested: python/tests/test_answer_protocol.py::test_admission_types_the_pool].
+%[tested: bindings/python/tests/test_answer_protocol.py::test_admission_types_the_pool].
 type_witness_in(Module, X, T) :-
     (   T == 'Number', once(type_candidate_in(Module, X, 'BigInt'))
     ->  true
@@ -2360,7 +2361,7 @@ scoped_super_type_rounds(Space, Frontier, Accumulated, Widened) :-
 %THROWS is the registrant's bug, and reading the throw as "no bridge answered"
 %ran the class walk instead: one broken protocol predicate silently destroyed
 %typing for every host object in the process, and get-type answered Box, the
-%envelope's own class, for all of them. python/petta/_ops.py says the rule in
+%envelope's own class, for all of them. bindings/python/petta/_ops.py says the rule in
 %as many words for the same probe on the Python side: "A broken probe is the
 %registrant's bug: surface it with the protocol's name attached, never as a
 %type quietly missing." The fallback is for a bridge that is ABSENT, which is
@@ -2381,7 +2382,7 @@ metta_grounded_type(X, T) :- ( metta_grounded_type_names(X, Names)
 %`(builtin_function_or_method)` through the library and
 %`(builtin_function_or_method (-> Number Number Number))` through run.sh
 %[measured 2026-08-18]
-%[tested: python/tests/test_ops.py::test_a_declared_type_survives_the_library_being_loaded].
+%[tested: bindings/python/tests/test_ops.py::test_a_declared_type_survives_the_library_being_loaded].
 %Two relations rather than one wider if-then-else, for the reason Sterling and
 %Shapiro give for lifting entitlement/2 out of pension/2: a cut that picks a
 %default correctly still prevents the alternatives being found
@@ -4014,7 +4015,7 @@ prolog:error_message(petta_test_no_answer) -->
 %formals are the ENGINE's, so the two cannot drift: adding a fourth
 %assertion form and forgetting this predicate leaves that form unclassified
 %here, where it is read, rather than in a file the engine never loads
-%[tested: python/tests/test_assertion_failures.py].
+%[tested: bindings/python/tests/test_assertion_failures.py].
 %
 %Actual and Expected are handed out as WRITTEN MeTTa terms; a caller that
 %has to cross them to another language converts them itself, because the
@@ -6123,7 +6124,7 @@ current_metta_module(Module) :-
 %out. It saved 4 inferences on every Python evaluation and cost 2 on every
 %annotated typed call, which is the wrong side of that trade: the crossing
 %happens once and the typed call happens in a loop. Measured 2026-08-16, the
-%@m.define annotated tier of python/benchmarks/extension_cost.py went 20.00 to
+%@m.define annotated tier of bindings/python/benchmarks/extension_cost.py went 20.00 to
 %22.00 with the test in place, against m.fn 68.00 to 64.00.
 %The argument is a MODULE, and refusing anything else is what keeps this
 %honest now that a space and its module are different atoms. They used to be

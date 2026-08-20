@@ -106,9 +106,9 @@ SOURCES = (
     "engine/*.pl",
     "lib/*.pl",
     "lib/*.py",
-    "python/petta/*.py",
-    "python/petta/*.pl",
-    "python/examples/*.py",
+    "bindings/python/petta/*.py",
+    "bindings/python/petta/*.pl",
+    "bindings/python/examples/*.py",
     "mork_ffi/*.pl",
     "tests/*.py",
 )
@@ -116,7 +116,7 @@ SOURCES = (
 # Where a name may be defined. petta/_compliance.py holds real tests, shipped
 # for a provider author to inherit; they run here too, under each
 # SpaceComplianceSuite subclass, which is why the package is walked at all.
-PYTHON_TREES = ("python/tests", "python/benchmarks", "python/petta", "tests")
+PYTHON_TREES = ("bindings/python/tests", "bindings/python/benchmarks", "bindings/python/petta", "tests")
 
 # The tag and everything up to its closing bracket, across newlines: a claim
 # listing three tests wraps, and a per-line scan reads the first line as an

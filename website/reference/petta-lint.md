@@ -1,6 +1,6 @@
 # `petta.lint`
 
-Source: `python/petta/lint.py`.
+Source: `bindings/python/petta/lint.py`.
 
 > Purpose: expose diagnostics for declarations, equations, and calls.
 > Guarantees:

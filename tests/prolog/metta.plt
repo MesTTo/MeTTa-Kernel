@@ -379,7 +379,7 @@ test(eval_keeps_a_runtime_literal_self_as_written) :-
 % bridge answered", and the class walk ran instead. One broken protocol
 % predicate therefore destroyed typing for every host object in the process,
 % and get-type answered Box, the envelope's own class, for all of them, with
-% no error at any point. python/petta/_ops.py states the rule for the same
+% no error at any point. bindings/python/petta/_ops.py states the rule for the same
 % probe on its own side: a broken probe is the registrant's bug.
 % The clause is static and flag-guarded, because metta_grounded_type_names/2 is
 % multifile without being dynamic: a bridge contributes its clause at load

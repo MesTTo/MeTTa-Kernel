@@ -35,7 +35,7 @@ jobs:
       # The Node binding runs the engine in a WebAssembly SWI, so it needs
       # node and swipl-wasm and nothing else. Without this step check.sh's
       # node-binding lane says it cannot run and the conformance kit in
-      # python/tests/test_node_binding.py skips, which is a green run that
+      # bindings/python/tests/test_node_binding.py skips, which is a green run that
       # tested the seam's second consumer not at all.
       - uses: actions/setup-node@v4
         with:
@@ -111,7 +111,7 @@ jobs:
       - name: Suite on ${{ matrix.python }}
         env:
           HYPOTHESIS_PROFILE: ci
-        run: /tmp/v/bin/python -m pytest python/tests/ --rootdir=python -c python/pyproject.toml -q
+        run: /tmp/v/bin/python -m pytest bindings/python/tests/ --rootdir=bindings/python -c bindings/python/pyproject.toml -q
 
   # A wheel that boots in a clean environment is the only blackbox proof
   # that packaging works. The runtime resources setup.py copies into
@@ -149,7 +149,7 @@ jobs:
           # from an unbuilt backend at run time and only a packaging check can
           # tell them apart. It was unshipped until 2026-08-17.
           runtime = Path(petta.__file__).parent / '_runtime'
-          for required in ('engine', 'lib', 'backends', 'hosts'):
+          for required in ('engine', 'lib', 'backends', 'bindings'):
               assert (runtime / required).is_dir(), f'{required}/ missing from the wheel'
           assert list((runtime / 'backends').glob('*.pl')), 'backends/ shipped empty'
           # The codec's golden corpus is data a third party reads out of an

@@ -280,7 +280,7 @@ test(failed_late_definition_does_not_recompile_existing_callers,
 :- end_tests(filereader_source_rollback).
 
 %The engine's own door onto a reload. The Python library's is tested from the
-%Python side in python/tests/test_reload.py; what these hold is the state the
+%Python side in bindings/python/tests/test_reload.py; what these hold is the state the
 %engine keeps about a file, which no Python assertion can see.
 :- begin_tests(filereader_source_reload).
 

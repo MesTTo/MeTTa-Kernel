@@ -2,7 +2,7 @@
 
 A `SpaceProvider` lets an external store answer PeTTa matches. The DuckDB example maps each SQL table to a relation whose head is the table name and whose arguments follow the table's column order.
 
-`DuckDBSpace` belongs to `python/examples/integration/duckdb_space.py`. It is not exported by `petta`, and installing PeTTa does not install a packaged DuckDB adapter. Copy or adapt the example when you want this integration.
+`DuckDBSpace` belongs to `bindings/python/examples/integration/duckdb_space.py`. It is not exported by `petta`, and installing PeTTa does not install a packaged DuckDB adapter. Copy or adapt the example when you want this integration.
 
 ## Push ground positions into SQL
 

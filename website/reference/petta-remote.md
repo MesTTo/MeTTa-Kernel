@@ -1,6 +1,6 @@
 # `petta.remote`
 
-Source: `python/petta/remote.py`.
+Source: `bindings/python/petta/remote.py`.
 
 > Purpose: spaces across processes, the multi-context reading: each engine
 > is a context, serve() exposes its spaces over HTTP speaking the same tagged
