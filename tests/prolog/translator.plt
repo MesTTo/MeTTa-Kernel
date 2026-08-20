@@ -9,7 +9,7 @@
 %     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
 %   - typed let targets bind their value before enforcing the in-place type
 %     premise [tested: test_an_annotated_binding_emits_its_claim;
-%     commit=WORKTREE].
+%     commit=def7a71556f810463a3c0930ed0c37a3f55c7c83].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

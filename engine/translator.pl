@@ -2060,7 +2060,7 @@ prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
 %The value must bind before its type premise runs: checking the fresh pattern
 %variable first accepts everything and then forgets the constraint. Untyped
 %lets retain the occurrence-sensitive fast path below [tested:
-%test_an_annotated_binding_emits_its_claim; commit=WORKTREE].
+%test_an_annotated_binding_emits_its_claim; commit=def7a71556f810463a3c0930ed0c37a3f55c7c83].
 translate_let_dl([Pattern, Value, In], AfterHead, Goals, Out) :-
     constrain_args(Pattern, ConstrainedPattern, TypeGoals),
     TypeGoals \== [], !,
