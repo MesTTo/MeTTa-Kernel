@@ -3043,7 +3043,8 @@ metta_condition_holds(Closure, Item) :- call(Closure, Item, true).
 %produces no guards and an unchanged pattern. Only expression lists can denote
 %a modifier; trying the ownership seam on leaf atoms added a fixed preparation
 %tax without making a meaningful modifier possible [measured: query-2k-rows
-%minimum 561467 versus 601709 before leaf calls and per-row empty modifier
+%minimum 561467 versus 601709 on 2026-08-21 before leaf calls and per-row
+%empty modifier
 %calls were removed; command=python bench.py query-2k-rows --counter-only;
 %fixture=20 queries over 2000 rows;
 %commit=b54ecaaa1224eabb90f808275003cd9abeef8065]. Engine-compiled match/4
