@@ -2062,6 +2062,7 @@ test(a_nested_transaction_yields_every_solution_too) :-
 
 guard_filler('Expression', [a, b]) :- !.
 guard_filler('Number', 1) :- !.
+guard_filler('BigInt', 9223372036854775808) :- !.
 guard_filler('String', "s") :- !.
 guard_filler('Bool', true) :- !.
 guard_filler('Symbol', '&probe-space') :- !.
