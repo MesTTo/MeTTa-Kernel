@@ -69,11 +69,15 @@ F4 grounded/09
 F4 grounded/09c
 F4 eval-core/empty-argument-arity
 F4 control-stdlib/01_surface_types
-# F5: a Float printed or compared as text.
-F5 grounded/01-arithmetic
-# F6: == and unify over mixed Int/Float.
-F6 grounded/03
-F6 matching/grounded_value_matching
+# F5 (a Float printed or compared as text) and F6 (== and unify over
+# mixed Int/Float) CLOSED 2026-08-20 by the fork's alignment commits
+# 7c01018 and 36f9e74, merged to fork main as aad8a27: the printer forms
+# both adjacent shortest candidates (a closest-only loop failed 92 of
+# 2,008,768 enumerated checks, every one at a power of two), the reader
+# takes dot-free spellings back, and atom_equiv carries the runtime
+# equality through ==, unify, the matchers, the exact index, the
+# substitution trie and the compiled register instruction while interning
+# stays structural. Their three files rejoin the comparable set.
 # F7: in-place annotations in match patterns and the %-family.
 F7 types-basic/04
 F7 types-basic/05

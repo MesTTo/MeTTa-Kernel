@@ -18,7 +18,9 @@ eval-core/pragma-unknown-key.metta
 eval-core/reserved-variable-name-control.metta
 eval-core/self-evaluating-atoms.metta
 eval-core/superpose-branch-evaluation.metta
+grounded/01-arithmetic.metta
 grounded/02b-modulo-zero.metta
+grounded/03-comparison-equality.metta
 grounded/04-boolean.metta
 grounded/05-math.metta
 grounded/08-partial-math.metta
@@ -29,6 +31,7 @@ grounded/17-effects-equality.metta
 grounded/19-effects-math-rounding-predicates.metta
 grounded/20-effects-math-binary-extrema.metta
 matching/failed_match_argument_evaluation.metta
+matching/grounded_value_matching.metta
 matching/nondeterministic_match_snapshot.metta
 matching/overlapping_rule_guarded_control.metta
 matching/pattern_argument_evaluation.metta
