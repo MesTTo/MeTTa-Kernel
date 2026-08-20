@@ -499,6 +499,14 @@ run GATE   leatta-gate-selftest "$PY" "$HERE/tests/conformance/leatta_gate_selft
 # lane's own absence policy.
 run GATE   cetta        "$PY" "$HERE/tests/conformance/cetta.py" --timeout 25 --show 12
 
+# The forward half: the fork pins this engine's whole example corpus as
+# normalized oracles, and every entry replays through the CURRENT tree
+# against the pin, so an engine change that moves an example's answers
+# fails here with the entry named, and the remedy is a deliberate
+# re-freeze in the fork with the cause recorded. Absent fork: reports
+# and passes, the same policy as the lanes above.
+run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 10
+
 # The example corpus is the executable semantics documentation, and until this
 # lane existed it only ever ran through the ENGINE: the examples gate below
 # invokes swipl on src/main.pl, test.sh and test_metta_examples.py shell to
