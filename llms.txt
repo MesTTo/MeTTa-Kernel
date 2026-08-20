@@ -18,7 +18,7 @@ re-runs them.
 | `examples/**/*.metta` | 206 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
 | `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `python/tools/libdoc.py` |
-| `tests/prolog/*.plt` | 25 plunit suites over the engine itself | the `plunit` gate lane |
+| `tests/prolog/*.plt` | 26 plunit suites over the engine itself | the `plunit` gate lane |
 | `python/tests/*.py` | 123 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `README.md` | the tour, and the argument for the design | |
@@ -29,7 +29,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `src/*.pl` | 16,207 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/duals.pl`, `src/tracer.pl`, `src/trs.pl` and `src/narrowing.pl` metatheory, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `src/*.pl` | 16,448 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/duals.pl`, `src/tracer.pl`, `src/trs.pl` and `src/narrowing.pl` metatheory, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
 | `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
@@ -163,7 +163,14 @@ view kept current by the space's own writes), `ClosureView` (reachability over a
 stored relation), `TabledMap` (a computed cache that stays correct).
 
 `&petta` is the space in which the library describes itself, and it is where
-every declaration below is stored.
+every declaration below is stored. The catalog describes its own kinds there:
+`(kind head argspec...)` rows declare each declaration's shape,
+`(vocabulary name value...)` rows declare the value sets, and
+`(claim vocab value property...)` rows attach per-value facts. One generic
+checker validates every `&petta` write against them, a violation is a hard
+error naming the atom, the position and the argspec, and a head with no kind
+row passes untouched, so third-party declaration kinds are ordinary data
+until their author declares a kind row for them.
 
 ## Python functions as MeTTa functions
 
