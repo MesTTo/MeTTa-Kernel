@@ -106,6 +106,9 @@
 %     [tested 2026-08-19: prelude_derived_forms].
 %   - Test assertions distinguish no answer from one empty-expression answer
 %     [tested 2026-08-14: translator_test_answers].
+%   - pragma! accepts only settings with a live enforcement path; inert HE
+%     compatibility keys and unknown keys are refused at the write boundary
+%     [tested: test_no_pragma_key_is_accepted_and_inert; commit=WORKTREE].
 %   - petta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
 %     reading the message [tested 2026-08-19:
@@ -4456,48 +4459,24 @@ metta_elapsed(Goal, Value, [Value, Seconds]) :-
     Seconds is End - Start.
 
 %%% Interpreter pragmas: %%%
-%MeTTa HE spells interpreter settings (pragma! <key> <value>). PeTTa had none,
-%so this is the fallback-to-HE rule applied.
 :- dynamic metta_pragma/2.
 
-%The keys this engine KNOWS. pragma! itself no longer checks against them:
-%the arbiter accepts any key and answers unit, and its corpus states the
-%reason, "an Error would introduce key validation that the pinned operation
-%does not perform" [source: LeaTTa
-%tests/semantics/eval-core/pragma-unknown-key.metta, STATUS conforms]. The
-%register is still the answer to "what does this engine enforce", and
-%with-pragma!, which is PeTTa's own scoped form, still refuses an unknown key
-%there: a scope that sets nothing does nothing, silently, for as long as it
-%lasts [tested: scoped_pragmas:with_pragma_refuses_an_unknown_key].
-%HE's own keys are type-check, interpreter and max-stack-depth
-%[source 2026-08-15: MeTTa HE stdlib reference, pragma!]. The two bounds are
-%PeTTa's, and are the ones this engine can actually enforce.
+%This is an enforcement registry, not a compatibility vocabulary. Every row
+%has a consumer: the two bounds wrap runnable execution and the specializer
+%consults verify-specializations. A key with no consumer is refused rather
+%than recorded inertly.
 metta_pragma_key('max-time', 'bound every runnable by wall-clock seconds').
 metta_pragma_key('max-inferences', 'bound every runnable by inference count').
-%These three are HE's. They are accepted so an HE program loads, and they are
-%NOT enforced here; setting one changes nothing. Recorded rather than silently
-%swallowed, and tracked in ai-todo-parallel.md B10.1.
 metta_pragma_key('verify-specializations',
                  'check every specialization against the generic call once').
-metta_pragma_key('max-stack-depth', 'HE spelling; accepted, NOT enforced').
-metta_pragma_key('type-check', 'HE spelling; accepted, NOT enforced').
-metta_pragma_key(interpreter, 'HE spelling; accepted, NOT enforced').
 
 'pragma!'(Key, _, _) :- var(Key), !, refuse_unbound_input('pragma!', 1).
-%max-stack-depth is the ONE key the arbiter validates, and a count is the
-%whole of what it validates. The refusal is an ANSWER, not a raise, so the
-%program that wrote it keeps running [measured 2026-08-19 against the
-%arbiter: -1, 1.5 and abc each answer this error, while
-%(pragma! type-check -1) and (pragma! completely-invented-key -1) answer ();
-%source: LeaTTa tests/semantics/eval-core/max-stack-depth-negative.metta].
-%`none` is the engine's own "unset" sentinel, which petta_restore_pragma/1
-%passes back on every scope exit, so it is not a value to validate.
-'pragma!'('max-stack-depth', Value, Error) :-
-    Value \== none,
-    \+ ( integer(Value), Value >= 0 ),
+'pragma!'(Key, _, _) :-
+    \+ metta_pragma_key(Key, _),
     !,
-    Error = ['Error', ['pragma!', 'max-stack-depth', Value],
-             'UnsignedIntegerIsExpected'].
+    findall(K-D, metta_pragma_key(K, D), Known),
+    throw(error(domain_error(metta_pragma_key, Key),
+                context('pragma!'/3, Known))).
 %The UNIT value, for the reason add-atom answers it: the standard library
 %types this `(-> Symbol %Undefined% (->))` and `(->)` IS the unit type.
 'pragma!'(Key, Value, []) :-
@@ -4528,16 +4507,16 @@ metta_with_pragmas(Settings, Goal, Value) :-
     member(Value, Values).
 
 petta_pragma_pair([Key, ValueIn], Key-ValueIn) :- !,
-    (   metta_pragma_key(Key, _)
-    ->  true
-    ;   findall(K-D, metta_pragma_key(K, D), Known),
-        throw(error(domain_error(metta_pragma_key, Key),
-                    context('with-pragma!'/2, Known)))
-    ).
+    require_metta_pragma_key(Key, 'with-pragma!'/2).
 petta_pragma_pair(Other, _) :-
     throw(error(domain_error(metta_pragma_setting, Other),
                 context('with-pragma!'/2,
                         'each setting is a (key value) pair'))).
+
+require_metta_pragma_key(Key, _) :- metta_pragma_key(Key, _), !.
+require_metta_pragma_key(Key, Door) :-
+    findall(K-D, metta_pragma_key(K, D), Known),
+    throw(error(domain_error(metta_pragma_key, Key), context(Door, Known))).
 
 petta_apply_pragma(Key-Value, Key-Previous) :-
     ( metta_pragma(Key, P) -> Previous = P ; Previous = none ),

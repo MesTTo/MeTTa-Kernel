@@ -473,6 +473,11 @@ the ledger of which head is which, what it answers to in the minimal
 instruction set the arbiter presents, and for a derived form still fused into
 the compiler, the measurement that keeps it there.
 
+`pragma!` accepts `max-time`, `max-inferences`, and
+`verify-specializations`. Each changes a live engine mechanism. Unknown keys
+and the unsupported `type-check`, `max-stack-depth`, and `interpreter` keys are
+refused rather than stored inertly.
+
 233 builtins are registered (`m.builtins()` lists them live), among them the
 py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,
 `py-dict`, `py-tuple`, `py-str`, `py-repr`, `py-format`, `py-slice`, `py-range`,

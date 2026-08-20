@@ -1,5 +1,8 @@
 % Purpose: direct PlUnit coverage for core runtime builtins, their error
 %   contracts, and Python import state cleanup.
+% Guarantees:
+%   - every pragma! key is either enforced or refused.
+%     [tested: interpreter_pragmas; commit=WORKTREE]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -1660,9 +1663,6 @@ test(with_pragma_refuses_a_malformed_setting,
      [throws(error(domain_error(metta_pragma_setting, _), _))]) :-
     metta_with_pragmas([broken], true, _).
 
-%with-pragma! is the ENGINE's own scoped form, so it keeps the key check
-%pragma! gave up: a scope that sets nothing does nothing, silently, for as
-%long as it lasts.
 test(with_pragma_refuses_an_unknown_key,
      [throws(error(domain_error(metta_pragma_key, 'invented-by-a-typo'), _))]) :-
     metta_with_pragmas([['invented-by-a-typo', 1]], true, _).
@@ -2020,34 +2020,24 @@ test(sort_strings_sorts_strings_and_refuses_anything_else) :-
 
 :- begin_tests(interpreter_pragmas).
 
-%pragma! answers the UNIT value and accepts any key. An unrecognised key is
-%not an error there: "an Error would introduce key validation that the pinned
-%operation does not perform" [source: LeaTTa
-%tests/semantics/eval-core/pragma-unknown-key.metta, STATUS conforms].
-test(pragma_answers_unit_for_any_key) :-
-    'pragma!'('completely-invented-key', 42, Unknown),
-    'pragma!'('type-check', auto, Known),
-    Unknown == [], Known == [],
-    'pragma!'('completely-invented-key', none, _),
-    'pragma!'('type-check', none, _).
-
-%The one key the arbiter validates, and the whole of what it validates
-%[measured 2026-08-19 against the arbiter: `abc`, `1.5` and `-1` each answer
-%the error below, while (pragma! type-check -1) and
-%(pragma! completely-invented-key -1) both answer ()].
-test(max_stack_depth_answers_its_own_error_for_a_value_that_is_not_a_count,
-     [forall(member(Bad, [-1, 1.5, abc]))]) :-
-    'pragma!'('max-stack-depth', Bad, Result),
-    Result == ['Error', ['pragma!', 'max-stack-depth', Bad],
-               'UnsignedIntegerIsExpected'],
-    \+ metta_pragma('max-stack-depth', _).
-
-test(max_stack_depth_accepts_a_count) :-
-    'pragma!'('max-stack-depth', 0, Result),
+test(pragma_answers_unit_for_an_enforced_key) :-
+    'pragma!'('max-inferences', 100000, Result),
     Result == [],
-    metta_pragma('max-stack-depth', 0),
-    'pragma!'('max-stack-depth', none, _),
-    \+ metta_pragma('max-stack-depth', _).
+    metta_pragma('max-inferences', 100000),
+    'pragma!'('max-inferences', none, _).
+
+test(pragma_refuses_an_unknown_key,
+     [throws(error(domain_error(metta_pragma_key,
+                                'completely-invented-key'), _))]) :-
+    'pragma!'('completely-invented-key', 42, _).
+
+test(pragma_refuses_inert_type_check,
+     [throws(error(domain_error(metta_pragma_key, 'type-check'), _))]) :-
+    'pragma!'('type-check', auto, _).
+
+test(pragma_refuses_inert_max_stack_depth,
+     [throws(error(domain_error(metta_pragma_key, 'max-stack-depth'), _))]) :-
+    'pragma!'('max-stack-depth', 100, _).
 
 :- end_tests(interpreter_pragmas).
 

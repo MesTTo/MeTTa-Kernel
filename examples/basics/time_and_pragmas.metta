@@ -1,3 +1,8 @@
+; Purpose: demonstrate time control, enforced pragmas, and relational arithmetic.
+; Guarantees:
+;   - every demonstrated pragma changes a live execution bound.
+;   [tested: test_no_pragma_key_is_accepted_and_inert; commit=WORKTREE]
+;
 ;Time control and interpreter pragmas, all core: no import needed.
 ;
 ;(sleep $seconds) suspends this evaluation. (timeout $seconds $expr) bounds an
@@ -34,24 +39,15 @@
 !(test (metta (+ 1 2) %Undefined% &self) 3)
 !(test (evalc (+ 1 2) &self) 3)
 
-;;; Pragmas. Each answers the unit value (), the way add-atom and println! do.
-;;; Any key is accepted, including one this engine does not enforce and one it
-;;; has never heard of: pragma! performs no key validation. The scoped form
-;;; below is PeTTa's own and does refuse a key it cannot set.
+;;; Pragmas. Each enforced key answers the unit value (), the way add-atom and
+;;; println! do. Unknown settings and the unsupported HE keys type-check,
+;;; max-stack-depth and interpreter are refused instead of being recorded
+;;; without changing execution.
 !(test (pragma! max-time 30) ())
 !(test (pragma! max-inferences 100000000) ())
-!(test (pragma! completely-invented-key 42) ())
 ;Passing none clears a bound again.
 !(test (pragma! max-time none) ())
 !(test (pragma! max-inferences none) ())
-!(test (pragma! completely-invented-key none) ())
-
-;;; max-stack-depth is the one key with a value contract: a count, and
-;;; anything else answers its own error rather than raising.
-!(test (pragma! max-stack-depth 0) ())
-!(test (pragma! max-stack-depth -1)
-       (Error (pragma! max-stack-depth -1) UnsignedIntegerIsExpected))
-!(test (pragma! max-stack-depth none) ())
 
 ;;; (inferences $n $expr) is timeout's deterministic twin, the same
 ;;; kwarg vocabulary the Python tier's run(inferences=) speaks: the bound
