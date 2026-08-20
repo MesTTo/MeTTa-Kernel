@@ -6,6 +6,9 @@
 ;test_a_string_operand_to_math_refuses_instead_of_answering_its_char_code].
 ;Integer division and remainder by zero answer contained DivisionByZero
 ;atoms [tested: test_integer_division_by_zero_answers_what_d1_decides].
+;Real-valued sqrt, log, trig, and pow promote integer operands to Float;
+;pow additionally bounds integer exponents to signed i32 [tested:
+;test_real_valued_math_treats_integer_and_float_operands_alike].
 
 !(test (== 1 1.0) True)
 !(test (!= 1.0 1) False)
@@ -16,7 +19,13 @@
 (= (math-string) "s")
 !(test (sqrt-math (math-string))
        (Error (sqrt-math "s") (BadArgType 1 Number String)))
-!(test (pow-math 2 3) 8)
+!(test (pow-math 2 3) 8.0)
+!(test (isnan-math (sqrt-math -1)) True)
+!(test (isinf-math (pow-math 0 -1)) True)
+!(test (pow-math 2 2147483648)
+       (noeval (Error (pow-math 2 2147483648)
+                      "power argument is too big, try using float value")))
+!(test (pow-math 1 2147483648.0) 1.0)
 !(test (sqrt-math 9) 3.0)
 !(test (abs-math -5) 5)
 !(test (log-math 10 100) 2.0)

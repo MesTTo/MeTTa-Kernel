@@ -141,15 +141,10 @@ host_error_case('#<', '#<'(1, invalid_number, _)).
 host_error_case('#>', '#>'(1, invalid_number, _)).
 host_error_case('#=', '#='(1, invalid_number, _)).
 host_error_case('#\\=', '#\\='(1, invalid_number, _)).
-host_error_case('pow-math', 'pow-math'(0, -1, _)).
-host_error_case('sqrt-math', 'sqrt-math'(-1, _)).
-%The -math family has no invalid_number row and no overflow row: a
-%wrong-typed operand ANSWERS through metta_operation_answer now (the
-%operation_answers unit covers it), and a result past binary64 SATURATES
-%with the reader's literals, so the faults that remain are the all-integer
-%NaN-family ones the float-operand guard keeps outside the retry.
-host_error_case('asin-math', 'asin-math'(2, _)).
-host_error_case('acos-math', 'acos-math'(2, _)).
+%The -math family has no numeric-domain host-error row: its real-valued
+%members promote integers to Float, so negative sqrt and out-of-domain trig
+%answer NaN just like their explicitly floating spellings. Wrong types remain
+%operation Error answers, and overflow saturates through the IEEE recovery.
 host_error_case('random-int', 'random-int'(1, invalid_number, _)).
 host_error_case('random-float', 'random-float'(1, invalid_number, _)).
 host_error_case('random-float',
@@ -167,6 +162,51 @@ test(test_integer_division_by_zero_answers_what_d1_decides) :-
     Direct == [['Error', ['/', 7, 0], 'DivisionByZero']],
     process_metta_string("!(collapse (/ 7 0))", Collapsed),
     Collapsed == [[['Error', ['/', 7, 0], 'DivisionByZero']]].
+
+real_unary_pair('sqrt-math', 4, 2.0).
+real_unary_pair('sin-math', 0, 0.0).
+real_unary_pair('cos-math', 0, 1.0).
+real_unary_pair('tan-math', 0, 0.0).
+real_unary_pair('asin-math', 0, 0.0).
+real_unary_pair('acos-math', 1, 0.0).
+real_unary_pair('atan-math', 0, 0.0).
+
+test(test_real_valued_math_treats_integer_and_float_operands_alike) :-
+    forall(real_unary_pair(Operation, Integer, Expected),
+           ( GoalInteger =.. [Operation, Integer, IntegerAnswer],
+             Float is float(Integer),
+             GoalFloat =.. [Operation, Float, FloatAnswer],
+             call(GoalInteger), call(GoalFloat),
+             float(IntegerAnswer), float(FloatAnswer),
+             IntegerAnswer =:= Expected, FloatAnswer =:= Expected )),
+    'log-math'(10, 100, IntegerLog),
+    'log-math'(10.0, 100.0, FloatLog),
+    IntegerLog =:= 2.0, FloatLog =:= 2.0,
+    'sqrt-math'(-1, SqrtIntNan), 'isnan-math'(SqrtIntNan, true),
+    'sqrt-math'(-1.0, SqrtFloatNan), 'isnan-math'(SqrtFloatNan, true),
+    'log-math'(10, -5, LogIntNan), 'isnan-math'(LogIntNan, true),
+    'log-math'(10.0, -5.0, LogFloatNan),
+    'isnan-math'(LogFloatNan, true),
+    'asin-math'(2, AsinIntNan), 'isnan-math'(AsinIntNan, true),
+    'asin-math'(2.0, AsinFloatNan), 'isnan-math'(AsinFloatNan, true),
+    'acos-math'(2, AcosIntNan), 'isnan-math'(AcosIntNan, true),
+    'acos-math'(2.0, AcosFloatNan), 'isnan-math'(AcosFloatNan, true),
+    'pow-math'(2, 3, Power), Power == 8.0,
+    'pow-math'(1, -2147483648, LowerBound), LowerBound == 1.0,
+    'pow-math'(1, 2147483647, UpperBound), UpperBound == 1.0,
+    'pow-math'(0, -1, InfinitePower),
+    'isinf-math'(InfinitePower, true),
+    'pow-math'(1, 2147483648.0, UnboundedFloatPower),
+    UnboundedFloatPower == 1.0,
+    'pow-math'(2, 2147483648, TooBig),
+    TooBig == ['Error', ['pow-math', 2, 2147483648],
+               "power argument is too big, try using float value"],
+    'pow-math'(2, -2147483649, TooSmall),
+    TooSmall == ['Error', ['pow-math', 2, -2147483649],
+                 "power argument is too big, try using float value"],
+    %exp-math is PeTTa doctrine, not part of LeaTTa's floatUn table.
+    'exp-math'(1, IntegerExp), 'exp-math'(1.0, FloatExp),
+    IntegerExp =:= FloatExp.
 
 %The guarded operators refuse a non-number argument themselves rather than
 %letting is/2 coerce it, and the refusal is an ANSWER: `invalid_number` is an
@@ -193,20 +233,6 @@ test(divide_refuses_by_name_where_the_others_leave_the_call) :-
     findall(R, '/'(1, invalid_number, R), Answers),
     Answers == [['Error', ['/', 1, invalid_number],
                  "Divide expects two numbers: dividend and divisor"]].
-
-%A number the function is undefined at is a HOST error and stays one, which is
-%the split metta_math_recovery/4 draws: only an argument that is not a number
-%at all becomes the operation's own answer. exp-math over a large integer is
-%NOT in this list: exp IS defined there, the value merely leaves binary64,
-%and a result past binary64 saturates with the reader's literals
-%[tested: engine_operations_saturate_where_raw_is_still_raises].
-test(a_number_the_function_is_undefined_at_stays_a_host_error,
-     [forall(member(Goal-Operation, ['sqrt-math'(-1, _)-'sqrt-math',
-                                     'pow-math'(0, -1, _)-'pow-math',
-                                     'asin-math'(2, _)-'asin-math']))]) :-
-    catch(call(Goal), Error, true),
-    nonvar(Error),
-    Error = error(_, context(Operation, 'while evaluating MeTTa operation')).
 
 %The same operations handed an argument that is not a number at all. Each
 %answers in upstream's own words, and upstream's noun is not uniform: sqrt-math

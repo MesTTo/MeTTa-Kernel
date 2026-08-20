@@ -825,10 +825,10 @@ metta_math_operation(Operation, 1) :- metta_input_number_operation(Operation).
 
 %The math family's recovery, which decides between the two failures the host
 %reports the same way. An argument that is not a number at all is the MeTTa
-%operation's own refusal and an ANSWER; a number the function is undefined at,
-%sqrt of a negative or exp of 10000, is a host error and stays one. It sits in
-%the catch's recovery rather than in front of the call, so the fast path pays
-%nothing: this runs only where is/2 has already raised
+%operation's own refusal and an ANSWER; a numeric fault outside the licensed
+%IEEE family remains a host error. It sits in the catch's recovery rather than
+%in front of the call, so the fast path pays nothing: this runs only where
+%is/2 has already raised
 %[tested: operation_answers, metta_operation_errors].
 metta_math_recovery(Operation, Arguments, Error, Answer) :-
     (   maplist(metta_numeric_operand, Arguments)
@@ -837,7 +837,7 @@ metta_math_recovery(Operation, Arguments, Error, Answer) :-
     ).
 
 %The float-capable operations chain the two recoveries: an IEEE-class fault
-%with a float operand saturates to the value the arbiter's raw f64 answers
+%in a floating expression saturates to the value the arbiter's raw f64 answers
 %(metta_saturating_recover), and everything else takes the split above, a
 %wrong-typed operand answering and a numeric host error staying one.
 metta_math_saturating_recovery(Operation, Expression, Arguments, Error, Out) :-
@@ -1145,10 +1145,41 @@ exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
 '#>='(A, B, false) :- catch(A #< B, E,
                             rethrow_metta_operation_error('#>=', E)).
 
+%Real-valued operations explicitly promote integer inputs before applying the
+%host function. That is LeaTTa's toFloat? -> floatUn/floatBin law: sqrt, log
+%and the trig family always run and answer in binary64, including their NaN
+%and infinity edges [source: LeaTTa MettaHyperonFull/Core/Builtins.lean:
+%143-194; tested:
+%test_real_valued_math_treats_integer_and_float_operands_alike;
+%commit=WORKTREE].
+%
+%pow-math has one additional split from powMath: the base is always Float, an
+%integer exponent must fit signed i32, a Float exponent has no such bound, and
+%every successful result is Float. Check the base's numeric door before the
+%bound so a bad base still earns pow-math's ordinary argument refusal.
 'pow-math'(A, B, Out) :-
-    metta_math_saturating_eval('pow-math', A ** B, [A, B], Out).
+    (   maplist(metta_numeric_operand, [A, B])
+    ->  metta_pow_math_numeric(A, B, Out)
+    ;   metta_operation_answer('pow-math', [A, B], Out)
+    ).
+
+metta_pow_math_numeric(A, B, Out) :-
+    (   integer(B), ( B < -2147483648 ; B > 2147483647 )
+    ->  metta_error_atom(
+            'pow-math', [A, B],
+            "power argument is too big, try using float value", Out)
+    ;   Expression = float(A) ** float(B),
+        catch(Out is Expression, Error,
+              metta_math_saturating_recovery(
+                  'pow-math', Expression, [A, B], Error, Out))
+    ).
+
+metta_float_unary_eval(Operation, Function, A, Out) :-
+    Expression =.. [Function, float(A)],
+    metta_math_saturating_eval(Operation, Expression, [A], Out).
+
 'sqrt-math'(A, Out) :-
-    metta_math_saturating_eval('sqrt-math', sqrt(A), [A], Out).
+    metta_float_unary_eval('sqrt-math', sqrt, A, Out).
 'abs-math'(A, Out) :-
     ( integer(A) -> Out is abs(A)
     ; metta_math_saturating_eval('abs-math', abs(A), [A], Out) ).
@@ -1159,7 +1190,11 @@ exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
 %error.
 'log-math'(Base, X, Out) :-
     metta_math_saturating_eval(
-        'log-math', log(X) / log(Base), [Base, X], Out).
+        'log-math', log(float(X)) / log(float(Base)), [Base, X], Out).
+%exp-math is retained under PeTTa's existing real-valued doctrine. LeaTTa's
+%floatUn table does not include exp-math, so no LeaTTa attribution is made for
+%this operation; its integer and float spellings already share the host exp/1
+%path and its overflow recovery.
 'exp-math'(A, Out) :-
     metta_math_saturating_eval('exp-math', exp(A), [A], Out).
 'trunc-math'(A, Out) :-
@@ -1167,17 +1202,12 @@ exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
 'ceil-math'(A, Out) :- metta_math_eval('ceil-math', ceil(A), [A], Out).
 'floor-math'(A, Out) :- metta_math_eval('floor-math', floor(A), [A], Out).
 'round-math'(A, Out) :- metta_math_eval('round-math', round(A), [A], Out).
-'sin-math'(A, Out) :-
-    metta_math_saturating_eval('sin-math', sin(A), [A], Out).
-'cos-math'(A, Out) :-
-    metta_math_saturating_eval('cos-math', cos(A), [A], Out).
-'tan-math'(A, Out) :-
-    metta_math_saturating_eval('tan-math', tan(A), [A], Out).
-'asin-math'(A, Out) :-
-    metta_math_saturating_eval('asin-math', asin(A), [A], Out).
-'acos-math'(A, Out) :-
-    metta_math_saturating_eval('acos-math', acos(A), [A], Out).
-'atan-math'(A, Out) :- metta_math_eval('atan-math', atan(A), [A], Out).
+'sin-math'(A, Out) :- metta_float_unary_eval('sin-math', sin, A, Out).
+'cos-math'(A, Out) :- metta_float_unary_eval('cos-math', cos, A, Out).
+'tan-math'(A, Out) :- metta_float_unary_eval('tan-math', tan, A, Out).
+'asin-math'(A, Out) :- metta_float_unary_eval('asin-math', asin, A, Out).
+'acos-math'(A, Out) :- metta_float_unary_eval('acos-math', acos, A, Out).
+'atan-math'(A, Out) :- metta_float_unary_eval('atan-math', atan, A, Out).
 'isnan-math'(A, Out) :-
     (   metta_numeric_operand(A)
     ->  catch(( A =:= A -> Out = false ; Out = true ), E,
@@ -6300,9 +6330,10 @@ control_exception(error(resource_error(_), _)).
 %retry and given back, parser.pl's metta_saturating_parse discipline on the
 %evaluation side; the happy path pays nothing because this only runs from a
 %catch recovery. The same discipline covers the whole IEEE family when a
-%float operand is present: division by a float zero answers the signed
-%infinity and the NaN class (0.0/0.0, inf - inf, sqrt of a negative, asin
-%past one) answers NaN, which is what isnan-math and isinf-math exist to
+%floating expression is present, including an explicit integer promotion:
+%division by a float zero answers the signed infinity and the NaN class
+%(0.0/0.0, inf - inf, sqrt of a negative, asin past one) answers NaN, which
+%is what isnan-math and isinf-math exist to
 %observe. Every fault outside metta_ieee_retry/1, integer division by zero
 %first among them, reaches the operation-recovery funnel below; the retry's
 %own catch is the net for faults the flags do not govern, none known for the
@@ -6353,8 +6384,9 @@ metta_operation_recovery(Operation, _, Error, _) :-
 %Which evaluation faults license the retry. Overflow retries
 %unconditionally, because an ALL-INTEGER division can overflow in its float
 %conversion and the saturated value is this engine's committed answer
-%there. Zero division and the NaN family retry only when a float operand is
-%in the expression: upstream's float arm is raw f64 (1.0/0.0 is inf,
+%there. Zero division and the NaN family retry only when the expression has a
+%float operand or an explicit float/1 promotion: upstream's float arm is raw
+%f64 (1.0/0.0 is inf,
 %0.0/0.0 and inf - inf are NaN, by construction), while its INTEGER
 %division by zero answers a DivisionByZero Error atom, so an integer zero
 %takes the operation-recovery funnel instead of this retry. The retry runs
@@ -6373,7 +6405,10 @@ metta_ieee_saturable(Expression, error(evaluation_error(Evaluation), _)) :-
     metta_ieee_retry(Evaluation),
     (   Evaluation == float_overflow
     ->  true
-    ;   sub_term(Operand, Expression), float(Operand)
+    ;   sub_term(Operand, Expression),
+        (   float(Operand)
+        ;   compound(Operand), functor(Operand, float, 1)
+        )
     ).
 
 %Keep the ISO Formal term because callers and the MeTTa catch form inspect it.

@@ -37,6 +37,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Real-valued `sqrt-math`, `log-math`, and trigonometric operations now
+  promote integer operands to Float before evaluation. `pow-math` likewise
+  returns Float, accepts an unbounded Float exponent, and refuses an integer
+  exponent outside signed i32 with the arbiter's exact Error reason.
 - Integer division and remainder by zero now answer the arbiter's contained
   `(Error (<operation> 7 0) DivisionByZero)` atom. Float division by zero
   keeps its IEEE infinity or NaN result, and `collapse` preserves the Error
