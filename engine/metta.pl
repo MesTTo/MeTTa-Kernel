@@ -119,7 +119,9 @@
 %   - Test assertions distinguish no answer from one empty-expression answer
 %     [tested 2026-08-14: translator_test_answers].
 %   - pragma! accepts only settings with a live enforcement path; inert HE
-%     compatibility keys and unknown keys are refused at the write boundary
+%     compatibility keys and unknown keys are refused at the write boundary,
+%     max-time requires a positive number, max-inferences requires a positive
+%     integer, and none explicitly disables either bound
 %     [tested: test_no_pragma_key_is_accepted_and_inert; commit=WORKTREE].
 %   - petta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
@@ -4591,6 +4593,33 @@ metta_pragma_key('verify-specializations',
 %The UNIT value, for the reason add-atom answers it: the standard library
 %types this `(-> Symbol %Undefined% (->))` and `(->)` IS the unit type.
 'pragma!'(Key, Value, []) :-
+    require_metta_pragma_value(Key, Value, 'pragma!'/3),
+    set_metta_pragma(Key, Value).
+
+%A bound is active only for the shapes run_under_pragmas/1 consumes. Refusing
+%every other value here keeps a stored setting from looking accepted while the
+%execution wrapper ignores it. `none` is the explicit disable operation and
+%therefore valid for every registered key.
+require_metta_pragma_value(_, none, _) :- !.
+require_metta_pragma_value('max-time', Value, Door) :- !,
+    (   number(Value), Value > 0
+    ->  true
+    ;   throw(error(domain_error(metta_pragma_value,
+                                 ['max-time', Value]),
+                    context(Door,
+                            'max-time requires a positive number or none')))
+    ).
+require_metta_pragma_value('max-inferences', Value, Door) :- !,
+    (   integer(Value), Value > 0
+    ->  true
+    ;   throw(error(domain_error(metta_pragma_value,
+                                 ['max-inferences', Value]),
+                    context(Door,
+                            'max-inferences requires a positive integer or none')))
+    ).
+require_metta_pragma_value(_, _, _).
+
+set_metta_pragma(Key, Value) :-
     retractall(metta_pragma(Key, _)),
     (   Value == none
     ->  true
@@ -4618,7 +4647,8 @@ metta_with_pragmas(Settings, Goal, Value) :-
     member(Value, Values).
 
 petta_pragma_pair([Key, ValueIn], Key-ValueIn) :- !,
-    require_metta_pragma_key(Key, 'with-pragma!'/2).
+    require_metta_pragma_key(Key, 'with-pragma!'/2),
+    require_metta_pragma_value(Key, ValueIn, 'with-pragma!'/2).
 petta_pragma_pair(Other, _) :-
     throw(error(domain_error(metta_pragma_setting, Other),
                 context('with-pragma!'/2,
@@ -4631,10 +4661,10 @@ require_metta_pragma_key(Key, Door) :-
 
 petta_apply_pragma(Key-Value, Key-Previous) :-
     ( metta_pragma(Key, P) -> Previous = P ; Previous = none ),
-    'pragma!'(Key, Value, _).
+    set_metta_pragma(Key, Value).
 
 petta_restore_pragma(Key-Previous) :-
-    'pragma!'(Key, Previous, _).
+    set_metta_pragma(Key, Previous).
 
 %A bound costs nothing until one is set. call_goals_in/2 runs every runnable
 %form, so an unconditional wrapper there is paid by every directive: checking

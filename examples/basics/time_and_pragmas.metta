@@ -42,7 +42,8 @@
 ;;; Pragmas. Each enforced key answers the unit value (), the way add-atom and
 ;;; println! do. Unknown settings and the unsupported HE keys type-check,
 ;;; max-stack-depth and interpreter are refused instead of being recorded
-;;; without changing execution.
+;;; without changing execution. max-time takes positive seconds;
+;;; max-inferences takes a positive integer.
 !(test (pragma! max-time 30) ())
 !(test (pragma! max-inferences 100000000) ())
 ;Passing none clears a bound again.

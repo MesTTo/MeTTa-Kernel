@@ -509,7 +509,9 @@ the compiler, the measurement that keeps it there.
 `pragma!` accepts `max-time`, `max-inferences`, and
 `verify-specializations`. Each changes a live engine mechanism. Unknown keys
 and the unsupported `type-check`, `max-stack-depth`, and `interpreter` keys are
-refused rather than stored inertly.
+refused rather than stored inertly. `max-time` takes a positive number of
+seconds, `max-inferences` takes a positive integer, and `none` explicitly
+disables either bound. Invalid values leave the previous setting unchanged.
 
 235 builtins are registered (`m.builtins()` lists them live), among them the
 py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,

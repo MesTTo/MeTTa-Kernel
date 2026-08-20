@@ -126,7 +126,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - `pragma!` now refuses unknown settings and the unsupported `type-check`,
   `max-stack-depth`, and `interpreter` compatibility keys. Its accepted keys
   are limited to the two execution bounds and specialization verification,
-  each of which has an active consumer.
+  each of which has an active consumer. `max-time` requires a positive number,
+  `max-inferences` requires a positive integer, and `none` disables either
+  bound; invalid values are refused without replacing the previous setting.
 - The tree partitions by seam, staging the kernel-and-satellites form.
   The engine lives in `engine/` alone; each driver seat lives under
   `bindings/` with everything it needs (`bindings/python/` carries the

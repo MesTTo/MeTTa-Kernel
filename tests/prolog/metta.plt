@@ -1,7 +1,8 @@
 % Purpose: direct PlUnit coverage for core runtime builtins, their error
 %   contracts, and Python import state cleanup.
 % Guarantees:
-%   - every pragma! key is either enforced or refused.
+%   - every pragma! key and value is either enforced, an explicit disable, or
+%     refused before it can replace a working setting.
 %     [tested: interpreter_pragmas; commit=WORKTREE]
 % Open Obligations:
 %   To Do: None
@@ -2038,6 +2039,35 @@ test(pragma_refuses_inert_type_check,
 test(pragma_refuses_inert_max_stack_depth,
      [throws(error(domain_error(metta_pragma_key, 'max-stack-depth'), _))]) :-
     'pragma!'('max-stack-depth', 100, _).
+
+test(max_time_refuses_invalid_values_without_replacing_the_bound,
+     [ forall(member(Bad, [not-a-number, 0, -1])),
+       setup('pragma!'('max-time', 30, _)),
+       cleanup('pragma!'('max-time', none, _)) ]) :-
+    catch('pragma!'('max-time', Bad, _), Error, true),
+    assertion(Error = error(domain_error(metta_pragma_value,
+                                         ['max-time', Bad]), _)),
+    assertion(metta_pragma('max-time', 30)).
+
+test(max_inferences_refuses_invalid_values_without_replacing_the_bound,
+     [ forall(member(Bad, [not-a-number, 0, -1, 1.5])),
+       setup('pragma!'('max-inferences', 100000, _)),
+       cleanup('pragma!'('max-inferences', none, _)) ]) :-
+    catch('pragma!'('max-inferences', Bad, _), Error, true),
+    assertion(Error = error(domain_error(metta_pragma_value,
+                                         ['max-inferences', Bad]), _)),
+    assertion(metta_pragma('max-inferences', 100000)).
+
+test(scoped_pragmas_preflight_all_values_before_changing_any_setting,
+     [ setup('pragma!'('max-time', 30, _)),
+       cleanup('pragma!'('max-time', none, _)) ]) :-
+    catch(metta_with_pragmas([['max-time', 5], ['max-inferences', 0]],
+                             true, _),
+          Error, true),
+    assertion(Error = error(domain_error(metta_pragma_value,
+                                         ['max-inferences', 0]), _)),
+    assertion(metta_pragma('max-time', 30)),
+    assertion(\+ metta_pragma('max-inferences', _)).
 
 :- end_tests(interpreter_pragmas).
 
