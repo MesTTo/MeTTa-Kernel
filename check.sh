@@ -491,6 +491,14 @@ run GATE   leatta       sh -c "cd '$HERE' && '$PY' tests/conformance/leatta.py -
 # one not, and proves both directions plus the two hard-error paths.
 run GATE   leatta-gate-selftest "$PY" "$HERE/tests/conformance/leatta_gate_selftest.py"
 
+# The two-runtime differential: the conformance corpus's CeTTa-routable
+# fragment replays through the fork's C core (CETTA_PATH overrides the
+# sibling checkout) and the shared-fragment pin must hold. Fenced classes
+# skip the route loudly; divergences outside the pin report and never
+# block; with the fork absent this reports that and passes, the leatta
+# lane's own absence policy.
+run GATE   cetta        "$PY" "$HERE/tests/conformance/cetta.py" --timeout 25 --show 12
+
 # The example corpus is the executable semantics documentation, and until this
 # lane existed it only ever ran through the ENGINE: the examples gate below
 # invokes swipl on src/main.pl, test.sh and test_metta_examples.py shell to
