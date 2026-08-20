@@ -1826,3 +1826,21 @@ test(stored_enumeration_is_pattern_directed,
     \+ metta_host_stored('&plunit-host-stored', [edge, c, _]).
 
 :- end_tests(spaces_host_storage_services).
+
+% The explain mirror: what the seam already decided for a query, answered
+% to a host as one term report so no binding re-derives routing precedence.
+:- begin_tests(spaces_host_explain).
+
+test(a_stored_space_explains_as_stored) :-
+    metta_host_explain_match('&self', [[edge, _, _]], Report),
+    Report == explain(stored, [], [], []).
+
+test(a_bare_foreign_space_explains_unclaimed_inexact) :-
+    metta_host_explain_match('&plunit_cycle_foreign', [[fact, _, _]], Report),
+    Report = explain(foreign, [class(Class, Origin)], Claimed, Rest),
+    Class == inexact,
+    Origin == unclaimed,
+    Claimed == [],
+    Rest == [0].
+
+:- end_tests(spaces_host_explain).

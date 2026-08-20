@@ -1899,24 +1899,23 @@ knows how to read its own objects and answers every name at once.
 engine predicates a host BINDING's transport may call back, measured from the
 shipped shim and declared in `src/ext_points.pl` so the static walk can keep
 the list honest. Today's list: `catch_recover/2`, `clear_foreign_atoms/1`,
-`clear_native_atoms/1`, `foreign_provides/2`, `foreign_pushdown_class/3`,
-`match_foreign/5`, `metta_add_atoms/2`,
+`clear_native_atoms/1`, `match_foreign/5`, `metta_add_atoms/2`,
 `metta_atom_hook_clause/2`, `metta_host_adopt_function/4`,
 `metta_host_digest/2`, `metta_host_drop_function/2`,
-`metta_host_fast_header/1`, `metta_host_forget_function/1`,
-`metta_host_load_fast/2`, `metta_host_load_file/3`,
-`metta_host_open_function/3`, `metta_host_read_forms/2`,
-`metta_host_remove_reported/3`, `metta_host_run_source/4`, `metta_host_run_source_status/3`,
+`metta_host_explain_match/3`, `metta_host_fast_header/1`,
+`metta_host_forget_function/1`, `metta_host_load_fast/2`,
+`metta_host_load_file/3`, `metta_host_open_function/3`,
+`metta_host_read_forms/2`, `metta_host_remove_reported/3`,
+`metta_host_run_source/4`, `metta_host_run_source_status/3`,
 `metta_host_save_fast/3`, `metta_host_stored/2`, `metta_host_substitute/3`,
-`metta_reducible_head/2`, `metta_source_declarations/2`, `metta_space_names/1`,
-`metta_string_declarations/2`, `metta_substitute_self/3`,
-`metta_trace_source/4`, `petta_annotations/2`,
+`metta_reducible_head/2`, `metta_source_declarations/2`,
+`metta_space_names/1`, `metta_string_declarations/2`,
+`metta_substitute_self/3`, `metta_trace_source/4`, `petta_annotations/2`,
 `petta_contract_fact/1`, `petta_error_answer/3`, `petta_handles_coherent/1`,
-`petta_handles_route/5`, `petta_on_error_mode/3`, `petta_refuse_guard/2`,
-`petta_source_reset/1`, `petta_transaction/1`, `petta_transport_failure/1`,
-`refuse_lossy_plan/4`, `sread_with_names/3`, `translate_expr/3`,
-`unregister_metta_extension/1` and `with_metta_module/2`. Shrinking this
-list is the shim-thinning work's scoreboard; growing it is a deliberate
+`petta_on_error_mode/3`, `petta_source_reset/1`, `petta_transaction/1`,
+`petta_transport_failure/1`, `sread_with_names/3`, `translate_expr/3`,
+`unregister_metta_extension/1` and `with_metta_module/2`. Shrinking this list
+is the shim-thinning work's scoreboard; growing it is a deliberate
 publication, not a drive-by.
 
 Registering an operation is four of those calls, the engine's own protocol
@@ -1929,6 +1928,17 @@ definitions that had been treating the name as data; and on the way out,
 `metta_host_drop_function/2` retires one arity while
 `metta_host_forget_function/1` releases a name nothing defines any more,
 recompiling its mentions back to data.
+
+Reading and removing stored atoms is two more: `metta_host_stored(Space,
+Pattern)` enumerates stored atoms unifying a pattern (index-directed on a
+native space, provider-enumerated on a foreign one), and
+`metta_host_remove_reported(Space, Term, Verdict)` removes with the
+whether-anything-went verdict a host API wants. And
+`metta_host_explain_match(Space, Patterns, Report)` answers what the seam
+already decided for a query without running it, as one term report
+(per-pattern classes with structured origins, the plan's claimed and rest
+indexes, refusals preflighted), so a transport renders prose instead of
+re-deriving routing precedence.
 
 **`metta_host_builtin/1`, `metta_host_import/1`, `metta_form_rewriter/1` and
 `metta_host_object/1`** are how a whole HOST plugs in, and the shipped Python
