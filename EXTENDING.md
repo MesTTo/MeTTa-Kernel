@@ -1905,18 +1905,18 @@ the list honest. Today's list: `catch_recover/2`, `clear_foreign_atoms/1`,
 `metta_host_explain_match/3`, `metta_host_fast_header/1`,
 `metta_host_forget_function/1`, `metta_host_load_fast/2`,
 `metta_host_load_file/3`, `metta_host_open_function/3`,
-`metta_host_read_forms/2`, `metta_host_remove_reported/3`,
-`metta_host_run_source/4`, `metta_host_run_source_status/3`,
-`metta_host_save_fast/3`, `metta_host_stored/2`, `metta_host_substitute/3`,
-`metta_reducible_head/2`, `metta_source_declarations/2`,
-`metta_space_names/1`, `metta_string_declarations/2`,
-`metta_substitute_self/3`, `metta_trace_source/4`, `petta_annotations/2`,
-`petta_contract_fact/1`, `petta_error_answer/3`, `petta_handles_coherent/1`,
-`petta_on_error_mode/3`, `petta_source_reset/1`, `petta_transaction/1`,
-`petta_transport_failure/1`, `sread_with_names/3`, `translate_expr/3`,
-`unregister_metta_extension/1` and `with_metta_module/2`. Shrinking this list
-is the shim-thinning work's scoreboard; growing it is a deliberate
-publication, not a drive-by.
+`metta_host_operation_error/5`, `metta_host_read_forms/2`,
+`metta_host_remove_reported/3`, `metta_host_run_source/4`,
+`metta_host_run_source_status/3`, `metta_host_save_fast/3`,
+`metta_host_stored/2`, `metta_host_substitute/3`, `metta_reducible_head/2`,
+`metta_source_declarations/2`, `metta_space_names/1`,
+`metta_string_declarations/2`, `metta_substitute_self/3`,
+`metta_trace_source/4`, `petta_annotations/2`, `petta_contract_fact/1`,
+`petta_error_answer/3`, `petta_handles_coherent/1`, `petta_on_error_mode/3`,
+`petta_source_reset/1`, `petta_transaction/1`, `petta_transport_failure/1`,
+`sread_with_names/3`, `translate_expr/3`, `unregister_metta_extension/1` and
+`with_metta_module/2`. Shrinking this list is the shim-thinning work's
+scoreboard; growing it is a deliberate publication, not a drive-by.
 
 Registering an operation is four of those calls, the engine's own protocol
 rather than bookkeeping a binding restates: `metta_host_open_function(Name,
