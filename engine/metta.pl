@@ -1885,8 +1885,11 @@ application_arrow_declared_in(Module, [F|_]) :-
 %The pinned executable case is tests/semantics/types-basic/
 %69-unit-type-of-empty-expression.metta in that checkout.
 %The pinned file now agrees and moves the types-basic area from 45/76 to 46/76
-%[measured: 2026-08-21 types-basic 46/76; command=python tests/conformance/leatta.py --engine /home/user/Dev/PyPeTTa1/ai-wt-p3-typing --area types-basic --timeout 25 --show 1; fixture=LeaTTa dae62ced23eb0f30a8c2b86583fd09d88fb24ea5; commit=WORKTREE].
-reported_type_answers(_, [], [['->']]) :- !.
+%[measured: 2026-08-21 types-basic 46/76; command=python tests/conformance/leatta.py --engine . --area types-basic --timeout 25 --show 1; fixture=LeaTTa dae62ced23eb0f30a8c2b86583fd09d88fb24ea5; commit=WORKTREE].
+%Identity, not unification: an unbound subject is not the empty expression.
+%The head-pattern version bound every `(get-type $x)` query to unit and broke
+%the observer's relational surface while the ground P3.10 case stayed green.
+reported_type_answers(_, X, [['->']]) :- X == [], !.
 reported_type_answers(Module, [F], [Result]) :-
     reported_rest_arrow(Module, F, Result),
     !.
@@ -2320,7 +2323,7 @@ get_type_candidate_in(_, X, 'SpaceType') :- petta_space_operand(X).
 %typing `(Cons 1)` element-wise would mistake a partial application for tuple
 %data [tested: test_an_underapplied_arrow_head_types_as_the_arbiter_does; commit=WORKTREE].
 %The two typing areas now agree on 46/76 and 16/20 checkable files
-%[measured: 2026-08-21 types-basic 46/76 and types-meta 16/20; command=python tests/conformance/leatta.py --engine /home/user/Dev/PyPeTTa1/ai-wt-p3-typing --area types-basic --timeout 25 --show 1 and python tests/conformance/leatta.py --engine /home/user/Dev/PyPeTTa1/ai-wt-p3-typing --area types-meta --timeout 25 --show 1; fixture=LeaTTa dae62ced23eb0f30a8c2b86583fd09d88fb24ea5; commit=WORKTREE].
+%[measured: 2026-08-21 types-basic 46/76 and types-meta 16/20; command=python tests/conformance/leatta.py --engine . --area types-basic --timeout 25 --show 1 and python tests/conformance/leatta.py --engine . --area types-meta --timeout 25 --show 1; fixture=LeaTTa dae62ced23eb0f30a8c2b86583fd09d88fb24ea5; commit=WORKTREE].
 %Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
 %interpreter, byte-identical across both: `(typed-sym (typed-sym typed-sym))`
 %is `(Number (Number Number))` and `(typed-sym (typed-sym aa))` is
@@ -4306,7 +4309,7 @@ assert(Goal, true) :- current_metta_module(Module),
 
 %get-type-space is the other reporting observer. Its underlying scoped answer
 %function stays unchanged because scoped_has_type/4 is a classifier consumer.
-reported_scoped_type_answers(_, [], [['->']]) :- !.
+reported_scoped_type_answers(_, X, [['->']]) :- X == [], !.
 reported_scoped_type_answers(Space, [F], [Result]) :-
     nonvar(F),
     (   match_stored(Space, [':', F, [->, ['%Rest%', _], Result]],
