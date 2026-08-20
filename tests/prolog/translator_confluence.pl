@@ -1,6 +1,9 @@
-% Purpose: report the compile-time rule set's overlaps and its termination.
-%     `add-translator-rule!` registers a NAME (engine/metta.pl:4499 keeps a set of
-%     them), and the rules themselves arrive through two doors, the space's own (= Lhs Rhs) atoms and the engine's prelude_equation/2 register for the shipped tier
+% Purpose: report translator and typing rule-family overlaps, and the
+%     translator family's termination.
+%     `add-translator-rule!` registers a NAME (engine/metta.pl's
+%     translator_rule/1 keeps the set), and the rules themselves arrive through
+%     two doors, the space's own (= Lhs Rhs) atoms and the engine's
+%     prelude_equation/2 register for the shipped tier
 %     whose left-hand side is rooted at one of those names, plus every equation
 %     reachable from their right-hand sides, because a translator rule's body
 %     is EVALUATED while the program is being compiled. Two libraries that
@@ -62,6 +65,12 @@
 %     - termination is ESTABLISHED with the route that decided it, or the
 %       failure is NAMED with the step that failed. There is no third answer
 %       [tested: test_the_compile_time_rule_set_is_shown_terminating_or_the_failure_is_named].
+%     - the typing family is read from typing_rule_entry/7, the checker's own
+%       registry; user/user and user/shipped overlaps are named, while a
+%       refusing or deferring rule is reported CONDITIONAL rather than given
+%       an unconditional confluence verdict
+%       [tested: test_a_user_typing_rule_participates_like_a_shipped_one;
+%       commit=WORKTREE].
 % Decides:
 %     - the joinability search is bounded at 5 rewrite steps per branch. A
 %       compile-time macro that needs more than five steps to reconverge is
@@ -80,6 +89,24 @@
 :- use_module('../../engine/narrowing.pl').
 :- use_module(library(lists)).
 :- use_module(library(apply)).
+
+% A descriptor gives both families the same collection-and-reporting door.
+% The translator family has a first-order rewrite relation and therefore the
+% termination/critical-pair analysis below. The typing family has explicit
+% refusal and defer outcomes, so its descriptor routes overlaps to the
+% conditional report instead of pretending the unconditional checker decides
+% them. Duck, Haemmerle and Sulzmann use confluence as the correctness
+% criterion for CHR-based type inference, which is the precedent for keeping
+% these rules in this analyzer rather than a disconnected lint
+% [source: Duck, Haemmerle, Sulzmann, "On Termination, Confluence and
+% Consistent CHR-based Type Inference", arXiv:1405.3393; commit=WORKTREE].
+rule_family(translator, translator_family_state, print_translator_family).
+rule_family(typing, typing_family_state, print_typing_family).
+
+report_rule_family(Family, Space) :-
+    rule_family(Family, Collector, Printer),
+    call(Collector, Space, State),
+    call(Printer, State).
 
 % How deep the joinability search goes on each branch of a critical pair.
 join_bound(5).
@@ -181,6 +208,101 @@ called_name(T, F) :-
     compound(Sub),
     functor(Sub, F, _),
     F \== '$expr'.
+
+%%%% The typing-rule family %%%%
+
+translator_family_state(Space,
+                        translator_state(Space, Registered, Names,
+                                         SpaceRules, PreludeRules)) :-
+    compile_time_rules(Space, Registered, Names, SpaceRules, PreludeRules).
+
+typing_family_state(Space, typing_state(Entries, Overlaps)) :-
+    user:space_module(Space, Module),
+    findall(typing(Name, user, Family, Actual, Expected, Outcome),
+            user:registered_typing_rule(user, Module, Name, Family,
+                                        Actual, Expected, Outcome),
+            UserEntries),
+    findall(typing(Name, shipped, Family, Actual, Expected, Outcome),
+            user:registered_typing_rule(shipped, '*', Name, Family,
+                                        Actual, Expected, Outcome),
+            ShippedEntries),
+    append(UserEntries, ShippedEntries, Entries),
+    findall(Overlap, typing_overlap(Entries, Overlap), Overlaps).
+
+% Only overlaps involving a user declaration are policy choices the program
+% can affect. Shipped/shipped intersections remain visible as the shipped rule
+% count, but do not drown the user report in compatible wildcard ladders.
+typing_overlap(Entries,
+               typing_overlap(NameA, TierA, NameB, TierB, Family,
+                              Actual, Expected, Kind, OutcomeA, OutcomeB)) :-
+    nth1(I, Entries,
+         typing(NameA, TierA, Family, ActualA, ExpectedA, OutcomeA)),
+    nth1(J, Entries,
+         typing(NameB, TierB, Family, ActualB, ExpectedB, OutcomeB)),
+    I < J,
+    ( TierA == user ; TierB == user ),
+    copy_term(ActualA-ExpectedA-ActualB-ExpectedB,
+              LeftActual-LeftExpected-RightActual-RightExpected),
+    LeftActual = RightActual,
+    LeftExpected = RightExpected,
+    Actual = LeftActual,
+    Expected = LeftExpected,
+    typing_overlap_kind(OutcomeA, OutcomeB, Kind).
+
+typing_overlap_kind(Left, Right, conditional(refusal)) :-
+    ( Left = [refuse, _] ; Right = [refuse, _] ),
+    !.
+typing_overlap_kind(Left, Right, conditional(guarded_defer)) :-
+    ( Left == defer ; Right == defer ),
+    !.
+typing_overlap_kind(accept, accept, joined).
+
+print_typing_family(typing_state(Entries, Overlaps)) :-
+    include(typing_entry_tier(user), Entries, User),
+    include(typing_entry_tier(shipped), Entries, Shipped),
+    length(User, UserCount),
+    length(Shipped, ShippedCount),
+    format("typing rule family: ~d user rules, ~d shipped rules~n",
+           [UserCount, ShippedCount]),
+    forall(member(Entry, Entries), print_typing_rule(Entry)),
+    length(Overlaps, OverlapCount),
+    include(typing_overlap_conditional, Overlaps, Conditional),
+    length(Conditional, ConditionalCount),
+    format("typing overlaps: ~d involving a user rule, ~d conditional~n",
+           [OverlapCount, ConditionalCount]),
+    forall(member(Overlap, Overlaps), print_typing_overlap(Overlap)),
+    format("typing conclusion: refusing and guarded-defer overlaps are \c
+            CONDITIONAL proof obligations, not decisions of the \c
+            unconditional critical-pair checker.~n").
+
+typing_entry_tier(Tier, typing(_, Tier, _, _, _, _)).
+
+typing_overlap_conditional(
+    typing_overlap(_, _, _, _, _, _, _, conditional(_), _, _)).
+
+print_typing_rule(typing(Name, Tier, Family, Actual, Expected, Outcome)) :-
+    copy_term(Actual-Expected-Outcome, Shown),
+    numbervars(Shown, 0, _),
+    Shown = ShownActual-ShownExpected-ShownOutcome,
+    format("  ~w rule ~w: ~w(~q, ~q) => ~q~n",
+           [Tier, Name, Family, ShownActual, ShownExpected, ShownOutcome]).
+
+print_typing_overlap(
+    typing_overlap(NameA, TierA, NameB, TierB, Family,
+                   Actual, Expected, Kind, OutcomeA, OutcomeB)) :-
+    copy_term(Actual-Expected-OutcomeA-OutcomeB, Shown),
+    numbervars(Shown, 0, _),
+    Shown = ShownActual-ShownExpected-ShownA-ShownB,
+    (   Kind = conditional(Reason)
+    ->  format("  CONDITIONAL OVERLAP (~w): ~w rule ~w and ~w rule ~w \c
+                in ~w at (~q, ~q); outcomes ~q and ~q~n",
+               [Reason, TierA, NameA, TierB, NameB, Family,
+                ShownActual, ShownExpected, ShownA, ShownB])
+    ;   format("  OVERLAP joined: ~w rule ~w and ~w rule ~w in ~w at \c
+                (~q, ~q); both accept~n",
+               [TierA, NameA, TierB, NameB, Family,
+                ShownActual, ShownExpected])
+    ).
 
 %%%% The analysis %%%%
 
@@ -472,7 +594,7 @@ shipped_library('../../lib/lib_spaces.metta').
 translator_confluence_report :-
     load_engine,
     forall(shipped_library(File), user:load_metta_file(File, _)),
-    report_space('&self').
+    report_rule_family(translator, '&self').
 
 % The same report over named MeTTa files instead of the shipped libraries,
 % which is what a caller planting an overlap needs. Read argv BEFORE
@@ -483,7 +605,20 @@ translator_confluence_main :-
     ->  translator_confluence_report
     ;   load_engine,
         forall(member(File, Argv), user:load_metta_file(File, _)),
-        report_space('&self') ).
+        report_rule_family(translator, '&self') ).
+
+typing_confluence_report :-
+    load_engine,
+    report_rule_family(typing, '&self').
+
+% The typing family over named MeTTa files. Registration runnables in those
+% files populate typing_rule_entry/7, so this is the same public source a
+% runtime checker consumes.
+typing_confluence_main :-
+    current_prolog_flag(argv, Argv),
+    load_engine,
+    forall(member(File, Argv), user:load_metta_file(File, _)),
+    report_rule_family(typing, '&self').
 
 translator_confluence_gate :-
     load_engine,
@@ -502,9 +637,11 @@ translator_confluence_gate :-
         ;   print_analysis(SpaceRules, PreludeRules, Analysis),
             halt(1) ) ).
 
-report_space(Space) :-
+report_space(Space) :- report_rule_family(translator, Space).
+
+print_translator_family(
+    translator_state(_Space, Registered, Names, SpaceRules, PreludeRules)) :-
     print_decidable_fragment,
-    compile_time_rules(Space, Registered, Names, SpaceRules, PreludeRules),
     length(Registered, EntryCount),
     length(Names, NameCount),
     format("registered translator rules: ~d, closed over what they call: ~d \c
@@ -564,10 +701,11 @@ translator_confluence_selftest :-
               Got \== Expected ),
             Wrong),
     planted_collection_seen,
+    planted_typing_overlap_seen,
     (   Wrong == []
     ->  format("translator confluence selftest: ~d planted rule sets, each on \c
                 the side its shape predicts, and the collection door reads \c
-                the prelude register~n", [5])
+                the prelude and typing registries~n", [5])
     ;   forall(member(N-E-G, Wrong),
                format("planted ~w: expected ~w, got ~w~n", [N, E, G])),
         halt(1) ).
@@ -598,6 +736,38 @@ planted_collection_seen :-
     halt(1).
 
 fixture_rule(L ==> _) :- functor(L, '$cfl_fixture', _).
+
+% Both required typing intersections go through the descriptor: a refusing
+% user rule overlaps a deferring user rule and the shipped gradual rule. The
+% reporter must classify the refusal and defer as conditional proof
+% obligations rather than passing either to confluence_check/3.
+planted_typing_overlap_seen :-
+    user:metta_self_module(Self),
+    setup_call_cleanup(
+        ( assertz(user:typing_rule_entry(user, Self, '$typing_refusal_fixture',
+                                         ordinary, '%Undefined%', _,
+                                         [refuse, fixture]), RefusalRef),
+          assertz(user:typing_rule_entry(user, Self, '$typing_defer_fixture',
+                                         ordinary, '%Undefined%', _, defer),
+                  DeferRef) ),
+        ( typing_family_state('&self', typing_state(_, Overlaps)),
+          member(typing_overlap('$typing_refusal_fixture', user,
+                                '$typing_defer_fixture', user, ordinary,
+                                _, _, conditional(refusal), _, _), Overlaps),
+          member(typing_overlap('$typing_refusal_fixture', user,
+                                'typing-ordinary-unknown-actual', shipped,
+                                ordinary, _, _, conditional(refusal), _, _),
+                 Overlaps),
+          member(typing_overlap('$typing_defer_fixture', user,
+                                'typing-ordinary-unknown-actual', shipped,
+                                ordinary, _, _, conditional(guarded_defer),
+                                _, _), Overlaps) ),
+        ( erase(DeferRef), erase(RefusalRef) )),
+    !.
+planted_typing_overlap_seen :-
+    format("planted typing overlap: the rule-family descriptor missed a \c
+            user/user or user/shipped conditional overlap~n", []),
+    halt(1).
 
 planted_outcome(Rules, divergent(_), divergent(Count)) :-
     !,

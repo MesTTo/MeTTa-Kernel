@@ -354,7 +354,7 @@ metta_exec_module_prefix('$petta_exec:').
 goal_expansion(metta_self_module(Module), Module = '$petta_exec:&self').
 goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 
-:- ensure_loaded([ext_points, parser, translator, specializer, filereader,
+:- ensure_loaded([ext_points, parser, type_rules, translator, specializer, filereader,
                   '../lib/lib_gitimport', spaces, tracer, duals, kernel]).
 
 %A host is a seat's decider file under bindings/, the backends split one
@@ -458,6 +458,22 @@ metta_operation_answer(Operation, Arguments, Answer) :-
 metta_error_atom(Operation, Arguments, Reason,
                  ['Error', [Operation|Arguments], Reason]).
 
+%A declared refusal retains both names: the rule that made the decision and
+%the reason its author supplied. The ordinary BadArgType shape remains exact
+%for shipped mismatches; only this user-declared case carries the fifth field
+%[tested: test_a_user_typing_rule_participates_like_a_shipped_one;
+%commit=WORKTREE].
+metta_bad_argument_error(Operation, Arguments, Error) :-
+    \+ metta_call_accepted(Operation, Arguments),
+    metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins),
+    current_metta_module(Module),
+    metta_named_rule_refusal(Module, ParameterTypes, Origins, Arguments, 1,
+                             Position, Expected, Actual, Rule, Reason),
+    !,
+    metta_error_atom(Operation, Arguments,
+                     ['BadArgType', Position, Expected, Actual,
+                      ['TypingRuleRefusal', Rule, Reason]], Error).
+
 %One error per declared ARROW and per rejected ACTUAL type, arrows in
 %declaration order and actual types in the order get-type reports them, which
 %is the multiplicity and the order the arbiter pins.
@@ -468,6 +484,29 @@ metta_bad_argument_error(Operation, Arguments, Error) :-
                        Position, Expected, Actual),
     metta_error_atom(Operation, Arguments,
                      ['BadArgType', Position, Expected, Actual], Error).
+
+metta_named_rule_refusal(Module, [Expected|_], [Origin|_],
+                         [Argument|_], Position,
+                         Position, Expected, Actual, Rule, Reason) :-
+    typing_origin_family(Origin, Family),
+    typing_refusal_actual(Module, Family, Argument, Actual),
+    typing_rule_refusal(Module, Family, Actual, Expected, Rule, Reason).
+metta_named_rule_refusal(Module, [_|Expected], [_|Origins], [_|Arguments], N,
+                         Position, Reported, Actual, Rule, Reason) :-
+    Next is N + 1,
+    metta_named_rule_refusal(Module, Expected, Origins, Arguments, Next,
+                             Position, Reported, Actual, Rule, Reason).
+
+typing_origin_family(derived_variable, derived) :- !.
+typing_origin_family(metatype, metatype) :- !.
+typing_origin_family(_, ordinary).
+
+typing_refusal_actual(_, metatype, Argument, Actual) :-
+    metatype_of(Argument, Actual).
+typing_refusal_actual(Module, Family, Argument, Actual) :-
+    Family \== metatype,
+    metta_argument_types_in(Module, Argument, Types),
+    member(Actual, Types).
 
 %Nothing is reported when SOME declared arrow takes every argument under ONE
 %consistent assignment, even where another arrow, or another of an argument's
@@ -567,7 +606,8 @@ metta_argument_type_origin(Types, Expected, derived_variable) :-
 metta_argument_type_origin(_, Expected, variable) :- var(Expected), !.
 metta_argument_type_origin(_, Expected, metatype) :-
     nonvar(Expected),
-    ( Expected == 'Atom' ; metta_metatype_name(Expected) ),
+    current_metta_module(Module),
+    typing_rule_expected(Module, metatype, Expected),
     !.
 metta_argument_type_origin(_, _, ordinary).
 
@@ -576,20 +616,25 @@ check_argument_type(Argument, Expected, Origin) :-
     check_argument_type_in(Module, Argument, Expected, Origin).
 
 check_argument_type_in(Module, Argument, Expected, metatype) :-
-    (   satisfies_metatype(Argument, Expected)
+    metatype_of(Argument, Actual),
+    typing_rule_decision(Module, metatype, Actual, Expected,
+                         Outcome, _, _),
+    (   Outcome == accept
     ->  true
+    ;   Outcome = [refuse, _]
+    ->  fail
     ;   has_type_in(Module, Argument, Expected)
     ).
 check_argument_type_in(Module, Argument, Expected, derived_variable) :-
     metta_runtime_type_candidate(Module, Argument, Actual),
-    metta_derived_types_match(Actual, Expected).
+    metta_derived_types_match_in(Module, Actual, Expected).
 check_argument_type_in(Module, Argument, Expected, Origin) :-
     Origin \== metatype,
     Origin \== derived_variable,
     (   metta_evaluating_type_rule
     ->  metta_argument_types_in(Module, Argument, Types),
         member(Actual, Types),
-        metta_types_match(Actual, Expected)
+        metta_types_match_in(Module, Actual, Expected)
     ;   has_type_in(Module, Argument, Expected)
     ).
 
@@ -639,11 +684,6 @@ metta_bad_argument([Expected|Rest], [Origin|Origins], [Argument|Arguments], N,
                                Position, Reported, Actual)
         )
     ).
-
-metta_metatype_name('Symbol').
-metta_metatype_name('Expression').
-metta_metatype_name('Grounded').
-metta_metatype_name('Variable').
 
 %The types an ARGUMENT CHECK may read, which is not everything get-type
 %answers. A `get-type` EQUATION is a MeTTa program, and a program that types
@@ -733,31 +773,27 @@ metta_argument_types_in(Module, Argument, Types) :-
                            erase(Ref))
     ).
 
-%The call site's compatibility relation. %Undefined% and Atom are wildcards
-%on either side and ordinary types unify, bindings and all, which is what makes
-%a chain writing one type variable twice report the type its first argument
-%fixed rather than the variable. BigInt is the one directed case: an actual
-%BigInt satisfies an existing Number parameter so the arithmetic surface keeps
-%accepting every exact integer SWI already handled, while a Number does not
-%satisfy a BigInt parameter. This pins operational acceptance without claiming
-%the still-unpublished glossary subtype relation [assumed 2026-08-20].
+%The call site's compatibility relation is declared in type_rules.pl.
+%%Undefined%, Atom, equality, and BigInt widening are shipped entries in the
+%same registry a program extends. The wrapper keeps existing callers on the
+%current execution module; module-aware call sites use the explicit form
+%[tested: test_a_user_typing_rule_participates_like_a_shipped_one;
+%commit=WORKTREE].
 metta_types_match(Left, Right) :-
-    (   Left == '%Undefined%' -> true
-    ;   Right == '%Undefined%' -> true
-    ;   Left == 'Atom' -> true
-    ;   Right == 'Atom' -> true
-    ;   Left == 'BigInt', Right == 'Number' -> true
-    ;   Left = Right
-    ).
+    current_metta_module(Module),
+    metta_types_match_in(Module, Left, Right).
+
+metta_types_match_in(Module, Left, Right) :-
+    typing_rule_accepts(Module, ordinary, Left, Right).
 
 %A raw type variable uses Atom as an ordinary bound once another formal has
 %fixed it. The gradual unknown and numeric widening rules still apply.
 metta_derived_types_match(Left, Right) :-
-    (   Left == '%Undefined%' -> true
-    ;   Right == '%Undefined%' -> true
-    ;   Left == 'BigInt', Right == 'Number' -> true
-    ;   Left = Right
-    ).
+    current_metta_module(Module),
+    metta_derived_types_match_in(Module, Left, Right).
+
+metta_derived_types_match_in(Module, Left, Right) :-
+    typing_rule_accepts(Module, derived, Left, Right).
 
 %The operations that refuse BY NAME rather than leaving the call. Each text is
 %upstream's own, quoted from the arbiter's transcript rather than invented, and
@@ -1900,13 +1936,12 @@ has_type(X, T) :- current_metta_module(Module),
 %anyway, so a value whose declared type already matches never pays for it.
 has_type_in(Module, X, T) :-
     ( ground(T)
-      -> ( T == '%Undefined%'
-           -> true
-            ; (   type_witness_in(Module, X, T)
-              ->  true
-              ;   type_answers(Module, X, Types),
-                  Types == ['%Undefined%']
-              ) )
+      -> (   type_witness_in(Module, X, T)
+         ->  true
+         ;   type_answers(Module, X, Types),
+             member(Actual, Types),
+             metta_types_match_in(Module, Actual, T)
+         )
        ; any_super_type_edge(Module)
          -> type_answers(Module, X, Types),
             member(T, Types)
@@ -1937,11 +1972,12 @@ has_type_in(Module, X, T) :-
 %operational rule
 %[tested: bindings/python/tests/test_answer_protocol.py::test_admission_types_the_pool].
 type_witness_in(Module, X, T) :-
-    (   T == 'Number', once(type_candidate_in(Module, X, 'BigInt'))
+    (   once(( type_candidate_in(Module, X, Actual),
+               typing_rule_accepts(Module, widening, Actual, T) ))
     ->  true
     ;   once(type_candidate_in(Module, X, T))
     ->  true
-    ;   satisfies_metatype(X, T)
+    ;   satisfies_metatype_in(Module, X, T)
     ->  true
     ;   type_answers(Module, X, Types),
         once(( member(Widened, Types), Widened == T ))
@@ -2132,7 +2168,9 @@ add_super_types(Module, Types, Widened) :-
 super_type_rounds(_, [], Widened, Widened) :- !.
 super_type_rounds(Module, Frontier, Accumulated, Widened) :-
     findall(Super,
-            ( member(Type, Frontier), super_type_in(Module, Type, Super) ),
+            ( member(Type, Frontier),
+              super_type_in(Module, Type, Super),
+              typing_rule_accepts(Module, 'declared-widening', Type, Super) ),
             Supers),
     exclude(type_already_listed(Accumulated), Supers, Fresh),
     (   Fresh == []
@@ -2341,22 +2379,23 @@ scoped_function_type(Space, Module, [F|Args], T) :-
 %lazy first-witness fast path unchanged.
 scoped_has_type(Space, Module, X, T) :-
     (   ground(T)
-    ->  (   T == '%Undefined%'
+    ->  (   scoped_type_witness(Space, Module, X, T)
         ->  true
-        ;   scoped_type_witness(Space, Module, X, T)
-        ->  true
-        ;   scoped_type_answers(Space, X, ['%Undefined%'])
+        ;   scoped_type_answers(Space, X, Types),
+            member(Actual, Types),
+            metta_types_match_in(Module, Actual, T)
         )
     ;   scoped_type_answers(Space, X, Types),
         member(T, Types)
     ).
 
 scoped_type_witness(Space, Module, X, T) :-
-    (   T == 'Number', once(scoped_type_candidate(Space, Module, X, 'BigInt'))
+    (   once(( scoped_type_candidate(Space, Module, X, Actual),
+               typing_rule_accepts(Module, widening, Actual, T) ))
     ->  true
     ;   once(scoped_type_candidate(Space, Module, X, T))
     ->  true
-    ;   satisfies_metatype(X, T)
+    ;   satisfies_metatype_in(Module, X, T)
     ->  true
     ;   scoped_type_answers(Space, X, Types),
         once(( member(Widened, Types), Widened == T ))
@@ -2390,9 +2429,11 @@ scoped_add_super_types(Space, Types, Widened) :-
 
 scoped_super_type_rounds(_, [], Widened, Widened) :- !.
 scoped_super_type_rounds(Space, Frontier, Accumulated, Widened) :-
+    space_module(Space, Module),
     findall(Super,
             ( member(Type, Frontier),
-              match_stored(Space, [':<', Type, Super], Super, _) ),
+              match_stored(Space, [':<', Type, Super], Super, _),
+              typing_rule_accepts(Module, 'declared-widening', Type, Super) ),
             Supers),
     exclude(type_already_listed(Accumulated), Supers, Fresh),
     (   Fresh == []
@@ -2628,7 +2669,8 @@ metta_operation_admitted(Name) :- petta_space_operand(Name).
 %[source: LeaTTa tests/semantics/types-meta/00_metatypes.metta, quoting
 %hyperon-experimental@3f76dc4 lib/src/metta/types.rs:606-617]. So the check is
 %"the parameter is Atom, or it equals this value's metatype", which is what the
-%two clauses below are. The tutorial line calling Atom "a supertype for Symbol,
+%shipped typing-rule rows declare. The tutorial line calling Atom "a supertype
+%for Symbol,
 %Expression, Variable, Grounded" is recorded there as tutorial prose that
 %"records intent only", and taking it literally would have routed metatypes
 %through add_super_types, where they do not belong: no widening happens and
@@ -2639,15 +2681,13 @@ metta_operation_admitted(Name) :- petta_space_operand(Name).
 %This is consulted only after the declared types have failed, so a value with a
 %matching declaration answers exactly as it did, and a program using none of
 %these names never reaches it.
-satisfies_metatype(_, 'Atom') :- !.
 satisfies_metatype(X, Metatype) :-
-    metatype_name(Metatype),
-    'get-metatype'(X, Metatype).
+    current_metta_module(Module),
+    satisfies_metatype_in(Module, X, Metatype).
 
-metatype_name('Symbol').
-metatype_name('Variable').
-metatype_name('Grounded').
-metatype_name('Expression').
+satisfies_metatype_in(Module, X, Metatype) :-
+    metatype_of(X, Actual),
+    typing_rule_accepts(Module, metatype, Actual, Metatype).
 
 %%%% Walking a compiled body for the effects a cache would hide %%%%
 %
@@ -6558,7 +6598,8 @@ unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
                           sleep, 'pragma!', metta,
                           import_prolog_function, check_prolog_function_names, import_prolog_functions,
                           'Predicate', callPredicate, assertaPredicate, assertzPredicate, retractPredicate,
-                          'add-translator-rule!', 'remove-translator-rule!', argv,
+                          'add-translator-rule!', 'remove-translator-rule!',
+                          'add-typing-rule!', 'remove-typing-rule!', argv,
                           register_metta_library_path,
                           dif, 'residual-goals']).
 %A HOST's builtins register the same way, from the host bridge's own

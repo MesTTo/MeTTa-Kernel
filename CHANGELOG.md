@@ -23,6 +23,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   lists. Exemptions require an adjacent category, reason, and evidence
   location. Save formats and memo aggregation values now consume catalog
   vocabularies rather than duplicate local lists.
+- `add-typing-rule!` and `remove-typing-rule!` extend the checker with
+  module-scoped rules that answer `accept`, `(refuse <reason>)`, or `defer`.
+  The shipped arrow-arity, widening, gradual-compatibility, and metatype rules
+  occupy the same registry. A user refusal overrides an overlapping shipped
+  acceptance and is retained by name in the resulting `BadArgType`. The
+  confluence reporter now has translator and typing family descriptors; it
+  reports user/user and user/shipped refusal or defer overlaps as conditional
+  proof obligations.
 - `DontEvalType` is a declarable evaluation mask. Declaring
   `(: Payload DontEvalType)` makes a `Payload` parameter receive its written
   expression before evaluation; the compiler consults the declaration, not a

@@ -45,6 +45,10 @@
 %   - A parameter type declared as DontEvalType receives its written argument
 %     without evaluation, independent of the type's name
 %     [tested: test_a_user_declared_lazy_type_receives_its_argument_unevaluated; commit=WORKTREE].
+%   - Exact arrow arity is decided through the shared typing_rule_entry/7
+%     registry rather than a compiler-local equality
+%     [tested: test_a_user_typing_rule_participates_like_a_shipped_one;
+%     commit=WORKTREE].
 %   - The Number fast path admits both signed-i64 Number integers and wider
 %     BigInt integers, matching the type boundary's directed compatibility
 %     rule [tested 2026-08-20:
@@ -2596,16 +2600,21 @@ typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out, AfterHead
         ApplicationKind == overapplied
     ->  ( IsPartial -> append(Bound, T, Written) ; Written = T ),
         AfterHead = [function_overapplication(Fun, Written, Out)|Goals]
-    ;   fitting_type_chains(UniqueTypeChains, InputArity, FittingChains),
-        applicable_typed_branches(FittingChains, Fun, T, IsPartial, Bound,
-                                  Out, Branches),
-        Branches \== [],
-        disj_list(Branches, Disj),
+    ;   fitting_type_chains(UniqueTypeChains, InputArity, Selection),
         ( IsPartial -> append(Bound, T, Written) ; Written = T ),
-        AfterHead = [( Disj
-                     *-> true
-                     ;   dispatch_mismatch_result(Fun, Written, Out)
-                     )|Goals]
+        (   Selection = refused(Rule, Reason)
+        ->  Refusal = ['Error', [Fun|Written],
+                       ['TypingRuleRefusal', Rule, Reason]],
+            AfterHead = [Out = Refusal|Goals]
+        ;   applicable_typed_branches(Selection, Fun, T, IsPartial, Bound,
+                                      Out, Branches),
+            Branches \== [],
+            disj_list(Branches, Disj),
+            AfterHead = [( Disj
+                         *-> true
+                         ;   dispatch_mismatch_result(Fun, Written, Out)
+                         )|Goals]
+        )
     ).
 
 %A declared call that no branch answered says WHY when the declaration is the
@@ -2628,15 +2637,34 @@ typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out, AfterHead
 %answer the same thing twice: with (: g (-> A Atom B)) and
 %(: g (-> A Atom Number B)) both declared, (g x y) answered (x y) twice.
 %
-%When NOTHING has the exact arity the call is a partial application, and every
-%declaration stays a candidate so currying keeps working.
+%When NOTHING decides this arity the call is a partial application, and every
+%declaration stays a candidate so currying keeps working. A named refusal is
+%kept distinct from that absence; otherwise filtering it out would select the
+%partial fallback and make an arrow-arity refusal behaviorally inert.
 fitting_type_chains(Chains, InputArity, Fitting) :-
     include(type_chain_takes(InputArity), Chains, Exact),
-    ( Exact == [] -> Fitting = Chains ; Fitting = Exact ).
+    (   Exact \== []
+    ->  Fitting = Exact
+    ;   type_chain_refusal(Chains, InputArity, Rule, Reason)
+    ->  Fitting = refused(Rule, Reason)
+    ;   Fitting = Chains
+    ).
 
 type_chain_takes(InputArity, [->|Types]) :-
     length(Types, Count),
-    InputArity =:= Count - 1.
+    DeclaredInputArity is Count - 1,
+    current_metta_module(Module),
+    typing_rule_accepts(Module, 'arrow-arity', InputArity,
+                        DeclaredInputArity).
+
+type_chain_refusal(Chains, InputArity, Rule, Reason) :-
+    member([->|Types], Chains),
+    length(Types, Count),
+    DeclaredInputArity is Count - 1,
+    current_metta_module(Module),
+    typing_rule_refusal(Module, 'arrow-arity', InputArity,
+                        DeclaredInputArity, Rule, Reason),
+    !.
 
 applicable_typed_branches([], _, _, _, _, _, []).
 applicable_typed_branches([TypeChain|Rest], Fun, T, IsPartial, Bound, Out,
