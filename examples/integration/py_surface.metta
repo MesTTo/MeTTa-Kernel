@@ -4,7 +4,7 @@
 ;   - a default Python tuple is ordinary structural MeTTa data at both doors,
 ;     while an explicit Grounded request retains a host reference
 ;     [tested: test_a_python_tuple_answers_the_same_through_both_doors;
-;     commit=WORKTREE].
+;     commit=5e080da67c989c7065bcc3de985187ce1a1ef70e].
 ;
 ;MeTTa's Python surface: py-atom RESOLVES where py-call APPLIES.
 ;
