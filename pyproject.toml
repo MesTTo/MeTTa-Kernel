@@ -118,6 +118,15 @@ select = [
     "C4",
     "PTH",
     "RET",
+    "FBT",
+    "N",
+    "A",
+    "ARG",
+    "D",
+    "PERF",
+    "C90",
+    "TRY",
+    "EM",
 ]
 ignore = [
     "E501",
@@ -133,6 +142,9 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["petta"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 # Every disable below is a judgement with a reason, not a flag list. pylint is
 # a GATE, so an entry here says "this rule is wrong for this codebase" and a

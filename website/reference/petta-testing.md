@@ -18,9 +18,10 @@ Source: `bindings/python/petta/testing.py`.
 > Guarantees:
 >   - check_space_provider holds match soundness and exact pushdown claims
 >     to the whole pattern family of every stored atom, ground, opened and
->     repeated-variable, judged by two-way unifiability [tested 2026-08-17:
+>     repeated-variable, judged by two-way unifiability [tested:
 >     test_a_repeated_variable_liar_is_caught_by_the_folded_pattern,
->     test_a_ground_only_matcher_is_caught_by_the_open_pattern].
+>     test_a_ground_only_matcher_is_caught_by_the_open_pattern;
+>     commit=WORKTREE].
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
