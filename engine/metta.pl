@@ -48,14 +48,16 @@
 %     infinity a literal produced carries through further arithmetic; the
 %     same recovery answers the whole IEEE family when a float operand is
 %     present, a float zero divides to the signed infinity and the NaN
-%     class answers NaN, while integer division by zero keeps raising; raw
+%     class answers NaN, while integer division and remainder by zero answer
+%     a contained DivisionByZero Error atom; raw
 %     is/2 keeps every flag's error mode [tested 2026-08-20:
 %     engine_operations_saturate_where_raw_is_still_raises,
 %     a_read_infinity_survives_further_arithmetic,
 %     a_twice_faulting_compound_saturates_all_the_way,
-%     integer_division_by_zero_keeps_raising,
+%     test_integer_division_by_zero_answers_what_d1_decides,
 %     test_arithmetic_overflow_agrees_with_the_literal_side,
-%     test_float_zero_division_and_nan_agree_with_the_arbiter].
+%     test_float_zero_division_and_nan_agree_with_the_arbiter;
+%     commit=WORKTREE].
 %   - is-alpha-member/3 tests unifiability without retaining bindings in its
 %     arguments [tested 2026-08-15: metta_alpha_membership].
 %   - alpha-unique-atom/2 confirms identity inside each term-hash bucket, so a
@@ -943,14 +945,17 @@ metta_arith_operands(A, B) :-
 %Division has no catchless integer arm: an all-integer pair is exact until a
 %non-divisible one converts to float, and THAT can overflow (10^400 / 3
 %raised a raw float_overflow with no operation context from the old catchless
-%arm), so it needs the same recovery as the float arms. Integer division by
-%zero already fell through to the guarded arm and keeps doing so, one arm
-%earlier.
+%arm), so it needs the same recovery as the float arms. The recovery separates
+%that IEEE result from integer zero division, which is an Error answer.
 '/'(A,B,R)  :- ( number(A), number(B)
-                  -> catch(R is A / B, E, metta_saturating_recover('/', A / B, R, E))
+                  -> catch(R is A / B, E,
+                           metta_arithmetic_saturating_recovery(
+                               '/', [A, B], A / B, E, R))
                 ; petta_int_solve('/', A, B, R, Verdict) -> Verdict == solved
                 ; metta_arith_operands(A, B)
-                  -> catch(R is A / B, E, metta_saturating_recover('/', A / B, R, E))
+                  -> catch(R is A / B, E,
+                           metta_arithmetic_saturating_recovery(
+                               '/', [A, B], A / B, E, R))
                 ; metta_operation_answer('/', [A, B], R) ).
 
 %One unbound slot among integers: the verdict says whether the mode
@@ -980,7 +985,8 @@ petta_int_solve('/', A, B, R, Verdict) :-
     ).
 '%'(A,B,R)  :- ( integer(A), integer(B), B =\= 0 -> R is A mod B
                 ; metta_arith_operands(A, B)
-                  -> catch(R is A mod B, E, rethrow_metta_operation_error('%', E))
+                  -> catch(R is A mod B, E,
+                           metta_operation_recovery('%', [A, B], E, R))
                 ; metta_operation_answer('%', [A, B], R) ).
 '<'(A,B,R)  :- ( number(A), number(B) -> (A<B -> R=true ; R=false)
                 ; metta_arith_operands(A, B)
@@ -6298,8 +6304,9 @@ control_exception(error(resource_error(_), _)).
 %infinity and the NaN class (0.0/0.0, inf - inf, sqrt of a negative, asin
 %past one) answers NaN, which is what isnan-math and isinf-math exist to
 %observe. Every fault outside metta_ieee_retry/1, integer division by zero
-%first among them, keeps the funnel below; the retry's own catch is the net
-%for faults the flags do not govern, none known for the shipped operations.
+%first among them, reaches the operation-recovery funnel below; the retry's
+%own catch is the net for faults the flags do not govern, none known for the
+%shipped operations.
 metta_saturating_recover(Operation, Expression, Result, Error) :-
     metta_ieee_saturable(Expression, Error),
     !,
@@ -6319,6 +6326,30 @@ metta_saturating_recover(Operation, Expression, Result, Error) :-
 metta_saturating_recover(Operation, _, _, Error) :-
     rethrow_metta_operation_error(Operation, Error).
 
+%Float zero division belongs to the IEEE retry, while integer zero division
+%is a contained language result. Test the IEEE class first so `/ 1.0 0.0`
+%keeps its signed infinity and only the all-integer fault reaches the shared
+%operation recovery.
+metta_arithmetic_saturating_recovery(Operation, Arguments, Expression,
+                                     Error, Result) :-
+    (   metta_ieee_saturable(Expression, Error)
+    ->  metta_saturating_recover(Operation, Expression, Result, Error)
+    ;   metta_operation_recovery(Operation, Arguments, Error, Result)
+    ).
+
+%An operation fault is an answer when the language gives the fault a reason.
+%LeaTTa pins both integer doors byte-exactly as (Error (<op> 7 0)
+%DivisionByZero), while every other host error retains the raising path
+%[source: LeaTTa tests/regression/division_convention.metta:82-90;
+%tested: test_integer_division_by_zero_answers_what_d1_decides;
+%commit=WORKTREE].
+metta_operation_recovery(Operation, Arguments,
+                         error(evaluation_error(zero_divisor), _), Answer) :-
+    maplist(integer, Arguments), !,
+    metta_error_atom(Operation, Arguments, 'DivisionByZero', Answer).
+metta_operation_recovery(Operation, _, Error, _) :-
+    rethrow_metta_operation_error(Operation, Error).
+
 %Which evaluation faults license the retry. Overflow retries
 %unconditionally, because an ALL-INTEGER division can overflow in its float
 %conversion and the saturated value is this engine's committed answer
@@ -6326,8 +6357,8 @@ metta_saturating_recover(Operation, _, _, Error) :-
 %in the expression: upstream's float arm is raw f64 (1.0/0.0 is inf,
 %0.0/0.0 and inf - inf are NaN, by construction), while its INTEGER
 %division by zero answers a DivisionByZero Error atom, so an integer zero
-%keeps raising here and its shape belongs to the error-answer story, not to
-%this recovery. The retry runs under all three IEEE flags at once rather
+%takes the operation-recovery funnel instead of this retry. The retry runs
+%under all three IEEE flags at once rather
 %than only the one that fired, because a compound expression can fault
 %twice: log-math with base 1 overflows in log(0.0) and then divides the
 %saturated -inf by log(1) = 0.0, and one-flag-at-a-time would error where

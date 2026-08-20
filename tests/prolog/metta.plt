@@ -126,10 +126,9 @@ test(a_token_becomes_grounded_when_the_engine_gains_it,
 %engine_operations_saturate_where_raw_is_still_raises,
 %a_twice_faulting_compound_saturates_all_the_way], and a non-number operand
 %raises the argument GUARD's error, which is the next unit's context.
-%Integer division by zero is the fault that remains, deliberately: the
-%operand guard keeps it outside the IEEE retry.
-host_error_case('/', '/'(1, 0, _)).
-host_error_case('%', '%'(1, 0, _)).
+%Integer division and remainder by zero are language Error answers now. They
+%stay outside the IEEE retry, then the shared operation recovery contains
+%them as DivisionByZero instead of rethrowing the host fault.
 host_error_case('#+', '#+'(1, invalid_number, _)).
 host_error_case('#-', '#-'(1, invalid_number, _)).
 host_error_case('#*', '#*'(1, invalid_number, _)).
@@ -158,6 +157,16 @@ host_error_case('random-float',
 host_error_case('bind!', 'bind!'([invalid_key], ['new-state', 1], _)).
 host_error_case('change-state!', 'change-state!'([invalid_key], 1, _)).
 host_error_case('get-state', 'get-state'([invalid_key], _)).
+
+test(test_integer_division_by_zero_answers_what_d1_decides) :-
+    findall(Answer, '/'(7, 0, Answer), DivisionAnswers),
+    DivisionAnswers == [['Error', ['/', 7, 0], 'DivisionByZero']],
+    findall(Answer, '%'(7, 0, Answer), RemainderAnswers),
+    RemainderAnswers == [['Error', ['%', 7, 0], 'DivisionByZero']],
+    process_metta_string("!(/ 7 0)", Direct),
+    Direct == [['Error', ['/', 7, 0], 'DivisionByZero']],
+    process_metta_string("!(collapse (/ 7 0))", Collapsed),
+    Collapsed == [[['Error', ['/', 7, 0], 'DivisionByZero']]].
 
 %The guarded operators refuse a non-number argument themselves rather than
 %letting is/2 coerce it, and the refusal is an ANSWER: `invalid_number` is an

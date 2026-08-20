@@ -4,9 +4,15 @@
 ;A computed string reaches each math operation's own guard and is refused
 ;before the host can treat one character as its code [tested:
 ;test_a_string_operand_to_math_refuses_instead_of_answering_its_char_code].
+;Integer division and remainder by zero answer contained DivisionByZero
+;atoms [tested: test_integer_division_by_zero_answers_what_d1_decides].
 
 !(test (== 1 1.0) True)
 !(test (!= 1.0 1) False)
+!(test (/ 7 0) (Error (/ 7 0) DivisionByZero))
+!(test (% 7 0) (Error (% 7 0) DivisionByZero))
+!(test (collapse (/ 7 0))
+       (noeval ((Error (/ 7 0) DivisionByZero))))
 (= (math-string) "s")
 !(test (sqrt-math (math-string))
        (Error (sqrt-math "s") (BadArgType 1 Number String)))

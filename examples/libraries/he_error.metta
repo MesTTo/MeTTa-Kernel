@@ -17,13 +17,16 @@
 ;its second branch.
 !(test (if-error (+ 40 undeclared-operand) Error fine) fine)
 
-;catch is for a HOST error, the kind the language has no atom for. Division by
-;zero is one.
-!(test (let $result (catch (/ 40 0))
+;catch is for a HOST error, the kind the language has no atom for. Two unbound
+;arithmetic operands are one.
+!(test (let $result (catch (+ $left $right))
             (if-error $result
                 Error
                 $result))
        Error)
+
+;Integer division by zero already is Error data, so it needs no catch.
+!(test (if-error (/ 40 0) Error fine) Error)
 
 !(test (if-error (Error 5 BadType) "Error!" "No error")
        "Error!")

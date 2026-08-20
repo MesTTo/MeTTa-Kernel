@@ -37,6 +37,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Integer division and remainder by zero now answer the arbiter's contained
+  `(Error (<operation> 7 0) DivisionByZero)` atom. Float division by zero
+  keeps its IEEE infinity or NaN result, and `collapse` preserves the Error
+  as an ordinary member of its answer expression.
 - Constructive negation now applies the same declared `Atom` argument mask as
   the positive call path. `not-provable` no longer evaluates an argument that
   the function declaration says must arrive as its written atom.

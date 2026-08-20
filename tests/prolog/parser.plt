@@ -597,12 +597,11 @@ test(a_twice_faulting_compound_saturates_all_the_way) :-
     Out == NegativeInfinity.
 
 % Integer division by zero is OUTSIDE the retry: the arbiter's answer there
-% is the DivisionByZero Error atom, a different shape, so the error keeps
-% raising with its operation context.
-test(integer_division_by_zero_keeps_raising,
-     [throws(error(evaluation_error(zero_divisor),
-                   context('/', _)))]) :-
-    '/'(1, 0, _).
+%is the DivisionByZero Error atom, the contained shape the operation recovery
+%now returns while the literal and float paths remain unchanged.
+test(integer_division_by_zero_answers_its_error_atom) :-
+    '/'(1, 0, Answer),
+    Answer == ['Error', ['/', 1, 0], 'DivisionByZero'].
 
 % An infinity the reader legally produced carries THROUGH arithmetic: SWI's
 % error mode rejects any non-finite result, operands included, so before the
