@@ -1,9 +1,9 @@
 # Prolog engine development
 
-The engine under `src/` runs directly in SWI-Prolog. A pure Prolog run needs no
+The engine under `engine/` runs directly in SWI-Prolog. A pure Prolog run needs no
 build step:
 
-    swipl --stack_limit=8g -q -s src/main.pl -- examples/basics/fib.metta silent
+    swipl --stack_limit=8g -q -s engine/main.pl -- examples/basics/fib.metta silent
 
 `sh run.sh` adds `backends`, which asks the engine to load every native backend
 that is built. There is no mode and no backend is named: the engine globs
@@ -47,7 +47,7 @@ example in a fresh process and rejects a form with two translations.
 None of those five SWI checks reports UNREACHABILITY, so a predicate defined
 and never called was invisible to all of them, the way it was to `vulture` and
 `jscpd`, which read only Python. `tests/prolog/reachability.pl` answers that
-question: it walks every clause under `src/`, `lib/`, `backends/`, `mork_ffi/`
+question: it walks every clause under `engine/`, `lib/`, `backends/`, `mork_ffi/`
 and `python/petta/` with SWI's own `prolog_walk_code/1`, adds one probe clause
 per directive, adds an edge for every goal the engine BUILDS as a term rather
 than calls, and reports what no root reaches.
@@ -94,8 +94,8 @@ it comes back ESTABLISHED with the route that decided it, or as a NAMED
 failure. There is no third answer. The route is Nishida and Vidal's: declare
 which arguments of the entry are ground, infer the rest through the call graph,
 filter every possibly-variable argument away, and hand the result to a
-termination method for rewriting. `src/narrowing.pl` implements it,
-`src/trs.pl` is the rewriting library underneath (an adaptation of Markus
+termination method for rewriting. `engine/narrowing.pl` implements it,
+`engine/trs.pl` is the rewriting library underneath (an adaptation of Markus
 Triska's public-domain trs.pl), `tests/prolog/trs.plt` and
 `tests/prolog/narrowing.plt` cover both, and
 `python/tests/test_critical_pair_oracle.py` runs the critical-pair enumerator
@@ -113,7 +113,7 @@ Run one suite while working on it:
     cd tests/prolog
     swipl -g "set_test_options([format(log)]), run_tests" -t halt translator.plt
 
-Suites consult `../../src/metta.pl`, not `src/main.pl`. `main.pl` owns the CLI
+Suites consult `../../engine/metta.pl`, not `engine/main.pl`. `main.pl` owns the CLI
 initialization and would run it during a test. Keep stateful tests isolated with
 PlUnit `setup` and `cleanup`. Use `forall` for a contract over a family of
 cases, `throws` for an error term, and `blocked` only when the named external

@@ -16,7 +16,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 :- initialization(consult('../../lib/lib_tabling.pl')).
 
 % Real MeTTa functions, defined the way a program defines them, because the
@@ -132,7 +132,7 @@ tabling_table_count(Count) :-
 % The defect this guards: both hooks cut after metta_tabling_declared, a
 % GLOBAL CONDITION rather than an ownership test, and every caller enumerates
 % the hook with forall/2. So once anything was tabled, no handler loaded after
-% lib_tabling ran. src/duals.pl asserts its handler, which appends, so it was
+% lib_tabling ran. engine/duals.pl asserts its handler, which appends, so it was
 % always in the pruned position: a changed function kept its stale dual and
 % (not-provable (pq 2)) answered False from the recompiled path and True from
 % the dual at the same time.

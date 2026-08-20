@@ -9,7 +9,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 :- dynamic plunit_storage_added_event/2.
 
@@ -95,7 +95,7 @@ missing_match_sample(Space, Inferences) :-
 
 % A bound match is one indexed probe, not a scan, and the acyclic guard the
 % tests above rely on does not change that: it runs on the ANSWER rather than
-% on every candidate [source: src/spaces.pl, the comment above
+% on every candidate [source: engine/spaces.pl, the comment above
 % native_expression/4]. So the cost of one probe is
 % the same whatever the space holds, which is an equality rather than a bound
 % and needs no threshold.

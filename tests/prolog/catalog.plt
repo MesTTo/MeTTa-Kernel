@@ -1,7 +1,7 @@
 /* Purpose: the catalog describes its own kinds and one generic checker
    validates every declaration against them, at both '&petta' write doors.
    Assumes:
-     - src/metta.pl loads spaces.pl, whose presets populate '&petta' at
+     - engine/metta.pl loads spaces.pl, whose presets populate '&petta' at
        consult time [tested: the_shipped_catalog_is_queryable_data]
    Guarantees:
      - a declaration violating its kind row is a hard error naming the
@@ -14,7 +14,7 @@
      Hacks: None
      Future Enhancements: None
 */
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 :- begin_tests(catalog_self_description).
 

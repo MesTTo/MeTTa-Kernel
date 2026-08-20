@@ -2,7 +2,7 @@
 %   inferences its load and evaluation cost, for check_upstream_parity.py.
 %   The marker line is machine-read; everything the example prints stays on
 %   stdout above it, symmetric for both engines.
-% Assumes: the engine root's src/metta.pl defines load_metta_file/2 and the
+% Assumes: the engine root's engine/metta.pl defines load_metta_file/2 and the
 %   file-relative working_dir/1 convention both checkouts share.
 % Open Obligations:
 %   To Do: None
@@ -11,7 +11,7 @@
 
 main :-
     current_prolog_flag(argv, [EngineRoot, Example]),
-    atom_concat(EngineRoot, '/src/metta.pl', Engine),
+    atom_concat(EngineRoot, '/engine/metta.pl', Engine),
     consult(Engine),
     file_directory_name(Example, Directory),
     assertz(working_dir(Directory)),

@@ -183,7 +183,7 @@ $1
 "*) exit 0 ;;
             esac
             out=$(PETTA_VERIFY_SPECIALIZATIONS=1 timeout 120 swipl \
-                      --stack_limit=8g -q -s src/main.pl -- "$1" backends \
+                      --stack_limit=8g -q -s engine/main.pl -- "$1" backends \
                       silent </dev/null 2>&1) || true
             case "$out" in
                 *petta_specialization_disagrees*)
@@ -236,10 +236,10 @@ run GATE node-binding check_node_binding
 #
 # Two names are known-absent at load time and are allowed:
 #   mettafunc/2  asserted at runtime by process_metta_string inside
-#                prolog_interop_example/0 (src/main.pl:18). SWI's own advice
+#                prolog_interop_example/0 (engine/main.pl:18). SWI's own advice
 #                is `:- dynamic mettafunc/2.`, which would clear it properly.
 # Anything else is a regression and fails. Shrink this list, never grow it.
-# mork_test/0 used to be here too, because src/main.pl called it by name behind
+# mork_test/0 used to be here too, because engine/main.pl called it by name behind
 # a `mork` branch; it is metta_backend_selftest/0 now, declared multifile, so a
 # process with no backend has a predicate with no clauses rather than a call to
 # something absent.
@@ -247,7 +247,7 @@ PROLOG_KNOWN_UNDEFINED='mettafunc/2'
 check_prolog() {
     cd "$HERE" || return 1
     unexpected=$(
-        swipl -q -g "consult('src/main.pl'), list_undefined, halt." -t 'halt(1)' 2>&1 \
+        swipl -q -g "consult('engine/main.pl'), list_undefined, halt." -t 'halt(1)' 2>&1 \
             | grep -E 'which is referenced by' \
             | grep -vE "$PROLOG_KNOWN_UNDEFINED"
     )
@@ -269,7 +269,7 @@ run GATE prolog-static check_prolog_static
 
 # vulture and jscpd read Python alone, and none of the SWI checks above reports
 # UNREACHABILITY: a predicate defined and never called is invisible to all of
-# them, across 22,791 lines of Prolog [measured 2026-08-19]. This walks every clause under src/, lib/,
+# them, across 22,791 lines of Prolog [measured 2026-08-19]. This walks every clause under engine/, lib/,
 # backends/, mork_ffi/ and python/petta/ with prolog_walk_code/1, adds a probe
 # clause per directive, and adds an edge for every goal the engine BUILDS as a
 # term rather than calls, which is most of the analysis and not a refinement:
@@ -299,14 +299,14 @@ check_reachability_selftest() {
 }
 run GATE prolog-reach-selftest check_reachability_selftest
 
-# src/trs.pl and src/narrowing.pl are libraries the engine does not load, so
-# the `prolog` lane's consult of src/main.pl never reaches them. Verified both
+# engine/trs.pl and engine/narrowing.pl are libraries the engine does not load, so
+# the `prolog` lane's consult of engine/main.pl never reaches them. Verified both
 # ways: rc=0 as shipped, rc=1 with a planted undefined call.
 check_prolog_metatheory() {
     cd "$HERE/tests/prolog" || return 1
     unexpected=$(
-        swipl -q -g "use_module('../../src/trs.pl'), \
-                     use_module('../../src/narrowing.pl'), \
+        swipl -q -g "use_module('../../engine/trs.pl'), \
+                     use_module('../../engine/narrowing.pl'), \
                      list_undefined, halt." -t 'halt(1)' 2>&1 \
             | grep -E 'which is referenced by'
     )
@@ -539,8 +539,8 @@ run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 1
 
 # The example corpus is the executable semantics documentation, and until this
 # lane existed it only ever ran through the ENGINE: the examples gate below
-# invokes swipl on src/main.pl, test.sh and test_metta_examples.py shell to
-# run.sh, and the plunit suites load src/metta.pl without python/petta/shim.pl.
+# invokes swipl on engine/main.pl, test.sh and test_metta_examples.py shell to
+# run.sh, and the plunit suites load engine/metta.pl without python/petta/shim.pl.
 # So the configuration users actually ship was gated by unit tests alone, and
 # defects lived there under green lanes: !(py-atom "()") answered () in the
 # engine and raised out of the library, and a declared type on a Python object
@@ -550,7 +550,7 @@ run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 1
 # REPORT rather than GATE, and the reason is written down rather than absorbed:
 # it found SEVEN examples that passed in the engine and failed in the library,
 # all one root: run() and load() did not register a source's function
-# signatures before processing its forms the way src/filereader.pl does, so a
+# signatures before processing its forms the way engine/filereader.pl does, so a
 # ! naming a function defined LOWER DOWN in the same file failed there. Both
 # paths share prepare_parsed_forms/1 now and all seven pass either way, so
 # this is a GATE [measured 2026-08-18: 200/200 agree, verified on the merged
@@ -718,13 +718,13 @@ run GATE   interrogate in_py "$PY" -m interrogate petta
 # cannot grow silently. Promote this lane when the remaining count reaches zero.
 run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
 # Every source path the project ships, and clean, so this gates. It used to
-# read src, lib and README alone, which left the docs and examples a reader
+# read the engine, lib and README alone, which left the docs and examples a reader
 # meets first unchecked: widening it turned up 27 more spellings against the
 # one in engine code. .codespellrc carries the skips and the words that only
 # look wrong, and its entries are bare names because codespell prunes a walked
 # directory by NAME, so a ./-prefixed skip stops matching the moment a runner
 # passes explicit paths.
-run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib python/petta python/bench.py python/examples python/tests python/tools src lib backends examples tests website notebooks mork_ffi .github *.md"
+run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib python/petta python/bench.py python/examples python/tests python/tools engine lib backends examples tests website notebooks mork_ffi .github *.md"
 # The remaining clones are small facade, protocol, and test-fixture mirrors;
 # extracting them would couple layers or hide the local contract.
 run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' python/petta python/tests"

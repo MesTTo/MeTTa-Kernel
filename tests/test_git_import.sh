@@ -31,7 +31,7 @@ run_import() {
     build=$2
     import_base=$3
     sha=$4
-    swipl -q -g "consult('$project_dir/src/main.pl'),'git-import!'('$url','$build','$import_base','$sha',true),halt"
+    swipl -q -g "consult('$project_dir/engine/main.pl'),'git-import!'('$url','$build','$import_base','$sha',true),halt"
 }
 
 # Fresh non-tip checkout and build.
@@ -43,7 +43,7 @@ test "$(cat "$target/.build-count")" = 1
 
 # An exact-SHA checkout without a matching build stamp must still be built.
 missing_stamp_base="$fixture/missing-stamp"
-swipl -q -g "consult('$project_dir/src/main.pl'),'git-import!'('$remote','','$missing_stamp_base',true),halt"
+swipl -q -g "consult('$project_dir/engine/main.pl'),'git-import!'('$remote','','$missing_stamp_base',true),halt"
 test ! -e "$missing_stamp_base/fixture/.build-count"
 run_import "$remote" build.sh "$missing_stamp_base" "$second"
 test "$(cat "$missing_stamp_base/fixture/.build-count")" = 1
@@ -137,7 +137,7 @@ test "$(git -C "$fixture/concurrent/fixture" rev-parse HEAD)" = "$first"
 
 # URL-only behavior clones a local deterministic remote without lib_import.
 mkdir -p "$fixture/legacy"
-(cd "$fixture/legacy" && swipl -q -g "consult('$project_dir/src/main.pl'),'git-import!'('$remote',true),halt")
+(cd "$fixture/legacy" && swipl -q -g "consult('$project_dir/engine/main.pl'),'git-import!'('$remote',true),halt")
 test -d "$fixture/legacy/repos/fixture/.git"
 
 echo "commit-pinned git-import tests passed"

@@ -328,7 +328,7 @@ def main() -> int:
         help="judge the stored numbers without re-measuring this tree",
     )
     arguments = parser.parse_args()
-    if not (UPSTREAM / "src" / "metta.pl").exists():
+    if not (UPSTREAM / "engine" / "metta.pl").exists():
         print(f"upstream checkout not found at {UPSTREAM}; nothing to compare")
         return 0
     if arguments.rebaseline or not BASELINE.exists():

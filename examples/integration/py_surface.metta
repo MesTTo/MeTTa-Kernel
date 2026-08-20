@@ -5,7 +5,7 @@
 ;the difference is that baking the call into the operator means a Python
 ;function is never a value, so it cannot be held, passed or applied.
 ;
-;Nothing here needs the petta Python package. The engine ships src/petta_py.py
+;Nothing here needs the petta Python package. The engine ships engine/petta_py.py
 ;and adds it to Python's path itself, so this runs under plain run.sh.
 
 ;A name resolves to an ATOM, and applying it is a separate step MeTTa does.

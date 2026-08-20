@@ -165,7 +165,7 @@
 %     examples/libraries/patrick_test.metta,
 %     examples/reasoning/tilepuzzle.metta].
 %   - the DUAL of a let* whose bindings have not arrived is asked for.
-%     src/duals.pl builds duals at compile time from the recorded MeTTa body,
+%     engine/duals.pl builds duals at compile time from the recorded MeTTa body,
 %     so bindings that arrive at run time have no dual, and (not-provable ...)
 %     over such a form declines rather than answering [tested 2026-08-19:
 %     duals_let]. The same limit applies to case and has since it gained its
@@ -238,7 +238,7 @@ clear_fun_meta(Module, F) :-
 % now only the in-place type annotation `(: $x T)`: (= (f (: $x Number)) $x)
 % compiles to f(A, A) :- has_type(A, 'Number'). The retained equation no
 % longer holds the whole head, so anything reading equations back has to
-% know, and src/duals.pl refuses to build a dual for such a function rather
+% know, and engine/duals.pl refuses to build a dual for such a function rather
 % than negate a head it cannot see. Recording only the non-empty case keeps
 % this to one == test per compiled equation, which costs no inference at all
 % [measured 2026-08-15: ==/2 is compiled inline, a predicate call is not].
@@ -394,7 +394,7 @@ metta_engine_emitted(check_argument_type/3).
 metta_engine_emitted(include/3).
 metta_engine_emitted(letstar_runtime/3).
 metta_engine_emitted(metta_ensure_duals/1).
-%src/duals.pl emits this one, into the dual clause it builds.
+%engine/duals.pl emits this one, into the dual clause it builds.
 metta_engine_emitted(metta_negation/5).
 metta_engine_emitted(petta_match_atoms/2).
 metta_engine_emitted(petta_answer_terms/3).
@@ -410,7 +410,7 @@ metta_engine_emitted(metta_bad_argument_error/3).
 %last equation stops being a parent at all. Both are function CHANGES, and the
 %engine already announces those, so the recompile hangs off the announcement
 %rather than off a second mechanism. It is the shape repair_stale_definitions/1
-%(src/filereader.pl) uses for the neighbouring problem, a definition compiled
+%(engine/filereader.pl) uses for the neighbouring problem, a definition compiled
 %against a declaration that has since moved.
 %
 %Guarded by a flag rather than run always: the hook fires for every compiled
@@ -1991,7 +1991,7 @@ translate_special_dl(quote, [Expr], Goals, Goals, [quote, Expr]).
 %not-provable keeps its head literal and evaluates its arguments, exactly as
 %an ordinary call does. Which function is being negated has to be known
 %without running it, because the answer comes from that function's dual rather
-%than from a failed proof of it [source: src/duals.pl].
+%than from a failed proof of it [source: engine/duals.pl].
 :- thread_local runnable_negation/0.
 
 translate_special_dl('not-provable', [Expr], AfterHead, Goals, Out) :-
@@ -2562,7 +2562,7 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
 %numeric clause. Signed-i64 integers and floats answer Number directly. Wider
 %integers answer BigInt, which metta_types_match/2 admits when Number is the
 %expected type. Thus number(V) implies has_type(V, 'Number') in every module,
-%whatever a get-type extension adds later [source: src/metta.pl,
+%whatever a get-type extension adds later [source: engine/metta.pl,
 %metta_numeric_type/2 and metta_types_match/2].
 %
 %This is the other half of what statically_typed_literal/2 below does, from the

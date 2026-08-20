@@ -92,7 +92,7 @@ FILES = {
     "python/tests/test_pinning.py": (
         "def test_the_specific_behavior_pins_it():\n    assert True\n"
     ),
-    "src/fixture_engine.pl": (
+    "engine/fixture_engine.pl": (
         "preexisting_predicate(_) :-\n    true.\n\n"
         "ok_check(X) :-\n"
         "    (   ok(X)\n"

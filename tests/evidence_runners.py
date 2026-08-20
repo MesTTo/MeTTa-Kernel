@@ -3,7 +3,7 @@ tier, so a tested claim can be checked against the gate rather than against
 the tree alone.
 
 check_evidence_tags.py used to ask only whether a cited name existed. A name
-can exist in a file nothing runs, which is how src/translator.pl came to cite
+can exist in a file nothing runs, which is how engine/translator.pl came to cite
 a tests/performance/reduce_dispatch.pl for its operator-table guarantee: the
 file was real, and no runner ever opened it. This lane is what found it, and
 the citation names a plunit unit now.

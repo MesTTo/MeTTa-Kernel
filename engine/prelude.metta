@@ -185,7 +185,7 @@
 ;NOT honoured at call sites, because several of those declarations
 ;describe the argument a CALLER writes rather than the value the
 ;predicate receives, and honouring them broke every maplist call
-;[source: call_site_type_chains/2 in src/translator.pl]. get-type has no
+;[source: call_site_type_chains/2 in engine/translator.pl]. get-type has no
 ;such gap: the declaration and the predicate agree that the argument
 ;arrives unreduced, so the prelude register, which IS honoured at call
 ;sites, is where it belongs.

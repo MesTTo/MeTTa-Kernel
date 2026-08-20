@@ -15,7 +15,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 :- begin_tests(prelude).
 
@@ -397,7 +397,7 @@ test(the_doc_example_still_speaks_for_the_library,
 
 :- end_tests(prelude_docs).
 
-% The derived forms: each ships as an equation in src/prelude.metta plus the
+% The derived forms: each ships as an equation in engine/prelude.metta plus the
 % one runnable the loader accepts, `!(add-translator-rule! NAME)`. That is the
 % whole of what moving a form out of the compiler needs, and the registration
 % is the prelude's to withdraw, because a program that defines the name has

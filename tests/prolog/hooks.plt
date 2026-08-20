@@ -1,4 +1,4 @@
-% Purpose: PlUnit coverage for the space-hook mechanism in src/metta.pl:
+% Purpose: PlUnit coverage for the space-hook mechanism in engine/metta.pl:
 %   (declare-pre-add! <space> <handler>), the one-claimant rule, the
 %   four-verdict algebra (accept, accept-transformed, refuse, drop), the
 %   stuck state, the batch door's degrade to per-atom adds, the
@@ -18,7 +18,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 %Run MeTTa source and answer the result groups, swallowing the engine's
 %compilation printing, the duals.plt idiom.

@@ -5,7 +5,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 :- begin_tests(metta_assertions).
 
@@ -1323,7 +1323,7 @@ test(get_metatype_answers_the_same_bound_or_unbound,
 
 :- begin_tests(metta_module_context).
 
-% current_metta_module/1 is one of the seven services src/ext_points.pl
+% current_metta_module/1 is one of the seven services engine/ext_points.pl
 % publishes for extensions to CALL, and it was the only one of the seven with
 % no test of its own: EXTENDING.md has told handler authors to read it for
 % longer than anything declared it, and lib_memo and lib_thread do. A published

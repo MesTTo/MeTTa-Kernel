@@ -331,7 +331,7 @@ subset_gen([H |Subset], [H | Set]) :- subset_gen(Subset, Set).
 %wrote a has_type/2 for a composite, which the pack's own README tells them to
 %do. Every SWI module inherits from `user`, so where nobody wrote one that call
 %does not fail: it RESOLVES to user:has_type/2, and this engine defines one
-%[src/metta.pl:1203, MeTTa's own type predicate, which COMPUTES a type by
+%[engine/metta.pl:1203, MeTTa's own type predicate, which COMPUTES a type by
 %binding its second argument rather than testing it]. The result was that
 %loading this pack beside the engine turned every must_be/2 whose check would
 %have failed into a binding type inference: `must_be(atom, Var)` succeeded and

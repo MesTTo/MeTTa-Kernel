@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `src/*.pl` | 19,594 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, `src/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `src/specializer.pl`, `src/filereader.pl`, `src/duals.pl`, `src/tracer.pl`, `src/trs.pl` and `src/narrowing.pl` metatheory, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `engine/*.pl` | 19,594 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
 | `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
@@ -355,7 +355,7 @@ refuses loudly rather than degrading. Conjunctive queries route per conjunct, so
 a foreign space joins with a native one; on such a conjunction `rows.why()`
 prints which conjunct went where and whether its class was exact.
 
-From Prolog, `src/ext_points.pl` declares every seam WITH ITS KIND: an EVENT runs
+From Prolog, `engine/ext_points.pl` declares every seam WITH ITS KIND: an EVENT runs
 for effect and every handler runs; an OWNERSHIP seam is claimed by the first
 handler that succeeds and declined by failing; a DECLARATION is a fact table read
 as data; a SERVICE runs the other way, a predicate the ENGINE defines that an
@@ -369,7 +369,7 @@ classifier and capability probe the conformance library consults, and
 `parse_metta_source/2`, which the import libraries read source
 through now that the host bindings run source engine-side), and it
 exists so a backend never reaches into
-`src/parser.pl`, the same reason SQLite hands extensions an
+`engine/parser.pl`, the same reason SQLite hands extensions an
 `sqlite3_api_routines` table instead of letting them link against internals.
 
 `backends/*.pl` is globbed at boot and each file decides for itself whether its

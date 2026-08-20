@@ -131,7 +131,7 @@
 %     every foldl-atom/map-atom/filter-atom/'|->' compile, both silently
 %     supplied by autoload before now [measured 2026-08-18: NO_AUTOLOAD=1
 %     sh test.sh, 200/200 examples; run.sh's own header has the mechanism].
-%     Cost: +1.50% instructions:u on a bare boot (swipl -s src/metta.pl,
+%     Cost: +1.50% instructions:u on a bare boot (swipl -s engine/metta.pl,
 %     no backends), +0.54% with backends loaded too, +0.14% over a full
 %     example run that also exercises the opt-in libraries' own fixes
 %     (lib/lib_constraints.pl, lib/lib_memo.pl) [measured 2026-08-18:
@@ -269,7 +269,7 @@ register_metta_library_path(Alias, Directory0, true) :-
 %pulls library(gensym) in, so today it resolves by autoload on the first
 %such compile. With autoload=false that call raises
 %existence_error(procedure,gensym/2) from inside the engine's own prelude
-%(src/prelude.metta's type-cast-holds is the one equation there that uses
+%(engine/prelude.metta's type-cast-holds is the one equation there that uses
 %foldl-atom with an inline body), and SWI's OWN initialization-error
 %reporting then masks that primary error: building a source-location
 %diagnostic for it calls into library(prolog_clause)'s
@@ -1447,7 +1447,7 @@ relational_input_position(xor, 1).      relational_input_position(xor, 2).
 relational_input_position(implies, 1).  relational_input_position(implies, 2).
 %cons builds a PATTERN, and an open tail is what makes it one: the engine's
 %own prelude writes (cons Error $_) to test whether a value is an error
-%[source: src/prelude.metta, if-error]. cons-atom is the same operation under
+%[source: engine/prelude.metta, if-error]. cons-atom is the same operation under
 %its MeTTa name.
 relational_input_position(cons, 2).
 relational_input_position('cons-atom', 2).
@@ -1485,9 +1485,9 @@ guarded_input_position(Name, Arity, Position) :-
 %The three positions this rule does NOT yet cover, named rather than hidden.
 %Each predicate lives in a file the change that added this guard does not
 %own, and each is measured 2026-08-19: get-atoms/2 and match/4 are in
-%src/spaces.pl and raise an instantiation_error with no context at all, so a
+%engine/spaces.pl and raise an instantiation_error with no context at all, so a
 %program is told a value is missing and not which one; sread/2 is in
-%src/parser.pl and raises naming system:atom_codes/2, a predicate the MeTTa
+%engine/parser.pl and raises naming system:atom_codes/2, a predicate the MeTTa
 %program never wrote. parse/2 is the same operation under PeTTa's own name
 %and IS guarded, so the gap is the direct sread call only.
 %git-import!/2 is in lib/lib_gitimport.pl and sleep/2 in a library too; both
@@ -1500,7 +1500,7 @@ unguarded_input_position(sread, 1).
 %A fourth of the same shape: add-reduct/3 refuses, and by name, but names the
 %operation it DELEGATES to. `!(add-reduct $u a)` answers
 %(Error (add-atom $u a) "add-atom expects a space as the first argument"), so
-%a program that wrote add-reduct is told about add-atom. src/spaces.pl again.
+%a program that wrote add-reduct is told about add-atom. engine/spaces.pl again.
 
 %Names the MeTTa operation and the argument, in the program's own vocabulary.
 %The formal stays ISO so a MeTTa (catch ...) and the Python boundary can both
@@ -1673,7 +1673,7 @@ type_declaration(X, T) :- current_metta_module(Module),
 %The prelude tier comes LAST in each clause, so a declaration a program
 %writes for the same name wins over the engine's prelude, the order the
 %type surface already keeps for get-type. The my-if tutorial mechanism is
-%what this tier carries: an Atom parameter declared in src/prelude.metta
+%what this tier carries: an Atom parameter declared in engine/prelude.metta
 %masks that argument at every call site, which is how the prelude's
 %assertEqualToResult receives its expected set unevaluated.
 %In the user clause the prelude branch comes FIRST, and the order is
@@ -2373,7 +2373,7 @@ metta_grounded_type(X, T) :- ( metta_grounded_type_names(X, Names)
 %(py-atom f Type) declaration, both through metta_grounded_extra_type/2, so a
 %declared (-> DLTensor ...) holds for every array library at once. This is a
 %DECLARATION seam, where every clause has to stay reachable, and not an
-%ownership one [source: src/ext_points.pl, ext_point_every_clause_runs/1]. It
+%ownership one [source: engine/ext_points.pl, ext_point_every_clause_runs/1]. It
 %used to hang off the class walk, which is the ELSE arm above, and
 %the shipped library answers the bridge for every Python object: the arm was
 %dead in that configuration and a declared type was accepted and then
@@ -2544,7 +2544,7 @@ metta_grounded_token('unique-atom'). metta_grounded_token('xor').
 %Both of the engine's registers are asked, because a head has meaning here two
 %ways and fun/1 alone is not the question: 29 of the translator's special-form
 %heads answer false to it, `superpose` and `nop` among them
-%[source: metta_translated_head/1 in src/translator.pl, which is the same
+%[source: metta_translated_head/1 in engine/translator.pl, which is the same
 %question the linter asks]. `&self` is in neither register and is always here,
 %being the space every program starts in, which is why the arbiter grounds it
 %for the same reason it grounds `+`
@@ -6581,7 +6581,7 @@ load_builtin_type_surface :- index_masking_data_heads.
 
 %%%%%%%%%% The engine's prelude %%%%%%%%%%
 %
-%src/prelude.metta holds standard vocabulary promoted from the libraries:
+%engine/prelude.metta holds standard vocabulary promoted from the libraries:
 %forms every program may use with no import!, compiled here at startup by
 %the same translator that compiles a program's own equations. The clauses
 %land in the base tier and each head registers as a builtin, so the names
@@ -6627,7 +6627,7 @@ load_builtin_type_surface :- index_masking_data_heads.
 %Which builtin_type_declaration/2 rows the prelude PUT THERE, as opposed to
 %found there. The two registers overlap once a name needs its Atom mask
 %honoured at call sites AND belongs to the engine's reported type surface:
-%get-type is declared by lib_builtin_types.metta and again by src/prelude.metta,
+%get-type is declared by lib_builtin_types.metta and again by engine/prelude.metta,
 %for the two different readers. Without this ledger the prelude's eviction
 %would retract a row the FILE owns, since the two rows are identical and
 %retractall/1 cannot tell them apart.
@@ -6707,7 +6707,7 @@ load_engine_prelude_forms :-
     ->  true
     ;   throw(error(existence_error(source_sink, Path),
                     context(load_engine_prelude/0,
-                            'src/prelude.metta is part of the engine')))
+                            'engine/prelude.metta is part of the engine')))
     ),
     read_file_to_string(Path, Text, []),
     parse_metta_source(Text, Forms),

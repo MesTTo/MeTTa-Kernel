@@ -15,7 +15,7 @@
 %   - library(dcgs), library(iso_ext) and library(format) are dropped: DCG
 %     notation and phrase/2 are built into SWI and nothing here uses the other
 %     two.
-%   - the file becomes a module, which is a fence rather than a fix. Every src/
+%   - the file becomes a module, which is a fence rather than a fix. Every engine/
 %     file the engine loads is consulted into `user`, and step/3, ord/4, lex/4,
 %     mul/4, context/3 and group/1 are names generic enough that something
 %     there will want one eventually [measured 2026-08-19: none of them is

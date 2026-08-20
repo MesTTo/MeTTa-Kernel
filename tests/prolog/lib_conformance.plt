@@ -12,7 +12,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 :- initialization(consult('../../lib/lib_conformance.pl')).
 :- initialization(user:consult('conformance_providers')).
 

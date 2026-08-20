@@ -4,7 +4,7 @@
 %   - the engine consults metta_foreign_space/1 before its own storage, and
 %     its foreign match clause splits conjunctions per conjunct and answers
 %     an unbound pattern through metta_foreign_atoms/2
-%     [source: src/spaces.pl, match_foreign/4]
+%     [source: engine/spaces.pl, match_foreign/4]
 % Guarantees:
 %   - a MORK space refuses an unbound space name the way a native one does
 %     [tested: spaces_storage_modules:matching_requires_a_named_space].
@@ -24,7 +24,7 @@
 %Load ORDER is no longer load-bearing either, which is the part worth
 %checking rather than assuming: the seam dispatches on
 %metta_foreign_space/1 rather than on clause position, so this file was moved
-%AFTER spaces in src/metta.pl's boot list and the whole gate, the fifteen MORK
+%AFTER spaces in engine/metta.pl's boot list and the whole gate, the fifteen MORK
 %tests included, passes unchanged [verified 2026-08-16]. Before the port,
 %precedence came from a position in an ensure_loaded list and nothing
 %declared it.
@@ -73,7 +73,7 @@ mork_call(Space, Command, Payload, Response) :-
 %in it loses its identity, and it has no literal for a non-finite float or a
 %rational either, so 1.0Inf, 1.5NaN and 1r3 come back as symbols. Asking is
 %metta_unwritable_symbol/2, one of the four text services the engine publishes
-%for exactly this [source: src/ext_points.pl, "Services a backend may call"].
+%for exactly this [source: engine/ext_points.pl, "Services a backend may call"].
 %It was wrapped here under a private name until those were declared, which is
 %what an undeclared dependency looks like from the outside.
 mork_require_text_safe(Term, Operation) :-
@@ -159,7 +159,7 @@ metta_foreign_remove(Space, Atom, Removed) :-
 
 %Whether the space holds anything this atom unifies with. An unbound atom
 %asks whether the space holds anything at all, which is what match/4 does
-%with one [source: src/spaces.pl, match_foreign/4].
+%with one [source: engine/spaces.pl, match_foreign/4].
 mork_holds(Space, Atom) :-
     \+ \+ ( var(Atom)
             -> metta_foreign_atoms(Space, Atom)
@@ -267,7 +267,7 @@ metta_backend_builtin('mork-add-atoms').
 metta_backend_builtin('mork-flush').
 
 %This backend's smoke test, run by the CLI demo. It was mork_test/0 called by
-%name from src/main.pl, which is why that file had a `mork` branch at all.
+%name from engine/main.pl, which is why that file had a `mork` branch at all.
 :- multifile metta_backend_selftest/0.
 metta_backend_selftest :-
     'add-atom'('&mork', [friend,sam,tim], true),

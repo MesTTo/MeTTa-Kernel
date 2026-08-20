@@ -17,10 +17,10 @@ skip = *.lock,*.pyc,*.svg,package-lock.json,.git,node_modules,__pycache__,build,
 #   king is in check. Its parameter is $king_side_to_check.
 # Zar: a person, who wrote most of nilbc.metta and is credited by handle.
 # reduct: term rewriting's own word for a term reachable in one step, used
-#   throughout src/trs.pl and the critical-pair oracle.
+#   throughout engine/trs.pl and the critical-pair oracle.
 # arithmetics: a file name rather than a word. hyperon-experimental's number
 #   tokens live in lib/src/metta/runner/stdlib/arithmetics.rs, which
-#   src/parser.pl and tests/prolog/parser.plt cite for what upstream does with
+#   engine/parser.pl and tests/prolog/parser.plt cite for what upstream does with
 #   a literal past binary64.
 ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo,anc,checkking,zar,reduct,reducts,arithmetics
 # Whole LINES that are known and stay unreported, matched verbatim. This is for

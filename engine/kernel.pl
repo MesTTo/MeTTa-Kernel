@@ -2,20 +2,20 @@
 %   conforming stdlib (the user's standing ruling, 2026-08-21): each is a
 %   grounded head LeaTTa does not speak about, Prolog-bodied by
 %   measurement, with its MeTTa spelling kept alive as a differential
-%   where one exists. The registries stay in src/metta.pl's tables
+%   where one exists. The registries stay in engine/metta.pl's tables
 %   (metta_grounded_token/1, the register_builtin_fun list, the effect
 %   walk's rows), the way every consulted engine file's builtins already
-%   work; the Atom masks live in src/prelude.metta's declarations.
-% Assumes: consulted by src/metta.pl alongside the other engine files;
+%   work; the Atom masks live in engine/prelude.metta's declarations.
+% Assumes: consulted by engine/metta.pl alongside the other engine files;
 %   space_atom_count/2, petta_capacity_count/2 and
-%   petta_capacity_count_install/1 come from src/spaces.pl,
-%   has_declared_type/2 and the refusal helpers from src/metta.pl.
+%   petta_capacity_count_install/1 come from engine/spaces.pl,
+%   has_declared_type/2 and the refusal helpers from engine/metta.pl.
 % Guarantees: each head's own contract comment below, with its evidence.
 % Fails when: a caller wants stdlib-conforming vocabulary only; these
 %   names are PeTTa's, and a space may shadow any of them.
 
 %(space-atom-count <space>) answers how many atoms the space holds, from
-%the store's own per-predicate clause counts (src/spaces.pl,
+%the store's own per-predicate clause counts (engine/spaces.pl,
 %space_atom_count/2), so a capacity policy reads a million-atom pool at
 %the same cost as a ten-atom one. It observes the space, so the effect
 %walk reports it as a read; the pattern 'count' is deliberately not a
@@ -57,7 +57,7 @@
 %for a plain add; a replayed duplicate drops at 46.00; the match
 %spelling is its differential, pinned in
 %test_set_semantics_is_a_declared_rule_not_a_property_of_the_space].
-%The Atom mask on the second parameter lives in src/prelude.metta so the
+%The Atom mask on the second parameter lives in engine/prelude.metta so the
 %asked-about atom is never reduced by the asking [tested: spaces_contains].
 'space-contains'(Space, _, _) :- var(Space), !,
                                  refuse_unbound_input('space-contains', 1).
@@ -85,7 +85,7 @@
 %words, (refuse (does-not-carry <type>)) or
 %(refuse (pool-at-capacity <limit>)), so the refusal arrives as
 %petta_add_refused like any handler's. The Atom mask on the atom
-%parameter lives in src/prelude.metta: the pool judges the offered atom
+%parameter lives in engine/prelude.metta: the pool judges the offered atom
 %as itself [tested: the_sugar_judges_the_offered_atom_as_itself].
 %The two fixed contract heads read &petta's boot-created storage directly,
 %so an absent row still fails while the general =../catch wrapper is off

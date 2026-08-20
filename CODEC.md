@@ -17,7 +17,7 @@ between the profiles is exactly what each transport can carry.
 
 The engine's reader and writer are one authority and they are not part of
 this format. `sread/2`, `sread_with_names/3` and `swrite/2` in
-`src/parser.pl` relate MeTTa source text to engine terms; a binding reaches
+`engine/parser.pl` relate MeTTa source text to engine terms; a binding reaches
 text through them rather than growing a second reader. What this page
 specifies is the step after that, between an engine term and something
 another language can hold.

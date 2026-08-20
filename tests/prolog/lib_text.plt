@@ -8,7 +8,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 :- initialization(consult('../../lib/lib_string.pl')).
 :- initialization(consult('../../lib/lib_file.pl')).
 :- initialization(consult('../../lib/lib_json.pl')).

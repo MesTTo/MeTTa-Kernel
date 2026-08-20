@@ -6,12 +6,12 @@
 %       every Prolog lane from
 %     - a MeTTa equation `(= (f a b) body)` compiles to a Prolog head of arity
 %       one more than the written one, the extra argument carrying the result
-%       [source: src/spaces.pl, throw_builtin_redefinition/2 computes
+%       [source: engine/spaces.pl, throw_builtin_redefinition/2 computes
 %       InputArity is Arity - 1 to say it back in MeTTa's terms]
 %     - space_module('&self', M) names the module `&self` compiles into and
 %       petta_engine_module/1 names the module the engine's own clauses are in.
 %       Both are ASKED rather than written, so this follows the topology
-%       instead of pinning one [source: src/spaces.pl, src/metta.pl]
+%       instead of pinning one [source: engine/spaces.pl, engine/metta.pl]
 % Guarantees:
 %     - engine_integrity_report/0 parses every .metta file under examples/,
 %       lib/ and tests/ with the engine's own parser, checks every equation in
@@ -52,7 +52,7 @@
 %   Future Enhancements: None
 
 :- use_module(library(filesex)).
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 %The modules the ENGINE resolves its own goals in: the module its clauses are
 %in, and every module up that one's import chain. A clause asserted into any of

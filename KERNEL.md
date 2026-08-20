@@ -1,8 +1,8 @@
 # The kernel and the forms built on it
 
 The translator gives 58 heads a meaning of their own. 50 of them are clauses
-of `translate_special_dl/5` in `src/translator.pl`, 55 clauses over those 50
-heads, and the remaining 8 are equations in `src/prelude.metta` registered
+of `translate_special_dl/5` in `engine/translator.pl`, 55 clauses over those 50
+heads, and the remaining 8 are equations in `engine/prelude.metta` registered
 with `add-translator-rule!`. A head in the second group costs the compiler
 nothing: the rule says what the call expands to, the expansion goes back
 through the ordinary translator, and one definition decides what the form
@@ -96,7 +96,7 @@ measured.
 
 ## The prelude's derived forms, 8 heads
 
-Each is an equation in `src/prelude.metta` plus `!(add-translator-rule! NAME)`.
+Each is an equation in `engine/prelude.metta` plus `!(add-translator-rule! NAME)`.
 The `Atom` parameters make the arguments arrive as syntax and the `%Undefined%`
 result type makes the `(noeval ...)` body translate, since an `Atom` result
 would leave the body untranslated and hand noeval itself back.

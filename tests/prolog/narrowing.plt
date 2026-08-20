@@ -1,4 +1,4 @@
-% Purpose: direct coverage for src/narrowing.pl, the route from termination of
+% Purpose: direct coverage for engine/narrowing.pl, the route from termination of
 %   narrowing to termination of rewriting. Two things need pinning. The
 %   published worked examples are reproduced, which is what makes the citation
 %   in its header a claim about behaviour rather than a reading list: the
@@ -8,7 +8,7 @@
 %   named failure, since a termination analyser that can quietly answer neither
 %   is the one shape that would make everything above it unfalsifiable.
 % Assumes:
-%   - the working directory is tests/prolog. src/narrowing.pl needs no engine.
+%   - the working directory is tests/prolog. engine/narrowing.pl needs no engine.
 %   - '$bottom' here is what TNT prints as nullVar and what the paper writes as
 %     the fresh constant for a variable the filtering left unbound.
 % Guarantees:
@@ -22,8 +22,8 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- use_module('../../src/trs.pl').
-:- use_module('../../src/narrowing.pl').
+:- use_module('../../engine/trs.pl').
+:- use_module('../../engine/narrowing.pl').
 
 % The example the authors' own tool ships and documents a session for
 % [source: github.com/mistupv/tnt, examples/AG01/#3.12.trs and README.md].

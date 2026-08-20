@@ -18,7 +18,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 :- initialization(consult('../../lib/lib_import.pl')).
 
 % One form per line, no comments, no escapes and no runs of spaces were the

@@ -511,7 +511,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
   Six positions are NOT covered and the engine says which:
   `unguarded_input_position/2` names `get-atoms`, `match` and `add-reduct` in
-  `src/spaces.pl`, `sread` in `src/parser.pl`, and `git-import!` and `sleep`
+  `engine/spaces.pl`, `sread` in `engine/parser.pl`, and `git-import!` and `sleep`
   in libraries, each in a file this change does not own. A test asserts they
   are still uncovered, so the day one is fixed the row comes out instead of
   the gap going quiet.
@@ -719,15 +719,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - The example corpus now runs through BOTH configurations, the engine alone
   and the shipped Python library, and `python/tools/example_parity.py`
   requires them to agree. Until this lane existed the corpus only ever ran
-  through the engine: the `examples` gate invokes `swipl` on `src/main.pl`,
+  through the engine: the `examples` gate invokes `swipl` on `engine/main.pl`,
   `test.sh` and `test_metta_examples.py` shell to `run.sh`, and the plunit
-  suites load `src/metta.pl` without `python/petta/shim.pl`. So the
+  suites load `engine/metta.pl` without `python/petta/shim.pl`. So the
   configuration users ship was gated by unit tests alone, and defects lived
   there under green lanes.
 
   It found seven within the hour, all one root: `run()` and `load()` did not
   register a source's function signatures before processing its forms the way
-  `src/filereader.pl` does, so a `!` naming a function defined LOWER DOWN in
+  `engine/filereader.pl` does, so a `!` naming a function defined LOWER DOWN in
   the same file failed in the library and succeeded in the engine. Six
   `test_memo_*` examples and `newtons_method.metta` are written that way.
   They pass now, both paths sharing `prepare_parsed_forms/1`, and the lane is
@@ -991,7 +991,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   from `user`, so an incomplete export list would still be green under
   autoload and that is exactly the "modular errors slip in silently"
   failure the migration exists to prevent. Turning it off found eight real
-  gaps, none in `user` code alone: `src/metta.pl`'s own
+  gaps, none in `user` code alone: `engine/metta.pl`'s own
   `directory_file_path/3` directive ran before its existing
   `library(filesex)` import, two full imports (`distinct/2` for
   `'defined-name'/1`, `library(gensym)` for every compiled `'|->'`,
@@ -1026,7 +1026,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
   `run.sh NO_AUTOLOAD=1` boots with the flag already set (a `-g` goal on
   the command line cannot: it runs only after every `-s`/`-l` file has
-  already finished loading, in either order, and `src/metta.pl` needs the
+  already finished loading, in either order, and `engine/metta.pl` needs the
   flag set before its own first directive), so `NO_AUTOLOAD=1 sh test.sh`
   runs the property over the full corpus [measured 2026-08-18: 200/200
   examples/, both configurations otherwise identical]. `check.sh` does not
@@ -1375,7 +1375,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   every underlying registration call stays public for custom shapes.
 - Added the engine prelude: the Hyperon-Experimental vocabulary that lived
   in `lib_he` is part of the core engine now, compiled from
-  `src/prelude.metta` at startup by the same translator that compiles a
+  `engine/prelude.metta` at startup by the same translator that compiles a
   program's own equations. Every form is reachable with no `import!`,
   shadowable per named space exactly as builtins are, and stored as an
   atom in no space, so a program enumerating `&self` sees only its own

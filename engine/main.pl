@@ -1,9 +1,9 @@
 :- ensure_loaded(metta).
 
 %Tokens the engine reads for itself, which are therefore not the file to run.
-%`backends` asks src/metta.pl to load every native backend that is built; it is
+%`backends` asks engine/metta.pl to load every native backend that is built; it is
 %stripped here for the same reason the silent flags are, so that a bare
-%`swipl -s src/main.pl -- backends` still means the demo rather than a file
+%`swipl -s engine/main.pl -- backends` still means the demo rather than a file
 %called "backends".
 is_engine_flag(silent).
 is_engine_flag('--silent').

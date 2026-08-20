@@ -149,7 +149,7 @@ jobs:
           # from an unbuilt backend at run time and only a packaging check can
           # tell them apart. It was unshipped until 2026-08-17.
           runtime = Path(petta.__file__).parent / '_runtime'
-          for required in ('src', 'lib', 'backends', 'hosts'):
+          for required in ('engine', 'lib', 'backends', 'hosts'):
               assert (runtime / required).is_dir(), f'{required}/ missing from the wheel'
           assert list((runtime / 'backends').glob('*.pl')), 'backends/ shipped empty'
           # The codec's golden corpus is data a third party reads out of an

@@ -21,7 +21,7 @@
 ;Manual, section 7.1]. Which order you get depends on the trie's layout, so it
 ;moves when anything unrelated moves. Written as (one two) this assertion
 ;flipped to (two one) when three facts that nothing calls were added to
-;src/translator.pl, and flipped back when they were removed [measured
+;engine/translator.pl, and flipped back when they were removed [measured
 ;2026-08-15]. The answer SET is what tabling preserves; assert that.
 !(test (sort-atom (collapse (pick a))) (one two))
 

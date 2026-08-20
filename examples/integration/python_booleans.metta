@@ -3,7 +3,7 @@
 ; booleans. Uses only builtins, so this runs wherever janus does.
 ; Python strings return as symbols (janus str -> atom), so string-valued
 ; answers are asserted through repr. That is upstream py-call's conversion and
-; it does not move; src/python.pl's surface returns a MeTTa String.
+; it does not move; engine/python.pl's surface returns a MeTTa String.
 !(test (repr (py-call (str true))) "True")
 !(test (repr (py-call (str false))) "False")
 ; A list argument converts its booleans in, and a list answer converts its

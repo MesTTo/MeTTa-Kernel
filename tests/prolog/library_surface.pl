@@ -35,7 +35,7 @@
 library_directories(['../../lib']).
 
 main :-
-    consult('../../src/metta.pl'),
+    consult('../../engine/metta.pl'),
     forall(( expand_file_name('../../lib/*.pl', Files), member(File, Files) ),
            ensure_loaded(File)),
     library_directories(Directories),
@@ -59,7 +59,7 @@ report([First|Rest], Examined) :-
            ( findall(Caller, member(Callee-Caller, Reaches), Callers),
              format("  ~w~t~34| ~w~n", [Callee, Callers]) )),
     format("each is a decision: publish it with ext_point_kind(Name/Arity, \c
-            service) in src/ext_points.pl, or change the library not to need \c
+            service) in engine/ext_points.pl, or change the library not to need \c
             it~n"),
     % Findings, which check.sh reads from the exit status. halt/1 rather than
     % failing, because a failed initialization goal prints `user:main: false`

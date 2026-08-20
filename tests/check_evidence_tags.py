@@ -17,7 +17,7 @@ What each tag has to carry, and why only this much:
   source    a date or a reference
 
 Existence alone was the whole check until 2026-08-18, and it is the weakest of
-the three. src/translator.pl cited a tests/performance/reduce_dispatch.pl for
+the three. engine/translator.pl cited a tests/performance/reduce_dispatch.pl for
 its operator-table guarantee: the file was real, its only failure path was a
 cross-run hash comparison that said nothing about operator tables, and no
 runner had ever opened it. So a tested claim now has to survive three
@@ -43,7 +43,7 @@ in each:
               test_optional_surfaces_load_only_when_requested, so the rule
               would have been wrong twice and right never.
   .metta      a (test ...), (test-no-answer ...) or (assert* ...) form, which
-              test/3 throws petta_test_failed for [source: src/metta.pl:2283].
+              test/3 throws petta_test_failed for [source: engine/metta.pl:2283].
   .sh         an exit path that can be nonzero.
 
 Does anything run it? evidence_runners.py answers that from the runners
@@ -103,7 +103,7 @@ from pathlib import Path
 from evidence_runners import ROOT, Execution, executed, prolog_loads
 
 SOURCES = (
-    "src/*.pl",
+    "engine/*.pl",
     "lib/*.pl",
     "lib/*.py",
     "python/petta/*.py",

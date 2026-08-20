@@ -387,7 +387,7 @@ sread_codes(Cs, Source, T) :-
 %raises syntax_error(float_overflow) on a literal past binary64 rather than
 %answering. So `(holds 1e400)` did not parse and did not report a parse error
 %either: the raise went straight out through sread/2 and killed the run with
-%`number_codes/2: Syntax error: float_overflow` naming src/main.pl
+%`number_codes/2: Syntax error: float_overflow` naming engine/main.pl
 %[measured 2026-08-19; found by the generated-spelling law in
 %tests/prolog/property_lane.pl].
 %
@@ -746,7 +746,7 @@ metta_number_writable(Number) :-
 %text seam was declared. A number is the second, and it is the same failure
 %with the same consequence at the same four call sites, so it is answered here
 %rather than left for each of them to discover
-%[source: src/ext_points.pl, the swrite/sread service contract].
+%[source: engine/ext_points.pl, the swrite/sread service contract].
 metta_unwritable_symbol(Term, Bad) :-
     metta_unwritable_walk(Term, Bad), !.
 

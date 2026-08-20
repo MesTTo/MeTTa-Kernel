@@ -2,7 +2,7 @@
 ;evaluations, so they run in every direction: give any two of the three and the
 ;engine solves for the third, by propagation rather than by search.
 ;
-;src/metta.pl loads library(clpfd) and has exposed these all along. Nothing in
+;engine/metta.pl loads library(clpfd) and has exposed these all along. Nothing in
 ;examples/ or lib/ used a single one of them before this file, which is how two
 ;of the six comparisons came to be missing without anyone noticing: (#=< 1 2)
 ;had no operation behind it and so came back as the expression (#=< 1 2), which

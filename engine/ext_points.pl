@@ -24,7 +24,7 @@
 %a predicate the ENGINE defines and an extension is allowed to CALL. A foreign
 %space backend needs one: it speaks text over a wire, so it has to turn a term
 %into text and back, and before this kind existed it reached into
-%src/parser.pl to do it. SQLite publishes the same half of its own contract
+%engine/parser.pl to do it. SQLite publishes the same half of its own contract
 %and for the same reason, handing an extension an sqlite3_api_routines table
 %of the host functions it may call so that an extension never links against
 %internals [source: https://www.sqlite.org/vtab.html and loadext.html]. Naming
@@ -119,7 +119,7 @@ ext_point_kind(metta_dispatch_call/4, ownership).
 %reason the atom hooks below are: a handler needed only once a feature is used
 %should cost nothing until then, so it is installed when that feature first
 %runs rather than when its file loads. A resident handler clause costs four
-%inferences on EVERY compiled equation [measured 2026-08-15: src/duals.pl's
+%inferences on EVERY compiled equation [measured 2026-08-15: engine/duals.pl's
 %invalidation handler, 4001 on source-load's thousand equations].
 :- multifile metta_on_function_changed/1.
 ext_point_kind(metta_on_function_changed/1, event).
@@ -508,12 +508,12 @@ ext_point_kind(metta_grounded_text/2, ownership).
 %The builtins a backend's bridge provides. Declared by the file that DEFINES
 %them, so they exist exactly when the predicates behind them do: registering a
 %name whose predicate is absent records no arity, and every call to it then
-%compiles to a partial application. src/metta.pl registers whatever is declared
+%compiles to a partial application. engine/metta.pl registers whatever is declared
 %here, and names nothing.
 :- multifile metta_backend_builtin/1.
 ext_point_kind(metta_backend_builtin/1, declaration).
 
-%A backend's smoke test, run by src/main.pl's demo. Every handler runs, so a
+%A backend's smoke test, run by engine/main.pl's demo. Every handler runs, so a
 %process with two backends tests both, and one with none tests nothing and says
 %so by being silent.
 :- multifile metta_backend_selftest/0.
@@ -534,7 +534,7 @@ ext_point_kind(metta_backend_selftest/0, event).
 %TEXT. What being a shared library costs. A backend's atoms live on the far
 %side of an FFI boundary that carries bytes, so every atom it stores is written
 %and every atom it returns is read, and before these were declared MORK reached
-%into src/parser.pl for all four, wrapping one under a private name.
+%into engine/parser.pl for all four, wrapping one under a private name.
 %
 %swrite/2 and sread/2 are one rule about spelling rather than two conveniences.
 %swrite/2 will print a value that sread/2 does not read back as itself, and
@@ -704,7 +704,7 @@ ext_point_kind(current_metta_module/1, service).
 %space has to ask. lib_memo.pl and lib_tabling.pl each carried a hand-written
 %copy of the inverse before this
 %[source: ai-phase11-module-survey.md section 1.3, which counted four copies
-%of it, three of them outside src/spaces.pl].
+%of it, three of them outside engine/spaces.pl].
 ext_point_kind(space_module/2, service).
 ext_point_kind(metta_module_space/2, service).
 
@@ -788,7 +788,7 @@ metta_atom_hook_clause(removed, Ref) :- clause(metta_on_atom_removed(_, _), _, R
 %installer being made unable to fail quietly rather than a live bug
 %[tested: a_handler_survives_its_own_installation].
 %The wrapped predicate is the ENGINE's, so the module is asked rather than
-%written: petta_engine_module/1 (src/metta.pl) answers where this file's
+%written: petta_engine_module/1 (engine/metta.pl) answers where this file's
 %clauses went. Writing `user` here meant "the engine" in one breath and "the
 %host" in the next, and only the second reading survives Phase 11.
 %

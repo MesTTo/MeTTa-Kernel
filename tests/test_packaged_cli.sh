@@ -43,7 +43,7 @@ from pathlib import Path
 import petta
 
 runtime = Path(petta.__file__).parent / "_runtime"
-for required in ("src", "lib", "backends"):
+for required in ("engine", "lib", "backends"):
     assert (runtime / required).is_dir(), f"{required}/ is missing from the wheel"
 assert list((runtime / "backends").glob("*.pl")), "backends/ shipped empty"
 PY

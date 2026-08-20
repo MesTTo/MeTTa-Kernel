@@ -1,5 +1,5 @@
 % Purpose: PlUnit coverage for constructive negation: the dual transformation
-%   in src/duals.pl and the (not-provable ...) form it answers.
+%   in engine/duals.pl and the (not-provable ...) form it answers.
 %
 %   The two defects negation as failure has, which these duals repair, are
 %   named in The Art of Prolog, 2nd ed, section 11.3 pages 199-201, and the
@@ -11,7 +11,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 %The clpfd operators, in/2 and \/ among them, so duals_domain_coverage below
 %can be READ. The engine imports clpfd too, but that happens when the

@@ -1,6 +1,6 @@
 % Purpose: verify runnable translation caching, variant keys, and invalidation.
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 :- begin_tests(translation_cache).
 

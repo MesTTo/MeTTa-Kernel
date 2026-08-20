@@ -4,7 +4,7 @@ real checker over it.
 
 Running the checker on THIS repository proves the repository is clean. It says
 nothing about whether the checker can see a violation, which is the same
-mistake the checker exists to catch: src/translator.pl cited a benchmark that
+mistake the checker exists to catch: engine/translator.pl cited a benchmark that
 runs nowhere, and the citation looked exactly like the two hundred good ones
 above it. So the guarantees in check_evidence_tags.py's own header are tested
 here, against planted violations, and not by the gate run that finds nothing.
@@ -160,8 +160,8 @@ def build(root: Path, pytest_anchor: str) -> dict[str, int]:
         lines.append(f"%   - {why} [{TAG} {WHEN}: {names}].")
     lines += ["% Open Obligations:", "%   To Do: None", "%   Hacks: None",
               "%   Future Enhancements: None", "", "fixture_predicate."]
-    (root / "src").mkdir(exist_ok=True)
-    (root / "src/fixture.pl").write_text("\n".join(lines) + "\n")
+    (root / "engine").mkdir(exist_ok=True)
+    (root / "engine/fixture.pl").write_text("\n".join(lines) + "\n")
     return at
 
 
@@ -184,7 +184,7 @@ def main() -> int:
         at = build(root, "pytest tests -q -p no:benchmark")
         output = run(root)
         for accepted, names, why in CITATIONS:
-            marker = f"src/fixture.pl:{at[names]}:"
+            marker = f"engine/fixture.pl:{at[names]}:"
             reported = [line for line in output if line.startswith(marker)]
             if accepted and reported:
                 complaints.append(f"rejected {why}, which is backed: {reported[0]}")
@@ -194,7 +194,7 @@ def main() -> int:
                 complaints.append(f"reported {names} {len(reported)} times, expected once")
         # Nothing else may be said about a tree this file wrote, so a model
         # that has drifted from the runners cannot hide behind the count.
-        expected = {f"src/fixture.pl:{at[names]}:" for accepted, names, _ in CITATIONS}
+        expected = {f"engine/fixture.pl:{at[names]}:" for accepted, names, _ in CITATIONS}
         for line in output[:-1]:
             if not any(line.startswith(marker) for marker in expected):
                 complaints.append(f"reported something the fixture did not plant: {line}")

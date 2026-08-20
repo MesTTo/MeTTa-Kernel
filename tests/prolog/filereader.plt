@@ -5,7 +5,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../src/metta.pl')).
+:- initialization(consult('../../engine/metta.pl')).
 
 test_lambda_functions(Functions) :-
     findall(F,
@@ -565,7 +565,7 @@ test(a_declaration_for_a_name_with_no_equations_is_data) :-
 
 :- begin_tests(filereader_source_digest).
 
-%src/filereader.pl takes a source's digest from library(crypto) when the build
+%engine/filereader.pl takes a source's digest from library(crypto) when the build
 %has it and from library(sha) when it does not, which is the WebAssembly build
 %[measured 2026-08-20: swipl-wasm 8.0.6 carries sha and not crypto]. That is
 %only safe while the two answer the same, because metta_source_changed/1

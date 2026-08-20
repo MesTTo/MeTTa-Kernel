@@ -50,13 +50,13 @@
 % Assumes:
 %   - translator.pl:fun_meta_clause/4 retains one fact per compiled equation
 %     holding its head arguments and its unevaluated MeTTa body
-%     [source: src/translator.pl, record_fun_meta/3].
+%     [source: engine/translator.pl, record_fun_meta/3].
 %   - a head argument that constrain_args/3 compiles into a GOAL rather than
 %     into structure, which is the in-place type annotation `(: $x T)`, is
 %     recorded by fun_head_goals/2 so this file can refuse it rather than
 %     dualise a head it cannot see [tested: an_annotated_head_has_no_dual].
 %   - MeTTa True and False are the Prolog atoms true and false
-%     [source: src/parser.pl:133].
+%     [source: engine/parser.pl:133].
 % Guarantees:
 %   - (not-provable G) answers False once per way G reduces to True and True
 %     once per solution of G's dual, so for a ground G exactly one of the two
@@ -822,7 +822,7 @@ equation_negative(structure(X, _, Name, Arity), metta_not_functor(X, Name, Arity
 
 %A goal that succeeds when the body does NOT reduce to True. and, or and not
 %are total on booleans because boolean_argument/2 raises on anything else
-%[source: src/metta.pl:288], so their duals are the plain De Morgan ones with
+%[source: engine/metta.pl:288], so their duals are the plain De Morgan ones with
 %no undefined case left over.
 body_nottrue(Body, _, _, fail) :- Body == true, !.
 body_nottrue(Body, _, _, true) :- Body == false, !.
@@ -850,7 +850,7 @@ body_form_dual(or, [P, Q], Module, Local, (DualP, DualQ)) :-
 %exactly as and and or do. That is not an approximation: and-then answers
 %False without running its second argument when the first is not True, and
 %False is not True, which is the disjunct the dual of and already has
-%[source: src/translator.pl, translate_special_dl('and-then', ...)]. Where
+%[source: engine/translator.pl, translate_special_dl('and-then', ...)]. Where
 %they differ from and and or is in what they RUN, and a dual that keeps every
 %preceding goal positive runs the same things.
 body_form_dual('and-then', [P, Q], Module, Local, Goal) :-
@@ -873,7 +873,7 @@ body_form_dual(not, [P], _, _Local, metta_crossed_negation(TrueP)) :-
 body_form_dual('not-provable', [Expr], _, _Local, metta_crossed_negation(TrueExpr)) :-
     body_true(Expr, TrueExpr).
 %if takes its else branch whenever the condition is anything but True
-%[source: src/translator.pl, translate_special_dl(if, [Cond, Then, Else], ...)],
+%[source: engine/translator.pl, translate_special_dl(if, [Cond, Then, Else], ...)],
 %so the two disjuncts below are exhaustive rather than a sound approximation.
 body_form_dual(if, [C, T, E], Module, Local, ((TrueC, DualT) ; (DualC, DualE))) :-
     body_true(C, TrueC),
@@ -975,7 +975,7 @@ body_form_dual('let*', [Bindings, Body], Module, Local, Goal) :-
     ).
 %A case commits to the FIRST pattern its key matches, which the translator
 %writes as a chain of ((Key = Pattern) -> Body ; Next) ending in fail [source:
-%src/translator.pl, translate_case/5]. So its dual is the same chain with each
+%engine/translator.pl, translate_case/5]. So its dual is the same chain with each
 %body replaced by that body's dual, and the final fail replaced by TRUE: a key
 %that matches no pattern gives the case no answer at all, and no answer is not
 %True.
@@ -1021,7 +1021,7 @@ body_form_dual(case, [KeyExpr, Pairs], Module, Local, Goal) :-
 %declared, (collapse (f)) answers (True), a one-element list; (== (collapse
 %(f)) True) answers False; and its metatype is Expression [measured
 %2026-08-16]. It compiles to findall/3, whose third argument is a list by
-%construction [source: src/translator.pl, translate_special_dl(collapse, ...)].
+%construction [source: engine/translator.pl, translate_special_dl(collapse, ...)].
 %
 %Nothing is lost by not running it. A collapse in a boolean position is a type
 %error in the POSITIVE direction, because boolean_argument/2 raises on a list,
@@ -1181,7 +1181,7 @@ differs_from_every([Narrowing|Rest], Variables) :-
 
 %The same goals translate_let_dl/4 emits, in the same order and with the same
 %occurs check, so the generator enumerates exactly the bindings the let itself
-%would make [source: src/translator.pl, translate_let_dl/4].
+%would make [source: engine/translator.pl, translate_let_dl/4].
 let_generator(Pattern, Value, Generator) :-
     translate_expr(Pattern, PatternGoals, PatternValue),
     translate_expr(Value, ValueGoals, ValueResult),

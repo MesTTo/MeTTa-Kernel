@@ -111,7 +111,7 @@ def compiled_modules():
     return mypycify([*MYPYC_FLAGS, *MYPYC_MODULES])
 
 # Runtime resources living outside the package that must ship inside the wheel,
-# mapped to their destination under petta/_runtime/ (preserving the src/ and
+# mapped to their destination under petta/_runtime/ (preserving the engine/ and
 # lib/ sibling layout that metta.pl relies on for library_path).
 #
 # backends/ ships even though every backend in it needs a compiled artefact no
@@ -130,7 +130,7 @@ def compiled_modules():
 # language-neutral JSON, so a binding in another language reads the same file
 # out of an installed tree.
 RUNTIME_RESOURCES = {
-    "src": "src",
+    "engine": "engine",
     "lib": "lib",
     "backends": "backends",
     "hosts": "hosts",
@@ -148,7 +148,7 @@ class build_py_with_runtime(build_py):
         runtime_root = Path(self.build_lib) / "petta" / "_runtime"
         # Emptied first, because copytree(dirs_exist_ok=True) only ever adds.
         # A resource dropped from RUNTIME_RESOURCES kept shipping out of a
-        # stale build/ directory, and so did a source file deleted from src/,
+        # stale build/ directory, and so did a source file deleted from engine/,
         # which made tests/test_packaged_cli.sh green against a wheel the
         # current tree does not describe. Measured 2026-08-17: removing
         # backends/ from the map above and rebuilding produced a wheel that

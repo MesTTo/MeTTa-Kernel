@@ -33,7 +33,7 @@ confident but WRONG verdict, never a merely-missed one:
      evidence of progress. Fixed by making PREDICATE and the generic half
      of IDENTIFIER purely informational: reported, never decisive.
   2. A cited FILE existing and GATE-tracked was read as FIXED-leaning.
-     Wrong for `src/metta.pl` (P0.2b) and `examples/control/thin_forms.metta`
+     Wrong for `engine/metta.pl` (P0.2b) and `examples/control/thin_forms.metta`
      (P1.1): plunit `consult`s every engine file transitively and test.sh
      globs every one of the 200 existing examples unconditionally, so BOTH
      were already GATE-tracked before Phase 0 or Phase 1 ever touched them.
@@ -503,10 +503,10 @@ def extract_code_spans(row: SpecRow) -> list[str]:
 
 
 # ------------------------------------------------------------- tree facts
-PROLOG_DIRS = ("src", "lib", "mork_ffi", "backends", "python/petta", "tests")
+PROLOG_DIRS = ("engine", "lib", "mork_ffi", "backends", "python/petta", "tests")
 METTA_DIRS = ("lib", "examples", "python/examples", "tests")
 PYTHON_DIRS = ("python/petta", "python/tools", "python/examples", "python/benchmarks", "python/HE")
-IMPLEMENTATION_DIRS = ("src", "lib", "mork_ffi", "backends", "python/petta")
+IMPLEMENTATION_DIRS = ("engine", "lib", "mork_ffi", "backends", "python/petta")
 
 PROLOG_CLAUSE_HEAD = re.compile(r"^([a-z][A-Za-z0-9_]*)\(", re.MULTILINE)
 PROLOG_DECLARATION = re.compile(
@@ -655,11 +655,11 @@ class Verdict:
 
 # Roots under which a file is something BUILT to demonstrate one item: a
 # test, a fixture, an example, or a single-purpose check script. A file
-# under an IMPLEMENTATION root (src/, lib/, mork_ffi/, backends/,
+# under an IMPLEMENTATION root (engine/, lib/, mork_ffi/, backends/,
 # python/petta/) is excluded on purpose: `evidence_runners.executed()`
-# marks src/metta.pl GATE because plunit `consult`s it transitively, which
+# marks engine/metta.pl GATE because plunit `consult`s it transitively, which
 # is true of almost every engine file whether or not any given item ever
-# touched it, so "exists and is GATE-tracked" is true of src/metta.pl both
+# touched it, so "exists and is GATE-tracked" is true of engine/metta.pl both
 # before P0.2b's fix and after it and says nothing about P0.2b specifically
 # [measured 2026-08-18: running this tool's earlier version against the
 # live spec gave P0.2b, P2.5, P2.8, P2.9 and others a FIXED verdict purely

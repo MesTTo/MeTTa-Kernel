@@ -9,11 +9,11 @@
 %       every Prolog lane from
 %     - arity/2 is the engine's own dispatch table, so a MeTTa call site
 %       compiles to a call of Name/Arity exactly when arity(Name, Arity) holds
-%       [source: src/metta.pl:3960, register_prolog_arities/1, which registers
+%       [source: engine/metta.pl:3960, register_prolog_arities/1, which registers
 %       every arity current_predicate/1 reports for a registered name]
 %     - a multifile declaration is the permission an outside caller needs, so
 %       every seam declared multifile is called from outside this tree
-%       [source: src/ext_points.pl, and tests/prolog/static_checks.pl already
+%       [source: engine/ext_points.pl, and tests/prolog/static_checks.pl already
 %       requires every unqualified multifile seam to declare an
 %       ext_point_kind/2]
 %     - the Python half names its Prolog entry points as text, so a predicate
@@ -22,7 +22,7 @@
 %       predicate NAME and hand it to janus.apply_once/cmd]
 % Guarantees:
 %     - reachability_report/0 walks every clause of every predicate defined
-%       under src/, lib/, backends/, mork_ffi/ and python/petta/, plus one probe
+%       under engine/, lib/, backends/, mork_ffi/ and python/petta/, plus one probe
 %       clause per directive, and reports the predicates no root reaches
 %       [measured 2026-08-18: 1550 predicates, 2602 clauses, 6984 call and 760
 %       construct edges, 24 reported, 1.10s min of 3]
@@ -34,7 +34,7 @@
 %       is reached, because every term a clause holds rather than calls is
 %       scanned for the shape of one of this tree's predicates. That is not a
 %       refinement, it is most of the analysis: without it the report is 206
-%       rather than 24, and the 182 it adds are led by src/duals.pl's 58 and
+%       rather than 24, and the 182 it adds are led by engine/duals.pl's 58 and
 %       lib/lib_memo.pl's 46, every one of them live [measured 2026-08-18]
 %     - each door is worth what it claims, measured by disabling it and counting
 %       [measured 2026-08-18, against a baseline of 24]: the MeTTa dispatch root
@@ -49,8 +49,8 @@
 %       nothing else, 0.90s min of 3]
 %     - the report answers about the tree it is run against and not about a
 %       fixture [measured 2026-08-18 on a throwaway branch: appending an
-%       uncalled predicate to src/parser.pl took the report from 24 to 25 and
-%       named it at src/parser.pl:338, and declaring the same predicate
+%       uncalled predicate to engine/parser.pl took the report from 24 to 25 and
+%       named it at engine/parser.pl:338, and declaring the same predicate
 %       multifile took it back to 24 with the seam roots going 37 to 38]
 % Fails when:
 %     - a predicate is reached only by a name assembled at run time from parts,
@@ -103,7 +103,7 @@
 % The five directories that ship Prolog. python/petta holds shim.pl, which is
 % the Python library's own half of the engine and 2895 of the tree's 19423
 % Prolog lines; leaving it out would leave the largest single file unchecked.
-tree_directory_relative('../../src').
+tree_directory_relative('../../engine').
 tree_directory_relative('../../lib').
 tree_directory_relative('../../backends').
 tree_directory_relative('../../mork_ffi').
@@ -187,13 +187,13 @@ caller_indicator(Caller, Indicator) :- catch(qualified(Caller, Indicator), _, fa
 % walk of call sites can see it:
 %
 %     lib/lib_memo.pl:125        Goal = cache_call(Fun, CallModule, Args, Out)
-%     src/duals.pl:340           Negation = metta_negation(Local, ..., Out)
-%     src/translator.pl:1026     foldall(agg_reduce(Acc, Value), ...)
+%     engine/duals.pl:340           Negation = metta_negation(Local, ..., Out)
+%     engine/translator.pl:1026     foldall(agg_reduce(Acc, Value), ...)
 %
 % Only the ARGUMENTS of a goal are scanned, never the goal itself. Scanning
 % every subterm of the body instead reads the `=@=/2` call at
-% src/translator.pl:73 as a construction of the tree's own '=@='/3 and hides it,
-% which it did. '=@='/3 is defined beside '=alpha'/3 at src/metta.pl:310 and,
+% engine/translator.pl:73 as a construction of the tree's own '=@='/3 and hides it,
+% which it did. '=@='/3 is defined beside '=alpha'/3 at engine/metta.pl:310 and,
 % unlike it, was never registered, so !(=@= (f $x) (f $y)) answers the
 % expression back where !(=alpha (f $x) (f $y)) answers true, and the report has
 % to be able to say so [measured 2026-08-18].
@@ -232,7 +232,7 @@ clause_data(_, Body, Data) :- body_data(Body, Data).
 % rather than from a list of wrappers written here, which is what makes this
 % cover once/1, forall/2, catch/3, findall/3 and setup_call_cleanup/3 without
 % naming any of them. Reading the spec is not optional: '=@='/3 stayed hidden
-% behind drop_fun_meta/3's once/1 at src/translator.pl:71-73 until it did
+% behind drop_fun_meta/3's once/1 at engine/translator.pl:71-73 until it did
 % [measured 2026-08-18].
 %
 % A `1`..`9` argument is a CLOSURE rather than a goal, and is deliberately left
@@ -296,7 +296,7 @@ walked_clause(Reference) :-
 % walks clauses rather than directives: with the clauses/1 option it walks
 % nothing else, and without it, it reaches only the goals registered through
 % initialization/1,2 [source: library(prolog_codewalk), walk_from_initialization/1].
-% So `:- maplist(register_builtin_fun, [...])` in src/metta.pl, which is how
+% So `:- maplist(register_builtin_fun, [...])` in engine/metta.pl, which is how
 % every builtin name is declared, is invisible to it.
 %
 % Each directive becomes the body of one probe clause and is walked by the real
@@ -348,7 +348,7 @@ build_graph :-
                        undefined(ignore) ]),
     % The same references, because a directive builds goals as freely as a
     % clause does: `:- prolog_listen(metta_on_atom_added/2,
-    % metta_atom_hook_changed(added))` in src/ext_points.pl:633 installs a
+    % metta_atom_hook_changed(added))` in engine/ext_points.pl:633 installs a
     % closure and stands in no clause at all.
     record_constructions(References),
     forall(member(Reference, DirectiveReferences), erase(Reference)).
@@ -364,7 +364,7 @@ root_of(metta_dispatch, user:Name/Arity) :- arity(Name, Arity).
 
 % A seam. multifile is the permission an extension or SWI itself needs to add
 % clauses, so a multifile predicate is called from outside this tree by
-% construction. This covers src/ext_points.pl's declared seams and SWI's own
+% construction. This covers engine/ext_points.pl's declared seams and SWI's own
 % hooks, prolog:message//1 and thread_message_hook/3 among them, in one rule.
 root_of(seam, Module:Name/Arity) :-
     tree_predicate(Module:Name/Arity),
@@ -569,20 +569,20 @@ library_companion(Base, Companion) :-
 % companion, through import_prolog_functions_from_file, so the import is what
 % puts them in arity/2. A library with no companion cannot be imported at all,
 % because 'import!' resolves a library name to a .metta file and nothing else
-% [source: src/metta.pl:3730, ensure_metta_ext/2], and its predicates are then
+% [source: engine/metta.pl:3730, ensure_metta_ext/2], and its predicates are then
 % genuinely unreachable rather than merely unseen. That is reported, not
 % silently forgiven.
 load_shipped_configuration(Unimported) :-
     % `backends` is what run.sh, the packaged CLI and the Python library all
-    % pass, and it has to be set BEFORE the engine loads: src/metta.pl:179 reads
-    % argv to decide whether to glob backends/*.pl, and src/metta.pl:4251 then
+    % pass, and it has to be set BEFORE the engine loads: engine/metta.pl:179 reads
+    % argv to decide whether to glob backends/*.pl, and engine/metta.pl:4251 then
     % registers each backend's own builtin names in the SAME consult. Loading
     % the backends afterwards is too late for that directive, and it showed:
     % 'mm2-exec'/3 and 'mork-flush'/2 were reported dead while
     % mork_ffi/morkspaces.pl:257 declares both [measured 2026-08-18]. The
     % plunit lane appends the same flag for the same reason.
     set_prolog_flag(argv, [backends]),
-    consult('../../src/metta.pl'),
+    consult('../../engine/metta.pl'),
     retractall(silent(_)),
     assertz(silent(true)),
     findall(Base, ( analysed_library(Base), \+ library_imports(Base) ), Unimported),
@@ -686,7 +686,7 @@ relative_site(File, Line, Site) :-
 %
 % The fixture is written rather than checked in for the reason
 % tests/check_evidence_selftest.py gives about its own: a deliberately dead
-% predicate committed under src/ would be a finding of the real report forever.
+% predicate committed under engine/ would be a finding of the real report forever.
 
 % One planted predicate per door, and three that must be REPORTED, because a
 % probe in which everything is expected to survive cannot tell a working
@@ -705,7 +705,7 @@ planted(janus,       'petta_reachability_planted_from_python'/1,   reachable).
 planted(python_text, 'petta_reachability_planted_commented'/1,     reported).
 % A goal in goal position is a call and not a construction, so a lookalike at a
 % HIGHER arity must still be reported. This is the '=@=' shape: '=@='/2 is
-% called inside drop_fun_meta/3's once/1 at src/translator.pl:71-73 and the
+% called inside drop_fun_meta/3's once/1 at engine/translator.pl:71-73 and the
 % tree's own '=@='/3 is not, and reading that argument as data hides it.
 planted(goal_position, 'petta_reachability_planted_goal'/3,        reported).
 

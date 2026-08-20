@@ -1072,7 +1072,7 @@ There are two ways in, and they differ in cost the same way tiers 2 and 3 do.
 boundary, which is right when the atoms live somewhere Python already talks to.
 `das.py`, `remote.py` and `persistent.py` are three real instances.
 
-**From Prolog**, add clauses to the multifile seam in `src/spaces.pl`:
+**From Prolog**, add clauses to the multifile seam in `engine/spaces.pl`:
 
 ```prolog
 :- multifile metta_foreign_space/1.     % this space is mine
@@ -1316,9 +1316,9 @@ Registering a name whose predicate is absent records no arity, and every call
 to it then compiles to a partial application rather than running or failing.
 
 MORK is one of these and used to be none of it. `'../mork_ffi/morkspaces'` was
-written into `src/metta.pl`'s load list, in a second copy of that list behind
+written into `engine/metta.pl`'s load list, in a second copy of that list behind
 an argv test, and its three builtin names into a second argv test further down,
-and `mork_test/0` was called by name from `src/main.pl`. So a second native
+and `mork_test/0` was called by name from `engine/main.pl`. So a second native
 backend could not be added without editing the engine, which is the one thing
 this page promises you never have to do, and MORK reached the engine through a
 door no other provider had. It goes through the seam now like everyone else,
@@ -1367,7 +1367,7 @@ metta_foreign_add('&mine', Atom) :-
 MeTTa's own builtins are published too and are not repeated in that list. Call
 `'add-atom'/3` or `match/4` the way any program calls them.
 
-Anything else under `src/` is an internal, and calling one is a gate failure
+Anything else under `engine/` is an internal, and calling one is a gate failure
 rather than a style note:
 
 ```
@@ -1376,12 +1376,12 @@ an engine internal rather than published surface
 ```
 
 This exists because MORK reached past the seam for years and nothing said so.
-It called `swrite/2` and `metta_unwritable_symbol/2` out of `src/parser.pl`,
+It called `swrite/2` and `metta_unwritable_symbol/2` out of `engine/parser.pl`,
 wrapping the second under a private name of its own, and `python/petta/shim.pl`
 had independently wrapped the same predicate under a different private name.
 Two extensions inventing two names for one undeclared dependency is what the
 problem looks like from the outside. They are declared now, in
-`src/ext_points.pl` beside the hooks, and `tests/prolog/static_checks.pl` reads
+`engine/ext_points.pl` beside the hooks, and `tests/prolog/static_checks.pl` reads
 that declaration rather than a list of its own, so a backend that reaches for an
 eighth thing fails the gate with the line above. The walk is SWI's
 `prolog_walk_code/1`, which means a call hidden in a `maplist/3` argument or in
@@ -1581,7 +1581,7 @@ the positions its `WHERE` clause covers and whose claim the kit confirms:
 ## 6. Atom hooks: reacting to writes
 
 `metta_on_atom_added/2` and `metta_on_atom_removed/2` are multifile predicates
-in `src/ext_points.pl`. Assert a clause and every write to a space calls it.
+in `engine/ext_points.pl`. Assert a clause and every write to a space calls it.
 This is how Python subscriptions deliver, and how `lib_thread`'s `await-atom`
 blocks on a space without polling.
 
@@ -1628,7 +1628,7 @@ global condition once, `duals.pl`'s invalidation handler was ordered after it
 and never ran, and `(not-provable (pq 2))` answered True and False at once.
 
 The rule differs by seam, so each one carries its kind as a fact beside its
-declaration in `src/ext_points.pl`:
+declaration in `engine/ext_points.pl`:
 
 ```prolog
 ?- ext_point_kind(metta_on_atom_added/2, Kind).
@@ -1894,7 +1894,7 @@ displays `[1, 2, 3]` and a numpy array displays `array([1, 2, 3])`.
 
 ### The seams this page did not list
 
-`src/ext_points.pl` declares more than the atom hooks, and two of the rest are
+`engine/ext_points.pl` declares more than the atom hooks, and two of the rest are
 exactly what a performance library wants.
 
 **`metta_dispatch_call/4`** is consulted at every compiled call site,
@@ -1928,7 +1928,7 @@ knows how to read its own objects and answers every name at once.
 
 **The `host_service` surface** is the other half of the host contract: the
 engine predicates a host BINDING's transport may call back, measured from the
-shipped shim and declared in `src/ext_points.pl` so the static walk can keep
+shipped shim and declared in `engine/ext_points.pl` so the static walk can keep
 the list honest. Today's list: `catch_recover/2`, `match_foreign/5`,
 `metta_add_atoms/2`, `metta_host_adopt_function/4`,
 `metta_host_clear_defined/1`, `metta_host_clear_space/1`,
@@ -2170,7 +2170,7 @@ the wrong name; the guide's Concepts page holds the full table.
 | change what counts as a match | a matcher, by convention |
 | reach the engine from a language it has never been used from | the wire codec, [CODEC.md](CODEC.md) |
 
-Three of those are **declared seams** in `src/ext_points.pl`, and a change to
+Three of those are **declared seams** in `engine/ext_points.pl`, and a change to
 one is a breaking change: the foreign-space hooks, the atom hooks, and the
 memo and function-change hooks. The rest are mechanisms. Custom matchers in
 particular are a **convention** rather than a hook, deliberately: they compose

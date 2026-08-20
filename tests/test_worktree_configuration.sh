@@ -49,7 +49,7 @@ git -C "$project_dir" worktree add --quiet -b "$branch" "$tree"
 # that matters.
 probe_backend() {
     swipl --stack_limit=2g -q -g "
-        consult('$1/src/main.pl'),
+        consult('$1/engine/main.pl'),
         ( current_predicate(mork/3) -> writeln(loaded) ; writeln(absent) ),
         halt" -t 'halt(1)' -- backends 2>/dev/null | tail -1
 }

@@ -21,7 +21,7 @@ main :-
 
 check_requested_file :-
     current_prolog_flag(argv, [File]),
-    consult('../../src/metta.pl'),
+    consult('../../engine/metta.pl'),
     retractall(silent(_)),
     assertz(silent(true)),
     check_file(File).

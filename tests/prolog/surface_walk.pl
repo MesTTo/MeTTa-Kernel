@@ -1,7 +1,7 @@
 % Purpose: find every engine predicate an extension file calls, and say which
 %     of them are published surface.
 % Assumes:
-%     - the caller has already consulted src/metta.pl and loaded whichever
+%     - the caller has already consulted engine/metta.pl and loaded whichever
 %       extension files it wants walked, because this reads the DATABASE rather
 %       than the sources: a handler whose body is built at run time is in no
 %       file to read [source: the same split tests/prolog/static_checks.pl
@@ -13,7 +13,7 @@
 %       their own main/0.
 % Guarantees:
 %     - reaches_past_surface/2 answers every call from a clause under one of
-%       the given directories to a predicate defined under src/ that is neither
+%       the given directories to a predicate defined under engine/ that is neither
 %       a declared extension point nor a MeTTa builtin, in whichever modules
 %       candidate_engine_module/1 below discovers rather than only in `user`
 %     - that discovery lives HERE rather than in a caller. It was written in
@@ -106,11 +106,11 @@ indicator(Goal, Name/Arity) :- callable(Goal), functor(Goal, Name, Arity).
 %The clause has to be IN the file, not merely belong to a predicate the file
 %defines. source_file/2 names the heads a file contributes and nth_clause/3
 %then enumerates EVERY clause of that predicate, so a multifile seam with one
-%handler in lib/ and another in src/ had the engine's own handler walked as if
+%handler in lib/ and another in engine/ had the engine's own handler walked as if
 %the library had written it, and the engine's internal calls came back as the
 %library reaching past the surface [measured 2026-08-19: three of the twenty-one
 %findings, recompile_function_impl/1, uses_super/2 and metta_trace_target/1,
-%are src/ clauses of metta_on_function_changed/1].
+%are engine/ clauses of metta_on_function_changed/1].
 extension_clauses(Directories, References) :-
     findall(Reference,
             ( member(Relative, Directories),
@@ -138,17 +138,17 @@ tree_directory(Relative, Directory) :-
 % and the engine's own seams lived because nothing in the tree had given them
 % a module of their own. Phase 11 gives &self the execution module
 % '$petta_exec:&self' and every other space '$petta_exec:<Space>' beside it,
-% each based on the module src/metta.pl itself loaded into. A check that keeps
+% each based on the module engine/metta.pl itself loaded into. A check that keeps
 % naming `user` then examines the one module nothing compiles into any more
 % and reports clean, which is the failure this section exists to close. The
 % survey planned a shared '$petta_core' under both; the engine's own module is
 % that base as shipped, since nothing needed moving out of it
-% [source: src/spaces.pl's metta_exec_module_base/2, and
+% [source: engine/spaces.pl's metta_exec_module_base/2, and
 % ai-phase11-module-survey.md section 2.1, workspace root, for the plan].
 %
 % The fix asks the engine rather than guessing a name. space_module/2 is
 % already the one place that answers "which module does this space compile
-% into" (src/spaces.pl:231-232, ai-phase11-module-survey.md section 1.2's
+% into" (engine/spaces.pl:231-232, ai-phase11-module-survey.md section 1.2's
 % "only door"), so every space the engine currently knows about is walked up
 % its OWN import chain and every module the walk visits is a candidate.
 %
@@ -176,17 +176,17 @@ tree_directory(Relative, Directory) :-
 %
 % known_metta_space/1 does not need its own proof of completeness: it reads
 % native_storage_module_cache/2, the STORAGE family's own registry
-% (src/spaces.pl:54), which every native add-atom or equation already
+% (engine/spaces.pl:54), which every native add-atom or equation already
 % populates as a side effect of storing into a space
-% (src/spaces.pl:79-98,134-135,399-402), so it grows exactly when a space
+% (engine/spaces.pl:79-98,134-135,399-402), so it grows exactly when a space
 % becomes worth scanning. '&self' is listed explicitly besides, because the
-% invariant that it is always pre-seeded (src/spaces.pl:104) belongs to
+% invariant that it is always pre-seeded (engine/spaces.pl:104) belongs to
 % spaces.pl to keep, not to this file to assume silently.
 %
 % One space is out of reach, and deliberately: a function compiled into a
 % FOREIGN space (one backed by an external provider such as MORK).
 % add_equation/4's foreign clause
-% (src/spaces.pl:394-398) compiles into that space's execution module the
+% (engine/spaces.pl:394-398) compiles into that space's execution module the
 % same way a native one does, but deliberately does not touch the native
 % storage cache, so such a space is invisible to known_metta_space/1. This
 % is not a narrowing: the `user`-only walk it replaces never looked at any
@@ -205,7 +205,7 @@ engine_predicate(Name/Arity) :-
     functor(Head, Name, Arity),
     candidate_engine_module(Module),
     catch(predicate_property(Module:Head, file(File)), _, fail),
-    tree_directory('../../src', EngineDir),
+    tree_directory('../../engine', EngineDir),
     sub_atom(File, 0, _, _, EngineDir).
 
 % Read as data rather than listed here. A declared extension point is the
