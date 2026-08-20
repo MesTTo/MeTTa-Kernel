@@ -55,7 +55,7 @@ decoder refuses it rather than coercing it into something.
 
     term    ::= [tag, payload]
     tag     ::= "s" | "g" | "n" | "b" | "v" | "e" | "o" | "h"
-    payload ::= text | number | boolean-text | [term, ...] | host-value
+    payload ::= text | exact-integer | float | boolean-text | [term, ...] | host-value
 
 Two shapes break the two-element rule and both are named below: an outbound
 `h` carries three elements, and the frames carry three, four or five.
@@ -65,7 +65,7 @@ Two shapes break the two-element rule and both are named below: an outbound
 |---|---|---|---|
 | `s` | term | text | a symbol: a name that denotes itself |
 | `g` | term | text | a grounded value carried as text; a string crosses this way |
-| `n` | term | number | a grounded number, integer or float, exact at any width |
+| `n` | term | exact integer or float | a grounded Number or BigInt; signed-i64 width fixes an integer's language type |
 | `b` | term | "true" or "false" | a grounded boolean, written True and False in source |
 | `v` | term | text | a variable, the payload an identity within this term |
 | `e` | term | array of terms | an expression, its children in order; the empty one is unit |
@@ -117,25 +117,45 @@ own variables resolves `_` and gives two distinct variables back; a codec
 that carries wire terms to a store keeps the payload. Both are conformant
 and the corpus says which by asking the driver.
 
-## Numbers are exact, or refused
+## Number and BigInt are exact, or refused
 
-PeTTa's integers are unbounded and exact at any width. A codec MUST NOT
-admit a number it cannot hold exactly. If your transport's numbers are
+PeTTa has two numeric types. A float and an integer in the inclusive signed
+i64 range have type `Number`. An integer below -9223372036854775808 or above
+9223372036854775807 has type `BigInt`. The reader uses the same signed decimal
+syntax for both, and SWI keeps every integer value unbounded underneath, so
+arithmetic can cross the boundary in either direction without changing its
+value behavior.
+
+Both integer types use `n`. The exact payload determines the language type.
+A second tag would duplicate that information and add a mismatched
+tag-and-width refusal class. A codec MUST NOT admit an integer it cannot hold
+exactly. If your transport's numbers are
 binary64, `["n", 9007199254740993]` has to be refused, naming the literal,
 because a store that rounds an atom answers a different atom later. The
 TypeScript reference server does this from `JSON.parse`'s reviver, which can
-see the source text of each literal and so can tell an integer it would
-round from one it would not; the Python end holds the value exactly and so
-accepts it. Both conform, because the rule is about exactness rather than
-about range.
+see the source text of each literal and so can tell an integer it would round
+from one it would not. The Python end holds the value exactly and accepts it.
+Both conform because the rule is about exactness rather than range.
 
-An integer and a float are different atoms even when they are the same
-number. `!(== 1.0 1)` answers `False`, so `["n", 1]` and `["n", 1.0]` are
-different terms and a transport with one number type has to carry the
-distinction some other way or refuse the value. JavaScript is the case that
-bites: `JSON.stringify(1.0)` writes `1`, so an integral float stored through
-a JSON parser with a single Number type comes back as an integer, which is
-the same failure as rounding a wide integer with a different cause.
+An integer and a float are different atoms even when they have the same
+mathematical value. `!(== 1.0 1)` answers `False`, so `["n", 1]` and
+`["n", 1.0]` are different terms. A transport with one host number kind has
+to carry the distinction some other way or refuse the value. JavaScript is
+the case that bites: `JSON.stringify(1.0)` writes `1`, so an integral float
+stored through a JSON parser with a single Number kind comes back as an
+integer. That is the same failure as rounding a wide integer, with a
+different cause.
+
+The Python binding carries Prolog integers as Python `int` through Janus.
+Measured 2026-08-20 with Python 3.14.4, janus-swi 1.5.3 and SWI 10.1.13, the
+signed-i64 boundaries and `2^127 + 12345` crossed exactly in both directions.
+The Node binding uses JavaScript `BigInt` for every Prolog integer and
+JavaScript `number` for every Prolog float. Its private bridge carries their
+canonical decimal text before constructing either host value. Measured
+2026-08-20 with Node 22.22.1 and swipl-wasm 8.0.6, the same values crossed
+exactly in both directions. Raw swipl-wasm returns a JavaScript `Number`
+through `2^53 - 1` and a `BigInt` from `2^53` onward, so the binding does not
+use that changing host representation as the wire contract.
 
 Floats are the value, not a spelling. The two shipped printers disagree
 about where exponent form begins, so the same float prints `1.0e+10` from
@@ -306,6 +326,10 @@ restatement of one.
 | `integer` | `"42"` | `["n", 42]` | `"42"` |
 | `integer-negative` | `"-7"` | `["n", -7]` | `"-7"` |
 | `integer-zero` | `"0"` | `["n", 0]` | `"0"` |
+| `integer-i64-min` | `"-9223372036854775808"` | `["n", -9223372036854775808]` | `"-9223372036854775808"` |
+| `integer-i64-max` | `"9223372036854775807"` | `["n", 9223372036854775807]` | `"9223372036854775807"` |
+| `bigint-negative-boundary` | `"-9223372036854775809"` | `["n", -9223372036854775809]` | `"-9223372036854775809"` |
+| `bigint-positive-boundary` | `"9223372036854775808"` | `["n", 9223372036854775808]` | `"9223372036854775808"` |
 | `integer-beyond-double` | `"9007199254740993"` | `["n", 9007199254740993]` | `"9007199254740993"` |
 | `integer-beyond-machine-word` | `"123456789012345678901234567890"` | `["n", 123456789012345678901234567890]` | `"123456789012345678901234567890"` |
 | `float` | `"1.5"` | `["n", 1.5]` | `"1.5"` |
@@ -385,6 +409,7 @@ as a directive that answered `()`.
 | case | program | answer groups |
 |---|---|---|
 | `arithmetic` | `"!(+ 1 2)"` | `[[["n", 3]]]` |
+| `bigint-arithmetic` | `"!(+ 9223372036854775807 1)"` | `[[["n", 9223372036854775808]]]` |
 | `comparison` | `"!(== 1 2)"` | `[[["b", "false"]]]` |
 | `nondeterminism` | `"!(superpose (1 2 3))"` | `[[["n", 1], ["n", 2], ["n", 3]]]` |
 | `no-answers` | `"!(match &self (nothing-is-stored-here $x) $x)"` | `[[]]` |

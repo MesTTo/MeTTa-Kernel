@@ -152,6 +152,14 @@ species of `Number`; that glossary relation remains unpublished upstream.
 Arithmetic may cross the boundary in either direction according to the exact
 result value. Integer equality remains exact across the two types.
 
+The wire keeps one `n` tag because the exact payload recovers the type. A
+second tag would duplicate that information and add a mismatched
+tag-and-width refusal class. A host that cannot preserve every digit must
+refuse the value. Python receives integers as unbounded `int` values through
+Janus. The Node bridge carries canonical decimal text and constructs a
+JavaScript `BigInt` for every Prolog integer, so neither route passes a wide
+value through binary64.
+
 LeaTTa currently reports `Number` for every unbounded `Ground.int`. Re-run the
 boundary, declared-type compatibility, arithmetic result type and equality
 cases when its announced BigInt support lands. Its future ruling replaces the

@@ -26,6 +26,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   publishes `(vocabulary numeric-type Number BigInt)` and the generated Python
   surface exports `NUMERIC_TYPE` and `NumericType`.
 
+- The tagged wire keeps one `n` form for `Number` and `BigInt`, with the exact
+  integer value selecting the language type. Python receives integers as
+  unbounded `int` values through Janus. Node receives every Prolog integer as
+  JavaScript `BigInt` over a decimal-text swipl-wasm bridge, so neither host
+  truncates a wide value. The golden codec corpus pins both signed-i64 edges
+  and arithmetic promotion.
+
 - Lazy answers cross the wire. The remote space protocol reaches revision 3
   with an `ask`/`next`/`stop` lifecycle beside `match`, so a client takes two
   answers of a large enumeration and stops without the serving engine
