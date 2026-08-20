@@ -1074,7 +1074,7 @@ body_form_dual(Fun, Args, _, _Local, Goal) :-
 %per chain, the dual asks one metta_dual_goal, and evaluating in the
 %ambiguous case only narrows which negations are FOUND, never invents one
 %[tested: test_not_provable_honours_the_atom_mask_its_positive_path_honours;
-%commit=WORKTREE].
+%commit=fbf9ad7caa55af30d01a4fa238af05bf7d57fa66].
 dual_argument_values(Fun, Args, Conj, Values) :-
     length(Args, InputArity),
     dual_atom_mask(Fun, InputArity, Mask),

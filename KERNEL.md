@@ -158,14 +158,14 @@ Integer arithmetic is deliberately unbounded here. Hyperon's current host
 stores an integer in `i64`, implements `+`, `-`, and `*` with the corresponding
 checked operation, and turns overflow into `ArithmeticOverflow`. In particular,
 its multiplication cannot answer `(* 4611686018427387904 4)` as an integer.
-[source: https://github.com/trueagi-io/hyperon-experimental/blob/3f76dc460da6961f57f69f6c3e550c59c74ada83/lib/src/metta/runner/stdlib/arithmetics.rs#L10-L16; commit=WORKTREE]
+[source: https://github.com/trueagi-io/hyperon-experimental/blob/3f76dc460da6961f57f69f6c3e550c59c74ada83/lib/src/metta/runner/stdlib/arithmetics.rs#L10-L16; commit=080c41a762aa5f7b59a8d52a6817b2fd6cff0de9]
 
 LeaTTa's host model carries `Int` rather than a fixed-width integer, so the
 exact answer `18446744073709551616` is the arbiter-aligned behavior and the
 Hyperon error is a host-width divergence. The acceptance pin exercises that
 same multiplication at the public Python surface.
-[source: https://github.com/MesTTo/LeaTTa/blob/dae62ced23eb0f30a8c2b86583fd09d88fb24ea5/MettaHyperonFull/Core/Host.lean#L82-L85; commit=WORKTREE]
-[tested: test_integer_arithmetic_is_unbounded_where_hyperon_checks_i64; commit=WORKTREE]
+[source: https://github.com/MesTTo/LeaTTa/blob/dae62ced23eb0f30a8c2b86583fd09d88fb24ea5/MettaHyperonFull/Core/Host.lean#L82-L85; commit=080c41a762aa5f7b59a8d52a6817b2fd6cff0de9]
+[tested: test_integer_arithmetic_is_unbounded_where_hyperon_checks_i64; commit=080c41a762aa5f7b59a8d52a6817b2fd6cff0de9]
 
 The wire keeps one `n` tag because the exact payload recovers the type. A
 second tag would duplicate that information and add a mismatched

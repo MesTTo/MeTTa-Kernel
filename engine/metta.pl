@@ -57,7 +57,7 @@
 %     test_integer_division_by_zero_answers_what_d1_decides,
 %     test_arithmetic_overflow_agrees_with_the_literal_side,
 %     test_float_zero_division_and_nan_agree_with_the_arbiter;
-%     commit=WORKTREE].
+%     commit=ecd792eacbfe1810645434ce406f79be3a9e03d1].
 %   - is-alpha-member/3 tests unifiability without retaining bindings in its
 %     arguments [tested 2026-08-15: metta_alpha_membership].
 %   - alpha-unique-atom/2 confirms identity inside each term-hash bucket, so a
@@ -1151,7 +1151,7 @@ exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
 %and infinity edges [source: LeaTTa MettaHyperonFull/Core/Builtins.lean:
 %143-194; tested:
 %test_real_valued_math_treats_integer_and_float_operands_alike;
-%commit=WORKTREE].
+%commit=6e529fc2c08eb69c0df47e3cff7c921320a3300d].
 %
 %pow-math has one additional split from powMath: the base is always Float, an
 %integer exponent must fit signed i32, a Float exponent has no such bound, and
@@ -6373,7 +6373,7 @@ metta_arithmetic_saturating_recovery(Operation, Arguments, Expression,
 %DivisionByZero), while every other host error retains the raising path
 %[source: LeaTTa tests/regression/division_convention.metta:82-90;
 %tested: test_integer_division_by_zero_answers_what_d1_decides;
-%commit=WORKTREE].
+%commit=ecd792eacbfe1810645434ce406f79be3a9e03d1].
 metta_operation_recovery(Operation, Arguments,
                          error(evaluation_error(zero_divisor), _), Answer) :-
     maplist(integer, Arguments), !,
