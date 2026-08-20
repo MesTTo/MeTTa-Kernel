@@ -8,6 +8,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Lazy query paths now reach attributes and subscription keys inside opaque
+  Python handles after the surrounding stored pattern matches. They read live
+  state, join through ordinary query variables, and stop cyclic traversals.
 - Atom operators now come from one immutable lowering table. Floor division,
   unary minus, and `abs()` build reducing MeTTa forms; integer shifts name the
   missing engine operation; and `@` explicitly targets library-provided

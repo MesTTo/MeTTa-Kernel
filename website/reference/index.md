@@ -9,6 +9,7 @@ These modules define atoms, spaces, queries, and the rows returned to Python.
 | Module | Surface |
 |---|---|
 | [`petta.atoms`](./petta-atoms) | atoms, constructors, encoding, unification |
+| [`petta.paths`](./petta-paths) | lazy attributes and keys inside opaque handles |
 | [`petta.space`](./petta-space) | the `MeTTa` runtime, spaces, queries, operations |
 | [`petta.results`](./petta-results) | query rows and tables |
 
