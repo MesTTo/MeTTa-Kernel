@@ -8,6 +8,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Compiled definitions now expose AST-derived source spans, documentation,
+  lexical free variables, and purity. The facts reflect into `&petta`, replace
+  with a clause, and leave when its space is cleared.
 - Local annotated assignments in `@define` functions now compile to in-place
   MeTTa type claims. The value binds before the premise runs, and annotation
   syntax resolves without arbitrary `eval` or user-defined subscripting.
