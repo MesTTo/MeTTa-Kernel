@@ -1,3 +1,11 @@
+; Purpose: demonstrate MeTTa's Python surface, where py-atom RESOLVES and
+;   MeTTa applies, through executable examples shared by both host doors.
+; Guarantees:
+;   - a default Python tuple is ordinary structural MeTTa data at both doors,
+;     while an explicit Grounded request retains a host reference
+;     [tested: test_a_python_tuple_answers_the_same_through_both_doors;
+;     commit=WORKTREE].
+;
 ;MeTTa's Python surface: py-atom RESOLVES where py-call APPLIES.
 ;
 ;This is hyperon-experimental's surface and what the language's own tutorials
@@ -49,8 +57,8 @@
 ;you mean by nesting the constructor. So the default is the common case and the
 ;other one is one word away, rather than the outer container deciding for the
 ;inner one.
-!(test (repr (py-tuple (1 (2 3)))) "(1, [2, 3])")
-!(test (repr (py-tuple (1 (py-tuple (2 3))))) "(1, (2, 3))")
+!(test (repr (py-tuple (1 (2 3)))) "(1 [2, 3])")
+!(test (repr (py-tuple (1 (py-tuple (2 3))))) "(1 (2 3))")
 
 ;Iteration is lazy and nondeterministic, which is MeTTa's own way of spelling a
 ;sequence. Nothing is drained: the generator below runs one step per answer, so
@@ -157,3 +165,9 @@
 (= (call-of $e) (index-atom (index-atom $e 2) 1))
 !(test (car-atom (call-of (catch (py-atom "nosuchmodule.thing")))) py-atom)
 !(test (class-of (catch (py-atom "nosuchmodule.thing"))) NameError)
+
+;The default tuple answer is the structural expression itself. These raw forms
+;make the value, including the empty case, observable to the both-door parity
+;lane. They stay last so the acceptance test can name their exact groups.
+!(py-atom "(1, 2)")
+!(py-atom "()")

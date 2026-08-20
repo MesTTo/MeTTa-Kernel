@@ -95,6 +95,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- A Python tuple now answers as ordinary structural MeTTa data through both
+  the standalone engine and Python library. Asking `py-atom` for `Grounded`
+  retains a Python object reference instead of accepting Janus's eager tuple
+  conversion.
+
 - The tree partitions by seam, staging the kernel-and-satellites form.
   The engine lives in `engine/` alone; each driver seat lives under
   `bindings/` with everything it needs (`bindings/python/` carries the
