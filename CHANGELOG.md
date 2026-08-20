@@ -76,6 +76,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Typed local bindings now carry an internal provenance marker, so source-level
+  colon pairs remain data patterns even when their third slot looks like a
+  concrete type. Existing destructuring programs such as
+  `reasoning/nilbc.metta` retain their meaning.
 - Prolog extensions may now add `builtin_type_declaration/2` clauses without
   replacing the engine's built-in type table; unloading removes only the
   extension's clauses.

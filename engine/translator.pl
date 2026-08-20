@@ -2056,14 +2056,20 @@ prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
        Prolog is already holding that term, so it returns (~w ...) without \c
        the quote around it.'-[Rule, Seam, Seam] ].
 
-%A typed let target uses the same in-place annotation as an equation head.
+%A Python-compiled typed let carries an internal marker around the same
+%in-place annotation used by an equation head. Source-level colon expressions
+%remain ordinary destructuring patterns, as used by reasoning/nilbc.metta;
+%shape alone cannot distinguish those data from a Python annotation.
 %The value must bind before its type premise runs: checking the fresh pattern
 %variable first accepts everything and then forgets the constraint. Untyped
 %lets retain the occurrence-sensitive fast path below [tested:
-%test_an_annotated_binding_emits_its_claim; commit=def7a71556f810463a3c0930ed0c37a3f55c7c83].
-translate_let_dl([Pattern, Value, In], AfterHead, Goals, Out) :-
+%test_an_annotated_binding_emits_its_claim,
+%translator_typed_let:a_source_colon_pair_stays_a_pattern;
+%commit=WORKTREE].
+translate_let_dl([[__petta_typed_binding__, Pattern], Value, In],
+                 AfterHead, Goals, Out) :-
     constrain_args(Pattern, ConstrainedPattern, TypeGoals),
-    TypeGoals \== [], !,
+    TypeGoals \== [],
     translate_expr_dl(ConstrainedPattern, AfterHead, AfterPattern,
                       PatternValue),
     translate_expr_dl(Value, AfterPattern, AfterValue, ValueResult),
