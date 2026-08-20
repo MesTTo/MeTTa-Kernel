@@ -102,7 +102,7 @@
 %   - External Prolog libraries extend builtin_type_declaration/2 without
 %     replacing the engine's rows, and unloading retires only their own clauses
 %     [tested: test_a_library_types_its_own_blob_without_destroying_the_table;
-%     commit=WORKTREE].
+%     commit=6f06e918c8f3382e8e1c8ccd8d120c6d809999a5].
 %   - The prelude loads exactly three form shapes: a declaration, an equation,
 %     and `!(add-translator-rule! NAME)` for a name it defines itself, which
 %     is how a DERIVED form ships. A program that defines such a name takes
