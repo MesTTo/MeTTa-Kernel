@@ -8,6 +8,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Python conversion now carries bare and abstract sequence annotations through
+  the same container hook as parameterized builtins. Buffer exporters project
+  as zero-copy `Buffer` expressions that retain the original object together
+  with shape, format, item size, dimensionality, strides, and access metadata.
+  Integration entry points may declare `PETTA_REQUIRES`; discovery installs
+  them in topological order and refuses duplicate names, missing requirements,
+  and dependency cycles by name.
 - `(space-atom-count <space>)` answers how many atoms a space holds from
   the store's own per-predicate clause counts: one property read per
   stored arity, none per atom, so a capacity policy over a million-atom
@@ -37,6 +44,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A required dataclass `InitVar` now refuses during conversion registration
+  instead of failing only when its incomplete projection is rebuilt.
+  `register_op` refuses unreachable `**kwargs`, and a typed zero-parameter
+  operation emits its return arrow instead of remaining undeclared.
 - Free variables returned by runnable source now keep their written names in
   engine output and host bindings. The reader's name map travels beside each
   collected answer, so `$free` stays `$free` instead of becoming `$_0` while
