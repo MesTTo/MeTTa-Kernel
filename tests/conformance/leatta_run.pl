@@ -12,7 +12,7 @@
 %     an empty run.
 %   - reader variable names carried with collected answers are rendered by the
 %     engine's named writer [tested: LeaTTa conformance runner;
-%     commit=WORKTREE].
+%     commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
 % Fails when:
 %   - never silently: an unreadable file raises out of read_metta_source/2 and
 %     is reported on the error line.
