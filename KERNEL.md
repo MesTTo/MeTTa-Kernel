@@ -126,6 +126,37 @@ is excluded because it runs for minutes. Every corpus answer is unchanged,
 group for group, and the conformance lane's per-area agreement is unchanged
 [measured 2026-08-19].
 
+## Numeric ground types
+
+`Number` and `BigInt` are the two numeric types. A float and an integer from
+-9223372036854775808 through 9223372036854775807 have type `Number`. An
+integer outside that inclusive range has type `BigInt`. Both use signed
+decimal source syntax. SWI stores every integer as an unbounded exact value,
+so this split changes typing and host crossing, not arithmetic values.
+
+The boundary follows upstream's current `Number::Integer(i64)` carrier and
+its tokenizer test naming an integer past that capacity as a case for the
+future bigint. Upstream publishes no suffix, subtype relation, or arithmetic
+promotion table. [source 2026-08-20:
+https://github.com/trueagi-io/hyperon-experimental/blob/3f76dc460da6961f57f69f6c3e550c59c74ada83/hyperon-atom/src/gnd/number.rs]
+[source 2026-08-20:
+https://github.com/trueagi-io/hyperon-experimental/blob/3f76dc460da6961f57f69f6c3e550c59c74ada83/lib/src/metta/text.rs#L866-L877]
+
+An actual `BigInt` satisfies an existing `Number` parameter. An actual
+`Number` does not satisfy a `BigInt` parameter. That directed compatibility
+keeps existing numeric declarations valid for every integer result the engine
+already computed. It does not claim that `BigInt` is formally a subtype or
+species of `Number`; that glossary relation remains unpublished upstream.
+[assumed 2026-08-20]
+
+Arithmetic may cross the boundary in either direction according to the exact
+result value. Integer equality remains exact across the two types.
+
+LeaTTa currently reports `Number` for every unbounded `Ground.int`. Re-run the
+boundary, declared-type compatibility, arithmetic result type and equality
+cases when its announced BigInt support lands. Its future ruling replaces the
+assumptions above where they differ.
+
 ## What would move next
 
 `progn`, `prog1`, `nop` and `once` are derived and their rules are written out

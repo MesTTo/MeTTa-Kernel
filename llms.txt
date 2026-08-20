@@ -18,8 +18,8 @@ re-runs them.
 | `examples/**/*.metta` | 207 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
 | `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `python/tools/libdoc.py` |
-| `tests/prolog/*.plt` | 26 plunit suites over the engine itself | the `plunit` gate lane |
-| `python/tests/*.py` | 126 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `tests/prolog/*.plt` | 27 plunit suites over the engine itself | the `plunit` gate lane |
+| `python/tests/*.py` | 127 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `src/*.pl` | 16,832 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/duals.pl`, `src/tracer.pl`, `src/trs.pl` and `src/narrowing.pl` metatheory, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `src/*.pl` | 16,873 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/duals.pl`, `src/tracer.pl`, `src/trs.pl` and `src/narrowing.pl` metatheory, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
 | `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
@@ -219,9 +219,13 @@ Types are optional atoms: `(: Ann Person)`, `(: age (-> Person Number))`.
 A typed call silently answers empty for a mismatched or `%Undefined%` argument,
 so `m.cast(value, type)` is the loud spelling: it returns the value or raises
 `CastError` naming the types the value does admit. `Atom`, `%Undefined%` and `_`
-are unchecked. `bool` spells `Bool` before `int` spells `Number`. The target is
-positional-only, and a concrete Python class target is also the static return
-type of `cast`, `convert.build` and `Rows.build`.
+are unchecked. A float or signed-i64 integer has type `Number`; a wider integer
+has type `BigInt`. A `BigInt` satisfies a declared `Number` parameter, while a
+`Number` does not satisfy `BigInt`. Arithmetic stays exact and result typing
+follows the result width. `bool` spells `Bool` before `int` is classified by
+that boundary. The target is positional-only, and a concrete Python class
+target is also the static return type of `cast`, `convert.build` and
+`Rows.build`.
 `m.arities(name)`, `m.is_function(name)` (visible from here),
 `m.is_function_here(name)` (has clauses HERE), `m.builtins()`.
 
@@ -478,7 +482,7 @@ Hand a builtin an unbound variable where it needs a value and it refuses by
 name: `!(car-atom $u)` is `car-atom: a value expected in argument 1, found an
 unbound variable`. The guarded positions are derived from the type surface
 (`guarded_input_position/3`, 83 of them), so a position declared `Expression`,
-`Number`, `String`, `Symbol` or `Bool` is an input to read. What stays
+`Number`, `BigInt`, `String`, `Symbol` or `Bool` is an input to read. What stays
 relational is named in the engine: `index-atom`'s index, the boolean
 operations' truth table, `cons`'s open tail, `union-atom` and `member`, which
 are `append/3` and `member/2` under MeTTa names, the `#` family throughout,
