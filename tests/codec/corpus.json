@@ -214,16 +214,16 @@
       "tags": ["n"],
       "text": "1.0e10",
       "wire": ["n", 10000000000.0],
-      "written": {"engine": "1.0e+10", "python": "10000000000.0"},
-      "note": "The two shipped printers disagree on where a float's exponent form begins. The wire does not: it carries the value. Pinned so a change to either printer is visible."
+      "written": "10000000000.0",
+      "note": "The engine prints the arbiter's layout (LeaTTa RyuLean4/Runtime.lean:371-396: positional while the value has at most sixteen digits before the point), and Python's repr shares both the digits and this threshold, so the two shipped printers agree here where they used to split 1.0e+10 against 10000000000.0. Gnd's own renderer implements the same law, so the two printers agree everywhere a float prints. Pinned so a change to either printer is visible."
     },
     {
       "id": "float-small-exponent",
       "tags": ["n"],
       "text": "1.0e-300",
       "wire": ["n", 1e-300],
-      "written": {"engine": "1.0e-300", "python": "1e-300"},
-      "note": "The same disagreement at the other end of the range."
+      "written": "1e-300",
+      "note": "The other end of the range, agreeing the same way: the engine's arbiter layout drops the mantissa's redundant .0 exactly where repr does."
     },
     {
       "id": "float-infinity",
@@ -247,9 +247,9 @@
       "tags": ["n"],
       "requires": "non_finite",
       "wire": ["n", {"$float": "nan"}],
-      "written": {"engine": "NaN", "python": "nan"},
+      "written": "NaN",
       "reads_back": false,
-      "note": "The engine's printer spells it the arbiter's way and the Python side spells it Python's way. Comparing two decodings of it is the one place equality is not enough, since a NaN is not equal to itself; the wire carries THE non-finite value and two readings of it are the same term."
+      "note": "Both printers spell it the arbiter's way now, one authority for one atom. Comparing two decodings of it is the one place equality is not enough, since a NaN is not equal to itself; the wire carries THE non-finite value and two readings of it are the same term."
     },
     {
       "id": "boolean-true",

@@ -8,6 +8,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- A finite float prints the arbiter's layout over the same
+  shortest-round-trip digits: `1e16`, `0.00001` and `1.5e300` where SWI's
+  `number_codes/2` wrote `1.0e+16`, `1.0e-05` and `1.5e+300`. The rule is
+  LeaTTa's `Decimal.formatMeTTa` (ryu's pretty layout): positional while the
+  value has at most sixteen digits before the point and its magnitude is at
+  least 0.0001, scientific otherwise with a bare signed exponent. Every
+  spelling still reads back to the same binary64, and the reader accepted
+  these forms all along, so stored sources and saves are unaffected; only
+  printed text moves. No shipped example prints a float in the affected
+  ranges, measured by replaying all 207 pinned corpus oracles.
+
 - The control-signal error term is spelled `metta_control_signal(Kind,
   Detail)` and the host-interrupt signal `metta_host_interrupted`, in place
   of the `petta_py_`-spelled names: the shapes are the engine's own and
