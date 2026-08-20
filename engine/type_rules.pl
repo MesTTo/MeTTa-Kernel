@@ -46,6 +46,16 @@ typing_rule_entry(shipped, '*', 'typing-derived-unknown-expected',
 typing_rule_entry(shipped, '*', 'typing-derived-exact',
                   derived, Same, Same, accept).
 
+% Type reporting follows Hyperon's match_reducted_types relation. Unlike the
+% runtime relation above, a literal Atom result is an ordinary type here; only
+% the gradual unknown and exact equality are shipped matches.
+typing_rule_entry(shipped, '*', 'typing-reporting-unknown-actual',
+                  reporting, '%Undefined%', _, accept).
+typing_rule_entry(shipped, '*', 'typing-reporting-unknown-expected',
+                  reporting, _, '%Undefined%', accept).
+typing_rule_entry(shipped, '*', 'typing-reporting-exact',
+                  reporting, Same, Same, accept).
+
 % Arrow arity is compared after a chain has been reduced to its declared
 % input count. The rule, not type_chain_takes/2, decides equality.
 typing_rule_entry(shipped, '*', 'typing-arrow-arity-exact',
@@ -76,6 +86,7 @@ typing_rule_entry(shipped, '*', 'typing-metatype-expression',
 
 typing_rule_family(ordinary).
 typing_rule_family(derived).
+typing_rule_family(reporting).
 typing_rule_family('arrow-arity').
 typing_rule_family(widening).
 typing_rule_family('declared-widening').
@@ -124,7 +135,7 @@ require_typing_rule_family(Family) :-
     ->  true
     ;   throw(error(domain_error(typing_rule_family, Family),
                     context('add-typing-rule!'/6,
-                            'use ordinary, derived, arrow-arity, widening, declared-widening, or metatype')))
+                            'use ordinary, derived, reporting, arrow-arity, widening, declared-widening, or metatype')))
     ).
 
 require_typing_rule_outcome(Outcome) :-
@@ -185,7 +196,7 @@ typing_check_decision(Module, Family, Actual, Expected, Outcome, Name, Tier) :-
     typing_rule_decision(Module, Family, Actual, Expected,
                          Direct, DirectName, DirectTier),
     (   Direct == defer,
-        ( Family == ordinary ; Family == derived )
+        ( Family == ordinary ; Family == derived ; Family == reporting )
     ->  typing_rule_decision(Module, widening, Actual, Expected,
                              Outcome, Name, Tier)
     ;   Outcome = Direct,

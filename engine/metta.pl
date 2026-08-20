@@ -625,7 +625,9 @@ check_argument_type_in(Module, Argument, Expected, metatype) :-
     ->  true
     ;   Outcome = [refuse, _]
     ->  fail
-    ;   has_type_in(Module, Argument, Expected)
+    ;   metta_argument_types_in(Module, Argument, Types),
+        member(Reported, Types),
+        typing_rule_accepts(Module, reporting, Reported, Expected)
     ).
 check_argument_type_in(Module, Argument, Expected, derived_variable) :-
     metta_runtime_type_candidate(Module, Argument, Actual),
