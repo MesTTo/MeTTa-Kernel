@@ -9,7 +9,7 @@ Guarantees:
     commit=f95becb09e1d83fbb7bfd083fdb5b8b3f84ee225]
   - the linear witness refuses a second spend of one fact occurrence [tested:
     test_a_linear_algebra_refuses_the_second_spend_of_one_premise;
-    commit=WORKTREE]
+    commit=ab469c3679ab778c91ac73f14797af746a1ea87d]
 """  # noqa: D205, D415 -- the file contract is one continuous invariant
 
 from petta import LinearEvidenceError, MeTTa, S, V, parse
