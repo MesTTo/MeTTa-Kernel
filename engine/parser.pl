@@ -4,6 +4,10 @@
 %   - sread/2 and the file loader apply the same semicolon-comment rules
 %     without a comment-stripping prepass [tested 2026-08-15:
 %     parser_comments, filereader_comments].
+%   - a semicolon comment ends only at LF or end of input; CR, NEL and U+2028
+%     remain comment text, matching LeaTTa's tokenizeAux comment state rather
+%     than Hyperon's wider CR behavior [tested:
+%     test_a_comment_terminates_on_the_class_the_arbiter_rules].
 %   - swrite/2 names variables by first occurrence, independent of SWI's
 %     process-local variable identifiers [tested 2026-08-14:
 %     parser_stable_variables].
@@ -578,7 +582,11 @@ metta_token_boundary(0x0028, punctuation).  %LEFT PARENTHESIS
 metta_token_boundary(0x0029, punctuation).  %RIGHT PARENTHESIS
 metta_token_boundary(0x003B, punctuation).  %SEMICOLON, which opens a comment
 
-%Semicolon comments are inter-token layout. Keeping them in the DCG avoids a
+%Semicolon comments are inter-token layout. LeaTTa's tokenizer changes out of
+%its comment state only for '\n'; CR, NEL and U+2028 remain comment text
+%[source 2026-08-21: LeaTTa MettaHyperonFull/Runtime/Parser.lean:58,
+%tokenizeAux comment branch at lines 66-67]. This deliberately rejects the
+%row's original wider-terminator premise. Keeping comments in the DCG avoids a
 %separate source-sized code list before parsing. These clauses combine blank
 %and comment scanning so the ordinary no-comment path has no wrapper grammar.
 metta_layout --> ";", !, metta_comment_body, metta_layout.

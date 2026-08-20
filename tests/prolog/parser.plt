@@ -179,6 +179,21 @@ test(comment_is_a_number_token_boundary) :-
     sread("(1; ignored ) and (!\n 2)", Term),
     Term == [1, 2].
 
+%LeaTTa's tokenizer leaves comment state only for LF. Direct probes against
+%the LeaTTa executable answer both quoted forms for LF and only the first for
+%CR, NEL and U+2028 [source 2026-08-21: LeaTTa
+%MettaHyperonFull/Runtime/Parser.lean:58, tokenizeAux comment branch at 66-67].
+%The row originally expected a reader change based on Hyperon's CR behavior;
+%the arbiter instead makes PeTTa's existing LF-only reader the conforming one.
+test(test_a_comment_terminates_on_the_class_the_arbiter_rules) :-
+    sread("(a ; comment\n b)", LfTerm),
+    LfTerm == [a, b],
+    forall(member(Code, [0x000D, 0x0085, 0x2028]),
+           ( format(string(Source), "(a ; comment~cb)", [Code]),
+             catch((sread(Source, _), Outcome = read),
+                   error(syntax_error(_), _), Outcome = syntax_error),
+             Outcome == syntax_error )).
+
 :- end_tests(parser_comments).
 
 
