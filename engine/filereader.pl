@@ -31,6 +31,10 @@
 %     test_a_source_registers_every_signature_before_any_form_runs,
 %     test_load_memoizes_a_function_the_same_file_defines_lower_down,
 %     test_a_declaration_that_cannot_type_what_the_source_defines_is_refused].
+%   - Signature metadata is available source-wide, but a runnable call sees
+%     only equations from its source prefix; a head defined later stays
+%     unreduced instead of becoming an undefined host call [tested:
+%     test_a_bang_before_the_definition_answers_unreduced_not_a_host_error].
 %   - That pass costs 31 inferences for a one-form source, identical across
 %     three different one-form sources, then 4.006 per plain form and 23.073
 %     per definition beyond it [measured 2026-08-18: interleaved A/B over
@@ -243,10 +247,12 @@ load_metta_source_groups(Filename, Space, Groups) :-
 read_metta_source_groups(Filename, Space, Groups) :-
     read_metta_source(Filename, Source),
     prepare_metta_source(Source, Forms),
-    with_runnable_variable_epochs(
-        ( maplist(process_loader_form(Space), Forms, PerForm),
-          !,
-          runnable_groups(Forms, PerForm, Groups) )).
+    with_source_program_order(
+        Forms,
+        with_runnable_variable_epochs(
+            ( maplist(process_loader_form(Space), Forms, PerForm),
+              !,
+              runnable_groups(Forms, PerForm, Groups) ))).
 
 runnable_groups([], [], []).
 runnable_groups([Form|Forms], [Group|Rest], Groups) :-
@@ -311,8 +317,10 @@ metta_host_run_source(Source0, Space, Bindings, Groups) :-
     ;   maplist(metta_host_substitute_form(Bindings), Parsed0, Parsed)
     ),
     prepare_parsed_forms(Parsed),
-    with_runnable_variable_epochs(
-        metta_host_process_groups(Parsed, Space, Groups)),
+    with_source_program_order(
+        Parsed,
+        with_runnable_variable_epochs(
+            metta_host_process_groups(Parsed, Space, Groups))),
     !.
 
 %One walk, processing and grouping together: process_form/3, not /4's
@@ -358,7 +366,9 @@ metta_host_run_source_status(Source0, Space, Groups) :-
     ->  true
     ;   Module = user
     ),
-    metta_host_status_groups(Parsed, Space, Module, Groups),
+    with_source_program_order(
+        Parsed,
+        metta_host_status_groups(Parsed, Space, Module, Groups)),
     !.
 
 metta_host_status_groups([], _, _, []).
@@ -949,20 +959,49 @@ process_metta_string(S, Results, Space) :-
                process_direct_metta_string(S, Results, Space)).
 process_direct_metta_string(S, Results, Space) :-
     prepare_metta_source(S, ParsedForms),
-    with_runnable_variable_epochs(
-        ( maplist(process_form(Space), ParsedForms, ResultsList), !,
-          append(ResultsList, Carried),
-          maplist(metta_answer_term, Carried, Results) )).
+    with_source_program_order(
+        ParsedForms,
+        with_runnable_variable_epochs(
+            ( maplist(process_form(Space), ParsedForms, ResultsList), !,
+              append(ResultsList, Carried),
+              maplist(metta_answer_term, Carried, Results) ))).
 process_loader_string(S, Results, Space) :-
     prepare_metta_source(S, ParsedForms),
-    with_runnable_variable_epochs(
-        ( maplist(process_loader_form(Space), ParsedForms, ResultsList), !,
-          append(ResultsList, Carried),
-          maplist(metta_answer_term, Carried, Results) )).
+    with_source_program_order(
+        ParsedForms,
+        with_runnable_variable_epochs(
+            ( maplist(process_loader_form(Space), ParsedForms, ResultsList), !,
+              append(ResultsList, Carried),
+              maplist(metta_answer_term, Carried, Results) ))).
 
 prepare_metta_source(S, ParsedForms) :-
     parse_metta_source(S, ParsedForms),
     prepare_parsed_forms(ParsedForms).
+
+%The signature pre-pass and the evaluation pass deliberately answer different
+%questions. The former lets metadata operations see every name in the source;
+%the latter must still know which names have no equation in the source prefix
+%that has run so far. A keyed thread-local context survives every source door,
+%nests safely across imports, and disappears even when a form throws.
+:- thread_local active_source_program/1.
+:- thread_local source_pending_definition/2.
+:- meta_predicate with_source_program_order(+, 0).
+
+with_source_program_order(ParsedForms, Goal) :-
+    gensym(source_program_, Id),
+    findall(F, source_equation_name(ParsedForms, F), Names0),
+    sort(Names0, Names),
+    setup_call_cleanup(
+        asserta(active_source_program(Id), ContextRef),
+        ( forall(member(F, Names), assertz(source_pending_definition(Id, F))),
+          call(Goal) ),
+        ( erase(ContextRef),
+          retractall(source_pending_definition(Id, _)) )).
+
+source_definition_arrived(F) :-
+    active_source_program(Id), !,
+    retractall(source_pending_definition(Id, F)).
+source_definition_arrived(_).
 
 %Everything a source does BEFORE any of its own forms run, over forms already
 %parsed. It is named apart from prepare_metta_source/2 because the parse is
@@ -1285,7 +1324,8 @@ process_form(Space, parsed(function, FormStr, Term), []) :-
     %the eviction, registration, translation, provenance, and the complete
     %change notification this clause used to restate.
     compile_metta_equation(Module, BoundTerm, _Clause, Ref),
-    print_function_form(FormStr, Ref).
+    print_function_form(FormStr, Ref),
+    source_definition_arrived(F).
 process_form(_, In, _) :-
     throw(error(petta_translation_failed(In),
                 context(process_form/3, 'could not translate MeTTa form'))).
@@ -1320,12 +1360,14 @@ process_loader_form(Space, parsed(runnable, FormStr, Term, Names), Result) :-
     print_runnable_form(FormStr, Goals),
     call_goals_in(Module, Goals).
 process_loader_form(Space, parsed(function, FormStr, Term), []) :-
+    Term = [=, [F|_], _],
     add_sexp(Space, Term, SpaceRef),
     record_source_assertion(SpaceRef),
     rewrite_parsed_form(Space, FormStr, Term, BoundTerm),
     space_module(Space, Module),
     compile_metta_equation(Module, BoundTerm, _Clause, Ref),
-    print_function_form(FormStr, Ref).
+    print_function_form(FormStr, Ref),
+    source_definition_arrived(F).
 process_loader_form(_, In, _) :-
     throw(error(petta_translation_failed(In),
                 context(process_loader_form/3, 'could not translate MeTTa form'))).

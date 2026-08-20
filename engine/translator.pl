@@ -1107,7 +1107,9 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
         %--- Automatic 'smart' dispatch, translator deciding when to create a predicate call, data list, or dynamic dispatch: ---
         ; %Known function => direct call:
           ( is_list(T),
-            ( atom(HV), fun_here(HV), Fun = HV, IsPartial = false, Bound = []
+            ( atom(HV), fun_here(HV),
+              \+ runnable_head_awaits_its_definition(HV),
+              Fun = HV, IsPartial = false, Bound = []
             ; compound(HV), HV = partial(Fun, Bound), IsPartial = true
             ) % Check for type definition [:,HV,TypeChain]
             -> ( runtime_guarded_builtin_call(Fun)
@@ -1125,6 +1127,11 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
                                              Bound, Out, AfterHead, Goals)
               ; functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out,
                                 AfterHead, Goals))
+          %A signature from later in this source is data at this position:
+          ; atom(HV), runnable_head_awaits_its_definition(HV)
+            -> note_symbol_head(HV),
+               translate_data_args_dl(HV, T, AfterHead, AfterData, AVs),
+               data_head_answer_dl(HV, T, AVs, Out, AfterData, Goals)
           %Literals (numbers, strings, etc.), known non-function atom => data:
           %A grounded head that is an OPERATION is a call, not data. Without
           %this it fell into the data branch below and never reached reduce/3,
@@ -1142,6 +1149,27 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
           %Unknown head (var/compound) => runtime dispatch:
           ; translate_args_dl(T, AfterHead, BeforeReduce, AVs),
             BeforeReduce = [reduce([HV|AVs], Out, _)|Goals] )).
+
+%A source's signature pre-pass makes a later equation's name visible before
+%the equation itself runs. That visibility is metadata, not a time machine:
+%a runnable at the earlier source position still evaluates against the
+%current equation prefix. source_pending_definition/2 names only those later
+%heads, so imported metadata functions and builtins are never mistaken for
+%forward definitions. Treating a pending name as callable emitted a
+%host predicate that did not exist yet and raised Unknown procedure instead
+%of leaving the call unreduced. Once any predicate for the name exists, the
+%ordinary arity machinery below again decides calls and partial applications.
+%This follows evalSequentialRun, whose bang branch evaluates against kb while
+%only a non-bang form extends kb for the next step
+%[source: /home/user/Dev/LeaTTa/MettaHyperonFull/Minimal/Stdlib.lean,
+%evalSequentialRun] [tested:
+%test_a_bang_before_the_definition_answers_unreduced_not_a_host_error].
+runnable_head_awaits_its_definition(Fun) :-
+    translating_runnable,
+    active_source_program(Id), !,
+    source_pending_definition(Id, Fun),
+    current_metta_module(Module),
+    \+ current_predicate(Module:Fun/_).
 
 %The declarations a CONSTRUCTOR compiles against, and there are two registers
 %of them. type_declaration/2 holds what the program and its spaces declared;
