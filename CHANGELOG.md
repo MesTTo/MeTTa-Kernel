@@ -41,6 +41,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- The upstream documentation family is available with no import. `(get-doc
+  $space $atom)`, `get-doc-atom`, `get-doc-single-atom`, `get-doc-function`,
+  and `get-doc-params` build `@doc-formal` records from the prose and types in
+  the selected space. `get-type-space` now isolates that space instead of
+  merging declarations from the caller. The existing one-input `get-doc`
+  continues to return the raw `(@doc ...)` atom.
+
 - `BigInt` joins `Number` as the language's two numeric types. Floats and
   signed-i64 integers report `Number`; integers outside signed i64 report
   `BigInt`. Arithmetic still uses SWI's exact unbounded integers, so a result
