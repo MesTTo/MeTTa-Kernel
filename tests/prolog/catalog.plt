@@ -215,22 +215,28 @@ test(a_route_cap_demotes_and_refuses_through_the_published_seam,
           error(petta_route_cap_invalid('&cap1', sideways, _), _),
           true).
 
-%Orderedness is a claim in the catalog, so a third-party semiring value
-%claimed ordered serves (top k ...) and an unclaimed one refuses, with no
-%engine edit: the widening idiom is remove-then-redeclare on the
-%vocabulary row, then a claim row for the new value.
+%Orderedness is an independent claim in the catalog, so two third-party
+%algebras may use the same operations while only the claimed one serves top.
 test(a_claimed_ordered_value_orders_and_an_unclaimed_one_does_not,
      [setup(( 'get-atoms'('&petta', [vocabulary, semiring|Shipped]),
               metta_remove_atom('&petta', [vocabulary, semiring|Shipped], _),
               assertz(cat_parked_spec(Shipped)),
               append([vocabulary, semiring|Shipped], [cost, heap], Widened),
               add_sexp('&petta', Widened, _),
+              add_sexp('&petta', [algebra, cost, min, '+', infinity, 0,
+                                  [laws], [carrier], [requires]], _),
+              add_sexp('&petta', [algebra, heap, min, '+', infinity, 0,
+                                  [laws], [carrier], [requires]], _),
               add_sexp('&petta', [claim, semiring, cost, ordered], _),
               add_sexp('&petta', [annotations, '&ord1', cost], _),
               add_sexp('&petta', [annotations, '&ord2', heap], _) )),
       cleanup(( forall(member(A, [[claim, semiring, cost, ordered],
                                   [annotations, '&ord1', cost],
-                                  [annotations, '&ord2', heap]]),
+                                  [annotations, '&ord2', heap],
+                                  [algebra, cost, min, '+', infinity, 0,
+                                   [laws], [carrier], [requires]],
+                                  [algebra, heap, min, '+', infinity, 0,
+                                   [laws], [carrier], [requires]]]),
                        metta_remove_atom('&petta', A, _)),
                 retract(cat_parked_spec(Shipped)),
                 append([vocabulary, semiring|Shipped], [cost, heap], Widened),
@@ -238,6 +244,14 @@ test(a_claimed_ordered_value_orders_and_an_unclaimed_one_does_not,
                 add_sexp('&petta', [vocabulary, semiring|Shipped], _) ))]) :-
     petta_annotations_ordered('&ord1'),
     \+ petta_annotations_ordered('&ord2').
+
+test(a_false_algebra_law_is_refused_before_the_catalog_row_lands,
+     [throws(error(petta_algebra_law_violation(
+                       p4_bad_zero, 'extend-zero-annihilates', _, _, _), _))]) :-
+    add_sexp('&petta',
+             [algebra, p4_bad_zero, min, min, 1, 0,
+              [laws, 'extend-zero-annihilates'], [carrier, 0, 1], [requires]],
+             _).
 
 %The export parser's word lists are the catalog's volatility vocabulary,
 %consulted as data: widening the row widens what the parser accepts.

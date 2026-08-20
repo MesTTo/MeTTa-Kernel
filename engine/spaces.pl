@@ -578,7 +578,204 @@ petta_check_catalog_semantics(claim, [Vocab, Value|_], Term) :-
         )
     ;   petta_declaration_refused(Term, 1, 'a declared vocabulary')
     ).
+petta_check_catalog_semantics(algebra,
+                              [Name, Combine, Extend, Zero, One,
+                               Laws, Carrier, Requires],
+                              Term) :-
+    !,
+    (   petta_catalog_row([algebra, Name|_])
+    ->  petta_declaration_refused(
+            Term, 1, 'one algebra row per name; remove the old row first')
+    ;   true
+    ),
+    petta_algebra_list_field(Laws, laws, Term, 6),
+    petta_algebra_carrier_field(Carrier, Term),
+    petta_algebra_list_field(Requires, requires, Term, 8),
+    petta_check_algebra_laws(Name, Combine, Extend, Zero, One,
+                             Laws, Carrier, Term).
+petta_check_catalog_semantics(annotations, [Ctx, Algebra|CapabilityArgs], Term) :-
+    !,
+    (   petta_catalog_row([algebra, Algebra, _, _, _, _, _, _, Requires])
+    ->  true
+    ;   petta_declaration_refused(Term, 2, 'a declared algebra')
+    ),
+    petta_annotation_capabilities(CapabilityArgs, Capabilities, Term),
+    Requires = [requires|Required],
+    (   member(Requirement, Required),
+        \+ memberchk(Requirement, Capabilities)
+    ->  throw(error(petta_algebra_requirement_missing(Ctx, Algebra,
+                                                      Requirement), none))
+    ;   true
+    ).
 petta_check_catalog_semantics(_, _, _).
+
+petta_algebra_list_field([Head|Values], Head, _, _) :-
+    atom(Head),
+    maplist(atom, Values),
+    !.
+petta_algebra_list_field(_, Head, Term, Position) :-
+    petta_declaration_refused(Term, Position, [Head, '... symbols']).
+
+petta_algebra_carrier_field([carrier|Values], Term) :-
+    !,
+    (   maplist(ground, Values)
+    ->  true
+    ;   petta_declaration_refused(Term, 7, [carrier, '... ground atoms'])
+    ).
+petta_algebra_carrier_field(_, Term) :-
+    petta_declaration_refused(Term, 7, [carrier, '... atoms']).
+
+%A public law is a certificate, not a planner hint. User rows therefore name
+%only this vocabulary and supply a finite carrier for every equation; shipped
+%rows are trusted data presets whose laws are proved by their source modules.
+petta_algebra_equational_law('combine-associative').
+petta_algebra_equational_law('combine-commutative').
+petta_algebra_equational_law('extend-associative').
+petta_algebra_equational_law('extend-commutative').
+petta_algebra_equational_law('left-distributive').
+petta_algebra_equational_law('right-distributive').
+petta_algebra_equational_law('combine-idempotent').
+petta_algebra_equational_law('combine-zero-identity').
+petta_algebra_equational_law('extend-one-identity').
+petta_algebra_equational_law('extend-zero-annihilates').
+
+petta_algebra_known_law(contraction).
+petta_algebra_known_law(Law) :- petta_algebra_equational_law(Law).
+
+petta_check_algebra_laws(Name, Combine, Extend, Zero, One,
+                         [laws|Laws], [carrier|Carrier], Term) :-
+    (   member(Unknown, Laws),
+        \+ petta_algebra_known_law(Unknown)
+    ->  throw(error(petta_algebra_law_unknown(Name, Unknown), none))
+    ;   true
+    ),
+    findall(Law, ( member(Law, Laws),
+                   petta_algebra_equational_law(Law) ), Equational),
+    (   Equational == []
+    ->  true
+    ;   Carrier == [],
+        \+ petta_catalog_preset(Term)
+    ->  throw(error(petta_algebra_law_uncheckable(Name, Equational,
+                                                  finite_carrier_required),
+                    none))
+    ;   Carrier == []
+    ->  true
+    ;   petta_check_algebra_closure(Name, Combine, Extend, Carrier),
+        forall(member(Law, Equational),
+               petta_check_algebra_law(Name, Combine, Extend, Zero, One,
+                                       Carrier, Law))
+    ).
+
+petta_check_algebra_closure(Name, Combine, Extend, Carrier) :-
+    forall(( member(Operation, [Combine, Extend]),
+             member(A, Carrier), member(B, Carrier) ),
+           ( petta_apply_algebra_operation(Name, Operation, A, B, Result),
+             (   memberchk(Result, Carrier)
+             ->  true
+             ;   throw(error(petta_algebra_carrier_not_closed(
+                                 Name, Operation, A, B, Result), none))
+             ) )).
+
+petta_algebra_apply(Name, Operation, A, B, Result) :-
+    petta_apply_algebra_operation(Name, Operation, A, B, Result).
+
+petta_check_algebra_law(Name, Combine, _, _, _, Carrier,
+                        'combine-associative') :- !,
+    forall(( member(A, Carrier), member(B, Carrier), member(C, Carrier) ),
+           ( petta_algebra_apply(Name, Combine, A, B, AB),
+             petta_algebra_apply(Name, Combine, AB, C, Left),
+             petta_algebra_apply(Name, Combine, B, C, BC),
+             petta_algebra_apply(Name, Combine, A, BC, Right),
+             petta_require_algebra_equal(Name, 'combine-associative',
+                                         [A,B,C], Left, Right) )).
+petta_check_algebra_law(Name, Combine, _, _, _, Carrier,
+                        'combine-commutative') :- !,
+    forall(( member(A, Carrier), member(B, Carrier) ),
+           ( petta_algebra_apply(Name, Combine, A, B, Left),
+             petta_algebra_apply(Name, Combine, B, A, Right),
+             petta_require_algebra_equal(Name, 'combine-commutative',
+                                         [A,B], Left, Right) )).
+petta_check_algebra_law(Name, _, Extend, _, _, Carrier,
+                        'extend-associative') :- !,
+    forall(( member(A, Carrier), member(B, Carrier), member(C, Carrier) ),
+           ( petta_algebra_apply(Name, Extend, A, B, AB),
+             petta_algebra_apply(Name, Extend, AB, C, Left),
+             petta_algebra_apply(Name, Extend, B, C, BC),
+             petta_algebra_apply(Name, Extend, A, BC, Right),
+             petta_require_algebra_equal(Name, 'extend-associative',
+                                         [A,B,C], Left, Right) )).
+petta_check_algebra_law(Name, _, Extend, _, _, Carrier,
+                        'extend-commutative') :- !,
+    forall(( member(A, Carrier), member(B, Carrier) ),
+           ( petta_algebra_apply(Name, Extend, A, B, Left),
+             petta_algebra_apply(Name, Extend, B, A, Right),
+             petta_require_algebra_equal(Name, 'extend-commutative',
+                                         [A,B], Left, Right) )).
+petta_check_algebra_law(Name, Combine, Extend, _, _, Carrier,
+                        'left-distributive') :- !,
+    forall(( member(A, Carrier), member(B, Carrier), member(C, Carrier) ),
+           ( petta_algebra_apply(Name, Combine, B, C, BC),
+             petta_algebra_apply(Name, Extend, A, BC, Left),
+             petta_algebra_apply(Name, Extend, A, B, AB),
+             petta_algebra_apply(Name, Extend, A, C, AC),
+             petta_algebra_apply(Name, Combine, AB, AC, Right),
+             petta_require_algebra_equal(Name, 'left-distributive',
+                                         [A,B,C], Left, Right) )).
+petta_check_algebra_law(Name, Combine, Extend, _, _, Carrier,
+                        'right-distributive') :- !,
+    forall(( member(A, Carrier), member(B, Carrier), member(C, Carrier) ),
+           ( petta_algebra_apply(Name, Combine, A, B, AB),
+             petta_algebra_apply(Name, Extend, AB, C, Left),
+             petta_algebra_apply(Name, Extend, A, C, AC),
+             petta_algebra_apply(Name, Extend, B, C, BC),
+             petta_algebra_apply(Name, Combine, AC, BC, Right),
+             petta_require_algebra_equal(Name, 'right-distributive',
+                                         [A,B,C], Left, Right) )).
+petta_check_algebra_law(Name, Combine, _, _, _, Carrier,
+                        'combine-idempotent') :- !,
+    forall(member(A, Carrier),
+           ( petta_algebra_apply(Name, Combine, A, A, Result),
+             petta_require_algebra_equal(Name, 'combine-idempotent',
+                                         [A], Result, A) )).
+petta_check_algebra_law(Name, Combine, _, Zero, _, Carrier,
+                        'combine-zero-identity') :- !,
+    petta_check_algebra_identity(Name, Combine, Zero, Carrier,
+                                 'combine-zero-identity').
+petta_check_algebra_law(Name, _, Extend, _, One, Carrier,
+                        'extend-one-identity') :- !,
+    petta_check_algebra_identity(Name, Extend, One, Carrier,
+                                 'extend-one-identity').
+petta_check_algebra_law(Name, _, Extend, Zero, _, Carrier,
+                        'extend-zero-annihilates') :- !,
+    forall(member(A, Carrier),
+           ( petta_algebra_apply(Name, Extend, Zero, A, Left),
+             petta_require_algebra_equal(Name, 'extend-zero-annihilates',
+                                         [Zero,A], Left, Zero),
+             petta_algebra_apply(Name, Extend, A, Zero, Right),
+             petta_require_algebra_equal(Name, 'extend-zero-annihilates',
+                                         [A,Zero], Right, Zero) )).
+
+petta_check_algebra_identity(Name, Operation, Identity, Carrier, Law) :-
+    forall(member(A, Carrier),
+           ( petta_algebra_apply(Name, Operation, Identity, A, Left),
+             petta_require_algebra_equal(Name, Law, [Identity,A], Left, A),
+             petta_algebra_apply(Name, Operation, A, Identity, Right),
+             petta_require_algebra_equal(Name, Law, [A,Identity], Right, A) )).
+
+petta_require_algebra_equal(_, _, _, Left, Right) :- Left == Right, !.
+petta_require_algebra_equal(Name, Law, Inputs, Left, Right) :-
+    throw(error(petta_algebra_law_violation(Name, Law, Inputs, Left, Right),
+                none)).
+
+petta_annotation_capabilities([], [], _) :- !.
+petta_annotation_capabilities([[capabilities|Capabilities]], Capabilities, Term) :-
+    !,
+    (   maplist(atom, Capabilities)
+    ->  true
+    ;   petta_declaration_refused(Term, 3, [capabilities, '... symbols'])
+    ).
+petta_annotation_capabilities(_, _, Term) :-
+    petta_declaration_refused(Term, 3, [capabilities, '... symbols']).
 
 petta_check_argspecs([], _, _).
 petta_check_argspecs([Spec|Rest], Position, Term) :-
@@ -778,7 +975,10 @@ petta_catalog_preset([kind, handles, symbol, pattern, ['one-of', fidelity],
 petta_catalog_preset([kind, 'on-error', symbol, pattern,
                       ['one-of', 'on-error-mode']]).
 petta_catalog_preset([kind, merge, pattern, ['one-of', 'answer-policy']]).
-petta_catalog_preset([kind, annotations, symbol, ['one-of', semiring]]).
+petta_catalog_preset([kind, annotations, symbol, symbol,
+                      [optional, term]]).
+petta_catalog_preset([kind, algebra, symbol, symbol, symbol, term, term,
+                      term, term, term]).
 petta_catalog_preset([kind, source, symbol, ['one-of', 'source-kind']]).
 petta_catalog_preset([kind, context, symbol, ['one-of', world]]).
 petta_catalog_preset([kind, admits, symbol, term]).
@@ -804,7 +1004,53 @@ petta_catalog_preset(['routed-by-shape', 'on-error']).
 petta_catalog_preset(['routed-by-shape', merge, global]).
 petta_catalog_preset([claim, semiring, ranked, ordered]).
 petta_catalog_preset([claim, semiring, prob, ordered]).
-
+petta_catalog_preset([algebra, bool, max, '*', 0, 1,
+                      [laws, 'combine-associative', 'combine-commutative',
+                       'extend-associative', 'left-distributive',
+                       'right-distributive', 'combine-zero-identity',
+                       'extend-one-identity', 'extend-zero-annihilates',
+                       contraction],
+                      [carrier], [requires]]).
+petta_catalog_preset([algebra, bag, '+', '*', 0, 1,
+                      [laws, 'combine-associative', 'combine-commutative',
+                       'extend-associative', 'left-distributive',
+                       'right-distributive', 'combine-zero-identity',
+                       'extend-one-identity', 'extend-zero-annihilates',
+                       contraction],
+                      [carrier], [requires]]).
+petta_catalog_preset([algebra, set, max, '*', 0, 1,
+                      [laws, 'combine-associative', 'combine-commutative',
+                       'combine-idempotent', 'extend-associative',
+                       'left-distributive', 'right-distributive',
+                       'combine-zero-identity', 'extend-one-identity',
+                       'extend-zero-annihilates', contraction],
+                      [carrier], [requires]]).
+petta_catalog_preset([algebra, ranked, max, '*', 0, 1,
+                      [laws, 'combine-associative', 'combine-commutative',
+                       'extend-associative', 'left-distributive',
+                       'right-distributive', 'combine-zero-identity',
+                       'extend-one-identity', 'extend-zero-annihilates',
+                       contraction],
+                      [carrier], [requires]]).
+petta_catalog_preset([algebra, prob, '+', '*', 0, 1,
+                      [laws, 'combine-associative', 'combine-commutative',
+                       'extend-associative', 'left-distributive',
+                       'right-distributive', 'combine-zero-identity',
+                       'extend-one-identity', 'extend-zero-annihilates',
+                       contraction],
+                      [carrier], [requires]]).
+petta_catalog_preset([algebra, prov, plus, times, zero, one,
+                      [laws, 'combine-associative', 'combine-commutative',
+                       'extend-associative', 'left-distributive',
+                       'right-distributive', 'combine-zero-identity',
+                       'extend-one-identity', 'extend-zero-annihilates',
+                       contraction],
+                      [carrier], [requires]]).
+petta_catalog_preset([algebra, budget, min, '+', infinity, 0,
+                      [laws, 'combine-associative', 'combine-commutative',
+                       'combine-idempotent', 'extend-associative',
+                       'combine-zero-identity', 'extend-one-identity'],
+                      [carrier], [requires]]).
 %Presets land only where their subject has no row yet, which makes the
 %directive reconsult-idempotent (a re-consulted engine meets its own rows
 %and the duplicate refusal must not fire) and keeps a program's own
@@ -2802,8 +3048,9 @@ conjunctive_match(Space, Pattern, OutPattern, Result) :-
                 match_conjunction(Space, Pattern, OutPattern),
                 Rows),
         member(Row, Rows)
-    ;   findall(Row-K,
-                ( b_setval('$petta_answer_k', 1),
+    ;   petta_algebra_one(Space, One),
+        findall(Row-K,
+                ( b_setval('$petta_answer_k', One),
                   match_conjunction(Space, Pattern, OutPattern),
                   b_getval('$petta_answer_k', K) ),
                 Rows),
@@ -3116,19 +3363,19 @@ match_foreign_routed(Space, Route, [Comma|Conjuncts], _, OutPattern, Result) :-
 match_foreign_routed(Space, Route, [Comma|[Head|Tail]], _, OutPattern, Result) :-
     Comma == ',', !,
     match_foreign_routed(Space, Route, Head, [], conj, conj),
-    petta_annotation(HeadK),
+    petta_annotation(Space, HeadK),
     match_foreign_routed(Space, Route, [','|Tail], [], OutPattern, Result),
-    %The polynomial construction along the join: a row's annotation is
-    %the product of its conjuncts'. Both 1, the Boolean point, combines
-    %to 1 without a write, so an unannotated join pays two reads only;
+    %The declared extend operation threads annotations along the join. Its
+    %declared one combines without a write, so an unannotated join stays cheap;
     %the LAST conjunct combines with nothing, since the base case that
     %follows it contributes no answer of its own.
-    (   HeadK == 1
+    petta_algebra_one(Space, One),
+    (   HeadK == One
     ->  true
     ;   Tail == []
     ->  true
-    ;   petta_annotation(TailK),
-        petta_k_times(HeadK, TailK, RowK),
+    ;   petta_annotation(Space, TailK),
+        petta_k_extend(Space, HeadK, TailK, RowK),
         b_setval('$petta_answer_k', RowK)
     ).
 %An unbound pattern is enumeration whichever way the space answers matches, so
@@ -3316,8 +3563,10 @@ metta_take_count(Form, Count) :-
 
 metta_top(Count, Goal, Out) :-
     metta_take_count(top, Count),
+    current_metta_space(Ctx),
+    petta_algebra_one(Ctx, One),
     findall(Annotation-Out,
-            ( b_setval('$petta_answer_k', 1),
+            ( b_setval('$petta_answer_k', One),
               call(Goal),
               b_getval('$petta_answer_k', Annotation) ),
             Pairs),
@@ -3350,8 +3599,9 @@ metta_top_match(Count, Space, Pattern, Out) :-
         %first k by emission order, the all-ties reading.
         Producer = match(Space, Pattern, Out, Out)
     ),
+    petta_algebra_one(Space, One),
     findall(Annotation-Out,
-            ( b_setval('$petta_answer_k', 1),
+            ( b_setval('$petta_answer_k', One),
               Producer,
               b_getval('$petta_answer_k', Annotation) ),
             Pairs),
@@ -3550,8 +3800,9 @@ petta_match_engine(Pattern, Out, Space, Engine) :-
     engine_create(Pattern-Out, match(Space, Pattern, Out, Out), Engine).
 
 petta_scored_engine(Pattern, Out, Space, Engine) :-
+    petta_algebra_one(Space, One),
     engine_create(K-(Pattern-Out),
-                  ( b_setval('$petta_answer_k', 1),
+                  ( b_setval('$petta_answer_k', One),
                     match(Space, Pattern, Out, Out),
                     b_getval('$petta_answer_k', K) ),
                   Engine).

@@ -8,6 +8,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Declared value algebras name `combine`, `extend`, `zero`, `one`, checked
+  laws, an optional finite checking carrier, and context requirements as one
+  catalog atom. Ordinary `(fact tag proposition)` and `(rule tag head
+  (premises ...))` atoms run through one algebra-agnostic threader. The
+  shipped Boolean, bag, set, ranked, probability, provenance, and budget
+  algebras are data presets.
 - A packaged Ciao-style development grade now applies external `pred`
   assertions to the engine's atom-removal, equation-removal, storage-removal,
   and translation funnels. `assertions@0.0.1`, `rtchecks@0.0.1`, and
