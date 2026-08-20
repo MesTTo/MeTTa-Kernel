@@ -1307,13 +1307,16 @@ metta_add_atom(Space, Term, true) :- Term = [=, [FAtom|W], _], !,
                                      add_equation(Space, Term, FAtom, W).
 %Type declarations are a multimap because distinct arrows and distinct data
 %types are meaningful. A variant-identical second row is not: every type walk
-%would enumerate it again. Refuse before any compilation or storage so host
-%registration transactions can roll back without a half-published operation.
+%would enumerate it again. A direct source add is idempotent and warns while
+%leaving the first row in place; the public batch preflight below stays strict
+%because accepting one duplicate in a batch would make that transport differ
+%from its promised all-or-nothing write. Host registrations that need exclusive
+%ownership use petta_py_add_strict_declaration/2 in shim.pl.
 metta_add_atom(Space, Term, true) :-
     Term = [':', _, _],
     existing_duplicate_declaration(Space, Term, First),
     !,
-    throw(error(petta_duplicate_declaration(Space, Term, First), none)).
+    print_message(warning, petta_duplicate_declaration(Space, Term, First)).
 % DontEvalType changes how every arrow parameter naming this type compiles,
 % even when the type symbol is not itself a function. Store first so repairs
 % observe the new marker, then invalidate its module-qualified support root.
