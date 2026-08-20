@@ -15,8 +15,9 @@ with m.stats() as s:
     m.query(S.edge(V.a, V.b), S.edge(V.b, V.c))
 check("the stats block counts the engine steps spent", s.inferences > 100)
 
-groups, text = m.run("!(println! (hello world)) !(+ 1 2)", capture=True)
-check("captured print output", "(hello world)" in text)
+with m.capture() as output:
+    groups = m.run("!(println! (hello world)) !(+ 1 2)")
+check("captured print output", "(hello world)" in output.text)
 check("the answers still arrive beside it", groups[1], [3])
 
 try:

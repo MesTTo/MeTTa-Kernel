@@ -11,6 +11,8 @@
 %   - the change hook does not prune the handlers loaded after it, so a dual
 %     built while tabling is declared is still dropped when its function
 %     changes [tested: duals_survive_tabling]
+%   - an effect declaration in &petta is the cache-purity claim [tested:
+%     a_metta_side_effect_declaration_is_a_purity_claim; commit=WORKTREE]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -303,7 +305,7 @@ test(an_unchecked_declaration_tables_an_impure_body,
     metta_tabled_decl(['purity-unchecked', _], Answer),
     assertion(Answer == true).
 
-%The claim register_op(pure=True) makes from Python, made from inside the
+%The effect atom register_op accepts from Python, made from inside the
 %language instead: the walk reads (effect Name immutable) out of &petta's
 %own storage, and removal withdraws it.
 test(a_metta_side_effect_declaration_is_a_purity_claim,

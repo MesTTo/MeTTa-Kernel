@@ -26,6 +26,10 @@ Source: `bindings/python/petta/integrate.py`.
 >     dependency cycles, and installs acyclic entries in topological order
 >     [tested: test_each_remaining_annotation_shape_refuses_or_carries;
 >      commit=ff4ac16f07a6e373e79ed0eae0a4c2d64cb92550]
+>   - module and reflection helpers express transport and Atom delivery without
+>     boolean registration pairs [tested:
+>     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
+>     commit=WORKTREE]
 > Owns:
 >   - _INSTALLED retains one target per live space and integration name;
 >     MeTTa.drop releases every record for that space [tested
@@ -132,8 +136,7 @@ def module_ops(
     *,
     prefix: str | None = None,
     rename: dict[str, str] | None = None,
-    raw: bool = True,
-    typed: bool = False,
+    transport: Literal['encoded', 'raw'] = 'raw',
 ) -> list[str]:
 ```
 

@@ -25,7 +25,7 @@ Source: `bindings/python/petta/ops.py`.
 >     test_register_op_reads_co_flags_and_refuses_or_awaits;
 >     commit=9b1b808f6b8d8aa6a8080c13092fa73ce7893aaa]
 >   - every documented operation owns its portable @doc atom in the
->     declaration space, independent of typed=, under the same transactional
+>     declaration space, independent of type annotations, under the same transactional
 >     lifecycle and reference count as type declarations [tested:
 >     test_every_register_op_writes_its_declaration_and_get_doc_answers;
 >     commit=eda90565cfb66417c62e654b0f3e7b55351366c5]
@@ -37,6 +37,10 @@ Source: `bindings/python/petta/ops.py`.
 >     injection [tested:
 >     test_two_values_of_one_base_type_are_distinguishable_by_their_metadata;
 >     commit=f97e7f465274d378d2222f5b30b1b737c96f35f5]
+>   - transport, evaluation order, typing, and purity are expressed by op,
+>     type, and effect atoms rather than boolean decorator flags [tested:
+>     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -101,13 +105,11 @@ def register(
     fn: Callable[_P, _R],
     *,
     name: str | None = None,
-    typed: bool = True,
-    raw: bool = False,
-    pass_atoms: bool = False,
+    transport: Literal['encoded', 'raw'] = 'encoded',
+    declarations: Iterable[Atom] = (),
     space: str = _DEFAULT_SPACE,
     arities: list[int] | None = None,
     inverse: Callable | None = None,
-    pure: bool = False,
 ) -> Callable[_P, _R]:
 ```
 
@@ -127,10 +129,13 @@ def register(
 > is, so a forward call never reaches it and an operation without one
 > compiles exactly what it compiled before.
 >
-> pure declares that the operation has no effect a cache could hide, which
-> is what lets it appear in a `(tabled ...)` or memoized body. It is an
-> allow-list on purpose: an operation that does not say so is refused there
-> by name, loudly, rather than cached and quietly wrong.
+> Python annotations derive type atoms and Atom parameters receive syntax
+> before evaluation. `transport="raw"` derives raw_det/raw_many in the
+> operation's `(op ...)` fact. Additional declaration atoms are owned for
+> the operation's complete lifecycle: type atoms live in its declaration
+> space, while `(effect name immutable)` and other policy atoms live in
+> &petta and can be matched there. An immutable effect atom is the explicit
+> allow-list for tabled or memoized bodies.
 
 ## `unregister`
 

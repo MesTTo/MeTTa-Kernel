@@ -135,6 +135,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- `run()` and `eval()` now always return their list shapes. Printed output is
+  collected with `with m.capture()`, while atomic, speculative, and strict
+  execution use their matching `with` blocks. `register_op()` no longer has
+  `typed`, `raw`, `pass_atoms`, or `pure` booleans: annotations derive type
+  and evaluation-order claims, `transport="raw"` selects the raw `(op ...)`
+  kind, and `declarations=` accepts lifecycle-owned `(arguments ...)`,
+  `(effect ...)`, type, and other policy atoms readable through `&petta`.
+
 - `petta.Atom` on a registered operation parameter is now documented as an
   evaluation-order contract: the callable receives the argument as written,
   while an unconstrained parameter receives its reduced value.

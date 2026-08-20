@@ -37,6 +37,10 @@ Source: `bindings/python/petta/aio.py`.
 >     residuals flag [tested:
 >     test_a_not_reducible_answer_is_the_unreduced_term_with_no_flag;
 >     commit=affc981bd744563f65f595259b8a3564b9d84ba9]
+>   - execution-policy scopes cross the worker hop and never change awaited
+>     return shapes [tested:
+>     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
+>     commit=WORKTREE]
 > Owns:
 >   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
 >     engine until aclose(), stop(), or the atexit handler releases it [tested
@@ -128,10 +132,7 @@ async def run(
     *,
     timeout: float | None = None,
     inferences: int | None = None,
-    capture: bool = False,
-    atomic: bool = False,
-    speculative: bool = False,
-) -> Any:
+) -> list[list[Atom]]:
 ```
 
 > Run MeTTa source on the worker and return its result groups.
@@ -233,8 +234,7 @@ async def eval(
     using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
-    capture: bool = False,
-) -> Any:
+) -> list[Atom]:
 ```
 
 > Evaluate a term and return every answer.
@@ -628,12 +628,10 @@ async def register_op(
     /,
     *,
     name: str | None = None,
-    typed: bool = True,
-    raw: bool = False,
-    pass_atoms: bool = False,
+    transport: Literal['encoded', 'raw'] = 'encoded',
+    declarations: Iterable[Atom] = (),
     arities: list[int] | None = None,
     inverse: Callable | None = None,
-    pure: bool = False,
 ) -> Callable:
 ```
 
@@ -651,12 +649,10 @@ async def op(
     /,
     *,
     name: str | None = None,
-    typed: bool = True,
-    raw: bool = False,
-    pass_atoms: bool = False,
+    transport: Literal['encoded', 'raw'] = 'encoded',
+    declarations: Iterable[Atom] = (),
     arities: list[int] | None = None,
     inverse: Callable | None = None,
-    pure: bool = False,
 ) -> Callable:
 ```
 
@@ -765,6 +761,38 @@ def limits(self, *, timeout: float | None = None, inferences: int | None = None)
 > enter and exit only touch a contextvar, so this is an ordinary
 > `with` inside async code, and every awaited call in the scope
 > carries it to the worker.
+
+### `AsyncMeTTa.capture`
+
+```python
+def capture(self):
+```
+
+> Collect awaited run/eval output in an ordinary task-local scope.
+
+### `AsyncMeTTa.atomic`
+
+```python
+def atomic(self):
+```
+
+> Make each awaited run in the block one engine transaction.
+
+### `AsyncMeTTa.speculative`
+
+```python
+def speculative(self):
+```
+
+> Answer awaited runs while discarding their engine writes.
+
+### `AsyncMeTTa.strict`
+
+```python
+def strict(self):
+```
+
+> Refuse unreduced directives in awaited runs within the block.
 
 ### `AsyncMeTTa.batch`
 

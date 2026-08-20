@@ -25,7 +25,7 @@ than of the loop around it.
 | ordinary MeTTa function | 3.00 | 1.00x | 0.05 | 1.00x |
 | `@m.define`, annotated | 3.00 | 1.00x | 0.05 | 1.06x |
 | `@m.define`, no annotations | 3.01 | 1.00x | 0.05 | 1.00x |
-| Python operation, `raw=True` | 6.00 | 2.00x | 0.87 | 16.71x |
+| Python operation, `transport="raw"` | 6.00 | 2.00x | 0.87 | 16.71x |
 | Python operation, encoded | 13.01 | 4.33x | 1.99 | 38.34x |
 
 One run's output, not a best-of: the columns divide by each other, so mixing
@@ -117,11 +117,11 @@ and it is not free, a literal argument costs nothing, and a parameter you do
 not mean to constrain can be declared `%Undefined%`, which emits no check at
 all.
 
-**The Python operation has two paths and they are not close.** `raw=True`
+**The Python operation has two paths and they are not close.** `transport="raw"`
 skips the wire encoding both ways. The encoded path WALKS the term, so the
 single number above is its best case, on a one-argument integer:
 
-| argument | encoded | `raw=True` | ratio |
+| argument | encoded | `transport="raw"` | ratio |
 |---|---|---|---|
 | integer | 13.00 | 6.00 | 2.17x |
 | flat, 4 items | 24.00 | 6.00 | 4.00x |
@@ -139,7 +139,7 @@ One of the raw path's six inferences is the catch that turns a Python failure
 into a MeTTa error naming your call. It is the floor rather than a choice, the
 manual putting `catch/3` at "comparable to `call/1`", and against a crossing
 that costs 0.87 microseconds where a MeTTa function costs 0.05, it is not the
-number that decides anything. What `raw=True` gives up is the symbol-string distinction:
+number that decides anything. What raw transport gives up is the symbol-string distinction:
 symbols reach a raw operation as plain strings. `pettorch` uses it throughout
 for exactly this reason.
 
@@ -579,7 +579,7 @@ example and README beside it. On a thousand-element vector, reading one element
 through the handle costs **0.1968us and 2.00 inferences**, while writing that
 vector as text costs **389.94us and 16,906 inferences** and reading it back
 costs **919.35us and 44,600** [measured 2026-08-16]. The handle's cost is flat
-in the structure's size and the text's is linear, the same shape as `raw=True`
+in the structure's size and the text's is linear, the same shape as raw transport
 against the encoded path in the argument-size table above.
 
 The handle crosses to Python too, by reference. A blob reaching the
@@ -1891,10 +1891,14 @@ Your library's operations are yours to declare. The engine ships its own core
 list and knows nothing about yours, so an operation nobody declares is refused
 rather than assumed, which is the safe direction to be wrong in.
 
-From Python it is a keyword rather than a clause, and it says the same thing:
+From Python it is the same declaration atom, owned by the registration:
 
 ```python
-m.register_op(len, name="size", pure=True)
+m.register_op(
+    len,
+    name="size",
+    declarations=[parse("(effect size immutable)")],
+)
 ```
 
 ### Say who your dispatch goal really is
@@ -2088,7 +2092,7 @@ both and the query they disagree on.
 | declaration | what it decides | sugar |
 |---|---|---|
 | `(op <name> <arity> <kind>)` | how a registered operation compiles; `register_op` asserts these and compiles FROM them | `register_op` |
-| `(effect <name> immutable)` | the operation may sit in a tabled or memoized body | `register_op(pure=True)` |
+| `(effect <name> immutable)` | the operation may sit in a tabled or memoized body | `register_op(declarations=[...])` |
 | `(cache <name> unchecked)` | the caller accepts stale answers for an impure body | add the atom |
 | `(handles <ctx> <pattern> Exact\|Partial\|Sound\|Refuse [det])` | how faithful a context's own filtering is, per shape; `Exact` licenses count pushdown, `Refuse` makes the query a loud error; `(in $x)` marks a position that must arrive bound | `declare_handles` |
 | `(source <ctx> linear\|repeated\|peek)` | consumption discipline; a linear source's second touch is loud where the floor answered silently empty | `declare_source` |
@@ -2202,7 +2206,7 @@ the wrong name; the guide's Concepts page holds the full table.
 | add a primitive that is called often | a Prolog predicate |
 | wrap something already written in C or Rust | a C foreign predicate |
 | write logic in Python and run it at MeTTa speed | `@m.define` |
-| reach a Python library | a Python operation, `raw=True` if the argument is big |
+| reach a Python library | a Python operation, `transport="raw"` if the argument is big |
 | ship a fast library that installs with pip | `register_prolog` from Python |
 | put atoms somewhere else | a space provider |
 | react when a space changes | an atom hook |

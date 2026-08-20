@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 19,634 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `engine/*.pl` | 19,637 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
 | `backends/*/decider.pl` | globbed at boot; each integration's decider decides whether its own artefact is present | |
@@ -101,11 +101,9 @@ takes anything. Python's `a == b` still answers `False` across kinds, because
 ## Running and querying: exact return shapes
 
 ```
-m.run(src, using=None, *, timeout=, inferences=, capture=False,
-      atomic=False, speculative=False, strict=False)
+m.run(src, using=None, *, timeout=, inferences=)
                        -> list[list[Atom]], one inner list per ! directive
-                          (with capture=True: (groups, printed_text))
-m.eval(target, *, using=, timeout=, inferences=, capture=False)
+m.eval(target, *, using=, timeout=, inferences=)
                                            -> list[Atom | Undefined]
 m.one(target, *, using=, timeout=, inferences=)   -> Any, THE answer as a plain
                           Python value; raises EngineError unless exactly one
@@ -131,9 +129,11 @@ Variables shared across query patterns join: `m.query(S.p(V.x,V.y), S.p(V.y,V.z)
 `into=` builds fields by matching column names, or rebuilds a complete
 constructor expression captured in one column.
 
-`m.run(..., atomic=True)` makes the whole run one transaction; `speculative=True`
-rolls its writes back; `strict=True` raises `StrictError` on a `not-reducible`
-directive (opt-in, because an unreduced term is an ordinary MeTTa value).
+`with m.capture() as output:` collects printed text in `output.text` without
+changing either return shape. `with m.atomic():` makes each whole run one
+transaction; `with m.speculative():` rolls its writes back; and
+`with m.strict():` raises `StrictError` on a `not-reducible` directive
+(opt-in, because an unreduced term is an ordinary MeTTa value).
 
 `Rows` is a list of `Row` with `.columns`. `row.x` and `row["x"]` both work.
 `rows.one()` (exactly one), `.first()`, `.column(name)` -> that column's atoms,
@@ -191,10 +191,9 @@ until their author declares a kind row for them.
 def hypot(a: float, b: float) -> float: ...
 ```
 
-Options: `name=`, `typed=True`, `raw=False`, `pass_atoms=False`, `arities=`,
-`inverse=` (the callable that runs it backwards), `pure=` (declares it free of
-effects, which licenses the optimiser). `m.unregister_op(name)` removes every
-arity.
+Options: `name=`, `transport="encoded"|"raw"`, `declarations=` (ordinary Atom
+claims), `arities=`, and `inverse=` (the callable that runs it backwards).
+`m.unregister_op(name)` removes every arity and declaration.
 
 The Python name is the MeTTa name, VERBATIM, and nothing is rewritten. Hyphens
 are MeTTa's convention and Python cannot spell one, so ask: `name="p-digit"` on
@@ -209,7 +208,11 @@ parametric, a `Union` declares one arrow per member, `Callable[[int],int]` ->
 `Annotated[int,"metres"]` retains `Number` in the arrow while publishing its
 metadata as a matchable `(Annotated Number "metres")` claim. A generator is
 nondeterministic, one answer per yield; returning `None` answers nothing, which
-is why an `Optional` return declares the value type.
+is why an `Optional` return declares the value type. An unannotated callable
+makes no type claim. `(arguments name atoms)` asks for Atom wrappers after
+ordinary evaluation, while an `Atom` annotation receives the written term
+before evaluation. `(effect name immutable)` licenses caching. These policy
+atoms live in `&petta`; `(op name arity raw_det|raw_many)` records raw transport.
 
 `@m.define` compiles the Python BODY into MeTTa equations, and `.py` keeps the
 plain function; stacked clauses become a first-match dispatcher. It takes
@@ -342,8 +345,8 @@ cannot), `register_type`, `unregister_type`, `declarations`, `auto_image`.
 Dataclasses, enums, pydantic models and annotated classes all cross; enums
 project to symbols. `@petta.record` marks a class for the round trip.
 
-`petta.integrate`: `module_ops(m, module, names=, prefix=, rename=, raw=True,
-typed=False)` registers a whole module's callables, `facts(m, atoms)` bulk-writes,
+`petta.integrate`: `module_ops(m, module, names=, prefix=, rename=,
+transport="raw")` registers a whole module's callables, `facts(m, atoms)` bulk-writes,
 `wrap_object(m, name, obj, methods)`, `reflect(m, name, obj)`,
 `install_reflection_ops(m)`, `integrate(m, target)`, `Integration`,
 `SpaceProvider`, and `discover(m)` over entry points. Installation is idempotent

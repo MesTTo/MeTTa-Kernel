@@ -41,5 +41,5 @@ Measured 2026-08-16 on a thousand-element vector: reading one element through
 the handle costs 0.1968us and 2.00 inferences, while writing that same vector
 as text costs 389.94us and 16,906 inferences and reading it back costs 919.35us
 and 44,600. The handle's cost is flat in the structure's size and the text's is
-linear, which is the same shape as `raw=True` against the encoded path in
+linear, which is the same shape as `transport="raw"` against the encoded path in
 `EXTENDING.md`'s argument-size table.

@@ -43,6 +43,9 @@
 %     to float and can overflow doing it. Whole-corpus cost is
 %     +2.1% instructions on examples/performance/scale.metta
 %     [measured 2026-08-15].
+%   - Python operation purity reaches the same `(effect Name immutable)` atom
+%     read by metta_pure_operation/1 [tested:
+%     test_pure_registration_reflects_an_effect_atom; commit=WORKTREE].
 %   - A result past binary64 saturates to the IEEE value on the engine's
 %     operations, agreeing with the reader's saturating literals, and an
 %     infinity a literal produced carries through further arithmetic; the
@@ -2910,8 +2913,8 @@ prolog:error_message(metta_impure_goal(Name/Arity)) -->
 metta_pure_operation(Name) :- metta_host_pure_operation(Name).
 
 %The same claim made from INSIDE MeTTa: (effect Name immutable) added to
-%&petta is what register_op(pure=True) asserts from Python, read from the
-%space's own storage at judgement time. The walk runs when a cache is
+%&petta, where register_op(declarations=[...]) places it too. The walk reads
+%the space's own storage at judgement time. The walk runs when a cache is
 %declared, never on the call path, so consulting storage here costs nothing
 %per call and installs no atom hook, which is what keeps every space's bulk
 %add path fast.
