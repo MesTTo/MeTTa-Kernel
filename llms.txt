@@ -194,7 +194,9 @@ equation the body can spell, `(= (sqrt_math $x) (sqrt-math $x))`.
 
 Annotations become declarations in the engine's idiom: a `TypeVar` is
 parametric, a `Union` declares one arrow per member, `Callable[[int],int]` ->
-`(-> Number Number)`, `tuple[int,str]` -> elementwise. A generator is
+`(-> Number Number)`, `tuple[int,str]` -> elementwise, and
+`Annotated[int,"metres"]` retains `Number` in the arrow while publishing its
+metadata as a matchable `(Annotated Number "metres")` claim. A generator is
 nondeterministic, one answer per yield; returning `None` answers nothing, which
 is why an `Optional` return declares the value type.
 

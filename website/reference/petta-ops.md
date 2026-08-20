@@ -33,6 +33,10 @@ Source: `bindings/python/petta/ops.py`.
 >     form accepts, including repeated variadic annotations [tested:
 >     test_every_array_operation_is_typed_and_a_shape_is_a_constraint;
 >     commit=e5246578ba61fb5efc9d2282bade50479946e34a]
+>   - Annotated MeTTa parameters retain metadata without losing engine
+>     injection [tested:
+>     test_two_values_of_one_base_type_are_distinguishable_by_their_metadata;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

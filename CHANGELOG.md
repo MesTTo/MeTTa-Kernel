@@ -8,6 +8,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `typing.Annotated` metadata now survives as matchable `(Annotated ...)`
+  claims while the base type continues to control arrows, conversion, and
+  engine-parameter injection.
 - All 44 names installed by `petta.arrays` now carry arity-accurate arrow
   declarations, including defaulted and variadic call forms. The new
   `broadcast-shape` CLP(FD) relation checks or infers NumPy broadcasting
