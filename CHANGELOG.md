@@ -95,6 +95,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Compiled definitions now carry their cleaned Python docstring through
+  `Defined.doc`, `help()`, and the definition space's `get-doc` result.
+
 - Registered operations now reflect a typed `OpDecl` for every arity and
   carry cleaned Python docstrings into their declaration space as `@doc`
   atoms. Documentation follows replacement, rollback, and unregistration.
