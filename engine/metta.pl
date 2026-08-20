@@ -48,14 +48,16 @@
 %     infinity a literal produced carries through further arithmetic; the
 %     same recovery answers the whole IEEE family when a float operand is
 %     present, a float zero divides to the signed infinity and the NaN
-%     class answers NaN, while integer division by zero keeps raising; raw
+%     class answers NaN, while integer division and remainder by zero answer
+%     a contained DivisionByZero Error atom; raw
 %     is/2 keeps every flag's error mode [tested 2026-08-20:
 %     engine_operations_saturate_where_raw_is_still_raises,
 %     a_read_infinity_survives_further_arithmetic,
 %     a_twice_faulting_compound_saturates_all_the_way,
-%     integer_division_by_zero_keeps_raising,
+%     test_integer_division_by_zero_answers_what_d1_decides,
 %     test_arithmetic_overflow_agrees_with_the_literal_side,
-%     test_float_zero_division_and_nan_agree_with_the_arbiter].
+%     test_float_zero_division_and_nan_agree_with_the_arbiter;
+%     commit=ecd792eacbfe1810645434ce406f79be3a9e03d1].
 %   - is-alpha-member/3 tests unifiability without retaining bindings in its
 %     arguments [tested 2026-08-15: metta_alpha_membership].
 %   - alpha-unique-atom/2 confirms identity inside each term-hash bucket, so a
@@ -114,6 +116,9 @@
 %     [tested 2026-08-14: metta_builtin_outputs].
 %   - Function registration performed by a source load participates in that
 %     load's rollback [tested 2026-08-14: filereader_source_rollback].
+%   - Prolog registration refuses every head the translator compiles before
+%     function dispatch, including heads added through translator_rule/1
+%     [tested: test_registering_any_translator_compiled_head_is_refused_by_name].
 %   - Python source imports restore sibling modules and sys.path after setup
 %     or execution errors [tested 2026-08-14:
 %     metta_python_import_cleanup].
@@ -807,12 +812,23 @@ metta_input_number_operation('floor-math').  metta_input_number_operation('round
 metta_input_number_operation('isnan-math').  metta_input_number_operation('isinf-math').
 metta_input_number_operation('exp-math').    metta_input_number_operation(exp).
 
+%One registry owns the numeric math family and its input arities. The runtime
+%guards below and their exhaustive string-operand pin both read this table, so
+%a newly admitted math operation cannot inherit SWI's one-character-string
+%arithmetic by omission [tested:
+%test_a_string_operand_to_math_refuses_instead_of_answering_its_char_code].
+metta_math_operation('sqrt-math', 1).
+metta_math_operation('abs-math', 1).
+metta_math_operation('pow-math', 2).
+metta_math_operation('log-math', 2).
+metta_math_operation(Operation, 1) :- metta_input_number_operation(Operation).
+
 %The math family's recovery, which decides between the two failures the host
 %reports the same way. An argument that is not a number at all is the MeTTa
-%operation's own refusal and an ANSWER; a number the function is undefined at,
-%sqrt of a negative or exp of 10000, is a host error and stays one. It sits in
-%the catch's recovery rather than in front of the call, so the fast path pays
-%nothing: this runs only where is/2 has already raised
+%operation's own refusal and an ANSWER; a numeric fault outside the licensed
+%IEEE family remains a host error. It sits in the catch's recovery rather than
+%in front of the call, so the fast path pays nothing: this runs only where
+%is/2 has already raised
 %[tested: operation_answers, metta_operation_errors].
 metta_math_recovery(Operation, Arguments, Error, Answer) :-
     (   maplist(metta_numeric_operand, Arguments)
@@ -821,7 +837,7 @@ metta_math_recovery(Operation, Arguments, Error, Answer) :-
     ).
 
 %The float-capable operations chain the two recoveries: an IEEE-class fault
-%with a float operand saturates to the value the arbiter's raw f64 answers
+%in a floating expression saturates to the value the arbiter's raw f64 answers
 %(metta_saturating_recover), and everything else takes the split above, a
 %wrong-typed operand answering and a numeric host error staying one.
 metta_math_saturating_recovery(Operation, Expression, Arguments, Error, Out) :-
@@ -830,11 +846,35 @@ metta_math_saturating_recovery(Operation, Expression, Arguments, Error, Out) :-
     ;   metta_math_recovery(Operation, Arguments, Error, Out)
     ).
 
+%Check the numeric input at the operation's own door, before is/2 can interpret
+%a one-character string as its character code. The refusal itself is derived
+%from builtin_type_declaration/2 through metta_operation_answer/3, the same
+%table that guards translated calls; computed and direct operands therefore
+%name the operation, position, expected Number and actual String alike.
+metta_math_eval(Operation, Expression, Arguments, Out) :-
+    (   maplist(metta_numeric_operand, Arguments)
+    ->  catch(Out is Expression, Error,
+              metta_math_recovery(Operation, Arguments, Error, Out))
+    ;   metta_operation_answer(Operation, Arguments, Out)
+    ).
+
+metta_math_saturating_eval(Operation, Expression, Arguments, Out) :-
+    (   maplist(metta_numeric_operand, Arguments)
+    ->  catch(Out is Expression, Error,
+              metta_math_saturating_recovery(
+                  Operation, Expression, Arguments, Error, Out))
+    ;   metta_operation_answer(Operation, Arguments, Out)
+    ).
+
 %An unbound operand counts as numeric here, so the instantiation error is
 %rethrown rather than turned into a type report: a missing value is not a
 %wrong one, which is the split metta_arith_operands/2 already draws.
 metta_numeric_operand(Value) :- var(Value), !.
 metta_numeric_operand(Value) :- number(Value).
+%The reader's source spellings remain evaluable atoms until is/2 consumes
+%them. They are numeric inputs, unlike every other atom and every string.
+metta_numeric_operand(inf).
+metta_numeric_operand(nan).
 
 %%% Arithmetic & Comparison: %%%
 %An arithmetic operand is a number. Everything else is refused here, before
@@ -905,14 +945,17 @@ metta_arith_operands(A, B) :-
 %Division has no catchless integer arm: an all-integer pair is exact until a
 %non-divisible one converts to float, and THAT can overflow (10^400 / 3
 %raised a raw float_overflow with no operation context from the old catchless
-%arm), so it needs the same recovery as the float arms. Integer division by
-%zero already fell through to the guarded arm and keeps doing so, one arm
-%earlier.
+%arm), so it needs the same recovery as the float arms. The recovery separates
+%that IEEE result from integer zero division, which is an Error answer.
 '/'(A,B,R)  :- ( number(A), number(B)
-                  -> catch(R is A / B, E, metta_saturating_recover('/', A / B, R, E))
+                  -> catch(R is A / B, E,
+                           metta_arithmetic_saturating_recovery(
+                               '/', [A, B], A / B, E, R))
                 ; petta_int_solve('/', A, B, R, Verdict) -> Verdict == solved
                 ; metta_arith_operands(A, B)
-                  -> catch(R is A / B, E, metta_saturating_recover('/', A / B, R, E))
+                  -> catch(R is A / B, E,
+                           metta_arithmetic_saturating_recovery(
+                               '/', [A, B], A / B, E, R))
                 ; metta_operation_answer('/', [A, B], R) ).
 
 %One unbound slot among integers: the verdict says whether the mode
@@ -942,7 +985,8 @@ petta_int_solve('/', A, B, R, Verdict) :-
     ).
 '%'(A,B,R)  :- ( integer(A), integer(B), B =\= 0 -> R is A mod B
                 ; metta_arith_operands(A, B)
-                  -> catch(R is A mod B, E, rethrow_metta_operation_error('%', E))
+                  -> catch(R is A mod B, E,
+                           metta_operation_recovery('%', [A, B], E, R))
                 ; metta_operation_answer('%', [A, B], R) ).
 '<'(A,B,R)  :- ( number(A), number(B) -> (A<B -> R=true ; R=false)
                 ; metta_arith_operands(A, B)
@@ -969,11 +1013,15 @@ petta_int_solve('/', A, B, R, Verdict) :-
 %makes the False cases False: nothing is known about `a`, so nothing is
 %contradicted.
 %Two numbers inline, the shape '<'/3 above already uses, because that is what
-%a loop compares and the guard must not be felt there.
-'=='(A,B,R) :- ( number(A), number(B) -> (A==B -> R=true ; R=false)
+%a loop compares and the guard must not be felt there. Numeric equality is by
+%VALUE across the integer/float constructors: LeaTTa's Ground.equiv promotes
+%the integer with Float.ofInt in both mixed cases, and Atom.equiv delegates its
+%grounded case there [source: LeaTTa MettaHyperonFull/Core/Atom.lean:47-62,
+%110-116] [tested: test_mixed_numeric_equality_answers_what_the_arbiter_answers].
+'=='(A,B,R) :- ( number(A), number(B) -> (A =:= B -> R=true ; R=false)
                 ; comparable_operands(A, B) -> (A==B -> R=true ; R=false)
                 ; metta_operation_answer('==', [A, B], R) ).
-'!='(A,B,R) :- ( number(A), number(B) -> (A==B -> R=false ; R=true)
+'!='(A,B,R) :- ( number(A), number(B) -> (A =:= B -> R=false ; R=true)
                 ; comparable_operands(A, B) -> (A==B -> R=false ; R=true)
                 ; metta_operation_answer('!=', [A, B], R) ).
 %The guard the declaration above states, enforced at the predicate's own door
@@ -1045,8 +1093,7 @@ max(A,B,R)  :- ( integer(A), integer(B) -> R is max(A,B)
                 ; metta_operation_answer(max, [A, B], R) ).
 %exp/2 is PeTTa's own name for the same function exp-math names, so it refuses
 %the same way rather than being the one numeric operation that raises.
-exp(Arg,R) :- catch(R is exp(Arg), E,
-                    metta_math_recovery(exp, [Arg], E, R)).
+exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
 :- use_module(library(clpfd)).
 '#+'(A, B, R) :- catch(R #= A + B, E,
                        rethrow_metta_operation_error('#+', E)).
@@ -1098,50 +1145,82 @@ exp(Arg,R) :- catch(R is exp(Arg), E,
 '#>='(A, B, false) :- catch(A #< B, E,
                             rethrow_metta_operation_error('#>=', E)).
 
-'pow-math'(A, B, Out) :- catch(Out is A ** B, E,
-                               metta_math_saturating_recovery('pow-math', A ** B, [A, B], E, Out)).
-'sqrt-math'(A, Out) :- catch(Out is sqrt(A), E,
-                             metta_math_saturating_recovery('sqrt-math', sqrt(A), [A], E, Out)).
+%Real-valued operations explicitly promote integer inputs before applying the
+%host function. That is LeaTTa's toFloat? -> floatUn/floatBin law: sqrt, log
+%and the trig family always run and answer in binary64, including their NaN
+%and infinity edges [source: LeaTTa MettaHyperonFull/Core/Builtins.lean:
+%143-194; tested:
+%test_real_valued_math_treats_integer_and_float_operands_alike;
+%commit=6e529fc2c08eb69c0df47e3cff7c921320a3300d].
+%
+%pow-math has one additional split from powMath: the base is always Float, an
+%integer exponent must fit signed i32, a Float exponent has no such bound, and
+%every successful result is Float. Check the base's numeric door before the
+%bound so a bad base still earns pow-math's ordinary argument refusal.
+'pow-math'(A, B, Out) :-
+    (   maplist(metta_numeric_operand, [A, B])
+    ->  metta_pow_math_numeric(A, B, Out)
+    ;   metta_operation_answer('pow-math', [A, B], Out)
+    ).
+
+metta_pow_math_numeric(A, B, Out) :-
+    (   integer(B), ( B < -2147483648 ; B > 2147483647 )
+    ->  metta_error_atom(
+            'pow-math', [A, B],
+            "power argument is too big, try using float value", Out)
+    ;   Expression = float(A) ** float(B),
+        catch(Out is Expression, Error,
+              metta_math_saturating_recovery(
+                  'pow-math', Expression, [A, B], Error, Out))
+    ).
+
+metta_float_unary_eval(Operation, Function, A, Out) :-
+    Expression =.. [Function, float(A)],
+    metta_math_saturating_eval(Operation, Expression, [A], Out).
+
+'sqrt-math'(A, Out) :-
+    metta_float_unary_eval('sqrt-math', sqrt, A, Out).
 'abs-math'(A, Out) :-
     ( integer(A) -> Out is abs(A)
-    ; catch(Out is abs(A), E,
-            metta_math_saturating_recovery('abs-math', abs(A), [A], E, Out)) ).
+    ; metta_math_saturating_eval('abs-math', abs(A), [A], Out) ).
 %log of zero is float_overflow-classed by SWI (the result is an infinity),
 %so it saturates with the family; this compound expression is also why the
 %recovery retries under ALL the IEEE flags at once, because base 1 divides
 %the saturated -inf by log(1) = 0.0 and the answer is -inf, not a second
 %error.
-'log-math'(Base, X, Out) :- catch(Out is log(X) / log(Base), E,
-                                  metta_math_saturating_recovery('log-math', log(X) / log(Base), [Base, X], E, Out)).
-'exp-math'(A, Out) :- catch(Out is exp(A), E,
-                            metta_math_saturating_recovery('exp-math', exp(A), [A], E, Out)).
-'trunc-math'(A, Out) :- catch(Out is truncate(A), E,
-                              metta_math_recovery('trunc-math', [A], E, Out)).
-'ceil-math'(A, Out) :- catch(Out is ceil(A), E,
-                             metta_math_recovery('ceil-math', [A], E, Out)).
-'floor-math'(A, Out) :- catch(Out is floor(A), E,
-                              metta_math_recovery('floor-math', [A], E, Out)).
-'round-math'(A, Out) :- catch(Out is round(A), E,
-                              metta_math_recovery('round-math', [A], E, Out)).
-'sin-math'(A, Out) :- catch(Out is sin(A), E,
-                            metta_math_saturating_recovery('sin-math', sin(A), [A], E, Out)).
-'cos-math'(A, Out) :- catch(Out is cos(A), E,
-                            metta_math_saturating_recovery('cos-math', cos(A), [A], E, Out)).
-'tan-math'(A, Out) :- catch(Out is tan(A), E,
-                            metta_math_saturating_recovery('tan-math', tan(A), [A], E, Out)).
-'asin-math'(A, Out) :- catch(Out is asin(A), E,
-                             metta_math_saturating_recovery('asin-math', asin(A), [A], E, Out)).
-'acos-math'(A, Out) :- catch(Out is acos(A), E,
-                             metta_math_saturating_recovery('acos-math', acos(A), [A], E, Out)).
-'atan-math'(A, Out) :- catch(Out is atan(A), E,
-                             metta_math_recovery('atan-math', [A], E, Out)).
+'log-math'(Base, X, Out) :-
+    metta_math_saturating_eval(
+        'log-math', log(float(X)) / log(float(Base)), [Base, X], Out).
+%exp-math is retained under PeTTa's existing real-valued doctrine. LeaTTa's
+%floatUn table does not include exp-math, so no LeaTTa attribution is made for
+%this operation; its integer and float spellings already share the host exp/1
+%path and its overflow recovery.
+'exp-math'(A, Out) :-
+    metta_math_saturating_eval('exp-math', exp(A), [A], Out).
+'trunc-math'(A, Out) :-
+    metta_math_eval('trunc-math', truncate(A), [A], Out).
+'ceil-math'(A, Out) :- metta_math_eval('ceil-math', ceil(A), [A], Out).
+'floor-math'(A, Out) :- metta_math_eval('floor-math', floor(A), [A], Out).
+'round-math'(A, Out) :- metta_math_eval('round-math', round(A), [A], Out).
+'sin-math'(A, Out) :- metta_float_unary_eval('sin-math', sin, A, Out).
+'cos-math'(A, Out) :- metta_float_unary_eval('cos-math', cos, A, Out).
+'tan-math'(A, Out) :- metta_float_unary_eval('tan-math', tan, A, Out).
+'asin-math'(A, Out) :- metta_float_unary_eval('asin-math', asin, A, Out).
+'acos-math'(A, Out) :- metta_float_unary_eval('acos-math', acos, A, Out).
+'atan-math'(A, Out) :- metta_float_unary_eval('atan-math', atan, A, Out).
 'isnan-math'(A, Out) :-
-    catch(( A =:= A -> Out = false ; Out = true ), E,
-          metta_math_recovery('isnan-math', [A], E, Out)).
+    (   metta_numeric_operand(A)
+    ->  catch(( A =:= A -> Out = false ; Out = true ), E,
+              metta_math_recovery('isnan-math', [A], E, Out))
+    ;   metta_operation_answer('isnan-math', [A], Out)
+    ).
 'isinf-math'(A, Out) :-
-    catch(( ( A =:= 1.0Inf ; A =:= -1.0Inf )
-            -> Out = true ; Out = false ), E,
-          metta_math_recovery('isinf-math', [A], E, Out)).
+    (   metta_numeric_operand(A)
+    ->  catch(( ( A =:= 1.0Inf ; A =:= -1.0Inf )
+                -> Out = true ; Out = false ), E,
+              metta_math_recovery('isinf-math', [A], E, Out))
+    ;   metta_operation_answer('isinf-math', [A], Out)
+    ).
 %must_be/2 walks the list a second time with a type check per element, so a
 %numeric list costs 3x what min_list alone does [measured 2026-08-15: 20 calls
 %over 50,000 elements, 3,000,220 against 1,000,060 inferences]. That buys
@@ -1484,25 +1563,13 @@ guarded_input_position(Name, Arity, Position) :-
     \+ relational_input_position(Name, Position),
     \+ unguarded_input_position(Name, Position).
 
-%The three positions this rule does NOT yet cover, named rather than hidden.
-%Each predicate lives in a file the change that added this guard does not
-%own, and each is measured 2026-08-19: get-atoms/2 and match/4 are in
-%engine/spaces.pl and raise an instantiation_error with no context at all, so a
-%program is told a value is missing and not which one; sread/2 is in
-%engine/parser.pl and raises naming system:atom_codes/2, a predicate the MeTTa
-%program never wrote. parse/2 is the same operation under PeTTa's own name
-%and IS guarded, so the gap is the direct sread call only.
-%git-import!/2 is in lib/lib_gitimport.pl and sleep/2 in a library too; both
-%raise an instantiation_error with no context, so the program is told a value
-%is missing and not which operation wanted it [measured 2026-08-19].
-unguarded_input_position('add-reduct', 1).
-unguarded_input_position('git-import!', 1).
-unguarded_input_position(sleep, 1).
-unguarded_input_position(sread, 1).
-%A fourth of the same shape: add-reduct/3 refuses, and by name, but names the
-%operation it DELEGATES to. `!(add-reduct $u a)` answers
-%(Error (add-atom $u a) "add-atom expects a space as the first argument"), so
-%a program that wrote add-reduct is told about add-atom. engine/spaces.pl again.
+%The residue register is deliberately present and empty. It used to name
+%add-reduct, git-import!, sleep and sread; each now guards at its own door, and
+%the surface match path already carries its refusal answer through translation.
+%Keeping the failed predicate makes the generated completeness probe assert
+%that no exception is being hidden rather than deleting the question.
+%[tested: test_the_residual_positions_refuse_by_their_own_names].
+unguarded_input_position(_, _) :- fail.
 
 %Names the MeTTa operation and the argument, in the program's own vocabulary.
 %The formal stays ISO so a MeTTa (catch ...) and the Python boundary can both
@@ -3940,6 +4007,7 @@ pure_engine_helper(function_overapplication).
 pure_engine_helper(throw_metta_type_error).
 pure_engine_helper(rethrow_metta_operation_error).
 pure_engine_helper(non_list).
+pure_engine_helper(petta_fuel_step).
 pure_engine_helper(type_answers).
 pure_engine_helper(satisfies_metatype).
 
@@ -4378,6 +4446,7 @@ undocumented(Name) :- current_metta_space(Space),
 
 %%% Time control: %%%
 %Suspend this evaluation. In a thread, only this thread waits.
+'sleep'(Seconds, _) :- var(Seconds), !, refuse_unbound_input(sleep, 1).
 'sleep'(Seconds, true) :- must_be(number, Seconds), sleep(Seconds).
 
 %Bound a goal by wall clock, keeping every answer.
@@ -4460,15 +4529,8 @@ metta_elapsed(Goal, Value, [Value, Seconds]) :-
 %so this is the fallback-to-HE rule applied.
 :- dynamic metta_pragma/2.
 
-%The keys this engine KNOWS. pragma! itself no longer checks against them:
-%the arbiter accepts any key and answers unit, and its corpus states the
-%reason, "an Error would introduce key validation that the pinned operation
-%does not perform" [source: LeaTTa
-%tests/semantics/eval-core/pragma-unknown-key.metta, STATUS conforms]. The
-%register is still the answer to "what does this engine enforce", and
-%with-pragma!, which is PeTTa's own scoped form, still refuses an unknown key
-%there: a scope that sets nothing does nothing, silently, for as long as it
-%lasts [tested: scoped_pragmas:with_pragma_refuses_an_unknown_key].
+%The keys this engine KNOWS. Both pragma doors validate against this registry;
+%an unsupported setting is a hard error rather than a successful no-op.
 %HE's own keys are type-check, interpreter and max-stack-depth
 %[source 2026-08-15: MeTTa HE stdlib reference, pragma!]. The two bounds are
 %PeTTa's, and are the ones this engine can actually enforce.
@@ -4479,16 +4541,24 @@ metta_pragma_key('max-inferences', 'bound every runnable by inference count').
 %swallowed, and tracked in ai-todo-parallel.md B10.1.
 metta_pragma_key('verify-specializations',
                  'check every specialization against the generic call once').
-metta_pragma_key('max-stack-depth', 'HE spelling; accepted, NOT enforced').
+metta_pragma_key('max-stack-depth',
+                 'branch-local reduction fuel; zero selects the default').
 metta_pragma_key('type-check', 'HE spelling; accepted, NOT enforced').
 metta_pragma_key(interpreter, 'HE spelling; accepted, NOT enforced').
 
 'pragma!'(Key, _, _) :- var(Key), !, refuse_unbound_input('pragma!', 1).
+'pragma!'(Key, _, _) :-
+    \+ metta_pragma_key(Key, _),
+    !,
+    findall(K-D, metta_pragma_key(K, D), Known),
+    throw(error(domain_error(metta_pragma_key, Key),
+                context('pragma!'/2, Known))).
 %max-stack-depth is the ONE key the arbiter validates, and a count is the
 %whole of what it validates. The refusal is an ANSWER, not a raise, so the
 %program that wrote it keeps running [measured 2026-08-19 against the
 %arbiter: -1, 1.5 and abc each answer this error, while
-%(pragma! type-check -1) and (pragma! completely-invented-key -1) answer ();
+%(pragma! type-check -1) answers (); the plan's closed engine registry
+%deliberately makes a completely invented key a hard host-facing error here;
 %source: LeaTTa tests/semantics/eval-core/max-stack-depth-negative.metta].
 %`none` is the engine's own "unset" sentinel, which petta_restore_pragma/1
 %passes back on every scope exit, so it is not a value to validate.
@@ -4601,6 +4671,73 @@ run_under_pragmas(Goal) :-
         ;   true
         )
     ;   call(Timed)
+    ).
+
+%Every runnable uses one limit scope. Recursive clauses spend from its
+%backtrackable balance, so trying a sibling restores the balance it started
+%with. Exhaustion records and fails only that branch; after ordinary answers
+%have been enumerated, the recorded unfinished branches are replayed as
+%(Error <current-call> StackOverflow). This keeps a completed sibling instead
+%of letting an exception discard the generator's remaining choice points.
+%A positive max-stack-depth caps the same balance; zero and absence use the
+%LeaTTa runner's default 100000 fuel.
+%[tested: test_a_stack_depth_pragma_bounds_evaluation_instead_of_overflowing].
+:- meta_predicate petta_run_with_fuel(?, ?, 0).
+
+petta_run_with_fuel(Value, Answer, Goal) :-
+    (   nb_current('$petta_fuel_scope', true)
+    ->  call(Goal),
+        Answer = Value
+    ;   setup_call_cleanup(
+            petta_open_fuel_scope,
+            petta_fuel_answer(Value, Answer, Goal),
+            petta_close_fuel_scope)
+    ).
+
+petta_open_fuel_scope :-
+    nb_setval('$petta_fuel_scope', true),
+    nb_setval('$petta_fuel_remaining', unstarted),
+    nb_setval('$petta_fuel_errors', []).
+
+petta_close_fuel_scope :-
+    nb_delete('$petta_fuel_errors'),
+    nb_delete('$petta_fuel_remaining'),
+    nb_delete('$petta_fuel_scope').
+
+petta_fuel_answer(Value, Answer, Goal) :-
+    call(Goal),
+    Answer = Value.
+petta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
+    nb_getval('$petta_fuel_errors', Reverse),
+    reverse(Reverse, Errors),
+    member(Culprit, Errors).
+
+petta_fuel_step(Culprit, Cost) :-
+    (   nb_current('$petta_fuel_scope', true)
+    ->  petta_fuel_step_scoped(Culprit, Cost)
+    ;   true
+    ).
+
+petta_fuel_step_scoped(Culprit, Cost) :-
+    nb_getval('$petta_fuel_remaining', Current),
+    (   Current == unstarted
+    ->  petta_evaluation_fuel(Limit)
+    ;   Limit = Current
+    ),
+    Remaining is Limit - Cost,
+    (   Remaining =< Cost
+    ->  nb_getval('$petta_fuel_errors', Errors),
+        nb_setval('$petta_fuel_errors', [Culprit|Errors]),
+        fail
+    ;   b_setval('$petta_fuel_remaining', Remaining)
+    ).
+
+petta_evaluation_fuel(Limit) :-
+    (   metta_pragma('max-stack-depth', Configured),
+        integer(Configured),
+        Configured > 0
+    ->  Limit = Configured
+    ;   Limit = 100000
     ).
 
 %%% MeTTa HE compatibility: %%%
@@ -4920,19 +5057,23 @@ prolog_function_source(N, Source) :-
 %exactly this at spaces.pl through petta_builtin_redefinition/3, so this is
 %the same rule reaching the other road in rather than a new one.
 %
-%A special form, because translate_special_dl/5 is tried BEFORE function
-%dispatch, so the registration compiles nothing and can never be reached:
+%A translated head, because translator rules and translate_special_dl/5 are
+%tried BEFORE function dispatch, so the registration compiles nothing and can
+%never be reached:
 %registering a predicate named if left !(if True 1 2) answering 1 from the
 %translator and the library's clauses dead, with nothing said at any point.
 %Accepting a registration that cannot run is telling the author their code is
 %installed when it is not
-%[tested: a_builtin_name_is_refused, a_special_form_name_is_refused].
+%metta_translated_head/1 is the translator's own registry, so a rule added at
+%run time is covered without another hand-maintained list
+%[tested: a_builtin_name_is_refused, a_special_form_name_is_refused,
+%test_registering_any_translator_compiled_head_is_refused_by_name].
 refuse_reserved_registration(N) :-
     (   builtin_fun(N)
     ->  throw(error(permission_error(register, metta_builtin, N),
                     context(import_prolog_function/2,
                             'the engine defines this name')))
-    ;   metta_special_form(N)
+    ;   metta_translated_head(N)
     ->  throw(error(permission_error(register, metta_special_form, N),
                     context(import_prolog_function/2,
                             'the translator compiles this name')))
@@ -6189,12 +6330,14 @@ control_exception(error(resource_error(_), _)).
 %retry and given back, parser.pl's metta_saturating_parse discipline on the
 %evaluation side; the happy path pays nothing because this only runs from a
 %catch recovery. The same discipline covers the whole IEEE family when a
-%float operand is present: division by a float zero answers the signed
-%infinity and the NaN class (0.0/0.0, inf - inf, sqrt of a negative, asin
-%past one) answers NaN, which is what isnan-math and isinf-math exist to
+%floating expression is present, including an explicit integer promotion:
+%division by a float zero answers the signed infinity and the NaN class
+%(0.0/0.0, inf - inf, sqrt of a negative, asin past one) answers NaN, which
+%is what isnan-math and isinf-math exist to
 %observe. Every fault outside metta_ieee_retry/1, integer division by zero
-%first among them, keeps the funnel below; the retry's own catch is the net
-%for faults the flags do not govern, none known for the shipped operations.
+%first among them, reaches the operation-recovery funnel below; the retry's
+%own catch is the net for faults the flags do not govern, none known for the
+%shipped operations.
 metta_saturating_recover(Operation, Expression, Result, Error) :-
     metta_ieee_saturable(Expression, Error),
     !,
@@ -6214,15 +6357,40 @@ metta_saturating_recover(Operation, Expression, Result, Error) :-
 metta_saturating_recover(Operation, _, _, Error) :-
     rethrow_metta_operation_error(Operation, Error).
 
+%Float zero division belongs to the IEEE retry, while integer zero division
+%is a contained language result. Test the IEEE class first so `/ 1.0 0.0`
+%keeps its signed infinity and only the all-integer fault reaches the shared
+%operation recovery.
+metta_arithmetic_saturating_recovery(Operation, Arguments, Expression,
+                                     Error, Result) :-
+    (   metta_ieee_saturable(Expression, Error)
+    ->  metta_saturating_recover(Operation, Expression, Result, Error)
+    ;   metta_operation_recovery(Operation, Arguments, Error, Result)
+    ).
+
+%An operation fault is an answer when the language gives the fault a reason.
+%LeaTTa pins both integer doors byte-exactly as (Error (<op> 7 0)
+%DivisionByZero), while every other host error retains the raising path
+%[source: LeaTTa tests/regression/division_convention.metta:82-90;
+%tested: test_integer_division_by_zero_answers_what_d1_decides;
+%commit=ecd792eacbfe1810645434ce406f79be3a9e03d1].
+metta_operation_recovery(Operation, Arguments,
+                         error(evaluation_error(zero_divisor), _), Answer) :-
+    maplist(integer, Arguments), !,
+    metta_error_atom(Operation, Arguments, 'DivisionByZero', Answer).
+metta_operation_recovery(Operation, _, Error, _) :-
+    rethrow_metta_operation_error(Operation, Error).
+
 %Which evaluation faults license the retry. Overflow retries
 %unconditionally, because an ALL-INTEGER division can overflow in its float
 %conversion and the saturated value is this engine's committed answer
-%there. Zero division and the NaN family retry only when a float operand is
-%in the expression: upstream's float arm is raw f64 (1.0/0.0 is inf,
+%there. Zero division and the NaN family retry only when the expression has a
+%float operand or an explicit float/1 promotion: upstream's float arm is raw
+%f64 (1.0/0.0 is inf,
 %0.0/0.0 and inf - inf are NaN, by construction), while its INTEGER
 %division by zero answers a DivisionByZero Error atom, so an integer zero
-%keeps raising here and its shape belongs to the error-answer story, not to
-%this recovery. The retry runs under all three IEEE flags at once rather
+%takes the operation-recovery funnel instead of this retry. The retry runs
+%under all three IEEE flags at once rather
 %than only the one that fired, because a compound expression can fault
 %twice: log-math with base 1 overflows in log(0.0) and then divides the
 %saturated -inf by log(1) = 0.0, and one-flag-at-a-time would error where
@@ -6237,7 +6405,10 @@ metta_ieee_saturable(Expression, error(evaluation_error(Evaluation), _)) :-
     metta_ieee_retry(Evaluation),
     (   Evaluation == float_overflow
     ->  true
-    ;   sub_term(Operand, Expression), float(Operand)
+    ;   sub_term(Operand, Expression),
+        (   float(Operand)
+        ;   compound(Operand), functor(Operand, float, 1)
+        )
     ).
 
 %Keep the ISO Formal term because callers and the MeTTa catch form inspect it.

@@ -16,10 +16,9 @@ Source: `bindings/python/petta/structures.py`.
 >   - PatternMap's ground keys behave exactly like dict keys, the no-tax
 >     rule [tested test_patternmap_ground_keys_are_dict_keys]
 >   - MatchIndex.matches agrees with brute-force unification over every
->     registered pattern, including two distinct NaN values, which the kernel
->     calls equal and dict lookup does not [measured 2026-08-19: the tree
->     answered nothing where unify answered a match] [tested
->     test_matchindex_agrees_with_brute_force]
+>     registered pattern, including mixed integer/float values and NaNs
+>     [tested test_matchindex_agrees_with_brute_force,
+>     test_matchindex_uses_grounded_numeric_equality]
 >   - MatchIndex.matches answers in REGISTRATION order whatever order the
 >     tree walk reached the entries in, and a remove does not disturb it
 >     [measured 2026-08-19: register a, b; remove a; register c; the answer

@@ -1534,7 +1534,8 @@ compile_metta_equation(Module, Term, Clause, Ref) :-
     %verify-specializations differential over examples/
     %[tested specializer:a_recursive_specialization_survives_its_compile].
     invalidate_specializations(Module, F),
-    once(with_metta_module(Module, translate_clause(Term, Clause))),
+    once(with_metta_module(Module, translate_clause(Term, RawClause))),
+    petta_instrument_recursive_clause(Term, RawClause, Clause),
     assert_function_clause(Module, Clause, Ref),
     record_source_assertion(Ref),
     record_translated_from(Ref, Term, SourceRef),
@@ -1542,6 +1543,60 @@ compile_metta_equation(Module, Term, Clause, Ref) :-
     %The dependent-recompile hooks run AFTER the clause is in place, so
     %a definition that mentions F recompiles against the new one.
     forall(metta_on_function_changed(F), true).
+
+%A recursive equation spends the same branch-local budget that runnable
+%limits own. The source tree supplies the cost because it is the stable unit:
+%one fuel unit covers two reduction nodes, rounded up. That calibration is
+%the LeaTTa runner's two exact boundary witnesses: factorial's three-node body
+%costs two and stops at -3 under 20, while fuel-loop's five-node body costs
+%three and stops at -33332 under the default 100000. A quote is data and
+%contributes neither a recursive call nor a reduction node. A compiled input
+%that is the translator's internal `quote` sentinel is likewise not a source
+%argument; its higher-order specialization owns the runnable call, so the
+%generic dispatch artifact is not charged as another recursive branch.
+%[tested: test_a_stack_depth_pragma_bounds_evaluation_instead_of_overflowing].
+petta_instrument_recursive_clause([=, [F|HeadArguments], Body],
+                                  (Head :- Goal),
+                                  (Head :- petta_fuel_step(Culprit, Cost), Goal)) :-
+    length(HeadArguments, Arity),
+    petta_source_calls_head(Body, F, Arity),
+    \+ petta_source_has_variable_head(Body),
+    Head =.. [_|Arguments],
+    append(Inputs, [_Output], Arguments),
+    \+ ( member(Input, Inputs), nonvar(Input), Input == quote ),
+    !,
+    petta_fuel_culprit(F, Inputs, Culprit),
+    petta_source_reduction_count(Body, Nodes),
+    Cost is max(1, (Nodes + 1) // 2).
+petta_instrument_recursive_clause(_, Clause, Clause).
+
+petta_fuel_culprit(_, [Only], Only) :- !.
+petta_fuel_culprit(F, Inputs, [F|Inputs]).
+
+petta_source_calls_head([quote, _], _, _) :- !, fail.
+petta_source_calls_head([Head|Arguments], F, Arity) :-
+    (   nonvar(Head), Head == F, length(Arguments, Arity)
+    ->  true
+    ;   member(Argument, Arguments),
+        petta_source_calls_head(Argument, F, Arity)
+    ).
+
+petta_source_has_variable_head(Term) :-
+    nonvar(Term),
+    Term = [Head|Arguments],
+    (   var(Head)
+    ->  true
+    ;   member(Argument, Arguments),
+        petta_source_has_variable_head(Argument)
+    ).
+
+petta_source_reduction_count(Term, 0) :- var(Term), !.
+petta_source_reduction_count([quote, _], 0) :- !.
+petta_source_reduction_count([_|Arguments], Count) :- !,
+    maplist(petta_source_reduction_count, Arguments, Counts),
+    sum_list(Counts, Nested),
+    Count is Nested + 1.
+petta_source_reduction_count(_, 0).
 
 add_function_atom(Storage, Space, Module, Term, FAtom, W) :-
     store_equation(Storage, Space, Term),
@@ -1807,6 +1862,10 @@ space_argument_error(Operation, Arguments, Error) :-
     metta_space_expression('add-atoms', Terms, List),
     add_expression_to_space(Space, List, Result).
 
+'add-reduct'(Space, _, _) :-
+    var(Space),
+    !,
+    refuse_unbound_input('add-reduct', 1).
 'add-reduct'(Space, Term, Result) :-
     reduced_for_space(Term, Reduced),
     'add-atom'(Space, Reduced, Result).

@@ -35,16 +35,13 @@
 !(test (evalc (+ 1 2) &self) 3)
 
 ;;; Pragmas. Each answers the unit value (), the way add-atom and println! do.
-;;; Any key is accepted, including one this engine does not enforce and one it
-;;; has never heard of: pragma! performs no key validation. The scoped form
-;;; below is PeTTa's own and does refuse a key it cannot set.
+;;; Every key must be in the interpreter registry. An unsupported key raises
+;;; instead of pretending it changed evaluation.
 !(test (pragma! max-time 30) ())
 !(test (pragma! max-inferences 100000000) ())
-!(test (pragma! completely-invented-key 42) ())
 ;Passing none clears a bound again.
 !(test (pragma! max-time none) ())
 !(test (pragma! max-inferences none) ())
-!(test (pragma! completely-invented-key none) ())
 
 ;;; max-stack-depth is the one key with a value contract: a count, and
 ;;; anything else answers its own error rather than raising.
@@ -52,6 +49,15 @@
 !(test (pragma! max-stack-depth -1)
        (Error (pragma! max-stack-depth -1) UnsignedIntegerIsExpected))
 !(test (pragma! max-stack-depth none) ())
+
+;;; A positive stack-depth setting caps the evaluator's branch-local fuel. A
+;;; finite sibling survives when an overlapping recursive branch runs out.
+!(pragma! max-stack-depth 20)
+(= (bounded-factorial 0) 1)
+(= (bounded-factorial $n) (* $n (bounded-factorial (- $n 1))))
+;The answer group is (120 (Error -3 StackOverflow)).
+!(bounded-factorial 5)
+!(pragma! max-stack-depth none)
 
 ;;; (inferences $n $expr) is timeout's deterministic twin, the same
 ;;; kwarg vocabulary the Python tier's run(inferences=) speaks: the bound

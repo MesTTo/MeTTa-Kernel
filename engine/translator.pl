@@ -401,7 +401,9 @@ metta_engine_emitted(petta_answer_terms/3).
 metta_engine_emitted(petta_prune_empty/2).
 metta_engine_emitted(petta_prune_empty_answers/2).
 metta_engine_emitted(petta_run_named/3).
+metta_engine_emitted(petta_run_with_fuel/3).
 metta_engine_emitted(petta_transaction/1).
+metta_engine_emitted(petta_fuel_step/2).
 metta_engine_emitted(function_overapplication/3).
 metta_engine_emitted(metta_bad_argument_error/3).
 
@@ -776,11 +778,12 @@ translate_runnable_expr(C, Names, Goals, Out) :-
                                     [RuntimeNames|CollectedNames]),
     goals_list_to_conj(InnerGoals, Conj),
     NamedConj = petta_run_named(CollectedReaderNames, Conj, RuntimeNames),
+    FuelConj = petta_run_with_fuel(Value, FuelValue, NamedConj),
     (   Value == 'Empty'
     ->  Goals = [Out = []]
     ;   nonvar(Value)
-    ->  Goals = [findall('$petta_answer'(Value, NameState), NamedConj, Out)]
-    ;   Goals = [(findall('$petta_answer'(Value, NameState), NamedConj, All),
+    ->  Goals = [findall('$petta_answer'(FuelValue, NameState), FuelConj, Out)]
+    ;   Goals = [(findall('$petta_answer'(FuelValue, NameState), FuelConj, All),
                   petta_prune_empty_answers(All, Out))]
     ).
 
@@ -1107,7 +1110,9 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
         %--- Automatic 'smart' dispatch, translator deciding when to create a predicate call, data list, or dynamic dispatch: ---
         ; %Known function => direct call:
           ( is_list(T),
-            ( atom(HV), fun_here(HV), Fun = HV, IsPartial = false, Bound = []
+            ( atom(HV), fun_here(HV),
+              \+ runnable_head_awaits_its_definition(HV),
+              Fun = HV, IsPartial = false, Bound = []
             ; compound(HV), HV = partial(Fun, Bound), IsPartial = true
             ) % Check for type definition [:,HV,TypeChain]
             -> ( runtime_guarded_builtin_call(Fun)
@@ -1125,6 +1130,11 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
                                              Bound, Out, AfterHead, Goals)
               ; functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out,
                                 AfterHead, Goals))
+          %A signature from later in this source is data at this position:
+          ; atom(HV), runnable_head_awaits_its_definition(HV)
+            -> note_symbol_head(HV),
+               translate_data_args_dl(HV, T, AfterHead, AfterData, AVs),
+               data_head_answer_dl(HV, T, AVs, Out, AfterData, Goals)
           %Literals (numbers, strings, etc.), known non-function atom => data:
           %A grounded head that is an OPERATION is a call, not data. Without
           %this it fell into the data branch below and never reached reduce/3,
@@ -1142,6 +1152,27 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
           %Unknown head (var/compound) => runtime dispatch:
           ; translate_args_dl(T, AfterHead, BeforeReduce, AVs),
             BeforeReduce = [reduce([HV|AVs], Out, _)|Goals] )).
+
+%A source's signature pre-pass makes a later equation's name visible before
+%the equation itself runs. That visibility is metadata, not a time machine:
+%a runnable at the earlier source position still evaluates against the
+%current equation prefix. source_pending_definition/2 names only those later
+%heads, so imported metadata functions and builtins are never mistaken for
+%forward definitions. Treating a pending name as callable emitted a
+%host predicate that did not exist yet and raised Unknown procedure instead
+%of leaving the call unreduced. Once any predicate for the name exists, the
+%ordinary arity machinery below again decides calls and partial applications.
+%This follows evalSequentialRun, whose bang branch evaluates against kb while
+%only a non-bang form extends kb for the next step
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean,
+%evalSequentialRun] [tested:
+%test_a_bang_before_the_definition_answers_unreduced_not_a_host_error].
+runnable_head_awaits_its_definition(Fun) :-
+    translating_runnable,
+    active_source_program(Id), !,
+    source_pending_definition(Id, Fun),
+    current_metta_module(Module),
+    \+ current_predicate(Module:Fun/_).
 
 %The declarations a CONSTRUCTOR compiles against, and there are two registers
 %of them. type_declaration/2 holds what the program and its spaces declared;
@@ -2056,9 +2087,9 @@ prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
        Prolog is already holding that term, so it returns (~w ...) without \c
        the quote around it.'-[Rule, Seam, Seam] ].
 
-%A let unifies its pattern with its value under an occurs check, so a binding
-%cannot build a term that contains itself. Where that check is emitted decides
-%whether it can fire at all.
+%A let whose pattern and value SHARE a source variable unifies them under an
+%occurs check, so a binding cannot build a term that contains itself. Where
+%that check is emitted decides whether it can fire at all.
 %
 %Emitted before the goals that compute the value, which is where it used to
 %go, it runs on a result that is still an unbound variable, and two fresh
@@ -2074,15 +2105,25 @@ prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
 %identical at 248706, so neither the benchmark gate nor any other
 %inference-based measure sees the difference.
 %
-%A value that shares no variable with the pattern cannot be built out of the
-%pattern's own variables by this let, so for it the early position loses
-%nothing and stays. Only a value that does share one pays for the late check.
+%A computed value that shares no variable with the pattern gets a FRESH output
+%variable from translation. It has appeared in no earlier goal, so binding that
+%fresh variable to the pattern is plain unification: it cannot create a cycle
+%even when the pattern already names a large bound term. A raw value variable
+%is different: two distinct variables in a clause head may alias at runtime,
+%so that path retains its early occurs check [tested:
+%test_let_of_a_fresh_variable_does_not_walk_the_term]. Only a value that shares
+%a source variable pays for the late occurs check.
+%[measured 2026-08-21: examples/reasoning/tilepuzzle.metta, fresh-process
+%m.stats() min of three, 29,633,848 before and 29,633,825 after].
 translate_let_dl([Pattern, Value, In], AfterHead, Goals, Out) :-
     ( shares_variable(Pattern, Value)
       -> translate_expr_dl(Pattern, AfterHead, AfterPattern, PatternValue),
          translate_expr_dl(Value, AfterPattern, AfterValue, ValueResult),
          AfterValue = [unify_with_occurs_check(PatternValue, ValueResult)|AfterUnify]
-       ; AfterHead = [unify_with_occurs_check(PatternValue, ValueResult)|BeforePattern],
+       ; ( var(Value)
+           -> EarlyUnify = unify_with_occurs_check(PatternValue, ValueResult)
+            ; EarlyUnify = (ValueResult = PatternValue) ),
+         AfterHead = [EarlyUnify|BeforePattern],
          translate_expr_dl(Pattern, BeforePattern, AfterPattern, PatternValue),
          translate_expr_dl(Value, AfterPattern, AfterUnify, ValueResult) ),
     translate_expr_dl(In, AfterUnify, Goals, Out).
@@ -2234,7 +2275,12 @@ seal_lambda_locals_list(Term, Sealed, Locals) :-
     ;   Sealed = Term, Locals = []
     ).
 
-%Whether two terms have a variable in common.
+%Whether two terms have a variable in common. A let pattern is ordinarily one
+%variable, so settle that shape without building and walking a one-item list;
+%this offsets the fresh-output decision on the same compile path.
+shares_variable(A, B) :- var(A), !,
+                         term_variables(B, [First|Rest]),
+                         ( A == First -> true ; memberchk_eq(A, Rest) ).
 shares_variable(A, B) :- term_variables(A, VarsA),
                          VarsA \== [],
                          term_variables(B, VarsB),
@@ -3098,8 +3144,7 @@ pattern_modifier(Pattern, Fresh,
     var(Fresh).
 
 %Like membercheck but with direct equality rather than unification
-memberchk_eq(V, [H|_]) :- V == H, !.
-memberchk_eq(V, [_|T]) :- memberchk_eq(V, T).
+memberchk_eq(V, [H|T]) :- ( V == H -> true ; memberchk_eq(V, T) ).
 
 %Generate a readable lambda name. The counter has to be process-wide: SWI
 %global variables are thread-local, so a counter kept in one gave every

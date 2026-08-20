@@ -64,6 +64,13 @@ m.eval("(safe-div 1 0)")
 # [Expr('(Error (safe-div 1 0) "division by zero")')]
 ```
 
+The built-in integer division and remainder operations use that same result
+shape. `m.run("!(/ 7 0)")` answers
+`[[Expr('(Error (/ 7 0) DivisionByZero)')]]`; it does not raise. Collection is
+ordinary collection, so `!(collapse (/ 7 0))` answers the one-element
+expression `((Error (/ 7 0) DivisionByZero))`. Float division retains IEEE
+behavior, including infinity for `(/ 1.0 0.0)` and NaN for `(/ 0.0 0.0)`.
+
 The doors split by what they answer. The aggregation doors, `eval()`, `run()`, `fn.all()` and the streams, keep error atoms as data, exactly as the multiset semantics says. A door that answers a single value has no multiset for the error to be data in, so `one()`, `first()` and calling a function raise `MettaResultError` instead, carrying the parts:
 
 ```python
@@ -393,7 +400,7 @@ The engine has transactions, and a program can already use the inline `(transact
 
 ```python
     with pytest.raises(EngineError):
-        m.run("(kept fact) !(/ 1 0)", atomic=True)
+        m.run("(kept fact) !(+ $left $right)", atomic=True)
     assert expr(S.kept, S.fact) not in m  # the fact rolled back with the throw
     m.run("(kept fact) !(+ 1 1)", atomic=True)
     assert expr(S.kept, S.fact) in m  # and commits whole on success

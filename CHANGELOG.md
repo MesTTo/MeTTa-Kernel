@@ -43,6 +43,38 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Real-valued `sqrt-math`, `log-math`, and trigonometric operations now
+  promote integer operands to Float before evaluation. `pow-math` likewise
+  returns Float, accepts an unbounded Float exponent, and refuses an integer
+  exponent outside signed i32 with the arbiter's exact Error reason.
+- Integer division and remainder by zero now answer the arbiter's contained
+  `(Error (<operation> 7 0) DivisionByZero)` atom. Float division by zero
+  keeps its IEEE infinity or NaN result, and `collapse` preserves the Error
+  as an ordinary member of its answer expression.
+- Constructive negation now applies the same declared `Atom` argument mask as
+  the positive call path. `not-provable` no longer evaluates an argument that
+  the function declaration says must arrive as its written atom.
+- Compiled `let` now uses plain unification when it binds a value operation's
+  fresh output variable. The occurs check remains on pattern/value paths that
+  can share, while queue-sized bound terms no longer receive a redundant walk.
+- Removing an equation from a named space now has an executable public-surface
+  pin that its stored atom and module-scoped compiled clause leave together;
+  the former function call becomes unreduced data immediately after removal.
+- Numeric math operations now reject computed String operands at their own
+  runtime doors. A one-character string can no longer cross into host
+  arithmetic as its character code, including either position of binary math.
+- Numeric equality now compares integer and float operands by value. In
+  particular, `(== 1 1.0)` answers `True`, matching the language's grounded
+  numeric equivalence rule, and `!=` uses the same rule negated.
+- `add-reduct`, `git-import!`, `sleep`, and `sread` now refuse an unbound
+  required input under the operation name the program wrote. Their failures
+  no longer leak delegated or host predicate names; the translated `match`
+  surface retains its already-aligned refusal answer.
+- `(pragma! max-stack-depth N)` now caps each recursive answer branch with the
+  evaluator's fuel budget. A completed sibling remains in the answer group
+  when another branch reaches `StackOverflow`; zero retains the 100000-step
+  default, invalid counts answer `UnsignedIntegerIsExpected`, and unsupported
+  pragma names raise instead of succeeding as no-ops.
 - Free variables returned by runnable source now keep their written names in
   engine output and host bindings. The reader's name map travels beside each
   collected answer, so `$free` stays `$free` instead of becoming `$_0` while
@@ -90,6 +122,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Recorded integer overflow as a deliberate host-width divergence: PeTTa and
+  LeaTTa keep exact unbounded integer results where Hyperon's `i64` carrier
+  answers `ArithmeticOverflow`.
 - The tree partitions by seam, staging the kernel-and-satellites form.
   The engine lives in `engine/` alone; each driver seat lives under
   `bindings/` with everything it needs (`bindings/python/` carries the

@@ -126,10 +126,9 @@ test(a_token_becomes_grounded_when_the_engine_gains_it,
 %engine_operations_saturate_where_raw_is_still_raises,
 %a_twice_faulting_compound_saturates_all_the_way], and a non-number operand
 %raises the argument GUARD's error, which is the next unit's context.
-%Integer division by zero is the fault that remains, deliberately: the
-%operand guard keeps it outside the IEEE retry.
-host_error_case('/', '/'(1, 0, _)).
-host_error_case('%', '%'(1, 0, _)).
+%Integer division and remainder by zero are language Error answers now. They
+%stay outside the IEEE retry, then the shared operation recovery contains
+%them as DivisionByZero instead of rethrowing the host fault.
 host_error_case('#+', '#+'(1, invalid_number, _)).
 host_error_case('#-', '#-'(1, invalid_number, _)).
 host_error_case('#*', '#*'(1, invalid_number, _)).
@@ -142,15 +141,10 @@ host_error_case('#<', '#<'(1, invalid_number, _)).
 host_error_case('#>', '#>'(1, invalid_number, _)).
 host_error_case('#=', '#='(1, invalid_number, _)).
 host_error_case('#\\=', '#\\='(1, invalid_number, _)).
-host_error_case('pow-math', 'pow-math'(0, -1, _)).
-host_error_case('sqrt-math', 'sqrt-math'(-1, _)).
-%The -math family has no invalid_number row and no overflow row: a
-%wrong-typed operand ANSWERS through metta_operation_answer now (the
-%operation_answers unit covers it), and a result past binary64 SATURATES
-%with the reader's literals, so the faults that remain are the all-integer
-%NaN-family ones the float-operand guard keeps outside the retry.
-host_error_case('asin-math', 'asin-math'(2, _)).
-host_error_case('acos-math', 'acos-math'(2, _)).
+%The -math family has no numeric-domain host-error row: its real-valued
+%members promote integers to Float, so negative sqrt and out-of-domain trig
+%answer NaN just like their explicitly floating spellings. Wrong types remain
+%operation Error answers, and overflow saturates through the IEEE recovery.
 host_error_case('random-int', 'random-int'(1, invalid_number, _)).
 host_error_case('random-float', 'random-float'(1, invalid_number, _)).
 host_error_case('random-float',
@@ -158,6 +152,61 @@ host_error_case('random-float',
 host_error_case('bind!', 'bind!'([invalid_key], ['new-state', 1], _)).
 host_error_case('change-state!', 'change-state!'([invalid_key], 1, _)).
 host_error_case('get-state', 'get-state'([invalid_key], _)).
+
+test(test_integer_division_by_zero_answers_what_d1_decides) :-
+    findall(Answer, '/'(7, 0, Answer), DivisionAnswers),
+    DivisionAnswers == [['Error', ['/', 7, 0], 'DivisionByZero']],
+    findall(Answer, '%'(7, 0, Answer), RemainderAnswers),
+    RemainderAnswers == [['Error', ['%', 7, 0], 'DivisionByZero']],
+    process_metta_string("!(/ 7 0)", Direct),
+    Direct == [['Error', ['/', 7, 0], 'DivisionByZero']],
+    process_metta_string("!(collapse (/ 7 0))", Collapsed),
+    Collapsed == [[['Error', ['/', 7, 0], 'DivisionByZero']]].
+
+real_unary_pair('sqrt-math', 4, 2.0).
+real_unary_pair('sin-math', 0, 0.0).
+real_unary_pair('cos-math', 0, 1.0).
+real_unary_pair('tan-math', 0, 0.0).
+real_unary_pair('asin-math', 0, 0.0).
+real_unary_pair('acos-math', 1, 0.0).
+real_unary_pair('atan-math', 0, 0.0).
+
+test(test_real_valued_math_treats_integer_and_float_operands_alike) :-
+    forall(real_unary_pair(Operation, Integer, Expected),
+           ( GoalInteger =.. [Operation, Integer, IntegerAnswer],
+             Float is float(Integer),
+             GoalFloat =.. [Operation, Float, FloatAnswer],
+             call(GoalInteger), call(GoalFloat),
+             float(IntegerAnswer), float(FloatAnswer),
+             IntegerAnswer =:= Expected, FloatAnswer =:= Expected )),
+    'log-math'(10, 100, IntegerLog),
+    'log-math'(10.0, 100.0, FloatLog),
+    IntegerLog =:= 2.0, FloatLog =:= 2.0,
+    'sqrt-math'(-1, SqrtIntNan), 'isnan-math'(SqrtIntNan, true),
+    'sqrt-math'(-1.0, SqrtFloatNan), 'isnan-math'(SqrtFloatNan, true),
+    'log-math'(10, -5, LogIntNan), 'isnan-math'(LogIntNan, true),
+    'log-math'(10.0, -5.0, LogFloatNan),
+    'isnan-math'(LogFloatNan, true),
+    'asin-math'(2, AsinIntNan), 'isnan-math'(AsinIntNan, true),
+    'asin-math'(2.0, AsinFloatNan), 'isnan-math'(AsinFloatNan, true),
+    'acos-math'(2, AcosIntNan), 'isnan-math'(AcosIntNan, true),
+    'acos-math'(2.0, AcosFloatNan), 'isnan-math'(AcosFloatNan, true),
+    'pow-math'(2, 3, Power), Power == 8.0,
+    'pow-math'(1, -2147483648, LowerBound), LowerBound == 1.0,
+    'pow-math'(1, 2147483647, UpperBound), UpperBound == 1.0,
+    'pow-math'(0, -1, InfinitePower),
+    'isinf-math'(InfinitePower, true),
+    'pow-math'(1, 2147483648.0, UnboundedFloatPower),
+    UnboundedFloatPower == 1.0,
+    'pow-math'(2, 2147483648, TooBig),
+    TooBig == ['Error', ['pow-math', 2, 2147483648],
+               "power argument is too big, try using float value"],
+    'pow-math'(2, -2147483649, TooSmall),
+    TooSmall == ['Error', ['pow-math', 2, -2147483649],
+                 "power argument is too big, try using float value"],
+    %exp-math is PeTTa doctrine, not part of LeaTTa's floatUn table.
+    'exp-math'(1, IntegerExp), 'exp-math'(1.0, FloatExp),
+    IntegerExp =:= FloatExp.
 
 %The guarded operators refuse a non-number argument themselves rather than
 %letting is/2 coerce it, and the refusal is an ANSWER: `invalid_number` is an
@@ -185,20 +234,6 @@ test(divide_refuses_by_name_where_the_others_leave_the_call) :-
     Answers == [['Error', ['/', 1, invalid_number],
                  "Divide expects two numbers: dividend and divisor"]].
 
-%A number the function is undefined at is a HOST error and stays one, which is
-%the split metta_math_recovery/4 draws: only an argument that is not a number
-%at all becomes the operation's own answer. exp-math over a large integer is
-%NOT in this list: exp IS defined there, the value merely leaves binary64,
-%and a result past binary64 saturates with the reader's literals
-%[tested: engine_operations_saturate_where_raw_is_still_raises].
-test(a_number_the_function_is_undefined_at_stays_a_host_error,
-     [forall(member(Goal-Operation, ['sqrt-math'(-1, _)-'sqrt-math',
-                                     'pow-math'(0, -1, _)-'pow-math',
-                                     'asin-math'(2, _)-'asin-math']))]) :-
-    catch(call(Goal), Error, true),
-    nonvar(Error),
-    Error = error(_, context(Operation, 'while evaluating MeTTa operation')).
-
 %The same operations handed an argument that is not a number at all. Each
 %answers in upstream's own words, and upstream's noun is not uniform: sqrt-math
 %and abs-math say `number` where every later unary operation says `input
@@ -224,6 +259,24 @@ test(a_math_operation_answers_its_own_refusal_by_name,
     findall(Result, call(Goal), Answers),
     Answers = [['Error', _, Reason]],
     Reason == Message.
+
+%Drive every position from the engine's math-operation registry. SWI accepts a
+%one-character string as an arithmetic character code, so this must exercise
+%the direct operation door rather than relying on translated-call filtering.
+test(test_a_string_operand_to_math_refuses_instead_of_answering_its_char_code) :-
+    forall(( metta_math_operation(Operation, Arity),
+             between(1, Arity, Position) ),
+           ( length(Arguments, Arity),
+             PrefixLength is Position - 1,
+             length(Prefix, PrefixLength),
+             append(Prefix, ["s"|Suffix], Arguments),
+             maplist(=(2), Prefix),
+             maplist(=(2), Suffix),
+             append(Arguments, [Answer], CallArguments),
+             Goal =.. [Operation|CallArguments],
+             once(call(Goal)),
+             Answer = ['Error', [Operation|Arguments],
+                       ['BadArgType', Position, 'Number', 'String']] )).
 
 %min-atom and max-atom carry three texts for three arguments, and the third
 %quotes the offending expression back the way upstream formats it.
@@ -2020,21 +2073,21 @@ test(sort_strings_sorts_strings_and_refuses_anything_else) :-
 
 :- begin_tests(interpreter_pragmas).
 
-%pragma! answers the UNIT value and accepts any key. An unrecognised key is
-%not an error there: "an Error would introduce key validation that the pinned
-%operation does not perform" [source: LeaTTa
-%tests/semantics/eval-core/pragma-unknown-key.metta, STATUS conforms].
-test(pragma_answers_unit_for_any_key) :-
-    'pragma!'('completely-invented-key', 42, Unknown),
+%An unsupported name cannot pretend it changed evaluation.
+test(pragma_refuses_an_unknown_key,
+     [throws(error(domain_error(metta_pragma_key,
+                                'completely-invented-key'), _))]) :-
+    'pragma!'('completely-invented-key', 42, _).
+
+test(pragma_answers_unit_for_a_known_key) :-
     'pragma!'('type-check', auto, Known),
-    Unknown == [], Known == [],
-    'pragma!'('completely-invented-key', none, _),
+    Known == [],
     'pragma!'('type-check', none, _).
 
 %The one key the arbiter validates, and the whole of what it validates
 %[measured 2026-08-19 against the arbiter: `abc`, `1.5` and `-1` each answer
-%the error below, while (pragma! type-check -1) and
-%(pragma! completely-invented-key -1) both answer ()].
+%the error below, while (pragma! type-check -1) answers unit; the unknown-key
+%case is the engine-registry divergence pinned separately above].
 test(max_stack_depth_answers_its_own_error_for_a_value_that_is_not_a_count,
      [forall(member(Bad, [-1, 1.5, abc]))]) :-
     'pragma!'('max-stack-depth', Bad, Result),
@@ -2175,18 +2228,10 @@ test(every_builtin_refuses_an_unbound_input_by_name) :-
             Wrong),
     assertion(Wrong == []).
 
-%The same probe over the positions this rule does NOT cover, so the gap stays
-%measured rather than assumed: each still misbehaves, and the day one stops,
-%this test says so and the row comes out of unguarded_input_position/2.
-test(the_uncovered_positions_are_still_uncovered) :-
-    findall(Name-Position,
-            ( unguarded_input_position(Name, Position),
-              arity(Name, Arity),
-              functor(Head, Name, Arity),
-              predicate_property(Head, defined),
-              guard_outcome(Name, Arity, Position, ok) ),
-            Fixed),
-    assertion(Fixed == []).
+%The explicit residue register stays defined and empty, so a later exception
+%cannot silently disappear by deleting the completeness question.
+test(test_the_residual_positions_refuse_by_their_own_names) :-
+    assertion(\+ unguarded_input_position(_, _)).
 
 :- end_tests(builtin_input_guards).
 

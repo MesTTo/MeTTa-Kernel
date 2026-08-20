@@ -218,3 +218,15 @@
 !(test (collapse (let True (not-provable (#< $x 5)) (let $x 3 $x))) ())
 !(test (collapse (let True (not-provable (#= $y 4)) (let $y 9 $y))) (9))
 !(test (collapse (let True (not-provable (#= $y 4)) (let $y 4 $y))) ())
+
+;;;; Atom-typed arguments stay written on both sides ;;;;
+;
+;A declaration can make an argument data. The positive and constructive-
+;negation paths both preserve that same written term instead of reducing it.
+(: mask-example-double (-> Number Number))
+(= (mask-example-double $x) (* $x 2))
+(: mask-example-holds (-> Atom Bool))
+(= (mask-example-holds 10) True)
+!(test (not-provable (mask-example-holds (mask-example-double 5))) True)
+!(test (not-provable (mask-example-holds 10)) False)
+!(test (collapse (mask-example-holds (mask-example-double 5))) ())
