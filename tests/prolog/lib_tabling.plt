@@ -12,7 +12,7 @@
 %     built while tabling is declared is still dropped when its function
 %     changes [tested: duals_survive_tabling]
 %   - an effect declaration in &petta is the cache-purity claim [tested:
-%     a_metta_side_effect_declaration_is_a_purity_claim; commit=WORKTREE]
+%     a_metta_side_effect_declaration_is_a_purity_claim; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

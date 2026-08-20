@@ -45,7 +45,7 @@
 %     [measured 2026-08-15].
 %   - Python operation purity reaches the same `(effect Name immutable)` atom
 %     read by metta_pure_operation/1 [tested:
-%     test_pure_registration_reflects_an_effect_atom; commit=WORKTREE].
+%     test_pure_registration_reflects_an_effect_atom; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861].
 %   - A result past binary64 saturates to the IEEE value on the engine's
 %     operations, agreeing with the reader's saturating literals, and an
 %     infinity a literal produced carries through further arithmetic; the
