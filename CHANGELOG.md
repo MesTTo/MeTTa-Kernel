@@ -41,6 +41,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Repeated `eval` calls reuse their compiled Prolog goal template. Templates
+  are variant-keyed per execution space and are evicted when any function or
+  declaration named by the source changes or is removed. Large one-shot terms
+  stay uncached, and direct flat calls keep their existing fast path.
+
 - The upstream documentation family is available with no import. `(get-doc
   $space $atom)`, `get-doc-atom`, `get-doc-single-atom`, `get-doc-function`,
   and `get-doc-params` build `@doc-formal` records from the prose and types in
