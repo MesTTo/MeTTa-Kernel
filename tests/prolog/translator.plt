@@ -6,7 +6,7 @@
 % Guarantees:
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
-%     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=WORKTREE].
+%     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
