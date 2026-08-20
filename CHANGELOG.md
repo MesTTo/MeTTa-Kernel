@@ -95,6 +95,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- `register_op` now rejects coroutine, async-generator, and generator-based
+  coroutine functions before registration. Its synchronous engine path cannot
+  await them; ordinary generator operations remain nondeterministic.
+
 - A Python tuple now answers as ordinary structural MeTTa data through both
   the standalone engine and Python library. Asking `py-atom` for `Grounded`
   retains a Python object reference instead of accepting Janus's eager tuple
