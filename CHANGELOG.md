@@ -37,6 +37,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Constructive negation now applies the same declared `Atom` argument mask as
+  the positive call path. `not-provable` no longer evaluates an argument that
+  the function declaration says must arrive as its written atom.
 - Compiled `let` now uses plain unification when it binds a value operation's
   fresh output variable. The occurs check remains on pattern/value paths that
   can share, while queue-sized bound terms no longer receive a redundant walk.
