@@ -8,6 +8,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- All 44 names installed by `petta.arrays` now carry arity-accurate arrow
+  declarations, including defaulted and variadic call forms. The new
+  `broadcast-shape` CLP(FD) relation checks or infers NumPy broadcasting
+  shapes before an array is materialised.
 - Python conversion now carries bare and abstract sequence annotations through
   the same container hook as parameterized builtins. Buffer exporters project
   as zero-copy `Buffer` expressions that retain the original object together

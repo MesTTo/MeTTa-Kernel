@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 30 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 132 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 133 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 19,596 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `engine/*.pl` | 19,601 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
 | `backends/*/decider.pl` | globbed at boot; each integration's decider decides whether its own artefact is present | |
@@ -334,7 +334,10 @@ Entry-point groups: `petta.integrations`, `petta.spaces`, `petta.libraries`.
 `petta.arrays`: one operation vocabulary over any DLPack library.
 `install(m, default=xp)` makes numpy, torch or JAX first-class with the same
 words; `namespace_of`, `is_array`, `data_of`, `ARRAY_OPS`, and `EmbeddingStore`
-with an exact faiss backend.
+with an exact faiss backend. Its 44 installed names all carry `(-> ...)`
+declarations. `broadcast-shape` is a CLP(FD) relation over shape expressions,
+so it computes compatible shapes, runs backwards to infer dimensions, and
+rejects incompatible shapes before a tensor is materialised.
 
 `petta.tables`: `declare(...)` writes one ctx-scoped bridge declaration into
 `&petta` and `TableBridge` derives every provider operation from it, so a

@@ -9,6 +9,30 @@ Source: `bindings/python/petta/ops.py`.
 > Guarantees:
 >   - registration distinguishes a MeTTa function name from its declaration
 >     space [tested test_public_context_types_are_distinct]
+>   - full annotations become ordinary claims in the declaration space
+>     [tested: test_the_four_containers_share_one_parameterised_treatment;
+>      commit=4224c26819d90b9e03efdaef78cb573b91729295]
+>   - overload stubs each contribute their declared arrow and annotation claims
+>     [tested: test_every_advanced_annotation_reaches_metta_as_a_target_symbol;
+>      commit=4224c26819d90b9e03efdaef78cb573b91729295]
+>   - unreachable **kwargs refuses and a typed zero-parameter operation still
+>     emits its return arrow
+>     [tested: test_each_remaining_annotation_shape_refuses_or_carries;
+>      commit=ff4ac16f07a6e373e79ed0eae0a4c2d64cb92550]
+>   - callable code flags, through partials, wrappers, bound methods, and
+>     callable objects, classify generators and refuse coroutine functions
+>     before registration changes any engine or registry state [tested:
+>     test_register_op_reads_co_flags_and_refuses_or_awaits;
+>     commit=9b1b808f6b8d8aa6a8080c13092fa73ce7893aaa]
+>   - every documented operation owns its portable @doc atom in the
+>     declaration space, independent of typed=, under the same transactional
+>     lifecycle and reference count as type declarations [tested:
+>     test_every_register_op_writes_its_declaration_and_get_doc_answers;
+>     commit=eda90565cfb66417c62e654b0f3e7b55351366c5]
+>   - each registered arity owns the arrow for exactly the arguments that call
+>     form accepts, including repeated variadic annotations [tested:
+>     test_every_array_operation_is_typed_and_a_shape_is_a_constraint;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
