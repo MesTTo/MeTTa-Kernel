@@ -2087,9 +2087,9 @@ prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
        Prolog is already holding that term, so it returns (~w ...) without \c
        the quote around it.'-[Rule, Seam, Seam] ].
 
-%A let unifies its pattern with its value under an occurs check, so a binding
-%cannot build a term that contains itself. Where that check is emitted decides
-%whether it can fire at all.
+%A let whose pattern and value SHARE a source variable unifies them under an
+%occurs check, so a binding cannot build a term that contains itself. Where
+%that check is emitted decides whether it can fire at all.
 %
 %Emitted before the goals that compute the value, which is where it used to
 %go, it runs on a result that is still an unbound variable, and two fresh
@@ -2105,15 +2105,25 @@ prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
 %identical at 248706, so neither the benchmark gate nor any other
 %inference-based measure sees the difference.
 %
-%A value that shares no variable with the pattern cannot be built out of the
-%pattern's own variables by this let, so for it the early position loses
-%nothing and stays. Only a value that does share one pays for the late check.
+%A computed value that shares no variable with the pattern gets a FRESH output
+%variable from translation. It has appeared in no earlier goal, so binding that
+%fresh variable to the pattern is plain unification: it cannot create a cycle
+%even when the pattern already names a large bound term. A raw value variable
+%is different: two distinct variables in a clause head may alias at runtime,
+%so that path retains its early occurs check [tested:
+%test_let_of_a_fresh_variable_does_not_walk_the_term]. Only a value that shares
+%a source variable pays for the late occurs check.
+%[measured 2026-08-21: examples/reasoning/tilepuzzle.metta, fresh-process
+%m.stats() min of three, 29,633,848 before and 29,633,825 after].
 translate_let_dl([Pattern, Value, In], AfterHead, Goals, Out) :-
     ( shares_variable(Pattern, Value)
       -> translate_expr_dl(Pattern, AfterHead, AfterPattern, PatternValue),
          translate_expr_dl(Value, AfterPattern, AfterValue, ValueResult),
          AfterValue = [unify_with_occurs_check(PatternValue, ValueResult)|AfterUnify]
-       ; AfterHead = [unify_with_occurs_check(PatternValue, ValueResult)|BeforePattern],
+       ; ( var(Value)
+           -> EarlyUnify = unify_with_occurs_check(PatternValue, ValueResult)
+            ; EarlyUnify = (ValueResult = PatternValue) ),
+         AfterHead = [EarlyUnify|BeforePattern],
          translate_expr_dl(Pattern, BeforePattern, AfterPattern, PatternValue),
          translate_expr_dl(Value, AfterPattern, AfterUnify, ValueResult) ),
     translate_expr_dl(In, AfterUnify, Goals, Out).
@@ -2265,7 +2275,12 @@ seal_lambda_locals_list(Term, Sealed, Locals) :-
     ;   Sealed = Term, Locals = []
     ).
 
-%Whether two terms have a variable in common.
+%Whether two terms have a variable in common. A let pattern is ordinarily one
+%variable, so settle that shape without building and walking a one-item list;
+%this offsets the fresh-output decision on the same compile path.
+shares_variable(A, B) :- var(A), !,
+                         term_variables(B, [First|Rest]),
+                         ( A == First -> true ; memberchk_eq(A, Rest) ).
 shares_variable(A, B) :- term_variables(A, VarsA),
                          VarsA \== [],
                          term_variables(B, VarsB),
@@ -3129,8 +3144,7 @@ pattern_modifier(Pattern, Fresh,
     var(Fresh).
 
 %Like membercheck but with direct equality rather than unification
-memberchk_eq(V, [H|_]) :- V == H, !.
-memberchk_eq(V, [_|T]) :- memberchk_eq(V, T).
+memberchk_eq(V, [H|T]) :- ( V == H -> true ; memberchk_eq(V, T) ).
 
 %Generate a readable lambda name. The counter has to be process-wide: SWI
 %global variables are thread-local, so a counter kept in one gave every

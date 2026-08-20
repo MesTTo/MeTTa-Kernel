@@ -37,6 +37,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Compiled `let` now uses plain unification when it binds a value operation's
+  fresh output variable. The occurs check remains on pattern/value paths that
+  can share, while queue-sized bound terms no longer receive a redundant walk.
 - Removing an equation from a named space now has an executable public-surface
   pin that its stored atom and module-scoped compiled clause leave together;
   the former function call becomes unreduced data immediately after removal.

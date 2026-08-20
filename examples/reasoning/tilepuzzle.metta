@@ -1,3 +1,8 @@
+;Purpose: solve the eight-tile puzzle by breadth-first search over a queue.
+;Guarantees: the answer is 181441, and the let* queue bindings keep that answer
+;while their fresh value outputs bind in constant time [tested:
+;test_let_of_a_fresh_variable_does_not_walk_the_term].
+
 (= (move (___ $_2 $_3
           $_4 $_5 $_6
           $_7 $_8 $_9) R)

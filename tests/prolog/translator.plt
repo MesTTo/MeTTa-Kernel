@@ -256,13 +256,15 @@ test(a_computed_self_reference_cannot_create_a_rational_tree,
     metta_self_module(Self),
     \+ call_goals_in_(Self, Goals).
 
-%A value that shares no variable with the pattern cannot be built out of the
-%pattern, so its check stays ahead of the value's goals, where it runs on two
-%unbound variables and costs nothing. Moving every let's check behind its
-%value measured 2.7x wall clock on a let-heavy workload.
-test(an_unshared_value_keeps_its_check_ahead_of_the_value_goals) :-
-    translate_expr([let, _X, ['cons-atom', a, []], done], Goals, _),
-    Goals = [unify_with_occurs_check(_, _)|_].
+%The value translator's output is fresh at this site. Binding it to a pattern
+%cannot create a cycle, even when that pattern is already a large bound term,
+%so plain =/2 avoids walking the term before cons-atom fills the output.
+test(test_let_of_a_fresh_variable_does_not_walk_the_term) :-
+    translate_expr([let, Bound, ['cons-atom', a, []], done], Goals, _),
+    Bound = [a, deeply, nested, bound, term],
+    Goals = [(Fresh = Bound), 'cons-atom'(a, [], Fresh)],
+    \+ ( member(Goal, Goals), nonvar(Goal),
+         functor(Goal, unify_with_occurs_check, 2) ).
 
 test(a_shared_value_moves_its_check_behind_the_value_goals) :-
     translate_expr([let, X, ['cons-atom', X, []], done], Goals, _),
