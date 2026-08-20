@@ -23,6 +23,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   against 234.03 before, beside 49.01 for an unhooked add. The handler's
   call site is translated once when the claim is made and recompiled
   automatically after any equation or declaration change.
+- Removing the last equation that shadowed a builtin restores the
+  builtin. The erase used to leave an empty local predicate in the
+  space's execution module, which kept shadowing the engine's definition
+  for the rest of the process: after removing a `car-atom` shadow from
+  `&self`, every compiled caller of `car-atom` failed from then on.
+  Inside a transaction the repair waits for the commit, so a failed
+  reload still leaves the previous definitions standing.
 - The atom offered to a pre-add or post-add handler reaches it as itself.
   When the offered atom's head happened to name a function, the handler
   used to judge the atom's evaluation while the space received the atom,

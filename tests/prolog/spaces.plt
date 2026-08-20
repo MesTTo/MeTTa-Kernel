@@ -557,12 +557,12 @@ shadow_in_self(Name, MettaArity, Self, Arity) :-
     'add-atom'('&self', [=, [Name|Args], plunit_shadowed], _),
     space_module('&self', Self).
 
-unshadow_in_self(Name, MettaArity, Arity) :-
+%The engine's own removal drops an emptied local shadow so the module
+%chain answers again [tested: removing_a_self_shadow_restores_the_builtin];
+%nothing here needs to reach into the module behind its back.
+unshadow_in_self(Name, MettaArity, _Arity) :-
     length(Args, MettaArity),
-    'remove-atom'('&self', [=, [Name|Args], plunit_shadowed], _),
-    space_module('&self', Self),
-    functor(Gone, Name, Arity),
-    retractall(Self:Gone).
+    'remove-atom'('&self', [=, [Name|Args], plunit_shadowed], _).
 
 test(an_imported_engine_name_is_free_in_a_space,
      [forall(engine_imports(Name, MettaArity))]) :-
@@ -787,9 +787,7 @@ test(a_conjunction_keeps_each_row_annotation,
 % the predicate for the rest of the process: two shipped examples did that, and
 % tests/prolog/engine_integrity.pl is the gate that would not let it back.
 test(self_may_shadow_a_builtin,
-     [ cleanup(( 'remove-atom'('&self', [=, ['car-atom', _], nine], _),
-                 metta_self_module(S),
-                 retractall(S:'car-atom'(_, nine)) )) ]) :-
+     [ cleanup('remove-atom'('&self', [=, ['car-atom', _], nine], _)) ]) :-
     'add-atom'('&self', [=, ['car-atom', _], nine], _),
     metta_self_module(Self),
     with_metta_module(Self, reduce(['car-atom', [1, 2]], Shadowed, _)),
@@ -797,6 +795,18 @@ test(self_may_shadow_a_builtin,
     % The engine's own predicate is untouched, which is the whole point.
     petta_engine_module(Engine),
     assertion(Engine:'car-atom'([1, 2], 1)).
+
+% Removing the shadow RESTORES the builtin. The erase used to leave an
+% empty local 'car-atom'/2 in &self's module, which kept shadowing the
+% engine's for the rest of the process: every &self-compiled caller of
+% car-atom, the prelude's admission judge included, failed from then on
+% [measured 2026-08-20].
+test(removing_a_self_shadow_restores_the_builtin) :-
+    'add-atom'('&self', [=, ['car-atom', _], nine], _),
+    'remove-atom'('&self', [=, ['car-atom', _], nine], _),
+    metta_self_module(Self),
+    with_metta_module(Self, reduce(['car-atom', [1, 2]], Restored, _)),
+    assertion(Restored == 1).
 
 % What is left to refuse is SWI's protected core, and it is refused in EVERY
 % space rather than in &self alone. sort/2 is one of the four names still taken
