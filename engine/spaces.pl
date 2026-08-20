@@ -78,7 +78,7 @@
 %     denied operation names the space, operation, and missing capability
 %     [tested:
 %     test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
-%     commit=WORKTREE].
+%     commit=6a08901f4125c2536f5b4032daac9937f793870f].
 % Guarded by: '$petta_native_storage' serializes private module creation and
 %   publication in native_storage_module_cache/2; '$petta_capacity_count'
 %   serializes installation and replacement of each incremental count.

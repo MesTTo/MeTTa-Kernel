@@ -9,7 +9,8 @@
 %     spaces_inheritance;
 %     commit=755330de329ece49eddcfb7d6db3061c3350a0ca].
 %   - restricted spaces select curated grant profiles and raw calls pass the
-%     sandbox boundary [tested: spaces_restricted_modules; commit=WORKTREE].
+%     sandbox boundary [tested: spaces_restricted_modules;
+%     commit=6a08901f4125c2536f5b4032daac9937f793870f].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

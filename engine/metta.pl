@@ -27,7 +27,8 @@
 %     test_a_child_space_reads_through_its_parent_and_writes_locally;
 %     commit=755330de329ece49eddcfb7d6db3061c3350a0ca].
 %   - restricted modules resolve only their local equations and curated
-%     builtin surface [tested: spaces_restricted_modules; commit=WORKTREE].
+%     builtin surface [tested: spaces_restricted_modules;
+%     commit=6a08901f4125c2536f5b4032daac9937f793870f].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction

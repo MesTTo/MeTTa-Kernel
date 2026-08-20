@@ -64,7 +64,7 @@
 %   - restricted calls preserve capability checks through direct, computed,
 %     and raw-Prolog translation paths [tested:
 %     test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
-%     commit=WORKTREE].
+%     commit=6a08901f4125c2536f5b4032daac9937f793870f].
 %   - A translator rule whose expansion is built in Prolog compiles to the
 %     goals it emits, including a constant folded at compile time, and is
 %     refused when a quote leaves that expansion as data
