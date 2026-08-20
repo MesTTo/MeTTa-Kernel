@@ -14,6 +14,7 @@
 #                                            xenon refurb vulture slotscheck
 #                                            bandit deptry audit interrogate
 #                                            codespell imports jscpd prolog
+#                                            ciao-grade
 #                                            codec-doc leatta leatta-gate-selftest
 #                                            snippets
 #                                            pytest benchmarks instructions
@@ -259,6 +260,21 @@ check_prolog() {
     return 1
 }
 run GATE prolog check_prolog
+
+# Packaged Ciao assertions stay an external development grade. The engine is
+# loaded unchanged, tests/prolog/ciao_grade.pl contributes pred assertions for
+# the removal and translation funnels, and rtchecks collects violations as
+# assrchk/1 data. The smoke must collect none; the named planted call proves
+# the collector still discriminates [tested:
+# test_the_ciao_grade_collects_a_planted_assertion_violation_as_data;
+# commit=WORKTREE].
+check_ciao_grade() {
+    cd "$HERE/tests/prolog" || return 1
+    swipl -q --on-warning=status --on-error=status \
+        -g "set_test_options([format(log)]), run_tests" \
+        -t halt ciao_grade.plt
+}
+run GATE ciao-grade check_ciao_grade
 
 # Run the four reviewed library(check) predicates plus check/0 only after a
 # representative MeTTa function has been compiled. The driver also enables

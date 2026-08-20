@@ -47,6 +47,24 @@ Pass check names to run a subset, for example:
 CHECK_PY="$PY" sh check.sh ruff mypy ty
 ```
 
+The `ciao-grade` gate applies external `pred` assertions to the live engine's
+removal and translation funnels, runs them with the packaged runtime checker,
+and requires a valid smoke to produce zero `assrchk/1` findings. Install its
+three SWI-Prolog development packs with `pack_install/2`: `assertions@0.0.1`,
+`rtchecks@0.0.1`, and `xlibrary@0.0.2`. Each reviewed pack carries the
+Simplified BSD license. The reviewed immutable revisions are
+`4e4244c77a92bb84d1f75fd636b95625d04923bf`,
+`be9f11ce1c3d85fae6dbb3653ccfeb2b37b27f6d`, and
+`ce589b56dbfa9f7aa39384156d441962b8bb3910`, respectively. The
+`ciao@0.0.1` dialect pack is neither copied nor used because its immutable
+`865e19fda2a732d841645e497135a12cd9c7ccab` tree contains no license file.
+
+Run the grade alone with:
+
+```sh
+CHECK_PY="$PY" sh check.sh ciao-grade
+```
+
 `GATE` failures make `check.sh` fail. `REPORT` findings are printed and remain
 non-blocking only while their recorded backlog is being removed. A clean
 REPORT check belongs in the GATE tier.

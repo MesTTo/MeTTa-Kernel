@@ -32,6 +32,40 @@ jobs:
       - name: Install the package and the check tools
         run: uv sync --locked --extra checks
 
+      - name: Install the reviewed Ciao-grade packs
+        run: |
+          swipl -q -g "
+            use_module(library(prolog_pack)),
+            pack_install(lambda,
+                         [interactive(false), test(false), register(false)]),
+            pack_install('https://github.com/edisonm/xlibrary.git',
+                         [commit('HEAD'), branch(master), interactive(false),
+                          test(false), register(false)]),
+            pack_install('https://github.com/edisonm/assertions.git',
+                         [commit('HEAD'), branch(master), interactive(false),
+                          test(false), register(false)]),
+            pack_install('https://github.com/edisonm/rtchecks.git',
+                         [commit('HEAD'), branch(master), interactive(false),
+                          test(false), register(false)]),
+            halt" -t 'halt(1)'
+          for ciao_spec in \
+              assertions:4e4244c77a92bb84d1f75fd636b95625d04923bf \
+              rtchecks:be9f11ce1c3d85fae6dbb3653ccfeb2b37b27f6d \
+              xlibrary:ce589b56dbfa9f7aa39384156d441962b8bb3910
+          do
+            ciao_pack=${ciao_spec%%:*}
+            ciao_want=${ciao_spec#*:}
+            ciao_dir=$(swipl -q -g \
+              "use_module(library(prolog_pack)),pack_property($ciao_pack,directory(D)),write(D),halt" \
+              -t 'halt(1)')
+            ciao_got=$(git -C "$ciao_dir" rev-parse HEAD)
+            if [ "$ciao_got" != "$ciao_want" ]; then
+              printf '%s: expected %s, got %s\n' \
+                "$ciao_pack" "$ciao_want" "$ciao_got" >&2
+              exit 1
+            fi
+          done
+
       # The Node binding runs the engine in a WebAssembly SWI, so it needs
       # node and swipl-wasm and nothing else. Without this step check.sh's
       # node-binding lane says it cannot run and the conformance kit in

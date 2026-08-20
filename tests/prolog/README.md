@@ -44,6 +44,22 @@ running `list_trivial_fails/0`, `list_redefined/0`, `list_void_declarations/0`,
 `list_autoload/0`, and `check/0`. The determinism driver parses every MeTTa
 example in a fresh process and rejects a form with two translations.
 
+`sh check.sh ciao-grade` loads the unchanged engine and the external
+`tests/prolog/ciao_grade.pl` side file, applies packaged runtime checks to the
+four removal and translation funnels, and requires its valid smoke to collect
+zero `assrchk/1` findings. It uses three external development packs:
+`assertions@0.0.1`, `rtchecks@0.0.1`, and `xlibrary@0.0.2`. Each pack carries
+the Simplified BSD license. Their reviewed immutable revisions are
+`4e4244c77a92bb84d1f75fd636b95625d04923bf`,
+`be9f11ce1c3d85fae6dbb3653ccfeb2b37b27f6d`, and
+`ce589b56dbfa9f7aa39384156d441962b8bb3910`, respectively. The
+`ciao@0.0.1` dialect pack is neither copied nor used because its immutable
+`865e19fda2a732d841645e497135a12cd9c7ccab` tree contains no license file.
+The named planted test proves the collector reports a bad call as data:
+
+    cd tests/prolog
+    swipl -q -g "run_tests(ciao_grade:test_the_ciao_grade_collects_a_planted_assertion_violation_as_data),halt" ciao_grade.plt
+
 None of those five SWI checks reports UNREACHABILITY, so a predicate defined
 and never called was invisible to all of them, the way it was to `vulture` and
 `jscpd`, which read only Python. `tests/prolog/reachability.pl` answers that

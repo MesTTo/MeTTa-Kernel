@@ -8,6 +8,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- A packaged Ciao-style development grade now applies external `pred`
+  assertions to the engine's atom-removal, equation-removal, storage-removal,
+  and translation funnels. `assertions@0.0.1`, `rtchecks@0.0.1`, and
+  `xlibrary@0.0.2` collect violations as `assrchk/1` data without adding a
+  production engine dependency; a clean smoke and a planted bad call gate both
+  directions.
 - `(space-atom-count <space>)` answers how many atoms a space holds from
   the store's own per-predicate clause counts: one property read per
   stored arity, none per atom, so a capacity policy over a million-atom
