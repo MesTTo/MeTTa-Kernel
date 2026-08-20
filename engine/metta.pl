@@ -1487,25 +1487,13 @@ guarded_input_position(Name, Arity, Position) :-
     \+ relational_input_position(Name, Position),
     \+ unguarded_input_position(Name, Position).
 
-%The three positions this rule does NOT yet cover, named rather than hidden.
-%Each predicate lives in a file the change that added this guard does not
-%own, and each is measured 2026-08-19: get-atoms/2 and match/4 are in
-%engine/spaces.pl and raise an instantiation_error with no context at all, so a
-%program is told a value is missing and not which one; sread/2 is in
-%engine/parser.pl and raises naming system:atom_codes/2, a predicate the MeTTa
-%program never wrote. parse/2 is the same operation under PeTTa's own name
-%and IS guarded, so the gap is the direct sread call only.
-%git-import!/2 is in lib/lib_gitimport.pl and sleep/2 in a library too; both
-%raise an instantiation_error with no context, so the program is told a value
-%is missing and not which operation wanted it [measured 2026-08-19].
-unguarded_input_position('add-reduct', 1).
-unguarded_input_position('git-import!', 1).
-unguarded_input_position(sleep, 1).
-unguarded_input_position(sread, 1).
-%A fourth of the same shape: add-reduct/3 refuses, and by name, but names the
-%operation it DELEGATES to. `!(add-reduct $u a)` answers
-%(Error (add-atom $u a) "add-atom expects a space as the first argument"), so
-%a program that wrote add-reduct is told about add-atom. engine/spaces.pl again.
+%The residue register is deliberately present and empty. It used to name
+%add-reduct, git-import!, sleep and sread; each now guards at its own door, and
+%the surface match path already carries its refusal answer through translation.
+%Keeping the failed predicate makes the generated completeness probe assert
+%that no exception is being hidden rather than deleting the question.
+%[tested: test_the_residual_positions_refuse_by_their_own_names].
+unguarded_input_position(_, _) :- fail.
 
 %Names the MeTTa operation and the argument, in the program's own vocabulary.
 %The formal stays ISO so a MeTTa (catch ...) and the Python boundary can both
@@ -4382,6 +4370,7 @@ undocumented(Name) :- current_metta_space(Space),
 
 %%% Time control: %%%
 %Suspend this evaluation. In a thread, only this thread waits.
+'sleep'(Seconds, _) :- var(Seconds), !, refuse_unbound_input(sleep, 1).
 'sleep'(Seconds, true) :- must_be(number, Seconds), sleep(Seconds).
 
 %Bound a goal by wall clock, keeping every answer.

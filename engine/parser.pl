@@ -374,6 +374,7 @@ escape_quotes([H|T], [H|R]) :- escape_quotes(T, R).
 %atom_string/2 first interned an atom for every string parsed, and the
 %library parses one per m.run(): 20000 distinct strings through
 %atom_string/2 left 9953 atoms behind, through atom_codes/2 none.
+sread(S, _) :- var(S), !, refuse_unbound_input(sread, 1).
 sread(S, T) :- atom_codes(S, Cs),
                sread_codes(Cs, S, T).
 

@@ -37,6 +37,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `add-reduct`, `git-import!`, `sleep`, and `sread` now refuse an unbound
+  required input under the operation name the program wrote. Their failures
+  no longer leak delegated or host predicate names; the translated `match`
+  surface retains its already-aligned refusal answer.
 - `(pragma! max-stack-depth N)` now caps each recursive answer branch with the
   evaluator's fuel budget. A completed sibling remains in the answer group
   when another branch reaches `StackOverflow`; zero retains the 100000-step

@@ -2175,18 +2175,10 @@ test(every_builtin_refuses_an_unbound_input_by_name) :-
             Wrong),
     assertion(Wrong == []).
 
-%The same probe over the positions this rule does NOT cover, so the gap stays
-%measured rather than assumed: each still misbehaves, and the day one stops,
-%this test says so and the row comes out of unguarded_input_position/2.
-test(the_uncovered_positions_are_still_uncovered) :-
-    findall(Name-Position,
-            ( unguarded_input_position(Name, Position),
-              arity(Name, Arity),
-              functor(Head, Name, Arity),
-              predicate_property(Head, defined),
-              guard_outcome(Name, Arity, Position, ok) ),
-            Fixed),
-    assertion(Fixed == []).
+%The explicit residue register stays defined and empty, so a later exception
+%cannot silently disappear by deleting the completeness question.
+test(test_the_residual_positions_refuse_by_their_own_names) :-
+    assertion(\+ unguarded_input_position(_, _)).
 
 :- end_tests(builtin_input_guards).
 

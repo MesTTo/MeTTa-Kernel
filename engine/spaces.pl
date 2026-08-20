@@ -1862,6 +1862,10 @@ space_argument_error(Operation, Arguments, Error) :-
     metta_space_expression('add-atoms', Terms, List),
     add_expression_to_space(Space, List, Result).
 
+'add-reduct'(Space, _, _) :-
+    var(Space),
+    !,
+    refuse_unbound_input('add-reduct', 1).
 'add-reduct'(Space, Term, Result) :-
     reduced_for_space(Term, Reduced),
     'add-atom'(Space, Reduced, Result).
