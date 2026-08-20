@@ -390,6 +390,32 @@ test(every_number_that_does_survive_is_accepted,
     sread(Text, Back),
     Back == [holds, Number].
 
+% A finite float prints the arbiter's layout over SWI's shortest digits
+% [source 2026-08-20: LeaTTa RyuLean4/Runtime.lean:371-396, Decimal.formatMeTTa].
+% The pins are the law's own table rows, the four measured witnesses that
+% diverged under number_codes/2's layout (1.0e+16, 1.0e-05, 1.5e+300, 1.0e+26),
+% and the boundary at every branch: kk 16 stays positional and 17 goes
+% scientific, kk -4 stays positional and -5 goes scientific, the exponent
+% carries a minus sign and never a plus or a pad, and zero keeps its sign.
+test(arbiter_float_layout,
+     [forall(member(Float-Want,
+                    [1.0e16-"1e16", 0.00001-"0.00001", 1.5e300-"1.5e300",
+                     1.0e26-"1e26", 5.0-"5.0", 1230.0-"1230.0", 3.8-"3.8",
+                     0.30000000000000004-"0.30000000000000004",
+                     0.0-"0.0", -0.0-"-0.0",
+                     1.0e15-"1000000000000000.0",
+                     1234567890123456.0-"1234567890123456.0",
+                     0.0001-"0.0001", 0.000001-"1e-6", 1.5e-7-"1.5e-7",
+                     5.0e-324-"5e-324", -5.0e-324-"-5e-324",
+                     2.2250738585072014e-308-"2.2250738585072014e-308",
+                     1.7976931348623157e308-"1.7976931348623157e308",
+                     -1.0e16-"-1e16", -3.8-"-3.8",
+                     0.015151515151515152-"0.015151515151515152"]))]) :-
+    swrite(Float, Text),
+    Text == Want,
+    sread(Text, Back),
+    Back == Float.
+
 % The two shortcuts inside metta_number_writable/1 are not a second rule about
 % spelling: each has to agree with the grammar wherever it is asked, the way
 % metta_symbol_ordinary/2 has to agree with sexpr_token//3. The float list is
