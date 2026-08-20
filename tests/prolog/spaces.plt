@@ -1907,3 +1907,43 @@ test(the_published_stored_door_inherits_the_refusal,
     metta_host_stored(Module, _).
 
 :- end_tests(spaces_module_where_name_wanted).
+
+
+%The synthetic foreign space the count-refusal test names; a file-level
+%clause, because a fact inside the unit lands in plunit's unit module
+%where the engine's multifile seam never sees it.
+metta_foreign_space('&sac-foreign').
+
+:- begin_tests(spaces_atom_count).
+
+% The count is the store's own clause bookkeeping, so it must agree with
+% enumeration over both stored shapes and cost property reads, not a walk.
+test(counts_expressions_and_scalars_across_arities,
+     [ cleanup(( remove_sexp('&sac-pool', [rel, _, _]),
+                 remove_sexp('&sac-pool', [tag, _]),
+                 remove_sexp('&sac-pool', scalar_probe) )) ]) :-
+    'space-atom-count'('&sac-pool', Before), Before == 0,
+    add_sexp('&sac-pool', [rel, a, b]),
+    add_sexp('&sac-pool', [rel, a, c]),
+    add_sexp('&sac-pool', [tag, x]),
+    add_sexp('&sac-pool', scalar_probe),
+    'space-atom-count'('&sac-pool', Count), Count == 4,
+    remove_sexp('&sac-pool', [rel, a, b]),
+    'space-atom-count'('&sac-pool', After), After == 3.
+
+test(a_never_written_space_holds_nothing) :-
+    'space-atom-count'('&sac-virgin', N), N == 0.
+
+test(an_unbound_space_is_refused,
+     [ throws(error(petta_unbound_input('space-atom-count', 1), _)) ]) :-
+    'space-atom-count'(_, _).
+
+test(a_non_space_is_refused,
+     [ throws(error(type_error('SpaceType', 7), _)) ]) :-
+    'space-atom-count'(7, _).
+
+test(a_foreign_space_has_no_native_count,
+     [ throws(error(petta_foreign_space_count('&sac-foreign'), _)) ]) :-
+    'space-atom-count'('&sac-foreign', _).
+
+:- end_tests(spaces_atom_count).

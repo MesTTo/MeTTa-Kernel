@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `src/*.pl` | 18,389 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/duals.pl`, `src/tracer.pl`, `src/trs.pl` and `src/narrowing.pl` metatheory, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `src/*.pl` | 18,446 lines: `src/metta.pl` engine, `src/translator.pl` compilation, `src/spaces.pl` stores, `src/parser.pl` reader and writer, plus `src/specializer.pl`, `src/filereader.pl`, `src/duals.pl`, `src/tracer.pl`, `src/trs.pl` and `src/narrowing.pl` metatheory, `src/prelude.metta` | || `src/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
 | `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
@@ -468,7 +468,7 @@ the ledger of which head is which, what it answers to in the minimal
 instruction set the arbiter presents, and for a derived form still fused into
 the compiler, the measurement that keeps it there.
 
-229 builtins are registered (`m.builtins()` lists them live), among them the
+230 builtins are registered (`m.builtins()` lists them live), among them the
 py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,
 `py-dict`, `py-tuple`, `py-str`, `py-repr`, `py-format`, `py-slice`, `py-range`,
 `py-at`, `py-in`, `py-eq`, `py-truthy`, `py-round`, `py-str-join`), the atom
