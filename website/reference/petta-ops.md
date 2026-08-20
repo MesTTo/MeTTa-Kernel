@@ -23,7 +23,7 @@ Source: `bindings/python/petta/ops.py`.
 >     callable objects, classify generators and refuse coroutine functions
 >     before registration changes any engine or registry state [tested:
 >     test_register_op_reads_co_flags_and_refuses_or_awaits;
->     commit=9b1b808f6b8d8aa6a8080c13092fa73ce7893aaa]
+>     commit=214a34885feb4fd1caf26c67143d6a3b0506e824]
 >   - every documented operation owns its portable @doc atom in the
 >     declaration space, independent of type annotations, under the same transactional
 >     lifecycle and reference count as type declarations [tested:
