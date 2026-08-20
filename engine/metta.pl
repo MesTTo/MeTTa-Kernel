@@ -22,6 +22,9 @@
 %   - get-type/2 returns each derived type once, while has_type/2 uses one
 %     witness for a fixed expected type [tested 2026-08-15:
 %     metta_type_answers, translator_typed_checks].
+%   - reporting observers type the empty expression as unit `(->)` while
+%     internal classifier paths retain their gradual empty-expression result
+%     [tested: test_the_empty_expressions_type_follows_the_arbiters_ruling; commit=WORKTREE].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction
@@ -1816,8 +1819,41 @@ application_arrow_declared_in(Module, [F|_]) :-
 %first witness, while an unbound shared type variable still enumerates the
 %distinct choices needed to make later arguments consistent.
 'get-type'(X, T) :- current_metta_module(Module),
-                    type_answers(Module, X, Types),
+                    reported_type_answers(Module, X, Types),
                     member(T, Types).
+
+%LeaTTa rules that the reporting observers see the empty expression's unit
+%type while the classifier sees no type. Keeping this as a wrapper around the
+%ordinary candidate set preserves that split: argument checks continue to call
+%type_answers/3, and only get-type reads the observer correction
+%[source: LeaTTa@dae62ced23eb0f30a8c2b86583fd09d88fb24ea5 MettaHyperonFull/Minimal/Interpreter.lean:3681-3689,4358-4363,4416-4424; commit=WORKTREE].
+%The pinned executable case is tests/semantics/types-basic/
+%69-unit-type-of-empty-expression.metta in that checkout.
+%The pinned file now agrees and moves the types-basic area from 45/76 to 46/76
+%[measured: types-basic 46/76; command=python tests/conformance/leatta.py --engine /home/user/Dev/PyPeTTa1/ai-wt-p3-typing --area types-basic --timeout 25 --show 1; fixture=LeaTTa dae62ced23eb0f30a8c2b86583fd09d88fb24ea5; commit=WORKTREE].
+reported_type_answers(_, [], [['->']]) :- !.
+reported_type_answers(Module, [F], [Result]) :-
+    reported_rest_arrow(Module, F, Result),
+    !.
+reported_type_answers(Module, X, Types) :- type_answers(Module, X, Types).
+
+%A zero-argument use of a rest-only arrow consumes zero repetitions and
+%reports the arrow's result. This remains observer-only: typed dispatch does
+%not learn a new application rule through it.
+reported_rest_arrow(Module, F, Result) :-
+    nonvar(F),
+    (   metta_self_module(Module)
+    ->  (   '$petta_atoms:&self':'&self'(':', F,
+                                        [->, ['%Rest%', _], Result])
+        *-> true
+        ;   builtin_type_declaration(F, [->, ['%Rest%', _], Result])
+        )
+    ;   (   type_declaration_in(Module, F,
+                                [->, ['%Rest%', _], Result])
+        *-> true
+        ;   builtin_type_declaration(F, [->, ['%Rest%', _], Result])
+        )
+    ).
 
 has_type(X, T) :- current_metta_module(Module),
                   has_type_in(Module, X, T).
@@ -4192,8 +4228,22 @@ assert(Goal, true) :- current_metta_module(Module),
                                  space_argument_error('get-type-space',
                                                       [Space, X], T).
 'get-type-space'(Space, X, T) :- petta_space_name(Space),
-                                 scoped_type_answers(Space, X, Types),
+                                 reported_scoped_type_answers(Space, X, Types),
                                  member(T, Types).
+
+%get-type-space is the other reporting observer. Its underlying scoped answer
+%function stays unchanged because scoped_has_type/4 is a classifier consumer.
+reported_scoped_type_answers(_, [], [['->']]) :- !.
+reported_scoped_type_answers(Space, [F], [Result]) :-
+    nonvar(F),
+    (   match_stored(Space, [':', F, [->, ['%Rest%', _], Result]],
+                       Result, _)
+    *-> true
+    ;   builtin_type_declaration(F, [->, ['%Rest%', _], Result])
+    ),
+    !.
+reported_scoped_type_answers(Space, X, Types) :-
+    scoped_type_answers(Space, X, Types).
 
 %%% Documentation, HE's vocabulary, first class %%%
 %

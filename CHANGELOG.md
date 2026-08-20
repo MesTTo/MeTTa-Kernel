@@ -41,6 +41,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `(get-type ())` and `(get-type-space <space> ())` report the unit type
+  `(->)`, following the LeaTTa ruling. Runtime argument classification keeps
+  its separate empty-expression rule. The same pinned ruling aligns `nop`'s
+  rest arrow, `assert`'s unit result, and the public `is-function (->)` check.
 - Type inspection treats an under-applied arrow head as an inapplicable typed
   application, not as tuple data. With `Cons : $t -> List $t -> List $t`,
   `(get-type (Cons 1))` has no answer while the fully applied constructor

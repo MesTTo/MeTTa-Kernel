@@ -232,6 +232,9 @@ static return type of `cast`, `convert.build` and `Rows.build`.
 An expression with no arrow-typed head is typed element by element. Once its
 head has an arrow, the arrow controls the application: an under-applied call
 has no type answer and does not fall back to a tuple type.
+The empty expression is the unit value: `get-type` and `get-type-space` report
+its type as `(->)`. That is an observer rule; argument checking continues to
+treat `()` as gradual rather than forcing a unit-type constraint.
 `m.arities(name)`, `m.is_function(name)` (visible from here),
 `m.is_function_here(name)` (has clauses HERE), `m.builtins()`.
 

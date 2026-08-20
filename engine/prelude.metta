@@ -2,6 +2,9 @@
 ; Guarantees:
 ;   - the doc family receives the upstream Atom masks and formal signatures
 ;     [tested: test_the_doc_family_answers_what_upstream_answers].
+;   - is-function observes the unit arrow as an arrow while the internal type
+;     classifier remains free to require a result child.
+;   [tested: test_the_empty_expressions_type_follows_the_arbiters_ruling; commit=WORKTREE]
 ; Open Obligations:
 ;   To Do: None
 ;   Hacks: None
@@ -164,6 +167,7 @@
 
 ;;; Types ;;;
 
+(= (is-function (->)) (let $temp (cut) True))
 (= (is-function (-> $A $B)) (let $temp (cut) True))
 (= (is-function $X) False)
 
