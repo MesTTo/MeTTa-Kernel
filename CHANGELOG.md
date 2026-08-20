@@ -74,8 +74,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   reports `List Number`.
 - Adding a variant-identical type declaration a second time is refused before
   storage. The diagnostic prints both the rejected row and the first row
-  already held by the target space, so a hand-written arrow cannot silently
-  double the answers of a typed host registration.
+  already held by the target space. Public batches are preflighted as a whole,
+  so two identical rows in one `add()` call publish neither copy.
 - Free variables returned by runnable source now keep their written names in
   engine output and host bindings. The reader's name map travels beside each
   collected answer, so `$free` stays `$free` instead of becoming `$_0` while

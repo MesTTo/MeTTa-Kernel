@@ -4,6 +4,8 @@
 % Guarantees:
 %   - Native storage modules do not inherit user predicates, while execution
 %     modules keep undefined calls loud [tested: spaces_storage_modules].
+%   - duplicate declarations in one batch are detected before any member is
+%     stored [tested: spaces_batch_is_only_a_transport; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -1317,6 +1319,17 @@ test(a_variable_headed_equation_raises_either_way) :-
     catch(batch_side(batch, '&self', [=, _, _]), BatchBall, true),
     assertion(nonvar(AloneBall)),
     assertion(AloneBall =@= BatchBall).
+
+test(a_duplicate_declaration_batch_is_refused_before_storage,
+     [ setup(clear_native_atoms('&bt-duplicate-declaration')),
+       cleanup(clear_native_atoms('&bt-duplicate-declaration')) ]) :-
+    Space = '&bt-duplicate-declaration',
+    Declaration = [':', 'bt-duplicate', [->, 'Number', 'Number']],
+    catch(metta_add_atoms(Space, [Declaration, Declaration]), Error, true),
+    assertion(Error = error(petta_duplicate_declaration(
+                                Space, Declaration, Declaration), none)),
+    findall(Atom, 'get-atoms'(Space, Atom), Atoms),
+    assertion(Atoms == []).
 
 % Admission gates the write itself, so a pool's batch has to meet the same
 % refusal its atoms meet arriving alone. The store-only crossing used to

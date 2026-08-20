@@ -61,8 +61,9 @@
 %     100, 1,000 and 10,000 atoms].
 %   - Removing one scoped get-type rule keeps sibling extension rules visible
 %     [tested 2026-08-15: spaces_type_extensions].
-%   - A second variant-identical type declaration is refused before storage
-%     and the diagnostic names the declaration already held by that space
+%   - A second variant-identical type declaration is refused before storage,
+%     including when both copies arrive in one public batch, and the diagnostic
+%     names the first declaration without publishing either batched copy
 %     [tested: test_a_duplicate_declaration_names_the_first_one; commit=WORKTREE].
 %   - Clearing a native space clears its import life without making wildcard
 %     atom removal touch that life [tested 2026-08-15:
@@ -1285,19 +1286,54 @@ existing_duplicate_declaration(Space, Term, First) :-
     !,
     First = Stored.
 
+first_variant_declaration(Term, [First|_], First) :- Term =@= First, !.
+first_variant_declaration(Term, [_|Declarations], First) :-
+    first_variant_declaration(Term, Declarations, First).
+
+ensure_new_batch_declaration(Space, Term, Earlier) :-
+    (   existing_duplicate_declaration(Space, Term, First)
+    ->  throw(error(petta_duplicate_declaration(Space, Term, First), none))
+    ;   first_variant_declaration(Term, Earlier, First)
+    ->  throw(error(petta_duplicate_declaration(Space, Term, First), none))
+    ;   true
+    ).
+
+batch_declarations_unique(Space, Terms) :-
+    batch_declarations_unique(Space, Terms, []).
+
+batch_declarations_unique(_, [], _).
+batch_declarations_unique(Space, [Term|Terms], Earlier) :-
+    (   Term = [':', _, _]
+    ->  ensure_new_batch_declaration(Space, Term, Earlier),
+        Next = [Term|Earlier]
+    ;   Next = Earlier
+    ),
+    batch_declarations_unique(Space, Terms, Next).
+
 %Whether every atom in a batch stores and does nothing else, which is the only
 %kind a bulk crossing may carry. It repeats metta_add_atom/3's first two clause
 %heads, and they are repeated rather than shared for the reason given there.
+%The same traversal preflights otherwise-plain type declarations against both
+%the space and earlier batch members. This keeps the one-crossing fast path
+%without letting two declarations bypass the single-atom refusal.
 %
 %Written as clause heads and not as a test called per atom, which is measured:
 %head unification costs no inference where a call costs one, and over a whole
 %batch that is the difference between one and two per atom [measured 2026-08-16:
 %8.00 back to 7.00 inferences per atom over 20,000]. Cut-then-fail so the scan
 %stops at the first atom that carries work.
-atoms_store_only([]).
-atoms_store_only([[=|_]|_]) :- !, fail.
-atoms_store_only([[':', FAtom, _]|_]) :- atom(FAtom), fun(FAtom), !, fail.
-atoms_store_only([_|Terms]) :- atoms_store_only(Terms).
+atoms_store_only(Space, Terms) :- atoms_store_only(Space, Terms, []).
+
+atoms_store_only(_, [], _).
+atoms_store_only(_, [[=|_]|_], _) :- !, fail.
+atoms_store_only(_, [[':', FAtom, _]|_], _) :-
+    atom(FAtom), fun(FAtom), !, fail.
+atoms_store_only(Space, [Term|Terms], Earlier) :-
+    Term = [':', _, _], !,
+    ensure_new_batch_declaration(Space, Term, Earlier),
+    atoms_store_only(Space, Terms, [Term|Earlier]).
+atoms_store_only(Space, [_|Terms], Earlier) :-
+    atoms_store_only(Space, Terms, Earlier).
 
 %Where an atom goes. A foreign space's provider owns its storage entirely; a
 %native space's storage is the Prolog database.
@@ -1588,9 +1624,13 @@ metta_add_atoms(Space, Terms) :-
     %[tested: a_batch_into_a_hooked_space_consults_the_handler_per_atom,
     %a_batch_beyond_capacity_is_refused_like_lone_adds].
     petta_hook_claim_idle(Space),
-    atoms_store_only(Terms),
+    atoms_store_only(Space, Terms),
     add_atoms_in_one_crossing(Space, Terms), !.
 metta_add_atoms(Space, Terms) :-
+    %This route may perform work for its first atom, so check the whole batch
+    %before invoking any per-atom door. A duplicate later in the batch must not
+    %leave the first declaration, compiled equation, or observer effect behind.
+    batch_declarations_unique(Space, Terms),
     forall(member(Term, Terms), 'add-atom'(Space, Term, _)).
 
 %A provider's own batch crossing when it has one, and the native store's
