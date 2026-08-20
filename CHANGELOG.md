@@ -8,6 +8,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Restricted spaces use a curated execution base and creation-time
+  `file`, `process`, and `network` grants. A denied operation raises a
+  structured refusal naming the space, operation, and missing capability;
+  raw Prolog calls additionally pass SWI's sandbox classifier. Python exposes
+  the same policy through `new_space(restricted=True, grants=(...))`.
 - Spaces can inherit from one parent at creation with
   `(new-space &child (inherits &parent))` or
   `runtime.new_space(inherits=parent)`. Atom reads are a child-first multiset

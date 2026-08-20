@@ -26,6 +26,8 @@
 %     &self and builtin tiers [tested:
 %     test_a_child_space_reads_through_its_parent_and_writes_locally;
 %     commit=755330de329ece49eddcfb7d6db3061c3350a0ca].
+%   - restricted modules resolve only their local equations and curated
+%     builtin surface [tested: spaces_restricted_modules; commit=WORKTREE].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction
@@ -4643,6 +4645,10 @@ run_under_pragmas(Goal) :-
                       ensure_native_storage_module(Space, _).
 'new-space'(Child, [inherits, Parent], Child) :- !,
     metta_declare_space_parent(Child, Parent).
+'new-space'(Space, [restricted], Space) :- !,
+    metta_declare_restricted_space(Space, []).
+'new-space'(Space, [restricted, [grants|Capabilities]], Space) :- !,
+    metta_declare_restricted_space(Space, Capabilities).
 'new-space'(_, Relation, _) :-
     throw(error(type_error(inheritance_declaration, Relation),
                 context('new-space',
@@ -5982,7 +5988,9 @@ import_load_needed(changed, Space, CanonPath) :-
 %an effect and `()` is what the arbiter records for every one of its module
 %transcripts [source: LeaTTa tests/semantics/modules/18-direct-import-control
 %and 20-cycle-control, both `[()]`].
-'import!'(Space, File, []) :- importer_helper(Space, File).
+'import!'(Space, File, []) :-
+    metta_require_space_update_capability('import!', Space),
+    importer_helper(Space, File).
 %`(: import! (-> Atom Atom Bool))` says both arguments arrive UNREDUCED, which
 %is right: a module name is a name and evaluating it would look for a function
 %called `lib_constraints`. So the forms a module name can take are resolved
@@ -6464,6 +6472,8 @@ fun_here(F) :- fun(F),
 fun_here_in(Module, F) :-
     (   fun_in(Module, F)
     ->  true
+    ;   metta_restricted_exec_module(Module, _)
+    ->  restricted_callable_name(F)
     ;   metta_exec_module_parent(Module, ParentModule)
     ->  fun_here_in(ParentModule, F)
     ;   metta_self_module(Self), Module \== Self, fun_in(Self, F)

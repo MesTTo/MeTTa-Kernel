@@ -8,6 +8,8 @@
 %     layers, and declaration failures leave no partial relation [tested:
 %     spaces_inheritance;
 %     commit=755330de329ece49eddcfb7d6db3061c3350a0ca].
+%   - restricted spaces select curated grant profiles and raw calls pass the
+%     sandbox boundary [tested: spaces_restricted_modules; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -2095,3 +2097,72 @@ test(an_outer_transaction_rolls_back_the_index_and_contract) :-
     assertion(\+ native_storage_module_cache('&inh-rollback-child', _)).
 
 :- end_tests(spaces_inheritance).
+
+:- begin_tests(spaces_restricted_modules).
+
+release_restricted_space(Space) :- catch(metta_release_space(Space), _, true).
+
+test(a_restricted_space_bases_on_the_curated_module,
+     [ cleanup(release_restricted_space('&restricted-topology')) ]) :-
+    metta_declare_restricted_space('&restricted-topology', []),
+    metta_declare_restricted_space('&restricted-topology', []),
+    space_module('&restricted-topology', Module),
+    restricted_core_module(Core),
+    assertion(import_module(Module, Core)),
+    assertion(current_predicate(Core:'+'/3)).
+
+test(a_different_grant_set_is_refused,
+     [ cleanup(release_restricted_space('&restricted-conflict')),
+       throws(error(petta_space_restriction_conflict('&restricted-conflict',
+                                                      [file], [process]), _)) ]) :-
+    metta_declare_restricted_space('&restricted-conflict', [file]),
+    metta_declare_restricted_space('&restricted-conflict', [process]).
+
+test(a_missing_capability_names_the_space_operation_and_capability,
+     [ cleanup(release_restricted_space('&restricted-refusal')),
+       throws(error(petta_space_capability_required('&restricted-refusal',
+                                                     exists_file, file), _)) ]) :-
+    metta_declare_restricted_space('&restricted-refusal', []),
+    space_module('&restricted-refusal', Module),
+    with_metta_module(Module,
+                      metta_require_current_capability(exists_file, file)).
+
+test(an_explicit_grant_publishes_only_its_capability,
+     [ cleanup(release_restricted_space('&restricted-file')) ]) :-
+    metta_declare_restricted_space('&restricted-file', [file]),
+    space_module('&restricted-file', Module),
+    with_metta_module(Module,
+                      metta_require_current_capability(exists_file, file)),
+    catch(with_metta_module(Module,
+                            metta_require_current_capability(argv, process)),
+          error(petta_space_capability_required('&restricted-file', argv,
+                                                 process), _),
+          Refused = true),
+    assertion(Refused == true).
+
+test(the_sandbox_accepts_a_pure_raw_goal_and_rejects_file_access,
+     [ cleanup(release_restricted_space('&restricted-sandbox')) ]) :-
+    metta_declare_restricted_space('&restricted-sandbox', []),
+    space_module('&restricted-sandbox', Module),
+    with_metta_module(Module, metta_require_safe_goal(atom(a))),
+    catch(with_metta_module(Module,
+                            metta_require_safe_goal(open('/tmp/nope', read,
+                                                         _))),
+          error(petta_space_capability_required('&restricted-sandbox', open,
+                                                 file), _),
+          Refused = true),
+    assertion(Refused == true).
+
+test(a_failed_outer_transaction_leaves_no_restriction) :-
+    catch(transaction((
+              metta_declare_restricted_space('&restricted-rollback', [file]),
+              throw(rollback_probe))),
+          rollback_probe,
+          true),
+    assertion(\+ space_restricted('&restricted-rollback', _)),
+    assertion(\+ space_grant('&restricted-rollback', _)),
+    assertion(\+ petta_contract_fact([restricted, '&restricted-rollback'])),
+    assertion(\+ metta_exec_module_known('&restricted-rollback', _)),
+    assertion(\+ native_storage_module_cache('&restricted-rollback', _)).
+
+:- end_tests(spaces_restricted_modules).

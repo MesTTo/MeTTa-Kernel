@@ -352,6 +352,22 @@ refused by name. Python spells the same constructor
 `runtime.new_space(inherits=parent)` and dropping the child only unlinks the
 child.
 
+A restricted space selects a curated execution base instead of `&self`:
+
+```metta
+!(new-space &locked (restricted))
+!(new-space &reader (restricted (grants file)))
+```
+
+The curated base publishes computation but withholds file, process, and
+network operations. A missing operation raises
+`petta_space_capability_required(Space, Operation, Capability)` at runtime,
+so `catch` can observe it and Python receives `SpaceCapabilityError` with the
+same three fields. Grants are explicit and fixed at creation. Raw
+`translatePredicate` and `call` goals also pass SWI's `sandbox:safe_goal/1`;
+an unsafe unclassified host goal requires the `process` grant. Restriction and
+inheritance are alternative execution bases and cannot be combined.
+
 ### Taking an argument unevaluated
 
 Declare the parameter `Atom` and the argument arrives as written:
@@ -2076,6 +2092,7 @@ both and the query they disagree on.
 | `(on <ctx> <pattern> <op>)` | a bridge: when a matching atom lands, run `(insert ...)`, `(retract ...)` or `(revise ...)` under the match's bindings | `declare_reaction` |
 | `(admits <pool> <Type>)`, `(capacity <pool> <n>)` | a typed, bounded pool; a space of spaces is the thread-pool reading | `declare_admits`, `declare_capacity` |
 | `(inherits <child> <parent>)` | the child's execution base and child-first read chain; writes remain local | `(new-space <child> (inherits <parent>))`, `new_space(inherits=...)` |
+| `(restricted <space>)`, `(grants <space> <capability>)` | a curated execution base; file, process, and network vocabulary is creation-granted | `(new-space <space> (restricted (grants ...)))`, `new_space(restricted=True, grants=...)` |
 
 Ask the seam itself what it will do: `!(explain (match &s <pattern> $x))`
 answers the route as atoms, which entry matched, at what fidelity,

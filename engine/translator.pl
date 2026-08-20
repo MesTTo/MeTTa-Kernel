@@ -61,6 +61,10 @@
 %   - The translatePredicate and call seams refuse a shape they cannot compile
 %     rather than building a data list named after the form
 %     [tested 2026-08-16: translator_special_dispatch:malformed_seam_is_refused].
+%   - restricted calls preserve capability checks through direct, computed,
+%     and raw-Prolog translation paths [tested:
+%     test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
+%     commit=WORKTREE].
 %   - A translator rule whose expansion is built in Prolog compiles to the
 %     goals it emits, including a constant folded at compile time, and is
 %     refused when a quote leaves that expansion as data
@@ -910,10 +914,14 @@ goals_list_to_conj([G|Gs], (G,R)) :- goals_list_to_conj(Gs, R).
 %here cost between +0.09% and +0.41% inferences across six benchmarks
 %[measured 2026-08-15: weighted-relation 483521 -> 485517].
 resolve_dispatch(Fun, Args, Out, Goal) :-
-    ( metta_dispatch_call(Fun, Args, Out, Goal)
+    ( metta_dispatch_call(Fun, Args, Out, RawGoal)
     -> true
     ; append(Args, [Out], DirectArgs),
-      Goal =.. [Fun|DirectArgs]
+      RawGoal =.. [Fun|DirectArgs]
+    ),
+    (   space_operation_capability(Fun, Capability)
+    ->  Goal = (metta_require_current_capability(Fun, Capability), RawGoal)
+    ;   Goal = RawGoal
     ).
 incomplete_application_kind(Fun, Arity, partial) :- ( arity(Fun, KnownArity), KnownArity >= Arity
                                                      ; \+ arity(Fun, _) ), !.
@@ -988,8 +996,11 @@ reduce([F|Args], Out, Status) :- !,
         %call from here would resolve in the ENGINE's module instead, which is
         %the parent and cannot see a child's clauses.
         metta_self_module(Self),
-        ( fun(F), \+ fun_scoped(F) -> Module = Self
-        ; current_metta_module(Module), fun_here_in(Module, F) )
+        current_metta_module(Current),
+        ( fun(F), \+ fun_scoped(F),
+          \+ metta_restricted_exec_module(Current, _)
+        -> Module = Self
+        ; Module = Current, fun_here_in(Module, F) )
     ->  % --- Case 1: callable predicate ---
         length(Args, N),
         Arity is N + 1,
@@ -1912,7 +1923,7 @@ translate_special_dl(translatePredicate, [[Predicate|Args]], AfterHead, Goals,
                      _Out) :-
     translate_args_dl(Args, AfterHead, BeforePredicate, ArgValues),
     metta_predicate_goal([Predicate|ArgValues], Goal),
-    BeforePredicate = [Goal|Goals].
+    BeforePredicate = [metta_require_safe_goal(Goal), Goal|Goals].
 %The two Prolog seams are the exception to the fall-through documented above.
 %No program means (translatePredicate ...) or (call ...) as data, so a shape
 %the clause above cannot compile is a mistake worth reporting rather than a
@@ -1926,7 +1937,7 @@ translate_special_dl(call, [[Function|Args]], AfterHead, Goals, Out) :-
     translate_args_dl(Args, AfterHead, BeforeCall, ArgValues),
     append(ArgValues, [Out], CallArgs),
     Goal =.. [Function|CallArgs],
-    BeforeCall = [Goal|Goals].
+    BeforeCall = [metta_require_safe_goal(Goal), Goal|Goals].
 translate_special_dl(call, Args, _, _, _) :-
     refuse_uncompilable_seam(call, Args).
 translate_special_dl(reduce, [Expr], AfterHead, Goals, Out) :-
@@ -1948,7 +1959,8 @@ translate_special_dl(eval, [Arg], AfterHead, Goals, Out) :-
 %function that answers a space name, or (context-space), can name it.
 translate_special_dl(evalc, [Arg, Space], AfterHead, Goals, Out) :-
     translate_expr_dl(Space, AfterHead, BeforeEval, SpaceValue),
-    BeforeEval = [evalc(Arg, SpaceValue, Out)|Goals].
+    BeforeEval = [metta_require_current_capability(evalc, process),
+                  evalc(Arg, SpaceValue, Out)|Goals].
 %(super (f a b)): the definition of f the NEXT module up this space's chain
 %holds, so a shadow can check a call and then let the original run.
 %
@@ -2245,7 +2257,8 @@ translate_space_update_dl(Operation, [SpaceExpr, Atom], AfterHead, Goals,
                           Out) :-
     translate_expr_dl(SpaceExpr, AfterHead, BeforeOperation, Space),
     Goal =.. [Operation, Space, Atom, Out],
-    BeforeOperation = [Goal|Goals].
+    BeforeOperation = [metta_require_space_update_capability(Operation, Space),
+                       Goal|Goals].
 
 %All four spellings of one operation, so all four keep their name list as
 %data. lib_zar's two were missing, and a list holding a name that had ALREADY
@@ -2264,7 +2277,9 @@ translate_prolog_import_dl(Importer, [File, FunctionNames], Goals0, Goals, Out) 
     note_runnable_import(FunctionNames),
     translate_expr_dl(File, Goals0, BeforeImport, ResolvedFile),
     Goal =.. [Importer, ResolvedFile, FunctionNames, Out],
-    BeforeImport = [Goal|Goals].
+    space_operation_capability(Importer, Capability),
+    BeforeImport = [metta_require_current_capability(Importer, Capability),
+                    Goal|Goals].
 
 %Recorded only while a runnable is being compiled, which is the only place the
 %mistake this guards against can happen: a stored equation is compiled once

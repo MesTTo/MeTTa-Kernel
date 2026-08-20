@@ -74,6 +74,11 @@
 %     [tested 2026-08-17: spaces_handles_guard] [measured 2026-08-17:
 %     pure-Prolog foreign match 34 to 41 inferences, bounded take 41 to
 %     55].
+%   - a restricted execution module bases on a curated grant profile and a
+%     denied operation names the space, operation, and missing capability
+%     [tested:
+%     test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
+%     commit=WORKTREE].
 % Guarded by: '$petta_native_storage' serializes private module creation and
 %   publication in native_storage_module_cache/2; '$petta_capacity_count'
 %   serializes installation and replacement of each incremental count.
@@ -81,6 +86,8 @@
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
+
+:- use_module(library(sandbox), [safe_goal/1]).
 
 % Storage modules are separate from execution modules. They inherit nothing,
 % so a user predicate cannot appear as a space atom, and unknown arities fail
@@ -725,6 +732,7 @@ petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
 petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
 petta_catalog_preset([vocabulary, volatility, volatile, stable, immutable]).
 petta_catalog_preset([vocabulary, 'route-key', context, global]).
+petta_catalog_preset([vocabulary, 'space-capability', file, process, network]).
 petta_catalog_preset([kind, kind, symbol, [rest, term]]).
 petta_catalog_preset([kind, 'routed-by-shape', symbol,
                       [optional, ['one-of', 'route-key']]]).
@@ -752,6 +760,9 @@ petta_catalog_preset([kind, defined, symbol, symbol]).
 petta_catalog_preset([kind, subscription, symbol, pattern,
                       ['one-of', 'subscription-edge']]).
 petta_catalog_preset([kind, inherits, term, term]).
+petta_catalog_preset([kind, restricted, term]).
+petta_catalog_preset([kind, grants, term,
+                      ['one-of', 'space-capability']]).
 petta_catalog_preset(['routed-by-shape', handles]).
 petta_catalog_preset(['routed-by-shape', 'on-error']).
 petta_catalog_preset(['routed-by-shape', merge, global]).
@@ -939,6 +950,9 @@ space_module(Space, Module) :-
 :- dynamic metta_exec_module_known/2.
 :- dynamic space_parent/2.
 :- dynamic metta_exec_module_parent/2.
+:- dynamic space_restricted/2.
+:- dynamic space_grant/2.
+:- dynamic restricted_profile_known/2.
 
 %The chain, and why each link is where it is.
 %
@@ -963,6 +977,8 @@ space_module(Space, Module) :-
 metta_exec_module_base(Space, Base) :-
     (   Space == '&self'
     ->  petta_engine_module(Base)
+    ;   space_restricted(Space, Grants)
+    ->  ensure_restricted_profile(Grants, Base)
     ;   space_parent(Space, Parent)
     ->  space_module(Parent, Base)
     ;   space_module('&self', Base)
@@ -1019,8 +1035,201 @@ protect_metta_exec_modules :-
 %module name where a space name was asked for
 %[tested: spaces_execution_modules:the_module_to_space_map_is_the_inverse].
 metta_module_space(Module, Space) :-
-    metta_exec_module_prefix(Prefix),
-    atom_concat(Prefix, Space, Module).
+    metta_exec_module_known(Space, Module).
+
+restricted_core_module('$petta_restricted:core').
+
+space_capability(file).
+space_capability(process).
+space_capability(network).
+
+%A capability is attached to the written operation, not to a Prolog helper it
+%happens to call. Names absent from this table are part of the curated compute
+%surface; raw Prolog goals take the sandbox path below.
+space_operation_capability('exists_file', file).
+space_operation_capability('import!', file).
+space_operation_capability(library, file).
+space_operation_capability('readln!', process).
+space_operation_capability('read-form!', process).
+space_operation_capability('sread-command', process).
+space_operation_capability(argv, process).
+space_operation_capability('new-space', process).
+space_operation_capability(evalc, process).
+space_operation_capability(metta, process).
+space_operation_capability(callPredicate, process).
+space_operation_capability(assertaPredicate, process).
+space_operation_capability(assertzPredicate, process).
+space_operation_capability(retractPredicate, process).
+space_operation_capability(import_prolog_function, process).
+space_operation_capability(check_prolog_function_names, process).
+space_operation_capability(import_prolog_functions, process).
+space_operation_capability(import_prolog_functions_from_file, file).
+space_operation_capability(import_prolog_functions_from_file_pred, file).
+space_operation_capability(import_prolog_functions_from_module, process).
+space_operation_capability(import_prolog_functions_from_module_pred, process).
+space_operation_capability(register_metta_library_path, file).
+space_operation_capability('git-import!', network).
+
+restricted_profile_name([], Core) :- !, restricted_core_module(Core).
+restricted_profile_name(Grants, Module) :-
+    atomic_list_concat(Grants, '+', Suffix),
+    atom_concat('$petta_restricted:', Suffix, Module).
+
+ensure_restricted_profile(Grants, Module) :-
+    restricted_profile_known(Grants, Module),
+    !.
+ensure_restricted_profile(Grants, Module) :-
+    restricted_profile_name(Grants, Module),
+    ensure_restricted_core,
+    (   Grants == []
+    ->  true
+    ;   restricted_core_module(Core),
+        set_module(Module:base(Core)),
+        forall(member(Capability, Grants),
+               publish_restricted_capability(Module, Capability))
+    ),
+    assertz(restricted_profile_known(Grants, Module)).
+
+ensure_restricted_core :-
+    restricted_profile_known([], _),
+    !.
+ensure_restricted_core :-
+    restricted_core_module(Core),
+    set_module(Core:base(none)),
+    forall(restricted_core_predicate(PI), publish_restricted_pi(Core, PI)),
+    assertz(restricted_profile_known([], Core)).
+
+%Locally defined engine helpers are needed by compiled safe calls. Registered
+%builtins imported from libraries are included separately. Capability-bearing
+%names are withheld and published only by their grant profile.
+restricted_core_predicate(Name/Arity) :-
+    petta_engine_module(Engine),
+    current_predicate(Engine:Name/Arity),
+    functor(Head, Name, Arity),
+    predicate_property(Engine:Head, defined),
+    \+ predicate_property(Engine:Head, imported_from(_)),
+    \+ space_operation_capability(Name, _).
+restricted_core_predicate(Name/Arity) :-
+    builtin_fun(Name),
+    \+ space_operation_capability(Name, _),
+    arity(Name, Arity),
+    petta_engine_module(Engine),
+    current_predicate(Engine:Name/Arity).
+
+publish_restricted_capability(Module, Capability) :-
+    forall(( space_operation_capability(Name, Capability),
+             arity(Name, Arity),
+             petta_engine_module(Engine),
+             current_predicate(Engine:Name/Arity) ),
+           publish_restricted_pi(Module, Name/Arity)).
+
+publish_restricted_pi(Module, PI) :-
+    petta_engine_module(Engine),
+    PI = Name/Arity,
+    functor(Head, Name, Arity),
+    (   predicate_property(Engine:Head, imported_from(system))
+    ->  true
+    ;   Engine:export(PI),
+        Module:import(Engine:PI)
+    ).
+
+metta_declare_restricted_space(Space, Grants0) :-
+    metta_require_space_name('new-space', Space),
+    must_be(list, Grants0),
+    maplist(metta_require_space_capability, Grants0),
+    sort(Grants0, Grants),
+    with_mutex('$petta_metta_exec',
+               metta_declare_restricted_space_locked(Space, Grants)).
+
+metta_require_space_capability(Capability) :-
+    (   space_capability(Capability)
+    ->  true
+    ;   throw(error(domain_error(space_capability, Capability),
+                    context('new-space',
+                            'capability must be file, process, or network')))
+    ).
+
+metta_declare_restricted_space_locked(Space, Grants) :-
+    (   space_restricted(Space, Standing)
+    ->  (   Standing == Grants
+        ->  true
+        ;   throw(error(petta_space_restriction_conflict(Space, Standing,
+                                                          Grants), none))
+        )
+    ;   space_parent(Space, Parent)
+    ->  throw(error(petta_space_model_conflict(Space, inherits(Parent),
+                                                restricted(Grants)), none))
+    ;   space_parent_child_used(Space)
+    ->  throw(error(petta_space_restriction_after_use(Space), none))
+    ;   ensure_restricted_profile(Grants, _),
+        transaction(( assertz(space_restricted(Space, Grants)),
+                      forall(member(Capability, Grants),
+                             assertz(space_grant(Space, Capability))),
+                      metta_add_atom('&petta', [restricted, Space], _),
+                      forall(member(Capability, Grants),
+                             metta_add_atom('&petta',
+                                            [grants, Space, Capability], _)),
+                      ensure_native_storage_module(Space, _),
+                      space_module(Space, _) ))
+    ).
+
+metta_restricted_exec_module(Module, Space) :-
+    metta_exec_module_known(Space, Module),
+    space_restricted(Space, _).
+
+metta_require_current_capability(Operation, Capability) :-
+    current_metta_module(Module),
+    (   metta_restricted_exec_module(Module, Space)
+    ->  (   space_grant(Space, Capability)
+        ->  true
+        ;   throw(error(petta_space_capability_required(Space, Operation,
+                                                         Capability), none))
+        )
+    ;   true
+    ).
+
+metta_require_space_update_capability(Operation, Target) :-
+    current_metta_module(Module),
+    (   metta_restricted_exec_module(Module, Space),
+        Target \== Space
+    ->  metta_require_current_capability(Operation, process)
+    ;   true
+    ).
+
+metta_require_safe_goal(Goal) :-
+    current_metta_module(Module),
+    (   metta_restricted_exec_module(Module, _)
+    ->  metta_require_restricted_safe_goal(Goal, Module)
+    ;   true
+    ).
+
+metta_require_restricted_safe_goal(Goal, Module) :-
+    callable(Goal),
+    functor(Goal, Operation, _),
+    (   raw_goal_capability(Operation, Capability)
+    ->  metta_require_current_capability(Operation, Capability)
+    ;   catch(sandbox:safe_goal(Module:Goal), _, fail)
+    ->  true
+    ;   metta_require_current_capability(Operation, process)
+    ).
+
+raw_goal_capability(Operation, Capability) :-
+    space_operation_capability(Operation, Capability),
+    !.
+raw_goal_capability(open, file).
+raw_goal_capability(close, file).
+raw_goal_capability(read, file).
+raw_goal_capability(write, file).
+raw_goal_capability(delete_file, file).
+raw_goal_capability(rename_file, file).
+raw_goal_capability(make_directory, file).
+raw_goal_capability(process_create, process).
+raw_goal_capability(process_wait, process).
+raw_goal_capability(shell, process).
+raw_goal_capability(www_open_url, network).
+raw_goal_capability(http_open, network).
+
+restricted_callable_name(F) :- builtin_fun(F).
 
 %Declare the one parent a space reads and executes through. The ordering is
 %part of the contract: an identical declaration is idempotent, a conflicting
@@ -1049,6 +1258,9 @@ metta_declare_space_parent_locked(Child, Parent) :-
         ;   throw(error(petta_space_parent_conflict(Child, Standing, Parent),
                         none))
         )
+    ;   space_restricted(Child, Grants)
+    ->  throw(error(petta_space_model_conflict(Child, restricted(Grants),
+                                                inherits(Parent)), none))
     ;   space_parent_cycle(Child, Parent)
     ->  throw(error(petta_space_parent_cycle(Child, Parent), none))
     ;   space_parent_child_used(Child)
@@ -1108,6 +1320,7 @@ metta_release_space(Space) :-
                ( metta_assert_space_releasable(Space),
                  metta_host_clear_space(Space),
                  transaction(( metta_forget_space_parent(Space),
+                               metta_forget_space_restriction(Space),
                                metta_forget_exec_module_parent(Space),
                                retractall(metta_exec_module_known(Space, _)),
                                retractall(native_storage_module_cache(Space, _)) ))
@@ -1122,6 +1335,16 @@ metta_forget_exec_module_parent(Space) :-
 metta_forget_space_parent(Child) :-
     (   retract(space_parent(Child, Parent))
     ->  metta_remove_atom('&petta', [inherits, Child, Parent], _)
+    ;   true
+    ).
+
+metta_forget_space_restriction(Space) :-
+    (   retract(space_restricted(Space, Grants))
+    ->  forall(member(Capability, Grants),
+               ( retractall(space_grant(Space, Capability)),
+                 metta_remove_atom('&petta',
+                                   [grants, Space, Capability], _) )),
+        metta_remove_atom('&petta', [restricted, Space], _)
     ;   true
     ).
 
@@ -1142,6 +1365,23 @@ prolog:error_message(petta_space_parent_live_child(Parent, Child)) -->
     [ '~w cannot be dropped while live child ~w inherits from it; drop the \c
        child first so its relationship cannot follow a recycled parent name'-[
        Parent, Child] ].
+prolog:error_message(petta_space_restriction_conflict(Space, Standing,
+                                                       Requested)) -->
+    [ '~w is already restricted with grants ~q, so it cannot be redeclared \c
+       with grants ~q; restriction is fixed at creation'-[Space, Standing,
+                                                           Requested] ].
+prolog:error_message(petta_space_restriction_after_use(Space)) -->
+    [ '~w has already been created, written, executed, or registered; declare \c
+       it restricted with new-space before first use'-[Space] ].
+prolog:error_message(petta_space_model_conflict(Space, Standing, Requested)) -->
+    [ '~w already has space model ~q, so it cannot also use ~q; inheritance \c
+       and restriction are alternative execution bases'-[Space, Standing,
+                                                           Requested] ].
+prolog:error_message(petta_space_capability_required(Space, Operation,
+                                                      Capability)) -->
+    [ '~w cannot run ~w because its restricted base does not publish the ~w \c
+       capability; grant it explicitly when the space is created'-[
+       Space, Operation, Capability] ].
 
 %&self's execution module exists from load, the way its storage module does,
 %so nothing has to create it on a first write and metta_self_module/1
