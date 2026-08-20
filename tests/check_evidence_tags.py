@@ -109,7 +109,7 @@ SOURCES = (
     "bindings/python/petta/*.py",
     "bindings/python/petta/*.pl",
     "bindings/python/examples/*.py",
-    "mork_ffi/*.pl",
+    "backends/mork/mork_ffi/*.pl",
     "tests/*.py",
 )
 

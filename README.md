@@ -17,7 +17,7 @@ lives. The `python-library` branch develops the `petta` Python package on
 top of the engine: the engine's behaviour is the upstream contract, held by
 a gate that runs every shipped example through both the engine and the
 library and requires identical verdicts, and the Python surface is this
-branch's own. `mork_ffi/` vendors
+branch's own. `backends/mork/mork_ffi/` vendors
 [patham9/mork_ffi](https://github.com/patham9/mork_ffi) over
 [trueagi-io/mork](https://github.com/trueagi-io/mork) for the optional
 MORK backend.

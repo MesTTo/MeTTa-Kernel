@@ -1,4 +1,4 @@
-# Purpose: build the optional native backends. mork_ffi ships in this
+# Purpose: build the optional native backends. backends/mork/mork_ffi ships in this
 #   tree; its MORK and PathMap path dependencies live beside the
 #   repository and are cloned at the validated revisions when absent.
 #   faiss_ffi is cloned and built from upstream.
@@ -16,7 +16,7 @@ if [ ! -d ../PathMap ]; then
   git -C ../PathMap checkout 4c84a8b40c7b6a7ecb54e009a70f0c5abbc1b60f
 fi
 
-cd ./mork_ffi
+cd ./backends/mork/mork_ffi
 sh build.sh
 
 cd ..

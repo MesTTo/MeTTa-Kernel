@@ -30,10 +30,10 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 19,595 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `engine/*.pl` | 19,596 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
-| `backends/*.pl` | globbed at boot; each file decides whether its own artefact is present | |
+| `backends/*/decider.pl` | globbed at boot; each integration's decider decides whether its own artefact is present | |
 | `bindings/*/decider.pl` | globbed at every boot; each seat's decider loads its bridge only where the bridge's substrate exists, so the engine names no host | |
 | `bindings/node/*.mjs` | the engine embedded in a Node process over swipl-wasm, the seam's second consumer. `bindings/node/bridge.pl` is its Prolog half and calls published surface only | the `node-binding` gate lane, and `bindings/python/tests/test_node_binding.py` answers the same corpus in both hosts |
 | `EXTENDING.md`, `DEVELOPING.md` | writing an extension; working on the engine | |
@@ -372,7 +372,7 @@ exists so a backend never reaches into
 `engine/parser.pl`, the same reason SQLite hands extensions an
 `sqlite3_api_routines` table instead of letting them link against internals.
 
-`backends/*.pl` is globbed at boot and each file decides for itself whether its
+`backends/*/decider.pl` is globbed at boot and each integration's decider decides for itself whether its
 own artefact is present, so there is no backend "mode" to select and the engine
 names no backend. A MORK-backed store is one such backend, supplying `&mork` and
 `&mork:name`; it is present only when its shared library was built.

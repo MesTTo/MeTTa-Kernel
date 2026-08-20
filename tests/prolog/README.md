@@ -47,7 +47,7 @@ example in a fresh process and rejects a form with two translations.
 None of those five SWI checks reports UNREACHABILITY, so a predicate defined
 and never called was invisible to all of them, the way it was to `vulture` and
 `jscpd`, which read only Python. `tests/prolog/reachability.pl` answers that
-question: it walks every clause under `engine/`, `lib/`, `backends/`, `mork_ffi/`
+question: it walks every clause under `engine/`, `lib/`, `backends/`, `backends/mork/mork_ffi/`
 and `bindings/python/petta/` with SWI's own `prolog_walk_code/1`, adds one probe clause
 per directive, adds an edge for every goal the engine BUILDS as a term rather
 than calls, and reports what no root reaches.

@@ -503,10 +503,10 @@ def extract_code_spans(row: SpecRow) -> list[str]:
 
 
 # ------------------------------------------------------------- tree facts
-PROLOG_DIRS = ("engine", "lib", "mork_ffi", "backends", "bindings/python/petta", "tests")
+PROLOG_DIRS = ("engine", "lib", "backends/mork/mork_ffi", "backends", "bindings/python/petta", "tests")
 METTA_DIRS = ("lib", "examples", "bindings/python/examples", "tests")
 PYTHON_DIRS = ("bindings/python/petta", "bindings/python/tools", "bindings/python/examples", "bindings/python/benchmarks", "bindings/python/HE")
-IMPLEMENTATION_DIRS = ("engine", "lib", "mork_ffi", "backends", "bindings/python/petta")
+IMPLEMENTATION_DIRS = ("engine", "lib", "backends/mork/mork_ffi", "backends", "bindings/python/petta")
 
 PROLOG_CLAUSE_HEAD = re.compile(r"^([a-z][A-Za-z0-9_]*)\(", re.MULTILINE)
 PROLOG_DECLARATION = re.compile(
@@ -655,7 +655,7 @@ class Verdict:
 
 # Roots under which a file is something BUILT to demonstrate one item: a
 # test, a fixture, an example, or a single-purpose check script. A file
-# under an IMPLEMENTATION root (engine/, lib/, mork_ffi/, backends/,
+# under an IMPLEMENTATION root (engine/, lib/, backends/mork/mork_ffi/, backends/,
 # bindings/python/petta/) is excluded on purpose: `evidence_runners.executed()`
 # marks engine/metta.pl GATE because plunit `consult`s it transitively, which
 # is true of almost every engine file whether or not any given item ever

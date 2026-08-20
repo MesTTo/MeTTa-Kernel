@@ -2,12 +2,12 @@
 %   This file is the whole of what the engine knows about MORK, and it is not
 %   in the engine.
 % Assumes:
-%   - mork_ffi/target/release/libmork_ffi.so is what `sh build.sh` produces,
+%   - mork_ffi/target/release/libmork_ffi.so beside this file is what `sh build.sh` produces,
 %     and its absence means the backend was not built rather than that anything
 %     is wrong [tested: the suites run in both configurations]
 % Guarantees:
 %   - a tree without the build artefact loads this file and nothing happens
-%   - a tree with it loads mork_ffi/morkspaces.pl, which raises if any part of
+%   - a tree with it loads the mork_ffi/morkspaces.pl beside it, which raises if any part of
 %     the build is missing or the foreign predicate does not register
 % Fails when:
 %   - the artefact exists but is broken. That raises rather than being skipped,
@@ -24,9 +24,9 @@
 %loaded however it was reached, including the git-import! flow and an embedded
 %process that never consulted this file.
 :- prolog_load_context(directory, Dir),
-   directory_file_path(Dir, '../mork_ffi/target/release/libmork_ffi.so', Artefact),
+   directory_file_path(Dir, 'mork_ffi/target/release/libmork_ffi.so', Artefact),
    (   exists_file(Artefact)
-   ->  directory_file_path(Dir, '../mork_ffi/morkspaces.pl', Backend),
+   ->  directory_file_path(Dir, 'mork_ffi/morkspaces.pl', Backend),
        ensure_loaded(Backend)
    ;   true
    ).

@@ -20,7 +20,7 @@
 %   - var_branches warnings are fatal for repository engine sources without
 %     attributing warnings from SWI's own libraries to the repository.
 %   - Every unqualified multifile seam declared anywhere under engine, lib,
-%     bindings/python/petta or mork_ffi has exactly one ext_point_kind/2 fact, so a new
+%     bindings/python/petta or backends/mork/mork_ffi has exactly one ext_point_kind/2 fact, so a new
 %     seam cannot go quietly unchecked [measured 2026-08-17: 28 seams].
 %   - Each kind is declared the way its direction requires: a handler seam
 %     multifile so an extension can add clauses, a service not, so a caller
@@ -225,7 +225,7 @@ source_scan_sees_a_planted_cut :-
 
 hook_source_file(File) :-
     member(Directory, ['../../engine', '../../lib', '../../bindings/python/petta',
-                       '../../mork_ffi']),
+                       '../../backends/mork/mork_ffi']),
     atom_concat(Directory, '/*.pl', Pattern),
     expand_file_name(Pattern, Files),
     member(File, Files).
@@ -855,9 +855,9 @@ backend_entry(Entry) :-
     member(Entry, Files).
 
 % backends/ holds the declaration and the implementation lives beside the
-% shared library it wraps, which is the split backends/mork.pl exists to make,
+% shared library it wraps, which is the split backends/mork/decider.pl exists to make,
 % so both are walked.
-backend_directories(['../../backends', '../../mork_ffi']).
+backend_directories(['../../backends/mork', '../../backends/mork/mork_ffi']).
 
 % The same discipline as the other three walks here, and carried further,
 % because this one delegates to a library: a probe that exercised only code in

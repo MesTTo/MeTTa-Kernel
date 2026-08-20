@@ -362,14 +362,15 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 %file knows nothing more about it; what it needs from the engine is somewhere
 %to be loaded FROM, and that is all this does.
 %
-%One backend used to be named here instead, twice: `'../mork_ffi/morkspaces'`
+%One backend used to be named here instead, twice: `'../backends/mork/mork_ffi/morkspaces'`
 %in a second copy of the whole load list, and its three builtin names in a
 %second argv test further down. So a second native backend could not be added
 %without editing this file, which is the one thing EXTENDING.md promises an
 %extension author never has to do, and MORK was reaching the engine through a
 %door no other provider had. It goes through the seam now like everyone else.
 %
-%A backend is a file in backends/. Loading one is consulting that file, and
+%A backend is an integration folder in backends/ with a decider.pl at its
+%top. Loading one is consulting that decider, and
 %what it pulls in, where its build artefacts are, and whether they are present
 %at all is the backend's own business: a backend that is not built loads
 %nothing and says nothing, and one that is built and broken raises, which is
@@ -382,7 +383,7 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 :- prolog_load_context(directory, Src),
    current_prolog_flag(argv, Argv),
    (   memberchk(backends, Argv)
-   ->  directory_file_path(Src, '../backends/*.pl', Pattern),
+   ->  directory_file_path(Src, '../backends/*/decider.pl', Pattern),
        expand_file_name(Pattern, Found),
        msort(Found, Files),
        forall(member(File, Files), ensure_loaded(File))

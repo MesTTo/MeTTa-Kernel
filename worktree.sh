@@ -5,15 +5,15 @@
 #   - run from inside the worktree that needs setting up, and the main
 #     checkout has been built (`sh build.sh`).
 # Guarantees:
-#   - after this, `backends/mork.pl` finds its artefact and the MORK backend
+#   - after this, `backends/mork/decider.pl` finds its artefact and the MORK backend
 #     loads, so the suites gate the same configuration in both trees
 #     [tested: tests/test_worktree_configuration.sh].
 # Fails when:
 #   - the main checkout has not been built. That is reported, because a
 #     worktree quietly running a SMALLER configuration than the tree it was
 #     cut from is the failure this script exists to prevent: a fresh
-#     worktree has no mork_ffi/target/ and no mork_ffi/morklib.so, both are
-#     gitignored build output, and `backends/mork.pl` reads their absence as
+#     worktree has no backends/mork/mork_ffi/target/ and no backends/mork/mork_ffi/morklib.so, both are
+#     gitignored build output, and `backends/mork/decider.pl` reads their absence as
 #     "this backend was not built" rather than as an error. Every suite then
 #     passes while testing one backend fewer.
 # Open Obligations:
@@ -35,12 +35,20 @@ if [ "$MAIN" = "$HERE" ]; then
 fi
 
 linked=0
-for artefact in mork_ffi/target mork_ffi/morklib.so; do
+for artefact in backends/mork/mork_ffi/target backends/mork/mork_ffi/morklib.so; do
     source="$MAIN/$artefact"
     if [ ! -e "$source" ]; then
-        echo "worktree.sh: $MAIN has no $artefact; run 'sh build.sh' there" >&2
-        echo "worktree.sh: without it this worktree runs one backend fewer" >&2
-        exit 1
+        # A main checkout from before the tree partition holds the same
+        # build product at the crate's old top-level home; link across the
+        # rename rather than demanding a rebuild for a layout change.
+        legacy="$MAIN/mork_ffi/${artefact#backends/mork/mork_ffi/}"
+        if [ -e "$legacy" ]; then
+            source="$legacy"
+        else
+            echo "worktree.sh: $MAIN has no $artefact; run 'sh build.sh' there" >&2
+            echo "worktree.sh: without it this worktree runs one backend fewer" >&2
+            exit 1
+        fi
     fi
     mkdir -p "$(dirname "$HERE/$artefact")"
     ln -sfn "$source" "$HERE/$artefact"

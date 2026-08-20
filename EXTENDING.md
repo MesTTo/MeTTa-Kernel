@@ -516,14 +516,14 @@ predicate has more than one solution, that is `PL_retry`/`PL_foreign_control`
 with the `PL_FA_NONDETERMINISTIC` flag; a deterministic foreign predicate that
 should have been nondeterministic loses answers with no sign that it did.
 
-`mork_ffi/mork.c` is the worked example in this repo, and it shows the other
+`backends/mork/mork_ffi/mork.c` is the worked example in this repo, and it shows the other
 load route: `LD_PRELOAD` in `run.sh`, which is right when the library must be
 present before the engine boots.
 
 ### Hand back a handle, not a serialisation
 
 The expensive mistake at this boundary is converting your structure to text.
-`mork_ffi/mork.c` does exactly that, and it is worth knowing what it costs:
+`backends/mork/mork_ffi/mork.c` does exactly that, and it is worth knowing what it costs:
 reading MORK's answer for a single `(fact a 1)` costs **4.49us and 149
 inferences to parse**, against **0.37us and 2 inferences for the FFI call that
 produced it** [measured 2026-08-16]. The crossing is cheap. The text is not.
@@ -1111,7 +1111,7 @@ Python happened to be in the process. It is declared with them now.
 
 The engine consults `metta_foreign_space/1` before reaching its own storage, so
 your clauses take the space over entirely, with no boundary crossing. This is
-how MORK plugs a Rust trie in underneath MeTTa: `mork_ffi/morkspaces.pl` is a
+how MORK plugs a Rust trie in underneath MeTTa: `backends/mork/mork_ffi/morkspaces.pl` is a
 complete worked example, and `examples/integration/c_space/` is the
 smallest one, a mutex-guarded C store behind four clauses, proven by
 the conformance kit inside its own example and driven concurrently by
@@ -1152,7 +1152,7 @@ Write it and `m.add(a, b, c)`, `add-atom` over a list, and any other bulk write
 reach you once with the list. Leave it out and you get one
 `metta_foreign_add/2` per atom, which is what every provider written before
 this gets. The write hooks are yours either way, exactly as they are for your
-per-atom add. `mork_ffi/morkspaces.pl` implements it by joining the atoms into
+per-atom add. `backends/mork/mork_ffi/morkspaces.pl` implements it by joining the atoms into
 one payload that MORK parses itself.
 
 **A batch is a transport optimisation and never a semantic one.** Whatever the
@@ -1315,14 +1315,14 @@ in `backends/mine.pl`, so the names exist exactly when the predicates do.
 Registering a name whose predicate is absent records no arity, and every call
 to it then compiles to a partial application rather than running or failing.
 
-MORK is one of these and used to be none of it. `'../mork_ffi/morkspaces'` was
+MORK is one of these and used to be none of it. `'../backends/mork/mork_ffi/morkspaces'` was
 written into `engine/metta.pl`'s load list, in a second copy of that list behind
 an argv test, and its three builtin names into a second argv test further down,
 and `mork_test/0` was called by name from `engine/main.pl`. So a second native
 backend could not be added without editing the engine, which is the one thing
 this page promises you never have to do, and MORK reached the engine through a
 door no other provider had. It goes through the seam now like everyone else,
-and `backends/mork.pl` is 12 lines.
+and `backends/mork/decider.pl` is 12 lines.
 
 ### What you may call back
 

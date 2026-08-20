@@ -22,7 +22,7 @@
 %       predicate NAME and hand it to janus.apply_once/cmd]
 % Guarantees:
 %     - reachability_report/0 walks every clause of every predicate defined
-%       under engine/, lib/, backends/, mork_ffi/ and bindings/python/petta/, plus one probe
+%       under engine/, lib/, backends/, backends/mork/mork_ffi/ and bindings/python/petta/, plus one probe
 %       clause per directive, and reports the predicates no root reaches
 %       [measured 2026-08-18: 1550 predicates, 2602 clauses, 6984 call and 760
 %       construct edges, 24 reported, 1.10s min of 3]
@@ -106,7 +106,7 @@
 tree_directory_relative('../../engine').
 tree_directory_relative('../../lib').
 tree_directory_relative('../../backends').
-tree_directory_relative('../../mork_ffi').
+tree_directory_relative('../../backends/mork/mork_ffi').
 tree_directory_relative('../../bindings/python/petta').
 
 % With the separator, so that a sibling named src_generated is not read as
@@ -579,7 +579,7 @@ load_shipped_configuration(Unimported) :-
     % registers each backend's own builtin names in the SAME consult. Loading
     % the backends afterwards is too late for that directive, and it showed:
     % 'mm2-exec'/3 and 'mork-flush'/2 were reported dead while
-    % mork_ffi/morkspaces.pl:257 declares both [measured 2026-08-18]. The
+    % backends/mork/mork_ffi/morkspaces.pl:257 declares both [measured 2026-08-18]. The
     % plunit lane appends the same flag for the same reason.
     set_prolog_flag(argv, [backends]),
     consult('../../engine/metta.pl'),

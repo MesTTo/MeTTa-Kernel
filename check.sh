@@ -197,8 +197,8 @@ run GATE spec-differential check_specialization_differential
 run GATE packaged sh -c "cd '$HERE' && sh tests/test_packaged_cli.sh"
 
 # A git worktree of this repository silently runs one backend fewer than the
-# checkout it was cut from: mork_ffi/target/ and mork_ffi/morklib.so are
-# gitignored build output, and backends/mork.pl reads their absence as "this
+# checkout it was cut from: backends/mork/mork_ffi/target/ and backends/mork/mork_ffi/morklib.so are
+# gitignored build output, and backends/mork/decider.pl reads their absence as "this
 # backend was not built" rather than as an error, which is right for a tree
 # that never built it and wrong for a worktree of one that did. Every suite
 # then passes while testing less. worktree.sh links them; this shows the
@@ -270,7 +270,7 @@ run GATE prolog-static check_prolog_static
 # vulture and jscpd read Python alone, and none of the SWI checks above reports
 # UNREACHABILITY: a predicate defined and never called is invisible to all of
 # them, across 22,791 lines of Prolog [measured 2026-08-19]. This walks every clause under engine/, lib/,
-# backends/, mork_ffi/ and bindings/python/petta/ with prolog_walk_code/1, adds a probe
+# backends/, backends/mork/mork_ffi/ and bindings/python/petta/ with prolog_walk_code/1, adds a probe
 # clause per directive, and adds an edge for every goal the engine BUILDS as a
 # term rather than calls, which is most of the analysis and not a refinement:
 # without it the 2026-08-18 report was 206 rather than 24; the tally stands at 19 [measured 2026-08-19].
@@ -724,7 +724,7 @@ run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
 # look wrong, and its entries are bare names because codespell prunes a walked
 # directory by NAME, so a ./-prefixed skip stops matching the moment a runner
 # passes explicit paths.
-run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib bindings/python/petta bindings/python/bench.py bindings/python/examples bindings/python/tests bindings/python/tools engine lib backends examples tests website notebooks mork_ffi .github *.md"
+run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib bindings/python/petta bindings/python/bench.py bindings/python/examples bindings/python/tests bindings/python/tools engine lib backends examples tests website notebooks .github *.md"
 # The remaining clones are small facade, protocol, and test-fixture mirrors;
 # extracting them would couple layers or hide the local contract.
 run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' bindings/python/petta bindings/python/tests"
