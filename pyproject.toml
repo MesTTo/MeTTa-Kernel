@@ -247,7 +247,7 @@ ignore-semiprivate = true
 # also pins the removed _BARE name structurally; dynamic uses are explicit in
 # the whitelist rather than hidden behind broad ignore patterns [tested:
 # test_every_delimiter_check_derives_from_one_grammar_rule and the GATE vulture
-# lane; commit=WORKTREE].
+# lane; commit=3ae4e6b08bc82d8b9cbdf934afc92ada7cf7a19e].
 min_confidence = 60
 paths = ["petta", "bench.py", "vulture_whitelist.py"]
 ignore_names = ["exc_type", "exc_val", "exc_tb", "tb", "exc"]
