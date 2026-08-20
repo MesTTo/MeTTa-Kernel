@@ -42,7 +42,7 @@ command -v "$PY" >/dev/null 2>&1 || { echo "check.sh: no python found (set CHECK
 # whenever it is a virtual environment [measured: py_numpy resolves
 # numpy.absolute through numpy after alignment; command=sh check.sh no-autoload
 # parity; fixture=inherited MCP VIRTUAL_ENV with CHECK_PY auto-selected;
-# commit=WORKTREE].
+# commit=d90a3c9620e56e42d3a2f5982b4353da8423e873].
 PETTA_CHECK_PREFIX=$(dirname "$(dirname "$PY")")
 if [ -f "$PETTA_CHECK_PREFIX/pyvenv.cfg" ]; then
     VIRTUAL_ENV="$PETTA_CHECK_PREFIX"
