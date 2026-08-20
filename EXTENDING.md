@@ -1691,7 +1691,9 @@ pattern outside the ordinary translator. It walks nested patterns, applies the
 same first-success ownership rule at each eligible position, and returns the
 guards in evaluation order. The built-in `(:= value)` equality view and
 `(: $variable Type)` typed-variable view are the reference implementations in
-`engine/translator.pl`.
+`engine/translator.pl` [source: engine/ext_points.pl, pattern_modifier/3 and
+engine/translator.pl, lift_pattern_modifiers/3;
+commit=ea0bd45cc9f3991e41f61d8f6bf4d4e6cb992776].
 
 From MeTTa the same list is `(extension-points)` in `lib_reflect`, answering
 `(name arity kind)` one per solution, both directions included.
