@@ -531,6 +531,81 @@ test(reclaiming_is_idempotent,
     metta_add_atom('&as-pool6', ['as-free'], _),
     assertion(\+ \+ 'get-atoms'('&as-pool6', ['as-free'])).
 
+test(a_capacity_counter_is_installed_only_when_the_claim_has_a_capacity,
+     [ cleanup(sugar_teardown('&as-counted1')) ]) :-
+    petta_admission_claim('&as-counted1', '&self'),
+    assertion(\+ petta_capacity_count('&as-counted1', _)),
+    assertion(\+ petta_capacity_remove_hook('&as-counted1', _)),
+    metta_add_atom('&petta', [capacity, '&as-counted1', 10], _),
+    assertion(petta_capacity_count('&as-counted1', 0)),
+    assertion(petta_capacity_remove_hook('&as-counted1', _)).
+
+test(the_capacity_counter_tracks_direct_adds_batches_removals_and_clears,
+     [ cleanup(sugar_teardown('&as-counted2')) ]) :-
+    metta_add_atom('&petta', [capacity, '&as-counted2', 10], _),
+    petta_admission_claim('&as-counted2', '&self'),
+    metta_add_atom('&as-counted2', [direct, one], _),
+    metta_add_atoms('&as-counted2', [[batch, two], [batch, three]]),
+    assertion(petta_capacity_count('&as-counted2', 3)),
+    metta_remove_atom('&as-counted2', [batch, two], Removed),
+    assertion(Removed == true),
+    assertion(petta_capacity_count('&as-counted2', 2)),
+    metta_remove_atom('&as-counted2', [absent], Missing),
+    assertion(Missing == false),
+    assertion(petta_capacity_count('&as-counted2', 2)),
+    clear_native_atoms('&as-counted2'),
+    assertion(petta_capacity_count('&as-counted2', 0)).
+
+test(capacity_counter_changes_roll_back_with_the_atoms,
+     [ cleanup(sugar_teardown('&as-counted3')) ]) :-
+    petta_admission_claim('&as-counted3', '&self'),
+    assertion(\+ transaction(( metta_add_atom('&petta',
+                                               [capacity, '&as-counted3', 10],
+                                               _),
+                               fail ))),
+    assertion(\+ petta_capacity_count('&as-counted3', _)),
+    assertion(\+ petta_capacity_remove_hook('&as-counted3', _)),
+    metta_add_atom('&petta', [capacity, '&as-counted3', 10], _),
+    assertion(\+ transaction(( metta_remove_atom('&petta',
+                                                  [capacity, '&as-counted3', 10],
+                                                  _),
+                               fail ))),
+    assertion(petta_capacity_count('&as-counted3', 0)),
+    assertion(petta_capacity_remove_hook('&as-counted3', _)),
+    metta_add_atom('&as-counted3', [kept], _),
+    assertion(\+ transaction(( metta_add_atom('&as-counted3', [rolled, add], _),
+                               fail ))),
+    assertion(petta_capacity_count('&as-counted3', 1)),
+    assertion(\+ 'get-atoms'('&as-counted3', [rolled, add])),
+    assertion(\+ transaction(( metta_remove_atom('&as-counted3', [kept], _),
+                               fail ))),
+    assertion(petta_capacity_count('&as-counted3', 1)),
+    assertion(\+ \+ 'get-atoms'('&as-counted3', [kept])),
+    assertion(\+ transaction(( clear_native_atoms('&as-counted3'), fail ))),
+    assertion(petta_capacity_count('&as-counted3', 1)),
+    assertion(\+ \+ 'get-atoms'('&as-counted3', [kept])).
+
+test(capacity_redeclaration_recounts_writes_made_while_unbounded,
+     [ cleanup(sugar_teardown('&as-counted4')) ]) :-
+    metta_add_atom('&petta', [capacity, '&as-counted4', 4], _),
+    petta_admission_claim('&as-counted4', '&self'),
+    metta_add_atoms('&as-counted4', [[held, one], [held, two]]),
+    metta_remove_atom('&petta', [capacity, '&as-counted4', 4], Removed),
+    assertion(Removed == true),
+    assertion(\+ petta_capacity_count('&as-counted4', _)),
+    assertion(\+ petta_capacity_remove_hook('&as-counted4', _)),
+    metta_add_atom('&as-counted4', [held, three], _),
+    metta_add_atom('&petta', [capacity, '&as-counted4', 2], _),
+    assertion(petta_capacity_count('&as-counted4', 3)),
+    assertion(petta_capacity_remove_hook('&as-counted4', _)),
+    catch(metta_add_atom('&as-counted4', [refused, four], _), Error, true),
+    assertion(subsumes_term(
+                  error(petta_add_refused('&as-counted4', [refused, four],
+                                          ['pool-at-capacity', 2]), _),
+                  Error)),
+    space_atom_count('&as-counted4', Count),
+    assertion(Count == 3).
+
 :- end_tests(hooks_admission_sugar).
 
 % The design board's worked instances (P12.5, P12.8, P12.9, P12.10):
