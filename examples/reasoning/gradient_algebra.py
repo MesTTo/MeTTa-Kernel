@@ -3,7 +3,7 @@ Assumes: PeTTa, PyTorch, and the sibling ``pettorch`` package are importable.
 Guarantees: the result is the same live DLPack tensor whose backward pass
   reaches the source tag [tested:
   test_a_declared_gradient_algebra_propagates_derivatives_through_a_derivation;
-  commit=WORKTREE]
+  commit=4b2f8ea2c72fed6974470f34b3557c86574cc18d]
 """  # noqa: D205, D415 -- the file contract is one continuous invariant
 
 import pettorch
