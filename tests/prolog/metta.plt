@@ -259,7 +259,7 @@ boolean_error_case(xor, xor(true, 5, R), R, 2).
 boolean_error_case(implies, implies(false, 5, R), R, 2).
 
 test(boolean_type_errors_answer_the_position_they_refuse,
-     [forall(boolean_error_case(Operation, Goal, Result, Position))]) :-
+     [forall(boolean_error_case(_Operation, Goal, Result, Position))]) :-
     findall(Result, call(Goal), Answers),
     Answers = [['Error', _, Reason]],
     Reason == ['BadArgType', Position, 'Bool', 'Number'].
@@ -1734,6 +1734,57 @@ test(a_shared_type_variable_reports_what_the_first_argument_fixed) :-
     findall(A, metta_operation_answer('==', [1, "text"], A), Answers),
     Answers == [['Error', ['==', 1, "text"],
                  ['BadArgType', 2, 'Number', 'String']]].
+
+%An argument whose DECLARED type is already wrong is refused where it stands,
+%so the error names the call the program wrote and the argument never runs.
+%The arbiter's eight effects files are built to see exactly that: each pairs a
+%control with an experiment whose operand emits a marker, and the marker is
+%absent for the rejected operand on hyperon 0.2.10, which type-checks a call
+%before interpreting its arguments
+%[source: LeaTTa tests/semantics/grounded/13-effects-arithmetic.metta through
+%21-effects-strings-metatype.metta, all STATUS conforms, quoting
+%hyperon-experimental@3f76dc4 interpreter.rs:1224-1258 against :1352-1395].
+test(a_wrongly_typed_operand_is_named_as_written,
+     [setup(( process_metta_string("(: ew-string (-> Atom String))", _),
+              process_metta_string("(= (ew-string $l) \"s\")", _) ))]) :-
+    process_metta_string("!(collapse (+ 1 (ew-string EW-MARK)))", [[Answer]]),
+    swrite(Answer, Text),
+    assertion(Text == "(Error (+ 1 (ew-string EW-MARK)) (BadArgType 2 Number String))").
+
+test(a_wrongly_typed_operand_does_not_run,
+     [ setup(( process_metta_string("(: ew-effect (-> Atom String))", _),
+               process_metta_string(
+                   "(= (ew-effect $l) (prog1 \"s\" (add-atom &self (ew-ran))))",
+                   _) )),
+       cleanup(remove_sexp('&self', ['ew-ran'])) ]) :-
+    process_metta_string("!(collapse (+ 1 (ew-effect EW-MARK)))", _),
+    assertion(\+ get_native_atom('&self', ['ew-ran'])).
+
+%The other half, which is what keeps the refusal from swallowing a working
+%program: an operand whose type is %Undefined% or right is evaluated exactly as
+%it was, effect and all, and the call answers what it answered
+%[source: the same files, whose first four lines per operation are the
+%%Undefined% and Number controls].
+test(an_operand_of_the_right_type_still_runs,
+     [ setup(( process_metta_string("(: ew-number (-> Atom Number))", _),
+               process_metta_string(
+                   "(= (ew-number $l) (prog1 7 (add-atom &self (ew-number-ran))))",
+                   _) )),
+       cleanup(remove_sexp('&self', ['ew-number-ran'])) ]) :-
+    process_metta_string("!(collapse (+ 1 (ew-number EW-MARK)))", [[Answer]]),
+    assertion(Answer == 8),
+    assertion(get_native_atom('&self', ['ew-number-ran'])).
+
+test(an_undecided_operand_still_runs,
+     [ setup(( process_metta_string("(: ew-undef (-> Atom %Undefined%))", _),
+               process_metta_string(
+                   "(= (ew-undef $l) (prog1 ew-u (add-atom &self (ew-undef-ran))))",
+                   _) )),
+       cleanup(remove_sexp('&self', ['ew-undef-ran'])) ]) :-
+    process_metta_string("!(collapse (+ 1 (ew-undef EW-MARK)))", [[Answer]]),
+    swrite(Answer, Text),
+    assertion(Text == "(+ 1 ew-u)"),
+    assertion(get_native_atom('&self', ['ew-undef-ran'])).
 
 :- end_tests(operation_answers).
 

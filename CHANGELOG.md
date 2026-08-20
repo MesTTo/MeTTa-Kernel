@@ -14,6 +14,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   variables created after reading still use the engine fallback spelling.
   `sealed` now follows the normative ignore-list contract and returns its
   freshened Atom as data; generated variables print deterministic `#N` epochs.
+- Grounded arithmetic, comparison, Boolean, numeric-math, and `format-args`
+  calls whose written operands already contradict their built-in parameter
+  types now report the written call before evaluating those operands. Rejected
+  operands no longer perform effects, while accepted and undecided operands
+  keep their existing evaluation behavior.
 
 - The engine repairs its own compiled code when a function is removed, with
   no host in the process: the removal-direction recompile used to ride a
@@ -47,6 +52,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   the `petta.errors` classes are unchanged.
 
 ### Added
+
+- Repeated `eval` calls reuse their compiled Prolog goal template. Templates
+  are variant-keyed per execution space and are evicted when any function or
+  declaration named by the source changes or is removed. Large one-shot terms
+  stay uncached, and direct flat calls keep their existing fast path.
 
 - The upstream documentation family is available with no import. `(get-doc
   $space $atom)`, `get-doc-atom`, `get-doc-single-atom`, `get-doc-function`,
