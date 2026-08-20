@@ -4,8 +4,8 @@
 %   see at all: dispatch goal ordering, equation-store growth and translation
 %   growth each leave every answer exactly as it was.
 % Guarantees:
-%   - Translator-level probes observe the shipped dispatch defaults, including
-%     wrapped compiled calls and unreduced no-match calls
+%   - Translator-level probes observe the shipped no-match default while calls
+%     whose heads cover their arguments retain the direct compiled path
 %     [tested: translator_derived_forms:trace_form_has_one_compilation,
 %     translator_inplace_annotations:a_non_variable_in_the_annotation_position_stays_structural;
 %     commit=WORKTREE].
@@ -330,8 +330,7 @@ test(trace_form_has_one_compilation) :-
     findall(Goals-Out, translate_expr(['trace!', 1, 2], Goals, Out),
             Solutions),
     Solutions = [[Print]-2],
-    Print = dispatch_policy_execute(_, 'println!', [1], Direct, _),
-    Direct =@= 'println!'(1, _).
+    Print =@= 'println!'(1, _).
 
 %The set operations name the shape they rewrite. A call that is not that
 %shape is a program using the name as data, and the guard has to LEAVE it

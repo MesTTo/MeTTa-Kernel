@@ -970,27 +970,101 @@ dispatch_policy_value(Fun, Axis, Value) :-
     ).
 
 dispatch_call_goal(Fun, Args, Out, Goal,
-                   dispatch_policy_execute(Module, Fun, Args, Goal, Out)) :-
-    current_metta_module(Module).
+                   PolicyGoal) :-
+    current_metta_module(Module),
+    dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal).
+
+%Most calls retain the generated direct goal. Policy interpretation is needed
+%only while a non-default selection policy is active or while the written
+%arguments are not yet specific enough to decide whether any head applies.
+%A head that subsumes the arguments proves the call cannot reach NoMatch; a
+%call that cannot unify with any head is the opposite decided case and needs
+%only the no-match policy. This keeps ordinary compiled recursion on the
+%engine's direct tail-call path.
+dispatch_call_goal_in(Module, Fun, _, _, Goal, Goal) :-
+    \+ fun_meta_module(Module, Fun, _),
+    !.
+dispatch_call_goal_in(Module, Fun, Args, Out, Goal,
+                      dispatch_policy_execute(Module, Fun, Args, Goal, Out)) :-
+    (   dispatch_selection_override(Fun)
+    ;   \+ dispatch_head_covers(Module, Fun, Args, Goal),
+        dispatch_any_head_matches(Module, Fun, Args, Goal)
+    ),
+    !.
+dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal) :-
+    (   dispatch_head_covers(Module, Fun, Args, Goal)
+    ->  PolicyGoal = Goal
+    ;   PolicyGoal = dispatch_no_match_result(Fun, Args, Out)
+    ).
+
+dispatch_selection_override(Fun) :-
+    member(Axis, ['EvaluationOrderEnum', 'FunctionResultEnum',
+                  'ClauseFailedEnum', 'OutOfClausesEnum']),
+    petta_catalog_row(['dispatch-policy', Fun, Axis, _]),
+    !.
+
+dispatch_head_covers(Module, Fun, Args, _) :-
+    fun_meta_module(Module, Fun, Owner),
+    fun_meta_clause(Owner, Fun, Head0, _),
+    copy_term(Head0, Head),
+    subsumes_term(Head, Args),
+    !.
+dispatch_head_covers(Module, _, Args, Goal) :-
+    copy_term(Goal, Probe),
+    catch_recover(clause(Module:Probe, _), fail),
+    Probe =.. [_|All],
+    append(HeadArgs, [_], All),
+    subsumes_term(HeadArgs, Args),
+    !.
 
 %Demanding a user function goes through the six-axis policy interpreter. A
 %builtin or host registration has no retained MeTTa equations and stays on its
 %native goal, so a relational builtin's ordinary failure cannot be mistaken
 %for a clause miss.
+dispatch_policy_execute(Module, Fun, _, Goal, _) :-
+    \+ fun_meta_module(Module, Fun, _),
+    !,
+    call(Module:Goal).
 dispatch_policy_execute(Module, Fun, Args, Goal, Out) :-
-    (   fun_meta_module(Module, Fun, _)
-    ->  dispatch_policy_value(Fun, 'EvaluationOrderEnum', Order),
-        dispatch_policy_value(Fun, 'FunctionResultEnum', ResultMode),
-        dispatch_policy_value(Fun, 'ClauseFailedEnum', ClauseMode),
-        (   dispatch_result_goal(ResultMode,
-                                 dispatch_selected_goal(Order, ClauseMode,
-                                                        Module, Fun, Args,
-                                                        Goal, Out))
-        *-> true
-        ;   dispatch_failed_call(Module, Fun, Args, Out)
-        )
-    ;   call(Module:Goal)
+    dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, Exhaustion),
+    dispatch_fast_axes(Order, ResultMode, ClauseMode, Exhaustion),
+    !,
+    dispatch_fast_goal(Module, Fun, Args, Goal, Out).
+dispatch_policy_execute(Module, Fun, Args, Goal, Out) :-
+    dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, _),
+    (   dispatch_result_goal(ResultMode,
+                             dispatch_selected_goal(Order, ClauseMode,
+                                                    Module, Fun, Args,
+                                                    Goal, Out))
+    *-> true
+    ;   dispatch_failed_call(Module, Fun, Args, Out)
     ).
+
+dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, Exhaustion) :-
+    dispatch_policy_value(Fun, 'EvaluationOrderEnum', Order),
+    dispatch_policy_value(Fun, 'FunctionResultEnum', ResultMode),
+    dispatch_policy_value(Fun, 'ClauseFailedEnum', ClauseMode),
+    dispatch_policy_value(Fun, 'OutOfClausesEnum', Exhaustion).
+
+%The shipped clause-order/nondeterministic path decides head applicability
+%before entering the generated predicate. A matching call can then tail-call
+%the predicate directly instead of retaining a failure continuation around
+%every recursive step. That continuation overflowed the Prolog stack in
+%otherwise constant-space recursion. A non-default exhaustion, order, result,
+%or clause-failure policy uses the general interpreter below because it must
+%observe or replace the generated predicate's failure
+%[tested: bindings/python/tests/test_aio.py::test_aio_keeps_the_loop_live_while_the_engine_spins;
+%commit=WORKTREE].
+dispatch_fast_axes('OrderClause', 'Nondeterministic', 'ClauseFailNonDet',
+                   'FailureOriginal').
+
+dispatch_fast_goal(Module, Fun, Args, Goal, _Out) :-
+    dispatch_any_head_matches(Module, Fun, Args, Goal),
+    !,
+    call(Module:Goal).
+dispatch_fast_goal(_, Fun, Args, _, Out) :-
+    dispatch_policy_value(Fun, 'NoMatchEnum', Policy),
+    dispatch_no_match(Policy, Fun, Args, Out).
 
 dispatch_result_goal('Deterministic', Goal) :- !, once(Goal).
 dispatch_result_goal('Nondeterministic', Goal) :- call(Goal).
@@ -1074,9 +1148,17 @@ dispatch_failed_call(Module, Fun, Args, Out) :-
     ).
 
 dispatch_any_head_matches(Module, Fun, Args) :-
+    resolve_dispatch(Fun, Args, _, Goal),
+    dispatch_any_head_matches(Module, Fun, Args, Goal).
+
+dispatch_any_head_matches(Module, Fun, Args, _) :-
     fun_meta_module(Module, Fun, Owner),
     fun_meta_clause(Owner, Fun, Head0, _),
     \+ \+ (copy_term(Head0-Args, Head-Probe), Head = Probe),
+    !.
+dispatch_any_head_matches(Module, _, _, Goal) :-
+    copy_term(Goal, Probe),
+    catch_recover(clause(Module:Probe, _), fail),
     !.
 
 dispatch_no_match('NoMatchOriginal', Fun, Args, [Fun|Args]).
@@ -1098,6 +1180,10 @@ dispatch_mismatch('MismatchOriginal', Fun, Args, Out) :-
 dispatch_mismatch('MismatchError', Fun, Args,
                   ['Error', [Fun|Args], 'ArgumentTypeMismatch']).
 dispatch_mismatch('MismatchFail', _, _, _) :- fail.
+
+dispatch_no_match_result(Fun, Args, Out) :-
+    dispatch_policy_value(Fun, 'NoMatchEnum', Policy),
+    dispatch_no_match(Policy, Fun, Args, Out).
 incomplete_application_kind(Fun, Arity, partial) :- ( arity(Fun, KnownArity), KnownArity >= Arity
                                                      ; \+ arity(Fun, _) ), !.
 incomplete_application_kind(_, _, overapplied).

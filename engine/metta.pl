@@ -29,6 +29,11 @@
 %     bases explicitly, so the inventory's exemption remains checkable
 %     [tested: test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
 %     commit=42b5d28232e75c32b20a1d5bf1f740fec134938d].
+%   - a hook handler whose call remains unreduced has not supplied a verdict;
+%     the hook door reports its existing stuck state instead of treating the
+%     residual call as a malformed verdict [tested:
+%     hooks:an_unclaimed_request_is_a_stuck_state_that_says_so,
+%     hooks:a_post_stuck_state_undoes_the_write; commit=WORKTREE].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction
@@ -3466,7 +3471,8 @@ petta_hook_eval(Space, Slot, Handler, Module, Term, Verdict) :-
     ;   with_metta_module(Module,
                           call(Module:'$petta_hook_fire'(Space, Slot, Term,
                                                          Verdict)))
-    ).
+    ),
+    \+ (Verdict =@= [Handler, Term]).
 
 petta_hook_drop_compiled(Space, Slot) :-
     forall(retract(petta_hook_compiled(Space, Slot, Ref)),

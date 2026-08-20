@@ -254,6 +254,7 @@ test(a_collapse_is_never_true) :-
 %and that path never reaches the collapse dual at all.
 test(a_collapse_as_an_argument_still_evaluates) :-
     metta("(= (as-known 1) True)\n\c
+           (= (as-known 2) (superpose ()))\n\c
            (= (as-absent $x) (== (collapse (as-known $x)) ()))"),
     metta_answer("!(not-provable (as-absent 1))", true),
     metta_answer("!(not-provable (as-absent 2))", false).
@@ -276,6 +277,7 @@ test(a_case_duals_branch_by_branch) :-
 %quantifying.
 test(an_empty_branch_answers_for_a_key_with_no_answer) :-
     metta("(= (cs-lookup alice) 90)\n\c
+           (= (cs-lookup nobody) (superpose ()))\n\c
            (= (cs-checked $w)\n\c
               (case (cs-lookup $w) ((90 True) (40 False) (Empty True))))\n\c
            (= (cs-checked2 $w)\n\c
@@ -475,6 +477,7 @@ test(every_answer_of_the_generator_must_fail) :-
 %that.
 test(a_value_with_no_answer_makes_the_let_not_provable) :-
     metta("(= (lt-known alice) 1)\n\c
+           (= (lt-known nobody) (superpose ()))\n\c
            (= (lt-reachable $w) (let $s (lt-known $w) (> $s 0)))"),
     metta_answer("!(not-provable (lt-reachable nobody))", true),
     metta_answer("!(not-provable (lt-reachable alice))", false).

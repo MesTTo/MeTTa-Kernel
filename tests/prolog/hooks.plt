@@ -327,9 +327,13 @@ test(a_compiled_fire_answers_what_the_eval_path_answers) :-
     cf_parity('cf-guard', [raw, 7]),
     cf_parity('cf-guard', [plain, 2]).
 
-test(a_compiled_fire_fails_where_the_eval_path_is_stuck) :-
+test(a_compiled_fire_treats_an_unreduced_eval_as_stuck) :-
     current_metta_module(Module),
-    \+ eval_metta_in_module(Module, ['cf-guard', [uncovered, 3]], _),
+    findall(Residual,
+            eval_metta_in_module(Module, ['cf-guard', [uncovered, 3]],
+                                 Residual),
+            Residuals),
+    Residuals == [['cf-guard', [uncovered, 3]]],
     petta_hook_drop_compiled('&cf-parity', pre_add),
     \+ petta_hook_eval('&cf-parity', pre_add, 'cf-guard', Module,
                        [uncovered, 3], _),
