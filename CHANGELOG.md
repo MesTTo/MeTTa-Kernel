@@ -8,6 +8,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Grounded arithmetic, comparison, Boolean, numeric-math, and `format-args`
+  calls whose written operands already contradict their built-in parameter
+  types now report the written call before evaluating those operands. Rejected
+  operands no longer perform effects, while accepted and undecided operands
+  keep their existing evaluation behavior.
+
 - The engine repairs its own compiled code when a function is removed, with
   no host in the process: the removal-direction recompile used to ride a
   Python clause of the `metta_on_function_removed` event, so a pure Prolog

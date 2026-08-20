@@ -3,6 +3,10 @@
 %   and for the translator's COST guarantees, which no correctness test can
 %   see at all: dispatch goal ordering, equation-store growth and translation
 %   growth each leave every answer exactly as it was.
+% Guarantees:
+%   - Equal-width depth intervals do not gain marginal translation cost, so
+%     affine growth passes without assuming a nonnegative fixed intercept
+%     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -402,12 +406,17 @@ test(nested_heads_emit_one_goal_per_level) :-
     translate_expr(Expr, Goals, _),
     length(Goals, 400).
 
-% Two depths rather than a ceiling. `Inferences < 50000` at depth 400 was the
+% Three depths rather than a ceiling. `Inferences < 50000` at depth 400 was the
 % assertion here until 2026-08-18, and the shallowest of these shapes costs
 % 3,203 at that depth, so it had room for a fifteenfold regression and could
-% not have reported one. Cost is affine in depth for every shape, so doubling
-% the depth cannot more than double the work, and a per-level cost that grew
-% with depth would break that with no threshold to tune.
+% not have reported one. Cost is affine in depth for every shape, so two equal
+% depth intervals must have the same marginal cost; a per-level cost that grew
+% with depth would make the later interval more expensive with no ceiling to
+% tune. Comparing total costs at 200 and 400 assumed a nonnegative fixed
+% intercept. A terminal literal is cheaper than every enclosing call, giving
+% nested calls a small negative intercept despite exactly constant marginal
+% cost, so that old assertion rejected an affine implementation by four
+% inferences.
 %
 % Measured 2026-08-18, min of three, at depths 200 and 400: call 11,803 and
 % 23,603; head 1,603 and 3,203; let 2,603 and 5,203; conditional 15,803 and
@@ -416,12 +425,15 @@ test(nested_heads_emit_one_goal_per_level) :-
 test(every_nesting_shape_compiles_in_linear_work,
      [forall(translation_shape(_Shape, Builder))]) :-
     translation_cost(Builder, 200, Small),
+    translation_cost(Builder, 300, Middle),
     translation_cost(Builder, 400, Large),
-    %The lower bound is the liveness half. Without it a translator that had
-    %stopped descending would cost the same at both depths and read as
-    %perfectly linear.
-    Large > Small,
-    Large =< 2 * Small.
+    %The lower bounds are the liveness half. Without them a translator that
+    %stopped descending would have zero marginal cost and look linear.
+    Middle > Small,
+    Large > Middle,
+    FirstInterval is Middle - Small,
+    SecondInterval is Large - Middle,
+    SecondInterval =< FirstInterval.
 
 :- end_tests(translator_translation_depth).
 

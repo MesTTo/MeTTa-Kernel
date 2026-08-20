@@ -7,6 +7,26 @@
 clear_translation_cache_test_state :-
     user:clear_translation_cache.
 
+:- dynamic translation_compile_count/1.
+
+install_translation_compile_counter :-
+    retractall(translation_compile_count(_)),
+    assertz(translation_compile_count(0)),
+    wrap_predicate(user:translate_runnable_expr(_, _, _),
+                   translation_cache_acceptance_counter, Wrapped,
+                   count_translation_compile(Wrapped)).
+
+remove_translation_compile_counter :-
+    unwrap_predicate(user:translate_runnable_expr/3,
+                     translation_cache_acceptance_counter),
+    retractall(translation_compile_count(_)).
+
+count_translation_compile(Wrapped) :-
+    retract(translation_compile_count(Before)),
+    After is Before + 1,
+    assertz(translation_compile_count(After)),
+    call(Wrapped).
+
 run_translated(Expression, Answer) :-
     translate_cached_expr(Expression, Goals, Answer),
     current_metta_module(Module),
@@ -75,5 +95,32 @@ test(concurrent_first_use_publishes_one_template,
     aggregate_all(count,
                   user:translated_form_cache(_, _, _, _, _, _),
                   1).
+
+test(test_a_repeated_eval_does_not_recompile_and_the_effects_cluster_conforms,
+     [ setup(( clear_translation_cache_test_state,
+               process_metta_string("(: tc-effect (-> Atom String))", _),
+               process_metta_string(
+                   "(= (tc-effect $l) (prog1 \"s\" (add-atom &self (tc-ran))))",
+                   _),
+               clear_translation_cache_test_state,
+               install_translation_compile_counter )),
+       cleanup(( remove_translation_compile_counter,
+                 clear_translation_cache_test_state,
+                 remove_sexp('&self', ['tc-ran']),
+                 metta_self_module(Module),
+                 forget_symbol(Module, 'tc-effect') )) ]) :-
+    once(run_translated([+, 20, 22], 42)),
+    translation_compile_count(AfterFirst),
+    assertion(AfterFirst == 1),
+    once(run_translated([+, 20, 22], 42)),
+    translation_compile_count(AfterSecond),
+    assertion(AfterSecond == 1),
+    aggregate_all(count,
+                  user:translated_form_cache(_, _, _, _, _, _),
+                  1),
+    once(run_translated([+, 1, ['tc-effect', 'TC-MARK']], Answer)),
+    swrite(Answer, Text),
+    assertion(Text == "(Error (+ 1 (tc-effect TC-MARK)) (BadArgType 2 Number String))"),
+    assertion(\+ get_native_atom('&self', ['tc-ran'])).
 
 :- end_tests(translation_cache).
