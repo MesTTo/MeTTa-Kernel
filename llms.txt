@@ -26,7 +26,7 @@ re-runs them.
 | `CHANGELOG.md` | every user-facing change, with the reasoning | |
 | `website/guide/*.md` | 14 pages of prose: concepts, run-query, spaces, atoms-terms, python-functions, define, structures, threads, observability, notebook, contract, getting-started, pettorch | |
 | `website/tutorials/*.md` | 8 numbered lessons, atoms through graph-view | |
-| `website/integrations/*.md` | dataframes, pydantic, duckdb, arrays and embeddings, http routes | |
+| `website/integrations/*.md` | dataframes, pydantic, duckdb, SQLite blobs, arrays and embeddings, http routes | |
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |

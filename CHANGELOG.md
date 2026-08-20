@@ -8,6 +8,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- SQLite table bridges now honor per-context `image` declarations. The
+  shipped example maps a `BLOB` column to a live `Blob` handle under
+  `opaque`, lets a lazy path read one byte without projecting the payload,
+  and demonstrates the structural crossing selected by `transparent`.
 - `petta.spaces.object_view(obj)` now presents live Python fields as
   `(py-field obj name value)` atoms on the ordinary foreign-space seam. The
   view composes with stored spaces for joins, observes later mutations, and

@@ -57,6 +57,10 @@ Source: `bindings/python/petta/space.py`.
 >     eval return shapes [tested:
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
 >     commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
+>   - declare_image records one validated per-type-per-context image choice and
+>     replaces the previous choice [tested:
+>     test_an_opaque_blob_column_is_reached_by_a_lazy_path_without_crossing;
+>     commit=WORKTREE]
 >   - profile_extension reports every declared member of an extension, including
 >     one the workload never reached, with the tier that installed it and its
 >     clause index [tested 2026-08-16:
@@ -1632,6 +1636,25 @@ def declare_annotations(self, name: str, semiring: Semiring) -> Atom:
 > annotations, which is what (top k ...) consumes. Declaring
 > replaces any earlier declaration for the context, so the reader
 > never meets two disagreeing atoms.
+
+### `MeTTa.declare_image`
+
+```python
+def declare_image(
+    self,
+    name: str,
+    type_name: str,
+    setting: Literal['opaque', 'transparent', 'auto'],
+) -> Atom:
+```
+
+> Choose how one Python type crosses one context boundary.
+>
+> opaque carries the live object by identity; transparent projects its
+> structural MeTTa image; auto makes that choice from the value's size
+> and replayability. A later declaration for the same context and type
+> replaces the earlier one, so an attached provider reads one policy.
+> Use ``_`` as the type name for a context-wide fallback.
 
 ### `MeTTa.declare_source`
 

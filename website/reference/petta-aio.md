@@ -41,6 +41,9 @@ Source: `bindings/python/petta/aio.py`.
 >     return shapes [tested:
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
 >     commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
+>   - declare_image reaches the synchronous declaration owner on the engine
+>     worker [tested: test_aio_covers_the_whole_synchronous_surface;
+>     commit=WORKTREE]
 > Owns:
 >   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
 >     engine until aclose(), stop(), or the atexit handler releases it [tested
@@ -561,6 +564,19 @@ async def declare_handles(
     fidelity: Literal['Exact', 'Partial', 'Sound', 'Refuse'],
     *,
     det: str | None = None,
+) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.declare_image`
+
+```python
+async def declare_image(
+    self,
+    name: str,
+    type_name: str,
+    setting: Literal['opaque', 'transparent', 'auto'],
 ) -> Atom:
 ```
 

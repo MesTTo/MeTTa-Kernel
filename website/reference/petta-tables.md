@@ -51,6 +51,11 @@ Source: `bindings/python/petta/tables.py`.
 >     [tested test_a_nonground_add_is_refused]
 >   - an atom every shape refuses, or two shapes admit, is refused naming
 >     the shapes [tested test_an_ambiguous_add_is_refused_naming_both]
+>   - TableBridge.from_context applies `(image <ctx> <Type> <setting>)` to
+>     each row value before it crosses, keeping opaque objects as handles and
+>     projecting transparent objects [tested:
+>     test_an_opaque_blob_column_is_reached_by_a_lazy_path_without_crossing;
+>     commit=WORKTREE]
 > Decides:
 >   - declarations are trusted code, not user data: table and column
 >     names are interpolated into SQL, so a bridge declaration belongs in
