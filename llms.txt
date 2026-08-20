@@ -173,12 +173,15 @@ shipped choice. There is exactly one row for each of dispatch, order, merge,
 agenda, equality, errors, world, algebra, storage, typing, fidelity,
 source-kind, transaction-mode, atomicity, save-format, volatility, and
 determinism. `tests/check_policy_inventory.py` asks the running catalog for
-those rows, joins each one to the implementation seam, and rejects a closed
-list that bypasses the catalog unless the immediately preceding annotation
-records one of mechanism-internal, arbiter-owned-language-law,
-codec-version-identity, or documented-collision-decision with a reason and
-evidence location. One generic
-checker validates every `&petta` write against them, a violation is a hard
+those rows and the semiring law claims, joins them to their implementation
+seams, and rejects multiline `member/2` or `memberchk/2` lists, Python
+`Literal[...]`, and Python list/set membership that bypass the catalog. The
+immediately preceding annotation may exempt only mechanism-internal,
+arbiter-owned-language-law, codec-version-identity, or
+documented-collision-decision, with a reason and an existing local source line
+or symbol. Only catalog preset terms in `engine/spaces.pl` and the generated
+`petta.vocabularies` output are authority rather than independent lists. One
+generic checker validates every `&petta` write against them, a violation is a hard
 error naming the atom, the position and the argspec, and a head with no kind
 row passes untouched, so third-party declaration kinds are ordinary data
 until their author declares a kind row for them.

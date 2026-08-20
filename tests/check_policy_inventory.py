@@ -5,27 +5,27 @@ lists that bypass both the catalog and the four explicit exemption reasons.
 Assumes:
   - ``swipl`` is on PATH and ``engine/metta.pl`` boots from the repository
     root, the same environment used by the Prolog and vocabulary gate lanes
-  - a closed Prolog policy list uses ``memberchk(Value, [a, b])`` and a
-    binding policy alias uses ``Name: TypeAlias = Literal[...]``; these are
-    the two planted and shipped forms this lane owns
 Guarantees:
   - the runtime publishes exactly the seventeen required axes, with one row
-    per axis and the knob/default pair recorded in POLICY_SEAMS [tested:
-    tests/check_policy_inventory.py; commit=42b5d28232e75c32b20a1d5bf1f740fec134938d]
-  - an unannotated closed list is reported with its path, line and values,
-    while an exemption is accepted only when it is immediately adjacent and
-    names one of the four allowed categories plus nonempty reason and evidence
+    per axis and the knob/default pair recorded in POLICY_SEAMS; the algebra
+    row also derives and validates each shipped semiring law claim [tested:
+    tests/check_policy_inventory.py; commit=WORKTREE]
+  - unannotated Python Literal expressions and list/set membership, plus
+    single- or multiline Prolog member/2 and memberchk/2 lists, are reported
+    with path, line and values; an exemption is accepted only when immediately
+    adjacent and names one of four categories plus a nonempty reason and an
+    existing local source line or symbol
     [tested: test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
-    commit=42b5d28232e75c32b20a1d5bf1f740fec134938d]
+    commit=WORKTREE]
 Fails when:
   - the engine cannot boot, emits non-JSON policy rows, publishes a duplicate,
     missing or extra axis, or an implementation seam no longer exists
   - an exemption is malformed, unknown, orphaned, or has no resolvable local
     evidence location
 Decides:
-  - ``engine/spaces.pl`` is the catalog authority and
-    ``bindings/python/petta/vocabularies.py`` is generated from that authority;
-    neither can be reported as an independent hardcoded policy list
+  - only ``petta_catalog_preset/1`` terms in ``engine/spaces.pl`` are catalog
+    authority; unrelated closed lists in that file remain findings, while
+    ``bindings/python/petta/vocabularies.py`` is generated and excluded
 Open Obligations:
   To Do: None
   Hacks: None
@@ -34,6 +34,7 @@ Open Obligations:
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import subprocess
@@ -61,10 +62,13 @@ EXEMPTION_RE = re.compile(
     r"evidence=(?P<evidence>[^;\s]+)\s*$"
 )
 PROLOG_CLOSED_LIST = re.compile(
-    r"\bmemberchk\s*\(\s*[^,\n]+,\s*\[(?P<values>[^\]\n]+)\]\s*\)"
+    r"\b(?:memberchk|member)\s*\(\s*[^,]+?,\s*"
+    r"\[(?P<values>[^\]]+)\]\s*\)",
+    re.DOTALL,
 )
-PYTHON_TYPE_ALIAS = re.compile(
-    r"\b[A-Za-z_]\w*\s*:\s*TypeAlias\s*=\s*Literal\[(?P<values>[^\]\n]+)\]"
+CATALOG_PRESET = re.compile(
+    r"^\s*petta_catalog_preset\s*\(\s*\[.*?\]\s*\)\s*\.",
+    re.DOTALL | re.MULTILINE,
 )
 
 SOURCE_ROOTS = (
@@ -74,9 +78,17 @@ SOURCE_ROOTS = (
 )
 EXCLUDED_PATHS = frozenset(
     {
-        Path("engine/spaces.pl"),
         Path("bindings/python/petta/vocabularies.py"),
     }
+)
+
+REQUIRED_ALGEBRA_LAWS = {
+    "ranked": frozenset({"ordered"}),
+    "prob": frozenset({"ordered"}),
+}
+ALGEBRA_LAW_SEAM = (
+    "engine/metta.pl",
+    r"^\s*petta_vocabulary_claim\(semiring,\s*Semiring,\s*ordered\)\.",
 )
 
 
@@ -98,27 +110,17 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
         "dispatch-policy", "OrderClause", "engine/translator.pl", r"^reduce\(\[F\|Args\]"
     ),
     "merge": PolicySeam("merge", "depth", "engine/spaces.pl", r"^petta_merged_match\("),
-    "agenda": PolicySeam(
-        "reduce", "depth-first", "engine/translator.pl", r"^reduce\(\[F\|Args\]"
-    ),
-    "equality": PolicySeam(
-        "==", "structural-identity", "engine/metta.pl", r"^'=='\(A,B,R\)"
-    ),
+    "agenda": PolicySeam("reduce", "depth-first", "engine/translator.pl", r"^reduce\(\[F\|Args\]"),
+    "equality": PolicySeam("==", "structural-identity", "engine/metta.pl", r"^'=='\(A,B,R\)"),
     "errors": PolicySeam("on-error", "abort", "engine/metta.pl", r"^petta_on_error_mode\("),
-    "world": PolicySeam(
-        "context", "closed-world", "engine/metta.pl", r"^petta_context_world\("
-    ),
+    "world": PolicySeam("context", "closed-world", "engine/metta.pl", r"^petta_context_world\("),
     "algebra": PolicySeam("annotations", "bool", "engine/metta.pl", r"^petta_k_times\("),
     "storage": PolicySeam(
         "config-memoize", "wtinylfu", "lib/lib_memo.pl", r"^memo_strategy\(wtinylfu\)"
     ),
     "typing": PolicySeam("typing-rule", "strict", "engine/metta.pl", r"^metta_types_match\("),
-    "fidelity": PolicySeam(
-        "handles", "Exact", "engine/metta.pl", r"^petta_handles_route\("
-    ),
-    "source-kind": PolicySeam(
-        "source", "repeated", "engine/metta.pl", r"^petta_source\("
-    ),
+    "fidelity": PolicySeam("handles", "Exact", "engine/metta.pl", r"^petta_handles_route\("),
+    "source-kind": PolicySeam("source", "repeated", "engine/metta.pl", r"^petta_source\("),
     "transaction-mode": PolicySeam(
         "transaction", "all-answers", "engine/metta.pl", r"^petta_transaction\(Goal\)"
     ),
@@ -139,13 +141,20 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
 QUERY = (
     "consult('engine/metta.pl'), use_module(library(http/json)), "
     "findall(_{axis:A,knob:K,default:D}, "
-    "        petta_catalog_row([policy,A,K,D]), Rows), "
-    "json_write_dict(current_output, Rows, [width(0)])"
+    "        petta_catalog_row([policy,A,K,D]), Policies), "
+    "findall(_{semiring:S,laws:L}, "
+    "        petta_catalog_row([claim,semiring,S|L]), Laws), "
+    "petta_catalog_row([vocabulary,semiring|Semirings]), "
+    "json_write_dict(current_output, "
+    "                _{policies:Policies,algebra_laws:Laws,semirings:Semirings}, "
+    "                [width(0)])"
 )
 
 
-def runtime_policy_rows(root: Path) -> list[dict[str, str]]:
-    """Ask the running catalog for policy rows; source parsing is not authority."""
+def runtime_inventory(
+    root: Path,
+) -> tuple[list[dict[str, str]], list[dict[str, object]], list[str]]:
+    """Ask the running catalog for policies, semirings and algebra laws."""
     completed = subprocess.run(
         ["swipl", "-q", "-g", QUERY, "-t", "halt"],
         cwd=root,
@@ -160,10 +169,27 @@ def runtime_policy_rows(root: Path) -> list[dict[str, str]]:
     try:
         payload = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"swipl policy query did not emit JSON: {exc}: {completed.stdout!r}") from exc
-    if not isinstance(payload, list) or not all(isinstance(row, dict) for row in payload):
-        raise RuntimeError(f"swipl policy query emitted a non-row payload: {payload!r}")
-    return payload
+        raise RuntimeError(
+            f"swipl policy query did not emit JSON: {exc}: {completed.stdout!r}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"swipl policy query emitted a non-inventory payload: {payload!r}")
+    policies = payload.get("policies")
+    laws = payload.get("algebra_laws")
+    semirings = payload.get("semirings")
+    if not isinstance(policies, list) or not all(isinstance(row, dict) for row in policies):
+        raise RuntimeError(f"swipl policy query emitted invalid policy rows: {policies!r}")
+    if not isinstance(laws, list) or not all(isinstance(row, dict) for row in laws):
+        raise RuntimeError(f"swipl policy query emitted invalid algebra law rows: {laws!r}")
+    if not isinstance(semirings, list) or not all(isinstance(item, str) for item in semirings):
+        raise RuntimeError(f"swipl policy query emitted invalid semiring values: {semirings!r}")
+    return policies, laws, semirings
+
+
+def runtime_policy_rows(root: Path) -> list[dict[str, str]]:
+    """Compatibility entry point returning the runtime policy rows."""
+    policies, _laws, _semirings = runtime_inventory(root)
+    return policies
 
 
 def validate_policy_rows(root: Path, rows: list[dict[str, str]]) -> list[str]:
@@ -204,12 +230,218 @@ def validate_policy_rows(root: Path, rows: list[dict[str, str]]) -> list[str]:
     return findings
 
 
-def _candidate_values(line: str, suffix: str) -> str | None:
-    pattern = PROLOG_CLOSED_LIST if suffix == ".pl" else PYTHON_TYPE_ALIAS
-    match = pattern.search(line)
-    if match is None:
-        return None
-    return ", ".join(part.strip() for part in match.group("values").split(","))
+def validate_algebra_laws(
+    root: Path, rows: list[dict[str, object]], semirings: list[str]
+) -> list[str]:
+    """Validate the semiring law rows derived from the runtime catalog."""
+    findings: list[str] = []
+    observed: dict[str, list[str]] = {}
+    for row in rows:
+        semiring = row.get("semiring")
+        laws = row.get("laws")
+        if (
+            not isinstance(semiring, str)
+            or not isinstance(laws, list)
+            or not all(isinstance(law, str) for law in laws)
+        ):
+            findings.append(f"&petta: malformed algebra law row {row!r}")
+            continue
+        if semiring not in semirings:
+            findings.append(f"&petta: algebra law row names undeclared semiring {semiring!r}")
+        observed.setdefault(semiring, []).extend(laws)
+
+    for semiring, required in REQUIRED_ALGEBRA_LAWS.items():
+        laws = observed.get(semiring, [])
+        counts = Counter(laws)
+        for law in required:
+            if counts[law] == 0:
+                findings.append(f"&petta: semiring {semiring} is missing law {law}")
+            elif counts[law] != 1:
+                findings.append(
+                    f"&petta: semiring {semiring} has {counts[law]} claims for law {law}"
+                )
+        for law in sorted(set(laws) - required):
+            findings.append(f"&petta: semiring {semiring} has unexpected law {law}")
+    for semiring in sorted(set(observed) - REQUIRED_ALGEBRA_LAWS.keys()):
+        findings.append(f"&petta: unexpected algebra law claims for semiring {semiring}")
+
+    path, pattern = ALGEBRA_LAW_SEAM
+    source = root / path
+    if not source.is_file():
+        findings.append(f"{path}: missing implementation seam for algebra law claims")
+    elif re.search(pattern, source.read_text(encoding="utf-8"), re.MULTILINE) is None:
+        findings.append(
+            f"{path}: implementation seam for algebra law claims no longer matches {pattern!r}"
+        )
+    return findings
+
+
+@dataclass(frozen=True)
+class ClosedListCandidate:
+    """One syntactically closed policy list and its first source line."""
+
+    line: int
+    values: str
+
+
+def _normalise_values(values: str) -> str:
+    return ", ".join(part.strip() for part in values.split(","))
+
+
+def _prolog_candidates(relative: Path, text: str) -> list[ClosedListCandidate]:
+    authority_spans = (
+        [(match.start(), match.end()) for match in CATALOG_PRESET.finditer(text)]
+        if relative == Path("engine/spaces.pl")
+        else []
+    )
+    candidates: list[ClosedListCandidate] = []
+    for match in PROLOG_CLOSED_LIST.finditer(text):
+        values = match.group("values")
+        if "|" in values:
+            continue
+        if any(start <= match.start() < end for start, end in authority_spans):
+            continue
+        candidates.append(
+            ClosedListCandidate(
+                text.count("\n", 0, match.start()) + 1,
+                _normalise_values(values),
+            )
+        )
+    return candidates
+
+
+def _python_candidate_values(nodes: list[ast.expr]) -> str:
+    return ", ".join(ast.unparse(node) for node in nodes)
+
+
+def _python_candidates(text: str, filename: str) -> list[ClosedListCandidate]:
+    tree = ast.parse(text, filename=filename)
+    candidates: set[ClosedListCandidate] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript):
+            owner = node.value
+            is_literal = isinstance(owner, ast.Name) and owner.id == "Literal"
+            is_literal = is_literal or (
+                isinstance(owner, ast.Attribute) and owner.attr == "Literal"
+            )
+            if is_literal:
+                values = (
+                    list(node.slice.elts) if isinstance(node.slice, ast.Tuple) else [node.slice]
+                )
+                candidates.add(ClosedListCandidate(node.lineno, _python_candidate_values(values)))
+        elif isinstance(node, ast.Compare):
+            for operator, comparator in zip(node.ops, node.comparators, strict=True):
+                if isinstance(operator, (ast.In, ast.NotIn)) and isinstance(
+                    comparator, (ast.List, ast.Set)
+                ):
+                    candidates.add(
+                        ClosedListCandidate(
+                            node.lineno, _python_candidate_values(list(comparator.elts))
+                        )
+                    )
+    return sorted(candidates, key=lambda item: (item.line, item.values))
+
+
+def _matching_parenthesis(text: str, opening: int) -> int | None:
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    for offset in range(opening, len(text)):
+        character = text[offset]
+        if escaped:
+            escaped = False
+            continue
+        if quote is not None:
+            if character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+        if character in {"'", '"'}:
+            quote = character
+        elif character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+            if depth == 0:
+                return offset
+    return None
+
+
+def _prolog_symbol_exists(text: str, symbol: str) -> bool:
+    name, separator, arity_text = symbol.rpartition("/")
+    if not separator or not arity_text.isdigit() or not name:
+        return False
+    arity = int(arity_text)
+    spellings = (re.escape(name), re.escape("'" + name.replace("'", "''") + "'"))
+    head = re.compile(rf"^\s*(?:{'|'.join(spellings)})\s*\(", re.MULTILINE)
+    for match in head.finditer(text):
+        opening = text.find("(", match.start(), match.end())
+        closing = _matching_parenthesis(text, opening)
+        if closing is None:
+            continue
+        tail = text[closing + 1 :].lstrip()
+        if not tail.startswith((":-", "-->", ".")):
+            continue
+        arguments = text[opening + 1 : closing]
+        nested = 0
+        commas = 0
+        quote: str | None = None
+        for character in arguments:
+            if quote is not None:
+                if character == quote:
+                    quote = None
+            elif character in {"'", '"'}:
+                quote = character
+            elif character in "([{":
+                nested += 1
+            elif character in ")]}":
+                nested -= 1
+            elif character == "," and nested == 0:
+                commas += 1
+        actual_arity = 0 if not arguments.strip() else commas + 1
+        if actual_arity == arity:
+            return True
+    return False
+
+
+def _source_symbol_exists(path: Path, symbol: str) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if path.suffix == ".pl":
+        return _prolog_symbol_exists(text, symbol)
+    if path.suffix == ".py":
+        try:
+            tree = ast.parse(text, filename=str(path))
+        except SyntaxError:
+            return False
+        leaf = symbol.rsplit(".", 1)[-1]
+        return any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+            and node.name == leaf
+            for node in ast.walk(tree)
+        )
+    return False
+
+
+def _evidence_problem(root: Path, evidence: str) -> str | None:
+    evidence_path, separator, location = evidence.rpartition(":")
+    if not separator or not evidence_path or not location:
+        return f"exemption evidence location {evidence!r} does not resolve"
+    resolved_root = root.resolve()
+    source = (root / evidence_path).resolve()
+    try:
+        source.relative_to(resolved_root)
+    except ValueError:
+        return f"exemption evidence location {evidence!r} does not resolve"
+    if not source.is_file():
+        return f"exemption evidence location {evidence!r} does not resolve"
+    if location.isdigit():
+        line_count = len(source.read_text(encoding="utf-8").splitlines())
+        if not 1 <= int(location) <= line_count:
+            return f"exemption evidence line {evidence!r} is outside 1..{line_count}"
+    elif not _source_symbol_exists(source, location):
+        return f"exemption evidence symbol {evidence!r} does not exist"
+    return None
 
 
 def _annotation_problem(root: Path, line: str) -> str | None:
@@ -228,12 +460,7 @@ def _annotation_problem(root: Path, line: str) -> str | None:
     evidence = match.group("evidence").strip()
     if not evidence:
         return "exemption evidence is empty"
-    if evidence.startswith(("https://", "http://")):
-        return None
-    evidence_path, separator, _location = evidence.partition(":")
-    if not separator or not (root / evidence_path).is_file():
-        return f"exemption evidence location {evidence!r} does not resolve"
-    return None
+    return _evidence_problem(root, evidence)
 
 
 def scan_closed_lists(root: Path) -> list[str]:
@@ -247,28 +474,34 @@ def scan_closed_lists(root: Path) -> list[str]:
             relative = path.relative_to(root)
             if relative in EXCLUDED_PATHS or "__pycache__" in relative.parts:
                 continue
-            lines = path.read_text(encoding="utf-8").splitlines()
-            candidates = {
-                number
-                for number, line in enumerate(lines, start=1)
-                if _candidate_values(line, path.suffix) is not None
-            }
+            text = path.read_text(encoding="utf-8")
+            lines = text.splitlines()
+            try:
+                candidates = (
+                    _prolog_candidates(relative, text)
+                    if path.suffix == ".pl"
+                    else _python_candidates(text, str(relative))
+                )
+            except SyntaxError as exc:
+                findings.append(f"{relative}:{exc.lineno or 1}: cannot scan Python: {exc.msg}")
+                continue
+            candidate_lines = {candidate.line for candidate in candidates}
             for number, line in enumerate(lines, start=1):
                 if EXEMPTION_MARKER not in line:
                     continue
                 problem = _annotation_problem(root, line)
                 if problem is not None:
                     findings.append(f"{relative}:{number}: {problem}")
-                if number + 1 not in candidates:
+                if number + 1 not in candidate_lines:
                     findings.append(
                         f"{relative}:{number}: exemption is not immediately adjacent to a closed list"
                     )
-            for number in sorted(candidates):
-                values = _candidate_values(lines[number - 1], path.suffix)
-                previous = lines[number - 2] if number > 1 else ""
+            for candidate in candidates:
+                previous = lines[candidate.line - 2] if candidate.line > 1 else ""
                 if EXEMPTION_MARKER not in previous:
                     findings.append(
-                        f"{relative}:{number}: closed policy list [{values}] has no adjacent exemption"
+                        f"{relative}:{candidate.line}: closed policy list "
+                        f"[{candidate.values}] has no adjacent exemption"
                     )
     return findings
 
@@ -276,12 +509,13 @@ def scan_closed_lists(root: Path) -> list[str]:
 def main() -> int:
     """Print the derived table and fail on any catalog, seam or list finding."""
     try:
-        rows = runtime_policy_rows(ROOT)
+        rows, algebra_laws, semirings = runtime_inventory(ROOT)
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
         print(f"policy inventory: {exc}")
         return 1
 
     findings = validate_policy_rows(ROOT, rows)
+    findings.extend(validate_algebra_laws(ROOT, algebra_laws, semirings))
     findings.extend(scan_closed_lists(ROOT))
     by_axis = {str(row["axis"]): row for row in rows if "axis" in row}
     for axis, seam in POLICY_SEAMS.items():
@@ -291,6 +525,9 @@ def main() -> int:
                 f"policy {axis}: knob={row.get('knob')} default={row.get('default')} "
                 f"seam={seam.path}"
             )
+    for row in algebra_laws:
+        for law in row.get("laws", []):
+            print(f"algebra law: semiring={row.get('semiring')} law={law}")
     for finding in findings:
         print(finding)
     print(f"policy inventory: {len(rows)} runtime row(s), {len(findings)} finding(s)")

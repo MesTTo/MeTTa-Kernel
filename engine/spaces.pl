@@ -2993,6 +2993,7 @@ petta_route_cap_apply(Space, Pattern, Class0, Class) :-
     ->  Class = Class0
     ;   findall(Cap-Why, metta_route_cap(Space, Pattern, Cap, Why), Caps),
         (   member(BadCap-BadWhy, Caps),
+            % policy-inventory-exempt: mechanism-internal; reason=exact inexact and refuse are the route-advisor fold states rather than a user policy vocabulary; evidence=engine/spaces.pl:petta_route_cap_apply/4
             \+ memberchk(BadCap, [exact, inexact, refuse])
         ->  throw(error(petta_route_cap_invalid(Space, BadCap, BadWhy),
                         none))

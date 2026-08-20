@@ -19,10 +19,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   errors, world, algebra, storage, typing, fidelity, source kind, transaction
   mode, atomicity, save format, volatility, and determinism. The new
   `policy-inventory` gate derives that table from the running engine, joins
-  every row to its implementation seam, and rejects unowned closed policy
-  lists. Exemptions require an adjacent category, reason, and evidence
-  location. Save formats and memo aggregation values now consume catalog
-  vocabularies rather than duplicate local lists.
+  every row and the semiring law claims to their implementation seams, and
+  rejects unowned closed policy lists. The scanner covers multiline Prolog
+  `member/2` and `memberchk/2`, Python `Literal[...]`, and Python list or set
+  membership. Exemptions require an adjacent category, reason, and an actual
+  local source line or symbol. Save formats, asynchronous declaration types,
+  and memo aggregation values consume catalog vocabularies rather than
+  duplicate local lists.
 - `add-typing-rule!` and `remove-typing-rule!` extend the checker with
   module-scoped rules that answer `accept`, `(refuse <reason>)`, or `defer`.
   The shipped arrow-arity, widening, gradual-compatibility, and metatype rules

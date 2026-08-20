@@ -1002,6 +1002,7 @@ dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal) :-
     ).
 
 dispatch_selection_override(Fun) :-
+    % policy-inventory-exempt: mechanism-internal; reason=these are the four axes whose nondefault values require the retained-clause interpreter instead of the compiled direct goal; evidence=engine/translator.pl:dispatch_selection_override/1
     member(Axis, ['EvaluationOrderEnum', 'FunctionResultEnum',
                   'ClauseFailedEnum', 'OutOfClausesEnum']),
     petta_catalog_row(['dispatch-policy', Fun, Axis, _]),
