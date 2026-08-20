@@ -32,7 +32,7 @@
 %   - expression-named spaces are SpaceType values, select their own execution
 %     modules, and report their exact ground identifier through context-space
 %     [tested: test_two_instances_of_a_parametric_space_answer_independently;
-%     commit=WORKTREE].
+%     commit=3c7bcde6a0670ec5c563584b26977b41cc727580].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction

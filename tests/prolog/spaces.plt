@@ -13,7 +13,7 @@
 %     commit=6a08901f4125c2536f5b4032daac9937f793870f].
 %   - parametric-space identifiers map bijectively to canonical modules and a
 %     fixed private storage functor, with validation before cache publication
-%     [tested: spaces_parametric; commit=WORKTREE].
+%     [tested: spaces_parametric; commit=3c7bcde6a0670ec5c563584b26977b41cc727580].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

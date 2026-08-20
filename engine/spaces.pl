@@ -83,7 +83,7 @@
 %     a fixed per-module storage functor keep distinct instances isolated, and
 %     context-space returns the exact expression to their equations [tested:
 %     test_two_instances_of_a_parametric_space_answer_independently;
-%     commit=WORKTREE].
+%     commit=3c7bcde6a0670ec5c563584b26977b41cc727580].
 % Guarded by: '$petta_native_storage' serializes private module creation and
 %   publication in native_storage_module_cache/2; '$petta_capacity_count'
 %   serializes installation and replacement of each incremental count.

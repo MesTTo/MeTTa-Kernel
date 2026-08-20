@@ -69,7 +69,7 @@
 %     and registered identifiers stay literal at space positions while every
 %     unregistered expression keeps the established computed-space path [tested:
 %     test_two_instances_of_a_parametric_space_answer_independently;
-%     commit=WORKTREE].
+%     commit=3c7bcde6a0670ec5c563584b26977b41cc727580].
 %   - A translator rule whose expansion is built in Prolog compiles to the
 %     goals it emits, including a constant folded at compile time, and is
 %     refused when a quote leaves that expansion as data

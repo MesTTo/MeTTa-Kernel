@@ -14,7 +14,7 @@
 %   - a parametric-space read resolves to the reserved predicate in that
 %     identity's canonical storage module
 %     [tested: a_parametric_space_read_resolves_to_its_private_predicate;
-%     commit=WORKTREE]
+%     commit=3c7bcde6a0670ec5c563584b26977b41cc727580]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
