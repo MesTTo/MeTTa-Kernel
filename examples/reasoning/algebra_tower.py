@@ -1,4 +1,4 @@
-"""Purpose: run the lawless, declared-rate, and linear algebra witnesses.
+"""Purpose: run the lawless, rate, linear, and amplitude algebra witnesses.
 Assumes: execute with PeTTa's documented Python environment and ``PETTA_PATH``.
 Guarantees:
   - the lawless witness uses ``declare_algebra`` plus ordinary tagged facts
@@ -10,9 +10,22 @@ Guarantees:
   - the linear witness refuses a second spend of one fact occurrence [tested:
     test_a_linear_algebra_refuses_the_second_spend_of_one_premise;
     commit=ab469c3679ab778c91ac73f14797af746a1ea87d]
+  - amplitude use names the missing fence and exact opposite paths cancel after
+    the fence lands [tested:
+    test_amplitudes_interfere_inside_the_fragment_and_are_refused_outside;
+    commit=WORKTREE]
 """  # noqa: D205, D415 -- the file contract is one continuous invariant
 
-from petta import LinearEvidenceError, MeTTa, S, V, parse
+from petta import (
+    AlgebraRequirementError,
+    Amplitude,
+    LinearEvidenceError,
+    MeTTa,
+    S,
+    V,
+    decode,
+    parse,
+)
 
 
 def main() -> None:
@@ -47,12 +60,36 @@ def main() -> None:
         requires=("linear",),
     )
     with metta.new_space() as program:
+        program.declare_annotations(
+            program.space_name, "demo-linear", capabilities=("linear",)
+        )
         program.add_tagged_fact(1, S.token(S.only))
         program.add_tagged_rule(0, S.spend_twice, S.token(S.only), S.token(S.only))
         try:
             program.evaluate_algebra(S.spend_twice, algebra="demo-linear")
         except LinearEvidenceError as refusal:
             print("linear", refusal)
+
+    metta.register_op(
+        lambda left, right: left + right, name="amplitude-add", raw=False
+    )
+    metta.register_op(
+        lambda left, right: left * right, name="amplitude-multiply", raw=False
+    )
+    with metta.new_space() as program:
+        try:
+            program.declare_annotations(program.space_name, "amplitude")
+        except AlgebraRequirementError as refusal:
+            print("outside fence", refusal)
+        program.declare_annotations(
+            program.space_name,
+            "amplitude",
+            capabilities=("finite", "contractive", "staged"),
+        )
+        program.add_tagged_fact(Amplitude(1), S.detect(S.dark))
+        program.add_tagged_fact(Amplitude(-1), S.detect(S.dark))
+        result = program.evaluate_algebra(S.detect(S.dark), algebra="amplitude")
+        print("amplitude", decode(result.answers[0].tag))
 
 if __name__ == "__main__":
     main()

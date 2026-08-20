@@ -603,8 +603,7 @@ petta_check_catalog_semantics(annotations, [Ctx, Algebra|CapabilityArgs], Term) 
     Requires = [requires|Required],
     (   member(Requirement, Required),
         \+ memberchk(Requirement, Capabilities)
-    ->  throw(error(petta_algebra_requirement_missing(Ctx, Algebra,
-                                                      Requirement), none))
+    ->  petta_algebra_requirement_refusal(Ctx, Algebra, Requirement)
     ;   true
     ).
 petta_check_catalog_semantics(_, _, _).
@@ -776,6 +775,13 @@ petta_annotation_capabilities([[capabilities|Capabilities]], Capabilities, Term)
     ).
 petta_annotation_capabilities(_, _, Term) :-
     petta_declaration_refused(Term, 3, [capabilities, '... symbols']).
+
+petta_algebra_requirement_refusal(Ctx, amplitude, Requirement) :-
+    !,
+    throw(error(petta_amplitude_fragment_refused(Ctx, Requirement), none)).
+petta_algebra_requirement_refusal(Ctx, Algebra, Requirement) :-
+    throw(error(petta_algebra_requirement_missing(Ctx, Algebra, Requirement),
+                none)).
 
 petta_check_argspecs([], _, _).
 petta_check_argspecs([Spec|Rest], Position, Term) :-
@@ -1051,6 +1057,14 @@ petta_catalog_preset([algebra, budget, min, '+', infinity, 0,
                        'combine-idempotent', 'extend-associative',
                        'combine-zero-identity', 'extend-one-identity'],
                       [carrier], [requires]]).
+petta_catalog_preset([algebra, amplitude, 'amplitude-add',
+                      'amplitude-multiply', [complex, 0, 0], [complex, 1, 0],
+                      [laws, 'combine-associative', 'combine-commutative',
+                       'extend-associative', 'extend-commutative',
+                       'left-distributive', 'right-distributive',
+                       'combine-zero-identity', 'extend-one-identity',
+                       'extend-zero-annihilates', contraction],
+                      [carrier], [requires, finite, contractive, staged]]).
 %Presets land only where their subject has no row yet, which makes the
 %directive reconsult-idempotent (a re-consulted engine meets its own rows
 %and the duplicate refusal must not fire) and keeps a program's own

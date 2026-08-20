@@ -253,6 +253,10 @@ test(a_false_algebra_law_is_refused_before_the_catalog_row_lands,
               [laws, 'extend-zero-annihilates'], [carrier, 0, 1], [requires]],
              _).
 
+test(an_amplitude_context_without_the_whole_fragment_is_refused_by_name,
+     [throws(error(petta_amplitude_fragment_refused('&p4-amp', finite), _))]) :-
+    add_sexp('&petta', [annotations, '&p4-amp', amplitude], _).
+
 %The export parser's word lists are the catalog's volatility vocabulary,
 %consulted as data: widening the row widens what the parser accepts.
 test(the_export_parser_reads_the_volatility_vocabulary,

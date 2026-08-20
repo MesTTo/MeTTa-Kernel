@@ -3194,6 +3194,9 @@ prolog:error_message(petta_algebra_requirement_missing(Ctx, Algebra,
                                                         Requirement)) -->
     [ 'algebra_requirement_missing: ~w declares algebra ~w, which requires \c
        capability ~w'-[Ctx, Algebra, Requirement] ].
+prolog:error_message(petta_amplitude_fragment_refused(Ctx, Requirement)) -->
+    [ 'amplitude_fragment_refused: ~w lacks required finite-fragment \c
+       capability ~w'-[Ctx, Requirement] ].
 prolog:error_message(petta_algebra_operation_failed(Algebra, Operation, A, B)) -->
     [ 'declared algebra ~w operation ~w answered nothing for (~w, ~w)'-
       [Algebra, Operation, A, B] ].

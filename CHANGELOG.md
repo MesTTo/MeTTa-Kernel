@@ -16,6 +16,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   algebras are data presets. Nonnegative `(rate n)` tags feed reproducible
   seeded selection without changing unannotated evaluation. A linear algebra
   refuses a derivation that spends the same stored premise occurrence twice.
+  Exact complex amplitudes interfere only in contexts declaring the finite,
+  contractive, staged fragment; use outside that fence is a named refusal.
 - A packaged Ciao-style development grade now applies external `pred`
   assertions to the engine's atom-removal, equation-removal, storage-removal,
   and translation funnels. `assertions@0.0.1`, `rtchecks@0.0.1`, and
