@@ -115,7 +115,7 @@ build_c_extension_example
 # the dedicated benchmark gates below own those measurements. Four workers is
 # the fixed load-tested ceiling, rather than a machine-size-dependent `auto`
 # expansion [tested: test_the_pytest_lane_is_deterministic_under_load_protocol;
-# commit=WORKTREE].
+# commit=dcfc20be4933c19140ccb5759291401d13058301].
 run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark -n 4 --dist loadfile --max-worker-restart=0"
 run GATE benchmarks   in_py "$PY" bench.py --counter-only --keep-going
 run GATE instructions in_py "$PY" -m benchmarks.check_instructions
@@ -267,7 +267,7 @@ run GATE prolog check_prolog
 # assrchk/1 data. The smoke must collect none; the named planted call proves
 # the collector still discriminates [tested:
 # test_the_ciao_grade_collects_a_planted_assertion_violation_as_data;
-# commit=WORKTREE].
+# commit=dcfc20be4933c19140ccb5759291401d13058301].
 check_ciao_grade() {
     cd "$HERE/tests/prolog" || return 1
     swipl -q --on-warning=status --on-error=status \

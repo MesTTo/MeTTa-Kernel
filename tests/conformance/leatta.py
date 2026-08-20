@@ -26,7 +26,7 @@ Guarantees:
   - bracketed answer lines and the arbiter's exact `produced verbatim `[...].`
     prose form are compared; every other MEASURED line is counted as skipped
     [tested: test_the_two_head_matching_arbiter_files_are_counted;
-    commit=WORKTREE].
+    commit=dcfc20be4933c19140ccb5759291401d13058301].
   - a file whose engine run raises or times out is reported as such rather than
     counted as agreeing.
   - every area prints its own block under --gate-areas-file, promoted or not,

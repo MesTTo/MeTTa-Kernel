@@ -6,7 +6,7 @@
 %     modules keep undefined calls loud [tested: spaces_storage_modules].
 %   - Every metta_engine_emitted/1 declaration is protected from capture in
 %     a space [tested: test_every_engine_emitted_name_is_protected_by_derivation;
-%     commit=WORKTREE].
+%     commit=dcfc20be4933c19140ccb5759291401d13058301].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

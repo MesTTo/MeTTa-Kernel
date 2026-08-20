@@ -6,7 +6,7 @@
 %   - a valid engine smoke emits no assrchk/1 findings, while the planted bad
 %     call emits the expected calls finding
 %     [tested: test_the_ciao_grade_collects_a_planted_assertion_violation_as_data;
-%     commit=WORKTREE].
+%     commit=dcfc20be4933c19140ccb5759291401d13058301].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

@@ -7,7 +7,7 @@
 %   - ciao_grade_collect/2 drains stale findings, runs its goal with the
 %     packaged runtime checker, and returns every assrchk/1 finding
 %     [tested: test_the_ciao_grade_collects_a_planted_assertion_violation_as_data;
-%     commit=WORKTREE].
+%     commit=dcfc20be4933c19140ccb5759291401d13058301].
 % Decides:
 %   - contracts remain in this external development side file, so production
 %     engine loading neither imports the packs nor enables runtime checking.
