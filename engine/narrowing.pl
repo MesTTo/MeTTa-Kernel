@@ -61,7 +61,7 @@
 %     so the policy inventory does not mistake the cited analysis encoding
 %     for an engine policy [tested:
 %     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
-%     commit=WORKTREE].
+%     commit=42b5d28232e75c32b20a1d5bf1f740fec134938d].
 % Decides:
 %   - '$bottom' is the fresh constant for a variable the filtering leaves
 %     unbound, the paper's ⊥ and TNT's printed nullVar. A MeTTa symbol cannot

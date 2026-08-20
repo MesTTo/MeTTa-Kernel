@@ -4,13 +4,14 @@ closed list from each valid exemption and from the two authority-owned files.
 Guarantees:
   - a planted unannotated list is reported with its file, line and values
     [tested: test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
-    commit=WORKTREE]
+    commit=42b5d28232e75c32b20a1d5bf1f740fec134938d]
   - all four exemption categories pass only with adjacent nonempty reason and
     evidence fields; missing and unknown reasons fail independently
-    [tested: tests/check_policy_inventory_selftest.py; commit=WORKTREE]
+    [tested: tests/check_policy_inventory_selftest.py;
+    commit=42b5d28232e75c32b20a1d5bf1f740fec134938d]
   - the catalog authority and generated vocabulary output are excluded
     without an annotation [tested: tests/check_policy_inventory_selftest.py;
-    commit=WORKTREE]
+    commit=42b5d28232e75c32b20a1d5bf1f740fec134938d]
 Fails when:
   - run against a tree it did not create; every assertion is against a fresh
     temporary fixture with exact findings

@@ -11,12 +11,12 @@ Assumes:
 Guarantees:
   - the runtime publishes exactly the seventeen required axes, with one row
     per axis and the knob/default pair recorded in POLICY_SEAMS [tested:
-    tests/check_policy_inventory.py; commit=WORKTREE]
+    tests/check_policy_inventory.py; commit=42b5d28232e75c32b20a1d5bf1f740fec134938d]
   - an unannotated closed list is reported with its path, line and values,
     while an exemption is accepted only when it is immediately adjacent and
     names one of the four allowed categories plus nonempty reason and evidence
     [tested: test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
-    commit=WORKTREE]
+    commit=42b5d28232e75c32b20a1d5bf1f740fec134938d]
 Fails when:
   - the engine cannot boot, emits non-JSON policy rows, publishes a duplicate,
     missing or extra axis, or an implementation seam no longer exists

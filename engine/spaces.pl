@@ -52,7 +52,7 @@
 %     gate rejects a closed list that has neither a catalog row nor a strict
 %     adjacent exemption [tested:
 %     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
-%     commit=WORKTREE].
+%     commit=42b5d28232e75c32b20a1d5bf1f740fec134938d].
 %   - A selective native match is one indexed probe rather than a scan, and
 %     the acyclic guard does not change that because it runs on the answer
 %     [tested 2026-08-18:

@@ -28,7 +28,7 @@
 %   - command_wants_more/1's string and escaped states are marked as parser
 %     mechanism states, not silently exempted policy values [tested:
 %     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
-%     commit=WORKTREE].
+%     commit=42b5d28232e75c32b20a1d5bf1f740fec134938d].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

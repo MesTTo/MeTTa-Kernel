@@ -25,7 +25,7 @@
 #   - the runtime-derived policy inventory and its five-case discrimination
 #     selftest are GATE lanes [tested:
 #     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
-#     commit=WORKTREE].
+#     commit=42b5d28232e75c32b20a1d5bf1f740fec134938d].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None

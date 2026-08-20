@@ -28,7 +28,7 @@
 %   - the include refusal's self/top pair records the arbiter-owned module
 %     bases explicitly, so the inventory's exemption remains checkable
 %     [tested: test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
-%     commit=WORKTREE].
+%     commit=42b5d28232e75c32b20a1d5bf1f740fec134938d].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction
