@@ -2189,3 +2189,25 @@ test(the_uncovered_positions_are_still_uncovered) :-
     assertion(Fixed == []).
 
 :- end_tests(builtin_input_guards).
+
+
+:- begin_tests(metta_has_declared_type).
+
+% A witness, never a consistency judgement: a declaration answers True, and
+% an atom nothing declares answers False for every type.
+test(a_declaration_witnesses_and_absence_answers_false,
+     [ setup(process_metta_string("(: hdt-probe HDT)", _)),
+       cleanup(metta_remove_atom('&self', [':', 'hdt-probe', 'HDT'], _)) ]) :-
+    'has-declared-type'('hdt-probe', 'HDT', R1), R1 == true,
+    'has-declared-type'('hdt-probe', 'Other', R2), R2 == false,
+    'has-declared-type'(unheralded, 'HDT', R3), R3 == false.
+
+test(unbound_inputs_are_refused,
+     [ throws(error(petta_unbound_input('has-declared-type', 1), _)) ]) :-
+    'has-declared-type'(_, 'HDT', _).
+
+test(an_unbound_type_is_refused,
+     [ throws(error(petta_unbound_input('has-declared-type', 2), _)) ]) :-
+    'has-declared-type'('hdt-probe', _, _).
+
+:- end_tests(metta_has_declared_type).

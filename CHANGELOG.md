@@ -6,6 +6,35 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `(space-atom-count <space>)` answers how many atoms a space holds from
+  the store's own per-predicate clause counts: one property read per
+  stored arity, none per atom, so a capacity policy over a million-atom
+  pool costs what it costs over ten. A never-written space holds nothing;
+  an unbound or non-space argument is refused like the sibling builtins;
+  a foreign space is refused by name, because its provider owns its atoms
+  and the only general count there is an enumeration.
+- `(has-declared-type $x $type)` answers whether a `(: $x $type)`
+  declaration witnesses the type, about the atom AS ITSELF: the first
+  parameter carries the Atom mask, so a policy written in MeTTa can ask
+  the admission contract's own question of an unreduced atom.
+- `(space-contains <space> <atom>)` answers membership as one indexed
+  probe against the store, about the atom AS ITSELF, flat however large
+  the space grows: a set-semantics pre-add rule spelled over it costs
+  57 inferences per add at 2,000 held atoms and the same at 10,000,
+  against 69 for the `collapse`-over-`match` spelling of the same
+  question and 27 for a plain add.
+- `(space-admission-verdict <pool> <atom>)` is the shipped judge over the
+  `(admits <pool> <type>)` and `(capacity <pool> <n>)` contract atoms in
+  `&petta`, answering the pre-add hook's own verdict algebra: `(accept)`,
+  or `(refuse (does-not-carry <type>))` and
+  `(refuse (pool-at-capacity <limit>))` naming the first violated
+  contract. `declare_admits` and `declare_capacity` claim a pool's
+  pre-add hook with it through a one-line guard equation, and
+  `examples/spaces/admission_pools.metta` runs the same judge written in
+  MeTTa with a differential asserting the two agree verdict for verdict.
+
 ### Fixed
 
 - Free variables returned by runnable source now keep their written names in
@@ -19,6 +48,28 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   types now report the written call before evaluating those operands. Rejected
   operands no longer perform effects, while accepted and undecided operands
   keep their existing evaluation behavior.
+- A space hook consults its handler at a fixed small cost instead of
+  re-translating the call on every write: 44.02 inferences per add
+  against 234.03 before, beside 29.01 for an unhooked add. The handler's
+  call site is translated once when the claim is made and recompiled
+  automatically after any equation or declaration change.
+- Removing the last equation that shadowed a builtin restores the
+  builtin. The erase used to leave an empty local predicate in the
+  space's execution module, which kept shadowing the engine's definition
+  for the rest of the process: after removing a `car-atom` shadow from
+  `&self`, every compiled caller of `car-atom` failed from then on.
+  Inside a transaction the repair waits for the commit, so a failed
+  reload still leaves the previous definitions standing.
+- `get-atoms` with a bound pattern reads through the store's argument
+  indexing instead of enumerating every clause and filtering: a
+  presence probe that cost 2,055 inferences at 2,000 held atoms and
+  21,055 at 10,000, linear, reads flat now, and a bound SCALAR pattern
+  answers a clean miss where it used to raise a type error.
+- The atom offered to a pre-add or post-add handler reaches it as itself.
+  When the offered atom's head happened to name a function, the handler
+  used to judge the atom's evaluation while the space received the atom,
+  so the verdict was about a term that never landed. The offer is data,
+  as a database BEFORE trigger's row is.
 
 - The engine repairs its own compiled code when a function is removed, with
   no host in the process: the removal-direction recompile used to ride a

@@ -42,6 +42,33 @@ timer noise.
 
 Read both columns, because each one hides something.
 
+The write door has its own table, in the same harness against the same
+committed baseline: what an `add-atom` costs once something claims the
+space it writes into. The hook row is the price of consulting an
+arbitrary-MeTTa policy per write, paid only by the space that asked; the
+handler's call site is translated once when the claim is made, not per
+write, which is what holds the row at this size. The pool rows go through
+the shipped `declare_admits` and `declare_capacity` surface, which claims
+the pool's pre-add hook with the `space-admission-verdict` judge; a space
+nothing claimed keeps the direct write path, which is why the plain row
+fell from 49.01 when the old global admission wrapper came off.
+
+| write door | inferences/add | vs plain add |
+|---|---|---|
+| add-atom, no claims on the space | 29.01 | 1.00x |
+| add-atom through an accept-all pre-add hook | 44.02 | 1.52x |
+| add-atom into a pool with a declared admits type | 73.01 | 2.52x |
+| add-atom into a pool with a declared capacity | 106.02 | 3.65x |
+
+The capacity row used to read 4569.69 at a thousand held atoms and grew
+with every one, because the bespoke check counted the pool by enumeration
+per add; the judge reads `space-atom-count`, the store's own clause
+bookkeeping, so the row's cost no longer depends on what the pool holds.
+The admits and capacity rows carry the whole fire path plus the judge's
+contract reads, and their marginals sit over an untaxed plain add now: the
+old 60.01 admits figure sat beside a plain add the global wrapper had
+already taxed to 49.01.
+
 **Inferences understate Python.** The janus crossing counts as one inference
 and costs real microseconds, so inferences say a raw Python operation is 1.7
 times a MeTTa function while wall clock says **more than ten times**, the one

@@ -557,12 +557,12 @@ shadow_in_self(Name, MettaArity, Self, Arity) :-
     'add-atom'('&self', [=, [Name|Args], plunit_shadowed], _),
     space_module('&self', Self).
 
-unshadow_in_self(Name, MettaArity, Arity) :-
+%The engine's own removal drops an emptied local shadow so the module
+%chain answers again [tested: removing_a_self_shadow_restores_the_builtin];
+%nothing here needs to reach into the module behind its back.
+unshadow_in_self(Name, MettaArity, _Arity) :-
     length(Args, MettaArity),
-    'remove-atom'('&self', [=, [Name|Args], plunit_shadowed], _),
-    space_module('&self', Self),
-    functor(Gone, Name, Arity),
-    retractall(Self:Gone).
+    'remove-atom'('&self', [=, [Name|Args], plunit_shadowed], _).
 
 test(an_imported_engine_name_is_free_in_a_space,
      [forall(engine_imports(Name, MettaArity))]) :-
@@ -787,9 +787,7 @@ test(a_conjunction_keeps_each_row_annotation,
 % the predicate for the rest of the process: two shipped examples did that, and
 % tests/prolog/engine_integrity.pl is the gate that would not let it back.
 test(self_may_shadow_a_builtin,
-     [ cleanup(( 'remove-atom'('&self', [=, ['car-atom', _], nine], _),
-                 metta_self_module(S),
-                 retractall(S:'car-atom'(_, nine)) )) ]) :-
+     [ cleanup('remove-atom'('&self', [=, ['car-atom', _], nine], _)) ]) :-
     'add-atom'('&self', [=, ['car-atom', _], nine], _),
     metta_self_module(Self),
     with_metta_module(Self, reduce(['car-atom', [1, 2]], Shadowed, _)),
@@ -797,6 +795,18 @@ test(self_may_shadow_a_builtin,
     % The engine's own predicate is untouched, which is the whole point.
     petta_engine_module(Engine),
     assertion(Engine:'car-atom'([1, 2], 1)).
+
+% Removing the shadow RESTORES the builtin. The erase used to leave an
+% empty local 'car-atom'/2 in &self's module, which kept shadowing the
+% engine's for the rest of the process: every &self-compiled caller of
+% car-atom, the prelude's admission judge included, failed from then on
+% [measured 2026-08-20].
+test(removing_a_self_shadow_restores_the_builtin) :-
+    'add-atom'('&self', [=, ['car-atom', _], nine], _),
+    'remove-atom'('&self', [=, ['car-atom', _], nine], _),
+    metta_self_module(Self),
+    with_metta_module(Self, reduce(['car-atom', [1, 2]], Restored, _)),
+    assertion(Restored == 1).
 
 % What is left to refuse is SWI's protected core, and it is refused in EVERY
 % space rather than in &self alone. sort/2 is one of the four names still taken
@@ -1307,6 +1317,49 @@ test(a_variable_headed_equation_raises_either_way) :-
     catch(batch_side(batch, '&self', [=, _, _]), BatchBall, true),
     assertion(nonvar(AloneBall)),
     assertion(AloneBall =@= BatchBall).
+
+% Admission gates the write itself, so a pool's batch has to meet the same
+% refusal its atoms meet arriving alone. The store-only crossing used to
+% write behind the admission door's back: a pool at capacity 2 held five
+% atoms after a three-atom batch landed unrefused [measured 2026-08-20].
+% The door is petta_admission_claim/2's guard on the general pre-add hook,
+% so the refusal arrives as the hook's petta_add_refused with the judge's
+% own words, not a bespoke error.
+setup_batch_admission :-
+    clear_native_atoms('&bt-pool'),
+    metta_add_atom('&petta', [capacity, '&bt-pool', 2], _),
+    petta_admission_claim('&bt-pool', '&self'),
+    'add-atom'('&bt-pool', [a, 1], _),
+    'add-atom'('&bt-pool', [a, 2], _).
+
+% The claim comes off in cleanup so later tests in this process keep the
+% direct write path they were written against; the guard equation comes
+% out of &self so the next setup's claim rewrites it fresh.
+cleanup_batch_admission :-
+    metta_undeclare_hook(pre_add, '&bt-pool'),
+    metta_remove_atom('&petta', [capacity, '&bt-pool', 2], _),
+    (   metta_remove_atom('&self',
+                          [=, ['space-admission-guard-&bt-pool', _], _], _)
+    ->  true
+    ;   true
+    ),
+    clear_native_atoms('&bt-pool').
+
+test(a_batch_beyond_capacity_is_refused_like_lone_adds,
+     [ setup(setup_batch_admission),
+       cleanup(cleanup_batch_admission),
+       throws(error(petta_add_refused('&bt-pool', [b, 1],
+                                      ['pool-at-capacity', 2]), _)) ]) :-
+    metta_add_atoms('&bt-pool', [[b, 1], [b, 2]]).
+
+test(a_refused_batch_leaves_the_state_lone_adds_leave,
+     [ setup(setup_batch_admission),
+       cleanup(cleanup_batch_admission) ]) :-
+    catch(metta_add_atoms('&bt-pool', [[b, 1], [b, 2]]),
+          error(petta_add_refused('&bt-pool', _, ['pool-at-capacity', 2]), _),
+          true),
+    findall(A, 'get-atoms'('&bt-pool', A), Atoms),
+    assertion(Atoms == [[a, 1], [a, 2]]).
 
 :- end_tests(spaces_batch_is_only_a_transport).
 
@@ -1866,3 +1919,75 @@ test(the_published_stored_door_inherits_the_refusal,
     metta_host_stored(Module, _).
 
 :- end_tests(spaces_module_where_name_wanted).
+
+
+%The synthetic foreign space the count-refusal test names; a file-level
+%clause, because a fact inside the unit lands in plunit's unit module
+%where the engine's multifile seam never sees it.
+metta_foreign_space('&sac-foreign').
+
+:- begin_tests(spaces_atom_count).
+
+% The count is the store's own clause bookkeeping, so it must agree with
+% enumeration over both stored shapes and cost property reads, not a walk.
+test(counts_expressions_and_scalars_across_arities,
+     [ cleanup(( remove_sexp('&sac-pool', [rel, _, _]),
+                 remove_sexp('&sac-pool', [tag, _]),
+                 remove_sexp('&sac-pool', scalar_probe) )) ]) :-
+    'space-atom-count'('&sac-pool', Before), Before == 0,
+    add_sexp('&sac-pool', [rel, a, b]),
+    add_sexp('&sac-pool', [rel, a, c]),
+    add_sexp('&sac-pool', [tag, x]),
+    add_sexp('&sac-pool', scalar_probe),
+    'space-atom-count'('&sac-pool', Count), Count == 4,
+    remove_sexp('&sac-pool', [rel, a, b]),
+    'space-atom-count'('&sac-pool', After), After == 3.
+
+test(a_never_written_space_holds_nothing) :-
+    'space-atom-count'('&sac-virgin', N), N == 0.
+
+test(an_unbound_space_is_refused,
+     [ throws(error(petta_unbound_input('space-atom-count', 1), _)) ]) :-
+    'space-atom-count'(_, _).
+
+test(a_non_space_is_refused,
+     [ throws(error(type_error('SpaceType', 7), _)) ]) :-
+    'space-atom-count'(7, _).
+
+test(a_foreign_space_has_no_native_count,
+     [ throws(error(petta_foreign_space_count('&sac-foreign'), _)) ]) :-
+    'space-atom-count'('&sac-foreign', _).
+
+:- end_tests(spaces_atom_count).
+
+% Kernel vocabulary: one indexed probe for membership, the question a
+% set-semantics rule asks per add. Unification is the store's own
+% reading, so a pattern with variables asks "anything of this shape".
+:- begin_tests(spaces_contains).
+
+test(present_absent_and_scalar,
+     [ cleanup(( remove_sexp('&sco-pool', [rel, _, _]),
+                 remove_sexp('&sco-pool', scalar_probe) )) ]) :-
+    add_sexp('&sco-pool', [rel, a, b]),
+    add_sexp('&sco-pool', scalar_probe),
+    'space-contains'('&sco-pool', [rel, a, b], R1), R1 == true,
+    'space-contains'('&sco-pool', scalar_probe, R2), R2 == true,
+    'space-contains'('&sco-pool', [rel, a, c], R3), R3 == false,
+    'space-contains'('&sco-pool', [rel, a, _], R4), R4 == true.
+
+test(a_never_written_space_contains_nothing) :-
+    'space-contains'('&sco-virgin', [x], R), R == false.
+
+test(an_unbound_space_is_refused,
+     [ throws(error(petta_unbound_input('space-contains', 1), _)) ]) :-
+    'space-contains'(_, [x], _).
+
+test(an_unbound_atom_is_refused,
+     [ throws(error(petta_unbound_input('space-contains', 2), _)) ]) :-
+    'space-contains'('&sco-pool', _, _).
+
+test(a_non_space_is_refused,
+     [ throws(error(type_error('SpaceType', 7), _)) ]) :-
+    'space-contains'(7, [x], _).
+
+:- end_tests(spaces_contains).
