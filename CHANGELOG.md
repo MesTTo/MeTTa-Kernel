@@ -8,6 +8,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Atom operators now come from one immutable lowering table. Floor division,
+  unary minus, and `abs()` build reducing MeTTa forms; integer shifts name the
+  missing engine operation; and `@` explicitly targets library-provided
+  `matmul`. Grounded atoms keep the corresponding Python value operations.
 - Compiled definitions now expose AST-derived source spans, documentation,
   lexical free variables, and purity. The facts reflect into `&petta`, replace
   with a clause, and leave when its space is cleared.

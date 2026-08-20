@@ -74,8 +74,10 @@ Four kinds, all immutable with `__slots__` and `__match_args__`, so
 `unregister_` twins) to control how a foreign object prints as an atom.
 
 Operators BUILD terms, they do not compute. `V.age >= 18` is `(>= $age 18)`;
-`&` `|` `~` build `and`/`or`/`not`; `+ - * / % **` and `@` build arithmetic
-terms. There is no `//`: neither the operator nor an engine builtin exists.
+`&` `|` `~` build `and`/`or`/`not`; `+ - * / // % **`, unary `-`, `abs()` and
+`@` build arithmetic terms. `//` lowers through `floor-math`; integer shifts
+refuse because MeTTa has no corresponding operation. `@` always builds the
+library-provided name `matmul` rather than claiming it is an engine builtin.
 Arithmetic on two grounded values stays ordinary Python. `Expr.__bool__` raises
 on comparison and boolean heads, so `if V.x > 1:` is refused rather than
 silently truthy. Equality is the one inversion: `a == b` is ordinary Python

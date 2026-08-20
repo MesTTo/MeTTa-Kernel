@@ -13,6 +13,9 @@ Source: `bindings/python/petta/atoms.py`.
 >     test_parse_keeps_variable_names]
 >   - formatter registrations have exact removal counterparts [tested
 >     test_object_repr_registrations_can_be_removed_exactly]
+>   - the immutable operator lowering table is public data [tested:
+>     test_the_operator_table_is_generated_from_one_source_with_no_holes;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
