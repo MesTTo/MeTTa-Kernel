@@ -229,6 +229,9 @@ satisfy `BigInt`. Arithmetic stays exact and result typing follows the result
 width. `bool` spells `Bool` before `int` is classified by that boundary. The
 target is positional-only, and a concrete Python class target is also the
 static return type of `cast`, `convert.build` and `Rows.build`.
+An expression with no arrow-typed head is typed element by element. Once its
+head has an arrow, the arrow controls the application: an under-applied call
+has no type answer and does not fall back to a tuple type.
 `m.arities(name)`, `m.is_function(name)` (visible from here),
 `m.is_function_here(name)` (has clauses HERE), `m.builtins()`.
 

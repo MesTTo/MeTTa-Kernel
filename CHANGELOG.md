@@ -41,6 +41,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Type inspection treats an under-applied arrow head as an inapplicable typed
+  application, not as tuple data. With `Cons : $t -> List $t -> List $t`,
+  `(get-type (Cons 1))` has no answer while the fully applied constructor
+  reports `List Number`.
 - Adding a variant-identical type declaration a second time is refused before
   storage. The diagnostic prints both the rejected row and the first row
   already held by the target space, so a hand-written arrow cannot silently

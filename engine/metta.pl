@@ -2219,6 +2219,13 @@ get_type_candidate_in(_, X, 'SpaceType') :- petta_space_operand(X).
 %
 %Recursion falls out of the bottom-up walk rather than being written: an inner
 %tuple carrying a hole is itself %Undefined%, so the outer one collapses too.
+%An arrow-headed expression is deliberately outside this fallback. If its
+%argument count cannot fit a declared arrow, get_function_type/2 produces no
+%candidate and inapplicable_typed_application/2 preserves that empty answer;
+%typing `(Cons 1)` element-wise would mistake a partial application for tuple
+%data [tested: test_an_underapplied_arrow_head_types_as_the_arbiter_does; commit=WORKTREE].
+%The two typing areas now agree on 45/76 and 13/20 checkable files
+%[measured: types-basic 45/76 and types-meta 13/20; command=python tests/conformance/leatta.py --area types-basic --timeout 25 --show 3 and python tests/conformance/leatta.py --area types-meta --timeout 25 --show 3; fixture=LeaTTa dae62ced23eb0f30a8c2b86583fd09d88fb24ea5; commit=WORKTREE].
 %Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
 %interpreter, byte-identical across both: `(typed-sym (typed-sym typed-sym))`
 %is `(Number (Number Number))` and `(typed-sym (typed-sym aa))` is
