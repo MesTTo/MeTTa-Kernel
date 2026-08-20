@@ -52,6 +52,9 @@
 %     100, 1,000 and 10,000 atoms].
 %   - Removing one scoped get-type rule keeps sibling extension rules visible
 %     [tested 2026-08-15: spaces_type_extensions].
+%   - A second variant-identical type declaration is refused before storage
+%     and the diagnostic names the declaration already held by that space
+%     [tested: test_a_duplicate_declaration_names_the_first_one; commit=WORKTREE].
 %   - Clearing a native space clears its import life without making wildcard
 %     atom removal touch that life [tested 2026-08-15:
 %     filereader_import_lifecycle].
@@ -699,6 +702,10 @@ prolog:error_message(petta_declaration_malformed(Term, Position, Expected)) -->
        expects ~w. Match (kind ~w $spec) in &petta to read the declared \c
        shape, or remove the kind row and redeclare it to widen the \c
        kind'-[TermText, Position, ExpectedText, Head] ].
+prolog:error_message(petta_duplicate_declaration(Space, Second, First)) -->
+    { swrite(Second, SecondText), swrite(First, FirstText) },
+    [ 'the declaration ~w is a duplicate in ~w; the first declaration is ~w'-
+      [SecondText, Space, FirstText] ].
 
 %The shipped catalog, as data. Every row becomes an ordinary '&petta' atom
 %when the directive below runs, matchable and removable like any other.
@@ -1136,6 +1143,15 @@ module_owns_function(Module, F) :- compiled_function_name(F, Predicate),
 metta_add_atom(Space, Term, true) :- Term = [=, [FAtom|W], _], !,
                                      must_be(atom, FAtom),
                                      add_equation(Space, Term, FAtom, W).
+%Type declarations are a multimap because distinct arrows and distinct data
+%types are meaningful. A variant-identical second row is not: every type walk
+%would enumerate it again. Refuse before any compilation or storage so host
+%registration transactions can roll back without a half-published operation.
+metta_add_atom(Space, Term, true) :-
+    Term = [':', _, _],
+    existing_duplicate_declaration(Space, Term, First),
+    !,
+    throw(error(petta_duplicate_declaration(Space, Term, First), none)).
 %A type declaration decides how a call site compiles, most sharply for an Atom
 %parameter, which is what makes a control form possible: (: f (-> Atom
 %%Undefined%)) is the difference between the argument arriving evaluated and
@@ -1164,6 +1180,14 @@ metta_add_atom(Space, Term, true) :- metta_foreign_space(Space), !,
                                                    metta_foreign_add(Space, Term)).
 metta_add_atom(Space, Term, true) :- add_sexp(Space, Term, Ref),
                                      record_source_assertion(Ref).
+
+existing_duplicate_declaration(Space, Term, First) :-
+    \+ metta_foreign_space(Space),
+    copy_term(Term, Probe),
+    get_native_atom(Space, Stored),
+    Stored =@= Probe,
+    !,
+    First = Stored.
 
 %Whether every atom in a batch stores and does nothing else, which is the only
 %kind a bulk crossing may carry. It repeats metta_add_atom/3's first two clause

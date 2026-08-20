@@ -238,6 +238,8 @@ Each `m.declare_*` writes one atom into `&petta` and returns it; removing that
 atom withdraws the declaration. Coherence is checked eagerly in the same
 transaction as the write, so a new entry that could disagree with an existing
 one fails there, naming both, rather than on the first query in their overlap.
+A variant-identical `(: name type)` row is likewise refused and names the first
+row; distinct arrows for one function remain valid overloads.
 
 ```
 declare_handles(name, pattern, "Exact"|"Partial"|"Sound"|"Refuse", det=)
