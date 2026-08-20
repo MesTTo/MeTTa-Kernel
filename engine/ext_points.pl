@@ -1,3 +1,5 @@
+% Purpose: Declare extension seams, their kinds, and the atom-hook wrappers that activate them.
+
 %%%% What kind of seam each extension point is %%%%
 %
 %Every seam below is declared multifile and then given a KIND on the line
