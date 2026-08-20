@@ -4,7 +4,7 @@
 %   - command-line answers use sdisplay/2, so host-only values and non-finite
 %     numbers remain printable presentation values without weakening
 %     swrite/2's reader-inverse contract [tested:
-%     test_non_finite_floats_print_the_arbiters_spellings; commit=WORKTREE].
+%     test_non_finite_floats_print_the_arbiters_spellings; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

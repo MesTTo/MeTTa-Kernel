@@ -15,7 +15,7 @@
 %   - sdisplay/2 is the explicitly lossy presentation path used by repr and
 %     console output; it retains host display syntax without pretending that
 %     syntax is readable MeTTa [tested: parser_display,
-%     test_non_finite_floats_print_the_arbiters_spellings; commit=WORKTREE].
+%     test_non_finite_floats_print_the_arbiters_spellings; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 %   - swrite_with_names/3 preserves reader names without binding the source
 %     term; distinct variables carrying one written name receive #N epochs in
 %     first-occurrence order [tested: parser_named_variables; commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
@@ -34,7 +34,7 @@
 %     only later parses, and invalidate the symbol-writability table so Python
 %     operation names cannot cross the new grammar [tested:
 %     test_a_registered_token_class_parses_like_a_shipped_one;
-%     commit=WORKTREE].
+%     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 %   - metta_unwritable_symbol/2 answers for every value the round trip loses,
 %     not only for names: non-finite and rational numbers have no readable
 %     numeric spelling, and non-list compounds and opaque host values are not
@@ -44,7 +44,7 @@
 %   - metta_custom_reader_token/3 retains a host constructor until its pattern
 %     is replaced or unregistered [tested:
 %     test_a_registered_token_class_parses_like_a_shipped_one;
-%     commit=WORKTREE].
+%     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 % Guarded by:
 %   - '$petta_reader_tokens' serializes registry replacement and removal; each
 %     mutation commits atomically with its writability-table invalidation.
@@ -63,7 +63,7 @@
 %enforced by the PCRE options rather than left to every pattern author
 %[source: hyperon-experimental@0559a5e2dd23017c459da3c7b003c7f271e77ac8,
 %lib/src/metta/text.rs:Tokenizer and
-%lib/src/metta/runner/stdlib/{arithmetics,string}.rs; commit=WORKTREE].
+%lib/src/metta/runner/stdlib/{arithmetics,string}.rs; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 metta_shipped_reader_token('[+-]?[0-9]+', number).
 metta_shipped_reader_token('[+-]?[0-9]+[.][0-9]+', number).
 metta_shipped_reader_token('[+-]?[0-9]+([.][0-9]+)?[eE][+-]?[0-9]+', number).
@@ -813,7 +813,7 @@ reader_token(Term) -->
 %three public numeric patterns exactly, and string_lit//1 is the shipped
 %string constructor, so this is a compiled specialization of the declared
 %mapping rather than a second token policy [tested: parser_number_text;
-%commit=WORKTREE].
+%commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 shipped_reader_token(String) --> string_lit(String), !.
 shipped_reader_token(Number) --> number(Number), number_ends, !.
 shipped_reader_token(Atom) --> atom_symbol(Atom).

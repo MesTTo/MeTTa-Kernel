@@ -66,7 +66,7 @@
 %       first-order compounds and numbered-variable carriers that are not
 %       serializable MeTTa values [tested:
 %       test_the_compile_time_rule_set_is_shown_terminating_or_the_failure_is_named;
-%       commit=WORKTREE].
+%       commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 % Decides:
 %     - the joinability search is bounded at 5 rewrite steps per branch. A
 %       compile-time macro that needs more than five steps to reconverge is

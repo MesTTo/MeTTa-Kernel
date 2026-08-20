@@ -10,7 +10,7 @@
 %     host display text through sdisplay/2 without weakening swrite/2's
 %     reader-inverse contract [tested: parser_display,
 %     a_python_value_keeps_its_explicit_display,
-%     a_partial_application_remains_visible_in_test_output; commit=WORKTREE].
+%     a_partial_application_remains_visible_in_test_output; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 %   - import! loads a MeTTa source that is new or that has been edited, and
 %     skips one that is neither, which is SWI's if(changed); a Python source
 %     keeps if(not_loaded) [tested 2026-08-19:

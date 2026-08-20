@@ -99,7 +99,7 @@
 %   - maybe_print_compiled_clause/3 uses the presentation writer because its
 %     compiled Prolog terms are diagnostics rather than MeTTa serialization
 %     [tested: specializer:compound_partial_key_has_stable_anonymous_variables;
-%     commit=WORKTREE].
+%     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 %   - A cases argument that has not arrived, either because its list spine
 %     ends in a variable or because a pair in it is still one, compiles to a
 %     runtime path instead of running select/3 over it forever or unifying

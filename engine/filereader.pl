@@ -58,7 +58,7 @@
 %     complete source, so custom token classes apply uniformly without a
 %     registry probe per form [tested:
 %     test_a_registered_token_class_parses_like_a_shipped_one;
-%     commit=WORKTREE].
+%     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 %   - A file that loads again REPLACES what it put in that space rather than
 %     adding to it, reaches any other space its change has made stale, and
 %     says what it withdrew [tested 2026-08-19:

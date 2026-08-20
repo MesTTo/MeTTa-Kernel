@@ -59,7 +59,7 @@
 %       is a defect in the service, and that is how the non-finite float
 %       finding surfaced; the symbol law treats swrite/2's explicit refusal as
 %       the negative half of that contract [tested: parser_number_text,
-%       property_lane_laws; commit=WORKTREE].
+%       property_lane_laws; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 % Decides:
 %     - the gate seed is 20260819 and the gate runs 100 cases per law, which is
 %       quickcheck's own default. Widening locally is

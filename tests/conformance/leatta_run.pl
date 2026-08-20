@@ -10,7 +10,7 @@
 %     observation the arbiter records as `[]` and dropping it would misalign
 %     every line after it [tested:
 %     test_a_prelude_derived_form_matches_its_fused_twin_on_the_corpus;
-%     commit=WORKTREE].
+%     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 %   - a raise prints `LEATTA-ERROR ` and stops, rather than being mistaken for
 %     an empty run.
 %   - reader variable names carried with collected answers are rendered by the

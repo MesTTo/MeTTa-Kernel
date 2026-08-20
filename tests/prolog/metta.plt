@@ -3,7 +3,7 @@
 % Guarantees:
 %   - test/3 displays host-only partial applications without claiming they are
 %     serializable MeTTa text [tested:
-%     a_partial_application_remains_visible_in_test_output; commit=WORKTREE].
+%     a_partial_application_remains_visible_in_test_output; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
