@@ -810,6 +810,17 @@ metta_input_number_operation('floor-math').  metta_input_number_operation('round
 metta_input_number_operation('isnan-math').  metta_input_number_operation('isinf-math').
 metta_input_number_operation('exp-math').    metta_input_number_operation(exp).
 
+%One registry owns the numeric math family and its input arities. The runtime
+%guards below and their exhaustive string-operand pin both read this table, so
+%a newly admitted math operation cannot inherit SWI's one-character-string
+%arithmetic by omission [tested:
+%test_a_string_operand_to_math_refuses_instead_of_answering_its_char_code].
+metta_math_operation('sqrt-math', 1).
+metta_math_operation('abs-math', 1).
+metta_math_operation('pow-math', 2).
+metta_math_operation('log-math', 2).
+metta_math_operation(Operation, 1) :- metta_input_number_operation(Operation).
+
 %The math family's recovery, which decides between the two failures the host
 %reports the same way. An argument that is not a number at all is the MeTTa
 %operation's own refusal and an ANSWER; a number the function is undefined at,
@@ -833,11 +844,35 @@ metta_math_saturating_recovery(Operation, Expression, Arguments, Error, Out) :-
     ;   metta_math_recovery(Operation, Arguments, Error, Out)
     ).
 
+%Check the numeric input at the operation's own door, before is/2 can interpret
+%a one-character string as its character code. The refusal itself is derived
+%from builtin_type_declaration/2 through metta_operation_answer/3, the same
+%table that guards translated calls; computed and direct operands therefore
+%name the operation, position, expected Number and actual String alike.
+metta_math_eval(Operation, Expression, Arguments, Out) :-
+    (   maplist(metta_numeric_operand, Arguments)
+    ->  catch(Out is Expression, Error,
+              metta_math_recovery(Operation, Arguments, Error, Out))
+    ;   metta_operation_answer(Operation, Arguments, Out)
+    ).
+
+metta_math_saturating_eval(Operation, Expression, Arguments, Out) :-
+    (   maplist(metta_numeric_operand, Arguments)
+    ->  catch(Out is Expression, Error,
+              metta_math_saturating_recovery(
+                  Operation, Expression, Arguments, Error, Out))
+    ;   metta_operation_answer(Operation, Arguments, Out)
+    ).
+
 %An unbound operand counts as numeric here, so the instantiation error is
 %rethrown rather than turned into a type report: a missing value is not a
 %wrong one, which is the split metta_arith_operands/2 already draws.
 metta_numeric_operand(Value) :- var(Value), !.
 metta_numeric_operand(Value) :- number(Value).
+%The reader's source spellings remain evaluable atoms until is/2 consumes
+%them. They are numeric inputs, unlike every other atom and every string.
+metta_numeric_operand(inf).
+metta_numeric_operand(nan).
 
 %%% Arithmetic & Comparison: %%%
 %An arithmetic operand is a number. Everything else is refused here, before
@@ -1052,8 +1087,7 @@ max(A,B,R)  :- ( integer(A), integer(B) -> R is max(A,B)
                 ; metta_operation_answer(max, [A, B], R) ).
 %exp/2 is PeTTa's own name for the same function exp-math names, so it refuses
 %the same way rather than being the one numeric operation that raises.
-exp(Arg,R) :- catch(R is exp(Arg), E,
-                    metta_math_recovery(exp, [Arg], E, R)).
+exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
 :- use_module(library(clpfd)).
 '#+'(A, B, R) :- catch(R #= A + B, E,
                        rethrow_metta_operation_error('#+', E)).
@@ -1105,50 +1139,52 @@ exp(Arg,R) :- catch(R is exp(Arg), E,
 '#>='(A, B, false) :- catch(A #< B, E,
                             rethrow_metta_operation_error('#>=', E)).
 
-'pow-math'(A, B, Out) :- catch(Out is A ** B, E,
-                               metta_math_saturating_recovery('pow-math', A ** B, [A, B], E, Out)).
-'sqrt-math'(A, Out) :- catch(Out is sqrt(A), E,
-                             metta_math_saturating_recovery('sqrt-math', sqrt(A), [A], E, Out)).
+'pow-math'(A, B, Out) :-
+    metta_math_saturating_eval('pow-math', A ** B, [A, B], Out).
+'sqrt-math'(A, Out) :-
+    metta_math_saturating_eval('sqrt-math', sqrt(A), [A], Out).
 'abs-math'(A, Out) :-
     ( integer(A) -> Out is abs(A)
-    ; catch(Out is abs(A), E,
-            metta_math_saturating_recovery('abs-math', abs(A), [A], E, Out)) ).
+    ; metta_math_saturating_eval('abs-math', abs(A), [A], Out) ).
 %log of zero is float_overflow-classed by SWI (the result is an infinity),
 %so it saturates with the family; this compound expression is also why the
 %recovery retries under ALL the IEEE flags at once, because base 1 divides
 %the saturated -inf by log(1) = 0.0 and the answer is -inf, not a second
 %error.
-'log-math'(Base, X, Out) :- catch(Out is log(X) / log(Base), E,
-                                  metta_math_saturating_recovery('log-math', log(X) / log(Base), [Base, X], E, Out)).
-'exp-math'(A, Out) :- catch(Out is exp(A), E,
-                            metta_math_saturating_recovery('exp-math', exp(A), [A], E, Out)).
-'trunc-math'(A, Out) :- catch(Out is truncate(A), E,
-                              metta_math_recovery('trunc-math', [A], E, Out)).
-'ceil-math'(A, Out) :- catch(Out is ceil(A), E,
-                             metta_math_recovery('ceil-math', [A], E, Out)).
-'floor-math'(A, Out) :- catch(Out is floor(A), E,
-                              metta_math_recovery('floor-math', [A], E, Out)).
-'round-math'(A, Out) :- catch(Out is round(A), E,
-                              metta_math_recovery('round-math', [A], E, Out)).
-'sin-math'(A, Out) :- catch(Out is sin(A), E,
-                            metta_math_saturating_recovery('sin-math', sin(A), [A], E, Out)).
-'cos-math'(A, Out) :- catch(Out is cos(A), E,
-                            metta_math_saturating_recovery('cos-math', cos(A), [A], E, Out)).
-'tan-math'(A, Out) :- catch(Out is tan(A), E,
-                            metta_math_saturating_recovery('tan-math', tan(A), [A], E, Out)).
-'asin-math'(A, Out) :- catch(Out is asin(A), E,
-                             metta_math_saturating_recovery('asin-math', asin(A), [A], E, Out)).
-'acos-math'(A, Out) :- catch(Out is acos(A), E,
-                             metta_math_saturating_recovery('acos-math', acos(A), [A], E, Out)).
-'atan-math'(A, Out) :- catch(Out is atan(A), E,
-                             metta_math_recovery('atan-math', [A], E, Out)).
+'log-math'(Base, X, Out) :-
+    metta_math_saturating_eval(
+        'log-math', log(X) / log(Base), [Base, X], Out).
+'exp-math'(A, Out) :-
+    metta_math_saturating_eval('exp-math', exp(A), [A], Out).
+'trunc-math'(A, Out) :-
+    metta_math_eval('trunc-math', truncate(A), [A], Out).
+'ceil-math'(A, Out) :- metta_math_eval('ceil-math', ceil(A), [A], Out).
+'floor-math'(A, Out) :- metta_math_eval('floor-math', floor(A), [A], Out).
+'round-math'(A, Out) :- metta_math_eval('round-math', round(A), [A], Out).
+'sin-math'(A, Out) :-
+    metta_math_saturating_eval('sin-math', sin(A), [A], Out).
+'cos-math'(A, Out) :-
+    metta_math_saturating_eval('cos-math', cos(A), [A], Out).
+'tan-math'(A, Out) :-
+    metta_math_saturating_eval('tan-math', tan(A), [A], Out).
+'asin-math'(A, Out) :-
+    metta_math_saturating_eval('asin-math', asin(A), [A], Out).
+'acos-math'(A, Out) :-
+    metta_math_saturating_eval('acos-math', acos(A), [A], Out).
+'atan-math'(A, Out) :- metta_math_eval('atan-math', atan(A), [A], Out).
 'isnan-math'(A, Out) :-
-    catch(( A =:= A -> Out = false ; Out = true ), E,
-          metta_math_recovery('isnan-math', [A], E, Out)).
+    (   metta_numeric_operand(A)
+    ->  catch(( A =:= A -> Out = false ; Out = true ), E,
+              metta_math_recovery('isnan-math', [A], E, Out))
+    ;   metta_operation_answer('isnan-math', [A], Out)
+    ).
 'isinf-math'(A, Out) :-
-    catch(( ( A =:= 1.0Inf ; A =:= -1.0Inf )
-            -> Out = true ; Out = false ), E,
-          metta_math_recovery('isinf-math', [A], E, Out)).
+    (   metta_numeric_operand(A)
+    ->  catch(( ( A =:= 1.0Inf ; A =:= -1.0Inf )
+                -> Out = true ; Out = false ), E,
+              metta_math_recovery('isinf-math', [A], E, Out))
+    ;   metta_operation_answer('isinf-math', [A], Out)
+    ).
 %must_be/2 walks the list a second time with a type check per element, so a
 %numeric list costs 3x what min_list alone does [measured 2026-08-15: 20 calls
 %over 50,000 elements, 3,000,220 against 1,000,060 inferences]. That buys

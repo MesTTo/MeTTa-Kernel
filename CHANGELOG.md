@@ -37,6 +37,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Numeric math operations now reject computed String operands at their own
+  runtime doors. A one-character string can no longer cross into host
+  arithmetic as its character code, including either position of binary math.
 - Numeric equality now compares integer and float operands by value. In
   particular, `(== 1 1.0)` answers `True`, matching the language's grounded
   numeric equivalence rule, and `!=` uses the same rule negated.

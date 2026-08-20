@@ -1,9 +1,15 @@
 ;Purpose: executable examples for numeric and real-valued math operations.
 ;Guarantees: mixed integer/float equality compares numeric values, so 1 and
 ;1.0 are equal [tested: test_mixed_numeric_equality_answers_what_the_arbiter_answers].
+;A computed string reaches each math operation's own guard and is refused
+;before the host can treat one character as its code [tested:
+;test_a_string_operand_to_math_refuses_instead_of_answering_its_char_code].
 
 !(test (== 1 1.0) True)
 !(test (!= 1.0 1) False)
+(= (math-string) "s")
+!(test (sqrt-math (math-string))
+       (Error (sqrt-math "s") (BadArgType 1 Number String)))
 !(test (pow-math 2 3) 8)
 !(test (sqrt-math 9) 3.0)
 !(test (abs-math -5) 5)

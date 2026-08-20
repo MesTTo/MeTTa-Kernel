@@ -225,6 +225,24 @@ test(a_math_operation_answers_its_own_refusal_by_name,
     Answers = [['Error', _, Reason]],
     Reason == Message.
 
+%Drive every position from the engine's math-operation registry. SWI accepts a
+%one-character string as an arithmetic character code, so this must exercise
+%the direct operation door rather than relying on translated-call filtering.
+test(test_a_string_operand_to_math_refuses_instead_of_answering_its_char_code) :-
+    forall(( metta_math_operation(Operation, Arity),
+             between(1, Arity, Position) ),
+           ( length(Arguments, Arity),
+             PrefixLength is Position - 1,
+             length(Prefix, PrefixLength),
+             append(Prefix, ["s"|Suffix], Arguments),
+             maplist(=(2), Prefix),
+             maplist(=(2), Suffix),
+             append(Arguments, [Answer], CallArguments),
+             Goal =.. [Operation|CallArguments],
+             once(call(Goal)),
+             Answer = ['Error', [Operation|Arguments],
+                       ['BadArgType', Position, 'Number', 'String']] )).
+
 %min-atom and max-atom carry three texts for three arguments, and the third
 %quotes the offending expression back the way upstream formats it.
 expression_refusal_case('min-atom'(5, R), R, "Atom is not an ExpressionAtom").
