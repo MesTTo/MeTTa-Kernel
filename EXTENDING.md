@@ -1898,9 +1898,9 @@ knows how to read its own objects and answers every name at once.
 **The `host_service` surface** is the other half of the host contract: the
 engine predicates a host BINDING's transport may call back, measured from the
 shipped shim and declared in `src/ext_points.pl` so the static walk can keep
-the list honest. Today's list: `catch_recover/2`, `clear_foreign_atoms/1`,
-`clear_native_atoms/1`, `match_foreign/5`, `metta_add_atoms/2`,
-`metta_atom_hook_clause/2`, `metta_host_adopt_function/4`,
+the list honest. Today's list: `catch_recover/2`, `match_foreign/5`,
+`metta_add_atoms/2`, `metta_host_adopt_function/4`,
+`metta_host_clear_defined/1`, `metta_host_clear_space/1`,
 `metta_host_digest/2`, `metta_host_drop_function/2`,
 `metta_host_explain_match/3`, `metta_host_fast_header/1`,
 `metta_host_forget_function/1`, `metta_host_load_fast/2`,
