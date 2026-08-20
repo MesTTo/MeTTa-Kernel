@@ -652,10 +652,11 @@ compiled_function_name(F, F).
 %translation saving while the repeated eval workloads already repeat exact
 %variants.
 %
-%The dependency index contains every atom in the written form. It deliberately
-%over-approximates, as definition_mentions/2 does: evicting an unaffected
-%translation is safe, retaining one that compiled against an old function is
-%not. Both function change events use the same indexed first lookup.
+%The runnable dependency index contains every atom in the written form. Like
+%record_translated_supports/2's translated-form supports, it deliberately
+%over-approximates: evicting an unaffected translation is safe, retaining one
+%that compiled against an old function is not. Both function change events use
+%the same indexed first lookup.
 :- dynamic translated_form_cache/6.
 :- dynamic translated_form_mention/2.
 :- dynamic translation_cache_hook_ref/2.

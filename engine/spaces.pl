@@ -77,6 +77,12 @@
 %     propagation mechanism [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - Dispatch override/default edits and DontEvalType marker edits invalidate
+%     their typed support roots after storage changes, including callers that
+%     compiled before the edit [tested:
+%     test_every_dispatch_axis_is_readable_settable_and_defaulted,
+%     test_a_user_declared_lazy_type_receives_its_argument_unevaluated;
+%     commit=WORKTREE].
 %   - match_foreign/5 passes options only to a provider that declared
 %     metta_foreign_match/3, and unification and the caller's own bound stay
 %     on this side, so an option cannot change an answer [tested 2026-08-16:
@@ -333,6 +339,12 @@ petta_declaration_check(_).
 %dispatch, which is how the shipped routes come up during the preset walk
 %and how a third-party routed kind starts routing the moment its rows are
 %in.
+petta_catalog_note_added(['dispatch-policy', Function, Axis, _]) :-
+    !,
+    petta_dispatch_policy_changed(Function, Axis).
+petta_catalog_note_added(['dispatch-default', Axis, _]) :-
+    !,
+    petta_dispatch_default_changed(Axis).
 petta_catalog_note_added([kind, Head|_]) :-
     !,
     retractall(petta_kind_cache(Head, _, _)),
@@ -348,6 +360,38 @@ petta_catalog_note_added([capacity, Pool, _]) :-
     petta_capacity_contract_added(Pool).
 petta_catalog_note_added(_).
 
+% The support root is module-qualified because a call is compiled in an
+% execution module even though the catalog override is global. Only roots that
+% a compiled form published are visited. Runnable templates are the other
+% compilation owner and are evicted through their existing symbol index.
+petta_dispatch_policy_changed(Function, Axis) :-
+    findall(dispatch_policy(Module, Function, Axis),
+            supports(dispatch_policy(Module, Function, Axis), _),
+            Roots0),
+    sort(Roots0, Roots),
+    support_invalidate_many(Roots),
+    forall(support_repair_invalidations, true),
+    (   atom(Function)
+    ->  invalidate_translated_forms(Function)
+    ;   clear_translation_cache
+    ).
+
+% A default row applies to every function without an override, so invalidating
+% all published roots for that axis is the exact conservative update. Clearing
+% runnable templates avoids a second global dependency index for a rare edit.
+petta_dispatch_default_changed(Axis) :-
+    findall(dispatch_policy(Module, Function, Axis),
+            supports(dispatch_policy(Module, Function, Axis), _),
+            Roots0),
+    sort(Roots0, Roots),
+    support_invalidate_many(Roots),
+    forall(support_repair_invalidations, true),
+    clear_translation_cache.
+
+petta_dispatch_all_changed :-
+    forall(dispatch_axis_vocabulary(Axis, _),
+           petta_dispatch_default_changed(Axis)).
+
 %The removal twin, called by the '&petta' clause of remove_sexp below for
 %a row that actually left. A variable head means the caller removed by
 %pattern and anything may have gone, so everything derived is dropped and
@@ -358,7 +402,14 @@ petta_catalog_note_removed([Rel|_]) :-
     retractall(petta_kind_cache(_, _, _)),
     retractall(petta_vocab_cache(_, _, _)),
     petta_materialize_routes,
-    petta_capacity_counts_prune.
+    petta_capacity_counts_prune,
+    petta_dispatch_all_changed.
+petta_catalog_note_removed(['dispatch-policy', Function, Axis, _]) :-
+    !,
+    petta_dispatch_policy_changed(Function, Axis).
+petta_catalog_note_removed(['dispatch-default', Axis, _]) :-
+    !,
+    petta_dispatch_default_changed(Axis).
 petta_catalog_note_removed([kind, Head|_]) :-
     !,
     retractall(petta_kind_cache(Head, _, _)),
@@ -1254,6 +1305,21 @@ metta_add_atom(Space, Term, true) :-
     existing_duplicate_declaration(Space, Term, First),
     !,
     throw(error(petta_duplicate_declaration(Space, Term, First), none)).
+% DontEvalType changes how every arrow parameter naming this type compiles,
+% even when the type symbol is not itself a function. Store first so repairs
+% observe the new marker, then invalidate its module-qualified support root.
+metta_add_atom(Space, Term, true) :-
+    Term = [':', Type, 'DontEvalType'],
+    atom(Type),
+    !,
+    (   Space == '&self', fun(Type)
+    ->  retract_prelude_declarations(Type)
+    ;   true
+    ),
+    store_atom(Space, Term),
+    space_module(Space, DeclModule),
+    ( fun(Type) -> function_changed(DeclModule, Type) ; true ),
+    type_marker_changed(DeclModule, Type).
 %A type declaration decides how a call site compiles, most sharply for an Atom
 %parameter, which is what makes a control form possible: (: f (-> Atom
 %%Undefined%)) is the difference between the argument arriving evaluated and
@@ -1330,6 +1396,7 @@ atoms_store_only(Space, Terms) :- atoms_store_only(Space, Terms, []).
 
 atoms_store_only(_, [], _).
 atoms_store_only(_, [[=|_]|_], _) :- !, fail.
+atoms_store_only(_, [[':', _, 'DontEvalType']|_], _) :- !, fail.
 atoms_store_only(_, [[':', FAtom, _]|_], _) :-
     atom(FAtom), fun(FAtom), !, fail.
 atoms_store_only(Space, [Term|Terms], Earlier) :-
@@ -2067,6 +2134,29 @@ metta_remove_atom(Space, Term, Removed) :- var(Term), !,
 metta_remove_atom(Space, Term, Removed) :- Term = [=, [F|Args], Body], !,
                                            remove_equation(Space, Term, F, Args,
                                                            Body, Removed).
+metta_remove_atom(Space, Term, Removed) :-
+    Term = [':', Type, Marker],
+    atom(Type),
+    ( Marker == 'DontEvalType' ; var(Marker) ),
+    !,
+    unstore_atom(Space, Term, Removed),
+    (   Removed == true
+    ->  space_module(Space, DeclModule),
+        ( fun(Type) -> function_changed(DeclModule, Type) ; true ),
+        type_marker_changed(DeclModule, Type)
+    ;   true
+    ).
+metta_remove_atom(Space, Term, Removed) :-
+    Term = [':', Type, Marker],
+    var(Type),
+    ( Marker == 'DontEvalType' ; var(Marker) ),
+    !,
+    unstore_atom(Space, Term, Removed),
+    (   Removed == true
+    ->  space_module(Space, DeclModule),
+        type_markers_changed(DeclModule)
+    ;   true
+    ).
 %A declaration decides how call sites compile, so taking one away leaves them
 %stale exactly as adding one did, and for the same reason: the argument that
 %arrived as written now arrives evaluated. The write path learned this and the
@@ -2076,6 +2166,20 @@ metta_remove_atom(Space, Term, Removed) :- Term = [':', F, _], atom(F), fun(F), 
                                            space_module(Space, DeclModule),
                                            function_changed(DeclModule, F).
 metta_remove_atom(Space, Term, Removed) :- unstore_atom(Space, Term, Removed).
+
+type_marker_changed(Module, Type) :-
+    support_invalidate(type_marker(Module, Type)),
+    forall(support_repair_invalidations, true),
+    clear_translation_cache.
+
+type_markers_changed(Module) :-
+    findall(type_marker(Module, Type),
+            supports(type_marker(Module, Type), _),
+            Roots0),
+    sort(Roots0, Roots),
+    support_invalidate_many(Roots),
+    forall(support_repair_invalidations, true),
+    clear_translation_cache.
 
 %A host's reporting removal: whether anything actually went. The
 %language-facing `remove-atom` answers the UNIT value, because its type is
