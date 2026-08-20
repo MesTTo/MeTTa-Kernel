@@ -23,9 +23,10 @@ Assumes:
     unrecognised name is a configuration error, not a silent no-op, so it
     raises rather than gating nothing.
 Guarantees:
-  - only the bracketed lines of a MEASURED block are compared, and the count of
-    lines skipped for being printed output rather than answers is reported, so
-    a partial comparison never reads as a full one.
+  - bracketed answer lines and the arbiter's exact `produced verbatim `[...].`
+    prose form are compared; every other MEASURED line is counted as skipped
+    [tested: test_the_two_head_matching_arbiter_files_are_counted;
+    commit=WORKTREE].
   - a file whose engine run raises or times out is reported as such rather than
     counted as agreeing.
   - every area prints its own block under --gate-areas-file, promoted or not,
@@ -70,6 +71,7 @@ FAILURE = "LEATTA-ERROR "
 MEASURED = re.compile(r"^;\s*MEASURED:")
 STATUS = re.compile(r"^;\s*STATUS:\s*(.*)$")
 BRACKETED = re.compile(r"^;\s+\[(.*)\]\s*$")
+PRODUCED_VERBATIM = re.compile(r"^;\s+produced verbatim `(\[.*\])`\.\s*$")
 COMMENT = re.compile(r"^;\s?(.*)$")
 
 
@@ -183,8 +185,9 @@ def expected_groups(source: str) -> tuple[list[str], int]:
     """The MEASURED block's answer groups, and how many lines were not groups.
 
     A MEASURED block interleaves printed output with answers: a `println!` line
-    appears bare and an answer appears bracketed. Only the second kind is an
-    answer group, and the first kind is counted rather than ignored.
+    appears bare and an answer normally appears bracketed. Seven arbiter files
+    instead state one answer in the exact form `produced verbatim `[...].`;
+    that strict form is also an answer, while every other prose line is counted.
     """
     groups: list[str] = []
     skipped = 0
@@ -197,6 +200,10 @@ def expected_groups(source: str) -> tuple[list[str], int]:
             continue
         if STATUS.match(line) or not line.startswith(";"):
             break
+        produced = PRODUCED_VERBATIM.match(line)
+        if produced:
+            groups.append(canonical(produced.group(1)))
+            continue
         bracketed = BRACKETED.match(line)
         if bracketed:
             groups.append(canonical(f"[{bracketed.group(1)}]"))
