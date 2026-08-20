@@ -364,6 +364,12 @@ petta_catalog_note_added([vocabulary, Vocab|_]) :-
 petta_catalog_note_added(['routed-by-shape', Head|_]) :-
     !,
     petta_materialize_route(Head).
+petta_catalog_note_added([algebra, Name|_]) :-
+    !,
+    retractall(petta_algebra_descriptor_cache(Name, _, _, _, _, _, _, _)).
+petta_catalog_note_added([annotations, Ctx|_]) :-
+    !,
+    retractall(petta_annotations_cache(Ctx, _)).
 petta_catalog_note_added([capacity, Pool, _]) :-
     !,
     petta_capacity_contract_added(Pool).
@@ -378,6 +384,8 @@ petta_catalog_note_removed([Rel|_]) :-
     !,
     retractall(petta_kind_cache(_, _, _)),
     retractall(petta_vocab_cache(_, _, _)),
+    retractall(petta_algebra_descriptor_cache(_, _, _, _, _, _, _, _)),
+    retractall(petta_annotations_cache(_, _)),
     petta_materialize_routes,
     petta_capacity_counts_prune.
 petta_catalog_note_removed([kind, Head|_]) :-
@@ -390,6 +398,12 @@ petta_catalog_note_removed([vocabulary, Vocab|_]) :-
 petta_catalog_note_removed(['routed-by-shape', Head|_]) :-
     !,
     petta_materialize_route(Head).
+petta_catalog_note_removed([algebra, Name|_]) :-
+    !,
+    retractall(petta_algebra_descriptor_cache(Name, _, _, _, _, _, _, _)).
+petta_catalog_note_removed([annotations, Ctx|_]) :-
+    !,
+    retractall(petta_annotations_cache(Ctx, _)).
 petta_catalog_note_removed([capacity|_]) :-
     !,
     petta_capacity_counts_prune.
@@ -423,6 +437,9 @@ petta_catalog_clause([Rel|Args], Ref) :-
 %cannot part ways.
 :- dynamic petta_kind_cache/3.    %Head, Spec | none, ref(Ref) | none
 :- dynamic petta_vocab_cache/3.   %Vocab, Values | none, ref(Ref) | none
+:- dynamic petta_annotations_cache/2. %Ctx, Algebra
+:- dynamic petta_algebra_descriptor_cache/8.
+%Name, Combine, Extend, Zero, One, Laws, Carrier, Requires
 
 petta_kind_spec(Head, Spec) :-
     (   petta_kind_cache(Head, Spec0, Validity)
@@ -595,18 +612,21 @@ petta_check_catalog_semantics(algebra,
                              Laws, Carrier, Term).
 petta_check_catalog_semantics(annotations, [Ctx, Algebra|CapabilityArgs], Term) :-
     !,
-    (   petta_catalog_row([algebra, Algebra, _, _, _, _, _, _, Requires])
-    ->  true
-    ;   petta_declaration_refused(Term, 2, 'a declared algebra')
-    ),
+    petta_declared_algebra_requirements(Algebra, Required, Term),
     petta_annotation_capabilities(CapabilityArgs, Capabilities, Term),
-    Requires = [requires|Required],
     (   member(Requirement, Required),
         \+ memberchk(Requirement, Capabilities)
     ->  petta_algebra_requirement_refusal(Ctx, Algebra, Requirement)
     ;   true
     ).
 petta_check_catalog_semantics(_, _, _).
+
+petta_declared_algebra_requirements(Algebra, Required, _) :-
+    petta_catalog_row([algebra, Algebra, _, _, _, _, _, _,
+                       [requires|Required]]),
+    !.
+petta_declared_algebra_requirements(_, _, Term) :-
+    petta_declaration_refused(Term, 2, 'a declared algebra').
 
 petta_algebra_list_field([Head|Values], Head, _, _) :-
     atom(Head),

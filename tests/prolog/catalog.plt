@@ -9,6 +9,9 @@
        [tested: a_malformed_shipped_declaration_is_refused_loudly]
      - a head with no kind row passes untouched, the open data axis
        [tested: an_undeclared_head_stays_plain_data]
+     - materialized annotation and algebra descriptors follow catalog adds,
+       removals, and same-name replacements [tested:
+       algebra_descriptor_caches_follow_catalog_edits; commit=WORKTREE]
    Open Obligations:
      To Do: None
      Hacks: None
@@ -256,6 +259,39 @@ test(a_false_algebra_law_is_refused_before_the_catalog_row_lands,
 test(an_amplitude_context_without_the_whole_fragment_is_refused_by_name,
      [throws(error(petta_amplitude_fragment_refused('&p4-amp', finite), _))]) :-
     add_sexp('&petta', [annotations, '&p4-amp', amplitude], _).
+
+test(algebra_descriptor_caches_follow_catalog_edits,
+     [cleanup(forall(member(Row,
+                             [[annotations, '&p4-cache-context',
+                               'p4-cache-algebra'],
+                              [algebra, 'p4-cache-algebra', '+', '*', 0,
+                               unit, [laws], [carrier], [requires]],
+                              [algebra, 'p4-cache-algebra', '+', '*', 0,
+                               replacement, [laws], [carrier], [requires]]]),
+                     ( metta_remove_atom('&petta', Row, _)
+                     -> true
+                     ;  true )))]) :-
+    petta_annotations('&p4-cache-context', bool),
+    add_sexp('&petta',
+             [algebra, 'p4-cache-algebra', '+', '*', 0, unit,
+              [laws], [carrier], [requires]], _),
+    add_sexp('&petta',
+             [annotations, '&p4-cache-context', 'p4-cache-algebra'], _),
+    petta_annotations('&p4-cache-context', 'p4-cache-algebra'),
+    petta_algebra_descriptor('p4-cache-algebra', '+', '*', 0, unit,
+                             [laws], [carrier], [requires]),
+    metta_remove_atom('&petta',
+                      [annotations, '&p4-cache-context', 'p4-cache-algebra'],
+                      true),
+    petta_annotations('&p4-cache-context', bool),
+    metta_remove_atom('&petta',
+                      [algebra, 'p4-cache-algebra', '+', '*', 0, unit,
+                       [laws], [carrier], [requires]], true),
+    add_sexp('&petta',
+             [algebra, 'p4-cache-algebra', '+', '*', 0, replacement,
+              [laws], [carrier], [requires]], _),
+    petta_algebra_descriptor('p4-cache-algebra', '+', '*', 0, replacement,
+                             [laws], [carrier], [requires]).
 
 %The export parser's word lists are the catalog's volatility vocabulary,
 %consulted as data: widening the row widens what the parser accepts.

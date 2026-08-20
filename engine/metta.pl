@@ -3046,6 +3046,12 @@ metta_cache_unchecked(Name) :-
 %test_a_declared_semiring_quadruple_serves_annotations_like_a_builtin_one;
 %commit=496643acc4104702e76e7d325e9ffac8c0cc08c1].
 petta_annotations(Ctx, Algebra) :-
+    (   petta_annotations_cache(Ctx, Cached)
+    ->  Algebra = Cached
+    ;   petta_annotations_fresh(Ctx, Algebra)
+    ).
+
+petta_annotations_fresh(Ctx, Algebra) :-
     findall(Declared, petta_contract_fact([annotations, Ctx, Declared]),
             PlainDeclarations),
     (   PlainDeclarations == []
@@ -3055,21 +3061,41 @@ petta_annotations(Ctx, Algebra) :-
     ;   Declarations = PlainDeclarations
     ),
     sort(Declarations, Distinct),
-    (   Distinct == []
-    ->  Algebra = bool
-    ;   Distinct = [Algebra]
-    ->  true
-    ;   Distinct = [First, Second|_],
-        throw(error(petta_contract_conflict(Ctx, [annotations, Ctx, First],
-                                            [annotations, Ctx, Second],
-                                            [annotations, Ctx, Algebra]),
-                    none))
-    ).
+    petta_annotations_resolved(Distinct, Ctx, Resolved),
+    assertz(petta_annotations_cache(Ctx, Resolved)),
+    Algebra = Resolved.
+
+petta_annotations_resolved([], _, bool) :- !.
+petta_annotations_resolved([Algebra], _, Algebra) :- !.
+petta_annotations_resolved([First, Second|Rest], Ctx, _) :-
+    throw(error(petta_contract_conflict(Ctx, [annotations, Ctx, First],
+                                        [annotations, Ctx, Second],
+                                        [annotations, Ctx,
+                                         [First, Second|Rest]]),
+                none)).
 
 petta_algebra_descriptor(Name, Combine, Extend, Zero, One, Laws,
                          Carrier, Requires) :-
+    (   petta_algebra_descriptor_cache(Name, CachedCombine, CachedExtend,
+                                       CachedZero, CachedOne, CachedLaws,
+                                       CachedCarrier, CachedRequires)
+    ->  Combine = CachedCombine,
+        Extend = CachedExtend,
+        Zero = CachedZero,
+        One = CachedOne,
+        Laws = CachedLaws,
+        Carrier = CachedCarrier,
+        Requires = CachedRequires
+    ;   petta_algebra_descriptor_fresh(Name, Combine, Extend, Zero, One,
+                                       Laws, Carrier, Requires)
+    ).
+
+petta_algebra_descriptor_fresh(Name, Combine, Extend, Zero, One, Laws,
+                               Carrier, Requires) :-
     petta_contract_fact([algebra, Name, Combine, Extend, Zero, One,
-                         Laws, Carrier, Requires]).
+                         Laws, Carrier, Requires]),
+    assertz(petta_algebra_descriptor_cache(Name, Combine, Extend, Zero, One,
+                                           Laws, Carrier, Requires)).
 
 petta_algebra_one(Ctx, One) :-
     petta_annotations(Ctx, Algebra),
