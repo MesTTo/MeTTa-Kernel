@@ -22,7 +22,7 @@ Source: `bindings/python/petta/persistent.py`.
 >     [tested: test_tail_backup_is_durable_before_truncation; commit=dcfc20be4933c19140ccb5759291401d13058301]
 >   - EVERY proper prefix of a record classifies as an incomplete tail and is
 >     recovered, and a tail carrying its terminating full stop is refused
->     instead of truncated [measured: 7 of 18 truncation points were refused;
+>     instead of truncated [measured 2026-08-19: 7 of 18 truncation points were refused;
 >     command=pytest tests/test_persistent.py -q -p no:benchmark;
 >     fixture=all prefixes of assert(edge(a,b)).; commit=dcfc20be4933c19140ccb5759291401d13058301] [tested:
 >     test_every_truncation_point_of_the_torn_tail_classifies,

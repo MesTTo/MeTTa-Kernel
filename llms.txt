@@ -18,7 +18,7 @@ re-runs them.
 | `examples/**/*.metta` | 209 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
 | `website/reference/petta-*.md` | 22 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
-| `tests/prolog/*.plt` | 30 plunit suites over the engine itself | the `plunit` gate lane |
+| `tests/prolog/*.plt` | 31 plunit suites over the engine itself | the `plunit` gate lane |
 | `bindings/python/tests/*.py` | 132 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
