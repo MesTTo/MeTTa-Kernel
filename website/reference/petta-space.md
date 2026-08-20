@@ -1533,7 +1533,7 @@ def declare_handles(
     self,
     name: str,
     pattern: str | Atom,
-    fidelity: Literal['Exact', 'Partial', 'Sound', 'Refuse'],
+    fidelity: Fidelity,
     *,
     det: str | None = None,
 ) -> Atom:
@@ -1560,11 +1560,7 @@ def declare_handles(
 ### `MeTTa.declare_annotations`
 
 ```python
-def declare_annotations(
-    self,
-    name: str,
-    semiring: Literal['bool', 'bag', 'set', 'ranked', 'prob', 'prov'],
-) -> Atom:
+def declare_annotations(self, name: str, semiring: Semiring) -> Atom:
 ```
 
 > Declare the semiring a context's answer annotations live in.
@@ -1578,7 +1574,7 @@ def declare_annotations(
 ### `MeTTa.declare_source`
 
 ```python
-def declare_source(self, name: str, kind: Literal['linear', 'repeated', 'peek']) -> Atom:
+def declare_source(self, name: str, kind: SourceKind) -> Atom:
 ```
 
 > Declare a space's consumption discipline.
@@ -1594,12 +1590,7 @@ def declare_source(self, name: str, kind: Literal['linear', 'repeated', 'peek'])
 ### `MeTTa.declare_on_error`
 
 ```python
-def declare_on_error(
-    self,
-    name: str,
-    pattern: str | Atom,
-    mode: Literal['keep', 'empty', 'abort'],
-) -> Atom:
+def declare_on_error(self, name: str, pattern: str | Atom, mode: OnErrorMode) -> Atom:
 ```
 
 > Declare what a context's failure becomes, per query shape.
@@ -1617,11 +1608,7 @@ def declare_on_error(
 ### `MeTTa.declare_merge`
 
 ```python
-def declare_merge(
-    self,
-    pattern: str | Atom,
-    policy: Literal['depth', 'fair', 'best-first'],
-) -> Atom:
+def declare_merge(self, pattern: str | Atom, policy: AnswerPolicy) -> Atom:
 ```
 
 > Declare how the engine merges one query shape's answers
@@ -1637,7 +1624,7 @@ def declare_merge(
 ### `MeTTa.declare_context`
 
 ```python
-def declare_context(self, name: str, world: Literal['closed-world', 'open-world']) -> Atom:
+def declare_context(self, name: str, world: World) -> Atom:
 ```
 
 > Record what a space's absence means.
@@ -1695,11 +1682,7 @@ def declare_capacity(self, name: str, limit: int) -> Atom:
 ### `MeTTa.declare_writes`
 
 ```python
-def declare_writes(
-    self,
-    name: str,
-    atomicity: Literal['transactional', 'atomic-single', 'best-effort'],
-) -> Atom:
+def declare_writes(self, name: str, atomicity: Atomicity) -> Atom:
 ```
 
 > Declare what a space's writes promise inside a transaction.
@@ -1715,7 +1698,7 @@ def declare_writes(
 ### `MeTTa.declare_emits`
 
 ```python
-def declare_emits(self, name: str, policy: Literal['depth', 'fair', 'best-first']) -> Atom:
+def declare_emits(self, name: str, policy: AnswerPolicy) -> Atom:
 ```
 
 > Declare the order a context emits its own answers in.

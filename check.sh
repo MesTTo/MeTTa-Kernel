@@ -558,6 +558,13 @@ run GATE libdoc     "$PY" "$HERE/python/tools/libdoc.py"
 # six payloads with nothing to say which was right.
 run GATE codec-doc  "$PY" "$HERE/python/tools/codecdoc.py"
 
+# The catalog's value vocabularies and the binding's Literal types are one
+# authority: petta/vocabularies.py is generated from the engine's own
+# (vocabulary ...) rows, and this asks only whether what is checked in is
+# what the catalog says. Before it, the annotations surface advertised six
+# semirings while the engine acted on two, and nothing said which was right.
+run GATE vocab-sync "$PY" "$HERE/python/tools/vocabgen.py"
+
 # llms.txt is the file an agent reads INSTEAD of the tree, so a stale claim
 # there is believed rather than checked. It had gone stale exactly that way:
 # it named m.fresh_space() and m.value() after both were renamed, and
