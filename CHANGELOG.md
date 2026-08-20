@@ -95,6 +95,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Registered operations now reflect a typed `OpDecl` for every arity and
+  carry cleaned Python docstrings into their declaration space as `@doc`
+  atoms. Documentation follows replacement, rollback, and unregistration.
+
 - `register_op` now rejects coroutine, async-generator, and generator-based
   coroutine functions before registration. Its synchronous engine path cannot
   await them; ordinary generator operations remain nondeterministic.
