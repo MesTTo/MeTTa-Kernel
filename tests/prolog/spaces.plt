@@ -1959,3 +1959,35 @@ test(a_foreign_space_has_no_native_count,
     'space-atom-count'('&sac-foreign', _).
 
 :- end_tests(spaces_atom_count).
+
+% Kernel vocabulary: one indexed probe for membership, the question a
+% set-semantics rule asks per add. Unification is the store's own
+% reading, so a pattern with variables asks "anything of this shape".
+:- begin_tests(spaces_contains).
+
+test(present_absent_and_scalar,
+     [ cleanup(( remove_sexp('&sco-pool', [rel, _, _]),
+                 remove_sexp('&sco-pool', scalar_probe) )) ]) :-
+    add_sexp('&sco-pool', [rel, a, b]),
+    add_sexp('&sco-pool', scalar_probe),
+    'space-contains'('&sco-pool', [rel, a, b], R1), R1 == true,
+    'space-contains'('&sco-pool', scalar_probe, R2), R2 == true,
+    'space-contains'('&sco-pool', [rel, a, c], R3), R3 == false,
+    'space-contains'('&sco-pool', [rel, a, _], R4), R4 == true.
+
+test(a_never_written_space_contains_nothing) :-
+    'space-contains'('&sco-virgin', [x], R), R == false.
+
+test(an_unbound_space_is_refused,
+     [ throws(error(petta_unbound_input('space-contains', 1), _)) ]) :-
+    'space-contains'(_, [x], _).
+
+test(an_unbound_atom_is_refused,
+     [ throws(error(petta_unbound_input('space-contains', 2), _)) ]) :-
+    'space-contains'('&sco-pool', _, _).
+
+test(a_non_space_is_refused,
+     [ throws(error(type_error('SpaceType', 7), _)) ]) :-
+    'space-contains'(7, [x], _).
+
+:- end_tests(spaces_contains).

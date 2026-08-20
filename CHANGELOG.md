@@ -19,6 +19,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   declaration witnesses the type, about the atom AS ITSELF: the first
   parameter carries the Atom mask, so a policy written in MeTTa can ask
   the admission contract's own question of an unreduced atom.
+- `(space-contains <space> <atom>)` answers membership as one indexed
+  probe against the store, about the atom AS ITSELF, flat however large
+  the space grows: a set-semantics pre-add rule spelled over it costs
+  57 inferences per add at 2,000 held atoms and the same at 10,000,
+  against 69 for the `collapse`-over-`match` spelling of the same
+  question and 27 for a plain add.
 - `(space-admission-verdict <pool> <atom>)` is the shipped judge over the
   `(admits <pool> <type>)` and `(capacity <pool> <n>)` contract atoms in
   `&petta`, answering the pre-add hook's own verdict algebra: `(accept)`,
@@ -43,6 +49,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `&self`, every compiled caller of `car-atom` failed from then on.
   Inside a transaction the repair waits for the commit, so a failed
   reload still leaves the previous definitions standing.
+- `get-atoms` with a bound pattern reads through the store's argument
+  indexing instead of enumerating every clause and filtering: a
+  presence probe that cost 2,055 inferences at 2,000 held atoms and
+  21,055 at 10,000, linear, reads flat now, and a bound SCALAR pattern
+  answers a clean miss where it used to raise a type error.
 - The atom offered to a pre-add or post-add handler reaches it as itself.
   When the offered atom's head happened to name a function, the handler
   used to judge the atom's evaluation while the space received the atom,
