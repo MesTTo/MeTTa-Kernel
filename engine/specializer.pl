@@ -14,6 +14,11 @@
 %     specializer:the_recursive_specialization_never_re_enters_the_reducer]
 %     [measured 2026-08-18: 8,004 against 24,004 inferences over 1,000 steps,
 %     the same third at 100].
+%   - A specialization is a derived support-graph node, so changing its source
+%     function invalidates transitive specialization chains through the common
+%     forward walk [tested:
+%     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
+%     commit=WORKTREE].
 % Guarded by: '$petta_specializer' serializes the existence check and the
 %   transaction that publishes a specialization.
 % Open Obligations:
@@ -186,7 +191,8 @@ specialize_call_locked(HV, _, _, _, SpecName, _, ready) :-
     current_metta_module(Module),
     fun_in(Module, SpecName), !,
     assertz(ho_specialization(Module, HV, SpecName), Ref),
-    record_source_assertion(Ref).
+    record_source_assertion(Ref),
+    record_specialization_support(Module, HV, SpecName).
 %The specialization belongs to the space whose code triggered it. This runs
 %during translation, inside with_metta_module/2, so the current module is the
 %one whose functions the generated body references. Registering globally and
@@ -203,6 +209,7 @@ specialize_call_locked(HV, CleanBindSet, MetaList, HasDirectBenefit,
     register_fun_in(Module, SpecName),
     assertz(ho_specialization(Module, HV, SpecName), SpecializationRef),
     record_source_assertion(SpecializationRef),
+    record_specialization_support(Module, HV, SpecName),
     register_arity(SpecName, Arity),
     ( findall(TypeChain,
               catch_recover(type_declaration(HV, TypeChain), fail),
@@ -245,6 +252,21 @@ specialization_goal(SpecName, AVs, Out, Goal) :-
     ->  Goal = petta_verified_specialization(SpecName, Spec)
     ;   Goal = Spec
     ).
+
+% A generated predicate exists because its specialization exists, and the
+% specialization exists because the source function does. Keeping both edges
+% makes a specialization of a specialization one ordinary forward chain.
+record_specialization_support(Module, Source, SpecName) :-
+    Specialization = specialization(Module, SpecName),
+    support_publish(Specialization,
+                    [function(Module, Source)],
+                    [edge(Specialization, function(Module, SpecName))]).
+
+:- multifile support_invalidation_action/1.
+support_invalidation_action(specialization(Module, SpecName)) :-
+    ho_specialization(Module, _, SpecName),
+    !,
+    forget_symbol(Module, SpecName).
 
 %The specializer's whole claim is that a specialized call answers exactly
 %what the generic one answers. MeTTaLog makes that self-enforcing at run
@@ -484,7 +506,18 @@ forget_symbol(Module, Name) :-
     %FAILED, so removing the specialization's own atom failed and every caller
     %of it failed with it [tested: bindings/python/tests/test_import_reuse.py::
     %test_import_translation_leaves_variable_heads_dynamic].
-    forall(member(R, Refs), ( erase(R), retractall(translated_from(R, _)) )),
+    forall(member(R, Refs),
+           (   translated_from(R, Term)
+           ->  forget_translated_from(Module, R, Term),
+               erase(R)
+           ;   erase(R)
+           )),
+    %Withdraw the ownership rows before invalidating the generated function's
+    %own dependents. A compatibility cycle can otherwise re-enter this action
+    %through the opposite row before either side has retired.
+    retractall(ho_specialization(Module, Name, _)),
+    retractall(ho_specialization(Module, _, Name)),
+    support_invalidate(function(Module, Name)),
     %function_removed/1 rather than the bare event: the recompile of the
     %dependents rides in the engine now, so this path repairs compiled
     %mentions even when no host installed an observer.
@@ -501,69 +534,29 @@ forget_symbol(Module, Name) :-
         retractall(fun(Name)),
         clear_fun_meta(_, Name)
     ),
-    retractall(ho_specialization(Module, Name, _)),
-    retractall(ho_specialization(Module, _, Name)).
+    support_forget(function(Module, Name)),
+    support_forget(specialization(Module, Name)).
 
-%Invalidate all specializations:
-%The recursion carries a visited set. It retracts only AFTER descending, so a
-%cycle among ho_specialization/3 facts would not terminate, and this runs
-%unguarded on the register-an-operation path now: a non-terminating
-%invalidation there is a hang rather than a swallowed failure. No cycle is
-%reachable today, because the recursive-specialization fold reuses the active
-%name rather than recording a new fact, so this guards a reachability one
-%change away rather than claiming one exists
-%[tested: an_invalidation_cycle_terminates].
-%SCOPED TO ONE MODULE, which is the space doing the writing. A specialization
-%belongs to the space whose code triggered it, ho_specialization/3 has said so
-%in its first argument since it was written, and this read it with a wildcard:
-%adding an equation for a name in ANY space invalidated that name's
-%specializations in EVERY space, retracting their compiled clauses and, since
-%specialize_call_locked/7 stores each generated equation into its space,
-%their stored ATOMS. One space's write changed another space's atom count.
-%
-%Reproduced through MeTTa.copy(), which enumerates &self and re-adds every
-%atom into a fresh space: re-adding the base equation THERE fired the
-%module-blind invalidation and stripped four spec atoms from &self, so the
-%source of the copy lost atoms to the copy [measured 2026-08-19, and it was
-%the suite's one known flake, 1 firing in 12 parallel runs]
-%[tested: specializer_invalidation:writing_in_one_space_leaves_another_alone].
-%
-%No arity-1 wrapper reading the ambient module. There was one, and it was the
-%door MeTTa.copy() went through: every caller has the module in hand, so every
-%caller passes it.
+% Compatibility name for callers that used to enter the specializer's bespoke
+% recursive walk. The common graph now reaches specializations, memo entries
+% and compiled dependents in one cycle-safe traversal, then this public entry
+% lets each artifact family perform its deferred repair.
 invalidate_specializations(Module, F) :-
-    %The blanket memo clear is deliberate cross-function conservatism: a
-    %change to g can flip whether specializing f succeeds (the failed
-    %binding may have named g), so per-F clearing would be unsound. It is
-    %deliberately cross-MODULE for the same reason and at the same price:
-    %ho_specialization_failed/3 is a memo of a REFUSAL, so clearing it can
-    %only make the specializer try again, never make a call answer
-    %differently, which is the opposite of the walk below. On an empty table
-    %it costs almost nothing. The spec walk IS guarded, because nearly no
-    %function has specializations and this runs once per compiled equation
-    %through the one compile door. Unguarded, source-load's own counter
-    %assertion measured the walk at +19,994 inferences over 1000 forms;
-    %guarded, the lane passes its unchanged 944,158 floor
-    %[measured 2026-08-18].
-    retractall(ho_specialization_failed(_,_,_)),
-    (   ho_specialization(Module, F, _)
-    ->  findall(Spec, ho_specialization(Module, F, Spec), Specs),
-        forall(member(S, Specs), invalidate_specializations(Module, S, [F])),
-        forall(member(S, Specs), forget_symbol(Module, S)),
-        retractall(ho_specialization(Module, F, _))
-    ;   true
-    ).
+    prepare_specialization_invalidation(Module, F),
+    support_invalidate(function(Module, F)),
+    forall(support_repair_invalidations, true).
 
-%The visited set rides on the DESCENT only, so the entry point above is
-%unchanged and a function with no specializations, which is nearly all of
-%them, pays nothing: routing the top level through here instead cost one
-%inference on every compiled equation [measured 2026-08-16: source-load
-%6921403 to 6922400 over a thousand].
-invalidate_specializations(Module, F, Seen) :-
-    (   memberchk(F, Seen)
-    ->  true
-    ;   findall(Spec, ho_specialization(Module, F, Spec), Specs),
-        forall(member(S, Specs), invalidate_specializations(Module, S, [F|Seen])),
-        forall(member(S, Specs), forget_symbol(Module, S)),
-        retractall(ho_specialization(Module, F, _))
-    ).
+prepare_specialization_invalidation(Module, F) :-
+    retractall(ho_specialization_failed(_,_,_)),
+    ensure_specialization_supports(Module, F).
+
+% Existing hosts may have asserted ho_specialization/3 through its long-lived
+% compatibility surface. Backfill that module once when such a row has no
+% support edge; ordinary specializations record the edge at publication.
+ensure_specialization_supports(Module, F) :-
+    ho_specialization(Module, F, Spec),
+    \+ supports(function(Module, F), specialization(Module, Spec)),
+    !,
+    forall(ho_specialization(Module, Source, Name),
+           record_specialization_support(Module, Source, Name)).
+ensure_specialization_supports(_, _).

@@ -1,5 +1,11 @@
 % Purpose: verify file-reader splitting, loader rollback, global function
 %   scope, late-definition repair, and translation-error reporting.
+% Guarantees:
+%   - Failed loads and reloaded source contributions leave no orphaned support
+%     graph state and preserve aggregate links owned by surviving source files
+%     [tested: filereader_source_rollback:failed_load_removes_compiler_state_and_generated_lambdas,
+%     filereader_source_reload:reloading_one_contributor_preserves_another_contributors_support;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -209,6 +215,10 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
           \+ user:fun(RuntimeFunction),
           \+ user:arity(RuntimeFunction, _),
           \+ user:fun_meta_clause(_, RuntimeFunction, _, _),
+          \+ user:supports(_, compiled_function(_, Outer)),
+          \+ user:supports(_, compiled_function(_, RuntimeFunction)),
+          \+ user:supports(_, function(_, Outer)),
+          \+ user:supports(_, function(_, RuntimeFunction)),
           functor(Head, Outer, 1),
           \+ clause(user:Head, _),
           functor(LambdaHead, GeneratedLambda, 2),
@@ -360,6 +370,33 @@ test(a_reload_leaves_one_clause_for_a_redefined_function) :-
           findall(T, user:translated_from(_, [=, [F], T]), Sources),
           Sources == [2] ),
         forget_reload_source(Path, F)).
+
+test(reloading_one_contributor_preserves_another_contributors_support) :-
+    F = 'plunit-reload-shared-support',
+    Other = 'plunit-reload-shared-other',
+    reload_scratch_file(PathA),
+    reload_scratch_file(PathB),
+    setup_call_cleanup(
+        ( write_reload_source(
+              PathA,
+              "(= (plunit-reload-shared-support left) 1)\n"),
+          write_reload_source(
+              PathB,
+              "(= (plunit-reload-shared-support right) 2)\n") ),
+        ( user:load_metta_file(PathA, _, '&self'),
+          user:load_metta_file(PathB, _, '&self'),
+          write_reload_source(
+              PathA,
+              "(= (plunit-reload-shared-other) 3)\n"),
+          user:load_metta_file(PathA, _, '&self'),
+          user:metta_self_module(Module),
+          assertion(user:supports(compiled_function(Module, F),
+                                  function(Module, F))),
+          assertion(user:translated_from(
+                        _, [=, [F, right], 2])) ),
+        ( forget_reload_source(PathA, F),
+          forget_reload_source(PathB, F),
+          cleanup_test_function(Other) )).
 
 :- end_tests(filereader_source_reload).
 

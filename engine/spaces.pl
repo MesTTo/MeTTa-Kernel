@@ -72,6 +72,11 @@
 %     its asserted compiler state [tested 2026-08-14:
 %     change_hook_error_rolls_back_every_registration_write,
 %     filereader_source_rollback].
+%   - Function changes invalidate module-qualified support nodes before
+%     rebuilding compiled dependents, so all mutation doors share one forward
+%     propagation mechanism [tested:
+%     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
+%     commit=WORKTREE].
 %   - match_foreign/5 passes options only to a provider that declared
 %     metta_foreign_match/3, and unification and the caller's own bound stay
 %     on this side, so an option cannot change an answer [tested 2026-08-16:
@@ -1269,7 +1274,6 @@ metta_add_atom(Space, Term, true) :- Term = [':', FAtom, _], atom(FAtom),
                                      ;   true
                                      ),
                                      store_atom(Space, Term),
-                                     recompile_definitions_mentioning(FAtom),
                                      space_module(Space, DeclModule),
                                      function_changed(DeclModule, FAtom).
 metta_add_atom(Space, Term, true) :- metta_foreign_space(Space), !,
@@ -1428,7 +1432,9 @@ store_equation(Storage, Space, Term) :- add_sexp_in(Storage, Space, Term, Ref),
 %the compile door's own module switch and the invalidation behind it is scoped
 %to one space now: reading the ambient module here would have made a write in
 %one space invalidate whichever space happened to be in force.
-function_changed(Module, FAtom) :- invalidate_specializations(Module, FAtom),
+function_changed(Module, FAtom) :- prepare_specialization_invalidation(Module, FAtom),
+                                   support_invalidate_function_change(Module, FAtom),
+                                   forall(support_repair_invalidations, true),
                                    forall(metta_on_function_changed(FAtom), true).
 
 %The removal repair is the engine's own duty, not an observer's: it used to
@@ -1444,7 +1450,8 @@ function_changed(Module, FAtom) :- invalidate_specializations(Module, FAtom),
 %that never landed. Both directions and the rollback are pinned
 %[tested: the_engine_recompiles_dependents_without_a_host]
 %[tested: failed_late_definition_does_not_recompile_existing_callers].
-function_removed(FAtom) :- recompile_definitions_mentioning(FAtom),
+function_removed(FAtom) :- support_invalidate_function(FAtom),
+                           forall(support_repair_invalidations, true),
                            forall(metta_on_function_removed(FAtom), true).
 
 %The caller has classified the atom as an equation, so the shape test that used
@@ -1693,7 +1700,8 @@ compile_metta_equation(Module, Term, Clause, Ref) :-
     %(let $h (+ 1) (f $h)), silently answered NOTHING. Found by the
     %verify-specializations differential over examples/
     %[tested specializer:a_recursive_specialization_survives_its_compile].
-    invalidate_specializations(Module, F),
+    prepare_specialization_invalidation(Module, F),
+    support_invalidate_function_change(Module, F),
     once(with_metta_module(Module, translate_clause(Term, Clause))),
     assert_function_clause(Module, Clause, Ref),
     record_source_assertion(Ref),
@@ -1701,6 +1709,7 @@ compile_metta_equation(Module, Term, Clause, Ref) :-
     record_source_assertion(SourceRef),
     %The dependent-recompile hooks run AFTER the clause is in place, so
     %a definition that mentions F recompiles against the new one.
+    forall(support_repair_invalidations, true),
     forall(metta_on_function_changed(F), true).
 
 add_function_atom(Storage, Space, Module, Term, FAtom, W) :-
@@ -2064,7 +2073,6 @@ metta_remove_atom(Space, Term, Removed) :- Term = [=, [F|Args], Body], !,
 %removal path did not.
 metta_remove_atom(Space, Term, Removed) :- Term = [':', F, _], atom(F), fun(F), !,
                                            unstore_atom(Space, Term, Removed),
-                                           recompile_definitions_mentioning(F),
                                            space_module(Space, DeclModule),
                                            function_changed(DeclModule, F).
 metta_remove_atom(Space, Term, Removed) :- unstore_atom(Space, Term, Removed).
@@ -2146,7 +2154,7 @@ remove_equation(Space, Term, F, Args, Body, Removed) :-
     %caller's Term would narrow every later use of it in this clause.
     copy_term(Term, Probe),
     (   translated_from(Ref, Probe), clause_property(Ref, module(Module))
-    ->  erase(Ref), retractall(translated_from(Ref, _)), Erased = true
+    ->  forget_translated_from(Module, Ref, Probe), erase(Ref), Erased = true
     ;   Erased = false
     ),
     %A local predicate the erase just EMPTIED still shadows the same name
@@ -3418,7 +3426,8 @@ space_atom_count_uncached(Space, Count) :-
 
 clear_native_atoms(Space) :-
     (   native_storage_module_ready(Space, Module)
-    ->  findall(Atom, compiled_half_atom(Space, Module, Atom), Compiled),
+    ->  space_module(Space, SupportModule),
+        findall(Atom, compiled_half_atom(Space, Module, Atom), Compiled),
         forall(member(Atom, Compiled),
                ( metta_remove_atom(Space, Atom, _) -> true ; true )),
         forall(( current_predicate(Module:Space/Arity),
@@ -3429,6 +3438,10 @@ clear_native_atoms(Space) :-
     ),
     petta_capacity_count_cleared(Space),
     retractall(import_life(Space, _, _)),
+    (   nonvar(SupportModule)
+    ->  support_forget_module(SupportModule)
+    ;   true
+    ),
     forget_space_source_loads(Space).
 
 %The atoms whose removal has a consequence beyond storage, which are exactly

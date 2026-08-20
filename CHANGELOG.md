@@ -34,6 +34,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   confluence reporter now has translator and typing family descriptors; it
   reports user/user and user/shipped refusal or defer overlaps as conditional
   proof obligations.
+- Derived engine artifacts now share a demand-driven support graph with eager
+  dirtiness and stabilization cutoff. Module-qualified forward edges connect
+  source functions to specializations, memo generations, translated forms,
+  compiled functions, and their callers; changing one support invalidates only
+  its reachable dependents, and releasing a pooled space releases its graph
+  state. This replaces the specializer, memo, and compile-door dependency walks
+  with one cycle-safe mechanism.
 - `DontEvalType` is a declarable evaluation mask. Declaring
   `(: Payload DontEvalType)` makes a `Payload` parameter receive its written
   expression before evaluation; the compiler consults the declaration, not a

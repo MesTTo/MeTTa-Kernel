@@ -34,6 +34,10 @@
 %     residual call as a malformed verdict [tested:
 %     hooks:an_unclaimed_request_is_a_stuck_state_that_says_so,
 %     hooks:a_post_stuck_state_undoes_the_write; commit=WORKTREE].
+%   - support_graph.pl loads before the specializer and file reader that publish
+%     derived artifact edges [tested:
+%     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
+%     commit=WORKTREE].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction
@@ -356,7 +360,8 @@ metta_exec_module_prefix('$petta_exec:').
 goal_expansion(metta_self_module(Module), Module = '$petta_exec:&self').
 goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 
-:- ensure_loaded([ext_points, parser, type_rules, translator, specializer, filereader,
+:- ensure_loaded([ext_points, parser, type_rules, translator, support_graph,
+                  specializer, filereader,
                   '../lib/lib_gitimport', spaces, tracer, duals, kernel]).
 
 %A host is a seat's decider file under bindings/, the backends split one
