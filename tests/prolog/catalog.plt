@@ -111,6 +111,69 @@ test(a_removed_kind_row_stops_checking_that_head,
     add_sexp('&petta', [cache, anything, 'not-a-cache-mode'], Ref),
     erase(Ref).
 
+%A third-party kind enters the ONE shape router through catalog rows
+%alone: vocabulary, kind, routed-by-shape, entries. Specificity, adornment
+%and coherence are inherited, not reimplemented.
+test(a_third_party_shape_routed_kind_rides_the_one_router,
+     [setup(( add_sexp('&petta', [vocabulary, 'fr-level', live, cached, stale], _),
+              add_sexp('&petta', [kind, freshness, symbol, pattern,
+                                  ['one-of', 'fr-level']], _),
+              add_sexp('&petta', ['routed-by-shape', freshness], _) )),
+      cleanup(forall(member(A, [[freshness, '&fr', [edge, _, _], cached],
+                                [freshness, '&fr', [edge, [in, _], _], live],
+                                ['routed-by-shape', freshness],
+                                [kind, freshness|_],
+                                [vocabulary, 'fr-level'|_]]),
+                     metta_remove_atom('&petta', A, _)))]) :-
+    add_sexp('&petta', [freshness, '&fr', [edge, _A, _B], cached], _),
+    add_sexp('&petta', [freshness, '&fr', [edge, [in, _C], _D], live], _),
+    petta_shape_route(freshness, '&fr', [edge, bound, _E], _, [Level]),
+    Level == live,
+    petta_shape_route(freshness, '&fr', [edge, _F, _G], _, [General]),
+    General == cached.
+
+test(two_disagreeing_maximal_entries_conflict_loudly,
+     [setup(( add_sexp('&petta', [vocabulary, 'hot-level', hot, cold], _),
+              add_sexp('&petta', [kind, hotness, symbol, pattern,
+                                  ['one-of', 'hot-level']], _),
+              add_sexp('&petta', ['routed-by-shape', hotness], _),
+              add_sexp('&petta', [hotness, '&h', [p, _, q], hot], _),
+              add_sexp('&petta', [hotness, '&h', [p, r, _], cold], _) )),
+      cleanup(forall(member(A, [[hotness, '&h'|_],
+                                [hotness, '&h'|_],
+                                ['routed-by-shape', hotness],
+                                [kind, hotness|_],
+                                [vocabulary, 'hot-level'|_]]),
+                     metta_remove_atom('&petta', A, _))),
+      error(petta_contract_conflict(_, _, _, _))]) :-
+    petta_shape_route(hotness, '&h', [p, r, q], _, _).
+
+test(removing_the_routing_row_stops_the_route,
+     [setup(( add_sexp('&petta', [vocabulary, 'wet-level', wet, dry], _),
+              add_sexp('&petta', [kind, wetness, symbol, pattern,
+                                  ['one-of', 'wet-level']], _),
+              add_sexp('&petta', ['routed-by-shape', wetness], _),
+              add_sexp('&petta', [wetness, '&w', [w, _], wet], _) )),
+      cleanup(forall(member(A, [[wetness, '&w'|_],
+                                [kind, wetness|_],
+                                [vocabulary, 'wet-level'|_]]),
+                     metta_remove_atom('&petta', A, _)))]) :-
+    petta_shape_route(wetness, '&w', [w, 1], _, [wet]),
+    metta_remove_atom('&petta', ['routed-by-shape', wetness], true),
+    \+ petta_shape_declared(wetness, '&w').
+
+test(a_routing_row_without_its_kind_is_refused,
+     [error(petta_declaration_malformed(['routed-by-shape', 'never-kinded'],
+                                        1, _))]) :-
+    add_sexp('&petta', ['routed-by-shape', 'never-kinded'], _).
+
+test(a_routing_row_over_an_unroutable_kind_is_refused,
+     [setup(add_sexp('&petta', [kind, 'flat-kind', symbol, symbol], _)),
+      cleanup(metta_remove_atom('&petta', [kind, 'flat-kind'|_], _)),
+      error(petta_declaration_malformed(['routed-by-shape', 'flat-kind'],
+                                        1, _))]) :-
+    add_sexp('&petta', ['routed-by-shape', 'flat-kind'], _).
+
 %The bulk door refuses the whole batch before any of it lands.
 test(the_bulk_door_checks_before_it_writes) :-
     catch(( metta_add_atoms('&petta', [[source, '&cat4', repeated],
