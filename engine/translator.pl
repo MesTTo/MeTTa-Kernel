@@ -1164,7 +1164,7 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
 %ordinary arity machinery below again decides calls and partial applications.
 %This follows evalSequentialRun, whose bang branch evaluates against kb while
 %only a non-bang form extends kb for the next step
-%[source: /home/user/Dev/LeaTTa/MettaHyperonFull/Minimal/Stdlib.lean,
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean,
 %evalSequentialRun] [tested:
 %test_a_bang_before_the_definition_answers_unreduced_not_a_host_error].
 runnable_head_awaits_its_definition(Fun) :-
