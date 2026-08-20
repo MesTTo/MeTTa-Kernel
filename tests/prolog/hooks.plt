@@ -2,8 +2,9 @@
 %   (declare-pre-add! <space> <handler>), the one-claimant rule, the
 %   four-verdict algebra (accept, accept-transformed, refuse, drop), the
 %   stuck state, the batch door's degrade to per-atom adds, the
-%   claim-time compiled fire path, and the admits/capacity sugar riding
-%   the same registry through petta_admission_claim/2.
+%   claim-time compiled fire path, the admits/capacity sugar riding
+%   the same registry through petta_admission_claim/2, and the design
+%   board's worked instances (threadpool, CHR vocabulary, set-as-rule).
 %
 %   The discipline under test is the interaction-net one (Hassan, Mackie
 %   and Sato, GT-VMT 2008): at most one rule per pair of agents, checked
@@ -531,3 +532,191 @@ test(reclaiming_is_idempotent,
     assertion(\+ \+ 'get-atoms'('&as-pool6', ['as-free'])).
 
 :- end_tests(hooks_admission_sugar).
+
+% The design board's worked instances (P12.5, P12.8, P12.9, P12.10):
+% the mechanism demonstrated as the board names them, no new machinery.
+% The CHR mapping is the project's own mechanized analysis frame
+% (LeaTTa's ChrOperational cluster), and the three forms are the
+% completeness checklist for the verdict vocabulary.
+:- begin_tests(hooks_worked_instances).
+
+test(test_the_hook_vocabulary_matches_the_three_chr_forms,
+     [ cleanup(( metta_undeclare_hook(post_add, '&chr-obs'),
+                 metta_undeclare_hook(pre_add, '&chr-simp'),
+                 metta_undeclare_hook(pre_add, '&chr-keep'),
+                 clear_native_atoms('&chr-obs'),
+                 clear_native_atoms('&chr-derived'),
+                 clear_native_atoms('&chr-simp'),
+                 clear_native_atoms('&chr-keep'),
+                 (   metta_remove_atom('&self', [=, ['chr-prop', _], _], _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&self', [=, ['chr-simp-rule', _], _],
+                                       _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&self', [=, ['chr-keep-rule', _], _],
+                                       _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&self', [:, 'chr-keep-rule', _], _)
+                 ->  true
+                 ;   true
+                 ) )) ]) :-
+    % ==> propagation: a post-add handler's body writes a derived atom
+    % while the landed atom stays as it landed.
+    process_metta_string(
+        "(= (chr-prop $x) (chain (add-atom &chr-derived (saw $x)) $t (accept)))",
+        _),
+    metta_declare_hook(post_add, '&chr-obs', 'chr-prop'),
+    metta_add_atom('&chr-obs', [ev, 1], _),
+    assertion(\+ \+ 'get-atoms'('&chr-obs', [ev, 1])),
+    assertion(\+ \+ 'get-atoms'('&chr-derived', [saw, [ev, 1]])),
+    % <=> simplification: the transform verdict consumes the incoming
+    % atom and produces its replacement, linear consumption stated as a
+    % verdict.
+    process_metta_string("(= (chr-simp-rule (raw $x)) (accept (cooked $x)))",
+                         _),
+    metta_declare_hook(pre_add, '&chr-simp', 'chr-simp-rule'),
+    metta_add_atom('&chr-simp', [raw, 7], _),
+    assertion(\+ 'get-atoms'('&chr-simp', [raw, 7])),
+    assertion(\+ \+ 'get-atoms'('&chr-simp', [cooked, 7])),
+    % kept \ consumed simpagation: a pre-add handler reads the space's
+    % kept heads to decide about the consumed incoming atom.
+    process_metta_string("(: chr-keep-rule (-> Atom %Undefined%))\n\c
+(= (chr-keep-rule $a)\n\c
+   (if (space-contains &chr-keep (blocker))\n\c
+       (refuse (kept-head-blocks $a))\n\c
+       (accept)))", _),
+    metta_declare_hook(pre_add, '&chr-keep', 'chr-keep-rule'),
+    metta_add_atom('&chr-keep', [free, 1], _),
+    assertion(\+ \+ 'get-atoms'('&chr-keep', [free, 1])),
+    metta_add_atom('&chr-keep', ['blocker'], _),
+    catch(metta_add_atom('&chr-keep', [free, 2], _), E, true),
+    assertion(subsumes_term(error(petta_add_refused('&chr-keep', [free, 2],
+                                                    ['kept-head-blocks',
+                                                     [free, 2]]),
+                                  _),
+                            E)).
+
+% Set semantics is a rule the space DECLARES, not a property it has:
+% CHR's foo \ foo <=> true, the (drop) verdict's reason for existing.
+% The presence probe rides the store's own clause indexing, so the rule
+% costs the same however large the set grows [measured 2026-08-21:
+% 57.01 inferences per add at 2,000 held atoms and 57.00 at 10,000
+% through space-contains, 69.01 and 69.00 through the
+% collapse-over-match spelling of the same question, against 27.01 for
+% a plain add; a replayed duplicate drops at 46.00].
+test(test_set_semantics_is_a_declared_rule_not_a_property_of_the_space,
+     [ cleanup(( metta_undeclare_hook(pre_add, '&set-pool'),
+                 clear_native_atoms('&set-pool'),
+                 (   metta_remove_atom('&self', [=, ['set-rule', _], _], _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&self', [:, 'set-rule', _], _)
+                 ->  true
+                 ;   true
+                 ) )) ]) :-
+    process_metta_string("(: set-rule (-> Atom %Undefined%))\n\c
+(= (set-rule $a)\n\c
+   (if (space-contains &set-pool $a) (drop) (accept)))", _),
+    metta_declare_hook(pre_add, '&set-pool', 'set-rule'),
+    metta_add_atom('&set-pool', [item, 1], _),
+    metta_add_atom('&set-pool', [item, 1], _),
+    metta_add_atom('&set-pool', [item, 2], _),
+    findall(A, 'get-atoms'('&set-pool', A), Atoms),
+    assertion(Atoms == [[item, 1], [item, 2]]),
+    % A declared rule, not a property: undeclare it and the space is the
+    % multiset it always was.
+    metta_undeclare_hook(pre_add, '&set-pool'),
+    metta_add_atom('&set-pool', [item, 1], _),
+    findall(A, 'get-atoms'('&set-pool', A), After),
+    assertion(After == [[item, 1], [item, 2], [item, 1]]).
+
+% A threadpool is a space of spaces: membership typed by the ontology,
+% the bound the capacity sugar pointed at the pool, and the enforcement
+% visible in the registry as an ordinary pre-add claim.
+test(test_a_threadpool_is_a_space_of_spaces_with_its_bound_as_a_hook,
+     [ cleanup(( metta_undeclare_hook(pre_add, '&tp-pool'),
+                 (   metta_remove_atom('&petta',
+                                       [admits, '&tp-pool', 'Space'], _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&petta',
+                                       [capacity, '&tp-pool', 2], _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&self',
+                                       [=, ['space-admission-guard-&tp-pool',
+                                            _], _], _)
+                 ->  true
+                 ;   true
+                 ),
+                 clear_native_atoms('&tp-pool'),
+                 (   metta_remove_atom('&self', [:, '&tp-w1', 'Space'], _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&self', [:, '&tp-w2', 'Space'], _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&self', [:, '&tp-w3', 'Space'], _)
+                 ->  true
+                 ;   true
+                 ) )) ]) :-
+    metta_add_atom('&petta', [admits, '&tp-pool', 'Space'], _),
+    metta_add_atom('&petta', [capacity, '&tp-pool', 2], _),
+    metta_add_atom('&self', [:, '&tp-w1', 'Space'], _),
+    metta_add_atom('&self', [:, '&tp-w2', 'Space'], _),
+    metta_add_atom('&self', [:, '&tp-w3', 'Space'], _),
+    petta_admission_claim('&tp-pool', '&self'),
+    assertion(petta_hook_claim('&tp-pool', pre_add, _, _)),
+    metta_add_atom('&tp-pool', '&tp-w1', _),
+    metta_add_atom('&tp-pool', '&tp-w2', _),
+    catch(metta_add_atom('&tp-pool', '&tp-w3', _), E, true),
+    assertion(subsumes_term(error(petta_add_refused('&tp-pool', '&tp-w3',
+                                                    ['pool-at-capacity', 2]),
+                                  _),
+                            E)),
+    findall(S, 'get-atoms'('&tp-pool', S), Members),
+    assertion(Members == ['&tp-w1', '&tp-w2']).
+
+% The threadpool bound stated as ONE simpagation rule: the pool's
+% members are the kept heads, the incoming member the consumed one, and
+% the whole bound is a single handler equation whose refusal wears the
+% same words the shipped judge answers with.
+test(test_the_threadpool_bound_is_one_simpagation_rule,
+     [ cleanup(( metta_undeclare_hook(pre_add, '&tp2-pool'),
+                 clear_native_atoms('&tp2-pool'),
+                 (   metta_remove_atom('&self', [=, ['tp-bound', _], _], _)
+                 ->  true
+                 ;   true
+                 ),
+                 (   metta_remove_atom('&self', [:, 'tp-bound', _], _)
+                 ->  true
+                 ;   true
+                 ) )) ]) :-
+    process_metta_string("(: tp-bound (-> Atom %Undefined%))\n\c
+(= (tp-bound $s)\n\c
+   (if (< (space-atom-count &tp2-pool) 2)\n\c
+       (accept)\n\c
+       (refuse (pool-at-capacity 2))))", _),
+    metta_declare_hook(pre_add, '&tp2-pool', 'tp-bound'),
+    metta_add_atom('&tp2-pool', '&tp2-w1', _),
+    metta_add_atom('&tp2-pool', '&tp2-w2', _),
+    catch(metta_add_atom('&tp2-pool', '&tp2-w3', _), E, true),
+    assertion(subsumes_term(error(petta_add_refused('&tp2-pool', '&tp2-w3',
+                                                    ['pool-at-capacity', 2]),
+                                  _),
+                            E)),
+    findall(S, 'get-atoms'('&tp2-pool', S), Members),
+    assertion(Members == ['&tp2-w1', '&tp2-w2']).
+
+:- end_tests(hooks_worked_instances).
