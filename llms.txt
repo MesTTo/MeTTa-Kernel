@@ -242,7 +242,8 @@ A typed mismatch answers an `Error` value whose reason is `BadArgType` or
 `(add-typing-rule! name family actual expected outcome)` adds a module-scoped
 checker rule; `outcome` is `accept`, `(refuse reason)`, or `defer`, and
 `remove-typing-rule!` withdraws it. Families are `ordinary`, `derived`,
-`arrow-arity`, `widening`, `declared-widening`, and `metatype`. User rules run
+`reporting`, `arrow-arity`, `widening`, `declared-widening`, and `metatype`.
+User rules run
 before the shipped declarations. A named refusal appears in the resulting
 `BadArgType`; the confluence report lists its user/user and user/shipped
 overlaps as conditional proof obligations.
