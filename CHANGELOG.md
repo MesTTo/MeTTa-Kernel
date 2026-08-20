@@ -6,6 +6,19 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The engine repairs its own compiled code when a function is removed, with
+  no host in the process: the removal-direction recompile used to ride a
+  Python clause of the `metta_on_function_removed` event, so a pure Prolog
+  embedding kept a compiled mention of a retired function answering as a
+  call. It is the engine's own `function_removed/1` now, on every removal
+  path, and it notifies EVERY removed-event observer where one path had
+  been reaching only the first. The arrival direction was never broken:
+  a new function's callers flip from data to call through the load-safe
+  scheduled repair registration always used, and the events are pure
+  observations again.
+
 ### Changed
 
 - The control-signal error term is spelled `metta_control_signal(Kind,
