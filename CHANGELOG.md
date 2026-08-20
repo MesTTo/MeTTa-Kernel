@@ -20,6 +20,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   contractive, staged fragment; use outside that fence is a named refusal.
   Grounded tensor tags keep their DLPack identity and autograd graph through
   multi-rule derivations for direct consumption by `pettorch.MettaModule`.
+  Five pinned Scallop README programs now ship as executable PeTTa witnesses
+  with a feature-to-seam table and explicit filed gaps.
 - A packaged Ciao-style development grade now applies external `pred`
   assertions to the engine's atom-removal, equation-removal, storage-removal,
   and translation funnels. `assertions@0.0.1`, `rtchecks@0.0.1`, and
