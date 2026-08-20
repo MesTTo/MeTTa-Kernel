@@ -2056,6 +2056,21 @@ prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
        Prolog is already holding that term, so it returns (~w ...) without \c
        the quote around it.'-[Rule, Seam, Seam] ].
 
+%A typed let target uses the same in-place annotation as an equation head.
+%The value must bind before its type premise runs: checking the fresh pattern
+%variable first accepts everything and then forgets the constraint. Untyped
+%lets retain the occurrence-sensitive fast path below [tested:
+%test_an_annotated_binding_emits_its_claim; commit=WORKTREE].
+translate_let_dl([Pattern, Value, In], AfterHead, Goals, Out) :-
+    constrain_args(Pattern, ConstrainedPattern, TypeGoals),
+    TypeGoals \== [], !,
+    translate_expr_dl(ConstrainedPattern, AfterHead, AfterPattern,
+                      PatternValue),
+    translate_expr_dl(Value, AfterPattern, AfterValue, ValueResult),
+    AfterValue = [unify_with_occurs_check(PatternValue, ValueResult)|AfterUnify],
+    append(TypeGoals, AfterTypes, AfterUnify),
+    translate_expr_dl(In, AfterTypes, Goals, Out).
+
 %A let unifies its pattern with its value under an occurs check, so a binding
 %cannot build a term that contains itself. Where that check is emitted decides
 %whether it can fire at all.

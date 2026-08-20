@@ -8,6 +8,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Local annotated assignments in `@define` functions now compile to in-place
+  MeTTa type claims. The value binds before the premise runs, and annotation
+  syntax resolves without arbitrary `eval` or user-defined subscripting.
 - `typing.Annotated` metadata now survives as matchable `(Annotated ...)`
   claims while the base type continues to control arrows, conversion, and
   engine-parameter injection.

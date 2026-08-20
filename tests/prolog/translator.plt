@@ -7,6 +7,9 @@
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
 %     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
+%   - typed let targets bind their value before enforcing the in-place type
+%     premise [tested: test_an_annotated_binding_emits_its_claim;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -1125,6 +1128,25 @@ test(no_bindings_at_all_is_still_the_body) :-
     assertion(Out == done).
 
 :- end_tests(translator_letstar_unarrived_bindings).
+
+:- begin_tests(translator_typed_let).
+
+test(a_number_binding_accepts_a_number) :-
+    process_metta_string("!(let (: $x Number) 7 $x)", Answers),
+    assertion(Answers == [7]).
+
+test(a_number_binding_rejects_a_known_string) :-
+    process_metta_string("!(let (: $x Number) \"nope\" $x)", Answers),
+    assertion(Answers == []).
+
+test(a_metatype_binding_uses_the_same_fallback_as_a_typed_head) :-
+    process_metta_string("!(let (: $x Symbol) hello $x)", Symbols),
+    assertion(Symbols == [hello]),
+    process_metta_string("!(let (: $x Expression) (noeval (pair 1 2)) $x)",
+                         Expressions),
+    assertion(Expressions == [[pair, 1, 2]]).
+
+:- end_tests(translator_typed_let).
 
 % The answering half: `let*` under another name is an ordinary definition,
 % which is how a library would give the form its own spelling.

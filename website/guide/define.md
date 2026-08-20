@@ -31,4 +31,20 @@ def fib(n):
 
 The subset includes rebinding, `while`, `for`, nested definitions, generators, lambdas, comprehensions, indexing, slicing, formatted strings, and `match(...)` against the running space. Generators compile to nondeterminism. Lowercase names in match patterns bind as variables.
 
+A local annotated assignment becomes an in-place MeTTa type claim rather than
+being discarded:
+
+```python
+@m.define
+def checked(value):
+    result: int = value
+    return result
+```
+
+Its body contains `(: $result Number)`. The value binds first and the type
+premise then runs, so a known incompatible value produces no answer. Annotation
+names resolve only from builtins, the function's globals and its closure;
+annotation syntax cannot execute an arbitrary call or user subscript while the
+function is compiled.
+
 Unsupported constructs fail with the construct, source line, and a replacement direction. Definitions that only the engine can execute expose a `.py` twin that reports that boundary instead of failing with a Python name error. Function names follow the operation naming policy: the Python name is the MeTTa name, verbatim. Hyphens are the MeTTa convention and Python cannot spell one, so ask for a hyphenated name with `name=` rather than having it inferred.
