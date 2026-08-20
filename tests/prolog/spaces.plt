@@ -4,6 +4,9 @@
 % Guarantees:
 %   - Native storage modules do not inherit user predicates, while execution
 %     modules keep undefined calls loud [tested: spaces_storage_modules].
+%   - Every metta_engine_emitted/1 declaration is protected from capture in
+%     a space [tested: test_every_engine_emitted_name_is_protected_by_derivation;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -603,8 +606,7 @@ test(a_name_the_engine_defines_is_free_in_a_space,
 % shadowing a function: a wrong answer with no error. The refusal comes from
 % SWI, because protect_engine_emitted/1 binds each of these into every space's
 % module, and it names the right cause rather than calling them Prolog's.
-test(an_engine_emitted_name_cannot_be_taken,
-     [ forall(member(Name/Arity, [include/3, has_type/2, petta_transaction/1])) ]) :-
+assert_engine_emitted_name_is_protected(Name/Arity) :-
     MettaArity is Arity - 1,
     length(Args, MettaArity),
     catch('add-atom'('&self', [=, [Name|Args], plunit_captured], _), Error, true),
@@ -617,6 +619,16 @@ test(an_engine_emitted_name_cannot_be_taken,
     functor(Head, Name, Arity),
     assertion(predicate_property(Self:Head, imported_from(_))),
     assertion(predicate_property(Engine:Head, defined)).
+
+test(an_engine_emitted_name_cannot_be_taken,
+     [ forall(metta_engine_emitted(Name/Arity)) ]) :-
+    assert_engine_emitted_name_is_protected(Name/Arity).
+
+test(test_every_engine_emitted_name_is_protected_by_derivation) :-
+    findall(Name/Arity, metta_engine_emitted(Name/Arity), Emitted),
+    assertion(Emitted \== []),
+    forall(member(Entry, Emitted),
+           assert_engine_emitted_name_is_protected(Entry)).
 
 % Every space, not &self alone, which is what makes the protection a property
 % of the topology rather than of one space.
