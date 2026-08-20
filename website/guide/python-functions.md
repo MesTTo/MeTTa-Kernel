@@ -63,11 +63,12 @@ class Edge:
 m = petta.MeTTa()
 m.query("(: Edge $t)")               # [(-> String String Edge)]
 m.query("(Edge $a $b)", into=Edge)   # [Edge(a=..., b=...)] once stored
+m.query(V.edge, into=Edge)            # rebuild each complete (Edge ...) atom
 ```
 
 The decorator does not boot the engine. Conversion registers immediately, so an unregistrable class fails at the decorator rather than at first use, but the declarations are engine-side atoms and land the moment an engine exists: on the first `MeTTa()` construction, or immediately if one is already running. That is what lets `record` sit at module import time in a library that may never start an engine at all.
 
-`cast` checks admission and narrows; it does not construct. Building instances from answers is `query(into=Edge)` or `petta.convert.build(atom, Edge)`.
+`cast` checks admission and narrows; it does not construct. Building instances from answers is `query(into=Edge)`, `rows.build(Edge)`, or `petta.convert.build(atom, Edge)`.
 
 ## Property-test what you build
 

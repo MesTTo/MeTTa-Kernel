@@ -20,6 +20,10 @@ Source: `bindings/python/petta/results.py`.
 >     the omitted row count [tested test_rows_repr_is_bounded_and_recursive]
 >   - Rows.build preserves its requested class as the list element type [tested
 >     test_target_type_overloads_preserve_the_requested_class]
+>   - a one-column Rows rebuilds constructor expressions through build(cls),
+>     and rows_into selects that path for query(into=cls) [tested:
+>     test_a_constructor_expression_rebuilds_through_the_query_door;
+>     commit=WORKTREE]
 >   - Rows.to_dicts returns one Python-native mapping per row, including empty
 >     mappings for zero-column rows [tested test_rows_to_dicts_returns_plain_records]
 >   - eager query results explain empty pattern, join, and guard outcomes [tested
@@ -182,11 +186,14 @@ def why(self) -> str:
 ### `Rows.build`
 
 ```python
-def build(self, column: str, cls: type[_BuildT]) -> list[_BuildT]:
+def build(self, column: str | type, cls: type | None = None) -> list:
 ```
 
-> One column's atoms rebuilt as instances of cls, through the
-> two-way translator: typed rows, one call.
+> Rebuild constructor atoms through the two-way translator.
+>
+> ``build(column, cls)`` projects a named column. ``build(cls)`` is the
+> query reconstruction door when exactly one column holds complete
+> constructor expressions.
 
 ### `Rows.to_dicts`
 

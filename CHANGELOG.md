@@ -8,6 +8,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- A one-variable query can now rebuild complete constructor expressions with
+  `query(into=Class)`, and the underlying `Rows.build(Class)` door exposes the
+  same operation. Multi-column `into=` retains field-name row shaping;
+  `cast` remains type admission and returns the admitted atom unchanged.
 - Lazy query paths now reach attributes and subscription keys inside opaque
   Python handles after the surrounding stored pattern matches. They read live
   state, join through ordinary query variables, and stop cyclic traversals.

@@ -125,7 +125,8 @@ the unreduced term; `eval_status()` names that path `not-reducible`.
 
 Variables shared across query patterns join: `m.query(S.p(V.x,V.y), S.p(V.y,V.z))`.
 `where=` is a term the engine evaluates per match: `where=(V.n >= 60) & (V.n <= 70)`.
-`into=` builds each row as that class.
+`into=` builds fields by matching column names, or rebuilds a complete
+constructor expression captured in one column.
 
 `m.run(..., atomic=True)` makes the whole run one transaction; `speculative=True`
 rolls its writes back; `strict=True` raises `StrictError` on a `not-reducible`
@@ -135,7 +136,8 @@ directive (opt-in, because an unreduced term is an ordinary MeTTa value).
 `rows.one()` (exactly one), `.first()`, `.column(name)` -> that column's atoms,
 `.table()` -> dict of columns decoded to Python values, `.to_dicts()` -> plain
 mappings, `.to_df()` / `.to_pl()` -> pandas / polars, `.build(column, cls)`
-rebuilds one column as that class and keeps `cls` for type checkers,
+rebuilds one named column, and `.build(cls)` rebuilds the sole constructor
+column. Both keep `cls` for type checkers.
 `.pipe(fn, *args)` chains, `_repr_html_` renders in notebooks.
 
 `m.assuming(*facts)` is a with-block where those facts exist and then do not.
