@@ -62,6 +62,11 @@
 %     - termination is ESTABLISHED with the route that decided it, or the
 %       failure is NAMED with the step that failed. There is no third answer
 %       [tested: test_the_compile_time_rule_set_is_shown_terminating_or_the_failure_is_named].
+%     - diagnostic overlap terms use presentation text, including the
+%       first-order compounds and numbered-variable carriers that are not
+%       serializable MeTTa values [tested:
+%       test_the_compile_time_rule_set_is_shown_terminating_or_the_failure_is_named;
+%       commit=WORKTREE].
 % Decides:
 %     - the joinability search is bounded at 5 rewrite steps per branch. A
 %       compile-time macro that needs more than five steps to reconverge is
@@ -303,7 +308,7 @@ print_analysis(SpaceRules, PreludeRules,
 print_shipped_rule(I, L ==> R) :-
     term_expr(L, LE),
     term_expr(R, RE),
-    user:swrite(['=', LE, RE], Text),
+    user:sdisplay(['=', LE, RE], Text),
     format("  ~d. ~w (shipped)~n", [I, Text]).
 
 % The shipped tier's own block. Its termination and its internal pairs are
@@ -357,7 +362,7 @@ print_specialization(Combined, verdict(I, J, _, _, _, _)) :-
 print_rule(I, L ==> R) :-
     term_expr(L, LE),
     term_expr(R, RE),
-    user:swrite(['=', LE, RE], Text),
+    user:sdisplay(['=', LE, RE], Text),
     format("  ~d. ~w~n", [I, Text]).
 
 print_termination(_, no_entry) :-
@@ -445,12 +450,12 @@ print_overlap(Rules, verdict(I, J, Pos, L, R, Kind)) :-
     nth1(J, Rules, InnerL ==> _),
     term_expr(OuterL, OuterE),
     term_expr(InnerL, InnerE),
-    user:swrite(OuterE, OuterText),
-    user:swrite(InnerE, InnerText),
+    user:sdisplay(OuterE, OuterText),
+    user:sdisplay(InnerE, InnerText),
     term_expr(L, LE),
     term_expr(R, RE),
-    user:swrite(LE, LText),
-    user:swrite(RE, RText),
+    user:sdisplay(LE, LText),
+    user:sdisplay(RE, RText),
     format("  OVERLAP ~w: rule ~d ~w and rule ~d ~w at position ~w~n",
            [Kind, I, OuterText, J, InnerText, Pos]),
     format("    rule ~d gives ~w~n", [I, LText]),

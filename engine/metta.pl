@@ -6,10 +6,11 @@
 %     compile-time checks inspect literals and declared return types without
 %     binding source variables
 %     [tested: operation_answers, test_a_repeated_eval_does_not_recompile_and_the_effects_cluster_conforms; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
-%   - repr/2, println!/2 and format-args presentation retain host display text
-%     through sdisplay/2 without weakening swrite/2's reader-inverse contract
-%     [tested: parser_display, a_python_value_keeps_its_explicit_display;
-%     commit=53686aed41e7ff02de69052198afdb537536cbdb].
+%   - repr/2, println!/2, format-args, test/3 and assert/2 presentation retain
+%     host display text through sdisplay/2 without weakening swrite/2's
+%     reader-inverse contract [tested: parser_display,
+%     a_python_value_keeps_its_explicit_display,
+%     a_partial_application_remains_visible_in_test_output; commit=WORKTREE].
 %   - import! loads a MeTTa source that is new or that has been edited, and
 %     skips one that is neither, which is SWI's if(changed); a Python source
 %     keeps if(not_loaded) [tested 2026-08-19:
@@ -4135,8 +4136,8 @@ read_form_lines(Buffered, Out) :-
     ).
 
 test(A,B,true) :- (A =@= B -> E = '✅' ; E = '❌'),
-                  swrite(A, RA),
-                  swrite(B, RB),
+                  sdisplay(A, RA),
+                  sdisplay(B, RB),
                   format("is ~w, should ~w. ~w ~n", [RA, RB, E]),
                   ( A =@= B -> true
                   ; throw(error(petta_test_failed(A, B),
@@ -4156,7 +4157,7 @@ test_answer_value(Results, Results).
 %in that module and nowhere else.
 assert(Goal, true) :- current_metta_module(Module),
                       ( call(Module:Goal) -> true
-                                    ; swrite(Goal, RG),
+                                    ; sdisplay(Goal, RG),
                                       format("Assertion failed: ~w~n", [RG]),
                                       throw(error(petta_assertion_failed(Goal),
                                                   context(assert/2, 'MeTTa assertion failed'))) ).

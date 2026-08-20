@@ -1,5 +1,9 @@
 % Purpose: direct PlUnit coverage for core runtime builtins, their error
 %   contracts, and Python import state cleanup.
+% Guarantees:
+%   - test/3 displays host-only partial applications without claiming they are
+%     serializable MeTTa text [tested:
+%     a_partial_application_remains_visible_in_test_output; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -13,6 +17,12 @@ test(passing_test_returns_true_and_keeps_output) :-
     with_output_to(string(Output), test(1, 1, Result)),
     Result == true,
     Output == "is 1, should 1. ✅ \n".
+
+test(a_partial_application_remains_visible_in_test_output) :-
+    Partial = partial(+, [1]),
+    with_output_to(string(Output), test(Partial, Partial, Result)),
+    Result == true,
+    Output == "is (partial + (1)), should (partial + (1)). ✅ \n".
 
 test(failing_test_is_catchable,
      [throws(error(petta_test_failed(1, 2), _))]) :-

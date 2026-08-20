@@ -1,3 +1,15 @@
+% Purpose: run the standalone PeTTa command-line entry point and display each
+%   result from a requested MeTTa source file.
+% Guarantees:
+%   - command-line answers use sdisplay/2, so host-only values and non-finite
+%     numbers remain printable presentation values without weakening
+%     swrite/2's reader-inverse contract [tested:
+%     test_non_finite_floats_print_the_arbiters_spellings; commit=WORKTREE].
+% Open Obligations:
+%   To Do: None
+%   Hacks: None
+%   Future Enhancements: None
+
 :- ensure_loaded(metta).
 
 %Tokens the engine reads for itself, which are therefore not the file to run.
@@ -35,7 +47,7 @@ main :- current_prolog_flag(argv, RawArgs),
         ( Args = [] -> prolog_interop_example,
                        forall(metta_backend_selftest, true)
         ; Args = [File|_] -> load_metta_file(File,Results),
-                             maplist(swrite,Results,ResultsR),
+                             maplist(sdisplay,Results,ResultsR),
                              maplist(format("~w~n"), ResultsR)
         ),
         halt.

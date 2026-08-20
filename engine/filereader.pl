@@ -54,6 +54,11 @@
 %     collection template, preserving source variable identity through
 %     findall without attributed variables [tested:
 %     test_variable_names_survive_to_the_printer; commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
+%   - parse_metta_source/2 selects the reader-token registry once for the
+%     complete source, so custom token classes apply uniformly without a
+%     registry probe per form [tested:
+%     test_a_registered_token_class_parses_like_a_shipped_one;
+%     commit=WORKTREE].
 %   - A file that loads again REPLACES what it put in that space rather than
 %     adding to it, reaches any other space its change has made stale, and
 %     says what it withdrew [tested 2026-08-19:
@@ -992,7 +997,8 @@ prepare_parsed_forms(ParsedForms) :-
 parse_metta_source(S, ParsedForms) :-
     string_codes(S, Codes),
     once(phrase(top_forms(Forms, 1), Codes)),
-    maplist(parse_form, Forms, ParsedForms).
+    metta_reader_mode(Mode),
+    maplist(parse_form_with_mode(Mode), Forms, ParsedForms).
 
 %Every name this source defines by an equation, against every type this source
 %declares for it. refuse_untypable_declaration/3 in metta.pl holds the rule and
@@ -1239,11 +1245,15 @@ uses_as_data_args(F, Args) :- nonvar(Args),
                               ( uses_as_data(F, A) -> true ; uses_as_data_args(F, Rest) ).
 
 % First pass converts MeTTa to Prolog terms without mutating registration state.
-parse_form(form(S), parsed(T, S, Term)) :- sread(S, Term),
-                                           ( Term = [=, [F|_], _], atom(F) -> T=function
-                                                                           ; T=expression ).
-parse_form(runnable(S), parsed(runnable, S, Term, Names)) :-
-    sread_with_names(S, Term, Names).
+parse_form(Form, Parsed) :-
+    metta_reader_mode(Mode),
+    parse_form_with_mode(Mode, Form, Parsed).
+
+parse_form_with_mode(Mode, form(S), parsed(T, S, Term)) :-
+    sread_mode(Mode, S, Term),
+    ( Term = [=, [F|_], _], atom(F) -> T=function ; T=expression ).
+parse_form_with_mode(Mode, runnable(S), parsed(runnable, S, Term, Names)) :-
+    sread_with_names_mode(Mode, S, Term, Names).
 
 parsed_form_parts(parsed(Kind, Source, Term), Kind, Source, Term).
 parsed_form_parts(parsed(Kind, Source, Term, _), Kind, Source, Term).

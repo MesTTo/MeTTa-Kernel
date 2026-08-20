@@ -33,6 +33,9 @@ Source: `bindings/python/petta/aio.py`.
 >     keeps the target positional-only [tested
 >     test_target_type_overloads_preserve_the_requested_class,
 >     test_cast_target_is_positional_only]
+>   - reader-token registration and removal run on the owning engine worker and
+>     mirror the synchronous surface [tested:
+>     test_aio_plain_methods_forward_on_the_worker; commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b]
 > Owns:
 >   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
 >     engine until aclose(), stop(), or the atexit handler releases it [tested
@@ -298,6 +301,22 @@ async def parse(self, source: str) -> Any:
 ```
 
 > Parse one MeTTa term without evaluating it.
+
+### `AsyncMeTTa.register_token`
+
+```python
+async def register_token(self, pattern: str, constructor: Callable[[str], Any]) -> None:
+```
+
+> Register a full-lexeme reader class on the engine worker.
+
+### `AsyncMeTTa.unregister_token`
+
+```python
+async def unregister_token(self, pattern: str) -> None:
+```
+
+> Remove a reader class from the engine worker.
 
 ### `AsyncMeTTa.cast`
 

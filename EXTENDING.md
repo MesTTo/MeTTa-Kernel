@@ -1,6 +1,6 @@
 # Extending PeTTa without forking it
 
-PeTTa has eight extension points. You should not need to change the engine to
+PeTTa has nine extension points. You should not need to change the engine to
 add a feature, and you should not have to guess which mechanism to reach for.
 This page lists them in order of runtime cost, measured rather than asserted,
 and says what each one is actually for.
@@ -1030,7 +1030,47 @@ call it as a MeTTa function, which keeps one set of conversion rules, one error
 taxonomy and one lock. A raw goal is janus's job, and janus is importable
 directly. `m.prolog()` opens the interactive toplevel, which is for debugging.
 
-## 5. Space providers: where atoms actually live
+## 5. Reader token classes: adding literal syntax
+
+Use a reader token class when a domain value needs a compact literal rather
+than a function call. A class maps one full-token regular expression to a
+constructor. The Python door retains a callable:
+
+```python
+from petta import S
+
+m.register_token(
+    r"[0-9]+kg",
+    lambda token: S.kilograms(int(token.removesuffix("kg"))),
+)
+assert m.parse("12kg") == S.kilograms(12)
+m.unregister_token(r"[0-9]+kg")
+```
+
+MeTTa source can register a symbol constructor. It receives the complete
+matched spelling as its argument:
+
+```metta
+!(register-token! "[A-Z][0-9]+" tagged)
+; A7 now reads as (tagged "A7")
+!(unregister-token! "[A-Z][0-9]+")
+```
+
+Matching is against the complete token. A later registration of the same
+pattern replaces its constructor, and custom rows precede the shipped numeric
+and string rows. Registration changes future parses only. An atom already
+returned by `parse` is a value and is not reinterpreted. If a constructor
+raises or fails after claiming a token, parsing fails; the reader does not
+silently turn that spelling back into a symbol.
+
+The engine owns the table and its replacement lifecycle.
+`metta_host_register_reader_token/2` and
+`metta_host_unregister_reader_token/1` are the transport doors, while
+`metta_host_reader_token_construct/3` is the host ownership callback used to
+invoke a retained constructor. A host binding should call those doors rather
+than maintaining a second registry.
+
+## 6. Space providers: where atoms actually live
 
 ### Shipping one, which this chapter used not to say
 
@@ -1578,7 +1618,7 @@ you to stop early. The worked instance is
 the positions its `WHERE` clause covers and whose claim the kit confirms:
 `pushdown: 3 of 3 patterns claimed exact, and are`.
 
-## 6. Atom hooks: reacting to writes
+## 7. Atom hooks: reacting to writes
 
 `metta_on_atom_added/2` and `metta_on_atom_removed/2` are multifile predicates
 in `engine/ext_points.pl`. Assert a clause and every write to a space calls it.
@@ -1937,9 +1977,11 @@ the list honest. Today's list: `catch_recover/2`, `match_foreign/5`,
 `metta_host_forget_function/1`, `metta_host_load_fast/2`,
 `metta_host_load_file/3`, `metta_host_open_function/3`,
 `metta_host_operation_error/5`, `metta_host_read_forms/2`,
+`metta_host_register_reader_token/2`,
 `metta_host_remove_reported/3`, `metta_host_run_source/4`,
 `metta_host_run_source_status/3`, `metta_host_save_fast/3`,
-`metta_host_stored/2`, `metta_host_substitute/3`, `metta_reducible_head/2`,
+`metta_host_stored/2`, `metta_host_substitute/3`,
+`metta_host_unregister_reader_token/1`, `metta_reducible_head/2`,
 `metta_source_declarations/2`, `metta_space_names/1`,
 `metta_string_declarations/2`, `metta_substitute_self/3`,
 `metta_trace_source/4`, `petta_annotations/2`, `petta_contract_fact/1`,
@@ -2005,12 +2047,12 @@ disables every handler loaded after it. Write `( Condition -> Action ; true )`
 there, which keeps the guard and prunes nothing. A static check enforces the
 distinction.
 
-## 7. Custom matchers: how things match
+## 8. Custom matchers: how things match
 
 Matching has two tiers, and they answer to different authorities.
 
 **Inside unification, the value's own matcher is the authority.** A
-grounded value that defines matching logic (section 5's
+grounded value that defines matching logic (section 6's
 `metta_matchable_value/1` and `metta_custom_match/2`, or any Python
 object whose class defines `match_`) is consulted when `(unify ...)`
 meets it, and its binding sets are final: nothing re-derives or
@@ -2031,7 +2073,7 @@ Matchers compose through ordinary MeTTa evaluation and nondeterminism,
 never through new syntax, because fixing one notion of closeness in the
 core would exclude every other.
 
-## 8. The contract: declarations in `&petta`, the extension story itself
+## 9. The contract: declarations in `&petta`, the extension story itself
 
 Everything above is a MECHANISM. What ties them into one seam is the
 contract: declarations are ordinary atoms in the `&petta` space, and the
@@ -2163,6 +2205,7 @@ the wrong name; the guide's Concepts page holds the full table.
 | write logic in Python and run it at MeTTa speed | `@m.define` |
 | reach a Python library | a Python operation, `raw=True` if the argument is big |
 | ship a fast library that installs with pip | `register_prolog` from Python |
+| add a domain-specific literal | a reader token class |
 | put atoms somewhere else | a space provider |
 | react when a space changes | an atom hook |
 | cache calls your own way | `metta_dispatch_call/4` |
@@ -2178,4 +2221,4 @@ through ordinary evaluation and nondeterminism, so there is nothing to
 declare.
 
 If none of these fits, that is worth reporting as a gap rather than working
-around: the point of having eight is that forking should never be the answer.
+around: the point of having nine is that forking should never be the answer.

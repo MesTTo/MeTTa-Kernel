@@ -96,6 +96,10 @@
 %   - maybe_print_compiled_clause/3's trace output works under autoload=false
 %     too [measured 2026-08-18: NO_AUTOLOAD=1 sh test.sh, the full
 %     examples/ corpus].
+%   - maybe_print_compiled_clause/3 uses the presentation writer because its
+%     compiled Prolog terms are diagnostics rather than MeTTa serialization
+%     [tested: specializer:compound_partial_key_has_stable_anonymous_variables;
+%     commit=WORKTREE].
 %   - A cases argument that has not arrived, either because its list spine
 %     ends in a variable or because a pair in it is still one, compiles to a
 %     runtime path instead of running select/3 over it forever or unifying
@@ -885,7 +889,7 @@ calls_head([Head|Args], Name) :-
 %Print compiled clause:
 maybe_print_compiled_clause(_, _, _) :- silent(true), !.
 maybe_print_compiled_clause(Label, FormTerm, Clause) :-
-    swrite(FormTerm, FormStr),
+    sdisplay(FormTerm, FormStr),
     ansi_format([fg(yellow)], "-->  ~w  -->~n", [Label]),
     ansi_format([fg(cyan)], "~w~n", [FormStr]),
     ansi_format([fg(yellow)], "--> prolog clause -->~n", []),
