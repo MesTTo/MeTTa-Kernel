@@ -33,7 +33,8 @@ check_file(File) :-
     prepare_file_symbols(Terms),
     forall(member(Term, Terms), one_translation(File, Term)).
 
-parsed_term(parsed(_, _, Term), Term).
+parsed_term(Parsed, Term) :-
+    parsed_form_parts(Parsed, _, _, Term).
 
 prepare_file_symbols(Terms) :-
     forall(member([=, [Function|_], _], Terms),

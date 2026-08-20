@@ -8,6 +8,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Free variables returned by runnable source now keep their written names in
+  engine output and host bindings. The reader's name map travels beside each
+  collected answer, so `$free` stays `$free` instead of becoming `$_0` while
+  variables created after reading still use the engine fallback spelling.
+  `sealed` now follows the normative ignore-list contract and returns its
+  freshened Atom as data; generated variables print deterministic `#N` epochs.
+
 - The engine repairs its own compiled code when a function is removed, with
   no host in the process: the removal-direction recompile used to ride a
   Python clause of the `metta_on_function_removed` event, so a pure Prolog

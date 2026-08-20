@@ -10,6 +10,9 @@
 %     arbiter records as `[]` and dropping it would misalign every line after it.
 %   - a raise prints `LEATTA-ERROR ` and stops, rather than being mistaken for
 %     an empty run.
+%   - reader variable names carried with collected answers are rendered by the
+%     engine's named writer [tested: LeaTTa conformance runner;
+%     commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
 % Fails when:
 %   - never silently: an unreadable file raises out of read_metta_source/2 and
 %     is reported on the error line.
@@ -28,7 +31,7 @@ main :-
     ),
     catch(( load_metta_source_groups(File, '&self', Groups),
             forall(member(Group, Groups),
-                   ( swrite(Group, Written),
+                   ( swrite_answer_group(Group, Written),
                      format("LEATTA-ANSWER ~w~n", [Written]) )) ),
           Error,
           report_error(Error)),
