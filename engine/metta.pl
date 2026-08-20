@@ -972,11 +972,15 @@ petta_int_solve('/', A, B, R, Verdict) :-
 %makes the False cases False: nothing is known about `a`, so nothing is
 %contradicted.
 %Two numbers inline, the shape '<'/3 above already uses, because that is what
-%a loop compares and the guard must not be felt there.
-'=='(A,B,R) :- ( number(A), number(B) -> (A==B -> R=true ; R=false)
+%a loop compares and the guard must not be felt there. Numeric equality is by
+%VALUE across the integer/float constructors: LeaTTa's Ground.equiv promotes
+%the integer with Float.ofInt in both mixed cases, and Atom.equiv delegates its
+%grounded case there [source: LeaTTa MettaHyperonFull/Core/Atom.lean:47-62,
+%110-116] [tested: test_mixed_numeric_equality_answers_what_the_arbiter_answers].
+'=='(A,B,R) :- ( number(A), number(B) -> (A =:= B -> R=true ; R=false)
                 ; comparable_operands(A, B) -> (A==B -> R=true ; R=false)
                 ; metta_operation_answer('==', [A, B], R) ).
-'!='(A,B,R) :- ( number(A), number(B) -> (A==B -> R=false ; R=true)
+'!='(A,B,R) :- ( number(A), number(B) -> (A =:= B -> R=false ; R=true)
                 ; comparable_operands(A, B) -> (A==B -> R=false ; R=true)
                 ; metta_operation_answer('!=', [A, B], R) ).
 %The guard the declaration above states, enforced at the predicate's own door

@@ -37,6 +37,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Numeric equality now compares integer and float operands by value. In
+  particular, `(== 1 1.0)` answers `True`, matching the language's grounded
+  numeric equivalence rule, and `!=` uses the same rule negated.
 - `add-reduct`, `git-import!`, `sleep`, and `sread` now refuse an unbound
   required input under the operation name the program wrote. Their failures
   no longer leak delegated or host predicate names; the translated `match`
