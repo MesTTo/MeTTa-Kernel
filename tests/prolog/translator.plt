@@ -4,6 +4,11 @@
 %   see at all: dispatch goal ordering, equation-store growth and translation
 %   growth each leave every answer exactly as it was.
 % Guarantees:
+%   - Translator-level probes observe the shipped dispatch defaults, including
+%     wrapped compiled calls and unreduced no-match calls
+%     [tested: translator_derived_forms:trace_form_has_one_compilation,
+%     translator_inplace_annotations:a_non_variable_in_the_annotation_position_stays_structural;
+%     commit=WORKTREE].
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
 %     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
@@ -325,7 +330,8 @@ test(trace_form_has_one_compilation) :-
     findall(Goals-Out, translate_expr(['trace!', 1, 2], Goals, Out),
             Solutions),
     Solutions = [[Print]-2],
-    Print =@= 'println!'(1, _).
+    Print = dispatch_policy_execute(_, 'println!', [1], Direct, _),
+    Direct =@= 'println!'(1, _).
 
 %The set operations name the shape they rewrite. A call that is not that
 %shape is a program using the name as data, and the guard has to LEAVE it
@@ -2431,7 +2437,7 @@ test(a_non_variable_in_the_annotation_position_stays_structural,
     process_metta_string("!(collapse (ann-shape (: a tail)))", Matched),
     Matched == [[tail]],
     process_metta_string("!(collapse (ann-shape (: z tail)))", Unmatched),
-    Unmatched == [[]].
+    Unmatched == [[['ann-shape', [':', z, tail]]]].
 
 test(a_colon_pattern_still_matches_stored_type_atoms,
      [setup(setup_annotations), cleanup(cleanup_annotations)]) :-

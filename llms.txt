@@ -173,6 +173,14 @@ error naming the atom, the position and the argspec, and a head with no kind
 row passes untouched, so third-party declaration kinds are ordinary data
 until their author declares a kind row for them.
 
+Function dispatch has six axes. Match `(dispatch-default $axis $value)` in
+`&petta` to read their shipped defaults, and add
+`(dispatch-policy f NoMatchEnum NoMatchFail)` to override one axis for one
+function. The axes are `MismatchEnum`, `NoMatchEnum`, `EvaluationOrderEnum`,
+`FunctionResultEnum`, `ClauseFailedEnum`, and `OutOfClausesEnum`; each axis's
+accepted values are published by its same-named vocabulary row. Remove the
+override atom to restore the default immediately.
+
 ## Python functions as MeTTa functions
 
 ```python

@@ -44,6 +44,9 @@
 %   - The numeric-type vocabulary publishes Number and BigInt in boundary
 %     order for generated binding types [tested 2026-08-20:
 %     test_numeric_types_are_published_from_the_catalog].
+%   - Six dispatch axes publish one documented default and accept at most one
+%     validated per-function override for each axis
+%     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=WORKTREE].
 %   - A selective native match is one indexed probe rather than a scan, and
 %     the acyclic guard does not change that because it runs on the answer
 %     [tested 2026-08-18:
@@ -244,6 +247,8 @@ petta_catalog_head(kind).
 petta_catalog_head(vocabulary).
 petta_catalog_head(claim).
 petta_catalog_head('routed-by-shape').
+petta_catalog_head('dispatch-default').
+petta_catalog_head('dispatch-policy').
 
 add_sexp_in(Module, Space, [Rel|Args], Ref) :- !,
                                                Term =.. [Space, Rel | Args],
@@ -539,7 +544,40 @@ petta_check_catalog_semantics(claim, [Vocab, Value|_], Term) :-
         )
     ;   petta_declaration_refused(Term, 1, 'a declared vocabulary')
     ).
+petta_check_catalog_semantics('dispatch-default', [Axis, Value], Term) :-
+    !,
+    petta_check_dispatch_value(Axis, Value, Term),
+    (   petta_catalog_row(['dispatch-default', Axis, _])
+    ->  petta_declaration_refused(Term, 1,
+                                  'one default per dispatch axis; remove the old row first')
+    ;   true
+    ).
+petta_check_catalog_semantics('dispatch-policy', [Function, Axis, Value], Term) :-
+    !,
+    petta_check_dispatch_value(Axis, Value, Term),
+    (   petta_catalog_row(['dispatch-policy', Function, Axis, _])
+    ->  petta_declaration_refused(Term, 2,
+                                  'one override per function and dispatch axis; remove the old row first')
+    ;   true
+    ).
 petta_check_catalog_semantics(_, _, _).
+
+petta_check_dispatch_value(Axis, Value, Term) :-
+    (   dispatch_axis_vocabulary(Axis, Vocabulary)
+    ->  (   petta_vocabulary_value(Vocabulary, Value)
+        ->  true
+        ;   petta_declaration_refused(Term, 3,
+                                      ['one-of', Vocabulary])
+        )
+    ;   petta_declaration_refused(Term, 2, 'a declared dispatch axis')
+    ).
+
+dispatch_axis_vocabulary('MismatchEnum', 'MismatchEnum').
+dispatch_axis_vocabulary('NoMatchEnum', 'NoMatchEnum').
+dispatch_axis_vocabulary('EvaluationOrderEnum', 'EvaluationOrderEnum').
+dispatch_axis_vocabulary('FunctionResultEnum', 'FunctionResultEnum').
+dispatch_axis_vocabulary('ClauseFailedEnum', 'ClauseFailedEnum').
+dispatch_axis_vocabulary('OutOfClausesEnum', 'OutOfClausesEnum').
 
 petta_check_argspecs([], _, _).
 petta_check_argspecs([Spec|Rest], Position, Term) :-
@@ -732,6 +770,18 @@ petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
 petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
 petta_catalog_preset([vocabulary, volatility, volatile, stable, immutable]).
 petta_catalog_preset([vocabulary, 'route-key', context, global]).
+petta_catalog_preset([vocabulary, 'MismatchEnum',
+                      'MismatchOriginal', 'MismatchError', 'MismatchFail']).
+petta_catalog_preset([vocabulary, 'NoMatchEnum',
+                      'NoMatchOriginal', 'NoMatchFail', 'NoMatchError']).
+petta_catalog_preset([vocabulary, 'EvaluationOrderEnum',
+                      'OrderClause', 'OrderFittest']).
+petta_catalog_preset([vocabulary, 'FunctionResultEnum',
+                      'Nondeterministic', 'Deterministic']).
+petta_catalog_preset([vocabulary, 'ClauseFailedEnum',
+                      'ClauseFailNonDet', 'ClauseFailDet']).
+petta_catalog_preset([vocabulary, 'OutOfClausesEnum',
+                      'FailureOriginal', 'FailureEmpty', 'FailureError']).
 petta_catalog_preset([kind, kind, symbol, [rest, term]]).
 petta_catalog_preset([kind, 'routed-by-shape', symbol,
                       [optional, ['one-of', 'route-key']]]).
@@ -758,11 +808,19 @@ petta_catalog_preset([kind, tabled, symbol, symbol, integer]).
 petta_catalog_preset([kind, defined, symbol, symbol]).
 petta_catalog_preset([kind, subscription, symbol, pattern,
                       ['one-of', 'subscription-edge']]).
+petta_catalog_preset([kind, 'dispatch-default', symbol, term]).
+petta_catalog_preset([kind, 'dispatch-policy', symbol, symbol, term]).
 petta_catalog_preset(['routed-by-shape', handles]).
 petta_catalog_preset(['routed-by-shape', 'on-error']).
 petta_catalog_preset(['routed-by-shape', merge, global]).
 petta_catalog_preset([claim, semiring, ranked, ordered]).
 petta_catalog_preset([claim, semiring, prob, ordered]).
+petta_catalog_preset(['dispatch-default', 'MismatchEnum', 'MismatchOriginal']).
+petta_catalog_preset(['dispatch-default', 'NoMatchEnum', 'NoMatchOriginal']).
+petta_catalog_preset(['dispatch-default', 'EvaluationOrderEnum', 'OrderClause']).
+petta_catalog_preset(['dispatch-default', 'FunctionResultEnum', 'Nondeterministic']).
+petta_catalog_preset(['dispatch-default', 'ClauseFailedEnum', 'ClauseFailNonDet']).
+petta_catalog_preset(['dispatch-default', 'OutOfClausesEnum', 'FailureOriginal']).
 
 %Presets land only where their subject has no row yet, which makes the
 %directive reconsult-idempotent (a re-consulted engine meets its own rows

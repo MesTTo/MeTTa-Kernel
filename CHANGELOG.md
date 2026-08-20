@@ -8,6 +8,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- The six function-dispatch decisions are catalog data in `&petta`:
+  mismatch, no matching head, evaluation order, result determinism, failed
+  clause handling, and exhaustion. Each has a shipped default and accepts a
+  `(dispatch-policy <function> <axis> <value>)` override that takes effect on
+  already-compiled calls. The conforming no-match default leaves the call
+  unreduced.
 - `DontEvalType` is a declarable evaluation mask. Declaring
   `(: Payload DontEvalType)` makes a `Payload` parameter receive its written
   expression before evaluation; the compiler consults the declaration, not a
