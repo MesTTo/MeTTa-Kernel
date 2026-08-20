@@ -9,6 +9,10 @@ Source: `bindings/python/petta/ops.py`.
 > Guarantees:
 >   - registration distinguishes a MeTTa function name from its declaration
 >     space [tested test_public_context_types_are_distinct]
+>   - the first Python owner refuses to adopt a source-owned declaration, while
+>     later Python owners share the declaration reference count
+>     [tested: test_a_duplicate_declaration_names_the_first_one;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

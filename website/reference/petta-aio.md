@@ -29,6 +29,9 @@ Source: `bindings/python/petta/aio.py`.
 >     optional engine bridge [tested test_aio_empty_shutdown_does_not_import_janus]
 >   - async names and save formats retain the synchronous surface's contextual
 >     types [tested test_public_context_types_are_distinct]
+>   - async declaration methods reuse the catalog-generated policy aliases and
+>     own no duplicate Literal lists [tested: tests/check_policy_inventory.py;
+>     commit=WORKTREE]
 >   - async cast preserves a concrete target class as its static return type and
 >     keeps the target positional-only [tested
 >     test_target_type_overloads_preserve_the_requested_class,
@@ -515,11 +518,7 @@ No docstring is defined.
 ### `AsyncMeTTa.declare_annotations`
 
 ```python
-async def declare_annotations(
-    self,
-    name: str,
-    semiring: Literal['bool', 'bag', 'set', 'ranked', 'prob', 'prov'],
-) -> Atom:
+async def declare_annotations(self, name: str, semiring: Semiring) -> Atom:
 ```
 
 No docstring is defined.
@@ -535,7 +534,7 @@ No docstring is defined.
 ### `AsyncMeTTa.declare_context`
 
 ```python
-async def declare_context(self, name: str, world: Literal['closed-world', 'open-world']) -> Atom:
+async def declare_context(self, name: str, world: World) -> Atom:
 ```
 
 No docstring is defined.
@@ -543,7 +542,7 @@ No docstring is defined.
 ### `AsyncMeTTa.declare_emits`
 
 ```python
-async def declare_emits(self, name: str, policy: Literal['depth', 'fair', 'best-first']) -> Atom:
+async def declare_emits(self, name: str, policy: AnswerPolicy) -> Atom:
 ```
 
 No docstring is defined.
@@ -555,7 +554,7 @@ async def declare_handles(
     self,
     name: str,
     pattern: str | Atom,
-    fidelity: Literal['Exact', 'Partial', 'Sound', 'Refuse'],
+    fidelity: Fidelity,
     *,
     det: str | None = None,
 ) -> Atom:
@@ -566,11 +565,7 @@ No docstring is defined.
 ### `AsyncMeTTa.declare_merge`
 
 ```python
-async def declare_merge(
-    self,
-    pattern: str | Atom,
-    policy: Literal['depth', 'fair', 'best-first'],
-) -> Atom:
+async def declare_merge(self, pattern: str | Atom, policy: AnswerPolicy) -> Atom:
 ```
 
 No docstring is defined.
@@ -578,12 +573,7 @@ No docstring is defined.
 ### `AsyncMeTTa.declare_on_error`
 
 ```python
-async def declare_on_error(
-    self,
-    name: str,
-    pattern: str | Atom,
-    mode: Literal['keep', 'empty', 'abort'],
-) -> Atom:
+async def declare_on_error(self, name: str, pattern: str | Atom, mode: OnErrorMode) -> Atom:
 ```
 
 No docstring is defined.
@@ -599,7 +589,7 @@ No docstring is defined.
 ### `AsyncMeTTa.declare_source`
 
 ```python
-async def declare_source(self, name: str, kind: Literal['linear', 'repeated', 'peek']) -> Atom:
+async def declare_source(self, name: str, kind: SourceKind) -> Atom:
 ```
 
 No docstring is defined.
@@ -607,11 +597,7 @@ No docstring is defined.
 ### `AsyncMeTTa.declare_writes`
 
 ```python
-async def declare_writes(
-    self,
-    name: str,
-    atomicity: Literal['transactional', 'atomic-single', 'best-effort'],
-) -> Atom:
+async def declare_writes(self, name: str, atomicity: Atomicity) -> Atom:
 ```
 
 No docstring is defined.

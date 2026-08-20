@@ -82,10 +82,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   application, not as tuple data. With `Cons : $t -> List $t -> List $t`,
   `(get-type (Cons 1))` has no answer while the fully applied constructor
   reports `List Number`.
-- Adding a variant-identical type declaration a second time is refused before
-  storage. The diagnostic prints both the rejected row and the first row
-  already held by the target space. Public batches are preflighted as a whole,
-  so two identical rows in one `add()` call publish neither copy.
+- Reloading a variant-identical source type declaration warns and keeps the
+  first row instead of storing a duplicate. A host operation may not adopt a
+  hand-written declaration: that conflict names both rows and is refused.
+  Public batches are preflighted as a whole, so two identical rows in one
+  `add()` call publish neither copy.
 - Free variables returned by runnable source now keep their written names in
   engine output and host bindings. The reader's name map travels beside each
   collected answer, so `$free` stays `$free` instead of becoming `$_0` while
