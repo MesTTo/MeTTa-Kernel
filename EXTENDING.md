@@ -336,6 +336,24 @@ named space claiming a name turned every registered predicate into inert data
 in every space, silently, from code that had not changed. That space's own
 equation still shadows it, which is the behaviour that should happen.
 
+### Add a builtin type without replacing the type table
+
+A Prolog library may add an intrinsic type by contributing one clause to the
+`builtin_type_declaration/2` declaration seam:
+
+```prolog
+:- metta_extension(my_blob_types, [version('0.1.0')]).
+builtin_type_declaration('my-blob', 'MyBlob').
+```
+
+Do not redeclare the predicate in the library. The engine declares it
+`multifile`, so this clause joins the builtins parsed from
+`lib_builtin_types.metta`; unloading the extension removes only the library's
+clause. The engine's other arrows remain present before, during, and after the
+extension's lifetime [tested:
+`test_a_library_types_its_own_blob_without_destroying_the_table`;
+commit=WORKTREE].
+
 ### Taking an argument unevaluated
 
 Declare the parameter `Atom` and the argument arrives as written:
