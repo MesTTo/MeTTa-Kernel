@@ -1,4 +1,4 @@
-"""Purpose: run the lawless and declared-rate algebra witnesses.
+"""Purpose: run the lawless, declared-rate, and linear algebra witnesses.
 Assumes: execute with PeTTa's documented Python environment and ``PETTA_PATH``.
 Guarantees:
   - the lawless witness uses ``declare_algebra`` plus ordinary tagged facts
@@ -7,9 +7,12 @@ Guarantees:
   - a local seed selects ordinary tagged alternatives reproducibly [tested:
     test_declared_rates_make_seeded_selection_match_their_distribution;
     commit=f95becb09e1d83fbb7bfd083fdb5b8b3f84ee225]
+  - the linear witness refuses a second spend of one fact occurrence [tested:
+    test_a_linear_algebra_refuses_the_second_spend_of_one_premise;
+    commit=WORKTREE]
 """  # noqa: D205, D415 -- the file contract is one continuous invariant
 
-from petta import MeTTa, S, V, parse
+from petta import LinearEvidenceError, MeTTa, S, V, parse
 
 
 def main() -> None:
@@ -34,6 +37,22 @@ def main() -> None:
             S.branch(V.x), algebra="demo-rates", draws=20, seed=7
         )
         print("rates", [str(answer) for answer in draws])
+
+    metta.declare_algebra(
+        "demo-linear",
+        combine="max",
+        extend="+",
+        zero=0,
+        one=0,
+        requires=("linear",),
+    )
+    with metta.new_space() as program:
+        program.add_tagged_fact(1, S.token(S.only))
+        program.add_tagged_rule(0, S.spend_twice, S.token(S.only), S.token(S.only))
+        try:
+            program.evaluate_algebra(S.spend_twice, algebra="demo-linear")
+        except LinearEvidenceError as refusal:
+            print("linear", refusal)
 
 if __name__ == "__main__":
     main()

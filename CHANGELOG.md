@@ -14,7 +14,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   (premises ...))` atoms run through one algebra-agnostic threader. The
   shipped Boolean, bag, set, ranked, probability, provenance, and budget
   algebras are data presets. Nonnegative `(rate n)` tags feed reproducible
-  seeded selection without changing unannotated evaluation.
+  seeded selection without changing unannotated evaluation. A linear algebra
+  refuses a derivation that spends the same stored premise occurrence twice.
 - A packaged Ciao-style development grade now applies external `pred`
   assertions to the engine's atom-removal, equation-removal, storage-removal,
   and translation funnels. `assertions@0.0.1`, `rtchecks@0.0.1`, and
