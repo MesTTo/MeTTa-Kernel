@@ -7,6 +7,9 @@
 %     [tested: prelude:expected_set_is_not_evaluated].
 %   - the prelude leaks no atom into &self enumeration
 %     [tested: prelude:no_atom_leaks_into_self].
+%   - get-type-space isolates a selected space and the formal doc helpers
+%     reproduce upstream's shapes [tested: prelude:get_type_space_selects_only_the_space,
+%     prelude_docs:the_formal_doc_family_uses_the_selected_space].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -155,11 +158,38 @@ test(type_cast_declared_match_and_mismatch,
 
 %The native get-type-space reaches a NAMED space's declarations, which
 %the library's &self-literal stub never could.
-test(get_type_space_selects_the_space,
-     [setup(metta_add_atom('&prelude-tsp', [':', q, 'QT'], _)),
-      cleanup(metta_remove_atom('&prelude-tsp', [':', q, 'QT'], _))]) :-
+test(get_type_space_selects_only_the_space,
+     [setup(( metta_add_atom('&self', [':', q, 'AmbientQT'], _),
+              metta_add_atom('&prelude-tsp', [':', q, 'QT'], _) )),
+      cleanup(( metta_remove_atom('&prelude-tsp', [':', q, 'QT'], _),
+                metta_remove_atom('&self', [':', q, 'AmbientQT'], _) ))]) :-
     eval_string("(get-type-space &prelude-tsp q)", Types),
-    memberchk('QT', Types).
+    assertion(Types == ['QT']).
+
+test(get_type_space_keeps_selected_inference_scoped,
+     [setup(( metta_add_atom('&self', [':<', 'Dog', 'AmbientAnimal'], _),
+              metta_add_atom('&self', [':', a, 'Wrong'], _),
+              metta_add_atom('&prelude-tsp-inference', [':', item, 'Dog'], _),
+              metta_add_atom('&prelude-tsp-inference', [':<', 'Dog', 'Animal'], _),
+              metta_add_atom('&prelude-tsp-inference',
+                             [':', f, [->, 'A', 'B']], _),
+              metta_add_atom('&prelude-tsp-inference', [':', a, 'A'], _) )),
+      cleanup(( metta_remove_atom('&prelude-tsp-inference', [':', a, 'A'], _),
+                metta_remove_atom('&prelude-tsp-inference',
+                                  [':', f, [->, 'A', 'B']], _),
+                metta_remove_atom('&prelude-tsp-inference',
+                                  [':<', 'Dog', 'Animal'], _),
+                metta_remove_atom('&prelude-tsp-inference',
+                                  [':', item, 'Dog'], _),
+                metta_remove_atom('&self', [':', a, 'Wrong'], _),
+                metta_remove_atom('&self',
+                                  [':<', 'Dog', 'AmbientAnimal'], _) ))]) :-
+    eval_string("(collapse (get-type-space &prelude-tsp-inference item))",
+                [['Dog', 'Animal']]),
+    eval_string("(collapse (get-type-space &prelude-tsp-inference (f a)))",
+                [['B']]),
+    eval_string("(collapse (get-type-space &prelude-tsp-inference (a item)))",
+                [[['A', 'Dog'], ['A', 'Animal']]]).
 
 % -- the engine registers ---------------------------------------------------
 
@@ -227,6 +257,77 @@ test(get_doc_answers_a_program_atom_as_written,
 
 test(get_doc_of_an_undocumented_name_answers_nothing) :-
     doc_eval("(collapse (get-doc plunit-doc-nobody))", [[]]).
+
+test(the_formal_doc_family_uses_the_selected_space,
+     [setup(( metta_add_atom('&self', [':', 'plunit-doc-scoped', 'Number'], _),
+              metta_add_atom('&self',
+                             ['@doc', 'plunit-doc-scoped',
+                              ['@desc', "Ambient"]], _),
+              metta_add_atom('&plunit-doc-formal',
+                             [':', 'plunit-doc-scoped', 'String'], _),
+              metta_add_atom('&plunit-doc-formal',
+                             ['@doc', 'plunit-doc-scoped',
+                              ['@desc', "Foreign"]], _) )),
+      cleanup(( metta_remove_atom('&plunit-doc-formal',
+                                  [':', 'plunit-doc-scoped', 'String'], _),
+                metta_remove_atom('&plunit-doc-formal',
+                                  ['@doc', 'plunit-doc-scoped', _], _),
+                metta_remove_atom('&self',
+                                  [':', 'plunit-doc-scoped', 'Number'], _),
+                metta_remove_atom('&self',
+                                  ['@doc', 'plunit-doc-scoped', _], _) ))]) :-
+    doc_eval("(get-doc &plunit-doc-formal plunit-doc-scoped)", [Doc]),
+    assertion(Doc ==
+              ['@doc-formal', ['@item', 'plunit-doc-scoped'],
+               ['@kind', atom], ['@type', 'String'], ['@desc', "Foreign"]]),
+    doc_eval("(get-doc-atom &plunit-doc-formal plunit-doc-scoped)", [Doc]),
+    doc_eval("(get-doc-single-atom &plunit-doc-formal plunit-doc-scoped)",
+             [Doc]).
+
+test(get_doc_atom_keeps_every_selected_document,
+     [setup(( metta_add_atom('&plunit-doc-many', [':', 'many-docs', 'T'], _),
+              metta_add_atom('&plunit-doc-many',
+                             ['@doc', 'many-docs', ['@desc', "first"]], _),
+              metta_add_atom('&plunit-doc-many',
+                             ['@doc', 'many-docs', ['@desc', "second"]], _) )),
+      cleanup(( metta_remove_atom('&plunit-doc-many',
+                                  ['@doc', 'many-docs', ['@desc', "second"]], _),
+                metta_remove_atom('&plunit-doc-many',
+                                  ['@doc', 'many-docs', ['@desc', "first"]], _),
+                metta_remove_atom('&plunit-doc-many', [':', 'many-docs', 'T'], _) ))]) :-
+    doc_eval("(get-doc-atom &plunit-doc-many many-docs)", Docs),
+    assertion(Docs ==
+              [['@doc-formal', ['@item', 'many-docs'], ['@kind', atom],
+                ['@type', 'T'], ['@desc', "first"]],
+               ['@doc-formal', ['@item', 'many-docs'], ['@kind', atom],
+                ['@type', 'T'], ['@desc', "second"]]]).
+
+test(get_doc_function_and_params_build_the_formal_shape,
+     [setup(metta_add_atom('&plunit-doc-function',
+                           ['@doc', 'plunit-doc-f', ['@desc', "Function"],
+                            ['@params', [['@param', "input"]]],
+                            ['@return', "output"]], _)),
+      cleanup(metta_remove_atom(
+                  '&plunit-doc-function',
+                  ['@doc', 'plunit-doc-f', ['@desc', "Function"],
+                   ['@params', [['@param', "input"]]],
+                   ['@return', "output"]], _))]) :-
+    Type = [->, 'Atom', 'Number'],
+    'get-doc-function'('&plunit-doc-function', 'plunit-doc-f', Type, Doc),
+    assertion(Doc ==
+              ['@doc-formal', ['@item', 'plunit-doc-f'], ['@kind', function],
+               ['@type', Type], ['@desc', "Function"],
+               ['@params', [['@param', ['@type', 'Atom'],
+                             ['@desc', "input"]]]],
+               ['@return', ['@type', 'Number'], ['@desc', "output"]]]),
+    'get-doc-params'([['@param', "input"]], ['@return', "output"],
+                     ['Atom', 'Number'], [Params, Return]),
+    assertion(Params == [['@param', ['@type', 'Atom'], ['@desc', "input"]]]),
+    assertion(Return == ['@return', ['@type', 'Number'], ['@desc', "output"]]).
+
+test(get_doc_function_on_a_non_space_answers_nothing) :-
+    \+ 'get-doc-function'('not-a-space', 'plunit-doc-f',
+                           [->, 'Atom', 'Number'], _).
 
 test(get_doc_space_selects_the_space,
      [setup(metta_add_atom('&plunit-doc-space',
