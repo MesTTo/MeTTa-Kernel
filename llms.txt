@@ -75,6 +75,9 @@ Four kinds, all immutable with `__slots__` and `__match_args__`, so
 `path("profile", "age", to=V.age)` occupies an opaque handle's pattern
 position, reads only those live attributes after the stored match, and binds
 the reached value. `Key("name")` selects a subscription key instead.
+`petta.spaces.object_view(obj)` exposes the same object's current public fields
+as `(py-field obj name value)` atoms. Compose it with a stored space through
+`spaces.union`, or register it directly so adding a field atom calls `setattr`.
 
 Operators BUILD terms, they do not compute. `V.age >= 18` is `(>= $age 18)`;
 `&` `|` `~` build `and`/`or`/`not`; `+ - * / // % **`, unary `-`, `abs()` and

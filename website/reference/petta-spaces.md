@@ -2,10 +2,10 @@
 
 Source: `bindings/python/petta/spaces.py`.
 
-> Purpose: space combinators on the public seam: union, readonly, mapped,
-> and overlay compose existing spaces into new ones with zero engine changes,
-> each an ordinary SpaceProvider, which is the point: the seam proves its
-> composability by having the combinators be users of it.
+> Purpose: space views and combinators on the public seam. Object views,
+> union, readonly, mapped, and overlay are ordinary SpaceProvider instances;
+> the same engine route therefore matches a live object or composes existing
+> spaces without hardcoded integration paths.
 > Guarantees:
 >   - union and readonly implement no write operation, so the engine's own
 >     capability refusal answers add-atom on them [tested
@@ -15,12 +15,65 @@ Source: `bindings/python/petta/spaces.py`.
 >     test_mapped_presents_and_writes_through_the_declaration]
 >   - overlay reads both layers and writes, removes, and clears the front
 >     only, ChainMap's own rule [tested test_overlay_routes_writes_to_front]
+>   - object_view reads live fields, joins with stored atoms through union, and
+>     turns an added py-field atom into setattr [tested:
+>     test_a_query_joins_stored_atoms_with_live_object_fields;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
 >   Future Enhancements: None
 
 The entries below reproduce the source signatures and docstrings.
+
+## `ObjectView`
+
+```python
+class ObjectView(SpaceProvider):
+```
+
+> One live Python object presented as ``(py-field obj name value)``.
+>
+> Enumeration names the object's public fields. A bound field may also be
+> served through ``getattr``, which lets an object with ``__getattr__``
+> answer the mode it actually supports without pretending it can enumerate.
+> Adding the same atom shape writes the value with ``setattr``.
+
+### `ObjectView.atoms`
+
+```python
+def atoms(self) -> Iterator[Atom]:
+```
+
+No docstring is defined.
+
+### `ObjectView.match`
+
+```python
+def match(self, pattern: Atom) -> Iterator[Atom]:
+```
+
+No docstring is defined.
+
+### `ObjectView.add`
+
+```python
+def add(self, atom: Atom) -> None:
+```
+
+No docstring is defined.
+
+## `object_view`
+
+```python
+def object_view(obj: Any, *, relation: str | Sym = 'py-field') -> ObjectView:
+```
+
+> Present one object as a live, writable provider.
+>
+> Compose it with stored facts through ``spaces.union(stored, view)`` and
+> register the result like any other provider. Register the view itself
+> when MeTTa should write its fields through ``add-atom``.
 
 ## `union`
 

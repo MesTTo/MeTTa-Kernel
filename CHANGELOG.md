@@ -8,6 +8,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `petta.spaces.object_view(obj)` now presents live Python fields as
+  `(py-field obj name value)` atoms on the ordinary foreign-space seam. The
+  view composes with stored spaces for joins, observes later mutations, and
+  turns added field atoms into `setattr` writes.
 - A one-variable query can now rebuild complete constructor expressions with
   `query(into=Class)`, and the underlying `Rows.build(Class)` door exposes the
   same operation. Multi-column `into=` retains field-name row shaping;
