@@ -122,8 +122,9 @@ test(a_third_party_shape_routed_kind_rides_the_one_router,
       cleanup(forall(member(A, [[freshness, '&fr', [edge, _, _], cached],
                                 [freshness, '&fr', [edge, [in, _], _], live],
                                 ['routed-by-shape', freshness],
-                                [kind, freshness|_],
-                                [vocabulary, 'fr-level'|_]]),
+                                [kind, freshness, symbol, pattern,
+                                 ['one-of', 'fr-level']],
+                                [vocabulary, 'fr-level', live, cached, stale]]),
                      metta_remove_atom('&petta', A, _)))]) :-
     add_sexp('&petta', [freshness, '&fr', [edge, _A, _B], cached], _),
     add_sexp('&petta', [freshness, '&fr', [edge, [in, _C], _D], live], _),
@@ -139,11 +140,12 @@ test(two_disagreeing_maximal_entries_conflict_loudly,
               add_sexp('&petta', ['routed-by-shape', hotness], _),
               add_sexp('&petta', [hotness, '&h', [p, _, q], hot], _),
               add_sexp('&petta', [hotness, '&h', [p, r, _], cold], _) )),
-      cleanup(forall(member(A, [[hotness, '&h'|_],
-                                [hotness, '&h'|_],
+      cleanup(forall(member(A, [[hotness, '&h', [p, _, q], hot],
+                                [hotness, '&h', [p, r, _], cold],
                                 ['routed-by-shape', hotness],
-                                [kind, hotness|_],
-                                [vocabulary, 'hot-level'|_]]),
+                                [kind, hotness, symbol, pattern,
+                                 ['one-of', 'hot-level']],
+                                [vocabulary, 'hot-level', hot, cold]]),
                      metta_remove_atom('&petta', A, _))),
       error(petta_contract_conflict(_, _, _, _))]) :-
     petta_shape_route(hotness, '&h', [p, r, q], _, _).
@@ -154,9 +156,10 @@ test(removing_the_routing_row_stops_the_route,
                                   ['one-of', 'wet-level']], _),
               add_sexp('&petta', ['routed-by-shape', wetness], _),
               add_sexp('&petta', [wetness, '&w', [w, _], wet], _) )),
-      cleanup(forall(member(A, [[wetness, '&w'|_],
-                                [kind, wetness|_],
-                                [vocabulary, 'wet-level'|_]]),
+      cleanup(forall(member(A, [[wetness, '&w', [w, _], wet],
+                                [kind, wetness, symbol, pattern,
+                                 ['one-of', 'wet-level']],
+                                [vocabulary, 'wet-level', wet, dry]]),
                      metta_remove_atom('&petta', A, _)))]) :-
     petta_shape_route(wetness, '&w', [w, 1], _, [wet]),
     metta_remove_atom('&petta', ['routed-by-shape', wetness], true),
@@ -169,10 +172,48 @@ test(a_routing_row_without_its_kind_is_refused,
 
 test(a_routing_row_over_an_unroutable_kind_is_refused,
      [setup(add_sexp('&petta', [kind, 'flat-kind', symbol, symbol], _)),
-      cleanup(metta_remove_atom('&petta', [kind, 'flat-kind'|_], _)),
+      cleanup(metta_remove_atom('&petta', [kind, 'flat-kind', symbol, symbol],
+                                _)),
       error(petta_declaration_malformed(['routed-by-shape', 'flat-kind'],
                                         1, _))]) :-
     add_sexp('&petta', ['routed-by-shape', 'flat-kind'], _).
+
+%The advisors' fold at the route classification: a loaded metta_route_cap/4
+%clause may demote the declared Exact to inexact or refuse it loudly, and a
+%cap outside the vocabulary is the advisor's own bug, refused as one.
+:- dynamic cap_clause_ref/1.
+
+%The advisor clause and its cap level are asserted into user explicitly:
+%plunit runs setup and bodies in the unit's own module, and a hook clause
+%asserted there is invisible to the engine's multifile call.
+test(a_route_cap_demotes_and_refuses_through_the_published_seam,
+     [setup(( retractall(user:cap_level(_)),
+              add_sexp('&petta', [handles, '&cap1', [p, _X], 'Exact'], _),
+              assertz(user:( metta_route_cap('&cap1', _, Cap, capped_by_test) :-
+                                 cap_level(Cap) ),
+                      Ref),
+              assertz(cap_clause_ref(Ref)) )),
+      cleanup(( retractall(user:cap_level(_)),
+                retract(cap_clause_ref(Ref)),
+                erase(Ref),
+                metta_remove_atom('&petta',
+                                  [handles, '&cap1', [p, _Y], 'Exact'],
+                                  true) ))]) :-
+    foreign_pushdown_class('&cap1', [p, v], exact),
+    assertz(user:cap_level(inexact)),
+    foreign_pushdown_class('&cap1', [p, v], inexact),
+    retractall(user:cap_level(_)),
+    assertz(user:cap_level(refuse)),
+    catch(( foreign_pushdown_class('&cap1', [p, v], _),
+            fail ),
+          error(petta_route_capped('&cap1', _, capped_by_test), _),
+          true),
+    retractall(user:cap_level(_)),
+    assertz(user:cap_level(sideways)),
+    catch(( foreign_pushdown_class('&cap1', [p, v], _),
+            fail ),
+          error(petta_route_cap_invalid('&cap1', sideways, _), _),
+          true).
 
 %The bulk door refuses the whole batch before any of it lands.
 test(the_bulk_door_checks_before_it_writes) :-

@@ -2015,6 +2015,65 @@ says is what execution does; that law has its own tests.
 Undeclared is always today's behaviour: the contract is monotone, and a
 provider written before any of this keeps working unchanged.
 
+### The catalog describes its own kinds, and yours
+
+Every row in the table above is an instance of a KIND, and the kinds are
+themselves rows in `&petta`:
+
+```
+(vocabulary fidelity Exact Partial Sound Refuse)   ; a value set
+(kind handles symbol pattern (one-of fidelity)     ; a declaration's shape
+      (optional (one-of determinism)))
+(claim semiring ranked ordered)                    ; a per-value fact
+(routed-by-shape handles)                          ; entries route by shape
+```
+
+One generic checker validates every `&petta` write against the standing
+kind rows, and a violation is a hard error naming the atom, the argument
+position and the argspec it missed, where it used to sit silently and
+never match. A head with no kind row passes untouched, so your own kind
+starts as plain data and becomes schema-checked the moment you declare
+its rows. Argspecs are `symbol`, `integer`, `pattern`, `term`,
+`(one-of <vocabulary>)`, trailing `(optional <spec>)` and final
+`(rest <spec>)`. Removing a row withdraws it: remove-then-redeclare is
+how a program deliberately widens a shipped kind, and the presets return
+on the next engine boot only where their subject has no row standing.
+
+`(routed-by-shape <head> [context|global])` gives your kind the SAME
+router the shipped ones use: entries are patterns, queries route by the
+most specific matching entry with `(in $x)` adornments and loud
+coherence conflicts, all inherited, none reimplemented. Read the routed
+view back with the published service `petta_shape_route/5`.
+
+To make the engine ACT on your kind, ship exploitation rules riding the
+published seams. The routing seam is `metta_route_cap/4`: consulted
+where the declared fidelity or the provider's method proposes a route
+class, and every loaded advisor may only DEMOTE, the most conservative
+voice winning (`refuse` below `inexact` below `exact`, refuse loud and
+naming your Why). A freshness kind is the worked instance, an ordinary
+extension file:
+
+```prolog
+:- metta_extension(freshness, [requires(1-1)]).
+
+:- multifile metta_route_cap/4.
+metta_route_cap(Space, Pattern, inexact, freshness(cached)) :-
+    petta_shape_route(freshness, Space, Pattern, _, [cached]).
+metta_route_cap(Space, Pattern, refuse, freshness(stale)) :-
+    petta_shape_route(freshness, Space, Pattern, _, [stale]).
+```
+
+With `(vocabulary freshness-level live cached stale)`,
+`(kind freshness symbol pattern (one-of freshness-level))` and
+`(routed-by-shape freshness)` declared, `(freshness &rows (edge $a $b)
+cached)` demotes the engine's bound pushdown to re-unification for that
+shape, and `stale` refuses the route outright; the whole path is pinned
+by `test_a_third_party_declaration_kind_changes_routing_through_published_seams`.
+A freshness vocabulary gating routes is a production discipline, not an
+invention here: Oracle's `QUERY_REWRITE_INTEGRITY` decides whether a
+stale materialized view may keep serving rewrites, and its `RELY`
+constraint state is a per-declaration trust claim the optimizer acts on.
+
 The contract language is MeTTa on purpose, and it reaches the boundary
 itself: a backend's whole conversion can be ONE declaration relating
 the atom shape to the backend's shape, `(bridge (edge $a $b)
