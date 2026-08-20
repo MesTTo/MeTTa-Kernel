@@ -1868,9 +1868,10 @@ application_arrow_declared_in(Module, [F|_]) :-
                     member(T, Types).
 
 %LeaTTa rules that the reporting observers see the empty expression's unit
-%type while the classifier sees no type. Keeping this as a wrapper around the
-%ordinary candidate set preserves that split: argument checks continue to call
-%type_answers/3, and only get-type reads the observer correction
+%type while the classifier derives no type and therefore uses its gradual
+%%Undefined% fallback. Keeping this as a wrapper around the ordinary candidate
+%set preserves that split: argument checks continue to call type_answers/3,
+%and only get-type reads the observer correction
 %[source: LeaTTa@dae62ced23eb0f30a8c2b86583fd09d88fb24ea5 MettaHyperonFull/Minimal/Interpreter.lean:3681-3689,4358-4363,4416-4424; commit=WORKTREE].
 %The pinned executable case is tests/semantics/types-basic/
 %69-unit-type-of-empty-expression.metta in that checkout.
@@ -2259,6 +2260,7 @@ get_type_candidate(X, T) :- atomic(X), \+ atom(X),
                             metta_grounded_type(X, T).
 get_type_candidate(X, T) :- get_function_type(X,T).
 get_type_candidate(X, T) :- \+ application_arrow_declared(X),
+                            X = [_|_],
                             is_list(X),
                             metta_self_module(Self),
                             maplist(has_type_in(Self), X, Members),
@@ -2285,6 +2287,7 @@ get_type_candidate_in(_, X, T) :- atomic(X), \+ atom(X),
                                   metta_grounded_type(X, T).
 get_type_candidate_in(Module, X, T) :- get_function_type_in(Module, X, T).
 get_type_candidate_in(Module, X, T) :- \+ application_arrow_declared_in(Module, X),
+                                       X = [_|_],
                                        is_list(X),
                                        maplist(has_type_in(Module), X, Members),
                                        tuple_type(Members, T).
@@ -2293,7 +2296,7 @@ get_type_candidate_in(Module, X, T) :- type_declaration_in(Module, X, T).
 get_type_candidate_in(_, X, T) :- builtin_type_declaration(X, T).
 get_type_candidate_in(_, X, 'SpaceType') :- petta_space_operand(X).
 
-%An expression no arrow types is read ELEMENT-WISE, and the tuple it reads is
+%A NONEMPTY expression no arrow types is read ELEMENT-WISE, and the tuple it reads is
 %%Undefined% as soon as one member's type is. Nothing is known about a tuple
 %one of whose components is unknown, so reporting the shape while a hole sits
 %inside it claims more than was derived: `(get-type (some-undeclared-call))`
@@ -2356,6 +2359,7 @@ scoped_type_candidate(Space, Module, X, T) :-
     scoped_function_type(Space, Module, X, T).
 scoped_type_candidate(Space, Module, X, T) :-
     \+ scoped_function_type(Space, Module, X, _),
+    X = [_|_],
     is_list(X),
     maplist(scoped_has_type(Space, Module), X, Members),
     tuple_type(Members, T).
