@@ -1451,77 +1451,117 @@ test(switches_nest_and_unwind_in_order) :-
 
 % P11.5's question, answered by counting rather than by reading the sources.
 % The row proposed threading the space context through every compiled clause as
-% an extra argument, Logtalk's `Self` field, on the reading that compiled code
-% consults the global while it runs. Ordinary evaluation does not: this counts
-% zero over a compiled function driven 120 steps, and two Python workloads
-% measured the same way read 0 of 3000 and 0 of 2600, every one of those reads
-% being the per-form compile [measured 2026-08-22].
+% an extra argument, Logtalk's `Self` field, so that compiled code stops
+% consulting the global while it runs. Compiled code DOES consult it, and the
+% rate is what decides the row.
 %
-% Reads DO happen on some evaluation paths, and they are not what an extra
-% argument would fix cheaply: the space-update capability check reads the
-% context once per evaluation, 200 of 1400 reads over 200 evaluations, 0.14% of
-% that workload's 292,227 inferences. Handing that goal the compile-time module
-% instead would be WRONG rather than merely different, because the prelude is
+% reduce/3, the runtime dispatcher, reads it on every dispatch of a function a
+% NAMED space claims, and not at all for one the shared tier claims:
+% `fun(F), \+ fun_scoped(F) -> Module = Self` settles the second case without
+% asking. That is the split this test pins, both halves, so a change that made
+% the fast path start asking, or the named path ask twice, fails here.
+%
+% Measured over the shipped corpus, one process per example the way the corpus
+% lane runs one: 468,624 of 486,309 reads are on the evaluation path, and two
+% examples are almost all of it, examples/performance/matespacefast.metta with
+% 262,144 and examples/reasoning/nilbc.metta with 182,012, every one of
+% matespacefast's attributed to reduce/3 [measured 2026-08-22].
+%
+% And priced, in the same unit both sides have to be compared in. One read
+% costs about 600 instructions, of which nb_current/2 is 491 above a trivial
+% builtin and nb_getval/2 would be 376. matespacefast runs 97.1 billion
+% instructions, so its 262,144 reads are 0.16% of it. One extra argument on a
+% compiled predicate, threaded through its recursive call the way the route
+% would thread it, costs 24.7 instructions per call and +2.08% on a
+% call-dominated workload (236,825,346 against 241,759,755 over 200,000 steps),
+% while costing nothing measurable in inferences (+88 over 40,000 calls). Every
+% compiled call would pay that; only a named-space dispatch reads. Paying 2.08%
+% on every call to remove 0.16% on the most read-heavy program in the tree is
+% the row's own stop condition, so the global stays.
+%
+% Reading the caller's module instead of the global would be WRONG rather than
+% cheaper, which is why the route had to be the expensive one: the prelude is
 % compiled into &self's module and shared by every space through the base
-% chain, so a shared clause would report where it was compiled and not where it
-% is running -- Logtalk's `This` where a capability check needs `Self`.
-%
-% So the route has to be the full one, and it was priced: one extra argument on
-% a compiled predicate, passed through its recursive call the way the route
-% would pass it, costs 24.7 instructions per call and +2.08% on a
-% call-dominated workload, min-of-three under perf stat -e instructions:u
-% (236,825,346 against 241,759,755 over 200,000 steps), while costing nothing
-% measurable in inferences (+88 over 40,000 calls). Paying 2.08% on every
-% compiled call to remove 0.14% on one path and nothing on the benchmark suite
-% is the row's own stop condition, so the global stays and this test is the
-% guard on the part that is already true.
-test(test_the_module_context_global_is_unread_by_ordinary_evaluation,
+% chain, so a shared clause would report where it was COMPILED and not where it
+% is RUNNING -- Logtalk's `This` where the dispatcher needs `Self`.
+test(test_the_module_context_is_read_once_per_space_update_and_not_at_all_otherwise,
      [ cleanup(( catch(unwrap_predicate(ContextModule:current_metta_module/1,
                                         context_read_probe), _, true),
                  catch(unwrap_predicate(SelfModule:'ctx-sum'/2,
+                                        context_eval_probe), _, true),
+                 catch(unwrap_predicate(SelfModule:'ctx-grow'/2,
                                         context_eval_probe), _, true) )) ]) :-
     petta_engine_module(ContextModule),
+    metta_self_module(SelfModule),
     process_metta_string("(= (ctx-sum $n) \c
                              (if (== $n 0) 0 (+ $n (ctx-sum (- $n 1)))))", _),
-    % Warm the compile, so the counting window below holds an evaluation and
+    process_metta_string("(= (ctx-grow $x) \c
+                             (let $_ (add-atom (context-space) (ctx-row $x)) \c
+                                  $x))", _),
+    % Warm both compiles, so each counting window below holds an evaluation and
     % not a translation.
     process_metta_string("!(ctx-sum 3)", Warm),
     assertion(Warm == [6]),
-    metta_self_module(SelfModule),
+    process_metta_string("!(ctx-grow 0)", _),
+
+    % One: a function of the SHARED tier dispatches without asking. reduce/3
+    % settles `fun(F), \+ fun_scoped(F)` without a context read, and that is
+    % the engine's hottest path.
+    context_reads(SelfModule:'ctx-sum'(_, _),
+                  process_metta_string("!(ctx-sum 120)", Summed),
+                  Dispatches, Quiet),
+    assertion(Summed == [7260]),
+    assertion(Dispatches > 100),
+    assertion(Quiet == 0),
+
+    % Two: a space UPDATE asks, once per evaluation, because the capability
+    % check has to know which space is in force. This is the rate the corpus is
+    % almost entirely made of, and pinning it is what would catch it doubling.
+    context_reads(SelfModule:'ctx-grow'(_, _),
+                  forall(between(1, 40, _),
+                         process_metta_string("!(ctx-grow 1)", _)),
+                  Updates, Asked),
+    assertion(Updates == 40),
+    assertion(Asked == 40).
+
+%Count reads of the module context that happen while Watched is on the stack.
+%Watched is the COMPILED PREDICATE itself rather than a proxy for it, so
+%"while compiled code runs" is the engine's own answer; the opening count is
+%returned so a zero cannot mean the window never opened.
+:- meta_predicate context_reads(+, 0, -, -).
+
+context_reads(Watched, Goal, Openings, Reads) :-
+    petta_engine_module(ContextModule),
     nb_setval('$petta_context_reads', 0),
     nb_setval('$petta_evaluating', 0),
     nb_setval('$petta_evaluations', 0),
-    wrap_predicate(SelfModule:'ctx-sum'(_, _), context_eval_probe, Evaluated,
-                   setup_call_cleanup(context_eval_enter, Evaluated,
-                                      context_eval_exit)),
-    wrap_predicate(ContextModule:current_metta_module(_), context_read_probe,
-                   Inner,
-                   ( nb_getval('$petta_evaluating', Depth),
-                     (   Depth > 0
-                     ->  nb_getval('$petta_context_reads', Reads0),
-                         Reads1 is Reads0 + 1,
-                         nb_setval('$petta_context_reads', Reads1)
-                     ;   true
-                     ),
-                     Inner )),
-    process_metta_string("!(ctx-sum 120)", Summed),
-    assertion(Summed == [7260]),
-    space_module('&probe', Probe),
-    with_metta_module(Probe, process_metta_string("!(ctx-sum 20)", Named)),
-    assertion(Named == [210]),
+    setup_call_cleanup(
+        ( wrap_predicate(Watched, context_eval_probe, Evaluated,
+                         setup_call_cleanup(context_eval_enter, Evaluated,
+                                            context_eval_exit)),
+          wrap_predicate(ContextModule:current_metta_module(_),
+                         context_read_probe, Inner,
+                         ( nb_getval('$petta_evaluating', Depth),
+                           (   Depth > 0
+                           ->  nb_getval('$petta_context_reads', Was),
+                               Now is Was + 1,
+                               nb_setval('$petta_context_reads', Now)
+                           ;   true
+                           ),
+                           Inner )) ),
+        Goal,
+        ( catch(unwrap_predicate(ContextModule:current_metta_module/1,
+                                 context_read_probe), _, true),
+          context_unwrap(Watched) )),
     nb_getval('$petta_evaluating', Balanced),
     assertion(Balanced == 0),
-    % The window has to have OPENED, or a zero below means the counting never
-    % happened rather than that nothing was counted.
-    nb_getval('$petta_evaluations', Evaluations),
-    assertion(Evaluations > 100),
-    nb_getval('$petta_context_reads', Reads),
-    assertion(Reads == 0).
+    nb_getval('$petta_evaluations', Openings),
+    nb_getval('$petta_context_reads', Reads).
 
-%The window is opened by the compiled predicate itself, so "while compiled code
-%runs" is the engine's own answer rather than this file's guess at a proxy for
-%it. The balance check above is what makes a zero mean something: an unbalanced
-%counter would leave the window shut and report zero for that reason.
+context_unwrap(Module:Head) :-
+    functor(Head, Name, Arity),
+    catch(unwrap_predicate(Module:Name/Arity, context_eval_probe), _, true).
+
 context_eval_enter :-
     nb_getval('$petta_evaluating', D), D1 is D + 1,
     nb_setval('$petta_evaluating', D1),
