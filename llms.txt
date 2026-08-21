@@ -15,7 +15,7 @@ re-runs them.
 
 | source | what it is | kept true by |
 |---|---|---|
-| `examples/**/*.metta` | 217 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
+| `examples/**/*.metta` | 219 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
 | `website/reference/petta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 32 plunit suites over the engine itself | the `plunit` gate lane |
@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 23,728 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
+| `engine/*.pl` | 23,740 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |

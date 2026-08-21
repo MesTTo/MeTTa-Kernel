@@ -3537,8 +3537,20 @@ petta_agenda(Ctx, Policy, Chooser) :-
     ->  Policy = Declared, Chooser = Named
     ;   petta_contract_fact([agenda, Ctx, Declared])
     ->  Policy = Declared, Chooser = none
-    ;   Policy = declaration, Chooser = none
+    ;   petta_agenda_default(Policy, Chooser)
     ).
+
+%The stated default, as a FACT. Two reasons and both are load-bearing: the
+%row's whole point is that the default is stated rather than accidental, so
+%it reads better as one named thing than as two bindings buried in a branch;
+%and `Policy = declaration` cannot be written there at all, because the
+%development-side Ciao assertion packs declare `declaration` as a prefix
+%operator at priority 1125, above the 999 an operand of ,/2 may reach, so
+%that clause body stopped parsing under the ciao-grade lane's operator table
+%[measured 2026-08-21: engine/metta.pl:3540:27, "Operand expected, unquoted
+%comma or bar found"]. A head argument is not an operand of ,/2 and parses
+%either way.
+petta_agenda_default(declaration, none).
 
 prolog:error_message(petta_agenda_unscored(Ctx, Chooser, Entry)) -->
     [ '~w declares (agenda ~w user ~w) and ~w answered no number for ~q. A \c
