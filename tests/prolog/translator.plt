@@ -23,6 +23,9 @@
 %     [tested: test_an_annotated_binding_emits_its_claim,
 %     translator_typed_let:a_source_colon_pair_stays_a_pattern;
 %     commit=c3c8ea60516dc1f45620bbe4dba3b78993ee22e3].
+%   - a quoted pattern compiles to the same term a quoted body compiles to, at
+%     the one arity `quote` scopes on either side
+%     [tested: translator_quote_scope; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -2548,3 +2551,47 @@ test(a_cons_list_is_ordinary_structure,
     assertion(Length == [3]).
 
 :- end_tests(translator_inplace_annotations).
+
+:- begin_tests(translator_quote_scope).
+
+%One compiler, both sides of the `=`. A body's `(quote X)` holds X and compiles
+%nothing inside it, and the sharpest way to say a pattern's quote does the same
+%is to compile the same quoted term in each position and demand the same term
+%back. Measured before the pattern walk stopped descending: `(cons 1 2)` inside
+%a pattern's quote became the improper list `[1|2]`, and `(: $x Number)` became
+%a type premise goal with the pattern reduced to `[quote, A]`, so the head
+%matched `(quote 5)` and refused the quoted annotation it was written for.
+%Neither shape is one a body's quote can produce, so a head written to match
+%what a body writes could not.
+quote_scope_payload("(cons 1 2)").
+quote_scope_payload("(: $x Number)").
+quote_scope_payload("(g $x)").
+quote_scope_payload("(h (g 1))").
+quote_scope_payload("$x").
+quote_scope_payload("(foo bar)").
+
+test(a_quoted_pattern_holds_what_a_quoted_body_holds,
+     [ forall(quote_scope_payload(Text)),
+       setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( forget_test_function('qs-body'),
+                 forget_test_function('qs-head'),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    format(atom(BodySource), "(= (qs-body) (quote ~w))", [Text]),
+    sread(BodySource, BodyEquation),
+    translate_clause(BodyEquation, (BodyHead :- _)),
+    BodyHead =.. [_, BodyValue],
+    format(atom(HeadSource), "(= (qs-head (quote ~w)) matched)", [Text]),
+    sread(HeadSource, HeadEquation),
+    translate_clause(HeadEquation, (CompiledHead :- _)),
+    CompiledHead =.. [_, HeadPattern, _],
+    assertion(HeadPattern =@= BodyValue).
+
+%The scope is one argument wide on both sides. `translate_special_dl/5` gives
+%`quote` meaning at arity one only, so `(quote a b)` is ordinary data in a body
+%and must stay ordinary structure in a pattern, walked like anything else.
+test(a_two_argument_quote_is_not_the_scope_form) :-
+    constrain_args([quote, [':', X, 'Number'], second], Out, Goals),
+    assertion(Out == [quote, X, second]),
+    assertion(Goals \== []).
+
+:- end_tests(translator_quote_scope).

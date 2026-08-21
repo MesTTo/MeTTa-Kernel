@@ -345,6 +345,24 @@ note_head_goals(F) :- current_metta_module(Module),
 %examples/functions/functionhead2.metta,
 %examples/functions/functionhead3.metta].
 constrain_args(X, X, []) :- (var(X); atomic(X)), !.
+%QUOTE IS A SCOPE HERE, exactly as it is in a body. A body's `(quote X)` holds
+%X and compiles nothing inside it
+%[source 2026-08-21: engine/translator.pl,
+%translate_special_dl(quote, [Expr], Goals, Goals, [quote, Expr])]. A pattern's
+%did not: the walk descended and rewrote what it found, so the same two words
+%meant two things depending on which side of the `=` they were written on.
+%Measured 2026-08-21 on the tip before this clause: `(= (b4) (quote (cons
+%1 2)))` compiled to the value `[quote, [cons, 1, 2]]` while
+%`(= (h4 (quote (cons 1 2))) matched4)` compiled to the pattern
+%`[quote, [1|2]]`, so the head could never match the value the body produced;
+%and `(= (h3 (quote (: $x Number))) matched)` compiled to
+%`h3([quote, A], matched) :- has_type(A, 'Number')`, which matched `(quote 5)`
+%and refused the quoted annotation it was written to match. One arity, because
+%the body's scope is one argument too: `(quote a b)` is not the scope form on
+%either side [tested: translator_quote_scope,
+%test_quote_is_a_scope_in_head_position_too; commit=WORKTREE].
+constrain_args([Quote, Expr], [Quote, Expr], []) :-
+    nonvar(Quote), Quote == quote, !.
 %An IN-PLACE TYPE ANNOTATION in a head parameter position: `(: $x T)` matches
 %anything whose type includes T and binds $x to it, and `(: $x $t)` binds $t to
 %each applicable type, one branch each. hyperon-experimental issue #177's
