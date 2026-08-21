@@ -16,7 +16,7 @@
 % Guarantees: the four heads below are this subsystem's whole surface, and
 %   the module declaration is what makes that enforceable rather than
 %   advisory [tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named;
-%   commit=WORKTREE].
+%   commit=dd407a40f623b16eda0bb51a74458f7dd3760e21].
 
 %The export list is the four builtin heads and nothing else. They reach a
 %compiled MeTTa body the way every engine name does: engine/metta.pl's

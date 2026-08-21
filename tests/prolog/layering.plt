@@ -7,11 +7,12 @@
 %   - the contract's allow-list, its export half and its declared tangles are
 %     all satisfied by the measured call graph
 %     [tested: test_the_engine_layering_contract_holds_and_a_violation_is_named;
-%     commit=WORKTREE]
+%     commit=dd407a40f623b16eda0bb51a74458f7dd3760e21]
 %   - each of the six violation kinds is NAMED rather than only counted, and
 %     the walk that finds them is proven to still see every planted reach
 %     [tested: test_the_engine_layering_contract_holds_and_a_violation_is_named,
-%     the_layering_walk_sees_every_planted_reach; commit=WORKTREE]
+%     the_layering_walk_sees_every_planted_reach;
+%     commit=dd407a40f623b16eda0bb51a74458f7dd3760e21]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

@@ -8,10 +8,10 @@
 % Guarantees:
 %   - nodes_arcs_sccs(+Nodes, +Arcs, -SCCs) answers one list per component,
 %     every node in exactly one, in O(|V| + log(|V|)*|E|)
-%     [tested: scc_components; commit=WORKTREE]
+%     [tested: scc_components; commit=dd407a40f623b16eda0bb51a74458f7dd3760e21]
 %   - the answer is independent of arc order, because components are keyed by
 %     Tarjan lowlink and then grouped [tested: scc_is_order_independent;
-%     commit=WORKTREE]
+%     commit=dd407a40f623b16eda0bb51a74458f7dd3760e21]
 % Fails when:
 %   - an arc names a node absent from Nodes, or a node is not ground
 % Owns resources:

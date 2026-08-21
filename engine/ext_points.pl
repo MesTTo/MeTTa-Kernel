@@ -10,7 +10,7 @@
 %   - every handler seam lives in THIS module, so an extension writes
 %     seam:atom_added/2 and the module carries the namespace the metta_on_
 %     prefix used to carry [tested: test_every_seam_is_reached_under_its_module;
-%     commit=WORKTREE].
+%     commit=dd407a40f623b16eda0bb51a74458f7dd3760e21].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
