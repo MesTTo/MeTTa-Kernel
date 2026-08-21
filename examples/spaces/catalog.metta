@@ -33,7 +33,7 @@
 ;; shipped handles declarations use: entries are patterns, queries route
 ;; by the most specific matching entry, and disagreeing overlaps are loud
 ;; conflicts, all inherited rather than reimplemented. The routing seam
-;; extensions ride is metta_route_cap/4; EXTENDING.md section 8 walks the
+;; extensions ride is seam:route_cap/4; EXTENDING.md section 8 walks the
 ;; whole path.
 !(add-atom &petta (routed-by-shape freshness))
 !(test (match &petta (routed-by-shape freshness) found) found)

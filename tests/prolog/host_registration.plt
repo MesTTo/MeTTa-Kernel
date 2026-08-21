@@ -15,7 +15,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 :- begin_tests(host_registration).
 
@@ -96,8 +96,8 @@ test(the_engine_recompiles_dependents_without_a_host) :-
     % The load-bearing half of the changed/removed EVENTS lived in a host
     % hook clause, so an engine alone could not repair compiled mentions.
     % This runs the whole cycle with no host in the process: the plunit
-    % process has no Python, and the recompile rides function_changed/2 and
-    % function_removed/1 in the engine.
+    % process has no Python, and the recompile rides announce_function_changed/2 and
+    % announce_function_removed/1 in the engine.
     sread("(= (zzz-watcher) (zzz-moved))", Equation),
     metta_add_atom('&self', Equation, true),
     metta_host_open_function('zzz-moved', python, 1),

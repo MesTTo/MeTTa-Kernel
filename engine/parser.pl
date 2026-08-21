@@ -420,7 +420,7 @@ swrite_mode(List, Mode) --> { is_list(List), List = [_|_] }, !,
 swrite_mode([], _)    --> !, "()".
 %A Janus tuple is -/N. Python-looking text belongs only to display mode because
 %`(1, 2)` reads as the symbol `1,` beside the number 2, and -() reads as [].
-swrite_mode(Term, display) --> { metta_grounded_text(Term, Text) }, !,
+swrite_mode(Term, display) --> { seam:grounded_text(Term, Text) }, !,
                                { string_codes(Text, Cs) }, Cs.
 swrite_mode(Term, display) --> { compound(Term),
                                  compound_name_arguments(Term, F, Args) }, !,
@@ -940,7 +940,7 @@ metta_reader_token_construct(string, Text, String) :-
     phrase(string_lit(String), Codes).
 metta_reader_token_construct(metta(Constructor), Text, [Constructor, Text]).
 metta_reader_token_construct(host(Constructor), Text, Term) :-
-    metta_host_reader_token_construct(Constructor, Text, Term).
+    seam:host_reader_token_construct(Constructor, Text, Term).
 
 metta_reader_default("True", true) :- !.
 metta_reader_default("False", false) :- !.

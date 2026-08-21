@@ -24,7 +24,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 user:'plunit-pi-tag'(X, Y) :- member(X, [a, b, c]), atom_concat(X, '!', Y).
 user:'plunit-pi-is-b'(b).

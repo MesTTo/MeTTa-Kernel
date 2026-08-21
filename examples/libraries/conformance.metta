@@ -16,8 +16,8 @@
 ;The checks that ran, in order: one per declared capability, then the
 ;over-approximation contract, then the pushdown claim.
 !(test (check-space-provider &demo_provider)
-       ("match: declared, metta_foreign_match/3 has clauses"
-        "enumerate: declared, metta_foreign_atoms/2 has clauses"
+       ("match: declared, seam:foreign_match/3 has clauses"
+        "enumerate: declared, seam:foreign_atoms/2 has clauses"
         "match: over-approximation holds over 2 atoms"
         "pushdown: 0 of 2 patterns claimed exact, and are"
         "plan: not declared, so a conjunction takes the engine's split"))

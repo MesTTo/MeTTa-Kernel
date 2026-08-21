@@ -11,7 +11,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 %The clpfd operators, in/2 and \/ among them, so duals_domain_coverage below
 %can be READ. The engine imports clpfd too, but that happens when the
@@ -359,7 +359,7 @@ test(an_equation_added_later_rebuilds_the_dual) :-
 %because it runs once per compiled equation.
 test(the_invalidation_handler_is_installed_lazily) :-
     user:dual_hooks_installed,
-    clause(user:metta_on_function_changed(_), user:drop_duals_of(_)).
+    clause(seam:function_changed(_), user:drop_duals_of(_)).
 
 :- end_tests(duals_invalidation).
 

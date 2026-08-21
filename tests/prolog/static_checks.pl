@@ -3,9 +3,9 @@
 %     check knows about: every seam declares its kind, and a seam whose kind
 %     says every clause runs carries no cut.
 % Assumes:
-%   - ext_point_kind/2 in engine/ext_points.pl is the taxonomy. This file reads it
+%   - seam:kind/2 in engine/ext_points.pl is the taxonomy. This file reads it
 %     rather than restating it, which is the whole point: the restated list it
-%     replaced had metta_backend_selftest/0 missing and metta_dispatch_call/4
+%     replaced had seam:backend_selftest/0 missing and seam:dispatch_call/4
 %     wrongly present [source: their call sites, main.pl:36 and
 %     translator.pl:350].
 %   - space_module/2 (engine/spaces.pl:231-232) and native_storage_module_cache/2
@@ -20,7 +20,7 @@
 %   - var_branches warnings are fatal for repository engine sources without
 %     attributing warnings from SWI's own libraries to the repository.
 %   - Every unqualified multifile seam declared anywhere under engine, lib,
-%     bindings/python/petta or backends/mork/mork_ffi has exactly one ext_point_kind/2 fact, so a new
+%     bindings/python/petta or backends/mork/mork_ffi has exactly one seam:kind/2 fact, so a new
 %     seam cannot go quietly unchecked [measured 2026-08-17: 28 seams].
 %   - Each kind is declared the way its direction requires: a handler seam
 %     multifile so an extension can add clauses, a service not, so a caller
@@ -113,18 +113,21 @@ main :-
 
 %%%% Every seam declares one kind %%%%
 %
-% engine/ext_points.pl gives each multifile seam an ext_point_kind/2 fact on the
+% engine/ext_points.pl gives each multifile seam an seam:kind/2 fact on the
 % line after its declaration, and the two checks below read those rather than
 % keeping a list of their own. That only works if the annotation is TOTAL: a
 % seam added without a kind is silently exempt from the cut check, which is
 % the drift this arrangement exists to stop. Restating the list by hand is
-% what put metta_backend_selftest/0 outside the check and metta_dispatch_call/4
+% what put seam:backend_selftest/0 outside the check and seam:dispatch_call/4
 % wrongly inside it. So the declarations are read back out of the source and
 % each one is required to have exactly one kind.
 %
-% A module-qualified seam is somebody else's protocol. prolog:message//1 and
-% user:thread_message_hook/3 are SWI's and their contract is fixed there, so
-% the shape below matches an unqualified indicator only and passes over them.
+% A seam qualified with a module OTHER than `seam` is somebody else's
+% protocol. prolog:message//1 and user:thread_message_hook/3 are SWI's and
+% their contract is fixed there, so the shape below matches an unqualified
+% indicator, which is what engine/ext_points.pl writes inside its own module,
+% or a `seam:` one, which is what every extension writes, and passes over the
+% rest.
 declared_seam(File, Seam) :-
     hook_source_file(File),
     source_term(File, (:- multifile Spec)),
@@ -133,6 +136,14 @@ declared_seam(File, Seam) :-
 multifile_indicator(Spec, _) :- var(Spec), !, fail.
 multifile_indicator((A, B), Seam) :-
     !, ( multifile_indicator(A, Seam) ; multifile_indicator(B, Seam) ).
+%`seam:` and no other module. A handler seam lives in the seam module now, so
+%every extension declares it the way SWI's own hooks are declared,
+%`:- multifile seam:atom_added/2.`, and this scan reads the file as TEXT
+%rather than asking the database: without this clause it saw none of them.
+%Matching ANY module would drag in prolog:message//1 and
+%user:thread_message_hook/3, which the note above passes over on purpose.
+multifile_indicator(seam:Spec, Seam) :-
+    !, multifile_indicator(Spec, Seam).
 multifile_indicator(Name/Arity, Name/Arity) :- atom(Name), integer(Arity).
 multifile_indicator(Name//Arity, Name/Total) :-
     atom(Name), integer(Arity), Total is Arity + 2.
@@ -142,18 +153,18 @@ every_seam_declares_one_kind :-
     sort(Declared0, Declared),
     findall(Seam-Count-File,
             ( member(Seam, Declared),
-              aggregate_all(count, ext_point_kind(Seam, _), Count),
+              aggregate_all(count, seam:kind(Seam, _), Count),
               Count =\= 1,
               once(declared_seam(File, Seam)) ),
             Wrong),
     (   Wrong == []
     ->  length(Declared, Total),
-        aggregate_all(count, ext_point_every_clause_runs(_), Checked),
+        aggregate_all(count, seam:every_clause_runs(_), Checked),
         format("static: ~d extension-point seams each declare one kind, \c
                 ~d of which have every clause run~n", [Total, Checked])
     ;   forall(member(Seam-Count-File, Wrong),
                format(user_error,
-                      'the seam ~w in ~w has ~d ext_point_kind/2 facts and \c
+                      'the seam ~w in ~w has ~d seam:kind/2 facts and \c
                        needs exactly one~ngive it event, ownership or \c
                        declaration on the line after its declaration, or the \c
                        cut check passes over it~n',
@@ -175,7 +186,7 @@ every_seam_declares_one_kind :-
 % invalidation handler was ordered after it and never ran, so a changed
 % function kept a stale dual and (not-provable (pq 2)) answered True and
 % False at once. Nothing in the tree would have said so.
-event_hook(Name, Arity) :- ext_point_every_clause_runs(Name/Arity).
+event_hook(Name, Arity) :- seam:every_clause_runs(Name/Arity).
 
 no_cut_in_an_event_hook :-
     findall(File-Name/Arity,
@@ -206,8 +217,8 @@ source_scan_sees_a_planted_cut :-
     aggregate_all(count,
                   ( hook_source_file(File), event_hook_clause(File, _, _, _) ),
                   Examined),
-    Written  = (metta_on_atom_added(_, _) :- (!, fail)),
-    Asserted = (:- assertz((metta_on_atom_added(_, _) :- (!, fail)))),
+    Written  = (seam:atom_added(_, _) :- (!, fail)),
+    Asserted = (:- assertz((seam:atom_added(_, _) :- (!, fail)))),
     aggregate_all(count,
                   ( member(Term, [Written, Asserted]),
                     hook_clause_term(Term, _, _, Body),
@@ -278,7 +289,7 @@ source_stream_term(Stream, Term) :-
 %
 % The source scan reads every clause a file writes, including one a directive
 % asserts, and that is still not all of them. lib/lib_thread.pl installs a
-% metta_on_atom_added/2 handler from inside space_await_/4, Python
+% seam:atom_added/2 handler from inside space_await_/4, Python
 % subscriptions install their own, and a body built at run time is in no file
 % to read. So the same rule is applied a second way, to the clauses that are
 % actually in the database.
@@ -299,7 +310,7 @@ source_stream_term(Stream, Term) :-
 % inherited clause counted once no matter how many candidate modules can
 % see it.
 live_hook_clause(Name/Arity, Body) :-
-    ext_point_every_clause_runs(Name/Arity),
+    seam:every_clause_runs(Name/Arity),
     functor(Head, Name, Arity),
     distinct(Ref,
              ( candidate_engine_module(Module),
@@ -348,7 +359,7 @@ library_source(Library) :-
 % but &self before Phase 11, and are different atoms for all of them now.
 live_scan_sees_a_planted_cut :-
     aggregate_all(count, live_hook_clause(_, _), Live),
-    Planted = metta_on_function_removed(_),
+    Planted = seam:function_removed(_),
     space_module('&self', TodayModule),
     Fixture = '$static-check-fixture:&hook-probe',
     space_module(Fixture, FixtureModule),
@@ -581,7 +592,7 @@ body_subterm(Term, Sub) :-
 % A compiled body resolves its goals in the module the clause went into, so a
 % MeTTa equation for the name of a goal the TRANSLATOR wrote would capture that
 % goal in the space's own bodies: silently, and with a wrong answer rather than
-% an error. metta_engine_emitted/1 (engine/translator.pl) names those and
+% an error. seam:engine_emitted/1 (engine/translator.pl) names those and
 % protect_engine_emitted/1 (engine/spaces.pl) binds each into every space's
 % module, which is what makes the assert refuse.
 %
@@ -683,14 +694,14 @@ every_engine_emitted_goal_is_protected :-
             Unprotected0),
     sort(Unprotected0, Unprotected),
     (   Unprotected == []
-    ->  aggregate_all(count, metta_engine_emitted(_), Protected),
+    ->  aggregate_all(count, seam:engine_emitted(_), Protected),
         format("static: every one of ~d goal indicators the corpus compiles is \c
                 either a MeTTa name or one of the ~d the engine protects~n",
                [Seen, Protected])
     ;   forall(member(Indicator, Unprotected),
                format(user_error,
                       'the engine emits ~w into compiled bodies and a MeTTa \c
-                       equation can take it: name it in metta_engine_emitted/1 \c
+                       equation can take it: name it in seam:engine_emitted/1 \c
                        (engine/translator.pl) or qualify the goal~n',
                       [Indicator])),
         fail
@@ -698,7 +709,7 @@ every_engine_emitted_goal_is_protected :-
 
 %%%% Each kind is declared the way its direction requires %%%%
 %
-% ext_point_clauses_from/2 splits the kinds by who writes the clauses, and the
+% seam:clauses_from/2 splits the kinds by who writes the clauses, and the
 % two halves are declared differently. A handler seam is multifile, because
 % that is the permission an extension needs to add clauses to it. A service is
 % NOT, because an extension calling one must not be able to redefine it, and
@@ -710,7 +721,7 @@ every_engine_emitted_goal_is_protected :-
 % than fail one.
 every_seam_kind_matches_its_direction :-
     findall(Seam-Kind-Fault,
-            ( ext_point_kind(Seam, Kind),
+            ( seam:kind(Seam, Kind),
               seam_direction_fault(Seam, Kind, Fault) ),
             Faults0),
     % A seam declared multifile in two files answers declared_seam/2 twice, and
@@ -729,9 +740,9 @@ every_seam_kind_matches_its_direction :-
 % planted against a name no tree will hold, and the check reports which one
 % stopped firing.
 direction_check_sees_a_planted_fault :-
-    aggregate_all(count, ext_point_kind(_, service), Services),
+    aggregate_all(count, seam:kind(_, service), Services),
     aggregate_all(count,
-                  ( ext_point_kind(_, K), ext_point_clauses_from(K, extension) ),
+                  ( seam:kind(_, K), seam:clauses_from(K, extension) ),
                   Handlers),
     % The third pairs a seam that IS declared multifile with the service kind,
     % which is the only way that fault can arise and the reason the first
@@ -739,7 +750,7 @@ direction_check_sees_a_planted_fault :-
     % multifile, so planting it proved nothing and the check said so.
     Faults = [ undeclared_handler-(planted_seam/9)-event,
                undefined_service-(planted_seam/9)-service,
-               multifile_service-(metta_foreign_space/1)-service ],
+               multifile_service-(foreign_space/1)-service ],
     % once/1, because a seam declared multifile in two files answers
     % declared_seam/2 twice and a fault that fired twice is still one fault.
     findall(Name,
@@ -761,17 +772,17 @@ direction_check_sees_a_planted_fault :-
     ).
 
 seam_direction_fault(Seam, Kind, Fault) :-
-    ext_point_clauses_from(Kind, extension),
+    seam:clauses_from(Kind, extension),
     \+ declared_seam(_, Seam),
     Fault = 'has no :- multifile declaration, so no check in this file \c
              can see its clauses'.
 seam_direction_fault(Seam, Kind, Fault) :-
-    ext_point_clauses_from(Kind, engine),
+    seam:clauses_from(Kind, engine),
     declared_seam(_, Seam),
     Fault = 'is declared multifile, which lets a caller redefine the very \c
              predicate it was published to call'.
 seam_direction_fault(Seam, Kind, Fault) :-
-    ext_point_clauses_from(Kind, engine),
+    seam:clauses_from(Kind, engine),
     Seam = Name/Arity,
     functor(Head, Name, Arity),
     \+ ( candidate_engine_module(Module), current_predicate(_, Module:Head) ),
@@ -812,7 +823,7 @@ a_backend_calls_only_published_surface :-
                format(user_error,
                       'the backend predicate ~w calls ~w, which is an engine \c
                        internal rather than published surface~ndeclare it \c
-                       ext_point_kind(~w, service) in engine/ext_points.pl if a \c
+                       seam:kind(~w, service) in engine/ext_points.pl if a \c
                        backend is meant to call it~n',
                       [Caller, Callee, Callee])),
         fail
@@ -846,7 +857,7 @@ a_host_binding_calls_only_published_surface :-
                format(user_error,
                       'the host transport predicate ~w calls ~w, an engine \c
                        internal rather than published surface~ndeclare it \c
-                       ext_point_kind(~w, host_service) in \c
+                       seam:kind(~w, host_service) in \c
                        engine/ext_points.pl if the host transport is meant to \c
                        call it~n',
                       [Caller, Callee, Callee])),

@@ -43,7 +43,7 @@ The add markup is the text write. The match figure is the text READ:
 enumeration-filtering parses every stored line per query, about 140
 inferences each, which is `EXTENDING.md`'s own lesson that the crossing
 is cheap and the text is not. A store that wants fast bound queries
-declares `metta_foreign_match/3` and filters natively, which is exactly
+declares `seam:foreign_match/3` and filters natively, which is exactly
 what `backends/mork/mork_ffi/morkspaces.pl` does; a structure that should never
 become text at all crosses as an opaque handle instead, the
 `c_extension` example beside this one.

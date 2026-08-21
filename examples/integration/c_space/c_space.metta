@@ -60,10 +60,10 @@
 ;provider reports.
 !(if (file-exists "./examples/integration/c_space/cstore.so")
      (test (check-space-provider &cstore)
-           ("enumerate: declared, metta_foreign_atoms/2 has clauses"
-            "add: declared, metta_foreign_add/2 has clauses"
-            "remove: declared, metta_foreign_remove/3 has clauses"
-            "clear: declared, metta_foreign_clear/1 has clauses"
+           ("enumerate: declared, seam:foreign_atoms/2 has clauses"
+            "add: declared, seam:foreign_add/2 has clauses"
+            "remove: declared, seam:foreign_remove/3 has clauses"
+            "clear: declared, seam:foreign_clear/1 has clauses"
             "match: over-approximation holds over 1 atoms"
             "pushdown: 0 of 1 patterns claimed exact, and are"
             "plan: not declared, so a conjunction takes the engine's split"))

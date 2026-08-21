@@ -250,7 +250,7 @@ run GATE node-binding check_node_binding
 #                is `:- dynamic mettafunc/2.`, which would clear it properly.
 # Anything else is a regression and fails. Shrink this list, never grow it.
 # mork_test/0 used to be here too, because engine/main.pl called it by name behind
-# a `mork` branch; it is metta_backend_selftest/0 now, declared multifile, so a
+# a `mork` branch; it is seam:backend_selftest/0 now, declared multifile, so a
 # process with no backend has a predicate with no clauses rather than a call to
 # something absent.
 PROLOG_KNOWN_UNDEFINED='mettafunc/2'

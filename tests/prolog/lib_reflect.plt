@@ -7,7 +7,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 :- initialization(consult('../../lib/lib_reflect.pl')).
 
 :- begin_tests(lib_reflect).
@@ -91,8 +91,8 @@ test(every_user_function_is_a_function_and_not_a_builtin) :-
 % A seam's kind decides whether a cut in a handler is an optimisation or a
 % soundness bug, so a wrong one is not cosmetic. The two named here are the
 % ones that were wrong while the taxonomy was prose in a comment:
-% metta_backend_selftest/0 is enumerated with forall/2 [source: engine/main.pl:36]
-% and was outside the check that enforces the rule, and metta_dispatch_call/4
+% seam:backend_selftest/0 is enumerated with forall/2 [source: engine/main.pl:36]
+% and was outside the check that enforces the rule, and seam:dispatch_call/4
 % is taken with ->/2 [source: engine/translator.pl:364] and was wrongly inside it.
 test(extension_points_are_reported) :-
     findall(Point, 'engine-extension-point'(Point), Points),
@@ -101,11 +101,11 @@ test(extension_points_are_reported) :-
              assertion(integer(Arity)),
              assertion(memberchk(Kind, [event, ownership, declaration,
                                         service, host_service])) )),
-    forall(member(Expected, [[metta_backend_selftest, 0, event],
-                             [metta_dispatch_call, 4, ownership],
-                             [metta_on_atom_added, 2, event],
-                             [metta_foreign_match, 3, ownership],
-                             [metta_pure_operation, 1, declaration],
+    forall(member(Expected, [[backend_selftest, 0, event],
+                             [dispatch_call, 4, ownership],
+                             [atom_added, 2, event],
+                             [foreign_match, 3, ownership],
+                             [pure_operation, 1, declaration],
                              [swrite, 2, service]]),
            assertion(memberchk(Expected, Points))).
 
@@ -117,9 +117,9 @@ test(both_directions_of_the_contract_are_reported) :-
     findall(K-N/A, 'engine-extension-point'([N, A, K]), Points),
     forall(member(Direction, [extension, engine]),
            assertion(( member(Kind-_, Points),
-                       ext_point_clauses_from(Kind, Direction) ))),
+                       seam:clauses_from(Kind, Direction) ))),
     assertion(memberchk(service-swrite/2, Points)),
-    assertion(memberchk(ownership-metta_foreign_match/3, Points)).
+    assertion(memberchk(ownership-foreign_match/3, Points)).
 
 % The cut check reads the derivation rather than the kinds, so the derivation
 % is what has to hold. It is not "every kind but ownership": that rule is about
@@ -128,18 +128,18 @@ test(both_directions_of_the_contract_are_reported) :-
 % own and cut freely, swrite/2 among them, and reading the rule off the kind
 % list alone would call every one of them an offender.
 test(every_extension_kind_but_ownership_has_every_clause_run) :-
-    forall(ext_point_kind(Seam, Kind),
-           (   ext_point_clauses_from(Kind, extension), Kind \== ownership
-           ->  assertion(ext_point_every_clause_runs(Seam))
-           ;   assertion(\+ ext_point_every_clause_runs(Seam))
+    forall(seam:kind(Seam, Kind),
+           (   seam:clauses_from(Kind, extension), Kind \== ownership
+           ->  assertion(seam:every_clause_runs(Seam))
+           ;   assertion(\+ seam:every_clause_runs(Seam))
            )).
 
 % Every kind carries a direction, checked rather than assumed: a kind added
 % without one is exempt from the cut rule by silence, which is the drift
-% ext_point_kind/2 was made data to stop.
+% seam:kind/2 was made data to stop.
 test(every_kind_declares_its_direction) :-
-    forall(ext_point_kind(_, Kind),
-           assertion(( ext_point_clauses_from(Kind, Direction),
+    forall(seam:kind(_, Kind),
+           assertion(( seam:clauses_from(Kind, Direction),
                        memberchk(Direction, [extension, engine]) ))).
 
 :- end_tests(lib_reflect).

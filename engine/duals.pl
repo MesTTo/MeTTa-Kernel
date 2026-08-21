@@ -66,7 +66,7 @@
 %   - every form this cannot dualise soundly raises rather than answering from
 %     an incomplete dual [tested: duals_refusals].
 %   - a dual is rebuilt when the equations it was built from change, through
-%     the same metta_on_function_changed/1 hook the memo tables use
+%     the same seam:function_changed/1 hook the memo tables use
 %     [tested: duals_invalidation].
 % Owns: the generated dual clauses. record_source_assertion/1 registers each
 %   one so a failed source load erases them with everything else.
@@ -566,11 +566,11 @@ dual_name(Fun, DualName) :- atom_concat('not-', Fun, DualName).
 %two threads arriving together both saw neither marker and both built: 32
 %calls through m.pool(workers=8) left five clauses of not-p/2, five
 %dual_ready facts, four dual_hooks_installed and seven
-%metta_on_function_changed handlers, and (not-provable (p 0)) answered True
+%seam:function_changed handlers, and (not-provable (p 0)) answered True
 %five times [measured 2026-08-17]. The count varied per run, which is what
 %says race rather than off-by-one.
 %
-%The duplicated hook handlers were the worse half: metta_on_function_changed/1
+%The duplicated hook handlers were the worse half: seam:function_changed/1
 %is an EVENT hook, so every duplicate ran on every compiled equation, and the
 %leak grew by one per racing build with nothing to bound it.
 %
@@ -1294,7 +1294,7 @@ flatten_goals([G|Gs], Out) :-
 
 %A dual is a compiled summary of a function's equations, so it is stale the
 %moment they change. This is the hook the memo tables already use, for the
-%same reason [source: lib/lib_memo.pl, metta_on_function_changed/1].
+%same reason [source: lib/lib_memo.pl, seam:function_changed/1].
 %
 %Installed on the first dual rather than on load. The hook runs once per
 %compiled equation, so a resident handler is a tax on every program that
@@ -1317,8 +1317,8 @@ install_dual_hooks :-
 install_dual_hooks_locked :-
     (   dual_hooks_installed
     ->  true
-    ;   assertz((metta_on_function_changed(Fun) :- drop_duals_of(Fun))),
-        assertz((metta_on_function_removed(Fun) :- drop_duals_of(Fun))),
+    ;   assertz((seam:function_changed(Fun) :- drop_duals_of(Fun))),
+        assertz((seam:function_removed(Fun) :- drop_duals_of(Fun))),
         %Last, so a thread reading the marker without the lock cannot see it
         %set before the handlers it promises are there.
         assertz(dual_hooks_installed)

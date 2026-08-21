@@ -31,7 +31,7 @@
 
 % The engine through metta.pl, not main.pl, whose initialization(main, main)
 % fires on consult and prints its demo into the test output.
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 :- begin_tests(property_lane_laws).
 

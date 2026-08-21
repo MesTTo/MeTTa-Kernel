@@ -12,7 +12,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 :- initialization(consult('../../lib/lib_conformance.pl')).
 :- initialization(user:consult('conformance_providers')).
 
@@ -22,7 +22,7 @@ test(conformance_passes_a_conforming_provider) :-
     metta_check_space_provider('&plunit_conf_good', Checks),
     assertion(memberchk("match: over-approximation holds over 2 atoms", Checks)),
     assertion(memberchk("pushdown: 0 of 2 patterns claimed exact, and are", Checks)),
-    assertion(memberchk("match: declared, metta_foreign_match/3 has clauses", Checks)).
+    assertion(memberchk("match: declared, seam:foreign_match/3 has clauses", Checks)).
 
 % The seam's central soundness claim: over-approximating is always correct and
 % under-approximating never is. A provider that filters too eagerly answers an
@@ -42,7 +42,7 @@ test(conformance_catches_a_false_exact_claim,
 % callback; here it is a mistake named at check time.
 test(conformance_catches_a_capability_with_no_hook,
      [throws(error(petta_conformance_no_hook('&plunit_conf_hookless', clear,
-                                             metta_foreign_clear/1), _))]) :-
+                                             seam:foreign_clear/1), _))]) :-
     metta_check_space_provider('&plunit_conf_hookless', _).
 
 test(conformance_refuses_a_space_that_is_not_foreign,

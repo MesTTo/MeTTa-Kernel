@@ -117,7 +117,7 @@
         %the enumeration space-atom-count refuses to hide. A native capacity
         %claim owns an incremental dynamic count; the first decision after a
         %direct contract write installs it from the exact store count.
-        (   metta_foreign_space(Pool)
+        (   seam:foreign_space(Pool)
         ->  aggregate_all(count, 'get-atoms'(Pool, _), Count)
         ;   (   petta_capacity_count(Pool, Count)
             ->  true

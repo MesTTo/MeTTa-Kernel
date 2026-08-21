@@ -4,10 +4,10 @@
 %
 % It records and then FAILS, which is the contract: failing means "I have no
 % cached answer for this call", and the ordinary call proceeds.
-:- multifile metta_dispatch_call/4.
+:- multifile seam:dispatch_call/4.
 :- dynamic plunit_dispatch_seen/1.
 
-metta_dispatch_call(Function, _, _, _) :-
+seam:dispatch_call(Function, _, _, _) :-
     ( plunit_dispatch_seen(Function)
       -> true
       ;  assertz(plunit_dispatch_seen(Function)) ),

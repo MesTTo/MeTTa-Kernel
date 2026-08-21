@@ -12,7 +12,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 :- consult('ciao_grade.pl').
 :- use_module(library(prolog_pack), [pack_property/2]).
 

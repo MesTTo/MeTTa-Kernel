@@ -10,7 +10,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 :- initialization(consult('../../lib/lib_memo.pl')).
 
 % The eviction test drives the store against a tiny budget, so it has to move

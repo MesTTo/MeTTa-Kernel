@@ -26,23 +26,23 @@
    directory_file_path(Dir, 'cstore.so', Artefact),
    use_foreign_library(Artefact, install_cstore).
 
-:- multifile metta_foreign_space/1.
-:- multifile metta_foreign_capability/2.
-:- multifile metta_foreign_add/2.
-:- multifile metta_foreign_remove/3.
-:- multifile metta_foreign_atoms/2.
-:- multifile metta_foreign_clear/1.
+:- multifile seam:foreign_space/1.
+:- multifile seam:foreign_capability/2.
+:- multifile seam:foreign_add/2.
+:- multifile seam:foreign_remove/3.
+:- multifile seam:foreign_atoms/2.
+:- multifile seam:foreign_clear/1.
 
-metta_foreign_space('&cstore').
+seam:foreign_space('&cstore').
 
-metta_foreign_capability('&cstore', add).
-metta_foreign_capability('&cstore', remove).
-metta_foreign_capability('&cstore', enumerate).
-metta_foreign_capability('&cstore', clear).
+seam:foreign_capability('&cstore', add).
+seam:foreign_capability('&cstore', remove).
+seam:foreign_capability('&cstore', enumerate).
+seam:foreign_capability('&cstore', clear).
 
 %Being a shared library is a text problem: a symbol the grammar cannot
 %read back must be refused where it is written, not stored and lost.
-metta_foreign_add('&cstore', Atom) :-
+seam:foreign_add('&cstore', Atom) :-
     (   metta_unwritable_symbol(Atom, Bad)
     ->  throw(error(domain_error(cstore_text_symbol, Bad),
                     context('add-atom'/3,
@@ -62,7 +62,7 @@ metta_foreign_add('&cstore', Atom) :-
 %because the enumeration walks a snapshot: another thread may take the
 %line between finding it and removing it, and then nothing was removed
 %here and the answer has to say so.
-metta_foreign_remove('&cstore', Pattern, Removed) :-
+seam:foreign_remove('&cstore', Pattern, Removed) :-
     (   once(( cstore_text(Text),
                sread(Text, Atom),
                \+ Atom \= Pattern )),
@@ -71,9 +71,9 @@ metta_foreign_remove('&cstore', Pattern, Removed) :-
     ;   Removed = false
     ).
 
-metta_foreign_atoms('&cstore', Atom) :-
+seam:foreign_atoms('&cstore', Atom) :-
     cstore_text(Text),
     sread(Text, Atom).
 
-metta_foreign_clear('&cstore') :-
+seam:foreign_clear('&cstore') :-
     cstore_clear.

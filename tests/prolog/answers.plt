@@ -9,7 +9,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 :- initialization(consult('../../bindings/python/petta/shim.pl')).
 
 :- begin_tests(python_answer_residue).
@@ -82,10 +82,10 @@ test(a_theta_plan_row_binds_the_claimed_patterns) :-
 % annotation story. A Prolog provider needs no wire; it sets the answer's
 % annotation directly, backtrackably, and top reads it the same way it
 % reads one a Python answer carried across.
-:- multifile metta_foreign_space/1.
-:- multifile metta_foreign_match/3.
-metta_foreign_space('&plunit_topk').
-metta_foreign_match('&plunit_topk', [scored, X], Options) :-
+:- multifile seam:foreign_space/1.
+:- multifile seam:foreign_match/3.
+seam:foreign_space('&plunit_topk').
+seam:foreign_match('&plunit_topk', [scored, X], Options) :-
     nb_setval('$plunit_topk_options', Options),
     member(X-K, [a-0.5, b-0.9, c-0.1, d-0.7]),
     b_setval('$petta_answer_k', K).

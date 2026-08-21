@@ -76,7 +76,7 @@
 %     +2.1% instructions on examples/performance/scale.metta
 %     [measured 2026-08-15].
 %   - Python operation purity reaches the same `(effect Name immutable)` atom
-%     read by metta_pure_operation/1 [tested:
+%     read by seam:pure_operation/1 [tested:
 %     test_pure_registration_reflects_an_effect_atom; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861].
 %   - A result past binary64 saturates to the IEEE value on the engine's
 %     operations, agreeing with the reader's saturating literals, and an
@@ -132,11 +132,11 @@
 %     family builds @doc-formal answers from that scoped type and prose
 %     [tested 2026-08-20:
 %     bindings/python/tests/test_doc_family.py::test_the_doc_family_answers_what_upstream_answers].
-%   - builtin_type_declaration/2 rows are the union of lib_builtin_types.metta
+%   - seam:builtin_type_declaration/2 rows are the union of lib_builtin_types.metta
 %     and the prelude's, with each row written once and evicted only by the
 %     register that wrote it [tested 2026-08-19:
 %     metta_builtin_type_surface:a_shared_declaration_is_evicted_only_from_the_register_that_wrote_it].
-%   - External Prolog libraries extend builtin_type_declaration/2 without
+%   - External Prolog libraries extend seam:builtin_type_declaration/2 without
 %     replacing the engine's rows, and unloading retires only their own clauses
 %     [tested: test_a_library_types_its_own_blob_without_destroying_the_table;
 %     commit=6f06e918c8f3382e8e1c8ccd8d120c6d809999a5].
@@ -175,8 +175,8 @@
 %   - Python source imports restore sibling modules and sys.path after setup
 %     or execution errors [tested 2026-08-14:
 %     metta_python_import_cleanup].
-%   - Every metta_grounded_extra_type/2 clause is consulted whether or not a host
-%     bridge answers metta_grounded_type_names/2, so a (py-atom f Type)
+%   - Every seam:grounded_extra_type/2 clause is consulted whether or not a host
+%     bridge answers seam:grounded_type_names/2, so a (py-atom f Type)
 %     declaration survives the Python library being loaded [tested 2026-08-18:
 %     bindings/python/tests/test_ops.py::test_a_declared_type_survives_the_library_being_loaded]
 %     [measured 2026-08-18: +2 inferences per get-type on a Python object and
@@ -401,7 +401,15 @@ metta_exec_module_prefix('$petta_exec:').
 goal_expansion(metta_self_module(Module), Module = '$petta_exec:&self').
 goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 
-:- ensure_loaded([ext_points, parser, type_rules, translator, translator_rules,
+%The seam module loads FIRST and with an EMPTY import list. First because
+%every file below declares or asks a seam; empty because `seam:` is the whole
+%point of it. Importing the handler seams here would put atom_added/2,
+%foreign_match/3 and forty-odd others back in the engine's own namespace,
+%where an extension could reach them unqualified again and where each one is a
+%name a MeTTa program can no longer have.
+:- use_module(ext_points, []).
+
+:- ensure_loaded([parser, type_rules, translator, translator_rules,
                   support_graph, specializer, filereader,
                   '../lib/lib_gitimport', spaces, tracer, duals, kernel]).
 
@@ -462,7 +470,7 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 %the split every host wants and none of them should have to implement.
 %
 %The engine's own position is fixed rather than the backend's: they load after
-%everything, because a provider is reached through metta_foreign_space/1 and
+%everything, because a provider is reached through seam:foreign_space/1 and
 %not through clause order. That was true before this change and is what made it
 %safe [verified 2026-08-16: moved, whole gate green including the MORK tests].
 :- prolog_load_context(directory, Src),
@@ -644,7 +652,7 @@ metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins) :-
     current_metta_module(Module),
     (   type_declaration_in(Module, Operation, Chain0)
     ;   \+ type_declaration_in(Module, Operation, _),
-        builtin_type_declaration(Operation, Chain0)
+        seam:builtin_type_declaration(Operation, Chain0)
     ),
     copy_term(Chain0, [->|Types]),
     append(ParameterTypes, [_], Types),
@@ -809,7 +817,7 @@ shallow_argument_types([H|_], Types) :-
                   nonvar(Chain), Chain = [->|Rest], last(Rest, Return) ),
                 Types),
         Types \== []
-    ;   builtin_type_declaration(H, Chain),
+    ;   seam:builtin_type_declaration(H, Chain),
         nonvar(Chain), Chain = [->|Rest],
         last(Rest, Return),
         Types = [Return]
@@ -822,7 +830,7 @@ shallow_argument_types(X, Types) :-
                   \+ ( nonvar(Type), Type = [->|_] ) ),
                 Types),
         Types \== []
-    ;   builtin_type_declaration(X, Type),
+    ;   seam:builtin_type_declaration(X, Type),
         \+ ( nonvar(Type), Type = [->|_] ),
         Types = [Type]
     ).
@@ -835,7 +843,7 @@ shallow_declared_type(Name, Type) :-
     '$petta_atoms:&self':'&self'(':', Name, Type).
 shallow_declared_type(Name, Type) :-
     \+ '$petta_atoms:&self':'&self'(':', Name, _),
-    builtin_type_declaration(Name, Type).
+    seam:builtin_type_declaration(Name, Type).
 
 metta_argument_types_in(Module, Argument, Types) :-
     (   metta_reading_declared_types
@@ -966,7 +974,7 @@ metta_math_saturating_recovery(Operation, Expression, Arguments, Error, Out) :-
 
 %Check the numeric input at the operation's own door, before is/2 can interpret
 %a one-character string as its character code. The refusal itself is derived
-%from builtin_type_declaration/2 through metta_operation_answer/3, the same
+%from seam:builtin_type_declaration/2 through metta_operation_answer/3, the same
 %table that guards translated calls; computed and direct operands therefore
 %name the operation, position, expected Number and actual String alike.
 metta_math_eval(Operation, Expression, Arguments, Out) :-
@@ -1712,7 +1720,7 @@ non_list(X) :- compound(X), X \= [_|_].
 %  - 7 raised, but named a HOST predicate the MeTTa program never wrote:
 %    (sort-atom $u) said `msort/2`, (sread $u) said `atom_codes/2`.
 %
-%The POSITIONS are read off builtin_type_declaration/2 rather than listed, so
+%The POSITIONS are read off seam:builtin_type_declaration/2 rather than listed, so
 %declaring a type for a new builtin strengthens its guard in the same stroke
 %and the table and the guards cannot drift apart. The probe in
 %bindings/python/tests/test_builtin_inputs.py enumerates the same table.
@@ -1782,7 +1790,7 @@ relational_input_position('is-alpha-member', 2).
 %a boundary rather than an omission, and imported_from/1 is where the engine
 %already records it.
 guarded_input_position(Name, Arity, Position) :-
-    builtin_type_declaration(Name, ['->'|Chain]),
+    seam:builtin_type_declaration(Name, ['->'|Chain]),
     \+ relational_builtin(Name),
     append(Inputs, [_], Chain),
     nth1(Position, Inputs, Type),
@@ -1870,7 +1878,7 @@ indexable_list(List, List).
 %[tested: a_tuple_reads_as_an_expression].
 grounded_list_view(Term, View) :-
     nonvar(Term),
-    (   metta_grounded_structure(Term, View)
+    (   seam:grounded_structure(Term, View)
     ->  true
     ;   compound(Term),
         compound_name_arguments(Term, Name, Arguments),
@@ -2067,7 +2075,7 @@ refuse_untypable_declaration(Name, Types) :-
 get_function_type([F|Args], T) :- nonvar(F),
                                   (   '$petta_atoms:&self':'&self'(':', F, [->|Ts0])
                                   *-> Ts = Ts0
-                                  ;   builtin_type_declaration(F, [->|Ts])
+                                  ;   seam:builtin_type_declaration(F, [->|Ts])
                                   ),
                                   append(As,[T],Ts),
                                   metta_self_module(Self),
@@ -2077,7 +2085,7 @@ get_function_type_in(Module, [F|Args], T) :- \+ metta_self_module(Module),
                                              nonvar(F),
                                              (   type_declaration_in(Module, F, [->|Ts0])
                                              *-> Ts = Ts0
-                                             ;   builtin_type_declaration(F, [->|Ts])
+                                             ;   seam:builtin_type_declaration(F, [->|Ts])
                                              ),
                                              append(As,[T],Ts),
                                              metta_argument_type_origins(As,
@@ -2089,14 +2097,14 @@ application_arrow_declared([F|_]) :-
     nonvar(F),
     (   '$petta_atoms:&self':'&self'(':', F, [->, _|_])
     ->  true
-    ;   builtin_type_declaration(F, [->, _|_])
+    ;   seam:builtin_type_declaration(F, [->, _|_])
     ).
 
 application_arrow_declared_in(Module, [F|_]) :-
     nonvar(F),
     (   type_declaration_in(Module, F, [->, _|_])
     ->  true
-    ;   builtin_type_declaration(F, [->, _|_])
+    ;   seam:builtin_type_declaration(F, [->, _|_])
     ).
 
 %A `get-type` equation compiles into the module of the space that wrote it, so
@@ -2143,12 +2151,12 @@ reported_rest_arrow(Module, F, Result) :-
     ->  (   '$petta_atoms:&self':'&self'(':', F,
                                         [->, ['%Rest%', _], Result])
         *-> true
-        ;   builtin_type_declaration(F, [->, ['%Rest%', _], Result])
+        ;   seam:builtin_type_declaration(F, [->, ['%Rest%', _], Result])
         )
     ;   (   type_declaration_in(Module, F,
                                 [->, ['%Rest%', _], Result])
         *-> true
-        ;   builtin_type_declaration(F, [->, ['%Rest%', _], Result])
+        ;   seam:builtin_type_declaration(F, [->, ['%Rest%', _], Result])
         )
     ).
 
@@ -2360,7 +2368,7 @@ any_super_type_edge(Module) :-
     (   metta_self_module(Module)
     ->  native_edge_probe('&self')
     ;   metta_module_space(Module, Space),
-        metta_foreign_space(Space)
+        seam:foreign_space(Space)
     ->  \+ \+ super_type_in(Module, _, _)
     ;   metta_module_space(Module, Space2),
         native_edge_probe(Space2)
@@ -2370,7 +2378,7 @@ any_super_type_edge(Module) :-
         %chain here instead cost a fresh python space +400k inferences on
         %alpha-unique's counter before its first native write [measured
         %2026-08-17]. A provider that plugs in through raw multifile
-        %match/4 clauses without metta_foreign_space/1 is outside this
+        %match/4 clauses without seam:foreign_space/1 is outside this
         %probe, and outside the seam's documented contract (EXTENDING.md:
         %"Do not add raw match/4 clauses instead"); declaring the seam is
         %what buys module-local edge service.
@@ -2509,7 +2517,7 @@ get_type_candidate(false, 'Bool') :- !.
 %with no host loaded answers no at one failed lookup and never initializes
 %anything [tested: metta_object_types].
 get_type_candidate(X, T) :- atomic(X), \+ atom(X),
-                            metta_host_object(X),
+                            seam:host_object(X),
                             metta_grounded_type(X, T).
 get_type_candidate([Family|Parameters], 'SpaceType') :-
     Space = [Family|Parameters],
@@ -2524,7 +2532,7 @@ get_type_candidate(X, T) :- \+ application_arrow_declared(X),
                             tuple_type(Members, T).
 get_type_candidate(X, T) :- '$petta_atoms:&self':'&self'(':', X, T),
                             acyclic_term(T).
-get_type_candidate(X, T) :- builtin_type_declaration(X, T).
+get_type_candidate(X, T) :- seam:builtin_type_declaration(X, T).
 %A space handle's own type, which no declaration carries because no program
 %wrote the handle. `(get-type &self)` and the type of a space a program made
 %are both `SpaceType` on hyperon 0.2.10, including for a `(new-space)` nothing
@@ -2540,7 +2548,7 @@ get_type_candidate_in(_, X, 'String')   :- string(X), !.
 get_type_candidate_in(_, true, 'Bool')  :- !.
 get_type_candidate_in(_, false, 'Bool') :- !.
 get_type_candidate_in(_, X, T) :- atomic(X), \+ atom(X),
-                                  metta_host_object(X),
+                                  seam:host_object(X),
                                   metta_grounded_type(X, T).
 get_type_candidate_in(_, [Family|Parameters], 'SpaceType') :-
     Space = [Family|Parameters],
@@ -2554,7 +2562,7 @@ get_type_candidate_in(Module, X, T) :- \+ application_arrow_declared_in(Module, 
                                        tuple_type(Members, T).
 
 get_type_candidate_in(Module, X, T) :- type_declaration_in(Module, X, T).
-get_type_candidate_in(_, X, T) :- builtin_type_declaration(X, T).
+get_type_candidate_in(_, X, T) :- seam:builtin_type_declaration(X, T).
 get_type_candidate_in(_, X, 'SpaceType') :- atom(X), petta_space_operand(X).
 
 %A NONEMPTY expression no arrow types is read ELEMENT-WISE, and the tuple it reads is
@@ -2614,7 +2622,7 @@ scoped_type_candidate(_, _, X, 'String') :- string(X), !.
 scoped_type_candidate(_, _, true, 'Bool') :- !.
 scoped_type_candidate(_, _, false, 'Bool') :- !.
 scoped_type_candidate(_, _, X, T) :- atomic(X), \+ atom(X),
-                                     metta_host_object(X),
+                                     seam:host_object(X),
                                      metta_grounded_type(X, T).
 scoped_type_candidate(_, _, [Family|Parameters], 'SpaceType') :-
     Space = [Family|Parameters],
@@ -2631,14 +2639,14 @@ scoped_type_candidate(Space, Module, X, T) :-
 scoped_type_candidate(Space, _, X, T) :-
     match_stored(Space, [':', X, T], T, _),
     acyclic_term(T).
-scoped_type_candidate(_, _, X, T) :- builtin_type_declaration(X, T).
+scoped_type_candidate(_, _, X, T) :- seam:builtin_type_declaration(X, T).
 scoped_type_candidate(_, _, X, 'SpaceType') :- atom(X), petta_space_operand(X).
 
 scoped_function_type(Space, Module, [F|Args], T) :-
     nonvar(F),
     (   match_stored(Space, [':', F, [->|Ts0]], Ts0, _)
     *-> Ts = Ts0
-    ;   builtin_type_declaration(F, [->|Ts])
+    ;   seam:builtin_type_declaration(F, [->|Ts])
     ),
     append(Expected, [T], Ts),
     maplist(scoped_has_type(Space, Module), Args, Expected).
@@ -2719,11 +2727,11 @@ scoped_super_type_rounds(Space, Frontier, Accumulated, Widened) :-
 %A bridge that knows how to read the object answers with every type name at
 %once, protocols included, as plain text the boundary cannot damage; without
 %one, the host's own class walk runs, which the HOST BRIDGE supplies through
-%metta_grounded_class_type/2 because enumerating a value's classes is host
+%seam:grounded_class_type/2 because enumerating a value's classes is host
 %code by nature. What a bridge owns is the CLASS WALK and
 %nothing else, so the engine-side extra types are a second clause rather than
 %a branch of this one.
-%No catch here, deliberately. A bridge whose metta_grounded_type_names/2 clause
+%No catch here, deliberately. A bridge whose seam:grounded_type_names/2 clause
 %THROWS is the registrant's bug, and reading the throw as "no bridge answered"
 %ran the class walk instead: one broken protocol predicate silently destroyed
 %typing for every host object in the process, and get-type answered Box, the
@@ -2732,15 +2740,15 @@ scoped_super_type_rounds(Space, Frontier, Accumulated, Widened) :-
 %registrant's bug: surface it with the protocol's name attached, never as a
 %type quietly missing." The fallback is for a bridge that is ABSENT, which is
 %an ordinary configuration and stays one [tested: metta_object_types].
-metta_grounded_type(X, T) :- ( metta_grounded_type_names(X, Names)
+metta_grounded_type(X, T) :- ( seam:grounded_type_names(X, Names)
                                -> member(N, Names),
                                   ( atom(N) -> T = N ; atom_string(T, N) )
-                             ; metta_grounded_class_type(X, T) ).
+                             ; seam:grounded_class_type(X, T) ).
 %A protocol the object satisfies may name a type too, and so may a
-%(py-atom f Type) declaration, both through metta_grounded_extra_type/2, so a
+%(py-atom f Type) declaration, both through seam:grounded_extra_type/2, so a
 %declared (-> DLTensor ...) holds for every array library at once. This is a
 %DECLARATION seam, where every clause has to stay reachable, and not an
-%ownership one [source: engine/ext_points.pl, ext_point_every_clause_runs/1]. It
+%ownership one [source: engine/ext_points.pl, seam:every_clause_runs/1]. It
 %used to hang off the class walk, which is the ELSE arm above, and
 %the shipped library answers the bridge for every Python object: the arm was
 %dead in that configuration and a declared type was accepted and then
@@ -2753,7 +2761,7 @@ metta_grounded_type(X, T) :- ( metta_grounded_type_names(X, Names)
 %Shapiro give for lifting entitlement/2 out of pension/2: a cut that picks a
 %default correctly still prevents the alternatives being found
 %[source: The Art of Prolog 2nd ed, 11.5 "Default Rules", pp 206-207].
-metta_grounded_type(X, T) :- metta_grounded_extra_type(X, T).
+metta_grounded_type(X, T) :- seam:grounded_extra_type(X, T).
 
 %Computed from the VALUE and then unified, rather than dispatched on the answer.
 %The clauses below are ordered and cut on X, so they are only correct when the
@@ -2771,7 +2779,7 @@ metatype_of(X, 'Grounded') :- number(X), !.
 metatype_of(X, 'Grounded') :- string(X), !.
 metatype_of(true,  'Grounded') :- !.
 metatype_of(false, 'Grounded') :- !.
-metatype_of(X, 'Grounded') :- metta_host_object(X), !.
+metatype_of(X, 'Grounded') :- seam:host_object(X), !.
 metatype_of(X, 'Grounded') :- atom(X), metta_grounded_token(X),
                               metta_operation_admitted(X), !.
 %A SPACE HANDLE is a value and not a name that happens to spell one, which is
@@ -3125,7 +3133,7 @@ metta_effect_classify(_, 'space-contains'(Space, Atom, _), Queue-Reads0,
 %program never wrote and advising a declaration that could not be matched.
 metta_effect_classify(_, Dispatch, Queue-Reads, Next-Reads) :-
     compound(Dispatch),
-    metta_effect_operation_name(Dispatch, Name, Arity), !,
+    seam:effect_operation_name(Dispatch, Name, Arity), !,
     (   metta_effect_inert(Name)
     ->  Next = Queue
     ;   throw(error(metta_impure_goal(Name/Arity), none))
@@ -3193,7 +3201,7 @@ metta_effect_reduced(Module, [Head|Args], Queue, Next) :-
         Next = Queue
     ).
 
-metta_effect_inert(Name) :- metta_pure_operation(Name), !.
+metta_effect_inert(Name) :- seam:pure_operation(Name), !.
 metta_effect_inert(Name) :- metta_effect_control(Name), !.
 metta_effect_inert(Name) :- metta_effect_prolog_primitive(Name).
 
@@ -3261,13 +3269,13 @@ prolog:error_message(metta_higher_order_goal(Arity)) -->
 
 prolog:error_message(metta_impure_goal(Name/Arity)) -->
     [ 'caching refuses ~w/~w: nothing declares it pure, and a cached answer \c
-       would hide whatever it does. Declare it with metta_pure_operation/1 if \c
+       would hide whatever it does. Declare it with seam:pure_operation/1 if \c
        it only inspects its arguments, or do not cache this function'
       -[Name, Arity] ].
 
 %%%% Which operations a cache may hide %%%%
 %
-%The engine's own answer to metta_pure_operation/1: an operation with no effect
+%The engine's own answer to seam:pure_operation/1: an operation with no effect
 %a cached result could hide. Anything that reads or writes a space, reads or
 %writes state, prints, draws at random, reads the clock, crosses to a host, or
 %evaluates something else is ABSENT, and absence is a refusal rather than a
@@ -3277,22 +3285,22 @@ prolog:error_message(metta_impure_goal(Name/Arity)) -->
 %missing here produces a loud refusal that someone adds a line for; a name
 %wrongly present produces a silent wrong answer, which is what the fail-open
 %default it replaces was producing.
-:- multifile metta_pure_operation/1.
+:- multifile seam:pure_operation/1.
 :- dynamic metta_host_pure_operation/1.
 
 %A HOST's own declarations, at run time. It was multifile only, so a library
 %file could add a name when it loaded and a running process could add none at
 %all: register_op(len, name="size") gave an operation nothing could ever
 %declare pure, and the refusal's advice, "declare it with
-%metta_pure_operation/1", was unreachable by any route.
+%seam:pure_operation/1", was unreachable by any route.
 %
 %It is a SEPARATE predicate rather than more clauses of this one, and that is
 %not tidiness. The five clauses below are RULES with a variable head, so
-%retractall(metta_pure_operation(foo)), which is how a registration withdraws
+%retractall(seam:pure_operation(foo)), which is how a registration withdraws
 %one declaration, unifies with every one of them: five clauses to zero and
-%metta_pure_operation('+') true to false, from registering any operation at
+%seam:pure_operation('+') true to false, from registering any operation at
 %all [measured 2026-08-17]. Retracting from here cannot reach them.
-metta_pure_operation(Name) :- metta_host_pure_operation(Name).
+seam:pure_operation(Name) :- metta_host_pure_operation(Name).
 
 %The same claim made from INSIDE MeTTa: (effect Name immutable) added to
 %&petta, where register_op(declarations=[...]) places it too. The walk reads
@@ -3300,7 +3308,7 @@ metta_pure_operation(Name) :- metta_host_pure_operation(Name).
 %declared, never on the call path, so consulting storage here costs nothing
 %per call and installs no atom hook, which is what keeps every space's bulk
 %add path fast.
-metta_pure_operation(Name) :-
+seam:pure_operation(Name) :-
     atom(Name),
     petta_contract_fact([effect, Name, immutable]).
 
@@ -3551,7 +3559,7 @@ petta_explain_match_item(Space, Pattern, [handles|Route]) :-
     ;   Route = [none]
     ).
 petta_explain_match_item(Space, Pattern, [pushes, Pushes]) :-
-    (   nonvar(Space), metta_foreign_space(Space),
+    (   nonvar(Space), seam:foreign_space(Space),
         catch(foreign_pushdown_class(Space, Pattern, exact), _, fail)
     ->  Pushes = 'True'
     ;   Pushes = 'False'
@@ -3651,9 +3659,9 @@ petta_install_bridges :-
     (   petta_bridges_installed
     ->  true
     ;   assertz(petta_bridges_installed),
-        assertz(( metta_on_atom_added(Space, Term) :-
+        assertz(( seam:atom_added(Space, Term) :-
                       petta_bridge_fire(Space, Term) )),
-        enable_metta_atom_hook(added)
+        seam:enable_atom_hook(added)
     ).
 
 :- dynamic petta_bridges_installed/0.
@@ -3991,12 +3999,12 @@ petta_install_space_hooks :-
         %reason the seam's header gives: a resident handler clause costs
         %four inferences on every compiled equation. If-then-else rather
         %than a cut, which is the event-seam law.
-        assertz((metta_on_function_changed(_) :-
+        assertz((seam:function_changed(_) :-
                     (   petta_hook_compiled(_, _, _)
                     ->  petta_hook_flush_compiled
                     ;   true
                     ))),
-        assertz((metta_on_function_removed(_) :-
+        assertz((seam:function_removed(_) :-
                     (   petta_hook_compiled(_, _, _)
                     ->  petta_hook_flush_compiled
                     ;   true
@@ -4282,14 +4290,14 @@ petta_transaction(Goal) :-
         nb_getval('$petta_tx_enlisted', Enlisted),
         nb_setval('$petta_tx_enlisted', []),
         (   Outcome == committed
-        ->  forall(member(Space, Enlisted), metta_foreign_commit(Space)),
+        ->  forall(member(Space, Enlisted), seam:foreign_commit(Space)),
             %The committed body may have emptied a function that shadows
             %an inherited definition; remove_equation/6 deferred the
             %predicate-level drop to the transaction's owner, which is
             %here for the user's (transaction ...) form.
             petta_repair_emptied_shadows
         ;   forall(member(Space, Enlisted),
-                   catch(metta_foreign_rollback(Space), RollbackError,
+                   catch(seam:foreign_rollback(Space), RollbackError,
                          print_message(error, RollbackError)))
         ),
         (   Outcome == committed -> true
@@ -4341,7 +4349,7 @@ petta_enlist_foreign(Space) :-
     nb_getval('$petta_tx_enlisted', Enlisted),
     (   memberchk(Space, Enlisted)
     ->  true
-    ;   metta_foreign_begin(Space),
+    ;   seam:foreign_begin(Space),
         nb_setval('$petta_tx_enlisted', [Space|Enlisted])
     ).
 
@@ -4375,7 +4383,7 @@ petta_emits(Ctx, Policy) :-
 %
 %The point is that subscribability is a promise about a CONTEXT, not a
 %property the engine may infer. A native space is the engine's own store
-%and every write into it runs metta_on_atom_added/2, so it delivers
+%and every write into it runs seam:atom_added/2, so it delivers
 %per-write-exactly and ordered by construction and needs no declaration:
 %that is a fact about this engine, not an assumption about a provider. A
 %FOREIGN context is the other case, and inference there is wrong in the
@@ -4408,7 +4416,7 @@ petta_events(Ctx, Delivery, Order) :-
             Order = unordered
         )
     ->  true
-    ;   metta_context_events(Ctx, Delivery, Order)
+    ;   seam:context_events(Ctx, Delivery, Order)
     ).
 
 %What a space can deliver, whoever holds it. Native spaces answer the
@@ -4416,7 +4424,7 @@ petta_events(Ctx, Delivery, Order) :-
 %foreign one without a declaration answers nothing, which is what the
 %refusal below reads.
 petta_event_capability(Space, Delivery, Order) :-
-    (   metta_foreign_space(Space)
+    (   seam:foreign_space(Space)
     ->  once(petta_events(Space, Delivery, Order))
     ;   petta_events(Space, Delivery, Order)
     ->  true
@@ -4647,11 +4655,11 @@ prolog:error_message(petta_refused_shape(Ctx, Pattern, Entry)) -->
        loud here rather than a silent partial answer later'-[Ctx, Entry,
                                                              Pattern] ].
 
-metta_pure_operation(Name) :- pure_arithmetic(Name).
-metta_pure_operation(Name) :- pure_comparison(Name).
-metta_pure_operation(Name) :- pure_structure(Name).
-metta_pure_operation(Name) :- pure_inspection(Name).
-metta_pure_operation(Name) :- pure_engine_helper(Name).
+seam:pure_operation(Name) :- pure_arithmetic(Name).
+seam:pure_operation(Name) :- pure_comparison(Name).
+seam:pure_operation(Name) :- pure_structure(Name).
+seam:pure_operation(Name) :- pure_inspection(Name).
+seam:pure_operation(Name) :- pure_engine_helper(Name).
 
 %The engine's own helpers that a compiled body calls. They inspect and raise;
 %none of them writes anything a cache could hide. The two refusal helpers read
@@ -4924,7 +4932,7 @@ reported_scoped_type_answers(Space, [F], [Result]) :-
     (   match_stored(Space, [':', F, [->, ['%Rest%', _], Result]],
                        Result, _)
     *-> true
-    ;   builtin_type_declaration(F, [->, ['%Rest%', _], Result])
+    ;   seam:builtin_type_declaration(F, [->, ['%Rest%', _], Result])
     ),
     !.
 reported_scoped_type_answers(Space, X, Types) :-
@@ -5598,7 +5606,7 @@ rewrite_parsed_form(Space, FormStr, Term, Rewritten) :-
     ;   %No source text to probe: walk, correctness over the shortcut.
         metta_substitute_self(Space, Term, Term1)
     ),
-    (   metta_form_rewriter(Rewriter)
+    (   seam:form_rewriter(Rewriter)
     ->  call(Rewriter, Term1, Bound)
     ;   Bound = Term1
     ),
@@ -5935,7 +5943,7 @@ metta_host_adopt_function(Name, Tier, Kind, PredArity) :-
     %[tested: host_registration:a_forgotten_name_reads_as_data_again].
     ( arity(Name, PredArity) -> true ; assertz(arity(Name, PredArity)) ),
     register_fun_in(Base, Name),
-    function_changed(Base, Name),
+    announce_function_changed(Base, Name),
     claim_function_name(Name, Tier, Kind).
 
 %DROP removes one arity: the base tier's clauses at that functor and the
@@ -5958,7 +5966,7 @@ metta_host_forget_function(Name) :-
     retractall(arity(Name, _)),
     unregister_fun_everywhere(Name),
     release_function_name(Name),
-    function_removed(Name).
+    announce_function_removed(Name).
 
 %The probe is the assert the registration will do, on a clause that can
 %never run, so the engine's own permission error surfaces before any
@@ -6061,7 +6069,7 @@ prolog:error_message(petta_op_name_taken(Name, Arity, PredArity, Owner)) -->
 %The number moves when a seam a library can SEE changes: a hook removed or
 %renamed, a hook's arguments changed, a refusal added where none was. Adding
 %a hook moves the minor.
-%1-1: metta_route_cap/4 added, and petta_shape_route/5 published as a
+%1-1: seam:route_cap/4 added, and petta_shape_route/5 published as a
 %service (2026-08-20).
 metta_extension_api_version(1, 1).
 
@@ -6903,7 +6911,7 @@ metta_top_context :-
 %lifecycle included, through the same published import_when/4 the engine
 %uses itself.
 importer_helper_impl(Space, File) :-
-    ( metta_host_import(File)
+    ( seam:host_import(File)
       -> true
        ; resolve_metta_import_path(File, CanonPath),
          import_when(changed, Space, CanonPath,
@@ -7006,10 +7014,18 @@ with_metta_module(Module, Goal) :-
 %as six million inferences spent under a thousand-inference budget when a
 %recovery catch ate the signal mid-translation.
 %
-%The engine's own list. It is a SEAM, declared multifile in ext_points.pl, so
-%a library that introduces its own cancellation or budget signal adds a
-%clause instead of being swallowed by the first recovery catch it meets
+%The engine's own list. It is a SEAM, so a library that introduces its own
+%cancellation or budget signal adds a clause instead of being swallowed by
+%the first recovery catch it meets
 %[tested: a_librarys_own_control_signal_is_not_recovered_from].
+%
+%Its multifile declaration is HERE and not with the other seams, which is the
+%one exception seam_home/2 in engine/ext_points.pl exists to answer. The name
+%is also an engine_emitted/1 one: the translator writes control_exception/1
+%into compiled bodies and protect_engine_emitted/1 imports every emitted name
+%into a space's execution module FROM THE ENGINE'S MODULE, so a copy living
+%in the seam module would leave the import with nothing to find.
+:- multifile control_exception/1.
 control_exception(time_limit_exceeded).
 control_exception(inference_limit_exceeded).
 control_exception(metta_host_interrupted).
@@ -7421,11 +7437,11 @@ unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
                           register_metta_library_path,
                           dif, 'residual-goals']).
 %A HOST's builtins register the same way, from the host bridge's own
-%metta_host_builtin/1 declarations rather than from a list here that would
+%seam:host_builtin/1 declarations rather than from a list here that would
 %name the host: the bridge loads earlier in this file's own load order, so
 %its facts exist by the time this directive runs, and an engine with no
 %host loaded registers nothing.
-:- forall(metta_host_builtin(Name), register_builtin_fun(Name)).
+:- forall(seam:host_builtin(Name), register_builtin_fun(Name)).
 
 %A backend's own builtins, registered here because this is where the engine's
 %are and the order matters. The NAMES are the backend's: it declares them in
@@ -7438,7 +7454,7 @@ unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
 %every call to it then compiled to a partial application, so (mm2-exec &mork 1)
 %answered (partial mm2-exec (&mork 1)) instead of running or failing. Declaring
 %the names beside the predicates is what makes that unable to happen again.
-:- forall(metta_backend_builtin(Name), register_builtin_fun(Name)).
+:- forall(seam:backend_builtin(Name), register_builtin_fun(Name)).
 
 
 %%%%%%%%%% The engine's own type surface %%%%%%%%%%
@@ -7467,8 +7483,8 @@ unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
 %ONE SOURCE OF TRUTH: the facts are built by parsing lib_builtin_types.metta
 %at boot, so the file a program can still import explicitly and the table the
 %engine answers from cannot drift apart.
-:- multifile builtin_type_declaration/2.
-:- dynamic builtin_type_declaration/2.
+:- multifile seam:builtin_type_declaration/2.
+:- dynamic seam:builtin_type_declaration/2.
 
 load_builtin_type_surface :-
     library('lib_builtin_types.metta', Path),
@@ -7478,9 +7494,9 @@ load_builtin_type_surface :-
     parse_metta_source(Text, Forms),
     forall(( member(parsed(expression, _, [':', Name, Type]), Forms),
              atom(Name) ),
-           ( builtin_type_declaration(Name, Type)
+           ( seam:builtin_type_declaration(Name, Type)
              -> true
-             ;  assertz(builtin_type_declaration(Name, Type)) )),
+             ;  assertz(seam:builtin_type_declaration(Name, Type)) )),
     %Derived from the surface just loaded rather than by a separate
     %initialization, because two initialization/1 goals do not reliably order
     %against each other and an empty index is a silent loss: a constructor like
@@ -7501,8 +7517,8 @@ load_builtin_type_surface :- index_masking_data_heads.
 %
 %Declarations go to prelude_type_declaration/2, a third register beside
 %type_declaration/2 (what the program declared) and
-%builtin_type_declaration/2 (the engine's Prolog surface). It is consulted
-%on the FUNCTION path, which builtin_type_declaration deliberately is not:
+%seam:builtin_type_declaration/2 (the engine's Prolog surface). It is consulted
+%on the FUNCTION path, which seam:builtin_type_declaration deliberately is not:
 %that register describes arguments a caller writes for predicates
 %underneath (the maplist lesson, documented at call_site_type_chains/2),
 %while a prelude declaration is an ordinary MeTTa declaration for an
@@ -7533,7 +7549,7 @@ load_builtin_type_surface :- index_masking_data_heads.
 %register is the enumerable door that compilation would otherwise close.
 %The confluence reporter is the first consumer.
 :- dynamic prelude_equation/2.
-%Which builtin_type_declaration/2 rows the prelude PUT THERE, as opposed to
+%Which seam:builtin_type_declaration/2 rows the prelude PUT THERE, as opposed to
 %found there. The two registers overlap once a name needs its Atom mask
 %honoured at call sites AND belongs to the engine's reported type surface:
 %get-type is declared by lib_builtin_types.metta and again by engine/prelude.metta,
@@ -7568,18 +7584,18 @@ evict_prelude_definition(FAtom) :-
         ),
         %The prelude is the base tier's, so its eviction is &self's change.
         metta_self_module(Self),
-        function_changed(Self, FAtom)
+        announce_function_changed(Self, FAtom)
     ;   true
     ).
 
-%The ledger rows say exactly which builtin_type_declaration entries are
+%The ledger rows say exactly which seam:builtin_type_declaration entries are
 %the prelude's, so eviction purges both stores and nothing else. A row the
 %prelude found already written by lib_builtin_types.metta stays, because it
 %was never the prelude's to remove.
 retract_prelude_declarations(Name) :-
     forall(retract(prelude_type_declaration(Name, Type)),
            (   retract(prelude_wrote_builtin_type(Name, Type))
-           ->  retractall(builtin_type_declaration(Name, Type))
+           ->  retractall(seam:builtin_type_declaration(Name, Type))
            ;   true
            )).
 
@@ -7628,7 +7644,7 @@ load_engine_prelude_forms :-
     findall(Owned, prelude_owned(Owned), OwnedBefore),
     %Arity registers in pass one WITH the name: a registered name with no
     %recorded arity compiles a later call site as a partial application
-    %(the backends note beside metta_backend_builtin/1 records the same
+    %(the backends note beside seam:backend_builtin/1 records the same
     %trap), and type-cast calls type-cast-check before pass two reaches
     %its equation.
     forall(( member(parsed(function, _, [=, [FAtom|W], _]), Forms),
@@ -7647,7 +7663,7 @@ load_engine_prelude_forms :-
 
 %A declaration lands in TWO stores: prelude_type_declaration/2 is the
 %masking tier the compiler reads and the eviction ledger, and
-%builtin_type_declaration/2 is where get-type already looks, so the
+%seam:builtin_type_declaration/2 is where get-type already looks, so the
 %get-type path gains no new clause to try (measured: an extra candidate
 %clause cost ~6 inferences per compiled run() call, 2026-08-18). The
 %ledger is what lets eviction purge BOTH stores exactly.
@@ -7661,8 +7677,8 @@ load_prelude_form(expression, _, [':', Name, Type]) :-
         %files for two different readers. A second identical fact would give
         %the engine's type surface a duplicate row, so the prelude writes one
         %only when it is the one putting it there, and records that it did.
-        (   builtin_type_declaration(Name, Type) -> true
-        ;   assertz(builtin_type_declaration(Name, Type)),
+        (   seam:builtin_type_declaration(Name, Type) -> true
+        ;   assertz(seam:builtin_type_declaration(Name, Type)),
             assertz(prelude_wrote_builtin_type(Name, Type))
         )
     ).
@@ -7722,5 +7738,5 @@ load_prelude_form(Kind, Src, _) :-
 %seam is declared there before the file that defines it is loaded, so the
 %export the declaration promises can only be made once every engine file has
 %been [tested: metta_published_surface:every_declared_seam_that_exists_is_exported].
-:- initialization((petta_publish_declared_seams, protect_metta_exec_modules,
+:- initialization((seam:publish_declared, protect_metta_exec_modules,
                    load_builtin_type_surface, load_engine_prelude)).

@@ -638,7 +638,7 @@ constrain_children([C|Cs], I, Path, [O|Os], [G|Gs], Positions, Rest) :-
 %
 %And it can GROW after boot, which is what makes it a seam. Two things add to
 %it: an engine upgrade whose new translation rule emits a goal, and a library
-%that teaches the engine to emit one of its own through metta_dispatch_call/4.
+%that teaches the engine to emit one of its own through seam:dispatch_call/4.
 %Both are the case Logtalk's module critique names -- "any update that strictly
 %adds new exported predicates has the potential to break existing applications"
 %-- so the addition path is the one that has to be safe: it imports the new
@@ -646,35 +646,35 @@ constrain_children([C|Cs], I, Path, [O|Os], [G|Gs], Positions, Rest) :-
 %that name is REFUSED by protect_engine_emitted/1 (engine/spaces.pl) naming
 %both parties, rather than left to be settled by which import happened first
 %[tested: test_adding_an_engine_export_changes_no_spaces_answers].
-:- multifile metta_engine_emitted/1.
-:- dynamic metta_engine_emitted/1.
-metta_engine_emitted(case_default_runtime/2).
-metta_engine_emitted(case_runtime/3).
-metta_engine_emitted(control_exception/1).
-metta_engine_emitted(foldall/4).
-metta_engine_emitted(has_type/2).
-metta_engine_emitted(check_argument_type/3).
-metta_engine_emitted(include/3).
-metta_engine_emitted(letstar_runtime/3).
-metta_engine_emitted(metta_ensure_duals/1).
+:- multifile seam:engine_emitted/1.
+:- dynamic seam:engine_emitted/1.
+seam:engine_emitted(case_default_runtime/2).
+seam:engine_emitted(case_runtime/3).
+seam:engine_emitted(control_exception/1).
+seam:engine_emitted(foldall/4).
+seam:engine_emitted(has_type/2).
+seam:engine_emitted(check_argument_type/3).
+seam:engine_emitted(include/3).
+seam:engine_emitted(letstar_runtime/3).
+seam:engine_emitted(metta_ensure_duals/1).
 %engine/duals.pl emits this one, into the dual clause it builds.
-metta_engine_emitted(metta_negation/5).
-metta_engine_emitted(metta_require_current_capability/2).
-metta_engine_emitted(metta_require_safe_goal/1).
-metta_engine_emitted(metta_require_space_update_capability/2).
-metta_engine_emitted(petta_match_atoms/2).
-metta_engine_emitted(petta_answer_terms/3).
-metta_engine_emitted(petta_prune_empty/2).
-metta_engine_emitted(petta_prune_empty_answers/2).
-metta_engine_emitted(petta_run_named/3).
-metta_engine_emitted(petta_run_with_fuel/3).
-metta_engine_emitted(petta_transaction/1).
-metta_engine_emitted(petta_fuel_step/2).
-metta_engine_emitted(function_overapplication/3).
-metta_engine_emitted(metta_bad_argument_error/3).
-metta_engine_emitted(dispatch_mismatch_result/3).
-metta_engine_emitted(dispatch_no_match_result/3).
-metta_engine_emitted(dispatch_policy_execute/5).
+seam:engine_emitted(metta_negation/5).
+seam:engine_emitted(metta_require_current_capability/2).
+seam:engine_emitted(metta_require_safe_goal/1).
+seam:engine_emitted(metta_require_space_update_capability/2).
+seam:engine_emitted(petta_match_atoms/2).
+seam:engine_emitted(petta_answer_terms/3).
+seam:engine_emitted(petta_prune_empty/2).
+seam:engine_emitted(petta_prune_empty_answers/2).
+seam:engine_emitted(petta_run_named/3).
+seam:engine_emitted(petta_run_with_fuel/3).
+seam:engine_emitted(petta_transaction/1).
+seam:engine_emitted(petta_fuel_step/2).
+seam:engine_emitted(function_overapplication/3).
+seam:engine_emitted(metta_bad_argument_error/3).
+seam:engine_emitted(dispatch_mismatch_result/3).
+seam:engine_emitted(dispatch_no_match_result/3).
+seam:engine_emitted(dispatch_policy_execute/5).
 
 %Resolving at compile time means the answer can go stale: a space that gains
 %a definition of the name becomes the nearer parent, and one that loses its
@@ -712,8 +712,8 @@ translate_restricted_guard_dl(Guard, Tail, Goals) :-
     ;   Goals = Tail
     ).
 
-:- multifile metta_on_function_changed/1.
-metta_on_function_changed(Fun) :-
+:- multifile seam:function_changed/1.
+seam:function_changed(Fun) :-
     super_call_compiled(Fun),
     findall(User,
             ( translated_from(_, [=, [User|_], Body]),
@@ -954,10 +954,10 @@ cache_translated_form(Module, Key, Source, Goals, Out) :-
 
 install_translation_cache_hooks :- translation_cache_hook_ref(_, _), !.
 install_translation_cache_hooks :-
-    assertz((metta_on_function_changed(Symbol) :-
+    assertz((seam:function_changed(Symbol) :-
                 invalidate_translated_forms(Symbol)), ChangedRef),
     assertz(translation_cache_hook_ref(changed, ChangedRef)),
-    assertz((metta_on_function_removed(Symbol) :-
+    assertz((seam:function_removed(Symbol) :-
                 invalidate_translated_forms(Symbol)), RemovedRef),
     assertz(translation_cache_hook_ref(removed, RemovedRef)).
 
@@ -1202,7 +1202,7 @@ goals_list_to_conj([G|Gs], (G,R)) :- goals_list_to_conj(Gs, R).
 %here cost between +0.09% and +0.41% inferences across six benchmarks
 %[measured 2026-08-15: weighted-relation 483521 -> 485517].
 resolve_dispatch(Fun, Args, Out, Goal) :-
-    ( metta_dispatch_call(Fun, Args, Out, Goal)
+    ( seam:dispatch_call(Fun, Args, Out, Goal)
     -> true
     ; append(Args, [Out], DirectArgs),
       Goal =.. [Fun|DirectArgs]
@@ -1477,7 +1477,7 @@ metta_typed_head(Fun) :-
     (   current_metta_module(Module),
         catch_recover(type_declaration_in(Module, Fun, [->|_]), fail)
     ->  true
-    ;   builtin_type_declaration(Fun, [->|_])
+    ;   seam:builtin_type_declaration(Fun, [->|_])
     ).
 
 % Runtime dispatcher: call F if it's a registered fun/1, else keep as list.
@@ -1570,7 +1570,7 @@ reduce([F|Args], Out, Status) :- !,
         % MeTTa says a Grounded atom "may contain any binary object, for
         % example operation", and an operation is a thing you call. Nothing
         % here knows what makes one applicable: a bridge claims its own values
-        % through metta_grounded_apply/3 and the engine applies whatever it
+        % through seam:grounded_apply/3 and the engine applies whatever it
         % claims [source: metta-lang.dev/docs/learn, Atom kinds and types].
         %
         % Reached only for a head that is neither a function name nor a
@@ -1583,7 +1583,7 @@ reduce([F|Args], Out, Status) :- !,
         %instructions [measured 2026-08-16: 3.70 to 4.45 billion]. A grounded
         %value is atomic, so one O(1) test excludes every list and compound.
         atomic(F), \+ atom(F),
-        metta_grounded_apply(F, Args, Applied)
+        seam:grounded_apply(F, Args, Applied)
     ->  Out = Applied,
         Status = reduced
     ;   % --- Case 4: leave unevaluated ---
@@ -1844,7 +1844,7 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
           %so a token bound to a Python function built `(<fn> -5)` as a term
           %instead of calling it: the language's own idiom, `(bind! abs
           %(py-atom numpy.absolute))` then `(abs -5)`.
-          ; ( atomic(HV), \+ atom(HV) , \+ metta_grounded_applicable(HV)
+          ; ( atomic(HV), \+ atom(HV) , \+ seam:grounded_applicable(HV)
             ; atom(HV), \+ fun_here(HV) ) -> note_symbol_head(HV),
                                              translate_data_args_dl(HV, T, AfterHead, AfterData, AVs),
                                              data_head_answer_dl(HV, T, AVs, Out, AfterData, Goals)
@@ -1879,7 +1879,7 @@ runnable_head_awaits_its_definition(Fun) :-
 
 %The declarations a CONSTRUCTOR compiles against, and there are two registers
 %of them. type_declaration/2 holds what the program and its spaces declared;
-%builtin_type_declaration/2 holds the engine's own surface, parsed out of
+%seam:builtin_type_declaration/2 holds the engine's own surface, parsed out of
 %lib_builtin_types.metta at startup.
 %
 %Reading the engine's register here and NOT on the function path above is
@@ -1903,7 +1903,7 @@ call_site_type_chains(Fun, UniqueTypeChains) :-
     (   TypeChains \== []
     ->  list_to_set(TypeChains, UniqueTypeChains)
     ;   findall(Masked,
-                ( builtin_type_declaration(Fun, Chain),
+                ( seam:builtin_type_declaration(Fun, Chain),
                   chain_masks_an_argument(Chain),
                   atom_positions_only(Chain, Masked) ),
                 MaskedChains),
@@ -1988,7 +1988,7 @@ data_head_masks(HV, Args, ArgTypes) :-
 
 index_masking_data_heads :-
     retractall(masking_data_head(_, _)),
-    forall(( builtin_type_declaration(Name, Chain),
+    forall(( seam:builtin_type_declaration(Name, Chain),
              chain_masks_an_argument(Chain),
              atom_positions_only(Chain, [->|Masked]),
              append(ArgTypes, [_], Masked) ),
@@ -3616,7 +3616,7 @@ unarrived_pairs(Pairs) :-
 %bindings; 62 and 370 for the same bindings handed over, min of 3 over a
 %1,000-call slope; tested translator_letstar_computed_bindings].
 %
-%This reaches compiled bodies, so it is named in metta_engine_emitted/1
+%This reaches compiled bodies, so it is named in seam:engine_emitted/1
 %above: without that, `(= (letstar_runtime $bs $b) ...)` would take the goal
 %over inside its own space, silently and with a wrong answer rather than an
 %error, because a space resolves a body's goals in its own module first
@@ -3796,7 +3796,7 @@ translate_case([[K,VExpr]|Rs], Kv, Out, Goal, KGo) :- translate_expr_to_conj(VEx
 %min of 5].
 %
 %This and case_default_runtime/2 reach compiled bodies, so both are named in
-%metta_engine_emitted/1 above. Without that, `(= (case_runtime $k $cs) ...)`
+%seam:engine_emitted/1 above. Without that, `(= (case_runtime $k $cs) ...)`
 %would take the goal over inside its own space, silently and with a wrong
 %answer rather than an error, because a space resolves a body's goals in its
 %own module first [source 2026-08-19: tests/prolog/static_checks.pl:685-692,
@@ -4030,7 +4030,7 @@ lift_pattern_modifiers(Pattern, Lifted, Guards) :-
 
 lift_pattern_modifiers_(Pattern, Lifted, Guards0, Guards) :-
     (   nonvar(Pattern), Pattern = [_|_]
-    ->  (   pattern_modifier(Pattern, Lifted, Guard)
+    ->  (   seam:pattern_modifier(Pattern, Lifted, Guard)
         ->  Guards0 = [Guard|Guards]
     %GATE TWO: a colon whose VALUE slot is not a variable is data, and the walk
     %does not look inside it. Without the second half a constructor that nests
@@ -4066,7 +4066,7 @@ lift_pattern_modifiers_list([Item|Rest], [Lifted|LiftedRest], Guards0, Guards) :
 %and the marker is what discriminates. The marker is therefore COMPARED rather
 %than unified, which costs one nonvar and one == per clause tried, at
 %compile time and never per match.
-pattern_modifier([Assign, Wanted], Fresh, Fresh == Wanted) :-
+seam:pattern_modifier([Assign, Wanted], Fresh, Fresh == Wanted) :-
     %The marker is read the way colon_expression/1 reads its own, nonvar then
     %==, because a LITERAL in the head unifies with an unbound head instead of
     %rejecting it: a two-element pattern whose head is a variable, (match &s
@@ -4076,7 +4076,7 @@ pattern_modifier([Assign, Wanted], Fresh, Fresh == Wanted) :-
     %($A ()); every arity but two matches, and match/4 itself answers].
     nonvar(Assign), Assign == ':=',
     !.
-pattern_modifier([Colon, Fresh, Type], Fresh,
+seam:pattern_modifier([Colon, Fresh, Type], Fresh,
                  (has_type(Fresh, Type) *-> true ; 'get-metatype'(Fresh, Type))) :-
     %The same nonvar-then-== reading as the clause above and as
     %colon_expression/1: ($A $B 0) against a stored () was compiled as "of

@@ -23,7 +23,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 %Run MeTTa source and answer the result groups, swallowing the engine's
 %compilation printing, the duals.plt idiom.
@@ -211,18 +211,18 @@ test(the_metta_surface_declares_and_the_refusal_reaches_the_program,
 :- dynamic hplt_observed/2.
 
 observe_hplt_post :-
-    assertz(( metta_on_atom_added(Space, Term) :-
+    assertz(( seam:atom_added(Space, Term) :-
                   ( Space == '&hplt-post'
                   -> assertz(hplt_observed(Space, Term))
                   ; true ) )),
-    enable_metta_atom_hook(added).
+    seam:enable_atom_hook(added).
 
 unobserve_hplt_post :-
-    retract(( metta_on_atom_added(Space, Term) :-
+    retract(( seam:atom_added(Space, Term) :-
                   ( Space == '&hplt-post'
                   -> assertz(hplt_observed(Space, Term))
                   ; true ) )),
-    sync_metta_atom_hook(added).
+    seam:sync_atom_hook(added).
 
 :- begin_tests(space_hooks_post).
 

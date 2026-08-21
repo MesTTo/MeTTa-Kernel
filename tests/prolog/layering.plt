@@ -2,8 +2,7 @@
 %   stands, and that each way of breaking it produces a message naming the two
 %   parties and the line that would settle it.
 % Assumes:
-%   - run from tests/prolog, which is where check.sh runs every suite from; an
-%     initialization goal resolves a relative path at RUN time
+%   - run from tests/prolog, which is where check.sh runs every suite from
 % Guarantees:
 %   - the contract's allow-list, its export half and its declared tangles are
 %     all satisfied by the measured call graph
@@ -18,7 +17,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 :- ensure_loaded(layering).
 
 :- begin_tests(engine_layering).

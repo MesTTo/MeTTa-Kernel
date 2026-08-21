@@ -17,7 +17,7 @@
      Hacks: None
      Future Enhancements: None
 */
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 :- begin_tests(catalog_self_description).
 
@@ -181,7 +181,7 @@ test(a_routing_row_over_an_unroutable_kind_is_refused,
                                         1, _))]) :-
     add_sexp('&petta', ['routed-by-shape', 'flat-kind'], _).
 
-%The advisors' fold at the route classification: a loaded metta_route_cap/4
+%The advisors' fold at the route classification: a loaded seam:route_cap/4
 %clause may demote the declared Exact to inexact or refuse it loudly, and a
 %cap outside the vocabulary is the advisor's own bug, refused as one.
 :- dynamic cap_clause_ref/1.
@@ -192,7 +192,7 @@ test(a_routing_row_over_an_unroutable_kind_is_refused,
 test(a_route_cap_demotes_and_refuses_through_the_published_seam,
      [setup(( retractall(user:cap_level(_)),
               add_sexp('&petta', [handles, '&cap1', [p, _X], 'Exact'], _),
-              assertz(user:( metta_route_cap('&cap1', _, Cap, capped_by_test) :-
+              assertz(user:( seam:route_cap('&cap1', _, Cap, capped_by_test) :-
                                  cap_level(Cap) ),
                       Ref),
               assertz(cap_clause_ref(Ref)) )),

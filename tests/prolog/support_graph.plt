@@ -25,14 +25,18 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 :- dynamic p36_supported_fact/1.
 :- dynamic p36_action_count/2.
 :- dynamic p36_compute_count/1.
 
-:- multifile support_invalidation_action/1.
-support_invalidation_action(derived(p36_test, Key)) :-
+% The seam's home is the support_graph module now, so the fixture declares
+% and writes it there. Unqualified it would have made a second, local
+% support_invalidation_action/1 that the graph never consults, and every test
+% below would have watched a handler that could not fire.
+:- multifile support_graph:support_invalidation_action/1.
+support_graph:support_invalidation_action(derived(p36_test, Key)) :-
     retractall(p36_supported_fact(Key)),
     ( retract(p36_action_count(Key, Before)) -> true ; Before = 0 ),
     After is Before + 1,
@@ -78,8 +82,8 @@ test(test_a_derived_fact_is_invalidated_forward_from_what_it_supports) :-
     assertz(user:p36_supported_fact(middle)),
     assertz(user:p36_supported_fact(derived)),
     assertz(user:p36_supported_fact(unrelated)),
-    user:support_replace(Middle, [Base]),
-    user:support_replace(Derived, [Middle]),
+    support_graph:support_replace(Middle, [Base]),
+    support_graph:support_replace(Derived, [Middle]),
     retractall(user:p36_supported_fact(base)),
     user:support_invalidate(Base),
     assertion(\+ user:p36_supported_fact(base)),
@@ -92,8 +96,8 @@ test(an_invalidation_cycle_terminates) :-
     p36_node(cycle_b, B),
     assertz(user:p36_supported_fact(cycle_a)),
     assertz(user:p36_supported_fact(cycle_b)),
-    user:support_replace(A, [B]),
-    user:support_replace(B, [A]),
+    support_graph:support_replace(A, [B]),
+    support_graph:support_replace(B, [A]),
     call_with_inference_limit(user:support_invalidate(A), 10000, Outcome),
     assertion(Outcome \== inference_limit_exceeded),
     assertion(user:p36_action_count(cycle_a, 1)),
@@ -104,7 +108,7 @@ test(overlapping_roots_invalidate_the_shared_node_once) :-
     p36_node(new, New),
     p36_node(target, Target),
     assertz(user:p36_supported_fact(target)),
-    user:support_replace(Target, [Old, New]),
+    support_graph:support_replace(Target, [Old, New]),
     user:support_invalidate_many([Old, New]),
     assertion(user:p36_action_count(target, 1)).
 
@@ -113,8 +117,8 @@ test(replacing_supports_detaches_the_old_source) :-
     p36_node(new, New),
     p36_node(target, Target),
     assertz(user:p36_supported_fact(target)),
-    user:support_replace(Target, [Old]),
-    user:support_replace(Target, [New]),
+    support_graph:support_replace(Target, [Old]),
+    support_graph:support_replace(Target, [New]),
     user:support_invalidate(Old),
     assertion(user:p36_supported_fact(target)),
     user:support_invalidate(New),
@@ -123,23 +127,23 @@ test(replacing_supports_detaches_the_old_source) :-
 test(an_unchanged_stabilization_cuts_off_propagation) :-
     p36_node(cutoff, Cutoff),
     p36_node(cutoff_child, Child),
-    user:support_replace(Child, [Cutoff]),
-    user:support_stabilize(Cutoff, p36_compute(same), same),
+    support_graph:support_replace(Child, [Cutoff]),
+    support_graph:support_stabilize(Cutoff, p36_compute(same), same),
     retractall(user:p36_action_count(cutoff_child, _)),
     assertz(user:p36_supported_fact(cutoff_child)),
     user:support_invalidate(Cutoff),
     assertion(user:p36_action_count(cutoff_child, 1)),
-    user:support_stabilize(Cutoff, p36_compute(same), same),
+    support_graph:support_stabilize(Cutoff, p36_compute(same), same),
     assertion(user:p36_action_count(cutoff_child, 1)),
-    user:support_stabilize(Cutoff, p36_compute(unused), same),
+    support_graph:support_stabilize(Cutoff, p36_compute(unused), same),
     assertion(user:p36_compute_count(2)).
 
 test(forgetting_a_module_releases_only_its_nodes) :-
     p36_node(base, Base),
     p36_node(middle, Middle),
     p36_node(other_module, Other),
-    user:support_replace(Middle, [Base]),
-    user:support_replace(Other, [derived(p36_other, source)]),
+    support_graph:support_replace(Middle, [Base]),
+    support_graph:support_replace(Other, [derived(p36_other, source)]),
     user:support_forget_module(p36_test),
     assertion(\+ user:supports(Base, Middle)),
     assertion(user:supports(derived(p36_other, source), Other)).
@@ -155,12 +159,12 @@ test(language_policy_roots_are_typed_and_module_qualified) :-
     p36_node(dispatch_dependent, DispatchDependent),
     assertz(user:p36_supported_fact(type_dependent)),
     assertz(user:p36_supported_fact(dispatch_dependent)),
-    user:support_replace(TypeFunction, [TypeRoot]),
-    user:support_replace(TypeView, [TypeFunction]),
-    user:support_replace(TypeDependent, [TypeView]),
-    user:support_replace(DispatchFunction, [DispatchRoot]),
-    user:support_replace(DispatchView, [DispatchFunction]),
-    user:support_replace(DispatchDependent, [DispatchView]),
+    support_graph:support_replace(TypeFunction, [TypeRoot]),
+    support_graph:support_replace(TypeView, [TypeFunction]),
+    support_graph:support_replace(TypeDependent, [TypeView]),
+    support_graph:support_replace(DispatchFunction, [DispatchRoot]),
+    support_graph:support_replace(DispatchView, [DispatchFunction]),
+    support_graph:support_replace(DispatchDependent, [DispatchView]),
     user:support_invalidate_many([TypeRoot, DispatchRoot]),
     assertion(\+ user:p36_supported_fact(type_dependent)),
     assertion(\+ user:p36_supported_fact(dispatch_dependent)).

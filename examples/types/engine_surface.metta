@@ -1,7 +1,7 @@
 ;; The engine's own type surface, reported without being imported.
 ;;
 ;; Nothing here imports lib_builtin_types. The engine reads that file at boot
-;; into builtin_type_declaration/2, which get_type_candidate/2 consults LAST,
+;; into seam:builtin_type_declaration/2, which get_type_candidate/2 consults LAST,
 ;; so get-type answers the engine's own types while &self stays the program's
 ;; own space. builin_types.metta is the sibling that DOES import it and gets
 ;; the same declarations as live typed dispatch.

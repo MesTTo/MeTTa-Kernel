@@ -13,7 +13,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 :- begin_tests(metta_assertions).
 
@@ -376,8 +376,8 @@ test(a_metta_operation_error_still_names_the_operation) :-
 :- end_tests(metta_operation_errors).
 
 :- dynamic plunit_break_type_bridge/0.
-:- multifile metta_grounded_type_names/2.
-metta_grounded_type_names(_, _) :- plunit_break_type_bridge, throw(plunit_broken_bridge).
+:- multifile seam:grounded_type_names/2.
+seam:grounded_type_names(_, _) :- plunit_break_type_bridge, throw(plunit_broken_bridge).
 
 % evalc's space argument selects the module the goals resolve in and nothing
 % else. PeTTa's eval is a full evaluation of compiled goals rather than
@@ -442,13 +442,13 @@ test(eval_keeps_a_runtime_literal_self_as_written) :-
 
 :- begin_tests(metta_object_types).
 
-% A bridge whose metta_grounded_type_names/2 clause THROWS used to be read as "no
+% A bridge whose seam:grounded_type_names/2 clause THROWS used to be read as "no
 % bridge answered", and the class walk ran instead. One broken protocol
 % predicate therefore destroyed typing for every host object in the process,
 % and get-type answered Box, the envelope's own class, for all of them, with
 % no error at any point. bindings/python/petta/_ops.py states the rule for the same
 % probe on its own side: a broken probe is the registrant's bug.
-% The clause is static and flag-guarded, because metta_grounded_type_names/2 is
+% The clause is static and flag-guarded, because seam:grounded_type_names/2 is
 % multifile without being dynamic: a bridge contributes its clause at load
 % time and cannot be installed later.
 test(a_throwing_type_bridge_is_the_registrants_bug,
@@ -1050,7 +1050,7 @@ test(the_table_is_built_from_the_file_rather_than_written_twice) :-
               atom(Name) ),
             InFile),
     findall(Name-Type, prelude_type_declaration(Name, Type), FromPrelude),
-    findall(Name-Type, builtin_type_declaration(Name, Type), Loaded),
+    findall(Name-Type, seam:builtin_type_declaration(Name, Type), Loaded),
     append(InFile, FromPrelude, Sources),
     canonical_rows(Sources, ExpectedRows),
     canonical_rows(Loaded, LoadedRows),
@@ -1069,7 +1069,7 @@ test(the_table_is_built_from_the_file_rather_than_written_twice) :-
 test(a_shared_declaration_is_evicted_only_from_the_register_that_wrote_it) :-
     Shared = 'get-type',
     findall(Type, prelude_type_declaration(Shared, Type), Declared),
-    findall(Type, builtin_type_declaration(Shared, Type), Surface),
+    findall(Type, seam:builtin_type_declaration(Shared, Type), Surface),
     assertion(Declared \== []),
     assertion(Surface \== []),
     %Written by the file, so the prelude found it rather than putting it there.
@@ -1077,7 +1077,7 @@ test(a_shared_declaration_is_evicted_only_from_the_register_that_wrote_it) :-
     setup_call_cleanup(
         true,
         ( retract_prelude_declarations(Shared),
-          findall(Type, builtin_type_declaration(Shared, Type), Survived),
+          findall(Type, seam:builtin_type_declaration(Shared, Type), Survived),
           findall(Type, prelude_type_declaration(Shared, Type), Gone),
           assertion(Survived == Surface),
           assertion(Gone == []) ),
@@ -1089,7 +1089,7 @@ test(a_shared_declaration_is_evicted_only_from_the_register_that_wrote_it) :-
 test(the_surface_is_invisible_to_a_program_enumerating_its_own_space) :-
     \+ ( 'get-atoms'('&self', Atom),
          Atom = [':', Name, _],
-         builtin_type_declaration(Name, _) ).
+         seam:builtin_type_declaration(Name, _) ).
 
 %Last in the candidate order, so a program's own declaration wins.
 test(a_program_declaration_is_answered_before_the_engines,
@@ -2224,7 +2224,7 @@ guard_filler(_, a).
 %instead. A one-second limit, because two of these used to enumerate every
 %list there is.
 guard_outcome(Name, Arity, Position, Outcome) :-
-    builtin_type_declaration(Name, ['->'|Chain]),
+    seam:builtin_type_declaration(Name, ['->'|Chain]),
     append(Inputs, [_], Chain),
     length(Chain, Arity),
     findall(Value,

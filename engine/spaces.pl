@@ -99,14 +99,14 @@
 %     test_a_user_declared_lazy_type_receives_its_argument_unevaluated;
 %     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - match_foreign/5 passes options only to a provider that declared
-%     metta_foreign_match/3, and unification and the caller's own bound stay
+%     seam:foreign_match/3, and unification and the caller's own bound stay
 %     on this side, so an option cannot change an answer [tested 2026-08-16:
 %     test_a_provider_ignoring_the_bound_is_still_bounded_by_the_engine].
 %   - (top k ...) answers the k best by declared-semiring annotation,
 %     stable on ties, refuses unordered contexts, and hands the provider
 %     the bound only under Exact route + ordered annotations + best-first
 %     merge [tested 2026-08-17: answers_annotations].
-%   - A declared (handles ...) entry outranks metta_foreign_pushdown/3
+%   - A declared (handles ...) entry outranks seam:foreign_pushdown/3
 %     shape by shape, a routed Refuse throws on any match of its shape
 %     with a join checked conjunct by conjunct at plan time, and an
 %     undeclared context pays one indexed probe per query
@@ -164,17 +164,10 @@ space_canonical_atom(Space, Encoded) :-
 
 :- dynamic native_storage_module_cache/2.
 :- dynamic space_parametric/1.
-%Whether a HOST's own atom hooks are idle for a space, the host's clause of
-%it: the shim answers for the Python side, and with no host loaded the seam
-%has no clause and the engine's own no-handlers test already answered. The
-%engine hands the host the full handler CENSUS as clause references, so a
-%host clause matches the census against the one reference it installed and
-%never consults engine internals to answer: a host is asked about ITS hooks,
-%with the facts it needs in the question.
-:- multifile metta_host_add_hooks_idle/2.
-ext_point_kind(metta_host_add_hooks_idle/2, ownership).
-:- multifile metta_host_remove_hooks_idle/2.
-ext_point_kind(metta_host_remove_hooks_idle/2, ownership).
+%The two host idle-hook seams these read are declared with every other seam,
+%in engine/ext_points.pl, rather than here. Declaring a seam in the module of
+%the file that happens to CALL it was the flat namespace's habit; a seam
+%belongs to the seam module whichever subsystem asks it.
 
 %Only a module that actually holds something belongs to somebody else.
 %current_module/1 is not that test: SWI creates a module as a side effect of
@@ -1490,7 +1483,7 @@ remove_sexp(Space, Atom) :- remove_sexp(Space, Atom, _).
 %(one two one) minus (one) as (two one) executably].
 %
 %This engine had already decided it everywhere else. The seam declares
-%metta_foreign_remove/3 as "remove one" (EXTENDING.md), and drop_fun_meta/4
+%seam:foreign_remove/3 as "remove one" (EXTENDING.md), and drop_fun_meta/4
 %takes "one variant-equivalent retained equation" at a time
 %(engine/translator.pl:115). The native store was the one holdout.
 %
@@ -1518,7 +1511,7 @@ remove_sexp(Space, Atom) :- remove_sexp(Space, Atom, _).
 %
 %Answering truthfully at all is worth it because the engine already disagreed
 %with ITSELF. Removing an EQUATION answers false when nothing matched, forty
-%lines up, and a foreign provider fills metta_foreign_remove/3's Removed
+%lines up, and a foreign provider fills seam:foreign_remove/3's Removed
 %argument honestly, so a MeTTa program branching on (remove-atom $space $atom)
 %was correct against two of the three and wrong against the third, with
 %nothing in its text saying which it would get
@@ -1660,7 +1653,7 @@ ensure_metta_exec_module_locked(Space, Module) :-
     protect_engine_emitted(Module).
 
 %Bind the engine's own emitted goals into this module so a MeTTa equation
-%cannot take one over. See metta_engine_emitted/1 (engine/translator.pl) for what
+%cannot take one over. See seam:engine_emitted/1 (engine/translator.pl) for what
 %that means and why an import rather than a guard.
 %
 %The export half is what keeps it quiet: import/1 warns when the source module
@@ -1681,7 +1674,7 @@ ensure_metta_exec_module_locked(Space, Module) :-
 %[tested: test_adding_an_engine_export_changes_no_spaces_answers].
 protect_engine_emitted(Module) :-
     petta_engine_module(Engine),
-    forall(( metta_engine_emitted(PI), current_predicate(Engine:PI) ),
+    forall(( seam:engine_emitted(PI), current_predicate(Engine:PI) ),
            ( Engine:export(PI), Module:import(Engine:PI) )).
 
 refuse_engine_export_collision(Engine, Module, Culprit) :-
@@ -2076,7 +2069,7 @@ space_parent_reaches(Space, Target, Seen) :-
 
 space_parent_child_used(Child) :- metta_exec_module_known(Child, _), !.
 space_parent_child_used(Child) :- native_storage_module_cache(Child, _), !.
-space_parent_child_used(Child) :- metta_foreign_space(Child).
+space_parent_child_used(Child) :- seam:foreign_space(Child).
 
 %Child first, then each ancestor. The seen list is an invariant guard against
 %a corrupt or externally asserted relation; declarations refuse such cycles
@@ -2329,7 +2322,7 @@ metta_add_atom(Space, Term, true) :-
     ),
     store_atom(Space, Term),
     space_module(Space, DeclModule),
-    ( fun(Type) -> function_changed(DeclModule, Type) ; true ),
+    ( fun(Type) -> announce_function_changed(DeclModule, Type) ; true ),
     type_marker_changed(DeclModule, Type).
 %A type declaration decides how a call site compiles, most sharply for an Atom
 %parameter, which is what makes a control form possible: (: f (-> Atom
@@ -2352,15 +2345,15 @@ metta_add_atom(Space, Term, true) :- Term = [':', FAtom, _], atom(FAtom),
                                      ),
                                      store_atom(Space, Term),
                                      space_module(Space, DeclModule),
-                                     function_changed(DeclModule, FAtom).
-metta_add_atom(Space, Term, true) :- metta_foreign_space(Space), !,
+                                     announce_function_changed(DeclModule, FAtom).
+metta_add_atom(Space, Term, true) :- seam:foreign_space(Space), !,
                                      foreign_write(Space, add,
-                                                   metta_foreign_add(Space, Term)).
+                                                   seam:foreign_add(Space, Term)).
 metta_add_atom(Space, Term, true) :- add_sexp(Space, Term, Ref),
                                      record_source_assertion(Ref).
 
 existing_duplicate_declaration(Space, Term, First) :-
-    \+ metta_foreign_space(Space),
+    \+ seam:foreign_space(Space),
     copy_term(Term, Probe),
     get_native_atom(Space, Stored),
     Stored =@= Probe,
@@ -2419,9 +2412,9 @@ atoms_store_only(Space, [_|Terms], Earlier) :-
 
 %Where an atom goes. A foreign space's provider owns its storage entirely; a
 %native space's storage is the Prolog database.
-store_atom(Space, Term) :- metta_foreign_space(Space), !,
+store_atom(Space, Term) :- seam:foreign_space(Space), !,
                            foreign_write(Space, add,
-                                         metta_foreign_add(Space, Term)).
+                                         seam:foreign_add(Space, Term)).
 store_atom(Space, Term) :- add_sexp(Space, Term, Ref),
                            record_source_assertion(Ref).
 
@@ -2486,7 +2479,7 @@ add_equation(Space, Term, FAtom, _) :-
     Stored =@= Probe,
     !.
 add_equation(Space, Term, FAtom, W) :-
-    metta_foreign_space(Space), !,
+    seam:foreign_space(Space), !,
     refuse_ruleless_equation(Space, Term),
     space_module(Space, Module),
     transaction(add_function_atom(provider, Space, Module, Term, FAtom, W)).
@@ -2510,13 +2503,20 @@ store_equation(Storage, Space, Term) :- add_sexp_in(Storage, Space, Term, Ref),
 %the compile door's own module switch and the invalidation behind it is scoped
 %to one space now: reading the ambient module here would have made a write in
 %one space invalidate whichever space happened to be in force.
-function_changed(Module, FAtom) :- prepare_specialization_invalidation(Module, FAtom),
+%announce_ rather than the bare event name, because the seam is now
+%seam:function_changed/1 and this is the engine's own repair-then-announce
+%around it. The two used to share a name in one namespace, which was harmless
+%only by arity; with the seams in a module of their own the removal pair
+%matched exactly and SWI reported "Local definition of user:function_removed/1
+%overrides weak import from seam" on every file that declares the seam
+%multifile [measured 2026-08-22].
+announce_function_changed(Module, FAtom) :- prepare_specialization_invalidation(Module, FAtom),
                                    support_invalidate_function_change(Module, FAtom),
                                    forall(support_repair_invalidations, true),
-                                   forall(metta_on_function_changed(FAtom), true).
+                                   forall(seam:function_changed(FAtom), true).
 
 %The removal repair is the engine's own duty, not an observer's: it used to
-%ride a shim clause of the metta_on_function_removed EVENT, so an engine
+%ride a shim clause of the seam:function_removed EVENT, so an engine
 %without Python in the process kept a compiled mention of a retired function
 %answering as a call. Removal needs the FULL caller recompile, because a
 %mention compiled as a CALL is what must flip back to data, and the
@@ -2528,9 +2528,9 @@ function_changed(Module, FAtom) :- prepare_specialization_invalidation(Module, F
 %that never landed. Both directions and the rollback are pinned
 %[tested: the_engine_recompiles_dependents_without_a_host]
 %[tested: failed_late_definition_does_not_recompile_existing_callers].
-function_removed(FAtom) :- support_invalidate_function(FAtom),
+announce_function_removed(FAtom) :- support_invalidate_function(FAtom),
                            forall(support_repair_invalidations, true),
-                           forall(metta_on_function_removed(FAtom), true).
+                           forall(seam:function_removed(FAtom), true).
 
 %The caller has classified the atom as an equation, so the shape test that used
 %to be here is gone with it.
@@ -2546,19 +2546,19 @@ refuse_ruleless_equation(Space, Term) :-
 %using add-atom/3 so registration and per-atom events retain their ordinary
 %behavior.
 metta_add_hooks_idle(_) :-
-    \+ metta_atom_hook_clause(added, _), !.
+    \+ seam:atom_hook_clause(added, _), !.
 metta_add_hooks_idle(Space) :-
-    findall(Ref, metta_atom_hook_clause(added, Ref), Refs),
-    metta_host_add_hooks_idle(Space, Refs).
+    findall(Ref, seam:atom_hook_clause(added, Ref), Refs),
+    seam:host_add_hooks_idle(Space, Refs).
 
 %The removal mirror, asked by the bulk clear below: nothing is listening
 %when no removed-atom handler exists at all, or when a host claims the
 %whole census as its own idle hooks.
 metta_remove_hooks_idle(_) :-
-    \+ metta_atom_hook_clause(removed, _), !.
+    \+ seam:atom_hook_clause(removed, _), !.
 metta_remove_hooks_idle(Space) :-
-    findall(Ref, metta_atom_hook_clause(removed, Ref), Refs),
-    metta_host_remove_hooks_idle(Space, Refs).
+    findall(Ref, seam:atom_hook_clause(removed, Ref), Refs),
+    seam:host_remove_hooks_idle(Space, Refs).
 
 %Clear a space, whoever holds it: a Prolog foreign provider clears through
 %its own seam (or refuses, loudly, when it cannot); a native space
@@ -2575,7 +2575,7 @@ metta_remove_hooks_idle(Space) :-
 %(tabled ...) reflection facts, which describe declarations that no longer
 %exist [tested: test_pool_reuse_starts_tabling_clean].
 metta_host_clear_space(Space) :-
-    metta_foreign_space(Space), !,
+    seam:foreign_space(Space), !,
     clear_foreign_atoms(Space).
 metta_host_clear_space(Space) :-
     (   metta_remove_hooks_idle(Space)
@@ -2639,8 +2639,8 @@ metta_host_clear_defined(Space) :-
 %a host registered, and a context that declares nothing is refused here
 %[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
 foreign_provides(Space, Capability) :-
-    (   metta_foreign_capability(Space, _)
-    ->  metta_foreign_capability(Space, Capability)
+    (   seam:foreign_capability(Space, _)
+    ->  seam:foreign_capability(Space, Capability)
     ;   true
     ),
     (   Capability == subscribe
@@ -2649,7 +2649,7 @@ foreign_provides(Space, Capability) :-
     ).
 
 %A capability the space does not provide. The provider gets to say why, if it
-%has words for it: metta_foreign_refuse/2 raises, and "does not implement add"
+%has words for it: seam:foreign_refuse/2 raises, and "does not implement add"
 %reads differently from "declines this add request", which is a distinction the
 %Python half already draws and this one could not.
 %
@@ -2658,7 +2658,7 @@ foreign_provides(Space, Capability) :-
 refuse_absent_capability(Space, Capability) :-
     (   foreign_provides(Space, Capability)
     ->  true
-    ;   metta_foreign_refuse(Space, Capability)
+    ;   seam:foreign_refuse(Space, Capability)
     ->  throw(error(permission_error(Capability, foreign_space, Space),
                     context(foreign_write/3,
                             'the provider declined this operation and did not \c
@@ -2730,15 +2730,15 @@ metta_add_atoms(Space, Terms) :-
     forall(member(Term, Terms), 'add-atom'(Space, Term, _)).
 
 %A provider's own batch crossing when it has one, and the native store's
-%otherwise. A provider without metta_foreign_add_many/2 fails here and gets one
-%metta_foreign_add/2 per atom, which is what every provider written before this
+%otherwise. A provider without seam:foreign_add_many/2 fails here and gets one
+%seam:foreign_add/2 per atom, which is what every provider written before this
 %gets. The native path writes behind the write wrapper's back, so it is
 %available only while no observer is installed; a provider's own crossing owns
 %the write hooks exactly as its per-atom add does.
 add_atoms_in_one_crossing(Space, Terms) :-
-    metta_foreign_space(Space), !,
+    seam:foreign_space(Space), !,
     refuse_absent_capability(Space, add),
-    metta_foreign_add_many(Space, Terms).
+    seam:foreign_add_many(Space, Terms).
 add_atoms_in_one_crossing(Space, Terms) :-
     metta_add_hooks_idle(Space),
     ensure_native_storage_module(Space, Storage),
@@ -2769,7 +2769,7 @@ add_atoms_in_one_crossing(Space, Terms) :-
 %this file's add_function_atom and filereader.pl's two process_form
 %clauses, so a cross-cutting rule had to be hooked one door at a time
 %(the prelude eviction was the precedent), and one rule HAD drifted: the
-%loader doors notified metta_on_function_changed but never
+%loader doors notified seam:function_changed but never
 %invalidate_specializations, so an equation added by a string run or a
 %compile-mode load left a prior specialization of the same name
 %answering stale clauses. One door means the next such rule lands once
@@ -2800,7 +2800,7 @@ compile_metta_equation(Module, Term, Clause, Ref) :-
     %The dependent-recompile hooks run AFTER the clause is in place, so
     %a definition that mentions F recompiles against the new one.
     forall(support_repair_invalidations, true),
-    forall(metta_on_function_changed(F), true).
+    forall(seam:function_changed(F), true).
 
 %A recursive equation spends the same branch-local budget that runnable
 %limits own. The source tree supplies the cost because it is the stable unit:
@@ -2893,7 +2893,7 @@ throw_builtin_redefinition(Module, Clause) :-
     functor(Head, Name, Arity),
     InputArity is Arity - 1,
     metta_module_space(Module, Space),
-    (   metta_engine_emitted(Name/Arity)
+    (   seam:engine_emitted(Name/Arity)
     ->  throw(error(petta_engine_goal_redefinition(Name, InputArity, Space),
                     context('=', 'the engine compiles this name into function \c
                                   bodies')))
@@ -3223,7 +3223,7 @@ metta_remove_atom(Space, Term, Removed) :-
     unstore_atom(Space, Term, Removed),
     (   Removed == true
     ->  space_module(Space, DeclModule),
-        ( fun(Type) -> function_changed(DeclModule, Type) ; true ),
+        ( fun(Type) -> announce_function_changed(DeclModule, Type) ; true ),
         type_marker_changed(DeclModule, Type)
     ;   true
     ).
@@ -3252,7 +3252,7 @@ metta_remove_atom(Space, Term, Removed) :-
 metta_remove_atom(Space, Term, Removed) :- Term = [':', F, _], atom(F), fun(F), !,
                                            unstore_atom(Space, Term, Removed),
                                            space_module(Space, DeclModule),
-                                           function_changed(DeclModule, F).
+                                           announce_function_changed(DeclModule, F).
 metta_remove_atom(Space, Term, Removed) :- unstore_atom(Space, Term, Removed).
 
 type_marker_changed(Module, Type) :-
@@ -3324,7 +3324,7 @@ arrow_parameter_type(Types, Type) :-
 %removal's own bindings cannot narrow the question; a foreign space's
 %provider owns its verdict outright.
 metta_host_remove_reported(Space, Term, Verdict) :-
-    (   metta_foreign_space(Space)
+    (   seam:foreign_space(Space)
     ->  metta_remove_atom(Space, Term, Verdict)
     ;   copy_term(Term, Pattern),
         (   metta_host_removal_probe(Space, Pattern)
@@ -3376,7 +3376,7 @@ metta_host_removal_probe(Space, Pattern) :-
 %enumerates its provider and unifies. Pattern-directed where storage
 %allows, so an indexed head pattern does not pay a whole-space walk.
 metta_host_stored(Space, Pattern) :-
-    (   metta_foreign_space(Space)
+    (   seam:foreign_space(Space)
     ->  'get-atoms'(Space, Atom),
         Atom = Pattern
     ;   get_native_atom(Space, Pattern)
@@ -3447,14 +3447,14 @@ remove_equation(Space, Term, F, Args, Body, Removed) :-
         )
     ;   true
     ),
-    function_changed(Module, F),
+    announce_function_changed(Module, F),
     ( module_owns_function(Module, F) -> true ; unregister_fun_in(Module, F) ),
     ( \+ function_still_defined(F)
       -> retractall(fun(F)), unregister_fun_everywhere(F),
-         %function_removed/1, not the bare event: fun(F) is false only now,
+         %announce_function_removed/1, not the bare event: fun(F) is false only now,
          %so THIS recompile is the one that reads mentions of F as data
          %again; the function_changed above ran while F was still a function.
-         function_removed(F)
+         announce_function_removed(F)
       ; true ),
     ( Erased == false, Stored \== true -> Removed = false ; Removed = true ).
 
@@ -3479,9 +3479,9 @@ petta_repair_emptied_shadows :-
 %whether the store actually held it.
 
 %% unstore_atom(+Space, ?Atom, -Removed:boolean) is semidet.
-unstore_atom(Space, Term, Removed) :- metta_foreign_space(Space), !,
+unstore_atom(Space, Term, Removed) :- seam:foreign_space(Space), !,
                                       foreign_write(Space, remove,
-                                                    metta_foreign_remove(Space, Term,
+                                                    seam:foreign_remove(Space, Term,
                                                                          Removed)).
 %One atom that unifies, and whether one was there. A MeTTa space is a multiset,
 %and subtracting from a multiset takes one occurrence.
@@ -3573,7 +3573,7 @@ match(Space, Pattern, OutPattern, Result) :- nonvar(Pattern), Pattern = [Comma|_
 %A single pattern over a foreign space: the provider answers, and the
 %conjunction door above has already taken the conjunctive case.
 match(Space, Pattern, OutPattern, Result) :- nonvar(Space),
-                                             metta_foreign_space(Space), !,
+                                             seam:foreign_space(Space), !,
                                              match_foreign(Space, Pattern, OutPattern, Result).
 %An unbound space would make this dynamic call enumerate every space that has
 %ever been written to, so a program in &self could read &kb without naming it.
@@ -3715,7 +3715,7 @@ bounded_conjunction(Bound, Space, Pattern) :-
 %[measured 2026-08-20: py-method-call 2,250,095 inferences against 2,220,093,
 %three per call over 10,000 evaluations in a space nothing had written to].
 match_stored(Space, Pattern, OutPattern, Result) :-
-    nonvar(Space), metta_foreign_space(Space), !,
+    nonvar(Space), seam:foreign_space(Space), !,
     match_foreign(Space, Pattern, OutPattern, Result).
 match_stored([Family|Parameters], Pattern, OutPattern, Result) :-
     Space = [Family|Parameters],
@@ -3732,7 +3732,7 @@ match_stored(Space, Pattern, OutPattern, Result) :-
 %probe every time. A native space is a Prolog predicate named after the space
 %and stays on the direct helper; anything else routes each conjunct back
 %through match/4, which is how a space implemented by its own clause sees it.
-match_conjunction(Space, Pattern, OutPattern) :- metta_foreign_space(Space), !,
+match_conjunction(Space, Pattern, OutPattern) :- seam:foreign_space(Space), !,
                                                  match_foreign(Space, Pattern, OutPattern, _).
 match_conjunction(Space, Pattern, OutPattern) :- native_storage_module_cache(Space, Module), !,
                                                  (   space_parent(Space, _)
@@ -3752,7 +3752,7 @@ match_inherited_space(Space, OwnModule, Pattern, OutPattern, Result) :-
     ).
 
 match_read_link(Space, Pattern, OutPattern, Result) :-
-    metta_foreign_space(Space),
+    seam:foreign_space(Space),
     !,
     match_foreign(Space, Pattern, OutPattern, Result).
 match_read_link(Space, Pattern, OutPattern, Result) :-
@@ -3794,10 +3794,10 @@ petta_match_atoms(L, R) :- is_list(L), is_list(R), !,
                            petta_match_all(L, R).
 petta_match_atoms(L, R) :- petta_space_operand(L), !, match(L, R, [], _).
 petta_match_atoms(L, R) :- petta_space_operand(R), !, match(R, L, [], _).
-petta_match_atoms(L, R) :- metta_matchable_value(L), !,
-                           metta_custom_match(L, R).
-petta_match_atoms(L, R) :- metta_matchable_value(R), !,
-                           metta_custom_match(R, L).
+petta_match_atoms(L, R) :- seam:matchable_value(L), !,
+                           seam:custom_match(L, R).
+petta_match_atoms(L, R) :- seam:matchable_value(R), !,
+                           seam:custom_match(R, L).
 petta_match_atoms(L, R) :- number(L), number(R), !, L =:= R.
 petta_match_atoms(L, R) :- L == R.
 
@@ -3811,7 +3811,7 @@ petta_match_all([X|Xs], [Y|Ys]) :-
 petta_space_operand(S) :-
     atom(S),
     !,
-    (   metta_foreign_space(S)
+    (   seam:foreign_space(S)
     ->  true
     ;   native_storage_module_cache(S, _)
     ).
@@ -3828,7 +3828,7 @@ petta_space_operand(S) :-
 %duplicate-free.
 metta_space_names(Names) :-
     findall(S, native_storage_module_cache(S, _), Native),
-    findall(S, metta_foreign_space(S), Foreign),
+    findall(S, seam:foreign_space(S), Foreign),
     append(Native, Foreign, All),
     sort(All, Names).
 
@@ -3920,11 +3920,11 @@ foreign_route(Space, Route) :-
 
 %Whether a provider takes this conjunction, decided ONCE and committed to. A
 %provider that could yield a row and then decline would leave the engine unable
-%to tell "no rows" from "not mine", which is the ambiguity metta_foreign_match/3
+%to tell "no rows" from "not mine", which is the ambiguity seam:foreign_match/3
 %was fixed for; once/1 here and the cut at the call site are what prevent it.
 foreign_claims_plan(Space, Conjuncts, Rest, Goal) :-
     foreign_provides(Space, plan),
-    once(metta_foreign_plan(Space, Conjuncts, Claimed, Rest, Goal)),
+    once(seam:foreign_plan(Space, Conjuncts, Claimed, Rest, Goal)),
     Claimed \== [],
     refuse_lossy_plan(Space, Conjuncts, Claimed, Rest).
 
@@ -4034,7 +4034,7 @@ match_foreign_routed(Space, _, PatternVar, _, OutPattern, Result) :-
     %its own touch per outer row, and that second touch of a drained
     %linear source is exactly what must be loud.
     petta_source_guard(Space),
-    metta_foreign_atoms(Space, PatternVar),
+    seam:foreign_atoms(Space, PatternVar),
     acyclic_term(OutPattern),
     Result = OutPattern.
 match_foreign_routed(Space, match, Pattern, Options, OutPattern, Result) :- !,
@@ -4043,14 +4043,14 @@ match_foreign_routed(Space, match, Pattern, Options, OutPattern, Result) :- !,
     (   petta_on_error_mode(Space, Pattern, Mode),
         Mode \== abort
     ->  petta_match_erring(Mode, Space, Pattern, Licensed, OutPattern, Result)
-    ;   metta_foreign_match(Space, Pattern, Licensed),
+    ;   seam:foreign_match(Space, Pattern, Licensed),
         acyclic_term(OutPattern),
         Result = OutPattern
     ).
 
 match_foreign_routed(Space, enumerate, Pattern, _, OutPattern, Result) :-
     petta_source_guard(Space),
-    metta_foreign_atoms(Space, Candidate),
+    seam:foreign_atoms(Space, Candidate),
     Candidate = Pattern,
     acyclic_term(OutPattern),
     Result = OutPattern.
@@ -4068,19 +4068,19 @@ match_foreign_routed(Space, enumerate, Pattern, _, OutPattern, Result) :-
 %still surfaced the raw ValueError in janus.query_once], so a Python
 %provider's mode is enforced on the Python side of the crossing, with a
 %kept failure arriving as the reserved ["x","error",...] wire item
-%through the metta_foreign_erring/5 adapter hook. A provider whose host
+%through the seam:foreign_erring/5 adapter hook. A provider whose host
 %is Prolog throws ordinary catchable exceptions, and the fallback below
 %handles those here; catch/3 keeps the goal's choice points, so streamed
 %answers survive the wrapping.
 petta_match_erring(Mode, Space, Pattern, Licensed, OutPattern, Result) :-
-    (   metta_foreign_erring(Space, Pattern, Licensed, Mode, Item)
+    (   seam:foreign_erring(Space, Pattern, Licensed, Mode, Item)
     *-> (   Item == answer
         ->  acyclic_term(OutPattern),
             Result = OutPattern
         ;   Item = kept(Kept),
             Result = Kept
         )
-    ;   catch(( metta_foreign_match(Space, Pattern, Licensed),
+    ;   catch(( seam:foreign_match(Space, Pattern, Licensed),
                 Outcome = answer ),
               Error,
               petta_match_error_outcome(Error, Mode, Outcome)),
@@ -4183,7 +4183,7 @@ metta_take(Count, Goal) :-
 metta_take_match(Count, Space, Pattern, OutPattern, Result) :-
     metta_take_count(take, Count),
     (   nonvar(Space),
-        metta_foreign_space(Space)
+        seam:foreign_space(Space)
     ->  limit(Count, match_foreign(Space, Pattern, [limit(Count)], OutPattern,
                                    Result))
     ;   limit(Count, match_bounded(Count, Space, Pattern, OutPattern, Result))
@@ -4239,7 +4239,7 @@ metta_top_match(Count, Space, Pattern, OutPattern, Result) :-
         throw(error(petta_top_unordered(Space, Semiring), none))
     ),
     (   nonvar(Space),
-        metta_foreign_space(Space)
+        seam:foreign_space(Space)
     ->  (   petta_top_pushable(Space, Pattern)
         ->  Options = [limit(Count)]
         ;   Options = []
@@ -4289,7 +4289,7 @@ prolog:error_message(petta_top_unordered(Ctx, Semiring)) -->
 %it: refusal preflighted through the same petta_refuse_guard that
 %match_foreign consults, per-pattern classes through foreign_pushdown_class
 %with each pattern asked standalone, and the conjunction claim through the
-%same guarded metta_foreign_plan call the execution commits to, the
+%same guarded seam:foreign_plan call the execution commits to, the
 %lossy-partition check included. Claimed and Rest come back as indexes into
 %the pattern list, so a host renders its own atoms and its caller's variable
 %names survive. A stored space answers explain(stored, [], [], []): the
@@ -4297,7 +4297,7 @@ prolog:error_message(petta_top_unordered(Ctx, Semiring)) -->
 %TERMS, declared(Entry, Fidelity, Det), provider, unclaimed or
 %refused(Entry); prose is the host's own presentation.
 metta_host_explain_match(Space, Patterns, Report) :-
-    (   \+ metta_foreign_space(Space)
+    (   \+ seam:foreign_space(Space)
     ->  Report = explain(stored, [], [], [])
     ;   ( Patterns = [Whole] -> true ; Whole = [','|Patterns] ),
         catch(
@@ -4323,7 +4323,7 @@ metta_host_explain_class(Space, Pattern, class(Class, Origin)) :-
 metta_host_explain_origin(Space, Pattern, Origin) :-
     (   petta_handles_route(Space, Pattern, Entry, Fidelity, Det)
     ->  Origin = declared(Entry, Fidelity, Det)
-    ;   metta_foreign_pushdown(Space, Pattern, _)
+    ;   seam:foreign_pushdown(Space, Pattern, _)
     ->  Origin = provider
     ;   Origin = unclaimed
     ).
@@ -4331,7 +4331,7 @@ metta_host_explain_origin(Space, Pattern, Origin) :-
 metta_host_explain_plan(Space, Patterns, ClaimedIdx, RestIdx) :-
     (   Patterns = [_, _|_],
         foreign_provides(Space, plan),
-        once(metta_foreign_plan(Space, Patterns, Claimed, Rest, _Goal)),
+        once(seam:foreign_plan(Space, Patterns, Claimed, Rest, _Goal)),
         Claimed \== []
     ->  refuse_lossy_plan(Space, Patterns, Claimed, Rest),
         maplist(metta_host_explain_index(Patterns), Claimed, ClaimedIdx),
@@ -4369,12 +4369,12 @@ foreign_pushdown_declared_class(Space, Pattern, Class) :-
                                                 none))
         ;   Class = inexact
         )
-    ;   metta_foreign_pushdown(Space, Pattern, Claimed)
+    ;   seam:foreign_pushdown(Space, Pattern, Claimed)
     ->  Class = Claimed
     ;   Class = inexact
     ).
 
-%The advisors' fold: every metta_route_cap/4 clause is a voice and the
+%The advisors' fold: every seam:route_cap/4 clause is a voice and the
 %most conservative wins, refuse below inexact below exact, so an advisor
 %can only DEMOTE what the declaration or the method proposed. refuse is
 %loud and names the advisor's Why; a cap outside the vocabulary is a bug
@@ -4384,9 +4384,9 @@ foreign_pushdown_declared_class(Space, Pattern, Class) :-
 %being rare and the fold running only at route classification, never per
 %answer.
 petta_route_cap_apply(Space, Pattern, Class0, Class) :-
-    (   \+ metta_route_cap(Space, Pattern, _, _)
+    (   \+ seam:route_cap(Space, Pattern, _, _)
     ->  Class = Class0
-    ;   findall(Cap-Why, metta_route_cap(Space, Pattern, Cap, Why), Caps),
+    ;   findall(Cap-Why, seam:route_cap(Space, Pattern, Cap, Why), Caps),
         (   member(BadCap-BadWhy, Caps),
             % policy-inventory-exempt: mechanism-internal; reason=exact inexact and refuse are the route-advisor fold states rather than a user policy vocabulary; evidence=engine/spaces.pl:petta_route_cap_apply/4
             \+ memberchk(BadCap, [exact, inexact, refuse])
@@ -4404,7 +4404,7 @@ petta_route_cap_apply(Space, Pattern, Class0, Class) :-
 prolog:error_message(petta_route_capped(Space, Pattern, Why)) -->
     { swrite(Pattern, PatternText) },
     [ 'a route advisor refuses ~w for ~w: ~w. The cap rides \c
-       metta_route_cap/4; remove the advisor''s reason or its declaration \c
+       seam:route_cap/4; remove the advisor''s reason or its declaration \c
        to route again'-[Space, PatternText, Why] ].
 prolog:error_message(petta_route_cap_invalid(Space, Cap, Why)) -->
     [ 'a route advisor for ~w answered the cap ~w (why: ~w), outside \c
@@ -4567,10 +4567,10 @@ native_expression(Module, Space, Rel, PatArgs) :-
     acyclic_term(PatArgs).
 
 'get-atoms'(Space, Pattern) :- nonvar(Space),
-                               metta_foreign_space(Space), !,
+                               seam:foreign_space(Space), !,
                                refuse_absent_capability(Space, enumerate),
                                petta_source_guard(Space),
-                               metta_foreign_atoms(Space, Pattern).
+                               seam:foreign_atoms(Space, Pattern).
 
 %Get all atoms in space, irregard of arity. A first argument that is not a
 %space is refused HERE and not in get_native_atom/2 below, for the same reason
@@ -4613,11 +4613,11 @@ get_inherited_atom(Space, OwnModule, Pattern) :-
     ).
 
 get_atom_read_link(Space, Pattern) :-
-    metta_foreign_space(Space),
+    seam:foreign_space(Space),
     !,
     refuse_absent_capability(Space, enumerate),
     petta_source_guard(Space),
-    metta_foreign_atoms(Space, Pattern).
+    seam:foreign_atoms(Space, Pattern).
 get_atom_read_link(Space, Pattern) :-
     native_storage_module_ready(Space, Module),
     get_native_atom(Module, Space, Pattern).
@@ -4630,7 +4630,7 @@ get_atom_read_link(Space, Pattern) :-
 %lib/lib_redis.pl does) was reachable only when Python was in the process:
 %under run.sh the engine had no path to it at all. The shim now calls this.
 clear_foreign_atoms(Space) :-
-    foreign_write(Space, clear, metta_foreign_clear(Space)).
+    foreign_write(Space, clear, seam:foreign_clear(Space)).
 
 %A space has two halves and this used to empty one of them. The storage sweep
 %below drops every stored atom, and the atoms that also COMPILED left their
@@ -4688,7 +4688,7 @@ petta_capacity_count_claim(Pool) :-
     ).
 
 petta_capacity_count_install(Space) :-
-    (   metta_foreign_space(Space)
+    (   seam:foreign_space(Space)
     ->  true
     ;   with_mutex('$petta_capacity_count',
                    transaction(( (   petta_capacity_count(Space, _)
@@ -4832,7 +4832,7 @@ space_atom_count(Space, Count) :-
     petta_capacity_count(Space, Count),
     !.
 space_atom_count(Space, Count) :-
-    (   metta_foreign_space(Space)
+    (   seam:foreign_space(Space)
     ->  throw(error(petta_foreign_space_count(Space), none))
     ;   space_atom_count_uncached(Space, Count)
     ).

@@ -262,8 +262,8 @@ record_specialization_support(Module, Source, SpecName) :-
                     [function(Module, Source)],
                     [edge(Specialization, function(Module, SpecName))]).
 
-:- multifile support_invalidation_action/1.
-support_invalidation_action(specialization(Module, SpecName)) :-
+:- multifile support_graph:support_invalidation_action/1.
+support_graph:support_invalidation_action(specialization(Module, SpecName)) :-
     (   ho_specialization(Module, _, SpecName)
     ->  forget_symbol(Module, SpecName)
     ;   true
@@ -519,10 +519,10 @@ forget_symbol(Module, Name) :-
     retractall(ho_specialization(Module, Name, _)),
     retractall(ho_specialization(Module, _, Name)),
     support_invalidate(function(Module, Name)),
-    %function_removed/1 rather than the bare event: the recompile of the
+    %announce_function_removed/1 rather than the bare event: the recompile of the
     %dependents rides in the engine now, so this path repairs compiled
     %mentions even when no host installed an observer.
-    function_removed(Name),
+    announce_function_removed(Name),
     unregister_fun_in(Module, Name),
     %The name-wide registers go only when NO module still defines it, because
     %the same generated name can belong to two spaces at once. Name-wide means

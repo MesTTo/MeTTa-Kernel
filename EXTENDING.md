@@ -9,6 +9,31 @@ The short version: **C, Prolog, macros and compiled Python all cost about what
 a MeTTa function costs, and a Python operation costs the janus crossing.** Pick
 by how hot the code is, and by which language the work is already in.
 
+## Where the Prolog seams live
+
+Every seam you write clauses for is in the `seam` module, so a handler is
+declared and defined under it:
+
+```prolog
+:- multifile seam:atom_added/2.
+seam:atom_added(Space, Atom) :- format("~w gained ~w~n", [Space, Atom]).
+```
+
+That is SWI's own hook shape, the one `prolog:message//1` has always used. The
+module is why the names are short. They used to carry a prefix instead:
+`metta_on_atom_added/2`, `metta_foreign_match/3`, `metta_grounded_apply/3`,
+`metta_host_builtin/1`. A prefix is a convention and cannot refuse anything,
+so two libraries could declare one seam name and corrupt each other by import
+order, and nothing said which module a handler belonged to. **The old
+spellings are gone rather than aliased**, and unqualified is not one of them:
+`:- multifile atom_added/2.` declares a predicate of your own that nothing
+consults.
+
+Services go the other way. A service is a predicate the engine defines and you
+call, so you call it as you would any other, unqualified, and the engine's
+module puts it in scope: `swrite/2`, `space_module/2`, `current_metta_module/1`.
+`seam:kind/2` says which of the two any given seam is.
+
 ## What each one costs
 
 Measured by `bindings/python/benchmarks/extension_cost.py`, which `check.sh` re-runs as
@@ -528,11 +553,11 @@ equation still shadows it, which is the behaviour that should happen.
 ### Add a builtin type without replacing the type table
 
 A Prolog library may add an intrinsic type by contributing one clause to the
-`builtin_type_declaration/2` declaration seam:
+`seam:builtin_type_declaration/2` declaration seam:
 
 ```prolog
 :- metta_extension(my_blob_types, [version('0.1.0')]).
-builtin_type_declaration('my-blob', 'MyBlob').
+seam:builtin_type_declaration('my-blob', 'MyBlob').
 ```
 
 Do not redeclare the predicate in the library. The engine declares it
@@ -1338,7 +1363,7 @@ silently turn that spelling back into a symbol.
 The engine owns the table and its replacement lifecycle.
 `metta_host_register_reader_token/2` and
 `metta_host_unregister_reader_token/1` are the transport doors, while
-`metta_host_reader_token_construct/3` is the host ownership callback used to
+`seam:host_reader_token_construct/3` is the host ownership callback used to
 invoke a retained constructor. A host binding should call those doors rather
 than maintaining a second registry.
 
@@ -1351,7 +1376,7 @@ A provider file declares an EXTENSION and exports nothing:
 ```prolog
 :- metta_extension(mylib_space, [version('1.0.0')]).
 
-:- multifile metta_foreign_space/1.
+:- multifile seam:foreign_space/1.
 ...
 ```
 
@@ -1384,25 +1409,25 @@ There are two ways in, and they differ in cost the same way tiers 2 and 3 do.
 boundary, which is right when the atoms live somewhere Python already talks to.
 `das.py`, `remote.py` and `persistent.py` are three real instances.
 
-**From Prolog**, add clauses to the multifile seam in `engine/spaces.pl`:
+**From Prolog**, add clauses to the multifile seams in the `seam` module:
 
 ```prolog
-:- multifile metta_foreign_space/1.     % this space is mine
-:- multifile metta_foreign_add/2.       % add an atom
-:- multifile metta_foreign_remove/3.    % remove one
-:- multifile metta_foreign_atoms/2.     % enumerate
-:- multifile metta_foreign_match/3.     % answer a pattern
-:- multifile metta_foreign_erring/5.    % a declared error mode's stream
-:- multifile metta_foreign_begin/1.     % transactional participation:
-:- multifile metta_foreign_commit/1.    %   one begin at the first write,
-:- multifile metta_foreign_rollback/1.  %   one commit or rollback after
-:- multifile metta_foreign_clear/1.     % empty the space
+:- multifile seam:foreign_space/1.     % this space is mine
+:- multifile seam:foreign_add/2.       % add an atom
+:- multifile seam:foreign_remove/3.    % remove one
+:- multifile seam:foreign_atoms/2.     % enumerate
+:- multifile seam:foreign_match/3.     % answer a pattern
+:- multifile seam:foreign_erring/5.    % a declared error mode's stream
+:- multifile seam:foreign_begin/1.     % transactional participation:
+:- multifile seam:foreign_commit/1.    %   one begin at the first write,
+:- multifile seam:foreign_rollback/1.  %   one commit or rollback after
+:- multifile seam:foreign_clear/1.     % empty the space
 ```
 
 Two more seams carry custom matching, Hyperon's CustomMatch: a grounded
 value may own its matching logic, consulted by `(unify ...)` when the
-value meets a non-variable operand. `metta_matchable_value/1` says a
-value has such logic, and `metta_custom_match/2` enumerates one solution
+value meets a non-variable operand. `seam:matchable_value/1` says a
+value has such logic, and `seam:custom_match/2` enumerates one solution
 per binding set, binding the other operand's variables through ordinary
 unification; no solutions means no match. Variables always bind the
 value whole without consulting it, and a value nobody claims falls
@@ -1412,16 +1437,16 @@ so a Python value participates with no registration at all; a
 Prolog-hosted value participates by adding clauses to these seams.
 
 ```prolog
-:- multifile metta_matchable_value/1.   % this value owns its matching
-:- multifile metta_custom_match/2.      % one solution per binding set
+:- multifile seam:matchable_value/1.   % this value owns its matching
+:- multifile seam:custom_match/2.      % one solution per binding set
 ```
 
-`metta_foreign_clear/1` is the sixth and is easy to miss: it lived in
+`seam:foreign_clear/1` is the sixth and is easy to miss: it lived in
 `bindings/python/petta/shim.pl` rather than beside the other five, so a Prolog provider
 that implemented `clear`, as `lib/lib_redis.pl` does, was reachable only when
 Python happened to be in the process. It is declared with them now.
 
-The engine consults `metta_foreign_space/1` before reaching its own storage, so
+The engine consults `seam:foreign_space/1` before reaching its own storage, so
 your clauses take the space over entirely, with no boundary crossing. This is
 how MORK plugs a Rust trie in underneath MeTTa: `backends/mork/mork_ffi/morkspaces.pl` is a
 complete worked example, and `examples/integration/c_space/` is the
@@ -1441,7 +1466,7 @@ certifies any implementation of that protocol by URL), and Redis
 (`lib/lib_redis.pl`).
 
 **The seam is order-independent, and that is the point of it.** Every one of
-the operations above consults `metta_foreign_space/1` as a guard before
+the operations above consults `seam:foreign_space/1` as a guard before
 reaching native storage, so it does not matter when your file loads. Do not
 add raw `match/4` clauses instead: declaring `match/4`, `add-atom/3`,
 `remove-atom/3` and `get-atoms/2` multifile puts your clauses ahead of the
@@ -1455,14 +1480,14 @@ A seventh hook is optional, and it exists because one crossing per atom is the
 wrong shape for bulk ingestion:
 
 ```prolog
-:- multifile metta_foreign_add_many/2.  % a list of atoms, your way
+:- multifile seam:foreign_add_many/2.  % a list of atoms, your way
 
-metta_foreign_add_many('&mine', Atoms) :- mine_bulk_load(Atoms).
+seam:foreign_add_many('&mine', Atoms) :- mine_bulk_load(Atoms).
 ```
 
 Write it and `m.add(a, b, c)`, `add-atom` over a list, and any other bulk write
 reach you once with the list. Leave it out and you get one
-`metta_foreign_add/2` per atom, which is what every provider written before
+`seam:foreign_add/2` per atom, which is what every provider written before
 this gets. The write hooks are yours either way, exactly as they are for your
 per-atom add. `backends/mork/mork_ffi/morkspaces.pl` implements it by joining the atoms into
 one payload that MORK parses itself.
@@ -1485,10 +1510,10 @@ provider that never sees more than one pattern cannot do better than one
 however fast it is. Say you take conjunctions and you get them whole:
 
 ```prolog
-:- multifile metta_foreign_plan/5.
+:- multifile seam:foreign_plan/5.
 
-%   metta_foreign_plan(Space, Patterns, Claimed, Rest, Goal)
-metta_foreign_plan('&mine', Patterns, Patterns, [], mine_join('&mine', Patterns)).
+%   seam:foreign_plan(Space, Patterns, Claimed, Rest, Goal)
+seam:foreign_plan('&mine', Patterns, Patterns, [], mine_join('&mine', Patterns)).
 ```
 
 ```python
@@ -1546,7 +1571,7 @@ once.
 Say your space holds equations and the engine evaluates through it:
 
 ```prolog
-metta_foreign_capability('&mine', Capability) :-
+seam:foreign_capability('&mine', Capability) :-
     member(Capability, [match, enumerate, add, remove, rules]).
 ```
 
@@ -1618,11 +1643,11 @@ Two multifile hooks go with it, and both exist so the engine never has to name
 a backend:
 
 ```prolog
-:- multifile metta_backend_builtin/1.   % a builtin your bridge provides
-:- multifile metta_backend_selftest/0.  % your smoke test, run by the CLI demo
+:- multifile seam:backend_builtin/1.   % a builtin your bridge provides
+:- multifile seam:backend_selftest/0.  % your smoke test, run by the CLI demo
 ```
 
-Declare `metta_backend_builtin/1` in the file that DEFINES the predicates, not
+Declare `seam:backend_builtin/1` in the file that DEFINES the predicates, not
 in `backends/mine.pl`, so the names exist exactly when the predicates do.
 Registering a name whose predicate is absent records no arity, and every call
 to it then compiles to a partial application rather than running or failing.
@@ -1666,7 +1691,7 @@ parenthesis or a quote in it comes back as something else. You cannot decide
 that for yourself, the grammar owns it, so ask and refuse:
 
 ```prolog
-metta_foreign_add('&mine', Atom) :-
+seam:foreign_add('&mine', Atom) :-
     (   metta_unwritable_symbol(Atom, Bad)
     ->  throw(error(domain_error(mine_text_symbol, Bad),
                     context('add-atom'/3,
@@ -1710,9 +1735,9 @@ A capability your space does not provide is refused by the engine, and the
 refusal is generic unless you write one:
 
 ```prolog
-:- multifile metta_foreign_refuse/2.
+:- multifile seam:foreign_refuse/2.
 
-metta_foreign_refuse('&mine', add) :-
+seam:foreign_refuse('&mine', add) :-
     throw(error(petta_readonly_space('&mine'), context(add, 'load it with the importer'))).
 ```
 
@@ -1724,8 +1749,8 @@ differently there from "declines this add request".
 ### Say what your provider answers
 
 ```prolog
-:- multifile metta_foreign_capability/2.
-metta_foreign_capability('&mine', Capability) :-
+:- multifile seam:foreign_capability/2.
+seam:foreign_capability('&mine', Capability) :-
     member(Capability, [add, remove, match, enumerate]).
 ```
 
@@ -1754,8 +1779,8 @@ can deliver, and the difference is the whole of it: a remote space implements
 here would hear this process's own writes and silently miss every other one.
 
 ```prolog
-:- multifile metta_context_events/3.
-metta_context_events('&mine', 'per-write-exactly', ordered).
+:- multifile seam:context_events/3.
+seam:context_events('&mine', 'per-write-exactly', ordered).
 ```
 
 ```python
@@ -1777,7 +1802,7 @@ writes.
 
 A Python provider's answer is written for it, as the space's ordinary
 `(events <ctx> <delivery> <order>)` declaration in `&petta`, so a MeTTa program
-reads the promise the engine acts on. Use `metta_context_events/3` when you own
+reads the promise the engine acts on. Use `seam:context_events/3` when you own
 a FAMILY of names rather than one, the way every `&mork` space belongs to one
 backend, and there is no single name to write the atom about. A native space
 declares nothing and is watchable anyway: that is a fact about the engine's own
@@ -1815,7 +1840,7 @@ class Rows(SpaceProvider):
 ```
 
 ```prolog
-metta_foreign_match('&mine', Pattern, Options) :-
+seam:foreign_match('&mine', Pattern, Options) :-
     ( memberchk(limit(N), Options) -> true ; N = unbounded ),
     ...
 ```
@@ -1867,8 +1892,8 @@ class Rows(SpaceProvider):
 ```
 
 ```prolog
-:- multifile metta_foreign_pushdown/3.
-metta_foreign_pushdown('&mine', [_|Args], Class) :-
+:- multifile seam:foreign_pushdown/3.
+seam:foreign_pushdown('&mine', [_|Args], Class) :-
     ( forall(member(A, Args), (var(A) ; ground(A))) -> Class = exact
     ; Class = inexact ).
 ```
@@ -1930,7 +1955,7 @@ the positions its `WHERE` clause covers and whose claim the kit confirms:
 
 ## 7. Atom hooks: reacting to writes
 
-`metta_on_atom_added/2` and `metta_on_atom_removed/2` are multifile predicates
+`seam:atom_added/2` and `seam:atom_removed/2` are multifile predicates
 in `engine/ext_points.pl`. Assert a clause and every write to a space calls it.
 This is how Python subscriptions deliver, and how `lib_thread`'s `await-atom`
 blocks on a space without polling.
@@ -1939,8 +1964,8 @@ blocks on a space without polling.
 `multifile` declaration is for and what a library usually wants:
 
 ```prolog
-:- multifile metta_on_atom_added/2.
-metta_on_atom_added(Space, Term) :- my_index_update(Space, Term).
+:- multifile seam:atom_added/2.
+seam:atom_added(Space, Term) :- my_index_update(Space, Term).
 ```
 
 The write wrapper is installed lazily, and a clause arriving from a FILE
@@ -1957,22 +1982,38 @@ The cost is per write and only while a hook exists: `metta_add_hooks_idle/1`
 takes a space off the bulk fast path exactly when somebody is listening, so an
 unobserved space pays nothing.
 
+A HOST is asked the same question about its own hooks, through
+`seam:host_add_hooks_idle/2` and `seam:host_remove_hooks_idle/2`. The engine
+hands over the whole handler census as clause references and the host answers
+whether every one of them is its own and idle for that space, so a host that
+installed one bridging clause can take the bulk path back without the engine
+knowing anything about how the host tracks its subscriptions:
+
+```prolog
+:- multifile seam:host_add_hooks_idle/2.
+seam:host_add_hooks_idle(Space, [OnlyRef]) :- my_bridge_clause(OnlyRef),
+                                              \+ my_subscriber(Space, _).
+```
+
+With no host loaded the seams have no clause and the engine's own
+no-handlers test has already answered, so nothing is paid for the question.
+
 ### The one way to get a handler wrong
 
 Write your guard as `( Condition -> Action ; true )`, not `Condition, !`:
 
 ```prolog
 % wrong: silently disables every handler loaded after yours
-metta_on_atom_added(Space, Term) :-
+seam:atom_added(Space, Term) :-
     my_space(Space), !, my_index_update(Term).
 
 % right: same guard, same cost, prunes nothing
-metta_on_atom_added(Space, Term) :-
+seam:atom_added(Space, Term) :-
     ( my_space(Space) -> my_index_update(Term) ; true ).
 ```
 
 Atom hooks run through `forall/2`, so every handler is called. A cut in your
-clause prunes the remaining clauses of `metta_on_atom_added/2`, and those are
+clause prunes the remaining clauses of `seam:atom_added/2`, and those are
 the other libraries' handlers. Nothing reports it. `lib_tabling` cut after a
 global condition once, `duals.pl`'s invalidation handler was ordered after it
 and never ran, and `(not-provable (pq 2))` answered True and False at once.
@@ -1981,10 +2022,10 @@ The rule differs by seam, so each one carries its kind as a fact beside its
 declaration in `engine/ext_points.pl`:
 
 ```prolog
-?- ext_point_kind(metta_on_atom_added/2, Kind).
+?- seam:kind(seam:atom_added/2, Kind).
 Kind = event.
 
-?- ext_point_kind(metta_foreign_match/3, Kind).
+?- seam:kind(seam:foreign_match/3, Kind).
 Kind = ownership.
 ```
 
@@ -2000,13 +2041,13 @@ true.
 A **service** is the odd one out and none of that applies to it, because it
 runs the other way: you write the clauses of the first three and the engine
 calls them, while a service is a predicate the engine defines and you call.
-`swrite/2` is one, and it cuts, correctly. `ext_point_clauses_from/2` is what
+`swrite/2` is one, and it cuts, correctly. `seam:clauses_from/2` is what
 says which way a kind runs, and the cut checks read that rather than the kind,
 so a service is not mistaken for a handler that has gone wrong.
 
 ### Owning a pattern modifier
 
-`pattern_modifier/3` is the ownership seam for structural pattern views. A
+`seam:pattern_modifier/3` is the ownership seam for structural pattern views. A
 clause receives the source pattern, returns the pattern the store should
 match, and returns a guard that runs over the resulting bindings. The first
 clause that succeeds owns that pattern position, so its guard must establish
@@ -2017,7 +2058,7 @@ pattern outside the ordinary translator. It walks nested patterns, applies the
 same first-success ownership rule at each eligible position, and returns the
 guards in evaluation order. The built-in `(:= value)` equality view and
 `(: $variable Type)` typed-variable view are the reference implementations in
-`engine/translator.pl` [source: engine/ext_points.pl, pattern_modifier/3 and
+`engine/translator.pl` [source: engine/ext_points.pl, seam:pattern_modifier/3 and
 engine/translator.pl, lift_pattern_modifiers/3;
 commit=ea0bd45cc9f3991e41f61d8f6bf4d4e6cb992776].
 
@@ -2119,10 +2160,10 @@ unreduced, so a Python function, a compiled model or any other host callable
 held in a MeTTa variable was a value you could pass around and never apply.
 
 ```prolog
-:- multifile metta_grounded_apply/3.
+:- multifile seam:grounded_apply/3.
 
-%   metta_grounded_apply(Value, Args, Out)
-metta_grounded_apply(Obj, Args, Out) :- my_callable(Obj), my_apply(Obj, Args, Out).
+%   seam:grounded_apply(Value, Args, Out)
+seam:grounded_apply(Obj, Args, Out) :- my_callable(Obj), my_apply(Obj, Args, Out).
 ```
 
 Succeed to claim the head and bind `Out`; **fail and the expression stays
@@ -2132,9 +2173,9 @@ than raising.
 A companion answers the same question with no arguments to hand:
 
 ```prolog
-:- multifile metta_grounded_applicable/1.
+:- multifile seam:grounded_applicable/1.
 
-metta_grounded_applicable(Obj) :- my_callable(Obj).
+seam:grounded_applicable(Obj) :- my_callable(Obj).
 ```
 
 `bind!` needs it. A name bound to a callable is callable by that name, which is
@@ -2154,13 +2195,13 @@ own.
 MeTTa names three things a grounded value may define for itself: "Grounded
 value type creators can define custom **type**, **execution** and **matching**
 logic for the value". Type is the class walk above, execution is
-`metta_grounded_apply/3`, and this is matching.
+`seam:grounded_apply/3`, and this is matching.
 
 ```prolog
-:- multifile metta_grounded_structure/2.
+:- multifile seam:grounded_structure/2.
 
-%   metta_grounded_structure(Value, Expression)
-metta_grounded_structure(Obj, Elements) :- my_sequence(Obj, Elements).
+%   seam:grounded_structure(Value, Expression)
+seam:grounded_structure(Obj, Elements) :- my_sequence(Obj, Elements).
 ```
 
 The problem it solves is that a host container wants to be two things at once.
@@ -2195,9 +2236,9 @@ which objects a sequence pattern may take apart.
 ### Say that an operation is safe to cache
 
 ```prolog
-:- multifile metta_pure_operation/1.
+:- multifile seam:pure_operation/1.
 
-metta_pure_operation(my_lookup).
+seam:pure_operation(my_lookup).
 ```
 
 Anything that may hand back a CACHED answer later reads this: tabling and
@@ -2234,10 +2275,10 @@ operation into a call on a dispatcher of your own. `register_op` and
 `register_prolog` are not this; the Python bridge underneath `register_op` is.
 
 ```prolog
-:- multifile metta_effect_operation_name/3.
+:- multifile seam:effect_operation_name/3.
 
-%   metta_effect_operation_name(Goal, Name, Arity)
-metta_effect_operation_name(my_dispatch(Name, Args, _), Name, Arity) :-
+%   seam:effect_operation_name(Goal, Name, Arity)
+seam:effect_operation_name(my_dispatch(Name, Args, _), Name, Arity) :-
     length(Args, Arity).
 ```
 
@@ -2246,7 +2287,7 @@ yours and not the program's. Without this the Python bridge's refusal said
 `petta_py_dispatch_det/3` and advised declaring THAT pure: not a name any
 author wrote, and not one a declaration could have matched, since the refusal
 never reached the operation's own name. Answer here and the message names what
-the program wrote and what `metta_pure_operation/1` will match.
+the program wrote and what `seam:pure_operation/1` will match.
 
 ### Say that a goal you make the engine emit must not be taken over
 
@@ -2257,10 +2298,10 @@ arity would capture it: the program's own call would run where your goal should,
 silently and with a wrong answer rather than an error.
 
 ```prolog
-:- multifile metta_engine_emitted/1.
+:- multifile seam:engine_emitted/1.
 
-%   metta_engine_emitted(Name/Arity)      the PROLOG arity, one more than MeTTa's
-metta_engine_emitted(my_dispatch/3).
+%   seam:engine_emitted(Name/Arity)      the PROLOG arity, one more than MeTTa's
+seam:engine_emitted(my_dispatch/3).
 ```
 
 Naming it binds it into every space's module by import, which SWI then refuses
@@ -2276,10 +2317,10 @@ both work.
 ### Say how a value prints
 
 ```prolog
-:- multifile metta_grounded_text/2.
+:- multifile seam:grounded_text/2.
 
-%   metta_grounded_text(Value, Text)
-metta_grounded_text(Obj, Text) :- my_object(Obj), my_render(Obj, Text).
+%   seam:grounded_text(Value, Text)
+seam:grounded_text(Obj, Text) :- my_object(Obj), my_render(Obj, Text).
 ```
 
 The writer has no other way to know. With no provider it falls back to the
@@ -2293,14 +2334,14 @@ displays `[1, 2, 3]` and a numpy array displays `array([1, 2, 3])`.
 `engine/ext_points.pl` declares more than the atom hooks, and two of the rest are
 exactly what a performance library wants.
 
-**`metta_dispatch_call/4`** is consulted at every compiled call site,
+**`seam:dispatch_call/4`** is consulted at every compiled call site,
 which makes it the seam for installing your OWN caching strategy rather than
 using `lib_memo`'s. `lib/lib_memo.pl` is one implementation of it, not the only
 possible one. A handler reads `current_metta_module/1` to learn which module
 the call site is in, because a named space compiles its equations into a module
 of its own and a function name alone does not identify a function.
 
-**`metta_on_function_changed/1` and `metta_on_function_removed/1`** are how any
+**`seam:function_changed/1` and `seam:function_removed/1`** are how any
 library keeps derived state coherent when equations change. The specializer,
 the tracer, the memo cache, tabling and the dual predicates all hang off them.
 
@@ -2309,17 +2350,17 @@ which is why a library should install its handler when its feature is first
 used rather than when its file loads: a resident handler clause measured four
 inferences on every compiled equation.
 
-**`metta_grounded_extra_type/2`, `metta_grounded_type_names/2` and
-`metta_grounded_class_type/2`** are how a host value gets a TYPE. The class
-walk itself is the host bridge's clause of `metta_grounded_class_type/2`,
+**`seam:grounded_extra_type/2`, `seam:grounded_type_names/2` and
+`seam:grounded_class_type/2`** are how a host value gets a TYPE. The class
+walk itself is the host bridge's clause of `seam:grounded_class_type/2`,
 because enumerating a value's classes is host code by nature: the shipped
 Python bridge answers every class on the object's MRO except `object`, so a
 `torch.Linear` is a `Linear` and a `Module`, and an engine with no host
 loaded has no clause there, which is the right answer for a configuration in
-which no host value can exist. `metta_grounded_extra_type/2` adds names
+which no host value can exist. `seam:grounded_extra_type/2` adds names
 beyond the walk, which is how a protocol an object satisfies can name a type
 and a declared `(-> Tensor Tensor Tensor)` can hold for values the host made.
-`metta_grounded_type_names/2` replaces the walk entirely, for a bridge that
+`seam:grounded_type_names/2` replaces the walk entirely, for a bridge that
 knows how to read its own objects and answers every name at once.
 
 **The `host_service` surface** is the other half of the host contract: the
@@ -2369,19 +2410,19 @@ already decided for a query without running it, as one term report
 indexes, refusals preflighted), so a transport renders prose instead of
 re-deriving routing precedence.
 
-**`metta_host_builtin/1`, `metta_host_import/1`, `metta_form_rewriter/1` and
-`metta_host_object/1`** are how a whole HOST plugs in, and the shipped Python
-bridge is their one worked example. `metta_host_object/1` answers whether a
+**`seam:host_builtin/1`, `seam:host_import/1`, `seam:form_rewriter/1` and
+`seam:host_object/1`** are how a whole HOST plugs in, and the shipped Python
+bridge is their one worked example. `seam:host_object/1` answers whether a
 value is a live object of the bridge at all, the question in front of every
 grounded-type lookup, so an engine with no host loaded answers no at one
-failed lookup and never initializes anything. `metta_host_builtin/1` declares the bridge's own operations
+failed lookup and never initializes anything. `seam:host_builtin/1` declares the bridge's own operations
 (`py-call`, `py-atom` and their family there); the engine's registry
 directive registers whatever was declared, so no list inside the engine
-names a host. `metta_host_import/1` lets a bridge CLAIM an import whose
+names a host. `seam:host_import/1` lets a bridge CLAIM an import whose
 source is its own kind of file and perform the whole job itself, lifecycle
 included, through the same published `import_when/4` the engine uses; with
 no host loaded, or none claiming, every import is a MeTTa import.
-`metta_form_rewriter/1` is a registration slot: a rewriter installed there
+`seam:form_rewriter/1` is a registration slot: a rewriter installed there
 runs over every loaded form, and a bridge installs one only while the
 feature needs it, the way the Python bridge registers its import-as alias
 rewrite when the first alias lands, so a program that never uses the
@@ -2409,7 +2450,7 @@ Matching has two tiers, and they answer to different authorities.
 
 **Inside unification, the value's own matcher is the authority.** A
 grounded value that defines matching logic (section 6's
-`metta_matchable_value/1` and `metta_custom_match/2`, or any Python
+`seam:matchable_value/1` and `seam:custom_match/2`, or any Python
 object whose class defines `match_`) is consulted when `(unify ...)`
 meets it, and its binding sets are final: nothing re-derives or
 re-checks them, exactly as Hyperon's CustomMatch behaves. That is the
@@ -2502,7 +2543,7 @@ coherence conflicts, all inherited, none reimplemented. Read the routed
 view back with the published service `petta_shape_route/5`.
 
 To make the engine ACT on your kind, ship exploitation rules riding the
-published seams. The routing seam is `metta_route_cap/4`: consulted
+published seams. The routing seam is `seam:route_cap/4`: consulted
 where the declared fidelity or the provider's method proposes a route
 class, and every loaded advisor may only DEMOTE, the most conservative
 voice winning (`refuse` below `inexact` below `exact`, refuse loud and
@@ -2512,10 +2553,10 @@ extension file:
 ```prolog
 :- metta_extension(freshness, [requires(1-1)]).
 
-:- multifile metta_route_cap/4.
-metta_route_cap(Space, Pattern, inexact, freshness(cached)) :-
+:- multifile seam:route_cap/4.
+seam:route_cap(Space, Pattern, inexact, freshness(cached)) :-
     petta_shape_route(freshness, Space, Pattern, _, [cached]).
-metta_route_cap(Space, Pattern, refuse, freshness(stale)) :-
+seam:route_cap(Space, Pattern, refuse, freshness(stale)) :-
     petta_shape_route(freshness, Space, Pattern, _, [stale]).
 ```
 
@@ -2569,8 +2610,8 @@ the wrong name; the guide's Concepts page holds the full table.
 | add a domain-specific literal | a reader token class |
 | put atoms somewhere else | a space provider |
 | react when a space changes | an atom hook |
-| cache calls your own way | `metta_dispatch_call/4` |
-| keep derived state coherent | `metta_on_function_changed/1` |
+| cache calls your own way | `seam:dispatch_call/4` |
+| keep derived state coherent | `seam:function_changed/1` |
 | change what counts as a match | a matcher, by convention |
 | reach the engine from a language it has never been used from | the wire codec, [CODEC.md](CODEC.md) |
 

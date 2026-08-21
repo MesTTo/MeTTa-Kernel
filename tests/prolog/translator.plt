@@ -36,7 +36,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 %Take a test function back out completely: its registration, its symbol
 %records, its arities, and its compiled predicate at every arity it might have

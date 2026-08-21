@@ -461,7 +461,7 @@ metta_host_form_pair(parsed(Kind, Text, _, _), [Kind, Text]).
 %The binary save format, its integrity-checked loader, and the space
 %digest are engine machinery: SWI streams, fastrw, zlib and the crypto
 %hash, with exactly one host question in them, whether a term holds a
-%live host object, which is the published metta_host_object/1 ownership
+%live host object, which is the published seam:host_object/1 ownership
 %seam each bridge answers for its own kind of object. They lived in the
 %Python shim and the walk that found a live object asked py_is_object
 %directly, which is how a second binding would have re-paid the whole
@@ -505,7 +505,7 @@ metta_host_atom_carries_object(Term) :-
 metta_host_atom_carries_object(Term) :-
     blob(Term, Type),
     Type \== text,
-    metta_host_object(Term).
+    seam:host_object(Term).
 
 %A fast save is a binary file, so it refuses before it writes rather than
 %after: an object has no spelling at all, and a symbol whose name splits a
@@ -833,9 +833,9 @@ metta_source_changed(CanonPath) :-
 %metta_remove_atom/3, the funnel that owns every consequence of an atom
 %leaving: an equation un-compiles and forgets its name, a declaration
 %recompiles the call sites it was shaping, invalidate_specializations/2 drops
-%the specializer's clones, metta_on_function_removed/1 drops lib_memo's
+%the specializer's clones, seam:function_removed/1 drops lib_memo's
 %generations and lib_tabling's tables and duals.pl's duals, and
-%metta_on_atom_removed/2 tells every LiveView and Python subscription. What no
+%seam:atom_removed/2 tells every LiveView and Python subscription. What no
 %atom owns leaves through rollback_source_load/1, the same erase a failed load
 %uses, and there is one such thing: a file imported into a NAMED space compiles
 %into &self's module while its atoms are stored in that space, so its clauses
@@ -967,19 +967,19 @@ record_source_assertion(_).
 % Support edges created while a source is loading belong to that load just as
 % its executable and provenance clauses do. A failed load therefore erases
 % the graph rows it added instead of leaving stale dependencies behind.
-:- multifile support_assertions_tracked/0.
-support_assertions_tracked :-
+:- multifile support_graph:support_assertions_tracked/0.
+support_graph:support_assertions_tracked :-
     active_source_load(_).
 
-:- multifile support_assertion_record/1.
-support_assertion_record(Ref) :-
+:- multifile support_graph:support_assertion_record/1.
+support_graph:support_assertion_record(Ref) :-
     record_source_assertion(Ref).
 
 % The compiled-form publisher creates several adjacent graph clauses. One
 % ownership row retains their references as a group, cutting per-edge loader
 % bookkeeping while rollback still erases every clause precisely.
-:- multifile support_assertion_records/1.
-support_assertion_records(Refs) :-
+:- multifile support_graph:support_assertion_records/1.
+support_graph:support_assertion_records(Refs) :-
     (   active_source_load(LoadId)
     ->  assertz(source_load_support_assertions(LoadId, Refs))
     ;   true
@@ -1374,15 +1374,15 @@ support_function_node(F, Node) :-
     Node = function_view(Module, F).
 
 :- dynamic support_recompile_pending/3.
-:- multifile support_invalidation_action/1.
-support_invalidation_action(compiled_function(Module, G)) :-
+:- multifile support_graph:support_invalidation_action/1.
+support_graph:support_invalidation_action(compiled_function(Module, G)) :-
     supports(translated_form(_, _), compiled_function(Module, G)),
     ( active_source_load(LoadId) -> Context = LoadId ; Context = immediate ),
     ( support_recompile_pending(Context, Module, G) -> true
     ; assertz(support_recompile_pending(Context, Module, G)) ).
 
-:- multifile support_repair_invalidations/0.
-support_repair_invalidations :-
+:- multifile support_graph:support_repair_invalidations/0.
+support_graph:support_repair_invalidations :-
     ( support_repairs_deferred -> true ; repair_support_invalidations ).
 
 repair_support_invalidations :-

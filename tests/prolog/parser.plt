@@ -25,7 +25,7 @@
 % prolog_interop_example, printing into the test output; metta.pl is
 % everything main.pl actually loads.
 :- use_module(library(clpfd)).
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 :- begin_tests(parser_roundtrip).
 

@@ -4,7 +4,7 @@
 % Guarantees:
 %   - Native storage modules do not inherit user predicates, while execution
 %     modules keep undefined calls loud [tested: spaces_storage_modules].
-%   - Every metta_engine_emitted/1 declaration is protected from capture in
+%   - Every seam:engine_emitted/1 declaration is protected from capture in
 %     a space [tested: test_every_engine_emitted_name_is_protected_by_derivation;
 %     commit=dcfc20be4933c19140ccb5759291401d13058301].
 %   - inherited reads are child-first unions, conjunctions join across
@@ -39,17 +39,17 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 :- dynamic plunit_storage_added_event/2.
 
 % Test providers are declared where the unit that uses them is, so each one
 % reads beside its own tests.
-:- discontiguous metta_foreign_space/1.
-:- discontiguous metta_foreign_capability/2.
+:- discontiguous seam:foreign_space/1.
+:- discontiguous seam:foreign_capability/2.
 
-metta_foreign_space('&plunit_cycle_foreign').
-metta_foreign_match('&plunit_cycle_foreign', [fact, X, X]) :-
+seam:foreign_space('&plunit_cycle_foreign').
+seam:foreign_match('&plunit_cycle_foreign', [fact, X, X]) :-
     X = [g, X].
 
 :- begin_tests(spaces_cycles).
@@ -301,9 +301,9 @@ test(clearing_a_space_drops_its_scalars_too,
 
 :- end_tests(spaces_arbitrary_atoms).
 
-:- multifile metta_on_function_changed/1.
+:- multifile seam:function_changed/1.
 
-metta_on_function_changed(plunit_registration_rollback) :-
+seam:function_changed(plunit_registration_rollback) :-
     throw(error(plunit_injected_change_hook_failure, none)).
 
 :- begin_tests(spaces_registration).
@@ -466,14 +466,14 @@ test(the_read_doors_refuse_what_the_named_test_refuses,
 % Two providers in the shape a library actually ships: one that enumerates and
 % nothing else, which bindings/python/petta/foreign.py explicitly says is enough, and
 % one that declares an operation it does not implement.
-metta_foreign_space('&plunit_enum_only').
-metta_foreign_capability('&plunit_enum_only', enumerate).
-metta_foreign_atoms('&plunit_enum_only', Atom) :-
+seam:foreign_space('&plunit_enum_only').
+seam:foreign_capability('&plunit_enum_only', enumerate).
+seam:foreign_atoms('&plunit_enum_only', Atom) :-
     member(Atom, [[edge, a, b], [edge, b, c], [node, a]]).
 
-metta_foreign_space('&plunit_broken_write').
-metta_foreign_capability('&plunit_broken_write', add).
-metta_foreign_add('&plunit_broken_write', _) :- fail.
+seam:foreign_space('&plunit_broken_write').
+seam:foreign_capability('&plunit_broken_write', add).
+seam:foreign_add('&plunit_broken_write', _) :- fail.
 
 % A builtin is a static predicate compiled into the engine, so an equation for
 % its name in &self would have to assert into it. SWI refuses with a
@@ -648,11 +648,11 @@ assert_engine_emitted_name_is_protected(Name/Arity) :-
     assertion(predicate_property(Engine:Head, defined)).
 
 test(an_engine_emitted_name_cannot_be_taken,
-     [ forall(metta_engine_emitted(Name/Arity)) ]) :-
+     [ forall(seam:engine_emitted(Name/Arity)) ]) :-
     assert_engine_emitted_name_is_protected(Name/Arity).
 
 test(test_every_engine_emitted_name_is_protected_by_derivation) :-
-    findall(Name/Arity, metta_engine_emitted(Name/Arity), Emitted),
+    findall(Name/Arity, seam:engine_emitted(Name/Arity), Emitted),
     assertion(Emitted \== []),
     forall(member(Entry, Emitted),
            assert_engine_emitted_name_is_protected(Entry)).
@@ -832,7 +832,7 @@ test(test_adding_an_engine_export_changes_no_spaces_answers,
     % emitted set is what an engine upgrade does when a new translation rule
     % emits a goal, and the sweep imports it into every space that exists.
     assertz(Engine:(p118_added_goal(_, added))),
-    assertz(Engine:metta_engine_emitted(p118_added_goal/2)),
+    assertz(seam:engine_emitted(p118_added_goal/2)),
     protect_metta_exec_modules,
 
     % Every space now holds the name, so the addition really happened.
@@ -854,7 +854,7 @@ test(test_adding_an_engine_export_changes_no_spaces_answers,
     % The engine has to define the name too, or there is nothing to import and
     % nothing to collide: the sweep only binds names the engine itself emits.
     assertz(Engine:('p118-double'(_, engine))),
-    assertz(Engine:metta_engine_emitted('p118-double'/2)),
+    assertz(seam:engine_emitted('p118-double'/2)),
     catch(protect_metta_exec_modules, Collision, true),
     assertion(nonvar(Collision)),
     assertion(Collision = error(petta_engine_export_collision('p118-double', 1,
@@ -866,7 +866,7 @@ test(test_adding_an_engine_export_changes_no_spaces_answers,
 
     % and the refusal left the spaces alone: each still answers with its own
     % equation, which is what "refused" has to mean for it to be safe.
-    retractall(Engine:metta_engine_emitted('p118-double'/2)),
+    retractall(seam:engine_emitted('p118-double'/2)),
     p118_answers(Refused),
     assertion(Refused == Before).
 
@@ -1206,7 +1206,7 @@ test(custom_added_hooks_keep_every_batch_event,
                 retractall(user:plunit_storage_added_event(_, _)))) ]) :-
     Space = '&plunit_hooked_batch',
     setup_call_cleanup(
-        assertz(user:(metta_on_atom_added(EventSpace, Term) :-
+        assertz(user:(seam:atom_added(EventSpace, Term) :-
                          assertz(plunit_storage_added_event(
                              EventSpace, Term))), HookRef),
         metta_add_atoms(Space, [[observed, 1], [observed, 2]]),
@@ -1405,7 +1405,7 @@ test(a_claim_that_drops_a_conjunct_is_refused,
     rows('&plunit_plan', [',', [lossy, X], [tag, X, nothing]], X, _).
 
 % A single-conjunct conjunction is the ordinary match path and is not offered
-% here, because offering it would only duplicate metta_foreign_match/3.
+% here, because offering it would only duplicate seam:foreign_match/3.
 test(a_one_conjunct_conjunction_is_not_offered, [setup(fill_plan_spaces)]) :-
     retractall(user:plunit_plan_claimed(_)),
     rows('&plunit_plan', [',', [tag, X, one]], X, Rows),
@@ -1693,20 +1693,20 @@ test(adding_a_rule_to_a_ruleless_foreign_space_is_refused,
 % about the space.
 test(a_ruleless_foreign_space_still_takes_facts) :-
     'add-atom'('&plunit_facts', [fact, a], _),
-    findall(A, metta_foreign_atoms('&plunit_facts', A), Atoms),
+    findall(A, seam:foreign_atoms('&plunit_facts', A), Atoms),
     assertion(memberchk([fact, a], Atoms)).
 
 :- end_tests(spaces_foreign_rules).
 
 % The provider's own pushdown method claims exact for EVERYTHING, which is
 % the lie the declared route must be able to outrank shape by shape.
-:- discontiguous metta_foreign_atoms/2.
-metta_foreign_space('&plunit_handles').
-metta_foreign_atoms('&plunit_handles', Atom) :-
+:- discontiguous seam:foreign_atoms/2.
+seam:foreign_space('&plunit_handles').
+seam:foreign_atoms('&plunit_handles', Atom) :-
     member(Atom, [[edge, a, b], [edge, b, c], [edge, d, d], [secret, s1]]).
-metta_foreign_match('&plunit_handles', Pattern, _Options) :-
-    metta_foreign_atoms('&plunit_handles', Pattern).
-metta_foreign_pushdown('&plunit_handles', _, exact).
+seam:foreign_match('&plunit_handles', Pattern, _Options) :-
+    seam:foreign_atoms('&plunit_handles', Pattern).
+seam:foreign_pushdown('&plunit_handles', _, exact).
 
 :- begin_tests(spaces_handles_guard).
 
@@ -1820,10 +1820,10 @@ test(the_discipline_error_has_an_engine_message) :-
 % are ordinary catchable ones, so the engine's own fallback in
 % petta_match_erring/6 enforces the declared mode, where a Python
 % provider's tunnel past catch/3 makes the adapter hook do it instead.
-metta_foreign_space('&plunit_flaky').
-metta_foreign_space('&plunit_ctl').
-metta_foreign_match('&plunit_ctl', _, _) :- throw(metta_host_interrupted).
-metta_foreign_match('&plunit_flaky', Pattern, _Options) :-
+seam:foreign_space('&plunit_flaky').
+seam:foreign_space('&plunit_ctl').
+seam:foreign_match('&plunit_ctl', _, _) :- throw(metta_host_interrupted).
+seam:foreign_match('&plunit_flaky', Pattern, _Options) :-
     (   Pattern = [edge, a, b]
     ;   throw(error(type_error(backend, fell_over), flaky))
     ).
@@ -1861,8 +1861,8 @@ test(a_control_signal_is_never_kept,
 % the walker's hook cases run with no Python in the process. The ground
 % cases mirror the arbiter's measured decisions [source: LeaTTa
 % tests/semantics/matching/grounded_value_matching.metta].
-metta_matchable_value(plunit_interval(_, _)).
-metta_custom_match(plunit_interval(Lo, Hi), Other) :-
+seam:matchable_value(plunit_interval(_, _)).
+seam:custom_match(plunit_interval(Lo, Hi), Other) :-
     number(Other), Lo =< Other, Other =< Hi.
 
 :- begin_tests(spaces_custom_match).
@@ -2117,7 +2117,7 @@ test(the_published_stored_door_inherits_the_refusal,
 %The synthetic foreign space the count-refusal test names; a file-level
 %clause, because a fact inside the unit lands in plunit's unit module
 %where the engine's multifile seam never sees it.
-metta_foreign_space('&sac-foreign').
+seam:foreign_space('&sac-foreign').
 
 :- begin_tests(spaces_atom_count).
 
@@ -2520,28 +2520,28 @@ test(a_failed_outer_transaction_leaves_no_restriction) :-
 % The two providers are declared at FILE level, outside the unit:
 % begin_tests/1 opens a module of its own, so a multifile clause written
 % inside it defines that module's predicate and the engine never sees it.
-metta_foreign_space('&plunit_events_quiet').
-metta_foreign_capability('&plunit_events_quiet', Capability) :-
+seam:foreign_space('&plunit_events_quiet').
+seam:foreign_capability('&plunit_events_quiet', Capability) :-
     member(Capability, [add, remove, match, enumerate, subscribe]).
-metta_foreign_match('&plunit_events_quiet', [fact, X]) :- X = quiet.
+seam:foreign_match('&plunit_events_quiet', [fact, X]) :- X = quiet.
 
-metta_foreign_space('&plunit_events_loud').
-metta_foreign_capability('&plunit_events_loud', Capability) :-
+seam:foreign_space('&plunit_events_loud').
+seam:foreign_capability('&plunit_events_loud', Capability) :-
     member(Capability, [add, remove, match, enumerate, subscribe]).
-metta_foreign_match('&plunit_events_loud', [fact, X]) :- X = loud.
+seam:foreign_match('&plunit_events_loud', [fact, X]) :- X = loud.
 
-:- multifile metta_context_events/3.
-metta_context_events('&plunit_events_loud', 'at-least-once', unordered).
+:- multifile seam:context_events/3.
+seam:context_events('&plunit_events_loud', 'at-least-once', unordered).
 
 % A foreign space that RECORDS the pattern it is asked to match, so a test
 % can check what the engine sends across the seam rather than only what comes
 % back. MORK writes the pattern as text to send it, which is why a pattern
 % that has no text is a crash there and invisible everywhere else.
 :- dynamic plunit_arrow_probe/1.
-metta_foreign_space('&plunit-arrow-foreign').
-metta_foreign_capability('&plunit-arrow-foreign', Capability) :-
+seam:foreign_space('&plunit-arrow-foreign').
+seam:foreign_capability('&plunit-arrow-foreign', Capability) :-
     member(Capability, [add, remove, match, enumerate, rules]).
-metta_foreign_match('&plunit-arrow-foreign', Pattern, _Options) :-
+seam:foreign_match('&plunit-arrow-foreign', Pattern, _Options) :-
     assertz(plunit_arrow_probe(Pattern)),
     fail.
 

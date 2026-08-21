@@ -43,7 +43,7 @@
 % Decides:
 %     - published means DECLARED, not merely reachable. A predicate that is
 %       exported, callable and widely used is still an internal here until an
-%       ext_point_kind/2 fact says otherwise, because the point is to make the
+%       seam:kind/2 fact says otherwise, because the point is to make the
 %       surface a decision somebody wrote down.
 % Open Obligations:
 %     To Do: None
@@ -124,7 +124,7 @@ indicator(Goal, Name/Arity) :- callable(Goal), functor(Goal, Name, Arity).
 %the library had written it, and the engine's internal calls came back as the
 %library reaching past the surface [measured 2026-08-19: three of the twenty-one
 %findings, recompile_function_impl/1, uses_super/2 and metta_trace_target/1,
-%are engine/ clauses of metta_on_function_changed/1].
+%are engine/ clauses of seam:function_changed/1].
 %source_file/2 is MODULE-SENSITIVE, and asking it unqualified asks only about
 %the module this file was loaded into. That was every engine and library
 %predicate while nothing declared a module, and it stops being them the moment
@@ -240,7 +240,7 @@ engine_predicate(Name/Arity) :-
     sub_atom(File, 0, _, _, EngineDir).
 
 % ASKED of the module system rather than read back out of the declaration
-% table. engine/ext_points.pl turns every ext_point_kind/2 declaration into an
+% table. engine/ext_points.pl turns every seam:kind/2 declaration into an
 % export of the engine's module, so the export list IS the surface and this
 % cannot drift from it: a seam declared and never defined is not exported and
 % is not published here either, where reading the table would have called it
@@ -248,13 +248,23 @@ engine_predicate(Name/Arity) :-
 % every name it emits into compiled bodies, which is how those are bound into a
 % space's module at all, so they are surface by the same rule and for a reason
 % the kinds do not have to restate [source: engine/ext_points.pl,
-% petta_publish_seam/1 and engine/spaces.pl, protect_engine_emitted/1].
+% seam:publish/1 and engine/spaces.pl, protect_engine_emitted/1].
 %
 % A MeTTa builtin is the LANGUAGE, which an extension calls the way any program
 % calls it, and builtin_fun/1 is where the language says which names those are.
+%Asked of the seam's OWN module, because a seam stopped having one home the
+%moment the engine's subsystems started declaring modules: a handler seam is
+%exported by `seam`, a service by whichever subsystem defines it, and
+%control_exception/1 by the engine core. seam_home/2 answers that by asking
+%SWI which module implements the name, so this is still one list held by the
+%module system rather than a second reading of the declaration table
+%[measured 2026-08-22: asking the engine's module alone reported
+%support_forget/1, support_invalidate/1 and support_record/2 as unpublished
+%the moment engine/support_graph.pl became a module, with lib/lib_memo.pl
+%calling all three exactly as before].
 published_surface(Seam) :-
-    petta_engine_module(Engine),
-    module_property(Engine, exports(Exports)),
+    seam:seam_home(Seam, Home),
+    module_property(Home, exports(Exports)),
     memberchk(Seam, Exports).
 published_surface(Name/_) :- builtin_fun(Name).
 

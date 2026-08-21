@@ -6,7 +6,7 @@
 %   - a dotted name of any depth resolves, which splitting on the first dot
 %     could not do [tested: a_dotted_path_of_any_depth_resolves]
 %   - a resolved callable is applicable in head position, through the engine's
-%     metta_grounded_apply/3 seam
+%     seam:grounded_apply/3 seam
 %     [tested: a_resolved_callable_is_applicable]
 %   - nothing is drained: an unbounded iterator yields one element at a time
 %     [tested: iteration_is_lazy]
@@ -19,7 +19,7 @@
 % Fails when:
 %   - the claim is about the SHIPPED configuration. plunit consults
 %     engine/metta.pl and never bindings/python/petta/shim.pl, so no host bridge answers
-%     metta_grounded_type_names/2 here and anything the shim's presence changes is
+%     seam:grounded_type_names/2 here and anything the shim's presence changes is
 %     invisible. That cost a real defect: the declared-type test below was
 %     green while the shipped library dropped the declaration
 %     [measured 2026-08-18]. A claim of that kind needs a library-door test
@@ -29,7 +29,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 :- begin_tests(python_surface).
 
@@ -55,7 +55,7 @@ test(a_string_spec_is_an_expression) :-
     'py-atom'("1 + 2", Three),
     assertion(Three == 3).
 
-% The engine applies a grounded atom through metta_grounded_apply/3, which is
+% The engine applies a grounded atom through seam:grounded_apply/3, which is
 % not Python-specific: MeTTa's own definition of a Grounded atom is that it may
 % hold an operation.
 test(a_resolved_callable_is_applicable) :-
@@ -135,10 +135,10 @@ test(a_keyword_value_is_evaluated) :-
     assertion(Three == 3).
 
 % A declared type is kept rather than accepted and dropped, and it rides the
-% metta_grounded_extra_type/2 extension point that already existed for exactly this.
+% seam:grounded_extra_type/2 extension point that already existed for exactly this.
 %
 % This suite is ONE CONFIGURATION. plunit loads engine/metta.pl without
-% bindings/python/petta/shim.pl, so no host bridge answers metta_grounded_type_names/2 here
+% bindings/python/petta/shim.pl, so no host bridge answers seam:grounded_type_names/2 here
 % and this test only ever exercised the branch where none does. The
 % declaration was being dropped in the shipped one for as long as this was
 % green [measured 2026-08-18]. Its counterpart at the library door is
@@ -294,7 +294,7 @@ test(a_list_reads_structurally_and_stays_live) :-
 test(a_value_that_is_not_a_sequence_has_no_reading,
      [forall(member(Source, ["{'a': 1}", "{1, 2}", "'abc'"]))]) :-
     'py-atom'(Source, Value),
-    assertion(\+ metta_grounded_structure(Value, _)).
+    assertion(\+ seam:grounded_structure(Value, _)).
 
 %%%% Asking for the other reading %%%%
 

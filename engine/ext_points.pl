@@ -7,10 +7,114 @@
 %     test_a_registered_token_class_parses_like_a_shipped_one,
 %     every_seam_declares_one_kind,
 %     every_seam_kind_matches_its_direction; commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b].
+%   - every handler seam lives in THIS module, so an extension writes
+%     seam:atom_added/2 and the module carries the namespace the metta_on_
+%     prefix used to carry [tested: test_every_seam_is_reached_under_its_module;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
+
+%The module IS the namespace, which is why the names below are short. Every
+%handler seam used to wear a prefix that did a module's job: metta_on_ for the
+%events, metta_foreign_ for the space-provider protocol, metta_grounded_ for
+%the grounded-value protocol, metta_host_ for the host's. The prefix was the
+%only namespace there was, and being a convention it could not refuse
+%anything: two libraries could declare the same seam name and corrupt each
+%other by import order, and nothing said which module a handler belonged to.
+%
+%Now an extension writes
+%
+%    :- multifile seam:atom_added/2.
+%    seam:atom_added(Space, Atom) :- ...
+%
+%which is SWI's own hook shape, the one prolog:message//1 has always used
+%[source: SWI-Prolog 10.1 Reference Manual, section 4.10 and library(error)'s
+%error:has_type/2]. The old spellings are GONE rather than aliased: an alias
+%tier would be a second name for one thing, which the tree's ladder refuses,
+%and compatibility against our own Prolog surface is not a constraint.
+%
+%Nothing here is imported into the engine's module. engine/metta.pl loads this
+%file with an empty import list, so `seam:` is not optional and cannot decay
+%back into a bare name that happens to resolve. The export list below is
+%therefore the DECLARED surface rather than what anyone can reach, which is
+%what the layering lane and the published-surface walk both ask for.
+:- module(seam,
+          [ % The extension-point table itself, and what it decides.
+            kind/2,
+            clauses_from/2,
+            every_clause_runs/1,
+            publish/1,
+            publish_declared/0,
+            seam_home/2,
+
+            % Events: the engine tells, every handler runs.
+            atom_added/2,
+            atom_removed/2,
+            function_changed/1,
+            function_removed/1,
+            backend_selftest/0,
+
+            % The atom-write wrappers those events ride on.
+            enable_atom_hook/1,
+            disable_atom_hook/1,
+            atom_hook_clause/2,
+            atom_hook_changed/3,
+            sync_atom_hook/1,
+
+            % Declarations: fact tables the engine reads as data.
+            backend_builtin/1,
+            builtin_type_declaration/2,
+            context_events/3,
+            engine_emitted/1,
+            foreign_capability/2,
+            grounded_extra_type/2,
+            host_builtin/1,
+            pure_operation/1,
+            route_cap/4,
+
+            % Ownership: the first handler that succeeds claims the request.
+            custom_match/2,
+            dispatch_call/4,
+            effect_operation_name/3,
+            form_rewriter/1,
+            matchable_value/1,
+            pattern_modifier/3,
+
+            % The foreign-space provider protocol.
+            foreign_add/2,
+            foreign_add_many/2,
+            foreign_atoms/2,
+            foreign_begin/1,
+            foreign_clear/1,
+            foreign_commit/1,
+            foreign_erring/5,
+            foreign_match/3,
+            foreign_plan/5,
+            foreign_pushdown/3,
+            foreign_refuse/2,
+            foreign_remove/3,
+            foreign_rollback/1,
+            foreign_space/1,
+
+            % The grounded-value protocol.
+            grounded_applicable/1,
+            grounded_apply/3,
+            grounded_class_type/2,
+            grounded_structure/2,
+            grounded_text/2,
+            grounded_type_names/2,
+
+            % The host protocol's handler half; its service half is the
+            % engine's own predicates, reached under the subsystem that
+            % defines them.
+            host_add_hooks_idle/2,
+            host_import/1,
+            host_object/1,
+            host_reader_token_construct/3,
+            host_remove_hooks_idle/2
+          ]).
 
 %%%% What kind of seam each extension point is %%%%
 %
@@ -18,8 +122,8 @@
 %after it. The kind is the load-bearing fact about a seam, because a cut means
 %opposite things in the three of them, and it lived in this comment until a
 %checker had to restate it by hand. A restated list drifts, and this one had:
-%the prose named five event hooks, omitting metta_backend_selftest/0 and
-%wrongly including metta_dispatch_call/4, and both were contradicted by their
+%the prose named five event hooks, omitting backend_selftest/0 and
+%wrongly including dispatch_call/4, and both were contradicted by their
 %own call sites. So it is data now, and the prose derives from it.
 %
 %EVENT: run for an effect and the answer discarded, forall(Hook, true). Every
@@ -76,15 +180,15 @@
 %[tested: tests/prolog/static_checks.pl, no_cut_in_an_event_hook and
 %no_cut_in_a_live_hook_clause].
 %
-%ext_point_kind/2 is itself multifile, so a library that introduces a seam of
+%kind/2 is itself multifile, so a library that introduces a seam of
 %its own declares its kind beside it and gets the same gate. Every seam has
 %exactly one kind and that is checked rather than trusted
 %[tested: every_seam_declares_one_kind], so a seam added without one fails the
 %gate instead of going quietly unchecked.
-:- multifile ext_point_kind/2.
+:- multifile kind/2.
 %It is a seam itself, so it carries its own kind, and being a declaration it
 %is covered by the cut check like any other.
-ext_point_kind(ext_point_kind/2, declaration).
+kind(kind/2, declaration).
 
 %The names the engine writes into compiled bodies and therefore binds into
 %every space's module. Declared here because it is a seam in both directions:
@@ -92,15 +196,15 @@ ext_point_kind(ext_point_kind/2, declaration).
 %the engine reads the whole table when it protects a space's module. Its
 %clauses live in engine/translator.pl, beside the translation rules that emit
 %them.
-:- multifile metta_engine_emitted/1.
-ext_point_kind(metta_engine_emitted/1, declaration).
+:- multifile engine_emitted/1.
+kind(engine_emitted/1, declaration).
 
 %Libraries contribute builtin arrows without replacing the engine's table.
 %It is a declaration seam, so every contributed clause remains reachable
 %[tested: test_a_library_types_its_own_blob_without_destroying_the_table;
 %commit=65d5fff90323fb92e2415f9fe93c477d5c67f10e].
 :- multifile builtin_type_declaration/2.
-ext_point_kind(builtin_type_declaration/2, declaration).
+kind(builtin_type_declaration/2, declaration).
 
 %Pattern modifiers are expression lists claimed by shape. The engine replaces
 %the modifier position with a fresh variable and runs the owner's guard after
@@ -110,7 +214,7 @@ ext_point_kind(builtin_type_declaration/2, declaration).
 %[tested: test_a_path_reaches_into_a_handle_without_converting_it;
 %commit=b54ecaaa1224eabb90f808275003cd9abeef8065].
 :- multifile pattern_modifier/3.
-ext_point_kind(pattern_modifier/3, ownership).
+kind(pattern_modifier/3, ownership).
 
 %Who writes a seam's clauses. This is the primitive the cut rule derives from,
 %rather than the cut rule naming kinds directly: that rule is about a handler
@@ -118,18 +222,18 @@ ext_point_kind(pattern_modifier/3, ownership).
 %extension contributes the clauses. A service's clauses are the engine's own
 %and cut freely, as swrite/2 does; reading the rule off the kind list alone
 %would have called every one of them an offender.
-ext_point_clauses_from(event,       extension).
-ext_point_clauses_from(ownership,   extension).
-ext_point_clauses_from(declaration, extension).
-ext_point_clauses_from(service,     engine).
-ext_point_clauses_from(host_service, engine).
+clauses_from(event,       extension).
+clauses_from(ownership,   extension).
+clauses_from(declaration, extension).
+clauses_from(service,     engine).
+clauses_from(host_service, engine).
 
 %A seam whose clauses must all stay reachable: contributed by an extension,
 %and not an ownership seam where the first success is meant to claim the
 %request. Derived, so adding a kind does not mean editing a second list.
-ext_point_every_clause_runs(Seam) :-
-    ext_point_kind(Seam, Kind),
-    ext_point_clauses_from(Kind, extension),
+every_clause_runs(Seam) :-
+    kind(Seam, Kind),
+    clauses_from(Kind, extension),
     Kind \== ownership.
 
 %A handler seam is multifile because an extension adds clauses to it. A
@@ -153,20 +257,20 @@ ext_point_every_clause_runs(Seam) :-
 %state per function reads current_metta_module/1 to learn which module the
 %call site is in. It reads it rather than being passed it because this hook is
 %consulted on every compiled call site.
-:- multifile metta_dispatch_call/4.
-ext_point_kind(metta_dispatch_call/4, ownership).
+:- multifile dispatch_call/4.
+kind(dispatch_call/4, ownership).
 %Function-change hooks, run once per compiled equation. Dynamic for the same
 %reason the atom hooks below are: a handler needed only once a feature is used
 %should cost nothing until then, so it is installed when that feature first
 %runs rather than when its file loads. A resident handler clause costs four
 %inferences on EVERY compiled equation [measured 2026-08-15: engine/duals.pl's
 %invalidation handler, 4001 on source-load's thousand equations].
-:- multifile metta_on_function_changed/1.
-ext_point_kind(metta_on_function_changed/1, event).
-:- multifile metta_on_function_removed/1.
-ext_point_kind(metta_on_function_removed/1, event).
-:- dynamic metta_on_function_changed/1.
-:- dynamic metta_on_function_removed/1.
+:- multifile function_changed/1.
+kind(function_changed/1, event).
+:- multifile function_removed/1.
+kind(function_removed/1, event).
+:- dynamic function_changed/1.
+:- dynamic function_removed/1.
 
 %Space writes: every 'add-atom'/3 and 'remove-atom'/3 runs these hooks with
 %the space and the term, after the write. A standing query, a subscription,
@@ -178,38 +282,38 @@ ext_point_kind(metta_on_function_removed/1, event).
 %matching (p $x) and the hook cannot say which. A handler that needs the
 %occurrence re-reads the space; bindings/python/petta/structures.py's LiveView is the
 %worked instance [tested: test_liveview_mirrors_the_space].
-:- multifile metta_on_atom_added/2.
-ext_point_kind(metta_on_atom_added/2, event).
-:- multifile metta_on_atom_removed/2.
-ext_point_kind(metta_on_atom_removed/2, event).
-:- dynamic metta_on_atom_added/2.
-:- dynamic metta_on_atom_removed/2.
+:- multifile atom_added/2.
+kind(atom_added/2, event).
+:- multifile atom_removed/2.
+kind(atom_removed/2, event).
+:- dynamic atom_added/2.
+:- dynamic atom_removed/2.
 
 %Foreign spaces: a host runtime may declare a space whose atoms live outside
 %the Prolog database, in a database, a dataframe, a service. match/4,
 %'add-atom'/3, 'remove-atom'/3 and 'get-atoms'/2 consult these hooks first
 %for a declared name; with no declarations nothing changes.
-:- multifile metta_foreign_space/1.
-ext_point_kind(metta_foreign_space/1, ownership).
-:- multifile metta_foreign_match/3.
-%A declared error mode's stream: like metta_foreign_match/3, with the
+:- multifile foreign_space/1.
+kind(foreign_space/1, ownership).
+:- multifile foreign_match/3.
+%A declared error mode's stream: like foreign_match/3, with the
 %mode enforced on the provider's own host, where its exceptions are
 %native. Item is `answer` (the pattern is bound), kept(ErrorAtom), or
 %`end` from an adapter that must mark exhaustion. Only adapters whose
 %host exceptions cannot cross as Prolog exceptions implement this; a
 %Prolog-hosted provider needs none, the engine's catch handles it.
-:- multifile metta_foreign_erring/5.
+:- multifile foreign_erring/5.
 %Transactional participation, driven by (writes Ctx transactional): one
 %begin at the provider's first write inside the outermost transaction,
 %then exactly one commit or rollback when it finishes.
-:- multifile metta_foreign_begin/1.
-:- multifile metta_foreign_commit/1.
-:- multifile metta_foreign_rollback/1.
-ext_point_kind(metta_foreign_match/3, ownership).
-ext_point_kind(metta_foreign_erring/5, ownership).
-ext_point_kind(metta_foreign_begin/1, ownership).
-ext_point_kind(metta_foreign_commit/1, ownership).
-ext_point_kind(metta_foreign_rollback/1, ownership).
+:- multifile foreign_begin/1.
+:- multifile foreign_commit/1.
+:- multifile foreign_rollback/1.
+kind(foreign_match/3, ownership).
+kind(foreign_erring/5, ownership).
+kind(foreign_begin/1, ownership).
+kind(foreign_commit/1, ownership).
+kind(foreign_rollback/1, ownership).
 %Custom matching for grounded values, Hyperon's CustomMatch: a host value
 %may carry its own matching logic, consulted by petta_match_atoms/2 when
 %that value meets a non-variable operand inside `unify`. The hook
@@ -217,32 +321,32 @@ ext_point_kind(metta_foreign_rollback/1, ownership).
 %variables; failure means no match. Variables always bind the value
 %whole without consulting it, and values with no owner fall through to
 %ground equality, so with no declarations nothing changes.
-:- multifile metta_matchable_value/1.
-:- multifile metta_custom_match/2.
-ext_point_kind(metta_matchable_value/1, ownership).
-ext_point_kind(metta_custom_match/2, ownership).
-:- multifile metta_foreign_add/2.
-ext_point_kind(metta_foreign_add/2, ownership).
+:- multifile matchable_value/1.
+:- multifile custom_match/2.
+kind(matchable_value/1, ownership).
+kind(custom_match/2, ownership).
+:- multifile foreign_add/2.
+kind(foreign_add/2, ownership).
 %A provider's own BATCH crossing, optional. The atoms arrive as a list and the
 %provider stores them however it likes; one without this clause gets a
-%metta_foreign_add/2 per atom, which is what every provider written before it
+%foreign_add/2 per atom, which is what every provider written before it
 %gets. The hooks are the provider's, exactly as they are for its per-atom add.
 %
 %A batch is a TRANSPORT optimisation and never a semantic one, so the engine
 %routes only atoms whose add is a store and nothing more through here. That is
 %not advice to the provider, it is enforced upstream: an equation or a type
 %declaration in the list drops the whole batch to 'add-atom'/3 per atom.
-:- multifile metta_foreign_add_many/2.
-ext_point_kind(metta_foreign_add_many/2, ownership).
-:- multifile metta_foreign_remove/3.
-ext_point_kind(metta_foreign_remove/3, ownership).
-:- multifile metta_foreign_atoms/2.
-ext_point_kind(metta_foreign_atoms/2, ownership).
+:- multifile foreign_add_many/2.
+kind(foreign_add_many/2, ownership).
+:- multifile foreign_remove/3.
+kind(foreign_remove/3, ownership).
+:- multifile foreign_atoms/2.
+kind(foreign_atoms/2, ownership).
 %Clear was the sixth of these all along and was declared nowhere: it lived in
 %bindings/python/petta/shim.pl, so a Prolog provider that implemented clear, as
 %lib/lib_redis.pl does, was reachable only when Python was in the process.
-:- multifile metta_foreign_clear/1.
-ext_point_kind(metta_foreign_clear/1, ownership).
+:- multifile foreign_clear/1.
+kind(foreign_clear/1, ownership).
 
 %What the caller will do with a match. Options is a list; the only option
 %today is limit(N), meaning the caller stops after N answers. It is `[]` when
@@ -264,7 +368,7 @@ ext_point_kind(metta_foreign_clear/1, ownership).
 %a thousand atoms pulls four [measured 2026-08-16].
 %
 %ONE hook, with the options always passed. There was a /2 beside this and the
-%engine chose between them with `clause(metta_foreign_match(_,_,_), _)`, which
+%engine chose between them with `clause(foreign_match(_,_,_), _)`, which
 %asks whether ANY provider anywhere declared the bounded form. The Python shim
 %declares it unconditionally, so with Python in the process that guard was true
 %for every space, and a Prolog-only provider writing /2 had the /3 form called
@@ -310,15 +414,15 @@ ext_point_kind(metta_foreign_clear/1, ownership).
 %[tested: a_bounded_match_carries_its_options,
 %a_bound_is_withheld_from_an_unclaimed_pattern,
 %test_a_false_exact_claim_is_caught].
-:- multifile metta_foreign_pushdown/3.
-ext_point_kind(metta_foreign_pushdown/3, ownership).
+:- multifile foreign_pushdown/3.
+kind(foreign_pushdown/3, ownership).
 
 %The routing voice of a third-party declaration kind. Consulted after the
 %declared fidelity or the provider's own method proposes a route class,
 %and every loaded advisor may only DEMOTE: the effective class is the most
 %conservative voice, refuse below inexact below exact, so advisors compose
 %order-independently and none can widen a claim its author never made.
-%metta_route_cap(Space, Pattern, Cap, Why): Cap is exact (no objection),
+%route_cap(Space, Pattern, Cap, Why): Cap is exact (no objection),
 %inexact (candidates must be re-unified, the pushdown of the caller's
 %bound is withheld) or refuse (this route must not serve now, loud at the
 %match and naming Why). An advisor typically reads its own kind's atoms
@@ -332,15 +436,15 @@ ext_point_kind(metta_foreign_pushdown/3, ownership).
 %Oracle's QUERY_REWRITE_INTEGRITY, whose stale_tolerated mode alone lets
 %a stale materialized view keep serving rewrites [source:
 %https://docs.oracle.com/en/database/oracle/oracle-database/23/dwhsg/basic-query-rewrite-materialized-views.html].
-:- multifile metta_route_cap/4.
-:- dynamic metta_route_cap/4.
-ext_point_kind(metta_route_cap/4, declaration).
+:- multifile route_cap/4.
+:- dynamic route_cap/4.
+kind(route_cap/4, declaration).
 
 %A conjunction, offered WHOLE before the engine splits it. Succeed to claim
 %some of it, binding Goal to a goal that enumerates bindings for Claimed; fail
 %to decline, and the engine plans it exactly as it does today.
 %
-%   metta_foreign_plan(Space, Patterns, Claimed, Rest, Goal)
+%   foreign_plan(Space, Patterns, Claimed, Rest, Goal)
 %
 %This is the seam that makes a backend's own join reachable. Without it every
 %conjunction is split one pattern at a time and re-dispatched per outer row,
@@ -373,10 +477,10 @@ ext_point_kind(metta_route_cap/4, declaration).
 %The caller's options are not passed. The engine still bounds the answers, so
 %this costs work in the backend and never an answer, and a limit could not be
 %honoured usefully anyway while a provider answers a whole batch at a time.
-:- multifile metta_foreign_plan/5.
-ext_point_kind(metta_foreign_plan/5, ownership).
+:- multifile foreign_plan/5.
+kind(foreign_plan/5, ownership).
 
-%What a provider answers. Failure alone cannot say: metta_foreign_match/3 is a
+%What a provider answers. Failure alone cannot say: foreign_match/3 is a
 %legitimate enumerator, so "no clause" and "no atoms match" look identical
 %from the engine, and clause/2 cannot stand in either, because every provider
 %in this tree writes ONE clause with a variable space and an ownership guard
@@ -403,13 +507,13 @@ ext_point_kind(metta_foreign_plan/5, ownership).
 %Matcher"), and the Prolog half quietly required both. The second is that an
 %operation a space does not provide raises with the space and the operation
 %named, rather than failing into "there is nothing there".
-:- multifile metta_foreign_capability/2.
-ext_point_kind(metta_foreign_capability/2, declaration).
+:- multifile foreign_capability/2.
+kind(foreign_capability/2, declaration).
 
 %What a context's change events promise, for a provider that owns a FAMILY
 %of space names rather than one name it could write an atom about.
 %
-%   metta_context_events(Space, Delivery, Order)
+%   context_events(Space, Delivery, Order)
 %
 %Delivery is at-most-once, at-least-once or per-write-exactly and Order is
 %ordered or unordered, the catalog's own `delivery` and `event-order`
@@ -419,15 +523,15 @@ ext_point_kind(metta_foreign_capability/2, declaration).
 %the same answer for a provider like MORK, whose spaces are every name
 %beginning &mork, so there is no one name to write the atom about. The two
 %doors are read by one question, petta_event_capability/3, exactly as a
-%Prolog provider's metta_foreign_capability/2 clauses and the Python
+%Prolog provider's foreign_capability/2 clauses and the Python
 %bridge's registered facts are read by one foreign_provides/2.
 %
 %Declaring nothing means no events, which is the safe answer and the one
 %every provider written before this gets: a subscription on the space is
 %refused naming the missing capability rather than served and silently
 %missing writes [P12.14].
-:- multifile metta_context_events/3.
-ext_point_kind(metta_context_events/3, declaration).
+:- multifile context_events/3.
+kind(context_events/3, declaration).
 
 %Why a space says no, in the provider's own words. The engine refuses a
 %capability a space does not declare, and "does not implement add" reads
@@ -435,8 +539,8 @@ ext_point_kind(metta_context_events/3, declaration).
 %it here and the engine's generic permission_error is what a provider without
 %one gets. It is expected to THROW rather than answer
 %[tested: test_a_provider_states_its_own_refusal].
-:- multifile metta_foreign_refuse/2.
-ext_point_kind(metta_foreign_refuse/2, ownership).
+:- multifile foreign_refuse/2.
+kind(foreign_refuse/2, ownership).
 
 %An exception that must never be recovered from. A caught abort, limit, alarm
 %or interrupt is a stopped program pretending it succeeded, and the engine's
@@ -460,8 +564,27 @@ ext_point_kind(metta_foreign_refuse/2, ownership).
 %ones 240,003 to 1,340,002, 5.58x [measured 2026-08-16]. The recovery catch
 %wraps every candidate the translator tries, so the quiet number is the one
 %that decides it [source: ai-swi-library-review.md, entry 2].
-:- multifile control_exception/1.
-ext_point_kind(control_exception/1, declaration).
+%The multifile declaration for it is in engine/metta.pl, not here, because
+%control_exception/1 is also an engine_emitted/1 name: the translator writes it
+%into compiled bodies and protect_engine_emitted/1 imports it into every
+%space's module from the ENGINE's module, which it can only do if that is
+%where it lives. It is the one seam whose home is the engine core rather than
+%this module, and seam_home/2 below is what lets the publication machinery say
+%so instead of assuming.
+kind(control_exception/1, declaration).
+
+%Whether a HOST's own atom hooks are idle for a space, the host's clause of
+%it: the shim answers for the Python side, and with no host loaded the seam
+%has no clause and the engine's own no-handlers test already answered. The
+%engine hands the host the full handler CENSUS as clause references, so a
+%host clause matches the census against the one reference it installed and
+%never consults engine internals to answer: a host is asked about ITS hooks,
+%with the facts it needs in the question. engine/spaces.pl asks them; they are
+%declared here because every seam is.
+:- multifile host_add_hooks_idle/2.
+kind(host_add_hooks_idle/2, ownership).
+:- multifile host_remove_hooks_idle/2.
+kind(host_remove_hooks_idle/2, ownership).
 
 %An APPLICABLE GROUNDED ATOM. MeTTa's own definition of a Grounded atom is
 %that it "may contain any binary object, for example operation (including deep
@@ -471,7 +594,7 @@ ext_point_kind(control_exception/1, declaration).
 %numpy.absolute) -5)` answered itself and a callable held in a MeTTa variable
 %was not a callable at all.
 %
-%   metta_grounded_apply(Value, Args, Out)
+%   grounded_apply(Value, Args, Out)
 %
 %Value is the grounded atom in head position and Args are the arguments as the
 %engine has them. Succeed to claim it and bind Out; fail and the expression
@@ -481,18 +604,18 @@ ext_point_kind(control_exception/1, declaration).
 %a Python bridge claims Python callables, and a bridge for something else
 %claims its own. It is consulted only for a head that is neither a function
 %name nor a partial application, so an ordinary call never reaches it.
-:- multifile metta_grounded_apply/3.
-ext_point_kind(metta_grounded_apply/3, ownership).
+:- multifile grounded_apply/3.
+kind(grounded_apply/3, ownership).
 
 %Whether a value is an operation at all, asked WITHOUT applying it. `bind!`
 %needs to know before there are any arguments: a name bound to a callable is
 %callable by that name, and a name bound to 5 is not.
-:- multifile metta_grounded_applicable/1.
-ext_point_kind(metta_grounded_applicable/1, ownership).
+:- multifile grounded_applicable/1.
+kind(grounded_applicable/1, ownership).
 
 %An operation with NO effect a cache could hide.
 %
-%   metta_pure_operation(Name)
+%   pure_operation(Name)
 %
 %Declared by whoever knows: the engine ships its own core list and a library
 %adds its own. It is an ALLOW-list on purpose, and the asymmetry is the whole
@@ -503,12 +626,12 @@ ext_point_kind(metta_grounded_applicable/1, ownership).
 %later: tabling and memoization both do. A goal that is not known pure is not
 %known inert either, and treating unknown as inert cached a random draw, threw
 %away a space write, and suppressed a println!.
-:- multifile metta_pure_operation/1.
-ext_point_kind(metta_pure_operation/1, declaration).
+:- multifile pure_operation/1.
+kind(pure_operation/1, declaration).
 
 %The MeTTa name behind a bridge's dispatch goal.
 %
-%   metta_effect_operation_name(Goal, Name, Arity)
+%   effect_operation_name(Goal, Name, Arity)
 %
 %A bridge compiles a MeTTa operation into a call on its OWN dispatcher, so a
 %purity refusal that reads the goal's functor names the bridge rather than the
@@ -516,18 +639,18 @@ ext_point_kind(metta_pure_operation/1, declaration).
 %advised declaring THAT pure, which is neither something an author wrote nor
 %something that would help, since the refusal never reaches the operation's
 %name. A bridge that can recover the name answers here, and the refusal then
-%names what the program wrote and what metta_pure_operation/1 matches.
+%names what the program wrote and what pure_operation/1 matches.
 %
 %It is the engine's only way to ask, and it has to be, because the engine
 %knows no bridge by name: the Python one answers for its four dispatch kinds,
 %and a bridge for something else answers for its own
 %[tested: test_a_pure_python_operation_can_be_declared_and_cached].
-:- multifile metta_effect_operation_name/3.
-ext_point_kind(metta_effect_operation_name/3, ownership).
+:- multifile effect_operation_name/3.
+kind(effect_operation_name/3, ownership).
 
 %The STRUCTURE a grounded value also has, when it has one.
 %
-%   metta_grounded_structure(Value, Expression)
+%   grounded_structure(Value, Expression)
 %
 %The language names three things a grounded value may define for itself:
 %"Grounded value type creators can define custom type, execution and matching
@@ -546,12 +669,12 @@ ext_point_kind(metta_effect_operation_name/3, ownership).
 %
 %Nothing here is Python's. A foreign space handle, a MORK record or an array
 %answers it the same way, and no caller learns who did.
-:- multifile metta_grounded_structure/2.
-ext_point_kind(metta_grounded_structure/2, ownership).
+:- multifile grounded_structure/2.
+kind(grounded_structure/2, ownership).
 
 %How a grounded value RENDERS, for a writer that has no other way to know.
 %
-%   metta_grounded_text(Value, Text)
+%   grounded_text(Value, Text)
 %
 %Without a provider the display renderer falls back to the term's own text, so
 %this is never required and never fails a display. The round-trip writer does
@@ -559,8 +682,8 @@ ext_point_kind(metta_grounded_structure/2, ownership).
 %language's own tutorials show: `(np-array (py-atom "[1, 2, 3]"))` displays
 %`array([1, 2, 3])`
 %[source: metta-lang-docs/learn__tutorials__python_use__py_atom.md].
-:- multifile metta_grounded_text/2.
-ext_point_kind(metta_grounded_text/2, ownership).
+:- multifile grounded_text/2.
+kind(grounded_text/2, ownership).
 
 %%%% Native backends %%%%
 %
@@ -574,14 +697,14 @@ ext_point_kind(metta_grounded_text/2, ownership).
 %name whose predicate is absent records no arity, and every call to it then
 %compiles to a partial application. engine/metta.pl registers whatever is declared
 %here, and names nothing.
-:- multifile metta_backend_builtin/1.
-ext_point_kind(metta_backend_builtin/1, declaration).
+:- multifile backend_builtin/1.
+kind(backend_builtin/1, declaration).
 
 %A backend's smoke test, run by engine/main.pl's demo. Every handler runs, so a
 %process with two backends tests both, and one with none tests nothing and says
 %so by being silent.
-:- multifile metta_backend_selftest/0.
-ext_point_kind(metta_backend_selftest/0, event).
+:- multifile backend_selftest/0.
+kind(backend_selftest/0, event).
 
 %%%% Services the engine publishes %%%%
 %
@@ -618,10 +741,10 @@ ext_point_kind(metta_backend_selftest/0, event).
 %an engine internal silently. The list is measured, not aspirational: it is
 %exactly the engine predicates the shipped shim calls, and shrinking it is
 %the shim-thinning work's scoreboard.
-ext_point_kind(catch_recover/2, host_service).
-ext_point_kind(translate_expr/3, host_service).
-ext_point_kind(translate_cached_expr/3, host_service).
-ext_point_kind(lift_pattern_modifiers/3, host_service).
+kind(catch_recover/2, host_service).
+kind(translate_expr/3, host_service).
+kind(translate_cached_expr/3, host_service).
+kind(lift_pattern_modifiers/3, host_service).
 %The host run and load surface: the grouped runner (with the
 %using-substitution folded in as Bindings), the status runner, the load
 %lifecycle and the manifest read, plus the reducible-head test the status
@@ -632,29 +755,29 @@ ext_point_kind(lift_pattern_modifiers/3, host_service).
 %translate_special_dl left this list with them (2026-08-20), and
 %parse_metta_source moved to the extension service list below, the import
 %libraries being its remaining callers.
-ext_point_kind(metta_host_run_source/4, host_service).
-ext_point_kind(metta_host_run_source_status/3, host_service).
-ext_point_kind(metta_host_load_file/3, host_service).
-ext_point_kind(metta_host_read_forms/2, host_service).
-ext_point_kind(metta_reducible_head/2, host_service).
+kind(metta_host_run_source/4, host_service).
+kind(metta_host_run_source_status/3, host_service).
+kind(metta_host_load_file/3, host_service).
+kind(metta_host_read_forms/2, host_service).
+kind(metta_reducible_head/2, host_service).
 %Proof tools may open only a dispatch route the engine identifies as its
 %shipped direct path. Every policy-sensitive route is executed engine-side and
 %reported opaque, keeping host derivations out of the six-axis implementation.
-ext_point_kind(metta_host_dispatch_proof_step/6, host_service).
+kind(metta_host_dispatch_proof_step/6, host_service).
 %Grouped answers carry a reader-name state. Host codecs flatten that state for
 %their variable tag and use the same engine writer for host text.
-ext_point_kind(petta_name_pairs/2, host_service).
-ext_point_kind(swrite_with_names/3, host_service).
+kind(petta_name_pairs/2, host_service).
+kind(swrite_with_names/3, host_service).
 %The persistence surface moved engine-side the same day: the fast cache's
 %save and integrity-checked load, the space digest, and the host-value
 %substitution walk the using-runs share. metta_add_atom/3 and import_when/4
 %left the list with them, the fast loader having been their last transport
 %caller.
-ext_point_kind(metta_host_save_fast/3, host_service).
-ext_point_kind(metta_host_load_fast/2, host_service).
-ext_point_kind(metta_host_fast_header/1, host_service).
-ext_point_kind(metta_host_digest/2, host_service).
-ext_point_kind(metta_host_substitute/3, host_service).
+kind(metta_host_save_fast/3, host_service).
+kind(metta_host_load_fast/2, host_service).
+kind(metta_host_fast_header/1, host_service).
+kind(metta_host_digest/2, host_service).
+kind(metta_host_substitute/3, host_service).
 %The registration lifecycle: open proves a name free before the host mutates
 %anything, adopt makes an asserted dispatch clause a claimed function of the
 %base tier, drop retires one arity, forget releases a name nothing defines.
@@ -662,17 +785,17 @@ ext_point_kind(metta_host_substitute/3, host_service).
 %in order (claim_function_name, function_changed,
 %recompile_definitions_mentioning, refuse_other_tiers_name, register_fun_in,
 %release_function_name, unregister_fun_everywhere, 2026-08-20), and the
-%dependent recompile that rode the shim's metta_on_function_changed clause
+%dependent recompile that rode the shim's function_changed clause
 %is the engine's own now, so those events are pure observations again.
-ext_point_kind(metta_host_open_function/3, host_service).
-ext_point_kind(metta_host_adopt_function/4, host_service).
-ext_point_kind(metta_host_drop_function/2, host_service).
-ext_point_kind(metta_host_forget_function/1, host_service).
+kind(metta_host_open_function/3, host_service).
+kind(metta_host_adopt_function/4, host_service).
+kind(metta_host_drop_function/2, host_service).
+kind(metta_host_forget_function/1, host_service).
 %Reader classes keep their callable on the engine side. A host registers or
 %removes one mapping through these services and owns construction through the
 %handler seam declared below.
-ext_point_kind(metta_host_register_reader_token/2, host_service).
-ext_point_kind(metta_host_unregister_reader_token/1, host_service).
+kind(metta_host_register_reader_token/2, host_service).
+kind(metta_host_unregister_reader_token/1, host_service).
 %The space read-and-remove pair a host talks to storage through:
 %metta_host_stored/2 enumerates stored atoms unifying a pattern
 %(index-directed native, provider-enumerated foreign), and
@@ -681,11 +804,11 @@ ext_point_kind(metta_host_unregister_reader_token/1, host_service).
 %replaced get_native_atom/2, native_storage_module/2 and
 %metta_remove_atom/3 on this list (2026-08-20); the index-directed
 %existence probe is engine-internal now.
-ext_point_kind(metta_host_stored/2, host_service).
-ext_point_kind(metta_host_remove_reported/3, host_service).
+kind(metta_host_stored/2, host_service).
+kind(metta_host_remove_reported/3, host_service).
 %The native proof-leaf decoder keeps private module and predicate encodings
 %behind one host call, including expression-named spaces.
-ext_point_kind(metta_host_native_fact/4, host_service).
+kind(metta_host_native_fact/4, host_service).
 %The explain mirror: one call answers what the seam already decided for a
 %query (per-pattern classes with term origins, the plan's claimed and rest
 %indexes, refusals preflighted), so a host renders prose instead of
@@ -693,61 +816,61 @@ ext_point_kind(metta_host_native_fact/4, host_service).
 %petta_refuse_guard/2, refuse_lossy_plan/4, petta_handles_route/5 and
 %foreign_provides/2 left this list with it (2026-08-20); the two that
 %extensions genuinely consult moved to the service list below.
-ext_point_kind(metta_host_explain_match/3, host_service).
+kind(metta_host_explain_match/3, host_service).
 %The bulk space cleanups: clear a space whoever holds it (Prolog providers
 %through their seam, native spaces with the announce-when-watched and
 %tabling-death rules), and clear the (defined ...) reflection facts about
 %one space in one crossing. clear_foreign_atoms/1, clear_native_atoms/1 and
-%metta_atom_hook_clause/2 left this list with them (2026-08-20): the
+%atom_hook_clause/2 left this list with them (2026-08-20): the
 %handler census is engine-internal now, handed to the hooks-idle ownership
 %seams as an argument.
-ext_point_kind(metta_host_clear_space/1, host_service).
-ext_point_kind(metta_host_clear_defined/1, host_service).
+kind(metta_host_clear_space/1, host_service).
+kind(metta_host_clear_defined/1, host_service).
 %Creation-time space topology and lifecycle are engine-owned, while Python's
 %context-manager surface requests those transitions through these calls.
-ext_point_kind(metta_declare_space_parent/2, host_service).
-ext_point_kind(metta_declare_restricted_space/2, host_service).
-ext_point_kind(metta_assert_space_releasable/1, host_service).
-ext_point_kind(metta_release_space/1, host_service).
+kind(metta_declare_space_parent/2, host_service).
+kind(metta_declare_restricted_space/2, host_service).
+kind(metta_assert_space_releasable/1, host_service).
+kind(metta_release_space/1, host_service).
 %The builtin-refusal classification: operation, kind, expected and culprit
 %read from the error term the engine's own throwers shape, absence left
 %unbound for the host to map to its None (2026-08-20).
-ext_point_kind(metta_host_operation_error/5, host_service).
-ext_point_kind(match_foreign/5, host_service).
-ext_point_kind(metta_add_atoms/2, host_service).
-ext_point_kind(metta_source_declarations/2, host_service).
-ext_point_kind(metta_space_names/1, host_service).
-ext_point_kind(metta_string_declarations/2, host_service).
-ext_point_kind(metta_substitute_self/3, host_service).
-ext_point_kind(metta_trace_source/4, host_service).
-ext_point_kind(petta_annotations/2, host_service).
-ext_point_kind(petta_contract_fact/1, host_service).
-ext_point_kind(petta_error_answer/3, host_service).
-ext_point_kind(petta_handles_coherent/1, host_service).
-ext_point_kind(petta_on_error_mode/3, host_service).
-ext_point_kind(petta_source_reset/1, host_service).
-ext_point_kind(petta_transaction/1, host_service).
-ext_point_kind(petta_transport_failure/1, host_service).
-ext_point_kind(sread_with_names/3, host_service).
-ext_point_kind(unregister_metta_extension/1, host_service).
-ext_point_kind(with_metta_module/2, host_service).
+kind(metta_host_operation_error/5, host_service).
+kind(match_foreign/5, host_service).
+kind(metta_add_atoms/2, host_service).
+kind(metta_source_declarations/2, host_service).
+kind(metta_space_names/1, host_service).
+kind(metta_string_declarations/2, host_service).
+kind(metta_substitute_self/3, host_service).
+kind(metta_trace_source/4, host_service).
+kind(petta_annotations/2, host_service).
+kind(petta_contract_fact/1, host_service).
+kind(petta_error_answer/3, host_service).
+kind(petta_handles_coherent/1, host_service).
+kind(petta_on_error_mode/3, host_service).
+kind(petta_source_reset/1, host_service).
+kind(petta_transaction/1, host_service).
+kind(petta_transport_failure/1, host_service).
+kind(sread_with_names/3, host_service).
+kind(unregister_metta_extension/1, host_service).
+kind(with_metta_module/2, host_service).
 
-ext_point_kind(swrite/2, service).
+kind(swrite/2, service).
 %Presentation text is deliberately distinct from the inverse writer. A host
 %or extension uses this only where lossless re-reading is not the contract
 %[tested: every_seam_declares_one_kind, parser_display; commit=53686aed41e7ff02de69052198afdb537536cbdb].
-ext_point_kind(sdisplay/2, service).
-ext_point_kind(sdisplay_with_names/3, service).
-ext_point_kind(sread/2, service).
+kind(sdisplay/2, service).
+kind(sdisplay_with_names/3, service).
+kind(sread/2, service).
 %Moved from the host_service list on 2026-08-20: the host bindings read
 %source through metta_host_run_source/4 and its siblings now, and the
 %remaining callers are extension libraries (lib_gitimport, lib_import),
 %which is exactly what this kind means.
-ext_point_kind(parse_metta_source/2, service).
-ext_point_kind(metta_reader_token_class/3, service).
-ext_point_kind(metta_reader_token_source/2, service).
-ext_point_kind(metta_symbol_writable/1, service).
-ext_point_kind(metta_unwritable_symbol/2, service).
+kind(parse_metta_source/2, service).
+kind(metta_reader_token_class/3, service).
+kind(metta_reader_token_source/2, service).
+kind(metta_symbol_writable/1, service).
+kind(metta_unwritable_symbol/2, service).
 
 %THE CATALOG'S CONSULTATION SITES, published for extensions. A route-cap
 %advisor or any consumer of a declared kind reads the same routed view the
@@ -756,7 +879,7 @@ ext_point_kind(metta_unwritable_symbol/2, service).
 %and petta_contract_fact/1 is the raw row read beneath it (already a
 %host_service above; named here in prose so an extension author finds the
 %pair together).
-ext_point_kind(petta_shape_route/5, service).
+kind(petta_shape_route/5, service).
 %The event-capability door, for an extension that BLOCKS on a context's
 %changes rather than merely observing them: lib/lib_thread.pl's Linda pair
 %parks a caller until an atom arrives, and parking on a context that
@@ -764,12 +887,12 @@ ext_point_kind(petta_shape_route/5, service).
 %and the caller's own word for what it wanted to do; succeeds silently for a
 %context that can deliver, native spaces included
 %[tested: test_a_blocking_take_waits_for_a_matching_atom_and_removes_exactly_one].
-ext_point_kind(petta_require_events/2, service).
+kind(petta_require_events/2, service).
 %The routing classifier and the capability probe, consulted by
 %lib/lib_conformance.pl: published for extensions, no longer part of the
 %host transport's own list.
-ext_point_kind(foreign_pushdown_class/3, service).
-ext_point_kind(foreign_provides/2, service).
+kind(foreign_pushdown_class/3, service).
+kind(foreign_provides/2, service).
 
 %ERRORS. An extension that throws reports in the vocabulary of whatever threw,
 %so `Y is X * 2` on a symbol names is/2 rather than the operation the program
@@ -779,15 +902,15 @@ ext_point_kind(foreign_provides/2, service).
 %[source: EXTENDING.md, "Making your errors read like a builtin's"]. Declaring
 %them changes nothing about who may call them and puts a decision that was
 %already made into the data that the checker reads.
-ext_point_kind(throw_metta_type_error/3, service).
-ext_point_kind(rethrow_metta_operation_error/2, service).
+kind(throw_metta_type_error/3, service).
+kind(rethrow_metta_operation_error/2, service).
 
 %CONTEXT. Which module the call site is in. A named space compiles its
 %equations into a module of its own, so a function name alone does not identify
 %a function, and a handler keeping state per function has to ask. It is read
-%rather than passed because metta_dispatch_call/4 is consulted on every
+%rather than passed because dispatch_call/4 is consulted on every
 %compiled call site and an extra argument there is not free.
-ext_point_kind(current_metta_module/1, service).
+kind(current_metta_module/1, service).
 
 %CONTEXT, the other half: which MODULE a space compiles into, and which space
 %a module serves. Published because Phase 11 made them necessary rather than
@@ -799,18 +922,18 @@ ext_point_kind(current_metta_module/1, service).
 %copy of the inverse before this
 %[source: ai-phase11-module-survey.md section 1.3, which counted four copies
 %of it, three of them outside engine/spaces.pl].
-ext_point_kind(space_module/2, service).
-ext_point_kind(metta_module_space/2, service).
+kind(space_module/2, service).
+kind(metta_module_space/2, service).
 %The space a program is running in, beside the module it compiles into. A
 %library that reads a declaration out of the running space asks for the space,
 %not the module, because a declaration is stored as an atom.
-ext_point_kind(current_metta_space/1, service).
+kind(current_metta_space/1, service).
 %Whether a term is a space name at all, the test every extension taking a
 %space argument needs before it uses one. 'is-space'/2 is the MeTTa spelling
 %of the same question and is published as a builtin; this is the Prolog one,
 %and it is the test rather than a lookup, so an unbound or computed term is
 %refused instead of read as an empty space.
-ext_point_kind(petta_space_name/1, service).
+kind(petta_space_name/1, service).
 
 %EVALUATION IN A SPACE. space_module/2 above names the module a space compiles
 %into; this is what a library names it FOR. lib/lib_thread.pl runs a MeTTa
@@ -818,7 +941,7 @@ ext_point_kind(petta_space_name/1, service).
 %goes through here, because a thread inherits no context and the module has to
 %travel with the expression [source: lib/lib_thread.pl, par_map_/4 and its
 %siblings].
-ext_point_kind(eval_metta_in_module/3, service).
+kind(eval_metta_in_module/3, service).
 
 %NATIVE STORAGE. A space has two halves and the execution one is declared
 %above. This is the other: which module a native space's atoms live in, which
@@ -829,16 +952,16 @@ ext_point_kind(eval_metta_in_module/3, service).
 %the format would load clauses the space could never read, which is the defect
 %that file's own header records. ensure_native_storage_module/2 is the
 %make-it-exist half, for a writer that runs before the space holds anything.
-ext_point_kind(native_storage_module/2, service).
-ext_point_kind(native_storage_functor/2, service).
-ext_point_kind(ensure_native_storage_module/2, service).
-ext_point_kind(native_atom_clause/3, service).
+kind(native_storage_module/2, service).
+kind(native_storage_functor/2, service).
+kind(ensure_native_storage_module/2, service).
+kind(native_atom_clause/3, service).
 %The match a foreign provider answers, published for the library that CHECKS
 %providers: lib/lib_conformance.pl runs a provider's own atoms back through it
 %to prove the over-approximation contract holds. match_foreign/5 is the host
 %transport's arity and is a host_service above; this is the four-argument
 %engine-side call an extension makes.
-ext_point_kind(match_foreign/4, service).
+kind(match_foreign/4, service).
 
 %PURITY AND CACHING. Whether a function may be cached, and what its body
 %reads. Two independent libraries ask (lib/lib_memo.pl and lib/lib_tabling.pl)
@@ -848,9 +971,9 @@ ext_point_kind(match_foreign/4, service).
 %is the declared volatility, and metta_cache_unchecked/1 is the caller's own
 %(cache Name unchecked) waiver. A cache that answered these for itself would
 %drift from the declarations the engine enforces everywhere else.
-ext_point_kind(metta_effect_walk/3, service).
-ext_point_kind(metta_function_cacheable/1, service).
-ext_point_kind(metta_cache_unchecked/1, service).
+kind(metta_effect_walk/3, service).
+kind(metta_function_cacheable/1, service).
+kind(metta_cache_unchecked/1, service).
 
 %THE SUPPORT GRAPH's other direction. Its handler seams are declared in
 %engine/support_graph.pl (support_invalidation_action/1 and four more), so an
@@ -858,93 +981,93 @@ ext_point_kind(metta_cache_unchecked/1, service).
 %makes back to take part -- record an edge, invalidate from a changed input,
 %and drop a node. Declaring only the inbound half is what left lib/lib_memo.pl
 %reaching into the graph's internals to do the outbound one.
-ext_point_kind(support_record/2, service).
-ext_point_kind(support_invalidate/1, service).
-ext_point_kind(support_forget/1, service).
+kind(support_record/2, service).
+kind(support_invalidate/1, service).
+kind(support_forget/1, service).
 
 %SOURCE AND VOCABULARY. The published parser hands back parsed/3 terms, so
 %without a way to take one apart the answer is opaque; parsed_form_parts/4 is
 %that way and belongs beside parse_metta_source/2 above.
-ext_point_kind(parsed_form_parts/4, service).
+kind(parsed_form_parts/4, service).
 %Where a relative path resolves from. The bare working_dir/1 has a clause only
 %while a .metta load is active, so a library that reads a file from anywhere
 %else simply failed with no answer and no error; this is the one that falls
 %back to the process directory [source: lib/lib_import.pl, 'static-import!'/3].
-ext_point_kind(current_working_dir/1, service).
+kind(current_working_dir/1, service).
 %Membership in a declared vocabulary, the question every consulting site asks.
 %A library validating its own option against a vocabulary the catalog declares
 %reads the same table the engine reads, so a value the catalog gains is
 %accepted without editing the library.
-ext_point_kind(petta_vocabulary_value/2, service).
+kind(petta_vocabulary_value/2, service).
 %The import lifecycle's marker. A library that performs an import of its own
 %(lib/lib_gitimport.pl's git-import!) has to run under the same marker, or a
 %failed load leaves behind the clauses the engine would have erased.
-ext_point_kind(run_with_loading_marker/2, service).
+kind(run_with_loading_marker/2, service).
 %The third error-vocabulary service, beside the two above. engine/kernel.pl's
 %own builtins refuse an unbound argument through it, and a library builtin
 %that takes an input refuses the same way rather than inventing a message.
-ext_point_kind(refuse_unbound_input/2, service).
+kind(refuse_unbound_input/2, service).
 
 %Extra type candidates for grounded host objects, beyond the object's own
 %classes: a protocol the object satisfies may name a type, so a declared
 %(-> DLTensor ...) can hold across libraries.
-:- multifile metta_grounded_extra_type/2.
-ext_point_kind(metta_grounded_extra_type/2, declaration).
+:- multifile grounded_extra_type/2.
+kind(grounded_extra_type/2, declaration).
 
 %A host bridge may compute an object's type names itself: values can sit in
 %envelope objects the boundary must not rewrite, so the names, plain text,
 %are what crosses rather than the value. What a bridge owns is the CLASS
 %WALK: when one answers, its names stand in for the walk, and with none the
-%local walk applies. It does not own metta_grounded_extra_type/2 above, which is
+%local walk applies. It does not own grounded_extra_type/2 above, which is
 %consulted either way, because a declaration seam is additive and reading
 %this one as owning the whole answer silently dropped every declared type
 %in the shipped configuration
 %[tested: bindings/python/tests/test_ops.py::test_a_declared_type_survives_the_library_being_loaded].
-:- multifile metta_grounded_type_names/2.
-ext_point_kind(metta_grounded_type_names/2, ownership).
+:- multifile grounded_type_names/2.
+kind(grounded_type_names/2, ownership).
 
 %The host's own class enumeration, the fallback when no envelope bridge
 %answered: walking a value's classes is host code by nature, so the host
 %bridge supplies it and an engine with no host loaded has no clause here,
 %which is the correct answer for a configuration in which no host value
 %can exist.
-:- multifile metta_grounded_class_type/2.
-ext_point_kind(metta_grounded_class_type/2, ownership).
+:- multifile grounded_class_type/2.
+kind(grounded_class_type/2, ownership).
 
 %A host bridge's own builtins, registered by the engine's registry directive
 %from these declarations, so no list inside the engine names a host: the
 %bridge declares, the engine registers whatever was declared.
-:- multifile metta_host_builtin/1.
-ext_point_kind(metta_host_builtin/1, declaration).
+:- multifile host_builtin/1.
+kind(host_builtin/1, declaration).
 
 %A host claims an import whose source is its own kind of file and performs
 %the whole job itself, lifecycle included, through the published
 %import_when/4; with no host loaded, or none claiming, every import is a
 %MeTTa import.
-:- multifile metta_host_import/1.
-ext_point_kind(metta_host_import/1, ownership).
+:- multifile host_import/1.
+kind(host_import/1, ownership).
 
 %Whether a value is a live host object at all, the question in front of
 %every grounded-type lookup: the engine's own cheap class tests run first,
 %and this seam is the bridge's part, so an engine with no host loaded
 %answers no at one failed lookup and never initializes anything.
-:- multifile metta_host_object/1.
-ext_point_kind(metta_host_object/1, ownership).
+:- multifile host_object/1.
+kind(host_object/1, ownership).
 
 %Construct a reader token through the host that owns its retained callable.
 %The token text is the full lexeme, quotes included for a string token, and the
 %answer is the engine term the reader will return.
-:- multifile metta_host_reader_token_construct/3.
-ext_point_kind(metta_host_reader_token_construct/3, ownership).
+:- multifile host_reader_token_construct/3.
+kind(host_reader_token_construct/3, ownership).
 
 %A registered rewriter runs over every loaded form; a host installs one only
 %while it is needed (the Python bridge registers its import-as alias rewrite
 %when the first alias lands), so a program that never uses the feature pays
 %one failed lookup per form and nothing more, the same install-on-demand
 %shape the atom hooks use.
-:- dynamic metta_form_rewriter/1.
-:- multifile metta_form_rewriter/1.
-ext_point_kind(metta_form_rewriter/1, ownership).
+:- dynamic form_rewriter/1.
+:- multifile form_rewriter/1.
+kind(form_rewriter/1, ownership).
 
 %%%% Published means exported %%%%
 %
@@ -970,46 +1093,93 @@ ext_point_kind(metta_form_rewriter/1, ownership).
 %listener below is what catches both, and it is the same channel the atom
 %hooks use, so a clause that arrives by consult is seen exactly as one that
 %arrives by assert.
-petta_publish_seam(Seam) :-
-    petta_engine_module(Engine),
-    (   current_predicate(Engine:Seam)
-    ->  Engine:export(Seam)
+%A seam this module's own declaration already exports needs nothing done, and
+%doing it anyway is not free: export/1 at RUN time also pushes the name into
+%every module that has imported from here, so re-exporting the handler seams
+%put seam:function_removed/1 into the engine's module on top of the different
+%function_removed/1 engine/spaces.pl defines there, and SWI reported "Local
+%definition of user:function_removed/1 overrides weak import from seam" on
+%every static-check run. Two modules holding one name is what a module system
+%is FOR; an accidental import of one into the other is not
+%[measured 2026-08-22].
+publish(Seam) :-
+    (   seam_home(Seam, Home),
+        \+ ( module_property(Home, exports(Exports)), memberchk(Seam, Exports) )
+    ->  Home:export(Seam)
     ;   true
     ).
 
-petta_publish_declared_seams :-
-    forall(ext_point_kind(Seam, _), petta_publish_seam(Seam)).
+%!  seam_home(+Seam, -Module) is semidet.
+%
+%   Which module a declared seam's clauses live in: this module for every
+%   handler seam, the engine core for control_exception/1 because the
+%   translator emits it and a space's module has to import it from there, and
+%   whichever subsystem defines a service for the rest.
+%
+%   implementation_module/1 rather than current_predicate/1, because
+%   current_predicate/1 answers for a predicate this module can merely SEE. A
+%   module inherits its base, so asking it that way said `seam` owned swrite/2
+%   and every other engine service, and the boot sweep then exported ninety-five
+%   of them out of the wrong module: the engine's own export list came back
+%   holding twenty-six names where it holds a hundred and twenty
+%   [measured 2026-08-22]. This is the same question the layering lane asks of
+%   a call, and it has one answer per predicate
+%   [source: SWI-Prolog predicate_property/2, implementation_module(Module)].
+seam_home(Name/Arity, Home) :-
+    functor(Head, Name, Arity),
+    (   defined_in(seam, Head)
+    ->  Home = seam
+    ;   petta_engine_module(Engine),
+        implemented_in(Engine, Head, Home)
+    ).
+
+%The `defined` half is load-bearing and not a belt-and-braces check. Asking
+%implementation_module/1 about a name nothing has defined answers with the
+%module that was ASKED, so every seam declared before its definition loads
+%came back owned by whoever asked first: the boot directive in this file
+%exported forty-odd engine services out of `seam` and SWI then reported each
+%as "Exported procedure seam:refuse_unbound_input/2 is not defined"
+%[measured 2026-08-22].
+implemented_in(Module, Head, Home) :-
+    catch(( predicate_property(Module:Head, defined),
+            predicate_property(Module:Head, implementation_module(Home)) ),
+          _, fail).
+
+defined_in(Module, Head) :- implemented_in(Module, Head, Module).
+
+publish_declared :-
+    forall(kind(Seam, _), publish(Seam)).
 
 %A seam declared later publishes itself. Only the additions matter, so a
 %retract is ignored: SWI has no unexport, and a seam withdrawn at run time is
 %not a thing the tree does.
-petta_seam_declared(Action, Reference) :-
-    % policy-inventory-exempt: mechanism-internal; reason=asserta and assertz are prolog_listen/2's own action vocabulary for a clause arriving rather than an engine decision; evidence=engine/ext_points.pl:petta_seam_declared/2
+declared(Action, Reference) :-
+    % policy-inventory-exempt: mechanism-internal; reason=asserta and assertz are prolog_listen/2's own action vocabulary for a clause arriving rather than an engine decision; evidence=engine/ext_points.pl:declared/2
     (   memberchk(Action, [asserta, assertz]),
         blob(Reference, clause),
-        catch(clause(ext_point_kind(Seam, _), _, Reference), _, fail)
-    ->  petta_publish_seam(Seam)
+        catch(clause(kind(Seam, _), _, Reference), _, fail)
+    ->  publish(Seam)
     ;   true
     ).
 
-:- prolog_listen(ext_point_kind/2, petta_seam_declared).
+:- prolog_listen(kind/2, declared).
 %And the ones declared above, which the listener could not have seen. The
 %sweep runs again from engine/metta.pl's own initialization, after every file
 %the engine loads has defined what it declared here.
-:- petta_publish_declared_seams.
+:- publish_declared.
 
 :- use_module(library(prolog_wrap)).
 
-metta_dispatch_call(_, _, _, _) :- fail.
-metta_on_function_changed(_).
-metta_on_function_removed(_).
+dispatch_call(_, _, _, _) :- fail.
+function_changed(_).
+function_removed(_).
 
 %Atom hooks wrap the write predicates only while a multifile handler exists.
 %prolog_listen/2 sees clauses loaded later, so an engine without handlers keeps
 %the original direct write path. Multiple handlers still run through forall/2.
 
-metta_atom_hook_clause(added, Ref) :- clause(metta_on_atom_added(_, _), _, Ref).
-metta_atom_hook_clause(removed, Ref) :- clause(metta_on_atom_removed(_, _), _, Ref).
+atom_hook_clause(added, Ref) :- clause(atom_added(_, _), _, Ref).
+atom_hook_clause(removed, Ref) :- clause(atom_removed(_, _), _, Ref).
 
 %Both branches succeed or throw, never fail. This installer runs from inside a
 %prolog_listen/2 closure, and that channel's contract is asymmetric: on an
@@ -1033,28 +1203,28 @@ metta_atom_hook_clause(removed, Ref) :- clause(metta_on_atom_removed(_, _), _, R
 %same answer and is one SWI's code walker can follow: qualifying it by hand
 %with a run-time variable made three live wrapper bodies unreachable from any
 %root in tests/prolog/reachability.pl [measured 2026-08-19].
-enable_metta_atom_hook(added) :-
+enable_atom_hook(added) :-
     petta_engine_module(Engine),
     current_predicate_wrapper(Engine:metta_add_atom(_, _, _), metta_atom_added_hooks, _, _), !.
-enable_metta_atom_hook(added) :-
+enable_atom_hook(added) :-
     petta_engine_module(Engine),
     (   wrap_predicate(Engine:metta_add_atom(Space, Term, _Result), metta_atom_added_hooks, Wrapped,
-                       run_metta_atom_added_hooks(Wrapped, Space, Term))
+                       run_atom_added_hooks(Wrapped, Space, Term))
     ->  true
     ;   throw(error(petta_atom_hook_install_failed(added),
-                    context(enable_metta_atom_hook/1,
+                    context(enable_atom_hook/1,
                             'the write wrapper could not be installed')))
     ).
-enable_metta_atom_hook(removed) :-
+enable_atom_hook(removed) :-
     petta_engine_module(Engine),
     current_predicate_wrapper(Engine:metta_remove_atom(_, _, _), metta_atom_removed_hooks, _, _), !.
-enable_metta_atom_hook(removed) :-
+enable_atom_hook(removed) :-
     petta_engine_module(Engine),
     (   wrap_predicate(Engine:metta_remove_atom(Space, Term, Removed), metta_atom_removed_hooks, Wrapped,
-                       run_metta_atom_removed_hooks(Wrapped, Space, Term, Removed))
+                       run_atom_removed_hooks(Wrapped, Space, Term, Removed))
     ->  true
     ;   throw(error(petta_atom_hook_install_failed(removed),
-                    context(enable_metta_atom_hook/1,
+                    context(enable_atom_hook/1,
                             'the write wrapper could not be installed')))
     ).
 
@@ -1063,40 +1233,40 @@ prolog:error_message(petta_atom_hook_install_failed(Kind)) -->
     [ 'the ~w-atom write wrapper could not be installed, so a handler asserted \c
        now would be removed again by prolog_listen/2 and never fire'-[Kind] ].
 
-run_metta_atom_added_hooks(Wrapped, Space, Term) :-
+run_atom_added_hooks(Wrapped, Space, Term) :-
     call(Wrapped),
-    forall(metta_on_atom_added(Space, Term), true).
+    forall(atom_added(Space, Term), true).
 
-run_metta_atom_removed_hooks(Wrapped, Space, Term, Removed) :-
+run_atom_removed_hooks(Wrapped, Space, Term, Removed) :-
     call(Wrapped),
     ( Removed == true
-      -> forall(metta_on_atom_removed(Space, Term), true)
+      -> forall(atom_removed(Space, Term), true)
       ; true ).
 
-disable_metta_atom_hook(added) :-
+disable_atom_hook(added) :-
     petta_engine_module(Engine),
     ( unwrap_predicate(Engine:metta_add_atom/3, metta_atom_added_hooks) -> true ; true ).
-disable_metta_atom_hook(removed) :-
+disable_atom_hook(removed) :-
     petta_engine_module(Engine),
     ( unwrap_predicate(Engine:metta_remove_atom/3, metta_atom_removed_hooks) -> true ; true ).
 
-sync_metta_atom_hook(Kind) :- ( metta_atom_hook_clause(Kind, _)
-                                -> enable_metta_atom_hook(Kind)
-                                ; disable_metta_atom_hook(Kind) ).
+sync_atom_hook(Kind) :- ( atom_hook_clause(Kind, _)
+                                -> enable_atom_hook(Kind)
+                                ; disable_atom_hook(Kind) ).
 
-metta_atom_hook_changed(Kind, Action, Context) :-
+atom_hook_changed(Kind, Action, Context) :-
     ( ( Action == asserta ; Action == assertz ; Action == rollback(retract) )
-      -> enable_metta_atom_hook(Kind)
+      -> enable_atom_hook(Kind)
     ; ( Action == retract ; Action == rollback(asserta) ; Action == rollback(assertz) )
-      -> ( metta_atom_hook_clause(Kind, Other), Other \== Context
-           -> true ; disable_metta_atom_hook(Kind) )
+      -> ( atom_hook_clause(Kind, Other), Other \== Context
+           -> true ; disable_atom_hook(Kind) )
     ; Action == retractall, Context = end(_)
-      -> sync_metta_atom_hook(Kind)
+      -> sync_atom_hook(Kind)
     ; true ).
 
-:- prolog_listen(metta_on_atom_added/2, metta_atom_hook_changed(added)).
-:- prolog_listen(metta_on_atom_removed/2, metta_atom_hook_changed(removed)).
-:- sync_metta_atom_hook(added).
-:- sync_metta_atom_hook(removed).
-:- initialization(sync_metta_atom_hook(added), restore_state).
-:- initialization(sync_metta_atom_hook(removed), restore_state).
+:- prolog_listen(atom_added/2, atom_hook_changed(added)).
+:- prolog_listen(atom_removed/2, atom_hook_changed(removed)).
+:- sync_atom_hook(added).
+:- sync_atom_hook(removed).
+:- initialization(sync_atom_hook(added), restore_state).
+:- initialization(sync_atom_hook(removed), restore_state).

@@ -15,7 +15,7 @@
 %       every seam declared multifile is called from outside this tree
 %       [source: engine/ext_points.pl, and tests/prolog/static_checks.pl already
 %       requires every unqualified multifile seam to declare an
-%       ext_point_kind/2]
+%       seam:kind/2]
 %     - the Python half names its Prolog entry points as text, so a predicate
 %       named inside a string literal in bindings/python/petta/*.py is called across
 %       janus [source: bindings/python/petta/_engine.py, apply/2 and do/2 take the
@@ -347,8 +347,8 @@ build_graph :-
                        autoload(false),
                        undefined(ignore) ]),
     % The same references, because a directive builds goals as freely as a
-    % clause does: `:- prolog_listen(metta_on_atom_added/2,
-    % metta_atom_hook_changed(added))` in engine/ext_points.pl:633 installs a
+    % clause does: `:- prolog_listen(seam:atom_added/2,
+    % seam:atom_hook_changed(added))` in engine/ext_points.pl:633 installs a
     % closure and stands in no clause at all.
     record_constructions(References),
     forall(member(Reference, DirectiveReferences), erase(Reference)).

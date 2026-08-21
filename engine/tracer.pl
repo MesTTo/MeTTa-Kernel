@@ -86,8 +86,8 @@ metta_trace_wrap_once(Target) :-
 
 %A function compiled while a trace is active must be wrapped before the next
 %form runs. process_form/3 fires this hook after installing every equation.
-:- multifile metta_on_function_changed/1.
-metta_on_function_changed(F) :-
+:- multifile seam:function_changed/1.
+seam:function_changed(F) :-
     with_mutex('$petta_trace_state',
                ( metta_trace_session
                  -> compiled_function_name(F, Predicate),

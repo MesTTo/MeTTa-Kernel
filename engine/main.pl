@@ -57,7 +57,7 @@ main :- current_prolog_flag(argv, RawArgs),
                        %forall/2 over the predicate's solutions cannot see a
                        %failing clause, so the demo walks the loaded clauses
                        %and a selftest that fails ends the run naming itself.
-                       forall(clause(metta_backend_selftest, Selftest),
+                       forall(clause(seam:backend_selftest, Selftest),
                               (   call(Selftest)
                               ->  true
                               ;   format(user_error,

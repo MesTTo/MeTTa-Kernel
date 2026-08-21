@@ -380,7 +380,14 @@ def _prolog_symbol_exists(text: str, symbol: str) -> bool:
         return False
     arity = int(arity_text)
     spellings = (re.escape(name), re.escape("'" + name.replace("'", "''") + "'"))
-    head = re.compile(rf"^\s*(?:{'|'.join(spellings)})\s*\(", re.MULTILINE)
+    # An optional Module: qualifier, because a clause of a seam is written
+    # where the seam lives: `seam:foreign_capability(...) :- ...` in a library
+    # is one clause of one predicate, and reading only the unqualified spelling
+    # made every module-qualified handler unresolvable as evidence.
+    head = re.compile(
+        rf"^\s*(?:[a-z][A-Za-z0-9_]*\s*:\s*)?(?:{'|'.join(spellings)})\s*\(",
+        re.MULTILINE,
+    )
     for match in head.finditer(text):
         opening = text.find("(", match.start(), match.end())
         closing = _matching_parenthesis(text, opening)

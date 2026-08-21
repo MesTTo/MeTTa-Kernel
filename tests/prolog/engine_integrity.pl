@@ -52,7 +52,7 @@
 %   Future Enhancements: None
 
 :- use_module(library(filesex)).
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 %The modules the ENGINE resolves its own goals in: the module its clauses are
 %in, and every module up that one's import chain. A clause asserted into any of

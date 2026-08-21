@@ -22,7 +22,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 :- initialization(consult('../../lib/lib_tabling.pl')).
 
 % Real MeTTa functions, defined the way a program defines them, because the
@@ -36,8 +36,8 @@ tabling_definitions("
 (= (plt-tab-computed $s) (match $s (fact $k $v) $v))
 ").
 
-user:metta_foreign_space('&plt_tab_foreign').
-user:metta_foreign_atoms('&plt_tab_foreign', []).
+seam:foreign_space('&plt_tab_foreign').
+seam:foreign_atoms('&plt_tab_foreign', []).
 
 setup_tabling_suite :-
     retractall(user:silent(_)),
@@ -176,13 +176,13 @@ test(duals_survive_tabling,
                  catch(metta_untabled_decl(['plt-tab-plain', _], true), _, true) )) ]) :-
     % A handler in exactly the position duals.pl's occupies: asserted, so
     % ordered after every clause loaded from a file.
-    assertz((user:metta_on_function_changed(_) :-
+    assertz((seam:function_changed(_) :-
                  retractall(user:plt_tab_later_handler_ran(_)),
                  assertz(user:plt_tab_later_handler_ran(yes))),
             HandlerRef),
     metta_tabled_decl(['plt-tab-plain', _], true),
     assertion(metta_tabling_declared),
-    forall(metta_on_function_changed('plt-tab-plain'), true),
+    forall(seam:function_changed('plt-tab-plain'), true),
     user:plt_tab_later_handler_ran(Ran),
     assertion(Ran == yes).
 
@@ -191,12 +191,12 @@ test(the_removal_hook_does_not_prune_either,
        cleanup(( retractall(user:plt_tab_later_handler_ran(_)),
                  erase(HandlerRef),
                  catch(metta_untabled_decl(['plt-tab-plain', _], true), _, true) )) ]) :-
-    assertz((user:metta_on_function_removed(_) :-
+    assertz((seam:function_removed(_) :-
                  retractall(user:plt_tab_later_handler_ran(_)),
                  assertz(user:plt_tab_later_handler_ran(yes))),
             HandlerRef),
     metta_tabled_decl(['plt-tab-plain', _], true),
-    forall(metta_on_function_removed('plt-tab-plain'), true),
+    forall(seam:function_removed('plt-tab-plain'), true),
     user:plt_tab_later_handler_ran(Ran),
     assertion(Ran == yes).
 
@@ -312,7 +312,7 @@ test(the_refusal_names_the_goal) :-
           message_to_codes(Error, Codes)),
     string_codes(Text, Codes),
     assertion(sub_string(Text, _, _, _, "py-call/3")),
-    assertion(sub_string(Text, _, _, _, "metta_pure_operation")).
+    assertion(sub_string(Text, _, _, _, "seam:pure_operation")).
 
 message_to_codes(error(Formal, _), Codes) :-
     phrase(prolog:error_message(Formal), Lines),
@@ -343,10 +343,10 @@ test(a_metta_side_effect_declaration_is_a_purity_claim,
      [cleanup(catch('remove-atom'('&petta',
                                   [effect, 'purity-eff', immutable], _),
                     _, true))]) :-
-    assertion(\+ metta_pure_operation('purity-eff')),
+    assertion(\+ seam:pure_operation('purity-eff')),
     process_metta_string("!(add-atom &petta (effect purity-eff immutable))", _),
-    assertion(metta_pure_operation('purity-eff')),
+    assertion(seam:pure_operation('purity-eff')),
     'remove-atom'('&petta', [effect, 'purity-eff', immutable], _),
-    assertion(\+ metta_pure_operation('purity-eff')).
+    assertion(\+ seam:pure_operation('purity-eff')).
 
 :- end_tests(lib_tabling_purity).

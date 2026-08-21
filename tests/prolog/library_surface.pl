@@ -89,7 +89,7 @@ report([First|Rest], Examined) :-
            ( findall(Caller, member(Callee-Caller, Reaches), Callers),
              format(user_error, "  ~w~t~34| ~w~n", [Callee, Callers]) )),
     format(user_error,
-           "each is a decision: publish it with ext_point_kind(Name/Arity, \c
+           "each is a decision: publish it with seam:kind(Name/Arity, \c
             service) in engine/ext_points.pl, or change the library not to need \c
             it~n", []),
     % halt/1 rather than failing, because a failed initialization goal prints

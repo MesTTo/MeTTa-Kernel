@@ -20,7 +20,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 :- dynamic plunit_ext_seen/2.
 
@@ -32,7 +32,7 @@
 :- begin_tests(ext_points_atom_hooks).
 
 % The failure this guards is the seam's own installer erasing what it was
-% called for. enable_metta_atom_hook/1 runs inside a prolog_listen/2 closure,
+% called for. seam:enable_atom_hook/1 runs inside a prolog_listen/2 closure,
 % and that channel REMOVES the clause when the hook fails on an assertz, so a
 % wrap_predicate/4 that failed would take the handler with it and a library's
 % subscription would never fire, with nothing said.
@@ -40,12 +40,12 @@ test(a_handler_survives_its_own_installation,
      [ cleanup(( erase(Ref),
                  retractall(plunit_ext_seen(_, _)),
                  clear_native_atoms('&plunit_ext_hooks') )) ]) :-
-    assertz((user:metta_on_atom_added(Space, Term) :-
+    assertz((seam:atom_added(Space, Term) :-
                  assertz(plunit_ext_seen(Space, Term))),
             Ref),
     % The clause is still there, which is the half prolog_listen/2 could have
     % undone.
-    assertion(clause(user:metta_on_atom_added(_, _), _, Ref)),
+    assertion(clause(seam:atom_added(_, _), _, Ref)),
     % And the wrapper it triggers really wraps.
     'add-atom'('&plunit_ext_hooks', [watched, 1], _),
     assertion(plunit_ext_seen('&plunit_ext_hooks', [watched, 1])).
@@ -53,7 +53,7 @@ test(a_handler_survives_its_own_installation,
 test(the_wrapper_goes_when_the_last_handler_does,
      [ cleanup(( retractall(plunit_ext_seen(_, _)),
                  clear_native_atoms('&plunit_ext_hooks2') )) ]) :-
-    assertz((user:metta_on_atom_added(Space, Term) :-
+    assertz((seam:atom_added(Space, Term) :-
                  assertz(plunit_ext_seen(Space, Term))),
             Ref),
     'add-atom'('&plunit_ext_hooks2', [watched, 1], _),
@@ -142,7 +142,7 @@ test(a_partial_declaration_declares_the_whole_set) :-
 
 test(clear_reaches_the_provider) :-
     'add-atom'('&plunit_seam', [fact, g], _),
-    metta_foreign_clear('&plunit_seam'),
+    seam:foreign_clear('&plunit_seam'),
     assertion(was_reached(clear)),
     assertion(\+ user:plunit_seam_atom(_)).
 
@@ -189,7 +189,7 @@ test(a_removed_atom_reaches_its_handler,
        cleanup(( erase(Ref),
                  clear_native_atoms('&plunit_seam_ev') )) ]) :-
     'add-atom'('&plunit_seam_ev', [gone, 1], _),
-    assertz((user:metta_on_atom_removed(_, T) :-
+    assertz((seam:atom_removed(_, T) :-
                  assertz(plunit_seam_reached(removed(T)))),
             Ref),
     'remove-atom'('&plunit_seam_ev', [gone, 1], _),
@@ -200,7 +200,7 @@ test(a_changed_function_reaches_its_handler,
        cleanup(( erase(Ref),
                  retractall(user:'plunit-seam-fn'(_)),
                  retractall(user:fun('plunit-seam-fn')) )) ]) :-
-    assertz((user:metta_on_function_changed(F) :-
+    assertz((seam:function_changed(F) :-
                  assertz(plunit_seam_reached(changed(F)))),
             Ref),
     process_metta_string("(= (plunit-seam-fn) 1)", _),
@@ -210,10 +210,10 @@ test(a_removed_function_reaches_its_handler,
      [ setup(retractall(plunit_seam_reached(_))),
        cleanup(( erase(Ref),
                  retractall(user:fun('plunit-seam-gone')) )) ]) :-
-    assertz((user:metta_on_function_removed(F) :-
+    assertz((seam:function_removed(F) :-
                  assertz(plunit_seam_reached(removed_fn(F)))),
             Ref),
-    forall(metta_on_function_removed('plunit-seam-gone'), true),
+    forall(seam:function_removed('plunit-seam-gone'), true),
     assertion(plunit_seam_reached(removed_fn('plunit-seam-gone'))).
 
 % A library's own cancellation or budget signal has to reach the caller, and
@@ -272,21 +272,31 @@ test(a_library_error_term_renders_through_the_seam) :-
 :- begin_tests(metta_published_surface).
 
 % Declaring a seam publishes it, and publishing means EXPORTING it from the
-% engine's module. Before this the declaration was a comment with a checker
-% reading it back, so "published" was two copies of one list; now the module
-% system holds the answer and the surface walks ask it.
+% module that DEFINES it. Before this the declaration was a comment with a
+% checker reading it back, so "published" was two copies of one list; now the
+% module system holds the answer and the surface walks ask it.
+%
+% Which module that is stopped being one answer when the handler seams moved
+% into `seam` and the engine's subsystems started declaring their own: a
+% service lives in the subsystem that defines it, control_exception/1 lives in
+% the engine core because the translator emits it, and every handler seam
+% lives in `seam`. seam_home/2 answers that by asking SWI which module
+% implements the name, so this test does not keep a second list of homes
+% either.
 test(every_declared_seam_that_exists_is_exported) :-
-    petta_engine_module(Engine),
-    module_property(Engine, exports(Exports)),
-    findall(Seam,
-            ( ext_point_kind(Seam, _),
-              current_predicate(Engine:Seam),
-              \+ memberchk(Seam, Exports) ),
+    findall(Seam-Home,
+            ( seam:kind(Seam, _),
+              seam:seam_home(Seam, Home),
+              \+ ( module_property(Home, exports(Exports)),
+                   memberchk(Seam, Exports) ) ),
             Unexported),
     assertion(Unexported == []),
     % and the list is not vacuously empty
-    aggregate_all(count, ext_point_kind(_, _), Declared),
-    assertion(Declared > 100).
+    aggregate_all(count, seam:kind(_, _), Declared),
+    assertion(Declared > 100),
+    % every declared seam has a home, so none is skipped by the findall above
+    findall(Seam, ( seam:kind(Seam, _), \+ seam:seam_home(Seam, _) ), Homeless),
+    assertion(Homeless == []).
 
 % A library that introduces a seam of its own is loaded long after the engine
 % booted, so the boot sweep cannot be the whole mechanism. The listener on the
@@ -297,6 +307,9 @@ test(a_seam_declared_in_a_later_file_is_exported) :-
     petta_engine_module(Engine),
     module_property(Engine, exports(Before)),
     assertion(\+ memberchk(plunit_late_declared_service/1, Before)),
+    % The fixture defines its service in the host module, so the engine's is
+    % where the export has to land; a handler seam of its own would land in
+    % `seam` and the same listener would put it there.
     % user: because consult from inside a plunit unit resolves against that
     % unit's module, and a library's seam belongs where the engine's is, which
     % is the same trap the file-level load at the top of this file avoids.
@@ -314,11 +327,84 @@ test(a_seam_declared_in_a_later_file_is_exported) :-
 test(a_declaration_without_a_definition_is_not_exported) :-
     petta_engine_module(Engine),
     assertion(\+ current_predicate(Engine:plunit_undefined_seam/3)),
-    petta_publish_seam(plunit_undefined_seam/3),
+    seam:publish(plunit_undefined_seam/3),
     module_property(Engine, exports(Exports)),
     assertion(\+ memberchk(plunit_undefined_seam/3, Exports)).
 
 :- end_tests(metta_published_surface).
+
+:- begin_tests(seam_module).
+
+% The seams used to carry their namespace in their names: metta_on_ for the
+% events, metta_foreign_ for the space-provider protocol, metta_grounded_ and
+% metta_host_ for the other two. A prefix cannot refuse anything, which is why
+% the long names were the SYMPTOM and the flat namespace the cause. Each of
+% the four checks below is one half of "reached under its module".
+
+% One: every declared seam has a module that holds it, and the module system
+% is what answers.
+test(test_every_seam_is_reached_under_its_module) :-
+    findall(Seam, ( seam:kind(Seam, _), \+ seam:seam_home(Seam, _) ), Homeless),
+    assertion(Homeless == []),
+    aggregate_all(count, seam:kind(_, _), Declared),
+    assertion(Declared > 100),
+    % Two: every HANDLER seam, the kind an extension writes clauses for, is
+    % held by a module that DECLARES it: `seam` for the engine's own seam
+    % table, and the subsystem's own module for a seam a subsystem declares,
+    % as engine/support_graph.pl does for the five a loader contributes to.
+    % control_exception/1 is the single seam held by the engine core and it is
+    % named rather than tolerated: the translator emits it, so a space's
+    % execution module imports it from the ENGINE's module and a copy in `seam`
+    % would leave that import with nothing to find.
+    petta_engine_module(Engine),
+    findall(Seam-Home,
+            ( seam:kind(Seam, Kind),
+              seam:clauses_from(Kind, extension),
+              seam:seam_home(Seam, Home),
+              Home == Engine ),
+            InTheCore),
+    assertion(InTheCore == [control_exception/1-Engine]),
+    % Three: no HANDLER seam name carries a namespace any more, because the
+    % module carries it. A prefix here would be the module's job done twice.
+    % A service keeps its name: it is an ordinary engine predicate that an
+    % extension is allowed to call, reached under whichever subsystem defines
+    % it, and its prefix names the protocol it belongs to rather than a
+    % namespace the module duplicates.
+    findall(Name,
+            ( seam:kind(Name/_, Kind),
+              seam:clauses_from(Kind, extension),
+              sub_atom(Name, 0, _, _, metta_) ),
+            Prefixed),
+    assertion(Prefixed == []),
+    % Four: the old spellings are GONE rather than aliased. An alias tier
+    % would be a second name for one thing, which the ladder refuses.
+    forall(member(Old, [metta_on_atom_added/2, metta_on_atom_removed/2,
+                        metta_on_function_changed/1, metta_on_function_removed/1,
+                        metta_foreign_match/3, metta_foreign_space/1,
+                        metta_grounded_apply/3, metta_host_builtin/1,
+                        metta_dispatch_call/4, metta_engine_emitted/1,
+                        ext_point_kind/2]),
+           ( Old = OldName/OldArity,
+             functor(OldHead, OldName, OldArity),
+             assertion(\+ current_predicate(seam:OldName/OldArity)),
+             assertion(\+ catch(predicate_property(Engine:OldHead, defined),
+                                _, fail)) )).
+
+% A service is the other direction, and it is reached under the module that
+% DEFINES it rather than under `seam`: the engine core today, and a subsystem
+% module as each one is cut. Asserting this apart keeps the two directions
+% from being conflated the way one flat namespace conflated them.
+test(a_service_is_reached_under_the_subsystem_that_defines_it) :-
+    seam:seam_home(swrite/2, Home),
+    assertion(Home \== seam),
+    module_property(Home, exports(Exports)),
+    assertion(memberchk(swrite/2, Exports)),
+    % and the kernel's cut moved its four builtins out of the engine's own
+    % module, which is the same mechanism one step further along
+    assertion(predicate_property(kernel:'space-atom-count'(_, _),
+                                 implementation_module(kernel))).
+
+:- end_tests(seam_module).
 
 % The surface walks live in tests/prolog/surface_walk.pl, which the two static
 % lanes load; asking their question here without loading the walk keeps this

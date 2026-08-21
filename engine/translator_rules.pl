@@ -480,7 +480,7 @@ install_inverse_equation(Source, Space, Equation) :-
 %construct and returns nothing when they are invalid, so the rewrite simply
 %does not happen [source: uwplse/tensat, src/rewrites.rs, the Applier
 %implementation for CheckApply, read 2026-08-21]. The same shape is already
-%here twice, as metta_foreign_refuse/2 for a space and as
+%here twice, as seam:foreign_refuse/2 for a space and as
 %engine/type_rules.pl's [refuse, Reason] outcome for a typing rule; this is
 %the third rule family to get it and it is spelled the same way.
 %

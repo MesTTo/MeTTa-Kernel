@@ -36,6 +36,45 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+%The surface is the graph's own vocabulary: what publishes an edge, what
+%invalidates and forgets one, and the five seams a loader or a cache
+%contributes clauses to. The seams keep the support_ prefix, because here it
+%is the DOMAIN noun rather than a namespace the module stands in for: a
+%support edge is what the graph is made of, and support_record/2 reads the
+%same qualified or not. What the metta_ prefixes on the handler seams were
+%doing, this one never did.
+%
+%Everything else is the graph's machinery: the dirty set, the stabilization
+%cutoff, the deferral flags and the walk. A caller that wants one says
+%support_graph: and means it, which is what tests/prolog/support_graph.plt now
+%does for support_replace/2 and support_stabilize/3
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named,
+%test_every_seam_is_reached_under_its_module].
+:- module(support_graph,
+          [ supports/2,
+            support_publish/3,
+            support_publish_compiled_form/4,
+            support_record/2,
+            support_invalidate/1,
+            support_invalidate_many/1,
+            support_forget/1,
+            support_forget_module/1,
+            support_prune_orphans/0,
+            %The node tables and the deferral flag: engine/spaces.pl asks which
+            %module a view belongs to and engine/filereader.pl asks the same of
+            %a function before it repairs, so both are surface rather than
+            %machinery even though they are dynamic.
+            support_view_module/2,
+            support_function_module/2,
+            support_repairs_deferred/0,
+
+            support_invalidation_action/1,
+            support_repair_invalidations/0,
+            support_assertions_tracked/0,
+            support_assertion_record/1,
+            support_assertion_records/1
+          ]).
+
 :- use_module(library(error)).
 :- use_module(library(nb_set)).
 
@@ -48,15 +87,15 @@
 :- thread_local support_repairs_deferred/0.
 
 :- multifile support_invalidation_action/1.
-ext_point_kind(support_invalidation_action/1, event).
+seam:kind(support_invalidation_action/1, event).
 :- multifile support_repair_invalidations/0.
-ext_point_kind(support_repair_invalidations/0, event).
+seam:kind(support_repair_invalidations/0, event).
 :- multifile support_assertions_tracked/0.
-ext_point_kind(support_assertions_tracked/0, declaration).
+seam:kind(support_assertions_tracked/0, declaration).
 :- multifile support_assertion_record/1.
-ext_point_kind(support_assertion_record/1, event).
+seam:kind(support_assertion_record/1, event).
 :- multifile support_assertion_records/1.
-ext_point_kind(support_assertion_records/1, event).
+seam:kind(support_assertion_records/1, event).
 
 :- meta_predicate support_stabilize(+, 1, -).
 :- meta_predicate with_support_repairs_deferred(0).

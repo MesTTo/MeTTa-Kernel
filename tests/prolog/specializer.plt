@@ -5,7 +5,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 
 :- begin_tests(specializer).
 
@@ -358,7 +358,7 @@ test(string_run_equation_invalidates_specializations,
                  retractall(fun('plunit-door-fn')),
                  retractall(arity('plunit-door-fn', _)) )) ]) :-
     % The string-run door (process_form/3) used to notify
-    % metta_on_function_changed and skip invalidate_specializations, so a
+    % seam:function_changed and skip invalidate_specializations, so a
     % specialization of a name survived new equations for it. The one
     % compile door notifies completely; this pins that a run-defined
     % equation retracts the stale specialization record.

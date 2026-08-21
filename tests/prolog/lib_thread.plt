@@ -13,7 +13,7 @@
 % user:'t-inc'/2 dies on `Unknown procedure: (+)/3`. Eighteen of these tests
 % failed that way before the order was fixed. The same reason parser.plt uses
 % initialization/1 here rather than a bare ensure_loaded.
-:- initialization(consult('../../engine/metta.pl')).
+:- ensure_loaded('../../engine/metta.pl').
 :- initialization(consult('../../lib/lib_thread.pl')).
 :- initialization(
        process_metta_string("(= (t-inc $x) (+ $x 1))
@@ -25,13 +25,13 @@
 % begin_tests unit is a module of its own, so a multifile clause written
 % inside it would define that module's predicate and the engine would never
 % see it.
-:- multifile metta_foreign_space/1.
-:- multifile metta_foreign_capability/2.
-:- multifile metta_foreign_match/3.
-metta_foreign_space('&lt-silent-foreign').
-metta_foreign_capability('&lt-silent-foreign', Capability) :-
+:- multifile seam:foreign_space/1.
+:- multifile seam:foreign_capability/2.
+:- multifile seam:foreign_match/3.
+seam:foreign_space('&lt-silent-foreign').
+seam:foreign_capability('&lt-silent-foreign', Capability) :-
     member(Capability, [add, remove, match, enumerate]).
-metta_foreign_match('&lt-silent-foreign', [job, X]) :- X = quiet.
+seam:foreign_match('&lt-silent-foreign', [job, X]) :- X = quiet.
 
 :- begin_tests(lib_thread).
 
