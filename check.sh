@@ -300,8 +300,9 @@ run GATE prolog-static check_prolog_static
 # term rather than calls, which is most of the analysis and not a refinement:
 # without it the 2026-08-18 report was 206 rather than 24; the tally stands at 19 [measured 2026-08-19].
 #
-# REPORT, because findings are a backlog and not a break, the tier lib-surface
-# and determinism sit in [measured 2026-08-18: 1.10s].
+# REPORT, because findings are a backlog and not a break. lib-surface sat in
+# this tier beside it and left it on 2026-08-21, when its queue reached zero
+# [measured 2026-08-18: 1.10s].
 #
 # COUPLED TO PHASE 11: it hardcodes `user:` in 571 of its roots, so the module
 # migration must update it in the same commit or it silently reports nothing.
@@ -452,20 +453,26 @@ run GATE policy-inventory-selftest "$PY" "$HERE/tests/check_policy_inventory_sel
 # run.sh boots through when NO_AUTOLOAD=1 [measured 2026-08-19: 200/200].
 run GATE   no-autoload  sh -c "cd '$HERE' && NO_AUTOLOAD=1 sh test.sh"
 
-# The same walk as the backend GATE above, over lib/ instead, and a REPORT
-# because the backend answer is settled and the library one is not. A backend
-# is third-party and arm's length by construction; a shipped library sits
-# somewhere between that and the engine, and roughly twenty predicates are
-# involved that are not one kind of thing. Publishing them wholesale would make
-# `service` mean "whatever anyone happens to call", which is worse than leaving
-# them undeclared, so they are listed until each is decided. Three of them were
-# already published in EXTENDING.md's prose and are declared now, which is what
-# clearing an entry looks like. See ai-code-organisation-and-fixes.md.
+# The same walk as the backend GATE above, over lib/ instead. It was a REPORT
+# while the library tier's surface was undecided: a backend is third-party and
+# arm's length by construction, a shipped library sits between that and the
+# engine, and the nineteen predicates involved were not one kind of thing, so
+# publishing them wholesale would have made `service` mean "whatever anyone
+# happens to call". Each is decided now, one at a time, with the contract it
+# promises written beside it in engine/ext_points.pl, and the queue is empty
+# [measured 2026-08-21: 19 findings before, 0 after, over 438 library clauses].
+#
+# A GATE at zero findings has to prove it can still see, so this plants the
+# same four reaches the backend gate plants, through the same prover in
+# tests/prolog/surface_walk.pl, and names which door stopped firing. Verified
+# by mutation rather than assumed: with one planted call to
+# register_prolog_arities/1 in lib/lib_string.pl the lane exits 1 naming the
+# library predicate, the engine internal and the remedy [measured 2026-08-21].
 check_library_surface() {
     cd "$HERE/tests/prolog" || return 1
     swipl -q --on-error=status library_surface.pl
 }
-run REPORT lib-surface check_library_surface
+run GATE lib-surface check_library_surface
 
 # Parse every example and reject any form for which the translator exposes a
 # second solution. Each file gets a fresh process because translating lambdas

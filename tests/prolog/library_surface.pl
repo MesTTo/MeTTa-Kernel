@@ -1,23 +1,20 @@
-% Purpose: report which engine predicates the shipped libraries call that are
-%     not published surface. A REPORT, not a gate, and deliberately so.
+% Purpose: gate that no shipped library calls an engine predicate the engine
+%     does not publish, the same contract a_backend_calls_only_published_surface
+%     holds a backend to.
 % Assumes:
 %     - surface_walk.pl decides what published means, so this file and the
 %       backend GATE in static_checks.pl cannot drift apart on the definition
 % Guarantees:
-%     - exits nonzero when a library reaches past the published surface, which
-%       check.sh reads as findings rather than as a break
-%     - names the library and the predicate, grouped by callee, so the output
-%       is a work list rather than a wall
+%     - exits nonzero when a library reaches past the published surface, naming
+%       the library predicate, the engine predicate and the remedy
+%     - exits nonzero when the walk stops seeing a planted reach, so a clean
+%       result is a claim this file has just tested rather than an assumption
+%       [tested: scan_sees_every_planted_reach, one planted door per way a
+%       call hides; commit=8fa9d546b3eebf3424ef1d667feab40c6b0f32ae]
 % Fails when:
-%     - taken for a gate. It is not one YET, and the reason is a decision
-%       nobody has made: whether the library tier is meant to be arm's length
-%       from the engine the way a backend is. Roughly twenty predicates are
-%       involved and they are not one kind of thing. current_metta_module/1 and
-%       parse_metta_source/2 read like a library API worth publishing;
-%       native_storage_module/2 and space_module/2 read like plumbing a library
-%       should not be touching. Declaring all of them service would make the
-%       declaration mean nothing, which is worse than leaving it undeclared,
-%       so the list is printed until somebody decides it one entry at a time.
+%     - a call is assembled at run time from a term no analysis can see,
+%       `Goal =.. L, call(Goal)` being the shape. That is the residue this
+%       shares with every other static walk in the tree.
 % Decides:
 %     - lib/ is in scope and bindings/python/petta/shim.pl is not. shim.pl is consulted
 %       by _engine.py as the Python tier's own implementation, so it is
@@ -26,8 +23,21 @@
 % Open Obligations:
 %     To Do: None
 %     Hacks: None
-%     Future Enhancements: decide the library tier's surface and promote this
-%         to a GATE beside a_backend_calls_only_published_surface.
+%     Future Enhancements: None
+
+% A REPORT until 2026-08-21, and the reason it stayed one was a decision nobody
+% had made rather than a walk nobody trusted: whether the library tier is meant
+% to be arm's length from the engine the way a backend is. Nineteen predicates
+% were involved and they were not one kind of thing, so declaring them wholesale
+% would have made `service` mean "whatever anyone happens to call", which
+% enforces nothing. They are decided one at a time now, in engine/ext_points.pl,
+% each with the contract it promises written beside it, and the queue is empty.
+%
+% What makes the declaration mean something is that it is no longer only a
+% comment: a declared seam is EXPORTED by the engine's module, and
+% published_surface/1 asks the module system for that export list rather than
+% reading the declaration table a second time. So a seam declared and never
+% defined is not exported and does not pass this gate either.
 
 :- ensure_loaded(surface_walk).
 :- initialization(main, main).
@@ -46,22 +56,42 @@ main :-
     report(Reaches, Examined).
 
 report([], Examined) :-
-    format("library surface: no library reaches past the published surface \c
-            in ~d clauses~n", [Examined]).
+    !,
+    planted_internal(Internal),
+    (   published_surface(Internal)
+    ->  format(user_error,
+               'the planted reach ~w is published surface, so it proves \c
+                nothing; pick an engine predicate that is not~n', [Internal]),
+        halt(1)
+    ;   scan_sees_every_planted_reach(Total, Missed),
+        (   Missed == []
+        ->  format("library surface: no library reaches past the published \c
+                    surface in ~d clauses, and the walk saw a planted reach by \c
+                    each of ~d doors~n", [Examined, Total])
+        ;   length(Missed, Blind),
+            Seen is Total - Blind,
+            format(user_error,
+                   'the library surface walk saw ~d of ~d planted reaches, so \c
+                    its clean result says nothing~nit is blind to: ~w~n',
+                   [Seen, Total, Missed]),
+            halt(1)
+        )
+    ).
 report([First|Rest], Examined) :-
     Reaches = [First|Rest],
     findall(Callee, member(Callee-_, Reaches), Callees0),
     sort(Callees0, Callees),
     length(Callees, Count),
-    format("library surface: ~d engine predicates are called from lib/ \c
+    format(user_error,
+           "library surface: ~d engine predicates are called from lib/ \c
             without being published, over ~d clauses~n", [Count, Examined]),
     forall(member(Callee, Callees),
            ( findall(Caller, member(Callee-Caller, Reaches), Callers),
-             format("  ~w~t~34| ~w~n", [Callee, Callers]) )),
-    format("each is a decision: publish it with ext_point_kind(Name/Arity, \c
+             format(user_error, "  ~w~t~34| ~w~n", [Callee, Callers]) )),
+    format(user_error,
+           "each is a decision: publish it with ext_point_kind(Name/Arity, \c
             service) in engine/ext_points.pl, or change the library not to need \c
-            it~n"),
-    % Findings, which check.sh reads from the exit status. halt/1 rather than
-    % failing, because a failed initialization goal prints `user:main: false`
-    % over the report it just produced.
+            it~n", []),
+    % halt/1 rather than failing, because a failed initialization goal prints
+    % `user:main: false` over the report it just produced.
     halt(1).

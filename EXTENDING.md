@@ -2248,6 +2248,31 @@ author wrote, and not one a declaration could have matched, since the refusal
 never reached the operation's own name. Answer here and the message names what
 the program wrote and what `metta_pure_operation/1` will match.
 
+### Say that a goal you make the engine emit must not be taken over
+
+Only if you are writing a BRIDGE, and the sibling of the seam above. A goal
+your dispatcher makes the engine compile into a function body is written in the
+space's own module, so an equation in that space for the same name at the same
+arity would capture it: the program's own call would run where your goal should,
+silently and with a wrong answer rather than an error.
+
+```prolog
+:- multifile metta_engine_emitted/1.
+
+%   metta_engine_emitted(Name/Arity)      the PROLOG arity, one more than MeTTa's
+metta_engine_emitted(my_dispatch/3).
+```
+
+Naming it binds it into every space's module by import, which SWI then refuses
+to let an equation overwrite, and the engine turns that refusal into a MeTTa
+one that says the name is the engine's rather than calling it a Prolog builtin.
+
+The addition is safe on a running engine: it reaches spaces that already exist,
+so it is checked against them, and a space that already defines a function of
+that name is REFUSED with both parties named rather than settled by which
+import happened first. Rename one of the two; there is no ordering that makes
+both work.
+
 ### Say how a value prints
 
 ```prolog

@@ -736,6 +736,149 @@ test(clearing_plain_atoms_stays_a_sweep,
     % atoms is itself linear, and what it guards against is 51 removals.
     assertion(Spent < 1000).
 
+% P11.8, name-addition immunity. Logtalk's module critique names the disease:
+% "any update that strictly adds new exported predicates has the potential to
+% break existing applications", which is why library authors prefix names
+% defensively. Our chain reaches the engine by inheritance and by explicit
+% imports, so the class is live: a name added to the engine's emitted set is
+% imported into every space that already exists.
+%
+% The differential is both halves at once, because the safe half is what makes
+% the refusing half a refusal rather than a blanket prohibition. An addition
+% nothing collides with must change NO space's meaning -- not one answer, and
+% not one resolution anywhere in the tree -- and an addition that does collide
+% must be refused with both parties named instead of settled by which import
+% happened first.
+p118_space('&p118_a').
+p118_space('&p118_b').
+
+p118_form('&p118_a', "(= (p118-double $x) (* $x 2))").
+p118_form('&p118_a', "(: p118-typed (-> Number Number))").
+p118_form('&p118_a', "(= (p118-typed $n) (+ $n 1))").
+p118_form('&p118_a', "(p118-fact 7)").
+p118_form('&p118_b', "(= (p118-double $x) (+ $x $x))").
+p118_form('&p118_b', "(= (p118-via) (p118-double 4))").
+
+% Ordered where the answer sequence is the contract, unordered for the one
+% query whose branches race: hyperpose only changes the order, so a
+% differential over it compares sets or reports the race as a difference.
+p118_query('&p118_a', "!(p118-double 5)", ordered).
+p118_query('&p118_a', "!(p118-typed 3)", ordered).
+p118_query('&p118_a', "!(collapse (match &p118_a (p118-fact $x) $x))", ordered).
+p118_query('&p118_a', "!(get-type p118-typed)", ordered).
+p118_query('&p118_a', "!(context-space)", ordered).
+p118_query('&p118_b', "!(p118-via)", ordered).
+p118_query('&p118_b', "!(collapse (hyperpose ((p118-via) (p118-double 1))))", unordered).
+p118_query('&p118_b', "!(let* (($a (p118-double 2))) (+ $a 1))", ordered).
+
+setup_p118 :-
+    retractall(silent(_)), assertz(silent(true)),
+    forall(p118_form(Space, Text),
+           ( sread(Text, Term), 'add-atom'(Space, Term, _) )).
+
+cleanup_p118 :-
+    forall(p118_form(Space, Text),
+           ( sread(Text, Term), catch('remove-atom'(Space, Term, _), _, true) )),
+    retractall(silent(_)), assertz(silent(false)).
+
+p118_answers(Answers) :-
+    findall(Space-Query-Canonical,
+            ( p118_query(Space, Query, Order),
+              catch(process_metta_string(Query, Answer, Space), E,
+                    ( message_to_string(E, Text), Answer = raised(Text) )),
+              p118_canonical(Order, Answer, Canonical) ),
+            Answers).
+
+p118_canonical(ordered, Answer, Answer).
+p118_canonical(unordered, Answer, Canonical) :-
+    ( is_list(Answer) -> maplist(p118_sorted, Answer, Canonical) ; Canonical = Answer ).
+
+p118_sorted(Item, Sorted) :- ( is_list(Item) -> msort(Item, Sorted) ; Sorted = Item ).
+
+% The whole corpus, structurally: every compiled MeTTa predicate in every space
+% module the engine knows about, with how it resolves and how many clauses it
+% has. An import that took a name over would change one of these even where no
+% query happened to ask.
+p118_resolutions(Resolutions) :-
+    findall(Module-Name/Arity-Resolution-Clauses,
+            ( metta_exec_module_known(_, Module),
+              current_predicate(Name, Module:Head),
+              functor(Head, Name, Arity),
+              (   predicate_property(Module:Head, imported_from(From))
+              ->  Resolution = imported(From)
+              ;   Resolution = local
+              ),
+              (   predicate_property(Module:Head, number_of_clauses(Clauses))
+              ->  true
+              ;   Clauses = 0
+              ) ),
+            Raw),
+    sort(Raw, Resolutions).
+
+test(test_adding_an_engine_export_changes_no_spaces_answers,
+     [ setup(setup_p118),
+       cleanup(( cleanup_p118,
+                 petta_engine_module(CleanupEngine),
+                 retractall(CleanupEngine:metta_engine_emitted(p118_added_goal/2)),
+                 retractall(CleanupEngine:metta_engine_emitted('p118-double'/2)),
+                 abolish(CleanupEngine:p118_added_goal/2),
+                 abolish(CleanupEngine:'p118-double'/2) )) ]) :-
+    petta_engine_module(Engine),
+    p118_answers(Before),
+    p118_resolutions(ResolvedBefore),
+    assertion(Before \== []),
+
+    % A fresh name the engine defines and nothing else does. Adding it to the
+    % emitted set is what an engine upgrade does when a new translation rule
+    % emits a goal, and the sweep imports it into every space that exists.
+    assertz(Engine:(p118_added_goal(_, added))),
+    assertz(Engine:metta_engine_emitted(p118_added_goal/2)),
+    protect_metta_exec_modules,
+
+    % Every space now holds the name, so the addition really happened.
+    forall(p118_space(Space),
+           ( space_module(Space, Module),
+             assertion(predicate_property(Module:p118_added_goal(_, _),
+                                          imported_from(Engine))) )),
+
+    % and not one answer moved, and not one resolution anywhere.
+    p118_answers(After),
+    assertion(After == Before),
+    p118_resolutions(ResolvedAfter),
+    p118_only_the_added_name_differs(ResolvedBefore, ResolvedAfter,
+                                     p118_added_goal/2),
+
+    % The other half. p118-double is a function TWO spaces already define, so
+    % adding it to the emitted set is a genuine collision, and the refusal has
+    % to name both parties rather than let the import order decide.
+    % The engine has to define the name too, or there is nothing to import and
+    % nothing to collide: the sweep only binds names the engine itself emits.
+    assertz(Engine:('p118-double'(_, engine))),
+    assertz(Engine:metta_engine_emitted('p118-double'/2)),
+    catch(protect_metta_exec_modules, Collision, true),
+    assertion(nonvar(Collision)),
+    assertion(Collision = error(petta_engine_export_collision('p118-double', 1,
+                                                              CollidingSpace, Engine), _)),
+    assertion(memberchk(CollidingSpace, ['&p118_a', '&p118_b'])),
+    message_to_string(Collision, CollisionText),
+    assertion(sub_string(CollisionText, _, _, _, "p118-double")),
+    assertion(sub_string(CollisionText, _, _, _, "already defines")),
+
+    % and the refusal left the spaces alone: each still answers with its own
+    % equation, which is what "refused" has to mean for it to be safe.
+    retractall(Engine:metta_engine_emitted('p118-double'/2)),
+    p118_answers(Refused),
+    assertion(Refused == Before).
+
+% Every row identical except the ones for the name that was just added.
+p118_only_the_added_name_differs(Before, After, Name/Arity) :-
+    subtract(After, Before, Appeared),
+    subtract(Before, After, Vanished),
+    assertion(Vanished == []),
+    forall(member(_-Indicator-_-_, Appeared),
+           assertion(Indicator == Name/Arity)),
+    assertion(Appeared \== []).
+
 :- end_tests(spaces_execution_modules).
 
 :- begin_tests(spaces_match_snapshot).
