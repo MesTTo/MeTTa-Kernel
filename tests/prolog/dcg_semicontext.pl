@@ -23,7 +23,7 @@
 %       string is not counted. engine/translator.pl has two, in the tracer's
 %       ansi_format templates
 %       [tested: bindings/python/tests/test_gate_completeness.py,
-%       test_no_dcg_semicontext_threads_the_compilers_state; commit=WORKTREE].
+%       test_no_dcg_semicontext_threads_the_compilers_state; commit=54d6f0ddac3887cc04cdedcebdc37a53ad9625c1].
 %     - one line per finding, each naming the file it came from, and nothing
 %       else on standard output, so the caller parses it without a JSON
 %       dependency and attributes every finding exactly.
