@@ -150,7 +150,7 @@
 %     over from in translator_rule_override/2, so a rule going ahead of a
 %     special form or a builtin is stated rather than silent
 %     [tested: test_overriding_a_protected_name_is_refused_with_the_name;
-%     commit=WORKTREE].
+%     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - Test assertions distinguish no answer from one empty-expression answer
 %     [tested 2026-08-14: translator_test_answers].
 %   - pragma! validates keys against the closed registry and values before

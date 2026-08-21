@@ -3,7 +3,7 @@
 ; Guarantees: the declared cost decides which of two equivalent forms the
 ;   compiler emits, and a conjunctive left side joins its patterns on the
 ;   variables they share.
-; [tested: examples/translation/translatorrule_cost.metta; commit=WORKTREE]
+; [tested: examples/translation/translatorrule_cost.metta; commit=9330b5d7ebf607e34a85be950bb226fce65f45c0]
 
 ;A bidirectional rule says two forms are equivalent. Something then has to
 ;choose which one the compiler emits, and that is what a COST is for: an

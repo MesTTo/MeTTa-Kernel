@@ -71,7 +71,7 @@
 %       its reason beside the termination line, so a waived precondition is
 %       stated rather than assumed
 %       [tested: test_the_shipped_translator_rules_bind_their_right_hand_variables;
-%       commit=WORKTREE].
+%       commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %     - diagnostic overlap terms use presentation text, including the
 %       first-order compounds and numbered-variable carriers that are not
 %       serializable MeTTa values [tested:
@@ -82,12 +82,12 @@
 %       DECIDED rather than a critical-pair verdict, because a guard can make
 %       a peak unreachable
 %       [tested: test_a_translator_rule_can_decline_with_its_own_words;
-%       commit=WORKTREE].
+%       commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %     - a registered name that already had a meaning is printed with the kind
 %       of meaning it went ahead of, read from the engine's
 %       translator_rule_override/2 rather than recomputed here
 %       [tested: test_overriding_a_protected_name_is_refused_with_the_name;
-%       commit=WORKTREE].
+%       commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %     - the typing family is read from typing_rule_entry/7, the checker's own
 %       registry; user/user and user/shipped overlaps are named, while a
 %       refusing or deferring rule is reported CONDITIONAL rather than given

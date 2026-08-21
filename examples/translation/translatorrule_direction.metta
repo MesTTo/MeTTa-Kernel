@@ -3,7 +3,7 @@
 ;   writing it twice.
 ; Guarantees: both directions of one declaration fire here, and which one
 ;   fires is decided per call by the form's cost, so neither runs away.
-; [tested: examples/translation/translatorrule_direction.metta; commit=WORKTREE]
+; [tested: examples/translation/translatorrule_direction.metta; commit=9330b5d7ebf607e34a85be950bb226fce65f45c0]
 
 ;A rule is left-to-right by default, and saying so explicitly changes nothing.
 (: celsius (-> Atom %Undefined%))

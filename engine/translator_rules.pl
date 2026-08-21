@@ -17,44 +17,44 @@
 %     projection, so a rule's direction has one place to live and every
 %     existing reader of the name set keeps working
 %     [tested: test_a_translator_rule_declares_its_direction_and_a_bidirectional_rule_is_one_declaration;
-%     commit=WORKTREE].
+%     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - a bidirectional declaration is ONE declaration: the inverse equation is
 %     derived, added to the space as an ordinary atom, and registered, and
 %     removing the rule removes it again
 %     [tested: test_a_translator_rule_declares_its_direction_and_a_bidirectional_rule_is_one_declaration;
-%     commit=WORKTREE].
+%     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - every precondition of the inversion is CHECKED and its failure is named:
 %     a computed expansion, an expansion not rooted at a symbol, an expansion
 %     that would leave a left-side variable unbound, a protected inverse head,
 %     and an inverse that is the rule itself
 %     [tested: tests/prolog/metta.plt, translator_rule_direction;
-%     commit=WORKTREE].
+%     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - add-translator-rule! REFUSES a protected_core_head/1 name with that name
 %     in the error term, and records what an accepted registration went ahead
 %     of in translator_rule_override/2
 %     [tested: test_overriding_a_protected_name_is_refused_with_the_name;
-%     commit=WORKTREE].
+%     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - a rule body answering (refuse Reason) DECLINES: the call carries on down
 %     the dispatch chain and the words are recorded and published into &petta
 %     [tested: test_a_translator_rule_can_decline_with_its_own_words;
-%     commit=WORKTREE].
+%     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - a declared cost prices every form headed by the rule's name and decides
 %     which way a bidirectional rewrite goes, and a conjunctive left side
 %     compiles to a `match` chain, so the join is the engine's own conjunctive
 %     query rather than a second substitution merger
 %     [tested: test_a_translator_rule_carries_a_cost_and_a_conjunctive_left_side;
-%     commit=WORKTREE].
+%     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - a rule may DECLARE, with a reason, that the variables it writes only on
 %     its right are binders of its expansion; the reason is required
 %     [tested: test_the_shipped_translator_rules_bind_their_right_hand_variables;
-%     commit=WORKTREE].
+%     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - a rule that declared NOTHING pays nothing for any of this: the refusal
 %     and orientation tests at the one call site are inline unifications, and
 %     the declarations come from the registry lookup the caller already made
 %     [measured 2026-08-21: reading them again here cost 6 inferences on
 %     file-load and the projection translator_rule/1 cost 50,004 on
 %     alpha-unique; command=bindings/python/bench.py --counter-only;
-%     commit=WORKTREE].
+%     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 % Decides:
 %   - a rule read both ways is applied only in the direction that strictly
 %     lowers the form's cost, and cost defaults to the node count. Nothing

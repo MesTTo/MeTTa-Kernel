@@ -2,7 +2,7 @@
 ;   with its own words, instead of only matching or not matching.
 ; Guarantees: a declined call carries on to the next equation, and the reason
 ;   the rule gave is readable from &petta afterwards.
-; [tested: examples/translation/translatorrule_refusal.metta; commit=WORKTREE]
+; [tested: examples/translation/translatorrule_refusal.metta; commit=9330b5d7ebf607e34a85be950bb226fce65f45c0]
 
 ;A rule head says WHICH shape it rewrites. A guard inside the rule says
 ;whether the match it got is one the rewrite can honour, which is a different
