@@ -2483,10 +2483,10 @@ test(a_declaration_repeated_with_fresh_variables_is_the_same_declaration,
      [ setup(process_metta_string("(= (p2b-variant $x) (noeval (kept $x)))", _)),
        cleanup('remove-translator-rule!'('p2b-variant', _)) ]) :-
     'add-translator-rule!'('p2b-variant',
-                           [[left, [['p2b-variant', _A]]], [right, [kept, _A]]],
+                           [[left, [['p2b-variant', First]]], [right, [kept, First]]],
                            _),
     'add-translator-rule!'('p2b-variant',
-                           [[left, [['p2b-variant', _B]]], [right, [kept, _B]]],
+                           [[left, [['p2b-variant', Second]]], [right, [kept, Second]]],
                            Again),
     assertion(Again == true).
 

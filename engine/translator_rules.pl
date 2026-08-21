@@ -34,6 +34,27 @@
 %     of in translator_rule_override/2
 %     [tested: test_overriding_a_protected_name_is_refused_with_the_name;
 %     commit=WORKTREE].
+%   - a rule body answering (refuse Reason) DECLINES: the call carries on down
+%     the dispatch chain and the words are recorded and published into &petta
+%     [tested: test_a_translator_rule_can_decline_with_its_own_words;
+%     commit=WORKTREE].
+%   - a declared cost prices every form headed by the rule's name and decides
+%     which way a bidirectional rewrite goes, and a conjunctive left side
+%     compiles to a `match` chain, so the join is the engine's own conjunctive
+%     query rather than a second substitution merger
+%     [tested: test_a_translator_rule_carries_a_cost_and_a_conjunctive_left_side;
+%     commit=WORKTREE].
+%   - a rule may DECLARE, with a reason, that the variables it writes only on
+%     its right are binders of its expansion; the reason is required
+%     [tested: test_the_shipped_translator_rules_bind_their_right_hand_variables;
+%     commit=WORKTREE].
+%   - a rule that declared NOTHING pays nothing for any of this: the refusal
+%     and orientation tests at the one call site are inline unifications, and
+%     the declarations come from the registry lookup the caller already made
+%     [measured 2026-08-21: reading them again here cost 6 inferences on
+%     file-load and the projection translator_rule/1 cost 50,004 on
+%     alpha-unique; command=bindings/python/bench.py --counter-only;
+%     commit=WORKTREE].
 % Decides:
 %   - a rule read both ways is applied only in the direction that strictly
 %     lowers the form's cost, and cost defaults to the node count. Nothing
@@ -247,13 +268,6 @@ translator_rule_extra_variables_exempt(Name, Reason) :-
     translator_rule(Name, Declarations),
     memberchk(extra_variables_exempt(Reason), Declarations).
 
-translator_rule_declared_direction(Name, Direction) :-
-    translator_rule(Name, Declarations),
-    (   memberchk(direction(Direction), Declarations)
-    ->  true
-    ;   Direction = forward
-    ).
-
 %%%% Registration %%%%
 
 'add-translator-rule!'(HV, Result) :-
@@ -465,22 +479,27 @@ install_inverse_equation(Source, Space, Equation) :-
 %head the rule did not match, and a rule with more equations tries the next
 %one, because the decline is a FAILURE at the point the rule was called.
 %
+%The `(refuse Reason)` shape is tested inline at the one place a rule's
+%expansion arrives, so a rule that does not refuse pays nothing for the
+%channel.
+%
 %The words are not lost. They are recorded here and published into &petta as
 %an ordinary atom, where a program reads them with a match; printing them
 %would be noise for a rule that declines by design, and dropping them would
 %leave the author with a rewrite that did not happen and no reason.
 :- dynamic translator_rule_refusal/3.   %translator_rule_refusal(Name, Reason, Call)
 
-translator_rule_refusal_form([refuse, Reason], Reason) :- nonvar(Reason).
-
+%The published atom is deduplicated against the REGISTER, which first-argument
+%indexing narrows to this rule's own rows, rather than against &petta, which
+%would walk every atom in it once per decline and make a rule that declines
+%often quadratic in the size of the catalog.
 note_translator_rule_refusal(Name, Args, Reason) :-
     copy_term([Name|Args], Call),
-    assertz(translator_rule_refusal(Name, Reason, Call)),
-    Published = ['translator-rule-refusal', Name, Reason],
-    (   'get-atoms'('&petta', Published)
+    (   translator_rule_refusal(Name, Recorded, _), Recorded == Reason
     ->  true
-    ;   'add-atom'('&petta', Published, _)
-    ).
+    ;   'add-atom'('&petta', ['translator-rule-refusal', Name, Reason], _)
+    ),
+    assertz(translator_rule_refusal(Name, Reason, Call)).
 
 %%%% Orientation %%%%
 %
@@ -496,17 +515,17 @@ note_translator_rule_refusal(Name, Args, Reason) :-
 %
 %A forward rule is not measured. It fires when it matches, exactly as it did
 %before directions existed, so nothing that shipped changes cost.
-translator_rule_orients(Name, Args, Expansion) :-
-    (   translator_rule_cost_ordered(Name)
+%The declarations arrive from the caller, which already had them in hand from
+%the registry lookup that decided this was a rule at all. Reading them again
+%here is a second lookup on the compiler's hot path and was measured as one.
+translator_rule_orients(Name, Declarations, Args, Expansion) :-
+    (   memberchk(direction(Direction), Declarations),
+        cost_ordered_direction(Direction)
     ->  translator_form_cost([Name|Args], Before),
         translator_form_cost(Expansion, After),
         After < Before
     ;   true
     ).
-
-translator_rule_cost_ordered(Name) :-
-    translator_rule_declared_direction(Name, Direction),
-    cost_ordered_direction(Direction).
 
 cost_ordered_direction(bidirectional).
 cost_ordered_direction(inverse(_)).

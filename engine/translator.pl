@@ -1414,7 +1414,7 @@ translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
 %took the whole enclosing equation down with it: `(= (f) (union foo bar))`
 %failed to translate and the message named process_form/4
 %[tested: translator_derived_forms].
-apply_translator_rule_dl(HV, Args, AfterHead, Goals, Out) :-
+apply_translator_rule_dl(HV, Declarations, Args, AfterHead, Goals, Out) :-
     (   catch_recover(type_declaration(HV, TypeChain), fail)
     ->  TypeChain = [->|Xs],
         append(ArgTypes, [_], Xs),
@@ -1425,28 +1425,36 @@ apply_translator_rule_dl(HV, Args, AfterHead, Goals, Out) :-
     HookCall =.. [HV|RuleArgs],
     current_metta_module(RuleModule),
     call(RuleModule:HookCall),
+    %Both tests below are written so that a rule which declared nothing, which
+    %is every rule that shipped before declarations existed, pays NOTHING for
+    %them: `=/2` and `==/2` compile to inline instructions rather than calls,
+    %so the whole block is zero inferences until a rule refuses or carries a
+    %direction. Reading the declarations out of the registry here instead cost
+    %six inferences on the file-load benchmark [measured 2026-08-21].
+    %
     %A rule that inspected its match and DECLINED fails here, so the call
     %carries on down the dispatch chain exactly as one whose head did not
     %match, and a rule with a further equation tries that one next. The words
     %are recorded rather than dropped.
-    (   translator_rule_refusal_form(Expansion, Reason)
+    %
+    %A rule read BOTH ways has to be oriented per call, or it and the inverse
+    %it derives rewrite each other forever: the rewrite goes through only when
+    %it lowers the form's cost. A blocked rewrite hands the call back as the
+    %DATA it was written as, which is the prelude's own idiom for the same
+    %thing, `(noeval (noeval (union $a $b)))`. Falling through to ordinary
+    %dispatch instead would compile a call to the rule's own equation, and that
+    %equation IS the rewrite: measured 2026-08-21, `(unpack (wrap (box (a b
+    %c))))` with the rewrite blocked at compile time still answered `(twin
+    %(a b c) (a b c))` because the same equation ran at run time, so the
+    %orientation decided nothing.
+    (   Expansion = [refuse, Reason], nonvar(Reason)
     ->  note_translator_rule_refusal(HV, Values, Reason),
         fail
     ;   true
     ),
-    %A rule read BOTH ways has to be oriented per call, or it and the inverse
-    %it derives rewrite each other forever. translator_rule_orients/3 lets the
-    %rewrite through only when it lowers the form's cost, and answers true for
-    %every ordinary forward rule, so nothing that shipped changes.
-    %
-    %A blocked rewrite hands the call back as the DATA it was written as,
-    %which is the prelude's own idiom for the same thing, `(noeval (noeval
-    %(union $a $b)))`. Falling through to ordinary dispatch instead would
-    %compile a call to the rule's equation, and that equation is the rewrite:
-    %measured 2026-08-21, `(unpack (wrap (box (a b c))))` with the rewrite
-    %blocked at compile time still answered `(twin (a b c) (a b c))` because
-    %the same equation ran at run time, so the orientation decided nothing.
-    (   translator_rule_orients(HV, Values, Expansion)
+    (   Declarations == []
+    ->  Rewritten = Expansion
+    ;   translator_rule_orients(HV, Declarations, Values, Expansion)
     ->  Rewritten = Expansion
     ;   Rewritten = [noeval, [HV|Values]]
     ),
@@ -1465,8 +1473,9 @@ translate_expr_dl(X, Goals, Goals, X) :-
 translate_expr_dl([H|T], Goals0, Goals, Out) :-
         translate_expr_dl(H, Goals0, AfterHead, HV),
         %--- Translator rules ---:
-        ( nonvar(HV), translator_rule(HV),
-          apply_translator_rule_dl(HV, T, AfterHead, Goals, Out) -> true
+        ( nonvar(HV), translator_rule(HV, Declarations),
+          apply_translator_rule_dl(HV, Declarations, T, AfterHead, Goals, Out)
+          -> true
         ; atom(HV), translate_special_dl(HV, T, AfterHead, Goals, Out) -> true
         %The Prolog importer consumes its function-name list as data. Keeping
         %that argument literal makes its translation stable after those names
@@ -1782,7 +1791,7 @@ metta_special_form(Name) :-
 %used correctly, `if` alone accounting for 378 [measured 2026-08-17]
 %[tested: test_calling_a_special_form_is_not_an_undefined_reference].
 metta_translated_head(Name) :- metta_special_form(Name), !.
-metta_translated_head(Name) :- translator_rule(Name), !.
+metta_translated_head(Name) :- translator_rule(Name, _), !.
 
 %A head the engine will try to REDUCE from Module's view: meaning through
 %the translator, or a function the module can see. A variable or compound
