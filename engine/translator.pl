@@ -445,6 +445,19 @@ constrain_args(In, Out, Goals) :- maplist(constrain_args, In, Out, NestedGoalsLi
 %recompiles every equation in the corpus, reads the goals out of the bodies
 %and fails if one of them is capturable and not named here, so a translation
 %rule added later cannot quietly widen the hole.
+%
+%And it can GROW after boot, which is what makes it a seam. Two things add to
+%it: an engine upgrade whose new translation rule emits a goal, and a library
+%that teaches the engine to emit one of its own through metta_dispatch_call/4.
+%Both are the case Logtalk's module critique names -- "any update that strictly
+%adds new exported predicates has the potential to break existing applications"
+%-- so the addition path is the one that has to be safe: it imports the new
+%name into every space that already exists, and a space that already defines
+%that name is REFUSED by protect_engine_emitted/1 (engine/spaces.pl) naming
+%both parties, rather than left to be settled by which import happened first
+%[tested: test_adding_an_engine_export_changes_no_spaces_answers].
+:- multifile metta_engine_emitted/1.
+:- dynamic metta_engine_emitted/1.
 metta_engine_emitted(case_default_runtime/2).
 metta_engine_emitted(case_runtime/3).
 metta_engine_emitted(control_exception/1).

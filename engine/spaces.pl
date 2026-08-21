@@ -1574,10 +1574,38 @@ ensure_metta_exec_module_locked(Space, Module) :-
 %current_predicate/1 guards the order: this runs for &self's module at LOAD,
 %before engine/duals.pl is consulted, so the one predicate that file emits is not
 %there yet and the initialization below sweeps it in afterwards.
+%A NAME ADDED TO THE EMITTED SET AFTER A SPACE EXISTS is the case that has to
+%be safe, and it is the disease Logtalk's module critique names: "any update
+%that strictly adds new exported predicates has the potential to break existing
+%applications". A space that already defines the new name is a genuine
+%collision, and SWI reports it -- import/1 raises permission_error(import_into,
+%...) with the context `name clash` and leaves the space's own definition
+%standing. Left at that, the addition is settled by which import happened
+%first: the space keeps its function, the engine's emitted goal is captured in
+%that space's compiled bodies, and nothing says so. So it is REFUSED here
+%instead, in the vocabulary of the two parties that collided
+%[tested: test_adding_an_engine_export_changes_no_spaces_answers].
 protect_engine_emitted(Module) :-
     petta_engine_module(Engine),
     forall(( metta_engine_emitted(PI), current_predicate(Engine:PI) ),
            ( Engine:export(PI), Module:import(Engine:PI) )).
+
+refuse_engine_export_collision(Engine, Module, Culprit) :-
+    ( Culprit = _:Name/Arity -> true ; Culprit = Name/Arity ),
+    ( metta_module_space(Module, Space) -> true ; Space = Module ),
+    InputArity is Arity - 1,
+    throw(error(petta_engine_export_collision(Name, InputArity, Space, Engine),
+                context(protect_engine_emitted/1,
+                        'a name the engine emits collides with one this space \c
+                         already defines'))).
+
+prolog:error_message(petta_engine_export_collision(Name, Arity, Space, Engine)) -->
+    [ '~w with ~w arguments is a name ~w now compiles into function bodies, \c
+       and ~w already defines a function of that name.'-[Name, Arity, Engine, Space], nl,
+      '  the two cannot both have it: importing the engine\'s would capture \c
+       every call ~w makes to its own function, and leaving ~w\'s would capture \c
+       the engine\'s goal in this space\'s compiled clauses. Rename one of \c
+       them.'-[Space, Space] ].
 
 %Every module that already exists, which at boot is &self's. Called from
 %engine/metta.pl's own initialization rather than from one here, and BEFORE the
@@ -1585,8 +1613,27 @@ protect_engine_emitted(Module) :-
 %finishes, so one here would run before engine/metta.pl had defined half the
 %names above, and initialization goals do not reliably order against each
 %other either [source: engine/metta.pl's own note on that].
+%The guard lives HERE and not in protect_engine_emitted/1 above, because this
+%is the only sweep that can collide. A module being BUILT is empty, and the
+%re-entry that repairs a rolled-back transaction re-imports names it already
+%holds, which SWI accepts; a name that a space already defines can only arrive
+%by the emitted set GROWING after that space had functions, which is this
+%sweep. It is also where the cost would be felt: one catch per space-module
+%build moved five benchmarks, and one per re-sweep moves none
+%[measured 2026-08-21: a catch per emitted name costs alpha-unique,
+%annotated-relation and file-load 52 inferences each, an inlined one 26, one per
+%space build 5 to 11 on file-load, handle-round-trip and save-load-metta, and
+%this leaves all 34 at their pins].
+%
+%SWI's own error carries both parties, so nothing is lost by catching once: it
+%names the predicate indicator that was refused and the module it was refused
+%into.
 protect_metta_exec_modules :-
-    forall(metta_exec_module_known(_, Module), protect_engine_emitted(Module)).
+    petta_engine_module(Engine),
+    catch(forall(metta_exec_module_known(_, Module),
+                 protect_engine_emitted(Module)),
+          error(permission_error(import_into(Target), procedure, Culprit), _),
+          refuse_engine_export_collision(Engine, Target, Culprit)).
 
 %The inverse of space_module/2. It used to be written out by hand in four
 %places, three of them outside this file, each as

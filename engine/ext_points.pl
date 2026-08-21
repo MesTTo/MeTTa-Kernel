@@ -86,6 +86,15 @@
 %is covered by the cut check like any other.
 ext_point_kind(ext_point_kind/2, declaration).
 
+%The names the engine writes into compiled bodies and therefore binds into
+%every space's module. Declared here because it is a seam in both directions:
+%an extension that teaches the engine to emit a goal of its own names it, and
+%the engine reads the whole table when it protects a space's module. Its
+%clauses live in engine/translator.pl, beside the translation rules that emit
+%them.
+:- multifile metta_engine_emitted/1.
+ext_point_kind(metta_engine_emitted/1, declaration).
+
 %Libraries contribute builtin arrows without replacing the engine's table.
 %It is a declaration seam, so every contributed clause remains reachable
 %[tested: test_a_library_types_its_own_blob_without_destroying_the_table;
