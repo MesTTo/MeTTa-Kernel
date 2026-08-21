@@ -297,34 +297,30 @@ add_sexp(Space, Term, Ref) :- ensure_native_storage_module(Space, Module),
 petta_note_ctx_declared([Head|_]) :-
     petta_catalog_head(Head),
     !.
-petta_note_ctx_declared([events, Ctx|_]) :-
-    atom(Ctx),
-    \+ petta_events_declared(Ctx),
-    !,
-    assertz(petta_events_declared(Ctx)),
-    petta_note_plain_ctx(Ctx).
 petta_note_ctx_declared([_, Ctx|_]) :-
     atom(Ctx),
+    \+ petta_ctx_declared(Ctx),
     !,
-    petta_note_plain_ctx(Ctx).
+    assertz(petta_ctx_declared(Ctx)).
 petta_note_ctx_declared(_).
 
-petta_note_plain_ctx(Ctx) :-
-    (   petta_ctx_declared(Ctx)
-    ->  true
-    ;   assertz(petta_ctx_declared(Ctx))
-    ).
-
-%The same monotone-conservative shortcut narrowed to the events head, and
-%it is the one head that needs its own: a (subscription ...) atom names a
-%SPACE in the same position, so every standing query flags its own space as
+%The same monotone-conservative shortcut narrowed to the events head, and it
+%is the one head that needs its own: a (subscription ...) atom names a SPACE
+%in the same position, so every standing query flags its own space as
 %ctx-declared and the general flag can no longer say "this context declared
-%nothing about events". Without this the admission check walked the growing
+%nothing about events". Without a flag the admission check walked the growing
 %'&petta' store on every subscription: one subscribe cost 983,768
-%instructions before the check existed, 1,093,524 with the check and
-%986,793 with this flag, so the capability costs 0.31% rather than 11.2%
-%[measured 2026-08-21, instructions:u per subscribe, 1,000 standing queries
-%against a 0-query baseline, min of 3].
+%instructions before the check existed, 1,093,524 with the check and 988,037
+%with the flag, so the capability costs 0.43% rather than 11.2% [measured
+%2026-08-21, instructions:u per subscribe, 1,000 standing queries against a
+%0-query baseline, min of 3].
+%
+%It is set from petta_check_catalog_semantics/3 rather than from the walk
+%above, and the difference is measured: that walk runs on EVERY '&petta'
+%write and its first argument is a list, so every clause added to it is one
+%inference on every write, which register-op's benchmark caught at +94 over
+%its declarations. The semantics check dispatches on the head ATOM, so a
+%clause for one head costs the other heads nothing.
 :- dynamic petta_events_declared/1.
 
 %The catalog's own rows never name a context in their first argument, a
@@ -812,6 +808,12 @@ petta_check_catalog_semantics('dispatch-policy', [Function, Axis, Value], Term) 
 %missing. One authority, one door, every host: a MeTTa program adding the
 %atom by hand is refused exactly as the Python surface is
 %[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
+petta_check_catalog_semantics(events, [Ctx|_], _) :-
+    !,
+    (   atom(Ctx), \+ petta_events_declared(Ctx)
+    ->  assertz(petta_events_declared(Ctx))
+    ;   true
+    ).
 petta_check_catalog_semantics(subscription, [Ctx|_], _) :-
     !,
     petta_require_events(Ctx, 'be subscribed to').
