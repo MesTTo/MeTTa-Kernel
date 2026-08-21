@@ -6,6 +6,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Removed
+
+- The legacy `python.petta` import path. The alias package that kept
+  upstream's `import python.petta` resolving to the canonical modules is
+  gone, and `petta` is the only import path. Code spelling the upstream
+  checkout layout must import `petta` directly.
+
 ### Added
 
 - SQLite table bridges now honor per-context `image` declarations. The

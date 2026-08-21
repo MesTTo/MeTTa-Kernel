@@ -78,10 +78,8 @@ MYPYC_MODULES = ("bindings/python/petta/_atom_wire.py", "bindings/python/petta/a
 # ClassVar or Final keeps the tuple.
 
 # --explicit-package-bases with MYPYPATH=bindings/python, the seat that
-# holds petta; the legacy python/__init__.py shim (upstream's conftest
-# imports python.petta and deleting it is not an option) stays OFF this
-# path so mypy never names the module python.petta._atoms_core and
-# the extension never shadows the real one.
+# holds petta, so mypy names each module petta.* and the compiled
+# extension never shadows the real one.
 # --no-warn-unused-configs, because the shared [tool.mypy] overrides here
 # describe the whole package and mypy exits nonzero over the ones a
 # three-file build does not reach.
