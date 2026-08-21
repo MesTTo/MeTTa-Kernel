@@ -1,5 +1,7 @@
 % Purpose: direct coverage for engine/narrowing.pl, the route from termination of
-%   narrowing to termination of rewriting. Two things need pinning. The
+%   narrowing to termination of rewriting.
+%   WHAT IT COVERS: NARROWING. The reduction to REWRITING is the file under
+%   test's own claim and the one place the two relations meet. Two things need pinning. The
 %   published worked examples are reproduced, which is what makes the citation
 %   in its header a claim about behaviour rather than a reading list: the
 %   authors' own tool prints one filtered system for its AG01 3.12 example, and

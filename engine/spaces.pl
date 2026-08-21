@@ -3384,10 +3384,14 @@ match([Family|Parameters], Pattern, OutPattern, Result) :-
     Space = [Family|Parameters],
     space_parametric(Space),
     !,
-    conjunctive_match(Space, Pattern, OutPattern, Result).
+    conjunctive_match(match_conjunction(Space, Pattern, OutPattern),
+                      Space, Pattern, OutPattern, Result).
 match(Space, Pattern, OutPattern, Result) :- nonvar(Pattern), Pattern = [Comma|_], Comma == ',',
                                              atom(Space), !,
-                                             (   conjunctive_match(Space, Pattern,
+                                             (   conjunctive_match(match_conjunction(Space,
+                                                                                     Pattern,
+                                                                                     OutPattern),
+                                                                   Space, Pattern,
                                                                    OutPattern, Result)
                                              *-> true
                                              ;   petta_space_name(Space)
@@ -3447,23 +3451,91 @@ match(Space, Pattern, OutPattern, Result) :-
     \+ petta_space_name(Space),
     space_argument_error('match', [Space, Pattern, OutPattern], Result).
 
-conjunctive_match(Space, Pattern, OutPattern, Result) :-
+%The PRODUCER is handed in rather than built here, because the caller is where
+%a bound is known: match/4 hands the plain conjunction walk and
+%match_bounded/5 hands the same walk under limit/2, so a bounded caller
+%collects its bound's worth of rows and stops. The unbounded collection is
+%therefore exactly the goal it always was and pays nothing for the choice
+%[measured 2026-08-21: direct-join and prepared-join unchanged at 300,522].
+%
+%Both spellings keep the snapshot: every row the caller can reach is found
+%before the first of them leaves, which is the whole point of the findall.
+%A bound only makes the set of reachable rows smaller.
+%
+%No meta_predicate declaration, and that is deliberate: the producer is always
+%the engine's own match_conjunction/3, which lives in `user` beside this
+%clause, where a named space's module never enters. metta_take/2 and
+%metta_top/3 declare one because their goal is a MeTTa BODY.
+conjunctive_match(Producer, Space, Pattern, OutPattern, Result) :-
     term_variables(Pattern-OutPattern, Row),
     (   petta_annotations(Space, bool)
     ->  findall(Row,
-                match_conjunction(Space, Pattern, OutPattern),
+                Producer,
                 Rows),
         member(Row, Rows)
     ;   petta_algebra_one(Space, One),
         findall(Row-K,
                 ( b_setval('$petta_answer_k', One),
-                  match_conjunction(Space, Pattern, OutPattern),
+                  Producer,
                   b_getval('$petta_answer_k', K) ),
                 Rows),
         member(Row-K, Rows),
         b_setval('$petta_answer_k', K)
     ),
     Result = OutPattern.
+
+%%%% the bound the caller wrote, reaching the matcher %%%%
+%
+%(once (match &s (, ...) ...)) and (take N (match &s (, ...) ...)) know a
+%bound match/4 does not, and the conjunctive door is the one place knowing it
+%saves work: the snapshot above finds EVERY row before the first one leaves,
+%so an unbounded conjunction walks the whole join to answer one row. Taking
+%one row of a two-conjunct self-join cost 1,328 inferences over 10 edges and
+%6,398 over 400; with the bound reaching here it is 1,222 over both, so the
+%cost stopped tracking the join at all [measured 2026-08-21].
+%
+%The win is ASYMPTOTIC and OUTPUT-SENSITIVE rather than a constant factor. The
+%unbounded collection is O(rows in the join) in time AND in the space the
+%collected list holds, whatever the caller reads; bounded it is O(bound) in
+%both, so first-answer latency stops growing with the data. The decision is
+%amortized to COMPILE time, one unification per translated form and nothing per
+%call, which is why every unbounded lane measures unchanged. Nothing here is
+%shared between calls, so a bound adds no contention: limit/2's counter is a
+%term local to the goal, and the collection is per call as it was.
+%
+%SOUND because of the shape the translator requires before it emits this: the
+%bounded expression compiles to exactly one match goal, so nothing runs
+%between a row and the answer it becomes, N rows are N answers, and a producer
+%stopped at N cannot under-answer. A goal after the match could fail and make
+%the (N+1)th row the answer, which is why the only thing that emits this is
+%engine/translator.pl's `Conj = match(Space, Pattern, Template, Result)` shape
+%test, written inline at translate_special_dl/5's once, take and top clauses
+%[tested: test_a_bounded_conjunctive_match_stops_at_the_bound].
+%
+%Only the CONJUNCTIVE door takes the bound. A single pattern already streams
+%under the logical update view and has nothing to stop, and a name that is not
+%a space has no rows to bound and reaches match/4's own refusal through the
+%second branch, so this predicate adds a door rather than a second matcher
+%[tested: test_a_bounded_match_on_an_unbound_space_answers_the_error].
+match_bounded(Bound, Space, Pattern, OutPattern, Result) :-
+    (   bounded_conjunction(Bound, Space, Pattern)
+    ->  conjunctive_match(limit(Bound,
+                                match_conjunction(Space, Pattern, OutPattern)),
+                          Space, Pattern, OutPattern, Result)
+    ;   match(Space, Pattern, OutPattern, Result)
+    ).
+
+%A bound is usable when it is a whole number of rows, the pattern is a
+%conjunction, and the space is one the engine holds. The last conjunct is what
+%keeps the refusal in one place: a name that is not a space fails here and
+%match/4 answers the Error atom it has always answered.
+bounded_conjunction(Bound, Space, Pattern) :-
+    integer(Bound),
+    Bound >= 1,
+    nonvar(Pattern),
+    Pattern = [Comma|_],
+    Comma == ',',
+    petta_space_name(Space).
 
 %THE ENGINE'S OWN READ of a space, the counterpart of get_native_atom/2 behind
 %'get-atoms'/2 and there for the same reason: its callers hold a space name the
@@ -3936,12 +4008,17 @@ metta_take(Count, Goal) :-
 %A provider that never claimed `exact` for this pattern is not handed the
 %number at all, which licensed_options/4 enforces on the way through, so the
 %one thing the contract forbids stays impossible from here too.
-metta_take_match(Count, Space, Pattern, Out) :-
+%
+%The native side goes through match_bounded/5, which is where the count stops
+%a conjunctive snapshot instead of only cutting its answers; a single pattern
+%reaches match/4 from there exactly as it did.
+metta_take_match(Count, Space, Pattern, OutPattern, Result) :-
     metta_take_count(take, Count),
     (   nonvar(Space),
         metta_foreign_space(Space)
-    ->  limit(Count, match_foreign(Space, Pattern, [limit(Count)], Out, Out))
-    ;   limit(Count, match(Space, Pattern, Out, Out))
+    ->  limit(Count, match_foreign(Space, Pattern, [limit(Count)], OutPattern,
+                                   Result))
+    ;   limit(Count, match_bounded(Count, Space, Pattern, OutPattern, Result))
     ).
 
 %A count that is not a number is a mistake rather than an empty answer, for
@@ -3986,7 +4063,7 @@ metta_top(Count, Goal, Out) :-
 %emission ARE the k best. Drop any one and a pushed bound can return the
 %wrong k, not merely a permutation, so the bound stays here and the
 %ordering happens after collection.
-metta_top_match(Count, Space, Pattern, Out) :-
+metta_top_match(Count, Space, Pattern, OutPattern, Result) :-
     metta_take_count(top, Count),
     (   petta_annotations_ordered(Space)
     ->  true
@@ -3999,20 +4076,20 @@ metta_top_match(Count, Space, Pattern, Out) :-
         ->  Options = [limit(Count)]
         ;   Options = []
         ),
-        Producer = match_foreign(Space, Pattern, Options, Out, Out)
+        Producer = match_foreign(Space, Pattern, Options, OutPattern, Result)
     ;   %A native space that declares an ordered semiring still stores
         %plain atoms, so every annotation reads 1 and top k keeps the
         %first k by emission order, the all-ties reading.
-        Producer = match(Space, Pattern, Out, Out)
+        Producer = match(Space, Pattern, OutPattern, Result)
     ),
     petta_algebra_one(Space, One),
-    findall(Annotation-Out,
+    findall(Annotation-Result,
             ( b_setval('$petta_answer_k', One),
               Producer,
               b_getval('$petta_answer_k', Annotation) ),
             Pairs),
     metta_top_best(Count, Pairs, Best),
-    member(Out, Best).
+    member(Result, Best).
 
 petta_top_pushable(Space, Pattern) :-
     %A cap below exact, or a cap refusal, declines the pushdown here and

@@ -1,4 +1,6 @@
 % Purpose: direct coverage for engine/trs.pl, the adapted term-rewriting library.
+%   WHAT IT COVERS: REWRITING, the same as the file under test; nothing here
+%   claims anything about narrowing, which tests/prolog/narrowing.plt covers.
 %   Two things need pinning that no consumer of it can pin: that the PORT still
 %   behaves as the public-domain original it names, which is what makes the
 %   provenance in its header a claim rather than a courtesy, and that the

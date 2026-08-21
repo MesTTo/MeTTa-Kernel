@@ -4,6 +4,11 @@
 %   implementation is MeTTaILProofs/CPExecutable.lean, whose enumerator is
 %   kernel-checked, so agreement on a corpus is what turns "our enumerator
 %   runs" into "our enumerator computes the same family".
+%
+%   WHAT IT COVERS: REWRITING. A critical pair is an overlap between two rules
+%   of a rewrite relation, and both enumerators compute that. MeTTa's own
+%   evaluation narrows, so nothing here says anything about it; the narrowing
+%   side is engine/narrowing.pl.
 % Assumes:
 %   - argv carries `--corpus <path>`, a file of `system(Name, Rules)` facts
 %     with rules written L ==> R and Prolog variables for term variables.

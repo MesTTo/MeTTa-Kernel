@@ -1,5 +1,22 @@
 % Purpose: report translator and typing rule-family overlaps, and the
 %     translator family's termination.
+%
+%     WHAT IT COVERS: REWRITING for the overlap half and NARROWING for the
+%     termination half, and the report keeps them apart because they are
+%     different relations. Critical pairs and joinability are statements about
+%     a rewrite relation, and they reach this rule set because a rule is
+%     MATCHED against its call: engine/translator.pl runs the rule on a
+%     copy_term_nat/2 copy of the arguments and re-checks with subsumes_term/2,
+%     so a rule that instantiated the call is rejected rather than committed.
+%     The set analysed for TERMINATION is wider than the heads, because of the
+%     closure described below, and evaluation narrows. Measured 2026-08-21:
+%     with (= (gnr a) 1) and (= (gnr b) 2), the rule
+%     (= (rnr $k) (let $r (gnr $y) (noeval (body-saw $y $r $k)))) compiles
+%     (= (uses-rnr $z) (rnr $z)) to uses-rnr(A, ['body-saw', a, 1, A]): the
+%     body's own $y was INSTANTIATED to a while the caller's $z stayed a
+%     variable. So the termination line comes from engine/narrowing.pl, which
+%     reduces the narrowing question to a rewriting one, and not from
+%     engine/trs.pl's order directly.
 %     `add-translator-rule!` registers a NAME (engine/translator_rules.pl's
 %     translator_rule/2 keeps the registry), and the rules themselves arrive through
 %     two doors, the space's own (= Lhs Rhs) atoms and the engine's

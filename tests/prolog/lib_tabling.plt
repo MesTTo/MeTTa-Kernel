@@ -31,6 +31,7 @@
 tabling_definitions("
 (= (plt-tab-plain $n) (+ $n 1))
 (= (plt-tab-reads $k) (match &plt_tab_space (fact $k $v) $v))
+(= (plt-tab-bounded $k) (once (match &plt_tab_space (fact $k $v) $v)))
 (= (plt-tab-foreign $k) (match &plt_tab_foreign (fact $k $v) $v))
 (= (plt-tab-computed $s) (match $s (fact $k $v) $v))
 ").
@@ -131,6 +132,23 @@ test(tabling_statistics_count_invalidations,
     assertion(memberchk([reevaluated, 1], After)),
     % SWI's spelling on its side, MeTTa's on this one.
     assertion(memberchk(['complete-call', _], After)).
+
+% A BOUNDED match compiles to match_bounded/5 rather than match/4, and an
+% unreported read is never invalidated, so the table would have outlived the
+% write that changed it. Nothing about the answer says which of the two
+% happened, which is why this counts the invalidation instead of comparing
+% answers.
+test(a_bounded_match_reports_the_read_it_is,
+     [ cleanup(( catch(metta_untabled_decl(['plt-tab-bounded', _], true), _, true),
+                 'remove-atom'('&plt_tab_space', [fact, a, 3], _) )) ]) :-
+    metta_tabled_decl(['plt-tab-bounded', _], true),
+    metta_self_module(Self),
+    Self:'plt-tab-bounded'(a, _),
+    metta_table_statistics(['plt-tab-bounded', _], Before),
+    assertion(memberchk([invalidated, 0], Before)),
+    'add-atom'('&plt_tab_space', [fact, a, 3], _),
+    metta_table_statistics(['plt-tab-bounded', _], After),
+    assertion(memberchk([invalidated, 1], After)).
 
 %Tables belong to the module the tabled predicate is in, which for a MeTTa
 %function is its space's module.

@@ -117,6 +117,15 @@ Triska's public-domain trs.pl), `tests/prolog/trs.plt` and
 `bindings/python/tests/test_critical_pair_oracle.py` runs the critical-pair enumerator
 against the kernel-checked one in LeaTTa's `MeTTaILProofs/CPExecutable.lean`.
 
+WHAT EACH HALF COVERS: the confluence half covers REWRITING and the termination
+half covers NARROWING. A critical pair is an overlap between two rules of a
+rewrite relation, and it reaches this rule set because a rule's head is MATCHED
+against its call, on a copy and with a `subsumes_term/2` re-check. Termination
+is asked of a wider set, one closed over the equations the rule bodies reach,
+and a body is EVALUATED while the program compiles, which instantiates.
+Termination of narrowing does not follow from termination of rewriting, which
+is why the route above exists and why the two halves are not interchangeable.
+
 Run all PlUnit files directly with:
 
     cd tests/prolog

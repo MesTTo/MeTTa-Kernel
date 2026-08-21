@@ -15,7 +15,7 @@ re-runs them.
 
 | source | what it is | kept true by |
 |---|---|---|
-| `examples/**/*.metta` | 220 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
+| `examples/**/*.metta` | 221 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
 | `website/reference/petta-*.md` | 23 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 32 plunit suites over the engine itself | the `plunit` gate lane |
@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 24,312 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
+| `engine/*.pl` | 24,599 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -42,7 +42,7 @@ re-runs them.
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |
 | `bindings/python/petta/*.py` | the library. `bindings/python/petta/space.py` is the `MeTTa` class; a leading `_` means internal | |
 
-Counts measured 2026-08-19, each one re-checked by the `llms` gate lane on
+Counts measured 2026-08-21, each one re-checked by the `llms` gate lane on
 every run.
 
 ## Install and first call
@@ -601,13 +601,29 @@ which RELATE rather than compute, so giving any two of three solves the third.
 Hand a builtin an unbound variable where it needs a value and it refuses by
 name: `!(car-atom $u)` is `car-atom: a value expected in argument 1, found an
 unbound variable`. The guarded positions are derived from the type surface
-(`guarded_input_position/3`, 83 of them), so a position declared `Expression`,
+(`guarded_input_position/3`, 102 of them over 81 names, measured 2026-08-21),
+so a position declared `Expression`,
 `Number`, `BigInt`, `String`, `Symbol` or `Bool` is an input to read. What stays
 relational is named in the engine: `index-atom`'s index, the boolean
 operations' truth table, `cons`'s open tail, `union-atom` and `member`, which
 are `append/3` and `member/2` under MeTTa names, the `#` family throughout,
 and every name lent to MeTTa from SWI (`msort`, `append`, `sort`, `maplist`,
 `length`), which under that name IS the Prolog predicate.
+
+Ordinary `+`, `-`, `*` and `/` are relational too, which is easy to miss
+because they compute forwards. Each solves for ONE unbound slot among
+integers, so `(= (double $x) (* 2 $x))` reads backwards for free and
+`!(let 10 (double $x) $x)` answers `5`; a pair no integer satisfies FAILS
+rather than erroring, so `(let 7 (double $x) $x)` answers nothing. Past one
+unknown the rearrangement becomes a constraint: the engine posts it to CLP(FD)
+and labels what propagation leaves, so `!(collapse (let 25 (* $x $x) $x))`
+answers `(-5 5)`. A domain the constraint leaves unbounded is refused BY NAME,
+because deciding a polynomial equation over the integers is undecidable
+(Hilbert's tenth problem) and labeling needs a finite domain. Evaluation is
+inside-out, so a composed backward query reaches its inner operation with two
+unknowns and refuses; the `#` operators POST rather than solve and compose
+across several operations, which is what they are for.
+`examples/basics/relational_arithmetic.metta` runs all of it.
 
 32 libraries load with `!(import! &self (library lib_x))`: `lib_builtin_types`,
 `lib_combinatorics`, `lib_conformance`, `lib_constraints`, `lib_crypto`,

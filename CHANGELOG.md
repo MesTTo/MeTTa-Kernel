@@ -76,6 +76,30 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   confluence report now says that its verdict decides the unconditional system
   it extracts from the rule heads and is a proof obligation about the
   conditional rules that actually run.
+- Every file that names the rewriting machinery now states which of narrowing
+  and rewriting its own results are about. Confluence and critical pairs are
+  rewriting notions; evaluating an equation instantiates the call it was asked
+  about, and that is narrowing, which is why `engine/narrowing.pl` reduces the
+  one question to the other. A translator rule, by contrast, is applied by
+  matching and re-checked after its body runs, so the rewriting results reach
+  the rule tier directly. Constructive negation's third sense of the word is
+  named too, in `engine/duals.pl`.
+- The compiler's hand-threaded state is now pinned by a test. P2.20 measured
+  DCG semicontext against the hand-threaded difference lists and closed as
+  rejected; `test_no_dcg_semicontext_threads_the_compilers_state` reads
+  `engine/translator.pl`'s terms and fails if any translator predicate becomes
+  a DCG, while `engine/filereader.pl`'s pushback rule stays allowed and proves
+  the detector sees one.
+- `+`, `-`, `*` and `/` now solve past their single-unknown mode. Each already
+  inverted one unbound slot among integers, so `(= (double $x) (* 2 $x))` read
+  backwards and `!(let 10 (double $x) $x)` answered `5`; that fragment is now
+  documented in `examples/basics/relational_arithmetic.metta`. Past one
+  unknown the engine posts the relation to CLP(FD) and labels what
+  propagation leaves, so `!(collapse (let 25 (* $x $x) $x))` answers `(-5 5)`
+  and `!(collapse (let 25 (* $x $y) ($x $y)))` answers every divisor pair. A
+  domain the constraint leaves unbounded, and every backward query outside the
+  integer relations, now refuses with a named reason instead of SWI's bare
+  `Arguments are not sufficiently instantiated`.
 - SQLite table bridges now honor per-context `image` declarations. The
   shipped example maps a `BLOB` column to a live `Blob` handle under
   `opaque`, lets a lazy path read one byte without projecting the payload,
@@ -230,6 +254,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   longer rewrite the head of the equation that holds the call:
   `(= (uses $z) (rule $z))` keeps `$z` matching anything, and a rule that
   cannot apply falls through to its next clause and then to ordinary dispatch.
+- `once` and `take k` over a conjunctive `match` now stop at the bound instead
+  of computing every row of the join first. Taking one row of a two-conjunct
+  self-join cost 1,328 inferences over ten edges and 6,398 over four hundred;
+  it is 1,222 over both now. The bound is pushed only where the whole
+  expression is one `match`, so a template that compiles to a call keeps every
+  answer, and an unbounded conjunction still finds every row before the first
+  one leaves.
+- `(take 1 (match $u (f 1) matched))` now answers `match`'s Error atom, which
+  the plain `match` always answered. `take` and `top` fused the expression's
+  result with its output template while compiling, leaving the answer-shaped
+  refusal nothing to unify with, so the query answered nothing at all.
+- A table built from a bounded `match` is now invalidated by a write to the
+  space it read. The compiled bounded form was a goal the purity walk did not
+  recognise, so the read went unreported.
 - Modifier-free host queries now choose the empty path before matching, so
   lazy-path support has a fixed preparation cost instead of a cost per answer.
 - Generated symbolic atom operators now specialize their lowering table entry

@@ -1,6 +1,15 @@
 % Purpose: hold the translator rule registry and everything a registration
 %   DECLARES about a rule, and derive the inverse a bidirectional declaration
 %   asks for instead of making its author write it twice.
+%
+%   WHAT IT COVERS: REWRITING for the rules it registers and NARROWING for the
+%   one thing it declares to the termination analysis. A registered rule is a
+%   rewrite, so its direction, its cost, the orientation those two decide and
+%   the inverse derived from them are all statements about a rewrite relation,
+%   and they reach the rule set because a rule's head is MATCHED against its
+%   call. The `extra-variables-exempt` declaration is the exception: it is
+%   written for engine/narrowing.pl, whose question is a narrowing one because
+%   a rule's body is EVALUATED while the program compiles.
 % Assumes:
 %   - current_metta_module/1 names the module a registration is written in and
 %     metta_module_space/2 turns that into the space holding its equations, so

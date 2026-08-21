@@ -1021,6 +1021,7 @@ metta_arith_operands(A, B) :-
                 ; number(A), number(B)
                   -> catch(R is A + B, E, metta_saturating_recover('+', A + B, R, E))
                 ; petta_int_solve('+', A, B, R, Verdict) -> Verdict == solved
+                ; petta_clp_operands(A, B, R) -> petta_clp_backward('+', A, B, R)
                 ; metta_arith_operands(A, B)
                   -> catch(R is A + B, E, metta_saturating_recover('+', A + B, R, E))
                 ; metta_operation_answer('+', [A, B], R) ).
@@ -1028,6 +1029,7 @@ metta_arith_operands(A, B) :-
                 ; number(A), number(B)
                   -> catch(R is A - B, E, metta_saturating_recover('-', A - B, R, E))
                 ; petta_int_solve('-', A, B, R, Verdict) -> Verdict == solved
+                ; petta_clp_operands(A, B, R) -> petta_clp_backward('-', A, B, R)
                 ; metta_arith_operands(A, B)
                   -> catch(R is A - B, E, metta_saturating_recover('-', A - B, R, E))
                 ; metta_operation_answer('-', [A, B], R) ).
@@ -1035,6 +1037,7 @@ metta_arith_operands(A, B) :-
                 ; number(A), number(B)
                   -> catch(R is A * B, E, metta_saturating_recover('*', A * B, R, E))
                 ; petta_int_solve('*', A, B, R, Verdict) -> Verdict == solved
+                ; petta_clp_operands(A, B, R) -> petta_clp_backward('*', A, B, R)
                 ; metta_arith_operands(A, B)
                   -> catch(R is A * B, E, metta_saturating_recover('*', A * B, R, E))
                 ; metta_operation_answer('*', [A, B], R) ).
@@ -1048,6 +1051,7 @@ metta_arith_operands(A, B) :-
                            metta_arithmetic_saturating_recovery(
                                '/', [A, B], A / B, E, R))
                 ; petta_int_solve('/', A, B, R, Verdict) -> Verdict == solved
+                ; petta_clp_operands(A, B, R) -> petta_clp_backward('/', A, B, R)
                 ; metta_arith_operands(A, B)
                   -> catch(R is A / B, E,
                            metta_arithmetic_saturating_recovery(
@@ -1055,10 +1059,11 @@ metta_arith_operands(A, B) :-
                 ; metta_operation_answer('/', [A, B], R) ).
 
 %One unbound slot among integers: the verdict says whether the mode
-%applied at all (fail: not this shape, fall through to the float/error
+%applied at all (fail: not this shape, fall through to the CLP/float/error
 %path) and whether it solved (none: the mode fits but no integer answers
 %it, so the operator FAILS, the relational reading of (* $x 2) = 7).
-%plus/3 carries the additive family in C.
+%plus/3 carries the additive family in C. Two unbound slots are past this
+%predicate's job and reach petta_clp_backward/4 below, beside the # family.
 petta_int_solve('+', A, B, R, solved) :-
     ( var(A), integer(B), integer(R) -> plus(A, B, R)
     ; var(B), integer(A), integer(R) -> plus(A, B, R)
@@ -1079,6 +1084,7 @@ petta_int_solve('/', A, B, R, Verdict) :-
     ; var(B), integer(A), integer(R), R =\= 0
     ->  ( 0 =:= A mod R -> B is A // R, Verdict = solved ; Verdict = none )
     ).
+
 '%'(A,B,R)  :- ( integer(A), integer(B), B =\= 0 -> R is A mod B
                 ; metta_arith_operands(A, B)
                   -> catch(R is A mod B, E,
@@ -1240,6 +1246,114 @@ exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
                             rethrow_metta_operation_error('#>=', E)), !.
 '#>='(A, B, false) :- catch(A #< B, E,
                             rethrow_metta_operation_error('#>=', E)).
+
+:- multifile prolog:error_message//1.
+%%%% past ONE unknown: CLP(FD) is the solver, and its own boundary is ours %%%%
+%
+%petta_int_solve/5 rearranges ONE unbound slot among integers. Two
+%unbound slots, or one slot written twice, is a CONSTRAINT rather than a
+%rearrangement: 25 = X*X is nonlinear, and is/2 cannot run it in any mode at
+%all. The route past that is the one the domain's own literature names,
+%replacing the moded is/2 with the relation #=/2, which runs in every
+%direction [source: Markus Triska, "Constraint Logic Programming over Finite
+%Domains", https://github.com/triska/clpfd, read 2026-08-21: "?- 3 #= 1+Y.
+%Y = 2"].
+%
+%Curry, the closest functional-logic language, answers the same question by
+%RESIDUATION: its primitive arithmetic is rigid, a call holding a free
+%variable suspends, and with nothing left to bind it the call FLOUNDERS
+%[source: Sergio Antoy, "Curry: A Tutorial Introduction", draft 2025-04-17,
+%section 3.14.2, "predefined arithmetic operations like the addition + are
+%rigid. Thus, a call to + with a logic variable as an argument flounders"].
+%PeTTa's evaluator has no suspension to residuate into, so the two answers
+%available here are to SOLVE it or to SAY SO, and this does both: it solves
+%where CLP(FD) is complete, and it names the reason where it is not.
+%
+%THE BOUNDARY IS A THEOREM, not an omission. Deciding whether a polynomial
+%equation has an integer solution is undecidable [source: Hilbert's tenth
+%problem, resolved negatively by Matiyasevich 1970 on Davis, Putnam and
+%Robinson]. CLP(FD) is complete over FINITE domains and labeling requires
+%them, so an unbounded domain is refused by name rather than searched
+%forever. That refusal is the SOLVER's own line and not a number this file
+%invented, which is why there is no cap here beside it: label/1 is a lazy
+%generator, so a bounded consumer such as once or (take k ...) pays for the
+%answers it reads and no more.
+%
+%Reached ONLY where the moded path in the four operators would raise. Every
+%ground path,
+%every float, every single-unknown inversion and every non-numeric operand is
+%decided before this one, so nothing that answers today reaches it
+%[tested: test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason].
+petta_clp_operands(A, B, R) :-
+    petta_clp_slot(A), petta_clp_slot(B), petta_clp_slot(R).
+
+petta_clp_slot(S) :- var(S), !.
+petta_clp_slot(S) :- integer(S).
+
+%% petta_clp_backward(+Op, ?A, ?B, ?R) is nondet.
+%
+%Nondeterministic on purpose: 25 = X*X has TWO integer answers and a relation
+%answers both. label/1 yields them one at a time and in ascending order.
+petta_clp_backward(Op, A, B, R) :-
+    (   petta_clp_expression(Op, A, B, Expression)
+    ->  R #= Expression,
+        term_variables([A, B, R], Unknowns),
+        (   Unknowns == []
+        ->  true
+        ;   petta_clp_finite(Unknowns)
+        ->  label(Unknowns)
+        ;   petta_refuse_unsolved_arithmetic(Op, unbounded_domain)
+        )
+    ;   petta_refuse_unsolved_arithmetic(Op, no_integer_relation)
+    ).
+
+%The three operations CLP(FD) models exactly. `/` is deliberately absent: this
+%engine's `/` answers a float on a non-divisible pair, so there is no integer
+%relation to post and no finite set of integers to search. Its own backward
+%mode for one unknown is petta_int_solve('/', ...) and is unaffected.
+petta_clp_expression('+', A, B, A + B).
+petta_clp_expression('-', A, B, A - B).
+petta_clp_expression('*', A, B, A * B).
+
+%fd_size/2 answers the atom `sup` for a domain with no bound, which is exactly
+%the case label/1 cannot enumerate, and answers a plain integer for a variable
+%that carries no CLP(FD) attribute at all only after one has been posted on
+%it; a variable the constraint left unconstrained still reads sup.
+petta_clp_finite(Unknowns) :-
+    forall(member(Unknown, Unknowns),
+           ( fd_size(Unknown, Size), integer(Size) )).
+
+%A builtin refusal names the MeTTa operation in the error's CONTEXT, so a host
+%reads the name from the term rather than from rendered text
+%(metta_host_operation_error/5), and the engine's own guard sweep checks every
+%guarded input position for exactly that
+%[tested: tests/prolog/metta.plt, every_builtin_refuses_an_unbound_input_by_name].
+petta_refuse_unsolved_arithmetic(Operation, Reason) :-
+    throw(error(petta_unsolved_arithmetic(Operation, Reason),
+                context(Operation, 'while evaluating MeTTa operation'))).
+
+prolog:error_message(petta_unsolved_arithmetic(Op, unbounded_domain)) -->
+    [ '~w ran backwards with more than one unknown, and what the constraint \c
+       leaves has no finite domain to search, so there is no answer to \c
+       enumerate. Bound the unknowns first, for example with the CLP(FD) \c
+       comparisons (let True (#>= $x 0) ...), or post the relation with the \c
+       # operators and read what it leaves. Deciding a polynomial equation \c
+       over the integers is undecidable in general (Hilbert''s tenth \c
+       problem), so this boundary is a theorem rather than an omission'
+      -[Op] ].
+prolog:error_message(petta_unsolved_arithmetic(Op, unbound_operand)) -->
+    [ '~w needs a value it does not have: an operand is still unbound and \c
+       this operation has no relation to solve for it. Only the integer \c
+       relations +, - and * are solved for a missing operand, and only where \c
+       every operand they do have is an integer, since a float has no finite \c
+       domain to search. Bind the operand first, post the relation with the \c
+       # (CLP(FD)) operators, or use clpq from lib_constraints for the \c
+       rationals'-[Op] ].
+prolog:error_message(petta_unsolved_arithmetic(Op, no_integer_relation)) -->
+    [ '~w ran backwards with more than one unknown, and only +, - and * have \c
+       an integer relation to solve: ~w may answer a float, so there is no \c
+       finite set of integers to search. Use // or div for integer division, \c
+       or clpq from lib_constraints for the rationals'-[Op, Op] ].
 
 %Real-valued operations explicitly promote integer inputs before applying the
 %host function. That is LeaTTa's toFloat? -> floatUn/floatBin law: sqrt, log
@@ -2908,10 +3022,10 @@ metta_effect_construct(once(A), [A]).
 metta_effect_construct(catch(A, _, Recovery), [A, Recovery]).
 metta_effect_construct(findall(_, A, _), [A]).
 metta_effect_construct(forall(A, B), [A, B]).
-%take/2's own two forms. metta_take_match/4 is a bounded match and reports as
+%take/2's own two forms. metta_take_match/5 is a bounded match and reports as
 %the read it is, which metta_effect_classify/4 does from the shape below.
 metta_effect_construct(metta_take(_, A), [A]).
-%top's plain form likewise calls its goal; metta_top_match/4 is a read the
+%top's plain form likewise calls its goal; metta_top_match/5 is a read the
 %classifier judges from its shape as it does the bounded take.
 metta_effect_construct(metta_top(_, A, _), [A]).
 %The six-axis dispatcher wraps the generated direct goal. Its policy reads are
@@ -2963,6 +3077,12 @@ metta_effect_closure(Closure, Extra, Goal) :-
 metta_effect_classify(_, Goal, Queue-Reads, Queue-Reads) :-
     var(Goal), !.
 metta_effect_classify(_, match(Space, Pattern, _, _), Queue-Reads0,
+                      Queue-[read(match, Space, Pattern)|Reads0]) :- !.
+%A bounded match is the SAME read, and saying so here is not a tidiness: an
+%unreported read is never invalidated, so a table built from
+%`(once (match &s (, ...) ...))` would have outlived the write that changed it
+%[tested: lib_tabling_purity:a_bounded_match_reports_the_read_it_is].
+metta_effect_classify(_, match_bounded(_, Space, Pattern, _, _), Queue-Reads0,
                       Queue-[read(match, Space, Pattern)|Reads0]) :- !.
 metta_effect_classify(_, 'get-atoms'(Space, Pattern), Queue-Reads0,
                       Queue-[read('get-atoms', Space, Pattern)|Reads0]) :- !.
@@ -6706,6 +6826,19 @@ metta_saturating_recover(Operation, Expression, Result, Error) :-
           Residual,
           rethrow_metta_operation_error(Operation, Residual)).
 metta_saturating_recover(Operation, _, _, Error) :-
+    petta_arithmetic_rethrow(Operation, Error).
+
+%is/2 raises a BARE instantiation error for an operand it does not have, and
+%that error names neither the operation's modes nor what to write instead: it
+%is SWI's, not the language's. Every backward query the engine CAN answer is
+%decided before an exception exists (petta_int_solve/5 for one unknown among
+%integers, petta_clp_backward/4 for the integer relations past it), so what
+%reaches here is a query outside both: a float operand, or an operation with
+%no relation to solve. It refuses by name
+%[tested: test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason].
+petta_arithmetic_rethrow(Operation, error(instantiation_error, _)) :- !,
+    petta_refuse_unsolved_arithmetic(Operation, unbound_operand).
+petta_arithmetic_rethrow(Operation, Error) :-
     rethrow_metta_operation_error(Operation, Error).
 
 %Float zero division belongs to the IEEE retry, while integer zero division
@@ -6730,7 +6863,7 @@ metta_operation_recovery(Operation, Arguments,
     maplist(integer, Arguments), !,
     metta_error_atom(Operation, Arguments, 'DivisionByZero', Answer).
 metta_operation_recovery(Operation, _, Error, _) :-
-    rethrow_metta_operation_error(Operation, Error).
+    petta_arithmetic_rethrow(Operation, Error).
 
 %Which evaluation faults license the retry. Overflow retries
 %unconditionally, because an ALL-INTEGER division can overflow in its float

@@ -111,19 +111,19 @@ test(a_declared_annotation_is_admitted_and_rides_the_answer,
 
 test(top_refuses_an_unordered_context,
      [throws(error(petta_top_unordered('&plunit_topk', bool), _))]) :-
-    metta_top_match(2, '&plunit_topk', [scored, _], _).
+    metta_top_match(2, '&plunit_topk', [scored, _], _, _).
 
 test(top_answers_the_k_best,
      [ setup(kappa_declare([annotations, '&plunit_topk', ranked])),
        cleanup(kappa_retract([annotations, '&plunit_topk', ranked])) ]) :-
-    findall(X, metta_top_match(2, '&plunit_topk', [scored, X], X), Best),
+    findall(Best0, metta_top_match(2, '&plunit_topk', [scored, X], X, Best0), Best),
     assertion(Best == [b, d]).
 
 test(top_collects_everything_when_the_push_is_not_declared,
      [ setup(kappa_declare([annotations, '&plunit_topk', ranked])),
        cleanup(kappa_retract([annotations, '&plunit_topk', ranked])) ]) :-
     nb_setval('$plunit_topk_options', unset),
-    findall(X, metta_top_match(1, '&plunit_topk', [scored, X], X), Best),
+    findall(Best0, metta_top_match(1, '&plunit_topk', [scored, X], X, Best0), Best),
     assertion(Best == [b]),
     nb_getval('$plunit_topk_options', Options),
     assertion(Options == []).
@@ -136,7 +136,7 @@ test(top_pushes_the_bound_under_the_three_declarations,
                  kappa_retract([emits, '&plunit_topk', 'best-first']),
                  kappa_retract([handles, '&plunit_topk', [scored, _], 'Exact']) )) ]) :-
     nb_setval('$plunit_topk_options', unset),
-    findall(X, metta_top_match(2, '&plunit_topk', [scored, X], X), _),
+    findall(_, metta_top_match(2, '&plunit_topk', [scored, X], X, _), _),
     nb_getval('$plunit_topk_options', Options),
     assertion(Options == [limit(2)]).
 

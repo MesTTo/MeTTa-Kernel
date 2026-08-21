@@ -13,8 +13,9 @@
 !(test (#* 3 4) 12)
 !(test (#- 10 4) 6)
 
-;Backwards, which ordinary arithmetic cannot do at all: (+ $x 2) with $x
-;unbound raises "Arguments are not sufficiently instantiated".
+;Backwards. Ordinary arithmetic runs backwards too, which this file used to
+;deny: examples/basics/backward_arithmetic.metta is where + - * / do it, where
+;they stop, and what the # operators still buy past that point.
 !(test (let 5 (#+ $x 2) $x) 3)
 !(test (let 12 (#* $y 4) $y) 3)
 !(test (let 6 (#- $z 4) $z) 10)

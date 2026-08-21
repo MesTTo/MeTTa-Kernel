@@ -196,15 +196,16 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
            "!(add-atom &self (plunit-loader-runtime-atom value))~n", []),
     format(Stream, "!(add-atom &self (= (~w $x) (+ $x 2)))~n",
            [RuntimeFunction]),
-    %A HOST instantiation error, because integer division by zero and wrongly
-    %typed operands are both ANSWERS now, and a form that answers does not roll
-    %its source back.
+    %A form that RAISES, because integer division by zero and wrongly typed
+    %operands are both ANSWERS now and a form that answers does not roll its
+    %source back. `+` with two unknowns and an unbound result is the arithmetic
+    %refusal: no finite domain to search, so nothing to enumerate.
     format(Stream, "!(+ $x $y)~n", []),
     close(Stream),
     setup_call_cleanup(
         true,
         ( catch(user:load_metta_file(Path, _), Error, true),
-          Error = error(instantiation_error, _),
+          Error = error(petta_unsolved_arithmetic('+', unbounded_domain), _),
           flag('$gs_lambda_', LambdaNumber, LambdaNumber),
           format(atom(GeneratedLambda), 'lambda_~d', [LambdaNumber]),
           test_lambda_functions(AfterLambdas),
@@ -279,7 +280,7 @@ test(failed_late_definition_does_not_recompile_existing_callers,
     setup_call_cleanup(
         true,
         ( catch(user:load_metta_file(Path, _), Error, true),
-          Error = error(instantiation_error, _),
+          Error = error(petta_unsolved_arithmetic('+', unbounded_domain), _),
           user:process_metta_string("!(plunit-rollback-caller 41)", Results),
           aggregate_all(count,
                         user:fun_meta_clause(_, 'plunit-rollback-caller', _, _),

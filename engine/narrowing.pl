@@ -1,9 +1,21 @@
 % Purpose: decide termination of NARROWING by deciding termination of
 %   REWRITING, which is what the compile-time rule set actually needs. A
-%   translator rule is applied by calling its compiled clause, so the rule head
-%   and the term UNIFY and the rule may bind a variable of the program being
-%   compiled. That is narrowing, not rewriting, and termination of rewriting
+%   translator rule's HEAD is MATCHED, not unified: engine/translator.pl runs
+%   the rule on a copy_term_nat/2 copy of the arguments and re-checks the match
+%   with subsumes_term/2, so a rule cannot bind a variable of the program being
+%   compiled. Its BODY is the other half, and it is where the narrowing is. The
+%   set analysed here closes over the equations those bodies reach, because a
+%   body is EVALUATED while the program compiles, and evaluation instantiates:
+%   a rule whose body evaluates (gnr $y) against (= (gnr a) 1) and
+%   (= (gnr b) 2) compiles with $y bound to a, while the caller's own argument
+%   stays a variable [measured 2026-08-21].
+%   That is narrowing, not rewriting, and termination of rewriting
 %   does not imply it.
+%
+%   WHAT IT COVERS: NARROWING. The reduction to REWRITING is the whole content
+%   of the file and the reason the paper below exists; it is also the one place
+%   in this engine where a rewriting result answers a narrowing question, which
+%   engine/trs.pl's own header states from the other side.
 %
 %   The route is Nishida and Vidal's [source: Naoki Nishida and German Vidal,
 %   "Termination of narrowing via termination of rewriting", Applicable Algebra
