@@ -242,8 +242,14 @@ ignore-property-decorators = true
 ignore-semiprivate = true
 
 [tool.vulture]
-min_confidence = 80
-paths = ["petta", "bench.py"]
+# Dead assignments are 60 percent findings. Vulture hard-ignores private
+# variable names regardless of confidence, so the named delimiter contract
+# also pins the removed _BARE name structurally; dynamic uses are explicit in
+# the whitelist rather than hidden behind broad ignore patterns [tested:
+# test_every_delimiter_check_derives_from_one_grammar_rule and the GATE vulture
+# lane; commit=3ae4e6b08bc82d8b9cbdf934afc92ada7cf7a19e].
+min_confidence = 60
+paths = ["petta", "bench.py", "vulture_whitelist.py"]
 ignore_names = ["exc_type", "exc_val", "exc_tb", "tb", "exc"]
 
 # Six of refurb's rules are wrong for this codebase rather than unfixed, and

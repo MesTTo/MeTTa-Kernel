@@ -1,3 +1,17 @@
+% Purpose: declare each engine extension seam, its direction and its cut
+%   semantics, and publish the predicates extensions and host bindings may call.
+% Guarantees:
+%   - reader-token registration is an engine-owned host service, while token
+%     construction is claimed by the host that owns the registered callable;
+%     mapping introspection is an ordinary extension service [tested:
+%     test_a_registered_token_class_parses_like_a_shipped_one,
+%     every_seam_declares_one_kind,
+%     every_seam_kind_matches_its_direction; commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b].
+% Open Obligations:
+%   To Do: None
+%   Hacks: None
+%   Future Enhancements: None
+
 %%%% What kind of seam each extension point is %%%%
 %
 %Every seam below is declared multifile and then given a KIND on the line
@@ -490,10 +504,11 @@ ext_point_kind(metta_grounded_structure/2, ownership).
 %
 %   metta_grounded_text(Value, Text)
 %
-%Without a provider the writer falls back to the term's own text, so this is
-%never required and never fails a print. A Python object answers with repr(),
-%which is what the language's own tutorials show: `(np-array (py-atom "[1, 2,
-%3]"))` displays `array([1, 2, 3])`
+%Without a provider the display renderer falls back to the term's own text, so
+%this is never required and never fails a display. The round-trip writer does
+%not consult it. A Python object answers with repr(), which is what the
+%language's own tutorials show: `(np-array (py-atom "[1, 2, 3]"))` displays
+%`array([1, 2, 3])`
 %[source: metta-lang-docs/learn__tutorials__python_use__py_atom.md].
 :- multifile metta_grounded_text/2.
 ext_point_kind(metta_grounded_text/2, ownership).
@@ -537,15 +552,11 @@ ext_point_kind(metta_backend_selftest/0, event).
 %into engine/parser.pl for all four, wrapping one under a private name.
 %
 %swrite/2 and sread/2 are one rule about spelling rather than two conveniences.
-%swrite/2 will print a value that sread/2 does not read back as itself, and
-%there are two ways for that to happen. MeTTa has no quoted-symbol syntax, so
-%a name with whitespace, a parenthesis or a quote in it loses its identity on
-%the round trip; and the writer prints numbers the reader's grammar cannot
-%all read back, so a non-finite float goes out as inf, -inf or NaN (the
-%arbiter's spellings) and a rational as 1r3, and each comes back a SYMBOL of
-%that spelling. A backend cannot decide either for itself, the grammar owns them,
-%and asking is what the other two are for: check before writing, and refuse
-%rather than store an atom that will come back different.
+%swrite/2 refuses a value that sread/2 would not read back as itself. MeTTa has
+%no quoted-symbol syntax, its reader has no literal for some numbers, and a
+%Janus tuple or another host compound is not a MeTTa term at all. A backend
+%cannot decide any of these for itself because the grammar owns the answer;
+%the other two services let it preflight a name or whole term before writing.
 %metta_symbol_writable/1 answers the first question about one name;
 %metta_unwritable_symbol/2 answers both about a whole term, and its name is
 %narrower than what it reports because names were the only class known to fail
@@ -603,6 +614,11 @@ ext_point_kind(metta_host_open_function/3, host_service).
 ext_point_kind(metta_host_adopt_function/4, host_service).
 ext_point_kind(metta_host_drop_function/2, host_service).
 ext_point_kind(metta_host_forget_function/1, host_service).
+%Reader classes keep their callable on the engine side. A host registers or
+%removes one mapping through these services and owns construction through the
+%handler seam declared below.
+ext_point_kind(metta_host_register_reader_token/2, host_service).
+ext_point_kind(metta_host_unregister_reader_token/1, host_service).
 %The space read-and-remove pair a host talks to storage through:
 %metta_host_stored/2 enumerates stored atoms unifying a pattern
 %(index-directed native, provider-enumerated foreign), and
@@ -663,12 +679,18 @@ ext_point_kind(unregister_metta_extension/1, host_service).
 ext_point_kind(with_metta_module/2, host_service).
 
 ext_point_kind(swrite/2, service).
+%Presentation text is deliberately distinct from the inverse writer. A host
+%or extension uses this only where lossless re-reading is not the contract
+%[tested: every_seam_declares_one_kind, parser_display; commit=53686aed41e7ff02de69052198afdb537536cbdb].
+ext_point_kind(sdisplay/2, service).
 ext_point_kind(sread/2, service).
 %Moved from the host_service list on 2026-08-20: the host bindings read
 %source through metta_host_run_source/4 and its siblings now, and the
 %remaining callers are extension libraries (lib_gitimport, lib_import),
 %which is exactly what this kind means.
 ext_point_kind(parse_metta_source/2, service).
+ext_point_kind(metta_reader_token_class/3, service).
+ext_point_kind(metta_reader_token_source/2, service).
 ext_point_kind(metta_symbol_writable/1, service).
 ext_point_kind(metta_unwritable_symbol/2, service).
 
@@ -762,6 +784,12 @@ ext_point_kind(metta_host_import/1, ownership).
 %answers no at one failed lookup and never initializes anything.
 :- multifile metta_host_object/1.
 ext_point_kind(metta_host_object/1, ownership).
+
+%Construct a reader token through the host that owns its retained callable.
+%The token text is the full lexeme, quotes included for a string token, and the
+%answer is the engine term the reader will return.
+:- multifile metta_host_reader_token_construct/3.
+ext_point_kind(metta_host_reader_token_construct/3, ownership).
 
 %A registered rewriter runs over every loaded form; a host installs one only
 %while it is needed (the Python bridge registers its import-as alias rewrite

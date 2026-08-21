@@ -6,6 +6,11 @@
 %     compile-time checks inspect literals and declared return types without
 %     binding source variables
 %     [tested: operation_answers, test_a_repeated_eval_does_not_recompile_and_the_effects_cluster_conforms; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
+%   - repr/2, println!/2, format-args, test/3 and assert/2 presentation retain
+%     host display text through sdisplay/2 without weakening swrite/2's
+%     reader-inverse contract [tested: parser_display,
+%     a_python_value_keeps_its_explicit_display,
+%     a_partial_application_remains_visible_in_test_output; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 %   - import! loads a MeTTa source that is new or that has been edited, and
 %     skips one that is neither, which is SWI's if(changed); a Python source
 %     keeps if(not_loaded) [tested 2026-08-19:
@@ -139,6 +144,10 @@
 %     bindings/python/tests/test_ops.py::test_a_declared_type_survives_the_library_being_loaded]
 %     [measured 2026-08-18: +2 inferences per get-type on a Python object and
 %     0 on every other value].
+%   - register-token! and unregister-token! are ordinary registered builtins,
+%     so source programs and host APIs reach the same reader-token mapping
+%     [tested: test_a_registered_token_class_parses_like_a_shipped_one;
+%     commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b].
 %   - The engine loads and runs the full examples/ corpus with
 %     set_prolog_flag(autoload, false) already in effect: the
 %     directory_file_path/3 directive below needs library(filesex) before
@@ -417,7 +426,7 @@ id(X, X).
 %the reference defines it [source: metta-lang-docs, types_basics/metatypes:
 %"This is the way noeval function is implemented"].
 noeval(X, X).
-repr(Term, R) :- swrite(Term, Text), R = Text.
+repr(Term, R) :- sdisplay(Term, Text), R = Text.
 repra(Term, R) :- term_to_atom(Term, R).
 parse(Str, _) :- var(Str), !, refuse_unbound_input(parse, 1).
 parse(Str, R) :- sread(Str, R).
@@ -1323,7 +1332,7 @@ format_arg(Arguments, [Code|Rest], [Code|Tail]) :-
 %quotes, which is what lets help! print documentation unquoted
 %[source: the same file, formatArgsString].
 metta_console_text(Value, Text) :- string(Value), !, Text = Value.
-metta_console_text(Value, Text) :- swrite(Value, Text).
+metta_console_text(Value, Text) :- sdisplay(Value, Text).
 
 %Upstream sorts an expression of STRINGS and refuses anything else by name;
 %sort-atom is the general form that orders any atom. The order is the printed
@@ -4195,7 +4204,7 @@ prolog:error_message(permission_error(register, metta_function, Name)) -->
 %readable dump. Data in, data out; the printing stays println!'s job.
 'pretty-atom'(Term, String) :- swrite_pretty(Term, String).
 
-'println!'(Arg, Unit) :- swrite(Arg, RArg),
+'println!'(Arg, Unit) :- sdisplay(Arg, RArg),
                         format('~w~n', [RArg]),
                         Unit = [].
 
@@ -4241,8 +4250,8 @@ read_form_lines(Buffered, Out) :-
     ).
 
 test(A,B,true) :- (A =@= B -> E = '✅' ; E = '❌'),
-                  swrite(A, RA),
-                  swrite(B, RB),
+                  sdisplay(A, RA),
+                  sdisplay(B, RB),
                   format("is ~w, should ~w. ~w ~n", [RA, RB, E]),
                   ( A =@= B -> true
                   ; throw(error(petta_test_failed(A, B),
@@ -4262,7 +4271,7 @@ test_answer_value(Results, Results).
 %in that module and nowhere else.
 assert(Goal, true) :- current_metta_module(Module),
                       ( call(Module:Goal) -> true
-                                    ; swrite(Goal, RG),
+                                    ; sdisplay(Goal, RG),
                                       format("Assertion failed: ~w~n", [RG]),
                                       throw(error(petta_assertion_failed(Goal),
                                                   context(assert/2, 'MeTTa assertion failed'))) ).
@@ -6737,7 +6746,7 @@ unregister_fun_in(Module, N) :- retractall(fun_in(Module, N)),
 
 unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
                                 retractall(fun_scoped(N)).
-:- maplist(register_builtin_fun, [superpose, empty, let, 'let*', '+','-','*','/', '%', min, max, 'change-state!', 'get-state', 'bind!', 'declare-pre-add!', 'undeclare-pre-add!', 'declare-post-add!', 'undeclare-post-add!', 'space-atom-count', 'has-declared-type', 'space-admission-verdict', 'space-contains',
+:- maplist(register_builtin_fun, [superpose, empty, let, 'let*', '+','-','*','/', '%', min, max, 'change-state!', 'get-state', 'bind!', 'register-token!', 'unregister-token!', 'declare-pre-add!', 'undeclare-pre-add!', 'declare-post-add!', 'undeclare-post-add!', 'space-atom-count', 'has-declared-type', 'space-admission-verdict', 'space-contains',
                           '<','>','==', '!=', '=', '=?', '<=', '>=', and, or, xor, implies, not, exp,
                           'first-from-pair', 'second-from-pair', 'car-atom', 'cdr-atom', 'unique-atom', 'alpha-unique-atom',
                           repr, repra, parse, 'pretty-atom', 'println!', 'readln!', 'read-form!', 'sread-command', test, 'test-no-answer', assert, atom_concat, atom_chars, copy_term, term_hash,

@@ -11,50 +11,190 @@
 %   - swrite/2 names variables by first occurrence, independent of SWI's
 %     process-local variable identifiers [tested 2026-08-14:
 %     parser_stable_variables].
+%   - every public writer refuses a value whose text would read back as a
+%     different term, including Janus tuples and zero-arity compounds
+%     [tested: parser_refuses_non_metta,
+%     test_every_generated_atom_survives_the_write_parse_round_trip;
+%     commit=53686aed41e7ff02de69052198afdb537536cbdb].
+%   - sdisplay/2 is the explicitly lossy presentation path used by repr and
+%     console output; it retains host display syntax without pretending that
+%     syntax is readable MeTTa [tested: parser_display,
+%     test_non_finite_floats_print_the_arbiters_spellings; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 %   - swrite_with_names/3 preserves reader names without binding the source
 %     term; distinct variables carrying one written name receive #N epochs in
 %     first-occurrence order [tested: parser_named_variables; commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
 %   - a token ends at exactly the Unicode White_Space property plus `(`, `)`
 %     and `;`, and at nothing else, which is upstream MeTTa's own rule.
 %     metta_token_boundary/2 is the one place that says so, and the layout
-%     skipper, the number terminator and metta_symbol_writable/1 all read
+%     skipper, the reader lexeme scanner and metta_symbol_writable/1 all read
 %     it, so a symbol holding whitespace has no text form and the swrite/2
-%     to sread/2 round trip stays inverse [tested 2026-08-19:
+%     to sread/2 round trip stays inverse [tested:
 %     parser_unicode_layout,
-%     test_every_unicode_whitespace_separates_atoms].
+%     test_every_unicode_whitespace_separates_atoms;
+%     commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b].
+%   - metta_reader_token_class/3 is the reader's declared pattern-to-constructor
+%     table. Shipped numbers and strings and custom classes take the same
+%     full-token path; custom registrations replace an equal pattern, affect
+%     only later parses, and invalidate the symbol-writability table so Python
+%     operation names cannot cross the new grammar [tested:
+%     test_a_registered_token_class_parses_like_a_shipped_one;
+%     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 %   - metta_unwritable_symbol/2 answers for every value the round trip loses,
-%     not only for names: a non-finite float writes as inf, -inf or NaN (the
-%     arbiter's spellings, via metta_float_codes/2) and a rational as 1r3,
-%     and each reads back as a symbol of that spelling, so the seam refuses
-%     it [tested 2026-08-19: parser_number_text]. Generated terms agree,
-%     which is where the class was found [tested 2026-08-19:
-%     property_roundtrip in tests/prolog/property_lane.pl].
+%     not only for names: non-finite and rational numbers have no readable
+%     numeric spelling, and non-list compounds and opaque host values are not
+%     MeTTa terms [tested: parser_number_text, parser_refuses_non_metta,
+%     property_roundtrip; commit=53686aed41e7ff02de69052198afdb537536cbdb].
+% Owns resources:
+%   - metta_custom_reader_token/3 retains a host constructor until its pattern
+%     is replaced or unregistered [tested:
+%     test_a_registered_token_class_parses_like_a_shipped_one;
+%     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
+% Guarded by:
+%   - '$petta_reader_tokens' serializes registry replacement and removal; each
+%     mutation commits atomically with its writability-table invalidation.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
 :- use_module(library(dcg/basics)). %atom//1, number//1, eos//0
-:- use_module(library(occurs)). %sub_term/2
+:- use_module(library(pcre)).
+
+%The tokenizer is the reader seam upstream: an ordered mapping from a full
+%token regex to a constructor, searched newest first. These shipped rows are
+%the numeric and string literals the old DCG alternatives implemented. The
+%patterns are equivalent to hyperon-experimental's rows, and full matching is
+%enforced by the PCRE options rather than left to every pattern author
+%[source: hyperon-experimental@0559a5e2dd23017c459da3c7b003c7f271e77ac8,
+%lib/src/metta/text.rs:Tokenizer and
+%lib/src/metta/runner/stdlib/{arithmetics,string}.rs; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
+metta_shipped_reader_token('[+-]?[0-9]+', number).
+metta_shipped_reader_token('[+-]?[0-9]+[.][0-9]+', number).
+metta_shipped_reader_token('[+-]?[0-9]+([.][0-9]+)?[eE][+-]?[0-9]+', number).
+metta_shipped_reader_token('(?s)^".*"$', string).
+
+:- dynamic metta_custom_reader_token/3.
+
+%Choose once per source form. The shipped mode is a deterministic
+%specialization of the declared rows below; custom mode performs the ordered
+%regex lookup before those same shipped constructors. Keeping the decision
+%outside recursive sexpr parsing avoids a registry probe and PCRE dispatch on
+%every ordinary token. A registration-maintained activity flag was measured
+%against this two-clause probe on the p2-io-roundtrip merge and changed no
+%floor by more than layout noise, so the probe stays in its simplest form.
+metta_reader_mode(custom) :- metta_custom_reader_token(_, _, _), !.
+metta_reader_mode(shipped).
+
+%Public reflection over the mapping. A host constructor remains the same live
+%object so a tool inspecting its own registration can identify it.
+metta_reader_token_class(Pattern, Constructor, custom) :-
+    metta_custom_reader_token(Pattern, Descriptor, _),
+    metta_reader_token_descriptor_constructor(Descriptor, Constructor).
+metta_reader_token_class(Pattern, Constructor, shipped) :-
+    metta_shipped_reader_token(Pattern, Constructor).
+
+metta_reader_token_descriptor_constructor(metta(Constructor), Constructor).
+metta_reader_token_descriptor_constructor(host(Constructor), Constructor).
+
+%The host door stores the callable itself. Janus's object blob owns its Python
+%reference, so replacement needs no second registry that could drift; normal
+%Prolog clause and blob reclamation owns the retired constructor's lifetime.
+metta_host_register_reader_token(Pattern, Constructor) :-
+    nonvar(Constructor),
+    metta_register_reader_token(Pattern, host(Constructor)).
+metta_host_unregister_reader_token(Pattern) :-
+    metta_unregister_reader_token(Pattern).
+
+metta_register_reader_token(Pattern0, Descriptor) :-
+    metta_reader_token_pattern(Pattern0, Pattern),
+    re_compile(Pattern, Regex, [anchored(true), endanchored(true)]),
+    with_mutex('$petta_reader_tokens',
+               transaction(( retractall(metta_custom_reader_token(Pattern, _, _)),
+                             asserta(metta_custom_reader_token(Pattern,
+                                                               Descriptor,
+                                                               Regex)),
+                             abolish_table_subgoals(metta_symbol_writable(_)) ))).
+
+metta_unregister_reader_token(Pattern0) :-
+    metta_reader_token_pattern(Pattern0, Pattern),
+    with_mutex('$petta_reader_tokens',
+               (   metta_custom_reader_token(Pattern, _, _)
+               ->  transaction(( retractall(metta_custom_reader_token(Pattern,
+                                                                       _, _)),
+                                  abolish_table_subgoals(
+                                      metta_symbol_writable(_)) ))
+               ;   true
+               )).
+
+metta_reader_token_pattern(Pattern, Pattern) :- string(Pattern), !.
+metta_reader_token_pattern(Pattern0, Pattern) :- atom(Pattern0), !,
+    atom_string(Pattern0, Pattern).
+metta_reader_token_pattern(Pattern, _) :-
+    throw(error(type_error(text, Pattern),
+                context(metta_reader_token_class/3,
+                        'a token pattern is text'))).
+
+%The source-language door names an expression constructor. The name is
+%checked before the mapping changes because an unreadable constructor could
+%never appear in the expression it promises to build.
+'register-token!'(Pattern, _, _) :- var(Pattern), !,
+    refuse_unbound_input('register-token!', 1).
+'register-token!'(_, Constructor, _) :- var(Constructor), !,
+    refuse_unbound_input('register-token!', 2).
+'register-token!'(Pattern, Constructor, true) :-
+    metta_source_reader_token_pattern('register-token!', Pattern),
+    (   atom(Constructor), metta_symbol_writable(Constructor)
+    ->  metta_register_reader_token(Pattern, metta(Constructor))
+    ;   throw(error(domain_error(metta_reader_constructor, Constructor),
+                    context('register-token!'/3,
+                            'the constructor must be a readable symbol')))
+    ).
+
+'unregister-token!'(Pattern, _) :- var(Pattern), !,
+    refuse_unbound_input('unregister-token!', 1).
+'unregister-token!'(Pattern, true) :-
+    metta_source_reader_token_pattern('unregister-token!', Pattern),
+    metta_unregister_reader_token(Pattern).
+
+metta_source_reader_token_pattern(_, Pattern) :- string(Pattern), !.
+metta_source_reader_token_pattern(_, Pattern) :- atom(Pattern), !.
+metta_source_reader_token_pattern(Operation, Pattern) :-
+    throw(error(type_error(text, Pattern),
+                context(Operation, 'a token pattern is text'))).
 
 %Read ONE form and answer the variable names it bound, for a caller that
 %carries names across a wire: sread/2 is this without the map, and the map
 %is name-to-variable pairs in first-occurrence order, exactly what the DCG
 %builds while it reads.
 sread_with_names(Text, Term, VarMap) :-
+    metta_reader_mode(Mode),
+    sread_with_names_mode(Mode, Text, Term, VarMap).
+
+sread_with_names_mode(Mode, Text, Term, VarMap) :-
     (   string(Text) -> S = Text ; atom_string(Text, S) ),
     string_codes(S, Cs),
-    ( catch(phrase(sexpr(Term, [], VarMap), Cs),
+    ( catch(phrase(sexpr_mode(Mode, Term, [], VarMap), Cs),
             error(syntax_error(float_overflow), _),
-            metta_saturating_parse(sexpr(Term, [], VarMap), Cs))
+            metta_saturating_parse(sexpr_mode(Mode, Term, [], VarMap), Cs))
       -> true
        ; format(atom(Msg), 'Parse error in form: ~w', [S]),
          throw(error(syntax_error(Msg), none)) ).
 
-%Generate a MeTTa S-expression string from the Prolog list (inverse parsing):
-swrite(Term, String) :- stable_print_term(Term, Printable),
-                        phrase(swrite_numbered(Printable), Codes),
-                        string_codes(String, Codes).
+%Generate a MeTTa S-expression string from the Prolog list (inverse parsing).
+%A value outside the inverse domain is an error, never lossy display text.
+swrite(Term, String) :-
+    metta_text_writable(Term),
+    stable_print_term(Term, Printable),
+    phrase(swrite_numbered(Printable), Codes),
+    string_codes(String, Codes).
+
+%Display text is presentation, not serialization. It deliberately preserves
+%the old host repr path for repr/2 and consoles while swrite/2 stays an inverse
+%of sread/2 over every value it accepts.
+sdisplay(Term, String) :-
+    stable_print_term(Term, Printable),
+    phrase(sdisplay_numbered(Printable), Codes),
+    string_codes(String, Codes).
 
 %Print one answer with the reader's Name-Var pairs. Term and Names are copied
 %as one template before numbering, the same identity-preserving shape findall
@@ -62,6 +202,7 @@ swrite(Term, String) :- stable_print_term(Term, Printable),
 %it therefore remain untouched [tested: parser_named_variables;
 %commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
 swrite_with_names(Term, Names, String) :-
+    metta_text_writable(Term),
     named_print_term(Term, Names, Printable),
     phrase(swrite_numbered(Printable), Codes),
     string_codes(String, Codes).
@@ -70,28 +211,41 @@ swrite_with_names(Term, Names, String) :-
 %collection boundary; accepting ordinary answers too keeps diagnostic clients
 %able to print a group they constructed themselves.
 swrite_answer_group(Answers, String) :-
-    phrase(swrite_answer_group_(Answers), Codes),
+    phrase(answer_group_mode(Answers, strict), Codes),
     string_codes(String, Codes).
 
-swrite_answer_group_([]) --> "()".
-swrite_answer_group_([Answer|Answers]) -->
-    "(", swrite_answer_(Answer), swrite_answer_tail(Answers), ")".
+sdisplay_answer_group(Answers, String) :-
+    phrase(answer_group_mode(Answers, display), Codes),
+    string_codes(String, Codes).
 
-swrite_answer_tail([]) --> [].
-swrite_answer_tail([Answer|Answers]) -->
-    " ", swrite_answer_(Answer), swrite_answer_tail(Answers).
+answer_group_mode([], _) --> "()".
+answer_group_mode([Answer|Answers], Mode) -->
+    "(", answer_mode(Answer, Mode), answer_tail_mode(Answers, Mode), ")".
 
-swrite_answer_('$petta_answer'(Term, Names)) --> !,
-    { named_print_term(Term, Names, Printable) },
-    swrite_numbered(Printable).
-swrite_answer_(Term) -->
-    { stable_print_term(Term, Printable) },
-    swrite_numbered(Printable).
+answer_tail_mode([], _) --> [].
+answer_tail_mode([Answer|Answers], Mode) -->
+    " ", answer_mode(Answer, Mode), answer_tail_mode(Answers, Mode).
+
+answer_mode('$petta_answer'(Term, Names), Mode) --> !,
+    { ( Mode == strict -> metta_text_writable(Term) ; true ),
+      named_print_term(Term, Names, Printable) },
+    swrite_mode(Printable, Mode).
+answer_mode(Term, Mode) -->
+    { ( Mode == strict -> metta_text_writable(Term) ; true ),
+      stable_print_term(Term, Printable) },
+    swrite_mode(Printable, Mode).
+
+%Retain the direct DCG entry points for parser clients.
+swrite_answer_group_(Answers) --> answer_group_mode(Answers, strict).
+swrite_answer_(Answer) --> answer_mode(Answer, strict).
+swrite_answer_tail(Answers) --> answer_tail_mode(Answers, strict).
 %Keep the writer DCGs usable by direct parser clients while the internal
 %forms operate on a numbered copy of the source term.
-swrite_exp(Term) --> { stable_print_term(Term, Printable) },
+swrite_exp(Term) --> { metta_text_writable(Term),
+                       stable_print_term(Term, Printable) },
                       swrite_numbered(Printable).
-seq(Terms) --> { stable_print_term(Terms, Printable) },
+seq(Terms) --> { metta_text_writable(Terms),
+                 stable_print_term(Terms, Printable) },
                seq_numbered(Printable).
 
 stable_print_term(Term, Printable) :-
@@ -190,6 +344,7 @@ apply_named_variable_spellings(Term, _, Term).
 %[tested parser_pretty_printing].
 swrite_pretty(Term, String) :- swrite_pretty(Term, 78, String).
 swrite_pretty(Term, Width, String) :-
+    metta_text_writable(Term),
     stable_print_term(Term, Printable),
     with_output_to(string(String), petta_pretty_print(Printable, 0, Width)).
 
@@ -218,9 +373,12 @@ petta_inline_text(T, S) :-
     phrase(swrite_numbered(T), Codes),
     string_codes(S, Codes).
 
-swrite_numbered('$petta_named_variable'(Name)) --> !, "$", atom(Name).
-swrite_numbered('$petta_variable'(Index)) --> !, "$_", { number_codes(Index, Cs) }, Cs.
-%The language spells its booleans `True` and `False`. atom_symbol//1 maps both
+swrite_numbered(Term) --> swrite_mode(Term, strict).
+sdisplay_numbered(Term) --> swrite_mode(Term, display).
+
+swrite_mode('$petta_named_variable'(Name), _) --> !, "$", atom(Name).
+swrite_mode('$petta_variable'(Index), _) --> !, "$_", { number_codes(Index, Cs) }, Cs.
+%The language spells its booleans `True` and `False`. metta_reader_default/2 maps both
 %onto Prolog's own true/false so a compiled guard calls them directly, and this
 %is the other half of that map: without it the round trip renamed the
 %language's own constants and `!(== 1 2)` answered `false` where the arbiter
@@ -228,34 +386,44 @@ swrite_numbered('$petta_variable'(Index)) --> !, "$_", { number_codes(Index, Cs)
 %04-boolean.metta]. It also closes a seam: bindings/python/petta already writes `True`,
 %which bindings/python/tools/example_parity.py had to compare around
 %[tested: parser_roundtrip:booleans_print_in_the_languages_own_spelling].
-swrite_numbered(true)  --> !, "True".
-swrite_numbered(false) --> !, "False".
-swrite_numbered(Num)   --> { integer(Num) }, !, { number_codes(Num, Cs) }, Cs.
-swrite_numbered(Num)   --> { float(Num) }, !, { metta_float_codes(Num, Cs) }, Cs.
-swrite_numbered(Num)   --> { number(Num) }, !, { number_codes(Num, Cs) }, Cs.
-swrite_numbered(Str)   --> { string(Str) }, !, "\"", { string_codes(Str, Cs), escape_quotes(Cs, Es) }, Es, "\"".
-swrite_numbered(Atom)  --> { atom(Atom) }, !, atom(Atom).
-swrite_numbered([H|T]) --> { \+ is_list([H|T]) }, !, "(", atom(cons), " ", swrite_numbered(H), " ", swrite_numbered(T), ")".
-swrite_numbered([H|T]) --> !, "(", seq_numbered([H|T]), ")".
-swrite_numbered([])    --> !, "()".
-%Everything below here is not a MeTTa term, and these are the three ways of not
-%being one, each guarded and cutting like the clauses above them.
-%
-%The provider comes first because a Python tuple IS a compound, -/N being
-%janus's encoding for one, and `(- 1 2)` names an operator that is not there.
-swrite_numbered(Term)  --> { metta_grounded_text(Term, Text) }, !, { string_codes(Text, Cs) }, Cs.
-%compound_name_arguments/3 rather than =../2, because =../2 refuses a
-%zero-arity compound outright: it raises `compound_non_zero_arity' before the
-%empty-argument branch below can be reached, and the raise escapes the writer
-%and kills the run. Nothing about that is specific to where the term came from,
-%and janus hands one back for Python's `()`, so `!(py-atom "()")` took the whole
-%program down [tested: an_empty_compound_prints].
-swrite_numbered(Term)  --> { compound(Term), compound_name_arguments(Term, F, Args) }, !, "(", atom(F), ( { Args == [] } -> [] ; " ", seq_numbered(Args) ), ")".
-%A grounded value with no provider loaded: its own text, rather than nothing.
-%The writer is never the thing that fails.
-swrite_numbered(Term)  --> { term_string(Term, Text), string_codes(Text, Cs) }, Cs.
-seq_numbered([X])    --> !, swrite_numbered(X).
-seq_numbered([X|Xs]) --> swrite_numbered(X), " ", seq_numbered(Xs).
+swrite_mode(true, _)  --> !, "True".
+swrite_mode(false, _) --> !, "False".
+swrite_mode(Num, _)   --> { integer(Num) }, !, { number_codes(Num, Cs) }, Cs.
+swrite_mode(Num, strict) --> { float(Num), metta_number_writable(Num) }, !,
+                              { metta_float_codes(Num, Cs) }, Cs.
+swrite_mode(Num, display) --> { float(Num) }, !,
+                               { metta_float_codes(Num, Cs) }, Cs.
+swrite_mode(Num, strict) --> { number(Num), metta_number_writable(Num) }, !,
+                              { number_codes(Num, Cs) }, Cs.
+swrite_mode(Num, display) --> { number(Num) }, !,
+                               { number_codes(Num, Cs) }, Cs.
+swrite_mode(Str, _)   --> { string(Str) }, !, "\"", { string_codes(Str, Cs), escape_quotes(Cs, Es) }, Es, "\"".
+swrite_mode(Atom, strict) --> { atom(Atom), metta_symbol_writable(Atom) }, !,
+                               atom(Atom).
+swrite_mode(Atom, display) --> { atom(Atom) }, !, atom(Atom).
+swrite_mode(List, Mode) --> { is_list(List), List = [_|_] }, !,
+                            "(", seq_mode(List, Mode), ")".
+swrite_mode([], _)    --> !, "()".
+%A Janus tuple is -/N. Python-looking text belongs only to display mode because
+%`(1, 2)` reads as the symbol `1,` beside the number 2, and -() reads as [].
+swrite_mode(Term, display) --> { metta_grounded_text(Term, Text) }, !,
+                               { string_codes(Text, Cs) }, Cs.
+swrite_mode(Term, display) --> { compound(Term),
+                                 compound_name_arguments(Term, F, Args) }, !,
+                               "(", atom(F),
+                               ( { Args == [] }
+                               -> []
+                               ;  " ", seq_mode(Args, display)
+                               ), ")".
+swrite_mode(Term, display) --> { term_string(Term, Text),
+                                 string_codes(Text, Cs) }, Cs.
+%Direct strict-DCG clients receive the same refusal as swrite/2.
+swrite_mode(Term, strict) --> { metta_refuse_text(Term) }.
+
+seq_numbered(Terms) --> seq_mode(Terms, strict).
+
+seq_mode([X], Mode)    --> !, swrite_mode(X, Mode).
+seq_mode([X|Xs], Mode) --> swrite_mode(X, Mode), " ", seq_mode(Xs, Mode).
 
 %Every float class prints the arbiter's way: inf, -inf by sign, an unsigned
 %NaN (the forms hyperon's Rust f64 Display prints and the arbiter's
@@ -375,13 +543,22 @@ escape_quotes([H|T], [H|R]) :- escape_quotes(T, R).
 %library parses one per m.run(): 20000 distinct strings through
 %atom_string/2 left 9953 atoms behind, through atom_codes/2 none.
 sread(S, _) :- var(S), !, refuse_unbound_input(sread, 1).
-sread(S, T) :- atom_codes(S, Cs),
-               sread_codes(Cs, S, T).
+sread(S, T) :-
+    metta_reader_mode(Mode),
+    sread_mode(Mode, S, T).
+
+sread_mode(Mode, S, T) :-
+    atom_codes(S, Cs),
+    sread_codes_mode(Mode, Cs, S, T).
 
 sread_codes(Cs, Source, T) :-
-    ( catch(phrase(sexpr(T, [], _), Cs),
+    metta_reader_mode(Mode),
+    sread_codes_mode(Mode, Cs, Source, T).
+
+sread_codes_mode(Mode, Cs, Source, T) :-
+    ( catch(phrase(sexpr_mode(Mode, T, [], _), Cs),
             error(syntax_error(float_overflow), _),
-            metta_saturating_parse(sexpr(T, [], _), Cs))
+            metta_saturating_parse(sexpr_mode(Mode, T, [], _), Cs))
       -> true
        ; format(atom(Msg), 'Parse error in form: ~w', [Source]),
          throw(error(syntax_error(Msg), none)) ).
@@ -598,41 +775,160 @@ metta_comment_body --> "\n", !.
 metta_comment_body --> eos, !.
 metta_comment_body --> [_], metta_comment_body.
 
-%An S-Expression is a parentheses-nesting of S-Expressions that are either
-%numbers, variables, strings, or atoms. Surrounding whitespace is skipped once
-%here rather than at the start of each alternative: with a leading blanks//0 in
-%every clause, reading an atom, the commonest token, rescanned the same
-%whitespace five times because the four alternatives ahead of it each skipped
-%it before failing.
-sexpr(T,E0,E) --> metta_layout, sexpr_token(T,E0,E), metta_layout.
+%An S-Expression is a parentheses-nesting of S-Expressions. Parentheses and
+%variables remain syntax; every word or quoted lexeme then crosses the
+%declared token mapping, falling back to a symbol only when no class matches.
+%The public grammar chooses a reader mode once, and recursive calls retain it.
+sexpr(T, E0, E, S0, S) :-
+    metta_reader_mode(Mode),
+    sexpr_mode(Mode, T, E0, E, S0, S).
 
-sexpr_token(S,E,E)  --> string_lit(S), !.
-sexpr_token(T,E0,E) --> "(", metta_layout, seq(T,E0,E), metta_layout, ")", !.
-sexpr_token(N,E,E)  --> number(N), number_ends, !.
-sexpr_token(V,E0,E) --> var_symbol(V,E0,E), !.
-sexpr_token(A,E,E)  --> atom_symbol(A).
+sexpr_mode(Mode, T, E0, E) -->
+    metta_layout,
+    sexpr_token_mode(Mode, T, E0, E),
+    metta_layout.
 
-%A number token has to end where any token ends, or at end of input. Without
-%this, 1_2_3 would read as the number 1 followed by junk.
-number_ends([], []) :- !.
-number_ends([Code|Rest], [Code|Rest]) :- metta_token_boundary(Code, _).
+sexpr_token(T, E0, E, S0, S) :-
+    metta_reader_mode(Mode),
+    sexpr_token_mode(Mode, T, E0, E, S0, S).
+
+sexpr_token_mode(Mode, T, E0, E) -->
+    "(", metta_layout, reader_seq(Mode, T, E0, E), metta_layout, ")", !.
+sexpr_token_mode(_, V, E0, E) --> var_symbol(V, E0, E), !.
+sexpr_token_mode(custom, T, E, E) --> reader_token(T).
+sexpr_token_mode(shipped, T, E, E) --> shipped_reader_token(T).
 
 %Recursive processing of S-Expressions within S-Expressions. sexpr//3 has
 %already consumed the whitespace after its own token, so this does not repeat it:
-seq([X|Xs],E0,E2) --> sexpr(X,E0,E1), seq(Xs,E1,E2).
-seq([],E,E)       --> [].
+reader_seq(Mode, [X|Xs], E0, E2) -->
+    sexpr_mode(Mode, X, E0, E1),
+    reader_seq(Mode, Xs, E1, E2).
+reader_seq(_, [], E, E) --> [].
 
 %Variables start with $, and keep track of them: reusing existing Prolog variables for variables of same name:
 var_symbol(V,E0,E) --> "$", token(Cs), { atom_chars(N, Cs), ( N == '_' -> V = _, E = E0 ; memberchk(N-V0, E0) -> V = V0, E = E0 ; V = _, E = [N-V|E0] ) }.
 
-%Atoms are derived from tokens:
-atom_symbol(A) --> token(Cs), { string_codes("\"", [Q]), ( Cs = [Q|_] -> append([Q|Body], [Q], Cs), %"str" as string
-                                                                         string_codes(A, Body)
-                                                                       ; atom_codes(R, Cs),         %others are atoms
-                                                                         ( R = 'True' -> A = true
-                                                                                       ; R = 'False'
-                                                                                         -> A = false
-                                                                                          ; A = R ))}.
+%A successful class match commits before construction. A constructor that
+%fails or raises therefore cannot silently turn its literal into a symbol or
+%fall through to an older class, matching the tokenizer's newest-first rule.
+reader_token(Term) -->
+    reader_token_text(Text),
+    {   (   metta_reader_token_match(Text, Descriptor)
+        ->  metta_reader_token_construct(Descriptor, Text, Term)
+        ;   metta_reader_default(Text, Term)
+        )
+    }.
+
+%The shipped-only hot path implements the four declared rows without a PCRE
+%call or dynamic-registry lookup per token. dcg/basics' number//1 accepts the
+%three public numeric patterns exactly, and string_lit//1 is the shipped
+%string constructor, so this is a compiled specialization of the declared
+%mapping rather than a second token policy [tested: parser_number_text;
+%commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
+shipped_reader_token(String) --> string_lit(String), !.
+shipped_reader_token(Number) --> number(Number), number_ends, !.
+shipped_reader_token(Atom) --> atom_symbol(Atom).
+
+number_ends([], []) :- !.
+number_ends([Code|Rest], [Code|Rest]) :- metta_token_boundary(Code, _).
+
+atom_symbol(Atom) -->
+    token(Codes),
+    { string_codes("\"", [Quote]),
+      (   Codes = [Quote|_]
+      ->  append([Quote|Body], [Quote], Codes),
+          string_codes(Atom, Body)
+      ;   atom_codes(Read, Codes),
+          ( Read == 'True' -> Atom = true
+          ; Read == 'False' -> Atom = false
+          ; Atom = Read
+          )
+      ) }.
+
+metta_number_token_codes --> metta_optional_number_sign,
+                             metta_decimal_digits,
+                             metta_number_token_tail.
+
+metta_optional_number_sign --> "+", !.
+metta_optional_number_sign --> "-", !.
+metta_optional_number_sign --> [].
+
+metta_decimal_digits --> [Code],
+                         { between(0'0, 0'9, Code) }, !,
+                         metta_decimal_digit_tail.
+
+metta_decimal_digit_tail --> [Code],
+                             { between(0'0, 0'9, Code) }, !,
+                             metta_decimal_digit_tail.
+metta_decimal_digit_tail --> [].
+
+metta_number_token_tail --> ".", metta_decimal_digits,
+                            metta_optional_exponent, !.
+metta_number_token_tail --> metta_exponent, !.
+metta_number_token_tail --> [].
+
+metta_optional_exponent --> metta_exponent, !.
+metta_optional_exponent --> [].
+
+metta_exponent --> [Code],
+                   { memberchk(Code, [0'e, 0'E]) },
+                   metta_optional_number_sign,
+                   metta_decimal_digits.
+
+%String syntax is one lexeme even when it contains whitespace. Consuming the
+%opening quote commits to this scanner, so an unterminated string cannot fall
+%back to a word that merely happens to start with a quote.
+reader_token_text(Text) -->
+    [0'"], !, reader_quoted_token_tail(Cs),
+    { string_codes(Text, [0'"|Cs]) }.
+reader_token_text(Text) -->
+    token(Cs),
+    { string_codes(Text, Cs) }.
+
+reader_quoted_token_tail([0'"]) --> [0'"], !.
+reader_quoted_token_tail([0'\\, Esc|Cs]) --> [0'\\, Esc], !,
+    reader_quoted_token_tail(Cs).
+reader_quoted_token_tail([C|Cs]) --> [C], { C =\= 0'" },
+    reader_quoted_token_tail(Cs).
+
+%Custom rows are asserted newest first and searched before the shipped table.
+%The compiled custom regex already carries its full-match options. Shipped
+%rows avoid PCRE entirely for ordinary symbol starts, while still matching
+%through their declared patterns for every candidate literal.
+metta_reader_token_match(Text, Descriptor) :-
+    metta_reader_token_resolution(Text, Descriptor, _).
+
+%Diagnostic consumers can distinguish a custom class from shipped literal
+%syntax without running the constructor a second time.
+metta_reader_token_source(Text, Source) :-
+    metta_reader_token_resolution(Text, _, Source).
+
+metta_reader_token_resolution(Text, Descriptor, custom) :-
+    metta_custom_reader_token(_, Descriptor, Regex),
+    re_match(Regex, Text, []), !.
+metta_reader_token_resolution(Text, Descriptor, shipped) :-
+    metta_shipped_reader_token_candidate(Text, Descriptor), !.
+
+metta_shipped_reader_token_candidate(Text, string) :-
+    string_codes(Text, Codes),
+    phrase(string_lit(_), Codes).
+metta_shipped_reader_token_candidate(Text, number) :-
+    string_codes(Text, Codes),
+    phrase(metta_number_token_codes, Codes).
+
+metta_reader_token_construct(number, Text, Number) :-
+    string_codes(Text, Codes),
+    phrase(number(Number), Codes).
+metta_reader_token_construct(string, Text, String) :-
+    string_codes(Text, Codes),
+    phrase(string_lit(String), Codes).
+metta_reader_token_construct(metta(Constructor), Text, [Constructor, Text]).
+metta_reader_token_construct(host(Constructor), Text, Term) :-
+    metta_host_reader_token_construct(Constructor, Text, Term).
+
+metta_reader_default("True", true) :- !.
+metta_reader_default("False", false) :- !.
+metta_reader_default(Text, Atom) :- atom_string(Atom, Text).
 
 %A token is a non-empty run of characters that end no token. The shape is
 %string_without//2's own, a greedy scan committed per character, with the
@@ -655,10 +951,10 @@ token_codes([]) --> [].
 %number, and True read as the boolean [tested: parser_symbol_text].
 %Reading the whole grammar back costs about three times a single token
 %scan, and every save and every digest asks this of every symbol it
-%carries, so the ordinary name answers without it: once a name is one
-%token holding no quote, only a first character that could begin a number,
-%a variable or a string, or a boolean's own spelling, can make it read
-%back as something else [measured 2026-08-15: the grammar alone cost
+%carries, so the ordinary name answers without it while no custom class is
+%installed: once a name is one token holding no quote, only a first character
+%that could begin a number, a variable or a string, or a boolean's own
+%spelling, can make it read back as something else [measured 2026-08-15: the grammar alone cost
 %+18.9% inferences and +16.8% instructions on space-digest].
 %Writability is a pure function of the name and a save asks it once per
 %OCCURRENCE, 20,001 times for one symbol on the benchmark space, so the
@@ -685,6 +981,7 @@ writable_token([C|Cs]) --> [C], { C =\= 0'", \+ metta_token_boundary(C, _) }, !,
 writable_token([]) --> [].
 
 metta_symbol_ordinary(First, Symbol) :-
+    \+ metta_custom_reader_token(_, _, _),
     \+ metta_symbol_reserved_start(First),
     Symbol \== 'True',
     Symbol \== 'False'.
@@ -731,7 +1028,9 @@ metta_symbol_reserved_start(Code) :- code_type(Code, digit).
 %inferences unchecked, 3,240,388 checked, 4,350,800 asking the grammar for
 %every number, min of 3 each].
 metta_number_writable(Number) :-
-    (   integer(Number)
+    (   metta_custom_reader_token(_, _, _)
+    ->  metta_number_roundtrips_under_current_reader(Number)
+    ;   integer(Number)
     ->  true
     ;   float(Number)
     ->  float_class(Number, Class),
@@ -742,9 +1041,27 @@ metta_number_writable(Number) :-
         Read == Number
     ).
 
+metta_number_roundtrips_under_current_reader(Number) :-
+    (   float(Number)
+    ->  metta_float_codes(Number, Codes)
+    ;   number_codes(Number, Codes)
+    ),
+    catch(phrase(sexpr_token(Read, [], _), Codes),
+          error(syntax_error(float_overflow), _),
+          metta_saturating_parse(sexpr_token(Read, [], _), Codes)),
+    Read == Number.
+
+metta_string_writable(String) :-
+    (   \+ metta_custom_reader_token(_, _, _)
+    ->  true
+    ;   phrase(swrite_mode(String, display), Codes),
+        phrase(sexpr_token(Read, [], _), Codes),
+        Read == String
+    ).
+
 %The first value in a term that has no round-trip text spelling. A dedicated
-%walk visits what swrite/2 will print: every list element down the spine, the
-%terminating tail, and a non-list compound's functor name and arguments. It
+%walk visits every proper-list element. Non-list compounds, improper lists and
+%opaque host values are themselves unwritable because none is a MeTTa term. It
 %replaced a sub_term/2 walk whose generic enumeration cost ~120 inferences per
 %three-element atom across a save's whole-space scan and a load's add guard;
 %the type-switched walk measures ~6x cheaper on the same 20,001-atom
@@ -762,6 +1079,10 @@ metta_unwritable_symbol(Term, Bad) :-
 metta_unwritable_walk(Term, Bad) :-
     (   var(Term)
     ->  fail
+    ;   Term == []
+    ->  fail
+    ;   string(Term)
+    ->  \+ metta_string_writable(Term), Bad = Term
     ;   atom(Term)
     ->  \+ metta_symbol_writable(Term), Bad = Term
     ;   number(Term)
@@ -769,25 +1090,32 @@ metta_unwritable_walk(Term, Bad) :-
     ;   Term = [Head|Tail]
     ->  (   metta_unwritable_walk(Head, Bad)
         ->  true
-        ;   metta_unwritable_walk(Tail, Bad)
+        ;   metta_unwritable_list_tail(Tail, Bad)
         )
-    ;   compound(Term)
-    ->  functor(Term, Name, Arity),
-        (   \+ metta_symbol_writable(Name)
-        ->  Bad = Name
-        ;   between(1, Arity, I),
-            arg(I, Term, A),
-            metta_unwritable_walk(A, Bad)
-        ->  true
-        )
-    ;   fail
+    ;   Bad = Term
     ).
 
-metta_unwritable_here(Sub, Sub) :- atom(Sub), !, \+ metta_symbol_writable(Sub).
-metta_unwritable_here(Sub, Sub) :- number(Sub), !, \+ metta_number_writable(Sub).
-metta_unwritable_here(Sub, Name) :- compound(Sub), \+ is_list(Sub),
-                                    functor(Sub, Name, _),
-                                    \+ metta_symbol_writable(Name).
+metta_unwritable_list_tail([], _) :- !, fail.
+metta_unwritable_list_tail([Head|Tail], Bad) :- !,
+    (   metta_unwritable_walk(Head, Bad)
+    ->  true
+    ;   metta_unwritable_list_tail(Tail, Bad)
+    ).
+metta_unwritable_list_tail(Bad, Bad).
+
+metta_text_writable(Term) :-
+    (   metta_unwritable_symbol(Term, Bad)
+    ->  metta_refuse_text(Bad)
+    ;   true
+    ).
+
+metta_refuse_text(Bad) :-
+    throw(error(metta_unwritable_text(Bad),
+                context(swrite/2,
+                        'printed form would read back as a different value'))).
+
+prolog:error_message(metta_unwritable_text(Bad)) -->
+    [ 'cannot write ~p as MeTTa text because its printed form would read back as a different value'-[Bad] ].
 
 %Just string literal handling from here-on:
 string_lit(S) --> "\"", string_chars(Cs), "\"", { string_codes(S, Cs) }.

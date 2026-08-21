@@ -57,7 +57,9 @@
 %       cross as text", metta_unwritable_symbol/2, rather than a second copy of
 %       the rule kept here. A term the service passes and the round trip loses
 %       is a defect in the service, and that is how the non-finite float
-%       finding surfaced [tested: parser_number_text].
+%       finding surfaced; the symbol law treats swrite/2's explicit refusal as
+%       the negative half of that contract [tested: parser_number_text,
+%       property_lane_laws; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 % Decides:
 %     - the gate seed is 20260819 and the gate runs 100 cases per law, which is
 %       quickcheck's own default. Widening locally is
@@ -505,7 +507,9 @@ property_a_quoted_spelling_can_read_back :-
     \+ metta_symbol_writable('%""').
 
 property_symbol_reads_back(Spelling) :-
-    swrite([holds, Spelling], Text),
+    catch(swrite([holds, Spelling], Text),
+          error(metta_unwritable_text(_), _),
+          fail),
     catch(parse_metta_source(Text, Forms), _, fail),
     Forms = [parsed(_, _, Back)],
     Back == [holds, Spelling].

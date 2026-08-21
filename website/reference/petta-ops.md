@@ -9,6 +9,10 @@ Source: `bindings/python/petta/ops.py`.
 > Guarantees:
 >   - registration distinguishes a MeTTa function name from its declaration
 >     space [tested test_public_context_types_are_distinct]
+>   - registration asks the engine grammar whether the requested name reads as
+>     one symbol and refuses before reflecting or registering anything [tested:
+>     test_register_op_refuses_a_name_metta_cannot_read;
+>     commit=235b35cc6a3e7b61325c7c2648e4a33f43edd93a]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

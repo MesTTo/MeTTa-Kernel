@@ -10,6 +10,10 @@
 %   the MORK bridge splits dumps on newlines, and a raw newline inside a
 %   string is what corrupted them.
 %
+%   Writer entry points accept only the inverse reader domain. Values that
+%   would be renamed or structurally changed are refused before any text is
+%   returned [tested: parser_refuses_non_metta; commit=53686aed41e7ff02de69052198afdb537536cbdb].
+%
 %   Run: swipl -g run_tests -t halt tests/prolog/parser.plt
 % Open Obligations:
 %   To Do: None
@@ -386,7 +390,9 @@ symbol_spelling(nil).            symbol_spelling('tab\there').
 %tracks a string state sread/2 never sees, and a quote inside a symbol
 %swallowed the rest of the form there while sread/2 read it back intact.
 reads_back_the_same(Symbol) :-
-    swrite([holds, Symbol], Text),
+    catch(swrite([holds, Symbol], Text),
+          error(metta_unwritable_text(_), _),
+          fail),
     catch(parse_metta_source(Text, Forms), _, fail),
     Forms = [parsed(_, _, Back)],
     Back == [holds, Symbol].
@@ -424,13 +430,11 @@ test(a_writable_term_reports_nothing) :-
 
 :- begin_tests(parser_number_text).
 
-test(a_value_with_no_text_form_reads_back_as_a_symbol,
-     [forall(member(Expression, [inf, -inf, nan, 1 rdiv 3]))]) :-
+test(a_value_with_no_text_form_is_refused_by_the_writer,
+     [forall(member(Expression, [inf, -inf, nan, 1 rdiv 3])),
+      throws(error(metta_unwritable_text(_), _))]) :-
     Number is Expression,
-    swrite(Number, Text),
-    sread(Text, Back),
-    atom(Back),
-    atom_string(Back, Text).
+    swrite(Number, _).
 
 test(the_seam_reports_a_value_with_no_text_form,
      [forall(member(Expression, [inf, -inf, nan, 1 rdiv 3]))]) :-
@@ -619,19 +623,18 @@ test(a_read_infinity_survives_further_arithmetic) :-
 % sides, which is why the writability refusal below stays.
 :- begin_tests(parser_nonfinite_print).
 
-test(printed_nonfinite_floats_spell_inf_minus_inf_and_nan,
+test(the_numeric_formatter_spells_inf_minus_inf_and_nan,
      [forall(member(Value-Text, [inf-"inf", (-inf)-"-inf", nan-"NaN"]))]) :-
     Float is Value,
-    swrite(Float, Printed),
+    metta_float_codes(Float, Codes),
+    string_codes(Printed, Codes),
     Printed == Text.
 
-test(a_printed_nonfinite_reads_back_as_a_symbol_so_the_seam_refuses,
-     [forall(member(Value-Symbol, [inf-inf, (-inf)-'-inf', nan-'NaN']))]) :-
+test(a_nonfinite_is_refused_before_it_can_read_back_as_a_symbol,
+     [forall(member(Value, [inf, -inf, nan])),
+      throws(error(metta_unwritable_text(_), _))]) :-
     Float is Value,
-    swrite(Float, Printed),
-    sread(Printed, Read),
-    Read == Symbol,
-    \+ metta_number_writable(Float).
+    swrite(Float, _).
 
 test(finite_floats_keep_the_grammar_spelling,
      [forall(member(Float, [0.0, -0.0, 2.5, 1.0e10, 1.5e-10]))]) :-
@@ -702,36 +705,67 @@ with_console_input(Source, Forms) :-
 
 :- end_tests(parser_commands).
 
-:- begin_tests(parser_writes_what_is_not_metta).
+:- begin_tests(parser_refuses_non_metta).
 
-%The writer's last three clauses are the three ways of not being a MeTTa term,
-%and each one used to be able to take the whole run down or say nothing useful.
+%A refusal at the writer is the only injective answer for a host value with no
+%MeTTa spelling. Returning display text would silently turn it into a
+%different term at the next reader.
 
 %=../2 refuses a zero-arity compound: it raises `compound_non_zero_arity'
 %rather than failing, and the writer had an empty-argument branch it could
 %never reach. The raise escaped the writer and killed the program, which is how
 %`!(py-atom "()")` printed nothing at all and ended the run, janus encoding
 %Python's empty tuple as exactly this term.
-test(an_empty_compound_prints) :-
+test(an_empty_compound_is_refused,
+     [throws(error(metta_unwritable_text(_), _))]) :-
     Empty = -(),
     assertion(compound(Empty)),
     assertion(\+ catch(Empty =.. _, _, fail)),
-    swrite(Empty, Text),
-    assertion(string(Text)).
+    swrite(Empty, _).
 
-%And a non-empty one still writes as it did.
-test(a_compound_prints_as_a_form) :-
-    swrite(foo(a, 1), Text),
-    assertion(Text == "(foo a 1)").
+%A Janus tuple used to become Python syntax: `(1, 2)`, which the reader sees
+%as the symbol `1,` beside the number 2.
+test(a_janus_tuple_is_refused,
+     [throws(error(metta_unwritable_text(_), _))]) :-
+    swrite(1-2, _).
 
-%A term that is neither a MeTTa term nor a compound writes as its own text
-%rather than failing. The writer is never the thing that fails, so a value
-%whose provider is not loaded still prints something.
-test(a_value_with_no_provider_still_prints) :-
+test(a_non_list_compound_is_refused,
+     [throws(error(metta_unwritable_text(_), _))]) :-
+    swrite(foo(a, 1), _).
+
+test(an_improper_list_is_refused,
+     [throws(error(metta_unwritable_text(_), _))]) :-
+    swrite([a|b], _).
+
+%A MeTTa string remains inside the inverse domain.
+test(a_metta_string_still_prints) :-
     swrite("a string", Text),
     assertion(Text == "\"a string\"").
 
-:- end_tests(parser_writes_what_is_not_metta).
+:- end_tests(parser_refuses_non_metta).
+
+:- begin_tests(parser_display).
+
+%Display is intentionally not a serialization claim. It is the presentation
+%path for repr and consoles, so ordinary Prolog compounds keep a readable
+%shape even though the strict writer refuses them.
+test(a_compound_keeps_a_presentation_shape) :-
+    sdisplay(foo(a, 1), Text),
+    assertion(Text == "(foo a 1)").
+
+test(a_zero_arity_compound_keeps_a_presentation_shape) :-
+    Empty = -(),
+    sdisplay(Empty, Text),
+    assertion(Text == "()").
+
+test(an_unsafe_symbol_can_be_shown_but_not_serialized) :-
+    sdisplay('has space', Text),
+    assertion(Text == "has space"),
+    assertion(\+ catch(swrite('has space', _),
+                         error(metta_unwritable_text(_), _),
+                         fail)).
+
+:- end_tests(parser_display).
 
 :- begin_tests(parser_pretty_printing).
 

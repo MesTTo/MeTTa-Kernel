@@ -5,9 +5,12 @@
 %   - argv carries `--file <path>`, and the engine is already consulted.
 % Guarantees:
 %   - one `LEATTA-ANSWER ` line per RUNNABLE form, in source order, holding that
-%     form's answers written as MeTTa. A form with no answers prints an empty
-%     group rather than nothing, because "no answers" is an observation the
-%     arbiter records as `[]` and dropping it would misalign every line after it.
+%     form's answers in the engine's display spelling. A form with no answers
+%     prints an empty group rather than nothing, because "no answers" is an
+%     observation the arbiter records as `[]` and dropping it would misalign
+%     every line after it [tested:
+%     test_a_prelude_derived_form_matches_its_fused_twin_on_the_corpus;
+%     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 %   - a raise prints `LEATTA-ERROR ` and stops, rather than being mistaken for
 %     an empty run.
 %   - reader variable names carried with collected answers are rendered by the
@@ -31,7 +34,7 @@ main :-
     ),
     catch(( load_metta_source_groups(File, '&self', Groups),
             forall(member(Group, Groups),
-                   ( swrite_answer_group(Group, Written),
+                   ( sdisplay_answer_group(Group, Written),
                      format("LEATTA-ANSWER ~w~n", [Written]) )) ),
           Error,
           report_error(Error)),
