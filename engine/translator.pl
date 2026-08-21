@@ -1181,7 +1181,7 @@ dispatch_any_head_matches(Module, Fun, Args, _) :-
     % copied an entire remaining list for each recursive step even though an
     % equation head decides from its outer constructors, making map/fold over
     % N elements quadratic.
-    % [measured: 4.10 seconds; command=/usr/bin/time -f 'hol_elapsed=%e maxrss=%M' timeout 300s sh run.sh --silent examples/performance/holbenchmark.metta; fixture=examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+    % [measured: 2026-08-21, 4.10 seconds; command=/usr/bin/time -f 'hol_elapsed=%e maxrss=%M' timeout 300s sh run.sh --silent examples/performance/holbenchmark.metta; fixture=examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
     unifiable(Head0, Args, _),
     !.
 dispatch_any_head_matches(Module, _, _, Goal) :-
