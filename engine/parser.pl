@@ -196,6 +196,16 @@ sdisplay(Term, String) :-
     phrase(sdisplay_numbered(Printable), Codes),
     string_codes(String, Codes).
 
+%Present one answer with the reader's Name-Var pairs, the display twin of
+%swrite_with_names/3: same identity-preserving numbering, no round-trip
+%gate, because an answer's text is presentation beside its wire form and
+%must render host-only values and non-finite floats the way the command
+%line's sdisplay/2 answers already do.
+sdisplay_with_names(Term, Names, String) :-
+    named_print_term(Term, Names, Printable),
+    phrase(sdisplay_numbered(Printable), Codes),
+    string_codes(String, Codes).
+
 %Print one answer with the reader's Name-Var pairs. Term and Names are copied
 %as one template before numbering, the same identity-preserving shape findall
 %uses for runnable answers. The source term and any attributed constraints on

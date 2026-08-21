@@ -683,6 +683,7 @@ ext_point_kind(swrite/2, service).
 %or extension uses this only where lossless re-reading is not the contract
 %[tested: every_seam_declares_one_kind, parser_display; commit=53686aed41e7ff02de69052198afdb537536cbdb].
 ext_point_kind(sdisplay/2, service).
+ext_point_kind(sdisplay_with_names/3, service).
 ext_point_kind(sread/2, service).
 %Moved from the host_service list on 2026-08-20: the host bindings read
 %source through metta_host_run_source/4 and its siblings now, and the
