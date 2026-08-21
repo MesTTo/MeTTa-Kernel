@@ -14,9 +14,11 @@
 !(import! &self (library lib_constraints))
 
 ;Both take their constraint AS WRITTEN. Evaluated first, `(= (* 2 $x) 1)`
-;would run `(* 2 $x)` as ordinary arithmetic and raise
-;`Arguments are not sufficiently instantiated`, and a constraint over an
-;unbound variable is the whole point of a constraint.
+;would run `(* 2 $x)` as ordinary arithmetic, which solves for ONE unknown and
+;refuses two by name, and 1/2 is not an integer for CLP(FD) to find either. A
+;constraint over an unbound variable is the whole point of a constraint, and
+;examples/basics/relational_arithmetic.metta has where the ordinary operators
+;stop.
 
 ;------------------------------------------------------------------ CLP(Q)
 ;Exact rationals. clpfd has no answer to this at all, because 1/2 is not an

@@ -609,6 +609,21 @@ are `append/3` and `member/2` under MeTTa names, the `#` family throughout,
 and every name lent to MeTTa from SWI (`msort`, `append`, `sort`, `maplist`,
 `length`), which under that name IS the Prolog predicate.
 
+Ordinary `+`, `-`, `*` and `/` are relational too, which is easy to miss
+because they compute forwards. Each solves for ONE unbound slot among
+integers, so `(= (double $x) (* 2 $x))` reads backwards for free and
+`!(let 10 (double $x) $x)` answers `5`; a pair no integer satisfies FAILS
+rather than erroring, so `(let 7 (double $x) $x)` answers nothing. Past one
+unknown the rearrangement becomes a constraint: the engine posts it to CLP(FD)
+and labels what propagation leaves, so `!(collapse (let 25 (* $x $x) $x))`
+answers `(-5 5)`. A domain the constraint leaves unbounded is refused BY NAME,
+because deciding a polynomial equation over the integers is undecidable
+(Hilbert's tenth problem) and labeling needs a finite domain. Evaluation is
+inside-out, so a composed backward query reaches its inner operation with two
+unknowns and refuses; the `#` operators POST rather than solve and compose
+across several operations, which is what they are for.
+`examples/basics/relational_arithmetic.metta` runs all of it.
+
 32 libraries load with `!(import! &self (library lib_x))`: `lib_builtin_types`,
 `lib_combinatorics`, `lib_conformance`, `lib_constraints`, `lib_crypto`,
 `lib_datastructures`, `lib_datetime`, `lib_derived`, `lib_doc`, `lib_file`,

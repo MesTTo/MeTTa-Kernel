@@ -26,7 +26,7 @@
 ;
 ;Atom for the PARAMETER: a console's input arrives as WRITTEN. Without it the
 ;argument is evaluated on the way in, so (= (f $x) (+ $x 1)) runs its own body
-;with $x unbound and answers "+: Arguments are not sufficiently instantiated"
+;with $x unbound and refuses with "+ ran backwards with more than one unknown"
 ;instead of being stored.
 (: console-step (-> Atom %Undefined%))
 (= (console-step $form)

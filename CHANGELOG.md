@@ -15,6 +15,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `+`, `-`, `*` and `/` now solve past their single-unknown mode. Each already
+  inverted one unbound slot among integers, so `(= (double $x) (* 2 $x))` read
+  backwards and `!(let 10 (double $x) $x)` answered `5`; that fragment is now
+  documented in `examples/basics/relational_arithmetic.metta`. Past one
+  unknown the engine posts the relation to CLP(FD) and labels what
+  propagation leaves, so `!(collapse (let 25 (* $x $x) $x))` answers `(-5 5)`
+  and `!(collapse (let 25 (* $x $y) ($x $y)))` answers every divisor pair. A
+  domain the constraint leaves unbounded, and every backward query outside the
+  integer relations, now refuses with a named reason instead of SWI's bare
+  `Arguments are not sufficiently instantiated`.
 - SQLite table bridges now honor per-context `image` declarations. The
   shipped example maps a `BLOB` column to a live `Blob` handle under
   `opaque`, lets a lazy path read one byte without projecting the payload,

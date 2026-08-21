@@ -260,7 +260,9 @@ test(compound_partial_key_has_stable_anonymous_variables,
                   'repro4_variant_normalization.metta', _),
               Error,
               true)),
-    Error = error(instantiation_error, _),
+    %The fixture's (+ $y $z) leaves the addend and the result both unbound,
+    %which the arithmetic refusal names: two unknowns, no finite domain.
+    Error = error(petta_unsolved_arithmetic('+', unbounded_domain), _),
     %The subject here is the STABLE `_` in the variant key, not the
     %lambda's index: boot-time compiles (the engine prelude's own foldl
     %lambda among them) advance the shared sequence before this file
