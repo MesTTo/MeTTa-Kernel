@@ -266,6 +266,35 @@ by name, as it refuses a `translatePredicate` or `call` whose shape it cannot
 compile. Both used to be silent, answering an unbound variable or a data list
 named after the form.
 
+### When a rule declines
+
+A rule's **body is its condition**. A clause applies at a call when its head
+matches *and* its body produces an expansion. A body with no answer declines,
+the next clause is tried, and if no clause applies the whole rule declines and
+the call carries on to ordinary dispatch. So a rule is a conditional rewrite
+rule, the way a CHR rule with a guard or a Haskell equation with guards is: the
+head says which calls it is *about*, and the body decides whether it *applies*.
+
+```metta
+(: pick (-> Atom %Undefined%))
+(= (pick a) (empty))
+(= (pick $x) (noeval (picked $x)))
+!(add-translator-rule! pick)
+```
+
+`(pick a)` compiles to `(picked a)`, through the second equation, because the
+first equation's body has no answer for `a`.
+
+Two things follow. A rule cannot instantiate the call it was asked about: a
+head shape the call does not have, or a body goal that would bind one of the
+call's variables, makes the clause decline rather than narrow the equation the
+call sits in. And the first clause that applies supplies the expansion, so a
+rule is deterministic where the plain function of the same equations would
+answer every way; when two clauses both apply, the order they were written in
+decides, which is what `translator_confluence.pl` reports on.
+
+`examples/translation/translatorrule_guard.metta` runs all of it.
+
 ## 2. Prolog grounded predicates: new primitives, native speed
 
 A predicate follows the compiled calling convention, inputs then one output,

@@ -19,24 +19,29 @@
 %     precondition. It is also why the analysis reports a bounded search that
 %     missed as `unknown` and never as a negative result.
 %
-%     Which side of the decidability line the rule set is on TODAY: a
-%     translator rule is an ordinary MeTTa equation, whether it applies is
-%     decided by matching its head, and the extracted system is therefore
-%     UNCONDITIONAL and inside the fragment Knuth and Bendix decide. What the
-%     extraction does NOT model is the engine's strategy on top of that
-%     relation: a rule whose body has no answer is skipped and the next clause
-%     is tried, measured 2026-08-19 with (= (m3 a) (helper zzz)) ahead of
-%     (= (m3 $x) (quote two)) and helper defined only at b, which answers two.
-%     So the branch the compiler takes is the first alternative whose body
-%     succeeds, not simply the first; where every body succeeds, assertion
-%     order alone decides.
+%     Which side of the decidability line the rule set is on, settled
+%     2026-08-21: EVERY translator rule is a CONDITIONAL rewrite rule, because
+%     a rule's BODY is its condition. A clause applies when its head matches
+%     and its body produces an expansion; a body with no answer declines and
+%     the next clause is tried, and if no clause applies the rule declines and
+%     the call goes to ordinary dispatch. Policy-free reproduction:
+%     (= (m5 a) (empty)) ahead of (= (m5 $x) (noeval two)) compiles
+%     (= (usem5) (m5 a)) to the fact usem5(two), and the first equation on its
+%     own compiles (= (usem6) (m6 a)) to the call usem6(A) :- m6(a, A). So the
+%     branch the compiler takes is the first alternative whose body succeeds,
+%     not simply the first; where every body succeeds, assertion order alone
+%     decides.
 %
-%     Nothing here survives P2.11, which makes that skip a first-class REFUSAL
-%     with its own words. A rule that may decline is a CONDITIONAL rule, and
-%     confluence of terminating conditional systems is undecidable in general,
-%     so a guarded rule set has to be PROVED confluent rather than decided and
-%     this tool has to say which rules it can still answer for. Said before
-%     P2.11 lands, on purpose.
+%     This report extracts the UNCONDITIONAL system from the rule heads, which
+%     is the system Knuth and Bendix decide. Confluence of terminating
+%     CONDITIONAL systems is undecidable in general, so that verdict is a
+%     PROOF OBLIGATION about the rules as they actually run, discharged
+%     exactly where every rule's body answers. The route that reaches the rest
+%     is the arbiter's extended conditional critical pairs
+%     [source 2026-08-21: LeaTTa MeTTaILProofs/ConditionalCP.lean, after
+%     Avenhaus-Loria-Saenz 1994 and Lucas JLAMP 2024], and P2.11's refusal
+%     with its own words is one more way for a condition to fail rather than a
+%     change of fragment.
 % Assumes:
 %     - the working directory is tests/prolog, which is where check.sh runs
 %       every Prolog lane from.
@@ -668,13 +673,21 @@ print_decidable_fragment :-
             rewrite systems, by Knuth and Bendix (1970), since such a system \c
             has finitely many critical pairs and each one's joinability \c
             terminates.~n"),
-    format("  today's translator rules are UNCONDITIONAL: a rule is an \c
-            ordinary MeTTa equation and whether it applies is decided by \c
-            matching its head, so this rule set sits inside that fragment.~n"),
-    format("  a guarded rule, which P2.11 introduces, is a CONDITIONAL rule, \c
-            and confluence of terminating conditional systems is undecidable \c
-            in general; a guarded rule set has to be PROVED confluent rather \c
-            than decided.~n").
+    format("  every translator rule is a CONDITIONAL rewrite rule, because a \c
+            rule's BODY is its condition: a clause applies when its head \c
+            matches and its body produces an expansion, and a body with no \c
+            answer declines, after which the next clause and then ordinary \c
+            dispatch are tried. Measured 2026-08-21: (= (m5 a) (empty)) ahead \c
+            of (= (m5 $x) (noeval two)) compiles (= (usem5) (m5 a)) to the \c
+            fact usem5(two).~n"),
+    format("  confluence of terminating conditional systems is undecidable in \c
+            general, so the verdict below is a decision about the \c
+            UNCONDITIONAL system extracted from the rule heads and a PROOF \c
+            OBLIGATION about the conditional system that actually runs: it \c
+            transfers exactly where every rule's body answers. The route that \c
+            reaches the rest is the arbiter's extended conditional critical \c
+            pairs, LeaTTa MeTTaILProofs/ConditionalCP.lean, after \c
+            Avenhaus-Loria-Saenz (1994) and Lucas (JLAMP 2024).~n").
 
 %%%% The selftest: does the analysis still discriminate? %%%%
 %

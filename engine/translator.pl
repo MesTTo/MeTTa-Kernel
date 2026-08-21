@@ -1555,6 +1555,40 @@ translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
 %failed to translate and the message named process_form/4
 %[tested: translator_derived_forms].
 %
+%EVERY TRANSLATOR RULE IS A CONDITIONAL REWRITE RULE, because a rule's BODY is
+%its condition. A clause applies at a call when its head matches AND its body
+%produces an expansion; a body with no answer declines, the next clause is
+%tried, and if no clause applies the whole rule declines and the call goes to
+%ordinary dispatch. The first clause that applies wins, so a rule is
+%deterministic where the function of the same equations would answer every
+%way. Measured 2026-08-21, policy-free: `(= (m5 a) (empty))` ahead of
+%`(= (m5 $x) (noeval two))` compiles `(= (usem5) (m5 a))` to the fact
+%`usem5(two)`, and the same first equation alone compiles
+%`(= (usem6) (m6 a))` to the call `usem6(A) :- m6(a, A)`.
+%
+%That is the settled ruling and not an accident of call/1, and it is what
+%every system this rule set is modelled on does:
+%
+%  - the arbiter's own conditional metatheory defines an oriented conditional
+%    rewrite rule as one that "fires when its left side matches and each
+%    condition `s ~> t` holds", following Avenhaus-Loria-Saenz 1994 and Lucas
+%    JLAMP 2024 [source 2026-08-21: LeaTTa
+%    MeTTaILProofs/ConditionalCP.lean, module header];
+%  - CHR: "If the guard succeeds, the rule applies. Otherwise the next rule is
+%    tried" [source 2026-08-21: sicstus.sics.se CHR, "How CHR Work"];
+%  - Haskell: "If none of the guarded expressions for a given alternative
+%    succeed, then matching continues with the next alternative"
+%    [source 2026-08-21: Haskell 2010 Language Report, section 3.17];
+%  - Rw-Prolog writes a rule as `Pattern := Template :- Conditions`, so a
+%    condition that fails backtracks into the next rule
+%    [source 2026-08-21: ai-tmp/rw-prolog/src/rewrite.pl, redex/3].
+%
+%The consequence for the confluence machinery is that the unconditional
+%critical-pair verdict is a PROOF OBLIGATION about this rule set rather than a
+%decision about it, which tests/prolog/translator_confluence.pl now says with
+%every report [tested: test_an_answerless_translator_rule_body_behaves_as_ruled;
+%commit=WORKTREE].
+%
 %A GUARD THAT BINDS A PATTERN VARIABLE CANNOT CREATE A MATCH, which is why the
 %call runs on a COPY and the copy is re-checked against the call afterwards.
 %Prolog's call/1 UNIFIES, and unification runs both ways: the rule's guard,
