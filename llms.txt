@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 16 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 21,183 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
+| `engine/*.pl` | 21,194 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | || `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
 | `backends/*/decider.pl` | globbed at boot; each integration's decider decides whether its own artefact is present | |
@@ -374,7 +374,7 @@ for effect and every handler runs; an OWNERSHIP seam is claimed by the first
 handler that succeeds and declined by failing; a DECLARATION is a fact table read
 as data; a SERVICE runs the other way, a predicate the ENGINE defines that an
 extension may CALL. The service list is the whole permitted inward surface
-(`swrite/2`, `sdisplay/2`, `sread/2`, `metta_symbol_writable/1`, `metta_unwritable_symbol/2`,
+(`swrite/2`, `sdisplay/2`, `sdisplay_with_names/3`, `sread/2`, `metta_symbol_writable/1`, `metta_unwritable_symbol/2`,
 `metta_reader_token_class/3`, `metta_reader_token_source/2`,
 `throw_metta_type_error/3`, `rethrow_metta_operation_error/2`,
 `current_metta_module/1`, `space_module/2`, `metta_module_space/2`,
