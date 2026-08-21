@@ -552,11 +552,71 @@ No docstring is defined.
 async def declare_annotations(
     self,
     name: str,
-    semiring: Literal['bool', 'bag', 'set', 'ranked', 'prob', 'prov'],
+    algebra: str,
+    *,
+    capabilities: Sequence[str] = (),
 ) -> Atom:
 ```
 
 No docstring is defined.
+
+### `AsyncMeTTa.declare_algebra`
+
+```python
+async def declare_algebra(
+    self,
+    name: str,
+    *,
+    combine: str,
+    extend: str,
+    zero: Any,
+    one: Any,
+    laws: Sequence[str] = (),
+    carrier: Sequence[Any] = (),
+    requires: Sequence[str] = (),
+) -> Atom:
+```
+
+> Declare one checked value algebra on the owning engine thread.
+
+### `AsyncMeTTa.add_tagged_fact`
+
+```python
+async def add_tagged_fact(self, tag: Any, proposition: Any) -> Atom:
+```
+
+> Store one ordinary tagged fact on the owning engine thread.
+
+### `AsyncMeTTa.add_tagged_rule`
+
+```python
+async def add_tagged_rule(self, tag: Any, head: Any, *premises: Any) -> Atom:
+```
+
+> Store one algebra-threaded ordinary rule on the owning engine thread.
+
+### `AsyncMeTTa.evaluate_algebra`
+
+```python
+async def evaluate_algebra(self, query: str | Atom, *, algebra: str, max_rounds: int = 64) -> Any:
+```
+
+> Evaluate the general tagged-rule form on the owning engine thread.
+
+### `AsyncMeTTa.sample_rates`
+
+```python
+async def sample_rates(
+    self,
+    query: str | Atom,
+    *,
+    algebra: str,
+    draws: int,
+    seed: int,
+) -> tuple[Atom, ...]:
+```
+
+> Draw from declared rates on the owning engine thread.
 
 ### `AsyncMeTTa.declare_capacity`
 

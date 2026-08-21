@@ -3053,24 +3053,73 @@ petta_contract_fact(Args) :-
 metta_cache_unchecked(Name) :-
     petta_contract_fact([cache, Name, unchecked]).
 
-%(annotations Ctx Semiring) declares the semiring a context's answer
-%annotations live in; silence is bool, the default at which everything
-%vanishes. A context is ordered when its declared semiring carries an
-%order, which is what (top k ...) needs; bool, bag and set do not.
-petta_annotations(Ctx, Semiring) :-
-    findall(Declared, petta_contract_fact([annotations, Ctx, Declared]),
-            Declarations),
-    sort(Declarations, Distinct),
-    (   Distinct == []
-    ->  Semiring = bool
-    ;   Distinct = [Semiring]
-    ->  true
-    ;   Distinct = [First, Second|_],
-        throw(error(petta_contract_conflict(Ctx, [annotations, Ctx, First],
-                                            [annotations, Ctx, Second],
-                                            [annotations, Ctx, Semiring]),
-                    none))
+%(annotations Ctx Algebra [Capabilities]) declares the value algebra a
+%context's answer annotations live in; silence is the shipped bool algebra.
+%Every algebra is an ordinary catalog row naming combine, extend, zero, one,
+%checked laws, a finite checking carrier when one exists, and requirements.
+%The old semiring names are shipped rows in that same table rather than cases
+%in this predicate [tested:
+%test_a_declared_semiring_quadruple_serves_annotations_like_a_builtin_one;
+%commit=7ae3103aee78e947d23c5872e3db23c28ad7fe1c].
+petta_annotations(Ctx, Algebra) :-
+    (   petta_annotations_cache(Ctx, Cached)
+    ->  Algebra = Cached
+    ;   petta_annotations_fresh(Ctx, Algebra)
     ).
+
+petta_annotations_fresh(Ctx, Algebra) :-
+    findall(Declared, petta_contract_fact([annotations, Ctx, Declared]),
+            PlainDeclarations),
+    (   PlainDeclarations == []
+    ->  findall(Declared,
+                petta_contract_fact([annotations, Ctx, Declared, _]),
+                Declarations)
+    ;   Declarations = PlainDeclarations
+    ),
+    sort(Declarations, Distinct),
+    petta_annotations_resolved(Distinct, Ctx, Resolved),
+    assertz(petta_annotations_cache(Ctx, Resolved)),
+    Algebra = Resolved.
+
+petta_annotations_resolved([], _, bool) :- !.
+petta_annotations_resolved([Algebra], _, Algebra) :- !.
+petta_annotations_resolved([First, Second|Rest], Ctx, _) :-
+    throw(error(petta_contract_conflict(Ctx, [annotations, Ctx, First],
+                                        [annotations, Ctx, Second],
+                                        [annotations, Ctx,
+                                         [First, Second|Rest]]),
+                none)).
+
+petta_algebra_descriptor(Name, Combine, Extend, Zero, One, Laws,
+                         Carrier, Requires) :-
+    (   petta_algebra_descriptor_cache(Name, CachedCombine, CachedExtend,
+                                       CachedZero, CachedOne, CachedLaws,
+                                       CachedCarrier, CachedRequires)
+    ->  Combine = CachedCombine,
+        Extend = CachedExtend,
+        Zero = CachedZero,
+        One = CachedOne,
+        Laws = CachedLaws,
+        Carrier = CachedCarrier,
+        Requires = CachedRequires
+    ;   petta_algebra_descriptor_fresh(Name, Combine, Extend, Zero, One,
+                                       Laws, Carrier, Requires)
+    ).
+
+petta_algebra_descriptor_fresh(Name, Combine, Extend, Zero, One, Laws,
+                               Carrier, Requires) :-
+    petta_contract_fact([algebra, Name, Combine, Extend, Zero, One,
+                         Laws, Carrier, Requires]),
+    assertz(petta_algebra_descriptor_cache(Name, Combine, Extend, Zero, One,
+                                           Laws, Carrier, Requires)).
+
+petta_algebra_one(Ctx, One) :-
+    petta_annotations(Ctx, Algebra),
+    petta_algebra_descriptor(Algebra, _, _, _, One, _, _, _).
+
+petta_algebra_law(Algebra, Law) :-
+    petta_algebra_descriptor(Algebra, _, _, _, _, [laws|Laws], _, _),
+    memberchk(Law, Laws).
 
 %Whether the declared semiring carries an order is a CLAIM in the catalog,
 %(claim semiring ranked ordered) and its prob sibling shipped as presets,
@@ -3137,26 +3186,75 @@ prolog:error_message(petta_source_discipline(Ctx, linear)) -->
        repeated for one that re-enumerates'-[Ctx, Ctx] ].
 
 %The last answer's annotation, first-class: rides '$petta_answer_k'
-%backtrackably, default 1, so (let $r (match &s P $r) (pair $r
-%(annotation))) pairs each answer with its own k, a score under ranked
-%and a source term under prov. Reading it OUTSIDE any answer reads the
-%semiring's 1.
+%backtrackably. Outside an answer it reads the current context's DECLARED one,
+%not a numeric engine constant.
 petta_annotation(K) :-
     (   catch(b_getval('$petta_answer_k', K0), _, fail)
     ->  K = K0
-    ;   K = 1
+    ;   current_metta_space(Ctx),
+        petta_algebra_one(Ctx, K)
     ).
 
-%Combine two annotations along a conjunction, in the declared semiring:
-%the polynomial provenance construction's product. Both 1 is the Boolean
-%point and stays 1 without a write.
-petta_k_times(1, K, K) :- !.
-petta_k_times(K, 1, K) :- !.
-petta_k_times(K1, K2, K) :-
-    (   number(K1), number(K2)
-    ->  K is K1 * K2
-    ;   K = [times, K1, K2]
+petta_annotation(Ctx, K) :-
+    (   catch(b_getval('$petta_answer_k', K0), _, fail)
+    ->  K = K0
+    ;   petta_algebra_one(Ctx, K)
     ).
+
+%Extend two annotations along a conjunction by the operation in the catalog.
+%Numeric +/*/min/max use their already-typed engine primitives directly; an
+%arbitrary declared operation goes through ordinary evaluation, so a grounded
+%tensor operation registered from Python is not a separate engine case.
+petta_k_extend(Ctx, K1, K2, K) :-
+    petta_annotations(Ctx, Algebra),
+    petta_algebra_descriptor(Algebra, _, Extend, _, One, _, _, _),
+    (   K1 == One -> K = K2
+    ;   K2 == One -> K = K1
+    ;   petta_apply_algebra_operation(Algebra, Extend, K1, K2, K)
+    ).
+
+petta_apply_algebra_operation(_, '*', A, B, R) :-
+    number(A), number(B), !,
+    R is A * B.
+petta_apply_algebra_operation(_, '+', A, B, R) :-
+    number(A), number(B), !,
+    R is A + B.
+petta_apply_algebra_operation(_, min, A, B, R) :-
+    number(A), number(B), !,
+    R is min(A, B).
+petta_apply_algebra_operation(_, max, A, B, R) :-
+    number(A), number(B), !,
+    R is max(A, B).
+petta_apply_algebra_operation(Algebra, Operation, A, B, R) :-
+    (   once(eval([Operation, A, B], R0))
+    ->  R = R0
+    ;   throw(error(petta_algebra_operation_failed(Algebra, Operation, A, B),
+                    none))
+    ).
+
+prolog:error_message(petta_algebra_requirement_missing(Ctx, Algebra,
+                                                        Requirement)) -->
+    [ 'algebra_requirement_missing: ~w declares algebra ~w, which requires \c
+       capability ~w'-[Ctx, Algebra, Requirement] ].
+prolog:error_message(petta_amplitude_fragment_refused(Ctx, Requirement)) -->
+    [ 'amplitude_fragment_refused: ~w lacks required finite-fragment \c
+       capability ~w'-[Ctx, Requirement] ].
+prolog:error_message(petta_algebra_operation_failed(Algebra, Operation, A, B)) -->
+    [ 'declared algebra ~w operation ~w answered nothing for (~w, ~w)'-
+      [Algebra, Operation, A, B] ].
+prolog:error_message(petta_algebra_law_unknown(Algebra, Law)) -->
+    [ 'algebra_law_unknown: ~w names unsupported law ~w'-[Algebra, Law] ].
+prolog:error_message(petta_algebra_law_uncheckable(Algebra, Laws, Reason)) -->
+    [ 'algebra_law_uncheckable: ~w names ~w but provides no ~w'-
+      [Algebra, Laws, Reason] ].
+prolog:error_message(petta_algebra_carrier_not_closed(Algebra, Operation,
+                                                       A, B, Result)) -->
+    [ 'algebra_carrier_not_closed: ~w operation ~w maps (~w, ~w) to ~w'-
+      [Algebra, Operation, A, B, Result] ].
+prolog:error_message(petta_algebra_law_violation(Algebra, Law, Inputs,
+                                                  Left, Right)) -->
+    [ 'algebra_law_violation: ~w law ~w fails at ~w: ~w differs from ~w'-
+      [Algebra, Law, Inputs, Left, Right] ].
 
 %%%% explain: the route as atoms (H3) %%%%
 %

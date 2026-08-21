@@ -54,6 +54,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   Integration entry points may declare `PETTA_REQUIRES`; discovery installs
   them in topological order and refuses duplicate names, missing requirements,
   and dependency cycles by name.
+- Declared value algebras name `combine`, `extend`, `zero`, `one`, checked
+  laws, an optional finite checking carrier, and context requirements as one
+  catalog atom. Ordinary `(fact tag proposition)` and `(rule tag head
+  (premises ...))` atoms run through one algebra-agnostic threader. The
+  shipped Boolean, bag, set, ranked, probability, provenance, and budget
+  algebras are data presets. Nonnegative `(rate n)` tags feed reproducible
+  seeded selection without changing unannotated evaluation. A linear algebra
+  refuses a derivation that spends the same stored premise occurrence twice.
+  Exact complex amplitudes interfere only in contexts declaring the finite,
+  contractive, staged fragment; use outside that fence is a named refusal.
+  Grounded tensor tags keep their DLPack identity and autograd graph through
+  multi-rule derivations for direct consumption by `pettorch.MettaModule`.
+  Five pinned Scallop README programs now ship as executable PeTTa witnesses
+  with a feature-to-seam table and explicit filed gaps.
 - A ground expression can name a native space. For example,
   `!(new-space (cache &kb 100))` creates an isolated storage and execution
   context whose exact identifier is returned by `context-space`; equations

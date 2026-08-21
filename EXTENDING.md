@@ -2200,7 +2200,8 @@ both and the query they disagree on.
 | `(on-error <ctx> <shape> keep\|empty\|abort)` | what a provider failure becomes: an `(Error ...)` answer, declared silence, or the abort floor | `declare_on_error` |
 | `(writes <ctx> transactional\|atomic-single\|best-effort)` | whether `(transaction ...)` delegates, refuses, or proceeds by declared acceptance | `declare_writes` |
 | `(context <ctx> closed-world\|open-world)` | whether negation may consult the context at all | `declare_context` |
-| `(annotations <ctx> bool\|bag\|set\|ranked\|prob\|prov)` | the semiring answer annotations live in; `ranked` is what `(top k ...)` consumes, `prov` carries source terms readable via `(annotation)` | `declare_annotations` |
+| `(algebra <name> <combine> <extend> <zero> <one> (laws ...) (carrier ...) (requires ...))` | the operations and checked laws that govern tagged derivations; a finite carrier makes public law claims declaration-time checkable | `declare_algebra` |
+| `(annotations <ctx> <algebra> [(capabilities ...)])` | the declared algebra answer annotations live in; `ranked` is what `(top k ...)` consumes, `prov` carries source terms, and required fragment capabilities are checked before the row lands | `declare_annotations` |
 | `(emits <ctx> depth\|fair\|best-first)` | the context's own emission order; best-first lets `top` push its bound | `declare_emits` |
 | `(merge <pattern> depth\|fair\|best-first)` | how the engine merges one shape's answers ACROSS contexts | `declare_merge` |
 | `(on <ctx> <pattern> <op>)` | a bridge: when a matching atom lands, run `(insert ...)`, `(retract ...)` or `(revise ...)` under the match's bindings | `declare_reaction` |
@@ -2227,6 +2228,7 @@ themselves rows in `&petta`:
 (kind handles symbol pattern (one-of fidelity)     ; a declaration's shape
       (optional (one-of determinism)))
 (claim semiring ranked ordered)                    ; a per-value fact
+(algebra prob + * 0 1 (laws ...) (carrier) (requires))
 (routed-by-shape handles)                          ; entries route by shape
 ```
 

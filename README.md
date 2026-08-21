@@ -383,7 +383,7 @@ bindings for the operand it met, and a space operand routes through the
 engine's own match, which is how `(unify &self (friend $who Alice) $who
 no-friends)` answers each friend. Scored matching is an ordinary
 operation: answer each candidate with the degree as the answer's
-annotation, declare the semiring, and `(top k ...)` orders while
+annotation, declare its value algebra, and `(top k ...)` orders while
 `(annotation)` reads the degree beside its answer. Fuzzy, regex and
 semantic closeness are each a few lines on that surface;
 `bindings/python/examples/reasoning/custom_matchers.py` builds all three.
