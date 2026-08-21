@@ -20,7 +20,7 @@ re-runs them.
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 33 plunit suites over the engine itself | the `plunit` gate lane |
 | `bindings/python/tests/*.py` | 152 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
-| `bindings/python/tests/twins/**/*.py` | 18 Python twins of `examples/` programs, each written with no MeTTa source text, answering alpha-equal to its original and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
+| `bindings/python/tests/twins/**/*.py` | 69 Python twins of `examples/` programs, covering `basics/`, `control/` and `types/` whole, each written with no MeTTa source text, answering alpha-equal to its original and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
