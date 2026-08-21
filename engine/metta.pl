@@ -154,7 +154,7 @@
 %     arbiter's error atom for a non-count, and the HE spellings type-check
 %     and interpreter stay accepted, NOT enforced
 %     [tested: test_pragma_validates_values_and_refuses_only_unknown_keys,
-%     interpreter_pragmas; commit=WORKTREE].
+%     interpreter_pragmas; commit=e8270f8551083f236ce5134ca299adf5347d6898].
 %   - petta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
 %     reading the message [tested 2026-08-19:

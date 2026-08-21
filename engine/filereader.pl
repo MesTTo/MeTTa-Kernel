@@ -1291,7 +1291,7 @@ recompile_function_in_module(Module, G) :-
              %dependent through here rather than through compile_metta_equation
              %[measured 2026-08-21: redefining a function the recursive
              %equation mentions dropped petta_fuel_step/2 from the rebuilt
-             %clause body; commit=WORKTREE].
+             %clause body; commit=e8270f8551083f236ce5134ca299adf5347d6898].
              petta_instrument_recursive_clause(Fresh, RawClause, Clause),
              assertz(Module:Clause, NewRef),
              record_source_assertion(NewRef),

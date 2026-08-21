@@ -19,7 +19,7 @@
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 %   - A change-driven recompile keeps the fuel wrapper on a recursive clause
 %     [tested: support_graph:a_recompiled_recursive_clause_keeps_its_fuel_wrapper;
-%     commit=WORKTREE].
+%     commit=e8270f8551083f236ce5134ca299adf5347d6898].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
