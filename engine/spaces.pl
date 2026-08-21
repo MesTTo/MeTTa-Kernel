@@ -46,11 +46,11 @@
 %     test_numeric_types_are_published_from_the_catalog].
 %   - Six dispatch axes publish one documented default and accept at most one
 %     validated per-function override for each axis
-%     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=WORKTREE].
+%     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - Effective dispatch values are cached by function and axis, validated
 %     against their catalog clause reference, and forgotten at every policy
 %     mutation [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted,
-%     examples/performance/holbenchmark.metta; commit=WORKTREE].
+%     examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - The policy catalog publishes exactly one knob and shipped default for
 %     each of the seventeen engine decision axes, and the policy-inventory
 %     gate rejects a closed list that has neither a catalog row nor a strict
@@ -68,7 +68,7 @@
 %   - A second variant-identical type declaration is refused before storage,
 %     including when both copies arrive in one public batch, and the diagnostic
 %     names the first declaration without publishing either batched copy
-%     [tested: test_a_duplicate_declaration_names_the_first_one; commit=WORKTREE].
+%     [tested: test_a_duplicate_declaration_names_the_first_one; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - Clearing a native space clears its import life without making wildcard
 %     atom removal touch that life [tested 2026-08-15:
 %     filereader_import_lifecycle].
@@ -86,7 +86,7 @@
 %     compiled before the edit [tested:
 %     test_every_dispatch_axis_is_readable_settable_and_defaulted,
 %     test_a_user_declared_lazy_type_receives_its_argument_unevaluated;
-%     commit=WORKTREE].
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - match_foreign/5 passes options only to a provider that declared
 %     metta_foreign_match/3, and unification and the caller's own bound stay
 %     on this side, so an option cannot change an answer [tested 2026-08-16:

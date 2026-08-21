@@ -8,7 +8,7 @@
 %     whose heads cover their arguments retain the direct compiled path
 %     [tested: translator_derived_forms:trace_form_has_one_compilation,
 %     translator_inplace_annotations:a_non_variable_in_the_annotation_position_stays_structural;
-%     commit=WORKTREE].
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
 %     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].

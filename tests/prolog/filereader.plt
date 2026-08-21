@@ -9,7 +9,7 @@
 %   - The grouped reader records its source contribution and returns one
 %     answer group per runnable form after end-of-source repair
 %     [tested: filereader_source_reload:a_grouped_load_runs_inside_the_source_lifecycle;
-%     commit=WORKTREE].
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

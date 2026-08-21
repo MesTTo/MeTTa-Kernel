@@ -57,7 +57,7 @@
 %   - Grouped source execution enters the same replace, rollback, support
 %     repair, and contribution-recording lifecycle as ordinary file loading
 %     [tested: filereader_source_reload:a_grouped_load_runs_inside_the_source_lifecycle;
-%     commit=WORKTREE].
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - A file that loads again REPLACES what it put in that space rather than
 %     adding to it, reaches any other space its change has made stale, and
 %     says what it withdrew [tested 2026-08-19:

@@ -1,7 +1,7 @@
 ; Purpose: demonstrate time control, enforced pragmas, and relational arithmetic.
 ; Guarantees:
 ;   - every demonstrated pragma changes a live execution bound.
-;   [tested: test_no_pragma_key_is_accepted_and_inert; commit=WORKTREE]
+;   [tested: test_no_pragma_key_is_accepted_and_inert; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 ;
 ;Time control and interpreter pragmas, all core: no import needed.
 ;

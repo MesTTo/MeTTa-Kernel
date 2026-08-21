@@ -3,7 +3,7 @@
 % Guarantees:
 %   - every pragma! key and value is either enforced, an explicit disable, or
 %     refused before it can replace a working setting.
-%     [tested: interpreter_pragmas; commit=WORKTREE]
+%     [tested: interpreter_pragmas; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

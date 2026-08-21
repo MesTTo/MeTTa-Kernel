@@ -4,19 +4,19 @@ closed list from each valid exemption and from the catalog-owned forms.
 Guarantees:
   - a planted unannotated list is reported with its file, line and values
     [tested: test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
-    commit=WORKTREE]
+    commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
   - all four exemption categories pass only with adjacent nonempty reason and
     evidence fields naming an in-range line or existing symbol; missing,
     unknown, stale-line and missing-symbol evidence fail independently
     [tested: tests/check_policy_inventory_selftest.py;
-    commit=WORKTREE]
+    commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
   - multiline member/2 and memberchk/2 lists, arbitrary Literal annotations,
     and Python list/set membership are planted independently; only catalog
     preset terms and generated vocabulary output are excluded [tested:
-    tests/check_policy_inventory_selftest.py; commit=WORKTREE]
+    tests/check_policy_inventory_selftest.py; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
   - algebra validation rejects a missing required law, an undeclared
     semiring claim and a missing consumer seam [tested:
-    tests/check_policy_inventory_selftest.py; commit=WORKTREE]
+    tests/check_policy_inventory_selftest.py; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 Fails when:
   - run against a tree it did not create; every assertion is against a fresh
     temporary fixture with exact findings

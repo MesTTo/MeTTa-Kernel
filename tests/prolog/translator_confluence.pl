@@ -70,7 +70,7 @@
 %       refusing or deferring rule is reported CONDITIONAL rather than given
 %       an unconditional confluence verdict
 %       [tested: test_a_user_typing_rule_participates_like_a_shipped_one;
-%       commit=WORKTREE].
+%       commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 % Decides:
 %     - the joinability search is bounded at 5 rewrite steps per branch. A
 %       compile-time macro that needs more than five steps to reconverge is
@@ -99,7 +99,7 @@
 % criterion for CHR-based type inference, which is the precedent for keeping
 % these rules in this analyzer rather than a disconnected lint
 % [source: Duck, Haemmerle, Sulzmann, "On Termination, Confluence and
-% Consistent CHR-based Type Inference", arXiv:1405.3393; commit=WORKTREE].
+% Consistent CHR-based Type Inference", arXiv:1405.3393; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 rule_family(translator, translator_family_state, print_translator_family).
 rule_family(typing, typing_family_state, print_typing_family).
 

@@ -24,7 +24,7 @@
 %     metta_type_answers, translator_typed_checks].
 %   - reporting observers type the empty expression as unit `(->)` while
 %     internal classifier paths retain their gradual empty-expression result
-%     [tested: test_the_empty_expressions_type_follows_the_arbiters_ruling; commit=WORKTREE].
+%     [tested: test_the_empty_expressions_type_follows_the_arbiters_ruling; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - the include refusal's self/top pair records the arbiter-owned module
 %     bases explicitly, so the inventory's exemption remains checkable
 %     [tested: test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
@@ -33,7 +33,7 @@
 %     the hook door reports its existing stuck state instead of treating the
 %     residual call as a malformed verdict [tested:
 %     hooks:an_unclaimed_request_is_a_stuck_state_that_says_so,
-%     hooks:a_post_stuck_state_undoes_the_write; commit=WORKTREE].
+%     hooks:a_post_stuck_state_undoes_the_write; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - support_graph.pl loads before the specializer and file reader that publish
 %     derived artifact edges [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
@@ -126,7 +126,7 @@
 %     compatibility keys and unknown keys are refused at the write boundary,
 %     max-time requires a positive number, max-inferences requires a positive
 %     integer, and none explicitly disables either bound
-%     [tested: test_no_pragma_key_is_accepted_and_inert; commit=WORKTREE].
+%     [tested: test_no_pragma_key_is_accepted_and_inert; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - petta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
 %     reading the message [tested 2026-08-19:
@@ -469,7 +469,7 @@ metta_error_atom(Operation, Arguments, Reason,
 %the reason its author supplied. The ordinary BadArgType shape remains exact
 %for shipped mismatches; only this user-declared case carries the fifth field
 %[tested: test_a_user_typing_rule_participates_like_a_shipped_one;
-%commit=WORKTREE].
+%commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 metta_bad_argument_error(Operation, Arguments, Error) :-
     \+ metta_call_accepted(Operation, Arguments),
     metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins),
@@ -787,7 +787,7 @@ metta_argument_types_in(Module, Argument, Types) :-
 %same registry a program extends. The wrapper keeps existing callers on the
 %current execution module; module-aware call sites use the explicit form
 %[tested: test_a_user_typing_rule_participates_like_a_shipped_one;
-%commit=WORKTREE].
+%commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 metta_types_match(Left, Right) :-
     current_metta_module(Module),
     metta_types_match_in(Module, Left, Right).
@@ -1881,11 +1881,11 @@ application_arrow_declared_in(Module, [F|_]) :-
 %%Undefined% fallback. Keeping this as a wrapper around the ordinary candidate
 %set preserves that split: argument checks continue to call type_answers/3,
 %and only get-type reads the observer correction
-%[source: LeaTTa@dae62ced23eb0f30a8c2b86583fd09d88fb24ea5 MettaHyperonFull/Minimal/Interpreter.lean:3681-3689,4358-4363,4416-4424; commit=WORKTREE].
+%[source: LeaTTa@dae62ced23eb0f30a8c2b86583fd09d88fb24ea5 MettaHyperonFull/Minimal/Interpreter.lean:3681-3689,4358-4363,4416-4424; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %The pinned executable case is tests/semantics/types-basic/
 %69-unit-type-of-empty-expression.metta in that checkout.
 %The pinned file now agrees and moves the types-basic area from 45/76 to 46/76
-%[measured: 2026-08-21 types-basic 46/76; command=python tests/conformance/leatta.py --engine . --area types-basic --timeout 25 --show 1; fixture=LeaTTa dae62ced23eb0f30a8c2b86583fd09d88fb24ea5; commit=WORKTREE].
+%[measured: 2026-08-21 types-basic 46/76; command=python tests/conformance/leatta.py --engine . --area types-basic --timeout 25 --show 1; fixture=LeaTTa dae62ced23eb0f30a8c2b86583fd09d88fb24ea5; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %Identity, not unification: an unbound subject is not the empty expression.
 %The head-pattern version bound every `(get-type $x)` query to unit and broke
 %the observer's relational surface while the ground P3.10 case stayed green.
@@ -2321,9 +2321,9 @@ get_type_candidate_in(_, X, 'SpaceType') :- petta_space_operand(X).
 %argument count cannot fit a declared arrow, get_function_type/2 produces no
 %candidate and inapplicable_typed_application/2 preserves that empty answer;
 %typing `(Cons 1)` element-wise would mistake a partial application for tuple
-%data [tested: test_an_underapplied_arrow_head_types_as_the_arbiter_does; commit=WORKTREE].
+%data [tested: test_an_underapplied_arrow_head_types_as_the_arbiter_does; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %The two typing areas now agree on 46/76 and 16/20 checkable files
-%[measured: 2026-08-21 types-basic 46/76 and types-meta 16/20; command=python tests/conformance/leatta.py --engine . --area types-basic --timeout 25 --show 1 and python tests/conformance/leatta.py --engine . --area types-meta --timeout 25 --show 1; fixture=LeaTTa dae62ced23eb0f30a8c2b86583fd09d88fb24ea5; commit=WORKTREE].
+%[measured: 2026-08-21 types-basic 46/76 and types-meta 16/20; command=python tests/conformance/leatta.py --engine . --area types-basic --timeout 25 --show 1 and python tests/conformance/leatta.py --engine . --area types-meta --timeout 25 --show 1; fixture=LeaTTa dae62ced23eb0f30a8c2b86583fd09d88fb24ea5; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
 %interpreter, byte-identical across both: `(typed-sym (typed-sym typed-sym))`
 %is `(Number (Number Number))` and `(typed-sym (typed-sym aa))` is
@@ -3667,7 +3667,7 @@ petta_hook_apply(Got, Space, Handler, Term, _, _) :-
 %comparison after every successful fire added two inferences to each claimed
 %write, while this cold route leaves accepted writes unchanged.
 %[tested: hooks:an_unclaimed_request_is_a_stuck_state_that_says_so,
-%hooks:a_post_stuck_state_undoes_the_write; commit=WORKTREE]
+%hooks:a_post_stuck_state_undoes_the_write; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 petta_hook_invalid_verdict(Slot, Got, Space, Handler, Term) :-
     (   Got =@= [Handler, Term]
     ->  throw(error(petta_hook_stuck(Space, Slot, Handler, Term), none))

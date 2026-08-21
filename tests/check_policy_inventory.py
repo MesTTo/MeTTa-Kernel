@@ -9,14 +9,14 @@ Guarantees:
   - the runtime publishes exactly the seventeen required axes, with one row
     per axis and the knob/default pair recorded in POLICY_SEAMS; the algebra
     row also derives and validates each shipped semiring law claim [tested:
-    tests/check_policy_inventory.py; commit=WORKTREE]
+    tests/check_policy_inventory.py; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
   - unannotated Python Literal expressions and list/set membership, plus
     single- or multiline Prolog member/2 and memberchk/2 lists, are reported
     with path, line and values; an exemption is accepted only when immediately
     adjacent and names one of four categories plus a nonempty reason and an
     existing local source line or symbol
     [tested: test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
-    commit=WORKTREE]
+    commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 Fails when:
   - the engine cannot boot, emits non-JSON policy rows, publishes a duplicate,
     missing or extra axis, or an implementation seam no longer exists

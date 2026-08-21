@@ -1,7 +1,7 @@
 ; Purpose: demonstrate constructive negation over equations and constraints.
 ; Guarantees: a missing `penguin` proof is relational failure, selected
 ;   explicitly instead of the P3 residual-call dispatch default.
-; [tested: examples/reasoning/constructive_negation.metta; commit=WORKTREE]
+; [tested: examples/reasoning/constructive_negation.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 !(add-atom &petta (dispatch-policy penguin NoMatchEnum NoMatchFail))
 !(add-atom &petta (dispatch-policy bird NoMatchEnum NoMatchFail))
 !(add-atom &petta (dispatch-policy student NoMatchEnum NoMatchFail))

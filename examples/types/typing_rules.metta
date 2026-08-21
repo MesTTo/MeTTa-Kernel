@@ -3,7 +3,7 @@
 ; Guarantees:
 ;   - add-typing-rule! changes the same checker ordinary typed calls use, and
 ;     remove-typing-rule! restores its prior result.
-;   [tested: test_a_user_typing_rule_participates_like_a_shipped_one; commit=WORKTREE]
+;   [tested: test_a_user_typing_rule_participates_like_a_shipped_one; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 ; Open Obligations:
 ;   To Do: None
 ;   Hacks: None

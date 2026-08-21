@@ -5,7 +5,7 @@
 %   - Native storage modules do not inherit user predicates, while execution
 %     modules keep undefined calls loud [tested: spaces_storage_modules].
 %   - duplicate declarations in one batch are detected before any member is
-%     stored [tested: spaces_batch_is_only_a_transport; commit=WORKTREE].
+%     stored [tested: spaces_batch_is_only_a_transport; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

@@ -1,7 +1,7 @@
 ; Purpose: demonstrate body constraints over a relational function head.
 ; Guarantees: a missing `small` fact fails the relation instead of returning
 ;   the P3 dispatch default's residual call.
-; [tested: examples/functions/functionhead2.metta; commit=WORKTREE]
+; [tested: examples/functions/functionhead2.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 ;Check out functionhead.metta!
 !(add-atom &petta (dispatch-policy small NoMatchEnum NoMatchFail))
 (= (living garfield) True)

@@ -2,7 +2,7 @@
 ;   fallback.
 ; Guarantees: a guarded `add-pairs` miss is the empty relational result this
 ;   example teaches, selected explicitly from the P3 dispatch catalog.
-; [tested: examples/translation/translatorrule_guard.metta; commit=WORKTREE]
+; [tested: examples/translation/translatorrule_guard.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 !(add-atom &petta (dispatch-policy add-pairs NoMatchEnum NoMatchFail))
 
 ;A translator rule rewrites a call at compile time, and the rule's own head is

@@ -41,14 +41,14 @@
 %   - Every compiled user-function call consults the six declarations in its
 %     effective dispatch policy, and non-default order/failure modes execute
 %     from retained equation support without changing the default fast path
-%     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=WORKTREE].
+%     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - A parameter type declared as DontEvalType receives its written argument
 %     without evaluation, independent of the type's name
-%     [tested: test_a_user_declared_lazy_type_receives_its_argument_unevaluated; commit=WORKTREE].
+%     [tested: test_a_user_declared_lazy_type_receives_its_argument_unevaluated; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - Exact arrow arity is decided through the shared typing_rule_entry/7
 %     registry rather than a compiler-local equality
 %     [tested: test_a_user_typing_rule_participates_like_a_shipped_one;
-%     commit=WORKTREE].
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - The Number fast path admits both signed-i64 Number integers and wider
 %     BigInt integers, matching the type boundary's directed compatibility
 %     rule [tested 2026-08-20:
@@ -1061,7 +1061,7 @@ dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, Exhaustion) :-
 %or clause-failure policy uses the general interpreter below because it must
 %observe or replace the generated predicate's failure
 %[tested: bindings/python/tests/test_aio.py::test_aio_keeps_the_loop_live_while_the_engine_spins;
-%commit=WORKTREE].
+%commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 dispatch_fast_axes('OrderClause', 'Nondeterministic', 'ClauseFailNonDet',
                    'FailureOriginal').
 
@@ -1080,7 +1080,7 @@ dispatch_fast_goal(_, Fun, Args, _, Out) :-
 %ordering, determinism, clause failure or exhaustion.
 %[tested: test_depth_exhaustion_returns_a_partial_proof,
 %test_the_python_binding_calls_only_the_published_host_surface;
-%commit=WORKTREE].
+%commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 metta_host_dispatch_proof_step(Module, Fun, Args, Goal, _, direct) :-
     dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, Exhaustion),
     dispatch_fast_axes(Order, ResultMode, ClauseMode, Exhaustion),
@@ -1181,7 +1181,7 @@ dispatch_any_head_matches(Module, Fun, Args, _) :-
     % copied an entire remaining list for each recursive step even though an
     % equation head decides from its outer constructors, making map/fold over
     % N elements quadratic.
-    % [measured: 4.10 seconds; command=/usr/bin/time -f 'hol_elapsed=%e maxrss=%M' timeout 300s sh run.sh --silent examples/performance/holbenchmark.metta; fixture=examples/performance/holbenchmark.metta; commit=WORKTREE]
+    % [measured: 4.10 seconds; command=/usr/bin/time -f 'hol_elapsed=%e maxrss=%M' timeout 300s sh run.sh --silent examples/performance/holbenchmark.metta; fixture=examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
     unifiable(Head0, Args, _),
     !.
 dispatch_any_head_matches(Module, _, _, Goal) :-
@@ -1310,7 +1310,7 @@ reduce([F|Args], Out, Status) :- !,
             % transport cost; a retained MeTTa equation still takes the policy
             % route, as do named modules whose inherited owner must be resolved.
             % [tested: prolog_interface:a_registered_predicate_costs_no_more_than_a_metta_function;
-            % commit=WORKTREE]
+            % commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
             (   Module == Self,
                 \+ fun_meta_clause(Module, F, _, _)
             ->  call(Module:Goal)

@@ -7,11 +7,11 @@
 %   - shipped and user rules occupy typing_rule_entry/7, and compatibility,
 %     arrow arity, widening, and metatype checks all resolve through that one
 %     relation [tested: test_a_user_typing_rule_participates_like_a_shipped_one;
-%     commit=WORKTREE].
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - a user refusal is decisive and keeps its rule name and reason, while
 %     defer continues to the next rule [tested:
 %     test_a_user_typing_rule_participates_like_a_shipped_one;
-%     commit=WORKTREE].
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 % Decides:
 %   - rules are tried in registration order, user tier before shipped tier;
 %     the shared overlap reporter names every ordering-sensitive intersection.

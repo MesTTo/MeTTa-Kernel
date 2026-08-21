@@ -17,7 +17,7 @@
 %   - compiled fire observes the evaluator's residual unchanged, and the
 %     verdict consumer classifies that residual as the named stuck state
 %     [tested: a_compiled_fire_treats_an_unreduced_eval_as_stuck;
-%     commit=WORKTREE]
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
