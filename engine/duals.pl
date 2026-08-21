@@ -928,7 +928,13 @@ body_form_dual(let, [Pattern, Value, Body], Module, Local, Goal) :-
     ).
 %A match over a space is a generator too, and a better behaved one than a let:
 %a space is finite, so what it narrows a variable to is always an enumeration
-%and never a constraint. (= (has-child $x) (match &self (parent $x $y) True))
+%and never a constraint.
+%
+%WHAT IT COVERS: NARROWING in constructive negation's sense, a variable's
+%domain shrinking to the values a generator produces, and not the
+%functional-logic narrowing engine/narrowing.pl decides termination of. The
+%word is the same and the relations are not, which is the confusion
+%bindings/python/tests/test_metatheory.py exists to keep out of the tree. (= (has-child $x) (match &self (parent $x $y) True))
 %is True when SOME atom matches, so it is not True when every matching atom
 %fails, and "which x has no child" is answered by narrowing $x over the atoms
 %and taking the complement.

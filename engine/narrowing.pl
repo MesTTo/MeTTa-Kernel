@@ -5,6 +5,11 @@
 %   compiled. That is narrowing, not rewriting, and termination of rewriting
 %   does not imply it.
 %
+%   WHAT IT COVERS: NARROWING. The reduction to REWRITING is the whole content
+%   of the file and the reason the paper below exists; it is also the one place
+%   in this engine where a rewriting result answers a narrowing question, which
+%   engine/trs.pl's own header states from the other side.
+%
 %   The route is Nishida and Vidal's [source: Naoki Nishida and German Vidal,
 %   "Termination of narrowing via termination of rewriting", Applicable Algebra
 %   in Engineering, Communication and Computing 21(3):177-225, 2010, read

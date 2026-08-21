@@ -1,5 +1,14 @@
 % Purpose: report translator and typing rule-family overlaps, and the
 %     translator family's termination.
+%
+%     WHAT IT COVERS: REWRITING for the overlap half and NARROWING for the
+%     termination half, and the report keeps them apart because they are
+%     different relations. Critical pairs and joinability are statements about
+%     a rewrite relation; a translator rule is APPLIED by calling its compiled
+%     clause, so the rule and the term unify and that is narrowing. The
+%     termination line therefore comes from engine/narrowing.pl, which reduces
+%     the narrowing question to a rewriting one, and not from engine/trs.pl's
+%     order directly.
 %     `add-translator-rule!` registers a NAME (engine/metta.pl's
 %     translator_rule/1 keeps the set), and the rules themselves arrive through
 %     two doors, the space's own (= Lhs Rhs) atoms and the engine's

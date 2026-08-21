@@ -4,6 +4,15 @@
 %   compile-time translator rule set is a rewrite system, and this is the
 %   machinery that says whether it terminates and whether it is confluent.
 %
+%   WHAT IT COVERS: REWRITING. Every predicate here is defined over a rewrite
+%   relation, and it reaches the compile-time rule set because P2.1 makes a
+%   rule head MATCHED rather than called. MeTTa's own evaluation NARROWING is
+%   a different relation: with (= (f a) 1) and (= (f b) 2), evaluating (f $x)
+%   INSTANTIATES $x and answers both rows [measured 2026-08-18], so the head
+%   and the goal unify rather than one being an instance of the other. None of
+%   the results here covers that, and engine/narrowing.pl is the file that
+%   carries a termination question across the gap.
+%
 %   This is an ADAPTATION, not a reimplementation. The core is Markus Triska's
 %   trs.pl, "Reason about Term Rewriting Systems", written 2015-2022, PUBLIC
 %   DOMAIN, tested with Scryer Prolog [source: https://www.metalevel.at/trs/,

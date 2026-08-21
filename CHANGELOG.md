@@ -15,6 +15,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Every file that names the rewriting machinery now states which of narrowing
+  and rewriting its own results are about. Confluence and critical pairs are
+  rewriting notions; a translator rule is applied by calling its compiled
+  clause, so the rule and the term unify, and that is narrowing, which is why
+  `engine/narrowing.pl` reduces the one question to the other. Constructive
+  negation's third sense of the word is named too, in `engine/duals.pl`.
 - The compiler's hand-threaded state is now pinned by a test. P2.20 measured
   DCG semicontext against the hand-threaded difference lists and closed as
   rejected; `test_no_dcg_semicontext_threads_the_compilers_state` reads
