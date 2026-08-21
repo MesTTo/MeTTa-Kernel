@@ -1425,7 +1425,23 @@ apply_translator_rule_dl(HV, Args, AfterHead, Goals, Out) :-
     HookCall =.. [HV|RuleArgs],
     current_metta_module(RuleModule),
     call(RuleModule:HookCall),
-    translate_expr_dl(Expansion, AfterArgs, Goals, Out),
+    %A rule read BOTH ways has to be oriented per call, or it and the inverse
+    %it derives rewrite each other forever. translator_rule_orients/3 lets the
+    %rewrite through only when it lowers the form's cost, and answers true for
+    %every ordinary forward rule, so nothing that shipped changes.
+    %
+    %A blocked rewrite hands the call back as the DATA it was written as,
+    %which is the prelude's own idiom for the same thing, `(noeval (noeval
+    %(union $a $b)))`. Falling through to ordinary dispatch instead would
+    %compile a call to the rule's equation, and that equation is the rewrite:
+    %measured 2026-08-21, `(unpack (wrap (box (a b c))))` with the rewrite
+    %blocked at compile time still answered `(twin (a b c) (a b c))` because
+    %the same equation ran at run time, so the orientation decided nothing.
+    (   translator_rule_orients(HV, Values, Expansion)
+    ->  Rewritten = Expansion
+    ;   Rewritten = [noeval, [HV|Values]]
+    ),
+    translate_expr_dl(Rewritten, AfterArgs, Goals, Out),
     refuse_seam_expanded_to_data(HV, Out).
 
 %Turn a MeTTa S-expression into a goal list. The internal difference list

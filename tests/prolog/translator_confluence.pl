@@ -1,7 +1,7 @@
 % Purpose: report translator and typing rule-family overlaps, and the
 %     translator family's termination.
-%     `add-translator-rule!` registers a NAME (engine/metta.pl's
-%     translator_rule/1 keeps the set), and the rules themselves arrive through
+%     `add-translator-rule!` registers a NAME (engine/translator_rules.pl's
+%     translator_rule/2 keeps the registry), and the rules themselves arrive through
 %     two doors, the space's own (= Lhs Rhs) atoms and the engine's
 %     prelude_equation/2 register for the shipped tier
 %     whose left-hand side is rooted at one of those names, plus every equation
@@ -738,7 +738,7 @@ translator_confluence_selftest :-
 % meaning the shipped tier was never read.
 planted_collection_seen :-
     setup_call_cleanup(
-        ( assertz(user:translator_rule('$cfl_fixture')),
+        ( assertz(user:translator_rule('$cfl_fixture', [])),
           assertz(user:prelude_equation('$cfl_fixture', ['=', ['$cfl_fixture', _], one])),
           assertz(user:prelude_equation('$cfl_fixture', ['=', ['$cfl_fixture', _], two])) ),
         ( compile_time_rules('&self', _, Names, _, PreludeRules),
@@ -748,7 +748,7 @@ planted_collection_seen :-
           join_bound(Fuel),
           confluence_check(Two, Fuel, Verdicts),
           include(verdict_is(counterexample), Verdicts, [_|_]) ),
-        ( retractall(user:translator_rule('$cfl_fixture')),
+        ( retractall(user:translator_rule('$cfl_fixture', _)),
           retractall(user:prelude_equation('$cfl_fixture', _)) )),
     !.
 planted_collection_seen :-

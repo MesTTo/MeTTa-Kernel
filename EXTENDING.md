@@ -173,6 +173,44 @@ runtime.
 
 `for` is now part of the language. Nobody forked the engine to add it.
 
+### Declaring a rule's direction
+
+A registration can carry declarations, written as a list after the name:
+
+```metta
+!(add-translator-rule! unpack ((direction bidirectional)))
+```
+
+`forward` is the default and is the rewrite you already have. `bidirectional`
+says the equation is a two-way equivalence rather than a one-way rewrite, and
+the engine derives the inverse equation, adds it to the space and registers the
+head it is rooted at. You write the rule once:
+
+```metta
+(: unpack (-> Atom %Undefined%))
+(= (unpack (wrap (box $x))) (noeval (twin $x $x)))
+!(add-translator-rule! unpack ((direction bidirectional)))
+```
+
+Both directions now rewrite, and which one fires is decided per call by the
+form's **cost**, which is its node count. A rewrite fires only when it lowers
+the cost, so `(unpack (wrap (box 1)))` (four nodes) becomes `(twin 1 1)`
+(three), while `(twin (a b c) (a b c))` (seven) becomes
+`(unpack (wrap (box (a b c))))` (six). A call already at its cheapest is left
+as the form it was written as. That is what keeps the two directions from
+rewriting each other forever.
+
+Reading a rule backwards has preconditions, and each is checked with the
+failure named. The rule has to **write** its expansion, as
+`(= Lhs (noeval Rhs))`, because a body that computes its expansion would have
+to have the computation inverted. The expansion has to be a form with a symbol
+at its head, that head may not be a protected one, and both sides have to carry
+the same variables, or one of them arrives unbound the other way round.
+
+`!(remove-translator-rule! unpack)` withdraws the derived equation with the
+rule, so the inverse never outlives the declaration that produced it.
+`examples/translation/translatorrule_direction.metta` runs all of this.
+
 ### What a rule may not take over
 
 A rule is consulted before the compiler's own forms, so a rule named after one

@@ -1362,10 +1362,10 @@ test(an_in_place_annotation_is_still_a_constraint) :-
                         assertz(( user:plunit_x4_quoted(Out, Gs) :-
                                      Gs = [quote, [translatePredicate,
                                                    [=, Out, 42]]] )),
-                        assertz(user:translator_rule(plunit_x4_add)),
-                        assertz(user:translator_rule(plunit_x4_quoted)) )),
-                 cleanup(( retractall(user:translator_rule(plunit_x4_add)),
-                           retractall(user:translator_rule(plunit_x4_quoted)),
+                        assertz(user:translator_rule(plunit_x4_add, [])),
+                        assertz(user:translator_rule(plunit_x4_quoted, [])) )),
+                 cleanup(( retractall(user:translator_rule(plunit_x4_add, _)),
+                           retractall(user:translator_rule(plunit_x4_quoted, _)),
                            abolish(user:plunit_x4_add/4),
                            abolish(user:plunit_x4_quoted/2) )) ]).
 

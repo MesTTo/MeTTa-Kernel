@@ -734,10 +734,10 @@ test(translated_let_rejects_an_impossible_comparison_output) :-
 :- end_tests(metta_builtin_outputs).
 
 :- begin_tests(metta_translator_rules,
-               [ setup((retractall(user:translator_rule(_)),
-                        assertz(user:translator_rule(first)),
-                        assertz(user:translator_rule(second)))),
-                 cleanup(retractall(user:translator_rule(_))) ]).
+               [ setup((retractall(user:translator_rule(_, _)),
+                        assertz(user:translator_rule(first, [])),
+                        assertz(user:translator_rule(second, [])))),
+                 cleanup(retractall(user:translator_rule(_, _))) ]).
 
 %The refusal NAMES the operation now. It used to be a bare
 %instantiation_error, which told a MeTTa program that a value was missing and
@@ -2341,3 +2341,65 @@ test(a_free_name_records_no_override,
     assertion(\+ translator_rule_override('plunit-p215-free', _)).
 
 :- end_tests(translator_rule_protected_core).
+
+
+:- begin_tests(translator_rule_direction).
+
+% Reading a rule backwards has preconditions and each one is CHECKED, so a
+% declaration that cannot be honoured says which precondition stopped it
+% rather than registering a rule that does not fire.
+plant(Text) :- process_metta_string(Text, _).
+
+uninvertible(Text, Name, Reason) :-
+    plant(Text),
+    catch('add-translator-rule!'(Name, [[direction, bidirectional]], _),
+          error(petta_uninvertible_rule(Name, Got), _),
+          true),
+    Reason = Got.
+
+test(a_computed_expansion_cannot_be_read_backwards) :-
+    uninvertible("(= (p2b-computed $x) (cons 1 $x))", 'p2b-computed', Reason),
+    assertion(Reason == computed_expansion).
+
+test(an_expansion_that_is_not_a_form_cannot_be_read_backwards) :-
+    uninvertible("(= (p2b-bare $x) (noeval $x))", 'p2b-bare', Reason),
+    assertion(Reason == expansion_is_not_a_form).
+
+% Twee keeps an unorientable equation only when both sides carry the same set
+% of variables; a side that invents one leaves it unbound the other way round.
+test(a_variable_on_one_side_only_cannot_be_read_backwards) :-
+    uninvertible("(= (p2b-drops $x $y) (noeval (kept $x)))", 'p2b-drops', Reason),
+    assertion(Reason == extra_variables).
+
+test(a_rule_that_is_its_own_inverse_is_refused) :-
+    uninvertible("(= (p2b-swap $x $y) (noeval (p2b-swap $y $x)))", 'p2b-swap',
+                 Reason),
+    assertion(Reason == inverse_is_the_rule_itself).
+
+test(an_inverse_rooted_at_a_protected_head_is_refused,
+     [ setup(plant("(= (p2b-hijack $x $y $z) (noeval (if $x $y $z)))")),
+       throws(error(permission_error(register, metta_protected_core, if), _)) ]) :-
+    'add-translator-rule!'('p2b-hijack', [[direction, bidirectional]], _).
+
+test(a_rule_with_no_equation_cannot_be_read_backwards,
+     [ throws(error(existence_error(translator_rule_equation,
+                                    'p2b-equationless'), _)) ]) :-
+    'add-translator-rule!'('p2b-equationless', [[direction, bidirectional]], _).
+
+test(an_unknown_declaration_is_refused,
+     [ throws(error(domain_error(translator_rule_declaration,
+                                 [speed, fast]), _)) ]) :-
+    'add-translator-rule!'('p2b-unknown', [[speed, fast]], _).
+
+test(a_declaration_written_twice_is_refused,
+     [ throws(error(petta_repeated_translator_rule_declaration(direction), _)) ]) :-
+    'add-translator-rule!'('p2b-twice',
+                           [[direction, forward], [direction, bidirectional]], _).
+
+test(a_second_declaration_for_one_name_is_refused,
+     [ setup('add-translator-rule!'('p2b-once-only', _)),
+       cleanup('remove-translator-rule!'('p2b-once-only', _)),
+       throws(error(petta_duplicate_translator_rule('p2b-once-only', []), _)) ]) :-
+    'add-translator-rule!'('p2b-once-only', [[direction, forward]], _).
+
+:- end_tests(translator_rule_direction).

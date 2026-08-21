@@ -15,6 +15,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- A translator rule can declare its direction, and a bidirectional one is a
+  single declaration. `!(add-translator-rule! NAME ((direction bidirectional)))`
+  derives the inverse equation, adds it to the space and registers the head it
+  is rooted at, so the inverse is never written by hand; removing the rule
+  removes it again. Which direction fires is decided per call by the form's
+  cost, which defaults to its node count, and a rewrite fires only when it
+  lowers that cost, so the two directions cannot rewrite each other forever.
+  Every precondition of the inversion is checked with the failure named. The
+  registry moved to `engine/translator_rules.pl` and holds one row per rule
+  instead of a bare name.
 - A protected core that a translator rule cannot replace. Registering a rule
   for `eval`, `evalc`, `chain`, `let`, `unify`, `superpose`, `collapse`,
   `call`, `translatePredicate`, `reduce`, `if`, `case`, `catch` or `cut` is
