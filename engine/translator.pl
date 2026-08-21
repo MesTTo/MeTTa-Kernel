@@ -969,13 +969,11 @@ resolve_dispatch(Fun, Args, Out, Goal) :-
     ).
 
 %The effective policy is late-bound from &petta, so adding or removing an
-%override changes already-compiled call sites. Defaults are catalog data too;
-%there is no second table in the evaluator.
+%override changes already-compiled call sites. spaces.pl materializes a
+%reference-validated lookup for this hot path; the catalog remains the only
+%authority and its write funnel invalidates the derived entry.
 dispatch_policy_value(Fun, Axis, Value) :-
-    (   petta_catalog_row(['dispatch-policy', Fun, Axis, Override])
-    *-> Value = Override
-    ;   petta_catalog_row(['dispatch-default', Axis, Value])
-    ).
+    petta_dispatch_value(Fun, Axis, Value).
 
 dispatch_call_goal(Fun, Args, Out, Goal,
                    PolicyGoal) :-
@@ -1179,7 +1177,12 @@ dispatch_any_head_matches(Module, Fun, Args) :-
 dispatch_any_head_matches(Module, Fun, Args, _) :-
     fun_meta_module(Module, Fun, Owner),
     fun_meta_clause(Owner, Fun, Head0, _),
-    \+ \+ (copy_term(Head0-Args, Head-Probe), Head = Probe),
+    % unifiable/3 neither binds the live call nor copies it. copy_term/2 here
+    % copied an entire remaining list for each recursive step even though an
+    % equation head decides from its outer constructors, making map/fold over
+    % N elements quadratic.
+    % [measured: 4.10 seconds; command=/usr/bin/time -f 'hol_elapsed=%e maxrss=%M' timeout 300s sh run.sh --silent examples/performance/holbenchmark.metta; fixture=examples/performance/holbenchmark.metta; commit=WORKTREE]
+    unifiable(Head0, Args, _),
     !.
 dispatch_any_head_matches(Module, _, _, Goal) :-
     copy_term(Goal, Probe),

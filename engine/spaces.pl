@@ -47,6 +47,10 @@
 %   - Six dispatch axes publish one documented default and accept at most one
 %     validated per-function override for each axis
 %     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=WORKTREE].
+%   - Effective dispatch values are cached by function and axis, validated
+%     against their catalog clause reference, and forgotten at every policy
+%     mutation [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted,
+%     examples/performance/holbenchmark.metta; commit=WORKTREE].
 %   - The policy catalog publishes exactly one knob and shipped default for
 %     each of the seventeen engine decision axes, and the policy-inventory
 %     gate rejects a closed list that has neither a catalog row nor a strict
@@ -341,9 +345,11 @@ petta_declaration_check(_).
 %in.
 petta_catalog_note_added(['dispatch-policy', Function, Axis, _]) :-
     !,
+    petta_dispatch_cache_forget(Function, Axis),
     petta_dispatch_policy_changed(Function, Axis).
 petta_catalog_note_added(['dispatch-default', Axis, _]) :-
     !,
+    petta_dispatch_default_cache_forget(Axis),
     petta_dispatch_default_changed(Axis).
 petta_catalog_note_added([kind, Head|_]) :-
     !,
@@ -410,14 +416,17 @@ petta_catalog_note_removed([Rel|_]) :-
     !,
     retractall(petta_kind_cache(_, _, _)),
     retractall(petta_vocab_cache(_, _, _)),
+    retractall(petta_dispatch_value_cache(_, _, _, _)),
     petta_materialize_routes,
     petta_capacity_counts_prune,
     petta_dispatch_all_changed.
 petta_catalog_note_removed(['dispatch-policy', Function, Axis, _]) :-
     !,
+    petta_dispatch_cache_forget(Function, Axis),
     petta_dispatch_policy_changed(Function, Axis).
 petta_catalog_note_removed(['dispatch-default', Axis, _]) :-
     !,
+    petta_dispatch_default_cache_forget(Axis),
     petta_dispatch_default_changed(Axis).
 petta_catalog_note_removed([kind, Head|_]) :-
     !,
@@ -462,6 +471,43 @@ petta_catalog_clause([Rel|Args], Ref) :-
 %cannot part ways.
 :- dynamic petta_kind_cache/3.    %Head, Spec | none, ref(Ref) | none
 :- dynamic petta_vocab_cache/3.   %Vocab, Values | none, ref(Ref) | none
+:- dynamic petta_dispatch_value_cache/4. %Function, Axis, Value | none, ref(Ref) | none
+
+%A compiled call can ask four dispatch axes on every recursive step. Walking
+%the variadic catalog storage for each question makes the loop proportional
+%to the size of the whole catalog. This cache keeps &petta authoritative: the
+%value carries the exact override or default clause reference that supplied
+%it, mutation callbacks forget affected keys, and a transaction rollback or
+%source withdrawal self-heals through the erased-reference check.
+petta_dispatch_value(Function, Axis, Value) :-
+    (   petta_dispatch_value_cache(Function, Axis, Cached, Validity)
+    ->  (   Validity = ref(Ref)
+        ->  (   petta_catalog_ref_erased(Ref)
+            ->  retractall(petta_dispatch_value_cache(Function, Axis, _, _)),
+                petta_dispatch_value_fresh(Function, Axis, Value)
+            ;   Value = Cached
+            )
+        ;   fail
+        )
+    ;   petta_dispatch_value_fresh(Function, Axis, Value)
+    ).
+
+petta_dispatch_value_fresh(Function, Axis, Value) :-
+    (   petta_catalog_clause(['dispatch-policy', Function, Axis, Fresh], Ref)
+    ->  assertz(petta_dispatch_value_cache(Function, Axis, Fresh, ref(Ref))),
+        Value = Fresh
+    ;   petta_catalog_clause(['dispatch-default', Axis, Fresh], Ref)
+    ->  assertz(petta_dispatch_value_cache(Function, Axis, Fresh, ref(Ref))),
+        Value = Fresh
+    ;   assertz(petta_dispatch_value_cache(Function, Axis, none, none)),
+        fail
+    ).
+
+petta_dispatch_cache_forget(Function, Axis) :-
+    retractall(petta_dispatch_value_cache(Function, Axis, _, _)).
+
+petta_dispatch_default_cache_forget(Axis) :-
+    retractall(petta_dispatch_value_cache(_, Axis, _, _)).
 
 petta_kind_spec(Head, Spec) :-
     (   petta_kind_cache(Head, Spec0, Validity)
