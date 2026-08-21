@@ -6,6 +6,19 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The engine's change events are a first-class public object. `m.events()`
+  answers the stream of `(action, space, atom)`, and `EventStream.fold(step,
+  space=, pattern=, on=, state=)` is the one way to consume it: a step
+  `(state, event) -> state` run inside the write that caused the event, with
+  `take()`, `wait(timeout)` and `cancel()` on the handle it returns. The
+  three shipped models are now that fold with three different steps, so a
+  consumer you write and one this library ships are the same kind of thing:
+  `subscribe` delivers, `bridge` writes, and a declared `(on ...)` reaction
+  evaluates. `EventStream.publish` announces a change this process did not
+  write, which is how a provider with a channel of its own delivers.
+
 ### Changed
 
 - Subscribability is now a declared capability rather than an inference from

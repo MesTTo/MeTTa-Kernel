@@ -1450,6 +1450,28 @@ def subscribe(
 > cannot say which. Re-read the space when you need to know;
 > `petta.structures.LiveView` is the worked instance.
 
+### `MeTTa.events`
+
+```python
+def events(self) -> EventStream:
+```
+
+> This engine's stream of `(action, space, atom)` changes.
+>
+>     seen = m.events().fold(
+>         lambda held, event: [*held, event.atom],
+>         space=m.space_name, pattern=S.order(V.id), state=[],
+>     )
+>     m.add(S.order(1))
+>     seen.take()          # [(order 1)], and the fold starts again
+>
+> The stream is the primitive and a FOLD over it is how anything
+> consumes it: a step `(state, event) -> state` run inside the write
+> that caused the event. subscribe() is the fold whose step delivers,
+> bridge() the fold whose step writes, and a declared `(on ...)`
+> reaction the fold whose step evaluates, so a consumer you write and
+> one this library ships are the same kind of thing.
+
 ### `MeTTa.prolog`
 
 ```python

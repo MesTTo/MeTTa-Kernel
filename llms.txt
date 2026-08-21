@@ -16,7 +16,7 @@ re-runs them.
 | source | what it is | kept true by |
 |---|---|---|
 | `examples/**/*.metta` | 217 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
-| `website/reference/petta-*.md` | 23 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
+| `website/reference/petta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 32 plunit suites over the engine itself | the `plunit` gate lane |
 | `bindings/python/tests/*.py` | 149 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 23,512 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
+| `engine/*.pl` | 23,547 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -514,8 +514,20 @@ exit on findings), `doc` (a name's `(@doc ...)`).
 `connect(url, token=, headers=)`, `attach`. Credentials require https, tokens
 compare in constant time, and only http/https schemes are accepted.
 
+`petta.events`: `m.events()` is the engine's stream of `(action, space, atom)`
+changes as a first-class object, and `EventStream.fold(step, space=,
+pattern=, on=, state=)` is the one way to consume it. A step is
+`(state, event) -> state`, run inside the write that caused the event;
+`Fold.take()` reads the accumulated state and resets it, `Fold.wait(timeout)`
+is the same read blocked on a condition variable, and `Fold.cancel()` ends
+it. Leave `state` alone and the fold accumulates nothing, which costs it no
+serialisation. `EventStream.publish(action, space, atom)` announces a change
+this process did not write, which is how a provider with its own channel
+delivers. The three shipped models are that fold with three steps: subscribe
+delivers, bridge writes, a declared `(on ...)` reaction evaluates.
+
 `petta.subscribe`: `m.subscribe(pattern, callback, on="add", queue_max=10000)`
-is a standing query delivered INSIDE the write that matched it; without a
+is the delivering fold, run INSIDE the write that matched it; without a
 callback, events queue until `drain()`, and a full queue raises rather than
 discarding the oldest. A callback that raises reaches the writer as
 `SubscriberError`, which carries `.subscription` and says the write was

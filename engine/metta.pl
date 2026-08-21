@@ -4112,11 +4112,19 @@ petta_emits(Ctx, Policy) :-
 %Faces of Publish/Subscribe, ACM Computing Surveys 35(2), 2003, section
 %2.2: space, time and synchronization decoupling]
 %[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
+%petta_events_declared/1 is the shortcut and it comes first: a context no
+%(events ...) atom has ever named cannot have one, so the store probes are
+%skipped outright. Every standing query writes a (subscription <ctx> ...)
+%atom whose second argument is the space, so the general petta_ctx_declared
+%flag says yes for every watched space and could not do this job.
 petta_events(Ctx, Delivery, Order) :-
-    (   petta_contract_fact([events, Ctx, Delivery, Declared])
-    ->  Order = Declared
-    ;   petta_contract_fact([events, Ctx, Delivery])
-    ->  Order = unordered
+    (   petta_events_declared(Ctx),
+        (   petta_contract_fact([events, Ctx, Delivery, Declared])
+        ->  Order = Declared
+        ;   petta_contract_fact([events, Ctx, Delivery]),
+            Order = unordered
+        )
+    ->  true
     ;   metta_context_events(Ctx, Delivery, Order)
     ).
 

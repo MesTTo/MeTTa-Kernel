@@ -2,30 +2,23 @@
 
 Source: `bindings/python/petta/subscribe.py`.
 
-> Purpose: standing queries. A subscription watches one space for atoms
-> unifying with a pattern and reacts to every add or removal: with a callback,
-> synchronously, inside the write that caused it; without one, by queuing
-> events for drain(). This is the actors-and-pub-sub reading of a space: the
-> mailbox is the space, the subscription is the standing query that maintains
-> itself, and the engine's own write hooks deliver.
+> Purpose: the two delivery models the library ships over the public event
+> stream. A subscription is the fold that DELIVERS, to a callback
+> synchronously inside the write or to a queue drain() empties; a bridge is
+> the fold that WRITES, landing a template's instantiation in another space.
+> Both are `petta.events.EventStream.fold` with a different step and nothing
+> else, which is what makes "a third party could have written these" a fact
+> rather than a claim.
 >
-> Every write consults the subscriptions on its space, so the dispatch is on
-> the write path and its cost is the write's. It goes through the
-> discrimination tree in petta.structures rather than one unify per
-> subscription [measured 2026-08-19, 1000 standing queries on one space and
-> 200 writes, controlled instructions:u min of 3: 4012009981 scanning against
-> 48243634 indexed, 83.2x, both delivering 200 of 200].
+> This is the actors-and-pub-sub reading of a space: the mailbox is the
+> space, the subscription is the standing query that maintains itself, and
+> the engine's own write hooks deliver. Every write consults the folds on its
+> space, so the dispatch is on the write path and its cost is the write's;
+> petta.events owns that dispatch and its discrimination tree.
 > Guarantees:
->   - registry snapshots and queued event mutation are locked for
->     free-threaded Python [tested test_subscription_queue_is_thread_safe,
->     test_subscription_cancel_is_thread_safe]
 >   - subscription publication and cancellation update registry state, engine
 >     write guards, and reflection facts together or restore the prior state
 >     [tested test_subscription_lifecycle_rolls_back_failed_boundaries]
->   - cancel waits for callbacks already in flight and stale dispatch snapshots
->     cannot deliver after cancellation [tested
->     test_subscription_cancel_waits_for_inflight_delivery,
->     test_stale_subscription_snapshot_cannot_deliver_after_cancel]
 >   - identical subscriptions share one reflection descriptor until the last
 >     subscription cancels [tested
 >     test_identical_subscriptions_share_one_reflection_fact]
@@ -35,17 +28,11 @@ Source: `bindings/python/petta/subscribe.py`.
 >     "Python '<Type>': <text>" message template, so a caller could only tell
 >     them apart by reading the sentence] [tested
 >     test_a_watcher_failure_is_distinguishable_from_a_failed_write]
->   - dispatch answers the same subscriptions in the same order the linear
->     scan did, cancels and re-subscriptions included [measured 2026-08-19:
->     routed through the tree before its entry ids were made monotonic, every
->     subscriber still fired and two swapped places] [tested
->     test_dispatch_through_the_index_delivers_the_same_subscribers_in_the_same_order]
+>   - a queue nobody drains refuses rather than dropping the oldest event
+>     [tested test_a_full_subscription_queue_refuses_rather_than_dropping]
 > Guarded by:
->   - _SubscriptionRegistry._lock protects subscription state, the active
->     runtime, delivery counts, and engine subscription snapshots [tested
->     test_subscription_cancel_is_thread_safe]
->   - _TRANSACTION_LOCK serializes cross-boundary subscription lifecycle
->     changes [tested test_subscription_lifecycle_rolls_back_failed_boundaries]
+>   - petta.events' fold registry lock protects queue state and the engine
+>     subscription snapshot [tested test_subscription_cancel_is_thread_safe]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -53,23 +40,16 @@ Source: `bindings/python/petta/subscribe.py`.
 
 The entries below reproduce the source signatures and docstrings.
 
-## `Event`
-
-```python
-class Event:
-```
-
-> One delivery: what happened, where, to which atom, with which
-> bindings the pattern took.
-
 ## `Subscription`
 
 ```python
-class Subscription:
+class Subscription(Fold):
 ```
 
-> One standing query; cancel() ends it. With no callback, events
-> queue and drain() empties the queue.
+> One standing query; cancel() ends it.
+>
+> The delivering fold: its step calls the callback, or appends to the
+> fold's own state, which is the queue drain() empties.
 
 ### `Subscription.drain`
 
@@ -101,7 +81,7 @@ def events(self, timeout: float | None = None):
 def cancel(self) -> None:
 ```
 
-No docstring is defined.
+> End the standing query and withdraw its reflection atom.
 
 ## `subscribe`
 
@@ -115,22 +95,6 @@ def subscribe(
     *,
     queue_max: int = SUBSCRIPTION_QUEUE_MAX,
 ) -> Subscription:
-```
-
-No docstring is defined.
-
-## `atom_added`
-
-```python
-def atom_added(space: str, wire: list) -> bool:
-```
-
-No docstring is defined.
-
-## `atom_removed`
-
-```python
-def atom_removed(space: str, wire: list) -> bool:
 ```
 
 No docstring is defined.
@@ -151,7 +115,9 @@ def bridge(source, pattern, target, template=None, on: str = 'add') -> Subscript
 >     src.add(S.alarm(S.kitchen))        # dst now holds (notify kitchen)
 >     rule.cancel()
 >
-> template defaults to the pattern itself. The rule is a standing
-> query, delivered inside the write that triggered it; target needs
-> only add and remove, so a remote.attach()ed space bridges across
-> engines identically.
+> template defaults to the pattern itself. This is the WRITING fold over
+> the same event stream the delivering one folds: subscribe's step calls
+> your callback, this one's writes, and composing the two is all a bridge
+> is. Delivery is inside the write that triggered it; target needs only
+> add and remove, so a remote.attach()ed space bridges across engines
+> identically.

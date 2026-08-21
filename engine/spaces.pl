@@ -291,12 +291,35 @@ add_sexp(Space, Term, Ref) :- ensure_native_storage_module(Space, Module),
 petta_note_ctx_declared([Head|_]) :-
     petta_catalog_head(Head),
     !.
+petta_note_ctx_declared([events, Ctx|_]) :-
+    atom(Ctx),
+    \+ petta_events_declared(Ctx),
+    !,
+    assertz(petta_events_declared(Ctx)),
+    petta_note_plain_ctx(Ctx).
 petta_note_ctx_declared([_, Ctx|_]) :-
     atom(Ctx),
-    \+ petta_ctx_declared(Ctx),
     !,
-    assertz(petta_ctx_declared(Ctx)).
+    petta_note_plain_ctx(Ctx).
 petta_note_ctx_declared(_).
+
+petta_note_plain_ctx(Ctx) :-
+    (   petta_ctx_declared(Ctx)
+    ->  true
+    ;   assertz(petta_ctx_declared(Ctx))
+    ).
+
+%The same monotone-conservative shortcut narrowed to the events head, and
+%it is the one head that needs its own: a (subscription ...) atom names a
+%SPACE in the same position, so every standing query flags its own space as
+%ctx-declared and the general flag can no longer say "this context declared
+%nothing about events". Without this the admission check walked the growing
+%'&petta' store on every subscription: one subscribe cost 983,768
+%instructions before the check existed, 1,093,524 with the check and
+%986,793 with this flag, so the capability costs 0.31% rather than 11.2%
+%[measured 2026-08-21, instructions:u per subscribe, 1,000 standing queries
+%against a 0-query baseline, min of 3].
+:- dynamic petta_events_declared/1.
 
 %The catalog's own rows never name a context in their first argument, a
 %kind head or a vocabulary name being what sits there, and flagging those
