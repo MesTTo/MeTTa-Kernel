@@ -1425,6 +1425,15 @@ apply_translator_rule_dl(HV, Args, AfterHead, Goals, Out) :-
     HookCall =.. [HV|RuleArgs],
     current_metta_module(RuleModule),
     call(RuleModule:HookCall),
+    %A rule that inspected its match and DECLINED fails here, so the call
+    %carries on down the dispatch chain exactly as one whose head did not
+    %match, and a rule with a further equation tries that one next. The words
+    %are recorded rather than dropped.
+    (   translator_rule_refusal_form(Expansion, Reason)
+    ->  note_translator_rule_refusal(HV, Values, Reason),
+        fail
+    ;   true
+    ),
     %A rule read BOTH ways has to be oriented per call, or it and the inverse
     %it derives rewrite each other forever. translator_rule_orients/3 lets the
     %rewrite through only when it lowers the form's cost, and answers true for

@@ -15,6 +15,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- A translator rule can decline a match it cannot honour, with
+  `(refuse Reason)`. The call carries on down the dispatch chain exactly as
+  one whose head did not match, so a rule with another equation tries that
+  one, and the reason is published into `&petta` as
+  `(translator-rule-refusal NAME REASON)` rather than lost. A rule that can
+  refuse is a conditional rule, so the confluence report now counts them and
+  reports such a set `NOT DECIDED`, with its critical pairs listed as proof
+  obligations, instead of claiming the decidable fragment it used to sit in.
 - A translator rule can declare its direction, and a bidirectional one is a
   single declaration. `!(add-translator-rule! NAME ((direction bidirectional)))`
   derives the inverse equation, adds it to the space and registers the head it

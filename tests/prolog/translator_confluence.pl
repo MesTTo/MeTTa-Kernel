@@ -19,10 +19,10 @@
 %     precondition. It is also why the analysis reports a bounded search that
 %     missed as `unknown` and never as a negative result.
 %
-%     Which side of the decidability line the rule set is on TODAY: a
-%     translator rule is an ordinary MeTTa equation, whether it applies is
-%     decided by matching its head, and the extracted system is therefore
-%     UNCONDITIONAL and inside the fragment Knuth and Bendix decide. What the
+%     Which side of the decidability line a rule set is on is answered PER
+%     SET and printed with the report. A rule that only matches is
+%     unconditional and inside the fragment Knuth and Bendix decide; a rule
+%     that can refuse is not. What the
 %     extraction does NOT model is the engine's strategy on top of that
 %     relation: a rule whose body has no answer is skipped and the next clause
 %     is tried, measured 2026-08-19 with (= (m3 a) (helper zzz)) ahead of
@@ -31,12 +31,12 @@
 %     succeeds, not simply the first; where every body succeeds, assertion
 %     order alone decides.
 %
-%     Nothing here survives P2.11, which makes that skip a first-class REFUSAL
-%     with its own words. A rule that may decline is a CONDITIONAL rule, and
-%     confluence of terminating conditional systems is undecidable in general,
-%     so a guarded rule set has to be PROVED confluent rather than decided and
-%     this tool has to say which rules it can still answer for. Said before
-%     P2.11 lands, on purpose.
+%     A rule may now also DECLINE with its own words, which is a first-class
+%     refusal rather than that silent skip. A rule that may decline is a
+%     CONDITIONAL rule, and confluence of terminating conditional systems is
+%     undecidable in general, so this tool COUNTS the rules of the set it is
+%     given that can refuse and reports the set CONDITIONAL when any can,
+%     instead of going on claiming the fragment it used to sit in.
 % Assumes:
 %     - the working directory is tests/prolog, which is where check.sh runs
 %       every Prolog lane from.
@@ -70,6 +70,12 @@
 %       serializable MeTTa values [tested:
 %       test_the_compile_time_rule_set_is_shown_terminating_or_the_failure_is_named;
 %       commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
+%     - a rule set holding a rule that can REFUSE is reported CONDITIONAL,
+%       naming how many of its rules can refuse, and its conclusion is NOT
+%       DECIDED rather than a critical-pair verdict, because a guard can make
+%       a peak unreachable
+%       [tested: test_a_translator_rule_can_decline_with_its_own_words;
+%       commit=WORKTREE].
 %     - a registered name that already had a meaning is printed with the kind
 %       of meaning it went ahead of, read from the engine's
 %       translator_rule_override/2 rather than recomputed here
@@ -430,7 +436,8 @@ print_analysis(SpaceRules, PreludeRules,
     forall(( member(V, Divergent) ; member(V, Unknown) ),
            print_overlap(Combined, V)),
     print_shipped_tier(Combined, PreludeRules, Shipped, Specs, ShippedVs),
-    print_conclusion(Termination, DivergentCount, UnknownCount).
+    guarded_rules(SpaceRules, PreludeRules, Guarded, _),
+    print_conclusion(Termination, DivergentCount, UnknownCount, Guarded).
 
 print_shipped_rule(I, L ==> R) :-
     term_expr(L, LE),
@@ -550,24 +557,34 @@ print_termination_rule(_, _).
 % Applications to Term Rewriting Systems", JACM 27(4):797-821, 1980; M. H. A.
 % Newman, "On theories with a combinatorial definition of equivalence", Annals
 % of Mathematics 43(2):223-243, 1942].
-print_conclusion(_, Divergent, _) :-
+% A conditional system is not decided by the criterion at all, so its verdict
+% comes first: a guard can make a peak unreachable, which turns a divergent
+% pair from a refutation into an obligation.
+print_conclusion(_, Divergent, Unknown, Guarded) :-
+    Guarded > 0,
+    !,
+    format("conclusion: NOT DECIDED. ~d of these rules can refuse, so this is \c
+            a conditional system and the critical-pair criterion does not \c
+            decide it; the ~d divergent and ~d unresolved pairs above are \c
+            proof obligations.~n", [Guarded, Divergent, Unknown]).
+print_conclusion(_, Divergent, _, _) :-
     Divergent > 0,
     !,
     format("conclusion: NOT LOCALLY CONFLUENT. ~d critical pairs reach \c
             distinct normal forms, so which answer the compiler gives is \c
             decided by the order the rules were asserted in, among the \c
             alternatives whose own bodies have an answer.~n", [Divergent]).
-print_conclusion(_, _, Unknown) :-
+print_conclusion(_, _, Unknown, _) :-
     Unknown > 0,
     !,
     format("conclusion: UNDECIDED. ~d critical pairs did not join within the \c
             bound, which says nothing about whether they join further out.~n",
            [Unknown]).
-print_conclusion(established(_), _, _) :-
+print_conclusion(established(_), _, _, _) :-
     !,
     format("conclusion: CONFLUENT. Every critical pair joins and the rule set \c
             terminates.~n").
-print_conclusion(_, _, _) :-
+print_conclusion(_, _, _, _) :-
     format("conclusion: LOCALLY CONFLUENT. Every critical pair joins, but \c
             termination is not established, and without it local confluence \c
             does not give confluence.~n").
@@ -651,7 +668,7 @@ report_space(Space) :- report_rule_family(translator, Space).
 
 print_translator_family(
     translator_state(_Space, Registered, Names, SpaceRules, PreludeRules)) :-
-    print_decidable_fragment,
+    print_decidable_fragment(SpaceRules, PreludeRules),
     length(Registered, EntryCount),
     length(Names, NameCount),
     format("registered translator rules: ~d, closed over what they call: ~d \c
@@ -679,18 +696,43 @@ print_rule_name(Registered, N) :-
 
 % Which fragment this report can answer in, printed with every report rather
 % than left in a header, because a verdict is worth what its fragment is worth.
-print_decidable_fragment :-
+% The third line is about THIS rule set rather than about rule sets in
+% general: a rule that can refuse takes its set out of the fragment, and the
+% report has to say so instead of going on claiming the old one.
+print_decidable_fragment(SpaceRules, PreludeRules) :-
     format("decidable fragment: confluence is decidable for TERMINATING \c
             rewrite systems, by Knuth and Bendix (1970), since such a system \c
             has finitely many critical pairs and each one's joinability \c
             terminates.~n"),
-    format("  today's translator rules are UNCONDITIONAL: a rule is an \c
-            ordinary MeTTa equation and whether it applies is decided by \c
-            matching its head, so this rule set sits inside that fragment.~n"),
-    format("  a guarded rule, which P2.11 introduces, is a CONDITIONAL rule, \c
-            and confluence of terminating conditional systems is undecidable \c
-            in general; a guarded rule set has to be PROVED confluent rather \c
-            than decided.~n").
+    format("  a rule that can REFUSE is a CONDITIONAL rule, and confluence of \c
+            terminating conditional systems is undecidable in general; a set \c
+            holding one has to be PROVED confluent rather than decided.~n"),
+    guarded_rules(SpaceRules, PreludeRules, Guarded, Total),
+    (   Guarded =:= 0
+    ->  format("  this set: all ~d rules are UNCONDITIONAL, applied by \c
+                matching a head alone, so it sits inside that fragment.~n",
+               [Total])
+    ;   format("  this set: ~d of its ~d rules can refuse, so it is \c
+                CONDITIONAL and every verdict below is a proof obligation for \c
+                those rules rather than a decision.~n", [Guarded, Total])
+    ).
+
+% A rule can refuse when a `(refuse Reason)` form is reachable in its
+% right-hand side. Read from the rules themselves rather than from the
+% registration, because the equations are what decide it and a registration
+% does not say.
+guarded_rules(SpaceRules, PreludeRules, Guarded, Total) :-
+    append(SpaceRules, PreludeRules, Combined),
+    include(rule_can_refuse, Combined, Refusing),
+    length(Refusing, Guarded),
+    length(Combined, Total).
+
+rule_can_refuse(_ ==> R) :-
+    sub_term(Sub, R),
+    nonvar(Sub),
+    compound(Sub),
+    functor(Sub, refuse, 1),
+    !.
 
 %%%% The selftest: does the analysis still discriminate? %%%%
 %

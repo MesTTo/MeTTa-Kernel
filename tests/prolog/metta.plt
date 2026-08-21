@@ -2403,3 +2403,27 @@ test(a_second_declaration_for_one_name_is_refused,
     'add-translator-rule!'('p2b-once-only', [[direction, forward]], _).
 
 :- end_tests(translator_rule_direction).
+
+
+:- begin_tests(translator_rule_refusal).
+
+% The words are recorded WITH the call that was declined, so an author asking
+% why a rewrite did not happen gets the reason and the site, not one of them.
+test(a_decline_records_its_reason_and_the_call_it_declined,
+     [ setup(process_metta_string("(: p2b-guarded (-> Atom %Undefined%))
+(= (p2b-guarded (over $n))
+   (if (> $n 10) (refuse \"over ten\") (noeval (kept $n))))
+(= (p2b-guarded $x) (noeval (noeval (p2b-guarded $x))))", _)),
+       cleanup(( 'remove-translator-rule!'('p2b-guarded', _),
+                 retractall(translator_rule_refusal('p2b-guarded', _, _)) )) ]) :-
+    'add-translator-rule!'('p2b-guarded', _),
+    process_metta_string("!(p2b-guarded (over 3))", Kept),
+    assertion(Kept == [[kept, 3]]),
+    assertion(\+ translator_rule_refusal('p2b-guarded', _, _)),
+    process_metta_string("!(p2b-guarded (over 99))", Declined),
+    assertion(Declined == [['p2b-guarded', [over, 99]]]),
+    translator_rule_refusal('p2b-guarded', Reason, Call),
+    assertion(Reason == "over ten"),
+    assertion(Call == ['p2b-guarded', [over, 99]]).
+
+:- end_tests(translator_rule_refusal).

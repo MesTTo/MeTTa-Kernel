@@ -211,6 +211,41 @@ the same variables, or one of them arrives unbound the other way round.
 rule, so the inverse never outlives the declaration that produced it.
 `examples/translation/translatorrule_direction.metta` runs all of this.
 
+### Declining a match
+
+A rule head says which shape the rule rewrites. Whether the match it got is one
+the rewrite can honour is a different question, and the answer to it is
+`(refuse Reason)`:
+
+```metta
+(: strength (-> Atom Atom %Undefined%))
+(= (strength (dose $n) (unit mg))
+   (if (> $n 1000)
+       (refuse "a dose above 1000 is not a milligram strength")
+       (noeval (mg $n))))
+(= (strength (dose $n) (unit mg))
+   (noeval (grams (/ $n 1000))))
+!(add-translator-rule! strength)
+```
+
+A refusal is a decline, not an error. The call carries on down the rest of the
+dispatch chain, and a rule with another equation tries that one, so
+`(strength (dose 5000) (unit mg))` answers `(grams 5)`.
+
+The reason does not disappear. It is published into `&petta`, so a program can
+ask why a rewrite it expected did not happen:
+
+```metta
+!(match &petta (translator-rule-refusal $rule $why) (refused $rule $why))
+```
+
+A rule that can refuse is a **conditional** rule, and confluence of terminating
+conditional systems is undecidable in general. The confluence report counts the
+rules of the set it is given that can refuse and says so, so a set holding one
+is reported `NOT DECIDED` with its critical pairs listed as proof obligations
+rather than given a verdict it cannot support.
+`examples/translation/translatorrule_refusal.metta` runs all of this.
+
 ### What a rule may not take over
 
 A rule is consulted before the compiler's own forms, so a rule named after one

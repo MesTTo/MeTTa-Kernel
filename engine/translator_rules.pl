@@ -350,6 +350,38 @@ install_inverse_equation(Source, Space, Equation) :-
     ;   register_translator_rule(InvHead, [direction(inverse(Source))])
     ).
 
+%%%% Refusal %%%%
+%
+%A rule may inspect its match and DECLINE, rather than only match or not
+%match. TenSat's CheckApply::apply_one validates the nodes it is about to
+%construct and returns nothing when they are invalid, so the rewrite simply
+%does not happen [source: uwplse/tensat, src/rewrites.rs, the Applier
+%implementation for CheckApply, read 2026-08-21]. The same shape is already
+%here twice, as metta_foreign_refuse/2 for a space and as
+%engine/type_rules.pl's [refuse, Reason] outcome for a typing rule; this is
+%the third rule family to get it and it is spelled the same way.
+%
+%A declined call carries on down the dispatch chain exactly as a call whose
+%head the rule did not match, and a rule with more equations tries the next
+%one, because the decline is a FAILURE at the point the rule was called.
+%
+%The words are not lost. They are recorded here and published into &petta as
+%an ordinary atom, where a program reads them with a match; printing them
+%would be noise for a rule that declines by design, and dropping them would
+%leave the author with a rewrite that did not happen and no reason.
+:- dynamic translator_rule_refusal/3.   %translator_rule_refusal(Name, Reason, Call)
+
+translator_rule_refusal_form([refuse, Reason], Reason) :- nonvar(Reason).
+
+note_translator_rule_refusal(Name, Args, Reason) :-
+    copy_term([Name|Args], Call),
+    assertz(translator_rule_refusal(Name, Reason, Call)),
+    Published = ['translator-rule-refusal', Name, Reason],
+    (   'get-atoms'('&petta', Published)
+    ->  true
+    ;   'add-atom'('&petta', Published, _)
+    ).
+
 %%%% Orientation %%%%
 %
 %A bidirectional rule and the inverse it derives are one equation read both
