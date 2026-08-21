@@ -3494,6 +3494,15 @@ conjunctive_match(Producer, Space, Pattern, OutPattern, Result) :-
 %6,398 over 400; with the bound reaching here it is 1,222 over both, so the
 %cost stopped tracking the join at all [measured 2026-08-21].
 %
+%The win is ASYMPTOTIC and OUTPUT-SENSITIVE rather than a constant factor. The
+%unbounded collection is O(rows in the join) in time AND in the space the
+%collected list holds, whatever the caller reads; bounded it is O(bound) in
+%both, so first-answer latency stops growing with the data. The decision is
+%amortized to COMPILE time, one unification per translated form and nothing per
+%call, which is why every unbounded lane measures unchanged. Nothing here is
+%shared between calls, so a bound adds no contention: limit/2's counter is a
+%term local to the goal, and the collection is per call as it was.
+%
 %SOUND because of the shape the translator requires before it emits this: the
 %bounded expression compiles to exactly one match goal, so nothing runs
 %between a row and the answer it becomes, N rows are N answers, and a producer
