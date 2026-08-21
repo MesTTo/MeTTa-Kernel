@@ -416,6 +416,12 @@ note_head_pattern(Module, F, RevPath, Label, Reason) :-
 %[source 2026-08-19: LeaTTa/MettaHyperonFull/Operational/Properties.lean:48-50,
 %firedReducts].
 %
+%The question is asked once more AFTER the walk, and only to say so:
+%record_head_pattern_notes/2 reports a position whose label has meaning,
+%because the caller's argument is evaluated on the way in and the position can
+%then only match a term handed over unevaluated. It decides nothing about what
+%compiles.
+%
 %Two of the arbiter's own corpus files decide it, and this engine failed both.
 %`(= (outer-hold (inner-sum $x $y)) outer-held)` with `(: outer-hold (-> Atom
 %Symbol))` answers `outer-held` there and RAISED here, because the head became
