@@ -3447,11 +3447,54 @@ hyperpose_pool_size(BranchCount, Jobs) :-
       -> Jobs is max(1, min(BranchCount, Cores))
     ; Jobs is max(1, BranchCount) ).
 
-%Run each branch under the module captured by the caller. SWI global variables
-%are thread-local, so a concurrent_and/2 worker otherwise defaults to user and
-%cannot resolve functions compiled into a named space.
+%Run each branch under the module the TRANSLATOR wrote into this goal. Module
+%is a compile-time literal here, so the worker's space context comes from the
+%BRANCH and not from the thread that spawned it: SWI's globals are per-thread,
+%a worker starts with this one unset, and inheriting the caller's thread state
+%is exactly what a fork cannot do. Binding it from the goal's own argument is
+%the same shape Java's ScopedValue gives a StructuredTaskScope fork and Go's
+%context.Context gives a goroutine, both of which exist because thread-local
+%state is not inherited [source: JEP 506; golang/go#21355, which rejected
+%goroutine-local storage for this reason].
+%
+%The binding is the whole of it: no save, because a worker's context starts
+%unset and the thread ends with the branch; and no validation, because the
+%module came from the compiler rather than from a caller. b_setval/2 unwinds on
+%backtracking, so a worker handed a second branch from another space binds its
+%own. with_metta_module/2 did all three and cost 8 inferences in every worker.
+%
+%FAILS WHEN called anywhere but a concurrent_and/3 worker. Without the restore
+%a deterministic success leaves the calling thread's context pointing at
+%Module, which is free in a worker that is about to end and wrong in a thread
+%that goes on to do something else. The one caller is the goal
+%translate_special_dl/5 emits above, and every shipped hyperpose shape was
+%measured for the leak and has none, because concurrent_and/3 runs the goal in
+%a worker even at threads(1); calling this predicate directly does leak
+%[measured 2026-08-21, all four shapes and the direct call].
+%
+%[measured 2026-08-21, min-of-3 on the engine's own counters, and the saving is
+%per branch rather than per call, so it grows with the width the construct
+%exists for: 1108 -> 1097, 1570 -> 1548, 2498 -> 2457, 4380 -> 4296 and
+%8240 -> 8072 inferences at 1, 2, 4, 8 and 16 branches, a flat -10.5 each; the
+%same collapse over superpose is unchanged at 1471]
+%[tested: translator_hyperpose:test_a_hyperpose_worker_inherits_its_space_context_structurally].
+%
+%WHY THE CONTEXT IS NOT DERIVED FROM THE CALL SITE, which is what the survey
+%expected and what was built and measured first. SWI hands a module_transparent
+%predicate the module of the CLAUSE that called it, which is Logtalk's `This`;
+%what a space context means is Logtalk's `Self`, the space the program is
+%running in. They differ under inheritance, and this engine inherits: the
+%prelude's `(= (atomically $expr) (transaction (eval $expr)))` is compiled into
+%&self's module and shared by every space, so with eval/2 reading its call site
+%`!(collapse (atomically (petta-three)))` in a named space answered
+%((petta-three)) instead of ((1 2 3)) [measured 2026-08-21]. Logtalk threads
+%both fields through every compiled clause for this exact reason
+%(core.pl:25188); SWI's module system carries only the first, so Self stays in
+%the global until a compiled clause carries it, which is P11.7's argument to
+%add, not this row's.
 hyperpose_branch(Module, Goal, Res, Out) :-
-    with_metta_module(Module, (call(Module:Goal), Out = Res)).
+    b_setval('$petta_module', Module),
+    call(Module:Goal), Out = Res.
 
 %Runtime hyperpose path for variable/computed list arguments.
 hyperpose_runtime(Exprs, Out) :-

@@ -155,6 +155,71 @@ test(named_space_runtime_branches_use_calling_module,
             Results),
     Results == [[2, 4, 6], [2, 4, 6]].
 
+% P11.5. A worker thread inherits no Prolog global, so somebody has to give the
+% branch its space context, and where that value COMES FROM is the whole
+% question: from the thread that spawned the worker, which is what a fork
+% cannot carry and what two past defects were, or from the branch itself, which
+% the translator wrote the module into at compile time.
+%
+% It is the branch's now, and the proof is that the worker answers its own
+% space with the SPAWNING thread's context pointing at another module. Three
+% things are asserted apart because the first two pass without the third: the
+% branch answers, it answers under a hostile ambient context, and the binding
+% it performs is exactly one b_setval of its own argument -- no read of the
+% caller's context to save, no restore, no re-validation of a module the
+% compiler chose [measured 2026-08-21: 8 inferences for the with_metta_module/2
+% switch this replaces, and a two-branch (collapse (hyperpose ...)) reads 1646
+% where it read 1666].
+%
+% What this does NOT claim, because it was built and measured and is false: the
+% context is not derivable from the call site. See hyperpose_branch/4's own
+% note in engine/translator.pl for the witness.
+test(test_a_hyperpose_worker_inherits_its_space_context_structurally,
+     [setup(setup_hyperpose), cleanup(cleanup_hyperpose)]) :-
+    hyperpose_space(Space),
+    space_module(Space, Module),
+
+    % 1. the ordinary answer, from the space's own module
+    findall(R1, call_goals_in(Module, ['plunit-viahyper'(R1)]), Answers),
+    assertion(Answers == [[2, 4, 6], [2, 4, 6]]),
+
+    % 2. the same, with the SPAWNING thread's module context pointing
+    % elsewhere. &self's module cannot see plunit-dbl, so a worker that took
+    % its context from the thread that started it would answer a partial
+    % application here rather than the doubled list.
+    metta_self_module(Self),
+    findall(R2,
+            with_metta_module(Self,
+                              call_goals_in(Module, ['plunit-viahyper'(R2)])),
+            Hostile),
+    assertion(Hostile == Answers),
+
+    % 3. one binding, of the branch's own argument, and nothing else. A
+    % re-introduced save-and-restore would pass the two checks above and cost
+    % every worker eight inferences again, which is what this reads off the
+    % shipped clause rather than trusting.
+    petta_engine_module(Engine),
+    clause(Engine:hyperpose_branch(M, G, Res, Out), Body),
+    assertion(Body =@= ( b_setval('$petta_module', M),
+                         call(M:G), Out = Res )),
+
+    % and the binding is measurably cheaper than the switch it replaces, asked
+    % of both on the same box in the same process.
+    clause_cost(b_setval('$petta_module', Module), Binding),
+    clause_cost(with_metta_module(Module, true), Switch),
+    assertion(Binding < Switch).
+
+% Min-of-three, because the counter is deterministic and the minimum is the
+% floor rather than an average of whatever else the process was doing.
+clause_cost(Goal, Cost) :-
+    findall(D, ( between(1, 3, _),
+                 statistics(inferences, Before),
+                 call(Goal),
+                 statistics(inferences, After),
+                 D is After - Before ),
+            Deltas),
+    min_list(Deltas, Cost).
+
 :- end_tests(translator_hyperpose).
 
 :- begin_tests(translator_meta_store).
