@@ -1,3 +1,17 @@
+; Purpose: demonstrate constructive negation over equations and constraints.
+; Guarantees: a missing `penguin` proof is relational failure, selected
+;   explicitly instead of the P3 residual-call dispatch default.
+; [tested: examples/reasoning/constructive_negation.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+!(add-atom &petta (dispatch-policy penguin NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy bird NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy student NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy married NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy invalid NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy over-65 NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy paid-up NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy marks NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy edge NoMatchEnum NoMatchFail))
+
 ;Constructive negation. (not-provable E) answers True for the arguments that
 ;E cannot prove and False for the ones it can, and it answers over an infinite
 ;domain by constraining rather than by enumerating.
@@ -227,6 +241,7 @@
 (= (mask-example-double $x) (* $x 2))
 (: mask-example-holds (-> Atom Bool))
 (= (mask-example-holds 10) True)
+!(add-atom &petta (dispatch-policy mask-example-holds NoMatchEnum NoMatchFail))
 !(test (not-provable (mask-example-holds (mask-example-double 5))) True)
 !(test (not-provable (mask-example-holds 10)) False)
 !(test (collapse (mask-example-holds (mask-example-double 5))) ())

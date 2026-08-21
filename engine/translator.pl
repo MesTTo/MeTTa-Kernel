@@ -38,6 +38,17 @@
 %     translator_branch_returns].
 %   - A typed function remains partially applicable until it has produced a
 %     return value [tested 2026-08-14: translator_typed_currying].
+%   - Every compiled user-function call consults the six declarations in its
+%     effective dispatch policy, and non-default order/failure modes execute
+%     from retained equation support without changing the default fast path
+%     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - A parameter type declared as DontEvalType receives its written argument
+%     without evaluation, independent of the type's name
+%     [tested: test_a_user_declared_lazy_type_receives_its_argument_unevaluated; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - Exact arrow arity is decided through the shared typing_rule_entry/7
+%     registry rather than a compiler-local equality
+%     [tested: test_a_user_typing_rule_participates_like_a_shipped_one;
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - The Number fast path admits both signed-i64 Number integers and wider
 %     BigInt integers, matching the type boundary's directed compatibility
 %     rule [tested 2026-08-20:
@@ -209,11 +220,38 @@
 % clone regenerated what it had already been handed, so a space of four atoms
 % cloned to six and answered three times.
 :- dynamic fun_meta_clause/4.
+:- dynamic fun_meta_clause_types/5.
 
 record_fun_meta(F, Args, Body) :-
     current_metta_module(Module),
     asserta(fun_meta_clause(Module, F, Args, Body), Ref),
-    record_source_assertion(Ref).
+    record_source_assertion(Ref),
+    fun_meta_types_for_new_clause(Module, F, Types),
+    asserta(fun_meta_clause_types(Module, F, Args, Body, Types), TypeRef),
+    record_source_assertion(TypeRef).
+
+%Associate each equation with the arrow declarations that appeared since the
+%previous equation for the same function. Source commonly writes an arrow and
+%its equation as a pair; when no new arrow appeared, inherit the most recent
+%group. The association is only consulted by OrderFittest, so ordinary clause
+%dispatch remains the compiled Prolog path.
+fun_meta_types_for_new_clause(Module, F, Types) :-
+    findall(Chain,
+            catch_recover(type_declaration_in(Module, F, Chain), fail),
+            Current0),
+    list_to_set(Current0, Current),
+    include(fun_meta_type_is_new(Module, F), Current, New),
+    (   New \== []
+    ->  Types = New
+    ;   fun_meta_clause_types(Module, F, _, _, Previous)
+    ->  Types = Previous
+    ;   Types = Current
+    ).
+
+fun_meta_type_is_new(Module, F, Chain) :-
+    \+ ( fun_meta_clause_types(Module, F, _, _, Previous),
+         member(Seen, Previous),
+         Seen =@= Chain ).
 
 % The NEAREST module along the chain that has equations for F, and only that
 % module's, which is how Prolog resolves the clauses those equations became: a
@@ -239,12 +277,21 @@ drop_fun_meta(Module, F, Args, Body) :-
              (StoredArgs-StoredBody) =@= (Args-Body),
              erase(Ref) ))
     -> true
+    ; true ),
+    drop_fun_meta_types(Module, F, Args, Body).
+drop_fun_meta_types(Module, F, Args, Body) :-
+    ( once(( clause(fun_meta_clause_types(Module, F, StoredArgs, StoredBody, _),
+                    true, Ref),
+             (StoredArgs-StoredBody) =@= (Args-Body),
+             erase(Ref) ))
+    -> true
     ; true ).
 
 % Both retractalls, so an unbound Module means every module. That is what a
 % teardown wants and what the engine must never pass.
 clear_fun_meta(Module, F) :-
     retractall(fun_meta_clause(Module, F, _, _)),
+    retractall(fun_meta_clause_types(Module, F, _, _, _)),
     retractall(fun_head_goals(Module, F)).
 
 % A head argument that compiles to a GOAL rather than to structure, which is
@@ -422,6 +469,9 @@ metta_engine_emitted(petta_transaction/1).
 metta_engine_emitted(petta_fuel_step/2).
 metta_engine_emitted(function_overapplication/3).
 metta_engine_emitted(metta_bad_argument_error/3).
+metta_engine_emitted(dispatch_mismatch_result/3).
+metta_engine_emitted(dispatch_no_match_result/3).
+metta_engine_emitted(dispatch_policy_execute/5).
 
 %Resolving at compile time means the answer can go stale: a space that gains
 %a definition of the name becomes the nearer parent, and one that loses its
@@ -556,7 +606,8 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                   M is (Arity - N) - 1,
                                                   length(ExtraArgs, M), append(Bound, ExtraArgs, CallInArgs),
                                                   resolve_dispatch(Base, CallInArgs, Out, Goal),
-                                                  append(GoalsBody,[Goal],FinalGoals), append(Args1,ExtraArgs,HeadArgs),
+                                                  dispatch_call_goal(Base, CallInArgs, Out, Goal, PolicyGoal),
+                                                  append(GoalsBody,[PolicyGoal],FinalGoals), append(Args1,ExtraArgs,HeadArgs),
                                                   drop_superseded_arity(F, Args1, HeadArgs)
                                                ; FinalGoals= GoalsBody , HeadArgs = Args1, Out = ExpOut ),
                                                append(HeadArgs, [Out], FinalArgs),
@@ -638,10 +689,11 @@ compiled_function_name(F, F).
 %translation saving while the repeated eval workloads already repeat exact
 %variants.
 %
-%The dependency index contains every atom in the written form. It deliberately
-%over-approximates, as definition_mentions/2 does: evicting an unaffected
-%translation is safe, retaining one that compiled against an old function is
-%not. Both function change events use the same indexed first lookup.
+%The runnable dependency index contains every atom in the written form. Like
+%record_translated_supports/2's translated-form supports, it deliberately
+%over-approximates: evicting an unaffected translation is safe, retaining one
+%that compiled against an old function is not. Both function change events use
+%the same indexed first lookup.
 :- dynamic translated_form_cache/6.
 :- dynamic translated_form_mention/2.
 :- dynamic translation_cache_hook_ref/2.
@@ -950,6 +1002,251 @@ resolve_dispatch(Fun, Args, Out, Goal) :-
     ; append(Args, [Out], DirectArgs),
       Goal =.. [Fun|DirectArgs]
     ).
+
+%The effective policy is late-bound from &petta, so adding or removing an
+%override changes already-compiled call sites. spaces.pl materializes a
+%reference-validated lookup for this hot path; the catalog remains the only
+%authority and its write funnel invalidates the derived entry.
+dispatch_policy_value(Fun, Axis, Value) :-
+    petta_dispatch_value(Fun, Axis, Value).
+
+dispatch_call_goal(Fun, Args, Out, Goal,
+                   PolicyGoal) :-
+    current_metta_module(Module),
+    dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal).
+
+%Most calls retain the generated direct goal. Policy interpretation is needed
+%only while a non-default selection policy is active or while the written
+%arguments are not yet specific enough to decide whether any head applies.
+%A head that subsumes the arguments proves the call cannot reach NoMatch; a
+%call that cannot unify with any head is the opposite decided case and needs
+%only the no-match policy. This keeps ordinary compiled recursion on the
+%engine's direct tail-call path.
+dispatch_call_goal_in(Module, Fun, _, _, Goal, Goal) :-
+    \+ fun_meta_module(Module, Fun, _),
+    !.
+dispatch_call_goal_in(Module, Fun, Args, Out, Goal,
+                      dispatch_policy_execute(Module, Fun, Args, Goal, Out)) :-
+    (   dispatch_selection_override(Fun)
+    ;   \+ dispatch_head_covers(Module, Fun, Args, Goal),
+        dispatch_any_head_matches(Module, Fun, Args, Goal)
+    ),
+    !.
+dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal) :-
+    (   dispatch_head_covers(Module, Fun, Args, Goal)
+    ->  PolicyGoal = Goal
+    ;   PolicyGoal = dispatch_no_match_result(Fun, Args, Out)
+    ).
+
+dispatch_selection_override(Fun) :-
+    % policy-inventory-exempt: mechanism-internal; reason=these are the four axes whose nondefault values require the retained-clause interpreter instead of the compiled direct goal; evidence=engine/translator.pl:dispatch_selection_override/1
+    member(Axis, ['EvaluationOrderEnum', 'FunctionResultEnum',
+                  'ClauseFailedEnum', 'OutOfClausesEnum']),
+    petta_catalog_row(['dispatch-policy', Fun, Axis, _]),
+    !.
+
+dispatch_head_covers(Module, Fun, Args, _) :-
+    fun_meta_module(Module, Fun, Owner),
+    fun_meta_clause(Owner, Fun, Head0, _),
+    copy_term(Head0, Head),
+    subsumes_term(Head, Args),
+    !.
+dispatch_head_covers(Module, _, Args, Goal) :-
+    copy_term(Goal, Probe),
+    catch_recover(clause(Module:Probe, _), fail),
+    Probe =.. [_|All],
+    append(HeadArgs, [_], All),
+    subsumes_term(HeadArgs, Args),
+    !.
+
+%Demanding a user function goes through the six-axis policy interpreter. A
+%builtin or host registration has no retained MeTTa equations and stays on its
+%native goal, so a relational builtin's ordinary failure cannot be mistaken
+%for a clause miss.
+dispatch_policy_execute(Module, Fun, _, Goal, _) :-
+    \+ fun_meta_module(Module, Fun, _),
+    !,
+    call(Module:Goal).
+dispatch_policy_execute(Module, Fun, Args, Goal, Out) :-
+    dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, Exhaustion),
+    dispatch_fast_axes(Order, ResultMode, ClauseMode, Exhaustion),
+    !,
+    dispatch_fast_goal(Module, Fun, Args, Goal, Out).
+dispatch_policy_execute(Module, Fun, Args, Goal, Out) :-
+    dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, _),
+    (   dispatch_result_goal(ResultMode,
+                             dispatch_selected_goal(Order, ClauseMode,
+                                                    Module, Fun, Args,
+                                                    Goal, Out))
+    *-> true
+    ;   dispatch_failed_call(Module, Fun, Args, Out)
+    ).
+
+dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, Exhaustion) :-
+    dispatch_policy_value(Fun, 'EvaluationOrderEnum', Order),
+    dispatch_policy_value(Fun, 'FunctionResultEnum', ResultMode),
+    dispatch_policy_value(Fun, 'ClauseFailedEnum', ClauseMode),
+    dispatch_policy_value(Fun, 'OutOfClausesEnum', Exhaustion).
+
+%The shipped clause-order/nondeterministic path decides head applicability
+%before entering the generated predicate. A matching call can then tail-call
+%the predicate directly instead of retaining a failure continuation around
+%every recursive step. That continuation overflowed the Prolog stack in
+%otherwise constant-space recursion. A non-default exhaustion, order, result,
+%or clause-failure policy uses the general interpreter below because it must
+%observe or replace the generated predicate's failure
+%[tested: bindings/python/tests/test_aio.py::test_aio_keeps_the_loop_live_while_the_engine_spins;
+%commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+dispatch_fast_axes('OrderClause', 'Nondeterministic', 'ClauseFailNonDet',
+                   'FailureOriginal').
+
+dispatch_fast_goal(Module, Fun, Args, Goal, _Out) :-
+    dispatch_any_head_matches(Module, Fun, Args, Goal),
+    !,
+    call(Module:Goal).
+dispatch_fast_goal(_, Fun, Args, _, Out) :-
+    dispatch_policy_value(Fun, 'NoMatchEnum', Policy),
+    dispatch_no_match(Policy, Fun, Args, Out).
+
+%A proof interpreter needs to know whether it may open the written goal while
+%preserving dispatch semantics. The shipped fast policy with a matching head
+%is exactly that case. Every other route is executed here by the authoritative
+%policy interpreter and reported opaque, so a host never reimplements fittest
+%ordering, determinism, clause failure or exhaustion.
+%[tested: test_depth_exhaustion_returns_a_partial_proof,
+%test_the_python_binding_calls_only_the_published_host_surface;
+%commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+metta_host_dispatch_proof_step(Module, Fun, Args, Goal, _, direct) :-
+    dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, Exhaustion),
+    dispatch_fast_axes(Order, ResultMode, ClauseMode, Exhaustion),
+    dispatch_any_head_matches(Module, Fun, Args, Goal),
+    !.
+metta_host_dispatch_proof_step(Module, Fun, Args, Goal, Out, opaque) :-
+    dispatch_policy_execute(Module, Fun, Args, Goal, Out).
+
+dispatch_result_goal('Deterministic', Goal) :- !, once(Goal).
+dispatch_result_goal('Nondeterministic', Goal) :- call(Goal).
+
+dispatch_selected_goal('OrderClause', 'ClauseFailNonDet', Module, _, _, Goal,
+                       _) :-
+    !,
+    call(Module:Goal).
+dispatch_selected_goal(Order, ClauseMode, Module, Fun, Args, _, Out) :-
+    dispatch_meta_clauses(Module, Fun, Clauses0),
+    dispatch_ordered_clauses(Order, Module, Args, Clauses0, Clauses),
+    dispatch_clause_goal(ClauseMode, Module, Args, Clauses, Out).
+
+dispatch_meta_clauses(Module, Fun, Clauses) :-
+    fun_meta_module(Module, Fun, Owner),
+    findall(dispatch_clause(HeadArgs, Body, Types),
+            fun_meta_clause_types(Owner, Fun, HeadArgs, Body, Types),
+            NewestFirst),
+    reverse(NewestFirst, Clauses),
+    Clauses \== [].
+
+dispatch_ordered_clauses('OrderClause', _, _, Clauses, Clauses) :- !.
+dispatch_ordered_clauses('OrderFittest', Module, Args, Clauses, Ordered) :-
+    findall((Negative-Index)-Clause,
+            ( nth0(Index, Clauses, Clause),
+              dispatch_clause_score(Module, Args, Clause, Score),
+              Negative is -Score ),
+            Scored),
+    keysort(Scored, Sorted),
+    dispatch_scored_values(Sorted, Ordered).
+
+dispatch_scored_values([], []).
+dispatch_scored_values([_-Value|Pairs], [Value|Values]) :-
+    dispatch_scored_values(Pairs, Values).
+
+dispatch_clause_score(Module, Args, dispatch_clause(Head, _, Types), Score) :-
+    (   Types == []
+    ->  include(nonvar, Head, Fixed), length(Fixed, Score)
+    ;   findall(S,
+                ( member(Chain, Types),
+                  dispatch_type_chain_score(Module, Args, Chain, S) ),
+                Scores),
+        Scores \== [],
+        max_list(Scores, Score)
+    ).
+
+dispatch_type_chain_score(Module, Args, Chain0, Score) :-
+    copy_term(Chain0, [->|Types]),
+    append(Expected, [_], Types),
+    same_length(Expected, Args),
+    metta_argument_type_origins(Expected, Origins),
+    \+ \+ metta_arguments_match_in(Module, Expected, Origins, Args),
+    maplist(dispatch_type_weight, Expected, Weights),
+    sum_list(Weights, Score).
+
+dispatch_type_weight(Type, 0) :- var(Type), !.
+dispatch_type_weight('%Undefined%', 0) :- !.
+dispatch_type_weight('_', 0) :- !.
+dispatch_type_weight('Atom', 0) :- !.
+dispatch_type_weight(_, 1).
+
+dispatch_clause_goal('ClauseFailDet', Module, Args, Clauses, Out) :-
+    !,
+    member(dispatch_clause(Head0, Body0, _), Clauses),
+    copy_term(Head0-Body0, Head-Body),
+    Head = Args,
+    !,
+    eval_metta_in_module(Module, Body, Out).
+dispatch_clause_goal('ClauseFailNonDet', Module, Args, Clauses, Out) :-
+    member(dispatch_clause(Head0, Body0, _), Clauses),
+    copy_term(Head0-Body0, Head-Body),
+    Head = Args,
+    eval_metta_in_module(Module, Body, Out).
+
+dispatch_failed_call(Module, Fun, Args, Out) :-
+    (   dispatch_any_head_matches(Module, Fun, Args)
+    ->  dispatch_policy_value(Fun, 'OutOfClausesEnum', Policy),
+        dispatch_out_of_clauses(Policy, Fun, Args, Out)
+    ;   dispatch_policy_value(Fun, 'NoMatchEnum', Policy),
+        dispatch_no_match(Policy, Fun, Args, Out)
+    ).
+
+dispatch_any_head_matches(Module, Fun, Args) :-
+    resolve_dispatch(Fun, Args, _, Goal),
+    dispatch_any_head_matches(Module, Fun, Args, Goal).
+
+dispatch_any_head_matches(Module, Fun, Args, _) :-
+    fun_meta_module(Module, Fun, Owner),
+    fun_meta_clause(Owner, Fun, Head0, _),
+    % unifiable/3 neither binds the live call nor copies it. copy_term/2 here
+    % copied an entire remaining list for each recursive step even though an
+    % equation head decides from its outer constructors, making map/fold over
+    % N elements quadratic.
+    % [measured: 2026-08-21, 4.10 seconds; command=/usr/bin/time -f 'hol_elapsed=%e maxrss=%M' timeout 300s sh run.sh --silent examples/performance/holbenchmark.metta; fixture=examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+    unifiable(Head0, Args, _),
+    !.
+dispatch_any_head_matches(Module, _, _, Goal) :-
+    copy_term(Goal, Probe),
+    catch_recover(clause(Module:Probe, _), fail),
+    !.
+
+dispatch_no_match('NoMatchOriginal', Fun, Args, [Fun|Args]).
+dispatch_no_match('NoMatchFail', _, _, _) :- fail.
+dispatch_no_match('NoMatchError', Fun, Args,
+                  ['Error', [Fun|Args], 'NoMatchingClause']).
+
+dispatch_out_of_clauses('FailureOriginal', _, _, _) :- fail.
+dispatch_out_of_clauses('FailureEmpty', _, _, []).
+dispatch_out_of_clauses('FailureError', Fun, Args,
+                        ['Error', [Fun|Args], 'OutOfClauses']).
+
+dispatch_mismatch_result(Fun, Args, Out) :-
+    dispatch_policy_value(Fun, 'MismatchEnum', Policy),
+    dispatch_mismatch(Policy, Fun, Args, Out).
+
+dispatch_mismatch('MismatchOriginal', Fun, Args, Out) :-
+    metta_bad_argument_error(Fun, Args, Out).
+dispatch_mismatch('MismatchError', Fun, Args,
+                  ['Error', [Fun|Args], 'ArgumentTypeMismatch']).
+dispatch_mismatch('MismatchFail', _, _, _) :- fail.
+
+dispatch_no_match_result(Fun, Args, Out) :-
+    dispatch_policy_value(Fun, 'NoMatchEnum', Policy),
+    dispatch_no_match(Policy, Fun, Args, Out).
 incomplete_application_kind(Fun, Arity, partial) :- ( arity(Fun, KnownArity), KnownArity >= Arity
                                                      ; \+ arity(Fun, _) ), !.
 incomplete_application_kind(_, _, overapplied).
@@ -1042,7 +1339,18 @@ reduce([F|Args], Out, Status) :- !,
                               ; current_predicate(Module:F/Arity) ),
             \+ (Arity =< 2, current_op(_, _, F))
         ->  resolve_dispatch(F, Args, Out, Goal),
-            call(Module:Goal),
+            % A host or builtin function in &self has no retained equation and
+            % therefore no dispatch policy to interpret. Avoiding the inherited
+            % metadata search keeps the direct Prolog door at its measured
+            % transport cost; a retained MeTTa equation still takes the policy
+            % route, as do named modules whose inherited owner must be resolved.
+            % [tested: prolog_interface:a_registered_predicate_costs_no_more_than_a_metta_function;
+            % commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+            (   Module == Self,
+                \+ fun_meta_clause(Module, F, _, _)
+            ->  call(Module:Goal)
+            ;   dispatch_policy_execute(Module, F, Args, Goal, Out)
+            ),
             Status = reduced
         ;   incomplete_application_kind(F, Arity, partial)
         ->  Out = partial(F,Args),
@@ -1392,7 +1700,7 @@ refused_argument_call_dl(Fun, Chains, Args, IsPartial, Bound, Out, Goals0, Goals
     functioncall_dl(Fun, Chains, Args, IsPartial, Bound, OrdinaryOut,
                     OrdinaryGoals, []),
     goals_list_to_conj(OrdinaryGoals, Ordinary),
-    Goals0 = [( metta_bad_argument_error(Fun, Args, Out)
+    Goals0 = [( dispatch_mismatch_result(Fun, Args, Out)
               *-> true
               ;   Ordinary, Out = OrdinaryOut
               )|Goals].
@@ -2072,7 +2380,7 @@ translate_special_dl(super, [Call], AfterHead, Goals, Out) :-
     super_target_module(Module, Fun, Arity, Parent),
     note_super_call(Fun),
     resolve_dispatch(Fun, ArgValues, Out, Goal),
-    AfterArgs = [Parent:Goal|Goals].
+    AfterArgs = [dispatch_policy_execute(Parent, Fun, ArgValues, Goal, Out)|Goals].
 
 %Quote is a value headed by the ordinary symbol `quote`. Its Atom argument is
 %held and the wrapper survives; a consumer that wants the payload must match
@@ -2429,10 +2737,12 @@ build_call_or_partial_dl(Fun, AVs, Out, Goals0, Goals, Extra) :-
     length(AVs, N),
     Arity is N + 1,
     ( maybe_specialize_call(Fun, AVs, Out, Goal)
-      -> append([Goal|Extra], Goals, Goals0)
+      -> dispatch_call_goal(Fun, AVs, Out, Goal, PolicyGoal),
+         append([PolicyGoal|Extra], Goals, Goals0)
     ; arity(Fun, Arity)
       -> resolve_dispatch(Fun, AVs, Out, Goal),
-         append([Goal|Extra], Goals, Goals0)
+         dispatch_call_goal(Fun, AVs, Out, Goal, PolicyGoal),
+         append([PolicyGoal|Extra], Goals, Goals0)
     ; incomplete_application_kind(Fun, Arity, partial)
       -> Out = partial(Fun, AVs),
          Goals0 = Goals
@@ -2468,16 +2778,21 @@ typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out, AfterHead
         ApplicationKind == overapplied
     ->  ( IsPartial -> append(Bound, T, Written) ; Written = T ),
         AfterHead = [function_overapplication(Fun, Written, Out)|Goals]
-    ;   fitting_type_chains(UniqueTypeChains, InputArity, FittingChains),
-        applicable_typed_branches(FittingChains, Fun, T, IsPartial, Bound,
-                                  Out, Branches),
-        Branches \== [],
-        disj_list(Branches, Disj),
+    ;   fitting_type_chains(UniqueTypeChains, InputArity, Selection),
         ( IsPartial -> append(Bound, T, Written) ; Written = T ),
-        AfterHead = [( Disj
-                     *-> true
-                     ;   metta_bad_argument_error(Fun, Written, Out)
-                     )|Goals]
+        (   Selection = refused(Rule, Reason)
+        ->  Refusal = ['Error', [Fun|Written],
+                       ['TypingRuleRefusal', Rule, Reason]],
+            AfterHead = [Out = Refusal|Goals]
+        ;   applicable_typed_branches(Selection, Fun, T, IsPartial, Bound,
+                                      Out, Branches),
+            Branches \== [],
+            disj_list(Branches, Disj),
+            AfterHead = [( Disj
+                         *-> true
+                         ;   dispatch_mismatch_result(Fun, Written, Out)
+                         )|Goals]
+        )
     ).
 
 %A declared call that no branch answered says WHY when the declaration is the
@@ -2500,15 +2815,34 @@ typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out, AfterHead
 %answer the same thing twice: with (: g (-> A Atom B)) and
 %(: g (-> A Atom Number B)) both declared, (g x y) answered (x y) twice.
 %
-%When NOTHING has the exact arity the call is a partial application, and every
-%declaration stays a candidate so currying keeps working.
+%When NOTHING decides this arity the call is a partial application, and every
+%declaration stays a candidate so currying keeps working. A named refusal is
+%kept distinct from that absence; otherwise filtering it out would select the
+%partial fallback and make an arrow-arity refusal behaviorally inert.
 fitting_type_chains(Chains, InputArity, Fitting) :-
     include(type_chain_takes(InputArity), Chains, Exact),
-    ( Exact == [] -> Fitting = Chains ; Fitting = Exact ).
+    (   Exact \== []
+    ->  Fitting = Exact
+    ;   type_chain_refusal(Chains, InputArity, Rule, Reason)
+    ->  Fitting = refused(Rule, Reason)
+    ;   Fitting = Chains
+    ).
 
 type_chain_takes(InputArity, [->|Types]) :-
     length(Types, Count),
-    InputArity =:= Count - 1.
+    DeclaredInputArity is Count - 1,
+    current_metta_module(Module),
+    typing_rule_accepts(Module, 'arrow-arity', InputArity,
+                        DeclaredInputArity).
+
+type_chain_refusal(Chains, InputArity, Rule, Reason) :-
+    member([->|Types], Chains),
+    length(Types, Count),
+    DeclaredInputArity is Count - 1,
+    current_metta_module(Module),
+    typing_rule_refusal(Module, 'arrow-arity', InputArity,
+                        DeclaredInputArity, Rule, Reason),
+    !.
 
 applicable_typed_branches([], _, _, _, _, _, []).
 applicable_typed_branches([TypeChain|Rest], Fun, T, IsPartial, Bound, Out,
@@ -2672,7 +3006,7 @@ translate_args_by_type_dl(Args, Types, Goals0, Goals, AVs) :-
 translate_args_by_type_dl([], _, _, Goals, Goals, [], Checks, Checks) :- !.
 translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
                           Goals0, Goals, [AV|AVs], Checks0, Checks) :-
-    ( T == 'Atom'
+    ( non_evaluated_parameter_type(T)
       -> AV = A,
          AfterArg = Goals0,
          AfterCheck = Checks0
@@ -2687,6 +3021,15 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
         Checks0 = [ArgGoal|AfterCheck] ) ),
     translate_args_by_type_dl(As, Ts, Origins, AfterArg, Goals, AVs,
                               AfterCheck, Checks).
+
+%Atom is the shipped evaluation mask. DontEvalType makes that same compiler
+%decision declarative for user types; it deliberately skips the ordinary
+%argument check because the written expression has not yet produced a value
+%whose runtime type could satisfy the declared marker.
+non_evaluated_parameter_type(Type) :- Type == 'Atom', !.
+non_evaluated_parameter_type(Type) :-
+    nonvar(Type),
+    catch_recover(type_declaration(Type, 'DontEvalType'), fail).
 
 %A check that cannot be DROPPED can still be SPECIALISED. Three types are
 %decided by a single Prolog builtin, and when the declared type is one of them

@@ -10,6 +10,11 @@
 %     translator_restricted_guards, translator_prolog_imports,
 %     translator_prolog_authored_rules, translator_importer_arguments;
 %     commit=9a49e2f81bb8199c0284f8456e4b48c25a804371].
+%   - Translator-level probes observe the shipped no-match default while calls
+%     whose heads cover their arguments retain the direct compiled path
+%     [tested: translator_derived_forms:trace_form_has_one_compilation,
+%     translator_inplace_annotations:a_non_variable_in_the_annotation_position_stays_structural;
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
 %     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
@@ -762,14 +767,11 @@ test(nop_evaluates_the_arguments_it_discards) :-
     process_metta_string("!(nop (+ 1 2) (nop-effect-marker))", Answers),
     Answers == [[]].
 
-% Nothing is DECLARED for it. The variadic declaration LeaTTa carries is its
-% own divergence, taken under the marker above, and upstream's generated
-% reference gives nop the undeclared `%Undefined%` instead
-% [source: LeaTTa tests/semantics/types-basic/71-variadic-nop.metta, STATUS
-% "diverges from Hyperon 0.2.10 on the first and last answers"].
-test(nop_carries_no_declared_type) :-
+% The arbiter's unit-type ruling gives nop a variadic argument and the empty
+% expression's `(->)` result through the observer boundary.
+test(nop_carries_a_variadic_unit_type) :-
     process_metta_string("!(get-type nop)", Answers),
-    Answers == ['%Undefined%'].
+    Answers == [['->', ['%Rest%', '%Undefined%'], ['->']]].
 
 test(space_predicates_use_space_storage,
      [ setup(add_sexp('&self', [plunit_space_predicate, a, b])),
@@ -2516,7 +2518,7 @@ test(a_non_variable_in_the_annotation_position_stays_structural,
     process_metta_string("!(collapse (ann-shape (: a tail)))", Matched),
     Matched == [[tail]],
     process_metta_string("!(collapse (ann-shape (: z tail)))", Unmatched),
-    Unmatched == [[]].
+    Unmatched == [[['ann-shape', [':', z, tail]]]].
 
 test(a_colon_pattern_still_matches_stored_type_atoms,
      [setup(setup_annotations), cleanup(cleanup_annotations)]) :-

@@ -45,6 +45,19 @@
 %   - The numeric-type vocabulary publishes Number and BigInt in boundary
 %     order for generated binding types [tested 2026-08-20:
 %     test_numeric_types_are_published_from_the_catalog].
+%   - Six dispatch axes publish one documented default and accept at most one
+%     validated per-function override for each axis
+%     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - Effective dispatch values are cached by function and axis, validated
+%     against their catalog clause reference, and forgotten at every policy
+%     mutation [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted,
+%     examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - The policy catalog publishes exactly one knob and shipped default for
+%     each of the seventeen engine decision axes, and the policy-inventory
+%     gate rejects a closed list that has neither a catalog row nor a strict
+%     adjacent exemption [tested:
+%     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
+%     commit=42b5d28232e75c32b20a1d5bf1f740fec134938d].
 %   - A selective native match is one indexed probe rather than a scan, and
 %     the acyclic guard does not change that because it runs on the answer
 %     [tested 2026-08-18:
@@ -53,6 +66,10 @@
 %     100, 1,000 and 10,000 atoms].
 %   - Removing one scoped get-type rule keeps sibling extension rules visible
 %     [tested 2026-08-15: spaces_type_extensions].
+%   - A second variant-identical type declaration is refused before storage,
+%     including when both copies arrive in one public batch, and the diagnostic
+%     names the first declaration without publishing either batched copy
+%     [tested: test_a_duplicate_declaration_names_the_first_one; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - Clearing a native space clears its import life without making wildcard
 %     atom removal touch that life [tested 2026-08-15:
 %     filereader_import_lifecycle].
@@ -60,6 +77,17 @@
 %     its asserted compiler state [tested 2026-08-14:
 %     change_hook_error_rolls_back_every_registration_write,
 %     filereader_source_rollback].
+%   - Function changes invalidate module-qualified support nodes before
+%     rebuilding compiled dependents, so all mutation doors share one forward
+%     propagation mechanism [tested:
+%     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - Dispatch override/default edits and DontEvalType marker edits invalidate
+%     their typed support roots after storage changes, including callers that
+%     compiled before the edit [tested:
+%     test_every_dispatch_axis_is_readable_settable_and_defaulted,
+%     test_a_user_declared_lazy_type_receives_its_argument_unevaluated;
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - match_foreign/5 passes options only to a provider that declared
 %     metta_foreign_match/3, and unification and the caller's own bound stay
 %     on this side, so an option cannot change an answer [tested 2026-08-16:
@@ -276,7 +304,10 @@ petta_note_ctx_declared(_).
 petta_catalog_head(kind).
 petta_catalog_head(vocabulary).
 petta_catalog_head(claim).
+petta_catalog_head(policy).
 petta_catalog_head('routed-by-shape').
+petta_catalog_head('dispatch-default').
+petta_catalog_head('dispatch-policy').
 
 add_sexp_in(Module, [Family|Parameters], [Rel|Args], Ref) :-
     Space = [Family|Parameters],
@@ -354,6 +385,14 @@ petta_declaration_check(_).
 %dispatch, which is how the shipped routes come up during the preset walk
 %and how a third-party routed kind starts routing the moment its rows are
 %in.
+petta_catalog_note_added(['dispatch-policy', Function, Axis, _]) :-
+    !,
+    petta_dispatch_cache_forget(Function, Axis),
+    petta_dispatch_policy_changed(Function, Axis).
+petta_catalog_note_added(['dispatch-default', Axis, _]) :-
+    !,
+    petta_dispatch_default_cache_forget(Axis),
+    petta_dispatch_default_changed(Axis).
 petta_catalog_note_added([kind, Head|_]) :-
     !,
     retractall(petta_kind_cache(Head, _, _)),
@@ -375,6 +414,47 @@ petta_catalog_note_added([capacity, Pool, _]) :-
     petta_capacity_contract_added(Pool).
 petta_catalog_note_added(_).
 
+% A policy write is rare, while every equation compilation is hot. Materialize
+% the typed root at mutation time over the function-view index the translated
+% forms already maintain, then invalidate it. This gives stored callers the
+% common forward walk without adding six edges to every compiled form.
+petta_dispatch_policy_changed(Function, Axis) :-
+    findall(F-Module,
+            dispatch_changed_context(Function, F, Module),
+            Contexts0),
+    sort(Contexts0, Contexts),
+    findall(Root,
+            ( member(F-Module, Contexts),
+              dispatch_changed_axis(Axis, ChangedAxis),
+              Root = dispatch_policy(Module, F, ChangedAxis),
+              support_record(function_view(Module, F), Root) ),
+            Roots0),
+    sort(Roots0, Roots),
+    support_invalidate_many(Roots),
+    forall(support_repair_invalidations, true),
+    (   atom(Function)
+    ->  invalidate_translated_forms(Function)
+    ;   clear_translation_cache
+    ).
+
+dispatch_changed_context(Pattern, Function, Module) :-
+    support_view_module(Function, Module),
+    ( var(Pattern) -> true ; Function == Pattern ).
+
+dispatch_changed_axis(Pattern, Axis) :-
+    dispatch_axis_vocabulary(Axis, _),
+    ( var(Pattern) -> true ; Axis == Pattern ).
+
+% A default row applies to every function without an override, so invalidating
+% all published roots for that axis is the exact conservative update. Clearing
+% runnable templates avoids a second global dependency index for a rare edit.
+petta_dispatch_default_changed(Axis) :-
+    petta_dispatch_policy_changed(_, Axis).
+
+petta_dispatch_all_changed :-
+    forall(dispatch_axis_vocabulary(Axis, _),
+           petta_dispatch_default_changed(Axis)).
+
 %The removal twin, called by the '&petta' clause of remove_sexp below for
 %a row that actually left. A variable head means the caller removed by
 %pattern and anything may have gone, so everything derived is dropped and
@@ -386,8 +466,18 @@ petta_catalog_note_removed([Rel|_]) :-
     retractall(petta_vocab_cache(_, _, _)),
     retractall(petta_algebra_descriptor_cache(_, _, _, _, _, _, _, _)),
     retractall(petta_annotations_cache(_, _)),
+    retractall(petta_dispatch_value_cache(_, _, _, _)),
     petta_materialize_routes,
-    petta_capacity_counts_prune.
+    petta_capacity_counts_prune,
+    petta_dispatch_all_changed.
+petta_catalog_note_removed(['dispatch-policy', Function, Axis, _]) :-
+    !,
+    petta_dispatch_cache_forget(Function, Axis),
+    petta_dispatch_policy_changed(Function, Axis).
+petta_catalog_note_removed(['dispatch-default', Axis, _]) :-
+    !,
+    petta_dispatch_default_cache_forget(Axis),
+    petta_dispatch_default_changed(Axis).
 petta_catalog_note_removed([kind, Head|_]) :-
     !,
     retractall(petta_kind_cache(Head, _, _)),
@@ -440,6 +530,43 @@ petta_catalog_clause([Rel|Args], Ref) :-
 :- dynamic petta_annotations_cache/2. %Ctx, Algebra
 :- dynamic petta_algebra_descriptor_cache/8.
 %Name, Combine, Extend, Zero, One, Laws, Carrier, Requires
+:- dynamic petta_dispatch_value_cache/4. %Function, Axis, Value | none, ref(Ref) | none
+
+%A compiled call can ask four dispatch axes on every recursive step. Walking
+%the variadic catalog storage for each question makes the loop proportional
+%to the size of the whole catalog. This cache keeps &petta authoritative: the
+%value carries the exact override or default clause reference that supplied
+%it, mutation callbacks forget affected keys, and a transaction rollback or
+%source withdrawal self-heals through the erased-reference check.
+petta_dispatch_value(Function, Axis, Value) :-
+    (   petta_dispatch_value_cache(Function, Axis, Cached, Validity)
+    ->  (   Validity = ref(Ref)
+        ->  (   petta_catalog_ref_erased(Ref)
+            ->  retractall(petta_dispatch_value_cache(Function, Axis, _, _)),
+                petta_dispatch_value_fresh(Function, Axis, Value)
+            ;   Value = Cached
+            )
+        ;   fail
+        )
+    ;   petta_dispatch_value_fresh(Function, Axis, Value)
+    ).
+
+petta_dispatch_value_fresh(Function, Axis, Value) :-
+    (   petta_catalog_clause(['dispatch-policy', Function, Axis, Fresh], Ref)
+    ->  assertz(petta_dispatch_value_cache(Function, Axis, Fresh, ref(Ref))),
+        Value = Fresh
+    ;   petta_catalog_clause(['dispatch-default', Axis, Fresh], Ref)
+    ->  assertz(petta_dispatch_value_cache(Function, Axis, Fresh, ref(Ref))),
+        Value = Fresh
+    ;   assertz(petta_dispatch_value_cache(Function, Axis, none, none)),
+        fail
+    ).
+
+petta_dispatch_cache_forget(Function, Axis) :-
+    retractall(petta_dispatch_value_cache(Function, Axis, _, _)).
+
+petta_dispatch_default_cache_forget(Axis) :-
+    retractall(petta_dispatch_value_cache(_, Axis, _, _)).
 
 petta_kind_spec(Head, Spec) :-
     (   petta_kind_cache(Head, Spec0, Validity)
@@ -586,6 +713,13 @@ petta_check_catalog_semantics(vocabulary, [Name|_], Term) :-
                                   'one vocabulary row per name; remove the old row first')
     ;   true
     ).
+petta_check_catalog_semantics(policy, [Axis|_], Term) :-
+    !,
+    (   petta_catalog_row([policy, Axis, _, _])
+    ->  petta_declaration_refused(Term, 1,
+                                  'one policy row per axis; remove the old row first')
+    ;   true
+    ).
 petta_check_catalog_semantics(claim, [Vocab, Value|_], Term) :-
     !,
     (   petta_vocabulary_values(Vocab, Values)
@@ -617,6 +751,22 @@ petta_check_catalog_semantics(annotations, [Ctx, Algebra|CapabilityArgs], Term) 
     (   member(Requirement, Required),
         \+ memberchk(Requirement, Capabilities)
     ->  petta_algebra_requirement_refusal(Ctx, Algebra, Requirement)
+    ;   true
+    ).
+petta_check_catalog_semantics('dispatch-default', [Axis, Value], Term) :-
+    !,
+    petta_check_dispatch_value(Axis, Value, Term),
+    (   petta_catalog_row(['dispatch-default', Axis, _])
+    ->  petta_declaration_refused(Term, 1,
+                                  'one default per dispatch axis; remove the old row first')
+    ;   true
+    ).
+petta_check_catalog_semantics('dispatch-policy', [Function, Axis, Value], Term) :-
+    !,
+    petta_check_dispatch_value(Axis, Value, Term),
+    (   petta_catalog_row(['dispatch-policy', Function, Axis, _])
+    ->  petta_declaration_refused(Term, 2,
+                                  'one override per function and dispatch axis; remove the old row first')
     ;   true
     ).
 petta_check_catalog_semantics(_, _, _).
@@ -686,6 +836,7 @@ petta_check_algebra_laws(Name, Combine, Extend, Zero, One,
     ).
 
 petta_check_algebra_closure(Name, Combine, Extend, Carrier) :-
+    % policy-inventory-exempt: mechanism-internal; reason=Combine and Extend are the algebra row's own two declared operation names rather than a closed value set; evidence=engine/spaces.pl:petta_check_algebra_laws/8
     forall(( member(Operation, [Combine, Extend]),
              member(A, Carrier), member(B, Carrier) ),
            ( petta_apply_algebra_operation(Name, Operation, A, B, Result),
@@ -802,6 +953,23 @@ petta_algebra_requirement_refusal(Ctx, amplitude, Requirement) :-
 petta_algebra_requirement_refusal(Ctx, Algebra, Requirement) :-
     throw(error(petta_algebra_requirement_missing(Ctx, Algebra, Requirement),
                 none)).
+
+petta_check_dispatch_value(Axis, Value, Term) :-
+    (   dispatch_axis_vocabulary(Axis, Vocabulary)
+    ->  (   petta_vocabulary_value(Vocabulary, Value)
+        ->  true
+        ;   petta_declaration_refused(Term, 3,
+                                      ['one-of', Vocabulary])
+        )
+    ;   petta_declaration_refused(Term, 2, 'a declared dispatch axis')
+    ).
+
+dispatch_axis_vocabulary('MismatchEnum', 'MismatchEnum').
+dispatch_axis_vocabulary('NoMatchEnum', 'NoMatchEnum').
+dispatch_axis_vocabulary('EvaluationOrderEnum', 'EvaluationOrderEnum').
+dispatch_axis_vocabulary('FunctionResultEnum', 'FunctionResultEnum').
+dispatch_axis_vocabulary('ClauseFailedEnum', 'ClauseFailedEnum').
+dispatch_axis_vocabulary('OutOfClausesEnum', 'OutOfClausesEnum').
 
 petta_check_argspecs([], _, _).
 petta_check_argspecs([Spec|Rest], Position, Term) :-
@@ -964,6 +1132,10 @@ prolog:error_message(petta_declaration_malformed(Term, Position, Expected)) -->
        expects ~w. Match (kind ~w $spec) in &petta to read the declared \c
        shape, or remove the kind row and redeclare it to widen the \c
        kind'-[TermText, Position, ExpectedText, Head] ].
+prolog:error_message(petta_duplicate_declaration(Space, Second, First)) -->
+    { swrite(Second, SecondText), swrite(First, FirstText) },
+    [ 'the declaration ~w is a duplicate in ~w; the first declaration is ~w'-
+      [SecondText, Space, FirstText] ].
 
 %The shipped catalog, as data. Every row becomes an ordinary '&petta' atom
 %when the directive below runs, matchable and removable like any other.
@@ -984,6 +1156,9 @@ petta_catalog_preset([vocabulary, 'source-kind', linear, repeated, peek]).
 petta_catalog_preset([vocabulary, world, 'closed-world', 'open-world']).
 petta_catalog_preset([vocabulary, atomicity,
                       transactional, 'atomic-single', 'best-effort']).
+petta_catalog_preset([vocabulary, 'memo-strategy', wtinylfu, lru]).
+petta_catalog_preset([vocabulary, 'memo-aggregate', none, min, max, sum, count]).
+petta_catalog_preset([vocabulary, 'save-format', metta, fast]).
 petta_catalog_preset([vocabulary, 'cache-mode', unchecked]).
 petta_catalog_preset([vocabulary, 'effect-class', immutable]).
 petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
@@ -991,11 +1166,24 @@ petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
 petta_catalog_preset([vocabulary, volatility, volatile, stable, immutable]).
 petta_catalog_preset([vocabulary, 'route-key', context, global]).
 petta_catalog_preset([vocabulary, 'space-capability', file, process, network]).
+petta_catalog_preset([vocabulary, 'MismatchEnum',
+                      'MismatchOriginal', 'MismatchError', 'MismatchFail']).
+petta_catalog_preset([vocabulary, 'NoMatchEnum',
+                      'NoMatchOriginal', 'NoMatchFail', 'NoMatchError']).
+petta_catalog_preset([vocabulary, 'EvaluationOrderEnum',
+                      'OrderClause', 'OrderFittest']).
+petta_catalog_preset([vocabulary, 'FunctionResultEnum',
+                      'Nondeterministic', 'Deterministic']).
+petta_catalog_preset([vocabulary, 'ClauseFailedEnum',
+                      'ClauseFailNonDet', 'ClauseFailDet']).
+petta_catalog_preset([vocabulary, 'OutOfClausesEnum',
+                      'FailureOriginal', 'FailureEmpty', 'FailureError']).
 petta_catalog_preset([kind, kind, symbol, [rest, term]]).
 petta_catalog_preset([kind, 'routed-by-shape', symbol,
                       [optional, ['one-of', 'route-key']]]).
 petta_catalog_preset([kind, vocabulary, symbol, [rest, symbol]]).
 petta_catalog_preset([kind, claim, symbol, symbol, [rest, symbol]]).
+petta_catalog_preset([kind, policy, symbol, symbol, term]).
 petta_catalog_preset([kind, handles, symbol, pattern, ['one-of', fidelity],
                       [optional, ['one-of', determinism]]]).
 petta_catalog_preset([kind, 'on-error', symbol, pattern,
@@ -1025,9 +1213,31 @@ petta_catalog_preset([kind, restricted, term]).
 petta_catalog_preset([kind, grants, term,
                       ['one-of', 'space-capability']]).
 petta_catalog_preset([kind, parametric, term]).
+petta_catalog_preset([kind, 'dispatch-default', symbol, term]).
+petta_catalog_preset([kind, 'dispatch-policy', symbol, symbol, term]).
 petta_catalog_preset(['routed-by-shape', handles]).
 petta_catalog_preset(['routed-by-shape', 'on-error']).
 petta_catalog_preset(['routed-by-shape', merge, global]).
+%One row per engine decision axis. The inventory lane joins these live rows
+%to the implementation seam named for each knob; keeping the defaults here
+%means a program can read the same table the gate checks.
+petta_catalog_preset([policy, dispatch, 'dispatch-policy', 'MismatchOriginal']).
+petta_catalog_preset([policy, order, 'dispatch-policy', 'OrderClause']).
+petta_catalog_preset([policy, merge, merge, depth]).
+petta_catalog_preset([policy, agenda, reduce, 'depth-first']).
+petta_catalog_preset([policy, equality, '==', 'structural-identity']).
+petta_catalog_preset([policy, errors, 'on-error', abort]).
+petta_catalog_preset([policy, world, context, 'closed-world']).
+petta_catalog_preset([policy, algebra, annotations, bool]).
+petta_catalog_preset([policy, storage, 'config-memoize', wtinylfu]).
+petta_catalog_preset([policy, typing, 'typing-rule', strict]).
+petta_catalog_preset([policy, fidelity, handles, 'Exact']).
+petta_catalog_preset([policy, 'source-kind', source, repeated]).
+petta_catalog_preset([policy, 'transaction-mode', transaction, 'all-answers']).
+petta_catalog_preset([policy, atomicity, writes, transactional]).
+petta_catalog_preset([policy, 'save-format', save, metta]).
+petta_catalog_preset([policy, volatility, volatility, stable]).
+petta_catalog_preset([policy, determinism, determinism, nondet]).
 petta_catalog_preset([claim, semiring, ranked, ordered]).
 petta_catalog_preset([claim, semiring, prob, ordered]).
 petta_catalog_preset([algebra, bool, max, '*', 0, 1,
@@ -1088,6 +1298,13 @@ petta_catalog_preset([algebra, amplitude, 'amplitude-add',
 %The requirements above are the executable amplitude fence [tested:
 %an_amplitude_context_without_the_whole_fragment_is_refused_by_name;
 %commit=7ae3103aee78e947d23c5872e3db23c28ad7fe1c].
+petta_catalog_preset(['dispatch-default', 'MismatchEnum', 'MismatchOriginal']).
+petta_catalog_preset(['dispatch-default', 'NoMatchEnum', 'NoMatchOriginal']).
+petta_catalog_preset(['dispatch-default', 'EvaluationOrderEnum', 'OrderClause']).
+petta_catalog_preset(['dispatch-default', 'FunctionResultEnum', 'Nondeterministic']).
+petta_catalog_preset(['dispatch-default', 'ClauseFailedEnum', 'ClauseFailNonDet']).
+petta_catalog_preset(['dispatch-default', 'OutOfClausesEnum', 'FailureOriginal']).
+
 %Presets land only where their subject has no row yet, which makes the
 %directive reconsult-idempotent (a re-consulted engine meets its own rows
 %and the duplicate refusal must not fire) and keeps a program's own
@@ -1946,6 +2163,33 @@ module_owns_function(Module, F) :- compiled_function_name(F, Predicate),
 metta_add_atom(Space, Term, true) :- Term = [=, [FAtom|W], _], !,
                                      must_be(atom, FAtom),
                                      add_equation(Space, Term, FAtom, W).
+%Type declarations are a multimap because distinct arrows and distinct data
+%types are meaningful. A variant-identical second row is not: every type walk
+%would enumerate it again. A direct source add is idempotent and warns while
+%leaving the first row in place; the public batch preflight below stays strict
+%because accepting one duplicate in a batch would make that transport differ
+%from its promised all-or-nothing write. Host registrations that need exclusive
+%ownership use petta_py_add_strict_declaration/2 in shim.pl.
+metta_add_atom(Space, Term, true) :-
+    Term = [':', _, _],
+    existing_duplicate_declaration(Space, Term, First),
+    !,
+    print_message(warning, petta_duplicate_declaration(Space, Term, First)).
+% DontEvalType changes how every arrow parameter naming this type compiles,
+% even when the type symbol is not itself a function. Store first so repairs
+% observe the new marker, then invalidate its module-qualified support root.
+metta_add_atom(Space, Term, true) :-
+    Term = [':', Type, 'DontEvalType'],
+    atom(Type),
+    !,
+    (   Space == '&self', fun(Type)
+    ->  retract_prelude_declarations(Type)
+    ;   true
+    ),
+    store_atom(Space, Term),
+    space_module(Space, DeclModule),
+    ( fun(Type) -> function_changed(DeclModule, Type) ; true ),
+    type_marker_changed(DeclModule, Type).
 %A type declaration decides how a call site compiles, most sharply for an Atom
 %parameter, which is what makes a control form possible: (: f (-> Atom
 %%Undefined%)) is the difference between the argument arriving evaluated and
@@ -1966,7 +2210,6 @@ metta_add_atom(Space, Term, true) :- Term = [':', FAtom, _], atom(FAtom),
                                      ;   true
                                      ),
                                      store_atom(Space, Term),
-                                     recompile_definitions_mentioning(FAtom),
                                      space_module(Space, DeclModule),
                                      function_changed(DeclModule, FAtom).
 metta_add_atom(Space, Term, true) :- metta_foreign_space(Space), !,
@@ -1975,19 +2218,63 @@ metta_add_atom(Space, Term, true) :- metta_foreign_space(Space), !,
 metta_add_atom(Space, Term, true) :- add_sexp(Space, Term, Ref),
                                      record_source_assertion(Ref).
 
+existing_duplicate_declaration(Space, Term, First) :-
+    \+ metta_foreign_space(Space),
+    copy_term(Term, Probe),
+    get_native_atom(Space, Stored),
+    Stored =@= Probe,
+    !,
+    First = Stored.
+
+first_variant_declaration(Term, [First|_], First) :- Term =@= First, !.
+first_variant_declaration(Term, [_|Declarations], First) :-
+    first_variant_declaration(Term, Declarations, First).
+
+ensure_new_batch_declaration(Space, Term, Earlier) :-
+    (   existing_duplicate_declaration(Space, Term, First)
+    ->  throw(error(petta_duplicate_declaration(Space, Term, First), none))
+    ;   first_variant_declaration(Term, Earlier, First)
+    ->  throw(error(petta_duplicate_declaration(Space, Term, First), none))
+    ;   true
+    ).
+
+batch_declarations_unique(Space, Terms) :-
+    batch_declarations_unique(Space, Terms, []).
+
+batch_declarations_unique(_, [], _).
+batch_declarations_unique(Space, [Term|Terms], Earlier) :-
+    (   Term = [':', _, _]
+    ->  ensure_new_batch_declaration(Space, Term, Earlier),
+        Next = [Term|Earlier]
+    ;   Next = Earlier
+    ),
+    batch_declarations_unique(Space, Terms, Next).
+
 %Whether every atom in a batch stores and does nothing else, which is the only
 %kind a bulk crossing may carry. It repeats metta_add_atom/3's first two clause
 %heads, and they are repeated rather than shared for the reason given there.
+%The same traversal preflights otherwise-plain type declarations against both
+%the space and earlier batch members. This keeps the one-crossing fast path
+%without letting two declarations bypass the single-atom refusal.
 %
 %Written as clause heads and not as a test called per atom, which is measured:
 %head unification costs no inference where a call costs one, and over a whole
 %batch that is the difference between one and two per atom [measured 2026-08-16:
 %8.00 back to 7.00 inferences per atom over 20,000]. Cut-then-fail so the scan
 %stops at the first atom that carries work.
-atoms_store_only([]).
-atoms_store_only([[=|_]|_]) :- !, fail.
-atoms_store_only([[':', FAtom, _]|_]) :- atom(FAtom), fun(FAtom), !, fail.
-atoms_store_only([_|Terms]) :- atoms_store_only(Terms).
+atoms_store_only(Space, Terms) :- atoms_store_only(Space, Terms, []).
+
+atoms_store_only(_, [], _).
+atoms_store_only(_, [[=|_]|_], _) :- !, fail.
+atoms_store_only(_, [[':', _, 'DontEvalType']|_], _) :- !, fail.
+atoms_store_only(_, [[':', FAtom, _]|_], _) :-
+    atom(FAtom), fun(FAtom), !, fail.
+atoms_store_only(Space, [Term|Terms], Earlier) :-
+    Term = [':', _, _], !,
+    ensure_new_batch_declaration(Space, Term, Earlier),
+    atoms_store_only(Space, Terms, [Term|Earlier]).
+atoms_store_only(Space, [_|Terms], Earlier) :-
+    atoms_store_only(Space, Terms, Earlier).
 
 %Where an atom goes. A foreign space's provider owns its storage entirely; a
 %native space's storage is the Prolog database.
@@ -2082,7 +2369,9 @@ store_equation(Storage, Space, Term) :- add_sexp_in(Storage, Space, Term, Ref),
 %the compile door's own module switch and the invalidation behind it is scoped
 %to one space now: reading the ambient module here would have made a write in
 %one space invalidate whichever space happened to be in force.
-function_changed(Module, FAtom) :- invalidate_specializations(Module, FAtom),
+function_changed(Module, FAtom) :- prepare_specialization_invalidation(Module, FAtom),
+                                   support_invalidate_function_change(Module, FAtom),
+                                   forall(support_repair_invalidations, true),
                                    forall(metta_on_function_changed(FAtom), true).
 
 %The removal repair is the engine's own duty, not an observer's: it used to
@@ -2098,7 +2387,8 @@ function_changed(Module, FAtom) :- invalidate_specializations(Module, FAtom),
 %that never landed. Both directions and the rollback are pinned
 %[tested: the_engine_recompiles_dependents_without_a_host]
 %[tested: failed_late_definition_does_not_recompile_existing_callers].
-function_removed(FAtom) :- recompile_definitions_mentioning(FAtom),
+function_removed(FAtom) :- support_invalidate_function(FAtom),
+                           forall(support_repair_invalidations, true),
                            forall(metta_on_function_removed(FAtom), true).
 
 %The caller has classified the atom as an equation, so the shape test that used
@@ -2278,9 +2568,13 @@ metta_add_atoms(Space, Terms) :-
     %[tested: a_batch_into_a_hooked_space_consults_the_handler_per_atom,
     %a_batch_beyond_capacity_is_refused_like_lone_adds].
     petta_hook_claim_idle(Space),
-    atoms_store_only(Terms),
+    atoms_store_only(Space, Terms),
     add_atoms_in_one_crossing(Space, Terms), !.
 metta_add_atoms(Space, Terms) :-
+    %This route may perform work for its first atom, so check the whole batch
+    %before invoking any per-atom door. A duplicate later in the batch must not
+    %leave the first declaration, compiled equation, or observer effect behind.
+    batch_declarations_unique(Space, Terms),
     forall(member(Term, Terms), 'add-atom'(Space, Term, _)).
 
 %A provider's own batch crossing when it has one, and the native store's
@@ -2343,7 +2637,8 @@ compile_metta_equation(Module, Term, Clause, Ref) :-
     %(let $h (+ 1) (f $h)), silently answered NOTHING. Found by the
     %verify-specializations differential over examples/
     %[tested specializer:a_recursive_specialization_survives_its_compile].
-    invalidate_specializations(Module, F),
+    prepare_specialization_invalidation(Module, F),
+    support_invalidate_function_change(Module, F),
     once(with_metta_module(Module, translate_clause(Term, RawClause))),
     petta_instrument_recursive_clause(Term, RawClause, Clause),
     assert_function_clause(Module, Clause, Ref),
@@ -2352,6 +2647,7 @@ compile_metta_equation(Module, Term, Clause, Ref) :-
     record_source_assertion(SourceRef),
     %The dependent-recompile hooks run AFTER the clause is in place, so
     %a definition that mentions F recompiles against the new one.
+    forall(support_repair_invalidations, true),
     forall(metta_on_function_changed(F), true).
 
 %A recursive equation spends the same branch-local budget that runnable
@@ -2767,16 +3063,89 @@ metta_remove_atom(Space, Term, Removed) :- var(Term), !,
 metta_remove_atom(Space, Term, Removed) :- Term = [=, [F|Args], Body], !,
                                            remove_equation(Space, Term, F, Args,
                                                            Body, Removed).
+metta_remove_atom(Space, Term, Removed) :-
+    Term = [':', Type, Marker],
+    atom(Type),
+    ( Marker == 'DontEvalType' ; var(Marker) ),
+    !,
+    unstore_atom(Space, Term, Removed),
+    (   Removed == true
+    ->  space_module(Space, DeclModule),
+        ( fun(Type) -> function_changed(DeclModule, Type) ; true ),
+        type_marker_changed(DeclModule, Type)
+    ;   true
+    ).
+metta_remove_atom(Space, Term, Removed) :-
+    Term = [':', Type, Marker],
+    var(Type),
+    ( Marker == 'DontEvalType' ; var(Marker) ),
+    !,
+    findall(MarkerType,
+            ( match_stored(Space,
+                           [':', MarkerType, 'DontEvalType'], MarkerType, _),
+              atom(MarkerType) ),
+            MarkerTypes0),
+    sort(MarkerTypes0, MarkerTypes),
+    unstore_atom(Space, Term, Removed),
+    (   Removed == true
+    ->  space_module(Space, DeclModule),
+        forall(member(MarkerType, MarkerTypes),
+               type_marker_changed(DeclModule, MarkerType))
+    ;   true
+    ).
 %A declaration decides how call sites compile, so taking one away leaves them
 %stale exactly as adding one did, and for the same reason: the argument that
 %arrived as written now arrives evaluated. The write path learned this and the
 %removal path did not.
 metta_remove_atom(Space, Term, Removed) :- Term = [':', F, _], atom(F), fun(F), !,
                                            unstore_atom(Space, Term, Removed),
-                                           recompile_definitions_mentioning(F),
                                            space_module(Space, DeclModule),
                                            function_changed(DeclModule, F).
 metta_remove_atom(Space, Term, Removed) :- unstore_atom(Space, Term, Removed).
+
+type_marker_changed(Module, Type) :-
+    findall(Function-Context,
+            type_marker_dependent(Module, Type, Function, Context),
+            Dependents0),
+    sort(Dependents0, Dependents),
+    findall(Root,
+            ( member(Function-Context, Dependents),
+              Root = type_marker(Module, Type),
+              support_record(function_view(Context, Function), Root) ),
+            Roots0),
+    sort(Roots0, Roots),
+    support_invalidate_many(Roots),
+    forall(support_repair_invalidations, true),
+    clear_translation_cache.
+
+type_marker_dependent(MarkerModule, Type, Function, Context) :-
+    type_marker_function_context(Function, Context),
+    type_marker_visible_in(MarkerModule, Context),
+    stored_arrow_uses_type_in(Context, Function, Type).
+
+type_marker_function_context(Function, Context) :-
+    support_view_module(Function, Context).
+
+type_marker_visible_in(MarkerModule, Context) :-
+    metta_self_module(Self),
+    ( MarkerModule == Self -> true ; Context == MarkerModule ).
+
+stored_arrow_uses_type_in(Context, Function, Type) :-
+    metta_self_module(Context),
+    !,
+    match_stored('&self', [':', Function, [->|Types]], Types, _),
+    arrow_parameter_type(Types, Type).
+stored_arrow_uses_type_in(Context, Function, Type) :-
+    metta_module_space(Context, Space),
+    (   match_stored(Space, [':', Function, [->|Types]], Types, _)
+    ;   match_stored('&self', [':', Function, [->|Types]], Types, _)
+    ),
+    arrow_parameter_type(Types, Type).
+
+arrow_parameter_type(Types, Type) :-
+    append(ParameterTypes, [_], Types),
+    member(ParameterType, ParameterTypes),
+    ParameterType == Type.
 
 %A host's reporting removal: whether anything actually went. The
 %language-facing `remove-atom` answers the UNIT value, because its type is
@@ -2876,7 +3245,7 @@ remove_equation(Space, Term, F, Args, Body, Removed) :-
     %caller's Term would narrow every later use of it in this clause.
     copy_term(Term, Probe),
     (   translated_from(Ref, Probe), clause_property(Ref, module(Module))
-    ->  erase(Ref), retractall(translated_from(Ref, _)), Erased = true
+    ->  forget_translated_from(Module, Ref, Probe), erase(Ref), Erased = true
     ;   Erased = false
     ),
     %A local predicate the erase just EMPTIED still shadows the same name
@@ -3774,6 +4143,7 @@ petta_route_cap_apply(Space, Pattern, Class0, Class) :-
     ->  Class = Class0
     ;   findall(Cap-Why, metta_route_cap(Space, Pattern, Cap, Why), Caps),
         (   member(BadCap-BadWhy, Caps),
+            % policy-inventory-exempt: mechanism-internal; reason=exact inexact and refuse are the route-advisor fold states rather than a user policy vocabulary; evidence=engine/spaces.pl:petta_route_cap_apply/4
             \+ memberchk(BadCap, [exact, inexact, refuse])
         ->  throw(error(petta_route_cap_invalid(Space, BadCap, BadWhy),
                         none))
@@ -4238,7 +4608,8 @@ space_atom_count_uncached(Space, Count) :-
 
 clear_native_atoms(Space) :-
     (   native_storage_module_ready(Space, Module)
-    ->  findall(Atom, compiled_half_atom(Space, Module, Atom), Compiled),
+    ->  space_module(Space, SupportModule),
+        findall(Atom, compiled_half_atom(Space, Module, Atom), Compiled),
         forall(member(Atom, Compiled),
                ( metta_remove_atom(Space, Atom, _) -> true ; true )),
         native_storage_functor(Space, Functor),
@@ -4246,10 +4617,14 @@ clear_native_atoms(Space) :-
                  functor(Head, Functor, Arity) ),
                retractall(Module:Head)),
         retractall(Module:'$petta_native_scalar'(_))
-    ;   true
+    ;   SupportModule = none
     ),
     petta_capacity_count_cleared(Space),
     retractall(import_life(Space, _, _)),
+    (   SupportModule \== none
+    ->  support_forget_module(SupportModule)
+    ;   true
+    ),
     forget_space_source_loads(Space).
 
 %The atoms whose removal has a consequence beyond storage, which are exactly

@@ -63,6 +63,10 @@
 %     registry probe per form [tested:
 %     test_a_registered_token_class_parses_like_a_shipped_one;
 %     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
+%   - Grouped source execution enters the same replace, rollback, support
+%     repair, and contribution-recording lifecycle as ordinary file loading
+%     [tested: filereader_source_reload:a_grouped_load_runs_inside_the_source_lifecycle;
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - A file that loads again REPLACES what it put in that space rather than
 %     adding to it, reaches any other space its change has made stale, and
 %     says what it withdrew [tested 2026-08-19:
@@ -95,6 +99,11 @@
 %     and 7,322,289 against 7,302,027 through import!'s populate pass, both
 %     +0.28%. Asking whether an already-loaded file has changed costs 336, a
 %     read and a hash [measured 2026-08-19].
+%   - Compiled definitions record their module-qualified symbol supports in
+%     supports/2, and a function change queues each transitive compiled caller
+%     once for repair [tested:
+%     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -145,6 +154,7 @@ prolog:message(petta_source_replaced(CanonPath, Spaces, Atoms)) -->
 :- dynamic compiled_metta_source/1.
 :- thread_local active_source_load/1.
 :- dynamic source_load_assertion/2.
+:- dynamic source_load_support_assertions/2.
 :- dynamic source_load_repair/2.
 %What a file put where, so that loading it again can REPLACE that rather than
 %add to it. SWI states the rule this implements: "clauses are owned by the file
@@ -240,11 +250,28 @@ load_metta_file_impl(Filename, Results, Space) :-
 %including it, and tests/conformance/leatta_run.pl needs every group, because
 %the arbiter records one bracketed line per form and the grouping IS the
 %observation. It ran its own copy of this until include needed one too.
+%
+%This is an explicit execution door, so it loads on every call just as the
+%Python library's load() does. The public wrapper still enters the ordinary
+%file lifecycle: definitions are replaceable, failed loads roll back, and
+%support repair waits until the complete source has been admitted. The raw
+%implementation below exists only as the lifecycle's body.
 %The cut is process_metta_string/4's, for its reason: a source has ONE
 %reading, and process_form/4's last clause turns a backtrack into "could not
 %translate this form", so a caller that fails after a successful load is told
 %the source was malformed.
 load_metta_source_groups(Filename, Space, Groups) :-
+    with_mutex(metta_loader,
+               catch(load_entry_metta_source_groups(Filename, Space, Groups),
+                     Error,
+                     rethrow_metta_file_error(Filename, Error))).
+
+load_entry_metta_source_groups(Filename, Space, Groups) :-
+    absolute_file_name(Filename, CanonPath, [access(read)]),
+    import_when(true, Space, CanonPath,
+                load_imported_metta_source_groups(CanonPath, Groups, Space)).
+
+load_metta_source_groups_impl(Filename, Space, Groups) :-
     setup_call_cleanup(push_working_dir(Filename),
                        read_metta_source_groups(Filename, Space, Groups),
                        pop_working_dir).
@@ -686,6 +713,17 @@ load_imported_metta_file(Filename, Results, Space) :-
           Error,
           rethrow_metta_file_error(Filename, Error)).
 
+%The grouped door differs only in its result shape. Re-population of other
+%spaces deliberately uses the ordinary loader because no caller observes
+%those spaces' directive groups.
+load_imported_metta_source_groups(Filename, Groups, Space) :-
+    catch(replacing_previous_load(
+              Filename, Space,
+              load_imported_metta_file_impl(Filename, _),
+              load_imported_metta_source_groups_impl(Filename, Groups, Space)),
+          Error,
+          rethrow_metta_file_error(Filename, Error)).
+
 %Each pass gets a load context of its own: a file's equations compile into
 %EVERY receiving space's module and its atoms are stored once per space, so
 %the second space's copy is a contribution the file made and has to be
@@ -703,6 +741,17 @@ load_imported_metta_file_impl(Filename, Results, Space) :-
 run_new_source_load(Filename, Results, Space) :-
     with_source_load(Filename, Space,
                      load_metta_file_impl(Filename, Results, Space)).
+
+load_imported_metta_source_groups_impl(Filename, Groups, Space) :-
+    ( compiled_metta_source(Filename)
+      -> with_source_load(
+             Filename, Space,
+             load_metta_source_groups_impl(Filename, Space, Groups))
+       ; run_with_loading_marker(
+             compiled_metta_source(Filename),
+             with_source_load(
+                 Filename, Space,
+                 load_metta_source_groups_impl(Filename, Space, Groups))) ).
 
 %One source load: the context every assertion is filed under while it runs, the
 %repair pass at the end, and the two ways it can finish. A failure rolls the
@@ -731,6 +780,7 @@ with_source_load(CanonPath, Space, Goal) :-
         Catcher,
         ( erase(ContextRef),
           retractall(source_load_repair(LoadId, _)),
+          retractall(support_recompile_pending(LoadId, _, _)),
           retractall(source_load_digest(LoadId, _, _)),
           ( Catcher == exit -> true ; rollback_source_load(LoadId) ) )).
 
@@ -899,6 +949,7 @@ withdraw_source_load(CanonPath, Space, Count) :-
 forget_space_source_loads(Space) :-
     forall(retract(metta_source_load(_, Space, LoadId, _)),
            ( retractall(source_load_assertion(LoadId, _)),
+             retractall(source_load_support_assertions(LoadId, _)),
              retractall(source_load_digest(LoadId, _, _)) )).
 
 run_with_loading_marker(Marker, Goal) :-
@@ -913,6 +964,27 @@ record_source_assertion(Ref) :-
     assertz(source_load_assertion(LoadId, Ref)).
 record_source_assertion(_).
 
+% Support edges created while a source is loading belong to that load just as
+% its executable and provenance clauses do. A failed load therefore erases
+% the graph rows it added instead of leaving stale dependencies behind.
+:- multifile support_assertions_tracked/0.
+support_assertions_tracked :-
+    active_source_load(_).
+
+:- multifile support_assertion_record/1.
+support_assertion_record(Ref) :-
+    record_source_assertion(Ref).
+
+% The compiled-form publisher creates several adjacent graph clauses. One
+% ownership row retains their references as a group, cutting per-edge loader
+% bookkeeping while rollback still erases every clause precisely.
+:- multifile support_assertion_records/1.
+support_assertion_records(Refs) :-
+    (   active_source_load(LoadId)
+    ->  assertz(source_load_support_assertions(LoadId, Refs))
+    ;   true
+    ).
+
 %One pass over the stored equations answers the whole batch. Repairing each
 %function separately walked every equation in the system once per function, so
 %a load that repaired several paid that scan several times. The recompiled set
@@ -921,18 +993,17 @@ record_source_assertion(_).
 run_source_repairs(LoadId) :-
     findall(F, source_load_repair(LoadId, F), Functions0),
     sort(Functions0, Functions),
-    transaction(repair_stale_definitions_batch(Functions)).
+    transaction(
+        ( repair_stale_definitions_batch(Functions),
+          repair_support_invalidations(LoadId) )).
 
 repair_stale_definitions_batch([]) :- !.
 repair_stale_definitions_batch(Functions) :-
-    findall(G,
-            ( translated_from(_, [=, [G|_], Body]),
-              atom(G),
-              member(F, Functions),
-              uses_as_data(F, Body) ),
-            Stale0),
-    sort(Stale0, Stale),
-    forall(member(G, Stale), recompile_function_impl(G)).
+    findall(Node,
+            ( member(F, Functions), support_function_node(F, Node) ),
+            Nodes0),
+    sort(Nodes0, Nodes),
+    support_invalidate_many(Nodes).
 
 %Newest first, so an assertion is undone before whatever it was built on.
 %
@@ -944,10 +1015,16 @@ repair_stale_definitions_batch(Functions) :-
 %and a failing erase/1 made forall/2 fail and took the whole withdrawal down
 %with it [measured 2026-08-19: it reported one atom and then failed].
 rollback_source_load(LoadId) :-
+    findall(Refs,
+            retract(source_load_support_assertions(LoadId, Refs)),
+            SupportGroups),
+    forall(( member(Refs, SupportGroups), member(Ref, Refs) ),
+           ( catch(erase(Ref), _, true) -> true ; true )),
     findall(Ref, retract(source_load_assertion(LoadId, Ref)), Asserted),
     reverse(Asserted, Refs),
     forall(member(Ref, Refs),
-           ( catch(erase(Ref), _, true) -> true ; true )).
+           ( catch(erase(Ref), _, true) -> true ; true )),
+    support_prune_orphans.
 
 rethrow_metta_file_error(_, Error) :- control_exception(Error), !,
                                       throw(Error).
@@ -1155,16 +1232,9 @@ schedule_definition_repair(F) :-
     repair_stale_definitions(F).
 
 repair_stale_definitions(F) :-
-    transaction(repair_stale_definitions_impl(F)).
-
-repair_stale_definitions_impl(F) :-
-    findall(G,
-            ( translated_from(_, [=, [G|_], Body]),
-              atom(G),
-              uses_as_data(F, Body) ),
-            Functions0),
-    sort(Functions0, Functions),
-    forall(member(G, Functions), recompile_function_impl(G)).
+    transaction(
+        ( support_invalidate_function(F),
+          repair_support_invalidations )).
 
 %Rebuild every clause of G from its stored source terms. Erasing and re-appending each
 %tracked clause in assertion order keeps their relative order; clauses asserted through
@@ -1190,6 +1260,7 @@ recompile_function_impl(G) :-
               clause_property(Ref, module(Module)) ),
             Modules0),
     sort(Modules0, Modules),
+    support_invalidate_function(G),
     %EVERY module's retained equations, which is not the same set as the
     %modules that still have clauses: a module whose clauses have all gone
     %keeps its equations otherwise, and the specializer then plans from
@@ -1197,9 +1268,7 @@ recompile_function_impl(G) :-
     %retranslates.
     clear_fun_meta(_, G),
     forall(member(Module, Modules), recompile_function_in_module(Module, G)),
-    %Per module the recompile touched, because the invalidation is scoped to
-    %one space now and this rebuilds a function's clauses wherever they are.
-    forall(member(Module, Modules), invalidate_specializations(Module, G)).
+    repair_support_invalidations.
 
 recompile_function_in_module(Module, G) :-
     findall(compiled(Ref, Term),
@@ -1209,79 +1278,133 @@ recompile_function_in_module(Module, G) :-
               clause_property(Ref, module(Module)) ),
             Clauses),
     forall(member(compiled(Ref, Term), Clauses),
-           ( erase(Ref),
-             retract(translated_from(Ref, Term)) )),
+           ( forget_translated_from(Module, Ref, Term),
+             erase(Ref) )),
     forall(member(compiled(_, Term), Clauses),
            ( copy_term(Term, Fresh),
              once(with_metta_module(Module,
-                                    translate_clause(Fresh, Clause))),
+                                    translate_clause(Fresh, RawClause))),
+             %A rebuilt clause is the same equation, so it carries the same
+             %recursion fuel the compile door gave it. Re-translating without
+             %this left a recursive definition unbounded the moment anything
+             %it mentions changed, because the support graph recompiles a
+             %dependent through here rather than through compile_metta_equation
+             %[measured 2026-08-21: redefining a function the recursive
+             %equation mentions dropped petta_fuel_step/2 from the rebuilt
+             %clause body; commit=WORKTREE].
+             petta_instrument_recursive_clause(Fresh, RawClause, Clause),
              assertz(Module:Clause, NewRef),
              record_source_assertion(NewRef),
              record_translated_from(NewRef, Term, SourceRef),
              record_source_assertion(SourceRef) )).
 
-%Recompile every stored definition whose body MENTIONS F. Wider than
-%uses_as_data/2's "compiled F as data": a caller that already compiled F as a
-%CALL is stale too when what changed is how its ARGUMENTS compile, which is
-%what a late type declaration changes. (: f (-> Atom Atom)) is the difference
-%between the argument arriving evaluated and arriving as written, so a call
-%site compiled before it kept evaluating for ever.
-%
-%This was the Python bridge's, as petta_py_stale_equation/4 and
-%petta_py_retranslate/3, which meant the engine could not repair its own
-%compiled code without Python in the process. It is engine machinery: the
-%rebuild it needs, recompile_function/1, was already here.
-%The guard first, because nothing mentions the name in the overwhelmingly
-%common case and one indexed lookup that fails is cheaper than a findall, a
-%sort and a forall over nothing. This runs on every compiled equation and on
-%every registration.
+% Compatibility name for the former name-index walk. Every compiled form now
+% records its supports at record_translated_from/3, so one indexed forward
+% invalidation answers the same question and includes transitive callers.
 recompile_definitions_mentioning(F) :-
-    (   definition_mentions(F, _)
-    ->  findall(G, ( definition_mentions(F, G), G \== F ), Callers0),
-        sort(Callers0, Callers),
-        forall(member(G, Callers), recompile_function(G))
-    ;   true
-    ).
-
-%Which stored definitions mention a symbol, indexed BY the symbol. Answering
-%it by scanning translated_from/2 walks every equation in the system once per
-%compiled equation, which is quadratic over a source load and was almost the
-%whole of one: a thousand equations cost 7,330,334 inferences with the scan
-%and 822,578 without it [measured 2026-08-16]. This is the same defect
-%run_source_repairs/1 already fixed for the other repair trigger, fixed once
-%rather than deferred per caller.
-%
-%The index may over-approximate, because a rollback erases a clause without
-%erasing its entry. That direction is safe: a stale entry costs one rebuild
-%from stored source that finds nothing, where a missing entry would leave
-%compiled code stale. Nothing removes entries for that reason.
-:- dynamic definition_mentions/2.
+    support_invalidate_function(F),
+    repair_support_invalidations.
 
 record_translated_from(Ref, Term, SourceRef) :-
     assertz(translated_from(Ref, Term), SourceRef),
-    index_definition_mentions(Term).
+    record_translated_supports(Ref, Term).
 
-index_definition_mentions([=, [G|_], Body]) :- !,
-    forall(mentioned_symbol(Body, Symbol),
-           ( definition_mentions(Symbol, G) -> true
-           ; assertz(definition_mentions(Symbol, G)) )).
-index_definition_mentions(_).
+% One source-form node per executable clause keeps multiple equations for one
+% function additive. Removing or retranslating one clause can retire exactly
+% its edges without replacing the supports of its siblings.
+record_translated_supports(Ref, [=, [G|_], Body]) :-
+    atom(G),
+    clause_property(Ref, module(Module)),
+    !,
+    findall(Support,
+            ( mentioned_symbol(Body, Symbol),
+              Symbol \== G,
+              Support = function_view(Module, Symbol) ),
+            Supports0),
+    sort(Supports0, Supports),
+    support_publish_compiled_form(Module, G, Ref, Supports).
+record_translated_supports(_, _).
+
+forget_translated_from(Module, Ref, [=, [G|_], _]) :-
+    !,
+    retractall(translated_from(Ref, _)),
+    support_forget(translated_form(Module, Ref)),
+    (   translated_from(OtherRef, [=, [OtherG|_], _]),
+        OtherG == G,
+        clause_property(OtherRef, module(Module))
+    ->  true
+    ;   support_forget(compiled_function(Module, G))
+    ).
+forget_translated_from(_, Ref, _) :-
+    retractall(translated_from(Ref, _)).
+
+% All module views already present in the graph are the callers a late global
+% registration can have made stale. Each support_invalidate/1 is itself
+% cycle-safe; repairs are drained once after the complete batch is dirty.
+support_invalidate_function(F) :-
+    support_function_node(F, _),
+    !,
+    findall(Node, support_function_node(F, Node), Nodes0),
+    sort(Nodes0, Nodes),
+    support_invalidate_many(Nodes).
+support_invalidate_function(_).
+
+support_invalidate_function_change(Module, F) :-
+    support_function_change_node(Module, F, _),
+    !,
+    findall(Node,
+            support_function_change_node(Module, F, Node),
+            Nodes0),
+    sort(Nodes0, Nodes),
+    support_invalidate_many(Nodes).
+support_invalidate_function_change(_, _).
+
+support_function_change_node(Module, F, Node) :-
+    support_function_module(F, Module),
+    Node = function(Module, F).
+support_function_change_node(_, F, Node) :-
+    support_view_module(F, ViewModule),
+    Node = function_view(ViewModule, F).
+
+support_function_node(F, Node) :-
+    support_function_module(F, Module),
+    Node = function(Module, F).
+support_function_node(F, Node) :-
+    support_view_module(F, Module),
+    Node = function_view(Module, F).
+
+:- dynamic support_recompile_pending/3.
+:- multifile support_invalidation_action/1.
+support_invalidation_action(compiled_function(Module, G)) :-
+    supports(translated_form(_, _), compiled_function(Module, G)),
+    ( active_source_load(LoadId) -> Context = LoadId ; Context = immediate ),
+    ( support_recompile_pending(Context, Module, G) -> true
+    ; assertz(support_recompile_pending(Context, Module, G)) ).
+
+:- multifile support_repair_invalidations/0.
+support_repair_invalidations :-
+    ( support_repairs_deferred -> true ; repair_support_invalidations ).
+
+repair_support_invalidations :-
+    repair_support_invalidations(immediate).
+
+repair_support_invalidations(Context) :-
+    support_recompile_pending(Context, _, _),
+    !,
+    findall(Module-G,
+            retract(support_recompile_pending(Context, Module, G)),
+            Repairs0),
+    sort(Repairs0, Repairs),
+    forall(member(Module-G, Repairs),
+           ( clear_fun_meta(Module, G),
+             recompile_function_in_module(Module, G) )).
+repair_support_invalidations(_).
 
 mentioned_symbol(Term, _) :- var(Term), !, fail.
 mentioned_symbol(Term, Term) :- atom(Term), !.
 mentioned_symbol(Term, Symbol) :- is_list(Term),
                                   member(Element, Term),
                                   mentioned_symbol(Element, Symbol).
-
-%True if the term contains a call-shaped (list-head) occurrence of F:
-uses_as_data(F, Term) :- nonvar(Term),
-                         Term = [H|Args],
-                         ( H == F -> true
-                         ; uses_as_data(F, H) -> true
-                         ; uses_as_data_args(F, Args) ).
-uses_as_data_args(F, Args) :- nonvar(Args),
-                              Args = [A|Rest],
-                              ( uses_as_data(F, A) -> true ; uses_as_data_args(F, Rest) ).
 
 % First pass converts MeTTa to Prolog terms without mutating registration state.
 parse_form(Form, Parsed) :-

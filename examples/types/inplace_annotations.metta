@@ -1,3 +1,9 @@
+; Purpose: demonstrate type annotations that prune heads and match patterns.
+; Guarantees: structural head misses remain empty where the example asserts a
+;   relation, rather than becoming residual dispatch values.
+; [tested: examples/types/inplace_annotations.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+!(add-atom &petta (dispatch-policy shape-of NoMatchEnum NoMatchFail))
+
 ;A type where it can PRUNE, in a head or a match query rather than only in a
 ;top-level declaration. hyperon-experimental issue #177's dynamic half.
 ;

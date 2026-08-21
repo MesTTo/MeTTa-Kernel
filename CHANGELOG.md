@@ -93,6 +93,43 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `xlibrary@0.0.2` collect violations as `assrchk/1` data without adding a
   production engine dependency; a clean smoke and a planted bad call gate both
   directions.
+- The six function-dispatch decisions are catalog data in `&petta`:
+  mismatch, no matching head, evaluation order, result determinism, failed
+  clause handling, and exhaustion. Each has a shipped default and accepts a
+  `(dispatch-policy <function> <axis> <value>)` override that takes effect on
+  already-compiled calls. The conforming no-match default leaves the call
+  unreduced.
+- `&petta` now publishes `(policy <axis> <knob> <default>)` rows for exactly
+  seventeen engine decision axes: dispatch, order, merge, agenda, equality,
+  errors, world, algebra, storage, typing, fidelity, source kind, transaction
+  mode, atomicity, save format, volatility, and determinism. The new
+  `policy-inventory` gate derives that table from the running engine, joins
+  every row and the semiring law claims to their implementation seams, and
+  rejects unowned closed policy lists. The scanner covers multiline Prolog
+  `member/2` and `memberchk/2`, Python `Literal[...]`, and Python list or set
+  membership. Exemptions require an adjacent category, reason, and an actual
+  local source line or symbol. Save formats, asynchronous declaration types,
+  and memo aggregation values consume catalog vocabularies rather than
+  duplicate local lists.
+- `add-typing-rule!` and `remove-typing-rule!` extend the checker with
+  module-scoped rules that answer `accept`, `(refuse <reason>)`, or `defer`.
+  The shipped arrow-arity, widening, gradual-compatibility, and metatype rules
+  occupy the same registry. A user refusal overrides an overlapping shipped
+  acceptance and is retained by name in the resulting `BadArgType`. The
+  confluence reporter now has translator and typing family descriptors; it
+  reports user/user and user/shipped refusal or defer overlaps as conditional
+  proof obligations.
+- Derived engine artifacts now share a demand-driven support graph with eager
+  dirtiness and stabilization cutoff. Module-qualified forward edges connect
+  source functions to specializations, memo generations, translated forms,
+  compiled functions, and their callers; changing one support invalidates only
+  its reachable dependents, and releasing a pooled space releases its graph
+  state. This replaces the specializer, memo, and compile-door dependency walks
+  with one cycle-safe mechanism.
+- `DontEvalType` is a declarable evaluation mask. Declaring
+  `(: Payload DontEvalType)` makes a `Payload` parameter receive its written
+  expression before evaluation; the compiler consults the declaration, not a
+  type-name convention.
 - `(space-atom-count <space>)` answers how many atoms a space holds from
   the store's own per-predicate clause counts: one property read per
   stored arity, none per atom, so a capacity policy over a million-atom
@@ -170,6 +207,19 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   when another branch reaches `StackOverflow`; zero retains the 100000-step
   default, invalid counts answer `UnsignedIntegerIsExpected`, and unsupported
   pragma names raise instead of succeeding as no-ops.
+- `(get-type ())` and `(get-type-space <space> ())` report the unit type
+  `(->)`, following the LeaTTa ruling. Runtime argument classification keeps
+  its separate empty-expression rule. The same pinned ruling aligns `nop`'s
+  rest arrow, `assert`'s unit result, and the public `is-function (->)` check.
+- Type inspection treats an under-applied arrow head as an inapplicable typed
+  application, not as tuple data. With `Cons : $t -> List $t -> List $t`,
+  `(get-type (Cons 1))` has no answer while the fully applied constructor
+  reports `List Number`.
+- Reloading a variant-identical source type declaration warns and keeps the
+  first row instead of storing a duplicate. A host operation may not adopt a
+  hand-written declaration: that conflict names both rows and is refused.
+  Public batches are preflighted as a whole, so two identical rows in one
+  `add()` call publish neither copy.
 - Free variables returned by runnable source now keep their written names in
   engine output and host bindings. The reader's name map travels beside each
   collected answer, so `$free` stays `$free` instead of becoming `$_0` while
@@ -256,6 +306,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Recorded integer overflow as a deliberate host-width divergence: PeTTa and
   LeaTTa keep exact unbounded integer results where Hyperon's `i64` carrier
   answers `ArithmeticOverflow`.
+- `pragma!` now refuses unknown settings and the unsupported `type-check`,
+  `max-stack-depth`, and `interpreter` compatibility keys. Its accepted keys
+  are limited to the two execution bounds and specialization verification,
+  each of which has an active consumer. `max-time` requires a positive number,
+  `max-inferences` requires a positive integer, and `none` disables either
+  bound; invalid values are refused without replacing the previous setting.
 - The tree partitions by seam, staging the kernel-and-satellites form.
   The engine lives in `engine/` alone; each driver seat lives under
   `bindings/` with everything it needs (`bindings/python/` carries the

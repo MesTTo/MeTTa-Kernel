@@ -44,6 +44,10 @@
 %     numeric spelling, and non-list compounds and opaque host values are not
 %     MeTTa terms [tested: parser_number_text, parser_refuses_non_metta,
 %     property_roundtrip; commit=53686aed41e7ff02de69052198afdb537536cbdb].
+%   - command_wants_more/1's string and escaped states are marked as parser
+%     mechanism states, not silently exempted policy values [tested:
+%     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
+%     commit=42b5d28232e75c32b20a1d5bf1f740fec134938d].
 % Owns resources:
 %   - metta_custom_reader_token/3 retains a host constructor until its pattern
 %     is replaced or unregistered [tested:
@@ -668,6 +672,7 @@ command_content([C|Rest], State0) :-
 %state as "wants more" made it hang the console.
 command_wants_more(Codes) :-
     command_balance(Codes, 0, outside, Depth, State),
+    % policy-inventory-exempt: mechanism-internal; reason=string and escaped are internal states of the reader state machine; evidence=engine/parser.pl:command_wants_more/1
     ( Depth > 0 -> true ; memberchk(State, [string, escaped]) ).
 
 %A closing bracket too many is MALFORMED, not incomplete: no amount of further
@@ -881,6 +886,7 @@ metta_optional_exponent --> metta_exponent, !.
 metta_optional_exponent --> [].
 
 metta_exponent --> [Code],
+                   % policy-inventory-exempt: mechanism-internal; reason=the two exponent-marker spellings are float lexeme syntax mirroring the shipped token pattern's [eE]; evidence=engine/parser.pl:metta_shipped_reader_token/2
                    { memberchk(Code, [0'e, 0'E]) },
                    metta_optional_number_sign,
                    metta_decimal_digits.

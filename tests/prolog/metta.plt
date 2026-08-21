@@ -4,6 +4,10 @@
 %   - test/3 displays host-only partial applications without claiming they are
 %     serializable MeTTa text [tested:
 %     a_partial_application_remains_visible_in_test_output; commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
+%   - every pragma! key is registered or refused, and a bound's value is
+%     validated, disabled by `none`, or refused before it can replace a
+%     working setting.
+%     [tested: interpreter_pragmas; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -1723,9 +1727,6 @@ test(with_pragma_refuses_a_malformed_setting,
      [throws(error(domain_error(metta_pragma_setting, _), _))]) :-
     metta_with_pragmas([broken], true, _).
 
-%with-pragma! is the ENGINE's own scoped form, so it keeps the key check
-%pragma! gave up: a scope that sets nothing does nothing, silently, for as
-%long as it lasts.
 test(with_pragma_refuses_an_unknown_key,
      [throws(error(domain_error(metta_pragma_key, 'invented-by-a-typo'), _))]) :-
     metta_with_pragmas([['invented-by-a-typo', 1]], true, _).
@@ -2094,6 +2095,12 @@ test(pragma_answers_unit_for_a_known_key) :-
     Known == [],
     'pragma!'('type-check', none, _).
 
+test(pragma_answers_unit_for_an_enforced_key) :-
+    'pragma!'('max-inferences', 100000, Result),
+    Result == [],
+    metta_pragma('max-inferences', 100000),
+    'pragma!'('max-inferences', none, _).
+
 %The one key the arbiter validates, and the whole of what it validates
 %[measured 2026-08-19 against the arbiter: `abc`, `1.5` and `-1` each answer
 %the error below, while (pragma! type-check -1) answers unit; the unknown-key
@@ -2111,6 +2118,35 @@ test(max_stack_depth_accepts_a_count) :-
     metta_pragma('max-stack-depth', 0),
     'pragma!'('max-stack-depth', none, _),
     \+ metta_pragma('max-stack-depth', _).
+
+test(max_time_refuses_invalid_values_without_replacing_the_bound,
+     [ forall(member(Bad, [not-a-number, 0, -1])),
+       setup('pragma!'('max-time', 30, _)),
+       cleanup('pragma!'('max-time', none, _)) ]) :-
+    catch('pragma!'('max-time', Bad, _), Error, true),
+    assertion(Error = error(domain_error(metta_pragma_value,
+                                         ['max-time', Bad]), _)),
+    assertion(metta_pragma('max-time', 30)).
+
+test(max_inferences_refuses_invalid_values_without_replacing_the_bound,
+     [ forall(member(Bad, [not-a-number, 0, -1, 1.5])),
+       setup('pragma!'('max-inferences', 100000, _)),
+       cleanup('pragma!'('max-inferences', none, _)) ]) :-
+    catch('pragma!'('max-inferences', Bad, _), Error, true),
+    assertion(Error = error(domain_error(metta_pragma_value,
+                                         ['max-inferences', Bad]), _)),
+    assertion(metta_pragma('max-inferences', 100000)).
+
+test(scoped_pragmas_preflight_all_values_before_changing_any_setting,
+     [ setup('pragma!'('max-time', 30, _)),
+       cleanup('pragma!'('max-time', none, _)) ]) :-
+    catch(metta_with_pragmas([['max-time', 5], ['max-inferences', 0]],
+                             true, _),
+          Error, true),
+    assertion(Error = error(domain_error(metta_pragma_value,
+                                         ['max-inferences', 0]), _)),
+    assertion(metta_pragma('max-time', 30)),
+    assertion(\+ metta_pragma('max-inferences', _)).
 
 :- end_tests(interpreter_pragmas).
 

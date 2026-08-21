@@ -1,5 +1,10 @@
 % Purpose: direct PlUnit coverage for memoization storage, eviction, and the
 %   per-space keying that keeps one space's cache out of another's answers.
+% Guarantees:
+%   - A changed callee invalidates transitive caller caches through supports/2
+%     while an unrelated cache survives [tested:
+%     memo_support_graph:a_leaf_change_invalidates_transitive_callers_only;
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -168,6 +173,78 @@ test(an_inheriting_space_shares_the_one_cache,
     findall(R, with_metta_module(Self, reduce([isoshared, 1], R)), [8]).
 
 :- end_tests(memo_space_isolation).
+
+
+% Function-level memo nodes retain the safe over-approximation the old
+% metta_memo_dep/6 table provided, but their edges now live in the common
+% support graph and need no reverse-graph construction at invalidation time.
+:- begin_tests(memo_support_graph,
+               [ setup(memo_support_setup),
+                 cleanup(memo_support_cleanup) ]).
+
+memo_support_equation(
+    "(= (plunit-memo-support-base $x) (+ $x 1))").
+memo_support_equation(
+    "(= (plunit-memo-support-middle $x) (plunit-memo-support-base $x))").
+memo_support_equation(
+    "(= (plunit-memo-support-derived $x) (plunit-memo-support-middle $x))").
+memo_support_equation(
+    "(= (plunit-memo-support-other $x) (+ $x 10))").
+
+memo_support_name('plunit-memo-support-base').
+memo_support_name('plunit-memo-support-middle').
+memo_support_name('plunit-memo-support-derived').
+memo_support_name('plunit-memo-support-other').
+
+memo_support_setup :-
+    retractall(silent(_)),
+    assertz(silent(true)),
+    forall(memo_support_equation(Text), process_metta_string(Text, _)),
+    metta_self_module(Module),
+    % Memoize callers before callees. Recompiling a callee then repairs its
+    % callers through the graph, so every nested call reaches the memo door.
+    forall(member(Name,
+                  ['plunit-memo-support-derived',
+                   'plunit-memo-support-middle',
+                   'plunit-memo-support-base',
+                   'plunit-memo-support-other']),
+           with_metta_module(Module, 'memoize'(Name, true))).
+
+memo_support_cleanup :-
+    cache_clear,
+    forall(memo_support_name(Name), disable_memoization(Name)),
+    forall(memo_support_equation(Text),
+           ( sread(Text, Term),
+             ( metta_remove_atom('&self', Term, _) -> true ; true ) )),
+    retractall(silent(_)),
+    assertz(silent(false)).
+
+test(a_leaf_change_invalidates_transitive_callers_only) :-
+    metta_self_module(Module),
+    findall(R,
+            with_metta_module(Module,
+                              reduce(['plunit-memo-support-derived', 1], R)),
+            [2]),
+    findall(R,
+            with_metta_module(Module,
+                              reduce(['plunit-memo-support-other', 1], R)),
+            [11]),
+    assertion(metta_memo_entry('plunit-memo-support-derived', Module,
+                               _, _, _, _)),
+    assertion(metta_memo_entry('plunit-memo-support-other', Module,
+                               _, _, _, _)),
+    sread("(= (plunit-memo-support-base $x) (+ $x 1))", Base),
+    metta_remove_atom('&self', Base, true),
+    assertion(\+ metta_memo_entry('plunit-memo-support-base', Module,
+                                  _, _, _, _)),
+    assertion(\+ metta_memo_entry('plunit-memo-support-middle', Module,
+                                  _, _, _, _)),
+    assertion(\+ metta_memo_entry('plunit-memo-support-derived', Module,
+                                  _, _, _, _)),
+    assertion(metta_memo_entry('plunit-memo-support-other', Module,
+                               _, _, _, _)).
+
+:- end_tests(memo_support_graph).
 
 
 % The gap this closes was demonstrated rather than imagined: lib_memo will

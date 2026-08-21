@@ -1,5 +1,15 @@
 % Purpose: verify file-reader splitting, loader rollback, global function
 %   scope, late-definition repair, and translation-error reporting.
+% Guarantees:
+%   - Failed loads and reloaded source contributions leave no orphaned support
+%     graph state and preserve aggregate links owned by surviving source files
+%     [tested: filereader_source_rollback:failed_load_removes_compiler_state_and_generated_lambdas,
+%     filereader_source_reload:reloading_one_contributor_preserves_another_contributors_support;
+%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - The grouped reader records its source contribution and returns one
+%     answer group per runnable form after end-of-source repair
+%     [tested: filereader_source_reload:a_grouped_load_runs_inside_the_source_lifecycle;
+%     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -209,6 +219,10 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
           \+ user:fun(RuntimeFunction),
           \+ user:arity(RuntimeFunction, _),
           \+ user:fun_meta_clause(_, RuntimeFunction, _, _),
+          \+ user:supports(_, compiled_function(_, Outer)),
+          \+ user:supports(_, compiled_function(_, RuntimeFunction)),
+          \+ user:supports(_, function(_, Outer)),
+          \+ user:supports(_, function(_, RuntimeFunction)),
           functor(Head, Outer, 1),
           \+ clause(user:Head, _),
           functor(LambdaHead, GeneratedLambda, 2),
@@ -315,6 +329,22 @@ test(a_load_records_what_the_file_contributed) :-
           Asserted > 0 ),
         forget_reload_source(Path, F)).
 
+test(a_grouped_load_runs_inside_the_source_lifecycle) :-
+    F = 'plunit-grouped-lifecycle',
+    reload_scratch_file(Path),
+    setup_call_cleanup(
+        write_reload_source(
+            Path,
+            "(= (plunit-grouped-lifecycle $x) (+ $x 1))\n!(plunit-grouped-lifecycle 41)\n"),
+        ( user:load_metta_source_groups(Path, '&self', [Group]),
+          maplist(user:metta_answer_term, Group, Answers),
+          Answers == [42],
+          absolute_file_name(Path, Canon, [access(read)]),
+          once(user:metta_source_load(Canon, '&self', LoadId, Digest)),
+          atom_length(Digest, 64),
+          once(user:source_load_assertion(LoadId, _)) ),
+        forget_reload_source(Path, F)).
+
 test(an_unchanged_file_is_not_loaded_again) :-
     F = 'plunit-reload-unchanged',
     reload_scratch_file(Path),
@@ -360,6 +390,33 @@ test(a_reload_leaves_one_clause_for_a_redefined_function) :-
           findall(T, user:translated_from(_, [=, [F], T]), Sources),
           Sources == [2] ),
         forget_reload_source(Path, F)).
+
+test(reloading_one_contributor_preserves_another_contributors_support) :-
+    F = 'plunit-reload-shared-support',
+    Other = 'plunit-reload-shared-other',
+    reload_scratch_file(PathA),
+    reload_scratch_file(PathB),
+    setup_call_cleanup(
+        ( write_reload_source(
+              PathA,
+              "(= (plunit-reload-shared-support left) 1)\n"),
+          write_reload_source(
+              PathB,
+              "(= (plunit-reload-shared-support right) 2)\n") ),
+        ( user:load_metta_file(PathA, _, '&self'),
+          user:load_metta_file(PathB, _, '&self'),
+          write_reload_source(
+              PathA,
+              "(= (plunit-reload-shared-other) 3)\n"),
+          user:load_metta_file(PathA, _, '&self'),
+          user:metta_self_module(Module),
+          assertion(user:supports(compiled_function(Module, F),
+                                  function(Module, F))),
+          assertion(user:translated_from(
+                        _, [=, [F, right], 2])) ),
+        ( forget_reload_source(PathA, F),
+          forget_reload_source(PathB, F),
+          cleanup_test_function(Other) )).
 
 :- end_tests(filereader_source_reload).
 

@@ -1,3 +1,8 @@
+; Purpose: demonstrate time control, enforced pragmas, and relational arithmetic.
+; Guarantees:
+;   - every demonstrated pragma changes a live execution bound.
+;   [tested: interpreter_pragmas; commit=WORKTREE]
+;
 ;Time control and interpreter pragmas, all core: no import needed.
 ;
 ;(sleep $seconds) suspends this evaluation. (timeout $seconds $expr) bounds an
@@ -36,15 +41,17 @@
 
 ;;; Pragmas. Each answers the unit value (), the way add-atom and println! do.
 ;;; Every key must be in the interpreter registry. An unsupported key raises
-;;; instead of pretending it changed evaluation.
+;;; instead of pretending it changed evaluation. A bound's value is checked
+;;; before it replaces a working setting: max-time takes positive seconds and
+;;; max-inferences takes a positive integer.
 !(test (pragma! max-time 30) ())
 !(test (pragma! max-inferences 100000000) ())
 ;Passing none clears a bound again.
 !(test (pragma! max-time none) ())
 !(test (pragma! max-inferences none) ())
 
-;;; max-stack-depth is the one key with a value contract: a count, and
-;;; anything else answers its own error rather than raising.
+;;; max-stack-depth answers its own error rather than raising: the count it
+;;; requires is checked in the answer, so the program that wrote it runs on.
 !(test (pragma! max-stack-depth 0) ())
 !(test (pragma! max-stack-depth -1)
        (Error (pragma! max-stack-depth -1) UnsignedIntegerIsExpected))

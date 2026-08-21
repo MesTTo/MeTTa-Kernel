@@ -57,6 +57,11 @@
 %     symbol [tested: tests/prolog/narrowing.plt].
 %   - the binding-time analysis reaches a fixpoint, because a mode only ever
 %     moves g -> v and the mode space is finite [source: paper, footnote 14].
+%   - the g/v mode alphabet is recorded as a mechanism-internal closed list,
+%     so the policy inventory does not mistake the cited analysis encoding
+%     for an engine policy [tested:
+%     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
+%     commit=42b5d28232e75c32b20a1d5bf1f740fec134938d].
 % Decides:
 %   - '$bottom' is the fresh constant for a variable the filtering leaves
 %     unbound, the paper's ⊥ and TNT's printed nullVar. A MeTTa symbol cannot
@@ -114,6 +119,7 @@ narrowing_terminates(Rules, Abstract, Outcome) :-
 abstract_symbol(Abstract, F/N, Modes) :-
     Abstract =.. [F|Modes],
     length(Modes, N),
+    % policy-inventory-exempt: mechanism-internal; reason=g and v are the cited narrowing analysis mode alphabet rather than a user decision; evidence=engine/narrowing.pl:abstract_symbol/3
     (   forall(member(M, Modes), memberchk(M, [g,v]))
     ->  true
     ;   throw(error(type_error(abstract_term, Abstract), _)) ).
