@@ -795,10 +795,13 @@ seam_direction_fault(Seam, Kind, Fault) :-
 % Anything else in engine/ is an internal that can be renamed under the backend.
 %
 % Backends are discovered the way the engine discovers them, by consulting
-% backends/*.pl, so a backend that is not built loads nothing and is not
-% scanned. That makes the count load-bearing and it is printed for that reason:
-% on a tree without the MORK artefact this check reads zero backend clauses,
-% which is the correct answer and not the same as a clean one.
+% backends/*/decider.pl (the same glob engine/metta.pl walks), so a backend
+% that is not built loads nothing and is not scanned. That makes the count
+% load-bearing and it is printed for that reason: on a tree without the MORK
+% artefact this check reads zero backend clauses, which is the correct answer
+% and not the same as a clean one. The old backends/*.pl spelling predated the
+% per-backend folders and matched nothing, so the walk passed on zero clauses
+% with the artefact present.
 a_backend_calls_only_published_surface :-
     forall(backend_entry(Entry), ensure_loaded(Entry)),
     backend_directories(Directories),
@@ -851,7 +854,7 @@ a_host_binding_calls_only_published_surface :-
     ).
 
 backend_entry(Entry) :-
-    expand_file_name('../../backends/*.pl', Files),
+    expand_file_name('../../backends/*/decider.pl', Files),
     member(Entry, Files).
 
 % backends/ holds the declaration and the implementation lives beside the
