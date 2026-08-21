@@ -22,11 +22,11 @@
 
 :- begin_tests(engine_layering).
 
-% Measured once and left in layer_edge/4, because the walk is the expensive
+% Measured once and left in layer_edge/5, because the walk is the expensive
 % part and every test below reads the same graph. A planted edge is retracted
 % again so the tests do not depend on each other's order.
 measured :-
-    (   layer_edge(_, _, _, _)
+    (   layer_edge(_, _, _, _, _)
     ->  true
     ;   measure_layer_edges
     ).
@@ -61,7 +61,7 @@ violation_names(Kind, Expected) :-
 % The undeclared edge is spelled as parser calling a space builtin, which is a
 % cross-subsystem call the contract deliberately does not allow.
 planted_violation(undeclared_edge,
-                  [layer_edge('parser.pl', sread/2, 'spaces.pl', 'add-atom'/3)],
+                  [layer_edge('parser.pl', sread/2, 'spaces.pl', spaces, 'add-atom'/3)],
                   ['parser:sread/2', 'spaces:add-atom/3',
                    'reaches(parser, spaces']).
 planted_violation(stale_contract_line,
@@ -83,7 +83,7 @@ planted_violation(vanished_tangle,
 planted_violation(unexported_reach,
                   [reaches(metta, kernel, 'planted by the suite'),
                    layer_edge('metta.pl', 'petta-probe'/1,
-                              'kernel.pl', 'petta-not-exported'/9)],
+                              'kernel.pl', kernel, 'petta-not-exported'/9)],
                   ['does not export', 'petta-not-exported/9']).
 
 % The clean result above is a claim about a walk, so the walk is asked to prove
@@ -100,7 +100,7 @@ test(the_layering_walk_sees_every_planted_reach) :-
 % should see the number that says there is not one yet.
 test(the_contract_names_every_subsystem_it_measures) :-
     measured,
-    forall(( layer_edge(CallerFile, _, CalleeFile, _) ),
+    forall(( layer_edge(CallerFile, _, CalleeFile, _, _) ),
            ( subsystem_name(CallerFile, Caller),
              subsystem_name(CalleeFile, Callee),
              assertion(reaches(Caller, Callee, _)) )),

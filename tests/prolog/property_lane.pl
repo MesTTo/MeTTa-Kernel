@@ -514,7 +514,7 @@ property_symbol_reads_back(Spelling) :-
     Forms = [parsed(_, _, Back)],
     Back == [holds, Spelling].
 
-% metta_number_writable/1 answers an integer and a float without running the
+% parser:metta_number_writable/1 answers an integer and a float without running the
 % reader, because every save and every digest asks it of every number carried
 % and the grammar scan cost +36.8% on a 20,000-atom digest where the two
 % shortcuts cost +1.89% [measured 2026-08-19]. A shortcut is a second rule
@@ -522,9 +522,9 @@ property_symbol_reads_back(Spelling) :-
 % the answer the shortcut gives and the answer the grammar gives are the same
 % answer, over generated numbers rather than over a list someone wrote down.
 property_number_shortcut(Number) :-
-    ( metta_number_writable(Number) -> Shortcut = true ; Shortcut = false ),
+    ( parser:metta_number_writable(Number) -> Shortcut = true ; Shortcut = false ),
     (   catch(( number_codes(Number, Codes),
-                phrase(sexpr_token(Read, [], _), Codes),
+                phrase(parser:sexpr_token(Read, [], _), Codes),
                 Read == Number ), _, fail)
     ->  Grammar = true
     ;   Grammar = false

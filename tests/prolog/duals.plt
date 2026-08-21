@@ -358,8 +358,8 @@ test(an_equation_added_later_rebuilds_the_dual) :-
 %The handler that does that is installed on the first dual, not on load,
 %because it runs once per compiled equation.
 test(the_invalidation_handler_is_installed_lazily) :-
-    user:dual_hooks_installed,
-    clause(seam:function_changed(_), user:drop_duals_of(_)).
+    duals:dual_hooks_installed,
+    clause(seam:function_changed(_), duals:drop_duals_of(_)).
 
 :- end_tests(duals_invalidation).
 
@@ -593,22 +593,22 @@ test(a_non_ground_goal_partitions_its_argument) :-
 %by hand.
 test(clpfd_computes_the_complement_of_a_residual_domain) :-
     X in 4..sup,
-    domain_complement(X, Complement, Size),
+    duals:domain_complement(X, Complement, Size),
     Complement == inf..3,
     Size == sup.
 
 test(a_finite_complement_is_finite_and_enumerable) :-
     Y in inf..6 \/ 8..sup,
-    domain_complement(Y, Complement, Size),
+    duals:domain_complement(Y, Complement, Size),
     Complement == 7..7,
     Size == 1,
-    findall(V, complement_value(Complement, V), Values),
+    findall(V, duals:complement_value(Complement, V), Values),
     Values == [7].
 
 test(an_infinite_complement_still_yields_a_witness) :-
     Z in 4..sup,
-    domain_complement(Z, Complement, _),
-    complement_witness(Complement, Witness),
+    duals:domain_complement(Z, Complement, _),
+    duals:complement_witness(Complement, Witness),
     Witness == 3.
 
 %The shape this exists for: `(not-provable (#< $x 4))` used to raise
@@ -651,7 +651,7 @@ test(a_case_the_witness_cannot_settle_still_refuses,
 %arguments, so asking first costs nothing and is the whole fix.
 
 %A head that constrains an argument in place has no dual, which is the static
-%property refuse_unsupported_head/2 tests.
+%property duals:refuse_unsupported_head/2 tests.
 test(a_function_with_no_dual_is_refused_before_its_argument_runs) :-
     process_metta_string("(= (np-effect (: $x Number)) True)", _),
     catch(( process_metta_string("!(not-provable (np-effect 2))", _),

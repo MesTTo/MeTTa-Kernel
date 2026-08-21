@@ -34,7 +34,7 @@ main :-
     ),
     catch(( load_metta_source_groups(File, '&self', Groups),
             forall(member(Group, Groups),
-                   ( sdisplay_answer_group(Group, Written),
+                   ( parser:sdisplay_answer_group(Group, Written),
                      format("LEATTA-ANSWER ~w~n", [Written]) )) ),
           Error,
           report_error(Error)),

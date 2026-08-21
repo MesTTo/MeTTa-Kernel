@@ -68,7 +68,7 @@ test(a_function_change_evicts_only_templates_that_mention_its_name,
      [ setup(clear_translation_cache_test_state),
        cleanup(( clear_translation_cache_test_state,
                  metta_self_module(Module),
-                 forget_symbol(Module, 'tc-late') )) ]) :-
+                 specializer:forget_symbol(Module, 'tc-late') )) ]) :-
     run_translated(['tc-late', 2], ['tc-late', 2]),
     run_translated([+, 1, 2], 3),
     aggregate_all(count,
@@ -108,7 +108,7 @@ test(test_a_repeated_eval_does_not_recompile_and_the_effects_cluster_conforms,
                  clear_translation_cache_test_state,
                  remove_sexp('&self', ['tc-ran']),
                  metta_self_module(Module),
-                 forget_symbol(Module, 'tc-effect') )) ]) :-
+                 specializer:forget_symbol(Module, 'tc-effect') )) ]) :-
     once(run_translated([+, 20, 22], 42)),
     translation_compile_count(AfterFirst),
     assertion(AfterFirst == 1),

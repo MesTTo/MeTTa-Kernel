@@ -44,7 +44,7 @@ test(function_defined_in_source_is_traced,
      [setup(setup_trace_test), cleanup(cleanup_trace_test)]) :-
     Source = "(= (plunit_trace_new $x) (+ $x 1))\n\
 !(plunit_trace_new 1)",
-    metta_trace_source(Source, '&self', Events),
+    tracer:metta_trace_source(Source, '&self', Events),
     Events == [event(0, call, [plunit_trace_new, 1], '', []),
                event(0, exit, [plunit_trace_new, 1], 2, [])].
 
@@ -53,7 +53,7 @@ test(function_defined_in_named_trace_stays_in_that_space,
     Space = '&plunit_trace_named',
     Source = "(= (plunit_trace_named $x) (+ $x 1))\n\
 !(plunit_trace_named 1)",
-    metta_trace_source(Source, Space, Events),
+    tracer:metta_trace_source(Source, Space, Events),
     space_module(Space, Module),
     functor(Head, plunit_trace_named, 2),
     clause(Module:Head, _, Ref),
@@ -65,7 +65,7 @@ test(function_defined_in_named_trace_stays_in_that_space,
 test(hyperpose_workers_share_the_trace_event_store,
      [setup(setup_trace_test), cleanup(cleanup_trace_test)]) :-
     process_metta_string("(= (plunit_trace_hyperpose $x) (+ $x 1))", _),
-    metta_trace_source(
+    tracer:metta_trace_source(
         "!(hyperpose ((plunit_trace_hyperpose 1) (plunit_trace_hyperpose 2)))",
         '&self', Events),
     msort(Events, Sorted),
@@ -95,7 +95,7 @@ test(type_extensions_keep_the_public_name,
        cleanup(cleanup_trace_type_extension) ]) :-
     Source = "(= (get-type plunit_trace_type) plunit_traced_type)\n\
 !(get-type plunit_trace_type)",
-    metta_trace_source(Source, '&self', Events),
+    tracer:metta_trace_source(Source, '&self', Events),
     Events == [event(0, call, ['get-type', plunit_trace_type], '', []),
                event(0, exit, ['get-type', plunit_trace_type],
                      plunit_traced_type, [])].
@@ -113,7 +113,7 @@ test(a_symbol_that_looks_like_a_variable_stays_a_symbol,
                  cleanup_trace_test )) ]) :-
     process_metta_string("(= (plunit_trace_new $x) $x)", _),
     'add-atom'('&self', [plunit_trace_holds, '$notvar'], _),
-    metta_trace_source(
+    tracer:metta_trace_source(
         "!(match &self (plunit_trace_holds $v) (plunit_trace_new $v))",
         '&self', Events),
     Events == [event(0, call, [plunit_trace_new, '$notvar'], '', []),
@@ -128,7 +128,7 @@ test(a_symbol_holding_a_comment_character_stays_whole,
                  cleanup_trace_test )) ]) :-
     process_metta_string("(= (plunit_trace_new $x) $x)", _),
     'add-atom'('&self', [plunit_trace_holds, 'semi;colon'], _),
-    metta_trace_source(
+    tracer:metta_trace_source(
         "!(match &self (plunit_trace_holds $v) (plunit_trace_new $v))",
         '&self', Events),
     Events == [event(0, call, [plunit_trace_new, 'semi;colon'], '', []),
@@ -138,15 +138,15 @@ test(a_symbol_holding_a_comment_character_stays_whole,
 test(event_limit_error_removes_every_wrapper,
      [setup(setup_trace_test), cleanup(cleanup_trace_test)]) :-
     process_metta_string("(= (plunit_trace_hyperpose $x) (+ $x 1))", _),
-    catch(metta_trace_source("!(plunit_trace_hyperpose 1)", '&self', 1, _),
+    catch(tracer:metta_trace_source("!(plunit_trace_hyperpose 1)", '&self', 1, _),
           Error,
           true),
     nonvar(Error),
     Error = error(resource_error(petta_trace_events(1)), _),
-    \+ user:metta_trace_session,
+    \+ tracer:metta_trace_session,
     \+ current_predicate_wrapper(user:plunit_trace_hyperpose(_, _),
                                   petta_tracer, _, _),
-    metta_trace_source("!(plunit_trace_hyperpose 2)", '&self', Events),
+    tracer:metta_trace_source("!(plunit_trace_hyperpose 2)", '&self', Events),
     Events == [event(0, call, [plunit_trace_hyperpose, 2], '', []),
                event(0, exit, [plunit_trace_hyperpose, 2], 3, [])].
 

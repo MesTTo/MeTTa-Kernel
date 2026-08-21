@@ -657,8 +657,25 @@ seam:engine_emitted(check_argument_type/3).
 seam:engine_emitted(include/3).
 seam:engine_emitted(letstar_runtime/3).
 seam:engine_emitted(metta_ensure_duals/1).
-%engine/duals.pl emits this one, into the dual clause it builds.
+%engine/duals.pl emits these two, into the dual clause it builds.
 seam:engine_emitted(metta_negation/5).
+%metta_dual_goal/2 was emitted and NOT declared, so protect_engine_emitted/1
+%never bound it into a space's module and a MeTTa function of that name at
+%arity one would have captured every dual's calls. Nothing said so while the
+%engine shared one namespace and the base chain found it anyway; cutting
+%engine/duals.pl into a module made a compiled body raise
+%existence_error(procedure, '$petta_exec:&self':metta_dual_goal/2) instead
+%[measured 2026-08-22, on examples/reasoning/constructive_negation.metta].
+seam:engine_emitted(metta_dual_goal/2).
+seam:engine_emitted(metta_forall_c/2).
+seam:engine_emitted(metta_generator_forall/5).
+seam:engine_emitted(metta_crossed_negation/1).
+seam:engine_emitted(metta_not_functor/3).
+%library(dif)'s own, emitted by engine/duals.pl as the negation of an
+%equality. Declared for the same reason as the rest: without it a MeTTa
+%function named dif at one argument compiles to dif/2 and captures every
+%generated dual's disequality.
+seam:engine_emitted(dif/2).
 seam:engine_emitted(metta_require_current_capability/2).
 seam:engine_emitted(metta_require_safe_goal/1).
 seam:engine_emitted(metta_require_space_update_capability/2).

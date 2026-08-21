@@ -56,7 +56,7 @@ test(writability_says_exactly_what_reads_back_over_generated_ascii_spellings) :-
 test(writability_says_exactly_what_reads_back_over_the_whole_alphabet) :-
     property_check(prop_symbol_text_full/1).
 
-% metta_number_writable/1 answers an integer and a float without running the
+% parser:metta_number_writable/1 answers an integer and a float without running the
 % reader, because a save asks it of every number it carries. The shortcut has
 % to give the grammar's own answer.
 test(the_number_shortcuts_give_the_grammars_answer) :-

@@ -32,6 +32,16 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+%Three predicates: what a trace records for a host, and the two questions
+%engine/ext_points.pl asks before it wraps a compiled function. The event
+%buffer, the sequence counter and the wrapper bodies are this subsystem's own
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+:- module(tracer,
+          [ metta_trace_source/4,
+            metta_trace_target/1,
+            metta_trace_wrap_once/1
+          ]).
+
 :- dynamic metta_trace_event/2.
 :- dynamic metta_trace_limit/1.
 :- dynamic metta_trace_next_seq/1.

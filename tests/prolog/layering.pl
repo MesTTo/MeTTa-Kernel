@@ -54,7 +54,14 @@
 % `predicate_property(CM:Head, implementation_module(Module))`; Simplified BSD,
 % Copyright (c) 2017 Edison Mera].
 
-:- dynamic layer_edge/4.        % CallerFile, CallerPI, CalleeFile, CalleePI
+% CallerFile, CallerPI, CalleeFile, CalleeModule, CalleePI. The callee's
+% MODULE is recorded beside its file, because the two stop agreeing as soon as
+% a subsystem declares a seam whose clauses live elsewhere: engine/specializer.pl
+% holds one clause of support_graph:support_invalidation_action/1, so the file
+% is the specializer's and the module is the support graph's, and asking the
+% file's module whether it exports the name said no about a predicate it does
+% not own [measured 2026-08-22].
+:- dynamic layer_edge/5.
 
 engine_directory(Directory) :- tree_directory('../../engine', Directory).
 
@@ -67,7 +74,7 @@ engine_subsystem_file(Base) :-
 subsystem_name(Base, Name) :- file_name_extension(Name, pl, Base).
 
 measure_layer_edges :-
-    retractall(layer_edge(_, _, _, _)),
+    retractall(layer_edge(_, _, _, _, _)),
     extension_clauses(['../../engine'], References),
     walk_clause_edges(References, record_layer_edge).
 
@@ -76,18 +83,19 @@ record_layer_edge(Callee, Caller, _Location) :-
 record_layer_edge(_, _, _).
 
 layer_edge_parts(Callee, Caller) :-
-    engine_goal(Callee, CalleeFile, CalleePI),
-    engine_goal(Caller, CallerFile, CallerPI),
+    engine_goal(Callee, CalleeFile, CalleeModule, CalleePI),
+    engine_goal(Caller, CallerFile, _, CallerPI),
     CallerFile \== CalleeFile,
-    (   layer_edge(CallerFile, CallerPI, CalleeFile, CalleePI)
+    (   layer_edge(CallerFile, CallerPI, CalleeFile, CalleeModule, CalleePI)
     ->  true
-    ;   assertz(layer_edge(CallerFile, CallerPI, CalleeFile, CalleePI))
+    ;   assertz(layer_edge(CallerFile, CallerPI, CalleeFile, CalleeModule,
+                           CalleePI))
     ).
 
 % implementation_module/1 first, so an imported name is attributed to the
 % module that defines it; file/1 then names the subsystem. A goal no engine
 % file defines is not an edge this contract is about and simply fails here.
-engine_goal(Module:Goal, Base, Name/Arity) :-
+engine_goal(Module:Goal, Base, Definer, Name/Arity) :-
     callable(Goal),
     functor(Goal, Name, Arity),
     functor(Probe, Name, Arity),
@@ -197,7 +205,7 @@ tangle([duals, ext_points, filereader, metta, parser, spaces, specializer,
 
 undeclared_edges(Undeclared) :-
     findall(Caller-Callee-CallerPI-CalleePI,
-            ( layer_edge(CallerFile, CallerPI, CalleeFile, CalleePI),
+            ( layer_edge(CallerFile, CallerPI, CalleeFile, _, CalleePI),
               subsystem_name(CallerFile, Caller),
               subsystem_name(CalleeFile, Callee),
               \+ reaches(Caller, Callee, _) ),
@@ -207,7 +215,7 @@ undeclared_edges(Undeclared) :-
 stale_contract_lines(Stale) :-
     findall(Caller-Callee,
             ( reaches(Caller, Callee, _),
-              \+ ( layer_edge(CallerFile, _, CalleeFile, _),
+              \+ ( layer_edge(CallerFile, _, CalleeFile, _, _),
                    subsystem_name(CallerFile, Caller),
                    subsystem_name(CalleeFile, Callee) ) ),
             Stale0),
@@ -218,19 +226,21 @@ stale_contract_lines(Stale) :-
 % module the question does not arise and the pair is simply absent, which is
 % how this gate stays meaningful while the engine is cut file by file.
 unexported_reaches(Unexported) :-
-    findall(Callee-CalleePI-Caller,
-            ( layer_edge(CallerFile, _, CalleeFile, CalleePI),
-              subsystem_name(CalleeFile, Callee),
+    findall(Module-CalleePI-Caller,
+            ( layer_edge(CallerFile, _, _, Module, CalleePI),
               subsystem_name(CallerFile, Caller),
-              subsystem_module(CalleeFile, Module),
+              subsystem_module(Module),
               \+ module_exports(Module, CalleePI) ),
             Unexported0),
     sort(Unexported0, Unexported).
 
-subsystem_module(Base, Module) :-
+%A module the engine declares, which is what carries an export contract. The
+%engine's own module is not one: it has no file of its own, and its cross-file
+%calls are what the allow-list above is for.
+subsystem_module(Module) :-
+    module_property(Module, file(File)),
     engine_directory(Directory),
-    atom_concat(Directory, Base, File),
-    module_property(Module, file(File)).
+    sub_atom(File, 0, _, _, Directory).
 
 module_exports(Module, PI) :-
     module_property(Module, exports(Exports)),
@@ -282,7 +292,7 @@ layering_walk_sees_every_planted_reach(Total, Missed) :-
 % predicate, and the planted caller's clause is asserted into a module that is
 % not metta.pl's, so a seen door is a cross-subsystem edge this lane's own
 % recorder produced.
-% Into its own scratch relation rather than layer_edge/4, so proving the walk
+% Into its own scratch relation rather than layer_edge/5, so proving the walk
 % can see does not destroy the measured graph the rest of the lane reads.
 :- dynamic planted_edge/2.
 
@@ -301,7 +311,7 @@ layering_door_is_seen(Body) :-
 % that decides whether the walk saw the call at all, and it reaches it through
 % engine_goal/3 so the attribution this lane depends on is exercised too.
 record_planted_edge(Callee, Caller, _Location) :-
-    catch(( engine_goal(Callee, _CalleeFile, CalleePI),
+    catch(( engine_goal(Callee, _CalleeFile, _CalleeModule, CalleePI),
             caller_indicator(Caller, CallerPI),
             assertz(planted_edge(CallerPI, CalleePI)) ),
           _, true), !.
@@ -370,7 +380,7 @@ report([]) :-
     !,
     layering_walk_sees_every_planted_reach(Total, Missed),
     (   Missed == []
-    ->  aggregate_all(count, layer_edge(_, _, _, _), Edges),
+    ->  aggregate_all(count, layer_edge(_, _, _, _, _), Edges),
         aggregate_all(count, reaches(_, _, _), Lines),
         contract_components(Components),
         length(Components, Parts),

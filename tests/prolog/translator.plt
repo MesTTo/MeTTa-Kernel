@@ -45,7 +45,7 @@
 %twice.
 forget_test_function(F) :-
     user:metta_self_module(SelfModule),
-    catch(user:forget_symbol(SelfModule, F), _, true),
+    catch(specializer:forget_symbol(SelfModule, F), _, true),
     retractall(user:symbol_head(F, _)),
     retractall(user:fun_in(_, F)),
     retractall(user:fun_scoped(F)),
@@ -1658,7 +1658,7 @@ cleanup_generated_lambdas(First) :-
     Start is First + 1,
     forall(between(Start, Last, Number),
            ( format(atom(Name), 'lambda_~d', [Number]),
-             metta_self_module(M), forget_symbol(M, Name) )).
+             metta_self_module(M), specializer:forget_symbol(M, Name) )).
 
 test(typed_argument_is_compiled_once) :-
     lambda_counter_value(Before),

@@ -115,7 +115,7 @@ test(stable_names_roundtrip_with_sharing) :-
     A \== B.
 
 test(writer_dcg_has_one_compilation) :-
-    findall(Codes, phrase(seq([1, 2, 3]), Codes), Solutions),
+    findall(Codes, phrase(parser:seq([1, 2, 3]), Codes), Solutions),
     Solutions == [[0'1, 0' , 0'2, 0' , 0'3]].
 
 :- end_tests(parser_stable_variables).
@@ -151,7 +151,7 @@ test(printing_named_variables_does_not_bind_or_strip_constraints) :-
 test(answer_group_uses_each_collected_side_map) :-
     Answers = ['$petta_answer'([left, X], [x-X]),
                '$petta_answer'([right, Y], [y-Y])],
-    swrite_answer_group(Answers, Written),
+    parser:swrite_answer_group(Answers, Written),
     Written == "((left $x) (right $y))".
 
 test(assert_boundary_returns_a_fresh_nameless_variable,
@@ -204,7 +204,7 @@ test(test_a_comment_terminates_on_the_class_the_arbiter_rules) :-
 :- begin_tests(parser_unicode_layout).
 
 % Whitespace is the other half of layout, and the reader used to define it
-% twice: metta_layout//0 skipped whatever SWI calls a space, while token//1
+% twice: parser:metta_layout//0 skipped whatever SWI calls a space, while parser:token//1
 % ended at seven ASCII characters. Where the two disagreed a token swallowed
 % the separator, so `(1<NBSP>2)` read as the single symbol `1<NBSP>2` and
 % `(superpose (1<NBSP>2))` answered one atom instead of two, silently
@@ -415,7 +415,7 @@ test(a_writable_term_reports_nothing) :-
 
 % Which NUMBERS survive the round trip, the same question parser_symbol_text
 % asks of names and for the same reason: swrite/2 prints with number_codes/2,
-% which is SWI's whole numeric syntax, while sexpr_token//3 accepts the MeTTa
+% which is SWI's whole numeric syntax, while parser:sexpr_token//3 accepts the MeTTa
 % grammar's, which is narrower. SWI writes a non-finite float as 1.0Inf,
 % -1.0Inf or 1.5NaN and a rational as 1r3, and each of the four comes back a
 % SYMBOL of that spelling.
@@ -480,16 +480,16 @@ test(arbiter_float_layout,
     sread(Text, Back),
     Back == Float.
 
-% The two shortcuts inside metta_number_writable/1 are not a second rule about
+% The two shortcuts inside parser:metta_number_writable/1 are not a second rule about
 % spelling: each has to agree with the grammar wherever it is asked, the way
-% metta_symbol_ordinary/2 has to agree with sexpr_token//3. The float list is
+% parser:metta_symbol_ordinary/2 has to agree with parser:sexpr_token//3. The float list is
 % the range's edges, the two smallest denormals, the largest finite float and
 % the smallest normal one among them, because the exponent is where a spelling
 % changes shape.
 shortcut_agrees_with_grammar(Number) :-
-    ( metta_number_writable(Number) -> Shortcut = true ; Shortcut = false ),
+    ( parser:metta_number_writable(Number) -> Shortcut = true ; Shortcut = false ),
     (   catch(( number_codes(Number, Codes),
-                phrase(sexpr_token(Read, [], _), Codes),
+                phrase(parser:sexpr_token(Read, [], _), Codes),
                 Read == Number ), _, fail)
     ->  Grammar = true
     ;   Grammar = false ),
@@ -548,7 +548,7 @@ test(an_underflowing_literal_reads_as_zero) :-
 
 % And the saturation does not widen what counts as a number: a token that only
 % STARTS like an overflowing literal still ends where a token ends, so
-% number_ends//0 refuses it and it reads as the symbol it is.
+% parser:number_ends//0 refuses it and it reads as the symbol it is.
 test(a_token_that_only_starts_like_an_overflow_is_a_symbol) :-
     sread("1e400abc", Term),
     Term == '1e400abc'.
@@ -626,7 +626,7 @@ test(a_read_infinity_survives_further_arithmetic) :-
 test(the_numeric_formatter_spells_inf_minus_inf_and_nan,
      [forall(member(Value-Text, [inf-"inf", (-inf)-"-inf", nan-"NaN"]))]) :-
     Float is Value,
-    metta_float_codes(Float, Codes),
+    parser:metta_float_codes(Float, Codes),
     string_codes(Printed, Codes),
     Printed == Text.
 
@@ -791,8 +791,8 @@ test(a_deep_term_breaks_after_its_head) :-
 
 test(the_width_is_the_caller_s) :-
     sread("(f (g 1) (h 2))", T),
-    swrite_pretty(T, 78, Wide),
-    swrite_pretty(T, 8, Narrow),
+    parser:swrite_pretty(T, 78, Wide),
+    parser:swrite_pretty(T, 8, Narrow),
     Wide == "(f (g 1) (h 2))",
     split_string(Narrow, "\n", "", NarrowLines),
     length(NarrowLines, 3).

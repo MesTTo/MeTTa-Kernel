@@ -301,6 +301,16 @@ register_metta_library_path(Alias, Directory0, true) :-
 %sub_term/2, which the saturating recovery uses to ask whether an erroring
 %arithmetic expression holds a float operand at all.
 :- use_module(library(occurs)).
+%dif/2 is a goal the ENGINE writes into compiled bodies: engine/duals.pl
+%builds it as the negation of an equality when it generates a dual. A goal
+%the engine emits has to live in the engine's own module, because that is
+%where protect_engine_emitted/1 imports every space's copy from. It used to
+%arrive here by accident, through engine/duals.pl's own import into the one
+%namespace everything shared, and under NO_AUTOLOAD=1 with duals in a module
+%of its own a compiled dual raised
+%existence_error(procedure, '$petta_exec:&self':dif/2)
+%[measured 2026-08-22, on examples/reasoning/constructive_negation.metta].
+:- use_module(library(dif), [dif/2]).
 %distinct/2, which 'defined-name'/1 and 'undocumented-space'/2 call to
 %dedupe function names read off a space's own equation atoms
 %[measured 2026-08-18: examples/libraries/doc_lib.metta under

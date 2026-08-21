@@ -26,6 +26,19 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+%Two doors: the one engine/translator.pl takes when a higher-order call can
+%specialize, and the one engine/spaces.pl takes when a changed function
+%invalidates what was built over it. Everything else, the plan, the agreement
+%check and the generated-clause bookkeeping, is this subsystem's own
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+:- module(specializer,
+          [ maybe_specialize_call/4,
+            prepare_specialization_invalidation/2,
+            %The generated-specialization table, read by engine/spaces.pl when a
+            %function's clauses change under one.
+            ho_specialization/3
+          ]).
+
 :- dynamic ho_specialization/3.
 :- dynamic ho_specialization_failed/3.
 %Verified once per specialization, under the checking mode only.

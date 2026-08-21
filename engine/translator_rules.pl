@@ -78,6 +78,28 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+%The shipped rule tier and the registry a program extends it through. The
+%export list is the two builtins, the registry's READ surface, which the
+%confluence reporter and the rule-system tests both consult, and the two
+%questions engine/translator.pl asks of a rule. Rule expansion itself, the
+%cost model and the orientation machinery stay inside
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+:- module(translator_rules,
+          [ 'add-translator-rule!'/2,
+            'add-translator-rule!'/3,
+            'remove-translator-rule!'/2,
+            translator_rule/1,
+            translator_rule/2,
+            translator_rule_declaration/2,
+            translator_rule_direction/1,
+            translator_rule_extra_variables_exempt/2,
+            translator_rule_override/2,
+            translator_rule_refusal/3,
+            translator_rule_orients/4,
+            protected_core_head/1,
+            note_translator_rule_refusal/3
+          ]).
+
 %%%% The protected core %%%%
 %
 %The heads a rewrite rule may not take over.

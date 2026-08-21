@@ -61,6 +61,41 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+%The reader and the writer, and nothing else. Everything on the list is
+%either a MeTTa builtin, a declared seam, or a name another subsystem calls;
+%the DCG nonterminals, the token tables and the layout rules are the
+%implementation of those and stay inside. A caller that wants one says
+%parser: and means it, which tests/prolog/parser.plt does for the token
+%grammar it exercises directly
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+:- module(parser,
+          [ sread/2,
+            sread_command/2,
+            sread_mode/3,
+            sread_with_names/3,
+            sread_with_names_mode/4,
+            swrite/2,
+            swrite_pretty/2,
+            swrite_with_names/3,
+            sdisplay/2,
+            sdisplay_with_names/3,
+            string_state/3,
+            string_chars/3,
+            sexpr/5,
+            var_symbol/5,
+            metta_reader_mode/1,
+            metta_reader_token_class/3,
+            metta_reader_token_source/2,
+            metta_symbol_writable/1,
+            metta_token_boundary/2,
+            metta_unwritable_symbol/2,
+            metta_host_register_reader_token/2,
+            metta_host_unregister_reader_token/1,
+            petta_name_pairs/2,
+            'register-token!'/3,
+            'unregister-token!'/2
+          ]).
+
 :- use_module(library(dcg/basics)). %atom//1, number//1, eos//0
 :- use_module(library(pcre)).
 

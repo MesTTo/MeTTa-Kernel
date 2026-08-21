@@ -92,6 +92,28 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+%Constructive negation. Two builtins, the two goals the translator emits for
+%a negated call, the two questions it asks while compiling one, and the
+%comparison dual lib/lib_constraints.pl reads. The dual generator, the domain
+%complement and the freeze/dif machinery are this subsystem's own
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+:- module(duals,
+          [ dif/3,
+            'residual-goals'/2,
+            metta_ensure_duals/1,
+            metta_negation/5,
+            metta_not_provable_goal/3,
+            quantify_negations/2,
+            comparison_dual/2,
+            %Emitted into the dual clause this subsystem builds, so a space's
+            %execution module imports it like every other emitted name.
+            metta_dual_goal/2,
+            metta_forall_c/2,
+            metta_generator_forall/5,
+            metta_crossed_negation/1,
+            metta_not_functor/3
+          ]).
+
 :- use_module(library(dif)).
 %For the domain-coverage branch below: fd_dom/2, fd_size/2, #\ and in/2. The
 %engine already loads clpfd, and this file is consulted before that import

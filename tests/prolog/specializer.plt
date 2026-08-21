@@ -16,8 +16,8 @@ set_specializer_test_mode :-
 cleanup_specializer_symbols(Names) :-
     metta_self_module(Module),
     forall(member(Name, Names),
-           ( invalidate_specializations(Module, Name),
-             forget_symbol(Module, Name) )),
+           ( specializer:invalidate_specializations(Module, Name),
+             specializer:forget_symbol(Module, Name) )),
     retractall(silent(_)),
     assertz(silent(false)).
 
@@ -186,7 +186,7 @@ test(repeated_failed_specialization_is_recorded_once_per_function,
      [ setup(setup_failed_specialization_memo),
        cleanup(cleanup_failed_specialization_memo) ]) :-
     findall(F-Arity-Key,
-            ho_specialization_failed(F, Arity, Key),
+            specializer:ho_specialization_failed(F, Arity, Key),
             Failures),
     Failures == [pass-3-[myfun], wrap-3-[myfun]].
 
@@ -206,10 +206,10 @@ cleanup_failed_specialization_chain :-
 test(branching_failed_specialization_is_linear_in_chain_depth,
      [ setup(setup_failed_specialization_chain),
        cleanup(cleanup_failed_specialization_chain) ]) :-
-    aggregate_all(count, ho_specialization_failed(_, _, _), 11),
+    aggregate_all(count, specializer:ho_specialization_failed(_, _, _), 11),
     forall(between(1, 11, Index),
            ( atom_concat(f, Index, Function),
-             ho_specialization_failed(Function, 3, [myfun]) )).
+             specializer:ho_specialization_failed(Function, 3, [myfun]) )).
 
 setup_failed_specialization_type :-
     set_specializer_test_mode,
@@ -224,7 +224,7 @@ test(failed_specialization_does_not_leak_generated_type,
        cleanup(cleanup_failed_specialization_type) ]) :-
     once(get_native_atom(
         '&self', [':', wrap, ['->', 'Number', 'Number', 'Number']])),
-    ho_specialization_failed(wrap, 3, [myfun]),
+    specializer:ho_specialization_failed(wrap, 3, [myfun]),
     \+ ( get_native_atom('&self', [':', Name, _]),
          atom(Name),
          sub_atom(Name, 0, _, _, 'wrap_Spec_') ).
@@ -304,7 +304,7 @@ test(higher_order_code_runs_inside_a_named_space,
 
 :- begin_tests(specializer_invalidation).
 
-% invalidate_specializations/2 recurses through ho_specialization/3 and
+% specializer:invalidate_specializations/2 recurses through ho_specialization/3 and
 % retracts only AFTER descending, so a cycle among those facts would not
 % terminate. It is called unguarded from three engine write sites and, since
 % the register-an-operation path stopped swallowing its failures, from there
@@ -325,7 +325,7 @@ test(an_invalidation_cycle_terminates,
        cleanup(( retractall(user:ho_specialization(_, plunit_cycle_a, _)),
                  retractall(user:ho_specialization(_, plunit_cycle_b, _)) )) ]) :-
     metta_self_module(Self),
-    call_with_inference_limit(invalidate_specializations(Self, plunit_cycle_a),
+    call_with_inference_limit(specializer:invalidate_specializations(Self, plunit_cycle_a),
                               100000, Outcome),
     assertion(Outcome \== inference_limit_exceeded),
     assertion(\+ user:ho_specialization(_, plunit_cycle_a, _)),
@@ -370,7 +370,7 @@ test(a_recursive_specialization_survives_its_compile,
                  retractall(fun('plunit-tricky')),
                  retractall(arity('plunit-tricky', _)),
                  metta_self_module(M),
-                 invalidate_specializations(M, 'plunit-tricky') )) ]) :-
+                 specializer:invalidate_specializations(M, 'plunit-tricky') )) ]) :-
     % A definition whose body calls ITSELF with a ground higher-order
     % argument compiles a clone for that call and a generic clause that
     % names it. Invalidating after the compile abolished that clone while
@@ -404,8 +404,8 @@ test(a_removed_equation_forgets_its_specialization,
                  space_module('&plunit_spec_forget', M),
                  forall(member(N, ['plunit-forget', 'plunit-forget-inc',
                                    'plunit-forget-use']),
-                        ( invalidate_specializations(M, N),
-                          forget_symbol(M, N) )),
+                        ( specializer:invalidate_specializations(M, N),
+                          specializer:forget_symbol(M, N) )),
                  retractall(silent(_)), assertz(silent(false)) )) ]) :-
     Space = '&plunit_spec_forget',
     space_module(Space, Module),
@@ -451,8 +451,8 @@ test(the_verifier_runs_a_clone_in_its_own_module,
                  space_module('&plunit_spec_verify', M),
                  forall(member(N, ['plunit-verify', 'plunit-verify-inc',
                                    'plunit-verify-use']),
-                        ( invalidate_specializations(M, N),
-                          forget_symbol(M, N) )),
+                        ( specializer:invalidate_specializations(M, N),
+                          specializer:forget_symbol(M, N) )),
                  retractall(silent(_)), assertz(silent(false)) )) ]) :-
     Space = '&plunit_spec_verify',
     space_module(Space, Module),
@@ -465,16 +465,16 @@ test(the_verifier_runs_a_clone_in_its_own_module,
     SpecGoal =.. [SpecName, 'plunit-verify-inc', 1, Out],
     % Qualified the way a compiled clause in that module qualifies it, which
     % is what the meta_predicate declaration on the verifier produces.
-    petta_verified_specialization(SpecName, Module:SpecGoal),
+    specializer:petta_verified_specialization(SpecName, Module:SpecGoal),
     assertion(Out == 2),
-    assertion(ho_specialization_agrees(SpecName)).
+    assertion(specializer:ho_specialization_agrees(SpecName)).
 
 % A specialization belongs to the space whose code triggered it, and
 % ho_specialization/3 has said so in its first argument since it was written.
-% invalidate_specializations/2's predecessor read that argument with a WILDCARD, so adding an
+% specializer:invalidate_specializations/2's predecessor read that argument with a WILDCARD, so adding an
 % equation for a name in ANY space invalidated that name's specializations in
 % EVERY space: their compiled clauses went, and so did the equations
-% specialize_call_locked/7 stores into each space, which is a write in one
+% specializer:specialize_call_locked/7 stores into each space, which is a write in one
 % space changing another space's atom count.
 %
 % Reproduced through MeTTa.copy(), which enumerates &self and re-adds every
@@ -499,7 +499,7 @@ test(a_copied_space_adopts_its_specializations_instead_of_duplicating,
                         ( space_module(S, M),
                           forall(member(N, ['plunit-copy-hof', 'plunit-copy-inc',
                                             'plunit-copy-use']),
-                                 invalidate_specializations(M, N)) )),
+                                 specializer:invalidate_specializations(M, N)) )),
                  retractall(silent(_)), assertz(silent(false)) )) ]) :-
     Clone = '&plunit_spec_clone',
     space_module('&self', SelfModule),
@@ -541,7 +541,7 @@ test(writing_in_one_space_leaves_another_alone,
                         ( space_module(S, M),
                           forall(member(N, ['plunit-cross', 'plunit-cross-inc',
                                             'plunit-cross-use']),
-                                 invalidate_specializations(M, N)) )),
+                                 specializer:invalidate_specializations(M, N)) )),
                  retractall(silent(_)), assertz(silent(false)) )) ]) :-
     Other = '&plunit_spec_other',
     space_module('&self', SelfModule),
@@ -595,7 +595,7 @@ test(a_definition_in_another_space_does_not_double_an_answer,
                           space_module(S, M),
                           forall(member(N, ['plunit-two-map', 'plunit-two-inc',
                                             'plunit-two-use']),
-                                 ( invalidate_specializations(M, N),
+                                 ( specializer:invalidate_specializations(M, N),
                                    clear_fun_meta(M, N) )) )),
                  retractall(silent(_)), assertz(silent(false)) )) ]) :-
     A = '&plunit_spec_two_a',

@@ -2447,9 +2447,9 @@ test(a_declared_cost_prices_every_form_headed_by_the_name,
      [ setup(( process_metta_string("(= (p2b-priced $x) (noeval (p2b-priced $x)))", _),
                'add-translator-rule!'('p2b-priced', [[cost, 40]], _) )),
        cleanup('remove-translator-rule!'('p2b-priced', _)) ]) :-
-    translator_form_cost(['p2b-priced', 7], Priced),
+    translator_rules:translator_form_cost(['p2b-priced', 7], Priced),
     assertion(Priced == 41),
-    translator_form_cost([unpriced, 7], Plain),
+    translator_rules:translator_form_cost([unpriced, 7], Plain),
     assertion(Plain == 2).
 
 test(a_left_side_without_a_right_side_is_refused,

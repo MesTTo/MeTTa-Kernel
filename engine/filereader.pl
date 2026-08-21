@@ -115,6 +115,14 @@
 %     merging changes a library's interface; left alone here for that reason.
 
 :- use_module(library(readutil)). % read_file_to_string/3
+%eos//0, for the source-layout grammar below. It used to arrive by accident:
+%engine/parser.pl imported dcg/basics into the one namespace everything shared,
+%so this file saw eos//0 without asking. With the parser in a module of its
+%own the accident stopped and source_comment//2 raised
+%existence_error(procedure, eos/2) on the first comment it read
+%[measured 2026-08-22].
+:- use_module(library(dcg/basics), [eos//0, digits//1, number//1,
+                                    string//1, string_without//2]).
 :- use_module(library(ansi_term)). % terminal-aware diagnostic colors
 :- use_module(library(pcre)). % re_replace/4
 %pcre.pl declares four local :- autoload/2 lines (apply, error, dcg/basics,
