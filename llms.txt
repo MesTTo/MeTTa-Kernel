@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 23,555 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
+| `engine/*.pl` | 23,704 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -342,7 +342,13 @@ sample_rates(query, *, algebra, draws, seed)
         stable cumulative selection from nonnegative (rate n) tags
 declare_admits(name, type_name)     only TYPE-carrying atoms enter
 declare_capacity(name, limit)       an add beyond LIMIT is refused loudly
-declare_reaction(name, pattern, operation)   stored as an (on ...) atom
+declare_reaction(name, pattern, operation, priority=)  stored as an (on ...) atom
+declare_agenda(name, "declaration"|"recency"|"specificity"|"priority"|"user",
+               function=None)
+        which reaction fires first when several match one write. declaration
+        is the default and the order they were declared; user names a MeTTa
+        function that SCORES a reaction. Every policy ties on declaration
+        order and an undeclared priority reads as 0.
 declare_events(name, "at-most-once"|"at-least-once"|"per-write-exactly",
                "ordered"|"unordered")
         what a foreign context's change events promise. Subscribability is a

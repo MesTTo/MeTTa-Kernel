@@ -24,6 +24,11 @@
 %     refused naming the missing capability, while a native space answers
 %     per-write-exactly and ordered with nothing declared
 %     [tested: spaces_event_capability; commit=WORKTREE].
+%   - two conflicting reactions fire in the order each declared agenda policy
+%     names, a reaction with no declared priority reads as 0, and a user
+%     policy that scores nothing is a loud error rather than a rule that
+%     silently never fires
+%     [tested: spaces_reaction_agenda; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -2430,3 +2435,106 @@ test(a_standing_query_on_a_silent_context_is_refused_naming_the_capability,
                 [insert, '&plunit-events-native', done]], _).
 
 :- end_tests(spaces_event_capability).
+
+% The reaction agenda (P12.17): which reaction fires first when several
+% match one write is a DECLARED policy with a stated default, not assertion
+% order by accident. Every test here uses the same two conflicting
+% reactions, declared broad-then-narrow, so the order a policy produces is
+% the only thing that varies.
+:- begin_tests(spaces_reaction_agenda).
+
+agenda_reset :-
+    forall(petta_contract_fact([on, '&ag-src', P, O]),
+           metta_remove_atom('&petta', [on, '&ag-src', P, O], _)),
+    forall(petta_contract_fact([on, '&ag-src', P2, O2, N]),
+           metta_remove_atom('&petta', [on, '&ag-src', P2, O2, N], _)),
+    forall(petta_contract_fact([agenda, '&ag-src', Policy]),
+           metta_remove_atom('&petta', [agenda, '&ag-src', Policy], _)),
+    forall(petta_contract_fact([agenda, '&ag-src', P3, C3]),
+           metta_remove_atom('&petta', [agenda, '&ag-src', P3, C3], _)),
+    metta_host_clear_space('&ag-src'),
+    metta_host_clear_space('&ag-log').
+
+% Two reactions on one atom, each writing its own marker into the log, so
+% the log READS as the firing order.
+agenda_two_reactions :-
+    agenda_reset,
+    'add-atom'('&petta', [on, '&ag-src', [alert, _],
+                          [insert, '&ag-log', broad]], _),
+    'add-atom'('&petta', [on, '&ag-src', [alert, kitchen],
+                          [insert, '&ag-log', narrow]], _),
+    petta_install_bridges.
+
+agenda_fired(Order) :-
+    'add-atom'('&ag-src', [alert, kitchen], _),
+    findall(A, 'get-atoms'('&ag-log', A), Order).
+
+test(test_the_reaction_agenda_fires_in_the_declared_order,
+     [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
+    % The default is STATED: declaration order, which is what the engine
+    % used to produce by accident, and the catalog says so.
+    assertion(petta_catalog_row([policy, 'reaction-order', agenda,
+                                 declaration])),
+    agenda_fired(Default),
+    assertion(Default == [broad, narrow]),
+
+    % The same two reactions under a second declared policy fire in the
+    % other order, which is the whole claim: the order follows the
+    % declaration rather than the assertion sequence.
+    metta_host_clear_space('&ag-log'),
+    'add-atom'('&petta', [agenda, '&ag-src', recency], _),
+    agenda_fired(Recency),
+    assertion(Recency == [narrow, broad]),
+
+    % And a third: most specific first, OPS5's criterion, which puts
+    % (alert kitchen) ahead of (alert $where) whatever their order.
+    metta_remove_atom('&petta', [agenda, '&ag-src', recency], _),
+    metta_host_clear_space('&ag-log'),
+    'add-atom'('&petta', [agenda, '&ag-src', specificity], _),
+    agenda_fired(Specificity),
+    assertion(Specificity == [narrow, broad]).
+
+test(a_declared_priority_outranks_declaration_order,
+     [ setup(agenda_reset), cleanup(agenda_reset) ]) :-
+    'add-atom'('&petta', [on, '&ag-src', [alert, _],
+                          [insert, '&ag-log', broad], 1], _),
+    'add-atom'('&petta', [on, '&ag-src', [alert, kitchen],
+                          [insert, '&ag-log', narrow], 9], _),
+    petta_install_bridges,
+    'add-atom'('&petta', [agenda, '&ag-src', priority], _),
+    agenda_fired(Order),
+    assertion(Order == [narrow, broad]).
+
+test(a_reaction_without_a_priority_still_fires_and_reads_as_zero,
+     [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
+    'add-atom'('&petta', [agenda, '&ag-src', priority], _),
+    agenda_fired(Order),
+    assertion(Order == [broad, narrow]),
+    findall(N, petta_reaction('&ag-src', _, _, N), Priorities),
+    assertion(Priorities == [0, 0]).
+
+% A user policy SCORES each reaction, so it cannot drop one, and a function
+% that answers no number for a reaction is a loud error rather than a rule
+% that silently never fires.
+% The scorer sees each reaction AS DECLARED, variables and all, so it reads
+% the operation here rather than the pattern: a head naming (alert kitchen)
+% also unifies with the BROAD reaction's (alert $where), and both would score
+% the same. That is MeTTa's ordinary non-exclusive equation semantics meeting
+% a pattern that is itself data.
+test(a_user_agenda_policy_scores_each_reaction,
+     [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
+    with_output_to(string(_),
+        user:process_metta_string(
+            "(= (ag-rank (on $ctx $pattern (insert $log narrow) $p)) 10)
+             (= (ag-rank (on $ctx $pattern (insert $log broad) $p)) 1)", _)),
+    'add-atom'('&petta', [agenda, '&ag-src', user, 'ag-rank'], _),
+    agenda_fired(Order),
+    assertion(Order == [narrow, broad]).
+
+test(a_user_agenda_policy_that_scores_nothing_says_so,
+     [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
+    'add-atom'('&petta', [agenda, '&ag-src', user, 'ag-silent'], _),
+    catch('add-atom'('&ag-src', [alert, kitchen], _), error(Ball, _), true),
+    assertion(Ball = petta_agenda_unscored('&ag-src', 'ag-silent', _)).
+
+:- end_tests(spaces_reaction_agenda).

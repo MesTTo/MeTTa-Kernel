@@ -37,6 +37,14 @@
                  refused admitted)
        refused)
 
+;; Which reaction fires first when several match one write is a declared
+;; policy too, with a stated default rather than assertion order by accident.
+;; The words are production systems' own conflict-resolution vocabulary.
+!(test (match &petta (vocabulary agenda-policy $a $b $c $d $e) ($a $b $c $d $e))
+       (declaration recency specificity priority user))
+!(test (match &petta (policy reaction-order $knob $default) ($knob $default))
+       (agenda declaration))
+
 ;; A third-party kind is the same machinery: declare its vocabulary and
 ;; its shape, and from that moment the same checker guards it that guards
 ;; the shipped kinds.

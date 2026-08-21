@@ -21,6 +21,9 @@
 %     registered, and a standing query or a reaction on a context that
 %     declares none is refused at the catalog door naming the missing
 %     capability [tested: spaces_event_capability; commit=WORKTREE].
+%   - the reaction agenda is a declared policy with declaration order as its
+%     stated default, and two conflicting reactions fire in the order each
+%     declared policy names [tested: spaces_reaction_agenda; commit=WORKTREE].
 %   - stored_atom_of_ref/3 is add_sexp_in/4's inverse over both stored shapes,
 %     and answers for a stored atom's clause reference alone: not for a
 %     compiled clause's, not for a registration's, not for an erased one
@@ -1220,6 +1223,29 @@ petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
 petta_catalog_preset([vocabulary, delivery,
                       'at-most-once', 'at-least-once', 'per-write-exactly']).
 petta_catalog_preset([vocabulary, 'event-order', ordered, unordered]).
+%Which reaction fires first when several match one write. This is the
+%conflict-resolution question production systems settled in 1981, and the
+%words are theirs. declaration is the order they were declared, a queue,
+%which is what the engine did before this was a policy at all and is now the
+%stated default; recency is the most recently declared first, a stack, which
+%is CLIPS's depth strategy and its own recommended default; specificity is
+%the most tests in the pattern first, OPS5's specificity criterion, which
+%CLIPS spells complexity; priority reads each reaction's own declared number,
+%highest first, which is CLIPS salience, CHR-rp's user-definable rule
+%priorities (De Koninck, Schrijvers and Demoen, PPDP 2007) and ECLiPSe's
+%twelve prioritized suspension levels; and user hands each reaction to a
+%MeTTa function of the author's own that scores it, which is CHR-rp's DYNAMIC
+%priority, an expression evaluated per instance rather than a constant
+%[source: CLIPS Basic Programming Guide, conflict resolution strategies;
+%Brownston et al., Programming Expert Systems in OPS5, 1985].
+%
+%OPS5's other criterion, recency of the matched working-memory elements, has
+%nothing to discriminate here and is deliberately absent: every reaction in
+%this conflict set was triggered by the SAME write, so their time tags are
+%equal by construction. What varies between them is when they were declared
+%and how specific they are.
+petta_catalog_preset([vocabulary, 'agenda-policy',
+                      declaration, recency, specificity, priority, user]).
 petta_catalog_preset([vocabulary, volatility, volatile, stable, immutable]).
 petta_catalog_preset([vocabulary, 'route-key', context, global]).
 petta_catalog_preset([vocabulary, 'space-capability', file, process, network]).
@@ -1262,7 +1288,9 @@ petta_catalog_preset([kind, cache, symbol, ['one-of', 'cache-mode']]).
 petta_catalog_preset([kind, effect, symbol, ['one-of', 'effect-class']]).
 petta_catalog_preset([kind, inverse, symbol]).
 petta_catalog_preset([kind, op, symbol, integer, ['one-of', 'op-kind']]).
-petta_catalog_preset([kind, on, symbol, pattern, term]).
+petta_catalog_preset([kind, on, symbol, pattern, term, [optional, integer]]).
+petta_catalog_preset([kind, agenda, symbol, ['one-of', 'agenda-policy'],
+                      [optional, symbol]]).
 petta_catalog_preset([kind, tabled, symbol, symbol, integer]).
 petta_catalog_preset([kind, defined, symbol, symbol]).
 petta_catalog_preset([kind, subscription, symbol, pattern,
@@ -1295,6 +1323,7 @@ petta_catalog_preset([policy, 'source-kind', source, repeated]).
 petta_catalog_preset([policy, 'transaction-mode', transaction, 'all-answers']).
 petta_catalog_preset([policy, atomicity, writes, transactional]).
 petta_catalog_preset([policy, delivery, events, 'per-write-exactly']).
+petta_catalog_preset([policy, 'reaction-order', agenda, declaration]).
 petta_catalog_preset([policy, 'save-format', save, metta]).
 petta_catalog_preset([policy, volatility, volatility, stable]).
 petta_catalog_preset([policy, determinism, determinism, nondet]).

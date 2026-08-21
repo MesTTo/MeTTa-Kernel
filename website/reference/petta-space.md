@@ -1875,10 +1875,37 @@ def declare_context(self, name: str, world: World) -> Atom:
 > an undeclared one refuses under negation loudly. Native spaces
 > are the engine's own database and closed by construction.
 
+### `MeTTa.declare_agenda`
+
+```python
+def declare_agenda(self, name: str, policy: AgendaPolicy, function: str | None = None) -> Atom:
+```
+
+> Declare which reaction fires first when several match one write.
+>
+> declaration is the default and the order they were declared, which is
+> what the engine produced by accident before this was a policy;
+> recency is the most recently declared first; specificity is the most
+> tests in the pattern first; priority reads each reaction's own
+> declared number, highest first; and user names a MeTTa function that
+> SCORES a reaction, highest first. Every policy breaks ties on
+> declaration order.
+>
+>     m.declare_reaction("&alarms", "(alert $w)", "(insert &log (all $w))")
+>     m.declare_reaction("&alarms", "(alert fire)", "(insert &log (fire))",
+>                        priority=9)
+>     m.declare_agenda("&alarms", "priority")
+
 ### `MeTTa.declare_reaction`
 
 ```python
-def declare_reaction(self, name: str, pattern: str | Atom, operation: str | Atom) -> Atom:
+def declare_reaction(
+    self,
+    name: str,
+    pattern: str | Atom,
+    operation: str | Atom,
+    priority: int | None = None,
+) -> Atom:
 ```
 
 > Declare a reaction, stored as an (on ...) atom: when an atom

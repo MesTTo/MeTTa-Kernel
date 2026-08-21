@@ -718,10 +718,29 @@ No docstring is defined.
 ### `AsyncMeTTa.declare_reaction`
 
 ```python
-async def declare_reaction(self, name: str, pattern: str | Atom, operation: str | Atom) -> Atom:
+async def declare_reaction(
+    self,
+    name: str,
+    pattern: str | Atom,
+    operation: str | Atom,
+    priority: int | None = None,
+) -> Atom:
 ```
 
 No docstring is defined.
+
+### `AsyncMeTTa.declare_agenda`
+
+```python
+async def declare_agenda(
+    self,
+    name: str,
+    policy: AgendaPolicy,
+    function: str | None = None,
+) -> Atom:
+```
+
+> Declare which reaction fires first; see MeTTa.declare_agenda.
 
 ### `AsyncMeTTa.declare_source`
 

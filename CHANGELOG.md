@@ -8,6 +8,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Which reaction fires first is a declared policy. `(agenda <ctx> <policy>)`,
+  or `m.declare_agenda(name, policy)`, picks between `declaration` (the
+  order they were declared, the stated default and what the engine used to
+  produce by accident), `recency` (most recently declared first),
+  `specificity` (most tests in the pattern first), `priority` (each
+  reaction's own declared number, highest first, written as the optional
+  fifth argument of `(on ...)` or `declare_reaction(..., priority=)`), and
+  `user`, which names a MeTTa function that scores a reaction. Every policy
+  breaks ties on declaration order, and a reaction with no declared priority
+  reads as 0, so nothing written before this changes meaning.
 - `lib_thread` gains Linda's two blocking binds over a space.
   `(take-atom &space (job $n))` waits until a matching atom is there, then
   removes exactly one and answers it; `(peek-atom &space (job $n))` waits and

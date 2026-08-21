@@ -3510,9 +3510,132 @@ petta_install_bridges :-
 
 :- dynamic petta_bridges_installed/0.
 
+%%%% The agenda: which reaction fires first (P12.17) %%%%
+%
+%Several reactions can match one write, and before this nothing in the tree
+%said which went first, so the answer was assertion order by accident. It is
+%a DECLARED policy now, (agenda <ctx> <policy> [<function>]) in '&petta',
+%with declaration as the stated default: the order they were declared, which
+%is what the accident used to produce.
+%
+%The vocabulary is production systems' own conflict-resolution vocabulary and
+%the reasons are on the catalog row that declares it. Every policy is STABLE
+%on declaration order, so the tie-break is the default rather than an
+%accident of the sort: that is CLIPS's own layering, where salience picks the
+%bucket and the strategy orders within it.
+%
+%A reaction's priority is the optional fifth argument of its (on ...) row and
+%defaults to 0, so every reaction written before this keeps its meaning.
+petta_reaction(Space, Pattern, Op, Priority) :-
+    (   petta_contract_fact([on, Space, Pattern, Op, Priority])
+    ;   petta_contract_fact([on, Space, Pattern, Op]),
+        Priority = 0
+    ).
+
+petta_agenda(Ctx, Policy, Chooser) :-
+    (   petta_contract_fact([agenda, Ctx, Declared, Named])
+    ->  Policy = Declared, Chooser = Named
+    ;   petta_contract_fact([agenda, Ctx, Declared])
+    ->  Policy = Declared, Chooser = none
+    ;   Policy = declaration, Chooser = none
+    ).
+
+prolog:error_message(petta_agenda_unscored(Ctx, Chooser, Entry)) -->
+    [ '~w declares (agenda ~w user ~w) and ~w answered no number for ~q. A \c
+       user agenda policy scores every reaction it is asked about, because a \c
+       reaction with no score has no place in the order and dropping it \c
+       would be a rule that silently never fires'-[Ctx, Ctx, Chooser,
+                                                    Chooser, Entry] ].
+
 petta_bridge_fire(Space, Term) :-
-    forall(petta_contract_fact([on, Space, Pattern, Op]),
-           petta_bridge_apply(Pattern, Term, Op)).
+    findall(Pattern-Op-Priority,
+            petta_reaction(Space, Pattern, Op, Priority),
+            Declared),
+    (   Declared = [_, _|_]
+    ->  petta_agenda(Space, Policy, Chooser),
+        petta_agenda_order(Policy, Chooser, Space, Declared, Ordered)
+    ;   Ordered = Declared
+    ),
+    forall(member(P-O-_, Ordered), petta_bridge_apply(P, Term, O)).
+
+%One reaction is already in order, and so is a conflict set under the
+%default, so neither pays for the sort.
+petta_agenda_order(declaration, _, _, Reactions, Reactions) :- !.
+petta_agenda_order(recency, _, _, Reactions, Ordered) :- !,
+    reverse(Reactions, Ordered).
+petta_agenda_order(specificity, _, _, Reactions, Ordered) :- !,
+    petta_agenda_keyed(petta_pattern_specificity, Reactions, Keyed),
+    petta_agenda_sorted(Keyed, Ordered).
+petta_agenda_order(priority, _, _, Reactions, Ordered) :- !,
+    findall(Priority-Reaction,
+            ( member(Reaction, Reactions), Reaction = _-_-Priority ),
+            Keyed),
+    petta_agenda_sorted(Keyed, Ordered).
+petta_agenda_order(user, Chooser, Space, Reactions, Ordered) :-
+    petta_agenda_user_keyed(Chooser, Space, Reactions, Keyed),
+    petta_agenda_sorted(Keyed, Ordered).
+
+%sort/4 with @>= keeps duplicates AND their relative order, so equal keys
+%stay in declaration order without a second sort key
+%[source: SWI-Prolog manual, sort/4].
+petta_agenda_sorted(Keyed, Ordered) :-
+    sort(1, @>=, Keyed, Sorted),
+    findall(Reaction, member(_-Reaction, Sorted), Ordered).
+
+petta_agenda_keyed(_, [], []).
+petta_agenda_keyed(Measure, [Reaction|Rest], [Key-Reaction|Keyed]) :-
+    Reaction = Pattern-_-_,
+    call(Measure, Pattern, Key),
+    petta_agenda_keyed(Measure, Rest, Keyed).
+
+%How specific a pattern is: OPS5 counts the tests in the left-hand side, and
+%a MeTTa pattern's tests are its non-variable positions, so (alert kitchen)
+%outranks (alert $where) and both outrank $anything.
+petta_pattern_specificity(Pattern, 0) :- var(Pattern), !.
+petta_pattern_specificity(Pattern, N) :-
+    is_list(Pattern),
+    !,
+    petta_specificity_of(Pattern, 1, N).
+petta_pattern_specificity(_, 1).
+
+petta_specificity_of([], N, N).
+petta_specificity_of([Item|Rest], Acc, N) :-
+    petta_pattern_specificity(Item, Count),
+    Next is Acc + Count,
+    petta_specificity_of(Rest, Next, N).
+
+%A user policy SCORES each reaction rather than reordering the list, and
+%that is the safer half of the same freedom: a function that returns a
+%permutation can drop a reaction, and a rule that silently never fires is
+%the failure this whole item exists to remove. Scoring cannot. It is also
+%what CHR-rp's dynamic priorities are, an expression evaluated per rule
+%instance rather than a constant. The function is called once per reaction
+%per firing write, and the call goes through the ordinary translation cache,
+%so an opt-in policy costs nothing until it is declared.
+petta_agenda_user_keyed(none, Space, _, _) :-
+    throw(error(petta_agenda_unscored(Space, none, none), none)).
+petta_agenda_user_keyed(Chooser, Space, Reactions, Keyed) :-
+    Chooser \== none,
+    petta_agenda_user_keys(Reactions, Chooser, Space, Keyed).
+
+petta_agenda_user_keys([], _, _, []).
+petta_agenda_user_keys([Reaction|Rest], Chooser, Space,
+                       [Key-Reaction|Keyed]) :-
+    Reaction = Pattern-Op-Priority,
+    Entry = [on, Space, Pattern, Op, Priority],
+    (   petta_agenda_score(Chooser, Entry, Key)
+    ->  true
+    ;   throw(error(petta_agenda_unscored(Space, Chooser, Entry), none))
+    ),
+    petta_agenda_user_keys(Rest, Chooser, Space, Keyed).
+
+petta_agenda_score(Chooser, Entry, Key) :-
+    space_module('&self', Module),
+    with_metta_module(Module,
+                      ( translate_cached_expr([Chooser, Entry], Goals, Out),
+                        call_goals_in_(Module, Goals) )),
+    number(Out),
+    Key = Out.
 
 petta_bridge_apply(Pattern, Term, Op) :-
     (   Pattern = Term
