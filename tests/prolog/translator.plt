@@ -26,6 +26,11 @@
 %   - a quoted pattern compiles to the same term a quoted body compiles to, at
 %     the one arity `quote` scopes on either side
 %     [tested: translator_quote_scope; commit=WORKTREE].
+%   - a translator rule's head shape and its body goals leave the call they
+%     were matched against unbound, and the compiler records and says what it
+%     decided about every head pattern position that is not plain structure
+%     [tested: translator_rule_matching, translator_head_pattern_notes;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -2646,3 +2651,97 @@ test(a_planted_guard_that_binds_a_pattern_variable_cannot_create_a_match,
     assertion(Known == [saw, 'plunit-planted']).
 
 :- end_tests(translator_rule_matching).
+
+:- begin_tests(translator_head_pattern_notes).
+
+%The compiler takes two decisions about a head pattern position that the
+%source does not show, and it now records both. The fixtures are one of each,
+%plus the two shapes that must stay silent: an evaluation-masked parameter,
+%where structural matching is exactly what the caller hands over, and an
+%ordinary constructor, whose label means nothing anywhere.
+head_note_source("(= (hpn-g $x) (inner $x))
+(= (hpn-goal (: $x Number)) $x)
+(= (hpn-label (hpn-g $x)) $x)
+(= (hpn-special (if True 1 2)) hit)
+(= (hpn-deep (hpn-h (hpn-g $x))) $x)
+(= (hpn-plain (Cons $x $xs)) $x)
+(: hpn-lazy (-> Atom %Undefined%))
+(= (hpn-lazy (hpn-g $x)) $x)").
+
+head_note_function('hpn-g').
+head_note_function('hpn-goal').
+head_note_function('hpn-label').
+head_note_function('hpn-special').
+head_note_function('hpn-deep').
+head_note_function('hpn-plain').
+head_note_function('hpn-lazy').
+
+setup_head_notes :-
+    retractall(silent(_)), assertz(silent(true)),
+    head_note_source(Source),
+    process_metta_string(Source, _).
+
+cleanup_head_notes :-
+    forall(head_note_function(F),
+           ( 'remove-atom'('&self', [=, [F|_], _], _),
+             forget_test_function(F) )),
+    'remove-atom'('&self', [':', 'hpn-lazy', _], _),
+    retractall(silent(_)), assertz(silent(false)).
+
+recorded_notes(Notes) :-
+    findall(F-Path-Label-Reason,
+            ( head_note_function(F),
+              head_pattern_note(_, F, Path, Label, Reason) ),
+            Notes).
+
+test(the_compiler_records_every_position_it_decided_about_and_no_other,
+     [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
+    recorded_notes(Notes),
+    msort(Notes, Sorted),
+    assertion(Sorted ==
+              [ 'hpn-deep'-[1, 1]-'hpn-g'-defined_label(function),
+                'hpn-goal'-[1]-(:)-type_annotation,
+                'hpn-label'-[1]-'hpn-g'-defined_label(function),
+                'hpn-special'-[1]-if-defined_label(translated) ]).
+
+%BOTH questions, which is the trap this note walked into once already: asking
+%fun/1 alone reported 723 findings over the examples corpus that were correct
+%uses of a translated form [measured 2026-08-17].
+test(both_routes_to_a_head_meaning_are_asked,
+     [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
+    assertion(head_pattern_note(_, 'hpn-label', [1], 'hpn-g',
+                                defined_label(function))),
+    assertion(head_pattern_note(_, 'hpn-special', [1], if,
+                                defined_label(translated))).
+
+test(an_evaluation_masked_argument_has_nothing_to_report,
+     [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
+    assertion(\+ head_pattern_note(_, 'hpn-lazy', _, _, _)),
+    assertion(\+ head_pattern_note(_, 'hpn-plain', _, _, _)).
+
+%The note as a reader sees it, rendered through the same DCG print_message/2
+%uses, so the test reads the message rather than a transcription of it.
+note_text(Term, Text) :-
+    once(phrase(prolog:message(Term), Parts)),
+    with_output_to(string(Text),
+                   print_message_lines(current_output, '', Parts)),
+    !.
+
+test(the_note_names_the_position_the_label_and_why) :-
+    note_text(petta_head_pattern_note(t, [1], ':', type_annotation), Goal),
+    assertion(sub_string(Goal, _, _, _, "head argument 1")),
+    assertion(sub_string(Goal, _, _, _, "annotation on :")),
+    assertion(sub_string(Goal, _, _, _, "GOAL")),
+    note_text(petta_head_pattern_note(f, [1, 2], g, defined_label(function)),
+              Label),
+    assertion(sub_string(Label, _, _, _, "head argument 1, subterm 2")),
+    assertion(sub_string(Label, _, _, _, "against (g ...)")),
+    assertion(sub_string(Label, _, _, _, "g has equations here")),
+    assertion(sub_string(Label, _, _, _, "matched STRUCTURALLY")),
+    note_text(petta_head_pattern_note(k, [3], if, defined_label(translated)),
+              Special),
+    assertion(sub_string(Special, _, _, _, "head argument 3")),
+    assertion(sub_string(Special, _, _, _,
+                         "special form or a registered translator rule")).
+
+:- end_tests(translator_head_pattern_notes).

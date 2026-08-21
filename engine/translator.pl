@@ -45,6 +45,20 @@
 %   - A parameter type declared as DontEvalType receives its written argument
 %     without evaluation, independent of the type's name
 %     [tested: test_a_user_declared_lazy_type_receives_its_argument_unevaluated; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - Every head pattern position the compiler decides something about, a type
+%     annotation compiled to a goal or a label that already has meaning
+%     through either of the engine's two routes, is recorded in
+%     head_pattern_note/5 and said through print_message/2, and a position
+%     whose parameter carries the evaluation mask is neither
+%     [tested: translator_head_pattern_notes,
+%     test_the_compiler_names_a_pattern_position_it_turned_into_a_goal;
+%     commit=WORKTREE].
+%   - A translator rule is applied by matching: its head shape and its body
+%     goals cannot instantiate the call, and a rule that would have to falls
+%     back to the next clause and then to ordinary dispatch
+%     [tested: translator_rule_matching,
+%     test_a_guard_that_binds_a_pattern_variable_cannot_create_a_match;
+%     commit=WORKTREE].
 %   - Exact arrow arity is decided through the shared typing_rule_entry/7
 %     registry rather than a compiler-local equality
 %     [tested: test_a_user_typing_rule_participates_like_a_shipped_one;
@@ -292,25 +306,98 @@ drop_fun_meta_types(Module, F, Args, Body) :-
 clear_fun_meta(Module, F) :-
     retractall(fun_meta_clause(Module, F, _, _)),
     retractall(fun_meta_clause_types(Module, F, _, _, _)),
-    retractall(fun_head_goals(Module, F)).
+    retractall(head_pattern_note(Module, F, _, _, _)).
 
-% A head argument that compiles to a GOAL rather than to structure, which is
-% now only the in-place type annotation `(: $x T)`: (= (f (: $x Number)) $x)
-% compiles to f(A, A) :- has_type(A, 'Number'). The retained equation no
-% longer holds the whole head, so anything reading equations back has to
-% know, and engine/duals.pl refuses to build a dual for such a function rather
-% than negate a head it cannot see. Recording only the non-empty case keeps
-% this to one == test per compiled equation, which costs no inference at all
-% [measured 2026-08-15: ==/2 is compiled inline, a predicate call is not].
+% WHAT THE COMPILER DECIDED ABOUT A HEAD PATTERN POSITION, one row per
+% position, and both decisions it can take there are recorded because both are
+% invisible in the source.
+%
+%   type_annotation    the position compiled to a GOAL rather than to
+%                      structure: (= (f (: $x Number)) $x) compiles to
+%                      f(A, A) :- has_type(A, 'Number'). The retained equation
+%                      no longer holds the whole head, so anything reading
+%                      equations back has to know, and engine/duals.pl refuses
+%                      to build a dual for such a function rather than negate a
+%                      head it cannot see.
+%   defined_label(R)   the label at that position HAS MEANING, through
+%                      equations (R = function) or through the translator
+%                      (R = translated). The position is still matched
+%                      structurally, which is the ruling; what is silent is
+%                      that the caller's own argument is EVALUATED on the way
+%                      in, so `(= (f (g $x)) $x)` with `g` defined never
+%                      matches `!(f (g 3))`, which arrives as `(f (inner 3))`
+%                      [measured 2026-08-21].
+%
+% Naming the second one is the same lint Rust makes deny-by-default: "the
+% bindings_with_variant_name lint detects pattern bindings with the same name
+% as one of the matched variants... It is usually a mistake to specify an enum
+% variant name as an identifier pattern", reported with the position, the name
+% and the remedy [source 2026-08-21: doc.rust-lang.org/rustc/lints/listing/
+% deny-by-default.html, E0170]. A name in a pattern that also means something
+% elsewhere is a known silent-bug source, and naming it is the established
+% answer.
+%
+% BOTH questions are asked about a label, fun/1 and the translator, through
+% head_meaning_route/3: asking only the first cost 723 false findings when the
+% linter did it [measured 2026-08-17, engine/translator.pl
+% metta_translated_head/1]. Only a compound head argument reaches that
+% question at all, so an ordinary head of plain variables costs nothing new.
 % Module-keyed for the same reason as fun_meta_clause/4: an annotated head in
-% one space must not refuse a dual in another.
-:- dynamic fun_head_goals/2.
+% one space must not refuse a dual in another
+% [tested: translator_head_pattern_notes,
+% test_the_compiler_names_a_pattern_position_it_turned_into_a_goal;
+% commit=WORKTREE].
+:- dynamic head_pattern_note/5.
 
-note_head_goals(F) :- current_metta_module(Module),
-                      ( fun_head_goals(Module, F)
-                        -> true
-                         ; assertz(fun_head_goals(Module, F), Ref),
-                           record_source_assertion(Ref) ).
+%The walk reports SHAPE and this decides MEANING, which is what lets
+%constrain_args/3's other callers throw the positions away without ever asking
+%a question about them.
+%A head of plain variables reports no position at all, which is most of them,
+%so the module lookup and the walk over the reasons are both behind this test.
+%It is the whole cost of the notes on a load-heavy workload: source-load
+%measures 1,180,506 inferences without this clause and 1,175,510 with it,
+%against a 1,175,508 baseline whose allowance is 4
+%[measured 2026-08-21: bench.py source-load --counter-only, min-of-three].
+record_head_pattern_notes(_, []) :- !.
+record_head_pattern_notes(F, Positions) :-
+    current_metta_module(Module),
+    forall(( member(head_position(RevPath, Label, Kind), Positions),
+             head_pattern_reason(Module, F, RevPath, Label, Kind, Reason) ),
+           note_head_pattern(Module, F, RevPath, Label, Reason)).
+
+head_pattern_reason(_, _, _, _, type_annotation, type_annotation).
+head_pattern_reason(Module, F, RevPath, Label, label, defined_label(Route)) :-
+    last(RevPath, Argument),
+    \+ unevaluated_head_argument(F, Argument),
+    head_meaning_route(Module, Label, Route).
+
+%A parameter carrying the evaluation mask receives its argument AS WRITTEN, so
+%a structural pattern at that position is exactly what the caller hands over
+%and there is nothing to report. This is what keeps the note off the shipped
+%control forms, whose whole design is `(: union (-> Atom Atom %Undefined%))`
+%with `(= (union (superpose $a) (superpose $b)) ...)` under it; without it the
+%engine's own prelude would emit six notes at boot, which is the shape of the
+%723 false findings the linter produced by asking a narrower question
+%[measured 2026-08-21]. The mask decides a whole argument, so it decides every
+%subterm inside it, which is why the OUTERMOST index of the path is the one
+%asked about.
+unevaluated_head_argument(F, Argument) :-
+    catch_recover(type_declaration(F, [->|Xs]), fail),
+    append(ArgTypes, [_], Xs),
+    nth1(Argument, ArgTypes, Type),
+    non_evaluated_parameter_type(Type).
+
+%The walk carries its path innermost-first, because prepending is what a walk
+%can do without copying; the reader wants it outermost-first.
+note_head_pattern(Module, F, RevPath, Label, Reason) :-
+    reverse(RevPath, Path),
+    (   head_pattern_note(Module, F, Path, Label, Reason)
+    ->  true
+    ;   assertz(head_pattern_note(Module, F, Path, Label, Reason), Ref),
+        record_source_assertion(Ref),
+        print_message(informational,
+                      petta_head_pattern_note(F, Path, Label, Reason))
+    ).
 
 %An equation head is a PATTERN, matched, and this walk builds it. The only
 %thing that is not pure structure is the in-place type annotation below, which
@@ -344,7 +431,15 @@ note_head_goals(F) :- current_metta_module(Module),
 %[tested: examples/functions/functionhead.metta,
 %examples/functions/functionhead2.metta,
 %examples/functions/functionhead3.metta].
-constrain_args(X, X, []) :- (var(X); atomic(X)), !.
+%% constrain_args(+Pattern, -Constrained, -Goals) is det.
+%The three-argument form for every caller that only wants the pattern: case
+%keys, typed lets and case duals all compile a pattern and none of them is an
+%equation head, so the positions the walk reports go nowhere and no question is
+%ever asked about them.
+constrain_args(In, Out, Goals) :- constrain_args(In, Out, Goals, [], _).
+
+%% constrain_args(+Pattern, -Constrained, -Goals, +ReversedPath, -Positions) is det.
+constrain_args(X, X, [], _, []) :- (var(X); atomic(X)), !.
 %QUOTE IS A SCOPE HERE, exactly as it is in a body. A body's `(quote X)` holds
 %X and compiles nothing inside it
 %[source 2026-08-21: engine/translator.pl,
@@ -361,7 +456,7 @@ constrain_args(X, X, []) :- (var(X); atomic(X)), !.
 %the body's scope is one argument too: `(quote a b)` is not the scope form on
 %either side [tested: translator_quote_scope,
 %test_quote_is_a_scope_in_head_position_too; commit=WORKTREE].
-constrain_args([Quote, Expr], [Quote, Expr], []) :-
+constrain_args([Quote, Expr], [Quote, Expr], [], _, []) :-
     nonvar(Quote), Quote == quote, !.
 %An IN-PLACE TYPE ANNOTATION in a head parameter position: `(: $x T)` matches
 %anything whose type includes T and binds $x to it, and `(: $x $t)` binds $t to
@@ -413,7 +508,8 @@ constrain_args([Quote, Expr], [Quote, Expr], []) :-
 %[tested: translator_inplace_annotations, a_cons_list_is_ordinary_structure,
 %examples/reasoning/nilbc.metta].
 constrain_args([Colon, Var, Type], Var,
-               [(has_type(Var, Type) *-> true ; 'get-metatype'(Var, Type))]) :-
+               [(has_type(Var, Type) *-> true ; 'get-metatype'(Var, Type))],
+               Path, [head_position(Path, ':', type_annotation)]) :-
     nonvar(Colon), Colon == ':', var(Var), !.
 %GATE TWO: a colon form whose VALUE slot is not a variable is ordinary data,
 %and the walk does not descend into it either. Both halves are load-bearing.
@@ -423,16 +519,41 @@ constrain_args([Colon, Var, Type], Var,
 %[source: LeaTTa/ai-report-inplace-annotations.md, Design]. It earns its keep
 %here too: nilbc.metta's `(bc $kb (S $d) (: ($rule $premise) $theorem))` has an
 %expression in the value slot and stays the proof term it is.
-constrain_args([Colon, Value, Type], [Colon, Value, Type], []) :-
+constrain_args([Colon, Value, Type], [Colon, Value, Type], [], _, []) :-
     nonvar(Colon), Colon == ':', nonvar(Value), !.
-constrain_args([F, A, B], Out, Goals) :- nonvar(F),
-                                         F == cons,
-                                         constrain_args(A, A1, G1),
-                                         constrain_args(B, B1, G2),
-                                         Out = [A1|B1],
-                                         append(G1, G2, Goals), !.
-constrain_args(In, Out, Goals) :- maplist(constrain_args, In, Out, NestedGoalsList),
-                                  flatten(NestedGoalsList, Goals), !.
+constrain_args([F, A, B], Out, Goals, Path, Positions) :-
+    nonvar(F),
+    F == cons,
+    constrain_args(A, A1, G1, [1|Path], P1),
+    constrain_args(B, B1, G2, [2|Path], P2),
+    Out = [A1|B1],
+    append(G1, G2, Goals),
+    append(P1, P2, Positions), !.
+%Numbered from ZERO here and from one in translate_clause/3, because a nested
+%sub-pattern carries its own label at the front and an equation head's argument
+%list does not: `(= (f (h (g $x))) ...)` puts `(g $x)` at head argument 1,
+%subterm 1, which is where a reader counting arguments looks for it.
+constrain_args(In, Out, Goals, Path, Positions) :-
+    constrain_children(In, 0, Path, Out, NestedGoalsList, NestedPositions),
+    flatten(NestedGoalsList, Goals),
+    append(NestedPositions, ChildPositions),
+    pattern_label_position(In, Path, LabelPositions),
+    append(LabelPositions, ChildPositions, Positions), !.
+
+%A sub-pattern's children, numbered from one so a note can say WHICH child of
+%which argument it is about. maplist/4 cannot count.
+constrain_children([], _, _, [], [], []).
+constrain_children([C|Cs], I, Path, [O|Os], [G|Gs], [P|Ps]) :-
+    constrain_args(C, O, G, [I|Path], P),
+    J is I + 1,
+    constrain_children(Cs, J, Path, Os, Gs, Ps).
+
+%The LABEL of a compound sub-pattern, reported as a position whether or not it
+%means anything: whether it does is decided once, where the notes are recorded,
+%so a caller that discards them never asks.
+pattern_label_position([F|_], Path, [head_position(Path, F, label)]) :-
+    atom(F), !.
+pattern_label_position(_, _, []).
 
 %The predicates the ENGINE emits into a compiled clause body, and the reason
 %they have to be named somewhere.
@@ -608,9 +729,10 @@ translate_clause(Input, (Head :- BodyConj)) :- translate_clause(Input, (Head :- 
 %% translate_clause(+Equation, -Clause, +ConstrainArgs:boolean) is semidet.
 translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                Input = [=, [F|Args0], BodyExpr],
-                                               ( ConstrainArgs -> maplist(constrain_args, Args0, Args1, GoalsA),
+                                               ( ConstrainArgs -> constrain_children(Args0, 1, [], Args1, GoalsA, PositionsA),
                                                                   flatten(GoalsA,GoalsPrefix),
-                                                                  ( GoalsPrefix == [] -> true ; note_head_goals(F) )
+                                                                  append(PositionsA, Positions),
+                                                                  record_head_pattern_notes(F, Positions)
                                                                 ; Args1 = Args0, GoalsPrefix = [] ),
                                                record_fun_meta(F, Args1, BodyExpr),
                                                ( declared_output_type(F, 'Atom')
@@ -1852,12 +1974,17 @@ metta_translated_head(Name) :- translator_rule(Name), !.
 %own copy of this test.
 metta_reducible_head(Module, [F|_]) :-
     (   atom(F)
-    ->  (   metta_translated_head(F)
-        ->  true
-        ;   with_metta_module(Module, fun_here(F))
-        )
+    ->  head_meaning_route(Module, F, _)
     ;   true
     ).
+
+%WHICH of the two routes answered, for a caller that has to say so rather than
+%only act on it. The compiler's head-pattern notes name the route in their
+%message, because "it has equations" and "the translator gives it meaning" are
+%different facts with different remedies. One place asks both questions, so a
+%route added to either is covered wherever the pair is consulted.
+head_meaning_route(_, F, translated) :- metta_translated_head(F), !.
+head_meaning_route(Module, F, function) :- with_metta_module(Module, fun_here(F)).
 
 %First-argument indexing keeps each special form independent of the number of
 %other forms. A clause fails on an unsupported arity so ordinary function or
@@ -2502,6 +2629,40 @@ translate_special_dl('catch', [Expr], AfterHead, Goals, Out) :-
 %wrapping a well-formed seam in quote, which a macro returning a term built in
 %Prolog does not need, hands the translator a list it can only treat as data.
 :- multifile prolog:error_message//1.
+
+%THE COMPILER SAYING WHAT IT DECIDED ABOUT A HEAD PATTERN POSITION. Both
+%decisions are correct and both are invisible in the source, which is the whole
+%complaint: nothing in `(= (f (: $x Number)) $x)` says that a goal was
+%compiled, and nothing in `(= (f (g $x)) $x)` says that the caller's `(g 3)`
+%will have been evaluated to something else before it arrives.
+:- multifile prolog:message//1.
+prolog:message(petta_head_pattern_note(Fun, Path, Label, type_annotation)) -->
+    { head_pattern_position_text(Path, Where) },
+    [ 'the head of (= (~w ...) ...) constrains ~w with the in-place \c
+       annotation on ~w, so that position compiled to a type premise GOAL \c
+       rather than to structure. The equation this function stores no longer \c
+       holds its whole head, which is why a dual cannot be built \c
+       for it.'-[Fun, Where, Label] ].
+prolog:message(petta_head_pattern_note(Fun, Path, Label, defined_label(Route)))
+    -->
+    { head_pattern_position_text(Path, Where),
+      head_meaning_route_text(Route, Because) },
+    [ 'the head of (= (~w ...) ...) matches ~w against (~w ...), and ~w ~w. \c
+       That position is matched STRUCTURALLY, so it accepts only a caller \c
+       that hands it the term unevaluated: an ordinary call evaluates its \c
+       own argument first and arrives as something else. Write the relation \c
+       in the body with let if you meant to run ~w.'-[Fun, Where, Label,
+                                                      Label, Because, Label] ].
+
+head_pattern_position_text([Argument], Text) :- !,
+    format(atom(Text), 'head argument ~w', [Argument]).
+head_pattern_position_text([Argument|Rest], Text) :-
+    atomic_list_concat(Rest, '.', Sub),
+    format(atom(Text), 'head argument ~w, subterm ~w', [Argument, Sub]).
+
+head_meaning_route_text(function, 'has equations here').
+head_meaning_route_text(translated,
+                        'is a special form or a registered translator rule').
 
 refuse_uncompilable_seam(Form, Args) :-
     ( Args = [Goal] -> Offender = Goal ; Offender = Args ),
