@@ -70,6 +70,11 @@
 %       serializable MeTTa values [tested:
 %       test_the_compile_time_rule_set_is_shown_terminating_or_the_failure_is_named;
 %       commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
+%     - a registered name that already had a meaning is printed with the kind
+%       of meaning it went ahead of, read from the engine's
+%       translator_rule_override/2 rather than recomputed here
+%       [tested: test_overriding_a_protected_name_is_refused_with_the_name;
+%       commit=WORKTREE].
 %     - the typing family is read from typing_rule_entry/7, the checker's own
 %       registry; user/user and user/shipped overlaps are named, while a
 %       refusing or deferring rule is reported CONDITIONAL rather than given
@@ -651,15 +656,26 @@ print_translator_family(
     length(Names, NameCount),
     format("registered translator rules: ~d, closed over what they call: ~d \c
             names~n", [EntryCount, NameCount]),
-    forall(member(N, Names),
-           (   memberchk(N, Registered)
-           ->  format("  ~w (registered)~n", [N])
-           ;   format("  ~w (reached)~n", [N]) )),
+    forall(member(N, Names), print_rule_name(Registered, N)),
     (   SpaceRules == [], PreludeRules == []
     ->  format("no equations found for them, so there is nothing to \c
                 analyse~n")
     ;   analyse(Registered, SpaceRules, PreludeRules, Analysis),
         print_analysis(SpaceRules, PreludeRules, Analysis) ).
+
+% A registered name that already meant something says so here. The engine
+% refuses a protected_core_head/1 outright, so a row can only ever be a head
+% the program is allowed to take over, and the report is where the taking-over
+% is stated instead of being left to be discovered at a call site.
+print_rule_name(Registered, N) :-
+    (   memberchk(N, Registered)
+    ->  (   user:translator_rule_override(N, Kind)
+        ->  format("  ~w (registered, ahead of the engine's own ~w of that \c
+                    name)~n", [N, Kind])
+        ;   format("  ~w (registered)~n", [N])
+        )
+    ;   format("  ~w (reached)~n", [N])
+    ).
 
 % Which fragment this report can answer in, printed with every report rather
 % than left in a header, because a verdict is worth what its fragment is worth.

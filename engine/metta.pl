@@ -145,6 +145,12 @@
 %     is how a DERIVED form ships. A program that defines such a name takes
 %     the whole form over, so the registration is withdrawn with the clauses
 %     [tested 2026-08-19: prelude_derived_forms].
+%   - add-translator-rule! REFUSES a protected_core_head/1 name and puts that
+%     name in the error term, and records what an accepted registration took
+%     over from in translator_rule_override/2, so a rule going ahead of a
+%     special form or a builtin is stated rather than silent
+%     [tested: test_overriding_a_protected_name_is_refused_with_the_name;
+%     commit=WORKTREE].
 %   - Test assertions distinguish no answer from one empty-expression answer
 %     [tested 2026-08-14: translator_test_answers].
 %   - pragma! validates keys against the closed registry and values before
@@ -6543,17 +6549,103 @@ importer_helper_impl(Space, File) :-
          import_when(changed, Space, CanonPath,
                      load_imported_metta_file(CanonPath, _, Space)) ).
 
+%The PROTECTED CORE: the heads a rewrite rule may not take over.
+%
+%translate_expr_dl/4 consults the translator rules one line BEFORE
+%translate_special_dl/5, so registering a rule for one of the compiler's own
+%forms replaces it for the whole process with nothing said at any point:
+%`(= (if $c $t $e) (noeval (quote hijacked)))` followed by
+%`!(add-translator-rule! if)` makes `!(if True 1 2)` answer `(quote hijacked)`
+%[measured 2026-08-21, on this file before the refusal below existed].
+%
+%Rw-Prolog guards exactly this. Its call_rw_/3 special-cases `!`, true, false,
+%fail, `->`, `;`, `,` and catch ahead of dispatch so that they "cannot be
+%overridden by rewrite rules" [source: Chris Barrick, Rw-Prolog,
+%src/rewrite.pl, call_rw_/3 and the comment above call_rw/2, read 2026-08-21
+%from the checkout in ai-tmp/rw-prolog]. Refusing at the DECLARATION instead
+%of at every call is that guard moved to where the author can act on it.
+%
+%WHICH names, from the two sets this repository has already written down.
+%KERNEL.md's reference point is minimal MeTTa's state-free structural
+%instruction set, and its table says which of this engine's heads is a
+%counterpart of which; those counterparts are the first ten rows. The last
+%four are Rw-Prolog's control forms in this engine's spelling, `true`, `false`
+%and `fail` being values here rather than heads.
+%
+%Deliberately NOT protected: the prelude's eight derived forms, `once`,
+%`progn`, `prog1`, `nop`, `take`, `test` and the five space updates. A rule
+%for `once` is engine work that ships, in lib/lib_derived.metta, and
+%examples/libraries/derived_forms.metta runs the swap and the swap back, so a
+%set wide enough to include every special form would refuse it
+%[tested: examples/libraries/derived_forms.metta].
+protected_core_head(eval).
+protected_core_head(evalc).
+protected_core_head(chain).
+protected_core_head(let).
+protected_core_head(unify).
+protected_core_head(superpose).
+protected_core_head(collapse).
+protected_core_head(call).
+protected_core_head('translatePredicate').
+protected_core_head(reduce).
+protected_core_head(if).
+protected_core_head(case).
+protected_core_head(catch).
+protected_core_head(cut).
+
+%The name is the whole content of the refusal, so it travels in the error
+%term where a catcher can read it rather than only in rendered prose.
+refuse_protected_core_rule(Name) :-
+    (   protected_core_head(Name)
+    ->  throw(error(permission_error(register, metta_protected_core, Name),
+                    context('add-translator-rule!',
+                            'a rewrite rule cannot replace the protected \c
+                             core')))
+    ;   true
+    ).
+
+%What a registration for an UNPROTECTED name that already means something did
+%to that meaning. It does not delete it: the older clause or special form is
+%still there and still answers a call the rule's head does not match, which is
+%what makes a guarded rule fall through at all. What it does do is go first,
+%so for a call the rule DOES match the older meaning is unreachable. Saying
+%which of the two happened is the obligation; a name that meant nothing before
+%records no row, so an empty register reads as "nothing was taken over".
+:- dynamic translator_rule_override/2.
+
+note_translator_rule_override(Name) :-
+    (   translator_rule_override(Name, _)
+    ->  true
+    ;   translator_rule_override_kind(Name, Kind)
+    ->  assertz(translator_rule_override(Name, Kind))
+    ;   true
+    ).
+
+translator_rule_override_kind(Name, special_form) :-
+    metta_special_form(Name), !.
+%A derived form the PRELUDE ships is its equation and its registration
+%together, and the loader registers every prelude head as a builtin so a call
+%site compiles before pass two reaches the equation. Reading builtin_fun/1
+%alone therefore reported all eight of the prelude's own forms as taking over
+%a meaning they are [measured 2026-08-21].
+translator_rule_override_kind(Name, builtin) :-
+    builtin_fun(Name),
+    \+ prelude_owned(Name), !.
+
 :- dynamic translator_rule/1.
 'add-translator-rule!'(HV, _) :- var(HV), !,
                                  refuse_unbound_input('add-translator-rule!', 1).
-'add-translator-rule!'(HV, true) :- ( translator_rule(HV)
+'add-translator-rule!'(HV, true) :- refuse_protected_core_rule(HV),
+                                    note_translator_rule_override(HV),
+                                    ( translator_rule(HV)
                                       -> true ; assertz(translator_rule(HV)) ).
 
 'remove-translator-rule!'(HV, _) :- var(HV), !,
                                     refuse_unbound_input('remove-translator-rule!', 1).
 'remove-translator-rule!'(HV, true) :-
     must_be(nonvar, HV),
-    retractall(translator_rule(HV)).
+    retractall(translator_rule(HV)),
+    retractall(translator_rule_override(HV, _)).
 
 %%% Registration: %%%
 :- dynamic fun/1, arity/2.

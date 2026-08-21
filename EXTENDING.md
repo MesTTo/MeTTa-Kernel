@@ -173,6 +173,29 @@ runtime.
 
 `for` is now part of the language. Nobody forked the engine to add it.
 
+### What a rule may not take over
+
+A rule is consulted before the compiler's own forms, so a rule named after one
+of them replaces it for the rest of the process. Fourteen heads are protected
+against that and the registration is refused with the name in the message:
+
+```metta
+!(add-translator-rule! if)
+; No permission to register metta_protected_core `if'
+```
+
+The protected heads are `eval`, `evalc`, `chain`, `let`, `unify`, `superpose`,
+`collapse`, `call`, `translatePredicate` and `reduce`, which are this engine's
+counterparts of minimal MeTTa's structural instruction set, plus `if`, `case`,
+`catch` and `cut`, the control forms. `KERNEL.md` says which counterpart is
+which.
+
+Every other head stays yours, including ones the compiler also gives a
+meaning: `lib/lib_derived.metta` registers a rule for `once` on purpose, and
+`examples/libraries/derived_forms.metta` swaps it in and back out. A rule that
+goes ahead of a compiler form or a builtin that way is recorded, and the
+confluence report prints it beside the name.
+
 That it really disappears is visible in the compiled clause. Given
 
 ```metta

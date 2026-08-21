@@ -15,6 +15,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- A protected core that a translator rule cannot replace. Registering a rule
+  for `eval`, `evalc`, `chain`, `let`, `unify`, `superpose`, `collapse`,
+  `call`, `translatePredicate`, `reduce`, `if`, `case`, `catch` or `cut` is
+  refused with the name in the message, where before the rule silently went
+  ahead of the compiler's own form for the rest of the process. Every other
+  head is still yours to take over, and a registration that goes ahead of a
+  compiler form or a builtin is recorded and printed by the confluence
+  report.
 - SQLite table bridges now honor per-context `image` declarations. The
   shipped example maps a `BLOB` column to a live `Blob` handle under
   `opaque`, lets a lazy path read one byte without projecting the payload,

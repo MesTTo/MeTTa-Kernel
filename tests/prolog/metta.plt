@@ -2302,3 +2302,42 @@ test(an_unbound_type_is_refused,
     'has-declared-type'('hdt-probe', _, _).
 
 :- end_tests(metta_has_declared_type).
+
+
+:- begin_tests(translator_rule_protected_core).
+
+% The measured harm, as a unit test: a translator rule is consulted one line
+% before translate_special_dl/5, so before the refusal existed this
+% registration made `if` mean whatever the rule said, for the whole process.
+test(a_protected_core_head_is_refused_with_its_name,
+     [ throws(error(permission_error(register, metta_protected_core, if), _)) ]) :-
+    'add-translator-rule!'(if, _).
+
+test(every_protected_head_refuses) :-
+    findall(Name,
+            ( protected_core_head(Name),
+              \+ catch('add-translator-rule!'(Name, _),
+                       error(permission_error(register, metta_protected_core,
+                                              Name), _),
+                       true) ),
+            Accepted),
+    assertion(Accepted == []).
+
+% The other half: a head the compiler also gives meaning to but does not
+% protect stays the program's to take over, and the register says what it
+% went ahead of. lib/lib_derived.metta ships exactly this rule for `once`.
+test(an_unprotected_special_form_is_taken_over_and_the_register_says_so,
+     [ cleanup(( 'remove-translator-rule!'(once, _),
+                 retractall(translator_rule_override(once, _)) )) ]) :-
+    'add-translator-rule!'(once, R),
+    assertion(R == true),
+    assertion(translator_rule_override(once, special_form)).
+
+% A name that meant nothing before records nothing, so an empty register
+% reads as "this rule took nothing over" rather than as "nobody looked".
+test(a_free_name_records_no_override,
+     [ cleanup('remove-translator-rule!'('plunit-p215-free', _)) ]) :-
+    'add-translator-rule!'('plunit-p215-free', _),
+    assertion(\+ translator_rule_override('plunit-p215-free', _)).
+
+:- end_tests(translator_rule_protected_core).
