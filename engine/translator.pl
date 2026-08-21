@@ -52,13 +52,13 @@
 %     whose parameter carries the evaluation mask is neither
 %     [tested: translator_head_pattern_notes,
 %     test_the_compiler_names_a_pattern_position_it_turned_into_a_goal;
-%     commit=WORKTREE].
+%     commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
 %   - A translator rule is applied by matching: its head shape and its body
 %     goals cannot instantiate the call, and a rule that would have to falls
 %     back to the next clause and then to ordinary dispatch
 %     [tested: translator_rule_matching,
 %     test_a_guard_that_binds_a_pattern_variable_cannot_create_a_match;
-%     commit=WORKTREE].
+%     commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
 %   - Exact arrow arity is decided through the shared typing_rule_entry/7
 %     registry rather than a compiler-local equality
 %     [tested: test_a_user_typing_rule_participates_like_a_shipped_one;
@@ -346,7 +346,7 @@ clear_fun_meta(Module, F) :-
 % one space must not refuse a dual in another
 % [tested: translator_head_pattern_notes,
 % test_the_compiler_names_a_pattern_position_it_turned_into_a_goal;
-% commit=WORKTREE].
+% commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
 :- dynamic head_pattern_note/5.
 
 %The walk reports SHAPE and this decides MEANING, which is what lets
@@ -461,7 +461,7 @@ constrain_args(X, X, [], _, []) :- (var(X); atomic(X)), !.
 %and refused the quoted annotation it was written to match. One arity, because
 %the body's scope is one argument too: `(quote a b)` is not the scope form on
 %either side [tested: translator_quote_scope,
-%test_quote_is_a_scope_in_head_position_too; commit=WORKTREE].
+%test_quote_is_a_scope_in_head_position_too; commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
 constrain_args([Quote, Expr], [Quote, Expr], [], _, []) :-
     nonvar(Quote), Quote == quote, !.
 %An IN-PLACE TYPE ANNOTATION in a head parameter position: `(: $x T)` matches
@@ -1593,7 +1593,7 @@ translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
 %critical-pair verdict is a PROOF OBLIGATION about this rule set rather than a
 %decision about it, which tests/prolog/translator_confluence.pl now says with
 %every report [tested: test_an_answerless_translator_rule_body_behaves_as_ruled;
-%commit=WORKTREE].
+%commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
 %
 %A GUARD THAT BINDS A PATTERN VARIABLE CANNOT CREATE A MATCH, which is why the
 %call runs on a COPY and the copy is re-checked against the call afterwards.
@@ -1656,7 +1656,7 @@ translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
 %correctness and one difference: a rule body with a side effect of its own runs
 %it before the rule is rejected [tested: translator_rule_matching,
 %test_a_guard_that_binds_a_pattern_variable_cannot_create_a_match;
-%commit=WORKTREE].
+%commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
 apply_translator_rule_dl(HV, Args, AfterHead, Goals, Out) :-
     (   catch_recover(type_declaration(HV, TypeChain), fail)
     ->  TypeChain = [->|Xs],

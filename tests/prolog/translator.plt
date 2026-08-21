@@ -25,12 +25,12 @@
 %     commit=c3c8ea60516dc1f45620bbe4dba3b78993ee22e3].
 %   - a quoted pattern compiles to the same term a quoted body compiles to, at
 %     the one arity `quote` scopes on either side
-%     [tested: translator_quote_scope; commit=WORKTREE].
+%     [tested: translator_quote_scope; commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
 %   - a translator rule's head shape and its body goals leave the call they
 %     were matched against unbound, and the compiler records and says what it
 %     decided about every head pattern position that is not plain structure
 %     [tested: translator_rule_matching, translator_head_pattern_notes;
-%     commit=WORKTREE].
+%     commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
