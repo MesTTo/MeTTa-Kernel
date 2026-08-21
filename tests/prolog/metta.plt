@@ -1455,11 +1455,18 @@ test(switches_nest_and_unwind_in_order) :-
 % consulting the global while it runs. Compiled code DOES consult it, and the
 % rate is what decides the row.
 %
-% reduce/3, the runtime dispatcher, reads it on every dispatch of a function a
-% NAMED space claims, and not at all for one the shared tier claims:
+% reduce/3, the runtime dispatcher, reads it once per dispatch on an atom head
+% that is NOT a plain shared-tier function, and not at all for one that is:
 % `fun(F), \+ fun_scoped(F) -> Module = Self` settles the second case without
-% asking. That is the split this test pins, both halves, so a change that made
-% the fast path start asking, or the named path ask twice, fails here.
+% asking, and everything else falls through to `current_metta_module(Module),
+% fun_here_in(Module, F)`. A DATA CONSTRUCTOR is the common case rather than a
+% space-scoped function, which is worth writing down because the name of the
+% branch suggests otherwise: examples/performance/matespacefast.metta reduces
+% (num (M $t)) and (M $t) at every node of a binary tree of depth 19, and that
+% is the whole of its 262,144 reads. The space-update capability check is a
+% second and separate reader, once per update. This test pins all three rates,
+% so a change that made the fast path start asking, or either of the others ask
+% twice, fails here.
 %
 % Measured over the shipped corpus, one process per example the way the corpus
 % lane runs one: 468,624 of 486,309 reads are on the evaluation path, and two
@@ -1484,7 +1491,7 @@ test(switches_nest_and_unwind_in_order) :-
 % compiled into &self's module and shared by every space through the base
 % chain, so a shared clause would report where it was COMPILED and not where it
 % is RUNNING -- Logtalk's `This` where the dispatcher needs `Self`.
-test(test_the_module_context_is_read_once_per_space_update_and_not_at_all_otherwise,
+test(test_the_module_context_is_read_once_per_unresolved_dispatch_and_once_per_space_update,
      [ cleanup(( catch(unwrap_predicate(ContextModule:current_metta_module/1,
                                         context_read_probe), _, true),
                  catch(unwrap_predicate(SelfModule:'ctx-sum'/2,
@@ -1503,6 +1510,8 @@ test(test_the_module_context_is_read_once_per_space_update_and_not_at_all_otherw
     process_metta_string("!(ctx-sum 3)", Warm),
     assertion(Warm == [6]),
     process_metta_string("!(ctx-grow 0)", _),
+    process_metta_string("(= (ctxfn $x) (+ $x 1))", _),
+    process_metta_string("!(ctxfn 1)", _),
 
     % One: a function of the SHARED tier dispatches without asking. reduce/3
     % settles `fun(F), \+ fun_scoped(F)` without a context read, and that is
@@ -1515,14 +1524,24 @@ test(test_the_module_context_is_read_once_per_space_update_and_not_at_all_otherw
     assertion(Quiet == 0),
 
     % Two: a space UPDATE asks, once per evaluation, because the capability
-    % check has to know which space is in force. This is the rate the corpus is
-    % almost entirely made of, and pinning it is what would catch it doubling.
+    % check has to know which space is in force.
     context_reads(SelfModule:'ctx-grow'(_, _),
                   forall(between(1, 40, _),
                          process_metta_string("!(ctx-grow 1)", _)),
                   Updates, Asked),
     assertion(Updates == 40),
-    assertion(Asked == 40).
+    assertion(Asked == 40),
+
+    % Three: reduce/3 asks once per runtime dispatch on an atom head that is
+    % NOT a plain shared-tier function, and not at all for one that is. A data
+    % constructor is the common case and it is the rate the corpus is almost
+    % entirely made of: examples/performance/matespacefast.metta reduces
+    % (num (M $t)) and (M $t) at every node of a binary tree of depth 19, which
+    % is where its 262,144 reads come from [measured 2026-08-22].
+    petta_dispatch_reads([ctxfn, 1], FunctionReads),
+    assertion(FunctionReads == 0),
+    petta_dispatch_reads(['CtxData', 1], DataReads),
+    assertion(DataReads == 40).
 
 %Count reads of the module context that happen while Watched is on the stack.
 %Watched is the COMPILED PREDICATE itself rather than a proxy for it, so
@@ -1556,6 +1575,24 @@ context_reads(Watched, Goal, Openings, Reads) :-
     nb_getval('$petta_evaluating', Balanced),
     assertion(Balanced == 0),
     nb_getval('$petta_evaluations', Openings),
+    nb_getval('$petta_context_reads', Reads).
+
+%Forty dispatches through the engine's runtime dispatcher, counting the reads.
+%reduce/3 is what a compiled body calls for a head it could not resolve at
+%compile time, so calling it here is the same door and not a proxy for one.
+petta_dispatch_reads(Term, Reads) :-
+    petta_engine_module(ContextModule),
+    nb_setval('$petta_context_reads', 0),
+    setup_call_cleanup(
+        wrap_predicate(ContextModule:current_metta_module(_),
+                       context_read_probe, Inner,
+                       ( nb_getval('$petta_context_reads', Was),
+                         Now is Was + 1,
+                         nb_setval('$petta_context_reads', Now),
+                         Inner )),
+        forall(between(1, 40, _), reduce(Term, _, _)),
+        catch(unwrap_predicate(ContextModule:current_metta_module/1,
+                               context_read_probe), _, true)),
     nb_getval('$petta_context_reads', Reads).
 
 context_unwrap(Module:Head) :-
