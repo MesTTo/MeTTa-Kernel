@@ -15,6 +15,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- The compiler's hand-threaded state is now pinned by a test. P2.20 measured
+  DCG semicontext against the hand-threaded difference lists and closed as
+  rejected; `test_no_dcg_semicontext_threads_the_compilers_state` reads
+  `engine/translator.pl`'s terms and fails if any translator predicate becomes
+  a DCG, while `engine/filereader.pl`'s pushback rule stays allowed and proves
+  the detector sees one.
 - `+`, `-`, `*` and `/` now solve past their single-unknown mode. Each already
   inverted one unbound slot among integers, so `(= (double $x) (* 2 $x))` read
   backwards and `!(let 10 (double $x) $x)` answered `5`; that fragment is now
