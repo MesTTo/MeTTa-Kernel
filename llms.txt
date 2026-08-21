@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 25,751 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
+| `engine/*.pl` | 26,145 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -474,6 +474,11 @@ source: `parse_metta_source/2` with `parsed_form_parts/4` to take one form
 apart, `current_working_dir/1` for what a relative path resolves against, and
 `petta_vocabulary_value/2` so a library validates an option against the same
 declared vocabulary the engine reads;
+compiler: `metta_special_form_head/1`, every head the translator gives special
+meaning, so a linter, a completion list or the Python MeTTa.builtins() call asks
+a question instead of reading the compiler's clause table. That read was what the
+Python shim and lib/lib_reflect.metta both did, and both answered short and
+silently the moment the translator became a module of its own;
 errors: `throw_metta_type_error/3`, `rethrow_metta_operation_error/2`,
 `refuse_unbound_input/2`;
 context: `current_metta_module/1`, `current_metta_space/1`, `space_module/2`,

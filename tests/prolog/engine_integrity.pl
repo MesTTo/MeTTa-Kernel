@@ -6,7 +6,7 @@
 %       every Prolog lane from
 %     - a MeTTa equation `(= (f a b) body)` compiles to a Prolog head of arity
 %       one more than the written one, the extra argument carrying the result
-%       [source: engine/spaces.pl, throw_builtin_redefinition/2 computes
+%       [source: engine/spaces.pl, spaces:throw_builtin_redefinition/2 computes
 %       InputArity is Arity - 1 to say it back in MeTTa's terms]
 %     - space_module('&self', M) names the module `&self` compiles into and
 %       petta_engine_module/1 names the module the engine's own clauses are in.

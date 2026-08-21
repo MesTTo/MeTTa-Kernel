@@ -206,7 +206,7 @@ dev_typed_report :-
     findall(Indicator, member(Indicator-_-0, Found), Unchecked),
     % A mode line has to be its own comment block: a `%%` line under a `%` line
     % is one comment starting with `%`, which is not a structured comment, and
-    % PlDoc silently collects nothing. unstore_atom/3 was written that way and
+    % PlDoc silently collects nothing. spaces:unstore_atom/3 was written that way and
     % reported 0 while every other funnel reported its checks [measured
     % 2026-08-19], so an annotation that stopped parsing FAILS the report
     % rather than quietly leaving one funnel unchecked.

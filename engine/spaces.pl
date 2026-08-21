@@ -131,6 +131,146 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+%The space subsystem's surface: the MeTTa builtins that read and write a
+%space, the storage doors an engine subsystem or a shipped library uses, the
+%execution-module machinery every compiled clause depends on, and the runtime
+%helpers the compiler writes into those clauses. Everything else -- the
+%hook-claim algebra, the capacity counters' own bookkeeping, the catalog
+%presets, the restriction profiles, the parametric-name codec -- is this
+%subsystem's own, and a caller that wants one says spaces: and means it
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+%
+%A MeTTa program can still shadow every builtin on this list. An export is
+%imported into the ENGINE's module, and a space's execution module inherits
+%that module, so an equation compiled into the space defines the name locally
+%and the local definition wins, which is exactly what the import was before
+%this file had a module of its own
+%[tested: spaces_builtin_override, test_a_system_predicate_survives_an_equation_for_its_name].
+:- module(spaces,
+          [
+            'add-atom'/3,
+            'add-atoms'/3,
+            'add-reduct'/3,
+            'add-reducts'/3,
+            add_sexp/2,
+            add_sexp/3,
+            announce_function_changed/2,
+            announce_function_removed/1,
+            assert_function_clause/3,
+            clear_foreign_atoms/1,
+            clear_native_atoms/1,
+            compile_metta_equation/4,
+            ensure_native_storage_module/2,
+            foreign_provides/2,
+            foreign_pushdown_class/3,
+            function_still_defined/1,
+            'get-atoms'/2,
+            get_native_atom/2,
+            match/4,
+            match_foreign/4,
+            match_foreign/5,
+            match_stored/4,
+            metta_add_atom/3,
+            metta_add_atoms/2,
+            metta_add_hooks_idle/1,
+            metta_assert_space_releasable/1,
+            metta_declare_parametric_space/1,
+            metta_declare_restricted_space/2,
+            metta_declare_space_parent/2,
+            metta_exec_module_known/2,
+            metta_forget_space_parent/1,
+            metta_host_clear_defined/1,
+            metta_host_clear_space/1,
+            metta_host_explain_match/3,
+            metta_host_native_fact/4,
+            metta_host_remove_reported/3,
+            metta_host_stored/2,
+            metta_module_space/2,
+            metta_release_space/1,
+            metta_remove_atom/3,
+            metta_remove_hooks_idle/1,
+            metta_require_current_capability/2,
+            metta_require_safe_goal/1,
+            metta_require_space_update_capability/2,
+            metta_restricted_exec_module/2,
+            metta_space_names/1,
+            native_atom_clause/3,
+            native_storage_functor/2,
+            native_storage_module/2,
+            native_storage_module_cache/2,
+            native_storage_module_ready/2,
+            petta_answer_terms/3,
+            petta_capacity_count/2,
+            petta_capacity_count_added/2,
+            petta_capacity_count_added_known/2,
+            petta_capacity_count_claim/1,
+            petta_capacity_count_install/1,
+            petta_capacity_count_uninstall/1,
+            petta_catalog_row/1,
+            petta_dispatch_value/3,
+            petta_instrument_recursive_clause/3,
+            petta_match_atoms/2,
+            petta_prune_empty/2,
+            petta_prune_empty_answers/2,
+            petta_reader_variable_name/3,
+            petta_repair_emptied_shadows/0,
+            petta_run_named/3,
+            petta_space_name/1,
+            petta_space_operand/1,
+            petta_vocabulary_value/2,
+            protect_engine_emitted/1,
+            protect_metta_exec_modules/0,
+            %Shared tables engine/metta.pl reads and writes: the execution
+            %module parent chain and four caches the contract vocabulary keeps.
+            metta_exec_module_parent/2,
+            petta_algebra_descriptor_cache/8,
+            petta_annotations_cache/2,
+            petta_ctx_declared/1,
+            petta_events_declared/1,
+            %Emitted into compiled bodies: a bounded match and a bounded take
+            %are goals the compiler writes, and neither was declared in
+            %seam:engine_emitted/1 either.
+            match_bounded/5,
+            metta_take/2,
+            metta_take_match/5,
+            %Three more the compiler writes, found by reading what
+            %engine/translator.pl CONSTRUCTS rather than what it calls. The
+            %corpus-recompile half of the same check could not see them,
+            %because no shipped equation uses (top k ...) or a literal
+            %(match (superpose (&a &b)) ...) [measured 2026-08-22: (top ...)
+            %appears in examples/ once, inside a comment].
+            metta_top/3,
+            metta_top_match/5,
+            petta_merged_match/3,
+            %The two removal funnels tests/prolog/ciao_grade.pl carries an
+            %EXTERNAL Ciao-style assertion for. A predicate with a written
+            %contract outside its own file is surface by that fact, and the
+            %assertions library records a :- pred against the module the
+            %declaration is made in, so a side file can only carry one for a
+            %predicate it can see.
+            unstore_atom/3,
+            remove_equation/6,
+            'remove-atom'/3,
+            remove_sexp/2,
+            restricted_callable_name/1,
+            restricted_dispatch_name/1,
+            space_argument_error/3,
+            space_atom_count/2,
+            space_canonical_atom/2,
+            space_module/2,
+            space_operation_capability/2,
+            space_parametric/1,
+            space_parent/2,
+            space_restricted/2,
+            stored_atom_of_ref/3
+          ]).
+
+%This subsystem WRITES core registries -- engine/metta.pl owns fun/1,
+%arity/2 and the two shape tables -- and a base module makes a name
+%visible without making a write land on it, so they are imported rather
+%than inherited. See petta_shared_registry/1 in engine/metta.pl.
+:- petta_import_shared_registries(spaces).
+
 :- use_module(library(sandbox), [safe_goal/1]).
 
 % Storage modules are separate from execution modules. They inherit nothing,
@@ -1717,10 +1857,41 @@ prolog:error_message(petta_engine_export_collision(Name, Arity, Space, Engine)) 
 %into.
 protect_metta_exec_modules :-
     petta_engine_module(Engine),
+    refuse_unreachable_engine_emitted(Engine),
     catch(forall(metta_exec_module_known(_, Module),
                  protect_engine_emitted(Module)),
           error(permission_error(import_into(Target), procedure, Culprit), _),
           refuse_engine_export_collision(Engine, Target, Culprit)).
+
+%A declared name the engine module cannot SEE is the other way the protection
+%can fail, and protect_engine_emitted/1 above cannot be the one to say so: its
+%current_predicate/1 guard is load-order tolerance, because &self's module is
+%built before engine/duals.pl is consulted and that file's emitted goals do not
+%exist yet. So the completeness question belongs here, at the sweep that runs
+%once everything is loaded and again whenever the set grows. Left as a silent
+%skip it costs an existence_error at the first call of whatever form emits the
+%goal, in whichever space happens to reach it first, with nothing connecting
+%that error to the declaration [measured 2026-08-22: four such names after the
+%subsystem cuts, one of which -- petta_verified_specialization/2 behind
+%(pragma! verify-specializations true) -- no test in the tree reached].
+%Once per sweep rather than once per space build, which is the shape the
+%benchmark note above says costs nothing.
+refuse_unreachable_engine_emitted(Engine) :-
+    forall(seam:engine_emitted(PI),
+           (   current_predicate(Engine:PI)
+           ->  true
+           ;   throw(error(petta_engine_emitted_unreachable(PI, Engine),
+                           context(protect_metta_exec_modules/0,
+                                   'a declared emitted goal is not reachable \c
+                                    from the engine module')))
+           )).
+
+prolog:error_message(petta_engine_emitted_unreachable(Name/Arity, Engine)) -->
+    [ '~w is declared in seam:engine_emitted/1 and ~w cannot see it, so no \c
+       space module can either.'-[Name/Arity, Engine], nl,
+      '  every compiled body holding that goal would raise existence_error at \c
+       its first call. Export ~w from the subsystem module that defines it, or \c
+       remove the declaration.'-[Name/Arity] ].
 
 %The inverse of space_module/2. It used to be written out by hand in four
 %places, three of them outside this file, each as

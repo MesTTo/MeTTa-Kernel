@@ -323,7 +323,19 @@ register_metta_library_path(Alias, Directory0, true) :-
 %here deliberately instead [measured 2026-08-22: the example raised "no
 %predicate named re_replace is loaded" the moment the loader stopped sharing].
 :- use_module(library(pcre), [re_replace/4]).
-:- use_module(library(readutil), [read_file_to_string/3]).
+:- use_module(library(readutil), [read_file_to_string/3, read_line_to_string/2]).
+%The engine's own uses of the standard libraries, which autoload used to supply
+%into the one namespace every subsystem shared: alpha_list_to_set/2 buckets
+%alpha-variants through an assoc, petta_shape_stricter/2 compares two shapes'
+%sorted key sets, and metta_trace_source/4 reads the values off a pairs list.
+%Under NO_AUTOLOAD=1 each is an existence error at the first call rather than at
+%load, so the corpus finds them one example at a time; the complete list is what
+%list_undefined/0 reports with autoload off [measured 2026-08-22: six names over
+%engine/metta.pl and engine/tracer.pl, zero after these three lines and
+%engine/tracer.pl's own]. The import lists are narrow, so the space modules
+%below this one gain exactly these names and nothing else.
+:- use_module(library(assoc), [empty_assoc/1, get_assoc/3, put_assoc/4]).
+:- use_module(library(ordsets), [ord_subtract/3]).
 %distinct/2, which 'defined-name'/1 and 'undocumented-space'/2 call to
 %dedupe function names read off a space's own equation atoms
 %[measured 2026-08-18: examples/libraries/doc_lib.metta under
@@ -432,6 +444,51 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 %name a MeTTa program can no longer have.
 :- use_module(ext_points, []).
 
+%%%% The core registries a subsystem WRITES %%%%
+%
+%A base module makes a name VISIBLE to a subsystem; it does not make a write
+%land on it. assertz/1 or retractall/1 in a module that can only SEE a
+%predicate creates a predicate of that name in the WRITING module and the
+%write goes there, silently, where nothing reads it. Measured on this tree:
+%engine/spaces.pl's retractall(fun(F)) and engine/specializer.pl's
+%retractall(arity(Name, _)) each made a second, private registry the moment
+%their files declared modules, and removing every clause of a function then
+%left the function REGISTERED, so a call to it compiled as a call and raised
+%existence_error(procedure, '$petta_exec:&self':f/2) where the language says
+%the term is simply unreduced [measured 2026-08-22, on
+%examples/functions/functionremoval.metta].
+%
+%So the four registries a subsystem writes are IMPORTED into every subsystem
+%module rather than inherited, which is what makes a write land on the one
+%predicate. The list is short on purpose: it is the coupling P11.7 exists to
+%make visible, and the layering lane fails on any OTHER name held by two
+%engine modules at once, so a fifth cannot arrive quietly
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+petta_shared_registry(fun/1).
+petta_shared_registry(arity/2).
+petta_shared_registry(petta_shape_fact/4).
+petta_shared_registry(petta_shape_declared/2).
+%engine/spaces.pl clears a space's import bookkeeping with the space, and pins
+%the restricted dispatch names; both tables are the core's.
+petta_shared_registry(import_life/3).
+petta_shared_registry(fun_scoped/1).
+
+:- dynamic fun/1, arity/2, petta_shape_fact/4, petta_shape_declared/2,
+            import_life/3, fun_scoped/1.
+:- forall(petta_shared_registry(Registry), export(Registry)).
+
+%!  petta_import_shared_registries is det.
+%
+%   Import the four into the CALLING module. A subsystem that writes one calls
+%   this from a directive of its own, which is where the coupling is visible;
+%   the import has to happen while that file is loading, because a write
+%   compiled before it would already have made the subsystem a predicate of
+%   its own and import/1 then refuses with a name clash.
+petta_import_shared_registries(Subsystem) :-
+    petta_engine_module(Engine),
+    forall(petta_shared_registry(Registry),
+           Subsystem:import(Engine:Registry)).
+
 :- ensure_loaded([parser, type_rules, translator, translator_rules,
                   support_graph, specializer, filereader,
                   '../lib/lib_gitimport', spaces, tracer, duals, kernel]).
@@ -449,6 +506,8 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 %written once is visible everywhere below it
 %[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named,
 %spaces_execution_modules:the_chain_is_engine_then_self_then_space].
+
+
 :- prolog_load_context(directory, EngineSource),
    atom_concat(EngineSource, '/', EngineDirectory),
    petta_engine_module(Engine),
@@ -457,6 +516,7 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
             module_property(Subsystem, file(SubsystemFile)),
             Subsystem \== Engine ),
           set_module(Subsystem:base(Engine))).
+
 
 %A host is a seat's decider file under bindings/, the backends split one
 %directory over: the
@@ -4002,7 +4062,14 @@ petta_install_space_hooks :-
     (   petta_space_hooks_installed
     ->  true
     ;   assertz(petta_space_hooks_installed),
-        petta_engine_module(Engine),
+        %The module the WRITE DOOR lives in, asked of SWI rather than assumed
+        %to be this one: engine/spaces.pl has a module of its own since P11.7,
+        %and wrap_predicate/4 on a name this module merely IMPORTS wraps the
+        %import and leaves the definition alone, so every claimed write would
+        %have gone straight past its guard [measured 2026-08-22: SWI reported
+        %"Local definition of user:metta_add_atom/3 overrides weak import from
+        %spaces" and examples/spaces/pre_add_hooks.metta stored the raw atom].
+        seam:write_door_module(metta_add_atom/3, Engine),
         %Unqualified body for the reason ext_points.pl's two wrappers give:
         %wrap_predicate/4 declares it `0` and SWI qualifies it with this
         %file's module, which is the engine's.

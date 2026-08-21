@@ -64,7 +64,7 @@ test(the_number_shortcuts_give_the_grammars_answer) :-
 
 % tests/prolog/translation_determinism.pl rejects any form in the SHIPPED
 % corpus with more than one Prolog translation. These ask it of forms nobody
-% wrote, with the head drawn from translate_special_dl/5's own clause heads.
+% wrote, with the head drawn from translator:translate_special_dl/5's own clause heads.
 test(a_generated_expression_has_at_most_one_translation) :-
     property_check(prop_translate_expr/1).
 

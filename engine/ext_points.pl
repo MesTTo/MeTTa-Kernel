@@ -62,6 +62,7 @@
             atom_hook_clause/2,
             atom_hook_changed/3,
             sync_atom_hook/1,
+            write_door_module/2,
 
             % Declarations: fact tables the engine reads as data.
             backend_builtin/1,
@@ -870,6 +871,12 @@ kind(parse_metta_source/2, service).
 kind(metta_reader_token_class/3, service).
 kind(metta_reader_token_source/2, service).
 kind(metta_symbol_writable/1, service).
+
+%Every head the compiler gives a special meaning to, enumerable. A reflection
+%library wants the SET, and reading engine/translator.pl's clause table for it
+%is a dependency no walk can see and one that answers silently for nothing
+%when the table moves module.
+kind(metta_special_form_head/1, service).
 kind(metta_unwritable_symbol/2, service).
 
 %THE CATALOG'S CONSULTATION SITES, published for extensions. A route-cap
@@ -1192,10 +1199,18 @@ atom_hook_clause(removed, Ref) :- clause(atom_removed(_, _), _, Ref).
 %total; these were not. Nothing observed fails, so this is the seam's own
 %installer being made unable to fail quietly rather than a live bug
 %[tested: a_handler_survives_its_own_installation].
-%The wrapped predicate is the ENGINE's, so the module is asked rather than
-%written: petta_engine_module/1 (engine/metta.pl) answers where this file's
-%clauses went. Writing `user` here meant "the engine" in one breath and "the
-%host" in the next, and only the second reading survives Phase 11.
+%The wrapped predicate is the WRITE DOOR's, and the module is asked rather
+%than written: writing `user` here meant "the engine" in one breath and "the
+%host" in the next, and only the second reading survives Phase 11. Asking
+%petta_engine_module/1 was the right question only while every engine file
+%shared that module. wrap_predicate/4 on a name a module merely IMPORTS wraps
+%the import and leaves the definition alone, so once engine/spaces.pl declared
+%a module of its own the wrapper would have watched a link the write door
+%never follows and no atom hook would ever fire; the same shape made a
+%translation-cache counter see every compile as a hit [measured 2026-08-22].
+%implementation_module/1 answers where a predicate actually lives, which is
+%the engine's module while the write door is there and the write door's module
+%once it is not.
 %
 %The WRAPPER BODY is left unqualified deliberately. wrap_predicate/4 declares
 %it `0` [source: library(prolog_wrap), meta_predicate wrap_predicate(:,+,-,0)],
@@ -1204,10 +1219,10 @@ atom_hook_clause(removed, Ref) :- clause(atom_removed(_, _), _, Ref).
 %with a run-time variable made three live wrapper bodies unreachable from any
 %root in tests/prolog/reachability.pl [measured 2026-08-19].
 enable_atom_hook(added) :-
-    petta_engine_module(Engine),
+    write_door_module(metta_add_atom/3, Engine),
     current_predicate_wrapper(Engine:metta_add_atom(_, _, _), metta_atom_added_hooks, _, _), !.
 enable_atom_hook(added) :-
-    petta_engine_module(Engine),
+    write_door_module(metta_add_atom/3, Engine),
     (   wrap_predicate(Engine:metta_add_atom(Space, Term, _Result), metta_atom_added_hooks, Wrapped,
                        run_atom_added_hooks(Wrapped, Space, Term))
     ->  true
@@ -1216,10 +1231,10 @@ enable_atom_hook(added) :-
                             'the write wrapper could not be installed')))
     ).
 enable_atom_hook(removed) :-
-    petta_engine_module(Engine),
+    write_door_module(metta_remove_atom/3, Engine),
     current_predicate_wrapper(Engine:metta_remove_atom(_, _, _), metta_atom_removed_hooks, _, _), !.
 enable_atom_hook(removed) :-
-    petta_engine_module(Engine),
+    write_door_module(metta_remove_atom/3, Engine),
     (   wrap_predicate(Engine:metta_remove_atom(Space, Term, Removed), metta_atom_removed_hooks, Wrapped,
                        run_atom_removed_hooks(Wrapped, Space, Term, Removed))
     ->  true
@@ -1233,6 +1248,13 @@ prolog:error_message(petta_atom_hook_install_failed(Kind)) -->
     [ 'the ~w-atom write wrapper could not be installed, so a handler asserted \c
        now would be removed again by prolog_listen/2 and never fire'-[Kind] ].
 
+%Where the write door actually lives, asked of SWI rather than assumed to be
+%the engine's own module.
+write_door_module(Name/Arity, Module) :-
+    functor(Head, Name, Arity),
+    petta_engine_module(Engine),
+    predicate_property(Engine:Head, implementation_module(Module)).
+
 run_atom_added_hooks(Wrapped, Space, Term) :-
     call(Wrapped),
     forall(atom_added(Space, Term), true).
@@ -1244,10 +1266,10 @@ run_atom_removed_hooks(Wrapped, Space, Term, Removed) :-
       ; true ).
 
 disable_atom_hook(added) :-
-    petta_engine_module(Engine),
+    write_door_module(metta_add_atom/3, Engine),
     ( unwrap_predicate(Engine:metta_add_atom/3, metta_atom_added_hooks) -> true ; true ).
 disable_atom_hook(removed) :-
-    petta_engine_module(Engine),
+    write_door_module(metta_remove_atom/3, Engine),
     ( unwrap_predicate(Engine:metta_remove_atom/3, metta_atom_removed_hooks) -> true ; true ).
 
 sync_atom_hook(Kind) :- ( atom_hook_clause(Kind, _)

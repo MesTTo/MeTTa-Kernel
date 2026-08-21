@@ -42,6 +42,11 @@
             metta_trace_wrap_once/1
           ]).
 
+%metta_trace_source/4 reads the values off a pairs list. Imported here rather
+%than into the engine module, because this is the only file that wants it and a
+%module of one's own is what makes that distinction possible to state.
+:- use_module(library(pairs), [pairs_values/2]).
+
 :- dynamic metta_trace_event/2.
 :- dynamic metta_trace_limit/1.
 :- dynamic metta_trace_next_seq/1.

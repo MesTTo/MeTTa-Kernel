@@ -23,7 +23,7 @@
 %       translation   tests/prolog/translation_determinism.pl rejects any form
 %                     in the SHIPPED corpus with more than one translation.
 %                     This asks the same question of generated forms, with the
-%                     head drawn from translate_special_dl/5's own clause heads
+%                     head drawn from translator:translate_special_dl/5's own clause heads
 %                     so the special-form dispatch is where the generator aims.
 %
 %     A green property run means nothing unless the generator generates
@@ -273,7 +273,7 @@ property_leaf(Alphabet, Pool, Term) :-
     ;   random_member(Term, Pool)
     ).
 
-% A form for the translator laws. The head comes from translate_special_dl/5's
+% A form for the translator laws. The head comes from translator:translate_special_dl/5's
 % own clause heads half the time, because that dispatch is where a second
 % translation would hide; the other half is an ordinary symbol, which is the
 % data path.
@@ -313,7 +313,7 @@ property_form_head(Head) :-
 
 property_special_forms(Specials) :-
     findall(Name,
-            ( clause(translate_special_dl(Name, _, _, _, _), _), atom(Name) ),
+            ( clause(translator:translate_special_dl(Name, _, _, _, _), _), atom(Name) ),
             Names),
     sort(Names, Specials).
 

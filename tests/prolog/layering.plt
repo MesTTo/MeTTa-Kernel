@@ -8,7 +8,7 @@
 %     all satisfied by the measured call graph
 %     [tested: test_the_engine_layering_contract_holds_and_a_violation_is_named;
 %     commit=WORKTREE]
-%   - each of the five violation kinds is NAMED rather than only counted, and
+%   - each of the six violation kinds is NAMED rather than only counted, and
 %     the walk that finds them is proven to still see every planted reach
 %     [tested: test_the_engine_layering_contract_holds_and_a_violation_is_named,
 %     the_layering_walk_sees_every_planted_reach; commit=WORKTREE]
@@ -74,6 +74,17 @@ planted_violation(new_tangle,
 planted_violation(vanished_tangle,
                   [tangle([parser, kernel])],
                   ['no longer exists']).
+
+% The write half is planted as a measured row rather than as a clause in an
+% engine file, because an asserted clause has no file property and the walk
+% that finds these reads clause_property(_, file(_)) on purpose: it is what
+% keeps a multifile seam's clauses attributed to the file they are written in.
+% The planted target is a name no module defines and the registry does not
+% declare, which is exactly the shape of the three real ones this caught.
+planted_violation(stray_write,
+                  [write_edge(parser, 'petta-not-owned'/7, sread/2)],
+                  ['parser:sread/2', 'petta-not-owned/7',
+                   'petta_shared_registry/1']).
 
 % The export half needs a subsystem the engine LOADS and that declares a
 % module. The rewriting and narrowing libraries beside it declare one and the

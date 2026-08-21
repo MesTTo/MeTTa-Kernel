@@ -261,7 +261,7 @@ test(drop_fun_meta_removes_one_variant_only,
     translate_clause([=, [F, Y], [same, Y]], _),
     current_metta_module(Module),
     drop_fun_meta(Module, F, [Z], [same, Z]),
-    aggregate_all(count, fun_meta_clause(Module, F, _, _), 1).
+    aggregate_all(count, translator:fun_meta_clause(Module, F, _, _), 1).
 
 test(engine_state_does_not_use_function_names,
      [ setup((setup_meta_store,
@@ -272,8 +272,8 @@ test(engine_state_does_not_use_function_names,
                 nb_delete(lambda_counter))) ]) :-
     translate_clause([=, [specneeded, X], X], _),
     translate_clause([=, [lambda_counter, Y], Y], _),
-    next_lambda_name(First),
-    next_lambda_name(Second),
+    translator:next_lambda_name(First),
+    translator:next_lambda_name(Second),
     First \== Second,
     nb_getval(specneeded, user_spec_state),
     nb_getval(lambda_counter, user_lambda_state).
@@ -284,8 +284,8 @@ test(engine_state_does_not_use_function_names,
 %the second assertz added its body to the first lambda's predicate, so one
 %lambda answered with both branches' results.
 test(lambda_names_are_unique_across_threads) :-
-    next_lambda_name(Main),
-    concurrent_maplist([_,Name]>>next_lambda_name(Name), [1,2,3,4], Workers),
+    translator:next_lambda_name(Main),
+    concurrent_maplist([_,Name]>>(translator:next_lambda_name(Name)), [1,2,3,4], Workers),
     msort([Main|Workers], Sorted),
     sort([Main|Workers], Unique),
     Sorted == Unique.
@@ -311,11 +311,11 @@ meta_store_cost(Count, Inferences) :-
                             translate_clause([=, [F, X], X], _)),
                      Inferences),
     current_metta_module(Module),
-    aggregate_all(count, fun_meta_clause(Module, F, _, _), Count).
+    aggregate_all(count, translator:fun_meta_clause(Module, F, _, _), Count).
 
 % Each equation is one independently indexed fact, so recording a new one does
 % not copy the equations already held for that function [source:
-% engine/translator.pl, the comment above record_fun_meta/3]. A store that copied
+% engine/translator.pl, the comment above translator:record_fun_meta/3]. A store that copied
 % would cost O(n^2) to fill, and nothing said so: the ordering and retraction
 % tests above pass either way.
 %
@@ -764,7 +764,7 @@ special_dispatch_expression(['catch', [quote, answer]]).
 
 test(each_special_form_clause_has_an_indexable_head) :-
     findall(Head,
-            clause(user:translate_special_dl(Head, _, _, _, _), _),
+            clause(translator:translate_special_dl(Head, _, _, _, _), _),
             Heads0),
     sort(Heads0, Heads),
     expected_special_heads(Expected0),
@@ -772,14 +772,14 @@ test(each_special_form_clause_has_an_indexable_head) :-
     Heads == Expected.
 
 % metta_translated_head/1 is the "does the engine give this head meaning"
-% question, and the translator answers it two ways: translate_special_dl/5
+% question, and the translator answers it two ways: translator:translate_special_dl/5
 % and the translator rules. A head missed there is reported as a
 % possibly-undefined reference in correct code, which is what asking fun/1
 % alone did to `if`. Derived from the clause heads and the live register
 % rather than a literal list, so adding a third compilation route without
 % widening the predicate fails here.
 test(every_translated_head_is_answered_for) :-
-    findall(H, clause(user:translate_special_dl(H, _, _, _, _), _), Special),
+    findall(H, clause(translator:translate_special_dl(H, _, _, _, _), _), Special),
     findall(H, translator_rule(H), Rules),
     append(Special, Rules, All0),
     sort(All0, All),
@@ -801,7 +801,7 @@ test(an_ordinary_name_is_not_a_translated_head, [fail]) :-
 test(dispatch_uses_a_realised_first_argument_index) :-
     forall(between(1, 1000, _),
            once(translate_expr([quote, answer], _, _))),
-    predicate_property(user:translate_special_dl(_, _, _, _, _),
+    predicate_property(translator:translate_special_dl(_, _, _, _, _),
                        indexed(Indexes)),
     once(( member(Index, Indexes),
            Index.arguments == [1],
@@ -854,7 +854,7 @@ test(space_predicates_use_space_storage,
         [translatePredicate, ['&self', plunit_space_predicate, A, B]],
         Goals,
         _),
-    goals_list_to_conj(Goals, Goal),
+    translator:goals_list_to_conj(Goals, Goal),
     once(call(Goal)),
     A-B == a-b,
     'Predicate'(['&self', plunit_space_predicate, C, D], Constructed),
@@ -941,7 +941,7 @@ test(the_refusal_names_the_form_and_the_argument_in_metta) :-
                        found $_0").
 
 %A pair that is still a variable has not arrived either, one level in from
-%the spine. That shape used to reach translate_case/5, whose own head unified
+%the spine. That shape used to reach translator:translate_case/5, whose own head unified
 %[Pattern, Value] INTO it: the source term came back changed, and
 %(= (f $p) (case 1 ($p))) compiled to f([A, B], _) instead of f($p, _), so
 %an argument that was not a two-element list failed silently against a head
@@ -960,7 +960,7 @@ test(an_unbound_key_is_not_what_this_form_cannot_read) :-
 
 %A cases argument that is no list at all is not cases that have yet to
 %arrive, it is a program using the name as data, and it keeps falling through
-%to data dispatch exactly as it did. unarrived_pairs/1 exists to tell those
+%to data dispatch exactly as it did. translator:unarrived_pairs/1 exists to tell those
 %two apart, which is_list/1 alone cannot.
 test(a_cases_argument_that_is_no_list_still_falls_through_to_data,
      [ setup(( retractall(silent(_)), assertz(silent(true)) )),
@@ -1114,7 +1114,7 @@ test(a_key_with_no_answers_and_no_computed_default_answers_nothing) :-
 
 %Nothing downstream can check these, so they are checked before the cases are
 %compiled. A pair that is not (pattern value) would unify with
-%translate_case/5's own head and compile a branch the program never wrote,
+%translator:translate_case/5's own head and compile a branch the program never wrote,
 %and a bare variable element is the same hole one level down.
 bad_computed_cases("foo",         foo).
 bad_computed_cases("((1 one 2))", [[1, one, 2]]).
@@ -1130,7 +1130,7 @@ test(a_value_that_is_not_cases_is_refused_by_name,
 %The trade this design makes, measured rather than asserted. Cases written
 %out are compiled once into a nested conditional, so a call pays the same
 %however many there are. Cases arriving as a value are compiled by the same
-%translate_case/5 on every call, so a call pays for all of them, which is why
+%translator:translate_case/5 on every call, so a call pays for all of them, which is why
 %a case on a hot path is worth writing out [measured 2026-08-19: 3 inferences
 %a call at 3, 12 and 24 written-out cases; 78, 258 and 498 for the same cases
 %handed over]. The slope over 100 and 1,100 calls is what is asserted, so
@@ -1520,7 +1520,7 @@ test(an_importer_name_list_stays_data,
                  release_function_name(plunit_tr_importable),
                  retractall(fun(plunit_tr_importable)),
                  retractall(arity(plunit_tr_importable, _)) )) ]) :-
-    forall(prolog_function_importer(Importer),
+    forall(translator:prolog_function_importer(Importer),
            ( Call = [Importer, "lib.pl", [plunit_tr_importable, other]],
              translate_restricted(Call, Goals, _),
              % The guard and operation keep the list intact: there is no call
@@ -1532,7 +1532,7 @@ test(an_importer_name_list_stays_data,
              assertion(Names == [plunit_tr_importable, other]) )).
 
 test(all_four_importer_spellings_are_covered) :-
-    findall(I, prolog_function_importer(I), Importers),
+    findall(I, translator:prolog_function_importer(I), Importers),
     msort(Importers, Sorted),
     Sorted == [import_prolog_functions_from_file,
                import_prolog_functions_from_file_pred,
@@ -1572,7 +1572,7 @@ typed_call_goal(TypeChain, Goal) :-
           assertz(user:arity(plunit_free_types, 3)),
           add_sexp('&self', [':', plunit_free_types, TypeChain]) ),
         ( translate_expr([plunit_free_types, 1, 2], Goals, _),
-          goals_list_to_conj(Goals, Goal) ),
+          translator:goals_list_to_conj(Goals, Goal) ),
         ( retractall(user:fun(plunit_free_types)),
           retractall(user:arity(plunit_free_types, _)),
           remove_sexp('&self', [':', plunit_free_types, _]) )).
@@ -1628,7 +1628,7 @@ test(a_type_variable_inside_a_structure_keeps_its_check) :-
 
 test(output_type_check_waits_for_a_return_value) :-
     translate_expr([plunit_typed_curry, 1], Goals, Partial),
-    goals_list_to_conj(Goals, Goal),
+    translator:goals_list_to_conj(Goals, Goal),
     call(Goal),
     Partial == partial(plunit_typed_curry, [1]).
 
@@ -1648,7 +1648,7 @@ test(output_type_check_waits_for_a_return_value) :-
                           remove_sexp('&self',
                                       [':', plunit_typed_once, _]))) ]).
 
-%next_lambda_name/1 counts in gensym's process-wide flag, whose key gensym/2
+%translator:next_lambda_name/1 counts in gensym's process-wide flag, whose key gensym/2
 %builds as '$gs_' followed by the base.
 lambda_counter_value(Value) :-
     flag('$gs_lambda_', Value, Value).
@@ -1707,14 +1707,14 @@ cleanup_typed_checks :-
 test(argument_checks_do_not_multiply_duplicate_derivations) :-
     Expr = [plunit_typed_x, plunit_typed_y],
     translate_expr([plunit_same_type, Expr, Expr], Goals, Out),
-    goals_list_to_conj(Goals, Goal),
+    translator:goals_list_to_conj(Goals, Goal),
     findall(Out, call(Goal), Answers),
     Answers == [1].
 
 test(shared_type_variables_can_reach_a_later_consistent_type) :-
     translate_expr([plunit_same_type, plunit_multi_type, plunit_only_b],
                    Goals, Out),
-    goals_list_to_conj(Goals, Goal),
+    translator:goals_list_to_conj(Goals, Goal),
     findall(Out, call(Goal), Answers),
     Answers == [1].
 
@@ -1738,7 +1738,7 @@ test(a_shared_type_variable_is_assigned_after_the_call,
                  retractall(user:arity(plunit_testf, _)),
                  retractall(user:fun(plunit_testf)) )) ]) :-
     translate_expr([plunit_testf, plunit_at], Goals, Out),
-    goals_list_to_conj(Goals, Goal),
+    translator:goals_list_to_conj(Goals, Goal),
     findall(Out, call(Goal), Answers),
     % PlunitT is the assignment that satisfies both ends. Committing to
     % PlunitA first, which is the type the argument happens to match earliest,
@@ -1801,12 +1801,12 @@ dynamic_arithmetic_refusal(Answer) :-
 
 compiled_arithmetic_refusal(Answer) :-
     translate_expr(['+', 1, undefined_sym], Goals, Answer),
-    goals_list_to_conj(Goals, Conjunction),
+    translator:goals_list_to_conj(Goals, Conjunction),
     call(Conjunction).
 
 compiled_answers(Expression, Answers) :-
     translate_expr(Expression, Goals, Out),
-    goals_list_to_conj(Goals, Conjunction),
+    translator:goals_list_to_conj(Goals, Conjunction),
     findall(Out, Conjunction, Answers).
 
 test(dynamic_and_compiled_calls_answer_the_same_refusal) :-
@@ -1875,7 +1875,7 @@ test(nonterminal_compiler_output_has_no_ansi_escapes) :-
 
 test(one_empty_expression_answer_is_a_value) :-
     translate_expr([test, [noeval, []], []], Goals, Out),
-    goals_list_to_conj(Goals, Goal),
+    translator:goals_list_to_conj(Goals, Goal),
     with_output_to(string(Output), call(Goal)),
     Out == true,
     Output == "is (), should (). ✅ \n".
@@ -1883,12 +1883,12 @@ test(one_empty_expression_answer_is_a_value) :-
 test(no_answer_is_not_an_empty_expression,
      [throws(error(petta_test_no_answer, _))]) :-
     translate_expr([test, [empty], []], Goals, _),
-    goals_list_to_conj(Goals, Goal),
+    translator:goals_list_to_conj(Goals, Goal),
     call(Goal).
 
 test(explicit_no_answer_assertion_keeps_the_existing_output) :-
     translate_expr(['test-no-answer', [empty]], Goals, Out),
-    goals_list_to_conj(Goals, Goal),
+    translator:goals_list_to_conj(Goals, Goal),
     with_output_to(string(Output), call(Goal)),
     Out == true,
     Output == "is (), should (). ✅ \n".
@@ -1896,7 +1896,7 @@ test(explicit_no_answer_assertion_keeps_the_existing_output) :-
 test(explicit_no_answer_rejects_an_empty_value,
      [throws(error(petta_test_failed([[]], []), _))]) :-
     translate_expr(['test-no-answer', [noeval, []]], Goals, _),
-    goals_list_to_conj(Goals, Goal),
+    translator:goals_list_to_conj(Goals, Goal),
     with_output_to(string(_), call(Goal)).
 
 :- end_tests(translator_test_answers).
@@ -2000,37 +2000,37 @@ test(an_ordinary_binding_still_works) :-
 :- begin_tests(translator_branch_returns).
 
 test(build_branch_without_goals_unifies_at_runtime) :-
-    build_branch(true, Value, Out, Branch),
+    translator:build_branch(true, Value, Out, Branch),
     Value \== Out,
     Branch == (Out = Value).
 
 test(build_branch_keeps_variable_value_private_until_runtime) :-
-    build_branch(produce(Value), Value, Out, Branch),
+    translator:build_branch(produce(Value), Value, Out, Branch),
     Value \== Out,
     Branch == (produce(Value), Out = Value).
 
 test(build_branch_moves_a_ground_value_before_its_goals) :-
-    build_branch(check_value, answer, Out, Branch),
+    translator:build_branch(check_value, answer, Out, Branch),
     Branch == (answer = Out, check_value).
 
 test(private_branch_return_is_merged) :-
     Head = branch_private(Input, Out),
     Body0 = (guard -> (produce(Input, Value), Out = Value) ; Out = none),
-    merge_branch_returns(Head, Body0, Body),
+    translator:merge_branch_returns(Head, Body0, Body),
     Value == Out,
     Body == (guard -> produce(Input, Out) ; Out = none).
 
 test(head_parameter_is_not_merged) :-
     Head = branch_head(Value, Out),
     Body0 = (guard -> (produce(Value), Out = Value) ; Out = none),
-    merge_branch_returns(Head, Body0, Body),
+    translator:merge_branch_returns(Head, Body0, Body),
     Value \== Out,
     Body == Body0.
 
 test(value_used_outside_its_branch_is_not_merged) :-
     Head = branch_shared(Out),
     Body0 = (guard -> (produce(Value), Out = Value) ; consume(Value)),
-    merge_branch_returns(Head, Body0, Body),
+    translator:merge_branch_returns(Head, Body0, Body),
     Value \== Out,
     Body == Body0.
 
@@ -2040,7 +2040,7 @@ test(value_produced_before_the_branch_is_not_merged) :-
     Head = branch_prebound(Input, Out),
     Body0 = (produce(Input, Value),
              (guard -> Out = Value ; Out = none)),
-    merge_branch_returns(Head, Body0, Body),
+    translator:merge_branch_returns(Head, Body0, Body),
     Value \== Out,
     Body == Body0.
 
@@ -2049,24 +2049,24 @@ test(nested_alternatives_can_produce_one_private_return) :-
     Body0 = (guard -> ((choice -> left(Value) ; right(Value)),
                        Out = Value)
                    ; Out = none),
-    merge_branch_returns(Head, Body0, Body),
+    translator:merge_branch_returns(Head, Body0, Body),
     Value == Out,
     Body == (guard -> (choice -> left(Out) ; right(Out)) ; Out = none).
 
-%The body is built outside the measurement, so this reads merge_branch_returns/3
+%The body is built outside the measurement, so this reads translator:merge_branch_returns/3
 %alone rather than the translation that produced its input.
 merge_cost(Depth, Inferences) :-
     nested_conditional(Depth, Expr),
     translate_expr(Expr, Goals, Out),
-    goals_list_to_conj(Goals, Body),
-    %min_inferences/2 cannot serve here: merge_branch_returns/3 binds the
+    translator:goals_list_to_conj(Goals, Body),
+    %min_inferences/2 cannot serve here: translator:merge_branch_returns/3 binds the
     %returns inside the body it walks, so each sample needs a fresh copy, and
     %the copy has to be made OUTSIDE the counter because copying costs more
     %the deeper the body is, which is the very thing being measured.
     findall(Sample,
             ( between(1, 3, _),
               copy_term(branch_depth(input, Out)-Body, Head-Copy),
-              count_inferences(merge_branch_returns(Head, Copy, _), Sample) ),
+              count_inferences(translator:merge_branch_returns(Head, Copy, _), Sample) ),
             Samples),
     min_list(Samples, Inferences).
 
@@ -2096,11 +2096,11 @@ test(merging_stays_far_from_quadratic_in_nesting_depth) :-
 % value. Both C-extension examples in the tree carry a comment telling the next
 % reader to split the runnable, which is the shape of a trap.
 :- begin_tests(translator_own_import,
-               [ cleanup(( retractall(user:runnable_import(_)),
+               [ cleanup(( retractall(translator:runnable_import(_)),
                            retractall(user:fun('plunit-own-import')) )) ]).
 
 own_import_runnable(Importer, Expr) :-
-    prolog_function_importer(Importer),
+    translator:prolog_function_importer(Importer),
     Expr = [progn,
             [Importer, "some.pl", ['plunit-own-import']],
             ['plunit-own-import', 1]].
@@ -2128,7 +2128,7 @@ test(a_call_to_an_ALREADY_registered_name_is_fine,
 
 test(an_ordinary_runnable_records_no_import) :-
     translate_runnable_expr([progn, [+, 1, 2]], _, _),
-    \+ user:runnable_import(_).
+    \+ translator:runnable_import(_).
 
 :- end_tests(translator_own_import).
 
@@ -2321,7 +2321,7 @@ test(a_symbol_declared_with_an_intrinsic_type_still_passes,
                                   ['BadArgType', 1, 'Bool', 'Number']]]]).
 
 %A parametric declaration leaves the type an unbound VARIABLE at compile time,
-%and intrinsic_type_test/3's head would bind it to 'Number' and emit a number/1
+%and translator:intrinsic_type_test/3's head would bind it to 'Number' and emit a number/1
 %test for a type nobody wrote. The nonvar/1 guard is what stops it, and this is
 %what says so.
 test(a_parametric_type_is_not_specialised,
@@ -2368,7 +2368,7 @@ test(a_literal_of_the_right_type_still_answers,
     Results == [[16]].
 
 %The drop must not BIND what it is inspecting. Written with the literal in the
-%head, `intrinsic_literal_type(true, 'Bool')` unifies with an unbound Value and
+%head, `translator:intrinsic_literal_type(true, 'Bool')` unifies with an unbound Value and
 %binds it, and the thing it binds is the call site's compile-time variable: the
 %clause for a caller of a Bool-typed function compiled as `f(true, A, B)` and
 %`(f False ...)` then matched nothing and answered nothing. The shape needs a
@@ -2656,7 +2656,7 @@ test(a_quoted_pattern_holds_what_a_quoted_body_holds,
     CompiledHead =.. [_, HeadPattern, _],
     assertion(HeadPattern =@= BodyValue).
 
-%The scope is one argument wide on both sides. `translate_special_dl/5` gives
+%The scope is one argument wide on both sides. `translator:translate_special_dl/5` gives
 %`quote` meaning at arity one only, so `(quote a b)` is ordinary data in a body
 %and must stay ordinary structure in a pattern, walked like anything else.
 test(a_two_argument_quote_is_not_the_scope_form) :-

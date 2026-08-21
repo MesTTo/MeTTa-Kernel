@@ -253,11 +253,25 @@ run GATE node-binding check_node_binding
 # a `mork` branch; it is seam:backend_selftest/0 now, declared multifile, so a
 # process with no backend has a predicate with no clauses rather than a call to
 # something absent.
+#
+# Run with autoload OFF, which is what makes this find a library predicate an
+# engine file uses without importing. With autoload on, such a name resolves at
+# the first call and the check says nothing; the no-autoload GATE below does
+# catch it, but only when some example happens to reach that call, one name per
+# run of a corpus that takes minutes. Cutting the engine into modules is what
+# made the difference matter: engine/translator.pl's use_module(library(assoc))
+# used to serve engine/metta.pl too, because both compiled into one namespace
+# [measured 2026-08-22: six such names over engine/metta.pl and engine/tracer.pl
+# once the modules landed, all six reported here in one 4-second run, and the
+# corpus lane surfacing one of them per full pass].
 PROLOG_KNOWN_UNDEFINED='mettafunc/2'
 check_prolog() {
     cd "$HERE" || return 1
     unexpected=$(
-        swipl -q -g "consult('engine/main.pl'), list_undefined, halt." -t 'halt(1)' 2>&1 \
+        swipl -q -g "use_module(library(check)), \
+                     set_prolog_flag(autoload, false), \
+                     consult('engine/main.pl'), list_undefined, halt." \
+              -t 'halt(1)' 2>&1 \
             | grep -E 'which is referenced by' \
             | grep -vE "$PROLOG_KNOWN_UNDEFINED"
     )

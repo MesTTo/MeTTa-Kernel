@@ -811,12 +811,12 @@ test(setup_failure_restores_preexisting_sibling_module) :-
 :- begin_tests(metta_registration).
 
 %A registered name with no predicate records no arity, and
-%incomplete_application_kind/3 reads a missing arity as "not applied far
+%translator:incomplete_application_kind/3 reads a missing arity as "not applied far
 %enough", so every call to that name compiles to a partial application: (sqrt
 %4) answered (partial sqrt (4)) rather than computing or failing. A special
 %form is exempt because the translator consumes it before dispatch, and so is
 %a name whose predicate exists under some other arity.
-special_form(Name) :- clause(translate_special_dl(Name, _, _, _, _), _).
+special_form(Name) :- clause(translator:translate_special_dl(Name, _, _, _, _), _).
 
 test(every_registered_function_is_callable_or_a_special_form,
      [true(Unbacked == [])]) :-
@@ -1449,6 +1449,88 @@ test(switches_nest_and_unwind_in_order) :-
     metta_self_module(Self),
     assertion(Final == Self).
 
+% P11.5's question, answered by counting rather than by reading the sources.
+% The row proposed threading the space context through every compiled clause as
+% an extra argument, Logtalk's `Self` field, on the reading that compiled code
+% consults the global while it runs. Ordinary evaluation does not: this counts
+% zero over a compiled function driven 120 steps, and two Python workloads
+% measured the same way read 0 of 3000 and 0 of 2600, every one of those reads
+% being the per-form compile [measured 2026-08-22].
+%
+% Reads DO happen on some evaluation paths, and they are not what an extra
+% argument would fix cheaply: the space-update capability check reads the
+% context once per evaluation, 200 of 1400 reads over 200 evaluations, 0.14% of
+% that workload's 292,227 inferences. Handing that goal the compile-time module
+% instead would be WRONG rather than merely different, because the prelude is
+% compiled into &self's module and shared by every space through the base
+% chain, so a shared clause would report where it was compiled and not where it
+% is running -- Logtalk's `This` where a capability check needs `Self`.
+%
+% So the route has to be the full one, and it was priced: one extra argument on
+% a compiled predicate, passed through its recursive call the way the route
+% would pass it, costs 24.7 instructions per call and +2.08% on a
+% call-dominated workload, min-of-three under perf stat -e instructions:u
+% (236,825,346 against 241,759,755 over 200,000 steps), while costing nothing
+% measurable in inferences (+88 over 40,000 calls). Paying 2.08% on every
+% compiled call to remove 0.14% on one path and nothing on the benchmark suite
+% is the row's own stop condition, so the global stays and this test is the
+% guard on the part that is already true.
+test(test_the_module_context_global_is_unread_by_ordinary_evaluation,
+     [ cleanup(( catch(unwrap_predicate(ContextModule:current_metta_module/1,
+                                        context_read_probe), _, true),
+                 catch(unwrap_predicate(SelfModule:'ctx-sum'/2,
+                                        context_eval_probe), _, true) )) ]) :-
+    petta_engine_module(ContextModule),
+    process_metta_string("(= (ctx-sum $n) \c
+                             (if (== $n 0) 0 (+ $n (ctx-sum (- $n 1)))))", _),
+    % Warm the compile, so the counting window below holds an evaluation and
+    % not a translation.
+    process_metta_string("!(ctx-sum 3)", Warm),
+    assertion(Warm == [6]),
+    metta_self_module(SelfModule),
+    nb_setval('$petta_context_reads', 0),
+    nb_setval('$petta_evaluating', 0),
+    nb_setval('$petta_evaluations', 0),
+    wrap_predicate(SelfModule:'ctx-sum'(_, _), context_eval_probe, Evaluated,
+                   setup_call_cleanup(context_eval_enter, Evaluated,
+                                      context_eval_exit)),
+    wrap_predicate(ContextModule:current_metta_module(_), context_read_probe,
+                   Inner,
+                   ( nb_getval('$petta_evaluating', Depth),
+                     (   Depth > 0
+                     ->  nb_getval('$petta_context_reads', Reads0),
+                         Reads1 is Reads0 + 1,
+                         nb_setval('$petta_context_reads', Reads1)
+                     ;   true
+                     ),
+                     Inner )),
+    process_metta_string("!(ctx-sum 120)", Summed),
+    assertion(Summed == [7260]),
+    space_module('&probe', Probe),
+    with_metta_module(Probe, process_metta_string("!(ctx-sum 20)", Named)),
+    assertion(Named == [210]),
+    nb_getval('$petta_evaluating', Balanced),
+    assertion(Balanced == 0),
+    % The window has to have OPENED, or a zero below means the counting never
+    % happened rather than that nothing was counted.
+    nb_getval('$petta_evaluations', Evaluations),
+    assertion(Evaluations > 100),
+    nb_getval('$petta_context_reads', Reads),
+    assertion(Reads == 0).
+
+%The window is opened by the compiled predicate itself, so "while compiled code
+%runs" is the engine's own answer rather than this file's guess at a proxy for
+%it. The balance check above is what makes a zero mean something: an unbalanced
+%counter would leave the window shut and report zero for that reason.
+context_eval_enter :-
+    nb_getval('$petta_evaluating', D), D1 is D + 1,
+    nb_setval('$petta_evaluating', D1),
+    nb_getval('$petta_evaluations', N), N1 is N + 1,
+    nb_setval('$petta_evaluations', N1).
+context_eval_exit :-
+    nb_getval('$petta_evaluating', D), D1 is D - 1,
+    nb_setval('$petta_evaluating', D1).
+
 :- end_tests(metta_module_context).
 
 :- begin_tests(metta_engine_module).
@@ -1464,16 +1546,23 @@ test(it_answers_exactly_one_module) :-
     assertion(Modules = [_]).
 
 % Checked against SWI rather than against the atom `user`, so the test says
-% what the predicate is FOR instead of repeating its current answer.
+% what the predicate is FOR instead of repeating its current answer. The head
+% asked about is the CORE's own: reduce/3 was this test's witness until P11.7
+% gave the compiler a module, after which it is the translator's and reaches
+% the core as an import, which is a different and equally correct answer.
 test(it_names_the_module_the_engines_own_clauses_are_in) :-
     petta_engine_module(Engine),
-    functor(Head, reduce, 3),
+    functor(Head, current_metta_module, 1),
     assertion(predicate_property(Engine:Head, defined)),
-    assertion(\+ predicate_property(Engine:Head, imported_from(_))).
+    assertion(\+ predicate_property(Engine:Head, imported_from(_))),
+    % and a subsystem's own predicate reaches the core as an import rather
+    % than by living there, which is what a declared module surface means
+    functor(Compiled, reduce, 3),
+    assertion(predicate_property(Engine:Compiled, imported_from(translator))).
 
 % The Group F reads: metta_special_form/1 and metta_translated_head/1 ask the
-% engine's own clause table for which heads the translator gives meaning to. A
-% read pointed at the wrong module answers for no form at all, silently.
+% compiler's own clause table for which heads the translator gives meaning to.
+% A read pointed at the wrong module answers for no form at all, silently.
 test(the_translators_own_tables_are_read_from_it) :-
     assertion(metta_special_form(if)),
     assertion(metta_translated_head(collapse)),
@@ -2307,7 +2396,7 @@ test(an_unbound_type_is_refused,
 :- begin_tests(translator_rule_protected_core).
 
 % The measured harm, as a unit test: a translator rule is consulted one line
-% before translate_special_dl/5, so before the refusal existed this
+% before translator:translate_special_dl/5, so before the refusal existed this
 % registration made `if` mean whatever the rule said, for the whole process.
 test(a_protected_core_head_is_refused_with_its_name,
      [ throws(error(permission_error(register, metta_protected_core, if), _)) ]) :-

@@ -24,13 +24,14 @@ test(the_ciao_grade_uses_the_reviewed_pack_versions) :-
     pack_property(xlibrary, version('0.0.2')).
 
 test(the_external_side_file_covers_every_selected_engine_funnel) :-
-    findall(Name/Arity,
-            ( member(Name/Arity,
+    findall(Spec,
+            ( member(Spec,
                      [ metta_remove_atom/3,
                        unstore_atom/3,
                        remove_equation/6,
                        translate_clause/3
                      ]),
+              Spec = Name/Arity,
               functor(Head, Name, Arity),
               assertions:asr_head_prop(_, user, Head, _, pred, _, _, _)
             ),

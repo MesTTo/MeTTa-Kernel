@@ -165,7 +165,7 @@ test(a_registered_predicate_survives_a_named_space_claiming_its_name,
 
 % The arity walk used to sit behind register_fun/1's "the name is new" guard,
 % so registering a predicate for a name some space already defined recorded no
-% arity at all and incomplete_application_kind/3 read that as "not applied far
+% arity at all and translator:incomplete_application_kind/3 read that as "not applied far
 % enough": the call compiled to a partial application instead of running.
 test(a_registration_records_arities_for_a_name_that_is_already_a_function,
      [ cleanup(forget_pi_name(plunit_pi_known)) ]) :-
@@ -198,7 +198,7 @@ test(a_special_form_name_is_refused,
 
 %A translator rule is a live extension of the compiled-head set. Before the
 %refusal asked metta_special_form/1 directly, this name registered successfully
-%even though translate_expr_dl/4 would always take the translator-rule branch
+%even though translator:translate_expr_dl/4 would always take the translator-rule branch
 %before function dispatch.
 test(test_registering_any_translator_compiled_head_is_refused_by_name,
      [ setup(assertz(user:translator_rule('plunit-p119-translated', []))),

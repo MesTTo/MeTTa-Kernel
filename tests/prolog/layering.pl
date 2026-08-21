@@ -14,6 +14,8 @@
 %       one of that module's EXPORTS
 %     - a new mutual recursion between subsystems is refused: the declared
 %       tangles are the ones that exist, and the lane names any other
+%     - a subsystem does not WRITE a name it does not define, which SWI accepts
+%       silently and which sends the write to a predicate nothing reads
 % Fails when:
 %     - a call is assembled at run time from a term no analysis can see. That
 %       is the residue this shares with every other static walk in the tree.
@@ -76,7 +78,8 @@ subsystem_name(Base, Name) :- file_name_extension(Name, pl, Base).
 measure_layer_edges :-
     retractall(layer_edge(_, _, _, _, _)),
     extension_clauses(['../../engine'], References),
-    walk_clause_edges(References, record_layer_edge).
+    walk_clause_edges(References, record_layer_edge),
+    measure_write_edges.
 
 record_layer_edge(Callee, Caller, _Location) :-
     catch(layer_edge_parts(Callee, Caller), _, fail), !.
@@ -104,6 +107,79 @@ engine_goal(Module:Goal, Base, Definer, Name/Arity) :-
     engine_directory(Directory),
     sub_atom(File, 0, _, _, Directory),
     file_base_name(File, Base).
+
+%%%% Measuring the database writes %%%%
+%
+% A base module makes a name visible to a subsystem; it does not make a write
+% land on it. assertz/1 or retractall/1 in a module that can only SEE a
+% predicate creates a predicate of that name in the WRITING module, and the
+% write goes there, where nothing reads it. SWI gives no warning, and
+% predicate_property/2's imported_from/1 cannot tell an inherited name from an
+% imported one before the write, because base inheritance reports the same
+% property an import does, so the only reliable check is a static one: which
+% engine file writes which name.
+%
+% WritingModule, Target, the clause the write is in. Measured for every write,
+% owned or not, so the judgement below is a filter over a recorded graph rather
+% than a walk of its own, and so the suite can plant a row.
+:- dynamic write_edge/3.
+
+measure_write_edges :-
+    retractall(write_edge(_, _, _)),
+    forall(measured_write(Module, Target, Caller),
+           (   write_edge(Module, Target, Caller)
+           ->  true
+           ;   assertz(write_edge(Module, Target, Caller))
+           )).
+
+measured_write(FileModule, Name/Arity, Caller) :-
+    engine_directory(Directory),
+    source_file(File),
+    sub_atom(File, 0, _, _, Directory),
+    module_property(FileModule, file(File)),
+    source_file(ClauseModule:Head, File),
+    functor(Head, CallerName, CallerArity),
+    Caller = CallerName/CallerArity,
+    % The clause has to be IN this file. A multifile seam declared here can
+    % have clauses in three other files, and clause/2 enumerates every one of
+    % them, so without this the lane attributes another subsystem's write here.
+    catch(nth_clause(ClauseModule:Head, _, Reference), _, fail),
+    clause_property(Reference, file(File)),
+    clause(ClauseModule:Head, Body, Reference),
+    body_database_write(Body, Written),
+    callable(Written),
+    % An explicitly qualified write says where it lands and is not this defect.
+    Written \= _:_,
+    functor(Written, Name, Arity),
+    Name \== (:-).
+
+body_database_write(Body, _) :- var(Body), !, fail.
+body_database_write((A, B), W) :-
+    !, ( body_database_write(A, W) ; body_database_write(B, W) ).
+body_database_write((A ; B), W) :-
+    !, ( body_database_write(A, W) ; body_database_write(B, W) ).
+body_database_write((A -> B), W) :-
+    !, ( body_database_write(A, W) ; body_database_write(B, W) ).
+body_database_write((A *-> B), W) :-
+    !, ( body_database_write(A, W) ; body_database_write(B, W) ).
+body_database_write(\+ A, W) :- !, body_database_write(A, W).
+body_database_write(Goal, W) :- database_write(Goal, W).
+% A write inside a term the clause passes somewhere else, which is how
+% engine/spaces.pl spells several of them: forall(..., retractall(..)) arrives
+% as an argument of the enclosing goal rather than as a control construct.
+body_database_write(Body, W) :-
+    compound(Body),
+    \+ database_write(Body, _),
+    arg(_, Body, Argument),
+    compound(Argument),
+    body_database_write(Argument, W).
+
+database_write(assertz(W), W).
+database_write(asserta(W), W).
+database_write(assertz(W, _), W).
+database_write(asserta(W, _), W).
+database_write(retract(W), W).
+database_write(retractall(W), W).
 
 %%%% The contract %%%%
 %
@@ -321,10 +397,31 @@ caller_indicator(_:Goal, PI) :- !, caller_indicator(Goal, PI).
 caller_indicator(Goal, Name/Arity) :- callable(Goal), functor(Goal, Name, Arity).
 
 %%%% The lane %%%%
+% A write whose target the writing module does not define, and which the core
+% has not declared shared. Measured on this tree, each caught after the fact
+% and now caught before it: engine/spaces.pl retracting the core's fun/1 left a
+% removed function REGISTERED, so a call to it stayed a call and raised
+% existence_error(procedure, '$petta_exec:&self':f/2) where the language says
+% the term is unreduced; retracting the core's import_life/3 in the clear left
+% a cleared space unable to reload the file it had just forgotten; and
+% engine/specializer.pl retracting the core's arity/2 was the same defect one
+% subsystem along [measured 2026-08-22].
+stray_writes(Strays) :-
+    findall(Module-PI-Caller,
+            ( write_edge(Module, PI, Caller), \+ owns_write(Module, PI) ),
+            Strays0),
+    sort(Strays0, Strays).
 
-% Entry point named rather than main/0, so tests/prolog/layering.plt can load
-% this file for its own questions without a consulted engine being consulted
-% twice. tests/prolog/translator_confluence.pl is the same shape.
+owns_write(Module, Name/Arity) :-
+    functor(Probe, Name, Arity),
+    catch(( predicate_property(Module:Probe, defined),
+            predicate_property(Module:Probe, implementation_module(Module)) ),
+          _, fail).
+% engine/metta.pl's declared shared tables, which every subsystem imports and
+% may therefore write. The declaration is the review: adding a name there is a
+% visible edit, and this lane is what makes the alternative visible too.
+owns_write(_, PI) :- petta_shared_registry(PI).
+
 %!  layering_finding(-Message) is nondet.
 %
 %   One message per violation, each naming the two parties and the contract
@@ -359,6 +456,15 @@ layering_finding(Message) :-
     format(atom(Message),
            "~w are mutually recursive and no tangle/1 line declares it; break \c
             the cycle or declare it", [Members]).
+layering_finding(Message) :-
+    stray_writes(Strays),
+    member(Module-PI-Caller, Strays),
+    format(atom(Message),
+           "~w:~w writes ~w, which ~w does not own; a base module makes a name \c
+            visible and not writable, so the write lands in ~w where nothing \c
+            reads it. Declare it with petta_shared_registry/1 in \c
+            engine/metta.pl, or let its owner do the write",
+           [Module, Caller, PI, Module, Module]).
 layering_finding(Message) :-
     vanished_tangles(Gone),
     member(Members, Gone),

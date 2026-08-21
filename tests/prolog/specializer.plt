@@ -39,7 +39,7 @@ cleanup_concurrent_specialization :-
 run_concurrent_specialization(_) :-
     translate_expr(
         ['plunit-spec-race', 'plunit-spec-race-inc', 1], Goals, Out),
-    goals_list_to_conj(Goals, Goal),
+    translator:goals_list_to_conj(Goals, Goal),
     %A specialization is compiled into the module of the space whose code
     %triggered it, so a test that calls or reads it has to name that module.
     metta_self_module(Self),
@@ -275,7 +275,7 @@ test(compound_partial_key_has_stable_anonymous_variables,
     \+ ho_specialization(_, app, _),
     \+ fun(SpecName),
     \+ arity(SpecName, _),
-    \+ fun_meta_clause(_, SpecName, _, _),
+    \+ translator:fun_meta_clause(_, SpecName, _, _),
     functor(SpecHead, SpecName, 3),
     \+ clause(SpecHead, _),
     \+ get_native_atom('&self', [=, [SpecName|_], _]).
@@ -582,7 +582,7 @@ atom_multiset(Space, Sorted) :-
 % The other direction of the same root, and the one that changes ANSWERS
 % rather than atom counts. The specializer reads a function's retained
 % equations to build the specialized clause, one clause per equation, and
-% fun_meta_clause/4 was keyed by NAME alone: two spaces each defining
+% translator:fun_meta_clause/4 was keyed by NAME alone: two spaces each defining
 % plunit-two-map put two equations under that one key, so the space that
 % specialized generated TWO identical clauses and answered its query twice.
 % Measured at c7126f1 as well, so it is older than the module migration.

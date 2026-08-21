@@ -12,12 +12,16 @@ clear_translation_cache_test_state :-
 install_translation_compile_counter :-
     retractall(translation_compile_count(_)),
     assertz(translation_compile_count(0)),
-    wrap_predicate(user:translate_runnable_expr(_, _, _),
+    %The compiler's own module, not the engine's. wrap_predicate/4 on a name
+    %the engine merely IMPORTS wraps the import and leaves the definition
+    %alone, so the counter watched a link nothing inside the compiler follows
+    %and every run looked like a cache hit [measured 2026-08-22].
+    wrap_predicate(translator:translate_runnable_expr(_, _, _),
                    translation_cache_acceptance_counter, Wrapped,
                    count_translation_compile(Wrapped)).
 
 remove_translation_compile_counter :-
-    unwrap_predicate(user:translate_runnable_expr/3,
+    unwrap_predicate(translator:translate_runnable_expr/3,
                      translation_cache_acceptance_counter),
     retractall(translation_compile_count(_)).
 
@@ -38,7 +42,7 @@ test(a_repeated_eval_reuses_one_translated_template,
     run_translated([+, 20, 22], 42),
     run_translated([+, 20, 22], 42),
     aggregate_all(count,
-                  user:translated_form_cache(_, _, _, _, _, _),
+                  translator:translated_form_cache(_, _, _, _, _, _),
                   1).
 
 test(variant_calls_share_a_template_without_sharing_call_variables,
@@ -49,7 +53,7 @@ test(variant_calls_share_a_template_without_sharing_call_variables,
     X = first,
     var(Y),
     aggregate_all(count,
-                  user:translated_form_cache(_, _, _, _, _, _),
+                  translator:translated_form_cache(_, _, _, _, _, _),
                   1).
 
 test(a_numbervars_literal_cannot_alias_a_real_variable_key,
@@ -61,7 +65,7 @@ test(a_numbervars_literal_cannot_alias_a_real_variable_key,
     var(Variable),
     LiteralValue == [quote, '$VAR'(0)],
     aggregate_all(count,
-                  user:translated_form_cache(_, _, _, _, _, _),
+                  translator:translated_form_cache(_, _, _, _, _, _),
                   2).
 
 test(a_function_change_evicts_only_templates_that_mention_its_name,
@@ -72,18 +76,18 @@ test(a_function_change_evicts_only_templates_that_mention_its_name,
     run_translated(['tc-late', 2], ['tc-late', 2]),
     run_translated([+, 1, 2], 3),
     aggregate_all(count,
-                  user:translated_form_cache(_, _, _, _, _, _),
+                  translator:translated_form_cache(_, _, _, _, _, _),
                   2),
     process_metta_string("(= (tc-late $x) (+ $x 1))", _),
-    \+ user:translated_form_mention('tc-late', _),
+    \+ translator:translated_form_mention('tc-late', _),
     aggregate_all(count,
-                  user:translated_form_cache(_, _, _, _, _, _),
+                  translator:translated_form_cache(_, _, _, _, _, _),
                   1),
     run_translated(['tc-late', 2], 3),
-    user:translated_form_mention('tc-late', _),
+    translator:translated_form_mention('tc-late', _),
     metta_remove_atom('&self',
                       [=, ['tc-late', X], [+, X, 1]], _),
-    \+ user:translated_form_mention('tc-late', _),
+    \+ translator:translated_form_mention('tc-late', _),
     run_translated(['tc-late', 2], ['tc-late', 2]).
 
 test(concurrent_first_use_publishes_one_template,
@@ -93,7 +97,7 @@ test(concurrent_first_use_publishes_one_template,
                       run_translated([+, 40, 2], 42),
                       [threads(32)]),
     aggregate_all(count,
-                  user:translated_form_cache(_, _, _, _, _, _),
+                  translator:translated_form_cache(_, _, _, _, _, _),
                   1).
 
 test(test_a_repeated_eval_does_not_recompile_and_the_effects_cluster_conforms,
@@ -116,7 +120,7 @@ test(test_a_repeated_eval_does_not_recompile_and_the_effects_cluster_conforms,
     translation_compile_count(AfterSecond),
     assertion(AfterSecond == 1),
     aggregate_all(count,
-                  user:translated_form_cache(_, _, _, _, _, _),
+                  translator:translated_form_cache(_, _, _, _, _, _),
                   1),
     once(run_translated([+, 1, ['tc-effect', 'TC-MARK']], Answer)),
     swrite(Answer, Text),

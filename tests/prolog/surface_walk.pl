@@ -174,7 +174,7 @@ tree_directory(Relative, Directory) :-
 % and reports clean, which is the failure this section exists to close. The
 % survey planned a shared '$petta_core' under both; the engine's own module is
 % that base as shipped, since nothing needed moving out of it
-% [source: engine/spaces.pl's metta_exec_module_base/2, and
+% [source: engine/spaces.pl's spaces:metta_exec_module_base/2, and
 % ai-phase11-module-survey.md section 2.1, workspace root, for the plan].
 %
 % The fix asks the engine rather than guessing a name. space_module/2 is
@@ -216,7 +216,7 @@ tree_directory(Relative, Directory) :-
 %
 % One space is out of reach, and deliberately: a function compiled into a
 % FOREIGN space (one backed by an external provider such as MORK).
-% add_equation/4's foreign clause
+% spaces:add_equation/4's foreign clause
 % (engine/spaces.pl:394-398) compiles into that space's execution module the
 % same way a native one does, but deliberately does not touch the native
 % storage cache, so such a space is invisible to known_metta_space/1. This

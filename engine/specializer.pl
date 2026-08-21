@@ -36,8 +36,23 @@
             prepare_specialization_invalidation/2,
             %The generated-specialization table, read by engine/spaces.pl when a
             %function's clauses change under one.
-            ho_specialization/3
+            ho_specialization/3,
+            %Emitted into a compiled body under (pragma! verify-specializations
+            %true), so it has to be reachable from the space's module the way
+            %every other emitted goal is. Nothing in examples/ sets that pragma,
+            %so the corpus half of the emitted-goal check never compiled a body
+            %holding it and the mode was simply broken from the cut until the
+            %source half found it [measured 2026-08-22: !(twice inc 5) under the
+            %pragma raised existence_error(procedure,
+            %'$petta_exec:&self':petta_verified_specialization/2)].
+            petta_verified_specialization/2
           ]).
+
+%This subsystem WRITES core registries -- engine/metta.pl owns fun/1,
+%arity/2 and the two shape tables -- and a base module makes a name
+%visible without making a write land on it, so they are imported rather
+%than inherited. See petta_shared_registry/1 in engine/metta.pl.
+:- petta_import_shared_registries(specializer).
 
 :- dynamic ho_specialization/3.
 :- dynamic ho_specialization_failed/3.

@@ -126,7 +126,7 @@ missing_match_sample(Space, Inferences) :-
 % A bound match is one indexed probe, not a scan, and the acyclic guard the
 % tests above rely on does not change that: it runs on the ANSWER rather than
 % on every candidate [source: engine/spaces.pl, the comment above
-% native_expression/4]. So the cost of one probe is
+% spaces:native_expression/4]. So the cost of one probe is
 % the same whatever the space holds, which is an equality rather than a bound
 % and needs no threshold.
 %
@@ -368,7 +368,7 @@ test(change_hook_error_rolls_back_every_registration_write,
     Error = error(plunit_injected_change_hook_failure, none),
     \+ user:fun(plunit_registration_rollback),
     \+ user:arity(plunit_registration_rollback, _),
-    \+ user:fun_meta_clause(_, plunit_registration_rollback, _, _),
+    \+ translator:fun_meta_clause(_, plunit_registration_rollback, _, _),
     \+ filereader:translated_from(_, Term),
     \+ get_native_atom('&self',
                         [=, [plunit_registration_rollback, X], X]),
@@ -393,7 +393,7 @@ test(rolled_back_first_write_keeps_storage_reusable,
     clear_native_atoms(Space),
     \+ transaction((add_sexp(Space, [rolled_back]), fail)),
     native_storage_module(Space, Module),
-    native_storage_ready(Module),
+    spaces:native_storage_ready(Module),
     \+ native_storage_module_cache(Space, _),
     add_sexp(Space, [after_rollback]),
     once(get_native_atom(Space, [after_rollback])).
@@ -691,7 +691,7 @@ test(clearing_a_space_empties_its_execution_module,
     aggregate_all(count, clause(Module:'plunit-past-life'(_), _), Remaining),
     assertion(Remaining == 0),
     % The name is forgotten too, not just its clauses: nothing defines the
-    % function any more, which is what remove_equation/6 decides for a single
+    % function any more, which is what spaces:remove_equation/6 decides for a single
     % removal and what the sweep used to skip.
     assertion(\+ fun('plunit-past-life')),
     % The whole point, asked the way a recycled name would ask it.
@@ -719,7 +719,7 @@ test(clearing_a_space_takes_its_declarations_through_their_own_path,
 
 % Plain atoms have no compiled half, so they stay on the sweep rather than
 % going one at a time through the removal funnel. This is the guard on that:
-% a space of plain atoms clears without any of them reaching remove_equation/6.
+% a space of plain atoms clears without any of them reaching spaces:remove_equation/6.
 test(clearing_plain_atoms_stays_a_sweep,
      [ cleanup(clear_native_atoms('&plunit_life_bulk')) ]) :-
     Space = '&plunit_life_bulk',
@@ -817,10 +817,16 @@ p118_resolutions(Resolutions) :-
 
 test(test_adding_an_engine_export_changes_no_spaces_answers,
      [ setup(setup_p118),
+       % The declarations go before the predicates they name do. This used to
+       % retract CleanupEngine:metta_engine_emitted/1, which was the seam's
+       % spelling before it moved into a module of its own, so both declarations
+       % survived the test while both predicates were abolished -- the exact
+       % state test_a_declared_emitted_goal_the_engine_cannot_see_is_refused
+       % below now refuses, which is how the stale cleanup was found at all.
        cleanup(( cleanup_p118,
                  petta_engine_module(CleanupEngine),
-                 retractall(CleanupEngine:metta_engine_emitted(p118_added_goal/2)),
-                 retractall(CleanupEngine:metta_engine_emitted('p118-double'/2)),
+                 retractall(seam:engine_emitted(p118_added_goal/2)),
+                 retractall(seam:engine_emitted('p118-double'/2)),
                  abolish(CleanupEngine:p118_added_goal/2),
                  abolish(CleanupEngine:'p118-double'/2) )) ]) :-
     petta_engine_module(Engine),
@@ -869,6 +875,31 @@ test(test_adding_an_engine_export_changes_no_spaces_answers,
     retractall(seam:engine_emitted('p118-double'/2)),
     p118_answers(Refused),
     assertion(Refused == Before).
+
+% The third way the protection can fail, and the quietest: a name is DECLARED
+% emitted and the engine module cannot see it, because the subsystem module
+% that defines it does not export it. protect_engine_emitted/1 skips such a
+% name, because its current_predicate/1 guard is load-order tolerance for
+% engine/duals.pl, so nothing said anything and every compiled body holding the
+% goal raised existence_error at its first call instead. Four real names were
+% in that state after the subsystem cuts, one of them behind a pragma no test
+% sets [measured 2026-08-22].
+test(test_a_declared_emitted_goal_the_engine_cannot_see_is_refused,
+     [ cleanup(retractall(seam:engine_emitted('p118-unreachable'/4))) ]) :-
+    petta_engine_module(Engine),
+    assertz(seam:engine_emitted('p118-unreachable'/4)),
+    catch(protect_metta_exec_modules, Unreachable, true),
+    assertion(nonvar(Unreachable)),
+    assertion(Unreachable
+              = error(petta_engine_emitted_unreachable('p118-unreachable'/4,
+                                                       Engine), _)),
+    message_to_string(Unreachable, Text),
+    assertion(sub_string(Text, _, _, _, "p118-unreachable/4")),
+    assertion(sub_string(Text, _, _, _, "existence_error")),
+    % and the sweep is clean again the moment the declaration goes, so the
+    % refusal is about the declaration and not about a state it left behind.
+    retractall(seam:engine_emitted('p118-unreachable'/4)),
+    protect_metta_exec_modules.
 
 % Every row identical except the ones for the name that was just added.
 p118_only_the_added_name_differs(Before, After, Name/Arity) :-
@@ -1083,7 +1114,7 @@ test(a_rational_tree_candidate_is_never_a_match_answer,
     add_sexp('&plunit_rational', [rt, ok, ok]),
     findall(R, match('&plunit_rational', [rt, Z, Z], hit, R), [hit]).
 
-% add_sexp_in/4 writes the two clause bodies out rather than calling
+% spaces:add_sexp_in/4 writes the two clause bodies out rather than calling
 % native_atom_clause/3, because calling it cost one goal per write, +2 on a
 % seven-inference path [measured 2026-08-16: add-batch 62027 to 64028 over a
 % thousand atoms]. That copy is only safe while the two agree, and they did
@@ -1136,7 +1167,7 @@ cleanup_storage_module_space :-
 test(atoms_live_only_in_the_private_module) :-
     storage_module_space(Space),
     native_storage_module(Space, Module),
-    native_storage_ready(Module),
+    spaces:native_storage_ready(Module),
     current_prolog_flag(Module:unknown, fail),
     \+ default_module(Module, user),
     functor(StoredHead, Space, 1),
@@ -1154,7 +1185,7 @@ test(user_predicates_do_not_appear_as_space_atoms) :-
 test(missing_storage_arities_fail_without_changing_execution_errors) :-
     storage_module_space(Space),
     native_storage_module_ready(Space, StorageModule),
-    \+ native_expression(StorageModule, Space, plunit_missing_storage_predicate, []),
+    \+ spaces:native_expression(StorageModule, Space, plunit_missing_storage_predicate, []),
     space_module(Space, ExecutionModule),
     catch(ExecutionModule:plunit_missing_execution_predicate,
           Error,
@@ -1180,7 +1211,7 @@ test(matching_requires_a_named_space) :-
     Answers = [['Error', ['match', _, [plunit_secret, _], conj], Message]],
     Message == "match expects a space as the first argument",
     % A conjunctive pattern reaches its own routing clause and is refused
-    % there too, rather than losing the refusal in match_routed/4's conj slot.
+    % there too, rather than losing the refusal in spaces:match_routed/4's conj slot.
     findall(C, match(_Other, [',', [plunit_secret, _]], conj, C), Conjunctive),
     Conjunctive = [['Error', ['match'|_], _]].
 
@@ -1195,7 +1226,7 @@ test(concurrent_first_writes_publish_one_storage_module,
     sort(Rows, UniqueRows),
     length(UniqueRows, 64),
     native_storage_module(Space, Module),
-    native_storage_ready(Module),
+    spaces:native_storage_ready(Module),
     findall(CachedModule,
             native_storage_module_cache(Space, CachedModule),
             CachedModules),
@@ -1216,7 +1247,7 @@ test(custom_added_hooks_keep_every_batch_event,
             Events),
     Events == [[observed, 1], [observed, 2]].
 
-%stored_atom_of_ref/3 is add_sexp_in/4 read backwards, and a reload depends on
+%stored_atom_of_ref/3 is spaces:add_sexp_in/4 read backwards, and a reload depends on
 %it telling an atom's clause reference from the compiled clauses and
 %registrations a load records beside it. Both stored shapes and one negative,
 %because answering for a reference that is not an atom's would send a
@@ -1818,7 +1849,7 @@ test(the_discipline_error_has_an_engine_message) :-
 
 % A Prolog-hosted provider whose match THROWS mid-stream: its exceptions
 % are ordinary catchable ones, so the engine's own fallback in
-% petta_match_erring/6 enforces the declared mode, where a Python
+% spaces:petta_match_erring/6 enforces the declared mode, where a Python
 % provider's tunnel past catch/3 makes the adapter hook do it instead.
 seam:foreign_space('&plunit_flaky').
 seam:foreign_space('&plunit_ctl').
@@ -1853,7 +1884,7 @@ test(a_control_signal_is_never_kept,
      [ setup(erring_declare(['on-error', '&plunit_ctl', [edge, _, _], keep])),
        cleanup(erring_retract(['on-error', '&plunit_ctl', [edge, _, _], keep])),
        throws(metta_host_interrupted) ]) :-
-    petta_match_erring(keep, '&plunit_ctl', [edge, a, _], [], out, _).
+    spaces:petta_match_erring(keep, '&plunit_ctl', [edge, a, _], [], out, _).
 
 :- end_tests(spaces_error_modes).
 
@@ -2435,7 +2466,7 @@ test(a_restricted_space_bases_on_the_curated_module,
     metta_declare_restricted_space('&restricted-topology', []),
     metta_declare_restricted_space('&restricted-topology', []),
     space_module('&restricted-topology', Module),
-    restricted_core_module(Core),
+    spaces:restricted_core_module(Core),
     assertion(import_module(Module, Core)),
     assertion(current_predicate(Core:'+'/3)).
 
@@ -2505,7 +2536,7 @@ test(a_failed_outer_transaction_leaves_no_restriction) :-
           rollback_probe,
           true),
     assertion(\+ space_restricted('&restricted-rollback', _)),
-    assertion(\+ space_grant('&restricted-rollback', _)),
+    assertion(\+ spaces:space_grant('&restricted-rollback', _)),
     assertion(\+ petta_contract_fact([restricted, '&restricted-rollback'])),
     assertion(\+ metta_exec_module_known('&restricted-rollback', _)),
     assertion(\+ native_storage_module_cache('&restricted-rollback', _)).
@@ -2715,7 +2746,7 @@ test(a_type_marker_probe_sends_a_writable_pattern_to_a_foreign_space,
      [ setup(retractall(user:plunit_arrow_probe(_))),
        cleanup(retractall(user:plunit_arrow_probe(_))) ]) :-
     space_module('&plunit-arrow-foreign', Module),
-    forall(stored_arrow_uses_type_in(Module, 'plunit-arrow-fun', 'Number'),
+    forall(spaces:stored_arrow_uses_type_in(Module, 'plunit-arrow-fun', 'Number'),
            true),
     findall(P, user:plunit_arrow_probe(P), Patterns),
     assertion(Patterns \== []),

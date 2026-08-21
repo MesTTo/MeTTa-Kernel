@@ -217,6 +217,79 @@
 %     eviction; translated_form_cache/6 and translated_form_mention/2 retain
 %     templates until a mentioned function changes or the process exits.
 
+%The compiler's surface: what compiles a form, what the compiled clause's
+%metadata answers, the runtime helpers a compiled body calls, and the
+%questions the loader, the spaces and the duals ask while a program is being
+%built. Everything else -- the expression walk, the dispatch planner, the
+%type-chain solver, the head-pattern notes, the translation cache's own
+%tables -- is the compiler's own, and a caller that wants one says translator:
+%and means it
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+%
+%The runtime helpers on this list are also seam:engine_emitted/1 names: the
+%compiler writes case_runtime/3, letstar_runtime/3, function_overapplication/3
+%and the two dispatch results into clause bodies, so a space's execution module
+%imports them from the engine's module and they have to reach it from here.
+:- module(translator,
+          [ translate_clause/2,
+            translate_clause/3,
+            translate_expr/3,
+            translate_cached_expr/3,
+            translate_runnable_expr/3,
+            translate_runnable_expr/4,
+            with_runnable_variable_epochs/1,
+            clear_translation_cache/0,
+            invalidate_translated_forms/1,
+            index_masking_data_heads/0,
+            maybe_print_compiled_clause/3,
+
+            compiled_function_name/2,
+            metta_special_form/1,
+            metta_special_form_head/1,
+            metta_translated_head/1,
+            metta_reducible_head/2,
+            uses_super/2,
+            fun_meta_clauses/3,
+            clear_fun_meta/2,
+            drop_fun_meta/4,
+            arrived_pairs/1,
+            call_site_type_chains/2,
+            fitting_type_chains/3,
+            constrain_args/3,
+            drop_unconstraining_types/3,
+            letstar_to_rec_let/3,
+            memberchk_eq/2,
+            reduce/2,
+            reduce/3,
+            eval_metta_in_module/3,
+            lift_pattern_modifiers/3,
+            metta_host_dispatch_proof_step/6,
+            %The head-context note engine/filereader.pl reads to decide whether a
+            %symbol was executed as a runnable or as a clause head.
+            symbol_head/2,
+
+            %The head-context note engine/duals.pl reads while it builds a dual.
+            head_pattern_note/5,
+
+            % Emitted into compiled bodies. Four of these were never declared
+            % in seam:engine_emitted/1 either, and are now: agg_reduce/4,
+            % hyperpose_branch/4, hyperpose_runtime/2 and
+            % metta_condition_holds/2 are goals this file writes into the
+            % clauses it generates, so a MeTTa function of any of those names
+            % at the matching arity would have captured them.
+            agg_reduce/4,
+            hyperpose_branch/4,
+            hyperpose_runtime/2,
+            metta_condition_holds/2,
+            case_runtime/3,
+            case_default_runtime/2,
+            letstar_runtime/3,
+            function_overapplication/3,
+            dispatch_mismatch_result/3,
+            dispatch_no_match_result/3,
+            dispatch_policy_execute/5
+          ]).
+
 :- use_module(library(assoc)).
 :- use_module(library(ansi_term)).
 
@@ -676,6 +749,36 @@ seam:engine_emitted(metta_not_functor/3).
 %function named dif at one argument compiles to dif/2 and captures every
 %generated dual's disequality.
 seam:engine_emitted(dif/2).
+%Four more this file emits and never declared. They reached a space's module
+%through the base chain while the whole engine shared one namespace, and the
+%module cut turned each into
+%existence_error(procedure, '$petta_exec:&self':<name>) on the corpus.
+seam:engine_emitted(agg_reduce/4).
+seam:engine_emitted(hyperpose_branch/4).
+seam:engine_emitted(hyperpose_runtime/2).
+seam:engine_emitted(metta_condition_holds/2).
+%engine/spaces.pl defines these two and the compiler emits them: a bounded
+%match and a bounded take, both written into the clause a limited query
+%compiles to.
+seam:engine_emitted(match_bounded/5).
+seam:engine_emitted(metta_take/2).
+seam:engine_emitted(metta_take_match/5).
+%Three more of engine/spaces.pl's that this file emits: the two (top k ...)
+%forms and the merged match a literal (superpose (&a &b)) space compiles to.
+%The corpus-recompile check above could not see these, because it reads goals
+%out of equations the SHIPPED corpus compiles and no shipped equation uses
+%either form; the benchmark suite does, and reported
+%existence_error(procedure, '$petta_exec:&pyspace_1':metta_top/3) the moment
+%engine/spaces.pl became a module. What found the third one before anything ran
+%it is the source half added beside that check, which reads what this file
+%CONSTRUCTS rather than what a corpus happens to reach
+%[measured 2026-08-22; tested: static_checks:every_emitted_goal_is_reachable].
+seam:engine_emitted(metta_top/3).
+seam:engine_emitted(metta_top_match/5).
+seam:engine_emitted(petta_merged_match/3).
+%engine/specializer.pl's, written into a specialized call's body when
+%(pragma! verify-specializations true) is set.
+seam:engine_emitted(petta_verified_specialization/2).
 seam:engine_emitted(metta_require_current_capability/2).
 seam:engine_emitted(metta_require_safe_goal/1).
 seam:engine_emitted(metta_require_space_update_capability/2).
@@ -2119,9 +2222,20 @@ runtime_guarded_builtin_call(Fun) :-
 %engine's clauses are" everywhere else in the tree, and a clause/2 read that
 %kept saying it would silently answer for no forms at all.
 metta_special_form(Name) :-
-    petta_engine_module(Engine),
-    clause(Engine:translate_special_dl(Name, _, _, _, _), _),
+    clause(translate_special_dl(Name, _, _, _, _), _),
     !.
+
+%The same table, ENUMERABLE, because a reflection library wants the whole set
+%and metta_special_form/1 above is the bound-name question with a cut on it.
+%lib/lib_reflect.pl used to read clause(translate_special_dl(...), _) itself,
+%which no surface walk can see -- the table is a term inside clause/2, not a
+%call -- and which answered for no forms at all the moment the compiler's
+%clauses stopped being in the module the library reads. Published as a service
+%so the library asks a question instead of reading a table
+%[tested: lib_reflect:special_forms_are_reported].
+metta_special_form_head(Name) :-
+    clause(translate_special_dl(Name, _, _, _, _), _),
+    atom(Name).
 
 %Every head the translator gives meaning to, across BOTH of its compilation
 %routes. metta_special_form/1 above answers for one of them and is the

@@ -50,7 +50,16 @@
 %     reaches that the `user`-only one never did: library(yall)'s own `/`/3,
 %     reachable from `system` and distinct from, but same name and arity as,
 %     the engine's MeTTa `/` in `user`].
-%   - Five of the six checks prove themselves non-vacuous against a planted
+%   - Every goal an engine file CONSTRUCTS rather than calls is reachable from
+%     a space's execution module, which is the other route to the same question
+%     every_engine_emitted_goal_is_protected asks of the shipped corpus. The
+%     corpus route sees a translation rule only when an example uses the form;
+%     this one sees every rule. Four real defects on the tree it was written
+%     for, none of them reachable from examples/: metta_top/3, metta_top_match/5,
+%     petta_merged_match/3 and petta_verified_specialization/2
+%     [measured 2026-08-22: 39 constructed goals, 4 unreachable before the
+%     exports, 0 after].
+%   - Six of the seven checks prove themselves non-vacuous against a planted
 %     offender before a clean result is accepted, and report WHICH plant
 %     stopped firing rather than only that one did. This is not ceremony, and
 %     every one of them has been wrong, the seam-direction probe within minutes
@@ -109,7 +118,8 @@ main :-
     a_backend_calls_only_published_surface,
     a_host_binding_calls_only_published_surface,
     no_cut_in_a_live_hook_clause,
-    every_engine_emitted_goal_is_protected.
+    every_engine_emitted_goal_is_protected,
+    every_emitted_goal_is_reachable.
 
 %%%% Every seam declares one kind %%%%
 %
@@ -609,7 +619,7 @@ body_subterm(Term, Sub) :-
 % that did not move [measured 2026-08-19: 102 goal indicators over 1,040
 % equations, 10 of them engine-emitted and capturable, all 10 named].
 %A name is MeTTa's when the engine's own dispatch registry knows it: arity/2
-%is what reduce/3 and build_call_or_partial_dl/6 consult to decide a head is a
+%is what reduce/3 and translator:build_call_or_partial_dl/6 consult to decide a head is a
 %call, fun/1 what the translator consults to decide it is not data, and
 %builtin_fun/1 what keeps a builtin visible in every space. A name none of the
 %three holds was written by the translator and by nothing else.
@@ -706,6 +716,172 @@ every_engine_emitted_goal_is_protected :-
                       [Indicator])),
         fail
     ).
+
+%%%% Every goal the engine emits can be REACHED from a space's module %%%%
+%
+% The other half of the check above, by the other route. That one recompiles
+% the shipped corpus and reads the goals out of the bodies, so it sees a
+% translation rule only when some shipped equation uses the form; this one
+% reads what the engine's own sources CONSTRUCT, so it sees every rule whether
+% an example exercises it or not. Both are needed: the corpus half catches a
+% goal a LIBRARY teaches the engine to emit through seam:dispatch_call/4, which
+% is not in any source here, and the source half catches a rule with no example.
+%
+% Constructed-not-called is what makes the source half precise. A goal an
+% engine file CALLS is a step of its own and library(prolog_codewalk) names
+% exactly those; what is left is what the compiler writes into a body for a
+% space module to run later. That module's base is the ENGINE module, so a name
+% defined in a subsystem module is invisible there unless the subsystem exports
+% it, and protect_engine_emitted/1 skips a declared name the engine cannot see
+% rather than refusing it.
+%
+% Four real defects on the tree this was written for, none of which the corpus
+% half could reach [measured 2026-08-22]: metta_top/3 and metta_top_match/5,
+% behind (top k ...), which appears in examples/ only inside a comment and which
+% the benchmark suite caught as existence_error(procedure,
+% '$petta_exec:&pyspace_1':metta_top/3); petta_merged_match/3, behind a literal
+% (match (superpose (&a &b)) ...), which nothing in the tree ran at all; and
+% petta_verified_specialization/2, behind (pragma! verify-specializations true),
+% which had been broken outright since engine/specializer.pl became a module.
+% Over engine MODULES rather than engine files, so a clause an extension or
+% this check itself ASSERTS into one is read too. An asserted clause has no
+% file, so a file-driven scan would pass over exactly the plant that proves
+% this check can still see, and over a translation rule a library installs.
+emitted_goal_module(Module) :-
+    tree_directory('../../engine', Directory),
+    module_property(Module, file(File)),
+    sub_atom(File, 0, _, _, Directory).
+
+:- dynamic emitted_goal_called/2.
+
+measure_called_goals :-
+    retractall(emitted_goal_called(_, _)),
+    extension_clauses(['../../engine'], References),
+    walk_clause_edges(References, record_emitted_goal_call).
+
+record_emitted_goal_call(Callee, _Caller, _Location) :-
+    ( Callee = _:Goal -> true ; Goal = Callee ),
+    callable(Goal),
+    functor(Goal, Name, Arity),
+    (   emitted_goal_called(Name, Arity)
+    ->  true
+    ;   assertz(emitted_goal_called(Name, Arity))
+    ), !.
+record_emitted_goal_call(_, _, _).
+
+constructed_goal(Name/Arity) :-
+    emitted_goal_module(Module),
+    current_predicate(Module:PredicateName/PredicateArity),
+    functor(Head, PredicateName, PredicateArity),
+    catch(predicate_property(Module:Head, implementation_module(Module)), _, fail),
+    catch(clause(Module:Head, Body), _, fail),
+    % The head's ARGUMENTS as well as the body, because SWI folds a leading
+    % `Arg = Term` body goal into head unification and the constructed term
+    % then lives in the head [measured 2026-08-22: an asserted
+    % (h(C) :- C = petta_capacity_remove_sexp(_,_,_)) reads back with the body
+    % `true`]. The head's own functor is skipped, since a predicate's head is
+    % not something it constructs.
+    (   constructed_subterm(Body, Sub)
+    ;   compound(Head), arg(_, Head, HeadArgument),
+        constructed_subterm(HeadArgument, Sub)
+    ),
+    functor(Sub, Name, Arity),
+    Arity > 0, atom(Name),
+    \+ emitted_goal_called(Name, Arity),
+    engine_defined(Name/Arity).
+
+constructed_subterm(T, _) :- var(T), !, fail.
+% assert/1 resolves an unqualified body goal against the module that CALLED it,
+% so a goal written literally inside an assert lands in the asserting file's own
+% module and is not this defect [measured 2026-08-22: engine/duals.pl asserts
+% (seam:function_changed(F) :- drop_duals_of(F)) and clause/2 reads the stored
+% body back as duals:drop_duals_of(_)]. The clauses the translator asserts into
+% a space module are built into a variable first, so nothing of theirs is
+% literal here and this exclusion cannot hide one.
+constructed_subterm(T, _) :- assert_shaped(T), !, fail.
+% An explicitly qualified construction says where it lands, so only its
+% ARGUMENTS are still candidates.
+constructed_subterm(_:G, S) :- !, nonvar(G), compound(G), arg(_, G, A),
+                               constructed_subterm(A, S).
+constructed_subterm(T, T) :- compound(T).
+constructed_subterm(T, S) :- compound(T), arg(_, T, A), constructed_subterm(A, S).
+
+assert_shaped(assertz(_)).
+assert_shaped(asserta(_)).
+assert_shaped(assertz(_, _)).
+assert_shaped(asserta(_, _)).
+
+engine_defined(PI) :- engine_defined_in(PI, _).
+
+space_module_sees(Name/Arity) :-
+    petta_engine_module(Engine),
+    functor(Head, Name, Arity),
+    catch(predicate_property(Engine:Head, defined), _, fail).
+
+unreachable_constructed_goals(Constructed, Blind) :-
+    findall(PI, distinct(PI, constructed_goal(PI)), Constructed),
+    findall(PI, ( member(PI, Constructed), \+ space_module_sees(PI) ), Blind).
+
+% A clean result is a claim about a scan, so the scan is asked to prove it can
+% still see. The plant is a clause asserted into an engine module whose body
+% CONSTRUCTS a goal a space module cannot reach; the planted name is
+% engine/spaces.pl's capacity-removal body, which that module defines and
+% deliberately does not export, so it is the real shape rather than an invented
+% one. It is asserted rather than written into a file, which is why the scan
+% above reads engine MODULES instead of engine files.
+planted_unreachable_goal(petta_capacity_remove_sexp/3).
+
+with_planted_emitter(Goal) :-
+    planted_unreachable_goal(Name/Arity),
+    functor(Planted, Name, Arity),
+    setup_call_cleanup(
+        assertz((translator:'$static-check-planted-emitter'(Flag, Constructed) :-
+                    Flag == emit, Constructed = Planted),
+                Reference),
+        Goal,
+        erase(Reference)).
+
+planted_emitter_is_named :-
+    planted_unreachable_goal(PI),
+    unreachable_constructed_goals(_, Blind),
+    memberchk(PI, Blind).
+
+every_emitted_goal_is_reachable :-
+    measure_called_goals,
+    unreachable_constructed_goals(Constructed, Blind),
+    length(Constructed, Seen),
+    (   Blind == []
+    ->  (   with_planted_emitter(planted_emitter_is_named)
+        ->  format("static: every one of ~d goals the engine constructs rather \c
+                    than calls is reachable from a space's module, and the scan \c
+                    named a planted unreachable one~n", [Seen])
+        ;   planted_unreachable_goal(Planted),
+            format(user_error,
+                   'the constructed-goal scan reported clean against a planted \c
+                    ~w, so its clean result says nothing~n', [Planted]),
+            fail
+        )
+    ;   forall(member(Name/Arity, Blind),
+               ( ( engine_defined_in(Name/Arity, Definer) -> true ; Definer = '?' ),
+                 format(user_error,
+                        'the engine writes ~w into a compiled body and a space \c
+                         module cannot see it: ~w defines it and does not export \c
+                         it, so the goal raises existence_error the first time \c
+                         a program reaches that form. Export it from ~w and name \c
+                         it in seam:engine_emitted/1 (engine/translator.pl)~n',
+                        [Name/Arity, Definer, Definer]) )),
+        fail
+    ).
+
+engine_defined_in(Name/Arity, Module) :-
+    functor(Head, Name, Arity),
+    tree_directory('../../engine', Directory),
+    current_module(Module),
+    catch(( predicate_property(Module:Head, defined),
+            predicate_property(Module:Head, implementation_module(Module)),
+            predicate_property(Module:Head, file(File)),
+            sub_atom(File, 0, _, _, Directory) ),
+          _, fail), !.
 
 %%%% Each kind is declared the way its direction requires %%%%
 %
