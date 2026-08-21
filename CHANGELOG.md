@@ -244,6 +244,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A grounded atom now equals another grounded atom exactly when the engine
+  would unify them, while comparison with a raw Python value keeps the `==`
+  operator's numeric tower. One relation served both purposes before, so
+  `unify`, membership, `remove` and any dict of atoms disagreed with what a
+  space actually stores: the pattern `(0)` claimed to match a stored `(0.0)`
+  that the engine keeps distinct, one NaN atom refused to equal another that
+  the engine's matcher matches, and a Counter of atoms conflated keys. The
+  raw-value comparison keeps IEEE arithmetic, NaN unequal to itself, the
+  verdict of the engine's == over crossed values. Found by the space state
+  machine's Hypothesis run; the split is the one Java draws between `==` and
+  `Double.equals` so hash collections stay coherent.
 - `quote` now scopes a pattern exactly as it scopes a body. A quoted head
   pattern is held as written instead of being walked, so `(cons 1 2)` inside
   one stays a two-element expression rather than becoming an improper list and
