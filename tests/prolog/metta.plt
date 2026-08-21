@@ -2427,3 +2427,67 @@ test(a_decline_records_its_reason_and_the_call_it_declined,
     assertion(Call == ['p2b-guarded', [over, 99]]).
 
 :- end_tests(translator_rule_refusal).
+
+
+:- begin_tests(translator_rule_cost_and_conjunction).
+
+% A cost is the measure a bidirectional rewrite has to lower, so it has to be
+% a natural number or the descent it is supposed to make is not well founded.
+test(a_negative_cost_is_refused,
+     [ throws(error(domain_error(translator_rule_declaration, [cost, -1]), _)) ]) :-
+    'add-translator-rule!'('p2b-cheap', [[cost, -1]], _).
+
+test(a_fractional_cost_is_refused,
+     [ throws(error(domain_error(translator_rule_declaration, [cost, 2.5]), _)) ]) :-
+    'add-translator-rule!'('p2b-fractional', [[cost, 2.5]], _).
+
+% A declared cost prices the HEAD, and the form's cost is that plus its
+% children's, which is how an extractor's cost function folds.
+test(a_declared_cost_prices_every_form_headed_by_the_name,
+     [ setup(( process_metta_string("(= (p2b-priced $x) (noeval (p2b-priced $x)))", _),
+               'add-translator-rule!'('p2b-priced', [[cost, 40]], _) )),
+       cleanup('remove-translator-rule!'('p2b-priced', _)) ]) :-
+    translator_form_cost(['p2b-priced', 7], Priced),
+    assertion(Priced == 41),
+    translator_form_cost([unpriced, 7], Plain),
+    assertion(Plain == 2).
+
+test(a_left_side_without_a_right_side_is_refused,
+     [ throws(error(petta_conjunctive_left_side('p2b-halfrule', right), _)) ]) :-
+    'add-translator-rule!'('p2b-halfrule',
+                           [[left, [['p2b-halfrule', _]]]], _).
+
+test(a_right_side_without_a_left_side_is_refused,
+     [ throws(error(petta_conjunctive_left_side('p2b-orphan', missing), _)) ]) :-
+    'add-translator-rule!'('p2b-orphan', [[right, [answer]]], _).
+
+% The first pattern of a conjunctive left side is the call being rewritten, so
+% a left side rooted at somebody else's name would register a rule that can
+% never fire.
+test(a_left_side_rooted_elsewhere_is_refused,
+     [ throws(error(petta_conjunctive_left_side('p2b-misrooted',
+                                                [elsewhere, _]), _)) ]) :-
+    'add-translator-rule!'('p2b-misrooted',
+                           [[left, [[elsewhere, _]]], [right, [answer]]], _).
+
+test(a_conjunctive_left_side_cannot_be_read_backwards,
+     [ throws(error(petta_uninvertible_rule(left, conjunctive_left_side), _)) ]) :-
+    'add-translator-rule!'('p2b-bothways',
+                           [[left, [['p2b-bothways', _]]], [right, [answer]],
+                            [direction, bidirectional]], _).
+
+% Two spellings of one declaration differ only in the variables their patterns
+% happen to hold, so re-registering with a fresh copy is the no-op it always
+% was rather than a conflicting redeclaration.
+test(a_declaration_repeated_with_fresh_variables_is_the_same_declaration,
+     [ setup(process_metta_string("(= (p2b-variant $x) (noeval (kept $x)))", _)),
+       cleanup('remove-translator-rule!'('p2b-variant', _)) ]) :-
+    'add-translator-rule!'('p2b-variant',
+                           [[left, [['p2b-variant', _A]]], [right, [kept, _A]]],
+                           _),
+    'add-translator-rule!'('p2b-variant',
+                           [[left, [['p2b-variant', _B]]], [right, [kept, _B]]],
+                           Again),
+    assertion(Again == true).
+
+:- end_tests(translator_rule_cost_and_conjunction).

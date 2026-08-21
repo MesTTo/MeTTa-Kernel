@@ -15,6 +15,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- A translator rule can carry a `(cost N)` and a conjunctive left side.
+  The cost prices a form headed by the rule's name and decides which of two
+  equivalent forms a bidirectional rule emits, the way an e-graph extractor
+  chooses between them. `(left (Pattern ...))` with `(right Expansion)` gives
+  a rule several patterns that must all match, the first against the call and
+  the rest against the space; they join on the variables they share and
+  compile to a `match` chain, so the engine's own conjunctive query does the
+  join.
 - A translator rule can decline a match it cannot honour, with
   `(refuse Reason)`. The call carries on down the dispatch chain exactly as
   one whose head did not match, so a rule with another equation tries that

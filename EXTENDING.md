@@ -211,6 +211,48 @@ the same variables, or one of them arrives unbound the other way round.
 rule, so the inverse never outlives the declaration that produced it.
 `examples/translation/translatorrule_direction.metta` runs all of this.
 
+### Pricing a rule, and a conjunctive left side
+
+A bidirectional rule says two forms are equivalent, and something then has to
+choose which one the compiler emits. `(cost N)` is that choice: it prices a
+form headed by the rule's name, and a form's total cost is its head's price
+plus its children's, the way an e-graph extractor's cost function folds. A
+form whose head no rule prices costs one node.
+
+```metta
+(: pow2 (-> Atom %Undefined%))
+(= (pow2 $x) (noeval (mul $x $x)))
+!(add-translator-rule! pow2 ((direction bidirectional) (cost 10)))
+```
+
+`(pow2 3)` now costs eleven against `(mul 3 3)`'s three, so it expands; the
+same rule collapses `(mul BIG BIG)` back when writing the argument twice costs
+more than the priced head. Drop the `(cost 10)` and both calls go the other
+way. A cost has to be a whole number that is not negative, because it is the
+measure the rewrite has to lower.
+
+A left side can also be a **conjunction** of patterns. The first is the call
+the rule rewrites and the rest are matched against the space, so a rule can
+look at the program around the call:
+
+```metta
+(unit mass kg)
+
+(: unit-of (-> Atom %Undefined%))
+!(add-translator-rule! unit-of
+   ((left ((unit-of $q) (unit $q $u)))
+    (right (in $u))))
+```
+
+`(unit-of mass)` compiles to `(in kg)`. `$q` joins the call to the space
+pattern and `$u` carries the answer out; the patterns share their variables
+because they are one written form, so nothing merges substitutions. The rule
+compiles to the equation you would have written by hand, with the conjuncts as
+a `match` chain, and a call whose conjuncts do not match is a rule miss like
+any other. A conjunctive left side cannot be declared bidirectional: reading it
+backwards would have to assert the conjuncts it matched, which is a different
+operation. `examples/translation/translatorrule_cost.metta` runs all of this.
+
 ### Declining a match
 
 A rule head says which shape the rule rewrites. Whether the match it got is one

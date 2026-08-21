@@ -155,11 +155,23 @@ translator_rule_override_kind(Name, builtin) :-
 
 %%%% What a registration may declare %%%%
 
-%A direction, and nothing else yet. A form this relation does not name is
-%refused rather than ignored, so a misspelt declaration is not silently a
-%rule with default behaviour.
+%What a registration may say. A form this relation does not name is refused
+%rather than ignored, so a misspelt declaration is not silently a rule with
+%default behaviour.
 translator_rule_declaration([direction, Direction], direction(Direction)) :-
     translator_rule_direction(Direction).
+%A form headed by this name costs this much. The measure has to be a natural
+%number for the orientation below to be well founded, and it is what an
+%extractor minimises when two forms are equivalent [source: egg's
+%CostFunction, whose cost/2 is a node's own cost plus its children's].
+translator_rule_declaration([cost, Cost], cost(Cost)) :-
+    integer(Cost), Cost >= 0.
+%A CONJUNCTIVE left side: the first pattern is the call and the rest are
+%matched against the space, all of them joined on the variables they share.
+translator_rule_declaration([left, Patterns], left(Patterns)) :-
+    is_list(Patterns), Patterns = [_|_].
+translator_rule_declaration([right, Expansion], right(Expansion)) :-
+    nonvar(Expansion).
 
 %Two directions, which is the whole split R19 names: a FORWARD rule is a
 %rewrite, and a BIDIRECTIONAL one is an equation, a quotient the compiler may
@@ -183,15 +195,26 @@ parse_translator_rule_declarations(Declared, Declarations) :-
     ),
     maplist(parse_translator_rule_declaration, Declared, Parsed),
     msort(Parsed, Declarations),
-    refuse_repeated_declaration(Declarations).
+    refuse_repeated_declaration(Declarations),
+    %A conjunctive left side has no inverse: reading it backwards would have
+    %to ASSERT the conjuncts it matched, which is a different operation from
+    %rewriting a form.
+    (   memberchk(left(_), Declarations),
+        memberchk(direction(bidirectional), Declarations)
+    ->  throw(error(petta_uninvertible_rule(left, conjunctive_left_side),
+                    context('add-translator-rule!',
+                            'a conjunctive left side cannot be read \c
+                             backwards')))
+    ;   true
+    ).
 
 parse_translator_rule_declaration(Form, Parsed) :-
     (   nonvar(Form), translator_rule_declaration(Form, Parsed)
     ->  true
     ;   throw(error(domain_error(translator_rule_declaration, Form),
                     context('add-translator-rule!',
-                            'use (direction forward) or \c
-                             (direction bidirectional)')))
+                            'use (direction ...), (cost N), \c
+                             (left (Pattern ...)) or (right Expansion)')))
     ).
 
 refuse_repeated_declaration(Declarations) :-
@@ -206,6 +229,10 @@ refuse_repeated_declaration(Declarations) :-
                     context('add-translator-rule!',
                             'a rule declares each thing once')))
     ).
+
+translator_rule_declared_cost(Name, Cost) :-
+    translator_rule(Name, Declarations),
+    memberchk(cost(Cost), Declarations).
 
 translator_rule_declared_direction(Name, Direction) :-
     translator_rule(Name, Declarations),
@@ -226,11 +253,15 @@ translator_rule_declared_direction(Name, Direction) :-
     refuse_protected_core_rule(HV),
     parse_translator_rule_declarations(Declared, Declarations),
     register_translator_rule(HV, Declarations),
+    install_conjunctive_rule(HV, Declarations),
     derive_translator_rule_inverse(HV, Declarations).
 
 register_translator_rule(Name, Declarations) :-
     (   translator_rule(Name, Existing)
-    ->  (   Existing == Declarations
+    ->  %Variant, not identity: two spellings of one declaration differ only
+        %in the variables their patterns happen to hold, and =@=/2 is the
+        %comparison engine/trs.pl already uses for exactly that reason.
+        (   Existing =@= Declarations
         ->  true
         ;   throw(error(petta_duplicate_translator_rule(Name, Existing),
                         context('add-translator-rule!',
@@ -256,6 +287,62 @@ withdraw_derived_equation(Space, Equation) :-
 forget_translator_rule(Name) :-
     retractall(translator_rule(Name, _)),
     retractall(translator_rule_override(Name, _)).
+
+%%%% The conjunctive left side %%%%
+%
+%A conjunctive left side names several patterns that must ALL match: the
+%first against the call being compiled and the rest against the space the
+%rule was written in. That is a conjunctive query, and this engine already
+%has one, `match`, so the rule compiles to the equation an author would
+%otherwise write by hand, with the conjuncts as a `match` chain around the
+%expansion.
+%
+%The JOIN across the patterns is Prolog's unification on the variables they
+%share, and they share them because the whole declaration is ONE parsed form.
+%egg and TenSat have to write that join out: canonicalise every pattern's
+%variables to ?i_0, ?i_1 and so on, match each canonical pattern once,
+%de-canonicalise the substitutions back, test them for compatibility on the
+%shared variables and merge them [source: uwplse/tensat, src/rewrites.rs,
+%canonicalize/1, decanonicalize/2, compatible/3 and merge_subst/3, read
+%2026-08-21]. None of that is written here, and none of it is written twice.
+install_conjunctive_rule(Name, Declarations) :-
+    (   memberchk(left(Patterns), Declarations)
+    ->  require_declaration(Name, right(Expansion), Declarations),
+        Patterns = [Head|Conjuncts],
+        (   nonvar(Head), Head = [Name|Arguments], is_list(Arguments)
+        ->  true
+        ;   throw(error(petta_conjunctive_left_side(Name, Head),
+                        context('add-translator-rule!',
+                                'the first pattern of a conjunctive left \c
+                                 side is the call this rule rewrites, so it \c
+                                 is rooted at the rule\'s own name')))
+        ),
+        current_metta_module(Module),
+        metta_module_space(Module, Space),
+        conjunctive_body(Space, Conjuncts, [noeval, Expansion], Body),
+        Equation = [=, Head, Body],
+        'add-atom'(Space, Equation, _),
+        assertz(translator_rule_derived(Name, Space, Equation))
+    ;   \+ memberchk(right(_), Declarations)
+    ->  true
+    ;   throw(error(petta_conjunctive_left_side(Name, missing),
+                    context('add-translator-rule!',
+                            'a right side needs the left side it rewrites')))
+    ).
+
+require_declaration(Name, Wanted, Declarations) :-
+    (   memberchk(Wanted, Declarations)
+    ->  true
+    ;   functor(Wanted, Kind, _),
+        throw(error(petta_conjunctive_left_side(Name, Kind),
+                    context('add-translator-rule!',
+                            'a left side needs the right side it rewrites \c
+                             to')))
+    ).
+
+conjunctive_body(_, [], Inner, Inner).
+conjunctive_body(Space, [Conjunct|Rest], Inner, [match, Space, Conjunct, Body]) :-
+    conjunctive_body(Space, Rest, Inner, Body).
 
 %%%% The derived inverse %%%%
 
@@ -412,12 +499,14 @@ cost_ordered_direction(bidirectional).
 cost_ordered_direction(inverse(_)).
 
 %A form's cost, folded over its nodes the way an e-graph extractor folds a
-%cost function over an e-node and its children. The empty expression is one
-%node like any other atom.
+%cost function over an e-node and its children. A head whose rule declared a
+%cost costs that; everything else, the empty expression included, costs one
+%node.
 translator_form_cost(Form, Cost) :-
     (   var(Form) -> Cost = 1
     ;   Form == [] -> Cost = 1
     ;   is_list(Form) -> foldl(add_translator_form_cost, Form, 0, Cost)
+    ;   atom(Form), translator_rule_declared_cost(Form, Declared) -> Cost = Declared
     ;   Cost = 1
     ).
 
@@ -433,3 +522,5 @@ prolog:error_message(petta_repeated_translator_rule_declaration(Kind)) -->
     [ 'the ~w declaration is written more than once'-[Kind] ].
 prolog:error_message(petta_uninvertible_rule(Name, Reason)) -->
     [ '~w cannot be read backwards: ~w'-[Name, Reason] ].
+prolog:error_message(petta_conjunctive_left_side(Name, What)) -->
+    [ 'the conjunctive left side of ~w is missing or misplaced its ~w'-[Name, What] ].
