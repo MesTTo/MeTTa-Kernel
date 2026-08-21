@@ -63,11 +63,34 @@
 !(test (let $_ (pool demo-pool 2) (let $h (submit demo-pool (inc 9)) (await $h))) 10)
 
 ;Blocking until another thread writes the atom, event-driven through the
-;engine's own write hooks. The spawned branch does the writing.
+;engine's own write hooks. The spawned branch does the writing. peek-atom is
+;Linda's rd and await-atom is its older name.
 !(test (let $w (spawn (add-atom &self (ready now)))
          (let $seen (await-atom &self (ready $what) 10)
            (let $_ (await $w) $seen)))
        (ready now))
+
+;take-atom is Linda's in: the same wait, and it REMOVES the one it answers.
+;A peek leaves the atom for the next reader, which is the one-to-n half of
+;the model; a take is the one-of-n half, so the second one here finds nothing
+;and gives up on its deadline instead of answering the same job twice.
+!(add-atom &jobs (job 7))
+!(test (peek-atom &jobs (job $n)) (job 7))
+!(test (peek-atom &jobs (job $n)) (job 7))
+!(test (take-atom &jobs (job $n)) (job 7))
+!(test (collapse (take-atom &jobs (job $n) 0.05)) ())
+!(test (collapse (get-atoms &jobs)) ())
+
+;A worker is the whole point: take a job, do it, take the next. Each take
+;consumes its own job, so two takes drain two jobs and the space is empty
+;after them however the two workers interleaved.
+!(add-atom &work (job 1))
+!(add-atom &work (job 2))
+!(test (let $x (take-atom &work (job $a) 1)
+         (let $y (take-atom &work (job $b) 1)
+           (+ $a $b)))
+       3)
+!(test (collapse (get-atoms &work)) ())
 
 ;with-lock keeps every answer. SWI's with_mutex, which the built-in form uses,
 ;is once/1 and would answer (1) here.

@@ -748,6 +748,14 @@ ext_point_kind(metta_unwritable_symbol/2, service).
 %host_service above; named here in prose so an extension author finds the
 %pair together).
 ext_point_kind(petta_shape_route/5, service).
+%The event-capability door, for an extension that BLOCKS on a context's
+%changes rather than merely observing them: lib/lib_thread.pl's Linda pair
+%parks a caller until an atom arrives, and parking on a context that
+%promises no events is a hang rather than a wait. Throws naming the context
+%and the caller's own word for what it wanted to do; succeeds silently for a
+%context that can deliver, native spaces included
+%[tested: test_a_blocking_take_waits_for_a_matching_atom_and_removes_exactly_one].
+ext_point_kind(petta_require_events/2, service).
 %The routing classifier and the capability probe, consulted by
 %lib/lib_conformance.pl: published for extensions, no longer part of the
 %host transport's own list.

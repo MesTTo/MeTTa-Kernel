@@ -29,7 +29,7 @@ Source: `bindings/python/petta/subscribe.py`.
 >     them apart by reading the sentence] [tested
 >     test_a_watcher_failure_is_distinguishable_from_a_failed_write]
 >   - a queue nobody drains refuses rather than dropping the oldest event
->     [tested test_a_full_subscription_queue_refuses_rather_than_dropping]
+>     [tested test_the_subscription_queue_is_bounded_and_load_takes_a_budget]
 > Guarded by:
 >   - petta.events' fold registry lock protects queue state and the engine
 >     subscription snapshot [tested test_subscription_cancel_is_thread_safe]

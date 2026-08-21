@@ -8,6 +8,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `lib_thread` gains Linda's two blocking binds over a space.
+  `(take-atom &space (job $n))` waits until a matching atom is there, then
+  removes exactly one and answers it; `(peek-atom &space (job $n))` waits and
+  leaves it, which is what `await-atom` already did and now names. Both take
+  an optional deadline in seconds. Under contention two takers never claim
+  the same atom, so a worker pool is a take in a loop rather than
+  `lib_thread` internals. The non-blocking pair needs nothing new: `match` is
+  Linda's `rdp` and `remove-atom` its `inp`. A context that declares no event
+  delivery is refused rather than parked on a channel that will never report.
 - The engine's change events are a first-class public object. `m.events()`
   answers the stream of `(action, space, atom)`, and `EventStream.fold(step,
   space=, pattern=, on=, state=)` is the one way to consume it: a step
