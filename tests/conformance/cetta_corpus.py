@@ -34,7 +34,7 @@ import os
 import sys
 from pathlib import Path
 
-DEFAULT_CHECKOUT = Path("/home/user/Dev/CeTTa")
+DEFAULT_CHECKOUT = Path(__file__).resolve().parents[2].parent / "CeTTa"
 REPO = Path(__file__).resolve().parents[2]
 
 

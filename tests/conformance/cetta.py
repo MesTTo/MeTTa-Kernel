@@ -39,7 +39,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import leatta  # noqa: E402  -- the corpus reader and canonical comparison
 
-DEFAULT_CHECKOUT = Path("/home/user/Dev/CeTTa")
+DEFAULT_CHECKOUT = Path(__file__).resolve().parents[2].parent / "CeTTa"
 FENCES = Path(__file__).resolve().parent / "cetta_fences.txt"
 FRAGMENT = Path(__file__).resolve().parent / "cetta_shared_fragment.txt"
 
