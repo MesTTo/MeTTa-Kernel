@@ -6,6 +6,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Subscribability is now a declared capability rather than an inference from
+  a provider's write methods. A foreign context says what its change events
+  promise, through `m.declare_events(name, delivery, order)`, a Python
+  provider's `delivers()`, a Prolog provider's `metta_context_events/3`, or
+  an `(events <ctx> <delivery> <order>)` atom in `&petta`; delivery is
+  `at-most-once`, `at-least-once` or `per-write-exactly` and order is
+  `ordered` or `unordered`. A context that declares nothing is refused a
+  subscription, a `bridge` and a `declare_reaction`, naming the missing
+  capability, instead of serving a watcher that silently misses writes. A
+  native space is unaffected and needs no declaration: every write into it
+  already runs the engine's own hooks.
+
 ### Removed
 
 - The legacy `python.petta` import path. The alias package that kept

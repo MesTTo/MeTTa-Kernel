@@ -1926,6 +1926,29 @@ def declare_emits(self, name: str, policy: AnswerPolicy) -> Atom:
 > k best. Distinct from the (merge &lt;pattern> &lt;policy>) strategy,
 > which is how the ENGINE merges answers across several contexts.
 
+### `MeTTa.declare_events`
+
+```python
+def declare_events(self, name: str, delivery: Delivery, order: EventOrder = 'unordered') -> Atom:
+```
+
+> Declare what a context's change events promise.
+>
+> Subscribability is a promise about the context, not something the
+> seam reads off its methods. A native space needs no declaration:
+> every write into it runs the engine's own hooks, so it delivers
+> per-write-exactly and ordered by construction. A FOREIGN context
+> declares, and one that declares nothing refuses a subscription
+> instead of serving one that silently misses writes.
+>
+>     m.declare_events("&shared", "at-most-once")   # redis pub/sub
+>     m.declare_events("&mirror", "per-write-exactly", "ordered")
+>
+> delivery is at-most-once, at-least-once or per-write-exactly, and
+> order is ordered or unordered, defaulting to unordered because an
+> omitted promise is the weaker one. A Python provider says the same
+> thing by overriding delivers(), which registration writes here.
+
 ### `MeTTa.runtime`
 
 ```python

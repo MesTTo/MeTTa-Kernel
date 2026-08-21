@@ -12,6 +12,11 @@ Source: `bindings/python/petta/foreign.py`.
 > Guarantees:
 >   - capabilities derive from implemented narrow protocols and unknown
 >     operations are refused [tested test_capabilities_follow_implemented_methods]
+>   - subscribability is not derived: a provider declares what its change
+>     events promise through delivers(), registration publishes that as the
+>     space's (events ...) row, and one that declares nothing refuses a
+>     subscription naming the missing capability [tested
+>     test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses]
 >   - providers may decline one concrete request through should_run before its
 >     operation executes [tested test_provider_can_decline_one_request]
 >   - provider registration changes Python state only after the engine accepts
@@ -343,6 +348,31 @@ class SpaceProvider:
 > renamed form, and a rule editor, a serializer or a diff built on this will
 > meet it. If you need the source spelling, keep it yourself.
 
+### `SpaceProvider.delivers`
+
+```python
+def delivers(self) -> tuple[str, str] | None:
+```
+
+> What this space's change events promise, or None for no events.
+>
+> `(delivery, order)` from the catalog's own words: delivery is
+> "at-most-once", "at-least-once" or "per-write-exactly", and order is
+> "ordered" or "unordered". Registration writes the answer into &petta
+> as `(events <space> <delivery> <order>)`, so a MeTTa program reads
+> the same promise the engine acts on.
+>
+> None is the default and it is the safe one. Whether a space can emit
+> change events is a promise about the SPACE, not something the seam
+> can read off the methods: a store whose every write comes through
+> this engine gets per-write-exactly for free from the engine's own
+> write hooks, and one whose contents also change elsewhere gets
+> nothing unless it has a channel of its own. Deriving it from add and
+> remove made a remote space claim events it could not deliver, and a
+> watcher heard this process's own writes and missed every other one.
+> Say what your channel promises, or say nothing and subscriptions are
+> refused with your own words.
+
 ### `SpaceProvider.can_run`
 
 ```python
@@ -416,6 +446,20 @@ def unregister_provider(runtime, name: str) -> None:
 >
 > convert.unregister_type answers the same way. Removing something that
 > was never there is a mistake worth hearing about.
+
+## `delivery_promise`
+
+```python
+def delivery_promise(provider: Any) -> tuple[str, str] | None:
+```
+
+> A provider's declared event capability, checked against the catalog.
+>
+> Silence is None and means no events, which is the safe answer and what
+> every provider that says nothing gets. A claim outside the catalog's own
+> `delivery` and `event-order` vocabularies is a mistake worth hearing
+> about rather than a value to fall back from: falling back would either
+> invent a promise the author did not make or discard one they did.
 
 ## `pushdown_class`
 

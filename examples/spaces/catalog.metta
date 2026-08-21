@@ -21,6 +21,22 @@
 ;; (top k ...) consults rather than a word list compiled into the engine.
 !(test (match &petta (claim semiring ranked $p) $p) ordered)
 
+;; Whether a context can emit change events at all is a declaration here
+;; too, and not something the engine infers from a provider's methods: a
+;; remote space can be written and its contents still change on the server.
+;; So (events <ctx> <delivery> <order>) is what makes a foreign context
+;; subscribable, with delivery drawn from messaging's own three promises.
+!(test (match &petta (vocabulary delivery $a $b $c) ($a $b $c))
+       (at-most-once at-least-once per-write-exactly))
+!(test (match &petta (kind events $ctx $delivery $order) $delivery)
+       (one-of delivery))
+
+;; The value set is closed, so a promise nobody could act on is a loud
+;; error at the write rather than an atom that never matches.
+!(test (if-error (catch (add-atom &petta (events &feed eventually)))
+                 refused admitted)
+       refused)
+
 ;; A third-party kind is the same machinery: declare its vocabulary and
 ;; its shape, and from that moment the same checker guards it that guards
 ;; the shipped kinds.

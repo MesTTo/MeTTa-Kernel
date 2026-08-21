@@ -3380,8 +3380,8 @@ prolog:error_message(petta_algebra_law_violation(Algebra, Law, Inputs,
 %(explain (match &s P T)) and (explain (op ...)) answer the declarations
 %the seam would consult for that query, as atoms: which handles entry
 %routes it and with what fidelity, whether a take bound would push,
-%source, context world, annotations, emission, writes, error mode and
-%merge strategy. The self-honesty law is the lane: what explain says is
+%source, context world, annotations, emission, event delivery, writes,
+%error mode and merge strategy. The self-honesty law is the lane: what explain says is
 %what instrumented execution then does, which answers the original
 %complaint that the split was invisible.
 petta_explain([match, Space, Pattern, _Template], Out) :-
@@ -3416,6 +3416,11 @@ petta_explain_match_item(Space, _, [annotations, Semiring]) :-
     petta_annotations(Space, Semiring).
 petta_explain_match_item(Space, _, [emits, Policy]) :-
     (   petta_emits(Space, Declared) -> Policy = Declared ; Policy = none ).
+petta_explain_match_item(Space, _, [events, Delivery, Order]) :-
+    (   petta_event_capability(Space, Fidelity, Ordering)
+    ->  Delivery = Fidelity, Order = Ordering
+    ;   Delivery = none, Order = none
+    ).
 petta_explain_match_item(Space, _, [writes, Atomicity]) :-
     petta_writes(Space, Atomicity).
 petta_explain_match_item(Space, Pattern, ['on-error', Mode]) :-
@@ -4077,6 +4082,76 @@ prolog:error_message(petta_transaction_unsupported(Ctx, 'atomic-single')) -->
 %strategy for merging answers across several contexts.
 petta_emits(Ctx, Policy) :-
     petta_contract_fact([emits, Ctx, Policy]).
+
+%%%% Subscribability as a declared capability (P12.14) %%%%
+%
+%(events Ctx Delivery [Order]) declares that a context can emit change
+%events at all, and at what fidelity. Delivery is at-most-once,
+%at-least-once or per-write-exactly and Order is ordered or unordered,
+%defaulting to unordered because an omitted promise is the weaker one.
+%
+%The point is that subscribability is a promise about a CONTEXT, not a
+%property the engine may infer. A native space is the engine's own store
+%and every write into it runs metta_on_atom_added/2, so it delivers
+%per-write-exactly and ordered by construction and needs no declaration:
+%that is a fact about this engine, not an assumption about a provider. A
+%FOREIGN context is the other case, and inference there is wrong in the
+%direction that loses events. A remote space implements add and remove
+%and its contents still change on the server, so deriving "it can emit
+%events" from "it can be written" made a watcher hear this process's own
+%writes and silently miss every other one [source:
+%bindings/python/petta/remote.py, RemoteSpace.can_run; measured
+%2026-08-19]. So a foreign context serves subscriptions when it declares
+%(events ...) and is refused when it does not, naming what is missing.
+%
+%The worked foreign instances are in this tree's own dependencies: redis
+%pub/sub is fire-and-forget, so a redis-attached space promises
+%at-most-once, and PostgreSQL LISTEN/NOTIFY is the same shape. The
+%decoupling dimensions a declaration here is about are the pub/sub
+%survey's own [source: Eugster, Felber, Guerraoui and Kermarrec, The Many
+%Faces of Publish/Subscribe, ACM Computing Surveys 35(2), 2003, section
+%2.2: space, time and synchronization decoupling]
+%[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
+petta_events(Ctx, Delivery, Order) :-
+    (   petta_contract_fact([events, Ctx, Delivery, Declared])
+    ->  Order = Declared
+    ;   petta_contract_fact([events, Ctx, Delivery])
+    ->  Order = unordered
+    ;   metta_context_events(Ctx, Delivery, Order)
+    ).
+
+%What a space can deliver, whoever holds it. Native spaces answer the
+%engine's own guarantee; a foreign one answers its declaration, and a
+%foreign one without a declaration answers nothing, which is what the
+%refusal below reads.
+petta_event_capability(Space, Delivery, Order) :-
+    (   metta_foreign_space(Space)
+    ->  once(petta_events(Space, Delivery, Order))
+    ;   petta_events(Space, Delivery, Order)
+    ->  true
+    ;   Delivery = 'per-write-exactly',
+        Order = ordered
+    ).
+
+%Refuse an operation that needs change events on a context that promises
+%none. Operation is the caller's own word, so a blocking take and a
+%standing query each name themselves.
+petta_require_events(Space, Operation) :-
+    (   petta_event_capability(Space, _, _)
+    ->  true
+    ;   throw(error(petta_events_undeclared(Space, Operation), none))
+    ).
+
+:- multifile prolog:error_message//1.
+prolog:error_message(petta_events_undeclared(Space, Operation)) -->
+    [ '~w cannot ~w: it declares no (events ~w <delivery>) capability, \c
+       so nothing promises its changes reach a watcher. A context whose \c
+       every write goes through this engine declares (events ~w \c
+       per-write-exactly ordered); one with its own channel declares \c
+       what that channel promises, at-most-once or at-least-once; and \c
+       one whose contents change where no channel reports it declares \c
+       nothing and is refused here rather than serving a subscription \c
+       that silently misses writes'-[Space, Operation, Space, Space] ].
 
 %%%% The handles route: declared fidelity per context and shape %%%%
 %

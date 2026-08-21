@@ -19,6 +19,11 @@
 %     [tested: spaces_parametric; commit=3c7bcde6a0670ec5c563584b26977b41cc727580].
 %   - duplicate declarations in one batch are detected before any member is
 %     stored [tested: spaces_batch_is_only_a_transport; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - a foreign context provides subscribe exactly when it declares an event
+%     delivery, and a standing query or reaction on one that declares none is
+%     refused naming the missing capability, while a native space answers
+%     per-write-exactly and ordered with nothing declared
+%     [tested: spaces_event_capability; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -2353,3 +2358,75 @@ test(a_failed_outer_transaction_leaves_no_restriction) :-
     assertion(\+ native_storage_module_cache('&restricted-rollback', _)).
 
 :- end_tests(spaces_restricted_modules).
+
+% The declared event capability (P12.14): subscribability is a promise about
+% a context rather than something read off its methods, so a foreign space
+% that declares nothing is refused a standing query and one that declares a
+% delivery is served, while a native space needs no declaration because
+% every write into it already runs the engine's own hooks.
+% The two providers are declared at FILE level, outside the unit:
+% begin_tests/1 opens a module of its own, so a multifile clause written
+% inside it defines that module's predicate and the engine never sees it.
+metta_foreign_space('&plunit_events_quiet').
+metta_foreign_capability('&plunit_events_quiet', Capability) :-
+    member(Capability, [add, remove, match, enumerate, subscribe]).
+metta_foreign_match('&plunit_events_quiet', [fact, X]) :- X = quiet.
+
+metta_foreign_space('&plunit_events_loud').
+metta_foreign_capability('&plunit_events_loud', Capability) :-
+    member(Capability, [add, remove, match, enumerate, subscribe]).
+metta_foreign_match('&plunit_events_loud', [fact, X]) :- X = loud.
+
+:- multifile metta_context_events/3.
+metta_context_events('&plunit_events_loud', 'at-least-once', unordered).
+
+:- begin_tests(spaces_event_capability).
+
+test(a_declared_context_provides_subscribe_and_a_silent_one_does_not) :-
+    assertion(foreign_provides('&plunit_events_loud', subscribe)),
+    assertion(\+ foreign_provides('&plunit_events_quiet', subscribe)),
+    % Every other capability the same provider registered is untouched, so
+    % this is one withdrawn promise rather than a broken space.
+    forall(member(C, [add, remove, match, enumerate]),
+           assertion(foreign_provides('&plunit_events_quiet', C))).
+
+test(the_declaration_carries_its_delivery_and_order) :-
+    petta_event_capability('&plunit_events_loud', Delivery, Order),
+    assertion(Delivery == 'at-least-once'),
+    assertion(Order == unordered).
+
+test(a_native_space_delivers_per_write_exactly_without_declaring_it) :-
+    petta_event_capability('&plunit-events-native', Delivery, Order),
+    assertion(Delivery == 'per-write-exactly'),
+    assertion(Order == ordered).
+
+test(a_standing_query_on_a_silent_context_is_refused_naming_the_capability,
+     [ cleanup(( metta_remove_atom('&petta',
+                                   [subscription, '&plunit_events_loud',
+                                    [fact, quiet], add], _),
+                 metta_remove_atom('&petta',
+                                   [on, '&plunit_events_loud', [fact, quiet],
+                                    [insert, '&plunit-events-native', done]],
+                                   _) )) ]) :-
+    catch('add-atom'('&petta',
+                     [subscription, '&plunit_events_quiet', [fact, quiet], add],
+                     _),
+          error(Ball, _), true),
+    assertion(Ball == petta_events_undeclared('&plunit_events_quiet',
+                                              'be subscribed to')),
+    catch('add-atom'('&petta',
+                     [on, '&plunit_events_quiet', [fact, quiet],
+                      [insert, '&plunit-events-native', done]],
+                     _),
+          error(Reaction, _), true),
+    assertion(Reaction == petta_events_undeclared('&plunit_events_quiet',
+                                                  'carry a reaction')),
+    % The declared one takes both, so the refusal is about the promise and
+    % not about the declaration shape.
+    'add-atom'('&petta',
+               [subscription, '&plunit_events_loud', [fact, quiet], add], _),
+    'add-atom'('&petta',
+               [on, '&plunit_events_loud', [fact, quiet],
+                [insert, '&plunit-events-native', done]], _).
+
+:- end_tests(spaces_event_capability).

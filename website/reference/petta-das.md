@@ -168,6 +168,17 @@ def can_run(self, capability: str, /, **request: Any) -> bool:
 
 No docstring is defined.
 
+### `DASSpace.delivers`
+
+```python
+def delivers(self) -> tuple[str, str] | None:
+```
+
+> Nothing, because nothing writes here.
+>
+> A DAS space never writes through this connection, so there is no
+> write for an event to be about.
+
 ### `DASSpace.refusal`
 
 ```python

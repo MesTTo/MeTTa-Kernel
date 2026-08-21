@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/petta-*.md` | 23 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 32 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 148 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 149 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 23,370 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
+| `engine/*.pl` | 23,512 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -343,6 +343,13 @@ sample_rates(query, *, algebra, draws, seed)
 declare_admits(name, type_name)     only TYPE-carrying atoms enter
 declare_capacity(name, limit)       an add beyond LIMIT is refused loudly
 declare_reaction(name, pattern, operation)   stored as an (on ...) atom
+declare_events(name, "at-most-once"|"at-least-once"|"per-write-exactly",
+               "ordered"|"unordered")
+        what a foreign context's change events promise. Subscribability is a
+        promise about the context, not an inference from its write methods: a
+        context that declares nothing refuses subscribe, bridge and reaction
+        naming the missing capability. A Python provider says the same thing
+        by overriding delivers(); a native space needs no declaration.
 ```
 
 ## Observability
@@ -514,8 +521,9 @@ discarding the oldest. A callback that raises reaches the writer as
 `SubscriberError`, which carries `.subscription` and says the write was
 applied, so it is not a failed write and retrying it duplicates.
 `bridge(...)` connects two spaces. `Subscription` is a context manager and
-also a blocking event stream. A `RemoteSpace` refuses `subscribe`: there is
-no event channel on the wire.
+also a blocking event stream. A foreign space is watchable only when it
+declares what its change events promise; a `RemoteSpace` declares nothing and
+refuses `subscribe`, because there is no event channel on the wire.
 
 The wire has both doors the in-process seam has. `RemoteSpace.match` is
 eager, one request carrying the whole answer set, and `RemoteSpace.stream`

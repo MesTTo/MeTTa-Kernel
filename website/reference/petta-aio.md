@@ -645,6 +645,19 @@ async def declare_emits(self, name: str, policy: AnswerPolicy) -> Atom:
 
 No docstring is defined.
 
+### `AsyncMeTTa.declare_events`
+
+```python
+async def declare_events(
+    self,
+    name: str,
+    delivery: Delivery,
+    order: EventOrder = 'unordered',
+) -> Atom:
+```
+
+> Declare what a context's change events promise; see MeTTa.declare_events.
+
 ### `AsyncMeTTa.declare_handles`
 
 ```python

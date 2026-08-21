@@ -17,6 +17,10 @@
 % Guarantees:
 %   - Every native space stores its atoms in a private data module that does
 %     not inherit user predicates [tested: spaces_storage_modules].
+%   - subscribe follows the (events ...) declaration rather than what a host
+%     registered, and a standing query or a reaction on a context that
+%     declares none is refused at the catalog door naming the missing
+%     capability [tested: spaces_event_capability; commit=WORKTREE].
 %   - stored_atom_of_ref/3 is add_sexp_in/4's inverse over both stored shapes,
 %     and answers for a stored atom's clause reference alone: not for a
 %     compiled clause's, not for a registration's, not for an erased one
@@ -769,6 +773,22 @@ petta_check_catalog_semantics('dispatch-policy', [Function, Axis, Value], Term) 
                                   'one override per function and dispatch axis; remove the old row first')
     ;   true
     ).
+%A standing query is a PROMISE about the watched context, so it is checked
+%against what that context declares it can deliver, here at the catalog
+%door every '&petta' write already passes rather than at one host's
+%subscribe method. (subscription ...) is the reflection atom every
+%subscription writes before it activates and (on ...) is a declared
+%reaction, and both hear a context only through its change events, so a
+%context with no (events ...) capability refuses both, naming what is
+%missing. One authority, one door, every host: a MeTTa program adding the
+%atom by hand is refused exactly as the Python surface is
+%[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
+petta_check_catalog_semantics(subscription, [Ctx|_], _) :-
+    !,
+    petta_require_events(Ctx, 'be subscribed to').
+petta_check_catalog_semantics(on, [Ctx|_], _) :-
+    !,
+    petta_require_events(Ctx, 'carry a reaction').
 petta_check_catalog_semantics(_, _, _).
 
 petta_declared_algebra_requirements(Algebra, Required, _) :-
@@ -1163,6 +1183,20 @@ petta_catalog_preset([vocabulary, 'cache-mode', unchecked]).
 petta_catalog_preset([vocabulary, 'effect-class', immutable]).
 petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
 petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
+%What a context promises about the change events it emits. The three
+%delivery words are messaging's own, at-most-once, at-least-once and the
+%exactly-once rung, spelled per-write-exactly here because the unit is one
+%write into one space rather than one message; ordering is the second axis
+%because a channel may deliver every write and still deliver them out of
+%order. A context that promises neither declares no (events ...) row and
+%is refused a subscription instead of serving one that silently drops
+%writes [source: Eugster, Felber, Guerraoui and Kermarrec, The Many Faces
+%of Publish/Subscribe, ACM Computing Surveys 35(2), 2003, whose space,
+%time and synchronization decoupling are the dimensions a declaration
+%here is about].
+petta_catalog_preset([vocabulary, delivery,
+                      'at-most-once', 'at-least-once', 'per-write-exactly']).
+petta_catalog_preset([vocabulary, 'event-order', ordered, unordered]).
 petta_catalog_preset([vocabulary, volatility, volatile, stable, immutable]).
 petta_catalog_preset([vocabulary, 'route-key', context, global]).
 petta_catalog_preset([vocabulary, 'space-capability', file, process, network]).
@@ -1198,6 +1232,8 @@ petta_catalog_preset([kind, context, symbol, ['one-of', world]]).
 petta_catalog_preset([kind, admits, symbol, term]).
 petta_catalog_preset([kind, capacity, symbol, integer]).
 petta_catalog_preset([kind, writes, symbol, ['one-of', atomicity]]).
+petta_catalog_preset([kind, events, symbol, ['one-of', delivery],
+                      [optional, ['one-of', 'event-order']]]).
 petta_catalog_preset([kind, emits, symbol, ['one-of', 'answer-policy']]).
 petta_catalog_preset([kind, cache, symbol, ['one-of', 'cache-mode']]).
 petta_catalog_preset([kind, effect, symbol, ['one-of', 'effect-class']]).
@@ -1235,6 +1271,7 @@ petta_catalog_preset([policy, fidelity, handles, 'Exact']).
 petta_catalog_preset([policy, 'source-kind', source, repeated]).
 petta_catalog_preset([policy, 'transaction-mode', transaction, 'all-answers']).
 petta_catalog_preset([policy, atomicity, writes, transactional]).
+petta_catalog_preset([policy, delivery, events, 'per-write-exactly']).
 petta_catalog_preset([policy, 'save-format', save, metta]).
 petta_catalog_preset([policy, volatility, volatility, stable]).
 petta_catalog_preset([policy, determinism, determinism, nondet]).
@@ -2490,9 +2527,20 @@ metta_host_clear_defined(Space) :-
 %from the protocols the provider implements
 %[tested: test_a_python_providers_capabilities_reach_the_engine,
 %a_partial_declaration_declares_the_whole_set].
+%subscribe is the one capability no registration may claim on its own, and
+%that is P12.14's whole point: the other eight are questions about what a
+%provider implements, and this one is a promise about what its CONTEXT can
+%deliver. A remote space implements add and remove and its contents still
+%change on the server. So the (events ...) declaration decides it, whatever
+%a host registered, and a context that declares nothing is refused here
+%[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
 foreign_provides(Space, Capability) :-
     (   metta_foreign_capability(Space, _)
     ->  metta_foreign_capability(Space, Capability)
+    ;   true
+    ),
+    (   Capability == subscribe
+    ->  petta_event_capability(Space, _, _)
     ;   true
     ).
 
