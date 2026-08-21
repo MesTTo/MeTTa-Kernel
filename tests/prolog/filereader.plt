@@ -6,6 +6,10 @@
 %     [tested: filereader_source_rollback:failed_load_removes_compiler_state_and_generated_lambdas,
 %     filereader_source_reload:reloading_one_contributor_preserves_another_contributors_support;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - The grouped reader records its source contribution and returns one
+%     answer group per runnable form after end-of-source repair
+%     [tested: filereader_source_reload:a_grouped_load_runs_inside_the_source_lifecycle;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -323,6 +327,22 @@ test(a_load_records_what_the_file_contributed) :-
           atom_length(Digest, 64),
           aggregate_all(count, user:source_load_assertion(LoadId, _), Asserted),
           Asserted > 0 ),
+        forget_reload_source(Path, F)).
+
+test(a_grouped_load_runs_inside_the_source_lifecycle) :-
+    F = 'plunit-grouped-lifecycle',
+    reload_scratch_file(Path),
+    setup_call_cleanup(
+        write_reload_source(
+            Path,
+            "(= (plunit-grouped-lifecycle $x) (+ $x 1))\n!(plunit-grouped-lifecycle 41)\n"),
+        ( user:load_metta_source_groups(Path, '&self', [Group]),
+          maplist(user:metta_answer_term, Group, Answers),
+          Answers == [42],
+          absolute_file_name(Path, Canon, [access(read)]),
+          once(user:metta_source_load(Canon, '&self', LoadId, Digest)),
+          atom_length(Digest, 64),
+          once(user:source_load_assertion(LoadId, _)) ),
         forget_reload_source(Path, F)).
 
 test(an_unchanged_file_is_not_loaded_again) :-

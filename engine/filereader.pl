@@ -54,6 +54,10 @@
 %     collection template, preserving source variable identity through
 %     findall without attributed variables [tested:
 %     test_variable_names_survive_to_the_printer; commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
+%   - Grouped source execution enters the same replace, rollback, support
+%     repair, and contribution-recording lifecycle as ordinary file loading
+%     [tested: filereader_source_reload:a_grouped_load_runs_inside_the_source_lifecycle;
+%     commit=WORKTREE].
 %   - A file that loads again REPLACES what it put in that space rather than
 %     adding to it, reaches any other space its change has made stale, and
 %     says what it withdrew [tested 2026-08-19:
@@ -237,11 +241,28 @@ load_metta_file_impl(Filename, Results, Space) :-
 %including it, and tests/conformance/leatta_run.pl needs every group, because
 %the arbiter records one bracketed line per form and the grouping IS the
 %observation. It ran its own copy of this until include needed one too.
+%
+%This is an explicit execution door, so it loads on every call just as the
+%Python library's load() does. The public wrapper still enters the ordinary
+%file lifecycle: definitions are replaceable, failed loads roll back, and
+%support repair waits until the complete source has been admitted. The raw
+%implementation below exists only as the lifecycle's body.
 %The cut is process_metta_string/4's, for its reason: a source has ONE
 %reading, and process_form/4's last clause turns a backtrack into "could not
 %translate this form", so a caller that fails after a successful load is told
 %the source was malformed.
 load_metta_source_groups(Filename, Space, Groups) :-
+    with_mutex(metta_loader,
+               catch(load_entry_metta_source_groups(Filename, Space, Groups),
+                     Error,
+                     rethrow_metta_file_error(Filename, Error))).
+
+load_entry_metta_source_groups(Filename, Space, Groups) :-
+    absolute_file_name(Filename, CanonPath, [access(read)]),
+    import_when(true, Space, CanonPath,
+                load_imported_metta_source_groups(CanonPath, Groups, Space)).
+
+load_metta_source_groups_impl(Filename, Space, Groups) :-
     setup_call_cleanup(push_working_dir(Filename),
                        read_metta_source_groups(Filename, Space, Groups),
                        pop_working_dir).
@@ -677,6 +698,17 @@ load_imported_metta_file(Filename, Results, Space) :-
           Error,
           rethrow_metta_file_error(Filename, Error)).
 
+%The grouped door differs only in its result shape. Re-population of other
+%spaces deliberately uses the ordinary loader because no caller observes
+%those spaces' directive groups.
+load_imported_metta_source_groups(Filename, Groups, Space) :-
+    catch(replacing_previous_load(
+              Filename, Space,
+              load_imported_metta_file_impl(Filename, _),
+              load_imported_metta_source_groups_impl(Filename, Groups, Space)),
+          Error,
+          rethrow_metta_file_error(Filename, Error)).
+
 %Each pass gets a load context of its own: a file's equations compile into
 %EVERY receiving space's module and its atoms are stored once per space, so
 %the second space's copy is a contribution the file made and has to be
@@ -694,6 +726,17 @@ load_imported_metta_file_impl(Filename, Results, Space) :-
 run_new_source_load(Filename, Results, Space) :-
     with_source_load(Filename, Space,
                      load_metta_file_impl(Filename, Results, Space)).
+
+load_imported_metta_source_groups_impl(Filename, Groups, Space) :-
+    ( compiled_metta_source(Filename)
+      -> with_source_load(
+             Filename, Space,
+             load_metta_source_groups_impl(Filename, Space, Groups))
+       ; run_with_loading_marker(
+             compiled_metta_source(Filename),
+             with_source_load(
+                 Filename, Space,
+                 load_metta_source_groups_impl(Filename, Space, Groups))) ).
 
 %One source load: the context every assertion is filed under while it runs, the
 %repair pass at the end, and the two ways it can finish. A failure rolls the
