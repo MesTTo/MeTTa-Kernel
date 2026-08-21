@@ -862,33 +862,28 @@ backend_entry(Entry) :-
 % so both are walked.
 backend_directories(['../../backends/mork', '../../backends/mork/mork_ffi']).
 
-% The same discipline as the other three walks here, and carried further,
-% because this one delegates to a library: a probe that exercised only code in
-% THIS file would say nothing about whether prolog_walk_code/1 was called
-% correctly. So each door is a real clause, asserted, walked by the real walk
-% and retracted, and the check reports WHICH door stopped firing rather than
-% only that one did.
-%
-% A backend that is not built contributes no clauses, so a clean result also
-% has to be told apart from an empty one, which is what the count is for.
+% The eyesight proof is surface_walk.pl's, shared with the library gate, for
+% the reason the walk itself is shared: two callers proving the same walker two
+% ways would answer different questions about it. What stays here is what the
+% BACKEND direction adds -- a backend that is not built contributes no clauses,
+% so a clean result also has to be told apart from an empty one, which is what
+% the count is for.
 backend_scan_sees_a_planted_reach :-
     backend_directories(Directories),
     extension_clause_count(Directories, Examined),
-    Internal = register_prolog_arities/1,
+    planted_internal(Internal),
     (   published_surface(Internal)
     ->  format(user_error,
                'the planted reach ~w is published surface, so it proves \c
                 nothing; pick an engine predicate that is not~n', [Internal]),
         fail
-    ;   findall(Door, planted_reach(Door, _), Doors),
-        length(Doors, Total),
-        findall(Door, ( planted_reach(Door, Body), door_is_seen(Body) ), Fired),
-        length(Fired, Seen),
-        (   Seen =:= Total
+    ;   scan_sees_every_planted_reach(Total, Missed),
+        (   Missed == []
         ->  format("static: no backend reaches past the published surface in \c
                     ~d backend clauses, and the walk saw a planted reach by \c
                     each of ~d doors~n", [Examined, Total])
-        ;   findall(D, ( planted_reach(D, _), \+ memberchk(D, Fired) ), Missed),
+        ;   length(Missed, Blind),
+            Seen is Total - Blind,
             format(user_error,
                    'the backend surface walk saw ~d of ~d planted reaches, so \c
                     its clean result says nothing~nit is blind to: ~w~n',
@@ -896,23 +891,3 @@ backend_scan_sees_a_planted_reach :-
             fail
         )
     ).
-
-door_is_seen(Body) :-
-    setup_call_cleanup(
-        assertz((planted_probe :- Body), Reference),
-        ( walked_reaches([Reference], Reaches),
-          memberchk(planted_probe/0-(register_prolog_arities/1), Reaches) ),
-        erase(Reference)).
-
-% One per way a call can hide, because each is a separate path through the walk
-% and only the first is exercised by the tree as it stands. The hand-written
-% version of this walk was blind to the second, and blind to the fourth even
-% after it learned meta_predicate specs: nothing declares planted_helper/2 a
-% meta-predicate, and inferring that is the reason the walk is SWI's rather
-% than this file's.
-planted_reach(control_structure, (true, register_prolog_arities(_))).
-planted_reach(declared_meta,     ignore(maplist(register_prolog_arities, []))).
-planted_reach(caret_goal,        \+ bagof(_, _^register_prolog_arities(_), _)).
-planted_reach(inferred_meta,     planted_helper(register_prolog_arities, [])).
-
-planted_helper(Goal, List) :- maplist(Goal, List).

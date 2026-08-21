@@ -7347,9 +7347,13 @@ load_prelude_form(Kind, Src, _) :-
     throw(error(domain_error(prelude_form, Kind),
                 context(load_engine_prelude/0, Src))).
 
-%One initialization goal for both, in this order, because initialization/1
-%goals do not reliably order against each other (the note above) and the
-%prelude's bodies mention constructors like Error whose Atom masking reads
-%the surface loaded first.
-:- initialization((protect_metta_exec_modules,
+%One initialization goal for all of them, in this order, because
+%initialization/1 goals do not reliably order against each other (the note
+%above) and the prelude's bodies mention constructors like Error whose Atom
+%masking reads the surface loaded first. The seam sweep runs first and for the
+%same reason engine/ext_points.pl's own directive cannot be the whole of it: a
+%seam is declared there before the file that defines it is loaded, so the
+%export the declaration promises can only be made once every engine file has
+%been [tested: metta_published_surface:every_declared_seam_that_exists_is_exported].
+:- initialization((petta_publish_declared_seams, protect_metta_exec_modules,
                    load_builtin_type_surface, load_engine_prelude)).

@@ -761,6 +761,89 @@ ext_point_kind(current_metta_module/1, service).
 %of it, three of them outside engine/spaces.pl].
 ext_point_kind(space_module/2, service).
 ext_point_kind(metta_module_space/2, service).
+%The space a program is running in, beside the module it compiles into. A
+%library that reads a declaration out of the running space asks for the space,
+%not the module, because a declaration is stored as an atom.
+ext_point_kind(current_metta_space/1, service).
+%Whether a term is a space name at all, the test every extension taking a
+%space argument needs before it uses one. 'is-space'/2 is the MeTTa spelling
+%of the same question and is published as a builtin; this is the Prolog one,
+%and it is the test rather than a lookup, so an unbound or computed term is
+%refused instead of read as an empty space.
+ext_point_kind(petta_space_name/1, service).
+
+%EVALUATION IN A SPACE. space_module/2 above names the module a space compiles
+%into; this is what a library names it FOR. lib/lib_thread.pl runs a MeTTa
+%expression on a worker thread eight different ways and every one of them
+%goes through here, because a thread inherits no context and the module has to
+%travel with the expression [source: lib/lib_thread.pl, par_map_/4 and its
+%siblings].
+ext_point_kind(eval_metta_in_module/3, service).
+
+%NATIVE STORAGE. A space has two halves and the execution one is declared
+%above. This is the other: which module a native space's atoms live in, which
+%functor answers them, and what clause one atom becomes. Published as a group
+%because a library that pre-generates a space's storage needs all three at
+%once and must use the SAME spelling add-atom uses -- lib/lib_import.pl
+%converts a data file to Prolog facts ahead of time, and a second spelling of
+%the format would load clauses the space could never read, which is the defect
+%that file's own header records. ensure_native_storage_module/2 is the
+%make-it-exist half, for a writer that runs before the space holds anything.
+ext_point_kind(native_storage_module/2, service).
+ext_point_kind(native_storage_functor/2, service).
+ext_point_kind(ensure_native_storage_module/2, service).
+ext_point_kind(native_atom_clause/3, service).
+%The match a foreign provider answers, published for the library that CHECKS
+%providers: lib/lib_conformance.pl runs a provider's own atoms back through it
+%to prove the over-approximation contract holds. match_foreign/5 is the host
+%transport's arity and is a host_service above; this is the four-argument
+%engine-side call an extension makes.
+ext_point_kind(match_foreign/4, service).
+
+%PURITY AND CACHING. Whether a function may be cached, and what its body
+%reads. Two independent libraries ask (lib/lib_memo.pl and lib/lib_tabling.pl)
+%and both delegate the DECISION to the engine rather than deciding it twice:
+%metta_effect_walk/3 is the engine's walk over a compiled body and carries the
+%engine's own refusal for a goal nothing declares pure, metta_function_cacheable/1
+%is the declared volatility, and metta_cache_unchecked/1 is the caller's own
+%(cache Name unchecked) waiver. A cache that answered these for itself would
+%drift from the declarations the engine enforces everywhere else.
+ext_point_kind(metta_effect_walk/3, service).
+ext_point_kind(metta_function_cacheable/1, service).
+ext_point_kind(metta_cache_unchecked/1, service).
+
+%THE SUPPORT GRAPH's other direction. Its handler seams are declared in
+%engine/support_graph.pl (support_invalidation_action/1 and four more), so an
+%extension can already be CALLED by the graph; these are the three calls it
+%makes back to take part -- record an edge, invalidate from a changed input,
+%and drop a node. Declaring only the inbound half is what left lib/lib_memo.pl
+%reaching into the graph's internals to do the outbound one.
+ext_point_kind(support_record/2, service).
+ext_point_kind(support_invalidate/1, service).
+ext_point_kind(support_forget/1, service).
+
+%SOURCE AND VOCABULARY. The published parser hands back parsed/3 terms, so
+%without a way to take one apart the answer is opaque; parsed_form_parts/4 is
+%that way and belongs beside parse_metta_source/2 above.
+ext_point_kind(parsed_form_parts/4, service).
+%Where a relative path resolves from. The bare working_dir/1 has a clause only
+%while a .metta load is active, so a library that reads a file from anywhere
+%else simply failed with no answer and no error; this is the one that falls
+%back to the process directory [source: lib/lib_import.pl, 'static-import!'/3].
+ext_point_kind(current_working_dir/1, service).
+%Membership in a declared vocabulary, the question every consulting site asks.
+%A library validating its own option against a vocabulary the catalog declares
+%reads the same table the engine reads, so a value the catalog gains is
+%accepted without editing the library.
+ext_point_kind(petta_vocabulary_value/2, service).
+%The import lifecycle's marker. A library that performs an import of its own
+%(lib/lib_gitimport.pl's git-import!) has to run under the same marker, or a
+%failed load leaves behind the clauses the engine would have erased.
+ext_point_kind(run_with_loading_marker/2, service).
+%The third error-vocabulary service, beside the two above. engine/kernel.pl's
+%own builtins refuse an unbound argument through it, and a library builtin
+%that takes an input refuses the same way rather than inventing a message.
+ext_point_kind(refuse_unbound_input/2, service).
 
 %Extra type candidates for grounded host objects, beyond the object's own
 %classes: a protocol the object satisfies may name a type, so a declared
@@ -822,6 +905,58 @@ ext_point_kind(metta_host_reader_token_construct/3, ownership).
 :- dynamic metta_form_rewriter/1.
 :- multifile metta_form_rewriter/1.
 ext_point_kind(metta_form_rewriter/1, ownership).
+
+%%%% Published means exported %%%%
+%
+%Until now a declaration was a promise nothing kept: a seam declared here was
+%no more reachable, and no less internal, than the predicate beside it, and the
+%two surface checks answered "is this published" by reading this table a second
+%time. Declaring a seam EXPORTS it, so the promise is a fact the module system
+%holds and the checks ASK for: published_surface/1 in
+%tests/prolog/surface_walk.pl reads module_property(Engine, exports(E)) and no
+%longer reads this table
+%[tested: every_declared_seam_that_exists_is_exported,
+%a_seam_declared_in_a_later_file_is_exported,
+%a_declaration_without_a_definition_is_not_exported].
+%
+%Every kind, not services alone. An extension resolves a handler seam by name
+%as surely as it calls a service, and a name the engine publishes in either
+%direction is surface either way. What the kinds still decide is who writes the
+%clauses, which every_seam_kind_matches_its_direction checks apart.
+%
+%A declaration whose predicate does not exist yet is skipped rather than
+%refused: a library declares its own seam beside the clauses that define it,
+%and a seam is declared here before the file that defines it is loaded. The
+%listener below is what catches both, and it is the same channel the atom
+%hooks use, so a clause that arrives by consult is seen exactly as one that
+%arrives by assert.
+petta_publish_seam(Seam) :-
+    petta_engine_module(Engine),
+    (   current_predicate(Engine:Seam)
+    ->  Engine:export(Seam)
+    ;   true
+    ).
+
+petta_publish_declared_seams :-
+    forall(ext_point_kind(Seam, _), petta_publish_seam(Seam)).
+
+%A seam declared later publishes itself. Only the additions matter, so a
+%retract is ignored: SWI has no unexport, and a seam withdrawn at run time is
+%not a thing the tree does.
+petta_seam_declared(Action, Reference) :-
+    % policy-inventory-exempt: mechanism-internal; reason=asserta and assertz are prolog_listen/2's own action vocabulary for a clause arriving rather than an engine decision; evidence=engine/ext_points.pl:petta_seam_declared/2
+    (   memberchk(Action, [asserta, assertz]),
+        blob(Reference, clause),
+        catch(clause(ext_point_kind(Seam, _), _, Reference), _, fail)
+    ->  petta_publish_seam(Seam)
+    ;   true
+    ).
+
+:- prolog_listen(ext_point_kind/2, petta_seam_declared).
+%And the ones declared above, which the listener could not have seen. The
+%sweep runs again from engine/metta.pl's own initialization, after every file
+%the engine loads has defined what it declared here.
+:- petta_publish_declared_seams.
 
 :- use_module(library(prolog_wrap)).
 

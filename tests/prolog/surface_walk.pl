@@ -208,8 +208,76 @@ engine_predicate(Name/Arity) :-
     tree_directory('../../engine', EngineDir),
     sub_atom(File, 0, _, _, EngineDir).
 
-% Read as data rather than listed here. A declared extension point is the
-% contract in either direction, and a MeTTa builtin is the LANGUAGE, which an
-% extension calls the way any program calls it.
-published_surface(Seam) :- ext_point_kind(Seam, _).
+% ASKED of the module system rather than read back out of the declaration
+% table. engine/ext_points.pl turns every ext_point_kind/2 declaration into an
+% export of the engine's module, so the export list IS the surface and this
+% cannot drift from it: a seam declared and never defined is not exported and
+% is not published here either, where reading the table would have called it
+% published and left a caller with an existence error. The engine also exports
+% every name it emits into compiled bodies, which is how those are bound into a
+% space's module at all, so they are surface by the same rule and for a reason
+% the kinds do not have to restate [source: engine/ext_points.pl,
+% petta_publish_seam/1 and engine/spaces.pl, protect_engine_emitted/1].
+%
+% A MeTTa builtin is the LANGUAGE, which an extension calls the way any program
+% calls it, and builtin_fun/1 is where the language says which names those are.
+published_surface(Seam) :-
+    petta_engine_module(Engine),
+    module_property(Engine, exports(Exports)),
+    memberchk(Seam, Exports).
 published_surface(Name/_) :- builtin_fun(Name).
+
+%%%% Proving the walk can still see %%%%
+%
+% A clean result from any of the three walks above says nothing on its own: a
+% bug in record_reach/3, in published_surface/1 or in the options handed to
+% prolog_walk_code/1 reports every tree clean and nothing says so. So each
+% caller that reports clean proves its eyesight first, against a real clause
+% asserted and walked by the real walk, one per way a call can hide, and names
+% WHICH door stopped firing rather than only that one did.
+%
+% It lives here rather than in a caller for the reason the module discovery
+% above does: it was written in static_checks.pl for the backend gate, the
+% library walk had no equivalent, and the two would answer different questions
+% about the same walker. One prover, one walker, both callers.
+scan_sees_every_planted_reach(Total, Missed) :-
+    findall(Door, planted_reach(Door, _), Doors),
+    length(Doors, Total),
+    findall(Door, ( planted_reach(Door, Body), \+ door_is_seen(Body) ), Missed).
+
+% The planted callee has to be an engine predicate that is NOT published, or
+% the probe proves nothing; a caller checks that before trusting the result.
+planted_internal(register_prolog_arities/1).
+
+% The helper's OWN clause is walked beside the probe, because that is how SWI
+% comes to know it is a meta-predicate: library(prolog_codewalk) infers a spec
+% only for a predicate whose clauses the walk has visited, and the inference is
+% then remembered process-wide. Walking the probe alone therefore reported this
+% door blind or seeing depending on what the caller had already walked --
+% static_checks.pl reaches check/0 first, which walks the whole tree and infers
+% it, and library_surface.pl walks nothing else and reported itself blind to
+% exactly that one door [measured 2026-08-21]. Including the helper is also the
+% faithful case: a backend's own undeclared meta-helper is a clause inside the
+% directory being walked [source: library(prolog_codewalk),
+% register_possible_meta_clause/1 and infer_new_meta_predicates/2].
+door_is_seen(Body) :-
+    planted_internal(Internal),
+    once(nth_clause(planted_helper(_, _), 1, HelperReference)),
+    setup_call_cleanup(
+        assertz((planted_probe :- Body), Reference),
+        ( walked_reaches([Reference, HelperReference], Reaches),
+          memberchk(planted_probe/0-Internal, Reaches) ),
+        erase(Reference)).
+
+% One per way a call can hide, because each is a separate path through the walk
+% and only the first is exercised by the tree as it stands. The hand-written
+% version of this walk was blind to the second, and blind to the fourth even
+% after it learned meta_predicate specs: nothing declares planted_helper/2 a
+% meta-predicate, and inferring that is the reason the walk is SWI's rather
+% than this file's.
+planted_reach(control_structure, (true, register_prolog_arities(_))).
+planted_reach(declared_meta,     ignore(maplist(register_prolog_arities, []))).
+planted_reach(caret_goal,        \+ bagof(_, _^register_prolog_arities(_), _)).
+planted_reach(inferred_meta,     planted_helper(register_prolog_arities, [])).
+
+planted_helper(Goal, List) :- maplist(Goal, List).

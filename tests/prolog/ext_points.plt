@@ -268,3 +268,62 @@ test(a_library_error_term_renders_through_the_seam) :-
     assertion(sub_string(Text, _, _, _, "compiles one Prolog goal")).
 
 :- end_tests(ext_points_messages).
+
+:- begin_tests(metta_published_surface).
+
+% Declaring a seam publishes it, and publishing means EXPORTING it from the
+% engine's module. Before this the declaration was a comment with a checker
+% reading it back, so "published" was two copies of one list; now the module
+% system holds the answer and the surface walks ask it.
+test(every_declared_seam_that_exists_is_exported) :-
+    petta_engine_module(Engine),
+    module_property(Engine, exports(Exports)),
+    findall(Seam,
+            ( ext_point_kind(Seam, _),
+              current_predicate(Engine:Seam),
+              \+ memberchk(Seam, Exports) ),
+            Unexported),
+    assertion(Unexported == []),
+    % and the list is not vacuously empty
+    aggregate_all(count, ext_point_kind(_, _), Declared),
+    assertion(Declared > 100).
+
+% A library that introduces a seam of its own is loaded long after the engine
+% booted, so the boot sweep cannot be the whole mechanism. The listener on the
+% multifile declaration is, and it is the same prolog_listen/2 channel the atom
+% hooks use, which sees a clause arriving by consult as it sees one arriving by
+% assert.
+test(a_seam_declared_in_a_later_file_is_exported) :-
+    petta_engine_module(Engine),
+    module_property(Engine, exports(Before)),
+    assertion(\+ memberchk(plunit_late_declared_service/1, Before)),
+    % user: because consult from inside a plunit unit resolves against that
+    % unit's module, and a library's seam belongs where the engine's is, which
+    % is the same trap the file-level load at the top of this file avoids.
+    user:ensure_loaded(seam_late_declaration),
+    module_property(Engine, exports(After)),
+    assertion(memberchk(plunit_late_declared_service/1, After)),
+    % and the walks agree, since they ask the same list
+    assertion(surface_published(plunit_late_declared_service/1)).
+
+% Exporting an undefined name would hand a caller an existence error under the
+% word "published", so a declaration whose predicate does not exist yet is
+% skipped. engine/metta.pl's initialization sweeps again once every file has
+% loaded, which is how a seam declared before its definition still ends up
+% exported; every_seam_kind_matches_its_direction fails on one that never is.
+test(a_declaration_without_a_definition_is_not_exported) :-
+    petta_engine_module(Engine),
+    assertion(\+ current_predicate(Engine:plunit_undefined_seam/3)),
+    petta_publish_seam(plunit_undefined_seam/3),
+    module_property(Engine, exports(Exports)),
+    assertion(\+ memberchk(plunit_undefined_seam/3, Exports)).
+
+:- end_tests(metta_published_surface).
+
+% The surface walks live in tests/prolog/surface_walk.pl, which the two static
+% lanes load; asking their question here without loading the walk keeps this
+% suite standalone.
+surface_published(Seam) :-
+    petta_engine_module(Engine),
+    module_property(Engine, exports(Exports)),
+    memberchk(Seam, Exports).
