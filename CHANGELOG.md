@@ -290,6 +290,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A pattern whose head is a variable now answers through every door. The
+  match compiler's modifier clauses wrote their `:=` and `:` markers (and
+  the Python shim's `path-at`) as literals in their clause heads, and a
+  literal unifies with an unbound head instead of rejecting it, so
+  `(match &s ($A $B) ...)` bound the program's own `$A` to `:=` and
+  answered nothing, a three-element pattern compiled as a type premise,
+  and an ordinary three-element query could raise out of the lazy-path
+  code. The markers are now read nonvar-then-==, so a variable-headed
+  pattern compiles as the ordinary structure it is and MeTTa `match`,
+  Python `query` and Prolog `match/4` agree at every arity.
 - A grounded atom now equals another grounded atom exactly when the engine
   would unify them, while comparison with a raw Python value keeps the `==`
   operator's numeric tower. One relation served both purposes before, so

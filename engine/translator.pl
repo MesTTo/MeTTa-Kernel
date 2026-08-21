@@ -4005,12 +4005,28 @@ lift_pattern_modifiers_list([Item|Rest], [Lifted|LiftedRest], Guards0, Guards) :
 %variable does not match it; `(: $x T)` matches anything of type T and is the
 %same acceptance a declared parameter of type T compiles, so a match query can
 %restrict by type where only a top-level declaration could before.
-%The literal head lets SWI index the open ownership seam before it tries a
-%provider's body.
-pattern_modifier([':=', Wanted], Fresh, Fresh == Wanted) :-
+%Every clause of this open ownership seam, the two below and a provider's own,
+%takes a LIST, so SWI's first-argument index already separates it from nothing
+%and the marker is what discriminates. The marker is therefore COMPARED rather
+%than unified, which costs one nonvar and one == per clause tried, at
+%compile time and never per match.
+pattern_modifier([Assign, Wanted], Fresh, Fresh == Wanted) :-
+    %The marker is read the way colon_expression/1 reads its own, nonvar then
+    %==, because a LITERAL in the head unifies with an unbound head instead of
+    %rejecting it: a two-element pattern whose head is a variable, (match &s
+    %($A $B) ...), unified $A with ':=' and compiled as the equality modifier,
+    %so the query answered nothing and $A silently became ':=' in the template
+    %[measured 2026-08-21: hypothesis's SpaceStateMachine drew (() ()) against
+    %($A ()); every arity but two matches, and match/4 itself answers].
+    nonvar(Assign), Assign == ':=',
     !.
-pattern_modifier([':', Fresh, Type], Fresh,
+pattern_modifier([Colon, Fresh, Type], Fresh,
                  (has_type(Fresh, Type) *-> true ; 'get-metatype'(Fresh, Type))) :-
+    %The same nonvar-then-== reading as the clause above and as
+    %colon_expression/1: ($A $B 0) against a stored () was compiled as "of
+    %type 0" because the literal ':' unified with the pattern's own head
+    %variable [measured 2026-08-21, hypothesis SpaceStateMachine].
+    nonvar(Colon), Colon == ':',
     %An annotation annotates a VARIABLE, so anything else in that position
     %stays structural. Not a nicety: tests/prolog/duals.plt writes
     %`(= (pat-starts-a (: a $rest)) True)` as an ordinary cons-shaped pattern,
