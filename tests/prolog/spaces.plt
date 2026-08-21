@@ -24,6 +24,11 @@
 %     refused naming the missing capability, while a native space answers
 %     per-write-exactly and ordered with nothing declared
 %     [tested: spaces_event_capability; commit=WORKTREE].
+%   - every pattern the engine sends across a space seam is a writable MeTTa
+%     term, so a provider that writes the pattern to send it can: the
+%     type-marker probe used a partial [-> | Types] list and a MORK space
+%     answered `swrite/2: cannot write [->|'$petta_variable'(0)]`
+%     [tested: spaces_seam_patterns; commit=WORKTREE].
 %   - two conflicting reactions fire in the order each declared agenda policy
 %     names, a reaction with no declared priority reads as 0, and a user
 %     policy that scores nothing is a loud error rather than a rule that
@@ -2385,6 +2390,18 @@ metta_foreign_match('&plunit_events_loud', [fact, X]) :- X = loud.
 :- multifile metta_context_events/3.
 metta_context_events('&plunit_events_loud', 'at-least-once', unordered).
 
+% A foreign space that RECORDS the pattern it is asked to match, so a test
+% can check what the engine sends across the seam rather than only what comes
+% back. MORK writes the pattern as text to send it, which is why a pattern
+% that has no text is a crash there and invisible everywhere else.
+:- dynamic plunit_arrow_probe/1.
+metta_foreign_space('&plunit-arrow-foreign').
+metta_foreign_capability('&plunit-arrow-foreign', Capability) :-
+    member(Capability, [add, remove, match, enumerate, rules]).
+metta_foreign_match('&plunit-arrow-foreign', Pattern, _Options) :-
+    assertz(plunit_arrow_probe(Pattern)),
+    fail.
+
 :- begin_tests(spaces_event_capability).
 
 test(a_declared_context_provides_subscribe_and_a_silent_one_does_not) :-
@@ -2538,3 +2555,28 @@ test(a_user_agenda_policy_that_scores_nothing_says_so,
     assertion(Ball = petta_agenda_unscored('&ag-src', 'ag-silent', _)).
 
 :- end_tests(spaces_reaction_agenda).
+
+% Every pattern the engine sends across a space seam has to be a MeTTa TERM.
+% A partial list is not one, and a provider that writes the pattern to send
+% it has no text for [-> | Types]: MORK refused exactly that and an ordinary
+% (: Name Type) declaration died with `swrite/2: cannot write
+% [->|'$petta_variable'(0)]`. The type-marker probe asks with a plain
+% variable now and checks the arrow shape after the match.
+:- begin_tests(spaces_seam_patterns).
+
+% The probe fact is written by a clause that resolves in user and read here,
+% so both ends say user: explicitly. A bare retractall in a test would create
+% a second, empty predicate in this unit's own module and read that instead,
+% which is the spaces.plt lesson the header records.
+test(a_type_marker_probe_sends_a_writable_pattern_to_a_foreign_space,
+     [ setup(retractall(user:plunit_arrow_probe(_))),
+       cleanup(retractall(user:plunit_arrow_probe(_))) ]) :-
+    space_module('&plunit-arrow-foreign', Module),
+    forall(stored_arrow_uses_type_in(Module, 'plunit-arrow-fun', 'Number'),
+           true),
+    findall(P, user:plunit_arrow_probe(P), Patterns),
+    assertion(Patterns \== []),
+    forall(member(Pattern, Patterns),
+           assertion(catch(swrite(Pattern, _), _, fail))).
+
+:- end_tests(spaces_seam_patterns).

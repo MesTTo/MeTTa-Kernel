@@ -21,6 +21,9 @@
 %     registered, and a standing query or a reaction on a context that
 %     declares none is refused at the catalog door naming the missing
 %     capability [tested: spaces_event_capability; commit=WORKTREE].
+%   - the type-marker probe asks a space with a writable pattern, so a
+%     provider that writes the pattern to send it is never handed a partial
+%     list [tested: spaces_seam_patterns; commit=WORKTREE].
 %   - the reaction agenda is a declared policy with declaration order as its
 %     stated default, and two conflicting reactions fire in the order each
 %     declared policy names [tested: spaces_reaction_agenda; commit=WORKTREE].
@@ -3233,14 +3236,30 @@ type_marker_visible_in(MarkerModule, Context) :-
 stored_arrow_uses_type_in(Context, Function, Type) :-
     metta_self_module(Context),
     !,
-    match_stored('&self', [':', Function, [->|Types]], Types, _),
+    stored_arrow_chain('&self', Function, Types),
     arrow_parameter_type(Types, Type).
 stored_arrow_uses_type_in(Context, Function, Type) :-
     metta_module_space(Context, Space),
-    (   match_stored(Space, [':', Function, [->|Types]], Types, _)
-    ;   match_stored('&self', [':', Function, [->|Types]], Types, _)
+    (   stored_arrow_chain(Space, Function, Types)
+    ;   stored_arrow_chain('&self', Function, Types)
     ),
     arrow_parameter_type(Types, Type).
+
+%The arrow shape is checked AFTER the match, not asked for in the pattern,
+%because a pattern crossing a space seam has to be a MeTTa TERM and a partial
+%list is not one. [-> | Types] with Types unbound is fine against the native
+%store, where matching is Prolog unification, and has no text at all for a
+%provider that writes the pattern to send it: MORK refused this one and the
+%refusal surfaced as `swrite/2: cannot write [->|'$petta_variable'(0)]` from
+%an ordinary (: Name Type) declaration, reproduced by storing an equation in
+%&mork, removing it, and then declaring any type marker [measured 2026-08-21].
+%Asking with a plain variable and filtering here is the seam's own
+%over-approximate-then-re-unify contract, and it costs the native path
+%nothing: Function is bound, so the store still dispatches on it.
+stored_arrow_chain(Space, Function, Types) :-
+    match_stored(Space, [':', Function, Chain], Chain, _),
+    nonvar(Chain),
+    Chain = [->|Types].
 
 arrow_parameter_type(Types, Type) :-
     append(ParameterTypes, [_], Types),
