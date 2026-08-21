@@ -7,7 +7,7 @@
 %   - declaring ext_point_kind/2 for a predicate this file defines publishes
 %     that predicate, which is what engine/ext_points.pl's listener on the
 %     multifile declaration is for
-%     [tested: metta_published_surface:a_seam_declared_in_a_later_file_is_exported]
+%     [tested: a_seam_declared_in_a_later_file_is_exported; commit=8fa9d546b3eebf3424ef1d667feab40c6b0f32ae]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

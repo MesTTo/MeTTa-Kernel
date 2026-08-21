@@ -9,7 +9,8 @@
 %       the library predicate, the engine predicate and the remedy
 %     - exits nonzero when the walk stops seeing a planted reach, so a clean
 %       result is a claim this file has just tested rather than an assumption
-%       [tested: surface_walk.pl's four planted doors, one per way a call hides]
+%       [tested: scan_sees_every_planted_reach, one planted door per way a
+%       call hides; commit=8fa9d546b3eebf3424ef1d667feab40c6b0f32ae]
 % Fails when:
 %     - a call is assembled at run time from a term no analysis can see,
 %       `Goal =.. L, call(Goal)` being the shape. That is the residue this
