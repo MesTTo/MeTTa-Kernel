@@ -13,6 +13,24 @@
 % Guarantees: each head's own contract comment below, with its evidence.
 % Fails when: a caller wants stdlib-conforming vocabulary only; these
 %   names are PeTTa's, and a space may shadow any of them.
+% Guarantees: the four heads below are this subsystem's whole surface, and
+%   the module declaration is what makes that enforceable rather than
+%   advisory [tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named;
+%   commit=WORKTREE].
+
+%The export list is the four builtin heads and nothing else. They reach a
+%compiled MeTTa body the way every engine name does: engine/metta.pl's
+%ensure_loaded/1 imports a module file's public predicates into the engine's
+%own module, and a space's execution module inherits that module, so the
+%import is what a shadowing equation shadows. Everything this file CALLS
+%resolves the other way, through this module's base, which engine/metta.pl
+%sets to the engine's module after the load list.
+:- module(kernel,
+          [ 'space-atom-count'/2,
+            'has-declared-type'/3,
+            'space-contains'/3,
+            'space-admission-verdict'/3
+          ]).
 
 %(space-atom-count <space>) answers how many atoms the space holds, from
 %the store's own per-predicate clause counts (engine/spaces.pl,

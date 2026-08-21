@@ -20,6 +20,22 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+%The surface is the two builtins a program calls, the four questions the
+%engine's checkers ask, and the registry read the confluence reporter analyses
+%so it does not keep a second inventory. typing_rule_entry/7 itself is NOT on
+%it: it is the storage those six are the meaning of, and a caller that wants
+%the raw rows says type_rules: and means it
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+:- module(type_rules,
+          [ 'add-typing-rule!'/6,
+            'remove-typing-rule!'/2,
+            typing_rule_accepts/4,
+            typing_rule_decision/7,
+            typing_rule_expected/3,
+            typing_rule_refusal/6,
+            registered_typing_rule/7
+          ]).
+
 :- dynamic typing_rule_entry/7.
 
 % The shipped tier is data in exactly the relation add-typing-rule! extends.

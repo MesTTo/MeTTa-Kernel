@@ -19,7 +19,7 @@
 #                                            policy-inventory
 #                                            policy-inventory-selftest snippets
 #                                            pytest benchmarks instructions
-#                                            shell examples leatta
+#                                            shell examples leatta layering
 #          CHECK_PY=/path/to/python   pick the interpreter
 #          GATE_ONLY=1                skip the REPORT tier
 # Guarantees:
@@ -473,6 +473,28 @@ check_library_surface() {
     swipl -q --on-error=status library_surface.pl
 }
 run GATE lib-surface check_library_surface
+
+# The same question one level in: not what a LIBRARY may call in the engine but
+# what one engine subsystem may call in another. Python has held this line since
+# the import-linter contract went in and the Prolog half had no equivalent, so
+# parser, translator, specializer, spaces, tracer and duals shared one namespace
+# with no declared surfaces between them.
+#
+# tests/prolog/layering.pl holds the contract, one line per subsystem pair with
+# what the caller wants, and the lane fails on a cross-call no line allows,
+# naming caller, callee and the line to add. It fails as well on a line nothing
+# needs any more, on a call into a subsystem module's non-exports, and on a
+# mutual recursion between subsystems that no tangle/1 line declares: the
+# engine is one large cycle today and the count is the measure of untangling it.
+# The walk is tests/prolog/surface_walk.pl's, so this and the two surface gates
+# cannot disagree about what a call is, and it proves its eyesight on the same
+# four planted doors before reporting clean [measured 2026-08-22: 462
+# cross-subsystem calls over 52 contract lines, 2 components].
+check_layering() {
+    cd "$HERE/tests/prolog" || return 1
+    swipl -q --on-error=status -g layering_gate -t 'halt(0)' layering.pl
+}
+run GATE layering check_layering
 
 # Parse every example and reject any form for which the translator exposes a
 # second solution. Each file gets a fresh process because translating lambdas

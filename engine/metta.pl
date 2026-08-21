@@ -405,6 +405,28 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
                   support_graph, specializer, filereader,
                   '../lib/lib_gitimport', spaces, tracer, duals, kernel]).
 
+%A subsystem that declares a module gets THIS module as its base, so the calls
+%it makes the other way -- into the engine core, into another subsystem's
+%exports, into a MeTTa builtin -- resolve without an import cycle. SWI gives a
+%module file the base `user`, which is the right answer only while the engine
+%happens to be consulted there; petta_engine_module/1 above exists precisely
+%because a host may consult the engine into a module of its own, and the
+%subsystem modules have to follow it when it does.
+%
+%The same set_module(M:base(B)) call engine/spaces.pl makes for a space's
+%execution module, and for the same reason: a chain of bases is how a name
+%written once is visible everywhere below it
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named,
+%spaces_execution_modules:the_chain_is_engine_then_self_then_space].
+:- prolog_load_context(directory, EngineSource),
+   atom_concat(EngineSource, '/', EngineDirectory),
+   petta_engine_module(Engine),
+   forall(( source_file(SubsystemFile),
+            sub_atom(SubsystemFile, 0, _, _, EngineDirectory),
+            module_property(Subsystem, file(SubsystemFile)),
+            Subsystem \== Engine ),
+          set_module(Subsystem:base(Engine))).
+
 %A host is a seat's decider file under bindings/, the backends split one
 %directory over: the
 %decider file loads unconditionally and whether its bridge is usable is its

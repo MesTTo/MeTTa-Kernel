@@ -933,13 +933,18 @@ planted_refusing_rule_seen :-
 % user rule overlaps a deferring user rule and the shipped gradual rule. The
 % reporter must classify the refusal and defer as conditional proof
 % obligations rather than passing either to confluence_check/3.
+%The plant names type_rules: because typing_rule_entry/7 is that subsystem's
+%storage and NOT on its export list: the six predicates it exports are what the
+%rows mean, and a fixture that writes a row directly is reaching past them on
+%purpose. The reads below stay unqualified-through-user, because
+%registered_typing_rule/7 IS exported and exists for this reporter.
 planted_typing_overlap_seen :-
     user:metta_self_module(Self),
     setup_call_cleanup(
-        ( assertz(user:typing_rule_entry(user, Self, '$typing_refusal_fixture',
+        ( assertz(type_rules:typing_rule_entry(user, Self, '$typing_refusal_fixture',
                                          ordinary, '%Undefined%', _,
                                          [refuse, fixture]), RefusalRef),
-          assertz(user:typing_rule_entry(user, Self, '$typing_defer_fixture',
+          assertz(type_rules:typing_rule_entry(user, Self, '$typing_defer_fixture',
                                          ordinary, '%Undefined%', _, defer),
                   DeferRef) ),
         ( typing_family_state('&self', typing_state(_, Overlaps)),

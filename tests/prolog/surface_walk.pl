@@ -77,15 +77,29 @@ reaches_past_surface(Directories, Reaches) :-
 
 walked_reaches(References, Reaches) :-
     retractall(reach_found(_, _)),
+    walk_clause_edges(References, record_reach),
+    findall(Caller-Callee, reach_found(Caller, Callee), Reaches0),
+    sort(Reaches0, Reaches).
+
+% The walk itself, with the options that decide what it can see, so a second
+% question about the same clauses asks it through this predicate rather than
+% writing the option list again. tests/prolog/layering.pl is that second
+% caller: it wants every cross-subsystem edge inside engine/ where this file
+% wants the ones that reach past the published surface, and a walk configured
+% differently would let the two gates disagree about what a call is
+% [tested: the_layering_walk_sees_every_planted_reach, which plants the same
+% four doors scan_sees_every_planted_reach plants and runs them through the
+% layering recorder].
+:- meta_predicate walk_clause_edges(+, 3).
+
+walk_clause_edges(References, OnEdge) :-
     prolog_walk_code([ clauses(References),
                        trace_reference(_),
-                       on_edge(record_reach),
+                       on_edge(OnEdge),
                        source(false),
                        infer_meta_predicates(all),
                        autoload(false),
-                       undefined(ignore) ]),
-    findall(Caller-Callee, reach_found(Caller, Callee), Reaches0),
-    sort(Reaches0, Reaches).
+                       undefined(ignore) ]).
 
 record_reach(Callee, Caller, _Location) :-
     indicator(Callee, CalleeIndicator),
@@ -111,14 +125,31 @@ indicator(Goal, Name/Arity) :- callable(Goal), functor(Goal, Name, Arity).
 %library reaching past the surface [measured 2026-08-19: three of the twenty-one
 %findings, recompile_function_impl/1, uses_super/2 and metta_trace_target/1,
 %are engine/ clauses of metta_on_function_changed/1].
+%source_file/2 is MODULE-SENSITIVE, and asking it unqualified asks only about
+%the module this file was loaded into. That was every engine and library
+%predicate while nothing declared a module, and it stops being them the moment
+%one does: with engine/kernel.pl declaring `:- module(kernel, ...)`, the
+%unqualified form saw NONE of its four predicates while the qualified form saw
+%all four, so the walk reported a file it had not looked at
+%[measured 2026-08-22, on this tree, before and after the kernel cut].
 extension_clauses(Directories, References) :-
     findall(Reference,
             ( member(Relative, Directories),
               tree_directory(Relative, Directory),
               source_file(File),
               sub_atom(File, 0, _, _, Directory),
-              source_file(Head, File),
-              catch(nth_clause(Head, _, Reference), _, fail),
+              source_file(Module:Head, File),
+              %SWI records '$load_context_module'/3 against the file it loaded,
+              %in `system`, so the qualified form above hands back clauses
+              %nobody in lib/ wrote. A user file cannot define a predicate in
+              %`system`, so skipping it drops exactly those and nothing else
+              %[measured 2026-08-22 over lib/: 442 clauses unqualified, 488
+              %qualified, 454 qualified without `system`. The 12 the change
+              %adds are the prolog:error_message//1 handlers four library files
+              %define, which the unqualified form never walked; findings stayed
+              %at 0 throughout].
+              Module \== system,
+              catch(nth_clause(Module:Head, _, Reference), _, fail),
               clause_property(Reference, file(File)) ),
             References).
 
