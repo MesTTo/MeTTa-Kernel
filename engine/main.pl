@@ -8,7 +8,7 @@
 %   - the no-argument demo defines a MeTTa equation, calls it from Prolog
 %     through the space's module, and runs every loaded backend selftest
 %     [tested: test_the_bare_demo_runs_the_interop_example_and_backend_selftests;
-%     commit=WORKTREE].
+%     commit=86222967a4198e11103e63a60ec8637c6ac9cb27].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
