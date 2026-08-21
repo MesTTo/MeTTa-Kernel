@@ -1,3 +1,10 @@
+; Purpose: demonstrate recursive relational evaluation over successor facts.
+; Guarantees: reaching either relation's unmatched boundary fails the search
+;   instead of returning the P3 residual-call dispatch value.
+; [tested: examples/reasoning/logicprog.metta; commit=WORKTREE]
+!(add-atom &petta (dispatch-policy successor NoMatchEnum NoMatchFail))
+!(add-atom &petta (dispatch-policy later-in-alphabet NoMatchEnum NoMatchFail))
+
 (= (successor b a) True)
 (= (successor c b) True)
 (= (successor d c) True)
