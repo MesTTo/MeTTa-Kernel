@@ -2902,10 +2902,10 @@ metta_effect_construct(once(A), [A]).
 metta_effect_construct(catch(A, _, Recovery), [A, Recovery]).
 metta_effect_construct(findall(_, A, _), [A]).
 metta_effect_construct(forall(A, B), [A, B]).
-%take/2's own two forms. metta_take_match/4 is a bounded match and reports as
+%take/2's own two forms. metta_take_match/5 is a bounded match and reports as
 %the read it is, which metta_effect_classify/4 does from the shape below.
 metta_effect_construct(metta_take(_, A), [A]).
-%top's plain form likewise calls its goal; metta_top_match/4 is a read the
+%top's plain form likewise calls its goal; metta_top_match/5 is a read the
 %classifier judges from its shape as it does the bounded take.
 metta_effect_construct(metta_top(_, A, _), [A]).
 %The six-axis dispatcher wraps the generated direct goal. Its policy reads are
@@ -2957,6 +2957,12 @@ metta_effect_closure(Closure, Extra, Goal) :-
 metta_effect_classify(_, Goal, Queue-Reads, Queue-Reads) :-
     var(Goal), !.
 metta_effect_classify(_, match(Space, Pattern, _, _), Queue-Reads0,
+                      Queue-[read(match, Space, Pattern)|Reads0]) :- !.
+%A bounded match is the SAME read, and saying so here is not a tidiness: an
+%unreported read is never invalidated, so a table built from
+%`(once (match &s (, ...) ...))` would have outlived the write that changed it
+%[tested: lib_tabling_purity:a_bounded_match_reports_the_read_it_is].
+metta_effect_classify(_, match_bounded(_, Space, Pattern, _, _), Queue-Reads0,
                       Queue-[read(match, Space, Pattern)|Reads0]) :- !.
 metta_effect_classify(_, 'get-atoms'(Space, Pattern), Queue-Reads0,
                       Queue-[read('get-atoms', Space, Pattern)|Reads0]) :- !.

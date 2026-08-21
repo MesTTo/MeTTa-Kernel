@@ -159,6 +159,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `once` and `take k` over a conjunctive `match` now stop at the bound instead
+  of computing every row of the join first. Taking one row of a two-conjunct
+  self-join cost 1,328 inferences over ten edges and 6,398 over four hundred;
+  it is 1,222 over both now. The bound is pushed only where the whole
+  expression is one `match`, so a template that compiles to a call keeps every
+  answer, and an unbounded conjunction still finds every row before the first
+  one leaves.
+- `(take 1 (match $u (f 1) matched))` now answers `match`'s Error atom, which
+  the plain `match` always answered. `take` and `top` fused the expression's
+  result with its output template while compiling, leaving the answer-shaped
+  refusal nothing to unify with, so the query answered nothing at all.
+- A table built from a bounded `match` is now invalidated by a write to the
+  space it read. The compiled bounded form was a goal the purity walk did not
+  recognise, so the read went unreported.
 - Modifier-free host queries now choose the empty path before matching, so
   lazy-path support has a fixed preparation cost instead of a cost per answer.
 - Generated symbolic atom operators now specialize their lowering table entry

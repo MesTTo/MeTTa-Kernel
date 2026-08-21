@@ -1872,14 +1872,24 @@ translate_special_dl('test-no-answer', [Expr], AfterHead, Goals, Out) :-
     translate_expr_to_conj(Expr, Conj, Value),
     AfterHead = [findall(Value, Conj, Results),
                  'test-no-answer'(Results, Out)|Goals].
+%once is a bound of one, and it reaches the matcher for the same reason take's
+%does: an eager conjunctive snapshot finds every row before the first one
+%leaves, so `(once (match &s (, ...) ...))` walked the whole join to answer one
+%row [measured 2026-08-21, engine/spaces.pl match_bounded/5 carries the
+%numbers]. once/1 still wraps it, because once is deterministic and a bound is
+%not.
 translate_special_dl(once, [Expr], AfterHead, Goals, Out) :-
     translate_expr_to_conj(Expr, Conj, Out),
-    AfterHead = [once(Conj)|Goals].
+    (   single_match_goal(Conj, Space, Pattern, Template, Result)
+    ->  Bounded = match_bounded(1, Space, Pattern, Template, Result)
+    ;   Bounded = Conj
+    ),
+    AfterHead = [once(Bounded)|Goals].
 %(take K Expr): at most K answers of Expr. once took one and collapse took
 %all, and nothing took k, while the space seam has had the concept one level
 %down all along in BoundedMatcher's limit.
 %
-%The two forms differ only in whether the bound also reaches the PROVIDER, and
+%The two forms differ only in whether the bound also reaches the MATCHER, and
 %that is decided HERE because the shape is what decides it. A conjunction, a
 %guard or a function call compiles to the plain bound; exactly one match over
 %one space compiles to the pushdown. Deciding it at run time would mean
@@ -1888,8 +1898,8 @@ translate_special_dl(once, [Expr], AfterHead, Goals, Out) :-
 translate_special_dl(take, [CountExpr, Expr], AfterHead, Goals, Out) :-
     translate_expr_dl(CountExpr, AfterHead, AfterCount, Count),
     translate_expr_to_conj(Expr, Conj, Out),
-    (   Conj = match(Space, Pattern, Out, Out)
-    ->  Bounded = metta_take_match(Count, Space, Pattern, Out)
+    (   single_match_goal(Conj, Space, Pattern, Template, Result)
+    ->  Bounded = metta_take_match(Count, Space, Pattern, Template, Result)
     ;   Bounded = metta_take(Count, Conj)
     ),
     AfterCount = [Bounded|Goals].
@@ -1910,8 +1920,8 @@ translate_special_dl(explain, [Query], AfterHead, Goals, Out) :-
 translate_special_dl(top, [CountExpr, Expr], AfterHead, Goals, Out) :-
     translate_expr_dl(CountExpr, AfterHead, AfterCount, Count),
     translate_expr_to_conj(Expr, Conj, Out),
-    (   Conj = match(Space, Pattern, Out, Out)
-    ->  Ordered = metta_top_match(Count, Space, Pattern, Out)
+    (   single_match_goal(Conj, Space, Pattern, Template, Result)
+    ->  Ordered = metta_top_match(Count, Space, Pattern, Template, Result)
     ;   Ordered = metta_top(Count, Conj, Out)
     ),
     AfterCount = [Ordered|Goals].
@@ -2410,6 +2420,37 @@ translate_special_dl('catch', [Expr], AfterHead, Goals, Out) :-
                         -> Out = ['Error', Type, Context]
                         ; Out = ['Error', Exception] )),
     AfterHead = [CatchGoal|Goals].
+
+%The compiled form of an expression that is EXACTLY one match over one space,
+%which is the only shape once, take and top may push a bound through: nothing
+%runs between a row and the answer it becomes, so N rows are N answers and a
+%producer stopped at N cannot under-answer. A goal after the match could fail
+%and make the (N+1)th row the answer, and a bounded producer would never reach
+%it. A variable-headed template is exactly that case, since `($x $z)` compiles
+%to a reduce/3 that may be a call [measured 2026-08-21: the bound reaches
+%`(pair $x $y)` and `$x` and stops at `($x $z)`].
+%
+%That is the rule relational planners settled on for the same question: a
+%LIMIT may be pushed through a PROJECTION, which turns each row into one row,
+%and never through a FILTER, which may drop the row the bound stopped at
+%[source: Apache Spark's LimitPushDown, sql/catalyst/.../Optimizer.scala,
+%which pushes LocalLimit through Project, Union ALL and the sides of a Join
+%and leaves Filter alone, read 2026-08-21]. engine/spaces.pl's
+%licensed_options/4 already cites DataFusion for the other half of the same
+%discipline, that a bound reaches a source only where the source promised it
+%can act on one.
+%
+%The template and the result stay DISTINCT here, which the fused spelling
+%`Conj = match(Space, Pattern, Out, Out)` could not: that unification bound the
+%expression's own result to the template at COMPILE time, and match/4's last
+%clause answers an Error ATOM through the result, so it had nothing left to
+%unify with. `(take 1 (match $u (f 1) matched))` answered nothing where
+%`(match $u (f 1) matched)` answered the Error
+%[measured 2026-08-21;
+%tested: test_a_bounded_match_on_an_unbound_space_answers_the_error].
+single_match_goal(Conj, Space, Pattern, Template, Result) :-
+    nonvar(Conj),
+    Conj = match(Space, Pattern, Template, Result).
 
 %Both seams take exactly one argument: the goal to compile, written as a list
 %whose head names the Prolog predicate. Reporting the argument rather than only
