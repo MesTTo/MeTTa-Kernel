@@ -1432,6 +1432,69 @@ translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
 %took the whole enclosing equation down with it: `(= (f) (union foo bar))`
 %failed to translate and the message named process_form/4
 %[tested: translator_derived_forms].
+%
+%A GUARD THAT BINDS A PATTERN VARIABLE CANNOT CREATE A MATCH, which is why the
+%call runs on a COPY and the copy is re-checked against the call afterwards.
+%Prolog's call/1 UNIFIES, and unification runs both ways: the rule's guard,
+%whether it is written as a head shape or as a goal in the rule's body, could
+%reach back into the term being rewritten and instantiate it, so a rule fired
+%on a call it does not match and rewrote the enclosing equation's own head
+%while it was there. Both halves measured 2026-08-21 on the tip before this
+%change:
+%
+%  (: gp (-> Atom %Undefined%))         (: bindguard (-> Atom %Undefined%))
+%  (= (gp (pair $a $b)) (noeval ...))   (= (bindguard $a) (let $a planted ...))
+%  (= (uses-gp $z) (gp $z))                (= (uses-bg $z) (bindguard $z))
+%
+%compiled to `uses-gp([pair, A, B], ...)` and `uses-bg(planted, ...)`. The programmer
+%wrote a head that matches anything and got one that matches pairs, and one
+%that matches the single symbol `planted`; `!(uses-gp 5)` and `!(uses-bg 5)` had no
+%answer and nothing said why.
+%
+%This is a solved problem in three systems, and they agree.
+%
+%  - Rw-Prolog's redex/3 calls subsumes_term/2 TWICE around its guard for
+%    exactly this reason: it matches a COPY of the redex against the rule, runs
+%    the condition, checks again that the matched copy is still a
+%    generalization of the redex, and only then commits by unifying the two
+%    [source 2026-08-21: ai-tmp/rw-prolog/src/rewrite.pl, redex/3].
+%  - CHR states it as a rule of the language: "the guard of a rule may not
+%    contain any goal that binds a variable in the head of the rule", and the
+%    runtime enforces it, "any guard fails when it binds a variable that
+%    appears in the head of the rule", after which "the next rule is tried"
+%    [source 2026-08-21: swi-prolog.org/pldoc/man?section=chr-syntax and
+%    ?section=chr-semantics, check_guard_bindings; sicstus.sics.se CHR, "How
+%    CHR Work"]. That is this rule and its fall-through, stated by the
+%    formalism P2.13's confluence results are borrowed from.
+%  - SWI's own single-sided-unification rules are compiled to exactly this
+%    check: "The subsumes_term/2 guarantees the clause head is more generic
+%    than the goal term and thus unifying the two does not affect any of the
+%    arguments of the goal", with the guard restriction left UNENFORCED
+%    because "we do not know about an efficient way to enforce unification
+%    against head arguments" [source 2026-08-21:
+%    swi-prolog.org/pldoc/man?section=ssu and ?section=ssu-guard]. Copying the
+%    arguments and re-checking is that way, at the price of one copy per rule
+%    application, which is a compile-time cost paid once per call site.
+%
+%Here the copy is the argument list, subsumes_term/2 rejects any binding the
+%rule made into it, and the unification that follows can then only bind the
+%copy. A rejected rule fails back into call/1, so the rule's next clause is
+%tried and, if none matches, the chain carries on to ordinary dispatch: that is
+%what the identity second equation in
+%`(= (union $a $b) (noeval (noeval (union $a $b))))` is for, and it is now
+%reachable from a call whose arguments are not yet known.
+%
+%copy_term_nat/2 rather than copy_term/2, as Rw-Prolog uses, so a constraint on
+%an argument is not duplicated onto the copy; the commit below reattaches the
+%originals.
+%
+%Limitation: Rw-Prolog checks BEFORE the guard as well, so a doomed match never
+%runs one. The head unification here happens inside call/1 and cannot be
+%observed separately, so the check is made once, after. That is the same
+%correctness and one difference: a rule body with a side effect of its own runs
+%it before the rule is rejected [tested: translator_rule_matching,
+%test_a_guard_that_binds_a_pattern_variable_cannot_create_a_match;
+%commit=WORKTREE].
 apply_translator_rule_dl(HV, Args, AfterHead, Goals, Out) :-
     (   catch_recover(type_declaration(HV, TypeChain), fail)
     ->  TypeChain = [->|Xs],
@@ -1439,10 +1502,13 @@ apply_translator_rule_dl(HV, Args, AfterHead, Goals, Out) :-
         translate_args_by_type_dl(Args, ArgTypes, AfterHead, AfterArgs, Values)
     ;   translate_args_dl(Args, AfterHead, AfterArgs, Values)
     ),
-    append(Values, [Expansion], RuleArgs),
+    copy_term_nat(Values, Matched),
+    append(Matched, [Expansion], RuleArgs),
     HookCall =.. [HV|RuleArgs],
     current_metta_module(RuleModule),
     call(RuleModule:HookCall),
+    subsumes_term(Matched, Values),
+    Matched = Values,
     translate_expr_dl(Expansion, AfterArgs, Goals, Out),
     refuse_seam_expanded_to_data(HV, Out).
 

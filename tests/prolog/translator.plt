@@ -2595,3 +2595,54 @@ test(a_two_argument_quote_is_not_the_scope_form) :-
     assertion(Goals \== []).
 
 :- end_tests(translator_quote_scope).
+
+:- begin_tests(translator_rule_matching).
+
+%A translator rule is applied by MATCHING, so a call it does not match comes
+%back untouched and, in particular, comes back with its variables still
+%variables. Prolog's call/1 unifies, which runs both ways, so the rule's guard
+%could reach into the call and instantiate it; Rw-Prolog's redex/3 answers that
+%by re-checking subsumes_term/2 after the condition
+%[source 2026-08-21: ai-tmp/rw-prolog/src/rewrite.pl, redex/3].
+
+%The guard already in the tree: the shipped set operations name two
+%superpositions and `(union $x $x)` is not that shape, so the first equation
+%must decline without binding the caller's variable on its way past.
+test(a_shipped_guarded_rule_leaves_an_unbound_call_unbound) :-
+    Call = [union, X, X],
+    translate_expr(Call, Goals, Out),
+    assertion(var(X)),
+    assertion(Goals == []),
+    assertion(Out == Call).
+
+%The guard in its purest form, planted: a rule whose BODY binds one of its own
+%head variables, which is the case P2.16 names and the one head-shape matching
+%alone does not cover. The second equation is the fall-through the first one's
+%decline reaches.
+bindguard_source("(: plunit-bg (-> Atom %Undefined%))
+(= (plunit-bg $a) (let $a plunit-planted (noeval (saw $a))))
+(= (plunit-bg $a) (noeval (fell-through $a)))
+!(add-translator-rule! plunit-bg)").
+
+setup_bindguard :-
+    retractall(silent(_)), assertz(silent(true)),
+    bindguard_source(Source),
+    process_metta_string(Source, _).
+
+cleanup_bindguard :-
+    process_metta_string("!(remove-translator-rule! plunit-bg)", _),
+    'remove-atom'('&self', [=, ['plunit-bg'|_], _], _),
+    'remove-atom'('&self', [=, ['plunit-bg'|_], _], _),
+    'remove-atom'('&self', [':', 'plunit-bg', _], _),
+    forget_test_function('plunit-bg'),
+    retractall(silent(_)), assertz(silent(false)).
+
+test(a_planted_guard_that_binds_a_pattern_variable_cannot_create_a_match,
+     [setup(setup_bindguard), cleanup(cleanup_bindguard)]) :-
+    translate_expr(['plunit-bg', X], _, Unknown),
+    assertion(var(X)),
+    assertion(Unknown == ['fell-through', X]),
+    translate_expr(['plunit-bg', 'plunit-planted'], _, Known),
+    assertion(Known == [saw, 'plunit-planted']).
+
+:- end_tests(translator_rule_matching).
