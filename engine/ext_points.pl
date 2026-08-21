@@ -397,6 +397,29 @@ ext_point_kind(metta_foreign_plan/5, ownership).
 :- multifile metta_foreign_capability/2.
 ext_point_kind(metta_foreign_capability/2, declaration).
 
+%What a context's change events promise, for a provider that owns a FAMILY
+%of space names rather than one name it could write an atom about.
+%
+%   metta_context_events(Space, Delivery, Order)
+%
+%Delivery is at-most-once, at-least-once or per-write-exactly and Order is
+%ordered or unordered, the catalog's own `delivery` and `event-order`
+%vocabularies. The per-space door is the ordinary declaration atom,
+%(events <ctx> <delivery> <order>) in '&petta', which is what
+%MeTTa.declare_events and a Python provider's registration write; this is
+%the same answer for a provider like MORK, whose spaces are every name
+%beginning &mork, so there is no one name to write the atom about. The two
+%doors are read by one question, petta_event_capability/3, exactly as a
+%Prolog provider's metta_foreign_capability/2 clauses and the Python
+%bridge's registered facts are read by one foreign_provides/2.
+%
+%Declaring nothing means no events, which is the safe answer and the one
+%every provider written before this gets: a subscription on the space is
+%refused naming the missing capability rather than served and silently
+%missing writes [P12.14].
+:- multifile metta_context_events/3.
+ext_point_kind(metta_context_events/3, declaration).
+
 %Why a space says no, in the provider's own words. The engine refuses a
 %capability a space does not declare, and "does not implement add" reads
 %differently from "declines this add request"; a provider with a reason raises
@@ -725,6 +748,14 @@ ext_point_kind(metta_unwritable_symbol/2, service).
 %host_service above; named here in prose so an extension author finds the
 %pair together).
 ext_point_kind(petta_shape_route/5, service).
+%The event-capability door, for an extension that BLOCKS on a context's
+%changes rather than merely observing them: lib/lib_thread.pl's Linda pair
+%parks a caller until an atom arrives, and parking on a context that
+%promises no events is a hang rather than a wait. Throws naming the context
+%and the caller's own word for what it wanted to do; succeeds silently for a
+%context that can deliver, native spaces included
+%[tested: test_a_blocking_take_waits_for_a_matching_atom_and_removes_exactly_one].
+ext_point_kind(petta_require_events/2, service).
 %The routing classifier and the capability probe, consulted by
 %lib/lib_conformance.pl: published for extensions, no longer part of the
 %host transport's own list.

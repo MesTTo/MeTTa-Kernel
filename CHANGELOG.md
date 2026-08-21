@@ -6,6 +6,52 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Which reaction fires first is a declared policy. `(agenda <ctx> <policy>)`,
+  or `m.declare_agenda(name, policy)`, picks between `declaration` (the
+  order they were declared, the stated default and what the engine used to
+  produce by accident), `recency` (most recently declared first),
+  `specificity` (most tests in the pattern first), `priority` (each
+  reaction's own declared number, highest first, written as the optional
+  fifth argument of `(on ...)` or `declare_reaction(..., priority=)`), and
+  `user`, which names a MeTTa function that scores a reaction. Every policy
+  breaks ties on declaration order, and a reaction with no declared priority
+  reads as 0, so nothing written before this changes meaning.
+- `lib_thread` gains Linda's two blocking binds over a space.
+  `(take-atom &space (job $n))` waits until a matching atom is there, then
+  removes exactly one and answers it; `(peek-atom &space (job $n))` waits and
+  leaves it, which is what `await-atom` already did and now names. Both take
+  an optional deadline in seconds. Under contention two takers never claim
+  the same atom, so a worker pool is a take in a loop rather than
+  `lib_thread` internals. The non-blocking pair needs nothing new: `match` is
+  Linda's `rdp` and `remove-atom` its `inp`. A context that declares no event
+  delivery is refused rather than parked on a channel that will never report.
+- The engine's change events are a first-class public object. `m.events()`
+  answers the stream of `(action, space, atom)`, and `EventStream.fold(step,
+  space=, pattern=, on=, state=)` is the one way to consume it: a step
+  `(state, event) -> state` run inside the write that caused the event, with
+  `take()`, `wait(timeout)` and `cancel()` on the handle it returns. The
+  three shipped models are now that fold with three different steps, so a
+  consumer you write and one this library ships are the same kind of thing:
+  `subscribe` delivers, `bridge` writes, and a declared `(on ...)` reaction
+  evaluates. `EventStream.publish` announces a change this process did not
+  write, which is how a provider with a channel of its own delivers.
+
+### Changed
+
+- Subscribability is now a declared capability rather than an inference from
+  a provider's write methods. A foreign context says what its change events
+  promise, through `m.declare_events(name, delivery, order)`, a Python
+  provider's `delivers()`, a Prolog provider's `metta_context_events/3`, or
+  an `(events <ctx> <delivery> <order>)` atom in `&petta`; delivery is
+  `at-most-once`, `at-least-once` or `per-write-exactly` and order is
+  `ordered` or `unordered`. A context that declares nothing is refused a
+  subscription, a `bridge` and a `declare_reaction`, naming the missing
+  capability, instead of serving a watcher that silently misses writes. A
+  native space is unaffected and needs no declaration: every write into it
+  already runs the engine's own hooks.
+
 ### Removed
 
 - The legacy `python.petta` import path. The alias package that kept

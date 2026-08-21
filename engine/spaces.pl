@@ -17,6 +17,16 @@
 % Guarantees:
 %   - Every native space stores its atoms in a private data module that does
 %     not inherit user predicates [tested: spaces_storage_modules].
+%   - subscribe follows the (events ...) declaration rather than what a host
+%     registered, and a standing query or a reaction on a context that
+%     declares none is refused at the catalog door naming the missing
+%     capability [tested: spaces_event_capability; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
+%   - the type-marker probe asks a space with a writable pattern, so a
+%     provider that writes the pattern to send it is never handed a partial
+%     list [tested: spaces_seam_patterns; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
+%   - the reaction agenda is a declared policy with declaration order as its
+%     stated default, and two conflicting reactions fire in the order each
+%     declared policy names [tested: spaces_reaction_agenda; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
 %   - stored_atom_of_ref/3 is add_sexp_in/4's inverse over both stored shapes,
 %     and answers for a stored atom's clause reference alone: not for a
 %     compiled clause's, not for a registration's, not for an erased one
@@ -293,6 +303,25 @@ petta_note_ctx_declared([_, Ctx|_]) :-
     !,
     assertz(petta_ctx_declared(Ctx)).
 petta_note_ctx_declared(_).
+
+%The same monotone-conservative shortcut narrowed to the events head, and it
+%is the one head that needs its own: a (subscription ...) atom names a SPACE
+%in the same position, so every standing query flags its own space as
+%ctx-declared and the general flag can no longer say "this context declared
+%nothing about events". Without a flag the admission check walked the growing
+%'&petta' store on every subscription: one subscribe cost 983,768
+%instructions before the check existed, 1,093,524 with the check and 988,037
+%with the flag, so the capability costs 0.43% rather than 11.2% [measured
+%2026-08-21, instructions:u per subscribe, 1,000 standing queries against a
+%0-query baseline, min of 3].
+%
+%It is set from petta_check_catalog_semantics/3 rather than from the walk
+%above, and the difference is measured: that walk runs on EVERY '&petta'
+%write and its first argument is a list, so every clause added to it is one
+%inference on every write, which register-op's benchmark caught at +94 over
+%its declarations. The semantics check dispatches on the head ATOM, so a
+%clause for one head costs the other heads nothing.
+:- dynamic petta_events_declared/1.
 
 %The catalog's own rows never name a context in their first argument, a
 %kind head or a vocabulary name being what sits there, and flagging those
@@ -769,6 +798,28 @@ petta_check_catalog_semantics('dispatch-policy', [Function, Axis, Value], Term) 
                                   'one override per function and dispatch axis; remove the old row first')
     ;   true
     ).
+%A standing query is a PROMISE about the watched context, so it is checked
+%against what that context declares it can deliver, here at the catalog
+%door every '&petta' write already passes rather than at one host's
+%subscribe method. (subscription ...) is the reflection atom every
+%subscription writes before it activates and (on ...) is a declared
+%reaction, and both hear a context only through its change events, so a
+%context with no (events ...) capability refuses both, naming what is
+%missing. One authority, one door, every host: a MeTTa program adding the
+%atom by hand is refused exactly as the Python surface is
+%[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
+petta_check_catalog_semantics(events, [Ctx|_], _) :-
+    !,
+    (   atom(Ctx), \+ petta_events_declared(Ctx)
+    ->  assertz(petta_events_declared(Ctx))
+    ;   true
+    ).
+petta_check_catalog_semantics(subscription, [Ctx|_], _) :-
+    !,
+    petta_require_events(Ctx, 'be subscribed to').
+petta_check_catalog_semantics(on, [Ctx|_], _) :-
+    !,
+    petta_require_events(Ctx, 'carry a reaction').
 petta_check_catalog_semantics(_, _, _).
 
 petta_declared_algebra_requirements(Algebra, Required, _) :-
@@ -1163,6 +1214,43 @@ petta_catalog_preset([vocabulary, 'cache-mode', unchecked]).
 petta_catalog_preset([vocabulary, 'effect-class', immutable]).
 petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
 petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
+%What a context promises about the change events it emits. The three
+%delivery words are messaging's own, at-most-once, at-least-once and the
+%exactly-once rung, spelled per-write-exactly here because the unit is one
+%write into one space rather than one message; ordering is the second axis
+%because a channel may deliver every write and still deliver them out of
+%order. A context that promises neither declares no (events ...) row and
+%is refused a subscription instead of serving one that silently drops
+%writes [source: Eugster, Felber, Guerraoui and Kermarrec, The Many Faces
+%of Publish/Subscribe, ACM Computing Surveys 35(2), 2003, whose space,
+%time and synchronization decoupling are the dimensions a declaration
+%here is about].
+petta_catalog_preset([vocabulary, delivery,
+                      'at-most-once', 'at-least-once', 'per-write-exactly']).
+petta_catalog_preset([vocabulary, 'event-order', ordered, unordered]).
+%Which reaction fires first when several match one write. This is the
+%conflict-resolution question production systems settled in 1981, and the
+%words are theirs. declaration is the order they were declared, a queue,
+%which is what the engine did before this was a policy at all and is now the
+%stated default; recency is the most recently declared first, a stack, which
+%is CLIPS's depth strategy and its own recommended default; specificity is
+%the most tests in the pattern first, OPS5's specificity criterion, which
+%CLIPS spells complexity; priority reads each reaction's own declared number,
+%highest first, which is CLIPS salience, CHR-rp's user-definable rule
+%priorities (De Koninck, Schrijvers and Demoen, PPDP 2007) and ECLiPSe's
+%twelve prioritized suspension levels; and user hands each reaction to a
+%MeTTa function of the author's own that scores it, which is CHR-rp's DYNAMIC
+%priority, an expression evaluated per instance rather than a constant
+%[source: CLIPS Basic Programming Guide, conflict resolution strategies;
+%Brownston et al., Programming Expert Systems in OPS5, 1985].
+%
+%OPS5's other criterion, recency of the matched working-memory elements, has
+%nothing to discriminate here and is deliberately absent: every reaction in
+%this conflict set was triggered by the SAME write, so their time tags are
+%equal by construction. What varies between them is when they were declared
+%and how specific they are.
+petta_catalog_preset([vocabulary, 'agenda-policy',
+                      declaration, recency, specificity, priority, user]).
 petta_catalog_preset([vocabulary, volatility, volatile, stable, immutable]).
 petta_catalog_preset([vocabulary, 'route-key', context, global]).
 petta_catalog_preset([vocabulary, 'space-capability', file, process, network]).
@@ -1198,12 +1286,16 @@ petta_catalog_preset([kind, context, symbol, ['one-of', world]]).
 petta_catalog_preset([kind, admits, symbol, term]).
 petta_catalog_preset([kind, capacity, symbol, integer]).
 petta_catalog_preset([kind, writes, symbol, ['one-of', atomicity]]).
+petta_catalog_preset([kind, events, symbol, ['one-of', delivery],
+                      [optional, ['one-of', 'event-order']]]).
 petta_catalog_preset([kind, emits, symbol, ['one-of', 'answer-policy']]).
 petta_catalog_preset([kind, cache, symbol, ['one-of', 'cache-mode']]).
 petta_catalog_preset([kind, effect, symbol, ['one-of', 'effect-class']]).
 petta_catalog_preset([kind, inverse, symbol]).
 petta_catalog_preset([kind, op, symbol, integer, ['one-of', 'op-kind']]).
-petta_catalog_preset([kind, on, symbol, pattern, term]).
+petta_catalog_preset([kind, on, symbol, pattern, term, [optional, integer]]).
+petta_catalog_preset([kind, agenda, symbol, ['one-of', 'agenda-policy'],
+                      [optional, symbol]]).
 petta_catalog_preset([kind, tabled, symbol, symbol, integer]).
 petta_catalog_preset([kind, defined, symbol, symbol]).
 petta_catalog_preset([kind, subscription, symbol, pattern,
@@ -1235,6 +1327,8 @@ petta_catalog_preset([policy, fidelity, handles, 'Exact']).
 petta_catalog_preset([policy, 'source-kind', source, repeated]).
 petta_catalog_preset([policy, 'transaction-mode', transaction, 'all-answers']).
 petta_catalog_preset([policy, atomicity, writes, transactional]).
+petta_catalog_preset([policy, delivery, events, 'per-write-exactly']).
+petta_catalog_preset([policy, 'reaction-order', agenda, declaration]).
 petta_catalog_preset([policy, 'save-format', save, metta]).
 petta_catalog_preset([policy, volatility, volatility, stable]).
 petta_catalog_preset([policy, determinism, determinism, nondet]).
@@ -2490,9 +2584,20 @@ metta_host_clear_defined(Space) :-
 %from the protocols the provider implements
 %[tested: test_a_python_providers_capabilities_reach_the_engine,
 %a_partial_declaration_declares_the_whole_set].
+%subscribe is the one capability no registration may claim on its own, and
+%that is P12.14's whole point: the other eight are questions about what a
+%provider implements, and this one is a promise about what its CONTEXT can
+%deliver. A remote space implements add and remove and its contents still
+%change on the server. So the (events ...) declaration decides it, whatever
+%a host registered, and a context that declares nothing is refused here
+%[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
 foreign_provides(Space, Capability) :-
     (   metta_foreign_capability(Space, _)
     ->  metta_foreign_capability(Space, Capability)
+    ;   true
+    ),
+    (   Capability == subscribe
+    ->  petta_event_capability(Space, _, _)
     ;   true
     ).
 
@@ -3133,14 +3238,30 @@ type_marker_visible_in(MarkerModule, Context) :-
 stored_arrow_uses_type_in(Context, Function, Type) :-
     metta_self_module(Context),
     !,
-    match_stored('&self', [':', Function, [->|Types]], Types, _),
+    stored_arrow_chain('&self', Function, Types),
     arrow_parameter_type(Types, Type).
 stored_arrow_uses_type_in(Context, Function, Type) :-
     metta_module_space(Context, Space),
-    (   match_stored(Space, [':', Function, [->|Types]], Types, _)
-    ;   match_stored('&self', [':', Function, [->|Types]], Types, _)
+    (   stored_arrow_chain(Space, Function, Types)
+    ;   stored_arrow_chain('&self', Function, Types)
     ),
     arrow_parameter_type(Types, Type).
+
+%The arrow shape is checked AFTER the match, not asked for in the pattern,
+%because a pattern crossing a space seam has to be a MeTTa TERM and a partial
+%list is not one. [-> | Types] with Types unbound is fine against the native
+%store, where matching is Prolog unification, and has no text at all for a
+%provider that writes the pattern to send it: MORK refused this one and the
+%refusal surfaced as `swrite/2: cannot write [->|'$petta_variable'(0)]` from
+%an ordinary (: Name Type) declaration, reproduced by storing an equation in
+%&mork, removing it, and then declaring any type marker [measured 2026-08-21].
+%Asking with a plain variable and filtering here is the seam's own
+%over-approximate-then-re-unify contract, and it costs the native path
+%nothing: Function is bound, so the store still dispatches on it.
+stored_arrow_chain(Space, Function, Types) :-
+    match_stored(Space, [':', Function, Chain], Chain, _),
+    nonvar(Chain),
+    Chain = [->|Types].
 
 arrow_parameter_type(Types, Type) :-
     append(ParameterTypes, [_], Types),

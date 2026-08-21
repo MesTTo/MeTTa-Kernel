@@ -21,6 +21,18 @@
                              (= (t-spin $n) (if (> $n 0) (t-spin (- $n 1)) done))
                              (= (t-slow $x) (let $_ (t-spin 200000) $x))", _)).
 
+% A foreign space that declares no event delivery, at FILE level: a
+% begin_tests unit is a module of its own, so a multifile clause written
+% inside it would define that module's predicate and the engine would never
+% see it.
+:- multifile metta_foreign_space/1.
+:- multifile metta_foreign_capability/2.
+:- multifile metta_foreign_match/3.
+metta_foreign_space('&lt-silent-foreign').
+metta_foreign_capability('&lt-silent-foreign', Capability) :-
+    member(Capability, [add, remove, match, enumerate]).
+metta_foreign_match('&lt-silent-foreign', [job, X]) :- X = quiet.
+
 :- begin_tests(lib_thread).
 
 % ------------------------------------------------------- parallel over data
@@ -281,6 +293,92 @@ test(await_atom_wakes_on_a_matching_write) :-
 
 test(await_atom_gives_up_after_its_deadline) :-
     \+ space_await('&self', [never, appears, here], 0.05, _).
+
+% --------------------------------------------------- the Linda blocking pair
+
+% P12.16. Three claims in one test, because they are one contract: a take
+% PARKS until something matches, it REMOVES exactly one, and under contention
+% two takers never get the same atom. The contention half is what needs real
+% threads: eight takers wait on one pattern, four atoms are written, and the
+% four winners must hold four distinct atoms with the space left empty
+% [source: JavaSpaces Service Specification JS.2.5, "two take operations will
+% never return copies of the same entry"].
+test(test_a_blocking_take_waits_for_a_matching_atom_and_removes_exactly_one,
+     [ setup(( 'remove-all-atoms-of'('&lt-pool', [job, _]) )),
+       cleanup(( 'remove-all-atoms-of'('&lt-pool', [job, _]) )) ]) :-
+    % It PARKS: the take starts before the atom exists and answers when it
+    % lands, which is what makes it a wait rather than a poll.
+    thread_create(( sleep(0.05),
+                    'add-atom'('&lt-pool', [job, first], _) ), Writer, []),
+    space_take('&lt-pool', [job, X], 10, Taken),
+    thread_join(Writer, _),
+    assertion(X == first),
+    assertion(Taken == [job, first]),
+    % And it REMOVED it: a peek on the same pattern now finds nothing, where
+    % before the take it would have answered at once.
+    assertion(\+ space_await('&lt-pool', [job, _], 0.05, _)),
+
+    % Under contention: eight takers, four atoms, four winners, no atom
+    % taken twice and none left behind.
+    message_queue_create(Won),
+    findall(Id,
+            ( between(1, 8, _),
+              thread_create(lt_take_into(Won), Id, []) ),
+            Takers),
+    forall(between(1, 4, N), 'add-atom'('&lt-pool', [job, N], _)),
+    forall(member(Taker, Takers), thread_join(Taker, _)),
+    findall(Result,
+            ( repeat,
+              (   thread_get_message(Won, Result, [timeout(0)])
+              ->  true
+              ;   !, fail
+              ) ),
+            Results),
+    catch(message_queue_destroy(Won), _, true),
+    include(=(none), Results, Missed),
+    exclude(=(none), Results, Claimed),
+    assertion(length(Results, 8)),
+    assertion(length(Claimed, 4)),
+    assertion(length(Missed, 4)),
+    msort(Claimed, Sorted),
+    assertion(Sorted == [[job, 1], [job, 2], [job, 3], [job, 4]]),
+    findall(A, 'get-atoms'('&lt-pool', A), Left),
+    assertion(Left == []).
+
+lt_take_into(Won) :-
+    (   space_take('&lt-pool', [job, _], 2, Taken)
+    ->  thread_send_message(Won, Taken)
+    ;   thread_send_message(Won, none)
+    ).
+
+% The peek half of the pair, stated on its own: rd reads and leaves, so two
+% peeks answer the same atom where two takes could not.
+test(a_blocking_peek_parks_without_removing,
+     [ setup(( 'remove-all-atoms-of'('&lt-peek', [tuple, _]) )),
+       cleanup(( 'remove-all-atoms-of'('&lt-peek', [tuple, _]) )) ]) :-
+    thread_create(( sleep(0.05),
+                    'add-atom'('&lt-peek', [tuple, one], _) ), Writer, []),
+    space_await('&lt-peek', [tuple, A], 10, First),
+    thread_join(Writer, _),
+    assertion(A == one),
+    space_await('&lt-peek', [tuple, B], 1, Second),
+    assertion(B == one),
+    assertion(First == Second),
+    findall(Atom, 'get-atoms'('&lt-peek', Atom), Left),
+    assertion(Left == [[tuple, one]]).
+
+% A context that promises no change events cannot be parked on: waiting for
+% something nothing will ever report is a hang, and P12.14's declaration is
+% what turns it into a refusal.
+test(a_wait_on_a_context_with_no_events_is_refused_rather_than_parked) :-
+    catch(space_take('&lt-silent-foreign', [job, _], 1, _),
+          error(Ball, _), true),
+    assertion(Ball == petta_events_undeclared('&lt-silent-foreign',
+                                              'be waited on')).
+
+'remove-all-atoms-of'(Space, Pattern) :-
+    forall(( 'get-atoms'(Space, Atom), \+ Pattern \= Atom ),
+           'remove-atom'(Space, Atom, _)).
 
 % ------------------------------------------------------------ introspection
 

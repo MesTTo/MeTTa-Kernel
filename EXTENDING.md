@@ -1745,6 +1745,44 @@ reported nothing removed, and a match answered the empty set while the space
 demonstrably held matching atoms. A write that merely FAILS is an error too,
 because a write either happened or it did not.
 
+### Say what your change events promise
+
+`subscribe` is the sixth capability and the only one no method can answer. The
+other five ask what your provider implements; this one asks what your CONTEXT
+can deliver, and the difference is the whole of it: a remote space implements
+`add` and `remove` and its contents still change on the server, so a watcher
+here would hear this process's own writes and silently miss every other one.
+
+```prolog
+:- multifile metta_context_events/3.
+metta_context_events('&mine', 'per-write-exactly', ordered).
+```
+
+```python
+class Announcing(SpaceProvider):
+    def delivers(self):
+        return ("per-write-exactly", "ordered")
+```
+
+Delivery is `at-most-once`, `at-least-once` or `per-write-exactly`, and order
+is `ordered` or `unordered`. Say `per-write-exactly` and `ordered` when every
+change to your space comes through this engine, because then the engine's own
+write hooks are an exact event source; say what your channel promises when you
+have one of your own, as a Redis-attached space says `at-most-once` and
+`unordered` because pub/sub is fire and forget; and **say nothing at all when
+your contents change where no channel reports it**. A space that declares
+nothing is refused a subscription, a `bridge` and a `declare_reaction`, naming
+the missing capability, instead of serving a watcher that quietly misses
+writes.
+
+A Python provider's answer is written for it, as the space's ordinary
+`(events <ctx> <delivery> <order>)` declaration in `&petta`, so a MeTTa program
+reads the promise the engine acts on. Use `metta_context_events/3` when you own
+a FAMILY of names rather than one, the way every `&mork` space belongs to one
+backend, and there is no single name to write the atom about. A native space
+declares nothing and is watchable anyway: that is a fact about the engine's own
+store, not a promise a provider is making.
+
 Use the Prolog seam when the backend is reachable from Prolog or C and the
 query volume is high; use the Python one when the backend is a Python library.
 

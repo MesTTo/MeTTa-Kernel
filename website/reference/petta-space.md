@@ -1450,6 +1450,28 @@ def subscribe(
 > cannot say which. Re-read the space when you need to know;
 > `petta.structures.LiveView` is the worked instance.
 
+### `MeTTa.events`
+
+```python
+def events(self) -> EventStream:
+```
+
+> This engine's stream of `(action, space, atom)` changes.
+>
+>     seen = m.events().fold(
+>         lambda held, event: [*held, event.atom],
+>         space=m.space_name, pattern=S.order(V.id), state=[],
+>     )
+>     m.add(S.order(1))
+>     seen.take()          # [(order 1)], and the fold starts again
+>
+> The stream is the primitive and a FOLD over it is how anything
+> consumes it: a step `(state, event) -> state` run inside the write
+> that caused the event. subscribe() is the fold whose step delivers,
+> bridge() the fold whose step writes, and a declared `(on ...)`
+> reaction the fold whose step evaluates, so a consumer you write and
+> one this library ships are the same kind of thing.
+
 ### `MeTTa.prolog`
 
 ```python
@@ -1853,10 +1875,37 @@ def declare_context(self, name: str, world: World) -> Atom:
 > an undeclared one refuses under negation loudly. Native spaces
 > are the engine's own database and closed by construction.
 
+### `MeTTa.declare_agenda`
+
+```python
+def declare_agenda(self, name: str, policy: AgendaPolicy, function: str | None = None) -> Atom:
+```
+
+> Declare which reaction fires first when several match one write.
+>
+> declaration is the default and the order they were declared, which is
+> what the engine produced by accident before this was a policy;
+> recency is the most recently declared first; specificity is the most
+> tests in the pattern first; priority reads each reaction's own
+> declared number, highest first; and user names a MeTTa function that
+> SCORES a reaction, highest first. Every policy breaks ties on
+> declaration order.
+>
+>     m.declare_reaction("&alarms", "(alert $w)", "(insert &log (all $w))")
+>     m.declare_reaction("&alarms", "(alert fire)", "(insert &log (fire))",
+>                        priority=9)
+>     m.declare_agenda("&alarms", "priority")
+
 ### `MeTTa.declare_reaction`
 
 ```python
-def declare_reaction(self, name: str, pattern: str | Atom, operation: str | Atom) -> Atom:
+def declare_reaction(
+    self,
+    name: str,
+    pattern: str | Atom,
+    operation: str | Atom,
+    priority: int | None = None,
+) -> Atom:
 ```
 
 > Declare a reaction, stored as an (on ...) atom: when an atom
@@ -1925,6 +1974,29 @@ def declare_emits(self, name: str, policy: AnswerPolicy) -> Atom:
 > reach the provider: the first k of a best-first emission ARE the
 > k best. Distinct from the (merge &lt;pattern> &lt;policy>) strategy,
 > which is how the ENGINE merges answers across several contexts.
+
+### `MeTTa.declare_events`
+
+```python
+def declare_events(self, name: str, delivery: Delivery, order: EventOrder = 'unordered') -> Atom:
+```
+
+> Declare what a context's change events promise.
+>
+> Subscribability is a promise about the context, not something the
+> seam reads off its methods. A native space needs no declaration:
+> every write into it runs the engine's own hooks, so it delivers
+> per-write-exactly and ordered by construction. A FOREIGN context
+> declares, and one that declares nothing refuses a subscription
+> instead of serving one that silently misses writes.
+>
+>     m.declare_events("&shared", "at-most-once")   # redis pub/sub
+>     m.declare_events("&mirror", "per-write-exactly", "ordered")
+>
+> delivery is at-most-once, at-least-once or per-write-exactly, and
+> order is ordered or unordered, defaulting to unordered because an
+> omitted promise is the weaker one. A Python provider says the same
+> thing by overriding delivers(), which registration writes here.
 
 ### `MeTTa.runtime`
 

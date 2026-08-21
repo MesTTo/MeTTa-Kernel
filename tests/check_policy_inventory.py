@@ -6,7 +6,7 @@ Assumes:
   - ``swipl`` is on PATH and ``engine/metta.pl`` boots from the repository
     root, the same environment used by the Prolog and vocabulary gate lanes
 Guarantees:
-  - the runtime publishes exactly the seventeen required axes, with one row
+  - the runtime publishes exactly the nineteen required axes, with one row
     per axis and the knob/default pair recorded in POLICY_SEAMS; the algebra
     row also derives and validates each shipped semiring law claim [tested:
     tests/check_policy_inventory.py; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
@@ -126,6 +126,12 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
     ),
     "atomicity": PolicySeam(
         "writes", "transactional", "engine/spaces.pl", r"petta_in_user_transaction"
+    ),
+    "delivery": PolicySeam(
+        "events", "per-write-exactly", "engine/metta.pl", r"^petta_event_capability\("
+    ),
+    "reaction-order": PolicySeam(
+        "agenda", "declaration", "engine/metta.pl", r"^petta_agenda_order\("
     ),
     "save-format": PolicySeam(
         "save", "metta", "bindings/python/petta/_space_persistence.py", r'format == "fast"'

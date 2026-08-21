@@ -15,11 +15,11 @@ re-runs them.
 
 | source | what it is | kept true by |
 |---|---|---|
-| `examples/**/*.metta` | 221 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
-| `website/reference/petta-*.md` | 23 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
+| `examples/**/*.metta` | 223 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
+| `website/reference/petta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 32 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 150 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 151 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
@@ -30,7 +30,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 24,599 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
+| `engine/*.pl` | 24,969 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 32 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -342,7 +342,20 @@ sample_rates(query, *, algebra, draws, seed)
         stable cumulative selection from nonnegative (rate n) tags
 declare_admits(name, type_name)     only TYPE-carrying atoms enter
 declare_capacity(name, limit)       an add beyond LIMIT is refused loudly
-declare_reaction(name, pattern, operation)   stored as an (on ...) atom
+declare_reaction(name, pattern, operation, priority=)  stored as an (on ...) atom
+declare_agenda(name, "declaration"|"recency"|"specificity"|"priority"|"user",
+               function=None)
+        which reaction fires first when several match one write. declaration
+        is the default and the order they were declared; user names a MeTTa
+        function that SCORES a reaction. Every policy ties on declaration
+        order and an undeclared priority reads as 0.
+declare_events(name, "at-most-once"|"at-least-once"|"per-write-exactly",
+               "ordered"|"unordered")
+        what a foreign context's change events promise. Subscribability is a
+        promise about the context, not an inference from its write methods: a
+        context that declares nothing refuses subscribe, bridge and reaction
+        naming the missing capability. A Python provider says the same thing
+        by overriding delivers(); a native space needs no declaration.
 ```
 
 ## Observability
@@ -457,7 +470,9 @@ extension may CALL. The service list is the whole permitted inward surface
 `current_metta_module/1`, `space_module/2`, `metta_module_space/2`,
 `petta_shape_route/5` for the routed view of any shape-routed declaration
 kind, `foreign_pushdown_class/3` and `foreign_provides/2`, the routing
-classifier and capability probe the conformance library consults, and
+classifier and capability probe the conformance library consults,
+`petta_require_events/2`, which refuses a wait on a context that promises no
+change events, and
 `parse_metta_source/2`, which the import libraries read source
 through now that the host bindings run source engine-side), and it
 exists so a backend never reaches into
@@ -507,15 +522,28 @@ exit on findings), `doc` (a name's `(@doc ...)`).
 `connect(url, token=, headers=)`, `attach`. Credentials require https, tokens
 compare in constant time, and only http/https schemes are accepted.
 
+`petta.events`: `m.events()` is the engine's stream of `(action, space, atom)`
+changes as a first-class object, and `EventStream.fold(step, space=,
+pattern=, on=, state=)` is the one way to consume it. A step is
+`(state, event) -> state`, run inside the write that caused the event;
+`Fold.take()` reads the accumulated state and resets it, `Fold.wait(timeout)`
+is the same read blocked on a condition variable, and `Fold.cancel()` ends
+it. Leave `state` alone and the fold accumulates nothing, which costs it no
+serialisation. `EventStream.publish(action, space, atom)` announces a change
+this process did not write, which is how a provider with its own channel
+delivers. The three shipped models are that fold with three steps: subscribe
+delivers, bridge writes, a declared `(on ...)` reaction evaluates.
+
 `petta.subscribe`: `m.subscribe(pattern, callback, on="add", queue_max=10000)`
-is a standing query delivered INSIDE the write that matched it; without a
+is the delivering fold, run INSIDE the write that matched it; without a
 callback, events queue until `drain()`, and a full queue raises rather than
 discarding the oldest. A callback that raises reaches the writer as
 `SubscriberError`, which carries `.subscription` and says the write was
 applied, so it is not a failed write and retrying it duplicates.
 `bridge(...)` connects two spaces. `Subscription` is a context manager and
-also a blocking event stream. A `RemoteSpace` refuses `subscribe`: there is
-no event channel on the wire.
+also a blocking event stream. A foreign space is watchable only when it
+declares what its change events promise; a `RemoteSpace` declares nothing and
+refuses `subscribe`, because there is no event channel on the wire.
 
 The wire has both doors the in-process seam has. `RemoteSpace.match` is
 eager, one request carrying the whole answer set, and `RemoteSpace.stream`

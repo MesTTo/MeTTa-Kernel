@@ -55,7 +55,8 @@ These modules connect spaces, processes, event loops, subscriptions, and externa
 | [`petta.manifest`](./petta-manifest) | app assembly from a (boot ...) manifest |
 | [`petta.das`](./petta-das) | the Distributed Atomspace over the command router |
 | [`petta.aio`](./petta-aio) | the engine on an event loop, one dedicated worker thread |
-| [`petta.subscribe`](./petta-subscribe) | standing queries |
+| [`petta.events`](./petta-events) | the public event stream and the fold over it |
+| [`petta.subscribe`](./petta-subscribe) | standing queries, the fold that delivers |
 | [`petta.foreign`](./petta-foreign) | Python-backed spaces |
 | [`petta.integrate`](./petta-integrate) | library integration tools |
 

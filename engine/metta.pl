@@ -3506,8 +3506,8 @@ prolog:error_message(petta_algebra_law_violation(Algebra, Law, Inputs,
 %(explain (match &s P T)) and (explain (op ...)) answer the declarations
 %the seam would consult for that query, as atoms: which handles entry
 %routes it and with what fidelity, whether a take bound would push,
-%source, context world, annotations, emission, writes, error mode and
-%merge strategy. The self-honesty law is the lane: what explain says is
+%source, context world, annotations, emission, event delivery, writes,
+%error mode and merge strategy. The self-honesty law is the lane: what explain says is
 %what instrumented execution then does, which answers the original
 %complaint that the split was invisible.
 petta_explain([match, Space, Pattern, _Template], Out) :-
@@ -3542,6 +3542,11 @@ petta_explain_match_item(Space, _, [annotations, Semiring]) :-
     petta_annotations(Space, Semiring).
 petta_explain_match_item(Space, _, [emits, Policy]) :-
     (   petta_emits(Space, Declared) -> Policy = Declared ; Policy = none ).
+petta_explain_match_item(Space, _, [events, Delivery, Order]) :-
+    (   petta_event_capability(Space, Fidelity, Ordering)
+    ->  Delivery = Fidelity, Order = Ordering
+    ;   Delivery = none, Order = none
+    ).
 petta_explain_match_item(Space, _, [writes, Atomicity]) :-
     petta_writes(Space, Atomicity).
 petta_explain_match_item(Space, Pattern, ['on-error', Mode]) :-
@@ -3631,9 +3636,144 @@ petta_install_bridges :-
 
 :- dynamic petta_bridges_installed/0.
 
+%%%% The agenda: which reaction fires first (P12.17) %%%%
+%
+%Several reactions can match one write, and before this nothing in the tree
+%said which went first, so the answer was assertion order by accident. It is
+%a DECLARED policy now, (agenda <ctx> <policy> [<function>]) in '&petta',
+%with declaration as the stated default: the order they were declared, which
+%is what the accident used to produce.
+%
+%The vocabulary is production systems' own conflict-resolution vocabulary and
+%the reasons are on the catalog row that declares it. Every policy is STABLE
+%on declaration order, so the tie-break is the default rather than an
+%accident of the sort: that is CLIPS's own layering, where salience picks the
+%bucket and the strategy orders within it.
+%
+%A reaction's priority is the optional fifth argument of its (on ...) row and
+%defaults to 0, so every reaction written before this keeps its meaning.
+petta_reaction(Space, Pattern, Op, Priority) :-
+    (   petta_contract_fact([on, Space, Pattern, Op, Priority])
+    ;   petta_contract_fact([on, Space, Pattern, Op]),
+        Priority = 0
+    ).
+
+petta_agenda(Ctx, Policy, Chooser) :-
+    (   petta_contract_fact([agenda, Ctx, Declared, Named])
+    ->  Policy = Declared, Chooser = Named
+    ;   petta_contract_fact([agenda, Ctx, Declared])
+    ->  Policy = Declared, Chooser = none
+    ;   petta_agenda_default(Policy, Chooser)
+    ).
+
+%The stated default, as a FACT. Two reasons and both are load-bearing: the
+%row's whole point is that the default is stated rather than accidental, so
+%it reads better as one named thing than as two bindings buried in a branch;
+%and `Policy = declaration` cannot be written there at all, because the
+%development-side Ciao assertion packs declare `declaration` as a prefix
+%operator at priority 1125, above the 999 an operand of ,/2 may reach, so
+%that clause body stopped parsing under the ciao-grade lane's operator table
+%[measured 2026-08-21: engine/metta.pl:3540:27, "Operand expected, unquoted
+%comma or bar found"]. A head argument is not an operand of ,/2 and parses
+%either way.
+petta_agenda_default(declaration, none).
+
+prolog:error_message(petta_agenda_unscored(Ctx, Chooser, Entry)) -->
+    [ '~w declares (agenda ~w user ~w) and ~w answered no number for ~q. A \c
+       user agenda policy scores every reaction it is asked about, because a \c
+       reaction with no score has no place in the order and dropping it \c
+       would be a rule that silently never fires'-[Ctx, Ctx, Chooser,
+                                                    Chooser, Entry] ].
+
 petta_bridge_fire(Space, Term) :-
-    forall(petta_contract_fact([on, Space, Pattern, Op]),
-           petta_bridge_apply(Pattern, Term, Op)).
+    findall(Pattern-Op-Priority,
+            petta_reaction(Space, Pattern, Op, Priority),
+            Declared),
+    (   Declared = [_, _|_]
+    ->  petta_agenda(Space, Policy, Chooser),
+        petta_agenda_order(Policy, Chooser, Space, Declared, Ordered)
+    ;   Ordered = Declared
+    ),
+    forall(member(P-O-_, Ordered), petta_bridge_apply(P, Term, O)).
+
+%One reaction is already in order, and so is a conflict set under the
+%default, so neither pays for the sort.
+petta_agenda_order(declaration, _, _, Reactions, Reactions) :- !.
+petta_agenda_order(recency, _, _, Reactions, Ordered) :- !,
+    reverse(Reactions, Ordered).
+petta_agenda_order(specificity, _, _, Reactions, Ordered) :- !,
+    petta_agenda_keyed(petta_pattern_specificity, Reactions, Keyed),
+    petta_agenda_sorted(Keyed, Ordered).
+petta_agenda_order(priority, _, _, Reactions, Ordered) :- !,
+    findall(Priority-Reaction,
+            ( member(Reaction, Reactions), Reaction = _-_-Priority ),
+            Keyed),
+    petta_agenda_sorted(Keyed, Ordered).
+petta_agenda_order(user, Chooser, Space, Reactions, Ordered) :-
+    petta_agenda_user_keyed(Chooser, Space, Reactions, Keyed),
+    petta_agenda_sorted(Keyed, Ordered).
+
+%sort/4 with @>= keeps duplicates AND their relative order, so equal keys
+%stay in declaration order without a second sort key
+%[source: SWI-Prolog manual, sort/4].
+petta_agenda_sorted(Keyed, Ordered) :-
+    sort(1, @>=, Keyed, Sorted),
+    findall(Reaction, member(_-Reaction, Sorted), Ordered).
+
+petta_agenda_keyed(_, [], []).
+petta_agenda_keyed(Measure, [Reaction|Rest], [Key-Reaction|Keyed]) :-
+    Reaction = Pattern-_-_,
+    call(Measure, Pattern, Key),
+    petta_agenda_keyed(Measure, Rest, Keyed).
+
+%How specific a pattern is: OPS5 counts the tests in the left-hand side, and
+%a MeTTa pattern's tests are its non-variable positions, so (alert kitchen)
+%outranks (alert $where) and both outrank $anything.
+petta_pattern_specificity(Pattern, 0) :- var(Pattern), !.
+petta_pattern_specificity(Pattern, N) :-
+    is_list(Pattern),
+    !,
+    petta_specificity_of(Pattern, 1, N).
+petta_pattern_specificity(_, 1).
+
+petta_specificity_of([], N, N).
+petta_specificity_of([Item|Rest], Acc, N) :-
+    petta_pattern_specificity(Item, Count),
+    Next is Acc + Count,
+    petta_specificity_of(Rest, Next, N).
+
+%A user policy SCORES each reaction rather than reordering the list, and
+%that is the safer half of the same freedom: a function that returns a
+%permutation can drop a reaction, and a rule that silently never fires is
+%the failure this whole item exists to remove. Scoring cannot. It is also
+%what CHR-rp's dynamic priorities are, an expression evaluated per rule
+%instance rather than a constant. The function is called once per reaction
+%per firing write, and the call goes through the ordinary translation cache,
+%so an opt-in policy costs nothing until it is declared.
+petta_agenda_user_keyed(none, Space, _, _) :-
+    throw(error(petta_agenda_unscored(Space, none, none), none)).
+petta_agenda_user_keyed(Chooser, Space, Reactions, Keyed) :-
+    Chooser \== none,
+    petta_agenda_user_keys(Reactions, Chooser, Space, Keyed).
+
+petta_agenda_user_keys([], _, _, []).
+petta_agenda_user_keys([Reaction|Rest], Chooser, Space,
+                       [Key-Reaction|Keyed]) :-
+    Reaction = Pattern-Op-Priority,
+    Entry = [on, Space, Pattern, Op, Priority],
+    (   petta_agenda_score(Chooser, Entry, Key)
+    ->  true
+    ;   throw(error(petta_agenda_unscored(Space, Chooser, Entry), none))
+    ),
+    petta_agenda_user_keys(Rest, Chooser, Space, Keyed).
+
+petta_agenda_score(Chooser, Entry, Key) :-
+    space_module('&self', Module),
+    with_metta_module(Module,
+                      ( translate_cached_expr([Chooser, Entry], Goals, Out),
+                        call_goals_in_(Module, Goals) )),
+    number(Out),
+    Key = Out.
 
 petta_bridge_apply(Pattern, Term, Op) :-
     (   Pattern = Term
@@ -4203,6 +4343,84 @@ prolog:error_message(petta_transaction_unsupported(Ctx, 'atomic-single')) -->
 %strategy for merging answers across several contexts.
 petta_emits(Ctx, Policy) :-
     petta_contract_fact([emits, Ctx, Policy]).
+
+%%%% Subscribability as a declared capability (P12.14) %%%%
+%
+%(events Ctx Delivery [Order]) declares that a context can emit change
+%events at all, and at what fidelity. Delivery is at-most-once,
+%at-least-once or per-write-exactly and Order is ordered or unordered,
+%defaulting to unordered because an omitted promise is the weaker one.
+%
+%The point is that subscribability is a promise about a CONTEXT, not a
+%property the engine may infer. A native space is the engine's own store
+%and every write into it runs metta_on_atom_added/2, so it delivers
+%per-write-exactly and ordered by construction and needs no declaration:
+%that is a fact about this engine, not an assumption about a provider. A
+%FOREIGN context is the other case, and inference there is wrong in the
+%direction that loses events. A remote space implements add and remove
+%and its contents still change on the server, so deriving "it can emit
+%events" from "it can be written" made a watcher hear this process's own
+%writes and silently miss every other one [source:
+%bindings/python/petta/remote.py, RemoteSpace.can_run; measured
+%2026-08-19]. So a foreign context serves subscriptions when it declares
+%(events ...) and is refused when it does not, naming what is missing.
+%
+%The worked foreign instances are in this tree's own dependencies: redis
+%pub/sub is fire-and-forget, so a redis-attached space promises
+%at-most-once, and PostgreSQL LISTEN/NOTIFY is the same shape. The
+%decoupling dimensions a declaration here is about are the pub/sub
+%survey's own [source: Eugster, Felber, Guerraoui and Kermarrec, The Many
+%Faces of Publish/Subscribe, ACM Computing Surveys 35(2), 2003, section
+%2.2: space, time and synchronization decoupling]
+%[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
+%petta_events_declared/1 is the shortcut and it comes first: a context no
+%(events ...) atom has ever named cannot have one, so the store probes are
+%skipped outright. Every standing query writes a (subscription <ctx> ...)
+%atom whose second argument is the space, so the general petta_ctx_declared
+%flag says yes for every watched space and could not do this job.
+petta_events(Ctx, Delivery, Order) :-
+    (   petta_events_declared(Ctx),
+        (   petta_contract_fact([events, Ctx, Delivery, Declared])
+        ->  Order = Declared
+        ;   petta_contract_fact([events, Ctx, Delivery]),
+            Order = unordered
+        )
+    ->  true
+    ;   metta_context_events(Ctx, Delivery, Order)
+    ).
+
+%What a space can deliver, whoever holds it. Native spaces answer the
+%engine's own guarantee; a foreign one answers its declaration, and a
+%foreign one without a declaration answers nothing, which is what the
+%refusal below reads.
+petta_event_capability(Space, Delivery, Order) :-
+    (   metta_foreign_space(Space)
+    ->  once(petta_events(Space, Delivery, Order))
+    ;   petta_events(Space, Delivery, Order)
+    ->  true
+    ;   Delivery = 'per-write-exactly',
+        Order = ordered
+    ).
+
+%Refuse an operation that needs change events on a context that promises
+%none. Operation is the caller's own word, so a blocking take and a
+%standing query each name themselves.
+petta_require_events(Space, Operation) :-
+    (   petta_event_capability(Space, _, _)
+    ->  true
+    ;   throw(error(petta_events_undeclared(Space, Operation), none))
+    ).
+
+:- multifile prolog:error_message//1.
+prolog:error_message(petta_events_undeclared(Space, Operation)) -->
+    [ '~w cannot ~w: it declares no (events ~w <delivery>) capability, \c
+       so nothing promises its changes reach a watcher. A context whose \c
+       every write goes through this engine declares (events ~w \c
+       per-write-exactly ordered); one with its own channel declares \c
+       what that channel promises, at-most-once or at-least-once; and \c
+       one whose contents change where no channel reports it declares \c
+       nothing and is refused here rather than serving a subscription \c
+       that silently misses writes'-[Space, Operation, Space, Space] ].
 
 %%%% The handles route: declared fidelity per context and shape %%%%
 %

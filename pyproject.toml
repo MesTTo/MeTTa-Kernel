@@ -324,14 +324,14 @@ type = "forbidden"
 source_modules = ["petta.atoms", "petta.errors"]
 forbidden_modules = [
     "petta.space", "petta.ops", "petta.define", "petta.convert",
-    "petta.integrate", "petta.subscribe",
+    "petta.integrate", "petta.subscribe", "petta.events",
 ]
 
 [[tool.importlinter.contracts]]
 name = "leaf modules do not import the facade"
 type = "forbidden"
 source_modules = [
-    "petta.subscribe", "petta.foreign", "petta.casting", "petta.trace",
-    "petta.lint", "petta.derivation", "petta.results",
+    "petta.subscribe", "petta.events", "petta.foreign", "petta.casting",
+    "petta.trace", "petta.lint", "petta.derivation", "petta.results",
 ]
 forbidden_modules = ["petta.space"]

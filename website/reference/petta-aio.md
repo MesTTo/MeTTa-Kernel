@@ -645,6 +645,32 @@ async def declare_emits(self, name: str, policy: AnswerPolicy) -> Atom:
 
 No docstring is defined.
 
+### `AsyncMeTTa.declare_events`
+
+```python
+async def declare_events(
+    self,
+    name: str,
+    delivery: Delivery,
+    order: EventOrder = 'unordered',
+) -> Atom:
+```
+
+> Declare what a context's change events promise; see MeTTa.declare_events.
+
+### `AsyncMeTTa.events`
+
+```python
+async def events(self) -> Any:
+```
+
+> This engine's public event stream; see MeTTa.events.
+>
+> A fold registered through it runs on the engine thread, inside the
+> write that caused the event, exactly as a synchronous one does.
+> `AsyncMeTTa.subscribe` is the async-native door for the delivering
+> fold and hands events to an async iterator instead.
+
 ### `AsyncMeTTa.declare_handles`
 
 ```python
@@ -692,10 +718,29 @@ No docstring is defined.
 ### `AsyncMeTTa.declare_reaction`
 
 ```python
-async def declare_reaction(self, name: str, pattern: str | Atom, operation: str | Atom) -> Atom:
+async def declare_reaction(
+    self,
+    name: str,
+    pattern: str | Atom,
+    operation: str | Atom,
+    priority: int | None = None,
+) -> Atom:
 ```
 
 No docstring is defined.
+
+### `AsyncMeTTa.declare_agenda`
+
+```python
+async def declare_agenda(
+    self,
+    name: str,
+    policy: AgendaPolicy,
+    function: str | None = None,
+) -> Atom:
+```
+
+> Declare which reaction fires first; see MeTTa.declare_agenda.
 
 ### `AsyncMeTTa.declare_source`
 

@@ -19,6 +19,21 @@
 %     [tested: spaces_parametric; commit=3c7bcde6a0670ec5c563584b26977b41cc727580].
 %   - duplicate declarations in one batch are detected before any member is
 %     stored [tested: spaces_batch_is_only_a_transport; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - a foreign context provides subscribe exactly when it declares an event
+%     delivery, and a standing query or reaction on one that declares none is
+%     refused naming the missing capability, while a native space answers
+%     per-write-exactly and ordered with nothing declared
+%     [tested: spaces_event_capability; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
+%   - every pattern the engine sends across a space seam is a writable MeTTa
+%     term, so a provider that writes the pattern to send it can: the
+%     type-marker probe used a partial [-> | Types] list and a MORK space
+%     answered `swrite/2: cannot write [->|'$petta_variable'(0)]`
+%     [tested: spaces_seam_patterns; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
+%   - two conflicting reactions fire in the order each declared agenda policy
+%     names, a reaction with no declared priority reads as 0, and a user
+%     policy that scores nothing is a loud error rather than a rule that
+%     silently never fires
+%     [tested: spaces_reaction_agenda; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -2353,3 +2368,215 @@ test(a_failed_outer_transaction_leaves_no_restriction) :-
     assertion(\+ native_storage_module_cache('&restricted-rollback', _)).
 
 :- end_tests(spaces_restricted_modules).
+
+% The declared event capability (P12.14): subscribability is a promise about
+% a context rather than something read off its methods, so a foreign space
+% that declares nothing is refused a standing query and one that declares a
+% delivery is served, while a native space needs no declaration because
+% every write into it already runs the engine's own hooks.
+% The two providers are declared at FILE level, outside the unit:
+% begin_tests/1 opens a module of its own, so a multifile clause written
+% inside it defines that module's predicate and the engine never sees it.
+metta_foreign_space('&plunit_events_quiet').
+metta_foreign_capability('&plunit_events_quiet', Capability) :-
+    member(Capability, [add, remove, match, enumerate, subscribe]).
+metta_foreign_match('&plunit_events_quiet', [fact, X]) :- X = quiet.
+
+metta_foreign_space('&plunit_events_loud').
+metta_foreign_capability('&plunit_events_loud', Capability) :-
+    member(Capability, [add, remove, match, enumerate, subscribe]).
+metta_foreign_match('&plunit_events_loud', [fact, X]) :- X = loud.
+
+:- multifile metta_context_events/3.
+metta_context_events('&plunit_events_loud', 'at-least-once', unordered).
+
+% A foreign space that RECORDS the pattern it is asked to match, so a test
+% can check what the engine sends across the seam rather than only what comes
+% back. MORK writes the pattern as text to send it, which is why a pattern
+% that has no text is a crash there and invisible everywhere else.
+:- dynamic plunit_arrow_probe/1.
+metta_foreign_space('&plunit-arrow-foreign').
+metta_foreign_capability('&plunit-arrow-foreign', Capability) :-
+    member(Capability, [add, remove, match, enumerate, rules]).
+metta_foreign_match('&plunit-arrow-foreign', Pattern, _Options) :-
+    assertz(plunit_arrow_probe(Pattern)),
+    fail.
+
+:- begin_tests(spaces_event_capability).
+
+test(a_declared_context_provides_subscribe_and_a_silent_one_does_not) :-
+    assertion(foreign_provides('&plunit_events_loud', subscribe)),
+    assertion(\+ foreign_provides('&plunit_events_quiet', subscribe)),
+    % Every other capability the same provider registered is untouched, so
+    % this is one withdrawn promise rather than a broken space.
+    forall(member(C, [add, remove, match, enumerate]),
+           assertion(foreign_provides('&plunit_events_quiet', C))).
+
+test(the_declaration_carries_its_delivery_and_order) :-
+    petta_event_capability('&plunit_events_loud', Delivery, Order),
+    assertion(Delivery == 'at-least-once'),
+    assertion(Order == unordered).
+
+test(a_native_space_delivers_per_write_exactly_without_declaring_it) :-
+    petta_event_capability('&plunit-events-native', Delivery, Order),
+    assertion(Delivery == 'per-write-exactly'),
+    assertion(Order == ordered).
+
+test(a_standing_query_on_a_silent_context_is_refused_naming_the_capability,
+     [ cleanup(( metta_remove_atom('&petta',
+                                   [subscription, '&plunit_events_loud',
+                                    [fact, quiet], add], _),
+                 metta_remove_atom('&petta',
+                                   [on, '&plunit_events_loud', [fact, quiet],
+                                    [insert, '&plunit-events-native', done]],
+                                   _) )) ]) :-
+    catch('add-atom'('&petta',
+                     [subscription, '&plunit_events_quiet', [fact, quiet], add],
+                     _),
+          error(Ball, _), true),
+    assertion(Ball == petta_events_undeclared('&plunit_events_quiet',
+                                              'be subscribed to')),
+    catch('add-atom'('&petta',
+                     [on, '&plunit_events_quiet', [fact, quiet],
+                      [insert, '&plunit-events-native', done]],
+                     _),
+          error(Reaction, _), true),
+    assertion(Reaction == petta_events_undeclared('&plunit_events_quiet',
+                                                  'carry a reaction')),
+    % The declared one takes both, so the refusal is about the promise and
+    % not about the declaration shape.
+    'add-atom'('&petta',
+               [subscription, '&plunit_events_loud', [fact, quiet], add], _),
+    'add-atom'('&petta',
+               [on, '&plunit_events_loud', [fact, quiet],
+                [insert, '&plunit-events-native', done]], _).
+
+:- end_tests(spaces_event_capability).
+
+% The reaction agenda (P12.17): which reaction fires first when several
+% match one write is a DECLARED policy with a stated default, not assertion
+% order by accident. Every test here uses the same two conflicting
+% reactions, declared broad-then-narrow, so the order a policy produces is
+% the only thing that varies.
+:- begin_tests(spaces_reaction_agenda).
+
+agenda_reset :-
+    forall(petta_contract_fact([on, '&ag-src', P, O]),
+           metta_remove_atom('&petta', [on, '&ag-src', P, O], _)),
+    forall(petta_contract_fact([on, '&ag-src', P2, O2, N]),
+           metta_remove_atom('&petta', [on, '&ag-src', P2, O2, N], _)),
+    forall(petta_contract_fact([agenda, '&ag-src', Policy]),
+           metta_remove_atom('&petta', [agenda, '&ag-src', Policy], _)),
+    forall(petta_contract_fact([agenda, '&ag-src', P3, C3]),
+           metta_remove_atom('&petta', [agenda, '&ag-src', P3, C3], _)),
+    metta_host_clear_space('&ag-src'),
+    metta_host_clear_space('&ag-log').
+
+% Two reactions on one atom, each writing its own marker into the log, so
+% the log READS as the firing order.
+agenda_two_reactions :-
+    agenda_reset,
+    'add-atom'('&petta', [on, '&ag-src', [alert, _],
+                          [insert, '&ag-log', broad]], _),
+    'add-atom'('&petta', [on, '&ag-src', [alert, kitchen],
+                          [insert, '&ag-log', narrow]], _),
+    petta_install_bridges.
+
+agenda_fired(Order) :-
+    'add-atom'('&ag-src', [alert, kitchen], _),
+    findall(A, 'get-atoms'('&ag-log', A), Order).
+
+test(test_the_reaction_agenda_fires_in_the_declared_order,
+     [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
+    % The default is STATED: declaration order, which is what the engine
+    % used to produce by accident, and the catalog says so.
+    assertion(petta_catalog_row([policy, 'reaction-order', agenda,
+                                 declaration])),
+    agenda_fired(Default),
+    assertion(Default == [broad, narrow]),
+
+    % The same two reactions under a second declared policy fire in the
+    % other order, which is the whole claim: the order follows the
+    % declaration rather than the assertion sequence.
+    metta_host_clear_space('&ag-log'),
+    'add-atom'('&petta', [agenda, '&ag-src', recency], _),
+    agenda_fired(Recency),
+    assertion(Recency == [narrow, broad]),
+
+    % And a third: most specific first, OPS5's criterion, which puts
+    % (alert kitchen) ahead of (alert $where) whatever their order.
+    metta_remove_atom('&petta', [agenda, '&ag-src', recency], _),
+    metta_host_clear_space('&ag-log'),
+    'add-atom'('&petta', [agenda, '&ag-src', specificity], _),
+    agenda_fired(Specificity),
+    assertion(Specificity == [narrow, broad]).
+
+test(a_declared_priority_outranks_declaration_order,
+     [ setup(agenda_reset), cleanup(agenda_reset) ]) :-
+    'add-atom'('&petta', [on, '&ag-src', [alert, _],
+                          [insert, '&ag-log', broad], 1], _),
+    'add-atom'('&petta', [on, '&ag-src', [alert, kitchen],
+                          [insert, '&ag-log', narrow], 9], _),
+    petta_install_bridges,
+    'add-atom'('&petta', [agenda, '&ag-src', priority], _),
+    agenda_fired(Order),
+    assertion(Order == [narrow, broad]).
+
+test(a_reaction_without_a_priority_still_fires_and_reads_as_zero,
+     [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
+    'add-atom'('&petta', [agenda, '&ag-src', priority], _),
+    agenda_fired(Order),
+    assertion(Order == [broad, narrow]),
+    findall(N, petta_reaction('&ag-src', _, _, N), Priorities),
+    assertion(Priorities == [0, 0]).
+
+% A user policy SCORES each reaction, so it cannot drop one, and a function
+% that answers no number for a reaction is a loud error rather than a rule
+% that silently never fires.
+% The scorer sees each reaction AS DECLARED, variables and all, so it reads
+% the operation here rather than the pattern: a head naming (alert kitchen)
+% also unifies with the BROAD reaction's (alert $where), and both would score
+% the same. That is MeTTa's ordinary non-exclusive equation semantics meeting
+% a pattern that is itself data.
+test(a_user_agenda_policy_scores_each_reaction,
+     [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
+    with_output_to(string(_),
+        user:process_metta_string(
+            "(= (ag-rank (on $ctx $pattern (insert $log narrow) $p)) 10)
+             (= (ag-rank (on $ctx $pattern (insert $log broad) $p)) 1)", _)),
+    'add-atom'('&petta', [agenda, '&ag-src', user, 'ag-rank'], _),
+    agenda_fired(Order),
+    assertion(Order == [narrow, broad]).
+
+test(a_user_agenda_policy_that_scores_nothing_says_so,
+     [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
+    'add-atom'('&petta', [agenda, '&ag-src', user, 'ag-silent'], _),
+    catch('add-atom'('&ag-src', [alert, kitchen], _), error(Ball, _), true),
+    assertion(Ball = petta_agenda_unscored('&ag-src', 'ag-silent', _)).
+
+:- end_tests(spaces_reaction_agenda).
+
+% Every pattern the engine sends across a space seam has to be a MeTTa TERM.
+% A partial list is not one, and a provider that writes the pattern to send
+% it has no text for [-> | Types]: MORK refused exactly that and an ordinary
+% (: Name Type) declaration died with `swrite/2: cannot write
+% [->|'$petta_variable'(0)]`. The type-marker probe asks with a plain
+% variable now and checks the arrow shape after the match.
+:- begin_tests(spaces_seam_patterns).
+
+% The probe fact is written by a clause that resolves in user and read here,
+% so both ends say user: explicitly. A bare retractall in a test would create
+% a second, empty predicate in this unit's own module and read that instead,
+% which is the spaces.plt lesson the header records.
+test(a_type_marker_probe_sends_a_writable_pattern_to_a_foreign_space,
+     [ setup(retractall(user:plunit_arrow_probe(_))),
+       cleanup(retractall(user:plunit_arrow_probe(_))) ]) :-
+    space_module('&plunit-arrow-foreign', Module),
+    forall(stored_arrow_uses_type_in(Module, 'plunit-arrow-fun', 'Number'),
+           true),
+    findall(P, user:plunit_arrow_probe(P), Patterns),
+    assertion(Patterns \== []),
+    forall(member(Pattern, Patterns),
+           assertion(catch(swrite(Pattern, _), _, fail))).
+
+:- end_tests(spaces_seam_patterns).
