@@ -15,6 +15,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- The shipped translator rules' termination is now ESTABLISHED.
+  `lib/lib_spaces.metta`'s `succeedsPredicate` writes two variables its head
+  does not, and its registration declares, with the reason, that both are
+  binders of its own expansion rather than variables taken from the term being
+  rewritten. The confluence report prints the exemption beside the termination
+  line, a rule that invents a variable and says nothing still reports
+  `extra_variables`, and the lane gained a GATE beside its report. The
+  obstruction that remains is a different one on a different tier: the
+  prelude's three identity rules have their left side inside their right, so
+  no path order can orient them, and the compiler terminates on them only
+  because `noeval` stops the expansion going round again.
 - A translator rule can carry a `(cost N)` and a conjunctive left side.
   The cost prices a form headed by the rule's name and decides which of two
   equivalent forms a bidirectional rule emits, the way an e-graph extractor

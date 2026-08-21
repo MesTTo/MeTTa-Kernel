@@ -341,12 +341,15 @@ check_prolog_metatheory() {
 }
 run GATE prolog-metatheory check_prolog_metatheory
 
-# The compile-time rule set's overlaps, termination and local confluence.
-# REPORT, because the shipped set's termination is NOT ESTABLISHED while
-# lib_spaces' succeedsPredicate carries right-hand-only variables; that is
-# P2.26's burn-down, and translator_confluence_gate is the promotion path
-# once it clears.
+# The compile-time rule set's overlaps, termination and local confluence. The
+# REPORT prints the whole analysis and the GATE beside it fails the run on an
+# overlap that is not joined. This was report-only while the shipped set's
+# termination read NOT ESTABLISHED: lib_spaces' succeedsPredicate writes two
+# variables its head does not, and its registration now declares that both are
+# binders of its own expansion, which moves the line to ESTABLISHED and clears
+# the promotion.
 run REPORT translator-confluence sh -c "cd '$HERE/tests/prolog' && swipl -q --on-error=status -g translator_confluence_report -t 'halt(0)' translator_confluence.pl"
+run GATE translator-confluence-gate sh -c "cd '$HERE/tests/prolog' && swipl -q --on-error=status -g translator_confluence_gate -t 'halt(0)' translator_confluence.pl"
 
 # The detector's own selftest: five planted rule sets, each required on the
 # side its shape predicts, which is what stops "0 overlaps" from meaning the

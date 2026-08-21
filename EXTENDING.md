@@ -253,6 +253,24 @@ any other. A conjunctive left side cannot be declared bidirectional: reading it
 backwards would have to assert the conjuncts it matched, which is a different
 operation. `examples/translation/translatorrule_cost.metta` runs all of this.
 
+### A variable the right side invents
+
+The termination analysis behind the confluence report needs every variable a
+rule writes on its right to be bound on its left, because one that is not can
+be instantiated to anything. Some are not: a variable that is a **binder** of
+the expansion, like `catch`'s ball pattern or a `case` branch's pattern, never
+takes a value from the term being rewritten. A rule says so, with the reason:
+
+```metta
+!(add-translator-rule! succeedsPredicate
+   ((extra-variables-exempt "the catch ball pattern and the case branch pattern are binders of the expansion, so neither takes a value from the term being rewritten")))
+```
+
+The reason is required, because an exemption without one is a silenced check.
+The report prints it beside the termination line, so a waived precondition is
+stated rather than assumed, and a rule that invents a variable and says nothing
+still reports `extra_variables`.
+
 ### Declining a match
 
 A rule head says which shape the rule rewrites. Whether the match it got is one

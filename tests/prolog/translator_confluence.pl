@@ -55,9 +55,10 @@
 %       exits 0 whatever it finds: it is a REPORT surface
 %       [tested: test_overlapping_translator_rules_are_reported_with_the_overlap_named].
 %     - translator_confluence_gate/0 is the same analysis and FAILS the run on
-%       an overlap that is not joined, which is the promotion path once the
-%       shipped rule set is known clean [assumed 2026-08-19: no lane runs it
-%       yet, and the shipped rule set has no divergent overlap today].
+%       an overlap that is not joined, and on a shipped rule that can REFUSE,
+%       because the critical-pair criterion decides an unconditional set and
+%       says nothing about a conditional one
+%       [tested: the translator-confluence-gate lane in check.sh].
 %     - translator_confluence_selftest/0 fails unless the analysis puts each of
 %       five planted rule sets on the side its own shape predicts, so a report
 %       of "no overlaps" cannot come from a detector that stopped detecting
@@ -65,6 +66,12 @@
 %     - termination is ESTABLISHED with the route that decided it, or the
 %       failure is NAMED with the step that failed. There is no third answer
 %       [tested: test_the_compile_time_rule_set_is_shown_terminating_or_the_failure_is_named].
+%     - a rule that DECLARED its right-hand-only variables exempt is analysed
+%       with them replaced by a constant, and the exemption is printed with
+%       its reason beside the termination line, so a waived precondition is
+%       stated rather than assumed
+%       [tested: test_the_shipped_translator_rules_bind_their_right_hand_variables;
+%       commit=WORKTREE].
 %     - diagnostic overlap terms use presentation text, including the
 %       first-order compounds and numbered-variable carriers that are not
 %       serializable MeTTa values [tested:
@@ -332,11 +339,13 @@ print_typing_overlap(
 analyse(Registered, SpaceRules, PreludeRules,
         analysis(Termination, Shipped, SpaceVs, CrossVs, Specs, ShippedVs)) :-
     include(has_rule_in(SpaceRules), Registered, SpaceEntries),
-    termination(SpaceEntries, SpaceRules, Termination),
+    maplist(exempted_rule, SpaceRules, SpaceForTermination),
+    termination(SpaceEntries, SpaceForTermination, Termination),
     (   PreludeRules == []
     ->  Shipped = no_shipped_tier
     ;   include(has_rule_in(PreludeRules), Registered, ShippedEntries),
-        termination(ShippedEntries, PreludeRules, Shipped)
+        maplist(exempted_rule, PreludeRules, PreludeForTermination),
+        termination(ShippedEntries, PreludeForTermination, Shipped)
     ),
     append(SpaceRules, PreludeRules, Combined),
     length(SpaceRules, S),
@@ -347,6 +356,39 @@ analyse(Registered, SpaceRules, PreludeRules,
     partition(both_above(S), Rest, PreludeVs, CrossVs),
     partition(shipped_specialization(Combined), PreludeVs,
               Specs, ShippedVs).
+
+% A rule whose registration DECLARED that its right-hand-only variables are
+% exempt is analysed with those variables replaced by a constant, which is
+% what the exemption says they are: bound by a binder of the expansion, never
+% taking a value from the term being rewritten. The substitution is made for
+% the termination question only; the critical-pair analysis and everything
+% printed use the rule as written. '$exempt' cannot collide with a MeTTa
+% symbol, for the reason engine/narrowing.pl's '$bottom' cannot: a source
+% token starting with $ parses as a variable.
+exempted_rule(Rule, Analysed) :-
+    Rule = (L ==> _),
+    functor(L, Name, _),
+    user:translator_rule_extra_variables_exempt(Name, _),
+    !,
+    copy_term(Rule, Analysed),
+    Analysed = (Left ==> Right),
+    term_variables(Left, Bound),
+    term_variables(Right, Occurring),
+    exclude(variable_among(Bound), Occurring, RightOnly),
+    maplist(=('$exempt'), RightOnly).
+exempted_rule(Rule, Rule).
+
+variable_among(Variables, V) :- member(W, Variables), W == V, !.
+
+% Which rules of a set carry an exemption, so the termination line says which
+% precondition was waived and on whose word.
+rule_exemptions(Rules, Exemptions) :-
+    findall(Name-Reason,
+            ( member(L ==> _, Rules),
+              functor(L, Name, _),
+              user:translator_rule_extra_variables_exempt(Name, Reason) ),
+            Pairs),
+    sort(Pairs, Exemptions).
 
 has_rule_in(Rules, Name) :-
     member(L ==> _, Rules),
@@ -421,6 +463,7 @@ print_analysis(SpaceRules, PreludeRules,
     forall(( nth1(K, PreludeRules, Rule), I is S + K ),
            print_shipped_rule(I, Rule)),
     print_termination(SpaceRules, Termination),
+    print_exemptions(SpaceRules),
     append(SpaceVs, CrossVs, Headline),
     include(verdict_is(joined), Headline, Joined),
     include(verdict_is(counterexample), Headline, Divergent),
@@ -498,6 +541,12 @@ print_rule(I, L ==> R) :-
     term_expr(R, RE),
     user:sdisplay(['=', LE, RE], Text),
     format("  ~d. ~w~n", [I, Text]).
+
+print_exemptions(Rules) :-
+    rule_exemptions(Rules, Exemptions),
+    forall(member(Name-Reason, Exemptions),
+           format("  exempt from the extra-variables precondition: ~w, \c
+                   because ~w~n", [Name, Reason])).
 
 print_termination(_, no_entry) :-
     format("termination: NOT ESTABLISHED. no registered name has an \c
@@ -653,7 +702,18 @@ translator_confluence_gate :-
     compile_time_rules('&self', Registered, _, SpaceRules, PreludeRules),
     (   SpaceRules == [], PreludeRules == []
     ->  true
-    ;   analyse(Registered, SpaceRules, PreludeRules, Analysis),
+    ;   %A conditional set is not decided by the criterion at all, so passing
+        %it would be claiming something this analysis cannot say. The shipped
+        %libraries hold no refusing rule today; the day one ships, this stops
+        %and a person decides.
+        guarded_rules(SpaceRules, PreludeRules, Guarded, _),
+        (   Guarded > 0
+        ->  print_translator_family(translator_state('&self', Registered, [],
+                                                     SpaceRules, PreludeRules)),
+            halt(1)
+        ;   true
+        ),
+        analyse(Registered, SpaceRules, PreludeRules, Analysis),
         Analysis = analysis(_, _, SpaceVs, CrossVs, _Specs, ShippedVs),
         %A specialization pair is sanctioned by its equivalence evidence;
         %every other divergent overlap, whichever tier holds it, breaks.
@@ -765,10 +825,12 @@ translator_confluence_selftest :-
             Wrong),
     planted_collection_seen,
     planted_typing_overlap_seen,
+    planted_refusing_rule_seen,
     (   Wrong == []
     ->  format("translator confluence selftest: ~d planted rule sets, each on \c
-                the side its shape predicts, and the collection door reads \c
-                the prelude and typing registries~n", [5])
+                the side its shape predicts, the collection door reads the \c
+                prelude and typing registries, and a refusing rule is \c
+                counted~n", [5])
     ;   forall(member(N-E-G, Wrong),
                format("planted ~w: expected ~w, got ~w~n", [N, E, G])),
         halt(1) ).
@@ -799,6 +861,27 @@ planted_collection_seen :-
     halt(1).
 
 fixture_rule(L ==> _) :- functor(L, '$cfl_fixture', _).
+
+% The gate refuses a conditional set rather than deciding one, so the thing it
+% branches on is checked here too: a planted rule whose right-hand side can
+% refuse must be COUNTED, or the gate would go on passing a set the
+% critical-pair criterion says nothing about.
+planted_refusing_rule_seen :-
+    setup_call_cleanup(
+        ( assertz(user:translator_rule('$cfl_guard', [])),
+          assertz(user:prelude_equation('$cfl_guard',
+                                        ['=', ['$cfl_guard', _],
+                                         [refuse, "planted"]])) ),
+        ( compile_time_rules('&self', _, _, _, PreludeRules),
+          guarded_rules([], PreludeRules, Guarded, _),
+          Guarded >= 1 ),
+        ( retractall(user:translator_rule('$cfl_guard', _)),
+          retractall(user:prelude_equation('$cfl_guard', _)) )),
+    !.
+planted_refusing_rule_seen :-
+    format("planted refusing rule: a rule that can refuse was not counted, so \c
+            the gate would decide a conditional set~n", []),
+    halt(1).
 
 % Both required typing intersections go through the descriptor: a refusing
 % user rule overlaps a deferring user rule and the shipped gradual rule. The

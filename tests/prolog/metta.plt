@@ -2491,3 +2491,26 @@ test(a_declaration_repeated_with_fresh_variables_is_the_same_declaration,
     assertion(Again == true).
 
 :- end_tests(translator_rule_cost_and_conjunction).
+
+
+:- begin_tests(translator_rule_extra_variables_exemption).
+
+% An exemption without a reason is a silenced check, so the declaration form
+% requires one and a bare flag is not a declaration this registry knows.
+test(an_exemption_without_a_reason_is_not_a_declaration,
+     [ throws(error(domain_error(translator_rule_declaration,
+                                 ['extra-variables-exempt']), _)) ]) :-
+    'add-translator-rule!'('p2b-bare-exemption',
+                           [['extra-variables-exempt']], _).
+
+test(an_exemption_records_the_reason_it_was_given,
+     [ setup(process_metta_string("(= (p2b-invents $x) (noeval (pair $x $y)))", _)),
+       cleanup('remove-translator-rule!'('p2b-invents', _)) ]) :-
+    'add-translator-rule!'('p2b-invents',
+                           [['extra-variables-exempt', "the second is a binder"]],
+                           _),
+    translator_rule_extra_variables_exempt('p2b-invents', Reason),
+    assertion(Reason == "the second is a binder"),
+    assertion(\+ translator_rule_extra_variables_exempt('p2b-invents-not', _)).
+
+:- end_tests(translator_rule_extra_variables_exemption).

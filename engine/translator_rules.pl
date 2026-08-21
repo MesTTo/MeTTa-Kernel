@@ -172,6 +172,14 @@ translator_rule_declaration([left, Patterns], left(Patterns)) :-
     is_list(Patterns), Patterns = [_|_].
 translator_rule_declaration([right, Expansion], right(Expansion)) :-
     nonvar(Expansion).
+%A variable this rule writes only on its right is bound by a BINDER of the
+%expansion rather than taken from the term being rewritten. The termination
+%analysis in engine/narrowing.pl cannot see the difference, so the rule says
+%which it is and why; a reason is required because an exemption without one
+%is a silenced check.
+translator_rule_declaration(['extra-variables-exempt', Reason],
+                            extra_variables_exempt(Reason)) :-
+    nonvar(Reason).
 
 %Two directions, which is the whole split R19 names: a FORWARD rule is a
 %rewrite, and a BIDIRECTIONAL one is an equation, a quotient the compiler may
@@ -214,7 +222,8 @@ parse_translator_rule_declaration(Form, Parsed) :-
     ;   throw(error(domain_error(translator_rule_declaration, Form),
                     context('add-translator-rule!',
                             'use (direction ...), (cost N), \c
-                             (left (Pattern ...)) or (right Expansion)')))
+                             (left (Pattern ...)), (right Expansion) or \c
+                             (extra-variables-exempt Reason)')))
     ).
 
 refuse_repeated_declaration(Declarations) :-
@@ -233,6 +242,10 @@ refuse_repeated_declaration(Declarations) :-
 translator_rule_declared_cost(Name, Cost) :-
     translator_rule(Name, Declarations),
     memberchk(cost(Cost), Declarations).
+
+translator_rule_extra_variables_exempt(Name, Reason) :-
+    translator_rule(Name, Declarations),
+    memberchk(extra_variables_exempt(Reason), Declarations).
 
 translator_rule_declared_direction(Name, Direction) :-
     translator_rule(Name, Declarations),
