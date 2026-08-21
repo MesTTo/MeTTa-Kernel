@@ -23,17 +23,17 @@
 %     delivery, and a standing query or reaction on one that declares none is
 %     refused naming the missing capability, while a native space answers
 %     per-write-exactly and ordered with nothing declared
-%     [tested: spaces_event_capability; commit=WORKTREE].
+%     [tested: spaces_event_capability; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
 %   - every pattern the engine sends across a space seam is a writable MeTTa
 %     term, so a provider that writes the pattern to send it can: the
 %     type-marker probe used a partial [-> | Types] list and a MORK space
 %     answered `swrite/2: cannot write [->|'$petta_variable'(0)]`
-%     [tested: spaces_seam_patterns; commit=WORKTREE].
+%     [tested: spaces_seam_patterns; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
 %   - two conflicting reactions fire in the order each declared agenda policy
 %     names, a reaction with no declared priority reads as 0, and a user
 %     policy that scores nothing is a loud error rather than a rule that
 %     silently never fires
-%     [tested: spaces_reaction_agenda; commit=WORKTREE].
+%     [tested: spaces_reaction_agenda; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

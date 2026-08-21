@@ -20,13 +20,13 @@
 %   - subscribe follows the (events ...) declaration rather than what a host
 %     registered, and a standing query or a reaction on a context that
 %     declares none is refused at the catalog door naming the missing
-%     capability [tested: spaces_event_capability; commit=WORKTREE].
+%     capability [tested: spaces_event_capability; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
 %   - the type-marker probe asks a space with a writable pattern, so a
 %     provider that writes the pattern to send it is never handed a partial
-%     list [tested: spaces_seam_patterns; commit=WORKTREE].
+%     list [tested: spaces_seam_patterns; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
 %   - the reaction agenda is a declared policy with declaration order as its
 %     stated default, and two conflicting reactions fire in the order each
-%     declared policy names [tested: spaces_reaction_agenda; commit=WORKTREE].
+%     declared policy names [tested: spaces_reaction_agenda; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
 %   - stored_atom_of_ref/3 is add_sexp_in/4's inverse over both stored shapes,
 %     and answers for a stored atom's clause reference alone: not for a
 %     compiled clause's, not for a registration's, not for an erased one
