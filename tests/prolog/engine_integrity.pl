@@ -107,7 +107,7 @@ corpus_file(Dirs, File) :-
 %raised rather than counted as clean.
 corpus_equation(Dirs, File, Name, MettaArity) :-
     corpus_file(Dirs, File),
-    read_metta_source(File, Source),
+    filereader:read_metta_source(File, Source),
     parse_metta_source(Source, Forms),
     member(parsed(function, _, Form), Forms),
     equation_head(Form, Name, MettaArity).

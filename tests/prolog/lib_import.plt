@@ -51,9 +51,9 @@ with_import_dir(Stem, Source, Goal) :-
         ( setup_call_cleanup(open(MettaFile, write, Out),
                              write(Out, Source),
                              close(Out)),
-          asserta(user:working_dir(Dir)) ),
+          asserta(filereader:working_dir(Dir)) ),
         call(Goal, Dir, Stem),
-        ( retract(user:working_dir(Dir)),
+        ( retract(filereader:working_dir(Dir)),
           delete_directory_and_contents(Dir) )).
 
 clear_import_space :-

@@ -22,7 +22,7 @@
 %Run MeTTa source and answer the result groups. The engine prints its
 %compilation unless started with the quiet flag, which a test run is not.
 metta(Source, Results) :-
-    with_output_to(string(_), user:process_metta_string(Source, Results)).
+    with_output_to(string(_), filereader:process_metta_string(Source, Results)).
 
 metta(Source) :- metta(Source, _).
 

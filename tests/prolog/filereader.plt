@@ -41,7 +41,7 @@ cleanup_new_lambdas(Before) :-
 
 test(an_untranslatable_form_is_not_reported_as_invalid_syntax,
      [throws(error(petta_translation_failed(unhandled_form), _))]) :-
-    process_form('&self', unhandled_form, _).
+    filereader:process_form('&self', unhandled_form, _).
 
 test(translation_error_has_an_engine_message) :-
     message_to_string(error(petta_translation_failed(unhandled_form), none),
@@ -56,7 +56,7 @@ test(translation_error_has_an_engine_message) :-
 test(escaped_quote_does_not_close_a_string_or_form) :-
     Source = "!(test \"quote: \\\" and )\" \"quote: \\\" and )\")\n!(quote done)",
     string_codes(Source, Codes),
-    once(phrase(top_forms(Forms, 1), Codes)),
+    once(phrase(filereader:top_forms(Forms, 1), Codes)),
     Forms = [runnable(First), runnable(Second)],
     sread(First, FirstTerm),
     sread(Second, SecondTerm),
@@ -75,7 +75,7 @@ test(loader_and_reader_agree_on_inline_comments) :-
 test(comment_parentheses_do_not_close_a_form) :-
     Source = "!(quote (a ; ignored ) and (!( \"\n b))\n!(quote done)",
     string_codes(Source, Codes),
-    once(phrase(top_forms(Forms, 1), Codes)),
+    once(phrase(filereader:top_forms(Forms, 1), Codes)),
     Forms = [runnable(First), runnable(Second)],
     sread(First, FirstTerm),
     sread(Second, SecondTerm),
@@ -90,13 +90,13 @@ test(comment_parentheses_do_not_close_a_form) :-
 %MettaHyperonFull/Runtime/Parser.lean:85-88].
 test(a_bare_symbol_is_a_top_level_form) :-
     string_codes("not-a-form", Codes),
-    once(phrase(top_forms(Forms, 1), Codes)),
+    once(phrase(filereader:top_forms(Forms, 1), Codes)),
     Forms == [form("not-a-form")].
 
 test(the_marker_takes_an_atom_of_any_kind) :-
     string_codes("! untouched-symbol\n! 42\n! \"a b\"\n! $free\n! &first",
                  Codes),
-    once(phrase(top_forms(Forms, 1), Codes)),
+    once(phrase(filereader:top_forms(Forms, 1), Codes)),
     Forms == [runnable("untouched-symbol"), runnable("42"),
               runnable("\"a b\""), runnable("$free"), runnable("&first")].
 
@@ -106,20 +106,20 @@ test(the_marker_takes_an_atom_of_any_kind) :-
 %output].
 test(a_marker_before_a_non_boundary_stays_an_ordinary_symbol_character) :-
     string_codes("!42\n!$x\n!(f)", Codes),
-    once(phrase(top_forms(Forms, 1), Codes)),
+    once(phrase(filereader:top_forms(Forms, 1), Codes)),
     Forms == [form("!42"), form("!$x"), runnable("(f)")].
 
 %The same measurement: a file ending in a bare `!` exits 0 and prints
 %nothing, so the marker with no atom after it contributes no form.
 test(a_trailing_marker_contributes_no_form) :-
     string_codes("!(f)\n!", Codes),
-    once(phrase(top_forms(Forms, 1), Codes)),
+    once(phrase(filereader:top_forms(Forms, 1), Codes)),
     Forms == [runnable("(f)")].
 
 test(missing_form_close_reports_its_syntax_error,
      [throws(error(syntax_error(_), none))]) :-
     string_codes("(not-closed", Codes),
-    phrase(top_forms(_, 1), Codes).
+    phrase(filereader:top_forms(_, 1), Codes).
 
 :- end_tests(filereader_form_splitter).
 
@@ -204,7 +204,7 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
     close(Stream),
     setup_call_cleanup(
         true,
-        ( catch(user:load_metta_file(Path, _), Error, true),
+        ( catch(filereader:load_metta_file(Path, _), Error, true),
           Error = error(petta_unsolved_arithmetic('+', unbounded_domain), _),
           flag('$gs_lambda_', LambdaNumber, LambdaNumber),
           format(atom(GeneratedLambda), 'lambda_~d', [LambdaNumber]),
@@ -235,14 +235,14 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
                               ['plunit-loader-runtime-atom', value]),
           \+ user:'get-atoms'('&self',
                               [=, [RuntimeFunction, _], _]),
-          \+ user:compiled_metta_source(Path),
+          \+ filereader:compiled_metta_source(Path),
           \+ user:imported_metta_source(_, Path),
           \+ user:import_life(_, Path, _) ),
         ( cleanup_test_function(Outer),
           cleanup_test_function(RuntimeFunction),
           retractall(user:symbol_head(Symbol, _)),
           cleanup_new_lambdas(BeforeLambdas),
-          retractall(user:compiled_metta_source(Path)),
+          retractall(filereader:compiled_metta_source(Path)),
           retractall(user:imported_metta_source(_, Path)),
           delete_file(Path) )).
 
@@ -251,17 +251,17 @@ test(late_registration_recompile_replaces_metadata,
               cleanup_test_function('plunit-repair-late'))),
        cleanup((cleanup_test_function('plunit-repair-caller'),
                 cleanup_test_function('plunit-repair-late'))) ]) :-
-    user:process_metta_string(
+    filereader:process_metta_string(
         "(= (plunit-repair-caller $x) (plunit-repair-late $x))", _),
     aggregate_all(count,
                   user:fun_meta_clause(_, 'plunit-repair-caller', _, _),
                   Before),
-    user:process_metta_string(
+    filereader:process_metta_string(
         "(= (plunit-repair-late $x) (+ $x 1))", _),
     aggregate_all(count,
                   user:fun_meta_clause(_, 'plunit-repair-caller', _, _),
                   After),
-    user:process_metta_string("!(plunit-repair-caller 41)", Results),
+    filereader:process_metta_string("!(plunit-repair-caller 41)", Results),
     Before == 1,
     After == 1,
     Results == [42].
@@ -271,7 +271,7 @@ test(failed_late_definition_does_not_recompile_existing_callers,
               cleanup_test_function('plunit-rollback-late'))),
        cleanup((cleanup_test_function('plunit-rollback-caller'),
                 cleanup_test_function('plunit-rollback-late'))) ]) :-
-    user:process_metta_string(
+    filereader:process_metta_string(
         "(= (plunit-rollback-caller $x) (plunit-rollback-late $x))", _),
     tmp_file_stream(text, Path, Stream),
     format(Stream,
@@ -279,16 +279,16 @@ test(failed_late_definition_does_not_recompile_existing_callers,
     close(Stream),
     setup_call_cleanup(
         true,
-        ( catch(user:load_metta_file(Path, _), Error, true),
+        ( catch(filereader:load_metta_file(Path, _), Error, true),
           Error = error(petta_unsolved_arithmetic('+', unbounded_domain), _),
-          user:process_metta_string("!(plunit-rollback-caller 41)", Results),
+          filereader:process_metta_string("!(plunit-rollback-caller 41)", Results),
           aggregate_all(count,
                         user:fun_meta_clause(_, 'plunit-rollback-caller', _, _),
                         MetaCount),
           Results == [['plunit-rollback-late', 41]],
           MetaCount == 1,
           \+ user:fun_meta_clause(_, 'plunit-rollback-late', _, _) ),
-        ( retractall(user:compiled_metta_source(Path)),
+        ( retractall(filereader:compiled_metta_source(Path)),
           retractall(user:imported_metta_source(_, Path)),
           delete_file(Path) )).
 
@@ -310,8 +310,8 @@ reload_scratch_file(Path) :-
 
 forget_reload_source(Path, Function) :-
     cleanup_test_function(Function),
-    retractall(user:metta_source_load(Path, _, _, _)),
-    retractall(user:compiled_metta_source(Path)),
+    retractall(filereader:metta_source_load(Path, _, _, _)),
+    retractall(filereader:compiled_metta_source(Path)),
     retractall(user:imported_metta_source(_, Path)),
     retractall(user:import_life(_, Path, _)),
     ( exists_file(Path) -> delete_file(Path) ; true ).
@@ -321,12 +321,12 @@ test(a_load_records_what_the_file_contributed) :-
     reload_scratch_file(Path),
     setup_call_cleanup(
         write_reload_source(Path, "(= (plunit-reload-recorded) 1)\n"),
-        ( user:load_metta_file(Path, _, '&self'),
+        ( filereader:load_metta_file(Path, _, '&self'),
           absolute_file_name(Path, Canon, [access(read)]),
-          once(user:metta_source_load(Canon, Space, LoadId, Digest)),
+          once(filereader:metta_source_load(Canon, Space, LoadId, Digest)),
           Space == '&self',
           atom_length(Digest, 64),
-          aggregate_all(count, user:source_load_assertion(LoadId, _), Asserted),
+          aggregate_all(count, filereader:source_load_assertion(LoadId, _), Asserted),
           Asserted > 0 ),
         forget_reload_source(Path, F)).
 
@@ -337,13 +337,13 @@ test(a_grouped_load_runs_inside_the_source_lifecycle) :-
         write_reload_source(
             Path,
             "(= (plunit-grouped-lifecycle $x) (+ $x 1))\n!(plunit-grouped-lifecycle 41)\n"),
-        ( user:load_metta_source_groups(Path, '&self', [Group]),
+        ( filereader:load_metta_source_groups(Path, '&self', [Group]),
           maplist(user:metta_answer_term, Group, Answers),
           Answers == [42],
           absolute_file_name(Path, Canon, [access(read)]),
-          once(user:metta_source_load(Canon, '&self', LoadId, Digest)),
+          once(filereader:metta_source_load(Canon, '&self', LoadId, Digest)),
           atom_length(Digest, 64),
-          once(user:source_load_assertion(LoadId, _)) ),
+          once(filereader:source_load_assertion(LoadId, _)) ),
         forget_reload_source(Path, F)).
 
 test(an_unchanged_file_is_not_loaded_again) :-
@@ -351,13 +351,13 @@ test(an_unchanged_file_is_not_loaded_again) :-
     reload_scratch_file(Path),
     setup_call_cleanup(
         write_reload_source(Path, "(= (plunit-reload-unchanged) 1)\n"),
-        ( user:load_metta_file(Path, _, '&self'),
+        ( filereader:load_metta_file(Path, _, '&self'),
           absolute_file_name(Path, Canon, [access(read)]),
-          once(user:metta_source_load(Canon, '&self', FirstId, _)),
-          user:load_metta_file(Path, _, '&self'),
-          once(user:metta_source_load(Canon, '&self', AgainId, _)),
+          once(filereader:metta_source_load(Canon, '&self', FirstId, _)),
+          filereader:load_metta_file(Path, _, '&self'),
+          once(filereader:metta_source_load(Canon, '&self', AgainId, _)),
           AgainId == FirstId,
-          \+ user:metta_source_changed(Canon) ),
+          \+ filereader:metta_source_changed(Canon) ),
         forget_reload_source(Path, F)).
 
 %The same length either side, so a check on the modification time would have
@@ -367,11 +367,11 @@ test(an_edit_that_keeps_the_length_is_still_a_change) :-
     reload_scratch_file(Path),
     setup_call_cleanup(
         write_reload_source(Path, "(= (plunit-reload-samesize) 1)\n"),
-        ( user:load_metta_file(Path, _, '&self'),
+        ( filereader:load_metta_file(Path, _, '&self'),
           absolute_file_name(Path, Canon, [access(read)]),
           write_reload_source(Path, "(= (plunit-reload-samesize) 2)\n"),
-          user:metta_source_changed(Canon),
-          user:load_metta_file(Path, _, '&self'),
+          filereader:metta_source_changed(Canon),
+          filereader:load_metta_file(Path, _, '&self'),
           findall(V, user:'get-atoms'('&self', [=, [F], V]), Values),
           Values == [2] ),
         forget_reload_source(Path, F)).
@@ -381,14 +381,14 @@ test(a_reload_leaves_one_clause_for_a_redefined_function) :-
     reload_scratch_file(Path),
     setup_call_cleanup(
         write_reload_source(Path, "(= (plunit-reload-oneclause) 1)\n"),
-        ( user:load_metta_file(Path, _, '&self'),
+        ( filereader:load_metta_file(Path, _, '&self'),
           write_reload_source(Path, "(= (plunit-reload-oneclause) 2)\n"),
-          user:load_metta_file(Path, _, '&self'),
+          filereader:load_metta_file(Path, _, '&self'),
           user:metta_self_module(Self),
           functor(Head, F, 1),
           aggregate_all(count, clause(Self:Head, _), Clauses),
           Clauses == 1,
-          findall(T, user:translated_from(_, [=, [F], T]), Sources),
+          findall(T, filereader:translated_from(_, [=, [F], T]), Sources),
           Sources == [2] ),
         forget_reload_source(Path, F)).
 
@@ -404,16 +404,16 @@ test(reloading_one_contributor_preserves_another_contributors_support) :-
           write_reload_source(
               PathB,
               "(= (plunit-reload-shared-support right) 2)\n") ),
-        ( user:load_metta_file(PathA, _, '&self'),
-          user:load_metta_file(PathB, _, '&self'),
+        ( filereader:load_metta_file(PathA, _, '&self'),
+          filereader:load_metta_file(PathB, _, '&self'),
           write_reload_source(
               PathA,
               "(= (plunit-reload-shared-other) 3)\n"),
-          user:load_metta_file(PathA, _, '&self'),
+          filereader:load_metta_file(PathA, _, '&self'),
           user:metta_self_module(Module),
           assertion(user:supports(compiled_function(Module, F),
                                   function(Module, F))),
-          assertion(user:translated_from(
+          assertion(filereader:translated_from(
                         _, [=, [F, right], 2])) ),
         ( forget_reload_source(PathA, F),
           forget_reload_source(PathB, F),
@@ -436,9 +436,9 @@ test(file_function_remains_a_global_fallback_after_a_named_homonym) :-
         assertz(user:silent(true), SilentRef),
         setup_call_cleanup(
             true,
-            ( user:load_metta_file(Path, _),
+            ( filereader:load_metta_file(Path, _),
               user:'add-atom'(NamedSpace, NamedTerm, _),
-              user:process_metta_string(
+              filereader:process_metta_string(
                   "!(plunit-global-file-function 41)", Results, OtherSpace),
               %fun_in/2 is a relation; whether a bound-bound probe runs
               %determinate is JIT-index luck (the engine's own callers
@@ -449,7 +449,7 @@ test(file_function_remains_a_global_fallback_after_a_named_homonym) :-
               Results == [42] ),
             ( user:'remove-atom'(NamedSpace, NamedTerm, _),
               cleanup_test_function(Function),
-              retractall(user:compiled_metta_source(Path)),
+              retractall(filereader:compiled_metta_source(Path)),
               retractall(user:imported_metta_source(_, Path)),
               delete_file(Path) )),
         erase(SilentRef)).
@@ -469,12 +469,12 @@ test(loader_catches_do_not_consume_control_exceptions) :-
           % predicate is what import_prolog_function/2 is for, and it is what
           % records the arity the call compiles against.
           user:import_prolog_function('plunit-loader-control', _) ),
-        catch(user:load_metta_file(Path, _), Error, true),
+        catch(filereader:load_metta_file(Path, _), Error, true),
         ( erase(ClauseRef),
           user:unregister_fun_everywhere('plunit-loader-control'),
           retractall(user:fun('plunit-loader-control')),
           retractall(user:arity('plunit-loader-control', _)),
-          retractall(user:compiled_metta_source(Path)),
+          retractall(filereader:compiled_metta_source(Path)),
           retractall(user:imported_metta_source(_, Path)),
           delete_file(Path) )),
     Error == inference_limit_exceeded.
@@ -486,14 +486,14 @@ test(cleared_native_space_repopulates_compiled_source) :-
     close(Stream),
     setup_call_cleanup(
         true,
-        ( user:load_metta_file(Path, _, Space),
+        ( filereader:load_metta_file(Path, _, Space),
           once(user:'get-atoms'(Space, ['loader-life-marker', payload])),
           user:clear_native_atoms(Space),
           \+ user:'get-atoms'(Space, ['loader-life-marker', payload]),
-          user:load_metta_file(Path, _, Space),
+          filereader:load_metta_file(Path, _, Space),
           once(user:'get-atoms'(Space, ['loader-life-marker', payload])) ),
         ( user:clear_native_atoms(Space),
-          retractall(user:compiled_metta_source(Path)),
+          retractall(filereader:compiled_metta_source(Path)),
           retractall(user:imported_metta_source(Space, Path)),
           delete_file(Path) )).
 
@@ -509,7 +509,7 @@ test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
     close(Stream),
     setup_call_cleanup(
         true,
-        ( user:load_metta_file(Path, _, Space),
+        ( filereader:load_metta_file(Path, _, Space),
           aggregate_all(count,
                         user:'get-atoms'(Space,
                                          ['plunit-import-triple', _, _]),
@@ -532,7 +532,7 @@ test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
                         user:'get-atoms'(Space,
                                          ['plunit-import-triple', _, _]),
                         AfterRemoval),
-          user:load_metta_file(Path, _, Space),
+          filereader:load_metta_file(Path, _, Space),
           aggregate_all(count,
                         user:'get-atoms'(Space,
                                          ['plunit-import-triple', _, _]),
@@ -540,7 +540,7 @@ test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
           user:import_life(Space, Path, loaded),
           [Before, AfterRemoval, AfterReimport] == [2, 2, 2] ),
         ( user:clear_native_atoms(Space),
-          retractall(user:compiled_metta_source(Path)),
+          retractall(filereader:compiled_metta_source(Path)),
           retractall(user:imported_metta_source(Space, Path)),
           delete_file(Path) )).
 
@@ -560,7 +560,7 @@ compiled_call_goals(Declaration, Goals) :-
     setup_call_cleanup(
         assertz(user:silent(true), SilentRef),
         setup_call_cleanup(
-            user:process_metta_string(Source, _),
+            filereader:process_metta_string(Source, _),
             user:translate_runnable_expr([Function, "s"], Goals, _),
             ( user:'remove-atom'('&self', [':', Function, _], _),
               user:'remove-atom'('&self', [=, [Function, _], _], _),
@@ -612,7 +612,7 @@ test(a_declaration_for_a_name_with_no_equations_is_data) :-
         assertz(user:silent(true), SilentRef),
         setup_call_cleanup(
             true,
-            ( user:process_metta_string("(: plunit-untypable-belief \c
+            ( filereader:process_metta_string("(: plunit-untypable-belief \c
                                          (--> Cat Animal))", _),
               user:type_declaration(Name, Type),
               Type == ['-->', 'Cat', 'Animal'] ),
@@ -642,10 +642,10 @@ digest_providers_agree(Text) :-
     sha:sha_hash(Text, Bytes, [algorithm(sha256)]),
     sha:hash_atom(Bytes, BySha),
     ByCrypto == BySha,
-    user:metta_text_digest(Text, Chosen),
+    filereader:metta_text_digest(Text, Chosen),
     Chosen == ByCrypto.
 digest_providers_agree(Text) :-
-    user:metta_text_digest(Text, Digest),
+    filereader:metta_text_digest(Text, Digest),
     atom_length(Digest, 64).
 
 test(both_digest_providers_agree) :-
@@ -655,9 +655,9 @@ test(both_digest_providers_agree) :-
 %The digest is what makes a reload notice an edit, so it has to separate texts
 %that differ and join texts that do not.
 test(a_digest_separates_texts_and_joins_equal_ones) :-
-    user:metta_text_digest("(= (f) 1)", One),
-    user:metta_text_digest("(= (f) 1)", Again),
-    user:metta_text_digest("(= (f) 2)", Other),
+    filereader:metta_text_digest("(= (f) 1)", One),
+    filereader:metta_text_digest("(= (f) 1)", Again),
+    filereader:metta_text_digest("(= (f) 2)", Other),
     One == Again,
     One \== Other.
 

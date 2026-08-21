@@ -316,11 +316,11 @@ registration_terms(F,
 
 cleanup_registered_function(F) :-
     findall(Ref,
-            ( user:translated_from(Ref, [=, [F|_], _]),
+            ( filereader:translated_from(Ref, [=, [F|_], _]),
               \+ clause_property(Ref, erased) ),
             Refs),
     forall(member(Ref, Refs),
-           ( erase(Ref), retractall(user:translated_from(Ref, _)) )),
+           ( erase(Ref), retractall(filereader:translated_from(Ref, _)) )),
     remove_sexp('&self', [=, [F|_], _]),
     user:clear_fun_meta(_, F),
     retractall(user:arity(F, _)),
@@ -369,7 +369,7 @@ test(change_hook_error_rolls_back_every_registration_write,
     \+ user:fun(plunit_registration_rollback),
     \+ user:arity(plunit_registration_rollback, _),
     \+ user:fun_meta_clause(_, plunit_registration_rollback, _, _),
-    \+ user:translated_from(_, Term),
+    \+ filereader:translated_from(_, Term),
     \+ get_native_atom('&self',
                         [=, [plunit_registration_rollback, X], X]),
     functor(Head, plunit_registration_rollback, 2),
@@ -2684,7 +2684,7 @@ test(a_reaction_without_a_priority_still_fires_and_reads_as_zero,
 test(a_user_agenda_policy_scores_each_reaction,
      [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
     with_output_to(string(_),
-        user:process_metta_string(
+        filereader:process_metta_string(
             "(= (ag-rank (on $ctx $pattern (insert $log narrow) $p)) 10)
              (= (ag-rank (on $ctx $pattern (insert $log broad) $p)) 1)", _)),
     'add-atom'('&petta', [agenda, '&ag-src', user, 'ag-rank'], _),

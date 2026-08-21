@@ -311,6 +311,19 @@ register_metta_library_path(Alias, Directory0, true) :-
 %existence_error(procedure, '$petta_exec:&self':dif/2)
 %[measured 2026-08-22, on examples/reasoning/constructive_negation.metta].
 :- use_module(library(dif), [dif/2]).
+%The HOST TIER's Prolog predicates. A MeTTa program reaches Prolog through
+%callPredicate/2 and import_prolog_function/2, and both resolve in the space's
+%module, whose base chain ends here, so what this module holds is what a
+%program can call. These two arrived by accident until now: engine/filereader.pl
+%loaded library(pcre) and library(readutil) into the one namespace everything
+%shared, and examples/integration/prologimport.metta imports re_replace/4 and
+%calls read_file_to_string/3 through that leak. Cutting the loader into a module
+%of its own would have withdrawn both from every MeTTa program without saying
+%so, which is a language change and not a refactoring, so they are imported
+%here deliberately instead [measured 2026-08-22: the example raised "no
+%predicate named re_replace is loaded" the moment the loader stopped sharing].
+:- use_module(library(pcre), [re_replace/4]).
+:- use_module(library(readutil), [read_file_to_string/3]).
 %distinct/2, which 'defined-name'/1 and 'undocumented-space'/2 call to
 %dedupe function names read off a space's own equation atoms
 %[measured 2026-08-18: examples/libraries/doc_lib.metta under
@@ -6825,6 +6838,16 @@ clear_import_life(Space, CanonPath) :-
 %than around it: that is what puts the two doors on one record, so an import!
 %of a file load() already read is skipped as loaded rather than run a second
 %time [tested: test_a_file_the_library_loaded_is_already_imported].
+%A GOAL argument crossing a module boundary has to carry its module, and this
+%one crosses two: engine/filereader.pl hands import_when/4 a goal of its own,
+%and the loading and life markers pass it on. Without the declarations the goal
+%travelled unqualified and was called in THIS module, where the loader's
+%internals are invisible, so a grouped load raised
+%existence_error(procedure, load_imported_metta_source_groups/3)
+%[measured 2026-08-22, once engine/filereader.pl became a module].
+:- meta_predicate import_when(+, +, +, 0),
+                  run_with_import_life_marker(+, +, 0).
+
 import_when(Condition, Space, CanonPath, Goal) :-
     (   import_load_needed(Condition, Space, CanonPath)
     ->  retractall(imported_metta_source(Space, CanonPath)),

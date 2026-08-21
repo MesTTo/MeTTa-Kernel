@@ -699,7 +699,7 @@ shipped_library('../../lib/lib_spaces.metta').
 
 translator_confluence_report :-
     load_engine,
-    forall(shipped_library(File), user:load_metta_file(File, _)),
+    forall(shipped_library(File), filereader:load_metta_file(File, _)),
     report_rule_family(translator, '&self').
 
 % The same report over named MeTTa files instead of the shipped libraries,
@@ -710,7 +710,7 @@ translator_confluence_main :-
     (   Argv == []
     ->  translator_confluence_report
     ;   load_engine,
-        forall(member(File, Argv), user:load_metta_file(File, _)),
+        forall(member(File, Argv), filereader:load_metta_file(File, _)),
         report_rule_family(translator, '&self') ).
 
 typing_confluence_report :-
@@ -723,12 +723,12 @@ typing_confluence_report :-
 typing_confluence_main :-
     current_prolog_flag(argv, Argv),
     load_engine,
-    forall(member(File, Argv), user:load_metta_file(File, _)),
+    forall(member(File, Argv), filereader:load_metta_file(File, _)),
     report_rule_family(typing, '&self').
 
 translator_confluence_gate :-
     load_engine,
-    forall(shipped_library(File), user:load_metta_file(File, _)),
+    forall(shipped_library(File), filereader:load_metta_file(File, _)),
     compile_time_rules('&self', Registered, _, SpaceRules, PreludeRules),
     (   SpaceRules == [], PreludeRules == []
     ->  true

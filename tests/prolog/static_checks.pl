@@ -625,7 +625,7 @@ corpus_equation_body(Body) :-
     exists_directory(Dir),
     directory_member(Dir, File, [recursive(true), extensions([metta])]),
     \+ sub_atom(File, _, _, _, '/_fixtures/'),
-    catch(( read_metta_source(File, Source),
+    catch(( filereader:read_metta_source(File, Source),
             parse_metta_source(Source, Forms) ), _, fail),
     member(parsed(function, _, Form), Forms),
     Form = [=, _, _],

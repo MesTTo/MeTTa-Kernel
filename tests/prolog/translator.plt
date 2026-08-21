@@ -53,7 +53,7 @@ forget_test_function(F) :-
     retractall(user:arity(F, _)),
     %current_predicate/1 first, because retractall/1 CREATES an undefined
     %predicate as dynamic rather than failing, and the next
-    %ensure_fun_registered/1 then records an arity for every one of them: this
+    %filereader:ensure_fun_registered/1 then records an arity for every one of them: this
     %helper without the guard left arity(F, A) for 1 and 4 through 8.
     %abolish/1 after, so the predicate record goes too rather than staying
     %defined and empty.
@@ -1833,7 +1833,7 @@ test(quote_keeps_an_invalid_builtin_call_inert) :-
 cleanup_builtin_type_declarations(Path, ParsedForms) :-
     forall(member(parsed(expression, _, Term), ParsedForms),
            remove_sexp('&self', Term)),
-    retractall(compiled_metta_source(Path)),
+    retractall(filereader:compiled_metta_source(Path)),
     retractall(imported_metta_source('&self', Path)),
     retractall(import_life('&self', Path, _)).
 
@@ -1843,7 +1843,7 @@ cleanup_builtin_type_declarations(Path, ParsedForms) :-
 test(builtin_type_import_keeps_runtime_refusals_visible) :-
     once(( absolute_file_name('../../lib/lib_builtin_types.metta', Path,
                               [access(read)]),
-           read_metta_source(Path, Source),
+           filereader:read_metta_source(Path, Source),
            parse_metta_source(Source, ParsedForms) )),
     setup_call_cleanup(
         once(load_metta_file(Path, _)),

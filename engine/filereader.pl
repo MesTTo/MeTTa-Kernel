@@ -114,6 +114,68 @@
 %     belongs to lib/lib_gitimport.pl and takes the form list itself, so
 %     merging changes a library's interface; left alone here for that reason.
 
+%The loader's surface: what the engine core asks of it, what a write records
+%with it, the host services a binding calls, and the parser doors it publishes
+%on the reader's behalf. The form splitter, the fast-cache codec, the source
+%layout grammar and the reload bookkeeping are its own; a caller that wants one
+%says filereader: and means it
+%[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+:- module(filereader,
+          [ load_imported_metta_file/3,
+            load_metta_source_groups/3,
+            process_metta_string/3,
+            parse_metta_source/2,
+            parsed_form_parts/4,
+            metta_answer_term/2,
+            metta_source_changed/1,
+            run_with_loading_marker/2,
+            record_source_assertion/1,
+            record_translated_from/3,
+            forget_translated_from/3,
+            forget_space_source_loads/1,
+            recompile_function_impl/1,
+            repair_after_late_registration/1,
+            support_invalidate_function/1,
+            support_invalidate_function_change/2,
+            repair_support_invalidations/0,
+            %engine/main.pl's command line runs a file through this one,
+            %and engine/translator.pl asks whether a source load is active
+            %before it defers a runnable's definition.
+            load_metta_file/2,
+            active_source_program/1,
+            process_metta_string/2,
+            %source_pending_definition/2 is the translator's question about a
+            %definition later in the file it is compiling; translated_from/2 is
+            %the compiled clause's source equation, which the specializer and
+            %the tracer both read; working_dir/1 is the relative-path base a
+            %parity driver asserts from outside.
+            source_pending_definition/2,
+            translated_from/2,
+            working_dir/1,
+            %The engine-wide print-suppression flag. It is set from the command
+            %line right below, and by a host through petta_py_set_silent/1, and
+            %READ by engine/translator.pl, engine/specializer.pl and
+            %engine/metta.pl as well as by the three printers here, so there has
+            %to be exactly one of it. Left off this list the module cut made two:
+            %a host set user:silent/1 while this file kept reading its own, and
+            %the engine printed every compiled goal it was told to suppress,
+            %which cost 379 inferences on every run through the Python door
+            %[measured 2026-08-22: 625 per run before the cut, 1004 after, and
+            %625 again with this line].
+            silent/1,
+
+            % Host services: the engine defines them, a binding calls them.
+            metta_host_run_source/4,
+            metta_host_run_source_status/3,
+            metta_host_load_file/3,
+            metta_host_read_forms/2,
+            metta_host_save_fast/3,
+            metta_host_load_fast/2,
+            metta_host_fast_header/1,
+            metta_host_digest/2,
+            metta_host_substitute/3
+          ]).
+
 :- use_module(library(readutil)). % read_file_to_string/3
 %eos//0, for the source-layout grammar below. It used to arrive by accident:
 %engine/parser.pl imported dcg/basics into the one namespace everything shared,
@@ -959,6 +1021,18 @@ forget_space_source_loads(Space) :-
            ( retractall(source_load_assertion(LoadId, _)),
              retractall(source_load_support_assertions(LoadId, _)),
              retractall(source_load_digest(LoadId, _, _)) )).
+
+%The marker is the CALLER's fact, so the caller's module has to travel with
+%it. `:` on the first argument is what makes SWI qualify the term at the call
+%site; without it the assert landed in whichever module this predicate happens
+%to live in, and the marker the caller reads back is a different predicate of
+%the same name. That is exactly what happened when this file became a module:
+%engine/metta.pl's import_when/4 marks imported_metta_source/2 for the
+%duration of a load, and this asserted filereader:imported_metta_source/2, so
+%the re-entry guard saw nothing, a mutually importing pair recursed 78,000
+%frames deep and SWI segfaulted on
+%examples/integration/import_duplicate_cycle.metta [measured 2026-08-22].
+:- meta_predicate run_with_loading_marker(:, 0).
 
 run_with_loading_marker(Marker, Goal) :-
     setup_call_catcher_cleanup(

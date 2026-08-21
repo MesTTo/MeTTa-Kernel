@@ -28,7 +28,7 @@
 %Run MeTTa source and answer the result groups, swallowing the engine's
 %compilation printing, the duals.plt idiom.
 metta(Source, Results) :-
-    with_output_to(string(_), user:process_metta_string(Source, Results)).
+    with_output_to(string(_), filereader:process_metta_string(Source, Results)).
 
 metta(Source) :- metta(Source, _).
 

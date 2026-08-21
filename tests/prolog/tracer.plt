@@ -11,11 +11,11 @@
 
 cleanup_trace_function(F) :-
     findall(Ref,
-            ( user:translated_from(Ref, [=, [F|_], _]),
+            ( filereader:translated_from(Ref, [=, [F|_], _]),
               \+ clause_property(Ref, erased) ),
             Refs),
     forall(member(Ref, Refs),
-           ( erase(Ref), retractall(user:translated_from(Ref, _)) )),
+           ( erase(Ref), retractall(filereader:translated_from(Ref, _)) )),
     remove_sexp('&self', [=, [F|_], _]),
     user:clear_fun_meta(_, F),
     retractall(user:arity(F, _)),
@@ -78,13 +78,13 @@ test(hyperpose_workers_share_the_trace_event_store,
 
 cleanup_trace_type_extension :-
     findall(Ref,
-            ( user:translated_from(
+            ( filereader:translated_from(
                   Ref,
                   [=, ['get-type', plunit_trace_type], _]),
               \+ clause_property(Ref, erased) ),
             Refs),
     forall(member(Ref, Refs),
-           ( erase(Ref), retractall(user:translated_from(Ref, _)) )),
+           ( erase(Ref), retractall(filereader:translated_from(Ref, _)) )),
     remove_sexp('&self', [=, ['get-type', plunit_trace_type], _]),
     retractall(user:get_type_rule(plunit_trace_type, _)),
     drop_fun_meta(_, 'get-type', [plunit_trace_type], plunit_traced_type),
