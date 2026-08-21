@@ -2756,7 +2756,47 @@ metta_host_clear_space(Space) :-
     ),
     clear_native_atoms(Space),
     space_module(Space, Module),
-    metta_host_clear_tabling(Space, Module).
+    metta_host_clear_tabling(Space, Module),
+    clear_generated_predicates(Module).
+
+%The equations above come out one per stored (= ...) atom, through
+%metta_remove_atom/3, so a predicate the compiler GENERATED with no stored
+%equation behind it is never reached. A compiled lambda keeps its clauses and a
+%specialization keeps its predicate, and space names are POOLED, so what is left
+%belongs to a life that has ended and the next holder of the name inherits it
+%[measured 2026-08-22: after a drop the module still held lambda_2/2 with its
+%clause and twice_Spec_[inc]/3, and the recycled space answered
+%!(callPredicate (Predicate (lambda_2 5 $y))) with True, running a lambda body
+%belonging to a space that no longer existed. The count grows by one dead
+%predicate per lambda per life, because the lambda counter is process-global].
+%
+%Asked of the module by what it still OWNS rather than by naming the kinds of
+%generated predicate, so a kind added later is swept without being added here.
+%current_predicate/1 does not cross the default-module chain, which is what
+%keeps this to the space's own and away from the engine's; it is the same
+%enumeration metta_host_clear_tabling/2 above uses, and it runs after that one
+%because a tabled predicate cannot be abolished until it is untabled.
+clear_generated_predicates(Module) :-
+    forall(( current_predicate(Module:Name/Arity),
+             functor(Head, Name, Arity),
+             \+ predicate_property(Module:Head, imported_from(_)) ),
+           clear_generated_predicate(Module, Name/Arity, Head)).
+
+%Clauses first and predicate second, and the split is the transaction contract.
+%retractall/1 is clause-level, so a rollback restores what it removed; abolish/1
+%is predicate-level and a rollback cannot restore what it dropped, which is why
+%the shadow repair beside it defers under a transaction rather than abolishing
+%eagerly [source: the current_transaction/1 branch in metta_remove_atom/3,
+%tested: test_a_reload_that_fails_leaves_the_previous_definitions_standing].
+%This defers through that same pending table, and its sweep re-checks that the
+%predicate is still empty, so a rolled-back clear leaves the predicate exactly
+%as it was.
+clear_generated_predicate(Module, Name/Arity, Head) :-
+    catch(retractall(Module:Head), _, true),
+    (   current_transaction(_)
+    ->  assertz('$petta_shadow_repair_pending'(Module, Name, Arity))
+    ;   catch(abolish(Module:Name/Arity), _, true)
+    ).
 
 metta_host_clear_tabling(Space, Module) :-
     forall(( current_predicate(Module:Name/Arity),

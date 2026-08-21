@@ -698,6 +698,36 @@ test(clearing_a_space_empties_its_execution_module,
     process_metta_string("!(plunit-past-life)", Second, Space),
     assertion(Second == [['plunit-past-life']]).
 
+% The GENERATED half. Everything above leaves through metta_remove_atom/3, one
+% removal per stored (= ...) atom, so a predicate the compiler made with no
+% stored equation behind it was never reached: a compiled lambda kept its
+% clauses and a specialization kept its predicate, and a POOLED name handed
+% both to its next holder [measured 2026-08-22: a dropped space's module still
+% held lambda_2/2 with its clause and twice_Spec_[inc]/3, and the recycled name
+% answered !(callPredicate (Predicate (lambda_2 5 $y))) with True]. Asked of
+% metta_host_clear_space/1 rather than clear_native_atoms/1, because the sweep
+% runs after the tabling cleanup and a tabled predicate cannot be abolished
+% until it is untabled.
+test(clearing_a_space_sweeps_the_predicates_it_generated,
+     [ cleanup(metta_host_clear_space('&plunit_life_generated')) ]) :-
+    Space = '&plunit_life_generated',
+    process_metta_string("!((|-> ($x) (* $x 10)) 7)", Lambda, Space),
+    assertion(Lambda == [70]),
+    space_module(Space, Module),
+    findall(PI, module_owned_predicate(Module, PI), Before),
+    assertion(Before \== []),
+    metta_host_clear_space(Space),
+    findall(PI, module_owned_predicate(Module, PI), After),
+    assertion(After == []).
+
+%current_predicate/1 does not cross the default-module chain, and the
+%imported_from/1 test drops what the engine's module lent this one, so what is
+%left is the space's own.
+module_owned_predicate(Module, Name/Arity) :-
+    current_predicate(Module:Name/Arity),
+    functor(Head, Name, Arity),
+    \+ predicate_property(Module:Head, imported_from(_)).
+
 % A declaration is the other shape with a compiled half, and it leaves through
 % its own path for the same reason: dropping the atom alone would leave the
 % call sites it was shaping compiled against a declaration that is gone.
