@@ -643,6 +643,7 @@ run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 1
 # engine's `true` against the library's `True` on 191 of 200 files, which is
 # a spelling and not an answer.
 run GATE   parity      sh -c "cd '$HERE' && '$PY' bindings/python/tools/example_parity.py"
+run REPORT twins       sh -c "cd '$HERE' && '$PY' bindings/python/tools/twin_coverage.py"
 
 # The obligation headers are the contract a library author reads, and a
 # [tested X] tag is the strongest evidence in the scheme. Thirteen of them
