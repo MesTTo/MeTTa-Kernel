@@ -38,10 +38,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `(refuse Reason)`. The call carries on down the dispatch chain exactly as
   one whose head did not match, so a rule with another equation tries that
   one, and the reason is published into `&petta` as
-  `(translator-rule-refusal NAME REASON)` rather than lost. A rule that can
-  refuse is a conditional rule, so the confluence report now counts them and
-  reports such a set `NOT DECIDED`, with its critical pairs listed as proof
-  obligations, instead of claiming the decidable fragment it used to sit in.
+  `(translator-rule-refusal NAME REASON)` rather than lost. A refusal is a
+  rule's own condition written where a reader can see it, so the confluence
+  report counts the rules of a set that can refuse and reports such a set
+  `NOT DECIDED`, with its critical pairs listed as the proof obligations they
+  are.
 - A translator rule can declare its direction, and a bidirectional one is a
   single declaration. `!(add-translator-rule! NAME ((direction bidirectional)))`
   derives the inverse equation, adds it to the space and registers the head it
@@ -60,6 +61,21 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   head is still yours to take over, and a registration that goes ahead of a
   compiler form or a builtin is recorded and printed by the confluence
   report.
+- The compiler now says what it decided about a head pattern position that is
+  not plain structure: which argument and subterm, which label, and why. A
+  position compiled into a type premise goal and a position whose label already
+  has meaning, through equations or through the translator, each get a message
+  and a row in the engine's own register. A position whose parameter carries
+  the evaluation mask is silent, because there the structural pattern is what
+  the caller hands over.
+- A translator rule's body is documented as its condition. A clause applies
+  when its head matches and its body produces an expansion; a body with no
+  answer declines and the next clause is tried; a rule with no applicable
+  clause leaves the call to ordinary dispatch. `EXTENDING.md` gains the
+  section, `examples/translation/translatorrule_guard.metta` runs it, and the
+  confluence report now says that its verdict decides the unconditional system
+  it extracts from the rule heads and is a proof obligation about the
+  conditional rules that actually run.
 - SQLite table bridges now honor per-context `image` declarations. The
   shipped example maps a `BLOB` column to a live `Blob` handle under
   `opaque`, lets a lazy path read one byte without projecting the payload,
@@ -204,6 +220,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `quote` now scopes a pattern exactly as it scopes a body. A quoted head
+  pattern is held as written instead of being walked, so `(cons 1 2)` inside
+  one stays a two-element expression rather than becoming an improper list and
+  `(: $x Number)` stays an annotation rather than becoming a type premise. A
+  head written to match what a body writes now matches it.
+- A translator rule is applied by matching. Its head shape and its body goals
+  can no longer instantiate the call they were asked about, so a rule can no
+  longer rewrite the head of the equation that holds the call:
+  `(= (uses $z) (rule $z))` keeps `$z` matching anything, and a rule that
+  cannot apply falls through to its next clause and then to ordinary dispatch.
 - Modifier-free host queries now choose the empty path before matching, so
   lazy-path support has a fixed preparation cost instead of a cost per answer.
 - Generated symbolic atom operators now specialize their lowering table entry

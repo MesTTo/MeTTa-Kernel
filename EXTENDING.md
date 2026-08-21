@@ -299,10 +299,14 @@ ask why a rewrite it expected did not happen:
 !(match &petta (translator-rule-refusal $rule $why) (refused $rule $why))
 ```
 
-A rule that can refuse is a **conditional** rule, and confluence of terminating
-conditional systems is undecidable in general. The confluence report counts the
-rules of the set it is given that can refuse and says so, so a set holding one
-is reported `NOT DECIDED` with its critical pairs listed as proof obligations
+Every rule is already a conditional rewrite rule, because a rule's body is
+its condition (an answerless body falls through to the next clause). A rule
+that can refuse does not change kind; it writes that conditionality where a
+reader can see it. Confluence of terminating conditional systems is
+undecidable in general, so the report's verdict decides the extracted
+unconditional system, it counts the rules of the set it is given that make
+their condition explicit by refusing and says so, and a set holding one is
+reported `NOT DECIDED` with its critical pairs listed as proof obligations
 rather than given a verdict it cannot support.
 `examples/translation/translatorrule_refusal.metta` runs all of this.
 
@@ -421,6 +425,35 @@ hands the translator a list it can only read as data. The engine refuses that
 by name, as it refuses a `translatePredicate` or `call` whose shape it cannot
 compile. Both used to be silent, answering an unbound variable or a data list
 named after the form.
+
+### When a rule declines
+
+A rule's **body is its condition**. A clause applies at a call when its head
+matches *and* its body produces an expansion. A body with no answer declines,
+the next clause is tried, and if no clause applies the whole rule declines and
+the call carries on to ordinary dispatch. So a rule is a conditional rewrite
+rule, the way a CHR rule with a guard or a Haskell equation with guards is: the
+head says which calls it is *about*, and the body decides whether it *applies*.
+
+```metta
+(: pick (-> Atom %Undefined%))
+(= (pick a) (empty))
+(= (pick $x) (noeval (picked $x)))
+!(add-translator-rule! pick)
+```
+
+`(pick a)` compiles to `(picked a)`, through the second equation, because the
+first equation's body has no answer for `a`.
+
+Two things follow. A rule cannot instantiate the call it was asked about: a
+head shape the call does not have, or a body goal that would bind one of the
+call's variables, makes the clause decline rather than narrow the equation the
+call sits in. And the first clause that applies supplies the expansion, so a
+rule is deterministic where the plain function of the same equations would
+answer every way; when two clauses both apply, the order they were written in
+decides, which is what `translator_confluence.pl` reports on.
+
+`examples/translation/translatorrule_guard.metta` runs all of it.
 
 ## 2. Prolog grounded predicates: new primitives, native speed
 

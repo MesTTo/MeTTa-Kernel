@@ -53,8 +53,9 @@
 %     [source: engine/translator.pl, record_fun_meta/3].
 %   - a head argument that constrain_args/3 compiles into a GOAL rather than
 %     into structure, which is the in-place type annotation `(: $x T)`, is
-%     recorded by fun_head_goals/2 so this file can refuse it rather than
-%     dualise a head it cannot see [tested: an_annotated_head_has_no_dual].
+%     recorded by head_pattern_note/5 under the reason type_annotation so this
+%     file can refuse it rather than dualise a head it cannot see
+%     [tested: an_annotated_head_has_no_dual].
 %   - MeTTa True and False are the Prolog atoms true and false
 %     [source: engine/parser.pl:133].
 % Guarantees:
@@ -653,7 +654,7 @@ refuse_undefined_builtin(Fun, InputArity, Module) :-
 %That goal is not part of the recorded body, so a dual built from the recorded
 %head would silently ignore the constraint and claim more than it can prove.
 refuse_unsupported_head(Module, Fun) :-
-    (   fun_head_goals(Module, Fun)
+    (   head_pattern_note(Module, Fun, _, _, type_annotation)
     ->  throw(error(type_error(dualisable_function, Fun),
                     context(build_dual/3,
                             'this function constrains an argument in its head \c

@@ -19,24 +19,35 @@
 %     precondition. It is also why the analysis reports a bounded search that
 %     missed as `unknown` and never as a negative result.
 %
-%     Which side of the decidability line a rule set is on is answered PER
-%     SET and printed with the report. A rule that only matches is
-%     unconditional and inside the fragment Knuth and Bendix decide; a rule
-%     that can refuse is not. What the
-%     extraction does NOT model is the engine's strategy on top of that
-%     relation: a rule whose body has no answer is skipped and the next clause
-%     is tried, measured 2026-08-19 with (= (m3 a) (helper zzz)) ahead of
-%     (= (m3 $x) (quote two)) and helper defined only at b, which answers two.
-%     So the branch the compiler takes is the first alternative whose body
-%     succeeds, not simply the first; where every body succeeds, assertion
-%     order alone decides.
+%     Which side of the decidability line the rule set is on, settled
+%     2026-08-21: EVERY translator rule is a CONDITIONAL rewrite rule, because
+%     a rule's BODY is its condition. A clause applies when its head matches
+%     and its body produces an expansion; a body with no answer declines and
+%     the next clause is tried, and if no clause applies the rule declines and
+%     the call goes to ordinary dispatch. Policy-free reproduction:
+%     (= (m5 a) (empty)) ahead of (= (m5 $x) (noeval two)) compiles
+%     (= (usem5) (m5 a)) to the fact usem5(two), and the first equation on its
+%     own compiles (= (usem6) (m6 a)) to the call usem6(A) :- m6(a, A). So the
+%     branch the compiler takes is the first alternative whose body succeeds,
+%     not simply the first; where every body succeeds, assertion order alone
+%     decides.
 %
-%     A rule may now also DECLINE with its own words, which is a first-class
-%     refusal rather than that silent skip. A rule that may decline is a
-%     CONDITIONAL rule, and confluence of terminating conditional systems is
-%     undecidable in general, so this tool COUNTS the rules of the set it is
-%     given that can refuse and reports the set CONDITIONAL when any can,
-%     instead of going on claiming the fragment it used to sit in.
+%     This report extracts the UNCONDITIONAL system from the rule heads, which
+%     is the system Knuth and Bendix decide. Confluence of terminating
+%     CONDITIONAL systems is undecidable in general, so that verdict is a
+%     PROOF OBLIGATION about the rules as they actually run, discharged
+%     exactly where every rule's body answers. The route that reaches the rest
+%     is the arbiter's extended conditional critical pairs
+%     [source 2026-08-21: LeaTTa MeTTaILProofs/ConditionalCP.lean, after
+%     Avenhaus-Loria-Saenz 1994 and Lucas JLAMP 2024].
+%
+%     A rule may also DECLINE with its own words, `(refuse Reason)`. That is
+%     one more way for a condition to fail rather than a change of fragment,
+%     and it is the one written where a reader can see it, so the report
+%     counts the rules of the set it is given that can refuse and prints the
+%     count. A set holding one is reported CONDITIONAL and its conclusion is
+%     NOT DECIDED, with the critical pairs listed as the proof obligations
+%     they are; the gate refuses such a set outright rather than deciding it.
 % Assumes:
 %     - the working directory is tests/prolog, which is where check.sh runs
 %       every Prolog lane from.
@@ -56,8 +67,8 @@
 %       [tested: test_overlapping_translator_rules_are_reported_with_the_overlap_named].
 %     - translator_confluence_gate/0 is the same analysis and FAILS the run on
 %       an overlap that is not joined, and on a shipped rule that can REFUSE,
-%       because the critical-pair criterion decides an unconditional set and
-%       says nothing about a conditional one
+%       because the critical-pair criterion decides the system extracted from
+%       the heads and a refusing rule says its head is not the whole rule
 %       [tested: the translator-confluence-gate lane in check.sh].
 %     - translator_confluence_selftest/0 fails unless the analysis puts each of
 %       five planted rule sets on the side its own shape predicts, so a report
@@ -606,16 +617,18 @@ print_termination_rule(_, _).
 % Applications to Term Rewriting Systems", JACM 27(4):797-821, 1980; M. H. A.
 % Newman, "On theories with a combinatorial definition of equivalence", Annals
 % of Mathematics 43(2):223-243, 1942].
-% A conditional system is not decided by the criterion at all, so its verdict
-% comes first: a guard can make a peak unreachable, which turns a divergent
-% pair from a refutation into an obligation.
+% A set holding a rule that REFUSES gets its verdict first, because the
+% refusal can make a peak unreachable: that turns a divergent pair from a
+% refutation into an obligation, and there is nothing left for the criterion
+% to decide about the rules as they run.
 print_conclusion(_, Divergent, Unknown, Guarded) :-
     Guarded > 0,
     !,
-    format("conclusion: NOT DECIDED. ~d of these rules can refuse, so this is \c
-            a conditional system and the critical-pair criterion does not \c
-            decide it; the ~d divergent and ~d unresolved pairs above are \c
-            proof obligations.~n", [Guarded, Divergent, Unknown]).
+    format("conclusion: NOT DECIDED. ~d of these rules can refuse, so their \c
+            condition is written into the rules themselves and the \c
+            critical-pair criterion decides nothing about them; the ~d \c
+            divergent and ~d unresolved pairs above are proof obligations.~n",
+           [Guarded, Divergent, Unknown]).
 print_conclusion(_, Divergent, _, _) :-
     Divergent > 0,
     !,
@@ -702,10 +715,11 @@ translator_confluence_gate :-
     compile_time_rules('&self', Registered, _, SpaceRules, PreludeRules),
     (   SpaceRules == [], PreludeRules == []
     ->  true
-    ;   %A conditional set is not decided by the criterion at all, so passing
-        %it would be claiming something this analysis cannot say. The shipped
-        %libraries hold no refusing rule today; the day one ships, this stops
-        %and a person decides.
+    ;   %The criterion decides the system extracted from the heads, and a rule
+        %that REFUSES says in its own words that its heads are not the whole
+        %rule, so passing such a set would be claiming something this analysis
+        %cannot say. The shipped libraries hold no refusing rule today; the day
+        %one ships, this stops and a person decides.
         guarded_rules(SpaceRules, PreludeRules, Guarded, _),
         (   Guarded > 0
         ->  print_translator_family(translator_state('&self', Registered, [],
@@ -756,25 +770,40 @@ print_rule_name(Registered, N) :-
 
 % Which fragment this report can answer in, printed with every report rather
 % than left in a header, because a verdict is worth what its fragment is worth.
-% The third line is about THIS rule set rather than about rule sets in
-% general: a rule that can refuse takes its set out of the fragment, and the
-% report has to say so instead of going on claiming the old one.
+% The first three lines are about rule sets in general and the last is about
+% THIS one: every rule is conditional by the ruling, so what varies from set to
+% set is how many of its rules say so in their own words, and a set that holds
+% one of those is where the obligation is owed out loud.
 print_decidable_fragment(SpaceRules, PreludeRules) :-
     format("decidable fragment: confluence is decidable for TERMINATING \c
             rewrite systems, by Knuth and Bendix (1970), since such a system \c
             has finitely many critical pairs and each one's joinability \c
             terminates.~n"),
-    format("  a rule that can REFUSE is a CONDITIONAL rule, and confluence of \c
-            terminating conditional systems is undecidable in general; a set \c
-            holding one has to be PROVED confluent rather than decided.~n"),
+    format("  every translator rule is a CONDITIONAL rewrite rule, because a \c
+            rule's BODY is its condition: a clause applies when its head \c
+            matches and its body produces an expansion, and a body with no \c
+            answer declines, after which the next clause and then ordinary \c
+            dispatch are tried. Measured 2026-08-21: (= (m5 a) (empty)) ahead \c
+            of (= (m5 $x) (noeval two)) compiles (= (usem5) (m5 a)) to the \c
+            fact usem5(two).~n"),
+    format("  confluence of terminating conditional systems is undecidable in \c
+            general, so the verdict below is a decision about the \c
+            UNCONDITIONAL system extracted from the rule heads and a PROOF \c
+            OBLIGATION about the conditional system that actually runs: it \c
+            transfers exactly where every rule's body answers. The route that \c
+            reaches the rest is the arbiter's extended conditional critical \c
+            pairs, LeaTTa MeTTaILProofs/ConditionalCP.lean, after \c
+            Avenhaus-Loria-Saenz (1994) and Lucas (JLAMP 2024).~n"),
     guarded_rules(SpaceRules, PreludeRules, Guarded, Total),
     (   Guarded =:= 0
-    ->  format("  this set: all ~d rules are UNCONDITIONAL, applied by \c
-                matching a head alone, so it sits inside that fragment.~n",
-               [Total])
+    ->  format("  this set: none of its ~d rules refuses in its own words. \c
+                The heads extracted from them are UNCONDITIONAL, so the \c
+                verdict below is decided for that system and owed only where \c
+                a rule's body has no answer.~n", [Total])
     ;   format("  this set: ~d of its ~d rules can refuse, so it is \c
-                CONDITIONAL and every verdict below is a proof obligation for \c
-                those rules rather than a decision.~n", [Guarded, Total])
+                CONDITIONAL where a reader can see it, and every verdict \c
+                below is a proof obligation for those rules rather than a \c
+                decision.~n", [Guarded, Total])
     ).
 
 % A rule can refuse when a `(refuse Reason)` form is reachable in its

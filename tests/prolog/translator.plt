@@ -23,6 +23,14 @@
 %     [tested: test_an_annotated_binding_emits_its_claim,
 %     translator_typed_let:a_source_colon_pair_stays_a_pattern;
 %     commit=c3c8ea60516dc1f45620bbe4dba3b78993ee22e3].
+%   - a quoted pattern compiles to the same term a quoted body compiles to, at
+%     the one arity `quote` scopes on either side
+%     [tested: translator_quote_scope; commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
+%   - a translator rule's head shape and its body goals leave the call they
+%     were matched against unbound, and the compiler records and says what it
+%     decided about every head pattern position that is not plain structure
+%     [tested: translator_rule_matching, translator_head_pattern_notes;
+%     commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -2548,3 +2556,192 @@ test(a_cons_list_is_ordinary_structure,
     assertion(Length == [3]).
 
 :- end_tests(translator_inplace_annotations).
+
+:- begin_tests(translator_quote_scope).
+
+%One compiler, both sides of the `=`. A body's `(quote X)` holds X and compiles
+%nothing inside it, and the sharpest way to say a pattern's quote does the same
+%is to compile the same quoted term in each position and demand the same term
+%back. Measured before the pattern walk stopped descending: `(cons 1 2)` inside
+%a pattern's quote became the improper list `[1|2]`, and `(: $x Number)` became
+%a type premise goal with the pattern reduced to `[quote, A]`, so the head
+%matched `(quote 5)` and refused the quoted annotation it was written for.
+%Neither shape is one a body's quote can produce, so a head written to match
+%what a body writes could not.
+quote_scope_payload("(cons 1 2)").
+quote_scope_payload("(: $x Number)").
+quote_scope_payload("(g $x)").
+quote_scope_payload("(h (g 1))").
+quote_scope_payload("$x").
+quote_scope_payload("(foo bar)").
+
+test(a_quoted_pattern_holds_what_a_quoted_body_holds,
+     [ forall(quote_scope_payload(Text)),
+       setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( forget_test_function('qs-body'),
+                 forget_test_function('qs-head'),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    format(atom(BodySource), "(= (qs-body) (quote ~w))", [Text]),
+    sread(BodySource, BodyEquation),
+    translate_clause(BodyEquation, (BodyHead :- _)),
+    BodyHead =.. [_, BodyValue],
+    format(atom(HeadSource), "(= (qs-head (quote ~w)) matched)", [Text]),
+    sread(HeadSource, HeadEquation),
+    translate_clause(HeadEquation, (CompiledHead :- _)),
+    CompiledHead =.. [_, HeadPattern, _],
+    assertion(HeadPattern =@= BodyValue).
+
+%The scope is one argument wide on both sides. `translate_special_dl/5` gives
+%`quote` meaning at arity one only, so `(quote a b)` is ordinary data in a body
+%and must stay ordinary structure in a pattern, walked like anything else.
+test(a_two_argument_quote_is_not_the_scope_form) :-
+    constrain_args([quote, [':', X, 'Number'], second], Out, Goals),
+    assertion(Out == [quote, X, second]),
+    assertion(Goals \== []).
+
+:- end_tests(translator_quote_scope).
+
+:- begin_tests(translator_rule_matching).
+
+%A translator rule is applied by MATCHING, so a call it does not match comes
+%back untouched and, in particular, comes back with its variables still
+%variables. Prolog's call/1 unifies, which runs both ways, so the rule's guard
+%could reach into the call and instantiate it; Rw-Prolog's redex/3 answers that
+%by re-checking subsumes_term/2 after the condition
+%[source 2026-08-21: ai-tmp/rw-prolog/src/rewrite.pl, redex/3].
+
+%The guard already in the tree: the shipped set operations name two
+%superpositions and `(union $x $x)` is not that shape, so the first equation
+%must decline without binding the caller's variable on its way past.
+test(a_shipped_guarded_rule_leaves_an_unbound_call_unbound) :-
+    Call = [union, X, X],
+    translate_expr(Call, Goals, Out),
+    assertion(var(X)),
+    assertion(Goals == []),
+    assertion(Out == Call).
+
+%The guard in its purest form, planted: a rule whose BODY binds one of its own
+%head variables, which is the case P2.16 names and the one head-shape matching
+%alone does not cover. The second equation is the fall-through the first one's
+%decline reaches.
+bindguard_source("(: plunit-bg (-> Atom %Undefined%))
+(= (plunit-bg $a) (let $a plunit-planted (noeval (saw $a))))
+(= (plunit-bg $a) (noeval (fell-through $a)))
+!(add-translator-rule! plunit-bg)").
+
+setup_bindguard :-
+    retractall(silent(_)), assertz(silent(true)),
+    bindguard_source(Source),
+    process_metta_string(Source, _).
+
+cleanup_bindguard :-
+    process_metta_string("!(remove-translator-rule! plunit-bg)", _),
+    'remove-atom'('&self', [=, ['plunit-bg'|_], _], _),
+    'remove-atom'('&self', [=, ['plunit-bg'|_], _], _),
+    'remove-atom'('&self', [':', 'plunit-bg', _], _),
+    forget_test_function('plunit-bg'),
+    retractall(silent(_)), assertz(silent(false)).
+
+test(a_planted_guard_that_binds_a_pattern_variable_cannot_create_a_match,
+     [setup(setup_bindguard), cleanup(cleanup_bindguard)]) :-
+    translate_expr(['plunit-bg', X], _, Unknown),
+    assertion(var(X)),
+    assertion(Unknown == ['fell-through', X]),
+    translate_expr(['plunit-bg', 'plunit-planted'], _, Known),
+    assertion(Known == [saw, 'plunit-planted']).
+
+:- end_tests(translator_rule_matching).
+
+:- begin_tests(translator_head_pattern_notes).
+
+%The compiler takes two decisions about a head pattern position that the
+%source does not show, and it now records both. The fixtures are one of each,
+%plus the two shapes that must stay silent: an evaluation-masked parameter,
+%where structural matching is exactly what the caller hands over, and an
+%ordinary constructor, whose label means nothing anywhere.
+head_note_source("(= (hpn-g $x) (inner $x))
+(= (hpn-goal (: $x Number)) $x)
+(= (hpn-label (hpn-g $x)) $x)
+(= (hpn-special (if True 1 2)) hit)
+(= (hpn-deep (hpn-h (hpn-g $x))) $x)
+(= (hpn-plain (Cons $x $xs)) $x)
+(: hpn-lazy (-> Atom %Undefined%))
+(= (hpn-lazy (hpn-g $x)) $x)").
+
+head_note_function('hpn-g').
+head_note_function('hpn-goal').
+head_note_function('hpn-label').
+head_note_function('hpn-special').
+head_note_function('hpn-deep').
+head_note_function('hpn-plain').
+head_note_function('hpn-lazy').
+
+setup_head_notes :-
+    retractall(silent(_)), assertz(silent(true)),
+    head_note_source(Source),
+    process_metta_string(Source, _).
+
+cleanup_head_notes :-
+    forall(head_note_function(F),
+           ( 'remove-atom'('&self', [=, [F|_], _], _),
+             forget_test_function(F) )),
+    'remove-atom'('&self', [':', 'hpn-lazy', _], _),
+    retractall(silent(_)), assertz(silent(false)).
+
+recorded_notes(Notes) :-
+    findall(F-Path-Label-Reason,
+            ( head_note_function(F),
+              head_pattern_note(_, F, Path, Label, Reason) ),
+            Notes).
+
+test(the_compiler_records_every_position_it_decided_about_and_no_other,
+     [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
+    recorded_notes(Notes),
+    msort(Notes, Sorted),
+    assertion(Sorted ==
+              [ 'hpn-deep'-[1, 1]-'hpn-g'-defined_label(function),
+                'hpn-goal'-[1]-(:)-type_annotation,
+                'hpn-label'-[1]-'hpn-g'-defined_label(function),
+                'hpn-special'-[1]-if-defined_label(translated) ]).
+
+%BOTH questions, which is the trap this note walked into once already: asking
+%fun/1 alone reported 723 findings over the examples corpus that were correct
+%uses of a translated form [measured 2026-08-17].
+test(both_routes_to_a_head_meaning_are_asked,
+     [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
+    assertion(head_pattern_note(_, 'hpn-label', [1], 'hpn-g',
+                                defined_label(function))),
+    assertion(head_pattern_note(_, 'hpn-special', [1], if,
+                                defined_label(translated))).
+
+test(an_evaluation_masked_argument_has_nothing_to_report,
+     [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
+    assertion(\+ head_pattern_note(_, 'hpn-lazy', _, _, _)),
+    assertion(\+ head_pattern_note(_, 'hpn-plain', _, _, _)).
+
+%The note as a reader sees it, rendered through the same DCG print_message/2
+%uses, so the test reads the message rather than a transcription of it.
+note_text(Term, Text) :-
+    once(phrase(prolog:message(Term), Parts)),
+    with_output_to(string(Text),
+                   print_message_lines(current_output, '', Parts)),
+    !.
+
+test(the_note_names_the_position_the_label_and_why) :-
+    note_text(petta_head_pattern_note(t, [1], ':', type_annotation), Goal),
+    assertion(sub_string(Goal, _, _, _, "head argument 1")),
+    assertion(sub_string(Goal, _, _, _, "annotation on :")),
+    assertion(sub_string(Goal, _, _, _, "GOAL")),
+    note_text(petta_head_pattern_note(f, [1, 2], g, defined_label(function)),
+              Label),
+    assertion(sub_string(Label, _, _, _, "head argument 1, subterm 2")),
+    assertion(sub_string(Label, _, _, _, "against (g ...)")),
+    assertion(sub_string(Label, _, _, _, "g has equations here")),
+    assertion(sub_string(Label, _, _, _, "matched STRUCTURALLY")),
+    note_text(petta_head_pattern_note(k, [3], if, defined_label(translated)),
+              Special),
+    assertion(sub_string(Special, _, _, _, "head argument 3")),
+    assertion(sub_string(Special, _, _, _,
+                         "special form or a registered translator rule")).
+
+:- end_tests(translator_head_pattern_notes).
