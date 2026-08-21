@@ -12,11 +12,29 @@ def upto(n: int):
     yield from range(1, n + 1)       # !(collapse (upto 3)) -> (1 2 3)
 ```
 
-Annotations become declarations in the running space. A `TypeVar` produces a parametric type variable. A `Union` produces one arrow for each member, which the engine reads as superposed declarations. `Callable[[int], int]` maps to a function arrow, and a typed tuple maps element by element.
+Annotations become declarations in the running space. A `TypeVar` produces a parametric type variable. A `Union` produces one arrow for each member, which the engine reads as superposed declarations. `Callable[[int], int]` maps to a function arrow, and a typed tuple maps element by element. `Annotated[int, "metres"]` keeps `Number` in the arrow and also publishes the matchable claim `(Annotated Number "metres")`, so two values of the same runtime type can carry distinct semantic metadata.
 
 A dataclass, enum, or plain class in a signature becomes a declared type. Its field annotations determine the constructor declaration. Translation is two-way: enums project to symbols, structured objects can project to constructor expressions, and answers can rebuild Python instances.
 
 Defaults register every accepted positional arity. A Python `None` produces no answer unless the integration wrapper uses the engine's effect convention. `m.unregister_op(name)` removes every arity registered under that name.
+
+An `Atom` parameter changes evaluation order; it is not merely a static hint.
+The compiler passes that argument as written, before reduction. An
+unconstrained parameter receives the evaluated value:
+
+```python
+@m.register_op
+def anyatom(term: petta.Atom) -> petta.Atom:
+    return term
+
+@m.register_op
+def anyval(term):
+    return term
+```
+
+With `(= (side) 42)`, `!(anyatom (side))` answers `(side)`, while
+`!(anyval (side))` answers `42`. Use `Atom` when the operation intentionally
+implements syntax or a control form.
 
 An operation that wants to query the knowledge base does not have to close over `m`. Annotate a parameter as `petta.MeTTa` and the engine fills it, FastAPI's `Depends` read with the house convention that the annotation is the request:
 
@@ -45,11 +63,12 @@ class Edge:
 m = petta.MeTTa()
 m.query("(: Edge $t)")               # [(-> String String Edge)]
 m.query("(Edge $a $b)", into=Edge)   # [Edge(a=..., b=...)] once stored
+m.query(V.edge, into=Edge)            # rebuild each complete (Edge ...) atom
 ```
 
 The decorator does not boot the engine. Conversion registers immediately, so an unregistrable class fails at the decorator rather than at first use, but the declarations are engine-side atoms and land the moment an engine exists: on the first `MeTTa()` construction, or immediately if one is already running. That is what lets `record` sit at module import time in a library that may never start an engine at all.
 
-`cast` checks admission and narrows; it does not construct. Building instances from answers is `query(into=Edge)` or `petta.convert.build(atom, Edge)`.
+`cast` checks admission and narrows; it does not construct. Building instances from answers is `query(into=Edge)`, `rows.build(Edge)`, or `petta.convert.build(atom, Edge)`.
 
 ## Property-test what you build
 

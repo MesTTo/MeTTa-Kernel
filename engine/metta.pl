@@ -59,6 +59,9 @@
 %     to float and can overflow doing it. Whole-corpus cost is
 %     +2.1% instructions on examples/performance/scale.metta
 %     [measured 2026-08-15].
+%   - Python operation purity reaches the same `(effect Name immutable)` atom
+%     read by metta_pure_operation/1 [tested:
+%     test_pure_registration_reflects_an_effect_atom; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861].
 %   - A result past binary64 saturates to the IEEE value on the engine's
 %     operations, agreeing with the reader's saturating literals, and an
 %     infinity a literal produced carries through further arithmetic; the
@@ -117,6 +120,10 @@
 %     and the prelude's, with each row written once and evicted only by the
 %     register that wrote it [tested 2026-08-19:
 %     metta_builtin_type_surface:a_shared_declaration_is_evicted_only_from_the_register_that_wrote_it].
+%   - External Prolog libraries extend builtin_type_declaration/2 without
+%     replacing the engine's rows, and unloading retires only their own clauses
+%     [tested: test_a_library_types_its_own_blob_without_destroying_the_table;
+%     commit=6f06e918c8f3382e8e1c8ccd8d120c6d809999a5].
 %   - The prelude loads exactly three form shapes: a declaration, an equation,
 %     and `!(add-translator-rule! NAME)` for a name it defines itself, which
 %     is how a DERIVED form ships. A program that defines such a name takes
@@ -3021,8 +3028,8 @@ prolog:error_message(metta_impure_goal(Name/Arity)) -->
 metta_pure_operation(Name) :- metta_host_pure_operation(Name).
 
 %The same claim made from INSIDE MeTTa: (effect Name immutable) added to
-%&petta is what register_op(pure=True) asserts from Python, read from the
-%space's own storage at judgement time. The walk runs when a cache is
+%&petta, where register_op(declarations=[...]) places it too. The walk reads
+%the space's own storage at judgement time. The walk runs when a cache is
 %declared, never on the call path, so consulting storage here costs nothing
 %per call and installs no atom hook, which is what keeps every space's bulk
 %add path fast.
@@ -6819,6 +6826,7 @@ unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
 %ONE SOURCE OF TRUTH: the facts are built by parsing lib_builtin_types.metta
 %at boot, so the file a program can still import explicitly and the table the
 %engine answers from cannot drift apart.
+:- multifile builtin_type_declaration/2.
 :- dynamic builtin_type_declaration/2.
 
 load_builtin_type_surface :-

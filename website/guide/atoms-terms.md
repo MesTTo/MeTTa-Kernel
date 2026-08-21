@@ -26,10 +26,21 @@ Operators on atoms build terms. `V.age >= 18` builds `(>= $age 18)`, so guards a
 | `x / y` | `(/ x y)` | | `~x` | `(not x)` |
 | `x % y` | `(% x y)` | | `x < y` | `(< x y)` |
 | `x ** y` | `(pow-math x y)` | | `x <= y` | `(<= x y)` |
-| `x @ y` | `(matmul x y)` | | `x > y` | `(> x y)` |
-| `x.ne(y)` | `(not (== x y))` | | `x >= y` | `(>= x y)` |
+| `x // y` | `(floor-math (/ x y))` | | `x > y` | `(> x y)` |
+| `x @ y` | `(matmul x y)` | | `x >= y` | `(>= x y)` |
+| `-x` | `(- 0 x)` | | `abs(x)` | `(abs-math x)` |
+| `x.eq(y)` | `(== x y)` | | `x.ne(y)` | `(not (== x y))` |
 
 Reflected forms work too: `1 + V.x` builds `(+ 1 $x)`.
+
+The public immutable `OPERATOR_LOWERINGS` table is the source of these
+methods. A row is a builtin symbol, a composite template, a provided name, a
+reserved Python spelling, or an explicit absence. `matmul` is provided: `@`
+always builds that stable name, and a library supplies its MeTTa definition.
+Left and right shift are absent because MeTTa has no integer-shift operation;
+`x << y` and `x >> y` raise a message naming that fact instead of Python's
+generic unsupported-operands error. Grounded values keep Python semantics, so
+`Gnd(3) << 2` answers `12` rather than building a term.
 
 One operator is deliberately not symbolic. **`x.eq(y)` builds the equality term `(== x y)`, while `==` itself compares atoms structurally** and answers a Python `bool`. Atoms are dict keys and test comparands, so `S.a == S.a` must stay `True` rather than becoming a term; equality is the one place where building the term costs a method call, and it is the only operator that behaves unlike its neighbours.
 

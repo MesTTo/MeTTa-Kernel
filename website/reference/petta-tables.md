@@ -38,10 +38,16 @@ Source: `bindings/python/petta/tables.py`.
 >
 > Guarantees:
 >   - a database row becomes an atom from its typed cell values; plain text is
->     always a symbol, NULL is Gnd(None), and structured values use the tagged
->     atom wire rather than the source parser [tested:
+>     always a symbol, NULL is Gnd(None), and a structured value is one tagged
+>     TEXT cell carrying the atom wire rather than the source parser [tested:
 >     test_a_row_value_becomes_an_atom_without_being_reparsed;
->     commit=09c5ca4528bc3763e94155d5cb00e9e0a662cc95]
+>     commit=WORKTREE]
+>   - a cell PeTTa wrote reads back as the atom it wrote, whatever the driver
+>     and the image catalog do to the database's own values: _is_atom_cell
+>     keeps the tag in the text domain, out of reach of a row_factory that
+>     adapts binary cells, and _ImageCodec answers it before any image
+>     [tested: test_a_nonground_compound_downgrades_and_removal_still_unifies;
+>     commit=WORKTREE]
 >   - the whole pattern family is filtered exactly where SQL can express
 >     it: ground positions become comparisons, a repeated variable becomes
 >     the equality it demands (column to column, or column to the declared
@@ -56,6 +62,11 @@ Source: `bindings/python/petta/tables.py`.
 >     [tested test_a_nonground_add_is_refused]
 >   - an atom every shape refuses, or two shapes admit, is refused naming
 >     the shapes [tested test_an_ambiguous_add_is_refused_naming_both]
+>   - TableBridge.from_context applies `(image <ctx> <Type> <setting>)` to
+>     each of the database's own row values before it crosses, keeping opaque
+>     objects as handles and projecting transparent objects [tested:
+>     test_an_opaque_blob_column_is_reached_by_a_lazy_path_without_crossing;
+>     commit=WORKTREE]
 > Decides:
 >   - declarations are trusted code, not user data: table and column
 >     names are interpolated into SQL, so a bridge declaration belongs in

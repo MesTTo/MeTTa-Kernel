@@ -24,6 +24,10 @@ Source: `bindings/python/petta/space.py`.
 >     test_stream_pulls_rows_lazily_and_interleaves]
 >   - register_op and unregister_op are the paired operation lifecycle names
 >     [tested test_operation_registration_names_are_symmetric]
+>   - an Atom parameter changes call-site evaluation so the callable receives
+>     the written term while an unconstrained parameter receives its value
+>     [tested: test_an_atom_annotation_changes_evaluation_order_as_documented;
+>      commit=a6a2287b5bfe03ec1b5dea9f7a8c55f715304d6b]
 >   - define accepts source-bearing Python functions and refuses callable
 >     objects before reading compiler metadata [tested
 >     test_define_refuses_callable_objects]
@@ -46,9 +50,25 @@ Source: `bindings/python/petta/space.py`.
 >     test_a_restricted_space_cannot_reach_what_its_base_does_not_publish;
 >     commit=6a08901f4125c2536f5b4032daac9937f793870f]
 >   - eval_status and run_status separate a pruned branch from an unevaluated
->     term, and strict= refuses only the latter [tested
+>     term, and a strict scope refuses only the latter [tested
 >     test_eval_status_reports_the_four_outcomes,
 >     test_strict_accepts_a_pruned_branch_and_every_reduction]
+>   - eval has one answer shape: a non-reducible result is its unreduced term,
+>     and no residuals flag changes it [tested:
+>     test_a_not_reducible_answer_is_the_unreduced_term_with_no_flag;
+>     commit=affc981bd744563f65f595259b8a3564b9d84ba9]
+>   - query(into=cls) rebuilds a complete constructor expression captured in
+>     one variable, while cast remains type admission [tested:
+>     test_a_constructor_expression_rebuilds_through_the_query_door;
+>     commit=2bf66c123858feaeaf9909729db3e8700aaca546]
+>   - execution policies live in with-blocks and capture never changes run or
+>     eval return shapes [tested:
+>     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
+>     commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
+>   - declare_image records one validated per-type-per-context image choice and
+>     replaces the previous choice [tested:
+>     test_an_opaque_blob_column_is_reached_by_a_lazy_path_without_crossing;
+>     commit=24532816d8f3987cc56059fadf3666a387ae1156]
 >   - profile_extension reports every declared member of an extension, including
 >     one the workload never reached, with the tier that installed it and its
 >     clause index [tested 2026-08-16:
@@ -220,11 +240,7 @@ def run(
     *,
     timeout: float | None = None,
     inferences: int | None = None,
-    capture: bool = False,
-    atomic: bool = False,
-    speculative: bool = False,
-    strict: bool = False,
-) -> list[list[Atom]] | tuple[list[list[Atom]], str]:
+) -> list[list[Atom]]:
 ```
 
 > Run MeTTa source: one list of answers per ! directive.
@@ -245,20 +261,17 @@ def run(
 > `timeout` (seconds) and `inferences` (engine steps) bound the call
 > with the engine's own guards; passing either raises TimeLimitError
 > or InferenceLimitError when the bound is hit, and whatever the
-> source completed before the stop, writes included, stands. With
-> `capture=True` the return value is (groups, text), text being
-> everything the source printed, println! included.
+> source completed before the stop, writes included, stands.
 >
-> `atomic=True` runs the whole source inside the engine's own
-> transaction/1: every write, facts and equations alike, commits
-> whole, or rolls back whole when a directive throws; the inline
-> (transaction ...) form does the same for a scope inside a
-> program. `speculative=True` is the what-if twin through
-> snapshot/1: the answers return and every write is discarded.
-> Both cover engine state; a Python operation's side effects, and
-> subscription callbacks already fired, stay where they happened.
+> `with m.capture() as output` collects printed text in `output.text`
+> without changing this method's return shape. `with m.atomic()`,
+> `with m.speculative()`, and `with m.strict()` scope execution policy
+> without boolean combinations on each call. Atomic commits or rolls
+> back each complete source; speculative answers and discards its
+> writes. Both cover engine state; Python side effects and subscription
+> callbacks already fired stay where they happened.
 >
-> `strict=True` requires every directive to reduce, raising
+> A strict scope requires every directive to reduce, raising
 > StrictError on one the engine hands back unevaluated. It is opt-in,
 > because an unreduced term is an ordinary MeTTa value: a bare data
 > constructor is refused under strict for the same reason a bare
@@ -610,7 +623,9 @@ def query(
 > `into=` shapes each row into a dataclass, NamedTuple, or
 > TypedDict matched by field name, sqlite3's row_factory reading:
 > `m.query(S.edge(V.a, V.b), into=Edge)` answers `list[Edge]`,
-> and Rows stays the default so nothing is lost.
+> and Rows stays the default so nothing is lost. A one-variable query
+> whose column holds complete constructor expressions rebuilds those
+> expressions instead: `m.query(V.edge, into=Edge)`.
 >
 >     m.query(S.Edge(V.x, V.y), S.Edge(V.y, V.z))
 
@@ -708,6 +723,43 @@ def limits(self, *, timeout: float | None = None, inferences: int | None = None)
 > block replaces the parameter forest, and the forest remains
 > for whoever wants per-call control.
 
+### `MeTTa.capture`
+
+```python
+def capture(self) -> CapturedOutput:
+```
+
+> Collect printed engine text without changing answer shapes.
+>
+> with m.capture() as output:
+>     groups = m.run("!(println! hello) !(+ 1 2)")
+> assert groups == [[3]]
+> assert output.text == "hello\n"
+
+### `MeTTa.atomic`
+
+```python
+def atomic(self) -> ScopedExecution:
+```
+
+> Make each run in the block one committing engine transaction.
+
+### `MeTTa.speculative`
+
+```python
+def speculative(self) -> ScopedExecution:
+```
+
+> Run each source against a snapshot and discard its writes.
+
+### `MeTTa.strict`
+
+```python
+def strict(self) -> ScopedExecution:
+```
+
+> Refuse any run directive the engine returns unreduced.
+
 ### `MeTTa.batch`
 
 ```python
@@ -776,9 +828,7 @@ def eval(
     using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
-    capture: bool = False,
-    residuals: bool = False,
-) -> list[Atom | Undefined] | tuple[list[Atom | Undefined], str]:
+) -> list[Atom | Undefined]:
 ```
 
 > Evaluate a term, returning every answer.
@@ -791,10 +841,10 @@ def eval(
 > Well Founded Semantics (a tabled loop through tnot, reachable via
 > translatePredicate or injected Prolog) arrives as an Undefined
 > holding the answer and the delay condition that makes it
-> undefined, never as an ordinary-looking value. `residuals=True`
-> additionally fills each Undefined's .residual with the residual
-> program, the clauses of the loop itself. run() does not carry the
-> third truth value; evaluate through eval() when it matters.
+> undefined, never as an ordinary-looking value. A term to which no
+> rule applies is the ordinary answer itself; `eval_status()` names
+> that path `not-reducible`. run() does not carry the third truth
+> value; evaluate through eval() when it matters.
 >
 > `using` binds named host values into the term before it evaluates,
 > exactly as it does for run(): `m.eval("(decide $x)", using={"x":
@@ -804,9 +854,8 @@ def eval(
 > of source text costs no change of spelling.
 >
 > `timeout` (seconds) and `inferences` (engine steps) bound the call,
-> raising TimeLimitError or InferenceLimitError when hit. With
-> `capture=True` the return value is (answers, text), text being
-> everything the evaluation printed.
+> raising TimeLimitError or InferenceLimitError when hit. A surrounding
+> `capture()` scope collects printed text without changing the list.
 
 ### `MeTTa.parallel`
 
@@ -1017,12 +1066,10 @@ def register_op(
     fn: Callable | None = None,
     *,
     name: str | None = None,
-    typed: bool = True,
-    raw: bool = False,
-    pass_atoms: bool = False,
+    transport: Literal['encoded', 'raw'] = 'encoded',
+    declarations: Iterable[Atom] = (),
     arities: list[int] | None = None,
     inverse: Callable | None = None,
-    pure: bool = False,
 ) -> Any:
 ```
 
@@ -1042,33 +1089,47 @@ def register_op(
 > registered reader token is refused before any registry changes, with
 > the name and the conflicting character in the error.
 >
-> Annotations become a (: ...) declaration unless typed=False, and the
-> three combinations answer differently, which is worth knowing because
-> the middle one reads like nothing happened:
+> Annotations become ordinary `(: ...)` declarations. An unannotated
+> callable makes no type claim. `transport="raw"` skips wire encoding
+> both ways and is reflected as raw_det or raw_many in `(op ...)`;
+> symbols then reach Python as strings, so encoded transport is the
+> fidelity-preserving default. unregister_op(name) removes every
+> registered arity and every declaration the registration owns.
 >
->     def op(x: int) -> int    typed=True   (: op (-> Number Number))
->     def op(x)                typed=True   (: op (-> %Undefined% %Undefined%))
->     def op(x)                typed=False  no declaration at all
+> An `Atom` parameter changes evaluation order. The declaration tells
+> the compiler to pass the argument as written, before it reduces:
 >
-> The unannotated typed=True case is not a no-op. It declares the ARROW
-> SHAPE, so get-type answers that op is a one-argument function while
-> constraining neither slot, and typed=False leaves get-type answering
-> %Undefined%. It also costs nothing per call: a %Undefined% slot emits
-> no check.
+>     @m.register_op
+>     def anyatom(term: Atom) -> Atom:
+>         return term
 >
-> A raw operation skips the wire encoding both ways, which suits tensor
-> and number work; symbols reach it as plain strings, so keep raw off
-> when the symbol-string distinction matters. pass_atoms hands the
-> callable Atom objects instead of decoded Python values.
-> unregister_op(name) removes every registered arity.
+>     # with (= (side) 42), !(anyatom (side)) answers (side)
+>
+> An unconstrained parameter receives the evaluated value instead, so
+> the otherwise identical `def anyval(term): return term` answers 42.
+> Use `Atom` only when the operation deliberately implements syntax or
+> a control form; it is not just a static hint.
+>
+> When evaluation order stays ordinary but the callable needs the
+> resulting Atom wrappers, declare that policy as data:
+>
+>     m.register_op(
+>         inspect_atom,
+>         name="inspect-atom",
+>         declarations=[parse("(arguments inspect-atom atoms)")],
+>     )
+>
+> The declaration is matchable in &petta and is retired with the
+> operation. Raw transport refuses this declaration because it bypasses
+> the atom codec entirely.
 >
 > The cost ladder, measured on the maintained box in inferences per
-> call, is why the flags exist and which one to reach for:
+> call, explains the transport choice:
 >
 >     native MeTTa function            9.11   the floor
->     raw=True                        10.11   opaque handles, near-native
->     typed=False                     17.11   encoded values
->     typed=True, literal argument    17.11   the check hoists to compile
+>     transport="raw"                10.11   opaque handles, near-native
+>     encoded                        17.11   encoded values
+>     encoded, typed literal         17.11   the check hoists to compile
 >     py-call, dotted                 22.11   the ad-hoc escape hatch
 >
 > The ergonomic default (encoded, typed) costs about 1.7x raw on the
@@ -1102,10 +1163,15 @@ def register_op(
 >         for row in engine.query(expr(S.link, term, V.x)):
 >             yield row[0]
 >
-> pure=True says the operation has no effect a cache could hide, which
-> is what lets it appear in a `(tabled ...)` or memoized body:
+> Purity is a seam declaration rather than a Python boolean. Supply the
+> ordinary effect atom to let the operation appear in a `(tabled ...)`
+> or memoized body:
 >
->     m.register_op(len, name="size", pure=True)
+>     m.register_op(
+>         len,
+>         name="size",
+>         declarations=[parse("(effect size immutable)")],
+>     )
 >     # (= (count-of $x) (size $x))  is cacheable
 >
 > It is an allow-list on purpose. An operation that does not say so is
@@ -1623,6 +1689,25 @@ def declare_annotations(self, name: str, semiring: Semiring) -> Atom:
 > annotations, which is what (top k ...) consumes. Declaring
 > replaces any earlier declaration for the context, so the reader
 > never meets two disagreeing atoms.
+
+### `MeTTa.declare_image`
+
+```python
+def declare_image(
+    self,
+    name: str,
+    type_name: str,
+    setting: Literal['opaque', 'transparent', 'auto'],
+) -> Atom:
+```
+
+> Choose how one Python type crosses one context boundary.
+>
+> opaque carries the live object by identity; transparent projects its
+> structural MeTTa image; auto makes that choice from the value's size
+> and replayability. A later declaration for the same context and type
+> replaces the earlier one, so an attached provider reads one policy.
+> Use ``_`` as the type name for a context-wide fallback.
 
 ### `MeTTa.declare_source`
 

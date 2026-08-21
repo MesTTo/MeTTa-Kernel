@@ -20,6 +20,14 @@ Source: `bindings/python/petta/arrays.py`.
 >     of three perf stat instructions:u runs]
 >   - the fixed public constructor vocabulary is marked immutable to type
 >     checkers [tested test_policy_constants_are_final]
+>   - all 44 installed operation names own arity-accurate arrows, and
+>     broadcast-shape relates compatible dimensions before any array exists
+>     [tested: test_every_array_operation_is_typed_and_a_shape_is_a_constraint;
+>      commit=214a34885feb4fd1caf26c67143d6a3b0506e824]
+>   - array transport and Atom-delivery choices use the same declaration
+>     surface as every registered operation [tested:
+>     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
+>     commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
 > Guarded by:
 >   - _PROTOCOLS_LOCK serializes one-time protocol registration
 >     [tested test_array_protocol_registration_is_idempotent]
@@ -67,6 +75,20 @@ def install(m, default: Any = None) -> list[str]:
 > argument's own namespace, so arrays from any conforming library flow
 > through the same MeTTa functions, and a mixed binary call converts the
 > right operand into the left's library through from_dlpack.
+>
+> Every installed name has one or more arrow declarations. Constructors
+> with optional or variadic dimensions have one arrow per accepted arity.
+>
+> broadcast-shape is the CLP(FD) relation over shape expressions. It can
+> compute a result before any tensor exists, infer an unknown input
+> dimension from a required result, or reject incompatible shapes:
+>
+>     !(let True (broadcast-shape (4 1) (3) $shape) $shape)  ; (4 3)
+>     !(let True (broadcast-shape ($d 1) (1 3) (4 3)) $d)   ; 4
+>     !(broadcast-shape (2 3) (4 3) (4 3))                  ; no answer
+>
+> t-shape remains observation of an existing tensor. Use broadcast-shape
+> when compatibility or inference must happen before materialisation.
 
 ## `EmbeddingStore`
 

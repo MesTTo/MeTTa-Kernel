@@ -26,7 +26,7 @@ def mood(day, chosen=None):
     yield Answer(value=S.calm, k=0.25)
     yield Answer(value=S.tense, k=0.75)
 
-m.register_op(mood, name="mood", typed=False)
+m.register_op(mood, name="mood")
 m.declare_annotations("mood", "prob")
 
 m.run("!(collapse (mood today))")                 # (calm tense)

@@ -13,6 +13,38 @@ Source: `bindings/python/petta/ops.py`.
 >     one symbol and refuses before reflecting or registering anything [tested:
 >     test_register_op_refuses_a_name_metta_cannot_read;
 >     commit=235b35cc6a3e7b61325c7c2648e4a33f43edd93a]
+>   - full annotations become ordinary claims in the declaration space
+>     [tested: test_the_four_containers_share_one_parameterised_treatment;
+>      commit=4224c26819d90b9e03efdaef78cb573b91729295]
+>   - overload stubs each contribute their declared arrow and annotation claims
+>     [tested: test_every_advanced_annotation_reaches_metta_as_a_target_symbol;
+>      commit=4224c26819d90b9e03efdaef78cb573b91729295]
+>   - unreachable **kwargs refuses and a typed zero-parameter operation still
+>     emits its return arrow
+>     [tested: test_each_remaining_annotation_shape_refuses_or_carries;
+>      commit=ff4ac16f07a6e373e79ed0eae0a4c2d64cb92550]
+>   - callable code flags, through partials, wrappers, bound methods, and
+>     callable objects, classify generators and refuse coroutine functions
+>     before registration changes any engine or registry state [tested:
+>     test_register_op_reads_co_flags_and_refuses_or_awaits;
+>     commit=214a34885feb4fd1caf26c67143d6a3b0506e824]
+>   - every documented operation owns its portable @doc atom in the
+>     declaration space, independent of type annotations, under the same transactional
+>     lifecycle and reference count as type declarations [tested:
+>     test_every_register_op_writes_its_declaration_and_get_doc_answers;
+>     commit=eda90565cfb66417c62e654b0f3e7b55351366c5]
+>   - each registered arity owns the arrow for exactly the arguments that call
+>     form accepts, including repeated variadic annotations [tested:
+>     test_every_array_operation_is_typed_and_a_shape_is_a_constraint;
+>     commit=e5246578ba61fb5efc9d2282bade50479946e34a]
+>   - Annotated MeTTa parameters retain metadata without losing engine
+>     injection [tested:
+>     test_two_values_of_one_base_type_are_distinguishable_by_their_metadata;
+>     commit=f97e7f465274d378d2222f5b30b1b737c96f35f5]
+>   - transport, evaluation order, typing, and purity are expressed by op,
+>     type, and effect atoms rather than boolean decorator flags [tested:
+>     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
+>     commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -77,13 +109,11 @@ def register(
     fn: Callable[_P, _R],
     *,
     name: str | None = None,
-    typed: bool = True,
-    raw: bool = False,
-    pass_atoms: bool = False,
+    transport: Literal['encoded', 'raw'] = 'encoded',
+    declarations: Iterable[Atom] = (),
     space: str = _DEFAULT_SPACE,
     arities: list[int] | None = None,
     inverse: Callable | None = None,
-    pure: bool = False,
 ) -> Callable[_P, _R]:
 ```
 
@@ -103,10 +133,13 @@ def register(
 > is, so a forward call never reaches it and an operation without one
 > compiles exactly what it compiled before.
 >
-> pure declares that the operation has no effect a cache could hide, which
-> is what lets it appear in a `(tabled ...)` or memoized body. It is an
-> allow-list on purpose: an operation that does not say so is refused there
-> by name, loudly, rather than cached and quietly wrong.
+> Python annotations derive type atoms and Atom parameters receive syntax
+> before evaluation. `transport="raw"` derives raw_det/raw_many in the
+> operation's `(op ...)` fact. Additional declaration atoms are owned for
+> the operation's complete lifecycle: type atoms live in its declaration
+> space, while `(effect name immutable)` and other policy atoms live in
+> &petta and can be matched there. An immutable effect atom is the explicit
+> allow-list for tabled or memoized bodies.
 
 ## `unregister`
 

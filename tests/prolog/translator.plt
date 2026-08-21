@@ -13,6 +13,11 @@
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
 %     [tested: translator_translation_depth:every_nesting_shape_compiles_in_linear_work; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa].
+%   - typed let targets bind their value before enforcing the in-place type
+%     premise, while a source-level colon pair remains data
+%     [tested: test_an_annotated_binding_emits_its_claim,
+%     translator_typed_let:a_source_colon_pair_stays_a_pattern;
+%     commit=c3c8ea60516dc1f45620bbe4dba3b78993ee22e3].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -1148,6 +1153,33 @@ test(no_bindings_at_all_is_still_the_body) :-
     assertion(Out == done).
 
 :- end_tests(translator_letstar_unarrived_bindings).
+
+:- begin_tests(translator_typed_let).
+
+test(a_number_binding_accepts_a_number) :-
+    process_metta_string("!(let (__petta_typed_binding__ (: $x Number)) 7 $x)", Answers),
+    assertion(Answers == [7]).
+
+test(a_number_binding_rejects_a_known_string) :-
+    process_metta_string("!(let (__petta_typed_binding__ (: $x Number)) \"nope\" $x)", Answers),
+    assertion(Answers == []).
+
+test(a_metatype_binding_uses_the_same_fallback_as_a_typed_head) :-
+    process_metta_string("!(let (__petta_typed_binding__ (: $x Symbol)) hello $x)", Symbols),
+    assertion(Symbols == [hello]),
+    process_metta_string("!(let (__petta_typed_binding__ (: $x Expression)) (noeval (pair 1 2)) $x)",
+                         Expressions),
+    assertion(Expressions == [[pair, 1, 2]]).
+
+test(a_source_colon_pair_stays_a_pattern) :-
+    process_metta_string("!(let (: $proof Truth) (: witness Truth) $proof)",
+                         ConcreteType),
+    assertion(ConcreteType == [witness]),
+    process_metta_string("!(let (: $proof $theorem) (: witness Truth) ($proof $theorem))",
+                         VariableType),
+    assertion(VariableType == [[witness, 'Truth']]).
+
+:- end_tests(translator_typed_let).
 
 % The answering half: `let*` under another name is an ordinary definition,
 % which is how a library would give the form its own spelling.

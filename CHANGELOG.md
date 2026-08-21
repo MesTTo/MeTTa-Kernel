@@ -8,6 +8,45 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- SQLite table bridges now honor per-context `image` declarations. The
+  shipped example maps a `BLOB` column to a live `Blob` handle under
+  `opaque`, lets a lazy path read one byte without projecting the payload,
+  and demonstrates the structural crossing selected by `transparent`.
+- `petta.spaces.object_view(obj)` now presents live Python fields as
+  `(py-field obj name value)` atoms on the ordinary foreign-space seam. The
+  view composes with stored spaces for joins, observes later mutations, and
+  turns added field atoms into `setattr` writes.
+- A one-variable query can now rebuild complete constructor expressions with
+  `query(into=Class)`, and the underlying `Rows.build(Class)` door exposes the
+  same operation. Multi-column `into=` retains field-name row shaping;
+  `cast` remains type admission and returns the admitted atom unchanged.
+- Lazy query paths now reach attributes and subscription keys inside opaque
+  Python handles after the surrounding stored pattern matches. They read live
+  state, join through ordinary query variables, and stop cyclic traversals.
+- Atom operators now come from one immutable lowering table. Floor division,
+  unary minus, and `abs()` build reducing MeTTa forms; integer shifts name the
+  missing engine operation; and `@` explicitly targets library-provided
+  `matmul`. Grounded atoms keep the corresponding Python value operations.
+- Compiled definitions now expose AST-derived source spans, documentation,
+  lexical free variables, and purity. The facts reflect into `&petta`, replace
+  with a clause, and leave when its space is cleared.
+- Local annotated assignments in `@define` functions now compile to in-place
+  MeTTa type claims. The value binds before the premise runs, and annotation
+  syntax resolves without arbitrary `eval` or user-defined subscripting.
+- `typing.Annotated` metadata now survives as matchable `(Annotated ...)`
+  claims while the base type continues to control arrows, conversion, and
+  engine-parameter injection.
+- All 44 names installed by `petta.arrays` now carry arity-accurate arrow
+  declarations, including defaulted and variadic call forms. The new
+  `broadcast-shape` CLP(FD) relation checks or infers NumPy broadcasting
+  shapes before an array is materialised.
+- Python conversion now carries bare and abstract sequence annotations through
+  the same container hook as parameterized builtins. Buffer exporters project
+  as zero-copy `Buffer` expressions that retain the original object together
+  with shape, format, item size, dimensionality, strides, and access metadata.
+  Integration entry points may declare `PETTA_REQUIRES`; discovery installs
+  them in topological order and refuses duplicate names, missing requirements,
+  and dependency cycles by name.
 - A ground expression can name a native space. For example,
   `!(new-space (cache &kb 100))` creates an isolated storage and execution
   context whose exact identifier is returned by `context-space`; equations
@@ -62,6 +101,22 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Modifier-free host queries now choose the empty path before matching, so
+  lazy-path support has a fixed preparation cost instead of a cost per answer.
+- Generated symbolic atom operators now specialize their lowering table entry
+  once at import instead of interpreting that entry for every constructed term.
+- Typed local bindings now carry an internal provenance marker, so source-level
+  colon pairs remain data patterns even when their third slot looks like a
+  concrete type. Existing destructuring programs such as
+  `reasoning/nilbc.metta` retain their meaning.
+- Prolog extensions may now add `builtin_type_declaration/2` clauses without
+  replacing the engine's built-in type table; unloading removes only the
+  extension's clauses.
+
+- A required dataclass `InitVar` now refuses during conversion registration
+  instead of failing only when its incomplete projection is rebuilt.
+  `register_op` refuses unreachable `**kwargs`, and a typed zero-parameter
+  operation emits its return arrow instead of remaining undeclared.
 - Real-valued `sqrt-math`, `log-math`, and trigonometric operations now
   promote integer operands to Float before evaluation. `pow-math` likewise
   returns Float, accepts an unbounded Float exponent, and refuses an integer
@@ -139,7 +194,43 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   scheduled repair registration always used, and the events are pure
   observations again.
 
+### Removed
+
+- `eval(residuals=...)` and `AsyncMeTTa.eval(residuals=...)` no longer select
+  a second return shape. A term with no applicable rule is the unreduced term
+  returned by ordinary evaluation, while `eval_status()` names that path
+  `not-reducible`. Undefined truth still carries its delay condition, and
+  constraint stores remain inspectable inside MeTTa through `residual-goals`.
+
 ### Changed
+
+- `run()` and `eval()` now always return their list shapes. Printed output is
+  collected with `with m.capture()`, while atomic, speculative, and strict
+  execution use their matching `with` blocks. `register_op()` no longer has
+  `typed`, `raw`, `pass_atoms`, or `pure` booleans: annotations derive type
+  and evaluation-order claims, `transport="raw"` selects the raw `(op ...)`
+  kind, and `declarations=` accepts lifecycle-owned `(arguments ...)`,
+  `(effect ...)`, type, and other policy atoms readable through `&petta`.
+
+- `petta.Atom` on a registered operation parameter is now documented as an
+  evaluation-order contract: the callable receives the argument as written,
+  while an unconstrained parameter receives its reduced value.
+
+- Compiled definitions now carry their cleaned Python docstring through
+  `Defined.doc`, `help()`, and the definition space's `get-doc` result.
+
+- Registered operations now reflect a typed `OpDecl` for every arity and
+  carry cleaned Python docstrings into their declaration space as `@doc`
+  atoms. Documentation follows replacement, rollback, and unregistration.
+
+- `register_op` now rejects coroutine, async-generator, and generator-based
+  coroutine functions before registration. Its synchronous engine path cannot
+  await them; ordinary generator operations remain nondeterministic.
+
+- A Python tuple now answers as ordinary structural MeTTa data through both
+  the standalone engine and Python library. Asking `py-atom` for `Grounded`
+  retains a Python object reference instead of accepting Janus's eager tuple
+  conversion.
 
 - Recorded integer overflow as a deliberate host-width divergence: PeTTa and
   LeaTTa keep exact unbounded integer results where Hyperon's `i64` carrier

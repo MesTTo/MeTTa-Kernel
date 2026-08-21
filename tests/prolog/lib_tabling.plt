@@ -15,6 +15,8 @@
 %     identity's canonical storage module
 %     [tested: a_parametric_space_read_resolves_to_its_private_predicate;
 %     commit=3c7bcde6a0670ec5c563584b26977b41cc727580]
+%   - an effect declaration in &petta is the cache-purity claim [tested:
+%     a_metta_side_effect_declaration_is_a_purity_claim; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -316,7 +318,7 @@ test(an_unchecked_declaration_tables_an_impure_body,
     metta_tabled_decl(['purity-unchecked', _], Answer),
     assertion(Answer == true).
 
-%The claim register_op(pure=True) makes from Python, made from inside the
+%The effect atom register_op accepts from Python, made from inside the
 %language instead: the walk reads (effect Name immutable) out of &petta's
 %own storage, and removal withdraws it.
 test(a_metta_side_effect_declaration_is_a_purity_claim,

@@ -71,7 +71,7 @@ Two shapes break the two-element rule and both are named below: an outbound
 | `e` | term | array of terms | an expression, its children in order; the empty one is unit |
 | `o` | term | host reference | a live host value crossing by reference, in process only |
 | `h` | term | registry id, and its printed text outbound | a native engine value held by reference |
-| `u` | frame | term, why, and optionally the residual program | an answer whose truth is undefined under the well-founded semantics |
+| `u` | frame | term and why | an answer whose truth is undefined under the well-founded semantics |
 | `a` | frame | theta, residue, k, and optionally a value | an answer together with the bindings it is returned under |
 | `x` | frame | end, declined, or error with a term | stream control: exhaustion, no answer at all, or a failure kept as a value |
 <!-- end generated -->
@@ -394,8 +394,7 @@ restatement of one.
 | `answer-empty-theta` | `a` | `["a", [], true, null]` | theta `[]`, residue `null`, k `null`, value `null` |
 | `answer-with-value` | `a` | `["a", [["x", ["s", "a"]]], true, null, ["e", [["s", "edge"], ["s", "a"]]]]` | theta `[["x", ["s", "a"]]]`, residue `null`, k `null`, value `["e", [["s", "edge"], ["s", "a"]]]` |
 | `answer-with-residue` | `a` | `["a", [["x", ["n", 4]]], ["e", [["s", ">"], ["v", "x"], ["n", 3]]], null]` | theta `[["x", ["n", 4]]]`, residue `["e", [["s", ">"], ["v", "x"], ["n", 3]]]`, k `null`, value `null` |
-| `undefined-truth` | `u` | `["u", ["s", "p"], "tnot loop"]` | value `["s", "p"]`, why `"tnot loop"`, residual `null` |
-| `undefined-truth-with-residual` | `u` | `["u", ["s", "p"], "tnot loop", "p :- tnot(q)."]` | value `["s", "p"]`, why `"tnot loop"`, residual `"p :- tnot(q)."` |
+| `undefined-truth` | `u` | `["u", ["s", "p"], "tnot loop"]` | value `["s", "p"]`, why `"tnot loop"` |
 <!-- end generated -->
 
 ### Answer transcripts

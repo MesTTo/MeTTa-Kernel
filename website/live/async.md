@@ -13,7 +13,7 @@ An event loop and a reasoning engine want the same thread, and the engine usuall
             return rows, groups, value, count
 ```
 
-`petta.aio.connect()` answers a started connection, aiosqlite's naming; `async with` closes it on the way out. Every mirrored method takes what its synchronous twin takes, bounds and capture included, and errors cross with their types intact:
+`petta.aio.connect()` answers a started connection, aiosqlite's naming; `async with` closes it on the way out. Every mirrored method takes what its synchronous twin takes, and errors cross with their types intact. Capture is a task-local scope and does not change the awaited return shape:
 
 ```python
             with pytest.raises(TimeLimitError):
@@ -22,7 +22,9 @@ An event loop and a reasoning engine want the same thread, and the engine usuall
                 await am.run("!(aio-spin-b 100000000)", timeout=0.05)
             with pytest.raises(MettaSyntaxError):
                 await am.run("!(unclosed")
-            groups, text = await am.run("!(println! crossed)", capture=True)
+            with am.capture() as output:
+                groups = await am.run("!(println! crossed)")
+            assert output.text == "crossed\n"
 ```
 
 Anything not mirrored is one `call` away: `await am.call(lambda m: m.derivation(atom))` runs on the engine's thread and answers here. `await am.space(name)` opens another space through the same thread; the connection owns the thread, spaces borrow it.
@@ -101,4 +103,4 @@ Three things to know before using it.
 
 **Give each engine its own space.** Two connections share `&self`, and defining an equation is not idempotent: the same recursive equation defined twice answers 2^n times, which reads as a hang rather than an error. Use `new_space()` per worker.
 
-The other two engine-level forms are available from MeTTa source: `(with_mutex <name> <body>)` for a named lock, and `(transaction <body>)` for an all-or-nothing write, which `m.run(source, atomic=True)` also wraps a whole source string in.
+The other two engine-level forms are available from MeTTa source: `(with_mutex <name> <body>)` for a named lock, and `(transaction <body>)` for an all-or-nothing write. `with am.atomic():` applies the latter to each awaited source string in the block.

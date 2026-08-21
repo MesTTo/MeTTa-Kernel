@@ -33,7 +33,7 @@ except petta.TimeLimitError:
 
 Each bound raises its own error, `TimeLimitError` or `InferenceLimitError`, both under `ResourceLimitError`. An inference bound is the deterministic twin of a timeout: the same call stops at the same step on every machine. Whatever the call completed before the stop, writes included, stands, which is what stopping a computation mid-way means everywhere. Ctrl-C reaches a running evaluation too: the runtime installs janus's heartbeat at startup, so a `KeyboardInterrupt` lands within milliseconds instead of queueing until the goal ends, at an interval measured to cost nothing.
 
-`m.stats()` reads the engine's own counters around a with-block, and `capture=True` on `run` and `eval` returns the printed text beside the answers:
+`m.stats()` reads the engine's own counters around a with-block. A capture scope collects printed text without changing the answer shape:
 
 ```python
 m.add_table("edge", [(i, i + 1) for i in range(200)])
@@ -44,8 +44,9 @@ with m.stats() as s:
     m.query(S.edge(V.a, V.b), S.edge(V.b, V.c))
 check("the stats block counts the engine steps spent", s.inferences > 100)
 
-groups, text = m.run("!(println! (hello world)) !(+ 1 2)", capture=True)
-check("captured print output", "(hello world)" in text)
+with m.capture() as output:
+    groups = m.run("!(println! (hello world)) !(+ 1 2)")
+check("captured print output", "(hello world)" in output.text)
 check("the answers still arrive beside it", groups[1], [3])
 ```
 
@@ -216,8 +217,8 @@ evaluating doors take it, `run`, `eval`, `one` and `first`, plus their
 `AsyncMeTTa` twins, so a value can be routed through a rule without first
 being written into a space and removed afterwards.
 
-It does not compose with `residuals=`, and the call says so rather than
-quietly dropping one of them.
+An unreduced target remains the ordinary answer after substitution. There is
+no alternate residual return shape.
 
 ## Match something already known
 
@@ -340,7 +341,7 @@ available under its own name.
 
 ## The third truth value
 
-Tabled negation gives this engine Well Founded Semantics: an answer can be true, false, or genuinely undefined, a loop through `tnot`. Before this surface, an undefined answer reached Python as an ordinary-looking unbound variable, which is silently wrong. Now every `eval` answer carries its truth: definite answers stay plain atoms, and an undefined one arrives as an `Undefined` holding the answer, the delay condition that makes it undefined, and, with `residuals=True`, the residual program, the clauses of the loop itself.
+Tabled negation gives this engine Well Founded Semantics: an answer can be true, false, or genuinely undefined, a loop through `tnot`. Before this surface, an undefined answer reached Python as an ordinary-looking unbound variable, which is silently wrong. Now every `eval` answer carries its truth: definite answers stay plain atoms, and an undefined one arrives as an `Undefined` holding the answer and the delay condition that makes it undefined. Constraint stores remain inside the language and are inspected there with `residual-goals`; they do not create another Python return shape.
 
 ```python
 def test_undefined_answers_cross_as_undefined(m, wfs_program):
@@ -396,20 +397,23 @@ The whole-space version of the same idea is [`digest()`](./spaces), one hash nam
 
 ## Atomic and what-if runs
 
-The engine has transactions, and a program can already use the inline `(transaction ...)` form for a scope inside itself. `atomic=True` lifts that over a whole `run`: every write, facts and equations alike, commits whole or rolls back whole when a directive throws.
+The engine has transactions, and a program can already use the inline `(transaction ...)` form for a scope inside itself. `with m.atomic():` lifts that over every whole `run` in the block: every write, facts and equations alike, commits whole or rolls back whole when a directive throws.
 
 ```python
     with pytest.raises(EngineError):
-        m.run("(kept fact) !(+ $left $right)", atomic=True)
+        with m.atomic():
+            m.run("(kept fact) !(+ $left $right)")
     assert expr(S.kept, S.fact) not in m  # the fact rolled back with the throw
-    m.run("(kept fact) !(+ 1 1)", atomic=True)
+    with m.atomic():
+        m.run("(kept fact) !(+ 1 1)")
     assert expr(S.kept, S.fact) in m  # and commits whole on success
 ```
 
-`speculative=True` is the what-if twin: the run executes against a frozen view, the answers return, and every write is discarded.
+`with m.speculative():` is the what-if twin: each run executes against a frozen view, the answers return, and every write is discarded.
 
 ```python
-    groups = m.run("(ghost fact) !(+ 2 2)", speculative=True)
+    with m.speculative():
+        groups = m.run("(ghost fact) !(+ 2 2)")
     assert groups[-1] == [4]
     assert expr(S.ghost, S.fact) not in m
 ```
@@ -554,7 +558,7 @@ The check is duck-typed the way the engine already is. A protocol registered wit
 
 Structural targets work too: casting to `(List $t)` admits anything whose type unifies, and a repeated variable in the target constrains. Targets the engine never checks (`Atom`, `%Undefined%`, `_`) pass unchecked here as well. The surface is in [`petta.casting`](../reference/petta-casting).
 
-`add_table(head, source)` reads a Polars frame, a pandas frame, a mapping of columns, or any iterable of rows into facts shaped as `(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of plain columns accepted by DataFrame constructors, and `rows.to_df()` / `rows.to_pl()` build the pandas or polars frame directly, DuckDB's conversion naming. `rows.build(column, Class)` rebuilds translated objects from a result column. In a notebook, rows render as a table on their own, and in a [rich](https://rich.readthedocs.io)-using terminal `print`ing rows through a rich console draws the same table. `rows.pipe(fn, *args)` is pandas' chaining shape, so a post-processing pipeline reads left to right: `m.query(pat).pipe(clean).pipe(score, weight=2)`.
+`add_table(head, source)` reads a Polars frame, a pandas frame, a mapping of columns, or any iterable of rows into facts shaped as `(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of plain columns accepted by DataFrame constructors, and `rows.to_df()` / `rows.to_pl()` build the pandas or polars frame directly, DuckDB's conversion naming. `rows.build(column, Class)` rebuilds translated objects from a named result column; when one column holds complete constructor expressions, `rows.build(Class)` rebuilds it directly and `query(..., into=Class)` takes the same route. In a notebook, rows render as a table on their own, and in a [rich](https://rich.readthedocs.io)-using terminal `print`ing rows through a rich console draws the same table. `rows.pipe(fn, *args)` is pandas' chaining shape, so a post-processing pipeline reads left to right: `m.query(pat).pipe(clean).pipe(score, weight=2)`.
 
 Use `derivation(atom)` to obtain proof trees for an answer. Use `why(pattern)`
 to explain one empty match. An empty result returned directly by `query()`

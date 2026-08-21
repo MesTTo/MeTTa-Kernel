@@ -22,6 +22,14 @@ Source: `bindings/python/petta/integrate.py`.
 >     test_type_registration_can_be_removed_and_its_name_reclaimed]
 >   - installation idempotence ends with the lifetime of its space [tested
 >     test_dropped_space_name_reinstalls_integrations]
+>   - discovery refuses duplicate names, missing dependencies, and named
+>     dependency cycles, and installs acyclic entries in topological order
+>     [tested: test_each_remaining_annotation_shape_refuses_or_carries;
+>      commit=ff4ac16f07a6e373e79ed0eae0a4c2d64cb92550]
+>   - module and reflection helpers express transport and Atom delivery without
+>     boolean registration pairs [tested:
+>     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
+>     commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
 > Owns:
 >   - _INSTALLED retains one target per live space and integration name;
 >     MeTTa.drop releases every record for that space [tested
@@ -116,7 +124,7 @@ def load_entry_point(name: str, /, *args: Any, group: str = SPACES_GROUP, **kwar
 def discover(m) -> list[str]:
 ```
 
-> Install every integration installed packages advertise.
+> Install advertised integrations after satisfying PETTA_REQUIRES.
 
 ## `module_ops`
 
@@ -128,8 +136,7 @@ def module_ops(
     *,
     prefix: str | None = None,
     rename: dict[str, str] | None = None,
-    raw: bool = True,
-    typed: bool = False,
+    transport: Literal['encoded', 'raw'] = 'raw',
 ) -> list[str]:
 ```
 

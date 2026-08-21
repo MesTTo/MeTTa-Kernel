@@ -259,6 +259,13 @@ test(a_tuple_is_still_a_tuple_going_back) :-
     'py-dot'(Class, '__name__', Name),
     assertion(Name == "tuple").
 
+test(an_explicit_grounded_tuple_is_a_python_reference) :-
+    'py-atom'("(1, 2)", 'Grounded', Tuple),
+    assertion(py_is_object(Tuple)),
+    'py-dot'(Tuple, '__class__', Class),
+    'py-dot'(Class, '__name__', Name),
+    assertion(Name == "tuple").
+
 %The empty tuple is a value, and the reason it once took the whole run down was
 %the writer rather than anything about tuples: =../2 refuses a zero-arity
 %compound [tested: parser_refuses_non_metta:an_empty_compound_is_refused].
@@ -321,20 +328,12 @@ test(a_value_that_contains_itself_says_so, [throws(_)]) :-
 
 %%%% Text boundary %%%%
 
-%Python display syntax is not a MeTTa literal. `(1, 2)` in particular reads
-%as the symbol `1,` and the number 2, while `()` reads as the empty expression.
-%The writer therefore refuses every live host value before returning text.
-test(a_python_value_without_a_metta_literal_is_refused,
-     [forall(member(Source, ["[1, 2]", "(1, 2)", "(1,)", "()",
-                              "{'a': 1}"])),
-      throws(error(metta_unwritable_text(_), _))]) :-
-    'py-atom'(Source, Value),
-    swrite(Value, _).
-
-test(a_python_value_keeps_its_explicit_display,
+%An object uses Python repr; a converted tuple uses its structural MeTTa
+%reading, which is the value the library door exposes too.
+test(a_value_prints_according_to_its_default_reading,
      [forall(member(Source-Expected, ["[1, 2]"-"[1, 2]",
-                                      "(1, 2)"-"(1, 2)",
-                                      "(1,)"-"(1,)",
+                                      "(1, 2)"-"(1 2)",
+                                      "(1,)"-"(1)",
                                       "()"-"()",
                                       "{'a': 1}"-"{'a': 1}"]))]) :-
     'py-atom'(Source, Value),

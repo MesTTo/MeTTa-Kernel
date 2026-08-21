@@ -2146,9 +2146,30 @@ prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
        Prolog is already holding that term, so it returns (~w ...) without \c
        the quote around it.'-[Rule, Seam, Seam] ].
 
-%A let whose pattern and value SHARE a source variable unifies them under an
-%occurs check, so a binding cannot build a term that contains itself. Where
-%that check is emitted decides whether it can fire at all.
+%A Python-compiled typed let carries an internal marker around the same
+%in-place annotation used by an equation head. Source-level colon expressions
+%remain ordinary destructuring patterns, as used by reasoning/nilbc.metta;
+%shape alone cannot distinguish those data from a Python annotation.
+%The value must bind before its type premise runs: checking the fresh pattern
+%variable first accepts everything and then forgets the constraint. Untyped
+%lets retain the occurrence-sensitive fast path below [tested:
+%test_an_annotated_binding_emits_its_claim,
+%translator_typed_let:a_source_colon_pair_stays_a_pattern;
+%commit=c3c8ea60516dc1f45620bbe4dba3b78993ee22e3].
+translate_let_dl([[__petta_typed_binding__, Pattern], Value, In],
+                 AfterHead, Goals, Out) :-
+    constrain_args(Pattern, ConstrainedPattern, TypeGoals),
+    TypeGoals \== [],
+    translate_expr_dl(ConstrainedPattern, AfterHead, AfterPattern,
+                      PatternValue),
+    translate_expr_dl(Value, AfterPattern, AfterValue, ValueResult),
+    AfterValue = [unify_with_occurs_check(PatternValue, ValueResult)|AfterUnify],
+    append(TypeGoals, AfterTypes, AfterUnify),
+    translate_expr_dl(In, AfterTypes, Goals, Out).
+
+%A let unifies its pattern with its value under an occurs check, so a binding
+%cannot build a term that contains itself. Where that check is emitted decides
+%whether it can fire at all.
 %
 %Emitted before the goals that compute the value, which is where it used to
 %go, it runs on a result that is still an unbound variable, and two fresh
@@ -3143,8 +3164,15 @@ metta_condition_holds(Closure, Item) :- call(Closure, Item, true).
 %design. The modifier position is replaced by a fresh variable, so the space
 %read keeps its ordinary shape and its clause indexing, and the equality is
 %emitted as a ==/2 goal after the match. A pattern with no modifier in it
-%produces no guards and an unchanged pattern, so match/4 pays NOTHING: the walk
-%happens once, while the call site compiles.
+%produces no guards and an unchanged pattern. Only expression lists can denote
+%a modifier; trying the ownership seam on leaf atoms added a fixed preparation
+%tax without making a meaningful modifier possible [measured: query-2k-rows
+%minimum 561467 versus 601709 on 2026-08-21 before leaf calls and per-row
+%empty modifier
+%calls were removed; command=python bench.py query-2k-rows --counter-only;
+%fixture=20 queries over 2000 rows;
+%commit=b54ecaaa1224eabb90f808275003cd9abeef8065]. Engine-compiled match/4
+%pays nothing per row because this walk happens once while its call site compiles.
 %
 %That also matches what the modifier means. The reference states that the
 %guard "does not receive the match state, so bindings accumulated earlier in
@@ -3172,18 +3200,19 @@ lift_pattern_modifiers(Pattern, Lifted, Guards) :-
     ).
 
 lift_pattern_modifiers_(Pattern, Lifted, Guards0, Guards) :-
-    (   pattern_modifier(Pattern, Lifted, Guard)
-    ->  Guards0 = [Guard|Guards]
+    (   nonvar(Pattern), Pattern = [_|_]
+    ->  (   pattern_modifier(Pattern, Lifted, Guard)
+        ->  Guards0 = [Guard|Guards]
     %GATE TWO: a colon whose VALUE slot is not a variable is data, and the walk
     %does not look inside it. Without the second half a constructor that nests
     %colons inside a value, as LeaTTa's single_sided.metta does with
     %`(: (Sym (: (Sym (: $x $a)) $b)) $c)`, would have its inner colons
     %reinterpreted [source: LeaTTa/ai-report-inplace-annotations.md, Design].
-    ;   colon_expression(Pattern)
-    ->  Lifted = Pattern,
-        Guards0 = Guards
-    ;   nonvar(Pattern), Pattern = [_|_]
-    ->  lift_pattern_modifiers_list(Pattern, Lifted, Guards0, Guards)
+        ;   colon_expression(Pattern)
+        ->  Lifted = Pattern,
+            Guards0 = Guards
+        ;   lift_pattern_modifiers_list(Pattern, Lifted, Guards0, Guards)
+        )
     ;   Lifted = Pattern,
         Guards0 = Guards
     ).
@@ -3203,18 +3232,12 @@ lift_pattern_modifiers_list([Item|Rest], [Lifted|LiftedRest], Guards0, Guards) :
 %variable does not match it; `(: $x T)` matches anything of type T and is the
 %same acceptance a declared parameter of type T compiles, so a match query can
 %restrict by type where only a top-level declaration could before.
-pattern_modifier(Pattern, Fresh, Fresh == Wanted) :-
-    nonvar(Pattern),
-    Pattern = [Head, Wanted],
-    nonvar(Head),
-    Head == ':=',
+%The literal head lets SWI index the open ownership seam before it tries a
+%provider's body.
+pattern_modifier([':=', Wanted], Fresh, Fresh == Wanted) :-
     !.
-pattern_modifier(Pattern, Fresh,
+pattern_modifier([':', Fresh, Type], Fresh,
                  (has_type(Fresh, Type) *-> true ; 'get-metatype'(Fresh, Type))) :-
-    nonvar(Pattern),
-    Pattern = [Head, Fresh, Type],
-    nonvar(Head),
-    Head == ':',
     %An annotation annotates a VARIABLE, so anything else in that position
     %stays structural. Not a nicety: tests/prolog/duals.plt writes
     %`(= (pat-starts-a (: a $rest)) True)` as an ordinary cons-shaped pattern,

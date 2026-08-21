@@ -86,6 +86,23 @@
 %is covered by the cut check like any other.
 ext_point_kind(ext_point_kind/2, declaration).
 
+%Libraries contribute builtin arrows without replacing the engine's table.
+%It is a declaration seam, so every contributed clause remains reachable
+%[tested: test_a_library_types_its_own_blob_without_destroying_the_table;
+%commit=65d5fff90323fb92e2415f9fe93c477d5c67f10e].
+:- multifile builtin_type_declaration/2.
+ext_point_kind(builtin_type_declaration/2, declaration).
+
+%Pattern modifiers are expression lists claimed by shape. The engine replaces
+%the modifier position with a fresh variable and runs the owner's guard after
+%matching, so an extension can add a structural view without teaching the
+%store a new term kind. The lifting walk is a host service because a binding
+%that constructs patterns must apply the same semantics as compiled match.
+%[tested: test_a_path_reaches_into_a_handle_without_converting_it;
+%commit=b54ecaaa1224eabb90f808275003cd9abeef8065].
+:- multifile pattern_modifier/3.
+ext_point_kind(pattern_modifier/3, ownership).
+
 %Who writes a seam's clauses. This is the primitive the cut rule derives from,
 %rather than the cut rule naming kinds directly: that rule is about a handler
 %an extension contributed staying reachable, so it can only bite where an
@@ -572,6 +589,7 @@ ext_point_kind(metta_backend_selftest/0, event).
 ext_point_kind(catch_recover/2, host_service).
 ext_point_kind(translate_expr/3, host_service).
 ext_point_kind(translate_cached_expr/3, host_service).
+ext_point_kind(lift_pattern_modifiers/3, host_service).
 %The host run and load surface: the grouped runner (with the
 %using-substitution folded in as Bindings), the status runner, the load
 %lifecycle and the manifest read, plus the reducible-head test the status

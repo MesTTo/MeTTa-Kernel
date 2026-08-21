@@ -63,6 +63,23 @@ view = petta.spaces.mapped(kb, "(bridge (edge $a $b) (triple $a linked-to $b))")
 
 The view presents the inner space's `(triple ...)` atoms as `(edge ...)` atoms, adds map right-to-left, removal maps the pattern through, and atoms the declaration does not map are invisible here and untouched there. `overlay(front, back)` reads both layers and writes, removes, and clears the front only, `ChainMap`'s own rule, stated loudly because for multisets silent routing would invent placement decisions; `union` refuses writes precisely so nobody widens it into this. Combinators take combinators, `readonly(union(a, b))` included, because everything is the one seam, and `overlay` and `mapped` pass the same conformance kit any provider does.
 
+`object_view(obj)` presents one live Python object as `(py-field obj name value)` atoms. It holds the object rather than a projected copy, so later Python mutations answer immediately. Compose it with stored facts to make fields participate in an ordinary join:
+
+```python
+manager = Manager(age=31)
+kb.add(S.manager(S.ada, val(manager)))
+view = petta.spaces.object_view(manager)
+m.register_space(petta.spaces.union(kb, view), "&live")
+
+rows = m.space("&live").query(
+    S.manager(V.who, V.manager),
+    S["py-field"](V.manager, S.age, V.age),
+)
+assert rows["age"] == [31]
+```
+
+Register the view itself when MeTTa should mutate the object. Adding `(py-field obj age 32)` to that space performs `setattr(obj, "age", 32)`. An unbound field name enumerates dataclass fields, named-tuple fields, public instance attributes, or public slots. A bound name uses `getattr` directly, so a dynamic object may support named reads without claiming it can enumerate.
+
 ## MORK at scale
 
 [MORK](https://github.com/trueagi-io/MORK) is a PathMap-backed store built for atom counts far past the predicate store's reach. The integration's own measurements set the honest expectations: below roughly ten million atoms the predicate store is faster, and from one hundred to four hundred million atoms MORK kept answering where the predicate store ran out of memory.
