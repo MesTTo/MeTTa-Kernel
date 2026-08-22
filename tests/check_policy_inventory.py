@@ -6,10 +6,10 @@ Assumes:
   - ``swipl`` is on PATH and ``engine/metta.pl`` boots from the repository
     root, the same environment used by the Prolog and vocabulary gate lanes
 Guarantees:
-  - the runtime publishes exactly the nineteen required axes, with one row
+  - the runtime publishes exactly the twenty required axes, with one row
     per axis and the knob/default pair recorded in POLICY_SEAMS; the algebra
     row also derives and validates each shipped semiring law claim [tested:
-    tests/check_policy_inventory.py; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+    tests/check_policy_inventory.py; commit=9e7d5dc2cad810940e5386d52636ac6946df279d]
   - unannotated Python Literal expressions and list/set membership, plus
     single- or multiline Prolog member/2 and memberchk/2 lists, are reported
     with path, line and values; an exemption is accepted only when immediately
@@ -117,6 +117,12 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
     "algebra": PolicySeam("annotations", "bool", "engine/metta.pl", r"^petta_k_extend\("),
     "storage": PolicySeam(
         "config-memoize", "wtinylfu", "lib/lib_memo.pl", r"^memo_strategy\(wtinylfu\)"
+    ),
+    "caching": PolicySeam(
+        "cache",
+        "automatic",
+        "lib/lib_memo.pl",
+        r"^memo_automatic_function_decision\(",
     ),
     "typing": PolicySeam("typing-rule", "strict", "engine/metta.pl", r"^metta_types_match\("),
     "fidelity": PolicySeam("handles", "Exact", "engine/metta.pl", r"^petta_handles_route\("),

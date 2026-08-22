@@ -54,6 +54,11 @@
 %     derived artifact edges [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - lib_memo.pl is resident before user source compiles, explain reports its
+%     automatic decision, and the effect walk follows its transparent cache
+%     dispatcher to the underlying source function [tested:
+%     test_a_doubly_branching_recursion_is_tabled_automatically_and_a_tail_recursion_is_not,
+%     test_an_impure_function_is_never_cached_automatically; commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction
@@ -491,7 +496,8 @@ petta_import_shared_registries(Subsystem) :-
 
 :- ensure_loaded([parser, type_rules, translator, translator_rules,
                   support_graph, specializer, filereader,
-                  '../lib/lib_gitimport', spaces, tracer, duals, kernel]).
+                  '../lib/lib_gitimport', spaces, tracer, duals, kernel,
+                  '../lib/lib_memo']).
 
 %A subsystem that declares a module gets THIS module as its base, so the calls
 %it makes the other way -- into the engine core, into another subsystem's
@@ -3747,13 +3753,11 @@ metta_effect_classify(_, 'space-contains'(Space, Atom, _), Queue-Reads0,
 %dispatcher's. Ahead of the generic compound clause because that clause would
 %read the functor and refuse petta_py_dispatch_det/3, naming an internal the
 %program never wrote and advising a declaration that could not be matched.
-metta_effect_classify(_, Dispatch, Queue-Reads, Next-Reads) :-
+metta_effect_classify(Module, Dispatch, Queue-Reads, Next-Reads) :-
     compound(Dispatch),
     seam:effect_operation_name(Dispatch, Name, Arity), !,
-    (   metta_effect_inert(Name)
-    ->  Next = Queue
-    ;   throw(error(metta_impure_goal(Name/Arity), none))
-    ).
+    metta_effect_named_call(Module, Name, Arity,
+                            Queue-Reads, Next-Reads).
 
 %reduce/3 is the engine's RUNTIME dispatcher: it takes a MeTTa term and calls
 %whatever function heads it, so refusing it by its own name says nothing about
@@ -3782,6 +3786,22 @@ metta_effect_classify(Module, reduce(Template, _, _), Queue, Next) :- !,
 metta_effect_classify(Module, Goal, Queue-Reads, Next-Reads) :-
     compound(Goal), !,
     functor(Goal, Name, Arity),
+    metta_effect_named_call(Module, Name, Arity,
+                            Queue-Reads, Next-Reads).
+
+metta_effect_classify(_, Goal, Queue-Reads, Queue-Reads) :-
+    atom(Goal), metta_effect_inert(Goal), !.
+metta_effect_classify(_, Goal, _, _) :-
+    functor(Goal, Name, Arity),
+    throw(error(metta_impure_goal(Name/Arity), none)).
+
+%An ownership seam may identify either a registered operation or a transparent
+%dispatcher around a user equation. The former is decided by its effect
+%declaration; the latter must still be followed. Treating lib_memo's
+%cache_call/4 as an impure leaf made the next catalogue change revoke every
+%automatic decision merely because the previous decision had recompiled the
+%recursive call through that wrapper.
+metta_effect_named_call(Module, Name, Arity, Queue-Reads, Next-Reads) :-
     (   builtin_fun(Name)
     ->  (   metta_effect_inert(Name)
         ->  Next = Queue
@@ -3793,11 +3813,6 @@ metta_effect_classify(Module, Goal, Queue-Reads, Next-Reads) :-
     ->  Next = Queue
     ;   throw(error(metta_impure_goal(Name/Arity), none))
     ).
-metta_effect_classify(_, Goal, Queue-Reads, Queue-Reads) :-
-    atom(Goal), metta_effect_inert(Goal), !.
-metta_effect_classify(_, Goal, _, _) :-
-    functor(Goal, Name, Arity),
-    throw(error(metta_impure_goal(Name/Arity), none)).
 
 %A template that is not a call reaches nothing: a number, a string, a symbol
 %and the empty list are data whatever surrounds them.
@@ -4230,6 +4245,8 @@ petta_explain_op_item(Op, Args, ['on-error', Mode]) :-
     ->  Mode = Declared
     ;   Mode = abort
     ).
+petta_explain_op_item(Op, _, [cache, Choice, Reason]) :-
+    seam:automatic_cache_explanation(Op, Choice, Reason).
 
 %(context Ctx closed-world|open-world) records what a context's absence
 %means. The mechanically checkable part gates: negation as failure reads

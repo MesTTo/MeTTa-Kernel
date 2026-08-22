@@ -58,12 +58,18 @@
 %   - Six dispatch axes publish one documented default and accept at most one
 %     validated per-function override for each axis
 %     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - Cache policy is declared in the catalog with one force/refuse override
+%     per function; writes, removals and explicit tabling declarations notify
+%     the automatic decision owner, so an explicit SWI table takes precedence
+%     [tested: test_automatic_cache_force_and_refuse_overrides,
+%     test_explicit_tabling_takes_precedence_over_automatic_memoization;
+%     commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
 %   - Effective dispatch values are cached by function and axis, validated
 %     against their catalog clause reference, and forgotten at every policy
 %     mutation [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted,
 %     examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - The policy catalog publishes exactly one knob and shipped default for
-%     each of the seventeen engine decision axes, and the policy-inventory
+%     each of the twenty engine decision axes, and the policy-inventory
 %     gate rejects a closed list that has neither a catalog row nor a strict
 %     adjacent exemption [tested:
 %     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
@@ -571,6 +577,12 @@ petta_catalog_note_added([algebra, Name|_]) :-
 petta_catalog_note_added([annotations, Ctx|_]) :-
     !,
     retractall(petta_annotations_cache(Ctx, _)).
+petta_catalog_note_added([cache, Function, _]) :-
+    !,
+    petta_cache_policy_changed(Function).
+petta_catalog_note_added([tabled, _, Function, _]) :-
+    !,
+    petta_cache_policy_changed(Function).
 petta_catalog_note_added([capacity, Pool, _]) :-
     !,
     petta_capacity_contract_added(Pool).
@@ -631,7 +643,8 @@ petta_catalog_note_removed([Rel|_]) :-
     retractall(petta_dispatch_value_cache(_, _, _, _)),
     petta_materialize_routes,
     petta_capacity_counts_prune,
-    petta_dispatch_all_changed.
+    petta_dispatch_all_changed,
+    petta_cache_policy_changed(_).
 petta_catalog_note_removed(['dispatch-policy', Function, Axis, _]) :-
     !,
     petta_dispatch_cache_forget(Function, Axis),
@@ -656,10 +669,19 @@ petta_catalog_note_removed([algebra, Name|_]) :-
 petta_catalog_note_removed([annotations, Ctx|_]) :-
     !,
     retractall(petta_annotations_cache(Ctx, _)).
+petta_catalog_note_removed([cache, Function, _]) :-
+    !,
+    petta_cache_policy_changed(Function).
+petta_catalog_note_removed([tabled, _, Function, _]) :-
+    !,
+    petta_cache_policy_changed(Function).
 petta_catalog_note_removed([capacity|_]) :-
     !,
     petta_capacity_counts_prune.
 petta_catalog_note_removed(_).
+
+petta_cache_policy_changed(Function) :-
+    forall(seam:cache_policy_changed(Function), true).
 
 %One catalog row as a list, whatever its arity: '&petta'(kind, handles,
 %symbol, ...) reads back as [kind, handles, symbol, ...]. The walk over the
@@ -913,6 +935,13 @@ petta_check_catalog_semantics(annotations, [Ctx, Algebra|CapabilityArgs], Term) 
     (   member(Requirement, Required),
         \+ memberchk(Requirement, Capabilities)
     ->  petta_algebra_requirement_refusal(Ctx, Algebra, Requirement)
+    ;   true
+    ).
+petta_check_catalog_semantics(cache, [Function, _], Term) :-
+    !,
+    (   petta_catalog_row([cache, Function, _])
+    ->  petta_declaration_refused(
+            Term, 1, 'one cache override per function; remove the old row first')
     ;   true
     ).
 petta_check_catalog_semantics('dispatch-default', [Axis, Value], Term) :-
@@ -1343,7 +1372,7 @@ petta_catalog_preset([vocabulary, atomicity,
 petta_catalog_preset([vocabulary, 'memo-strategy', wtinylfu, lru]).
 petta_catalog_preset([vocabulary, 'memo-aggregate', none, min, max, sum, count]).
 petta_catalog_preset([vocabulary, 'save-format', metta, fast]).
-petta_catalog_preset([vocabulary, 'cache-mode', unchecked]).
+petta_catalog_preset([vocabulary, 'cache-mode', unchecked, force, refuse]).
 petta_catalog_preset([vocabulary, 'effect-class', immutable]).
 petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
 petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
@@ -1455,6 +1484,7 @@ petta_catalog_preset([policy, errors, 'on-error', abort]).
 petta_catalog_preset([policy, world, context, 'closed-world']).
 petta_catalog_preset([policy, algebra, annotations, bool]).
 petta_catalog_preset([policy, storage, 'config-memoize', wtinylfu]).
+petta_catalog_preset([policy, caching, cache, automatic]).
 petta_catalog_preset([policy, typing, 'typing-rule', strict]).
 petta_catalog_preset([policy, fidelity, handles, 'Exact']).
 petta_catalog_preset([policy, 'source-kind', source, repeated]).
@@ -2684,7 +2714,15 @@ store_equation(Storage, Space, Term) :- add_sexp_in(Storage, Space, Term, Ref),
 announce_function_changed(Module, FAtom) :- prepare_specialization_invalidation(Module, FAtom),
                                    support_invalidate_function_change(Module, FAtom),
                                    forall(support_repair_invalidations, true),
-                                   forall(seam:function_changed(FAtom), true).
+                                   forall(seam:function_changed(FAtom), true),
+                                   announce_function_call_graph_changed(Module,
+                                                                        FAtom).
+
+announce_function_call_graph_changed(Module, FAtom) :-
+    (   support_memo_take_change(Module, FAtom)
+    ->  forall(seam:function_call_graph_changed(FAtom, Module), true)
+    ;   true
+    ).
 
 %The removal repair is the engine's own duty, not an observer's: it used to
 %ride a shim clause of the seam:function_removed EVENT, so an engine
@@ -3036,7 +3074,8 @@ compile_metta_equation(Module, Term, Clause, Ref) :-
     %The dependent-recompile hooks run AFTER the clause is in place, so
     %a definition that mentions F recompiles against the new one.
     forall(support_repair_invalidations, true),
-    forall(seam:function_changed(F), true).
+    forall(seam:function_changed(F), true),
+    announce_function_call_graph_changed(Module, F).
 
 %A recursive equation spends the same branch-local budget that runnable
 %limits own. The source tree supplies the cost because it is the stable unit:

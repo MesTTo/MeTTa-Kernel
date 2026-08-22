@@ -34,7 +34,7 @@
 %     Future Enhancements: None
 
 :- ensure_loaded(surface_walk).
-:- use_module(scc, [nodes_arcs_sccs/3]).
+:- use_module('../../engine/scc', [nodes_arcs_sccs/3]).
 :- use_module(library(lists)).
 :- use_module(library(solution_sequences)).
 
@@ -221,6 +221,7 @@ reaches(ext_points, filereader, 'a function-changed handler recompiles the affec
 reaches(ext_points, tracer, 'the tracer is the shipped consumer of the function-changed seam').
 reaches(ext_points, translator, 'names the compiled predicate a seam is about, and asks whether a function uses super').
 reaches(filereader, metta, 'a load runs forms, which is the engine core\'s job').
+reaches(filereader, ext_points, 'a completed source batch announces its compile-time analysis boundary').
 reaches(filereader, parser, 'reading a source file is parsing it').
 reaches(filereader, spaces, 'a load writes atoms and compiles equations into a space').
 reaches(filereader, support_graph, 'a load records what its assertions support so a reload can invalidate them').
@@ -247,6 +248,7 @@ reaches(specializer, spaces, 'a specialization is stored and compiled into the s
 reaches(specializer, support_graph, 'a specialization is a derived artifact with support edges').
 reaches(specializer, translator, 'a specialization is a translated clause').
 reaches(support_graph, filereader, 'the loader owns the assertion records the graph tracks').
+reaches(support_graph, scc, 'the support graph classifies recursive call components').
 reaches(support_graph, specializer, 'invalidating a support node runs the specializer\'s invalidation action').
 reaches(tracer, filereader, 'a traced form is processed through the loader\'s string door').
 reaches(tracer, translator, 'names the compiled predicate a trace wraps').
