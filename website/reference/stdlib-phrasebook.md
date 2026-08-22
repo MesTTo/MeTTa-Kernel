@@ -53,7 +53,7 @@ Absolute counts move with what the engine has already done, which is why the two
 paragraphs above disagree by tens of inferences on the same form; the zero on the
 Python side does not move. Within one run the counts are exact: three fresh
 `--learn` processes wrote byte-identical files, cost numbers included
-[measured 2026-08-22].
+[measured 2026-08-22; commit=c6abaad21ab41b32b815b7481edff822b236e69a].
 
 ## Arithmetic
 
