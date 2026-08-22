@@ -2353,145 +2353,40 @@ has_type(X, T) :- current_metta_module(Module),
 %The second direction is checked last, on the branch that was going to fail
 %anyway, so a value whose declared type already matches never pays for it.
 %EXPERIMENT (worktree only): type derivation measured Theta(2^d) in the nesting
-%depth of the term, exactly 2.0 per level. has_type_in/3 asks type_witness_in/3
-%first and re-derives with type_answers/3 when that fails; type_witness_in/3
-%itself runs type_candidate_in/3 twice more; and every one of those re-enters
-%the SAME ground subterm through get_function_type_in/3 and
-%metta_arguments_match_in/4. A term nested d deep holds d distinct subproblems
-%and the walk visited 2^d of them. Depth 20 cost 111,815,868,814 instructions to
-%answer one (get-type ...) over a Peano numeral, which is the shape of every
-%cons list [measured 2026-08-22: ratios 16.28, 16.25, 64.20 over depths
-%6/10/14/20, i.e. 2.0 per level; command=perf stat -e instructions:u sh run.sh,
-%differenced against the same file with no work call so parsing cancels].
+%depth of the term, exactly 2.0 per level, and the whole of it was ONE
+%enumeration too many.
 %
-%Memoized recursive descent is the standard cure, and this is the same move
-%SLG resolution's answer table, a compiler's typeof cache and JastAdd's
-%memoized syn attributes all make: it turns a walk over the term TREE into a
-%walk over its DAG.
+%type_witness_in/3 asked two questions of the same term in sequence: whether a
+%candidate WIDENS to T, and then, separately, whether T is itself a candidate.
+%Each ran its own type_candidate_in/3, and each of those re-entered the same
+%ground subterm through get_function_type_in/3 and metta_arguments_match_in/4.
+%An exact match fails the first question by design, because widening is a
+%subtype relation and reflexivity is the second question's job, so the common
+%case paid for both walks and the recursion doubled at every level. A term
+%nested d deep holds d distinct subproblems and the walk visited 2^d of them.
 %
-%The table lives for ONE outermost derivation and is thrown away after it,
-%which is what makes it sound rather than merely fast. A table that persisted
-%would have to be invalidated by every input a type answer reads, and those
-%inputs are an open set: ':' and ':<' and '=' atoms in the store, the state cell
-%petta_state_cell_type/2 reads through nb_current/2, and
-%seam:builtin_type_declaration/2, which external Prolog libraries are invited to
-%extend. Enumerating them by hand leaves the cache permanently one path behind.
-%A derivation cannot observe a change made outside it, so a table that does not
-%outlive one derivation has nothing to go stale against. The only writer left is
-%a (= (get-type ...) ...) rule mutating the store from inside the derivation it
-%belongs to, and petta_type_memo_drop/0 in spaces.pl drops the table outright
-%for that case.
-%lib/lib_memo.pl solves the OTHER half of this problem, a persistent MeTTa-level
-%cache with generations and a dependency graph, which is the right shape when
-%the cached thing is a user function whose inputs are known. It is the wrong
-%shape here for the reason above.
+%Both questions are now asked of each candidate as it is produced, in one
+%enumeration, so a level descends once and the cost is linear in the depth
+%[measured 2026-08-22: ratios 4.25, 3.99 and 3.93 across depths 20, 100, 400 and
+%1600, against depth increases of 5x, 4x and 4x, so an exponent of 1.0; depth 20
+%went from 111,815,868,814 instructions to 1,759,888 and depth 1600 costs
+%117,878,706; command=perf stat -e instructions:u sh run.sh, differenced against
+%the same file whose last form does no work].
 %
-%Reentrancy follows with_runnable_variable_epochs/1 in translator.pl: the
-%outermost caller owns the scope and an inner one just runs.
-:- thread_local '$has_type_memo'/5.
+%A memo table was tried first and is NOT here for a reason worth recording. It
+%does remove the exponential, and it cannot do better than Theta(d^2), because
+%every probe has to read O(d) of a term nested d deep just to decide it is not
+%the one it is looking for, and there are O(d) probes. Measured on this engine:
+%term_hash/2 rises from 97ms to 10,846ms per 100k calls between depth 100 and
+%6400, ==/2 on distinct terms from 65ms to 4,248ms, and assertz/1 copies its
+%argument at 70ms to 3,752ms. No index escapes that, discrimination and
+%substitution trees included, since they all key on the term's own shape. Only
+%same_term/2 is constant, at 4.0ms hit and 12.8ms miss flat across those depths,
+%and a cache it can search has to be non-backtrackable to survive the retry that
+%creates the duplicate in the first place, which puts the O(d) copy back.
+%Not asking twice is cheaper than any way of remembering the answer.
+has_type_in(Module, X, T) :- has_type_derive(Module, X, T).
 
-close_type_scope :-
-    nb_delete('$petta_type_scope'),
-    retractall('$has_type_memo'(_, _, _, _, _)).
-
-%The table can only be corrupted by a store change made WHILE it is live, and
-%inside a derivation the engine runs open-ended code in exactly two places: a
-%(= (get-type ...) ...) rule through call_get_type_rule/3, and a foreign space's
-%provider through match_stored/4, which type_declaration_in/3 reaches. So rather
-%than watch for such a change, refuse to memoize at all while either door is
-%open. Nothing is cached, so nothing can go stale, and the write path pays
-%nothing.
-%
-%Watching writes instead was measured and rejected. A drop hooked into
-%add_sexp_in/4 cost +3 inferences on EVERY atom write, which is +11.1% on
-%add-single, +14.3% on add-batch and +12.0% on add-table-rows
-%[measured 2026-08-22: bindings/python bench.py --counter-only --keep-going,
-%1 of 34 rows failing on the unmodified worktree against 10 of 34 with the
-%barrier, same commit and same .qlf files both runs]. It could not have been
-%made complete either: a provider is explicitly allowed to keep its atoms
-%outside Prolog entirely, so no engine-side write barrier observes its mutations
-%[source: EXTENDING.md:1398-1424].
-%
-%A scope that is already open has had both doors checked, so a nested question
-%only re-tests the two flags, which are the part that can change inside one
-%derivation.
-type_scope_safe(Module) :-
-    \+ type_rule_defined(Module),
-    \+ foreign_space_in_play(Module).
-
-%Both clauses of get_type_rule_in/3 end in call_get_type_rule/3, on Module and
-%on the self module respectively, so those two are the whole surface.
-type_rule_defined(Module) :-
-    (   metta_self_module(Self), type_rule_clause_exists(Self)
-    ->  true
-    ;   type_rule_clause_exists(Module)
-    ).
-
-type_rule_clause_exists(Module) :-
-    current_predicate(Module:get_type_rule/2),
-    clause(Module:get_type_rule(_, _), _),
-    !.
-
-foreign_space_in_play(Module) :-
-    (   seam:foreign_space('&self')
-    ->  true
-    ;   metta_module_space(Module, Space),
-        seam:foreign_space(Space)
-    ).
-
-%The derivation is a function of the store ONLY while neither type-rule flag is
-%set. Both have dynamic extent INSIDE a derivation and both decide whether
-%get_type_rule_in/3 may fire, so an entry made under one and read under the
-%other is a wrong answer rather than a stale one. Measured: with the flags left
-%out of the key, examples/types/types_dependent.metta answered
-%(Error (g (2 4 6)) (BadArgType 1 EvenNumberList (Number Number Number)))
-%where it answers True, because the structural tuple type was served back to a
-%caller that had asked the user's (= (get-type $x) ...) rule. Nothing is cached
-%in either mode, so the entries that exist were all made in the same one.
-type_memo_admissible :-
-    \+ metta_reading_declared_types,
-    \+ metta_evaluating_type_rule.
-
-has_type_in(Module, X, T) :-
-    (   ground(X), ground(T), type_memo_admissible
-    ->  (   nb_current('$petta_type_scope', true)
-        ->  memoized_has_type(Module, X, T)
-        ;   type_scope_safe(Module)
-        ->  setup_call_cleanup(nb_setval('$petta_type_scope', true),
-                               memoized_has_type(Module, X, T),
-                               close_type_scope)
-        ;   has_type_derive(Module, X, T)
-        )
-    ;   has_type_derive(Module, X, T)
-    ).
-
-%A ground question has one yes-or-no answer and reports no bindings, so a single
-%entry settles it. Recording the NO matters as much as the yes: a failing
-%witness is exactly what sends has_type_in/3 down its second and more expensive
-%branch, and without the negative entry that descent repeats.
-%Semidet here is a real narrowing of ground/ground has_type_in/3, so it was
-%measured rather than assumed: every example was run with an instrument that
-%passed all solutions through and recorded any ground question whose caller
-%asked for a second one. No call in examples/ answered twice
-%[measured 2026-08-22: sh test.sh with instrument_has_type/3, 0 hits].
-%A term hash leads because SWI indexes a compound first argument on its
-%principal functor alone, so every nested expression would land in one bucket
-%and each probe would walk the whole table; the hash makes the bucket small and
-%identity inside it decides, exactly as alpha_bucket_insert/5 above does.
-memoized_has_type(Module, X, T) :-
-    term_hash(X-T, Key),
-    (   '$has_type_memo'(Key, Cached, CachedModule, CachedType, Recorded),
-        Cached == X,
-        CachedModule == Module,
-        CachedType == T
-    ->  Verdict = Recorded
-    ;   (   has_type_derive(Module, X, T)
-        ->  Verdict = true
-        ;   Verdict = false
-        ),
-        assertz('$has_type_memo'(Key, X, Module, T, Verdict))
-    ),
-    Verdict == true.
 
 has_type_derive(Module, X, T) :-
     ( ground(T)
@@ -2532,9 +2427,10 @@ has_type_derive(Module, X, T) :-
 %[tested: bindings/python/tests/test_answer_protocol.py::test_admission_types_the_pool].
 type_witness_in(Module, X, T) :-
     (   once(( type_candidate_in(Module, X, Actual),
-               typing_rule_accepts(Module, widening, Actual, T) ))
-    ->  true
-    ;   once(type_candidate_in(Module, X, T))
+               (   typing_rule_accepts(Module, widening, Actual, T)
+               ->  true
+               ;   Actual = T
+               ) ))
     ->  true
     ;   satisfies_metatype_in(Module, X, T)
     ->  true
