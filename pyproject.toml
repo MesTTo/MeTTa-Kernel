@@ -287,7 +287,9 @@ exclude_dirs = ["tests", "HE", "build"]
 skips = ["*/_compliance.py", "*/_gateway_compliance.py"]
 
 [tool.deptry]
-known_first_party = ["petta", "example_parity", "twin_coverage"]
+known_first_party = [
+    "petta", "example_parity", "twin_coverage", "phrasebook", "phrasebook_entries",
+]
 extend_exclude = ["HE", "examples", "build", "bench.py", "benchmarks"]
 optional_dependencies_dev_groups = ["test", "checks"]
 

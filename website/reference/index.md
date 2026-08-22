@@ -64,6 +64,8 @@ These modules connect spaces, processes, event loops, subscriptions, and externa
 
 [`metta-libraries`](./metta-libraries) reproduces each `lib_*.metta` library's own `(@doc ...)` atoms through `bindings/python/tools/libdoc.py`, one pipeline with the Python reference above, with a coverage table as the burn-down surface.
 
+[`stdlib-phrasebook`](./stdlib-phrasebook) is the other direction: every operation MeTTa's standard library declares, and what you write in Python instead. `bindings/python/tools/phrasebook.py` runs both sides of every row, on this engine and on LeaTTa, so the page states a coverage number rather than a claim.
+
 ## Sibling repositories
 
 Three packages live in their own repositories beside this one, docs and
