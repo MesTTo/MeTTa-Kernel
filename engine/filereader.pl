@@ -568,9 +568,10 @@ metta_host_fast_open(File, Mode, Stream) :-
 metta_host_atom_carries_object(Term) :-
     compound(Term),
     !,
-    compound_name_arguments(Term, _, Args),
-    member(Arg, Args),
-    metta_host_atom_carries_object(Arg),
+    compound_name_arity(Term, _, Arity),
+    between(1, Arity, Index),
+    arg(Index, Term, Argument),
+    metta_host_atom_carries_object(Argument),
     !.
 metta_host_atom_carries_object(Term) :-
     blob(Term, Type),

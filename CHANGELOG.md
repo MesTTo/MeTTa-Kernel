@@ -84,7 +84,42 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   divisor search's inner loop, and the decorated spelling costs 920,726
   inferences against the term door's 536,577, +71.6%, a regression in the
   benchmark the example exists to run.
-- Calling a `Defined` object now evaluates the call in the space that owns the
+- Reading a form that spans lines is now linear in the form's length rather
+  than quadratic, in the engine's `(read-form!)` and in the `petta repl` CLI
+  alike. Both appended each new line to the whole buffered text and re-scanned
+  all of it; the scanner state is now carried from one line to the next. One
+  form of 1,600 lines cost 132,673,790,292 instructions and costs 1,497,495,105.
+- `petta repl` no longer hangs on two inputs the engine considers finished: a
+  backslash escaping a line break inside a string, which its check read as an
+  unterminated string, and an over-closed buffer holding an unterminated string,
+  where the stray bracket now ends the form so it errors rather than prompting.
+- A conjunctive `match` now enumerates the most constrained conjunct first
+  rather than following source order, over a native space and over one that
+  reads through a parent chain alike. Running the conjunction as a nested loop
+  in written order is quadratic where the join's own bound is not: the triangle
+  query over a graph with a hub joined to everything in both directions, which
+  contains no triangle at all, cost 13,502,606 instructions at 100 edges and
+  rose by exactly 4.0x per doubling to 3,620,340,557 at 1,600. Through an
+  inherited space it was worse still, 13,818,604,870 at 1,600 edges, because
+  every conjunct is matched through the whole read chain. Both are now linear in
+  the edge count. Answers and their multiplicity are unchanged; the order in
+  which they arrive is not specified and does change.
+- Checking an expression against a known tuple type is now linear in the number
+  of members rather than exponential. The question was answered by deriving the
+  expression's candidate types and comparing each to the one asked about, so the
+  cost depended on where that type fell in the enumeration: at thirteen members
+  carrying three declared types each, the first candidate cost 312 inferences
+  and the last cost 29,496,420. Both are now flat. A member that is itself an
+  expression decomposes the same way, where enumerating its types cost
+  43,097,295 inferences at eight inner members and now costs 622. Answers are
+  unchanged, including for a `:<` edge that widens a whole tuple type.
+- Typing an expression with no declared arrow for its head is now linear in the
+  number of members rather than exponential. Such an expression is typed
+  element-wise, so its type set is the cartesian product of its members' type
+  sets, and that product was computed by backtracking: every retry re-derived
+  every member to its right. Fifteen members carrying three declared types each
+  cost 581,130,797 inferences and now cost 1,722, and seventeen members did not
+  finish in 280 seconds. Answers, including their order, are unchanged.- Calling a `Defined` object now evaluates the call in the space that owns the
   definition and returns its answer list. Use `S[name](...)` to build the call
   as data; calls made while a `@rules` generator is being collected stage as
   terms so rule bodies remain ordinary atoms.

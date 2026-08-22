@@ -569,7 +569,158 @@ test(the_collapse_reaches_a_nested_tuple) :-
             Holed),
     assertion(Holed == ['%Undefined%']).
 
+%The tuple rule reads one set of types per member and then combines them.
+%Combining by BACKTRACKING re-derives every member to the RIGHT of each retry,
+%so k members carrying c types each cost Theta(c^k) even when one untyped
+%member makes %Undefined% the only answer there is. Doubling the width must
+%therefore roughly double the cost rather than raise it by a power: at the
+%three types below the old shape charged 3^6 = 729x between these two widths,
+%where deriving each member's set once charges 2x. The bound is on the RATIO,
+%not on an inference count, so it keeps testing the complexity class as
+%ordinary constants move [measured 2026-08-22: 581,130,797 inferences to
+%1,589 at width 15].
+test(a_wide_expression_types_in_time_linear_in_its_width,
+     [ setup(setup_wide_members), cleanup(cleanup_wide_members) ]) :-
+    wide_typing_cost(6, Narrow),
+    wide_typing_cost(12, Wide),
+    assertion(Wide < Narrow * 4).
+
+wide_member_count(12).
+
+wide_member(Index, Member) :- atom_concat(plunit_wide_s, Index, Member).
+
+wide_member_type(Index, Type) :- atom_concat(plunit_wide_t, Index, Type).
+
+setup_wide_members :-
+    cleanup_wide_members,
+    forall(wide_declaration(Member, Type),
+           add_sexp('&self', [':', Member, Type])).
+
+cleanup_wide_members :-
+    forall(wide_declaration(Member, _),
+           remove_sexp('&self', [':', Member, _])).
+
+wide_declaration(Member, Type) :-
+    wide_member_count(Count),
+    between(1, Count, Index),
+    wide_member(Index, Member),
+    between(1, 3, Which),
+    wide_member_type(Which, Type).
+
+%The same expression, asked the other question. Deciding `X : T` by
+%SYNTHESISING X's types and comparing each to T walks the product until it
+%reaches T, so the cost depends on where T sits in that enumeration rather than
+%on the question: checking the last combination cost 29,496,420 inferences at
+%thirteen members where the first cost 312. The bound is on the ratio between
+%two widths, so it keeps testing the complexity class as constants move.
+test(a_wide_expression_checks_against_its_last_tuple_type_in_linear_time,
+     [ setup(setup_wide_members), cleanup(cleanup_wide_members) ]) :-
+    wide_check_cost(6, Narrow),
+    wide_check_cost(12, Wide),
+    assertion(Wide < Narrow * 4).
+
+%And a member that is itself an expression decomposes the same way. Enumerating
+%a nested member's types to find the one wanted is the product again, one level
+%down, so checking this displaced the exponential rather than removing it: 614
+%inferences at two inner members rising 9x per added one to 43,097,295 at eight.
+test(a_nested_expression_checks_against_its_last_tuple_type_in_linear_time,
+     [ setup(setup_wide_members), cleanup(cleanup_wide_members) ]) :-
+    nested_check_cost(6, Narrow),
+    nested_check_cost(12, Wide),
+    assertion(Wide < Narrow * 4).
+
+nested_check_cost(Width, Cost) :-
+    numlist(1, Width, Indices),
+    maplist(wide_member, Indices, Inner),
+    wide_member_type(3, Last),
+    length(InnerExpected, Width),
+    maplist(=(Last), InnerExpected),
+    wide_member(1, Outer),
+    statistics(inferences, Before),
+    (   has_type([Inner, Outer], [InnerExpected, Last])
+    ->  Held = true
+    ;   Held = false
+    ),
+    statistics(inferences, After),
+    Cost is After - Before,
+    assertion(Held == true).
+
+wide_check_cost(Width, Cost) :-
+    numlist(1, Width, Indices),
+    maplist(wide_member, Indices, Expression),
+    wide_member_type(3, Last),
+    length(Expected, Width),
+    maplist(=(Last), Expected),
+    statistics(inferences, Before),
+    (   has_type(Expression, Expected)
+    ->  Held = true
+    ;   Held = false
+    ),
+    statistics(inferences, After),
+    Cost is After - Before,
+    assertion(Held == true).
+
+wide_typing_cost(Width, Cost) :-
+    numlist(1, Width, Indices),
+    maplist(wide_member, Indices, Members),
+    append(Members, [plunit_wide_never_declared], Expression),
+    statistics(inferences, Before),
+    findall(Type, 'get-type'(Expression, Type), Types),
+    statistics(inferences, After),
+    Cost is After - Before,
+    assertion(Types == ['%Undefined%']).
+
 :- end_tests(metta_type_answers).
+
+% A form may span lines, and asking sread_command/2 the whole buffered text
+% again for every one of them is Theta(L^2) in the form's length: 1,600 lines
+% spent 132,673,790,292 instructions where the same text on ONE line spent
+% 1,484,324,191. read_form_step/4 carries the scanner state instead, so each
+% line is read once. The differential is what makes that trustworthy: line by
+% line must reach the same verdict on every PREFIX as the whole text does.
+:- begin_tests(metta_form_reader).
+
+form_reader_case(["(f a)"]).
+form_reader_case(["(f", "a)"]).
+form_reader_case(["(a (b (c", "))", ")"]).
+form_reader_case(["; comment", "(f a)"]).
+form_reader_case(["(f \"str", "ing\" a)"]).
+form_reader_case(["", "   ", "(f a)"]).
+form_reader_case(["(f a) ; trailing"]).
+form_reader_case(["(= (f $x)", "  (g $x))"]).
+form_reader_case(["(f a))"]).
+form_reader_case(["(f \"a", "b\\", "c\")"]).
+form_reader_case(["(f ; )", ")"]).
+
+test(the_line_scan_agrees_with_the_whole_text_scan) :-
+    forall(form_reader_case(Lines), line_scan_agrees(Lines)).
+
+line_scan_agrees(Lines) :-
+    line_scan_agrees(Lines, [], read_form_state(0, outside, false)).
+
+line_scan_agrees([], _, _).
+line_scan_agrees([Line|Rest], Seen, State0) :-
+    append(Seen, [Line], Prefix),
+    atomic_list_concat(Prefix, '\n', Joined),
+    atom_string(Joined, Text),
+    whole_text_verdict(Text, Expected),
+    read_form_step(Line, State0, State, Answer),
+    assertion(Answer == Expected),
+    (   Answer == incomplete
+    ->  line_scan_agrees(Rest, Prefix, State)
+    ;   true
+    ).
+
+%sread_command/2 asks one question the line scan carries as a flag, whether the
+%text has any CONTENT, and answers incomplete for a blank or comment-only one.
+%A malformed text RAISES there and is the atom malformed here.
+whole_text_verdict(Text, Verdict) :-
+    (   catch(sread_command(Text, Read), _, fail)
+    ->  ( Read == incomplete -> Verdict = incomplete ; Verdict = complete )
+    ;   Verdict = malformed
+    ).
+
+:- end_tests(metta_form_reader).
 
 :- begin_tests(metta_builtin_scoping).
 

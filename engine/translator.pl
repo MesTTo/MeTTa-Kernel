@@ -2059,7 +2059,8 @@ call_site_type_chains(Fun, UniqueTypeChains) :-
 %get_function_type/2 already lives with; a declaration written only into a
 %named space does not gate that space's data heads.
 data_head_answer_dl(HV, Written, AVs, Out, Goals0, Goals) :-
-    (   arrow_declared_data_head(HV)
+    (   arrow_declared_data_head(HV),
+        \+ written_args_settled(HV, Written)
     ->  Goals0 = [( metta_bad_argument_error(HV, Written, Out)
                   *-> true
                   ;   Out = [HV|AVs]
@@ -2067,6 +2068,47 @@ data_head_answer_dl(HV, Written, AVs, Out, Goals0, Goals) :-
     ;   Goals0 = Goals,
         Out = [HV|AVs]
     ).
+
+%EXPERIMENT (worktree only): the check above traverses the argument AS WRITTEN,
+%so nesting pays for it again at every level: a chain of arrow-declared data
+%heads d deep emits d of these and the one at level i walks a term of depth i,
+%which is Theta(d^2). This is the shape gradual typing calls a DEEP check at
+%every boundary, and the shallow, first-order alternative is what Transient
+%checks do instead: they "do not traverse values" and each costs O(1), with the
+%deep guarantee accumulating because every level is checked at its own boundary
+%[source: Greenman et al., Deep and Shallow Types for Gradual Languages, PLDI
+%2022; Vitousek and Siek, Optimizing and evaluating transient gradual typing,
+%which is a static analysis removing exactly the redundant checks below].
+%
+%A written argument is SETTLED when its own boundary already decided it: it is
+%an application of an arrow-declared head whose single declared arrow returns
+%exactly the parameter type this call expects, at matching arity. That inner
+%application emits its own metta_bad_argument_error/3 through this same clause,
+%so the guarantee is established there and asking again cannot change it. The
+%direction is monotone-safe: type candidates are ADDITIVE, so a later get-type
+%extension can only add types to the value and never remove the one the declared
+%arrow gives.
+written_args_settled(HV, Written) :-
+    '$petta_atoms:&self':'&self'(':', HV, Chain),
+    nonvar(Chain),
+    Chain = [->|Types],
+    append(ParameterTypes, [_Result], Types),
+    same_length(ParameterTypes, Written),
+    ParameterTypes \== [],
+    maplist(written_arg_settled, ParameterTypes, Written).
+
+written_arg_settled(Expected, Written) :-
+    nonvar(Expected),
+    nonvar(Written),
+    Written = [Head|Args],
+    atom(Head),
+    findall(C, ( '$petta_atoms:&self':'&self'(':', Head, C),
+                 nonvar(C), C = [->|_] ), [[->|InnerTypes]]),
+    append(InnerParameters, [Result], InnerTypes),
+    InnerParameters = [_|_],
+    same_length(InnerParameters, Args),
+    ground(Result),
+    Result == Expected.
 
 arrow_declared_data_head(HV) :-
     atom(HV),

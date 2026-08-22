@@ -942,6 +942,76 @@ p118_only_the_added_name_differs(Before, After, Name/Arity) :-
 
 :- end_tests(spaces_execution_modules).
 
+% A conjunction is a join, and running it as a nested loop in SOURCE order is
+% quadratic where the join's own bound is not. The graph below is a hub joined
+% to every other node in both directions, which contains no triangle at all,
+% and the triangle query over it cost 13,502,606 instructions at 100 edges
+% rising by exactly 4.0x per doubling to 3,620,340,557 at 1,600. Enumerating
+% the most constrained conjunct first refutes each row at once instead. The
+% bound is on the RATIO between two sizes, so it keeps testing the complexity
+% class as ordinary constants move: doubling the edges must roughly double the
+% cost, where the loop in source order quadrupled it.
+:- begin_tests(spaces_join_order).
+
+skew_join_cost(Half, Cost) :-
+    atom_concat('&plunit_skew', Half, Space),
+    clear_native_atoms(Space),
+    forall(between(1, Half, I),
+           ( atom_concat(skew_n, I, Node),
+             add_sexp(Space, [skew_edge, skew_hub, Node]),
+             add_sexp(Space, [skew_edge, Node, skew_hub]) )),
+    Pattern = [',', [skew_edge, X, Y], [skew_edge, Y, Z], [skew_edge, X, Z]],
+    statistics(inferences, Before),
+    findall(X-Y-Z, match(Space, Pattern, X-Y-Z, X-Y-Z), Rows),
+    statistics(inferences, After),
+    Cost is After - Before,
+    assertion(Rows == []),
+    clear_native_atoms(Space).
+
+test(a_skewed_join_costs_time_linear_in_the_edge_count) :-
+    skew_join_cost(32, Narrow),
+    skew_join_cost(64, Wide),
+    assertion(Wide < Narrow * 3).
+
+% A space that reads through a parent chain runs the same join through
+% match_routed/4 rather than match_native/5, and it was the worse of the two:
+% 219,626,261 instructions at 200 edges rising to 13,818,604,870 at 1,600,
+% because every conjunct goes through the whole match dispatch and the read
+% chain for each row the loop reaches. `(new-space &child (inherits &parent))`
+% in examples/spaces/inherited_spaces.metta joins across the chain exactly so.
+inherited_join_cost(Half, Cost) :-
+    atom_concat('&plunit_skew_parent', Half, Parent),
+    atom_concat('&plunit_skew_child', Half, Child),
+    clear_native_atoms(Parent),
+    clear_native_atoms(Child),
+    add_sexp(Parent, [skew_edge, skew_seed, skew_s0]),
+    metta_declare_space_parent(Child, Parent),
+    forall(between(1, Half, I),
+           ( atom_concat(skew_n, I, Node),
+             add_sexp(Child, [skew_edge, skew_hub, Node]),
+             add_sexp(Child, [skew_edge, Node, skew_hub]) )),
+    Pattern = [',', [skew_edge, X, Y], [skew_edge, Y, Z], [skew_edge, X, Z]],
+    statistics(inferences, Before),
+    findall(X-Y-Z, match(Child, Pattern, X-Y-Z, X-Y-Z), Rows),
+    statistics(inferences, After),
+    Cost is After - Before,
+    assertion(Rows == []),
+    clear_native_atoms(Child),
+    clear_native_atoms(Parent),
+    %metta_release_space/1 rather than metta_forget_space_parent/1, which is
+    %deliberately partial: it drops the relationship and its reflected atom but
+    %leaves the exec-module link, and spaces_inheritance's rollback test asserts
+    %no such link exists ANYWHERE.
+    metta_release_space(Child),
+    metta_release_space(Parent).
+
+test(an_inherited_skewed_join_costs_time_linear_in_the_edge_count) :-
+    inherited_join_cost(32, Narrow),
+    inherited_join_cost(64, Wide),
+    assertion(Wide < Narrow * 3).
+
+:- end_tests(spaces_join_order).
+
 :- begin_tests(spaces_match_snapshot).
 
 % The language specifies this rather than leaving it open: "match first finds

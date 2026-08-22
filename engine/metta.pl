@@ -648,8 +648,19 @@ metta_error_atom(Operation, Arguments, Reason,
 %for shipped mismatches; only this user-declared case carries the fifth field
 %[tested: test_a_user_typing_rule_participates_like_a_shipped_one;
 %commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%THE GUARD IS ASKED ONCE. Both refusal shapes below opened with the same
+%\+ metta_call_accepted/2, so an ACCEPTED call, which is every ordinary one,
+%asked it twice: the first clause's negation failed and the second put the
+%identical question again. metta_call_accepted/2 runs metta_arguments_match/3,
+%which walks each argument's type, so on a term nested d deep that was two full
+%walks per level and the compiled form emits one of these per level.
+%The guard is a pure test that binds nothing, so hoisting it decides once and
+%the two refusal shapes are tried underneath it, in the order they had.
 metta_bad_argument_error(Operation, Arguments, Error) :-
     \+ metta_call_accepted(Operation, Arguments),
+    metta_bad_argument_refusal(Operation, Arguments, Error).
+
+metta_bad_argument_refusal(Operation, Arguments, Error) :-
     metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins),
     current_metta_module(Module),
     metta_named_rule_refusal(Module, ParameterTypes, Origins, Arguments, 1,
@@ -662,8 +673,7 @@ metta_bad_argument_error(Operation, Arguments, Error) :-
 %One error per declared ARROW and per rejected ACTUAL type, arrows in
 %declaration order and actual types in the order get-type reports them, which
 %is the multiplicity and the order the arbiter pins.
-metta_bad_argument_error(Operation, Arguments, Error) :-
-    \+ metta_call_accepted(Operation, Arguments),
+metta_bad_argument_refusal(Operation, Arguments, Error) :-
     metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins),
     metta_bad_argument(ParameterTypes, Origins, Arguments, 1,
                        Position, Expected, Actual),
@@ -2043,6 +2053,47 @@ member_alpha(X, [_|T]) :- member_alpha(X, T).
 select_eq(X, [Y|Ys], Ys) :- X == Y, !.
 select_eq(X, [Y|Ys], [Y|Rest]) :- select_eq(X, Ys, Rest).
 
+%EXPERIMENT (worktree only): both of these rescanned the right operand with
+%select_eq/3 once per left element, which is Theta(n*m). Measured on the
+%shipped operation: N=100 cost 4,304,235 instructions and N=1600 cost
+%1,053,976,615, an exponent of 1.98, while union-atom over the same sizes is
+%linear at 606,874. The right operand is now indexed ONCE as a count map keyed
+%by standard order, and the left operand is walked in order decrementing
+%counts, giving O((n+m) log m).
+%
+%The three properties select_eq/3 carried are preserved deliberately:
+%compare/3 and ==/2 agree on identity, so this still removes by EQUALITY and
+%never unifies (the bug the comment above records, where (subtraction-atom
+%($x) (a)) answered () and bound $x); a count of one per stored occurrence
+%keeps the multiset multiplicity; and walking the left operand in order keeps
+%its order. library(assoc) is already imported for exactly these three
+%predicates at the head of this file.
+count_assoc(List, Assoc) :- empty_assoc(Empty), count_assoc_(List, Empty, Assoc).
+count_assoc_([], A, A).
+count_assoc_([X|Xs], A0, A) :-
+    ( get_assoc(X, A0, N) -> N1 is N+1 ; N1 = 1 ),
+    put_assoc(X, A0, N1, A1),
+    count_assoc_(Xs, A1, A).
+
+%Succeeds only when one occurrence is still available, and answers the map
+%with that occurrence consumed.
+take_counted(X, A0, A) :-
+    get_assoc(X, A0, N), N > 0, N1 is N-1, put_assoc(X, A0, N1, A).
+
+subtract_counted([], _, []).
+subtract_counted([H|T], C0, Out) :-
+    (   take_counted(H, C0, C1)
+    ->  subtract_counted(T, C1, Out)
+    ;   Out = [H|Rest], subtract_counted(T, C0, Rest)
+    ).
+
+intersect_counted([], _, []).
+intersect_counted([H|T], C0, Out) :-
+    (   take_counted(H, C0, C1)
+    ->  Out = [H|Rest], intersect_counted(T, C1, Rest)
+    ;   intersect_counted(T, C0, Out)
+    ).
+
 %Multisets. Keep the variable-headed non-list fallback last so list calls use
 %the first argument index. Over 100,000 two-element calls this reduced each
 %operation from 2,200,002 to 1,400,002 inferences [measured: 800,000 fewer
@@ -2054,9 +2105,7 @@ select_eq(X, [Y|Ys], [Y|Rest]) :- select_eq(X, Ys, Rest).
 'subtraction-atom'([], _, []) :- !.
 'subtraction-atom'([H|T], B, Out) :- !,
     ( non_list(B) -> Out = []
-    ; select_eq(H, B, BRest) -> 'subtraction-atom'(T, BRest, Out)
-    ; Out = [H|Rest],
-      'subtraction-atom'(T, B, Rest) ).
+    ; count_assoc(B, Counts), subtract_counted([H|T], Counts, Out) ).
 'subtraction-atom'(A, B, Out) :- ( non_list(A) ; non_list(B) ), !, Out = [].
 %The guard its two siblings already have, and it leads rather than trails
 %because append/3 succeeds on a non-list right operand: (union-atom (a) b)
@@ -2076,9 +2125,7 @@ select_eq(X, [Y|Ys], [Y|Rest]) :- select_eq(X, Ys, Rest).
 'intersection-atom'([], _, []) :- !.
 'intersection-atom'([H|T], B, Out) :- !,
     ( non_list(B) -> Out = []
-    ; select_eq(H, B, BRest) -> Out = [H|Rest],
-                                'intersection-atom'(T, BRest, Rest)
-    ; 'intersection-atom'(T, B, Out) ).
+    ; count_assoc(B, Counts), intersect_counted([H|T], Counts, Out) ).
 'intersection-atom'(A, B, Out) :- ( non_list(A) ; non_list(B) ), !, Out = [].
 
 %%% Type system: %%%
@@ -2315,13 +2362,61 @@ has_type(X, T) :- current_metta_module(Module),
 %
 %The second direction is checked last, on the branch that was going to fail
 %anyway, so a value whose declared type already matches never pays for it.
-has_type_in(Module, X, T) :-
+%EXPERIMENT (worktree only): type derivation measured Theta(2^d) in the nesting
+%depth of the term, exactly 2.0 per level, and the whole of it was ONE
+%enumeration too many.
+%
+%type_witness_in/3 asked two questions of the same term in sequence: whether a
+%candidate WIDENS to T, and then, separately, whether T is itself a candidate.
+%Each ran its own type_candidate_in/3, and each of those re-entered the same
+%ground subterm through get_function_type_in/3 and metta_arguments_match_in/4.
+%An exact match fails the first question by design, because widening is a
+%subtype relation and reflexivity is the second question's job, so the common
+%case paid for both walks and the recursion doubled at every level. A term
+%nested d deep holds d distinct subproblems and the walk visited 2^d of them.
+%
+%Both questions are now asked of each candidate as it is produced, in one
+%enumeration, so a level descends once and the cost is linear in the depth
+%[measured 2026-08-22: ratios 4.25, 3.99 and 3.93 across depths 20, 100, 400 and
+%1600, against depth increases of 5x, 4x and 4x, so an exponent of 1.0; depth 20
+%went from 111,815,868,814 instructions to 1,759,888 and depth 1600 costs
+%117,878,706; command=perf stat -e instructions:u sh run.sh, differenced against
+%the same file whose last form does no work].
+%
+%A memo table was tried first and is NOT here for a reason worth recording. It
+%does remove the exponential, and it cannot do better than Theta(d^2), because
+%every probe has to read O(d) of a term nested d deep just to decide it is not
+%the one it is looking for, and there are O(d) probes. Measured on this engine:
+%term_hash/2 rises from 97ms to 10,846ms per 100k calls between depth 100 and
+%6400, ==/2 on distinct terms from 65ms to 4,248ms, and assertz/1 copies its
+%argument at 70ms to 3,752ms. No index escapes that, discrimination and
+%substitution trees included, since they all key on the term's own shape. Only
+%same_term/2 is constant, at 4.0ms hit and 12.8ms miss flat across those depths,
+%and a cache it can search has to be non-backtrackable to survive the retry that
+%creates the duplicate in the first place, which puts the O(d) copy back.
+%Not asking twice is cheaper than any way of remembering the answer.
+has_type_in(Module, X, T) :- has_type_derive(Module, X, T).
+
+
+has_type_derive(Module, X, T) :-
     ( ground(T)
-      -> (   type_witness_in(Module, X, T)
-         ->  true
-         ;   type_answers(Module, X, Types),
-             member(Actual, Types),
-             metta_types_match_in(Module, Actual, T)
+      %ONE walk of the term decides this, whichever way it goes. The witness is
+      %called before the branch, not inside its condition, because a condition's
+      %bindings do not reach the else and the candidate list is exactly what the
+      %else needs: asking again there would restore the second descent this is
+      %removing. The answers used to be derived twice more besides, as
+      %type_witness_in/3's last attempt and again below.
+      -> (   type_witness_direct(Module, X, T, Outcome),
+             (   Outcome == found
+             ->  true
+             ;   Outcome = exhausted(Candidates),
+                 type_answers_from(Module, X, Candidates, Types),
+                 (   once(( member(Widened, Types), Widened == T ))
+                 ->  true
+                 ;   member(Actual, Types),
+                     metta_types_match_in(Module, Actual, T)
+                 )
+             )
          )
        ; any_super_type_edge(Module)
          -> type_answers(Module, X, Types),
@@ -2353,15 +2448,126 @@ has_type_in(Module, X, T) :-
 %operational rule
 %[tested: bindings/python/tests/test_answer_protocol.py::test_admission_types_the_pool].
 type_witness_in(Module, X, T) :-
-    (   once(( type_candidate_in(Module, X, Actual),
-               typing_rule_accepts(Module, widening, Actual, T) ))
+    type_witness_direct(Module, X, T, Outcome),
+    (   Outcome == found
     ->  true
-    ;   once(type_candidate_in(Module, X, T))
-    ->  true
-    ;   satisfies_metatype_in(Module, X, T)
-    ->  true
-    ;   type_answers(Module, X, Types),
+    ;   Outcome = exhausted(Candidates),
+        type_answers_from(Module, X, Candidates, Types),
         once(( member(Widened, Types), Widened == T ))
+    ).
+
+%The two attempts that reach a decision WITHOUT materialising the full answer
+%set. has_declared_type/2 needs the whole witness including that set, so
+%type_witness_in/3 keeps its contract; has_type_derive/3 derives the set itself
+%and has no reason to ask for it twice.
+%Reports `found`, or `exhausted(Candidates)` carrying every candidate the walk
+%produced. A failing check needs that list, and enumerating it is the only part
+%of the answer that re-enters the subterms, so remembering it as it goes is what
+%keeps a FAILING check off a second descent. The accumulator is the mutable
+%compound lazy_unique_candidate/3 above already uses for the same reason, with
+%duplicate_term/2 for the same reason again: nb_setarg/3 is not undone by the
+%backtracking that drives the enumeration, so what it stores must not share
+%structure with the bindings that are.
+type_witness_direct(Module, X, T, Outcome) :-
+    tuple_positions_witness(Module, X, T),
+    !,
+    Outcome = found.
+type_witness_direct(Module, X, T, Outcome) :-
+    State = collected([]),
+    (   (   type_candidate_in(Module, X, Actual),
+            (   typing_rule_accepts(Module, widening, Actual, T)
+            ->  true
+            ;   Actual = T
+            ->  true
+            %Only a REJECTED candidate is worth remembering. An accepted one ends
+            %the walk and the list is never read, so the ordinary case pays for no
+            %copy at all; the fail drives the enumeration on to the next one.
+            ;   duplicate_term(Actual, Kept),
+                arg(1, State, Acc),
+                nb_setarg(1, State, [Kept|Acc]),
+                fail
+            )
+        ->  Outcome = found
+        ;   satisfies_metatype_in(Module, X, T)
+        ->  Outcome = found
+        ;   arg(1, State, Reversed),
+            reverse(Reversed, Candidates),
+            Outcome = exhausted(Candidates)
+        )
+    ).
+
+%CHECKING a tuple against a KNOWN tuple type, decided per position instead of
+%by finding it in the product.
+%
+%The clause below asks the question by SYNTHESIS: it enumerates X's candidate
+%types and compares each to T. For an expression typed element-wise the
+%candidates are the cartesian product of its members' type sets, so the cost of
+%deciding `X : T` depends on where T sits in that enumeration. Measured on k
+%members carrying three declared types each, checking the FIRST combination
+%against checking the LAST: 102 and 859 inferences at three members, 312 and
+%29,496,420 at thirteen, the first flat at 21 per member and the second growing
+%3.0x per member. Same expression, same question, 94,540x apart
+%[measured 2026-08-22, ai-tmp/synth/probe6.pl].
+%
+%That is the rule Pfenning's notes call chk/syn, checking by synthesising and
+%comparing, and the standard objection to it is that it is not MODE CORRECT: it
+%recomputes something the caller already knows. Dunfield and Krishnaswami's
+%recipe is that introduction forms CHECK and elimination forms SYNTHESISE, and
+%an element-wise expression is an introduction form
+%[source: Bidirectional Typing, ACM Computing Surveys 54(5), doi:10.1145/3450952].
+%
+%This is SOUND but deliberately INCOMPLETE, and it must be: a declared edge may
+%widen a whole tuple type to something that is not a tuple at all, as
+%`(:< (P1 Q1) S1)` does in metta_subtyping:an_expression_widens_in_two_phases,
+%so per-position agreement is not the only way a tuple can have a type. In
+%focusing terms the structural rule is invertible and this one is not, so
+%failing here falls through to the enumeration below, which still decides every
+%case it decided before. Succeeding here is a witness by construction: each
+%position holds one of that member's own candidate types and none is
+%%Undefined%, so the list IS one of the combinations the product would have
+%enumerated, and tuple_fold/2 leaves it unchanged.
+%The guard's order is measured, in inferences per check against the same build
+%with this clause removed, over the shapes a hot ground check actually meets:
+%an arrow application against an atom type +3, against a same-length list type
+%+18, an atom against an atom +1, a tuple against an atom +1, and a tuple
+%against its own tuple type -4, which is the case this exists for. The two
+%unifications lead because they are inlined and decide the atom case at once,
+%where is_list/1 is a call costing two inferences on its own
+%[source: EXTENDING.md:1221-1230]. The arrow probe comes before the two list
+%walks because an application is the shape that reaches here and is not a
+%tuple: after it, arrow-against-list costs 18 rather than 24. Running
+%tuple_positions_hold/3 before it instead costs 66, so the probe is cheaper
+%than the per-position derivation it would skip
+%[measured 2026-08-23, ai-tmp/synth/probe10.pl].
+tuple_positions_witness(Module, X, T) :-
+    T = [_|_],
+    X = [_|_],
+    \+ application_arrow_declared_in(Module, X),
+    is_list(T),
+    is_list(X),
+    same_length(X, T),
+    tuple_positions_hold(Module, X, T).
+
+tuple_positions_hold(_, [], []).
+tuple_positions_hold(Module, [Member|Members], [Type|Types]) :-
+    Type \== '%Undefined%',
+    member_holds_type(Module, Member, Type),
+    tuple_positions_hold(Module, Members, Types).
+
+%A member that is ITSELF an expression decomposes the same way, and it has to:
+%enumerating a nested member's types to find the one wanted is the product
+%again, one level down, so without this the exponential is displaced rather
+%than removed. Measured on a two-member expression whose first member is an
+%expression of k members carrying three types each, checked against the LAST
+%combination: 614 inferences at k=2 rising 9x per added inner member to
+%43,097,295 at k=8, where deciding it per position is linear
+%[measured 2026-08-23, ai-tmp/synth/probe11.pl].
+%The fallback enumerates that member's own types and stops at the first match,
+%which is Theta(c) for that member rather than Theta(c^k) for the expression.
+member_holds_type(Module, Member, Type) :-
+    (   tuple_positions_witness(Module, Member, Type)
+    ->  true
+    ;   once(( has_type_in(Module, Member, Candidate), Candidate == Type ))
     ).
 
 %A ground declaration is the admission common case, so probe its indexed
@@ -2410,21 +2616,43 @@ lazy_unique_candidate(Module, X, Candidate) :-
 
 type_answers(Module, X, Types) :-
     findall(Type, type_candidate_in(Module, X, Type), Candidates),
+    type_answers_from(Module, X, Candidates, Types).
+
+%Everything type_answers/3 does AFTER the candidates are in hand. Only the
+%findall/3 above descends into the term's subterms; deduplication, widening and
+%the empty-set ruling all read the list. So a caller that has already enumerated
+%the candidates can finish the answer without walking the term a second time.
+type_answers_from(Module, X, Candidates, Types) :-
     unique_type_answers(Candidates, Unique),
     widen_to_super_types(Module, X, Unique, Widened),
     (   Widened \== []
     ->  Types = Widened
-    ;   inapplicable_typed_application(Module, X)
+    ;   inapplicable_typed_application(Module, X, Candidates)
     ->  Types = []
     ;   Types = ['%Undefined%']
     ).
 
-inapplicable_typed_application(Module, X) :-
+%The candidate list already answers the second half. Reaching here means the
+%widened set is empty, and widening only ever adds, so the unique set is empty
+%and therefore so is Candidates; get_function_type/2 is one of the sources those
+%candidates come from (get_type_candidate/2's first clause IS it), so an empty
+%list means it produced nothing. Asking again re-ran the whole application
+%typing and re-entered the argument, which is a second full descent on exactly
+%the path that takes it: a check that FAILS. The \+ is kept as the fallback for
+%a non-empty list so the predicate still states its own condition rather than
+%relying on a caller's invariant.
+inapplicable_typed_application(Module, X, Candidates) :-
     (   metta_self_module(Module)
     ->  application_arrow_declared(X),
-        \+ get_function_type(X, _)
+        (   Candidates == []
+        ->  true
+        ;   \+ get_function_type(X, _)
+        )
     ;   application_arrow_declared_in(Module, X),
-        \+ get_function_type_in(Module, X, _)
+        (   Candidates == []
+        ->  true
+        ;   \+ get_function_type_in(Module, X, _)
+        )
     ).
 
 %%%% Subtyping: (:< Sub Super) %%%%
@@ -2452,8 +2680,17 @@ inapplicable_typed_application(Module, X) :-
 %single pass over the whole list answers ((A B) D C E)
 %[source: LeaTTa ai-report-subtype-graph.md, get_tuple_types].
 widen_to_super_types(Module, X, Types0, Types) :-
-    (   widening_applies_to(Module, X),
-        any_super_type_edge(Module)
+    %THE CHEAP TEST LEADS. Both are pure tests that bind nothing, so the order is
+    %free, and it was the wrong way round: widening_applies_to/2 asks
+    %application_return_type/2, which is get_function_type/2, which types the
+    %application again and so re-enters its arguments. any_super_type_edge/1 is
+    %one indexed probe of an empty ':<' bucket and its own note says that with no
+    %edge declared anywhere, which is every program not using the feature, it is
+    %the whole cost. Asking it first means such a program never pays the descent:
+    %on a check that FAILS this was the last of the two walks per level, and
+    %removing it makes the failing path linear rather than 2^d.
+    (   any_super_type_edge(Module),
+        widening_applies_to(Module, X)
     ->  findall(Declared, type_declaration_in(Module, X, Declared), Directs),
         partition(type_already_listed(Directs), Types0, Direct, Products),
         add_super_types(Module, Direct, DirectWidened),
@@ -2545,22 +2782,59 @@ super_type_in(Module, T, S) :- metta_module_space(Module, Space),
 %and the spelling is `:<` at lib/src/metta/mod.rs:22, `SUB_TYPE_SYMBOL`. There
 %is no `:>` in that source: the arrow points from the subtype UP to the
 %supertype, so `(:< Dog Animal)` is "Dog is below Animal".
+%EXPERIMENT (worktree only): the presence test was member/2 over the whole
+%accumulated list, run once per candidate, and the accumulator grew by an
+%append/3 of that same list once per round. A chain of n subtype edges therefore
+%cost Theta(n^2): widening along a 1600-edge chain took 4,935,292,461
+%instructions, with the round-over-round ratio converging on 4.0 across
+%n = 100, 200, 400, 800, 1600 [measured 2026-08-22: 3.24, 3.68, 3.90, 3.86;
+%command=perf stat -e instructions:u sh run.sh, differenced against the same
+%file whose last form does not widen, so parsing the chain cancels].
+%
+%The set is an AVL now, which library(assoc) already provides and which
+%count_assoc/2 above uses for the same reason, and each round contributes its
+%own segment instead of copying the accumulator, so the result is still
+%Types followed by every round's fresh entries in order.
+%
+%get_assoc/3 decides by compare/3, which agrees with ==/2 on identity, so this
+%is the same relation type_already_listed/2 tests and not unification. The keys
+%can carry variables, from a polymorphic supertype, and stay sound because
+%findall/3 hands back fresh copies whose variables nothing here binds: the
+%bindings super_type_in/3 makes are undone when the findall completes, before
+%any lookup runs.
+%
+%The AVL is extended only AFTER the round's exclude, which is what preserves the
+%parity artifact described above: B and C both reach D in one round, neither
+%sees the other's D, and the diamond still answers (A B C D D)
+%[tested: the_diamond_reproduces_upstreams_duplicate].
 add_super_types(Module, Types, Widened) :-
-    super_type_rounds(Module, Types, Types, Widened).
+    seen_types(Types, Seen),
+    super_type_rounds(Module, Types, Seen, Fresh),
+    append(Types, Fresh, Widened).
 
-super_type_rounds(_, [], Widened, Widened) :- !.
-super_type_rounds(Module, Frontier, Accumulated, Widened) :-
+super_type_rounds(_, [], _, []) :- !.
+super_type_rounds(Module, Frontier, Seen, Widened) :-
     findall(Super,
             ( member(Type, Frontier),
               super_type_in(Module, Type, Super),
               typing_rule_accepts(Module, 'declared-widening', Type, Super) ),
             Supers),
-    exclude(type_already_listed(Accumulated), Supers, Fresh),
+    exclude(type_seen(Seen), Supers, Fresh),
     (   Fresh == []
-    ->  Widened = Accumulated
-    ;   append(Accumulated, Fresh, Grown),
-        super_type_rounds(Module, Fresh, Grown, Widened)
+    ->  Widened = []
+    ;   add_seen_types(Fresh, Seen, Grown),
+        super_type_rounds(Module, Fresh, Grown, Rest),
+        append(Fresh, Rest, Widened)
     ).
+
+seen_types(Types, Seen) :- empty_assoc(Empty), add_seen_types(Types, Empty, Seen).
+
+add_seen_types([], Seen, Seen).
+add_seen_types([Type|Types], Seen0, Seen) :-
+    put_assoc(Type, Seen0, [], Seen1),
+    add_seen_types(Types, Seen1, Seen).
+
+type_seen(Seen, Type) :- get_assoc(Type, Seen, _).
 
 type_already_listed(Listed, Type) :- member(Present, Listed), Present == Type.
 
@@ -2574,8 +2848,69 @@ type_already_listed(Listed, Type) :- member(Present, Listed), Present == Type.
 %and sorts were ~40% of the whole type-resolution profile [measured
 %2026-08-17, profile/2], so the quadratic identity walk with the
 %C-implemented =@= is the faster shape at every realistic length.
+%EXPERIMENT (worktree only): the walk below is Theta(n^2) in the candidate
+%count, and the paragraph above is the reason to keep it: at one or two
+%candidates it beats canonicalizing, and that is what nearly every call passes.
+%It is not what every call passes. A symbol carrying n declarations answers n
+%candidates, and typing it measured 2.83, 3.34 and 3.66 per doubling over
+%n = 100, 200, 400, 800, converging on 4.0, with 800 declarations costing
+%5,997,121,957 instructions [measured 2026-08-22: 20 get-type calls, differenced
+%against the same file with no call].
+%
+%So the walk keeps the short lists it was measured on, and a long one goes to a
+%bucketed pass built the same way alpha_bucket_insert/5 above is: a numbervars
+%canonical copy chooses the bucket, and identity inside it decides. The
+%threshold is far above the one or two candidates the measurement talks about,
+%so no call the =@= walk was chosen for changes path.
+%
+%The one thing that cannot be borrowed wholesale is what decides INSIDE the
+%bucket. alpha_list_to_set/2 compares the canonical copies, which is right for
+%'alpha-unique-atom' and wrong here: a literal '$VAR'(0) and a variable share a
+%canonical form and are NOT variants. Running both over
+%['$VAR'(0), $v, '$VAR'(0), $w], the walk answers two and the canonical compare
+%answers one [measured 2026-08-22, differential over eight candidate shapes;
+%the other seven agree]. So =@= decides on the ORIGINAL terms and the hash only
+%narrows the search, which is the line translator.pl:1012-1019 already draws for
+%its own normalized cache key.
 unique_type_answers(Candidates, Unique) :-
-    variant_unique_(Candidates, [], Unique).
+    (   at_least_n(Candidates, 17)
+    ->  variant_unique_bucketed(Candidates, Unique)
+    ;   variant_unique_(Candidates, [], Unique)
+    ).
+
+at_least_n([_|Rest], N) :- ( N =< 1 -> true ; N1 is N - 1, at_least_n(Rest, N1) ).
+
+variant_unique_bucketed(Candidates, Unique) :-
+    empty_assoc(Empty),
+    variant_unique_bucketed_(Candidates, Empty, Unique).
+
+variant_unique_bucketed_([], _, []).
+variant_unique_bucketed_([Type|Types], Seen0, Out) :-
+    variant_bucket_key(Type, Key),
+    (   get_assoc(Key, Seen0, Bucket)
+    ->  true
+    ;   Bucket = []
+    ),
+    (   variant_in_bucket(Type, Bucket)
+    ->  variant_unique_bucketed_(Types, Seen0, Out)
+    ;   put_assoc(Key, Seen0, [Type|Bucket], Seen1),
+        Out = [Type|Rest],
+        variant_unique_bucketed_(Types, Seen1, Rest)
+    ).
+
+%variant_hash/2 is SWI's own primitive for this, invariant under renaming and
+%documented as being for finding variants in a set, so it replaces a copy_term
+%plus numbervars plus term_hash and costs no term copy. It processes an
+%attributed variable as an ordinary one, where =@=/2 does not, which is the
+%second reason the bucket is resolved by =@=/2 rather than by the key: the hash
+%is allowed to be coarser than the relation it indexes, never finer.
+variant_bucket_key(Type, Key) :- variant_hash(Type, Key).
+
+variant_in_bucket(Type, [Present|Rest]) :-
+    (   Present =@= Type
+    ->  true
+    ;   variant_in_bucket(Type, Rest)
+    ).
 
 variant_unique_([], _, []).
 variant_unique_([Type|Types], Seen, Out) :-
@@ -2598,20 +2933,35 @@ type_candidate_in(Module, X, T) :- get_type_rule_in(Module, X, T).
 %A refusal's own type lookup does not run them, because they are programs and
 %one that computes on its argument re-enters the operation that asked; see
 %metta_argument_types/2, which sets the flag.
-:- thread_local metta_evaluating_type_rule/0.
+%EXPERIMENT (worktree only): the flag was a thread_local clause asserted and
+%erased around every rule call. nilbc measured 5,007,442 call_get_type_rule/3
+%calls, so assertz/2 + erase/1 + the setup_call_cleanup sig_atomic/1 cost
+%3,047 of 15,206 profiled ticks, 20%. This is the same dynamic-extent state
+%with_metta_module/2 and push_dual_frame/3 already keep in a backtrackable
+%global, read with nb_current/2 exactly as current_metta_module/1 reads
+%'$petta_module'. The reader is a boolean test, so a saved-and-restored
+%boolean carries the nesting the clause count used to carry.
+metta_evaluating_type_rule :- nb_current('$petta_evaluating_type_rule', true).
 
-get_type_rule_in(Module, X, T) :- \+ metta_reading_declared_types,
-                                  \+ metta_self_module(Module),
-                                  fun_in(Module, 'get-type'),
-                                  call_get_type_rule(Module, X, T).
-get_type_rule_in(_, X, T) :- \+ metta_reading_declared_types,
-                             metta_self_module(Self),
-                             call_get_type_rule(Self, X, T).
+get_type_rule_in(Module, X, T) :-
+    \+ metta_reading_declared_types,
+    metta_self_module(Self),
+    (   Module == Self
+    ->  call_get_type_rule(Self, X, T)
+    ;   (   fun_in(Module, 'get-type'),
+            call_get_type_rule(Module, X, T)
+        ;   call_get_type_rule(Self, X, T)
+        )
+    ).
 
 call_get_type_rule(Module, X, T) :-
-    setup_call_cleanup(assertz(metta_evaluating_type_rule, Ref),
-                       Module:get_type_rule(X, T),
-                       erase(Ref)).
+    (   nb_current('$petta_evaluating_type_rule', Previous)
+    ->  true
+    ;   Previous = false
+    ),
+    b_setval('$petta_evaluating_type_rule', true),
+    Module:get_type_rule(X, T),
+    b_setval('$petta_evaluating_type_rule', Previous).
 
 %The current upstream Number holds Integer(i64) and Float(f64), while its
 %tokenizer names an integer outside that capacity as the future BigInt case.
@@ -2649,8 +2999,10 @@ get_type_candidate(X, T) :- \+ application_arrow_declared(X),
                             X = [_|_],
                             is_list(X),
                             metta_self_module(Self),
-                            maplist(has_type_in(Self), X, Members),
-                            tuple_type(Members, T).
+                            tuple_first_in(X, Self, First),
+                            (   tuple_fold(First, T)
+                            ;   tuple_rest_types(has_type_in(Self), X, T)
+                            ).
 get_type_candidate(X, T) :- '$petta_atoms:&self':'&self'(':', X, T),
                             acyclic_term(T).
 get_type_candidate(X, T) :- seam:builtin_type_declaration(X, T).
@@ -2690,8 +3042,11 @@ get_type_candidate_in(Module, X, T) :- get_function_type_in(Module, X, T).
 get_type_candidate_in(Module, X, T) :- \+ application_arrow_declared_in(Module, X),
                                        X = [_|_],
                                        is_list(X),
-                                       maplist(has_type_in(Module), X, Members),
-                                       tuple_type(Members, T).
+                                       tuple_first_in(X, Module, First),
+                                       (   tuple_fold(First, T)
+                                       ;   tuple_rest_types(has_type_in(Module),
+                                                            X, T)
+                                       ).
 
 get_type_candidate_in(Module, X, T) :- type_declaration_in(Module, X, T).
 get_type_candidate_in(_, X, T) :- seam:builtin_type_declaration(X, T).
@@ -2719,13 +3074,117 @@ get_type_candidate_in(_, X, T) :- petta_state_cell_type(X, T).
 %is `(Number (Number Number))` and `(typed-sym (typed-sym aa))` is
 %%Undefined%, one undeclared symbol away.
 %
+%The tuple rule: the FIRST combination through maplist/3, the rest off
+%materialized sets.
+%
+%maplist/3 over a nondeterministic goal is the cartesian product computed by
+%BACKTRACKING, and every redo into member i re-runs members i+1..k in full,
+%recursive descent included: k members carrying c types each cost
+%Theta(c^k * D) for D the size of a member's subtree. Deriving each member's
+%set ONCE and enumerating combinations off those lists is the same product for
+%Theta(k*D + c^k*k), optimal in the output, and it is what
+%_type_annotations.py's _bounded_product already does on the Python side.
+%
+%The sets are derived only when a SECOND combination is actually asked for.
+%Nearly every caller here wants one candidate and stops, and materializing
+%every member's complete set for them charges the whole product's cost to a
+%query that wanted one element of it: doing it unconditionally cost nilbc 1.4s
+%to over 700s. The first combination therefore stays the same maplist/3 walk it
+%always was, committed with once/1, and the sets appear on the redo that used
+%to pay for the re-descent. maplist/3 also keeps the call DIRECT, which
+%library(apply_macros) expands into a specialized recursion; threading the goal
+%as a closure instead put a call/3 meta-call on every member of every
+%expression nilbc types and cost 6.02% on its own
+%[measured 2026-08-22: 28,295,015,801 against 26,689,624,690 instructions:u,
+%five significant figures stable over three runs each, and stubbing the redo
+%branch out entirely did not move it].
+%The walk is written out at both call sites rather than behind one shared
+%predicate. That is a deliberate duplication of four lines, and it is worth
+%0.395%: the shared predicate measured 25,893,858,002 where these measure
+%25,764,293,182, and adding the same predicate back as a clause NOTHING CALLS
+%measured 25,792,468,254, so 0.109pp of the difference is code layout, the
+%Mytkowicz bias this repository's own baseline.json records for typed-call, and
+%the remaining 0.395pp is the call itself [measured 2026-08-22, interleaved
+%min-of-two both ways]. The two clauses this serves are already parallel
+%implementations of one rule for the self module and for a named one.
+%The list leads each helper so clause selection is first-argument indexed.
+%member_set_product_rest/2 varies the LAST member fastest, exactly as maplist/3
+%did, so the candidate order every downstream deduplication reads is unchanged
+%[tested: a_wide_expression_types_in_time_linear_in_its_width]
+%[measured 2026-08-22: 15 members carrying 3 declared types each and one
+%undeclared member, 581,130,797 inferences to 1,721, the base growing 3.02x per
+%added member where this is flat at 109; command=swipl -g true -t halt over
+%type_answers/3, differenced with statistics/2 on inferences].
+tuple_first_in([], _, []).
+tuple_first_in([Member|Members], Module, [T|Ts]) :-
+    has_type_in(Module, Member, T),
+    !,
+    tuple_first_in(Members, Module, Ts).
+
+tuple_types_scoped(Space, Module, Members, T) :-
+    tuple_first_scoped(Members, Space, Module, First),
+    (   tuple_fold(First, T)
+    ;   tuple_rest_types(scoped_has_type(Space, Module), Members, T)
+    ).
+
+tuple_first_scoped([], _, _, []).
+tuple_first_scoped([Member|Members], Space, Module, [T|Ts]) :-
+    scoped_has_type(Space, Module, Member, T),
+    !,
+    tuple_first_scoped(Members, Space, Module, Ts).
+
+tuple_rest_types(Goal, Members, T) :-
+    tuple_member_sets(Members, Goal, Sets),
+    %Every remaining combination folds to the %Undefined% the first one already
+    %answered, so there is nothing left to enumerate.
+    \+ undefined_member_set(Sets),
+    member_set_product_rest(Sets, T).
+
+%The type of one combination is a FOLD over its members, and one %Undefined%
+%member makes it %Undefined% however many types the others offer.
 %== rather than memberchk/2, because a member's type may still be an unbound
 %variable and memberchk would BIND it to %Undefined% and answer yes.
-tuple_type(Members, Type) :-
+tuple_fold(Members, Type) :-
     (   member(Member, Members), Member == '%Undefined%'
     ->  Type = '%Undefined%'
     ;   Type = Members
     ).
+
+%Left to right and failing on the first EMPTY set, which is what maplist/3's
+%conjunction did: one member with no type at all means the expression has no
+%tuple type, and the product would otherwise discover that only after
+%enumerating every combination of the members to its left. Testing a domain
+%before using it is the cheapest case of arc consistency. An empty set is not
+%an undefined one and must not answer %Undefined%: no candidate at all is
+%inapplicable_typed_application/3's case, where %Undefined% would report a type
+%that was never derived.
+tuple_member_sets([], _, []).
+tuple_member_sets([Member|Members], Goal, [Set|Sets]) :-
+    findall(T, call(Goal, Member, T), Set),
+    Set \== [],
+    tuple_member_sets(Members, Goal, Sets).
+
+undefined_member_set(Sets) :-
+    member(Set, Sets),
+    member(Type, Set),
+    Type == '%Undefined%',
+    !.
+
+%Every combination EXCEPT the all-firsts one, which the maplist/3 walk already
+%answered. Keeping each member's first type and recursing holds that prefix
+%until some member takes a later type; from there the members to its right are
+%unconstrained.
+member_set_product_rest([[First|Rest]|Sets], [T|Ts]) :-
+    (   T = First,
+        member_set_product_rest(Sets, Ts)
+    ;   member(T, Rest),
+        member_set_product(Sets, Ts)
+    ).
+
+member_set_product([], []).
+member_set_product([Set|Sets], [T|Ts]) :-
+    member(T, Set),
+    member_set_product(Sets, Ts).
 
 %%%% Type lookup in one explicitly selected space %%%%
 %
@@ -2767,8 +3226,7 @@ scoped_type_candidate(Space, Module, X, T) :-
     \+ scoped_function_type(Space, Module, X, _),
     X = [_|_],
     is_list(X),
-    maplist(scoped_has_type(Space, Module), X, Members),
-    tuple_type(Members, T).
+    tuple_types_scoped(Space, Module, X, T).
 scoped_type_candidate(Space, _, X, T) :-
     match_stored(Space, [':', X, T], T, _),
     acyclic_term(T).
@@ -2800,11 +3258,17 @@ scoped_has_type(Space, Module, X, T) :-
         member(T, Types)
     ).
 
+%The same one-enumeration shape type_witness_in/3 above uses, for the same
+%reason: asking whether a candidate widens to T and then, separately, whether T
+%is itself a candidate ran scoped_type_candidate/4 twice over the same term, and
+%each walk re-entered its subterms. typing_rule_accepts/4 still leads, so a
+%decisive user rule is consulted before the reflexive case as it was.
 scoped_type_witness(Space, Module, X, T) :-
     (   once(( scoped_type_candidate(Space, Module, X, Actual),
-               typing_rule_accepts(Module, widening, Actual, T) ))
-    ->  true
-    ;   once(scoped_type_candidate(Space, Module, X, T))
+               (   typing_rule_accepts(Module, widening, Actual, T)
+               ->  true
+               ;   Actual = T
+               ) ))
     ->  true
     ;   satisfies_metatype_in(Module, X, T)
     ->  true
@@ -2812,9 +3276,15 @@ scoped_type_witness(Space, Module, X, T) :-
         once(( member(Widened, Types), Widened == T ))
     ).
 
+%THE CHEAP TEST LEADS, for the reason widen_to_super_types/4 above records:
+%scoped_widening_applies/3 reaches get_function_type/2 through
+%application_return_type/2 and so types the application again, where
+%scoped_any_super_type_edge/1 is one indexed probe of an empty ':<' bucket. Both
+%are pure tests that bind nothing. get-type-space is a separate call graph on
+%purpose, so the ordinary path's fix does not reach it.
 scoped_widen_to_super_types(Space, Module, X, Types0, Types) :-
-    (   scoped_widening_applies(Space, Module, X),
-        scoped_any_super_type_edge(Space)
+    (   scoped_any_super_type_edge(Space),
+        scoped_widening_applies(Space, Module, X)
     ->  findall(Declared,
                 match_stored(Space, [':', X, Declared], Declared, _),
                 Directs),
@@ -5004,7 +5474,7 @@ prolog:error_message(permission_error(register, metta_function, Name)) -->
 %this loop [source: CPython, the code module's split between
 %InteractiveInterpreter and InteractiveConsole]
 %[tested: parser_reads_a_form_across_lines].
-'read-form!'(Out) :- read_form_lines("", Out).
+'read-form!'(Out) :- read_form_lines([], read_form_state(0, outside, false), Out).
 
 %The decision on its own, with no I/O: (complete Term), incomplete, or a
 %raise. A console that does its own reading asks this and keeps its own
@@ -5018,17 +5488,72 @@ prolog:error_message(permission_error(register, metta_function, Name)) -->
     sread_command(Text, Answer),
     ( Answer = complete(Term) -> Result = [complete, Term] ; Result = Answer ).
 
-read_form_lines(Buffered, Out) :-
+%A form may span lines, and each new line used to be appended to the whole
+%buffered text and ALL of it handed back to sread_command/2: string_codes/2 over
+%it, the content scan over it, the balance scan over it, once per line. That is
+%Theta(L^2) in the form's total length. One form of 1,600 lines spent
+%132,673,790,292 instructions where the SAME text on one line spent
+%1,484,324,191, and the cost quadrupled per doubling
+%[measured 2026-08-23, ai-tmp/synth/readform/].
+%
+%command_balance/5 already carries its (Depth, State) from one call to the next,
+%so the same question can be asked of one LINE with that state carried, which is
+%Theta(L) over the whole form, and the lines are joined once when it completes.
+read_form_lines(Reversed, State0, Out) :-
     read_line_to_string(user_input, Line),
     (   Line == end_of_file
-    ->  ( Buffered == "" -> Out = end_of_file ; sread(Buffered, Out) )
-    ;   ( Buffered == "" -> Text = Line
-        ; string_concat(Buffered, "\n", WithBreak),
-          string_concat(WithBreak, Line, Text) ),
-        sread_command(Text, Result),
-        ( Result = complete(Term) -> Out = Term
-        ; read_form_lines(Text, Out) )
+    ->  (   Reversed == []
+        ->  Out = end_of_file
+        ;   read_form_text(Reversed, Text),
+            sread(Text, Out)
+        )
+    ;   Buffered = [Line|Reversed],
+        read_form_step(Line, State0, State, Answer),
+        (   Answer == complete
+        ->  read_form_text(Buffered, Text),
+            sread(Text, Out)
+        %Malformed, so the reader's own error is the answer, exactly as it was
+        %when the whole text reached sread_command/2's last clause.
+        ;   Answer == malformed
+        ->  read_form_text(Buffered, Text),
+            sread(Text, _)
+        ;   read_form_lines(Buffered, State, Out)
+        )
     ).
+
+%One line's worth of the scan sread_command/2 runs over a whole text, carrying
+%what it learned. The line BREAK belongs to the scan and not only to the text:
+%it is what ends a comment, so the state has to cross it. A closing bracket too
+%many is MALFORMED rather than incomplete, which is why command_balance/5 fails
+%on it and no amount of further typing repairs it.
+read_form_step(Line, State0, State, Answer) :-
+    State0 = read_form_state(Depth0, Scan0, Content0),
+    string_codes(Line, Codes),
+    (   command_balance(Codes, Depth0, Scan0, Depth, AfterLine)
+    ->  string_state(AfterLine, 0'\n, Scan),
+        (   Content0 == true
+        ->  Content = true
+        ;   command_content(Codes, Scan0)
+        ->  Content = true
+        ;   Content = false
+        ),
+        State = read_form_state(Depth, Scan, Content),
+        (   read_form_settled(Content, Depth, Scan)
+        ->  Answer = complete
+        ;   Answer = incomplete
+        )
+    ;   State = State0,
+        Answer = malformed
+    ).
+
+read_form_settled(true, 0, Scan) :-
+    % policy-inventory-exempt: mechanism-internal; reason=string and escaped are internal states of the reader state machine; evidence=engine/metta.pl:read_form_settled/3
+    \+ memberchk(Scan, [string, escaped]).
+
+read_form_text(Reversed, Text) :-
+    reverse(Reversed, Lines),
+    atomic_list_concat(Lines, '\n', Joined),
+    atom_string(Joined, Text).
 
 test(A,B,true) :- (A =@= B -> E = '✅' ; E = '❌'),
                   sdisplay(A, RA),
