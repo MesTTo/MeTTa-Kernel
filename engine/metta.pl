@@ -2865,13 +2865,16 @@ type_candidate_in(Module, X, T) :- get_type_rule_in(Module, X, T).
 %boolean carries the nesting the clause count used to carry.
 metta_evaluating_type_rule :- nb_current('$petta_evaluating_type_rule', true).
 
-get_type_rule_in(Module, X, T) :- \+ metta_reading_declared_types,
-                                  \+ metta_self_module(Module),
-                                  fun_in(Module, 'get-type'),
-                                  call_get_type_rule(Module, X, T).
-get_type_rule_in(_, X, T) :- \+ metta_reading_declared_types,
-                             metta_self_module(Self),
-                             call_get_type_rule(Self, X, T).
+get_type_rule_in(Module, X, T) :-
+    \+ metta_reading_declared_types,
+    metta_self_module(Self),
+    (   Module == Self
+    ->  call_get_type_rule(Self, X, T)
+    ;   (   fun_in(Module, 'get-type'),
+            call_get_type_rule(Module, X, T)
+        ;   call_get_type_rule(Self, X, T)
+        )
+    ).
 
 call_get_type_rule(Module, X, T) :-
     (   nb_current('$petta_evaluating_type_rule', Previous)
