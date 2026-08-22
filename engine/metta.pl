@@ -5474,7 +5474,7 @@ prolog:error_message(permission_error(register, metta_function, Name)) -->
 %this loop [source: CPython, the code module's split between
 %InteractiveInterpreter and InteractiveConsole]
 %[tested: parser_reads_a_form_across_lines].
-'read-form!'(Out) :- read_form_lines("", Out).
+'read-form!'(Out) :- read_form_lines([], read_form_state(0, outside, false), Out).
 
 %The decision on its own, with no I/O: (complete Term), incomplete, or a
 %raise. A console that does its own reading asks this and keeps its own
@@ -5488,17 +5488,72 @@ prolog:error_message(permission_error(register, metta_function, Name)) -->
     sread_command(Text, Answer),
     ( Answer = complete(Term) -> Result = [complete, Term] ; Result = Answer ).
 
-read_form_lines(Buffered, Out) :-
+%A form may span lines, and each new line used to be appended to the whole
+%buffered text and ALL of it handed back to sread_command/2: string_codes/2 over
+%it, the content scan over it, the balance scan over it, once per line. That is
+%Theta(L^2) in the form's total length. One form of 1,600 lines spent
+%132,673,790,292 instructions where the SAME text on one line spent
+%1,484,324,191, and the cost quadrupled per doubling
+%[measured 2026-08-23, ai-tmp/synth/readform/].
+%
+%command_balance/5 already carries its (Depth, State) from one call to the next,
+%so the same question can be asked of one LINE with that state carried, which is
+%Theta(L) over the whole form, and the lines are joined once when it completes.
+read_form_lines(Reversed, State0, Out) :-
     read_line_to_string(user_input, Line),
     (   Line == end_of_file
-    ->  ( Buffered == "" -> Out = end_of_file ; sread(Buffered, Out) )
-    ;   ( Buffered == "" -> Text = Line
-        ; string_concat(Buffered, "\n", WithBreak),
-          string_concat(WithBreak, Line, Text) ),
-        sread_command(Text, Result),
-        ( Result = complete(Term) -> Out = Term
-        ; read_form_lines(Text, Out) )
+    ->  (   Reversed == []
+        ->  Out = end_of_file
+        ;   read_form_text(Reversed, Text),
+            sread(Text, Out)
+        )
+    ;   Buffered = [Line|Reversed],
+        read_form_step(Line, State0, State, Answer),
+        (   Answer == complete
+        ->  read_form_text(Buffered, Text),
+            sread(Text, Out)
+        %Malformed, so the reader's own error is the answer, exactly as it was
+        %when the whole text reached sread_command/2's last clause.
+        ;   Answer == malformed
+        ->  read_form_text(Buffered, Text),
+            sread(Text, _)
+        ;   read_form_lines(Buffered, State, Out)
+        )
     ).
+
+%One line's worth of the scan sread_command/2 runs over a whole text, carrying
+%what it learned. The line BREAK belongs to the scan and not only to the text:
+%it is what ends a comment, so the state has to cross it. A closing bracket too
+%many is MALFORMED rather than incomplete, which is why command_balance/5 fails
+%on it and no amount of further typing repairs it.
+read_form_step(Line, State0, State, Answer) :-
+    State0 = read_form_state(Depth0, Scan0, Content0),
+    string_codes(Line, Codes),
+    (   command_balance(Codes, Depth0, Scan0, Depth, AfterLine)
+    ->  string_state(AfterLine, 0'\n, Scan),
+        (   Content0 == true
+        ->  Content = true
+        ;   command_content(Codes, Scan0)
+        ->  Content = true
+        ;   Content = false
+        ),
+        State = read_form_state(Depth, Scan, Content),
+        (   read_form_settled(Content, Depth, Scan)
+        ->  Answer = complete
+        ;   Answer = incomplete
+        )
+    ;   State = State0,
+        Answer = malformed
+    ).
+
+read_form_settled(true, 0, Scan) :-
+    % policy-inventory-exempt: mechanism-internal; reason=string and escaped are internal states of the reader state machine; evidence=engine/metta.pl:read_form_settled/3
+    \+ memberchk(Scan, [string, escaped]).
+
+read_form_text(Reversed, Text) :-
+    reverse(Reversed, Lines),
+    atomic_list_concat(Lines, '\n', Joined),
+    atom_string(Joined, Text).
 
 test(A,B,true) :- (A =@= B -> E = '✅' ; E = '❌'),
                   sdisplay(A, RA),

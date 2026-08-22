@@ -672,6 +672,56 @@ wide_typing_cost(Width, Cost) :-
 
 :- end_tests(metta_type_answers).
 
+% A form may span lines, and asking sread_command/2 the whole buffered text
+% again for every one of them is Theta(L^2) in the form's length: 1,600 lines
+% spent 132,673,790,292 instructions where the same text on ONE line spent
+% 1,484,324,191. read_form_step/4 carries the scanner state instead, so each
+% line is read once. The differential is what makes that trustworthy: line by
+% line must reach the same verdict on every PREFIX as the whole text does.
+:- begin_tests(metta_form_reader).
+
+form_reader_case(["(f a)"]).
+form_reader_case(["(f", "a)"]).
+form_reader_case(["(a (b (c", "))", ")"]).
+form_reader_case(["; comment", "(f a)"]).
+form_reader_case(["(f \"str", "ing\" a)"]).
+form_reader_case(["", "   ", "(f a)"]).
+form_reader_case(["(f a) ; trailing"]).
+form_reader_case(["(= (f $x)", "  (g $x))"]).
+form_reader_case(["(f a))"]).
+form_reader_case(["(f \"a", "b\\", "c\")"]).
+form_reader_case(["(f ; )", ")"]).
+
+test(the_line_scan_agrees_with_the_whole_text_scan) :-
+    forall(form_reader_case(Lines), line_scan_agrees(Lines)).
+
+line_scan_agrees(Lines) :-
+    line_scan_agrees(Lines, [], read_form_state(0, outside, false)).
+
+line_scan_agrees([], _, _).
+line_scan_agrees([Line|Rest], Seen, State0) :-
+    append(Seen, [Line], Prefix),
+    atomic_list_concat(Prefix, '\n', Joined),
+    atom_string(Joined, Text),
+    whole_text_verdict(Text, Expected),
+    read_form_step(Line, State0, State, Answer),
+    assertion(Answer == Expected),
+    (   Answer == incomplete
+    ->  line_scan_agrees(Rest, Prefix, State)
+    ;   true
+    ).
+
+%sread_command/2 asks one question the line scan carries as a flag, whether the
+%text has any CONTENT, and answers incomplete for a blank or comment-only one.
+%A malformed text RAISES there and is the atom malformed here.
+whole_text_verdict(Text, Verdict) :-
+    (   catch(sread_command(Text, Read), _, fail)
+    ->  ( Read == incomplete -> Verdict = incomplete ; Verdict = complete )
+    ;   Verdict = malformed
+    ).
+
+:- end_tests(metta_form_reader).
+
 :- begin_tests(metta_builtin_scoping).
 
 test(a_named_space_defining_a_builtin_name_keeps_it_working_elsewhere,

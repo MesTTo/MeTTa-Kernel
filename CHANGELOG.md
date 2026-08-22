@@ -48,6 +48,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Reading a form that spans lines is now linear in the form's length rather
+  than quadratic, in the engine's `(read-form!)` and in the `petta repl` CLI
+  alike. Both appended each new line to the whole buffered text and re-scanned
+  all of it; the scanner state is now carried from one line to the next. One
+  form of 1,600 lines cost 132,673,790,292 instructions and costs 1,497,495,105.
+- `petta repl` no longer hangs on two inputs the engine considers finished: a
+  backslash escaping a line break inside a string, which its check read as an
+  unterminated string, and an over-closed buffer holding an unterminated string,
+  where the stray bracket now ends the form so it errors rather than prompting.
 - A conjunctive `match` now enumerates the most constrained conjunct first
   rather than following source order, over a native space and over one that
   reads through a parent chain alike. Running the conjunction as a nested loop
