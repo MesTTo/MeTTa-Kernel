@@ -28,31 +28,32 @@ Source: `bindings/python/petta/aio.py`.
 >   - interpreter shutdown without live workers does not initialize the
 >     optional engine bridge [tested test_aio_empty_shutdown_does_not_import_janus]
 >   - async names and save formats retain the synchronous surface's contextual
->     types [tested test_public_context_types_are_distinct]
+>     types [tested: test_canonical_context_types_replace_public_newtypes;
+>     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - async declaration methods reuse the catalog-generated policy aliases and
 >     own no duplicate Literal lists [tested: tests/check_policy_inventory.py;
->     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+>     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - async cast preserves a concrete target class as its static return type and
 >     keeps the target positional-only [tested
 >     test_target_type_overloads_preserve_the_requested_class,
 >     test_cast_target_is_positional_only]
->   - async new_space forwards inheritance, restriction, and grants on the
->     owning worker [tested test_async_new_space_forwards_restriction_and_grants;
->     commit=6a08901f4125c2536f5b4032daac9937f793870f]
+>   - async space forwards anonymous-space inheritance, restriction, and grants
+>     on the owning worker [tested:
+>     test_async_space_forwards_restriction_and_grants; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - reader-token registration and removal run on the owning engine worker and
 >     mirror the synchronous surface [tested:
->     test_aio_plain_methods_forward_on_the_worker; commit=2c741dda928a30d0ce1c7e1fcf0b263b4d1bb97b]
+>     test_aio_plain_methods_forward_on_the_worker; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - async eval mirrors the synchronous single answer shape without a
 >     residuals flag [tested:
 >     test_a_not_reducible_answer_is_the_unreduced_term_with_no_flag;
->     commit=affc981bd744563f65f595259b8a3564b9d84ba9]
+>     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - execution-policy scopes cross the worker hop and never change awaited
 >     return shapes [tested:
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
->     commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
+>     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - declare_image reaches the synchronous declaration owner on the engine
 >     worker [tested: test_aio_covers_the_whole_synchronous_surface;
->     commit=24532816d8f3987cc56059fadf3666a387ae1156]
+>     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 > Owns:
 >   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
 >     engine until aclose(), stop(), or the atexit handler releases it [tested
@@ -88,13 +89,21 @@ class AsyncMeTTa:
 > asyncio timeout included) interrupts its own call, so the engine
 > stops working for a listener that is gone.
 
-### `AsyncMeTTa.space_name`
+### `AsyncMeTTa.name`
 
 ```python
-def space_name(self) -> SpaceName:
+def name(self) -> _SpaceId:
 ```
 
 No docstring is defined.
+
+### `AsyncMeTTa.bind`
+
+```python
+def bind(self, values: Mapping[str, Any] | None = None, /, **named: Any) -> Any:
+```
+
+> Scope host values copied into subsequent worker requests.
 
 ### `AsyncMeTTa.metta`
 
@@ -140,7 +149,6 @@ def interrupt(self) -> bool:
 async def run(
     self,
     source: str,
-    using: dict[str, Any] | None = None,
     *,
     timeout: float | None = None,
     inferences: int | None = None,
@@ -178,14 +186,6 @@ async def add(self, *atoms: Any) -> None:
 ```
 
 > Add atoms to this space on the worker.
-
-### `AsyncMeTTa.add_table`
-
-```python
-async def add_table(self, head: Any, data: Any) -> int:
-```
-
-> Add rows from a tabular value and return the number added.
 
 ### `AsyncMeTTa.remove`
 
@@ -265,20 +265,6 @@ async def one(
 ```
 
 > Evaluate a term that must produce exactly one value.
-
-### `AsyncMeTTa.new_space`
-
-```python
-async def new_space(
-    self,
-    *,
-    inherits: AsyncMeTTa | None = None,
-    restricted: bool = False,
-    grants: Sequence[str] = (),
-) -> AsyncMeTTa:
-```
-
-> Return an isolated space that borrows this connection's worker.
 
 ### `AsyncMeTTa.copy`
 
@@ -434,12 +420,23 @@ async def why(self, pattern: Any) -> str:
 ### `AsyncMeTTa.space`
 
 ```python
-async def space(self, name: str) -> AsyncMeTTa:
+async def space(
+    self,
+    name: str | None = None,
+    backing: Any = None,
+    *,
+    inherits: AsyncMeTTa | None = None,
+    restricted: bool = False,
+    grants: Sequence[str] = (),
+) -> AsyncMeTTa:
 ```
 
-> Another space through the same engine thread. The connection
-> owns the thread; spaces borrow it, so closing a borrowed space is
-> a no-op and closing the owner ends them all.
+> Create or open one space through this connection's worker.
+>
+> An omitted name creates an anonymous space. A provider supplied as
+> ``backing`` is attached to the resulting handle. The connection owns
+> the worker; returned spaces borrow it, so closing one does not stop
+> the connection.
 
 ### `AsyncMeTTa.first`
 
@@ -532,14 +529,6 @@ async def space_names(self) -> list[str]:
 ```
 
 > Every space name this engine registers, sorted.
-
-### `AsyncMeTTa.disassemble`
-
-```python
-async def disassemble(self, name: str) -> str:
-```
-
-> The Prolog clauses a function name compiled to.
 
 ### `AsyncMeTTa.declare_admits`
 
@@ -758,27 +747,6 @@ async def declare_writes(self, name: str, atomicity: Atomicity) -> Atom:
 
 No docstring is defined.
 
-### `AsyncMeTTa.register_op`
-
-```python
-async def register_op(
-    self,
-    fn: Callable,
-    /,
-    *,
-    name: str | None = None,
-    transport: Literal['encoded', 'raw'] = 'encoded',
-    declarations: Iterable[Atom] = (),
-    arities: list[int] | None = None,
-    inverse: Callable | None = None,
-) -> Callable:
-```
-
-> Register a Python callable as a MeTTa function. The engine
-> calls it synchronously on the worker thread, exactly as the
-> synchronous surface does; the decorator spelling stays with the
-> synchronous surface, since decoration cannot await.
-
 ### `AsyncMeTTa.op`
 
 ```python
@@ -795,7 +763,7 @@ async def op(
 ) -> Callable:
 ```
 
-> register_op under its short name.
+> Register a callable through the single short operation door.
 
 ### `AsyncMeTTa.define`
 
@@ -862,15 +830,6 @@ async def register_prolog(
 
 > Register Prolog predicates as MeTTa functions.
 
-### `AsyncMeTTa.register_space`
-
-```python
-async def register_space(self, provider: Any, name: str) -> Any:
-```
-
-> Register a Python-backed space. Its methods run on whichever
-> thread the engine is answering from, exactly as in sync use.
-
 ### `AsyncMeTTa.register_foreign_library`
 
 ```python
@@ -897,14 +856,6 @@ async def register_library_path(self, directory: Any, name: str) -> None:
 
 ```python
 async def unregister_prolog(self, extension: str) -> tuple[str, ...]:
-```
-
-No docstring is defined.
-
-### `AsyncMeTTa.unregister_space`
-
-```python
-async def unregister_space(self, name: str) -> None:
 ```
 
 No docstring is defined.

@@ -1,3 +1,9 @@
+<!--
+Purpose: introduce run, eval, query, and Python operation registration.
+Guarantees: operation examples use the canonical Space.op decorator.
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+-->
+
 # 04. The Python bridge
 
 Choose the bridge method from the value you already have. Use `run` for MeTTa source text, `eval` for an atom already built in Python, and `query` for bindings from stored facts.
@@ -8,9 +14,9 @@ The core tests put the three value shapes side by side:
 
 ```python
 def test_eval(metta):
-    assert metta.eval(S["car-atom"](expr(1, 2, 3))) == [1]
-    assert metta.eval(S.superpose(expr(S.x, S.y))) == [S.x, S.y]
-    assert metta.eval(expr(S["+"], 20, 22)) == [42]
+    assert metta.eval(S["car-atom"](Expression(1, 2, 3))) == [1]
+    assert metta.eval(S.superpose(Expression(S.x, S.y))) == [S.x, S.y]
+    assert metta.eval(Expression(S["+"], 20, 22)) == [42]
 
 
 def test_source_strings_are_parsed_where_atoms_are_expected(m):
@@ -26,7 +32,7 @@ The boundary also goes from MeTTa into Python. Register a Python callable with `
 def test_det_op_composes_with_equations(metta):
     name = unique("dbl")
 
-    @metta.register_op(name=name)
+    @metta.op(name=name)
     def double(x: int) -> int:
         return 2 * x
 

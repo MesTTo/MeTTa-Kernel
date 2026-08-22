@@ -331,7 +331,7 @@ class SpaceProvider:
 > One space backed by Python. Implement only what the backend has.
 >
 > match(pattern) yields candidate atoms; the pattern's variables arrive as
-> Var atoms, and bound positions as ground atoms, which is what a backend
+> Variable atoms, and bound positions as ground atoms, which is what a backend
 > turns into its own filter (a WHERE clause, a mask). Yielding every atom
 > is always correct; yielding fewer than match is never allowed to be.
 > An Enumerable provider need not implement Matcher: enumeration is the

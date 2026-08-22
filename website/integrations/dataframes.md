@@ -1,13 +1,19 @@
+<!--
+Purpose: show how petta.tables.add and Rows bridge tabular data in both directions.
+Guarantees: table ingestion examples use the satellite function rather than the removed Space method.
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+-->
+
 # Dataframes
 
-PeTTa crosses the dataframe boundary in both directions. `m.add_table(head, source)` turns each input row into one fact. Query results keep named columns as `Rows`, then `table`, `to_df`, and `to_pl` expose shapes used by Python dataframe libraries.
+PeTTa crosses the dataframe boundary in both directions. `petta.tables.add(m, head, source)` turns each input row into one fact. Query results keep named columns as `Rows`, then `table`, `to_df`, and `to_pl` expose shapes used by Python dataframe libraries.
 
 ## Read a table into a space
 
 The engine-controls example creates relation facts from ordinary rows, queries them, and converts the result to Polars when it is installed:
 
 ```python
-m.add_table("edge", [(i, i + 1) for i in range(200)])
+tables.add(m, "edge", [(i, i + 1) for i in range(200)])
 rows = m.query(S.edge(V.a, V.b), S.edge(V.b, V.c), timeout=30.0)
 check("a generous bound changes nothing", len(rows), 199)
 
@@ -32,27 +38,27 @@ Mappings provide column names and values. Polars frames use their row iterator. 
 
 ```python
 def test_add_table_reads_any_tabular_source(m):
-    added = m.add_table("edge", {"src": [S.a, S.b], "dst": [S.b, S.c]})
+    added = tables.add(m, "edge", {"src": [S.a, S.b], "dst": [S.b, S.c]})
     assert added == 2
     assert len(m.query(S.edge(V.x, V.y))) == 2
 
     polars = pytest.importorskip("polars")
     frame = polars.DataFrame({"name": ["ada", "bob"], "age": [36, 41]})
-    assert m.add_table("person", frame) == 2
+    assert tables.add(m, "person", frame) == 2
     rows = m.query(S.person(V.name, V.age))
     assert {(r["name"], r.age) for r in rows} == {("ada", 36), ("bob", 41)}
     with pytest.raises(TypeError):
-        m.add_table("bad", 7)
+        tables.add(m, "bad", 7)
 ```
 
-Pandas input is supported by the implementation through `itertuples(index=False)`. No current test or example passes a pandas frame into `add_table`, so that statement is source-backed, not test-backed.
+Pandas input is supported by the implementation through `itertuples(index=False)`. No current test or example passes a pandas frame into `tables.add`, so that statement is source-backed, not test-backed.
 
 Ragged mappings fail before they can leave partial facts:
 
 ```python
 def test_add_table_refuses_ragged_columns(m):
     with pytest.raises(ValueError):
-        m.add_table("edge", {"src": [S.a, S.b, S.c], "dst": [S.b]})
+        tables.add(m, "edge", {"src": [S.a, S.b, S.c], "dst": [S.b]})
     assert m.query(S.edge(V.x, V.y)) == []
 ```
 
@@ -74,7 +80,7 @@ def test_rows_table_is_the_dataframe_shape(m):
 def test_rows_to_pl_builds_the_polars_frame(m):
     pytest.importorskip("polars")
 
-    m.add_table("score", [("ada", 3), ("bob", 5)])
+    tables.add(m, "score", [("ada", 3), ("bob", 5)])
     rows = m.query(S.score(V.who, V.points))
     frame = rows.to_pl()
     assert frame.columns == ["who", "points"]
@@ -86,7 +92,7 @@ def test_rows_to_pl_builds_the_polars_frame(m):
 
 ```python
 def test_rows_to_df_builds_or_names_the_need(m):
-    m.add_table("score", [("ada", 3)])
+    tables.add(m, "score", [("ada", 3)])
     rows = m.query(S.score(V.who, V.points))
     if importlib.util.find_spec("pandas") is None:
         with pytest.raises(ImportError, match="pandas"):
@@ -115,4 +121,4 @@ def test_empty_zero_column_rows_remain_an_empty_table():
     assert Rows((), []).table() == {}
 ```
 
-Continue with [Run and query](../guide/run-query), [`MeTTa.add_table`](../reference/petta-space#metta-add-table), [`Rows.table`](../reference/petta-results#rows-table), [`Rows.to_df`](../reference/petta-results#rows-to-df), and [`Rows.to_pl`](../reference/petta-results#rows-to-pl).
+Continue with [Run and query](../guide/run-query), [`petta.tables.add`](../reference/petta-tables#add), [`Rows.table`](../reference/petta-results#rows-table), [`Rows.to_df`](../reference/petta-results#rows-to-df), and [`Rows.to_pl`](../reference/petta-results#rows-to-pl).

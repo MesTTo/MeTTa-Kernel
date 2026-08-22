@@ -33,7 +33,7 @@ Be clear about what this buys. The engine is one per process and calls are seria
 
 ## The whole surface, and the async shapes
 
-Parity with the synchronous surface is computed, not curated: the suite asserts every public `MeTTa` method exists here, minus three with stated reasons (`pool`, because asyncio's fan-out is N workers and `asyncio.gather`; `prolog`, an interactive toplevel; `transactional`, because a transaction body is a closed synchronous goal and `transaction()` is the async spelling). The `declare_*` and `register_*` families, `first`, `parallel`, `space_names`, `disassemble` and the rest are one worker round trip each.
+`AsyncMeTTa` mirrors the context-relative `Space` verbs that make sense across a worker hop. The `declare_*` family, `op`, `unregister_op`, `parallel`, and `space_names` are one worker round trip each. Private diagnostics remain reachable through `call()` instead of becoming a second public facade.
 
 The structural pieces take their async shapes rather than a thread wrapper's:
 
@@ -101,6 +101,6 @@ Three things to know before using it.
 
 **There is no `inferences=` bound.** The engine's inference limit counts the calling thread, and every branch runs in a worker, so a limit of 50,000 will not stop two branches spending six million. `timeout=` does bound the call and is the one to use. An unenforceable bound is worse than an absent one, so the parameter is not offered.
 
-**Give each engine its own space.** Two connections share `&self`, and defining an equation is not idempotent: the same recursive equation defined twice answers 2^n times, which reads as a hang rather than an error. Use `new_space()` per worker.
+**Give each engine its own space.** Two connections share `&self`, and defining an equation is not idempotent: the same recursive equation defined twice answers 2^n times, which reads as a hang rather than an error. Use `await am.space()` per worker.
 
 The other two engine-level forms are available from MeTTa source: `(with_mutex <name> <body>)` for a named lock, and `(transaction <body>)` for an all-or-nothing write. `with am.atomic():` applies the latter to each awaited source string in the block.

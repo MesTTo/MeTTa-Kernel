@@ -30,10 +30,10 @@ nars = "mylib:LIBRARY_DIR"          # the directory of sources it ships
 Nothing auto-registers on import. `petta.integrate.entry_points(group)` answers the advertised names without loading anything, and the app loads by name, keeping control:
 
 ```python
-from petta import integrate
+from petta import attach, integrate
 
 integrate.discover(m)                                     # install every advertised integration
-m.register_space(integrate.load_entry_point("duck"), "&duck")
+attach("&duck", integrate.load_entry_point("duck"))
 m.register_library_path(
     integrate.load_entry_point("nars", group=integrate.LIBRARIES_GROUP), "nars"
 )

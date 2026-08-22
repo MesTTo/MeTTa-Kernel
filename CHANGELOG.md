@@ -71,6 +71,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- The Python surface narrows to a lazy core. `MeTTa` is the runtime
+  context, 20 public attributes down from 90; its default space is
+  `MeTTa().self` and storage and query verbs live on the `Space` handle.
+  `dir(petta)` answers 61 names down from 152, a fresh `import petta`
+  loads 9 modules down from 58 and takes 12ms down from 40, and every
+  specialist surface (`algebra`, `arrays`, `events`, `wire`, `tables`,
+  `paths`, `derivation`, `foreign`, `casting`, and the rest) loads on
+  first access under PEP 562. Public atom types use complete Python
+  class names: `Symbol`, `Variable`, `Expression`, `Grounded`. Deleted
+  without aliases, each with its one door: `new_space`/`fresh_space`
+  (`petta.space()`), `count` (`len(space)`), `space_name` (`.name`),
+  `register_op` (`op`), `run(using=)` (`with m.bind(...)`), `one`,
+  `first` and `stream` (the answer API), `save(space, path)`
+  (`space.save(path)`), `val`/root `encode` (`ground` and
+  `petta.wire`), `petta.das` and `petta.persistent`
+  (`petta.space(backing=...)` and `petta.space(journal=...)`),
+  `backend_info` (`petta.engine().info()`), and the root re-exports of
+  errors, protocols, events, and proof detail, which live on their
+  satellites. Upstream's `python.petta` wrapper is unaffected.
+
 - The supported Python floor is 3.12, raised from 3.11. Every generic
   declaration in `petta` now uses the type-parameter syntax the class shape
   itself carries (`class Defined[**P, R]`, `def build[BuildT](...)`) instead

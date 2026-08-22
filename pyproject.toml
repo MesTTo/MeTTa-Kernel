@@ -1,3 +1,9 @@
+# Purpose: Defines PeTTa packaging, dependencies, tool policy, and verification contracts.
+# Assumes: Packaging and gate commands run from the repository root with bindings/python importable.
+# Guarantees: Static import contracts keep the narrow core independent of optional satellites.
+# Decides: petta._space is core, while petta._persistent and public satellite modules are outside it.
+# [tested: PYTHONPATH=bindings/python lint-imports --config pyproject.toml; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+
 [build-system]
 requires = ["setuptools>=83"]
 build-backend = "setuptools.build_meta"
@@ -101,6 +107,9 @@ line-length = 100
 extend-exclude = ["HE", "examples/**/_common.py"]
 
 [tool.ruff.lint]
+# Refurb owns these newer rules. Ruff must preserve their targeted ``noqa``
+# directives even though this Ruff version does not implement the codes.
+external = ["FURB104", "FURB141"]
 select = [
     "F",
     "E", "W",
@@ -325,7 +334,7 @@ name = "atoms is the base layer"
 type = "forbidden"
 source_modules = ["petta.atoms", "petta.errors"]
 forbidden_modules = [
-    "petta.space", "petta.ops", "petta.define", "petta.convert",
+    "petta._space", "petta.ops", "petta.define", "petta.convert",
     "petta.integrate", "petta.subscribe", "petta.events",
 ]
 
@@ -336,4 +345,78 @@ source_modules = [
     "petta.subscribe", "petta.events", "petta.foreign", "petta.casting",
     "petta.trace", "petta.lint", "petta.derivation", "petta.results",
 ]
-forbidden_modules = ["petta.space"]
+forbidden_modules = ["petta._space"]
+
+[[tool.importlinter.contracts]]
+name = "core does not import satellites"
+type = "forbidden"
+source_modules = [
+    "petta",
+    "petta._api_types",
+    "petta._atom_namespace",
+    "petta._atom_wire",
+    "petta._atoms_core",
+    "petta._callbacks",
+    "petta._codec_kit",
+    "petta._config",
+    "petta._contract",
+    "petta._define_context",
+    "petta._define_expression",
+    "petta._define_facts",
+    "petta._define_loops",
+    "petta._define_statements",
+    "petta._define_twins",
+    "petta._documentation",
+    "petta._engine",
+    "petta._object_fields",
+    "petta._operator_lowerings",
+    "petta._ops",
+    "petta._optional",
+    "petta._parameterized",
+    "petta._prelude",
+    "petta._source_forms",
+    "petta._space",
+    "petta._space_definitions",
+    "petta._space_diagnostics",
+    "petta._space_execution",
+    "petta._space_objects",
+    "petta._space_persistence",
+    "petta._space_query",
+    "petta._tokens",
+    "petta._type_annotations",
+    "petta._version",
+    "petta.answer",
+    "petta.atoms",
+    "petta.define",
+    "petta.errors",
+    "petta.ops",
+    "petta.results",
+    "petta._rules",
+]
+forbidden_modules = [
+    "petta._persistent",
+    "petta.aio",
+    "petta.algebra",
+    "petta.arrays",
+    "petta.casting",
+    "petta.convert",
+    "petta.derivation",
+    "petta.events",
+    "petta.foreign",
+    "petta.integrate",
+    "petta.lint",
+    "petta.manifest",
+    "petta.parallel",
+    "petta.paths",
+    "petta.remote",
+    "petta.spaces",
+    "petta.structures",
+    "petta.subscribe",
+    "petta.tables",
+    "petta.testing",
+    "petta.trace",
+    "petta.vocabularies",
+    "petta.wire",
+]
+allow_indirect_imports = false
+as_packages = false

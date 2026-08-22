@@ -1,6 +1,8 @@
 <!--
 Purpose: show weighted relations built on the general surface: an
 operation answering its classes with weights as annotations.
+Guarantees: the example uses space() and Space.op from the narrow surface.
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -10,7 +12,7 @@ Open Obligations:
 # Weighted relations and neural predicates
 
 A weighted relation is an ordinary operation whose answers carry their
-weights as annotations. There is no dedicated machinery: `register_op`
+weights as annotations. There is no dedicated machinery: `op`
 registers the callable, each answer names its class as the value and its
 weight as `k`, and `declare_annotations` states the semiring. `top`
 orders the answers, `(annotation)` reads each weight beside its class,
@@ -18,15 +20,15 @@ and the in-language measure library consumes `(weight value)` pairs you
 build with that bridge.
 
 ```python
-from petta import Answer, MeTTa, S
+from petta import Answer, S, space
 
-m = MeTTa().new_space()
+m = space()
 
 def mood(day, chosen=None):
     yield Answer(value=S.calm, k=0.25)
     yield Answer(value=S.tense, k=0.75)
 
-m.register_op(mood, name="mood")
+m.op(mood, name="mood")
 m.declare_annotations("mood", "prob")
 
 m.run("!(collapse (mood today))")                 # (calm tense)

@@ -1,4 +1,17 @@
-"""Build API pages from source signatures and docstrings."""
+"""Purpose: build public API pages from source signatures and docstrings.
+
+Guarantees:
+  - the Space reference is sourced from its private implementation module
+    while retaining the public ``petta.Space`` title
+    [tested: python bindings/python/tools/reference.py; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+  - deleted public module doors are not emitted as reference pages
+    [tested: test_the_legacy_reference_generator_tracks_the_narrow_public_modules;
+    commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None
+"""
 
 from __future__ import annotations
 
@@ -19,17 +32,14 @@ class ModuleSpec:
 
 MODULES = (
     ModuleSpec("petta.atoms", "bindings/python/petta/atoms.py"),
-    ModuleSpec("petta.space", "bindings/python/petta/space.py"),
+    ModuleSpec("petta.Space", "bindings/python/petta/_space.py"),
     ModuleSpec("petta.ops", "bindings/python/petta/ops.py"),
     ModuleSpec("petta.convert", "bindings/python/petta/convert.py"),
-    ModuleSpec("petta.matching", "bindings/python/petta/matching.py"),
-    ModuleSpec("petta.measure", "bindings/python/petta/measure.py"),
+    ModuleSpec("petta.derivation", "bindings/python/petta/derivation.py"),
     ModuleSpec("petta.subscribe", "bindings/python/petta/subscribe.py"),
     ModuleSpec("petta.remote", "bindings/python/petta/remote.py"),
     ModuleSpec("petta.aio", "bindings/python/petta/aio.py"),
-    ModuleSpec("petta.persistent", "bindings/python/petta/persistent.py"),
     ModuleSpec("petta.testing", "bindings/python/petta/testing.py"),
-    ModuleSpec("petta.das", "bindings/python/petta/das.py"),
     ModuleSpec("petta.lint", "bindings/python/petta/lint.py"),
     ModuleSpec("petta.trace", "bindings/python/petta/trace.py"),
     ModuleSpec("petta.casting", "bindings/python/petta/casting.py"),
@@ -127,7 +137,7 @@ def render_module(spec: ModuleSpec) -> str:
 def main() -> None:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     for spec in MODULES:
-        target = OUTPUT / f"{spec.name.replace('.', '-')}.md"
+        target = OUTPUT / f"{spec.name.lower().replace('.', '-')}.md"
         target.write_text(render_module(spec), encoding="utf8")
 
 

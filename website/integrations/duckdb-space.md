@@ -1,3 +1,9 @@
+<!--
+Purpose: show a DuckDB provider implemented with canonical atoms and attached through the public space factory.
+Guarantees: the guide contains no removed atom constructors or Space registration methods.
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+-->
+
 # DuckDB as a space
 
 A `SpaceProvider` lets an external store answer PeTTa matches. The DuckDB example maps each SQL table to a relation whose head is the table name and whose arguments follow the table's column order.
@@ -10,7 +16,7 @@ The provider inspects the pattern before it asks DuckDB for rows. Grounded value
 
 ```python
     def match(self, pattern: Atom) -> Iterator[Atom]:
-        if not (isinstance(pattern, Expr) and pattern.children and isinstance(pattern.head, Sym)):
+        if not (isinstance(pattern, Expression) and pattern.children and isinstance(pattern.head, Symbol)):
             # A shapeless pattern falls back to full enumeration; the engine
             # unifies, so this stays correct.
             yield from self.atoms()
@@ -23,7 +29,7 @@ The provider inspects the pattern before it asks DuckDB for rows. Grounded value
             return
         where, parameters = [], []
         for column, arg in zip(columns, pattern.args):
-            if isinstance(arg, Gnd) or (isinstance(arg, Sym) and arg == NULL):
+            if isinstance(arg, Grounded) or (isinstance(arg, Symbol) and arg == NULL):
                 # A ground position states its value; IS NOT DISTINCT FROM
                 # is SQL equality that also finds NULL when NULL is asked.
                 where.append(f"{_identifier(column)} IS NOT DISTINCT FROM ?")
@@ -35,7 +41,7 @@ The provider inspects the pattern before it asks DuckDB for rows. Grounded value
         if where:
             sql += " where " + " and ".join(where)
         for row in self._conn.execute(sql, parameters).fetchall():
-            yield Expr([Sym(table), *(_to_atom_value(v) for v in row)])
+            yield Expression([Symbol(table), *(_to_atom_value(v) for v in row)])
 ```
 
 Equality pushdown reduces the SQL work while preserving PeTTa's final structural check. A non-NULL symbol does not become a SQL text comparison because SQL text returns as a grounded string, not a symbol.
@@ -55,14 +61,14 @@ def attach(m, name: str, database: Any = ":memory:", tables: list[str] | None = 
     else:
         provider = DuckDBSpace(duckdb.connect(database), tables)
         provider._owns_connection = True
-    m.register_space(name, provider)
+    petta.attach(name, provider)
     return provider
 ```
 
 The normal use path creates tables, registers `&crm`, enumerates rows, and binds a ground position:
 
 ```python
-m = MeTTa().new_space()
+m = petta.space()
 conn = duckdb.connect(":memory:")
 conn.execute("create table users (id integer, name text)")
 conn.execute("insert into users values (1, 'Ada'), (2, 'Bob'), (3, 'Cy')")
@@ -71,7 +77,7 @@ conn.execute("insert into vips values (1), (3)")
 provider = attach(m, "&crm", conn)
 
 check("enumerate", m.run("!(collapse (match &crm (users $id $n) $n))"),
-      [[expr("Ada", "Bob", "Cy")]])
+      [[Expression("Ada", "Bob", "Cy")]])
 check("pushdown filter", m.run("!(match &crm (users 2 $n) $n)"), [["Bob"]])
 ```
 
@@ -82,7 +88,7 @@ Provider matching is available directly, and the registered space composes with 
 ```python
 # Provider-level match answers atoms directly.
 check("provider-level match", list(provider.match(S.users(2, V.n))),
-      [expr(S.users, 2, "Bob")])
+      [Expression(S.users, 2, "Bob")])
 
 # One match joins SQL tables with each other and with native facts.
 m.run("(nickname 1 the-countess)")
@@ -90,7 +96,7 @@ m.run("(nickname 1 the-countess)")
     "!(collapse (match &crm (, (vips $id) (users $id $n)) "
     "(match (context-space) (nickname $id $nick) ($n $nick))))"
 )
-check("SQL joined with native facts", group, [expr(expr("Ada", S["the-countess"]))])
+check("SQL joined with native facts", group, [Expression(Expression("Ada", S["the-countess"]))])
 
 # Writes: add-atom inserts, remove-atom deletes, from running MeTTa.
 m.run('!(add-atom &crm (users 4 "Dee"))')
@@ -118,9 +124,9 @@ check("a date binding finds the dated row",
       m.run('!(match &crm (logs "2026-08-13" $n) $n)'), [["shipped"]])
 provider.clear()
 check("clear empties, schema stays",
-      m.run("!(collapse (match &crm (logs $d $n) x))"), [[expr()]])
+      m.run("!(collapse (match &crm (logs $d $n) x))"), [[Expression()]])
 
-m.unregister_space("&crm")
+petta.space("&crm").drop()
 done("duckdb_space")
 ```
 

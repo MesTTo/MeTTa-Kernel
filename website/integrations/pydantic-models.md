@@ -1,3 +1,9 @@
+<!--
+Purpose: show lossless projection and reconstruction for Pydantic models.
+Guarantees: examples construct atoms through the canonical Expression type.
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+-->
+
 # Pydantic models both ways
 
 PeTTa projects structured Python values into constructor expressions, keeps the declarations that describe their fields, and rebuilds Python objects from those atoms. Pydantic models use the same seam as dataclasses and plain annotated classes.
@@ -13,7 +19,7 @@ def test_pydantic_models_project_like_dataclasses():
         value: float
 
     projected = project(Reading(sensor="t1", value=21.5))
-    assert projected.atom == expr(S.Reading, "t1", 21.5)
+    assert projected.atom == Expression(S.Reading, "t1", 21.5)
     assert "(: Reading (-> String Number Reading))" in set(
         map(str, projected.declarations)
     )
@@ -22,7 +28,7 @@ def test_pydantic_models_project_like_dataclasses():
     # The rebuild runs through the model itself, so validation runs where
     # pydantic runs it: a field refusing its type is pydantic's own error.
     with pytest.raises(pydantic.ValidationError):
-        build(expr(S.Reading, "t1", S.tall), Reading)
+        build(Expression(S.Reading, "t1", S.tall), Reading)
 ```
 
 `project` produces `(Reading "t1" 21.5)` and a constructor declaration. `build` sends the decoded fields back through Pydantic, so Pydantic owns validation on the return path.

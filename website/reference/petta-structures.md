@@ -94,7 +94,7 @@ class MatchIndex:
 >
 >     inbox = MatchIndex()
 >     inbox.add(S.order(V.id, S.express), rush_handler)
->     [value for _, value in inbox.matches(S.order(val(7), S.express))]
+>     [value for _, value in inbox.matches(S.order(ground(7), S.express))]
 
 ### `MatchIndex.add`
 
@@ -214,7 +214,7 @@ class LiveView:
 >
 >     alerts = LiveView(m, S.alert(V.level))
 >     S.alert(S.red) in alerts       # no engine call
->     len(alerts)                    # multiset size, like space.count()
+>     len(alerts)                    # multiset size, like len(space)
 >
 > The seed query and the subscription install run inside ONE engine
 > transaction, so no write can fall between them: the view starts

@@ -1,3 +1,9 @@
+<!--
+Purpose: explain MeTTa declarations, annotation-derived arrows, and checked casts.
+Guarantees: operation examples use the canonical Space.op decorator.
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+-->
+
 # 06. Types and casting
 
 Types are optional atoms. A declaration such as `(: Ann Person)` gives a value a type. A function declaration such as `(: age (-> Person Number))` says that `age` accepts a `Person` and answers a `Number`.
@@ -10,7 +16,7 @@ Python annotations can create function declarations at registration time:
 def test_annotations_declare_types(metta):
     name = unique("typed")
 
-    @metta.register_op(name=name)
+    @metta.op(name=name)
     def typed_op(x: int) -> int:
         return x
 

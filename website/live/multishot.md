@@ -1,3 +1,9 @@
+<!--
+Purpose: map multi-shot solving onto persistent Space state, parts, and external facts.
+Guarantees: the example uses context.space() and petta.tables.add.
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+-->
+
 # Multi-shot solving
 
 clingo's changing-program vocabulary maps onto the existing space and query surface, and the mapping is small enough to be an example rather than a package module: `bindings/python/examples/integration/multishot_solving.py` builds it in two short classes on the core calls alone. A `Part` is a parameterized program template grounded once per argument tuple, clingo's `#program`. An `External` is a fact whose truth toggles between solves and ends with `release()`, clingo's `#external`, which on an engine with no grounding step is exactly a togglable fact.
@@ -50,10 +56,10 @@ class Part:
 The incremental loop grows reachability one step at a time until the goal proves, then toggles an external fact:
 
 ```python
-m = MeTTa().new_space()
+m = MeTTa().space()
 
 # The base part: a graph as tabular facts, and step zero of reachability.
-m.add_table("edge", [(S.a, S.b), (S.b, S.c), (S.c, S.d)])
+tables.add(m, "edge", [(S.a, S.b), (S.b, S.c), (S.c, S.d)])
 m.run("(= (reach a 0) True)")
 
 # The step part, clingo's #program step(t): reach $x at t if some edge

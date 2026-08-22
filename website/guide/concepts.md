@@ -1,3 +1,9 @@
+<!--
+Purpose: map MeTTa concepts onto the canonical Python atom classes, contexts, handles, and result containers.
+Guarantees: every named Python door exists on the narrow public surface.
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+-->
+
 # Concepts and names
 
 MeTTa's own vocabulary, PeTTa's Python spelling of it, and the Python
@@ -11,23 +17,19 @@ the answers `get-metatype` gives. Each kind is one Python class:
 
 | canonical MeTTa | petta class | builder | wire tag |
 |---|---|---|---|
-| Symbol | `Sym` | `S.name` | `"s"` |
-| Variable | `Var` | `V.x` | `"v"` |
-| Expression | `Expr` | `expr(...)` | `"e"` |
-| Grounded | `Gnd` | `encode(...)` | `"g"`, `"n"` |
+| Symbol | `Symbol` | `S.name` | `"s"` |
+| Variable | `Variable` | `V.x` | `"v"` |
+| Expression | `Expression` | `Expression(...)` | `"e"` |
+| Grounded | `Grounded` | `ground(...)` or `G(...)` | `"g"`, `"n"` |
 
 `Atom` is the base class of all four, exactly as canon says the kinds
-are subtypes of Atom. The short class names are ordinary Python (the
-standard library's own ast module ships `Expr`); the canonical name is
-always given beside them in reference docs.
+are subtypes of Atom. The Python classes use the canonical names directly.
 
-Two petta types live INSIDE the Grounded kind rather than beside it. A
+One public petta type lives INSIDE the Grounded kind rather than beside it. A
 `Handle` is a grounded atom whose value is engine-owned, carried by
-identity so a native object survives the round trip; `Box` is the
-wrapper that pins a Python value's identity and equality when the
-default reading would copy or compare structurally. Neither is a fifth
-kind: canon defines Grounded as "any binary object" with its own
-execution and matching, which is precisely what both carry.
+identity so a native object survives the round trip. It is not a fifth kind:
+canon defines Grounded as "any binary object" with its own execution and
+matching, which is precisely what it carries.
 
 ## Kind, metatype, type
 
@@ -38,9 +40,8 @@ Three words that are one small system:
   boundary it is just the class: `(get-metatype x)` corresponds to
   `type(atom)` and `isinstance` checks against the four classes;
 - the **type** is what declarations say: `(get-type x)` reads `(: x T)`
-  declarations and arrows, and `m.fn(name).type` is the Python reading
-  of a function's declared arrow. `m.type()` points the other way,
-  declaring a Python class INTO the space.
+  declarations and arrows. `m.type()` points the other way, declaring a
+  Python class into the space.
 
 `%Undefined%` is the deliberate absence of a type, spelled `Undefined`
 in Python, and it is an answer, not an error.
@@ -48,11 +49,9 @@ in Python, and it is an answer, not an error.
 ## A space is where a program lives
 
 Canon: "Every MeTTa program lives inside of a particular Atomspace."
-That sentence is why one Python class serves both ideas: a `MeTTa`
-object IS a space with the interpreter attached, `MeTTa()` gives you
-one, and `m.space(name)` answers another one, the same class. There is
-no separate Space class to learn, and everything a space can do an
-engine can do, because they are the same thing.
+Python separates the evaluation context from the space handle. `MeTTa()` is
+the context, `MeTTa().self` is its `&self` handle, and `MeTTa().space(name)`
+or the module-level `petta.space(name)` creates another `Space` handle.
 
 `&self` is the reserved token for the space the code lives in, and a
 named space is any other `&name`. The current context resolves the way
@@ -89,13 +88,12 @@ three readings. The triple is spelled the same at every door:
 | | every answer | the first | exactly one |
 |---|---|---|---|
 | MeTTa | `collapse` | `once` | |
-| engine | `eval()` | `first()` | `one()` |
-| `m.fn(name)` | `.all()` | `.first()` | `.one()`, and calling it |
+| evaluation | the list from `eval()` | normal list indexing | check the list's length |
 | query rows | the `Rows` itself | `.first()` | `.one()` |
 
-`one` demands exactly one answer and raises naming the count
-otherwise; `first` tolerates absence. Calling a function object is
-sugar for its `one()`, because a Python call means one value.
+`Rows.one()` demands exactly one row and raises naming the count; `Rows.first()`
+tolerates absence. Evaluation stays an ordinary list so its cardinality is
+visible to the caller.
 
 The same axis settles the error story in one sentence: an
 `(Error ...)` answer stays data at every multiset door and raises
@@ -125,8 +123,7 @@ also a real answer.
 
 ## The naming rule
 
-One concept has one name, and its two spellings map mechanically:
-hyphen to underscore, ceremony dropped, never a synonym. `add-atom` is
-`add`, `get-atoms` is `atoms`, `new-space` is `new_space`. When a new
-name is added on either side of the seam, it is derived from the other
-side by this rule, and a name that cannot be derived is the wrong name.
+One concept has one name. `add-atom` is the `Space.add` write verb,
+`get-atoms` is iteration or `Space.atoms`, and `new-space` is the
+`petta.space()` factory. A superseded Python door is deleted rather than kept
+as a synonym.

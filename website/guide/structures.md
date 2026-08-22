@@ -1,6 +1,12 @@
+<!--
+Purpose: explain the pure, engine-backed, and MeTTa-native data-structure tiers.
+Guarantees: Python examples use canonical atom construction and Space.name.
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+-->
+
 # Data structures
 
-`petta.structures` ships containers whose semantics are MeTTa's, unification, multisets, alpha equivalence, with each structure implemented where it is fastest. The pure tier runs on the atom kernel (`unify`, `alpha_eq`, `substitute`) and never touches the engine, so it imports and works without janus in the process; the engine-backed tier crosses deliberately, because its win IS the engine: tabling that invalidates on writes, subscriptions that maintain a view. MeTTa-side structures live in `lib_datastructures` for programs written in MeTTa itself.
+`petta.structures` ships containers whose semantics are MeTTa's, unification, multisets, alpha equivalence, with each structure implemented where it is fastest. The pure tier runs on the atom kernel (`unify`, `Atom.alpha_eq`, `substitute`) and never touches the engine, so it imports and works without janus in the process; the engine-backed tier crosses deliberately, because its win IS the engine: tabling that invalidates on writes, subscriptions that maintain a view. MeTTa-side structures live in `lib_datastructures` for programs written in MeTTa itself.
 
 ## The pure tier: MeTTa semantics at Python speed
 
@@ -22,19 +28,19 @@ from petta.structures import MatchIndex
 
 inbox = MatchIndex()
 inbox.add(S.order(V.id, S.express), rush_handler)
-[handler for _, handler in inbox.matches(S.order(val(7), S.express))]
+[handler for _, handler in inbox.matches(S.order(ground(7), S.express))]
 ```
 
-`AlphaSet` holds atoms modulo variable renaming, the store a rule base wants: `(= (inc $x) (+ $x 1))` and its `$n` twin are one element. Membership is `alpha_eq` membership, reached through canonical renaming so it costs a hash, and the suite proves it against the pairwise oracle with property tests.
+`AlphaSet` holds atoms modulo variable renaming, the store a rule base wants: `(= (inc $x) (+ $x 1))` and its `$n` twin are one element. Membership is `Atom.alpha_eq` membership, reached through canonical renaming so it costs a hash, and the suite proves it against the pairwise oracle with property tests.
 
-None of the three parses source text, because parsing needs the engine and their contract is engine-freedom: `petta.parse()` first, or build atoms with `S`/`V`/`expr`.
+None of the three parses source text, because parsing needs the engine and their contract is engine-freedom: `petta.parse()` first, or build atoms with `S`, `V`, and `Expression`.
 
 ## The engine-backed tier
 
 `TabledMap` is the memoization that is safe next to a mutating knowledge base. It views a TABLED function: `tm[args]` evaluates once, repeats answer from the engine's table, and a write to a space the function reads by its literal name invalidates exactly the affected tables, SWI's incremental tabling underneath, which `functools.cache` cannot do at all:
 
 ```python
-kb.run(f"(= (cheapest) (min-atom (collapse (match {kb.space_name} (price $i $p) $p))))")
+kb.run(f"(= (cheapest) (min-atom (collapse (match {kb.name} (price $i $p) $p))))")
 prices = TabledMap(kb, "cheapest", arity=0)
 prices[()]                  # evaluated once, tabled
 kb.add(S.price(S.plum, 1))  # invalidates
