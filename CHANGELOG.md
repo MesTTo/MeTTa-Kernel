@@ -8,6 +8,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `@petta.rules` turns a generator whose parameters are rule-local variables
+  into a list of ordinary equation atoms, and `equation(lhs).to(rhs)` keeps the
+  two halves on one static Python type. Add the result with `m.add(*laws)`;
+  `S["="](lhs, rhs)` remains the explicit longhand.
 - Which reaction fires first is a declared policy. `(agenda <ctx> <policy>)`,
   or `m.declare_agenda(name, policy)`, picks between `declaration` (the
   order they were declared, the stated default and what the engine used to
@@ -40,6 +44,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Calling a `Defined` object now evaluates the call in the space that owns the
+  definition and returns its answer list. Use `S[name](...)` to build the call
+  as data; calls made while a `@rules` generator is being collected stage as
+  terms so rule bodies remain ordinary atoms.
 - Subscribability is now a declared capability rather than an inference from
   a provider's write methods. A foreign context says what its change events
   promise, through `m.declare_events(name, delivery, order)`, a Python
@@ -290,6 +298,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `@define` now installs an annotation-derived type declaration before its
+  equation is compiled. The compiler therefore sees the signature at the door
+  where it matters instead of learning it after the clause already exists.
+- `yield from f(...)` inside `@define` no longer silently treats an arbitrary
+  deterministic result as a nondeterministic answer stream. It delegates only
+  to a builtin iterable, the same definition, or a name explicitly marked
+  nondeterministic; another known engine call is refused with the two valid
+  spellings, `yield f(...)` or binding an iterable before `yield from`.
 - A pattern whose head is a variable now answers through every door. The
   match compiler's modifier clauses wrote their `:=` and `:` markers (and
   the Python shim's `path-at`) as literals in their clause heads, and a

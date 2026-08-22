@@ -1,6 +1,6 @@
 # 05. Writing MeTTa in Python
 
-`@m.define` reads supported Python syntax and adds its MeTTa equation to a space. The decorated name then builds a term, while `.py` keeps the ordinary Python function.
+`@m.define` reads supported Python syntax and adds its MeTTa equation to a space. Calling the decorated name evaluates through that space, `S.name(...)` builds a term explicitly, and `.py` keeps the ordinary Python function.
 
 ![A factorial equation and a selected call that answers 120](/visuals/05-writing-metta-in-python.svg)
 
@@ -16,10 +16,11 @@ def fact(n):
 
 check("equations run", m.run("!(fact 6)"), [[720]])
 check("the Python twin agrees", fact.py(6), 720)
-check("calling the name builds the term", str(fact(6)), "(fact 6)")
+check("calling the name evaluates", fact(6), [720])
+check("the S door builds the term", str(S.fact(6)), "(fact 6)")
 ```
 
-Calling `fact(6)` does not run the Python body. It builds `(fact 6)`. Passing that term to `m.eval`, or writing `!(fact 6)`, runs the compiled equation. Calling `fact.py(6)` runs Python directly.
+Calling `fact(6)` runs the compiled equation and returns all engine answers. `S.fact(6)` builds `(fact 6)` as data, and `fact.py(6)` runs the Python reference directly. Inside an `@rules` generator, calls to defined objects stage scope-locally so `equation(lhs).to(fact(x))` still produces an ordinary equation atom.
 
 Use direct MeTTa source when matching, free variables, or several clauses state the problem most clearly. Use `@m.define` when supported Python control flow is the clearest source but the behavior should run as equations. Use `@m.op` when a Python library call or effect must stay in Python.
 

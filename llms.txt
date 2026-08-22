@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/petta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 34 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 160 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 161 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `bindings/python/tests/twins/**/*.py` | 69 Python twins of `examples/` programs, covering `basics/`, `control/` and `types/` whole, each written with no MeTTa source text, answering alpha-equal to its original and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
@@ -43,7 +43,7 @@ re-runs them.
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |
 | `bindings/python/petta/*.py` | the library. `bindings/python/petta/space.py` is the `MeTTa` class; a leading `_` means internal | |
 
-Counts measured 2026-08-21, each one re-checked by the `llms` gate lane on
+Counts measured 2026-08-22, each one re-checked by the `llms` gate lane on
 every run.
 
 ## Install and first call
@@ -51,7 +51,7 @@ every run.
 `pip install .` (the runtime is bundled) or point `PETTA_PATH` at a clone.
 
 ```python
-from petta import MeTTa, S, V, val, expr, parse, cast
+from petta import MeTTa, S, V, equation, rules, val, expr, parse, cast
 m = MeTTa()                      # binds &self, the same space the CLI uses
 m.run("(= (f) 1) !(f) !(+ 1 2)") # [[Gnd(1)], [Gnd(3)]]
 ```
@@ -250,16 +250,25 @@ ordinary evaluation, while an `Atom` annotation receives the written term
 before evaluation. `(effect name immutable)` licenses caching. These policy
 atoms live in `&petta`; `(op name arity raw_det|raw_many)` records raw transport.
 
-`@m.define` compiles the Python BODY into MeTTa equations, and `.py` keeps the
-plain function; stacked clauses become a first-match dispatcher. It takes
-`name=`, and `prolog=` to make a Prolog file the function with the Python kept
-as the reference twin. A local assignment such as `result: int = value`
+`@m.define` compiles the Python BODY into MeTTa equations. Calling the resulting
+`Defined` evaluates in its owning space and returns every engine answer;
+`S.name(...)` stages the term explicitly, while `.py` keeps the plain function.
+Stacked clauses become a first-match dispatcher. It takes `name=`, and
+`prolog=` to make a Prolog file the function with the Python kept as the
+reference twin. A local assignment such as `result: int = value`
 becomes the enforceable in-place claim `(: $result Number)` inside its `let*`.
 The parsed AST also supplies each definition's absolute source span, source
 docstring, lexical free variables, and conservative purity. Those values are
 available on `Defined` and reflect as `source-span`, `free-variable`, and
 `effect ... immutable` atoms in `&petta`; replacement and `clear()` retire
 stale facts.
+`@rules` executes a generator with one rule-local `Var` per parameter and
+returns its yielded equations as ordinary atoms. Defined calls stage only in
+that scope. `equation(lhs).to(rhs)` statically keeps both halves on one Python
+type and derives from the first-class longhand `S["="](lhs, rhs)`. Inside a
+compiled generator, `yield from call(...)` delegates only when the callee's
+nondeterminism is known; an ambiguous engine call refuses with the two explicit
+spellings instead of splicing the call's children.
 `@m.type(cls)` declares a class into a space: `(: ...)` atoms, one accessor
 equation per field for an expression-image class, and its methods registered as
 functions, so the class crosses with its behavior.

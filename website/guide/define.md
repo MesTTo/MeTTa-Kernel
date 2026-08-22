@@ -1,6 +1,6 @@
 # Write MeTTa in Python
 
-`@m.define` compiles a Python function into MeTTa equations. The ordinary Python function remains available as `.py`, while calling the decorated name builds a term.
+`@m.define` compiles a Python function into MeTTa equations. Calling the decorated name evaluates through its owning space, the ordinary Python function remains available as `.py`, and `S.name(...)` builds a term explicitly.
 
 ```python
 @m.define
@@ -9,8 +9,11 @@ def fact(n):
         return 1
     return n * fact(n - 1)
 
-m.run("!(fact 5)")       # [[120]]
-fact.py(5)               # 120: the ordinary Python twin, kept callable
+
+check("equations run", m.run("!(fact 6)"), [[720]])
+check("the Python twin agrees", fact.py(6), 720)
+check("calling the name evaluates", fact(6), [720])
+check("the S door builds the term", str(S.fact(6)), "(fact 6)")
 ```
 
 Repeated definitions stack as MeTTa clauses. Literal defaults become head patterns, and the compiler derives first-match guards:
@@ -30,6 +33,31 @@ def fib(n):
 ```
 
 The subset includes rebinding, `while`, `for`, nested definitions, generators, lambdas, comprehensions, indexing, slicing, formatted strings, and `match(...)` against the running space. Generators compile to nondeterminism. Lowercase names in match patterns bind as variables.
+
+`yield from call(...)` delegates directly only when the compiler knows the
+callee is nondeterministic, including self-recursive generators. A call whose
+result might instead be iterable data is refused at compile time. Write
+`yield call(...)` to delegate its engine answers, or bind returned iterable
+data and then `yield from` that value.
+
+## Rules as ordinary atoms
+
+`@rules` gives each generator parameter a rule-local MeTTa variable. Calls to
+defined objects stage only while the generator is collected, so the result is
+a list of ordinary equation atoms you can inspect, match, and add:
+
+```python
+@rules
+def arithmetic(value):
+    yield equation(S.via_rule(value)).to(twice(value))
+
+
+m.add(*arithmetic)
+```
+
+`equation(lhs).to(rhs)` keeps both halves on one static Python type. It is
+sugar for the container door, which remains first-class:
+`m.add(S["="](S.twice(V.x), V.x + V.x))`.
 
 A local annotated assignment becomes an in-place MeTTa type claim rather than
 being discarded:
