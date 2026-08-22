@@ -17,10 +17,10 @@ Source: `bindings/python/petta/atoms.py`.
 >     test_the_operator_table_is_generated_from_one_source_with_no_holes;
 >     commit=613f35974fa98746552dba584ad66082fdd1f3c7]
 >   - the canonical truth, unit, and context atoms are public values [tested:
->     test_the_canonical_atoms_are_public_values; commit=WORKTREE]
+>     test_the_canonical_atoms_are_public_values; commit=b1599bdc8201a04a3689c1a88707b6f4b53b4d22]
 >   - Expression preserves one iterable's order while assembling it into one
 >     atom [tested: test_expression_assembles_one_ordered_atom_from_an_iterable;
->     commit=WORKTREE]
+>     commit=b1599bdc8201a04a3689c1a88707b6f4b53b4d22]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -69,7 +69,7 @@ def Expression(children: Iterable[Any]) -> Expr:
 > constructor crosses into an object-level expression, where position and
 > multiplicity are data and therefore preserved exactly. It consumes the
 > iterable once [source: ai-python-conventions.md section 3.15;
-> commit=WORKTREE].
+> commit=b1599bdc8201a04a3689c1a88707b6f4b53b4d22].
 
 ## `pretty`
 
