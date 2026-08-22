@@ -2390,11 +2390,19 @@ has_type_in(Module, X, T) :- has_type_derive(Module, X, T).
 
 has_type_derive(Module, X, T) :-
     ( ground(T)
-      -> (   type_witness_in(Module, X, T)
+      -> (   type_witness_direct(Module, X, T)
          ->  true
+         %type_answers/3 is derived ONCE here and both remaining questions are
+         %asked of it. It used to run twice on this path, as type_witness_in/3's
+         %last attempt and again below, and each run re-entered the subterms, so
+         %a term whose check FAILS paid three descents per level where one
+         %answer serves both.
          ;   type_answers(Module, X, Types),
-             member(Actual, Types),
-             metta_types_match_in(Module, Actual, T)
+             (   once(( member(Widened, Types), Widened == T ))
+             ->  true
+             ;   member(Actual, Types),
+                 metta_types_match_in(Module, Actual, T)
+             )
          )
        ; any_super_type_edge(Module)
          -> type_answers(Module, X, Types),
@@ -2426,6 +2434,17 @@ has_type_derive(Module, X, T) :-
 %operational rule
 %[tested: bindings/python/tests/test_answer_protocol.py::test_admission_types_the_pool].
 type_witness_in(Module, X, T) :-
+    (   type_witness_direct(Module, X, T)
+    ->  true
+    ;   type_answers(Module, X, Types),
+        once(( member(Widened, Types), Widened == T ))
+    ).
+
+%The two attempts that reach a decision WITHOUT materialising the full answer
+%set. has_declared_type/2 needs the whole witness including that set, so
+%type_witness_in/3 keeps its contract; has_type_derive/3 derives the set itself
+%and has no reason to ask for it twice.
+type_witness_direct(Module, X, T) :-
     (   once(( type_candidate_in(Module, X, Actual),
                (   typing_rule_accepts(Module, widening, Actual, T)
                ->  true
@@ -2433,9 +2452,6 @@ type_witness_in(Module, X, T) :-
                ) ))
     ->  true
     ;   satisfies_metatype_in(Module, X, T)
-    ->  true
-    ;   type_answers(Module, X, Types),
-        once(( member(Widened, Types), Widened == T ))
     ).
 
 %A ground declaration is the admission common case, so probe its indexed
