@@ -2461,12 +2461,17 @@ type_witness_in(Module, X, T) :-
 type_witness_direct(Module, X, T, Outcome) :-
     State = collected([]),
     (   (   type_candidate_in(Module, X, Actual),
-            duplicate_term(Actual, Kept),
-            arg(1, State, Acc),
-            nb_setarg(1, State, [Kept|Acc]),
             (   typing_rule_accepts(Module, widening, Actual, T)
             ->  true
             ;   Actual = T
+            ->  true
+            %Only a REJECTED candidate is worth remembering. An accepted one ends
+            %the walk and the list is never read, so the ordinary case pays for no
+            %copy at all; the fail drives the enumeration on to the next one.
+            ;   duplicate_term(Actual, Kept),
+                arg(1, State, Acc),
+                nb_setarg(1, State, [Kept|Acc]),
+                fail
             )
         ->  Outcome = found
         ;   satisfies_metatype_in(Module, X, T)
