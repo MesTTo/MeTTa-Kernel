@@ -159,6 +159,7 @@ export default defineConfig({
             collapsed: true,
             items: [
               { text: "The library reference", link: "/reference/metta-libraries" },
+              { text: "The standard library, in Python", link: "/reference/stdlib-phrasebook" },
             ],
           },
         ],
