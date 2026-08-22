@@ -3077,9 +3077,15 @@ scoped_type_witness(Space, Module, X, T) :-
         once(( member(Widened, Types), Widened == T ))
     ).
 
+%THE CHEAP TEST LEADS, for the reason widen_to_super_types/4 above records:
+%scoped_widening_applies/3 reaches get_function_type/2 through
+%application_return_type/2 and so types the application again, where
+%scoped_any_super_type_edge/1 is one indexed probe of an empty ':<' bucket. Both
+%are pure tests that bind nothing. get-type-space is a separate call graph on
+%purpose, so the ordinary path's fix does not reach it.
 scoped_widen_to_super_types(Space, Module, X, Types0, Types) :-
-    (   scoped_widening_applies(Space, Module, X),
-        scoped_any_super_type_edge(Space)
+    (   scoped_any_super_type_edge(Space),
+        scoped_widening_applies(Space, Module, X)
     ->  findall(Declared,
                 match_stored(Space, [':', X, Declared], Declared, _),
                 Directs),
