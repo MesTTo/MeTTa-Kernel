@@ -24,7 +24,7 @@
 %     RHS and selects a recursive SCC only when one RHS calls that SCC at
 %     least twice [tested:
 %     test_a_doubly_branching_recursion_is_tabled_automatically_and_a_tail_recursion_is_not;
-%     commit=WORKTREE].
+%     commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
 % Owns resources: supports/2, support_function_module/2,
 %   support_view_module/2, support_dirty_node/1, support_value/2,
 %   support_memo_rule/4 and support_memo_changed/2 are transactional dynamic
@@ -118,7 +118,7 @@ seam:kind(support_assertion_records/1, event).
 % calls whose heads belong to that component. Edges are deduplicated for
 % Tarjan, while occurrence lists stay uncollapsed for the branch count
 % [source: https://github.com/MesTTo/MeTTaScript/blob/5ec7857acc08c83af162e2436a035fe5ef16387d/packages/core/src/tabling.ts#L147-L218;
-% commit=WORKTREE].
+% commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
 support_memo_take_change(Module, Fun) :-
     retract(support_memo_changed(Module, Fun)).
 

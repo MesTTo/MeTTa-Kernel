@@ -7,10 +7,10 @@
 % Guarantees:
 %   - nodes_arcs_sccs(+Nodes, +Arcs, -SCCs) answers one list per component,
 %     every node in exactly one, in O(|V| + log(|V|)*|E|)
-%     [tested: scc_components; commit=WORKTREE]
+%     [tested: scc_components; commit=9e7d5dc2cad810940e5386d52636ac6946df279d]
 %   - the answer is independent of arc order, because components are keyed by
 %     Tarjan lowlink and then grouped [tested: scc_is_order_independent;
-%     commit=WORKTREE]
+%     commit=9e7d5dc2cad810940e5386d52636ac6946df279d]
 % Fails when:
 %   - an arc names a node absent from Nodes, or a node is not ground
 % Owns resources:
@@ -20,7 +20,7 @@
 %   - this is PORTED code, not ours. Markus Triska wrote it (May 2011) and
 %     released it into the public domain; Edison Mera vendors it in xtools as
 %     prolog/scc.pl [source: https://github.com/edisonm/xtools/blob/9801a9a74861a0d574636ceabab0cd0f978d3bea/prolog/scc.pl;
-%     commit=WORKTREE]. The algorithm below is unchanged.
+%     commit=9e7d5dc2cad810940e5386d52636ac6946df279d]. The algorithm below is unchanged.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

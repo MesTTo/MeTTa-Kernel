@@ -9,7 +9,7 @@ Guarantees:
   - the runtime publishes exactly the twenty required axes, with one row
     per axis and the knob/default pair recorded in POLICY_SEAMS; the algebra
     row also derives and validates each shipped semiring law claim [tested:
-    tests/check_policy_inventory.py; commit=WORKTREE]
+    tests/check_policy_inventory.py; commit=9e7d5dc2cad810940e5386d52636ac6946df279d]
   - unannotated Python Literal expressions and list/set membership, plus
     single- or multiline Prolog member/2 and memberchk/2 lists, are reported
     with path, line and values; an exemption is accepted only when immediately

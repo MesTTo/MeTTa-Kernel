@@ -58,7 +58,7 @@
 %     automatic decision, and the effect walk follows its transparent cache
 %     dispatcher to the underlying source function [tested:
 %     test_a_doubly_branching_recursion_is_tabled_automatically_and_a_tail_recursion_is_not,
-%     test_an_impure_function_is_never_cached_automatically; commit=WORKTREE].
+%     test_an_impure_function_is_never_cached_automatically; commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
 %   - Integers inside signed i64 report Number and integers outside it report
 %     BigInt; a Number parameter admits either while a BigInt parameter admits
 %     only BigInt, and arithmetic may cross the boundary in either direction

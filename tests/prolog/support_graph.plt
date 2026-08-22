@@ -23,7 +23,7 @@
 %   - A process-wide reset releases the retained memo-call graph and its
 %     pending change markers [tested:
 %     support_graph:a_reset_releases_automatic_memo_analysis_state;
-%     commit=WORKTREE].
+%     commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

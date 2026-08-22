@@ -40,7 +40,7 @@
 %     recursive bodies and their callers compile under one settled decision
 %     [tested:
 %     test_a_doubly_branching_recursion_is_tabled_automatically_and_a_tail_recursion_is_not;
-%     commit=WORKTREE].
+%     commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
 %   - That pass costs 31 inferences for a one-form source, identical across
 %     three different one-form sources, then 4.006 per plain form and 23.073
 %     per definition beyond it [measured 2026-08-18: interleaved A/B over

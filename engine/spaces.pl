@@ -63,7 +63,7 @@
 %     the automatic decision owner, so an explicit SWI table takes precedence
 %     [tested: test_automatic_cache_force_and_refuse_overrides,
 %     test_explicit_tabling_takes_precedence_over_automatic_memoization;
-%     commit=WORKTREE].
+%     commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
 %   - Effective dispatch values are cached by function and axis, validated
 %     against their catalog clause reference, and forgotten at every policy
 %     mutation [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted,
