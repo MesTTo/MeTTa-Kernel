@@ -5647,7 +5647,7 @@ petta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
 %steps, -34.3%
 %[measured 2026-08-22: 6 and 4 inferences, -34.3% instructions:u, min-of-3;
 %command=swipl ai-tmp/p14e-step-ab4.pl; fixture=20000 and 3000000 iterations;
-%commit=WORKTREE]. The cost is a compile-time constant per clause, so it lands
+%commit=be17bf27ac3fd74b5f5c00e430e924529a54f560]. The cost is a compile-time constant per clause, so it lands
 %as a literal in the subtraction.
 %
 %Eleven shapes of this body were raced before settling on it, and every one that
@@ -5666,7 +5666,7 @@ petta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
 %[measured 2026-08-22: v1..v5 all 6.0 inferences, cell +2.0% instructions:u,
 %472 exported functions none of them a gvar or trail entry point;
 %command=swipl ai-tmp/p14e-step-ab2.pl, swipl ai-tmp/p14e-step-ab3.pl, nm -D
-%/usr/lib/swi-prolog/lib/x86_64-linux/libswipl.so.10.1.13; commit=WORKTREE].
+%/usr/lib/swi-prolog/lib/x86_64-linux/libswipl.so.10.1.13; commit=be17bf27ac3fd74b5f5c00e430e924529a54f560].
 %THE TWO GLOBAL OPERATIONS ARE MODULE-QUALIFIED, and that is not decoration.
 %A compiled clause lives in its space's own execution module, and an equation
 %for a builtin's name is a LOCAL SHADOW there rather than a refusal, which is
