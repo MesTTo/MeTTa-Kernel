@@ -33,6 +33,9 @@ Source: `bindings/python/petta/events.py`.
 > state change of the table", and that "aggregating data records in a stream
 > ... will return a table" [source: Apache Kafka, Streams Core Concepts].
 > Guarantees:
+>   - event attributes project named pattern bindings and unknown names fail as
+>     attributes [tested: test_take_peek_and_watch_retire_the_thread_linda_fn_strings;
+>     commit=WORKTREE]
 >   - registry snapshots, fold state and delivery accounting are locked for
 >     free-threaded Python [tested test_subscription_queue_is_thread_safe,
 >     test_subscription_cancel_is_thread_safe]

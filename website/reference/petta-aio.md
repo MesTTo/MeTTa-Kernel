@@ -13,6 +13,9 @@ Source: `bindings/python/petta/aio.py`.
 > and a cancelled task fires it on its own call, so asyncio timeouts stop
 > the engine instead of abandoning it.
 > Guarantees:
+>   - async solve, Linda verbs, watch, class/type dispatch, and the two
+>     transaction laws execute on the owning worker [tested:
+>     test_aio_structural_surface_behaves; commit=WORKTREE]
 >   - interrupt_if_running throws the same reserved structured exception as
 >     shim resource guards [tested test_aio_interrupt_stops_the_running_evaluation]
 >   - close refuses new work, interrupts a running request, rejects queued
@@ -235,6 +238,30 @@ async def query(
 
 > Query patterns with the synchronous surface's bounds, guard,
 > and into= row shaping.
+
+### `AsyncMeTTa.solve`
+
+```python
+async def solve(self, pattern: Any, subject: Any) -> Any:
+```
+
+> Solve a relation backwards and return caller-named bindings.
+
+### `AsyncMeTTa.take`
+
+```python
+async def take(self, pattern: Any, *, deadline: float | None = None) -> Atom:
+```
+
+> Remove one Linda match on the worker, waiting up to deadline.
+
+### `AsyncMeTTa.peek`
+
+```python
+async def peek(self, pattern: Any, *, deadline: float | None = None) -> Atom:
+```
+
+> Read one Linda match on the worker without removing it.
 
 ### `AsyncMeTTa.eval`
 
@@ -774,6 +801,8 @@ async def define(
     /,
     *,
     prolog: str | os.PathLike[str] | None = None,
+    accessors: bool = True,
+    methods: bool = True,
 ) -> Any:
 ```
 
@@ -803,18 +832,10 @@ async def cache(
 ### `AsyncMeTTa.type`
 
 ```python
-async def type(
-    self,
-    cls: _builtins.type,
-    /,
-    *,
-    accessors: bool = True,
-    methods: bool = True,
-) -> _builtins.type:
+async def type(self, atom: Any, /) -> Atom:
 ```
 
-> Declare a Python class into this space. A call, not a
-> decorator: decoration cannot await.
+> Return this space's first get-type answer on the worker.
 
 ### `AsyncMeTTa.register_prolog`
 
@@ -917,15 +938,17 @@ def batch(self) -> _AsyncBatch:
 ### `AsyncMeTTa.transaction`
 
 ```python
-async def transaction(self, fn: Callable[[MeTTa], Any], /) -> Any:
+async def transaction(self, target: Callable[[MeTTa], Any] | Atom | str, /) -> Any:
 ```
 
-> Run fn inside one engine transaction on the worker thread,
-> answering its return value. fn receives the worker's own
+> Run a callable or term inside one engine transaction on the worker.
+>
+> A callable receives the worker's own
 > synchronous MeTTa, because a transaction body is a closed
 > synchronous goal (SWI's transaction/1 takes one), which is also
 > why there is no async body and no transactional decorator here.
-> A raise rolls every engine write back and re-raises as itself.
+> A raise rolls every engine write back and re-raises as itself. A term
+> instead follows the engine law: empty answers roll its writes back.
 >
 >     await am.transaction(lambda m: m.add(S.fact(1)))
 
@@ -1011,6 +1034,20 @@ def subscribe(
 >     async with am.subscribe(S.order(V.id), on="add") as events:
 >         async for event in events:
 >             ...
+
+### `AsyncMeTTa.watch`
+
+```python
+def watch(
+    self,
+    pattern: Any,
+    *,
+    on: str = 'add',
+    queue_max: int = SUBSCRIPTION_QUEUE_MAX,
+) -> _AsyncSubscription:
+```
+
+> Observe matching writes as the async-native event iterator.
 
 ### `AsyncMeTTa.fn`
 

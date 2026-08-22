@@ -1,7 +1,9 @@
 <!--
 Purpose: teach canonical atom construction, operators, methods, pattern matching, ordering, and wire conversion.
-Guarantees: examples contain no superseded atom class or helper names.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+Guarantees: examples contain no superseded atom class or helper names, and
+plain atom sorting agrees with the explicit specialist key.
+[tested: npm run docs:build and test_plain_sorted_uses_the_engines_elementwise_order;
+commit=WORKTREE]
 -->
 
 # Atoms, operators, and term building
@@ -30,7 +32,7 @@ Operators on atoms build terms. `V.age >= 18` builds `(>= $age 18)`, so guards a
 | `x - y` | `(- x y)` | | `x \| y` | `(or x y)` |
 | `x * y` | `(* x y)` | | `x ^ y` | `(xor x y)` |
 | `x / y` | `(/ x y)` | | `~x` | `(not x)` |
-| `x % y` | `(% x y)` | | `x < y` | `(< x y)` |
+| `x % y` | `(% x y)` | | `S["<"](x, y)` | `(< x y)` |
 | `x ** y` | `(pow-math x y)` | | `x <= y` | `(<= x y)` |
 | `x // y` | `(floor-math (/ x y))` | | `x > y` | `(> x y)` |
 | `x @ y` | `(matmul x y)` | | `x >= y` | `(>= x y)` |
@@ -39,18 +41,18 @@ Operators on atoms build terms. `V.age >= 18` builds `(>= $age 18)`, so guards a
 
 Reflected forms work too: `1 + V.x` builds `(+ 1 $x)`.
 
-The specialist immutable `petta.atoms.OPERATOR_LOWERINGS` table is the source of these
-methods. A row is a builtin symbol, a composite template, a provided name, a
-reserved Python spelling, or an explicit absence. `matmul` is provided: `@`
+The specialist immutable `petta.atoms.OPERATOR_LOWERINGS` table records these
+lowerings. A row is a builtin symbol, a composite template, a provided name, a
+reserved Python spelling, a sorting spelling, or an explicit absence. `matmul` is provided: `@`
 always builds that stable name, and a library supplies its MeTTa definition.
 Left and right shift are absent because MeTTa has no integer-shift operation;
 `x << y` and `x >> y` raise a message naming that fact instead of Python's
 generic unsupported-operands error. Grounded values keep Python semantics, so
 `Grounded(3) << 2` answers `12` rather than building a term.
 
-One operator is deliberately not symbolic. **`x.eq(y)` builds the equality term `(== x y)`, while `==` itself compares atoms structurally** and answers a Python `bool`. Atoms are dict keys and test comparands, so `S.a == S.a` must stay `True` rather than becoming a term; equality is the one place where building the term costs a method call, and it is the only operator that behaves unlike its neighbours.
+Two comparisons answer Python booleans. **`x.eq(y)` builds the equality term `(== x y)`, while `==` itself compares atoms structurally.** Likewise, `S["<"](x, y)` builds the relation while `x < y` compares the engine's standard atom order. Atoms are dict keys, test comparands, and sortable values, so neither Python operator can become a term.
 
-`Grounded` overrides both families with value semantics: comparisons on grounded values answer booleans, engine-exactly, so a grounded number never quietly becomes a program. Arithmetic on grounded Python values keeps Python's value semantics.
+`Grounded` arithmetic and comparisons against raw Python values keep Python value semantics. Comparing one atom with another uses atom identity for equality and the engine order for `<`.
 
 A symbol and a grounded string are different atoms. Use `S[name]` when a symbol name is not a Python identifier, `V[name]` for a variable, `ground(value)` or `G(value)` to carry a host object, and `Expression(...)` to build an expression from parts. `parse(source)` reads one form without evaluating it.
 
@@ -78,15 +80,16 @@ The correspondence is direct: `Expression([Symbol("edge"), a, b])` is `(edge $a 
 
 ## Sorting atoms
 
-`sorted(atoms)` raises, and the message says why: `S.a < S.b` builds the term `(< a b)`, because building terms is what the operators are for. Pass the key instead:
+`sorted(atoms)` uses the engine's standard atom order directly. The specialist key remains available when an API asks for a key function:
 
 ```python
 from petta.atoms import order_key
 
-sorted(atoms, key=order_key)
+sorted(atoms)
+sorted(atoms, key=order_key)  # the same order
 ```
 
-The order is Prolog's standard order of terms: variables, then numbers, then symbols, then strings, then compounds by arity, then functor, then argument by argument. `True` sorts with the symbols it reads as rather than with the numbers Python inherits it from.
+The order places variables first, then numbers, symbols, strings, opaque objects, and expressions. Expressions compare child by child; length decides only after one is a prefix. `True` sorts with the symbols it reads as rather than with the numbers Python inherits it from.
 
 ## Atoms as JSON
 
