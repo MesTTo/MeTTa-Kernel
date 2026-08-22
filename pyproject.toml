@@ -93,7 +93,7 @@ package-dir = {"" = "bindings/python"}
 include-package-data = true
 
 [tool.setuptools.package-data]
-petta = ["shim.pl", "py.typed"]
+petta = ["*.pyi", "shim.pl", "py.typed"]
 
 [tool.setuptools.dynamic]
 version = {attr = "petta._version.__version__"}
