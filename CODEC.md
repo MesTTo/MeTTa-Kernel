@@ -54,7 +54,7 @@ payload outside the class its tag names makes the term malformed, and a
 decoder refuses it rather than coercing it into something.
 
     term    ::= [tag, payload]
-    tag     ::= "s" | "g" | "n" | "b" | "v" | "e" | "o" | "h"
+    tag     ::= "s" | "g" | "n" | "b" | "v" | "e" | "p" | "o" | "h"
     payload ::= text | exact-integer | float | boolean-text | [term, ...] | host-value
 
 Two shapes break the two-element rule and both are named below: an outbound
@@ -69,6 +69,7 @@ Two shapes break the two-element rule and both are named below: an outbound
 | `b` | term | "true" or "false" | a grounded boolean, written True and False in source |
 | `v` | term | text | a variable, the payload an identity within this term |
 | `e` | term | array of terms | an expression, its children in order; the empty one is unit |
+| `p` | term | ampersand-prefixed text | an executable space reference carried by its portable engine name |
 | `o` | term | host reference | a live host value crossing by reference, in process only |
 | `h` | term | registry id, and its printed text outbound | a native engine value held by reference |
 | `u` | frame | term and why | an answer whose truth is undefined under the well-founded semantics |
@@ -76,9 +77,10 @@ Two shapes break the two-element rule and both are named below: an outbound
 | `x` | frame | end, declined, or error with a term | stream control: exhaustion, no answer at all, or a failure kept as a value |
 <!-- end generated -->
 
-Eight of those are term tags and three are frames. The seven `s g n b v e o`
+Nine of those are term tags and three are frames. The seven `s g n b v e o`
 were fixed in the 2026-08-13 design; `h` was added afterwards for native
-engine values, and the frames grew with the answer protocol.
+engine values, `p` for executable space references, and the frames grew with
+the answer protocol.
 
 A symbol is not a string. `["s", "foo"]` and `["g", "foo"]` are different
 atoms, `foo` the name and `"foo"` the text, and folding them together is the
@@ -88,6 +90,13 @@ spell it, and they do not match each other.
 
 `["e", []]` is unit, the empty expression. It is not a missing value and not
 the empty string, which is `["g", ""]`.
+
+`["p", "&kb"]` carries an executable space reference by its engine name. Its
+payload is text beginning with `&`, because that prefix is how the engine
+distinguishes a space operand from every other atom. The name is portable;
+decoding resolves it to the receiving runtime's `Space` handle. A malformed
+payload is refused rather than becoming a symbol or silently naming another
+kind of term.
 
 ## Variables are identities, not names
 
@@ -259,8 +268,8 @@ atom.
 <!-- generated: profiles -->
 | profile | tags | frames | what speaks it |
 |---|---|---|---|
-| core | `s` `v` `n` `g` `e` | none | What a storage provider must speak. The remote JSON wire is this. |
-| full | `s` `v` `n` `g` `e` `b` `o` `h` | `u` `a` `x` | The in-process host binding: core plus booleans, host references, native handles, and the three frames. |
+| core | `s` `v` `n` `g` `e` | none | The minimum vocabulary every storage provider must speak. |
+| full | `s` `v` `n` `g` `e` `b` `p` `o` `h` | `u` `a` `x` | The extended host binding: core plus booleans, portable space references, host references, native handles, and the three frames. |
 <!-- end generated -->
 
 Every codec carries the core five. An encoding that cannot is not a codec
@@ -319,7 +328,7 @@ restatement of one.
 | `symbol` | `"foo"` | `["s", "foo"]` | `"foo"` |
 | `symbol-non-ascii` | `"λ"` | `["s", "λ"]` | `"λ"` |
 | `symbol-hyphenated` | `"car-atom"` | `["s", "car-atom"]` | `"car-atom"` |
-| `symbol-space-name` | `"&self"` | `["s", "&self"]` | `"&self"` |
+| `space-handle` | `"&self"` | `["p", "&self"]` | `"&self"` |
 | `string` | `"\"hi\""` | `["g", "hi"]` | `"\"hi\""` |
 | `string-empty` | `"\"\""` | `["g", ""]` | `"\"\""` |
 | `string-escapes` | `"\"a\\\"b\\\\c\\nd\\te\\rf\""` | `["g", "a\"b\\c\nd\te\rf"]` | `"\"a\\\"b\\\\c\\nd\\te\\rf\""` |

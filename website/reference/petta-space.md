@@ -30,6 +30,10 @@ Source: `bindings/python/petta/_space.py`.
 >     test_bound_function_namespace_validates_at_access,
 >     test_function_calls_pull_engine_answers_only_as_demanded;
 >     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
+>   - ``Space`` is a grounded ``Handle`` that crosses as a term operand, and
+>     ``peek`` and ``take`` expose the engine's event-driven Linda operations
+>     [tested: test_space_handles_are_term_operands_and_round_trip,
+>     test_space_handle_peek_and_take_are_linda_verbs; commit=4e2398075da67bb2cbcc123a9fc1e078ecac6fbf]
 > Owns resources:
 >   - ``Space.save`` owns its sibling temporary file and removes it after every
 >     failed operation [tested: test_save_failure_preserves_existing_file;
@@ -57,7 +61,7 @@ def current_space(default: str = _DEFAULT_SPACE) -> _SpaceId:
 ## `Space`
 
 ```python
-class Space:
+class Space(Handle):
 ```
 
 > A space bound to the engine: the way in from Python.
@@ -125,6 +129,22 @@ def drop(self) -> None:
 > watchers. The handle itself dies here: every later call through it
 > refuses, because its name may already belong to another space.
 > Dropping twice is a no-op, as closing twice is.
+
+### `Space.to_wire`
+
+```python
+def to_wire(self) -> list:
+```
+
+> Encode the live engine reference as a portable space operand.
+
+### `Space.metatype`
+
+```python
+def metatype(self) -> str:
+```
+
+No docstring is defined.
 
 ### `Space.bind`
 
@@ -373,6 +393,27 @@ def atoms(self) -> list[Atom]:
 ```
 
 > Every stored atom in this space.
+
+### `Space.peek`
+
+```python
+def peek(self, pattern: Any, *, deadline: float | None = None) -> Atom:
+```
+
+> Wait for one matching atom and leave it in this space.
+>
+> A finite deadline raises ``TimeoutError`` when no match arrives.
+
+### `Space.take`
+
+```python
+def take(self, pattern: Any, *, deadline: float | None = None) -> Atom:
+```
+
+> Wait for and remove exactly one matching atom from this space.
+>
+> Competing takers cannot receive the same occurrence. A finite
+> deadline raises ``TimeoutError`` when no match arrives.
 
 ### `Space.cast`
 

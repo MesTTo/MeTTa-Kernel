@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "grammar": "CODEC.md",
   "note": [
     "The golden corpus for PeTTa's tagged wire codec. Hand-written from the",
@@ -28,6 +28,7 @@
     "b": {"class": "term", "payload": "\"true\" or \"false\"", "means": "a grounded boolean, written True and False in source"},
     "v": {"class": "term", "payload": "text", "means": "a variable, the payload an identity within this term"},
     "e": {"class": "term", "payload": "array of terms", "means": "an expression, its children in order; the empty one is unit"},
+    "p": {"class": "term", "payload": "ampersand-prefixed text", "means": "an executable space reference carried by its portable engine name"},
     "o": {"class": "term", "payload": "host reference", "means": "a live host value crossing by reference, in process only"},
     "h": {"class": "term", "payload": "registry id, and its printed text outbound", "means": "a native engine value held by reference"},
     "u": {"class": "frame", "payload": "term and why", "means": "an answer whose truth is undefined under the well-founded semantics"},
@@ -38,12 +39,12 @@
   "profiles": {
     "core": {
       "tags": ["s", "v", "n", "g", "e"],
-      "note": "What a storage provider must speak. The remote JSON wire is this."
+      "note": "The minimum vocabulary every storage provider must speak."
     },
     "full": {
-      "tags": ["s", "v", "n", "g", "e", "b", "o", "h"],
+      "tags": ["s", "v", "n", "g", "e", "b", "p", "o", "h"],
       "frames": ["u", "a", "x"],
-      "note": "The in-process host binding: core plus booleans, host references, native handles, and the three frames."
+      "note": "The extended host binding: core plus booleans, portable space references, host references, native handles, and the three frames."
     }
   },
 
@@ -81,12 +82,12 @@
       "note": "A hyphen is a name character, not an operator."
     },
     {
-      "id": "symbol-space-name",
-      "tags": ["s"],
+      "id": "space-handle",
+      "tags": ["p"],
       "text": "&self",
-      "wire": ["s", "&self"],
+      "wire": ["p", "&self"],
       "written": "&self",
-      "note": "A space name is an ordinary symbol; the ampersand carries no encoding of its own."
+      "note": "An ampersand-prefixed engine name decodes as an executable space handle, not as an ordinary Symbol with the same spelling."
     },
     {
       "id": "string",

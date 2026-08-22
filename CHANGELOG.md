@@ -71,6 +71,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- A `Space` is a grounded atom, so a space handle crosses term positions
+  as an operand: `import!`, `metta`, `add-atom` inside built expressions,
+  spawned writes, computed targets, and `context-space` all carry the
+  handle itself rather than a rebuilt name. The wire vocabulary gains an
+  injective portable `p` tag for space references that round-trips
+  through JSON, Janus, the writer, both snapshot formats, and digest.
+  The handle also gains `peek(pattern, deadline=)` and `take(pattern,
+  deadline=)`, the engine's blocking Linda verbs, with async mirrors
+  that wait on the engine worker rather than the event loop.
 - Calling a function handle answers an `Answers` view: lazy, cached, and
   replayable, so ordinary iteration is the streaming door, `answers.one()`
   requires exactly one answer, `answers.first(default=...)` requires an
