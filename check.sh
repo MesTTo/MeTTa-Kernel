@@ -30,7 +30,7 @@
 #     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 #   - memory and scaling curves run once in REPORT-then-GATE order; GATE_ONLY
 #     still takes a fresh measurement and promotes only deterministic pins
-#     [tested: env CHECK_PY=/home/user/Dev/.venv-pypetta/bin/python
+#     [tested: env CHECK_PY=../../.venv-pypetta/bin/python
 #     GATE_ONLY=1 sh check.sh memory-scale-gate;
 #     commit=beee3f69661c600c04e7fc1d54f6e98836c524ca].
 # Open Obligations:
