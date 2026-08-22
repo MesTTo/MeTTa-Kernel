@@ -2043,6 +2043,47 @@ member_alpha(X, [_|T]) :- member_alpha(X, T).
 select_eq(X, [Y|Ys], Ys) :- X == Y, !.
 select_eq(X, [Y|Ys], [Y|Rest]) :- select_eq(X, Ys, Rest).
 
+%EXPERIMENT (worktree only): both of these rescanned the right operand with
+%select_eq/3 once per left element, which is Theta(n*m). Measured on the
+%shipped operation: N=100 cost 4,304,235 instructions and N=1600 cost
+%1,053,976,615, an exponent of 1.98, while union-atom over the same sizes is
+%linear at 606,874. The right operand is now indexed ONCE as a count map keyed
+%by standard order, and the left operand is walked in order decrementing
+%counts, giving O((n+m) log m).
+%
+%The three properties select_eq/3 carried are preserved deliberately:
+%compare/3 and ==/2 agree on identity, so this still removes by EQUALITY and
+%never unifies (the bug the comment above records, where (subtraction-atom
+%($x) (a)) answered () and bound $x); a count of one per stored occurrence
+%keeps the multiset multiplicity; and walking the left operand in order keeps
+%its order. library(assoc) is already imported for exactly these three
+%predicates at the head of this file.
+count_assoc(List, Assoc) :- empty_assoc(Empty), count_assoc_(List, Empty, Assoc).
+count_assoc_([], A, A).
+count_assoc_([X|Xs], A0, A) :-
+    ( get_assoc(X, A0, N) -> N1 is N+1 ; N1 = 1 ),
+    put_assoc(X, A0, N1, A1),
+    count_assoc_(Xs, A1, A).
+
+%Succeeds only when one occurrence is still available, and answers the map
+%with that occurrence consumed.
+take_counted(X, A0, A) :-
+    get_assoc(X, A0, N), N > 0, N1 is N-1, put_assoc(X, A0, N1, A).
+
+subtract_counted([], _, []).
+subtract_counted([H|T], C0, Out) :-
+    (   take_counted(H, C0, C1)
+    ->  subtract_counted(T, C1, Out)
+    ;   Out = [H|Rest], subtract_counted(T, C0, Rest)
+    ).
+
+intersect_counted([], _, []).
+intersect_counted([H|T], C0, Out) :-
+    (   take_counted(H, C0, C1)
+    ->  Out = [H|Rest], intersect_counted(T, C1, Rest)
+    ;   intersect_counted(T, C0, Out)
+    ).
+
 %Multisets. Keep the variable-headed non-list fallback last so list calls use
 %the first argument index. Over 100,000 two-element calls this reduced each
 %operation from 2,200,002 to 1,400,002 inferences [measured: 800,000 fewer
@@ -2054,9 +2095,7 @@ select_eq(X, [Y|Ys], [Y|Rest]) :- select_eq(X, Ys, Rest).
 'subtraction-atom'([], _, []) :- !.
 'subtraction-atom'([H|T], B, Out) :- !,
     ( non_list(B) -> Out = []
-    ; select_eq(H, B, BRest) -> 'subtraction-atom'(T, BRest, Out)
-    ; Out = [H|Rest],
-      'subtraction-atom'(T, B, Rest) ).
+    ; count_assoc(B, Counts), subtract_counted([H|T], Counts, Out) ).
 'subtraction-atom'(A, B, Out) :- ( non_list(A) ; non_list(B) ), !, Out = [].
 %The guard its two siblings already have, and it leads rather than trails
 %because append/3 succeeds on a non-list right operand: (union-atom (a) b)
@@ -2076,9 +2115,7 @@ select_eq(X, [Y|Ys], [Y|Rest]) :- select_eq(X, Ys, Rest).
 'intersection-atom'([], _, []) :- !.
 'intersection-atom'([H|T], B, Out) :- !,
     ( non_list(B) -> Out = []
-    ; select_eq(H, B, BRest) -> Out = [H|Rest],
-                                'intersection-atom'(T, BRest, Rest)
-    ; 'intersection-atom'(T, B, Out) ).
+    ; count_assoc(B, Counts), intersect_counted([H|T], Counts, Out) ).
 'intersection-atom'(A, B, Out) :- ( non_list(A) ; non_list(B) ), !, Out = [].
 
 %%% Type system: %%%
@@ -2315,7 +2352,148 @@ has_type(X, T) :- current_metta_module(Module),
 %
 %The second direction is checked last, on the branch that was going to fail
 %anyway, so a value whose declared type already matches never pays for it.
+%EXPERIMENT (worktree only): type derivation measured Theta(2^d) in the nesting
+%depth of the term, exactly 2.0 per level. has_type_in/3 asks type_witness_in/3
+%first and re-derives with type_answers/3 when that fails; type_witness_in/3
+%itself runs type_candidate_in/3 twice more; and every one of those re-enters
+%the SAME ground subterm through get_function_type_in/3 and
+%metta_arguments_match_in/4. A term nested d deep holds d distinct subproblems
+%and the walk visited 2^d of them. Depth 20 cost 111,815,868,814 instructions to
+%answer one (get-type ...) over a Peano numeral, which is the shape of every
+%cons list [measured 2026-08-22: ratios 16.28, 16.25, 64.20 over depths
+%6/10/14/20, i.e. 2.0 per level; command=perf stat -e instructions:u sh run.sh,
+%differenced against the same file with no work call so parsing cancels].
+%
+%Memoized recursive descent is the standard cure, and this is the same move
+%SLG resolution's answer table, a compiler's typeof cache and JastAdd's
+%memoized syn attributes all make: it turns a walk over the term TREE into a
+%walk over its DAG.
+%
+%The table lives for ONE outermost derivation and is thrown away after it,
+%which is what makes it sound rather than merely fast. A table that persisted
+%would have to be invalidated by every input a type answer reads, and those
+%inputs are an open set: ':' and ':<' and '=' atoms in the store, the state cell
+%petta_state_cell_type/2 reads through nb_current/2, and
+%seam:builtin_type_declaration/2, which external Prolog libraries are invited to
+%extend. Enumerating them by hand leaves the cache permanently one path behind.
+%A derivation cannot observe a change made outside it, so a table that does not
+%outlive one derivation has nothing to go stale against. The only writer left is
+%a (= (get-type ...) ...) rule mutating the store from inside the derivation it
+%belongs to, and petta_type_memo_drop/0 in spaces.pl drops the table outright
+%for that case.
+%lib/lib_memo.pl solves the OTHER half of this problem, a persistent MeTTa-level
+%cache with generations and a dependency graph, which is the right shape when
+%the cached thing is a user function whose inputs are known. It is the wrong
+%shape here for the reason above.
+%
+%Reentrancy follows with_runnable_variable_epochs/1 in translator.pl: the
+%outermost caller owns the scope and an inner one just runs.
+:- thread_local '$has_type_memo'/5.
+
+close_type_scope :-
+    nb_delete('$petta_type_scope'),
+    retractall('$has_type_memo'(_, _, _, _, _)).
+
+%The table can only be corrupted by a store change made WHILE it is live, and
+%inside a derivation the engine runs open-ended code in exactly two places: a
+%(= (get-type ...) ...) rule through call_get_type_rule/3, and a foreign space's
+%provider through match_stored/4, which type_declaration_in/3 reaches. So rather
+%than watch for such a change, refuse to memoize at all while either door is
+%open. Nothing is cached, so nothing can go stale, and the write path pays
+%nothing.
+%
+%Watching writes instead was measured and rejected. A drop hooked into
+%add_sexp_in/4 cost +3 inferences on EVERY atom write, which is +11.1% on
+%add-single, +14.3% on add-batch and +12.0% on add-table-rows
+%[measured 2026-08-22: bindings/python bench.py --counter-only --keep-going,
+%1 of 34 rows failing on the unmodified worktree against 10 of 34 with the
+%barrier, same commit and same .qlf files both runs]. It could not have been
+%made complete either: a provider is explicitly allowed to keep its atoms
+%outside Prolog entirely, so no engine-side write barrier observes its mutations
+%[source: EXTENDING.md:1398-1424].
+%
+%A scope that is already open has had both doors checked, so a nested question
+%only re-tests the two flags, which are the part that can change inside one
+%derivation.
+type_scope_safe(Module) :-
+    \+ type_rule_defined(Module),
+    \+ foreign_space_in_play(Module).
+
+%Both clauses of get_type_rule_in/3 end in call_get_type_rule/3, on Module and
+%on the self module respectively, so those two are the whole surface.
+type_rule_defined(Module) :-
+    (   metta_self_module(Self), type_rule_clause_exists(Self)
+    ->  true
+    ;   type_rule_clause_exists(Module)
+    ).
+
+type_rule_clause_exists(Module) :-
+    current_predicate(Module:get_type_rule/2),
+    clause(Module:get_type_rule(_, _), _),
+    !.
+
+foreign_space_in_play(Module) :-
+    (   seam:foreign_space('&self')
+    ->  true
+    ;   metta_module_space(Module, Space),
+        seam:foreign_space(Space)
+    ).
+
+%The derivation is a function of the store ONLY while neither type-rule flag is
+%set. Both have dynamic extent INSIDE a derivation and both decide whether
+%get_type_rule_in/3 may fire, so an entry made under one and read under the
+%other is a wrong answer rather than a stale one. Measured: with the flags left
+%out of the key, examples/types/types_dependent.metta answered
+%(Error (g (2 4 6)) (BadArgType 1 EvenNumberList (Number Number Number)))
+%where it answers True, because the structural tuple type was served back to a
+%caller that had asked the user's (= (get-type $x) ...) rule. Nothing is cached
+%in either mode, so the entries that exist were all made in the same one.
+type_memo_admissible :-
+    \+ metta_reading_declared_types,
+    \+ metta_evaluating_type_rule.
+
 has_type_in(Module, X, T) :-
+    (   ground(X), ground(T), type_memo_admissible
+    ->  (   nb_current('$petta_type_scope', true)
+        ->  memoized_has_type(Module, X, T)
+        ;   type_scope_safe(Module)
+        ->  setup_call_cleanup(nb_setval('$petta_type_scope', true),
+                               memoized_has_type(Module, X, T),
+                               close_type_scope)
+        ;   has_type_derive(Module, X, T)
+        )
+    ;   has_type_derive(Module, X, T)
+    ).
+
+%A ground question has one yes-or-no answer and reports no bindings, so a single
+%entry settles it. Recording the NO matters as much as the yes: a failing
+%witness is exactly what sends has_type_in/3 down its second and more expensive
+%branch, and without the negative entry that descent repeats.
+%Semidet here is a real narrowing of ground/ground has_type_in/3, so it was
+%measured rather than assumed: every example was run with an instrument that
+%passed all solutions through and recorded any ground question whose caller
+%asked for a second one. No call in examples/ answered twice
+%[measured 2026-08-22: sh test.sh with instrument_has_type/3, 0 hits].
+%A term hash leads because SWI indexes a compound first argument on its
+%principal functor alone, so every nested expression would land in one bucket
+%and each probe would walk the whole table; the hash makes the bucket small and
+%identity inside it decides, exactly as alpha_bucket_insert/5 above does.
+memoized_has_type(Module, X, T) :-
+    term_hash(X-T, Key),
+    (   '$has_type_memo'(Key, Cached, CachedModule, CachedType, Recorded),
+        Cached == X,
+        CachedModule == Module,
+        CachedType == T
+    ->  Verdict = Recorded
+    ;   (   has_type_derive(Module, X, T)
+        ->  Verdict = true
+        ;   Verdict = false
+        ),
+        assertz('$has_type_memo'(Key, X, Module, T, Verdict))
+    ),
+    Verdict == true.
+
+has_type_derive(Module, X, T) :-
     ( ground(T)
       -> (   type_witness_in(Module, X, T)
          ->  true
@@ -2545,22 +2723,59 @@ super_type_in(Module, T, S) :- metta_module_space(Module, Space),
 %and the spelling is `:<` at lib/src/metta/mod.rs:22, `SUB_TYPE_SYMBOL`. There
 %is no `:>` in that source: the arrow points from the subtype UP to the
 %supertype, so `(:< Dog Animal)` is "Dog is below Animal".
+%EXPERIMENT (worktree only): the presence test was member/2 over the whole
+%accumulated list, run once per candidate, and the accumulator grew by an
+%append/3 of that same list once per round. A chain of n subtype edges therefore
+%cost Theta(n^2): widening along a 1600-edge chain took 4,935,292,461
+%instructions, with the round-over-round ratio converging on 4.0 across
+%n = 100, 200, 400, 800, 1600 [measured 2026-08-22: 3.24, 3.68, 3.90, 3.86;
+%command=perf stat -e instructions:u sh run.sh, differenced against the same
+%file whose last form does not widen, so parsing the chain cancels].
+%
+%The set is an AVL now, which library(assoc) already provides and which
+%count_assoc/2 above uses for the same reason, and each round contributes its
+%own segment instead of copying the accumulator, so the result is still
+%Types followed by every round's fresh entries in order.
+%
+%get_assoc/3 decides by compare/3, which agrees with ==/2 on identity, so this
+%is the same relation type_already_listed/2 tests and not unification. The keys
+%can carry variables, from a polymorphic supertype, and stay sound because
+%findall/3 hands back fresh copies whose variables nothing here binds: the
+%bindings super_type_in/3 makes are undone when the findall completes, before
+%any lookup runs.
+%
+%The AVL is extended only AFTER the round's exclude, which is what preserves the
+%parity artifact described above: B and C both reach D in one round, neither
+%sees the other's D, and the diamond still answers (A B C D D)
+%[tested: the_diamond_reproduces_upstreams_duplicate].
 add_super_types(Module, Types, Widened) :-
-    super_type_rounds(Module, Types, Types, Widened).
+    seen_types(Types, Seen),
+    super_type_rounds(Module, Types, Seen, Fresh),
+    append(Types, Fresh, Widened).
 
-super_type_rounds(_, [], Widened, Widened) :- !.
-super_type_rounds(Module, Frontier, Accumulated, Widened) :-
+super_type_rounds(_, [], _, []) :- !.
+super_type_rounds(Module, Frontier, Seen, Widened) :-
     findall(Super,
             ( member(Type, Frontier),
               super_type_in(Module, Type, Super),
               typing_rule_accepts(Module, 'declared-widening', Type, Super) ),
             Supers),
-    exclude(type_already_listed(Accumulated), Supers, Fresh),
+    exclude(type_seen(Seen), Supers, Fresh),
     (   Fresh == []
-    ->  Widened = Accumulated
-    ;   append(Accumulated, Fresh, Grown),
-        super_type_rounds(Module, Fresh, Grown, Widened)
+    ->  Widened = []
+    ;   add_seen_types(Fresh, Seen, Grown),
+        super_type_rounds(Module, Fresh, Grown, Rest),
+        append(Fresh, Rest, Widened)
     ).
+
+seen_types(Types, Seen) :- empty_assoc(Empty), add_seen_types(Types, Empty, Seen).
+
+add_seen_types([], Seen, Seen).
+add_seen_types([Type|Types], Seen0, Seen) :-
+    put_assoc(Type, Seen0, [], Seen1),
+    add_seen_types(Types, Seen1, Seen).
+
+type_seen(Seen, Type) :- get_assoc(Type, Seen, _).
 
 type_already_listed(Listed, Type) :- member(Present, Listed), Present == Type.
 
@@ -2574,8 +2789,69 @@ type_already_listed(Listed, Type) :- member(Present, Listed), Present == Type.
 %and sorts were ~40% of the whole type-resolution profile [measured
 %2026-08-17, profile/2], so the quadratic identity walk with the
 %C-implemented =@= is the faster shape at every realistic length.
+%EXPERIMENT (worktree only): the walk below is Theta(n^2) in the candidate
+%count, and the paragraph above is the reason to keep it: at one or two
+%candidates it beats canonicalizing, and that is what nearly every call passes.
+%It is not what every call passes. A symbol carrying n declarations answers n
+%candidates, and typing it measured 2.83, 3.34 and 3.66 per doubling over
+%n = 100, 200, 400, 800, converging on 4.0, with 800 declarations costing
+%5,997,121,957 instructions [measured 2026-08-22: 20 get-type calls, differenced
+%against the same file with no call].
+%
+%So the walk keeps the short lists it was measured on, and a long one goes to a
+%bucketed pass built the same way alpha_bucket_insert/5 above is: a numbervars
+%canonical copy chooses the bucket, and identity inside it decides. The
+%threshold is far above the one or two candidates the measurement talks about,
+%so no call the =@= walk was chosen for changes path.
+%
+%The one thing that cannot be borrowed wholesale is what decides INSIDE the
+%bucket. alpha_list_to_set/2 compares the canonical copies, which is right for
+%'alpha-unique-atom' and wrong here: a literal '$VAR'(0) and a variable share a
+%canonical form and are NOT variants. Running both over
+%['$VAR'(0), $v, '$VAR'(0), $w], the walk answers two and the canonical compare
+%answers one [measured 2026-08-22, differential over eight candidate shapes;
+%the other seven agree]. So =@= decides on the ORIGINAL terms and the hash only
+%narrows the search, which is the line translator.pl:1012-1019 already draws for
+%its own normalized cache key.
 unique_type_answers(Candidates, Unique) :-
-    variant_unique_(Candidates, [], Unique).
+    (   at_least_n(Candidates, 17)
+    ->  variant_unique_bucketed(Candidates, Unique)
+    ;   variant_unique_(Candidates, [], Unique)
+    ).
+
+at_least_n([_|Rest], N) :- ( N =< 1 -> true ; N1 is N - 1, at_least_n(Rest, N1) ).
+
+variant_unique_bucketed(Candidates, Unique) :-
+    empty_assoc(Empty),
+    variant_unique_bucketed_(Candidates, Empty, Unique).
+
+variant_unique_bucketed_([], _, []).
+variant_unique_bucketed_([Type|Types], Seen0, Out) :-
+    variant_bucket_key(Type, Key),
+    (   get_assoc(Key, Seen0, Bucket)
+    ->  true
+    ;   Bucket = []
+    ),
+    (   variant_in_bucket(Type, Bucket)
+    ->  variant_unique_bucketed_(Types, Seen0, Out)
+    ;   put_assoc(Key, Seen0, [Type|Bucket], Seen1),
+        Out = [Type|Rest],
+        variant_unique_bucketed_(Types, Seen1, Rest)
+    ).
+
+%variant_hash/2 is SWI's own primitive for this, invariant under renaming and
+%documented as being for finding variants in a set, so it replaces a copy_term
+%plus numbervars plus term_hash and costs no term copy. It processes an
+%attributed variable as an ordinary one, where =@=/2 does not, which is the
+%second reason the bucket is resolved by =@=/2 rather than by the key: the hash
+%is allowed to be coarser than the relation it indexes, never finer.
+variant_bucket_key(Type, Key) :- variant_hash(Type, Key).
+
+variant_in_bucket(Type, [Present|Rest]) :-
+    (   Present =@= Type
+    ->  true
+    ;   variant_in_bucket(Type, Rest)
+    ).
 
 variant_unique_([], _, []).
 variant_unique_([Type|Types], Seen, Out) :-
@@ -2598,7 +2874,15 @@ type_candidate_in(Module, X, T) :- get_type_rule_in(Module, X, T).
 %A refusal's own type lookup does not run them, because they are programs and
 %one that computes on its argument re-enters the operation that asked; see
 %metta_argument_types/2, which sets the flag.
-:- thread_local metta_evaluating_type_rule/0.
+%EXPERIMENT (worktree only): the flag was a thread_local clause asserted and
+%erased around every rule call. nilbc measured 5,007,442 call_get_type_rule/3
+%calls, so assertz/2 + erase/1 + the setup_call_cleanup sig_atomic/1 cost
+%3,047 of 15,206 profiled ticks, 20%. This is the same dynamic-extent state
+%with_metta_module/2 and push_dual_frame/3 already keep in a backtrackable
+%global, read with nb_current/2 exactly as current_metta_module/1 reads
+%'$petta_module'. The reader is a boolean test, so a saved-and-restored
+%boolean carries the nesting the clause count used to carry.
+metta_evaluating_type_rule :- nb_current('$petta_evaluating_type_rule', true).
 
 get_type_rule_in(Module, X, T) :- \+ metta_reading_declared_types,
                                   \+ metta_self_module(Module),
@@ -2609,9 +2893,13 @@ get_type_rule_in(_, X, T) :- \+ metta_reading_declared_types,
                              call_get_type_rule(Self, X, T).
 
 call_get_type_rule(Module, X, T) :-
-    setup_call_cleanup(assertz(metta_evaluating_type_rule, Ref),
-                       Module:get_type_rule(X, T),
-                       erase(Ref)).
+    (   nb_current('$petta_evaluating_type_rule', Previous)
+    ->  true
+    ;   Previous = false
+    ),
+    b_setval('$petta_evaluating_type_rule', true),
+    Module:get_type_rule(X, T),
+    b_setval('$petta_evaluating_type_rule', Previous).
 
 %The current upstream Number holds Integer(i64) and Float(f64), while its
 %tokenizer names an integer outside that capacity as the future BigInt case.
