@@ -15,7 +15,7 @@
 %     live cross-module symbol index [tested:
 %     support_graph:forgetting_a_module_releases_only_its_nodes,
 %     support_graph:forgetting_a_module_covers_every_node_shape_on_both_sides;
-%     commit=WORKTREE].
+%     commit=93cc9c940aebf5769ad1d40774d5d525e38f5071].
 %   - Type-marker and dispatch-policy roots use the same typed, module-scoped
 %     invalidation API as derived runtime state [tested:
 %     support_graph:language_policy_roots_are_typed_and_module_qualified;
