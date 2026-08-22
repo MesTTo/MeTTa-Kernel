@@ -1,7 +1,7 @@
 <!--
 Purpose: map multi-shot solving onto persistent Space state, parts, and external facts.
 Guarantees: the example uses context.space() and petta.tables.add.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Multi-shot solving

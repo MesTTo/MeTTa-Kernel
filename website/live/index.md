@@ -1,7 +1,7 @@
 <!--
 Purpose: route readers to the supported live-system guides.
 Guarantees: every listed guide describes a currently shipped public API.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Live systems

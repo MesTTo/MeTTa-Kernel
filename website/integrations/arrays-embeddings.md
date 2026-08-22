@@ -1,7 +1,7 @@
 <!--
 Purpose: explain array protocol operations and embedding retrieval through canonical atoms and Space handles.
 Guarantees: synchronous examples use space(), ground(), Expression, and wire.decode.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Arrays and embeddings

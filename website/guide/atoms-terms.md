@@ -1,7 +1,7 @@
 <!--
 Purpose: teach canonical atom construction, operators, methods, pattern matching, ordering, and wire conversion.
 Guarantees: examples contain no superseded atom class or helper names.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Atoms, operators, and term building

@@ -1,7 +1,7 @@
 <!--
 Purpose: show how petta.tables.add and Rows bridge tabular data in both directions.
 Guarantees: table ingestion examples use the satellite function rather than the removed Space method.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Dataframes

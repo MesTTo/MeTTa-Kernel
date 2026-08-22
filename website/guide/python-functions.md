@@ -1,7 +1,7 @@
 <!--
 Purpose: explain Python operation registration, type declarations, context injection, records, and property tests.
 Guarantees: examples use Space.op and canonical atom constructors without compatibility aliases.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Python functions as MeTTa functions

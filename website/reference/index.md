@@ -1,7 +1,7 @@
 <!--
 Purpose: index the public Python modules and handle APIs documented by the generated reference pages.
 Guarantees: deleted module doors have no reference link and the Space handle is not presented as a module.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # API reference

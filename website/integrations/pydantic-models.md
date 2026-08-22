@@ -1,7 +1,7 @@
 <!--
 Purpose: show lossless projection and reconstruction for Pydantic models.
 Guarantees: examples construct atoms through the canonical Expression type.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Pydantic models both ways

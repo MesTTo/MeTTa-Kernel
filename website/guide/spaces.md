@@ -1,7 +1,7 @@
 <!--
 Purpose: explain Space handles, journal-backed stores, composition, and external backing providers.
 Guarantees: examples use the public petta.space() and petta.attach() creation doors.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Spaces

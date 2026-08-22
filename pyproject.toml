@@ -2,7 +2,7 @@
 # Assumes: Packaging and gate commands run from the repository root with bindings/python importable.
 # Guarantees: Static import contracts keep the narrow core independent of optional satellites.
 # Decides: petta._space is core, while petta._persistent and public satellite modules are outside it.
-# [tested: PYTHONPATH=bindings/python lint-imports --config pyproject.toml; commit=WORKTREE]
+# [tested: PYTHONPATH=bindings/python lint-imports --config pyproject.toml; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 
 [build-system]
 requires = ["setuptools>=83"]

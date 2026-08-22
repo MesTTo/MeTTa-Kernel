@@ -1,7 +1,7 @@
 <!--
 Purpose: show a DuckDB provider implemented with canonical atoms and attached through the public space factory.
 Guarantees: the guide contains no removed atom constructors or Space registration methods.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # DuckDB as a space

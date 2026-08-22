@@ -3,10 +3,10 @@
 Guarantees:
   - the Space reference is sourced from its private implementation module
     while retaining the public ``petta.Space`` title
-    [tested: python bindings/python/tools/reference.py; commit=WORKTREE]
+    [tested: python bindings/python/tools/reference.py; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
   - deleted public module doors are not emitted as reference pages
     [tested: test_the_legacy_reference_generator_tracks_the_narrow_public_modules;
-    commit=WORKTREE]
+    commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 Open Obligations:
   To Do: None
   Hacks: None

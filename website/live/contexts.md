@@ -1,7 +1,7 @@
 <!--
 Purpose: explain subscription bridges between spaces and HTTP remotes between processes.
 Guarantees: examples use the space() factory and petta.subscribe.bridge satellite.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Contexts and remotes

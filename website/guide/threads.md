@@ -1,7 +1,7 @@
 <!--
 Purpose: document thread ownership, async execution, lifecycle rules, and serialization boundaries.
 Guarantees: public names in the boundary table match the narrow surface.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Threads, tasks, and what pickles

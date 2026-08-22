@@ -2,7 +2,7 @@
 Purpose: explain custom matching as a property of grounded atoms, with the
 measure library as the in-language companion, through executable examples.
 Guarantees: the example uses canonical atom names and the public space factory.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 Open Obligations:
   To Do: None
   Hacks: None

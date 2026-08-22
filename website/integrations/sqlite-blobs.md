@@ -1,7 +1,7 @@
 <!--
 Purpose: explain opaque and transparent SQLite BLOB images and lazy path reads.
 Guarantees: examples open named handles through petta.space().
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # SQLite BLOB images

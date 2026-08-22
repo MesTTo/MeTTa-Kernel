@@ -1,7 +1,7 @@
 <!--
 Purpose: explain callback and queued subscriptions over a Space handle.
 Guarantees: the executable example creates its handle through space().
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Standing queries

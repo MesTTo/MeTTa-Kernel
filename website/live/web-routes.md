@@ -1,7 +1,7 @@
 <!--
 Purpose: explain the executable route-table example built from Space operations and canonical atoms.
 Guarantees: the shown router uses Space.op and canonical atom names.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # Web routes

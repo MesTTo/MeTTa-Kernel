@@ -1,7 +1,7 @@
 <!--
 Purpose: connect in-memory routing, remote spaces, and multi-shot solving through the public narrow surface.
 Guarantees: examples use canonical atoms, Space.op, context.space(), and petta.tables.add.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
 # HTTP, routes, and solver loops
