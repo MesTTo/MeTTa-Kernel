@@ -12,8 +12,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,
   fits constant through quadratic complexity families over geometric sizes,
   and separates exact SWI structural bytes from Python allocations and Linux
-  process memory. The initial pins gate deterministic counters and inference
-  shapes; page-based RSS, PSS, and private bytes remain report-only.
+  process memory. Controlled `instructions:u` samples cover primitive-heavy
+  projection width, while page-based RSS, PSS, and private bytes remain
+  report-only.
 
 ### Changed
 
