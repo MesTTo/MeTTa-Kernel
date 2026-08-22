@@ -511,7 +511,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(fuzzy-match-space (new-space) (f a) ((f a)) 1)` | &mdash; | `(fuzzy-result (cost 0 0 0) (f a))` | absent |
 | `!(fuzzy-match-context (new-space) (new-space) (f a) ((f a)) 1)` | &mdash; | `(fuzzy-result (cost 0 0 0 0) (f a))` | absent |
 | `!(near-match (f a) ((f a) (f b)) 1)` | &mdash; | `(near-match (f a) ((f a) (f b)) 1)` | absent |
-| `!(sealed ($x) ($x $y))` | `m.one(S.sealed(petta.encode((V.x,)), petta.encode((V.x, V.y))))` | `($x $y#0) on leatta and petta; ($_1 $_2) on python` | method |
+| `!(sealed ($x) ($x $y))` | `m.one(S.sealed(petta.encode((V.x,)), petta.encode((V.x, V.y))))` | `($x $y#0) on leatta and petta; ($_v0 $_v1) on python` | method |
 | `!(capture (+ 1 2))` | &mdash; | `3` | absent |
 
 - `fuzzy-match` `(-> Atom Expression Number Atom)` &mdash; LeaTTa's cost-bounded approximate matcher, answering each candidate with its cost. PeTTa has `petta.structures` for many-to-one matching and no approximate matcher. The form is shown but not run here: PeTTa leaves the call unreduced.
