@@ -2390,18 +2390,22 @@ has_type_in(Module, X, T) :- has_type_derive(Module, X, T).
 
 has_type_derive(Module, X, T) :-
     ( ground(T)
-      -> (   type_witness_direct(Module, X, T)
-         ->  true
-         %type_answers/3 is derived ONCE here and both remaining questions are
-         %asked of it. It used to run twice on this path, as type_witness_in/3's
-         %last attempt and again below, and each run re-entered the subterms, so
-         %a term whose check FAILS paid three descents per level where one
-         %answer serves both.
-         ;   type_answers(Module, X, Types),
-             (   once(( member(Widened, Types), Widened == T ))
+      %ONE walk of the term decides this, whichever way it goes. The witness is
+      %called before the branch, not inside its condition, because a condition's
+      %bindings do not reach the else and the candidate list is exactly what the
+      %else needs: asking again there would restore the second descent this is
+      %removing. The answers used to be derived twice more besides, as
+      %type_witness_in/3's last attempt and again below.
+      -> (   type_witness_direct(Module, X, T, Outcome),
+             (   Outcome == found
              ->  true
-             ;   member(Actual, Types),
-                 metta_types_match_in(Module, Actual, T)
+             ;   Outcome = exhausted(Candidates),
+                 type_answers_from(Module, X, Candidates, Types),
+                 (   once(( member(Widened, Types), Widened == T ))
+                 ->  true
+                 ;   member(Actual, Types),
+                     metta_types_match_in(Module, Actual, T)
+                 )
              )
          )
        ; any_super_type_edge(Module)
@@ -2434,9 +2438,11 @@ has_type_derive(Module, X, T) :-
 %operational rule
 %[tested: bindings/python/tests/test_answer_protocol.py::test_admission_types_the_pool].
 type_witness_in(Module, X, T) :-
-    (   type_witness_direct(Module, X, T)
+    type_witness_direct(Module, X, T, Outcome),
+    (   Outcome == found
     ->  true
-    ;   type_answers(Module, X, Types),
+    ;   Outcome = exhausted(Candidates),
+        type_answers_from(Module, X, Candidates, Types),
         once(( member(Widened, Types), Widened == T ))
     ).
 
@@ -2444,14 +2450,31 @@ type_witness_in(Module, X, T) :-
 %set. has_declared_type/2 needs the whole witness including that set, so
 %type_witness_in/3 keeps its contract; has_type_derive/3 derives the set itself
 %and has no reason to ask for it twice.
-type_witness_direct(Module, X, T) :-
-    (   once(( type_candidate_in(Module, X, Actual),
-               (   typing_rule_accepts(Module, widening, Actual, T)
-               ->  true
-               ;   Actual = T
-               ) ))
-    ->  true
-    ;   satisfies_metatype_in(Module, X, T)
+%Reports `found`, or `exhausted(Candidates)` carrying every candidate the walk
+%produced. A failing check needs that list, and enumerating it is the only part
+%of the answer that re-enters the subterms, so remembering it as it goes is what
+%keeps a FAILING check off a second descent. The accumulator is the mutable
+%compound lazy_unique_candidate/3 above already uses for the same reason, with
+%duplicate_term/2 for the same reason again: nb_setarg/3 is not undone by the
+%backtracking that drives the enumeration, so what it stores must not share
+%structure with the bindings that are.
+type_witness_direct(Module, X, T, Outcome) :-
+    State = collected([]),
+    (   (   type_candidate_in(Module, X, Actual),
+            duplicate_term(Actual, Kept),
+            arg(1, State, Acc),
+            nb_setarg(1, State, [Kept|Acc]),
+            (   typing_rule_accepts(Module, widening, Actual, T)
+            ->  true
+            ;   Actual = T
+            )
+        ->  Outcome = found
+        ;   satisfies_metatype_in(Module, X, T)
+        ->  Outcome = found
+        ;   arg(1, State, Reversed),
+            reverse(Reversed, Candidates),
+            Outcome = exhausted(Candidates)
+        )
     ).
 
 %A ground declaration is the admission common case, so probe its indexed
@@ -2500,6 +2523,13 @@ lazy_unique_candidate(Module, X, Candidate) :-
 
 type_answers(Module, X, Types) :-
     findall(Type, type_candidate_in(Module, X, Type), Candidates),
+    type_answers_from(Module, X, Candidates, Types).
+
+%Everything type_answers/3 does AFTER the candidates are in hand. Only the
+%findall/3 above descends into the term's subterms; deduplication, widening and
+%the empty-set ruling all read the list. So a caller that has already enumerated
+%the candidates can finish the answer without walking the term a second time.
+type_answers_from(Module, X, Candidates, Types) :-
     unique_type_answers(Candidates, Unique),
     widen_to_super_types(Module, X, Unique, Widened),
     (   Widened \== []
