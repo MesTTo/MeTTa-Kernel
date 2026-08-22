@@ -2345,7 +2345,22 @@ of its own and a function name alone does not identify a function.
 library keeps derived state coherent when equations change. The specializer,
 the tracer, the memo cache, tabling and the dual predicates all hang off them.
 
-Both are dynamic and both cost per compiled equation while a handler exists,
+Three narrower events let an analysis avoid repeating work on every equation.
+`seam:function_call_graph_changed/2` carries a function and its execution
+module only when that function's retained source-call edges changed.
+`seam:source_program_compiled/0` marks the end of a definition-bearing source
+unit, so a graph consumer can batch one whole-source decision instead of
+running it for each form. `seam:cache_policy_changed/1` reports an added or
+removed `(cache <name> force|refuse)` catalog declaration or a change to an
+explicit `(tabled <space> <name> <arity>)` declaration.
+
+`seam:automatic_cache_explanation/3` is the declaration seam behind the
+cache item in `(explain ...)`: the function name is followed by the selected
+choice and its structured reason. `lib_memo` supplies `automatic`, `forced`,
+`refused`, `declined`, and `manual` decisions. A different caching extension
+may publish its own decision without moving that state into the engine.
+
+The function-change pair is dynamic and costs per compiled equation while a handler exists,
 which is why a library should install its handler when its feature is first
 used rather than when its file loads: a resident handler clause measured four
 inferences on every compiled equation.
@@ -2488,6 +2503,7 @@ both and the query they disagree on.
 | `(op <name> <arity> <kind>)` | how a registered operation compiles; `register_op` asserts these and compiles FROM them | `register_op` |
 | `(effect <name> immutable)` | the operation may sit in a tabled or memoized body | `register_op(declarations=[...])` |
 | `(cache <name> unchecked)` | the caller accepts stale answers for an impure body | add the atom |
+| `(cache <name> force\|refuse)` | override automatic memo profitability for one function; purity remains a hard refusal | add or remove the atom |
 | `(handles <ctx> <pattern> Exact\|Partial\|Sound\|Refuse [det])` | how faithful a context's own filtering is, per shape; `Exact` licenses count pushdown, `Refuse` makes the query a loud error; `(in $x)` marks a position that must arrive bound | `declare_handles` |
 | `(source <ctx> linear\|repeated\|peek)` | consumption discipline; a linear source's second touch is loud where the floor answered silently empty | `declare_source` |
 | `(on-error <ctx> <shape> keep\|empty\|abort)` | what a provider failure becomes: an `(Error ...)` answer, declared silence, or the abort floor | `declare_on_error` |

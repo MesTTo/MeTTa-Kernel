@@ -20,11 +20,16 @@
 %     the same forward graph [tested:
 %     support_graph:language_policy_roots_are_typed_and_module_qualified;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - Automatic memo analysis preserves one call-occurrence list per retained
+%     RHS and selects a recursive SCC only when one RHS calls that SCC at
+%     least twice [tested:
+%     test_a_doubly_branching_recursion_is_tabled_automatically_and_a_tail_recursion_is_not;
+%     commit=WORKTREE].
 % Owns resources: supports/2, support_function_module/2,
-%   support_view_module/2, support_dirty_node/1 and support_value/2 are
-%   transactional dynamic state; support_forget/1, support_forget_module/1 and
-%   support_reset/0 release their indexes, edges, dirtiness markers and retained
-%   values.
+%   support_view_module/2, support_dirty_node/1, support_value/2,
+%   support_memo_rule/4 and support_memo_changed/2 are transactional dynamic
+%   state; support_forget/1, support_forget_module/1 and support_reset/0 release
+%   their indexes, edges, dirtiness markers and retained values.
 % Guarded by: '$petta_support_graph' serializes graph replacement,
 %   invalidation, stabilization and cleanup; support_graph_locked/0 makes
 %   callbacks into graph cleanup re-entrant in the owning thread.
@@ -53,7 +58,9 @@
 :- module(support_graph,
           [ supports/2,
             support_publish/3,
-            support_publish_compiled_form/4,
+            support_publish_compiled_form/5,
+            support_memo_take_change/2,
+            support_memo_sccs/2,
             support_record/2,
             support_invalidate/1,
             support_invalidate_many/1,
@@ -75,14 +82,20 @@
             support_assertion_records/1
           ]).
 
+:- use_module(library(assoc)).
 :- use_module(library(error)).
+:- use_module(library(lists)).
 :- use_module(library(nb_set)).
+:- use_module(library(pairs)).
+:- use_module(scc, [nodes_arcs_sccs/3]).
 
 :- dynamic supports/2.
 :- dynamic support_function_module/2.
 :- dynamic support_view_module/2.
 :- dynamic support_dirty_node/1.
 :- dynamic support_value/2.
+:- dynamic support_memo_rule/4.
+:- dynamic support_memo_changed/2.
 :- thread_local support_graph_locked/0.
 :- thread_local support_repairs_deferred/0.
 
@@ -99,6 +112,82 @@ seam:kind(support_assertion_records/1, event).
 
 :- meta_predicate support_stabilize(+, 1, -).
 :- meta_predicate with_support_repairs_deferred(0).
+
+% MeTTaLingo's profitability rule is deliberately syntactic and per RHS: a
+% recursive component is worth memoizing when one body contains at least two
+% calls whose heads belong to that component. Edges are deduplicated for
+% Tarjan, while occurrence lists stay uncollapsed for the branch count
+% [source: https://github.com/MesTTo/MeTTaScript/blob/5ec7857acc08c83af162e2436a035fe5ef16387d/packages/core/src/tabling.ts#L147-L218;
+% commit=WORKTREE].
+support_memo_take_change(Module, Fun) :-
+    retract(support_memo_changed(Module, Fun)).
+
+support_memo_sccs(Module, Components) :-
+    must_be(atom, Module),
+    findall(rule(Fun, Calls), support_memo_rule(Module, _, Fun, Calls), Rules),
+    findall(Fun, member(rule(Fun, _), Rules), Nodes0),
+    sort(Nodes0, Nodes),
+    findall(arc(Fun, Callee),
+            ( member(rule(Fun, Calls), Rules),
+              member(Callee, Calls),
+              memberchk(Callee, Nodes) ),
+            Arcs0),
+    sort(Arcs0, Arcs),
+    (   Arcs == []
+    ->  Components = []
+    ;   nodes_arcs_sccs(Nodes, Arcs, RawSCCs),
+        maplist(sort, RawSCCs, SortedSCCs0),
+        sort(SortedSCCs0, SortedSCCs),
+        include(support_memo_recursive_component(Arcs),
+                SortedSCCs, RecursiveSCCs),
+        support_memo_component_index(RecursiveSCCs, Rules, ComponentIndex,
+                                     ComponentMaxima),
+        maplist(support_memo_component(Arcs, ComponentIndex,
+                                       ComponentMaxima),
+                RecursiveSCCs, Components)
+    ).
+
+support_memo_recursive_component(_, Members) :- Members = [_,_|_], !.
+support_memo_recursive_component(Arcs, [Only]) :-
+    memberchk(arc(Only, Only), Arcs).
+
+%Index each function to its component, then walk the RHS occurrence lists once.
+%Scanning every rule again for every SCC made a source of N unrelated
+%definitions quadratic merely to decide that none was recursive.
+support_memo_component_index(SCCs, Rules, ComponentIndex, ComponentMaxima) :-
+    findall(Fun-Id,
+            ( nth0(Id, SCCs, Members), member(Fun, Members) ),
+            MembershipPairs0),
+    keysort(MembershipPairs0, MembershipPairs),
+    list_to_assoc(MembershipPairs, ComponentIndex),
+    findall(Id-Count,
+            ( member(rule(Fun, Calls), Rules),
+              get_assoc(Fun, ComponentIndex, Id),
+              include(support_memo_same_component(ComponentIndex, Id),
+                      Calls, Inside),
+              length(Inside, Count) ),
+            Counts0),
+    keysort(Counts0, Counts),
+    group_pairs_by_key(Counts, Grouped),
+    maplist(support_memo_maximum, Grouped, Maxima),
+    list_to_assoc(Maxima, ComponentMaxima).
+
+support_memo_same_component(ComponentIndex, Id, Fun) :-
+    get_assoc(Fun, ComponentIndex, Id).
+
+support_memo_maximum(Id-Counts, Id-Maximum) :-
+    max_list(Counts, Maximum).
+
+support_memo_component(Arcs, ComponentIndex, ComponentMaxima, Members,
+                       memo_scc(Members, Recursive, MaxCalls)) :-
+    (   Members = [Only]
+    ->  ( memberchk(arc(Only, Only), Arcs) -> Recursive = true
+        ; Recursive = false )
+    ;   Recursive = true
+    ),
+    Members = [First|_],
+    get_assoc(First, ComponentIndex, Id),
+    get_assoc(Id, ComponentMaxima, MaxCalls).
 
 % Delta ML records the dynamic dependence trace and propagates a change only
 % through the affected trace. The forward index below is that algorithmic
@@ -226,14 +315,66 @@ support_publish_locked(Derived, Supports, Edges) :-
 % record_translated_from/3 has already established these types while it owns a
 % fresh clause reference. Keeping its hot publication path here avoids
 % re-validating four engine-built nodes for every source form.
-support_publish_compiled_form(Module, G, Ref, Supports) :-
+support_publish_compiled_form(Module, G, Ref, Supports, Body) :-
     Form = translated_form(Module, Ref),
     Compiled = compiled_function(Module, G),
     Function = function(Module, G),
     View = function_view(Module, G),
+    support_memo_body_calls(Module, G, Body, Calls),
     support_atomic(
-        support_publish_compiled_locked(Supports, Form, Compiled,
-                                        Function, View)).
+        ( support_publish_compiled_locked(Supports, Form, Compiled,
+                                          Function, View),
+          support_publish_memo_rule(Module, G, Ref, Calls) )).
+
+%Most definitions mention only builtins. Probe for one possible source-call
+%head before allocating an occurrence list; only a body that can participate
+%in a source SCC pays the complete walk.
+support_memo_body_calls(Module, Fun, Body, Calls) :-
+    once(( support_memo_call_head(Body, Candidate),
+           support_memo_potential_callee(Module, Fun, Candidate) )),
+    !,
+    findall(Call,
+            ( support_memo_call_head(Body, Call),
+              support_memo_potential_callee(Module, Fun, Call) ),
+            Calls).
+support_memo_body_calls(_, _, _, []).
+
+%quote/noeval payloads and Error diagnostics are data, not evaluable call
+%positions. Counting their contents creates false recursion and was the
+%concrete accumulator regression MeTTaLingo's later correction removed.
+support_memo_call_head(Term, _) :- var(Term), !, fail.
+support_memo_call_head([Head|_], _) :-
+    nonvar(Head),
+    % policy-inventory-exempt: arbiter-owned-language-law; reason=quote, noeval and Error payloads are syntax or data rather than executable calls; evidence=engine/support_graph.pl:support_memo_call_head/2
+    memberchk(Head, [quote, noeval, 'Error']),
+    !,
+    fail.
+support_memo_call_head([Head|_], Head) :- atom(Head).
+support_memo_call_head([Head|Arguments], Call) :-
+    member(Item, [Head|Arguments]),
+    support_memo_call_head(Item, Call).
+
+%Only a source-call edge can participate in a recursive SCC. Known builtins
+%are absent unless this module already owns an equation of that name; a later
+%definition invalidates and republishes its callers through the support graph,
+%at which point the view exists and the edge is retained.
+support_publish_memo_rule(Module, G, Ref, Calls) :-
+    retractall(support_memo_rule(Module, Ref, _, _)),
+    (   Calls == []
+    ->  true
+    ;   assertz(support_memo_rule(Module, Ref, G, Calls)),
+        support_memo_mark_changed(Module, G)
+    ).
+
+support_memo_potential_callee(_, Fun, Fun) :- !.
+support_memo_potential_callee(Module, _, Call) :-
+    support_function_module(Call, Module), !.
+support_memo_potential_callee(_, _, Call) :-
+    \+ builtin_fun(Call).
+
+support_memo_mark_changed(Module, Fun) :-
+    ( support_memo_changed(Module, Fun) -> true
+    ; assertz(support_memo_changed(Module, Fun)) ).
 
 support_publish_compiled_locked(Supports, Form, Compiled, Function, View) :-
     maplist(support_index_node_locked, Supports),
@@ -315,11 +456,18 @@ support_forget(Node) :-
     support_atomic(support_forget_locked(Node)).
 
 support_forget_locked(Node) :-
+    support_forget_memo_rule(Node),
     retractall(supports(Node, _)),
     retractall(supports(_, Node)),
     retractall(support_dirty_node(Node)),
     retractall(support_value(Node, _)),
     support_unindex_node_locked(Node).
+
+support_forget_memo_rule(translated_form(Module, Ref)) :-
+    !,
+    findall(Fun, retract(support_memo_rule(Module, Ref, Fun, _)), Funs),
+    forall(member(Fun, Funs), support_memo_mark_changed(Module, Fun)).
+support_forget_memo_rule(_).
 
 support_unindex_node_locked(function(Module, Name)) :-
     !,
@@ -348,6 +496,8 @@ support_forget_module_locked(Module) :-
              retractall(support_value(Node, _)) )),
     retractall(support_function_module(_, Module)),
     retractall(support_view_module(_, Module)),
+    retractall(support_memo_rule(Module, _, _, _)),
+    retractall(support_memo_changed(Module, _)),
     support_prune_symbol_indexes_locked.
 
 support_module_pattern(Module, function(Module, _)).
@@ -501,4 +651,6 @@ support_reset :-
           retractall(support_function_module(_, _)),
           retractall(support_view_module(_, _)),
           retractall(support_dirty_node(_)),
-          retractall(support_value(_, _)) )).
+          retractall(support_value(_, _)),
+          retractall(support_memo_rule(_, _, _, _)),
+          retractall(support_memo_changed(_, _)) )).

@@ -11,6 +11,11 @@
 %     seam:atom_added/2 and the module carries the namespace the metta_on_
 %     prefix used to carry [tested: test_every_seam_is_reached_under_its_module;
 %     commit=dd407a40f623b16eda0bb51a74458f7dd3760e21].
+%   - automatic-cache graph, source-boundary, policy, explanation and support
+%     seams each declare their event/declaration/service direction explicitly
+%     [tested: every_seam_kind_matches_its_direction,
+%     test_a_doubly_branching_recursion_is_tabled_automatically_and_a_tail_recursion_is_not;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -52,8 +57,11 @@
             % Events: the engine tells, every handler runs.
             atom_added/2,
             atom_removed/2,
+            cache_policy_changed/1,
+            function_call_graph_changed/2,
             function_changed/1,
             function_removed/1,
+            source_program_compiled/0,
             backend_selftest/0,
 
             % The atom-write wrappers those events ride on.
@@ -72,6 +80,7 @@
             foreign_capability/2,
             grounded_extra_type/2,
             host_builtin/1,
+            automatic_cache_explanation/3,
             pure_operation/1,
             route_cap/4,
 
@@ -268,10 +277,24 @@ kind(dispatch_call/4, ownership).
 %invalidation handler, 4001 on source-load's thousand equations].
 :- multifile function_changed/1.
 kind(function_changed/1, event).
+:- multifile function_call_graph_changed/2.
+kind(function_call_graph_changed/2, event).
 :- multifile function_removed/1.
 kind(function_removed/1, event).
+:- multifile cache_policy_changed/1.
+kind(cache_policy_changed/1, event).
+:- multifile source_program_compiled/0.
+kind(source_program_compiled/0, event).
 :- dynamic function_changed/1.
+:- dynamic function_call_graph_changed/2.
 :- dynamic function_removed/1.
+:- dynamic cache_policy_changed/1.
+:- dynamic source_program_compiled/0.
+
+%Automatic caching decisions are extension-owned declarations. The core's
+%explain door enumerates them, while lib_memo owns the state and reasons.
+:- multifile automatic_cache_explanation/3.
+kind(automatic_cache_explanation/3, declaration).
 
 %Space writes: every 'add-atom'/3 and 'remove-atom'/3 runs these hooks with
 %the space and the term, after the write. A standing query, a subscription,
@@ -981,6 +1004,11 @@ kind(match_foreign/4, service).
 kind(metta_effect_walk/3, service).
 kind(metta_function_cacheable/1, service).
 kind(metta_cache_unchecked/1, service).
+%A library that batches a compile-time analysis needs to distinguish one
+%source program from an isolated equation and recompile the affected call
+%surface through the loader's established invalidation path.
+kind(active_source_program/1, service).
+kind(recompile_function_impl/1, service).
 
 %THE SUPPORT GRAPH's other direction. Its handler seams are declared in
 %engine/support_graph.pl (support_invalidation_action/1 and four more), so an
@@ -991,6 +1019,8 @@ kind(metta_cache_unchecked/1, service).
 kind(support_record/2, service).
 kind(support_invalidate/1, service).
 kind(support_forget/1, service).
+kind(support_memo_take_change/2, service).
+kind(support_memo_sccs/2, service).
 
 %SOURCE AND VOCABULARY. The published parser hands back parsed/3 terms, so
 %without a way to take one apart the answer is opaque; parsed_form_parts/4 is
@@ -1178,8 +1208,11 @@ declared(Action, Reference) :-
 :- use_module(library(prolog_wrap)).
 
 dispatch_call(_, _, _, _) :- fail.
+cache_policy_changed(_).
 function_changed(_).
+function_call_graph_changed(_, _).
 function_removed(_).
+source_program_compiled.
 
 %Atom hooks wrap the write predicates only while a multifile handler exists.
 %prolog_listen/2 sees clauses loaded later, so an engine without handlers keeps

@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/petta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 34 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 160 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 161 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `bindings/python/tests/twins/**/*.py` | 18 Python twins of `examples/` programs, each written with no MeTTa source text, answering alpha-equal to its original and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
@@ -31,7 +31,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/*.pl` | 26,744 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
+| `engine/*.pl` | 27,171 lines: `engine/metta.pl` engine, `engine/translator.pl` compilation, `engine/spaces.pl` stores, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/filereader.pl`, `engine/duals.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta` | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 33 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -472,14 +472,16 @@ the whole permitted inward surface
 `metta_symbol_writable/1`, `metta_unwritable_symbol/2`,
 `metta_reader_token_class/3`, `metta_reader_token_source/2`;
 source: `parse_metta_source/2` with `parsed_form_parts/4` to take one form
-apart, `current_working_dir/1` for what a relative path resolves against, and
+apart, `active_source_program/1` to detect a definition batch,
+`current_working_dir/1` for what a relative path resolves against, and
 `petta_vocabulary_value/2` so a library validates an option against the same
 declared vocabulary the engine reads;
 compiler: `metta_special_form_head/1`, every head the translator gives special
 meaning, so a linter, a completion list or the Python MeTTa.builtins() call asks
 a question instead of reading the compiler's clause table. That read was what the
 Python shim and lib/lib_reflect.metta both did, and both answered short and
-silently the moment the translator became a module of its own;
+silently the moment the translator became a module of its own, and
+`recompile_function_impl/1` rebuilds one function after a dispatch decision;
 errors: `throw_metta_type_error/3`, `rethrow_metta_operation_error/2`,
 `refuse_unbound_input/2`;
 context: `current_metta_module/1`, `current_metta_space/1`, `space_module/2`,
@@ -492,7 +494,9 @@ writes the one format the space reads;
 purity and caching: `metta_effect_walk/3`, `metta_function_cacheable/1`,
 `metta_cache_unchecked/1`, with `support_record/2`, `support_invalidate/1` and
 `support_forget/1` for taking part in the support graph whose handler seams the
-engine already declares;
+engine already declares, plus `support_memo_sccs/2` and
+`support_memo_take_change/2` for its call-graph SCC view and changed-edge
+signal;
 foreign spaces: `petta_shape_route/5` for the routed view of any shape-routed
 declaration kind, `foreign_pushdown_class/3` and `foreign_provides/2`, the
 routing classifier and capability probe, `petta_require_events/2`, which

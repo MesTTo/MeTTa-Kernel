@@ -20,6 +20,10 @@
 %   - A change-driven recompile keeps the fuel wrapper on a recursive clause
 %     [tested: support_graph:a_recompiled_recursive_clause_keeps_its_fuel_wrapper;
 %     commit=e8270f8551083f236ce5134ca299adf5347d6898].
+%   - A process-wide reset releases the retained memo-call graph and its
+%     pending change markers [tested:
+%     support_graph:a_reset_releases_automatic_memo_analysis_state;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -189,5 +193,15 @@ test(a_recompiled_recursive_clause_keeps_its_fuel_wrapper,
     forall(clause(Module:'sg-fuel-rec'(_, _), After),
            ( term_to_atom(After, AfterText),
              assertion(sub_atom(AfterText, _, _, _, '$petta_fuel_remaining')) )).
+
+test(a_reset_releases_automatic_memo_analysis_state) :-
+    support_graph:support_publish_compiled_form(
+        p36_reset, p36_reset_fun, p36_reset_ref, [], [p36_reset_fun]),
+    assertion(support_graph:support_memo_sccs(
+        p36_reset, [memo_scc([p36_reset_fun], true, 1)])),
+    support_graph:support_reset,
+    assertion(support_graph:support_memo_sccs(p36_reset, [])),
+    assertion(\+ support_graph:support_memo_take_change(
+                     p36_reset, p36_reset_fun)).
 
 :- end_tests(support_graph).

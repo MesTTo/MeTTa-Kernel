@@ -8,6 +8,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Pure recursive source functions are memoized automatically when one rule
+  body calls their strongly connected component at least twice. Single-call
+  recursion stays uncached, and the shared effect analysis refuses automatic
+  caching for state, space, or other impure work. `(cache f force)` and
+  `(cache f refuse)` catalog declarations override the profitability choice,
+  `explain` reports the decision, and automatic entries preserve duplicate
+  answer bags through `lib_memo`. An explicit `lib_tabling` answer trie takes
+  precedence until it is removed, so set and bag caches never stack.
 - Which reaction fires first is a declared policy. `(agenda <ctx> <policy>)`,
   or `m.declare_agenda(name, policy)`, picks between `declaration` (the
   order they were declared, the stated default and what the engine used to

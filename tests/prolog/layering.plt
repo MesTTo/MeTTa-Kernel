@@ -119,4 +119,24 @@ test(the_contract_names_every_subsystem_it_measures) :-
     contract_components(Components),
     assertion(Components \== []).
 
+test(scc_components) :-
+    Nodes = [a, b, c, d],
+    Arcs = [arc(a, b), arc(b, a), arc(b, c), arc(c, d), arc(d, c)],
+    nodes_arcs_sccs(Nodes, Arcs, Raw),
+    maplist(sort, Raw, Sorted0),
+    sort(Sorted0, Sorted),
+    assertion(Sorted == [[a, b], [c, d]]).
+
+test(scc_is_order_independent) :-
+    Nodes = [a, b, c, d],
+    Arcs = [arc(a, b), arc(b, a), arc(b, c), arc(c, d), arc(d, c)],
+    reverse(Arcs, Reversed),
+    nodes_arcs_sccs(Nodes, Arcs, First0),
+    nodes_arcs_sccs(Nodes, Reversed, Second0),
+    maplist(sort, First0, First1),
+    maplist(sort, Second0, Second1),
+    sort(First1, First),
+    sort(Second1, Second),
+    assertion(First == Second).
+
 :- end_tests(engine_layering).

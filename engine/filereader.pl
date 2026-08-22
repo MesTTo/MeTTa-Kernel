@@ -35,6 +35,12 @@
 %     only equations from its source prefix; a head defined later stays
 %     unreduced instead of becoming an undefined host call [tested:
 %     test_a_bang_before_the_definition_answers_unreduced_not_a_host_error].
+%   - Compile-time automatic-cache analysis drains once per definition batch,
+%     before a runnable is translated and again at successful source exit, so
+%     recursive bodies and their callers compile under one settled decision
+%     [tested:
+%     test_a_doubly_branching_recursion_is_tabled_automatically_and_a_tail_recursion_is_not;
+%     commit=WORKTREE].
 %   - That pass costs 31 inferences for a one-form source, identical across
 %     three different one-form sources, then 4.006 per plain form and 23.073
 %     per definition beyond it [measured 2026-08-18: interleaved A/B over
@@ -1149,23 +1155,46 @@ prepare_metta_source(S, ParsedForms) :-
 %nests safely across imports, and disappears even when a form throws.
 :- thread_local active_source_program/1.
 :- thread_local source_pending_definition/2.
+:- thread_local source_compiled_definition/1.
 :- meta_predicate with_source_program_order(+, 0).
 
 with_source_program_order(ParsedForms, Goal) :-
     gensym(source_program_, Id),
     findall(F, source_equation_name(ParsedForms, F), Names0),
     sort(Names0, Names),
+    (   Names == []
+    ->  call(Goal)
+    ;   with_source_definition_order(Id, Names, Goal)
+    ).
+
+with_source_definition_order(Id, Names, Goal) :-
     setup_call_cleanup(
         asserta(active_source_program(Id), ContextRef),
         ( forall(member(F, Names), assertz(source_pending_definition(Id, F))),
-          call(Goal) ),
+          call(Goal),
+          flush_source_program_analysis_if_needed ),
         ( erase(ContextRef),
-          retractall(source_pending_definition(Id, _)) )).
+          retractall(source_pending_definition(Id, _)),
+          retractall(source_compiled_definition(Id)) )).
 
 source_definition_arrived(F) :-
-    active_source_program(Id), !,
-    retractall(source_pending_definition(Id, F)).
+    active_source_program(Id),
+    !,
+    retractall(source_pending_definition(Id, F)),
+    ( source_compiled_definition(Id) -> true
+    ; assertz(source_compiled_definition(Id)) ).
 source_definition_arrived(_).
+
+%A source containing only runnables cannot have changed a source-call graph,
+%so it never enters the extension event door. Definitions are analyzed once
+%before the next runnable, or once at source exit, rather than once per
+%equation.
+flush_source_program_analysis_if_needed :-
+    retract(source_compiled_definition(Id)),
+    !,
+    active_source_program(Id),
+    forall(seam:source_program_compiled, true).
+flush_source_program_analysis_if_needed.
 
 %Everything a source does BEFORE any of its own forms run, over forms already
 %parsed. It is named apart from prepare_metta_source/2 because the parse is
@@ -1404,7 +1433,7 @@ record_translated_supports(Ref, [=, [G|_], Body]) :-
               Support = function_view(Module, Symbol) ),
             Supports0),
     sort(Supports0, Supports),
-    support_publish_compiled_form(Module, G, Ref, Supports).
+    support_publish_compiled_form(Module, G, Ref, Supports, Body).
 record_translated_supports(_, _).
 
 forget_translated_from(Module, Ref, [=, [G|_], _]) :-
@@ -1519,6 +1548,7 @@ process_form(Space, parsed(expression, _, Term0), []) :-
     metta_add_atom(Space, Term, _),
     print_expression_form(Term).
 process_form(Space, parsed(runnable, FormStr, Term, Names), Result) :-
+    flush_source_program_analysis_if_needed,
     rewrite_parsed_form(Space, FormStr, Term, BoundTerm),
     space_module(Space, Module),
     with_metta_module(Module,
@@ -1568,6 +1598,7 @@ process_loader_form(Space, parsed(expression, _, Term), []) :-
     record_source_assertion(SpaceRef),
     print_expression_form(Term).
 process_loader_form(Space, parsed(runnable, FormStr, Term, Names), Result) :-
+    flush_source_program_analysis_if_needed,
     rewrite_parsed_form(Space, FormStr, Term, BoundTerm),
     space_module(Space, Module),
     with_metta_module(Module,

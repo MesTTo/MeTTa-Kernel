@@ -1,37 +1,26 @@
-% Purpose: decompose a directed graph into its strongly connected components,
-%   so the layering lane can say which engine subsystems are mutually
-%   recursive rather than only that some call is undeclared.
+% Purpose: decompose a directed graph into strongly connected components for
+%   shipped engine analyses such as automatic memoization.
 % Assumes:
 %   - nodes are ground terms and arcs name nodes that appear in the node list;
 %     an arc naming an unlisted node fails the assoc lookup rather than being
-%     ignored, which is upstream's behaviour and the one this file wants
+%     ignored, which is upstream's behaviour
 % Guarantees:
 %   - nodes_arcs_sccs(+Nodes, +Arcs, -SCCs) answers one list per component,
 %     every node in exactly one, in O(|V| + log(|V|)*|E|)
-%     [tested: scc_components; commit=dd407a40f623b16eda0bb51a74458f7dd3760e21]
+%     [tested: scc_components; commit=WORKTREE]
 %   - the answer is independent of arc order, because components are keyed by
 %     Tarjan lowlink and then grouped [tested: scc_is_order_independent;
-%     commit=dd407a40f623b16eda0bb51a74458f7dd3760e21]
+%     commit=WORKTREE]
 % Fails when:
 %   - an arc names a node absent from Nodes, or a node is not ground
 % Owns resources:
 %   - attributes on fresh variables local to one call; the catch/throw at the
-%     end of nodes_arcs_sccs/3 is upstream's way of dropping them all, since
-%     the attributes live on variables that go out of scope with the throw
+%     end of nodes_arcs_sccs/3 drops them all when those variables leave scope
 % Decides:
 %   - this is PORTED code, not ours. Markus Triska wrote it (May 2011) and
 %     released it into the public domain; Edison Mera vendors it in xtools as
-%     prolog/scc.pl, which is where the layering lane's other technique comes
-%     from [source: https://github.com/edisonm/xtools prolog/scc.pl at commit
-%     9801a9a74861a0d574636ceabab0cd0f978d3bea, itself carrying the header
-%     "Written by Markus Triska (triska@gmx.at), May 2011. Public domain
-%     code."; xtools' own LICENSE is the Simplified BSD, Copyright (c) 2017
-%     Edison Mera]. It is copied rather than depended on for the reason the
-%     engine's own rewriting library states for its algorithms: a check should
-%     not put an unmaintained pack between the tree and its gate. Only the
-%     header, the
-%     module name and this contract block are ours; the algorithm below is
-%     upstream's, unchanged, so a later reader can diff it against the source.
+%     prolog/scc.pl [source: https://github.com/edisonm/xtools/blob/9801a9a74861a0d574636ceabab0cd0f978d3bea/prolog/scc.pl;
+%     commit=WORKTREE]. The algorithm below is unchanged.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
