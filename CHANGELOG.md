@@ -298,6 +298,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Dropping or clearing a space that had tabled a function no longer risks
+  terminating the process. The clear removed the clauses of predicates that
+  were still tabled and only untabled them afterwards, so every removal ran
+  against a predicate whose tables and tabling instrumentation were still
+  live. The untabling now runs first, before every path that removes a
+  clause. Sixty cycles of "table a function in a fresh space, drop it, take
+  the recycled name, redefine the same function" ended the process in 3 runs
+  of 3 before the change and 0 of 4 after. The defect was old and only
+  appeared once enough tabling had accumulated in one process, which is why
+  it looked like an occasional flake rather than a fault.
 - `@define` now installs an annotation-derived type declaration before its
   equation is compiled. The compiler therefore sees the signature at the door
   where it matters instead of learning it after the clause already exists.

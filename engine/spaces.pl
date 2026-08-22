@@ -2748,15 +2748,40 @@ metta_remove_hooks_idle(Space) :-
 metta_host_clear_space(Space) :-
     seam:foreign_space(Space), !,
     clear_foreign_atoms(Space).
+%UNTABLING COMES FIRST, before any path that removes a clause. Every later
+%step here removes clauses of predicates this space may have TABLED: the
+%hook-driven `remove-atom` loop and clear_native_atoms/1 both retract the
+%compiled half of a stored `(= ...)`, and clear_generated_predicates/1
+%abolishes what the compiler generated. untable/1 removes "the tables and the
+%tabling instrumentation" [source: SWI-Prolog 10.1 manual, section 7.10
+%tabling-preds], so running it first is what makes every one of those removals
+%an ordinary clause removal against an ordinary predicate. The reverse order
+%retracts the clauses of a predicate whose tables and wrapper are still live,
+%which is the shape upstream reports segfaults for; the same advice explains
+%why the abolish/1 in clear_generated_predicate/3 must stay behind the
+%untabling too, since abolish/1 "completely wipes the predicate, including its
+%properties" [source: SWI-Prolog manual, retractall/1].
+%
+%Measured 2026-08-22, and it is a fault rather than a wrong answer: sixty
+%cycles of "table a function in a fresh space, drop it, take the recycled
+%name, redefine the same function" terminated the process abnormally inside
+%libswipl 3 runs of 3 with the removal ahead of the untabling, and 0 of 4 with
+%this order, in 0.70s per run; tests/test_tabling_control.py went from 4 of 4
+%whole-file failures to 0 of 6. The fault predates the authoring-surface wave
+%that exposed it (the same file failed 1 run of 6 at 4636dd2), which is why it
+%read as a flake for weeks: it needs enough accumulated tabling state in one
+%process, so a single test never showed it
+%[tested: test_a_drop_untables_before_it_removes_any_clause,
+%spaces_drop_untables_first; commit=WORKTREE].
 metta_host_clear_space(Space) :-
+    space_module(Space, Module),
+    metta_host_clear_tabling(Space, Module),
     (   metta_remove_hooks_idle(Space)
     ->  true
     ;   findall(Atom, metta_host_stored(Space, Atom), Atoms),
         forall(member(Atom, Atoms), 'remove-atom'(Space, Atom, _))
     ),
     clear_native_atoms(Space),
-    space_module(Space, Module),
-    metta_host_clear_tabling(Space, Module),
     clear_generated_predicates(Module).
 
 %The equations above come out one per stored (= ...) atom, through

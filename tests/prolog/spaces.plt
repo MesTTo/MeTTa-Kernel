@@ -2784,3 +2784,41 @@ test(a_type_marker_probe_sends_a_writable_pattern_to_a_foreign_space,
            assertion(catch(swrite(Pattern, _), _, fail))).
 
 :- end_tests(spaces_seam_patterns).
+
+% A drop removes clauses: the hook-driven remove-atom loop and
+% clear_native_atoms/1 both retract the compiled half of a stored (= ...),
+% and clear_generated_predicates/1 abolishes what the compiler generated.
+% SWI does not allow the clauses of a TABLED predicate to be modified while
+% its tables stand, and for a plain table it is undefined behaviour, so the
+% untabling has to come before all three. Written as a source-order check
+% because the behavioural symptom is an abnormal process termination that
+% needs enough accumulated tabling state to appear at all, which makes it a
+% poor gate on its own; the pytest loop beside it covers the behaviour.
+:- begin_tests(spaces_drop_untables_first).
+
+test(a_drop_untables_before_it_removes_any_clause) :-
+    findall(Body,
+            ( clause(spaces:metta_host_clear_space(_), Body),
+              \+ Body = (seam:foreign_space(_), _) ),
+            [Removing]),
+    comma_goals(Removing, Goals),
+    once(nth0(Untable, Goals, metta_host_clear_tabling(_, _))),
+    once(nth0(Native, Goals, clear_native_atoms(_))),
+    once(nth0(Generated, Goals, clear_generated_predicates(_))),
+    assertion(Untable < Native),
+    assertion(Untable < Generated),
+    % The removal branch is an if-then-else, so it is one goal in the list.
+    forall(( nth0(Index, Goals, Goal),
+             nonvar(Goal),
+             Goal = (_ -> _ ; _) ),
+           assertion(Untable < Index)).
+
+comma_goals(Conjunction, Goals) :-
+    (   nonvar(Conjunction),
+        Conjunction = (First, More)
+    ->  Goals = [First|Rest],
+        comma_goals(More, Rest)
+    ;   Goals = [Conjunction]
+    ).
+
+:- end_tests(spaces_drop_untables_first).
