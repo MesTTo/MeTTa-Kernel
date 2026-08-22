@@ -1,3 +1,9 @@
+<!--
+Purpose: specify the HTTP remote-space protocol and its satellite cursor lifecycle.
+Guarantees: comparisons distinguish eager core queries from remote satellite streaming.
+[tested: npm run docs:build; commit=WORKTREE]
+-->
+
 # The remote space protocol
 
 `petta.remote.serve()` exposes spaces over HTTP and `attach()` consumes
@@ -32,7 +38,7 @@ body must be one JSON object.
 `space` defaults to `&self` and selects which of the server's spaces
 answers. `add_many` carries a batch in one request, the engine's own
 bulk-door law on the wire: a batch is a transport optimisation and
-never a semantic one, and `m.space(name).add(a, b, c)` against an
+never a semantic one, and `petta.space(name).add(a, b, c)` against an
 attached gateway crosses once.
 
 `bound` on `/match` and `/ask` is optional and carries the caller's
@@ -70,8 +76,8 @@ This is the part of the contract every binding inherits, in any
 language, over any transport. `/match` computes the whole answer set
 before anything crosses, which is what `m.query()` does in-process.
 `/ask` opens a cursor and answers the first chunk, `/next` pulls the
-next one, and `/stop` releases it, which is what `m.stream()` does
-in-process. A client that wants two answers of a million-answer join
+next one, and `/stop` releases it, which is what `RemoteSpace.stream()` does
+on the satellite client. A client that wants two answers of a million-answer join
 takes them and stops, and the serving engine computes two.
 
 ```
@@ -141,8 +147,8 @@ larger than that at all; the lifecycle is what carries it
 [`test_an_answer_set_too_large_for_one_body_still_crosses_in_chunks`].
 
 On the client side `RemoteSpace.stream(pattern, batch=...)` is the lazy
-door and `match()` stays the eager one, the same split `stream()` and
-`query()` make in-process. `petta.remote.attach(m, "&hq", url, batch=1)`
+door and `match()` stays the eager one. The core `Space.query()` is eager.
+`petta.remote.attach(m, "&hq", url, batch=1)`
 puts an attached space's matching on the lazy door, so a MeTTa `once`
 over it stops the serving engine too.
 
@@ -155,7 +161,7 @@ that crosses is a decision, not drift. The projection:
 |---|---|---|
 | `match` | `POST /match` | the protocol's center |
 | bounded match | `"bound"` on `/match` and `/ask`, advertised in health | trusted-Exact: only an exact matcher may truncate |
-| streamed answers (`m.stream`) | `POST /ask`, `/next`, `/stop`, advertised as `stream` | lazy answers are part of the contract on every transport |
+| streamed remote answers | `POST /ask`, `/next`, `/stop`, advertised as `stream` | lazy answers belong to the remote satellite |
 | `enumerate` | `POST /atoms` | one shot: the give-me-everything door has no early exit to protect |
 | `add` | `POST /add` | |
 | bulk add | `POST /add_many` | a transport batch, never a semantic one |

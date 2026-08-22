@@ -1,14 +1,20 @@
+<!--
+Purpose: explain subscription bridges between spaces and HTTP remotes between processes.
+Guarantees: examples use the space() factory and petta.subscribe.bridge satellite.
+[tested: npm run docs:build; commit=WORKTREE]
+-->
+
 # Contexts and remotes
 
 Spaces already isolate contexts inside one engine. Two mechanisms extend that across boundaries: bridge rules connect spaces, and `petta.remote` connects engines.
 
-`petta.bridge(src, pattern, dst, template)` is a bridge rule in the multi-context-systems sense: when an atom unifying with the pattern arrives in the source space, the template's instantiation under the match's bindings lands in the target, and with `on="both"` a removal in the source removes the instantiation from the target. The rule is a standing query, delivered inside the write that triggered it, and `cancel()` ends it:
+`petta.subscribe.bridge(src, pattern, dst, template)` is a bridge rule in the multi-context-systems sense: when an atom unifying with the pattern arrives in the source space, the template's instantiation under the match's bindings lands in the target, and with `on="both"` a removal in the source removes the instantiation from the target. The rule is a standing query, delivered inside the write that triggered it, and `cancel()` ends it:
 
 ```python
 def test_bridge_rules_connect_spaces(metta):
-    src = metta.new_space()
-    dst = metta.new_space()
-    rule = bridge(src, S.alarm(V.zone), dst, S.notify(V.zone), on="both")
+    src = space()
+    dst = space()
+    rule = subscribe.bridge(src, S.alarm(V.zone), dst, S.notify(V.zone), on="both")
     try:
         src.add(S.alarm(S.kitchen))
         assert dst.query(S.notify(V.z)).one().z == S.kitchen

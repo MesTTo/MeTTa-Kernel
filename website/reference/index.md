@@ -1,3 +1,9 @@
+<!--
+Purpose: index the public Python modules and handle APIs documented by the generated reference pages.
+Guarantees: deleted module doors have no reference link and the Space handle is not presented as a module.
+[tested: npm run docs:build; commit=WORKTREE]
+-->
+
 # API reference
 
 Each page reproduces the public definitions, source signatures, and docstrings of one module. Class pages also include public method docstrings.
@@ -10,7 +16,7 @@ These modules define atoms, spaces, queries, and the rows returned to Python.
 |---|---|
 | [`petta.atoms`](./petta-atoms) | atoms, constructors, encoding, unification |
 | [`petta.paths`](./petta-paths) | lazy attributes and keys inside opaque handles |
-| [`petta.space`](./petta-space) | the `MeTTa` runtime, spaces, queries, operations |
+| [`petta.Space`](./petta-space) | the space handle returned by `petta.space()` |
 | [`petta.results`](./petta-results) | query rows and tables |
 
 ## Definition
@@ -30,15 +36,15 @@ These modules expose reduction events, structural findings, similarity scores, a
 | Module | Surface |
 |---|---|
 | [`petta.trace`](./petta-trace) | the reduction trace as events |
+| [`petta.derivation`](./petta-derivation) | proof trees and their steps |
 | [`petta.lint`](./petta-lint) | space diagnostics for the silently-wrong class |
 
 ## Data and stores
 
-These modules persist facts, operate on array protocols, and generate test data for public atoms.
+These modules operate on array protocols and generate test data for public atoms. Journal-backed stores are created through `petta.space(journal=...)`.
 
 | Module | Surface |
 |---|---|
-| [`petta.persistent`](./petta-persistent) | fact spaces backed by persistency journals |
 | [`petta.structures`](./petta-structures) | pattern-keyed maps, indexes, and engine-backed views |
 | [`petta.tables`](./petta-tables) | SQL tables bridged in as declared shapes |
 | [`petta.arrays`](./petta-arrays) | array operations and embedding stores |
@@ -53,7 +59,6 @@ These modules connect spaces, processes, event loops, subscriptions, and externa
 | [`petta.remote`](./petta-remote) | spaces served and attached across processes |
 | [`petta.spaces`](./petta-spaces) | union, readonly, mapped, and overlay combinators |
 | [`petta.manifest`](./petta-manifest) | app assembly from a (boot ...) manifest |
-| [`petta.das`](./petta-das) | the Distributed Atomspace over the command router |
 | [`petta.aio`](./petta-aio) | the engine on an event loop, one dedicated worker thread |
 | [`petta.events`](./petta-events) | the public event stream and the fold over it |
 | [`petta.subscribe`](./petta-subscribe) | standing queries, the fold that delivers |

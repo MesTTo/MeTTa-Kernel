@@ -21,10 +21,10 @@ Source: `bindings/python/petta/testing.py`.
 >     repeated-variable, judged by two-way unifiability [tested:
 >     test_a_repeated_variable_liar_is_caught_by_the_folded_pattern,
 >     test_a_ground_only_matcher_is_caught_by_the_open_pattern;
->     commit=dcfc20be4933c19140ccb5759291401d13058301].
+>     commit=WORKTREE].
 >   - check_twin consumes a Defined call's eager answer list exactly once
 >     [tested: test_the_prolog_twin_is_checked_against_its_reference;
->     commit=88d2e764c999d89e8919172e5c1455be804b293d].
+>     commit=WORKTREE].
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -51,7 +51,7 @@ def names():
 def symbols():
 ```
 
-> Sym atoms with engine-readable names.
+> Symbol atoms with engine-readable names.
 
 ## `variables`
 
@@ -59,7 +59,7 @@ def symbols():
 def variables():
 ```
 
-> Var atoms with engine-readable names.
+> Variable atoms with engine-readable names.
 
 ## `numbers`
 

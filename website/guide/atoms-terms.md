@@ -1,6 +1,12 @@
+<!--
+Purpose: teach canonical atom construction, operators, methods, pattern matching, ordering, and wire conversion.
+Guarantees: examples contain no superseded atom class or helper names.
+[tested: npm run docs:build; commit=WORKTREE]
+-->
+
 # Atoms, operators, and term building
 
-Atoms are immutable Python values. `Sym` is a MeTTa symbol, `Var` is a variable, `Gnd` carries a host value, and `Expr` is an ordered expression. `S.likes` creates the symbol `likes`. `V.x` creates `$x`. Applying a symbol builds an expression without calling the engine.
+Atoms are immutable Python values. `Symbol` is a MeTTa symbol, `Variable` is a variable, `Grounded` carries a host value, and `Expression` is an ordered expression. `S.likes` creates the symbol `likes`. `V.x` creates `$x`. Applying a symbol builds an expression without calling the engine.
 
 The first example builds a small family relation, joins over it, and evaluates a nondeterministic term:
 
@@ -13,7 +19,7 @@ check("join count", len(rows), 2)
 check("first grandparent", (rows[0].gp, rows[0].gc), (S.Tom, S.Ann))
 
 # Evaluation is what ! runs, nondeterminism included.
-check("eval", m.eval(S.superpose(expr(1, 2, 3))), [1, 2, 3])
+check("eval", m.eval(S.superpose(Expression(1, 2, 3))), [1, 2, 3])
 ```
 
 Operators on atoms build terms. `V.age >= 18` builds `(>= $age 18)`, so guards and bodies read as the Python they look like. The full set:
@@ -33,22 +39,22 @@ Operators on atoms build terms. `V.age >= 18` builds `(>= $age 18)`, so guards a
 
 Reflected forms work too: `1 + V.x` builds `(+ 1 $x)`.
 
-The public immutable `OPERATOR_LOWERINGS` table is the source of these
+The specialist immutable `petta.atoms.OPERATOR_LOWERINGS` table is the source of these
 methods. A row is a builtin symbol, a composite template, a provided name, a
 reserved Python spelling, or an explicit absence. `matmul` is provided: `@`
 always builds that stable name, and a library supplies its MeTTa definition.
 Left and right shift are absent because MeTTa has no integer-shift operation;
 `x << y` and `x >> y` raise a message naming that fact instead of Python's
 generic unsupported-operands error. Grounded values keep Python semantics, so
-`Gnd(3) << 2` answers `12` rather than building a term.
+`Grounded(3) << 2` answers `12` rather than building a term.
 
 One operator is deliberately not symbolic. **`x.eq(y)` builds the equality term `(== x y)`, while `==` itself compares atoms structurally** and answers a Python `bool`. Atoms are dict keys and test comparands, so `S.a == S.a` must stay `True` rather than becoming a term; equality is the one place where building the term costs a method call, and it is the only operator that behaves unlike its neighbours.
 
-`Gnd` overrides both families with value semantics: comparisons on grounded values answer booleans, engine-exactly, so a grounded number never quietly becomes a program. Arithmetic on grounded Python values keeps Python's value semantics.
+`Grounded` overrides both families with value semantics: comparisons on grounded values answer booleans, engine-exactly, so a grounded number never quietly becomes a program. Arithmetic on grounded Python values keeps Python's value semantics.
 
-A symbol and a grounded string are different atoms. Use `sym(name)` when a symbol name is not a Python identifier, `var(name)` for a variable, `val(value)` to carry a host object, and `expr(...)` to build an expression from parts. `parse(source)` reads one form without evaluating it.
+A symbol and a grounded string are different atoms. Use `S[name]` when a symbol name is not a Python identifier, `V[name]` for a variable, `ground(value)` or `G(value)` to carry a host object, and `Expression(...)` to build an expression from parts. `parse(source)` reads one form without evaluating it.
 
-The atom helpers also expose `variables`, `is_ground`, `alpha_eq`, and `unify`. See [`petta.atoms`](../reference/petta-atoms) for their source docstrings.
+Atoms expose `.vars`, `.map(transform)`, and `.alpha_eq(other)`; `unify(pattern, atom)` remains the relation between two atoms. A ground atom has no variables, so `not atom.vars` is the groundness test. See [`petta.atoms`](../reference/petta-atoms) for the specialist surface.
 
 ## Destructuring with match/case
 
@@ -56,26 +62,26 @@ Every atom class declares `__match_args__`, so Python's structural pattern match
 
 ```python
 match atom:
-    case Expr([Sym("edge"), a, b]):        # the MeTTa pattern (edge $a $b)
+    case Expression([Symbol("edge"), a, b]):  # the MeTTa pattern (edge $a $b)
         connect(a, b)
-    case Expr([Sym("edge"), *nodes]):      # (edge $a $b $c ...), any arity
+    case Expression([Symbol("edge"), *nodes]):  # any arity
         hyperconnect(nodes)
-    case Sym(name):                        # any bare symbol, name bound
+    case Symbol(name):                     # any bare symbol, name bound
         note(name)
-    case Gnd(int() | float() as number):   # a grounded number
+    case Grounded(int() | float() as number):  # a grounded number
         accumulate(number)
-    case Var(_):
+    case Variable(_):
         pass                               # an unbound hole
 ```
 
-The correspondence is direct: `Expr([Sym("edge"), a, b])` is `(edge $a $b)` with `a` and `b` as the captures, `*rest` is the tail a MeTTa `$xs` would take, and a literal like `Sym("edge")` plays the ground-symbol role. What `case` does not do is unification: a repeated capture name is a Python error rather than an equality constraint, and nothing binds inside the atom. When you want real unification, ask for it, `unify(pattern, atom)` answers the bindings or `None`; `case` is for shape dispatch in Python code, `match` in a space is for knowledge.
+The correspondence is direct: `Expression([Symbol("edge"), a, b])` is `(edge $a $b)` with `a` and `b` as the captures, `*rest` is the tail a MeTTa `$xs` would take, and a literal like `Symbol("edge")` plays the ground-symbol role. What `case` does not do is unification: a repeated capture name is a Python error rather than an equality constraint, and nothing binds inside the atom. When you want real unification, ask for it, `unify(pattern, atom)` answers the bindings or `None`; `case` is for shape dispatch in Python code, `query` on a space is for knowledge.
 
 ## Sorting atoms
 
 `sorted(atoms)` raises, and the message says why: `S.a < S.b` builds the term `(< a b)`, because building terms is what the operators are for. Pass the key instead:
 
 ```python
-from petta import order_key
+from petta.atoms import order_key
 
 sorted(atoms, key=order_key)
 ```
@@ -88,11 +94,11 @@ An atom's wire form is a JSON document, and it round-trips, keeping the variable
 
 ```python
 import json
-from petta import atom_from_wire
+from petta import wire
 
 text = json.dumps(S.edge(S.a, 1, V.x).to_wire())
 # '["e", [["s", "edge"], ["s", "a"], ["n", 1], ["v", "x"]]]'
-atom_from_wire(json.loads(text))       # (edge a 1 $x)
+wire.from_wire(json.loads(text))       # (edge a 1 $x)
 ```
 
 That is the interchange for anything web-facing, and it preserves what storage does not: a variable that goes through a space comes back with a machine name, and one that goes through JSON comes back as `$x`. Both spell one identity, which is all a `v` payload ever means; `CODEC.md` is the grammar, for anyone writing the other end in another language.

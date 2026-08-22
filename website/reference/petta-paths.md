@@ -7,10 +7,10 @@ Source: `bindings/python/petta/paths.py`.
 >   - a path keeps its root opaque and reads only the named attributes or keys
 >     after the engine has matched that root [tested:
 >     test_a_path_reaches_into_a_handle_without_converting_it;
->     commit=a1b10566194f10c174101fdc05f956b33171613b]
+>     commit=WORKTREE]
 >   - repeated object identities terminate the path as a non-match [tested:
 >     test_a_path_reaches_into_a_handle_without_converting_it;
->     commit=a1b10566194f10c174101fdc05f956b33171613b]
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -45,7 +45,7 @@ class Path:
 ### `Path.to`
 
 ```python
-def to(self, target: Any) -> Expr:
+def to(self, target: Any) -> Expression:
 ```
 
 > Build the query marker that binds the reached value to *target*.
@@ -53,7 +53,7 @@ def to(self, target: Any) -> Expr:
 ## `path`
 
 ```python
-def path(*segments: str | int | Attr | Key, to: Any) -> Expr:
+def path(*segments: str | int | Attr | Key, to: Any) -> Expression:
 ```
 
 > Reach through an opaque query value and bind only the final field.

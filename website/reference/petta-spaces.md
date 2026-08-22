@@ -18,7 +18,7 @@ Source: `bindings/python/petta/spaces.py`.
 >   - object_view reads live fields, joins with stored atoms through union, and
 >     turns an added py-field atom into setattr [tested:
 >     test_a_query_joins_stored_atoms_with_live_object_fields;
->     commit=a3f7e1600b1547617d8be1c365df9c00a74ee81e]
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -66,7 +66,7 @@ def add(self, atom: Atom) -> None:
 ## `object_view`
 
 ```python
-def object_view(obj: Any, *, relation: str | Sym = 'py-field') -> ObjectView:
+def object_view(obj: Any, *, relation: str | Symbol = 'py-field') -> ObjectView:
 ```
 
 > Present one object as a live, writable provider.
@@ -83,7 +83,7 @@ def union(*spaces: Any) -> _Union:
 
 > A set of spaces read as one, writes refused by capability.
 >
->     m.register_space(petta.spaces.union(kb, rules), "&all")
+>     m._register_space(petta.spaces.union(kb, rules), "&all")
 >     m.run("!(match &all (edge $a $b) $b)")
 >
 > Every member's candidates answer; duplicates across members are

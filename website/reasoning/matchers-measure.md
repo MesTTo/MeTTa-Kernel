@@ -1,6 +1,8 @@
 <!--
 Purpose: explain custom matching as a property of grounded atoms, with the
 measure library as the in-language companion, through executable examples.
+Guarantees: the example uses canonical atom names and the public space factory.
+[tested: npm run docs:build; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -22,22 +24,21 @@ plain atom the operand must equal, or nothing at all for no match. An
 interval that matches the numbers inside it is three lines:
 
 ```python
-from petta import MeTTa, S, expr
-from petta.atoms import Gnd
+from petta import Expression, Grounded, S, space
 
 class Interval:
     def __init__(self, lo, hi):
         self.lo, self.hi = lo, hi
 
     def match_(self, other):
-        value = other.value if isinstance(other, Gnd) else other
+        value = other.value if isinstance(other, Grounded) else other
         if isinstance(value, (int, float)) and self.lo <= value <= self.hi:
             yield other
 
-m = MeTTa().new_space()
-inside = Gnd(Interval(1, 5))
-m.eval(expr(S.unify, inside, 3, S.inside, S.outside))   # [inside]
-m.eval(expr(S.unify, inside, 9, S.inside, S.outside))   # [outside]
+m = space()
+inside = Grounded(Interval(1, 5))
+m.eval(Expression(S.unify, inside, 3, S.inside, S.outside))   # [inside]
+m.eval(Expression(S.unify, inside, 9, S.inside, S.outside))   # [outside]
 ```
 
 Variables are never sent to your logic: `$x` against a matchable value
@@ -61,7 +62,7 @@ Matching that carries a score is an ordinary operation instead: answer
 each candidate as the value with the degree as the answer's annotation,
 declare the semiring, and `top` orders while `(annotation)` reads the
 degree beside its answer. Nothing about scores is built into the library;
-the whole of it is `register_op`, `Answer(value=..., k=...)` and
+the whole of it is `Space.op`, `Answer(value=..., k=...)` and
 `declare_annotations`, so fuzzy, regex and semantic closeness are each a
 few lines in your own code. The executable version of everything on this
 page is `bindings/python/examples/reasoning/custom_matchers.py`.

@@ -1,3 +1,13 @@
+/*
+Purpose: configure the PeTTa documentation site's navigation, rendering, and project URL.
+Guarantees: navigation advertises only live public Python modules and API pages.
+[tested: npm run docs:build; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None
+*/
+
 import { readFileSync } from "node:fs";
 import { defineConfig } from "vitepress";
 
@@ -94,7 +104,6 @@ export default defineConfig({
           { text: "Contexts and remotes", link: "/live/contexts" },
           { text: "Deployment as knowledge", link: "/live/boot" },
           { text: "The remote space protocol", link: "/live/remote-protocol" },
-          { text: "The Distributed Atomspace", link: "/live/das" },
           { text: "The loop stays live", link: "/live/async" },
         ],
       },
@@ -108,7 +117,7 @@ export default defineConfig({
             collapsed: true,
             items: [
               { text: "petta.atoms", link: "/reference/petta-atoms" },
-              { text: "petta.space", link: "/reference/petta-space" },
+              { text: "petta.Space", link: "/reference/petta-space" },
               { text: "petta.results", link: "/reference/petta-results" },
             ],
           },
@@ -126,6 +135,7 @@ export default defineConfig({
             collapsed: true,
             items: [
               { text: "petta.trace", link: "/reference/petta-trace" },
+              { text: "petta.derivation", link: "/reference/petta-derivation" },
               { text: "petta.lint", link: "/reference/petta-lint" },
             ],
           },
@@ -133,7 +143,6 @@ export default defineConfig({
             text: "Data and stores",
             collapsed: true,
             items: [
-              { text: "petta.persistent", link: "/reference/petta-persistent" },
               { text: "petta.structures", link: "/reference/petta-structures" },
               { text: "petta.tables", link: "/reference/petta-tables" },
               { text: "petta.arrays", link: "/reference/petta-arrays" },
@@ -146,7 +155,6 @@ export default defineConfig({
             items: [
               { text: "petta.remote", link: "/reference/petta-remote" },
               { text: "petta.spaces", link: "/reference/petta-spaces" },
-              { text: "petta.das", link: "/reference/petta-das" },
               { text: "petta.aio", link: "/reference/petta-aio" },
               { text: "petta.subscribe", link: "/reference/petta-subscribe" },
               { text: "petta.foreign", link: "/reference/petta-foreign" },

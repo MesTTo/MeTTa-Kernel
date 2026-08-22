@@ -1,3 +1,9 @@
+<!--
+Purpose: explain callback and queued subscriptions over a Space handle.
+Guarantees: the executable example creates its handle through space().
+[tested: npm run docs:build; commit=WORKTREE]
+-->
+
 # Standing queries
 
 `m.subscribe(pattern, callback)` watches one space for matching writes. With a callback, delivery runs synchronously inside the add or removal that caused it. Without a callback, events wait in a queue until `drain()` reads them.
@@ -7,9 +13,9 @@ The space is the mailbox and the subscription is the standing query. Writes from
 The actors example starts a ping-pong exchange with one added atom, then demonstrates queued delivery and cancellation:
 
 ```python
-from petta import MeTTa, S, V
+from petta import S, V, space
 
-m = MeTTa().new_space()
+m = space()
 
 # The ping actor: every (ping $n) mails back (pong $n), until three.
 transcript = []

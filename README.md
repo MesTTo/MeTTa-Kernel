@@ -1,3 +1,9 @@
+<!--
+Purpose: introduce PeTTa, its narrow Python surface, and the commands needed to use and develop it.
+Guarantees: every Python code block executes against the documented public API.
+[tested: python -m pytest bindings/python/tests/test_readme.py -q; commit=WORKTREE]
+-->
+
 ## PeTTa
 
 Efficient MeTTa language implementation in Prolog.
@@ -33,9 +39,9 @@ python -m pip install .
 ```
 
 ```python
-from petta import MeTTa, S, V
+from petta import S, V, space
 
-m = MeTTa()
+m = space()
 m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
 rows = m.query(S.Parent(S.Tom, V.child))
 assert rows.to_dicts() == [{"child": "Bob"}]
@@ -74,7 +80,6 @@ feature:
 
 ```bash
 pip install "petta[arrays]"       # array API, NumPy, and FAISS
-pip install "petta[das]"          # DAS websocket client
 pip install "petta[dataframes]"   # pandas and polars result conversion
 pip install "petta[orjson]"       # faster remote JSON serialization
 ```
@@ -109,23 +114,24 @@ expression `(>= $age 18)` and `&`, `|`, `~` compose the boolean terms,
 while arithmetic on grounded values stays ordinary Python arithmetic:
 
 ```python
-from petta import MeTTa, S, V
+from petta import S, V, space
 
-m = MeTTa()
-m.run("(= (foo) boo) !(foo)")        # [[Sym('boo')]]
-m.run("!(+ 40 2)")                   # [[Gnd(42)]]
+m = space()
+m.run("(= (foo) boo) !(foo)")        # [[Symbol('boo')]]
+m.run("!(+ 40 2)")                   # [[Grounded(42)]]
 
 m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
 m.query(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
-# Rows[x, y, z]([Row(x=Sym('Tom'), y=Sym('Bob'), z=Sym('Ann'))])
+# Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
 ```
 
-`map_atoms(term, transform)` rebuilds an atom tree from the leaves upward.
+`term.map(transform)` rebuilds an atom tree from the leaves upward.
 Its iterative walk handles deeply nested terms without a Python recursion
 limit, and leaves unchanged expression objects intact.
 
-Every `MeTTa()` handle names the same `&self` space. Use
-`with m.fresh_space() as scratch:` when you need independent stored state.
+`petta.engine().self` names the shared `&self` space. Use `petta.space()` to
+create an anonymous handle, or `with petta.space() as scratch:` when the
+space should be dropped on leaving the block.
 `load()` adds a program to the current space and keeps what is already there.
 
 `run` returns one list of answers per `!` directive, computed by the engine's
@@ -148,11 +154,11 @@ nondeterministic, and returning None answers nothing, which is why an
 Optional return declares the value type:
 
 ```python
-@m.register_op
+@m.op
 def double(x: int) -> int:
     return 2 * x                     # !(double 21) -> 42
 
-@m.register_op
+@m.op
 def upto(n: int):
     yield from range(1, n + 1)       # !(collapse (upto 3)) -> (1 2 3)
 ```
@@ -167,14 +173,14 @@ to solve many times, with `given=` facts existing for that call only:
 ```python
 m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
 m.query(S.Age(V.p, V.n), where=(V.n >= 60) & (V.n <= 70))
-# Rows[p, n]([Row(p=Sym('Tom'), n=Gnd(62))])
+# Rows[p, n]([Row(p=Symbol('Tom'), n=Grounded(62))])
 
 with m.assuming(S.Parent(S.Ann, S.Zoe)):
-    m.query(S.Parent(S.Ann, V.c))    # Rows[c]([Row(c=Sym('Zoe'))])
+    m.query(S.Parent(S.Ann, V.c))    # Rows[c]([Row(c=Symbol('Zoe'))])
 
 grand = m.prepare(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 grand.solve()
-# Rows[x, y, z]([Row(x=Sym('Tom'), y=Sym('Bob'), z=Sym('Ann'))])
+# Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
 ```
 
 An empty result returned directly by `query()` retains its patterns. Call
@@ -182,7 +188,7 @@ An empty result returned directly by `query()` retains its patterns. Call
 `where` guard that rejected every joined row. The explanation reads the
 space's current state.
 
-Tables cross both ways on the same reading: `m.add_table(head, source)`
+Tables cross both ways on the same reading: `petta.tables.add(m, head, source)`
 reads any tabular source by the interface it offers (polars `iter_rows`,
 pandas `itertuples`, a mapping of columns, any iterable of rows) into
 `(head v1 .. vn)` facts, and `rows.table()` answers the dict of columns
@@ -251,7 +257,7 @@ def fact(n):
         return 1
     return n * fact(n - 1)
 
-m.run("!(fact 5)")       # [[Gnd(120)]]
+m.run("!(fact 5)")       # [[Grounded(120)]]
 fact.py(5)               # 120: the ordinary Python twin, kept callable
 ```
 
@@ -273,8 +279,8 @@ def fib(n):
     return fib(n - 1) + fib(n - 2)   # m.run("!(fib 10)") -> [[55]]
 ```
 
-Annotations declare types, and `m.fn("car-atom")` turns any engine function
-into an ordinary Python callable.
+Annotations declare types. Engine functions remain available through ordinary
+MeTTa evaluation on the space handle.
 
 The subset is Python as Python means it. Rebinding works (`x = x + 1`
 compiles through static single assignment), `while` and `for` become their
@@ -342,10 +348,9 @@ again.
 Process-wide extension registrations have exact removal counterparts.
 Use `convert.unregister_type`, `integrate.unregister_object_type`,
 `integrate.unregister_repr`, and `integrate.unregister_reflector` with the
-same objects passed at registration. Atom formatters pair
-`register_object_repr` and `register_object_repr_protocol` with their
-`unregister_` counterparts. Removing a registration that is not live raises
-`KeyError`.
+same objects passed at registration. Protocol atom formatters pair
+`integrate.register_repr` with `integrate.unregister_repr`. Removing a
+registration that is not live raises `KeyError`.
 
 ```toml
 [project.entry-points."petta.integrations"]
@@ -365,8 +370,8 @@ declares an Enum, dataclass or NamedTuple into a space with constructor
 declarations and one accessor equation per field, `rows.build(col, Person)`
 rebuilding answers as instances and preserving `Person` for type checkers;
 `rows.to_dicts()` returning one plain mapping per answer;
-`using={"df": df}` on `run`, `eval`, `one` and `first`, naming
-host values by bare symbol with identity intact; `m.subscribe(pattern,
+`with m.bind(df=df): m.run(...)`, naming host values by bare symbol with
+identity intact; `m.subscribe(pattern,
 callback)`, a standing query delivered inside the very write that matched
 it (or queued for `drain()`), which is the actors-and-pub-sub reading of a
 space; `m.save(path)` writing a space back as loadable source, with
@@ -419,14 +424,15 @@ substitutions, the aggregate similarity and every step:
 
 ```python
 import pettaprove as soft
+from petta import space
 
-k = MeTTa().fresh_space()
+k = space()
 k.add(S["parent-of"](S.homer, S.bart), S["father-of"](S.abe, S.homer))
 k.run("(= (grandpa-of $x $y) (and (father-of $x $z) (parent-of $z $y)))")
 soft.similar(k, "grandpa-of", "grandfather-of", 0.9)
 
 proof = soft.prove(k, S["grandfather-of"](V.who, S.bart))
-proof.substitutions["who"], proof.similarity     # (Sym('abe'), 0.9)
+proof.substitutions["who"], proof.similarity     # (Symbol('abe'), 0.9)
 ```
 
 `grandfather-of` never appears in the knowledge, only `grandpa-of` does;

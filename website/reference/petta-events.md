@@ -124,7 +124,7 @@ class EventStream:
 >     events = m.events()
 >     seen = events.fold(
 >         lambda held, event: [*held, event.atom],
->         space=m.space_name, pattern=S.order(V.id), state=[],
+>         space=m.name, pattern=S.order(V.id), state=[],
 >     )
 >     m.add(S.order(1))
 >     seen.take()            # [(order 1)], and the fold starts again

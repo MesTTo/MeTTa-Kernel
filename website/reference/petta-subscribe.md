@@ -25,7 +25,7 @@ Source: `bindings/python/petta/subscribe.py`.
 >   - a watcher that raises reaches the writer as SubscriberError, naming the
 >     subscription and saying the write stands, where a refused write does
 >     not [measured 2026-08-19: both arrived as EngineError with the same
->     "Python '<Type>': <text>" message template, so a caller could only tell
+>     "Python '&lt;Type>': &lt;text>" message template, so a caller could only tell
 >     them apart by reading the sentence] [tested
 >     test_a_watcher_failure_is_distinguishable_from_a_failed_write]
 >   - a queue nobody drains refuses rather than dropping the oldest event
@@ -111,7 +111,7 @@ def bridge(source, pattern, target, template=None, on: str = 'add') -> Subscript
 > on="both" a removal in source removes the instantiation from target,
 > the mirrored rule.
 >
->     rule = petta.bridge(src, S.alarm(V.zone), dst, S.notify(V.zone))
+>     rule = bridge(src, S.alarm(V.zone), dst, S.notify(V.zone))
 >     src.add(S.alarm(S.kitchen))        # dst now holds (notify kitchen)
 >     rule.cancel()
 >

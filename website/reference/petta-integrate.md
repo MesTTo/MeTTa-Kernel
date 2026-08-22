@@ -25,11 +25,11 @@ Source: `bindings/python/petta/integrate.py`.
 >   - discovery refuses duplicate names, missing dependencies, and named
 >     dependency cycles, and installs acyclic entries in topological order
 >     [tested: test_each_remaining_annotation_shape_refuses_or_carries;
->      commit=ff4ac16f07a6e373e79ed0eae0a4c2d64cb92550]
+>      commit=WORKTREE]
 >   - module and reflection helpers express transport and Atom delivery without
 >     boolean registration pairs [tested:
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
->     commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
+>     commit=WORKTREE]
 > Owns:
 >   - _INSTALLED retains one target per live space and integration name;
 >     MeTTa.drop releases every record for that space [tested
@@ -106,7 +106,7 @@ def load_entry_point(name: str, /, *args: Any, group: str = SPACES_GROUP, **kwar
 > Load one advertised entry point by name, calling a callable target
 > with the given arguments, the factory contract:
 >
->     m.register_space(integrate.load_entry_point("duck"), "&duck")
+>     m._register_space(integrate.load_entry_point("duck"), "&duck")
 >     m.register_library_path(
 >         integrate.load_entry_point("nars", group=integrate.LIBRARIES_GROUP),
 >         "nars",

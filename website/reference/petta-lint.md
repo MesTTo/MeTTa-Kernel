@@ -4,10 +4,8 @@ Source: `bindings/python/petta/lint.py`.
 
 > Purpose: expose diagnostics for declarations, equations, and calls.
 > Guarantees:
->   - lint() refuses spaces that cannot enumerate their contents [tested
->     test_das_space_refuses_unsupported_composed_operations_at_entry]
->   - public Finding records retain the petta.lint pickle identity [tested
->     test_finding_retains_public_pickle_identity]
+>   - public Finding records retain the petta.lint pickle identity [tested:
+>     test_finding_retains_public_pickle_identity; commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

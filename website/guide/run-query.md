@@ -1,3 +1,9 @@
+<!--
+Purpose: document Space execution, querying, controls, diagnostics, and result handling.
+Guarantees: examples use the narrow core and satellite-qualified specialist APIs.
+[tested: npm run docs:build; commit=WORKTREE]
+-->
+
 # Run and query
 
 Use `run` for MeTTa source, `eval` for a term already built in Python, and `query` for structural matches against a space. Variables shared by several query patterns form joins. Rows expose the query variable names as attributes.
@@ -7,27 +13,27 @@ Queries also accept guards, answer bounds, temporary assumptions, and prepared s
 ```python
 m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
 m.query(S.Age(V.p, V.n), where=(V.n >= 60) & (V.n <= 70))
-# Rows[p, n]([Row(p=Sym('Tom'), n=Gnd(62))])
+# Rows[p, n]([Row(p=Symbol('Tom'), n=Grounded(62))])
 
 with m.assuming(S.Parent(S.Ann, S.Zoe)):
-    m.query(S.Parent(S.Ann, V.c))    # Rows[c]([Row(c=Sym('Zoe'))])
+    m.query(S.Parent(S.Ann, V.c))    # Rows[c]([Row(c=Symbol('Zoe'))])
 
 grand = m.prepare(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 grand.solve()
-# Rows[x, y, z]([Row(x=Sym('Tom'), y=Sym('Bob'), z=Sym('Ann'))])
+# Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
 ```
 
 `where=` is evaluated by the engine for each match. `limit=` stops the engine at the requested count. `assuming(...)` adds facts only for the `with` block. `prepare(...)` fixes the query shape once, and `solve(given=...)` can add facts for one solve without leaving them behind.
 
 ## Bounds, stats, and captured output
 
-A query whose join size is unknown, or a program whose recursion depth is someone else's data, should not be able to hold your process. `timeout=` (seconds) and `inferences=` (engine steps) bound any `run`, `eval`, `value`, `query`, or `solve` call with the engine's own guards:
+A query whose join size is unknown, or a program whose recursion depth is someone else's data, should not be able to hold your process. `timeout=` (seconds) and `inferences=` (engine steps) bound any `run`, `eval`, `query`, or `solve` call with the engine's own guards:
 
 ```python
 try:
     m.run("!(spin 100000000)", timeout=0.05)
     raise AssertionError("the time bound did not fire")
-except petta.TimeLimitError:
+except petta.errors.TimeLimitError:
     check("a 50ms bound stops a spin that would run for minutes", True)
 ```
 
@@ -36,7 +42,7 @@ Each bound raises its own error, `TimeLimitError` or `InferenceLimitError`, both
 `m.stats()` reads the engine's own counters around a with-block. A capture scope collects printed text without changing the answer shape:
 
 ```python
-m.add_table("edge", [(i, i + 1) for i in range(200)])
+petta.tables.add(m, "edge", [(i, i + 1) for i in range(200)])
 rows = m.query(S.edge(V.a, V.b), S.edge(V.b, V.c), timeout=30.0)
 check("a generous bound changes nothing", len(rows), 199)
 
@@ -62,26 +68,19 @@ MeTTa reports a soft failure by answering an `(Error culprit reason)` atom: an e
 m.run('(= (safe-div $x $y) (if (== $y 0) '
       '(Error (safe-div $x $y) "division by zero") (/ $x $y)))')
 m.eval("(safe-div 1 0)")
-# [Expr('(Error (safe-div 1 0) "division by zero")')]
+# [Expression('(Error (safe-div 1 0) "division by zero")')]
 ```
 
 The built-in integer division and remainder operations use that same result
 shape. `m.run("!(/ 7 0)")` answers
-`[[Expr('(Error (/ 7 0) DivisionByZero)')]]`; it does not raise. Collection is
+`[[Expression('(Error (/ 7 0) DivisionByZero)')]]`; it does not raise. Collection is
 ordinary collection, so `!(collapse (/ 7 0))` answers the one-element
 expression `((Error (/ 7 0) DivisionByZero))`. Float division retains IEEE
 behavior, including infinity for `(/ 1.0 0.0)` and NaN for `(/ 0.0 0.0)`.
 
-The doors split by what they answer. The aggregation doors, `eval()`, `run()`, `fn.all()` and the streams, keep error atoms as data, exactly as the multiset semantics says. A door that answers a single value has no multiset for the error to be data in, so `one()`, `first()` and calling a function raise `MettaResultError` instead, carrying the parts:
-
-```python
-try:
-    m.fn("safe-div")(1, 0)
-except petta.MettaResultError as e:
-    e.atom                  # (Error (safe-div 1 0) "division by zero")
-    e.culprit               # (safe-div 1 0)
-    petta.decode(e.reason)  # 'division by zero'
-```
+The aggregation doors, `eval()` and `run()`, keep error atoms as data, exactly
+as the multiset semantics says. Query rows are bindings rather than evaluation
+answers, so a stored error record flows through every `Rows` door untouched.
 
 Query rows are bindings rather than evaluation answers, so a stored error record flows through every `Rows` door untouched; `rows.raise_for_errors()` is the explicit bridge for callers who want the `raise_for_status` reading, raising one error plainly and several as one `ExceptionGroup`.
 
@@ -94,20 +93,18 @@ Two more things hold across the whole library. Every exception it raises on purp
 ```python
 rows = m.query(pattern)[:3]        # computes every row, keeps three
 rows = m.query(pattern, limit=3)   # the engine stops at three
-with m.stream(pattern) as cursor:
-    rows = cursor[:3]              # pulls three and stops
 ```
 
-Over 2,000 stored atoms those measured 26,055, 2,232 and 20 inferences for the same three rows, and the first gap grows with the space. Reach for `limit=` when you want a bounded answer set and for `stream` when you want to take rows until you have seen enough; the cursor keeps the join's state inside an engine between pulls, so a huge join costs one row of work per row actually taken.
-
-A cursor refuses what would need the whole stream, and each refusal says why: `len(cursor)` (use `space.count(pattern)`), `cursor[-1]`, `cursor[-3:]` and `cursor[::2]`. Skipping a row still pulls it, and counting from the end means knowing where the end is. Because a cursor implements the iterator protocol exactly, wrappers compose with no adapter: `tqdm(m.stream(pattern))` shows progress one pulled row at a time.
+Over 2,000 stored atoms the first two forms measured 26,055 and 2,232
+inferences for the same three rows, and the gap grows with the space. Reach for
+`limit=` when you want a bounded answer set.
 
 ## Explain a query
 
-`prepare(...).explain()` and a cursor's `explain()` answer the query's plan without running it, polars' `LazyFrame.explain` and SQL's `EXPLAIN` pointed at the space seam. When a query over a Python-backed space is slow, the first question is what pushed down, and this is that answer:
+`prepare(...).explain()` answers the query's plan without running it, polars' `LazyFrame.explain` and SQL's `EXPLAIN` pointed at the space seam. When a query over a Python-backed space is slow, the first question is what pushed down, and this is that answer:
 
 ```python
-sp = m.space("&db")
+sp = petta.space("&db")
 print(sp.prepare(parse("(edge $a $b)"), parse("(other $b $c)")).explain())
 # query over &db: (edge $a $b), (other $b $c)
 #   (edge $a $b)   exact    the provider's own pushdown method
@@ -137,10 +134,10 @@ Tabling changes what a function means, so the admission burden is yours: it is s
 Every live declaration is also a fact: `(tabled space name arity)` in the `&petta` reflection space, input arity, added on declare and removed on undeclare, so a program can ask what is memoized right now:
 
 ```python
-    reflection = MeTTa(REFLECTION_SPACE)
+    reflection = petta.reflection
     m.run("(= (reflected-fn $n) (+ $n 1))")
     assert m.run("!(tabled (reflected-fn $n))") == [[True]]
-    pattern = S.tabled(S[m.space_name], S["reflected-fn"], V.a)
+    pattern = S.tabled(S[m.name], S["reflected-fn"], V.a)
     assert [row.a for row in reflection.query(pattern)] == [1]
 ```
 
@@ -202,20 +199,18 @@ learn.
 
 ## Name a host value inside one term
 
-`using=` maps bare symbols to Python objects, and the object crosses by
+`using=` on `eval` maps bare symbols to Python objects, and the object crosses by
 identity, not by a copy or a repr:
 
 ```python
 model = load_classifier()
 answers = m.eval("(gated v)", using={"v": model.predict(row)})
-verdict = m.one("(gated v)", using={"v": model.predict(row)})
 ```
 
 The symbol is bare, `v`, not `$v`: a `$` name is a MeTTa variable the engine
-will bind for you, while `using=` names something you already have. All four
-evaluating doors take it, `run`, `eval`, `one` and `first`, plus their
-`AsyncMeTTa` twins, so a value can be routed through a rule without first
-being written into a space and removed afterwards.
+will bind for you, while `using=` names something you already have. For source
+execution, `with m.bind(v=value): m.run(...)` scopes the same binding without
+adding a flag to the write-and-run door.
 
 An unreduced target remains the ordinary answer after substitution. There is
 no alternate residual return shape.
@@ -352,23 +347,9 @@ def test_undefined_answers_cross_as_undefined(m, wfs_program):
     assert "wfs_loop" in answer.why
 ```
 
-`Undefined` refuses truthiness on purpose, so code cannot branch on it by accident, and `value()` refuses it outright: a caller asking for THE value has asserted a definite one exists. The carrier is the engine's own `call_delays`, applied per answer inside the enumeration, which is the only place the condition exists. It is unconditional because any "only when tabling" gate would answer silently wrong exactly once, on the first tabled call; the measured cost on the trivial-eval crossing is five to ten percent, amortized below that on real evaluations. `run()` mirrors the CLI and stays two-valued; evaluate through `eval()` when undefined truth matters.
+`Undefined` refuses truthiness on purpose, so code cannot branch on it by accident. The carrier is the engine's own `call_delays`, applied per answer inside the enumeration, which is the only place the condition exists. It is unconditional because any "only when tabling" gate would answer silently wrong exactly once, on the first tabled call; the measured cost on the trivial-eval crossing is five to ten percent, amortized below that on real evaluations. `run()` mirrors the CLI and stays two-valued; evaluate through `eval()` when undefined truth matters.
 
-`query()` computes and decodes every answer before you see the first one. `stream()` is the same conjunction and guard, pulled: the join's state stays alive inside an SWI engine between pulls, each pull is one ordinary call, and unrelated engine work interleaves freely.
-
-```python
-    m.add_table("edge", [(i, i + 1) for i in range(500)])
-    with m.stream(S.edge(V.a, V.b), S.edge(V.b, V.c)) as rows:
-        first = next(rows)
-        assert (first.a, first.b, first.c) == (0, 1, 2)
-        # Unrelated engine work interleaves while the cursor stays open,
-        # which a raw janus cursor forbids.
-        assert m.one("(+ 1 2)") == 3
-        second = next(rows)
-        assert (second.a, second.b, second.c) == (1, 2, 3)
-```
-
-Break out of the loop and nothing further is even joined. Exhaustion closes the cursor on its own, leaving the with-block closes it early, and a dropped cursor is reaped by its finalizer. On a stream, `timeout` bounds each pull's wall time while `inferences` is one budget for the cursor's whole engine work, because an engine's inferences are its own. The cursor enumerates under the engine's logical update view, so writes made after the first pull are not seen by it.
+`query()` computes and decodes its bounded answer set before returning it.
 
 ## Strings and regular expressions
 
@@ -376,7 +357,7 @@ Structural match reads terms; strings stay opaque to it. `lib_regex` opens them 
 
 ```python
 def test_regex_guards_queries(rx, metta):
-    with metta.new_space() as m:
+    with petta.space() as m:
         m.add(S.person(S.Ada), S.person(S.alan), S.person(S.Alice))
         rows = m.query(S.person(V.name), where='(re-match "^A" $name)')
         assert [row.name for row in rows] == [S.Ada, S.Alice]
@@ -403,10 +384,10 @@ The engine has transactions, and a program can already use the inline `(transact
     with pytest.raises(EngineError):
         with m.atomic():
             m.run("(kept fact) !(+ $left $right)")
-    assert expr(S.kept, S.fact) not in m  # the fact rolled back with the throw
+    assert Expression(S.kept, S.fact) not in m  # the fact rolled back with the throw
     with m.atomic():
         m.run("(kept fact) !(+ 1 1)")
-    assert expr(S.kept, S.fact) in m  # and commits whole on success
+    assert Expression(S.kept, S.fact) in m  # and commits whole on success
 ```
 
 `with m.speculative():` is the what-if twin: each run executes against a frozen view, the answers return, and every write is discarded.
@@ -415,7 +396,7 @@ The engine has transactions, and a program can already use the inline `(transact
     with m.speculative():
         groups = m.run("(ghost fact) !(+ 2 2)")
     assert groups[-1] == [4]
-    assert expr(S.ghost, S.fact) not in m
+    assert Expression(S.ghost, S.fact) not in m
 ```
 
 Both cover engine state. A Python operation's side effects, and subscription callbacks that already fired, stay where they happened; that is what rolling back a database can honestly mean.
@@ -558,12 +539,12 @@ The check is duck-typed the way the engine already is. A protocol registered wit
 
 Structural targets work too: casting to `(List $t)` admits anything whose type unifies, and a repeated variable in the target constrains. Targets the engine never checks (`Atom`, `%Undefined%`, `_`) pass unchecked here as well. The surface is in [`petta.casting`](../reference/petta-casting).
 
-`add_table(head, source)` reads a Polars frame, a pandas frame, a mapping of columns, or any iterable of rows into facts shaped as `(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of plain columns accepted by DataFrame constructors, and `rows.to_df()` / `rows.to_pl()` build the pandas or polars frame directly, DuckDB's conversion naming. `rows.build(column, Class)` rebuilds translated objects from a named result column; when one column holds complete constructor expressions, `rows.build(Class)` rebuilds it directly and `query(..., into=Class)` takes the same route. In a notebook, rows render as a table on their own, and in a [rich](https://rich.readthedocs.io)-using terminal `print`ing rows through a rich console draws the same table. `rows.pipe(fn, *args)` is pandas' chaining shape, so a post-processing pipeline reads left to right: `m.query(pat).pipe(clean).pipe(score, weight=2)`.
+`petta.tables.add(space, head, source)` reads a Polars frame, a pandas frame, a mapping of columns, or any iterable of rows into facts shaped as `(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of plain columns accepted by DataFrame constructors, and `rows.to_df()` / `rows.to_pl()` build the pandas or polars frame directly, DuckDB's conversion naming. `rows.build(column, Class)` rebuilds translated objects from a named result column; when one column holds complete constructor expressions, `rows.build(Class)` rebuilds it directly and `query(..., into=Class)` takes the same route. In a notebook, rows render as a table on their own, and in a [rich](https://rich.readthedocs.io)-using terminal `print`ing rows through a rich console draws the same table. `rows.pipe(fn, *args)` is pandas' chaining shape, so a post-processing pipeline reads left to right: `m.query(pat).pipe(clean).pipe(score, weight=2)`.
 
 Use `derivation(atom)` to obtain proof trees for an answer. Use `why(pattern)`
 to explain one empty match. An empty result returned directly by `query()`
 retains the query context, so `rows.why()` identifies a pattern miss, a join
 with no shared binding, or a `where` guard that rejected every joined row. It
 reads the space's current state. The complete runtime surface is in
-[`petta.space`](../reference/petta-space), and result containers are in
+[`petta.Space`](../reference/petta-space), and result containers are in
 [`petta.results`](../reference/petta-results).

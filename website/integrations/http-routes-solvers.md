@@ -1,3 +1,9 @@
+<!--
+Purpose: connect in-memory routing, remote spaces, and multi-shot solving through the public narrow surface.
+Guarantees: examples use canonical atoms, Space.op, context.space(), and petta.tables.add.
+[tested: npm run docs:build; commit=WORKTREE]
+-->
+
 # HTTP, routes, and solver loops
 
 Three seams share space operations but do different jobs:
@@ -33,7 +39,7 @@ class Router:
     def get(self, path: str) -> Callable:
         def wrap(fn: Callable) -> Callable:
             handler = fn.__name__.replace("_", "-")
-            self._m.register_op(fn, name=handler)
+            self._m.op(fn, name=handler)
             self.add_route("GET", path, handler)
             return fn
 
@@ -44,47 +50,47 @@ class Router:
         for segment in path.strip("/").split("/"):
             if segment.startswith("{") and segment.endswith("}"):
                 name, _, converter = segment[1:-1].partition(":")
-                segments.append(Var(name))
+                segments.append(Variable(name))
                 casters.append(CASTERS[converter or "str"])
             else:
-                segments.append(Sym(segment))
+                segments.append(Symbol(segment))
         self._casters[self._count] = tuple(casters)
         self._m.add(
-            expr(S.route, S[self.name], S[method], Expr(segments),
+            Expression(S.route, S[self.name], S[method], Expression(segments),
                  S[handler], self._count)
         )
         self._count += 1
 
     def dispatch(self, method: str, path: str) -> Response:
-        request = Expr([Sym(s) for s in path.strip("/").split("/") if s])
+        request = Expression([Symbol(s) for s in path.strip("/").split("/") if s])
         table = self._m.query(
-            expr(S.route, S[self.name], S[method.upper()],
+            Expression(S.route, S[self.name], S[method.upper()],
                  V.pattern, V.handler, V.k)
         )
         matched = False
-        for row in sorted(table, key=lambda r: int(decode(r.k))):
+        for row in sorted(table, key=lambda r: int(wire.decode(r.k))):
             pattern = row.pattern
-            if not isinstance(pattern, Expr) or len(pattern) != len(request):
+            if not isinstance(pattern, Expression) or len(pattern) != len(request):
                 continue
             bindings = unify(pattern, request)
             if bindings is None:
                 continue
             matched = True
             casters = self._casters.get(
-                int(decode(row.k)),
-                tuple(str for c in pattern.children if isinstance(c, Var)),
+                int(wire.decode(row.k)),
+                tuple(str for c in pattern.children if isinstance(c, Variable)),
             )
             try:
                 values = [
                     caster(str(bindings[name]))
-                    for name, caster in zip(variables(pattern), casters)
+                    for name, caster in zip(pattern.vars, casters, strict=True)
                 ]
             except (ValueError, TypeError):
                 continue  # the parameter refused; a later route may accept
-            answers = self._m.eval(expr(Sym(str(row.handler)),
-                                        *[encode(v) for v in values]))
+            answers = self._m.eval(Expression(Symbol(str(row.handler)),
+                                        *[wire.encode(v) for v in values]))
             body = answers[0] if answers else None
-            return Response(200, decode(body) if isinstance(body, Gnd) else body)
+            return Response(200, wire.decode(body) if isinstance(body, Grounded) else body)
         return Response(422 if matched else 404,
                         "unprocessable" if matched else "not found")
 ```
@@ -92,7 +98,7 @@ class Router:
 The decorator shape registers Python handlers as operations. The route table remains facts, so MeTTa can query and extend it:
 
 ```python
-m = MeTTa().new_space()
+m = MeTTa().space()
 app = Router(m, "app")
 
 
@@ -130,7 +136,7 @@ check(
 For a smaller routing model, equations provide dispatch and middleware directly:
 
 ```python
-app = MeTTa().new_space()
+app = MeTTa().space()
 app.run(
     '(= (route home) (Page 200 "Welcome"))\n'
     '(= (route about) (Page 200 "About us"))\n'
@@ -138,10 +144,10 @@ app.run(
     "(= (handle $req) (once (route $req)))\n"
     "(= (logged $req) (let $res (handle $req) (Logged $req $res)))"
 )
-check("a route", app.run("!(handle home)"), [[expr(S.Page, 200, "Welcome")]])
-check("the 404", app.run("!(handle nowhere)"), [[expr(S.NotFound, 404, S.nowhere)]])
+check("a route", app.run("!(handle home)"), [[Expression(S.Page, 200, "Welcome")]])
+check("the 404", app.run("!(handle nowhere)"), [[Expression(S.NotFound, 404, S.nowhere)]])
 check("middleware is composition", app.run("!(logged about)"),
-      [[expr(S.Logged, S.about, expr(S.Page, 200, "About us"))]])
+      [[Expression(S.Logged, S.about, Expression(S.Page, 200, "About us"))]])
 ```
 
 ## Serve a space over HTTP
@@ -161,12 +167,15 @@ def test_remote_spaces_serve_attach_and_join(metta, tmp_path):
         text=True,
         env={**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)},
     )
-    local = metta.new_space()
+    local = metta.space()
     try:
         line = child.stdout.readline()
         assert line, child.stderr.read()
         info = json.loads(line)
-        remote.attach(local, "&hq", info["url"], remote_space=info["space"])
+        attached = metta.space(
+            "&hq",
+            backing=remote.RemoteSpace(remote.connect(info["url"]), info["space"]),
+        )
         # A match crosses the wire, filtered by the remote engine's own match.
         assert local.run("!(match &hq (users 2 $n) $n)") == [["Bob"]]
         # And joins with local facts in ONE match, the multi-context point.
@@ -174,17 +183,17 @@ def test_remote_spaces_serve_attach_and_join(metta, tmp_path):
         (group,) = local.run(
             "!(collapse (match (context-space) (vip $id) (match &hq (users $id $n) $n)))"
         )
-        assert group == [expr("Ada")]
+        assert group == [Expression("Ada")]
         # Writes cross too, and the remote engine answers them back.
         local.run('!(add-atom &hq (users 3 "Cy"))')
         assert local.run("!(match &hq (users 3 $n) $n)") == [["Cy"]]
         local.run('!(remove-atom &hq (users 3 "Cy"))')
-        assert local.run("!(collapse (match &hq (users 3 $n) $n))") == [[expr()]]
+        assert local.run("!(collapse (match &hq (users 3 $n) $n))") == [[Expression()]]
         # A space outside the allowlist is refused with the remote's words.
         stray = remote.RemoteSpace(remote.connect(info["url"]), "&self")
         with pytest.raises(PettaError):
             list(stray.match(S.anything(V.x)))
-        local.unregister_space("&hq")
+        attached.drop()
     finally:
         child.terminate()
         child.wait(timeout=10)
@@ -197,11 +206,11 @@ The helper named by that test is not copied here. The approved source excerpt is
 
 ```python
 def test_remote_auth_token_and_hook_requires_tls(metta):
-    served = metta.new_space()
+    served = metta.space()
     served.add(S.fact(1))
     server = remote.serve(
         metta,
-        spaces=[served.space_name],
+        spaces=[served.name],
         token="s3cret",
         authorize=lambda headers: headers.get("x-tenant") == "acme",
     )
@@ -261,10 +270,10 @@ class Part:
 The solve loop adds one reachability step at a time and reuses the same space between shots:
 
 ```python
-m = MeTTa().new_space()
+m = MeTTa().space()
 
 # The base part: a graph as tabular facts, and step zero of reachability.
-m.add_table("edge", [(S.a, S.b), (S.b, S.c), (S.c, S.d)])
+tables.add(m, "edge", [(S.a, S.b), (S.b, S.c), (S.c, S.d)])
 m.run("(= (reach a 0) True)")
 
 # The step part, clingo's #program step(t): reach $x at t if some edge

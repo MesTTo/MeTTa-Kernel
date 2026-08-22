@@ -1,3 +1,9 @@
+<!--
+Purpose: explain the executable route-table example built from Space operations and canonical atoms.
+Guarantees: the shown router uses Space.op and canonical atom names.
+[tested: npm run docs:build; commit=WORKTREE]
+-->
+
 # Web routes
 
 Web routing translates into space operations, and the translation is small enough to be an example rather than a package module: `bindings/python/examples/integration/web_routes.py` builds FastAPI's routing semantics in some eighty lines on the core surface alone. An app is a space. Its route table is facts. A request is a term. Dispatch reads the facts back per request and unifies routes in registration order. Typed path converters run after the structural match, so a parameter refusing its type is a 422 while no matching route is a 404. Handlers are called by name through the engine, which is why a route a MeTTa program adds, naming an equation as its handler, serves through the very same table as the Python decorators.
@@ -21,7 +27,7 @@ class Router:
     def get(self, path: str) -> Callable:
         def wrap(fn: Callable) -> Callable:
             handler = fn.__name__.replace("_", "-")
-            self._m.register_op(fn, name=handler)
+            self._m.op(fn, name=handler)
             self.add_route("GET", path, handler)
             return fn
 
@@ -32,47 +38,47 @@ class Router:
         for segment in path.strip("/").split("/"):
             if segment.startswith("{") and segment.endswith("}"):
                 name, _, converter = segment[1:-1].partition(":")
-                segments.append(Var(name))
+                segments.append(Variable(name))
                 casters.append(CASTERS[converter or "str"])
             else:
-                segments.append(Sym(segment))
+                segments.append(Symbol(segment))
         self._casters[self._count] = tuple(casters)
         self._m.add(
-            expr(S.route, S[self.name], S[method], Expr(segments),
+            Expression(S.route, S[self.name], S[method], Expression(segments),
                  S[handler], self._count)
         )
         self._count += 1
 
     def dispatch(self, method: str, path: str) -> Response:
-        request = Expr([Sym(s) for s in path.strip("/").split("/") if s])
+        request = Expression([Symbol(s) for s in path.strip("/").split("/") if s])
         table = self._m.query(
-            expr(S.route, S[self.name], S[method.upper()],
+            Expression(S.route, S[self.name], S[method.upper()],
                  V.pattern, V.handler, V.k)
         )
         matched = False
-        for row in sorted(table, key=lambda r: int(decode(r.k))):
+        for row in sorted(table, key=lambda r: int(wire.decode(r.k))):
             pattern = row.pattern
-            if not isinstance(pattern, Expr) or len(pattern) != len(request):
+            if not isinstance(pattern, Expression) or len(pattern) != len(request):
                 continue
             bindings = unify(pattern, request)
             if bindings is None:
                 continue
             matched = True
             casters = self._casters.get(
-                int(decode(row.k)),
-                tuple(str for c in pattern.children if isinstance(c, Var)),
+                int(wire.decode(row.k)),
+                tuple(str for c in pattern.children if isinstance(c, Variable)),
             )
             try:
                 values = [
                     caster(str(bindings[name]))
-                    for name, caster in zip(variables(pattern), casters)
+                    for name, caster in zip(pattern.vars, casters, strict=True)
                 ]
             except (ValueError, TypeError):
                 continue  # the parameter refused; a later route may accept
-            answers = self._m.eval(expr(Sym(str(row.handler)),
-                                        *[encode(v) for v in values]))
+            answers = self._m.eval(Expression(Symbol(str(row.handler)),
+                                        *[wire.encode(v) for v in values]))
             body = answers[0] if answers else None
-            return Response(200, decode(body) if isinstance(body, Gnd) else body)
+            return Response(200, wire.decode(body) if isinstance(body, Grounded) else body)
         return Response(422 if matched else 404,
                         "unprocessable" if matched else "not found")
 ```

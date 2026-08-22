@@ -1,3 +1,9 @@
+<!--
+Purpose: explain provider capability declarations, answer fidelity, and the attachment contract.
+Guarantees: Python examples use canonical public atom classes.
+[tested: npm run docs:build; commit=WORKTREE]
+-->
+
 # The contract: how backends attach
 
 A backend joins PeTTa by declaring what it can do, as atoms in the
@@ -106,10 +112,10 @@ A Python provider or operation may answer bindings for the query's own
 variables instead of an atom:
 
 ```python
-from petta import Answer, Bindings
+from petta import Answer, Bindings, Symbol
 
 def match(self, pattern, *, limit=None):
-    yield Bindings({pattern.children[2]: Sym("b")})
+    yield Bindings({pattern.children[2]: Symbol("b")})
     yield Answer(value=parse("(edge a b)"), k=0.9)
 ```
 

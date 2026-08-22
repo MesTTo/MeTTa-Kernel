@@ -5,7 +5,7 @@ Source: `bindings/python/petta/tables.py`.
 > Purpose: derive a whole table-backed space provider from MeTTa bridge
 > declarations, so the contract is rewrite rules and both directions of
 > the boundary fall out of matching them. The module is petta.tables
-> because petta.bridge is already the standing bridge RULE between two
+> because a subscription bridge is already the standing bridge RULE between two
 > spaces (petta.subscribe.bridge); the two are the same idea at two
 > boundaries, a declared correspondence the engine keeps live.
 >
@@ -38,16 +38,16 @@ Source: `bindings/python/petta/tables.py`.
 >
 > Guarantees:
 >   - a database row becomes an atom from its typed cell values; plain text is
->     always a symbol, NULL is Gnd(None), and a structured value is one tagged
+>     always a symbol, NULL is Grounded(None), and a structured value is one tagged
 >     TEXT cell carrying the atom wire rather than the source parser [tested:
 >     test_a_row_value_becomes_an_atom_without_being_reparsed;
->     commit=0c1bd4c2faadc1c4fc97cc9d2caa084907d20072]
+>     commit=WORKTREE]
 >   - a cell PeTTa wrote reads back as the atom it wrote, whatever the driver
 >     and the image catalog do to the database's own values: _is_atom_cell
 >     keeps the tag in the text domain, out of reach of a row_factory that
 >     adapts binary cells, and _ImageCodec answers it before any image
 >     [tested: test_a_nonground_compound_downgrades_and_removal_still_unifies;
->     commit=0c1bd4c2faadc1c4fc97cc9d2caa084907d20072]
+>     commit=WORKTREE]
 >   - the whole pattern family is filtered exactly where SQL can express
 >     it: ground positions become comparisons, a repeated variable becomes
 >     the equality it demands (column to column, or column to the declared
@@ -66,7 +66,7 @@ Source: `bindings/python/petta/tables.py`.
 >     each of the database's own row values before it crosses, keeping opaque
 >     objects as handles and projecting transparent objects [tested:
 >     test_an_opaque_blob_column_is_reached_by_a_lazy_path_without_crossing;
->     commit=0c1bd4c2faadc1c4fc97cc9d2caa084907d20072]
+>     commit=WORKTREE]
 > Decides:
 >   - declarations are trusted code, not user data: table and column
 >     names are interpolated into SQL, so a bridge declaration belongs in
@@ -77,6 +77,14 @@ Source: `bindings/python/petta/tables.py`.
 >   Future Enhancements: None
 
 The entries below reproduce the source signatures and docstrings.
+
+## `add`
+
+```python
+def add(space: Any, head: Any, data: Any) -> int:
+```
+
+> Add a tabular source to a space as ``(head column...)`` facts.
 
 ## `Executes`
 
