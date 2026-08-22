@@ -8,6 +8,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Pure-Python twins now cover 204 of the 223 example programs and 1,367 of
+  1,380 runnable forms in those files. The coverage check also records every
+  remaining example or form as structured residue against the Phase 14
+  authoring feature that Python still lacks.
 - Which reaction fires first is a declared policy. `(agenda <ctx> <policy>)`,
   or `m.declare_agenda(name, policy)`, picks between `declaration` (the
   order they were declared, the stated default and what the engine used to
