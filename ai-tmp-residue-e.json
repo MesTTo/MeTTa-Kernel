@@ -1,0 +1,119 @@
+[
+  {
+    "kind": "friction",
+    "example": "examples/types/builin_types.metta",
+    "form": null,
+    "missing": "a Python door for `import!`, whose space argument sits in a TERM position",
+    "row": "P14.13",
+    "section": "§4 surface gaps: declarations that are directives (import!, bind!, pragmas)",
+    "detail": "The example's first form imports lib_builtin_types and the twin has to write it as a term, `m.eval(S[\"import!\"](S[\"&self\"], (S.library, S.lib_builtin_types)))`, which the lane flags for naming a space as a symbol until the line declares a rung. There is no Python spelling for the directive: the library itself does the same thing internally (space.py:2541 evaluates `(import! &self (library lib_tabling))` to open the tabling library), and `m.register_library_path` registers a path rather than importing. Passing the space HANDLE instead of the symbol does not work either: `m.eval(S[\"import!\"](m.space(\"&self\"), ...))` fails inside the loader [measured 2026-08-22]. Two doors would close it: an `m.import_(name)` on the space handle, and a term-position spelling for a space that is not its symbol."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/types/builin_types.metta",
+    "form": null,
+    "missing": "a Python-type conversion at the TERM door: arrow(int, int) for (-> Number Number), and Any for %Undefined%",
+    "row": "P14.9",
+    "section": "§9e type constants, resolved (no exported constants; one conversion table)",
+    "detail": "The ruling is that every position expecting a TYPE takes a Python type through the one table, \"so the awkward S[\\\"%Undefined%\\\"] never needs writing\". It holds at the two doors that read annotations (`@m.define` maps int to Number, Any to %Undefined%, Atom to Atom, a TypeVar to one shared $t, and `Callable[[X], Y]` to `(-> (-> $x $y) $x $y)`, all measured 2026-08-22) and at `m.cast`, whose `_type_atom` maps bool/int/float/str and any other class to its own name. It does NOT hold where a twin builds an EXPECTED type atom, which is what asking `get-type` a question means: this file writes `S[\"->\"](S.Number, S.Number, S.Number)` and its siblings 40 times, and engine_surface writes `S[\"%Undefined%\"]` six times. The missing piece is small and public: an `arrow(...)` builder beside `equation` and the proposed `typed`, taking Python types through the same table, so `arrow(int, int)` and `arrow(Any, Atom)` build what the annotation door already builds."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/types/types.metta",
+    "form": null,
+    "missing": "space.type(atom), the get-type door the lane's own dissolution table names",
+    "row": "P14.25",
+    "section": "§9e becomes methods: kb.type(a) (get-type-space)",
+    "detail": "twin_coverage.py:189 maps `get-type` to `space.type(atom)` and the discussion ledger settles the same name (\"`kb.type(atom)` over `type_of`\"), but `MeTTa.type` is the CLASS-declaration decorator, `@m.type` over a dataclass (space.py:2556, install_type), so handing it an atom raises `AttributeError: 'Gnd' object has no attribute '__mro__'` [measured 2026-08-22]. Two accessors exist and both are used in this wave: `m.fn(name).type`, a property that answers a NAME's first declared type and reads %Undefined% as None (_space_objects.py:857), and `m.fn(\"get-type\").all(atom)` for any other atom and for every answer. The gap is therefore a naming collision rather than a missing capability: one of the two meanings of `type` has to move before the ledger's own spelling can ship, and P14.5's naming pass is where that decision belongs."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/types/engine_surface.metta",
+    "form": null,
+    "missing": "a subscript door that reads a wholly-variable (: $n $t) pattern the way the engine's own match reads it",
+    "row": "P14.29",
+    "section": "§9 risks: two sources of truth (the twins stay differential)",
+    "detail": "Measured 2026-08-22 on one atom, `(: program-own-type MyType)`, in a fresh engine: `m.eval(S.match(S[\"&self\"], S[\":\"](V.n, V.t), V.n))` answers `program-own-type`, the STRUCTURAL reading the example asserts and translator.pl's gate 1 implements (\"a pattern that IS a colon expression stays structural, so `(match &self (: $x Human) $x)` still retrieves stored declarations\", translator.pl:616), while `m.query(S[\":\"](V.n, V.t))` answers one row binding `n` to the WHOLE atom and `t` to %Undefined%, the in-place ANNOTATION reading. The two doors disagree on the same pattern and the same space. Both agree when either slot is concrete: `(: Zeus $t)` answers God through both, and `(knows (: $x Human) (: $y Human))` prunes by type through both. The cause is where gate 1 lives: the translator decides it while translating a match form, and the Python door hands a decoded pattern straight to match/4 (shim.pl:1299, petta_py_match_goal/3), which never sees the gate. The twin reads the space by iterating it instead. Sibling of P14.29's tuple divergence and probably wants its own row."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/types/typing_rules.metta",
+    "form": null,
+    "missing": "a Python calling door that runs the argument type check the engine's own `!` form runs",
+    "row": "P14.9",
+    "section": "§9 risks: two sources of truth (the twins stay differential)",
+    "detail": "Measured 2026-08-22, one program, four spellings of one call, two answers. After `(add-typing-rule! deny-unknown-demo ordinary %Undefined% DemoPayload (refuse ...))`, `m.run(\"!(typing-rule-demo unknown-demo)\")` answers the `(Error ... (BadArgType 1 DemoPayload %Undefined% (TypingRuleRefusal ...)))` the example asserts, and so do `m.eval(S[\"let\"](V.r, demo(payload), V.r))` and `m.eval(S.collapse(demo(payload)))` and `m.eval(demo(S.id(payload)))`; but `m.eval(demo(payload))` and `m.fn(\"typing-rule-demo\")(payload)` answer `(seen unknown-demo)`, with no check run at all. The discriminator is the shape of the call, which points straight at the fast path: shim.pl:1476 takes `petta_py_direct_goal/4` for \"a flat call of a compiled function whose arguments are all plain data\" and calls it without translating, and translation is what inserts the type-directed acceptance. So the doors a Python user reaches for all day are exactly the ones that skip the checker. The twin reads the refusal through `collapse` and says so on the line."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/types/types_nondet.metta",
+    "form": null,
+    "missing": "a Python calling door that applies the declared OUTPUT type filter",
+    "row": "P14.9",
+    "section": "§9 risks: two sources of truth (the twins stay differential)",
+    "detail": "The same defect as the typing_rules entry, seen from the output side and measured 2026-08-22 on this example's own program: with `(: f (-> Type1 Type1))` and `(: f (-> Type2 Type2))` declared and `T3in` a Type1 only, the engine's own form answers nothing (`m.run(\"!(f T3in)\")` is `[]`, and `m.load` of the file answers `[]` for that form, which is what `test-no-answer` asserts), while `m.eval(S.f(S.T3in))` and `m.fn(\"f\").all(S.T3in)` answer `Tdefault`. Wrapping the same call in `collapse` restores the engine's answer, `()`. A twin that used the calling door here would pin the WRONG behaviour as a passing claim, which is the failure mode the differential exists to catch."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/types/parametric_types.metta",
+    "form": null,
+    "missing": "a two-way unify at the Python door, so a pattern can instantiate an arrow that carries its own variables",
+    "row": "P14.4",
+    "section": "§10b the expression-position rule (unify(a, b, then, els))",
+    "detail": "The example's claim instantiates the declared arrow: `(let (get-type apply) (-> (-> Bool Bool) Bool $result) $result)` answers Bool. `petta.unify` cannot say it: its own docstring states the contract, \"One-way: variables on the pattern side bind; a variable on the atom side matches only the same variable\", and the arrow it would match against IS `(-> (-> $tx $ty) $tx $ty)`, all variables, so `unify(S[\"->\"](S[\"->\"](S.Bool, S.Bool), S.Bool, V.result), m.fn(\"apply\").type)` answers None [measured 2026-08-22]. MeTTa's `let` unifies both ways, and §10b already rules that expression-position `unify(a, b, then, els)` ships as a surface function; the same door answers this. The twin asks the type of the APPLICATION instead, which is the example's own second form and needs nothing new."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/types/parametric_types.metta",
+    "form": null,
+    "missing": "a lane rule that reads TypeVar(\"X\") as a NAME, the way it already reads sym(\"x\") and fn(\"f\")",
+    "row": "P14.1",
+    "section": "§7 the coverage instrument: the examples-twin lane",
+    "detail": "A type variable is `$t` by the concept map, and Python spells one with `TypeVar(\"X\")`. The lane's source scan reads that string as program text, because NAMING_CALLS holds petta's own naming doors (sym, var, val, fn, space, new_space) and not the stdlib's, so the twin writes `TypeVar(name=\"X\")`, which the lane permits through its `name=` keyword rule. The modern spelling that needs no string at all, `def apply[X, Y](f: Callable[[X], Y], x: X) -> Y`, is PEP 695 and works at run time on this interpreter (3.14, measured: the arrow is `(-> (-> $x $y) $x $y)`), but ruff refuses it because bindings/python/pyproject.toml sets `target-version = \"py311\"`: \"Cannot use type parameter lists on Python 3.11\". Both are one-line fixes and the second also unblocks §9k's own worked example, `@petta.record class Cons[T]`."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/types/recursive_types2.metta",
+    "form": null,
+    "missing": "a record whose constructor declares the ADT as its result type, and a record that may name itself",
+    "row": "P14.10",
+    "section": "§9k records and generics (the ADT story completes through generics)",
+    "detail": "An ADT's constructors are declared into the TYPE, `(: Z Nat)` and `(: S (-> Nat Nat))`, and §9k's own worked example writes `@petta.record class Cons[T]` with `tail: \"List[T]\"` producing `(: Cons (-> $t (List $t) (List $t)))`. Neither half is reachable today [both measured 2026-08-22]. The result type is the CLASS: a record `Nil` declares `(-> Nil)` and a record `Cons(Generic[T])` with fields `head: T, tail: Nil` declares `(-> $t Nil Cons)`, so the constructor never lands in the ADT it belongs to. And a self-referential field annotation does not resolve at all, at module scope or inside a function: `tail: \"Cons[T]\"` raises `TypeError: the field annotations of Cons do not resolve (name 'Cons' is not defined)` from _convert_registry.resolved_hints, because the decorator runs before the class name is bound. The Generic[T] half DOES work, mapping to `$t` in the argument position. This twin writes both constructors as declarations, which also side-steps the `S` collision: the example's successor constructor is literally named `S`, which is the symbol factory's own name in Python."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/types/subtyping.metta",
+    "form": null,
+    "missing": "Python's own class hierarchy as the source of the (:< Sub Super) edge",
+    "row": "P14.9",
+    "section": "§9d the concept map (Python's word where both languages have the concept)",
+    "detail": "The twin already shows that a Python class IS a MeTTa type name in an annotation: `class Animal` plus `def speak(a: Animal) -> str` declares `(: speak (-> Animal String))` exactly [measured 2026-08-22]. The obvious next row of the same table does not hold: `class Dog(Animal)` declares no `(:< Dog Animal)`, and a `@petta.record` subclass writes no `:<` atom either (measured: no `:<` atom appears in the space). Subtyping is the one relation where Python's own syntax says the whole thing, so the declaration source is already written in every typed Python program. Until then the edge is `S[\":<\"](sub, super)`, which is the sibling wart the existing entry on this example files."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/data/mettaset.metta",
+    "form": null,
+    "missing": "the iterable write door: space += <iterable of atoms> as the fact-stream pipe",
+    "row": "P14.25",
+    "section": "§9f input tuples against output Answers (the pipe: kb += (t for t in source()))",
+    "detail": "The ledger's generative principle is that \"ANYTHING THAT YIELDS TUPLES IS A FACT STREAM\", written `kb += (t for t in source())` and `kb += db.execute(...)`. The door is not open: measured 2026-08-22, `m += (generator)` raises \"a stored atom is a non-empty expression; Gnd(<generator>) is Grounded\", and `m += [S.p(1), S.p(2)]` stores the LIST as one atom, after which `m[S.p(V.x)]` answers nothing, which is the worse of the two failures because it is silent. `m.add(*rows)` works and is what this twin uses for its eight facts. A single atom and an iterable of atoms are distinguishable at the door (an Atom is not an iterable of Atoms), so `+=` can carry both."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/data/foldallmatch.metta",
+    "form": null,
+    "missing": "a space handle inside a built TERM, where only the &self SYMBOL works",
+    "row": "P14.25",
+    "section": "§9b space-scoped symbols (the space handle carries every context-relative door)",
+    "detail": "`foldall` enumerates its generator itself, so the generator has to reach it as a TERM and the space has to sit inside that term. Every context-relative door hangs off the handle by design, and the handle does not encode into a term: measured 2026-08-22, `m.eval(S.foldall(S[\"+\"], S.match(m, S.kb(V.n), V.n + 1), 0))` and the same with `m.space(\"&self\")` both fail inside `+` (the match never runs, so the addition meets two unknowns), while the `S[\"&self\"]` symbol answers 5. The same shape appears in foldallspacecount and in the import! entry on types/builin_types, so it is one gap seen three times: a space needs a spelling in term position that is not its name written as a symbol."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/data/holfunctions.metta",
+    "form": null,
+    "missing": "functools.reduce in a compiled body, where sum() already lowers to foldl-atom",
+    "row": "P14.4",
+    "section": "§9d rule 1: map/filter/reduce for map-atom/filter-atom/foldl-atom",
+    "detail": "Three of this file's four higher-order forms are already Python syntax in the compiled subset, measured 2026-08-22: `[x + 1 for x in (1, 2, 3)]` compiles to `(map-atom (1 2 3) (|-> ($x) (+ $x 1)))`, adding an `if` compiles to a `filter-atom` inside it, and `sum((1, 2, 3, 4))` compiles to `(foldl-atom (1 2 3 4) 0 +)`. The fourth has no spelling: folding with a NAMED function is `functools.reduce(foldfun, items, 0)`, and `reduce` is neither in the compiler's Python-builtin bridge (_define_expression._PYBUILTIN_CALLS carries len, abs, min, max, sum, sorted, pow, str, repr, round, range) nor resolvable as an engine name, so `f1b` is written as the term `S[\"foldl-atom\"](expr(1, 2, 3, 4), 0, S.foldfun)` under a declared rung. Bridging `functools.reduce` to foldl-atom is the same one-spelling lowering as `sum`, with the seed as the third argument. Sibling of this example's existing entry, which files the other half of the same wall (a hyphenated engine name cannot be written in a compiled body at all); the fixes are different, one bridging a Python builtin and one admitting a name."
+  }
+]
