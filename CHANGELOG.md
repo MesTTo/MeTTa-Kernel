@@ -63,6 +63,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- The supported Python floor is 3.12, raised from 3.11. Every generic
+  declaration in `petta` now uses the type-parameter syntax the class shape
+  itself carries (`class Defined[**P, R]`, `def build[BuildT](...)`) instead
+  of module-level `TypeVar` and `ParamSpec` assignments, and `pip` refuses
+  3.11 rather than installing a package whose source it cannot parse.
+
 - Every Python twin is written in the library's own notation rather than in
   s-expressions with Python punctuation. A plain tuple is an expression,
   `S.name` replaces `S["name"]` wherever the name is a Python identifier,

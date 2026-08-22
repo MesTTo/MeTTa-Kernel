@@ -18,11 +18,13 @@ skip = *.lock,*.pyc,*.svg,package-lock.json,.git,node_modules,__pycache__,build,
 # Zar: a person, who wrote most of nilbc.metta and is credited by handle.
 # reduct: term rewriting's own word for a term reachable in one step, used
 #   throughout engine/trs.pl and the critical-pair oracle.
+# buildt: the BuildT type parameter of build(atom, cls) overloads in
+#   _convert_build.py and results.py, and of Rows.build.
 # arithmetics: a file name rather than a word. hyperon-experimental's number
 #   tokens live in lib/src/metta/runner/stdlib/arithmetics.rs, which
 #   engine/parser.pl and tests/prolog/parser.plt cite for what upstream does with
 #   a literal past binary64.
-ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo,anc,checkking,zar,reduct,reducts,arithmetics
+ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo,anc,checkking,zar,reduct,reducts,arithmetics,buildt
 # Whole LINES that are known and stay unreported, matched verbatim. This is for
 # vendored third-party source under tests/prolog/vendor, where a typo is
 # upstream's text and correcting it would fork the file away from the copy its

@@ -47,7 +47,7 @@ atom model and builds through queries, equations, types, and integrations.
 ### Dependencies
 
 - SWI-Prolog >= 9.3.x
-- Python >= 3.11 (for janus Python interop)
+- Python >= 3.12 (for janus Python interop)
 
 ### Usage
 

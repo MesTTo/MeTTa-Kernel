@@ -110,7 +110,7 @@ def class_declarations(cls: type) -> list[Expr]:
 ```python
 def register(
     runtime,
-    fn: Callable[_P, _R],
+    fn: Callable[P, R],
     *,
     name: str | None = None,
     transport: Literal['encoded', 'raw'] = 'encoded',
@@ -118,7 +118,7 @@ def register(
     space: str = _DEFAULT_SPACE,
     arities: list[int] | None = None,
     inverse: Callable | None = None,
-) -> Callable[_P, _R]:
+) -> Callable[P, R]:
 ```
 
 > Make fn callable from MeTTa. Returns fn unchanged.

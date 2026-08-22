@@ -7,7 +7,7 @@ name = "petta"
 dynamic = ["version"]
 description = "MeTTa in Python on the PeTTa engine"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
@@ -19,7 +19,6 @@ classifiers = [
     # SECURITY.md and CONTRIBUTING.md tell a reader.
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
@@ -97,7 +96,7 @@ version = {attr = "petta._version.__version__"}
 pythonpath = ["."]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 100
 extend-exclude = ["HE", "examples/**/_common.py"]
 
@@ -205,7 +204,7 @@ disable = [
 ]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 files = ["petta"]
 explicit_package_bases = true
 mypy_path = "."
@@ -289,6 +288,7 @@ skips = ["*/_compliance.py", "*/_gateway_compliance.py"]
 [tool.deptry]
 known_first_party = [
     "petta", "example_parity", "twin_coverage", "phrasebook", "phrasebook_entries",
+    "alpha",
 ]
 extend_exclude = ["HE", "examples", "build", "bench.py", "benchmarks"]
 optional_dependencies_dev_groups = ["test", "checks"]
