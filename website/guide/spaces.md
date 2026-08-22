@@ -1,3 +1,14 @@
+<!--
+Purpose: document Spaces against the current Python surface.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None.
+-->
+
 # Spaces
 
 `MeTTa()` binds to `&self`, the same space used by the CLI. `m.space(name)` selects another named space on the same engine. `m.new_space()` creates an unused name and can be used as a context manager. Inside any space, source that says `&self` means that hosting space itself: the reader substitutes the token for the space's name, so the same program text runs unchanged wherever it is loaded. Leaving the block drops that space, and a drop clears the whole life: atoms, equations, subscriptions, import markers, and tabling state all go, so a pooled name's next life starts from nothing.
@@ -148,7 +159,7 @@ conn.execute("insert into vips values (1), (3)")
 provider = attach(m, "&crm", conn)
 
 check("enumerate", m.run("!(collapse (match &crm (users $id $n) $n))"),
-      [[expr("Ada", "Bob", "Cy")]])
+      [[Expression(("Ada", "Bob", "Cy"))]])
 check("pushdown filter", m.run("!(match &crm (users 2 $n) $n)"), [["Bob"]])
 ```
 
@@ -161,7 +172,7 @@ m.run("(nickname 1 the-countess)")
     "!(collapse (match &crm (, (vips $id) (users $id $n)) "
     "(match (context-space) (nickname $id $nick) ($n $nick))))"
 )
-check("SQL joined with native facts", group, [expr(expr("Ada", S["the-countess"]))])
+check("SQL joined with native facts", group, [Expression((Expression(("Ada", S["the-countess"])),))])
 ```
 
 

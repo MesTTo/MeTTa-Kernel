@@ -33,7 +33,9 @@ Source: `bindings/python/petta/structures.py`.
 > Decides:
 >   - source text is NOT parsed here, because parsing needs the engine and
 >     this module's contract is engine-freedom; parse() first, or build
->     atoms with S/V/expr
+>     atoms with S/V/Expression
+>   - every ordered atom assembled in this file passes one iterable to
+>     Expression [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

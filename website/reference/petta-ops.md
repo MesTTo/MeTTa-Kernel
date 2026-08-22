@@ -49,6 +49,8 @@ Source: `bindings/python/petta/ops.py`.
 >     later Python owners share the declaration reference count
 >     [tested: test_a_duplicate_declaration_names_the_first_one;
 >     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+>   - every ordered atom assembled in this file passes one iterable to
+>     Expression [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

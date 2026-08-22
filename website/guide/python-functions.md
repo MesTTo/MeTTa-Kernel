@@ -1,3 +1,14 @@
+<!--
+Purpose: document Python functions as MeTTa functions against the current Python surface.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None.
+-->
+
 # Python functions as MeTTa functions
 
 `@m.register_op` registers a Python callable as a MeTTa function. The signature sets its arities. A generator function is nondeterministic, with one MeTTa answer per yield. `@m.op` is the same decorator under a shorter name, kept so existing code and notebooks keep running.
@@ -41,7 +52,7 @@ An operation that wants to query the knowledge base does not have to close over 
 ```python
 @m.register_op
 def related(term, engine: petta.MeTTa):
-    for row in engine.query(expr(S.link, term, V.x)):
+    for row in engine.query(Expression((S.link, term, V.x))):
         yield row[0]                 # !(related a) never passes the engine
 ```
 

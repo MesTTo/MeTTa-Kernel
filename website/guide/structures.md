@@ -1,3 +1,14 @@
+<!--
+Purpose: document Data structures against the current Python surface.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None.
+-->
+
 # Data structures
 
 `petta.structures` ships containers whose semantics are MeTTa's, unification, multisets, alpha equivalence, with each structure implemented where it is fastest. The pure tier runs on the atom kernel (`unify`, `alpha_eq`, `substitute`) and never touches the engine, so it imports and works without janus in the process; the engine-backed tier crosses deliberately, because its win IS the engine: tabling that invalidates on writes, subscriptions that maintain a view. MeTTa-side structures live in `lib_datastructures` for programs written in MeTTa itself.
@@ -27,7 +38,7 @@ inbox.add(S.order(V.id, S.express), rush_handler)
 
 `AlphaSet` holds atoms modulo variable renaming, the store a rule base wants: `(= (inc $x) (+ $x 1))` and its `$n` twin are one element. Membership is `alpha_eq` membership, reached through canonical renaming so it costs a hash, and the suite proves it against the pairwise oracle with property tests.
 
-None of the three parses source text, because parsing needs the engine and their contract is engine-freedom: `petta.parse()` first, or build atoms with `S`/`V`/`expr`.
+None of the three parses source text, because parsing needs the engine and their contract is engine-freedom: `petta.parse()` first, or build atoms with `S`/`V`/`Expression`.
 
 ## The engine-backed tier
 

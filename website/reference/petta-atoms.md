@@ -16,6 +16,11 @@ Source: `bindings/python/petta/atoms.py`.
 >   - the immutable operator lowering table is public data [tested:
 >     test_the_operator_table_is_generated_from_one_source_with_no_holes;
 >     commit=613f35974fa98746552dba584ad66082fdd1f3c7]
+>   - the canonical truth, unit, and context atoms are public values [tested:
+>     test_the_canonical_atoms_are_public_values; commit=WORKTREE]
+>   - Expression preserves one iterable's order while assembling it into one
+>     atom [tested: test_expression_assembles_one_ordered_atom_from_an_iterable;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -52,13 +57,19 @@ def val(value: Any) -> Gnd:
 > value. It crosses by reference, comes back as the same object, and
 > unifies by identity.
 
-## `expr`
+## `Expression`
 
 ```python
-def expr(*children: Any) -> Expr:
+def Expression(children: Iterable[Any]) -> Expr:
 ```
 
-> An expression from parts, each encoded.
+> Assemble one ordered expression from an iterable of atoms or values.
+>
+> Answers are a multiset whose execution order carries no meaning. This
+> constructor crosses into an object-level expression, where position and
+> multiplicity are data and therefore preserved exactly. It consumes the
+> iterable once [source: ai-python-conventions.md section 3.15;
+> commit=WORKTREE].
 
 ## `pretty`
 

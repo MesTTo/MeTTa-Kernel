@@ -1,3 +1,14 @@
+<!--
+Purpose: document DuckDB as a space against the current Python surface.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None.
+-->
+
 # DuckDB as a space
 
 A `SpaceProvider` lets an external store answer PeTTa matches. The DuckDB example maps each SQL table to a relation whose head is the table name and whose arguments follow the table's column order.
@@ -71,7 +82,7 @@ conn.execute("insert into vips values (1), (3)")
 provider = attach(m, "&crm", conn)
 
 check("enumerate", m.run("!(collapse (match &crm (users $id $n) $n))"),
-      [[expr("Ada", "Bob", "Cy")]])
+      [[Expression(("Ada", "Bob", "Cy"))]])
 check("pushdown filter", m.run("!(match &crm (users 2 $n) $n)"), [["Bob"]])
 ```
 
@@ -82,7 +93,7 @@ Provider matching is available directly, and the registered space composes with 
 ```python
 # Provider-level match answers atoms directly.
 check("provider-level match", list(provider.match(S.users(2, V.n))),
-      [expr(S.users, 2, "Bob")])
+      [Expression((S.users, 2, "Bob"))])
 
 # One match joins SQL tables with each other and with native facts.
 m.run("(nickname 1 the-countess)")
@@ -90,7 +101,7 @@ m.run("(nickname 1 the-countess)")
     "!(collapse (match &crm (, (vips $id) (users $id $n)) "
     "(match (context-space) (nickname $id $nick) ($n $nick))))"
 )
-check("SQL joined with native facts", group, [expr(expr("Ada", S["the-countess"]))])
+check("SQL joined with native facts", group, [Expression((Expression(("Ada", S["the-countess"])),))])
 
 # Writes: add-atom inserts, remove-atom deletes, from running MeTTa.
 m.run('!(add-atom &crm (users 4 "Dee"))')
@@ -118,7 +129,7 @@ check("a date binding finds the dated row",
       m.run('!(match &crm (logs "2026-08-13" $n) $n)'), [["shipped"]])
 provider.clear()
 check("clear empties, schema stays",
-      m.run("!(collapse (match &crm (logs $d $n) x))"), [[expr()]])
+      m.run("!(collapse (match &crm (logs $d $n) x))"), [[Expression(())]])
 
 m.unregister_space("&crm")
 done("duckdb_space")

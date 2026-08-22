@@ -1,3 +1,14 @@
+<!--
+Purpose: document Arrays and embeddings against the current Python surface.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None.
+-->
+
 # Arrays and embeddings
 
 PeTTa gives conforming array libraries one MeTTa operation vocabulary. DLPack recognizes array objects and transfers values between libraries. `array-api-compat` supplies the operation namespace. DLPack is not the operation API.
@@ -13,7 +24,7 @@ try:
 except ImportError:
     skip("numpy and array-api-compat are needed")
 
-from petta import MeTTa, S, V, decode, expr, val
+from petta import Expression, MeTTa, S, V, decode, val
 from petta import arrays
 
 m = MeTTa().new_space()
@@ -21,7 +32,7 @@ arrays.install(m, default=numpy)
 
 check("matmul over numpy",
       m.run("!(t-tolist (matmul (tensor ((1.0 2.0))) (tensor ((3.0) (4.0)))))"),
-      [[expr(expr(11.0))]])
+      [[Expression((Expression((11.0,)),))]])
 (types,) = m.run("!(collapse (get-type (tensor (1.0))))")
 check("protocol typing", S.DLTensor in list(types[0]))
 
@@ -90,7 +101,7 @@ try:
 except ImportError:
     skip("numpy is not installed")
 
-from petta import Bindings, MeTTa, S, V, expr  # noqa: E402
+from petta import Bindings, MeTTa, S, V, Expression  # noqa: E402
 from petta.arrays import EmbeddingStore  # noqa: E402
 from petta.atoms import Gnd  # noqa: E402
 
@@ -106,7 +117,7 @@ class Nearest:
         key, _score = next(iter(store.ranked(query, 1)))
         yield Bindings({out: key})
 
-(best,) = m.eval(expr(S.unify, Gnd(Nearest()), expr(S.espresso, V.k), V.k, S.none))
+(best,) = m.eval(Expression((S.unify, Gnd(Nearest()), Expression((S.espresso, V.k)), V.k, S.none)))
 check("nearest neighbour", best, S.espresso)
 ```
 

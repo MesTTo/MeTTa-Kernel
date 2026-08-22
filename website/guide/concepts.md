@@ -1,3 +1,14 @@
+<!--
+Purpose: document Concepts and names against the current Python surface.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None.
+-->
+
 # Concepts and names
 
 MeTTa's own vocabulary, PeTTa's Python spelling of it, and the Python
@@ -13,7 +24,7 @@ the answers `get-metatype` gives. Each kind is one Python class:
 |---|---|---|---|
 | Symbol | `Sym` | `S.name` | `"s"` |
 | Variable | `Var` | `V.x` | `"v"` |
-| Expression | `Expr` | `expr(...)` | `"e"` |
+| Expression | `Expr` | `Expression(children)` | `"e"` |
 | Grounded | `Gnd` | `encode(...)` | `"g"`, `"n"` |
 
 `Atom` is the base class of all four, exactly as canon says the kinds

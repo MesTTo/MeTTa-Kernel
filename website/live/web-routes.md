@@ -1,3 +1,14 @@
+<!--
+Purpose: document Web routes against the current Python surface.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None.
+-->
+
 # Web routes
 
 Web routing translates into space operations, and the translation is small enough to be an example rather than a package module: `bindings/python/examples/integration/web_routes.py` builds FastAPI's routing semantics in some eighty lines on the core surface alone. An app is a space. Its route table is facts. A request is a term. Dispatch reads the facts back per request and unifies routes in registration order. Typed path converters run after the structural match, so a parameter refusing its type is a 422 while no matching route is a 404. Handlers are called by name through the engine, which is why a route a MeTTa program adds, naming an equation as its handler, serves through the very same table as the Python decorators.
@@ -38,16 +49,14 @@ class Router:
                 segments.append(Sym(segment))
         self._casters[self._count] = tuple(casters)
         self._m.add(
-            expr(S.route, S[self.name], S[method], Expr(segments),
-                 S[handler], self._count)
+            Expression((S.route, S[self.name], S[method], Expr(segments), S[handler], self._count))
         )
         self._count += 1
 
     def dispatch(self, method: str, path: str) -> Response:
         request = Expr([Sym(s) for s in path.strip("/").split("/") if s])
         table = self._m.query(
-            expr(S.route, S[self.name], S[method.upper()],
-                 V.pattern, V.handler, V.k)
+            Expression((S.route, S[self.name], S[method.upper()], V.pattern, V.handler, V.k))
         )
         matched = False
         for row in sorted(table, key=lambda r: int(decode(r.k))):
@@ -69,8 +78,7 @@ class Router:
                 ]
             except (ValueError, TypeError):
                 continue  # the parameter refused; a later route may accept
-            answers = self._m.eval(expr(Sym(str(row.handler)),
-                                        *[encode(v) for v in values]))
+            answers = self._m.eval(Expression((Sym(str(row.handler)), *[encode(v) for v in values])))
             body = answers[0] if answers else None
             return Response(200, decode(body) if isinstance(body, Gnd) else body)
         return Response(422 if matched else 404,

@@ -1,3 +1,14 @@
+<!--
+Purpose: document Run and query against the current Python surface.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None.
+-->
+
 # Run and query
 
 Use `run` for MeTTa source, `eval` for a term already built in Python, and `query` for structural matches against a space. Variables shared by several query patterns form joins. Rows expose the query variable names as attributes.
@@ -403,10 +414,10 @@ The engine has transactions, and a program can already use the inline `(transact
     with pytest.raises(EngineError):
         with m.atomic():
             m.run("(kept fact) !(+ $left $right)")
-    assert expr(S.kept, S.fact) not in m  # the fact rolled back with the throw
+    assert Expression((S.kept, S.fact)) not in m  # the fact rolled back with the throw
     with m.atomic():
         m.run("(kept fact) !(+ 1 1)")
-    assert expr(S.kept, S.fact) in m  # and commits whole on success
+    assert Expression((S.kept, S.fact)) in m  # and commits whole on success
 ```
 
 `with m.speculative():` is the what-if twin: each run executes against a frozen view, the answers return, and every write is discarded.
@@ -415,7 +426,7 @@ The engine has transactions, and a program can already use the inline `(transact
     with m.speculative():
         groups = m.run("(ghost fact) !(+ 2 2)")
     assert groups[-1] == [4]
-    assert expr(S.ghost, S.fact) not in m
+    assert Expression((S.ghost, S.fact)) not in m
 ```
 
 Both cover engine state. A Python operation's side effects, and subscription callbacks that already fired, stay where they happened; that is what rolling back a database can honestly mean.

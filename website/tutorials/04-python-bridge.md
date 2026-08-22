@@ -1,3 +1,14 @@
+<!--
+Purpose: document 04. The Python bridge against the current Python surface.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None.
+-->
+
 # 04. The Python bridge
 
 Choose the bridge method from the value you already have. Use `run` for MeTTa source text, `eval` for an atom already built in Python, and `query` for bindings from stored facts.
@@ -8,9 +19,9 @@ The core tests put the three value shapes side by side:
 
 ```python
 def test_eval(metta):
-    assert metta.eval(S["car-atom"](expr(1, 2, 3))) == [1]
-    assert metta.eval(S.superpose(expr(S.x, S.y))) == [S.x, S.y]
-    assert metta.eval(expr(S["+"], 20, 22)) == [42]
+    assert metta.eval(S["car-atom"](Expression((1, 2, 3)))) == [1]
+    assert metta.eval(S.superpose(Expression((S.x, S.y)))) == [S.x, S.y]
+    assert metta.eval(Expression((S["+"], 20, 22))) == [42]
 
 
 def test_source_strings_are_parsed_where_atoms_are_expected(m):

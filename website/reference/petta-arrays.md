@@ -31,6 +31,8 @@ Source: `bindings/python/petta/arrays.py`.
 > Guarded by:
 >   - _PROTOCOLS_LOCK serializes one-time protocol registration
 >     [tested test_array_protocol_registration_is_idempotent]
+>   - every ordered atom assembled in this file passes one iterable to
+>     Expression [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

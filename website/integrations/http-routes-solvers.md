@@ -1,3 +1,14 @@
+<!--
+Purpose: document HTTP, routes, and solver loops against the current Python surface.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
+Open Obligations:
+  To Do: None
+  Hacks: None
+  Future Enhancements: None.
+-->
+
 # HTTP, routes, and solver loops
 
 Three seams share space operations but do different jobs:
@@ -50,16 +61,14 @@ class Router:
                 segments.append(Sym(segment))
         self._casters[self._count] = tuple(casters)
         self._m.add(
-            expr(S.route, S[self.name], S[method], Expr(segments),
-                 S[handler], self._count)
+            Expression((S.route, S[self.name], S[method], Expr(segments), S[handler], self._count))
         )
         self._count += 1
 
     def dispatch(self, method: str, path: str) -> Response:
         request = Expr([Sym(s) for s in path.strip("/").split("/") if s])
         table = self._m.query(
-            expr(S.route, S[self.name], S[method.upper()],
-                 V.pattern, V.handler, V.k)
+            Expression((S.route, S[self.name], S[method.upper()], V.pattern, V.handler, V.k))
         )
         matched = False
         for row in sorted(table, key=lambda r: int(decode(r.k))):
@@ -81,8 +90,7 @@ class Router:
                 ]
             except (ValueError, TypeError):
                 continue  # the parameter refused; a later route may accept
-            answers = self._m.eval(expr(Sym(str(row.handler)),
-                                        *[encode(v) for v in values]))
+            answers = self._m.eval(Expression((Sym(str(row.handler)), *[encode(v) for v in values])))
             body = answers[0] if answers else None
             return Response(200, decode(body) if isinstance(body, Gnd) else body)
         return Response(422 if matched else 404,
@@ -138,10 +146,10 @@ app.run(
     "(= (handle $req) (once (route $req)))\n"
     "(= (logged $req) (let $res (handle $req) (Logged $req $res)))"
 )
-check("a route", app.run("!(handle home)"), [[expr(S.Page, 200, "Welcome")]])
-check("the 404", app.run("!(handle nowhere)"), [[expr(S.NotFound, 404, S.nowhere)]])
+check("a route", app.run("!(handle home)"), [[Expression((S.Page, 200, "Welcome"))]])
+check("the 404", app.run("!(handle nowhere)"), [[Expression((S.NotFound, 404, S.nowhere))]])
 check("middleware is composition", app.run("!(logged about)"),
-      [[expr(S.Logged, S.about, expr(S.Page, 200, "About us"))]])
+      [[Expression((S.Logged, S.about, Expression((S.Page, 200, "About us"))))]])
 ```
 
 ## Serve a space over HTTP
@@ -174,12 +182,12 @@ def test_remote_spaces_serve_attach_and_join(metta, tmp_path):
         (group,) = local.run(
             "!(collapse (match (context-space) (vip $id) (match &hq (users $id $n) $n)))"
         )
-        assert group == [expr("Ada")]
+        assert group == [Expression(("Ada",))]
         # Writes cross too, and the remote engine answers them back.
         local.run('!(add-atom &hq (users 3 "Cy"))')
         assert local.run("!(match &hq (users 3 $n) $n)") == [["Cy"]]
         local.run('!(remove-atom &hq (users 3 "Cy"))')
-        assert local.run("!(collapse (match &hq (users 3 $n) $n))") == [[expr()]]
+        assert local.run("!(collapse (match &hq (users 3 $n) $n))") == [[Expression(())]]
         # A space outside the allowlist is refused with the remote's words.
         stray = remote.RemoteSpace(remote.connect(info["url"]), "&self")
         with pytest.raises(PettaError):

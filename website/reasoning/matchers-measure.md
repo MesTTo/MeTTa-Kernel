@@ -1,6 +1,9 @@
 <!--
 Purpose: explain custom matching as a property of grounded atoms, with the
 measure library as the in-language companion, through executable examples.
+Guarantees:
+  - Python expression construction uses Expression(children), the one-iterable
+    ordered assembly door [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -22,7 +25,7 @@ plain atom the operand must equal, or nothing at all for no match. An
 interval that matches the numbers inside it is three lines:
 
 ```python
-from petta import MeTTa, S, expr
+from petta import MeTTa, S, Expression
 from petta.atoms import Gnd
 
 class Interval:
@@ -36,8 +39,8 @@ class Interval:
 
 m = MeTTa().new_space()
 inside = Gnd(Interval(1, 5))
-m.eval(expr(S.unify, inside, 3, S.inside, S.outside))   # [inside]
-m.eval(expr(S.unify, inside, 9, S.inside, S.outside))   # [outside]
+m.eval(Expression((S.unify, inside, 3, S.inside, S.outside)))   # [inside]
+m.eval(Expression((S.unify, inside, 9, S.inside, S.outside)))   # [outside]
 ```
 
 Variables are never sent to your logic: `$x` against a matchable value
