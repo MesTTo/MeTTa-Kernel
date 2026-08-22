@@ -54,6 +54,9 @@ Source: `bindings/python/petta/aio.py`.
 >   - declare_image reaches the synchronous declaration owner on the engine
 >     worker [tested: test_aio_covers_the_whole_synchronous_surface;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - async peek and take keep event-loop threads unblocked while the engine
+>     worker performs the synchronous Linda wait [tested:
+>     test_async_peek_and_take_mirror_the_space_handle; commit=WORKTREE]
 > Owns:
 >   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
 >     engine until aclose(), stop(), or the atexit handler releases it [tested
@@ -218,6 +221,22 @@ async def atoms(self) -> list:
 ```
 
 > Return a snapshot of every atom in this space.
+
+### `AsyncMeTTa.peek`
+
+```python
+async def peek(self, pattern: Any, *, deadline: float | None = None) -> Atom:
+```
+
+> Wait for one matching atom without blocking the event loop.
+
+### `AsyncMeTTa.take`
+
+```python
+async def take(self, pattern: Any, *, deadline: float | None = None) -> Atom:
+```
+
+> Wait for and remove one matching atom without blocking the loop.
 
 ### `AsyncMeTTa.query`
 

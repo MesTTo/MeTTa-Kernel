@@ -25,6 +25,9 @@ Source: `bindings/python/petta/testing.py`.
 >   - check_twin consumes a Defined call's eager answer list exactly once
 >     [tested: test_the_prolog_twin_is_checked_against_its_reference;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321].
+>   - minted-space conformance recognizes decoded Space handles in provider
+>     answers [tested: test_fabricated_space_identities_are_refused;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

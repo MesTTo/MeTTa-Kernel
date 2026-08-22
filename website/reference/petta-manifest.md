@@ -21,6 +21,9 @@ Source: `bindings/python/petta/manifest.py`.
 >     test_bridge_declarations_gather_and_source_order_holds]
 >   - each performed form lands as its own (boot ...) atom in the booted
 >     space [tested test_load_and_serve_assemble_and_record]
+>   - manifest space operands accept decoded Space handles as well as the
+>     legacy symbol spelling [tested: test_load_and_serve_assemble_and_record;
+>     commit=WORKTREE]
 > Owns: the servers its serve forms started. Boot.close() stops them, on
 >   the failure path too; the engine and the registered providers stay,
 >   because passive state belongs to the space story, not to the assembler.
@@ -59,7 +62,7 @@ def close(self) -> None:
 def boot(
     manifest: str | os.PathLike[str],
     *,
-    m: MeTTa | None = None,
+    m: Space | None = None,
     connections: Mapping[str, Any] | None = None,
     host: str = '127.0.0.1',
     token: str | None = None,
