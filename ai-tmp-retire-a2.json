@@ -1,0 +1,65 @@
+[
+  {
+    "kind": "friction",
+    "example": "examples/control/if.metta",
+    "form": null,
+    "missing": "a definition door a one-form example can afford inside the 10% band",
+    "row": "P14.14",
+    "retired": "2026-08-22",
+    "detail": "CLOSED by the authoring allowance. `_price` now adds DEFINITION_WARMUP + DEFINITION_COST * n to the ceiling when a twin authors n compiled definitions, so this example's ceiling is 4522 rather than 2301: the example's 2092 plus 10% plus 2221 to author 1 definition. The twin is lifted and the `if` is now `(3, 4) if 1 > 2 else (5, 6)` in a compiled body; it costs 2861 against that ceiling, with 1661 to spare, and its budget moved from 654 to 2861. Nothing about the surface changed: the Python spelling always existed and the band was what refused it [measured 2026-08-22, min of three fresh processes with the MORK backend linked in: `twin_coverage.py --measure`; commit=WORKTREE]."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/control/if2.metta",
+    "form": null,
+    "missing": "a definition door a one-form example can afford inside the 10% band",
+    "row": "P14.14",
+    "retired": "2026-08-22",
+    "detail": "CLOSED by the authoring allowance. `_price` now adds DEFINITION_WARMUP + DEFINITION_COST * n to the ceiling when a twin authors n compiled definitions, so this example's ceiling is 4822 rather than 2602: the example's 2365 plus 10% plus 2221 to author 1 definition. The twin is lifted and the `if` is now a compiled conditional expression, with the hyphenated `is-var` crossing as an argument term; it costs 4052 against that ceiling, with 770 to spare, and its budget moved from 1040 to 4052. Nothing about the surface changed: the Python spelling always existed and the band was what refused it [measured 2026-08-22, min of three fresh processes with the MORK backend linked in: `twin_coverage.py --measure`; commit=WORKTREE]."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/control/if3.metta",
+    "form": null,
+    "missing": "a definition door a one-form example can afford inside the 10% band",
+    "row": "P14.14",
+    "retired": "2026-08-22",
+    "detail": "CLOSED by the authoring allowance. `_price` now adds DEFINITION_WARMUP + DEFINITION_COST * n to the ceiling when a twin authors n compiled definitions, so this example's ceiling is 4770 rather than 2549: the example's 2317 plus 10% plus 2221 to author 1 definition. The twin is lifted and both `if`s are now compiled conditional expressions; it costs 3921 against that ceiling, with 849 to spare, and its budget moved from 806 to 3921. Nothing about the surface changed: the Python spelling always existed and the band was what refused it [measured 2026-08-22, min of three fresh processes with the MORK backend linked in: `twin_coverage.py --measure`; commit=WORKTREE]."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/control/if4.metta",
+    "form": null,
+    "missing": "a definition door a one-form example can afford inside the 10% band",
+    "row": "P14.14",
+    "retired": "2026-08-22",
+    "detail": "CLOSED by the authoring allowance. `_price` now adds DEFINITION_WARMUP + DEFINITION_COST * n to the ceiling when a twin authors n compiled definitions, so this example's ceiling is 5155 rather than 2934: the example's 2667 plus 10% plus 2221 to author 1 definition. The twin is lifted and all three `if`s are now compiled conditional expressions and the form is one equation; it costs 4255 against that ceiling, with 900 to spare, and its budget moved from 1004 to 4255. Nothing about the surface changed: the Python spelling always existed and the band was what refused it [measured 2026-08-22, min of three fresh processes with the MORK backend linked in: `twin_coverage.py --measure`; commit=WORKTREE]."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/control/letstar.metta",
+    "form": null,
+    "missing": "a definition door a one-form example can afford inside the 10% band",
+    "row": "P14.14",
+    "retired": "2026-08-22",
+    "detail": "CLOSED by the authoring allowance. `_price` now adds DEFINITION_WARMUP + DEFINITION_COST * n to the ceiling when a twin authors n compiled definitions, so this example's ceiling is 4227 rather than 2006: the example's 1824 plus 10% plus 2221 to author 1 definition. The twin is lifted and the two bindings are now compiled Python assignments; it costs 2526 against that ceiling, with 1701 to spare, and its budget moved from 595 to 2526. Nothing about the surface changed: the Python spelling always existed and the band was what refused it [measured 2026-08-22, min of three fresh processes with the MORK backend linked in: `twin_coverage.py --measure`; commit=WORKTREE]."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/control/chain.metta",
+    "form": null,
+    "missing": "a definition door a one-form example can afford inside the 10% band",
+    "row": "P14.14",
+    "retired": "2026-08-22",
+    "detail": "CLOSED by the authoring allowance. `_price` now adds DEFINITION_WARMUP + DEFINITION_COST * n to the ceiling when a twin authors n compiled definitions, so this example's ceiling is 7268 rather than 4282: the example's 3893 plus 10% plus 2986 to author 2 definitions. The twin is lifted and both chains are now compiled Python assignments, where one had been a term; it costs 4415 against that ceiling, with 2853 to spare, and its budget moved from 3918 to 4415. Nothing about the surface changed: the Python spelling always existed and the band was what refused it [measured 2026-08-22, min of three fresh processes with the MORK backend linked in: `twin_coverage.py --measure`; commit=WORKTREE]."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/basics/identity.metta",
+    "form": null,
+    "missing": "a definition door a one-form example can afford inside the 10% band",
+    "row": "P14.14",
+    "retired": "2026-08-22",
+    "detail": "CLOSED by the authoring allowance, and the entry's own text no longer describes the tree: it says \"the twin stays at the container door\", and bindings/python/tests/twins/basics/identity.py has held `@m.define def f(x): return x * x` since the contract change. Verified rather than changed, because the file belongs to the basics folder: the lane reports identity.metta at 2577 against a twin of 2289, one definition, ceiling 2577 * 1.10 + 1456 + 765 = 5056, and the file passes with no findings [measured 2026-08-22 with the MORK backend linked in; commit=WORKTREE]. The sibling entry on examples/basics/ifsimple.metta has the same cause and is NOT retired here, because that twin is still at the term door with a rung line: its own detail measures the generator spelling at 3289 against what is now a ceiling of 1308 * 1.10 + 2221 = 3660, so it fits and the lift belongs to whoever owns basics."
+  }
+]

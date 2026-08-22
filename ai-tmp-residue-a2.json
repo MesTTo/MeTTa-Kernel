@@ -1,0 +1,20 @@
+[
+  {
+    "kind": "friction",
+    "example": "examples/control/if3.metta",
+    "form": null,
+    "missing": "a lowercase symbol as data inside a compiled body",
+    "row": "P14.4",
+    "section": "§4 surface gaps",
+    "detail": "A NEW instance of the family case2.metta states in full, created by lifting this twin to the definitional door under the authoring allowance: the then arm's `(if True 42 lol)` answers `lol`, written `Lol`, because a compiled body resolves a lowercase free name as a FUNCTION and a capitalised one as data. At the term door the twin wrote `S.lol` and the exact symbol; compiled, it writes `Lol` and carries a `# noqa: F821`. The gap did not grow, it moved into one more file, which is what closing the band exposes."
+  },
+  {
+    "kind": "friction",
+    "example": "examples/control/if4.metta",
+    "form": null,
+    "missing": "a lowercase symbol as data inside a compiled body",
+    "row": "P14.4",
+    "section": "§4 surface gaps",
+    "detail": "A NEW instance of the family case2.metta states in full, created by lifting this twin to the definitional door under the authoring allowance: the inner `(if True 42 lol)` answers `lol`, written `Lol`, because a compiled body resolves a lowercase free name as a FUNCTION and a capitalised one as data. At the term door the twin wrote `S.lol` and the exact symbol; compiled, it writes `Lol` and carries a `# noqa: F821`. The gap did not grow, it moved into one more file, which is what closing the band exposes."
+  }
+]
