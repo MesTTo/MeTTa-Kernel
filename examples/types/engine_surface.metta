@@ -34,11 +34,15 @@
 !(test (get-type repr) (-> Atom String))
 !(test (get-type current-time) (-> Number))
 
-;; A DIVERGENCE from the dump, which types these over (StateMonad $t). PeTTa's
-;; state is a named global: change-state! is nb_setval/2, so the first
-;; argument is the NAME and there is no monadic cell to type over.
-!(test (get-type change-state!) (-> Symbol %Undefined% Bool))
-!(test (get-type get-state) (-> Symbol %Undefined%))
+;; The state cell is a VALUE and its type says what it holds, which is the
+;; dump's own signature. A cell is a handle atom here, so a plain symbol still
+;; names one and the older spelling keeps working; what the parametric cell
+;; adds is that (new-state V) answers a cell you can pass and write through.
+!(test (get-type new-state) (-> $t (StateMonad $t)))
+!(test (get-type change-state!) (-> (StateMonad $t) $t (StateMonad $t)))
+!(test (get-type get-state) (-> (StateMonad $t) $t))
+!(test (get-type (new-state 5)) (StateMonad Number))
+!(test (get-type (new-state "hi")) (StateMonad String))
 
 ;; The surface is FACTS, not atoms in &self: a program still sees only its own
 ;; space. Putting them in &self was tried and it changes what every program

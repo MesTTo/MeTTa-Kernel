@@ -104,9 +104,44 @@
 
 ;;; Error handling ;;;
 
+;if-error asks its question by MATCHING, not by building the shape it is
+;looking for. (cons Error $_) built an Error-headed partial list and handed it
+;to = as an operand, which is exactly the shape an evaluated operand may not
+;have any more: an operand whose value is an Error atom finishes the enclosing
+;call with it, so if-error's own probe short-circuited the = call and the
+;combinator answered its probe instead of caught or missed. unify's operands
+;are Atom-typed and cross unevaluated, so the pattern stays a pattern.
+;
+;Two patterns because an error atom carries either a culprit and a reason, or,
+;from catch over a non-error/2 exception, the exception alone
+;[source: engine/translator.pl, translate_special_dl('catch', ...)]
+;[tested: test_an_argument_type_fault_is_a_value_a_program_can_catch].
 (= (if-error $X $A $B)
-   (if (= $X (cons Error $_))
-       $A $B))
+   (unify $X (Error $_ $_)
+          $A
+          (unify $X (Error $_) $A $B)))
+
+;throw is the half of the error story a program could not reach. It could
+;BUILD an (Error ...) atom and it could CATCH a host exception, but a built
+;atom is DATA: its refusal is decided from its static type, so
+;`(+ (Error source message) 1)` is a BadArgType about an ErrorType operand
+;rather than that error escaping. throw PRODUCES one, and a produced error
+;finishes the enclosing call with it, so the atom a program raises here
+;travels exactly as one the engine raised
+;[source: ai-plan-synthesis-draft.md 8.10, "the only one that changes
+;expressiveness, since a program can build (Error ...) and catch host
+;exceptions but cannot raise"]
+;[tested: test_a_thrown_reason_travels_as_a_produced_error].
+;
+;Re-raising is the same call: a reason that is ALREADY an error atom is
+;handed on unchanged rather than wrapped a second time, so
+;`(throw (catch (/ 1 0)))` raises the host error the catch reified instead of
+;burying it. Upstream has no throw, so nothing here diverges from it; the
+;shape follows the vocabulary's own, (Error <culprit> <reason>), with the
+;throw call as the culprit.
+(: throw (-> %Undefined% %Undefined%))
+(= (throw $reason)
+   (if-error $reason $reason (Error (throw $reason) $reason)))
 
 (= (return-on-error $result $B)
    (if-error $result

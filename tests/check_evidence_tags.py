@@ -110,6 +110,7 @@ SOURCES = (
     "bindings/python/petta/*.pl",
     "bindings/python/examples/*.py",
     "backends/mork/mork_ffi/*.pl",
+    "bindings/python/tools/*.py",
     "tests/*.py",
 )
 
@@ -445,7 +446,40 @@ def resolve(token: str, known: Evidence) -> list[Target] | str:
     return found or f"names {token}, which is not a test in the tree"
 
 
+#: The obligation-header scheme documents a tested tag as carrying either a
+#: test name or an exact gate command, and the gate command half is this. It is
+#: the right evidence for a claim no single test can carry: the llms.txt
+#: checker's claim is that every name, path and count in the file holds, and
+#: what proves it is running the lane. Reading the command as a list of test
+#: names reported `sh` and `llms` as missing tests, which is the checker
+#: failing to know its own scheme.
+GATE_COMMAND = re.compile(r"\b(?:GATE_ONLY=1\s+)?sh\s+check\.sh\s+([a-z0-9-]+)")
+
+#: How check.sh names a lane, so a command naming a lane that does not exist is
+#: still a finding.
+CHECK_LANE = re.compile(r"^run\s+(?:GATE|REPORT)\s+([a-z0-9-]+)", re.MULTILINE)
+
+
+def gate_lanes() -> frozenset[str]:
+    """Every lane name check.sh runs."""
+    return frozenset(CHECK_LANE.findall(_text(ROOT / "check.sh")))
+
+
+def gate_command_problems(body: str) -> list[str] | None:
+    """None when the body is not a gate command; otherwise what is wrong with it."""
+    match = GATE_COMMAND.search(body)
+    if match is None:
+        return None
+    lane = match.group(1)
+    if lane in gate_lanes():
+        return []
+    return [f"names the check.sh lane {lane}, which check.sh does not run"]
+
+
 def tested_problems(body: str, known: Evidence) -> list[str]:
+    command = gate_command_problems(body)
+    if command is not None:
+        return command
     stripped = DATE.sub("", body)
     problems = []
     for token in re.split(r"[\s,;]+", stripped):

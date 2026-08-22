@@ -26,6 +26,10 @@ Guarantees:
     [tested 2026-08-18: tests/check_evidence_selftest.py]
   - a collector whose anchor has left the runner is reported
     [tested 2026-08-18: tests/check_evidence_selftest.py]
+  - a gate command is accepted when check.sh runs the lane it names and
+    reported when it does not, which is the second half of the scheme's
+    "test name or exact gate command" and the form llms.txt's checker uses
+    [tested 2026-08-22: tests/check_evidence_selftest.py]
 Fails when:
   - run against a tree it did not write. It asserts exact line numbers in a
     fixture it generates, and nothing else.
@@ -64,6 +68,11 @@ CITATIONS = (
     (True, "loaded_check", "a predicate in a file the gate script loads, which has no entry"),
     (False, "skipped", "an example holding a test form that the skip list drops"),
     (False, "no_such_thing_at_all", "a name the tree does not define"),
+    (True, "GATE_ONLY=1 sh check.sh plunit",
+     "an exact gate command naming a lane check.sh runs, which the "
+     "obligation-header scheme accepts beside a test name"),
+    (False, "GATE_ONLY=1 sh check.sh no-such-lane",
+     "a gate command naming a lane check.sh does not run"),
 )
 
 CHECK_SH = """\

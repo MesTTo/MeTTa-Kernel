@@ -286,6 +286,7 @@
             letstar_runtime/3,
             function_overapplication/3,
             dispatch_mismatch_result/3,
+            switch_runtime/3,
             dispatch_no_match_result/3,
             dispatch_policy_execute/5
           ]).
@@ -789,6 +790,8 @@ seam:engine_emitted(petta_prune_empty_answers/2).
 seam:engine_emitted(petta_run_named/3).
 seam:engine_emitted(petta_run_with_fuel/3).
 seam:engine_emitted(petta_transaction/1).
+seam:engine_emitted(petta_with_seed/4).
+seam:engine_emitted(switch_runtime/3).
 seam:engine_emitted(petta_fuel_step/2).
 seam:engine_emitted(function_overapplication/3).
 seam:engine_emitted(metta_bad_argument_error/3).
@@ -2194,10 +2197,163 @@ functioncall_dl(Fun, Chains, Args, IsPartial, Bound, Out, Goals0, Goals) :-
     (   typed_functioncall_dl(Fun, Chains, Args, IsPartial, Bound, Out,
                               Goals0, Goals)
     ->  true
-    ;   translate_args_dl(Args, Goals0, AfterArgs, AVs),
+    ;   translate_call_args_dl(Args, Goals0, AfterArgs, AVs, Evaluated),
         ( IsPartial -> append(Bound, AVs, AllAVs) ; AllAVs = AVs ),
-        build_call_or_partial_dl(Fun, AllAVs, Out, AfterArgs, Goals, [])
+        build_call_or_partial_dl(Fun, AllAVs, Out, CallGoals, [], []),
+        undeclared_call_operands(Fun, Evaluated, Guarded),
+        guard_error_arguments(Guarded, Out, CallGoals, AfterArgs, Goals)
     ).
+
+%%% An evaluated operand that produced an Error finishes the call %%%
+%
+%`(Error <atom> <message>)` means "the interpretation is finished with error",
+%so an operand whose EVALUATION produced one hands that atom on unchanged
+%instead of being consumed as an ordinary value: `(== 4 (+ 1 "bad"))` is the
+%inner `(Error (+ 1 "bad") (BadArgType 2 Number String))` rather than `False`,
+%and a typed identity passes the same atom through
+%[source: LeaTTa tests/semantics/control-stdlib/07_error.metta, STATUS
+%conforms, whose probes read "A BadArgType raised while preparing a nested
+%call must emerge unchanged through needs-number" and "A grounded equality
+%must propagate its argument's BadArgType rather than compare it as a value";
+%pinned minimal-metta.md:55-73]
+%[tested: test_the_error_vocabulary_answers_what_the_arbiter_answers].
+%
+%An operand WRITTEN as an Error atom is data and keeps the other reading, the
+%one the same file pins: `(+ (Error source message) 1)` answers
+%`(BadArgType 1 Number ErrorType)`, because that refusal is decided from the
+%operand's STATIC type before anything runs. The two readings separate for
+%free: an operand the compiler already knows is a fixed term is not in
+%Computed at all, so `assertEqual`'s unevaluated Atom operands and every
+%literal keep meaning exactly what they meant.
+%
+%THE TEST GOES IN FRONT, and the alternative was measured rather than argued.
+%Recovering the error from the FAILURE side instead -- wrapping the call in
+%`( Call *-> true ; <ask whether an operand was an error> )` -- reads as free
+%on the inference counter, and is not: 100,000 metacalls put a soft-cut wrapper
+%at 3.00 inferences per call against a bare call's 3.00, while a test in front
+%costs 2. What the counter cannot see is the CHOICE POINT the soft cut leaves,
+%which also stops last-call optimisation, and on a compiled million-iteration
+%loop that is the whole cost: let-heavy retires 11,744,859,430 instructions:u
+%with the soft cuts and 8,794,015,276 with the tests in front, against
+%8,365,651,779 with no error handling at all [measured 2026-08-22, min of
+%three under the controlled harness]. So the guard is a test, and it is four
+%inline goals with no choice point and no inference.
+%
+%What is NOT guarded is the grounded family with a runtime guard, because
+%those already answer for themselves: a refused operand reaches
+%metta_operation_answer/3, which hands an error operand straight back. That
+%keeps every arithmetic and comparison call site exactly as it compiled before.
+%
+%The one exception, and it is the reason the vocabulary is usable at all: a
+%combinator whose whole contract is to OBSERVE an error has to receive it as a
+%value. `(if-error (needs-number (+ 1 "bad")) caught missed)` answers `caught`
+%because if-error is listed here; short-circuiting its operand would answer the
+%error atom instead and leave the language with no way to handle one
+%[tested: bindings/python/tests/test_p3_typing_cluster.py::test_an_argument_type_fault_is_a_value_a_program_can_catch].
+%
+%Upstream reaches the same place by declaring these operands `Atom`, which
+%stops the evaluation outright; this engine evaluates them and stops only the
+%short circuit, so `(if-error (p32-f "wrong") caught missed)` still sees the
+%error its operand COMPUTED rather than the unreduced call.
+error_transparent_operation('if-error').
+error_transparent_operation('return-on-error').
+error_transparent_operation('throw').
+
+%The mirror of the same exception, on the operand side. `catch` REIFIES a host
+%exception as `(Error <type> <context>)` so a program can look inside it, which
+%is why `(car-atom (catch (divide 1 0)))` answers the symbol `Error` and
+%`(class-of (catch (divide 1 0)))` answers `ZeroDivisionError`
+%[examples/integration/py_surface.metta:151,159]. Its answer is DATA by
+%contract, not an evaluation that ended in error, so a consumer reads it
+%instead of handing it on.
+error_reifying_form('catch').
+
+%An undeclared head is tested unless it is one of the operations that already
+%answer for a wrong operand themselves. `runtime_type_guarded/1` is exactly
+%that set: every one of them routes a refused operand through
+%metta_operation_answer/3, which hands an error operand back unchanged, so
+%`(+ 1 <error>)` needs no test at the call site. A head with EQUATIONS can
+%return anything at all -- `(= (ignore $x) 5)` answers 5 while holding the
+%error -- so its operands are tested.
+undeclared_call_operands(Fun, _, []) :-
+    ( error_transparent_operation(Fun) ; atom(Fun), runtime_type_guarded(Fun) ),
+    !.
+undeclared_call_operands(_, Computed, Computed).
+
+%Guarded holds only UNBOUND values, because the walks that build it keep no
+%other kind: a value the compiler already knows cannot become an error atom at
+%run time, and a WRITTEN error atom is data whose refusal is decided from its
+%static type instead.
+guard_error_arguments(Guarded, Out, CallGoals, Goals0, Goals) :-
+    (   Guarded == []
+    ->  append(CallGoals, Goals, Goals0)
+    ;   goals_list_to_conj(CallGoals, Call),
+        error_argument_chain(Guarded, Out, Call, Chain),
+        Goals0 = [Chain|Goals]
+    ).
+
+error_argument_chain([], _, Call, Call).
+error_argument_chain([V|Vs], Out, Call, Chain) :-
+    error_argument_chain(Vs, Out, Call, Rest),
+    error_atom_test(V, Test),
+    Chain = ( Test -> Out = V ; Rest ).
+
+%The test READS the value and unifies nothing of it, which is what the `==`
+%is for. Unifying the head instead binds a variable an ordinary expression is
+%holding as data: `(\= (1 2 3) ($a 3 4))` answered `(Error 3 4)`, with `$a`
+%bound to the symbol Error, in examples/libraries/roman_test.metta. `V` itself
+%may be unbound, and then `V = [Head|_]` binds it and `Head == 'Error'` fails,
+%which undoes the binding, so no nonvar/1 guard is needed in front.
+error_atom_test(V, ( V = [Head|_], Head == 'Error' )).
+
+%if compiles its own condition, so the same rule is written out for it. A
+%CONDITION that produced an Error decides nothing, and if answers that atom
+%rather than taking the else branch: `(if (< 1 "bad") a b)` is the inner
+%`(Error (< 1 "bad") (BadArgType 2 Number String))` and not `b`. The test sits
+%on the NOT-TRUE arm, so a condition that holds pays nothing for it. The
+%branches are NOT guarded: a branch is the call's result, not its operand, so
+%an Error there is the answer already.
+guard_error_condition(Cond, CondValue, Out, Then, Else, Guarded) :-
+    (   var(CondValue),
+        \+ error_reifying_argument(Cond)
+    ->  error_atom_test(CondValue, Test),
+        Guarded = ( CondValue == true -> Then
+                  ; Test -> Out = CondValue
+                  ; Else )
+    ;   Guarded = ( CondValue == true -> Then ; Else )
+    ).
+
+%translate_args_dl/4 with one extra output: which argument VALUES this call
+%computed, and so could hold an error atom.
+%
+%The classification rides the walk that is already happening rather than
+%walking the arguments a second time, and it decides each one by comparing the
+%difference-list positions the sub-translation was handed and left behind. An
+%argument translate_expr_dl/4 handed back unchanged emitted NO goal and so
+%produced no value of its own: it is a variable the clause head already bound,
+%a literal, or an existing partial. `Goals0 == AfterExpr` is that question
+%asked exactly, in one inline comparison; a second walk asking it from the
+%source term instead cost source-load 14,000 inferences and handle-round-trip
+%54,000 [measured 2026-08-22, PETTA_BENCHMARK_COUNTERS=1, min of three].
+%
+%An operand headed by an error-REIFYING form is left out: its value is data by
+%contract. That test is paid only by an argument that did emit goals, which is
+%the minority.
+translate_call_args_dl([], Goals, Goals, [], []).
+translate_call_args_dl([X|Xs], Goals0, Goals, [V|Vs], Computed) :-
+    translate_expr_dl(X, Goals0, AfterExpr, V),
+    (   Goals0 == AfterExpr
+    ->  Computed = Rest
+    ;   nonvar(V)
+    ->  Computed = Rest
+    ;   error_reifying_argument(X)
+    ->  Computed = Rest
+    ;   Computed = [V|Rest]
+    ),
+    translate_call_args_dl(Xs, AfterExpr, Goals, Vs, Rest).
+
+error_reifying_argument(X) :-
+    nonvar(X), X = [Head|_], nonvar(Head), error_reifying_form(Head).
 
 %A name alone is not enough: a user or named-space equation can override a
 %builtin and must retain reflective type checks. Only the unmodified runtime
@@ -2494,6 +2650,33 @@ translate_special_dl(transaction, [Expr], AfterHead, Goals, Out) :-
     translate_expr_to_conj(Expr, Conj, Out),
     AfterHead = [petta_transaction(Conj)|Goals].
 
+%A SEED IS A SCOPE, not a global setting, so the sequence a program depends on
+%is the one written beside it rather than whatever the process did earlier.
+%`(with-seed 42 (random-int 1 6))` draws from a generator seeded with 42 and
+%restores whatever state was in force when it finishes, so two runs of the same
+%scope answer the same thing and nothing outside it is disturbed. That is
+%Racket's `parameterize` over `current-pseudo-random-generator` and Common
+%Lisp's `with-random-state`, the same shape petta/algebra.py already uses on
+%the Python side with random.Random(seed) rather than the module generator
+%[source: bindings/python/petta/algebra.py, "Draw a stable cumulative rate
+%selection using isolated seeded state"]. `set_random(seed(S))` alone would be
+%the global this refuses.
+%
+%The body is compiled IN PLACE, as transaction's is, so the scope costs one
+%save and one restore rather than a term evaluation
+%[tested: test_a_seed_scope_repeats_its_draws_and_leaves_the_outside_alone].
+translate_special_dl('with-seed', [SeedExpr, Body], AfterHead, Goals, Out) :-
+    translate_expr_to_conj(SeedExpr, SeedConj, SeedValue),
+    translate_expr_to_conj(Body, BodyConj, BodyValue),
+    build_branch(BodyConj, BodyValue, Out, BodyBranch),
+    Written = [SeedValue, Body],
+    (   SeedConj == true
+    ->  AfterHead = [petta_with_seed(SeedValue, Written, BodyBranch, Out)|Goals]
+    ;   AfterHead = [( SeedConj,
+                       petta_with_seed(SeedValue, Written, BodyBranch,
+                                       Out) )|Goals]
+    ).
+
 translate_special_dl(progn, [], Goals, Goals, []).
 translate_special_dl(progn, Exprs, AfterHead, Goals, Out) :-
     Exprs = [_|_],
@@ -2523,14 +2706,17 @@ translate_special_dl(prog1, [First|Rest], AfterHead, Goals, Out) :-
 translate_special_dl(nop, Exprs, AfterHead, Goals, []) :-
     translate_args_dl(Exprs, AfterHead, Goals, _).
 
+%The condition takes guard_error_condition/6's short circuit, which is
+%guard_error_arguments/6's rule written out for a special form.
 translate_special_dl(if, [Cond, Then], AfterHead, Goals, Out) :-
     translate_expr_to_conj(Cond, CondConj, CondValue),
     translate_expr_to_conj(Then, ThenConj, ThenValue),
     build_branch(ThenConj, ThenValue, Out, ThenBranch),
     ( CondConj == true
       -> AfterHead = [(CondValue == true -> ThenBranch)|Goals]
-      ; AfterHead = [(CondConj,
-                      (CondValue == true -> ThenBranch))|Goals] ).
+      ; guard_error_condition(Cond, CondValue, Out, ThenBranch, fail,
+                              Decision),
+        AfterHead = [(CondConj, Decision)|Goals] ).
 translate_special_dl(if, [Cond, Then, Else], AfterHead, Goals, Out) :-
     translate_expr_to_conj(Cond, CondConj, CondValue),
     translate_expr_to_conj(Then, ThenConj, ThenValue),
@@ -2539,8 +2725,9 @@ translate_special_dl(if, [Cond, Then, Else], AfterHead, Goals, Out) :-
     build_branch(ElseConj, ElseValue, Out, ElseBranch),
     ( CondConj == true
       -> AfterHead = [(CondValue == true -> ThenBranch ; ElseBranch)|Goals]
-      ; AfterHead = [(CondConj,
-                      (CondValue == true -> ThenBranch ; ElseBranch))|Goals] ).
+      ; guard_error_condition(Cond, CondValue, Out, ThenBranch, ElseBranch,
+                              Decision),
+        AfterHead = [(CondConj, Decision)|Goals] ).
 %unify: the stdlib's matching conditional. All four arguments are typed
 %Atom, so the two operands cross unevaluated exactly as quote's argument
 %does, and only the selected branch runs [source: LeaTTa
@@ -2592,6 +2779,37 @@ translate_special_dl(case, [KeyExpr, PairsExpr], AfterHead, Goals, Out) :-
       ; translate_expr_dl(KeyExpr, AfterHead, AfterKey, KeyValue),
         translate_case(PairsExpr, KeyValue, Out, CaseGoal, KeyGoals),
         append(KeyGoals, [CaseGoal|Goals], AfterKey) ).
+
+%switch is case WITHOUT case's reading of a key that answered nothing. The two
+%forms differ at exactly that point and nowhere else, which is what upstream's
+%own comment says: "Difference between switch and case is a way how they
+%interpret Empty result"
+%[source: hyperon-experimental@3f76dc4:lib/src/metta/runner/stdlib/stdlib.metta:331-365,
+%quoted in LeaTTa tests/semantics/control-stdlib/03_case_switch.metta].
+%
+%So the Empty ROW is ordinary here: it is matched against the key's value in
+%source order like any other, and a key with no answers selects nothing at all
+%rather than selecting it. Measured against the arbiter, whose transcript this
+%reproduces line for line: `(switch (key) ((first wrong) (second S) ($_ C)))`
+%is S, `(switch second (($_ F) (second L)))` is F because rows are tried in
+%order, `(switch absent ((first wrong) (second wrong)))` is nothing,
+%`(switch (empty) ((Empty E) ($_ V)))` is nothing, and
+%`(switch Empty (($_ V) (Empty L)))` is V
+%[source: LeaTTa tests/semantics/control-stdlib/03_case_switch.metta, whose
+%STATUS records switch as conforming]
+%[tested: test_switch_reads_a_key_with_no_answers_as_no_answer].
+%
+%The rows compile through translate_case/5, the same relation the written-out
+%case uses, so one definition decides what a row means for both forms.
+translate_special_dl(switch, [KeyExpr, PairsExpr], AfterHead, Goals, Out) :-
+    (   unarrived_pairs(PairsExpr)
+    ->  translate_expr_to_conj(KeyExpr, KeyConj, KeyValue),
+        AfterHead = [( KeyConj,
+                       switch_runtime(KeyValue, PairsExpr, Out) )|Goals]
+    ;   translate_expr_dl(KeyExpr, AfterHead, AfterKey, KeyValue),
+        translate_case(PairsExpr, KeyValue, Out, CaseGoal, KeyGoals),
+        append(KeyGoals, [CaseGoal|Goals], AfterKey)
+    ).
 
 translate_special_dl(let, Args, AfterHead, Goals, Out) :-
     translate_let_dl(Args, AfterHead, Goals, Out).
@@ -3303,10 +3521,6 @@ note_runnable_import(Names) :-
     ).
 
 %Generate actual function call or partial if arity not complete:
-build_call_or_partial(Fun, AVs, Out, Inner, Extra, Goals) :-
-    append(Inner, AfterInner, Goals),
-    build_call_or_partial_dl(Fun, AVs, Out, AfterInner, [], Extra).
-
 build_call_or_partial_dl(Fun, AVs, Out, Goals0, Goals, Extra) :-
     length(AVs, N),
     Arity is N + 1,
@@ -3434,7 +3648,7 @@ typed_functioncall_branch(Fun, TypeChain, T, GsH, IsPartial, Bound, Out, BranchG
     drop_unconstraining_types(TypeChain, ArgTypes0, ArgTypes),
     metta_argument_type_origins(ArgTypes, ArgOrigins),
     argument_applicability_checks(T, ArgTypes, ArgOrigins, ApplicabilityChecks),
-    translate_args_by_type(T, ArgTypes, GsT2, AVsTmp0, ArgChecks),
+    translate_args_by_type(T, ArgTypes, GsT2, AVsTmp0, ArgChecks, Computed0),
     ( IsPartial -> append(Bound, AVsTmp0, AVsTmp) ; AVsTmp = AVsTmp0 ),
     append(GsH, ApplicabilityChecks, BeforeArgs),
     append(BeforeArgs, GsT2, InnerEval),
@@ -3452,9 +3666,29 @@ typed_functioncall_branch(Fun, TypeChain, T, GsH, IsPartial, Bound, Out, BranchG
                           ; 'get-metatype'(Out, OutType) ),
                           OutGoal),
           OutCheck = [OutGoal] ),
-    place_type_checks(ArgTypes, OutType, ArgChecks, OutCheck, InnerEval, Inner, Extra),
-    build_call_or_partial(Fun, AVsTmp, Out, Inner, Extra, GoalsList),
+    %The checks are placed against an EMPTY prefix so the guard below can sit
+    %between the argument evaluations and them. An argument that produced an
+    %Error fails its own declared check -- an Error is not a Number -- and a
+    %failed check takes the whole branch down, which is how
+    %`(needs-number (+ 1 "bad"))` answered nothing where the arbiter answers
+    %the inner error atom.
+    place_type_checks(ArgTypes, OutType, ArgChecks, OutCheck, [], AfterEval, Extra),
+    typed_call_operands(Fun, Computed0, Guarded),
+    build_call_or_partial_dl(Fun, AVsTmp, Out, CallGoals, [], Extra),
+    append(AfterEval, CallGoals, Checked),
+    guard_error_arguments(Guarded, Out, Checked, AfterInnerEval, []),
+    append(InnerEval, AfterInnerEval, GoalsList),
     goals_list_to_conj(GoalsList, BranchGoal).
+
+%evaluated_argument_values/3's typed twin. A parameter the evaluation mask
+%holds back (Atom, and any user type declared DontEvalType) receives the
+%argument AS WRITTEN, so nothing was evaluated at that position and nothing
+%there can have produced an Error: `(assertEqual (Error a b) (Error a b))`
+%keeps comparing two Error atoms.
+%An operation whose contract is to OBSERVE an error receives it as a value, so
+%none of its operands is tested and none is recovered.
+typed_call_operands(Fun, _, []) :- error_transparent_operation(Fun), !.
+typed_call_operands(_, Computed, Computed).
 
 %A shared raw type variable needs the whole written call checked before any
 %argument runs. Earlier formals bind it and later formals consume that exact
@@ -3562,31 +3796,44 @@ shares_a_variable(As, Bs) :- member(A, As), member(B, Bs), A == B, !.
 %argument must keep every answer it produces
 %[tested: a_parametric_expected_type_enumerates_its_witnesses,
 %translator_typed_checks].
-translate_args_by_type([], _, [], [], []) :- !.
-translate_args_by_type(Args, Types, GsOut, AVs, Checks) :-
+%Computed rides this walk for the same reason it rides
+%translate_call_args_dl/5: asking a second time costs, and the answer is free
+%here. It names the operand values this branch EVALUATED, which are the ones
+%that can hold an error atom the call must hand on rather than consume.
+translate_args_by_type([], _, [], [], [], []) :- !.
+translate_args_by_type(Args, Types, GsOut, AVs, Checks, Computed) :-
     metta_argument_type_origins(Types, Origins),
     translate_args_by_type_dl(Args, Types, Origins,
-                              GsOut, [], AVs, Checks, []).
+                              GsOut, [], AVs, Checks, [], Computed).
 
 translate_args_by_type_dl(Args, Types, Goals0, Goals, AVs) :-
     metta_argument_type_origins(Types, Origins),
     translate_args_by_type_dl(Args, Types, Origins,
-                              Goals0, Tail, AVs, Checks, []),
+                              Goals0, Tail, AVs, Checks, [], _),
     ( Checks == []
       -> Tail = Goals
        ; goals_list_to_conj(Checks, CheckConj),
          Tail = [once(CheckConj)|Goals] ).
 
-translate_args_by_type_dl([], _, _, Goals, Goals, [], Checks, Checks) :- !.
+translate_args_by_type_dl([], _, _, Goals, Goals, [], Checks, Checks, []) :- !.
 translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
-                          Goals0, Goals, [AV|AVs], Checks0, Checks) :-
+                          Goals0, Goals, [AV|AVs], Checks0, Checks, Computed) :-
     ( non_evaluated_parameter_type(T)
       -> AV = A,
          AfterArg = Goals0,
-         AfterCheck = Checks0
+         AfterCheck = Checks0,
+         Computed = More
     ; ( T == 'SpaceType'
         -> translate_space_expr_dl(A, Goals0, AfterArg, AV)
         ;  translate_expr_dl(A, Goals0, AfterArg, AV) ),
+      (   Goals0 == AfterArg
+      ->  Computed = More
+      ;   nonvar(AV)
+      ->  Computed = More
+      ;   error_reifying_argument(A)
+      ->  Computed = More
+      ;   Computed = [AV|More]
+      ),
       ( (T == '%Undefined%' ; T == '_' ; statically_typed_literal(AV, T))
         -> AfterCheck = Checks0
       ; type_check_goal(AV, T,
@@ -3594,7 +3841,7 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
                         ArgGoal),
         Checks0 = [ArgGoal|AfterCheck] ) ),
     translate_args_by_type_dl(As, Ts, Origins, AfterArg, Goals, AVs,
-                              AfterCheck, Checks).
+                              AfterCheck, Checks, More).
 
 %Atom is the shipped evaluation mask. DontEvalType makes that same compiler
 %decision declarative for user types; it deliberately skips the ordinary
@@ -3937,6 +4184,16 @@ case_runtime(KeyValue, Cases, Out) :-
     checked_pair_list(case, 'a list of (pattern value) cases', Cases),
     ( case_default_pair(Cases, _, NormalCases) -> true ; NormalCases = Cases ),
     translate_case(NormalCases, KeyValue, Out, CaseGoal, KeyGoals),
+    append(KeyGoals, [CaseGoal], Runtime),
+    current_metta_module(Module),
+    call_goals_in_(Module, Runtime).
+
+%switch's rows when they were not syntax, case_runtime/3's twin. It keeps the
+%Empty pair in the list rather than lifting it out, which is the one difference
+%between the two forms.
+switch_runtime(KeyValue, Cases, Out) :-
+    checked_pair_list(switch, 'a list of (pattern value) cases', Cases),
+    translate_case(Cases, KeyValue, Out, CaseGoal, KeyGoals),
     append(KeyGoals, [CaseGoal], Runtime),
     current_metta_module(Module),
     call_goals_in_(Module, Runtime).

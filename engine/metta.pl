@@ -607,14 +607,38 @@ parse(Str, R) :- sread(Str, R).
 %ground fast path has already declined, so the type lookups below are paid by
 %the call that was about to fail and by no other.
 metta_operation_answer(Operation, Arguments, Answer) :-
-    findall(Error, metta_bad_argument_error(Operation, Arguments, Error), Errors),
-    (   Errors == []
-    ->  (   metta_operation_refusal(Operation, Arguments, Message)
-        ->  metta_error_atom(Operation, Arguments, Message, Answer)
-        ;   Answer = [Operation|Arguments]
+    (   metta_error_operand(Arguments, Produced)
+    ->  Answer = Produced
+    ;   findall(Error,
+                metta_bad_argument_error(Operation, Arguments, Error), Errors),
+        (   Errors == []
+        ->  (   metta_operation_refusal(Operation, Arguments, Message)
+            ->  metta_error_atom(Operation, Arguments, Message, Answer)
+            ;   Answer = [Operation|Arguments]
+            )
+        ;   member(Answer, Errors)
         )
-    ;   member(Answer, Errors)
     ).
+
+%An operand that already IS an error atom finishes the call with that atom,
+%unchanged, rather than being reported as an ErrorType argument: `(+ 1 (+ 1
+%"bad"))` is `(Error (+ 1 "bad") (BadArgType 2 Number String))` and not a
+%second error naming the first. That is the arbiter's rule for an operand the
+%evaluation PRODUCED
+%[source: LeaTTa tests/semantics/control-stdlib/07_error.metta, STATUS
+%conforms: "A BadArgType raised while preparing a nested call must emerge
+%unchanged"]. An operand WRITTEN as an error atom keeps the other reading,
+%`(+ (Error source message) 1)` is `(BadArgType 1 Number ErrorType)`, and
+%never reaches here: its static type is ErrorType, so refused_argument_call/2
+%rejects the call at compile time and dispatch_mismatch_result/3 answers first
+%[tested: test_the_error_vocabulary_answers_what_the_arbiter_answers].
+%
+%The head is COMPARED and the spine only inspected, never unified, so an
+%ordinary expression holding an unbound variable in head position is left
+%exactly as it was; unifying it bound that variable to the symbol Error.
+metta_error_operand([A|_], A) :-
+    nonvar(A), A = [Head|Tail], Head == 'Error', nonvar(Tail), !.
+metta_error_operand([_|As], Error) :- metta_error_operand(As, Error).
 
 metta_error_atom(Operation, Arguments, Reason,
                  ['Error', [Operation|Arguments], Reason]).
@@ -1262,16 +1286,30 @@ petta_int_solve('/', A, B, R, Verdict) :-
 %This TESTS and no longer throws, for the reason metta_arith_operands/2 does:
 %the refusal belongs to metta_operation_answer/3, which reports the position,
 %the expected type and the actual one rather than a bare pair.
+%AN ERROR ATOM IS NOT A COMPARABLE VALUE, it is an evaluation that finished in
+%error, so `(== 4 (+ 1 "bad"))` hands the inner error on instead of answering
+%False about it [source: LeaTTa tests/semantics/control-stdlib/07_error.metta,
+%STATUS conforms: "A grounded equality must propagate its argument's
+%BadArgType rather than compare it as a value"]. Falling through here sends the
+%pair to metta_operation_answer/3, which is where that propagation lives.
+%
+%The test is asked only where a LIST operand is present, because an error atom
+%is one; two literals, which is what a loop compares, never reach it and the
+%measured 0.50 inferences per comparison the tier above costs are unchanged
+%[tested: test_the_error_vocabulary_answers_what_the_arbiter_answers].
 comparable_operands(A, B) :-
     (   same_intrinsic_kind(A, B)
     ->  true
     ;   is_list(A)
-    ->  true
+    ->  \+ error_shaped_operand(A), \+ error_shaped_operand(B)
     ;   is_list(B)
-    ->  true
+    ->  \+ error_shaped_operand(B)
     ;   current_metta_module(Module),
         once(( has_type_in(Module, A, Type), has_type_in(Module, B, Type) ))
     ).
+
+error_shaped_operand(A) :-
+    nonvar(A), A = [Head|Tail], Head == 'Error', nonvar(Tail).
 
 %Fails when the kinds DIFFER and when they do not decide, so an undecided
 %pair falls through to the declarations rather than being waved past.
@@ -2624,6 +2662,17 @@ get_type_candidate(X, T) :- seam:builtin_type_declaration(X, T).
 %declarations above it, so a program that declares something about a handle is
 %still answered first [tested: space_handle_type].
 get_type_candidate(X, 'SpaceType') :- atom(X), petta_space_operand(X).
+get_type_candidate(X, T) :- petta_state_cell_type(X, T).
+
+%A cell's type is PARAMETRIC in what it holds, which is the whole point of
+%`(StateMonad $t)`: the cell that holds 5 is `(StateMonad Number)` and the one
+%that holds "hi" is `(StateMonad String)`. The content's type is asked the same
+%way any other value's is, so a cell holding a declared symbol reports that
+%declaration [tested: test_a_state_cell_is_a_value_typed_by_what_it_holds].
+petta_state_cell_type(X, ['StateMonad', Held]) :-
+    petta_state_cell(X),
+    nb_current(X, Value),
+    get_type_candidate(Value, Held).
 
 get_type_candidate_in(_, X, T) :- number(X), !, metta_numeric_type(X, T).
 get_type_candidate_in(_, X, _) :- var(X), !.
@@ -2647,6 +2696,7 @@ get_type_candidate_in(Module, X, T) :- \+ application_arrow_declared_in(Module, 
 get_type_candidate_in(Module, X, T) :- type_declaration_in(Module, X, T).
 get_type_candidate_in(_, X, T) :- seam:builtin_type_declaration(X, T).
 get_type_candidate_in(_, X, 'SpaceType') :- atom(X), petta_space_operand(X).
+get_type_candidate_in(_, X, T) :- petta_state_cell_type(X, T).
 
 %A NONEMPTY expression no arrow types is read ELEMENT-WISE, and the tuple it reads is
 %%Undefined% as soon as one member's type is. Nothing is known about a tuple
@@ -2724,6 +2774,7 @@ scoped_type_candidate(Space, _, X, T) :-
     acyclic_term(T).
 scoped_type_candidate(_, _, X, T) :- seam:builtin_type_declaration(X, T).
 scoped_type_candidate(_, _, X, 'SpaceType') :- atom(X), petta_space_operand(X).
+scoped_type_candidate(_, _, X, T) :- petta_state_cell_type(X, T).
 
 scoped_function_type(Space, Module, [F|Args], T) :-
     nonvar(F),
@@ -2874,6 +2925,7 @@ metatype_of(X, 'Grounded') :- atom(X), metta_grounded_token(X),
 %[source: LeaTTa tests/semantics/spaces/space_identity.metta, STATUS conforms]
 %[tested: space_handle_type].
 metatype_of(X, 'Grounded') :- atom(X), petta_space_operand(X), !.
+metatype_of(X, 'Grounded') :- petta_state_cell(X), !.
 metatype_of([Family|Parameters], 'Grounded') :-
     Space = [Family|Parameters],
     space_parametric(Space),
@@ -5482,25 +5534,79 @@ run_under_pragmas(Goal) :-
 %[tested: test_a_stack_depth_pragma_bounds_evaluation_instead_of_overflowing].
 :- meta_predicate petta_run_with_fuel(?, ?, 0).
 
+%The test READS AND COMPARES IN ONE GOAL, b_getval/2 unifying the balance with
+%`off` rather than binding it and comparing after, which is the same inference
+%the nb_current/2 test cost and eight fewer over file-load's runnable forms than
+%the two-goal spelling. The value is always an atom or an integer, so the
+%unification cannot instantiate the variable the manual warns about.
 petta_run_with_fuel(Value, Answer, Goal) :-
-    (   nb_current('$petta_fuel_scope', true)
-    ->  call(Goal),
-        Answer = Value
-    ;   setup_call_cleanup(
+    (   b_getval('$petta_fuel_remaining', off)
+    ->  setup_call_cleanup(
             petta_open_fuel_scope,
             petta_fuel_answer(Value, Answer, Goal),
             petta_close_fuel_scope)
+    ;   call(Goal),
+        Answer = Value
     ).
 
+%ONE GLOBAL CARRIES BOTH QUESTIONS, and it always exists so that the reader is
+%the deterministic b_getval/2 rather than the nondeterministic nb_current/2.
+%`off` says no scope is open, `unstarted` says one is open and the first step
+%has not read the pragma yet, and a number is what the scope has left. Lazy
+%rather than eager because with-pragma! sets max-stack-depth INSIDE the runnable
+%the scope already opened around.
+%
+%Two things were measured to get here rather than argued.
+%  - Separate scope marker and balance cost one extra inference on every
+%    reduction, because the step then reads two globals instead of one. The
+%    reason it had been split was the fear that backtracking past a trailed
+%    b_setval/2 write, after the cleanup removed the variable, would resurrect a
+%    nearly-spent balance and starve the next runnable. It does not:
+%    tests/prolog/fuel.plt runs the shape that could do it, a scope whose body
+%    writes the balance three times and whose caller then backtracks through
+%    every one of those writes after the close has run, and the variable reads
+%    `absent` or `off` afterwards either way. The manual says the
+%    same thing for the creating write: "If the variable Name did not exist
+%    before calling b_setval/2, backtracking causes the variable to be deleted"
+%    [source: SWI-Prolog 10.1 Reference Manual section 4.33, b_setval/2]. The
+%    xdist failures that had been blamed on the merge were a leaked
+%    `(pragma! max-stack-depth 20)`, which is engine-wide and outlives the MeTTa
+%    object that wrote it; SWI's own non-interactive tracer named the real
+%    cause, `trace(user:petta_evaluation_fuel/1, [call,exit])` printing
+%    `Exit: petta_evaluation_fuel(20)` inside a freshly built space, and the
+%    conftest fixture _pragmas_are_not_left_set now fails the test that leaks
+%    one instead of the test that runs next
+%    [tested: fuel:a_deleted_global_is_not_resurrected_by_backtracking;
+%    commit=WORKTREE]
+%    [tested: fuel:an_off_sentinel_is_not_restored_over_by_backtracking;
+%    commit=WORKTREE].
+%  - nb_current/2 is declared nondeterministic, so every step paid a foreign
+%    frame that supports redo, and it consults the exception/3 hook when the
+%    variable is missing [source: SWI-Prolog 10.1 Reference Manual section 4.33,
+%    nb_current/2]. Keeping the variable defined lets the step use b_getval/2
+%    instead at the same inference count and measurably fewer instructions:
+%    let-heavy 8,645,929,651 to 8,411,938,971 (-2.71%) and typed-call
+%    7,388,289,387 to 7,271,301,502 (-1.58%), every other benchmark inside
+%    +/-0.13%
+%    [measured 2026-08-22: min-of-3 instructions:u; command=python -m
+%    benchmarks.check_instructions; fixture=bindings/python/benchmarks;
+%    commit=WORKTREE].
+%
+%thread_initialization/1 rather than initialization/1 because b_getval/2 raises
+%when the variable is missing and global variables are per-thread: it runs the
+%goal "at the call to this predicate, after loading a saved state, on starting a
+%new thread and on creating a Prolog engine through the C interface", which is
+%every way a thread can reach this engine, janus included
+%[source: SWI-Prolog 10.1 Reference Manual, thread_initialization/1].
+:- thread_initialization(nb_setval('$petta_fuel_remaining', off)).
+
 petta_open_fuel_scope :-
-    nb_setval('$petta_fuel_scope', true),
     nb_setval('$petta_fuel_remaining', unstarted),
     nb_setval('$petta_fuel_errors', []).
 
 petta_close_fuel_scope :-
     nb_delete('$petta_fuel_errors'),
-    nb_delete('$petta_fuel_remaining'),
-    nb_delete('$petta_fuel_scope').
+    nb_setval('$petta_fuel_remaining', off).
 
 petta_fuel_answer(Value, Answer, Goal) :-
     call(Goal),
@@ -5510,24 +5616,77 @@ petta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
     reverse(Reverse, Errors),
     member(Culprit, Errors).
 
+%A step inside a scope costs six inferences and a step outside one costs two,
+%measured rather than counted by eye against a loop with the step removed
+%[measured 2026-08-22: 6 and 2; command=swipl ai-tmp/p14e-step-cost.pl;
+%fixture=20000 iterations; commit=WORKTREE]. Five shapes of this body were
+%raced and every one of them costs the same six, so the sentinel and the second
+%comparison are free and there is nothing left to shave in Prolog
+%[measured 2026-08-22: v1..v5 all 6.0; command=swipl ai-tmp/p14e-step-ab2.pl;
+%commit=WORKTREE]. The step that reads two globals costs seven, which is the
+%one inference per reduction the single global buys back.
+%Every runnable form pays this, not only the m.eval door P14.8 brought inside a
+%scope. Going lower means not reading a global at all: threading the balance as
+%a clause argument, the shape a depth-bounded meta-interpreter uses, which
+%changes the arity of every compiled recursive predicate and so is a translator
+%decision rather than a local one. C does not help here, because a foreign
+%predicate cannot write a backtrackable global: libswipl.so.10.1.13 exports 472
+%functions and none of them is a global-variable or trail entry point, so the C
+%body would have to call b_setval/2 back through PL_call_predicate and pay a
+%query setup on top of the write it was trying to avoid
+%[measured 2026-08-22: 472 exported functions, none a global-variable or trail
+%entry point; command=nm -D
+%/usr/lib/swi-prolog/lib/x86_64-linux/libswipl.so.10.1.13; commit=WORKTREE].
 petta_fuel_step(Culprit, Cost) :-
-    (   nb_current('$petta_fuel_scope', true)
-    ->  petta_fuel_step_scoped(Culprit, Cost)
-    ;   true
+    b_getval('$petta_fuel_remaining', Current),
+    (   Current == off
+    ->  true
+    ;   (   Current == unstarted
+        ->  petta_evaluation_fuel(Limit)
+        ;   Limit = Current
+        ),
+        Remaining is Limit - Cost,
+        (   Remaining =< Cost
+        ->  petta_fuel_exhausted(Culprit)
+        ;   b_setval('$petta_fuel_remaining', Remaining)
+        )
     ).
 
-petta_fuel_step_scoped(Culprit, Cost) :-
-    nb_getval('$petta_fuel_remaining', Current),
-    (   Current == unstarted
-    ->  petta_evaluation_fuel(Limit)
-    ;   Limit = Current
-    ),
-    Remaining is Limit - Cost,
-    (   Remaining =< Cost
-    ->  nb_getval('$petta_fuel_errors', Errors),
-        nb_setval('$petta_fuel_errors', [Culprit|Errors]),
-        fail
-    ;   b_setval('$petta_fuel_remaining', Remaining)
+%Off the step's own path, because a branch that ran out of fuel is recorded
+%once and then fails, while the step above runs on every reduction.
+petta_fuel_exhausted(Culprit) :-
+    nb_getval('$petta_fuel_errors', Errors),
+    nb_setval('$petta_fuel_errors', [Culprit|Errors]),
+    fail.
+
+%%% A seeded scope, the declared alternative to a global generator %%%
+%
+%The state in force is SAVED and restored, so the scope is dynamic rather than
+%a setting: inside it the draws are the ones the seed determines, and outside
+%it the generator is exactly where it was. SWI answers both halves directly,
+%`random_property(state(S))` to read the generator's whole state and
+%`set_random(state(S))` to put it back
+%[source: SWI-Prolog 10 manual, section 4.42 Random numbers, set_random/1 and
+%random_property/1]. setup_call_cleanup/3 rather than a hand-written restore,
+%so an exception or a cut inside the body still restores it
+%[tested: test_a_seed_scope_repeats_its_draws_and_leaves_the_outside_alone].
+%
+%The seed is checked here rather than trusted, and a wrong one ANSWERS in the
+%error vocabulary instead of raising, which is what every other operation does
+%with an argument it cannot use: `(with-seed "bad" (random-int 1 6))` is
+%`(Error (with-seed "bad" (random-int 1 6)) (BadArgType 1 Number String))` and
+%the form after it still runs. The written body travels beside the seed VALUE
+%so the culprit names the call, which is the shape the arbiter pins for every
+%other rejected operand.
+:- meta_predicate petta_with_seed(?, ?, 0, ?).
+
+petta_with_seed(Seed, Written, Goal, Out) :-
+    (   integer(Seed)
+    ->  random_property(state(Saved)),
+        setup_call_cleanup(set_random(seed(Seed)),
+                           call(Goal),
+                           set_random(state(Saved)))
+    ;   metta_operation_answer('with-seed', Written, Out)
     ).
 
 petta_evaluation_fuel(Limit) :-
@@ -5591,10 +5750,6 @@ petta_evaluation_fuel(Limit) :-
 
 %%% States: %%%
 'bind!'(Var, _, _) :- var(Var), !, refuse_unbound_input('bind!', 1).
-'bind!'(Var, ['new-state', Value], []) :- !,
-    ( atom(Var) -> nb_setval(Var, Value)
-    ; catch(nb_setval(Var, Value), E,
-            rethrow_metta_operation_error('bind!', E)) ).
 %THE TOKEN FORM, which is what the specification says bind! is:
 %"(-> Symbol %Undefined% (->)) ... Registers a new token which is replaced with
 %an atom during the parsing of the rest of the program"
@@ -5602,9 +5757,12 @@ petta_evaluation_fuel(Limit) :-
 %the state-cell form above, so `(bind! six 6)` FAILED SILENTLY and the language's
 %own idiom `(bind! abs (py-atom numpy.absolute))` then `(abs -5)` could not work.
 %
-%The state form keeps its own clause and registers no token, because PeTTa
-%models a state cell by NAME: substituting the name away would take `get-state`
-%with it.
+%The state form has NO clause of its own any more. `(new-state V)` is an
+%operation that answers a cell, so the general clause reduces it and binds the
+%name to that cell, which is the same thing the specification says bind! does
+%with any other value. `(bind! s (new-state 7))` then `(get-state s)` still
+%answers 7, now by substituting the cell for the name rather than by using the
+%name as the cell [tested: test_a_state_cell_is_a_value_typed_by_what_it_holds].
 'bind!'(Var, Value, []) :-
     ( atom(Var)
       -> true
@@ -5704,7 +5862,53 @@ rewrite_parsed_form(Space, FormStr, Term, Rewritten) :-
     ->  substitute_bound_tokens_(Bound, Rewritten)
     ;   Rewritten = Bound
     ).
-'change-state!'(Var, Value, true) :-
+%%% A state cell is a VALUE, and the value is parametric in what it holds %%%
+%
+%`(new-state 5)` answers a cell of its own, so a cell can be passed, stored,
+%held in a data structure and written through without ever being named:
+%`(get-state (change-state! (new-state 1) 2))` is 2 and `(new-state (new-state
+%5))` is a cell holding a cell. The upstream signature says exactly this, and
+%it is where `(StateMonad $t)` comes from:
+%  (: new-state (-> $t (StateMonad $t)))
+%  (: get-state (-> (StateMonad $t) $t))
+%  (: change-state! (-> (StateMonad $t) $t (StateMonad $t)))
+%[source: LeaTTa tests/semantics/grounded/25-state-rendering.metta, STATUS
+%conforms, whose transcript has `!(new-state 5)` answering a cell and
+%`!(change-state! (new-state 5) 6)` answering the cell it wrote]
+%[tested: test_a_state_cell_is_a_value_typed_by_what_it_holds].
+%
+%THE CELL IS A HANDLE ATOM, `&state-#N`, the same shape a space handle takes
+%here, and the value lives under that name in the thread's global store. That
+%is what keeps the NAMED form working unchanged: a plain symbol is a cell name
+%too, so `(change-state! &openai_client V)` in lib/lib_llm.metta still writes a
+%cell nothing allocated, and the two spellings are one implementation rather
+%than two.
+%
+%DIVERGENCE, measured and recorded rather than closed: the arbiter RENDERS a
+%cell as `(State <value>)` and this engine renders it as its handle, `&state-#0`,
+%which is what it already does for a space handle. The rendering is presentation
+%in a printer with a round-trip obligation (swrite/2 is sread/2's inverse), so
+%it is a separate change from the parametric cell this row asked for
+%[source: the same file's MEASURED block, `[(State 6)]` where this answers
+%`[&state-#0]`].
+:- dynamic petta_state_counter/1.
+
+'new-state'(Value, Cell) :-
+    petta_next_state_cell(Cell),
+    nb_setval(Cell, Value).
+
+petta_next_state_cell(Cell) :-
+    ( retract(petta_state_counter(N)) -> true ; N = 0 ),
+    Next is N + 1,
+    assertz(petta_state_counter(Next)),
+    atom_concat('&state-#', N, Cell).
+
+petta_state_cell(X) :- atom(X), atom_concat('&state-#', _, X).
+
+%change-state! ANSWERS THE CELL it wrote, which is what makes a write
+%composable: `(get-state (change-state! $c 2))` reads back what was just
+%written. It answered True before, which no upstream signature has.
+'change-state!'(Var, Value, Var) :-
     ( atom(Var) -> nb_setval(Var, Value)
     ; catch(nb_setval(Var, Value), E,
             rethrow_metta_operation_error('change-state!', E)) ).
@@ -7056,6 +7260,59 @@ register_prolog_arities(N) :-
              \+ (current_op(_, _, N), imported_predicate(N, Arity)) ),
            register_arity(N, Arity)).
 
+%%% Arities a SWI system predicate lent a MeTTa name by accident %%%
+%
+%A SWI SYSTEM predicate that shares a MeTTa operation's name but not its shape
+%is a different predicate, and registering its arity made an UNDER-APPLIED call
+%compile straight into it. `!(not)` reached SWI's own not/1, which is negation,
+%and aborted the runnable with `not/1: Arguments are not sufficiently
+%instantiated` instead of answering anything at all; the same held for
+%`(append)`, `(assert)`, `(exists_file)` and `(sleep)`. Under-applying an
+%operation is an ordinary MeTTa event -- this engine answers a partial
+%application, `(sqrt-math)` is `(partial sqrt-math ())` -- and no MeTTa event
+%may take the host down
+%[tested: test_an_underapplied_operation_answers_instead_of_aborting].
+%
+%The operation's OWN declarations decide which arities are its: a chain of N
+%links is the Prolog predicate of arity N, one argument per link with the last
+%being the result. So `(: not (-> Bool Bool))` keeps not/2 and drops not/1, and
+%`(: length (-> Expression Number))` keeps length/2 even though length/2 is a
+%system predicate too. Measured on this tree: exactly nine registrations go,
+%append/1, assert/1, copy_term/3, copy_term/4, exists_file/1, not/1, sleep/1,
+%sort/4 and term_hash/4, none of which any example, test or library calls, and
+%every library or engine-defined predicate is untouched because it is not
+%built_in.
+%
+%IT RUNS AFTER THE DECLARATIONS AND THE PRELUDE, not while the names register,
+%and that ordering is the whole reason it is a separate pass:
+%register_builtin_fun/1 runs at DIRECTIVE time while load_builtin_type_surface/0
+%and load_engine_prelude/0 run at INITIALIZATION time, so a filter inside the
+%registration sees an empty declaration table and drops the arities it exists to
+%keep -- measured, it took length/2, sort/2 and msort/2 with it and turned
+%`(length (1 2 3))` into a partial application. It is one pass over the registry
+%rather than a test on the hot path, which is why the calls that read arity/2
+%are untouched.
+%
+%Limitation: a host library or backend that registers a name AFTER the boot
+%chain is not swept, because nothing re-runs this. Nothing in the tree does
+%that today; a registration door that starts to would call this again.
+retract_unrelated_system_arities :-
+    findall(N-Arity,
+            ( arity(N, Arity), unrelated_system_predicate(N, Arity) ),
+            Unrelated),
+    forall(member(N-Arity, Unrelated), retractall(arity(N, Arity))).
+
+unrelated_system_predicate(N, Arity) :-
+    functor(Head, N, Arity),
+    petta_engine_module(Engine),
+    predicate_property(Engine:Head, built_in),
+    seam:builtin_type_declaration(N, _),
+    \+ declared_metta_arity(N, Arity).
+
+declared_metta_arity(N, Arity) :-
+    seam:builtin_type_declaration(N, [->|Links]),
+    length(Links, Arity).
+
 %Only for an OPERATOR, and the first attempt got that wrong: excluding every
 %imported predicate dropped length/2, which is library(lists)'s and a
 %perfectly good builtin, so (length ...) compiled to partial(length, [...])
@@ -7509,7 +7766,7 @@ unregister_fun_in(Module, N) :- retractall(fun_in(Module, N)),
 
 unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
                                 retractall(fun_scoped(N)).
-:- maplist(register_builtin_fun, [superpose, empty, let, 'let*', '+','-','*','/', '%', min, max, 'change-state!', 'get-state', 'bind!', 'register-token!', 'unregister-token!', 'declare-pre-add!', 'undeclare-pre-add!', 'declare-post-add!', 'undeclare-post-add!', 'space-atom-count', 'has-declared-type', 'space-admission-verdict', 'space-contains',
+:- maplist(register_builtin_fun, [superpose, empty, let, 'let*', '+','-','*','/', '%', min, max, 'new-state', 'change-state!', 'get-state', 'bind!', 'register-token!', 'unregister-token!', 'declare-pre-add!', 'undeclare-pre-add!', 'declare-post-add!', 'undeclare-post-add!', 'space-atom-count', 'has-declared-type', 'space-admission-verdict', 'space-contains',
                           '<','>','==', '!=', '=', '=?', '<=', '>=', and, or, xor, implies, not, exp,
                           'first-from-pair', 'second-from-pair', 'car-atom', 'cdr-atom', 'unique-atom', 'alpha-unique-atom',
                           repr, repra, parse, 'pretty-atom', 'println!', 'readln!', 'read-form!', 'sread-command', test, 'test-no-answer', assert, atom_concat, atom_chars, copy_term, term_hash,
@@ -7839,4 +8096,5 @@ load_prelude_form(Kind, Src, _) :-
 %export the declaration promises can only be made once every engine file has
 %been [tested: metta_published_surface:every_declared_seam_that_exists_is_exported].
 :- initialization((seam:publish_declared, protect_metta_exec_modules,
-                   load_builtin_type_surface, load_engine_prelude)).
+                   load_builtin_type_surface, load_engine_prelude,
+                   retract_unrelated_system_arities)).

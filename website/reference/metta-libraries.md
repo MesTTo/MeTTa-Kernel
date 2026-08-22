@@ -9,7 +9,7 @@ beside its definitions.
 
 | library | names | documented |
 |---|---|---|
-| lib_builtin_types | 181 | 0 |
+| lib_builtin_types | 184 | 0 |
 | lib_combinatorics | 6 | 0 |
 | lib_conformance | 1 | 0 |
 | lib_constraints | 5 | 0 |
@@ -17,6 +17,7 @@ beside its definitions.
 | lib_datastructures | 26 | 9 |
 | lib_datetime | 2 | 0 |
 | lib_derived | 1 | 1 |
+| lib_dict | 7 | 0 |
 | lib_doc | 0 | 0 |
 | lib_file | 2 | 2 |
 | lib_he | 0 | 0 |

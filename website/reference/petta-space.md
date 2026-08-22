@@ -1589,6 +1589,47 @@ def define(
 > the running space, lowercase free names in the pattern binding as
 > variables.
 
+### `MeTTa.cache`
+
+```python
+def cache(
+    self,
+    fn: Callable[..., Any] | None = None,
+    *,
+    name: str | None = None,
+    unchecked: bool = False,
+) -> Any:
+```
+
+> Define a function and TABLE it, in functools.lru_cache's shape.
+>
+> The decorator is notation. What it lowers to is the engine's own
+> tabling declaration, `(tabled (<name> $a ...))`, so the answers come
+> from SWI's answer trie and stay correct across writes to the spaces
+> the body reads: a declared table is incremental, and a write that
+> invalidates it is re-evaluated rather than answered stale
+> [source: lib/lib_tabling.pl, metta_tabled_decl/2].
+>
+>     @m.cache
+>     def fib(n):
+>         return n if n < 2 else fib(n - 1) + fib(n - 2)
+>
+>     m.eval(fib(25))       # linear, not exponential
+>     fib.cache_info()      # {'tables': 26, 'answers': 26, ...}
+>     fib.cache_clear()
+>
+> `unchecked=True` is the declaration that ACCEPTS STALENESS: the
+> purity walk is skipped and the table is plain, which is the only way
+> to table a body whose reads the engine cannot resolve. It is the
+> engine's `(cache <name> unchecked)`, not a size, and there is no
+> maxsize here because a table is not a fixed-size cache: it holds the
+> answers for the calls that were made.
+>
+> The counters are the table's, so `cache_info()` answers `tables`,
+> `answers`, `complete-call`, `invalidated` and `reevaluated` rather
+> than lru_cache's hits and misses
+> [tested: test_a_cached_definition_tables_and_answers_from_its_trie].
+
 ### `MeTTa.type`
 
 ```python

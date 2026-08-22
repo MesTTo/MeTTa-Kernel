@@ -163,7 +163,11 @@ host_error_case('random-int', 'random-int'(1, invalid_number, _)).
 host_error_case('random-float', 'random-float'(1, invalid_number, _)).
 host_error_case('random-float',
                 'random-float'(1.0e308, -1.0e308, _)).
-host_error_case('bind!', 'bind!'([invalid_key], ['new-state', 1], _)).
+%bind! HAS NO ROW HERE since P14.8 made new-state an operation that answers a
+%cell: the state form lost its own clause, so a non-symbol name is refused by
+%bind!'s own typed check before any host predicate sees it. That refusal is
+%covered by bind_refuses_a_name_that_is_not_a_symbol below; the rows that
+%remain are the two that still reach nb_setval/2 and nb_getval/2 directly.
 host_error_case('change-state!', 'change-state!'([invalid_key], 1, _)).
 host_error_case('get-state', 'get-state'([invalid_key], _)).
 
@@ -307,6 +311,14 @@ test(the_numeric_expression_operations_answer_their_own_refusal,
     findall(Result, call(Goal), Answers),
     Answers = [['Error', _, Reason]],
     Reason == Message.
+
+%A cell NAME is a symbol, and bind! says so itself rather than letting a host
+%predicate say it about a key: the message names the operation and what a name
+%has to be [tested by this clause; the row it replaced is above].
+test(bind_refuses_a_name_that_is_not_a_symbol) :-
+    catch('bind!'([invalid_key], ['new-state', 1], _), Error, true),
+    nonvar(Error),
+    Error = error(type_error(symbol, [invalid_key]), context('bind!'/2, _)).
 
 test(host_errors_name_the_written_operation,
      [forall(host_error_case(Operation, Goal))]) :-

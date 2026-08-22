@@ -746,11 +746,11 @@ expected_special_heads([
     'with-pragma!',
     'foldl-atom', 'forall', 'get-atoms', 'get-metatype', 'let*', 'map-atom',
     'new-space', 'not-provable',
-    'remove-atom', 'test-no-answer', '|->', call, case, chain,
+    'remove-atom', 'test-no-answer', 'with-seed', '|->', call, case, chain,
     collapse, cut, elapsed, eval, evalc, explain, hyperpose, if, let, match,
     inferences, noeval, nop,
     once, prog1, progn, quote, reduce, sealed, 'space-atom-count',
-    'space-contains', super, superpose, take, test,
+    'space-contains', super, superpose, switch, take, test,
     timeout,
     top, transaction, translatePredicate, unify, with_mutex
 ]).

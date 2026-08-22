@@ -813,6 +813,25 @@ async def define(
 > returned handle's own calls are synchronous doors; evaluate
 > through fn(name) or run() from async code.
 
+### `AsyncMeTTa.cache`
+
+```python
+async def cache(
+    self,
+    fn: Callable | None = None,
+    /,
+    *,
+    name: str | None = None,
+    unchecked: bool = False,
+) -> Any:
+```
+
+> Define and TABLE on the worker, the sync door's cache decorator.
+>
+> The answers come from SWI's answer trie, and the returned handle
+> carries cache_clear() and cache_info() as synchronous doors the way
+> define's handle carries its own.
+
 ### `AsyncMeTTa.type`
 
 ```python
