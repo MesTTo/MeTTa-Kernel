@@ -2539,17 +2539,32 @@ type_answers_from(Module, X, Candidates, Types) :-
     widen_to_super_types(Module, X, Unique, Widened),
     (   Widened \== []
     ->  Types = Widened
-    ;   inapplicable_typed_application(Module, X)
+    ;   inapplicable_typed_application(Module, X, Candidates)
     ->  Types = []
     ;   Types = ['%Undefined%']
     ).
 
-inapplicable_typed_application(Module, X) :-
+%The candidate list already answers the second half. Reaching here means the
+%widened set is empty, and widening only ever adds, so the unique set is empty
+%and therefore so is Candidates; get_function_type/2 is one of the sources those
+%candidates come from (get_type_candidate/2's first clause IS it), so an empty
+%list means it produced nothing. Asking again re-ran the whole application
+%typing and re-entered the argument, which is a second full descent on exactly
+%the path that takes it: a check that FAILS. The \+ is kept as the fallback for
+%a non-empty list so the predicate still states its own condition rather than
+%relying on a caller's invariant.
+inapplicable_typed_application(Module, X, Candidates) :-
     (   metta_self_module(Module)
     ->  application_arrow_declared(X),
-        \+ get_function_type(X, _)
+        (   Candidates == []
+        ->  true
+        ;   \+ get_function_type(X, _)
+        )
     ;   application_arrow_declared_in(Module, X),
-        \+ get_function_type_in(Module, X, _)
+        (   Candidates == []
+        ->  true
+        ;   \+ get_function_type_in(Module, X, _)
+        )
     ).
 
 %%%% Subtyping: (:< Sub Super) %%%%
