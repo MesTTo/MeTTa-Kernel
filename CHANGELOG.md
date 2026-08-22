@@ -71,6 +71,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Compiled bodies carry MeTTa mentions directly: `S.name` and `V.name`
+  lower into atoms by lexical identity with the total
+  underscore-to-hyphen map (brackets stay exact), a body-minted `V.hole`
+  is a hole for a backwards call to fill, and `petta.fn` is an inert
+  package-root namespace generated from the engine catalog with a
+  209-attribute lint-clean stub, so a hyphenated or banged callee is an
+  ordinary Python attribute. Shadowed builders and host attributes
+  refuse at compile time, and one resolver rule (exact, then mapped,
+  then the only remaining bang form) governs calls, purity derivation,
+  loop sources, and `yield from`.
 - A `Space` is a grounded atom, so a space handle crosses term positions
   as an operand: `import!`, `metta`, `add-atom` inside built expressions,
   spawned writes, computed targets, and `context-space` all carry the
