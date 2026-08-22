@@ -8,11 +8,11 @@
 %     branch records its culprit and fails, and the limit is read from
 %     max-stack-depth on the first step rather than at scope open [tested:
 %     fuel:a_step_charges_inside_a_scope_and_is_inert_outside_one;
-%     commit=WORKTREE].
+%     commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f].
 %   - nb_delete/1 and an `off` sentinel both survive backtracking past a
 %     trailed b_setval/2 write, which is what lets the balance be its own scope
 %     marker [tested: fuel:a_deleted_global_is_not_resurrected_by_backtracking;
-%     commit=WORKTREE].
+%     commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f].
 % Fails when: read as coverage of max-stack-depth's user-facing law. That is
 %   test_a_stack_depth_pragma_bounds_evaluation_instead_of_overflowing and the
 %   arbiter's own boundary witnesses; this file covers the mechanism under it.

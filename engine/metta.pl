@@ -5577,9 +5577,9 @@ petta_run_with_fuel(Value, Answer, Goal) :-
 %    conftest fixture _pragmas_are_not_left_set now fails the test that leaks
 %    one instead of the test that runs next
 %    [tested: fuel:a_deleted_global_is_not_resurrected_by_backtracking;
-%    commit=WORKTREE]
+%    commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f]
 %    [tested: fuel:an_off_sentinel_is_not_restored_over_by_backtracking;
-%    commit=WORKTREE].
+%    commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f].
 %  - nb_current/2 is declared nondeterministic, so every step paid a foreign
 %    frame that supports redo, and it consults the exception/3 hook when the
 %    variable is missing [source: SWI-Prolog 10.1 Reference Manual section 4.33,
@@ -5590,7 +5590,7 @@ petta_run_with_fuel(Value, Answer, Goal) :-
 %    +/-0.13%
 %    [measured 2026-08-22: min-of-3 instructions:u; command=python -m
 %    benchmarks.check_instructions; fixture=bindings/python/benchmarks;
-%    commit=WORKTREE].
+%    commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f].
 %
 %thread_initialization/1 rather than initialization/1 because b_getval/2 raises
 %when the variable is missing and global variables are per-thread: it runs the
@@ -5619,11 +5619,11 @@ petta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
 %A step inside a scope costs six inferences and a step outside one costs two,
 %measured rather than counted by eye against a loop with the step removed
 %[measured 2026-08-22: 6 and 2; command=swipl ai-tmp/p14e-step-cost.pl;
-%fixture=20000 iterations; commit=WORKTREE]. Five shapes of this body were
+%fixture=20000 iterations; commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f]. Five shapes of this body were
 %raced and every one of them costs the same six, so the sentinel and the second
 %comparison are free and there is nothing left to shave in Prolog
 %[measured 2026-08-22: v1..v5 all 6.0; command=swipl ai-tmp/p14e-step-ab2.pl;
-%commit=WORKTREE]. The step that reads two globals costs seven, which is the
+%commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f]. The step that reads two globals costs seven, which is the
 %one inference per reduction the single global buys back.
 %Every runnable form pays this, not only the m.eval door P14.8 brought inside a
 %scope. Going lower means not reading a global at all: threading the balance as
@@ -5636,7 +5636,7 @@ petta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
 %query setup on top of the write it was trying to avoid
 %[measured 2026-08-22: 472 exported functions, none a global-variable or trail
 %entry point; command=nm -D
-%/usr/lib/swi-prolog/lib/x86_64-linux/libswipl.so.10.1.13; commit=WORKTREE].
+%/usr/lib/swi-prolog/lib/x86_64-linux/libswipl.so.10.1.13; commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f].
 petta_fuel_step(Culprit, Cost) :-
     b_getval('$petta_fuel_remaining', Current),
     (   Current == off
