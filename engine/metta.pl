@@ -2984,11 +2984,17 @@ scoped_has_type(Space, Module, X, T) :-
         member(T, Types)
     ).
 
+%The same one-enumeration shape type_witness_in/3 above uses, for the same
+%reason: asking whether a candidate widens to T and then, separately, whether T
+%is itself a candidate ran scoped_type_candidate/4 twice over the same term, and
+%each walk re-entered its subterms. typing_rule_accepts/4 still leads, so a
+%decisive user rule is consulted before the reflexive case as it was.
 scoped_type_witness(Space, Module, X, T) :-
     (   once(( scoped_type_candidate(Space, Module, X, Actual),
-               typing_rule_accepts(Module, widening, Actual, T) ))
-    ->  true
-    ;   once(scoped_type_candidate(Space, Module, X, T))
+               (   typing_rule_accepts(Module, widening, Actual, T)
+               ->  true
+               ;   Actual = T
+               ) ))
     ->  true
     ;   satisfies_metatype_in(Module, X, T)
     ->  true
