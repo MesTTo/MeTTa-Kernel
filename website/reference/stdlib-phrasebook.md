@@ -31,8 +31,8 @@ Provenance: LeaTTa manifest 1.0.9 at commit `e47c93f`, 379 declarations over 377
 
 Section 9e claims that a structure operation on an atom already held in Python
 costs no engine crossing at all. Measured over the rows that run both sides:
-the MeTTa forms cost 150,082 engine inferences and the Python spellings
-cost 6,676, and 90 of the 121 rows cost the engine EXACTLY
+the MeTTa forms cost 149,167 engine inferences and the Python spellings
+cost 6,701, and 90 of the 121 rows cost the engine EXACTLY
 NOTHING. `e[0]`, `e[1:]`, `len(e)`, `max([...])` and `S.f(1)` each read the same
 count as an empty measurement block, so the claim holds: the work never reaches
 the engine at all.
@@ -511,7 +511,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(fuzzy-match-space (new-space) (f a) ((f a)) 1)` | &mdash; | `(fuzzy-result (cost 0 0 0) (f a))` | absent |
 | `!(fuzzy-match-context (new-space) (new-space) (f a) ((f a)) 1)` | &mdash; | `(fuzzy-result (cost 0 0 0 0) (f a))` | absent |
 | `!(near-match (f a) ((f a) (f b)) 1)` | &mdash; | `(near-match (f a) ((f a) (f b)) 1)` | absent |
-| `!(sealed ($x) ($x $y))` | `m.one(S.sealed(petta.encode((V.x,)), petta.encode((V.x, V.y))))` | `($x $y#0) on leatta and petta; ($_98110 $_98518) on python` | method |
+| `!(sealed ($x) ($x $y))` | `m.one(S.sealed(petta.encode((V.x,)), petta.encode((V.x, V.y))))` | `($x $y#0) on leatta and petta; ($_1 $_2) on python` | method |
 | `!(capture (+ 1 2))` | &mdash; | `3` | absent |
 
 - `fuzzy-match` `(-> Atom Expression Number Atom)` &mdash; LeaTTa's cost-bounded approximate matcher, answering each candidate with its cost. PeTTa has `petta.structures` for many-to-one matching and no approximate matcher. The form is shown but not run here: PeTTa leaves the call unreduced.
