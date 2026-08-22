@@ -2592,8 +2592,17 @@ inapplicable_typed_application(Module, X, Candidates) :-
 %single pass over the whole list answers ((A B) D C E)
 %[source: LeaTTa ai-report-subtype-graph.md, get_tuple_types].
 widen_to_super_types(Module, X, Types0, Types) :-
-    (   widening_applies_to(Module, X),
-        any_super_type_edge(Module)
+    %THE CHEAP TEST LEADS. Both are pure tests that bind nothing, so the order is
+    %free, and it was the wrong way round: widening_applies_to/2 asks
+    %application_return_type/2, which is get_function_type/2, which types the
+    %application again and so re-enters its arguments. any_super_type_edge/1 is
+    %one indexed probe of an empty ':<' bucket and its own note says that with no
+    %edge declared anywhere, which is every program not using the feature, it is
+    %the whole cost. Asking it first means such a program never pays the descent:
+    %on a check that FAILS this was the last of the two walks per level, and
+    %removing it makes the failing path linear rather than 2^d.
+    (   any_super_type_edge(Module),
+        widening_applies_to(Module, X)
     ->  findall(Declared, type_declaration_in(Module, X, Declared), Directs),
         partition(type_already_listed(Directs), Types0, Direct, Products),
         add_super_types(Module, Direct, DirectWidened),
