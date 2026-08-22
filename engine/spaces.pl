@@ -2772,7 +2772,7 @@ metta_host_clear_space(Space) :-
 %read as a flake for weeks: it needs enough accumulated tabling state in one
 %process, so a single test never showed it
 %[tested: test_a_drop_untables_before_it_removes_any_clause,
-%spaces_drop_untables_first; commit=WORKTREE].
+%spaces_drop_untables_first; commit=b33102fbd50a30ae44d58eca08abd49e447ea60d].
 metta_host_clear_space(Space) :-
     space_module(Space, Module),
     metta_host_clear_tabling(Space, Module),
