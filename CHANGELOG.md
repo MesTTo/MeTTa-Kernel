@@ -48,6 +48,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Typing an expression with no declared arrow for its head is now linear in the
+  number of members rather than exponential. Such an expression is typed
+  element-wise, so its type set is the cartesian product of its members' type
+  sets, and that product was computed by backtracking: every retry re-derived
+  every member to its right. Fifteen members carrying three declared types each
+  cost 581,130,797 inferences and now cost 1,722, and seventeen members did not
+  finish in 280 seconds. Answers, including their order, are unchanged.
 - Calling a `Defined` object now evaluates the call in the space that owns the
   definition and returns its answer list. Use `S[name](...)` to build the call
   as data; calls made while a `@rules` generator is being collected stage as

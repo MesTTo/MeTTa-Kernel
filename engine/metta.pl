@@ -2921,8 +2921,10 @@ get_type_candidate(X, T) :- \+ application_arrow_declared(X),
                             X = [_|_],
                             is_list(X),
                             metta_self_module(Self),
-                            maplist(has_type_in(Self), X, Members),
-                            tuple_type(Members, T).
+                            tuple_first_in(X, Self, First),
+                            (   tuple_fold(First, T)
+                            ;   tuple_rest_types(has_type_in(Self), X, T)
+                            ).
 get_type_candidate(X, T) :- '$petta_atoms:&self':'&self'(':', X, T),
                             acyclic_term(T).
 get_type_candidate(X, T) :- seam:builtin_type_declaration(X, T).
@@ -2962,8 +2964,11 @@ get_type_candidate_in(Module, X, T) :- get_function_type_in(Module, X, T).
 get_type_candidate_in(Module, X, T) :- \+ application_arrow_declared_in(Module, X),
                                        X = [_|_],
                                        is_list(X),
-                                       maplist(has_type_in(Module), X, Members),
-                                       tuple_type(Members, T).
+                                       tuple_first_in(X, Module, First),
+                                       (   tuple_fold(First, T)
+                                       ;   tuple_rest_types(has_type_in(Module),
+                                                            X, T)
+                                       ).
 
 get_type_candidate_in(Module, X, T) :- type_declaration_in(Module, X, T).
 get_type_candidate_in(_, X, T) :- seam:builtin_type_declaration(X, T).
@@ -2991,13 +2996,117 @@ get_type_candidate_in(_, X, T) :- petta_state_cell_type(X, T).
 %is `(Number (Number Number))` and `(typed-sym (typed-sym aa))` is
 %%Undefined%, one undeclared symbol away.
 %
+%The tuple rule: the FIRST combination through maplist/3, the rest off
+%materialized sets.
+%
+%maplist/3 over a nondeterministic goal is the cartesian product computed by
+%BACKTRACKING, and every redo into member i re-runs members i+1..k in full,
+%recursive descent included: k members carrying c types each cost
+%Theta(c^k * D) for D the size of a member's subtree. Deriving each member's
+%set ONCE and enumerating combinations off those lists is the same product for
+%Theta(k*D + c^k*k), optimal in the output, and it is what
+%_type_annotations.py's _bounded_product already does on the Python side.
+%
+%The sets are derived only when a SECOND combination is actually asked for.
+%Nearly every caller here wants one candidate and stops, and materializing
+%every member's complete set for them charges the whole product's cost to a
+%query that wanted one element of it: doing it unconditionally cost nilbc 1.4s
+%to over 700s. The first combination therefore stays the same maplist/3 walk it
+%always was, committed with once/1, and the sets appear on the redo that used
+%to pay for the re-descent. maplist/3 also keeps the call DIRECT, which
+%library(apply_macros) expands into a specialized recursion; threading the goal
+%as a closure instead put a call/3 meta-call on every member of every
+%expression nilbc types and cost 6.02% on its own
+%[measured 2026-08-22: 28,295,015,801 against 26,689,624,690 instructions:u,
+%five significant figures stable over three runs each, and stubbing the redo
+%branch out entirely did not move it].
+%The walk is written out at both call sites rather than behind one shared
+%predicate. That is a deliberate duplication of four lines, and it is worth
+%0.395%: the shared predicate measured 25,893,858,002 where these measure
+%25,764,293,182, and adding the same predicate back as a clause NOTHING CALLS
+%measured 25,792,468,254, so 0.109pp of the difference is code layout, the
+%Mytkowicz bias this repository's own baseline.json records for typed-call, and
+%the remaining 0.395pp is the call itself [measured 2026-08-22, interleaved
+%min-of-two both ways]. The two clauses this serves are already parallel
+%implementations of one rule for the self module and for a named one.
+%The list leads each helper so clause selection is first-argument indexed.
+%member_set_product_rest/2 varies the LAST member fastest, exactly as maplist/3
+%did, so the candidate order every downstream deduplication reads is unchanged
+%[tested: a_wide_expression_types_in_time_linear_in_its_width]
+%[measured 2026-08-22: 15 members carrying 3 declared types each and one
+%undeclared member, 581,130,797 inferences to 1,721, the base growing 3.02x per
+%added member where this is flat at 109; command=swipl -g true -t halt over
+%type_answers/3, differenced with statistics/2 on inferences].
+tuple_first_in([], _, []).
+tuple_first_in([Member|Members], Module, [T|Ts]) :-
+    has_type_in(Module, Member, T),
+    !,
+    tuple_first_in(Members, Module, Ts).
+
+tuple_types_scoped(Space, Module, Members, T) :-
+    tuple_first_scoped(Members, Space, Module, First),
+    (   tuple_fold(First, T)
+    ;   tuple_rest_types(scoped_has_type(Space, Module), Members, T)
+    ).
+
+tuple_first_scoped([], _, _, []).
+tuple_first_scoped([Member|Members], Space, Module, [T|Ts]) :-
+    scoped_has_type(Space, Module, Member, T),
+    !,
+    tuple_first_scoped(Members, Space, Module, Ts).
+
+tuple_rest_types(Goal, Members, T) :-
+    tuple_member_sets(Members, Goal, Sets),
+    %Every remaining combination folds to the %Undefined% the first one already
+    %answered, so there is nothing left to enumerate.
+    \+ undefined_member_set(Sets),
+    member_set_product_rest(Sets, T).
+
+%The type of one combination is a FOLD over its members, and one %Undefined%
+%member makes it %Undefined% however many types the others offer.
 %== rather than memberchk/2, because a member's type may still be an unbound
 %variable and memberchk would BIND it to %Undefined% and answer yes.
-tuple_type(Members, Type) :-
+tuple_fold(Members, Type) :-
     (   member(Member, Members), Member == '%Undefined%'
     ->  Type = '%Undefined%'
     ;   Type = Members
     ).
+
+%Left to right and failing on the first EMPTY set, which is what maplist/3's
+%conjunction did: one member with no type at all means the expression has no
+%tuple type, and the product would otherwise discover that only after
+%enumerating every combination of the members to its left. Testing a domain
+%before using it is the cheapest case of arc consistency. An empty set is not
+%an undefined one and must not answer %Undefined%: no candidate at all is
+%inapplicable_typed_application/3's case, where %Undefined% would report a type
+%that was never derived.
+tuple_member_sets([], _, []).
+tuple_member_sets([Member|Members], Goal, [Set|Sets]) :-
+    findall(T, call(Goal, Member, T), Set),
+    Set \== [],
+    tuple_member_sets(Members, Goal, Sets).
+
+undefined_member_set(Sets) :-
+    member(Set, Sets),
+    member(Type, Set),
+    Type == '%Undefined%',
+    !.
+
+%Every combination EXCEPT the all-firsts one, which the maplist/3 walk already
+%answered. Keeping each member's first type and recursing holds that prefix
+%until some member takes a later type; from there the members to its right are
+%unconstrained.
+member_set_product_rest([[First|Rest]|Sets], [T|Ts]) :-
+    (   T = First,
+        member_set_product_rest(Sets, Ts)
+    ;   member(T, Rest),
+        member_set_product(Sets, Ts)
+    ).
+
+member_set_product([], []).
+member_set_product([Set|Sets], [T|Ts]) :-
+    member(T, Set),
+    member_set_product(Sets, Ts).
 
 %%%% Type lookup in one explicitly selected space %%%%
 %
@@ -3039,8 +3148,7 @@ scoped_type_candidate(Space, Module, X, T) :-
     \+ scoped_function_type(Space, Module, X, _),
     X = [_|_],
     is_list(X),
-    maplist(scoped_has_type(Space, Module), X, Members),
-    tuple_type(Members, T).
+    tuple_types_scoped(Space, Module, X, T).
 scoped_type_candidate(Space, _, X, T) :-
     match_stored(Space, [':', X, T], T, _),
     acyclic_term(T).

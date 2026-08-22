@@ -569,6 +569,54 @@ test(the_collapse_reaches_a_nested_tuple) :-
             Holed),
     assertion(Holed == ['%Undefined%']).
 
+%The tuple rule reads one set of types per member and then combines them.
+%Combining by BACKTRACKING re-derives every member to the RIGHT of each retry,
+%so k members carrying c types each cost Theta(c^k) even when one untyped
+%member makes %Undefined% the only answer there is. Doubling the width must
+%therefore roughly double the cost rather than raise it by a power: at the
+%three types below the old shape charged 3^6 = 729x between these two widths,
+%where deriving each member's set once charges 2x. The bound is on the RATIO,
+%not on an inference count, so it keeps testing the complexity class as
+%ordinary constants move [measured 2026-08-22: 581,130,797 inferences to
+%1,589 at width 15].
+test(a_wide_expression_types_in_time_linear_in_its_width,
+     [ setup(setup_wide_members), cleanup(cleanup_wide_members) ]) :-
+    wide_typing_cost(6, Narrow),
+    wide_typing_cost(12, Wide),
+    assertion(Wide < Narrow * 4).
+
+wide_member_count(12).
+
+wide_member(Index, Member) :- atom_concat(plunit_wide_s, Index, Member).
+
+wide_member_type(Index, Type) :- atom_concat(plunit_wide_t, Index, Type).
+
+setup_wide_members :-
+    cleanup_wide_members,
+    forall(wide_declaration(Member, Type),
+           add_sexp('&self', [':', Member, Type])).
+
+cleanup_wide_members :-
+    forall(wide_declaration(Member, _),
+           remove_sexp('&self', [':', Member, _])).
+
+wide_declaration(Member, Type) :-
+    wide_member_count(Count),
+    between(1, Count, Index),
+    wide_member(Index, Member),
+    between(1, 3, Which),
+    wide_member_type(Which, Type).
+
+wide_typing_cost(Width, Cost) :-
+    numlist(1, Width, Indices),
+    maplist(wide_member, Indices, Members),
+    append(Members, [plunit_wide_never_declared], Expression),
+    statistics(inferences, Before),
+    findall(Type, 'get-type'(Expression, Type), Types),
+    statistics(inferences, After),
+    Cost is After - Before,
+    assertion(Types == ['%Undefined%']).
+
 :- end_tests(metta_type_answers).
 
 :- begin_tests(metta_builtin_scoping).
