@@ -648,8 +648,19 @@ metta_error_atom(Operation, Arguments, Reason,
 %for shipped mismatches; only this user-declared case carries the fifth field
 %[tested: test_a_user_typing_rule_participates_like_a_shipped_one;
 %commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%THE GUARD IS ASKED ONCE. Both refusal shapes below opened with the same
+%\+ metta_call_accepted/2, so an ACCEPTED call, which is every ordinary one,
+%asked it twice: the first clause's negation failed and the second put the
+%identical question again. metta_call_accepted/2 runs metta_arguments_match/3,
+%which walks each argument's type, so on a term nested d deep that was two full
+%walks per level and the compiled form emits one of these per level.
+%The guard is a pure test that binds nothing, so hoisting it decides once and
+%the two refusal shapes are tried underneath it, in the order they had.
 metta_bad_argument_error(Operation, Arguments, Error) :-
     \+ metta_call_accepted(Operation, Arguments),
+    metta_bad_argument_refusal(Operation, Arguments, Error).
+
+metta_bad_argument_refusal(Operation, Arguments, Error) :-
     metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins),
     current_metta_module(Module),
     metta_named_rule_refusal(Module, ParameterTypes, Origins, Arguments, 1,
@@ -662,8 +673,7 @@ metta_bad_argument_error(Operation, Arguments, Error) :-
 %One error per declared ARROW and per rejected ACTUAL type, arrows in
 %declaration order and actual types in the order get-type reports them, which
 %is the multiplicity and the order the arbiter pins.
-metta_bad_argument_error(Operation, Arguments, Error) :-
-    \+ metta_call_accepted(Operation, Arguments),
+metta_bad_argument_refusal(Operation, Arguments, Error) :-
     metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins),
     metta_bad_argument(ParameterTypes, Origins, Arguments, 1,
                        Position, Expected, Actual),
