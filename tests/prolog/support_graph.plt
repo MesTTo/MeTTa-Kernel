@@ -11,8 +11,11 @@
 %     support_graph:replacing_supports_detaches_the_old_source;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
 %   - Releasing a module removes only that module's retained graph state
-%     [tested: support_graph:forgetting_a_module_releases_only_its_nodes;
-%     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%     across every node shape and either edge endpoint, without pruning a
+%     live cross-module symbol index [tested:
+%     support_graph:forgetting_a_module_releases_only_its_nodes,
+%     support_graph:forgetting_a_module_covers_every_node_shape_on_both_sides;
+%     commit=WORKTREE].
 %   - Type-marker and dispatch-policy roots use the same typed, module-scoped
 %     invalidation API as derived runtime state [tested:
 %     support_graph:language_policy_roots_are_typed_and_module_qualified;
@@ -68,6 +71,8 @@ p36_node(dispatch_view, function_view(p36_test, p31_target)).
 
 p36_cleanup :-
     forall(p36_node(_, Node), user:support_forget(Node)),
+    forall(member(Module, [p36_retired, p36_live, p36_peer]),
+           user:support_forget_module(Module)),
     retractall(user:p36_supported_fact(_)),
     retractall(user:p36_action_count(_, _)),
     retractall(user:p36_compute_count(_)).
@@ -147,6 +152,34 @@ test(forgetting_a_module_releases_only_its_nodes) :-
     user:support_forget_module(p36_test),
     assertion(\+ user:supports(Base, Middle)),
     assertion(user:supports(derived(p36_other, source), Other)).
+
+test(forgetting_a_module_covers_every_node_shape_on_both_sides) :-
+    Retired = [ function(p36_retired, f),
+                function_view(p36_retired, fv),
+                specialization(p36_retired, s),
+                memo(p36_retired, m, 1),
+                compiled_function(p36_retired, c),
+                translated_form(p36_retired, t),
+                type_marker(p36_retired, ty),
+                dispatch_policy(p36_retired, d, argument_mode),
+                derived(p36_retired, value) ],
+    forall(nth1(I, Retired, Node),
+           ( support_graph:support_record(derived(p36_live, outgoing(I)), Node),
+             support_graph:support_record(Node, derived(p36_live, incoming(I))) )),
+    IsolatedView = function_view(p36_peer, isolated),
+    KeptView = function_view(p36_peer, kept),
+    support_graph:support_record(IsolatedView,
+                                 dispatch_policy(p36_retired, isolated, route)),
+    support_graph:support_record(KeptView,
+                                 dispatch_policy(p36_retired, kept, route)),
+    support_graph:support_record(KeptView, derived(p36_live, stable)),
+    user:support_forget_module(p36_retired),
+    forall(member(Node, Retired),
+           ( assertion(\+ user:supports(Node, _)),
+             assertion(\+ user:supports(_, Node)) )),
+    assertion(\+ support_graph:support_view_module(isolated, p36_peer)),
+    assertion(support_graph:support_view_module(kept, p36_peer)),
+    assertion(user:supports(derived(p36_live, stable), KeptView)).
 
 test(language_policy_roots_are_typed_and_module_qualified) :-
     TypeRoot = type_marker(p36_test, p33_late),

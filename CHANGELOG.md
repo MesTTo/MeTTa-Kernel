@@ -14,6 +14,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and separates exact SWI structural bytes from Python allocations and Linux
   process memory. The initial pins gate deterministic counters and inference
   shapes; page-based RSS, PSS, and private bytes remain report-only.
+
+### Changed
+
+- Dropping many compiled spaces now removes support-graph state through
+  module-indexed endpoint patterns. Teardown scales with the affected edges
+  instead of rescanning the whole remaining graph for every space.
 - Which reaction fires first is a declared policy. `(agenda <ctx> <policy>)`,
   or `m.declare_agenda(name, policy)`, picks between `declaration` (the
   order they were declared, the stated default and what the engine used to
