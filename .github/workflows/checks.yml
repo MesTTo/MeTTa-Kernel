@@ -161,15 +161,26 @@ jobs:
         with:
           python-version-file: "pyproject.toml"
 
-      - name: Build the wheel
+      - name: Build the source archive and the wheel
+        # `python -m build` with no flag builds the sdist and then builds the
+        # wheel FROM IT, which is the path PyPI takes and the one this job used
+        # to skip. Measured 2026-08-23: `--wheel` alone succeeded while the full
+        # build died on `backends/mork/decider.pl`, because MANIFEST.in carried
+        # five fewer resources than setup.py's RUNTIME_RESOURCES maps into the
+        # wheel. test_packaging.py holds that invariant statically; this holds
+        # it for real.
         run: |
           python -m pip install --upgrade pip build
-          python -m build --wheel
+          python -m build
 
-      - name: Install it somewhere else and boot it
+      - name: Install FROM THE SOURCE ARCHIVE somewhere else and boot it
+        # From the sdist rather than the wheel, deliberately: installing the
+        # wheel we just built proves only that the wheel is loadable, while
+        # installing the sdist re-runs the wheel build in the installer's own
+        # environment, which is what a user without a matching wheel gets.
         run: |
           python -m venv /tmp/wheeltest
-          /tmp/wheeltest/bin/pip install dist/*.whl
+          /tmp/wheeltest/bin/pip install --no-binary :all: dist/*.tar.gz
           cd /tmp
           /tmp/wheeltest/bin/python -c "
           from pathlib import Path
