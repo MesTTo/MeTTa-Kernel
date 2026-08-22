@@ -48,6 +48,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- A conjunctive `match` now enumerates the most constrained conjunct first
+  rather than following source order, over a native space and over one that
+  reads through a parent chain alike. Running the conjunction as a nested loop
+  in written order is quadratic where the join's own bound is not: the triangle
+  query over a graph with a hub joined to everything in both directions, which
+  contains no triangle at all, cost 13,502,606 instructions at 100 edges and
+  rose by exactly 4.0x per doubling to 3,620,340,557 at 1,600. Through an
+  inherited space it was worse still, 13,818,604,870 at 1,600 edges, because
+  every conjunct is matched through the whole read chain. Both are now linear in
+  the edge count. Answers and their multiplicity are unchanged; the order in
+  which they arrive is not specified and does change.
 - Checking an expression against a known tuple type is now linear in the number
   of members rather than exponential. The question was answered by deriving the
   expression's candidate types and comparing each to the one asked about, so the

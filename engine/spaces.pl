@@ -4001,9 +4001,49 @@ match_read_link(Space, Pattern, OutPattern, Result) :-
 
 match_routed(_, LComma, OutPattern, Result) :- LComma == [','], !,
                                                Result = OutPattern.
+%The same reordering as match_native/5's, for a space whose reads go through a
+%parent chain. The conjuncts here are matched by match/4 rather than read from
+%one storage module, so the probe asks match/4 the same cheap question: has
+%this conjunct at most one match under the bindings so far. An inherited space
+%joins across the chain, `(new-space &child (inherits &parent))` in
+%examples/spaces/inherited_spaces.metta, and pays the same quadratic under skew
+%without it. A read through the chain is a child-first multiset union and each
+%conjunct routes through it independently, so which conjunct is taken first
+%changes neither the rows nor how many times each appears.
+%
+%match_foreign_routed/6's own split is deliberately NOT reordered. That one
+%combines each conjunct's annotation along the join with the algebra's declared
+%extend, and `extend-commutative` is optional: the shipped prob and prov
+%algebras do not declare it, so the order conjuncts are visited in is part of
+%the answer there [source: website/guide/contract.md:73-80]. A foreign
+%provider's own join is reachable through foreign_plan/5, which is offered the
+%whole conjunction before any split happens.
+match_routed(Space, [Comma|Conjuncts], OutPattern, Result) :-
+    Comma == ',',
+    Conjuncts = [_, _|_],
+    routed_cheapest_conjunct(Space, Conjuncts, Head, Rest),
+    !,
+    match(Space, Head, conj, conj),
+    match_routed(Space, [','|Rest], OutPattern, Result).
 match_routed(Space, [','|[Head|Tail]], OutPattern, Result) :-
     match(Space, Head, conj, conj),
     match_routed(Space, [','|Tail], OutPattern, Result).
+
+routed_cheapest_conjunct(Space, [First|More], Best, Rest) :-
+    (   goal_matches_at_most_one(match(Space, First, conj, conj))
+    ->  Best = First,
+        Rest = More
+    ;   routed_selective_conjunct(Space, More, Found, Others)
+    ->  Best = Found,
+        Rest = [First|Others]
+    ;   Best = First,
+        Rest = More
+    ).
+
+routed_selective_conjunct(Space, Conjuncts, Best, Rest) :-
+    select(Best, Conjuncts, Rest),
+    goal_matches_at_most_one(match(Space, Best, conj, conj)),
+    !.
 
 %One matching step of Hyperon's unify: each solution is one binding set,
 %bindings applied by Prolog unification itself. The clause order is the
@@ -4750,8 +4790,48 @@ prolog:error_message(petta_merge_unordered(Ctx, Pattern)) -->
 
 %Native conjunctions call their space predicate directly. The recursive helper
 %keeps the provider decision outside the candidate loop.
+%A conjunction is a JOIN, and the engine ran it as a nested loop in SOURCE
+%order: each conjunct enumerated under every binding of the ones before it.
+%That is quadratic where the join's own bound is not. Measured on the triangle
+%query over a graph with a hub joined to everything in both directions, where
+%no triangle exists at all, instructions differenced against the same file
+%whose query is one unconstrained conjunct: 13,502,606 at 100 edges rising by
+%exactly 4.0x per doubling to 3,620,340,557 at 1,600, while the AGM bound for a
+%triangle over N edges is N^1.5, about 64,000 there
+%[measured 2026-08-23, ai-tmp/synth/join/].
+%
+%Enumerating the conjunct with the FEWEST matches first removes it. Binding
+%`$x,$y` from the first conjunct gives N choices and `$z` from the second gives
+%deg(`$y`) more, which for the hub is another N/2, and only then does the third
+%conjunct fail; taking the most constrained conjunct instead binds `$z` from
+%the one that offers a single value and refutes the row at once. This is the
+%minimum-remaining-values heuristic of constraint solving and the reason
+%leapfrog triejoin seeks in its smallest relation
+%[source: Veldhuizen, Leapfrog Triejoin, ICDT 2014, arXiv:1210.0481].
+%
+%It is NOT worst-case optimal, and the difference is worth stating: no ordering
+%of a nested loop attains the AGM bound on the instance that bound is tight
+%for, which is why a worst-case-optimal join intersects a variable's candidate
+%sets across every conjunct that mentions it rather than generating from one
+%and testing in the rest. That needs sorted access per variable, which the
+%whole-conjunction seam foreign_plan/5 exists to delegate. This removes the
+%SKEW, which is where the measured quadratic came from.
+%
+%MULTIPLICITY is preserved exactly because the atom combinations are the same
+%ones, merely visited in another order: `(, (edge $x $y) (edge $x $y))` over a
+%space holding `(edge a b)` twice answers four rows here as it did before.
+%Answer ORDER is not preserved, and is not specified.
 match_native(_, _, LComma, OutPattern, Result) :- LComma == [','], !,
                                                   Result = OutPattern.
+match_native(Module, Space, [Comma|Conjuncts], OutPattern, Result) :-
+    Comma == ',',
+    Conjuncts = [_, _|_],
+    relational_conjuncts(Conjuncts),
+    !,
+    cheapest_conjunct(Module, Space, Conjuncts, Goal, Rest),
+    call(Goal),
+    acyclic_term(OutPattern),
+    match_native(Module, Space, [','|Rest], OutPattern, Result).
 match_native(Module, Space, [Comma|[Head|Tail]], OutPattern, Result) :- Comma == ',',
                                                                         var(Head), !,
                                                                         get_native_atom(Module, Space, Head),
@@ -4794,6 +4874,80 @@ match_native(Module, Space, [Rel|PatArgs], OutPattern, Result) :- native_express
 %did, one match with two answers. The arbiter's matcher occurs-checks its
 %variable cases (LeaTTa MettaHyperonFull/Core/Matching.lean matchAtomsWith),
 %so a rational-tree instantiation is never a MeTTa answer.
+%Every remaining conjunct is an expression whose head is settled, which is the
+%shape the reordering understands. Anything else keeps source order.
+relational_conjuncts([]).
+relational_conjuncts([Conjunct|Conjuncts]) :-
+    nonvar(Conjunct),
+    Conjunct = [Rel|_],
+    nonvar(Rel),
+    relational_conjuncts(Conjuncts).
+
+%The remaining conjunct with the fewest matches under the current bindings,
+%found by a DOUBLING probe that stops as soon as one conjunct is exhausted:
+%counting them all would cost as much as the join. A conjunct exhausted inside
+%the current limit is known to be no larger than it, so the first one that
+%exhausts wins and the probe costs O(smallest) rather than O(relation). Past
+%the last limit every remaining conjunct offers more matches than the probe can
+%distinguish, and source order is as good a choice as any.
+%The first conjunct that offers AT MOST ONE match, which is the whole of the
+%win: a conjunct with one match settles its variables and refutes the row at
+%once, where the loop would otherwise enumerate another conjunct's many.
+%Distinguishing two matches from three is not worth a probe that every step of
+%every join pays, so the question asked is the cheap one, and the leading
+%conjunct's goal is built once and kept for the fallback that uses it.
+cheapest_conjunct(Module, Space, [First|More], Goal, Rest) :-
+    conjunct_goal(Module, Space, First, FirstGoal),
+    (   goal_matches_at_most_one(FirstGoal)
+    ->  Goal = FirstGoal,
+        Rest = More
+    ;   selective_conjunct(Module, Space, More, Found, Others)
+    ->  Goal = Found,
+        Rest = [First|Others]
+    ;   Goal = FirstGoal,
+        Rest = More
+    ).
+
+selective_conjunct(Module, Space, Conjuncts, Goal, Rest) :-
+    select(Best, Conjuncts, Rest),
+    conjunct_goal(Module, Space, Best, Goal),
+    goal_matches_at_most_one(Goal),
+    !.
+
+%The callable form of one conjunct, built ONCE and used by both the probe and
+%the enumeration that follows it. native_expression/4 rebuilds it with =../2 on
+%every call, and the probe would otherwise pay for that a second and a third
+%time on the hottest path a join has.
+conjunct_goal(Module, [Family|Parameters], [Rel|PatArgs], Module:Goal) :-
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    Goal =.. ['$petta_parametric_atom', Rel|PatArgs].
+conjunct_goal(Module, Space, [Rel|PatArgs], Module:Goal) :-
+    Goal =.. [Space, Rel|PatArgs].
+
+%Has this goal AT MOST ONE solution, asked by both join paths: the native one
+%passes the storage call conjunct_goal/4 built, the routed one passes match/4
+%so the read reaches through the whole chain.
+%
+%Counted in a mutable cell under a single negation. nb_setarg/3 is not undone by
+%the failure that drives the enumeration, so the count survives while every
+%binding the probe made is discarded, which is the accumulator
+%has_type_derive/3 uses for the same reason; and `\+` alone suffices, since it
+%keeps no bindings of its own. It costs neither the solution list findnsols/4
+%builds nor a copy_term/2, which together measured +11.4% on a dense join where
+%this measures +2.35%. deterministic/1 is not a cheaper substitute: inside a
+%negation it always reports a choicepoint, so no conjunct is ever chosen and
+%both the skewed and the dense case get slower than doing nothing.
+goal_matches_at_most_one(Goal) :-
+    State = seen(0),
+    \+ (   call(Goal),
+           arg(1, State, Before),
+           After is Before + 1,
+           nb_setarg(1, State, After),
+           After >= 2
+       ).
+
 native_expression(Module, [Family|Parameters], Rel, PatArgs) :-
     Space = [Family|Parameters],
     space_parametric(Space),
