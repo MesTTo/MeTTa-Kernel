@@ -69,6 +69,23 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   MeTTa forms cost 150,082 engine inferences and the Python spellings 6,676,
   and 90 of the 121 cost the engine nothing at all.
 
+### Added
+
+- Calling a function handle answers an `Answers` view: lazy, cached, and
+  replayable, so ordinary iteration is the streaming door, `answers.one()`
+  requires exactly one answer, `answers.first(default=...)` requires an
+  explicit absence default, and `bool(answers)` pulls at most one. Scalar
+  doors decode grounded values and raise error answers; iteration keeps
+  `(Error ...)` and `Undefined` as data. `space.fn` is a bound fail-fast
+  namespace: attributes transliterate underscores to hyphens, brackets
+  preserve exact punctuation, and unknown names raise at access.
+- A generator definition whose body is a flat sequence of independent
+  `yield` statements stores one equation per yield, and a same-head
+  redefinition replaces the whole unit transactionally. Conditional and
+  loop-contained yields still compile to one `superpose` equation. Bare
+  `@rules` answers an immutable bundle that `space += bundle` lands;
+  `@space.rules` collects and lands in one ceremony.
+
 ### Changed
 
 - The canonical atoms `TRUE`, `FALSE`, `UNIT`, and `HERE` are public
