@@ -16,6 +16,9 @@ Source: `bindings/python/petta/atoms.py`.
 >   - the immutable operator lowering table is public data [tested:
 >     test_the_operator_table_is_generated_from_one_source_with_no_holes;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - the canonical truth, unit, and context atoms are public values [tested:
+>     test_the_canonical_atoms_are_public_values;
+>     commit=b1599bdc8201a04a3689c1a88707b6f4b53b4d22]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

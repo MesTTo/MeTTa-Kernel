@@ -71,6 +71,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- The canonical atoms `TRUE`, `FALSE`, `UNIT`, and `HERE` are public
+  values at the package root, so a program names them instead of
+  reconstructing their spelling. The twin corpus grew to 218 files, its
+  budget lane records asymmetric measured envelopes scoped to their
+  measurement protocol instead of a symmetric spread guess, and 159
+  structured-residue entries retired against features that now exist.
+
 - The Python surface narrows to a lazy core. `MeTTa` is the runtime
   context, 20 public attributes down from 90; its default space is
   `MeTTa().self` and storage and query verbs live on the `Space` handle.
