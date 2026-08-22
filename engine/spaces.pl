@@ -17,7 +17,7 @@
 % Guarantees:
 %   - clearing a foreign space also removes its owned generated predicates,
 %     tables, and support edges before a released module name can be reused
-%     [tested: test_a_recycled_mork_name_inherits_nothing; commit=WORKTREE].
+%     [tested: test_a_recycled_mork_name_inherits_nothing; commit=f1dffa91417f9effa55254d1e0bb775ec0deb172].
 %   - Every native space stores its atoms in a private data module that does
 %     not inherit user predicates [tested: spaces_storage_modules].
 %   - subscribe follows the (events ...) declaration rather than what a host
