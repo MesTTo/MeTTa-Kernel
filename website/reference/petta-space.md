@@ -41,6 +41,9 @@ Source: `bindings/python/petta/space.py`.
 >     test_cast_target_is_positional_only]
 >   - dropping a space releases its integration installation records [tested
 >     test_dropped_space_name_reinstalls_integrations]
+>   - dropping a named space clears its life without putting that public name
+>     into the anonymous new_space pool [tested:
+>     test_a_named_space_drop_never_enters_the_anonymous_pool; commit=WORKTREE]
 >   - new_space(inherits=parent) creates a child-first read view whose writes and
 >     lifecycle stay local [tested:
 >     test_a_child_space_reads_through_its_parent_and_writes_locally;
@@ -182,9 +185,11 @@ def space(self, name: str) -> MeTTa:
 def space_names(self) -> list[str]:
 ```
 
-> Every space name this engine registers, sorted: '&self' and
-> '&petta' from boot, every native space that has been written to,
-> and every foreign space currently bound. Naming a space never
+> Every space name this engine registers, sorted.
+>
+> The list includes '&self' and '&petta' from boot, every native space
+> that has been written to, and every foreign space currently bound.
+> Naming a space never
 > registers it, only writing or binding does, so a bind! token's
 > target appears here once something is stored under it.
 
@@ -221,14 +226,14 @@ def new_space(
 def drop(self) -> None:
 ```
 
-> Clear this space and release its name for reuse. Dropping a
-> foreign space releases the binding and leaves the provider's own
-> data alone; &self, the engine's own space, is cleared but its name
-> never released. Subscriptions on the space cancel with it: a
-> pooled name reused later must not deliver to the old life's
-> watchers. The handle itself dies here: every later call through it
-> refuses, because its name may already belong to another space.
-> Dropping twice is a no-op, as closing twice is.
+> Clear this space and release an anonymous name for reuse.
+>
+> Dropping a foreign space releases its binding and provider state.
+> A named space's public name is not an anonymous allocation and never
+> enters the new_space pool. &self is cleared but never released.
+> Subscriptions on the space cancel with it: a pooled name reused later
+> must not deliver to the old life's watchers. The handle itself dies
+> here, and dropping twice is a no-op, as closing twice is.
 
 ### `MeTTa.run`
 
