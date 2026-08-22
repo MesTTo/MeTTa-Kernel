@@ -48,16 +48,27 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
-- The `basics/`, `control/` and `types/` twins are rewritten in the library's
-  own notation rather than in s-expressions with Python punctuation: a plain
-  tuple is an expression, `S.name` replaces `S["name"]` wherever the name is an
-  identifier, `equation(head).to(body)` replaces `S["="](head, body)`, and an
-  operator replaces the naming door wherever an operand is an atom. A twin that
-  deliberately sits below the highest rung now says so in a module-level
-  `RUNG = "<reason>"` that the coverage check reads, and the reason names the
-  spelling the surface is missing. Answers, alpha-equivalence and the pinned
-  inference budgets are unchanged, one twin apart: `control/empty` moved to
-  `@m.define` now that it measures inside the parity band.
+- Every Python twin is written in the library's own notation rather than in
+  s-expressions with Python punctuation. A plain tuple is an expression,
+  `S.name` replaces `S["name"]` wherever the name is a Python identifier,
+  `equation(head).to(body)` replaces `S["="](head, body)`, an operator replaces
+  the naming door wherever an operand is an atom, and a definition whose whole
+  body has a compiled spelling is an ordinary `@m.define` function or a
+  `@rules` generator. A twin that deliberately sits below the highest rung says
+  so where a reader meets it: `# rung: <reason>` on the line that drops, or
+  `RUNG = "<reason>"` for a whole file, both read by the coverage check, and
+  the reason names the spelling the surface is missing. Answers,
+  alpha-equivalence and the pinned inference budgets are unchanged apart from
+  named moves: `control/empty` moved to `@m.define` now that it measures inside
+  the parity band, and nine budgets in `reasoning/` and `integration/` moved
+  with their attribution.
+- The `performance/` twins stay at the container door, and the reason is a
+  measurement rather than a preference. Python's `==` inside a compiled body
+  lowers to the prelude's `py-eq`, a host crossing, where the term door's
+  `.eq` builds MeTTa's own equality; in `superpose_primes` that sits in a
+  divisor search's inner loop, and the decorated spelling costs 920,726
+  inferences against the term door's 536,577, +71.6%, a regression in the
+  benchmark the example exists to run.
 - Calling a `Defined` object now evaluates the call in the space that owns the
   definition and returns its answer list. Use `S[name](...)` to build the call
   as data; calls made while a `@rules` generator is being collected stage as
