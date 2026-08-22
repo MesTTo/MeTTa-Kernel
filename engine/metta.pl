@@ -2469,6 +2469,10 @@ type_witness_in(Module, X, T) :-
 %backtracking that drives the enumeration, so what it stores must not share
 %structure with the bindings that are.
 type_witness_direct(Module, X, T, Outcome) :-
+    tuple_positions_witness(Module, X, T),
+    !,
+    Outcome = found.
+type_witness_direct(Module, X, T, Outcome) :-
     State = collected([]),
     (   (   type_candidate_in(Module, X, Actual),
             (   typing_rule_accepts(Module, widening, Actual, T)
@@ -2490,6 +2494,80 @@ type_witness_direct(Module, X, T, Outcome) :-
             reverse(Reversed, Candidates),
             Outcome = exhausted(Candidates)
         )
+    ).
+
+%CHECKING a tuple against a KNOWN tuple type, decided per position instead of
+%by finding it in the product.
+%
+%The clause below asks the question by SYNTHESIS: it enumerates X's candidate
+%types and compares each to T. For an expression typed element-wise the
+%candidates are the cartesian product of its members' type sets, so the cost of
+%deciding `X : T` depends on where T sits in that enumeration. Measured on k
+%members carrying three declared types each, checking the FIRST combination
+%against checking the LAST: 102 and 859 inferences at three members, 312 and
+%29,496,420 at thirteen, the first flat at 21 per member and the second growing
+%3.0x per member. Same expression, same question, 94,540x apart
+%[measured 2026-08-22, ai-tmp/synth/probe6.pl].
+%
+%That is the rule Pfenning's notes call chk/syn, checking by synthesising and
+%comparing, and the standard objection to it is that it is not MODE CORRECT: it
+%recomputes something the caller already knows. Dunfield and Krishnaswami's
+%recipe is that introduction forms CHECK and elimination forms SYNTHESISE, and
+%an element-wise expression is an introduction form
+%[source: Bidirectional Typing, ACM Computing Surveys 54(5), doi:10.1145/3450952].
+%
+%This is SOUND but deliberately INCOMPLETE, and it must be: a declared edge may
+%widen a whole tuple type to something that is not a tuple at all, as
+%`(:< (P1 Q1) S1)` does in metta_subtyping:an_expression_widens_in_two_phases,
+%so per-position agreement is not the only way a tuple can have a type. In
+%focusing terms the structural rule is invertible and this one is not, so
+%failing here falls through to the enumeration below, which still decides every
+%case it decided before. Succeeding here is a witness by construction: each
+%position holds one of that member's own candidate types and none is
+%%Undefined%, so the list IS one of the combinations the product would have
+%enumerated, and tuple_fold/2 leaves it unchanged.
+%The guard's order is measured, in inferences per check against the same build
+%with this clause removed, over the shapes a hot ground check actually meets:
+%an arrow application against an atom type +3, against a same-length list type
+%+18, an atom against an atom +1, a tuple against an atom +1, and a tuple
+%against its own tuple type -4, which is the case this exists for. The two
+%unifications lead because they are inlined and decide the atom case at once,
+%where is_list/1 is a call costing two inferences on its own
+%[source: EXTENDING.md:1221-1230]. The arrow probe comes before the two list
+%walks because an application is the shape that reaches here and is not a
+%tuple: after it, arrow-against-list costs 18 rather than 24. Running
+%tuple_positions_hold/3 before it instead costs 66, so the probe is cheaper
+%than the per-position derivation it would skip
+%[measured 2026-08-23, ai-tmp/synth/probe10.pl].
+tuple_positions_witness(Module, X, T) :-
+    T = [_|_],
+    X = [_|_],
+    \+ application_arrow_declared_in(Module, X),
+    is_list(T),
+    is_list(X),
+    same_length(X, T),
+    tuple_positions_hold(Module, X, T).
+
+tuple_positions_hold(_, [], []).
+tuple_positions_hold(Module, [Member|Members], [Type|Types]) :-
+    Type \== '%Undefined%',
+    member_holds_type(Module, Member, Type),
+    tuple_positions_hold(Module, Members, Types).
+
+%A member that is ITSELF an expression decomposes the same way, and it has to:
+%enumerating a nested member's types to find the one wanted is the product
+%again, one level down, so without this the exponential is displaced rather
+%than removed. Measured on a two-member expression whose first member is an
+%expression of k members carrying three types each, checked against the LAST
+%combination: 614 inferences at k=2 rising 9x per added inner member to
+%43,097,295 at k=8, where deciding it per position is linear
+%[measured 2026-08-23, ai-tmp/synth/probe11.pl].
+%The fallback enumerates that member's own types and stops at the first match,
+%which is Theta(c) for that member rather than Theta(c^k) for the expression.
+member_holds_type(Module, Member, Type) :-
+    (   tuple_positions_witness(Module, Member, Type)
+    ->  true
+    ;   once(( has_type_in(Module, Member, Candidate), Candidate == Type ))
     ).
 
 %A ground declaration is the admission common case, so probe its indexed

@@ -607,6 +607,59 @@ wide_declaration(Member, Type) :-
     between(1, 3, Which),
     wide_member_type(Which, Type).
 
+%The same expression, asked the other question. Deciding `X : T` by
+%SYNTHESISING X's types and comparing each to T walks the product until it
+%reaches T, so the cost depends on where T sits in that enumeration rather than
+%on the question: checking the last combination cost 29,496,420 inferences at
+%thirteen members where the first cost 312. The bound is on the ratio between
+%two widths, so it keeps testing the complexity class as constants move.
+test(a_wide_expression_checks_against_its_last_tuple_type_in_linear_time,
+     [ setup(setup_wide_members), cleanup(cleanup_wide_members) ]) :-
+    wide_check_cost(6, Narrow),
+    wide_check_cost(12, Wide),
+    assertion(Wide < Narrow * 4).
+
+%And a member that is itself an expression decomposes the same way. Enumerating
+%a nested member's types to find the one wanted is the product again, one level
+%down, so checking this displaced the exponential rather than removing it: 614
+%inferences at two inner members rising 9x per added one to 43,097,295 at eight.
+test(a_nested_expression_checks_against_its_last_tuple_type_in_linear_time,
+     [ setup(setup_wide_members), cleanup(cleanup_wide_members) ]) :-
+    nested_check_cost(6, Narrow),
+    nested_check_cost(12, Wide),
+    assertion(Wide < Narrow * 4).
+
+nested_check_cost(Width, Cost) :-
+    numlist(1, Width, Indices),
+    maplist(wide_member, Indices, Inner),
+    wide_member_type(3, Last),
+    length(InnerExpected, Width),
+    maplist(=(Last), InnerExpected),
+    wide_member(1, Outer),
+    statistics(inferences, Before),
+    (   has_type([Inner, Outer], [InnerExpected, Last])
+    ->  Held = true
+    ;   Held = false
+    ),
+    statistics(inferences, After),
+    Cost is After - Before,
+    assertion(Held == true).
+
+wide_check_cost(Width, Cost) :-
+    numlist(1, Width, Indices),
+    maplist(wide_member, Indices, Expression),
+    wide_member_type(3, Last),
+    length(Expected, Width),
+    maplist(=(Last), Expected),
+    statistics(inferences, Before),
+    (   has_type(Expression, Expected)
+    ->  Held = true
+    ;   Held = false
+    ),
+    statistics(inferences, After),
+    Cost is After - Before,
+    assertion(Held == true).
+
 wide_typing_cost(Width, Cost) :-
     numlist(1, Width, Indices),
     maplist(wide_member, Indices, Members),

@@ -48,6 +48,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Checking an expression against a known tuple type is now linear in the number
+  of members rather than exponential. The question was answered by deriving the
+  expression's candidate types and comparing each to the one asked about, so the
+  cost depended on where that type fell in the enumeration: at thirteen members
+  carrying three declared types each, the first candidate cost 312 inferences
+  and the last cost 29,496,420. Both are now flat. A member that is itself an
+  expression decomposes the same way, where enumerating its types cost
+  43,097,295 inferences at eight inner members and now costs 622. Answers are
+  unchanged, including for a `:<` edge that widens a whole tuple type.
 - Typing an expression with no declared arrow for its head is now linear in the
   number of members rather than exponential. Such an expression is typed
   element-wise, so its type set is the cartesian product of its members' type
