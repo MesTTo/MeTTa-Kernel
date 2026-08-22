@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/petta-*.md` | 23 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 34 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 166 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 167 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `bindings/python/tests/twins/**/*.py` | 218 Python twins of `examples/` programs across the corpus, each written with no MeTTa source text, answering alpha-equal to its original or explicitly declining a structured-residue form, and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
@@ -429,7 +429,8 @@ stop, not even by a program's own `(catch ...)`: a bound, a Ctrl-C and an
 expression, `build(atom)` -> object (returning the atom unchanged when it
 cannot), `register_type`, `unregister_type`, `declarations`, `auto_image`.
 Dataclasses, enums, pydantic models and annotated classes all cross; enums
-project to symbols. `@petta.record` marks a class for the round trip.
+project to symbols. `@space.define` on a class declares it INTO the space
+for the round trip; the separate record decorator is gone.
 
 `petta.integrate`: `module_ops(m, module, names=, prefix=, rename=,
 transport="raw")` registers a whole module's callables, `facts(m, atoms)` bulk-writes,
@@ -604,10 +605,10 @@ benchmark gates (`benchmark_case`, `benchmark_counter_slope`,
 These submodules and names, thirty-two of them, load on first access rather than during
 `import petta`: `aio`, `algebra`, `arrays`, `boot`, `casting`, `convert`,
 `derivation`, `events`, `foreign`, `integrate`, `lint`, `manifest`,
-`parallel`, `paths`, `record`, `remote`, `rules`, `spaces`, `structures`,
+`parallel`, `paths`, `remote`, `rules`, `spaces`, `structures`,
 `subscribe`, `tables`, `testing`, `trace`, `vocabularies`, `wire`, and the
 classes `Answer`, `Bindings`, `Defined`, `MeTTa`, `Space`, `SpaceProvider`,
-`equation`.
+`State`, `equation`.
 
 Importing petta therefore never pulls in the HTTP and table machinery boot
 composes over. dir(petta) still lists each one, and subscribe is eager, being

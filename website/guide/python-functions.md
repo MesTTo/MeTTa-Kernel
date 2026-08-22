@@ -1,7 +1,8 @@
 <!--
-Purpose: explain Python operation registration, type declarations, context injection, records, and property tests.
-Guarantees: examples use Space.op and canonical atom constructors without compatibility aliases.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+Purpose: explain Python operation registration, type declarations, context injection, and property tests.
+Guarantees: examples use Space.op, Space.define, and canonical atom constructors without compatibility aliases.
+[tested: npm run docs:build and test_define_wires_the_declarative_dance;
+commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
 -->
 
 # Python functions as MeTTa functions
@@ -55,24 +56,23 @@ The injected engine is bound to the calling context's space, so an operation inv
 
 See [`petta.ops`](../reference/petta-ops) for annotation mapping and registration, and [`petta.convert`](../reference/petta-convert) for object projection and rebuilding.
 
-## Declaring a data class without a function
+## Declaring a data class
 
-Signatures are one road into the type registry; `@petta.record` is the direct one. Stack it on a dataclass, NamedTuple, or Enum and the class converts both ways, its `(: ...)` declarations land in the default space, and it works as a `cast` and `query(into=)` target:
+`Space.define` accepts classes as well as functions. Stack it on a dataclass, NamedTuple, or Enum and the class converts both ways, its `(: ...)` declarations land in that space, and it works as a `cast` and `query(into=)` target:
 
 ```python
-@petta.record
+@m.define
 @dataclass
 class Edge:
     a: str
     b: str
 
-m = petta.space()
 m.query("(: Edge $t)")               # [(-> String String Edge)]
 m.query("(Edge $a $b)", into=Edge)   # [Edge(a=..., b=...)] once stored
 m.query(V.edge, into=Edge)            # rebuild each complete (Edge ...) atom
 ```
 
-The decorator does not boot the engine. Conversion registers immediately, so an unregistrable class fails at the decorator rather than at first use, but the declarations are engine-side atoms and land the moment an engine exists: on the first `MeTTa()` construction, or immediately if one is already running. That is what lets `record` sit at module import time in a library that may never start an engine at all.
+Declaration is context-relative and immediate: an unregistrable class fails at the decorator, and its declarations land in the same space that owns the decorator. There is no process-global class registry or second root decorator.
 
 `cast` checks admission and narrows; it does not construct. Building instances from answers is `query(into=Edge)`, `rows.build(Edge)`, or `petta.convert.build(atom, Edge)`.
 

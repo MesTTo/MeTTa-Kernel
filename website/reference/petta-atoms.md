@@ -4,6 +4,11 @@ Source: `bindings/python/petta/atoms.py`.
 
 > Purpose: expose PeTTa atoms, the S/V/G factories, parsing, and matching.
 > Guarantees:
+>   - type and keyword builders produce stored terms while ``order_key`` and
+>     Atom.__lt__ agree on elementwise expression order [tested:
+>     test_typed_and_arrow_retire_49_raw_type_symbols,
+>     test_keyword_builders_retire_53_raw_if_mentions, and
+>     test_plain_sorted_uses_the_engines_elementwise_order; commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
 >   - public atom classes retain the petta.atoms pickle path after internal
 >     module cuts [tested test_atoms_pickle_by_value,
 >     test_atoms_cross_a_spawned_process_boundary]
@@ -41,6 +46,62 @@ def ground(value: Any) -> Grounded:
 > :mod:`petta.wire`; ``ground([1, 2, 3])`` therefore carries one list by
 > identity instead of turning it into an expression.
 
+## `arrow`
+
+```python
+def arrow(*positions: Any) -> Expression:
+```
+
+> Build an arrow type as data, mapping Python types through annotations.
+
+## `typed`
+
+```python
+def typed(subject: Any, type_: Any) -> Expression:
+```
+
+> Build ``(: subject type)`` as data; annotations are accepted as types.
+
+## `if_`
+
+```python
+def if_(condition: Any, consequent: Any, alternative: Any) -> Expression:
+```
+
+> Build a quoted or stored ``if``; Python ``if`` lowers inside define.
+
+## `not_`
+
+```python
+def not_(value: Any) -> Expression:
+```
+
+> Build a quoted or stored ``not`` term.
+
+## `and_`
+
+```python
+def and_(*values: Any) -> Expression:
+```
+
+> Build a quoted or stored ``and`` term.
+
+## `or_`
+
+```python
+def or_(*values: Any) -> Expression:
+```
+
+> Build a quoted or stored ``or`` term.
+
+## `in_`
+
+```python
+def in_(member: Any, container: Any) -> Expression:
+```
+
+> Build a quoted or stored ``in`` term.
+
 ## `parse`
 
 ```python
@@ -71,13 +132,10 @@ def order_key(atom: Atom) -> tuple:
 >
 >     sorted(atoms, key=order_key)
 >
-> A KEY rather than `__lt__`, because `<` already means something here:
-> `S.a < S.b` builds the term `(< a b)`, which is what the operators are
-> for, so `sorted()` over atoms raised "(&lt; a c) is a comparison TERM, not a
-> truth value". That message is right and the order it refuses to invent
-> exists anyway, in the language underneath: variables before numbers before
-> symbols before strings before compounds, and compounds by arity, then by
-> functor, then argument by argument
+> Atom.__lt__ delegates to this key, so explicit and plain sorting agree.
+> The language's list-shaped expressions compare child by child; length is
+> reached only when one expression is a prefix of the other. Variables come
+> before numbers, symbols, strings, objects, and expressions
 > [source: SWI-Prolog 10.1 Reference Manual, Standard Order of Terms].
 >
 > Two atoms that compare equal here are not necessarily the same atom: a key

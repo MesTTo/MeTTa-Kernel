@@ -7,6 +7,10 @@ Source: `bindings/python/petta/ops.py`.
 > (a generator function is one), derives a MeTTa type declaration from the
 > annotations, and registers the whole thing with the engine through shim.pl.
 > Guarantees:
+>   - class declaration has no process-global ``record`` registry or second
+>     decorator spelling [tested:
+>     test_define_absorbs_class_declaration_and_frees_space_type;
+>     commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
 >   - registration distinguishes a MeTTa function name from its declaration
 >     space [tested: test_canonical_context_types_replace_public_newtypes;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
@@ -57,41 +61,6 @@ Source: `bindings/python/petta/ops.py`.
 >     spelling for them; today MeTTa call sites are positional.
 
 The entries below reproduce the source signatures and docstrings.
-
-## `record`
-
-```python
-def record(cls: type) -> type:
-```
-
-> The declarative-record wiring, attrs' and pydantic's shape: one
-> decorator over a dataclass, NamedTuple, or Enum and the class
-> converts both ways, its `(: ...)` declarations land in &self, and it
-> serves as a cast and query(into=) target.
->
->     @petta.record
->     @dataclass
->     class Edge:
->         a: str
->         b: str
->
-> Conversion registers immediately (an unregistrable class fails at
-> the decorator, not at first use). The declarations are engine-side
-> atoms, so they land the moment an engine exists: immediately when
-> one is already booted, or on the first MeTTa construction otherwise,
-> which is what lets the decorator run at import time without booting
-> anything. Every underlying registration call stays public for the
-> classes that need custom shapes.
-
-## `declare_recorded`
-
-```python
-def declare_recorded() -> None:
-```
-
-> Land every pending recorded class's declarations in &self; a
-> no-op when nothing is pending, called by MeTTa construction so a
-> decorator that ran before any engine existed still declares.
 
 ## `class_declarations`
 

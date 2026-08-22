@@ -20,8 +20,8 @@ is that row's own space.
 Rows fall in five buckets, and the bucket is the honest part:
 
 - **dissolves** (115) &mdash; Python already has the concept, so there is no petta name at all and the spelling is Python's own syntax, protocol or standard library
-- **method** (16) &mdash; the concept is MeTTa's own, so it wears a petta name
-- **instruction** (5) &mdash; deep control that stays instruction-tier, reached by building the term at the `S.` door and reducing it
+- **method** (21) &mdash; the concept is MeTTa's own, so it wears a petta name
+- **instruction** (0) &mdash; deep control that stays instruction-tier, reached by building the term at the `S.` door and reducing it
 - **internal** (198) &mdash; LeaTTa's mechanised interpreter, written in MeTTa; PeTTa writes its interpreter in Prolog, so these names are on neither surface
 - **absent** (43) &mdash; a user-facing operation with no Python spelling today: the residue
 
@@ -304,8 +304,8 @@ Python side does not move. Within one run the counts are exact: three fresh
 
 | MeTTa | Python | answers | bucket |
 |---|---|---|---|
-| `!(get-type 1)` | `m.eval(S['get-type'](1))[0]` | `Number` | instruction |
-| `!(get-type-space &self 1)` | `m.eval(S['get-type-space'](S['&self'], 1))[0]` | `Number` | instruction |
+| `!(get-type 1)` | `m.type(1)` | `Number` | method |
+| `!(get-type-space &self 1)` | `space.type(1)` | `Number` | method |
 | `!(get-metatype (a b))` | `e = petta.Expression(S.a, S.b) ⏎ S[e.metatype]` | `Expression` | dissolves |
 | `!(is-function (-> Number Number))` | `t = S['->'](S.Number, S.Number) ⏎ t[0] == S['->']` | `True` | dissolves |
 | `(: pbf (-> Number Number)) ⏎ (= (pbf $x) $x) ⏎ !(get-type pbf)` | `t = S['->'](S.Number, S.Number) ⏎ t` | `(-> Number Number)` | dissolves |
@@ -319,8 +319,8 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(skel-swap-pair-native (Pair 1 2))` | &mdash; | `(skel-swap-pair-native (Pair 1 2))` | absent |
 | `!(get-type ◁)` | &mdash; | `(-> Atom Type Atom Atom)` | absent |
 
-- `get-type` `(-> Atom %Undefined%)` &mdash; Section 9e's design is `space.type(atom)`, because declared types are space-relative; the shipped `m.type` is the class decorator, so today the type question goes through the term door.
-- `get-type-space` `(-> SpaceType Atom Atom)` &mdash; The same question asked of a named space, which is what makes `space.type(a)` the right eventual shape.
+- `get-type` `(-> Atom %Undefined%)` &mdash; Declared types are space-relative, so `space.type(atom)` asks the space. Class declarations use the consolidated `@space.define` decorator.
+- `get-type-space` `(-> SpaceType Atom Atom)` &mdash; The same question asked of a named space through that handle's `space.type(atom)` method.
 - `get-metatype` `(-> Atom Atom)` &mdash; Python's own builtin `type`: the four atom classes ARE the four metatypes, so `type(a).__name__` is the metatype by construction.
 - `is-function` `(-> Type Bool)` &mdash; Asking whether a type is an arrow. In Python the same question is asked of the annotation, and `m.is_function(name)` asks it of a defined name.
 - `->` `(-> (%Rest% Type) Type)` &mdash; Annotations. A parameter and return annotation on a decorated function emits the arrow, and `Callable[[int], int]` maps through the same one table; `S['->']` stays for a hand-built arrow.
@@ -328,7 +328,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `SpaceType` `Type` &mdash; The type of a space. PeTTa does not declare the name, so there is nothing for a Python type table to map to yet. The form is shown but not run here: PeTTa answers SpaceType for a space but does not declare the symbol itself.
 - `TP` `Type` &mdash; LeaTTa's type-preserving strategy type, Lämmel's TP. It arrives with the strategy basis or not at all. The form is shown but not run here: PeTTa does not declare the name.
 - `TU` `(-> Type Type)` &mdash; LeaTTa's type-unifying strategy type, Lämmel's TU. The form is shown but not run here: PeTTa does not declare the name.
-- `Pair` `(-> $ta $tb (PairType $ta $tb))` &mdash; A constructor from LeaTTa's `skel` demonstration module. PeTTa has no such module; `@petta.record` is how a Python program declares a constructor. The form is shown but not run here: PeTTa does not declare the name.
+- `Pair` `(-> $ta $tb (PairType $ta $tb))` &mdash; A constructor from LeaTTa's `skel` demonstration module. PeTTa has no such module; a class decorated with `@space.define` declares its constructor in that space. The form is shown but not run here: PeTTa does not declare the name.
 - `PairType` `(-> $ta $tb Type)` &mdash; The parameterised type of `Pair`, from the same module. The form is shown but not run here: PeTTa does not declare the name.
 - `skel-swap-pair` `(-> (PairType $ta $tb) (PairType $tb $ta))` &mdash; The `skel` module's worked equation, LeaTTa's demonstration that a built-in module can ship both a MeTTa and a native implementation. The form is shown but not run here: PeTTa does not declare the name.
 - `skel-swap-pair-native` `(-> (PairType $ta $tb) (PairType $tb $ta))` &mdash; The native half of the same demonstration. The form is shown but not run here: PeTTa does not declare the name.
@@ -338,13 +338,13 @@ Python side does not move. Within one run the counts are exact: three fresh
 
 | MeTTa | Python | answers | bucket |
 |---|---|---|---|
-| `!(get-state (new-state 1))` | `m.eval(S['get-state'](S['new-state'](1)))[0]` | `1` | instruction |
-| `!(let $c (new-state 5) (get-state $c))` | `m.eval(S.let(V.c, S['new-state'](5), S['get-state'](V.c)))[0]` | `5` | instruction |
-| `!(let $c (new-state 1) (get-state (change-state! $c 2)))` | `m.eval(S.let(V.c, S['new-state'](1), S['get-state'](S['change-state!'](V.c, 2))))[0]` | `2` | instruction |
+| `!(get-state (new-state 1))` | `state = petta.State[int](1, space=m) ⏎ state.value` | `1` | method |
+| `!(let $c (new-state 5) (get-state $c))` | `state = petta.State[int](5, space=m) ⏎ state.value` | `5` | method |
+| `!(let $c (new-state 1) (get-state (change-state! $c 2)))` | `state = petta.State[int](1, space=m) ⏎ state.value = 2 ⏎ state.value` | `2` | method |
 
-- `new-state` `(-> $t (StateMonad $t))` &mdash; The typed state cell stays instruction-tier until it has a Python handle. The row reads the cell back rather than showing it, because the CELL itself prints differently on each engine: `(State 1)` on LeaTTa and `&state-#0` here [measured 2026-08-22].
-- `get-state` `(-> (StateMonad $tgso) $tgso)` &mdash; Reading the cell, through the same door, after naming it.
-- `change-state!` `(-> (StateMonad $tcso) $tcso (StateMonad $tcso))` &mdash; Writing the cell. A Python program usually reaches for a space instead, which is queryable where a cell is not.
+- `new-state` `(-> $t (StateMonad $t))` &mdash; `petta.State[T](value, space=space)` creates the typed Python handle. The row reads `.value` because the engine cell itself is deliberately hidden behind that handle.
+- `get-state` `(-> (StateMonad $tgso) $tgso)` &mdash; Reading the cell is the typed handle's `state.value` property.
+- `change-state!` `(-> (StateMonad $tcso) $tcso (StateMonad $tcso))` &mdash; Assigning `state.value` writes the same typed engine cell and reading it back returns the replacement.
 - `_new-state` `(-> $t Expression (StateMonad $t))` &mdash; LeaTTa's internal constructor behind `new-state`.
 
 ## Printing and text

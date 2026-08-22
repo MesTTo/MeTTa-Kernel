@@ -1,7 +1,7 @@
 <!--
 Purpose: introduce PeTTa, its narrow Python surface, and the commands needed to use and develop it.
 Guarantees: every Python code block executes against the documented public API.
-[tested: python -m pytest bindings/python/tests/test_readme.py -q; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+[tested: python -m pytest bindings/python/tests/test_readme.py -q; commit=c34c9bf3e55a8425d3f251c3ad06c33bc9755a22]
 -->
 
 ## PeTTa
@@ -365,10 +365,11 @@ This leans on Python's metaprogramming the way SQLAlchemy and Pydantic do:
 introspected signatures become arities and types, the AST becomes equations,
 protocols become types, and entry points become discovery.
 
-Beyond operations and spaces, the surface carries: `@m.type`, which
-declares an Enum, dataclass or NamedTuple into a space with constructor
-declarations and one accessor equation per field, `rows.build(col, Person)`
-rebuilding answers as instances and preserving `Person` for type checkers;
+Beyond operations and spaces, the surface carries: `@m.define` on an Enum,
+dataclass or NamedTuple, which declares the class into a space with constructor
+declarations and one accessor equation per field; `m.type(atom)`, which reads
+the atom's declared type; `rows.build(col, Person)`, which rebuilds
+answers as instances and preserves `Person` for type checkers;
 `rows.to_dicts()` returning one plain mapping per answer;
 `with m.bind(df=df): m.run(...)`, naming host values by bare symbol with
 identity intact; `m.subscribe(pattern,

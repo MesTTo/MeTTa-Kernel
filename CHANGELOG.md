@@ -54,8 +54,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   evaluates. `EventStream.publish` announces a change this process did not
   write, which is how a provider with a channel of its own delivers.
 
-### Added
-
 - The stdlib phrasebook: every operation MeTTa's standard library declares,
   and what you write in Python instead, at
   `website/reference/stdlib-phrasebook.md`. 136 of 179 surface operations
@@ -69,7 +67,21 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   MeTTa forms cost 150,082 engine inferences and the Python spellings 6,676,
   and 90 of the 121 cost the engine nothing at all.
 
-### Added
+- The thirteen ruled doors land: `solve(pattern, subject)` answers
+  caller-named binding rows; `typed()` and `arrow()` route Python
+  annotations through the type table; `if_`, `not_`, `and_`, `or_`, and
+  `in_` build keyword terms; `watch(pattern)` yields change events until
+  closed; `@space.define` accepts classes and `space.type(atom)` is the
+  get-type accessor, retiring the separate record decorator; `State[T]`
+  wraps the state triple as one typed handle; `operator` and fourteen
+  `math` callables encode as mentions by identity with compiled-call
+  adapters for Python-only argument order; atom `<` uses the engine's
+  elementwise order; solve rows hash, so `set(rows)` collapses
+  duplicates; `Rules.lower(strategy, requires=)` stores, declares, and
+  registers a lowering in one call; `transaction(callable)` keeps
+  Python's exception law while `transaction(term)` keeps the engine's
+  answers law; and an unmatched defined call stays visible under the
+  configured no-match policy.
 
 - Compiled bodies carry MeTTa mentions directly: `S.name` and `V.name`
   lower into atoms by lexical identity with the total
@@ -218,8 +230,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   upstream's `import python.petta` resolving to the canonical modules is
   gone, and `petta` is the only import path. Code spelling the upstream
   checkout layout must import `petta` directly.
-
-### Added
 
 - The shipped translator rules' termination is now ESTABLISHED.
   `lib/lib_spaces.metta`'s `succeedsPredicate` writes two variables its head
@@ -619,15 +629,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   scheduled repair registration always used, and the events are pure
   observations again.
 
-### Removed
-
 - `eval(residuals=...)` and `AsyncMeTTa.eval(residuals=...)` no longer select
   a second return shape. A term with no applicable rule is the unreduced term
   returned by ordinary evaluation, while `eval_status()` names that path
   `not-reducible`. Undefined truth still carries its delay condition, and
   constraint stores remain inspectable inside MeTTa through `residual-goals`.
-
-### Changed
 
 - `run()` and `eval()` now always return their list shapes. Printed output is
   collected with `with m.capture()`, while atomic, speculative, and strict
@@ -697,8 +703,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   cross every host boundary, not Python's alone. A program or tool matching
   the old spellings in raw error text must follow; the structured fields on
   the `petta.errors` classes are unchanged.
-
-### Added
 
 - Repeated `eval` calls reuse their compiled Prolog goal template. Templates
   are variant-keyed per execution space and are evicted when any function or
@@ -785,8 +789,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   else, through `Development Status :: 3 - Alpha`, and `SECURITY.md` now
   travels in the source archive beside `CHANGELOG.md` and `CITATION.cff`.
 
-### Changed
-
 - A MeTTa source can be reloaded after you edit it, and both doors onto a file
   now mean the same thing by it. `m.load(path)` is a consult: it always loads,
   and what it loads replaces what that same file put in the space before.
@@ -844,8 +846,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   arbiter presents, and for a derived form still fused into the compiler, the
   measurement that keeps it there.
 
-### Added
-
 - `lib/lib_derived.metta`, the derived forms the compiler keeps fused, written
   out as translator rules for a program that wants the smaller instruction set
   anyway. `once` is there: `(take 1 ...)` answers what `once` answers over all
@@ -885,8 +885,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `examples/reasoning/tilepuzzle.metta` are written that way now, and the
   204-example corpus answers identically, group for group. An equation whose
   head relied on evaluation must make the same move.
-
-### Fixed
 
 - `(case Key Cases)` reads a case pair that is still a variable as a pair
   that has not arrived, the way it already read a cases list that is still a
@@ -960,8 +958,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   which un-compiles the clause and forgets the function name when nothing else
   defines it; plain atoms have no compiled half and stay on the one-retractall
   sweep.
-
-### Changed
 
 - `remove-atom` takes ONE occurrence, not every one. A space is a multiset and
   removal is multiset subtraction, so three `(add-atom &self (dup 1))` and one
@@ -1210,8 +1206,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   argument does not fire on either, and each of the four answers above is
   what both of them give.
 
-### Fixed
-
 - `(case Key Cases)` no longer allocates 7.5 Gb and dies when its cases are
   not written out. The form compiles one nested conditional from cases it
   reads as syntax, and a cases argument that is still a variable has none to
@@ -1234,7 +1228,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   cases; handing them over as a value costs one translation per call, 78, 258
   and 498 inferences for the same three sizes. A `case` on a hot path is
   worth writing out. `examples/control/casecomputed.metta` runs all of it.
-### Added
 
 - `(atomically EXPR)`, the atomic block under the name the concurrency
   vocabulary uses for it: Haskell's STM spells it `atomically`, Clojure's
@@ -1286,7 +1279,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   written rather than a silent empty answer where it runs. A space that later
   gains a definition of the name becomes the nearer target, and the callers
   are rebuilt when it does. `examples/spaces/super.metta` runs all of it.
-
 
 - The LeaTTa conformance lane (`tests/conformance/leatta.py`) now gates PER
   AREA instead of all-or-nothing. `--gate-areas-file PATH` reads a plain
@@ -1352,8 +1344,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   oversight, because it compares against an upstream base whose examples
   are flat where this tree groups them into folders.
 
-### Added
-
 - `MeTTa.load()` and `AsyncMeTTa.load()` take `timeout=` and `inferences=`,
   the pair twelve sibling entry points already took. `load` is the one most
   likely to be handed code the caller did not write, since a file carries
@@ -1364,8 +1354,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 - `MeTTa.subscribe()` takes `queue_max=`, and `petta.SubscriberError` is
   exported.
-
-### Fixed
 
 - The reader separates atoms on every Unicode whitespace character now, not
   on seven ASCII ones. 21 of the 25 characters carrying the Unicode
@@ -1677,9 +1665,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   is a legitimate summary rather than the unfiltered trace: five checks in
   one file print 273 lines on their own [measured 2026-08-18].
 
-
-### Changed
-
 - **Breaking.** The Python name is the MeTTa name, verbatim. Nine places
   in the surface used to rewrite it, `fn.__name__.replace("_", "-")`, so
   `@m.register_op def p_digit(...)` registered `p-digit` and the name the
@@ -1710,8 +1695,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   space, and answered nothing without an error. Removing the rewrite
   removes the class of mismatch rather than extending it to one more
   position.
-
-### Fixed
 
 - `ClosureView`'s own example did not work. It documented
   `deps.reachable("app")` and `("app", "libc") in deps`, and a Python
@@ -1748,8 +1731,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   clause of the name survives called `clause/3` on every arity of it,
   and `clause/3` refuses a private procedure. A builtin is never a
   clause of ours, so it is skipped rather than inspected.
-
-### Added
 
 - Rewrote `llms.txt` and gated it. The file an agent reads instead of the
   tree had gone stale in the way that matters most: it named
@@ -2326,8 +2307,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   (`bindings/python/examples/integration/typescript_space/`, with the protocol
   itself documented in the website's live section).
 
-### Fixed
-
 - A recursive definition could silently answer NOTHING. An equation whose
   body calls itself with a ground higher-order argument compiles a clone
   for that call and a generic clause naming it, and the invalidation that
@@ -2356,8 +2335,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   they did not, pairing the lists crosswise and over-constraining the
   claim. Claims resolve back to the caller's own terms by wire identity
   now, and the partition check is a check rather than a mechanism.
-
-### Changed
 
 - One equation-compile door. Three doors used to carry the compile spine
   separately (spaces.pl's add_function_atom and filereader.pl's two
@@ -2415,8 +2392,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   semantics. Issue #177 proposes `::` "when position cannot distinguish the two
   uses"; it can, and `::` is what MeTTa's own tutorials use for cons lists.
 
-### Fixed
-
 - Fixed three divergences in the space write path, which dispatched on where an
   atom is STORED before what it MEANS. A `(: f T)` added to a foreign space
   never recompiled `f`'s call sites; a type declaration added inside a batch
@@ -2451,8 +2426,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Reported the reader's syntax diagnostic without Janus's unknown-error wrapper.
 - Made a dropped space release its integration installation records so a new
   space reusing the same name runs each installer again.
-
-### Removed
 
 - Removed `petta.measure` and `petta.matching`: scored matching is the
   general surface (`register_op` + `Answer(value=candidate, k=degree)` +

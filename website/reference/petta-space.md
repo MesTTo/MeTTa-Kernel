@@ -11,6 +11,15 @@ Source: `bindings/python/petta/_space.py`.
 >     _space_execution.py, _space_persistence.py, _space_objects.py, and
 >     _space_diagnostics.py; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 > Guarantees:
+>   - solve, Linda verbs, class define, get-type, bang resolution, and both
+>     transaction laws are observable through one Space handle [tested:
+>     test_solve_retires_the_five_relational_let_workarounds,
+>     test_solve_refuses_an_anonymous_only_subject,
+>     test_take_peek_and_watch_retire_the_thread_linda_fn_strings,
+>     test_watch_close_before_first_event_cancels_its_eager_subscription,
+>     test_define_absorbs_class_declaration_and_frees_space_type,
+>     test_fn_strips_one_bang_only_when_the_exact_name_is_absent, and
+>     test_transaction_term_uses_empty_answer_rollback_law; commit=c34c9bf3e55a8425d3f251c3ad06c33bc9755a22]
 >   - ``MeTTa`` carries only context primitives while ``Space`` owns storage,
 >     query, declaration, and lifecycle verbs [tested:
 >     test_m7_narrow_core_surface; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
@@ -553,20 +562,22 @@ def assuming(self, *facts: Any) -> _Assuming:
 ### `Space.transaction`
 
 ```python
-def transaction(self, callable_: Callable[[], _R], /) -> _R:
+def transaction(self, target: Callable[[], _R] | Any, /) -> Any:
 ```
 
-> Run a zero-argument callable inside one engine transaction,
-> now, answering its return value: the Python door of the MeTTa
-> (transaction ...) form, riding the same petta_transaction/1, so
-> foreign-space enlistment and nesting behave identically in both
-> languages.
+> Run one callable or term inside a closed engine transaction.
+>
+> The two inputs preserve their native failure laws. A zero-argument
+> Python callable commits its return value and rolls back on a Python
+> exception. A term returns its engine answers and rolls back when that
+> answer set is empty, exactly like ``(transaction ...)``.
 >
 >     m.transaction(lambda: migrate(m))
+>     m.transaction(S.progn(write, verify))
 >
 > Every engine write the callable makes, stored atoms, equations
 > and their compiled clauses included, commits or rolls back
-> together. An exception is the one rollback trigger, because a
+> together. An exception is the callable's rollback trigger, because a
 > Python callable cannot fail the Prolog way, and it re-raises AS
 > ITSELF: your ValueError arrives as ValueError with the engine
 > boundary in its chain. Only the engine's dynamic state rolls
@@ -583,6 +594,27 @@ def transaction(self, callable_: Callable[[], _R], /) -> _R:
 > to hold across a block, and pretending otherwise would lie about
 > the isolation actually provided. transactional() is the
 > decorator twin.
+
+### `Space.solve`
+
+```python
+def solve(self, pattern: Any, subject: Any) -> Any:
+```
+
+> Run relational ``let`` and return bindings keyed by its variables.
+>
+> ``solve(4, V.x - 1).x`` places the known value on let's pattern side,
+> lets the arithmetic relation solve backwards, and projects ``x``.
+> The answer template is derived from the subject's variables, so the
+> third hand-written ``let`` argument disappears.
+
+### `Space.watch`
+
+```python
+def watch(self, pattern: Any, *, on: str = 'add'):
+```
+
+> Yield matching change events until the iterator closes.
 
 ### `Space.limits`
 
@@ -1363,6 +1395,8 @@ def define(
     *,
     prolog: str | os.PathLike[str] | None = None,
     name: str | None = None,
+    accessors: bool = True,
+    methods: bool = True,
 ) -> Any:
 ```
 
@@ -1421,7 +1455,7 @@ def define(
 ### `Space.rules`
 
 ```python
-def rules(self, fn: Callable[..., Any]) -> _RuleBundle:
+def rules(self, fn: Callable[..., Any]) -> _Rules:
 ```
 
 > Collect and land a non-exclusive equation bundle in this space.
@@ -1480,34 +1514,10 @@ def cache(
 ### `Space.type`
 
 ```python
-def type(self, cls: _builtins.type | None = None, *, accessors: bool = True, methods: bool = True):
+def type(self, atom: Any) -> Atom:
 ```
 
-> Declare a Python class INTO this space, decorator-style: the
-> (: ...) declarations land as atoms, an expression-image class
-> (a dataclass, a NamedTuple) gains one accessor equation per
-> field, and its own METHODS register as MeTTa functions, so the
-> class crosses with its behavior, not only its structure.
->
->     @m.type
->     @dataclass
->     class Point:
->         x: float
->         y: float
->         def norm(self) -> float:
->             return (self.x ** 2 + self.y ** 2) ** 0.5
->
->     m.run("!(Point-x (Point 3.0 4.0))")        # [[3.0]]
->     m.run("!(Point-norm (Point 3.0 4.0))")     # [[5.0]]
->
-> A method receives the instance whether it arrives as a
-> constructor TERM (rebuilt through the translator) or as a live
-> handle, and a result the translator knows projects back as a
-> term, so a method answering the class answers something MeTTa
-> keeps matching and Python builds back. An equation over the
-> constructor is then a method written in MeTTa itself, on equal
-> footing. An Enum declares its members; get-type sees them all.
-> Returns the class, so it stacks under @dataclass.
+> Return this space's first ``get-type`` answer, including undefined.
 
 ### `Space.fn`
 
@@ -1985,10 +1995,10 @@ def strict(self) -> ScopedExecution:
 ### `MeTTa.transaction`
 
 ```python
-def transaction(self, callable_: Callable[[], _R], /) -> _R:
+def transaction(self, target: Any, /) -> Any:
 ```
 
-> Run one callable in an engine transaction.
+> Run one callable or term in an engine transaction.
 
 ### `MeTTa.stats`
 
