@@ -48,6 +48,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- The Python twins under `reasoning/`, `performance/` and `integration/` are
+  written in the library's own notation rather than transliterated from the
+  s-expressions they mirror. A term is built by calling its head, a name is an
+  attribute where it is a Python identifier, an equation is
+  `equation(lhs).to(rhs)`, a data expression is a Python tuple, arithmetic and
+  comparison are Python's operators, and seven definitions whose whole body has
+  a compiled spelling are ordinary `@m.define` functions. Every twin's answers
+  and stored atoms are unchanged, and each one now says in its docstring which
+  construct kept it at the container door.
 - Calling a `Defined` object now evaluates the call in the space that owns the
   definition and returns its answer list. Use `S[name](...)` to build the call
   as data; calls made while a `@rules` generator is being collected stage as
