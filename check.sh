@@ -19,6 +19,7 @@
 #                                            policy-inventory
 #                                            policy-inventory-selftest snippets
 #                                            pytest benchmarks instructions
+#                                            memory-scale memory-scale-gate
 #                                            shell examples leatta layering
 #          CHECK_PY=/path/to/python   pick the interpreter
 #          GATE_ONLY=1                skip the REPORT tier
@@ -27,6 +28,10 @@
 #     selftest are GATE lanes [tested:
 #     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
 #     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+#   - memory and scaling curves run once in REPORT-then-GATE order; GATE_ONLY
+#     still takes a fresh measurement and promotes only deterministic pins
+#     [tested: env CHECK_PY=/home/user/Dev/.venv-pypetta/bin/python
+#     GATE_ONLY=1 sh check.sh memory-scale-gate; commit=WORKTREE].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -62,7 +67,9 @@ PYDIR="$HERE/bindings/python"
 WANT="$*"
 FAILED=''
 SUMMARY=$(mktemp "${TMPDIR:-/tmp}/petta-check.XXXXXX")
-trap 'rm -f "$SUMMARY"' EXIT
+MEMORY_SCALE_DATA=$(mktemp "${TMPDIR:-/tmp}/petta-memory-scale.XXXXXX")
+MEMORY_SCALE_STATUS=$(mktemp "${TMPDIR:-/tmp}/petta-memory-scale-status.XXXXXX")
+trap 'rm -f "$SUMMARY" "$MEMORY_SCALE_DATA" "$MEMORY_SCALE_STATUS"' EXIT
 
 # run TIER NAME COMMAND...
 # A GATE failure is recorded; a REPORT failure is printed and forgiven.
@@ -125,6 +132,40 @@ build_c_extension_example
 run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark -n 4 --dist loadfile --max-worker-restart=0"
 run GATE benchmarks   in_py "$PY" bench.py --counter-only --keep-going
 run GATE instructions in_py "$PY" -m benchmarks.check_instructions
+
+# Run the complete fresh-process, min-of-three instrument once and reuse its
+# verdict for the adjacent gate. The report includes process PSS/private/RSS/
+# HWM metrics, but memory-scale-baseline.json promotes only exact SWI bytes,
+# counts and controlled instruction/inference shapes. Promote a process metric
+# only after ten independent suites spanning the observed load bands keep its
+# min-of-three spread within 2%, and a planted max(5%, eight-page) retention is
+# detected in every suite. Until then allocator and scheduler noise is printed,
+# measured and pinned, but cannot turn a loaded host red.
+memory_scale_report() {
+    in_py "$PY" bench.py --memory-scale --memory-repetitions 3 \
+        --timeout 200 --keep-going --json "$MEMORY_SCALE_DATA"
+    memory_scale_result=$?
+    printf '%s\n' "$memory_scale_result" > "$MEMORY_SCALE_STATUS"
+    return "$memory_scale_result"
+}
+
+memory_scale_gate() {
+    if [ ! -s "$MEMORY_SCALE_STATUS" ]; then
+        memory_scale_report
+    fi
+    if [ ! -s "$MEMORY_SCALE_DATA" ]; then
+        echo "memory-scale gate: REPORT produced no measurement document" >&2
+        return 1
+    fi
+    memory_scale_result=$(cat "$MEMORY_SCALE_STATUS")
+    if [ "$memory_scale_result" != 0 ]; then
+        echo "memory-scale gate: REPORT exited $memory_scale_result" >&2
+        return 1
+    fi
+}
+
+run REPORT memory-scale      memory_scale_report
+run GATE   memory-scale-gate memory_scale_gate
 run_example_corpus() {
     py_prefix=$(dirname "$(dirname "$PY")")
     if [ -f "$py_prefix/pyvenv.cfg" ]; then
