@@ -10,11 +10,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,
-  fits constant through quadratic complexity families over geometric sizes,
-  and separates exact SWI structural bytes from Python allocations and Linux
-  process memory. Controlled `instructions:u` samples cover primitive-heavy
-  projection width, while page-based RSS, PSS, and private bytes remain
-  report-only.
+  fits constant through quadratic and capped-linear complexity families over
+  geometric sizes, and separates exact SWI structural bytes from Python
+  allocations and Linux process memory. Controlled `instructions:u` samples
+  cover primitive-heavy projection width. Exact lanes also gate atom, grounded
+  object, MORK space, table, module-pool, and bounded wire-cache reclamation;
+  page-based RSS, PSS, and private bytes remain report-only.
 
 ### Changed
 
