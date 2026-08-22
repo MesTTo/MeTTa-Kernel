@@ -3198,6 +3198,17 @@ metta_effect_construct(metta_top(_, A, _), [A]).
 %effect lives, so the purity walk must descend it rather than refuse the
 %engine helper or, worse, call the helper pure as a whole.
 metta_effect_construct(dispatch_policy_execute(_, _, _, Goal, _), [Goal]).
+%A MODULE-QUALIFIED goal holds its effect in the goal, not in the module, and
+%it has to be here rather than left to the meta_predicate clause below: that
+%clause reads `functor(Meta, Name, Arity)` for a `:`/2 term, SWI answers a
+%meta_predicate spec belonging to an unrelated predicate of that name and
+%arity, and the walk then yielded the MODULE ATOM. A body carrying
+%`system:b_setval(K, V)` was refused as `system/0`, naming an operator the
+%program never wrote and advising a declaration for a module. The engine writes
+%a qualifier where a space-local equation of the same name must not capture the
+%goal, which the inlined fuel charge relies on
+%[tested: test_a_cached_definition_tables_and_answers_from_its_trie].
+metta_effect_construct(_:Goal, [Goal]).
 %Anything else that CALLS one of its arguments, read from SWI's own
 %meta_predicate declaration rather than from a list here. This clause is last,
 %so every construct above keeps its exact handling and this catches the rest.
@@ -3368,6 +3379,13 @@ metta_effect_prolog_primitive(unify_with_occurs_check).
 %refused a pure body one word inside a collapse
 %[tested: a_pure_body_inside_a_wrapper_still_tables].
 metta_effect_prolog_primitive(petta_prune_empty).
+%The balance the inlined fuel charge reads and writes, module-qualified in the
+%emitted goal so a program may still name them. b_setval/2 is a WRITE, and
+%listing it here says what listing petta_fuel_step/2 as a pure engine helper
+%said before the charge was inlined: a cached answer replays without spending
+%fuel, which is the behaviour this engine already had.
+metta_effect_prolog_primitive(b_getval).
+metta_effect_prolog_primitive(b_setval).
 %Restricted-space translation emits these guards immediately before the
 %operation it protects. They inspect the fixed execution-base declaration and
 %must not hide the operation from the effect walk: classifying them as inert
@@ -4815,7 +4833,12 @@ pure_engine_helper(function_overapplication).
 pure_engine_helper(throw_metta_type_error).
 pure_engine_helper(rethrow_metta_operation_error).
 pure_engine_helper(non_list).
-pure_engine_helper(petta_fuel_step).
+%The two halves of the charge petta_fuel_step_goal/3 writes into every
+%compiled recursive clause. They stand where petta_fuel_step/2 stood before
+%the charge was inlined, and classifying them the same way is what keeps a
+%tabled recursive body cacheable across that change.
+pure_engine_helper(petta_evaluation_fuel).
+pure_engine_helper(petta_fuel_exhausted).
 pure_engine_helper(type_answers).
 pure_engine_helper(satisfies_metatype).
 %These two only choose the language-level residual, failure or Error value.
@@ -5616,41 +5639,57 @@ petta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
     reverse(Reverse, Errors),
     member(Culprit, Errors).
 
-%A step inside a scope costs six inferences and a step outside one costs two,
-%measured rather than counted by eye against a loop with the step removed
-%[measured 2026-08-22: 6 and 2; command=swipl ai-tmp/p14e-step-cost.pl;
-%fixture=20000 iterations; commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f]. Five shapes of this body were
-%raced and every one of them costs the same six, so the sentinel and the second
-%comparison are free and there is nothing left to shave in Prolog
-%[measured 2026-08-22: v1..v5 all 6.0; command=swipl ai-tmp/p14e-step-ab2.pl;
-%commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f]. The step that reads two globals costs seven, which is the
-%one inference per reduction the single global buys back.
-%Every runnable form pays this, not only the m.eval door P14.8 brought inside a
-%scope. Going lower means not reading a global at all: threading the balance as
-%a clause argument, the shape a depth-bounded meta-interpreter uses, which
-%changes the arity of every compiled recursive predicate and so is a translator
-%decision rather than a local one. C does not help here, because a foreign
-%predicate cannot write a backtrackable global: libswipl.so.10.1.13 exports 472
-%functions and none of them is a global-variable or trail entry point, so the C
-%body would have to call b_setval/2 back through PL_call_predicate and pay a
-%query setup on top of the write it was trying to avoid
-%[measured 2026-08-22: 472 exported functions, none a global-variable or trail
-%entry point; command=nm -D
-%/usr/lib/swi-prolog/lib/x86_64-linux/libswipl.so.10.1.13; commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f].
-petta_fuel_step(Culprit, Cost) :-
-    b_getval('$petta_fuel_remaining', Current),
-    (   Current == off
-    ->  true
-    ;   (   Current == unstarted
-        ->  petta_evaluation_fuel(Limit)
-        ;   Limit = Current
-        ),
-        Remaining is Limit - Cost,
-        (   Remaining =< Cost
-        ->  petta_fuel_exhausted(Culprit)
-        ;   b_setval('$petta_fuel_remaining', Remaining)
-        )
-    ).
+%THE CHARGE IS BUILT, NOT CALLED. petta_instrument_recursive_clause/3 writes
+%this goal into the clause it compiles instead of a call to a shared predicate,
+%which is worth a third of what the charge costs: a call cost six inferences per
+%charged reduction and the inlined goal costs four, and the same A/B on retired
+%instructions reads 8,364,337,018 against 5,495,296,785 over three million
+%steps, -34.3%
+%[measured 2026-08-22: 6 and 4 inferences, -34.3% instructions:u, min-of-3;
+%command=swipl ai-tmp/p14e-step-ab4.pl; fixture=20000 and 3000000 iterations;
+%commit=WORKTREE]. The cost is a compile-time constant per clause, so it lands
+%as a literal in the subtraction.
+%
+%Eleven shapes of this body were raced before settling on it, and every one that
+%reads a global costs the same six inferences as a call, so the `unstarted`
+%sentinel and the second comparison are free; a separate scope marker costs
+%seven; and a mutable cell read with b_getval/2 and written with setarg/3 is
+%2.0% WORSE in instructions than the named global. Going lower means not reading
+%a global at all. That is threading the balance as a clause argument, the shape
+%a depth-bounded meta-interpreter uses, which changes the arity of every
+%compiled recursive predicate and so is a translator decision rather than a
+%local one. C does not help either, because a foreign predicate cannot write a
+%backtrackable global: libswipl.so.10.1.13 exports 472 functions and none of
+%them is a global-variable or trail entry point, so the C body would have to
+%call b_setval/2 back through PL_call_predicate and pay a query setup on top of
+%the write it was trying to avoid
+%[measured 2026-08-22: v1..v5 all 6.0 inferences, cell +2.0% instructions:u,
+%472 exported functions none of them a gvar or trail entry point;
+%command=swipl ai-tmp/p14e-step-ab2.pl, swipl ai-tmp/p14e-step-ab3.pl, nm -D
+%/usr/lib/swi-prolog/lib/x86_64-linux/libswipl.so.10.1.13; commit=WORKTREE].
+%THE TWO GLOBAL OPERATIONS ARE MODULE-QUALIFIED, and that is not decoration.
+%A compiled clause lives in its space's own execution module, and an equation
+%for a builtin's name is a LOCAL SHADOW there rather than a refusal, which is
+%what keeps `plus` and seventy-seven other ordinary names usable in MeTTa
+%[tested: test_a_system_predicate_survives_an_equation_for_its_name]. Written
+%bare, `(= (b_setval $a) clash)` in a space would capture the charge in every
+%recursive clause that space compiles. `system:` is one percent of the charge's
+%instructions and takes the name back off the engine's own path without taking
+%it away from the program.
+petta_fuel_step_goal(Culprit, Cost,
+                     ( system:b_getval('$petta_fuel_remaining', Current),
+                       (   Current == off
+                       ->  true
+                       ;   (   Current == unstarted
+                           ->  petta_evaluation_fuel(Limit)
+                           ;   Limit = Current
+                           ),
+                           Remaining is Limit - Cost,
+                           (   Remaining =< Cost
+                           ->  petta_fuel_exhausted(Culprit)
+                           ;   system:b_setval('$petta_fuel_remaining', Remaining)
+                           )
+                       ) )).
 
 %Off the step's own path, because a branch that ran out of fuel is recorded
 %once and then fails, while the step above runs on every reduction.

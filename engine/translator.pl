@@ -792,7 +792,8 @@ seam:engine_emitted(petta_run_with_fuel/3).
 seam:engine_emitted(petta_transaction/1).
 seam:engine_emitted(petta_with_seed/4).
 seam:engine_emitted(switch_runtime/3).
-seam:engine_emitted(petta_fuel_step/2).
+seam:engine_emitted(petta_evaluation_fuel/1).
+seam:engine_emitted(petta_fuel_exhausted/1).
 seam:engine_emitted(function_overapplication/3).
 seam:engine_emitted(metta_bad_argument_error/3).
 seam:engine_emitted(dispatch_mismatch_result/3).

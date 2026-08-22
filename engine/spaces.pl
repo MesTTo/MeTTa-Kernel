@@ -3026,7 +3026,7 @@ compile_metta_equation(Module, Term, Clause, Ref) :-
 %[tested: test_a_stack_depth_pragma_bounds_evaluation_instead_of_overflowing].
 petta_instrument_recursive_clause([=, [F|HeadArguments], Body],
                                   (Head :- Goal),
-                                  (Head :- petta_fuel_step(Culprit, Cost), Goal)) :-
+                                  (Head :- Charge, Goal)) :-
     length(HeadArguments, Arity),
     petta_source_calls_head(Body, F, Arity),
     \+ petta_source_has_variable_head(Body),
@@ -3036,7 +3036,11 @@ petta_instrument_recursive_clause([=, [F|HeadArguments], Body],
     !,
     petta_fuel_culprit(F, Inputs, Culprit),
     petta_source_reduction_count(Body, Nodes),
-    Cost is max(1, (Nodes + 1) // 2).
+    Cost is max(1, (Nodes + 1) // 2),
+    %Built rather than called: the charge is written into this clause, which is
+    %a third of what it cost as a shared call, and the cost lands as a literal
+    %because it is settled here.
+    petta_fuel_step_goal(Culprit, Cost, Charge).
 petta_instrument_recursive_clause(_, Clause, Clause).
 
 petta_fuel_culprit(_, [Only], Only) :- !.

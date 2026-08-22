@@ -184,10 +184,10 @@ test(a_recompiled_recursive_clause_keeps_its_fuel_wrapper,
     space_module('&self', Module),
     forall(clause(Module:'sg-fuel-rec'(_, _), Before),
            ( term_to_atom(Before, BeforeText),
-             assertion(sub_atom(BeforeText, _, _, _, petta_fuel_step)) )),
+             assertion(sub_atom(BeforeText, _, _, _, '$petta_fuel_remaining')) )),
     process_metta_string("(= (sg-fuel-helper 0) 0)", _),
     forall(clause(Module:'sg-fuel-rec'(_, _), After),
            ( term_to_atom(After, AfterText),
-             assertion(sub_atom(AfterText, _, _, _, petta_fuel_step)) )).
+             assertion(sub_atom(AfterText, _, _, _, '$petta_fuel_remaining')) )).
 
 :- end_tests(support_graph).

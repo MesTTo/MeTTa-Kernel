@@ -1,8 +1,11 @@
 % Purpose: PlUnit coverage for the branch-local evaluation fuel, and for the
 %   two SWI global-variable behaviours its single-global design depends on.
 % Assumes: engine/metta.pl is loaded, so petta_run_with_fuel/3,
-%   petta_open_fuel_scope/0, petta_close_fuel_scope/0 and petta_fuel_step/2 are
-%   reachable; `$petta_fuel_remaining` is the one global they share.
+%   petta_open_fuel_scope/0, petta_close_fuel_scope/0 and
+%   petta_fuel_step_goal/3 are reachable; `$petta_fuel_remaining` is the one
+%   global they share. The charge is BUILT by petta_fuel_step_goal/3 and
+%   written into each compiled clause, so these tests call the built goal,
+%   which is the thing the engine actually runs.
 % Guarantees:
 %   - a step charges inside a scope and is inert outside one, an exhausted
 %     branch records its culprit and fails, and the limit is read from
@@ -30,11 +33,11 @@
 test(a_step_charges_inside_a_scope_and_is_inert_outside_one) :-
     petta_open_fuel_scope,
     nb_setval('$petta_fuel_remaining', 1000),
-    petta_fuel_step(probe, 7),
+    charge(probe, 7),
     b_getval('$petta_fuel_remaining', Inside),
     petta_close_fuel_scope,
     b_getval('$petta_fuel_remaining', Closed),
-    petta_fuel_step(probe, 7),
+    charge(probe, 7),
     b_getval('$petta_fuel_remaining', Outside),
     assertion(Inside == 993),
     assertion(Closed == off),
@@ -45,7 +48,7 @@ test(a_step_spends_from_the_balance_it_inherited_on_a_sibling_branch) :-
     nb_setval('$petta_fuel_remaining', 1000),
     %A branch that spends and then fails leaves the balance it started with,
     %which is the whole reason the write is backtrackable.
-    (   petta_fuel_step(first, 100), fail
+    (   charge(first, 100), fail
     ;   true
     ),
     b_getval('$petta_fuel_remaining', Restored),
@@ -55,7 +58,7 @@ test(a_step_spends_from_the_balance_it_inherited_on_a_sibling_branch) :-
 test(an_exhausted_branch_records_its_culprit_and_fails) :-
     petta_open_fuel_scope,
     nb_setval('$petta_fuel_remaining', 10),
-    (   petta_fuel_step(the_culprit, 9)
+    (   charge(the_culprit, 9)
     ->  Charged = true
     ;   Charged = false
     ),
@@ -70,7 +73,7 @@ test(the_limit_is_read_on_the_first_step_rather_than_at_scope_open) :-
         (   petta_open_fuel_scope,
             b_getval('$petta_fuel_remaining', AtOpen),
             'pragma!'('max-stack-depth', 500, _),
-            petta_fuel_step(probe, 1),
+            charge(probe, 1),
             b_getval('$petta_fuel_remaining', AfterStep),
             petta_close_fuel_scope
         ),
@@ -126,6 +129,11 @@ test(an_off_sentinel_is_not_restored_over_by_backtracking) :-
 %A scope whose body writes the backtrackable balance three times and then
 %closes, with the caller free to backtrack through every one of those writes
 %after the close has run.
+%The charge exactly as a compiled clause carries it.
+charge(Culprit, Cost) :-
+    petta_fuel_step_goal(Culprit, Cost, Goal),
+    call(Goal).
+
 plt_fuel_scope(Close) :-
     setup_call_cleanup(nb_setval('$petta_plt_probe', 100),
                        ( member(N, [1, 2, 3]),
