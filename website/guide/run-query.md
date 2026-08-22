@@ -1,7 +1,7 @@
 <!--
 Purpose: document Space execution, querying, controls, diagnostics, and result handling.
 Guarantees: examples use the narrow core and satellite-qualified specialist APIs.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+[tested: npm run docs:build; commit=WORKTREE]
 -->
 
 # Run and query
@@ -401,7 +401,24 @@ The engine has transactions, and a program can already use the inline `(transact
 
 Both cover engine state. A Python operation's side effects, and subscription callbacks that already fired, stay where they happened; that is what rolling back a database can honestly mean.
 
-For your OWN logic rather than a source string, `m.transaction(callable)` runs a zero-argument callable inside one engine transaction now and answers its return value, the same `petta_transaction/1` the MeTTa form compiles to, so foreign-space enlistment and nesting behave identically in both languages. A raise is the one rollback trigger, and it re-raises as itself: your `ValueError` arrives as `ValueError`, the engine boundary in its chain, with every stored atom and compiled equation rolled back. Transactions nest, an inner commit staying relative to its outer transaction. `m.transactional` is the decorator twin, one transaction per call:
+`m.transaction` accepts either Python logic or a MeTTa term. With a
+zero-argument callable, returning commits and a raised exception rolls back;
+the exception re-raises as itself, with the engine boundary in its chain. With
+a term, one or more answers commit and an empty answer set rolls back. The term
+form answers the evaluation rows:
+
+```python
+fact = S.pending(1)
+term = S.progn(S["add-atom"](S[m.name], fact), S.empty())
+assert m.transaction(term) == []
+assert fact not in m
+```
+
+Both forms use the same engine transaction as `petta_transaction/1`, so
+foreign-space enlistment and nesting behave identically in both languages.
+Transactions nest, with an inner commit staying relative to its outer
+transaction. `m.transactional` is the callable decorator twin, one transaction
+per call:
 
 ```python
 @m.transactional

@@ -1,3 +1,9 @@
+<!--
+Purpose: teach Python-authored equations, rule sets, and lowering declarations.
+Guarantees: examples use the narrow Space.define and Rules.lower doors.
+[tested: npm run docs:build; commit=WORKTREE]
+-->
+
 # Write MeTTa in Python
 
 `@m.define` compiles a Python function into MeTTa equations. Calling the decorated name evaluates through its owning space, the ordinary Python function remains available as `.py`, and `S.name(...)` builds a term explicitly.
@@ -54,6 +60,18 @@ def arithmetic(value):
 
 m.add(*arithmetic)
 ```
+
+A rule set can also declare its rewrite strategy and required backend through
+one door:
+
+```python
+declaration = arithmetic.lower(S.topdown, requires=S.mork, space=m)
+assert declaration == S.lowering(S.via_rule, S.topdown, S.requires(S.mork))
+```
+
+`lower` adds the equations, writes the queryable declaration to the catalog,
+and registers each symbolic rule head with the translator. An empty rule set
+raises `ValueError` because it has no head to declare.
 
 `equation(lhs).to(rhs)` keeps both halves on one static Python type. It is
 sugar for the container door, which remains first-class:

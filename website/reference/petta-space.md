@@ -14,10 +14,12 @@ Source: `bindings/python/petta/_space.py`.
 >   - solve, Linda verbs, class define, get-type, bang resolution, and both
 >     transaction laws are observable through one Space handle [tested:
 >     test_solve_retires_the_five_relational_let_workarounds,
+>     test_solve_refuses_an_anonymous_only_subject,
 >     test_take_peek_and_watch_retire_the_thread_linda_fn_strings,
+>     test_watch_close_before_first_event_cancels_its_eager_subscription,
 >     test_define_absorbs_class_declaration_and_frees_space_type,
 >     test_fn_strips_one_bang_only_when_the_exact_name_is_absent, and
->     test_transaction_term_uses_empty_answer_rollback_law; commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
+>     test_transaction_term_uses_empty_answer_rollback_law; commit=WORKTREE]
 >   - ``MeTTa`` carries only context primitives while ``Space`` owns storage,
 >     query, declaration, and lifecycle verbs [tested:
 >     test_m7_narrow_core_surface; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
