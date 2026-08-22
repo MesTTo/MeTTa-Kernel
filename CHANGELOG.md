@@ -18,6 +18,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Wide query projections now index variable names once for decoding and row
+  construction. Distinct-column joins grow linearly instead of quadratically,
+  while rows below 64 columns retain the lower-overhead list path.
 - Dropping many compiled spaces now removes support-graph state through
   module-indexed endpoint patterns. Teardown scales with the affected edges
   instead of rescanning the whole remaining graph for every space.
