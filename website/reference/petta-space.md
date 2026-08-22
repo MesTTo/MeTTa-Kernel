@@ -29,7 +29,7 @@ Source: `bindings/python/petta/_space.py`.
 >     evaluation, with unknown function attributes rejected at access [tested:
 >     test_bound_function_namespace_validates_at_access,
 >     test_function_calls_pull_engine_answers_only_as_demanded;
->     commit=WORKTREE]
+>     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
 > Owns resources:
 >   - ``Space.save`` owns its sibling temporary file and removes it after every
 >     failed operation [tested: test_save_failure_preserves_existing_file;
@@ -713,7 +713,7 @@ def answers(
 > one answer, ``one()`` at most two, and ordinary iteration resumes the
 > same held evaluation [tested:
 > test_function_calls_pull_engine_answers_only_as_demanded;
-> commit=WORKTREE].
+> commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4].
 
 ### `Space.parallel`
 
