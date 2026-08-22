@@ -645,6 +645,18 @@ run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 1
 run GATE   parity      sh -c "cd '$HERE' && '$PY' bindings/python/tools/example_parity.py"
 run REPORT twins       sh -c "cd '$HERE' && '$PY' bindings/python/tools/twin_coverage.py"
 
+# Every operation MeTTa's standard library declares, and what you write in
+# Python instead. The rows live in bindings/python/tools/phrasebook_entries.py,
+# one per LeaTTa-declared name; the lane runs BOTH sides of each row and
+# compares three columns, the MeTTa form on LeaTTa as the oracle, the same form
+# on this engine, and the Python spelling here. The MeTTa column is frozen from
+# LeaTTa in phrasebook_answers.json and re-measured only under --learn, so this
+# needs no LeaTTa checkout and costs 0.3s. It enters as a GATE rather than a
+# REPORT because it was proven to see: breaking one row's executable Python
+# column, `e[0]` to `e[1]`, produces three findings, against the recorded
+# answer, against this engine and against LeaTTa.
+run GATE   phrasebook  sh -c "cd '$HERE' && '$PY' bindings/python/tools/phrasebook.py --gate"
+
 # The obligation headers are the contract a library author reads, and a
 # [tested X] tag is the strongest evidence in the scheme. Thirteen of them
 # named tests that had never existed in the tree's history, including some

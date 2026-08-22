@@ -46,6 +46,21 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   evaluates. `EventStream.publish` announces a change this process did not
   write, which is how a provider with a channel of its own delivers.
 
+### Added
+
+- The stdlib phrasebook: every operation MeTTa's standard library declares,
+  and what you write in Python instead, at
+  `website/reference/stdlib-phrasebook.md`. 136 of 179 surface operations
+  have a Python spelling; 115 of them dissolve into Python's own syntax,
+  protocols and standard library with no `petta` name at all, 16 wear one and
+  5 stay instruction-tier. The page is generated from rows that EXECUTE:
+  the lane runs both sides of each row and compares three columns, the MeTTa
+  form on LeaTTa as the oracle, the same form on this engine, and the Python
+  spelling here, so a spelling that stops answering what it claims is a
+  failure rather than stale prose. Over the 121 rows that run both sides the
+  MeTTa forms cost 150,082 engine inferences and the Python spellings 6,676,
+  and 90 of the 121 cost the engine nothing at all.
+
 ### Changed
 
 - Every Python twin is written in the library's own notation rather than in
