@@ -8,6 +8,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `bindings/python/bench.py --memory-scale` measures memory and scaling in
+  spawned fresh processes. It keeps min-of-three raw samples and noise bands,
+  fits constant through quadratic complexity families over geometric sizes,
+  and separates exact SWI structural bytes from Python allocations and Linux
+  process memory. The initial pins gate deterministic counters and inference
+  shapes; page-based RSS, PSS, and private bytes remain report-only.
 - Which reaction fires first is a declared policy. `(agenda <ctx> <policy>)`,
   or `m.declare_agenda(name, policy)`, picks between `declaration` (the
   order they were declared, the stated default and what the engine used to
