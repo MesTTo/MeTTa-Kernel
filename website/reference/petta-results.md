@@ -2,11 +2,11 @@
 
 Source: `bindings/python/petta/results.py`.
 
-> Purpose: query results as rows. A Rows is a mutable sequence of Row tuples, one per
-> answer, with the query's variable names as columns and attribute access per
-> column, so rows drop into unpacking, DataFrame constructors and pattern
-> matching without a helper in between. Eager query results retain their
-> patterns so an empty result can explain itself on demand.
+> Purpose: expose eager query rows and lazy immutable evaluation answers.
+>
+> A Rows is a mutable sequence of Row tuples, one per query answer, while
+> Answers progressively caches one evaluation source for replay, projections,
+> and exact-cardinality reads.
 > Guarantees:
 >   - Rows with the same columns share one bounded cached Row subclass [tested
 >     test_row_classes_are_reused_and_bounded]
@@ -31,6 +31,11 @@ Source: `bindings/python/petta/results.py`.
 >   - error_answer recognizes (Error ...) by head symbol alone, so quoted and
 >     nested errors stay data, and raise_for_errors chains when clean [tested
 >     test_raise_for_errors_chains_when_clean_and_raises_one_plainly]
+>   - every Answers iterator replays one shared prefix, and caller-variable
+>     projections and slices stay Answers [tested:
+>     test_answers_are_lazy_cached_and_cardinality_aware,
+>     test_answers_project_caller_variables_and_slices_stay_answers;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -255,3 +260,39 @@ def rows_into(rows: Rows, cls: type) -> list:
 > translator; a primitive annotation decodes and is CHECKED, so a
 > symbol landing in an int field is an error at the door rather than
 > a surprise downstream; an unannotated field decodes plainly.
+
+## `Answers`
+
+```python
+class Answers(Sequence[T]):
+```
+
+> A replayable view over an answer source whose size is not yet known.
+>
+> Pulling is progressive. Each iterator starts at answer zero, reads the
+> shared prefix already computed, and advances the single source only when
+> it reaches the frontier. The sequence has no mutation methods.
+
+### `Answers.columns`
+
+```python
+def columns(self) -> tuple[str, ...]:
+```
+
+> Caller-variable names available for projection.
+
+### `Answers.one`
+
+```python
+def one(self) -> Any:
+```
+
+> Return exactly one decoded value, rejecting zero or multiplicity.
+
+### `Answers.first`
+
+```python
+def first(self, *, default: Any = _MISSING) -> Any:
+```
+
+> Return the first decoded value, or the caller's explicit default.

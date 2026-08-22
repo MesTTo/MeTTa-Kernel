@@ -25,6 +25,11 @@ Source: `bindings/python/petta/_space.py`.
 >   - ``Space.op`` and ``Space.unregister_op`` are the sole public operation
 >     lifecycle pair [tested: test_operation_registration_names_are_symmetric;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - ``Space.answers`` and bound ``Space.fn`` expose lazy, replayable
+>     evaluation, with unknown function attributes rejected at access [tested:
+>     test_bound_function_namespace_validates_at_access,
+>     test_function_calls_pull_engine_answers_only_as_demanded;
+>     commit=WORKTREE]
 > Owns resources:
 >   - ``Space.save`` owns its sibling temporary file and removes it after every
 >     failed operation [tested: test_save_failure_preserves_existing_file;
@@ -689,6 +694,27 @@ def eval(
 > raising TimeLimitError or InferenceLimitError when hit. A surrounding
 > `capture()` scope collects printed text without changing the list.
 
+### `Space.answers`
+
+```python
+def answers(
+    self,
+    target: Any,
+    *,
+    using: dict[str, Any] | None = None,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Answers[Any]:
+```
+
+> Evaluate lazily as an immutable, cached and replayable view.
+>
+> Creating the view performs no engine work. Existence pulls at most
+> one answer, ``one()`` at most two, and ordinary iteration resumes the
+> same held evaluation [tested:
+> test_function_calls_pull_engine_answers_only_as_demanded;
+> commit=WORKTREE].
+
 ### `Space.parallel`
 
 ```python
@@ -1351,6 +1377,14 @@ def define(
 > the running space, lowercase free names in the pattern binding as
 > variables.
 
+### `Space.rules`
+
+```python
+def rules(self, fn: Callable[..., Any]) -> _RuleBundle:
+```
+
+> Collect and land a non-exclusive equation bundle in this space.
+
 ### `Space.cache`
 
 ```python
@@ -1437,17 +1471,18 @@ def type(self, cls: _builtins.type | None = None, *, accessors: bool = True, met
 ### `Space.fn`
 
 ```python
-def fn(self, name: str) -> _EngineFunction:
+def fn(self) -> _FunctionNamespace:
 ```
 
-> Any engine function as an ordinary Python callable.
+> Functions visible here, as bound attribute or exact-name handles.
 >
->     car = m.fn("car-atom")
->     car(m.parse("(1 2 3)"))     # 1
->     m.fn("superpose").all(Expression(1, 2, 3))   # [1, 2, 3]
+>     car = m.fn.car_atom
+>     car(m.parse("(1 2 3)"))     # [1]
+>     m.fn["=="](1, 1).one()      # True
 >
-> Calling expects exactly one answer and raises otherwise, the loud
-> reading; .all returns every answer, nondeterminism included.
+> Underscores transliterate to hyphens. Brackets preserve exact
+> punctuation, and an unknown name raises at access rather than
+> becoming a later empty evaluation.
 
 ### `Space.integrate`
 
