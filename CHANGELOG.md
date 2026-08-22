@@ -15,7 +15,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   allocations and Linux process memory. Controlled `instructions:u` samples
   cover primitive-heavy projection width. Exact lanes also gate atom, grounded
   object, MORK space, table, module-pool, and bounded wire-cache reclamation;
-  page-based RSS, PSS, and private bytes remain report-only.
+  page-based RSS, PSS, and private bytes remain report-only. The streaming
+  answer curve uses numeric payloads so its constant cursor-memory result is
+  not confounded by the separately measured wire-name cache.
 
 ### Changed
 
