@@ -306,6 +306,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Reclaimed named MORK spaces on clear/drop and replaced the bridge's fixed
+  4 GiB parser/query scratch reservations with demand-grown buffers. Joins
+  beyond MORK's 63-item encoding now fall back to the engine plan instead of
+  aborting the process.
+
 - A pattern whose head is a variable now answers through every door. The
   match compiler's modifier clauses wrote their `:=` and `:` markers (and
   the Python shim's `path-at`) as literals in their clause heads, and a

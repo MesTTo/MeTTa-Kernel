@@ -15,6 +15,9 @@
 %     the_dev_build_inserts_checks_and_types_a_planted_violation]; the
 %     dev-typed gate lane also runs every plunit suite under that build.
 % Guarantees:
+%   - clearing a foreign space also removes its owned generated predicates,
+%     tables, and support edges before a released module name can be reused
+%     [tested: test_a_recycled_mork_name_inherits_nothing; commit=WORKTREE].
 %   - Every native space stores its atoms in a private data module that does
 %     not inherit user predicates [tested: spaces_storage_modules].
 %   - subscribe follows the (events ...) declaration rather than what a host
@@ -2747,7 +2750,13 @@ metta_remove_hooks_idle(Space) :-
 %exist [tested: test_pool_reuse_starts_tabling_clean].
 metta_host_clear_space(Space) :-
     seam:foreign_space(Space), !,
-    clear_foreign_atoms(Space).
+    clear_foreign_atoms(Space),
+    (   metta_exec_module_known(Space, Module)
+    ->  metta_host_clear_tabling(Space, Module),
+        clear_generated_predicates(Module),
+        support_forget_module(Module)
+    ;   true
+    ).
 metta_host_clear_space(Space) :-
     (   metta_remove_hooks_idle(Space)
     ->  true
