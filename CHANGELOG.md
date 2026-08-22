@@ -48,6 +48,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- The `basics/`, `control/` and `types/` twins are rewritten in the library's
+  own notation rather than in s-expressions with Python punctuation: a plain
+  tuple is an expression, `S.name` replaces `S["name"]` wherever the name is an
+  identifier, `equation(head).to(body)` replaces `S["="](head, body)`, and an
+  operator replaces the naming door wherever an operand is an atom. A twin that
+  deliberately sits below the highest rung now says so in a module-level
+  `RUNG = "<reason>"` that the coverage check reads, and the reason names the
+  spelling the surface is missing. Answers, alpha-equivalence and the pinned
+  inference budgets are unchanged, one twin apart: `control/empty` moved to
+  `@m.define` now that it measures inside the parity band.
 - Calling a `Defined` object now evaluates the call in the space that owns the
   definition and returns its answer list. Use `S[name](...)` to build the call
   as data; calls made while a `@rules` generator is being collected stage as
