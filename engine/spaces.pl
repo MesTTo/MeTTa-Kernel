@@ -4109,6 +4109,20 @@ routed_selective_conjunct(Space, Conjuncts, Best, Rest) :-
 petta_match_atoms(L, R) :- L == R, !.
 petta_match_atoms(L, R) :- ( var(L) ; var(R) ), !,
                            unify_with_occurs_check(L, R).
+%A cons cell and () never match, and deciding that must not WALK the cons.
+%Every route below reaches the same failure: read as lists they differ at the
+%very first cell, and the clauses past the list branch all decide by equality,
+%which a cons and () fail too. `(unify $l () ...)` is how a list is walked to
+%its end, so is_list/1 walking the whole remaining list at every step made the
+%walk quadratic [measured 2026-08-23: 114 microseconds over 200 elements and
+%7,550 over 3,200, 10.1x per 4x, and one probe of a 6,400-element list against
+%() cost 9.16 microseconds against 0.5 now].
+%
+%Confirmed rather than argued: over 26 cases spanning proper, improper,
+%partial, error-shaped and mixed-type cons cells in both operand positions,
+%every one already failed.
+petta_match_atoms(L, R) :- L == [], nonvar(R), R = [_|_], !, fail.
+petta_match_atoms(L, R) :- R == [], nonvar(L), L = [_|_], !, fail.
 petta_match_atoms(L, R) :- is_list(L), is_list(R), !,
                            petta_match_all(L, R).
 petta_match_atoms(L, R) :- petta_space_operand(L), !, match(L, R, [], _).

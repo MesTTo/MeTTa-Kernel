@@ -119,6 +119,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Matching a list against `()` no longer walks the list. `(unify $l () ...)` is
+  the other way a MeTTa program tests for the end of a list, and the custom
+  matcher classified both operands with `is_list/1`, so every step of a walk
+  traversed the whole remaining list. A cons cell and `()` can never match, and
+  that is now decided from the first cell. A recursive generator that ends its
+  list this way cost 7,550 microseconds over 3,200 elements and costs 1,112, and
+  one probe of a 6,400-element list against `()` cost 9.16 microseconds and
+  costs 0.32. Answers are unchanged.
+
 - Walking a list to its end is now linear in the list's length rather than
   quadratic. `(== $l ())` is how a MeTTa program tests for the end of a list,
   and deciding whether the two operands were comparable asked `is_list/1` of

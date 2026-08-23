@@ -2011,6 +2011,37 @@ test(pointwise_bindings, [true(X-Y == a-b)]) :-
     petta_match_atoms([f, X, b], [f, a, Y]).
 test(arity_mismatch_fails, [fail]) :-
     petta_match_atoms([f, a], [f, a, b]).
+%A cons cell and () never match, whichever side each is on, and whatever the
+%properness of the cons. Read as lists they differ at the first cell, and every
+%clause past the list branch decides by equality, which they fail too.
+test(a_cons_never_matches_the_empty_list,
+     [forall(member(Cons, [[a], [a,b], [[x],[y]], [a|b], [a,b|c],
+                           ['Error',x], ['Error'|b], [[]], [1,2.5,"s"]])),
+      fail]) :-
+    ( petta_match_atoms(Cons, []) ; petta_match_atoms([], Cons) ).
+
+%And deciding it must not WALK the cons. `(unify $l () ...)` is how a list is
+%walked to its end, so asking is_list/1 of the whole remaining list at every
+%step made the walk quadratic: a unify-branching generator over 200 elements
+%cost 114 microseconds and over 3,200 cost 7,550, 10.1x per 4x, against 85 and
+%1,112 now, which is 3.1x. One probe of a 6,400-element list against () cost
+%9.16 microseconds and costs 0.32 [measured 2026-08-23].
+%
+%TIMED rather than counted, because is_list/1 is one C builtin call and reads
+%as a single inference whatever the length of the list it walks.
+match_probe_cost(Length, Seconds) :-
+    findall(e, between(1, Length, _), List),
+    forall(between(1, 100, _), \+ petta_match_atoms(List, [])),
+    statistics(cputime, Before),
+    forall(between(1, 2000, _), \+ petta_match_atoms(List, [])),
+    statistics(cputime, After),
+    Seconds is After - Before.
+
+test(probing_a_cons_against_the_empty_list_does_not_walk_it) :-
+    match_probe_cost(400, Narrow),
+    match_probe_cost(6400, Wide),
+    assertion(Wide < Narrow * 4).
+
 test(a_hook_accepts_inside_its_range, [nondet]) :-
     petta_match_atoms(plunit_interval(1, 5), 3).
 test(a_hook_rejects_outside_its_range, [fail]) :-
