@@ -8,7 +8,7 @@ Guarantees: the guide contains no removed atom constructors or Space registratio
 
 A `SpaceProvider` lets an external store answer PeTTa matches. The DuckDB example maps each SQL table to a relation whose head is the table name and whose arguments follow the table's column order.
 
-`DuckDBSpace` belongs to `bindings/python/examples/integration/duckdb_space.py`. It is not exported by `petta`, and installing PeTTa does not install a packaged DuckDB adapter. Copy or adapt the example when you want this integration.
+`DuckDBSpace` belongs to `bindings/python/examples/integration/duckdb_space.py`. It is not exported by `metta`, and installing `pymetta` does not install a packaged DuckDB adapter. Copy or adapt the example when you want this integration.
 
 ## Push ground positions into SQL
 
@@ -61,14 +61,14 @@ def attach(m, name: str, database: Any = ":memory:", tables: list[str] | None = 
     else:
         provider = DuckDBSpace(duckdb.connect(database), tables)
         provider._owns_connection = True
-    petta.attach(name, provider)
+    metta.attach(name, provider)
     return provider
 ```
 
 The normal use path creates tables, registers `&crm`, enumerates rows, and binds a ground position:
 
 ```python
-m = petta.space()
+m = metta.space()
 conn = duckdb.connect(":memory:")
 conn.execute("create table users (id integer, name text)")
 conn.execute("insert into users values (1, 'Ada'), (2, 'Bob'), (3, 'Cy')")
@@ -126,8 +126,8 @@ provider.clear()
 check("clear empties, schema stays",
       m.run("!(collapse (match &crm (logs $d $n) x))"), [[Expression()]])
 
-petta.space("&crm").drop()
+metta.space("&crm").drop()
 done("duckdb_space")
 ```
 
-Continue with [Python-backed spaces](../guide/spaces#python-backed-spaces) for normal provider use and joins, and [`SpaceProvider`](../reference/petta-foreign#spaceprovider) for the interface another backend implements.
+Continue with [Python-backed spaces](../guide/spaces#python-backed-spaces) for normal provider use and joins, and [`SpaceProvider`](../reference/metta-foreign#spaceprovider) for the interface another backend implements.

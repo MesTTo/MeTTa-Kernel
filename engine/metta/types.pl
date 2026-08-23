@@ -1215,7 +1215,7 @@ scoped_super_type_rounds(Space, Frontier, Accumulated, Widened) :-
 %THROWS is the registrant's bug, and reading the throw as "no bridge answered"
 %ran the class walk instead: one broken protocol predicate silently destroyed
 %typing for every host object in the process, and get-type answered Box, the
-%envelope's own class, for all of them. bindings/python/petta/_ops.py says the rule in
+%envelope's own class, for all of them. bindings/python/metta/_ops.py says the rule in
 %as many words for the same probe on the Python side: "A broken probe is the
 %registrant's bug: surface it with the protocol's name attached, never as a
 %type quietly missing." The fallback is for a bridge that is ABSENT, which is

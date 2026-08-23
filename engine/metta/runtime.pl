@@ -303,22 +303,19 @@ reported_scoped_type_answers(Space, X, Types) :-
 'get-doc'(Space, Atom, Doc) :-
     'get-doc-single-atom'(Space, Atom, Doc).
 
-%One shape per arity rather than one open-tailed pattern, the library's
-%own load-bearing craft: @doc carries two, three or four parts depending
-%on how much was written, and the engine's matcher walks proper lists,
-%so an open tail matches nothing at all.
-doc_shape(Name, ['@doc', Name, _]).
-doc_shape(Name, ['@doc', Name, _, _]).
-doc_shape(Name, ['@doc', Name, _, _, _]).
+%A document now carries a kind plus as many parameter, return, and example
+%fields as its source owns. Enumerate first and inspect the proper stored list;
+%an open-tailed matcher pattern does not match the engine's list store.
+doc_shape(Name, ['@doc', Name|Fields]) :- Fields = [_|_].
 
 %match_stored/4, not the door: the door answers an error atom for a name that
 %is not a space, and the slot it would land in here is discarded, so the doc
 %shape would come back unbound as though a document had been found.
 'get-doc-space'(Space, Name, Doc) :-
-    doc_shape(Name, Doc),
     (   prelude_doc_atom(Name, Doc)
-    ;   match_stored(Space, Doc, Doc, _)
-    ).
+    ;   'get-atoms'(Space, Doc)
+    ),
+    doc_shape(Name, Doc).
 
 %Documentation used by the formal family comes from the selected space. The
 %engine's prelude register is the fallback only for the current context, where
@@ -404,8 +401,8 @@ doc_params([['@param', Description]|Params], Return, [Type|Types],
 documented(Name) :- current_metta_space(Space),
                     'documented-space'(Space, Name).
 
-'documented-space'(Space, Name) :- doc_shape(Name, Doc),
-                                   match_stored(Space, Doc, Name, _).
+'documented-space'(Space, Name) :- 'get-atoms'(Space, Doc),
+                                   doc_shape(Name, Doc).
 
 %The library's exact semantics: every head of an equation THE SPACE
 %HOLDS, once each. Enumerating the space's own atoms is what excludes

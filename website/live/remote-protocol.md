@@ -6,7 +6,7 @@ Guarantees: comparisons distinguish eager core queries from remote satellite str
 
 # The remote space protocol
 
-`petta.remote.serve()` exposes spaces over HTTP and `attach()` consumes
+`metta.remote.serve()` exposes spaces over HTTP and `attach()` consumes
 them, and the wire between them is small enough to implement in an
 afternoon in any language. This page is the contract for the other end:
 what a server must answer so that `(match &yours ...)` in a PeTTa
@@ -38,7 +38,7 @@ body must be one JSON object.
 `space` defaults to `&self` and selects which of the server's spaces
 answers. `add_many` carries a batch in one request, the engine's own
 bulk-door law on the wire: a batch is a transport optimisation and
-never a semantic one, and `petta.space(name).add(a, b, c)` against an
+never a semantic one, and `metta.space(name).add(a, b, c)` against an
 attached gateway crosses once.
 
 `bound` on `/match` and `/ask` is optional and carries the caller's
@@ -74,7 +74,7 @@ read, and the comparison must be constant-time.
 
 This is the part of the contract every binding inherits, in any
 language, over any transport. `/match` computes the whole answer set
-before anything crosses, which is what `m.query()` does in-process.
+before anything crosses, which is what `m.match()` does in-process.
 `/ask` opens a cursor and answers the first chunk, `/next` pulls the
 next one, and `/stop` releases it, which is what `RemoteSpace.stream()` does
 on the satellite client. A client that wants two answers of a million-answer join
@@ -126,7 +126,7 @@ idempotent by design.
 releases a cursor nobody has pulled from after an idle deadline, refuses
 to hold more than a ceiling of them at once, and releases every one it
 still holds when it shuts down. pengines bounds the same resource the
-same two ways and picks 300 seconds for the first; `petta.remote.serve`
+same two ways and picks 300 seconds for the first; `metta.remote.serve`
 takes `cursor_idle` and `cursor_limit`, and the TypeScript reference
 server takes `--cursor-idle` and `--cursor-limit`.
 
@@ -147,8 +147,8 @@ larger than that at all; the lifecycle is what carries it
 [`test_an_answer_set_too_large_for_one_body_still_crosses_in_chunks`].
 
 On the client side `RemoteSpace.stream(pattern, batch=...)` is the lazy
-door and `match()` stays the eager one. The core `Space.query()` is eager.
-`petta.remote.attach(m, "&hq", url, batch=1)`
+door and `match()` stays the eager one. The core `Space.match()` is eager.
+`metta.remote.attach(m, "&hq", url, batch=1)`
 puts an attached space's matching on the lazy door, so a MeTTa `once`
 over it stops the serving engine too.
 
@@ -209,7 +209,7 @@ stored atoms themselves or as the pattern instantiated by each match,
 both of which preserve the pattern's answer set; the conformance suite
 accepts either. This is what makes the protocol implementable in an
 afternoon: filtering is an optimisation, not a correctness burden.
-`petta.testing.check_space_provider` over an attached `RemoteSpace`
+`metta.testing.check_space_provider` over an attached `RemoteSpace`
 verifies exactly this, and its repeated-variable probes are the ones
 that catch real matchers being subtly narrower than the law.
 
@@ -222,7 +222,7 @@ apart before unifying: `(f $x 1)` must remove a stored `(f 2 $x)`.
 **A space is a multiset.** Adding twice stores twice; `atoms` answers
 duplicates; order promises nothing.
 
-**Certifying an implementation.** `petta.testing.GatewayComplianceSuite`
+**Certifying an implementation.** `metta.testing.GatewayComplianceSuite`
 is this page made executable: subclass it with a `gateway_url` fixture
 and every promise above is checked against the running server, the
 operations' semantics, the refusal ladder, the health reflection, bound

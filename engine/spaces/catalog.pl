@@ -38,7 +38,7 @@ native_storage_module_ready(Space, Module) :-
 %on demand here, so the second half cannot be the registry, and the rule for it
 %is the engine's own: an atom beginning with `&`, which is what is-space/2
 %answers, what evalc/3 has enforced at its door since it was written, and what
-%bindings/python/petta/space.py enforces at the library's
+%bindings/python/metta/space.py enforces at the library's
 %[tested: space_argument_refusals].
 petta_space_name(S) :- atom(S), sub_atom(S, 0, 1, _, '&'), !.
 petta_space_name(S) :- petta_space_operand(S).
@@ -150,7 +150,7 @@ petta_note_ctx_declared(_).
 %2026-08-21, instructions:u per subscribe, 1,000 standing queries against a
 %0-query baseline, min of 3].
 %
-%It is set from petta_check_catalog_semantics/3 rather than from the walk
+%It is set from metta_check_catalog_semantics/3 rather than from the walk
 %above, and the difference is measured: that walk runs on EVERY '&petta'
 %write and its first argument is a list, so every clause added to it is one
 %inference on every write, which register-op's benchmark caught at +94 over

@@ -14,10 +14,10 @@ These modules define atoms, spaces, queries, and the rows returned to Python.
 
 | Module | Surface |
 |---|---|
-| [`petta.atoms`](./petta-atoms) | atoms, constructors, encoding, unification |
-| [`petta.paths`](./petta-paths) | lazy attributes and keys inside opaque handles |
-| [`petta.Space`](./petta-space) | the space handle returned by `petta.space()` |
-| [`petta.results`](./petta-results) | query rows and tables |
+| [`metta.atoms`](./metta-atoms) | atoms, constructors, encoding, unification |
+| [`metta.paths`](./metta-paths) | lazy attributes and keys inside opaque handles |
+| [`metta.Space`](./metta-space) | the space handle returned by `metta.space()` |
+| [`metta.results`](./metta-results) | query rows and tables |
 
 ## Definition
 
@@ -25,9 +25,9 @@ These modules register Python behavior, translate structured objects, and enforc
 
 | Module | Surface |
 |---|---|
-| [`petta.ops`](./petta-ops) | Python operation registration and type declarations |
-| [`petta.convert`](./petta-convert) | two-way object translation |
-| [`petta.casting`](./petta-casting) | runtime typecasting through the engine's types |
+| [`metta.ops`](./metta-ops) | Python operation registration and type declarations |
+| [`metta.convert`](./metta-convert) | two-way object translation |
+| [`metta.casting`](./metta-casting) | runtime typecasting through the engine's types |
 
 ## Diagnostics
 
@@ -35,20 +35,20 @@ These modules expose reduction events, structural findings, similarity scores, a
 
 | Module | Surface |
 |---|---|
-| [`petta.trace`](./petta-trace) | the reduction trace as events |
-| [`petta.derivation`](./petta-derivation) | proof trees and their steps |
-| [`petta.lint`](./petta-lint) | space diagnostics for the silently-wrong class |
+| [`metta.trace`](./metta-trace) | the reduction trace as events |
+| [`metta.derivation`](./metta-derivation) | proof trees and their steps |
+| [`metta.lint`](./metta-lint) | space diagnostics for the silently-wrong class |
 
 ## Data and stores
 
-These modules operate on array protocols and generate test data for public atoms. Journal-backed stores are created through `petta.space(journal=...)`.
+These modules operate on array protocols and generate test data for public atoms. Journal-backed stores are created through `metta.space(journal=...)`.
 
 | Module | Surface |
 |---|---|
-| [`petta.structures`](./petta-structures) | pattern-keyed maps, indexes, and engine-backed views |
-| [`petta.tables`](./petta-tables) | SQL tables bridged in as declared shapes |
-| [`petta.arrays`](./petta-arrays) | array operations and embedding stores |
-| [`petta.testing`](./petta-testing) | the hypothesis strategies the suite fuzzes itself with |
+| [`metta.structures`](./metta-structures) | pattern-keyed maps, indexes, and engine-backed views |
+| [`metta.tables`](./metta-tables) | SQL tables bridged in as declared shapes |
+| [`metta.arrays`](./metta-arrays) | array operations and embedding stores |
+| [`metta.testing`](./metta-testing) | the hypothesis strategies the suite fuzzes itself with |
 
 ## Distribution
 
@@ -56,14 +56,14 @@ These modules connect spaces, processes, event loops, subscriptions, and externa
 
 | Module | Surface |
 |---|---|
-| [`petta.remote`](./petta-remote) | spaces served and attached across processes |
-| [`petta.spaces`](./petta-spaces) | union, readonly, mapped, and overlay combinators |
-| [`petta.manifest`](./petta-manifest) | app assembly from a (boot ...) manifest |
-| [`petta.aio`](./petta-aio) | the engine on an event loop, one dedicated worker thread |
-| [`petta.events`](./petta-events) | the public event stream and the fold over it |
-| [`petta.subscribe`](./petta-subscribe) | standing queries, the fold that delivers |
-| [`petta.foreign`](./petta-foreign) | Python-backed spaces |
-| [`petta.integrate`](./petta-integrate) | library integration tools |
+| [`metta.remote`](./metta-remote) | spaces served and attached across processes |
+| [`metta.spaces`](./metta-spaces) | union, readonly, mapped, and overlay combinators |
+| [`metta.manifest`](./metta-manifest) | app assembly from a (boot ...) manifest |
+| [`metta.aio`](./metta-aio) | the engine on an event loop, one dedicated worker thread |
+| [`metta.events`](./metta-events) | the public event stream and the fold over it |
+| [`metta.subscribe`](./metta-subscribe) | standing queries, the fold that delivers |
+| [`metta.foreign`](./metta-foreign) | Python-backed spaces |
+| [`metta.integrate`](./metta-integrate) | library integration tools |
 
 ## The MeTTa libraries
 

@@ -382,7 +382,7 @@ prolog:error_message(petta_builtin_redefinition(Name, Arity, Space)) -->
 %thing. That reading was wrong on its own terms, and the engine already
 %disagreed with it in three places: is-space/2 answers False for a name without
 %`&`, evalc/3 refuses one as a type error rather than reading a silently empty
-%space, and bindings/python/petta/space.py refuses one with "the prefix is
+%space, and bindings/python/metta/space.py refuses one with "the prefix is
 %load-bearing". Only these doors did not, so `(add-atom not-a-space (bad add))`
 %made a space called `not-a-space` while `(is-space not-a-space)` answered
 %False in the same program.
@@ -935,7 +935,7 @@ unstore_atom(Space, Term, Removed) :- remove_sexp(Space, Term, Removed).
 %inferences a row cheaper and is the traffic: under bool an answer's k can
 %only be 1, because a provider handing one to an undeclared context raises
 %rather than setting it ("a real k is admitted exactly when its context
-%declared a non-Boolean semiring", bindings/python/petta/shim.pl), and the engine's own
+%declared a non-Boolean semiring", bindings/python/metta/shim.pl), and the engine's own
 %join writes nothing when both sides read 1. Measured on direct-join
 %[measured 2026-08-19: 320,322 inferences with the capture on every row
 %against 289,819 without it, over 10,000 rows]

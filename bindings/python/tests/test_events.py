@@ -20,10 +20,10 @@ from __future__ import annotations
 
 import pytest
 
-from petta import S, V
-from petta.errors import PettaError
-from petta.foreign import SpaceProvider, delivery_promise
-from petta.subscribe import bridge
+from metta import S, V
+from metta.errors import PettaError
+from metta.foreign import SpaceProvider, delivery_promise
+from metta.subscribe import bridge
 
 
 class Dictionary(SpaceProvider):
@@ -88,7 +88,7 @@ def test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuse
     try:
         # The promise is an ordinary declaration atom, so a MeTTa program
         # reads what the engine acts on.
-        rows = metta._at("&petta").query(S.events(V.ctx, V.delivery, V.order))
+        rows = metta._at("&petta").match(S.events(V.ctx, V.delivery, V.order))
         promises = {str(row.ctx): (str(row.delivery), str(row.order)) for row in rows}
         assert promises["&ev-declared"] == ("per-write-exactly", "ordered")
         assert "&ev-silent" not in promises
@@ -102,15 +102,14 @@ def test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuse
         rule = bridge(
             metta._at("&ev-declared"), S.tick(V.n), target, S.heard(V.n)
         )
-        metta.declare_reaction(
-            "&ev-declared", "(tick $n)", "(insert &ev-mirror (reacted $n))"
+        metta._at("&ev-declared").reaction("(tick $n)", "(insert &ev-mirror (reacted $n))"
         )
         mirror = metta._at("&ev-mirror")
         try:
             metta._at("&ev-declared").add(S.tick(1))
             assert [event.bindings["n"] for event in seen] == [1]
-            assert target.query(S.heard(V.n))
-            assert mirror.query(S.reacted(V.n))
+            assert target.match(S.heard(V.n))
+            assert mirror.match(S.reacted(V.n))
         finally:
             rule.cancel()
             subscription.cancel()
@@ -121,15 +120,14 @@ def test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuse
         with pytest.raises(PettaError, match="declares no event capability"):
             bridge(metta._at("&ev-silent"), S.tick(V.n), target)
         with pytest.raises(PettaError, match="events &ev-silent"):
-            metta.declare_reaction(
-                "&ev-silent", "(tick $n)", "(insert &ev-mirror (reacted $n))"
+            metta._at("&ev-silent").reaction("(tick $n)", "(insert &ev-mirror (reacted $n))"
             )
 
         # The refusal is surgical: what the provider does implement still
         # works, so this is a withdrawn promise rather than a broken space.
         metta._at("&ev-silent").add(S.tick(2))
         assert S.tick(2) in quiet.stored
-        assert metta._at("&ev-silent").query(S.tick(V.n))
+        assert metta._at("&ev-silent").match(S.tick(V.n))
     finally:
         metta._unregister_space("&ev-silent")
         metta._unregister_space("&ev-declared")
@@ -200,8 +198,7 @@ def test_subscribe_bridge_and_reaction_are_expressible_over_the_public_event_str
     # EVALUATE, a reaction's step: run an operation under the bindings. The
     # shipped form declares (on ...) and the engine folds it; this one folds
     # the same evaluation from outside.
-    metta.declare_reaction(
-        source.name, "(job $n)", "(insert &ev-reacted (shipped $n))"
+    metta._at(source.name).reaction("(job $n)", "(insert &ev-reacted (shipped $n))"
     )
     reacted = metta._at("&ev-reacted")
 

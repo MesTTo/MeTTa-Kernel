@@ -36,23 +36,23 @@ from collections import Counter
 
 import pytest
 
-from petta import (
+from metta import (
     MeTTa,
     PettaError,
     S,
     V,
     aio,
 )
-from petta._engine import bridge as engine_bridge
-from petta.atoms import Expression, Variable
-from petta.errors import (
+from metta._engine import bridge as engine_bridge
+from metta.atoms import Expression, Variable
+from metta.errors import (
     EngineError,
     InferenceLimitError,
     Interrupted,
     MettaSyntaxError,
     TimeLimitError,
 )
-from petta.foreign import SpaceProvider
+from metta.foreign import SpaceProvider
 
 
 @pytest.fixture()
@@ -65,7 +65,7 @@ def test_aio_mirrors_the_surface(m):  # noqa: D103  -- pytest discovers or injec
     async def go():
         async with aio.AsyncMeTTa(metta=m) as am:
             await am.add(S.edge(1, 2), S.edge(2, 3))
-            rows = await am.query(S.edge(V.a, V.b), S.edge(V.b, V.c))
+            rows = await am.match(S.edge(V.a, V.b), S.edge(V.b, V.c))
             groups = await am.run("!(+ 1 2)")
             value = await am.one("(+ 2 3)")
             count = await am.count()
@@ -260,7 +260,7 @@ def test_aio_cancelled_while_queued_never_runs(m):  # noqa: D103  -- pytest disc
                 await long
             # The abandoned add never ran: no (never 1) fact exists. The
             # space is not empty, because the spin equation is stored too.
-            assert await am.query(S.never(V.n)) == []
+            assert await am.match(S.never(V.n)) == []
             return True
 
     assert asyncio.run(go())
@@ -272,7 +272,7 @@ def test_aio_covers_the_whole_synchronous_surface():
     reason, so a new synchronous method fails here until it gains its
     async twin or a stated reason not to.
     """  # noqa: D205  -- the scenario narrative is one continuous invariant, not summary-and-body prose
-    from petta._space import Space
+    from metta._space import Space
 
     excluded = {
         # asyncio's fan-out is N workers and asyncio.gather; a pool of
@@ -287,9 +287,12 @@ def test_aio_covers_the_whole_synchronous_surface():
         # Answers is a synchronous replayable iterator. AsyncMeTTa's stream
         # is the awaitable pull protocol rather than a cross-thread iterator.
         "answers",
-        # A decorator cannot await the worker-side landing; async callers add
-        # a bare rules bundle through the existing await m.add(*bundle) door.
-        "rules",
+            # A decorator cannot await the worker-side landing; async callers add
+            # a bare rules bundle through the existing await m.add(*bundle) door.
+            "rules",
+            # Like rules, the pre-add door is a decorator over a synchronous
+            # compiled definition and cannot await between decorator layers.
+            "pre_add",
         # These are Space's Atom/Handle operand protocol, not engine calls.
         "metatype",
         "to_wire",
@@ -318,7 +321,7 @@ def test_aio_covers_the_whole_synchronous_surface():
         "timeout",
         "inferences",
     ]
-    assert list(inspect.signature(aio.AsyncMeTTa.query).parameters) == [
+    assert list(inspect.signature(aio.AsyncMeTTa.match).parameters) == [
         "self",
         "patterns",
         "where",
@@ -443,7 +446,7 @@ def test_aio_space_attaches_a_provider_without_a_register_alias():  # noqa: D103
             attached = await am.space("&aio-provider", backing=provider)
             try:
                 await attached.add(S.edge(S.b, S.c))
-                rows = await attached.query(S.edge(V.left, V.right))
+                rows = await attached.match(S.edge(V.left, V.right))
                 assert [(row.left, row.right) for row in rows] == [
                     (S.a, S.b),
                     (S.b, S.c),
@@ -512,7 +515,7 @@ def test_aio_close_interrupts_work(m):  # noqa: D103  -- pytest discovers or inj
             await queued
         assert am._worker.thread is not None
         assert not am._worker.thread.is_alive()
-        assert not m.query(S.never_after_close(V.value))
+        assert not m.match(S.never_after_close(V.value))
 
     asyncio.run(go())
 
@@ -586,7 +589,7 @@ def test_aio_logs_worker_attachment_and_shutdown(m, caplog):  # noqa: D103  -- p
         async with aio.AsyncMeTTa(metta=m) as am:
             assert await am.count() == 0
 
-    with caplog.at_level(logging.DEBUG, logger="petta.aio"):
+    with caplog.at_level(logging.DEBUG, logger="metta.aio"):
         asyncio.run(go())
 
     assert "worker attached a Prolog engine" in caplog.text
@@ -639,12 +642,12 @@ def test_aio_structural_surface_behaves():
             assert await m.count() == before_transaction
 
             async with m.stats() as s:
-                await m.query(S.edge(V.x, V.y))
+                await m.match(S.edge(V.x, V.y))
             assert s.inferences > 0
 
             async with m.assuming(S.closed(S.gate)):
-                assert len(await m.query(S.closed(V.w))) == 1
-            assert len(await m.query(S.closed(V.w))) == 0
+                assert len(await m.match(S.closed(V.w))) == 1
+            assert len(await m.match(S.closed(V.w))) == 0
 
             route = await m.prepare(S.edge(V.a, V.b))
             assert route.columns == ("a", "b")
@@ -734,7 +737,8 @@ def test_aio_declare_and_register_delegations_land():  # noqa: D103  -- pytest d
     async def go():
         async with aio.AsyncMeTTa() as am:
             m = await am.space()
-            declared = await m.declare_source("aio-src", "linear")
+            source = await m.space("&aio-src")
+            declared = await source.source("linear")
             assert "aio-src" in str(declared)
 
             def double(x: int) -> int:

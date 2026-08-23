@@ -149,7 +149,7 @@ jobs:
 
   # A wheel that boots in a clean environment is the only blackbox proof
   # that packaging works. The runtime resources setup.py copies into
-  # petta/_runtime are exactly what a fresh install has to find.
+  # metta/_runtime are exactly what a fresh install has to find.
   wheel:
     runs-on: ubuntu-latest
     container:
@@ -184,8 +184,8 @@ jobs:
           cd /tmp
           /tmp/wheeltest/bin/python -c "
           from pathlib import Path
-          import petta
-          from petta import MeTTa
+          import metta
+          from metta import MeTTa
           m = MeTTa()
           assert m.run('!(+ 1 2)') == [[3]], m.run('!(+ 1 2)')
           # The engine globs backends/*.pl on every boot, and expand_file_name
@@ -193,7 +193,7 @@ jobs:
           # holding no built backend. So an unshipped seam is indistinguishable
           # from an unbuilt backend at run time and only a packaging check can
           # tell them apart. It was unshipped until 2026-08-17.
-          runtime = Path(petta.__file__).parent / '_runtime'
+          runtime = Path(metta.__file__).parent / '_runtime'
           for required in ('engine', 'lib', 'backends', 'bindings'):
               # the seat and backend deciders ride as files, checked exactly
 
@@ -203,7 +203,7 @@ jobs:
           # installed tree to certify their own codec, so it ships or the kit
           # is checkout-only. Loaded rather than stat'ed, because a truncated
           # copy would pass a file test.
-          from petta.testing import codec_corpus
+          from metta.testing import codec_corpus
           assert codec_corpus()['grammar'] == 'CODEC.md', 'the codec corpus did not ship'
           print('wheel boots, evaluates outside the checkout, and carries the backend seam')
           "

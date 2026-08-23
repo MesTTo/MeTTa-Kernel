@@ -21,10 +21,10 @@ import sys
 
 import pytest
 
-from petta import MeTTa, S, V
-from petta.errors import EngineError
-from petta.foreign import SpaceProvider
-from petta.vocabularies import FIDELITY, SEMIRING
+from metta import MeTTa, S, V
+from metta.errors import EngineError
+from metta.foreign import SpaceProvider
+from metta.vocabularies import FIDELITY, SEMIRING
 
 
 class _Recording(SpaceProvider):
@@ -68,9 +68,9 @@ def test_a_third_party_declaration_kind_changes_routing_through_published_seams(
     m = MeTTa().self
     provider = _Recording()
     m._register_space(provider, "&fr-rows")
-    m.declare_handles("&fr-rows", "(edge $a $b)", "Exact")
+    m._at("&fr-rows").handles("(edge $a $b)", "Exact")
 
-    rows = m._at("&fr-rows").query(S.edge(V.x, V.y), limit=2)
+    rows = m._at("&fr-rows").match(S.edge(V.x, V.y), limit=2)
     assert len(rows) == 2
     assert provider.asked[-1] == 2, "the declared Exact route pushes the bound"
 
@@ -85,7 +85,7 @@ def test_a_third_party_declaration_kind_changes_routing_through_published_seams(
 
     assert m.run("!(freshness-of &fr-rows (edge x y))") == [[S.cached]]
 
-    rows = m._at("&fr-rows").query(S.edge(V.x, V.y), limit=2)
+    rows = m._at("&fr-rows").match(S.edge(V.x, V.y), limit=2)
     assert len(rows) == 2
     assert provider.asked[-1] is None, (
         "a cached context is demoted: the bound stays with the engine and "
@@ -96,7 +96,7 @@ def test_a_third_party_declaration_kind_changes_routing_through_published_seams(
     m.run("!(add-atom &petta (freshness &fr-rows (edge $a $b) stale))")
 
     with pytest.raises(EngineError, match="refuses"):
-        m._at("&fr-rows").query(S.edge(V.x, V.y), limit=2)
+        list(m._at("&fr-rows").match(S.edge(V.x, V.y), limit=2))
 
 
 def test_a_malformed_third_party_declaration_is_refused_at_the_add(tmp_path):  # noqa: ARG001, D103  -- pytest injects this fixture to establish engine state for the scenario; pytest discovers or injects this callable; its descriptive name states the contract
@@ -136,6 +136,6 @@ def test_the_binding_refuses_by_the_generated_vocabulary():
     """  # noqa: D205  -- the scenario narrative is one continuous invariant, not summary-and-body prose
     m = MeTTa().self
     with pytest.raises(ValueError, match=", ".join(FIDELITY)):
-        m.declare_handles("&vg-rows", "(edge $a $b)", "Exactly")  # type: ignore[arg-type]
+        m._at("&vg-rows").handles("(edge $a $b)", "Exactly")  # type: ignore[arg-type]
     with pytest.raises(ValueError, match=", ".join(SEMIRING)):
-        m.declare_annotations("&vg-rows", "heap")  # type: ignore[arg-type]
+        m.annotations("&vg-rows", "heap")  # type: ignore[arg-type]

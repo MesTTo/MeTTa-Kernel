@@ -5,8 +5,8 @@ The executed [notebook tour](https://github.com/trueagi-io/PeTTa/blob/python-lib
 Load the extension in an ordinary Python kernel. `use(m)` points the cell magic at an existing `MeTTa` instance, so Python calls and MeTTa cells read and write the same space:
 
 ```python
-%load_ext petta.ipython
-from petta.ipython import use
+%load_ext metta.ipython
+from metta.ipython import use
 
 use(m)
 ```

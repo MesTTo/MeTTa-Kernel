@@ -15,7 +15,7 @@ Open Obligations:
 
 import pytest
 
-from petta import S, V, ground, wire
+from metta import S, V, ground, wire
 
 
 def test_a_declared_gradient_algebra_propagates_derivatives_through_a_derivation(
@@ -40,7 +40,7 @@ def test_a_declared_gradient_algebra_propagates_derivatives_through_a_derivation
     leaf = torch.tensor(2.0, requires_grad=True)
     scale = torch.tensor(3.0)
     one = torch.tensor(1.0)
-    metta.declare_algebra(
+    metta.algebra(
         "p4-gradient",
         combine="t+",
         extend="t*",

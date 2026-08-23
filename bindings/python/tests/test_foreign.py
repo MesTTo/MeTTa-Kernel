@@ -3,7 +3,7 @@ general: concrete answers a general property cannot state, the capability and
 refusal MODEL, registration, and the bound's mechanics.
 
 The engine's general expectations of any space moved to
-petta.testing.SpaceComplianceSuite and are exercised in
+metta.testing.SpaceComplianceSuite and are exercised in
 test_compliance_suite.py against three providers, including this file's
 ListSpace, and in test_compliance_duckdb.py against a SQL backend. They used
 to be restated here per test against one provider, which meant the engine's
@@ -29,8 +29,8 @@ from typing import Any, ClassVar
 
 import pytest
 
-import petta.foreign as foreign_module
-from petta import (
+import metta.foreign as foreign_module
+from metta import (
     Atom,
     Expression,
     MeTTa,
@@ -41,7 +41,7 @@ from petta import (
     parse,
     unify,
 )
-from petta.foreign import (
+from metta.foreign import (
     Adder,
     Clearer,
     Enumerable,
@@ -64,7 +64,7 @@ class ListSpace(SpaceProvider):
     def __init__(self, atoms=()):  # noqa: D107  -- the test double construction contract is local to its containing scenario
         self.stored = list(atoms)
 
-    def match(self, pattern):  # noqa: ARG002, D102  -- the test double preserves the protocol method signature its caller exercises; the test double method is documented by its containing scenario and protocol
+    def match(self, _pattern):  # noqa: D102  -- the test double method is documented by its containing scenario and protocol
         return iter(self.stored)
 
     def atoms(self):  # noqa: D102  -- the test double method is documented by its containing scenario and protocol
@@ -117,7 +117,7 @@ def test_conjunction_routes_through_the_provider(listspace):  # noqa: D103  -- p
 
 def test_python_query_api_over_foreign_space(listspace):  # noqa: D103  -- pytest discovers or injects this callable; its descriptive name states the contract
     name, provider, m = listspace
-    rows = m._at(name).query(S.edge(V.x, V.y), S.edge(V.y, V.z))
+    rows = m._at(name).match(S.edge(V.x, V.y), S.edge(V.y, V.z))
     assert [(r.x, r.z) for r in rows] == [(S.a, S.c)]
 
 
@@ -296,7 +296,7 @@ def test_a_provider_states_its_own_refusal(metta):  # noqa: D103  -- pytest disc
         def atoms(self):
             return iter(())
 
-        def add(self, atom):  # noqa: ARG002  -- the test double preserves the protocol method signature its caller exercises
+        def add(self, _atom):
             msg = "declined before this runs"
             raise AssertionError(msg)
 
@@ -327,7 +327,7 @@ def test_declining_and_not_implementing_read_differently(metta):  # noqa: D103  
         def atoms(self):
             return iter(())
 
-        def add(self, atom):  # noqa: ARG002  -- the test double preserves the protocol method signature its caller exercises
+        def add(self, _atom):
             msg = "declined before this runs"
             raise AssertionError(msg)
 
@@ -428,7 +428,7 @@ def test_a_bound_reaches_a_provider_that_takes_one(metta, limit):  # noqa: D103 
     provider = _Bounded(500)
     metta._register_space(provider, "&bounded-test")
     try:
-        rows = MeTTa().space("&bounded-test").query(S.fact(V.k, V.v), limit=limit)
+        rows = MeTTa().space("&bounded-test").match(S.fact(V.k, V.v), limit=limit)
         assert len(rows) == limit
         assert provider.asked == [limit]
         # It stopped at the bound rather than at the engine's cut, which is
@@ -442,7 +442,7 @@ def test_a_provider_without_the_keyword_is_called_as_before(metta):  # noqa: D10
     provider = _Unbounded(500)
     metta._register_space(provider, "&unbounded-test")
     try:
-        rows = MeTTa().space("&unbounded-test").query(S.fact(V.k, V.v), limit=3)
+        rows = MeTTa().space("&unbounded-test").match(S.fact(V.k, V.v), limit=3)
         assert len(rows) == 3
         # One past the bound, which is what a lazy pull costs, and nothing
         # like the 500 it holds.
@@ -476,7 +476,7 @@ def test_a_bound_is_withheld_from_a_provider_that_claimed_nothing(metta):
     provider = _UnclaimedBounded(500)
     metta._register_space(provider, "&unclaimed-test")
     try:
-        rows = MeTTa().space("&unclaimed-test").query(S.fact(V.k, V.v), limit=3)
+        rows = MeTTa().space("&unclaimed-test").match(S.fact(V.k, V.v), limit=3)
         assert len(rows) == 3
         assert provider.asked == [None]
     finally:
@@ -485,7 +485,7 @@ def test_a_bound_is_withheld_from_a_provider_that_claimed_nothing(metta):
 
 def test_a_metta_take_pushes_its_bound_to_the_provider(metta):
     """`take` is the MeTTa-level bound, and it reaches the SAME seam
-    m.query(limit=) reaches rather than a second one beside it.
+    m.match(limit=) reaches rather than a second one beside it.
 
     Until it existed the two halves were unjoined: BoundedMatcher.limit had
     the concept and only the Python query surface could set it, so a MeTTa
@@ -565,7 +565,11 @@ def test_a_pushdown_class_that_is_neither_word_is_refused(metta):
     metta._register_space(provider, "&nonsense-test")
     try:
         with pytest.raises(PettaError, match="answered 'probably'"):
-            MeTTa().space("&nonsense-test").query(S.fact(V.k, V.v), limit=2)
+            list(
+                MeTTa()
+                .space("&nonsense-test")
+                .match(S.fact(V.k, V.v), limit=2)
+            )
     finally:
         metta._unregister_space("&nonsense-test")
 
@@ -644,8 +648,8 @@ def test_a_prolog_only_provider_answers_a_bounded_query(metta, tmp_path):
     )
     metta._rt.consult(str(source))
     space = metta._at("&prolog-only-test")
-    assert len(space.query(S.fact(V.n))) == 3
-    assert len(space.query(S.fact(V.n), limit=2)) == 2
+    assert len(space.match(S.fact(V.n))) == 3
+    assert len(space.match(S.fact(V.n), limit=2)) == 2
 
 
 def test_a_bound_is_not_pushed_past_a_join(metta):
@@ -656,7 +660,7 @@ def test_a_bound_is_not_pushed_past_a_join(metta):
     provider = _Bounded(20)
     metta._register_space(provider, "&join-bound-test")
     try:
-        rows = MeTTa().space("&join-bound-test").query(
+        rows = MeTTa().space("&join-bound-test").match(
             S.fact(V.k, V.v), S.fact(V.k, V.w), limit=2
         )
         assert len(rows) == 2
@@ -669,7 +673,7 @@ def test_an_unbounded_query_asks_for_nothing_in_particular(metta):  # noqa: D103
     provider = _Bounded(7)
     metta._register_space(provider, "&nolimit-test")
     try:
-        rows = MeTTa().space("&nolimit-test").query(S.fact(V.k, V.v))
+        rows = MeTTa().space("&nolimit-test").match(S.fact(V.k, V.v))
         assert len(rows) == 7
         assert provider.asked == [None]
     finally:
@@ -692,7 +696,7 @@ def test_a_provider_ignoring_the_bound_is_still_bounded_by_the_engine(metta):
     provider = Defiant(50)
     metta._register_space(provider, "&defiant-test")
     try:
-        rows = MeTTa().space("&defiant-test").query(S.fact(V.k, V.v), limit=2)
+        rows = MeTTa().space("&defiant-test").match(S.fact(V.k, V.v), limit=2)
         assert len(rows) == 2
         assert provider.asked == [2]
     finally:
@@ -761,10 +765,10 @@ def _both_ways(metta, provider, name, *query):
     try:
         space = metta._at(name)
         space.add(*_JOIN_ATOMS)
-        claimed = sorted(str(row) for row in space.query(*query))
+        claimed = sorted(str(row) for row in space.match(*query))
         with metta._new_space() as native:
             native.add(*_JOIN_ATOMS)
-            split = sorted(str(row) for row in native.query(*query))
+            split = sorted(str(row) for row in native.match(*query))
         return claimed, split
     finally:
         unregister_provider(metta.runtime, name)
@@ -846,8 +850,8 @@ def test_explain_reflects_the_plan(metta):  # noqa: D103  -- pytest discovers or
 
         # A declared (handles ...) entry outranks the provider's method,
         # exact brings the bound line, and Refuse reports as a refusal.
-        sp.declare_handles("&xplan", "(pe $f $t)", "Exact", det="nondet")
-        sp.declare_handles("&xplan", "(xsecret $x)", "Refuse")
+        sp._at("&xplan").handles("(pe $f $t)", "Exact", det="nondet")
+        sp._at("&xplan").handles("(xsecret $x)", "Refuse")
         declared = sp.prepare(parse("(pe $a $b)")).explain()
         assert "exact" in declared
         assert "declared: (handles" in declared and "Exact nondet" in declared

@@ -2,7 +2,7 @@
 
 Assumes: execute with PeTTa's documented Python environment and ``PETTA_PATH``.
 Guarantees:
-  - the lawless witness uses ``declare_algebra`` plus ordinary tagged facts
+  - the lawless witness uses ``algebra`` plus ordinary tagged facts
     [tested: test_a_declared_algebra_without_laws_answers_in_order_and_unfused;
     commit=7ae3103aee78e947d23c5872e3db23c28ad7fe1c]
   - a local seed selects ordinary tagged alternatives reproducibly [tested:
@@ -17,7 +17,7 @@ Guarantees:
     commit=7ae3103aee78e947d23c5872e3db23c28ad7fe1c]
 """
 
-from petta import (
+from metta import (
     AlgebraRequirementError,
     Amplitude,
     LinearEvidenceError,
@@ -32,7 +32,7 @@ from petta import (
 def main() -> None:
     """Print the two unfused tags and the withheld optimization."""
     metta = MeTTa()
-    metta.declare_algebra(
+    metta.algebra(
         "demo-lawless", combine="pair", extend="pair", zero=S.none, one=S.unit
     )
     with metta.new_space() as program:
@@ -41,7 +41,7 @@ def main() -> None:
         result = program.evaluate_algebra(S.answer(V.x), algebra="demo-lawless")
         print("lawless", [str(answer.tag) for answer in result.answers], result.plan)
 
-    metta.declare_algebra(
+    metta.algebra(
         "demo-rates", combine="+", extend="*", zero=0, one=1
     )
     with metta.new_space() as program:
@@ -52,7 +52,7 @@ def main() -> None:
         )
         print("rates", [str(answer) for answer in draws])
 
-    metta.declare_algebra(
+    metta.algebra(
         "demo-linear",
         combine="max",
         extend="+",
@@ -61,7 +61,7 @@ def main() -> None:
         requires=("linear",),
     )
     with metta.new_space() as program:
-        program.declare_annotations(
+        program.annotations(
             program.space_name, "demo-linear", capabilities=("linear",)
         )
         program.add_tagged_fact(1, S.token(S.only))
@@ -79,10 +79,10 @@ def main() -> None:
     )
     with metta.new_space() as program:
         try:
-            program.declare_annotations(program.space_name, "amplitude")
+            program.annotations(program.space_name, "amplitude")
         except AlgebraRequirementError as refusal:
             print("outside fence", refusal)
-        program.declare_annotations(
+        program.annotations(
             program.space_name,
             "amplitude",
             capabilities=("finite", "contractive", "staged"),

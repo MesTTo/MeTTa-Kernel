@@ -1,27 +1,31 @@
 """Purpose: prove the Fork 4 surface collapse deletes superseded doors.
 Guarantees:
-  - the post-R5 narrow package surface has 69 names and keeps ``record`` and
+  - the renamed package surface has 88 names and keeps ``record`` and
     ``order_key`` absent [tested: test_m7_narrow_core_surface;
-    commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
-  - the published before/after counts are exact for ``MeTTa`` and ``petta``
+    commit=b2527d32dc851615e6cf1e11c94ac017d4e78c86]
+  - the published before/after counts are exact for ``MeTTa`` and ``metta``
     [tested: test_m7_narrow_core_surface; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
   - every retired root, context, and atom name is absent rather than aliased
     [tested: test_m7_narrow_core_surface; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
-  - plain import and ``dir(petta)`` load no satellite, while either explicit
+  - all fifteen ``declare_*`` spellings are absent from both synchronous and
+    asynchronous space handles [tested: test_m7_narrow_core_surface;
+    commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+  - plain import and ``dir(metta)`` load no satellite, while either explicit
     import order preserves real module identity [tested:
     test_m7_satellites_are_lazy_and_identity_stable; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
-  - the retained upstream package path resolves to the canonical module and
-    keeps the original two-method ``PeTTa`` wrapper [tested:
-    test_upstream_python_package_path_is_canonical; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+  - the upstream ``python.petta`` alias and its two-method ``PeTTa`` wrapper
+    are absent [tested: test_upstream_python_package_path_is_gone;
+    commit=b2527d32dc851615e6cf1e11c94ac017d4e78c86]
 Owns:
   - subprocesses used for clean import-order probes are waited synchronously
     by ``subprocess.run(check=True)`` [tested:
     test_m7_satellites_are_lazy_and_identity_stable; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 Decides:
-  - ``BASELINE_*`` and ``FINAL_*`` are the published M7 surface metrics
-    [measured: 90 to 20 MeTTa names and 152 to 69 petta names after R5;
+  - ``BASELINE_*`` and ``FINAL_*`` are the published surface metrics
+    [measured: 90 to 20 MeTTa names and 152 to 88 metta names after the
+    module-tier family and the package rename;
     command=python -m pytest bindings/python/tests/test_m7_narrow_core.py -q;
-    fixture=a142938d baseline and cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5 final; commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
+    fixture=a142938d baseline and the current generated root; commit=b2527d32dc851615e6cf1e11c94ac017d4e78c86]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -36,18 +40,20 @@ from pathlib import Path
 
 import pytest
 
-import petta
-from petta import MeTTa
-from petta import atoms as atom_module
+import metta
+from metta import MeTTa, Space
+from metta import atoms as atom_module
 
 BASELINE_METTA_METHODS = 90
-BASELINE_PETTA_EXPORTS = 152
+BASELINE_PACKAGE_EXPORTS = 152
 FINAL_METTA_METHODS = 20
 # 61 at the narrow-core commit; +4 when the R6 merge promoted the canonical
-# atoms TRUE, FALSE, UNIT and HERE to root values the twins can name; +1 when
+# atoms TRUE, FALSE and UNIT to root values; +1 when
 # R1 exported the static fn namespace at the root; +8 when R5 landed its
-# ruled doors (typed, arrow, the keyword builders, State and solve's kin).
-FINAL_PETTA_EXPORTS = 74
+# ruled doors (typed, arrow, the keyword builders, State and solve's kin),
+# followed by the five newly surfaced module-tier verbs (trace replaces its
+# satellite module at the same name, so it does not change the count).
+FINAL_METTA_EXPORTS = 88
 
 SATELLITES = {
     "aio",
@@ -69,7 +75,6 @@ SATELLITES = {
     "subscribe",
     "tables",
     "testing",
-    "trace",
     "vocabularies",
     "wire",
 }
@@ -150,6 +155,8 @@ REMOVED_FROM_METTA = {
 }
 
 REMOVED_FROM_ROOT = {
+    "HERE",
+    "PeTTa",
     "DECLINE",
     "Decline",
     "Expr",
@@ -174,6 +181,7 @@ REMOVED_FROM_ROOT = {
     "logging",
     "map_atoms",
     "pretty",
+    "query",
     "record",
     "register_object_repr_protocol",
     "sym",
@@ -246,10 +254,10 @@ REMOVED_FROM_ROOT = {
     "Cursor",
     "EngineProfile",
     "Prepared",
-    # Importable implementation modules are not package attributes.
+    # Importable implementation modules are not package attributes. ``define``
+    # is now the ruled default-engine verb, not the implementation module.
     "answer",
     "atoms",
-    "define",
     "errors",
     "ops",
     "results",
@@ -289,6 +297,24 @@ REMOVED_FROM_ASYNC = {
     "unregister_space",
 }
 
+REMOVED_DECLARATION_CEREMONY = {
+    "declare_admits",
+    "declare_agenda",
+    "declare_algebra",
+    "declare_annotations",
+    "declare_capacity",
+    "declare_context",
+    "declare_emits",
+    "declare_events",
+    "declare_handles",
+    "declare_image",
+    "declare_merge",
+    "declare_on_error",
+    "declare_reaction",
+    "declare_source",
+    "declare_writes",
+}
+
 
 def _public_names(value) -> set[str]:
     return {name for name in dir(value) if not name.startswith("_")}
@@ -306,20 +332,22 @@ def _assert_absent(value, names: set[str]) -> None:
 
 def test_m7_narrow_core_surface():
     """Publish the M7 metric and prove every superseded name is gone."""
-    from petta.aio import AsyncMeTTa
+    from metta.aio import AsyncMeTTa
 
     assert len(_public_names(MeTTa)) == FINAL_METTA_METHODS
-    assert len(_public_names(petta)) == FINAL_PETTA_EXPORTS
+    assert len(_public_names(metta)) == FINAL_METTA_EXPORTS
     assert BASELINE_METTA_METHODS > FINAL_METTA_METHODS
-    assert BASELINE_PETTA_EXPORTS > FINAL_PETTA_EXPORTS
-    assert petta.__dir__() == sorted(petta.__all__)
+    assert BASELINE_PACKAGE_EXPORTS > FINAL_METTA_EXPORTS
+    assert metta.__dir__() == sorted(metta.__all__)
     _assert_absent(MeTTa, REMOVED_FROM_METTA)
-    _assert_absent(petta, REMOVED_FROM_ROOT)
-    assert "janus" not in dir(petta)
-    assert "janus" not in petta.__all__
-    assert "janus" in vars(petta)  # retained only for upstream python.petta
+    _assert_absent(metta, REMOVED_FROM_ROOT)
+    assert "janus" not in dir(metta)
+    assert "janus" not in metta.__all__
+    assert "janus" not in vars(metta)
     _assert_absent(atom_module, REMOVED_FROM_ATOMS)
     _assert_absent(AsyncMeTTa, REMOVED_FROM_ASYNC)
+    _assert_absent(Space, REMOVED_DECLARATION_CEREMONY)
+    _assert_absent(AsyncMeTTa, REMOVED_DECLARATION_CEREMONY)
 
 
 def test_m7_satellites_are_lazy_and_identity_stable():
@@ -331,24 +359,24 @@ def test_m7_satellites_are_lazy_and_identity_stable():
         f"""
 import importlib
 import sys
-import petta
+import metta
 names = {names}
-assert all(f'petta.{{name}}' not in sys.modules for name in names)
-dir(petta)
-assert all(f'petta.{{name}}' not in sys.modules for name in names)
+assert all(f'metta.{{name}}' not in sys.modules for name in names)
+dir(metta)
+assert all(f'metta.{{name}}' not in sys.modules for name in names)
 for name in names:
-    first = getattr(petta, name)
-    assert first is importlib.import_module(f'petta.{{name}}')
-    assert getattr(petta, name) is first
+    first = getattr(metta, name)
+    assert first is importlib.import_module(f'metta.{{name}}')
+    assert getattr(metta, name) is first
 """,
         f"""
 import importlib
-import petta
+import metta
 names = {names}
 for name in names:
-    first = importlib.import_module(f'petta.{{name}}')
-    assert getattr(petta, name) is first
-    assert importlib.import_module(f'petta.{{name}}') is first
+    first = importlib.import_module(f'metta.{{name}}')
+    assert getattr(metta, name) is first
+    assert importlib.import_module(f'metta.{{name}}') is first
 """,
     ]
     for script in scripts:
@@ -362,22 +390,22 @@ for name in names:
 
 def test_m7_space_factory_keeps_identity():
     """No physical submodule can overwrite the callable space factory."""
-    factory = petta.space
+    factory = metta.space
     with pytest.raises(ModuleNotFoundError):
-        importlib.import_module("petta.space")
-    assert petta.space is factory
+        importlib.import_module("metta.space")
+    assert metta.space is factory
 
 
 def test_m7_unknown_attribute_has_normal_module_error():
     """PEP 562 preserves Python's normal unknown-attribute diagnostic."""
     name = "misspelled"
     with pytest.raises(AttributeError) as raised:
-        getattr(petta, name)
-    assert str(raised.value) == "module 'petta' has no attribute 'misspelled'"
+        getattr(metta, name)
+    assert str(raised.value) == "module 'metta' has no attribute 'misspelled'"
 
 
-def test_upstream_python_package_path_is_canonical():
-    """Retain only upstream's package path, wrapper methods, and CLI module."""
+def test_upstream_python_package_path_is_gone():
+    """The old package alias and source-string wrapper have no import path."""
     root = Path(__file__).resolve().parents[3]
     environment = os.environ | {"PYTHONPATH": str(root / "bindings" / "python")}
     subprocess.run(
@@ -385,16 +413,20 @@ def test_upstream_python_package_path_is_canonical():
             sys.executable,
             "-c",
             """
-import importlib
-import petta
+import metta
 
-upstream = importlib.import_module('python.petta')
-assert upstream is petta
-assert upstream.PeTTa is petta.PeTTa
-assert {
-    name for name in dir(upstream.PeTTa) if not name.startswith('_')
-} == {'load_metta_file', 'process_metta_string'}
-assert callable(importlib.import_module('python.petta.cli').main)
+assert 'PeTTa' not in metta.__all__
+assert 'HERE' not in metta.__all__
+assert 'query' not in metta.__all__
+assert not hasattr(metta, 'PeTTa')
+assert not hasattr(metta, 'HERE')
+assert not hasattr(metta, 'query')
+try:
+    __import__('python.petta')
+except ModuleNotFoundError:
+    pass
+else:
+    raise AssertionError('python.petta still imports')
 """,
         ],
         cwd=root,

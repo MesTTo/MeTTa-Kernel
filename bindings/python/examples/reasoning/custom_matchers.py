@@ -23,9 +23,9 @@ try:
 except ImportError:
     skip("numpy is not installed")
 
-from petta import Answer, Bindings, MeTTa, S, V, Expression
-from petta.arrays import EmbeddingStore
-from petta.atoms import Grounded
+from metta import Answer, Bindings, MeTTa, S, V, Expression
+from metta.arrays import EmbeddingStore
+from metta.atoms import Grounded
 
 m = MeTTa().space()
 
@@ -73,7 +73,7 @@ def fuzzy(query, candidate=None):
         yield Answer(value=word, k=round(degree, 6))
 
 m.op(fuzzy, name="fuzmatch")
-m.declare_annotations("fuzmatch", "ranked")
+m.annotations("fuzmatch", "ranked")
 (best,) = m.run('!(collapse (top 1 (fuzmatch "clase" $w)))')[0]
 check("fuzzy best is difflib's own ranking", str(best.children[0]), '"clause"')
 (weighted,) = m.run(

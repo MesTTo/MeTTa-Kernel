@@ -6,14 +6,14 @@ Guarantees: Python examples use canonical atom construction and Space.name.
 
 # Data structures
 
-`petta.structures` ships containers whose semantics are MeTTa's, unification, multisets, alpha equivalence, with each structure implemented where it is fastest. The pure tier runs on the atom kernel (`unify`, `Atom.alpha_eq`, `substitute`) and never touches the engine, so it imports and works without janus in the process; the engine-backed tier crosses deliberately, because its win IS the engine: tabling that invalidates on writes, subscriptions that maintain a view. MeTTa-side structures live in `lib_datastructures` for programs written in MeTTa itself.
+`metta.structures` ships containers whose semantics are MeTTa's, unification, multisets, alpha equivalence, with each structure implemented where it is fastest. The pure tier runs on the atom kernel (`unify`, `Atom.alpha_eq`, `substitute`) and never touches the engine, so it imports and works without janus in the process; the engine-backed tier crosses deliberately, because its win IS the engine: tabling that invalidates on writes, subscriptions that maintain a view. MeTTa-side structures live in `lib_datastructures` for programs written in MeTTa itself.
 
 ## The pure tier: MeTTa semantics at Python speed
 
 `PatternMap` is a `MutableMapping` whose keys are atoms and whose point is the dispatch question, "which entries apply to this atom?". Ground keys hash exactly like dict keys, so the plain job pays no tax; keys carrying variables land in head/arity buckets, and `matching(atom)` probes only the buckets the atom could touch:
 
 ```python
-from petta.structures import PatternMap
+from metta.structures import PatternMap
 
 routes = PatternMap()
 routes[S.route(S.home)] = home_handler          # ground: dict speed
@@ -24,7 +24,7 @@ routes[S.route(V.anything)] = fallback_handler  # pattern: bucketed
 `MatchIndex` is the inverse: many registered patterns, one incoming atom, "which patterns match it?" answered sublinearly through an imperfect discrimination tree, the term-indexing structure theorem provers run at millions of terms. Candidates verify with `unify`, which is what makes a nonlinear pattern like `(pair $x $x)` exact. The everyday jobs are pub/sub topic matching, rule dispatch, and webhook routing:
 
 ```python
-from petta.structures import MatchIndex
+from metta.structures import MatchIndex
 
 inbox = MatchIndex()
 inbox.add(S.order(V.id, S.express), rush_handler)
@@ -33,7 +33,7 @@ inbox.add(S.order(V.id, S.express), rush_handler)
 
 `AlphaSet` holds atoms modulo variable renaming, the store a rule base wants: `(= (inc $x) (+ $x 1))` and its `$n` twin are one element. Membership is `Atom.alpha_eq` membership, reached through canonical renaming so it costs a hash, and the suite proves it against the pairwise oracle with property tests.
 
-None of the three parses source text, because parsing needs the engine and their contract is engine-freedom: `petta.parse()` first, or build atoms with `S`, `V`, and `Expression`.
+None of the three parses source text, because parsing needs the engine and their contract is engine-freedom: `metta.parse()` first, or build atoms with `S`, `V`, and `Expression`.
 
 ## The engine-backed tier
 

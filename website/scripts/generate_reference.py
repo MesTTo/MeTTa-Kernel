@@ -2,7 +2,7 @@
 
 Guarantees:
   - the Space reference is sourced from its private implementation module
-    while retaining the public ``petta.Space`` title
+    while retaining the public ``metta.Space`` title
     [tested: python bindings/python/tools/reference.py; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
   - deleted public module doors are not emitted as reference pages
     [tested: test_the_legacy_reference_generator_tracks_the_narrow_public_modules;
@@ -31,22 +31,22 @@ class ModuleSpec:
 
 
 MODULES = (
-    ModuleSpec("petta.atoms", "bindings/python/petta/atoms.py"),
-    ModuleSpec("petta.Space", "bindings/python/petta/_space.py"),
-    ModuleSpec("petta.ops", "bindings/python/petta/ops.py"),
-    ModuleSpec("petta.convert", "bindings/python/petta/convert.py"),
-    ModuleSpec("petta.derivation", "bindings/python/petta/derivation.py"),
-    ModuleSpec("petta.subscribe", "bindings/python/petta/subscribe.py"),
-    ModuleSpec("petta.remote", "bindings/python/petta/remote.py"),
-    ModuleSpec("petta.aio", "bindings/python/petta/aio.py"),
-    ModuleSpec("petta.testing", "bindings/python/petta/testing.py"),
-    ModuleSpec("petta.lint", "bindings/python/petta/lint.py"),
-    ModuleSpec("petta.trace", "bindings/python/petta/trace.py"),
-    ModuleSpec("petta.casting", "bindings/python/petta/casting.py"),
-    ModuleSpec("petta.foreign", "bindings/python/petta/foreign.py"),
-    ModuleSpec("petta.integrate", "bindings/python/petta/integrate.py"),
-    ModuleSpec("petta.arrays", "bindings/python/petta/arrays.py"),
-    ModuleSpec("petta.results", "bindings/python/petta/results.py"),
+    ModuleSpec("metta.atoms", "bindings/python/metta/atoms.py"),
+    ModuleSpec("metta.Space", "bindings/python/metta/_space.py"),
+    ModuleSpec("metta.ops", "bindings/python/metta/ops.py"),
+    ModuleSpec("metta.convert", "bindings/python/metta/convert.py"),
+    ModuleSpec("metta.derivation", "bindings/python/metta/derivation.py"),
+    ModuleSpec("metta.subscribe", "bindings/python/metta/subscribe.py"),
+    ModuleSpec("metta.remote", "bindings/python/metta/remote.py"),
+    ModuleSpec("metta.aio", "bindings/python/metta/aio.py"),
+    ModuleSpec("metta.testing", "bindings/python/metta/testing.py"),
+    ModuleSpec("metta.lint", "bindings/python/metta/lint.py"),
+    ModuleSpec("metta.trace", "bindings/python/metta/_trace.py"),
+    ModuleSpec("metta.casting", "bindings/python/metta/casting.py"),
+    ModuleSpec("metta.foreign", "bindings/python/metta/foreign.py"),
+    ModuleSpec("metta.integrate", "bindings/python/metta/integrate.py"),
+    ModuleSpec("metta.arrays", "bindings/python/metta/arrays.py"),
+    ModuleSpec("metta.results", "bindings/python/metta/results.py"),
 )
 
 DEFINITION_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
@@ -125,7 +125,7 @@ def render_module(spec: ModuleSpec) -> str:
             [
                 "## Re-exported class",
                 "",
-                "`EmbeddingStore` is documented under [`petta.arrays`](./petta-arrays#embeddingstore).",
+                "`EmbeddingStore` is documented under [`metta.arrays`](./metta-arrays#embeddingstore).",
                 "",
             ]
         )

@@ -10,6 +10,10 @@ Guarantees:
   - the runtime fn namespace and its typed stub come from one deterministic
     catalog snapshot [tested: test_the_fn_namespace_is_generated;
     commit=6b77b811c44e1819ed9cd99f3809c0667f289e2e]
+  - the S, static fn, and bound fn attribute doors share Python's operator
+    word vocabulary while bracket access remains exact and composite
+    operators refuse with their honest images [tested:
+    test_operator_words_precede_the_mechanical_name_map; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -28,8 +32,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from petta import Expression, S, V, Variable, fn
-from petta.errors import CompileError
+from metta import Expression, S, V, Variable, fn
+from metta.errors import CompileError
 
 
 @pytest.fixture()
@@ -166,6 +170,36 @@ def test_attribute_factories_apply_the_total_map_and_brackets_stay_exact():
     assert V["some_hole"] != V.some_hole
 
 
+def test_operator_words_precede_the_mechanical_name_map(m):
+    """All three Symbol mention doors share one fixed operator vocabulary."""
+    words = {
+        "eq": "==",
+        "ne": "!=",
+        "lt": "<",
+        "le": "<=",
+        "gt": ">",
+        "ge": ">=",
+        "add": "+",
+        "sub": "-",
+        "mul": "*",
+        "mod": "%",
+        "pow": "pow-math",
+        "truediv": "/",
+    }
+    for word, head in words.items():
+        assert getattr(S, word) == S[head]
+        assert getattr(fn, word) == S[head]
+        assert getattr(m.fn, word).__name__ == head
+
+    assert S.eq(V.x, 2) == S["=="](V.x, 2)
+    assert S["eq"] != S.eq
+    assert m.fn.add(1, 2).one() == 3
+    with pytest.raises(AttributeError, match=r"neg.*\(- 0 x\)"):
+        _ = S.neg
+    with pytest.raises(AttributeError, match=r"floordiv.*floor-math.* /"):
+        _ = m.fn.floordiv
+
+
 def test_exact_name_mentions_compile_without_transformation(m):
     """The bottom rung preserves underscores, keywords, and operator names."""
     exact = m.define(_exact_mentions)
@@ -256,20 +290,20 @@ def test_the_fn_namespace_is_generated(repo_root: Path):
     with pytest.raises(AttributeError, match="no target function"):
         getattr(fn, missing)
 
-    stub = (repo_root / "bindings" / "python" / "petta" / "_fn.pyi").read_text(encoding="utf-8")
+    stub = (repo_root / "bindings" / "python" / "metta" / "_fn.pyi").read_text(encoding="utf-8")
     assert "car_atom: Symbol" in stub
     assert "def __getattr__" not in stub
 
     manifest = tomllib.loads((repo_root / "pyproject.toml").read_text(encoding="utf-8"))
-    assert "*.pyi" in manifest["tool"]["setuptools"]["package-data"]["petta"]
+    assert "*.pyi" in manifest["tool"]["setuptools"]["package-data"]["metta"]
 
     environment = os.environ | {"PYTHONPATH": str(repo_root / "bindings" / "python")}
     imported = subprocess.run(
         [
             sys.executable,
             "-c",
-            "import sys; from petta import fn; "
-            "assert 'petta._engine' not in sys.modules; print(fn.car_atom)",
+            "import sys; from metta import fn; "
+            "assert 'metta._engine' not in sys.modules; print(fn.car_atom)",
         ],
         cwd=repo_root,
         env=environment,
@@ -282,7 +316,7 @@ def test_the_fn_namespace_is_generated(repo_root: Path):
 
 def test_generated_aliases_keep_exact_only_spellings_on_the_bracket_door():
     """Genuine underscores and non-Python-style names remain exact-only."""
-    from petta._name_mapping import generated_aliases
+    from metta._name_mapping import generated_aliases
 
     assert generated_aliases(["same-name", "same_name", "mixedCase", "pragma!"]) == {
         "pragma": "pragma!",

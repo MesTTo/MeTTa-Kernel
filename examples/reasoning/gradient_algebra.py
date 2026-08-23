@@ -10,7 +10,7 @@ Guarantees: the result is the same live DLPack tensor whose backward pass
 import pettorch
 import torch
 
-from petta import MeTTa, S, V, decode, val
+from metta import MeTTa, S, V, decode, val
 
 
 def main() -> None:
@@ -20,7 +20,7 @@ def main() -> None:
     source = torch.tensor(2.0, requires_grad=True)
     scale = torch.tensor(3.0)
     one = torch.tensor(1.0)
-    metta.declare_algebra(
+    metta.algebra(
         "gradient-demo",
         combine="t+",
         extend="t*",

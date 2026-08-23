@@ -40,8 +40,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from petta import MeTTa, Space
-from petta.testing import BenchmarkBaseline
+from metta import MeTTa, Space
+from metta.testing import BenchmarkBaseline
 
 CALLS = 3_000
 C_EXTENSION = (
@@ -240,8 +240,8 @@ def space_door_rows(calls: int = SPACE_CALLS, rounds: int = ROUNDS) -> list[Row]
     space.run("(= (hk-accept-all $incoming) (accept))")
     space.run("!(declare-pre-add! &hk-guard hk-accept-all)")
     space.run("(: hk-probe HKAdmitted)")
-    space.declare_admits("&hk-admit", "HKAdmitted")
-    space.declare_capacity("&hk-cap", 10_000_000)
+    space._at("&hk-admit").admits("HKAdmitted")
+    space._at("&hk-cap").capacity(10_000_000)
 
     bodies = {
         "plainadd": "(add-atom &hk-plain (hk-item $n))",

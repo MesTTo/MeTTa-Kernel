@@ -32,7 +32,7 @@
 %     same symbol [tested 2026-08-14: filereader_global_function_scope].
 %   - prepare_parsed_forms/1 is the ONE definition of what a source does before
 %     any of its own forms run, so a reader that parses for itself
-%     (bindings/python/petta/shim.pl does, to keep one answer group per directive) gets
+%     (bindings/python/metta/shim.pl does, to keep one answer group per directive) gets
 %     the same signature set registered up front, and the same refusal of a
 %     declaration that cannot type what the source defines, rather than a
 %     second copy of either [tested 2026-08-18:
@@ -627,7 +627,7 @@ flush_source_program_analysis_if_needed.
 
 %Everything a source does BEFORE any of its own forms run, over forms already
 %parsed. It is named apart from prepare_metta_source/2 because the parse is
-%not the only door onto it: bindings/python/petta/shim.pl reads a source, rewrites the
+%not the only door onto it: bindings/python/metta/shim.pl reads a source, rewrites the
 %parsed forms when run() was given host values, and then processes them one by
 %one to keep a group of answers per directive, so it has to prepare the forms
 %that will actually RUN rather than the text they were read from. Skipping
@@ -1117,7 +1117,7 @@ print_function_form(FormStr, Ref) :-
 %test_every_unicode_whitespace_separates_top_level_forms]. Only "\n" counts a
 %line, here and in the Python locator, which counts source.count("\n"), so
 %LINE SEPARATOR and NEL are ordinary layout on both sides
-%[source: bindings/python/petta/_source_forms.py:80].
+%[source: bindings/python/metta/_source_forms.py:80].
 source_layout(LC0, LC2) --> ";", !, source_comment(LC0, LC2).
 source_layout(LC0, LC2) --> "\n", !,
                              { LC1 is LC0 + 1 },

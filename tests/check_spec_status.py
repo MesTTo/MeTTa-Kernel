@@ -503,10 +503,10 @@ def extract_code_spans(row: SpecRow) -> list[str]:
 
 
 # ------------------------------------------------------------- tree facts
-PROLOG_DIRS = ("engine", "lib", "backends/mork/mork_ffi", "backends", "bindings/python/petta", "tests")
+PROLOG_DIRS = ("engine", "lib", "backends/mork/mork_ffi", "backends", "bindings/python/metta", "tests")
 METTA_DIRS = ("lib", "examples", "bindings/python/examples", "tests")
-PYTHON_DIRS = ("bindings/python/petta", "bindings/python/tools", "bindings/python/examples", "bindings/python/benchmarks", "bindings/python/HE")
-IMPLEMENTATION_DIRS = ("engine", "lib", "backends/mork/mork_ffi", "backends", "bindings/python/petta")
+PYTHON_DIRS = ("bindings/python/metta", "bindings/python/tools", "bindings/python/examples", "bindings/python/benchmarks", "bindings/python/HE")
+IMPLEMENTATION_DIRS = ("engine", "lib", "backends/mork/mork_ffi", "backends", "bindings/python/metta")
 
 PROLOG_CLAUSE_HEAD = re.compile(r"^([a-z][A-Za-z0-9_]*)\(", re.MULTILINE)
 PROLOG_DECLARATION = re.compile(
@@ -656,7 +656,7 @@ class Verdict:
 # Roots under which a file is something BUILT to demonstrate one item: a
 # test, a fixture, an example, or a single-purpose check script. A file
 # under an IMPLEMENTATION root (engine/, lib/, backends/mork/mork_ffi/, backends/,
-# bindings/python/petta/) is excluded on purpose: `evidence_runners.executed()`
+# bindings/python/metta/) is excluded on purpose: `evidence_runners.executed()`
 # marks engine/metta.pl GATE because plunit `consult`s it transitively, which
 # is true of almost every engine file whether or not any given item ever
 # touched it, so "exists and is GATE-tracked" is true of engine/metta.pl both
@@ -710,11 +710,11 @@ SEARCH_ROOTS = (ROOT, WORKSPACE, WORKSPACE.parent)
 def _locate_file(token: str) -> list[Path]:
     """Where a cited path actually lives. Checked literally against each of
     SEARCH_ROOTS in turn. A BARE filename with no `/` -- P0.2a's `shim.pl`,
-    meaning `bindings/python/petta/shim.pl` -- is resolved by searching the TREE
+    meaning `bindings/python/metta/shim.pl` -- is resolved by searching the TREE
     (ROOT only; WORKSPACE and its siblings are not this tool's to walk) for
     that exact basename, because the spec cites many files by their last
     path component only, and checking only `ROOT / token` reported
-    `shim.pl` as absent when `bindings/python/petta/shim.pl` was sitting right there
+    `shim.pl` as absent when `bindings/python/metta/shim.pl` was sitting right there
     [measured 2026-08-18].
     """
     for root in SEARCH_ROOTS:

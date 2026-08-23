@@ -506,7 +506,7 @@ petta_match_error_outcome(Error, keep, kept(Error)).
 
 %A bound pattern went straight to the match hook, so a provider that
 %implements only enumeration answered NOTHING to every real query while the
-%space demonstrably held matching atoms. bindings/python/petta/foreign.py states the
+%space demonstrably held matching atoms. bindings/python/metta/foreign.py states the
 %opposite contract for the same seam, in as many words: "An Enumerable
 %provider need not implement Matcher: enumeration is the correct default
 %candidate set". Porting a working Python provider to Prolog for speed, which
@@ -576,7 +576,7 @@ metta_take(Count, Goal) :-
 %over one space. Across a join the bound belongs to the joined rows, and an
 %outer match truncated at N loses the rows its later candidates would have
 %joined to; that is the rule petta_py_query_limit_all/5 already follows for
-%m.query(limit=), and this is the same rule at the MeTTa level rather than a
+%m.match(limit=), and this is the same rule at the MeTTa level rather than a
 %second one.
 %
 %A provider that never claimed `exact` for this pattern is not handed the

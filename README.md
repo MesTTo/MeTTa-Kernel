@@ -19,7 +19,7 @@ rather than in an issue.
 PeTTa is Patrick Hammer's MeTTa implementation. Its canonical repository is
 [trueagi-io/PeTTa](https://github.com/trueagi-io/PeTTa), begun under
 [patham9/PeTTa](https://github.com/patham9/PeTTa), where the Wiki still
-lives. The `python-library` branch develops the `petta` Python package on
+lives. The `python-library` branch develops the `metta` Python module on
 top of the engine: the engine's behaviour is the upstream contract, held by
 a gate that runs every shipped example through both the engine and the
 library and requires identical verdicts, and the Python surface is this
@@ -39,11 +39,11 @@ python -m pip install .
 ```
 
 ```python
-from petta import S, V, space
+from metta import S, V, space
 
 m = space()
 m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
-rows = m.query(S.Parent(S.Tom, V.child))
+rows = m.match(S.Parent(S.Tom, V.child))
 assert rows.to_dicts() == [{"child": "Bob"}]
 ```
 
@@ -73,15 +73,14 @@ The following projects are cloned and built by build.sh:
 
 ### Python library
 
-The `petta` package is a full Python surface for the engine. The runtime is
+The `metta` module is a full Python surface for the engine. The runtime is
 bundled, so nothing else needs a checkout. You can also use it in place from a
 clone with `PETTA_PATH` pointing at the tree. Install optional integrations by
 feature:
 
 ```bash
-pip install "petta[arrays]"       # array API, NumPy, and FAISS
-pip install "petta[dataframes]"   # pandas and polars result conversion
-pip install "petta[orjson]"       # faster remote JSON serialization
+pip install "pymetta[arrays]"       # array API, NumPy, and FAISS
+pip install "pymetta[dataframes]"   # pandas and polars result conversion
 ```
 
 Configure process-wide limits before creating the first engine. Stack and
@@ -90,22 +89,22 @@ process. Declaration and row-display limits remain live:
 
 ```python
 import logging
-import petta
+import metta
 
-petta.config.configure(
+metta.config.configure(
     declaration_limit=256,
     display_rows=50,
 )
 logging.basicConfig(level=logging.DEBUG)
-logging.getLogger("petta").setLevel(logging.DEBUG)
+logging.getLogger("metta").setLevel(logging.DEBUG)
 ```
 
 The same settings accept `PETTA_STACK_LIMIT`, `PETTA_HEARTBEAT_INTERVAL`,
 `PETTA_DECLARATION_LIMIT` and `PETTA_DISPLAY_ROWS` as positive decimal
-integers. Set `petta.config.stack_limit` and
-`petta.config.heartbeat_interval` before creating the first engine when you
+integers. Set `metta.config.stack_limit` and
+`metta.config.heartbeat_interval` before creating the first engine when you
 configure them in Python. The package installs only a `NullHandler`, so
-applications choose where `petta.*` lifecycle and recovery records go.
+applications choose where `metta.*` lifecycle and recovery records go.
 
 Atoms are Python values. `S.likes` is the symbol `likes`, `V.x` is the
 variable `$x`, and applying a symbol builds an expression, so structure never
@@ -114,14 +113,14 @@ expression `(>= $age 18)` and `&`, `|`, `~` compose the boolean terms,
 while arithmetic on grounded values stays ordinary Python arithmetic:
 
 ```python
-from petta import S, V, space
+from metta import S, V, space
 
 m = space()
 m.run("(= (foo) boo) !(foo)")        # [[Symbol('boo')]]
 m.run("!(+ 40 2)")                   # [[Grounded(42)]]
 
 m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
-m.query(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
+m.match(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 # Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
 ```
 
@@ -129,8 +128,8 @@ m.query(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 Its iterative walk handles deeply nested terms without a Python recursion
 limit, and leaves unchanged expression objects intact.
 
-`petta.engine().self` names the shared `&self` space. Use `petta.space()` to
-create an anonymous handle, or `with petta.space() as scratch:` when the
+`metta.engine().self` names the shared `&self` space. Use `metta.space()` to
+create an anonymous handle, or `with metta.space() as scratch:` when the
 space should be dropped on leaving the block.
 `load()` adds a program to the current space and keeps what is already there.
 
@@ -172,23 +171,23 @@ to solve many times, with `given=` facts existing for that call only:
 
 ```python
 m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
-m.query(S.Age(V.p, V.n), where=S[">="](V.n, 60) & S["<="](V.n, 70))
+m.match(S.Age(V.p, V.n), where=S[">="](V.n, 60) & S["<="](V.n, 70))
 # Rows[p, n]([Row(p=Symbol('Tom'), n=Grounded(62))])
 
 with m.assuming(S.Parent(S.Ann, S.Zoe)):
-    m.query(S.Parent(S.Ann, V.c))    # Rows[c]([Row(c=Symbol('Zoe'))])
+    m.match(S.Parent(S.Ann, V.c))    # Rows[c]([Row(c=Symbol('Zoe'))])
 
 grand = m.prepare(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 grand.solve()
 # Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
 ```
 
-An empty result returned directly by `query()` retains its patterns. Call
+An empty result returned directly by `match()` retains its patterns. Call
 `rows.why()` to distinguish a pattern miss, an incompatible join, and a
 `where` guard that rejected every joined row. The explanation reads the
 space's current state.
 
-Tables cross both ways on the same reading: `petta.tables.add(m, head, source)`
+Tables cross both ways on the same reading: `metta.tables.add(m, head, source)`
 reads any tabular source by the interface it offers (polars `iter_rows`,
 pandas `itertuples`, a mapping of columns, any iterable of rows) into
 `(head v1 .. vn)` facts, and `rows.table()` answers the dict of columns
@@ -199,7 +198,7 @@ into its own module; `(context-space)` names the space the current code runs
 in. `m.derivation(atom)` builds proof trees naming the equations and stored
 facts behind an answer, and `m.why(pattern)` explains an empty match. A
 `%%metta` cell magic for the ordinary Python kernel ships as
-`%load_ext petta.ipython`.
+`%load_ext metta.ipython`.
 
 The library also describes itself into `&petta`, a space of its own:
 `(op name arity kind)` for every registered operation, `(defined space
@@ -295,9 +294,9 @@ decides every test, `and`/`or` answer the deciding operand, `==` holds
 across `4 == 4.0`, `in` is membership and substring, indexing and slices
 take Python's negatives, `round` banks, f-strings format; each definition
 lists the runtime-backed operations it leaned on as `.runtime_ops`. Both
-decorators share one naming policy: the Python name is the MeTTa name,
-verbatim, and a hyphenated name (the MeTTa convention, and unspellable in
-Python) is asked for with `name=` rather than inferred. Anything
+decorators share one naming policy: an implicit Python name maps underscores
+to MeTTa hyphens, while `name=` preserves its authored spelling exactly.
+Anything
 outside the subset is a refusal naming the construct, the line, and what
 to write instead, never a silent fallback; a body only the engine can run
 (a match, a constructor) gets a twin that says so instead of a NameError.
@@ -307,7 +306,7 @@ programs in the subset and holds engine and twin to identical answers.
 
 ### Integrating any library
 
-`petta.integrate` is the interface a Python library implements to work
+`metta.integrate` is the interface a Python library implements to work
 deeply with the engine, and the toolkit that makes it a page of code. The
 frame behind it: MeTTa's own semantics subsume the concepts libraries are
 made of, so integration means mapping onto them rather than inventing
@@ -337,8 +336,8 @@ positions pushed down as a WHERE clause while the engine keeps unification,
 and therefore soundness, for itself. The worked SQL instance lives whole
 in `bindings/python/examples/integration/duckdb_space.py`, deliberately as an example: a
 DuckDB provider is a page of code on this interface. A package advertises itself through the
-`petta.integrations` entry-point group, and `m.integrate(module)` installs
-anything defining `install_petta(m)`. Declare an integration in package
+`metta.integrations` entry-point group, and `m.integrate(module)` installs
+anything defining `install_metta(m)`. Declare an integration in package
 metadata like this:
 
 Installation is idempotent for one live space. `space.drop()` releases that
@@ -353,8 +352,8 @@ same objects passed at registration. Protocol atom formatters pair
 registration that is not live raises `KeyError`.
 
 ```toml
-[project.entry-points."petta.integrations"]
-my-library = "my_library.petta"
+[project.entry-points."metta.integrations"]
+my-library = "my_library.metta"
 ```
 
 The library ships no built-in integration of its own; sibling packages
@@ -377,7 +376,7 @@ callback)`, a standing query delivered inside the very write that matched
 it (or queued for `drain()`), which is the actors-and-pub-sub reading of a
 space; `m.save(path)` writing a space back as loadable source, with
 `m.load(path)` adding that source rather than replacing current atoms; and
-`petta.current_space()`, callable from inside any operation to learn the
+`metta.current_space()`, callable from inside any operation to learn the
 space whose program called it.
 
 ### Custom matching
@@ -425,7 +424,7 @@ substitutions, the aggregate similarity and every step:
 
 ```python
 import pettaprove as soft
-from petta import space
+from metta import space
 
 k = space()
 k.add(S["parent-of"](S.homer, S.bart), S["father-of"](S.abe, S.homer))
@@ -442,7 +441,7 @@ every rule, fact and guard on the way.
 
 ### Arrays: every DLPack library, one operation set
 
-`petta.arrays` carries tensors for every library speaking the standard
+`metta.arrays` carries tensors for every library speaking the standard
 protocols, not one: recognition is DLPack (`__dlpack__`), semantics are the
 Python array API standard through array-api-compat, so the same MeTTa
 functions serve NumPy, PyTorch, CuPy, JAX and whatever conforms next.
@@ -458,9 +457,9 @@ running on whichever library the vectors arrived from.
 ### PeTTorch
 
 The PyTorch integration lives in its own repository beside this one,
-`pettorch`, built on the petta library's public surface: the whole tensor
-set through `petta.arrays` with torch as the constructor default, losses
-and optimizers through `petta.integrate`, `MettaModule` running a MeTTa
+`pettorch`, built on the metta module's public surface: the whole tensor
+set through `metta.arrays` with torch as the constructor default, losses
+and optimizers through `metta.integrate`, `MettaModule` running a MeTTa
 forward pass under autograd, architecture reflection as facts, and the
 neural predicate as an annotated relation on the same surface.
 Its docs, tests and torch examples travel with it. The CLI-reachable half
@@ -572,13 +571,13 @@ build, so a JavaScript program needs no SWI-Prolog on the machine and no socket:
 ```js
 import { boot } from "./bindings/node/index.mjs";
 
-const petta = await boot();
-const [answers] = petta.run("(= (double $x) (* $x 2))\n!(double 21)");
+const metta = await boot();
+const [answers] = metta.run("(= (double $x) (* $x 2))\n!(double 21)");
 console.log(answers.map(String));   // [ '42' ]
 
 // Answers arrive one at a time, so an unbounded generator is usable.
-petta.run("(= (from $n) (superpose ($n (from (+ $n 1)))))");
-for await (const answer of petta.stream("(from 1)")) {
+metta.run("(= (from $n) (superpose ($n (from (+ $n 1)))))");
+for await (const answer of metta.stream("(from 1)")) {
   if (answer.text === "5") break;
 }
 ```

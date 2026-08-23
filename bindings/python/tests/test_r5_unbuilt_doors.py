@@ -7,6 +7,12 @@ Guarantees:
   - each numbered R5 item has a direct behavioral regression [tested:
     python -m pytest bindings/python/tests/test_r5_unbuilt_doors.py -q;
     commit=c34c9bf3e55a8425d3f251c3ad06c33bc9755a22]
+  - the package coordination family exposes future spaces, races, timers,
+    channels, parallel maps, and quiet-gap watch timeouts [tested:
+    test_the_coordination_family_is_python_shaped; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+  - unary plus preserves atom identity while unary minus keeps its staged
+    subtraction meaning [tested: test_unary_plus_is_atom_identity;
+    commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -23,9 +29,9 @@ from typing import Any
 
 import pytest
 
-import petta
-from petta import Expression, Grounded, S, V, equation
-from petta.atoms import order_key
+import metta as pymetta
+from metta import Expression, Grounded, S, V, equation
+from metta.atoms import order_key
 
 
 def test_solve_retires_the_five_relational_let_workarounds(metta):
@@ -42,20 +48,20 @@ def test_solve_refuses_an_anonymous_only_subject(metta):
 
 def test_typed_and_arrow_retire_49_raw_type_symbols():
     """R5.2: 33 arrows and 16 undefined symbols use the shared type table."""
-    assert petta.arrow(int, int) == S["->"](S.Number, S.Number)
-    assert petta.arrow(Any, str) == S["->"](S["%Undefined%"], S.String)
-    assert petta.typed(S.f, petta.arrow(int, int)) == S[":"](
+    assert pymetta.arrow(int, int) == S["->"](S.Number, S.Number)
+    assert pymetta.arrow(Any, str) == S["->"](S["%Undefined%"], S.String)
+    assert pymetta.typed(S.f, pymetta.arrow(int, int)) == S[":"](
         S.f, S["->"](S.Number, S.Number)
     )
 
 
 def test_keyword_builders_retire_53_raw_if_mentions():
     """R5.3: quoted/stored terms use Python-safe keyword builders."""
-    assert petta.if_(V.ok, S.yes, S.no) == S["if"](V.ok, S.yes, S.no)
-    assert petta.not_(V.ok) == S["not"](V.ok)
-    assert petta.and_(V.a, V.b) == S["and"](V.a, V.b)
-    assert petta.or_(V.a, V.b) == S["or"](V.a, V.b)
-    assert petta.in_(V.x, S.items) == S["in"](V.x, S.items)
+    assert pymetta.if_(V.ok, S.yes, S.no) == S["if"](V.ok, S.yes, S.no)
+    assert pymetta.not_(V.ok) == S["not"](V.ok)
+    assert pymetta.and_(V.a, V.b) == S["and"](V.a, V.b)
+    assert pymetta.or_(V.a, V.b) == S["or"](V.a, V.b)
+    assert pymetta.in_(V.x, S.items) == S["in"](V.x, S.items)
 
 
 def test_take_peek_and_watch_retire_the_thread_linda_fn_strings(metta):
@@ -80,16 +86,65 @@ def test_take_peek_and_watch_retire_the_thread_linda_fn_strings(metta):
 def test_watch_close_before_first_event_cancels_its_eager_subscription(metta):
     """Closing a never-started watch releases its standing query."""
     reflection = metta._at("&petta")
-    descriptor = S.subscription(S[metta.name], S.r5_watch(V.n), S.add)
+    descriptor = S.subscription(S[metta.name], S.r5_watch(V.n), S["add"])
     changes = metta.watch(S.r5_watch(V.n))
-    assert len(reflection.query(descriptor)) == 1
+    assert len(reflection.match(descriptor)) == 1
     changes.close()
-    assert not reflection.query(descriptor)
+    assert not reflection.match(descriptor)
+
+
+def test_the_coordination_family_is_python_shaped():
+    """Package coordination rides lib_thread while retaining space identity."""
+    from metta import Timeout, channel, every, par_map, race, spawn
+
+    m = pymetta.engine().self
+
+    @m.define(name="coord-inc")
+    def coord_inc(value):
+        return value + 1
+
+    future = spawn(S.coord_inc(41))
+    assert isinstance(future, pymetta.Space)
+    assert list(future.wait()) == [42]
+    assert list(future) == [42]
+    assert future.settled()
+
+    assert tuple(par_map(S.coord_inc, [1, 2, 3])) == (2, 3, 4)
+    assert race(S.coord_inc(1), S.coord_inc(2)) in {2, 3}
+
+    timer = every(0.01, S.coord_inc(9))
+    arrivals = iter(timer)
+    assert next(arrivals) == Grounded(10)
+    assert timer.cancel() is True
+    arrivals.close()
+
+    mailbox = channel(max=1)
+    assert mailbox.send(S.job(7)) is True
+    assert mailbox.recv(deadline=0.1) == S.job(7)
+    assert mailbox.try_recv() is None
+    with pytest.raises(Timeout):
+        mailbox.recv(deadline=0.01)
+    mailbox.close()
+
+    quiet = m._new_space()
+    changes = quiet.watch(S.never(V.value), deadline=0.01)
+    with pytest.raises(Timeout):
+        next(changes)
+    quiet.drop()
+
+    assert issubclass(Timeout, TimeoutError)
+
+
+def test_unary_plus_is_atom_identity():
+    """Unary plus has Python's identity meaning and constructs no term."""
+    assert +V.number is V.number
+    assert +S.value is S.value
+    assert -V.number == S["-"](0, V.number)
 
 
 def test_define_absorbs_class_declaration_and_frees_space_type(metta):
     """R5.5: one decorator replaces the second spelling under appendix 8."""
-    import petta.ops as op_module
+    import metta.ops as op_module
 
     @metta.define
     @dataclass
@@ -98,13 +153,13 @@ def test_define_absorbs_class_declaration_and_frees_space_type(metta):
 
     point = R5Point(3)
     assert metta.type(point) == S.R5Point
-    assert "record" not in petta.__all__
+    assert "record" not in pymetta.__all__
     assert not hasattr(op_module, "record")
 
 
 def test_state_retires_three_state_function_strings(metta):
     """R5.6: new/get/change state compose through one typed Python handle."""
-    state = petta.State[int](5, space=metta)
+    state = pymetta.State[int](5, space=metta)
     assert state.value == 5
     state.value = 8
     assert state.value == 8
@@ -134,8 +189,8 @@ def test_callable_mentions_share_operator_and_fourteen_math_names(
     metta, callable_value, head
 ):
     """R5.7: operator.add and the builtin-types math family become mentions."""
-    assert petta.wire.encode(operator.add) == S["+"]
-    assert petta.wire.encode(callable_value) == S[head]
+    assert pymetta.wire.encode(operator.add) == S["+"]
+    assert pymetta.wire.encode(callable_value) == S[head]
 
     @metta.define(name="r5-math-sqrt")
     def r5_math_sqrt(x):
@@ -159,8 +214,8 @@ def test_callable_mentions_require_identity_even_when_equality_is_spoofed():
 
     spoof = AddSpoof()
     assert spoof == operator.add
-    encoded = petta.wire.encode(spoof)
-    assert isinstance(encoded, petta.Grounded)
+    encoded = pymetta.wire.encode(spoof)
+    assert isinstance(encoded, pymetta.Grounded)
     assert encoded.value is spoof
 
 
@@ -228,7 +283,7 @@ def test_fn_strips_one_bang_only_when_the_exact_name_is_absent(metta):
 def test_rules_lower_emits_queryable_declaration_and_registers_the_head(metta):
     """R5.11: six translator-registration strings collapse into lower()."""
 
-    @petta.rules
+    @pymetta.rules
     def r5_lowering(x):
         yield equation(S["r5-lower"](x)).to(S.noeval(S.r5_lowered(x)))
 
@@ -242,15 +297,16 @@ def test_rules_lower_emits_queryable_declaration_and_registers_the_head(metta):
 
 def test_rules_lower_refuses_an_empty_rule_set_before_mutating(metta):
     """A lowering needs a rule head to declare and register."""
-    @petta.rules
+    @pymetta.rules
     def empty_rules():
         if False:
             yield equation(S.unreachable).to(S.unreachable)
 
-    before = tuple(metta)
-    with pytest.raises(ValueError, match="empty rule set"):
-        empty_rules.lower(S.topdown, requires=S.mork, space=metta)
-    assert tuple(metta) == before
+    with metta._new_space() as target:
+        before = target.digest()
+        with pytest.raises(ValueError, match="empty rule set"):
+            empty_rules.lower(S.topdown, requires=S.mork, space=target)
+        assert target.digest() == before
 
 
 def test_transaction_term_uses_empty_answer_rollback_law(metta):

@@ -1,7 +1,7 @@
 % Purpose: MeTTa's Python surface, the one where py-atom RESOLVES and MeTTa
 %   applies. Every test here runs with janus alone: the engine ships
-%   engine/petta_py.py and adds it to Python's path itself, so none of this needs
-%   the `petta` package installed.
+%   engine/metta_py.py and adds it to Python's path itself, so none of this needs
+%   the `metta` package installed.
 % Guarantees:
 %   - a dotted name of any depth resolves, which splitting on the first dot
 %     could not do [tested: a_dotted_path_of_any_depth_resolves]
@@ -18,7 +18,7 @@
 %     a_value_prints_according_to_its_default_reading; commit=0c1bd4c2faadc1c4fc97cc9d2caa084907d20072]
 % Fails when:
 %   - the claim is about the SHIPPED configuration. plunit consults
-%     engine/metta.pl and never bindings/python/petta/shim.pl, so no host bridge answers
+%     engine/metta.pl and never bindings/python/metta/shim.pl, so no host bridge answers
 %     seam:grounded_type_names/2 here and anything the shim's presence changes is
 %     invisible. That cost a real defect: the declared-type test below was
 %     green while the shipped library dropped the declaration
@@ -138,7 +138,7 @@ test(a_keyword_value_is_evaluated) :-
 % seam:grounded_extra_type/2 extension point that already existed for exactly this.
 %
 % This suite is ONE CONFIGURATION. plunit loads engine/metta.pl without
-% bindings/python/petta/shim.pl, so no host bridge answers seam:grounded_type_names/2 here
+% bindings/python/metta/shim.pl, so no host bridge answers seam:grounded_type_names/2 here
 % and this test only ever exercised the branch where none does. The
 % declaration was being dropped in the shipped one for as long as this was
 % green [measured 2026-08-18]. Its counterpart at the library door is

@@ -21,7 +21,7 @@ def test_eval(metta):
 
 def test_source_strings_are_parsed_where_atoms_are_expected(m):
     m.add("(likes Ada Coffee)")
-    assert m.query("(likes $who Coffee)")[0].who == S.Ada
+    assert m.match("(likes $who Coffee)")[0].who == S.Ada
 ```
 
 `eval` returns the answers for one target atom. `query` returns bindings as named rows. `run` keeps one answer list per `!` directive because a source string can contain several directives.

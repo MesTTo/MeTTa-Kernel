@@ -17,7 +17,7 @@
 %   - each scope owns one pushed Prolog flag and pops it on every exit path.
 
 :- ensure_loaded('../../engine/metta.pl').
-:- ensure_loaded('../../bindings/python/petta/shim.pl').
+:- ensure_loaded('../../bindings/python/metta/shim.pl').
 
 raised_stack_limit(Limit) :-
     current_prolog_flag(stack_limit, Current),

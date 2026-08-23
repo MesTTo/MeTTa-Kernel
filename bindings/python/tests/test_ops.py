@@ -10,6 +10,9 @@ Guarantees:
     policy is reflected by atoms rather than boolean flags [tested:
     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+  - implicit operation names map every underscore to a hyphen while an
+    explicit name remains exact [tested: test_op_uses_the_define_name_ladder;
+    commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -24,7 +27,7 @@ import uuid
 
 import pytest
 
-from petta import (
+from metta import (
     Atom,
     Expression,
     MeTTa,
@@ -36,12 +39,33 @@ from petta import (
     ground,
     reflection,
 )
-from petta._space import Space
-from petta.errors import EngineError, StrictError
+from metta._space import Space
+from metta.errors import EngineError, StrictError
 
 
 def unique(prefix: str) -> str:  # noqa: D103  -- pytest discovers or injects this callable; its descriptive name states the contract
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
+
+
+def test_op_uses_the_define_name_ladder(metta):  # noqa: D103 -- pytest discovers this naming contract by name
+    @metta.op
+    def implicit_operation(value):
+        return value
+
+    @metta.op(name="exact_operation")
+    def explicit_operation(value):
+        return value
+
+    try:
+        assert metta.eval(S.implicit_operation(7)) == [7]
+        assert metta.eval(S["exact_operation"](8)) == [8]
+        assert metta.eval(S["implicit_operation"](7)) == [S["implicit_operation"](7)]
+    finally:
+        for registered_name in ("implicit-operation", "implicit_operation", "exact_operation"):
+            try:
+                metta.unregister_op(registered_name)
+            except KeyError:
+                pass
 
 
 def test_det_op_composes_with_equations(metta):  # noqa: D103  -- pytest discovers or injects this callable; its descriptive name states the contract
@@ -78,7 +102,7 @@ def test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms(
     metta,
 ):
     """Execution policy scopes compose; callable policy is queryable data."""
-    from petta._prelude import NAMES as PRELUDE_NAMES
+    from metta._prelude import NAMES as PRELUDE_NAMES
 
     for method, removed in (
         (Space.run, {"capture", "atomic", "speculative", "strict", "using"}),
@@ -108,14 +132,14 @@ def test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms(
 
     with metta.speculative():
         assert metta.run("(p5-speculative fact) !(+ 2 2)") == [[4]]
-    assert len(metta.query(Expression(S["p5-speculative"], V.x))) == 0
+    assert len(metta.match(Expression(S["p5-speculative"], V.x))) == 0
 
     with pytest.raises(EngineError):
         with metta.atomic():
             # Integer division by zero answers an Error atom under the P1.34
             # doctrine, so the rollback trigger is a host instantiation fault.
             metta.run("(p5-atomic fact) !(+ $left $right)")
-    assert len(metta.query(Expression(S["p5-atomic"], V.x))) == 0
+    assert len(metta.match(Expression(S["p5-atomic"], V.x))) == 0
 
     with pytest.raises(StrictError):
         with metta.strict():
@@ -131,7 +155,7 @@ def test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms(
     reflection = metta._at("&petta")
     assert {
         row.name
-        for row in reflection.query(Expression(S.arguments, V.name, S.atoms))
+        for row in reflection.match(Expression(S.arguments, V.name, S.atoms))
     } >= prelude_names
 
     name = unique("p5-policy")
@@ -145,11 +169,11 @@ def test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms(
     def policy_operation(value):
         return value
 
-    assert [row.kind for row in reflection.query(Expression(S.op, S[name], 1, V.kind))] == [
+    assert [row.kind for row in reflection.match(Expression(S.op, S[name], 1, V.kind))] == [
         S["raw_det"]
     ]
     assert [
-        row.effect for row in reflection.query(Expression(S.effect, S[name], V.effect))
+        row.effect for row in reflection.match(Expression(S.effect, S[name], V.effect))
     ] == [S.immutable]
     assert effect in reflection
     assert metta.run(f"!({name} 7)") == [[7]]
@@ -167,7 +191,7 @@ def test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms(
     assert isinstance(seen[0], Atom)
     assert [
         row.delivery
-        for row in reflection.query(Expression(S.arguments, S[atoms_name], V.delivery))
+        for row in reflection.match(Expression(S.arguments, S[atoms_name], V.delivery))
     ] == [S.atoms]
 
     refused_name = unique("p5-raw-atoms")
@@ -181,7 +205,7 @@ def test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms(
 
     metta.unregister_op(atoms_name)
     metta.unregister_op(name)
-    assert not reflection.query(Expression(S.arguments, S[atoms_name], V.delivery))
+    assert not reflection.match(Expression(S.arguments, S[atoms_name], V.delivery))
     assert effect not in reflection
 
 
@@ -228,7 +252,7 @@ def test_generator_is_nondeterministic(metta):  # noqa: D103  -- pytest discover
 
 def test_register_op_reads_co_flags_and_refuses_or_awaits(metta):
     """The synchronous operation surface refuses every awaitable function."""
-    from petta.ops import registered
+    from metta.ops import registered
 
     async def coroutine(value):
         return value
@@ -763,14 +787,14 @@ def test_var_kw_params_are_refused(metta):  # noqa: D103  -- pytest discovers or
 
 
 def test_engine_injection_by_annotation(metta):  # noqa: D103  -- pytest discovers or injects this callable; its descriptive name states the contract
-    # FastAPI's Depends read the house way: a petta.MeTTa annotation is
+    # FastAPI's Depends read the house way: a metta.MeTTa annotation is
     # the request, the framework fills it, and the MeTTa call site never
     # sees the slot.
     metta.run("(inj-link a b) (inj-link b c)")
 
     @metta.op(name="inj-related")
     def inj_related(term, engine: MeTTa):
-        for row in engine.self.query(Expression(S["inj-link"], term, V.x)):
+        for row in engine.self.match(Expression(S["inj-link"], term, V.x)):
             yield row[0]
 
     try:
