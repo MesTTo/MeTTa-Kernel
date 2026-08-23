@@ -10,6 +10,9 @@
 %   - A payload outside the class its tag names fails too, in both the
 %     plain and the sharing decode
 %     [tested: shim_wire_decoding:a_payload_outside_its_tags_class_fails].
+%   - native equality does not walk a whole expression merely to classify it
+%     [tested: comparing_against_the_empty_expression_does_not_walk_the_other_operand;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -217,6 +220,26 @@ test(an_opaque_object_is_left_for_the_host, [fail]) :-
 
 test(an_opaque_objects_truth_is_left_for_the_host, [fail]) :-
     petta_py_native_truthy('$opaque'(value), _).
+
+%is_list/1 is one inference however much C work it performs, so this defect
+%class needs a CPU-time test. A sixteen-times-wider operand gives a wide margin:
+%a whole-operand classification grows by about sixteen while the outer-cell
+%classification remains constant. Both readings share one process and the
+%lists are built before the timed region.
+native_empty_expression_comparison_cost(Length, Seconds) :-
+    findall(e, between(1, Length, _), Expression),
+    forall(between(1, 100, _),
+           petta_py_dispatch_eq(Expression, [], false)),
+    statistics(cputime, Before),
+    forall(between(1, 5000, _),
+           petta_py_dispatch_eq(Expression, [], false)),
+    statistics(cputime, After),
+    Seconds is After - Before.
+
+test(comparing_against_the_empty_expression_does_not_walk_the_other_operand) :-
+    native_empty_expression_comparison_cost(400, Narrow),
+    native_empty_expression_comparison_cost(6400, Wide),
+    assertion(Wide < Narrow * 4).
 
 :- end_tests(shim_python_scalar_semantics).
 
