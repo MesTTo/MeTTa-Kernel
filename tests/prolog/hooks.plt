@@ -18,12 +18,16 @@
 %     verdict consumer classifies that residual as the named stuck state
 %     [tested: a_compiled_fire_treats_an_unreduced_eval_as_stuck;
 %     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+%   - host writes, running MeTTa add-atom forms, and file loads into a target
+%     space all pass accept, transform, drop, and refuse through the same
+%     declared pre-add hook [tested: admission_route_matrix; commit=ce55fe46f26484be4269d06d6b99684d5edc040f]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
 :- ensure_loaded('../../engine/metta.pl').
+:- ensure_loaded('../../bindings/python/petta/shim.pl').
 
 %Run MeTTa source and answer the result groups, swallowing the engine's
 %compilation printing, the duals.plt idiom.
@@ -205,6 +209,62 @@ test(the_metta_surface_declares_and_the_refusal_reaches_the_program,
     assertion(Ball = petta_add_refused('&hplt-pool', _, _)).
 
 :- end_tests(space_hooks).
+
+%Every ingress uses the public door for its own tier. The matrix deliberately
+%does not call metta_add_atom/3 directly: that shared write spine is what the
+%three public routes are required to converge on.
+:- begin_tests(admission_route_matrix,
+               [ setup(ensure_hook_guards) ]).
+
+route_verdict(accept, [plain, 1], landed([plain, 1])).
+route_verdict(transform, [raw, 1], landed([cooked, 1])).
+route_verdict(drop, [dup, 1], empty).
+route_verdict(refuse, [secret, 1], refused).
+
+route_write(host, Space, Term) :-
+    petta_py_encode(Term, Wire),
+    petta_py_add(Space, Wire).
+route_write(metta, Space, Term) :-
+    swrite(Term, Written),
+    format(string(Source), "!(add-atom ~w ~w)", [Space, Written]),
+    metta(Source).
+route_write(file, Space, Term) :-
+    tmp_file_stream(text, Path, Stream),
+    setup_call_cleanup(
+        true,
+        ( swrite(Term, Written),
+          format(Stream, "~w~n", [Written]),
+          close(Stream),
+          load_metta_source_groups(Path, Space, _) ),
+        ( ( is_stream(Stream) -> close(Stream, [force(true)]) ; true ),
+          ( exists_file(Path) -> delete_file(Path) ; true ) )).
+
+check_route_verdict(Route, Verdict, Term, Expected) :-
+    gensym('&hplt-route-', Space),
+    setup_call_cleanup(
+        metta_declare_hook(pre_add, Space, 'hplt-guard'),
+        ( catch(route_write(Route, Space, Term), Error, true),
+          findall(Atom, 'get-atoms'(Space, Atom), Atoms),
+          check_route_outcome(Expected, Space, Term, Error, Atoms) ),
+        ( metta_undeclare_hook(pre_add, Space), clear_native_atoms(Space) )),
+    assertion(memberchk(Verdict, [accept, transform, drop, refuse])).
+
+check_route_outcome(landed(Expected), _, _, Error, Atoms) :-
+    var(Error),
+    assertion(Atoms == [Expected]).
+check_route_outcome(empty, _, _, Error, Atoms) :-
+    var(Error),
+    assertion(Atoms == []).
+check_route_outcome(refused, Space, Term, Error, Atoms) :-
+    assertion(Error = error(petta_add_refused(Space, Term, _), _)),
+    assertion(Atoms == []).
+
+test(every_verdict_fires_on_every_engine_ingress,
+     [forall(( member(Route, [host, metta, file]),
+               route_verdict(Verdict, Term, Expected) ))]) :-
+    check_route_verdict(Route, Verdict, Term, Expected).
+
+:- end_tests(admission_route_matrix).
 
 %The post slot: the same verdicts read against a LANDED atom, beside the
 %event pair that stays pure observation.

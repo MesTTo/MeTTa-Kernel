@@ -8,6 +8,23 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Python-defined equality and truthiness now execute in the Prolog engine for
+  native wire values (variables, booleans, numbers, strings, symbols, and
+  expressions recursively), with the exact Python semantics: `1 == 1.0`,
+  `True == 1`, `-0.0 == 0.0`, and `NaN != NaN`. Opaque grounded objects keep
+  the Python dispatch so `__eq__` and `__bool__` stay authoritative. A
+  compiled body written with Python operators now lands within 1.06x of the
+  same body written with MeTTa's named `==`, from 1.71x before.
+- `(with-pragma! ((stack-limit N)) Expr)` scopes SWI's combined stack byte
+  ceiling for the expression and restores the previous value on every exit,
+  distinct from the reduction-fuel `max-stack-depth` pragma. The host seam
+  `petta_py_limited/6` threads the same bound with a negative-value no-bound
+  sentinel; `petta_py_limited/5` is unchanged.
+- `petta_py_function_generation/1` exposes the process-global `fun/1`
+  catalogue generation for cheap host cache invalidation. It reads SWI's own
+  `last_modified_generation`, so definitions bump it, evaluation and data
+  writes do not, and translator-rule changes are neutral because they do not
+  affect `petta_py_builtins/1`.
 - `@petta.rules` turns a generator whose parameters are rule-local variables
   into a list of ordinary equation atoms, and `equation(lhs).to(rhs)` keeps the
   two halves on one static Python type. Add the result with `m.add(*laws)`;
@@ -499,6 +516,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Data forms loaded from a file now pass through the declared pre-add
+  admission hooks, so `declare-pre-add!` accept, transform, drop, and refuse
+  verdicts behave identically on the file, host, and running-MeTTa routes.
+  The file loader had called the space spine directly, bypassing the hook.
 - Dropping or clearing a space that had tabled a function no longer risks
   terminating the process. The clear removed the clauses of predicates that
   were still tabled and only untabled them afterwards, so every removal ran
