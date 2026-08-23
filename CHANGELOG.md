@@ -136,6 +136,38 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- A conjunctive `match` costs work linear in its conjunct count rather than
+  quadratic. Whether every conjunct was relational is a precondition of the
+  whole conjunction and it was re-decided at every step, walking the remaining
+  conjuncts once per conjunct. A 64-conjunct path query cost 3,416 inferences
+  an answer and costs 814; a two-conjunct one is unchanged.
+
+- Reading an expression's shape no longer walks it. A MeTTa expression is a
+  proper list, and the engine asked `is_list/1` to confirm that, which traverses
+  the whole list to answer what the first cell already says. `(index-atom $l 0)`
+  over 25,600 elements cost 34.2 microseconds and costs 0.29, `get-metatype`
+  33.4 and 0.33, and `is-expr` 31.5 and 0.12; none of the three moves with the
+  list's length any more, so indexing a list inside a loop over it is linear
+  rather than quadratic.
+
+- `cons-atom` and `cons` refuse a tail that is not an expression, as the
+  specification's own `cons-atom` does. `!(cons-atom a 1)` used to build a term
+  the engine could not then print, failing with "cannot write 1 as MeTTa text
+  because its printed form would read back as a different value"; it now answers
+  `(Error (cons-atom a 1) (BadArgType 2 Expression Number))`. A tail whose type
+  is undecided, an undeclared symbol, is still left unreduced, and an unbound
+  tail still builds, so `(cons $x $xs)` remains a pattern and the third argument
+  still decomposes a list.
+
+- Matching a list against `()` no longer walks the list. `(unify $l () ...)` is
+  the other way a MeTTa program tests for the end of a list, and the custom
+  matcher classified both operands with `is_list/1`, so every step of a walk
+  traversed the whole remaining list. A cons cell and `()` can never match, and
+  that is now decided from the first cell. A recursive generator that ends its
+  list this way cost 7,550 microseconds over 3,200 elements and costs 1,112, and
+  one probe of a 6,400-element list against `()` cost 9.16 microseconds and
+  costs 0.32. Answers are unchanged.
+
 - Walking a list to its end is now linear in the list's length rather than
   quadratic. `(== $l ())` is how a MeTTa program tests for the end of a list,
   and deciding whether the two operands were comparable asked `is_list/1` of
@@ -520,6 +552,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   admission hooks, so `declare-pre-add!` accept, transform, drop, and refuse
   verdicts behave identically on the file, host, and running-MeTTa routes.
   The file loader had called the space spine directly, bypassing the hook.
+- The published space compliance suite picks the atom its shape-dependent
+  checks run against by width rather than by whichever one a provider
+  enumerated first. A provider answers its atoms in no particular order, so a
+  provider holding both a one-argument and a two-argument atom used to exercise
+  the repeated-variable check or skip it depending on order, and adding a single
+  never-called predicate to the engine was enough to flip it.
 - Dropping or clearing a space that had tabled a function no longer risks
   terminating the process. The clear removed the clauses of predicates that
   were still tabled and only untabled them afterwards, so every removal ran

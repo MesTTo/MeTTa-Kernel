@@ -1010,6 +1010,47 @@ test(an_inherited_skewed_join_costs_time_linear_in_the_edge_count) :-
     inherited_join_cost(64, Wide),
     assertion(Wide < Narrow * 3).
 
+% Every conjunct being relational is a precondition of the WHOLE conjunction,
+% and asking it again at each level walks the remaining conjuncts once per
+% conjunct, which is quadratic in their number. A path query over a chain has
+% one answer per starting node whatever K is, so the per-answer cost isolates
+% the planning from the join: it was 121 inferences an answer at K=8 and 3,416
+% at K=64, 28x for 8x the conjuncts, and it is 82 and 814, which is 10x.
+% NOT findall/3 for the conjunct list: it copies its template, so every
+% conjunct would get fresh variables and the query would be a cartesian product
+% rather than a join.
+chain_path([_], []) :- !.
+chain_path([A, B|Rest], [[joink, A, B]|Conjuncts]) :- chain_path([B|Rest], Conjuncts).
+
+conjunct_scaling_cost(K, PerAnswer) :-
+    Space = '&plunit_conjunct_scaling',
+    clear_native_atoms(Space),
+    forall(between(0, 127, I),
+           ( atom_concat(jn, I, A), J is I + 1, atom_concat(jn, J, B),
+             add_sexp(Space, [joink, A, B]) )),
+    N is K + 1,
+    length(Vars, N),
+    chain_path(Vars, Conjuncts),
+    Pattern = [','|Conjuncts],
+    Vars = [First|_],
+    last(Vars, Last),
+    Out = [First, Last],
+    findall(Out, match(Space, Pattern, Out, Out), Rows),
+    length(Rows, Answers),
+    assertion(Answers > 0),
+    statistics(inferences, Before),
+    findall(Out, match(Space, Pattern, Out, Out), _),
+    statistics(inferences, After),
+    statistics(inferences, Settle),
+    Overhead is Settle - After,
+    PerAnswer is ((After - Before) - Overhead) / Answers,
+    clear_native_atoms(Space).
+
+test(a_long_conjunction_costs_inferences_linear_in_its_conjunct_count) :-
+    conjunct_scaling_cost(8, Narrow),
+    conjunct_scaling_cost(64, Wide),
+    assertion(Wide < Narrow * 16).
+
 :- end_tests(spaces_join_order).
 
 :- begin_tests(spaces_match_snapshot).
@@ -2011,6 +2052,37 @@ test(pointwise_bindings, [true(X-Y == a-b)]) :-
     petta_match_atoms([f, X, b], [f, a, Y]).
 test(arity_mismatch_fails, [fail]) :-
     petta_match_atoms([f, a], [f, a, b]).
+%A cons cell and () never match, whichever side each is on, and whatever the
+%properness of the cons. Read as lists they differ at the first cell, and every
+%clause past the list branch decides by equality, which they fail too.
+test(a_cons_never_matches_the_empty_list,
+     [forall(member(Cons, [[a], [a,b], [[x],[y]], [a|b], [a,b|c],
+                           ['Error',x], ['Error'|b], [[]], [1,2.5,"s"]])),
+      fail]) :-
+    ( petta_match_atoms(Cons, []) ; petta_match_atoms([], Cons) ).
+
+%And deciding it must not WALK the cons. `(unify $l () ...)` is how a list is
+%walked to its end, so asking is_list/1 of the whole remaining list at every
+%step made the walk quadratic: a unify-branching generator over 200 elements
+%cost 114 microseconds and over 3,200 cost 7,550, 10.1x per 4x, against 85 and
+%1,112 now, which is 3.1x. One probe of a 6,400-element list against () cost
+%9.16 microseconds and costs 0.32 [measured 2026-08-23].
+%
+%TIMED rather than counted, because is_list/1 is one C builtin call and reads
+%as a single inference whatever the length of the list it walks.
+match_probe_cost(Length, Seconds) :-
+    findall(e, between(1, Length, _), List),
+    forall(between(1, 100, _), \+ petta_match_atoms(List, [])),
+    statistics(cputime, Before),
+    forall(between(1, 2000, _), \+ petta_match_atoms(List, [])),
+    statistics(cputime, After),
+    Seconds is After - Before.
+
+test(probing_a_cons_against_the_empty_list_does_not_walk_it) :-
+    match_probe_cost(400, Narrow),
+    match_probe_cost(6400, Wide),
+    assertion(Wide < Narrow * 4).
+
 test(a_hook_accepts_inside_its_range, [nondet]) :-
     petta_match_atoms(plunit_interval(1, 5), 3).
 test(a_hook_rejects_outside_its_range, [fail]) :-

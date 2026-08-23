@@ -4109,6 +4109,20 @@ routed_selective_conjunct(Space, Conjuncts, Best, Rest) :-
 petta_match_atoms(L, R) :- L == R, !.
 petta_match_atoms(L, R) :- ( var(L) ; var(R) ), !,
                            unify_with_occurs_check(L, R).
+%A cons cell and () never match, and deciding that must not WALK the cons.
+%Every route below reaches the same failure: read as lists they differ at the
+%very first cell, and the clauses past the list branch all decide by equality,
+%which a cons and () fail too. `(unify $l () ...)` is how a list is walked to
+%its end, so is_list/1 walking the whole remaining list at every step made the
+%walk quadratic [measured 2026-08-23: 114 microseconds over 200 elements and
+%7,550 over 3,200, 10.1x per 4x, and one probe of a 6,400-element list against
+%() cost 9.16 microseconds against 0.5 now].
+%
+%Confirmed rather than argued: over 26 cases spanning proper, improper,
+%partial, error-shaped and mixed-type cons cells in both operand positions,
+%every one already failed.
+petta_match_atoms(L, R) :- L == [], nonvar(R), R = [_|_], !, fail.
+petta_match_atoms(L, R) :- R == [], nonvar(L), L = [_|_], !, fail.
 petta_match_atoms(L, R) :- is_list(L), is_list(R), !,
                            petta_match_all(L, R).
 petta_match_atoms(L, R) :- petta_space_operand(L), !, match(L, R, [], _).
@@ -4867,10 +4881,7 @@ match_native(Module, Space, [Comma|Conjuncts], OutPattern, Result) :-
     Conjuncts = [_, _|_],
     relational_conjuncts(Conjuncts),
     !,
-    cheapest_conjunct(Module, Space, Conjuncts, Goal, Rest),
-    call(Goal),
-    acyclic_term(OutPattern),
-    match_native(Module, Space, [','|Rest], OutPattern, Result).
+    match_relational_conjuncts(Module, Space, Conjuncts, OutPattern, Result).
 match_native(Module, Space, [Comma|[Head|Tail]], OutPattern, Result) :- Comma == ',',
                                                                         var(Head), !,
                                                                         get_native_atom(Module, Space, Head),
@@ -4901,6 +4912,19 @@ match_native(Module, _, Pattern, OutPattern, Result) :-
 match_native(Module, Space, [Rel|PatArgs], OutPattern, Result) :- native_expression(Module, Space, Rel, PatArgs),
                                                                   acyclic_term(OutPattern),
                                                                   Result = OutPattern.
+
+%Every conjunct list reached below is a SUBLIST of one relational_conjuncts/1
+%has already accepted, and being relational is a property of each conjunct on
+%its own, so asking again at every level walked the remaining conjuncts once
+%per conjunct.
+match_relational_conjuncts(Module, Space, Conjuncts, OutPattern, Result) :-
+    cheapest_conjunct(Module, Space, Conjuncts, Goal, Rest),
+    call(Goal),
+    acyclic_term(OutPattern),
+    (   Rest = [_, _|_]
+    ->  match_relational_conjuncts(Module, Space, Rest, OutPattern, Result)
+    ;   match_native(Module, Space, [','|Rest], OutPattern, Result)
+    ).
 
 %Read one stored expression through its private module. The module's unknown
 %flag is fail, so a virgin arity fails directly and this indexed path needs no
