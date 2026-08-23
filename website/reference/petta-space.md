@@ -57,6 +57,9 @@ Source: `bindings/python/petta/_space.py`.
 >     inject the receiver where it is the subject, and expose no ``declare_*``
 >     aliases [tested: test_declarations_use_their_atom_heads_on_the_receiver,
 >     test_m7_narrow_core_surface; commit=WORKTREE]
+>   - Expression recognizes Space as the one iterable Handle whose listing is
+>     collected as an assembly-order snapshot [tested:
+>     test_expression_of_a_space_is_an_assembly_order_snapshot; commit=WORKTREE]
 >   - ``Space.op`` and ``Space.unregister_op`` are the sole public operation
 >     lifecycle pair [tested: test_operation_registration_names_are_symmetric;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
@@ -641,10 +644,10 @@ def solve(self, pattern: Any, subject: Any) -> Any:
 ### `Space.watch`
 
 ```python
-def watch(self, pattern: Any, *, on: str = 'add'):
+def watch(self, pattern: Any, *, on: str = 'add', deadline: float | None = None):
 ```
 
-> Yield matching change events until the iterator closes.
+> Yield matching changes, raising Timeout after each quiet deadline.
 
 ### `Space.limits`
 
@@ -986,6 +989,9 @@ def op(
 >     def neighbours(n: int):
 >         yield n - 1                     # a generator is nondeterministic
 >         yield n + 1
+>
+> An implicit Python name maps underscores to MeTTa hyphens. ``name=``
+> is exact, for source vocabularies that deliberately use underscores.
 >
 > A name must read back as one MeTTa symbol. A space, parenthesis,
 > quote, comment opener, variable spelling, number, boolean, or another

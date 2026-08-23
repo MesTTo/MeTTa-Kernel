@@ -4,6 +4,10 @@ Source: `bindings/python/petta/atoms.py`.
 
 > Purpose: expose PeTTa atoms, the S/V/G factories, parsing, and matching.
 > Guarantees:
+>   - order_key matches the engine's msort across every public atom kind,
+>     including float/integer ties, strings, opaque values, and the empty-list
+>     atom [tested: test_order_key_matches_msort_across_kinds;
+>     commit=WORKTREE]
 >   - type and keyword builders produce stored terms while ``order_key`` and
 >     Atom.__lt__ agree on elementwise expression order [tested:
 >     test_typed_and_arrow_retire_49_raw_type_symbols,
@@ -139,7 +143,8 @@ def order_key(atom: Atom) -> tuple:
 > Atom.__lt__ delegates to this key, so explicit and plain sorting agree.
 > The language's list-shaped expressions compare child by child; length is
 > reached only when one expression is a prefix of the other. Variables come
-> before numbers, symbols, strings, objects, and expressions
+> before numbers, strings, opaque objects, the empty expression, symbols,
+> and nonempty expressions
 > [source: SWI-Prolog 10.1 Reference Manual, Standard Order of Terms].
 >
 > Two atoms that compare equal here are not necessarily the same atom: a key
