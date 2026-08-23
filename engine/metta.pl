@@ -501,13 +501,6 @@ petta_shared_registry(fun_scoped/1).
             import_life/3, fun_scoped/1.
 :- forall(petta_shared_registry(Registry), export(Registry)).
 
-%fun/1 is the exact mutable input petta_py_builtins/1 reads. SWI maintains a
-%dynamic predicate's last_modified_generation for cache validation, including
-%transaction commit and rollback semantics, so no listener or generic
-%write-door flag exists and every mutation route keeps its original cost.
-metta_host_function_generation(Generation) :-
-    predicate_property(fun(_), last_modified_generation(Generation)).
-
 %!  petta_import_shared_registries is det.
 %
 %   Import the four into the CALLING module. A subsystem that writes one calls
@@ -8736,6 +8729,19 @@ load_prelude_form(function, _, Term) :-
 load_prelude_form(Kind, Src, _) :-
     throw(error(domain_error(prelude_form, Kind),
                 context(load_engine_prelude/0, Src))).
+
+%fun/1 is the exact mutable input petta_py_builtins/1 reads. SWI maintains a
+%dynamic predicate's last_modified_generation for cache validation, including
+%transaction commit and rollback semantics, so no listener or generic
+%write-door flag exists and every mutation route keeps its original cost.
+%Keep this read-only host service after the loader predicates it does not call:
+%its clause layout then cannot perturb the save-load-metta hot path [measured:
+%save-load-metta 9,223,648 inferences; command=PETTA_BENCHMARK_COUNTERS=1
+%PYTHONPATH=bindings/python /home/user/Dev/.venv-pypetta/bin/python -m pytest
+%-q bindings/python/benchmarks/test_benchmarks.py::test_save_load_metta;
+%fixture=deterministic benchmark harness; commit=WORKTREE].
+metta_host_function_generation(Generation) :-
+    predicate_property(fun(_), last_modified_generation(Generation)).
 
 %One initialization goal for all of them, in this order, because
 %initialization/1 goals do not reliably order against each other (the note
