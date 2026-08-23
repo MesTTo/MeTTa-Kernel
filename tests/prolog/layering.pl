@@ -16,11 +16,15 @@
 %       tangles are the ones that exist, and the lane names any other
 %     - a subsystem does not WRITE a name it does not define, which SWI accepts
 %       silently and which sends the write to a predicate nothing reads
+%     - a plain source unit below engine/<owner>/ is attributed to its umbrella
+%       subsystem for call, export, SCC, and database-write checks
+%       [tested: consulted_source_units_are_attributed_to_their_umbrella; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 % Fails when:
 %     - a call is assembled at run time from a term no analysis can see. That
 %       is the residue this shares with every other static walk in the tree.
 % Decides:
-%     - a SUBSYSTEM is one engine/*.pl file. That is the unit the row names
+%     - a SUBSYSTEM is one engine/*.pl umbrella. A plain file below
+%       engine/<owner>/ belongs to engine/<owner>.pl. That is the unit the row names
 %       ("parser, translator, specializer, spaces, tracer, duals ... share one
 %       namespace") and the unit a module declaration can carry.
 %     - the contract is an ALLOW-LIST, not a layer order, because the measured
@@ -68,10 +72,22 @@
 engine_directory(Directory) :- tree_directory('../../engine', Directory).
 
 engine_subsystem_file(Base) :-
-    engine_directory(Directory),
     source_file(File),
-    sub_atom(File, 0, _, _, Directory),
-    file_base_name(File, Base).
+    engine_source_subsystem(File, Base).
+
+% A consulted source unit preserves its umbrella's module and therefore its
+% architectural ownership. Reading the first relative path component keeps the
+% contract about subsystems instead of turning a source-layout split into new
+% call-graph nodes.
+engine_source_subsystem(File, Base) :-
+    engine_directory(Directory),
+    atom_concat(Directory, Relative, File),
+    atomic_list_concat(Parts, '/', Relative),
+    engine_relative_subsystem(Parts, Base).
+
+engine_relative_subsystem([Base], Base).
+engine_relative_subsystem([Owner, _|_], Base) :-
+    file_name_extension(Owner, pl, Base).
 
 subsystem_name(Base, Name) :- file_name_extension(Name, pl, Base).
 
@@ -104,9 +120,7 @@ engine_goal(Module:Goal, Base, Definer, Name/Arity) :-
     functor(Probe, Name, Arity),
     predicate_property(Module:Probe, implementation_module(Definer)),
     predicate_property(Definer:Probe, file(File)),
-    engine_directory(Directory),
-    sub_atom(File, 0, _, _, Directory),
-    file_base_name(File, Base).
+    engine_source_subsystem(File, Base).
 
 %%%% Measuring the database writes %%%%
 %
@@ -133,11 +147,8 @@ measure_write_edges :-
            )).
 
 measured_write(FileModule, Name/Arity, Caller) :-
-    engine_directory(Directory),
-    source_file(File),
-    sub_atom(File, 0, _, _, Directory),
-    module_property(FileModule, file(File)),
     source_file(ClauseModule:Head, File),
+    engine_source_subsystem(File, _),
     functor(Head, CallerName, CallerArity),
     Caller = CallerName/CallerArity,
     % The clause has to be IN this file. A multifile seam declared here can
@@ -145,6 +156,10 @@ measured_write(FileModule, Name/Arity, Caller) :-
     % them, so without this the lane attributes another subsystem's write here.
     catch(nth_clause(ClauseModule:Head, _, Reference), _, fail),
     clause_property(Reference, file(File)),
+    % module/1 is the source context of the clause body. It differs from the
+    % predicate module for an explicitly qualified multifile head, and remains
+    % available for a plain consulted source unit whose file declares no module.
+    clause_property(Reference, module(FileModule)),
     clause(ClauseModule:Head, Body, Reference),
     body_database_write(Body, Written),
     callable(Written),
@@ -419,6 +434,16 @@ owns_write(Module, Name/Arity) :-
     catch(( predicate_property(Module:Probe, defined),
             predicate_property(Module:Probe, implementation_module(Module)) ),
           _, fail).
+% The selected engine module deliberately imports writable registry services
+% from explicit subsystem modules. An unqualified write compiled there resolves
+% to that imported dynamic predicate; this is distinct from a space execution
+% module inheriting the engine as a base, which is the unsafe case the lane was
+% created to catch.
+owns_write(Module, Name/Arity) :-
+    petta_engine_module(Module),
+    functor(Probe, Name, Arity),
+    predicate_property(Module:Probe, imported_from(Owner)),
+    predicate_property(Owner:Probe, dynamic).
 % engine/metta.pl's declared shared tables, which every subsystem imports and
 % may therefore write. The declaration is the review: adding a name there is a
 % visible edit, and this lane is what makes the alternative visible too.

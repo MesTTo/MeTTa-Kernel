@@ -9,7 +9,7 @@ Guarantees:
   - the runtime publishes exactly the twenty required axes, with one row
     per axis and the knob/default pair recorded in POLICY_SEAMS; the algebra
     row also derives and validates each shipped semiring law claim [tested:
-    tests/check_policy_inventory.py; commit=9e7d5dc2cad810940e5386d52636ac6946df279d]
+    tests/check_policy_inventory.py; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
   - unannotated Python Literal expressions and list/set membership, plus
     single- or multiline Prolog member/2 and memberchk/2 lists, are reported
     with path, line and values; an exemption is accepted only when immediately
@@ -87,7 +87,7 @@ REQUIRED_ALGEBRA_LAWS = {
     "prob": frozenset({"ordered"}),
 }
 ALGEBRA_LAW_SEAM = (
-    "engine/metta.pl",
+    "engine/metta/effects.pl",
     r"^\s*petta_vocabulary_claim\(semiring,\s*Semiring,\s*ordered\)\.",
 )
 
@@ -104,17 +104,35 @@ class PolicySeam:
 
 POLICY_SEAMS: dict[str, PolicySeam] = {
     "dispatch": PolicySeam(
-        "dispatch-policy", "MismatchOriginal", "engine/translator.pl", r"^reduce\(\[F\|Args\]"
+        "dispatch-policy",
+        "MismatchOriginal",
+        "engine/translator/lowering.pl",
+        r"^reduce\(\[F\|Args\]",
     ),
     "order": PolicySeam(
-        "dispatch-policy", "OrderClause", "engine/translator.pl", r"^reduce\(\[F\|Args\]"
+        "dispatch-policy",
+        "OrderClause",
+        "engine/translator/lowering.pl",
+        r"^reduce\(\[F\|Args\]",
     ),
-    "merge": PolicySeam("merge", "depth", "engine/spaces.pl", r"^petta_merged_match\("),
-    "agenda": PolicySeam("reduce", "depth-first", "engine/translator.pl", r"^reduce\(\[F\|Args\]"),
-    "equality": PolicySeam("==", "structural-identity", "engine/metta.pl", r"^'=='\(A,B,R\)"),
-    "errors": PolicySeam("on-error", "abort", "engine/metta.pl", r"^petta_on_error_mode\("),
-    "world": PolicySeam("context", "closed-world", "engine/metta.pl", r"^petta_context_world\("),
-    "algebra": PolicySeam("annotations", "bool", "engine/metta.pl", r"^petta_k_extend\("),
+    "merge": PolicySeam(
+        "merge", "depth", "engine/spaces/bounded_matching.pl", r"^petta_merged_match\("
+    ),
+    "agenda": PolicySeam(
+        "reduce", "depth-first", "engine/translator/lowering.pl", r"^reduce\(\[F\|Args\]"
+    ),
+    "equality": PolicySeam(
+        "==", "structural-identity", "engine/metta/operators.pl", r"^'=='\(A,B,R\)"
+    ),
+    "errors": PolicySeam(
+        "on-error", "abort", "engine/metta/space_hooks.pl", r"^petta_on_error_mode\("
+    ),
+    "world": PolicySeam(
+        "context", "closed-world", "engine/metta/effects.pl", r"^petta_context_world\("
+    ),
+    "algebra": PolicySeam(
+        "annotations", "bool", "engine/metta/effects.pl", r"^petta_k_extend\("
+    ),
     "storage": PolicySeam(
         "config-memoize", "wtinylfu", "lib/lib_memo.pl", r"^memo_strategy\(wtinylfu\)"
     ),
@@ -124,29 +142,38 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
         "lib/lib_memo.pl",
         r"^memo_automatic_function_decision\(",
     ),
-    "typing": PolicySeam("typing-rule", "strict", "engine/metta.pl", r"^metta_types_match\("),
-    "fidelity": PolicySeam("handles", "Exact", "engine/metta.pl", r"^petta_handles_route\("),
-    "source-kind": PolicySeam("source", "repeated", "engine/metta.pl", r"^petta_source\("),
+    "typing": PolicySeam(
+        "typing-rule", "strict", "engine/metta/terms.pl", r"^metta_types_match\("
+    ),
+    "fidelity": PolicySeam(
+        "handles", "Exact", "engine/metta/space_hooks.pl", r"^petta_handles_route\("
+    ),
+    "source-kind": PolicySeam(
+        "source", "repeated", "engine/metta/effects.pl", r"^petta_source\("
+    ),
     "transaction-mode": PolicySeam(
-        "transaction", "all-answers", "engine/metta.pl", r"^petta_transaction\(Goal\)"
+        "transaction",
+        "all-answers",
+        "engine/metta/space_hooks.pl",
+        r"^petta_transaction\(Goal\)",
     ),
     "atomicity": PolicySeam(
-        "writes", "transactional", "engine/spaces.pl", r"petta_in_user_transaction"
+        "writes", "transactional", "engine/spaces/foreign.pl", r"petta_in_user_transaction"
     ),
     "delivery": PolicySeam(
-        "events", "per-write-exactly", "engine/metta.pl", r"^petta_event_capability\("
+        "events", "per-write-exactly", "engine/metta/space_hooks.pl", r"^petta_event_capability\("
     ),
     "reaction-order": PolicySeam(
-        "agenda", "declaration", "engine/metta.pl", r"^petta_agenda_order\("
+        "agenda", "declaration", "engine/metta/effects.pl", r"^petta_agenda_order\("
     ),
     "save-format": PolicySeam(
         "save", "metta", "bindings/python/metta/_space_persistence.py", r'format == "fast"'
     ),
     "volatility": PolicySeam(
-        "volatility", "stable", "engine/metta.pl", r"^metta_function_cacheable\("
+        "volatility", "stable", "engine/metta/interop.pl", r"^metta_function_cacheable\("
     ),
     "determinism": PolicySeam(
-        "determinism", "nondet", "engine/metta.pl", r"^apply_declared_determinism\("
+        "determinism", "nondet", "engine/metta/interop.pl", r"^apply_declared_determinism\("
     ),
 }
 

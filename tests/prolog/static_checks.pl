@@ -28,12 +28,15 @@
 %     [measured 2026-08-17: 28 handler seams and 7 services].
 %   - No cut in any clause of a seam whose kind says every clause runs,
 %     checked twice over because neither reading sees the other's clauses: the
-%     tree's sources including the clauses directives assert, and the live
+%     tree's sources including consulted engine/<owner> source units and the
+%     clauses directives assert, and the live
 %     database after the libraries load, which is the only way to see a
 %     handler installed at run time, in every module candidate_engine_module/1
 %     discovers rather than only in `user`
 %     [measured 2026-08-19: 0 offenders in 19 source clauses and 71 live
 %     ones].
+%     [tested: `sh check.sh prolog-static` retains the pre-cut hook-clause
+%     scoreboard after source-unit extraction; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
 %   - No backend calls an engine predicate that is not published surface: a
 %     declared service, a declared seam, or a MeTTa builtin. The walk is SWI's
 %     own prolog_walk_code/1, the one list_undefined/0 uses, so it reaches a
@@ -245,9 +248,9 @@ source_scan_sees_a_planted_cut :-
     ).
 
 hook_source_file(File) :-
-    member(Directory, ['../../engine', '../../lib', '../../bindings/python/metta',
-                       '../../backends/mork/mork_ffi']),
-    atom_concat(Directory, '/*.pl', Pattern),
+    member(Pattern, ['../../engine/*.pl', '../../engine/*/*.pl',
+                     '../../lib/*.pl', '../../bindings/python/metta/*.pl',
+                     '../../backends/mork/mork_ffi/*.pl']),
     expand_file_name(Pattern, Files),
     member(File, Files).
 

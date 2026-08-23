@@ -16,7 +16,7 @@ Guarantees:
     tests/check_policy_inventory_selftest.py; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
   - algebra validation rejects a missing required law, an undeclared
     semiring claim and a missing consumer seam [tested:
-    tests/check_policy_inventory_selftest.py; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+    tests/check_policy_inventory_selftest.py; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 Fails when:
   - run against a tree it did not create; every assertion is against a fresh
     temporary fixture with exact findings
@@ -204,9 +204,10 @@ def test_algebra_law_claims_are_derived_and_validated() -> None:
     """Runtime claim rows must name the vocabulary and the shipped laws."""
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
+        seam_path, seam_pattern = ALGEBRA_LAW_SEAM
         _write(
             root,
-            "engine/metta.pl",
+            seam_path,
             "petta_vocabulary_claim(semiring, Semiring, ordered).\n",
         )
         good = [
@@ -222,7 +223,7 @@ def test_algebra_law_claims_are_derived_and_validated() -> None:
             ],
             ["bool", "ranked", "prob"],
         )
-        _write(root, "engine/metta.pl", "different_consumer.\n")
+        _write(root, seam_path, "different_consumer.\n")
         missing_seam = validate_algebra_laws(root, good, ["bool", "ranked", "prob"])
     assert findings == [
         "&petta: algebra law row names undeclared semiring 'missing'",
@@ -231,8 +232,8 @@ def test_algebra_law_claims_are_derived_and_validated() -> None:
         "&petta: unexpected algebra law claims for semiring missing",
     ]
     assert missing_seam == [
-        "engine/metta.pl: implementation seam for algebra law claims no longer matches "
-        f"{ALGEBRA_LAW_SEAM[1]!r}"
+        f"{seam_path}: implementation seam for algebra law claims no longer matches "
+        f"{seam_pattern!r}"
     ]
 
 
