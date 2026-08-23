@@ -634,6 +634,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Stale build directories no longer ride into wheels. A build_lib
+  directory that is not a package of the current build is removed before
+  building, the package-level half of the clearing the bundled-runtime
+  tree already had; after the module rename a stale `build/lib/petta`
+  had shipped beside `metta` until the packaged gate's own assertion
+  caught the contaminated wheel.
 - Data forms loaded from a file now pass through the declared pre-add
   admission hooks, so `declare-pre-add!` accept, transform, drop, and refuse
   verdicts behave identically on the file, host, and running-MeTTa routes.
