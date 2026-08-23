@@ -7,13 +7,15 @@
 %     [tested: scoped_stack_limit; commit=81c50d3ae4c03ddfd70ed3f1ff70e085cfee3978]
 %   - `stack-limit` is a byte ceiling distinct from reduction fuel's
 %     `max-stack-depth` [tested: scoped_stack_limit; commit=81c50d3ae4c03ddfd70ed3f1ff70e085cfee3978]
+%   - loading this suite under the gate never runs the standalone CLI against
+%     the gate's argv [tested: sh tests/prolog/run-tests.sh; commit=WORKTREE]
 % Fails when:
 %   - a caller expects one thread's temporary ceiling to mutate another
 %     already-running thread; SWI flags are thread-local.
 % Owns resources:
 %   - each scope owns one pushed Prolog flag and pops it on every exit path.
 
-:- ensure_loaded('../../engine/main.pl').
+:- ensure_loaded('../../engine/metta.pl').
 :- ensure_loaded('../../bindings/python/petta/shim.pl').
 
 raised_stack_limit(Limit) :-

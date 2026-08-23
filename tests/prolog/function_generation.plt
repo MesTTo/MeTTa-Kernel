@@ -17,11 +17,13 @@
 %   - a mutation in one engine thread is visible to a host read in another
 %     [tested: a_worker_mutation_is_visible_to_the_calling_thread;
 %     commit=4c9a794750103e0a3a2e9d883adde337ffb501f0]
+%   - loading this suite under the gate never runs the standalone CLI against
+%     the gate's argv [tested: sh tests/prolog/run-tests.sh; commit=WORKTREE]
 % Guarded by:
 %   - SWI's last_modified_generation property is maintained by the dynamic
 %     database and shared by all engine threads.
 
-:- ensure_loaded('../../engine/main.pl').
+:- ensure_loaded('../../engine/metta.pl').
 :- ensure_loaded('../../bindings/python/petta/shim.pl').
 
 forget_generation_function(Name) :-
