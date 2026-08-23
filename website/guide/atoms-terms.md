@@ -4,6 +4,7 @@ Guarantees: examples contain no superseded atom class or helper names, and
 plain atom sorting agrees with the explicit specialist key.
 [tested: npm run docs:build and test_plain_sorted_uses_the_engines_elementwise_order;
 commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
+[tested: test_atom_comparisons_are_only_ordering; commit=WORKTREE]
 -->
 
 # Atoms, operators, and term building
@@ -24,7 +25,8 @@ check("first grandparent", (rows[0].gp, rows[0].gc), (S.Tom, S.Ann))
 check("eval", m.eval(S.superpose(Expression(1, 2, 3))), [1, 2, 3])
 ```
 
-Operators on atoms build terms. `V.age >= 18` builds `(>= $age 18)`, so guards and bodies read as the Python they look like. The full set:
+Arithmetic and boolean operators on atoms build terms. Comparison operators
+compare atoms; comparison terms name their head explicitly. The full set:
 
 | you write | it builds | | you write | it builds |
 |---|---|---|---|---|
@@ -33,9 +35,9 @@ Operators on atoms build terms. `V.age >= 18` builds `(>= $age 18)`, so guards a
 | `x * y` | `(* x y)` | | `x ^ y` | `(xor x y)` |
 | `x / y` | `(/ x y)` | | `~x` | `(not x)` |
 | `x % y` | `(% x y)` | | `S["<"](x, y)` | `(< x y)` |
-| `x ** y` | `(pow-math x y)` | | `x <= y` | `(<= x y)` |
-| `x // y` | `(floor-math (/ x y))` | | `x > y` | `(> x y)` |
-| `x @ y` | `(matmul x y)` | | `x >= y` | `(>= x y)` |
+| `x ** y` | `(pow-math x y)` | | `S["<="](x, y)` | `(<= x y)` |
+| `x // y` | `(floor-math (/ x y))` | | `S[">"](x, y)` | `(> x y)` |
+| `x @ y` | `(matmul x y)` | | `S[">="](x, y)` | `(>= x y)` |
 | `-x` | `(- 0 x)` | | `abs(x)` | `(abs-math x)` |
 | `x.eq(y)` | `(== x y)` | | `x.ne(y)` | `(not (== x y))` |
 
@@ -50,9 +52,9 @@ Left and right shift are absent because MeTTa has no integer-shift operation;
 generic unsupported-operands error. Grounded values keep Python semantics, so
 `Grounded(3) << 2` answers `12` rather than building a term.
 
-Two comparisons answer Python booleans. **`x.eq(y)` builds the equality term `(== x y)`, while `==` itself compares atoms structurally.** Likewise, `S["<"](x, y)` builds the relation while `x < y` compares the engine's standard atom order. Atoms are dict keys, test comparands, and sortable values, so neither Python operator can become a term.
+All comparisons answer Python booleans. **`x.eq(y)` builds the equality term `(== x y)`, while `==` itself compares atoms structurally.** The explicit `S["<"]`, `S["<="]`, `S[">"]`, and `S[">="]` heads build relations; the four rich comparison operators compare the engine's standard atom order. Atoms are dict keys, test comparands, and sortable values, so Python comparison operators never become terms.
 
-`Grounded` arithmetic and comparisons against raw Python values keep Python value semantics. Comparing one atom with another uses atom identity for equality and the engine order for `<`.
+`Grounded` arithmetic and comparisons against raw Python values keep Python value semantics. Comparing one atom with another uses atom identity for equality and the engine order for all four ordering operations.
 
 A symbol and a grounded string are different atoms. Use `S[name]` when a symbol name is not a Python identifier, `V[name]` for a variable, `ground(value)` or `G(value)` to carry a host object, and `Expression(...)` to build an expression from parts. `parse(source)` reads one form without evaluating it.
 
