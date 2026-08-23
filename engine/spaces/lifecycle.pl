@@ -1,5 +1,5 @@
 % Purpose: decode stored atoms and manage source, subscription, reaction, table, and clear lifecycles
-% Assumes: engine/spaces.pl includes this plain file while its owning module is the load context.
+% Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE]

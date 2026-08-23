@@ -254,7 +254,7 @@ prolog:message(petta_source_replaced(CanonPath, Spaces, Atoms)) -->
 %add to it. SWI states the rule this implements: "clauses are owned by the file
 %in which they are defined. This information is used to replace the old
 %definition after the file has been modified and is reloaded"
-%[source: SWI-Prolog 10.1 Reference Manual, include/1]. Here the owned things
+%[source: SWI-Prolog 10.1 Reference Manual, consult/1]. Here the owned things
 %are whatever the load asserted, which source_load_assertion/2 already lists,
 %so the file only needs the key onto that list and the digest of the text it
 %was built from.
@@ -550,15 +550,7 @@ metta_host_read_forms(Source0, Pairs) :-
 metta_host_form_pair(parsed(Kind, Text, _), [Kind, Text]).
 metta_host_form_pair(parsed(Kind, Text, _, _), [Kind, Text]).
 
-:- include('filereader/source_lifecycle.pl').
-%Reloading an umbrella clears meta properties before recompiling it. Reassert
-%the included unit's declarations from the owner so later engine files compile
-%their goal arguments in the caller's module on every load
-%[tested: check_project_var_branches in tests/prolog/static_checks.pl; commit=WORKTREE].
-:- meta_predicate with_source_load(+, +, 0),
-                  replacing_previous_load(+, +, 1, 0),
-                  replace_source_load(+, +, +, 1, 0),
-                  run_with_loading_marker(:, 0).
+:- consult('filereader/source_lifecycle.pl').
 %Extract function definitions, call invocations, and S-expressions part of &self space:
 process_metta_string(S, Results) :- process_metta_string(S, Results, '&self').
 process_metta_string(S, Results, Space) :-

@@ -28,10 +28,6 @@
 %       meta-argument, and through a meta-predicate NOBODY declared, because
 %       SWI infers those [tested: planted_reach/2 in static_checks.pl, one
 %       clause per door, each asserted and walked for real]
-%     - clauses kept in textual include files are found through their umbrella
-%       owner and attributed to their own source location
-%       [tested: included_source_units_are_attributed_to_their_umbrella;
-%       commit=WORKTREE]
 % Fails when:
 %     - a call is assembled at run time from a term no analysis can see,
 %       `Goal =.. L, call(Goal)` being the shape. Nothing static catches that,
@@ -122,7 +118,7 @@ indicator(_:Goal, Indicator) :- !, indicator(Goal, Indicator).
 indicator(Goal, Name/Arity) :- callable(Goal), functor(Goal, Name, Arity).
 
 %The clause has to be IN the file, not merely belong to a predicate the file
-%defines. source_file/2 names the heads an OWNER contributes and nth_clause/3
+%defines. source_file/2 names the heads a file contributes and nth_clause/3
 %then enumerates EVERY clause of that predicate, so a multifile seam with one
 %handler in lib/ and another in engine/ had the engine's own handler walked as if
 %the library had written it, and the engine's internal calls came back as the
@@ -136,19 +132,13 @@ indicator(Goal, Name/Arity) :- callable(Goal), functor(Goal, Name, Arity).
 %unqualified form saw NONE of its four predicates while the qualified form saw
 %all four, so the walk reported a file it had not looked at
 %[measured 2026-08-22, on this tree, before and after the kernel cut].
-%include/1 separates source location from ownership: source_file_property/2
-%links the included location back to the umbrella that source_file/2 indexes,
-%and clause_property(file/1) below filters the umbrella's predicates back to
-%the included clauses [tested:
-%included_source_units_are_attributed_to_their_umbrella; commit=WORKTREE].
 extension_clauses(Directories, References) :-
     findall(Reference,
             ( member(Relative, Directories),
               tree_directory(Relative, Directory),
-              loaded_source_location(File),
+              source_file(File),
               sub_atom(File, 0, _, _, Directory),
-              source_clause_owner(File, Owner),
-              source_file(Module:Head, Owner),
+              source_file(Module:Head, File),
               %SWI records '$load_context_module'/3 against the file it loaded,
               %in `system`, so the qualified form above hands back clauses
               %nobody in lib/ wrote. A user file cannot define a predicate in
@@ -162,17 +152,6 @@ extension_clauses(Directories, References) :-
               catch(nth_clause(Module:Head, _, Reference), _, fail),
               clause_property(Reference, file(File)) ),
             References).
-
-loaded_source_location(File) :- source_file(File).
-loaded_source_location(File) :-
-    source_file_property(File, included_in(_, _)),
-    \+ source_file(File).
-
-source_clause_owner(Source, Owner) :-
-    (   source_file_property(Source, included_in(Parent, _))
-    ->  source_clause_owner(Parent, Owner)
-    ;   Owner = Source
-    ).
 
 extension_clause_count(Directories, Count) :-
     extension_clauses(Directories, References),

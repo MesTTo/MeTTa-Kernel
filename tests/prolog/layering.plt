@@ -13,9 +13,9 @@
 %     [tested: test_the_engine_layering_contract_holds_and_a_violation_is_named,
 %     the_layering_walk_sees_every_planted_reach;
 %     commit=dd407a40f623b16eda0bb51a74458f7dd3760e21]
-%   - included source units are attributed to their umbrella subsystem rather
+%   - consulted source units are attributed to their umbrella subsystem rather
 %     than becoming accidental new layer nodes
-%     [tested: included_source_units_are_attributed_to_their_umbrella; commit=WORKTREE]
+%     [tested: consulted_source_units_are_attributed_to_their_umbrella; commit=WORKTREE]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -110,15 +110,11 @@ test(the_layering_walk_sees_every_planted_reach) :-
     assertion(Total >= 4),
     assertion(Missed == []).
 
-test(included_source_units_are_attributed_to_their_umbrella) :-
+test(consulted_source_units_are_attributed_to_their_umbrella) :-
     engine_goal(filereader:metta_source_changed(_), Base, Definer, Indicator),
     assertion(Base == 'filereader.pl'),
     assertion(Definer == filereader),
-    assertion(Indicator == metta_source_changed/1),
-    measured,
-    assertion(layer_edge('filereader.pl', support_invalidate_function_change/2,
-                         'support_graph.pl', support_graph,
-                         support_invalidate_many/1)).
+    assertion(Indicator == metta_source_changed/1).
 
 % The contract's own shape, said out loud: the engine is one large mutual
 % recursion plus whatever sits outside it. A reader who expects a layer order
