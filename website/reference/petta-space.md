@@ -31,6 +31,14 @@ Source: `bindings/python/petta/_space.py`.
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - named space construction accepts a space-name Symbol as well as its text
 >     spelling [tested: test_space_factory_accepts_a_name_symbol; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
+>   - a tuple headed by an atom is one subscript pattern, a tuple of complete
+>     patterns is a join, list writes stream their atoms, and del drains every
+>     match or raises KeyError [tested:
+>     test_subscript_one_pattern_and_bulk_delete_laws; commit=WORKTREE]
+>   - ``Space.query`` returns a lazy Answers view; truth and single unpack pull
+>     only their demanded prefix, while len counts inside the engine [tested:
+>     test_query_answers_complete_the_lazy_projection_protocol,
+>     test_query_single_unpack_pulls_at_most_two_answers; commit=WORKTREE]
 >   - handle-level Linda waits load their support into the default caller space,
 >     never into a distinct waited-on space [tested:
 >     test_peek_does_not_import_linda_into_the_waited_space; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
@@ -525,7 +533,7 @@ def query(
 ) -> Any:
 ```
 
-> Match patterns against this space as one conjunction.
+> Lazily match patterns against this space as one conjunction.
 >
 > Variables shared between patterns join, the engine's own match/4
 > doing the joining. Columns are the variable names in first
@@ -541,14 +549,13 @@ def query(
 > TimeLimitError or InferenceLimitError when hit, for joins whose
 > size is not known in advance.
 >
-> **Slicing the result is not the same thing.** query() is EAGER, so
-> `query(pat)[:3]` computes every row and throws all but three away.
-> Over 2,000 stored atoms that measured 26,055 inferences against 20
-> for `stream(pat)[:3]`, which pulls three and stops. Reach for `limit`
-> when you want a bounded answer set, and for stream() when you want to
-> take rows until you have seen enough.
+> The returned Answers view pulls only what Python observes. ``bool``
+> pulls one row, exact-one operations pull at most two, and slicing
+> retains an Answers view. ``len`` uses an engine-side aggregate when
+> no row has yet been pulled.
 >
-> `into=` shapes each row into a dataclass, NamedTuple, or
+> `into=Rows` explicitly chooses the eager Rows face. Other `into=`
+> values shape each row into a dataclass, NamedTuple, or
 > TypedDict matched by field name, sqlite3's row_factory reading:
 > `m.query(S.edge(V.a, V.b), into=Edge)` answers `list[Edge]`,
 > and Rows stays the default so nothing is lost. A one-variable query
