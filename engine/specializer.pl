@@ -132,6 +132,7 @@ normalize_specialization_key(Term, Normalized) :-
 % retained clause independently. The key is ordered by call argument and path,
 % so equation order cannot select a different partial reduction.
 specialization_plan(HV, AVs, CleanBindSet, MetaList, HasDirectBenefit) :-
+    call_may_specialize(AVs),
     current_metta_module(Module),
     fun_meta_clauses(Module, HV, SourceMetaList),
     maplist(bind_specialization_clause(AVs), SourceMetaList,
@@ -494,6 +495,34 @@ var_use_check(Mode, Var, L) :- is_list(L),
 %Tests whether an argument represents a specializable function or partial application:
 specializable_arg(Arg) :- nonvar(Arg), 
                           ( fun(Arg) ; Arg = partial(_, _) ).
+
+%Whether reading the equations can possibly be worth it, decided from the
+%CALL's arguments and their outer shape alone.
+%
+%A binding needs specializable_arg/1 to hold of a sub-term of some argument,
+%the one aligned with an equation's head variable. An ATOMIC argument has no
+%sub-terms but itself, so a call whose arguments are every one atomic, and none
+%of them a function name or a partial, cannot produce a binding whatever the
+%equations look like. A compound argument can hide one at any depth, so it is
+%admitted without being walked; walking it is what made an earlier version of
+%this precondition a net loss, since a long data argument cost Theta(its size)
+%where the equations cost O(1) a position.
+%
+%This is the only cheap discriminator there is. The equation-side twin was
+%measured and is nearly useless: of the 73,642 calls that walked every equation
+%and produced nothing, 72,594 were on functions that DO have a specializable
+%equation, and it is the arguments that fail. This refuses 73,070 of those
+%73,642, 99.2%, and every one of the 318 calls that produced a plan passes it
+%[measured 2026-08-23 over the 253 shipped example programs].
+%Written as its own recursion rather than member/2 plus a cut, so an argument
+%that settles it costs one inference and compound/1 costs none.
+call_may_specialize([Arg|Args]) :-
+    (   compound(Arg)
+    ->  true
+    ;   specializable_arg(Arg)
+    ->  true
+    ;   call_may_specialize(Args)
+    ).
 
 %Forget a specialization, IN ONE MODULE. It is keyed by name and by module
 %because a specialization is: ho_specialization/3 records both, and the same
