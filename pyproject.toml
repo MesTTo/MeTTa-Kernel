@@ -144,6 +144,12 @@ ignore = [
     "S101",
 ]
 
+[tool.ruff.lint.mccabe]
+# Generous by ruling (user, 2026-08-24): the limit exists to catch a function
+# nobody can follow, not to tax a readable dispatch ladder into helper
+# fragments. xenon's absolute-D bound remains the real shape gate.
+max-complexity = 15
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "BLE", "PLW", "SIM", "RUF059", "PLC0415"]
 "bench.py" = ["S", "PLW"]
