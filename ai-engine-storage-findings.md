@@ -337,3 +337,91 @@ orders of magnitude, and PeTTa already has the shape of both:
 So the paper's lesson for PeTTa is not a missing mechanism; it is the
 measurement discipline that separated the two effects, which is what the
 per-answer normalization above copies.
+
+## Loading a program was quadratic, and the counter could not see it (2026-08-24)
+
+The strongest signal in this whole file: **inferences a form stay flat while the
+TIME a form costs rises with everything already loaded.** The same 500-form batch
+cost 119 microseconds a form into an empty program and 666 into a 16,000-form
+one, at 1,043 and 1,081 inferences a form. A cost that grows with the program and
+is invisible to the counter is a C builtin or a database operation.
+
+### Finding it
+
+Profiling by CALL COUNT said nothing: every count was a linear multiple of the
+form count. Profiling by SELF TIME at two program sizes, and diffing, named it
+in one step: `support_graph:supports/2` went from 21 ticks to 351 for a 16x
+larger program while every other predicate stayed at 4 to 13.
+
+`jiti_list/1` then gave the mechanism outright:
+
+    support_graph:supports/2   32,000 clauses   Index 1   8 buckets   Speedup 4.0
+
+An edge stores two NODE TERMS, and the node terms share only their functor:
+`function/2`, `function_view/2`, `translated_form/2`, `compiled_function/2`.
+SWI indexes an argument and can index a compound argument DEEPLY, but only where
+the clauses agree on the functor there. Four functors, four buckets, and every
+duplicate-edge probe scanned a quarter of the graph.
+
+Validated rather than assumed, over 20,000 edges: one functor at argument one
+gives a `1:2` deep index and a 0.350 microsecond probe; four functors give
+speedup 4.0 and 132.6 microseconds; a hash column gives 0.198.
+
+### Two false leads first
+
+Neither survived measurement, and both are worth recording because both were
+plausible. Interleaved assert-and-query does NOT thrash SWI's index: 0.87 to
+1.08 microseconds an operation from 1,000 to 64,000 clauses, deep-index shape
+and shallow alike, and alternating two query modes changes nothing.
+`ensure_fun_registered/1` calling `current_predicate(N/Arity)` with the arity
+UNBOUND genuinely is Theta(all predicates), 14.6 microseconds at 1,000 and 410.9
+at 64,000 against a flat 0.25 fully bound, but ablating it moved the load
+scaling not at all.
+
+### Which endpoint to key
+
+Both, and that had to be measured too. An edge is one of about sixty leaving its
+support and one of about one reaching its derived node, so SWI reports a speedup
+of 24,575 on the derived key against 528 on the support key. Keying the SUPPORT
+side alone at the hot probes cost 365 microseconds a form against 82. Binding
+both is better than binding the derived key alone, because the derived key on
+its own hashes 32,000 edges with 8,417 collisions.
+
+### The second quadratic, in the same file
+
+A one-member strongly connected component is recursive exactly when it has a
+self arc, and that was asked of the whole ARC LIST once per component. N
+self-recursive functions, which is what memoization is usually asked for, cost
+1,303, 12,112 and 156,346 microseconds at 200, 800 and 3,200. A RING of N
+mutually recursive functions was already linear, because it is one component
+rather than N, so the SHAPE had to be measured and not just the count.
+
+### Where loading stands
+
+Microseconds a form at 125 forms against 8,000:
+
+| workload | before | after |
+|---|---|---|
+| distinct functions | 113.6 -> 406.0 | 70.0 -> 75.2 |
+| one function, N equations | 70.9 -> 227.6 | 46.6 -> 55.0 |
+| call sites to an undefined function | 83.9 -> 619.8 | 66.9 -> 68.7 |
+| plain atoms | 9.8 -> 12.3 | 8.1 -> 10.2 |
+
+### What the axes sweep found, and did not
+
+Swept by inference count, which is deterministic under load where wall clock is
+not: `case` by branch count and by which branch matches, `let*` chain length,
+type lookup, a symbol's declared-type count, subtype chain depth, type
+expression depth, arrow length, runtime equation dispatch, failing dispatch,
+call arity, space inheritance depth against row count, collapse answer count,
+recursion depth. Every one is flat or linear in what it must produce.
+
+Two axes were NOT clean and both are now fixed: compiling a call site was
+Theta(the callee's equation count), and loading was quadratic in program size.
+
+**Two harness bugs nearly became findings.** `findall/3` COPIES its template, so
+building a conjunctive query's conjuncts with it gave every conjunct fresh
+variables and measured a cartesian product rather than a join. And loading the
+same equation once per size in a sweep leaves N copies of it, so a two-equation
+function answers 2^k times; that read as an engine blowup at depth 32 and was
+the harness. Check the answer COUNT before believing a cost.
