@@ -87,7 +87,7 @@
 %   - A gap pattern decides its certified-finite fragment once, at its call
 %     site or at the ask, and refuses outside the three Kutsia proved; a
 %     pattern with no gap reaches no predicate of the gap unit at all
-%     [tested: tests/prolog/segments.plt; commit=WORKTREE].
+%     [tested: tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 %   - Removing one scoped get-type rule keeps sibling extension rules visible
 %     [tested 2026-08-15: spaces_type_extensions].
 %   - A second variant-identical type declaration is refused before storage,

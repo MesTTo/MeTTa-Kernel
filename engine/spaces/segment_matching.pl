@@ -3,7 +3,7 @@
 % Guarantees: a pattern the program wrote without a gap never reaches any predicate here, so a gap-free ask pays nothing [tested: tests/prolog/segments.plt:a_gap_free_match_costs_what_it_did].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % Decides: an ask outside the three proved-finite fragments REFUSES by throwing rather than searching an infinitary space.
-% [tested: tests/prolog/segments.plt; commit=WORKTREE]
+% [tested: tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb]
 
 %%%% What a gap is, and why the fence exists %%%%
 %

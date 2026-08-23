@@ -2,7 +2,7 @@
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% Guarantees: petta_match_atoms/2 dispatches a gap operand by its wrapper alone, and a merged read routes a gap pattern while reading its declared policy from what the program wrote [tested: tests/prolog/segments.plt; commit=WORKTREE].
+% Guarantees: petta_match_atoms/2 dispatches a gap operand by its wrapper alone, and a merged read routes a gap pattern while reading its declared policy from what the program wrote [tested: tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% the bound the caller wrote, reaching the matcher %%%%

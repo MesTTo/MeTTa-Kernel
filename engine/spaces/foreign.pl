@@ -2,7 +2,7 @@
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% Guarantees: match/4 dispatches a gap pattern by its wrapper alone, so an ordinary pattern reaches the clause it always reached [tested: tests/prolog/segments.plt:segments_costs_nothing; commit=WORKTREE].
+% Guarantees: match/4 dispatches a gap pattern by its wrapper alone, so an ordinary pattern reaches the clause it always reached [tested: tests/prolog/segments.plt:segments_costs_nothing; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% The foreign seam's failure contract %%%%

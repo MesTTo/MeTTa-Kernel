@@ -2,7 +2,7 @@
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% Guarantees: lift_pattern_modifiers/4 answers whether a pattern carries a sequence variable from the walk it already makes, and a case arm with one compiles to the gap matcher [tested: tests/prolog/translator.plt:the_walk_reports_a_written_gap, tests/prolog/segments.plt; commit=WORKTREE].
+% Guarantees: lift_pattern_modifiers/4 answers whether a pattern carries a sequence variable from the walk it already makes, and a case arm with one compiles to the gap matcher [tested: tests/prolog/translator.plt:the_walk_reports_a_written_gap, tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %Convert let* to recursive let. The singleton case is the recursive one over
