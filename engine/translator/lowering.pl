@@ -835,10 +835,21 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
             ; atom(HV), \+ fun_here(HV) ) -> note_symbol_head(HV),
                                              translate_data_args_dl(HV, T, AfterHead, AfterData, AVs),
                                              data_head_answer_dl(HV, T, AVs, Out, AfterData, Goals)
-          %Plain data list: evaluate inner fun-sublists
-          ; is_list(HV) -> translate_args_dl(T, AfterHead, AfterArgs, AVs),
-                           eval_data_term_dl(HV, AfterArgs, Goals, HV1),
-                           Out = [HV1|AVs]
+          %The head is a data list, and it has ALREADY been translated: the
+          %recursive call above is what produced HV, and it translates the
+          %fun-headed sublists inside a data head as it goes. Walking HV again
+          %to look for them costs its whole size at every level of nesting, so
+          %translating a form nested N deep was quadratic in N
+          %[measured 2026-08-24: 1,437 inferences at depth 25, 20,712 at 100 and
+          %322,812 at 400, 14.4x then 15.6x for 4x the depth, where parsing the
+          %same text is linear].
+          %
+          %Confirmed rather than argued: over the whole example corpus the walk
+          %returned its own argument and emitted no goal on all 477 occasions,
+          %including where a fun-headed sublist sits under a data head, and all
+          %247 example outputs are byte-identical without it.
+          ; is_list(HV) -> translate_args_dl(T, AfterHead, Goals, AVs),
+                           Out = [HV|AVs]
           %Unknown head (var/compound) => runtime dispatch:
           ; translate_args_dl(T, AfterHead, BeforeReduce, AVs),
             BeforeReduce = [reduce([HV|AVs], Out, _)|Goals] )).

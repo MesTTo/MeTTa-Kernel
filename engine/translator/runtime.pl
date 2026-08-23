@@ -4,19 +4,6 @@
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
-%Handle data list:
-eval_data_term_dl(X, Goals, Goals, X) :- (var(X); atomic(X)), !.
-eval_data_term_dl([F|As], Goals0, Goals, Val) :-
-    ( atom(F), fun_here(F) -> translate_expr_dl([F|As], Goals0, Goals, Val)
-                           ; eval_data_list_dl([F|As], Goals0, Goals, Val) ).
-
-%Handle data list entry:
-eval_data_list_dl([], Goals, Goals, []).
-eval_data_list_dl([E|Es], Goals0, Goals, [V|Vs]) :-
-    ( is_list(E) -> eval_data_term_dl(E, Goals0, AfterEntry, V)
-                 ; V = E, AfterEntry = Goals0 ),
-    eval_data_list_dl(Es, AfterEntry, Goals, Vs).
-
 %Convert let* to recursive let. The singleton case is the recursive one over
 %an empty rest, and writing it out as a third clause made the predicate
 %answer the SAME expansion twice: harmless where the compiler took the first

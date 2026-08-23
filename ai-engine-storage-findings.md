@@ -425,3 +425,108 @@ variables and measured a cartesian product rather than a join. And loading the
 same equation once per size in a sweep leaves N copies of it, so a two-equation
 function answers 2^k times; that read as an engine blowup at depth 32 and was
 the harness. Check the answer COUNT before believing a cost.
+
+## Nesting depth is the axis the corpus does not exercise (2026-08-24)
+
+Every earlier sweep varied WIDTH: term size, list length, atom count, equation
+count. Depth was the blind spot, and two of the three defects found on it were
+quadratic while every width axis was linear.
+
+Swept by inference count at depths 25 to 400: evaluation, printing, `==`,
+`add-atom`, `match`, `unify` and `collapse` are all linear in depth. Two were
+not.
+
+### Fixed: the translator walked an already-translated head
+
+`1a8af157`. Translating a form nested N deep cost 1,437 inferences at 25,
+20,712 at 100 and 322,812 at 400 (14.4x then 15.6x for 4x the depth), against a
+parser that is linear on the same text. It is 213, 813 and 3,213 now.
+
+### Found and NOT fixed: deriving a complete type is quadratic in depth
+
+`get-type` of an N-deep value costs 778 inferences at depth 1 and 191,039 at 64,
+converging on 4.0x per doubling, for an answer that is one type, N deep.
+
+Ablating the product branch of `get_type_candidate/2` shows it is the whole
+quadratic: 49,758 inferences at depth 32 become 2,851, and the curve turns
+linear. `tuple_first_in/3` takes each member's FIRST type under a cut, and
+`tuple_rest_types/3` then rebuilds every member's COMPLETE type set to
+enumerate the combinations other than all-firsts. For a nested member that
+rebuild is the whole recursive derivation again, once per level.
+
+**There is no cheap guard, and that is the finding.** The branch produces
+nothing unless some member has two or more types, and knowing whether a member
+has two or more types is exactly the enumeration being avoided.
+`deterministic/1` cannot stand in for it: it reports `false` even for `7`,
+whose single candidate is committed by a cut. Merging the two enumerations so
+each member is derived once was measured and is far worse, because
+`tuple_first_in/3`'s cut is what keeps a member with many types from being
+enumerated at all; `d62f3e48` records choosing that split deliberately for the
+same reason, and `a51f168f` records that a structurally keyed memo stays
+quadratic because hashing or copying a deep term is itself linear.
+
+**It is also not on the hot path, which is why it is filed rather than fixed.**
+A typed call that ACCEPTS its argument is already linear in the argument's
+depth, 939 inferences at 4 and 3,279 at 64, against an untyped call's 715 and
+3,535; `a51f168f` is what made that so. The quadratic is reached by explicit
+`get-type` and by the rejection path, which derives the argument's complete type
+to name it in a `BadArgType`. A typed call that REJECTS a 64-deep argument costs
+755,395 inferences.
+
+A bounded-cardinality guard was built and measured, and does not pay. The engine
+already owns the technique, `goal_matches_at_most_one/1`, which counts to two
+with `nb_setarg/3` and exists because `deterministic/1` cannot do this job.
+Guarding the product branch with "does any member have a second type" moved
+depth 32 from 49,758 inferences to 49,278: the check costs what the branch it
+skips costs, because asking whether a nested member has a second type runs that
+member's own derivation to exhaustion.
+
+What WOULD work is not a guard but an extra output. A member has a second type
+only if some LEAF beneath it has two candidate types, so the property is an OR
+threaded up from the leaves and would cost O(1) a level. That means
+`has_type_in/3` returning it alongside the type, which is a new output on the
+type system's main entry point. Given the accepting path is already linear, that
+is a redesign this file records rather than performs.
+
+Anyone picking this up: the ablation above is the ceiling, the obligation is
+that a guard which wrongly reports "one type" silently DROPS type answers, and
+both cheap guards are already spent.
+
+## The rest of the sweep, and the three harness bugs it cost
+
+Everything below was swept by inference count, which is deterministic where this
+box's wall clock is not, and every one is flat or linear in what it must
+produce.
+
+**Growth against a growing program**, the shape that found the load quadratic:
+adding, querying and removing space atoms; binding tokens; creating state cells;
+creating spaces; and, most importantly, CALLING a function, asking `get-type` of
+one, and matching an equation, each flat at 4,000 preloaded functions whether or
+not the function is typed.
+
+**Depth**: evaluation, printing, `==`, `add-atom`, `match`, `unify`, `collapse`,
+`let*` chains, and `catch` frames. `catch` costs about one inference a frame,
+912 at depth 25 and 1,303 at 400.
+
+**Width and multiplicity**: pattern variable count, repeated variables in a
+pattern, N identical atoms in a space, N declarations on one symbol, and a
+selective query against a growing space, which is FLAT: 661 inferences over 50
+atoms and 695 over 3,200.
+
+### Three harness bugs, each of which looked like an engine defect
+
+Worth writing down because each cost a real investigation and each has the same
+tell.
+
+1. `findall/3` COPIES its template. Building a conjunctive query's conjuncts
+   with it gave every conjunct fresh variables, so the "join" was a cartesian
+   product: 256 answers where 14 were right. **Check the answer COUNT before
+   believing a cost.**
+2. Loading the same equation once per size in a sweep leaves N copies of it, and
+   a function with k identical equations answers 2^k times. That read as an
+   engine blowup at depth 32, and as a `catch` that never returned. **Name
+   fixtures by their size.**
+3. A `cp` in a command whose earlier `cd` had drifted silently did not land, so
+   a control "passed" on the tree it was meant to refute. **Start every command
+   that swaps a file with an absolute cd, and read the control's own number
+   rather than its verdict.**
