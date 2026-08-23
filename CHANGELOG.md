@@ -508,6 +508,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The published space compliance suite picks the atom its shape-dependent
+  checks run against by width rather than by whichever one a provider
+  enumerated first. A provider answers its atoms in no particular order, so a
+  provider holding both a one-argument and a two-argument atom used to exercise
+  the repeated-variable check or skip it depending on order, and adding a single
+  never-called predicate to the engine was enough to flip it.
+
 - Dropping or clearing a space that had tabled a function no longer risks
   terminating the process. The clear removed the clauses of predicates that
   were still tabled and only untabled them afterwards, so every removal ran
