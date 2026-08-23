@@ -88,8 +88,10 @@
 %     read by seam:pure_operation/1 [tested:
 %     test_pure_registration_reflects_an_effect_atom; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861].
 %   - StateMonad cells use one process-shared non-backtrackable store, so main
-%     evaluation and held answer engines observe the same writes [tested:
-%     test_state_cells_are_shared_across_answer_engines; commit=WORKTREE].
+%     evaluation and held answer engines observe the same writes without
+%     losing their parameterized held-value type [tested:
+%     test_state_cells_are_shared_across_answer_engines,
+%     test_state_retires_three_state_function_strings; commit=WORKTREE].
 %   - A result past binary64 saturates to the IEEE value on the engine's
 %     operations, agreeing with the reader's saturating literals, and an
 %     infinity a literal produced carries through further arithmetic; the
@@ -3037,7 +3039,7 @@ get_type_candidate(X, T) :- petta_state_cell_type(X, T).
 %declaration [tested: test_a_state_cell_is_a_value_typed_by_what_it_holds].
 petta_state_cell_type(X, ['StateMonad', Held]) :-
     petta_state_cell(X),
-    nb_current(X, Value),
+    petta_state_value(X, Value),
     get_type_candidate(Value, Held).
 
 get_type_candidate_in(_, X, T) :- number(X), !, metta_numeric_type(X, T).
