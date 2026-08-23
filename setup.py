@@ -145,6 +145,19 @@ class build_py_with_runtime(build_py):
     """Build Python modules, then copy the runtime tree beside them."""
 
     def run(self):
+        # A build_lib directory that is not a package of THIS build is debris
+        # from a retired configuration, and build_py only ever adds, so it
+        # ships. Measured 2026-08-24: after the petta -> metta rename a stale
+        # build/lib/petta rode into the wheel beside metta and the packaged
+        # gate's own "retired petta module still imports" assertion caught the
+        # contaminated wheel. Same failure class the _runtime clearing below
+        # already documents; this is the package-level half.
+        build_root = Path(self.build_lib)
+        if build_root.exists():
+            expected = {name.split(".")[0] for name in (self.packages or [])}
+            for entry in build_root.iterdir():
+                if entry.is_dir() and entry.name not in expected:
+                    shutil.rmtree(entry)
         super().run()
         runtime_root = Path(self.build_lib) / "metta" / "_runtime"
         # Emptied first, because copytree(dirs_exist_ok=True) only ever adds.
