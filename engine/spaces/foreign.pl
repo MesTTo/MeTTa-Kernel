@@ -2,6 +2,7 @@
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
+% Guarantees: match/4 dispatches a gap pattern by its wrapper alone, so an ordinary pattern reaches the clause it always reached [tested: tests/prolog/segments.plt:segments_costs_nothing; commit=WORKTREE].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% The foreign seam's failure contract %%%%
@@ -947,6 +948,23 @@ unstore_atom(Space, Term, Removed) :- remove_sexp(Space, Term, Removed).
 %answered none has anything left to decide. A general space test in the guard
 %cost one inference on every ordinary join [measured 2026-08-20: direct-join
 %and prepared-join +10 each].
+%A GAP PATTERN arrives wrapped in the plan its call site decided, and this
+%clause is the whole of its dispatch. The arity a gap pattern matches is what
+%the gap decides rather than what the pattern fixes, so the read below cannot
+%serve it: `(A ... D)` has three children and matches stored atoms of every
+%arity from two upwards. The wrapper is what keeps the question free for
+%everyone else, since nonvar/1 and =/2 compile inline and a clause head that
+%does not unify costs no inference either.
+%
+%GUARDED RATHER THAN LEFT TO THE CUT, the same reason the last clause of this
+%predicate states: the derivation meta-interpreter walks these clauses through
+%clause/3 and call/1, where an earlier cut cannot prune this one, so each
+%clause says for itself when it applies.
+match(Space, Pattern, OutPattern, Result) :-
+    nonvar(Pattern),
+    Pattern = '$petta_seq'(Plan, Parsed),
+    !,
+    petta_seq_space(Plan, Space, Parsed, OutPattern, Result).
 match([Family|Parameters], Pattern, OutPattern, Result) :-
     nonvar(Pattern),
     Pattern = [Comma|_],

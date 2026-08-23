@@ -2498,16 +2498,30 @@ test(a_match_pattern_honours_the_equality_modifier,
 %A pattern with no modifier compiles to exactly what it always did, so the
 %space read pays nothing for a feature it is not using.
 test(a_pattern_without_a_modifier_is_unchanged) :-
-    lift_pattern_modifiers([fact, X, [inner, Y]], Lifted, Guards),
+    lift_pattern_modifiers([fact, X, [inner, Y]], Lifted, Guards, Segments),
     Lifted == [fact, X, [inner, Y]],
-    Guards == [].
+    Guards == [],
+    Segments == false.
 
 test(the_modifier_position_becomes_a_variable_and_the_equality_a_guard) :-
-    lift_pattern_modifiers([fact, [':=', a]], Lifted, Guards),
+    lift_pattern_modifiers([fact, [':=', a]], Lifted, Guards, Segments),
     Lifted = [fact, Fresh],
     var(Fresh),
     Guards = [Fresh0 == a],
-    Fresh0 == Fresh.
+    Fresh0 == Fresh,
+    Segments == false.
+
+%The same walk answers whether the pattern carries a sequence variable, which
+%is what lets the match door decide once per call site instead of walking again
+%[tested: segments:a_written_gap_is_reported_by_the_modifier_walk].
+test(the_walk_reports_a_written_gap) :-
+    lift_pattern_modifiers([fact, '...', X], _, _, Anonymous),
+    lift_pattern_modifiers([fact, [':seg', X]], _, _, Named),
+    lift_pattern_modifiers([fact, [inner, '...']], _, _, Nested),
+    lift_pattern_modifiers([':seg', X], _, _, Root),
+    lift_pattern_modifiers([fact, [':seg', bound]], _, _, NotAVariable),
+    [Anonymous, Named, Nested, Root, NotAVariable]
+        == [true, true, true, false, false].
 
 :- end_tests(translator_match_modifiers).
 

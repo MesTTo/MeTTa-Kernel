@@ -2,6 +2,7 @@
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
+% Guarantees: match, unify and let classify a written gap pattern ONCE while the call site compiles and hand the plan to the door in a wrapper, so a gap-free form emits the goal it always emitted [tested: tests/prolog/segments.plt, examples/data/segments.metta; commit=WORKTREE].
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%% An evaluated operand that produced an Error finishes the call %%%
@@ -543,7 +544,9 @@ translate_special_dl(unify, [A, B, Then, Else], AfterHead, Goals, Out) :-
     translate_expr_to_conj(Else, ElseConj, ElseValue),
     build_branch(ThenConj, ThenValue, Out, ThenBranch),
     build_branch(ElseConj, ElseValue, Out, ElseBranch),
-    AfterHead = [(petta_match_atoms(A, B) *-> ThenBranch ; ElseBranch)|Goals].
+    petta_unify_decision(A, B, Decide),
+    AfterHead = [(Decide *-> ThenBranch ; ElseBranch)|Goals].
+
 %case reads its cases as syntax, so a cases argument that is still a variable
 %has no branches to compile. That shape used to reach case_default_pair/3's
 %select/3, which enumerates longer and longer instances of an open list
@@ -826,14 +829,16 @@ translate_special_dl(match, [SpaceExpr, Pattern0, Body], AfterHead, Goals,
     SpaceExpr = [superpose, SpaceList],
     is_list(SpaceList), SpaceList = [_, _|_],
     forall(member(Space, SpaceList), petta_space_name(Space)), !,
-    lift_pattern_modifiers(Pattern0, Pattern, Guards),
-    append([petta_merged_match(SpaceList, Pattern, Out)|Guards],
-           AfterMatch, AfterHead),
+    lift_pattern_modifiers(Pattern0, Pattern, Guards, Segments),
+    petta_seq_query_pattern(Segments, Pattern, Asked),
+    append([petta_merged_match(SpaceList, Asked, Out)|Guards], AfterMatch,
+           AfterHead),
     translate_expr_dl(Body, AfterMatch, Goals, Out).
 translate_special_dl(match, [SpaceExpr, Pattern0, Body], AfterHead, Goals,
                      Out) :-
     translate_space_expr_dl(SpaceExpr, AfterHead, BeforeMatch, Space),
-    lift_pattern_modifiers(Pattern0, Pattern, Guards),
+    lift_pattern_modifiers(Pattern0, Pattern, Guards, Segments),
+    petta_seq_query_pattern(Segments, Pattern, Asked),
     %The template and the result are DISTINCT variables. Fused, the
     %answer-shaped refusal of match/4's last clause could never surface: the
     %body had already bound the one variable, the Error atom failed to unify
@@ -842,9 +847,10 @@ translate_special_dl(match, [SpaceExpr, Pattern0, Body], AfterHead, Goals,
     %[tested: test_a_surface_match_on_an_unbound_space_answers_the_error].
     %On success match/4 unifies Result with OutPattern, so the compiled
     %goals and their cost are unchanged.
-    append([match(Space, Pattern, Template, Out)|Guards], AfterMatch,
+    append([match(Space, Asked, Template, Out)|Guards], AfterMatch,
            BeforeMatch),
     translate_expr_dl(Body, AfterMatch, Goals, Template).
+
 
 translate_special_dl(translatePredicate, [[Predicate|Args]], AfterHead, Goals,
                      _Out) :-
@@ -968,6 +974,43 @@ translate_special_dl('catch', [Expr], AfterHead, Goals, Out) :-
                         -> Out = ['Error', Type, Context]
                         ; Out = ['Error', Exception] )),
     AfterHead = [CatchGoal|Goals].
+
+%%%% Gap patterns: what a call site hands its door %%%%
+%
+%A sequence variable changes a pattern's ARITY, so the door that reads a space
+%cannot build a candidate head from the pattern's length, and the fragment its
+%answer set lives in has to be decided before anything enumerates [source:
+%LeaTTa MettaHyperonFull/Core/SeqFragment.lean, seqFinitary?]. Both decisions
+%are made HERE, while the call site compiles, which is the staging
+%lift_pattern_modifiers/4 already uses and states: "Engine-compiled match/4
+%pays nothing per row because this walk happens once while its call site
+%compiles." The result rides in a WRAPPER the two existing doors dispatch on,
+%so a gap-free pattern is handed over untouched and adds no goal name every
+%space would have to import.
+petta_seq_query_pattern(false, Pattern, Pattern).
+petta_seq_query_pattern(true, Pattern, Asked) :-
+    petta_seq_query_plan(Pattern, Asked).
+
+%unify is the ONE door whose two operands are both syntax: they are typed Atom
+%and cross unevaluated, so both sides can carry a written gap and the pair can
+%land in either two-sided fragment. Every other door faces a VALUE on one side,
+%which is data and therefore gap-free, so it is one_sided by construction.
+petta_unify_decision(A, B, petta_match_atoms(Asked, B)) :-
+    (   petta_seq_written(A)
+    ->  true
+    ;   petta_seq_written(B)
+    ),
+    !,
+    petta_seq_plan(A, B, Asked).
+petta_unify_decision(A, B, petta_match_atoms(A, B)).
+
+%The free half of the gap question: only a nonvar LIST can carry a gap, and
+%nonvar/1 with =/2 compile inline, so an operand that is a variable, a symbol
+%or a number never reaches the walk.
+petta_seq_written(Operand) :-
+    nonvar(Operand),
+    Operand = [_|_],
+    petta_seq_present(Operand).
 
 %Both seams take exactly one argument: the goal to compile, written as a list
 %whose head names the Prolog predicate. Reporting the argument rather than only
@@ -1095,8 +1138,27 @@ translate_let_dl([[__petta_typed_binding__, Pattern], Value, In],
 %a source variable pays for the late occurs check.
 %[measured 2026-08-21: examples/reasoning/tilepuzzle.metta, fresh-process
 %m.stats() min of three, 29,633,848 before and 29,633,825 after].
+%A GAP PATTERN takes neither route. Both of them are unifications, and a
+%sequence variable is not one: it splits the value's children and answers once
+%per split, which is what makes `(let ($pre ... SEP ... $post) $row ...)` the
+%parsing-by-unification idiom rather than a single binding. It also cannot use
+%the early spelling, which unifies BEFORE the value's own goals have produced
+%it: a gap needs the value it is splitting. Written patterns only, so a gap
+%that arrived through a binding stays data [source: LeaTTa
+%MettaHyperonFull/Core/SeqSyntax.lean, parseConcreteAtom].
+%
+%And a gap pattern is NOT COMPILED as an expression, which the two ordinary
+%routes both do. A variable-headed pattern compiles to a reduce/3 CALL, so
+%`($pre ... SEP ... $post)` reached the binding as a runtime value with no
+%structure left to split, and the let answered nothing at all [measured
+%2026-08-24, ai-tmp/J5-let.metta]. A pattern is matched, not evaluated, and a
+%gap makes that difference visible: there is nothing to evaluate in `...`.
 translate_let_dl([Pattern, Value, In], AfterHead, Goals, Out) :-
-    ( shares_variable(Pattern, Value)
+    ( petta_seq_written(Pattern)
+      -> translate_expr_dl(Value, AfterHead, AfterValue, ValueResult),
+         petta_pattern_match_goal(Pattern, ValueResult, Decide),
+         AfterValue = [Decide|AfterUnify]
+       ; shares_variable(Pattern, Value)
       -> translate_expr_dl(Pattern, AfterHead, AfterPattern, PatternValue),
          translate_expr_dl(Value, AfterPattern, AfterValue, ValueResult),
          AfterValue = [unify_with_occurs_check(PatternValue, ValueResult)|AfterUnify]
