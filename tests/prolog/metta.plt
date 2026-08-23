@@ -1305,6 +1305,33 @@ test(an_expression_operand_is_never_refused,
     '=='(A, B, Answer),
     assertion(Answer == R).
 
+%Deciding WHETHER two operands are comparable must not walk them. One proper
+%list is all the list branches need, and () is one, so an operand that is ()
+%settles the question without is_list/1 walking the other. `(== $l ())` is how
+%a list is walked to its end, so asking is_list/1 of the whole remaining list
+%at every step made traversing N elements quadratic: the walk cost 13,538
+%microseconds at 3,200 elements and 137,949 at 12,800, 10.2x per 4x, against
+%5,048 and 26,883 now [measured 2026-08-23].
+%
+%The test is TIMED rather than counted. is_list/1 is one C builtin call and
+%reads as a single inference whatever the length of the list it walks, so the
+%counter cannot see this at all; process CPU time can, it does not move with
+%machine load, and both readings come from one process. One comparison against
+%a 6,400-element list cost 8.88 microseconds and costs 0.53, while the same
+%comparison against a 400-element list cost 1.19 and costs 0.42.
+comparison_cost(Length, Seconds) :-
+    findall(e, between(1, Length, _), List),
+    forall(between(1, 100, _), '=='(List, [], _)),
+    statistics(cputime, Before),
+    forall(between(1, 2000, _), '=='(List, [], _)),
+    statistics(cputime, After),
+    Seconds is After - Before.
+
+test(comparing_against_the_empty_list_does_not_walk_the_other_operand) :-
+    comparison_cost(400, Narrow),
+    comparison_cost(6400, Wide),
+    assertion(Wide < Narrow * 4).
+
 test(the_refusal_names_the_metta_operation) :-
     catch('=='(1, "s", _), error(_, Context), true),
     assertion(Context = context('==', _)),

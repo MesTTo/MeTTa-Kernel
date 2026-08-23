@@ -1326,6 +1326,26 @@ petta_int_solve('/', A, B, R, Verdict) :-
 comparable_operands(A, B) :-
     (   same_intrinsic_kind(A, B)
     ->  true
+    %() is a proper list, and one proper list is all the branches below need,
+    %so an operand that IS one decides this without the walk is_list/1 would
+    %spend on the other. `(== $l ())` is how a list is walked to its end, and
+    %the walk asked is_list/1 of the whole remaining list at every step, which
+    %made traversing N elements quadratic [measured 2026-08-23: 46,245
+    %microseconds for 6,400 elements against 11,883 for the same walk that
+    %threads the list without comparing it].
+    %
+    %Both readings are what the branches below answer, and neither skips the
+    %error-shape rule. With A the empty list, is_list(A) holds and
+    %error_shaped_operand([]) cannot, so the first branch reduces to the test
+    %on B. With B the empty list, is_list(B) holds, so an A that is not a
+    %proper list reaches the second branch and succeeds there, and an A that
+    %is one succeeds in the first unless it is error-shaped: either way the
+    %answer is settled by A's error shape alone, which is a constant-time
+    %question.
+    ;   A == []
+    ->  \+ error_shaped_operand(B)
+    ;   B == [], \+ error_shaped_operand(A)
+    ->  true
     ;   is_list(A)
     ->  \+ error_shaped_operand(A), \+ error_shaped_operand(B)
     ;   is_list(B)

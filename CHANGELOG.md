@@ -119,6 +119,24 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Walking a list to its end is now linear in the list's length rather than
+  quadratic. `(== $l ())` is how a MeTTa program tests for the end of a list,
+  and deciding whether the two operands were comparable asked `is_list/1` of
+  the whole remaining list at every step. One proper list is all that decision
+  needs and `()` is one, so an operand that is `()` now settles it without
+  walking the other. Traversing 12,800 elements cost 137,949 microseconds and
+  costs 26,883, and one comparison against a 6,400-element list cost 8.88
+  microseconds and costs 0.53. Answers are unchanged.
+
+- A recursive function that produces several answers now enumerates them in
+  time linear in the answer count rather than quadratic. Such a function
+  produces its i-th answer at recursion depth i, and the translator left a
+  runtime `Out = V` trailing the recursive call, which put that call out of
+  tail position. Enumerating K answers cost 903 microseconds at K=400, 12,227
+  at 1,600 and 192,516 at 6,400; it costs 111, 404 and 1,906. The same
+  generator written directly in Prolog was linear at every size, so the
+  quadratic was the engine's own.
+
 - Automatic memoization no longer reads the whole program to decide what to
   cache. Reconciling a source whose call graph changed enumerated every
   equation in the module to find the ones carrying a `(cache f force)` or

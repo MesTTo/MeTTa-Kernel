@@ -2087,6 +2087,64 @@ test(merging_stays_far_from_quadratic_in_nesting_depth) :-
     Large > Small,
     Large < 3 * Small.
 
+
+%A DISJUNCTION arm is a branch in exactly the sense this merge means: the arms
+%are alternatives, each produces the output, and a value variable confined to
+%one of them is private to it. The walk offered `->` arms to the merge and
+%recursed into disjunction arms as ordinary goals, so a private return there
+%was never folded. superpose/1 compiles to a right-nested disjunction, which
+%makes this the shape of every nondeterministic MeTTa function.
+test(a_disjunction_arm_can_produce_one_private_return) :-
+    Head = branch_disj(Out),
+    Body0 = ( Out = a ; produce(Value), Out = Value ),
+    translator:merge_branch_returns(Head, Body0, Body),
+    Value == Out,
+    Body == ( Out = a ; produce(Out) ).
+
+%What the fold buys, end to end. A recursive generator produces its i-th
+%answer at recursion depth i; with a runtime (Out = V) trailing the recursive
+%call, that call is no longer last, and enumerating K answers is QUADRATIC.
+%
+%Measured 2026-08-23, the compiled predicate called directly: 903 us at K=400,
+%12,227 at 1,600 and 192,516 at 6,400, which is 15.8x per 4x K. It costs 111,
+%404 and 1,906, which is 4.7x. The same generator shape written in plain
+%Prolog is linear at every size, so the quadratic was the engine's own and not
+%the substrate's.
+%
+%The test is TIMED rather than counted, which the performance contract in
+%tests/prolog/README.md allows for exactly this reason: the inference counter
+%reads this workload as LINEAR either way, 1,822 inferences at K=400, 5,122 at
+%1,600 and 18,322 at 6,400, because what grows is the cost of each operation
+%and not their number. CPU time is process time and does not move with machine
+%load, both readings come from one process, and the margin is wide: quadratic
+%measures about 16x for the 4x step where linear measures about 4.
+generator_enumeration_cost(K, Seconds) :-
+    atom_concat('&plunit_gen_', K, Space),
+    format(atom(Text),
+           "(= (plunit_gen $n) (if (>= $n ~w) (superpose ()) (superpose ($n (plunit_gen (+ $n 1))))))~n",
+           [K]),
+    atom_string(Text, Source),
+    setup_call_cleanup(
+        assertz(user:silent(true), SilentRef),
+        setup_call_cleanup(
+            filereader:process_metta_string(Source, _, Space),
+            ( user:metta_module_space(Module, Space),
+              !,
+              findall(x, Module:plunit_gen(0, _), _),
+              statistics(cputime, Before),
+              findall(x, Module:plunit_gen(0, _), Answers),
+              statistics(cputime, After),
+              length(Answers, K),
+              Seconds is After - Before ),
+            ( user:clear_native_atoms(Space),
+              user:metta_release_space(Space) )),
+        erase(SilentRef)).
+
+test(a_recursive_generator_enumerates_in_time_linear_in_its_answers) :-
+    generator_enumeration_cost(400, Narrow),
+    generator_enumeration_cost(1600, Wide),
+    assertion(Wide < Narrow * 8).
+
 :- end_tests(translator_branch_returns).
 
 % A runnable is compiled whole before any of it runs, so an import written in
