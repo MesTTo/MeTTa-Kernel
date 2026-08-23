@@ -1010,6 +1010,47 @@ test(an_inherited_skewed_join_costs_time_linear_in_the_edge_count) :-
     inherited_join_cost(64, Wide),
     assertion(Wide < Narrow * 3).
 
+% Every conjunct being relational is a precondition of the WHOLE conjunction,
+% and asking it again at each level walks the remaining conjuncts once per
+% conjunct, which is quadratic in their number. A path query over a chain has
+% one answer per starting node whatever K is, so the per-answer cost isolates
+% the planning from the join: it was 121 inferences an answer at K=8 and 3,416
+% at K=64, 28x for 8x the conjuncts, and it is 82 and 814, which is 10x.
+% NOT findall/3 for the conjunct list: it copies its template, so every
+% conjunct would get fresh variables and the query would be a cartesian product
+% rather than a join.
+chain_path([_], []) :- !.
+chain_path([A, B|Rest], [[joink, A, B]|Conjuncts]) :- chain_path([B|Rest], Conjuncts).
+
+conjunct_scaling_cost(K, PerAnswer) :-
+    Space = '&plunit_conjunct_scaling',
+    clear_native_atoms(Space),
+    forall(between(0, 127, I),
+           ( atom_concat(jn, I, A), J is I + 1, atom_concat(jn, J, B),
+             add_sexp(Space, [joink, A, B]) )),
+    N is K + 1,
+    length(Vars, N),
+    chain_path(Vars, Conjuncts),
+    Pattern = [','|Conjuncts],
+    Vars = [First|_],
+    last(Vars, Last),
+    Out = [First, Last],
+    findall(Out, match(Space, Pattern, Out, Out), Rows),
+    length(Rows, Answers),
+    assertion(Answers > 0),
+    statistics(inferences, Before),
+    findall(Out, match(Space, Pattern, Out, Out), _),
+    statistics(inferences, After),
+    statistics(inferences, Settle),
+    Overhead is Settle - After,
+    PerAnswer is ((After - Before) - Overhead) / Answers,
+    clear_native_atoms(Space).
+
+test(a_long_conjunction_costs_inferences_linear_in_its_conjunct_count) :-
+    conjunct_scaling_cost(8, Narrow),
+    conjunct_scaling_cost(64, Wide),
+    assertion(Wide < Narrow * 16).
+
 :- end_tests(spaces_join_order).
 
 :- begin_tests(spaces_match_snapshot).

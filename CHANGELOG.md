@@ -119,6 +119,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- A conjunctive `match` costs work linear in its conjunct count rather than
+  quadratic. Whether every conjunct was relational is a precondition of the
+  whole conjunction and it was re-decided at every step, walking the remaining
+  conjuncts once per conjunct. A 64-conjunct path query cost 3,416 inferences
+  an answer and costs 814; a two-conjunct one is unchanged.
+
 - Reading an expression's shape no longer walks it. A MeTTa expression is a
   proper list, and the engine asked `is_list/1` to confirm that, which traverses
   the whole list to answer what the first cell already says. `(index-atom $l 0)`
