@@ -8735,9 +8735,9 @@ load_prelude_form(Kind, Src, _) :-
 %transaction commit and rollback semantics, so no listener or generic
 %write-door flag exists and every mutation route keeps its original cost.
 %Keep this read-only host service after the loader predicates it does not call:
-%its clause layout then cannot perturb the save-load-metta hot path [measured:
+%its clause layout then cannot perturb the save-load-metta hot path [measured 2026-08-23:
 %save-load-metta 9,223,648 inferences; command=PETTA_BENCHMARK_COUNTERS=1
-%PYTHONPATH=bindings/python /home/user/Dev/.venv-pypetta/bin/python -m pytest
+%PYTHONPATH=bindings/python python -m pytest
 %-q bindings/python/benchmarks/test_benchmarks.py::test_save_load_metta;
 %fixture=deterministic benchmark harness; commit=fc08223618651c122c7e3bfa9f269d03ff1c0932].
 metta_host_function_generation(Generation) :-
