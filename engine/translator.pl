@@ -4102,8 +4102,8 @@ mbr_goal((C -> T ; E), H, Stats, P0, P, (C -> T1 ; E1), Bs0, Bs) :- !,
     mbr_branch(T, H, Stats, P1, P2, T1, Bs0, Bs1),
     mbr_branch(E, H, Stats, P2, P, E1, Bs1, Bs).
 mbr_goal((A ; B), H, Stats, P0, P, (A1 ; B1), Bs0, Bs) :- !,
-    mbr_goal(A, H, Stats, P0, P1, A1, Bs0, Bs1),
-    mbr_goal(B, H, Stats, P1, P, B1, Bs1, Bs).
+    mbr_branch(A, H, Stats, P0, P1, A1, Bs0, Bs1),
+    mbr_branch(B, H, Stats, P1, P, B1, Bs1, Bs).
 mbr_goal((C -> T), H, Stats, P0, P, (C -> T1), Bs0, Bs) :- !,
     mbr_advance_term(C, P0, P1),
     mbr_branch(T, H, Stats, P1, P, T1, Bs0, Bs).

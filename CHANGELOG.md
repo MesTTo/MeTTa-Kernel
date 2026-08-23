@@ -119,6 +119,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- A recursive function that produces several answers now enumerates them in
+  time linear in the answer count rather than quadratic. Such a function
+  produces its i-th answer at recursion depth i, and the translator left a
+  runtime `Out = V` trailing the recursive call, which put that call out of
+  tail position. Enumerating K answers cost 903 microseconds at K=400, 12,227
+  at 1,600 and 192,516 at 6,400; it costs 111, 404 and 1,906. The same
+  generator written directly in Prolog was linear at every size, so the
+  quadratic was the engine's own.
+
 - Automatic memoization no longer reads the whole program to decide what to
   cache. Reconciling a source whose call graph changed enumerated every
   equation in the module to find the ones carrying a `(cache f force)` or
