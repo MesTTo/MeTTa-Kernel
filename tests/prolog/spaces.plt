@@ -1051,6 +1051,51 @@ test(a_long_conjunction_costs_inferences_linear_in_its_conjunct_count) :-
     conjunct_scaling_cost(64, Wide),
     assertion(Wide < Narrow * 16).
 
+% Deciding whether a function is still defined anywhere, and whether one module
+% owns it, both asked current_predicate/1 for the compiled predicate with its
+% ARITY UNBOUND, which walks the module's whole predicate table. Both run once
+% per equation REMOVED, so removing equations from a large program cost time
+% that grew with the program. The arity registry names the candidates instead,
+% which is the pattern publish_restricted_denials/1 already uses.
+% TIMED because current_predicate/1 is a C builtin that reads as one inference
+% however many predicates it walks.
+fsd_padding(N) :-
+    metta_self_module(Module),
+    forall(between(1, N, Index),
+           ( atom_concat(plunit_fsd_pad_, Index, Name),
+             functor(Head, Name, 1),
+             ( predicate_property(Module:Head, defined) -> true
+             ; assertz(Module:Head) ) )).
+
+still_defined_cost(N, Micros) :-
+    fsd_padding(N),
+    ( between(1, 50, _), function_still_defined('plunit-fsd-probe'), fail ; true ),
+    findall(D, ( between(1, 3, _),
+                 statistics(cputime, T0),
+                 ( between(1, 300, _),
+                   function_still_defined('plunit-fsd-probe'), fail
+                 ; true ),
+                 statistics(cputime, T1),
+                 D is (T1 - T0) * 1000000 / 300 ),
+            Ds),
+    min_list(Ds, Micros).
+
+% The padding goes again afterwards: restricted_core_predicate/1 enumerates the
+% engine module's predicates with both name and arity open, so leaving 6,400
+% inert ones behind would tax whatever runs next.
+fsd_padding_cleanup(N) :-
+    metta_self_module(Module),
+    forall(between(1, N, Index),
+           ( atom_concat(plunit_fsd_pad_, Index, Name),
+             catch(abolish(Module:Name/1), _, true) )).
+
+test(deciding_a_function_is_still_defined_does_not_walk_the_predicate_table,
+     [ setup(process_metta_string("(= (plunit-fsd-probe $x) $x)", _)),
+       cleanup(fsd_padding_cleanup(6400)) ]) :-
+    still_defined_cost(400, Narrow),
+    still_defined_cost(6400, Wide),
+    assertion(Wide < Narrow * 4).
+
 :- end_tests(spaces_join_order).
 
 :- begin_tests(spaces_match_snapshot).

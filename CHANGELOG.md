@@ -186,6 +186,40 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `petta_py_function_generation/1`. Removing the per-evaluation catalogue
   sniff puts `py-method-call` at 1,503,497,066 instructions, below its
   1,508,773,364 acceptance ceiling.
+- Removing an equation no longer costs time that grows with the program.
+  Deciding whether a function is still defined anywhere, and whether one module
+  owns it, asked for the compiled predicate with its arity left open, which
+  walks the module's whole predicate table; the arity registry names the
+  candidate instead. Each decision cost 24.9 microseconds in a program of 8,000
+  functions and costs 0.59, and removing an equation from one cost 485
+  microseconds and costs 384.
+
+- Deciding which memoized functions are recursive costs time linear in their
+  number rather than quadratic. A one-member component is recursive exactly when
+  it calls itself, and that was asked of the whole arc list once per component,
+  so a source of N self-recursive functions, which is what memoization is
+  usually asked for, was quadratic to analyse: 3,200 of them cost 156,346
+  microseconds and cost 14,783. The arcs the analysis proposes are also matched
+  against an indexed node set instead of a list scan, which is what makes a
+  file of call sites load in constant time a form.
+
+- Loading a program costs time linear in its size rather than quadratic. Each
+  dependency-graph edge is now keyed by a hash of its endpoints, where before
+  the edge relation could only be indexed by its node kind: four kinds over
+  32,000 edges gave the whole relation an eight-bucket index, so every
+  duplicate-edge check during compilation scanned a quarter of the graph.
+  Loading 8,000 function definitions cost 3.25 seconds and costs 0.73, and the
+  same 500-form batch loaded into a 16,000-form program cost 666 microseconds a
+  form and costs 101. Small programs are unchanged.
+
+- Compiling a call site costs nothing that grows with the callee's equation
+  count. The specializer read every equation of the callee at every call site to
+  decide whether a specialization was worth planning, which was linear in the
+  equation count: against a 2,048-equation function one call site cost 64,191
+  inferences and costs 682. A call whose arguments are all atomic and none of
+  them a function cannot specialize whatever the equations look like, and that
+  is now settled from the arguments first. The same specializations are created.
+
 - A conjunctive `match` costs work linear in its conjunct count rather than
   quadratic. Whether every conjunct was relational is a precondition of the
   whole conjunction and it was re-decided at every step, walking the remaining
