@@ -82,6 +82,10 @@
 %     behavior on file, host, and running-MeTTa routes [tested:
 %     admission_route_matrix:every_verdict_fires_on_every_engine_ingress;
 %     commit=WORKTREE].
+%   - the source-wide signature pre-pass advances the process-global function
+%     generation only when it adds a fresh fun/1 name [tested:
+%     function_catalogue_generation:an_import_bringing_an_equation_bumps_once;
+%     commit=WORKTREE].
 %   - A file that loads again REPLACES what it put in that space rather than
 %     adding to it, reaches any other space its change has made stale, and
 %     says what it withdrew [tested 2026-08-19:

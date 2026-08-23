@@ -188,6 +188,10 @@
 %     [tested 2026-08-14: metta_builtin_outputs].
 %   - Function registration performed by a source load participates in that
 %     load's rollback [tested 2026-08-14: filereader_source_rollback].
+%   - metta_host_function_generation/1 exposes fun/1's process-global SWI
+%     database generation, which advances on committed catalogue changes and
+%     on no ordinary evaluation or data write
+%     [tested: function_catalogue_generation; commit=WORKTREE].
 %   - Prolog registration refuses every head the translator compiles before
 %     function dispatch, including heads added through translator_rule/1
 %     [tested: test_registering_any_translator_compiled_head_is_refused_by_name].
@@ -496,6 +500,13 @@ petta_shared_registry(fun_scoped/1).
 :- dynamic fun/1, arity/2, petta_shape_fact/4, petta_shape_declared/2,
             import_life/3, fun_scoped/1.
 :- forall(petta_shared_registry(Registry), export(Registry)).
+
+%fun/1 is the exact mutable input petta_py_builtins/1 reads. SWI maintains a
+%dynamic predicate's last_modified_generation for cache validation, including
+%transaction commit and rollback semantics, so no listener or generic
+%write-door flag exists and every mutation route keeps its original cost.
+metta_host_function_generation(Generation) :-
+    predicate_property(fun(_), last_modified_generation(Generation)).
 
 %!  petta_import_shared_registries is det.
 %
