@@ -491,3 +491,42 @@ is a redesign this file records rather than performs.
 Anyone picking this up: the ablation above is the ceiling, the obligation is
 that a guard which wrongly reports "one type" silently DROPS type answers, and
 both cheap guards are already spent.
+
+## The rest of the sweep, and the three harness bugs it cost
+
+Everything below was swept by inference count, which is deterministic where this
+box's wall clock is not, and every one is flat or linear in what it must
+produce.
+
+**Growth against a growing program**, the shape that found the load quadratic:
+adding, querying and removing space atoms; binding tokens; creating state cells;
+creating spaces; and, most importantly, CALLING a function, asking `get-type` of
+one, and matching an equation, each flat at 4,000 preloaded functions whether or
+not the function is typed.
+
+**Depth**: evaluation, printing, `==`, `add-atom`, `match`, `unify`, `collapse`,
+`let*` chains, and `catch` frames. `catch` costs about one inference a frame,
+912 at depth 25 and 1,303 at 400.
+
+**Width and multiplicity**: pattern variable count, repeated variables in a
+pattern, N identical atoms in a space, N declarations on one symbol, and a
+selective query against a growing space, which is FLAT: 661 inferences over 50
+atoms and 695 over 3,200.
+
+### Three harness bugs, each of which looked like an engine defect
+
+Worth writing down because each cost a real investigation and each has the same
+tell.
+
+1. `findall/3` COPIES its template. Building a conjunctive query's conjuncts
+   with it gave every conjunct fresh variables, so the "join" was a cartesian
+   product: 256 answers where 14 were right. **Check the answer COUNT before
+   believing a cost.**
+2. Loading the same equation once per size in a sweep leaves N copies of it, and
+   a function with k identical equations answers 2^k times. That read as an
+   engine blowup at depth 32, and as a `catch` that never returned. **Name
+   fixtures by their size.**
+3. A `cp` in a command whose earlier `cd` had drifted silently did not land, so
+   a control "passed" on the tree it was meant to refute. **Start every command
+   that swaps a file with an absolute cd, and read the control's own number
+   rather than its verdict.**
