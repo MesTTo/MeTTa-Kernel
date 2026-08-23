@@ -17,6 +17,10 @@
 %     test_an_unchanged_repeat_import_does_not_run_the_source_again,
 %     test_an_edited_import_is_not_skipped,
 %     filereader_source_reload:an_unchanged_file_is_not_loaded_again].
+%   - the builtin type surface and engine prelude are decoded as UTF-8 rather
+%     than through the process locale [tested:
+%     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
+%     commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
 %   - petta_handles_route/5 routes a query by the most specific matching
 %     (handles ...) entry in &petta, where specificity is pattern
 %     subsumption first and adornment-set inclusion between renaming-equal
@@ -83,6 +87,11 @@
 %   - Python operation purity reaches the same `(effect Name immutable)` atom
 %     read by seam:pure_operation/1 [tested:
 %     test_pure_registration_reflects_an_effect_atom; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861].
+%   - StateMonad cells use one process-shared non-backtrackable store, so main
+%     evaluation and held answer engines observe the same writes without
+%     losing their parameterized held-value type [tested:
+%     test_state_cells_are_shared_across_answer_engines,
+%     test_state_retires_three_state_function_strings; commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
 %   - A result past binary64 saturates to the IEEE value on the engine's
 %     operations, agreeing with the reader's saturating literals, and an
 %     infinity a literal produced carries through further arithmetic; the
@@ -222,6 +231,7 @@
 %aborts the boot at load_builtin_type_surface's first (library ...) call.
 %So this one import has to come first, ahead of even the section header's
 %own first clause.
+:- encoding(utf8).
 :- use_module(library(filesex)).
 library(X, Path) :- standard_library_path(Base),
                     directory_file_path(Base, X, Path).
@@ -3029,7 +3039,7 @@ get_type_candidate(X, T) :- petta_state_cell_type(X, T).
 %declaration [tested: test_a_state_cell_is_a_value_typed_by_what_it_holds].
 petta_state_cell_type(X, ['StateMonad', Held]) :-
     petta_state_cell(X),
-    nb_current(X, Value),
+    petta_state_value(X, Value),
     get_type_candidate(Value, Held).
 
 get_type_candidate_in(_, X, T) :- number(X), !, metta_numeric_type(X, T).
@@ -6459,11 +6469,13 @@ rewrite_parsed_form(Space, FormStr, Term, Rewritten) :-
 %[tested: test_a_state_cell_is_a_value_typed_by_what_it_holds].
 %
 %THE CELL IS A HANDLE ATOM, `&state-#N`, the same shape a space handle takes
-%here, and the value lives under that name in the thread's global store. That
-%is what keeps the NAMED form working unchanged: a plain symbol is a cell name
-%too, so `(change-state! &openai_client V)` in lib/lib_llm.metta still writes a
-%cell nothing allocated, and the two spellings are one implementation rather
-%than two.
+%here, and the value lives under that name in a process-shared dynamic store.
+%A thread-local nb_setval store made the main evaluator and a held SWI answer
+%engine see different cells. Dynamic assertions are equally non-backtrackable
+%and visible to both engines. This also keeps the NAMED form working unchanged:
+%a plain symbol is a cell name too, so `(change-state! &openai_client V)` in
+%lib/lib_llm.metta still writes a cell nothing allocated, and the two spellings
+%are one implementation rather than two.
 %
 %DIVERGENCE, measured and recorded rather than closed: the arbiter RENDERS a
 %cell as `(State <value>)` and this engine renders it as its handle, `&state-#0`,
@@ -6472,16 +6484,17 @@ rewrite_parsed_form(Space, FormStr, Term, Rewritten) :-
 %it is a separate change from the parametric cell this row asked for
 %[source: the same file's MEASURED block, `[(State 6)]` where this answers
 %`[&state-#0]`].
-:- dynamic petta_state_counter/1.
+:- dynamic petta_state_counter/1, petta_state_value/2.
 
 'new-state'(Value, Cell) :-
     petta_next_state_cell(Cell),
-    nb_setval(Cell, Value).
+    petta_set_state(Cell, Value).
 
 petta_next_state_cell(Cell) :-
-    ( retract(petta_state_counter(N)) -> true ; N = 0 ),
-    Next is N + 1,
-    assertz(petta_state_counter(Next)),
+    with_mutex('$petta_state_cells',
+               ( ( retract(petta_state_counter(N)) -> true ; N = 0 ),
+                 Next is N + 1,
+                 assertz(petta_state_counter(Next)) )),
     atom_concat('&state-#', N, Cell).
 
 petta_state_cell(X) :- atom(X), atom_concat('&state-#', _, X).
@@ -6490,12 +6503,19 @@ petta_state_cell(X) :- atom(X), atom_concat('&state-#', _, X).
 %composable: `(get-state (change-state! $c 2))` reads back what was just
 %written. It answered True before, which no upstream signature has.
 'change-state!'(Var, Value, Var) :-
-    ( atom(Var) -> nb_setval(Var, Value)
-    ; catch(nb_setval(Var, Value), E,
-            rethrow_metta_operation_error('change-state!', E)) ).
+    catch(( must_be(atom, Var), petta_set_state(Var, Value) ), E,
+          rethrow_metta_operation_error('change-state!', E)).
 'get-state'(Var, Value) :-
-    catch(nb_getval(Var, Value), E,
-          rethrow_metta_operation_error('get-state', E)).
+    ( atom(Var), petta_state_value(Var, Value)
+    -> true
+    ; catch(nb_getval(Var, Value), E,
+            rethrow_metta_operation_error('get-state', E)) ).
+
+petta_set_state(Var, Value) :-
+    copy_term(Value, Stored),
+    with_mutex('$petta_state_cells',
+               ( retractall(petta_state_value(Var, _)),
+                 assertz(petta_state_value(Var, Stored)) )).
 
 %%% Eval: %%%
 %eval runs its goals in the current space's module, for the same reason
@@ -8428,7 +8448,7 @@ load_builtin_type_surface :-
     library('lib_builtin_types.metta', Path),
     exists_file(Path),
     !,
-    read_file_to_string(Path, Text, []),
+    read_file_to_string(Path, Text, [encoding(utf8)]),
     parse_metta_source(Text, Forms),
     forall(( member(parsed(expression, _, [':', Name, Type]), Forms),
              atom(Name) ),
@@ -8572,7 +8592,7 @@ load_engine_prelude_forms :-
                     context(load_engine_prelude/0,
                             'engine/prelude.metta is part of the engine')))
     ),
-    read_file_to_string(Path, Text, []),
+    read_file_to_string(Path, Text, [encoding(utf8)]),
     parse_metta_source(Text, Forms),
     %Re-loading restores only what eviction removed: a name still owned
     %keeps every clause it has, and its forms are skipped WHOLE (a name

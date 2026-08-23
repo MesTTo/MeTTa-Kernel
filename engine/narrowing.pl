@@ -87,6 +87,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+:- encoding(utf8).
 :- module(narrowing, [ narrowing_terminates/3,
                        defined_symbols/2,
                        defined_names/2,

@@ -9,6 +9,10 @@
 %   - parse_metta_source/2 consumes comments in its grammars without building a
 %     stripped source copy [measured: 7,736,802 versus 8,874,582 inferences for
 %     twenty parses of 48,786 codes, 2026-08-15].
+%   - plain and gzip-compressed MeTTa sources are decoded as UTF-8 regardless
+%     of the process locale [tested:
+%     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
+%     commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
 %   - Loader diagnostics contain ANSI escapes only on terminal streams
 %     [tested 2026-08-14: filereader_terminal_output].
 %   - A type declaration that cannot type a function the same source defines
@@ -126,6 +130,7 @@
 %layout grammar and the reload bookkeeping are its own; a caller that wants one
 %says filereader: and means it
 %[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+:- encoding(utf8).
 :- module(filereader,
           [ load_imported_metta_file/3,
             load_metta_source_groups/3,
@@ -767,12 +772,13 @@ read_metta_source(Filename, S) :-
 read_source_text(Filename, S) :-
     ( file_name_extension(_, gz, Filename)
       -> catch(setup_call_cleanup(gzopen(Filename, read, In),
-                                  read_string(In, _, S),
+                                  ( set_stream(In, encoding(utf8)),
+                                    read_string(In, _, S) ),
                                   close(In)),
                error(Type, _),
                throw(error(Type, context(Filename,
                                          'while reading gzip-compressed MeTTa source'))))
-    ; read_file_to_string(Filename, S, []) ).
+    ; read_file_to_string(Filename, S, [encoding(utf8)]) ).
 
 % Every space that receives a file compiles its own copy of the file's
 % equations, into its own execution module, exactly as the runtime door

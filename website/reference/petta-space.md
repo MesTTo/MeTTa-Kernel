@@ -20,12 +20,20 @@ Source: `bindings/python/petta/_space.py`.
 >     test_define_absorbs_class_declaration_and_frees_space_type,
 >     test_fn_strips_one_bang_only_when_the_exact_name_is_absent, and
 >     test_transaction_term_uses_empty_answer_rollback_law; commit=c34c9bf3e55a8425d3f251c3ad06c33bc9755a22]
+>   - relational solve exposes variables from its pattern before variables from
+>     its subject [tested: test_solve_projects_variables_from_the_winning_pattern;
+>     commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
 >   - ``MeTTa`` carries only context primitives while ``Space`` owns storage,
 >     query, declaration, and lifecycle verbs [tested:
 >     test_m7_narrow_core_surface; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - ``MeTTa.space()`` creates named or anonymous handles through one door
 >     [tested: test_module_tier_is_sugar_over_one_default_engine;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - named space construction accepts a space-name Symbol as well as its text
+>     spelling [tested: test_space_factory_accepts_a_name_symbol; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
+>   - handle-level Linda waits load their support into the default caller space,
+>     never into a distinct waited-on space [tested:
+>     test_peek_does_not_import_linda_into_the_waited_space; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
 >   - ``Space.query``, every ``declare_*`` verb, and the write door retain their
 >     established semantics after moving off ``MeTTa`` [tested:
 >     test_query_surfaces_share_column_order,
@@ -39,6 +47,9 @@ Source: `bindings/python/petta/_space.py`.
 >     test_bound_function_namespace_validates_at_access,
 >     test_function_calls_pull_engine_answers_only_as_demanded;
 >     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
+>   - builtin discovery is cached per logical space and invalidated by every
+>     catalogue mutation [tested: test_builtin_discovery_is_cached,
+>     test_builtin_cache_invalidates_after_a_miss; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
 >   - ``Space`` is a grounded ``Handle`` that crosses as a term operand, and
 >     ``peek`` and ``take`` expose the engine's event-driven Linda operations
 >     [tested: test_space_handles_are_term_operands_and_round_trip,
@@ -605,8 +616,10 @@ def solve(self, pattern: Any, subject: Any) -> Any:
 >
 > ``solve(4, V.x - 1).x`` places the known value on let's pattern side,
 > lets the arithmetic relation solve backwards, and projects ``x``.
-> The answer template is derived from the subject's variables, so the
-> third hand-written ``let`` argument disappears.
+> The answer template is derived from the pattern's variables followed
+> by any new subject variables, so either relational direction can
+> introduce the bindings and the third hand-written ``let`` argument
+> disappears.
 
 ### `Space.watch`
 
@@ -1435,16 +1448,17 @@ def define(
 >     S.add_one(5)                # (add_one 5), staged as data
 >     add_one.py(5)               # 6, ordinary Python
 >
-> The equation's name is the Python name, verbatim, or `name=`
-> when given. Hyphens are the MeTTa convention and Python cannot
-> spell one, so a hyphenated name is asked for rather than inferred:
+> The equation's implicit name applies the factories' total mechanical
+> map, replacing each underscore with a hyphen. ``name=`` is the exact
+> quoted-name escape for punctuation that map cannot preserve:
 >
 >     @m.define(name="add-one")
 >     def add_one(n):
 >         return n + 1
 >
-> Nothing is rewritten behind the author's back, which is the whole
-> of the rule: the name in the source is the name in the space.
+> This is rung 4 of the naming ladder applied to the definition door
+> itself: ``def not_provable`` lands as ``not-provable``. An authored
+> MeTTa underscore therefore uses explicit ``name="not_provable"``.
 >
 > A generator compiles to nondeterminism (each yield one answer), a
 > lambda to the engine's own |->, a comprehension to map-atom and

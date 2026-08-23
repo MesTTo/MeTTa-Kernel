@@ -10,11 +10,15 @@
 %     answer group per runnable form after end-of-source repair
 %     [tested: filereader_source_reload:a_grouped_load_runs_inside_the_source_lifecycle;
 %     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - MeTTa source files retain non-ASCII heads under the C locale [tested:
+%     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
+%     commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
+:- encoding(utf8).
 :- ensure_loaded('../../engine/metta.pl').
 
 test_lambda_functions(Functions) :-
@@ -304,6 +308,11 @@ write_reload_source(Path, Text) :-
                        write(Stream, Text),
                        close(Stream)).
 
+write_reload_source_utf8(Path, Text) :-
+    setup_call_cleanup(open(Path, write, Stream, [encoding(utf8)]),
+                       write(Stream, Text),
+                       close(Stream)).
+
 reload_scratch_file(Path) :-
     tmp_file(plunit_reload, Base),
     file_name_extension(Base, metta, Path).
@@ -344,6 +353,22 @@ test(a_grouped_load_runs_inside_the_source_lifecycle) :-
           once(filereader:metta_source_load(Canon, '&self', LoadId, Digest)),
           atom_length(Digest, 64),
           once(filereader:source_load_assertion(LoadId, _)) ),
+        forget_reload_source(Path, F)).
+
+test(a_source_is_utf8_independent_of_the_locale) :-
+    F = 'plunit-utf8-head',
+    reload_scratch_file(Path),
+    setup_call_cleanup(
+        write_reload_source_utf8(
+            Path,
+            "(= (plunit-utf8-head ×) matched)\n"),
+        setup_call_cleanup(
+            setlocale(ctype, OldLocale, 'C'),
+            ( filereader:load_metta_file(Path, _, '&self'),
+              filereader:process_metta_string(
+                  "!(plunit-utf8-head ×)", Results),
+              Results == [matched] ),
+            setlocale(ctype, _, OldLocale)),
         forget_reload_source(Path, F)).
 
 test(an_unchanged_file_is_not_loaded_again) :-

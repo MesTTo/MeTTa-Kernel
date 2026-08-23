@@ -172,7 +172,7 @@ to solve many times, with `given=` facts existing for that call only:
 
 ```python
 m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
-m.query(S.Age(V.p, V.n), where=(V.n >= 60) & (V.n <= 70))
+m.query(S.Age(V.p, V.n), where=S[">="](V.n, 60) & S["<="](V.n, 70))
 # Rows[p, n]([Row(p=Symbol('Tom'), n=Grounded(62))])
 
 with m.assuming(S.Parent(S.Ann, S.Zoe)):
