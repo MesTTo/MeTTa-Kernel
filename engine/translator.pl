@@ -200,7 +200,7 @@
 %     [tested: examples/functions/functionhead.metta,
 %     examples/functions/functionhead2.metta,
 %     examples/functions/functionhead3.metta,
-%     examples/libraries/patrick_test.metta,
+%     examples/libraries/patrick.metta,
 %     examples/reasoning/tilepuzzle.metta].
 %   - the DUAL of a let* whose bindings have not arrived is asked for.
 %     engine/duals.pl builds duals at compile time from the recorded MeTTa body,
@@ -1731,7 +1731,7 @@ translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
 %Expand one call through a translator rule. The rule is an ordinary MeTTa
 %equation, so it lives in the module of the space that wrote it: called
 %unqualified it resolved in the ENGINE's module and raised Unknown procedure
-%for every rule [tested: examples/libraries/patrick_test.metta].
+%for every rule [tested: examples/libraries/patrick.metta].
 %
 %A rule that does not APPLY fails here rather than raising, and the dispatch
 %above then carries on down the chain exactly as it does for a special form
@@ -2344,7 +2344,7 @@ error_argument_chain([V|Vs], Out, Call, Chain) :-
 %The test READS the value and unifies nothing of it, which is what the `==`
 %is for. Unifying the head instead binds a variable an ordinary expression is
 %holding as data: `(\= (1 2 3) ($a 3 4))` answered `(Error 3 4)`, with `$a`
-%bound to the symbol Error, in examples/libraries/roman_test.metta. `V` itself
+%bound to the symbol Error, in examples/libraries/roman.metta. `V` itself
 %may be unbound, and then `V = [Head|_]` binds it and `Head == 'Error'` fails,
 %which undoes the binding, so no nonvar/1 guard is needed in front.
 error_atom_test(V, ( V = [Head|_], Head == 'Error' )).
