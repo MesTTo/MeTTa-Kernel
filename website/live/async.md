@@ -33,7 +33,7 @@ Be clear about what this buys. The engine is one per process and calls are seria
 
 ## The whole surface, and the async shapes
 
-`AsyncMeTTa` mirrors the context-relative `Space` verbs that make sense across a worker hop. The `declare_*` family, `op`, `unregister_op`, `parallel`, and `space_names` are one worker round trip each. Private diagnostics remain reachable through `call()` instead of becoming a second public facade.
+`AsyncMeTTa` mirrors the context-relative `Space` verbs that make sense across a worker hop. The head-named declaration family, `op`, `unregister_op`, `parallel`, and `space_names` are one worker round trip each. Private diagnostics remain reachable through `call()` instead of becoming a second public facade.
 
 The structural pieces take their async shapes rather than a thread wrapper's:
 

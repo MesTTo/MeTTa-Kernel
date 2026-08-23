@@ -13,7 +13,8 @@ context boundary as an opaque handle or as a structural MeTTa expression.
 `attach_sqlite` declares the default explicitly:
 
 ```python
-m.declare_image("&crm", "Blob", "opaque")
+crm = petta.space("&crm")
+crm.image("Blob", "opaque")
 ```
 
 The resulting atom `(image &crm Blob opaque)` lives in `&petta` and has type

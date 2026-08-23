@@ -63,7 +63,7 @@ each candidate as the value with the degree as the answer's annotation,
 declare the semiring, and `top` orders while `(annotation)` reads the
 degree beside its answer. Nothing about scores is built into the library;
 the whole of it is `Space.op`, `Answer(value=..., k=...)` and
-`declare_annotations`, so fuzzy, regex and semantic closeness are each a
+`annotations`, so fuzzy, regex and semantic closeness are each a
 few lines in your own code. The executable version of everything on this
 page is `bindings/python/examples/reasoning/custom_matchers.py`.
 

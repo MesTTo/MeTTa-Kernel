@@ -176,7 +176,7 @@ class Transactional(Protocol):
 
 > A provider that participates in the engine's transactions.
 >
-> Declared with (writes &lt;ctx> transactional) or declare_writes: the
+> Declared with (writes &lt;ctx> transactional) or ``space.writes``: the
 > engine calls begin() at the provider's first write inside the
 > outermost transaction, then exactly one of commit() or rollback()
 > when it finishes, alongside the engine's own database rollback, so a

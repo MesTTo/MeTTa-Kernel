@@ -14,7 +14,7 @@ Open Obligations:
 A weighted relation is an ordinary operation whose answers carry their
 weights as annotations. There is no dedicated machinery: `op`
 registers the callable, each answer names its class as the value and its
-weight as `k`, and `declare_annotations` states the semiring. `top`
+weight as `k`, and `annotations` states the semiring. `top`
 orders the answers, `(annotation)` reads each weight beside its class,
 and the in-language measure library consumes `(weight value)` pairs you
 build with that bridge.
@@ -29,7 +29,7 @@ def mood(day, chosen=None):
     yield Answer(value=S.tense, k=0.75)
 
 m.op(mood, name="mood")
-m.declare_annotations("mood", "prob")
+m.annotations("mood", "prob")
 
 m.run("!(collapse (mood today))")                 # (calm tense)
 m.run("!(collapse (top 1 (mood today)))")         # (tense)
