@@ -4,7 +4,7 @@ Guarantees: examples contain no superseded atom class or helper names, and
 plain atom sorting agrees with the explicit specialist key.
 [tested: npm run docs:build and test_plain_sorted_uses_the_engines_elementwise_order;
 commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
-[tested: test_atom_comparisons_are_only_ordering; commit=WORKTREE]
+[tested: test_atom_comparisons_are_only_ordering; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
 -->
 
 # Atoms, operators, and term building

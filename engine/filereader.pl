@@ -12,7 +12,7 @@
 %   - plain and gzip-compressed MeTTa sources are decoded as UTF-8 regardless
 %     of the process locale [tested:
 %     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
-%     commit=WORKTREE].
+%     commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
 %   - Loader diagnostics contain ANSI escapes only on terminal streams
 %     [tested 2026-08-14: filereader_terminal_output].
 %   - A type declaration that cannot type a function the same source defines

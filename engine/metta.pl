@@ -20,7 +20,7 @@
 %   - the builtin type surface and engine prelude are decoded as UTF-8 rather
 %     than through the process locale [tested:
 %     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
-%     commit=WORKTREE].
+%     commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
 %   - petta_handles_route/5 routes a query by the most specific matching
 %     (handles ...) entry in &petta, where specificity is pattern
 %     subsumption first and adornment-set inclusion between renaming-equal
@@ -91,7 +91,7 @@
 %     evaluation and held answer engines observe the same writes without
 %     losing their parameterized held-value type [tested:
 %     test_state_cells_are_shared_across_answer_engines,
-%     test_state_retires_three_state_function_strings; commit=WORKTREE].
+%     test_state_retires_three_state_function_strings; commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
 %   - A result past binary64 saturates to the IEEE value on the engine's
 %     operations, agreeing with the reader's saturating literals, and an
 %     infinity a literal produced carries through further arithmetic; the
