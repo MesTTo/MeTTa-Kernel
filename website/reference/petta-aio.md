@@ -47,6 +47,9 @@ Source: `bindings/python/petta/aio.py`.
 >   - async space forwards anonymous-space inheritance, restriction, and grants
 >     on the owning worker [tested:
 >     test_async_space_forwards_restriction_and_grants; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - async scoped limits forward stack byte bounds through the synchronous
+>     task-local scope [tested: test_stack_limit_is_carried_to_the_limited_six_seam;
+>     commit=WORKTREE]
 >   - reader-token registration and removal run on the owning engine worker and
 >     mirror the synchronous surface [tested:
 >     test_aio_plain_methods_forward_on_the_worker; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
@@ -868,7 +871,13 @@ No docstring is defined.
 ### `AsyncMeTTa.limits`
 
 ```python
-def limits(self, *, timeout: float | None = None, inferences: int | None = None):
+def limits(
+    self,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    stack: int | None = None,
+):
 ```
 
 > Scoped default bounds, the synchronous surface's own block:

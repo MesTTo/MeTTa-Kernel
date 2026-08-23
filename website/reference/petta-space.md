@@ -60,6 +60,9 @@ Source: `bindings/python/petta/_space.py`.
 >   - Expression recognizes Space as the one iterable Handle whose listing is
 >     collected as an assembly-order snapshot [tested:
 >     test_expression_of_a_space_is_an_assembly_order_snapshot; commit=WORKTREE]
+>   - ``Space.limits(stack=bytes)`` scopes a positive stack byte count beside
+>     time and inference bounds [tested:
+>     test_stack_limit_is_carried_to_the_limited_six_seam; commit=WORKTREE]
 >   - ``Space.op`` and ``Space.unregister_op`` are the sole public operation
 >     lifecycle pair [tested: test_operation_registration_names_are_symmetric;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
@@ -652,7 +655,13 @@ def watch(self, pattern: Any, *, on: str = 'add', deadline: float | None = None)
 ### `Space.limits`
 
 ```python
-def limits(self, *, timeout: float | None = None, inferences: int | None = None) -> ScopedLimits:
+def limits(
+    self,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    stack: int | None = None,
+) -> ScopedLimits:
 ```
 
 > Scoped default bounds for every call in the with-block:
