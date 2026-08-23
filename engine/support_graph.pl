@@ -162,10 +162,16 @@ support_memo_sccs(Module, Components) :-
     findall(rule(Fun, Calls), support_memo_rule(Module, _, Fun, Calls), Rules),
     findall(Fun, member(rule(Fun, _), Rules), Nodes0),
     sort(Nodes0, Nodes),
+    %An assoc rather than memberchk/2 over the node list. One arc is PROPOSED for
+    %every callee of every rule, so a linear membership test makes building the
+    %arc set quadratic in the number of memoized functions, and this whole
+    %decomposition is recomputed whenever one of them changes.
+    findall(Node-true, member(Node, Nodes), NodePairs),
+    list_to_assoc(NodePairs, NodeSet),
     findall(arc(Fun, Callee),
             ( member(rule(Fun, Calls), Rules),
               member(Callee, Calls),
-              memberchk(Callee, Nodes) ),
+              get_assoc(Callee, NodeSet, _) ),
             Arcs0),
     sort(Arcs0, Arcs),
     (   Arcs == []
@@ -173,18 +179,28 @@ support_memo_sccs(Module, Components) :-
     ;   nodes_arcs_sccs(Nodes, Arcs, RawSCCs),
         maplist(sort, RawSCCs, SortedSCCs0),
         sort(SortedSCCs0, SortedSCCs),
-        include(support_memo_recursive_component(Arcs),
+        %Which nodes call themselves, decided ONCE. A one-member component is
+        %recursive exactly when it has a self arc, and asking the arc list that
+        %question per component scanned every arc for each of them: a source of
+        %N self-recursive functions, which is what memoization is usually asked
+        %for, then cost time quadratic in N to decompose
+        %[measured 2026-08-23: 200, 800 and 3,200 of them cost 1,303, 12,112 and
+        %156,346 microseconds, 9.3x and 12.9x for 4x the functions].
+        findall(Node-true, member(arc(Node, Node), Arcs), SelfArcPairs0),
+        sort(SelfArcPairs0, SelfArcPairs),
+        list_to_assoc(SelfArcPairs, SelfArcs),
+        include(support_memo_recursive_component(SelfArcs),
                 SortedSCCs, RecursiveSCCs),
         support_memo_component_index(RecursiveSCCs, Rules, ComponentIndex,
                                      ComponentMaxima),
-        maplist(support_memo_component(Arcs, ComponentIndex,
+        maplist(support_memo_component(SelfArcs, ComponentIndex,
                                        ComponentMaxima),
                 RecursiveSCCs, Components)
     ).
 
 support_memo_recursive_component(_, Members) :- Members = [_,_|_], !.
-support_memo_recursive_component(Arcs, [Only]) :-
-    memberchk(arc(Only, Only), Arcs).
+support_memo_recursive_component(SelfArcs, [Only]) :-
+    get_assoc(Only, SelfArcs, _).
 
 %Index each function to its component, then walk the RHS occurrence lists once.
 %Scanning every rule again for every SCC made a source of N unrelated
@@ -213,10 +229,10 @@ support_memo_same_component(ComponentIndex, Id, Fun) :-
 support_memo_maximum(Id-Counts, Id-Maximum) :-
     max_list(Counts, Maximum).
 
-support_memo_component(Arcs, ComponentIndex, ComponentMaxima, Members,
+support_memo_component(SelfArcs, ComponentIndex, ComponentMaxima, Members,
                        memo_scc(Members, Recursive, MaxCalls)) :-
     (   Members = [Only]
-    ->  ( memberchk(arc(Only, Only), Arcs) -> Recursive = true
+    ->  ( get_assoc(Only, SelfArcs, _) -> Recursive = true
         ; Recursive = false )
     ;   Recursive = true
     ),

@@ -119,6 +119,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Deciding which memoized functions are recursive costs time linear in their
+  number rather than quadratic. A one-member component is recursive exactly when
+  it calls itself, and that was asked of the whole arc list once per component,
+  so a source of N self-recursive functions, which is what memoization is
+  usually asked for, was quadratic to analyse: 3,200 of them cost 156,346
+  microseconds and cost 14,783. The arcs the analysis proposes are also matched
+  against an indexed node set instead of a list scan, which is what makes a
+  file of call sites load in constant time a form.
+
 - Loading a program costs time linear in its size rather than quadratic. Each
   dependency-graph edge is now keyed by a hash of its endpoints, where before
   the edge relation could only be indexed by its node kind: four kinds over

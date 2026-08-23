@@ -226,6 +226,33 @@ edge_index_speedup(Speedup) :-
     max_list([0|Speedups], Speedup),
     support_graph:support_forget_module(Module).
 
+% A one-member component is recursive exactly when it has a self arc, and asking
+% the ARC LIST that question per component scanned every arc for each of them.
+% N self-recursive functions, which is what memoization is usually asked for,
+% then cost time quadratic in N to decompose: 200, 800 and 3,200 of them cost
+% 1,303, 12,112 and 156,346 microseconds, and cost 797, 3,236 and 14,783.
+% TIMED because memberchk/2 reaches a C builtin that reads as one inference
+% however long the list it walks.
+memo_scc_cost(N, Micros) :-
+    atom_concat('$plunit_memo_scc_', N, Module),
+    forall(between(1, N, I),
+           ( atom_concat(pmscc, I, Fun),
+             assertz(support_graph:support_memo_rule(Module, I, Fun, [Fun])) )),
+    ( between(1, 2, _), support_graph:support_memo_sccs(Module, _), fail ; true ),
+    findall(D, ( between(1, 3, _),
+                 statistics(cputime, T0),
+                 support_graph:support_memo_sccs(Module, _),
+                 statistics(cputime, T1),
+                 D is (T1 - T0) * 1000000 ),
+            Ds),
+    min_list(Ds, Micros),
+    retractall(support_graph:support_memo_rule(Module, _, _, _)).
+
+test(decomposing_self_recursive_functions_costs_time_linear_in_their_number) :-
+    memo_scc_cost(400, Narrow),
+    memo_scc_cost(1600, Wide),
+    assertion(Wide < Narrow * 8).
+
 test(the_edge_relation_indexes_by_key_and_not_by_node_kind) :-
     edge_index_speedup(Speedup),
     assertion(Speedup > 100).
