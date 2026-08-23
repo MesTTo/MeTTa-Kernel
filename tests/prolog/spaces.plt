@@ -3009,3 +3009,59 @@ comma_goals(Conjunction, Goals) :-
     ).
 
 :- end_tests(spaces_drop_untables_first).
+
+% A declaration is swallowed as a duplicate only when a stored atom is its
+% VARIANT, and the probe that decides which declarations are worth comparing
+% must not decide the comparison itself: a store read unifies its pattern with
+% the stored atom, so a stored (: $x Number) comes back wearing the probe's own
+% name and reads as a variant of it. The five cases below are the whole
+% relation, and they are what the probe may not change.
+:- begin_tests(spaces_duplicate_declarations).
+
+declaration_verdict(Term, Verdict) :-
+    (   spaces:existing_duplicate_declaration('&self', Term, First)
+    ->  Verdict = duplicate(First)
+    ;   Verdict = new
+    ).
+
+test(a_stored_declaration_more_general_than_the_one_arriving_is_not_its_duplicate,
+     [setup(spaces:metta_add_atom('&self', [':', _, 'DupProbeType'], _))]) :-
+    declaration_verdict([':', dup_probe_ground, 'DupProbeType'], Verdict),
+    assertion(Verdict == new).
+
+test(a_declaration_as_general_as_the_stored_one_is_its_duplicate,
+     [setup(spaces:metta_add_atom('&self', [':', _, 'DupVariantType'], _))]) :-
+    declaration_verdict([':', _, 'DupVariantType'], duplicate(First)),
+    assertion(First = [':', _, 'DupVariantType']).
+
+test(an_exact_repeat_is_a_duplicate_and_a_different_type_for_the_name_is_not,
+     [setup(spaces:metta_add_atom('&self', [':', dup_probe_named, 'DupNamedType'], _))]) :-
+    declaration_verdict([':', dup_probe_named, 'DupNamedType'], Repeat),
+    assertion(Repeat == duplicate([':', dup_probe_named, 'DupNamedType'])),
+    declaration_verdict([':', dup_probe_named, 'DupOtherType'], Other),
+    assertion(Other == new),
+    declaration_verdict([':', dup_probe_absent, 'DupNamedType'], Absent),
+    assertion(Absent == new).
+
+% Deciding that a new declaration is new used to walk every atom the space
+% holds, so a program's declarations cost time quadratic in its size.
+test(deciding_a_declaration_is_new_costs_nothing_that_grows_with_the_space) :-
+    declaration_probe_cost(400, Narrow),
+    declaration_probe_cost(6400, Wide),
+    assertion(Wide < Narrow * 4).
+
+declaration_probe_cost(Held, Micros) :-
+    metta_add_atom('&self', [':', dup_cost_seed, 'DupCostType'], _),
+    forall(between(1, Held, Index),
+           ( atom_concat(dup_cost_row, Index, Row),
+             metta_add_atom('&self', [Row, filler], _) )),
+    Rounds = 200,
+    forall(between(1, 20, _), \+ spaces:existing_duplicate_declaration(
+                                     '&self', [':', dup_cost_absent, 'DupCostType'], _)),
+    T0 is cputime,
+    forall(between(1, Rounds, _), \+ spaces:existing_duplicate_declaration(
+                                        '&self', [':', dup_cost_absent, 'DupCostType'], _)),
+    T1 is cputime,
+    Micros is (T1 - T0) * 1000000 / Rounds.
+
+:- end_tests(spaces_duplicate_declarations).

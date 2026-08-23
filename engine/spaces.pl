@@ -2573,11 +2573,29 @@ metta_add_atom(Space, Term, true) :- seam:foreign_space(Space), !,
 metta_add_atom(Space, Term, true) :- add_sexp(Space, Term, Ref),
                                      record_source_assertion(Ref).
 
+%A variant of Term must UNIFY with a fresh copy of Term, so asking the store
+%for that copy decides the common case, a declaration nothing else in the space
+%matches, through the indexed read get_native_atom/3's header describes. The
+%scan below is what the answer costs when something does match, and it stays
+%because the shape a variant test needs is not the shape a store read gives: a
+%read unifies its pattern with the stored atom, so a stored (: $x Number) comes
+%back as the probe (: foo Number) and reads as a variant of it, which it is
+%not. The scan enumerates with an unbound pattern, where every atom arrives as
+%written.
+%
+%Without the probe every declaration added cost a walk of the whole space, so a
+%program's declarations cost time quadratic in its size: adding 200 of them ran
+%79,600 variant tests and adding 800 ran 1,278,400, sixteen times the tests for
+%four times the program [measured 2026-08-24].
 existing_duplicate_declaration(Space, Term, First) :-
     \+ seam:foreign_space(Space),
     copy_term(Term, Probe),
+    once(get_native_atom(Space, Probe)),
+    stored_variant_declaration(Space, Term, First).
+
+stored_variant_declaration(Space, Term, First) :-
     get_native_atom(Space, Stored),
-    Stored =@= Probe,
+    Stored =@= Term,
     !,
     First = Stored.
 
