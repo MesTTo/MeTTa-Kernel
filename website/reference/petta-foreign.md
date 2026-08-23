@@ -41,6 +41,9 @@ Source: `bindings/python/petta/foreign.py`.
 >     going missing [tested test_a_bound_is_withheld_from_a_provider_that_claimed_nothing,
 >     test_a_bound_reaches_a_provider_that_takes_one,
 >     test_a_false_exact_claim_is_caught]
+>   - provider length exists only through Python's Sized protocol and never
+>     falls back to enumeration [tested:
+>     test_provider_length_requires_and_uses_sized; commit=WORKTREE]
 > Guarded by:
 >   - _PROVIDER_LOCK serializes library registration and provider lookups
 >     [tested test_provider_registration_is_transactional]

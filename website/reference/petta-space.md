@@ -60,6 +60,12 @@ Source: `bindings/python/petta/_space.py`.
 >   - Expression recognizes Space as the one iterable Handle whose listing is
 >     collected as an assembly-order snapshot [tested:
 >     test_expression_of_a_space_is_an_assembly_order_snapshot; commit=WORKTREE]
+>   - native iteration snapshots assembly order at iterator creation, handles
+>     stay truthy independently of contents, and provider length requires its
+>     Sized declaration [tested:
+>     test_native_iteration_snapshots_before_mutation,
+>     test_space_truth_does_not_ask_for_emptiness,
+>     test_provider_length_requires_and_uses_sized; commit=WORKTREE]
 >   - ``Space.limits(stack=bytes)`` scopes a positive stack byte count beside
 >     time and inference bounds [tested:
 >     test_stack_limit_is_carried_to_the_limited_six_seam; commit=WORKTREE]
@@ -71,9 +77,12 @@ Source: `bindings/python/petta/_space.py`.
 >     test_bound_function_namespace_validates_at_access,
 >     test_function_calls_pull_engine_answers_only_as_demanded;
 >     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
->   - builtin discovery is cached per logical space and invalidated by every
->     catalogue mutation [tested: test_builtin_discovery_is_cached,
->     test_builtin_cache_invalidates_after_a_miss; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
+>   - builtin discovery is cached per logical space, with namespace reads
+>     comparing the engine's function generation and explicit Python mutation
+>     doors retaining eager invalidation [tested:
+>     test_cache_reads_compare_the_function_generation,
+>     test_builtin_discovery_is_cached,
+>     test_builtin_cache_invalidates_after_a_miss; commit=WORKTREE]
 >   - ``Space`` is a grounded ``Handle`` that crosses as a term operand, and
 >     ``peek`` and ``take`` expose the engine's event-driven Linda operations
 >     [tested: test_space_handles_are_term_operands_and_round_trip,
@@ -808,6 +817,8 @@ def eval(
 > `timeout` (seconds) and `inferences` (engine steps) bound the call,
 > raising TimeLimitError or InferenceLimitError when hit. A surrounding
 > `capture()` scope collects printed text without changing the list.
+> In a `strict()` scope an unreduced term raises StrictError while a
+> genuinely empty branch still returns no answers.
 
 ### `Space.answers`
 
