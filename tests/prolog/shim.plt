@@ -12,7 +12,7 @@
 %     [tested: shim_wire_decoding:a_payload_outside_its_tags_class_fails].
 %   - native equality does not walk a whole expression merely to classify it
 %     [tested: comparing_against_the_empty_expression_does_not_walk_the_other_operand;
-%     commit=WORKTREE].
+%     commit=fddb28afcb066271d1f0c78fad8b578b2ab65ccd].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
