@@ -4,7 +4,7 @@
 %   - Files below engine/metta/ are plain source units consulted into this
 %     implementation module in their original order; builtin, runtime, and
 %     registration predicates retain their existing ownership and clause order
-%     [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=WORKTREE].
+%     [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
 %   - A built-in call covered by the effects cluster whose declared operand
 %     types already conflict is refused before operand evaluation; shallow
 %     compile-time checks inspect literals and declared return types without

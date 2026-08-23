@@ -15,7 +15,7 @@
 %     commit=dd407a40f623b16eda0bb51a74458f7dd3760e21]
 %   - consulted source units are attributed to their umbrella subsystem rather
 %     than becoming accidental new layer nodes
-%     [tested: consulted_source_units_are_attributed_to_their_umbrella; commit=WORKTREE]
+%     [tested: consulted_source_units_are_attributed_to_their_umbrella; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

@@ -36,7 +36,7 @@
 %     [measured 2026-08-19: 0 offenders in 19 source clauses and 71 live
 %     ones].
 %     [tested: `sh check.sh prolog-static` retains the pre-cut hook-clause
-%     scoreboard after source-unit extraction; commit=WORKTREE].
+%     scoreboard after source-unit extraction; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
 %   - No backend calls an engine predicate that is not published surface: a
 %     declared service, a declared seam, or a MeTTa builtin. The walk is SWI's
 %     own prolog_walk_code/1, the one list_undefined/0 uses, so it reaches a

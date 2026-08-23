@@ -4,7 +4,7 @@
 %   - source_lifecycle.pl is a plain source unit consulted into this module, so
 %     cache, digest, transactional reload, and assertion records retain their
 %     filereader predicate identities and load position
-%     [tested: tests/prolog/filereader.plt, tests/prolog/static_checks.pl; commit=WORKTREE].
+%     [tested: tests/prolog/filereader.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
 %   - A parsed form that cannot translate is not reported as a syntax error
 %     [tested 2026-08-14: filereader_translation_errors].
 %   - top_forms//2 ignores comment text and keeps parentheses inside escaped

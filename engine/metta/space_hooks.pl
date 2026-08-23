@@ -2,7 +2,7 @@
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=WORKTREE]
+% [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% Space hooks: the general pre-add mechanism (P12) %%%%
 %
@@ -456,7 +456,7 @@ petta_writes(Ctx, Atomicity) :-
 %abolished the earlier static predicate before the umbrella's publication
 %check ran [tested: `swipl -q -g "consult('engine/metta.pl'),
 %load_files('engine/metta.pl',[if(true)]),
-%current_predicate(user:petta_transaction/1),halt" -t halt`; commit=WORKTREE].
+%current_predicate(user:petta_transaction/1),halt" -t halt`; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
 :- meta_predicate petta_transaction(0).
 petta_transaction(Goal) :-
     term_variables(Goal, Vars),

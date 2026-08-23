@@ -16,7 +16,7 @@ Guarantees:
     tests/check_policy_inventory_selftest.py; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
   - algebra validation rejects a missing required law, an undeclared
     semiring claim and a missing consumer seam [tested:
-    tests/check_policy_inventory_selftest.py; commit=WORKTREE]
+    tests/check_policy_inventory_selftest.py; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 Fails when:
   - run against a tree it did not create; every assertion is against a fresh
     temporary fixture with exact findings

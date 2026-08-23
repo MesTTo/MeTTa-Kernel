@@ -18,7 +18,7 @@
 %       silently and which sends the write to a predicate nothing reads
 %     - a plain source unit below engine/<owner>/ is attributed to its umbrella
 %       subsystem for call, export, SCC, and database-write checks
-%       [tested: consulted_source_units_are_attributed_to_their_umbrella; commit=WORKTREE]
+%       [tested: consulted_source_units_are_attributed_to_their_umbrella; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 % Fails when:
 %     - a call is assembled at run time from a term no analysis can see. That
 %       is the residue this shares with every other static walk in the tree.

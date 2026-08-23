@@ -2,7 +2,7 @@
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=WORKTREE]
+% [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %% translate_cached_expr(+Expression, -Goals, -Value) is det.
 % This cache stores translation templates, not evaluation answers. Any future
