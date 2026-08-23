@@ -367,6 +367,49 @@ test(a_blocking_peek_parks_without_removing,
     findall(Atom, 'get-atoms'('&lt-peek', Atom), Left),
     assertion(Left == [[tuple, one]]).
 
+% A wake-up sent to a waiter that already gave up must be dropped, not an
+% error in the WRITER: erase/1 does not stop an execution already inside the
+% wait hook (logical update view), so a write can be mid-hook when a
+% timed-out waiter erases it and destroys its queue. The store is the truth
+% and the hint has no recipient; under gate load this raced once as
+% thread_send_message existence_error inside add-atom. Deterministic here:
+% run the hook's own installed clause against a queue destroyed first.
+test(a_wakeup_to_a_departed_waiter_is_dropped,
+     [ setup(( 'remove-all-atoms-of'('&lt-departed', [job, _]) )),
+       cleanup(( 'remove-all-atoms-of'('&lt-departed', [job, _]) )) ]) :-
+    % Half one, the real sequence: a waiter times out and leaves, then the
+    % write lands. The in-flight window itself needs a writer INSIDE the hook
+    % at teardown and cannot be scheduled deterministically, so this half
+    % guards the teardown ordering and half two pins the tolerated shape.
+    thread_create(\+ space_take('&lt-departed', [job, _], 0.05, _),
+                  Waiter, []),
+    thread_join(Waiter, WaiterStatus),
+    assertion(WaiterStatus == true),
+    catch(( 'add-atom'('&lt-departed', [job, late], _), AfterTimeout = wrote ),
+          LateError,
+          AfterTimeout = error(LateError)),
+    assertion(AfterTimeout == wrote),
+    'remove-all-atoms-of'('&lt-departed', [job, _]),
+    % Half two, the shape the library installs: the SAME clause body the wait
+    % hook asserts, run against a queue destroyed first, writes rather than
+    % raising. Without the catch in lib_thread.pl's hook this shape is what
+    % raced once under gate load as existence_error inside add-atom.
+    message_queue_create(Queue),
+    copy_term([job, _], HookPattern),
+    assertz((seam:atom_added('&lt-departed', Candidate) :-
+                (   \+ HookPattern \= Candidate
+                ->  catch(thread_send_message(Queue, Candidate),
+                          error(existence_error(message_queue, _), _),
+                          true)
+                ;   true
+                )), HookRef),
+    message_queue_destroy(Queue),
+    catch(( 'add-atom'('&lt-departed', [job, orphan], _), Outcome = wrote ),
+          Error,
+          Outcome = error(Error)),
+    erase(HookRef),
+    assertion(Outcome == wrote).
+
 % A context that promises no change events cannot be parked on: waiting for
 % something nothing will ever report is a hang, and P12.14's declaration is
 % what turns it into a refusal.

@@ -832,7 +832,7 @@ prolog:error_message(petta_space_capability_required(Space, Operation,
 function_still_defined(F) :- builtin_fun(F), !.
 function_still_defined(F) :- compiled_function_name(F, Predicate),
                              ( fun_in(Module, F) ; petta_engine_module(Module) ),
-                             current_predicate(Module:Predicate/Arity),
+                             compiled_predicate_arity(F, Module, Predicate, Arity),
                              functor(Head, Predicate, Arity),
                              predicate_property(Module:Head, number_of_clauses(_)),
                              clause(Module:Head, _, _),
@@ -842,13 +842,33 @@ function_still_defined(F) :- compiled_function_name(F, Predicate),
 %do not count: clause/3 sees user's clauses through module inheritance, and
 %counting those would keep a module's claim alive on another space's strength.
 module_owns_function(Module, F) :- compiled_function_name(F, Predicate),
-                                   current_predicate(Module:Predicate/Arity),
+                                   compiled_predicate_arity(F, Module, Predicate,
+                                                            Arity),
                                    functor(Head, Predicate, Arity),
                                    predicate_property(Module:Head,
                                                       number_of_clauses(_)),
                                    clause(Module:Head, _, Ref),
                                    clause_property(Ref, module(Module)),
                                    !.
+
+%Which arities to try for F's compiled predicate, through the arity registry
+%rather than by enumeration. current_predicate/1 with an UNBOUND arity walks the
+%module's whole predicate table: 14.6 microseconds over 1,000 predicates and
+%410.9 over 64,000, against a flat 0.25 fully bound, and both callers above run
+%once per equation REMOVED, so removing equations from a large program cost time
+%that grew with the program [measured 2026-08-24].
+%
+%arity/2 holds the compiled arity of every name the engine registered, which is
+%the same pattern publish_restricted_denials/1 above already uses, and both
+%callers run before unregister_fun_everywhere/1 retracts it. A name the registry
+%does not know still falls back to the enumeration, so this cannot report a
+%predicate absent that the scan would have found.
+compiled_predicate_arity(F, Module, Predicate, Arity) :-
+    (   arity(F, _)
+    ->  arity(F, Arity),
+        current_predicate(Module:Predicate/Arity)
+    ;   current_predicate(Module:Predicate/Arity)
+    ).
 
 %The UNIT value, not true. `add-atom` is typed `(-> spaceType Atom (->))` and
 %`(->)` IS the unit type, which the language also says in prose: "bind! returns
