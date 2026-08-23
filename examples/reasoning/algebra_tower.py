@@ -17,7 +17,7 @@ Guarantees:
     commit=7ae3103aee78e947d23c5872e3db23c28ad7fe1c]
 """
 
-from petta import (
+from metta import (
     AlgebraRequirementError,
     Amplitude,
     LinearEvidenceError,

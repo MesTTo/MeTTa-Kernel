@@ -1,6 +1,6 @@
 ;Prove a foreign space provider before its users find out.
 ;
-;`petta.testing.check_space_provider` takes a Python OBJECT, so the seam's
+;`metta.testing.check_space_provider` takes a Python OBJECT, so the seam's
 ;faster tier had no way to prove itself: a Prolog provider is a set of
 ;multifile clauses and there is nothing to pass. This is the same three checks
 ;asked of a space NAME.

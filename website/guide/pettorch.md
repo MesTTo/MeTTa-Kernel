@@ -1,6 +1,6 @@
 # Pettorch
 
-Pettorch connects PyTorch to PeTTa through PeTTa's public integration surface. Arrays use `petta.arrays`, losses and optimizers use `petta.integrate`, and the package adds the behavior that is specific to PyTorch: autograd operations, module wrappers, training helpers, architecture reflection, and neural predicates.
+Pettorch connects PyTorch to PeTTa through PeTTa's public integration surface. Arrays use `metta.arrays`, losses and optimizers use `metta.integrate`, and the package adds the behavior that is specific to PyTorch: autograd operations, module wrappers, training helpers, architecture reflection, and neural predicates.
 
 ## Install from the checkout
 
@@ -14,7 +14,7 @@ Pettorch's `pyproject.toml` defines no `torch` extra and no runtime dependencies
 
 ## Run the first tensor expression
 
-In Python, import `petta` and `pettorch`, create `m = petta.MeTTa()`, and call `pettorch.install(m)`. Then evaluate `m.run("!(t-tolist (matmul (tensor ((1.0 2.0))) (tensor ((3.0) (4.0)))))")`. The expression multiplies a one-by-two tensor by a two-by-one tensor and returns `((11.0))` as a MeTTa expression.
+In Python, import `metta` and `pettorch`, create `m = metta.MeTTa()`, and call `pettorch.install(m)`. Then evaluate `m.run("!(t-tolist (matmul (tensor ((1.0 2.0))) (tensor ((3.0) (4.0)))))")`. The expression multiplies a one-by-two tensor by a two-by-one tensor and returns `((11.0))` as a MeTTa expression.
 
 `pettorch.install(m)` installs the shared array operations with PyTorch as the constructor default, then adds the PyTorch-specific operations. Tensors cross the engine boundary as the same live objects, so their autograd graph remains attached.
 
@@ -36,7 +36,7 @@ A wrapped PyTorch module lets MeTTa rules choose which model runs. `MettaModule`
 
 Reflection writes ordinary facts such as `nn-module`, `nn-child`, `nn-param`, `nn-param-shape`, and `nn-linear`. Rules can match model structure beside application facts.
 
-See the shared [`petta.arrays`](../reference/petta-arrays), [`petta.integrate`](../reference/petta-integrate), and [weighted relations](../reasoning/weighted-relations) pages for the PeTTa side of these seams.
+See the shared [`metta.arrays`](../reference/metta-arrays), [`metta.integrate`](../reference/metta-integrate), and [weighted relations](../reasoning/weighted-relations) pages for the PeTTa side of these seams.
 
 ## Repository status
 

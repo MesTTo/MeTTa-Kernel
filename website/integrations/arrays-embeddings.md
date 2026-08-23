@@ -19,7 +19,7 @@ try:
 except ImportError:
     skip("numpy and array-api-compat are needed")
 
-from petta import Expression, S, V, arrays, ground, space, wire
+from metta import Expression, S, V, arrays, ground, space, wire
 
 m = space()
 arrays.install(m, default=numpy)
@@ -32,7 +32,7 @@ check("protocol typing", S.DLTensor in list(types[0]))
 
 array = numpy.arange(4.0)
 m.add(S.holds(ground(array)))
-check("identity through the space", wire.decode(m.query(S.holds(V.a))[0].a) is array)
+check("identity through the space", wire.decode(m.match(S.holds(V.a))[0].a) is array)
 
 try:
     import torch
@@ -95,8 +95,8 @@ try:
 except ImportError:
     skip("numpy is not installed")
 
-from petta import Bindings, Expression, Grounded, S, V, space  # noqa: E402
-from petta.arrays import EmbeddingStore  # noqa: E402
+from metta import Bindings, Expression, Grounded, S, V, space  # noqa: E402
+from metta.arrays import EmbeddingStore  # noqa: E402
 
 m = space()
 store = EmbeddingStore(m, name="vec", mirror=False)
@@ -118,7 +118,7 @@ Adding the same key replaces its vector. The store copies inputs so later caller
 
 ```python
 def test_embedding_store_replaces_duplicate_keys_and_owns_vectors(metta):
-    with petta.space() as space:
+    with metta.space() as space:
         store = arrays.EmbeddingStore(space, name="replace-emb")
         original = numpy.array([1.0, 0.0])
         store.add(S.same, original)
@@ -130,7 +130,7 @@ def test_embedding_store_replaces_duplicate_keys_and_owns_vectors(metta):
         assert len(store) == 1
         assert store.keys() == [S.same]
         assert store.vector_for(S.same).tolist() == [0.0, 1.0]
-        assert len(space.query(S.embedding(S.same, V.vector))) == 1
+        assert len(space.match(S.embedding(S.same, V.vector))) == 1
 ```
 
 Vectors must be finite, nonzero, one-dimensional, and the same width. Retrieval requires a positive integer `k`:
@@ -146,14 +146,14 @@ Vectors must be finite, nonzero, one-dimensional, and the same width. Retrieval 
     ],
 )
 def test_embedding_store_validates_added_vectors(metta, vector, message):
-    with petta.space() as space:
+    with metta.space() as space:
         store = arrays.EmbeddingStore(space, name="validated-emb")
         with pytest.raises(ValueError, match=message):
             store.add(S.bad, vector)
 
 
 def test_embedding_store_requires_one_width_and_positive_integer_k(metta):
-    with petta.space() as space:
+    with metta.space() as space:
         store = arrays.EmbeddingStore(space, name="bounded-emb")
         store.add(S.good, numpy.array([1.0, 0.0]))
         with pytest.raises(ValueError, match="width must be 2"):
@@ -168,4 +168,4 @@ def test_embedding_store_requires_one_width_and_positive_integer_k(metta):
             list(store.ranked([1.0, 0.0, 0.0], 1))
 ```
 
-Continue with [Custom matching](../reasoning/matchers-measure) and [`petta.arrays`](../reference/petta-arrays).
+Continue with [Custom matching](../reasoning/matchers-measure) and [`metta.arrays`](../reference/metta-arrays).

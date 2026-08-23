@@ -21,7 +21,7 @@ SOURCE_PATHS = [
     REPO / "README.md",
     REPO / "bindings" / "python" / "examples" / "README.md",
     *(REPO / "bindings" / "python" / "examples").rglob("*.py"),
-    *(REPO / "bindings" / "python" / "petta").glob("*.py"),
+    *(REPO / "bindings" / "python" / "metta").glob("*.py"),
     *(REPO / "bindings" / "python" / "tests").glob("*.py"),
     REPO / "lib" / "lib_measure.metta",
     REPO / "lib" / "lib_soft.metta",

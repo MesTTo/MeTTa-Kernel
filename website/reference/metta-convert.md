@@ -1,10 +1,10 @@
-# `petta.convert`
+# `metta.convert`
 
-Source: `bindings/python/petta/convert.py`.
+Source: `bindings/python/metta/convert.py`.
 
 > Purpose: public two-way conversion facade and registration API.
 > Guarantees:
->   - public names preserve the petta.convert import surface after directional
+>   - public names preserve the metta.convert import surface after directional
 >     module cuts [tested test_build_reverses_the_projection,
 >     test_registered_custom_type_round_trips]
 >   - type registrations can be removed without leaving constructor or name

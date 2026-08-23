@@ -25,7 +25,7 @@
 %     database and shared by all engine threads.
 
 :- ensure_loaded('../../engine/metta.pl').
-:- ensure_loaded('../../bindings/python/petta/shim.pl').
+:- ensure_loaded('../../bindings/python/metta/shim.pl').
 
 forget_generation_function(Name) :-
     retractall(fun(Name)),

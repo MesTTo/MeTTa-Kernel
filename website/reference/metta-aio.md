@@ -1,6 +1,6 @@
-# `petta.aio`
+# `metta.aio`
 
-Source: `bindings/python/petta/aio.py`.
+Source: `bindings/python/metta/aio.py`.
 
 > Purpose: the same engine without blocking an event loop. AsyncMeTTa
 > proxies a MeTTa space onto one dedicated worker thread that holds an
@@ -93,9 +93,9 @@ class AsyncMeTTa:
 
 > A space whose calls are awaited instead of blocking.
 >
->     async with petta.aio.connect() as am:
+>     async with metta.aio.connect() as am:
 >         await am.add(S.edge(1, 2))
->         rows = await am.query(S.edge(V.a, V.b))
+>         rows = await am.match(S.edge(V.a, V.b))
 >
 > The exact rule should be: every finite request-response method forwards through the worker. Context managers, cursors, decorators, callback registrations, returned synchronous helper objects, and interactive entry points remain call() or synchronous-surface operations.
 >
@@ -155,7 +155,7 @@ def interrupt(self) -> bool:
 
 > Stop the evaluation the worker is running right now; answers
 > whether anything was running (idle is a no-op, sqlite3's own
-> reading). The stopped call raises petta.Interrupted; whatever it
+> reading). The stopped call raises metta.Interrupted; whatever it
 > completed before the stop, writes included, stands. Callable from
 > any thread or task.
 
@@ -251,10 +251,10 @@ async def take(self, pattern: Any, *, deadline: float | None = None) -> Atom:
 
 > Wait for and remove one matching atom without blocking the loop.
 
-### `AsyncMeTTa.query`
+### `AsyncMeTTa.match`
 
 ```python
-async def query(
+async def match(
     self,
     *patterns: Any,
     where: Any | None = None,
@@ -265,7 +265,7 @@ async def query(
 ) -> Any:
 ```
 
-> Query patterns with the synchronous surface's bounds, guard,
+> Match patterns with the synchronous surface's bounds, guard,
 > and into= row shaping.
 
 ### `AsyncMeTTa.solve`
@@ -515,7 +515,7 @@ async def hyperpose(self, *targets: Any, timeout: float | None = None) -> list:
 async def integrate(self, target: Any) -> str:
 ```
 
-> Install a library integration; see petta.integrate.
+> Install a library integration; see metta.integrate.
 
 ### `AsyncMeTTa.profile_extension`
 
@@ -964,7 +964,7 @@ def stats(self) -> _AsyncStats:
 > The engine's counters over an async with-block, as deltas.
 >
 > async with am.stats() as s:
->     await am.query(...)
+>     await am.match(...)
 > s.inferences
 
 ### `AsyncMeTTa.assuming`
@@ -997,7 +997,7 @@ def stream(
 ) -> _AsyncCursor:
 ```
 
-> query(), pulled asynchronously: one row per worker round trip.
+> match(), pulled asynchronously: one row per worker round trip.
 >
 >     async with am.stream(S.edge(V.a, V.b)) as rows:
 >         async for row in rows:

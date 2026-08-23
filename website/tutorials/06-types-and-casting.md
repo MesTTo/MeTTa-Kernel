@@ -49,4 +49,4 @@ def test_declared_symbols_cast_by_their_declarations(m):
 
 The successful cast returns the same symbol. The failed cast names the type the space knows. Declarations are space-relative, so another space can carry a different type environment.
 
-See [`petta.casting`](../reference/petta-casting) for structural targets, protocol types, and Python type spellings. Next, inspect execution and support in [07. Seeing your program](./07-seeing-your-program).
+See [`metta.casting`](../reference/metta-casting) for structural targets, protocol types, and Python type spellings. Next, inspect execution and support in [07. Seeing your program](./07-seeing-your-program).

@@ -112,7 +112,7 @@ A Python provider or operation may answer bindings for the query's own
 variables instead of an atom:
 
 ```python
-from petta import Answer, Bindings, Symbol
+from metta import Answer, Bindings, Symbol
 
 def match(self, pattern, *, limit=None):
     yield Bindings({pattern.children[2]: Symbol("b")})
@@ -133,10 +133,10 @@ Undeclared is always today's behaviour. A provider written before any
 of this, three methods on a class, keeps working unchanged, and every
 declaration only adds: pushdown where none was licensed, loud errors
 where silence was wrong, ordering where none existed. The conformance
-kit (`petta.testing.check_space_provider`) checks a provider against
+kit (`metta.testing.check_space_provider`) checks a provider against
 the same laws the engine holds it to, including the ones that only
 show on open and repeated-variable patterns, and
-`petta.testing.record_replay` makes a nondeterministic backend's
+`metta.testing.record_replay` makes a nondeterministic backend's
 session a replayable oracle.
 
 ## Sources

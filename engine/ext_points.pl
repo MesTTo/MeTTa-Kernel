@@ -158,7 +158,7 @@
 %internals [source: https://www.sqlite.org/vtab.html and loadext.html]. Naming
 %the surface is what makes "reaches past the seam" a question a checker can
 %answer, and two extensions had already answered it wrongly: morkspaces.pl and
-%bindings/python/petta/shim.pl each wrapped metta_unwritable_symbol/2 under a private
+%bindings/python/metta/shim.pl each wrapped metta_unwritable_symbol/2 under a private
 %name of its own, which is what an undeclared dependency looks like from the
 %outside [measured 2026-08-17].
 %
@@ -304,7 +304,7 @@ kind(automatic_cache_explanation/3, declaration).
 %two coincide for a ground request and diverge for a pattern: removal is
 %multiset subtraction, so (remove-atom &s (p $x)) takes one of the atoms
 %matching (p $x) and the hook cannot say which. A handler that needs the
-%occurrence re-reads the space; bindings/python/petta/structures.py's LiveView is the
+%occurrence re-reads the space; bindings/python/metta/structures.py's LiveView is the
 %worked instance [tested: test_liveview_mirrors_the_space].
 :- multifile atom_added/2.
 kind(atom_added/2, event).
@@ -367,7 +367,7 @@ kind(foreign_remove/3, ownership).
 :- multifile foreign_atoms/2.
 kind(foreign_atoms/2, ownership).
 %Clear was the sixth of these all along and was declared nowhere: it lived in
-%bindings/python/petta/shim.pl, so a Prolog provider that implemented clear, as
+%bindings/python/metta/shim.pl, so a Prolog provider that implemented clear, as
 %lib/lib_redis.pl does, was reachable only when Python was in the process.
 :- multifile foreign_clear/1.
 kind(foreign_clear/1, ownership).
@@ -510,7 +510,7 @@ kind(foreign_plan/5, ownership).
 %in this tree writes ONE clause with a variable space and an ownership guard
 %in the body, which unifies with any space at all.
 %
-%So it is declared, the way bindings/python/petta/foreign.py derives it from the narrow
+%So it is declared, the way bindings/python/metta/foreign.py derives it from the narrow
 %protocols a provider implements. The capabilities are add, remove, match,
 %enumerate, clear, PLAN and RULES.
 %
@@ -758,7 +758,7 @@ kind(backend_selftest/0, event).
 %narrower than what it reports because names were the only class known to fail
 %when this surface was declared.
 %HOST SERVICE: a service again, engine-defined and engine-owned, but for
-%the other caller: the HOST BINDING's transport (bindings/python/petta's shim today,
+%the other caller: the HOST BINDING's transport (bindings/python/metta's shim today,
 %any future binding's transport tomorrow). The backend direction has
 %a_backend_calls_only_published_surface; this kind is what the host
 %direction's twin reads, so the binding can no longer grow a dependency on

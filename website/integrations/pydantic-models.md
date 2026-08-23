@@ -75,11 +75,11 @@ check("projection", str(projected.atom), '(Robot "R2" calm)')
 m.add(*projected.declarations, projected.atom)
 m.add(project(Robot("HAL", Mood.stormy)).atom)
 
-rows = m.query(S.Robot(V.name, S.stormy))
+rows = m.match(S.Robot(V.name, S.stormy))
 check("match on parts", str(rows[0].name), '"HAL"')
 
 rebuilt = build(projected.atom)
 check("rebuild", isinstance(rebuilt, Robot) and rebuilt.mood, Mood.calm)
 ```
 
-Continue with [Python functions as MeTTa functions](../guide/python-functions), [`project`](../reference/petta-convert#project), [`build`](../reference/petta-convert#build), and [`Rows.build`](../guide/run-query).
+Continue with [Python functions as MeTTa functions](../guide/python-functions), [`project`](../reference/metta-convert#project), [`build`](../reference/metta-convert#build), and [`Rows.build`](../guide/run-query).

@@ -1,6 +1,6 @@
-# `petta.trace`
+# `metta.trace`
 
-Source: `bindings/python/petta/_trace.py`.
+Source: `bindings/python/metta/_trace.py`.
 
 > Purpose: the reduction trace as Python objects. m.trace(source) runs
 > source with every compiled MeTTa function wrapped engine-side, and

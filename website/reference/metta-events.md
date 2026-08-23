@@ -1,6 +1,6 @@
-# `petta.events`
+# `metta.events`
 
-Source: `bindings/python/petta/events.py`.
+Source: `bindings/python/metta/events.py`.
 
 > Purpose: the public event stream.
 >
@@ -41,7 +41,7 @@ Source: `bindings/python/petta/events.py`.
 >     test_subscription_cancel_is_thread_safe]
 >   - dispatch answers the folds on a space in registration order, cancels
 >     and re-registrations included, through the discrimination tree in
->     petta.structures rather than one unify per fold [measured 2026-08-19,
+>     metta.structures rather than one unify per fold [measured 2026-08-19,
 >     1000 standing queries on one space and 200 writes, controlled
 >     instructions:u min of 3: 4012009981 scanning against 48243634 indexed,
 >     83.2x, both delivering 200 of 200] [tested

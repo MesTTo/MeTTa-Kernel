@@ -1,6 +1,6 @@
 <!--
 Purpose: connect in-memory routing, remote spaces, and multi-shot solving through the public narrow surface.
-Guarantees: examples use canonical atoms, Space.op, context.space(), and petta.tables.add.
+Guarantees: examples use canonical atoms, Space.op, context.space(), and metta.tables.add.
 [tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
@@ -9,7 +9,7 @@ Guarantees: examples use canonical atoms, Space.op, context.space(), and petta.t
 Three seams share space operations but do different jobs:
 
 - `web_routes.py` models FastAPI-shaped routing in memory. It does not import FastAPI and does not serve HTTP.
-- `petta.remote` serves and attaches spaces over HTTP.
+- `metta.remote` serves and attaches spaces over HTTP.
 - `multishot_solving.py` maps clingo-shaped parts and externals onto PeTTa's space and evaluation surface. It is not a clingo binding or an ASP solver.
 
 ## Model a route table in a space
@@ -63,7 +63,7 @@ class Router:
 
     def dispatch(self, method: str, path: str) -> Response:
         request = Expression([Symbol(s) for s in path.strip("/").split("/") if s])
-        table = self._m.query(
+        table = self._m.match(
             Expression(S.route, S[self.name], S[method.upper()],
                  V.pattern, V.handler, V.k)
         )
@@ -119,7 +119,7 @@ check("no match is 404", app.dispatch("GET", "/nowhere").status, 404)
 check("a refused parameter is 422", app.dispatch("GET", "/users/abc").status, 422)
 
 # The table is facts, so MeTTa reads it like any facts...
-handlers = m.query(S.route(S.app, S.GET, V.p, V.h, V.k))
+handlers = m.match(S.route(S.app, S.GET, V.p, V.h, V.k))
 check("the table is facts", sorted(str(r.h) for r in handlers), ["karma", "read-user"])
 
 # ...and extends it: a route whose handler is a MeTTa equation, added by a
@@ -152,7 +152,7 @@ check("middleware is composition", app.run("!(logged about)"),
 
 ## Serve a space over HTTP
 
-Actual HTTP transport belongs to `petta.remote`. The process-level test starts another engine, attaches its served space, joins remote and local facts, writes across the connection, and checks the allowlist:
+Actual HTTP transport belongs to `metta.remote`. The process-level test starts another engine, attaches its served space, joins remote and local facts, writes across the connection, and checks the allowlist:
 
 ```python
 def test_remote_spaces_serve_attach_and_join(metta, tmp_path):
@@ -309,12 +309,12 @@ blocked = External(m, S.blocked(S.c))
 blocked.assign(True)
 check(
     "the external is a fact while assigned",
-    [str(r.x) for r in m.query(S.blocked(V.x))],
+    [str(r.x) for r in m.match(S.blocked(V.x))],
     ["c"],
 )
 blocked.assign(False)
-check("and gone when withdrawn", m.query(S.blocked(V.x)), [])
+check("and gone when withdrawn", m.match(S.blocked(V.x)), [])
 blocked.release()
 ```
 
-Continue with [Web routes](../live/web-routes), [Contexts and remotes](../live/contexts), [Multi-shot solving](../live/multishot), and [`petta.remote`](../reference/petta-remote).
+Continue with [Web routes](../live/web-routes), [Contexts and remotes](../live/contexts), [Multi-shot solving](../live/multishot), and [`metta.remote`](../reference/metta-remote).

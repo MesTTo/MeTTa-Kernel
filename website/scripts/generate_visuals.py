@@ -1,5 +1,5 @@
 """Purpose: render the tutorial visuals as deterministic committed assets
-with the sibling pettagrapher checkout and this checkout's petta Python
+with the sibling pettagrapher checkout and this checkout's metta Python
 package: one SVG per tutorial page, the site favicon, and the animated
 factorial reduction page tutorial 08 embeds.
 Open Obligations:
@@ -20,18 +20,18 @@ DEV = REPO.parent.parent
 OUTPUT = REPO / "website" / "public" / "visuals"
 
 
-def _petta_python() -> Path:
-    override = os.environ.get("PETTA_PYTHON")
+def _metta_python() -> Path:
+    override = os.environ.get("METTA_PYTHON")
     candidates = [Path(override)] if override else [
         REPO / "python",
         DEV / "PyPeTTa1" / "PeTTa" / "python",
         DEV / "PeTTa" / "python",
     ]
     for candidate in candidates:
-        if (candidate / "petta" / "__init__.py").exists():
+        if (candidate / "metta" / "__init__.py").exists():
             return candidate
     raise RuntimeError(
-        "petta was not found; set PETTA_PYTHON to a PeTTa checkout's "
+        "metta was not found; set METTA_PYTHON to a PeTTa checkout's "
         "python/ directory"
     )
 
@@ -50,13 +50,13 @@ def _pettagrapher_python() -> Path:
     )
 
 
-PETTA_PYTHON = _petta_python()
+METTA_PYTHON = _metta_python()
 PETTAGRAPHER_PYTHON = _pettagrapher_python()
-sys.path[:0] = [str(PETTA_PYTHON), str(PETTAGRAPHER_PYTHON)]
-os.environ.setdefault("PETTA_PATH", str(PETTA_PYTHON.parent))
+sys.path[:0] = [str(METTA_PYTHON), str(PETTAGRAPHER_PYTHON)]
+os.environ.setdefault("PETTA_PATH", str(METTA_PYTHON.parent))
 
-import pettagrapher as pg
-from petta import MeTTa, S, V
+import mettagrapher as pg
+from metta import MeTTa, S, V
 
 
 def _visuals() -> dict[str, str]:

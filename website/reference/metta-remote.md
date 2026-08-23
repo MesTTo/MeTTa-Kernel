@@ -1,6 +1,6 @@
-# `petta.remote`
+# `metta.remote`
 
-Source: `bindings/python/petta/remote.py`.
+Source: `bindings/python/metta/remote.py`.
 
 > Purpose: spaces across processes, the multi-context reading: each engine
 > is a context, serve() exposes its spaces over HTTP speaking the same tagged
@@ -9,7 +9,7 @@ Source: `bindings/python/petta/remote.py`.
 > (match &remote (users $id $n) ...) crosses the network exactly as it
 > crosses into DuckDB. The shape is SingularityNET's DAS gateway (a single
 > transport method carrying {space, pattern} and answering atoms) and
-> metta-wam's metta_server, translated onto petta's own SpaceProvider
+> metta-wam's metta_server, translated onto metta's own SpaceProvider
 > protocol; the engine keeps unification for itself, so a remote answer is
 > speed and reach, never trust.
 > Guarantees:
@@ -125,7 +125,7 @@ class RemoteSpace(SpaceProvider):
 > time, not soundness.
 >
 > `batch` chooses which door match() uses, and the choice is the one
-> query() and stream() make in-process. Left None, match() is the eager
+> match() and stream() make in-process. Left None, match() is the eager
 > /match: one crossing carrying the whole answer set, which is what a
 > space whose answers fit in an HTTP body wants. Set to a count, match()
 > rides the ask/next/stop lifecycle in chunks of that size, so a caller
@@ -194,7 +194,7 @@ def stream(
 > of a large enumeration costs the server two answers' work instead
 > of the whole join's.
 >
-> match() is the eager door and stays it, the split query() and
+> match() is the eager door and stays it, the split match() and
 > stream() already make in-process. Reach for this to take answers
 > until you have seen enough, or when the answer set is larger than
 > one HTTP body.
@@ -293,13 +293,13 @@ def attach(
 
 > Register a remote engine's space here under a local name.
 >
-> petta.remote.attach(m, "&hq", "http://127.0.0.1:8700")
+> metta.remote.attach(m, "&hq", "http://127.0.0.1:8700")
 > m.run('!(match &hq (users $id $n) $n)')
 >
 > `batch` puts the attached space's matching on the lazy door, so a
 > MeTTa query that stops early stops the serving engine with it:
 >
->     petta.remote.attach(m, "&hq", url, batch=1)
+>     metta.remote.attach(m, "&hq", url, batch=1)
 >     m.run('!(once (match &hq (users $id $n) $n))')  # one answer computed
 
 ## `Gateway`

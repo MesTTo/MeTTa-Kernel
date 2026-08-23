@@ -1,11 +1,11 @@
-# `petta.integrate`
+# `metta.integrate`
 
-Source: `bindings/python/petta/integrate.py`.
+Source: `bindings/python/metta/integrate.py`.
 
 > Purpose: the interface any Python library implements to work deeply with
 > PeTTa, and the toolkit that makes implementing it a page of code rather than
-> a project. An integration is a module with install_petta(m), an object with
-> name and install(m), or an entry point in the petta.integrations group; the
+> a project. An integration is a module with install_metta(m), an object with
+> name and install(m), or an entry point in the metta.integrations group; the
 > toolkit covers the capabilities an integration is made of: bulk operations
 > from a module, an instance's methods as operations, protocol-based typing
 > and printing, two-way value translation, structure reflected into facts,
@@ -70,9 +70,9 @@ def integrate(m, target: Any) -> str:
 
 > Install an integration on a space, idempotently per (space, name).
 >
-> target may be: a module (or dotted module name) defining install_petta(m),
+> target may be: a module (or dotted module name) defining install_metta(m),
 > an Integration object, or the name of an installed package's entry point
-> in the petta.integrations group. Returns the integration's name.
+> in the metta.integrations group. Returns the integration's name.
 >
 > Idempotence is per SPACE, because equations and facts an installer
 > writes land in the space it was handed: installing into a second space
@@ -112,8 +112,8 @@ def load_entry_point(name: str, /, *args: Any, group: str = SPACES_GROUP, **kwar
 >         "nars",
 >     )
 >
-> A petta.spaces target is a provider class or factory; a
-> petta.libraries target answers the directory of sources the package
+> A metta.spaces target is a provider class or factory; a
+> metta.libraries target answers the directory of sources the package
 > ships. A non-callable target answers as-is, the module-level-instance
 > form, and refuses arguments it cannot take. An unknown name refuses,
 > listing what IS installed, so a typo reads as one.
@@ -142,7 +142,7 @@ def module_ops(
 
 > Selected callables of any module as MeTTa functions, in one call.
 >
->     petta.integrate.module_ops(m, math, ["sqrt", "floor", "gcd"])
+>     metta.integrate.module_ops(m, math, ["sqrt", "floor", "gcd"])
 >     m.run("!(sqrt 16.0)")
 >
 > Underscores read as hyphens, a prefix namespaces the lot, and rename
@@ -170,7 +170,7 @@ def wrap_object(m, name: str, obj: Any, methods: dict[str, str] | Iterable[str])
 
 > An instance's methods as operations: (name-method args...).
 >
->     petta.integrate.wrap_object(m, "db", connection,
+>     metta.integrate.wrap_object(m, "db", connection,
 >                                 {"execute": "db-query!", "close": "db-close!"})
 >
 > methods maps Python method names to MeTTa spellings, or lists names to

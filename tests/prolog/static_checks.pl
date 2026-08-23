@@ -20,7 +20,7 @@
 %   - var_branches warnings are fatal for repository engine sources without
 %     attributing warnings from SWI's own libraries to the repository.
 %   - Every unqualified multifile seam declared anywhere under engine, lib,
-%     bindings/python/petta or backends/mork/mork_ffi has exactly one seam:kind/2 fact, so a new
+%     bindings/python/metta or backends/mork/mork_ffi has exactly one seam:kind/2 fact, so a new
 %     seam cannot go quietly unchecked [measured 2026-08-17: 28 seams].
 %   - Each kind is declared the way its direction requires: a handler seam
 %     multifile so an extension can add clauses, a service not, so a caller
@@ -245,7 +245,7 @@ source_scan_sees_a_planted_cut :-
     ).
 
 hook_source_file(File) :-
-    member(Directory, ['../../engine', '../../lib', '../../bindings/python/petta',
+    member(Directory, ['../../engine', '../../lib', '../../bindings/python/metta',
                        '../../backends/mork/mork_ffi']),
     atom_concat(Directory, '/*.pl', Pattern),
     expand_file_name(Pattern, Files),
@@ -1008,7 +1008,7 @@ a_backend_calls_only_published_surface :-
 %%%% The host binding calls only published surface %%%%
 %
 % The backends' check aimed the other way down the same wire: what the HOST
-% BINDING's transport may call back. bindings/python/petta/shim.pl is the shipped
+% BINDING's transport may call back. bindings/python/metta/shim.pl is the shipped
 % transport, the host_service kind in engine/ext_points.pl is its measured,
 % declared list, and this walk keeps the list honest: a shim call to an
 % engine internal fails here naming the pair. The walker's own eyesight is
@@ -1018,7 +1018,7 @@ a_backend_calls_only_published_surface :-
 % clauses live in. A fact each, so the next binding is a line here rather than
 % a second copy of the walk, and so the count below is the tree's rather than a
 % number in this comment.
-host_transport('../../bindings/python/petta/shim.pl', '../../bindings/python/petta').
+host_transport('../../bindings/python/metta/shim.pl', '../../bindings/python/metta').
 host_transport('../../bindings/node/bridge.pl', '../../bindings/node').
 
 a_host_binding_calls_only_published_surface :-

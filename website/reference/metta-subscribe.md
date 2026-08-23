@@ -1,12 +1,12 @@
-# `petta.subscribe`
+# `metta.subscribe`
 
-Source: `bindings/python/petta/subscribe.py`.
+Source: `bindings/python/metta/subscribe.py`.
 
 > Purpose: the two delivery models the library ships over the public event
 > stream. A subscription is the fold that DELIVERS, to a callback
 > synchronously inside the write or to a queue drain() empties; a bridge is
 > the fold that WRITES, landing a template's instantiation in another space.
-> Both are `petta.events.EventStream.fold` with a different step and nothing
+> Both are `metta.events.EventStream.fold` with a different step and nothing
 > else, which is what makes "a third party could have written these" a fact
 > rather than a claim.
 >
@@ -14,7 +14,7 @@ Source: `bindings/python/petta/subscribe.py`.
 > space, the subscription is the standing query that maintains itself, and
 > the engine's own write hooks deliver. Every write consults the folds on its
 > space, so the dispatch is on the write path and its cost is the write's;
-> petta.events owns that dispatch and its discrimination tree.
+> metta.events owns that dispatch and its discrimination tree.
 > Guarantees:
 >   - subscription publication and cancellation update registry state, engine
 >     write guards, and reflection facts together or restore the prior state
@@ -31,7 +31,7 @@ Source: `bindings/python/petta/subscribe.py`.
 >   - a queue nobody drains refuses rather than dropping the oldest event
 >     [tested test_the_subscription_queue_is_bounded_and_load_takes_a_budget]
 > Guarded by:
->   - petta.events' fold registry lock protects queue state and the engine
+>   - metta.events' fold registry lock protects queue state and the engine
 >     subscription snapshot [tested test_subscription_cancel_is_thread_safe]
 > Open Obligations:
 >   To Do: None

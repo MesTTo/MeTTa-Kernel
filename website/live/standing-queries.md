@@ -13,7 +13,7 @@ The space is the mailbox and the subscription is the standing query. Writes from
 The actors example starts a ping-pong exchange with one added atom, then demonstrates queued delivery and cancellation:
 
 ```python
-from petta import S, V, space
+from metta import S, V, space
 
 m = space()
 
@@ -74,4 +74,4 @@ with m.subscribe(S.order(V.id)) as sub:
 
 The stream ends when the subscription cancels, queued leftovers delivered first, or when `timeout` seconds pass with nothing arriving; with no timeout it blocks until cancellation. A callback subscription refuses `events()`, because it delivers through its callback and has no queue. Bare `iter(sub)` is deliberately absent: iteration that blocks should say so by name. On the async surface the stream IS the delivery, `async for event in am.subscribe(...)`.
 
-See [`petta.subscribe`](../reference/petta-subscribe).
+See [`metta.subscribe`](../reference/metta-subscribe).

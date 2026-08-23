@@ -6,8 +6,8 @@ Because `&petta` is an ordinary space, MeTTa programs can inspect the Python int
 
 Object reflection has a separate but compatible surface. `install_reflection_ops(m)` adds `py-attr` and the two-mode `py-field`. With a bound field name, `py-field` reads that field. With an unbound field name, it enumerates an object's fields as relation answers.
 
-`petta.spaces.object_view(obj)` gives those fields storage semantics instead of operation semantics. The view emits live `(py-field obj name value)` atoms, joins with stored spaces through the ordinary `spaces.union` combinator, and maps added field atoms to `setattr`. Python mutation therefore changes the next match without another projection.
+`metta.spaces.object_view(obj)` gives those fields storage semantics instead of operation semantics. The view emits live `(py-field obj name value)` atoms, joins with stored spaces through the ordinary `spaces.union` combinator, and maps added field atoms to `setattr`. Python mutation therefore changes the next match without another projection.
 
-An integration can also register a reflector that lowers its own structure into facts. `petta.integrate.reflect(m, name, object)` chooses the registered reflector and returns the number of facts written.
+An integration can also register a reflector that lowers its own structure into facts. `metta.integrate.reflect(m, name, object)` chooses the registered reflector and returns the number of facts written.
 
-Use [`petta.ops`](../reference/petta-ops) for operation reflection, [`petta.subscribe`](../reference/petta-subscribe) for standing queries, and [`petta.integrate`](../reference/petta-integrate) for object reflection.
+Use [`metta.ops`](../reference/metta-ops) for operation reflection, [`metta.subscribe`](../reference/metta-subscribe) for standing queries, and [`metta.integrate`](../reference/metta-integrate) for object reflection.

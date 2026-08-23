@@ -17,7 +17,7 @@ The first example builds a small family relation, joins over it, and evaluates a
 # Atoms are Python values: S mints symbols, V variables, application builds
 # expressions, and none of it costs an engine call.
 m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann), S.Parent(S.Ann, S.Zoe))
-rows = m.query(S.Parent(V.gp, V.p), S.Parent(V.p, V.gc))
+rows = m.match(S.Parent(V.gp, V.p), S.Parent(V.p, V.gc))
 check("join count", len(rows), 2)
 check("first grandparent", (rows[0].gp, rows[0].gc), (S.Tom, S.Ann))
 
@@ -43,7 +43,7 @@ compare atoms; comparison terms name their head explicitly. The full set:
 
 Reflected forms work too: `1 + V.x` builds `(+ 1 $x)`.
 
-The specialist immutable `petta.atoms.OPERATOR_LOWERINGS` table records these
+The specialist immutable `metta.atoms.OPERATOR_LOWERINGS` table records these
 lowerings. A row is a builtin symbol, a composite template, a provided name, a
 reserved Python spelling, a sorting spelling, or an explicit absence. `matmul` is provided: `@`
 always builds that stable name, and a library supplies its MeTTa definition.
@@ -58,7 +58,7 @@ All comparisons answer Python booleans. **`x.eq(y)` builds the equality term `(=
 
 A symbol and a grounded string are different atoms. Use `S[name]` when a symbol name is not a Python identifier, `V[name]` for a variable, `ground(value)` or `G(value)` to carry a host object, and `Expression(...)` to build an expression from parts. `parse(source)` reads one form without evaluating it.
 
-Atoms expose `.vars`, `.map(transform)`, and `.alpha_eq(other)`; `unify(pattern, atom)` remains the relation between two atoms. A ground atom has no variables, so `not atom.vars` is the groundness test. See [`petta.atoms`](../reference/petta-atoms) for the specialist surface.
+Atoms expose `.vars`, `.map(transform)`, and `.alpha_eq(other)`; `unify(pattern, atom)` remains the relation between two atoms. A ground atom has no variables, so `not atom.vars` is the groundness test. See [`metta.atoms`](../reference/metta-atoms) for the specialist surface.
 
 ## Destructuring with match/case
 
@@ -85,7 +85,7 @@ The correspondence is direct: `Expression([Symbol("edge"), a, b])` is `(edge $a 
 `sorted(atoms)` uses the engine's standard atom order directly. The specialist key remains available when an API asks for a key function:
 
 ```python
-from petta.atoms import order_key
+from metta.atoms import order_key
 
 sorted(atoms)
 sorted(atoms, key=order_key)  # the same order
@@ -99,7 +99,7 @@ An atom's wire form is a JSON document, and it round-trips, keeping the variable
 
 ```python
 import json
-from petta import wire
+from metta import wire
 
 text = json.dumps(S.edge(S.a, 1, V.x).to_wire())
 # '["e", [["s", "edge"], ["s", "a"], ["n", 1], ["v", "x"]]]'

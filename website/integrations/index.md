@@ -17,20 +17,20 @@ test suite, so every walkthrough stays true to the code.
 A third-party package advertises what it brings through packaging entry points, pytest plugins' and SQLAlchemy dialects' own mechanism, three groups:
 
 ```toml
-[project.entry-points."petta.integrations"]
-mylib = "mylib.petta_glue"          # a module with install_petta(m)
+[project.entry-points."metta.integrations"]
+mylib = "mylib.metta_glue"          # a module with install_metta(m)
 
-[project.entry-points."petta.spaces"]
+[project.entry-points."metta.spaces"]
 duck = "mylib.spaces:DuckProvider"  # a provider class or factory
 
-[project.entry-points."petta.libraries"]
+[project.entry-points."metta.libraries"]
 nars = "mylib:LIBRARY_DIR"          # the directory of sources it ships
 ```
 
-Nothing auto-registers on import. `petta.integrate.entry_points(group)` answers the advertised names without loading anything, and the app loads by name, keeping control:
+Nothing auto-registers on import. `metta.integrate.entry_points(group)` answers the advertised names without loading anything, and the app loads by name, keeping control:
 
 ```python
-from petta import attach, integrate
+from metta import attach, integrate
 
 integrate.discover(m)                                     # install every advertised integration
 attach("&duck", integrate.load_entry_point("duck"))

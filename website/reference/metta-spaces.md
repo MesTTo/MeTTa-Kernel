@@ -1,6 +1,6 @@
-# `petta.spaces`
+# `metta.spaces`
 
-Source: `bindings/python/petta/spaces.py`.
+Source: `bindings/python/metta/spaces.py`.
 
 > Purpose: space views and combinators on the public seam. Object views,
 > union, readonly, mapped, and overlay are ordinary SpaceProvider instances;
@@ -99,7 +99,7 @@ def union(*spaces: Any) -> _Union:
 
 > A set of spaces read as one, writes refused by capability.
 >
->     m._register_space(petta.spaces.union(kb, rules), "&all")
+>     m._register_space(metta.spaces.union(kb, rules), "&all")
 >     m.run("!(match &all (edge $a $b) $b)")
 >
 > Every member's candidates answer; duplicates across members are
@@ -121,7 +121,7 @@ def mapped(inner: Any, declaration: Any) -> _Mapped:
 
 > A shape view over ANY space, from one declaration:
 >
->     view = petta.spaces.mapped(kb, "(bridge (edge $a $b) (triple $a linked-to $b))")
+>     view = metta.spaces.mapped(kb, "(bridge (edge $a $b) (triple $a linked-to $b))")
 >
 > presents the inner space's (triple ...) atoms as (edge ...) atoms,
 > both directions derived from the pattern pair by unification, the

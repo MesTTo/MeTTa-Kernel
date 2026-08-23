@@ -1,6 +1,6 @@
 <!--
 Purpose: map multi-shot solving onto persistent Space state, parts, and external facts.
-Guarantees: the example uses context.space() and petta.tables.add.
+Guarantees: the example uses context.space() and metta.tables.add.
 [tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
@@ -91,11 +91,11 @@ blocked = External(m, S.blocked(S.c))
 blocked.assign(True)
 check(
     "the external is a fact while assigned",
-    [str(r.x) for r in m.query(S.blocked(V.x))],
+    [str(r.x) for r in m.match(S.blocked(V.x))],
     ["c"],
 )
 blocked.assign(False)
-check("and gone when withdrawn", m.query(S.blocked(V.x)), [])
+check("and gone when withdrawn", m.match(S.blocked(V.x)), [])
 blocked.release()
 ```
 

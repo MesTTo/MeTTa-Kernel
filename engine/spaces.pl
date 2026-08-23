@@ -342,7 +342,7 @@ native_storage_module_ready(Space, Module) :-
 %on demand here, so the second half cannot be the registry, and the rule for it
 %is the engine's own: an atom beginning with `&`, which is what is-space/2
 %answers, what evalc/3 has enforced at its door since it was written, and what
-%bindings/python/petta/space.py enforces at the library's
+%bindings/python/metta/space.py enforces at the library's
 %[tested: space_argument_refusals].
 petta_space_name(S) :- atom(S), sub_atom(S, 0, 1, _, '&'), !.
 petta_space_name(S) :- petta_space_operand(S).
@@ -454,7 +454,7 @@ petta_note_ctx_declared(_).
 %2026-08-21, instructions:u per subscribe, 1,000 standing queries against a
 %0-query baseline, min of 3].
 %
-%It is set from petta_check_catalog_semantics/3 rather than from the walk
+%It is set from metta_check_catalog_semantics/3 rather than from the walk
 %above, and the difference is measured: that walk runs on EVERY '&petta'
 %write and its first argument is a list, so every clause added to it is one
 %inference on every write, which register-op's benchmark caught at +94 over
@@ -3259,7 +3259,7 @@ prolog:error_message(petta_builtin_redefinition(Name, Arity, Space)) -->
 %thing. That reading was wrong on its own terms, and the engine already
 %disagreed with it in three places: is-space/2 answers False for a name without
 %`&`, evalc/3 refuses one as a type error rather than reading a silently empty
-%space, and bindings/python/petta/space.py refuses one with "the prefix is
+%space, and bindings/python/metta/space.py refuses one with "the prefix is
 %load-bearing". Only these doors did not, so `(add-atom not-a-space (bad add))`
 %made a space called `not-a-space` while `(is-space not-a-space)` answered
 %False in the same program.
@@ -3812,7 +3812,7 @@ unstore_atom(Space, Term, Removed) :- remove_sexp(Space, Term, Removed).
 %inferences a row cheaper and is the traffic: under bool an answer's k can
 %only be 1, because a provider handing one to an undeclared context raises
 %rather than setting it ("a real k is admitted exactly when its context
-%declared a non-Boolean semiring", bindings/python/petta/shim.pl), and the engine's own
+%declared a non-Boolean semiring", bindings/python/metta/shim.pl), and the engine's own
 %join writes nothing when both sides read 1. Measured on direct-join
 %[measured 2026-08-19: 320,322 inferences with the capture on every row
 %against 289,819 without it, over 10,000 rows]
@@ -4433,7 +4433,7 @@ petta_match_error_outcome(Error, keep, kept(Error)).
 
 %A bound pattern went straight to the match hook, so a provider that
 %implements only enumeration answered NOTHING to every real query while the
-%space demonstrably held matching atoms. bindings/python/petta/foreign.py states the
+%space demonstrably held matching atoms. bindings/python/metta/foreign.py states the
 %opposite contract for the same seam, in as many words: "An Enumerable
 %provider need not implement Matcher: enumeration is the correct default
 %candidate set". Porting a working Python provider to Prolog for speed, which
@@ -4503,7 +4503,7 @@ metta_take(Count, Goal) :-
 %over one space. Across a join the bound belongs to the joined rows, and an
 %outer match truncated at N loses the rows its later candidates would have
 %joined to; that is the rule petta_py_query_limit_all/5 already follows for
-%m.query(limit=), and this is the same rule at the MeTTa level rather than a
+%m.match(limit=), and this is the same rule at the MeTTa level rather than a
 %second one.
 %
 %A provider that never claimed `exact` for this pattern is not handed the
@@ -5083,7 +5083,7 @@ get_atom_read_link(Space, Pattern) :-
 %predicates, so a caller that wipes only the space predicate would leave the
 %scalars standing and a pooled name's next life would inherit them.
 %Clearing a foreign space is the provider's own operation, and it lived in
-%bindings/python/petta/shim.pl, so a Prolog provider that implemented clear (as
+%bindings/python/metta/shim.pl, so a Prolog provider that implemented clear (as
 %lib/lib_redis.pl does) was reachable only when Python was in the process:
 %under run.sh the engine had no path to it at all. The shim now calls this.
 clear_foreign_atoms(Space) :-
@@ -5097,7 +5097,7 @@ clear_foreign_atoms(Space) :-
 %space [measured 2026-08-19, ai-tmp/spaces-p1/probe_p116h.pl]. Space names
 %are POOLED, so that is a previous life answering through a recycled name.
 %
-%It was masked rather than absent: bindings/python/petta/shim.pl's clear removes
+%It was masked rather than absent: bindings/python/metta/shim.pl's clear removes
 %equations through the removal funnel before calling this, so the Python door
 %was whole and the ENGINE's own door was not. Every other caller got the half
 %clear, and P1.14's reload will come through this one.

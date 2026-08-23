@@ -648,7 +648,7 @@ Declare it only where you mean it. An operation whose argument must arrive
 its value, which is a silent wrong answer rather than an error.
 
 The same distinction is visible at the Python decorator. Given
-`(= (side) 42)`, a registered `def anyatom(x: petta.Atom)` receives and may
+`(= (side) 42)`, a registered `def anyatom(x: metta.Atom)` receives and may
 return `(side)`, while an otherwise identical unannotated `def anyval(x)`
 receives `42`. The annotation therefore changes the call's evaluation order;
 it is not documentation applied after evaluation.
@@ -856,7 +856,7 @@ in the structure's size and the text's is linear, the same shape as raw transpor
 against the encoded path in the argument-size table above.
 
 The handle crosses to Python too, by reference. A blob reaching the
-Python boundary arrives as `petta.Handle`, an opaque atom carrying a
+Python boundary arrives as `metta.Handle`, an opaque atom carrying a
 registry id and the blob's own printed text; hand it back and the very
 same native object answers, so identity and mutation survive the round
 trip, and a Python function can unpack the structure through whatever
@@ -996,14 +996,14 @@ annotations on the Python are documentation.
 Then run the pair:
 
 ```python
-from petta import testing
+from metta import testing
 
 def test_the_fast_one_still_agrees():
     testing.check_twin(vec_dot, [((1, 2), (3, 4)), ((0,), (9,))])
 ```
 
 `cases` is an iterable of argument tuples; drive it with hypothesis for a real
-sweep, using the strategies `petta.testing` already exports. A generator twin
+sweep, using the strategies `metta.testing` already exports. A generator twin
 is compared answer by answer in order, and a twin that RAISES on a case
 requires the engine to answer nothing for it, which is the disagreement most
 worth catching: a reference with no answer and a fast side that invents one.
@@ -1157,7 +1157,7 @@ declares nothing keeps working, so this costs nothing until you use it.
 ### Prove your provider before your users do
 
 ```python
-from petta import testing
+from metta import testing
 
 def test_my_provider_conforms():
     testing.check_space_provider(MyProvider(rows))
@@ -1305,7 +1305,7 @@ integration that ships Prolog and no Python setup names its files:
 PETTA_PROLOG = ["fast.pl"]
 ```
 
-`m.integrate(pettorch)` and `petta.integrate.discover(m)` then register the
+`m.integrate(pettorch)` and `metta.integrate.discover(m)` then register the
 library path and every file, and each file declares its own exports, so there
 is no name list anywhere. Before this the standard plugin mechanism carried no
 Prolog at all: a native library had to hand-write an `install()` that hardcoded
@@ -1334,7 +1334,7 @@ than a function call. A class maps one full-token regular expression to a
 constructor. The Python door retains a callable:
 
 ```python
-from petta import S
+from metta import S
 
 m.register_token(
     r"[0-9]+kg",
@@ -1405,7 +1405,7 @@ requirement.
 There are two ways in, and they differ in cost the same way tiers 2 and 3 do.
 
 **From Python**, implement the `SpaceProvider` protocol in
-`bindings/python/petta/foreign.py` and `register_space`. Every match crosses the janus
+`bindings/python/metta/foreign.py` and `register_space`. Every match crosses the janus
 boundary, which is right when the atoms live somewhere Python already talks to.
 `das.py`, `remote.py` and `persistent.py` are three real instances.
 
@@ -1432,7 +1432,7 @@ per binding set, binding the other operand's variables through ordinary
 unification; no solutions means no match. Variables always bind the
 value whole without consulting it, and a value nobody claims falls
 through to ground equality. The Python side implements both for any
-object whose class defines `match_` (see `petta.foreign.CustomMatch`),
+object whose class defines `match_` (see `metta.foreign.CustomMatch`),
 so a Python value participates with no registration at all; a
 Prolog-hosted value participates by adding clauses to these seams.
 
@@ -1442,7 +1442,7 @@ Prolog-hosted value participates by adding clauses to these seams.
 ```
 
 `seam:foreign_clear/1` is the sixth and is easy to miss: it lived in
-`bindings/python/petta/shim.pl` rather than beside the other five, so a Prolog provider
+`bindings/python/metta/shim.pl` rather than beside the other five, so a Prolog provider
 that implemented `clear`, as `lib/lib_redis.pl` does, was reachable only when
 Python happened to be in the process. It is declared with them now.
 
@@ -1456,12 +1456,12 @@ the conformance kit inside its own example and driven concurrently by
 
 Worked instances now exist per language and per backend class, so start
 from the one nearest yours: C (`examples/integration/c_space/`), SQL
-derived from one declaration (`bindings/python/petta/tables.py` with
+derived from one declaration (`bindings/python/metta/tables.py` with
 `bindings/python/examples/integration/sqlite_space.py`; DuckDB with pushdown in
 `duckdb_space.py` beside it), another MeTTa runtime as a subprocess
 (`cetta_space.py`), TypeScript over the wire
 (`bindings/python/examples/integration/typescript_space/`, which also documents
-the remote protocol itself; `petta.testing.GatewayComplianceSuite`
+the remote protocol itself; `metta.testing.GatewayComplianceSuite`
 certifies any implementation of that protocol by URL), and Redis
 (`lib/lib_redis.pl`).
 
@@ -1714,7 +1714,7 @@ an engine internal rather than published surface
 
 This exists because MORK reached past the seam for years and nothing said so.
 It called `swrite/2` and `metta_unwritable_symbol/2` out of `engine/parser.pl`,
-wrapping the second under a private name of its own, and `bindings/python/petta/shim.pl`
+wrapping the second under a private name of its own, and `bindings/python/metta/shim.pl`
 had independently wrapped the same predicate under a different private name.
 Two extensions inventing two names for one undeclared dependency is what the
 problem looks like from the outside. They are declared now, in
@@ -1915,7 +1915,7 @@ indexes the subject and answers `(fact a $n)` precisely is still inexact for
 constrains another is inexact however good that one filter is.
 
 **Where the number comes from.** Two callers set one, and they follow the same
-rule. `m.query(pattern, limit=k)` from Python, and `take` from MeTTa:
+rule. `m.match(pattern, limit=k)` from Python, and `take` from MeTTa:
 
 ```metta
 !(collapse (take 3 (match &mine (fact $k $v) (fact $k $v))))
@@ -2591,7 +2591,7 @@ The contract language is MeTTa on purpose, and it reaches the boundary
 itself: a backend's whole conversion can be ONE declaration relating
 the atom shape to the backend's shape, `(bridge (edge $a $b)
 (row edges (a $a) (b $b)))`, used in both directions the way any MeTTa
-pattern is. `bindings/python/petta/tables.py` derives a complete SQL provider
+pattern is. `bindings/python/metta/tables.py` derives a complete SQL provider
 from such atoms, WHERE from bound positions, the equalities repeated
 variables demand, INSERT from grounding, honest pushdown claims, and
 the conformance kit checks the derived claims the way the lens laws

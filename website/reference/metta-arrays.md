@@ -1,6 +1,6 @@
-# `petta.arrays`
+# `metta.arrays`
 
-Source: `bindings/python/petta/arrays.py`.
+Source: `bindings/python/metta/arrays.py`.
 
 > Purpose: arrays as atoms for every library speaking the standard
 > protocols, not one. Recognition is DLPack (__dlpack__), semantics are the
@@ -99,7 +99,7 @@ class EmbeddingStore:
 > Vectors by key, searchable from MeTTa, in whichever library the
 > vectors arrive from.
 >
->     store = petta.arrays.EmbeddingStore(m, name="emb")
+>     store = metta.arrays.EmbeddingStore(m, name="emb")
 >     store.add(S.dog, numpy.array([1.0, 0.0]))
 >     m.run("!(collapse (emb-knn (tensor (1.0 0.0)) 1))")
 >

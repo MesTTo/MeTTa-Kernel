@@ -1,6 +1,6 @@
 <!--
 Purpose: explain opaque and transparent SQLite BLOB images and lazy path reads.
-Guarantees: examples open named handles through petta.space().
+Guarantees: examples open named handles through metta.space().
 [tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
@@ -13,7 +13,7 @@ context boundary as an opaque handle or as a structural MeTTa expression.
 `attach_sqlite` declares the default explicitly:
 
 ```python
-crm = petta.space("&crm")
+crm = metta.space("&crm")
 crm.image("Blob", "opaque")
 ```
 
@@ -36,7 +36,7 @@ provider.connection.execute(
     ("manual", sqlite3.Binary(payload)),
 )
 
-rows = petta.space("&crm").query(
+rows = metta.space("&crm").match(
     S.document(S.manual, path("data", 17, to=V.byte))
 )
 assert rows.to_dicts() == [{"byte": 17}]
@@ -60,5 +60,5 @@ samples for each, and requires the transparent crossing to cost more than the
 opaque handle for the same 4,096-byte payload. `auto` delegates the choice to
 the standard constant-time size and replayability policy.
 
-See [`petta.tables`](../reference/petta-tables.md) for the generic bridge and
-[lazy paths](../reference/petta-paths.md) for attribute and key traversal.
+See [`metta.tables`](../reference/metta-tables.md) for the generic bridge and
+[lazy paths](../reference/metta-paths.md) for attribute and key traversal.

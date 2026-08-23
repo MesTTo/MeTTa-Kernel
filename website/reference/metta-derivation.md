@@ -1,6 +1,6 @@
-# `petta.derivation`
+# `metta.derivation`
 
-Source: `bindings/python/petta/derivation.py`.
+Source: `bindings/python/metta/derivation.py`.
 
 > Purpose: proof trees as Python objects. Parses the (derivation ...) atoms
 > the shim's meta-interpreter produces into a tree of steps, facts and builtin

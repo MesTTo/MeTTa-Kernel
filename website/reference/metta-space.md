@@ -1,13 +1,13 @@
-# `petta.Space`
+# `metta.Space`
 
-Source: `bindings/python/petta/_space.py`.
+Source: `bindings/python/metta/_space.py`.
 
 > Purpose: provide the narrow MeTTa context and context-relative Space handles.
 >
 > Assumes:
 >   - the six extracted ``_space_*`` modules own query, definition, execution,
 >     persistence, eager decoding, and diagnostic implementation [source:
->     bindings/python/petta/_space_query.py, _space_definitions.py,
+>     bindings/python/metta/_space_query.py, _space_definitions.py,
 >     _space_execution.py, _space_persistence.py, _space_objects.py, and
 >     _space_diagnostics.py; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 > Guarantees:
@@ -38,7 +38,7 @@ Source: `bindings/python/petta/_space.py`.
 >     patterns is a join, list writes stream their atoms, and del drains every
 >     match or raises KeyError [tested:
 >     test_subscript_one_pattern_and_bulk_delete_laws; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - ``Space.query`` returns a lazy Answers view; truth and single unpack pull
+>   - ``Space.match`` returns a lazy Answers view; truth and single unpack pull
 >     only their demanded prefix, while len counts inside the engine [tested:
 >     test_query_answers_complete_the_lazy_projection_protocol,
 >     test_query_single_unpack_pulls_at_most_two_answers; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
@@ -48,7 +48,7 @@ Source: `bindings/python/petta/_space.py`.
 >   - handle-level Linda waits load their support into the default caller space,
 >     never into a distinct waited-on space [tested:
 >     test_peek_does_not_import_linda_into_the_waited_space; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
->   - ``Space.query``, every head-named declaration verb, and the write door
+>   - ``Space.match``, every head-named declaration verb, and the write door
 >     retain their established semantics after moving off ``MeTTa`` [tested:
 >     test_query_surfaces_share_column_order,
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms,
@@ -141,12 +141,12 @@ class Space(Handle):
 > one where it exists. Registrations are the thing that really is
 > process-wide, which the anonymous ``space()`` factory says.
 >
->     from petta import MeTTa, S, V
+>     from metta import MeTTa, S, V
 >
 >     m = MeTTa().self
 >     m.run("(= (foo) boo) !(foo)")     # [[Symbol('boo')]]
 >     m.add(S.Parent(S.Tom, S.Bob))
->     m.query(S.Parent(V.x, S.Bob))
+>     m.match(S.Parent(V.x, S.Bob))
 
 ### `Space.name`
 
@@ -396,7 +396,7 @@ def register_token(self, pattern: str, constructor: Callable[[str], Any]) -> Non
 > Register a full-token regex and its Atom constructor.
 >
 > The constructor receives the complete matched lexeme. It may return an
-> Atom or any value accepted by :func:`petta.ground`. A later registration
+> Atom or any value accepted by :func:`metta.ground`. A later registration
 > of the same pattern replaces the constructor. Only future parses read
 > the new mapping; atoms already returned are immutable values.
 
@@ -478,7 +478,7 @@ def cast(self, value: Any, type_: Any, /) -> Any:
 > space's type discipline admits it as type_: the same acceptance
 > a typed call compiles, ':' declarations in this space and &self
 > in scope, protocol types included. A refused cast raises
-> petta.CastError naming the value's actual types, the loud
+> metta.CastError naming the value's actual types, the loud
 > spelling of what a typed call does silently.
 
 ### `Space.trace`
@@ -504,7 +504,7 @@ def lint(self):
 > Diagnose this space for the silently-wrong class: declared
 > types nothing defines, arity mismatches, unbound body variables,
 > duplicate equations, and references no function or fact carries.
-> Answers petta.lint.Finding records, empty when nothing looks
+> Answers metta.lint.Finding records, empty when nothing looks
 > wrong.
 
 ### `Space.copy`
@@ -544,10 +544,10 @@ def clear(self) -> None:
 
 > Remove everything stored here, compiled equations included.
 
-### `Space.query`
+### `Space.match`
 
 ```python
-def query(
+def match(
     self,
     *patterns: Any,
     where: Any | None = None,
@@ -566,7 +566,7 @@ def query(
 > evaluated per join and required true, so restrictions a pattern
 > cannot spell (an inequality) compose onto the match:
 >
->     m.query(S.person(V.name, V.age), where=V.age >= 18)
+>     m.match(S.person(V.name, V.age), where=V.age >= 18)
 >
 > `limit` bounds the answers, the engine stopping at the count
 > rather than trimming afterwards. `timeout` (seconds) and
@@ -582,12 +582,12 @@ def query(
 > `into=Rows` explicitly chooses the eager Rows face. Other `into=`
 > values shape each row into a dataclass, NamedTuple, or
 > TypedDict matched by field name, sqlite3's row_factory reading:
-> `m.query(S.edge(V.a, V.b), into=Edge)` answers `list[Edge]`,
+> `m.match(S.edge(V.a, V.b), into=Edge)` answers `list[Edge]`,
 > and Rows stays the default so nothing is lost. A one-variable query
 > whose column holds complete constructor expressions rebuilds those
-> expressions instead: `m.query(V.edge, into=Edge)`.
+> expressions instead: `m.match(V.edge, into=Edge)`.
 >
->     m.query(S.Edge(V.x, V.y), S.Edge(V.y, V.z))
+>     m.match(S.Edge(V.x, V.y), S.Edge(V.y, V.z))
 
 ### `Space.assuming`
 
@@ -600,7 +600,7 @@ def assuming(self, *facts: Any) -> _Assuming:
 > included.
 >
 >     with m.assuming(S.closed(S.bridge)):
->         detour = m.query(S.route(V.r), where=...)
+>         detour = m.match(S.route(V.r), where=...)
 
 ### `Space.transaction`
 
@@ -676,7 +676,7 @@ def limits(
 > Scoped default bounds for every call in the with-block:
 >
 >     with m.limits(inferences=1_000_000, timeout=2.0):
->         m.query(...)      # bounded without saying so again
+>         m.match(...)      # bounded without saying so again
 >
 > decimal.localcontext's shape, contextvars underneath, so the
 > scope is async-correct and per-task. A per-call timeout= or
@@ -971,7 +971,7 @@ def stats(self) -> _StatsBlock:
 > The engine's own counters over a with-block, as deltas.
 >
 >     with m.stats() as s:
->         m.query(S.edge(V.x, V.y), S.edge(V.y, V.z))
+>         m.match(S.edge(V.x, V.y), S.edge(V.y, V.z))
 >     s.inferences        # engine steps the block spent
 >     s.cputime           # engine CPU seconds
 >     s.walltime          # wall seconds, Python's clock
@@ -1079,7 +1079,7 @@ def op(
 > are not ground and the result is, so a forward call never reaches it,
 > and an operation without one compiles exactly what it did before.
 >
-> A parameter annotated `petta.MeTTa` is the framework's to fill,
+> A parameter annotated `metta.MeTTa` is the framework's to fill,
 > FastAPI's Depends read with the house convention that the
 > annotation is the request. The engine injects itself bound to the
 > CALLING context's space, so an operation invoked from a program
@@ -1088,8 +1088,8 @@ def op(
 > the weaving:
 >
 >     @m.op
->     def related(term, engine: petta.MeTTa):
->         for row in engine.query(Expression(S.link, term, V.x)):
+>     def related(term, engine: metta.MeTTa):
+>         for row in engine.match(Expression(S.link, term, V.x)):
 >             yield row[0]
 >
 > Purity is a seam declaration rather than a Python boolean. Supply the
@@ -1364,7 +1364,7 @@ def subscribe(
 > for a pattern one: removal is multiset subtraction, so
 > `remove(S.alert(V.q))` takes one of the alerts and the event
 > cannot say which. Re-read the space when you need to know;
-> `petta.structures.LiveView` is the worked instance.
+> `metta.structures.LiveView` is the worked instance.
 
 ### `Space.prolog`
 
@@ -1449,7 +1449,7 @@ def define(
 >
 > Rewriting a defined function in Prolog for speed used to mean
 > deleting the Python and the differential oracle with it. Here both
-> are declared together and `petta.testing.check_twin` proves they
+> are declared together and `metta.testing.check_twin` proves they
 > agree on ground inputs. The file must register the function's own
 > MeTTa name and at the twin's arity, inputs then one output, and
 > says so if it does not; its `metta_export` declaration owns the
@@ -1588,7 +1588,7 @@ def fn(self) -> _FunctionNamespace:
 def integrate(self, target: Any) -> str:
 ```
 
-> Install a library integration; see petta.integrate.
+> Install a library integration; see metta.integrate.
 
 ### `Space.handles`
 
@@ -1859,7 +1859,7 @@ def writes(self, atomicity: str) -> Atom:
 
 > Declare what a space's writes promise inside a transaction.
 >
-> transactional providers implement petta.foreign.Transactional and
+> transactional providers implement metta.foreign.Transactional and
 > are committed or rolled back WITH the engine's transaction;
 > best-effort is the author's declared acceptance of a write that
 > survives a rollback; atomic-single refuses transactional writes.

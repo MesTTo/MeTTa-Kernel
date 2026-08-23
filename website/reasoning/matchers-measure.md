@@ -24,7 +24,7 @@ plain atom the operand must equal, or nothing at all for no match. An
 interval that matches the numbers inside it is three lines:
 
 ```python
-from petta import Expression, Grounded, S, space
+from metta import Expression, Grounded, S, space
 
 class Interval:
     def __init__(self, lo, hi):

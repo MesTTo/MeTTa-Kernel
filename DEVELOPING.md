@@ -139,7 +139,7 @@ cd python
 ```
 
 Sibling packages should import `BenchmarkBaseline`, `benchmark_case`,
-`count_atoms`, and `measure_instructions` from `petta.testing`. Do not copy the
+`count_atoms`, and `measure_instructions` from `metta.testing`. Do not copy the
 harness into another repository.
 
 For a focused engine profile, use `MeTTa.profile()`:
@@ -153,7 +153,7 @@ For a Python-driven block, use the same inference counter directly:
 
 ```python
 with metta.stats() as stats:
-    rows = metta.query(pattern)
+    rows = metta.match(pattern)
 print(stats.inferences)
 ```
 

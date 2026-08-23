@@ -14,7 +14,7 @@ A process holds one embedded Prolog runtime. The thread that first uses it holds
 
 Real parallelism is a second engine, and there are three doors to one:
 
-- `petta.parallel.engine_thread()` attaches an engine to the current thread for a block, releasing exactly what it attached (`test_engine_thread_owns_only_its_attachment`). Inside the block this thread's calls stop sharing the home lock; measured 1.94x, 3.90x and 7.26x at 2, 4 and 8 threads.
+- `metta.parallel.engine_thread()` attaches an engine to the current thread for a block, releasing exactly what it attached (`test_engine_thread_owns_only_its_attachment`). Inside the block this thread's calls stop sharing the home lock; measured 1.94x, 3.90x and 7.26x at 2, 4 and 8 threads.
 - `m.pool(workers=n)` owns n threads that each hold their own engine (`test_each_worker_holds_a_distinct_engine`), proves genuine overlap with a barrier rather than a clock (`test_pool_runs_work_concurrently`), answers `map` in input order however workers finish, and reports every failure, one plainly and several as one `ExceptionGroup` in input order (`test_map_raises_every_failure_in_input_order`).
 - `m.parallel(...)` fans out INSIDE the engine through `concurrent_and/2`, one SWI thread per branch. Answers arrive in completion order, and there is deliberately no `inferences=` bound on it, because the counter counts the calling thread while the work runs in workers; an unenforceable bound is worse than an absent one.
 
@@ -30,7 +30,7 @@ The current-space context is not Python state at all: the engine tracks it in a 
 
 Subscription state lives behind one registry lock, real locking rather than a bet on the GIL, so the queue and cancellation are safe under free-threaded Python too (`test_subscription_queue_is_thread_safe`, `test_subscription_cancel_is_thread_safe`). A callback runs synchronously inside the write that caused it, on the writing thread; `cancel()` waits for deliveries already in flight (`test_subscription_cancel_waits_for_inflight_delivery`), and `events()` blocks its consumer thread on a condition variable, ending at cancellation.
 
-Core `Space.query()` is eager. Streaming cursors belong to the `aio` and `remote`
+Core `Space.match()` is eager. Streaming cursors belong to the `aio` and `remote`
 satellites. Individual pulls serialize on their owning engine or connection, but
 the iteration protocol itself is single-consumer, exactly as with every Python
 iterator, so share rows rather than a cursor. An abandoned satellite cursor is

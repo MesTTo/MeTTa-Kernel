@@ -12,11 +12,11 @@ Queries also accept guards, answer bounds, temporary assumptions, and prepared s
 
 ```python
 m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
-m.query(S.Age(V.p, V.n), where=(V.n >= 60) & (V.n <= 70))
+m.match(S.Age(V.p, V.n), where=(V.n >= 60) & (V.n <= 70))
 # Rows[p, n]([Row(p=Symbol('Tom'), n=Grounded(62))])
 
 with m.assuming(S.Parent(S.Ann, S.Zoe)):
-    m.query(S.Parent(S.Ann, V.c))    # Rows[c]([Row(c=Symbol('Zoe'))])
+    m.match(S.Parent(S.Ann, V.c))    # Rows[c]([Row(c=Symbol('Zoe'))])
 
 grand = m.prepare(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 grand.solve()
@@ -33,7 +33,7 @@ A query whose join size is unknown, or a program whose recursion depth is someon
 try:
     m.run("!(spin 100000000)", timeout=0.05)
     raise AssertionError("the time bound did not fire")
-except petta.errors.TimeLimitError:
+except metta.errors.TimeLimitError:
     check("a 50ms bound stops a spin that would run for minutes", True)
 ```
 
@@ -42,12 +42,12 @@ Each bound raises its own error, `TimeLimitError` or `InferenceLimitError`, both
 `m.stats()` reads the engine's own counters around a with-block. A capture scope collects printed text without changing the answer shape:
 
 ```python
-petta.tables.add(m, "edge", [(i, i + 1) for i in range(200)])
-rows = m.query(S.edge(V.a, V.b), S.edge(V.b, V.c), timeout=30.0)
+metta.tables.add(m, "edge", [(i, i + 1) for i in range(200)])
+rows = m.match(S.edge(V.a, V.b), S.edge(V.b, V.c), timeout=30.0)
 check("a generous bound changes nothing", len(rows), 199)
 
 with m.stats() as s:
-    m.query(S.edge(V.a, V.b), S.edge(V.b, V.c))
+    m.match(S.edge(V.a, V.b), S.edge(V.b, V.c))
 check("the stats block counts the engine steps spent", s.inferences > 100)
 
 with m.capture() as output:
@@ -91,8 +91,8 @@ Two more things hold across the whole library. Every exception it raises on purp
 `query` is eager, so slicing it trims after the work is done:
 
 ```python
-rows = m.query(pattern)[:3]        # computes every row, keeps three
-rows = m.query(pattern, limit=3)   # the engine stops at three
+rows = m.match(pattern)[:3]        # computes every row, keeps three
+rows = m.match(pattern, limit=3)   # the engine stops at three
 ```
 
 Over 2,000 stored atoms the first two forms measured 26,055 and 2,232
@@ -104,7 +104,7 @@ inferences for the same three rows, and the gap grows with the space. Reach for
 `prepare(...).explain()` answers the query's plan without running it, polars' `LazyFrame.explain` and SQL's `EXPLAIN` pointed at the space seam. When a query over a Python-backed space is slow, the first question is what pushed down, and this is that answer:
 
 ```python
-sp = petta.space("&db")
+sp = metta.space("&db")
 print(sp.prepare(parse("(edge $a $b)"), parse("(other $b $c)")).explain())
 # query over &db: (edge $a $b), (other $b $c)
 #   (edge $a $b)   exact    the provider's own pushdown method
@@ -134,11 +134,11 @@ Tabling changes what a function means, so the admission burden is yours: it is s
 Every live declaration is also a fact: `(tabled space name arity)` in the `&petta` reflection space, input arity, added on declare and removed on undeclare, so a program can ask what is memoized right now:
 
 ```python
-    reflection = petta.reflection
+    reflection = metta.reflection
     m.run("(= (reflected-fn $n) (+ $n 1))")
     assert m.run("!(tabled (reflected-fn $n))") == [[True]]
     pattern = S.tabled(S[m.name], S["reflected-fn"], V.a)
-    assert [row.a for row in reflection.query(pattern)] == [1]
+    assert [row.a for row in reflection.match(pattern)] == [1]
 ```
 
 Tabling state dies with the space life. A dropped or cleared space takes its declarations, its tables, and its `&petta` records with it, so a pooled name's next life cannot be answered by a dead life's cache; the suite pins this by redefining a function in a reused space and requiring the new answer.
@@ -349,7 +349,7 @@ def test_undefined_answers_cross_as_undefined(m, wfs_program):
 
 `Undefined` refuses truthiness on purpose, so code cannot branch on it by accident. The carrier is the engine's own `call_delays`, applied per answer inside the enumeration, which is the only place the condition exists. It is unconditional because any "only when tabling" gate would answer silently wrong exactly once, on the first tabled call; the measured cost on the trivial-eval crossing is five to ten percent, amortized below that on real evaluations. `run()` mirrors the CLI and stays two-valued; evaluate through `eval()` when undefined truth matters.
 
-`query()` computes and decodes its bounded answer set before returning it.
+`match()` computes and decodes its bounded answer set before returning it.
 
 ## Strings and regular expressions
 
@@ -357,9 +357,9 @@ Structural match reads terms; strings stay opaque to it. `lib_regex` opens them 
 
 ```python
 def test_regex_guards_queries(rx, metta):
-    with petta.space() as m:
+    with metta.space() as m:
         m.add(S.person(S.Ada), S.person(S.alan), S.person(S.Alice))
-        rows = m.query(S.person(V.name), where='(re-match "^A" $name)')
+        rows = m.match(S.person(V.name), where='(re-match "^A" $name)')
         assert [row.name for row in rows] == [S.Ada, S.Alice]
 ```
 
@@ -509,7 +509,7 @@ for finding in m.lint():
 The space holds atoms, not text, so a finding from `m.lint()` has no position to give. `lint_file` recovers one:
 
 ```python
-from petta.lint import lint_file
+from metta.lint import lint_file
 
 for finding in lint_file("rules.metta"):
     place = finding.payload
@@ -554,14 +554,14 @@ The check is duck-typed the way the engine already is. A protocol registered wit
         m.cast(Silent(), "Ducky")
 ```
 
-Structural targets work too: casting to `(List $t)` admits anything whose type unifies, and a repeated variable in the target constrains. Targets the engine never checks (`Atom`, `%Undefined%`, `_`) pass unchecked here as well. The surface is in [`petta.casting`](../reference/petta-casting).
+Structural targets work too: casting to `(List $t)` admits anything whose type unifies, and a repeated variable in the target constrains. Targets the engine never checks (`Atom`, `%Undefined%`, `_`) pass unchecked here as well. The surface is in [`metta.casting`](../reference/metta-casting).
 
-`petta.tables.add(space, head, source)` reads a Polars frame, a pandas frame, a mapping of columns, or any iterable of rows into facts shaped as `(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of plain columns accepted by DataFrame constructors, and `rows.to_df()` / `rows.to_pl()` build the pandas or polars frame directly, DuckDB's conversion naming. `rows.build(column, Class)` rebuilds translated objects from a named result column; when one column holds complete constructor expressions, `rows.build(Class)` rebuilds it directly and `query(..., into=Class)` takes the same route. In a notebook, rows render as a table on their own, and in a [rich](https://rich.readthedocs.io)-using terminal `print`ing rows through a rich console draws the same table. `rows.pipe(fn, *args)` is pandas' chaining shape, so a post-processing pipeline reads left to right: `m.query(pat).pipe(clean).pipe(score, weight=2)`.
+`metta.tables.add(space, head, source)` reads a Polars frame, a pandas frame, a mapping of columns, or any iterable of rows into facts shaped as `(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of plain columns accepted by DataFrame constructors, and `rows.to_df()` / `rows.to_pl()` build the pandas or polars frame directly, DuckDB's conversion naming. `rows.build(column, Class)` rebuilds translated objects from a named result column; when one column holds complete constructor expressions, `rows.build(Class)` rebuilds it directly and `match(..., into=Class)` takes the same route. In a notebook, rows render as a table on their own, and in a [rich](https://rich.readthedocs.io)-using terminal `print`ing rows through a rich console draws the same table. `rows.pipe(fn, *args)` is pandas' chaining shape, so a post-processing pipeline reads left to right: `m.match(pat).pipe(clean).pipe(score, weight=2)`.
 
 Use `derivation(atom)` to obtain proof trees for an answer. Use `why(pattern)`
-to explain one empty match. An empty result returned directly by `query()`
+to explain one empty match. An empty result returned directly by `match()`
 retains the query context, so `rows.why()` identifies a pattern miss, a join
 with no shared binding, or a `where` guard that rejected every joined row. It
 reads the space's current state. The complete runtime surface is in
-[`petta.Space`](../reference/petta-space), and result containers are in
-[`petta.results`](../reference/petta-results).
+[`metta.Space`](../reference/metta-space), and result containers are in
+[`metta.results`](../reference/metta-results).

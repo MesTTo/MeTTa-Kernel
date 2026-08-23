@@ -1,6 +1,6 @@
-# `petta.structures`
+# `metta.structures`
 
-Source: `bindings/python/petta/structures.py`.
+Source: `bindings/python/metta/structures.py`.
 
 > Purpose: data structures with MeTTa's semantics at Python speed, built on
 > the boundary-free atom kernel (unify, alpha_eq, variables, order_key) and
@@ -9,7 +9,7 @@ Source: `bindings/python/petta/structures.py`.
 > many registered patterns match it" sublinearly, and AlphaSet holds atoms
 > modulo variable renaming.
 > Assumes:
->   - petta.atoms.unify is one-way, pattern side binding, which is the
+>   - metta.atoms.unify is one-way, pattern side binding, which is the
 >     reading every lookup here wants: stored patterns are the pattern side
 >     and probes are the atom side [source: atoms.py unify docstring]
 > Guarantees:

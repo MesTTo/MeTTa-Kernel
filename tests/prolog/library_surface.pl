@@ -19,10 +19,10 @@
 %       `Goal =.. L, call(Goal)` being the shape. That is the residue this
 %       shares with every other static walk in the tree.
 % Decides:
-%     - lib/ is in scope and bindings/python/petta/shim.pl is not. shim.pl is consulted
+%     - lib/ is in scope and bindings/python/metta/shim.pl is not. shim.pl is consulted
 %       by _engine.py as the Python tier's own implementation, so it is
 %       engine-internal by construction rather than an extension
-%       [source: bindings/python/petta/_engine.py, _consult_shim].
+%       [source: bindings/python/metta/_engine.py, _consult_shim].
 % Open Obligations:
 %     To Do: None
 %     Hacks: None
