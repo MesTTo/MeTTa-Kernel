@@ -1,5 +1,5 @@
 % Purpose: implement pre-add hooks, transforms, watchers, views, digests, and purity inventories
-% Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
+% Assumes: engine/metta.pl includes this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE]
@@ -451,13 +451,6 @@ petta_writes(Ctx, Atomicity) :-
 %outermost transaction. Commit is single-coordinator: a provider whose
 %commit throws leaves earlier commits standing, and the throw says so;
 %two-phase commit is deliberately out of scope.
-%The meta declaration stays in the same source unit as the clause. When it
-%lived in runtime.pl after this extraction, reconsulting that later unit
-%abolished the earlier static predicate before the umbrella's publication
-%check ran [tested: `swipl -q -g "consult('engine/metta.pl'),
-%load_files('engine/metta.pl',[if(true)]),
-%current_predicate(user:petta_transaction/1),halt" -t halt`; commit=WORKTREE].
-:- meta_predicate petta_transaction(0).
 petta_transaction(Goal) :-
     term_variables(Goal, Vars),
     (   current_transaction(_)

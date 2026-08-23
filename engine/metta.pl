@@ -595,16 +595,31 @@ petta_import_shared_registries(Subsystem) :-
    ;   true
    ).
 
-:- consult('metta/terms.pl').
-:- consult('metta/operators.pl').
-:- consult('metta/input_guards.pl').
-:- consult('metta/types.pl').
-:- consult('metta/effects.pl').
-:- consult('metta/space_hooks.pl').
-:- consult('metta/runtime.pl').
-:- consult('metta/control.pl').
-:- consult('metta/interop.pl').
-:- consult('metta/registration.pl').
+:- include('metta/terms.pl').
+:- include('metta/operators.pl').
+:- include('metta/input_guards.pl').
+:- include('metta/types.pl').
+:- include('metta/effects.pl').
+:- include('metta/space_hooks.pl').
+:- include('metta/runtime.pl').
+:- include('metta/control.pl').
+:- include('metta/interop.pl').
+:- include('metta/registration.pl').
+%The owner repeats included meta declarations so load_files/2 leaves the
+%dynamic engine module's callable surface identical after a forced reload
+%[tested: check_project_var_branches in tests/prolog/static_checks.pl; commit=WORKTREE].
+:- meta_predicate metta_timeout(+, 0, ?),
+                  metta_inferences(+, 0, ?),
+                  metta_elapsed(0, ?, ?),
+                  metta_with_pragmas(+, 0, ?),
+                  metta_host_with_stack_limit(+, 0),
+                  petta_transaction(0),
+                  petta_run_with_fuel(?, ?, 0),
+                  petta_with_seed(?, ?, 0, ?),
+                  loading_loudly(0),
+                  import_when(+, +, +, 0),
+                  run_with_import_life_marker(+, +, 0),
+                  catch_recover(0, 0).
 %%%%%%%%%% The engine's own type surface %%%%%%%%%%
 %
 %Without this, `get-type` misreported the engine to every tool that reads it.

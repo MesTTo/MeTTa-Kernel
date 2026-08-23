@@ -18,7 +18,7 @@
 %       silently and which sends the write to a predicate nothing reads
 %     - a plain source unit below engine/<owner>/ is attributed to its umbrella
 %       subsystem for call, export, SCC, and database-write checks
-%       [tested: consulted_source_units_are_attributed_to_their_umbrella; commit=WORKTREE]
+%       [tested: included_source_units_are_attributed_to_their_umbrella; commit=WORKTREE]
 % Fails when:
 %     - a call is assembled at run time from a term no analysis can see. That
 %       is the residue this shares with every other static walk in the tree.
@@ -72,10 +72,10 @@
 engine_directory(Directory) :- tree_directory('../../engine', Directory).
 
 engine_subsystem_file(Base) :-
-    source_file(File),
+    loaded_source_location(File),
     engine_source_subsystem(File, Base).
 
-% A consulted source unit preserves its umbrella's module and therefore its
+% An included source unit preserves its umbrella's module and therefore its
 % architectural ownership. Reading the first relative path component keeps the
 % contract about subsystems instead of turning a source-layout split into new
 % call-graph nodes.
@@ -147,8 +147,10 @@ measure_write_edges :-
            )).
 
 measured_write(FileModule, Name/Arity, Caller) :-
-    source_file(ClauseModule:Head, File),
+    loaded_source_location(File),
     engine_source_subsystem(File, _),
+    source_clause_owner(File, Owner),
+    source_file(ClauseModule:Head, Owner),
     functor(Head, CallerName, CallerArity),
     Caller = CallerName/CallerArity,
     % The clause has to be IN this file. A multifile seam declared here can
@@ -158,7 +160,7 @@ measured_write(FileModule, Name/Arity, Caller) :-
     clause_property(Reference, file(File)),
     % module/1 is the source context of the clause body. It differs from the
     % predicate module for an explicitly qualified multifile head, and remains
-    % available for a plain consulted source unit whose file declares no module.
+    % available for a plain included source unit whose file declares no module.
     clause_property(Reference, module(FileModule)),
     clause(ClauseModule:Head, Body, Reference),
     body_database_write(Body, Written),

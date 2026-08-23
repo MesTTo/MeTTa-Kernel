@@ -1,5 +1,5 @@
 % Purpose: provide test diagnostics, assertions, formatting, timing, and bounded execution helpers
-% Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
+% Assumes: engine/metta.pl includes this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE]
@@ -481,7 +481,8 @@ undocumented(Name) :- current_metta_space(Space),
                   metta_inferences(+, 0, ?),
                   metta_elapsed(0, ?, ?),
                   metta_with_pragmas(+, 0, ?),
-                  metta_host_with_stack_limit(+, 0).
+                  metta_host_with_stack_limit(+, 0),
+                  petta_transaction(0).
 %Why these helpers: a runnable's goals run as call(Module:G), so a goal a
 %special form passes to a HELPER used to lose the module on the way in,
 %and the helper's findall called it back in user: every one of these
@@ -489,10 +490,8 @@ undocumented(Name) :- current_metta_space(Space),
 %Python surface creates ("Unknown procedure" for a function the space
 %plainly defines). meta_predicate makes the call site wrap the goal
 %argument as Module:Goal, the manual's own maplist example.
-%petta_transaction/1 takes its declaration beside its clause in
-%space_hooks.pl; metta_take/2 and metta_top/3 do the same in spaces.pl,
-%because a meta_predicate directive above a predicate defined
-%in another file warns that it has no clauses. Baking the
+%metta_take/2 and metta_top/3 take their declarations beside their clauses in
+%spaces.pl. Baking the
 %qualification at translate time was measured as the alternative and
 %costs MORE where wrapper forms are retranslated per run
 %(annotated-relation +2498 baked against +996 wrapped, over 500

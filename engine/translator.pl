@@ -298,8 +298,13 @@
 :- use_module(library(assoc)).
 :- use_module(library(ansi_term)).
 
-:- consult('translator/analysis.pl').
-:- consult('translator/lowering.pl').
-:- consult('translator/special_forms.pl').
-:- consult('translator/typing.pl').
-:- consult('translator/runtime.pl').
+:- include('translator/analysis.pl').
+:- include('translator/lowering.pl').
+:- include('translator/special_forms.pl').
+:- include('translator/typing.pl').
+:- include('translator/runtime.pl').
+%The owner repeats included meta declarations so load_files/2 reasserts their
+%properties before a dependent source is recompiled
+%[tested: check_project_var_branches in tests/prolog/static_checks.pl; commit=WORKTREE].
+:- meta_predicate with_runnable_variable_epochs(0),
+                  metta_condition_holds(2, ?).

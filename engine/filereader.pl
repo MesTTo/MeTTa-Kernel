@@ -550,7 +550,15 @@ metta_host_read_forms(Source0, Pairs) :-
 metta_host_form_pair(parsed(Kind, Text, _), [Kind, Text]).
 metta_host_form_pair(parsed(Kind, Text, _, _), [Kind, Text]).
 
-:- consult('filereader/source_lifecycle.pl').
+:- include('filereader/source_lifecycle.pl').
+%Reloading an umbrella clears meta properties before recompiling it. Reassert
+%the included unit's declarations from the owner so later engine files compile
+%their goal arguments in the caller's module on every load
+%[tested: check_project_var_branches in tests/prolog/static_checks.pl; commit=WORKTREE].
+:- meta_predicate with_source_load(+, +, 0),
+                  replacing_previous_load(+, +, 1, 0),
+                  replace_source_load(+, +, +, 1, 0),
+                  run_with_loading_marker(:, 0).
 %Extract function definitions, call invocations, and S-expressions part of &self space:
 process_metta_string(S, Results) :- process_metta_string(S, Results, '&self').
 process_metta_string(S, Results, Space) :-

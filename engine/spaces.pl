@@ -312,8 +312,15 @@ native_storage_functor(Space, '$petta_parametric_atom') :-
 space_canonical_atom(Space, Encoded) :-
     with_output_to(atom(Encoded), write_canonical(Space)).
 
-:- consult('spaces/catalog.pl').
-:- consult('spaces/lifecycle.pl').
-:- consult('spaces/foreign.pl').
-:- consult('spaces/bounded_matching.pl').
-:- consult('spaces/native_matching.pl').
+:- include('spaces/catalog.pl').
+:- include('spaces/lifecycle.pl').
+:- include('spaces/foreign.pl').
+:- include('spaces/bounded_matching.pl').
+:- include('spaces/native_matching.pl').
+%The owner repeats included meta declarations so load_files/2 reasserts their
+%properties before a dependent source is recompiled
+%[tested: check_project_var_branches in tests/prolog/static_checks.pl; commit=WORKTREE].
+:- meta_predicate foreign_write(+, +, 0),
+                  petta_run_named(+, 0, -),
+                  metta_take(+, 0),
+                  metta_top(+, 0, ?).
