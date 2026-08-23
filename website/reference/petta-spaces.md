@@ -7,6 +7,9 @@ Source: `bindings/python/petta/spaces.py`.
 > the same engine route therefore matches a live object or composes existing
 > spaces without hardcoded integration paths.
 > Guarantees:
+>   - view presents mappings and zero-based sequences through one kv relation
+>     and sets as members, reading the Python object afresh for every query
+>     [tested: test_view_is_a_live_queryable_space; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 >   - union and readonly implement no write operation, so the engine's own
 >     capability refusal answers add-atom on them [tested
 >     test_union_refuses_writes_through_the_engine]
@@ -25,6 +28,19 @@ Source: `bindings/python/petta/spaces.py`.
 >   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
+
+## `view`
+
+```python
+def view(obj: Any):
+```
+
+> Return an attached live space over a dict, set, or sequence.
+>
+> Dictionaries image as ``(kv key value)``. Sequences use that same relation
+> with zero-based integer keys, matching Python's indices; a value-bound
+> query therefore answers every matching index. Sets image as raw members.
+> External mutations are visible on the next query.
 
 ## `ObjectView`
 

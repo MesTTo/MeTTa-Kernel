@@ -543,7 +543,7 @@ kind(foreign_capability/2, declaration).
 %ordered or unordered, the catalog's own `delivery` and `event-order`
 %vocabularies. The per-space door is the ordinary declaration atom,
 %(events <ctx> <delivery> <order>) in '&petta', which is what
-%MeTTa.declare_events and a Python provider's registration write; this is
+%Space.events(delivery, order) and a Python provider's registration write; this is
 %the same answer for a provider like MORK, whose spaces are every name
 %beginning &mork, so there is no one name to write the atom about. The two
 %doors are read by one question, petta_event_capability/3, exactly as a

@@ -17,6 +17,7 @@ requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
+    "docstring-parser>=0.17,<0.18",
     "janus-swi>=1.5.2",
 ]
 classifiers = [
@@ -343,7 +344,7 @@ name = "leaf modules do not import the facade"
 type = "forbidden"
 source_modules = [
     "petta.subscribe", "petta.events", "petta.foreign", "petta.casting",
-    "petta.trace", "petta.lint", "petta.derivation", "petta.results",
+    "petta._trace", "petta.lint", "petta.derivation", "petta.results",
 ]
 forbidden_modules = ["petta._space"]
 
@@ -414,7 +415,7 @@ forbidden_modules = [
     "petta.subscribe",
     "petta.tables",
     "petta.testing",
-    "petta.trace",
+    "petta._trace",
     "petta.vocabularies",
     "petta.wire",
 ]

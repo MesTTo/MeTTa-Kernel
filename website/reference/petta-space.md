@@ -31,14 +31,44 @@ Source: `bindings/python/petta/_space.py`.
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - named space construction accepts a space-name Symbol as well as its text
 >     spelling [tested: test_space_factory_accepts_a_name_symbol; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
+>   - a Symbol or ground Expression names a source-visible atomic or parametric
+>     space, while a free variable refuses before engine state changes [tested:
+>     test_python_space_factory_accepts_atom_valued_names; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - a tuple headed by an atom is one subscript pattern, a tuple of complete
+>     patterns is a join, list writes stream their atoms, and del drains every
+>     match or raises KeyError [tested:
+>     test_subscript_one_pattern_and_bulk_delete_laws; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - ``Space.query`` returns a lazy Answers view; truth and single unpack pull
+>     only their demanded prefix, while len counts inside the engine [tested:
+>     test_query_answers_complete_the_lazy_projection_protocol,
+>     test_query_single_unpack_pulls_at_most_two_answers; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - ``Space.pre_add`` declares one compiled unary judge through the engine's
+>     existing pre-add hook [tested: test_pre_add_compiles_the_four_verdict_judge;
+>     commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 >   - handle-level Linda waits load their support into the default caller space,
 >     never into a distinct waited-on space [tested:
 >     test_peek_does_not_import_linda_into_the_waited_space; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
->   - ``Space.query``, every ``declare_*`` verb, and the write door retain their
->     established semantics after moving off ``MeTTa`` [tested:
+>   - ``Space.query``, every head-named declaration verb, and the write door
+>     retain their established semantics after moving off ``MeTTa`` [tested:
 >     test_query_surfaces_share_column_order,
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms,
 >     test_the_python_remove_door_subtracts_one_copy; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - all fifteen declaration verbs use the atom head as the method name,
+>     inject the receiver where it is the subject, and expose no ``declare_*``
+>     aliases [tested: test_declarations_use_their_atom_heads_on_the_receiver,
+>     test_m7_narrow_core_surface; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - Expression recognizes Space as the one iterable Handle whose listing is
+>     collected as an assembly-order snapshot [tested:
+>     test_expression_of_a_space_is_an_assembly_order_snapshot; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - native iteration snapshots assembly order at iterator creation, handles
+>     stay truthy independently of contents, and provider length requires its
+>     Sized declaration [tested:
+>     test_native_iteration_snapshots_before_mutation,
+>     test_space_truth_does_not_ask_for_emptiness,
+>     test_provider_length_requires_and_uses_sized; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - ``Space.limits(stack=bytes)`` scopes a positive stack byte count beside
+>     time and inference bounds [tested:
+>     test_stack_limit_is_carried_to_the_limited_six_seam; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 >   - ``Space.op`` and ``Space.unregister_op`` are the sole public operation
 >     lifecycle pair [tested: test_operation_registration_names_are_symmetric;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
@@ -47,9 +77,12 @@ Source: `bindings/python/petta/_space.py`.
 >     test_bound_function_namespace_validates_at_access,
 >     test_function_calls_pull_engine_answers_only_as_demanded;
 >     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
->   - builtin discovery is cached per logical space and invalidated by every
->     catalogue mutation [tested: test_builtin_discovery_is_cached,
->     test_builtin_cache_invalidates_after_a_miss; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
+>   - builtin discovery is cached per logical space, with namespace reads
+>     comparing the engine's function generation and explicit Python mutation
+>     doors retaining eager invalidation [tested:
+>     test_cache_reads_compare_the_function_generation,
+>     test_builtin_discovery_is_cached,
+>     test_builtin_cache_invalidates_after_a_miss; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 >   - ``Space`` is a grounded ``Handle`` that crosses as a term operand, and
 >     ``peek`` and ``take`` expose the engine's event-driven Linda operations
 >     [tested: test_space_handles_are_term_operands_and_round_trip,
@@ -525,7 +558,7 @@ def query(
 ) -> Any:
 ```
 
-> Match patterns against this space as one conjunction.
+> Lazily match patterns against this space as one conjunction.
 >
 > Variables shared between patterns join, the engine's own match/4
 > doing the joining. Columns are the variable names in first
@@ -541,14 +574,13 @@ def query(
 > TimeLimitError or InferenceLimitError when hit, for joins whose
 > size is not known in advance.
 >
-> **Slicing the result is not the same thing.** query() is EAGER, so
-> `query(pat)[:3]` computes every row and throws all but three away.
-> Over 2,000 stored atoms that measured 26,055 inferences against 20
-> for `stream(pat)[:3]`, which pulls three and stops. Reach for `limit`
-> when you want a bounded answer set, and for stream() when you want to
-> take rows until you have seen enough.
+> The returned Answers view pulls only what Python observes. ``bool``
+> pulls one row, exact-one operations pull at most two, and slicing
+> retains an Answers view. ``len`` uses an engine-side aggregate when
+> no row has yet been pulled.
 >
-> `into=` shapes each row into a dataclass, NamedTuple, or
+> `into=Rows` explicitly chooses the eager Rows face. Other `into=`
+> values shape each row into a dataclass, NamedTuple, or
 > TypedDict matched by field name, sqlite3's row_factory reading:
 > `m.query(S.edge(V.a, V.b), into=Edge)` answers `list[Edge]`,
 > and Rows stays the default so nothing is lost. A one-variable query
@@ -624,15 +656,21 @@ def solve(self, pattern: Any, subject: Any) -> Any:
 ### `Space.watch`
 
 ```python
-def watch(self, pattern: Any, *, on: str = 'add'):
+def watch(self, pattern: Any, *, on: str = 'add', deadline: float | None = None):
 ```
 
-> Yield matching change events until the iterator closes.
+> Yield matching changes, raising Timeout after each quiet deadline.
 
 ### `Space.limits`
 
 ```python
-def limits(self, *, timeout: float | None = None, inferences: int | None = None) -> ScopedLimits:
+def limits(
+    self,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    stack: int | None = None,
+) -> ScopedLimits:
 ```
 
 > Scoped default bounds for every call in the with-block:
@@ -779,6 +817,8 @@ def eval(
 > `timeout` (seconds) and `inferences` (engine steps) bound the call,
 > raising TimeLimitError or InferenceLimitError when hit. A surrounding
 > `capture()` scope collects printed text without changing the list.
+> In a `strict()` scope an unreduced term raises StrictError while a
+> genuinely empty branch still returns no answers.
 
 ### `Space.answers`
 
@@ -969,6 +1009,9 @@ def op(
 >     def neighbours(n: int):
 >         yield n - 1                     # a generator is nondeterministic
 >         yield n + 1
+>
+> An implicit Python name maps underscores to MeTTa hyphens. ``name=``
+> is exact, for source vocabularies that deliberately use underscores.
 >
 > A name must read back as one MeTTa symbol. A space, parenthesis,
 > quote, comment opener, variable spelling, number, boolean, or another
@@ -1323,28 +1366,6 @@ def subscribe(
 > cannot say which. Re-read the space when you need to know;
 > `petta.structures.LiveView` is the worked instance.
 
-### `Space.events`
-
-```python
-def events(self) -> Any:
-```
-
-> This engine's stream of `(action, space, atom)` changes.
->
->     seen = m.events().fold(
->         lambda held, event: [*held, event.atom],
->         space=m.name, pattern=S.order(V.id), state=[],
->     )
->     m.add(S.order(1))
->     seen.take()          # [(order 1)], and the fold starts again
->
-> The stream is the primitive and a FOLD over it is how anything
-> consumes it: a step `(state, event) -> state` run inside the write
-> that caused the event. subscribe() is the fold whose step delivers,
-> bridge() the fold whose step writes, and a declared `(on ...)`
-> reaction the fold whose step evaluates, so a consumer you write and
-> one this library ships are the same kind of thing.
-
 ### `Space.prolog`
 
 ```python
@@ -1474,6 +1495,18 @@ def rules(self, fn: Callable[..., Any]) -> _Rules:
 
 > Collect and land a non-exclusive equation bundle in this space.
 
+### `Space.pre_add`
+
+```python
+def pre_add(self, fn: Defined[..., Any] | Callable[..., Any]) -> Defined[..., Any]:
+```
+
+> Compile or accept one unary judge and claim this space's write door.
+>
+> The common decorator stack places ``@pre_add`` above ``@define``, so
+> an existing Defined keeps the module that owns its equations. A raw
+> function is compiled into this space before claiming the hook.
+
 ### `Space.cache`
 
 ```python
@@ -1557,17 +1590,10 @@ def integrate(self, target: Any) -> str:
 
 > Install a library integration; see petta.integrate.
 
-### `Space.declare_handles`
+### `Space.handles`
 
 ```python
-def declare_handles(
-    self,
-    name: str,
-    pattern: str | Atom,
-    fidelity: str,
-    *,
-    det: str | None = None,
-) -> Atom:
+def handles(self, pattern: str | Atom, fidelity: str, *, det: str | None = None) -> Atom:
 ```
 
 > Declare how faithfully a space answers queries of one shape.
@@ -1580,7 +1606,7 @@ def declare_handles(
 > (in $x) at a position to match only queries arriving with it
 > bound, so a scan-only source is three words:
 >
->     m.declare_handles("&rows", "(edge (in $a) $b)", "Refuse")
+>     rows.handles("(edge (in $a) $b)", "Refuse")
 >
 > Coherence is checked eagerly in the same transaction as the
 > write: a new entry that can disagree with an existing one on some
@@ -1588,13 +1614,13 @@ def declare_handles(
 > that falls into their overlap. The atom is returned; removing it
 > from &petta withdraws the declaration.
 
-### `Space.declare_annotations`
+### `Space.annotations`
 
 ```python
-def declare_annotations(
+def annotations(
     self,
-    name: str,
-    algebra: str,
+    subject_or_algebra: str,
+    algebra: str | None = None,
     *,
     capabilities: _abc.Iterable[str] = (),
 ) -> Atom:
@@ -1605,7 +1631,9 @@ def declare_annotations(
 > A context is a space name or an operation name. bool is the
 > default at which everything vanishes; ranked admits ordered
 > annotations, which is what (top k ...) consumes. A custom name must
-> first be introduced with :meth:`declare_algebra`. Capabilities are
+> first be introduced with :meth:`algebra`. A one-argument call uses
+> this space as the context; the two-argument form keeps an operation
+> context as the explicit first subject. Capabilities are
 > checked against the algebra's requirements before the catalog write;
 > amplitude programs, for example, must explicitly declare ``finite``,
 > ``contractive`` and ``staged`` [tested:
@@ -1613,10 +1641,10 @@ def declare_annotations(
 > commit=f88aa8be03cb64cb59d3307515ded8701f418321]. Declaring replaces any earlier row for the
 > context, so the reader never meets two disagreeing atoms.
 
-### `Space.declare_algebra`
+### `Space.algebra`
 
 ```python
-def declare_algebra(
+def algebra(
     self,
     name: str,
     *,
@@ -1653,15 +1681,10 @@ def add_tagged_rule(self, tag: Any, head: Any, *premises: Any) -> Atom:
 
 > Store one rule generated by the algebra-agnostic tag threader.
 
-### `Space.declare_image`
+### `Space.image`
 
 ```python
-def declare_image(
-    self,
-    name: str,
-    type_name: str,
-    setting: Literal['opaque', 'transparent', 'auto'],
-) -> Atom:
+def image(self, type_name: str, setting: Literal['opaque', 'transparent', 'auto']) -> Atom:
 ```
 
 > Choose how one Python type crosses one context boundary.
@@ -1695,10 +1718,10 @@ def sample_rates(
 
 > Select tagged alternatives by their nonnegative ``(rate n)`` tags.
 
-### `Space.declare_source`
+### `Space.source`
 
 ```python
-def declare_source(self, name: str, kind: str) -> Atom:
+def source(self, kind: str) -> Atom:
 ```
 
 > Declare a space's consumption discipline.
@@ -1711,10 +1734,15 @@ def declare_source(self, name: str, kind: str) -> Atom:
 > source. peek promises reads do not consume, which the conformance
 > kit checks by enumerating twice.
 
-### `Space.declare_on_error`
+### `Space.on_error`
 
 ```python
-def declare_on_error(self, name: str, pattern: str | Atom, mode: str) -> Atom:
+def on_error(
+    self,
+    subject_or_pattern: str | Atom,
+    pattern_or_mode: str | Atom,
+    mode: str | None = None,
+) -> Atom:
 ```
 
 > Declare what a context's failure becomes, per query shape.
@@ -1729,10 +1757,10 @@ def declare_on_error(self, name: str, pattern: str | Atom, mode: str) -> Atom:
 > emptied: an interrupt is the caller's, and an absent backend has
 > said nothing about the data.
 
-### `Space.declare_merge`
+### `Space.merge`
 
 ```python
-def declare_merge(self, pattern: str | Atom, policy: str) -> Atom:
+def merge(self, pattern: str | Atom, policy: str) -> Atom:
 ```
 
 > Declare how the engine merges one query shape's answers
@@ -1745,10 +1773,10 @@ def declare_merge(self, pattern: str | Atom, policy: str) -> Atom:
 > context declares (emits &lt;ctx> best-first), and loudly refused
 > without. Shapes route most-specific-first as everywhere.
 
-### `Space.declare_context`
+### `Space.context`
 
 ```python
-def declare_context(self, name: str, world: str) -> Atom:
+def context(self, world: str) -> Atom:
 ```
 
 > Record what a space's absence means.
@@ -1759,10 +1787,10 @@ def declare_context(self, name: str, world: str) -> Atom:
 > an undeclared one refuses under negation loudly. Native spaces
 > are the engine's own database and closed by construction.
 
-### `Space.declare_agenda`
+### `Space.agenda`
 
 ```python
-def declare_agenda(self, name: str, policy: str, function: str | None = None) -> Atom:
+def agenda(self, policy: str, function: str | None = None) -> Atom:
 ```
 
 > Declare which reaction fires first when several match one write.
@@ -1775,21 +1803,14 @@ def declare_agenda(self, name: str, policy: str, function: str | None = None) ->
 > SCORES a reaction, highest first. Every policy breaks ties on
 > declaration order.
 >
->     m.declare_reaction("&alarms", "(alert $w)", "(insert &log (all $w))")
->     m.declare_reaction("&alarms", "(alert fire)", "(insert &log (fire))",
->                        priority=9)
->     m.declare_agenda("&alarms", "priority")
+>     alarms.reaction("(alert $w)", "(insert &log (all $w))")
+>     alarms.reaction("(alert fire)", "(insert &log (fire))", priority=9)
+>     alarms.agenda("priority")
 
-### `Space.declare_reaction`
+### `Space.reaction`
 
 ```python
-def declare_reaction(
-    self,
-    name: str,
-    pattern: str | Atom,
-    operation: str | Atom,
-    priority: int | None = None,
-) -> Atom:
+def reaction(self, pattern: str | Atom, operation: str | Atom, priority: int | None = None) -> Atom:
 ```
 
 > Declare a reaction, stored as an (on ...) atom: when an atom
@@ -1809,10 +1830,10 @@ def declare_reaction(
 > with add and remove, an unregistered or remote target included.
 > Same multi-context-systems idea, two delivery tiers.
 
-### `Space.declare_admits`
+### `Space.admits`
 
 ```python
-def declare_admits(self, name: str, type_name: str) -> Atom:
+def admits(self, type_name: str) -> Atom:
 ```
 
 > Type a pool's membership: only TYPE-carrying atoms enter.
@@ -1822,18 +1843,18 @@ def declare_admits(self, name: str, type_name: str) -> Atom:
 > declarations make membership a type judgement the ontology
 > already knows how to make.
 
-### `Space.declare_capacity`
+### `Space.capacity`
 
 ```python
-def declare_capacity(self, name: str, limit: int) -> Atom:
+def capacity(self, limit: int) -> Atom:
 ```
 
 > Bound a pool: an add beyond LIMIT atoms is refused loudly.
 
-### `Space.declare_writes`
+### `Space.writes`
 
 ```python
-def declare_writes(self, name: str, atomicity: str) -> Atom:
+def writes(self, atomicity: str) -> Atom:
 ```
 
 > Declare what a space's writes promise inside a transaction.
@@ -1846,10 +1867,10 @@ def declare_writes(self, name: str, atomicity: str) -> Atom:
 > silently surviving a rolled-back transaction is the wrong answer
 > the declaration exists to replace.
 
-### `Space.declare_emits`
+### `Space.emits`
 
 ```python
-def declare_emits(self, name: str, policy: str) -> Atom:
+def emits(self, policy: str) -> Atom:
 ```
 
 > Declare the order a context emits its own answers in.
@@ -1859,13 +1880,13 @@ def declare_emits(self, name: str, policy: str) -> Atom:
 > k best. Distinct from the (merge &lt;pattern> &lt;policy>) strategy,
 > which is how the ENGINE merges answers across several contexts.
 
-### `Space.declare_events`
+### `Space.events`
 
 ```python
-def declare_events(self, name: str, delivery: str, order: str = 'unordered') -> Atom:
+def events(self, delivery: str | None = None, order: str = 'unordered') -> Atom | Any:
 ```
 
-> Declare what a context's change events promise.
+> Return the event stream, or declare what this context promises.
 >
 > Subscribability is a promise about the context, not something the
 > seam reads off its methods. A native space needs no declaration:
@@ -1874,8 +1895,8 @@ def declare_events(self, name: str, delivery: str, order: str = 'unordered') -> 
 > declares, and one that declares nothing refuses a subscription
 > instead of serving one that silently misses writes.
 >
->     m.declare_events("&shared", "at-most-once")   # redis pub/sub
->     m.declare_events("&mirror", "per-write-exactly", "ordered")
+>     shared.events("at-most-once")   # redis pub/sub
+>     mirror.events("per-write-exactly", "ordered")
 >
 > delivery is at-most-once, at-least-once or per-write-exactly, and
 > order is ordered or unordered, defaulting to unordered because an

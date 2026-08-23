@@ -33,9 +33,13 @@ Source: `bindings/python/petta/aio.py`.
 >   - async names and save formats retain the synchronous surface's contextual
 >     types [tested: test_canonical_context_types_replace_public_newtypes;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - async declaration methods reuse the catalog-generated policy aliases and
+>   - async head-named declaration methods reuse the catalog-generated policy aliases and
 >     own no duplicate Literal lists [tested: tests/check_policy_inventory.py;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - all fifteen synchronous declaration names have asynchronous head-named
+>     mirrors and no ``declare_*`` aliases [tested:
+>     test_aio_covers_the_whole_synchronous_surface,
+>     test_m7_narrow_core_surface; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 >   - async cast preserves a concrete target class as its static return type and
 >     keeps the target positional-only [tested
 >     test_target_type_overloads_preserve_the_requested_class,
@@ -43,6 +47,9 @@ Source: `bindings/python/petta/aio.py`.
 >   - async space forwards anonymous-space inheritance, restriction, and grants
 >     on the owning worker [tested:
 >     test_async_space_forwards_restriction_and_grants; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - async scoped limits forward stack byte bounds through the synchronous
+>     task-local scope [tested: test_stack_limit_is_carried_to_the_limited_six_seam;
+>     commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 >   - reader-token registration and removal run on the owning engine worker and
 >     mirror the synchronous surface [tested:
 >     test_aio_plain_methods_forward_on_the_worker; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
@@ -57,7 +64,7 @@ Source: `bindings/python/petta/aio.py`.
 >     return shapes [tested:
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - declare_image reaches the synchronous declaration owner on the engine
+>   - image reaches the synchronous declaration owner on the engine
 >     worker [tested: test_aio_covers_the_whole_synchronous_surface;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - async peek and take keep event-loop threads unblocked while the engine
@@ -563,21 +570,21 @@ async def space_names(self) -> list[str]:
 
 > Every space name this engine registers, sorted.
 
-### `AsyncMeTTa.declare_admits`
+### `AsyncMeTTa.admits`
 
 ```python
-async def declare_admits(self, name: str, type_name: str) -> Atom:
+async def admits(self, type_name: str) -> Atom:
 ```
 
 No docstring is defined.
 
-### `AsyncMeTTa.declare_annotations`
+### `AsyncMeTTa.annotations`
 
 ```python
-async def declare_annotations(
+async def annotations(
     self,
-    name: str,
-    algebra: str,
+    subject_or_algebra: str,
+    algebra: str | None = None,
     *,
     capabilities: Sequence[str] = (),
 ) -> Atom:
@@ -585,10 +592,10 @@ async def declare_annotations(
 
 No docstring is defined.
 
-### `AsyncMeTTa.declare_algebra`
+### `AsyncMeTTa.algebra`
 
 ```python
-async def declare_algebra(
+async def algebra(
     self,
     name: str,
     *,
@@ -643,106 +650,85 @@ async def sample_rates(
 
 > Draw from declared rates on the owning engine thread.
 
-### `AsyncMeTTa.declare_capacity`
+### `AsyncMeTTa.capacity`
 
 ```python
-async def declare_capacity(self, name: str, limit: int) -> Atom:
+async def capacity(self, limit: int) -> Atom:
 ```
 
 No docstring is defined.
 
-### `AsyncMeTTa.declare_context`
+### `AsyncMeTTa.context`
 
 ```python
-async def declare_context(self, name: str, world: World) -> Atom:
+async def context(self, world: World) -> Atom:
 ```
 
 No docstring is defined.
 
-### `AsyncMeTTa.declare_emits`
+### `AsyncMeTTa.emits`
 
 ```python
-async def declare_emits(self, name: str, policy: AnswerPolicy) -> Atom:
+async def emits(self, policy: AnswerPolicy) -> Atom:
 ```
 
 No docstring is defined.
-
-### `AsyncMeTTa.declare_events`
-
-```python
-async def declare_events(
-    self,
-    name: str,
-    delivery: Delivery,
-    order: EventOrder = 'unordered',
-) -> Atom:
-```
-
-> Declare what a context's change events promise; see MeTTa.declare_events.
 
 ### `AsyncMeTTa.events`
 
 ```python
-async def events(self) -> Any:
+async def events(self, delivery: Delivery | None = None, order: EventOrder = 'unordered') -> Any:
 ```
 
-> This engine's public event stream; see MeTTa.events.
+> Return the event stream or declare this context's event promise.
 >
 > A fold registered through it runs on the engine thread, inside the
 > write that caused the event, exactly as a synchronous one does.
 > `AsyncMeTTa.subscribe` is the async-native door for the delivering
 > fold and hands events to an async iterator instead.
 
-### `AsyncMeTTa.declare_handles`
+### `AsyncMeTTa.handles`
 
 ```python
-async def declare_handles(
+async def handles(self, pattern: str | Atom, fidelity: Fidelity, *, det: str | None = None) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.image`
+
+```python
+async def image(self, type_name: str, setting: Literal['opaque', 'transparent', 'auto']) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.merge`
+
+```python
+async def merge(self, pattern: str | Atom, policy: AnswerPolicy) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.on_error`
+
+```python
+async def on_error(
     self,
-    name: str,
-    pattern: str | Atom,
-    fidelity: Fidelity,
-    *,
-    det: str | None = None,
+    subject_or_pattern: str | Atom,
+    pattern_or_mode: str | Atom,
+    mode: OnErrorMode | None = None,
 ) -> Atom:
 ```
 
 No docstring is defined.
 
-### `AsyncMeTTa.declare_image`
+### `AsyncMeTTa.reaction`
 
 ```python
-async def declare_image(
+async def reaction(
     self,
-    name: str,
-    type_name: str,
-    setting: Literal['opaque', 'transparent', 'auto'],
-) -> Atom:
-```
-
-No docstring is defined.
-
-### `AsyncMeTTa.declare_merge`
-
-```python
-async def declare_merge(self, pattern: str | Atom, policy: AnswerPolicy) -> Atom:
-```
-
-No docstring is defined.
-
-### `AsyncMeTTa.declare_on_error`
-
-```python
-async def declare_on_error(self, name: str, pattern: str | Atom, mode: OnErrorMode) -> Atom:
-```
-
-No docstring is defined.
-
-### `AsyncMeTTa.declare_reaction`
-
-```python
-async def declare_reaction(
-    self,
-    name: str,
     pattern: str | Atom,
     operation: str | Atom,
     priority: int | None = None,
@@ -751,31 +737,26 @@ async def declare_reaction(
 
 No docstring is defined.
 
-### `AsyncMeTTa.declare_agenda`
+### `AsyncMeTTa.agenda`
 
 ```python
-async def declare_agenda(
-    self,
-    name: str,
-    policy: AgendaPolicy,
-    function: str | None = None,
-) -> Atom:
+async def agenda(self, policy: AgendaPolicy, function: str | None = None) -> Atom:
 ```
 
-> Declare which reaction fires first; see MeTTa.declare_agenda.
+> Declare which reaction fires first; see Space.agenda.
 
-### `AsyncMeTTa.declare_source`
+### `AsyncMeTTa.source`
 
 ```python
-async def declare_source(self, name: str, kind: SourceKind) -> Atom:
+async def source(self, kind: SourceKind) -> Atom:
 ```
 
 No docstring is defined.
 
-### `AsyncMeTTa.declare_writes`
+### `AsyncMeTTa.writes`
 
 ```python
-async def declare_writes(self, name: str, atomicity: Atomicity) -> Atom:
+async def writes(self, atomicity: Atomicity) -> Atom:
 ```
 
 No docstring is defined.
@@ -890,7 +871,13 @@ No docstring is defined.
 ### `AsyncMeTTa.limits`
 
 ```python
-def limits(self, *, timeout: float | None = None, inferences: int | None = None):
+def limits(
+    self,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    stack: int | None = None,
+):
 ```
 
 > Scoped default bounds, the synchronous surface's own block:

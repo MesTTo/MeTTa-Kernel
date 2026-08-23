@@ -41,6 +41,9 @@ Source: `bindings/python/petta/foreign.py`.
 >     going missing [tested test_a_bound_is_withheld_from_a_provider_that_claimed_nothing,
 >     test_a_bound_reaches_a_provider_that_takes_one,
 >     test_a_false_exact_claim_is_caught]
+>   - provider length exists only through Python's Sized protocol and never
+>     falls back to enumeration [tested:
+>     test_provider_length_requires_and_uses_sized; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 > Guarded by:
 >   - _PROVIDER_LOCK serializes library registration and provider lookups
 >     [tested test_provider_registration_is_transactional]
@@ -176,7 +179,7 @@ class Transactional(Protocol):
 
 > A provider that participates in the engine's transactions.
 >
-> Declared with (writes &lt;ctx> transactional) or declare_writes: the
+> Declared with (writes &lt;ctx> transactional) or ``space.writes``: the
 > engine calls begin() at the provider's first write inside the
 > outermost transaction, then exactly one of commit() or rollback()
 > when it finishes, alongside the engine's own database rollback, so a

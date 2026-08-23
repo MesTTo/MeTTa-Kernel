@@ -41,7 +41,7 @@ MODULES = (
     ModuleSpec("petta.aio", "bindings/python/petta/aio.py"),
     ModuleSpec("petta.testing", "bindings/python/petta/testing.py"),
     ModuleSpec("petta.lint", "bindings/python/petta/lint.py"),
-    ModuleSpec("petta.trace", "bindings/python/petta/trace.py"),
+    ModuleSpec("petta.trace", "bindings/python/petta/_trace.py"),
     ModuleSpec("petta.casting", "bindings/python/petta/casting.py"),
     ModuleSpec("petta.foreign", "bindings/python/petta/foreign.py"),
     ModuleSpec("petta.integrate", "bindings/python/petta/integrate.py"),

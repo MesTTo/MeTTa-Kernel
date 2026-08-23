@@ -8,6 +8,23 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Add package-level `superpose`, ambient `match`, pre-add verdict builders,
+  live container `view`, and the `spawn`, `race`, `every`, `channel`, and
+  `par_map` coordination family.
+- Add atom-valued named spaces, including ground parametric expression names
+  that round-trip through MeTTa source.
+- Add plain annotated-class definitions with constructor terms, field
+  accessors, construction-time defaults, `__match_args__`, and `__replace__`.
+- Add `Space.pre_add` compiled judges with accept, transform, refuse, and
+  drop verdicts.
+- Add the lazy default-engine module tier for `define`, `cache`, `stats`,
+  `limits`, `strict`, and `trace`, including scoped stack-byte limits
+  through `petta_py_limited/6`.
+- Add Python match-statement lowering to ordered MeTTa case towers and
+  `functools.reduce` lowering for named and lambda reducers.
+- Add structured documentation emission for descriptions, parameters,
+  returns, types, kinds, examples, record fields, and offline
+  generated-function help.
 - Python-defined equality and truthiness now execute in the Prolog engine for
   native wire values (variables, booleans, numbers, strings, symbols, and
   expressions recursively), with the exact Python semantics: `1 == 1.0`,
@@ -136,6 +153,31 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Map Python operator words consistently across `S`, static `fn`, and bound
+  `space.fn` while keeping bracket names exact and refusing composite-only
+  `neg` and `floordiv` words.
+- Make space subscripts treat a head-shaped tuple as one pattern, complete
+  expression arguments as a join, bulk `+=` as a stream of atoms, and
+  pattern deletion as an all-match operation that raises `KeyError` when
+  empty.
+- Make the query door return lazy `Answers` with bounded cardinality reads,
+  engine-side length, same-kind slicing, and the shared projection protocol;
+  retain `Rows` as the explicit eager face.
+- Make `Expression` collect iterables, preserve its type under slicing, and
+  snapshot a space in assembly order.
+- Make unary plus preserve atom identity, map implicit operation names
+  through the define naming ladder, and align Python atom ordering with
+  engine `msort`.
+- Keep empty evaluation distinct from unreduced terms and make strict
+  evaluation reject only non-reduction.
+- Make space length depend on a provider's declared `Sized` support, keep
+  handle truth independent of emptiness, and document native iteration as a
+  snapshot.
+- Move builtins-cache invalidation from every evaluation to generation
+  comparison on function-namespace cache reads using
+  `petta_py_function_generation/1`. Removing the per-evaluation catalogue
+  sniff puts `py-method-call` at 1,503,497,066 instructions, below its
+  1,508,773,364 acceptance ceiling.
 - A conjunctive `match` costs work linear in its conjunct count rather than
   quadratic. Whether every conjunct was relational is a precondition of the
   whole conjunction and it was re-decided at every step, walking the remaining
@@ -314,6 +356,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Removed
 
+- Remove all 15 synchronous `declare_*` methods and their async mirrors in
+  favor of head-named receiver methods.
 - The legacy `python.petta` import path. The alias package that kept
   upstream's `import python.petta` resolving to the canonical modules is
   gone, and `petta` is the only import path. Code spelling the upstream

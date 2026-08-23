@@ -18,6 +18,9 @@ Source: `bindings/python/petta/ops.py`.
 >     one symbol and refuses before reflecting or registering anything [tested:
 >     test_register_op_refuses_a_name_metta_cannot_read;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - implicit operation names apply the total underscore-to-hyphen map while
+>     explicit name= remains exact [tested: test_op_uses_the_define_name_ladder;
+>     commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 >   - full annotations become ordinary claims in the declaration space
 >     [tested: test_the_four_containers_share_one_parameterised_treatment;
 >      commit=f88aa8be03cb64cb59d3307515ded8701f418321]

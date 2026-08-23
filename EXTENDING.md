@@ -73,7 +73,7 @@ space it writes into. The hook row is the price of consulting an
 arbitrary-MeTTa policy per write, paid only by the space that asked; the
 handler's call site is translated once when the claim is made, not per
 write, which is what holds the row at this size. The pool rows go through
-the shipped `declare_admits` and `declare_capacity` surface, which claims
+the shipped `pool.admits` and `pool.capacity` surface, which claims
 the pool's pre-add hook with the `space-admission-verdict` judge; a space
 nothing claimed keeps the direct write path, which is why the plain row
 fell from 49.01 when the old global admission wrapper came off.
@@ -1796,7 +1796,7 @@ write hooks are an exact event source; say what your channel promises when you
 have one of your own, as a Redis-attached space says `at-most-once` and
 `unordered` because pub/sub is fire and forget; and **say nothing at all when
 your contents change where no channel reports it**. A space that declares
-nothing is refused a subscription, a `bridge` and a `declare_reaction`, naming
+nothing is refused a subscription, a `bridge` and a `space.reaction`, naming
 the missing capability, instead of serving a watcher that quietly misses
 writes.
 
@@ -2504,17 +2504,17 @@ both and the query they disagree on.
 | `(effect <name> immutable)` | the operation may sit in a tabled or memoized body | `register_op(declarations=[...])` |
 | `(cache <name> unchecked)` | the caller accepts stale answers for an impure body | add the atom |
 | `(cache <name> force\|refuse)` | override automatic memo profitability for one function; purity remains a hard refusal | add or remove the atom |
-| `(handles <ctx> <pattern> Exact\|Partial\|Sound\|Refuse [det])` | how faithful a context's own filtering is, per shape; `Exact` licenses count pushdown, `Refuse` makes the query a loud error; `(in $x)` marks a position that must arrive bound | `declare_handles` |
-| `(source <ctx> linear\|repeated\|peek)` | consumption discipline; a linear source's second touch is loud where the floor answered silently empty | `declare_source` |
-| `(on-error <ctx> <shape> keep\|empty\|abort)` | what a provider failure becomes: an `(Error ...)` answer, declared silence, or the abort floor | `declare_on_error` |
-| `(writes <ctx> transactional\|atomic-single\|best-effort)` | whether `(transaction ...)` delegates, refuses, or proceeds by declared acceptance | `declare_writes` |
-| `(context <ctx> closed-world\|open-world)` | whether negation may consult the context at all | `declare_context` |
-| `(algebra <name> <combine> <extend> <zero> <one> (laws ...) (carrier ...) (requires ...))` | the operations and checked laws that govern tagged derivations; a finite carrier makes public law claims declaration-time checkable | `declare_algebra` |
-| `(annotations <ctx> <algebra> [(capabilities ...)])` | the declared algebra answer annotations live in; `ranked` is what `(top k ...)` consumes, `prov` carries source terms, and required fragment capabilities are checked before the row lands | `declare_annotations` |
-| `(emits <ctx> depth\|fair\|best-first)` | the context's own emission order; best-first lets `top` push its bound | `declare_emits` |
-| `(merge <pattern> depth\|fair\|best-first)` | how the engine merges one shape's answers ACROSS contexts | `declare_merge` |
-| `(on <ctx> <pattern> <op>)` | a bridge: when a matching atom lands, run `(insert ...)`, `(retract ...)` or `(revise ...)` under the match's bindings | `declare_reaction` |
-| `(admits <pool> <Type>)`, `(capacity <pool> <n>)` | a typed, bounded pool; a space of spaces is the thread-pool reading | `declare_admits`, `declare_capacity` |
+| `(handles <ctx> <pattern> Exact\|Partial\|Sound\|Refuse [det])` | how faithful a context's own filtering is, per shape; `Exact` licenses count pushdown, `Refuse` makes the query a loud error; `(in $x)` marks a position that must arrive bound | `space.handles` |
+| `(source <ctx> linear\|repeated\|peek)` | consumption discipline; a linear source's second touch is loud where the floor answered silently empty | `space.source` |
+| `(on-error <ctx> <shape> keep\|empty\|abort)` | what a provider failure becomes: an `(Error ...)` answer, declared silence, or the abort floor | `space.on_error` |
+| `(writes <ctx> transactional\|atomic-single\|best-effort)` | whether `(transaction ...)` delegates, refuses, or proceeds by declared acceptance | `space.writes` |
+| `(context <ctx> closed-world\|open-world)` | whether negation may consult the context at all | `space.context` |
+| `(algebra <name> <combine> <extend> <zero> <one> (laws ...) (carrier ...) (requires ...))` | the operations and checked laws that govern tagged derivations; a finite carrier makes public law claims declaration-time checkable | `space.algebra` |
+| `(annotations <ctx> <algebra> [(capabilities ...)])` | the declared algebra answer annotations live in; `ranked` is what `(top k ...)` consumes, `prov` carries source terms, and required fragment capabilities are checked before the row lands | `space.annotations` |
+| `(emits <ctx> depth\|fair\|best-first)` | the context's own emission order; best-first lets `top` push its bound | `space.emits` |
+| `(merge <pattern> depth\|fair\|best-first)` | how the engine merges one shape's answers ACROSS contexts | `space.merge` |
+| `(on <ctx> <pattern> <op>)` | a bridge: when a matching atom lands, run `(insert ...)`, `(retract ...)` or `(revise ...)` under the match's bindings | `space.reaction` |
+| `(admits <pool> <Type>)`, `(capacity <pool> <n>)` | a typed, bounded pool; a space of spaces is the thread-pool reading | `pool.admits`, `pool.capacity` |
 | `(inherits <child> <parent>)` | the child's execution base and child-first read chain; writes remain local | `(new-space <child> (inherits <parent>))`, `new_space(inherits=...)` |
 | `(restricted <space>)`, `(grants <space> <capability>)` | a curated execution base; file, process, and network vocabulary is creation-granted | `(new-space <space> (restricted (grants ...)))`, `new_space(restricted=True, grants=...)` |
 | `(parametric <expression>)` | the exact ground expression registered as a native space identifier | `(new-space (<family> <parameter> ...))` |

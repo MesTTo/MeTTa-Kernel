@@ -170,25 +170,25 @@ The baseline count is 88 public methods/properties plus the public aliases `op` 
 | 68 | `integrate` | Move to handle with lazy satellite | `Space.integrate(...)` loads `petta.integrate` on demand |
 | 69 | `register_space` | Delete public method; retain runtime plumbing privately | `petta.attach(...)` / `MeTTa.space(backing=...)`; internal `Space._register_space(...)` |
 | 70 | `unregister_space` | Delete public method; retain runtime plumbing privately | `Space.drop()`; internal `Space._unregister_space(...)` |
-| 71 | `declare_handles` | Move to handle unchanged | `Space.declare_handles(...)` |
-| 72 | `declare_annotations` | Move to handle unchanged | `Space.declare_annotations(...)` |
-| 73 | `declare_algebra` | Move to handle unchanged, lazy algebra implementation | `Space.declare_algebra(...)` |
+| 71 | `declare_handles` | Replace with receiver head | `Space.handles(...)` |
+| 72 | `declare_annotations` | Replace with receiver head | `Space.annotations(...)` |
+| 73 | `declare_algebra` | Replace with head, lazy algebra implementation | `Space.algebra(...)` |
 | 74 | `add_tagged_fact` | Move to handle, lazy algebra implementation | `Space.add_tagged_fact(...)` |
 | 75 | `add_tagged_rule` | Move to handle, lazy algebra implementation | `Space.add_tagged_rule(...)` |
-| 76 | `declare_image` | Move to handle unchanged | `Space.declare_image(...)` |
+| 76 | `declare_image` | Replace with receiver head | `Space.image(...)` |
 | 77 | `evaluate_algebra` | Move to handle, lazy algebra implementation | `Space.evaluate_algebra(...)` |
 | 78 | `sample_rates` | Move to handle, lazy algebra implementation | `Space.sample_rates(...)` |
-| 79 | `declare_source` | Move to handle unchanged | `Space.declare_source(...)` |
-| 80 | `declare_on_error` | Move to handle unchanged | `Space.declare_on_error(...)` |
-| 81 | `declare_merge` | Move to handle unchanged | `Space.declare_merge(...)` |
-| 82 | `declare_context` | Move to handle unchanged | `Space.declare_context(...)` |
-| 83 | `declare_agenda` | Move to handle unchanged | `Space.declare_agenda(...)` |
-| 84 | `declare_reaction` | Move to handle unchanged | `Space.declare_reaction(...)` |
-| 85 | `declare_admits` | Move to handle unchanged | `Space.declare_admits(...)` |
-| 86 | `declare_capacity` | Move to handle unchanged | `Space.declare_capacity(...)` |
-| 87 | `declare_writes` | Move to handle unchanged | `Space.declare_writes(...)` |
-| 88 | `declare_emits` | Move to handle unchanged | `Space.declare_emits(...)` |
-| 89 | `declare_events` | Move to handle unchanged | `Space.declare_events(...)` |
+| 79 | `declare_source` | Replace with receiver head | `Space.source(...)` |
+| 80 | `declare_on_error` | Replace with receiver head | `Space.on_error(...)` |
+| 81 | `declare_merge` | Replace with head | `Space.merge(...)` |
+| 82 | `declare_context` | Replace with receiver head | `Space.context(...)` |
+| 83 | `declare_agenda` | Replace with receiver head | `Space.agenda(...)` |
+| 84 | `declare_reaction` | Replace with receiver head | `Space.reaction(...)` |
+| 85 | `declare_admits` | Replace with receiver head | `Space.admits(...)` |
+| 86 | `declare_capacity` | Replace with receiver head | `Space.capacity(...)` |
+| 87 | `declare_writes` | Replace with receiver head | `Space.writes(...)` |
+| 88 | `declare_emits` | Replace with receiver head | `Space.emits(...)` |
+| 89 | `declare_events` | Replace with receiver head | `Space.events(...)` |
 | 90 | `runtime` | Keep on context and expose through handle | `MeTTa.runtime` / `Space.runtime` |
 
 Count check: **90 rows**, matching the baseline public `dir(MeTTa)` count.

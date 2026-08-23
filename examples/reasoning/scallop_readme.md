@@ -7,7 +7,7 @@ README's printed values, not PeTTa-specific replacements.
 
 | Scallop feature | PeTTa seam used by the witness |
 |---|---|
-| Whole-context provenance selection | Per-context algebra declarations whose operations and checked laws are catalog atoms (`MeTTa.declare_algebra`, P4.20) |
+| Whole-context provenance selection | Per-context algebra declarations whose operations and checked laws are catalog atoms (`Space.algebra`, P4.20) |
 | `difftopkproofs` | Grounded DLPack tags under the declared gradient algebra, consumed by pettorch (P4.32) |
 | Closed `count`, `min`, `max`, `sum`, `prod` aggregate list | `foldall` with an arbitrary reducer; a reducer may itself be an algebra's declared `combine` operation |
 | Stratified negation | `not-provable` over a finite relation after its positive bindings are ground; the example states that safety obligation instead of assuming a static checker |

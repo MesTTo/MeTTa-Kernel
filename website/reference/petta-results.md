@@ -48,6 +48,9 @@ Source: `bindings/python/petta/results.py`.
 >   - len on an untouched engine-backed Answers view uses its engine count door
 >     without populating the Python cache [tested:
 >     test_len_counts_an_unmaterialised_view_engine_side; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
+>   - one(default=) distinguishes absence from multiplicity for both eager and
+>     lazy faces, while first without a default never returns None [tested:
+>     test_query_answers_complete_the_lazy_projection_protocol; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -151,16 +154,15 @@ No docstring is defined.
 ### `Rows.first`
 
 ```python
-def first(self) -> Row | None:
+def first(self, *, default: Any = _MISSING) -> Row | Any:
 ```
 
-> The first row, or None when there are no answers: the tolerant
-> accessor, SQLAlchemy's own naming.
+> Return the first row, or the caller's explicit default.
 
 ### `Rows.one`
 
 ```python
-def one(self) -> Row:
+def one(self, *, default: Any = _MISSING) -> Row | Any:
 ```
 
 > THE row, when the query is asserted to have exactly one answer;
@@ -302,13 +304,77 @@ def rows(self) -> Answers[Row]:
 
 > The caller-binding row paired with each evaluation answer.
 
+### `Answers.build`
+
+```python
+def build(self, *args: Any) -> list[Any]:
+```
+
+> Materialize, then rebuild one column through Rows.build.
+
+### `Answers.to_dicts`
+
+```python
+def to_dicts(self) -> list[dict[str, Any]]:
+```
+
+> Materialize as plain column-to-value records.
+
+### `Answers.table`
+
+```python
+def table(self) -> dict[str, list[Any]]:
+```
+
+> Materialize as a column mapping.
+
+### `Answers.to_df`
+
+```python
+def to_df(self):
+```
+
+> Materialize as a pandas DataFrame.
+
+### `Answers.to_pl`
+
+```python
+def to_pl(self):
+```
+
+> Materialize as a polars DataFrame.
+
+### `Answers.pipe`
+
+```python
+def pipe(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+```
+
+> Materialize and pass the eager Rows face to ``fn``.
+
+### `Answers.raise_for_errors`
+
+```python
+def raise_for_errors(self) -> Self:
+```
+
+> Raise stored error cells after materializing the row view.
+
+### `Answers.why`
+
+```python
+def why(self) -> str:
+```
+
+> Explain an empty query after materializing it.
+
 ### `Answers.one`
 
 ```python
-def one(self) -> Any:
+def one(self, *, default: Any = _MISSING) -> Any:
 ```
 
-> Return exactly one decoded value, rejecting zero or multiplicity.
+> Return at most one decoded value, defaulting only on absence.
 
 ### `Answers.first`
 
