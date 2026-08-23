@@ -451,6 +451,13 @@ petta_writes(Ctx, Atomicity) :-
 %outermost transaction. Commit is single-coordinator: a provider whose
 %commit throws leaves earlier commits standing, and the throw says so;
 %two-phase commit is deliberately out of scope.
+%The meta declaration stays in the same source unit as the clause. When it
+%lived in runtime.pl after this extraction, reconsulting that later unit
+%abolished the earlier static predicate before the umbrella's publication
+%check ran [tested: `swipl -q -g "consult('engine/metta.pl'),
+%load_files('engine/metta.pl',[if(true)]),
+%current_predicate(user:petta_transaction/1),halt" -t halt`; commit=WORKTREE].
+:- meta_predicate petta_transaction(0).
 petta_transaction(Goal) :-
     term_variables(Goal, Vars),
     (   current_transaction(_)

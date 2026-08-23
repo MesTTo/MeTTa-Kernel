@@ -484,17 +484,17 @@ undocumented(Name) :- current_metta_space(Space),
                   metta_inferences(+, 0, ?),
                   metta_elapsed(0, ?, ?),
                   metta_with_pragmas(+, 0, ?),
-                  metta_host_with_stack_limit(+, 0),
-                  petta_transaction(0).
-%Why these seven: a runnable's goals run as call(Module:G), so a goal a
+                  metta_host_with_stack_limit(+, 0).
+%Why these helpers: a runnable's goals run as call(Module:G), so a goal a
 %special form passes to a HELPER used to lose the module on the way in,
 %and the helper's findall called it back in user: every one of these
 %forms was silently unusable in a named space, which is every space the
 %Python surface creates ("Unknown procedure" for a function the space
 %plainly defines). meta_predicate makes the call site wrap the goal
-%argument as Module:Goal, the manual's own maplist example. metta_take/2
-%and metta_top/3 take the same declaration beside their own clauses in
-%spaces.pl, because a meta_predicate directive above a predicate defined
+%argument as Module:Goal, the manual's own maplist example.
+%petta_transaction/1 takes its declaration beside its clause in
+%space_hooks.pl; metta_take/2 and metta_top/3 do the same in spaces.pl,
+%because a meta_predicate directive above a predicate defined
 %in another file warns that it has no clauses. Baking the
 %qualification at translate time was measured as the alternative and
 %costs MORE where wrapper forms are retranslated per run
