@@ -119,6 +119,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Removing an equation no longer costs time that grows with the program.
+  Deciding whether a function is still defined anywhere, and whether one module
+  owns it, asked for the compiled predicate with its arity left open, which
+  walks the module's whole predicate table; the arity registry names the
+  candidate instead. Each decision cost 24.9 microseconds in a program of 8,000
+  functions and costs 0.59, and removing an equation from one cost 485
+  microseconds and costs 384.
+
 - Deciding which memoized functions are recursive costs time linear in their
   number rather than quadratic. A one-member component is recursive exactly when
   it calls itself, and that was asked of the whole arc list once per component,
