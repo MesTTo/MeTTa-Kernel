@@ -2,7 +2,7 @@
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE]
+% [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=WORKTREE]
 
 %The inverse of add_sexp_in/4, written here beside it for the same reason
 %metta_module_space/2 is written beside space_module/2: the mapping is

@@ -2,7 +2,7 @@
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE]
+% [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=WORKTREE]
 
 %% translate_cached_expr(+Expression, -Goals, -Value) is det.
 % This cache stores translation templates, not evaluation answers. Any future
@@ -231,7 +231,7 @@ dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal) :-
     ).
 
 dispatch_selection_override(Fun) :-
-    % policy-inventory-exempt: mechanism-internal; reason=these are the four axes whose nondefault values require the retained-clause interpreter instead of the compiled direct goal; evidence=engine/translator.pl:dispatch_selection_override/1
+    % policy-inventory-exempt: mechanism-internal; reason=these are the four axes whose nondefault values require the retained-clause interpreter instead of the compiled direct goal; evidence=engine/translator/lowering.pl:dispatch_selection_override/1
     member(Axis, ['EvaluationOrderEnum', 'FunctionResultEnum',
                   'ClauseFailedEnum', 'OutOfClausesEnum']),
     petta_catalog_row(['dispatch-policy', Fun, Axis, _]),

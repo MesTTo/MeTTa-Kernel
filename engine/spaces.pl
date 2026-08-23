@@ -18,7 +18,7 @@
 %   - Files below engine/spaces/ are plain source units consulted into this
 %     implementation module in their original order; storage predicates,
 %     provider seams, and lifecycle state retain their existing ownership
-%     [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE].
+%     [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=WORKTREE].
 %   - Every native space stores its atoms in a private data module that does
 %     not inherit user predicates [tested: spaces_storage_modules].
 %   - subscribe follows the (events ...) declaration rather than what a host

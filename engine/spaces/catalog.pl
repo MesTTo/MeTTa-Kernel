@@ -2,7 +2,7 @@
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE]
+% [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=WORKTREE]
 
 :- dynamic native_storage_module_cache/2.
 :- dynamic space_parametric/1.
@@ -745,7 +745,7 @@ petta_check_algebra_laws(Name, Combine, Extend, Zero, One,
     ).
 
 petta_check_algebra_closure(Name, Combine, Extend, Carrier) :-
-    % policy-inventory-exempt: mechanism-internal; reason=Combine and Extend are the algebra row's own two declared operation names rather than a closed value set; evidence=engine/spaces.pl:petta_check_algebra_laws/8
+    % policy-inventory-exempt: mechanism-internal; reason=Combine and Extend are the algebra row's own two declared operation names rather than a closed value set; evidence=engine/spaces/catalog.pl:petta_check_algebra_laws/8
     forall(( member(Operation, [Combine, Extend]),
              member(A, Carrier), member(B, Carrier) ),
            ( petta_apply_algebra_operation(Name, Operation, A, B, Result),

@@ -2,7 +2,7 @@
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE]
+% [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=WORKTREE]
 
 %%% Diagnostics / Testing: %%%
 :- multifile prolog:error_message//1.
@@ -182,7 +182,7 @@ read_form_step(Line, State0, State, Answer) :-
     ).
 
 read_form_settled(true, 0, Scan) :-
-    % policy-inventory-exempt: mechanism-internal; reason=string and escaped are internal states of the reader state machine; evidence=engine/metta.pl:read_form_settled/3
+    % policy-inventory-exempt: mechanism-internal; reason=string and escaped are internal states of the reader state machine; evidence=engine/metta/runtime.pl:read_form_settled/3
     \+ memberchk(Scan, [string, escaped]).
 
 read_form_text(Reversed, Text) :-

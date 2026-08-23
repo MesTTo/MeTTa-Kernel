@@ -2,7 +2,7 @@
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE]
+% [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=WORKTREE]
 
 %%%% the bound the caller wrote, reaching the matcher %%%%
 %
@@ -794,7 +794,7 @@ petta_route_cap_apply(Space, Pattern, Class0, Class) :-
     ->  Class = Class0
     ;   findall(Cap-Why, seam:route_cap(Space, Pattern, Cap, Why), Caps),
         (   member(BadCap-BadWhy, Caps),
-            % policy-inventory-exempt: mechanism-internal; reason=exact inexact and refuse are the route-advisor fold states rather than a user policy vocabulary; evidence=engine/spaces.pl:petta_route_cap_apply/4
+            % policy-inventory-exempt: mechanism-internal; reason=exact inexact and refuse are the route-advisor fold states rather than a user policy vocabulary; evidence=engine/spaces/bounded_matching.pl:petta_route_cap_apply/4
             \+ memberchk(BadCap, [exact, inexact, refuse])
         ->  throw(error(petta_route_cap_invalid(Space, BadCap, BadWhy),
                         none))

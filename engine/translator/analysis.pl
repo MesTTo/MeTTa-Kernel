@@ -2,7 +2,7 @@
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE]
+% [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=WORKTREE]
 
 % Function source retained for higher-order specialization. Each equation is
 % one independently indexed fact, so compiling a new equation does not copy

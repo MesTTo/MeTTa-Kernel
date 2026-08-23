@@ -25,7 +25,7 @@
 %   - Files below engine/translator/ are plain source units consulted into this
 %     implementation module in their original order; no predicate ownership or
 %     call qualification changes at the source-layout boundary
-%     [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE].
+%     [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=WORKTREE].
 %   - Runnable translations are cached as fresh templates by execution module
 %     and a copy_term/2 plus numbervars/4 variant key; changing or removing a
 %     mentioned function evicts every dependent template

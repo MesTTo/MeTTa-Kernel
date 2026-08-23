@@ -2,7 +2,7 @@
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: full tests/prolog/*.plt battery in bare and backends configurations; commit=WORKTREE]
+% [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=WORKTREE]
 
 %%% Prolog interop: %%%
 argv(K, _) :- var(K), !, refuse_unbound_input(argv, 1).
@@ -1009,7 +1009,7 @@ include(Module, Answer) :-
     ).
 
 metta_include_refusal(Module, "include: the running context is not a module") :-
-    % policy-inventory-exempt: arbiter-owned-language-law; reason=self and top denote module path bases and cannot themselves be included; evidence=engine/metta.pl:metta_include_refusal/2
+    % policy-inventory-exempt: arbiter-owned-language-law; reason=self and top denote module path bases and cannot themselves be included; evidence=engine/metta/interop.pl:metta_include_refusal/2
     memberchk(Module, [self, top]), !.
 metta_include_refusal(Module, Reason) :-
     \+ catch(resolve_metta_import_path(Module, _), _, fail),
