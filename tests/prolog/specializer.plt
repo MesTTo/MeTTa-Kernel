@@ -300,6 +300,36 @@ test(higher_order_code_runs_inside_a_named_space,
     process_metta_string("!(plunit-spec-ns-twice plunit-spec-ns-bump 0)",
                          [2], '&plunit_spec_ns').
 
+
+% Reading a function's equations to plan a specialization is worth it only if
+% some call argument can carry a function into a head-variable position. An
+% ATOMIC argument has no sub-terms but itself, so a call whose arguments are all
+% atomic and none of them a function name settles that without reading any
+% equation. Compiling such a call site cost 64,191 inferences against a
+% 2,048-equation function and 903 against an 8-equation one; it costs 682 and
+% 634.
+compile_call_site_cost(N, Per) :-
+    set_specializer_test_mode,
+    forall(between(1, N, I),
+           ( format(atom(D), '(= (plunit-spec-scale~w ss~w) r~w)', [N, I, I]),
+             atom_string(D, DS), process_metta_string(DS, _) )),
+    format(atom(Q), '!(plunit-spec-scale~w ss~w)', [N, N]), atom_string(Q, QS),
+    ( between(1, 5, _), process_metta_string(QS, _), fail ; true ),
+    Rounds = 20,
+    statistics(inferences, Before),
+    ( between(1, Rounds, _), process_metta_string(QS, _), fail ; true ),
+    statistics(inferences, After),
+    statistics(inferences, Settle),
+    Overhead is Settle - After,
+    Per is ((After - Before) - Overhead) / Rounds,
+    format(atom(Name), 'plunit-spec-scale~w', [N]),
+    cleanup_specializer_symbols([Name]).
+
+test(compiling_a_call_site_does_not_read_the_callee_equations) :-
+    compile_call_site_cost(8, Narrow),
+    compile_call_site_cost(512, Wide),
+    assertion(Wide < Narrow * 2).
+
 :- end_tests(specializer).
 
 :- begin_tests(specializer_invalidation).

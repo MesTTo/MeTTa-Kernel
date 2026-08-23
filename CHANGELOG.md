@@ -119,6 +119,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Compiling a call site costs nothing that grows with the callee's equation
+  count. The specializer read every equation of the callee at every call site to
+  decide whether a specialization was worth planning, which was linear in the
+  equation count: against a 2,048-equation function one call site cost 64,191
+  inferences and costs 682. A call whose arguments are all atomic and none of
+  them a function cannot specialize whatever the equations look like, and that
+  is now settled from the arguments first. The same specializations are created.
+
 - A conjunctive `match` costs work linear in its conjunct count rather than
   quadratic. Whether every conjunct was relational is a precondition of the
   whole conjunction and it was re-decided at every step, walking the remaining
