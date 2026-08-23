@@ -31,6 +31,9 @@ Source: `bindings/python/petta/_space.py`.
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - named space construction accepts a space-name Symbol as well as its text
 >     spelling [tested: test_space_factory_accepts_a_name_symbol; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
+>   - a Symbol or ground Expression names a source-visible atomic or parametric
+>     space, while a free variable refuses before engine state changes [tested:
+>     test_python_space_factory_accepts_atom_valued_names; commit=WORKTREE]
 >   - a tuple headed by an atom is one subscript pattern, a tuple of complete
 >     patterns is a join, list writes stream their atoms, and del drains every
 >     match or raises KeyError [tested:
