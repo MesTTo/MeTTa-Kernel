@@ -10,12 +10,21 @@
 %   - A payload outside the class its tag names fails too, in both the
 %     plain and the sharing decode
 %     [tested: shim_wire_decoding:a_payload_outside_its_tags_class_fails].
+%   - native equality does not walk a whole expression merely to classify it
+%     [tested: comparing_against_the_empty_expression_does_not_walk_the_other_operand;
+%     commit=fddb28afcb066271d1f0c78fad8b578b2ab65ccd].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
 :- consult('../../bindings/python/petta/shim.pl').
+
+:- prolog_load_context(directory, TestDirectory),
+   absolute_file_name('../../bindings/python', PythonBindingDirectory,
+                      [relative_to(TestDirectory), file_type(directory)]),
+   py_call(sys:path:insert(0, PythonBindingDirectory), _),
+   py_call(sys:path:insert(0, TestDirectory), _).
 
 % Both tables sit at file scope because a plunit unit is its own module and
 % the suites below share them.
@@ -148,6 +157,91 @@ test(sharing_decodes_leaves_as_the_plain_decode_does,
     Bindings == [].
 
 :- end_tests(shim_wire_variable_sharing).
+
+% Python's scalar comparison and truth rules are decided in the engine when
+% both values are represented losslessly by the wire. The explicit host
+% predicate remains the oracle and the fallback for opaque objects.
+:- begin_tests(shim_python_scalar_semantics).
+
+python_eq_case(1, 1, true).
+python_eq_case(1, 1.0, true).
+python_eq_case(1.5, 1.5, true).
+python_eq_case(true, 1, true).
+python_eq_case("same", "same", true).
+python_eq_case("same", same, false).
+python_eq_case(-0.0, 0.0, true).
+python_eq_case(1, "1", false).
+python_eq_case(false, [], false).
+
+python_truth_case(0, false).
+python_truth_case(0.0, false).
+python_truth_case(7, true).
+python_truth_case("", false).
+python_truth_case("text", true).
+python_truth_case(false, false).
+python_truth_case(true, true).
+python_truth_case([], false).
+python_truth_case([0], true).
+
+python_host_eq(Left, Right, Result) :-
+    petta_py_encode(Left, LeftWire),
+    petta_py_encode(Right, RightWire),
+    py_call(python_semantics_oracle:py_eq_wire(LeftWire, RightWire), Python),
+    python_boolean_atom(Python, Result).
+
+python_host_truthy(Value, Result) :-
+    petta_py_encode(Value, Wire),
+    py_call(python_semantics_oracle:py_truthy_wire(Wire), Python),
+    python_boolean_atom(Python, Result).
+
+python_boolean_atom('@'(true), true).
+python_boolean_atom('@'(false), false).
+
+test(the_native_and_host_equality_routes_agree,
+     [forall(python_eq_case(Left, Right, Expected))]) :-
+    once(petta_py_native_eq(Left, Right, Native)),
+    python_host_eq(Left, Right, Host),
+    Native == Expected,
+    Host == Native.
+
+test(the_native_and_host_truth_routes_agree,
+     [forall(python_truth_case(Value, Expected))]) :-
+    once(petta_py_native_truthy(Value, Native)),
+    python_host_truthy(Value, Host),
+    Native == Expected,
+    Host == Native.
+
+test(nan_is_not_equal_to_itself) :-
+    NaN is nan,
+    once(petta_py_native_eq(NaN, NaN, false)).
+
+test(an_opaque_object_is_left_for_the_host, [fail]) :-
+    petta_py_native_eq('$opaque'(value), '$opaque'(value), _).
+
+test(an_opaque_objects_truth_is_left_for_the_host, [fail]) :-
+    petta_py_native_truthy('$opaque'(value), _).
+
+%is_list/1 is one inference however much C work it performs, so this defect
+%class needs a CPU-time test. A sixteen-times-wider operand gives a wide margin:
+%a whole-operand classification grows by about sixteen while the outer-cell
+%classification remains constant. Both readings share one process and the
+%lists are built before the timed region.
+native_empty_expression_comparison_cost(Length, Seconds) :-
+    findall(e, between(1, Length, _), Expression),
+    forall(between(1, 100, _),
+           petta_py_dispatch_eq(Expression, [], false)),
+    statistics(cputime, Before),
+    forall(between(1, 5000, _),
+           petta_py_dispatch_eq(Expression, [], false)),
+    statistics(cputime, After),
+    Seconds is After - Before.
+
+test(comparing_against_the_empty_expression_does_not_walk_the_other_operand) :-
+    native_empty_expression_comparison_cost(400, Narrow),
+    native_empty_expression_comparison_cost(6400, Wide),
+    assertion(Wide < Narrow * 4).
+
+:- end_tests(shim_python_scalar_semantics).
 
 :- begin_tests(shim_answer_form).
 

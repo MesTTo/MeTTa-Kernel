@@ -77,6 +77,15 @@
 %     repair, and contribution-recording lifecycle as ordinary file loading
 %     [tested: filereader_source_reload:a_grouped_load_runs_inside_the_source_lifecycle;
 %     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - data forms loaded from files enter through metta_add_atom/3, so declared
+%     pre-add admission has the same accept, transform, drop, and refuse
+%     behavior on file, host, and running-MeTTa routes [tested:
+%     admission_route_matrix:every_verdict_fires_on_every_engine_ingress;
+%     commit=ce55fe46f26484be4269d06d6b99684d5edc040f].
+%   - the source-wide signature pre-pass advances the process-global function
+%     generation only when it adds a fresh fun/1 name [tested:
+%     function_catalogue_generation:an_import_bringing_an_equation_bumps_once;
+%     commit=4c9a794750103e0a3a2e9d883adde337ffb501f0].
 %   - A file that loads again REPLACES what it put in that space rather than
 %     adding to it, reaches any other space its change has made stale, and
 %     says what it withdrew [tested 2026-08-19:
@@ -1617,11 +1626,10 @@ process_form(_, In, _) :-
 % it existed for [tested:
 % test_an_import_into_a_named_space_registers_its_equations_there].
 process_loader_form(Space, parsed(expression, _, Term), []) :-
-    %This pipeline bypasses metta_add_atom/3, so the user-wins rule for
-    %prelude declarations applies here directly.
+    %File data takes the same admission door as every other ingress. That
+    %door also records the asserted source reference for rollback.
     evict_prelude_declaration(Space, Term),
-    add_sexp(Space, Term, SpaceRef),
-    record_source_assertion(SpaceRef),
+    metta_add_atom(Space, Term, _),
     print_expression_form(Term).
 process_loader_form(Space, parsed(runnable, FormStr, Term, Names), Result) :-
     flush_source_program_analysis_if_needed,

@@ -175,6 +175,11 @@
 %     and interpreter stay accepted, NOT enforced
 %     [tested: test_pragma_validates_values_and_refuses_only_unknown_keys,
 %     interpreter_pragmas; commit=e8270f8551083f236ce5134ca299adf5347d6898].
+%   - stack-limit scopes SWI's per-thread byte ceiling and restores the exact
+%     previous value after success, failure, exception, and nested scopes;
+%     max-stack-depth remains branch-local reduction fuel [tested:
+%     scoped_stack_limit,
+%     test_janus_stack_scope_restores_on_all_exits; commit=81c50d3ae4c03ddfd70ed3f1ff70e085cfee3978].
 %   - petta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
 %     reading the message [tested 2026-08-19:
@@ -183,6 +188,10 @@
 %     [tested 2026-08-14: metta_builtin_outputs].
 %   - Function registration performed by a source load participates in that
 %     load's rollback [tested 2026-08-14: filereader_source_rollback].
+%   - metta_host_function_generation/1 exposes fun/1's process-global SWI
+%     database generation, which advances on committed catalogue changes and
+%     on no ordinary evaluation or data write
+%     [tested: function_catalogue_generation; commit=4c9a794750103e0a3a2e9d883adde337ffb501f0].
 %   - Prolog registration refuses every head the translator compiles before
 %     function dispatch, including heads added through translator_rule/1
 %     [tested: test_registering_any_translator_compiled_head_is_refused_by_name].
@@ -5873,6 +5882,7 @@ undocumented(Name) :- current_metta_space(Space),
                   metta_inferences(+, 0, ?),
                   metta_elapsed(0, ?, ?),
                   metta_with_pragmas(+, 0, ?),
+                  metta_host_with_stack_limit(+, 0),
                   petta_transaction(0).
 %Why these seven: a runnable's goals run as call(Module:G), so a goal a
 %special form passes to a HELPER used to lose the module on the way in,
@@ -5937,6 +5947,8 @@ metta_pragma_key('verify-specializations',
                  'check every specialization against the generic call once').
 metta_pragma_key('max-stack-depth',
                  'branch-local reduction fuel; zero selects the default').
+metta_pragma_key('stack-limit',
+                 'scope SWI combined stack bytes for the current thread').
 metta_pragma_key('type-check', 'HE spelling; accepted, NOT enforced').
 metta_pragma_key(interpreter, 'HE spelling; accepted, NOT enforced').
 
@@ -5988,6 +6000,14 @@ require_metta_pragma_value('max-inferences', Value, Door) :- !,
                                  ['max-inferences', Value]),
                     context(Door,
                             'max-inferences requires a positive integer or none')))
+    ).
+require_metta_pragma_value('stack-limit', Value, Door) :- !,
+    (   integer(Value), Value > 0
+    ->  true
+    ;   throw(error(domain_error(metta_pragma_value,
+                                 ['stack-limit', Value]),
+                    context(Door,
+                            'stack-limit requires a positive byte count or none')))
     ).
 require_metta_pragma_value(_, _, _).
 
@@ -6054,6 +6074,9 @@ bounding_pragma_set :-
     (   metta_pragma('max-time', Seconds), number(Seconds), Seconds > 0
     ->  true
     ;   metta_pragma('max-inferences', Limit), integer(Limit), Limit > 0
+    ->  true
+    ;   metta_pragma('stack-limit', StackBytes),
+        integer(StackBytes), StackBytes > 0
     ).
 
 enable_metta_pragma_bounds :-
@@ -6086,14 +6109,33 @@ run_under_pragmas(Goal) :-
     ;   Timed = Goal
     ),
     (   metta_pragma('max-inferences', Limit), integer(Limit), Limit > 0
-    ->  call_with_inference_limit(Timed, Limit, Result),
-        (   Result == inference_limit_exceeded
-        ->  throw(error(metta_control_signal(inference_limit, Limit),
-                        context(petta, inference_limit)))
-        ;   true
-        )
-    ;   call(Timed)
+    ->  Inferred = petta_call_with_inference_bound(Timed, Limit)
+    ;   Inferred = call(Timed)
+    ),
+    (   metta_pragma('stack-limit', StackBytes),
+        integer(StackBytes), StackBytes > 0
+    ->  metta_host_with_stack_limit(StackBytes, Inferred)
+    ;   call(Inferred)
     ).
+
+petta_call_with_inference_bound(Goal, Limit) :-
+    call_with_inference_limit(Goal, Limit, Result),
+    (   Result == inference_limit_exceeded
+    ->  throw(error(metta_control_signal(inference_limit, Limit),
+                    context(petta, inference_limit)))
+    ;   true
+    ).
+
+%SWI's stack_limit is a changeable flag local to the calling thread. Its
+%push/pop pair is nestable and records absence as well as a prior value; the
+%cleanup wrapper performs the pop after deterministic success, failure, cut,
+%or exception [source: SWI-Prolog 10.1 Reference Manual, Environment Control,
+%https://www.swi-prolog.org/pldoc/man?section=flags; commit=81c50d3ae4c03ddfd70ed3f1ff70e085cfee3978].
+metta_host_with_stack_limit(StackBytes, Goal) :-
+    must_be(positive_integer, StackBytes),
+    setup_call_cleanup(push_prolog_flag(stack_limit, StackBytes),
+                       Goal,
+                       pop_prolog_flag(stack_limit)).
 
 %Every runnable uses one limit scope. Recursive clauses spend from its
 %backtrackable balance, so trying a sibling restores the balance it started
@@ -8684,6 +8726,19 @@ load_prelude_form(function, _, Term) :-
 load_prelude_form(Kind, Src, _) :-
     throw(error(domain_error(prelude_form, Kind),
                 context(load_engine_prelude/0, Src))).
+
+%fun/1 is the exact mutable input petta_py_builtins/1 reads. SWI maintains a
+%dynamic predicate's last_modified_generation for cache validation, including
+%transaction commit and rollback semantics, so no listener or generic
+%write-door flag exists and every mutation route keeps its original cost.
+%Keep this read-only host service after the loader predicates it does not call:
+%its clause layout then cannot perturb the save-load-metta hot path [measured 2026-08-23:
+%save-load-metta 9,223,648 inferences; command=PETTA_BENCHMARK_COUNTERS=1
+%PYTHONPATH=bindings/python python -m pytest
+%-q bindings/python/benchmarks/test_benchmarks.py::test_save_load_metta;
+%fixture=deterministic benchmark harness; commit=fc08223618651c122c7e3bfa9f269d03ff1c0932].
+metta_host_function_generation(Generation) :-
+    predicate_property(fun(_), last_modified_generation(Generation)).
 
 %One initialization goal for all of them, in this order, because
 %initialization/1 goals do not reliably order against each other (the note
