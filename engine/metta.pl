@@ -8739,7 +8739,7 @@ load_prelude_form(Kind, Src, _) :-
 %save-load-metta 9,223,648 inferences; command=PETTA_BENCHMARK_COUNTERS=1
 %PYTHONPATH=bindings/python /home/user/Dev/.venv-pypetta/bin/python -m pytest
 %-q bindings/python/benchmarks/test_benchmarks.py::test_save_load_metta;
-%fixture=deterministic benchmark harness; commit=WORKTREE].
+%fixture=deterministic benchmark harness; commit=fc08223618651c122c7e3bfa9f269d03ff1c0932].
 metta_host_function_generation(Generation) :-
     predicate_property(fun(_), last_modified_generation(Generation)).
 
