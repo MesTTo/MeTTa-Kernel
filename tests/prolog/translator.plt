@@ -2868,3 +2868,38 @@ test(the_note_names_the_position_the_label_and_why) :-
                          "special form or a registered translator rule")).
 
 :- end_tests(translator_head_pattern_notes).
+
+:- begin_tests(translator_nesting_cost).
+
+% A data head is translated by the recursive call that produces it, and the
+% branch below that call then walked the result AGAIN looking for fun-headed
+% sublists inside it. That costs the head's whole size at every level, so
+% translating a form nested N deep was quadratic in N where parsing the same
+% text is linear: 1,437 inferences at depth 25, 20,712 at 100 and 322,812 at
+% 400, against 213, 813 and 3,213.
+nested_form(Depth, Term) :-
+    findall('(', between(1, Depth, _), Opens),
+    findall(')', between(1, Depth, _), Closes),
+    atomic_list_concat(Opens, Open),
+    atomic_list_concat(Closes, Close),
+    format(atom(Text), '~w7~w', [Open, Close]),
+    atom_string(Text, Source),
+    sread(Source, Term).
+
+nesting_cost(Depth, PerCall) :-
+    nested_form(Depth, Term),
+    ( between(1, 3, _), translate_expr(Term, _, _), fail ; true ),
+    Rounds = 10,
+    statistics(inferences, Before),
+    ( between(1, Rounds, _), translate_expr(Term, _, _), fail ; true ),
+    statistics(inferences, After),
+    statistics(inferences, Settle),
+    Overhead is Settle - After,
+    PerCall is ((After - Before) - Overhead) / Rounds.
+
+test(translating_a_nested_form_costs_inferences_linear_in_its_depth) :-
+    nesting_cost(50, Narrow),
+    nesting_cost(400, Wide),
+    assertion(Wide < Narrow * 16).
+
+:- end_tests(translator_nesting_cost).

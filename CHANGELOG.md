@@ -119,6 +119,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Translating a nested expression costs work linear in its depth rather than
+  quadratic. A data head is translated by the recursive call that produces it,
+  and the compiler then walked that result again looking for function calls
+  already translated, which costs the head's whole size at every level. A form
+  nested 400 deep cost 322,812 inferences to translate and costs 3,213. Parsing
+  the same text was already linear, and every example's output is unchanged.
+
 - Removing an equation no longer costs time that grows with the program.
   Deciding whether a function is still defined anywhere, and whether one module
   owns it, asked for the compiled predicate with its arity left open, which
