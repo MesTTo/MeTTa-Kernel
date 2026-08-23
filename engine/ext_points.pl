@@ -783,6 +783,7 @@ kind(metta_host_run_source/4, host_service).
 kind(metta_host_run_source_status/3, host_service).
 kind(metta_host_load_file/3, host_service).
 kind(metta_host_read_forms/2, host_service).
+kind(metta_host_with_stack_limit/2, host_service).
 kind(metta_reducible_head/2, host_service).
 %Proof tools may open only a dispatch route the engine identifies as its
 %shipped direct path. Every policy-sensitive route is executed engine-side and

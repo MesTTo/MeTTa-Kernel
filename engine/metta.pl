@@ -175,6 +175,11 @@
 %     and interpreter stay accepted, NOT enforced
 %     [tested: test_pragma_validates_values_and_refuses_only_unknown_keys,
 %     interpreter_pragmas; commit=e8270f8551083f236ce5134ca299adf5347d6898].
+%   - stack-limit scopes SWI's per-thread byte ceiling and restores the exact
+%     previous value after success, failure, exception, and nested scopes;
+%     max-stack-depth remains branch-local reduction fuel [tested:
+%     scoped_stack_limit,
+%     test_janus_stack_scope_restores_on_all_exits; commit=WORKTREE].
 %   - petta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
 %     reading the message [tested 2026-08-19:
@@ -5876,6 +5881,7 @@ undocumented(Name) :- current_metta_space(Space),
                   metta_inferences(+, 0, ?),
                   metta_elapsed(0, ?, ?),
                   metta_with_pragmas(+, 0, ?),
+                  metta_host_with_stack_limit(+, 0),
                   petta_transaction(0).
 %Why these seven: a runnable's goals run as call(Module:G), so a goal a
 %special form passes to a HELPER used to lose the module on the way in,
@@ -5940,6 +5946,8 @@ metta_pragma_key('verify-specializations',
                  'check every specialization against the generic call once').
 metta_pragma_key('max-stack-depth',
                  'branch-local reduction fuel; zero selects the default').
+metta_pragma_key('stack-limit',
+                 'scope SWI combined stack bytes for the current thread').
 metta_pragma_key('type-check', 'HE spelling; accepted, NOT enforced').
 metta_pragma_key(interpreter, 'HE spelling; accepted, NOT enforced').
 
@@ -5991,6 +5999,14 @@ require_metta_pragma_value('max-inferences', Value, Door) :- !,
                                  ['max-inferences', Value]),
                     context(Door,
                             'max-inferences requires a positive integer or none')))
+    ).
+require_metta_pragma_value('stack-limit', Value, Door) :- !,
+    (   integer(Value), Value > 0
+    ->  true
+    ;   throw(error(domain_error(metta_pragma_value,
+                                 ['stack-limit', Value]),
+                    context(Door,
+                            'stack-limit requires a positive byte count or none')))
     ).
 require_metta_pragma_value(_, _, _).
 
@@ -6057,6 +6073,9 @@ bounding_pragma_set :-
     (   metta_pragma('max-time', Seconds), number(Seconds), Seconds > 0
     ->  true
     ;   metta_pragma('max-inferences', Limit), integer(Limit), Limit > 0
+    ->  true
+    ;   metta_pragma('stack-limit', StackBytes),
+        integer(StackBytes), StackBytes > 0
     ).
 
 enable_metta_pragma_bounds :-
@@ -6089,14 +6108,33 @@ run_under_pragmas(Goal) :-
     ;   Timed = Goal
     ),
     (   metta_pragma('max-inferences', Limit), integer(Limit), Limit > 0
-    ->  call_with_inference_limit(Timed, Limit, Result),
-        (   Result == inference_limit_exceeded
-        ->  throw(error(metta_control_signal(inference_limit, Limit),
-                        context(petta, inference_limit)))
-        ;   true
-        )
-    ;   call(Timed)
+    ->  Inferred = petta_call_with_inference_bound(Timed, Limit)
+    ;   Inferred = call(Timed)
+    ),
+    (   metta_pragma('stack-limit', StackBytes),
+        integer(StackBytes), StackBytes > 0
+    ->  metta_host_with_stack_limit(StackBytes, Inferred)
+    ;   call(Inferred)
     ).
+
+petta_call_with_inference_bound(Goal, Limit) :-
+    call_with_inference_limit(Goal, Limit, Result),
+    (   Result == inference_limit_exceeded
+    ->  throw(error(metta_control_signal(inference_limit, Limit),
+                    context(petta, inference_limit)))
+    ;   true
+    ).
+
+%SWI's stack_limit is a changeable flag local to the calling thread. Its
+%push/pop pair is nestable and records absence as well as a prior value; the
+%cleanup wrapper performs the pop after deterministic success, failure, cut,
+%or exception [source: SWI-Prolog 10.1 Reference Manual, Environment Control,
+%https://www.swi-prolog.org/pldoc/man?section=flags; commit=WORKTREE].
+metta_host_with_stack_limit(StackBytes, Goal) :-
+    must_be(positive_integer, StackBytes),
+    setup_call_cleanup(push_prolog_flag(stack_limit, StackBytes),
+                       Goal,
+                       pop_prolog_flag(stack_limit)).
 
 %Every runnable uses one limit scope. Recursive clauses spend from its
 %backtrackable balance, so trying a sibling restores the balance it started
