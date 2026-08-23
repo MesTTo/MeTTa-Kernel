@@ -425,3 +425,53 @@ variables and measured a cartesian product rather than a join. And loading the
 same equation once per size in a sweep leaves N copies of it, so a two-equation
 function answers 2^k times; that read as an engine blowup at depth 32 and was
 the harness. Check the answer COUNT before believing a cost.
+
+## Nesting depth is the axis the corpus does not exercise (2026-08-24)
+
+Every earlier sweep varied WIDTH: term size, list length, atom count, equation
+count. Depth was the blind spot, and two of the three defects found on it were
+quadratic while every width axis was linear.
+
+Swept by inference count at depths 25 to 400: evaluation, printing, `==`,
+`add-atom`, `match`, `unify` and `collapse` are all linear in depth. Two were
+not.
+
+### Fixed: the translator walked an already-translated head
+
+`1a8af157`. Translating a form nested N deep cost 1,437 inferences at 25,
+20,712 at 100 and 322,812 at 400 (14.4x then 15.6x for 4x the depth), against a
+parser that is linear on the same text. It is 213, 813 and 3,213 now.
+
+### Found and NOT fixed: deriving a complete type is quadratic in depth
+
+`get-type` of an N-deep value costs 778 inferences at depth 1 and 191,039 at 64,
+converging on 4.0x per doubling, for an answer that is one type, N deep.
+
+Ablating the product branch of `get_type_candidate/2` shows it is the whole
+quadratic: 49,758 inferences at depth 32 become 2,851, and the curve turns
+linear. `tuple_first_in/3` takes each member's FIRST type under a cut, and
+`tuple_rest_types/3` then rebuilds every member's COMPLETE type set to
+enumerate the combinations other than all-firsts. For a nested member that
+rebuild is the whole recursive derivation again, once per level.
+
+**There is no cheap guard, and that is the finding.** The branch produces
+nothing unless some member has two or more types, and knowing whether a member
+has two or more types is exactly the enumeration being avoided.
+`deterministic/1` cannot stand in for it: it reports `false` even for `7`,
+whose single candidate is committed by a cut. Merging the two enumerations so
+each member is derived once was measured and is far worse, because
+`tuple_first_in/3`'s cut is what keeps a member with many types from being
+enumerated at all; `d62f3e48` records choosing that split deliberately for the
+same reason, and `a51f168f` records that a structurally keyed memo stays
+quadratic because hashing or copying a deep term is itself linear.
+
+**It is also not on the hot path, which is why it is filed rather than fixed.**
+A typed call that ACCEPTS its argument is already linear in the argument's
+depth, 939 inferences at 4 and 3,279 at 64, against an untyped call's 715 and
+3,535; `a51f168f` is what made that so. The quadratic is reached by explicit
+`get-type` and by the rejection path, which derives the argument's complete type
+to name it in a `BadArgType`. A typed call that REJECTS a 64-deep argument costs
+755,395 inferences.
+
+Anyone picking this up: the ablation above is the ceiling, and the obligation is
+that a guard which wrongly reports "one type" silently DROPS type answers.
