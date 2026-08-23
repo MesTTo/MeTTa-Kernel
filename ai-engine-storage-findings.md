@@ -187,3 +187,153 @@ The answer path runs `acyclic_term(OutPattern)` per answer, which is O(size of
 the output template): 7 nanoseconds an element an answer, so Theta(answers x
 template). Real, but it only bites with a large template, so it is not the
 general case.
+
+## The shape question, and an instrument for it (2026-08-23)
+
+`is_list/1` WALKS. Every engine site that asks it to classify a MeTTa value pays
+Theta(length) for an answer the first cell already gives, and the inference
+counter cannot see any of it. Two of the five class wins in this file were one
+instance of that defect each, found by hand. The general form needed an
+instrument.
+
+### The instrument
+
+`redefine_system_predicate(user:is_list(_))` replaces `is_list/1` with a
+semantics-preserving version that classifies its argument through
+`'$skip_list'/3`, one C pass, into proper, empty, partial, improper, var or
+nonlist, and records the count against the CALLING CLAUSE, resolved through
+`prolog_frame_attribute(Frame, parent, P)` and `clause_property(Ref,
+line_count(L))`. Run the whole example corpus under it and every site's traffic
+and every shape it has ever seen falls out.
+
+The redefinition intercepts Prolog-level calls only. `PL_is_list` from foreign
+code is not covered, which is fine here because only Prolog sites were changed.
+
+### What the corpus said
+
+253 example programs, 3.7 million `is_list/1` calls across 82 sites:
+
+| class | sites | note |
+|---|---|---|
+| proper | 58 | the walk always ran to the end and answered yes |
+| nonlist | 27 | answered no |
+| var | 12 | |
+| partial | 3 | bridge.pl:243, spaces.pl:5407, specializer.pl:454 |
+| improper | 0 | **never, anywhere** |
+
+Traffic is concentrated: `spaces.pl:4909` alone takes 2,250,355 calls and
+`spaces.pl:4893` another 796,445, both of them the same
+`( X == [] ; \+ is_list(X) )` "is this not an expression" dispatch, and both
+seeing proper lists essentially always, so the walk ran to completion only to
+FAIL its own guard. `metta.pl:3034` takes 465,366 and `metta.pl:1326` 181,777.
+
+The three partial-list sites are the useful part. `spaces.pl:5407` is
+`get_native_atom/3`, which calls `length/2` on the pattern immediately after, so
+properness there is load-bearing rather than assumed: an open-tailed pattern
+must be rejected and the walk is what rejects it. The probe separates a reader
+entitled to assume the invariant from a check that enforces it, which no amount
+of reading the code settles.
+
+### The invariant
+
+A MeTTa Expression IS a proper list. LeaTTa's `Atom` carries
+`Atom.expr (List Atom)`, so an improper cons is not a term the semantics can
+express, and `Builtins.consAtom` refuses a tail that is not an expression;
+`tests/regression/instruction_interp.metta` pins native `cons-atom` and its
+minimal mirror rejecting `(cons-atom a 1)` alike. PeTTa built `[a|1]` there and
+then could not print it, `swrite/2` refusing a term whose printed form would
+read back as a different value.
+
+`'cons-atom'/3` and `cons/3` are the only two constructors, so guarding them
+with the SHAPE, not with a walk, maintains the invariant at O(1) and leaves
+list-building linear. That is what makes the readers' constant-time test sound,
+and it retracts this file's earlier rejection of the `index-atom` fix: the
+differential that refuted it was measuring PeTTa's own accident, an improper
+cons that the semantics says cannot exist.
+
+### The one thing the probe cannot tell you
+
+That an unexercised site is safe. A site the corpus never reaches has no
+evidence either way, and there are 82 of them against the 58 that ran.
+
+## The conjunctive matcher, and why the counter was the only usable instrument
+
+A path query over a chain answers once per starting node whatever K is, so the
+per-answer cost isolates the JOIN PLANNING from the join. Measured that way,
+`match_native/5` was quadratic in the conjunct count:
+
+| K | before | after |
+|---|---|---|
+| 2 | 14.2 | 14.2 |
+| 4 | 45.6 | 36.5 |
+| 8 | 121.4 | 81.6 |
+| 16 | 327.3 | 174.2 |
+| 32 | 975.2 | 369.5 |
+| 64 | 3,415.8 | 813.7 |
+
+Inferences an answer. 2.7x to 3.5x per doubling of K before; a flat 2.1x to 2.2x
+after, which is the linear cost of having K conjuncts at all.
+
+`relational_conjuncts/1` is a precondition of the WHOLE conjunction, and it was
+re-asked at every recursive step on a list that is always a SUBLIST of one
+already accepted. It could not fail; it could only walk. Hoisting it is the same
+loop-invariant motion `foreign_route/2` already got and `03b7f454` records.
+
+**The measurement nearly went the other way.** This box sat at load average 31
+while the work was done, and CPU time over these sizes reported the identical
+change as a 2.9x win and as a 33% loss on consecutive interleaved runs of the
+same two trees. `relational_conjuncts/1` is a Prolog predicate, so the inference
+counter sees every step of the walk exactly and does not move with the load.
+The rule this refines: the counter is blind to C builtins, so it cannot see
+`is_list/1` or `acyclic_term/1`, and CPU time is blind to nothing but is
+unusable under load. Choose per defect, and say which.
+
+### One quadratic left, deliberately
+
+`acyclic_term/1` runs on the whole output template at every level, so a
+K-conjunct query with an M-element template walks Theta(K x M) per answer: at
+K=64 a template growing with K cost 85 microseconds an answer against 36 for a
+fixed two-element one. It stays: `4fa69d03` established the check belongs per
+candidate rather than per answer, because bindings live outside the template.
+Being a C builtin, no inference counter can see it, which is why it is recorded
+here rather than left to be rediscovered.
+
+## Enumeration order follows the predicate table, not the program
+
+`get-atoms` on a native space enumerates through `current_predicate/1`, and SWI
+iterates its predicate table in an order that moves when a name is interned.
+Adding ONE never-called predicate to `engine/metta.pl`, an inert
+`zzz_inert_layout_control/1` and nothing else, reorders what a native inherited
+space answers. This is legal: "Result order within one directive's list is
+unspecified; result multiplicity is specified" [source: LeaTTa
+wiki/Specification.md].
+
+It is worth writing down because it makes any test that depends on that order
+one unrelated engine edit away from changing behaviour. One did:
+`shaped_atom/1` took the first enumerated atom with arguments, so
+`test_a_repeated_variable_selects_equal_positions` ran or skipped by accident.
+`fe4415a2` takes the widest instead. Perturb with an inert clause before
+believing that a reordering came from your change.
+
+## Prior art read, and what it says PeTTa already has
+
+Vergu, Tolmach and Visser, "Scopes and Frames Improve Meta-Interpreter
+Specialization", ECOOP 2019 (doi:10.4230/LIPIcs.ECOOP.2019.4), is the closest
+paper to what PeTTa is: a meta-interpreter for a language whose semantics are
+specified rather than hand-compiled. Its two contributions measure at one to two
+orders of magnitude, and PeTTa already has the shape of both:
+
+- **Scopes and frames** replace a name-keyed environment with frame slots
+  resolved statically, so a variable read is an offset rather than a lookup.
+  PeTTa compiles MeTTa to Prolog and MeTTa variables BECOME Prolog variables,
+  which is the same win taken at compile time. The one name-keyed structure left
+  is the `Name-Var` list the reader carries for diagnostics
+  (`petta_reader_variable_name/3`), which is printer-side and deliberately off
+  the matcher path.
+- **Rule cloning** derives a monomorphic rule per call site so the JIT can
+  inline it. That is `engine/specializer.pl`, which specializes per call site
+  already.
+
+So the paper's lesson for PeTTa is not a missing mechanism; it is the
+measurement discipline that separated the two effects, which is what the
+per-answer normalization above copies.
