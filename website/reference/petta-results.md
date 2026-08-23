@@ -36,6 +36,18 @@ Source: `bindings/python/petta/results.py`.
 >     test_answers_are_lazy_cached_and_cardinality_aware,
 >     test_answers_project_caller_variables_and_slices_stay_answers;
 >     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
+>   - evaluation values and their caller-binding rows are parallel faces of one
+>     Answers cursor [tested: test_calls_keep_values_and_binding_rows;
+>     commit=WORKTREE]
+>   - an Answers view crossing into a term observes exact-one cardinality and
+>     encodes that answer as the operand [tested:
+>     test_answer_views_observe_when_used_as_operands; commit=WORKTREE]
+>   - Rows and Answers project caller variables by attribute, Variable key, or
+>     exact string key
+>     [tested: test_rows_share_the_answer_projection_contract; commit=WORKTREE]
+>   - len on an untouched engine-backed Answers view uses its engine count door
+>     without populating the Python cache [tested:
+>     test_len_counts_an_unmaterialised_view_engine_side; commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -100,8 +112,9 @@ class Rows(UserList[Row]):
 
 > Every answer to a query, in the order the engine produced them.
 >
-> Sequence operations retain this type and its columns. ``rows["name"]``
-> projects a column, while integer and slice indexing follow a normal list.
+> Sequence operations retain this type and its columns. ``rows.name``,
+> ``rows[V.name]``, and ``rows["name"]`` project a column, matching Answers,
+> while integer and slice indexing follow a normal list.
 
 ### `Rows.insert`
 
@@ -280,6 +293,14 @@ def columns(self) -> tuple[str, ...]:
 ```
 
 > Caller-variable names available for projection.
+
+### `Answers.rows`
+
+```python
+def rows(self) -> Answers[Row]:
+```
+
+> The caller-binding row paired with each evaluation answer.
 
 ### `Answers.one`
 

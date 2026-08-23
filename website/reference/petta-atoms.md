@@ -24,6 +24,10 @@ Source: `bindings/python/petta/atoms.py`.
 >   - the immutable operator lowering table is public data [tested:
 >     test_the_operator_table_is_generated_from_one_source_with_no_holes;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - grounded atoms lift Python arithmetic to staged MeTTa terms [tested:
+>     test_grounded_atoms_lift_python_operators_to_terms; commit=WORKTREE]
+>   - if_ preserves both the engine's one-armed and three-armed forms [tested:
+>     test_if_builder_accepts_the_one_armed_form; commit=WORKTREE]
 >   - the canonical truth, unit, and context atoms are public values [tested:
 >     test_the_canonical_atoms_are_public_values;
 >     commit=b1599bdc8201a04a3689c1a88707b6f4b53b4d22]
@@ -65,10 +69,10 @@ def typed(subject: Any, type_: Any) -> Expression:
 ## `if_`
 
 ```python
-def if_(condition: Any, consequent: Any, alternative: Any) -> Expression:
+def if_(condition: Any, consequent: Any, alternative: Any = _OMITTED) -> Expression:
 ```
 
-> Build a quoted or stored ``if``; Python ``if`` lowers inside define.
+> Build either engine ``if`` arity; Python ``if`` lowers inside define.
 
 ## `not_`
 
