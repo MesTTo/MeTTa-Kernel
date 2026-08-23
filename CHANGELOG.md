@@ -119,6 +119,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Loading a program costs time linear in its size rather than quadratic. Each
+  dependency-graph edge is now keyed by a hash of its endpoints, where before
+  the edge relation could only be indexed by its node kind: four kinds over
+  32,000 edges gave the whole relation an eight-bucket index, so every
+  duplicate-edge check during compilation scanned a quarter of the graph.
+  Loading 8,000 function definitions cost 3.25 seconds and costs 0.73, and the
+  same 500-form batch loaded into a 16,000-form program cost 666 microseconds a
+  form and costs 101. Small programs are unchanged.
+
 - Compiling a call site costs nothing that grows with the callee's equation
   count. The specializer read every equation of the callee at every call site to
   decide whether a specialization was worth planning, which was linear in the

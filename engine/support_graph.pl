@@ -89,7 +89,42 @@
 :- use_module(library(pairs)).
 :- use_module(scc, [nodes_arcs_sccs/3]).
 
-:- dynamic supports/2.
+%An edge carries a HASH OF EACH ENDPOINT in front of the endpoints themselves,
+%because SWI indexes an argument and the node terms share only their functor.
+%Four node functors over 32,000 edges gave the whole predicate an eight-bucket
+%index and a speedup of FOUR, so every duplicate-edge probe scanned a quarter of
+%the graph, and a compile that adds edges per form made loading a program
+%quadratic in its size [measured 2026-08-23: over 20,000 edges under four
+%functors a both-bound probe cost 132.6 microseconds and costs 0.198, and the
+%same 500 forms loaded into a 16,000-form program cost 666 microseconds a form].
+%
+%A ground node's hash is a discriminating first argument. A non-ground one
+%leaves its key UNBOUND, which selects exactly the scan such a pattern asks for,
+%so supports/2 below keeps its old meaning in every mode.
+:- dynamic supports/4.
+
+%The relation every caller reads, inside this module and out. Binding either
+%endpoint binds that endpoint's key, so the mode the caller uses is the mode
+%that gets indexed.
+supports(Support, Derived) :-
+    term_hash(Support, SupportKey),
+    term_hash(Derived, DerivedKey),
+    supports(SupportKey, DerivedKey, Support, Derived).
+
+support_edge_assertz(Support, Derived) :-
+    term_hash(Support, SupportKey),
+    term_hash(Derived, DerivedKey),
+    assertz(supports(SupportKey, DerivedKey, Support, Derived)).
+
+support_edge_assertz(Support, Derived, Ref) :-
+    term_hash(Support, SupportKey),
+    term_hash(Derived, DerivedKey),
+    assertz(supports(SupportKey, DerivedKey, Support, Derived), Ref).
+
+support_edge_retractall(Support, Derived) :-
+    term_hash(Support, SupportKey),
+    term_hash(Derived, DerivedKey),
+    retractall(supports(SupportKey, DerivedKey, Support, Derived)).
 :- dynamic support_function_module/2.
 :- dynamic support_view_module/2.
 :- dynamic support_dirty_node/1.
@@ -282,7 +317,7 @@ support_replace(Derived, Supports0) :-
 support_replace_locked(Derived, Supports) :-
     support_index_node_locked(Derived),
     maplist(support_index_node_locked, Supports),
-    retractall(supports(_, Derived)),
+    support_edge_retractall(_, Derived),
     forall(member(Support, Supports), assert_support_edge(Support, Derived)).
 
 % Publish one replacement set and its fixed outgoing links under one lock and
@@ -391,27 +426,32 @@ publish_form_edges(Supports, Form, Compiled) :-
     support_assertions_tracked,
     !,
     assert_new_support_edges(Supports, Form, Refs, Tail0),
-    assertz(supports(Form, Compiled), FormRef),
+    support_edge_assertz(Form, Compiled, FormRef),
     Tail0 = [FormRef],
     forall(support_assertion_records(Refs), true).
 publish_form_edges(Supports, Form, Compiled) :-
     assert_new_support_edges_untracked(Supports, Form),
-    assertz(supports(Form, Compiled)).
+    support_edge_assertz(Form, Compiled).
 
 assert_new_support_edges([], _, Tail, Tail).
 assert_new_support_edges([Support|Supports], Derived, [Ref|Refs], Tail) :-
-    assertz(supports(Support, Derived), Ref),
+    support_edge_assertz(Support, Derived, Ref),
     assert_new_support_edges(Supports, Derived, Refs, Tail).
 
 assert_new_support_edges_untracked([], _).
 assert_new_support_edges_untracked([Support|Supports], Derived) :-
-    assertz(supports(Support, Derived)),
+    support_edge_assertz(Support, Derived),
     assert_new_support_edges_untracked(Supports, Derived).
 
+%Both endpoints are bound here, and binding BOTH keys is what lets SWI combine
+%them: the derived key alone hashes 32,000 edges with 8,417 collisions, so a
+%quarter of the probes still walk a bucket [measured 2026-08-23 by jiti_list].
 support_record_persistent_locked(Derived, Support) :-
-    (   supports(Support, Derived)
+    term_hash(Support, SupportKey),
+    term_hash(Derived, DerivedKey),
+    (   supports(SupportKey, DerivedKey, Support, Derived)
     ->  true
-    ;   assertz(supports(Support, Derived))
+    ;   support_edge_assertz(Support, Derived)
     ).
 
 % Add one support without discarding the other observations for a coarse
@@ -424,7 +464,9 @@ support_record(Derived, Support) :-
 support_record_locked(Derived, Support) :-
     support_index_node_locked(Derived),
     support_index_node_locked(Support),
-    (   supports(Support, Derived)
+    term_hash(Support, SupportKey),
+    term_hash(Derived, DerivedKey),
+    (   supports(SupportKey, DerivedKey, Support, Derived)
     ->  true
     ;   assert_support_edge(Support, Derived)
     ).
@@ -445,9 +487,9 @@ support_index_node_locked(_).
 
 assert_support_edge(Support, Derived) :-
     (   support_assertions_tracked
-    ->  assertz(supports(Support, Derived), Ref),
+    ->  support_edge_assertz(Support, Derived, Ref),
         forall(support_assertion_record(Ref), true)
-    ;   assertz(supports(Support, Derived))
+    ;   support_edge_assertz(Support, Derived)
     ).
 
 % Drop a retired artifact from both sides of the graph.
@@ -457,8 +499,8 @@ support_forget(Node) :-
 
 support_forget_locked(Node) :-
     support_forget_memo_rule(Node),
-    retractall(supports(Node, _)),
-    retractall(supports(_, Node)),
+    support_edge_retractall(Node, _),
+    support_edge_retractall(_, Node),
     retractall(support_dirty_node(Node)),
     retractall(support_value(Node, _)),
     support_unindex_node_locked(Node).
@@ -485,7 +527,7 @@ support_forget_module(Module) :-
 
 support_forget_module_locked(Module) :-
     findall(Ref,
-            ( clause(supports(Support, Derived), true, Ref),
+            ( clause(supports(_, _, Support, Derived), true, Ref),
               ( support_node_module(Support, Module)
               ; support_node_module(Derived, Module) ) ),
             Refs0),
@@ -596,7 +638,8 @@ support_visit(Node, Seen, Nodes, Tail) :-
     (   New == false
     ->  Nodes = Tail
     ;   Nodes = [Node|Rest],
-        findall(Derived, supports(Node, Derived), DerivedNodes),
+        term_hash(Node, NodeKey),
+        findall(Derived, supports(NodeKey, _, Node, Derived), DerivedNodes),
         support_visit_list(DerivedNodes, Seen, Rest, Tail)
     ).
 
@@ -634,7 +677,8 @@ support_stabilize_locked(Derived, Compute, Value) :-
     copy_term(Fresh, Value).
 
 support_invalidate_successors_locked(Derived) :-
-    findall(Child, supports(Derived, Child), Children),
+    term_hash(Derived, DerivedKey),
+    findall(Child, supports(DerivedKey, _, Derived, Child), Children),
     empty_nb_set(Seen),
     add_nb_set(Derived, Seen),
     support_visit_list(Children, Seen, Affected, []),
@@ -647,7 +691,7 @@ support_invalidate_successors_locked(Derived) :-
 % typed node with support_forget/1; a process-wide cache reset owns all nodes.
 support_reset :-
     support_atomic(
-        ( retractall(supports(_, _)),
+        ( retractall(supports(_, _, _, _)),
           retractall(support_function_module(_, _)),
           retractall(support_view_module(_, _)),
           retractall(support_dirty_node(_)),

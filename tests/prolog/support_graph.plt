@@ -194,6 +194,42 @@ test(a_recompiled_recursive_clause_keeps_its_fuel_wrapper,
            ( term_to_atom(After, AfterText),
              assertion(sub_atom(AfterText, _, _, _, '$petta_fuel_remaining')) )).
 
+% The edge relation's endpoints are compound nodes that share only their
+% functor, so indexing them directly gives one bucket per NODE KIND: four kinds
+% over any number of edges is a speedup of four, and every duplicate-edge probe
+% walks a quarter of the graph. Each endpoint's hash sits in front of it for
+% that reason. Asserted through predicate_property/2 rather than by timing,
+% because the index is what the change is about and its quality is a fact the
+% system reports.
+edge_index_speedup(Speedup) :-
+    Module = '$plunit_edge_index',
+    % Several node kinds at BOTH ends, which is what a real compile produces and
+    % what defeats indexing the node terms themselves: neither end can be
+    % indexed below its functor, so the whole predicate is one bucket per kind.
+    forall(between(1, 500, I),
+           ( atom_concat(eix, I, Name),
+             forall(member(Support-Derived,
+                           [ translated_form(Module, Name)-compiled_function(Module, Name),
+                             compiled_function(Module, Name)-function(Module, Name),
+                             function(Module, Name)-function_view(Module, Name),
+                             function_view(Module, Name)-type_marker(Module, Name) ]),
+                    support_graph:support_record(Derived, Support)) )),
+    support_graph:support_record(compiled_function(Module, eix1),
+                                 translated_form(Module, eix1)),
+    findall(S,
+            ( member(Head, [support_graph:supports(_, _, _, _),
+                            support_graph:supports(_, _)]),
+              catch(predicate_property(Head, indexed(Indexes)), _, fail),
+              member(Index, Indexes),
+              get_dict(speedup, Index, S) ),
+            Speedups),
+    max_list([0|Speedups], Speedup),
+    support_graph:support_forget_module(Module).
+
+test(the_edge_relation_indexes_by_key_and_not_by_node_kind) :-
+    edge_index_speedup(Speedup),
+    assertion(Speedup > 100).
+
 test(a_reset_releases_automatic_memo_analysis_state) :-
     support_graph:support_publish_compiled_form(
         p36_reset, p36_reset_fun, p36_reset_ref, [], [p36_reset_fun]),
