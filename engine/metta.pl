@@ -179,7 +179,7 @@
 %     previous value after success, failure, exception, and nested scopes;
 %     max-stack-depth remains branch-local reduction fuel [tested:
 %     scoped_stack_limit,
-%     test_janus_stack_scope_restores_on_all_exits; commit=WORKTREE].
+%     test_janus_stack_scope_restores_on_all_exits; commit=81c50d3ae4c03ddfd70ed3f1ff70e085cfee3978].
 %   - petta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
 %     reading the message [tested 2026-08-19:
@@ -191,7 +191,7 @@
 %   - metta_host_function_generation/1 exposes fun/1's process-global SWI
 %     database generation, which advances on committed catalogue changes and
 %     on no ordinary evaluation or data write
-%     [tested: function_catalogue_generation; commit=WORKTREE].
+%     [tested: function_catalogue_generation; commit=4c9a794750103e0a3a2e9d883adde337ffb501f0].
 %   - Prolog registration refuses every head the translator compiles before
 %     function dispatch, including heads added through translator_rule/1
 %     [tested: test_registering_any_translator_compiled_head_is_refused_by_name].
@@ -6140,7 +6140,7 @@ petta_call_with_inference_bound(Goal, Limit) :-
 %push/pop pair is nestable and records absence as well as a prior value; the
 %cleanup wrapper performs the pop after deterministic success, failure, cut,
 %or exception [source: SWI-Prolog 10.1 Reference Manual, Environment Control,
-%https://www.swi-prolog.org/pldoc/man?section=flags; commit=WORKTREE].
+%https://www.swi-prolog.org/pldoc/man?section=flags; commit=81c50d3ae4c03ddfd70ed3f1ff70e085cfee3978].
 metta_host_with_stack_limit(StackBytes, Goal) :-
     must_be(positive_integer, StackBytes),
     setup_call_cleanup(push_prolog_flag(stack_limit, StackBytes),

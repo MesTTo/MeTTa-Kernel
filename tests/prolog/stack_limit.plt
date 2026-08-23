@@ -4,9 +4,9 @@
 %     changeable `stack_limit` flag.
 % Guarantees:
 %   - success, failure, exception, and nesting restore the exact prior ceiling
-%     [tested: scoped_stack_limit; commit=WORKTREE]
+%     [tested: scoped_stack_limit; commit=81c50d3ae4c03ddfd70ed3f1ff70e085cfee3978]
 %   - `stack-limit` is a byte ceiling distinct from reduction fuel's
-%     `max-stack-depth` [tested: scoped_stack_limit; commit=WORKTREE]
+%     `max-stack-depth` [tested: scoped_stack_limit; commit=81c50d3ae4c03ddfd70ed3f1ff70e085cfee3978]
 % Fails when:
 %   - a caller expects one thread's temporary ceiling to mutate another
 %     already-running thread; SWI flags are thread-local.

@@ -20,7 +20,7 @@
 %     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 %   - host writes, running MeTTa add-atom forms, and file loads into a target
 %     space all pass accept, transform, drop, and refuse through the same
-%     declared pre-add hook [tested: admission_route_matrix; commit=WORKTREE]
+%     declared pre-add hook [tested: admission_route_matrix; commit=ce55fe46f26484be4269d06d6b99684d5edc040f]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

@@ -5,18 +5,18 @@
 % Guarantees:
 %   - the process-wide generation advances exactly when the fun/1 set can
 %     change through registration, definition, import, and removal routes
-%     [tested: function_catalogue_generation; commit=WORKTREE]
+%     [tested: function_catalogue_generation; commit=4c9a794750103e0a3a2e9d883adde337ffb501f0]
 %   - a rolled-back fun/1 assertion changes neither the visible set nor its
 %     generation [tested: a_rolled_back_definition_is_generation_neutral;
-%     commit=WORKTREE]
+%     commit=4c9a794750103e0a3a2e9d883adde337ffb501f0]
 %   - plain evaluation and data writes are generation-neutral
-%     [tested: function_catalogue_generation; commit=WORKTREE]
+%     [tested: function_catalogue_generation; commit=4c9a794750103e0a3a2e9d883adde337ffb501f0]
 %   - runtime translator-rule addition and removal change neither generation
 %     nor petta_py_builtins/1's answer set [tested:
-%     translator_rules_are_catalogue_neutral; commit=WORKTREE]
+%     translator_rules_are_catalogue_neutral; commit=4c9a794750103e0a3a2e9d883adde337ffb501f0]
 %   - a mutation in one engine thread is visible to a host read in another
 %     [tested: a_worker_mutation_is_visible_to_the_calling_thread;
-%     commit=WORKTREE]
+%     commit=4c9a794750103e0a3a2e9d883adde337ffb501f0]
 % Guarded by:
 %   - SWI's last_modified_generation property is maintained by the dynamic
 %     database and shared by all engine threads.
