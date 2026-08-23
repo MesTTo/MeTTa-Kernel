@@ -1,13 +1,13 @@
 # The MeTTa standard library, in Python
 
 Every operation MeTTa's standard library declares, and what you write in Python
-instead. 136 of the 180 operations a program can call have a Python
+instead. 136 of the 179 operations a program can call have a Python
 spelling, and every row below ran on both sides: the MeTTa form on this engine and
 on LeaTTa, the conformance oracle, and the Python spelling here.
 
 The names and their types are LeaTTa's, measured against its built binary rather
-than transcribed: manifest 1.0.9 at commit `e47c93f`, 380 declarations
-over 378 distinct names. `bindings/python/tools/phrasebook.py` runs the
+than transcribed: manifest 1.0.9 at commit `e47c93f`, 379 declarations
+over 377 distinct names. `bindings/python/tools/phrasebook.py` runs the
 rows and fails when a spelling stops answering what it says it answers.
 
 ## How to read a row
@@ -23,16 +23,16 @@ Rows fall in five buckets, and the bucket is the honest part:
 - **method** (21) &mdash; the concept is MeTTa's own, so it wears a metta name
 - **instruction** (0) &mdash; deep control that stays instruction-tier, reached by building the term at the `S.` door and reducing it
 - **internal** (198) &mdash; LeaTTa's mechanised interpreter, written in MeTTa; PeTTa writes its interpreter in Prolog, so these names are on neither surface
-- **absent** (44) &mdash; a user-facing operation with no Python spelling today: the residue
+- **absent** (43) &mdash; a user-facing operation with no Python spelling today: the residue
 
-Provenance: LeaTTa manifest 1.0.9 at commit `e47c93f`, 380 declarations over 378 distinct names.
+Provenance: LeaTTa manifest 1.0.9 at commit `e47c93f`, 379 declarations over 377 distinct names.
 
 ## What the Python spelling costs
 
 Section 9e claims that a structure operation on an atom already held in Python
 costs no engine crossing at all. Measured over the rows that run both sides:
-the MeTTa forms cost 146,483 engine inferences and the Python spellings
-cost 6,941, and 90 of the 121 rows cost the engine EXACTLY
+the MeTTa forms cost 146,469 engine inferences and the Python spellings
+cost 6,943, and 90 of the 121 rows cost the engine EXACTLY
 NOTHING. `e[0]`, `e[1:]`, `len(e)`, `max([...])` and `S.f(1)` each read the same
 count as an empty measurement block, so the claim holds: the work never reaches
 the engine at all.
@@ -437,7 +437,6 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(get-metatype git-import!)` | `import importlib ⏎ S[importlib.import_module('json').__name__]` | `Grounded on leatta and metta; json on python` | method |
 | `!(get-metatype git-module!)` | &mdash; | `Grounded` | absent |
 | `!(get-metatype register-module!)` | &mdash; | `Grounded` | absent |
-| `!(get-metatype get-deps)` | &mdash; | `Grounded` | absent |
 | `!(print-mods!)` | `import sys ⏎ print(len(sys.modules), 'modules') ⏎ metta.Expression()` | `()` | dissolves |
 | `!(loaded-mods!)` | `import sys ⏎ S['json'] if 'json' in sys.modules else S.absent` | `(corelib builtin:skel) on leatta; json on python` | dissolves |
 | `!(module-tree!)` | `import importlib.metadata ⏎ S[importlib.metadata.requires.__name__]` | `(top corelib stdlib skel) on leatta; requires on python` | dissolves |
@@ -450,7 +449,6 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `git-import!` `(-> String String Atom)` &mdash; pip and `importlib`. Fetching a dependency is packaging's job, the module catalog IS Python packaging, and a boot manifest names the distribution. Where they differ: a row cannot fetch a repository, so the MeTTa column shows only that the name is a grounded operation while the Python column imports a distribution that is already installed.
 - `git-module!` `(-> Atom (->))` &mdash; Upstream's bespoke package manager. The form is shown but not run here: PeTTa does not declare the name. Ruled rather than missing: decision 8: the module catalog IS Python packaging, and upstream's bespoke manager is the fork not taken, so the absence is a decision rather than a gap.
 - `register-module!` `(-> Atom (->))` &mdash; Registering a module with the bespoke catalog. A Python distribution registers itself by declaring an entry point, which pip then installs. The form is shown but not run here: PeTTa does not declare the name. Ruled rather than missing: decision 8: pip and entry-point discovery are the catalog, so the absence is a decision rather than a gap.
-- `get-deps` `(-> Atom Atom)` &mdash; One loaded module's direct dependency names as data, an Error for an unknown module. The arbiter added it 2026-08-24 because Hyperon's pinned import corpus asks for it while printing only a tree. The Python-distribution half is importlib.metadata.requires per decision 8; the MeTTa-side per-module dependency view over import! records is a genuine gap, not a decision. The form is shown but not run here: PeTTa does not declare the name.
 - `print-mods!` `(-> (->))` &mdash; `print(sorted(sys.modules))`. Under the ruling that the module catalog IS Python packaging, the loaded-module question is Python's own. Where they differ: MeTTa modules there, Python modules here, which is what the ruling makes them. The form is shown but not run here: PeTTa does not declare the name.
 - `loaded-mods!` `(-> Atom)` &mdash; `sys.modules`, the same list as data rather than printed. Where they differ: MeTTa modules there, Python modules here. The form is shown but not run here: PeTTa does not declare the name.
 - `module-tree!` `(-> Atom)` &mdash; `importlib.metadata.requires(name)`, which answers the dependency tree a distribution declares. The row names the door rather than a package, because no distribution is guaranteed installed wherever the lane runs. Where they differ: the trees are different: MeTTa modules there, installed distributions here. The form is shown but not run here: PeTTa does not declare the name.

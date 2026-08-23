@@ -160,10 +160,6 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   predicate ownership, clause order, and meta-call context, so the split is
   behavior-preserving: all 223 example outputs are byte-identical, the host
   scoreboard is unchanged, and every inference growth slope matches exactly.
-- The LeaTTa phrasebook gains the arbiter's new `get-deps` module-dependency
-  view as recorded residue: the Python-distribution half is
-  `importlib.metadata` per the module-catalog decision, and the MeTTa-side
-  per-module dependency view is a named gap.
 - Rename the Python distribution to `pymetta` and its import module to
   `metta`: install with `pip install pymetta` and use `import metta`.
   Neither `petta` nor `pymetta` remains an importable module.
