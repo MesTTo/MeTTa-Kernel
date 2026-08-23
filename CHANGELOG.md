@@ -119,6 +119,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Automatic memoization no longer reads the whole program to decide what to
+  cache. Reconciling a source whose call graph changed enumerated every
+  equation in the module to find the ones carrying a `(cache f force)` or
+  `(cache f refuse)` declaration, and looking one function's equations up
+  walked every equation in the engine because the store is keyed on the whole
+  source term. Compiling a two-form source containing one call into a space
+  already holding 3,200 equations cost 37,831 inferences and costs 2,615, the
+  same reading as at 200 equations; 20,000 lookups of one function's equations
+  against a module of 3,200 cost 2.52 seconds of CPU and cost 0.012.
+
 - Loading a source that defines a function AFTER the definitions calling it
   is now linear in the number of those call sites rather than quadratic.
   Repairing one caller walked every stored equation in the system to find the

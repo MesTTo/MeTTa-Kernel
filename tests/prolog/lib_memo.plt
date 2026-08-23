@@ -332,3 +332,141 @@ test(an_immutable_function_memoizes,
     'memoize'(plunit_memo_pure, true).
 
 :- end_tests(lib_memo_volatility).
+
+%The catalog's two profitability overrides are covered from Python, but every
+%function they are declared on there is recursive
+%[source: bindings/python/tests/test_automatic_tabling.py
+%test_automatic_cache_force_and_refuse_overrides, and the same in
+%test_an_impure_function_is_never_cached_automatically,
+%test_automatic_caching_preserves_multiplicity_and_answer_limit and
+%test_cache_decorator]. A recursive name is already a component of the
+%source-call graph and arrives through those, so the branch that collects a
+%declaration on a name the graph does NOT hold, OverrideFuns in
+%memo_automatic_module_plan/2, runs empty in all of them. It is the branch this
+%unit is for.
+:- begin_tests(memo_cache_override).
+
+forget_cache_override(Fun, Mode) :-
+    catch('remove-atom'('&petta', [cache, Fun, Mode], _), _, true).
+
+cache_explanation(Fun, Choice-Reason) :-
+    (   seam:automatic_cache_explanation(Fun, Choice, Reason)
+    ->  true
+    ;   Choice-Reason = none-none
+    ).
+
+%Both directions, because a decision that cannot be taken back is a leak
+%rather than an override.
+test(a_force_declaration_memoizes_a_function_that_calls_nothing,
+     [ setup(process_metta_string(
+                 "(= (plunit-memo-forced $x) (+ $x 1))", _)),
+       cleanup(forget_cache_override('plunit-memo-forced', force)) ]) :-
+    cache_explanation('plunit-memo-forced', Before),
+    assertion(Before == declined-'not-recursive'),
+    process_metta_string(
+        "!(add-atom &petta (cache plunit-memo-forced force))", _),
+    cache_explanation('plunit-memo-forced', Forced),
+    assertion(Forced == forced-declaration),
+    assertion(lib_memo:memo_automatic_enabled('plunit-memo-forced', _)),
+    forget_cache_override('plunit-memo-forced', force),
+    cache_explanation('plunit-memo-forced', After),
+    assertion(After == declined-'not-recursive'),
+    assertion(\+ lib_memo:memo_automatic_enabled('plunit-memo-forced', _)).
+
+%Reconciliation runs once per source whose call graph changed, and finding the
+%declarations used to enumerate every equation in the module and ask each name
+%whether it carried one. Declarations are rare and equations are not, so the
+%declarations drive now and one indexed probe confirms the name has an
+%equation here. Cost of compiling a two-form source containing one source
+%call, into a space already holding M unrelated equations [measured
+%2026-08-23: 4,831 inferences at M=200 and 37,831 at M=3,200, exactly 11.0 an
+%equation, and 2,615 at both after].
+plunit_bulk_equations(M, Text) :-
+    findall(Line,
+            ( between(1, M, I),
+              format(atom(Line), "(= (plunit_memo_bulk_b~w) ~w)~n", [I, I]) ),
+            Lines),
+    atomics_to_string(Lines, Text).
+
+reconcile_cost(M, Cost) :-
+    Space = '&plunit_memo_reconcile',
+    plunit_bulk_equations(M, Bulk),
+    setup_call_cleanup(
+        assertz(user:silent(true), SilentRef),
+        setup_call_cleanup(
+            filereader:process_metta_string(Bulk, _, Space),
+            ( statistics(inferences, Before),
+              filereader:process_metta_string(
+                  "(= (plunit_memo_gee $x) (quote $x))\n(= (plunit_memo_use) (plunit_memo_gee k0))\n",
+                  _, Space),
+              statistics(inferences, After),
+              Cost is After - Before ),
+            ( user:clear_native_atoms(Space),
+              user:metta_release_space(Space) )),
+        erase(SilentRef)).
+
+test(reconciling_a_source_costs_nothing_that_grows_with_the_module) :-
+    reconcile_cost(100, Narrow),
+    reconcile_cost(1600, Wide),
+    assertion(Wide < Narrow * 2).
+
+:- end_tests(memo_cache_override).
+
+%The one TIMED test in the tree, and it has to be. Every caller of
+%memo_equation/4 binds the function name, and the store it reads keys on the
+%whole source term, so the lookup either takes the deep index or walks every
+%equation in the engine. The inference counter cannot tell those apart: a
+%candidate rejected by head unification sends the VM to shallow_backtrack,
+%which asks for the next clause and resumes without raising the counter
+%[source: SWI-Prolog src/pl-vmi.c, VMH(shallow_backtrack) against
+%VMH(depart_or_retry_continue); V10.1.13, upstream commit
+%fc7ef84b949378b729052c3ade79c90ce5416abb], so the walk reads THREE inferences
+%at 20 clauses and three at 20,000. prolog_trace_interception/4 does see it,
+%one call of translated_from/2 with 19 redos against one with none at 20
+%clauses, but plunit meta-calls its test bodies and cannot trace them.
+%
+%CPU time is the instrument that is left, and it is safe at this margin:
+%process CPU time does not move with machine load, both readings come from one
+%process, and the walk measures 17.4x for a 16x module where the index
+%measures 1.2 [measured 2026-08-23: 20,000 lookups cost 0.145s at M=200 and
+%2.523s at M=3,200 before, 0.009s and 0.012s after].
+:- begin_tests(memo_equation_lookup).
+
+plunit_lookup_equations(M, Text) :-
+    findall(Line,
+            ( between(1, M, I),
+              format(atom(Line), "(= (plunit_lookup_b~w) ~w)~n", [I, I]) ),
+            Lines),
+    atomics_to_string(Lines, Text).
+
+%The first lookup builds the index, so it is spent before the clock starts.
+lookup_cputime(M, Reps, Seconds) :-
+    atom_concat('&plunit_memo_lookup_', M, Space),
+    plunit_lookup_equations(M, Bulk),
+    setup_call_cleanup(
+        assertz(user:silent(true), SilentRef),
+        setup_call_cleanup(
+            ( filereader:process_metta_string(Bulk, _, Space),
+              filereader:process_metta_string(
+                  "(= (plunit_lookup_target $x) 7)\n", _, Space) ),
+            ( user:metta_module_space(Module, Space),
+              !,
+              ( lib_memo:memo_equation(plunit_lookup_target, Module, any, _)
+                -> true ; true ),
+              statistics(cputime, T0),
+              forall(between(1, Reps, _),
+                     ( lib_memo:memo_equation(plunit_lookup_target, Module,
+                                              any, _)
+                       -> true ; true )),
+              statistics(cputime, T1),
+              Seconds is T1 - T0 ),
+            ( user:clear_native_atoms(Space),
+              user:metta_release_space(Space) )),
+        erase(SilentRef)).
+
+test(one_head_is_found_without_walking_the_other_equations) :-
+    lookup_cputime(200, 20000, Narrow),
+    lookup_cputime(3200, 20000, Wide),
+    assertion(Wide < Narrow * 4).
+
+:- end_tests(memo_equation_lookup).
