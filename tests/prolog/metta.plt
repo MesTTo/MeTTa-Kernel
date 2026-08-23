@@ -801,7 +801,84 @@ test(variable_index_still_enumerates,
      [true(Pairs == [0-a, 1-b])]) :-
     findall(Index-Elem, 'index-atom'([a, b], Index, Elem), Pairs).
 
+%Reading the first element is an O(1) question and it used to be answered by a
+%walk of the whole list, because indexable_list/2 classified its argument with
+%is_list/1. TIMED rather than counted: is_list/1 is one C builtin call and
+%reads as a single inference whatever the length of the list it walks.
+index_cost(N, Micros) :-
+    numlist(1, N, List),
+    ( between(1, 50, _), \+ \+ 'index-atom'(List, 0, _), fail ; true ),
+    findall(D, ( between(1, 3, _),
+                 statistics(cputime, T0),
+                 ( between(1, 2000, _), \+ \+ 'index-atom'(List, 0, _), fail
+                 ; true ),
+                 statistics(cputime, T1),
+                 D is (T1 - T0) * 1000000 / 2000 ), Ds),
+    min_list(Ds, Micros).
+
+test(reading_the_first_element_does_not_walk_the_list) :-
+    index_cost(400, Narrow),
+    index_cost(25600, Wide),
+    assertion(Wide < Narrow * 4).
+
 :- end_tests(metta_index_atom).
+
+:- begin_tests(metta_expression_invariant).
+
+%A MeTTa Expression is a proper list, and every reader in the engine is entitled
+%to assume it because the two constructors maintain it.
+shape_case([],         true).
+shape_case([a],        true).
+shape_case([a, b, c],  true).
+shape_case([[a], [b]], true).
+shape_case(foo,        false).
+shape_case(1,          false).
+shape_case("s",        false).
+shape_case(3.5,        false).
+shape_case(f(a, b),    false).
+shape_case(-(1, 2),    false).
+
+test(the_shape_decides_what_is_an_expression) :-
+    forall(shape_case(Term, Expected),
+           ( ( list_shaped(Term) -> Got = true ; Got = false ),
+             assertion(Got == Expected) )).
+
+%An unbound term is not an Expression, which is what is_list/1 answered for one
+%and what each caller of list_shaped/1 relies on.
+test(an_unbound_term_is_not_an_expression, [fail]) :-
+    list_shaped(_).
+
+%The tail's declared type is Expression, and a tail that is decidedly not one is
+%refused rather than built into a cons the engine cannot print: (cons-atom a 1)
+%used to answer [a|1], which swrite/2 then refused as a term whose printed form
+%would read back as a different value.
+test(a_non_expression_tail_is_refused) :-
+    'cons-atom'(a, 1, Out),
+    Out == ['Error', ['cons-atom', a, 1],
+            ['BadArgType', 2, 'Expression', 'Number']],
+    cons(a, "s", Out2),
+    Out2 == ['Error', [cons, a, "s"],
+             ['BadArgType', 2, 'Expression', 'String']].
+
+%A tail whose type is not DECIDED, an undeclared symbol, is left unreduced. The
+%result is the ordinary three-element expression, so the invariant holds there
+%too.
+test(an_undecided_tail_is_left_unreduced_as_an_expression) :-
+    'cons-atom'(a, foo, Out),
+    Out == ['cons-atom', a, foo],
+    assertion(list_shaped(Out)).
+
+%An unbound tail still builds, which is what relational_input_position/2
+%declares for position 2 and what lets lib_roman write (cons $x $xs) as a
+%pattern and the third argument decompose a list.
+test(an_unbound_tail_still_builds_and_still_decomposes) :-
+    'cons-atom'(a, T, Out),
+    Out == [a|T],
+    var(T),
+    cons(H, Rest, [a, b, c]),
+    H == a, Rest == [b, c].
+
+:- end_tests(metta_expression_invariant).
 
 :- begin_tests(metta_alpha_membership).
 

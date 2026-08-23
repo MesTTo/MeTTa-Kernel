@@ -1774,7 +1774,37 @@ superpose(L,X) :- member(X,L).
 empty(_) :- fail.
 
 %%% Lists / Tuples: %%%
-'cons-atom'(H, T, [H|T]).
+%The tail's declared type is Expression [source: lib/lib_builtin_types.metta,
+%(: cons-atom (-> Atom Expression Atom))], and the arbiter refuses a tail that
+%is not one rather than building a term it could not print
+%[source: LeaTTa MettaHyperonFull/Core/Builtins.lean, Builtins.consAtom;
+%tests/regression/instruction_interp.metta pins native cons-atom and its mirror
+%rejecting `(cons-atom a 1)` alike]. PeTTa BUILT the improper cons instead, and
+%then could not write it: `!(cons-atom a 1)` raised swrite/2's "cannot write 1
+%as MeTTa text because its printed form would read back as a different value".
+%
+%The refusal is the operation's own declaration read back by
+%metta_operation_answer/3, so `(cons-atom a 1)` answers
+%`(Error (cons-atom a 1) (BadArgType 2 Expression Number))`, and a tail whose
+%type is not DECIDED, an undeclared symbol, is left unreduced as the ordinary
+%three-element expression it already was.
+%
+%An unbound tail still builds, which is what relational_input_position/2
+%declares for position 2 and what lets the third argument decompose a list.
+%Nothing in the shipped corpus reaches either refusal: over 253 example
+%programs the tail was a proper list 77 times and () 23 times, and never
+%anything else [measured 2026-08-23].
+%The test is SPELLED OUT rather than calling list_shaped/1, because this clause
+%was a fact and a fact costs its caller nothing beyond the call: var/1, ==/2 and
+%=/2 compile to VM instructions and raise no inference, where any predicate call
+%here raises one per cons. let-heavy conses a million times and measured exactly
+%that, 14,002,591 inferences against 13,002,551 [measured 2026-08-23].
+'cons-atom'(H, T, Out) :-
+    (   var(T)    -> Out = [H|T]
+    ;   T == []   -> Out = [H]
+    ;   T = [_|_] -> Out = [H|T]
+    ;   metta_operation_answer('cons-atom', [H, T], Out)
+    ).
 %The grounded reading goes FIRST and fails fast, rather than after the cons
 %clause, because the cons clause has no cut: a variable-headed clause behind it
 %stays a candidate that indexing cannot rule out, so every decons of a real
@@ -1868,6 +1898,24 @@ alpha_bucket_insert(Key, Term, SeenIn, SeenOut, IsNew) :-
 %A term that can never become a list, no matter how it gets instantiated:
 non_list(X) :- atomic(X), X \== [].
 non_list(X) :- compound(X), X \= [_|_].
+
+%The positive reading of the same shape, and the engine's answer to "is this an
+%Expression". A MeTTa Expression IS a proper list, by construction rather than
+%by hope: the arbiter's Atom carries `Atom.expr (List Atom)`
+%[source: LeaTTa MettaHyperonFull/Core/Builtins.lean, Builtins.consAtom], so an
+%improper cons is not a term the semantics can express, and 'cons-atom'/3 above
+%refuses to build one. The FIRST CELL therefore settles the question, where
+%is_list/1 walks the whole list to reach the same answer.
+%
+%An unbound term is not an Expression, which is what is_list/1 answers for one
+%and what the three callers of this predicate each relied on.
+%
+%Constant time, and cheaper than the walk at every length rather than only at
+%long ones [measured 2026-08-23, per call: 85 nanoseconds against is_list/1's
+%77 over 2 elements, 55 against 143 over 64, and 66 against 20,812 over 16,384].
+list_shaped(X) :- var(X), !, fail.
+list_shaped([]).
+list_shaped([_|_]).
 
 %%%%%%%%%% An unbound argument where a value is required %%%%%%%%%%
 %
@@ -2018,7 +2066,19 @@ prolog:error_message(petta_unbound_input(_, Position)) -->
 'cdr-atom'(Term, []) :- \+ Term = [_|_].
 decons(Term, _) :- var(Term), !, refuse_unbound_input(decons, 1).
 decons([H|T], [H|[T]]).
-cons(H, T, [H|T]).
+%The same contract as 'cons-atom'/3 above, under PeTTa's own spelling and its
+%own declaration `(: cons (-> Atom Expression Expression))`. An unbound tail
+%still builds, which is what makes this the PATTERN constructor lib_roman
+%writes `(cons $x $xs)` with; a tail that is decidedly not an Expression is
+%refused rather than built into a term nothing can print. Over the shipped
+%corpus the tail was a proper list 181,507 times, () 79 times and unbound 35
+%times, and never anything else [measured 2026-08-23].
+cons(H, T, Out) :-
+    (   var(T)    -> Out = [H|T]
+    ;   T == []   -> Out = [H]
+    ;   T = [_|_] -> Out = [H|T]
+    ;   metta_operation_answer(cons, [H, T], Out)
+    ).
 'index-atom'(List, _, _) :- var(List), !, refuse_unbound_input('index-atom', 1).
 'index-atom'(_, Index, Elem) :- nonvar(Index), \+ integer(Index), !,
                                 Elem = [].
@@ -2029,7 +2089,11 @@ cons(H, T, [H|T]).
     indexable_list(List, View),
     ( nth0(Index, View, Value) -> Elem = Value ; Elem = [] ).
 
-indexable_list(List, List) :- is_list(List), !.
+%Reading the shape rather than walking the list is what makes indexing into one
+%cost what the index costs instead of what the LIST costs: `(index-atom $l 0)`
+%over 25,600 elements cost 34.2 microseconds and costs 0.6
+%[measured 2026-08-23].
+indexable_list(List, List) :- list_shaped(List), !.
 indexable_list(Term, View) :- grounded_list_view(Term, View), !.
 indexable_list(List, List).
 
@@ -3436,7 +3500,7 @@ metatype_of([Family|Parameters], 'Grounded') :-
     Space = [Family|Parameters],
     space_parametric(Space),
     !.
-metatype_of(X, 'Expression') :- is_list(X), !.     % e.g., (+ 1 2), (a b)
+metatype_of(X, 'Expression') :- list_shaped(X), !. % e.g., (+ 1 2), (a b)
 metatype_of(X, 'Symbol') :- atom(X), !.            % e.g., a
 metatype_of(_, 'Grounded').                        % e.g., partial(f,[1]), f(1)
 
@@ -5350,6 +5414,7 @@ pure_engine_helper(function_overapplication).
 pure_engine_helper(throw_metta_type_error).
 pure_engine_helper(rethrow_metta_operation_error).
 pure_engine_helper(non_list).
+pure_engine_helper(list_shaped).
 %The two halves of the charge petta_fuel_step_goal/3 writes into every
 %compiled recursive clause. They stand where petta_fuel_step/2 stood before
 %the charge was inlined, and classifying them the same way is what keeps a
@@ -5413,7 +5478,7 @@ pure_inspection(has_type).       pure_inspection(metatype_of).
 
 'is-var'(A,R) :- var(A) -> R=true ; R=false.
 'is-ground'(A,R) :- ground(A) -> R=true ; R=false.
-'is-expr'(A,R) :- is_list(A) -> R=true ; R=false.
+'is-expr'(A,R) :- list_shaped(A) -> R=true ; R=false.
 'is-space'(A,R) :- petta_space_name(A) -> R=true ; R=false.
 
 %%% Diagnostics / Testing: %%%
