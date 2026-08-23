@@ -17,6 +17,10 @@
 %     test_an_unchanged_repeat_import_does_not_run_the_source_again,
 %     test_an_edited_import_is_not_skipped,
 %     filereader_source_reload:an_unchanged_file_is_not_loaded_again].
+%   - the builtin type surface and engine prelude are decoded as UTF-8 rather
+%     than through the process locale [tested:
+%     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
+%     commit=WORKTREE].
 %   - petta_handles_route/5 routes a query by the most specific matching
 %     (handles ...) entry in &petta, where specificity is pattern
 %     subsumption first and adornment-set inclusion between renaming-equal
@@ -225,6 +229,7 @@
 %aborts the boot at load_builtin_type_surface's first (library ...) call.
 %So this one import has to come first, ahead of even the section header's
 %own first clause.
+:- encoding(utf8).
 :- use_module(library(filesex)).
 library(X, Path) :- standard_library_path(Base),
                     directory_file_path(Base, X, Path).
@@ -8441,7 +8446,7 @@ load_builtin_type_surface :-
     library('lib_builtin_types.metta', Path),
     exists_file(Path),
     !,
-    read_file_to_string(Path, Text, []),
+    read_file_to_string(Path, Text, [encoding(utf8)]),
     parse_metta_source(Text, Forms),
     forall(( member(parsed(expression, _, [':', Name, Type]), Forms),
              atom(Name) ),
@@ -8585,7 +8590,7 @@ load_engine_prelude_forms :-
                     context(load_engine_prelude/0,
                             'engine/prelude.metta is part of the engine')))
     ),
-    read_file_to_string(Path, Text, []),
+    read_file_to_string(Path, Text, [encoding(utf8)]),
     parse_metta_source(Text, Forms),
     %Re-loading restores only what eviction removed: a name still owned
     %keeps every clause it has, and its forms are skipped WHOLE (a name

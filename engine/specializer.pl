@@ -31,6 +31,7 @@
 %invalidates what was built over it. Everything else, the plan, the agreement
 %check and the generated-clause bookkeeping, is this subsystem's own
 %[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+:- encoding(utf8).
 :- module(specializer,
           [ maybe_specialize_call/4,
             prepare_specialization_invalidation/2,
