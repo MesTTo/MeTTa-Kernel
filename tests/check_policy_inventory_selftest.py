@@ -117,7 +117,7 @@ def test_catalog_authority_and_generated_output_are_not_findings() -> None:
         )
         _write(
             root,
-            "bindings/python/petta/vocabularies.py",
+            "bindings/python/metta/vocabularies.py",
             'SaveFormat: TypeAlias = Literal["metta", "fast"]\n',
         )
         findings = scan_closed_lists(root)
@@ -153,7 +153,7 @@ def test_python_literal_and_list_set_membership_are_reported() -> None:
         root = Path(directory)
         _write(
             root,
-            "bindings/python/petta/planted.py",
+            "bindings/python/metta/planted.py",
             "from typing import Literal\n"
             "Mode = Literal[\n"
             "    'one',\n"
@@ -164,11 +164,11 @@ def test_python_literal_and_list_set_membership_are_reported() -> None:
         )
         findings = scan_closed_lists(root)
     assert findings == [
-        "bindings/python/petta/planted.py:2: closed policy list ['one', 'two'] "
+        "bindings/python/metta/planted.py:2: closed policy list ['one', 'two'] "
         "has no adjacent exemption",
-        "bindings/python/petta/planted.py:7: closed policy list ['red', 'blue'] "
+        "bindings/python/metta/planted.py:7: closed policy list ['red', 'blue'] "
         "has no adjacent exemption",
-        "bindings/python/petta/planted.py:7: closed policy list ['up', 'down'] "
+        "bindings/python/metta/planted.py:7: closed policy list ['up', 'down'] "
         "has no adjacent exemption",
     ]
 

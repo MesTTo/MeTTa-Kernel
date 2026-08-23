@@ -15,7 +15,7 @@ this page, so if you know one column you can derive the other two.
 MeTTa has exactly four kinds of atom, and they are also the metatypes,
 the answers `get-metatype` gives. Each kind is one Python class:
 
-| canonical MeTTa | petta class | builder | wire tag |
+| canonical MeTTa | metta class | builder | wire tag |
 |---|---|---|---|
 | Symbol | `Symbol` | `S.name` | `"s"` |
 | Variable | `Variable` | `V.x` | `"v"` |
@@ -25,7 +25,7 @@ the answers `get-metatype` gives. Each kind is one Python class:
 `Atom` is the base class of all four, exactly as canon says the kinds
 are subtypes of Atom. The Python classes use the canonical names directly.
 
-One public petta type lives INSIDE the Grounded kind rather than beside it. A
+One public metta type lives INSIDE the Grounded kind rather than beside it. A
 `Handle` is a grounded atom whose value is engine-owned, carried by
 identity so a native object survives the round trip. It is not a fifth kind:
 canon defines Grounded as "any binary object" with its own execution and
@@ -47,7 +47,7 @@ Three words that are one small system:
 in Python, and it is an answer, not an error.
 
 `State[T]` is a typed mutable engine cell. Construct it with
-`petta.State[int](1, space=m)`, read `state.value`, and assign `state.value = 2`
+`metta.State[int](1, space=m)`, read `state.value`, and assign `state.value = 2`
 to update the same cell.
 
 ## A space is where a program lives
@@ -55,7 +55,7 @@ to update the same cell.
 Canon: "Every MeTTa program lives inside of a particular Atomspace."
 Python separates the evaluation context from the space handle. `MeTTa()` is
 the context, `MeTTa().self` is its `&self` handle, and `MeTTa().space(name)`
-or the module-level `petta.space(name)` creates another `Space` handle.
+or the module-level `metta.space(name)` creates another `Space` handle.
 
 `&self` is the reserved token for the space the code lives in, and a
 named space is any other `&name`. The current context resolves the way
@@ -129,5 +129,5 @@ also a real answer.
 
 One concept has one name. `add-atom` is the `Space.add` write verb,
 `get-atoms` is iteration or `Space.atoms`, and `new-space` is the
-`petta.space()` factory. A superseded Python door is deleted rather than kept
+`metta.space()` factory. A superseded Python door is deleted rather than kept
 as a synonym.

@@ -309,7 +309,7 @@ run GATE prolog-static check_prolog_static
 # vulture and jscpd read Python alone, and none of the SWI checks above reports
 # UNREACHABILITY: a predicate defined and never called is invisible to all of
 # them, across 22,791 lines of Prolog [measured 2026-08-19]. This walks every clause under engine/, lib/,
-# backends/, backends/mork/mork_ffi/ and bindings/python/petta/ with prolog_walk_code/1, adds a probe
+# backends/, backends/mork/mork_ffi/ and bindings/python/metta/ with prolog_walk_code/1, adds a probe
 # clause per directive, and adds an edge for every goal the engine BUILDS as a
 # term rather than calls, which is most of the analysis and not a refinement:
 # without it the 2026-08-18 report was 206 rather than 24; the tally stands at 19 [measured 2026-08-19].
@@ -618,7 +618,7 @@ run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 1
 # The example corpus is the executable semantics documentation, and until this
 # lane existed it only ever ran through the ENGINE: the examples gate below
 # invokes swipl on engine/main.pl, test.sh and test_metta_examples.py shell to
-# run.sh, and the plunit suites load engine/metta.pl without bindings/python/petta/shim.pl.
+# run.sh, and the plunit suites load engine/metta.pl without bindings/python/metta/shim.pl.
 # So the configuration users actually ship was gated by unit tests alone, and
 # defects lived there under green lanes: !(py-atom "()") answered () in the
 # engine and raised out of the library, and a declared type on a Python object
@@ -675,7 +675,7 @@ run GATE evidence   "$PY" "$HERE/tests/check_evidence_tags.py"
 # what stops the fixture passing vacuously [measured 2026-08-18: 0.07s].
 run GATE evidence-selftest "$PY" "$HERE/tests/check_evidence_selftest.py"
 
-# Every website/reference/petta-*.md page says "The entries below reproduce the
+# Every website/reference/metta-*.md page says "The entries below reproduce the
 # source signatures and docstrings", and across nineteen pages that promise was
 # false in 20 places by omission and 47 by a signature that had moved on: a
 # reader checking MeTTa.run against the reference read a shape it had not had
@@ -696,7 +696,7 @@ run GATE libdoc     "$PY" "$HERE/bindings/python/tools/libdoc.py"
 run GATE codec-doc  "$PY" "$HERE/bindings/python/tools/codecdoc.py"
 
 # The catalog's value vocabularies and the binding's Literal types are one
-# authority: petta/vocabularies.py is generated from the engine's own
+# authority: metta/vocabularies.py is generated from the engine's own
 # (vocabulary ...) rows, and this asks only whether what is checked in is
 # what the catalog says. Before it, the annotations surface advertised six
 # semirings while the engine acted on two, and nothing said which was right.
@@ -705,14 +705,14 @@ run GATE vocab-sync "$PY" "$HERE/bindings/python/tools/vocabgen.py"
 # llms.txt is the file an agent reads INSTEAD of the tree, so a stale claim
 # there is believed rather than checked. It had gone stale exactly that way:
 # it named m.fresh_space() and m.value() after both were renamed, and
-# documented petta.matching and petta.measure after both were deleted. Every
+# documented metta.matching and metta.measure after both were deleted. Every
 # name, path, count and vocabulary word in it is checked against the running
 # engine and the real tree here, and each of those five drift classes was
 # reproduced against this lane before it was wired in.
 run GATE llms       "$PY" "$HERE/bindings/python/tools/llmsdoc.py"
 
 # Structural checks with a clean baseline today, so a regression is a failure.
-run GATE slotscheck in_py "$PY" -m slotscheck -m petta
+run GATE slotscheck in_py "$PY" -m slotscheck -m metta
 run GATE vulture    in_py "$PY" -m vulture
 run GATE imports    in_py "$PY" -m importlinter.cli lint_imports
 
@@ -752,14 +752,14 @@ run REPORT determinism check_determinism_coverage
 
 # Two residuals remain: the CLI executes a fixed argv without a shell, and
 # upstream's import-overhaul fixture owns its import grouping.
-run GATE   ruff        in_py "$PY" -m ruff check petta tests bench.py
+run GATE   ruff        in_py "$PY" -m ruff check metta tests bench.py
 # ledger C2: 65 errors in 13 files
 run GATE   mypy        in_py "$PY" -m mypy
 # ledger C2: 67 diagnostics, independent engine
-run GATE   ty          in_py "$PY" -m ty check --python "$(dirname "$(dirname "$PY")")" petta
+run GATE   ty          in_py "$PY" -m ty check --python "$(dirname "$(dirname "$PY")")" metta
 # Residual Pylint findings describe deliberate facades, compiler mixins,
 # resource cleanup catches, and public compatibility surfaces.
-run GATE   pylint      in_py "$PY" -m pylint petta --score=n
+run GATE   pylint      in_py "$PY" -m pylint metta --score=n
 # Perflint remains a measured queue. A suggestion moves only after the exact
 # instruction counter proves a win; the first attractive rewrite regressed.
 #
@@ -779,7 +779,7 @@ run GATE   pylint      in_py "$PY" -m pylint petta --score=n
 # 20,329,291,854 to 20,307,302,649 instructions:u, -0.108%. Not taken: a
 # tenth of a percent in the most favourable case buys less than the line costs
 # a reader, and 79 of them in cold code buys nothing at all.
-run REPORT perflint    in_py "$PY" -m pylint --load-plugins=perflint --disable=all --enable=W8201,W8202,W8204,W8205 petta --score=n
+run REPORT perflint    in_py "$PY" -m pylint --load-plugins=perflint --disable=all --enable=W8201,W8202,W8204,W8205 metta --score=n
 # Complexity is REPORTED, not gated, by the user's ruling 2026-08-18. It was a
 # GATE at max-absolute C, which measurement shows sat exactly on the tree's own
 # ceiling: 1,669 blocks are 1,456 rank A, 200 rank B and 13 rank C, average A
@@ -791,18 +791,18 @@ run REPORT perflint    in_py "$PY" -m pylint --load-plugins=perflint --disable=a
 # slide across a whole MODULE or the package AVERAGE, so those stay at A and
 # still print; max-absolute moves to D so a single hairy function does not
 # shout. Nothing is silenced: a REPORT prints everything it finds.
-run REPORT xenon       in_py "$PY" -m xenon petta --max-absolute D --max-modules A --max-average A
+run REPORT xenon       in_py "$PY" -m xenon metta --max-absolute D --max-modules A --max-average A
 # Refurb's residual type-normalization and clarity rewrites are not semantic
 # equivalents at the package boundaries they flag.
-run GATE   refurb      in_py "$PY" -m refurb petta bench.py
+run GATE   refurb      in_py "$PY" -m refurb metta bench.py
 # Both Bandit findings are the fixed swipl argv call with shell mode disabled.
-run GATE   bandit      in_py "$PY" -m bandit -q -c pyproject.toml -r petta
+run GATE   bandit      in_py "$PY" -m bandit -q -c pyproject.toml -r metta
 # These packages enter through deliberate lazy imports, which deptry cannot
 # observe statically; each one is declared in its matching extra.
 run GATE   deptry      in_py "$PY" -m deptry .
 run GATE   audit       in_py "$PY" -m pip_audit --progress-spinner off
 # ledger F: public API documentation is held above the 80% target
-run GATE   interrogate in_py "$PY" -m interrogate petta
+run GATE   interrogate in_py "$PY" -m interrogate metta
 # P0.26's website snippet provenance backlog is enumerated in
 # website/scripts/snippet_backlog.tsv. The script reports the fixed baseline's
 # remaining entries and calls anything outside it UNTRACKED, so the baseline
@@ -815,10 +815,10 @@ run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
 # look wrong, and its entries are bare names because codespell prunes a walked
 # directory by NAME, so a ./-prefixed skip stops matching the moment a runner
 # passes explicit paths.
-run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib bindings/python/petta bindings/python/bench.py bindings/python/examples bindings/python/tests bindings/python/tools engine lib backends examples tests website notebooks .github *.md"
+run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib bindings/python/metta bindings/python/bench.py bindings/python/examples bindings/python/tests bindings/python/tools engine lib backends examples tests website notebooks .github *.md"
 # The remaining clones are small facade, protocol, and test-fixture mirrors;
 # extracting them would couple layers or hide the local contract.
-run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' bindings/python/petta bindings/python/tests"
+run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' bindings/python/metta bindings/python/tests"
 
 # -------------------------------------------------------------------- report
 printf '\n================ summary ================\n'

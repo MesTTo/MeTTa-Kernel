@@ -2699,9 +2699,9 @@ translate_special_dl(transaction, [Expr], AfterHead, Goals, Out) :-
 %restores whatever state was in force when it finishes, so two runs of the same
 %scope answer the same thing and nothing outside it is disturbed. That is
 %Racket's `parameterize` over `current-pseudo-random-generator` and Common
-%Lisp's `with-random-state`, the same shape petta/algebra.py already uses on
+%Lisp's `with-random-state`, the same shape metta/algebra.py already uses on
 %the Python side with random.Random(seed) rather than the module generator
-%[source: bindings/python/petta/algebra.py, "Draw a stable cumulative rate
+%[source: bindings/python/metta/algebra.py, "Draw a stable cumulative rate
 %selection using isolated seeded state"]. `set_random(seed(S))` alone would be
 %the global this refuses.
 %

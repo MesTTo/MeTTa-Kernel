@@ -106,18 +106,18 @@ SOURCES = (
     "engine/*.pl",
     "lib/*.pl",
     "lib/*.py",
-    "bindings/python/petta/*.py",
-    "bindings/python/petta/*.pl",
+    "bindings/python/metta/*.py",
+    "bindings/python/metta/*.pl",
     "bindings/python/examples/*.py",
     "backends/mork/mork_ffi/*.pl",
     "bindings/python/tools/*.py",
     "tests/*.py",
 )
 
-# Where a name may be defined. petta/_compliance.py holds real tests, shipped
+# Where a name may be defined. metta/_compliance.py holds real tests, shipped
 # for a provider author to inherit; they run here too, under each
 # SpaceComplianceSuite subclass, which is why the package is walked at all.
-PYTHON_TREES = ("bindings/python/tests", "bindings/python/benchmarks", "bindings/python/petta", "tests")
+PYTHON_TREES = ("bindings/python/tests", "bindings/python/benchmarks", "bindings/python/metta", "tests")
 
 # The tag and everything up to its closing bracket, across newlines: a claim
 # listing three tests wraps, and a per-line scan reads the first line as an
@@ -222,7 +222,7 @@ def _python_targets(runs: dict[Path, Execution]) -> dict[str, list[Target]]:
     pytest collects a `test` prefixed function at module level, and one inside
     a `Test` prefixed class with no __init__; a class reached only through such
     a subclass is collected too, which is how the shipped compliance suites in
-    petta/_compliance.py come to run [source:
+    metta/_compliance.py come to run [source:
     https://docs.pytest.org/en/stable/explanation/goodpractices.html].
     """
     trees: dict[Path, ast.Module] = {}

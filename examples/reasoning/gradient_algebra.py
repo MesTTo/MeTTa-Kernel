@@ -10,7 +10,7 @@ Guarantees: the result is the same live DLPack tensor whose backward pass
 import pettorch
 import torch
 
-from petta import MeTTa, S, V, decode, val
+from metta import MeTTa, S, V, decode, val
 
 
 def main() -> None:

@@ -31,7 +31,7 @@ unconstrained parameter receives the evaluated value:
 
 ```python
 @m.op
-def anyatom(term: petta.Atom) -> petta.Atom:
+def anyatom(term: metta.Atom) -> metta.Atom:
     return term
 
 @m.op
@@ -43,22 +43,22 @@ With `(= (side) 42)`, `!(anyatom (side))` answers `(side)`, while
 `!(anyval (side))` answers `42`. Use `Atom` when the operation intentionally
 implements syntax or a control form.
 
-An operation that wants to query the knowledge base does not have to close over `m`. Annotate a parameter as `petta.MeTTa` and the engine fills it, FastAPI's `Depends` read with the house convention that the annotation is the request:
+An operation that wants to query the knowledge base does not have to close over `m`. Annotate a parameter as `metta.MeTTa` and the engine fills it, FastAPI's `Depends` read with the house convention that the annotation is the request:
 
 ```python
 @m.op
-def related(term, engine: petta.MeTTa):
-    for row in engine.self.query(Expression(S.link, term, V.x)):
+def related(term, engine: metta.MeTTa):
+    for row in engine.self.match(Expression(S.link, term, V.x)):
         yield row[0]                 # !(related a) never passes the engine
 ```
 
 The injected engine is bound to the calling context's space, so an operation invoked from a program running in another space queries that space, which is the `&self` reading and what lets one operation compose across spaces without a space argument. The slot never counts toward MeTTa arities or the declared arrow, and only operations that ask pay for the weaving.
 
-See [`petta.ops`](../reference/petta-ops) for annotation mapping and registration, and [`petta.convert`](../reference/petta-convert) for object projection and rebuilding.
+See [`metta.ops`](../reference/metta-ops) for annotation mapping and registration, and [`metta.convert`](../reference/metta-convert) for object projection and rebuilding.
 
 ## Declaring a data class
 
-`Space.define` accepts classes as well as functions. Stack it on a dataclass, NamedTuple, or Enum and the class converts both ways, its `(: ...)` declarations land in that space, and it works as a `cast` and `query(into=)` target:
+`Space.define` accepts classes as well as functions. Stack it on a dataclass, NamedTuple, or Enum and the class converts both ways, its `(: ...)` declarations land in that space, and it works as a `cast` and `match(into=)` target:
 
 ```python
 @m.define
@@ -67,18 +67,18 @@ class Edge:
     a: str
     b: str
 
-m.query("(: Edge $t)")               # [(-> String String Edge)]
-m.query("(Edge $a $b)", into=Edge)   # [Edge(a=..., b=...)] once stored
-m.query(V.edge, into=Edge)            # rebuild each complete (Edge ...) atom
+m.match("(: Edge $t)")               # [(-> String String Edge)]
+m.match("(Edge $a $b)", into=Edge)   # [Edge(a=..., b=...)] once stored
+m.match(V.edge, into=Edge)            # rebuild each complete (Edge ...) atom
 ```
 
 Declaration is context-relative and immediate: an unregistrable class fails at the decorator, and its declarations land in the same space that owns the decorator. There is no process-global class registry or second root decorator.
 
-`cast` checks admission and narrows; it does not construct. Building instances from answers is `query(into=Edge)`, `rows.build(Edge)`, or `petta.convert.build(atom, Edge)`.
+`cast` checks admission and narrows; it does not construct. Building instances from answers is `match(into=Edge)`, `rows.build(Edge)`, or `metta.convert.build(atom, Edge)`.
 
 ## Property-test what you build
 
-`petta.testing` exports the hypothesis strategies this library fuzzes itself with. The generators carry engine truths worth not rediscovering: which names the tokeniser reads back whole, that `true` and `True` are one term on the engine so their spellings canonicalize, and which numbers the printer round-trips. The library's own suite imports the public module as `from petta import testing as pt` and builds its generators from it:
+`metta.testing` exports the hypothesis strategies this library fuzzes itself with. The generators carry engine truths worth not rediscovering: which names the tokeniser reads back whole, that `true` and `True` are one term on the engine so their spellings canonicalize, and which numbers the printer round-trips. The library's own suite imports the public module as `from metta import testing as pt` and builds its generators from it:
 
 ```python
 _name = pt.names()
@@ -92,7 +92,7 @@ A property over your own translator or operation is then one decorator:
 ```python
 @given(_atoms())
 def test_python_wire_round_trip(atom):
-    assert petta.wire.from_wire(atom.to_wire()) == atom
+    assert metta.wire.from_wire(atom.to_wire()) == atom
 ```
 
-`atoms(ground=True)` drops variables for space-content generators, `expressions()` roots every example at the shape spaces store, and hypothesis is only imported when a strategy is built, so the module costs nothing at import. The complete surface is in [`petta.testing`](../reference/petta-testing).
+`atoms(ground=True)` drops variables for space-content generators, `expressions()` roots every example at the shape spaces store, and hypothesis is only imported when a strategy is built, so the module costs nothing at import. The complete surface is in [`metta.testing`](../reference/metta-testing).

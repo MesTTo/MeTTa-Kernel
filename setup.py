@@ -1,14 +1,14 @@
 """Purpose: copy the PeTTa runtime into wheels built from pyproject.toml, and
   offer the wire codec as a compiled extension when a builder asks for one.
 Assumes:
-  - PETTA_USE_MYPYC is unset for the wheel that ships, so the default build
+  - PYMETTA_USE_MYPYC is unset for the wheel that ships, so the default build
     stays pure Python and platform-independent [tested
     test_the_codec_builds_under_mypyc_as_an_option]
 Guarantees:
   - the default build is byte-identical to the one before compilation was
     offered: mypycify is not imported, mypy is not required, and ext_modules
     is empty [tested test_the_codec_builds_under_mypyc_as_an_option]
-  - PETTA_USE_MYPYC=1 without mypy installed stops the build naming the fix,
+  - PYMETTA_USE_MYPYC=1 without mypy installed stops the build naming the fix,
     rather than quietly producing the pure-Python wheel the builder did not
     ask for [tested test_the_codec_builds_under_mypyc_as_an_option]
 Owns:
@@ -38,7 +38,7 @@ HERE = Path(__file__).resolve().parent
 # public surface over it. Every atom crossing the boundary passes through
 # both. Measured 2026-08-19, minimum of three instructions:u runs of the
 # wire-codec lane, 3457054691 interpreted against 2984812403 compiled, 1.16x.
-MYPYC_MODULES = ("bindings/python/petta/_atom_wire.py", "bindings/python/petta/atoms.py")
+MYPYC_MODULES = ("bindings/python/metta/_atom_wire.py", "bindings/python/metta/atoms.py")
 
 # _atoms_core.py is NOT in that list, and the reason is behaviour rather than
 # taste. An exclusion list with its reasons is mypy's own shape for this
@@ -78,7 +78,7 @@ MYPYC_MODULES = ("bindings/python/petta/_atom_wire.py", "bindings/python/petta/a
 # ClassVar or Final keeps the tuple.
 
 # --explicit-package-bases with MYPYPATH=bindings/python, the seat that
-# holds petta, so mypy names each module petta.* and the compiled
+# holds metta, so mypy names each module metta.* and the compiled
 # extension never shadows the real one.
 # --no-warn-unused-configs, because the shared [tool.mypy] overrides here
 # describe the whole package and mypy exits nonzero over the ones a
@@ -96,21 +96,21 @@ def compiled_modules():
     all-or-nothing failure follow mypy's own setup.py
     [source: https://github.com/python/mypy/blob/master/setup.py].
     """
-    if os.environ.get("PETTA_USE_MYPYC") != "1":
+    if os.environ.get("PYMETTA_USE_MYPYC") != "1":
         return []
     try:
         from mypyc.build import mypycify
     except ImportError:
         raise SystemExit(
-            "PETTA_USE_MYPYC=1 asks for a compiled codec and mypy is not "
+            "PYMETTA_USE_MYPYC=1 asks for a compiled codec and mypy is not "
             "installed. Install it (pip install mypy) and build again, or "
-            "unset PETTA_USE_MYPYC to build the pure-Python wheel."
+            "unset PYMETTA_USE_MYPYC to build the pure-Python wheel."
         ) from None
     os.environ["MYPYPATH"] = str(HERE / "bindings" / "python")
     return mypycify([*MYPYC_FLAGS, *MYPYC_MODULES])
 
 # Runtime resources living outside the package that must ship inside the wheel,
-# mapped to their destination under petta/_runtime/ (preserving the engine/ and
+# mapped to their destination under metta/_runtime/ (preserving the engine/ and
 # lib/ sibling layout that metta.pl relies on for library_path).
 #
 # backends/ ships even though every backend in it needs a compiled artefact no
@@ -124,7 +124,7 @@ def compiled_modules():
 # behaviour a wheel wants anyway.
 #
 # tests/codec/ ships for a different reason: it is the codec's golden corpus,
-# the data petta.testing.check_codec reads, and a third party certifying their
+# the data metta.testing.check_codec reads, and a third party certifying their
 # own codec installs this package rather than cloning the repository. It is
 # language-neutral JSON, so a binding in another language reads the same file
 # out of an installed tree.
@@ -135,9 +135,9 @@ RUNTIME_RESOURCES = {
     "tests/codec": "tests/codec",
     "bindings/python/decider.pl": "bindings/python/decider.pl",
     "bindings/python/bridge.pl": "bindings/python/bridge.pl",
-    "bindings/python/petta_py.py": "bindings/python/petta_py.py",
+    "bindings/python/metta_py.py": "bindings/python/metta_py.py",
     "bindings/python/helper.pl": "bindings/python/helper.pl",
-    "bindings/python/petta/shim.pl": "bindings/python/petta/shim.pl",
+    "bindings/python/metta/shim.pl": "bindings/python/metta/shim.pl",
 }
 
 
@@ -146,7 +146,7 @@ class build_py_with_runtime(build_py):
 
     def run(self):
         super().run()
-        runtime_root = Path(self.build_lib) / "petta" / "_runtime"
+        runtime_root = Path(self.build_lib) / "metta" / "_runtime"
         # Emptied first, because copytree(dirs_exist_ok=True) only ever adds.
         # A resource dropped from RUNTIME_RESOURCES kept shipping out of a
         # stale build/ directory, and so did a source file deleted from engine/,

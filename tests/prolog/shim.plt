@@ -18,7 +18,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- consult('../../bindings/python/petta/shim.pl').
+:- consult('../../bindings/python/metta/shim.pl').
 
 :- prolog_load_context(directory, TestDirectory),
    absolute_file_name('../../bindings/python', PythonBindingDirectory,
@@ -55,7 +55,7 @@ malformed(['e', "notalist"]).
 % first two to symbols, the next two to a string and to a number-tagged
 % string, the variable to a fresh variable, and every unadmitted boolean
 % payload to `false`, which answers rather than fails.
-% bindings/python/petta/_atom_wire.py refuses all six.
+% bindings/python/metta/_atom_wire.py refuses all six.
 wrong_class(['s', 1]).
 wrong_class(['s', ["a"]]).
 wrong_class(['g', 1]).

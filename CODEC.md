@@ -9,7 +9,7 @@ implementation, and your codec speaks what the two shipped ones speak.
 Two encodings ship. The **janus tagged form** carries the arrays as SWI's
 own term conversion between the engine and Python, in one process. The
 **remote JSON wire** carries the same arrays as JSON bytes over HTTP, which
-is what `petta.remote.serve()` and `petta.remote.connect()` put on a socket
+is what `metta.remote.serve()` and `metta.remote.connect()` put on a socket
 and what the TypeScript reference server in
 `bindings/python/examples/integration/typescript_space/` answers. They are one
 grammar with two concrete encodings and two profiles, and the difference
@@ -112,7 +112,7 @@ That is why the conformance kit compares wire terms up to a bijection on
 the law and they spell it differently, which is the point.
 `petta_py_encode/2` writes a process-local machine identity, so a variable
 comes out as something like `["v", "_18756"]`; `petta_py_encode_named/3` and
-`petta_py_parse/2`, which is what `petta.parse()` calls, write the source
+`petta_py_parse/2`, which is what `metta.parse()` calls, write the source
 name, so the same variable comes out as `["v", "x"]`. Sending a display name
 where an identity is wanted was measured breaking round-trip identity and
 aliasing two distinct answer variables that happened to share a spelling, so
@@ -305,7 +305,7 @@ dropping either quietly.
 From Python:
 
 ```python
-from petta.testing import check_codec, codec_plan
+from metta.testing import check_codec, codec_plan
 
 def test_my_codec_conforms():
     assert check_codec(MyCodec()) == []
@@ -442,7 +442,7 @@ code with this package, turned up three divergences on first contact and all
 three are pinned in `bindings/python/tests/test_codec_typescript.py`. Two share one
 cause: `isWireAtom` validates the `g` tag with `case "g": return true`, so
 `["g", 1]` and `["g", {"a": 1}]` are both stored there and both refused by
-the petta-side codecs. The third is the number model: `JSON.stringify(1.0)`
+the metta-side codecs. The third is the number model: `JSON.stringify(1.0)`
 writes `1`, so `["n", 1.0]` comes back as `["n", 1]`, and `1.0` and `1` are
 different atoms. The first two are a check that server does not make; the
 third is a limit any implementation over a single-Number-type JSON parser

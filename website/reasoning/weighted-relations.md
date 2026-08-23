@@ -20,7 +20,7 @@ and the in-language measure library consumes `(weight value)` pairs you
 build with that bridge.
 
 ```python
-from petta import Answer, S, space
+from metta import Answer, S, space
 
 m = space()
 

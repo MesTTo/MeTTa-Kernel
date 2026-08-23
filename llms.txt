@@ -1,6 +1,6 @@
 # PeTTa
 
-> MeTTa, Hyperon's AGI language, implemented in SWI-Prolog, with `petta` as its
+> MeTTa, Hyperon's AGI language, implemented in SWI-Prolog, with `metta` as its
 > Python surface. Atoms are Python values, spaces are queryable stores,
 > equations rewrite, and any Python library maps onto those forms. Every line
 > below is a signature, an exact return shape, or a contract you cannot guess.
@@ -16,13 +16,13 @@ re-runs them.
 | source | what it is | kept true by |
 |---|---|---|
 | `examples/**/*.metta` | 223 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
-| `website/reference/petta-*.md` | 23 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
+| `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 36 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 179 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 178 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `bindings/python/tests/twins/**/*.py` | 218 Python twins of `examples/` programs across the corpus, each written with no MeTTa source text, answering alpha-equal to its original or explicitly declining a structured-residue form, and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
-| `bindings/python/petta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
+| `bindings/python/metta/vocabularies.py` | the catalog's value vocabularies as tuples and `Literal` aliases, one per `(vocabulary ...)` row | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
 | `CHANGELOG.md` | every user-facing change, with the reasoning | |
 | `website/guide/*.md` | 14 pages of prose: concepts, run-query, spaces, atoms-terms, python-functions, define, structures, threads, observability, notebook, contract, getting-started, pettorch | |
@@ -41,7 +41,7 @@ re-runs them.
 | `EXTENDING.md`, `DEVELOPING.md` | writing an extension; working on the engine | |
 | `KERNEL.md` | every head the translator gives meaning to, core or derived, with the reason and the numbers | the `plunit` gate lane's `translator_derived_forms` and the `pytest` lane's corpus twin test |
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |
-| `bindings/python/petta/*.py` | the library. `bindings/python/petta/_space.py` is the `MeTTa` context and the `Space` handle; a leading `_` means internal | |
+| `bindings/python/metta/*.py` | the library. `bindings/python/metta/_space.py` is the `MeTTa` context and the `Space` handle; a leading `_` means internal | |
 
 Counts measured 2026-08-22, each one re-checked by the `llms` gate lane on
 every run.
@@ -51,25 +51,28 @@ every run.
 `pip install .` (the runtime is bundled) or point `PETTA_PATH` at a clone.
 
 ```python
-from petta import MeTTa, S, V, equation, rules, val, expr, parse, cast
+from metta import MeTTa, S, V, G, ground, Expression, equation, rules, parse
 m = MeTTa()                      # binds &self, the same space the CLI uses
-m.run("(= (f) 1) !(f) !(+ 1 2)") # [[Gnd(1)], [Gnd(3)]]
+m.run("(= (f) 1) !(f) !(+ 1 2)") # [[Grounded(1)], [Grounded(3)]]
 ```
 
-Module-level `petta.run/query/eval/add/remove/parse/fn/trace` act on one lazily
+Module-level `metta.run/match/eval/add/remove/parse/fn/trace` act on one lazily
 created default engine, for scripts that never need a second space.
 
 ## Atoms: built in Python, no engine call
 
 `S.likes` is the symbol `likes`; `S["+"]`, `S["my-name"]` for non-identifiers.
-`V.x` is the variable `$x`. `val(obj)` / `Gnd(obj)` wraps a Python value.
+`V.x` is the variable `$x`. `ground(obj)` / `G(obj)` wraps a Python value.
 Applying a symbol builds an expression: `S.likes(S.Ada, S.Music)` ->
-`(likes Ada Music)`. `expr(S.f, 1, 2)` is the same as `S.f(1, 2)`.
+`(likes Ada Music)`. `Expression` collects any iterable into one ordered
+atom: `Expression((S.f, 1, 2))` is `S.f(1, 2)`.
 `parse("(f $x)")` reads one form without evaluating it.
 
-Four kinds, all immutable with `__slots__` and `__match_args__`, so
-`match atom: case Expr(head, args): ...` works: `Sym`, `Var`, `Gnd`, `Expr`.
-`Expr.head`, `.args`, `.children`. Free functions in `petta.atoms`:
+Four kinds, all immutable with `__slots__` and one-subpattern
+`__match_args__`: `Symbol`, `Variable`, `Grounded`, `Expression`. So
+`match atom: case Expression([head, *args]): ...`, `case Symbol(name):`,
+`case Grounded(value):` all bind.
+`Expression.head`, `.args`, `.children`. Free functions in `metta.atoms`:
 `alpha_eq`, `unify`, `substitute`, `is_ground`, `map_atoms`, `variables`,
 `order_key`, `pretty(atom, width=78)`, `encode`/`decode`, `atom_from_wire`,
 `register_object_repr` and `register_object_repr_protocol` (and their
@@ -77,20 +80,23 @@ Four kinds, all immutable with `__slots__` and `__match_args__`, so
 `path("profile", "age", to=V.age)` occupies an opaque handle's pattern
 position, reads only those live attributes after the stored match, and binds
 the reached value. `Key("name")` selects a subscription key instead.
-`petta.spaces.object_view(obj)` exposes the same object's current public fields
+`metta.spaces.object_view(obj)` exposes the same object's current public fields
 as `(py-field obj name value)` atoms. Compose it with a stored space through
 `spaces.union`, or register it directly so adding a field atom calls `setattr`.
 
-Operators BUILD terms, they do not compute. `V.age >= 18` is `(>= $age 18)`;
-`&` `|` `~` build `and`/`or`/`not`; `+ - * / // % **`, unary `-`, `abs()` and
-`@` build arithmetic terms. `//` lowers through `floor-math`; integer shifts
-refuse because MeTTa has no corresponding operation. `@` always builds the
-library-provided name `matmul` rather than claiming it is an engine builtin.
-Arithmetic on two grounded values stays ordinary Python. `Expr.__bool__` raises
-on comparison and boolean heads, so `if V.x > 1:` is refused rather than
-silently truthy. Equality is the one inversion: `a == b` is ordinary Python
-comparison answering `True`/`False`, while `a.eq(b)` and `a.ne(b)` build the
-MeTTa terms `(== a b)` and `(not (== a b))` for `where=` guards and equations.
+Arithmetic and logic operators BUILD terms: `S.x + 1` is `(+ x 1)`,
+`&` `|` `~` build `and`/`or`/`not`, unary `-` builds the subtraction image
+`(- 0 $n)`, unary `+` answers the identical atom, `abs()` builds
+`(abs-math $n)`, `@` builds the library-provided name `matmul`, and `//`
+lowers through `floor-math`. Integer shifts refuse and the error names the
+missing MeTTa operation. Arithmetic on two grounded values stays ordinary
+Python. Rich COMPARISONS do not build: `a < b` and friends answer Python
+booleans in the engine's own `msort` order (so atoms sort), and `a == b`
+is ordinary Python equality. A comparison TERM is spelled at the bracket
+door, `S[">="](V.n, 60)`, or built by `a.eq(b)` / `a.ne(b)` for
+`(== a b)` / `(not (== a b))`. `Expression.__bool__` raises on comparison
+and boolean heads, so `if S[">"](V.x, 1):` is refused rather than
+silently truthy.
 
 The MeTTa `==` is `(-> $a $a Bool)`: it compares two things of ONE type and
 refuses two of different KNOWN types by name, so `!(== 1 "S")` raises rather
@@ -107,7 +113,7 @@ m.run(src, *, timeout=, inferences=)
                        -> list[list[Atom]], one inner list per ! directive
 m.eval(target, *, using=, timeout=, inferences=)
                                            -> list[Atom | Undefined]
-m.query(*patterns, where=, limit=, timeout=, inferences=, into=) -> answers
+m.match(*patterns, where=, limit=, timeout=, inferences=, into=) -> answers
 m.prepare(*patterns, where=) -> Prepared; .solve(given=...) many times, .columns
 m.parse(src) -> Atom
 m.register_token(pattern, constructor) -> None
@@ -124,8 +130,8 @@ twin, and `with m.bind(v=tensor): m.run(src)` scopes the same binding over any
 call inside the block. A target with no applicable rule is returned as the
 unreduced term; `eval_status()` names that path `not-reducible`.
 
-Variables shared across query patterns join: `m.query(S.p(V.x,V.y), S.p(V.y,V.z))`.
-`where=` is a term the engine evaluates per match: `where=(V.n >= 60) & (V.n <= 70)`.
+Variables shared across query patterns join: `m.match(S.p(V.x,V.y), S.p(V.y,V.z))`.
+`where=` is a term the engine evaluates per match: `where=S[">="](V.n, 60) & S["<="](V.n, 70)`.
 `into=` builds fields by matching column names, or rebuilds a complete
 constructor expression captured in one column.
 
@@ -150,27 +156,27 @@ column. Both keep `cls` for type checkers.
 ## Spaces
 
 `ctx.space(name)` selects on the `MeTTa` context and `ctx.space()` or
-`petta.space()` creates a fresh one, a context manager whose exit drops it;
+`metta.space()` creates a fresh one, a context manager whose exit drops it;
 `m.copy()` clones contents into a fresh anonymous
 space through the bulk door, so equations copy as equations and keep running.
 `m.drop()` clears a space and releases its name: a drop clears the whole life,
 atoms, equations, subscriptions, import markers and tabling state. Named spaces
 compile into their own module, so two spaces can define the same function.
 `(context-space)` names the space the running code is in, and
-`petta.current_space()` reports it from inside an operation.
+`metta.current_space()` reports it from inside an operation.
 
 `m.add(*atoms)`, `m.remove(atom)`, `m.atoms()`, `len(m)`, `m.clear()`,
-`m.space_names()`, `m.name`, and `petta.tables.add(m, head, source)` reads
+`m.space_names()`, `m.name`, and `metta.tables.add(m, head, source)` reads
 polars / pandas / mappings / iterables into `(head v1 .. vn)` facts and
 answers how many.
 
-`petta.spaces` composes spaces without copying: `union(*spaces)` reads a set as
+`metta.spaces` composes spaces without copying: `union(*spaces)` reads a set as
 one, `overlay(front, back)` reads both and writes to the front, `readonly(s)`
 refuses writes by capability, `mapped(s, shape)` is a shape view from one
 declaration, and `diff(a, b)` says HOW two spaces differ where `digest()` only
 says THAT they do.
 
-`petta.structures` holds the stores worth having: `AlphaSet` (atoms modulo
+`metta.structures` holds the stores worth having: `AlphaSet` (atoms modulo
 variable renaming), `PatternMap` (a MutableMapping keyed by atoms),
 `MatchIndex` (many patterns, one atom, which match), `LiveView` (a materialised
 view kept current by the space's own writes), `ClosureView` (reachability over a
@@ -193,7 +199,7 @@ immediately preceding annotation may exempt only mechanism-internal,
 arbiter-owned-language-law, codec-version-identity, or
 documented-collision-decision, with a reason and an existing local source line
 or symbol. Only catalog preset terms in `engine/spaces.pl` and the generated
-`petta.vocabularies` output are authority rather than independent lists. One
+`metta.vocabularies` output are authority rather than independent lists. One
 generic checker validates every `&petta` write against them, a violation is a hard
 error naming the atom, the position and the argspec, and a head with no kind
 row passes untouched, so third-party declaration kinds are ordinary data
@@ -376,7 +382,7 @@ m.derivation(target, depth=None, *, timeout=, inferences=) -> list[Derivation]
 m.why(pattern) -> str            one empty match explained in words
 rows.why()                       pattern miss, failed join, or rejecting guard
 m.lint() -> list[lint.Finding]   the silently-wrong class, from stored structure
-petta.lint.lint_file(path, m=None)   the same findings anchored to file:line
+metta.lint.lint_file(path, m=None)   the same findings anchored to file:line
 m.eval_status(target) / m.run_status(src)  each answer paired with the path that
         produced it: "value" (equation, builtin or special form applied),
         "not-reducible" (no rule applied, the answer is the term itself),
@@ -387,7 +393,7 @@ m.stats()      with-block yielding .inferences (deterministic, gate on this),
 m.profile(src) -> (groups, EngineProfile), per predicate
 m.profile_extension(src, extension=, names=)  only YOUR functions
 m.prolog()                    the engine's own interactive toplevel
-petta.engine().info() -> versions of petta, janus, swi_prolog, python, petta_path
+metta.engine().info() -> versions of metta, janus, swi_prolog, python, petta_path
 ```
 
 Errors: `PettaError` is the base, then `EngineError`, `MettaSyntaxError`,
@@ -399,7 +405,7 @@ as data: `.operation` is what the source wrote (`+`, `min-atom`), `.kind` the
 formal's functor, `.expected` and `.culprit` the type and offending value.
 `DECLINE` / `Decline` is how a provider says "not mine" rather than failing.
 Type checkers get `SpaceName`, `MettaName` and the closed `SaveFormat` set,
-all constructible straight from `petta`.
+all constructible straight from `metta`.
 
 ## Concurrency, transactions, bounds
 
@@ -407,8 +413,8 @@ Engine calls belong to the thread that made the engine. `m.pool(workers)` gives
 each worker its OWN attached engine, which is what makes the calls genuinely
 concurrent (measured 2026-08-15: 1.94x, 3.90x and 7.26x at 2, 4 and 8 workers).
 `m.parallel(*targets)` and its language-side name `m.hyperpose(*targets)`
-evaluate targets at once. `petta.aio.AsyncMeTTa` runs engine calls on one worker
-thread behind `async`; `petta.parallel.engine_thread()` and `petta.current_space()`
+evaluate targets at once. `metta.aio.AsyncMeTTa` runs engine calls on one worker
+thread behind `async`; `metta.parallel.engine_thread()` and `metta.current_space()`
 report the crossing.
 
 In MeTTa, `(transaction EXPR)` and `(atomically EXPR)` run one atomic block.
@@ -425,22 +431,22 @@ stop, not even by a program's own `(catch ...)`: a bound, a Ctrl-C and an
 
 ## Integrating any library
 
-`petta.convert`: `project(obj) -> Projected` whose `.atom` is the constructor
+`metta.convert`: `project(obj) -> Projected` whose `.atom` is the constructor
 expression, `build(atom)` -> object (returning the atom unchanged when it
 cannot), `register_type`, `unregister_type`, `declarations`, `auto_image`.
 Dataclasses, enums, pydantic models and annotated classes all cross; enums
 project to symbols. `@space.define` on a class declares it INTO the space
 for the round trip; the separate record decorator is gone.
 
-`petta.integrate`: `module_ops(m, module, names=, prefix=, rename=,
+`metta.integrate`: `module_ops(m, module, names=, prefix=, rename=,
 transport="raw")` registers a whole module's callables, `facts(m, atoms)` bulk-writes,
 `wrap_object(m, name, obj, methods)`, `reflect(m, name, obj)`,
 `install_reflection_ops(m)`, `integrate(m, target)`, `Integration`,
 `SpaceProvider`, and `discover(m)` over entry points. Installation is idempotent
 for a live space, and dropping a space releases its installation record.
-Entry-point groups: `petta.integrations`, `petta.spaces`, `petta.libraries`.
+Entry-point groups: `metta.integrations`, `metta.spaces`, `metta.libraries`.
 
-`petta.arrays`: one operation vocabulary over any DLPack library.
+`metta.arrays`: one operation vocabulary over any DLPack library.
 `install(m, default=xp)` makes numpy, torch or JAX first-class with the same
 words; `namespace_of`, `is_array`, `data_of`, `ARRAY_OPS`, and `EmbeddingStore`
 with an exact faiss backend. Its 44 installed names all carry `(-> ...)`
@@ -448,11 +454,11 @@ declarations. `broadcast-shape` is a CLP(FD) relation over shape expressions,
 so it computes compatible shapes, runs backwards to infer dimensions, and
 rejects incompatible shapes before a tensor is materialised.
 
-`petta.tables`: `declare(...)` writes one ctx-scoped bridge declaration into
+`metta.tables`: `declare(...)` writes one ctx-scoped bridge declaration into
 `&petta` and `TableBridge` derives every provider operation from it, so a
 DB-API connection (the `Executes` slice) answers MeTTa matches.
-`petta.space(journal=path)` is journalled and crash-recovering, and
-`petta.space(backing=url)` mounts a remote store; both ride the one
+`metta.space(journal=path)` is journalled and crash-recovering, and
+`metta.space(backing=url)` mounts a remote store; both ride the one
 space-factory door rather than their own modules.
 
 ## Foreign spaces and the backend seam
@@ -460,7 +466,7 @@ space-factory door rather than their own modules.
 A space can be backed by anything, and the seam is universal rather than
 per-backend. From Python, implement `Matcher` / `Enumerable` / `Adder` /
 `BulkAdder` / `Remover` / `Clearer` / `Planner` / `Transactional` / `CustomMatch`
-and call `petta.foreign.register_provider(runtime, name, provider)` with a name
+and call `metta.foreign.register_provider(runtime, name, provider)` with a name
 starting with `&`; or subclass `SpaceProvider` and answer `can_run` per call.
 Capabilities are declared, not guessed: `match`, `enumerate`, `add`, `add-many`,
 `remove`, `clear`, `subscribe`, `plan`, `rules`, and an unsupported operation
@@ -533,15 +539,15 @@ names no backend. A MORK-backed store is one such backend, supplying `&mork` and
 
 ## Apps, from source
 
-`petta.manifest.boot(manifest, m=None, connections=, host=, token=, authorize=,
+`metta.manifest.boot(manifest, m=None, connections=, host=, token=, authorize=,
 ssl_context=)` assembles an app from `(boot ...)` forms, each sugar for exactly
 one existing call, performed in source order:
 
 ```
 (boot (load "rules.metta"))                m.load, manifest-relative
-(boot (attach &crm "http://crm:8700"))     petta.remote.attach
-(boot (bridge &db (edge $a $b) (row ...))) petta.tables declare + bridge
-(boot (serve (&self &crm) 8700))           petta.remote.serve
+(boot (attach &crm "http://crm:8700"))     metta.remote.attach
+(boot (bridge &db (edge $a $b) (row ...))) metta.tables declare + bridge
+(boot (serve (&self &crm) 8700))           metta.remote.serve
 ```
 
 The vocabulary is closed and validated whole before anything runs; bridged names
@@ -551,15 +557,15 @@ performed form is stored as its own atom, so the running app answers
 mid-way keeps its performed prefix's writes, closes any servers it started, and
 names the failing form.
 
-`python -m petta` has six subcommands: `run` (files, printing each `!` answer
+`python -m metta` has six subcommands: `run` (files, printing each `!` answer
 group), `repl` (paren-balance aware, readline), `serve`, `boot`, `lint` (nonzero
 exit on findings), `doc` (a name's `(@doc ...)`).
 
-`petta.remote`: `serve(m, spaces=, token=, authorize=, ssl_context=)`,
+`metta.remote`: `serve(m, spaces=, token=, authorize=, ssl_context=)`,
 `connect(url, token=, headers=)`, `attach`. Credentials require https, tokens
 compare in constant time, and only http/https schemes are accepted.
 
-`petta.events`: `m.events()` is the engine's stream of `(action, space, atom)`
+`metta.events`: `m.events()` is the engine's stream of `(action, space, atom)`
 changes as a first-class object, and `EventStream.fold(step, space=,
 pattern=, on=, state=)` is the one way to consume it. A step is
 `(state, event) -> state`, run inside the write that caused the event;
@@ -571,7 +577,7 @@ this process did not write, which is how a provider with its own channel
 delivers. The three shipped models are that fold with three steps: subscribe
 delivers, bridge writes, a declared `(on ...)` reaction evaluates.
 
-`petta.subscribe`: `m.subscribe(pattern, callback, on="add", queue_max=10000)`
+`metta.subscribe`: `m.subscribe(pattern, callback, on="add", queue_max=10000)`
 is the delivering fold, run INSIDE the write that matched it; without a
 callback, events queue until `drain()`, and a full queue raises rather than
 discarding the oldest. A callback that raises reaches the writer as
@@ -586,24 +592,24 @@ The wire has both doors the in-process seam has. `RemoteSpace.match` is
 eager, one request carrying the whole answer set, and `RemoteSpace.stream`
 is the protocol's ask/next/stop lifecycle, a chunk per request, so taking
 two answers of a large enumeration costs the serving engine two answers.
-`petta.remote.attach(m, name, url, batch=1)` puts an attached space's
-matching on the lazy door. `petta.remote.Gateway` is the same protocol with
+`metta.remote.attach(m, name, url, batch=1)` puts an attached space's
+matching on the lazy door. `metta.remote.Gateway` is the same protocol with
 no transport under it, for mounting on another HTTP framework.
 `website/live/remote-protocol.md` is the contract every binding inherits and
-`petta.testing.GatewayComplianceSuite` certifies it.
+`metta.testing.GatewayComplianceSuite` certifies it.
 
-`petta.testing` ships what the suite fuzzes itself with: hypothesis strategies
+`metta.testing` ships what the suite fuzzes itself with: hypothesis strategies
 (`atoms`, `expressions`, `patterns`, `names`, `numbers`, `texts`, `symbols`,
 `variables`, `grounded`, `ground_atoms`, `numpy_scalars`), the compliance suites
 (`SpaceComplianceSuite`, `GatewayComplianceSuite`, `check_space_provider`,
 `check_twin`, `check_replay`, `check_minted_handles`), and the deterministic
 benchmark gates (`benchmark_case`, `benchmark_counter_slope`,
 `measure_instructions`, `BenchmarkBaseline`, `count_atoms`), also exported from
-`petta.benchmarking`. `petta.pytest_plugin` gives the `metta` and
-`scratch_space` fixtures; `petta.ipython` gives `%%metta` in a notebook.
+`metta.benchmarking`. `metta.pytest_plugin` gives the `metta` and
+`scratch_space` fixtures; `metta.ipython` gives `%%metta` in a notebook.
 
 These submodules and names, thirty-seven of them, load on first access rather than during
-`import petta`: `aio`, `algebra`, `arrays`, `boot`, `casting`, `channel`,
+`import metta`: `aio`, `algebra`, `arrays`, `boot`, `casting`, `channel`,
 `convert`, `derivation`, `events`, `every`, `foreign`, `integrate`, `lint`,
 `manifest`, `par_map`, `parallel`, `paths`, `race`, `remote`, `rules`,
 `spaces`, `spawn`, `structures`, `subscribe`, `tables`, `testing`, `view`,
@@ -611,8 +617,8 @@ These submodules and names, thirty-seven of them, load on first access rather th
 classes `Answer`, `Bindings`, `Defined`, `MeTTa`, `Space`, `SpaceProvider`,
 `State`, `equation`.
 
-Importing petta therefore never pulls in the HTTP and table machinery boot
-composes over. dir(petta) still lists each one, and subscribe is eager, being
+Importing metta therefore never pulls in the HTTP and table machinery boot
+composes over. dir(metta) still lists each one, and subscribe is eager, being
 part of the write path.
 
 ## The MeTTa language surface
@@ -704,7 +710,7 @@ across several operations, which is what they are for.
 `lib_roman`, `lib_soft`, `lib_spaces`, `lib_string`, `lib_tabling`, `lib_thread`,
 `lib_torch`, `lib_vector`, `lib_zar`. Scored answers and fuzzy or regex matching
 are `lib_measure` and `lib_regex` riding the general seam, not Python modules:
-there is no `petta.measure` and no `petta.matching`.
+there is no `metta.measure` and no `metta.matching`.
 
 ## Contracts that cost real debugging
 
@@ -743,7 +749,7 @@ regression. Check `/proc/loadavg` before trusting any timing.
 
 ## Downstream packages built on this surface
 
-`pettorch` connects PyTorch through `petta.arrays` and `petta.integrate` and
+`pettorch` connects PyTorch through `metta.arrays` and `metta.integrate` and
 adds autograd operations, module wrappers, training helpers and neural
 predicates; `website/guide/pettorch.md` is its page here.
 `petta-fabric-pc` projects a FabricPC predictive-coding network into a space, so

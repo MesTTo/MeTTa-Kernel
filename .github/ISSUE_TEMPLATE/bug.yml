@@ -64,7 +64,7 @@ body:
         differential suite, so a disagreement between them is itself the bug.
       options:
         - sh run.sh, the CLI
-        - the petta Python library
+        - the metta Python library
         - both, and they agreed
         - both, and they disagreed
     validations:

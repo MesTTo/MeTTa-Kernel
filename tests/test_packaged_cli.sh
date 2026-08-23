@@ -9,10 +9,10 @@ fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 
 uv build --wheel --out-dir "$fixture/dist" "$project_dir"
-wheel=$(find "$fixture/dist" -name 'petta-*.whl' -print -quit)
+wheel=$(find "$fixture/dist" -name 'pymetta-*.whl' -print -quit)
 uv venv "$fixture/venv"
 uv pip install --python "$fixture/venv/bin/python" --no-deps "$wheel"
-test -x "$fixture/venv/bin/petta"
+test -x "$fixture/venv/bin/metta"
 
 mkdir "$fixture/unrelated cwd"
 printf '!(+ 1 1)\n' > "$fixture/basic.metta"
@@ -23,9 +23,9 @@ printf '!(import! &self (library lib_roman))\n!(map-flat (+ 1) (1 2 3))\n' \
 (
     cd "$fixture/unrelated cwd"
     unset PETTA_PATH
-    "$fixture/venv/bin/petta" "$fixture/basic.metta" > "$fixture/basic.log"
-    "$fixture/venv/bin/petta" "$fixture/import.metta" > "$fixture/import.log"
-    "$fixture/venv/bin/petta" "$fixture/roman.metta" > "$fixture/roman.log"
+    "$fixture/venv/bin/metta" "$fixture/basic.metta" > "$fixture/basic.log"
+    "$fixture/venv/bin/metta" "$fixture/import.metta" > "$fixture/import.log"
+    "$fixture/venv/bin/metta" "$fixture/roman.metta" > "$fixture/roman.log"
 )
 
 grep -Fxq '2' "$fixture/basic.log"
@@ -40,12 +40,15 @@ grep -Fq '(2 3 4)' "$fixture/roman.log"
 # EXTENDING.md's "a backend is a file in backends/" false for every wheel.
 "$fixture/venv/bin/python" - <<'PY'
 from pathlib import Path
-import petta
+import metta
+import importlib.util
 
-runtime = Path(petta.__file__).parent / "_runtime"
+runtime = Path(metta.__file__).parent / "_runtime"
 for required in ("engine", "lib", "backends/mork/decider.pl", "bindings/python/decider.pl"):
     assert (runtime / required).exists(), f"{required} is missing from the wheel"
 assert list((runtime / "backends").glob("*/decider.pl")), "backends/ shipped empty"
+assert importlib.util.find_spec("petta") is None, "the retired petta module still imports"
+assert importlib.util.find_spec("pymetta") is None, "the distribution name became a module"
 PY
 
-echo "packaged petta CLI tests passed"
+echo "packaged pymetta CLI tests passed"

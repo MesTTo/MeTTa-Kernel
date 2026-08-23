@@ -153,6 +153,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Rename the Python distribution to `pymetta` and its import module to
+  `metta`: install with `pip install pymetta` and use `import metta`.
+  Neither `petta` nor `pymetta` remains an importable module.
+- Rename `Space.query` and `AsyncMeTTa.query` to `match`, and expose
+  default-space matching as `metta.match`. No `query` compatibility alias
+  remains.
+- Remove the legacy `python.petta` wrapper and the root `PeTTa` and `HERE`
+  exports. Use `MeTTa`, a `Space` receiver, or bare `metta.match()`.
 - Map Python operator words consistently across `S`, static `fn`, and bound
   `space.fn` while keeping bracket names exact and refusing composite-only
   `neg` and `floordiv` words.

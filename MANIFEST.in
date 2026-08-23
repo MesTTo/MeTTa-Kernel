@@ -7,7 +7,7 @@ include CHANGELOG.md
 include CITATION.cff
 include SECURITY.md
 
-# Everything setup.py's RUNTIME_RESOURCES maps into petta/_runtime/ must be in
+# Everything setup.py's RUNTIME_RESOURCES maps into metta/_runtime/ must be in
 # the SDIST too, or `pip install` from PyPI fails: `python -m build` builds the
 # wheel FROM the sdist, so a resource the sdist drops is a resource the wheel
 # build cannot find. Measured 2026-08-23: five of the nine mapped resources were
@@ -20,5 +20,5 @@ include backends/mork/decider.pl
 recursive-include tests/codec *
 include bindings/python/decider.pl
 include bindings/python/bridge.pl
-include bindings/python/petta_py.py
+include bindings/python/metta_py.py
 recursive-exclude tests/codec __pycache__ *.py[co]

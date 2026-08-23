@@ -1296,7 +1296,7 @@ wheels = [
 ]
 
 [[package]]
-name = "petta"
+name = "pymetta"
 source = { editable = "." }
 dependencies = [
     { name = "docstring-parser" },
