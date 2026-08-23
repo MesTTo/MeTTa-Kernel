@@ -473,5 +473,21 @@ depth, 939 inferences at 4 and 3,279 at 64, against an untyped call's 715 and
 to name it in a `BadArgType`. A typed call that REJECTS a 64-deep argument costs
 755,395 inferences.
 
-Anyone picking this up: the ablation above is the ceiling, and the obligation is
-that a guard which wrongly reports "one type" silently DROPS type answers.
+A bounded-cardinality guard was built and measured, and does not pay. The engine
+already owns the technique, `goal_matches_at_most_one/1`, which counts to two
+with `nb_setarg/3` and exists because `deterministic/1` cannot do this job.
+Guarding the product branch with "does any member have a second type" moved
+depth 32 from 49,758 inferences to 49,278: the check costs what the branch it
+skips costs, because asking whether a nested member has a second type runs that
+member's own derivation to exhaustion.
+
+What WOULD work is not a guard but an extra output. A member has a second type
+only if some LEAF beneath it has two candidate types, so the property is an OR
+threaded up from the leaves and would cost O(1) a level. That means
+`has_type_in/3` returning it alongside the type, which is a new output on the
+type system's main entry point. Given the accepting path is already linear, that
+is a redesign this file records rather than performs.
+
+Anyone picking this up: the ablation above is the ceiling, the obligation is
+that a guard which wrongly reports "one type" silently DROPS type answers, and
+both cheap guards are already spent.
