@@ -295,9 +295,9 @@ decides every test, `and`/`or` answer the deciding operand, `==` holds
 across `4 == 4.0`, `in` is membership and substring, indexing and slices
 take Python's negatives, `round` banks, f-strings format; each definition
 lists the runtime-backed operations it leaned on as `.runtime_ops`. Both
-decorators share one naming policy: the Python name is the MeTTa name,
-verbatim, and a hyphenated name (the MeTTa convention, and unspellable in
-Python) is asked for with `name=` rather than inferred. Anything
+decorators share one naming policy: an implicit Python name maps underscores
+to MeTTa hyphens, while `name=` preserves its authored spelling exactly.
+Anything
 outside the subset is a refusal naming the construct, the line, and what
 to write instead, never a silent fallback; a body only the engine can run
 (a match, a constructor) gets a twin that says so instead of a NameError.
