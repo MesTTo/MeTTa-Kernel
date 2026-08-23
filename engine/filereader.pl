@@ -1370,11 +1370,33 @@ recompile_function(G) :-
 %Within one module the two phases stay, because that is what keeps the
 %rebuilt clauses in their original order behind any the Prolog interop
 %asserted untracked.
+%Every retained equation of G, found through the clause INDEX rather than by
+%walking all of them. translated_from/2's second argument is the whole source
+%term, so a caller that binds only G inside it, `[=, [G|_], _]`, gives SWI a
+%position to discriminate on: jiti_list/1 reports a deep index at 2/2/1 with
+%32,768 buckets and no collisions over 20,000 clauses, where one lookup costs
+%12 inferences and the walk cost 40,011, two an equation [measured 2026-08-23].
+%
+%The three callers below are the whole repair path for a function defined after
+%the definitions calling it, so that path no longer costs anything that grows
+%with the program it repairs into: repairing eight callers over a space already
+%holding M unrelated equations cost 9,692 inferences above the same file with
+%the callee written FIRST at M=200 and 211,336 at M=12,800, and costs 6,352 and
+%6,316 [tested:
+%filereader_late_definition_cost:repairing_late_callers_costs_nothing_that_grows_with_the_program].
+%
+%Binding G inside the pattern UNIFIES where the walk compared with ==/2, and
+%the two agree here because a stored head is always an ATOM: an equation whose
+%head is a variable cannot name a function and raises before it is stored
+%[tested: spaces_batch:a_variable_headed_equation_raises_either_way], which is
+%also why record_translated_supports/2 can require atom(G).
+translated_equation_of(G, Ref, Term) :-
+    Term = [=, [G|_], _],
+    translated_from(Ref, Term).
+
 recompile_function_impl(G) :-
     findall(Module,
-            ( translated_from(Ref, Term),
-              Term = [=, [G0|_], _],
-              G0 == G,
+            ( translated_equation_of(G, Ref, _),
               clause_property(Ref, module(Module)) ),
             Modules0),
     sort(Modules0, Modules),
@@ -1390,9 +1412,7 @@ recompile_function_impl(G) :-
 
 recompile_function_in_module(Module, G) :-
     findall(compiled(Ref, Term),
-            ( translated_from(Ref, Term),
-              Term = [=, [G0|_], _],
-              G0 == G,
+            ( translated_equation_of(G, Ref, Term),
               clause_property(Ref, module(Module)) ),
             Clauses),
     forall(member(compiled(Ref, Term), Clauses),
@@ -1447,8 +1467,7 @@ forget_translated_from(Module, Ref, [=, [G|_], _]) :-
     !,
     retractall(translated_from(Ref, _)),
     support_forget(translated_form(Module, Ref)),
-    (   translated_from(OtherRef, [=, [OtherG|_], _]),
-        OtherG == G,
+    (   translated_equation_of(G, OtherRef, _),
         clause_property(OtherRef, module(Module))
     ->  true
     ;   support_forget(compiled_function(Module, G))

@@ -119,6 +119,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Loading a source that defines a function AFTER the definitions calling it
+  is now linear in the number of those call sites rather than quadratic.
+  Repairing one caller walked every stored equation in the system to find the
+  ones it had to rebuild, so a file with N such callers walked N times over N
+  equations. The three places that did so ask through the clause index
+  instead. A file of N definitions calling a callee defined last cost 324,456
+  inferences at N=100 and rose 3.04x per doubling to 29,981,872 at N=3,200; it
+  now costs 304,576 and rises exactly 2.00x per doubling to 9,505,560. The
+  same file with the callee written FIRST is unchanged to the inference at
+  every size.
+
 - The canonical atoms `TRUE`, `FALSE`, `UNIT`, and `HERE` are public
   values at the package root, so a program names them instead of
   reconstructing their spelling. The twin corpus grew to 218 files, its

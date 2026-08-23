@@ -687,3 +687,86 @@ test(a_digest_separates_texts_and_joins_equal_ones) :-
     One \== Other.
 
 :- end_tests(filereader_source_digest).
+
+:- begin_tests(filereader_late_definition_cost).
+
+%A file whose callee is written LAST. Every caller ahead of it compiled that
+%name as plain data, so each is rebuilt once the definition arrives, and
+%finding a caller's stored equations used to walk EVERY equation in the system,
+%two inferences a clause. translated_equation_of/3 asks the clause index
+%instead.
+%
+%The claim is that the repair no longer costs anything that grows with the
+%program it repairs INTO, so the same file with the callee written FIRST is the
+%control: it defines the same names and compiles the same nine forms and takes
+%no repair path, and it measures the same to the inference either way. What is
+%left after subtracting it is the repair alone [measured 2026-08-23 with eight
+%callers over a space already holding M unrelated equations: the excess was
+%9,692 inferences at M=200 and 211,336 at M=12,800 and is 6,352 and 6,316, so
+%it was linear in M and is flat].
+%
+%The threshold is 2.5 because the walk measured 6.15 over this pair and the
+%index measures 1.32, neither near it. The index reading exceeds 1 only because
+%the first repairing load in a process is about 2,100 inferences cheaper than
+%the ones after it; the control is exact to the inference at every repetition.
+write_bulk_equations(M, Path) :-
+    tmp_file_stream(text, Path, Stream),
+    forall(between(1, M, I),
+           format(Stream, "(= (plunit_bulk_b~w) ~w)~n", [I, I])),
+    close(Stream).
+
+write_callers(late, Callers, Path) :-
+    tmp_file_stream(text, Path, Stream),
+    forall(between(1, Callers, I),
+           format(Stream, "(= (plunit_late_u~w) (plunit_late_gee k0))~n", [I])),
+    format(Stream, "(= (plunit_late_gee $x) (quote $x))~n", []),
+    close(Stream).
+write_callers(first, Callers, Path) :-
+    tmp_file_stream(text, Path, Stream),
+    format(Stream, "(= (plunit_late_gee $x) (quote $x))~n", []),
+    forall(between(1, Callers, I),
+           format(Stream, "(= (plunit_late_u~w) (plunit_late_gee k0))~n", [I])),
+    close(Stream).
+
+forget_late_definition_load(M, Callers, Space, Bulk, Small) :-
+    forall(between(1, Callers, I),
+           ( atom_concat(plunit_late_u, I, F), cleanup_test_function(F) )),
+    cleanup_test_function(plunit_late_gee),
+    forall(between(1, M, I),
+           ( atom_concat(plunit_bulk_b, I, F), cleanup_test_function(F) )),
+    user:clear_native_atoms(Space),
+    %metta_release_space/1 rather than metta_forget_space_parent/1, for the
+    %reason spaces_join_order records: the partial form leaves the exec-module
+    %link behind and a later unit asserts none exists.
+    user:metta_release_space(Space),
+    retractall(filereader:compiled_metta_source(_)),
+    retractall(user:imported_metta_source(_, _)),
+    ( exists_file(Bulk) -> delete_file(Bulk) ; true ),
+    ( exists_file(Small) -> delete_file(Small) ; true ).
+
+late_definition_load_cost(Order, M, Callers, Cost) :-
+    Space = '&plunit_late_definition',
+    write_bulk_equations(M, Bulk),
+    write_callers(Order, Callers, Small),
+    setup_call_cleanup(
+        assertz(user:silent(true), SilentRef),
+        setup_call_cleanup(
+            filereader:load_metta_file(Bulk, _, Space),
+            ( statistics(inferences, Before),
+              filereader:load_metta_file(Small, _, Space),
+              statistics(inferences, After),
+              Cost is After - Before ),
+            forget_late_definition_load(M, Callers, Space, Bulk, Small)),
+        erase(SilentRef)).
+
+repair_excess(M, Excess) :-
+    late_definition_load_cost(late, M, 8, Repaired),
+    late_definition_load_cost(first, M, 8, Control),
+    Excess is Repaired - Control.
+
+test(repairing_late_callers_costs_nothing_that_grows_with_the_program) :-
+    repair_excess(200, Narrow),
+    repair_excess(3200, Wide),
+    assertion(Wide < Narrow * 2.5).
+
+:- end_tests(filereader_late_definition_cost).
