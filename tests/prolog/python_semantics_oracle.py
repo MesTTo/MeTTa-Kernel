@@ -5,7 +5,7 @@ Assumes:
     Python operations.
 Guarantees:
   - inputs are decoded by the production wire decoder before Python equality
-    or truth is applied [tested: shim_python_scalar_semantics; commit=WORKTREE]
+    or truth is applied [tested: shim_python_scalar_semantics; commit=551f6236be947d5c52f5243e3d56f0009a000071]
 Fails when:
   - called with a value outside the production wire format.
 """
