@@ -277,7 +277,7 @@
  "examples/control/take.metta": {
   "status": "upstream-error"
  },
- "examples/control/test_unify_eval_branches.metta": {
+ "examples/control/unify_eval_branches.metta": {
   "our_inferences": 95509,
   "our_instructions": 102747272,
   "status": "measured",
@@ -334,7 +334,7 @@
   "status": "measured",
   "upstream_instructions": 39805949
  },
- "examples/data/is_alpha_member_test.metta": {
+ "examples/data/alpha_member.metta": {
   "our_inferences": 51988,
   "our_instructions": 62325975,
   "status": "measured",
@@ -376,7 +376,7 @@
   "status": "measured",
   "upstream_instructions": 44006765
  },
- "examples/data/test_alpha_unique_atom.metta": {
+ "examples/data/alpha_unique_atom.metta": {
   "our_inferences": 50975,
   "our_instructions": 61214224,
   "status": "measured",
@@ -697,7 +697,7 @@
   "status": "measured",
   "upstream_instructions": 11937432416
  },
- "examples/libraries/patrick_test.metta": {
+ "examples/libraries/patrick.metta": {
   "our_inferences": 43026,
   "our_instructions": 56496838,
   "status": "measured",
@@ -706,7 +706,7 @@
  "examples/libraries/regex_lib.metta": {
   "status": "upstream-error"
  },
- "examples/libraries/roman_test.metta": {
+ "examples/libraries/roman.metta": {
   "our_inferences": 195600,
   "our_instructions": 193662878,
   "status": "measured",
@@ -727,46 +727,46 @@
  "examples/libraries/tabling_statistics.metta": {
   "status": "upstream-error"
  },
- "examples/libraries/test_datetime.metta": {
+ "examples/libraries/datetime.metta": {
   "our_inferences": 68829,
   "our_instructions": 81916103,
   "status": "measured",
   "upstream_instructions": 94243196
  },
- "examples/libraries/test_memo_aggregate.metta": {
+ "examples/libraries/memo_aggregate.metta": {
   "status": "upstream-error"
  },
- "examples/libraries/test_memo_dependency_invalidation.metta": {
+ "examples/libraries/memo_dependency_invalidation.metta": {
   "our_inferences": 150612,
   "our_instructions": 155021902,
   "status": "measured",
   "upstream_instructions": 107930470
  },
- "examples/libraries/test_memo_multi_answer.metta": {
+ "examples/libraries/memo_multi_answer.metta": {
   "our_inferences": 152343,
   "our_instructions": 156315964,
   "status": "measured",
   "upstream_instructions": 109712393
  },
- "examples/libraries/test_memo_per_arity.metta": {
+ "examples/libraries/memo_per_arity.metta": {
   "our_inferences": 156309,
   "our_instructions": 159863951,
   "status": "measured",
   "upstream_instructions": 113272074
  },
- "examples/libraries/test_memo_same_name_multi_arity.metta": {
+ "examples/libraries/memo_same_name_multi_arity.metta": {
   "our_inferences": 162759,
   "our_instructions": 166139867,
   "status": "measured",
   "upstream_instructions": 118628984
  },
- "examples/libraries/test_memo_stats.metta": {
+ "examples/libraries/memo_stats.metta": {
   "our_inferences": 151669,
   "our_instructions": 155824818,
   "status": "measured",
   "upstream_instructions": 108841898
  },
- "examples/libraries/test_memo_variant_nonground.metta": {
+ "examples/libraries/memo_variant_nonground.metta": {
   "our_inferences": 151741,
   "our_instructions": 155893382,
   "status": "measured",
@@ -1090,7 +1090,7 @@
   "status": "measured",
   "upstream_instructions": 43819088
  },
- "examples/syntax/test_string_comments.metta": {
+ "examples/syntax/string_comments.metta": {
   "our_inferences": 22795,
   "our_instructions": 38732208,
   "status": "measured",

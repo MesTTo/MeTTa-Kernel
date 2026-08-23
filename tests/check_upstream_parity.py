@@ -197,14 +197,14 @@ WAIVERS = {
     "examples/fib.metta": (GUARDED_ARITHMETIC),
     "examples/integration/python_import.metta": (DISPATCH_HOP),
     "examples/functions/specializecyclic.metta": (DISPATCH_HOP),
-    "examples/control/test_unify_eval_branches.metta": (METTA_IMPORT),
+    "examples/control/unify_eval_branches.metta": (METTA_IMPORT),
     "examples/libraries/he_quoting.metta": (METTA_IMPORT),
     "examples/libraries/he_error.metta": (METTA_IMPORT),
     "examples/libraries/he_equalreduct.metta": (METTA_IMPORT),
     "examples/libraries/lib_roman_pair_helpers.metta": (METTA_IMPORT),
     "examples/libraries/library.metta": (METTA_IMPORT),
-    "examples/libraries/roman_test.metta": (METTA_IMPORT),
-    "examples/libraries/test_memo_dependency_invalidation.metta": (MEMO_IMPORT),
+    "examples/libraries/roman.metta": (METTA_IMPORT),
+    "examples/libraries/memo_dependency_invalidation.metta": (MEMO_IMPORT),
     "examples/libraries/tabling_fib.metta": (
         "library content growth, the builin_types cause: our lib_tabling"
         " is a 66-line metta surface plus a 290-line Prolog invalidation"
@@ -212,11 +212,11 @@ WAIVERS = {
         " 72.7M against upstream's 11.7M (2026-08-17), covering the whole"
         " flag"
     ),
-    "examples/libraries/test_memo_multi_answer.metta": (MEMO_IMPORT),
-    "examples/libraries/test_memo_per_arity.metta": (MEMO_IMPORT),
-    "examples/libraries/test_memo_same_name_multi_arity.metta": (MEMO_IMPORT),
-    "examples/libraries/test_memo_stats.metta": (MEMO_IMPORT),
-    "examples/libraries/test_memo_variant_nonground.metta": (MEMO_IMPORT),
+    "examples/libraries/memo_multi_answer.metta": (MEMO_IMPORT),
+    "examples/libraries/memo_per_arity.metta": (MEMO_IMPORT),
+    "examples/libraries/memo_same_name_multi_arity.metta": (MEMO_IMPORT),
+    "examples/libraries/memo_stats.metta": (MEMO_IMPORT),
+    "examples/libraries/memo_variant_nonground.metta": (MEMO_IMPORT),
     "examples/python_import.metta": (DISPATCH_HOP),
     "examples/reasoning/nars_direct.metta": (DISPATCH_HOP),
     "examples/reasoning/pln_tuffy.metta": (DISPATCH_HOP),
