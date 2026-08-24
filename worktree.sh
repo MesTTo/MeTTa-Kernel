@@ -8,6 +8,9 @@
 #   - after this, `backends/mork/decider.pl` finds its artefact and the MORK backend
 #     loads, so the suites gate the same configuration in both trees
 #     [tested: tests/test_worktree_configuration.sh].
+#   - the C extension example's cbump and handle shared objects are built in
+#     the worktree exactly as check.sh builds them, so a direct pytest run
+#     here exercises the same integration surface instead of skipping it.
 # Fails when:
 #   - the main checkout has not been built. That is reported, because a
 #     worktree quietly running a SMALLER configuration than the tree it was
@@ -56,3 +59,20 @@ for artefact in backends/mork/mork_ffi/target backends/mork/mork_ffi/morklib.so;
 done
 
 echo "worktree.sh: linked $linked artefact(s) from $MAIN"
+
+# The C extension example's shared objects are build output check.sh compiles
+# on every run; a worktree used for DIRECT suite runs needs them too, or the
+# example and its tests quietly skip. Same recipe, same tolerance for a
+# missing toolchain.
+ext="$HERE/examples/integration/c_extension"
+if [ -d "$ext" ]; then
+    if command -v swipl-ld >/dev/null 2>&1; then
+        for unit in cbump handle; do
+            [ -f "$ext/$unit.c" ] || continue
+            ( cd "$ext" && swipl-ld -shared -o "$unit" "$unit.c" ) ||
+                echo "worktree.sh: the C extension example $unit failed to build" >&2
+        done
+    else
+        echo "worktree.sh: swipl-ld not found, the C extension example will skip" >&2
+    fi
+fi
