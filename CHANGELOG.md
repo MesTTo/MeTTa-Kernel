@@ -469,6 +469,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Removed
 
+- The namespace call-form aliases: `S("x")`, `V("x")` and `fn("name")` were
+  synonyms for attribute access and are gone; `S.x` / `S["exact name"]` and
+  `fn.car_atom` / `fn["car-atom"]` are the two doors, one mechanism each.
+  The async engine's `fn(name)` method becomes the same namespace property
+  as the sync surface: `m.fn.car_atom` transliterates, `m.fn["=="]` is
+  exact, resolution stays lazy on the worker.
+
 - Remove all 15 synchronous `declare_*` methods and their async mirrors in
   favor of head-named receiver methods.
 - The legacy `python.petta` import path. The alias package that kept

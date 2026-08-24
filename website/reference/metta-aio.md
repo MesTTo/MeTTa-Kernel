@@ -1063,11 +1063,16 @@ def watch(
 ### `AsyncMeTTa.fn`
 
 ```python
-def fn(self, name: str) -> _AsyncEngineFunction:
+def fn(self) -> _AsyncFunctionNamespace:
 ```
 
-> An engine function as an async callable: await f(3), with
-> .one, .first and .all carrying the same cardinality triple.
+> Engine functions as async callables, by attribute or exact name.
+>
+> ``m.fn.car_atom`` transliterates underscores to hyphens and
+> ``m.fn["=="]`` preserves exact punctuation, the same two doors the
+> sync namespace has. Resolution is lazy: the worker is asked when the
+> function is awaited, so an unknown name raises there rather than at
+> access.
 
 ### `AsyncMeTTa.aclose`
 
