@@ -118,9 +118,16 @@ metta_bad_argument_refusal(Operation, Arguments, Error) :-
     metta_error_atom(Operation, Arguments,
                      ['BadArgType', Position, Expected, Actual], Error).
 
-metta_named_rule_refusal(Module, [Expected|_], [Origin|_],
+%A type-position modifier is REPORTED and CHECKED by its value type: the
+%arbiter answers `(BadArgType 1 Number String)` for a `(:Atom Number)`
+%parameter, naming the type that decided rather than the pair that carried it
+%[measured 2026-08-24 against LeaTTa 9ea9f9d]. The projection sits on the
+%refusal path, which this file's own note above metta_operation_answer/3
+%records as reached only after a caller's fast path has declined.
+metta_named_rule_refusal(Module, [Declared|_], [Origin|_],
                          [Argument|_], Position,
                          Position, Expected, Actual, Rule, Reason) :-
+    declared_type_for_check(Declared, Expected),
     typing_origin_family(Origin, Family),
     typing_refusal_actual(Module, Family, Argument, Actual),
     typing_rule_refusal(Module, Family, Actual, Expected, Rule, Reason).
@@ -203,6 +210,35 @@ metta_arguments_match_in(Module, [Expected|Rest], [Origin|Origins],
 
 %A FRESH copy per arrow: a chain naming a type variable has to be free to bind
 %it again for the next call, and for the next arrow.
+%A TYPE-POSITION MODIFIER pairs an unevaluated metatype with a separate value
+%type, so a parameter can say "do not evaluate this, and it must still be a
+%Number". Without it those are exclusive: the official "Controlling pattern
+%matching" page records that a specific parameter type and a metatype cannot
+%be supplied together and links trueagi-io/hyperon-experimental#177, and these
+%two spellings are what close that quadrant
+%[source: LeaTTa MettaHyperonFull/Core/Modifiers.lean:92-116, `typeMod?`,
+%`declaredTypeForCheck` and `declaredTypeForEvaluation`].
+%
+%The registry is CLOSED and the arity is part of the shape: a three-element
+%`(:Atom a b)` is ordinary data, exactly as `registeredMod?` requires.
+type_position_modifier(Type, Metatype, ValueType) :-
+    nonvar(Type),
+    Type = [Head, ValueType],
+    atom(Head),
+    type_position_metatype(Head, Metatype).
+
+type_position_metatype(':Atom', 'Atom').
+type_position_metatype(':Expression', 'Expression').
+
+%The checker reads the inner type of a modifier and every other declaration as
+%written; argument preparation reads the metatype head. Two projections of one
+%declaration, named as the reference names them.
+declared_type_for_check(Type, ValueType) :-
+    (   type_position_modifier(Type, _, Inner)
+    ->  ValueType = Inner
+    ;   ValueType = Type
+    ).
+
 metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins) :-
     current_metta_module(Module),
     (   type_declaration_in(Module, Operation, Chain0)
@@ -210,6 +246,11 @@ metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins) :-
         seam:builtin_type_declaration(Operation, Chain0)
     ),
     copy_term(Chain0, [->|Types]),
+    %The types are read AS DECLARED. A type-position modifier is projected by
+    %the consumers below, and only there: every declared argument check runs
+    %through this reader, so projecting each parameter here costs an inference
+    %per parameter per call and query-where paid 140 of them, 0.02%, for a
+    %shape no shipped declaration uses [measured 2026-08-24].
     append(ParameterTypes, [_], Types),
     metta_argument_type_origins(ParameterTypes, Origins),
     same_length(ParameterTypes, Arguments).
@@ -218,6 +259,11 @@ metta_shallow_operation_parameters(Operation, Arguments, ParameterTypes,
                                    Origins) :-
     shallow_declared_type(Operation, Chain0),
     copy_term(Chain0, [->|Types]),
+    %The types are read AS DECLARED. A type-position modifier is projected by
+    %the consumers below, and only there: every declared argument check runs
+    %through this reader, so projecting each parameter here costs an inference
+    %per parameter per call and query-where paid 140 of them, 0.02%, for a
+    %shape no shipped declaration uses [measured 2026-08-24].
     append(ParameterTypes, [_], Types),
     metta_argument_type_origins(ParameterTypes, Origins),
     same_length(ParameterTypes, Arguments).
@@ -244,22 +290,35 @@ metta_argument_type_origin(_, Expected, metatype) :-
     !.
 metta_argument_type_origin(_, _, ordinary).
 
+%THE RUNTIME CHECK AND THE REPORTED TYPE ASK DIFFERENT QUESTIONS, and the
+%arbiter answers them with different relations. Admitting an argument selects
+%`.runtime`, "the permissive `match_types`", where `Atom` on either side is a
+%match [source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:4560-4582,
+%`typeCheckArgsOutcomes`]. Reporting an application's type keeps the stricter
+%`match_reducted_types`, where a literal `Atom` result is an ordinary type.
+%
+%Both are measured, on the same day and against LeaTTa 9ea9f9d. With
+%`(: idv (-> Atom Atom))` declared, `(: vf (-> Variable %Undefined%))` ACCEPTS
+%`!(vf (idv $y))` and answers `(quote (idv $y))`, while
+%`!(get-type (needs-grounded (atom-result value)))` answers NOTHING for the
+%same shape. One relation cannot serve both, and this engine used the
+%reporting one for both until the evaluation mask made a masked parameter
+%check its argument as written and the difference became reachable.
+%The split is made HERE rather than behind another predicate. Every declared
+%argument check runs this, so one extra call is one extra inference per check
+%and a query workload pays it once per row: routing the two relations through
+%a helper cost query-where 140 inferences, 0.02%, for a decision the clause
+%head already makes [measured 2026-08-24].
+check_argument_type(Argument, Expected, metatype) :-
+    !,
+    current_metta_module(Module),
+    metatype_argument_admitted(Module, Argument, Expected, ordinary).
 check_argument_type(Argument, Expected, Origin) :-
     current_metta_module(Module),
     check_argument_type_in(Module, Argument, Expected, Origin).
 
 check_argument_type_in(Module, Argument, Expected, metatype) :-
-    metatype_of(Argument, Actual),
-    typing_rule_decision(Module, metatype, Actual, Expected,
-                         Outcome, _, _),
-    (   Outcome == accept
-    ->  true
-    ;   Outcome = [refuse, _]
-    ->  fail
-    ;   metta_argument_types_in(Module, Argument, Types),
-        member(Reported, Types),
-        typing_rule_accepts(Module, reporting, Reported, Expected)
-    ).
+    metatype_argument_admitted(Module, Argument, Expected, reporting).
 check_argument_type_in(Module, Argument, Expected, derived_variable) :-
     metta_runtime_type_candidate(Module, Argument, Actual),
     metta_derived_types_match_in(Module, Actual, Expected).
@@ -271,6 +330,22 @@ check_argument_type_in(Module, Argument, Expected, Origin) :-
         member(Actual, Types),
         metta_types_match_in(Module, Actual, Expected)
     ;   has_type_in(Module, Argument, Expected)
+    ).
+
+%The metatype is asked first and decides on its own where it can; only where
+%it defers do the argument's reported types answer, under the caller's chosen
+%relation.
+metatype_argument_admitted(Module, Argument, Expected, Relation) :-
+    metatype_of(Argument, Actual),
+    typing_rule_decision(Module, metatype, Actual, Expected,
+                         Outcome, _, _),
+    (   Outcome == accept
+    ->  true
+    ;   Outcome = [refuse, _]
+    ->  fail
+    ;   metta_argument_types_in(Module, Argument, Types),
+        member(Reported, Types),
+        typing_rule_accepts(Module, Relation, Reported, Expected)
     ).
 
 metta_runtime_type_candidate(Module, Argument, Actual) :-
@@ -300,8 +375,11 @@ metta_argument_type_matches(Actual, Expected, ordinary) :-
 %`(Number Number)` [measured 2026-08-19 against the arbiter, which answers
 %"1"]. The declared types still decide when the metatype does not, which is
 %why `(: xs Expression)` also passes and `(: n Number)` does not.
-metta_bad_argument([Expected|Rest], [Origin|Origins], [Argument|Arguments], N,
+metta_bad_argument([Declared|Rest], [Origin|Origins], [Argument|Arguments], N,
                    Position, Reported, Actual) :-
+    %The value type of a type-position modifier is what decides and what is
+    %named, on this refusal path for the same reason as above.
+    declared_type_for_check(Declared, Expected),
     metta_argument_types(Argument, Types),
     (   Origin == metatype,
         satisfies_metatype(Argument, Expected)

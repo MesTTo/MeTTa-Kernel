@@ -244,7 +244,7 @@
             with_runnable_variable_epochs/1,
             clear_translation_cache/0,
             invalidate_translated_forms/1,
-            index_masking_data_heads/0,
+            index_builtin_masks/0,
             maybe_print_compiled_clause/3,
 
             compiled_function_name/2,
@@ -252,6 +252,14 @@
             metta_special_form_head/1,
             metta_translated_head/1,
             metta_reducible_head/2,
+            %The one question the SPACES ask of a name's declarations while a
+            %program is being built: whether some declared arrow answers the
+            %metatype `Atom`, which is what stops an answer re-entering
+            %evaluation and the only part of a declaration that reaches the
+            %declared function's own compiled clause. A declaration write
+            %compares it either side of the store to decide whether that
+            %clause needs rebuilding (result_finality/2, engine/spaces.pl).
+            declared_output_type/2,
             uses_super/2,
             fun_meta_clauses/3,
             clear_fun_meta/2,
@@ -265,7 +273,20 @@
             memberchk_eq/2,
             reduce/2,
             reduce/3,
+            %The compiled-lambda table. engine/metta/control.pl's collection
+            %forms compile a written operator through it, so one `(|-> ...)`
+            %handed over by a masked parameter compiles once for every map,
+            %filter and fold that applies it.
+            written_lambda_closure/2,
             eval_metta_in_module/3,
+            %The result half of the evaluation mask lands in a compiled clause
+            %body, so a space's execution module imports it from here exactly
+            %as it imports reduce/3 and the two dispatch results.
+            metta_masked_result/2,
+            %atom-subst is one written-variable substitution and chain's
+            %unstepped operand is another, so the walk is defined once here
+            %and the operator in engine/metta/operators.pl imports it.
+            substitute_written_variable/4,
             lift_pattern_modifiers/4,
             metta_host_dispatch_proof_step/6,
             %The head-context note engine/filereader.pl reads to decide whether a

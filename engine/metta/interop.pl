@@ -1157,9 +1157,20 @@ import_load_needed(changed, Space, CanonPath) :-
 %an effect and `()` is what the arbiter records for every one of its module
 %transcripts [source: LeaTTa tests/semantics/modules/18-direct-import-control
 %and 20-cycle-control, both `[()]`].
-'import!'(Space, File, []) :-
+'import!'(Space0, File, []) :-
+    resolve_space_form(Space0, Space),
     metta_require_space_update_capability('import!', Space),
     importer_helper(Space, File).
+
+%A COMPUTED SPACE designator is this engine's extension in exactly the way a
+%computed path is, and the mask hands it over unreduced for the same reason:
+%`(: import! (-> Atom Atom (->)))` is the arbiter's own declaration
+%[measured 2026-08-24: `!(get-type import!)` on LeaTTa 9ea9f9d]. `&self` is a
+%name and stays one; `(context-space)` is a call and is run here.
+resolve_space_form(Form, Space) :-
+    nonvar(Form), Form = [Head|_], atom(Head), fun_here(Head), !,
+    eval(Form, Space).
+resolve_space_form(Form, Form).
 %`(: import! (-> Atom Atom Bool))` says both arguments arrive UNREDUCED, which
 %is right: a module name is a name and evaluating it would look for a function
 %called `lib_constraints`. So the forms a module name can take are resolved
@@ -1176,6 +1187,13 @@ importer_helper(Space, File0) :-
 resolve_module_form(Form, Path) :-
     nonvar(Form), Form = [library, Name], !,
     library(Name, Path).
+%The two-argument spelling names a registered alias and a file inside it,
+%`(library petta_fixture_lib fixture)`, and it reaches here for exactly the
+%reason the one-argument form does: the mask hands the whole form over, so
+%every shape a module name can take is resolved on this side.
+resolve_module_form(Form, Path) :-
+    nonvar(Form), Form = [library, Alias, Name], !,
+    library(Alias, Name, Path).
 %A BUILT-IN MODULE is one the engine ships, named directly rather than by
 %path: `!(import! &self skel)` is the arbiter's own spelling and upstream
 %loads six of them at startup [source: LeaTTa
@@ -1189,6 +1207,18 @@ resolve_module_form(Form, Path) :-
     atom(Form), metta_builtin_module(Form, Relative),
     metta_top_context, !,
     library(Relative, Path).
+%A COMPUTED PATH is the remaining shape, and it is this engine's own extension:
+%a program may write `(import! &self (dynamic-import-path))` where the path is
+%whatever a function answers. The mask hands that call over unreduced, so it is
+%run here, and only here: a bare symbol is a module NAME and stays one, which
+%is what the mask exists for.
+%
+%The head must already be a function, so a `(some data form)` a program means
+%as a name is left exactly as written and reaches the ordinary path resolution
+%with its own error.
+resolve_module_form(Form, Path) :-
+    nonvar(Form), Form = [Head|_], atom(Head), fun_here(Head), !,
+    eval(Form, Path).
 resolve_module_form(Form, Form).
 
 %The modules this engine ships, one row each. `skel` is upstream's own

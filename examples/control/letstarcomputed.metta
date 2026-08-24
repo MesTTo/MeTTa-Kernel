@@ -35,7 +35,15 @@
 ;Bindings are checked when they arrive, because nothing after that point can
 ;check them. A value that is not a list of (pattern value) pairs is refused
 ;naming the form, rather than binding something the program never wrote.
-!(test (car-atom (catch (mylet-evaluating (noeval ((1 2 3))) done))) Error)
+;The value is NAMED before the family operation reads it. `car-atom` and
+;`size-atom` declare `Expression` parameters, so the operand reaches them AS
+;WRITTEN; a `let` runs the form first and hands the answer over. The
+;demonstration is unchanged, and so is the expected value
+;[measured 2026-08-24: `!(let $v ((+ 1 2) b) (car-atom $v))` is 3 on LeaTTa
+;9ea9f9d and on this engine].
+!(test (let $refusal (catch (mylet-evaluating (noeval ((1 2 3))) done))
+         (car-atom $refusal))
+       Error)
 
 ;A bindings argument that is no list at all is not bindings, it is a program
 ;using the name as data, and it stays the unapplied form it always was.

@@ -509,6 +509,11 @@ seam:engine_emitted(metta_bad_argument_error/3).
 seam:engine_emitted(dispatch_mismatch_result/3).
 seam:engine_emitted(dispatch_no_match_result/3).
 seam:engine_emitted(dispatch_policy_execute/5).
+%The result half of the evaluation mask. engine/translator/special_forms.pl's
+%masked_result_goal/3 writes it into every compiled body whose declared result
+%re-enters evaluation, so a MeTTa function named metta_masked_result at two
+%arguments would otherwise capture the continuation of every such call.
+seam:engine_emitted(metta_masked_result/2).
 
 %Resolving at compile time means the answer can go stale: a space that gains
 %a definition of the name becomes the nearer parent, and one that loses its
@@ -634,10 +639,36 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                                      ; record_head_pattern_notes(F, Positions) )
                                                                 ; Args1 = Args0, GoalsPrefix = [] ),
                                                record_fun_meta(F, Args1, BodyExpr),
-                                               ( declared_output_type(F, 'Atom')
+                                               ( declared_output_type(F, 'Atom'),
+                                                 %An Atom-returning function answers its body AS
+                                                 %DATA, and `function` is the ONE head that still
+                                                 %runs. It is a frame rather than a value: its
+                                                 %whole job is to execute a plan until a `return`
+                                                 %and hand back the payload
+                                                 %[source: LeaTTa
+                                                 %MettaHyperonFull/Minimal/Interpreter.lean:348-368,
+                                                 %`functionFrame`]. Without it every equation the
+                                                 %reference's stdlib writes as
+                                                 %`(= (f $x) (function ...))` answers its own
+                                                 %source text, and the whole stratego family, with
+                                                 %`interpret` behind it, returned the unrun
+                                                 %`(function (chain ...))` term.
+                                                 %
+                                                 %Ten embedded heads were measured in this position
+                                                 %on LeaTTa 9ea9f9d on 2026-08-24, one probe each:
+                                                 %`function` answers its payload and `cons-atom`,
+                                                 %`chain`, `eval`, `unify`, `decons-atom`,
+                                                 %`collapse-bind`, `get-metatype`, `metta` and
+                                                 %arithmetic every one stay data.
+                                                 \+ function_frame_body(BodyExpr)
                                                  -> GoalsBody = [],
                                                     ExpOut = BodyExpr
-                                                  ; translate_expr(BodyExpr, GoalsBody, ExpOut) ),
+                                                  ; translate_expr(BodyExpr, GoalsBody0, ExpOut0),
+                                                    (   GoalsBody0 == []
+                                                    ->  equation_result_continuation(BodyExpr, ExpOut0,
+                                                                                     GoalsBody, ExpOut)
+                                                    ;   GoalsBody = GoalsBody0,
+                                                        ExpOut = ExpOut0 ) ),
                                                (  nonvar(ExpOut) , ExpOut = partial(Base,Bound)
                                                -> length(Bound, N),
                                                   MinimumArity is N + 1,
@@ -661,6 +692,67 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                ( HasNegation == found
                                                  -> quantify_negations(Head, BodyConj)
                                                   ; true ).
+
+%A BODY THAT COMPILED TO NO GOALS EVALUATED NOTHING, and a declared result
+%other than `Atom` says the answer re-enters evaluation, so that is where the
+%round the arbiter performs has to be made up. Every other body already made
+%it: compiling a call IS one application plus the result rule, which is why the
+%typed call site emits nothing [source: LeaTTa
+%MettaHyperonFull/Minimal/Interpreter.lean:3786-3799, `returnsAtom`, applied to
+%what one `eval` step produced].
+%
+%The shape this reaches is a body that hands back what an argument brought in,
+%which only became observable once a masked parameter could bring in something
+%unreduced: `(: rf (-> Atom Expression))` with `(= (rf $x) $x)` answers `(3)`
+%for `!(rf ((+ 1 2)))` on the arbiter [measured 2026-08-24 against LeaTTa
+%9ea9f9d].
+%
+%TWO TESTS, and both are exact rather than cautious.
+%
+%The body's value must BE the body: a form that rewrote its body to something
+%else has already applied its own result rule, whatever goals it did or did not
+%emit. `noeval` is the case that proves it necessary. Its declared `Atom`
+%result says its answer is data, it compiles to no goal because handing the
+%argument back IS the whole implementation, and the engine's own prelude uses
+%it to carry a translator rule's expansion: re-entering evaluation there ran
+%the expansion instead of returning it, and `!(collapse (unique (superpose
+%(a b c d d))))` answered one element [measured 2026-08-24]. A lambda is
+%excluded by the same test, its value being the partial application the
+%eta-expansion below reads at compile time.
+%
+%A GROUND body is skipped because it has no unreduced part an argument could
+%have supplied, so `(= (f) 42)` compiles to what it always did and pays
+%nothing.
+%Reached only for a body that compiled to NO GOALS, which the caller tests
+%inline: every other equation is the common case and must not pay a call to
+%learn that it is.
+equation_result_continuation(BodyExpr, ExpOut0, GoalsBody, ExpOut) :-
+    (   ExpOut0 == BodyExpr,
+        \+ ground(BodyExpr),
+        \+ body_result_is_final(BodyExpr)
+    ->  masked_result_goal(ExpOut0, ExpOut, Goal),
+        GoalsBody = [Goal]
+    ;   GoalsBody = [],
+        ExpOut = ExpOut0
+    ).
+
+%A body whose own declared result is the metatype `Atom` has ALREADY settled
+%the result rule: `Atom` is what says an answer is final. `quote` is the shape
+%that proves it necessary, `(: quote (-> Atom Atom))`, and its whole purpose is
+%to hand a term back untouched; sending that term round again would be asking
+%the one form built to stop evaluation to resume it.
+%
+%Both registers are read, because the body's head may be a builtin the engine
+%declares rather than a name the program did.
+body_result_is_final(BodyExpr) :-
+    nonvar(BodyExpr),
+    BodyExpr = [Head|_],
+    atom(Head),
+    (   declared_output_type(Head, 'Atom')
+    ->  true
+    ;   seam:builtin_type_declaration(Head, [->|Types]),
+        append(_, ['Atom'], Types)
+    ).
 
 %The eta-expansion above gives the clause MORE arguments than its equation's
 %head has, so the arity the loader registered from the source shape names a

@@ -39,7 +39,13 @@
 ;Cases are checked when they arrive, because nothing after that point can
 ;check them. A value that is not a list of (pattern value) pairs is refused
 ;naming the form, rather than compiling a branch the program never wrote.
-!(test (car-atom (catch (switch 1 foo))) Error)
+;The value is NAMED before the family operation reads it. `car-atom` and
+;`size-atom` declare `Expression` parameters, so the operand reaches them AS
+;WRITTEN; a `let` runs the form first and hands the answer over. The
+;demonstration is unchanged, and so is the expected value
+;[measured 2026-08-24: `!(let $v ((+ 1 2) b) (car-atom $v))` is 3 on LeaTTa
+;9ea9f9d and on this engine].
+!(test (let $refusal (catch (switch 1 foo)) (car-atom $refusal)) Error)
 
 ;Written out, `(case 1 foo)` is not a case with bad cases, it is a program
 ;using the name as data, and it still reduces to itself.

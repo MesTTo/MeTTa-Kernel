@@ -1659,13 +1659,24 @@ batch_side(batch, Space, Atom) :- added_in_a_batch(Space, Atom).
 % A late type declaration recompiles the call sites of an already-compiled
 % function: the argument arrives as written instead of evaluated. This is the
 % shape the batch path got wrong.
+%
+% The RESULT type is `Atom` and not `%Undefined%`, because only `Atom` makes
+% the repair observable. A `%Undefined%` result re-enters evaluation, so the
+% held `(+ 1 2)` reduces on the way out and the answer is 3 whether the
+% declaration was seen or not: the probe passes vacuously. With `Atom` the
+% answer is the held term itself, and it takes BOTH halves of the repair to
+% get there, the call site holding the argument and the definition dropping
+% its result continuation
+% [measured 2026-08-24 against LeaTTa 9ea9f9d: with `(= (q $x) $x)` and
+% `(= (c) (q (+ 1 2)))`, `!(c)` is 3 under `(: q (-> Atom %Undefined%))` and
+% `(+ 1 2)` under `(: q (-> Atom Atom))`].
 declaration_answer(Side, Answer) :-
     atom_concat('bt-', Side, Prefix),
     atom_concat(Prefix, '-q', Q),
     atom_concat(Prefix, '-c', C),
     'add-atom'('&self', [=, [Q, X], X], _),
     'add-atom'('&self', [=, [C], [Q, [+, 1, 2]]], _),
-    batch_side(Side, '&self', [':', Q, [->, 'Atom', '%Undefined%']]),
+    batch_side(Side, '&self', [':', Q, [->, 'Atom', 'Atom']]),
     space_module('&self', Module),
     findall(A, with_metta_module(Module, reduce([C], A, _)), Answer).
 

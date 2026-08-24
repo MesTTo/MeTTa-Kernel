@@ -19,7 +19,17 @@
 !(test (get-type collapse) (-> Atom Atom))
 !(test (get-type superpose) (-> Expression %Undefined%))
 !(test (get-type match) (-> SpaceType Atom Atom %Undefined%))
-!(test (get-type map-atom) (-> Expression Variable Atom Expression))
+;map-atom carries two declared arrows, one per surface it offers: the
+;three-argument template form and the two-argument callable form. Both are
+;the reference's own rows, and both hold the list AS WRITTEN, which is what
+;`Expression` in a parameter position means
+;[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean, the two (: map-atom ...)
+;lines of preludeSrc; measured 2026-08-24 on LeaTTa 9ea9f9d, both are what
+;`!(get-type map-atom)` answers and `!(map-atom (cdr-atom (a b)) $y (q $y))`
+;maps over the two parts of the unrun call].
+!(test (collapse (get-type map-atom))
+       ((-> Expression Variable Atom Expression)
+        (-> Expression Expression Expression)))
 
 ;; Expression structure, from the reference corelib dump.
 !(test (get-type car-atom) (-> Expression %Undefined%))
@@ -29,9 +39,14 @@
 !(test (get-type index-atom) (-> Expression Number Atom))
 
 ;; PeTTa's own, with no dump entry to take.
-!(test (get-type sort-atom) (-> Expression Expression))
+;sort-atom sorts a VALUE, so its parameter cannot carry the evaluation mask:
+;the reference declares no type for it at all and its argument therefore
+;evaluates [measured 2026-08-24: `!(get-type sort-atom)` is `%Undefined%` on
+;LeaTTa 9ea9f9d, and `!(sort-atom (cdr-atom (a c b)))` is `(b c)` there].
+!(test (get-type sort-atom) (-> %Undefined% Expression))
 !(test (get-type is-var) (-> Atom Bool))
-!(test (get-type repr) (-> Atom String))
+;repr renders what its argument EVALUATED to, so its parameter says so.
+!(test (get-type repr) (-> %Undefined% String))
 !(test (get-type current-time) (-> Number))
 
 ;; The state cell is a VALUE and its type says what it holds, which is the

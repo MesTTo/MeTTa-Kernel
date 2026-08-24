@@ -57,9 +57,19 @@
 (= (assertEqual $A $B)
    (assert (== (collapse (eval $A)) (collapse (eval $B)))))
 
+;=alpha holds both operands as written, so a caller that wants the RESULT
+;sets compared has to collapse them into variables first and hand those
+;over. The arbiter's own stdlib writes the same sequence with chain
+;[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:2891-2895,
+;(= (assertAlphaEqual $actual $expected) (chain (context-space) $space
+;(chain (metta (collapse $actual) ...) $actual-results ...)))]. The == forms
+;need no such step because (: == (-> $a $a Bool)) is a type variable and a
+;type variable evaluates.
 (: assertAlphaEqual (-> Atom Atom %Undefined%))
 (= (assertAlphaEqual $A $B)
-   (assert (=alpha (collapse (eval $A)) (collapse (eval $B)))))
+   (let $Actual (collapse (eval $A))
+     (let $Expected (collapse (eval $B))
+       (assert (=alpha $Actual $Expected)))))
 
 ;The ToResult forms do not evaluate their second argument: it is the set
 ;of expected results, written as a tuple. Both parameters are Atom so
@@ -68,20 +78,44 @@
 ;contract, in tests/corpus/a1_symbols.metta: "assertEqualToResult checks
 ;all the results of the first expression; it doesn't evaluate the second
 ;expression, which is treated as a set of expected results."
+;The comparison is NAMED here and the verdict is what crosses to assert.
+;assert holds its operand and evaluates it, so handing it `(== $Actual $B)`
+;would evaluate $B's value a second time and `(assertEqualToResult (+ 1 1)
+;((+ 1 1)))` would pass, where the arbiter answers
+;`(Error ... "\nExpected: [(+ 1 1)]\nGot: [2]...")`
+;[measured 2026-08-24 against LeaTTa 9ea9f9d]. A Bool has no structure left to
+;re-evaluate, which is why the verdict travels and the comparison does not.
+;The arbiter reaches the same place by routing these forms around assert
+;entirely, through the quoting `_assert-results-are-equal`
+;[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:2871-2874 and :759-760].
 (: assertEqualToResult (-> Atom Atom %Undefined%))
 (= (assertEqualToResult $A $B)
-   (assert (== (collapse (eval $A)) $B)))
+   (let $Actual (collapse (eval $A))
+     (let $Same (== $Actual $B)
+       (assert $Same))))
 
 (: assertAlphaEqualToResult (-> Atom Atom %Undefined%))
 (= (assertAlphaEqualToResult $A $B)
-   (assert (=alpha (collapse (eval $A)) $B)))
+   (let $Actual (collapse (eval $A))
+     (assert (=alpha $Actual $B))))
 
 ;Every expected result must appear among the results produced.
 ;Subtracting the produced set from the expected one leaves nothing when
-;all of them did.
+;all of them did. subtraction-atom's two parameters are Expression and so
+;hold their arguments as written, which is why the collapse is named first
+;and the variable handed over; the arbiter's own definition sequences it the
+;same way [source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:2834-2840,
+;(= (assertIncludes $atom $content) (let $eval_atom (collapse $atom) (let
+;$diff (subtraction-atom $content $eval_atom) ...)))].
 (: assertIncludes (-> Atom Atom %Undefined%))
+;The verdict crosses to assert rather than the comparison, for the reason
+;assertEqualToResult above records: the difference is a set of WRITTEN
+;expectations and == would evaluate it.
 (= (assertIncludes $A $B)
-   (assert (== (subtraction-atom $B (collapse (eval $A))) ())))
+   (let $Actual (collapse (eval $A))
+     (let $Diff (subtraction-atom $B $Actual)
+       (let $Empty (== $Diff ())
+         (assert $Empty)))))
 
 ;The Msg variants carry a failure message. assert/2 already reports the
 ;failing expression, so each delegates and the message is accepted but
@@ -92,7 +126,9 @@
 
 (: assertAlphaEqualMsg (-> Atom Atom Atom %Undefined%))
 (= (assertAlphaEqualMsg $A $B $M)
-   (assert (=alpha (collapse (eval $A)) (collapse (eval $B)))))
+   (let $Actual (collapse (eval $A))
+     (let $Expected (collapse (eval $B))
+       (assert (=alpha $Actual $Expected)))))
 
 (: assertEqualToResultMsg (-> Atom Atom Atom %Undefined%))
 (= (assertEqualToResultMsg $A $B $M)
@@ -191,7 +227,14 @@
 ;rendering it as itself, so (repr (unquote 42)) answers "(unquote 42)"
 ;exactly as upstream observes. The cut in the first clause is what
 ;keeps the catch-all from also firing on quotes.
-(: unquote (-> Atom %Undefined%))
+;The operand EVALUATES, `(: unquote (-> %Undefined% %Undefined%))` in the
+;arbiter's own prelude, and that is what lets the quote arrive from a
+;computation rather than only from source: `!(unquote (car-atom ((quote
+;(+ 1 2)))))` is 3 there and was the whole unreduced call here
+;[measured 2026-08-24 against LeaTTa 9ea9f9d]. The two clauses below are
+;unaffected by the change, because a `(quote ...)` operand evaluates to itself:
+;quote's declared `Atom` result is what makes its answer final.
+(: unquote (-> %Undefined% %Undefined%))
 (= (unquote (quote $A))
    (let $cut (cut) (eval $A)))
 (= (unquote $A) (noeval (unquote $A)))
@@ -279,20 +322,30 @@
 ;pinned Hyperon 0.2.10 [source: LeaTTa Stdlib.lean, the type-cast note
 ;and tests/semantics/types-basic/50-53]. The library declared Atom
 ;parameters and compared metatypes with ==; both diverged.
+;The atom's metatype is NAMED before the comparison. Both of =alpha's declared
+;parameters are `Atom`, so an operand written as a call reaches the comparison
+;unreduced and `(=alpha Symbol (get-metatype A))` compares a symbol with a call
+;instead of with `Symbol`; the reference's own type-cast names the same value
+;first, through a chain [source: LeaTTa MettaHyperonFull/Minimal/
+;Stdlib.lean:4206-4209, `(chain (eval (get-metatype $atom)) $meta ...)`].
 (= (type-cast $atom $type $space)
-   (if (=alpha $type (get-metatype $atom))
-       $atom
-       (if (type-cast-holds $atom $type $space)
-           $atom
-           (Error $atom BadType))))
+   (let $meta (get-metatype $atom)
+     (if (=alpha $type $meta)
+         $atom
+         (if (type-cast-holds $atom $type $space)
+             $atom
+             (Error $atom BadType)))))
 
 ;The fold upstream writes inline, named here because PeTTa is
 ;applicative where the corelib chains; match-type-or does the wildcard
 ;and unification reading per candidate, so an undeclared atom
 ;(%Undefined%) casts to anything, which is upstream's answer too.
+;foldl-atom's list parameter is Expression, so the collected declarations are
+;NAMED before it reads them.
 (= (type-cast-holds $atom $type $space)
-   (foldl-atom (collapse (get-type-space $space $atom)) False $acc $declared
-      (match-type-or $acc $declared $type)))
+   (let $declarations (collapse (get-type-space $space $atom))
+     (foldl-atom $declarations False $acc $declared
+        (match-type-or $acc $declared $type))))
 
 ;;; Documentation ;;;
 ;
@@ -489,13 +542,19 @@
 
 (: unique (-> Atom %Undefined%))
 (= (unique $stream)
-   (noeval (call (superpose (unique-atom (collapse $stream))))))
-!(add-translator-rule! unique)
+   (noeval (let $collapsed (collapse $stream)
+             (let $kept (unique-atom $collapsed)
+               (superpose $kept)))))
+!(add-translator-rule! unique
+   ((extra-variables-exempt "the let binders the expansion introduces name the collapsed answer sets before the masked family operation reads them, so none takes a value from the term being rewritten")))
 
 (: alpha-unique (-> Atom %Undefined%))
 (= (alpha-unique $stream)
-   (noeval (call (superpose (alpha-unique-atom (collapse $stream))))))
-!(add-translator-rule! alpha-unique)
+   (noeval (let $collapsed (collapse $stream)
+             (let $kept (alpha-unique-atom $collapsed)
+               (superpose $kept)))))
+!(add-translator-rule! alpha-unique
+   ((extra-variables-exempt "the let binders the expansion introduces name the collapsed answer sets before the masked family operation reads them, so none takes a value from the term being rewritten")))
 
 ;The set operations name the shape they rewrite, `(superpose ...)` on both
 ;sides, exactly as the compiler's rewrite rules did. The second equation is
@@ -504,24 +563,33 @@
 ;rather than letting the expansion recurse [tested: translator_derived_forms].
 (: union (-> Atom Atom %Undefined%))
 (= (union (superpose $a) (superpose $b))
-   (noeval (call (superpose (union-atom (collapse (superpose $a))
-                                        (collapse (superpose $b)))))))
+   (noeval (let $left (collapse (superpose $a))
+             (let $right (collapse (superpose $b))
+               (let $combined (union-atom $left $right)
+                 (superpose $combined))))))
 (= (union $a $b) (noeval (noeval (union $a $b))))
-!(add-translator-rule! union)
+!(add-translator-rule! union
+   ((extra-variables-exempt "the let binders the expansion introduces name the collapsed answer sets before the masked family operation reads them, so none takes a value from the term being rewritten")))
 
 (: intersection (-> Atom Atom %Undefined%))
 (= (intersection (superpose $a) (superpose $b))
-   (noeval (call (superpose (intersection-atom (collapse (superpose $a))
-                                               (collapse (superpose $b)))))))
+   (noeval (let $left (collapse (superpose $a))
+             (let $right (collapse (superpose $b))
+               (let $combined (intersection-atom $left $right)
+                 (superpose $combined))))))
 (= (intersection $a $b) (noeval (noeval (intersection $a $b))))
-!(add-translator-rule! intersection)
+!(add-translator-rule! intersection
+   ((extra-variables-exempt "the let binders the expansion introduces name the collapsed answer sets before the masked family operation reads them, so none takes a value from the term being rewritten")))
 
 (: subtraction (-> Atom Atom %Undefined%))
 (= (subtraction (superpose $a) (superpose $b))
-   (noeval (call (superpose (subtraction-atom (collapse (superpose $a))
-                                              (collapse (superpose $b)))))))
+   (noeval (let $left (collapse (superpose $a))
+             (let $right (collapse (superpose $b))
+               (let $combined (subtraction-atom $left $right)
+                 (superpose $combined))))))
 (= (subtraction $a $b) (noeval (noeval (subtraction $a $b))))
-!(add-translator-rule! subtraction)
+!(add-translator-rule! subtraction
+   ((extra-variables-exempt "the let binders the expansion introduces name the collapsed answer sets before the masked family operation reads them, so none takes a value from the term being rewritten")))
 
 ; has-declared-type asks whether (: <atom> <type>) is declared, about the
 ; atom AS ITSELF: the first parameter carries the Atom mask so the question

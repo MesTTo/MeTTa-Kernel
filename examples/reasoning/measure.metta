@@ -11,7 +11,7 @@
 !(test (ws-flip ((cat 0.9) (dog 0.4))) ((0.9 cat) (0.4 dog)))
 
 ;Softmax with temperature: cold sharpens toward the argmax, hot flattens.
-(= (first-weight $ps) (index-atom (car-atom $ps) 0))
+(= (first-weight $ps) (let $head (car-atom $ps) (index-atom $head 0)))
 !(test (ws-best (ws-softmax ((1.0 low) (3.0 high)) 0.1)) high)
 !(test (> (first-weight (ws-softmax ((1.0 a) (3.0 b)) 0.1)) 0.0) true)
 !(test (< (abs-math (- (first-weight (ws-softmax ((1.0 a) (3.0 b)) 1000.0)) 0.5)) 0.01) true)

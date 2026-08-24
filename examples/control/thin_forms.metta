@@ -65,8 +65,18 @@
 ;unrun term from transaction.
 (= (tx-body) (noeval (superpose ((+ 1 1) (+ 2 2)))))
 !(test (collapse (let $b (tx-body) (atomically $b))) (2 4))
-!(test (size-atom (collapse (let $b (tx-body) (atomically $b)))) 2)
-!(test (size-atom (collapse (let $b (tx-body) (transaction $b)))) 1)
+;The value is NAMED before the family operation reads it. `car-atom` and
+;`size-atom` declare `Expression` parameters, so the operand reaches them AS
+;WRITTEN; a `let` runs the form first and hands the answer over. The
+;demonstration is unchanged, and so is the expected value
+;[measured 2026-08-24: `!(let $v ((+ 1 2) b) (car-atom $v))` is 3 on LeaTTa
+;9ea9f9d and on this engine].
+!(test (let $answers (collapse (let $b (tx-body) (atomically $b)))
+         (size-atom $answers))
+       2)
+!(test (let $answers (collapse (let $b (tx-body) (transaction $b)))
+         (size-atom $answers))
+       1)
 
 ;--------------------------------------------------------- elapsed
 ;Answers the value AND the seconds it took, as a pair, so the value is still

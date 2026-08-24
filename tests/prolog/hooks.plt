@@ -430,22 +430,38 @@ test(an_equation_added_after_the_claim_decides_the_next_fire) :-
 %door got this wrong by construction, judging `evaluated` while the space
 %was offered (cf-marker); a BEFORE trigger sees the row, and a CHR head
 %matches the constraint, never something derived from it.
+%
+%What the handler RECEIVES is the offer, which is what the fire clause
+%guarantees by compiling the handler against an unbound argument. What it
+%ANSWERS is then subject to the ordinary result rule, and only a declared
+%result of the metatype `Atom` makes an answer final, so the verdict that
+%shows the offer intact is the one built by an `(-> Atom Atom)` handler.
+%Measured 2026-08-24 against LeaTTa 9ea9f9d with `(= (cf-marker) evaluated)`
+%and `(= (h $a) (accept (saw $a)))`: `!(h (cf-marker))` is
+%`(accept (saw (cf-marker)))` when h is declared `(-> Atom Atom)`, and
+%`(accept (saw evaluated))` both when it is declared `(-> Atom %Undefined%)`
+%and when it is not declared at all.
+%
+%The two fires therefore differ, which is what makes the recompile VISIBLE:
+%before the result rule was implemented both answered the same thing, so a
+%fire clause that had gone stale would have passed this test unchanged.
 test(the_offered_atom_reaches_the_handler_as_itself) :-
     process_metta_string(
         "(= (cf-marker) evaluated)\n\
 (= (cf-typed $a) (accept (saw $a)))", _),
     metta_declare_hook(pre_add, '&cf-pool', 'cf-typed'),
     metta_add_atom('&cf-pool', ['cf-marker'], _),
-    (   'get-atoms'('&cf-pool', [saw, ['cf-marker']])
+    (   'get-atoms'('&cf-pool', [saw, evaluated])
     ->  true
-    ;   throw(cf_expected_the_offer_itself)
+    ;   throw(cf_expected_the_undeclared_result_to_reduce)
     ),
     %A later type declaration recompiles the fire through the change
-    %hooks; the offer stays data on the other side of it.
-    process_metta_string("(: cf-typed (-> Atom %Undefined%))", _),
+    %hooks; the offer stays data on the other side of it, and now the
+    %verdict shows it.
+    process_metta_string("(: cf-typed (-> Atom Atom))", _),
     metta_add_atom('&cf-pool', ['cf-marker'], _),
     findall(X, 'get-atoms'('&cf-pool', [saw, X]), Seen),
-    Seen == [['cf-marker'], ['cf-marker']],
+    Seen == [evaluated, ['cf-marker']],
     metta_undeclare_hook(pre_add, '&cf-pool').
 
 :- end_tests(hooks_compiled_fire).

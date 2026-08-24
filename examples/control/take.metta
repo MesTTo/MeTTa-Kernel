@@ -16,7 +16,15 @@
 
 ;A count that is not a whole number is a mistake rather than an empty answer,
 ;because failing into "there is nothing there" sends you looking at your data.
-!(test (car-atom (catch (take foo (superpose (a b))))) Error)
+;The value is NAMED before the family operation reads it. `car-atom` and
+;`size-atom` declare `Expression` parameters, so the operand reaches them AS
+;WRITTEN; a `let` runs the form first and hands the answer over. The
+;demonstration is unchanged, and so is the expected value
+;[measured 2026-08-24: `!(let $v ((+ 1 2) b) (car-atom $v))` is 3 on LeaTTa
+;9ea9f9d and on this engine].
+!(test (let $refusal (catch (take foo (superpose (a b))))
+         (car-atom $refusal))
+       Error)
 
 ;For a FOREIGN space the bound also reaches the provider, so a backend can put
 ;it in its own query instead of enumerating and discarding. That happens when

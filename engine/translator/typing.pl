@@ -43,13 +43,39 @@ typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out, AfterHead
         ;   applicable_typed_branches(Selection, Fun, T, IsPartial, Bound,
                                       Out, Branches),
             Branches \== [],
-            disj_list(Branches, Disj),
-            AfterHead = [( Disj
-                         *-> true
-                         ;   dispatch_mismatch_result(Fun, Written, Out)
-                         )|Goals]
+            first_applicable_branch(Branches,
+                                    dispatch_mismatch_result(Fun, Written, Out),
+                                    Dispatch),
+            AfterHead = [Dispatch|Goals]
         )
     ).
+
+%THE FIRST ARROW THAT ANSWERS IS THE ONE THAT ANSWERS, and the soft cut has to
+%sit on each branch rather than around all of them. A flat disjunction under
+%one `*->` commits to the GROUP, so a name carrying two declarations at the
+%same arity ran both and answered the call once per declaration.
+%
+%That is a multiplicity divergence and multiplicity is specified: with
+%`(: df (-> Atom %Undefined%))` and `(: df (-> Number %Undefined%))` declared
+%over one equation, the arbiter answers `(quote (+ 1 2))` once, reading the
+%FIRST declaration's mask, where this engine answered `(quote (+ 1 2))` and
+%`(quote 3)` [measured 2026-08-24 against LeaTTa 9ea9f9d]. It is not a corner:
+%loading the reference's own prelude beside minimal_metta_lib gives `function`
+%two declarations, and `!(function (return 7))` answered `7, 7`, which is what
+%made every strategy suite answer nothing once the duplicates compounded
+%through recursion.
+%
+%The arity filter above already removed the WIDER-declaration case; this
+%removes the same-arity one, and the two together are what
+%`(ctxSigs env w op).head?` does in one step
+%[source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:3775].
+%
+%Each branch keeps its own soft cut, so a branch that answers keeps EVERY
+%answer it has: a MeTTa function is nondeterministic and this must not become
+%once/1.
+first_applicable_branch([], Fallback, Fallback).
+first_applicable_branch([Branch|Branches], Fallback, ( Branch *-> true ; Rest )) :-
+    first_applicable_branch(Branches, Fallback, Rest).
 
 %A declared call that no branch answered says WHY when the declaration is the
 %reason: every rejection it makes, `(Error <call> (BadArgType <position>
@@ -134,6 +160,19 @@ typed_functioncall_branch(Fun, TypeChain, T, GsH, IsPartial, Bound, Out, BranchG
                           ; 'get-metatype'(Out, OutType) ),
                           OutGoal),
           OutCheck = [OutGoal] ),
+    %NO RESULT CONTINUATION IS EMITTED HERE, and the reason is that this engine
+    %compiles where the arbiter steps. The arbiter's `eval` applies one equation
+    %and hands the instantiated right-hand side to `returnsAtom`, which sends it
+    %back through evaluation; compiling that right-hand side has ALREADY done
+    %exactly that one round. Adding a second is a double evaluation, measured:
+    %`(: uf2 (-> Atom %Undefined%))` with `(= (uf2 $x) (cons-atom (+ 1 2) (b)))`
+    %answers `((+ 1 2) b)` on the arbiter, because cons-atom's own `Atom` result
+    %stops there, and a continuation at this call site answered `(3 b)`
+    %[measured 2026-08-24 against LeaTTa 9ea9f9d].
+    %
+    %The one shape compilation does NOT cover is a body that emits no goals,
+    %where nothing was evaluated at all; that is handled once, at the equation,
+    %in translate_clause/3.
     %The checks are placed against an EMPTY prefix so the guard below can sit
     %between the argument evaluations and them. An argument that produced an
     %Error fails its own declared check -- an Error is not a Number -- and a
@@ -289,8 +328,17 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
     ( non_evaluated_parameter_type(T)
       -> AV = A,
          AfterArg = Goals0,
-         AfterCheck = Checks0,
-         Computed = More
+         %The argument was not evaluated, so nothing at this position can hold
+         %an error this call has to hand on: Computed skips it either way.
+         Computed = More,
+         ( unchecked_parameter_type(T)
+           -> AfterCheck = Checks0
+           ;  declared_type_for_check(T, CheckType),
+              metta_argument_type_origins([CheckType], [CheckOrigin]),
+              type_check_goal(A, CheckType,
+                              check_argument_type(A, CheckType, CheckOrigin),
+                              MaskedGoal),
+              Checks0 = [MaskedGoal|AfterCheck] )
     ; ( T == 'SpaceType'
         -> translate_space_expr_dl(A, Goals0, AfterArg, AV)
         ;  translate_expr_dl(A, Goals0, AfterArg, AV) ),
@@ -311,12 +359,51 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
     translate_args_by_type_dl(As, Ts, Origins, AfterArg, Goals, AVs,
                               AfterCheck, Checks, More).
 
-%Atom is the shipped evaluation mask. DontEvalType makes that same compiler
-%decision declarative for user types; it deliberately skips the ordinary
-%argument check because the written expression has not yet produced a value
-%whose runtime type could satisfy the declared marker.
+%THE EVALUATION MASK, and its membership is the arbiter's own, read off the
+%interpreter rather than inferred from probes. LeaTTa's `declaredTypeEvaluates`
+%is one line and it names all three members:
+%
+%    metatype != Atom && metatype != Variable && metatype != Expression
+%
+%[source: LeaTTa MettaHyperonFull/Core/Modifiers.lean:118-124, consumed by
+%`argMask` at MettaHyperonFull/Minimal/Interpreter.lean:3760-3784, whose own
+%docstring reads "An argument is evaluated unless its declared evaluation view
+%is `Atom`, `Variable`, or `Expression`"]. Symbol and Grounded are NOT members,
+%which is the one boundary a probe alone could have got wrong: measured
+%2026-08-24 against LeaTTa 9ea9f9d, `(: sf (-> Symbol %Undefined%))` with
+%`(= (sf $x) (quote $x))` and `(= foo bar)` answers `(quote bar)`, so a Symbol
+%parameter EVALUATES its argument.
+%
+%DontEvalType makes the same compiler decision declarative for user types.
+%
+%The mask decides EVALUATION only. Whether the position is also type-checked is
+%unchecked_parameter_type/1 below, and the two are separate in the arbiter too:
+%`argMask` chooses the operands to evaluate and `interpret-function-check-arg`
+%checks each one against its formal
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:4760-4793].
 non_evaluated_parameter_type(Type) :- Type == 'Atom', !.
+non_evaluated_parameter_type(Type) :- Type == 'Variable', !.
+non_evaluated_parameter_type(Type) :- Type == 'Expression', !.
+non_evaluated_parameter_type(Type) :- type_position_modifier(Type, _, _), !.
 non_evaluated_parameter_type(Type) :-
+    nonvar(Type),
+    catch_recover(type_declaration(Type, 'DontEvalType'), fail).
+
+%A masked position whose declared type still DECIDES something keeps its check,
+%and the check reads the argument AS WRITTEN, which is the term whose type the
+%arbiter reports. Dropping it would turn two conforming answers into
+%non-conforming ones: `(: ef (-> Expression %Undefined%))` answers
+%`(Error (ef 5) (BadArgType 1 Expression Number))` and
+%`(Error (ef "s") (BadArgType 1 Expression String))` on the arbiter
+%[measured 2026-08-24 against LeaTTa 9ea9f9d].
+%
+%Atom decides nothing: it is the gradual top metatype, admitted against every
+%actual type, so its check can only ever succeed and is the same foregone
+%conclusion statically_typed_literal/2 removes elsewhere. A DontEvalType marker
+%is a compiler instruction rather than a value type, so no runtime type could
+%satisfy it.
+unchecked_parameter_type(Type) :- Type == 'Atom', !.
+unchecked_parameter_type(Type) :-
     nonvar(Type),
     catch_recover(type_declaration(Type, 'DontEvalType'), fail).
 

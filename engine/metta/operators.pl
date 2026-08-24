@@ -764,6 +764,27 @@ alpha_bucket_insert(Key, Term, SeenIn, SeenOut, IsNew) :-
         IsNew = true
     ).
 
+%`(atom-subst <value> <variable> <template>)` replaces every occurrence of the
+%variable inside the template by the value, with all three operands as written
+%and the result as produced. The declaration is what supplies that:
+%`(-> Atom Variable Atom Atom)` masks each operand and its `Atom` result stops
+%the answer re-entering evaluation
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:2678-2687, whose whole
+%definition is `(function (chain (eval (noeval $atom)) $var (return $templ)))`].
+%
+%A SECOND OPERAND THAT IS NOT A VARIABLE answers NoReturn rather than failing
+%or substituting nothing, and the shape is the reference's own rather than a
+%choice: its body is a `chain` whose binder is that operand, a non-variable
+%binder makes the substitution step fail, and the enclosing `function` frame
+%reports the call it never returned from. Measured 2026-08-24 on LeaTTa
+%9ea9f9d: `!(atom-subst 1 (car-atom ($x)) ($x $x))` answers
+%`(Error (atom-subst 1 (car-atom ($x)) ($x $x)) NoReturn)`.
+'atom-subst'(Value, Variable, Template, Out) :-
+    (   var(Variable)
+    ->  substitute_written_variable(Variable, Value, Template, Out)
+    ;   Out = ['Error', ['atom-subst', Value, Variable, Template], 'NoReturn']
+    ).
+
 %A term that can never become a list, no matter how it gets instantiated:
 non_list(X) :- atomic(X), X \== [].
 non_list(X) :- compound(X), X \= [_|_].
