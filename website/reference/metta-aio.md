@@ -190,7 +190,7 @@ async def load(
 ### `AsyncMeTTa.save`
 
 ```python
-async def save(self, path: str, format: SaveFormat = 'metta') -> int:
+async def save(self, path: str, format: SaveFormat = SaveFormat.metta) -> int:
 ```
 
 > Save this space and return the number of stored atoms.
@@ -677,7 +677,11 @@ No docstring is defined.
 ### `AsyncMeTTa.events`
 
 ```python
-async def events(self, delivery: Delivery | None = None, order: EventOrder = 'unordered') -> Any:
+async def events(
+    self,
+    delivery: Delivery | None = None,
+    order: EventOrder = EventOrder.unordered,
+) -> Any:
 ```
 
 > Return the event stream or declare this context's event promise.
@@ -690,7 +694,13 @@ async def events(self, delivery: Delivery | None = None, order: EventOrder = 'un
 ### `AsyncMeTTa.handles`
 
 ```python
-async def handles(self, pattern: str | Atom, fidelity: Fidelity, *, det: str | None = None) -> Atom:
+async def handles(
+    self,
+    pattern: str | Atom,
+    fidelity: Fidelity,
+    *,
+    det: Determinism | None = None,
+) -> Atom:
 ```
 
 No docstring is defined.
@@ -698,7 +708,7 @@ No docstring is defined.
 ### `AsyncMeTTa.image`
 
 ```python
-async def image(self, type_name: str, setting: Literal['opaque', 'transparent', 'auto']) -> Atom:
+async def image(self, type_name: str, setting: ImageMode) -> Atom:
 ```
 
 No docstring is defined.
@@ -718,7 +728,7 @@ async def on_error(
     self,
     subject_or_pattern: str | Atom,
     pattern_or_mode: str | Atom,
-    mode: OnErrorMode | None = None,
+    mode: OnError | None = None,
 ) -> Atom:
 ```
 

@@ -437,6 +437,29 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Python's `match` star pattern compiles instead of refusing.
 - A `let` whose pattern carries a gap matches that pattern rather than
   evaluating it.
+- The option vocabularies render as StrEnum classes instead of tuple
+  constants and Literal aliases: `metta.vocabularies` exports one class per
+  catalog `(vocabulary ...)` row (`OnError`, `SaveFormat`, `Fidelity`,
+  `CacheMode`, ...), each member IS its wire word (`OnError.keep == "keep"`),
+  encodes as its symbol, and enumerates with `list(OnError)`. Every
+  declaration door's annotation names its vocabulary class
+  (`handles(pattern, Fidelity.Exact)`, `save(format=SaveFormat.metta)`,
+  `events(order=EventOrder.unordered)`), and bare words remain accepted at
+  runtime as the escape hatch, refused loudly outside the vocabulary. A value
+  that spells a Python keyword takes a trailing underscore as its member name
+  (`RouteKey.global_`); a hyphenated word transliterates
+  (`AnswerPolicy.best_first`). The tuple constants and Literal aliases are
+  gone, `metta.vocabularies` is a core module now, and the lazy `_policy`
+  indirection in `_space` is deleted.
+- `Space.image`'s setting words join the catalog: `(vocabulary image-mode
+  opaque transparent auto)` with a `(kind image ...)` row, so a junk setting
+  refuses at the engine as well as at the Python door, and `ImageMode` is
+  generated with the rest.
+- The class registry's per-type image declaration renames to
+  `(type-image TypeName word)`, dissolving the head it shared with the
+  context image policy `(image space type setting)`; its word set is the new
+  `registry-image` vocabulary (`expression`, `symbol`, `handle`,
+  `operations`), also catalog-validated.
 
 ### Removed
 
@@ -959,7 +982,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   Existing `Number` parameters accept either integer type, while `BigInt`
   parameters remain narrow. Mixed integer equality stays exact. The catalog
   publishes `(vocabulary numeric-type Number BigInt)` and the generated Python
-  surface exports `NUMERIC_TYPE` and `NumericType`.
+  surface exports the `NumericType` vocabulary class.
 
 - The tagged wire keeps one `n` form for `Number` and `BigInt`, with the exact
   integer value selecting the language type. Python receives integers as

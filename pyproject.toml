@@ -351,6 +351,7 @@ type = "forbidden"
 source_modules = [
     "metta.subscribe", "metta.events", "metta.foreign", "metta.casting",
     "metta._trace", "metta.lint", "metta.derivation", "metta.results",
+    "metta.vocabularies",
 ]
 forbidden_modules = ["metta._space"]
 
@@ -399,6 +400,9 @@ source_modules = [
     "metta.ops",
     "metta.results",
     "metta._rules",
+    # vocabularies is generated data over atoms alone; core doors annotate
+    # and validate with its enum classes, so it is core, not a satellite.
+    "metta.vocabularies",
 ]
 forbidden_modules = [
     "metta._persistent",
@@ -422,7 +426,6 @@ forbidden_modules = [
     "metta.tables",
     "metta.testing",
     "metta._trace",
-    "metta.vocabularies",
     "metta.wire",
 ]
 allow_indirect_imports = false

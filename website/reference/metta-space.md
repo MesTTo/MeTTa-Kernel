@@ -327,7 +327,7 @@ def profile_extension(
 ### `Space.save`
 
 ```python
-def save(self, path: str | os.PathLike[str], format: str = 'metta') -> int:
+def save(self, path: str | os.PathLike[str], format: SaveFormat = SaveFormat.metta) -> int:
 ```
 
 > Write every stored atom of this space, equations included, as
@@ -1593,7 +1593,13 @@ def integrate(self, target: Any) -> str:
 ### `Space.handles`
 
 ```python
-def handles(self, pattern: str | Atom, fidelity: str, *, det: str | None = None) -> Atom:
+def handles(
+    self,
+    pattern: str | Atom,
+    fidelity: Fidelity,
+    *,
+    det: Determinism | None = None,
+) -> Atom:
 ```
 
 > Declare how faithfully a space answers queries of one shape.
@@ -1684,7 +1690,7 @@ def add_tagged_rule(self, tag: Any, head: Any, *premises: Any) -> Atom:
 ### `Space.image`
 
 ```python
-def image(self, type_name: str, setting: Literal['opaque', 'transparent', 'auto']) -> Atom:
+def image(self, type_name: str, setting: ImageMode) -> Atom:
 ```
 
 > Choose how one Python type crosses one context boundary.
@@ -1721,7 +1727,7 @@ def sample_rates(
 ### `Space.source`
 
 ```python
-def source(self, kind: str) -> Atom:
+def source(self, kind: SourceKind) -> Atom:
 ```
 
 > Declare a space's consumption discipline.
@@ -1741,7 +1747,7 @@ def on_error(
     self,
     subject_or_pattern: str | Atom,
     pattern_or_mode: str | Atom,
-    mode: str | None = None,
+    mode: OnError | None = None,
 ) -> Atom:
 ```
 
@@ -1760,7 +1766,7 @@ def on_error(
 ### `Space.merge`
 
 ```python
-def merge(self, pattern: str | Atom, policy: str) -> Atom:
+def merge(self, pattern: str | Atom, policy: AnswerPolicy) -> Atom:
 ```
 
 > Declare how the engine merges one query shape's answers
@@ -1776,7 +1782,7 @@ def merge(self, pattern: str | Atom, policy: str) -> Atom:
 ### `Space.context`
 
 ```python
-def context(self, world: str) -> Atom:
+def context(self, world: World) -> Atom:
 ```
 
 > Record what a space's absence means.
@@ -1790,7 +1796,7 @@ def context(self, world: str) -> Atom:
 ### `Space.agenda`
 
 ```python
-def agenda(self, policy: str, function: str | None = None) -> Atom:
+def agenda(self, policy: AgendaPolicy, function: str | None = None) -> Atom:
 ```
 
 > Declare which reaction fires first when several match one write.
@@ -1854,7 +1860,7 @@ def capacity(self, limit: int) -> Atom:
 ### `Space.writes`
 
 ```python
-def writes(self, atomicity: str) -> Atom:
+def writes(self, atomicity: Atomicity) -> Atom:
 ```
 
 > Declare what a space's writes promise inside a transaction.
@@ -1870,7 +1876,7 @@ def writes(self, atomicity: str) -> Atom:
 ### `Space.emits`
 
 ```python
-def emits(self, policy: str) -> Atom:
+def emits(self, policy: AnswerPolicy) -> Atom:
 ```
 
 > Declare the order a context emits its own answers in.
@@ -1883,7 +1889,11 @@ def emits(self, policy: str) -> Atom:
 ### `Space.events`
 
 ```python
-def events(self, delivery: str | None = None, order: str = 'unordered') -> Atom | Any:
+def events(
+    self,
+    delivery: Delivery | None = None,
+    order: EventOrder = EventOrder.unordered,
+) -> Atom | Any:
 ```
 
 > Return the event stream, or declare what this context promises.

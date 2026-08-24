@@ -1059,6 +1059,9 @@ petta_catalog_preset([vocabulary, fidelity, 'Exact', 'Partial', 'Sound', 'Refuse
 petta_catalog_preset([vocabulary, determinism, det, semidet, nondet]).
 petta_catalog_preset([vocabulary, 'numeric-type', 'Number', 'BigInt']).
 petta_catalog_preset([vocabulary, 'on-error-mode', keep, empty, abort]).
+petta_catalog_preset([vocabulary, 'image-mode', opaque, transparent, auto]).
+petta_catalog_preset([vocabulary, 'registry-image',
+                      expression, symbol, handle, operations]).
 petta_catalog_preset([vocabulary, 'answer-policy', depth, fair, 'best-first']).
 petta_catalog_preset([vocabulary, semiring, bool, bag, set, ranked, prob, prov]).
 petta_catalog_preset([vocabulary, 'source-kind', linear, repeated, peek]).
@@ -1148,6 +1151,9 @@ petta_catalog_preset([kind, events, symbol, ['one-of', delivery],
                       [optional, ['one-of', 'event-order']]]).
 petta_catalog_preset([kind, emits, symbol, ['one-of', 'answer-policy']]).
 petta_catalog_preset([kind, cache, symbol, ['one-of', 'cache-mode']]).
+petta_catalog_preset([kind, image, symbol, symbol, ['one-of', 'image-mode']]).
+petta_catalog_preset([kind, 'type-image', symbol,
+                      ['one-of', 'registry-image']]).
 petta_catalog_preset([kind, effect, symbol, ['one-of', 'effect-class']]).
 petta_catalog_preset([kind, inverse, symbol]).
 petta_catalog_preset([kind, op, symbol, integer, ['one-of', 'op-kind']]).
