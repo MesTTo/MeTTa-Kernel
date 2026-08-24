@@ -10,8 +10,10 @@
 %     shortest-first split order and the open remainder a two-sided answer
 %     keeps [tested: segments_one_sided, segments_last_position,
 %     segments_linear_shallow].
-%   - distinct `...` occurrences never constrain each other and a repeated
-%     named gap has to take a runtime-equal run [tested: segments_identity].
+%   - distinct `...` occurrences never constrain each other, a repeated named
+%     gap has to take a runtime-equal run, and a repeated named gap is admitted
+%     where the fragment permits one and refused where it does not
+%     [tested: segments_identity, segments_last_position].
 %   - a gap query reads a native store through its own arity window and its
 %     head index, and a stored marker is data rather than a gap
 %     [tested: segments_space_door].
@@ -292,6 +294,29 @@ test(a_shorter_fixed_side_refutes) :-
     pair('(pair (f a b) (f a c (:seg $v)))', Left, Right),
     findall(x, spaces:petta_seq_unify(last_position, Left, Right), Answers),
     Answers == [].
+
+%LINEARITY IS NOT REQUIRED HERE. Kutsia Section 6.3 asks only that every gap be
+%the last child of its own expression, so a NAMED gap may occur twice, and the
+%second occurrence then solves its stored run against what it faces rather than
+%demanding the two were written the same way. That is what applying the
+%substitution to the worklist does in the calculus [source: LeaTTa
+%MettaHyperonFull/Core/SeqLastPos.lean, bindSegment].
+test(a_repeated_gap_solves_its_stored_run_against_the_second_face) :-
+    pair('(pair (f (g (:seg $x)) (h (:seg $x))) (f (g (:seg $y)) (h b)))',
+         Left, Right),
+    Left = [_, [_, '$petta_seg'(Repeated, _)], _],
+    Right = [_, [_, '$petta_seg'(Once, _)], _],
+    once(spaces:petta_seq_unify(last_position, Left, Right)),
+    Repeated == [b],
+    Once == [b].
+
+%The linear-shallow fragment DOES require it, and a pair that is neither final
+%nor linear has no certificate at all.
+test(a_repeated_root_gap_has_no_linear_shallow_certificate) :-
+    pair('(pair (f (:seg $x) a) (f a (:seg $x)))', Left, Right),
+    spaces:petta_seq_gaps(Left, 0, LeftGaps, []),
+    spaces:petta_seq_gaps(Right, 0, RightGaps, []),
+    \+ spaces:petta_seq_linear_shallow(LeftGaps, RightGaps).
 
 %The occurs check the calculus carries: a gap whose run mentions the gap
 %itself is a term containing itself, except for the trivial identity.
