@@ -464,9 +464,18 @@ lookup_cputime(M, Reps, Seconds) :-
               user:metta_release_space(Space) )),
         erase(SilentRef)).
 
+%Inferences cannot decide this one: the walk being priced is a C-level
+%clause scan the counter never sees, which is why the measure is cputime.
+%One sample per side failed at load average 35 with sibling batteries
+%running (2026-08-24: 6.1s wide sample against a quiet-box 2.9s), so the
+%sides interleave and each takes its minimum, the same protocol the push
+%gate uses against contention smear.
 test(one_head_is_found_without_walking_the_other_equations) :-
-    lookup_cputime(200, 20000, Narrow),
-    lookup_cputime(3200, 20000, Wide),
+    lookup_cputime(200, 20000, N1), lookup_cputime(3200, 20000, W1),
+    lookup_cputime(200, 20000, N2), lookup_cputime(3200, 20000, W2),
+    lookup_cputime(200, 20000, N3), lookup_cputime(3200, 20000, W3),
+    Narrow is min(N1, min(N2, N3)),
+    Wide is min(W1, min(W2, W3)),
     assertion(Wide < Narrow * 4).
 
 :- end_tests(memo_equation_lookup).

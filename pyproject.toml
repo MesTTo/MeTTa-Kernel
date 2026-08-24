@@ -265,6 +265,10 @@ ignore-semiprivate = true
 # lane; commit=3ae4e6b08bc82d8b9cbdf934afc92ada7cf7a19e].
 min_confidence = 60
 paths = ["metta", "bench.py", "vulture_whitelist.py"]
+# The generated vocabulary module is data: every member is read by VALUE
+# (membership, iteration, the wire), so name-reachability is the wrong
+# question for it and each catalog row would need a fresh whitelist line.
+exclude = ["metta/vocabularies.py"]
 ignore_names = ["exc_type", "exc_val", "exc_tb", "tb", "exc"]
 
 # Six of refurb's rules are wrong for this codebase rather than unfixed, and

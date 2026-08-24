@@ -712,6 +712,23 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A `Defined` function or a bound engine function placed in term position
+  now encodes as its own head symbol, the guide's mention rule, so
+  `S.memoize(add, 2)` builds `(memoize add 2)` instead of an opaque box the
+  engine refuses with a Domain error; `G(fn)` stays the explicit spelling
+  for the live object.
+- `math.floor`, `math.ceil` and `math.trunc` on an atom build their math
+  terms instead of silently coercing through `__float__`, and `round` gains
+  its hook (`round(G(5.4))` builds `(round-math 5.4)`); a two-argument
+  `round` refuses. The generated unary operator methods also close a
+  signature hole where a stray positional argument was absorbed by the
+  captured symbol slot and built a wrong term silently.
+- A second Python function redefining an installed MeTTa head refuses with
+  the collision named and three remedies, where it used to die as a bare
+  `IndexError` deep in the twin clause store.
+- `m.limits(stack=)` documents that it is SWI's stack ceiling in bytes,
+  distinct from the `max-stack-depth` pragma's reduction-step bound.
+
 - `Space.take` and `Space.peek` deadline misses raise `metta.Timeout`,
   the same class every other deadline miss raises, so the guide's
   `except metta.Timeout` clause catches them; it subclasses the builtin
