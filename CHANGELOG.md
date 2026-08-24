@@ -728,6 +728,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   on a space refuses naming the two lawful ones; a module-global space
   target refuses naming the compiled write door, and a nested-function
   local keeps Python's own unbound-augmentation refusal.
+- `metta.Undefined` in a type position annotates as `%Undefined%`: the
+  class represents the metatype, and mapping it by class name built the
+  plain symbol `Undefined`, which the engine read as a user type so the
+  declaration silently did nothing. `arrow(Atom, Atom, Undefined)` and
+  `typed(subject, Undefined)` now spell the same row `typing.Any` always
+  spelled.
 - The first `m.fn.<name>` access after any definition no longer rebuilds
   the whole builtins catalogue: attribute resolution asks a point
   membership probe, dropping that access from 1,347 engine inferences to
