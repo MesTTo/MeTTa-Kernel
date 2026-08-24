@@ -150,6 +150,27 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   loop-contained yields still compile to one `superpose` equation. Bare
   `@rules` answers an immutable bundle that `space += bundle` lands;
   `@space.rules` collects and lands in one ceremony.
+- Sequence variables. A pattern child may now be a gap standing for a RUN of
+  children: `...` is anonymous and every occurrence of it is its own variable,
+  `(:seg $x)` is named and answers the run it took. `(match &s (A ... D) $t)`
+  reads every arity the gap spans, `(let ($pre ... SEP ... $post) $row ...)`
+  enumerates the splits, and a `case` arm destructures with one. In Python,
+  `...` is the same glyph, `seg(V.rest)` builds the named form, and
+  `case (S.Order, id, *rest):` lowers a star pattern to a segment variable.
+  A segment binding answers as the Expression its children make.
+
+  The fence is the law's own theorem rather than caution: general sequence
+  unification is infinitary (Kutsia, Journal of Symbolic Computation 42(3),
+  2007, Theorem 62), so an ask outside the three fragments proved finite there
+  refuses and names the rule. The three are a gap-free side, every gap linear
+  and a direct child of the root (Section 6.2), and every gap the last child of
+  its own expression (Section 6.3). One name may not be both a gap and an
+  ordinary variable.
+
+  A pattern with no gap pays nothing: the question is answered by the walk that
+  already lifts a pattern's modifiers, and the two matching doors dispatch a gap
+  pattern by a wrapper an ordinary pattern never carries. Every benchmark pin is
+  unchanged.
 
 ### Changed
 
@@ -394,7 +415,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   sets, and that product was computed by backtracking: every retry re-derived
   every member to its right. Fifteen members carrying three declared types each
   cost 581,130,797 inferences and now cost 1,722, and seventeen members did not
-  finish in 280 seconds. Answers, including their order, are unchanged.- Calling a `Defined` object now evaluates the call in the space that owns the
+  finish in 280 seconds. Answers, including their order, are unchanged.
+- Calling a `Defined` object now evaluates the call in the space that owns the
   definition and returns its answer list. Use `S[name](...)` to build the call
   as data; calls made while a `@rules` generator is being collected stage as
   terms so rule bodies remain ordinary atoms.
@@ -409,6 +431,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   capability, instead of serving a watcher that silently misses writes. A
   native space is unaffected and needs no declaration: every write into it
   already runs the engine's own hooks.
+- `lift_pattern_modifiers/3` becomes `lift_pattern_modifiers/4`, answering
+  whether the pattern carries a sequence variable from the walk it already
+  makes.
+- Python's `match` star pattern compiles instead of refusing.
+- A `let` whose pattern carries a gap matches that pattern rather than
+  evaluating it.
 
 ### Removed
 
