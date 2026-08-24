@@ -19,7 +19,7 @@
        process_metta_string("(= (t-inc $x) (+ $x 1))
                              (= (t-big $x) (> $x 2))
                              (= (t-spin $n) (if (> $n 0) (t-spin (- $n 1)) done))
-                             (= (t-slow $x) (let $_ (t-spin 200000) $x))", _)).
+                             (= (t-slow $x) (let $_ (t-spin 2000000) $x))", _)).
 
 % A foreign space that declares no event delivery, at FILE level: a
 % begin_tests unit is a module of its own, so a multifile clause written
