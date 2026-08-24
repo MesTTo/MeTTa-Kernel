@@ -208,7 +208,7 @@
 :- use_module(library(zlib)). % gzopen/3, .gz program files
 :- use_module(library(fastrw), [fast_read/2, fast_write/2]). % the fast cache
 :- use_module(library(memfile)). % the fast save's hashed payload buffer
-:- use_module(library(ordsets)). % ord_memberchk/2
+:- use_module(library(assoc), [ord_list_to_assoc/2, get_assoc/3]).
 :- use_module(library(pairs)). % group_pairs_by_key/2
 %Every compiled clause's source equation; asserted here and by
 %add-atom/3, read by removal and the tracer, so it must exist before
@@ -1250,11 +1250,20 @@ parse_metta_source(S, ParsedForms) :-
 %The pass costs 0.05% to 0.23% of the parse it follows [measured 2026-08-16:
 %376 inferences against 770,612 over greedy_chess.metta's 128 forms, 418
 %against 180,156 over lib_pln.metta's 82].
+%The defined names are an assoc rather than an ordered list because the
+%membership test runs once per declaration in the source, and ord_memberchk/2
+%walks the list until it passes the name: a source that declares and defines
+%the same N functions spent N/8 comparisons on each of N declarations, so the
+%pass was quadratic in the file's size. 5,250 comparisons over a 200-function
+%source and 81,000 over an 800-function one, sixteen times the work for four
+%times the source [measured 2026-08-24].
 refuse_untypable_source_declarations(ParsedForms) :-
-    findall(F, source_equation_name(ParsedForms, F), Defined0),
+    findall(F-defined, source_equation_name(ParsedForms, F), Defined0),
     sort(Defined0, Defined),
     Defined \== [],
-    findall(Name-Type, source_declaration(ParsedForms, Defined, Name, Type),
+    ord_list_to_assoc(Defined, DefinedNames),
+    findall(Name-Type,
+            source_declaration(ParsedForms, DefinedNames, Name, Type),
             Declarations0),
     Declarations0 \== [],
     !,
@@ -1268,10 +1277,10 @@ source_equation_name(ParsedForms, F) :-
     member(parsed(function, _, [=, [F|_], _]), ParsedForms),
     atom(F).
 
-source_declaration(ParsedForms, Defined, Name, Type) :-
+source_declaration(ParsedForms, DefinedNames, Name, Type) :-
     member(parsed(expression, _, [':', Name, Type]), ParsedForms),
     atom(Name),
-    ord_memberchk(Name, Defined).
+    get_assoc(Name, DefinedNames, _).
 
 % Register the complete signature set before repairing callers.  Translating a
 % caller while only the first overload is visible can otherwise leave it stale.

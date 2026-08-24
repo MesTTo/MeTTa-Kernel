@@ -770,3 +770,33 @@ test(repairing_late_callers_costs_nothing_that_grows_with_the_program) :-
     assertion(Wide < Narrow * 2.5).
 
 :- end_tests(filereader_late_definition_cost).
+
+% Deciding which declarations in a source name something the same source
+% defines used to walk an ordered list of the defined names once per
+% declaration.
+:- begin_tests(filereader_source_declaration_pass).
+
+test(checking_a_sources_declarations_costs_nothing_that_grows_with_the_source) :-
+    declaration_pass_cost(200, Narrow),
+    declaration_pass_cost(3200, Wide),
+    assertion(Wide < Narrow * 4).
+
+declaration_pass_cost(Count, Micros) :-
+    findall(Form,
+            ( between(1, Count, Index),
+              format(atom(Text), '(: dpc~w (-> Number))\n(= (dpc~w) ~w)',
+                     [Index, Index, Index]),
+              Form = Text ),
+            Forms),
+    atomic_list_concat(Forms, '\n', Source0),
+    atom_string(Source0, Source),
+    filereader:parse_metta_source(Source, Parsed),
+    forall(between(1, 3, _),
+           ignore(filereader:refuse_untypable_source_declarations(Parsed))),
+    T0 is cputime,
+    forall(between(1, 5, _),
+           ignore(filereader:refuse_untypable_source_declarations(Parsed))),
+    T1 is cputime,
+    Micros is (T1 - T0) * 1000000 / (5 * Count).
+
+:- end_tests(filereader_source_declaration_pass).
