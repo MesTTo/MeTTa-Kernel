@@ -184,6 +184,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   already lifts a pattern's modifiers, and the two matching doors dispatch a gap
   pattern by a wrapper an ordinary pattern never carries. Every benchmark pin is
   unchanged.
+- `atom-subst`, the reference's own one-variable substitution:
+  `(atom-subst <value> <variable> <template>)` with all three operands as
+  written and the result as produced.
 
 ### Changed
 
@@ -473,6 +476,34 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   context image policy `(image space type setting)`; its word set is the new
   `registry-image` vocabulary (`expression`, `symbol`, `handle`,
   `operations`), also catalog-validated.
+- A parameter declared with a metatype now holds its argument AS WRITTEN at
+  every door, which is what `Atom`, `Variable` and `Expression` mean in a
+  parameter position. Written builtin calls, the special forms that take a
+  list (`map-atom`, `filter-atom`, `foldl-atom`), and the dynamic `eval`,
+  `evalc` and `metta` doors all read the same declared mask, and a call whose
+  declared result is the metatype `Atom` answers as produced while every other
+  declared result re-enters evaluation. `!(car-atom ((+ 1 2) b))` is `3` by
+  the arbiter's route rather than by evaluating the operand first, and
+  `!(map-atom (cdr-atom (a b)) $y (q $y))` maps over the two parts of the
+  unrun call. A caller that wants a call's VALUE in a masked position names it
+  first: `(let $xs (collapse ...) (map-atom $xs ...))`.
+- Corrected the declarations the engine did not previously honour, so a
+  declaration now describes what the operation receives: the SWI-Prolog
+  interface predicates and the Python bridge take `%Undefined%` parameters,
+  `cons`, `decons`, `first` and `second-from-pair` answer `Atom`, `sort-atom`
+  takes `%Undefined%`, `unquote` evaluates its operand, and `map-atom`,
+  `filter-atom` and `foldl-atom` carry the arbiter's own pair of arrows.
+- `assert` evaluates the form it is given and reports it AS WRITTEN:
+  `!(assert (== 1 2))` now names `(== 1 2)` instead of the `False` it reduced
+  to.
+- `add-reduct` and `add-reducts` reduce a plain atom as well as an equation's
+  body, so `(add-reduct &s (total (+ 1 2)))` stores `(total 3)`.
+- A late type declaration now rebuilds the declared function's own equations
+  as well as its call sites, so `(: f (-> Atom Atom))` arriving after
+  `(= (f $x) (g $x))` stops `f` re-entering evaluation.
+- A lambda no longer captures a variable its own body binds, so one closure
+  applied to many elements no longer lets the first element's binding
+  constrain the next.
 
 ### Removed
 

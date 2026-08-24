@@ -18,8 +18,8 @@ re-runs them.
 | `examples/**/*.metta` | 224 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
 | `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
-| `tests/prolog/*.plt` | 37 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 179 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `tests/prolog/*.plt` | 38 plunit suites over the engine itself | the `plunit` gate lane |
+| `bindings/python/tests/*.py` | 180 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `bindings/python/tests/twins/**/*.py` | 218 Python twins of `examples/` programs across the corpus, each written with no MeTTa source text, answering alpha-equal to its original or explicitly declining a structured-residue form, and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/metta/vocabularies.py` | the catalog's value vocabularies as StrEnum classes, one per `(vocabulary ...)` row; each member IS its wire word and encodes as its symbol, and bare words stay the runtime escape hatch | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
@@ -31,7 +31,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/**/*.pl` | 29,397 lines: `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
+| `engine/**/*.pl` | 30,549 lines: `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer, `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 33 MeTTa libraries loaded with `!(import! &self (library lib_x))` | |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -658,7 +658,7 @@ inertly. `max-time` takes a positive number of seconds,
 `max-inferences` a positive integer, and `none` explicitly disables
 either bound; an invalid value leaves the previous setting unchanged.
 
-272 builtins are registered; `m.builtins()` lists the live union of registered
+273 builtins are registered; `m.builtins()` lists the live union of registered
 functions and translator special forms. The callable registry includes the
 py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,
 `py-dict`, `py-tuple`, `py-str`, `py-repr`, `py-format`, `py-slice`, `py-range`,
