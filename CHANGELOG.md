@@ -648,6 +648,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `Space.take` and `Space.peek` deadline misses raise `metta.Timeout`,
+  the same class every other deadline miss raises, so the guide's
+  `except metta.Timeout` clause catches them; it subclasses the builtin
+  `TimeoutError`, so existing handlers keep working.
 - Stale build directories no longer ride into wheels. A build_lib
   directory that is not a package of the current build is removed before
   building, the package-level half of the clearing the bundled-runtime
