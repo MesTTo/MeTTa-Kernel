@@ -455,7 +455,7 @@ def peek(self, pattern: Any, *, deadline: float | None = None) -> Atom:
 
 > Wait for one matching atom and leave it in this space.
 >
-> A finite deadline raises ``TimeoutError`` when no match arrives.
+> A finite deadline raises ``Timeout`` when no match arrives.
 
 ### `Space.take`
 

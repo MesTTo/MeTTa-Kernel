@@ -1,13 +1,13 @@
 # The MeTTa standard library, in Python
 
 Every operation MeTTa's standard library declares, and what you write in Python
-instead. 136 of the 179 operations a program can call have a Python
+instead. 136 of the 180 operations a program can call have a Python
 spelling, and every row below ran on both sides: the MeTTa form on this engine and
 on LeaTTa, the conformance oracle, and the Python spelling here.
 
 The names and their types are LeaTTa's, measured against its built binary rather
-than transcribed: manifest 1.0.9 at commit `e47c93f`, 379 declarations
-over 377 distinct names. `bindings/python/tools/phrasebook.py` runs the
+than transcribed: manifest 1.0.9 at commit `9ea9f9d`, 381 declarations
+over 379 distinct names. `bindings/python/tools/phrasebook.py` runs the
 rows and fails when a spelling stops answering what it says it answers.
 
 ## How to read a row
@@ -22,17 +22,17 @@ Rows fall in five buckets, and the bucket is the honest part:
 - **dissolves** (115) &mdash; Python already has the concept, so there is no metta name at all and the spelling is Python's own syntax, protocol or standard library
 - **method** (21) &mdash; the concept is MeTTa's own, so it wears a metta name
 - **instruction** (0) &mdash; deep control that stays instruction-tier, reached by building the term at the `S.` door and reducing it
-- **internal** (198) &mdash; LeaTTa's mechanised interpreter, written in MeTTa; PeTTa writes its interpreter in Prolog, so these names are on neither surface
-- **absent** (43) &mdash; a user-facing operation with no Python spelling today: the residue
+- **internal** (199) &mdash; LeaTTa's mechanised interpreter, written in MeTTa; PeTTa writes its interpreter in Prolog, so these names are on neither surface
+- **absent** (44) &mdash; a user-facing operation with no Python spelling today: the residue
 
-Provenance: LeaTTa manifest 1.0.9 at commit `e47c93f`, 379 declarations over 377 distinct names.
+Provenance: LeaTTa manifest 1.0.9 at commit `9ea9f9d`, 381 declarations over 379 distinct names.
 
 ## What the Python spelling costs
 
 Section 9e claims that a structure operation on an atom already held in Python
 costs no engine crossing at all. Measured over the rows that run both sides:
-the MeTTa forms cost 146,469 engine inferences and the Python spellings
-cost 6,943, and 90 of the 121 rows cost the engine EXACTLY
+the MeTTa forms cost 146,559 engine inferences and the Python spellings
+cost 6,941, and 90 of the 121 rows cost the engine EXACTLY
 NOTHING. `e[0]`, `e[1:]`, `len(e)`, `max([...])` and `S.f(1)` each read the same
 count as an empty measurement block, so the claim holds: the work never reaches
 the engine at all.
@@ -487,6 +487,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `(= strategy-a strategy-b) ⏎ (= strategy-b strategy-c) ⏎ (= (strategy-node strategy-c) strategy-innermost-root) ⏎ !(innermost (strategy-node strategy-a))` | &mdash; | `strategy-innermost-root` | absent |
 | `!(stratego-all id (f a b))` | &mdash; | `(f a b)` | absent |
 | `!(stratego-one id (f a b))` | &mdash; | `(f a b), (f a b), (f a b)` | absent |
+| `!(stratego-some id (f a b))` | &mdash; | `(f a b)` | absent |
 | `!(eval-via-match (+ 1 2))` | &mdash; | `3` | absent |
 | `!(eval-via-unify (+ 1 2))` | &mdash; | `3` | absent |
 | `!(reduce-via-match (+ 1 2) x)` | &mdash; | `(reduce-via-match (+ 1 2) x)` | absent |
@@ -498,7 +499,9 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `innermost` `TP | (-> Atom Atom)` &mdash; Stratego's `innermost(s) = bottomup(try(s ; innermost(s)))`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `stratego-all` `(-> Atom Atom Atom)` &mdash; Stratego's `all(s)`, applying a strategy to every child. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `stratego-one` `(-> Atom Atom Atom)` &mdash; Stratego's `one(s)`, applying to one child. LeaTTa deliberately diverges from Stratego's committed choice by answering EVERY successful position through MeTTa's own nondeterminism. The form is shown but not run here: PeTTa leaves the call unreduced.
+- `stratego-some` `(-> Atom Atom Atom)` &mdash; Stratego's `some(s)`, the third traversal primitive beside `all` and `one`: apply the strategy to every immediate child it succeeds on, keep each declining child as written, and fail when no child succeeded. The non-emptiness guard is the whole content, since `all` composed with `gtry` can never fail. A LeaTTa extension beyond corelib. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `stratego-all-tail` `(-> Atom Expression Expression)` &mdash; LeaTTa's internal tail recursion behind `stratego-all`.
+- `stratego-some-walk` `(-> Atom Expression Atom)` &mdash; LeaTTa's internal tail walk behind `stratego-some`, pairing the rebuilt tail with whether any member succeeded.
 - `eval-via-match` `(-> Atom %Undefined%)` &mdash; The one-step rewriting strategy the whole basis is specialised to. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `eval-via-unify` `(-> Atom %Undefined%)` &mdash; The unification-directed sibling of `eval-via-match`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `reduce-via-match` `(-> Atom Atom %Undefined%)` &mdash; The reduction form of the same strategy. The form is shown but not run here: PeTTa leaves the call unreduced.
