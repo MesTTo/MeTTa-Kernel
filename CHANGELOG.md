@@ -728,6 +728,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   on a space refuses naming the two lawful ones; a module-global space
   target refuses naming the compiled write door, and a nested-function
   local keeps Python's own unbound-augmentation refusal.
+- The first `m.fn.<name>` access after any definition no longer rebuilds
+  the whole builtins catalogue: attribute resolution asks a point
+  membership probe, dropping that access from 1,347 engine inferences to
+  193 measured, with the list kept for enumeration and a parity test
+  holding the two doors to one union.
 - A `Defined` function or a bound engine function placed in term position
   now encodes as its own head symbol, the guide's mention rule, so
   `S.memoize(add, 2)` builds `(memoize add 2)` instead of an opaque box the
