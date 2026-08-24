@@ -21,6 +21,10 @@ Guarantees:
     [tested test_the_forward_corpus_lane_verifies_the_repinned_manifest]
   - a tampered or drifted oracle fails with the entry named
     [tested test_the_forward_corpus_lane_verifies_the_repinned_manifest]
+  - the fork's own manifest is verified by the generator's verify_manifest
+    before any replay, so a corpus/manifest membership or digest mismatch
+    refuses without running an oracle
+    [tested test_the_forward_corpus_lane_verifies_the_repinned_manifest]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -86,6 +90,25 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     petta_dir = arguments.petta_dir.resolve()
+    if arguments.manifest is None:
+        # The generator's own verify_manifest, before any replay: the
+        # per-entry loop below only sees PINNED entries, so an example with
+        # no pin is invisible to it, and data/segments.metta rode through
+        # three full gates that way before the freeze's count tripwire
+        # caught it. verify_manifest holds membership against the
+        # generator's own discovery, plus the source, run.sh, skip-list and
+        # generator digests the pins were frozen under. Only for the fork's
+        # own manifest: an explicit --manifest is a restricted replay.
+        try:
+            generator.verify_manifest(petta_dir, manifest_path)
+        except RuntimeError as error:
+            print(f"  {error}")
+            print(
+                "the manifest and this tree disagree before any entry is "
+                "replayed: re-freeze the corpus in the fork"
+            )
+            return 1
+
     mismatches: list[str] = []
     entries = manifest["entries"]
     for entry in entries:
