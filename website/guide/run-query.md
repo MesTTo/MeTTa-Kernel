@@ -240,6 +240,54 @@ own `match` reads it too now. It costs nothing when you do not use it: the
 modifier is lifted while the call site compiles, so a pattern without one
 compiles to exactly what it always did.
 
+## Match a RUN of children
+
+An ordinary pattern child stands for one term. A **gap** stands for a run of
+zero or more of them, so one pattern reads every length a head has:
+
+```metta
+!(add-atom &self (Order 7 x y))
+!(add-atom &self (Order 8))
+!(match &self (Order ...) matched)              ; matched, matched
+!(match &self (Order 7 (:seg $rest)) $rest)     ; (x y)
+!(match &self (Order 8 (:seg $rest)) $rest)     ; (), the empty run
+```
+
+`...` is the anonymous spelling and every occurrence of it is its own
+variable, so two gaps in one pattern are free of each other. `(:seg $x)` is the
+named one, and `$x` answers the run it took as the expression those children
+make. A repeated `(:seg $x)` has to take the same run twice.
+
+Matching is nondeterministic, so a gap pattern with two gaps around a
+separator ENUMERATES the splits, one answer per split, which is list
+processing with no recursion written:
+
+```metta
+!(let ($pre ... SEP ... $post) (a b SEP c SEP d) ($pre $post))  ; (a d), (a d)
+```
+
+### The fence, and why it is there
+
+General sequence unification is INFINITARY. `(f (:seg $x) a)` against
+`(f a (:seg $x))` is solved by `$x = a`, `$x = (a a)`, and so on without end,
+so no complete finite answer set exists (Kutsia, *Journal of Symbolic
+Computation* 42(3), 2007, Theorem 62). Three restrictions of that theory are
+proved finite, and they are exactly what the engine decides:
+
+- one side carries no gap at all, which is every `match` against a space and
+  every `let` or `case` against a value;
+- every gap is the last child of its own expression;
+- every gap is a direct child of the outermost expression, and each named gap
+  occurs once across the pair.
+
+Ask outside them and the engine REFUSES, naming the theorem and the three
+shapes, rather than searching forever. One name may not be both a gap and an
+ordinary variable either; `(f (:seg $x) $x)` refuses.
+
+A pattern without a gap pays nothing for any of this. The question is answered
+by the same walk that lifts a pattern's modifiers, and the matcher reaches the
+gap machinery only through a marker an ordinary pattern never carries.
+
 ## Arithmetic that runs backwards
 
 `+` computes. `#+` **relates**, and the difference is what you can ask it.
