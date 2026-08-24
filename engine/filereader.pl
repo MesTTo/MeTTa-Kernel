@@ -1322,22 +1322,57 @@ register_function_signatures(Signatures0) :-
     findall(F, member(F-_, Signatures), Names0),
     sort(Names0, Names),
     findall(F, (member(F, Names), \+ fun(F)), NewFunNames),
-    forall(member(F, Names),
-           ( warn_if_executed_as_symbol(F),
-             ensure_fun_registered(F) )),
+    forall(member(F, Names), warn_if_executed_as_symbol(F)),
+    register_new_funs(NewFunNames),
     append(NewArityNames0, NewFunNames, RepairNames0),
     sort(RepairNames0, RepairNames),
     forall(member(F, RepairNames), repair_after_late_registration(F)).
 
-ensure_fun_registered(N) :- fun(N), !.
-ensure_fun_registered(N) :-
-    assertz(fun(N), FunRef),
-    record_source_assertion(FunRef),
-    forall(( current_predicate(N/Arity),
-             \+ (current_op(_, _, N), Arity =< 2) ),
-           ( arity(N, Arity) -> true
-             ; assertz(arity(N, Arity), ArityRef),
+%A name arriving as a MeTTa function may already be a Prolog predicate, and
+%every arity it has under that name is one this program can call, so each is
+%recorded. The question is asked for the whole batch at once because
+%current_predicate/1 with the arity unbound ENUMERATES the predicate table:
+%asking about one name costs 17.4us against this engine's 2,845 predicates,
+%where walking the table once and keeping the names wanted costs 416.9us and
+%answers any number of them. Per name that is a walk per name, so a source
+%defining a thousand new functions spent 14,625us asking against 752us for the
+%pass, and a million-function source would spend sixteen seconds
+%[measured 2026-08-24]. Below the crossover, about forty names, the per-name
+%form is still the cheaper one and is what runs; the two return the same
+%list [tested: registering_a_batch_of_names_answers_what_asking_one_by_one_does].
+register_new_funs([]) :- !.
+register_new_funs(NewFunNames) :-
+    forall(member(F, NewFunNames),
+           ( assertz(fun(F), FunRef),
+             record_source_assertion(FunRef) )),
+    existing_predicate_arities(NewFunNames, NameArities),
+    forall(member(F-Arity, NameArities),
+           ( arity(F, Arity) -> true
+             ; assertz(arity(F, Arity), ArityRef),
                record_source_assertion(ArityRef) )).
+
+existing_predicate_arities(Names, NameArities) :-
+    length(Names, Count),
+    (   Count > 40
+    ->  findall(N-wanted, member(N, Names), Wanted0),
+        ord_list_to_assoc(Wanted0, Wanted),
+        findall(N-Arity,
+                ( current_predicate(N/Arity),
+                  get_assoc(N, Wanted, _),
+                  callable_as_written(N, Arity) ),
+                NameArities)
+    ;   findall(N-Arity,
+                ( member(N, Names),
+                  current_predicate(N/Arity),
+                  callable_as_written(N, Arity) ),
+                NameArities)
+    ).
+
+%An operator of one or two arguments is written as an operator rather than
+%called, so the predicate SWI holds under that name is not the shape a MeTTa
+%call would take.
+callable_as_written(Name, Arity) :-
+    \+ ( current_op(_, _, Name), Arity =< 2 ).
 
 %An expression that already executed compiled F as plain data; that execution cannot
 %be repaired retroactively, so flag it when F now arrives through a parsed definition:

@@ -771,6 +771,50 @@ test(repairing_late_callers_costs_nothing_that_grows_with_the_program) :-
 
 :- end_tests(filereader_late_definition_cost).
 
+% Registering a name asks SWI which predicates already carry it, and
+% current_predicate/1 with the arity unbound enumerates the predicate table.
+% Asked once per name that is a walk per name, so the batch asks once for all
+% of them. The two strategies are held together here rather than by sharing
+% code, because only the batch can be cheap and only the per-name form is cheap
+% for one name.
+:- begin_tests(filereader_signature_registration).
+
+probe_names(Count, Names) :-
+    findall(Name,
+            ( between(1, Count, Index),
+              atom_concat(sigprobe_absent_, Index, Name) ),
+            Fresh),
+    append([member, append, length, format, is_list], Fresh, Names0),
+    sort(Names0, Names).
+
+test(registering_a_batch_of_names_answers_what_asking_one_by_one_does) :-
+    probe_names(200, Names),
+    filereader:existing_predicate_arities(Names, Batched0),
+    sort(Batched0, Batched),
+    findall(Name-Arity,
+            ( member(Name, Names),
+              current_predicate(Name/Arity),
+              filereader:callable_as_written(Name, Arity) ),
+            OneByOne0),
+    sort(OneByOne0, OneByOne),
+    assertion(Batched == OneByOne),
+    assertion(Batched \== []).
+
+test(registering_new_names_costs_nothing_that_grows_with_their_number) :-
+    registration_cost(50, Narrow),
+    registration_cost(3200, Wide),
+    assertion(Wide < Narrow * 8).
+
+registration_cost(Count, Micros) :-
+    probe_names(Count, Names),
+    forall(between(1, 3, _), filereader:existing_predicate_arities(Names, _)),
+    T0 is cputime,
+    forall(between(1, 20, _), filereader:existing_predicate_arities(Names, _)),
+    T1 is cputime,
+    Micros is (T1 - T0) * 1000000 / 20.
+
+:- end_tests(filereader_signature_registration).
+
 % Deciding which declarations in a source name something the same source
 % defines used to walk an ordered list of the defined names once per
 % declaration.
