@@ -2,6 +2,7 @@
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
+% Guarantees: lift_pattern_modifiers/4 answers whether a pattern carries a sequence variable from the walk it already makes, and a case arm with one compiles to the gap matcher [tested: tests/prolog/translator.plt:the_walk_reports_a_written_gap, tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %Convert let* to recursive let. The singleton case is the recursive one over
@@ -198,11 +199,37 @@ case_default_pair(Cases, DefaultExpr, Rest) :-
 translate_case([], _, _, fail, []) :- !.
 translate_case([[K,VExpr]|Rs], Kv, Out, Goal, KGo) :- translate_expr_to_conj(VExpr, ConV, VOut),
                                                       constrain_args(K, Kc, Gc),
+                                                      petta_pattern_match_goal(Kc, Kv, Decide),
                                                       build_branch(ConV, VOut, Out, Then),
-                                                      ( Rs == [] -> Goal = ((Kv = Kc) -> Then), KGi=[]
+                                                      ( Rs == [] -> Goal = (Decide -> Then), KGi=[]
                                                                   ; translate_case(Rs, Kv, Out, Next, KGi),
-                                                                    Goal = ((Kv = Kc) -> Then ; Next) ),
+                                                                    Goal = (Decide -> Then ; Next) ),
                                                       append([Gc,KGi], KGo).
+
+%What decides one case arm, and one let binding: the plain unification both
+%have always emitted, or the gap matcher when the pattern the program WROTE
+%carries a sequence variable. The parse and the fragment decision happen HERE,
+%once, while the arm compiles [source: LeaTTa
+%MettaHyperonFull/Core/SeqFragment.lean, seqFinitary?], so the emitted goal
+%names its certificate and nothing re-classifies per candidate. The subject is
+%the arm's KEY VALUE, which is data by the time it arrives and therefore
+%carries no gap, so the case is one_sided by construction.
+%
+%The guard in front is nonvar/1 and =/2 alone, which SWI compiles inline: an
+%arm whose pattern is a variable, which is what `case _` and every ordinary
+%let bind, pays nothing at all for the question.
+%
+%A refusal becomes a goal that throws when the arm is REACHED rather than an
+%error while the file loads, so an unreachable arm with a bad pattern does not
+%stop a program that never asks it.
+petta_pattern_match_goal(Pattern, Subject, Goal) :-
+    (   nonvar(Pattern),
+        Pattern = [_|_],
+        petta_seq_present(Pattern)
+    ->  petta_seq_plan(Pattern, Subject, Asked),
+        Goal = petta_match_atoms(Asked, Subject)
+    ;   Goal = (Subject = Pattern)
+    ).
 
 %The cases when they were not syntax. A case written inside a definition of
 %its own, `(= (switch $v $cs) (case $v $cs))`, reaches translation with no
@@ -463,16 +490,31 @@ metta_condition_holds(Closure, Item) :- call(Closure, Item, true).
 %issue #177 names as the collision to avoid. An annotation is therefore always
 %NESTED: `(match &self (knows (: $x Human) (: $y Human)) ($x $y))`
 %[source: LeaTTa/ai-report-inplace-annotations.md, Design, gate 1].
-lift_pattern_modifiers(Pattern, Lifted, Guards) :-
+%GAPS RIDE THIS WALK, and that is the whole reason the fourth argument exists.
+%A sequence variable changes a pattern's ARITY, so the match door has to know
+%about one before it builds a candidate head, and a walk of its own would cost
+%what this walk already spends: the same visit to every child, once per
+%compiled call site and once per host query. The test below is written from
+%nonvar/1, =/2 and ==/2 alone, which SWI compiles inline and does not count as
+%inferences, so a pattern with no gap pays exactly nothing for the question
+%[measured 2026-08-24: 100,000 calls of a clause carrying three such guards
+%cost 400,002 inferences against 400,003 for a clause carrying none].
+%
+%Only an ITEM is tested, never the enclosing list, because the root of a side
+%is never a gap [source: LeaTTa MettaHyperonFull/Core/SeqSyntax.lean,
+%parseSeqAtom]. The recogniser is engine/spaces/segment_matching.pl's
+%petta_seq_surface_gap/3 written out: a call there would be one inference per
+%child on the hottest compile-time walk the translator has.
+lift_pattern_modifiers(Pattern, Lifted, Guards, Segments) :-
     (   colon_expression(Pattern)
-    ->  Lifted = Pattern, Guards = []
-    ;   lift_pattern_modifiers_(Pattern, Lifted, Guards, [])
+    ->  Lifted = Pattern, Guards = [], Segments = false
+    ;   lift_pattern_modifiers_(Pattern, Lifted, Guards, [], false, Segments)
     ).
 
-lift_pattern_modifiers_(Pattern, Lifted, Guards0, Guards) :-
+lift_pattern_modifiers_(Pattern, Lifted, Guards0, Guards, Seen0, Seen) :-
     (   nonvar(Pattern), Pattern = [_|_]
     ->  (   seam:pattern_modifier(Pattern, Lifted, Guard)
-        ->  Guards0 = [Guard|Guards]
+        ->  Guards0 = [Guard|Guards], Seen = Seen0
     %GATE TWO: a colon whose VALUE slot is not a variable is data, and the walk
     %does not look inside it. Without the second half a constructor that nests
     %colons inside a value, as LeaTTa's single_sided.metta does with
@@ -480,11 +522,14 @@ lift_pattern_modifiers_(Pattern, Lifted, Guards0, Guards) :-
     %reinterpreted [source: LeaTTa/ai-report-inplace-annotations.md, Design].
         ;   colon_expression(Pattern)
         ->  Lifted = Pattern,
-            Guards0 = Guards
-        ;   lift_pattern_modifiers_list(Pattern, Lifted, Guards0, Guards)
+            Guards0 = Guards,
+            Seen = Seen0
+        ;   lift_pattern_modifiers_list(Pattern, Lifted, Guards0, Guards, Seen0,
+                                        Seen)
         )
     ;   Lifted = Pattern,
-        Guards0 = Guards
+        Guards0 = Guards,
+        Seen = Seen0
     ).
 
 colon_expression(Pattern) :- nonvar(Pattern),
@@ -492,10 +537,22 @@ colon_expression(Pattern) :- nonvar(Pattern),
                              nonvar(Colon),
                              Colon == ':'.
 
-lift_pattern_modifiers_list([], [], Guards, Guards).
-lift_pattern_modifiers_list([Item|Rest], [Lifted|LiftedRest], Guards0, Guards) :-
-    lift_pattern_modifiers_(Item, Lifted, Guards0, Guards1),
-    lift_pattern_modifiers_list(Rest, LiftedRest, Guards1, Guards).
+lift_pattern_modifiers_list([], [], Guards, Guards, Seen, Seen).
+lift_pattern_modifiers_list([Item|Rest], [Lifted|LiftedRest], Guards0, Guards,
+                            Seen0, Seen) :-
+    (   nonvar(Item),
+        (   Item == '...'
+        ->  true
+        ;   Item = [Marker, Named],
+            nonvar(Marker),
+            Marker == ':seg',
+            var(Named)
+        )
+    ->  Carried = true
+    ;   Carried = Seen0
+    ),
+    lift_pattern_modifiers_(Item, Lifted, Guards0, Guards1, Carried, Seen1),
+    lift_pattern_modifiers_list(Rest, LiftedRest, Guards1, Guards, Seen1, Seen).
 
 %The two modifiers a pattern position can carry, each replaced by a fresh
 %variable and a guard over it. `(:= X)` matches by EQUALITY, so a free

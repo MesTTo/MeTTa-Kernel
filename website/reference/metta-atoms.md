@@ -35,6 +35,9 @@ Source: `bindings/python/metta/atoms.py`.
 >   - the canonical truth and unit atoms are public values [tested:
 >     test_the_canonical_atoms_are_public_values;
 >     commit=b1599bdc8201a04a3689c1a88707b6f4b53b4d22]
+>   - seg() builds the named segment and refuses anything but a Variable, since
+>     a non-variable second position is ordinary data to the engine [tested:
+>     test_seg_builds_a_named_segment; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -109,6 +112,26 @@ def in_(member: Any, container: Any) -> Expression:
 ```
 
 > Build a quoted or stored ``in`` term.
+
+## `seg`
+
+```python
+def seg(variable: Any) -> Expression:
+```
+
+> Build the named segment ``(:seg $x)``, the variable's fifth face.
+>
+> A segment variable stands for a RUN of expression children rather than for
+> one term, so ``space[(S.Order, seg(V.rest))]`` matches an Order of any
+> length and each answer's ``rest`` column is the run it took. Bare ``...``
+> is the anonymous spelling and every occurrence of it is its own variable; a
+> named segment can repeat, and the second occurrence then has to take the
+> same run.
+>
+> The fence is the law's own theorem, not caution: general sequence
+> unification is infinitary (Kutsia, Journal of Symbolic Computation 42(3),
+> 2007), so a pattern outside the three proved-finite fragments refuses and
+> names the rule.
 
 ## `parse`
 

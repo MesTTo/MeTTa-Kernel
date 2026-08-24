@@ -84,6 +84,10 @@
 %     a_selective_match_costs_the_same_on_a_hundredfold_larger_space]
 %     [measured 2026-08-18: 6,502 inferences per 500 matches on spaces of
 %     100, 1,000 and 10,000 atoms].
+%   - A gap pattern decides its certified-finite fragment once, at its call
+%     site or at the ask, and refuses outside the three Kutsia proved; a
+%     pattern with no gap reaches no predicate of the gap unit at all
+%     [tested: tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 %   - Removing one scoped get-type rule keeps sibling extension rules visible
 %     [tested 2026-08-15: spaces_type_extensions].
 %   - A second variant-identical type declaration is refused before storage,
@@ -225,6 +229,17 @@
             petta_reader_variable_name/3,
             petta_repair_emptied_shadows/0,
             petta_run_named/3,
+            %The gap-pattern surface. The translator asks petta_seq_present/1
+            %while a call site compiles and petta_seq_plan/3 to parse and
+            %classify it there; the host query door asks petta_seq_plan/3 at
+            %the ask instead, because its pattern was built rather than
+            %written. Both then hand match/4 and petta_match_atoms/2 the
+            %wrapped pattern those two dispatch on, so a gap adds no goal name
+            %the engine has to protect and no cost to a gap-free call.
+            petta_seq_plan/3,
+            petta_seq_present/1,
+            petta_seq_query_plan/2,
+            petta_seq_unify/3,
             petta_space_name/1,
             petta_space_operand/1,
             petta_vocabulary_value/2,
@@ -317,3 +332,4 @@ space_canonical_atom(Space, Encoded) :-
 :- consult('spaces/foreign.pl').
 :- consult('spaces/bounded_matching.pl').
 :- consult('spaces/native_matching.pl').
+:- consult('spaces/segment_matching.pl').

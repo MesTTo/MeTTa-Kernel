@@ -768,7 +768,8 @@ kind(backend_selftest/0, event).
 kind(catch_recover/2, host_service).
 kind(translate_expr/3, host_service).
 kind(translate_cached_expr/3, host_service).
-kind(lift_pattern_modifiers/3, host_service).
+kind(lift_pattern_modifiers/4, host_service).
+kind(petta_seq_query_plan/2, host_service).
 %The host run and load surface: the grouped runner (with the
 %using-substitution folded in as Bindings), the status runner, the load
 %lifecycle and the manifest read, plus the reducible-head test the status

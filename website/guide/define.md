@@ -40,6 +40,19 @@ def fib(n):
 
 The subset includes rebinding, `while`, `for`, nested definitions, generators, lambdas, comprehensions, indexing, slicing, formatted strings, and `match(...)` against the running space. Generators compile to nondeterminism. Lowercase names in match patterns bind as variables.
 
+A star pattern in a `case` arm is the engine's segment variable, so it
+destructures a run of children the way Python's own star does:
+
+```python
+@m.define
+def tail(order):
+    match order:
+        case (S.Order, id, *rest):
+            return S.Kept(id, rest)     # rest is the run, as an expression
+        case _:
+            return S.Other
+```
+
 `yield from call(...)` delegates directly only when the compiler knows the
 callee is nondeterministic, including self-recursive generators. A call whose
 result might instead be iterable data is refused at compile time. Write

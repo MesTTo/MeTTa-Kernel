@@ -2,6 +2,7 @@
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
+% Guarantees: petta_match_atoms/2 dispatches a gap operand by its wrapper alone, and a merged read routes a gap pattern while reading its declared policy from what the program wrote [tested: tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% the bound the caller wrote, reaching the matcher %%%%
@@ -179,6 +180,18 @@ routed_selective_conjunct(Space, Conjuncts, Best, Rest) :-
 %pointwise to the same), and it spares the per-leaf probe cascade on the
 %equal-operand traffic that dominates eval-branch tests
 %[measured 2026-08-17: test_unify_eval_branches].
+%A GAP OPERAND arrives wrapped, carrying the fragment its call site decided
+%[source: LeaTTa MettaHyperonFull/Core/SeqFragment.lean, seqFinitary?]. The
+%wrapper is what makes the question free: nonvar/1 and =/2 compile inline and
+%are not counted as inferences, and a clause whose head does not unify costs
+%none either, so every ordinary unify, let and case pays exactly what it did
+%[measured 2026-08-24: 100,000 calls through three such guards cost 400,002
+%inferences against 400,003 through none].
+petta_match_atoms(L, R) :-
+    nonvar(L),
+    L = '$petta_seq'(Plan, Parsed),
+    !,
+    petta_seq_unify(Plan, Parsed, R).
 petta_match_atoms(L, R) :- L == R, !.
 petta_match_atoms(L, R) :- ( var(L) ; var(R) ), !,
                            unify_with_occurs_check(L, R).
@@ -828,8 +841,17 @@ prolog:error_message(petta_route_cap_invalid(Space, Cap, Why)) -->
 %merge by annotation, sound only when every context's own emission is
 %best-first, which its (emits ...) declaration promises and this
 %refuses loudly without.
+%A GAP PATTERN arrives wrapped, and the declared route is read from what the
+%program wrote rather than from the wrapper, so `(merge <pattern> fair)`
+%selects the same policy for a gap query as for any other. The read itself
+%keeps the wrapper, which is what routes it to the gap door inside match/4.
 petta_merged_match(Spaces, Pattern, Out) :-
-    (   petta_merge_route(Pattern, Policy)
+    (   nonvar(Pattern),
+        Pattern = '$petta_seq'(_, Declared)
+    ->  Route = Declared
+    ;   Route = Pattern
+    ),
+    (   petta_merge_route(Route, Policy)
     ->  petta_merged_match_(Policy, Spaces, Pattern, Out)
     ;   member(Space, Spaces),
         match(Space, Pattern, Out, Out)

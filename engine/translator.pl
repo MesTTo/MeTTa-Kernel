@@ -266,7 +266,7 @@
             reduce/2,
             reduce/3,
             eval_metta_in_module/3,
-            lift_pattern_modifiers/3,
+            lift_pattern_modifiers/4,
             metta_host_dispatch_proof_step/6,
             %The head-context note engine/filereader.pl reads to decide whether a
             %symbol was executed as a runnable or as a clause head.
