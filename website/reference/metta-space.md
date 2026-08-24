@@ -1566,6 +1566,24 @@ def type(self, atom: Any) -> Atom:
 
 > Return this space's first ``get-type`` answer, including undefined.
 
+### `Space.doc`
+
+```python
+def doc(self, atom: Any) -> Atom:
+```
+
+> Return this space's structured ``get-doc`` answer for one subject.
+>
+> The answer is the ``(@doc ...)`` atom the engine holds for the
+> subject, whether it was documented in MeTTa source or built from a
+> Python docstring:
+>
+>     m.doc(S.area)
+>     # (@doc-formal (@item area) (@kind function) (@desc "Circle area.") ...)
+>
+> A subject with no documentation raises, exactly as ``type`` raises
+> for a subject ``get-type`` cannot answer.
+
 ### `Space.fn`
 
 ```python

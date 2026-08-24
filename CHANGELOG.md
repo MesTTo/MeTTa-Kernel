@@ -46,6 +46,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   into a list of ordinary equation atoms, and `equation(lhs).to(rhs)` keeps the
   two halves on one static Python type. Add the result with `m.add(*laws)`;
   `S["="](lhs, rhs)` remains the explicit longhand.
+- `Space.doc(subject)` and module-level `metta.doc(subject)` answer the
+  engine's structured `(@doc-formal ...)` atom for one subject, the receiver
+  spelling of `get-doc` beside `Space.type`; a subject with no documentation
+  raises. The async handle mirrors it. The door embeds the handle's own atom
+  rather than the `&self` symbol, so it reads the right space from any
+  handle.
 - Pure-Python twins now cover 204 of the 223 example programs and 1,367 of
   1,380 runnable forms in those files. The coverage check also records every
   remaining example or form as structured residue against the Phase 14

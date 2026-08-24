@@ -834,6 +834,14 @@ async def type(self, atom: Any, /) -> Atom:
 
 > Return this space's first get-type answer on the worker.
 
+### `AsyncMeTTa.doc`
+
+```python
+async def doc(self, atom: Any, /) -> Atom:
+```
+
+> Return this space's structured get-doc answer on the worker.
+
 ### `AsyncMeTTa.register_prolog`
 
 ```python
