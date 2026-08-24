@@ -97,10 +97,16 @@ def main(argv: list[str] | None = None) -> int:
         # three full gates that way before the freeze's count tripwire
         # caught it. verify_manifest holds membership against the
         # generator's own discovery, plus the source, run.sh, skip-list and
-        # generator digests the pins were frozen under. Only for the fork's
-        # own manifest: an explicit --manifest is a restricted replay.
+        # generator digests the pins were frozen under. require_revision is
+        # False because the oracles depend on that CONTENT, all sha-pinned,
+        # while petta_revision is the freeze's provenance record: a commit
+        # that touches none of it (docs, tests, tools) must not demand a
+        # re-freeze. Only for the fork's own manifest: an explicit
+        # --manifest is a restricted replay.
         try:
-            generator.verify_manifest(petta_dir, manifest_path)
+            generator.verify_manifest(
+                petta_dir, manifest_path, require_revision=False
+            )
         except RuntimeError as error:
             print(f"  {error}")
             print(
