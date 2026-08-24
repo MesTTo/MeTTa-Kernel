@@ -156,6 +156,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   loop-contained yields still compile to one `superpose` equation. Bare
   `@rules` answers an immutable bundle that `space += bundle` lands;
   `@space.rules` collects and lands in one ceremony.
+- The walrus is the compiled let expression: `(y := f(x)) + y` in a
+  return, a binding's right side, a bare expression, an if test, a for
+  iterable or a match subject hoists as a `let*` chain around the
+  statement's continuation, PEP 572's enclosing-scope binding read as
+  MeTTa's own sequencing. Nesting binds inner-first and siblings bind left
+  to right. A while-test walrus (which would rebind per iteration) and a
+  walrus inside a nested scope refuse naming the rewrite.
 - Sequence variables. A pattern child may now be a gap standing for a RUN of
   children: `...` is anonymous and every occurrence of it is its own variable,
   `(:seg $x)` is named and answers the run it took. `(match &s (A ... D) $t)`
