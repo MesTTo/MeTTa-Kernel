@@ -712,6 +712,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `space += atom` and `space -= atom` inside a compiled body are the write
+  doors: a local bound to `(context-space)` or `(new-space ...)`, or
+  aliased from one, compiles its augmented assignment to `add-atom` and
+  `remove-atom`, keeping the space name bound while the write executes.
+  Before this, `+=` read as arithmetic and stored `(+ $s atom)`, which
+  answered `True` and wrote nothing, silently. Any other augmented operator
+  on a space refuses naming the two lawful ones; a module-global space
+  target refuses naming the compiled write door, and a nested-function
+  local keeps Python's own unbound-augmentation refusal.
 - A `Defined` function or a bound engine function placed in term position
   now encodes as its own head symbol, the guide's mention rule, so
   `S.memoize(add, 2)` builds `(memoize add 2)` instead of an opaque box the
