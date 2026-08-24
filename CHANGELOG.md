@@ -567,6 +567,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `petta_py_function_generation/1`. Removing the per-evaluation catalogue
   sniff puts `py-method-call` at 1,503,497,066 instructions, below its
   1,508,773,364 acceptance ceiling.
+- `not-provable` costs inferences linear in the recursion depth of the goal
+  under it rather than quadratic: the open-call set that the recurrence check
+  walks per level is an assoc keyed by a variant hash of the call, so depth
+  800 costs 69,006 inferences where the list walk cost 338,974.
 - Translating a nested expression costs work linear in its depth rather than
   quadratic. A data head is translated by the recursive call that produces it,
   and the compiler then walked that result again looking for function calls

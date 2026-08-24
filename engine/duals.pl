@@ -120,6 +120,8 @@
 %runs, so the operators are not otherwise in scope here.
 :- use_module(library(clpfd)).
 :- use_module(library(lists)).
+%empty_assoc/1, get_assoc/3 and put_assoc/4 for the open-call index below.
+:- use_module(library(assoc)).
 :- use_module(library(apply)).
 
 %%%%%%%%%%%%%%%%%%%%%% Constraints the duals are built from %%%%%%%%%%%%%%%%%%%
@@ -522,50 +524,89 @@ metta_dual_goal(Fun, Args) :-
     dual_name(Fun, DualName),
     append(Args, [true], CallArgs),
     Goal =.. [DualName|CallArgs],
-    dual_stack(Stack),
-    (   recurrence_parity(Stack, Fun, Args, Parity)
+    dual_state(Negations, Index),
+    (   recurrence_parity(Index, Negations, Fun, Args, Parity)
     ->  Parity =:= 0
-    ;   push_dual_frame(Stack, goal(Fun, Args), call(Module:Goal))
+    ;   push_dual_goal(Negations, Index, Fun, Args, call(Module:Goal))
     ).
 
 %A negation crossed inside a body being dualised. Only `not` and
 %`not-provable` create one: every other edge a dual follows is the dual OF a
 %positive goal, which is the same node seen from the other side and not a
 %negation of the program.
-:- meta_predicate metta_crossed_negation(0), push_dual_frame(?, ?, 0).
+:- meta_predicate metta_crossed_negation(0), push_dual_goal(+, +, +, +, 0).
 metta_crossed_negation(Goal) :-
-    dual_stack(Stack),
-    push_dual_frame(Stack, negation, Goal).
+    dual_state(Negations, Index),
+    Crossed is Negations + 1,
+    b_setval(metta_dual_state, dual_state(Crossed, Index)),
+    call(Goal),
+    b_setval(metta_dual_state, dual_state(Negations, Index)).
 
-dual_stack(Stack) :-
-    (   nb_current(metta_dual_stack, Current)
-    ->  Stack = Current
-    ;   Stack = []
+%The calls whose duals are open, INDEXED BY NAME, beside the number of
+%negations crossed to reach here. A list of frames walked from the top instead
+%made the recurrence check cost the depth of the derivation, once per goal, so
+%a dual over a chain of N calls cost N^2: `(not-provable (dch 160))` over a
+%160-link chain ran 57,715 inferences against 2,546 over a 20-link one, where
+%the plain call is linear in both [measured 2026-08-24]. s(CASP)'s own solver
+%keeps its coinductive hypothesis set the same way, `proved_relatives/3`
+%reaching it through `get_assoc(Name/Arity, Proved, Relatives)`
+%[source: SWI-Prolog pack scasp, prolog/scasp/solve.pl].
+dual_state(Negations, Index) :-
+    (   nb_current(metta_dual_state, dual_state(Current, Open))
+    ->  Negations = Current,
+        Index = Open
+    ;   Negations = 0,
+        empty_assoc(Index)
     ).
 
 %b_setval/2 unwinds the frame on backtracking, and the restore after the call
 %takes it back off on success. Both are undone when the call is redone, which
-%leaves the stack right for the retry.
-push_dual_frame(Stack, Frame, Goal) :-
-    b_setval(metta_dual_stack, [Frame|Stack]),
+%leaves the state right for the retry.
+push_dual_goal(Negations, Index, Fun, Args, Goal) :-
+    open_call_key(Fun, Args, Key),
+    (   get_assoc(Key, Index, Open)
+    ->  true
+    ;   Open = []
+    ),
+    put_assoc(Key, Index, [open(Args, Negations)|Open], Opened),
+    b_setval(metta_dual_state, dual_state(Negations, Opened)),
     call(Goal),
-    b_setval(metta_dual_stack, Stack).
+    b_setval(metta_dual_state, dual_state(Negations, Index)).
 
 %How many negations lie between here and the nearest variant of this call.
-%Fails when there is no recurrence at all, which is the ordinary case.
-recurrence_parity(Stack, Fun, Args, Parity) :-
-    recurrence_parity(Stack, Fun, Args, 0, Parity).
+%Fails when there is no recurrence at all, which is the ordinary case. The
+%difference of the two counts IS what walking the frames between them counted,
+%and the entries for one name are newest first, so the first variant found is
+%the nearest one.
+recurrence_parity(Index, Negations, Fun, Args, Parity) :-
+    open_call_key(Fun, Args, Key),
+    get_assoc(Key, Index, Open),
+    nearest_open_variant(Open, Args, Earlier),
+    Parity is (Negations - Earlier) mod 2.
 
-recurrence_parity([goal(Fun, Earlier)|_], Fun, Args, Crossed, Parity) :-
+%A key every VARIANT of a call shares. Numbering the variables of a copy makes
+%two calls that differ only by renaming into the same ground term, so their
+%hashes are equal; two calls that are not variants may still collide, which
+%`=@=` then decides. The name alone is not enough to key on, and that is the
+%whole point: a self-recursive dual opens one call per level under ONE name,
+%so a name-keyed bucket is as long as the derivation is deep and scanning it
+%is the walk it replaced.
+%
+%copy_term/3 rather than copy_term/2 because an argument may carry the dif/2
+%constraints this subsystem puts there, and numbervars/3 on an attributed
+%variable would run its unification hook. Dropping the attributes can only
+%make two calls share a key, never separate them, and sharing is what `=@=`
+%is here to resolve.
+open_call_key(Fun, Args, Fun-Key) :-
+    copy_term(Args, Numbered, _Attributes),
+    numbervars(Numbered, 0, _),
+    term_hash(Numbered, Key).
+
+nearest_open_variant([open(Earlier, Crossed)|_], Args, Crossed) :-
     Earlier =@= Args,
-    !,
-    Parity is Crossed mod 2.
-recurrence_parity([negation|Rest], Fun, Args, Crossed, Parity) :-
-    !,
-    Next is Crossed + 1,
-    recurrence_parity(Rest, Fun, Args, Next, Parity).
-recurrence_parity([_|Rest], Fun, Args, Crossed, Parity) :-
-    recurrence_parity(Rest, Fun, Args, Crossed, Parity).
+    !.
+nearest_open_variant([_|Rest], Args, Crossed) :-
+    nearest_open_variant(Rest, Args, Crossed).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%% Building a dual %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -651,6 +692,7 @@ build_dual_clause(Fun, DualName, InputArity, Module) :-
     maybe_print_compiled_clause(Label, ['not-provable', [Fun|DualArgs]], Clause).
 
 equations_of_arity(Module, Fun, InputArity, Equations) :-
+    metta_ensure_compiled(Fun),
     (   fun_meta_clauses(Module, Fun, All)
     ->  include(equation_arity(InputArity), All, Equations)
     ;   Equations = []
