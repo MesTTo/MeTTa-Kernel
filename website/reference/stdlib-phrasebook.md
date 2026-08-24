@@ -31,15 +31,15 @@ Provenance: LeaTTa manifest 1.0.9 at commit `9ea9f9d`, 381 declarations over 379
 
 Section 9e claims that a structure operation on an atom already held in Python
 costs no engine crossing at all. Measured over the rows that run both sides:
-the MeTTa forms cost 146,559 engine inferences and the Python spellings
-cost 6,941, and 90 of the 121 rows cost the engine EXACTLY
+the MeTTa forms cost 150,867 engine inferences and the Python spellings
+cost 6,960, and 90 of the 121 rows cost the engine EXACTLY
 NOTHING. `e[0]`, `e[1:]`, `len(e)`, `max([...])` and `S.f(1)` each read the same
 count as an empty measurement block, so the claim holds: the work never reaches
 the engine at all.
 
-`(car-atom (a b c))` costs 878 inferences on this
+`(car-atom (a b c))` costs 874 inferences on this
 engine against 0 for `e[0]`, and `(map-atom (1 2 3) $x (+ $x 1))` costs
-1,444 against 0 for the comprehension.
+1,453 against 0 for the comprehension.
 
 The other side of the same coin, so the comparison is not oversold. Most of a
 MeTTa row's cost is running one form at all: on a fresh engine an unreduced
@@ -272,8 +272,8 @@ Python side does not move. Within one run the counts are exact: three fresh
 |---|---|---|---|
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += (S.f, 1) ⏎ space.atoms()` | `(f 1)` | dissolves |
 | `!(bind! &pb (new-space)) ⏎ !(add-atoms &pb ((f 1) (f 2))) ⏎ !(get-atoms &pb)` | `for fact in [(S.f, 1), (S.f, 2)]: ⏎     space += fact ⏎ space.atoms()` | `(f 1), (f 2)` | dissolves |
-| `!(bind! &pb (new-space)) ⏎ !(add-reduct &pb (total (+ 1 2))) ⏎ !(get-atoms &pb)` | `space += S.total(m.eval(S['+'](1, 2))[0]) ⏎ space.atoms()` | `(total 3) on leatta and python; (total (+ 1 2)) on metta` | dissolves |
-| `!(bind! &pb (new-space)) ⏎ !(add-reducts &pb ((total (+ 1 2)) (total (+ 2 2)))) ⏎ !(get-atoms &pb)` | `for term in [S['+'](1, 2), S['+'](2, 2)]: ⏎     space += S.total(m.eval(term)[0]) ⏎ space.atoms()` | `(total 3), (total 4) on leatta and python; (total (+ 1 2)), (total (+ 2 2)) on metta` | dissolves |
+| `!(bind! &pb (new-space)) ⏎ !(add-reduct &pb (total (+ 1 2))) ⏎ !(get-atoms &pb)` | `space += S.total(m.eval(S['+'](1, 2))[0]) ⏎ space.atoms()` | `(total 3)` | dissolves |
+| `!(bind! &pb (new-space)) ⏎ !(add-reducts &pb ((total (+ 1 2)) (total (+ 2 2)))) ⏎ !(get-atoms &pb)` | `for term in [S['+'](1, 2), S['+'](2, 2)]: ⏎     space += S.total(m.eval(term)[0]) ⏎ space.atoms()` | `(total 3), (total 4)` | dissolves |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(remove-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ space -= S.f(1) ⏎ space.atoms()` | `(no answer)` | dissolves |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ list(space)` | `(f 1)` | method |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(match &pb (f $x) $x)` | `space += S.f(1) ⏎ [row['x'] for row in space[S.f(V.x)]]` | `1` | method |

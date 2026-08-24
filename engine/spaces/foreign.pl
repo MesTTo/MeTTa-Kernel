@@ -577,9 +577,28 @@ reduced_for_space([=, Head, Body], [=, Head, ReducedBody]) :-
 %reduce/3 takes an expression, and a symbol or a number is already its own
 %value, so asking it to reduce one raises rather than answering. Both callers
 %above may be handed either, because their argument arrives unreduced.
+%
+%eval/2 AND NOT reduce/3, because the two differ on exactly the shape this
+%operation is for. reduce/3 is the runtime dispatcher: it looks up the head and
+%answers the term unchanged when no function heads it, so `(total (+ 1 2))`
+%came back written and `(add-reduct &s (total (+ 1 2)))` stored the call.
+%eval/2 compiles the expression the way a top-level form is compiled, and that
+%walk reduces a MEMBER of an expression whose head names no function, which is
+%what the arbiter's own interpret-tuple does: `!(total (+ 1 2))` is `(total 3)`
+%on both engines, and now so is what add-reduct stores
+%[measured 2026-08-24 against LeaTTa 9ea9f9d:
+%`(add-reduct $s (total (+ 1 2)))` then `(get-atoms $s)` answers `((total 3))`
+%there].
+%
+%A form that answers nothing keeps its written shape rather than removing the
+%write: `Empty` prunes a branch, and an add whose atom pruned away has nothing
+%to store, so the written term is the only thing left to store.
 reduced_for_space(Term, Reduced) :-
     (   is_list(Term)
-    ->  once(reduce(Term, Reduced, _))
+    ->  (   once(eval(Term, Value))
+        ->  Reduced = Value
+        ;   Reduced = Term
+        )
     ;   Reduced = Term
     ).
 
@@ -653,9 +672,10 @@ metta_remove_atom(Space, Term, Removed) :-
 %arrived as written now arrives evaluated. The write path learned this and the
 %removal path did not.
 metta_remove_atom(Space, Term, Removed) :- Term = [':', F, _], atom(F), fun(F), !,
+                                           result_finality(F, Before),
                                            unstore_atom(Space, Term, Removed),
                                            space_module(Space, DeclModule),
-                                           announce_function_changed(DeclModule, F).
+                                           announce_declaration_changed(DeclModule, F, Before).
 metta_remove_atom(Space, Term, Removed) :- unstore_atom(Space, Term, Removed).
 
 type_marker_changed(Module, Type) :-

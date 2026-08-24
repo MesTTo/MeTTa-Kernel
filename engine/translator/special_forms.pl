@@ -140,6 +140,45 @@ guard_error_condition(Cond, CondValue, Out, Then, Else, Guarded) :-
 %An operand headed by an error-REIFYING form is left out: its value is data by
 %contract. That test is paid only by an argument that did emit goals, which is
 %the minority.
+%The same walk under the callee's evaluation mask. A masked position hands the
+%argument over AS WRITTEN and emits no goal, so it is never a computed value
+%and can hold no error this call has to pass on, which is the same reasoning
+%typed_call_operands/3 records for the declared path.
+%
+%The mask is consulted once per COMPILED CALL SITE rather than per argument or
+%per run: the engine's declaration register is static once loaded, and
+%builtin_argument_mask/3 fails on one indexed lookup for every builtin that
+%masks nothing, which is nearly all of them.
+translate_call_args_dl(Fun, Args, Goals0, Goals, AVs, Computed, ResultType) :-
+    %The index is asked INLINE, so a builtin that masks nothing, which is
+    %nearly all of them, pays one indexed failure and no call.
+    (   atom(Fun),
+        builtin_call_mask(Fun, _),
+        builtin_argument_mask(Fun, Args, Types, ResultType)
+    ->  translate_masked_call_args_dl(Args, Types, Goals0, Goals, AVs, Computed)
+    ;   ResultType = 'Atom',
+        translate_call_args_dl(Args, Goals0, Goals, AVs, Computed)
+    ).
+
+translate_masked_call_args_dl([], _, Goals, Goals, [], []).
+translate_masked_call_args_dl([X|Xs], [T|Ts], Goals0, Goals, [V|Vs],
+                              Computed) :-
+    (   non_evaluated_parameter_type(T)
+    ->  V = X,
+        AfterExpr = Goals0,
+        Computed = Rest
+    ;   translate_expr_dl(X, Goals0, AfterExpr, V),
+        (   Goals0 == AfterExpr
+        ->  Computed = Rest
+        ;   nonvar(V)
+        ->  Computed = Rest
+        ;   error_reifying_argument(X)
+        ->  Computed = Rest
+        ;   Computed = [V|Rest]
+        )
+    ),
+    translate_masked_call_args_dl(Xs, Ts, AfterExpr, Goals, Vs, Rest).
+
 translate_call_args_dl([], Goals, Goals, [], []).
 translate_call_args_dl([X|Xs], Goals0, Goals, [V|Vs], Computed) :-
     translate_expr_dl(X, Goals0, AfterExpr, V),
@@ -539,11 +578,24 @@ translate_special_dl(if, [Cond, Then, Else], AfterHead, Goals, Out) :-
 %by the match flow into the branch through the shared variables, which
 %is how (unify &kb (friend $who Alice) $who no-friends) answers each
 %friend.
+%unify is the ONE branching form whose pattern can bind a name to an unreduced
+%term, because its two operands are declared `Atom` and reach it as written
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:907,
+%`(: unify (-> Atom Atom Atom Atom %Undefined%))`]. A branch that is that bare
+%name compiles to no goal at all, so the unreduced term walks straight out,
+%and the `%Undefined%` result is what reduces it:
+%`!(unify (a $x) (a (+ 1 2)) $x nope)` is `3` and was `(+ 1 2)` here
+%[measured 2026-08-24 against LeaTTa 9ea9f9d].
+%
+%`case`, `if` and `let` need nothing: their scrutinee and value are evaluated
+%before the branch runs, so no branch of theirs can hold an unreduced term.
+%All three were measured on the same day through a masked binding and agree
+%already.
 translate_special_dl(unify, [A, B, Then, Else], AfterHead, Goals, Out) :-
     translate_expr_to_conj(Then, ThenConj, ThenValue),
     translate_expr_to_conj(Else, ElseConj, ElseValue),
-    build_branch(ThenConj, ThenValue, Out, ThenBranch),
-    build_branch(ElseConj, ElseValue, Out, ElseBranch),
+    unify_branch(Then, ThenConj, ThenValue, Out, ThenBranch),
+    unify_branch(Else, ElseConj, ElseValue, Out, ElseBranch),
     petta_unify_decision(A, B, Decide),
     AfterHead = [(Decide *-> ThenBranch ; ElseBranch)|Goals].
 
@@ -616,8 +668,54 @@ translate_special_dl(switch, [KeyExpr, PairsExpr], AfterHead, Goals, Out) :-
 
 translate_special_dl(let, Args, AfterHead, Goals, Out) :-
     translate_let_dl(Args, AfterHead, Goals, Out).
+%CHAIN'S NESTED OPERAND IS ONE MINIMAL STEP, NOT AN EVALUATION, and that is the
+%whole difference between it and `let`. Its declared first parameter is `Atom`,
+%so the operand reaches the instruction as written
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:906,
+%`(: chain (-> Atom Variable Atom %Undefined%))`]; the instruction then steps
+%it if it is one of the twelve reflected forms and leaves it as DATA if it is
+%not [source: the same file's `mi-function-continue` at :1818-1843, which
+%enumerates that closed list]. An operand the instruction leaves as data is
+%substituted into the template unevaluated, and the template's own positions
+%then decide whether it ever reduces.
+%
+%That is why the two spellings answer differently for a reducible operand:
+%`!(chain (+ 1 2) $x (quote $x))` is `(quote (+ 1 2))` and
+%`!(let $x (+ 1 2) (quote $x))` is `(quote 3)` [measured 2026-08-24 against
+%LeaTTa 9ea9f9d, both doors agreeing].
+%
+%SUBSTITUTION IS THE WHOLE IMPLEMENTATION, and it is compile-time work rather
+%than a runtime binding, which is what makes the unevaluated operand reach a
+%masked position at all. It also carries the multiplicity the runtime binding
+%could not: a binder used twice duplicates a nondeterministic operand, and the
+%arbiter answers all four rows for
+%`!(chain (superpose (1 2)) $x ($x $x))` where a bind-once route answers two
+%[measured 2026-08-24].
+translate_special_dl(chain, [Nested, Binder, Template], AfterHead, Goals, Out) :-
+    var(Binder),
+    nonvar(Nested),
+    \+ embedded_operation(Nested),
+    !,
+    substitute_written_variable(Binder, Nested, Template, Substituted),
+    translate_expr_dl(Substituted, AfterHead, AfterTemplate, Value),
+    %chain's declared result is `%Undefined%`, so what the template produced
+    %re-enters evaluation. The substituted operand can land in a MASKED
+    %position of the template and survive there unreduced, and this is the step
+    %that then reduces it: `!(chain (+ 1 2) $x (cons-atom $x (b)))` builds
+    %`((+ 1 2) b)` and answers `(3 b)` [measured 2026-08-24 against LeaTTa
+    %9ea9f9d].
+    masked_result_goal(Value, Out, Goal),
+    AfterTemplate = [Goal|Goals].
+%A stepped operand takes the ordinary binding route, and the SAME `%Undefined%`
+%result rule applies to what the template produced: building a term and
+%evaluating it inside the template leaves the built term's own masked operands
+%unreduced until here.
+%`!(chain (cons-atom cons-atom ((+ 1 2) (b))) $t (eval $t))` is `(3 b)`
+%[measured 2026-08-24 against LeaTTa 9ea9f9d].
 translate_special_dl(chain, Args, AfterHead, Goals, Out) :-
-    translate_let_dl(Args, AfterHead, Goals, Out).
+    translate_let_dl(Args, AfterHead, AfterTemplate, Value),
+    masked_result_goal(Value, Out, Goal),
+    AfterTemplate = [Goal|Goals].
 %let* reads its bindings as syntax and rewrites them into nested lets, so
 %bindings that have not arrived have none to read. That shape used to reach
 %letstar_to_rec_let/3's [] base clause, whose cut then committed to it: the
@@ -651,6 +749,7 @@ translate_special_dl(sealed, [Ignored, Expr], Goals, Goals, SealedExpr) :-
             ExprVariables, FreshVariables),
     copy_term(FreshVariables, Expr, FreshCopies, SealedExpr),
     runnable_note_copied_variables(FreshVariables, FreshCopies).
+
 
 translate_special_dl('forall', [Generator, Test], AfterHead, Goals, Out) :-
     ( is_list(Generator)
@@ -718,27 +817,37 @@ translate_special_dl('foldall', [Accumulator, Generator, InitialExpr],
 %examples/lambda.metta settles which is right: it binds $k outside a lambda,
 %reads it inside, and expects the value, so capturing is the specified
 %behaviour and these forms now share the predicate that implements it.
+%THE LIST AND THE SEED CROSS AS WRITTEN, which is what their declared types
+%say: `(: map-atom (-> Expression Variable Atom Expression))` and
+%`(: foldl-atom (-> Expression Atom Variable Variable Atom %Undefined%))` are
+%the arbiter's own rows, and Expression and Atom are both on the mask
+%[source: LeaTTa MettaHyperonFull/Core/Modifiers.lean:92-124,
+%`declaredTypeEvaluates`]. These three clauses evaluated both operands, so a
+%written call in the list position was REDUCED and its value mapped over,
+%where the arbiter maps over the parts of the call itself:
+%`!(map-atom (cdr-atom (a b)) $y (q $y))` is `((q cdr-atom) (q (a b)))` there
+%and was `((q b))` here, and `!(foldl-atom (1) (+ 1 2) $a $b (size-atom $a))`
+%is 3 there, the size of the held `(+ 1 2)`, and was a Number refusal here
+%[measured 2026-08-24 against LeaTTa 9ea9f9d].
+%
+%A caller that wants the value of a call in either position NAMES it first,
+%`(let $xs (collapse ...) (map-atom $xs ...))`, which is what the arbiter's own
+%stdlib writes and what this tree's corpus was rewritten to.
+%
+%No goal is emitted for either operand, so this is also strictly less work than
+%the evaluation it replaces.
 translate_special_dl('foldl-atom', [ListExpr, InitialExpr, AccVar, ItemVar,
                                     Body], AfterHead, Goals, Out) :-
-    translate_expr_to_conj(ListExpr, ListConj, List),
-    translate_expr_to_conj(InitialExpr, InitialConj, Initial),
     collection_closure([ItemVar, AccVar], Body, Closure),
-    exclude(==(true), [ListConj, InitialConj], PrefixGoals),
-    append(PrefixGoals, [foldl(Closure, List, Initial, Out)|Goals], AfterHead).
+    AfterHead = [foldl(Closure, ListExpr, InitialExpr, Out)|Goals].
 translate_special_dl('map-atom', [ListExpr, ItemVar, Body],
                      AfterHead, Goals, Out) :-
-    translate_expr_to_conj(ListExpr, ListConj, List),
     collection_closure([ItemVar], Body, Closure),
-    exclude(==(true), [ListConj], PrefixGoals),
-    append(PrefixGoals, [maplist(Closure, List, Out)|Goals], AfterHead).
+    AfterHead = [maplist(Closure, ListExpr, Out)|Goals].
 translate_special_dl('filter-atom', [ListExpr, ItemVar, Condition],
                      AfterHead, Goals, Out) :-
-    translate_expr_to_conj(ListExpr, ListConj, List),
     collection_closure([ItemVar], Condition, Closure),
-    exclude(==(true), [ListConj], PrefixGoals),
-    append(PrefixGoals,
-           [include(metta_condition_holds(Closure), List, Out)|Goals],
-           AfterHead).
+    AfterHead = [include(metta_condition_holds(Closure), ListExpr, Out)|Goals].
 
 translate_special_dl('|->', [Args, Body0], AfterHead, Goals, Out) :-
     %Apply every nested sealed's rename BEFORE deciding which variables are
@@ -752,7 +861,21 @@ translate_special_dl('|->', [Args, Body0], AfterHead, Goals, Out) :-
     next_lambda_name(Function),
     term_variables(Body, AllVars),
     term_variables(Args, ArgVars),
-    append(ArgVars, SealedLocals, NotFree),
+    %A variable the BODY ITSELF BINDS is not free either, and for the same
+    %reason a sealed one is not: captured, it becomes an extra argument of the
+    %lambda predicate, and the ONE closure term is then applied to every
+    %element of a map or a fold, so the first element's binding constrains the
+    %next. `(map-atom $xs (|-> ($v) (let $h (filter-atom $xs (|-> ($w)
+    %(< $v $w))) (q $h))))` captured `$h`, bound it to the first element's
+    %filter result, and answered nothing for the second
+    %[tested: tests/test_fuzz_define.py::test_collection_bridge_agrees].
+    %
+    %Nothing said so while a nested collection call was EVALUATED at the call
+    %site, because then no source wrote a binder into a lambda body: the
+    %evaluation mask reaching `Expression` list parameters is what makes a
+    %caller name its intermediate.
+    lambda_body_binders(Body, BodyBinders),
+    append([ArgVars, SealedLocals, BodyBinders], NotFree),
     exclude({NotFree}/[Var]>>memberchk_eq(Var, NotFree), AllVars, FreeVars),
     append(FreeVars, Args, FullArgs),
     translate_clause([=, [Function|FullArgs], Body], Clause),
@@ -1317,6 +1440,48 @@ seal_lambda_locals_list(Term, Sealed, Locals) :-
     ;   Sealed = Term, Locals = []
     ).
 
+%Every variable a lambda body BINDS for itself, so the free-variable analysis
+%above can leave it out of the capture set. One clause per binding form, and
+%the form's own head is the specification: `let` and `chain` bind their
+%pattern, `let*` binds every pair's pattern, the three collection forms bind
+%their binder variables, and a nested lambda binds its parameters. A form not
+%listed here binds nothing, which is the safe direction: the variable stays
+%captured and behaves exactly as it did.
+%
+%The walk is the body's whole term, because a binding form may sit anywhere in
+%it, and it deliberately does NOT rename: two occurrences of one name inside
+%one form are one variable, so a name used as a binder here is a local
+%throughout this body. `sealed` above renames instead, because its whole
+%purpose is to localise a name that IS used outside.
+lambda_body_binders(Term, Binders) :-
+    (   nonvar(Term), Term = [Head|_], atom(Head), lambda_binder_form(Term, Bound)
+    ->  term_variables(Bound, Own)
+    ;   Own = []
+    ),
+    (   nonvar(Term), Term = [_|_]
+    ->  lambda_body_binders_list(Term, Nested)
+    ;   Nested = []
+    ),
+    append(Own, Nested, Binders0),
+    term_variables(Binders0, Binders).
+
+lambda_body_binders_list([], []).
+lambda_body_binders_list([Head|Tail], Binders) :-
+    lambda_body_binders(Head, HeadBinders),
+    lambda_body_binders_list(Tail, TailBinders),
+    append(HeadBinders, TailBinders, Binders).
+
+lambda_binder_form([let, Pattern, _, _], Pattern).
+lambda_binder_form([chain, _, Pattern, _], Pattern).
+lambda_binder_form(['let*', Pairs, _], Patterns) :-
+    is_list(Pairs),
+    findall(Pattern, member([Pattern, _], Pairs), Patterns).
+lambda_binder_form(['map-atom', _, Binder, _], Binder).
+lambda_binder_form(['filter-atom', _, Binder, _], Binder).
+lambda_binder_form(['foldl-atom', _, _, Accumulator, Item, _],
+                   [Accumulator, Item]).
+lambda_binder_form(['|->', Parameters, _], Parameters).
+
 %Whether two terms have a variable in common. A let pattern is ordinarily one
 %variable, so settle that shape without building and walking a one-item list;
 %this offsets the fresh-output decision on the same compile path.
@@ -1397,3 +1562,140 @@ build_call_or_partial_dl(Fun, AVs, Out, Goals0, Goals, Extra) :-
       -> Out = partial(Fun, AVs),
          Goals0 = Goals
     ; Goals0 = [function_overapplication(Fun, AVs, Out)|Goals] ).
+
+%A branch that compiled to a goal has already been evaluated, exactly as an
+%equation body has, so only the goal-free non-ground branch takes the
+%continuation and every ordinary branch compiles to what it always did.
+unify_branch(Written, true, Value, Out, Branch) :-
+    \+ ground(Written),
+    !,
+    masked_result_goal(Value, Out, Branch).
+unify_branch(_, Conj, Value, Out, Branch) :-
+    build_branch(Conj, Value, Out, Branch).
+
+%THE EMBEDDED-OPERATION VOCABULARY, transcribed from the reference's own list
+%rather than inferred: the twelve reflected minimal forms plus the interpreter
+%operations that touch the threaded world, which are stepped for the same
+%reason they are not groundings there
+%[source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:331-346,
+%`embeddedOpNames` and `isEmbeddedOp`, whose header says keeping the names as
+%data "lets effect and coverage checks follow the same dispatch boundary as the
+%interpreter"; the transcription is complete, so a name this engine has no
+%operation for simply never matches].
+%
+%Two decisions read it. A `chain` operand it names is EXECUTED and one it does
+%not is data, which is why `!(chain (+ 1 2) $x (quote $x))` keeps the sum
+%unreduced while `!(chain (cons-atom a (b)) $x (quote $x))` does not. An
+%Atom-returning equation whose body it names still RUNS that body, which is the
+%`!isEmbeddedOp` guard the reference records
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:800-808, "guarded by
+%`!isEmbeddedOp` so a bare `(chain …)` function body is still run"].
+%
+%Every name here and eleven names outside it were each measured on LeaTTa
+%9ea9f9d on 2026-08-24, one probe per head, and the measured split is this
+%list exactly: `car-atom`, `index-atom`, `union-atom`, `format-args`, `==`,
+%`if-equal`, `noeval`, `quote`, `collapse`, `superpose` and arithmetic are all
+%data, and `new-state` is data while `_new-state` is named here.
+embedded_operation(Term) :-
+    nonvar(Term),
+    Term = [Head|_],
+    atom(Head),
+    embedded_operation_head(Head).
+
+%THE SHAPE THE RESULT CONTINUATION IS EMITTED IN, and the inline test in front
+%of it is what keeps the rule off the arithmetic path. Only a COMPOUND answer
+%can hold a redex, so a scalar is handed straight back by a test the VM decides
+%and no inference is raised: `car-atom` in a counting loop answers a number a
+%million times and the loop stays at its shipped inference baseline
+%[measured 2026-08-24: let-heavy 16,002,687 inferences with a bare call against
+%13,002,567 with this guard, on a 13,002,562 baseline].
+%
+%THE COMMON CASE IS THE `then` BRANCH, and the order was measured rather than
+%chosen: with the compound test first and the scalar in the `else`, the same
+%loop retires 7,693,833,487 instructions against 7,612,826,746 this way round,
+%1.05% for reversing two branches [measured 2026-08-24, min of three]. What
+%remains over the 7,541,707,255 the unchanged engine retires is one extra goal
+%and one extra variable in a clause the loop runs a million times, which is
+%what the result rule costs where an operation's answer could be an expression.
+%
+%`Produced` is always bound by the goal above it, and a partial application is
+%compound, so it takes the call and is handed back unchanged by it.
+
+
+masked_result_goal(Produced, Out,
+                   (   atomic(Produced)
+                   ->  Out = Produced
+                   ;   metta_masked_result(Produced, Out)
+                   )).
+
+%The one head that is a FRAME rather than a value, so an Atom-returning
+%equation whose body is one still runs it.
+function_frame_body(Term) :-
+    nonvar(Term),
+    Term = [function, _].
+
+embedded_operation_head(eval).
+embedded_operation_head(evalc).
+embedded_operation_head(chain).
+embedded_operation_head(unify).
+embedded_operation_head('unify%').
+embedded_operation_head('cons-atom').
+embedded_operation_head('decons-atom').
+embedded_operation_head(function).
+embedded_operation_head('collapse-bind').
+embedded_operation_head('superpose-bind').
+embedded_operation_head(metta).
+embedded_operation_head('metta-thread').
+embedded_operation_head(capture).
+embedded_operation_head('context-space').
+embedded_operation_head('pragma!').
+embedded_operation_head(match).
+embedded_operation_head('get-metatype').
+embedded_operation_head('get-type').
+embedded_operation_head('get-type-space').
+embedded_operation_head('_new-state').
+embedded_operation_head('get-state').
+embedded_operation_head('change-state!').
+embedded_operation_head('new-space').
+embedded_operation_head('new-mork-space').
+embedded_operation_head('fork-space').
+embedded_operation_head('add-atom').
+embedded_operation_head('remove-atom').
+embedded_operation_head('get-atoms').
+embedded_operation_head('bind!').
+embedded_operation_head('import!').
+embedded_operation_head('import-into!').
+embedded_operation_head('import-item!').
+embedded_operation_head(include).
+embedded_operation_head('mod-space!').
+embedded_operation_head('git-import!').
+embedded_operation_head('git-module!').
+embedded_operation_head('module-space-no-deps').
+embedded_operation_head('print-mods!').
+embedded_operation_head('module-tree!').
+embedded_operation_head('loaded-mods!').
+embedded_operation_head('println!').
+embedded_operation_head('trace!').
+embedded_operation_head('skel-swap-pair-native').
+embedded_operation_head('match%').
+embedded_operation_head(sealed).
+embedded_operation_head('fuzzy-match-space').
+embedded_operation_head('fuzzy-match-context').
+
+%Replace every occurrence of one written variable, leaving every other variable
+%shared with the surrounding clause. copy_term/2 cannot do this: it renames the
+%template's OTHER variables too, and those are the equation's own.
+substitute_written_variable(Variable, Value, Term, Substituted) :-
+    (   Term == Variable
+    ->  Substituted = Value
+    ;   var(Term)
+    ->  Substituted = Term
+    ;   is_list(Term)
+    ->  maplist(substitute_written_variable(Variable, Value), Term, Substituted)
+    ;   compound(Term)
+    ->  Term =.. [Functor|Arguments],
+        maplist(substitute_written_variable(Variable, Value), Arguments,
+                Substituted0),
+        Substituted =.. [Functor|Substituted0]
+    ;   Substituted = Term
+    ).

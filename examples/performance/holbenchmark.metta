@@ -1,9 +1,18 @@
 (= (map-flat $f ()) ())
-(= (map-flat $f (cons $x $xs)) (cons ($f $x) (map-flat $f $xs)))
+;The recursive tail is SEQUENCED before the cons. `cons` is `cons-atom`'s
+;un-suffixed spelling and its tail parameter is declared `Expression`, so the
+;operation receives that operand AS WRITTEN; a `let` names the mapped tail
+;first and hands the value over, which is how the reference's own stdlib
+;writes every list rebuild [source: LeaTTa MettaHyperonFull/Minimal/
+;Stdlib.lean:2701-2709, `map-atom`, whose recursive call is bound by a `chain`
+;before `cons-atom` sees it].
+(= (map-flat $f (cons $x $xs))
+   (let $head ($f $x)
+     (let $rest (map-flat $f $xs) (cons $head $rest))))
 
 (= (range $n)
    (if (== $n 0) ()
-       (cons $n (range (- $n 1)))))
+       (let $rest (range (- $n 1)) (cons $n $rest))))
 
 ;These million-step benchmark kernels state a finite budget above the
 ;evaluator's 100000 default.
@@ -21,7 +30,8 @@
 
 (= (deep-nest $n)
    (if (== $n 0) ()
-       (cons (range 50) (deep-nest (- $n 1)))))
+       (let $row (range 50)
+         (let $rest (deep-nest (- $n 1)) (cons $row $rest)))))
 
 !(test (with-pragma! ((max-stack-depth 100000000))
                      (fold-nested + 0 (deep-nest 20000)))

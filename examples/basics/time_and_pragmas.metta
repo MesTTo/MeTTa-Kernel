@@ -28,7 +28,13 @@
 ;;; elapsed answers (Value Seconds), so timing a call does not mean writing
 ;;; the clock by hand. Only the value is asserted here; the duration is real
 ;;; but not reproducible enough to assert on.
-!(test (car-atom (elapsed (spin 100))) done)
+;The value is NAMED before the family operation reads it. `car-atom` and
+;`size-atom` declare `Expression` parameters, so the operand reaches them AS
+;WRITTEN; a `let` runs the form first and hands the answer over. The
+;demonstration is unchanged, and so is the expected value
+;[measured 2026-08-24: `!(let $v ((+ 1 2) b) (car-atom $v))` is 3 on LeaTTa
+;9ea9f9d and on this engine].
+!(test (let $timed (elapsed (spin 100)) (car-atom $timed)) done)
 
 ;;; sleep answers True, so it sequences with let like any other side effect.
 !(test (sleep 0.01) True)

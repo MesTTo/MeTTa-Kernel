@@ -573,6 +573,26 @@ reduce([F|Args], Out, Status) :- !,
         seam:grounded_apply(F, Args, Applied)
     ->  Out = Applied,
         Status = reduced
+    ;   % --- Case 3b: a WRITTEN LAMBDA head ---
+        % A parameter declared `Expression` or `Atom` hands its operand over AS
+        % WRITTEN, so a variable-headed call site can receive the `(|-> ...)`
+        % term itself where an evaluated operand used to arrive already
+        % compiled. The arbiter applies exactly this shape: with
+        % `(: apply-two (-> Number Number Expression Number))` and
+        % `(= (apply-two $x $y $f) ($f $x $y))`,
+        % `!(apply-two 10 20 (|-> ($x $y) (+ $x $y)))` is 30 there and was the
+        % unapplied `((|-> ($x $y) (+ $x $y)) 10 20)` here
+        % [measured 2026-08-24 against LeaTTa 9ea9f9d;
+        % source: LeaTTa tests/regression/lambda.metta].
+        %
+        % Compiling it is one eval, and then this predicate's own partial case
+        % applies it, so nothing about applying a lambda is special here. The
+        % test sits AFTER the grounded case so the ordinary data head still
+        % leaves through one atomic/1, which is the alpha-unique benchmark's
+        % hot path.
+        nonvar(F), F = ['|->'|_],
+        written_lambda_closure(F, Closure)
+    ->  reduce([Closure|Args], Out, Status)
     ;   % --- Case 4: leave unevaluated ---
         Out = [F|Args],
         acyclic_term(Out),
@@ -580,6 +600,73 @@ reduce([F|Args], Out, Status) :- !,
     ).
 reduce(Culprit, _, _) :-
     throw_metta_type_error(reduce, list, Culprit).
+
+%ONE COMPILED PREDICATE PER WRITTEN LAMBDA, however many times it is applied.
+%Compiling on every application asserted a fresh lambda_N/2 each time: 200
+%applications of one written `(|-> ($a $b) (+ $a $b))` left 200 predicates
+%behind [measured 2026-08-24]. Only a masked operand can deliver a lambda in
+%this shape, so nothing paid this before the evaluation mask reached written
+%calls.
+%
+%variant_sha1/2 is the key because two applications differ only in their
+%variable identities, and it indexes: a linear scan comparing =@= would make
+%the table's own size the cost of using it.
+%
+%THE RESIDUAL, stated rather than hidden: a lambda whose CAPTURED VALUE differs
+%per application is a different term and compiles again, so a body that builds
+%a lambda from each element still grows the table with the number of distinct
+%captures. What is bounded is applications, which is the shape a fold or a map
+%over one operator has.
+%The TERM is stored beside its closure, and a hit copies the pair and unifies
+%the copy's term with the caller's. A compiled lambda that captures a free
+%variable holds THAT variable, so handing the stored closure straight back
+%would bind the term this table was filled from rather than the one being
+%applied; unifying through a copy maps the captures onto the caller's own
+%variables, which is what makes one entry serve every variant.
+:- dynamic compiled_written_lambda/4.
+
+%KEYED BY MODULE, because the lambda's clause is asserted into the space that
+%compiled it, the way every other compiled equation is. Keyed on the term
+%alone, a lambda first applied in one space came back in another as a predicate
+%that space cannot see, and the application answered the unrun
+%`(lambda_2 (0.0 x))` instead of the weight
+%[tested: bindings/python/tests/test_measure.py::test_ws_total_and_normalize].
+%
+%AND CHECKED BEFORE IT IS USED, rather than invalidated from every door that
+%can retire a compiled predicate. A space whose module is torn down leaves its
+%lambdas behind as names nothing defines, and a recycled space NAME reaches a
+%fresh module: asking whether the cached predicate is still there answers both
+%at once, and next_lambda_name/1 counts in a process-global flag so a live
+%predicate of that name is always the one this row compiled
+%[tested: test_a_recycled_space_name_inherits_no_clauses_from_its_past_life].
+written_lambda_closure(Written, Closure) :-
+    current_metta_module(Module),
+    variant_sha1(Written, Key),
+    (   compiled_written_lambda(Module, Key, Template, Cached),
+        compiled_lambda_live(Module, Cached)
+    ->  copy_term(Template-Cached, Written-Closure)
+    ;   retractall(compiled_written_lambda(Module, Key, _, _)),
+        once(eval(Written, Compiled)),
+        Compiled \== Written,
+        assertz(compiled_written_lambda(Module, Key, Written, Compiled)),
+        Closure = Compiled
+    ).
+
+%A CLAUSE, not merely a name, for the reason super_defines/3 gives: retractall/1
+%on a predicate that has none leaves it DEFINED and empty, and that is what a
+%space clearing its module leaves behind while a transaction defers the
+%abolish. Asking only current_predicate/1 there reused a lambda whose clauses
+%were gone and the application simply failed, intermittently, because whether
+%the abolish had run depended on the transaction
+%[tested: test_a_recycled_space_name_inherits_no_clauses_from_its_past_life].
+compiled_lambda_live(Module, Cached) :-
+    ( Cached = partial(Function, _) -> true ; Function = Cached ),
+    atom(Function),
+    current_predicate(Module:Function/Arity),
+    functor(Head, Function, Arity),
+    \+ predicate_property(Module:Head, imported_from(_)),
+    predicate_property(Module:Head, number_of_clauses(Clauses)),
+    Clauses > 0.
 
 
 %Calling reduce from aggregate function foldall needs this argument wrapping
@@ -903,7 +990,7 @@ call_site_type_chains(Fun, UniqueTypeChains) :-
     ;   findall(Masked,
                 ( seam:builtin_type_declaration(Fun, Chain),
                   chain_masks_an_argument(Chain),
-                  atom_positions_only(Chain, Masked) ),
+                  mask_positions_only(Chain, Masked) ),
                 MaskedChains),
         list_to_set(MaskedChains, UniqueTypeChains)
     ).
@@ -1026,28 +1113,116 @@ data_head_masks(HV, Args, ArgTypes) :-
 %the measurement above is what that costs.
 :- dynamic masking_data_head/2.
 
+%Both indexes come off the same register in one pass, so neither can be built
+%against a surface the other did not see; the loader's own note says why an
+%empty index is a silent loss rather than a slow start.
+index_builtin_masks :-
+    index_masking_data_heads,
+    index_builtin_call_masks.
+
 index_masking_data_heads :-
     retractall(masking_data_head(_, _)),
     forall(( seam:builtin_type_declaration(Name, Chain),
              chain_masks_an_argument(Chain),
-             atom_positions_only(Chain, [->|Masked]),
+             mask_positions_only(Chain, [->|Masked]),
              append(ArgTypes, [_], Masked) ),
            ( masking_data_head(Name, ArgTypes)
              -> true
              ;  assertz(masking_data_head(Name, ArgTypes)) )).
 
+%The admission test and the projection have to move together: this one decides
+%WHETHER a chain is indexed at all, and mask_positions_only/2 below decides
+%WHICH of its positions survive. Widening only the projection would change
+%nothing, because a chain whose sole masking parameter is Expression would
+%never be admitted here to be projected.
 chain_masks_an_argument([->|Types]) :-
     append(Args, [_], Types),
-    memberchk('Atom', Args).
+    member(Arg, Args),
+    non_evaluated_parameter_type(Arg),
+    !.
 
-atom_positions_only([->|Types], [->|Masked]) :-
+%Everything the mask does NOT hold back is degraded to %Undefined%, which
+%evaluates and carries no check, so projecting a chain here can only ever
+%suppress an argument evaluation and never add a refusal this register did not
+%already make.
+mask_positions_only([->|Types], [->|Masked]) :-
     append(Args, [Out], Types), !,
-    maplist(atom_position_or_undefined, Args, MaskedArgs),
+    maplist(masked_position_or_undefined, Args, MaskedArgs),
     append(MaskedArgs, [Out], Masked).
-atom_positions_only(Chain, Chain).
+mask_positions_only(Chain, Chain).
 
-atom_position_or_undefined(T, Masked) :-
-    ( T == 'Atom' -> Masked = 'Atom' ; Masked = '%Undefined%' ).
+masked_position_or_undefined(T, Masked) :-
+    ( non_evaluated_parameter_type(T) -> Masked = T ; Masked = '%Undefined%' ).
+
+%THE EVALUATION MASK OF A WRITTEN BUILTIN CALL, which is the half of the
+%arbiter's typed dispatch the function path above could not read. `argMask`
+%takes the operator's declared signature and answers one boolean per argument
+%[source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:3767-3784]; this
+%index is that signature, and translate_call_args_dl/6 is that answer applied.
+%
+%Only chains that actually mask something are indexed, so the lookup below is
+%one indexed failure for every ordinary builtin and the walk it guards is the
+%one that was already there.
+:- dynamic builtin_call_mask/2.
+
+index_builtin_call_masks :-
+    retractall(builtin_call_mask(_, _)),
+    forall(( seam:builtin_type_declaration(Name, [->|Types]),
+             once(( seam:builtin_type_declaration(Name, Masking),
+                    chain_masks_an_argument(Masking) )) ),
+           ( builtin_call_mask(Name, Types)
+             -> true
+             ;  assertz(builtin_call_mask(Name, Types)) )).
+
+%`arrowParams ts arity` presents the declared parameters when the arrow fits
+%the call and falls back to the RAW post-arrow list when it does not, and the
+%mask reads position i of whichever list it got. Both cases are the same
+%sentence: take the first `arity` entries of the post-arrow list, and evaluate
+%any position past its end. That fallback is not an accident of the reference
+%implementation, it is what makes a closure-taking overload mask: `map-atom`'s
+%first declared arrow is the three-argument one, so a two-argument call reads
+%`Expression` and `Variable` off the raw list and holds BOTH back, which is
+%what a call whose second argument is a function needs
+%[source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:3735-3744 and
+%3775-3784; measured 2026-08-24, `!(get-type map-atom)` on LeaTTa 9ea9f9d
+%answers the three-argument arrow first].
+%
+%Where several arrows are declared, one whose arity FITS is preferred over the
+%first. The reference takes the first unconditionally and guards the choice
+%with a build-time agreement test rather than defending it
+%[source: LeaTTa MettaHyperonFullTests/MultiArrowAgreement.lean:23-31, "at
+%which point `argMask` and `returnsAtom` need an order ruling rather than a
+%convention"]; this register carries genuinely different-arity rows for
+%`new-space`, `py-atom` and `Kwargs`, so the fitting arrow is read where there
+%is one and the reference's own fallback is used where there is not.
+%The caller has already asked the index, so this runs only for a name that
+%masks something.
+builtin_argument_mask(Fun, Args, ParameterTypes, ResultType) :-
+    \+ metta_builtin_overridden(Fun),
+    length(Args, Arity),
+    (   builtin_call_mask(Fun, Types),
+        length(Types, Count),
+        Count =:= Arity + 1
+    ->  length(ParameterTypes, Arity),
+        append(ParameterTypes, [ResultType], Types)
+    ;   once(builtin_call_mask(Fun, Presented)),
+        mask_prefix(Presented, Arity, ParameterTypes),
+        %An arrow the call's arity does not fit declares nothing about this
+        %call's result, so the result stays where it was produced.
+        ResultType = 'Atom'
+    ),
+    memberchk_masked(ParameterTypes).
+
+mask_prefix(_, 0, []) :- !.
+mask_prefix([], Arity, ['%Undefined%'|Rest]) :- !,
+    Remaining is Arity - 1,
+    mask_prefix([], Remaining, Rest).
+mask_prefix([T|Ts], Arity, [T|Rest]) :-
+    Remaining is Arity - 1,
+    mask_prefix(Ts, Remaining, Rest).
+
+memberchk_masked([T|Ts]) :-
+    ( non_evaluated_parameter_type(T) -> true ; memberchk_masked(Ts) ).
 
 %A BUILTIN CALL WHOSE DECLARED TYPES ALREADY REFUSE IT does not run its
 %arguments.
@@ -1114,9 +1289,32 @@ functioncall_dl(Fun, Chains, Args, IsPartial, Bound, Out, Goals0, Goals) :-
     (   typed_functioncall_dl(Fun, Chains, Args, IsPartial, Bound, Out,
                               Goals0, Goals)
     ->  true
-    ;   translate_call_args_dl(Args, Goals0, AfterArgs, AVs, Evaluated),
+    ;   translate_call_args_dl(Fun, Args, Goals0, AfterArgs, AVs, Evaluated,
+                               ResultType),
         ( IsPartial -> append(Bound, AVs, AllAVs) ; AllAVs = AVs ),
-        build_call_or_partial_dl(Fun, AllAVs, Out, CallGoals, [], []),
+        (   ( ResultType == '%Undefined%' ; ResultType == 'Expression' )
+        ->  masked_result_goal(Produced, Out, ResultGoal),
+            Continue = [ResultGoal]
+        ;   Produced = Out,
+            Continue = []
+        ),
+        %The continuation is the CALL's tail rather than the guard's, so an
+        %operand that already held an error still answers that error directly:
+        %an error is the result, not a value to evaluate again.
+        build_call_or_partial_dl(Fun, AllAVs, Produced, CallGoals, Continue, []),
         undeclared_call_operands(Fun, Evaluated, Guarded),
         guard_error_arguments(Guarded, Out, CallGoals, AfterArgs, Goals)
     ).
+
+%A declared result type that is not the metatype `Atom` sends the value it
+%produced back through evaluation; `Atom` answers it as produced. This is
+%`returnsAtom`, and the two views that re-enter are the two the source
+%self-interpreter names [source: LeaTTa
+%MettaHyperonFull/Minimal/Interpreter.lean:3786-3799 and
+%MettaHyperonFull/Minimal/Stdlib.lean:4370-4381].
+%
+%A DATA-typed result is left alone rather than sent round again. It is already
+%a value: `!(size-atom ((+ 1 2) b))` answers the number 2 on both engines, and
+%re-entering evaluation with a number is not an evaluation at all. Restricting
+%the continuation to the two metatype views keeps every data-typed builtin's
+%own runtime contract, which the register deliberately spells per operation.

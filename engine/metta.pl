@@ -649,8 +649,8 @@ load_builtin_type_surface :-
     %initialization, because two initialization/1 goals do not reliably order
     %against each other and an empty index is a silent loss: a constructor like
     %Error would quietly evaluate the argument it exists to carry.
-    index_masking_data_heads.
-load_builtin_type_surface :- index_masking_data_heads.
+    index_builtin_masks.
+load_builtin_type_surface :- index_builtin_masks.
 
 %%%%%%%%%% The engine's prelude %%%%%%%%%%
 %
@@ -722,7 +722,11 @@ load_builtin_type_surface :- index_masking_data_heads.
 %their own module already, the builtin-override rule.
 evict_prelude_definition(FAtom) :-
     (   retract(prelude_owned(FAtom))
-    ->  forall(retract(prelude_clause_ref(FAtom, Ref)), erase(Ref)),
+    ->  %Read before the declarations go, for the reason the write door reads
+        %it before it stores: it is the state the compiled clauses were built
+        %under.
+        result_finality(FAtom, Before),
+        forall(retract(prelude_clause_ref(FAtom, Ref)), erase(Ref)),
         retract_prelude_declarations(FAtom),
         retractall(prelude_doc_atom(FAtom, _)),
         retractall(prelude_equation(FAtom, _)),
@@ -731,8 +735,10 @@ evict_prelude_definition(FAtom) :-
         ;   true
         ),
         %The prelude is the base tier's, so its eviction is &self's change.
+        %An eviction takes the prelude's DECLARATION away with its equations,
+        %so it reaches the same two directions a declaration write does.
         metta_self_module(Self),
-        announce_function_changed(Self, FAtom)
+        announce_declaration_changed(Self, FAtom, Before)
     ;   true
     ).
 
@@ -847,14 +853,17 @@ load_prelude_form(expression, _, Term) :-
 %registration can never point at somebody else's equations.
 load_prelude_form(runnable, Src, ['add-translator-rule!', Name]) :-
     atom(Name), !,
-    (   prelude_owned(Name)
-    ->  'add-translator-rule!'(Name, _),
-        (   prelude_translator_rule(Name) -> true
-        ;   assertz(prelude_translator_rule(Name))
-        )
-    ;   throw(error(existence_error(prelude_definition, Name),
-                    context(load_engine_prelude/0, Src)))
-    ).
+    load_prelude_translator_rule(Name, [], Src).
+%The DECLARED registration is the same shape carrying the rule's own
+%properties, which are declarations about the rule rather than execution: a
+%prelude rule whose expansion introduces `let` binders says so with
+%`extra-variables-exempt`, exactly as lib_spaces.metta's succeedsPredicate
+%does, and the metatheory lane then reports the exemption with its reason
+%instead of recording the rule as not established.
+load_prelude_form(runnable, Src, ['add-translator-rule!', Name, Declarations]) :-
+    atom(Name), is_list(Declarations), !,
+    load_prelude_translator_rule(Name, Declarations, Src).
+
 load_prelude_form(function, _, Term) :-
     Term = [=, [FAtom|W], _], atom(FAtom), !,
     length(W, N),
@@ -877,6 +886,19 @@ load_prelude_form(function, _, Term) :-
 load_prelude_form(Kind, Src, _) :-
     throw(error(domain_error(prelude_form, Kind),
                 context(load_engine_prelude/0, Src))).
+
+load_prelude_translator_rule(Name, Declarations, Src) :-
+    (   prelude_owned(Name)
+    ->  (   Declarations == []
+        ->  'add-translator-rule!'(Name, _)
+        ;   'add-translator-rule!'(Name, Declarations, _)
+        ),
+        (   prelude_translator_rule(Name) -> true
+        ;   assertz(prelude_translator_rule(Name))
+        )
+    ;   throw(error(existence_error(prelude_definition, Name),
+                    context(load_engine_prelude/0, Src)))
+    ).
 
 %fun/1 is the exact mutable input petta_py_builtins/1 reads. SWI maintains a
 %dynamic predicate's last_modified_generation for cache validation, including

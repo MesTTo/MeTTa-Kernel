@@ -30,5 +30,10 @@
 !(test (collapse (soft-match &zoo (likes feline fish) 0.5)) ((0.8 (likes cat fish))))
 !(test (soft-best &zoo (likes feline fish)) (likes cat fish))
 ;Attention over terms: every candidate scored, softmaxed into a distribution.
-!(test (size-atom (collapse (soft-match &zoo (likes $x $y) 0.0))) 3)
+;The Python value is NAMED before the family operation reads it: `car-atom`,
+;`cdr-atom`, `size-atom` and `index-atom` all declare `Expression`
+;parameters, so the operand reaches them AS WRITTEN.
+!(test (let $answers (collapse (soft-match &zoo (likes $x $y) 0.0))
+         (size-atom $answers))
+       3)
 !(test (< (abs-math (- (ws-total (ws-softmax (collapse (soft-match &zoo (likes feline $f) 0.0)) 1.0)) 1.0)) 1.0e-9) true)

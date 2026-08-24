@@ -388,25 +388,36 @@ test(acyclic_binding_keeps_let_semantics,
 
 derived_form(['trace!', 1, 2],
              [progn, ['println!', 1], 2]).
+%The five stream forms SEQUENCE their operands: the set operations declare
+%`Expression` parameters, so each collapsed answer set is named before the
+%operation that reads it. The expansions are written here the way the prelude
+%writes them, because this test's whole content is that the two agree.
 derived_form([unique, [superpose, [a, a]]],
-             [call, [superpose,
-                     ['unique-atom', [collapse, [superpose, [a, a]]]]]]).
+             [let, Collapsed, [collapse, [superpose, [a, a]]],
+                   [let, Kept, ['unique-atom', Collapsed],
+                         [superpose, Kept]]]).
 derived_form(['alpha-unique', [superpose, [a, a]]],
-             [call, [superpose,
-                     ['alpha-unique-atom',
-                      [collapse, [superpose, [a, a]]]]]]).
+             [let, Collapsed, [collapse, [superpose, [a, a]]],
+                   [let, Kept, ['alpha-unique-atom', Collapsed],
+                         [superpose, Kept]]]).
 derived_form([union, [superpose, [a]], [superpose, [b]]],
-             [call, [superpose,
-                     ['union-atom', [collapse, [superpose, [a]]],
-                                    [collapse, [superpose, [b]]]]]]).
+             [let, Left, [collapse, [superpose, [a]]],
+                   [let, Right, [collapse, [superpose, [b]]],
+                         [let, Combined,
+                               ['union-atom', Left, Right],
+                               [superpose, Combined]]]]).
 derived_form([intersection, [superpose, [a]], [superpose, [b]]],
-             [call, [superpose,
-                     ['intersection-atom', [collapse, [superpose, [a]]],
-                                           [collapse, [superpose, [b]]]]]]).
+             [let, Left, [collapse, [superpose, [a]]],
+                   [let, Right, [collapse, [superpose, [b]]],
+                         [let, Combined,
+                               ['intersection-atom', Left, Right],
+                               [superpose, Combined]]]]).
 derived_form([subtraction, [superpose, [a]], [superpose, [b]]],
-             [call, [superpose,
-                     ['subtraction-atom', [collapse, [superpose, [a]]],
-                                          [collapse, [superpose, [b]]]]]]).
+             [let, Left, [collapse, [superpose, [a]]],
+                   [let, Right, [collapse, [superpose, [b]]],
+                         [let, Combined,
+                               ['subtraction-atom', Left, Right],
+                               [superpose, Combined]]]]).
 %True and False reach the engine as the Prolog atoms true and false
 %[source: engine/parser.pl], so the expansions are written that way here.
 derived_form(['and-then', [>, 2, 1], ok], [if, [>, 2, 1], ok, false]).

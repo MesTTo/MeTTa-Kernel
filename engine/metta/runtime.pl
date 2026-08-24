@@ -10,8 +10,14 @@
 
 prolog:error_message(petta_test_failed(Actual, Expected)) -->
     [ 'MeTTa test failed: ~p does not match ~p'-[Actual, Expected] ].
+%The form is a MeTTa term, so it is rendered as MeTTa text. ~p on the Prolog
+%list prints `[==,[collapse,[eval,[+,1,1]]],[collapse,[eval,3]]]`, which is the
+%engine's storage and not what the program wrote. Nothing rendered a list here
+%until assert/2 began reporting its operand as WRITTEN rather than the True or
+%False it used to receive.
 prolog:error_message(petta_assertion_failed(Goal)) -->
-    [ 'MeTTa assertion failed: ~p'-[Goal] ].
+    { sdisplay(Goal, Written) },
+    [ 'MeTTa assertion failed: ~w'-[Written] ].
 prolog:error_message(petta_test_no_answer) -->
     [ 'MeTTa test expression produced no answer'-[] ].
 
@@ -207,15 +213,36 @@ test_answer_value(Results, Results).
 'test-no-answer'(Results, Out) :-
     test(Results, [], Out).
 
-%Resolved in the calling space's module for the same reason callPredicate/2 is:
-%the goal may name a function the space itself defines, and those clauses are
-%in that module and nowhere else.
-assert(Goal, true) :- current_metta_module(Module),
-                      ( call(Module:Goal) -> true
-                                    ; sdisplay(Goal, RG),
-                                      format("Assertion failed: ~w~n", [RG]),
-                                      throw(error(petta_assertion_failed(Goal),
-                                                  context(assert/2, 'MeTTa assertion failed'))) ).
+%The operand crosses UNEVALUATED, because `(: assert (-> Atom (->)))` is the
+%arbiter's own declaration for this name
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:1020]. So the evaluation
+%is this predicate's to make, and what it can report is the form as WRITTEN:
+%`!(assert (== 1 2))` answers `(Error (assert (== 1 2)) ((== 1 2) not True))`
+%on the arbiter and throws here naming that same `(== 1 2)`
+%[measured 2026-08-24 against LeaTTa 9ea9f9d].
+%
+%Before the mask reached written builtin calls the operand arrived already
+%reduced and this called the resulting `True`/`False` as a Prolog goal. Once the
+%declaration was honoured that call received a LIST, which SWI reads as a
+%consult list: `!(assertEqual (+ 1 1) 3)` printed
+%`source_sink '==' does not exist` three times and then answered true for a
+%false assertion.
+%
+%eval/2 resolves in the calling space's module, which is what the old
+%call(Module:Goal) was for: the form may name a function the space itself
+%defines and those clauses are in that module and nowhere else. It is also
+%nondeterministic in the operand's answers, so a form with several answers is
+%checked once per answer, which is what the caller's own argument evaluation
+%did before.
+assert(Form, true) :-
+    eval(Form, Value),
+    (   Value == true
+    ->  true
+    ;   sdisplay(Form, Written),
+        format("Assertion failed: ~w~n", [Written]),
+        throw(error(petta_assertion_failed(Form),
+                    context(assert/2, 'MeTTa assertion failed')))
+    ).
 
 %%% The running space: %%%
 % (context-space) answers the space whose module the current goal runs in,

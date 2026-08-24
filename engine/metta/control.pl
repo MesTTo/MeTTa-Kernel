@@ -646,9 +646,31 @@ petta_set_state(Var, Value) :-
 %expression came from source, and a runtime-built term keeps its literal
 %atoms, the same boundary stored data has. A substitution walk here re-ran
 %the reader's work on every eval and found nothing.
+%
+%AN `Empty` RESULT IS NO RESULT, and eval is where a nested evaluation says so.
+%The runnable path already prunes it, through petta_prune_empty_answers/2, but
+%a nested `eval`, and therefore `evalc` and `metta` over it, handed the symbol
+%back as an ordinary value; a caller collecting those answers then saw one
+%where the arbiter sees none. Measured 2026-08-24 against LeaTTa 9ea9f9d with
+%`(= (f a) A)` and `(= (f $x) Empty)`:
+%`!(collapse-bind (metta (f b) %Undefined% &self))` is `()` there and was
+%`((Empty (bindings)))` here, and `!(collapse-bind (metta (f a) %Undefined%
+%&self))` is `((A (bindings)))` there against `((A (bindings)) (Empty
+%(bindings)))` here.
+%
+%Failing rather than filtering is the whole mechanism: eval is
+%nondeterministic, so a pruned branch simply does not answer, which is what
+%"removes it from the result" means [source: LeaTTa
+%MettaHyperonFull/Minimal/Interpreter.lean:5531-5537, `bareEmptyItem`, "A
+%finished `Empty` frame denotes no bare-machine result"].
+%
+%The test is ==/2 rather than unification, so an eval whose answer is still an
+%unbound variable is not mistaken for Empty; that is the same identity test
+%petta_prune_empty_answers/2 documents.
 eval(C0, Out) :- translate_runnable_expr(C0, Goals, Out),
                  current_metta_module(Module),
-                 call_goals_in_(Module, Goals).
+                 call_goals_in_(Module, Goals),
+                 Out \== 'Empty'.
 
 %evalc is eval in a space you name, the counterpart to context-space, which
 %reports the space eval is already running in. Naming the space is the only
@@ -688,18 +710,59 @@ call_goals_in_(Module, [G|Gs]) :- call(Module:G),
                                   call_goals_in_(Module, Gs).
 
 %%% Higher-Order Functions: %%%
+%THE OPERATOR ARRIVES AS WRITTEN. The closure spelling of these three declares
+%it `Expression`, which is on the evaluation mask, so a written
+%`(|-> ($y) (q $y))` reaches here as the three-element term the reader built
+%rather than as the partial the call site used to evaluate it into
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean,
+%(: map-atom (-> Expression Expression Expression))]. reduce/3 dispatches on an
+%ATOM head and left the application standing as data, so the map answered
+%`((|-> ($y) (q $y)) cdr-atom)` where the arbiter answers `(q cdr-atom)`.
+%
+%Compiled ONCE at the door rather than per element, so the applications below
+%stay the reduce/3 calls they were and a 100,000-element map pays one
+%translation instead of 100,000.
+%A written lambda goes through the compiled-lambda table, so one operator
+%compiles once however many maps or folds apply it; every other written
+%operator, a curried `(+ 1)` among them, evaluates to a partial and asserts
+%nothing.
+collection_operator(Written, Operator) :-
+    (   nonvar(Written), Written = ['|->'|_]
+    ->  written_lambda_closure(Written, Operator)
+    ;   is_list(Written)
+    ->  once(eval(Written, Operator))
+    ;   Operator = Written
+    ).
+
+%The OPERATOR is a guarded input like the list: unbound, it is a call whose
+%target is decided by nothing, and the three used to build `(_ a)` shaped data
+%out of it rather than saying so
+%[tested: builtin_input_guards:every_builtin_refuses_an_unbound_input_by_name].
 'foldl-atom'(L, _, _, _) :- var(L), !, refuse_unbound_input('foldl-atom', 1).
-'foldl-atom'([], Acc, _Func, Acc).
-'foldl-atom'([H|T], Acc0, Func, Out) :- reduce([Func,Acc0,H], Acc1, _),
-                                        'foldl-atom'(T, Acc1, Func, Out).
+'foldl-atom'(_, _, Func, _) :- var(Func), !,
+                               refuse_unbound_input('foldl-atom', 3).
+'foldl-atom'(L, Acc0, Func, Out) :- collection_operator(Func, Operator),
+                                    foldl_atom_(L, Acc0, Operator, Out).
+
+foldl_atom_([], Acc, _Operator, Acc).
+foldl_atom_([H|T], Acc0, Operator, Out) :- reduce([Operator,Acc0,H], Acc1, _),
+                                           foldl_atom_(T, Acc1, Operator, Out).
 
 'map-atom'(L, _, _) :- var(L), !, refuse_unbound_input('map-atom', 1).
-'map-atom'([], _Func, []).
-'map-atom'([H|T], Func, [R|RT]) :- reduce([Func,H], R, _),
-                                   'map-atom'(T, Func, RT).
+'map-atom'(_, Func, _) :- var(Func), !, refuse_unbound_input('map-atom', 2).
+'map-atom'(L, Func, Out) :- collection_operator(Func, Operator),
+                            map_atom_(L, Operator, Out).
+
+map_atom_([], _Operator, []).
+map_atom_([H|T], Operator, [R|RT]) :- reduce([Operator,H], R, _),
+                                      map_atom_(T, Operator, RT).
 
 'filter-atom'(L, _, _) :- var(L), !, refuse_unbound_input('filter-atom', 1).
-'filter-atom'([], _Func, []).
-'filter-atom'([H|T], Func, Out) :- ( reduce([Func,H], true, _) -> Out = [H|RT]
-                                                             ; Out = RT ),
-                                   'filter-atom'(T, Func, RT).
+'filter-atom'(_, Func, _) :- var(Func), !, refuse_unbound_input('filter-atom', 2).
+'filter-atom'(L, Func, Out) :- collection_operator(Func, Operator),
+                               filter_atom_(L, Operator, Out).
+
+filter_atom_([], _Operator, []).
+filter_atom_([H|T], Operator, Out) :-
+    ( reduce([Operator,H], true, _) -> Out = [H|RT] ; Out = RT ),
+    filter_atom_(T, Operator, RT).

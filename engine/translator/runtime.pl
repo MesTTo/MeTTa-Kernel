@@ -422,6 +422,65 @@ eval_metta_in_module(Module, Expr, Out) :-
                       ( translate_expr(Expr, Goals, Out),
                         call_goals_in_(Module, Goals) )).
 
+%THE RESULT HALF of the arbiter's typed dispatch. A call whose declared result
+%is the metatype `Atom` answers AS PRODUCED and stops; every other declared
+%result re-enters evaluation:
+%
+%    declaredTypeForEvaluation declared == Atom
+%
+%is the whole test [source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:
+%3786-3799, `returnsAtom`, applied at :7454-7456 and :7520-7523]. The source
+%self-interpreter states the same rule and names the two views that re-enter,
+%mapping `Expression` onto `%Undefined%` before comparing
+%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:4370-4381,
+%`interpret-result-type`].
+%
+%WHY IT MATTERS ONLY AFTER A MASKED CALL. Before the evaluation mask reached
+%written builtin calls, every operand a call received had already been reduced,
+%so its result was in normal form and re-entering evaluation was the identity.
+%A masked operand is the one way an unreduced subterm reaches a result, which
+%is what `!(car-atom ((+ 1 2) b))` shows: the arbiter holds the operand back,
+%car-atom hands out `(+ 1 2)`, and the `%Undefined%` result is what turns it
+%into 3 [measured 2026-08-24 against LeaTTa 9ea9f9d, both engines answering 3
+%by different routes before this and by the same route after].
+%
+%The reducibility test comes first and is what keeps the walk off the ordinary
+%path: a result with no redex in it is answered unchanged without compiling
+%anything.
+metta_masked_result(Value, Out) :-
+    (   metta_result_reducible(Value)
+    ->  current_metta_module(Module),
+        eval_metta_in_module(Module, Value, Out)
+    ;   Out = Value
+    ).
+
+%A term holds a redex when it is an application of a known function, or when
+%any member of it does: tuple-member evaluation is what makes the second case
+%observable, and the arbiter answers `(3)` for `!(car-atom (((+ 1 2)) b))`
+%exactly because of it [measured 2026-08-24].
+%
+%An empty list and a non-list answer false in one indexed step, so a scalar
+%result, which is most of them, costs a single call.
+%nonvar/1 before the list test, and the tail walk refuses to look past an
+%unbound tail: both are what stop the test BINDING the term it is inspecting. A
+%bare variable unifies with `[Head|_]`, and a partial list's tail unifies with
+%the walk's own head, either of which would turn a read into a write.
+metta_result_reducible(Term) :-
+    nonvar(Term),
+    Term = [Head|_],
+    (   atom(Head),
+        fun_here(Head)
+    ->  true
+    ;   reducible_member(Term)
+    ).
+
+reducible_member([Head|Tail]) :-
+    (   metta_result_reducible(Head)
+    ->  true
+    ;   nonvar(Tail),
+        reducible_member(Tail)
+    ).
+
 %Compile Params and Body into a closure predicate and give back a Prolog
 %callable that takes the body's own arguments after the captured ones. This is
 %'|->' itself, which already names the predicate, captures the free variables

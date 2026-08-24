@@ -1,16 +1,29 @@
 (= (map-flat $f ()) ())
-(= (map-flat $f (cons $x $xs)) (cons ($f $x) (map-flat $f $xs)))
+;The recursive tail is SEQUENCED before the cons. `cons` is `cons-atom`'s
+;un-suffixed spelling and its tail parameter is declared `Expression`, so the
+;operation receives that operand AS WRITTEN; a `let` names the mapped tail
+;first and hands the value over, which is how the reference's own stdlib
+;writes every list rebuild [source: LeaTTa MettaHyperonFull/Minimal/
+;Stdlib.lean:2701-2709, `map-atom`, whose recursive call is bound by a `chain`
+;before `cons-atom` sees it].
+(= (map-flat $f (cons $x $xs))
+   (let $head ($f $x)
+     (let $rest (map-flat $f $xs) (cons $head $rest))))
 
 !(test (map-flat (+ 1) (1 2 3)) (2 3 4))
 
 (= (map-flat2 (() $f)) ())
-(= (map-flat2 ((cons $x $xs) $f)) (cons ($f $x) (map-flat2 ($xs $f))))
+(= (map-flat2 ((cons $x $xs) $f))
+   (let $head ($f $x)
+     (let $rest (map-flat2 ($xs $f)) (cons $head $rest))))
 
 !(test (map-flat2 ((1 2 3) (+ 1))) (2 3 4))
 
 (: map-flat3 (-> Atom %Undefined%))
 (= (map-flat3 ($f ())) ())
-(= (map-flat3 ($f (cons $x $xs))) (cons ($f $x) (map-flat3 ($f $xs))))
+(= (map-flat3 ($f (cons $x $xs)))
+   (let $head ($f $x)
+     (let $rest (map-flat3 ($f $xs)) (cons $head $rest))))
 
 (= (p1 $x) (+ 1 $x))
 
@@ -18,7 +31,9 @@
 
 (: map-flat4 (-> Atom %Undefined%))
 (= (map-flat4 ($v ($f ()))) ())
-(= (map-flat4 ($v ($f (cons $x $xs)))) (cons ($f $x) (map-flat4 ($v ($f $xs)))))
+(= (map-flat4 ($v ($f (cons $x $xs))))
+   (let $head ($f $x)
+     (let $rest (map-flat4 ($v ($f $xs))) (cons $head $rest))))
 
 !(test (map-flat4 (x (p1 (1 2)))) (2 3))
 

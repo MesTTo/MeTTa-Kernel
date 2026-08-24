@@ -91,10 +91,13 @@
 ;A Python value that is a sequence has TWO readings, and you do not choose
 ;between them. It stays the Python object, so it passes back to Python as
 ;itself, and it also reads as a MeTTa expression when you take it apart.
-!(test (car-atom (py-atom "(1, 2, 3)")) 1)
-!(test (cdr-atom (py-atom "(1, 2, 3)")) (2 3))
-!(test (size-atom (py-atom "(1, 2, 3)")) 3)
-!(test (index-atom (py-atom "(10, 20, 30)") 1) 20)
+;The Python value is NAMED before the family operation reads it: `car-atom`,
+;`cdr-atom`, `size-atom` and `index-atom` all declare `Expression`
+;parameters, so the operand reaches them AS WRITTEN.
+!(test (let $tuple (py-atom "(1, 2, 3)") (car-atom $tuple)) 1)
+!(test (let $tuple (py-atom "(1, 2, 3)") (cdr-atom $tuple)) (2 3))
+!(test (let $tuple (py-atom "(1, 2, 3)") (size-atom $tuple)) 3)
+!(test (let $tuple (py-atom "(10, 20, 30)") (index-atom $tuple 1)) 20)
 ;And the same value is still a tuple on the way in.
 !(test (py-dot (py-dot (py-atom "(1, 2)") __class__) __name__) "tuple")
 
@@ -108,8 +111,8 @@
 ;Which values have a reading is Python's own rule, PEP 634's: a sequence other
 ;than a string. So a string stays one atom rather than becoming its characters,
 ;and a dict has no reading at all.
-!(test (car-atom (py-atom "'abc'")) ())
-!(test (car-atom (py-atom "{'a': 1}")) ())
+!(test (let $value (py-atom "'abc'") (car-atom $value)) ())
+!(test (let $value (py-atom "{'a': 1}") (car-atom $value)) ())
 
 ;None is the unit value, `()`. That is what makes a method called only for its
 ;effect usable: it returns a value that a let binds, where Empty would have
@@ -148,22 +151,24 @@
 ;read, and your own call to point at. Nothing in it is a live Python object, so
 ;it prints, compares, and outlives the failure.
 !(bind! divide (py-atom "lambda a, b: a / b"))
-!(test (car-atom (catch (divide 1 0))) Error)
+!(test (let $refusal (catch (divide 1 0)) (car-atom $refusal)) Error)
 !(test (catch (divide 6 3)) 2.0)
 
 ;And it takes apart, which is most of what an error is for: a program that can
 ;see THAT a call failed but not WHAT failed cannot do anything about it.
 (= (failure-of $e) (index-atom $e 1))
-(= (class-of $e) (index-atom (failure-of $e) 1))
-(= (message-of $e) (index-atom (failure-of $e) 2))
+(= (class-of $e) (let $failure (failure-of $e) (index-atom $failure 1)))
+(= (message-of $e) (let $failure (failure-of $e) (index-atom $failure 2)))
 !(test (class-of (catch (divide 1 0))) ZeroDivisionError)
 !(test (message-of (catch (divide 1 0))) "division by zero")
 
 ;The context names the call that failed, arguments included, which is what a
 ;failure three levels down needs: Python's own report names a Python function
 ;and a Python file and no MeTTa call at all.
-(= (call-of $e) (index-atom (index-atom $e 2) 1))
-!(test (car-atom (call-of (catch (py-atom "nosuchmodule.thing")))) py-atom)
+(= (call-of $e) (let $context (index-atom $e 2) (index-atom $context 1)))
+!(test (let $call (call-of (catch (py-atom "nosuchmodule.thing")))
+         (car-atom $call))
+       py-atom)
 !(test (class-of (catch (py-atom "nosuchmodule.thing"))) NameError)
 
 ;The default tuple answer is the structural expression itself. These raw forms

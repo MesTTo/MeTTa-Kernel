@@ -1351,6 +1351,7 @@ metta_grounded_token('import-into!').
 metta_grounded_token('import-item!').
 metta_grounded_token('include').
 metta_grounded_token('index-atom').
+metta_grounded_token('atom-subst').
 metta_grounded_token('intersection-atom').
 metta_grounded_token('isinf-math').
 metta_grounded_token('isnan-math').

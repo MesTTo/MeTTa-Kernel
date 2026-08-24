@@ -978,6 +978,10 @@ metta_add_atom(Space, Term, true) :-
 %it [tested: a_late_type_declaration_repairs_its_call_sites].
 metta_add_atom(Space, Term, true) :- Term = [':', FAtom, _], atom(FAtom),
                                      fun(FAtom), !,
+                                     %Read BEFORE anything is stored or evicted,
+                                     %because it is the state the already-compiled
+                                     %clauses were built under.
+                                     result_finality(FAtom, Before),
                                      %A declaration written into &self replaces the
                                      %prelude's for the same name, the user-wins rule
                                      %evict_prelude_definition/1 documents; the
@@ -989,7 +993,8 @@ metta_add_atom(Space, Term, true) :- Term = [':', FAtom, _], atom(FAtom),
                                      ),
                                      store_atom(Space, Term),
                                      space_module(Space, DeclModule),
-                                     announce_function_changed(DeclModule, FAtom).
+                                     announce_declaration_changed(DeclModule,
+                                                                  FAtom, Before).
 metta_add_atom(Space, Term, true) :- seam:foreign_space(Space), !,
                                      foreign_write(Space, add,
                                                    seam:foreign_add(Space, Term)).
@@ -1160,6 +1165,49 @@ announce_function_changed(Module, FAtom) :- prepare_specialization_invalidation(
                                    forall(seam:function_changed(FAtom), true),
                                    announce_function_call_graph_changed(Module,
                                                                         FAtom).
+
+%A DECLARATION reaches one place an equation change does not: the declared
+%function's OWN compiled clause. A parameter type decides how a CALL SITE
+%compiles, which is what announce_function_changed/2 covers, but the declared
+%RESULT type decides whether the function's answer re-enters evaluation, and
+%that goal sits in the function's own body. So `(: f (-> Atom Atom))` arriving
+%after `(= (f $x) (g $x))` left f still re-entering evaluation and
+%`!(f (+ 1 2))` answered `(g 3)` where writing the declaration first answers
+%`(g (+ 1 2))` [tested:
+%spaces_late_type_declaration:a_late_type_declaration_repairs_its_call_sites].
+%
+%ONLY when that result view actually MOVED, and the narrowness is the point.
+%Re-translating an equation loses which declared arrow it was compiled under,
+%because nothing in the equation says: `(: f (-> Number Symbol))`,
+%`(= (f $x) number-branch)`, `(: f (-> String Symbol))`,
+%`(= (f $x) string-branch)` compiles the first equation against the first arrow
+%alone, and rebuilding it with both declared left both clauses
+%indistinguishable, so the `OrderFittest` dispatch policy stopped filtering and
+%`!(f 1)` answered both branches
+%[tested: test_every_dispatch_axis_is_readable_settable_and_defaulted].
+%Nothing else a declaration carries reaches the callee, so this test is
+%sufficient as well as minimal.
+%
+%The extra invalidation is marked before announce_function_changed/2 drains, so
+%both directions repair in one pass.
+announce_declaration_changed(Module, FAtom, Before) :-
+    (   result_finality(FAtom, Before)
+    ->  true
+    ;   support_invalidate_definition(FAtom)
+    ),
+    announce_function_changed(Module, FAtom).
+
+%The one question a compiled clause asks of its own function's declarations:
+%`final` when some declared arrow answers the metatype `Atom`, which is what
+%stops an answer re-entering evaluation, and `evaluated` otherwise.
+%translate_clause/3 gates both its data path and its result continuation on
+%exactly that test [source: engine/translator/analysis.pl:642,
+%`declared_output_type(F, 'Atom')`].
+result_finality(FAtom, Finality) :-
+    (   declared_output_type(FAtom, 'Atom')
+    ->  Finality = final
+    ;   Finality = evaluated
+    ).
 
 announce_function_call_graph_changed(Module, FAtom) :-
     (   support_memo_take_change(Module, FAtom)

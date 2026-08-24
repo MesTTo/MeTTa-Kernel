@@ -161,6 +161,7 @@
             repair_after_late_registration/1,
             support_invalidate_function/1,
             support_invalidate_function_change/2,
+            support_invalidate_definition/1,
             repair_support_invalidations/0,
             %engine/main.pl's command line runs a file through this one,
             %and engine/translator.pl asks whether a source load is active
@@ -836,11 +837,35 @@ recompile_function_in_module(Module, G) :-
     findall(compiled(Ref, Term),
             ( translated_equation_of(G, Ref, Term),
               clause_property(Ref, module(Module)) ),
-            Clauses),
-    forall(member(compiled(Ref, Term), Clauses),
-           ( forget_translated_from(Module, Ref, Term),
-             erase(Ref) )),
-    forall(member(compiled(_, Term), Clauses),
+            Recorded),
+    %The erase is also the LIVENESS TEST, and the rebuild runs only over what
+    %it took out. A recorded reference can outlive its clause, because a
+    %compiled predicate can be retracted outside the engine's own door:
+    %tests/prolog/translator.plt's super cleanup takes back its `car-atom`
+    %equations with a raw retractall. erase/1 FAILS on such a reference rather
+    %than raising, so leaving it in the erase loop failed the whole repair and,
+    %through it, the load_metta_file/2 that triggered the repair; and rebuilding
+    %it from its retained source would put back a clause something deliberately
+    %removed
+    %[tested: translator_evaluation_errors:builtin_type_import_keeps_runtime_refusals_visible].
+    %
+    %`clause_property(Ref, erased)` is NOT the test, however plainly it reads.
+    %A clause erased and re-asserted inside the surrounding transaction/1
+    %reports `erased` while erase/1 still succeeds on it, so filtering on that
+    %property dropped LIVE equations and stopped `super` retargeting: the
+    %retarget space's `car-atom` was never rebuilt, so it kept the module its
+    %super resolved to before the definition above it arrived
+    %[tested: translator_super:a_later_definition_retargets_an_earlier_super].
+    %
+    %The bookkeeping goes for every recorded reference either way; only the
+    %rebuild is conditional.
+    forall(member(compiled(Ref, Term), Recorded),
+           forget_translated_from(Module, Ref, Term)),
+    findall(Term,
+            ( member(compiled(Ref, Term), Recorded),
+              erase(Ref) ),
+            Terms),
+    forall(member(Term, Terms),
            ( copy_term(Term, Fresh),
              once(with_metta_module(Module,
                                     translate_clause(Fresh, RawClause))),
@@ -931,6 +956,26 @@ support_function_node(F, Node) :-
 support_function_node(F, Node) :-
     support_view_module(F, Module),
     Node = function_view(Module, F).
+
+%F's OWN compiled equations, which the two invalidations above deliberately
+%cannot reach: the graph flows compiled_function -> function -> function_view,
+%so invalidating a view reaches the CALLERS and never the definition. That is
+%right for an equation change, where a sibling equation's compiled body does
+%not depend on this one, and wrong for a DECLARATION, which decides how the
+%declared function's own clause compiles: the result rule reads the declared
+%result type, so `(: f (-> Atom Atom))` arriving after `(= (f $x) (g $x))`
+%has to rebuild f's clause or its answer keeps re-entering evaluation
+%[tested: spaces_late_type_declaration:a_late_type_declaration_repairs_its_call_sites].
+%
+%Every module holding compiled equations of F, which support_function_module/2
+%enumerates exactly: the function node is published once per compiled form.
+%A module with no compiled form of F costs nothing, because the recompile
+%action itself is guarded by supports(translated_form(_, _), _).
+support_invalidate_definition(F) :-
+    findall(Module, support_function_module(F, Module), Modules0),
+    sort(Modules0, Modules),
+    forall(member(Module, Modules),
+           support_invalidate(compiled_function(Module, F))).
 
 :- dynamic support_recompile_pending/3.
 :- multifile support_graph:support_invalidation_action/1.

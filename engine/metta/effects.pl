@@ -198,6 +198,16 @@ metta_effect_classify(Module, Dispatch, Queue-Reads, Next-Reads) :-
 metta_effect_classify(Module, reduce(Template, _, _), Queue, Next) :- !,
     metta_effect_reduced(Module, Template, Queue, Next).
 
+%The evaluation mask's result half is a CONDITIONAL reduce/3 over the value an
+%equation body handed back, so it is classified by that value and not by its
+%own name. Judging it by name refused `(= (past-tabled $x) $x)` as
+%metta_impure_goal(metta_masked_result/2), naming an engine internal the
+%program never wrote and advising a seam:pure_operation/1 declaration that
+%would be false: the goal DOES re-enter evaluation, it just re-enters
+%evaluation of a term the walk can read
+%[tested: test_a_recycled_space_name_inherits_no_clauses_from_its_past_life].
+metta_effect_classify(Module, metta_masked_result(Template, _), Queue, Next) :- !,
+    metta_effect_masked_result(Module, Template, Queue, Next).
 
 %A BUILTIN is judged by declaration and a USER function by its body, and the
 %order matters twice over. A builtin's implementation is engine Prolog nobody
@@ -217,6 +227,32 @@ metta_effect_classify(_, Goal, Queue-Reads, Queue-Reads) :-
 metta_effect_classify(_, Goal, _, _) :-
     functor(Goal, Name, Arity),
     throw(error(metta_impure_goal(Name/Arity), none)).
+
+%And it follows the SAME test the goal itself makes, which is not reduce/3's.
+%metta_result_reducible/1 re-enters evaluation only for an application of a
+%known function, or for a term one of whose MEMBERS is one; a head that names
+%no function is data, and the term is walked member by member. Reading such a
+%head as an unknown CALL, the way reduce/3's walk must, refused an equation
+%whose body is a constructor: `(Pair $a $b)` is not a call and
+%`(memoize! choose)` was refused as metta_impure_goal(Pair/3)
+%[tested: examples/libraries/memo_multi_answer.metta and its twin].
+metta_effect_masked_result(_, Template, Queue, Queue) :-
+    ( var(Template) ; \+ Template = [_|_] ), !.
+metta_effect_masked_result(Module, [Head|Args], Queue, Next) :-
+    (   atom(Head),
+        ( builtin_fun(Head) -> true ; fun(Head) )
+    ->  length(Args, ArgCount),
+        Arity is ArgCount + 1,
+        functor(Call, Head, Arity),
+        metta_effect_classify(Module, Call, Queue, Next)
+    ;   metta_effect_masked_members([Head|Args], Module, Queue, Next)
+    ).
+
+metta_effect_masked_members([], _, Queue, Queue).
+metta_effect_masked_members([Item|Rest], Module, Queue, Next) :-
+    metta_effect_masked_result(Module, Item, Queue, Mid),
+    metta_effect_masked_members(Rest, Module, Mid, Next).
+
 
 %An ownership seam may identify either a registered operation or a transparent
 %dispatcher around a user equation. The former is decided by its effect

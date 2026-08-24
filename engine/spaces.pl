@@ -169,6 +169,8 @@
             add_sexp/2,
             add_sexp/3,
             announce_function_changed/2,
+            announce_declaration_changed/3,
+            result_finality/2,
             announce_function_removed/1,
             assert_function_clause/3,
             clear_foreign_atoms/1,
