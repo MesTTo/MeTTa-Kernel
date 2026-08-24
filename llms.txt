@@ -298,7 +298,13 @@ before the shipped declarations. A named refusal appears in the resulting
 `BadArgType`; the confluence report lists its user/user and user/shipped
 overlaps as conditional proof obligations.
 `m.cast(value, type)` returns the value or raises `CastError` naming the types
-the value does admit. `Atom`, `%Undefined%` and `_` are unchecked. A user type
+the value does admit. `Atom`, `%Undefined%` and `_` are unchecked. The
+metatypes `Atom`, `Variable` and `Expression` mask evaluation: a parameter
+declared with one receives its argument as written at every door, and a call
+whose declared result is the metatype `Atom` answers as produced where any
+other declared result re-enters evaluation, so `!(car-atom ((+ 1 2) b))` is
+`3` and a caller that wants a call's value in a masked position names it
+first with `let`. A user type
 declared with `(: Payload DontEvalType)` is also an evaluation mask: a function
 parameter of type `Payload` receives its written argument unevaluated. The
 declaration is required; no type-name convention enables the behavior. A float
@@ -725,8 +731,9 @@ An unreduced call is a non-empty answer, so test truth with `any(a == True)`,
 never "the result was non-empty".
 Python `None` from an operation answers nothing.
 `(empty)` yields no answer at all, which is how a branch prunes itself.
-`collapse` is a special form because ordinary arguments evaluate eagerly: a
-helper "around" `collapse` collapses an already-chosen answer, so inline it.
+`collapse` is a special form: a helper "around" `collapse` collapses an
+already-chosen answer (an unmasked argument evaluates eagerly) or answers the
+held term itself (a masked argument is not re-run), so inline `collapse`.
 `forall` stops its generator when the check fails (it compiles to Prolog's
 `\+ (Gen, \+ Test)`), so a bounded take over an infinite producer is writable
 and terminates where `collapse` cannot run at all.
