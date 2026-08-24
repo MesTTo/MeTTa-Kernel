@@ -21,9 +21,12 @@ examples/integration/c_extension/*.so
 python/*.so
 bindings/python/metta/*.so
 
-# Agent scratch: books, cloned prior art, gate logs, tree copies. Never
-# released, and skipped by .codespellrc for the same reason.
+# Agent scratch: books, cloned prior art, gate logs, tree copies, working
+# ledgers. Never released, and skipped by .codespellrc for the same reason;
+# a ledger meant to persist lives at the workspace root outside this repo.
 ai-tmp/
+ai-*.md
+ai-tmp-*
 
 # The Node binding fetches swipl-wasm with npm; it is a build input, not
 # source, and the same shape as any other node_modules in the tree.
