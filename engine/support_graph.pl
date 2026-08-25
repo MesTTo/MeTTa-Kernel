@@ -25,7 +25,12 @@
 %     least twice [tested:
 %     test_a_doubly_branching_recursion_is_tabled_automatically_and_a_tail_recursion_is_not;
 %     commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
-% Owns resources: supports/2, support_function_module/2,
+%   - Releasing N modules uses indexed endpoint patterns instead of scanning
+%     every remaining edge N times, while preserving cross-module symbol
+%     indexes that still have a live edge [tested:
+%     support_graph:forgetting_a_module_covers_every_node_shape_on_both_sides;
+%     commit=d843bb6d17a525c36afd21cab077d63b34447535].
+% Owns resources: supports/4, support_function_module/2,
 %   support_view_module/2, support_dirty_node/2, support_value/3,
 %   support_memo_rule/4 and support_memo_changed/2 are transactional dynamic
 %   state; support_forget/1, support_forget_module/1 and support_reset/0 release
@@ -551,21 +556,50 @@ support_forget_module(Module) :-
     support_atomic(support_forget_module_locked(Module)).
 
 support_forget_module_locked(Module) :-
-    findall(Ref,
-            ( clause(supports(_, _, Support, Derived), true, Ref),
-              ( support_node_module(Support, Module)
-              ; support_node_module(Derived, Module) ) ),
-            Refs0),
-    sort(Refs0, Refs),
-    forall(member(Ref, Refs), erase(Ref)),
+    findall(SymbolNode,
+            support_adjacent_symbol_node_locked(Module, SymbolNode),
+            Adjacent0),
+    sort(Adjacent0, Adjacent),
     forall(support_module_pattern(Module, Node),
-           ( support_dirty_retractall(Node),
-             support_value_retractall(Node) )),
+           support_forget_module_pattern_locked(Node)),
+    support_prepare_index(support_function_module(_, Module)),
+    support_prepare_index(support_view_module(_, Module)),
     retractall(support_function_module(_, Module)),
     retractall(support_view_module(_, Module)),
     retractall(support_memo_rule(Module, _, _, _)),
     retractall(support_memo_changed(Module, _)),
-    support_prune_symbol_indexes_locked.
+    forall(member(SymbolNode, Adjacent),
+           support_prune_symbol_index_locked(SymbolNode)).
+
+support_forget_module_pattern_locked(Node) :-
+    support_prepare_index(supports(Node, _)),
+    support_prepare_index(supports(_, Node)),
+    support_edge_retractall(Node, _),
+    support_edge_retractall(_, Node),
+    support_prepare_index(support_dirty_node(_, Node)),
+    support_prepare_index(support_value(_, Node, _)),
+    support_dirty_retractall(Node),
+    support_value_retractall(Node).
+
+% A normal lookup makes SWI realize the deep dynamic index before retractall/1
+% uses it. Double negation leaves the module pattern's wildcard fields unbound.
+support_prepare_index(Goal) :-
+    ignore(\+ \+ call(Goal)).
+
+% Only a cross-module function index adjacent to a retiring node can become
+% orphaned by this deletion. Collect it before the edges go, then test it after.
+support_adjacent_symbol_node_locked(Module, SymbolNode) :-
+    support_module_pattern(Module, Node),
+    ( supports(Node, SymbolNode)
+    ; supports(SymbolNode, Node) ),
+    support_symbol_node(SymbolNode, SymbolModule),
+    SymbolModule \== Module.
+
+support_symbol_node(function(Module, _), Module).
+support_symbol_node(function_view(Module, _), Module).
+
+support_prune_symbol_index_locked(Node) :-
+    ( support_node_has_edge(Node) -> true ; support_unindex_node_locked(Node) ).
 
 support_module_pattern(Module, function(Module, _)).
 support_module_pattern(Module, function_view(Module, _)).
@@ -577,29 +611,11 @@ support_module_pattern(Module, type_marker(Module, _)).
 support_module_pattern(Module, dispatch_policy(Module, _, _)).
 support_module_pattern(Module, derived(Module, _)).
 
-support_prune_symbol_indexes_locked :-
-    forall(( support_function_module(Name, Module),
-             \+ support_node_has_edge(function(Module, Name)) ),
-           retractall(support_function_module(Name, Module))),
-    forall(( support_view_module(Name, Module),
-             \+ support_node_has_edge(function_view(Module, Name)) ),
-           retractall(support_view_module(Name, Module))).
-
 support_node_has_edge(Node) :-
     supports(Node, _),
     !.
 support_node_has_edge(Node) :-
     supports(_, Node).
-
-support_node_module(function(Module, _), Module).
-support_node_module(function_view(Module, _), Module).
-support_node_module(specialization(Module, _), Module).
-support_node_module(memo(Module, _, _), Module).
-support_node_module(compiled_function(Module, _), Module).
-support_node_module(translated_form(Module, _), Module).
-support_node_module(type_marker(Module, _), Module).
-support_node_module(dispatch_policy(Module, _, _), Module).
-support_node_module(derived(Module, _), Module).
 
 % A failed source load erases its form-owned edges directly. Aggregate compiled
 % and function links are shared across source units, so they are not owned by
