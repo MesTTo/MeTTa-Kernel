@@ -636,7 +636,7 @@ async def algebra(
     laws: Sequence[str] = (),
     carrier: Sequence[Any] = (),
     requires: Sequence[str] = (),
-    order: Literal['ascending', 'descending'] | None = None,
+    order: SemiringOrder | None = None,
 ) -> Atom:
 ```
 
@@ -719,7 +719,7 @@ async def handles(
 ) -> Atom:
 ```
 
-> Declare how this context handles one pattern shape.
+> Declare a handler's pattern, fidelity, and determinism.
 
 ### `AsyncMeTTa.image`
 

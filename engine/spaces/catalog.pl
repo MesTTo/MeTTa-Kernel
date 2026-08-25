@@ -1118,6 +1118,12 @@ petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
 petta_catalog_preset([vocabulary, delivery,
                       'at-most-once', 'at-least-once', 'per-write-exactly']).
 petta_catalog_preset([vocabulary, 'event-order', ordered, unordered]).
+%The direction an ordered semiring counts in, which the claim rows
+%below already speak (ranked and prob count down from the best,
+%tropical counts up from the cheapest). Declared as a vocabulary so the
+%host surfaces read the closed set from the engine instead of each
+%spelling it as a literal pair: nine of them did, across four files.
+petta_catalog_preset([vocabulary, 'semiring-order', ascending, descending]).
 %Which reaction fires first when several match one write. This is the
 %conflict-resolution question production systems settled in 1981, and the
 %words are theirs. declaration is the order they were declared, a queue,

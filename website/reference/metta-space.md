@@ -1776,7 +1776,7 @@ def algebra(
     laws: _abc.Iterable[str] = (),
     carrier: _abc.Iterable[Any] = (),
     requires: _abc.Iterable[str] = (),
-    order: Literal['ascending', 'descending'] | None = None,
+    order: SemiringOrder | None = None,
 ) -> Atom:
 ```
 

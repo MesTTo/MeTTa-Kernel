@@ -82,9 +82,15 @@ EXCLUDED_PATHS = frozenset(
     }
 )
 
+# Each ordered semiring claims its DIRECTION beside orderedness, because
+# ordered alone does not say which end a top-k slice takes: ranked and prob
+# count down from the best, tropical counts up from the cheapest. The three
+# rows are engine/spaces/catalog.pl's own claim presets, and tropical joined
+# the table when the algebra carriers landed.
 REQUIRED_ALGEBRA_LAWS = {
-    "ranked": frozenset({"ordered"}),
-    "prob": frozenset({"ordered"}),
+    "ranked": frozenset({"ordered", "descending"}),
+    "prob": frozenset({"ordered", "descending"}),
+    "tropical": frozenset({"ordered", "ascending"}),
 }
 ALGEBRA_LAW_SEAM = (
     "engine/metta/effects.pl",
