@@ -258,6 +258,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- A `Space` handle is a `Grounded` species: `isinstance(space, Grounded)`
+  is true, matching the glossary's rule that a handle names a live
+  engine object and crosses as the grounded atom it is. A handle still
+  refuses `.value`, application, and encoding into stored terms, so no
+  value-reading grounded branch can mistake one for a boxed Python
+  object.
 - Rename the reader builtin `sread-command` to `parse-command` across the
   engine, prelude, examples, and the generated `fn` namespace: the verb
   is parsing, and the Python surface's `m.fn.parse_command` now says so.
