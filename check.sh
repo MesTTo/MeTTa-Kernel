@@ -39,7 +39,8 @@
 #     GATE_ONLY=1 sh check.sh memory-scale-gate;
 #     commit=d843bb6d17a525c36afd21cab077d63b34447535].
 #   - executable comments, bilingual doctests, and all six gallery programs
-#     run together as a blocking lane [tested: test_every_gallery_program_runs,
+#     run together as a blocking lane [tested: test_a_gallery_program_runs,
+#     test_the_gallery_is_exactly_the_six_ruled_programs,
 #     test_translation_drift_is_rejected,
 #     test_shown_output_drift_is_rejected,
 #     test_answer_multisets_ignore_order_and_alpha_names_but_keep_multiplicity;

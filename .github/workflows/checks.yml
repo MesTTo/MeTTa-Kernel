@@ -116,9 +116,11 @@ jobs:
                       deptry interrogate codespell imports || true
 
   # The declared Python floor, tested rather than asserted.
-  # Minimal environments on purpose: NetworkX and NumPy are the integration
-  # packages required because the blocking gallery executes them.
-  # Other optional integrations must still skip cleanly when absent.
+  # Minimal environments on purpose: no optional integration package is
+  # installed, because the suite must skip those cleanly rather than need
+  # them. That includes the two gallery programs whose subject is an
+  # ecosystem package; the gate job installs the checks extra and runs all
+  # six. Add a version here and it is covered from then on.
   versions:
     runs-on: ubuntu-latest
     container:
@@ -136,11 +138,18 @@ jobs:
 
       # The PyPI janus_swi wheel links libswipl.so.9; building from source
       # links whatever SWI the image actually has.
+      #
+      # This list is the project's own required dependencies plus the test
+      # runner, and nothing else. It is checked against pyproject.toml by
+      # test_the_minimal_version_matrix_installs_every_required_dependency,
+      # because it went stale exactly once already: docstring-parser became
+      # required on 2026-08-23 and was not added here, so `import metta`
+      # raised ModuleNotFoundError in every matrix job from that day.
       - name: Environment for ${{ matrix.python }}
         run: |
           uv venv --python ${{ matrix.python }} /tmp/v
           uv pip install --python /tmp/v/bin/python --no-binary janus_swi \
-                         janus_swi pytest hypothesis 'networkx>=3.6,<4' numpy
+                         janus_swi docstring-parser pytest hypothesis
 
       - name: Suite on ${{ matrix.python }}
         env:
