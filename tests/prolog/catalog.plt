@@ -17,7 +17,8 @@
        commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0]
      - every shipped callable has exactly one visibility row and the internal
        documentation helpers stay classified without leaving the callable set
-       [tested: every_shipped_callable_has_one_visibility; commit=WORKTREE]
+       [tested: every_shipped_callable_has_one_visibility;
+       commit=8779452fed89853c3f77c3469f7a6ec7b12e9efa]
    Open Obligations:
      To Do: None
      Hacks: None

@@ -98,11 +98,11 @@
 %     to seam:pure_operation/1 [tested:
 %     test_structural_registration_reflects_an_effect_atom,
 %     effects_lattice:only_pure_structural_projects_to_the_cache_purity_seam;
-%     commit=WORKTREE].
+%     commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7].
 %   - the final boot pass materializes one catalog visibility row for every
 %     callable after the prelude has registered its equations [tested:
 %     catalog_self_description:every_shipped_callable_has_one_visibility;
-%     commit=WORKTREE].
+%     commit=8779452fed89853c3f77c3469f7a6ec7b12e9efa].
 %   - StateMonad cells use one process-shared non-backtrackable store, so main
 %     evaluation and held answer engines observe the same writes without
 %     losing their parameterized held-value type [tested:

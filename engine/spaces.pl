@@ -62,7 +62,7 @@
 %   - every shipped callable has one PUBLIC or INTERNAL catalog visibility,
 %     with internal names remaining callable data rather than generated API
 %     [tested: catalog_self_description:every_shipped_callable_has_one_visibility;
-%     commit=WORKTREE].
+%     commit=8779452fed89853c3f77c3469f7a6ec7b12e9efa].
 %   - Six dispatch axes publish one documented default and accept at most one
 %     validated per-function override for each axis
 %     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].

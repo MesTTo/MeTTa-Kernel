@@ -12,7 +12,7 @@
 % Guarantees: every shipped callable receives one PUBLIC or INTERNAL visibility
 % row after prelude registration, and internal classification does not remove
 % the callable [tested: every_shipped_callable_has_one_visibility;
-% commit=WORKTREE].
+% commit=8779452fed89853c3f77c3469f7a6ec7b12e9efa].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.
