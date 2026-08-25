@@ -42,6 +42,20 @@ Source: `bindings/python/metta/_space.py`.
 >     patterns is a join, list writes stream their atoms, and del drains every
 >     match or raises KeyError [tested:
 >     test_subscript_one_pattern_and_bulk_delete_laws; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - the ``+=`` write door classifies atoms and scalar conversion kinds before
+>     iteration, reads dataframe row protocols before generic iteration, and
+>     sends each fact-stream item through the engine write spine [tested:
+>     test_adding_an_iterable_of_atoms_writes_one_atom_each,
+>     test_write_door_scalar_kinds_are_never_mistaken_for_fact_streams,
+>     test_write_door_uses_the_iteration_protocol_not_only_the_iterable_abc,
+>     test_the_write_doors_accept_the_same_atoms,
+>     test_the_write_door_reads_each_dataframe_row_as_one_atom; commit=WORKTREE]
+>   - relative ``(admits Type)`` and ``(capacity n)`` values written through
+>     ``+=`` invoke the receiver installers, and refuse to overtake a live batch
+>     [tested: test_relative_capacity_declaration_installs_the_receiver_contract,
+>     test_relative_admits_declaration_installs_the_receiver_contract,
+>     test_two_declared_admission_checks_interact_over_one_store,
+>     test_relative_declarations_refuse_inside_an_active_batch; commit=WORKTREE]
 >   - ``Space.match`` returns a lazy Answers view; truth and single unpack pull
 >     only their demanded prefix, while len counts inside the engine [tested:
 >     test_query_answers_complete_the_lazy_projection_protocol,
@@ -437,9 +451,10 @@ def add(self, *atoms: Any) -> None:
 ```
 
 > Add atoms to this space, one engine round-trip for the lot.
-> An (= ...) atom compiles as an equation. A stored atom is an
-> expression, the engine's own storage shape, so anything else is
-> refused here rather than failing silently inside.
+> An (= ...) atom compiles as an equation. Every Atom shape the engine's
+> add-atom accepts crosses unchanged, including a bare Symbol, Grounded
+> value, and empty Expression; a free Variable receives the engine's own
+> insufficient-instantiation refusal.
 >
 > A variable's NAME is not stored. `(rule $x $y)` reads back as
 > `(rule $_17902 $_17904)`, because a variable is an identity and not a

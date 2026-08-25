@@ -1,14 +1,34 @@
 <!--
-Purpose: show how metta.tables.add and Rows bridge tabular data in both directions.
-Guarantees: table ingestion examples use the satellite function rather than the removed Space method.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+Purpose: show how Space +=, metta.tables.add, and Rows bridge tabular data in both directions.
+Guarantees: direct dataframe writes consume complete rows, while tables.add supplies a shared relation head.
+[tested: test_the_write_door_reads_each_dataframe_row_as_one_atom; commit=WORKTREE]
 -->
 
 # Dataframes
 
-PeTTa crosses the dataframe boundary in both directions. `metta.tables.add(m, head, source)` turns each input row into one fact. Query results keep named columns as `Rows`, then `table`, `to_df`, and `to_pl` expose shapes used by Python dataframe libraries.
+PeTTa crosses the dataframe boundary in both directions. When each row already
+contains its atom head, `m += frame` writes one complete row per atom through
+Polars `iter_rows()` or pandas `itertuples(index=False)`. When the dataframe
+contains only argument columns, `metta.tables.add(m, head, source)` supplies a
+shared relation head. Query results keep named columns as `Rows`, then `table`,
+`to_df`, and `to_pl` expose shapes used by Python dataframe libraries.
 
 ## Read a table into a space
+
+A dataframe whose rows are complete facts uses the same fact-stream door as a
+generator or SQL cursor:
+
+```python
+frame = polars.DataFrame(
+    {"head": ["edge", "edge"], "left": ["a", "b"], "right": ["b", "c"]}
+)
+m += frame
+assert len(m) == 2
+```
+
+Strings encode as symbols, so the first column becomes the relation head. Use
+`tables.add(m, "edge", frame)` instead when the dataframe contains only the
+argument columns and every row should receive the same symbolic head.
 
 The engine-controls example creates relation facts from ordinary rows, queries them, and converts the result to Polars when it is installed:
 
