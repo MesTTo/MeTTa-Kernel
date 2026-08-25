@@ -1,7 +1,7 @@
 <!--
 Purpose: map MeTTa concepts onto the canonical Python atom classes, contexts, handles, and result containers.
 Guarantees: every named Python door exists on the narrow public surface.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=d0631377c5e01a5d34d1c3437e283f87a0fab86f]
 -->
 
 # Concepts and names
