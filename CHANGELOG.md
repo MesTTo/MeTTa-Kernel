@@ -217,6 +217,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   handle itself rather than a rebuilt name. The wire vocabulary gains an
   injective portable `p` tag for space references that round-trips
   through JSON, Janus, the writer, both snapshot formats, and digest.
+  The Node binding now decodes that tag into an immutable JavaScript
+  `SpaceHandle` whose only state is the engine name, re-encodes it as `p`,
+  and runs the `space-handle` corpus case on read, render, round-trip, and
+  transport.
   The handle also gains `peek(pattern, deadline=)` and `take(pattern,
   deadline=)`, the engine's blocking Linda verbs, with async mirrors
   that wait on the engine worker rather than the event loop.
