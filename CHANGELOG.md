@@ -8,6 +8,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `@space.cache` now memoizes the complete answer bag instead of routing
+  through SWI set tabling, so repeated answers survive cache hits. Its
+  `cache_info()` reports per-definition entry and answer-occurrence counts,
+  and stacking it over `@space.op` refuses before registering a definition
+  while directing host-only memoization to `functools.cache` or
+  `functools.lru_cache`.
+
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,
   fits constant through quadratic and capped-linear complexity families over

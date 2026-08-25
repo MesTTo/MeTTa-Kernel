@@ -25,6 +25,9 @@
 
 memo_setting(memo_size_limit).
 memo_setting(metta_memo_total_bytes).
+memo_setting(memo_answer_limit).
+memo_setting(memo_aggregate_mode).
+memo_setting(memo_float_precision).
 
 memo_setting_save :-
     forall(memo_setting(Name),
@@ -177,6 +180,45 @@ test(an_inheriting_space_shares_the_one_cache,
     findall(R, with_metta_module(Self, reduce([isoshared, 1], R)), [8]).
 
 :- end_tests(memo_space_isolation).
+
+
+:- begin_tests(lib_memo_stats,
+               [ setup(( memo_setting_save,
+                         memo_setting_override(memo_answer_limit, 2),
+                         memo_setting_override(memo_aggregate_mode, count),
+                         memo_setting_override(memo_float_precision, 0),
+                         filereader:process_metta_string(
+                             "(= (plunit-exact-bag $x) a)\n(= (plunit-exact-bag $x) a)\n(= (plunit-exact-bag $x) b)",
+                             _, '&plunit_exact_bag') )),
+                 cleanup(( memo_setting_restore,
+                           user:disable_memoization('plunit-exact-bag'),
+                           user:cache_clear,
+                           user:clear_native_atoms('&plunit_exact_bag'),
+                           user:metta_release_space('&plunit_exact_bag') )) ]).
+
+test(a_function_report_counts_answer_occurrences) :-
+    space_module('&plunit_exact_bag', Module),
+    with_metta_module(
+        Module,
+        lib_memo:memoize_exact('plunit-exact-bag')),
+    findall(Answer,
+            with_metta_module(
+                Module,
+                reduce(['plunit-exact-bag', 1.1], Answer)),
+            First),
+    msort(First, [a, a, b]),
+    findall(Answer,
+            with_metta_module(
+                Module,
+                reduce(['plunit-exact-bag', 1.2], Answer)),
+            Second),
+    msort(Second, [a, a, b]),
+    with_metta_module(
+        Module,
+        user:'get-memoize-stats'('plunit-exact-bag', Stats)),
+    assertion(Stats == [[entries, 2], [answers, 6]]).
+
+:- end_tests(lib_memo_stats).
 
 
 % Function-level memo nodes retain the safe over-approximation the old
