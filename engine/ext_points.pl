@@ -4,7 +4,7 @@
 %   - host query carriers enter the engine-owned algebra scope and read its
 %     effective carrier and identity only through declared host services
 %     [tested: a_host_binding_calls_only_published_surface,
-%     test_the_host_service_scoreboard_matches_the_tree; commit=WORKTREE].
+%     test_the_host_service_scoreboard_matches_the_tree; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
 %   - reader-token registration is an engine-owned host service, while token
 %     construction is claimed by the host that owns the registered callable;
 %     mapping introspection is an ordinary extension service [tested:

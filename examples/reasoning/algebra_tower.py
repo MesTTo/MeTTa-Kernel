@@ -4,17 +4,17 @@ Assumes: execute with PeTTa's documented Python environment and ``PETTA_PATH``.
 Guarantees:
   - the lawless witness uses ``algebra`` plus ordinary tagged facts
     [tested: test_a_declared_algebra_without_laws_answers_in_order_and_unfused;
-    commit=WORKTREE]
+    commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
   - a local seed selects ordinary tagged alternatives reproducibly [tested:
     test_declared_rates_make_seeded_selection_match_their_distribution;
-    commit=WORKTREE]
+    commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
   - the linear witness refuses a second spend of one fact occurrence [tested:
     test_a_linear_algebra_refuses_the_second_spend_of_one_premise;
-    commit=WORKTREE]
+    commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
   - amplitude use names the missing fence and exact opposite paths cancel after
     the fence lands [tested:
     test_amplitudes_interfere_inside_the_fragment_and_are_refused_outside;
-    commit=WORKTREE]
+    commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
 """
 
 from metta import (

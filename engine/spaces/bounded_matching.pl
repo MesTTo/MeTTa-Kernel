@@ -5,7 +5,7 @@
 % Guarantees: petta_match_atoms/2 dispatches a gap operand by its wrapper alone, and a merged read routes a gap pattern while reading its declared policy from what the program wrote [tested: tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % Guarantees: an ordered carrier's declared ascending or descending direction
 % is applied before a top prefix is selected [tested:
-% test_ranked_and_tropical_slices_are_stable_best_prefixes; commit=WORKTREE].
+% test_ranked_and_tropical_slices_are_stable_best_prefixes; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% the bound the caller wrote, reaching the matcher %%%%

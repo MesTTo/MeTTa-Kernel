@@ -489,7 +489,7 @@ petta_annotations_resolved([First, Second|Rest], Ctx, _) :-
 %not a catalog mutation: nested evaluations inherit it, cleanup restores the
 %previous value on failure, exception, exhaustion, or cursor destruction, and
 %every persistent declaration remains unchanged for the next ask [tested:
-%bindings/python/tests/test_under_algebra.py; commit=WORKTREE].
+%bindings/python/tests/test_under_algebra.py; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
 :- meta_predicate petta_with_under(+, 0).
 
 petta_with_under(Algebra, Goal) :-

@@ -4,7 +4,7 @@
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % Guarantees: counting and tropical are ordinary catalog algebras, and each
 % ordered preset declares its best direction [tested:
-% bindings/python/tests/test_under_algebra.py; commit=WORKTREE].
+% bindings/python/tests/test_under_algebra.py; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.

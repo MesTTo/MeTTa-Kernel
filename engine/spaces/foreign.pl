@@ -7,7 +7,7 @@
 % Guarantees: conjunction multiplicity reads the dynamically scoped algebra,
 % so under=counting cannot inherit bool's duplicate collapse [tested:
 % test_counting_counts_match_bag_duplicates_without_opening_a_row_cursor;
-% commit=WORKTREE].
+% commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% The foreign seam's failure contract %%%%
