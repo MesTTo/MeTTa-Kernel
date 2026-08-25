@@ -8,6 +8,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Call-site keywords on `Defined` values and bound `space.fn` functions now
+  resolve to the known definition or operation signature and emit the
+  positional MeTTa application. Bare symbols such as `S.head(x=value)` refuse
+  with an explicit positional remedy instead of silently appending a generic
+  `(Kwargs ...)` term; grounded Python-call heads retain that transport form.
+
 - Compiled Python bodies now lower `assert condition[, reason]` to the
   language's `(Error condition reason)` algebra, preserving generator
   continuations. `del space[pattern]` snapshots and removes every match;

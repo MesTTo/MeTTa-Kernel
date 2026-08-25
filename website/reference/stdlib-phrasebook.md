@@ -34,6 +34,7 @@ They stay separate so the differential coverage denominator remains exact.
 
 | public spelling | meaning | example |
 |---|---|---|
+| `defined(right=value, left=value); space.fn.op(right=value, left=value)` | place call-site keywords in a known definition or operation signature | `answer = relation(destination=S.Bob, source=S.Ada)` |
 | `assert condition, reason` | continue on truth or answer (Error condition reason) from a compiled body | `@space.define ⏎ def positive(x): ⏎     assert x > 0, 'positive' ⏎     return x` |
 | `del space[pattern]; space -= atom` | remove every pattern match or one exact occurrence inside a compiled body | `del target[S.edge(V.x, V.y)] ⏎ target -= S.marker` |
 | `S.neg(atom), fn.neg(atom), space.fn.neg(atom)` | build or evaluate unary negation through its canonical (- 0 atom) image | `term = S.neg(V.x) ⏎ assert term == S['-'](0, V.x)` |
