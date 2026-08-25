@@ -723,6 +723,56 @@ petta_eval_root_result(Module, Written, Produced, Out) :-
 %A call whose head arrived only at run time must be retranslated with its
 %arguments still written.  The resolved head's declared mask then makes the
 %same decisions as a source-written call.
+%The two halves of the compiled dynamic-call branch.  The mask test asks the
+%same two questions the compile-time classifier asks -- a registered builtin
+%mask or any masking chain on a user function -- so a resolved head that
+%holds arguments back gets the written tail, and every other head gets the
+%call site's own precompiled argument goals.
+petta_dynamic_head_masks(Head) :-
+    atom(Head),
+    (   builtin_call_mask(Head, _)
+    ->  true
+    ;   call_site_type_chains(Head, Chains),
+        member(Chain, Chains),
+        chain_masks_an_argument(Chain)
+    ->  true
+    ;   fail
+    ).
+
+%Dispatch on finished values: the site's compiled goals already evaluated
+%the tail, so this mirrors petta_dynamic_call/3 minus every runtime
+%translation.  The written tail still names the source call for the
+%application boundary, the same Source/Runtime split the translated path
+%keeps.
+petta_dynamic_value_call(Head, Written, Values, Out) :-
+    (   nonvar(Head), atom(Head)
+    ->  (   head_has_dynamic_meaning(Head)
+        ->  current_metta_module(Module),
+            reduce_in_module(Module, [Head|Values], Produced),
+            petta_application_result([Head|Written], [Head|Values],
+                                     Produced, Out)
+        ;   Out = [Head|Values]
+        )
+    ;   nonvar(Head), atomic(Head)
+    ->  (   seam:grounded_apply(Head, Values, Applied)
+        ->  Out = Applied
+        ;   Out = [Head|Values]
+        )
+    ;   nonvar(Head)
+    ->  current_metta_module(Module),
+        reduce_in_module(Module, [Head|Values], Produced),
+        petta_application_result([Head|Written], [Head|Values],
+                                 Produced, Out)
+    ;   Out = [Head|Values]
+    ).
+
+head_has_dynamic_meaning(Head) :-
+    current_metta_module(Module),
+    head_meaning_route(Module, Head, _).
+
+reduce_in_module(Module, Call, Produced) :-
+    with_metta_module(Module, reduce(Call, Produced, _)).
+
 petta_dynamic_call(Head, Args, Out) :-
     (   nonvar(Head), atom(Head)
     ->  current_metta_module(Module),

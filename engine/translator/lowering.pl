@@ -1009,8 +1009,25 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
           %247 example outputs are byte-identical without it.
           ; is_list(HV) -> translate_args_dl(T, AfterHead, Goals, AVs),
                            Out = [HV|AVs]
-          %Unknown head (var/compound) => runtime dispatch:
-          ; AfterHead = [petta_dynamic_call(HV, T, Out)|Goals] )).
+          %Unknown head (var/compound) => runtime dispatch.  The tail is
+          %compiled HERE, once, and the emitted branch decides at run time
+          %which view the resolved head gets: a head that masks an argument
+          %takes the written tail through petta_dynamic_call/3, which
+          %translates under the mask exactly as before, and every other head
+          %runs the site's own compiled argument goals and dispatches on the
+          %finished values.  Leaving the tail written unconditionally made
+          %every activation of a computed-head site re-enter the translator:
+          %examples/performance/matespacefast.metta ran translate_special_dl
+          %10.49 million times for 1.57 million data pairs, four times its
+          %pre-protocol wall clock, with the translation identical on every
+          %pass because a call site's written tail never changes.
+          ; translate_args_dl(T, ValueGoalList, [], AVs),
+            goals_list_to_conj(ValueGoalList, ValueGoals),
+            AfterHead = [( petta_dynamic_head_masks(HV)
+                         -> petta_dynamic_call(HV, T, Out)
+                         ;  ValueGoals,
+                            petta_dynamic_value_call(HV, T, AVs, Out)
+                         )|Goals] )).
 
 %A source's signature pre-pass makes a later equation's name visible before
 %the equation itself runs. That visibility is metadata, not a time machine:

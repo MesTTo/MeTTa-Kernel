@@ -291,6 +291,8 @@
             metta_evaluate_symbol/2,
             petta_evaluate_argument/2,
             petta_dynamic_call/3,
+            petta_dynamic_head_masks/1,
+            petta_dynamic_value_call/4,
             petta_chain_step/2,
             petta_minimal_equation_step/3,
             collapse_runtime/2,

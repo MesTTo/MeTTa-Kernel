@@ -2854,7 +2854,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   minutes), while `(id (noeval (+ 20 22)))` still answers `42`. A symbol
   head bound at run time that names no function, builtin, special form, or
   translator rule now builds data directly instead of entering the full
-  evaluator per call.
+  evaluator per call. And a computed-head call site compiles its argument
+  tail once: the emitted branch hands the written tail to the masked path
+  only when the resolved head actually masks, and dispatches on the site's
+  precompiled values otherwise, instead of re-entering the translator on
+  every activation (`examples/performance/matespacefast.metta` ran
+  `translate_special_dl` 10.49 million times for 1.57 million data pairs,
+  39 s where the pre-protocol tree took 10 s; it now answers in 9.4 s).
 - Fix a user `arrow-arity` typing rule's refusal being overwritten by the
   generic arity mismatch, SWI tabling being blocked in pooled spaces whose
   shadow repair had captured `$table_mode/3`, and higher-order calls being

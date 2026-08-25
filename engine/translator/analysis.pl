@@ -518,6 +518,8 @@ seam:engine_emitted(petta_evalc_step/3).
 seam:engine_emitted(petta_evaluate_argument/2).
 seam:engine_emitted(metta_evaluate_symbol/2).
 seam:engine_emitted(petta_dynamic_call/3).
+seam:engine_emitted(petta_dynamic_head_masks/1).
+seam:engine_emitted(petta_dynamic_value_call/4).
 seam:engine_emitted(petta_chain_step/2).
 seam:engine_emitted(collapse_runtime/2).
 seam:engine_emitted(petta_segment_dispatch/4).

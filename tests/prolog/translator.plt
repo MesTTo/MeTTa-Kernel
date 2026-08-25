@@ -827,13 +827,19 @@ test(representative_forms_each_have_one_translation,
     Solutions = [_].
 
 test(variable_heads_are_not_bound_to_a_special_form) :-
-    % The emitted goal resolves the head first, then recompiles its written
-    % arguments against that head's mask.  Keeping the helper's head variable
-    % shared is what makes the decision happen at runtime without binding it
-    % to any special form during translation.
+    % The emitted branch resolves the head first, at run time: a head that
+    % masks an argument takes the written tail through petta_dynamic_call,
+    % and every other head dispatches on the site's precompiled values.
+    % Keeping the helper's head variable shared is what makes the decision
+    % happen at runtime without binding it to any special form during
+    % translation.
     translate_expr([Head, 1], Goals, _),
     var(Head),
-    Goals = [petta_dynamic_call(Head, [1], _)].
+    Goals = [( petta_dynamic_head_masks(Head)
+             -> petta_dynamic_call(Head, [1], _)
+             ;  _,
+                petta_dynamic_value_call(Head, [1], [1], _)
+             )].
 
 % nop takes any number of arguments and answers unit at all of them, which is
 % the one operation upstream's standard library says out loud it could not

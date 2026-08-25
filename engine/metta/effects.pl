@@ -207,6 +207,13 @@ metta_effect_classify(Module, reduce(Template, _, _), Queue, Next) :- !,
 metta_effect_classify(Module, petta_dynamic_call(Head, Args, _), Queue,
                       Next) :- !,
     metta_effect_reduced(Module, [Head|Args], Queue, Next).
+%The value half of the same door: the head decides the call exactly as
+%above, and the finished values stand where the written arguments stood.
+metta_effect_classify(Module, petta_dynamic_value_call(Head, _, Values, _),
+                      Queue, Next) :- !,
+    metta_effect_reduced(Module, [Head|Values], Queue, Next).
+%The branch guard reads one indexed register row and binds nothing.
+metta_effect_classify(_, petta_dynamic_head_masks(_), Queue, Queue) :- !.
 
 %The evaluation mask's result half is a CONDITIONAL reduce/3 over the value an
 %equation body handed back, so it is classified by that value and not by its
