@@ -79,7 +79,9 @@
 %     requires that receipt to remain current, so any public removal rebuilds
 %     the missing source contribution without duplicating survivors
 %     [tested: filereader_import_lifecycle,
-%     test_import_receipt; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+%     test_public_import_rebuilds_when_a_receipt_dependency_disappears,
+%     test_repeat_import_reuses_one_current_receipt_without_duplication;
+%     commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 %   - Host failures from builtins retain their ISO error class and name the
 %     written MeTTa operation [tested 2026-08-15:
 %     metta_operation_errors, translator_evaluation_errors]. Integer
