@@ -1,7 +1,7 @@
 <!--
 Purpose: document Space execution, querying, controls, diagnostics, and result handling.
 Guarantees: examples use the narrow core and satellite-qualified specialist APIs.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 -->
 
 # Run and query

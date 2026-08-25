@@ -2,7 +2,7 @@
 Purpose: distinguish Python term construction, live engine evaluation, and execution of compiled Python bodies.
 Guarantees: each public spelling is assigned to the location and time where its code runs.
 [tested: npm run docs:build and test_guides_keep_documentation_law_explainers;
-commit=WORKTREE]
+commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 -->
 
 # Where code runs

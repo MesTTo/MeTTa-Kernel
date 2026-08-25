@@ -1,7 +1,7 @@
 <!--
 Purpose: teach Python-authored equations, rule sets, and lowering declarations.
 Guarantees: examples use the narrow Space.define and Rules.lower doors.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 -->
 
 # Write MeTTa in Python

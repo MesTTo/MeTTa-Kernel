@@ -1,7 +1,7 @@
 <!--
 Purpose: install PeTTa and introduce its module primitives, runtime context, and Space handle.
 Guarantees: examples use the current narrow public surface.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 -->
 
 # Install and first steps

@@ -1,7 +1,7 @@
 /*
 Purpose: configure the PeTTa documentation site's navigation, rendering, and project URL.
 Guarantees: navigation advertises only live public Python modules and API pages.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 Open Obligations:
   To Do: None
   Hacks: None

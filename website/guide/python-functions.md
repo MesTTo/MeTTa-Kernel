@@ -2,7 +2,7 @@
 Purpose: explain Python operation registration, type declarations, context injection, and property tests.
 Guarantees: examples use Space.op, Space.define, and canonical atom constructors without compatibility aliases.
 [tested: npm run docs:build and test_define_wires_the_declarative_dance;
-commit=WORKTREE]
+commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 -->
 
 # Python functions as MeTTa functions

@@ -3,7 +3,7 @@ Purpose: teach canonical atom construction, operators, methods, pattern matching
 Guarantees: examples contain no superseded atom class or helper names, and
 plain atom sorting agrees with the explicit specialist key.
 [tested: npm run docs:build and test_plain_sorted_uses_the_engines_elementwise_order;
-commit=WORKTREE]
+commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 [tested: test_atom_comparisons_are_only_ordering; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
 -->
 
