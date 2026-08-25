@@ -726,8 +726,22 @@ petta_eval_root_result(Module, Written, Produced, Out) :-
 petta_dynamic_call(Head, Args, Out) :-
     (   nonvar(Head), atom(Head)
     ->  current_metta_module(Module),
-        eval_metta_in_module(Module, [Head|Args], Produced),
-        petta_application_result([Head|Args], Produced, Out)
+        %Ask both questions before paying for evaluation: a symbol head with
+        %meaning (equations, a builtin, a special form, or a translator rule)
+        %takes the full evaluator, exactly as a written call would; a symbol
+        %head WITHOUT meaning builds data, exactly as the compile-time data
+        %branch does for a known symbol head.  An equation body like
+        %`($_2 ___ $_3 ...)` reaches here once per state expansion in a
+        %search, and full evaluation of the data answer cost tilepuzzle
+        %181,441 states at evaluator prices: 3.4s of search became minutes
+        %with every answer identical.
+        (   head_meaning_route(Module, Head, _)
+        ->  eval_metta_in_module(Module, [Head|Args], Produced),
+            petta_application_result([Head|Args], Produced, Out)
+        ;   translate_args(Args, Goals, Values),
+            call_goals_in_(Module, Goals),
+            Out = [Head|Values]
+        )
     ;   nonvar(Head), atomic(Head)
     ->  translate_args(Args, Goals, Values),
         current_metta_module(Module),

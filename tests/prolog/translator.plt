@@ -2944,3 +2944,75 @@ test(translating_a_nested_form_costs_inferences_linear_in_its_depth) :-
     assertion(Wide < Narrow * 16).
 
 :- end_tests(translator_nesting_cost).
+
+% A recursive equation whose body wraps its own call in a constructor, the
+% Peano `(= (plus (S $x) $y) (S (plus $x $y)))` shape, must stay invertible:
+% a caller that arrives with the RESULT bound peels one constructor per
+% recursion level through head-side unification. The boundary-result protocol
+% once moved that composition entirely behind the recursive call, and the
+% inverse direction turned exponential while every forward test stayed green;
+% examples/functions/invertpeanoplus.metta went from 0.2s to past 30 minutes.
+% The inference limit is the oracle because the broken shape exceeds any
+% bound and the structural one needs a few hundred.
+
+setup_peano_equations :-
+    retractall(user:silent(_)),
+    assertz(user:silent(true)),
+    process_metta_string("(= (plunit-nplus Z $y) $y)", _),
+    process_metta_string("(= (plunit-nplus (S $x) $y) (S (plunit-nplus $x $y)))", _).
+
+cleanup_peano_equations :-
+    sread("(= (plunit-nplus Z $y) $y)", E1),
+    'remove-atom'('&self', E1, _),
+    sread("(= (plunit-nplus (S $x) $y) (S (plunit-nplus $x $y)))", E2),
+    'remove-atom'('&self', E2, _).
+
+:- begin_tests(translator_equations,
+               [setup(setup_peano_equations),
+                cleanup(cleanup_peano_equations)]).
+
+test(an_inverse_call_peels_a_constructor_result_structurally) :-
+    metta_self_module(Self),
+    compiled_function_name('plunit-nplus', Predicate),
+    Four = ['S', ['S', ['S', ['S', 'Z']]]],
+    Goal =.. [Predicate, A, ['S', 'Z'], Four],
+    call_with_inference_limit(once(Self:Goal), 100000, Verdict),
+    assertion(Verdict \== inference_limit_exceeded),
+    assertion(A == ['S', ['S', ['S', 'Z']]]).
+
+test(a_forward_call_composes_the_constructor_result) :-
+    metta_self_module(Self),
+    compiled_function_name('plunit-nplus', Predicate),
+    Goal =.. [Predicate, ['S', 'Z'], ['S', 'Z'], Out],
+    once(Self:Goal),
+    assertion(Out == ['S', ['S', 'Z']]).
+
+%The caller-side reducibility walk prices a call by the SIZE of its answer,
+%so it is emitted only where a masked builtin operand can smuggle an
+%unevaluated subterm out: car-atom keeps it, while a compiled function's
+%answer is already normal and its call site carries no walk.  The breadth-
+%first example that motivated this holds its whole queue in the answer, so
+%the walk made each iteration pay for every state found so far.
+test(a_function_call_result_is_not_rewalked_for_redexes) :-
+    translate_expr(['plunit-nplus', ['S', 'Z'], 'Z'], Goals, _),
+    assertion(\+ ( sub_term(G, Goals), nonvar(G),
+                   G = metta_masked_result(_, _) )).
+
+%The emitter is asked directly so an earlier suite overriding `+` or
+%`car-atom` with its own equations cannot reroute the compiled shape this
+%asserts on.
+test(a_masking_builtin_result_keeps_the_reducibility_walk) :-
+    translator:call_result_goal(['car-atom', [x]], ['car-atom', [x]], P,
+                                evaluated, O, Goal),
+    assertion(( sub_term(G, Goal), nonvar(G),
+                G = metta_masked_result(P, O) )).
+
+test(a_non_masking_builtin_boundary_is_flag_guarded) :-
+    translator:call_result_goal([id, x], [id, x], P, evaluated, _, Goal),
+    assertion(( sub_term(G, Goal), nonvar(G),
+                G = b_getval('$petta_masked_escape', true) )),
+    assertion(\+ ( sub_term(G2, Goal), nonvar(G2),
+                   G2 = metta_masked_result(P, _),
+                   \+ sub_term(b_getval(_, _), Goal) )).
+
+:- end_tests(translator_equations).

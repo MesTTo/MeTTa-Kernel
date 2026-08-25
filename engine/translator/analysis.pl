@@ -732,11 +732,25 @@ normalize_equation_result(Fun, Args, RawOut, Out, RawBody, Body) :-
     term_variables(Normalized, Variables),
     (   variable_member(Variables, RawOut)
     ->  Body = (( nonvar(Out) -> RawOut = Out ; true ), Normalized)
+    ;   compound(RawOut)
+    %A constructor-composed result seeds the same way a variable result
+    %does.  The produced term for a body like `(S (nplus $x $y))` is always
+    %`['S'|_]` -- an irreducible inner call is retained INSIDE the
+    %structure, never in place of it -- so when the caller arrives with the
+    %result bound (an inverse call through `let`), unifying the structure
+    %up front peels one constructor per recursion level and the inner
+    %call's own nonvar seed carries the peeled value inward.  Without this
+    %the recursion generates candidates blind and `(let (plus $A (S Z))
+    %(S (S (S (S Z)))) $A)` is exponential where it was structural; the
+    %boundary goal it pre-empts is pure unification for any non-marker
+    %produced value, so forward calls are unchanged.
+    ->  Body = (( nonvar(Out) -> RawOut = Out ; true ), Normalized)
     ;   Body = Normalized
     ).
 %[tested:
-%bindings/python/tests/test_builtin_inputs.py::test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason;
-%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+%bindings/python/tests/test_builtin_inputs.py::test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason,
+%translator_equations:an_inverse_call_peels_a_constructor_result_structurally;
+%commit=WORKTREE].
 
 %A directly covered self call has already crossed its own equation boundary.
 %Fuse both the caller-side protocol and this equation's outer protocol into

@@ -1685,7 +1685,24 @@ masked_result_goal(Produced, Out,
 %[source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:7350-7361 and
 %7533-7564; tested: translator_evaluation_errors and conformance2;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-call_result_goal(_, _, Produced, final, Out, (Out = Produced)).
+%An Atom-result masker answers as produced AND may be handing written
+%material onward, so it raises the escape flag on a compound answer; the
+%flag is what a later non-masking boundary consults before walking.  A
+%user function whose chain masks and returns Atom is the same shape
+%through call_site_type_chains.  Both tests run at compile time; the
+%emitted goal for every ordinary final result stays `Out = Produced`.
+call_result_goal(Written, _, Produced, final, Out, Goal) :-
+    (   nonvar(Written),
+        Written = [Fun|_],
+        atom(Fun),
+        masked_smuggler_head(Fun)
+    ->  Goal = ( Out = Produced,
+                 (   compound(Produced)
+                 ->  b_setval('$petta_masked_escape', true)
+                 ;   true
+                 ) )
+    ;   Goal = (Out = Produced)
+    ).
 %A native operation that cannot compute answers its own runtime call, which
 %is minimal MeTTa's NoReduce for grounded operations. That answer is
 %irreducible by construction, so the continuation keeps it as data; sending it
@@ -1699,13 +1716,75 @@ call_result_goal(_, _, Produced, final, Out, (Out = Produced)).
 %pay nothing for the guard [measured 2026-08-25: testing equality before
 %atomicity cost let-heavy +4,000,162 and loop-1m +2,000,085 inferences, about
 %two per evaluated native call; this shape restored both pins exactly].
-call_result_goal(_, Runtime, Produced, evaluated, Out, Goal) :-
-    Goal = (   atomic(Produced)
-           ->  Out = Produced
-           ;   Produced == Runtime
-           ->  Out = Produced
-           ;   metta_masked_result(Produced, Out)
-           ).
+%A masked operand is the one way an unreduced subterm reaches a result.  A
+%callee that masks an argument itself (car-atom) can hand such a subterm
+%out directly, so its boundary walks unconditionally.  Every other callee's
+%answer can carry a redex only when some Atom-result masker smuggled one
+%into the value flow earlier -- `(id (noeval (+ 20 22)))` is the arbiter's
+%pinned case -- and the escape flag those producers raise is consulted in
+%one b_getval before any walk.  With the flag down the boundary is plain
+%unification, which also covers the retained-answer case, because a
+%retained call IS the produced value.  Walking unconditionally priced a
+%caller by the SIZE of the callee's answer, which turned a breadth-first
+%search carrying its queue through SWI's foldl/4 quadratic: the fold's
+%result walk visited every held state once per iteration, 3.9x call growth
+%for 2x the iterations on examples/reasoning/tilepuzzle.metta.
+%[tested: translator_equations:a_function_call_result_is_not_rewalked_for_redexes,
+%conformance2:a_builtin_polymorphic_result_reenters_evaluation;
+%commit=WORKTREE].
+call_result_goal(Written, Runtime, Produced, evaluated, Out, Goal) :-
+    (   nonvar(Written),
+        Written = [Fun|WrittenArgs],
+        atom(Fun),
+        \+ builtin_call_mask(Fun, _),
+        \+ written_args_carry_a_masker(WrittenArgs)
+    ->  Goal = (   atomic(Produced)
+               ->  Out = Produced
+               ;   Produced == Runtime
+               ->  Out = Produced
+               ;   b_getval('$petta_masked_escape', true)
+               ->  metta_masked_result(Produced, Out)
+               ;   Out = Produced
+               )
+    ;   Goal = (   atomic(Produced)
+               ->  Out = Produced
+               ;   Produced == Runtime
+               ->  Out = Produced
+               ;   metta_masked_result(Produced, Out)
+               )
+    ).
+
+%`(id (noeval (+ 20 22)))` resolves noeval at COMPILE time, so no runtime
+%producer ever raises the escape flag for it: the smuggling is textually
+%visible in the written arguments instead, and this walk finds it there.
+%A bare variable stays clear -- a redex can reach a variable's runtime
+%value only through a runtime masker, and those raise the flag themselves.
+written_args_carry_a_masker(Args) :-
+    member(Arg, Args),
+    written_term_carries_a_masker(Arg),
+    !.
+
+written_term_carries_a_masker(Term) :-
+    nonvar(Term),
+    Term = [Head|Tail],
+    (   atom(Head),
+        masked_smuggler_head(Head)
+    ->  true
+    ;   (   written_term_carries_a_masker(Head)
+        ->  true
+        ;   written_term_carries_a_masker(Tail)
+        )
+    ).
+
+masked_smuggler_head(Fun) :-
+    (   builtin_result_smuggler(Fun)
+    ->  true
+    ;   call_site_type_chains(Fun, Chains),
+        member(Chain, Chains),
+        chain_masks_an_argument(Chain)
+    ->  true
+    ;   fail
+    ).
 
 %The one head that is a FRAME rather than a value, so an Atom-returning
 %equation whose body is one still runs it.

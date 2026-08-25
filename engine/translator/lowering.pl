@@ -1190,7 +1190,28 @@ data_head_masks(HV, Args, ArgTypes) :-
 index_builtin_masks :-
     index_masking_data_heads,
     index_builtin_call_masks,
-    index_builtin_result_finality.
+    index_builtin_result_finality,
+    index_builtin_result_smugglers.
+
+%An Atom-result masking operation is the one shape that can answer a masked
+%operand's unevaluated subterm PAST its own boundary: its result is final,
+%so no walk runs at its own call site, and the written material it hands on
+%is what a later non-masking boundary must evaluate (`noeval` feeding `id`
+%is the arbiter's pinned case).  Every such producer sets
+%'$petta_masked_escape' when it answers a compound; every non-masking
+%boundary consults the flag before paying for the reducibility walk.
+:- dynamic builtin_result_smuggler/1.
+
+index_builtin_result_smugglers :-
+    retractall(builtin_result_smuggler(_)),
+    forall(( seam:builtin_type_declaration(Name, [->|Types]),
+             chain_masks_an_argument([->|Types]),
+             append(_, [Declared], Types),
+             declared_type_for_evaluation(Declared, View),
+             View == 'Atom' ),
+           ( builtin_result_smuggler(Name)
+             -> true
+             ;  assertz(builtin_result_smuggler(Name)) )).
 
 index_masking_data_heads :-
     retractall(masking_data_head(_, _)),

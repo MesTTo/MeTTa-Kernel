@@ -285,6 +285,14 @@ petta_run_with_fuel(Value, Answer, Goal) :-
 %[source: SWI-Prolog 10.1 Reference Manual, thread_initialization/1].
 :- thread_initialization(nb_setval('$petta_fuel_remaining', off)).
 
+%False until an Atom-result masking operation answers a compound: only such
+%an answer can carry an unevaluated subterm PAST its own boundary (noeval
+%hands `(+ 20 22)` onward as written), and the flag is what lets every
+%non-masking result boundary skip the reducibility walk in the common case.
+%b_setval/2 trails, so a runnable's findall restores the base on its way
+%out and each nondeterministic branch carries only its own contamination.
+:- thread_initialization(nb_setval('$petta_masked_escape', false)).
+
 petta_open_fuel_scope :-
     nb_setval('$petta_fuel_remaining', unstarted),
     nb_setval('$petta_fuel_errors', []).

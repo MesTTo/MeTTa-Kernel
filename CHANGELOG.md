@@ -2835,6 +2835,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Fix an evaluation loop on grounded operations that cannot compute: the
   retained written call (for example `!(< 1 a)`) is answered as data
   instead of re-entering evaluation until the stack overflows.
+- Fix two evaluation-cost regressions the NotReducible protocol introduced,
+  each caught by an example the untimed corpus lane had green-masked. An
+  equation whose body wraps its own recursive call in a constructor stays
+  invertible: the produced structure seeds a bound caller result up front,
+  so `(let (plus $A (S Z)) (S (S (S (S Z)))) $A)` peels one constructor per
+  level again instead of searching blind
+  (`examples/functions/invertpeanoplus.metta`, 0.2 s where it had stopped
+  terminating inside 30 minutes). And a result boundary walks a produced
+  value for redexes only where one can exist: an operation that masks an
+  argument keeps the walk, an Atom-result masker such as `noeval` raises a
+  backtrackable escape flag when its compound answer carries written
+  material onward, a call whose written arguments contain such a masker
+  keeps the walk statically, and every other boundary tests the flag in one
+  step. A breadth-first search carrying its queue through a fold stops
+  paying the walk over every held state per iteration
+  (`examples/reasoning/tilepuzzle.metta`, 6 s where it had crawled past 30
+  minutes), while `(id (noeval (+ 20 22)))` still answers `42`. A symbol
+  head bound at run time that names no function, builtin, special form, or
+  translator rule now builds data directly instead of entering the full
+  evaluator per call.
 - Fix a user `arrow-arity` typing rule's refusal being overwritten by the
   generic arity mismatch, SWI tabling being blocked in pooled spaces whose
   shadow repair had captured `$table_mode/3`, and higher-order calls being
