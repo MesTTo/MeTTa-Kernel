@@ -1042,6 +1042,7 @@ def op(
     *,
     name: str | None = None,
     transport: Literal['encoded', 'raw'] = 'encoded',
+    effect: EffectClass | str | None = None,
     declarations: Iterable[Atom] = (),
     arities: list[int] | None = None,
     inverse: Callable | None = None,
@@ -1050,11 +1051,11 @@ def op(
 
 > Register a Python callable as a MeTTa function, decorator-style.
 >
->     @m.op
+>     @m.op(effect=EffectClass.pureStructural)
 >     def double(x: int) -> int:
 >         return 2 * x                    # !(double 21) -> 42
 >
->     @m.op
+>     @m.op(effect=EffectClass.nondeterministicReadOnly)
 >     def neighbours(n: int):
 >         yield n - 1                     # a generator is nondeterministic
 >         yield n + 1
@@ -1077,7 +1078,7 @@ def op(
 > An `Atom` parameter changes evaluation order. The declaration tells
 > the compiler to pass the argument as written, before it reduces:
 >
->     @m.op
+>     @m.op(effect=EffectClass.pureStructural)
 >     def anyatom(term: Atom) -> Atom:
 >         return term
 >
@@ -1112,6 +1113,7 @@ def op(
 >     m.op(
 >         inspect_atom,
 >         name="inspect-atom",
+>         effect=EffectClass.pureStructural,
 >         declarations=[parse("(arguments inspect-atom atoms)")],
 >     )
 >
@@ -1138,7 +1140,12 @@ def op(
 > operation returns a result and a separate callable must recover the
 > arguments from that result:
 >
->     m.op(cons, name="cons", inverse=uncons)
+>     m.op(
+>         cons,
+>         name="cons",
+>         inverse=uncons,
+>         effect=EffectClass.pureStructural,
+>     )
 >     # !(let (cons $h $t) (1 2 3) ($h $t))  ->  (1 (2 3))
 >
 > It takes the result and returns the arguments, as a tuple, or the
@@ -1155,19 +1162,19 @@ def op(
 > arities or the declared arrow, and only operations that ask pay
 > the weaving:
 >
->     @m.op
+>     @m.op(effect=EffectClass.nondeterministicReadOnly)
 >     def related(term, engine: metta.MeTTa):
 >         for row in engine.match(Expression(S.link, term, V.x)):
 >             yield row[0]
 >
-> Purity is a seam declaration rather than a Python boolean. Supply the
-> ordinary effect atom to let the operation appear in a `(tabled ...)`
-> or memoized body:
+> Every operation declares its strongest observable effect. The five
+> ordered choices are ``pureStructural``, ``readOnlyLookup``,
+> ``nondeterministicReadOnly``, ``writesState``, and ``oracleIO``:
 >
 >     m.op(
 >         len,
 >         name="size",
->         declarations=[parse("(effect size immutable)")],
+>         effect=EffectClass.pureStructural,
 >     )
 >     # (= (count-of $x) (size $x))  is cacheable
 >

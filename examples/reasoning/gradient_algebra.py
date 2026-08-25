@@ -37,7 +37,11 @@ def main() -> None:
         )
         answer = program.match(S.output(S.a), under="gradient-demo").one()
         result = wire.decode(answer.tag)
-        program.op(lambda: result, name="gradient-demo-result")
+        program.op(
+            lambda: result,
+            name="gradient-demo-result",
+            effect="pureStructural",
+        )
         program.run("(= (gradient-demo-model) (gradient-demo-result))")
         module = pettorch.MettaModule(program, "gradient-demo-model")
         consumed = module()

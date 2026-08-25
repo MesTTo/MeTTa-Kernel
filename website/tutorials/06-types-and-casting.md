@@ -1,7 +1,7 @@
 <!--
-Purpose: explain MeTTa declarations, annotation-derived arrows, and checked casts.
-Guarantees: operation examples use the canonical Space.op decorator.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+Purpose: explain MeTTa declarations, annotation-derived arrows, effect-classified operations, and checked casts.
+Guarantees: operation examples use the canonical Space.op decorator with required EffectClass metadata.
+[tested: npm run docs:build and test_every_effect_rank_registers_and_reflects; commit=WORKTREE]
 -->
 
 # 06. Types and casting
@@ -14,9 +14,11 @@ Python annotations can create function declarations at registration time:
 
 ```python
 def test_annotations_declare_types(metta):
+    from metta.vocabularies import EffectClass
+
     name = unique("typed")
 
-    @metta.op(name=name)
+    @metta.op(name=name, effect=EffectClass.pureStructural)
     def typed_op(x: int) -> int:
         return x
 

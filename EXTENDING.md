@@ -889,7 +889,7 @@ freed when SWI garbage-collects the handle; without one, every handle leaks.
 ## 4. Python grounded operations: reaching the host
 
 ```python
-@m.register_op(name="my-op")
+@m.op(name="my-op", effect="pureStructural")
 def my_op(x):
     return x + 1
 ```
@@ -899,9 +899,9 @@ Python can see. It costs the janus crossing, so it earns its price when the
 work on the other side is substantial and loses it when the operation is
 trivial. `lib_llm`, `lib_torch` and the `arrays` integration are all this.
 
-### Writing logic in Python: use `@m.define`, not `register_op`
+### Writing logic in Python: use `@m.define`, not `op`
 
-`register_op` is for **reaching Python libraries**: NumPy, an LLM, a database,
+`op` is for **reaching Python libraries**: NumPy, an LLM, a database,
 anything whose value is on the other side of the crossing. It is not for
 writing logic in Python. For that there is `@m.define`, which reads the
 function's source with `ast` and lowers it into MeTTa equations:
@@ -973,10 +973,11 @@ and a separate implementation recovers arguments from that result. Supply it
 when that backward algorithm is genuinely distinct:
 
 ```python
-m.register_op(
+m.op(
     lambda head, tail: (head, *tail),
     name="concat",
     inverse=lambda whole: (whole[0], tuple(whole[1:])),
+    effect="pureStructural",
 )
 ```
 
@@ -995,7 +996,12 @@ def roots(y):
     yield (int(y ** 0.5),)
     yield (-int(y ** 0.5),)
 
-m.register_op(lambda x: x * x, name="sq", inverse=roots)
+m.op(
+    lambda x: x * x,
+    name="sq",
+    inverse=roots,
+    effect="nondeterministicReadOnly",
+)
 # !(collapse (let (sq $r) 9 $r))  ->  (3 -3)
 ```
 
@@ -1047,7 +1053,7 @@ worth catching: a reference with no answer and a fast side that invents one.
 
 ### Building a fast library on PyPeTTa
 
-`register_op` is the extension point most people find first, and it is the
+`op` is the extension point most people find first, and it is the
 slowest tier. If you are writing a library **on top of PyPeTTa** and its hot
 path is arithmetic, matching or list work, you do not have to pay for Python
 on every call. Ship Prolog and register it from Python:
@@ -2307,7 +2313,50 @@ answer rather than a gap: `bindings/python/bridge.pl` gives one to Python sequen
 withholds it from a `dict`, a `set` and a `str`, following PEP 634's rule for
 which objects a sequence pattern may take apart.
 
-### Say that an operation is safe to cache
+### Classify every operation, then compose effects
+
+Every Python operation must name its strongest observable effect when it is
+registered:
+
+```python
+from metta.vocabularies import EffectClass
+
+m.op(
+    len,
+    name="size",
+    effect=EffectClass.pureStructural,
+)
+```
+
+The five classes form one ordered lattice:
+
+| class | strongest behavior it admits |
+|---|---|
+| `pureStructural` | depends only on structural arguments |
+| `readOnlyLookup` | reads stable state without changing it |
+| `nondeterministicReadOnly` | reads without writing and may answer several ways |
+| `writesState` | changes engine or host state |
+| `oracleIO` | observes an external oracle, including clocks, randomness, or I/O |
+
+Registration without effect metadata refuses before the engine changes and
+names all five choices. New code supplies it through `effect=`; existing
+`(effect name class)` declaration atoms remain a compatibility input. A
+generator, or an operation with a generator inverse, must be at least
+`nondeterministicReadOnly`. The operation's reflection always carries one
+canonical `(effect name class)` row in `&petta`.
+
+Composition takes the strongest member. In Python,
+`EffectClass.compose(step.effect for step in plan)` computes that join from
+reflected `Operation.effect` values; `join` is associative, commutative, and
+idempotent, and an empty plan is `pureStructural`. The engine uses the same law
+for an operation plan. A compiled `@define` clause joins the
+classes of every operation it calls, and stacked clauses join again, so the
+definition's reflected effect follows the strongest reachable call rather than
+a hand-written boolean.
+
+Only `pureStructural` projects to the cache-safe allow-list. Tabling and
+memoization refuse every stronger class unless the caller explicitly chooses
+the existing unchecked policy:
 
 ```prolog
 :- multifile seam:pure_operation/1.
@@ -2332,21 +2381,17 @@ Your library's operations are yours to declare. The engine ships its own core
 list and knows nothing about yours, so an operation nobody declares is refused
 rather than assumed, which is the safe direction to be wrong in.
 
-From Python it is the same declaration atom, owned by the registration:
-
-```python
-m.register_op(
-    len,
-    name="size",
-    declarations=[parse("(effect size immutable)")],
-)
-```
+The former volatility spellings remain accepted only as compatibility input.
+They canonicalize conservatively: `immutable` to `pureStructural`, `stable` to
+`readOnlyLookup`, and `volatile` to `oracleIO`. New code should use the five
+canonical names. `Operation.pure` remains as the boolean projection of
+`effect is EffectClass.pureStructural`; it is not a second classification.
 
 ### Say who your dispatch goal really is
 
 Only if you are writing a BRIDGE, meaning a tier that compiles a MeTTa
-operation into a call on a dispatcher of your own. `register_op` and
-`register_prolog` are not this; the Python bridge underneath `register_op` is.
+operation into a call on a dispatcher of your own. `op` and
+`register_prolog` are not this; the Python bridge underneath `op` is.
 
 ```prolog
 :- multifile seam:effect_operation_name/3.
@@ -2582,8 +2627,8 @@ both and the query they disagree on.
 
 | declaration | what it decides | sugar |
 |---|---|---|
-| `(op <name> <arity> <kind>)` | how a registered operation compiles; `register_op` asserts these and compiles FROM them | `register_op` |
-| `(effect <name> immutable)` | the operation may sit in a tabled or memoized body | `register_op(declarations=[...])` |
+| `(op <name> <arity> <kind>)` | how a registered operation compiles; `op` asserts these and compiles FROM them | `op` |
+| `(effect <name> pureStructural\|readOnlyLookup\|nondeterministicReadOnly\|writesState\|oracleIO)` | the operation's required effect rank; a composition and a compiled definition take the strongest member | `op(effect=...)` |
 | `(cache <name> unchecked)` | the caller accepts stale answers for an impure body | add the atom |
 | `(cache <name> force\|refuse)` | override automatic memo profitability for one function; purity remains a hard refusal | add or remove the atom |
 | `(handles <ctx> <pattern> Exact\|Partial\|Sound\|Refuse [det])` | how faithful a context's own filtering is, per shape; `Exact` licenses count pushdown, `Refuse` makes the query a loud error; `(in $x)` marks a position that must arrive bound | `space.handles` |

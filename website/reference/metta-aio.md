@@ -60,6 +60,9 @@ Source: `bindings/python/metta/aio.py`.
 >   - async function handles consume the synchronous Answers surface on their
 >     owning worker [tested: test_aio_structural_surface_behaves;
 >     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
+>   - async operation registration requires and forwards the canonical effect
+>     argument [tested: test_aio_declare_and_register_delegations_land;
+>     commit=WORKTREE]
 >   - execution-policy scopes cross the worker hop and never change awaited
 >     return shapes [tested:
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
@@ -772,6 +775,7 @@ async def op(
     fn: Callable,
     /,
     *,
+    effect: EffectClass | str,
     name: str | None = None,
     transport: Literal['encoded', 'raw'] = 'encoded',
     declarations: Iterable[Atom] = (),

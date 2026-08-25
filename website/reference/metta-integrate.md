@@ -30,6 +30,9 @@ Source: `bindings/python/metta/integrate.py`.
 >     boolean registration pairs [tested:
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - callable wrappers require a host-effect classification, and object
+>     wrappers require one class per method [tested:
+>     test_wrap_object_methods_with_effect_convention; commit=WORKTREE]
 > Owns:
 >   - _INSTALLED retains one target per live space and integration name;
 >     MeTTa.drop releases every record for that space [tested
@@ -134,6 +137,7 @@ def module_ops(
     module: Any,
     names: Iterable[str] | None = None,
     *,
+    effect: EffectClass | str,
     prefix: str | None = None,
     rename: dict[str, str] | None = None,
     transport: Literal['encoded', 'raw'] = 'raw',
@@ -142,7 +146,9 @@ def module_ops(
 
 > Selected callables of any module as MeTTa functions, in one call.
 >
->     metta.integrate.module_ops(m, math, ["sqrt", "floor", "gcd"])
+>     metta.integrate.module_ops(
+>         m, math, ["sqrt", "floor", "gcd"], effect="pureStructural"
+>     )
 >     m.run("!(sqrt 16.0)")
 >
 > Underscores read as hyphens, a prefix namespaces the lot, and rename
@@ -151,7 +157,14 @@ def module_ops(
 ## `wrap_callable`
 
 ```python
-def wrap_callable(m, name: str, target: Callable, *, arities: list[int] | None = None):
+def wrap_callable(
+    m,
+    name: str,
+    target: Callable,
+    *,
+    effect: EffectClass | str,
+    arities: list[int] | None = None,
+):
 ```
 
 > One callable, any callable, as a MeTTa function under a chosen name.
@@ -165,13 +178,21 @@ def wrap_callable(m, name: str, target: Callable, *, arities: list[int] | None =
 ## `wrap_object`
 
 ```python
-def wrap_object(m, name: str, obj: Any, methods: dict[str, str] | Iterable[str]) -> Any:
+def wrap_object(
+    m,
+    name: str,
+    obj: Any,
+    methods: dict[str, str] | Iterable[str],
+    *,
+    effects: Mapping[str, EffectClass | str],
+) -> Any:
 ```
 
 > An instance's methods as operations: (name-method args...).
 >
 >     metta.integrate.wrap_object(m, "db", connection,
->                                 {"execute": "db-query!", "close": "db-close!"})
+>                                 {"execute": "db-query!", "close": "db-close!"},
+>                                 effects={"execute": "oracleIO", "close": "oracleIO"})
 >
 > methods maps Python method names to MeTTa spellings, or lists names to
 > mangle by the usual rule. A method returning None answers True, the

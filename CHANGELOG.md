@@ -48,6 +48,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   gauge or `under=algebra` with no step body; the State store is process-shared,
   individual accesses are thread-safe, compound read-modify-write is not
   atomic, and cells remain outside events, history, and transactions.
+- Operation effects are a required five-rank contract:
+  `pureStructural < readOnlyLookup < nondeterministicReadOnly < writesState <
+  oracleIO`. `EffectClass` compares in that order and composes a plan by taking
+  its strongest member; registered operations and compiled definitions expose
+  the resulting canonical `(effect name class)` row in `&petta`. Registration
+  without effect metadata now refuses with all five remedies. New code supplies
+  it through `effect=`; the retired declaration spellings
+  remain accepted as input aliases and canonicalize conservatively:
+  `immutable` to `pureStructural`, `stable` to `readOnlyLookup`, and `volatile`
+  to `oracleIO`.
 - Benchmark baselines are two-sided and configuration-stamped. A counter,
   slope, or instruction reading that falls beyond the allowance now fails as
   an unpinned improvement instead of passing silently, because a stale-high

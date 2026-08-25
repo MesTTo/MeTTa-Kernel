@@ -57,6 +57,10 @@ Source: `bindings/python/metta/ops.py`.
 >     type, and effect atoms rather than boolean decorator flags [tested:
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - every registration publishes exactly one canonical five-rank effect and
+>     missing metadata refuses before engine mutation [tested:
+>     test_unclassified_operation_refuses_with_all_five_effect_remedies,
+>     test_every_effect_rank_registers_and_reflects; commit=WORKTREE]
 >   - the first Python owner refuses to adopt a source-owned declaration, while
 >     later Python owners share the declaration reference count
 >     [tested: test_a_duplicate_declaration_names_the_first_one;
@@ -91,6 +95,7 @@ def register(
     *,
     name: str | None = None,
     transport: Literal['encoded', 'raw'] = 'encoded',
+    effect: EffectClass | str | None = None,
     declarations: Iterable[Atom] = (),
     space: str = _DEFAULT_SPACE,
     arities: list[int] | None = None,
@@ -122,11 +127,14 @@ def register(
 >
 > Python annotations derive type atoms and Atom parameters receive syntax
 > before evaluation. `transport="raw"` derives raw_det/raw_many in the
-> operation's `(op ...)` fact. Additional declaration atoms are owned for
+> operation's `(op ...)` fact. Effect metadata is required; ``effect=`` is
+> the canonical input and names the strongest observable capability of the
+> operation. Existing effect declaration atoms remain a compatibility input.
+> Additional declaration atoms are owned for
 > the operation's complete lifecycle: type atoms live in its declaration
-> space, while `(effect name immutable)` and other policy atoms live in
-> &petta and can be matched there. An immutable effect atom is the explicit
-> allow-list for tabled or memoized bodies.
+> space, while its canonical effect row and other policy atoms live in
+> &petta and can be matched there. Only ``pureStructural`` enters the
+> compatibility allow-list for tabled or memoized bodies.
 
 ## `unregister`
 

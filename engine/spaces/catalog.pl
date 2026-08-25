@@ -503,6 +503,29 @@ petta_vocabulary_value(Vocab, Value) :-
     petta_vocabulary_values(Vocab, Values),
     memberchk(Value, Values).
 
+%The compatibility projection lives beside the vocabulary it projects into.
+%pure=true and the old immutable spelling mean pureStructural; stable means
+%readOnlyLookup; volatile means oracleIO. The first clause keeps every
+%canonical value data-driven from the catalog, so adding an alias cannot make
+%it a sixth public EffectClass member.
+%[tested:
+%effects_lattice:legacy_effect_spellings_map_but_cannot_enter_the_canonical_catalog;
+%commit=WORKTREE]
+petta_effect_class_canonical(Value, Canonical) :-
+    nonvar(Value),
+    !,
+    (   petta_vocabulary_value('effect-class', Value)
+    ->  Canonical = Value
+    ;   petta_legacy_effect_class(Value, Canonical)
+    ).
+petta_effect_class_canonical(Canonical, Canonical) :-
+    petta_vocabulary_values('effect-class', Values),
+    member(Canonical, Values).
+
+petta_legacy_effect_class(immutable, pureStructural).
+petta_legacy_effect_class(stable, readOnlyLookup).
+petta_legacy_effect_class(volatile, oracleIO).
+
 %The positional walk. Position counts declaration arguments from 1, the way
 %the refusal prints them; the Expected a refusal carries is the argspec as
 %declared, so the message shows the row's own words.
@@ -1076,7 +1099,9 @@ petta_catalog_preset([vocabulary, 'memo-strategy', wtinylfu, lru]).
 petta_catalog_preset([vocabulary, 'memo-aggregate', none, min, max, sum, count]).
 petta_catalog_preset([vocabulary, 'save-format', metta, fast]).
 petta_catalog_preset([vocabulary, 'cache-mode', unchecked, force, refuse]).
-petta_catalog_preset([vocabulary, 'effect-class', immutable]).
+petta_catalog_preset([vocabulary, 'effect-class',
+                      pureStructural, readOnlyLookup,
+                      nondeterministicReadOnly, writesState, oracleIO]).
 petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
 petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
 %What a context promises about the change events it emits. The three

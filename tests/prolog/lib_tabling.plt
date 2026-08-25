@@ -15,7 +15,7 @@
 %     identity's canonical storage module
 %     [tested: a_parametric_space_read_resolves_to_its_private_predicate;
 %     commit=3c7bcde6a0670ec5c563584b26977b41cc727580]
-%   - an effect declaration in &petta is the cache-purity claim [tested:
+%   - a pureStructural effect declaration in &petta is the cache-purity claim [tested:
 %     a_metta_side_effect_declaration_is_a_purity_claim; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
 % Open Obligations:
 %   To Do: None
@@ -313,7 +313,7 @@ test(the_refusal_names_the_goal) :-
           message_to_codes(Error, Codes)),
     string_codes(Text, Codes),
     assertion(sub_string(Text, _, _, _, "py-call/3")),
-    assertion(sub_string(Text, _, _, _, "seam:pure_operation")).
+    assertion(sub_string(Text, _, _, _, "(effect py-call pureStructural)")).
 
 message_to_codes(error(Formal, _), Codes) :-
     phrase(prolog:error_message(Formal), Lines),
@@ -337,17 +337,18 @@ test(an_unchecked_declaration_tables_an_impure_body,
     metta_tabled_decl(['purity-unchecked', _], Answer),
     assertion(Answer == true).
 
-%The effect atom register_op accepts from Python, made from inside the
-%language instead: the walk reads (effect Name immutable) out of &petta's
-%own storage, and removal withdraws it.
+%The bottom effect-class atom register_op accepts from Python, made from
+%inside the language instead: the walk reads
+%(effect Name pureStructural) out of &petta's own storage, and removal
+%withdraws it.
 test(a_metta_side_effect_declaration_is_a_purity_claim,
      [cleanup(catch('remove-atom'('&petta',
-                                  [effect, 'purity-eff', immutable], _),
+                                  [effect, 'purity-eff', pureStructural], _),
                     _, true))]) :-
     assertion(\+ seam:pure_operation('purity-eff')),
-    process_metta_string("!(add-atom &petta (effect purity-eff immutable))", _),
+    process_metta_string("!(add-atom &petta (effect purity-eff pureStructural))", _),
     assertion(seam:pure_operation('purity-eff')),
-    'remove-atom'('&petta', [effect, 'purity-eff', immutable], _),
+    'remove-atom'('&petta', [effect, 'purity-eff', pureStructural], _),
     assertion(\+ seam:pure_operation('purity-eff')).
 
 :- end_tests(lib_tabling_purity).

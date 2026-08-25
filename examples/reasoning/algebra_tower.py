@@ -24,11 +24,7 @@ from metta import (
     parse,
     wire,
 )
-from metta.algebra import (
-    AlgebraRequirementError,
-    Amplitude,
-    LinearEvidenceError,
-)
+from metta.algebra import AlgebraRequirementError, Amplitude, LinearEvidenceError
 
 
 def main() -> None:
@@ -73,10 +69,14 @@ def main() -> None:
             print("linear", refusal)
 
     metta.op(
-        lambda left, right: left + right, name="amplitude-add"
+        lambda left, right: left + right,
+        name="amplitude-add",
+        effect="pureStructural",
     )
     metta.op(
-        lambda left, right: left * right, name="amplitude-multiply"
+        lambda left, right: left * right,
+        name="amplitude-multiply",
+        effect="pureStructural",
     )
     with context.space() as program:
         try:

@@ -2,6 +2,9 @@
 Purpose: teach Python-authored equations, rule sets, and lowering declarations.
 Guarantees: examples use the narrow Space.define and Rules.lower doors.
 [tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
+Purpose: teach Python-authored equations, rule sets, effect propagation, and lowering declarations.
+Guarantees: examples use the narrow Space.define and Rules.lower doors, and describe definition effects as a strongest-member join.
+[tested: npm run docs:build and test_a_definition_joins_every_called_operations_effect; commit=WORKTREE]
 -->
 
 # Write MeTTa in Python
@@ -139,7 +142,8 @@ Unsupported constructs fail with the construct, source line, and a replacement d
 
 Compilation keeps information Python has already parsed instead of asking for
 decorator flags. A `Defined` value exposes `source_span`, `free_variables`, and
-the derived `pure` value. Its `doc` comes from `ast.get_docstring`, so mutating
+the derived `effect`; `pure` remains the compatibility projection that is true
+only for `pureStructural`. Its `doc` comes from `ast.get_docstring`, so mutating
 the function object's `__doc__` cannot change the source claim.
 
 The same facts are ordinary data in `&petta`:
@@ -147,12 +151,14 @@ The same facts are ordinary data in `&petta`:
 ```metta
 (source-span &my-space checked "example.py" 10 0 13 17)
 (free-variable &my-space checked helper)
-(effect checked immutable)
+(effect checked pureStructural)
 ```
 
 There is one source span per stacked clause and one free-variable fact per
-captured name. The immutable effect exists only while every live clause calls
-local functions, Python lowerings, constructors, or functions already declared
-immutable. A call that reads a space, prints, mutates, or has no purity claim
-removes that effect fact. Replacing a clause replaces these facts, and clearing
-the definition space removes them.
+captured name. Each clause joins the effects of the operations it calls, and
+stacked clauses join again. The result is the strongest member of
+`pureStructural < readOnlyLookup < nondeterministicReadOnly < writesState <
+oracleIO`, the same law `EffectClass.compose` exposes for any operation plan.
+An unclassified or host-observable call is classified conservatively rather
+than making the fact disappear. Replacing a clause replaces these facts, and
+clearing the definition space removes them.

@@ -1,7 +1,7 @@
 <!--
-Purpose: introduce run, eval, query, and Python operation registration.
-Guarantees: operation examples use the canonical Space.op decorator.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+Purpose: introduce run, eval, query, and effect-classified Python operation registration.
+Guarantees: operation examples use the canonical Space.op decorator with required EffectClass metadata.
+[tested: npm run docs:build and test_unclassified_operation_refuses_with_all_five_effect_remedies; commit=WORKTREE]
 -->
 
 # 04. The Python bridge
@@ -30,9 +30,11 @@ The boundary also goes from MeTTa into Python. Register a Python callable with `
 
 ```python
 def test_det_op_composes_with_equations(metta):
+    from metta.vocabularies import EffectClass
+
     name = unique("dbl")
 
-    @metta.op(name=name)
+    @metta.op(name=name, effect=EffectClass.pureStructural)
     def double(x: int) -> int:
         return 2 * x
 
@@ -41,6 +43,10 @@ def test_det_op_composes_with_equations(metta):
     assert metta.run(f"(= ({quad} $x) ({name} ({name} $x)))\n!({quad} 5)") == [[20]]
 ```
 
-Annotations tell the bridge which grounded Python values to pass and which type declaration to register. The Python callable runs only when evaluation reaches its term. Until then, the expression is data.
+Annotations tell the bridge which grounded Python values to pass and which type
+declaration to register. Effect metadata is separate and required; `effect=` is
+the canonical input and states the strongest observable behavior, from
+`pureStructural` through `oracleIO`. The Python callable runs only when
+evaluation reaches its term. Until then, the expression is data.
 
 Use [Python functions as MeTTa functions](../guide/python-functions) for annotations, generators, defaults, objects, and unregistration. Next, compile supported Python syntax into equations in [05. Writing MeTTa in Python](./05-writing-metta-in-python).

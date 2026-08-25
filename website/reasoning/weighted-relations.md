@@ -1,8 +1,8 @@
 <!--
 Purpose: show weighted relations built on the general surface: an
 operation answering its classes with weights as annotations.
-Guarantees: the example uses space() and Space.op from the narrow surface.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+Guarantees: the example uses space() and a nondeterministicReadOnly Space.op from the narrow surface.
+[tested: npm run docs:build and test_every_effect_rank_registers_and_reflects; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -28,7 +28,7 @@ def mood(day, chosen=None):
     yield Answer(value=S.calm, k=0.25)
     yield Answer(value=S.tense, k=0.75)
 
-m.op(mood, name="mood")
+m.op(mood, name="mood", effect="nondeterministicReadOnly")
 m.annotations("mood", "prob")
 
 m.run("!(collapse (mood today))")                 # (calm tense)
