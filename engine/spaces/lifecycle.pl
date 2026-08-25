@@ -1,6 +1,9 @@
 % Purpose: decode stored atoms and manage source, subscription, reaction, table, and clear lifecycles
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
+%   A foreign space life releases tabled, generated, deferred-translation, and
+%   support state before its execution-module name can be reused [tested:
+%   test_a_recycled_mork_name_inherits_nothing; commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -1525,7 +1528,18 @@ metta_remove_hooks_idle(Space) :-
 %exist [tested: test_pool_reuse_starts_tabling_clean].
 metta_host_clear_space(Space) :-
     seam:foreign_space(Space), !,
-    clear_foreign_atoms(Space).
+    (   metta_exec_module_known(Space, Module)
+    ->  % A foreign clear removes stored equations, so untabling must precede
+        % the provider's removal funnel just as it does for native storage.
+        metta_host_clear_tabling(Space, Module),
+        metta_host_clear_foreign_storage(Space),
+        clear_generated_predicates(Module),
+        retractall(deferred_metta_function(_, Module, Space, _, _, _)),
+        clear_module_translation_state(Module),
+        support_forget_module(Module)
+    ;   metta_host_clear_foreign_storage(Space)
+    ).
+
 %UNTABLING COMES FIRST, before any path that removes a clause. Every later
 %step here removes clauses of predicates this space may have TABLED: the
 %hook-driven `remove-atom` loop and clear_native_atoms/1 both retract the
@@ -1563,6 +1577,11 @@ metta_host_clear_space(Space) :-
     clear_generated_predicates(Module),
     retractall(deferred_metta_function(_, Module, Space, _, _, _)),
     clear_module_translation_state(Module).
+
+metta_host_clear_foreign_storage(Space) :-
+    clear_foreign_atoms(Space),
+    retractall(import_life(Space, _, _)),
+    forget_space_source_loads(Space).
 
 %The equations above come out one per stored (= ...) atom, through
 %metta_remove_atom/3, so a predicate the compiler GENERATED with no stored

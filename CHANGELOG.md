@@ -8,6 +8,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `bindings/python/bench.py --memory-scale` measures memory and scaling in
+  spawned fresh processes. It keeps min-of-three raw samples and noise bands,
+  fits constant through quadratic and capped-linear complexity families over
+  geometric sizes, and separates exact SWI structural bytes from Python
+  allocations and Linux process memory. Controlled `instructions:u` samples
+  cover primitive-heavy projection width. Exact lanes also gate atom, grounded
+  object, MORK space, table, module-pool, and bounded wire-cache reclamation;
+  page-based RSS, PSS, and private bytes remain report-only. The streaming
+  answer curve uses numeric payloads so its constant cursor-memory result is
+  not confounded by the separately measured wire-name cache.
+
 - Benchmark baselines are two-sided and configuration-stamped. A counter,
   slope, or instruction reading that falls beyond the allowance now fails as
   an unpinned improvement instead of passing silently, because a stale-high
@@ -307,6 +318,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   measured quadratic or linear-in-program costs with flat ones.
 
 ### Changed
+
+- Wide query projections now index variable names once for decoding and row
+  construction. Distinct-column joins grow linearly instead of quadratically,
+  while rows below 64 columns retain the lower-overhead list path.
+- Dropping many compiled spaces now removes support-graph state through
+  module-indexed endpoint patterns. Teardown scales with the affected edges
+  instead of rescanning the whole remaining graph for every space.
 
 - BREAKING: a foreign space provides only what it declares. A provider
   with no `seam:foreign_capability/2` rows used to be treated as
@@ -907,6 +925,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- Reclaimed named MORK spaces on clear/drop and replaced the bridge's fixed
+  4 GiB parser/query scratch reservations with demand-grown buffers. Joins
+  beyond MORK's 63-item encoding now fall back to the engine plan instead of
+  aborting the process.
 
 - Rules bodies follow the full staging split: a defined call with ground
   arguments now runs at construction and embeds its single result

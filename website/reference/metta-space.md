@@ -87,6 +87,10 @@ Source: `bindings/python/metta/_space.py`.
 >     ``peek`` and ``take`` expose the engine's event-driven Linda operations
 >     [tested: test_space_handles_are_term_operands_and_round_trip,
 >     test_space_handle_peek_and_take_are_linda_verbs; commit=4e2398075da67bb2cbcc123a9fc1e078ecac6fbf]
+>   - dropping a named space clears that life without returning its public name
+>     to the anonymous allocation pool [tested:
+>     test_a_named_space_drop_never_enters_the_anonymous_pool;
+>     commit=WORKTREE]
 > Owns resources:
 >   - ``Space.save`` owns its sibling temporary file and removes it after every
 >     failed operation [tested: test_save_failure_preserves_existing_file;
@@ -174,14 +178,16 @@ def space_names(self) -> list[str]:
 def drop(self) -> None:
 ```
 
-> Clear this space and release its name for reuse. Dropping a
-> foreign space releases the binding and leaves the provider's own
-> data alone; &self, the engine's own space, is cleared but its name
-> never released. Subscriptions on the space cancel with it: a
-> pooled name reused later must not deliver to the old life's
-> watchers. The handle itself dies here: every later call through it
-> refuses, because its name may already belong to another space.
-> Dropping twice is a no-op, as closing twice is.
+> Clear this space and release an anonymous name for reuse.
+>
+> Dropping unregisters a Python provider and closes only backing state
+> owned by this handle. A foreign provider with a clear/drop lifecycle,
+> such as MORK, releases its provider state.
+> A named space's public name is not an anonymous allocation and never
+> enters the anonymous pool. &self is cleared but never released.
+> Subscriptions on the space cancel with it: a pooled name reused later
+> must not deliver to the old life's watchers. The handle itself dies
+> here, and dropping twice is a no-op, as closing twice is.
 
 ### `Space.to_wire`
 
