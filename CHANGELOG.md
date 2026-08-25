@@ -28,9 +28,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `lib_` family prefix with underscores kept; `lib["exact_name"]` reaches a
   library outside the family or one whose suffix Python cannot say
   (`lib_import` strips to the keyword `import`), `lib.x.part` builds the
-  two-argument `(library x part)` form, and `lib(path)` is the
-  exact-module-form escape, taking a `pathlib.Path` whole and rendering it
-  at the door. A handle refuses term positions, mixed adds, and batch
+  two-argument `(library x part)` form, and `lib(S["path/to/module"])` is
+  the exact-module-form escape: a path import is named by its ATOM, which
+  the engine resolves by its own rules rather than against the host's
+  working directory (`str` and `os.PathLike` stay accepted one rung
+  down). A handle refuses term positions, mixed adds, and batch
   scopes loudly; a missing library surfaces the engine's own existence
   error.
 - The conformance kit is universal: `check-space-provider`
