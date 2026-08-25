@@ -35,6 +35,8 @@ They stay separate so the differential coverage denominator remains exact.
 | public spelling | meaning | example |
 |---|---|---|
 | `atom.cast(type_)` | admit an atom through the ambient space's type discipline | `with space: ⏎     person = S.Ann.cast('Person')` |
+| `fresh()` | mint a helper-local variable that cannot capture a caller's names | `private = fresh() ⏎ pattern = S.edge(private, V.value)` |
+| `metta.catalog` | query the runtime catalog as the ordinary &petta space | `rows = metta.catalog.match(S.op(V.name, V.arity, V.kind))` |
 | `metta.speculate()` | scope each default-context execution as a discarded segment | `with metta.speculate(): ⏎     metta.run(source)` |
 | `space.reify()` | capture an immutable evaluable world value, distinct from listing atoms | `world = space.reify()` |
 | `world.eval(target)` | evaluate without touching the parent and return answers plus a successor world | `answers, successor = world.eval(target)` |

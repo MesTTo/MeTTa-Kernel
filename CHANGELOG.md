@@ -8,6 +8,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `metta.catalog` now names the queryable `&petta` reflection space, and
+  `fresh()` now mints hygienic variables for library-authored patterns. These
+  deliberate root additions raise the narrow public export count from 100 to
+  102.
+
 - `atom.cast(type_)` now delegates to `space.cast(atom, type_)` in the ambient
   space, preserving space-relative type admission with the concise atom door.
 
