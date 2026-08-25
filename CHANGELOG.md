@@ -308,6 +308,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Close the Python guide's documentation-law gaps with dedicated `S`/`V` and
+  execution-location explainers, the strong `collapse` boundary, walrus
+  call-time choice and its bound-generator analogy, the non-atomic
+  `State.value += 1` contract and lock or `Space.take()` remedies, the Python
+  3.12 floor beside 3.13 `copy.replace` and 3.14 t-strings, process-sharing
+  boundaries, `ExceptionGroup` atom rendering, and source-only field
+  docstrings. Named acceptance tests pin the four runtime-sensitive laws.
 - BREAKING: a foreign space provides only what it declares. A provider
   with no `seam:foreign_capability/2` rows used to be treated as
   providing everything, so a missing hook surfaced as a silent failure

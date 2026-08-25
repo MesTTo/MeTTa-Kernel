@@ -1,7 +1,7 @@
 <!--
 Purpose: document thread ownership, async execution, lifecycle rules, and serialization boundaries.
 Guarantees: public names in the boundary table match the narrow surface.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+[tested: npm run docs:build; commit=WORKTREE]
 -->
 
 # Threads, tasks, and what pickles
@@ -11,6 +11,22 @@ Python's own documentation states, per type, what is atomic, what locks, and wha
 ## One process, one home engine
 
 A process holds one embedded Prolog runtime. The thread that first uses it holds the home engine, and every other bare thread's calls serialize on one lock around that engine, so calling any `Space` method from any thread is safe and correct, just not parallel (`test_bare_threads_share_the_home_engine_serialized`). The lock choice is per OS thread and decided once, when a thread attaches an engine, not per call.
+
+## State cells and compound updates
+
+`cell.value` reads and `cell.value = replacement` writes one thread-shared
+engine cell. Each property operation is serialized. The compound statement
+`cell.value += 1` is still a read followed by a separate write, so two threads
+can both read the same value and lose one increment. Engine-call serialization
+does not make the pair atomic
+(`test_state_increment_requires_a_lock_around_read_modify_write`).
+
+Put a caller-owned `threading.Lock` around the whole read-modify-write when
+Python owns the update. When MeTTa owns it, import `lib_thread` and put the
+whole expression under `with-lock`. A one-atom space can instead act as a
+token: `Space.take()` removes and claims the atom, and adding the replacement
+releases the next waiter. Restore the atom if the computation raises. The lock
+or token must cover both the read and the write.
 
 Real parallelism is a second engine, and there are three doors to one:
 
@@ -51,4 +67,16 @@ Serialization guarantees live here too, because they are the other half of "what
 | `Grounded` of a live object and `Handle` | refuses, by design | process-local identity cannot cross (`test_process_local_grounded_values_refuse_pickle`) |
 | `Rows` and `Row` | yes | `test_rows_copy_and_pickle_protocols` |
 | `lint` `Finding` | yes, with a stable public identity | `test_finding_retains_public_pickle_identity` |
-| `MeTTa`, `Space`, satellite cursors, subscriptions | no | live engine state; `save()`/`load()` persist a space, and the remote protocol's wire forms cross processes |
+| `Space` | handle name only | stored atoms and the live engine do not cross; `save()`/`load()` persist content |
+| `MeTTa`, satellite cursors, subscriptions | no | live engine state; the remote protocol's wire forms cross processes |
+
+Pickling an atom only makes a process argument transportable by value. Pickling
+a `Space` carries its name as a handle, not its stored atoms. Neither operation
+turns the source space into shared storage. Threads in one process can use the
+same local `Space` under the rules above. Separate processes have separate
+runtimes and local spaces; to share live knowledge, each process must connect
+to the same remote-backed space. The shipped `metta.remote` path uses HTTP and
+the atom wire format. A local socket transport is not implied by pickling and
+is not part of the local `Space` contract. See
+[contexts and remotes](../live/contexts.md) and
+[`metta.remote`](../reference/metta-remote.md).

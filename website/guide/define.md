@@ -1,7 +1,7 @@
 <!--
 Purpose: teach Python-authored equations, rule sets, and lowering declarations.
 Guarantees: examples use the narrow Space.define and Rules.lower doors.
-[tested: npm run docs:build; commit=c34c9bf3e55a8425d3f251c3ad06c33bc9755a22]
+[tested: npm run docs:build; commit=WORKTREE]
 -->
 
 # Write MeTTa in Python
@@ -58,6 +58,25 @@ callee is nondeterministic, including self-recursive generators. A call whose
 result might instead be iterable data is refused at compile time. Write
 `yield call(...)` to delegate its engine answers, or bind returned iterable
 data and then `yield from` that value.
+
+## Bind once, share one choice
+
+If `coin()` yields `0` and `1`, a compiled body that returns
+`((choice := coin()), choice)` answers `(0 0)` and `(1 1)`. It never answers
+`(0 1)` or `(1 0)`. The walrus lowers to `let*`, so one bound
+nondeterministic value is chosen once and shared by both uses. Calling
+`coin()` separately in both positions makes two choices instead.
+
+Python generators give the binding rule a familiar shape. `g = gen()` binds
+one generator object, and consuming `g` in two places shares one stream and
+its position. Calling `gen()` twice creates two independent streams. The
+walrus or `let` is the shared binding; two calls are two choice sites. A
+generator advances when consumed, while a call-time choice reuses its chosen
+value, so the analogy is about shared identity rather than iteration order.
+
+A walrus inside an `S(...)`-built term is ordinary term data and is refused by
+the compiler. Bind in the compiled Python body as above, or pass the bound
+value through a defined constructor function.
 
 ## Rules as ordinary atoms
 

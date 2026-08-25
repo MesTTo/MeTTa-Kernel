@@ -1,7 +1,7 @@
 /*
 Purpose: configure the PeTTa documentation site's navigation, rendering, and project URL.
 Guarantees: navigation advertises only live public Python modules and API pages.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+[tested: npm run docs:build; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -63,6 +63,7 @@ export default defineConfig({
           { text: "Install and first steps", link: "/guide/getting-started" },
           { text: "Concepts and names", link: "/guide/concepts" },
           { text: "Atoms, operators, and terms", link: "/guide/atoms-terms" },
+          { text: "Where code runs", link: "/guide/where-code-runs" },
           { text: "Run and query", link: "/guide/run-query" },
           { text: "Python functions in MeTTa", link: "/guide/python-functions" },
           { text: "Write MeTTa in Python", link: "/guide/define" },

@@ -1,7 +1,7 @@
 <!--
 Purpose: install PeTTa and introduce its module primitives, runtime context, and Space handle.
 Guarantees: examples use the current narrow public surface.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+[tested: npm run docs:build; commit=WORKTREE]
 -->
 
 # Install and first steps
@@ -43,6 +43,20 @@ m.match(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 ```
 
 `run` uses the engine's reader, compiler, and evaluator. It returns one answer list for each `!` directive. Grounded answers compare as Python values. Symbols stay symbols. Stored Python objects return as the same objects.
+
+## Python version floor
+
+PeTTa supports Python 3.12 and newer. The floor spelling builds terms directly,
+such as `term = S.Order(7, 5)`, and reconstructs or calls `__replace__` on a
+PeTTa-defined record when one field changes. Those forms work on 3.12.
+
+Python 3.13 adds `copy.replace(edge, b="new")` as the general functional
+update spelling. Python 3.14 adds t-string syntax, which creates a structured
+`Template`; it is optional integration sugar and is not accepted directly by
+`Space.run`. Neither feature changes the 3.12 floor. See
+[term building](./atoms-terms.md#build-terms-not-source-text) and
+[record replacement](./python-functions.md#declaring-a-data-class) for the
+runnable forms.
 
 The repository has thirteen self-verifying Python examples organised by topic. Run the first from the repository root:
 
