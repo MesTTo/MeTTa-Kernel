@@ -1,6 +1,9 @@
 % Purpose: provide representation, parsing, grounded-operation errors, and numeric term recovery
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
+%   Python numeric objects reach their owning operator seam only after the
+%   native-number branch declines [tested:
+%   test_numpy_numeric_family_keeps_python_result_types; commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -380,13 +383,18 @@ metta_bad_argument([Declared|Rest], [Origin|Origins], [Argument|Arguments], N,
     %The value type of a type-position modifier is what decides and what is
     %named, on this refusal path for the same reason as above.
     declared_type_for_check(Declared, Expected),
-    metta_argument_types(Argument, Types),
     (   Origin == metatype,
         satisfies_metatype(Argument, Expected)
     ->  Next is N + 1,
         metta_bad_argument(Rest, Origins, Arguments, Next,
                            Position, Reported, Actual)
-    ;   (   Position = N, Reported = Expected,
+    ;   Origin \== metatype,
+        metta_grounded_numeric_type(Argument, Expected)
+    ->  Next is N + 1,
+        metta_bad_argument(Rest, Origins, Arguments, Next,
+                           Position, Reported, Actual)
+    ;   metta_argument_types(Argument, Types),
+        (   Position = N, Reported = Expected,
             member(Actual, Types),
             \+ metta_argument_type_matches(Actual, Expected, Origin)
         ;   member(Carried, Types),
@@ -614,6 +622,8 @@ metta_math_eval(Operation, Expression, Arguments, Out) :-
     (   maplist(metta_numeric_operand, Arguments)
     ->  catch(Out is Expression, Error,
               metta_math_recovery(Operation, Arguments, Error, Out))
+    ;   metta_host_numeric_arguments(Arguments)
+    ->  once(seam:grounded_numeric_operation(Operation, Arguments, Out))
     ;   metta_operation_answer(Operation, Arguments, Out)
     ).
 
@@ -622,6 +632,8 @@ metta_math_saturating_eval(Operation, Expression, Arguments, Out) :-
     ->  catch(Out is Expression, Error,
               metta_math_saturating_recovery(
                   Operation, Expression, Arguments, Error, Out))
+    ;   metta_host_numeric_arguments(Arguments)
+    ->  once(seam:grounded_numeric_operation(Operation, Arguments, Out))
     ;   metta_operation_answer(Operation, Arguments, Out)
     ).
 
@@ -634,3 +646,23 @@ metta_numeric_operand(Value) :- number(Value).
 %them. They are numeric inputs, unlike every other atom and every string.
 metta_numeric_operand(inf).
 metta_numeric_operand(nan).
+
+%A bridge owns both the admission fact and the operator that consumes it. Keep
+%the value out of Prolog's number representation: the exact host object is the
+%argument Python's reflected operator or array namespace must receive.
+metta_grounded_numeric_type(Value, Expected) :-
+    Expected == 'Number',
+    nonvar(Value),
+    \+ number(Value),
+    once(seam:grounded_numeric(Value)).
+
+metta_host_numeric_operand(Value) :- var(Value), !.
+metta_host_numeric_operand(Value) :- number(Value), !.
+metta_host_numeric_operand(Value) :-
+    metta_grounded_numeric_type(Value, 'Number').
+
+metta_host_numeric_arguments(Arguments) :-
+    maplist(nonvar, Arguments),
+    maplist(metta_host_numeric_operand, Arguments),
+    member(Argument, Arguments),
+    \+ number(Argument), !.

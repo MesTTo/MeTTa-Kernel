@@ -35,6 +35,11 @@
 metta_arith_operands(A, B) :-
     ( var(A) -> true ; number(A) ),
     ( var(B) -> true ; number(B) ).
+%Host operator protocols are evaluative rather than relational. Admit their
+%objects only after every operand exists, so a free operand stays a MeTTa term
+%instead of leaking an insufficiently-instantiated call through Janus.
+metta_arith_operands(A, B) :-
+    metta_host_numeric_arguments([A, B]).
 
 %The four operators run BACKWARDS over integers: exactly one unbound
 %argument among integers solves for it, so (let 4 (- $x 1) $x) answers 5
@@ -55,7 +60,11 @@ metta_arith_operands(A, B) :-
                 ; petta_int_solve('+', A, B, R, Verdict) -> Verdict == solved
                 ; petta_clp_operands(A, B, R) -> petta_clp_backward('+', A, B, R)
                 ; metta_arith_operands(A, B)
-                  -> catch(R is A + B, E, metta_saturating_recover('+', A + B, R, E))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation('+', [A, B], R))
+                       ; catch(R is A + B, E,
+                               metta_saturating_recover('+', A + B, R, E)) )
                 ; metta_operation_answer('+', [A, B], R) ).
 '-'(A,B,R)  :- ( integer(A), integer(B) -> R is A - B
                 ; number(A), number(B)
@@ -63,7 +72,11 @@ metta_arith_operands(A, B) :-
                 ; petta_int_solve('-', A, B, R, Verdict) -> Verdict == solved
                 ; petta_clp_operands(A, B, R) -> petta_clp_backward('-', A, B, R)
                 ; metta_arith_operands(A, B)
-                  -> catch(R is A - B, E, metta_saturating_recover('-', A - B, R, E))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation('-', [A, B], R))
+                       ; catch(R is A - B, E,
+                               metta_saturating_recover('-', A - B, R, E)) )
                 ; metta_operation_answer('-', [A, B], R) ).
 '*'(A,B,R)  :- ( integer(A), integer(B) -> R is A * B
                 ; number(A), number(B)
@@ -71,7 +84,11 @@ metta_arith_operands(A, B) :-
                 ; petta_int_solve('*', A, B, R, Verdict) -> Verdict == solved
                 ; petta_clp_operands(A, B, R) -> petta_clp_backward('*', A, B, R)
                 ; metta_arith_operands(A, B)
-                  -> catch(R is A * B, E, metta_saturating_recover('*', A * B, R, E))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation('*', [A, B], R))
+                       ; catch(R is A * B, E,
+                               metta_saturating_recover('*', A * B, R, E)) )
                 ; metta_operation_answer('*', [A, B], R) ).
 %Division has no catchless integer arm: an all-integer pair is exact until a
 %non-divisible one converts to float, and THAT can overflow (10^400 / 3
@@ -85,9 +102,12 @@ metta_arith_operands(A, B) :-
                 ; petta_int_solve('/', A, B, R, Verdict) -> Verdict == solved
                 ; petta_clp_operands(A, B, R) -> petta_clp_backward('/', A, B, R)
                 ; metta_arith_operands(A, B)
-                  -> catch(R is A / B, E,
-                           metta_arithmetic_saturating_recovery(
-                               '/', [A, B], A / B, E, R))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation('/', [A, B], R))
+                       ; catch(R is A / B, E,
+                               metta_arithmetic_saturating_recovery(
+                                   '/', [A, B], A / B, E, R)) )
                 ; metta_operation_answer('/', [A, B], R) ).
 
 %One unbound slot among integers: the verdict says whether the mode
@@ -119,18 +139,27 @@ petta_int_solve('/', A, B, R, Verdict) :-
 
 '%'(A,B,R)  :- ( integer(A), integer(B), B =\= 0 -> R is A mod B
                 ; metta_arith_operands(A, B)
-                  -> catch(R is A mod B, E,
-                           metta_operation_recovery('%', [A, B], E, R))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation('%', [A, B], R))
+                       ; catch(R is A mod B, E,
+                               metta_operation_recovery('%', [A, B], E, R)) )
                 ; metta_operation_answer('%', [A, B], R) ).
 '<'(A,B,R)  :- ( number(A), number(B) -> (A<B -> R=true ; R=false)
                 ; metta_arith_operands(A, B)
-                  -> catch((A<B -> R=true ; R=false), E,
-                           rethrow_metta_operation_error('<', E))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation('<', [A, B], R))
+                       ; catch((A<B -> R=true ; R=false), E,
+                               rethrow_metta_operation_error('<', E)) )
                 ; metta_operation_answer('<', [A, B], R) ).
 '>'(A,B,R)  :- ( number(A), number(B) -> (A>B -> R=true ; R=false)
                 ; metta_arith_operands(A, B)
-                  -> catch((A>B -> R=true ; R=false), E,
-                           rethrow_metta_operation_error('>', E))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation('>', [A, B], R))
+                       ; catch((A>B -> R=true ; R=false), E,
+                               rethrow_metta_operation_error('>', E)) )
                 ; metta_operation_answer('>', [A, B], R) ).
 %(-> $a $a Bool): ONE type variable, so the two operands must have a
 %consistent type, and a comparison across two known and different kinds is
@@ -241,23 +270,35 @@ metta_boolean(false).
 '=@='(A,B,R) :- (A =@= B -> R=true ; R=false).
 '<='(A,B,R) :- ( number(A), number(B) -> (A =< B -> R=true ; R=false)
                 ; metta_arith_operands(A, B)
-                  -> catch((A =< B -> R=true ; R=false), E,
-                           rethrow_metta_operation_error('<=', E))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation('<=', [A, B], R))
+                       ; catch((A =< B -> R=true ; R=false), E,
+                               rethrow_metta_operation_error('<=', E)) )
                 ; metta_operation_answer('<=', [A, B], R) ).
 '>='(A,B,R) :- ( number(A), number(B) -> (A >= B -> R=true ; R=false)
                 ; metta_arith_operands(A, B)
-                  -> catch((A >= B -> R=true ; R=false), E,
-                           rethrow_metta_operation_error('>=', E))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation('>=', [A, B], R))
+                       ; catch((A >= B -> R=true ; R=false), E,
+                               rethrow_metta_operation_error('>=', E)) )
                 ; metta_operation_answer('>=', [A, B], R) ).
 min(A,B,R)  :- ( integer(A), integer(B) -> R is min(A,B)
                 ; metta_arith_operands(A, B)
-                  -> catch(R is min(A,B), E,
-                           rethrow_metta_operation_error(min, E))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation(min, [A, B], R))
+                       ; catch(R is min(A,B), E,
+                               rethrow_metta_operation_error(min, E)) )
                 ; metta_operation_answer(min, [A, B], R) ).
 max(A,B,R)  :- ( integer(A), integer(B) -> R is max(A,B)
                 ; metta_arith_operands(A, B)
-                  -> catch(R is max(A,B), E,
-                           rethrow_metta_operation_error(max, E))
+                  -> ( ( nonvar(A), \+ number(A)
+                       ; nonvar(B), \+ number(B) )
+                       -> once(seam:grounded_numeric_operation(max, [A, B], R))
+                       ; catch(R is max(A,B), E,
+                               rethrow_metta_operation_error(max, E)) )
                 ; metta_operation_answer(max, [A, B], R) ).
 %exp/2 is PeTTa's own name for the same function exp-math names, so it refuses
 %the same way rather than being the one numeric operation that raises.
@@ -436,6 +477,8 @@ prolog:error_message(petta_unsolved_arithmetic(Op, no_integer_relation)) -->
 'pow-math'(A, B, Out) :-
     (   maplist(metta_numeric_operand, [A, B])
     ->  metta_pow_math_numeric(A, B, Out)
+    ;   metta_host_numeric_arguments([A, B])
+    ->  once(seam:grounded_numeric_operation('pow-math', [A, B], Out))
     ;   metta_operation_answer('pow-math', [A, B], Out)
     ).
 
@@ -488,6 +531,8 @@ metta_float_unary_eval(Operation, Function, A, Out) :-
     (   metta_numeric_operand(A)
     ->  catch(( A =:= A -> Out = false ; Out = true ), E,
               metta_math_recovery('isnan-math', [A], E, Out))
+    ;   metta_host_numeric_arguments([A])
+    ->  once(seam:grounded_numeric_operation('isnan-math', [A], Out))
     ;   metta_operation_answer('isnan-math', [A], Out)
     ).
 'isinf-math'(A, Out) :-
@@ -495,6 +540,8 @@ metta_float_unary_eval(Operation, Function, A, Out) :-
     ->  catch(( ( A =:= 1.0Inf ; A =:= -1.0Inf )
                 -> Out = true ; Out = false ), E,
               metta_math_recovery('isinf-math', [A], E, Out))
+    ;   metta_host_numeric_arguments([A])
+    ->  once(seam:grounded_numeric_operation('isinf-math', [A], Out))
     ;   metta_operation_answer('isinf-math', [A], Out)
     ).
 %must_be/2 walks the list a second time with a type check per element, so a
@@ -505,8 +552,16 @@ metta_float_unary_eval(Operation, Function, A, Out) :-
 %A list of numbers computes; anything else is answered by the shared door,
 %whose refusal table words min-atom and max-atom the three ways upstream does.
 'min-atom'(List, Out) :- ( metta_numeric_list(List) -> min_list(List, Out)
+                         ; is_list(List), List \== [],
+                           metta_host_numeric_arguments(List)
+                           -> once(seam:grounded_numeric_operation(
+                                       min, List, Out))
                          ; metta_operation_answer('min-atom', [List], Out) ).
 'max-atom'(List, Out) :- ( metta_numeric_list(List) -> max_list(List, Out)
+                         ; is_list(List), List \== [],
+                           metta_host_numeric_arguments(List)
+                           -> once(seam:grounded_numeric_operation(
+                                       max, List, Out))
                          ; metta_operation_answer('max-atom', [List], Out) ).
 
 metta_numeric_list(List) :- is_list(List), List \== [], maplist(number, List).

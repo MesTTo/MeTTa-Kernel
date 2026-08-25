@@ -883,6 +883,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Python objects now retain identity across atom construction, space storage,
+  registered-operation arguments and results, and engine answers. Only exact
+  `bool`, `int`, `float`, and `str` values take native by-value wire terms;
+  subclasses and other objects use the interned reference carrier, which the
+  answer decoder removes through the shared carrier protocol. Numeric Python
+  objects are admitted at the arithmetic failure boundary and evaluated by
+  Python's operator or array-namespace dispatch, so the NumPy tutorial's
+  `(+ (abs -5) 10)` answers one `np.int64(15)` and a `np.float64` addition
+  stays `np.float64`. The native arithmetic branch retains its previous
+  inference count.
 - A flat Python call of a declared function now runs the same call-site
   typed dispatch the engine's own form runs. Before this, `f(x)` on a
   compiled function with plain arguments took a direct goal that skipped
