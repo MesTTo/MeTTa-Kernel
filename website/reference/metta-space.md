@@ -100,7 +100,8 @@ Source: `bindings/python/metta/_space.py`.
 >     commit=7c4ddf46d4e23de8390a9f2baddbf96f7575da46]
 >   - ``Space.cast`` preserves the inherited one-argument atom cast while its
 >     two-argument form keeps explicit context-relative casting [tested:
->     test_atom_cast_delegates_to_the_ambient_space; commit=WORKTREE]
+>     test_atom_cast_delegates_to_the_ambient_space;
+>     commit=162214d7a703e9108dd2422f4f18f3b9c007d367]
 >   - callable doors cache live deprecation declarations until the next write
 >     and issue the catalog's since/remedy warning [tested:
 >     test_deprecation_catalog_rows_drive_warnings_and_explanations;
