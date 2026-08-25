@@ -5,7 +5,7 @@
 ;could not do either: it is one line, one form, so typing (= (f $x) and
 ;pressing enter was a syntax error instead of a continuation.
 ;
-;The decision is (sread-command $text), which answers (complete $term),
+;The decision is (parse-command $text), which answers (complete $term),
 ;incomplete, or raises, and has no I/O in it at all. That is CPython's split
 ;between InteractiveInterpreter and InteractiveConsole, and it is why a
 ;Jupyter kernel or an editor integration can share this answer without

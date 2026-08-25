@@ -256,6 +256,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Rename the reader builtin `sread-command` to `parse-command` across the
+  engine, prelude, examples, and the generated `fn` namespace: the verb
+  is parsing, and the Python surface's `m.fn.parse_command` now says so.
 - The four oversized engine sources are reorganized into 21 cohesive plain
   source units consulted by their umbrellas (`engine/metta/`,
   `engine/translator/`, `engine/spaces/`, `engine/filereader/`), the largest

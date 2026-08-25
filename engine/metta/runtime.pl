@@ -124,8 +124,8 @@ prolog:error_message(permission_error(register, metta_function, Name)) -->
 %sread_command/2 answers the Prolog compound complete(Term), which is the
 %right shape for a Prolog caller and the wrong one for a MeTTa program: it
 %would arrive as an opaque term rather than as an expression to match on.
-'sread-command'(Text, _) :- var(Text), !, refuse_unbound_input('sread-command', 1).
-'sread-command'(Text, Result) :-
+'parse-command'(Text, _) :- var(Text), !, refuse_unbound_input('parse-command', 1).
+'parse-command'(Text, Result) :-
     sread_command(Text, Answer),
     ( Answer = complete(Term) -> Result = [complete, Term] ; Result = Answer ).
 

@@ -7,39 +7,39 @@
 ;command that can be completed by entering more text (as opposed to a
 ;complete command or a syntax error)."
 ;
-;(sread-command $text) is that contract: (complete $term), incomplete, or a
+;(parse-command $text) is that contract: (complete $term), incomplete, or a
 ;raise. It has no I/O in it, so a console, an editor and a notebook kernel
 ;share the answer without sharing a read loop.
 
-!(test (sread-command "(f a)") (complete (f a)))
+!(test (parse-command "(f a)") (complete (f a)))
 
 ;Still typing. More text could finish any of these.
-!(test (sread-command "(f a") incomplete)
-!(test (sread-command "(a (b (c") incomplete)
-!(test (sread-command "(= (f $x)") incomplete)
+!(test (parse-command "(f a") incomplete)
+!(test (parse-command "(a (b (c") incomplete)
+!(test (parse-command "(= (f $x)") incomplete)
 
 ;An empty line re-prompts rather than erroring, which is the commonest input
 ;in any console.
-!(test (sread-command "") incomplete)
-!(test (sread-command "   ") incomplete)
-!(test (sread-command "; only a comment") incomplete)
+!(test (parse-command "") incomplete)
+!(test (parse-command "   ") incomplete)
+!(test (parse-command "; only a comment") incomplete)
 
 ;A bare atom is a whole form.
-!(test (sread-command "hello") (complete hello))
+!(test (parse-command "hello") (complete hello))
 
 ;Not "just count parens", which is why this is worth having rather than
 ;leaving every console to write it again: a bracket inside a string or a
 ;comment must not count.
-!(test (sread-command "(f \"a)b\")") (complete (f "a)b")))
-!(test (sread-command "(f a) ; )))") (complete (f a)))
+!(test (parse-command "(f \"a)b\")") (complete (f "a)b")))
+!(test (parse-command "(f a) ; )))") (complete (f a)))
 
 ;An unterminated string IS incomplete, because a MeTTa string may span lines.
-!(test (sread-command "(f \"a") incomplete)
+!(test (parse-command "(f \"a") incomplete)
 
 ;One bracket too many is not incomplete: no amount of further typing repairs
 ;it, so the reader's own error is the answer.
 !(import! &self (library lib_he))
-!(test (if-error (catch (sread-command "(f a))")) Error NoError) Error)
+!(test (if-error (catch (parse-command "(f a))")) Error NoError) Error)
 
 ;(read-form!) is the buffering half, reading until the brackets balance. It
 ;needs a console, so examples/basics/repl.metta is where it is shown.

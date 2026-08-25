@@ -564,7 +564,7 @@ space_operation_capability('import!', file).
 space_operation_capability(library, file).
 space_operation_capability('readln!', process).
 space_operation_capability('read-form!', process).
-space_operation_capability('sread-command', process).
+space_operation_capability('parse-command', process).
 space_operation_capability(argv, process).
 space_operation_capability('new-space', process).
 space_operation_capability(evalc, process).
