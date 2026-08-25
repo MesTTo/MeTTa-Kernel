@@ -36,3 +36,8 @@ ai-tmp-*
 bindings/node/node_modules/
 *.qlf
 engine/.qlf-stamp
+
+# Browser-automation scratch. Four of these console logs and page snapshots
+# were committed by accident on 2026-08-21 as part of an unrelated merge;
+# they are session debris, not a deliverable.
+.playwright-mcp/
