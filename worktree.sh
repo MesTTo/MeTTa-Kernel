@@ -90,15 +90,20 @@ fi
 # differ across commits), with check.sh's exact recipe and stance: a missing
 # toolchain notes the fallback, a build failure fails loudly.
 if [ -f "$HERE/engine/reader.c" ]; then
-    if command -v swipl-ld >/dev/null 2>&1; then
-        if [ ! -f "$HERE/engine/reader.so" ] ||
-           [ "$HERE/engine/reader.c" -nt "$HERE/engine/reader.so" ]; then
-            ( cd "$HERE/engine" && swipl-ld -shared -O2 -o reader.so reader.c ) ||
-                { echo "worktree.sh: engine/reader.c failed to build; suites here would measure the Prolog fallback against C-reader pins" >&2
-                  exit 1; }
-        fi
-    else
+    if ! command -v swipl-ld >/dev/null 2>&1; then
         echo "worktree.sh: swipl-ld not found, this worktree runs the Prolog reader fallback and its counters will not compare against C-reader pins" >&2
+    elif ! command -v cc >/dev/null 2>&1 &&
+         ! command -v gcc >/dev/null 2>&1 &&
+         ! command -v clang >/dev/null 2>&1; then
+        # swipl-ld drives a C compiler it does not carry; without one the
+        # build fails, so this rung notes the fallback the same way
+        # check.sh's consolidated build_engine_reader does.
+        echo "worktree.sh: swipl-ld found but no C compiler, this worktree runs the Prolog reader fallback and its counters will not compare against C-reader pins" >&2
+    elif [ ! -f "$HERE/engine/reader.so" ] ||
+         [ "$HERE/engine/reader.c" -nt "$HERE/engine/reader.so" ]; then
+        ( cd "$HERE/engine" && swipl-ld -shared -O2 -o reader.so reader.c ) ||
+            { echo "worktree.sh: engine/reader.c failed to build; suites here would measure the Prolog fallback against C-reader pins" >&2
+              exit 1; }
     fi
 fi
 
