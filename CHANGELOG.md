@@ -17,6 +17,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - The lazy default-engine tier now exports `@metta.op(effect=...)`, forwarding
   the complete receiver operation contract and its required five-rank effect
   metadata.
+- Compiled definitions now accept `py(expr)` as an explicit inline host
+  island. The expression executes at engine application time with current
+  locals, while unmarked host calls refuse with a file/caret span and name
+  both `@metta.op` and `py(...)` remedies. `lint()` reports a
+  `host-island-in-loop` warning for repeated crossings.
 
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,

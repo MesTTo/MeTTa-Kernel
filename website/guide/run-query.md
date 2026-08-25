@@ -534,7 +534,7 @@ A healthy space answers an empty list. A finding carries nine fields: `kind`, `s
 | severity | means | kinds |
 |---|---|---|
 | `error` | the program is wrong | `arrow-arity-mismatch`, `arity-mismatch`, `unbound-variable`, `type-mismatch` |
-| `warning` | almost certainly not what was meant | `declared-but-undefined`, `declaration-types-the-symbol`, `duplicate-equation`, `tabled-answer-order-read` |
+| `warning` | almost certainly not what was meant | `declared-but-undefined`, `declaration-types-the-symbol`, `duplicate-equation`, `host-island-in-loop`, `tabled-answer-order-read` |
 | `information` | true and worth knowing | the seven simplifications, `inconsistent-arity`, `subsumed-equation` |
 | `hint` | a heuristic that can be wrong | `possibly-undefined-reference` |
 
@@ -553,7 +553,7 @@ for finding in m.lint():
 
 **Calls.** `arity-mismatch` (an argument count no equation takes). `type-mismatch` (an argument whose `get-type` the arrow's input type refuses, which is the engine's own answer rather than a second type system). `possibly-undefined-reference`, the only `hint`, because an expression head that is no known function may be data on purpose; when a known name is one edit away it arrives with a `suggestion`.
 
-**Bodies.** `unbound-variable` (a body variable the head never bound, exempting equations with their own binding forms). `duplicate-binder` (`let*` binding one name twice, where the second unifies rather than shadows, so write `==` if an equality constraint is meant).
+**Bodies.** `unbound-variable` (a body variable the head never bound, exempting equations with their own binding forms). `duplicate-binder` (`let*` binding one name twice, where the second unifies rather than shadows, so write `==` if an equality constraint is meant). `host-island-in-loop` (an explicit `py(...)` crossing retained in a `for`, `while`, or comprehension body and therefore paid once per iteration).
 
 **Simplifications, each with an `autofix` where a rewrite exists.** `constant-if-true` and `constant-if-false` (the condition is literal, so only one branch can answer). `if-same-branches` (both branches the same expression, so the condition decides nothing). `if-true-false` (`(if c True False)` answers exactly what `c` answers). `superposed-single` (a superpose of one thing is that thing). `superposed-empty` (a superpose of nothing answers nothing, and every containing expression dies there; no autofix, because the fix is a decision).
 
