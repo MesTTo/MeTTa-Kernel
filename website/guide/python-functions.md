@@ -1,6 +1,6 @@
 <!--
-Purpose: explain Python operation registration, effect and type declarations, context injection, and property tests.
-Guarantees: examples classify every Space.op with a canonical EffectClass and use Space.define and canonical atom constructors without compatibility aliases.
+Purpose: explain Python operation registration, compiled host islands, effect and type declarations, context injection, and property tests.
+Guarantees: examples classify every Space.op with a canonical EffectClass, use Space.define and canonical atom constructors without compatibility aliases, and mark every inline host crossing with py(expr).
 [tested: npm run docs:build, test_effect_class_is_the_public_five_rank_join_lattice,
 test_define_wires_the_declarative_dance, and test_guides_keep_documentation_law_explainers;
 commit=WORKTREE]
@@ -76,6 +76,37 @@ def related(term, engine: metta.MeTTa):
 The injected engine is bound to the calling context's space, so an operation invoked from a program running in another space queries that space, which is the `&self` reading and what lets one operation compose across spaces without a space argument. The slot never counts toward MeTTa arities or the declared arrow, and only operations that ask pay for the weaving.
 
 See [`metta.ops`](../reference/metta-ops) for annotation mapping and registration, and [`metta.convert`](../reference/metta-convert) for object projection and rebuilding.
+
+## Cross into Python inside a compiled body
+
+A compiled `@m.define` body is an atom program. It does not silently call a
+Python global or method. Use an operation when the host behavior has a reusable
+name. Use `py(expr)` for a small visible island that belongs at that one call
+site:
+
+```python
+from metta import py
+
+
+@m.define
+def status(url):
+    return py(requests.get(url).status_code)
+```
+
+The decorator does not run `requests.get`. The marked expression runs once per
+engine application with that application's current `url`, and the definition's
+derived effect is `oracleIO`. Outside a compiled body, `py(value)` is an
+identity function, so `status.py(url)` remains the ordinary Python twin.
+
+An unmarked call such as `requests.get(url)` refuses at decoration time. The
+diagnostic names the source file, shows a caret under the callee, and offers the
+two legal boundaries: extract an `@metta.op(effect=...)`, or wrap the local
+expression in `py(...)`.
+
+`m.lint()` reports `host-island-in-loop` when an island sits in a `for`,
+`while`, or comprehension body. Each iteration crosses the engine/host
+boundary. Move invariant work before the loop, batch it, or use a named
+operation when the repeated crossing is deliberate.
 
 ## Declaring a data class
 

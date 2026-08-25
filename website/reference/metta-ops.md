@@ -65,6 +65,11 @@ Source: `bindings/python/metta/ops.py`.
 >     later Python owners share the declaration reference count
 >     [tested: test_a_duplicate_declaration_names_the_first_one;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - the returned staging wrapper carries its registration identity through
+>     functools.wraps chains so mutually exclusive definition doors can refuse
+>     before mutation [tested:
+>     test_cache_over_an_operation_refuses_before_definition_registration;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

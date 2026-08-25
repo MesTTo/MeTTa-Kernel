@@ -39,6 +39,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   ecosystem and one-BLAS-GEMM programs are blocking rather than optional
   examples. The refreshed lockfile also drops the already-retired `orjson`
   extra and pre-3.12 resolution branches.
+- `@space.cache` now memoizes the complete answer bag instead of routing
+  through SWI set tabling, so repeated answers survive cache hits. Its
+  `cache_info()` reports per-definition entry and answer-occurrence counts,
+  and stacking it over `@space.op` refuses before registering a definition
+  while directing host-only memoization to `functools.cache` or
+  `functools.lru_cache`.
+- The lazy default-engine tier now exports `@metta.op(effect=...)`, forwarding
+  the complete receiver operation contract and its required five-rank effect
+  metadata.
+- Compiled definitions now accept `py(expr)` as an explicit inline host
+  island. The expression executes at engine application time with current
+  locals, while unmarked host calls refuse with a file/caret span and name
+  both `@metta.op` and `py(...)` remedies. `lint()` reports a
+  `host-island-in-loop` warning for repeated crossings.
 
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,
