@@ -47,6 +47,19 @@ seam:foreign_atoms('&plunit_conf_hookless', A) :- plunit_conf_atom(A).
 seam:foreign_capability('&plunit_conf_hookless', C) :-
     member(C, [enumerate, clear]).
 
+%A RIVAL provider that really does implement clear, for its own space only,
+%in the shipped ownership-guard shape: a variable head with the ownership
+%test as the body's leading goal, exactly as MORK and redis write it. Its
+%whole job here is to give seam:foreign_clear/1 a clause, so the hookless
+%space above cannot pass on a whole-predicate count. Without a rival in the
+%file the hookless test passed for the wrong reason whenever a backend was
+%absent, and failed the day MORK gained a clear hook.
+plunit_conf_rival('&plunit_conf_rival').
+seam:foreign_space('&plunit_conf_rival').
+seam:foreign_atoms('&plunit_conf_rival', A) :- plunit_conf_atom(A).
+seam:foreign_capability('&plunit_conf_rival', C) :- member(C, [enumerate, clear]).
+seam:foreign_clear(Space) :- plunit_conf_rival(Space).
+
 %Handles only ground patterns, which the family law exists to catch: the
 %self-match passes and a position opened to a variable answers nothing.
 seam:foreign_space('&plunit_conf_groundonly').

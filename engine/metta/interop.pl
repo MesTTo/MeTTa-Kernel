@@ -460,10 +460,16 @@ extension_capability_hook(add, seam:foreign_add/2).
 extension_capability_hook(remove, seam:foreign_remove/3).
 extension_capability_hook(clear, seam:foreign_clear/1).
 
+%Asked PER SPACE for the same reason the conformance kit asks it that way:
+%the hook predicate having clauses is a receipt, and one clause whose head
+%or ownership guard admits THIS space is the payload. A whole-predicate
+%count answered yes for every extension the moment any provider implemented
+%the hook, so a readying that declared a capability with nothing behind it
+%stopped being refused. The seam's ownership-guard protocol
+%(engine/ext_points.pl) makes the question decidable without performing the
+%operation.
 ready_capability_hook(Name, Space, Capability, Module:Pred/Arity) :-
-    functor(Head, Pred, Arity),
-    (   catch(predicate_property(Module:Head, number_of_clauses(N)), _, fail),
-        N > 0
+    (   ready_hook_admits(Module:Pred/Arity, Space)
     ->  true
     ;   throw(error(petta_extension_no_hook(Name, Space, Capability,
                                             Module:Pred/Arity),
@@ -471,6 +477,40 @@ ready_capability_hook(Name, Space, Capability, Module:Pred/Arity) :-
                             'the declared capability has no hook clauses \c
                              behind it')))
     ).
+
+%A clause that BINDS the space in its head has said which space it serves,
+%so head unification decides. A clause that leaves it a variable decides in
+%its body, whose leading goal the protocol fixes as the pure ownership test.
+%Where the system forbids clause/2 on static code the count is the only
+%answer available, and it is used only there.
+ready_hook_admits(Module:Pred/Arity, Space) :-
+    functor(Probe, Pred, Arity),
+    (   ready_clause_access_denied(Module:Probe)
+    ->  catch(predicate_property(Module:Probe, number_of_clauses(N)), _, fail),
+        N > 0
+    ;   ready_hook_clause_admits(Module:Pred/Arity, Space)
+    ),
+    !.
+
+ready_clause_access_denied(Module:Probe) :-
+    catch(( clause(Module:Probe, _) -> fail ; fail ),
+          error(permission_error(_, _, _), _),
+          true).
+
+ready_hook_clause_admits(Module:Pred/Arity, Space) :-
+    functor(Probe, Pred, Arity),
+    clause(Module:Probe, Body),
+    arg(1, Probe, Owner),
+    (   var(Owner)
+    ->  Owner = Space,
+        ready_guard_admits(Body)
+    ;   Owner == Space
+    ),
+    !.
+
+ready_guard_admits(true) :- !.
+ready_guard_admits((Guard, _)) :- !, catch(Guard, _, fail).
+ready_guard_admits(Guard) :- catch(Guard, _, fail).
 
 :- multifile prolog:error_message//1.
 prolog:error_message(petta_extension_space_unregistered(Name, Space)) -->

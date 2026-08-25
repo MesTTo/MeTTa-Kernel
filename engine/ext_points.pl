@@ -352,6 +352,23 @@ kind(atom_removed/2, event).
 %for a declared name; with no declarations nothing changes.
 :- multifile foreign_space/1.
 kind(foreign_space/1, ownership).
+
+%THE OWNERSHIP-GUARD PROTOCOL, which every clause of the five capability
+%hooks below obeys and which the conformance kit now depends on: a hook
+%clause takes the space as its FIRST argument and its body's LEADING goal is
+%the ownership test that decides whether this provider serves that space
+%(mork_owns_space/1, redis_space_conn/7, petta_py_foreign/1 are the three
+%shipped spellings). The guard is a pure lookup, so anything may call it to
+%ask "does this provider serve this space" without performing the operation.
+%
+%What made this worth writing down: a check that asked whether the hook
+%PREDICATE had clauses answered yes for every provider as soon as ANY
+%provider implemented it, so a declaration with nothing behind it stopped
+%being caught the day MORK gained its own clear hook. The predicate having
+%clauses is a receipt; a clause whose guard admits THIS space is the payload
+%[tested: conformance_catches_a_capability_with_no_hook and
+%readying_refuses_a_declared_capability_with_no_hook_clauses, both run under
+%`-- backends` where another provider's clause exists; commit=WORKTREE].
 :- multifile foreign_match/3.
 %A declared error mode's stream: like foreign_match/3, with the
 %mode enforced on the provider's own host, where its exceptions are
