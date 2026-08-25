@@ -58,6 +58,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   remain accepted as input aliases and canonicalize conservatively:
   `immutable` to `pureStructural`, `stable` to `readOnlyLookup`, and `volatile`
   to `oracleIO`.
+- Transactional, atomic, speculative, and reified-world writes now publish
+  watcher, fold, and journal events only after commit, in write order; rollback
+  and discard publish nothing. The Python-first surface adds
+  `metta.speculate()`, `space.reify()`, `world.eval(...)`, and
+  `space.commit(world)`. Journaled providers stage their writes with the same
+  law. Live `State` cells are fenced from speculative and persistent writes,
+  while compiled `cell.value` reads and writes lower to the engine's state
+  operations.
+
 - Benchmark baselines are two-sided and configuration-stamped. A counter,
   slope, or instruction reading that falls beyond the allowance now fails as
   an unpinned improvement instead of passing silently, because a stale-high

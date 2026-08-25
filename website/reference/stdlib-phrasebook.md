@@ -25,6 +25,19 @@ Rows fall in five buckets, and the bucket is the honest part:
 - **internal** (199) &mdash; LeaTTa's mechanised interpreter, written in MeTTa; PeTTa writes its interpreter in Prolog, so these names are on neither surface
 - **absent** (45) &mdash; a user-facing operation with no Python spelling today: the residue
 
+## Python-first additions
+
+These faces implement the Python-first execution model and therefore have no
+LeaTTa standard-library declaration to occupy one of the manifest rows above.
+They stay separate so the differential coverage denominator remains exact.
+
+| public spelling | meaning | example |
+|---|---|---|
+| `metta.speculate()` | scope each default-context execution as a discarded segment | `with metta.speculate(): ⏎     metta.run(source)` |
+| `space.reify()` | capture an immutable evaluable world value, distinct from listing atoms | `world = space.reify()` |
+| `world.eval(target)` | evaluate without touching the parent and return answers plus a successor world | `answers, successor = world.eval(target)` |
+| `space.commit(world)` | land the world's base-relative diff as ordinary post-commit writes and events | `space.commit(successor)` |
+
 Provenance: LeaTTa manifest 1.0.9 at commit `39c7c43`, 382 declarations over 380 distinct names.
 
 ## What the Python spelling costs

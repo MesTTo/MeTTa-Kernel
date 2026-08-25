@@ -1,6 +1,10 @@
 % Purpose: implement pragmas, limits, control forms, goal construction, and higher-order functions
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
+%   state writes are refused while speculative or reified-world execution is
+%   active, including new-state and change-state!, while reads remain valid
+%   [tested: test_speculative_state_write_is_fenced,
+%   test_world_eval_fences_state_and_emits_nothing; commit=3ded7552797b66d78e666141eb51f3bc14686bd2].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -723,6 +727,37 @@ rewrite_parsed_form(Space, FormStr, Term, Rewritten) :-
 %`[&state-#0]`].
 :- dynamic petta_state_counter/1, petta_state_value/2.
 
+%State lives in a process-shared non-backtrackable store, so snapshot/1 cannot
+%undo it. A nesting counter is thread-local engine state: speculative entry
+%increments it, every exit restores the previous value, and direct or compiled
+%state heads consult the same fence before touching the store.
+:- meta_predicate petta_with_state_write_fence(0).
+
+petta_with_state_write_fence(Goal) :-
+    (   nb_current('$petta_state_write_fence', Previous)
+    ->  true
+    ;   Previous = 0
+    ),
+    Current is Previous + 1,
+    setup_call_cleanup(
+        nb_setval('$petta_state_write_fence', Current),
+        call(Goal),
+        nb_setval('$petta_state_write_fence', Previous)).
+
+petta_state_write_fenced :-
+    nb_current('$petta_state_write_fence', Depth),
+    Depth > 0.
+
+%The journal admission door asks this exact engine fact. Prefixes are not
+%enough because named cells are valid too, and a dead generated name is plain
+%data once no state value remains under it.
+petta_live_state_cell(Cell) :-
+    atom(Cell),
+    petta_state_value(Cell, _).
+
+'new-state'(_, _) :-
+    petta_state_write_fenced, !,
+    throw(error(petta_state_write_fenced('new-state'), none)).
 'new-state'(Value, Cell) :-
     petta_next_state_cell(Cell),
     petta_set_state(Cell, Value).
@@ -739,6 +774,9 @@ petta_state_cell(X) :- atom(X), atom_concat('&state-#', _, X).
 %change-state! ANSWERS THE CELL it wrote, which is what makes a write
 %composable: `(get-state (change-state! $c 2))` reads back what was just
 %written. It answered True before, which no upstream signature has.
+'change-state!'(Var, _, _) :-
+    petta_state_write_fenced, !,
+    throw(error(petta_state_write_fenced(Var), none)).
 'change-state!'(Var, Value, Var) :-
     catch(( must_be(atom, Var), petta_set_state(Var, Value) ), E,
           rethrow_metta_operation_error('change-state!', E)).
@@ -753,6 +791,12 @@ petta_set_state(Var, Value) :-
     with_mutex('$petta_state_cells',
                ( retractall(petta_state_value(Var, _)),
                  assertz(petta_state_value(Var, Stored)) )).
+
+:- multifile prolog:error_message//1.
+prolog:error_message(petta_state_write_fenced(Cell)) -->
+    [ 'state cell ~w cannot be written during speculative or reified-world \c
+       evaluation: its process-shared store is not backtrackable, so the \c
+       write would escape the discarded state'-[Cell] ].
 
 %%% Eval: %%%
 %petta_eval_step exposes the evaluator's three-way control result.  eval/2 is

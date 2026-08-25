@@ -13,6 +13,10 @@
 %   - the removal, function-change, function-removal and compiled-call-site
 %     dispatch seams each reach their handler
 %     [tested 2026-08-16: ext_points_events]
+%   - nested observation frames publish in write order only at outer commit
+%     and discard their whole segment without callbacks
+%     [tested: a_frame_publishes_only_after_commit_in_write_order,
+%     an_outer_discard_drops_its_committed_inner_segment; commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
 %   - a library's own error term renders through prolog:error_message//1
 %     [tested 2026-08-16: ext_points_messages]
 % Open Obligations:
@@ -183,6 +187,40 @@ test(a_bound_is_withheld_from_an_unclaimed_pattern) :-
 % programs that never use the feature.
 :- begin_tests(ext_points_events,
                [cleanup(retractall(plunit_seam_reached(_)))]).
+
+test(a_frame_publishes_only_after_commit_in_write_order,
+     [ cleanup(( erase(Ref),
+                 catch(seam:observation_discard, _, true),
+                 retractall(plunit_seam_reached(_)),
+                 clear_native_atoms('&plunit_observation_commit') )) ]) :-
+    assertz((seam:atom_added('&plunit_observation_commit', T) :-
+                 assertz(plunit_seam_reached(added(T)))),
+            Ref),
+    seam:observation_begin,
+    'add-atom'('&plunit_observation_commit', [seen, 1], _),
+    'add-atom'('&plunit_observation_commit', [seen, 2], _),
+    assertion(\+ plunit_seam_reached(_)),
+    seam:observation_commit,
+    findall(T, plunit_seam_reached(added(T)), Seen),
+    assertion(Seen == [[seen, 1], [seen, 2]]).
+
+test(an_outer_discard_drops_its_committed_inner_segment,
+     [ cleanup(( erase(Ref),
+                 catch(seam:observation_discard, _, true),
+                 catch(seam:observation_discard, _, true),
+                 retractall(plunit_seam_reached(_)),
+                 clear_native_atoms('&plunit_observation_discard') )) ]) :-
+    assertz((seam:atom_added('&plunit_observation_discard', T) :-
+                 assertz(plunit_seam_reached(added(T)))),
+            Ref),
+    seam:observation_begin,
+    'add-atom'('&plunit_observation_discard', [seen, outer], _),
+    seam:observation_begin,
+    'add-atom'('&plunit_observation_discard', [seen, inner], _),
+    seam:observation_commit,
+    assertion(\+ plunit_seam_reached(_)),
+    seam:observation_discard,
+    assertion(\+ plunit_seam_reached(_)).
 
 test(a_removed_atom_reaches_its_handler,
      [ setup(retractall(plunit_seam_reached(_))),

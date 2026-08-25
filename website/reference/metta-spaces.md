@@ -26,6 +26,10 @@ Source: `bindings/python/metta/spaces.py`.
 >     matching after public ``unify`` becomes symmetric [tested:
 >     test_mapped_repeated_variable_pattern_stays_sound;
 >     commit=6917bef7ca902671999eafcae3a7a86db8f69723]
+>   - union, readonly, mapped, and overlay snapshot each member once; a live
+>     member without the explicit snapshot protocol refuses by member name
+>     [tested: test_reify_refuses_and_names_a_live_composite_member;
+>     commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

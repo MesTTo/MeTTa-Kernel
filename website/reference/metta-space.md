@@ -29,6 +29,10 @@ Source: `bindings/python/metta/_space.py`.
 >   - ``MeTTa.space()`` creates named or anonymous handles through one door
 >     [tested: test_module_tier_is_sugar_over_one_default_engine;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - ``Space.reify`` returns an immutable branch value and ``Space.commit``
+>     applies its base-relative diff through ordinary transaction and event
+>     doors [tested: test_world_eval_branches_without_touching_parent,
+>     test_commit_applies_the_world_diff_as_post_commit_events; commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
 >   - named space construction accepts a space-name Symbol as well as its text
 >     spelling [tested: test_space_factory_accepts_a_name_symbol; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
 >   - a Symbol or ground Expression names a source-visible atomic or parametric
@@ -545,6 +549,22 @@ def copy(self) -> Space:
 > stored Python objects keep their identity across the clone, the
 > shallow reading, and a deep clone of a live engine handle has no
 > meaning to promise.
+
+### `Space.reify`
+
+```python
+def reify(self):
+```
+
+> Capture this space as an immutable, independently evaluable world.
+
+### `Space.commit`
+
+```python
+def commit(self, world: Any) -> None:
+```
+
+> Apply one reified world's diff through this originating space.
 
 ### `Space.digest`
 
@@ -1425,9 +1445,11 @@ def subscribe(
 >     m.add(S.order(1))          # seen[0].bindings["id"] == 1
 >     sub.cancel()
 >
-> With a callback, delivery is synchronous, inside the write that
-> caused it (the callback may write back; the engine re-enters
-> cleanly; an infinite add-triggers-add loop is the author's own).
+> With a callback, delivery is synchronous. An unscoped write delivers
+> before it returns; a transaction delivers its ordered segment only
+> after the complete commit, while rollback and speculation deliver
+> nothing. The callback may write back; the engine re-enters cleanly,
+> and an infinite add-triggers-add loop is the author's own.
 > Without one, events queue on the subscription and drain() empties
 > them: the mailbox reading. That queue is bounded by `queue_max`,
 > and a write arriving at a full queue raises SubscriberError rather

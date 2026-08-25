@@ -76,6 +76,10 @@ Source: `bindings/python/metta/aio.py`.
 >   - async match forwards the submitting task's scoped or explicit algebra,
 >     and sample mirrors the synchronous random.choices-shaped door [tested:
 >     test_aio_covers_the_whole_synchronous_surface; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
+>   - async reification, world evaluation, and commit keep every engine crossing
+>     on the owning worker while immutable atom snapshots remain directly
+>     readable [tested: test_async_worlds_stay_on_the_owning_worker;
+>     commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
 > Owns:
 >   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
 >     engine until aclose(), stop(), or the atexit handler releases it [tested
@@ -324,6 +328,22 @@ async def copy(self) -> AsyncMeTTa:
 
 > This space's contents in a new anonymous space; MeTTa.copy,
 > the clone borrowing this connection's worker.
+
+### `AsyncMeTTa.reify`
+
+```python
+async def reify(self) -> AsyncWorld:
+```
+
+> Capture one immutable world on the owning engine worker.
+
+### `AsyncMeTTa.commit`
+
+```python
+async def commit(self, world: AsyncWorld) -> None:
+```
+
+> Commit an async world through the worker that produced it.
 
 ### `AsyncMeTTa.drop`
 
@@ -586,7 +606,7 @@ async def space_names(self) -> list[str]:
 async def admits(self, type_name: str) -> Atom:
 ```
 
-No docstring is defined.
+> Declare an admitted type on the owning engine worker.
 
 ### `AsyncMeTTa.annotations`
 
@@ -600,7 +620,7 @@ async def annotations(
 ) -> Atom:
 ```
 
-No docstring is defined.
+> Declare annotation algebra or subject capabilities on the worker.
 
 ### `AsyncMeTTa.algebra`
 
@@ -1086,6 +1106,44 @@ def stop(self, timeout: float = DEFAULT_CLOSE_TIMEOUT) -> None:
 ```
 
 > Synchronous cleanup for code without a running event loop.
+
+## `AsyncWorld`
+
+```python
+class AsyncWorld:
+```
+
+> An immutable world whose evaluation crosses its originating worker.
+
+### `AsyncWorld.atoms`
+
+```python
+def atoms(self) -> tuple[Atom, ...]:
+```
+
+> Return the frozen atom multiset without an engine crossing.
+
+### `AsyncWorld.eval`
+
+```python
+async def eval(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> tuple[list[Atom], AsyncWorld]:
+```
+
+> Evaluate on the worker and return answers plus a successor value.
+
+### `AsyncWorld.diff`
+
+```python
+def diff(self, other: AsyncWorld) -> tuple[list[Atom], list[Atom]]:
+```
+
+> Return ordered multiset extras between worlds from one worker.
 
 ## `connect`
 

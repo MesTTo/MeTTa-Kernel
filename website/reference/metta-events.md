@@ -4,8 +4,8 @@ Source: `bindings/python/metta/events.py`.
 
 > Purpose: the public event stream.
 >
-> Every space write is an event, the stream of `(action, space, atom)` is a
-> first-class object, and a FOLD over it is the one way to consume it: a step
+> Every committed space write is an event, the stream of `(action, space, atom)`
+> is a first-class object, and a FOLD over it is the one way to consume it: a step
 > function `(state, event) -> state` registered for a space and a pattern,
 > with the accumulated state readable and takeable.
 >
@@ -33,6 +33,13 @@ Source: `bindings/python/metta/events.py`.
 > state change of the table", and that "aggregating data records in a stream
 > ... will return a table" [source: Apache Kafka, Streams Core Concepts].
 > Guarantees:
+>   - unscoped writes publish immediately; transaction and atomic scopes publish
+>     their ordered diff after commit, while rollback, speculation, and world
+>     evaluation publish nothing [tested:
+>     test_events_publish_only_after_transaction_commit,
+>     test_atomic_scope_commits_or_discards_one_event_segment,
+>     test_rollback_and_outer_rollback_discard_every_buffered_event,
+>     test_speculative_execution_discards_its_event_segment; commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
 >   - event attributes project named pattern bindings and unknown names fail as
 >     attributes [tested: test_take_peek_and_watch_retire_the_thread_linda_fn_strings;
 >     commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
@@ -183,6 +190,11 @@ def fold(
 > With `under=algebra`, omit `step`: the algebra's merge and zero are the
 > complete fold, and an ordinary event contributes one. A normative
 > ``(fact tag proposition)`` event contributes its tag.
+> serialisation. An unscoped write runs steps synchronously before it
+> returns. A transactional write runs them synchronously after the
+> complete commit, so every step reads committed state; rollback,
+> speculation, and world evaluation run none. A step may write back and
+> an infinite add-triggers-add loop is the author's own.
 
 ### `EventStream.folds`
 
