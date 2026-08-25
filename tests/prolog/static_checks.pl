@@ -666,7 +666,16 @@ emitted_goal((A -> B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
 emitted_goal((A *-> B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
 emitted_goal(\+ A, I) :- !, emitted_goal(A, I).
 emitted_goal(!, _) :- !, fail.
-emitted_goal(_ : G, I) :- !, emitted_goal(G, I).
+% A goal the emitter qualified with a CONCRETE engine module resolves there
+% no matter what any space asserts, which is the "or qualify the goal"
+% remedy this check's own message offers; system:b_setval is the fuel
+% charge's documented shape. An unbound qualifier decides at run time and
+% stays exposed, so it is still walked.
+emitted_goal(M : G, I) :- !,
+    (   nonvar(M), M == system
+    ->  fail
+    ;   emitted_goal(G, I)
+    ).
 % Only an argument that is itself CONTROL is descended into. Every other
 % argument is data, and reading those as goals reported every symbol a program
 % writes: x/0, y/0 and the rest [measured 2026-08-19, first version of this].

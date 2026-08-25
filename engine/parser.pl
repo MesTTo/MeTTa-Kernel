@@ -103,7 +103,11 @@
 
 :- use_module(library(dcg/basics)). %atom//1, number//1, eos//0
 :- use_module(library(pcre)).
-:- use_module(library(shlib)).
+%shlib exists to load reader.so, and an embedding that cannot load shared
+%objects at all (the node binding's sandbox refuses the module itself) must
+%still boot: the reader seam already treats a failed foreign load as "use
+%the Prolog grammar", so a refused shlib is the same absence, not an error.
+:- catch(use_module(library(shlib)), _, true).
 
 %The C reader rides beside this file as reader.c, compiled to reader.so by
 %check.sh or by hand with `swipl-ld -shared -O2 -o reader.so reader.c`. It is

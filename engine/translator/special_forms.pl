@@ -1698,7 +1698,7 @@ call_result_goal(Written, _, Produced, final, Out, Goal) :-
         masked_smuggler_head(Fun)
     ->  Goal = ( Out = Produced,
                  (   compound(Produced)
-                 ->  b_setval('$petta_masked_escape', true)
+                 ->  system:b_setval('$petta_masked_escape', true)
                  ;   true
                  ) )
     ;   Goal = (Out = Produced)
@@ -1742,7 +1742,7 @@ call_result_goal(Written, Runtime, Produced, evaluated, Out, Goal) :-
                ->  Out = Produced
                ;   Produced == Runtime
                ->  Out = Produced
-               ;   b_getval('$petta_masked_escape', true)
+               ;   system:b_getval('$petta_masked_escape', true)
                ->  metta_masked_result(Produced, Out)
                ;   Out = Produced
                )
