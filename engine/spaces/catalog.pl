@@ -9,6 +9,10 @@
 % and remedy fields remain ordinary queryable data [tested:
 % the_shipped_catalog_is_queryable_data;
 % commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0].
+% Guarantees: every shipped callable receives one PUBLIC or INTERNAL visibility
+% row after prelude registration, and internal classification does not remove
+% the callable [tested: every_shipped_callable_has_one_visibility;
+% commit=WORKTREE].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.
@@ -180,6 +184,7 @@ petta_catalog_head('routed-by-shape').
 petta_catalog_head('dispatch-default').
 petta_catalog_head('dispatch-policy').
 petta_catalog_head(deprecated).
+petta_catalog_head(visibility).
 
 add_sexp_in(Module, [Family|Parameters], [Rel|Args], Ref) :-
     Space = [Family|Parameters],
@@ -1107,6 +1112,7 @@ petta_catalog_preset([vocabulary, 'cache-mode', unchecked, force, refuse]).
 petta_catalog_preset([vocabulary, 'effect-class',
                       pureStructural, readOnlyLookup,
                       nondeterministicReadOnly, writesState, oracleIO]).
+petta_catalog_preset([vocabulary, visibility, 'PUBLIC', 'INTERNAL']).
 petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
 petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
 %What a context promises about the change events it emits. The three
@@ -1192,6 +1198,7 @@ petta_catalog_preset([kind, effect, symbol, ['one-of', 'effect-class']]).
 petta_catalog_preset([kind, inverse, symbol]).
 petta_catalog_preset([kind, op, symbol, integer, ['one-of', 'op-kind']]).
 petta_catalog_preset([kind, deprecated, symbol, term, term]).
+petta_catalog_preset([kind, visibility, symbol, ['one-of', visibility]]).
 petta_catalog_preset([kind, on, symbol, pattern, term, [optional, integer]]).
 petta_catalog_preset([kind, agenda, symbol, ['one-of', 'agenda-policy'],
                       [optional, symbol]]).
@@ -1312,6 +1319,38 @@ petta_catalog_preset(['dispatch-default', 'EvaluationOrderEnum', 'OrderClause'])
 petta_catalog_preset(['dispatch-default', 'FunctionResultEnum', 'Nondeterministic']).
 petta_catalog_preset(['dispatch-default', 'ClauseFailedEnum', 'ClauseFailNonDet']).
 petta_catalog_preset(['dispatch-default', 'OutOfClausesEnum', 'FailureOriginal']).
+
+%Visibility controls generated documentation and static members, not whether a
+%name can be mentioned. These are implementation steps behind public forms, or
+%the language-level interpreter whose exact S/fn mention remains available.
+petta_internal_catalog_name('get-doc-atom').
+petta_internal_catalog_name('get-doc-function').
+petta_internal_catalog_name('get-doc-params').
+petta_internal_catalog_name('get-doc-single-atom').
+petta_internal_catalog_name(interpret).
+petta_internal_catalog_name('match-type-or').
+
+petta_builtin_visibility(Name, 'INTERNAL') :-
+    petta_internal_catalog_name(Name),
+    !.
+petta_builtin_visibility(_, 'PUBLIC').
+
+%Run after the prelude has registered its equations. Materialising the rows
+%makes ordinary &petta matching, generators, and reflection share one source
+%rather than teaching a second private-name list in each consumer.
+petta_publish_builtin_visibility :-
+    findall(Name,
+            ( fun(Name)
+            ; metta_special_form_head(Name)
+            ),
+            Names0),
+    sort(Names0, Names),
+    forall(member(Name, Names),
+           (   petta_catalog_row([visibility, Name, _])
+           ->  true
+           ;   petta_builtin_visibility(Name, Visibility),
+               add_sexp('&petta', [visibility, Name, Visibility], _)
+           )).
 
 %Presets land only where their subject has no row yet, which makes the
 %directive reconsult-idempotent (a re-consulted engine meets its own rows

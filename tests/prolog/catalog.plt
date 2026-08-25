@@ -15,6 +15,9 @@
      - the deprecated kind is queryable with exact name, since, and remedy
        fields [tested: the_shipped_catalog_is_queryable_data;
        commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0]
+     - every shipped callable has exactly one visibility row and the internal
+       documentation helpers stay classified without leaving the callable set
+       [tested: every_shipped_callable_has_one_visibility; commit=WORKTREE]
    Open Obligations:
      To Do: None
      Hacks: None
@@ -33,7 +36,33 @@ test(the_shipped_catalog_is_queryable_data) :-
     once('get-atoms'('&petta', [vocabulary, fidelity|Values])),
     Values == ['Exact', 'Partial', 'Sound', 'Refuse'],
     once('get-atoms'('&petta', [kind, deprecated|DeprecatedSpec])),
-    DeprecatedSpec == [symbol, term, term].
+    DeprecatedSpec == [symbol, term, term],
+    once('get-atoms'('&petta', [vocabulary, visibility|VisibilityValues])),
+    VisibilityValues == ['PUBLIC', 'INTERNAL'],
+    once('get-atoms'('&petta', [kind, visibility|VisibilitySpec])),
+    VisibilitySpec == [symbol, ['one-of', visibility]].
+
+test(every_shipped_callable_has_one_visibility) :-
+    findall(Name,
+            ( fun(Name)
+            ; metta_special_form_head(Name)
+            ),
+            Callable0),
+    sort(Callable0, Callable),
+    findall(Name-Visibility,
+            petta_contract_fact([visibility, Name, Visibility]),
+            Rows0),
+    sort(Rows0, Rows),
+    findall(Name, member(Name-_, Rows), Visible0),
+    sort(Visible0, Visible),
+    assertion(Visible == Callable),
+    assertion(memberchk('get-doc-atom'-'INTERNAL', Rows)),
+    assertion(memberchk('get-doc-function'-'INTERNAL', Rows)),
+    assertion(memberchk('get-doc-params'-'INTERNAL', Rows)),
+    assertion(memberchk('get-doc-single-atom'-'INTERNAL', Rows)),
+    assertion(memberchk(interpret-'INTERNAL', Rows)),
+    assertion(memberchk('match-type-or'-'INTERNAL', Rows)),
+    assertion(memberchk('get-doc'-'PUBLIC', Rows)).
 
 test(a_malformed_shipped_declaration_is_refused_loudly,
      [error(petta_declaration_malformed([source, '&cat1', bogus], 2,

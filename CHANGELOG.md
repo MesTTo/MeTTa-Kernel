@@ -2530,6 +2530,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `DeprecationWarning` containing the catalog's version and positional remedy,
   and `explain` reflects the same declaration. Removing the row retires the
   warning immediately.
+- Added `PUBLIC`/`INTERNAL` visibility rows for every shipped callable. The
+  generated `fn` stub, offline help, and standard-library reference now admit
+  only `PUBLIC` rows. Internal documentation and interpreter helpers remain
+  reachable through exact `S[name]` and `fn[name]` mentions.
 - Added the thread-safety and serialization guarantees page: per type
   and per operation, what is atomic, what locks, and what a caller must
   serialize, Python's own documentation convention pointed at PeTTa.

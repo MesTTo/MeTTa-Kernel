@@ -280,18 +280,11 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `noeval` `(-> Atom Atom)` &mdash; The same point as `quote`: a built term is already unevaluated.
 - `unquote` `(-> %Undefined% %Undefined%)` &mdash; Reducing a quoted term is `m.eval`, primitive 4.
 - `gtry` `(-> Atom Atom Atom)` &mdash; LeaTTa's guarded try is lib_strategy's binary failure-to-identity spelling. Python builds the same gtry atom and evaluates it in the space.
-- `_check-alternatives` `(-> Atom Atom)` &mdash; LeaTTa's alternative-set check inside the Stratego basis.
-- `_case-empty` `(-> Expression Atom)` &mdash; LeaTTa's own decomposition of `case`.
 - `case%` `(-> Atom Expression %Undefined%)` &mdash; LeaTTa's `%`-suffixed variant, the error-transparent twin of `case`. PeTTa ships no `%` family. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `let%` `(-> Atom %Undefined% Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `let`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `let*%` `(-> Expression Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `let*`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `unify%` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `unify`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `=%` `(-> $t $t %Undefined%)` &mdash; LeaTTa's error-transparent twin of `=`, the equation head itself. The form is shown but not run here: PeTTa does not declare the name.
-- `switch-minimal` `(-> Atom Expression Atom)` &mdash; LeaTTa's own decomposition of `switch`.
-- `_switch-minimal%` `(-> Atom Expression Atom)` &mdash; LeaTTa's own decomposition of `switch`.
-- `switch-internal` `(-> Atom Expression Atom)` &mdash; LeaTTa's own decomposition of `switch`.
-- `switch-internal%` `(-> Atom Expression Atom)` &mdash; LeaTTa's own decomposition of `switch`.
-- `case-empty-internal` `(-> Atom Atom)` &mdash; LeaTTa's own decomposition of `case`.
 
 ## Spaces
 
@@ -374,7 +367,6 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `new-state` `(-> $t (StateMonad $t))` &mdash; `metta.State[T](value, space=space)` creates the typed Python handle. The row reads `.value` because the engine cell itself is deliberately hidden behind that handle. An event `fold(..., into=state)` passes this same process-shared cell to its step; individual reads and writes are thread-safe, but a compound read-modify-write needs coordination.
 - `get-state` `(-> (StateMonad $tgso) $tgso)` &mdash; Reading the cell is the typed handle's `state.value` property.
 - `change-state!` `(-> (StateMonad $tcso) $tcso (StateMonad $tcso))` &mdash; Assigning `state.value` writes the same typed engine cell and reading it back returns the replacement.
-- `_new-state` `(-> $t Expression (StateMonad $t))` &mdash; LeaTTa's internal constructor behind `new-state`.
 
 ## Printing and text
 
@@ -389,7 +381,6 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `trace!` `(-> %Undefined% Atom %Undefined%)` &mdash; `print` or `logging` beside the value; `m.trace()` is the engine's own reduction trace, a different and deeper thing.
 - `format-args` `(-> String Expression String)` &mdash; An f-string. MeTTa's `{}` holes are Python's own interpolation.
 - `print-alternatives!` `(-> Atom Expression (->))` &mdash; Python's `print` over the answers, which is what LeaTTa's assert family uses it for: showing what a form actually answered. The form is shown but not run here: PeTTa leaves the MeTTa call unreduced.
-- `_print-alternatives-each!` `(-> Expression (->))` &mdash; LeaTTa's per-alternative half of the printer.
 
 ## Testing
 
@@ -416,10 +407,6 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `assertAlphaEqualToResult` `(-> Atom Atom (->))` &mdash; The answer-list form compared modulo renaming. Where they differ: LeaTTa answers the unit `()` where PeTTa answers True.
 - `assertAlphaEqualToResultMsg` `(-> Atom Atom Atom (->))` &mdash; The same with Python's assertion message. Where they differ: LeaTTa answers the unit `()` where PeTTa answers True.
 - `assertIncludes` `(-> Atom Expression (->))` &mdash; Python's own `in`. Where they differ: LeaTTa answers the unit `()` where PeTTa answers True.
-- `_assert-results-are-equal` `(-> Atom Atom Atom (->))` &mdash; LeaTTa's internal comparison behind the assert family.
-- `_assert-results-are-equal-msg` `(-> Atom Atom Atom Atom (->))` &mdash; LeaTTa's internal comparison behind the assert family.
-- `_assert-results-are-alpha-equal` `(-> Atom Atom Atom (->))` &mdash; LeaTTa's internal comparison behind the assert family.
-- `_assert-results-are-alpha-equal-msg` `(-> Atom Atom Atom Atom (->))` &mdash; LeaTTa's internal comparison behind the assert family.
 
 ## Documentation
 
@@ -446,14 +433,6 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `@item` `(-> Atom DocItem)` &mdash; The subject a documentation record is about, which in Python is the object the docstring hangs on. Where they differ: the MeTTa side is a constructor and stays unreduced, correctly.
 - `@doc-formal` `(-> DocItem DocKindFunction DocType DocDescription DocParameters DocReturn DocFormal) | (-> DocItem DocKindAtom DocType DocDescription DocFormal) | (-> DocItem DocKindFunction DocType DocDescription DocFormal)` &mdash; The whole documentation record, which a typed and docstringed Python function already is: signature plus prose in one place. Where they differ: the MeTTa side is a constructor and stays unreduced, correctly.
 - `help!` `(-> Atom (->)) | (-> (->))` &mdash; Python's builtin `help`, which is the same act on the same docstring. Where they differ: LeaTTa prints the documentation and answers the unit; PeTTa leaves the call unreduced because it declares no documentation. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `help-internal!` `(-> Atom (->)) | (-> Symbol (->))` &mdash; LeaTTa's internal dispatch behind `help!`.
-- `help-param!` `(-> Atom (->))` &mdash; LeaTTa's internal parameter printer behind `help!`.
-- `help-space!` `(-> SpaceType (->))` &mdash; LeaTTa's internal space-documentation printer behind `help!`.
-- `get-doc-atom` `(-> SpaceType Atom %Undefined%)` &mdash; LeaTTa's internal dispatch behind `get-doc`.
-- `get-doc-function` `(-> SpaceType Atom Type %Undefined%)` &mdash; LeaTTa's internal dispatch behind `get-doc`.
-- `get-doc-single-atom` `(-> SpaceType Atom %Undefined%)` &mdash; LeaTTa's internal dispatch behind `get-doc`.
-- `get-doc-params` `(-> Expression Atom Expression (Expression Atom))` &mdash; LeaTTa's internal dispatch behind `get-doc`.
-- `undefined-doc-function-type` `(-> Expression Type)` &mdash; LeaTTa's internal fallback type for an undocumented application.
 
 ## Modules and imports
 
@@ -554,8 +533,6 @@ queryable atom data, and every row is exercised by
 - `stratego-all` `(-> Atom Atom Atom)` &mdash; Stratego's `all(s)`, applying a strategy to every immediate child.
 - `stratego-one` `(-> Atom Atom Atom)` &mdash; Stratego's `one(s)`, applying to one child. LeaTTa deliberately diverges from Stratego's committed choice by answering EVERY successful position through MeTTa's own nondeterminism.
 - `stratego-some` `(-> Atom Atom Atom)` &mdash; Stratego's `some(s)`, the third traversal primitive beside `all` and `one`: apply the strategy to every immediate child it succeeds on, keep each declining child as written, and fail when no child succeeded. The non-emptiness guard is the whole content, since `all` composed with `gtry` can never fail. A LeaTTa extension beyond corelib. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `_stratego-all-tail` `(-> Atom Expression Expression)` &mdash; LeaTTa's internal tail recursion behind `stratego-all`.
-- `_stratego-some-walk` `(-> Atom Expression Atom)` &mdash; LeaTTa's internal tail walk behind `stratego-some`, pairing the rebuilt tail with whether any member succeeded.
 - `eval-via-match` `(-> Atom %Undefined%)` &mdash; The one-step rewriting strategy the whole basis is specialised to. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `eval-via-unify` `(-> Atom %Undefined%)` &mdash; The unification-directed sibling of `eval-via-match`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `reduce-via-match` `(-> Atom Atom %Undefined%)` &mdash; The reduction form of the same strategy. The form is shown but not run here: PeTTa leaves the call unreduced.
@@ -599,21 +576,4 @@ queryable atom data, and every row is exercised by
 - `return` `(-> $t $t)` &mdash; The core's return, paired with `function`: it is what closes the frame, so it only ever appears inside one. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `collapse-bind` `(-> Atom Expression) | (TU Expression)` &mdash; The deep-tier collapse that keeps each alternative's BINDINGS, `((a (bindings ...)) ...)`. It belongs to the bindings-carrying tier, never to the surface; PeTTa's engine has the bindings carrier (`answer_bindings`) but not this instruction. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `superpose-bind` `(-> Expression Atom)` &mdash; The inverse of `collapse-bind`: it restores each alternative WITH its recorded bindings, which is a different operation from `superpose`. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `_metta-call` `(-> Atom Type SpaceType Atom)` &mdash; LeaTTa's grounded-call step inside `metta`.
-- `_metta-call-result` `(-> Atom Atom Type SpaceType Atom)` &mdash; LeaTTa's grounded-call continuation inside `metta`.
-- `_minimal-foldl-atom` `(-> Expression Atom Variable Variable Atom SpaceType %Undefined%)` &mdash; LeaTTa's internal fold behind `foldl-atom`, declared twice in the manifest: once in the prelude and once in a built-in module registry.
-
-## The mechanised interpreter
-
-LeaTTa's typed interpreter, written in MeTTa: `interpret` and the equations that implement it. This is the machinery that makes LeaTTa an oracle rather than a second implementation, and PeTTa writes its interpreter in Prolog, so none of these names is on either surface (51 names).
-
-> `interpret`, `interpret-args`, `interpret-args-at`, `interpret-args-ok`, `interpret-args-tail`, `interpret-args-tail-at`, `interpret-carrier-append`, `interpret-carrier-append-choice`, `interpret-dispatch`, `interpret-expression`, `interpret-expression-dispatch`, `interpret-expression-function`, `interpret-expression-ok`, `interpret-expression-operator`, `interpret-expression-selected`, `interpret-expression-tuple`, `interpret-func`, `interpret-func-args`, `interpret-func-ok`, `interpret-func-plan`, `interpret-function-arg-data`, `interpret-function-check`, `interpret-function-check-arg`, `interpret-function-check-arg-return`, `interpret-function-check-args`, `interpret-function-check-args-head`, `interpret-function-check-args-ready`, `interpret-function-check-data`, `interpret-function-check-result`, `interpret-function-check-return`, `interpret-function-check-tail`, `interpret-function-checked-data`, `interpret-function-return-data`, `interpret-function-selected-data`, `interpret-function-selection`, `interpret-function-tail-data`, `interpret-function-type`, `interpret-function-type-classified`, `interpret-function-type-data`, `interpret-function-type-ok`, `interpret-function-types`, `interpret-function-types-checked`, `interpret-function-types-data`, `interpret-function-types-end`, `interpret-function-types-end-classified`, `interpret-function-types-tail`, `interpret-is-metatype`, `interpret-result-type`, `interpret-tuple`, `interpret-type-cast`, `interpret-type-cast-error-or-bad-type`
-
-LeaTTa's minimal interpreter, written in MeTTa: the fourteen core instructions implemented in terms of each other (54 names).
-
-> `mi-apply-chain`, `mi-apply-chain-collapsed`, `mi-apply-chain-collapsed-choice`, `mi-apply-chain-empty-prepare`, `mi-apply-chain-prepare`, `mi-apply-chain-prepare-choice`, `mi-apply-chain-prepare-head`, `mi-apply-chain-prepare-nonempty`, `mi-apply-chain-prepare-one`, `mi-apply-chain-prepare-tail`, `mi-apply-chain-prepared`, `mi-apply-chain-prepared-carrier`, `mi-apply-chain-prepared-one`, `mi-apply-chain-run`, `mi-apply-chain-run-result`, `mi-apply-chain-substituted`, `mi-apply-chain-substituted-carrier`, `mi-apply-chain-substitution-failed`, `mi-apply-unify`, `mi-apply-unify-attempt`, `mi-apply-unify-final`, `mi-apply-unify-has-segment`, `mi-apply-unify-hit`, `mi-apply-unify-probe`, `mi-apply-unify-probed`, `mi-apply-unify-rigid`, `mi-apply-unify-rigid-order`, `mi-apply-unify-rigid-result`, `mi-apply-unify-run`, `mi-apply-unify-run-result`, `mi-chain`, `mi-chain-collapsed`, `mi-chain-run`, `mi-chain-substitute`, `mi-cons-atom`, `mi-decons-atom`, `mi-function`, `mi-function-continue`, `mi-function-loop`, `mi-function-result`, `mi-unify`, `mi-unify-finish`, `mi-unify-is-space`, `mi-unify-probe`, `mi-unify-rigid-first`, `mi-unify-rigid-first-result`, `mi-unify-rigid-second`, `mi-unify-rigid-second-result`, `mi-unify-space`, `mi-unify-space-carrier`, `mi-unify-space-carriers`, `mi-unify-space-finish`, `mi-unify-space-item`, `mi-unify-structural`
-
-LeaTTa's universal small-step machine, written in MeTTa, with its instruction tags as nullary symbols (68 names).
-
-> `u-apply`, `u-chain`, `u-chain-apply`, `u-classify`, `u-classify-expression`, `u-collapse-bind`, `u-cons-atom`, `u-context-space`, `u-decons-atom`, `u-equation`, `u-equation-apply`, `u-equation-carrier`, `u-eval`, `u-evalc`, `u-exhausted`, `u-filter-carrier`, `u-filter-data`, `u-filter-head`, `u-filter-head-data`, `u-filter-held`, `u-freshen-equation`, `u-function`, `u-hit`, `u-metta`, `u-miss`, `u-native-apply`, `u-native-plan`, `u-next-entry`, `u-reduce`, `u-reduce-carrier-append`, `u-reduce-carrier-append-choice`, `u-reduce-carrier-classify`, `u-reduce-carrier-data`, `u-reduce-carrier-entry`, `u-reduce-carrier-held`, `u-reduce-carrier-list`, `u-reduce-carrier-list-choice`, `u-reduce-carrier-one`, `u-reduce-carrier-one-classified`, `u-reduce-classified`, `u-reduce-error`, `u-reduce-held`, `u-reduce-held-classified`, `u-reduce-term`, `u-reduced`, `u-run`, `u-run-held`, `u-run-term`, `u-scan-data`, `u-scan-held`, `u-space`, `u-space-add`, `u-space-equality-theory`, `u-space-eval`, `u-space-query`, `u-space-query-carrier`, `u-space-query-choice`, `u-space-query-scan`, `u-space-remove`, `u-space-result`, `u-space-theory-choice`, `u-space-theory-head`, `u-space-theory-scan`, `u-stuck`, `u-superpose-bind`, `u-unify`, `u-unify-apply`, `u-unify-rigid`
 

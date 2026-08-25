@@ -59,6 +59,10 @@
 %   - The numeric-type vocabulary publishes Number and BigInt in boundary
 %     order for generated binding types [tested 2026-08-20:
 %     test_numeric_types_are_published_from_the_catalog].
+%   - every shipped callable has one PUBLIC or INTERNAL catalog visibility,
+%     with internal names remaining callable data rather than generated API
+%     [tested: catalog_self_description:every_shipped_callable_has_one_visibility;
+%     commit=WORKTREE].
 %   - Six dispatch axes publish one documented default and accept at most one
 %     validated per-function override for each axis
 %     [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
@@ -234,6 +238,7 @@
             petta_capacity_count_install/1,
             petta_capacity_count_uninstall/1,
             petta_catalog_row/1,
+            petta_publish_builtin_visibility/0,
             petta_dispatch_value/3,
             petta_instrument_recursive_clause/3,
             petta_match_atoms/2,

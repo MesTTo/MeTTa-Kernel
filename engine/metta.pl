@@ -99,6 +99,10 @@
 %     test_structural_registration_reflects_an_effect_atom,
 %     effects_lattice:only_pure_structural_projects_to_the_cache_purity_seam;
 %     commit=WORKTREE].
+%   - the final boot pass materializes one catalog visibility row for every
+%     callable after the prelude has registered its equations [tested:
+%     catalog_self_description:every_shipped_callable_has_one_visibility;
+%     commit=WORKTREE].
 %   - StateMonad cells use one process-shared non-backtrackable store, so main
 %     evaluation and held answer engines observe the same writes without
 %     losing their parameterized held-value type [tested:
@@ -931,4 +935,5 @@ metta_host_function_generation(Generation) :-
 %been [tested: metta_published_surface:every_declared_seam_that_exists_is_exported].
 :- initialization((seam:publish_declared, protect_metta_exec_modules,
                    load_builtin_type_surface, load_engine_prelude,
+                   spaces:petta_publish_builtin_visibility,
                    retract_unrelated_system_arities)).
