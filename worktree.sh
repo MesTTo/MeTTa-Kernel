@@ -76,3 +76,8 @@ if [ -d "$ext" ]; then
         echo "worktree.sh: swipl-ld not found, the C extension example will skip" >&2
     fi
 fi
+
+# Warm the engine once so the Quick Load Format artifacts generate in a
+# single process before any concurrent lane first-boots this tree
+# (engine/qlf_boot.pl carries the staleness and recovery story).
+swipl -g halt -s "$(dirname -- "$0")/engine/main.pl" -- backends >/dev/null 2>&1 || true
