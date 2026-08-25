@@ -94,6 +94,10 @@ Source: `bindings/python/metta/_space.py`.
 >   - ``Space.limits(stack=bytes)`` scopes a positive stack byte count beside
 >     time and inference bounds [tested:
 >     test_stack_limit_is_carried_to_the_limited_six_seam; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - synchronous run, match, eval, and answers calls made directly in an async
+>     body remain legal and record an AsyncMeTTa lint [tested:
+>     test_a_sync_engine_call_inside_async_def_is_linted_not_refused;
+>     commit=acb40f1912f131ae088083d1af29b4b283019bea]
 >   - ``Space.op`` and ``Space.unregister_op`` are the sole public operation
 >     lifecycle pair [tested: test_operation_registration_names_are_symmetric;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]

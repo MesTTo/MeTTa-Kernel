@@ -17,7 +17,9 @@
 #                                            ciao-grade
 #                                            codec-doc leatta leatta-gate-selftest
 #                                            policy-inventory
-#                                            policy-inventory-selftest snippets
+#                                            policy-inventory-selftest
+#                                            refusal-grounds
+#                                            refusal-grounds-selftest snippets
 #                                            pytest benchmarks instructions
 #                                            memory-scale memory-scale-gate
 #                                            shell examples leatta layering
@@ -28,6 +30,9 @@
 #     selftest are GATE lanes [tested:
 #     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
 #     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+#   - semantic refusals and the four-case planted discrimination selftest are
+#     GATE lanes [tested: tests/check_refusal_grounds.py,
+#     tests/check_refusal_grounds_selftest.py; commit=acb40f1912f131ae088083d1af29b4b283019bea].
 #   - memory and scaling curves run once in REPORT-then-GATE order; GATE_ONLY
 #     still takes a fresh measurement and promotes only deterministic pins
 #     [tested: env CHECK_PY=../../.venv-pypetta/bin/python
@@ -544,6 +549,13 @@ run GATE   spec-status-selftest "$PY" "$HERE/tests/check_spec_status_selftest.py
 # both authority-owned exclusions, so an empty report cannot pass vacuously.
 run GATE policy-inventory "$PY" "$HERE/tests/check_policy_inventory.py"
 run GATE policy-inventory-selftest "$PY" "$HERE/tests/check_policy_inventory_selftest.py"
+
+# A semantic fence belongs to Python's data model or a named MeTTa law. The
+# first lane checks the central structured ground and every owned source site;
+# the second plants one omission in each mechanism so an empty scan cannot pass
+# vacuously.
+run GATE refusal-grounds "$PY" "$HERE/tests/check_refusal_grounds.py"
+run GATE refusal-grounds-selftest "$PY" "$HERE/tests/check_refusal_grounds_selftest.py"
 
 # Phase 11 moves &self's execution out of Prolog's `user` module. SWI's
 # autoloader resolves a missing import ANYWAY, so a module boundary can be
