@@ -1731,7 +1731,7 @@ call_result_goal(Written, _, Produced, final, Out, Goal) :-
 %for 2x the iterations on examples/reasoning/tilepuzzle.metta.
 %[tested: translator_equations:a_function_call_result_is_not_rewalked_for_redexes,
 %conformance2:a_builtin_polymorphic_result_reenters_evaluation;
-%commit=WORKTREE].
+%commit=44ea37314b24f799a2080901172db66a94cb7791].
 call_result_goal(Written, Runtime, Produced, evaluated, Out, Goal) :-
     (   nonvar(Written),
         Written = [Fun|WrittenArgs],

@@ -750,7 +750,7 @@ normalize_equation_result(Fun, Args, RawOut, Out, RawBody, Body) :-
 %[tested:
 %bindings/python/tests/test_builtin_inputs.py::test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason,
 %translator_equations:an_inverse_call_peels_a_constructor_result_structurally;
-%commit=WORKTREE].
+%commit=44ea37314b24f799a2080901172db66a94cb7791].
 
 %A directly covered self call has already crossed its own equation boundary.
 %Fuse both the caller-side protocol and this equation's outer protocol into
