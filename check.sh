@@ -824,11 +824,24 @@ run GATE llms       "$PY" "$HERE/bindings/python/tools/llmsdoc.py"
 # Structural checks with a clean baseline today, so a regression is a failure.
 run GATE slotscheck in_py "$PY" -m slotscheck -m metta
 run GATE vulture    in_py "$PY" -m vulture
-run GATE imports    in_py "$PY" -m importlinter.cli lint_imports
 
 # --------------------------------------------------------------- REPORT tier
 # Known backlog. Each entry names its section in the ledger and becomes a
 # GATE once that section is cleared.
+
+# The layering contracts in pyproject.toml. This ran as a GATE from the day
+# check.sh was written, and checked nothing the whole time: the command was
+# `python -m importlinter.cli lint_imports`, and importlinter.cli only defines
+# its click commands, so runpy imported the module, ran no command, printed
+# nothing and exited 0. Behind that silence 62 violations accumulated. The
+# invocation below calls the command object, which does exit nonzero, and
+# test_every_module_invocation_in_the_gate_reaches_an_entry_point now refuses
+# any `-m` target in this file that has no entry point. REPORT until the 62
+# are triaged: each is either a deliberate function-local satellite import,
+# which belongs in an ignore_imports entry with its reason, or a real
+# module-level layering break to fix.
+run REPORT imports  in_py "$PY" -c \
+    "from importlinter.cli import lint_imports_command; lint_imports_command()"
 
 # EXTENDING.md's cost table, remeasured and held to a committed baseline. It
 # was produced by a throwaway outside the repo that hardcoded an absolute path

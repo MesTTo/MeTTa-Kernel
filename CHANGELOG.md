@@ -44,7 +44,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `cache_info()` reports per-definition entry and answer-occurrence counts,
   and stacking it over `@space.op` refuses before registering a definition
   while directing host-only memoization to `functools.cache` or
-  `functools.lru_cache`.
+  `functools.lru_cache`. The exact memo is a Prolog-level store rather than
+  the C-level answer trie, and that costs inferences: the 25th Fibonacci
+  number through `@space.cache` measured 1,622 inferences on the set table
+  and 11,433 on the exact memo, so the memoized-to-unmemoized ratio fell from
+  512x to 73x. Multiplicity is the language law and the trie was breaking it,
+  so the slower store is the correct one until the trie can carry a bag.
 - The lazy default-engine tier now exports `@metta.op(effect=...)`, forwarding
   the complete receiver operation contract and its required five-rank effect
   metadata.
