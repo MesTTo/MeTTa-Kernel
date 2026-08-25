@@ -53,7 +53,7 @@ every run.
 ```python
 from metta import MeTTa, S, V, G, ground, Expression, equation, rules, parse
 m = MeTTa()                      # binds &self, the same space the CLI uses
-m.run("(= (f) 1) !(f) !(+ 1 2)") # [[Grounded(1)], [Grounded(3)]]
+m.self.run("(= (f) 1) !(f) !(+ 1 2)")  # [[Grounded(1)], [Grounded(3)]]
 ```
 
 Module-level `metta.run/match/eval/add/remove/parse/fn/trace` act on one lazily
