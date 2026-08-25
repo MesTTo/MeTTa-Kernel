@@ -1029,14 +1029,20 @@ kind(native_atom_clause/3, service).
 %engine-side call an extension makes.
 kind(match_foreign/4, service).
 
-%PURITY AND CACHING. Whether a function may be cached, and what its body
-%reads. Two independent libraries ask (lib/lib_memo.pl and lib/lib_tabling.pl)
-%and both delegate the DECISION to the engine rather than deciding it twice:
-%metta_effect_walk/3 is the engine's walk over a compiled body and carries the
-%engine's own refusal for a goal nothing declares pure, metta_function_cacheable/1
-%is the declared volatility, and metta_cache_unchecked/1 is the caller's own
-%(cache Name unchecked) waiver. A cache that answered these for itself would
-%drift from the declarations the engine enforces everywhere else.
+%EFFECTS AND CACHING. The five classes, their order and their join live in the
+%engine, so libraries do not restate the lattice. petta_operation_effect/2
+%returns the canonical reflected class for one registered operation;
+%petta_operation_plan_effect/2 joins a list of operation names and fails if
+%any member is unclassified. The effect walk remains the stricter cache door:
+%only pureStructural is inert there, while space reads are tracked explicitly.
+%[tested: effects_lattice:effect_services_are_published;
+%commit=WORKTREE]
+kind(petta_effect_rank/2, service).
+kind(petta_effect_join/3, service).
+kind(petta_effect_compose/2, service).
+kind(petta_effect_class_canonical/2, service).
+kind(petta_operation_effect/2, service).
+kind(petta_operation_plan_effect/2, service).
 kind(metta_effect_walk/3, service).
 kind(metta_function_cacheable/1, service).
 kind(metta_cache_unchecked/1, service).

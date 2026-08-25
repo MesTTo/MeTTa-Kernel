@@ -1,8 +1,8 @@
 <!--
-Purpose: explain Python operation registration, type declarations, context injection, and property tests.
-Guarantees: examples use Space.op, Space.define, and canonical atom constructors without compatibility aliases.
-[tested: npm run docs:build and test_define_wires_the_declarative_dance;
-commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
+Purpose: explain Python operation registration, effect and type declarations, context injection, and property tests.
+Guarantees: examples classify every Space.op with a canonical EffectClass and use Space.define without compatibility aliases.
+[tested: npm run docs:build and test_effect_class_is_the_public_five_rank_join_lattice;
+commit=WORKTREE]
 -->
 
 # Python functions as MeTTa functions
@@ -10,31 +10,51 @@ commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
 `@m.op` registers a Python callable as a MeTTa function. The signature sets its arities. A generator function is nondeterministic, with one MeTTa answer per yield.
 
 ```python
-@m.op
+from metta.vocabularies import EffectClass
+
+
+@m.op(effect=EffectClass.pureStructural)
 def double(x: int) -> int:
     return 2 * x                     # !(double 21) -> 42
 
-@m.op
+@m.op(effect=EffectClass.nondeterministicReadOnly)
 def upto(n: int):
     yield from range(1, n + 1)       # !(collapse (upto 3)) -> (1 2 3)
 ```
+
+Every registration requires effect metadata. New code passes it through
+`effect=`; an existing `(effect name class)` declaration atom remains a
+compatibility input. The ordered choices are
+`pureStructural`, `readOnlyLookup`, `nondeterministicReadOnly`, `writesState`,
+and `oracleIO`; missing metadata refuses before registration and names all five
+remedies. Choose the strongest behavior the callable may perform. A generator
+or generator inverse must be at least `nondeterministicReadOnly`.
+
+Every operation reflects one canonical `(effect name class)` row in `&petta`.
+`EffectClass.compose(step.effect for step in plan)` computes a composed plan's
+class from those reflected values by taking its strongest member. The retired
+input spellings remain accepted only for migration: `immutable` maps to
+`pureStructural`, `stable` to
+`readOnlyLookup`, and `volatile` to `oracleIO`.
 
 Annotations become declarations in the running space. A `TypeVar` produces a parametric type variable. A `Union` produces one arrow for each member, which the engine reads as superposed declarations. `Callable[[int], int]` maps to a function arrow, and a typed tuple maps element by element. `Annotated[int, "metres"]` keeps `Number` in the arrow and also publishes the matchable claim `(Annotated Number "metres")`, so two values of the same runtime type can carry distinct semantic metadata.
 
 A dataclass, enum, or plain class in a signature becomes a declared type. Its field annotations determine the constructor declaration. Translation is two-way: enums project to symbols, structured objects can project to constructor expressions, and answers can rebuild Python instances.
 
-Defaults register every accepted positional arity. A Python `None` produces no answer unless the integration wrapper uses the engine's effect convention. `m.unregister_op(name)` removes every arity registered under that name.
+Defaults register every accepted positional arity. A Python `None` produces no
+answer; effect metadata describes observation and does not change the answer
+shape. `m.unregister_op(name)` removes every arity registered under that name.
 
 An `Atom` parameter changes evaluation order; it is not merely a static hint.
 The compiler passes that argument as written, before reduction. An
 unconstrained parameter receives the evaluated value:
 
 ```python
-@m.op
+@m.op(effect=EffectClass.pureStructural)
 def anyatom(term: metta.Atom) -> metta.Atom:
     return term
 
-@m.op
+@m.op(effect=EffectClass.pureStructural)
 def anyval(term):
     return term
 ```
@@ -46,7 +66,7 @@ implements syntax or a control form.
 An operation that wants to query the knowledge base does not have to close over `m`. Annotate a parameter as `metta.MeTTa` and the engine fills it, FastAPI's `Depends` read with the house convention that the annotation is the request:
 
 ```python
-@m.op
+@m.op(effect=EffectClass.nondeterministicReadOnly)
 def related(term, engine: metta.MeTTa):
     for row in engine.self.match(Expression(S.link, term, V.x)):
         yield row[0]                 # !(related a) never passes the engine

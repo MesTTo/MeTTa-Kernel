@@ -5,6 +5,10 @@
 %     while an unrelated cache survives [tested:
 %     memo_support_graph:a_leaf_change_invalidates_transitive_callers_only;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - An impure memo refusal points at the canonical effect declaration door
+%     and names pureStructural as its cache-safe class [tested:
+%     lib_memo_volatility:an_impure_refusal_names_the_canonical_effect_remedy;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -330,6 +334,14 @@ test(an_immutable_function_memoizes,
                  retractall(user:fun(plunit_memo_pure)),
                  retractall(user:arity(plunit_memo_pure, _)) )) ]) :-
     'memoize'(plunit_memo_pure, true).
+
+test(an_impure_refusal_names_the_canonical_effect_remedy) :-
+    message_to_string(
+        error(permission_error(memoize, impure_function, memo_caller), none),
+        Text),
+    assertion(sub_string(Text, _, _, _, "not classified pureStructural")),
+    assertion(sub_string(Text, _, _, _,
+                         "(effect <operation> pureStructural)")).
 
 :- end_tests(lib_memo_volatility).
 

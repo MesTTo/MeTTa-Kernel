@@ -1,7 +1,7 @@
 <!--
 Purpose: connect in-memory routing, remote spaces, and multi-shot solving through the public narrow surface.
-Guarantees: examples use canonical atoms, Space.op, context.space(), and metta.tables.add.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+Guarantees: examples use canonical atoms, effect-classified Space.op, context.space(), and metta.tables.add.
+[tested: npm run docs:build and test_unclassified_operation_refuses_with_all_five_effect_remedies; commit=WORKTREE]
 -->
 
 # HTTP, routes, and solver loops
@@ -36,10 +36,10 @@ class Router:
         self._casters: dict[int, tuple] = {}
         self._count = 0
 
-    def get(self, path: str) -> Callable:
+    def get(self, path: str, *, effect: str) -> Callable:
         def wrap(fn: Callable) -> Callable:
             handler = fn.__name__.replace("_", "-")
-            self._m.op(fn, name=handler)
+            self._m.op(fn, name=handler, effect=effect)
             self.add_route("GET", path, handler)
             return fn
 
@@ -103,12 +103,12 @@ app = Router(m, "app")
 
 
 # The FastAPI shape: a decorator, a typed path parameter, a handler.
-@app.get("/users/{id:int}")
+@app.get("/users/{id:int}", effect="pureStructural")
 def read_user(id):
     return f"user {id}"
 
 
-@app.get("/users/{id:int}/karma")
+@app.get("/users/{id:int}/karma", effect="pureStructural")
 def karma(id):
     return id * 10
 

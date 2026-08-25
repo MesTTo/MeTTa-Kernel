@@ -1,4 +1,4 @@
-% Purpose: classify compiled effects and manage memoization, dependencies, and bridge cascades
+% Purpose: classify compiled effects, compose the five-rank effect lattice, and manage memoization, dependencies, and bridge cascades
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
@@ -219,8 +219,9 @@ metta_effect_classify(_, petta_dynamic_head_masks(_), Queue, Queue) :- !.
 %equation body handed back, so it is classified by that value and not by its
 %own name. Judging it by name refused `(= (past-tabled $x) $x)` as
 %metta_impure_goal(metta_masked_result/2), naming an engine internal the
-%program never wrote and advising a seam:pure_operation/1 declaration that
-%would be false: the goal DOES re-enter evaluation, it just re-enters
+%program never wrote. The former diagnostic also advised the old
+%seam:pure_operation/1 extension declaration, which would have been false:
+%the goal DOES re-enter evaluation, it just re-enters
 %evaluation of a term the walk can read
 %[tested: test_a_recycled_space_name_inherits_no_clauses_from_its_past_life].
 metta_effect_classify(Module, metta_masked_result(Template, _), Queue, Next) :- !,
@@ -388,10 +389,87 @@ prolog:error_message(metta_higher_order_goal(Arity)) -->
        anything. Name the function, or do not cache this one'-[Arity] ].
 
 prolog:error_message(metta_impure_goal(Name/Arity)) -->
-    [ 'caching refuses ~w/~w: nothing declares it pure, and a cached answer \c
-       would hide whatever it does. Declare it with seam:pure_operation/1 if \c
-       it only inspects its arguments, or do not cache this function'
-      -[Name, Arity] ].
+    [ 'caching refuses ~w/~w: it is not classified pureStructural, and a \c
+       cached answer would hide its effect. Declare (effect ~w \c
+       pureStructural) only when it inspects its arguments without observing \c
+       mutable state, or do not cache this function'
+      -[Name, Arity, Name] ].
+
+%%%% The five-rank operation-effect lattice %%%%
+%
+%Every executable operation has one canonical class, ordered from an entirely
+%structural computation through reads and writes to an external oracle. A
+%composition has the strongest class of any member: rank is the order, join is
+%maximum, and the empty composition is pureStructural. These predicates are
+%the engine-side image of the public EffectClass vocabulary rather than a
+%second public value set: spaces:petta_effect_class_canonical/2 resolves both
+%catalog members and the old immutable/stable/volatile input spellings.
+%
+%The old projections are deliberately conservative. immutable and pure=true
+%mean pureStructural, stable means readOnlyLookup, and volatile means oracleIO
+%because the former volatile contract admitted variation, writes and I/O.
+%Only pureStructural projects back to seam:pure_operation/1.
+%[tested: effects_lattice:the_five_effect_classes_are_ranked_in_catalog_order,
+%effects_lattice:effect_join_and_compose_choose_the_strongest_member,
+%effects_lattice:operation_effect_reflection_is_canonical_and_fail_closed,
+%effects_lattice:the_legacy_host_pure_boolean_maps_to_pure_structural;
+%commit=WORKTREE]
+petta_effect_rank(Declared, Rank) :-
+    spaces:petta_effect_class_canonical(Declared, Canonical),
+    petta_effect_canonical_rank(Canonical, Rank).
+
+petta_effect_canonical_rank(pureStructural, 0).
+petta_effect_canonical_rank(readOnlyLookup, 1).
+petta_effect_canonical_rank(nondeterministicReadOnly, 2).
+petta_effect_canonical_rank(writesState, 3).
+petta_effect_canonical_rank(oracleIO, 4).
+
+petta_effect_join(Left, Right, Joined) :-
+    spaces:petta_effect_class_canonical(Left, CanonicalLeft),
+    spaces:petta_effect_class_canonical(Right, CanonicalRight),
+    petta_effect_canonical_rank(CanonicalLeft, LeftRank),
+    petta_effect_canonical_rank(CanonicalRight, RightRank),
+    (   LeftRank >= RightRank
+    ->  Joined = CanonicalLeft
+    ;   Joined = CanonicalRight
+    ).
+
+petta_effect_compose(Classes, Effect) :-
+    petta_effect_compose_(Classes, pureStructural, Effect).
+
+petta_effect_compose_([], Effect, Effect).
+petta_effect_compose_([Class|Classes], Acc0, Effect) :-
+    petta_effect_join(Acc0, Class, Acc),
+    petta_effect_compose_(Classes, Acc, Effect).
+
+%One canonical reflection row for an operation. Registration normally owns
+%one raw (effect Name Class) atom. If a re-registration briefly overlaps two
+%rows, or old and new clients both declared one, their join is the safe answer
+%and findall/3 still exposes one canonical row. A missing declaration fails,
+%which is the same fail-closed rule registration enforces. The dynamic host
+%pure fact is the compatibility image of Operation.pure=true and is consulted
+%only when no catalog row exists.
+petta_operation_effect(Name, Effect) :-
+    atom(Name),
+    findall(Declared,
+            petta_contract_fact([effect, Name, Declared]),
+            DeclaredClasses),
+    (   DeclaredClasses = [_|_]
+    ->  maplist(spaces:petta_effect_class_canonical,
+                DeclaredClasses,
+                CanonicalClasses),
+        petta_effect_compose(CanonicalClasses, Effect)
+    ;   metta_host_pure_operation(Name)
+    ->  Effect = pureStructural
+    ;   fail
+    ).
+
+%A plan is a list of operation names. maplist/3 makes an unclassified member
+%fail the whole plan rather than silently treating it as pure. The empty plan
+%inherits petta_effect_compose/2's pureStructural identity.
+petta_operation_plan_effect(Operations, Effect) :-
+    maplist(petta_operation_effect, Operations, Classes),
+    petta_effect_compose(Classes, Effect).
 
 %%%% Which operations a cache may hide %%%%
 %
@@ -415,22 +493,15 @@ prolog:error_message(metta_impure_goal(Name/Arity)) -->
 %seam:pure_operation/1", was unreachable by any route.
 %
 %It is a SEPARATE predicate rather than more clauses of this one, and that is
-%not tidiness. The five clauses below are RULES with a variable head, so
+%not tidiness. The five shipped clauses in space_hooks.pl are RULES with a
+%variable head, so
 %retractall(seam:pure_operation(foo)), which is how a registration withdraws
 %one declaration, unifies with every one of them: five clauses to zero and
 %seam:pure_operation('+') true to false, from registering any operation at
 %all [measured 2026-08-17]. Retracting from here cannot reach them.
-seam:pure_operation(Name) :- metta_host_pure_operation(Name).
-
-%The same claim made from INSIDE MeTTa: (effect Name immutable) added to
-%&petta, where register_op(declarations=[...]) places it too. The walk reads
-%the space's own storage at judgement time. The walk runs when a cache is
-%declared, never on the call path, so consulting storage here costs nothing
-%per call and installs no atom hook, which is what keeps every space's bulk
-%add path fast.
 seam:pure_operation(Name) :-
     atom(Name),
-    petta_contract_fact([effect, Name, immutable]).
+    petta_operation_effect(Name, pureStructural).
 
 %One contract atom, read from &petta's native storage. An expression
 %[H|Args] is stored as '&petta'(H, Args...) in that space's storage module,
@@ -443,7 +514,7 @@ petta_contract_fact(Args) :-
 
 %The deliberate override: (cache Name unchecked) in &petta says the CALLER
 %accepts stale answers for this function. lib_tabling and lib_memo consult
-%it before their purity walk; a library's explicit volatile declaration
+%it before their purity walk; an explicit non-pureStructural declaration
 %still refuses, because the author's NO outranks the caller's insistence.
 metta_cache_unchecked(Name) :-
     petta_contract_fact([cache, Name, unchecked]).
@@ -713,7 +784,7 @@ petta_explain_match_item(_, Pattern, [merge, Policy]) :-
 petta_explain_op_item(Op, _, [op, Op, Arity, Kind]) :-
     petta_contract_fact([op, Op, Arity, Kind]).
 petta_explain_op_item(Op, _, [effect, Effect]) :-
-    (   petta_contract_fact([effect, Op, Declared])
+    (   petta_operation_effect(Op, Declared)
     ->  Effect = Declared
     ;   Effect = none
     ).

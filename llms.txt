@@ -18,8 +18,8 @@ re-runs them.
 | `examples/**/*.metta` | 225 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
 | `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
-| `tests/prolog/*.plt` | 42 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 187 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `tests/prolog/*.plt` | 43 plunit suites over the engine itself | the `plunit` gate lane |
+| `bindings/python/tests/*.py` | 188 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `bindings/python/tests/twins/**/*.py` | 219 Python twins of `examples/` programs across the corpus, each written with no MeTTa source text, answering alpha-equal to its original or explicitly declining a structured-residue form, and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/metta/vocabularies.py` | the catalog's value vocabularies as StrEnum classes, one per `(vocabulary ...)` row; each member IS its wire word and encodes as its symbol, and bare words stay the runtime escape hatch | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
@@ -31,7 +31,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/**/*.pl` | 34,205 lines: `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 998 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
+| `engine/**/*.pl` | 34,335 lines: `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 998 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 33 MeTTa libraries loaded with `!(import! &self (library lib_x))`; from Python the write door imports them, `m += lib.x` | `bindings/python/tests/test_library_door.py` |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -52,6 +52,7 @@ every run.
 
 ```python
 from metta import MeTTa, S, V, G, ground, Expression, equation, rules, parse
+from metta.vocabularies import EffectClass
 m = MeTTa()                      # binds &self, the same space the CLI uses
 m.self.run("(= (f) 1) !(f) !(+ 1 2)")  # [[Grounded(1)], [Grounded(3)]]
 ```
@@ -216,13 +217,27 @@ override atom to restore the default immediately.
 ## Python functions as MeTTa functions
 
 ```python
-@m.op
+@m.op(effect=EffectClass.pureStructural)
 def hypot(a: float, b: float) -> float: ...
 ```
 
-Options: `name=`, `transport="encoded"|"raw"`, `declarations=` (ordinary Atom
-claims), `arities=`, and `inverse=` (the callable that runs it backwards).
+Effect metadata is required, with `effect=` the canonical spelling for new
+code and an existing `(effect name class)` declaration atom retained as a
+compatibility input. The remaining options are `name=`,
+`transport="encoded"|"raw"`, `declarations=` (ordinary Atom claims),
+`arities=`, and `inverse=` (the callable that runs it backwards).
 `m.unregister_op(name)` removes every arity and declaration.
+
+The ordered `EffectClass` members are `pureStructural`, `readOnlyLookup`,
+`nondeterministicReadOnly`, `writesState`, and `oracleIO`. A plan's class is
+the strongest member: `EffectClass.compose(effects)` folds that join and an
+empty plan is `pureStructural`. Generators and generator inverses require at
+least `nondeterministicReadOnly`. Every registration publishes its canonical
+`(effect name class)` row in `&petta`; missing metadata refuses before engine
+state changes and names all five remedies. The retired input spellings map as
+`immutable -> pureStructural`, `stable -> readOnlyLookup`, and
+`volatile -> oracleIO`. Only the canonical names appear in `EffectClass` and
+reflection.
 
 The Python name is the MeTTa name, VERBATIM, and nothing is rewritten. Hyphens
 are MeTTa's convention and Python cannot spell one, so ask: `name="p-digit"` on
@@ -251,8 +266,9 @@ nondeterministic, one answer per yield; returning `None` answers nothing, which
 is why an `Optional` return declares the value type. An unannotated callable
 makes no type claim. `(arguments name atoms)` asks for Atom wrappers after
 ordinary evaluation, while an `Atom` annotation receives the written term
-before evaluation. `(effect name immutable)` licenses caching. These policy
-atoms live in `&petta`; `(op name arity raw_det|raw_many)` records raw transport.
+before evaluation. Only `(effect name pureStructural)` licenses caching. These
+policy atoms live in `&petta`; `(op name arity raw_det|raw_many)` records raw
+transport.
 
 `@m.define` compiles the Python BODY into MeTTa equations. Calling the resulting
 `Defined` evaluates in its owning space and returns every engine answer;
@@ -262,10 +278,13 @@ Stacked clauses become a first-match dispatcher. It takes `name=`, and
 reference twin. A local assignment such as `result: int = value`
 becomes the enforceable in-place claim `(: $result Number)` inside its `let*`.
 The parsed AST also supplies each definition's absolute source span, source
-docstring, lexical free variables, and conservative purity. Those values are
-available on `Defined` and reflect as `source-span`, `free-variable`, and
-`effect ... immutable` atoms in `&petta`; replacement and `clear()` retire
-stale facts.
+docstring, lexical free variables, and a conservative effect class. Those
+values are available on `Defined`; each clause joins the classes of the
+operations it calls, stacked clauses join again, and `source-span`,
+`free-variable`, and the resulting `effect ... <class>` atom reflect in
+`&petta`. Replacement and `clear()` retire stale facts. `Defined.pure` remains
+the compatibility projection of
+`Defined.effect is EffectClass.pureStructural`.
 `@rules` executes a generator with one rule-local `Var` per parameter and
 returns its yielded equations as ordinary atoms. Defined calls stage only in
 that scope. `equation(lhs).to(rhs)` statically keeps both halves on one Python
@@ -449,9 +468,10 @@ Dataclasses, enums, pydantic models and annotated classes all cross; enums
 project to symbols. `@space.define` on a class declares it INTO the space
 for the round trip; the separate record decorator is gone.
 
-`metta.integrate`: `module_ops(m, module, names=, prefix=, rename=,
+`metta.integrate`: `module_ops(m, module, names=, effect=, prefix=, rename=,
 transport="raw")` registers a whole module's callables, `facts(m, atoms)` bulk-writes,
-`wrap_object(m, name, obj, methods)`, `reflect(m, name, obj)`,
+`wrap_callable(m, name, target, effect=)`,
+`wrap_object(m, name, obj, methods, effects=)`, `reflect(m, name, obj)`,
 `install_reflection_ops(m)`, `integrate(m, target)`, `Integration`,
 `SpaceProvider`, and `discover(m)` over entry points. Installation is idempotent
 for a live space, and dropping a space releases its installation record.
@@ -499,8 +519,9 @@ the whole permitted inward surface
 source: `parse_metta_source/2` with `parsed_form_parts/4` to take one form
 apart, `active_source_program/1` to detect a definition batch,
 `current_working_dir/1` for what a relative path resolves against, and
-`petta_vocabulary_value/2` so a library validates an option against the same
-declared vocabulary the engine reads;
+`petta_source/2` to expose source metadata, and `petta_vocabulary_value/2` so a
+library validates an option against the same declared vocabulary the engine
+reads;
 compiler: `metta_special_form_head/1`, every head the translator gives special
 meaning, so a linter, a completion list or the Python MeTTa.builtins() call asks
 a question instead of reading the compiler's clause table. That read was what the
@@ -516,12 +537,14 @@ native storage: `native_storage_module/2`, `native_storage_functor/2`,
 `ensure_native_storage_module/2` and `native_atom_clause/3`, the same doors an
 ordinary atom write uses, so a library that pre-generates a space's storage
 writes the one format the space reads;
-purity and caching: `metta_effect_walk/3`, `metta_function_cacheable/1`,
-`metta_cache_unchecked/1`, with `support_record/2`, `support_invalidate/1` and
-`support_forget/1` for taking part in the support graph whose handler seams the
-engine already declares, plus `support_memo_sccs/2` and
-`support_memo_take_change/2` for its call-graph SCC view and changed-edge
-signal;
+effects and caching: `petta_effect_class_canonical/2`, `petta_effect_rank/2`,
+`petta_effect_join/3`, `petta_effect_compose/2`, `petta_operation_effect/2`,
+`petta_operation_plan_effect/2`, `metta_effect_walk/3`,
+`metta_function_cacheable/1`, and `metta_cache_unchecked/1`, with
+`support_record/2`, `support_invalidate/1` and `support_forget/1` for taking
+part in the support graph whose handler seams the engine already declares,
+plus `support_memo_sccs/2` and `support_memo_take_change/2` for its call-graph
+SCC view and changed-edge signal;
 foreign spaces: `petta_shape_route/5` for the routed view of any shape-routed
 declaration kind, `foreign_pushdown_class/3` and `foreign_provides/2`, the
 routing classifier and capability probe, `petta_require_events/2`, which
@@ -767,4 +790,4 @@ predicates; `website/guide/pettorch.md` is its page here.
 `petta-fabric-pc` projects a FabricPC predictive-coding network into a space, so
 settling, attention and comparison are MeTTa rather than Python.
 Neither is a special case in the engine: both are ordinary users of
-`register_op`, `arrays.install`, `integrate.facts` and the provider seam.
+`op`, `arrays.install`, `integrate.facts` and the provider seam.

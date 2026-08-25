@@ -93,9 +93,12 @@
 %     to float and can overflow doing it. Whole-corpus cost is
 %     +2.1% instructions on examples/performance/scale.metta
 %     [measured 2026-08-15].
-%   - Python operation purity reaches the same `(effect Name immutable)` atom
-%     read by seam:pure_operation/1 [tested:
-%     test_pure_registration_reflects_an_effect_atom; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861].
+%   - Python operation registration reaches the canonical `(effect Name Class)`
+%     atom consumed by operation reflection; exactly pureStructural projects
+%     to seam:pure_operation/1 [tested:
+%     test_structural_registration_reflects_an_effect_atom,
+%     effects_lattice:only_pure_structural_projects_to_the_cache_purity_seam;
+%     commit=WORKTREE].
 %   - StateMonad cells use one process-shared non-backtrackable store, so main
 %     evaluation and held answer engines observe the same writes without
 %     losing their parameterized held-value type [tested:

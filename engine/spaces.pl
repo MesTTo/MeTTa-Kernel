@@ -260,6 +260,7 @@
             petta_seq_unify/3,
             petta_space_name/1,
             petta_space_operand/1,
+            petta_effect_class_canonical/2,
             petta_vocabulary_value/2,
             protect_engine_emitted/1,
             protect_metta_exec_modules/0,

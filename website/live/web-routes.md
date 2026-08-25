@@ -1,7 +1,7 @@
 <!--
 Purpose: explain the executable route-table example built from Space operations and canonical atoms.
-Guarantees: the shown router uses Space.op and canonical atom names.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+Guarantees: the shown router requires an effect class for every Space.op and uses canonical atom names.
+[tested: npm run docs:build and test_unclassified_operation_refuses_with_all_five_effect_remedies; commit=WORKTREE]
 -->
 
 # Web routes
@@ -24,10 +24,10 @@ class Router:
         self._casters: dict[int, tuple] = {}
         self._count = 0
 
-    def get(self, path: str) -> Callable:
+    def get(self, path: str, *, effect: str) -> Callable:
         def wrap(fn: Callable) -> Callable:
             handler = fn.__name__.replace("_", "-")
-            self._m.op(fn, name=handler)
+            self._m.op(fn, name=handler, effect=effect)
             self.add_route("GET", path, handler)
             return fn
 
@@ -86,12 +86,12 @@ class Router:
 And the demonstration it verifies, typed parameters through MeTTa-added routes:
 
 ```python
-@app.get("/users/{id:int}")
+@app.get("/users/{id:int}", effect="pureStructural")
 def read_user(id):
     return f"user {id}"
 
 
-@app.get("/users/{id:int}/karma")
+@app.get("/users/{id:int}/karma", effect="pureStructural")
 def karma(id):
     return id * 10
 

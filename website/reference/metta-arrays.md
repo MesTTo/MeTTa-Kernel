@@ -18,7 +18,7 @@ Source: `bindings/python/metta/arrays.py`.
 >   - _top_indices uses 35.26% fewer instructions than the prior full sort for
 >     500 top-10 selections from 100,000 scores [measured 2026-08-14: minimum
 >     of three perf stat instructions:u runs]
->   - the fixed public constructor vocabulary is marked immutable to type
+>   - the fixed public constructor vocabulary is marked Final to type
 >     checkers [tested test_policy_constants_are_final]
 >   - all 44 installed operation names own arity-accurate arrows, and
 >     broadcast-shape relates compatible dimensions before any array exists
@@ -28,6 +28,12 @@ Source: `bindings/python/metta/arrays.py`.
 >     surface as every registered operation [tested:
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - operations returning mutable arrays are writesState, scalar inspections
+>     are readOnlyLookup, random construction is oracleIO, and embedding search
+>     is nondeterministicReadOnly [tested:
+>     test_every_array_operation_is_typed_and_a_shape_is_a_constraint,
+>     test_embedding_store_runs_on_numpy;
+>     commit=WORKTREE]
 > Guarded by:
 >   - _PROTOCOLS_LOCK serializes one-time protocol registration
 >     [tested test_array_protocol_registration_is_idempotent]

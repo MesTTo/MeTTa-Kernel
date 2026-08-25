@@ -1,7 +1,7 @@
 <!--
 Purpose: introduce PeTTa, its narrow Python surface, and the commands needed to use and develop it.
 Guarantees: every Python code block executes against the documented public API.
-[tested: python -m pytest bindings/python/tests/test_readme.py -q; commit=c34c9bf3e55a8425d3f251c3ad06c33bc9755a22]
+[tested: python -m pytest bindings/python/tests/test_readme.py -q; commit=WORKTREE]
 -->
 
 ## PeTTa
@@ -140,8 +140,11 @@ CLI's output program by program. Grounded answers compare as their Python
 values, symbols stay symbols, and a Python object stored in a space comes
 back as the very same object.
 
-Python functions become MeTTa functions with a decorator. Annotations become
-type declarations in the engine's own idiom. A TypeVar declares
+Python functions become MeTTa functions with a decorator. Each registration
+declares its effect as `pureStructural`, `readOnlyLookup`,
+`nondeterministicReadOnly`, `writesState`, or `oracleIO`; a composed plan takes
+the strongest class. Annotations become type declarations in the engine's own
+idiom. A TypeVar declares
 parametrically, so `def first_of(items: Sequence[A]) -> A` is
 `(: first-of (-> Expression $a))`. A Union declares one arrow per member,
 and the members superpose the way the checker already reads repeated
@@ -153,11 +156,11 @@ nondeterministic, and returning None answers nothing, which is why an
 Optional return declares the value type:
 
 ```python
-@m.op
+@m.op(effect="pureStructural")
 def double(x: int) -> int:
     return 2 * x                     # !(double 21) -> 42
 
-@m.op
+@m.op(effect="nondeterministicReadOnly")
 def upto(n: int):
     yield from range(1, n + 1)       # !(collapse (upto 3)) -> (1 2 3)
 ```
