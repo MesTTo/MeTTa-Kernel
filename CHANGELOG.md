@@ -999,6 +999,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Reconciled the phrasebook contract header so its algebra, immutable-world,
+  and strategy evidence survives together instead of shipping merge markers.
+
 - Reclaimed named MORK spaces on clear/drop and replaced the bridge's fixed
   4 GiB parser/query scratch reservations with demand-grown buffers. Joins
   beyond MORK's 63-item encoding now fall back to the engine plan instead of
