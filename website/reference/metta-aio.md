@@ -70,6 +70,10 @@ Source: `bindings/python/metta/aio.py`.
 >   - async peek and take keep event-loop threads unblocked while the engine
 >     worker performs the synchronous Linda wait [tested:
 >     test_async_peek_and_take_mirror_the_space_handle; commit=4e2398075da67bb2cbcc123a9fc1e078ecac6fbf]
+>   - async reification, world evaluation, and commit keep every engine crossing
+>     on the owning worker while immutable atom snapshots remain directly
+>     readable [tested: test_async_worlds_stay_on_the_owning_worker;
+>     commit=WORKTREE]
 > Owns:
 >   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
 >     engine until aclose(), stop(), or the atexit handler releases it [tested
@@ -314,6 +318,22 @@ async def copy(self) -> AsyncMeTTa:
 
 > This space's contents in a new anonymous space; MeTTa.copy,
 > the clone borrowing this connection's worker.
+
+### `AsyncMeTTa.reify`
+
+```python
+async def reify(self) -> AsyncWorld:
+```
+
+> Capture one immutable world on the owning engine worker.
+
+### `AsyncMeTTa.commit`
+
+```python
+async def commit(self, world: AsyncWorld) -> None:
+```
+
+> Commit an async world through the worker that produced it.
 
 ### `AsyncMeTTa.drop`
 
@@ -576,7 +596,7 @@ async def space_names(self) -> list[str]:
 async def admits(self, type_name: str) -> Atom:
 ```
 
-No docstring is defined.
+> Declare an admitted type on the owning engine worker.
 
 ### `AsyncMeTTa.annotations`
 
@@ -590,7 +610,7 @@ async def annotations(
 ) -> Atom:
 ```
 
-No docstring is defined.
+> Declare annotation algebra or subject capabilities on the worker.
 
 ### `AsyncMeTTa.algebra`
 
@@ -656,7 +676,7 @@ async def sample_rates(
 async def capacity(self, limit: int) -> Atom:
 ```
 
-No docstring is defined.
+> Declare the current context's capacity on the engine worker.
 
 ### `AsyncMeTTa.context`
 
@@ -664,7 +684,7 @@ No docstring is defined.
 async def context(self, world: World) -> Atom:
 ```
 
-No docstring is defined.
+> Declare the current evaluation world on the engine worker.
 
 ### `AsyncMeTTa.emits`
 
@@ -672,7 +692,7 @@ No docstring is defined.
 async def emits(self, policy: AnswerPolicy) -> Atom:
 ```
 
-No docstring is defined.
+> Declare the current context's answer policy on the worker.
 
 ### `AsyncMeTTa.events`
 
@@ -703,7 +723,7 @@ async def handles(
 ) -> Atom:
 ```
 
-No docstring is defined.
+> Declare a handler's pattern, fidelity, and determinism.
 
 ### `AsyncMeTTa.image`
 
@@ -1089,6 +1109,44 @@ def stop(self, timeout: float = DEFAULT_CLOSE_TIMEOUT) -> None:
 ```
 
 > Synchronous cleanup for code without a running event loop.
+
+## `AsyncWorld`
+
+```python
+class AsyncWorld:
+```
+
+> An immutable world whose evaluation crosses its originating worker.
+
+### `AsyncWorld.atoms`
+
+```python
+def atoms(self) -> tuple[Atom, ...]:
+```
+
+> Return the frozen atom multiset without an engine crossing.
+
+### `AsyncWorld.eval`
+
+```python
+async def eval(
+    self,
+    target: Any,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> tuple[list[Atom], AsyncWorld]:
+```
+
+> Evaluate on the worker and return answers plus a successor value.
+
+### `AsyncWorld.diff`
+
+```python
+def diff(self, other: AsyncWorld) -> tuple[list[Atom], list[Atom]]:
+```
+
+> Return ordered multiset extras between worlds from one worker.
 
 ## `connect`
 

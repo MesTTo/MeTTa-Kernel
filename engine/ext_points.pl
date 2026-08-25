@@ -1,6 +1,12 @@
 % Purpose: declare each engine extension seam, its direction and its cut
 %   semantics, and publish the predicates extensions and host bindings may call.
 % Guarantees:
+%   - atom events raised inside an observation frame are retained in write
+%     order, merged into an enclosing frame on nested commit, published only
+%     after the outer commit, and discarded on rollback [tested:
+%     test_events_publish_only_after_transaction_commit,
+%     test_rollback_and_outer_rollback_discard_every_buffered_event,
+%     test_speculative_execution_discards_its_event_segment; commit=WORKTREE].
 %   - reader-token registration is an engine-owned host service, while token
 %     construction is claimed by the host that owns the registered callable;
 %     mapping introspection is an ordinary extension service [tested:
@@ -72,6 +78,12 @@
             atom_hook_changed/3,
             sync_atom_hook/1,
             write_door_module/2,
+
+            % Post-commit observation frames and provider publication.
+            observation_begin/0,
+            observation_commit/0,
+            observation_discard/0,
+            observe/3,
 
             % Declarations: fact tables the engine reads as data.
             backend_builtin/1,
@@ -900,8 +912,11 @@ kind(petta_error_answer/3, host_service).
 kind(petta_handles_coherent/1, host_service).
 kind(petta_on_error_mode/3, host_service).
 kind(petta_source_reset/1, host_service).
+kind(petta_speculate/1, host_service).
 kind(petta_transaction/1, host_service).
 kind(petta_transport_failure/1, host_service).
+kind(petta_with_state_write_fence/1, host_service).
+kind(petta_live_state_cell/1, host_service).
 kind(sread_with_names/3, host_service).
 kind(unregister_metta_extension/1, host_service).
 kind(with_metta_module/2, host_service).
@@ -910,6 +925,15 @@ kind(with_metta_module/2, host_service).
 %engine-owned door instead of the two raw reads it wraps, so the
 %declaration walk and the rule registry stay free to move.
 kind(metta_typed_dispatch_applies/2, host_service).
+
+%The post-commit stream's four services. Transaction owners open and finish
+%frames; a provider whose own durable channel reports a committed change may
+%enter it through observe/3. The frame stack is engine state, so extensions
+%call these names and never reach its thread-local representation.
+kind(observation_begin/0, service).
+kind(observation_commit/0, service).
+kind(observation_discard/0, service).
+kind(observe/3, service).
 
 %The declared source discipline of a context, (source Ctx Kind): the
 %conformance kit reads the declaration the enforcement reads instead
@@ -1327,13 +1351,63 @@ write_door_module(Name/Arity, Module) :-
 
 run_atom_added_hooks(Wrapped, Space, Term) :-
     call(Wrapped),
-    forall(atom_added(Space, Term), true).
+    observe(added, Space, Term).
 
 run_atom_removed_hooks(Wrapped, Space, Term, Removed) :-
     call(Wrapped),
     ( Removed == true
-      -> forall(atom_removed(Space, Term), true)
+      -> observe(removed, Space, Term)
       ; true ).
+
+%Datomic's transaction-report queue shape, applied at the write seam: raw
+%changes accumulate per thread until the transaction owner says the state is
+%committed. Frames hold events newest-first so a write is O(1); an inner
+%commit prepends its reverse segment to the parent's reverse segment, and the
+%outer commit reverses exactly once before dispatch. No coalescing: spaces are
+%multisets, so two identical writes are two ordinary events.
+observation_begin :-
+    observation_frames(Frames),
+    nb_setval('$petta_observation_frames', [[]|Frames]).
+
+observation_commit :-
+    observation_take_frame(Current, Rest, commit),
+    (   Rest = [Parent|Parents]
+    ->  append(Current, Parent, Merged),
+        nb_setval('$petta_observation_frames', [Merged|Parents])
+    ;   nb_setval('$petta_observation_frames', []),
+        reverse(Current, Events),
+        maplist(observation_dispatch, Events)
+    ).
+
+observation_discard :-
+    observation_take_frame(_, Rest, discard),
+    nb_setval('$petta_observation_frames', Rest).
+
+observe(Action, Space, Term) :-
+    (   observation_frames([Current|Parents])
+    ->  copy_term(event(Action, Space, Term), Event),
+        nb_setval('$petta_observation_frames', [[Event|Current]|Parents])
+    ;   observation_dispatch(event(Action, Space, Term))
+    ).
+
+observation_frames(Frames) :-
+    (   nb_current('$petta_observation_frames', Current)
+    ->  Frames = Current
+    ;   Frames = []
+    ).
+
+observation_take_frame(Current, Rest, Operation) :-
+    (   observation_frames([Current|Rest])
+    ->  true
+    ;   throw(error(existence_error(observation_frame, Operation),
+                    context(Operation,
+                            'no post-commit observation frame is open')))
+    ).
+
+observation_dispatch(event(added, Space, Term)) :-
+    forall(atom_added(Space, Term), true).
+observation_dispatch(event(removed, Space, Term)) :-
+    forall(atom_removed(Space, Term), true).
 
 disable_atom_hook(added) :-
     write_door_module(metta_add_atom/3, Engine),

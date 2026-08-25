@@ -44,6 +44,9 @@ Source: `bindings/python/metta/foreign.py`.
 >   - provider length exists only through Python's Sized protocol and never
 >     falls back to enumeration [tested:
 >     test_provider_length_requires_and_uses_sized; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - snapshot capability is structural and explicit, so reification never
+>     mistakes live enumeration for an immutable view [tested:
+>     test_reify_refuses_and_names_a_live_composite_member; commit=WORKTREE]
 > Guarded by:
 >   - _PROVIDER_LOCK serializes library registration and provider lookups
 >     [tested test_provider_registration_is_transactional]
@@ -224,6 +227,43 @@ def atoms(self) -> Iterator[Any]:
 ```
 
 No docstring is defined.
+
+## `Snapshotter`
+
+```python
+class Snapshotter(Protocol):
+```
+
+> A provider that captures one immutable atom tuple at one instant.
+
+### `Snapshotter.snapshot`
+
+```python
+def snapshot(self) -> tuple[Atom, ...]:
+```
+
+> Capture one immutable atom tuple at one instant.
+
+## `WorldCommitter`
+
+```python
+class WorldCommitter(Protocol):
+```
+
+> A provider that lands one checked base-relative world diff.
+>
+> The provider owns the atomic boundary because only it can keep its
+> external store and durable log under one lock. The caller publishes the
+> returned diff to the ordinary post-commit event stream only after this
+> method succeeds.
+
+### `WorldCommitter.commit_world`
+
+```python
+def commit_world(self, base: tuple[Atom, ...], removed: list[Atom], added: list[Atom]) -> None:
+```
+
+> Land one base-relative diff under the provider's atomic boundary.
 
 ## `Adder`
 

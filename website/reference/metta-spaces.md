@@ -22,6 +22,10 @@ Source: `bindings/python/metta/spaces.py`.
 >     turns an added py-field atom into setattr [tested:
 >     test_a_query_joins_stored_atoms_with_live_object_fields;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - union, readonly, mapped, and overlay snapshot each member once; a live
+>     member without the explicit snapshot protocol refuses by member name
+>     [tested: test_reify_refuses_and_names_a_live_composite_member;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

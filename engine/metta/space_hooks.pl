@@ -2,6 +2,15 @@
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
 %   an internal SWI transaction never impersonates the outermost user transaction coordinator.
+%   user transactions publish their atom-event segment only after outermost
+%   commit and discard it on every failed or thrown path [tested:
+%   test_events_publish_only_after_transaction_commit,
+%   test_rollback_and_outer_rollback_discard_every_buffered_event;
+%   commit=WORKTREE].
+%   speculative calls create a provider savepoint, then roll it and their
+%   observation frame back on success, failure, and throw [tested:
+%   test_a_speculative_journal_write_is_neither_persisted_nor_published;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -462,41 +471,105 @@ petta_writes(Ctx, Atomicity) :-
 petta_transaction(Goal) :-
     term_variables(Goal, Vars),
     (   petta_in_user_transaction
-    ->  transaction(petta_transaction_answers(Goal, Vars, Answers))
-    ;   nb_setval('$petta_tx_enlisted', []),
-        catch(( setup_call_cleanup(
-                    b_setval('$petta_user_tx', true),
-                    transaction(petta_transaction_answers(Goal, Vars, Answers)),
-                    b_setval('$petta_user_tx', false))
-            ->  Outcome = committed ; Outcome = failed ),
-              Error,
-              Outcome = threw(Error)),
-        nb_getval('$petta_tx_enlisted', Enlisted),
-        nb_setval('$petta_tx_enlisted', []),
-        (   Outcome == committed
-        ->  forall(member(Space, Enlisted), seam:foreign_commit(Space)),
-            %The committed body may have emptied a function that shadows
-            %an inherited definition; remove_equation/6 deferred the
-            %predicate-level drop to the transaction's owner, which is
-            %here for the user's (transaction ...) form.
-            true
-        ;   forall(member(Space, Enlisted),
-                   catch(seam:foreign_rollback(Space), RollbackError,
-                         print_message(error, RollbackError)))
-        ),
-        %A rolled-back local definition may also have replaced a repaired weak
-        %import. Its dependency row survives the rollback, so the same sweep
-        %re-arms that inherited procedure identity on every outcome [tested:
-        %filereader_import_lifecycle:
-        %a_failed_local_redefinition_restores_the_repaired_inherited_call;
-        %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-        petta_repair_emptied_shadows,
-        (   Outcome == committed -> true
-        ;   Outcome == failed -> fail
-        ;   Outcome = threw(E), throw(E)
-        )
+    ->  petta_nested_transaction(Goal, Vars, Answers)
+    ;   petta_outer_transaction(Goal, Vars, Answers)
     ),
     member(Vars, Answers).
+
+petta_nested_transaction(Goal, Vars, Answers) :-
+    seam:observation_begin,
+    catch(( transaction(petta_transaction_answers(Goal, Vars, Answers))
+          -> Outcome = committed
+          ;  Outcome = failed
+          ),
+          Error,
+          Outcome = threw(Error)),
+    petta_finish_observation(Outcome, Observation),
+    petta_transaction_result(Outcome, ok, Observation).
+
+petta_outer_transaction(Goal, Vars, Answers) :-
+    seam:observation_begin,
+    nb_setval('$petta_tx_enlisted', []),
+    catch(( setup_call_cleanup(
+                b_setval('$petta_user_tx', true),
+                transaction(petta_transaction_answers(Goal, Vars, Answers)),
+                b_setval('$petta_user_tx', false))
+        ->  Outcome = committed ; Outcome = failed ),
+          Error,
+          Outcome = threw(Error)),
+    nb_getval('$petta_tx_enlisted', Enlisted),
+    nb_setval('$petta_tx_enlisted', []),
+    petta_finish_foreign(Outcome, Enlisted, Foreign),
+    petta_finish_observation(Outcome, Observation),
+    %A rolled-back local definition may also have replaced a repaired weak
+    %import. Its dependency row survives the rollback, so the same sweep
+    %re-arms that inherited procedure identity on every outcome [tested:
+    %filereader_import_lifecycle:
+    %a_failed_local_redefinition_restores_the_repaired_inherited_call;
+    %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+    petta_repair_emptied_shadows,
+    petta_transaction_result(Outcome, Foreign, Observation).
+
+petta_finish_foreign(committed, Enlisted, Result) :- !,
+    catch(( forall(member(Space, Enlisted), seam:foreign_commit(Space)),
+            Result = ok ),
+          Error,
+          Result = threw(Error)).
+petta_finish_foreign(_, Enlisted, ok) :-
+    forall(member(Space, Enlisted),
+           catch(seam:foreign_rollback(Space), RollbackError,
+                 print_message(error, RollbackError))).
+
+%Foreign providers finish before observers run, so a callback reads the
+%committed state on both sides of the seam. If a single-coordinator provider
+%commit throws, the engine transaction is already durable; its event segment
+%still publishes and the provider error remains the exception returned.
+petta_finish_observation(committed, Result) :- !,
+    catch(( seam:observation_commit, Result = ok ),
+          Error,
+          Result = threw(Error)).
+petta_finish_observation(_, ok) :-
+    seam:observation_discard.
+
+petta_transaction_result(committed, threw(Error), _) :- !, throw(Error).
+petta_transaction_result(committed, ok, threw(Error)) :- !, throw(Error).
+petta_transaction_result(committed, ok, ok) :- !.
+petta_transaction_result(failed, _, _) :- !, fail.
+petta_transaction_result(threw(Error), _, _) :- throw(Error).
+
+%The discarded sibling of petta_transaction/1. snapshot/1 rolls back the
+%engine database, while a fresh enlistment registry makes the same
+%begin/rollback protocol cover foreign stores. Saving and restoring the outer
+%registry gives an enclosing user transaction a real provider savepoint when
+%the provider supports nested begin/rollback; an older provider that cannot
+%nest refuses before its speculative write rather than leaking one.
+:- meta_predicate petta_speculate(0).
+petta_speculate(Goal) :-
+    seam:observation_begin,
+    (   nb_current('$petta_tx_enlisted', OuterEnlisted)
+    ->  true
+    ;   OuterEnlisted = []
+    ),
+    ( petta_in_user_transaction -> OuterFlag = true ; OuterFlag = false ),
+    nb_setval('$petta_tx_enlisted', []),
+    catch(( setup_call_cleanup(
+                b_setval('$petta_user_tx', true),
+                snapshot(Goal),
+                b_setval('$petta_user_tx', OuterFlag))
+        ->  Outcome = succeeded
+        ;   Outcome = failed
+        ),
+        Error,
+        Outcome = threw(Error)),
+    nb_getval('$petta_tx_enlisted', Enlisted),
+    nb_setval('$petta_tx_enlisted', OuterEnlisted),
+    petta_finish_foreign(discarded, Enlisted, _),
+    seam:observation_discard,
+    petta_speculate_result(Outcome).
+
+petta_speculate_result(succeeded).
+petta_speculate_result(failed) :- !, fail.
+petta_speculate_result(threw(Error)) :- throw(Error).
 
 %COLLECT, COMMIT, THEN REPLAY, which is what preserving a body's answers
 %costs. SWI's transaction/1 runs its goal as once/1 and cannot be made
