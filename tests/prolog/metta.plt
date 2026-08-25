@@ -12,7 +12,7 @@
 %     closed on an unknown effect without disarming inference limits [tested:
 %     metta_effects:the_host_repeatability_question_fails_closed,
 %     metta_effects:the_host_repeatability_question_preserves_inference_limits;
-%     commit=WORKTREE].
+%     commit=6917bef7ca902671999eafcae3a7a86db8f69723].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

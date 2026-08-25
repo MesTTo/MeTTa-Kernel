@@ -7,7 +7,7 @@
 %     never reconstruct its private queue protocol [tested:
 %     metta_effects:the_host_repeatability_question_fails_closed,
 %     metta_effects:the_host_repeatability_question_preserves_inference_limits;
-%     commit=WORKTREE].
+%     commit=6917bef7ca902671999eafcae3a7a86db8f69723].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

@@ -19,7 +19,7 @@
 %   - host repeatability asks one engine-owned effect-classification service
 %     rather than reaching the walk's private queue predicates [tested:
 %     a_host_binding_calls_only_published_surface,
-%     test_the_host_service_scoreboard_matches_the_tree; commit=WORKTREE].
+%     test_the_host_service_scoreboard_matches_the_tree; commit=6917bef7ca902671999eafcae3a7a86db8f69723].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

@@ -15,7 +15,7 @@
 %     commit=fddb28afcb066271d1f0c78fad8b578b2ab65ccd].
 %   - relation rows bind indexed call arguments in one monotone argument walk,
 %     filter contradictory ground candidates, and terminal generator errors
-%     retain their Python class [tested: shim_relation_form; commit=WORKTREE].
+%     retain their Python class [tested: shim_relation_form; commit=6917bef7ca902671999eafcae3a7a86db8f69723].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

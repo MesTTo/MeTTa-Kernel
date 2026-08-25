@@ -73,7 +73,7 @@ Source: `bindings/python/metta/tables.py`.
 >   - fallback row deletion binds only the removal pattern after public
 >     ``unify`` becomes symmetric [tested:
 >     test_a_nonground_compound_downgrades_and_removal_still_unifies;
->     commit=WORKTREE]
+>     commit=6917bef7ca902671999eafcae3a7a86db8f69723]
 > Decides:
 >   - declarations are trusted code, not user data: table and column
 >     names are interpolated into SQL, so a bridge declaration belongs in

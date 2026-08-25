@@ -8,7 +8,7 @@
 %   - the Python repeatability bridge fails closed on an ordinary classifier
 %     refusal but never catches a control limit [tested:
 %     python_repeatability_control:the_bridge_preserves_inference_limits;
-%     commit=WORKTREE].
+%     commit=6917bef7ca902671999eafcae3a7a86db8f69723].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
