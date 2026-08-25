@@ -7,7 +7,7 @@ Guarantees:
   - every compiler refusal site inherits a structured ground from the central
     ``CompileError`` constructor, every explicit semantic TypeError supplies a
     structured ground, and the segment fence names its MeTTa-law sources
-    [tested: tests/check_refusal_grounds_selftest.py; commit=WORKTREE]
+    [tested: tests/check_refusal_grounds_selftest.py; commit=acb40f1912f131ae088083d1af29b4b283019bea]
 Decides:
   - input-shape validation errors are not semantic refusals; this gate owns the
     compiler, Python data-model fences, and MeTTa fragment fences classified by

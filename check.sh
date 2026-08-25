@@ -32,7 +32,7 @@
 #     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 #   - semantic refusals and the four-case planted discrimination selftest are
 #     GATE lanes [tested: tests/check_refusal_grounds.py,
-#     tests/check_refusal_grounds_selftest.py; commit=WORKTREE].
+#     tests/check_refusal_grounds_selftest.py; commit=acb40f1912f131ae088083d1af29b4b283019bea].
 #   - memory and scaling curves run once in REPORT-then-GATE order; GATE_ONLY
 #     still takes a fresh measurement and promotes only deterministic pins
 #     [tested: env CHECK_PY=../../.venv-pypetta/bin/python

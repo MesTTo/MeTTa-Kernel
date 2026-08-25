@@ -4,7 +4,7 @@ Guarantees:
   - a missing TypeError ground, a non-central CompileError constructor, and a
     segment fence without its named MeTTa law fail independently, while the
     complete fixture passes [tested: tests/check_refusal_grounds_selftest.py;
-    commit=WORKTREE]
+    commit=acb40f1912f131ae088083d1af29b4b283019bea]
 """
 
 from __future__ import annotations
