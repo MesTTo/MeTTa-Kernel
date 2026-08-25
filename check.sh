@@ -158,6 +158,15 @@ build_engine_reader
 # ---------------------------------------------------------------- GATE tier
 # Correctness. These must pass on every commit.
 
+# One boot before any concurrent lane: the engine's Quick Load Format
+# artifacts generate lazily on first boot, SWI's qcompile writes each .qlf
+# in place, and four pytest workers first-booting a fresh tree at once
+# would race those writes. Warmed once here, every lane loads a finished
+# artifact set (engine/qlf_boot.pl carries the staleness and recovery
+# story). `|| true` because a boot problem belongs to the lanes, which
+# report it against their own expectations rather than at a warm-up.
+swipl -g halt -s "$HERE/engine/main.pl" -- backends >/dev/null 2>&1 || true
+
 # Each worker is a process with its own engine. Keeping one test file whole
 # preserves module fixtures, and a worker crash fails instead of being retried.
 # The benchmark plugin is disabled here because it refuses parallel timing;

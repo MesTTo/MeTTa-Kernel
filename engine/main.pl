@@ -28,10 +28,23 @@
 %committed .qlf whose mtime beats its source would shadow edits
 %silently, the exact hazard lib/lib_import.pl's cascade documents.
 :- ensure_loaded(qlf_boot).
+%The retry is the torn-artifact recovery: concurrent FIRST boots can race
+%qcompile writing the same .qlf (SWI writes it in place), and a torn file
+%would otherwise hard-fail every later boot while looking fresh to the
+%purge. On any load error the whole .qlf set is purged and the load runs
+%once more from source; petta_qlf_boot:purge_all_qlf is the same purge the
+%staleness check uses. The gate's own runners warm the engine once before
+%their concurrent lanes, so this path is the safety net rather than the
+%common case.
 :- current_prolog_flag(qcompile, OldQcompile),
-   setup_call_cleanup(set_prolog_flag(qcompile, auto),
-                      ensure_loaded(metta),
-                      set_prolog_flag(qcompile, OldQcompile)).
+   setup_call_cleanup(
+       set_prolog_flag(qcompile, auto),
+       catch(ensure_loaded(metta),
+             Error,
+             ( print_message(warning, Error),
+               petta_qlf_boot:purge_all_qlf,
+               ensure_loaded(metta) )),
+       set_prolog_flag(qcompile, OldQcompile)).
 
 %Tokens the engine reads for itself, which are therefore not the file to run.
 %`backends` asks engine/metta.pl to load every native backend that is built; it is
