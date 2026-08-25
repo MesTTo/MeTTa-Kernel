@@ -32,6 +32,11 @@ Source: `bindings/python/metta/testing.py`.
 >     numeric dispatch survive an engine round trip [tested:
 >     test_numpy_scalar_strategy_round_trips_through_the_engine;
 >     commit=a0f1cc5f15a15e5ca6958fe02a20be8832c7237f]
+>   - from_pattern generates ground substitutions, preserving repeated named
+>     variables while drawing anonymous occurrences independently [tested:
+>     test_from_pattern_generates_ground_instances_without_losing_aliases and
+>     test_from_pattern_draws_anonymous_occurrences_independently;
+>     commit=5750e8fe84d8e933c1b5ef5d08c801846c8e5eb8]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -151,6 +156,17 @@ def patterns(max_leaves: int = 8):
 > Expression-rooted atoms guaranteed to carry at least one variable:
 > the query side of match, built rather than filtered so hypothesis
 > never discards an example.
+
+## `from_pattern`
+
+```python
+def from_pattern(pattern, max_leaves: int = 8):
+```
+
+> Generate ground instances of ``pattern`` by consistent substitution.
+>
+> Repeated named variables share one draw. Each anonymous ``V._`` occurrence
+> receives its own draw, matching the engine's non-binding anonymous law.
 
 ## `check_space_provider`
 

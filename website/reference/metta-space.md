@@ -64,10 +64,11 @@ Source: `bindings/python/metta/_space.py`.
 >     test_query_surfaces_share_column_order,
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms,
 >     test_the_python_remove_door_subtracts_one_copy; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - all fifteen declaration verbs use the atom head as the method name,
->     inject the receiver where it is the subject, and expose no ``declare_*``
->     aliases [tested: test_declarations_use_their_atom_heads_on_the_receiver,
->     test_m7_narrow_core_surface; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - all fifteen declaration heads use their settled receiver spellings,
+>     including ``reacts`` for ``(on ...)``; the former ``reaction`` spelling
+>     remains as a compatibility alias and no ``declare_*`` alias returns
+>     [tested: test_declarations_use_their_atom_heads_on_the_receiver and
+>     test_m7_narrow_core_surface; commit=0cfc68a483d8d64fb499e53bbe9a3cc63f68990f]
 >   - Expression recognizes Space as the one iterable Handle whose listing is
 >     collected as an assembly-order snapshot [tested:
 >     test_expression_of_a_space_is_an_assembly_order_snapshot; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
@@ -107,6 +108,14 @@ Source: `bindings/python/metta/_space.py`.
 >     to the anonymous allocation pool [tested:
 >     test_a_named_space_drop_never_enters_the_anonymous_pool;
 >     commit=d843bb6d17a525c36afd21cab077d63b34447535]
+>   - compiled ``re.Pattern`` reader classes preserve supported semantic flags,
+>     reject untranslatable flags, and unregister through the same normalized
+>     key [tested: test_compiled_reader_patterns_preserve_flags_and_unregister;
+>     commit=50d1de4d0ead4a0c3997f9b2ef58631bbafaede3]
+>   - an anonymous space representation records the external file and line that
+>     created that life, while named-space representations remain stable
+>     [tested: test_anonymous_space_repr_carries_its_creation_site;
+>     commit=50d1de4d0ead4a0c3997f9b2ef58631bbafaede3]
 > Owns resources:
 >   - ``Space.save`` owns its sibling temporary file and removes it after every
 >     failed operation [tested: test_save_failure_preserves_existing_file;
@@ -412,7 +421,11 @@ def parse(self, source: str) -> Atom:
 ### `Space.register_token`
 
 ```python
-def register_token(self, pattern: str, constructor: Callable[[str], Any]) -> None:
+def register_token(
+    self,
+    pattern: str | _re.Pattern[str],
+    constructor: Callable[[str], Any],
+) -> None:
 ```
 
 > Register a full-token regex and its Atom constructor.
@@ -425,7 +438,7 @@ def register_token(self, pattern: str, constructor: Callable[[str], Any]) -> Non
 ### `Space.unregister_token`
 
 ```python
-def unregister_token(self, pattern: str) -> None:
+def unregister_token(self, pattern: str | _re.Pattern[str]) -> None:
 ```
 
 > Remove a reader-token class; an absent pattern is already removed.
@@ -1914,14 +1927,14 @@ def agenda(self, policy: AgendaPolicy, function: str | None = None) -> Atom:
 > SCORES a reaction, highest first. Every policy breaks ties on
 > declaration order.
 >
->     alarms.reaction("(alert $w)", "(insert &log (all $w))")
->     alarms.reaction("(alert fire)", "(insert &log (fire))", priority=9)
+>     alarms.reacts("(alert $w)", "(insert &log (all $w))")
+>     alarms.reacts("(alert fire)", "(insert &log (fire))", priority=9)
 >     alarms.agenda("priority")
 
-### `Space.reaction`
+### `Space.reacts`
 
 ```python
-def reaction(self, pattern: str | Atom, operation: str | Atom, priority: int | None = None) -> Atom:
+def reacts(self, pattern: str | Atom, operation: str | Atom, priority: int | None = None) -> Atom:
 ```
 
 > Declare a reaction, stored as an (on ...) atom: when an atom
@@ -1940,6 +1953,14 @@ def reaction(self, pattern: str | Atom, operation: str | Atom, priority: int | N
 > spaces, while the bridge rule delivers Python-side to anything
 > with add and remove, an unregistered or remote target included.
 > Same multi-context-systems idea, two delivery tiers.
+
+### `Space.reaction`
+
+```python
+def reaction(self, pattern: str | Atom, operation: str | Atom, priority: int | None = None) -> Atom:
+```
+
+> Compatibility spelling for :meth:`reacts`; new code uses reacts.
 
 ### `Space.admits`
 
