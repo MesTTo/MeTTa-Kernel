@@ -235,7 +235,9 @@ test_answer_value(Results, Results).
 %checked once per answer, which is what the caller's own argument evaluation
 %did before.
 assert(Form, true) :-
-    eval(Form, Value),
+    current_metta_module(Module),
+    eval_metta_in_module(Module, Form, Produced),
+    petta_boundary_result(Form, Produced, Value),
     (   Value == true
     ->  true
     ;   sdisplay(Form, Written),

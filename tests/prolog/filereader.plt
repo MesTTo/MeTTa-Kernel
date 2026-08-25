@@ -13,6 +13,12 @@
 %   - MeTTa source files retain non-ASCII heads under the C locale [tested:
 %     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
 %     commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
+%   - A committed public erase makes an import receipt stale, a rolled-back
+%     erase preserves it, and the next public import rebuilds the exact source
+%     contribution [tested:
+%     filereader_import_lifecycle:
+%     a_receipt_tracks_the_liveness_of_its_exact_stored_outputs;
+%     commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -444,6 +450,46 @@ test(reloading_one_contributor_preserves_another_contributors_support) :-
           forget_reload_source(PathB, F),
           cleanup_test_function(Other) )).
 
+test(a_dependent_recompile_keeps_its_original_source_owner) :-
+    Caller = 'plunit-owner-caller',
+    Callee = 'plunit-owner-callee',
+    Other = 'plunit-owner-other',
+    reload_scratch_file(PathA),
+    reload_scratch_file(PathB),
+    setup_call_cleanup(
+        ( write_reload_source(
+              PathA,
+              "(= (plunit-owner-caller) (plunit-owner-callee))\n"),
+          write_reload_source(
+              PathB,
+              "(= (plunit-owner-callee) 42)\n") ),
+        ( filereader:load_metta_file(PathA, _, '&self'),
+          filereader:metta_source_load(PathA, '&self', CallerLoad, _),
+          filereader:load_metta_file(PathB, _, '&self'),
+          filereader:metta_source_load(PathB, '&self', CalleeLoad, _),
+          once(filereader:translated_from(
+                   Recompiled,
+                   [=, [Caller], [Callee]])),
+          once(filereader:source_load_assertion(
+                   CallerLoad, artifact, Recompiled)),
+          \+ filereader:source_load_assertion(
+                 CalleeLoad, artifact, Recompiled),
+          write_reload_source(
+              PathB,
+              "(= (plunit-owner-other) 7)\n"),
+          filereader:load_metta_file(PathB, _, '&self'),
+          once(filereader:translated_from(
+                   Restored,
+                   [=, [Caller], [Callee]])),
+          once(filereader:source_load_assertion(
+                   CallerLoad, artifact, Restored)),
+          filereader:process_metta_string(
+              "!(plunit-owner-caller)", Answers),
+          Answers == [[Callee]] ),
+        ( forget_reload_source(PathA, Caller),
+          forget_reload_source(PathB, Callee),
+          cleanup_test_function(Other) )).
+
 :- end_tests(filereader_source_reload).
 
 :- begin_tests(filereader_global_function_scope).
@@ -480,6 +526,39 @@ test(file_function_remains_a_global_fallback_after_a_named_homonym) :-
         erase(SilentRef)).
 
 :- end_tests(filereader_global_function_scope).
+
+:- begin_tests(filereader_source_prefix).
+
+test(a_runnable_sees_repaired_forward_callers) :-
+    FileF = 'plunit-file-forward-f',
+    FileG = 'plunit-file-forward-g',
+    DynamicF = 'plunit-dynamic-forward-f',
+    DynamicG = 'plunit-dynamic-forward-g',
+    tmp_file_stream(text, Path, Stream),
+    format(Stream,
+           "(= (~w) (~w))~n(= (~w) 42)~n!(~w)~n",
+           [FileF, FileG, FileG, FileF]),
+    close(Stream),
+    format(string(DynamicSource),
+           "(= (~w) (~w))~n(= (~w) 42)~n!(~w)~n",
+           [DynamicF, DynamicG, DynamicG, DynamicF]),
+    setup_call_cleanup(
+        true,
+        ( filereader:load_metta_file(Path, FileAnswers, '&self'),
+          filereader:process_metta_string(DynamicSource,
+                                          DynamicAnswers,
+                                          '&self'),
+          assertion(FileAnswers == [42]),
+          assertion(DynamicAnswers == [42]) ),
+        ( cleanup_test_function(FileF),
+          cleanup_test_function(FileG),
+          cleanup_test_function(DynamicF),
+          cleanup_test_function(DynamicG),
+          retractall(filereader:compiled_metta_source(Path)),
+          retractall(user:imported_metta_source(_, Path)),
+          delete_file(Path) )).
+
+:- end_tests(filereader_source_prefix).
 
 :- begin_tests(filereader_control_errors).
 
@@ -525,6 +604,176 @@ test(cleared_native_space_repopulates_compiled_source) :-
 :- end_tests(filereader_control_errors).
 
 :- begin_tests(filereader_import_lifecycle).
+
+test(a_receipt_tracks_the_liveness_of_its_exact_stored_outputs) :-
+    Space = '&plunit_import_receipt',
+    tmp_file(metta, Base),
+    atom_concat(Base, '.metta', Path0),
+    open(Path0, write, Stream),
+    format(Stream,
+           "(= (plunit-import-receipt $x) (quote $x))~n", []),
+    close(Stream),
+    absolute_file_name(Path0, Path, [access(read)]),
+    Equation = [=, ['plunit-import-receipt', X], [quote, X]],
+    setup_call_cleanup(
+        true,
+        ( user:'import!'(Space, Path, []),
+          user:import_receipt(Space, Path, LoadId, Digest),
+          user:import_receipt_current(Space, Path),
+          filereader:metta_source_load(Path, Space, LoadId, Digest),
+          once(( filereader:source_load_assertion(LoadId, stored, StoredRef),
+                 user:stored_atom_of_ref(StoredRef, Space, Stored),
+                 Stored =@= Equation )),
+          catch(
+              transaction(
+                  ( user:'remove-atom'(Space, Equation, []),
+                    throw(plunit_receipt_rollback) )),
+              plunit_receipt_rollback,
+              true),
+          user:import_receipt_current(Space, Path),
+          user:'remove-atom'(Space, Equation, []),
+          \+ user:import_receipt_current(Space, Path),
+          user:'import!'(Space, Path, []),
+          user:import_receipt_current(Space, Path),
+          aggregate_all(
+              count,
+              user:'get-atoms'(
+                  Space,
+                  [=, ['plunit-import-receipt', _], [quote, _]]),
+              Count),
+          Count == 1 ),
+        ( user:metta_release_space(Space),
+          delete_file(Path) )).
+
+test(removing_a_local_shadow_rearms_an_already_compiled_inherited_call) :-
+    ParentSpace = '&self',
+    ChildSpace = '&plunit_import_shadow_child',
+    Function = 'plunit-import-shadow-call',
+    ParentEquation = [=, [Function], parent],
+    ChildEquation = [=, [Function], child],
+    setup_call_cleanup(
+        ( user:metta_add_atom(ParentSpace, ParentEquation, true),
+          user:metta_add_atom(ChildSpace, ChildEquation, true),
+          user:space_module(ChildSpace, ChildModule),
+          Call =.. [Function, Answer],
+          assertz(user:(plunit_saved_shadow_call(Answer) :-
+                           ChildModule:Call),
+                  SavedRef) ),
+        ( findall(Before, user:plunit_saved_shadow_call(Before), [child]),
+          user:metta_remove_atom(ChildSpace, ChildEquation, true),
+          findall(After, user:plunit_saved_shadow_call(After), [parent]),
+          functor(Direct, Function, 1),
+          arg(1, Direct, DirectAnswer),
+          findall(DirectAnswer, call(ChildModule:Direct), [parent]),
+          Replacement = [=, [Function], replacement],
+          user:metta_add_atom(ChildSpace, Replacement, true),
+          findall(Replaced, user:plunit_saved_shadow_call(Replaced),
+                  [replacement]),
+          user:space_module(ParentSpace, ParentModule),
+          functor(ParentCall, Function, 1),
+          arg(1, ParentCall, ParentAnswer),
+          findall(ParentAnswer, call(ParentModule:ParentCall), [parent]) ),
+        ( catch(erase(SavedRef), _, true),
+          user:metta_release_space(ChildSpace),
+          user:metta_remove_atom(ParentSpace, ParentEquation, _) )).
+
+test(a_repaired_shadow_import_follows_a_recycled_modules_new_parent) :-
+    FirstParent = '&plunit_shadow_parent_first',
+    SecondParent = '&plunit_shadow_parent_second',
+    Child = '&plunit_shadow_reparented_child',
+    Function = 'plunit-reparented-shadow-call',
+    FirstEquation = [=, [Function], first],
+    SecondEquation = [=, [Function], second],
+    LocalEquation = [=, [Function], local],
+    setup_call_cleanup(
+        ( user:metta_add_atom(FirstParent, FirstEquation, true),
+          user:metta_add_atom(SecondParent, SecondEquation, true),
+          user:metta_declare_space_parent(Child, FirstParent),
+          user:metta_add_atom(Child, LocalEquation, true),
+          user:space_module(Child, ChildModule),
+          Call =.. [Function, Answer],
+          assertz(user:(plunit_saved_reparented_call(Answer) :-
+                           ChildModule:Call),
+                  SavedRef) ),
+        ( findall(Before, user:plunit_saved_reparented_call(Before), [local]),
+          user:metta_release_space(Child),
+          user:metta_declare_space_parent(Child, SecondParent),
+          user:space_module(Child, ChildModule),
+          findall(After, user:plunit_saved_reparented_call(After), [second]) ),
+        ( catch(erase(SavedRef), _, true),
+          catch(user:metta_release_space(Child), _, true),
+          user:metta_release_space(FirstParent),
+          user:metta_release_space(SecondParent) )).
+
+test(a_failed_local_redefinition_restores_the_repaired_inherited_call) :-
+    ParentSpace = '&self',
+    ChildSpace = '&plunit_failed_shadow_child',
+    Function = 'plunit-failed-shadow-call',
+    ParentEquation = [=, [Function], parent],
+    ChildEquation = [=, [Function], child],
+    FailedEquation = [=, [Function], never_committed],
+    setup_call_cleanup(
+        ( user:metta_add_atom(ParentSpace, ParentEquation, true),
+          user:metta_add_atom(ChildSpace, ChildEquation, true),
+          user:space_module(ChildSpace, ChildModule),
+          Call =.. [Function, Answer],
+          assertz(user:(plunit_saved_failed_shadow_call(Answer) :-
+                           ChildModule:Call),
+                  SavedRef) ),
+        ( user:metta_remove_atom(ChildSpace, ChildEquation, true),
+          setup_call_cleanup(
+              assertz((seam:function_changed(Function) :-
+                           throw(error(plunit_failed_shadow_redefinition,
+                                       none))),
+                      HookRef),
+              catch(user:metta_add_atom(ChildSpace, FailedEquation, true),
+                    Error,
+                    true),
+              erase(HookRef)),
+          Error = error(plunit_failed_shadow_redefinition, none),
+          findall(After, user:plunit_saved_failed_shadow_call(After),
+                  [parent]),
+          \+ user:'get-atoms'(ChildSpace, FailedEquation) ),
+        ( catch(erase(SavedRef), _, true),
+          user:metta_release_space(ChildSpace),
+          user:metta_remove_atom(ParentSpace, ParentEquation, _) )).
+
+test(a_failed_first_source_load_restores_the_repaired_inherited_call) :-
+    ParentSpace = '&self',
+    ChildSpace = '&plunit_failed_source_shadow_child',
+    Function = 'plunit-failed-source-shadow-call',
+    ParentEquation = [=, [Function], parent],
+    ChildEquation = [=, [Function], child],
+    tmp_file_stream(text, Path, Stream),
+    format(Stream, "(= (~w) never-committed)~n", [Function]),
+    close(Stream),
+    setup_call_cleanup(
+        ( user:metta_add_atom(ParentSpace, ParentEquation, true),
+          user:metta_add_atom(ChildSpace, ChildEquation, true),
+          user:space_module(ChildSpace, ChildModule),
+          Call =.. [Function, Answer],
+          assertz(user:(plunit_saved_failed_source_call(Answer) :-
+                           ChildModule:Call),
+                  SavedRef) ),
+        ( user:metta_remove_atom(ChildSpace, ChildEquation, true),
+          setup_call_cleanup(
+              assertz((seam:function_changed(Function) :-
+                           throw(error(plunit_failed_source_shadow,
+                                       none))),
+                      HookRef),
+              catch(filereader:load_metta_file(Path, _, ChildSpace),
+                    Error,
+                    true),
+              erase(HookRef)),
+          Error = error(plunit_failed_source_shadow, context(Path, _)),
+          findall(After, user:plunit_saved_failed_source_call(After),
+                  [parent]),
+          \+ user:'get-atoms'(ChildSpace,
+                               [=, [Function], never_committed]) ),
+        ( catch(erase(SavedRef), _, true),
+          user:metta_release_space(ChildSpace),
+          user:metta_remove_atom(ParentSpace, ParentEquation, _),
+          delete_file(Path) )).
 
 test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
     Space = '&plunit_import_wildcard',
@@ -574,10 +823,10 @@ test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
 :- begin_tests(filereader_untypable_declaration).
 
 %The evidence the refusal rests on, and it is the whole reason this is an
-%error rather than a warning: an arrow declaration puts has_type/2 around the
-%call and a non-arrow one leaves the call bare, so the same wrong argument is
-%either refused at the function's door or carried into whatever finally
-%breaks on it.
+%error rather than a warning: an arrow declaration puts check_argument_type/3
+%around the call and a non-arrow one leaves the call bare, so the same wrong
+%argument is either refused at the function's door or carried into whatever
+%finally breaks on it.
 compiled_call_goals(Declaration, Goals) :-
     Function = 'plunit-untypable-inc',
     format(atom(Source), "~w~n(= (~w $x) (+ $x 1))~n",
@@ -599,8 +848,8 @@ test(an_arrow_declaration_compiles_the_check_a_non_arrow_one_cannot) :-
     compiled_call_goals("", Bare),
     term_string(Guarded, GuardedText),
     term_string(Bare, BareText),
-    once(sub_string(GuardedText, _, _, _, "has_type")),
-    \+ sub_string(BareText, _, _, _, "has_type").
+    once(sub_string(GuardedText, _, _, _, "check_argument_type")),
+    \+ sub_string(BareText, _, _, _, "check_argument_type").
 
 test(a_non_arrow_declaration_for_a_function_is_refused,
      [throws(error(petta_untypable_declaration('plunit-untypable-inc',
@@ -626,7 +875,7 @@ test(one_arrow_among_several_declarations_is_enough) :-
                          \n(: plunit-untypable-inc (-> Number Number))",
                         Goals),
     term_string(Goals, Text),
-    once(sub_string(Text, _, _, _, "has_type")).
+    once(sub_string(Text, _, _, _, "check_argument_type")).
 
 %lib_nars.metta writes NARS inheritance as (--> $a $b) and
 %lib_combinatorics.metta writes a lambda as (|-> ...). Both are deliberate

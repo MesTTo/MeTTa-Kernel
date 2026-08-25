@@ -1,6 +1,8 @@
 % Purpose: import Prolog predicates and MeTTa sources while preserving module and source-lifecycle boundaries
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
-% Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
+% Guarantees: every definition retains engine/metta.pl's implementation module and original load order;
+%   a named-space MeTTa import is reusable only while its committed source receipt validates its life,
+%   digest, source-load identity, and exact stored-output references.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -1053,44 +1055,84 @@ metta_import_base(top, Directory) :-
 
 :- dynamic imported_metta_source/2.
 :- dynamic import_life/3.
+:- dynamic import_receipt/4.
 
-%Import state cannot live as a clause of the space predicate: wildcard
-%remove-atom retracts every unifying clause, including rules. Loading is
-%visible while recursive imports run so cycles terminate; success changes the
-%state to loaded. A full space clear owns removal of both states.
-import_life_current(Space, CanonPath) :-
-    petta_space_name(Space), !,
-    import_life(Space, CanonPath, _).
-import_life_current(_, _).
+%A committed receipt is a cache entry for one exact source load. The temporary
+%loading pair stays separate, because it is a cycle breaker rather than proof
+%that the load's payload remains usable. A receipt is current only while the
+%space's import life remains loaded and the file reader validates its source
+%row, digest, and stored-output references.
+import_receipt_current(Space, CanonPath) :-
+    import_life(Space, CanonPath, loaded),
+    import_receipt(Space, CanonPath, LoadId, Digest),
+    filereader:source_load_receipt_current(CanonPath, Space, LoadId, Digest).
 
-assert_import_life_marker(Space, CanonPath, Ref) :-
-    petta_space_name(Space), !,
-    assertz(import_life(Space, CanonPath, loading), Ref).
-assert_import_life_marker(_, _, none).
-
-erase_import_life_marker(none) :- !.
-erase_import_life_marker(Ref) :-
-    ( clause_property(Ref, erased) -> true ; erase(Ref) ).
-
-finish_import_life(_, _, none, _) :- !.
-finish_import_life(Space, CanonPath, Ref, exit) :- !,
-    erase_import_life_marker(Ref),
-    assertz(import_life(Space, CanonPath, loaded)).
-finish_import_life(_, _, Ref, _) :-
-    erase_import_life_marker(Ref).
-
-run_with_import_life_marker(Space, CanonPath, Goal) :-
-    setup_call_catcher_cleanup(
-        assert_import_life_marker(Space, CanonPath, Ref),
-        once(Goal),
-        Catcher,
-        finish_import_life(Space, CanonPath, Ref, Catcher)).
-
-clear_import_life(Space, CanonPath) :-
-    ( petta_space_name(Space)
-    -> retractall(import_life(Space, CanonPath, _))
-    ;  true
+import_cache_current(Space, CanonPath) :-
+    imported_metta_source(Space, CanonPath),
+    (   petta_space_name(Space)
+    ->  ( import_life(Space, CanonPath, loading)
+        ; import_receipt_current(Space, CanonPath) )
+    ;   true
     ).
+
+capture_import_state(Space, CanonPath, Terms) :-
+    findall(imported_metta_source(Space, CanonPath),
+            imported_metta_source(Space, CanonPath),
+            Imported),
+    findall(import_life(Space, CanonPath, State),
+            import_life(Space, CanonPath, State),
+            Lives),
+    findall(import_receipt(Space, CanonPath, LoadId, Digest),
+            import_receipt(Space, CanonPath, LoadId, Digest),
+            Receipts),
+    append([Imported, Lives, Receipts], Terms).
+
+clear_import_state(Space, CanonPath) :-
+    retractall(imported_metta_source(Space, CanonPath)),
+    retractall(import_life(Space, CanonPath, _)),
+    retractall(import_receipt(Space, CanonPath, _, _)).
+
+begin_import_attempt(Space, CanonPath) :-
+    clear_import_state(Space, CanonPath),
+    assertz(imported_metta_source(Space, CanonPath)),
+    (   petta_space_name(Space)
+    ->  assertz(import_life(Space, CanonPath, loading))
+    ;   true
+    ).
+
+restore_import_state(Terms) :-
+    forall(member(Term, Terms), assertz(Term)).
+
+finish_import_attempt(Space, CanonPath, _, exit) :- !,
+    (   petta_space_name(Space)
+    ->  retractall(import_life(Space, CanonPath, _)),
+        assertz(import_life(Space, CanonPath, loaded))
+    ;   true
+    ).
+finish_import_attempt(Space, CanonPath, Previous, _) :-
+    clear_import_state(Space, CanonPath),
+    restore_import_state(Previous).
+
+commit_import_receipt(Space, CanonPath) :-
+    petta_space_name(Space), !,
+    findall(LoadId-Digest,
+            filereader:metta_source_load(CanonPath, Space, LoadId, Digest),
+            Loads),
+    (   Loads = [LoadId-Digest]
+    ->  assertz(import_receipt(Space, CanonPath, LoadId, Digest))
+    ;   throw(error(petta_import_receipt_source_load(CanonPath, Space, Loads),
+                    context(import_when/4,
+                            'a successful MeTTa import must publish exactly one source load before its receipt commits')))
+    ).
+commit_import_receipt(_, _).
+
+run_import_attempt(Space, CanonPath, Goal) :-
+    capture_import_state(Space, CanonPath, Previous),
+    setup_call_catcher_cleanup(
+        begin_import_attempt(Space, CanonPath),
+        once(( call(Goal), commit_import_receipt(Space, CanonPath) )),
+        Catcher,
+        finish_import_attempt(Space, CanonPath, Previous, Catcher)).
 
 % Assert both markers before loading to break cycles. Retain them on success
 % and retract them on failure. The recursive mutex serializes the loader graph.
@@ -1128,15 +1170,11 @@ clear_import_life(Space, CanonPath) :-
 %existence_error(procedure, load_imported_metta_source_groups/3)
 %[measured 2026-08-22, once engine/filereader.pl became a module].
 :- meta_predicate import_when(+, +, +, 0),
-                  run_with_import_life_marker(+, +, 0).
+                  run_import_attempt(+, +, 0).
 
 import_when(Condition, Space, CanonPath, Goal) :-
     (   import_load_needed(Condition, Space, CanonPath)
-    ->  retractall(imported_metta_source(Space, CanonPath)),
-        clear_import_life(Space, CanonPath),
-        run_with_loading_marker(
-            imported_metta_source(Space, CanonPath),
-            run_with_import_life_marker(Space, CanonPath, Goal))
+    ->  run_import_attempt(Space, CanonPath, Goal)
     ;   true
     ).
 
@@ -1144,13 +1182,9 @@ import_when(Condition, Space, CanonPath, Goal) :-
 %than about the previous one.
 import_load_needed(true, _, _).
 import_load_needed(not_loaded, Space, CanonPath) :-
-    \+ ( imported_metta_source(Space, CanonPath),
-         import_life_current(Space, CanonPath) ).
+    \+ import_cache_current(Space, CanonPath).
 import_load_needed(changed, Space, CanonPath) :-
-    (   import_load_needed(not_loaded, Space, CanonPath)
-    ->  true
-    ;   metta_source_changed(CanonPath)
-    ).
+    import_load_needed(not_loaded, Space, CanonPath).
 
 
 %The UNIT value, for the reason add-atom and pragma! answer it: importing is

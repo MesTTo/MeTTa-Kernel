@@ -362,6 +362,8 @@ test(a_computed_self_reference_cannot_create_a_rational_tree,
 test(test_let_of_a_fresh_variable_does_not_walk_the_term) :-
     translate_expr([let, Bound, ['cons-atom', a, []], done], Goals, _),
     Bound = [a, deeply, nested, bound, term],
+    %Atom-valued builtins are final, so their relational output remains the
+    %fresh variable that the first plain unification binds.
     Goals = [(Fresh = Bound), 'cons-atom'(a, [], Fresh)],
     \+ ( member(Goal, Goals), nonvar(Goal),
          functor(Goal, unify_with_occurs_check, 2) ).
@@ -437,7 +439,7 @@ test(a_derived_form_has_exactly_one_translation,
 test(trace_form_has_one_compilation) :-
     findall(Goals-Out, translate_expr(['trace!', 1, 2], Goals, Out),
             Solutions),
-    Solutions = [[Print]-2],
+    Solutions = [[_RelationalPrecheck, Print, _ResultProtocol]-2],
     Print =@= 'println!'(1, _).
 
 %The set operations name the shape they rewrite. A call that is not that
@@ -514,6 +516,7 @@ translation_cost(Builder, Depth, Inferences) :-
 test(nested_calls_emit_one_goal_per_level) :-
     nested_add(400, Expr),
     translate_expr(Expr, Goals, _),
+    %Number-valued native calls are final and retain one relational goal each.
     length(Goals, 400).
 
 test(nested_heads_emit_one_goal_per_level) :-
@@ -762,7 +765,7 @@ expected_special_heads([
     inferences, noeval, nop,
     once, prog1, progn, quote, reduce, sealed, 'space-atom-count',
     'space-contains', super, superpose, switch, take, test,
-    timeout,
+    timeout, return, 'metta-thread',
     top, transaction, translatePredicate, unify, with_mutex
 ]).
 
@@ -824,11 +827,13 @@ test(representative_forms_each_have_one_translation,
     Solutions = [_].
 
 test(variable_heads_are_not_bound_to_a_special_form) :-
-    % The emitted goal is reduce/3: a variable head is decided at runtime,
-    % and that is the decision the evaluation status comes from.
+    % The emitted goal resolves the head first, then recompiles its written
+    % arguments against that head's mask.  Keeping the helper's head variable
+    % shared is what makes the decision happen at runtime without binding it
+    % to any special form during translation.
     translate_expr([Head, 1], Goals, _),
     var(Head),
-    Goals = [reduce([Head, 1], _, _)].
+    Goals = [petta_dynamic_call(Head, [1], _)].
 
 % nop takes any number of arguments and answers unit at all of them, which is
 % the one operation upstream's standard library says out loud it could not
@@ -1403,8 +1408,12 @@ cleanup_head_pattern :-
 test(a_head_argument_that_is_a_call_compiles_to_structure) :-
     translate_clause([=, ['plunit-hp-eqh',
                           ['plunit-hp-top', 1, ['plunit-hp-src', 5]]], matched],
-                     (_Head :- Body)),
-    assertion(Body == true).
+                     (Head :- Body)),
+    Head =.. [_, _, Out],
+    \+ ( sub_term(Goal, Body), nonvar(Goal),
+         functor(Goal, 'plunit-hp-top', 3) ),
+    call(Body),
+    assertion(Out == matched).
 
 %The whole item: the head and the match that reads the same shape back agree.
 test(an_equation_head_and_a_match_of_the_same_shape_agree) :-
@@ -1588,15 +1597,14 @@ typed_call_goal(TypeChain, Goal) :-
           retractall(user:arity(plunit_free_types, _)),
           remove_sexp('&self', [':', plunit_free_types, _]) )).
 
-has_type_check(Goal) :-
-    once(( sub_term(Sub, Goal), nonvar(Sub), Sub = has_type(_, _) )).
-
 test(a_singleton_type_variable_generates_no_check) :-
     typed_call_goal([->, _A, _B, 'Bool'], Goal),
-    findall(Type, ( sub_term(S, Goal), nonvar(S), S = has_type(_, Type) ),
+    findall(Type, ( sub_term(S, Goal), nonvar(S),
+                    S = check_argument_type(_, Type, _) ),
             Checked),
-    %Only the concrete output type is worth checking.
-    Checked == ['Bool'].
+    %A result annotation decides re-evaluation rather than filtering the value,
+    %and singleton input variables do not constrain either argument.
+    Checked == [].
 
 test(a_repeated_type_variable_keeps_its_checks) :-
     typed_call_goal([->, A, A, 'Bool'], Goal),
@@ -1606,9 +1614,10 @@ test(a_repeated_type_variable_keeps_its_checks) :-
     length(Kept, Count),
     Count =:= 2.
 
-test(a_concrete_type_keeps_its_check) :-
+test(concrete_literals_discharge_their_argument_checks) :-
     typed_call_goal([->, 'Number', 'Number', 'Bool'], Goal),
-    has_type_check(Goal).
+    \+ ( sub_term(S, Goal), nonvar(S),
+         S = check_argument_type(_, _, _) ).
 
 %A variable nested inside a structured type is not a bare singleton argument
 %type, so its check stays.
@@ -1785,14 +1794,17 @@ test(get_type_equations_compile_behind_the_answer_boundary) :-
 empty_form_translation([superpose, []], [fail], _).
 empty_form_translation(['let*', [], 42], [], 42).
 empty_form_translation([case, 1, []], [fail], _).
-empty_form_translation([reduce, []], [], []).
+empty_form_translation(
+    [reduce, []],
+    [reduce([], Reduced, Status),
+     petta_reduce_result([], Reduced, Status, Out)],
+    Out).
 empty_form_translation([progn], [], []).
 
 test(each_empty_special_form_has_defined_translation,
      [forall(empty_form_translation(Expr, ExpectedGoals, ExpectedOut))]) :-
     translate_expr(Expr, Goals, Out),
-    Goals =@= ExpectedGoals,
-    Out =@= ExpectedOut.
+    [Goals, Out] =@= [ExpectedGoals, ExpectedOut].
 
 test(empty_reduce_is_a_value) :-
     reduce([], Out),
@@ -1987,7 +1999,10 @@ body_of(Source, Body) :-
 % flat in the list's size rather than linear in it.
 test(a_fresh_pattern_variable_is_demoted) :-
     body_of("(= (plunit-uwoc-fresh $l) (let $y $l (car-atom $y)))", Body),
-    Body = (Bind, _),
+    %The result-mode guard now precedes the source body so a supplied result
+    %can constrain a relational RHS before it runs. The let binding remains
+    %the first goal of that source body and is still the cheap unification.
+    Body = (_, Bind, _),
     Bind = (_ = _).
 
 % The pattern variable comes from the HEAD, so the caller may already have put
@@ -2341,7 +2356,7 @@ test(an_unknown_argument_keeps_its_check,
     sread("(tlc-sq $x)", Term),
     translate_runnable_expr(Term, Goals, _),
     term_string(Goals, Text),
-    once(sub_string(Text, _, _, _, "has_type")).
+    once(sub_string(Text, _, _, _, "check_argument_type")).
 
 %A check that cannot be dropped is SPECIALISED instead: the declared type is a
 %compile-time constant, and three of them are decided by one Prolog builtin.
@@ -2360,7 +2375,7 @@ test(an_intrinsic_type_check_is_specialised,
     split_string(Spaced, " ", " ", Pieces),
     atomic_list_concat(Pieces, Text),
     once(sub_atom(Text, FastAt, _, _, Fast)),
-    once(sub_atom(Text, SlowAt, _, _, has_type)),
+    once(sub_atom(Text, SlowAt, _, _, check_argument_type)),
     assertion(FastAt < SlowAt).
 
 %The one that would break under a cut instead of a fall-through. number/1 is
@@ -2731,8 +2746,9 @@ test(a_quoted_pattern_holds_what_a_quoted_body_holds,
                  retractall(silent(_)), assertz(silent(false)) )) ]) :-
     format(atom(BodySource), "(= (qs-body) (quote ~w))", [Text]),
     sread(BodySource, BodyEquation),
-    translate_clause(BodyEquation, (BodyHead :- _)),
+    translate_clause(BodyEquation, (BodyHead :- Body)),
     BodyHead =.. [_, BodyValue],
+    call(Body),
     format(atom(HeadSource), "(= (qs-head (quote ~w)) matched)", [Text]),
     sread(HeadSource, HeadEquation),
     translate_clause(HeadEquation, (CompiledHead :- _)),

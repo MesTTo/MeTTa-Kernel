@@ -6,8 +6,10 @@
 
 (= (inc $x) (+ $x 1))
 (= (big? $x) (> $x 2))
-(= (spin $n) (if (> $n 0) (spin (- $n 1)) done))
-(= (slow $x) (let $_ (spin 300000) $x))
+;Use an actual delay rather than burning evaluation fuel.  A recursive delay
+;can exhaust the caller's fuel and return StackOverflow before the fast branch
+;has even started, which tests fuel exhaustion rather than a race.
+(= (slow $x) (let $_ (sleep 1) $x))
 
 ;par-map preserves the input list's order however the elements finish.
 !(test (par-map inc (1 2 3 4)) (2 3 4 5))

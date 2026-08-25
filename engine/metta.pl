@@ -74,9 +74,14 @@
 %     bigint_number, test_bigint_and_number_type_the_numeric_tower,
 %     test_integer_type_follows_the_signed_i64_boundary,
 %     test_number_parameters_accept_bigint_without_retyping_number].
-%   - Import lifecycle state is separate from atom storage, so wildcard atom
-%     removal cannot make a loaded source run twice [tested 2026-08-15:
-%     filereader_import_lifecycle].
+%   - A successful named-space import commits one receipt tying the source
+%     path and digest to its exact load and stored-output references. Reuse
+%     requires that receipt to remain current, so any public removal rebuilds
+%     the missing source contribution without duplicating survivors
+%     [tested: filereader_import_lifecycle,
+%     test_public_import_rebuilds_when_a_receipt_dependency_disappears,
+%     test_repeat_import_reuses_one_current_receipt_without_duplication;
+%     commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 %   - Host failures from builtins retain their ISO error class and name the
 %     written MeTTa operation [tested 2026-08-15:
 %     metta_operation_errors, translator_evaluation_errors]. Integer
@@ -520,7 +525,7 @@ petta_import_shared_registries(Subsystem) :-
 :- ensure_loaded([parser, type_rules, translator, translator_rules,
                   support_graph, specializer, filereader,
                   '../lib/lib_gitimport', spaces, tracer, duals, kernel,
-                  '../lib/lib_memo']).
+                  '../lib/lib_memo', '../lib/minimal_metta_lib']).
 
 %A subsystem that declares a module gets THIS module as its base, so the calls
 %it makes the other way -- into the engine core, into another subsystem's

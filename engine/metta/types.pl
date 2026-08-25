@@ -117,20 +117,28 @@ refuse_untypable_declaration(Name, Types) :-
 %from exactly this route [source: LeaTTa
 %tests/semantics/types-meta/30_evaluation_control.metta].
 get_function_type([F|Args], T) :- nonvar(F),
-                                  (   '$petta_atoms:&self':'&self'(':', F, [->|Ts0])
-                                  *-> Ts = Ts0
-                                  ;   seam:builtin_type_declaration(F, [->|Ts])
+                                  (   '$petta_atoms:&self':'&self'(':', F, Chain0)
+                                  *-> true
+                                  ;   seam:builtin_type_declaration(F, Chain0)
                                   ),
+                                  length(Args, Arity),
+                                  fitting_type_chains([Chain0], Arity,
+                                                      [[->|Ts]]),
                                   append(As,[T],Ts),
                                   metta_self_module(Self),
                                   metta_argument_type_origins(As, Origins),
                                   metta_arguments_match_in(Self, As, Origins, Args).
 get_function_type_in(Module, [F|Args], T) :- \+ metta_self_module(Module),
                                              nonvar(F),
-                                             (   type_declaration_in(Module, F, [->|Ts0])
-                                             *-> Ts = Ts0
-                                             ;   seam:builtin_type_declaration(F, [->|Ts])
+                                             (   type_declaration_in(Module, F,
+                                                                       Chain0)
+                                             *-> true
+                                             ;   seam:builtin_type_declaration(F,
+                                                                                Chain0)
                                              ),
+                                             length(Args, Arity),
+                                             fitting_type_chains([Chain0], Arity,
+                                                                 [[->|Ts]]),
                                              append(As,[T],Ts),
                                              metta_argument_type_origins(As,
                                                                          Origins),

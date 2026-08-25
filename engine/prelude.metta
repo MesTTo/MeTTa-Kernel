@@ -39,11 +39,20 @@
 ;library shim compared with ==, which misses (f $x $x) against
 ;(f $y $y); the promotion fixes the contract, the same way add-reduct's
 ;promotion fixed its.
+(: if-equal (-> Atom Atom Atom Atom %Undefined%))
 (= (if-equal $A $B $Then $Else)
    (if (=alpha $A $B) $Then $Else))
 
+(: if-equal2 (-> Atom Atom Atom Atom %Undefined%))
 (= (if-equal2 $A $B $Then $Else)
    (if (=alpha $A $B) $Then $Else))
+
+;A structural comparison whose operands stay written.  This declaration must
+;precede the assert family because the engine prelude is compiled form by form;
+;assertEqualToResult uses it to keep its expected-result tuple inert.
+(: noreduce-eq (-> Atom Atom Bool))
+(= (noreduce-eq $A $B)
+   (=alpha $A $B))
 
 ;The non-Msg assert forms take Atom parameters and compare RESULT SETS,
 ;exactly as their own Msg twins below always did and as the arbiter
@@ -51,11 +60,14 @@
 ;The library evaluated the arguments applicatively and asserted once per
 ;combination, so a nondeterministic side asserted pairwise instead of
 ;set-wise; the two spellings agreed only on deterministic arguments.
+;collapse owns the full evaluation.  Wrapping its operand in eval would add a
+;minimal one-step frame, so `(collapse (eval 2))` correctly retains `(eval 2)`
+;instead of producing the singleton value set this assertion needs.
 ;The return type stays %Undefined% for the reason type-cast's note
 ;records: an Atom RESULT type would leave the body untranslated.
 (: assertEqual (-> Atom Atom %Undefined%))
 (= (assertEqual $A $B)
-   (assert (== (collapse (eval $A)) (collapse (eval $B)))))
+   (assert (== (collapse $A) (collapse $B))))
 
 ;=alpha holds both operands as written, so a caller that wants the RESULT
 ;sets compared has to collapse them into variables first and hand those
@@ -67,8 +79,8 @@
 ;type variable evaluates.
 (: assertAlphaEqual (-> Atom Atom %Undefined%))
 (= (assertAlphaEqual $A $B)
-   (let $Actual (collapse (eval $A))
-     (let $Expected (collapse (eval $B))
+   (let $Actual (collapse $A)
+     (let $Expected (collapse $B)
        (assert (=alpha $Actual $Expected)))))
 
 ;The ToResult forms do not evaluate their second argument: it is the set
@@ -88,15 +100,26 @@
 ;The arbiter reaches the same place by routing these forms around assert
 ;entirely, through the quoting `_assert-results-are-equal`
 ;[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:2871-2874 and :759-760].
+;That operation compares MULTISETS: order is ignored, but one occurrence on
+;one side consumes exactly one occurrence on the other.  The two directed
+;subtractions below are the same bag-difference test using this engine's
+;identity-preserving subtraction-atom.  Both must be empty, so `(a a b)` does
+;not equal `(a b b)` even though their ordinary sets agree
+;[source: LeaTTa@9ea9f9d MettaHyperonFull/Minimal/Stdlib.lean:364-438,
+;`bagDiffBy` and `assertResultsEqOp`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+;Only the comparison changes.  The public PeTTa contract remains the existing
+;True answer on success and petta_assertion_failed exception on failure.
 (: assertEqualToResult (-> Atom Atom %Undefined%))
 (= (assertEqualToResult $A $B)
-   (let $Actual (collapse (eval $A))
-     (let $Same (== $Actual $B)
-       (assert $Same))))
+   (let $Actual (collapse $A)
+     (let $Missed (subtraction-atom $B $Actual)
+       (let $Excessive (subtraction-atom $Actual $B)
+         (let $Same (noreduce-eq ($Missed $Excessive) (() ()))
+           (assert $Same))))))
 
 (: assertAlphaEqualToResult (-> Atom Atom %Undefined%))
 (= (assertAlphaEqualToResult $A $B)
-   (let $Actual (collapse (eval $A))
+   (let $Actual (collapse $A)
      (assert (=alpha $Actual $B))))
 
 ;Every expected result must appear among the results produced.
@@ -112,7 +135,7 @@
 ;assertEqualToResult above records: the difference is a set of WRITTEN
 ;expectations and == would evaluate it.
 (= (assertIncludes $A $B)
-   (let $Actual (collapse (eval $A))
+   (let $Actual (collapse $A)
      (let $Diff (subtraction-atom $B $Actual)
        (let $Empty (== $Diff ())
          (assert $Empty)))))
@@ -122,12 +145,12 @@
 ;unused.
 (: assertEqualMsg (-> Atom Atom Atom %Undefined%))
 (= (assertEqualMsg $A $B $M)
-   (assert (== (collapse (eval $A)) (collapse (eval $B)))))
+   (assert (== (collapse $A) (collapse $B))))
 
 (: assertAlphaEqualMsg (-> Atom Atom Atom %Undefined%))
 (= (assertAlphaEqualMsg $A $B $M)
-   (let $Actual (collapse (eval $A))
-     (let $Expected (collapse (eval $B))
+   (let $Actual (collapse $A)
+     (let $Expected (collapse $B)
        (assert (=alpha $Actual $Expected)))))
 
 (: assertEqualToResultMsg (-> Atom Atom Atom %Undefined%))
@@ -138,24 +161,32 @@
 (= (assertAlphaEqualToResultMsg $A $B $M)
    (assertAlphaEqualToResult $A $B))
 
+;Minimal MeTTa's three frame/carrier instructions are engine vocabulary. Their
+;Prolog bodies live in lib/minimal_metta_lib.pl because a function frame needs
+;a bounded evaluation loop and collapse-bind must retain branch bindings.
+;These declarations precede every equation whose RHS is a function frame so
+;the form is held and entered as a frame instead of being compiled as a call.
+(: function (-> Atom Atom))
+(: collapse-bind (-> Atom Expression))
+(: superpose-bind (-> Expression Atom))
+
 ;;; Error handling ;;;
 
-;if-error asks its question by MATCHING, not by building the shape it is
-;looking for. (cons Error $_) built an Error-headed partial list and handed it
-;to = as an operand, which is exactly the shape an evaluated operand may not
-;have any more: an operand whose value is an Error atom finishes the enclosing
-;call with it, so if-error's own probe short-circuited the = call and the
-;combinator answered its probe instead of caught or missed. unify's operands
-;are Atom-typed and cross unevaluated, so the pattern stays a pattern.
-;
-;Two patterns because an error atom carries either a culprit and a reason, or,
-;from catch over a non-error/2 exception, the exception alone
-;[source: engine/translator.pl, translate_special_dl('catch', ...)]
-;[tested: test_an_argument_type_fault_is_a_value_a_program_can_catch].
-(= (if-error $X $A $B)
-   (unify $X (Error $_ $_)
-          $A
-          (unify $X (Error $_) $A $B)))
+;The `function` wrapper is part of if-error's protocol, not presentation.
+;Minimal `eval` stages an ordinary equation RHS but enters a returned function
+;frame, so this reference body works through both native and reflected doors.
+;[source: MettaHyperonFull/Minimal/Stdlib.lean:4015-4032, `if-error`;
+;commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
+(= (if-error $atom $then $else)
+   (function (chain (eval (get-metatype $atom)) $meta
+     (eval (if-equal $meta Expression
+       (eval (if-equal $atom ()
+         (return $else)
+         (chain (decons-atom $atom) $list
+           (unify $list ($head $tail)
+             (eval (if-equal $head Error (return $then) (return $else)))
+             (return $else)))))
+       (return $else))))))
 
 ;throw is the half of the error story a program could not reach. It could
 ;BUILD an (Error ...) atom and it could CATCH a host exception, but a built
@@ -179,10 +210,13 @@
 (= (throw $reason)
    (if-error $reason $reason (Error (throw $reason) $reason)))
 
-(= (return-on-error $result $B)
-   (if-error $result
-             $result
-             $B))
+;Like if-error, this outer frame is the staging boundary consumed by eval.
+;[source: MettaHyperonFull/Minimal/Stdlib.lean:4033-4043,
+;`return-on-error`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
+(= (return-on-error $atom $then)
+   (function (eval (if-equal $atom Empty (return (return Empty))
+     (eval (if-error $atom (return (return $atom))
+       (return $then)))))))
 
 ;;; Evaluation control ;;;
 
@@ -217,16 +251,8 @@
 
 ;;; Quoting ;;;
 
-;Two clauses, and the second is not a deviation from the arbiter but
-;its PeTTa-native encoding. Upstream carries only
-;(= (unquote (quote $atom)) $atom): a non-quote argument matches no
-;equation and minimal MeTTa's NotReducible leaves the call standing AS
-;WRITTEN. PeTTa has no NotReducible; a call no equation matches answers
-;nothing. The quote-wrapping catch-all is how the library encoded
-;"stays as written" here, quote keeping the term inert and the printer
-;rendering it as itself, so (repr (unquote 42)) answers "(unquote 42)"
-;exactly as upstream observes. The cut in the first clause is what
-;keeps the catch-all from also firing on quotes.
+;Upstream's single clause suffices now that a missed equation carries the
+;NotReducible protocol and the application boundary retains the written call.
 ;The operand EVALUATES, `(: unquote (-> %Undefined% %Undefined%))` in the
 ;arbiter's own prelude, and that is what lets the quote arrive from a
 ;computation rather than only from source: `!(unquote (car-atom ((quote
@@ -237,17 +263,40 @@
 (: unquote (-> %Undefined% %Undefined%))
 (= (unquote (quote $A))
    (let $cut (cut) (eval $A)))
-(= (unquote $A) (noeval (unquote $A)))
 
-(: noreduce-eq (-> Atom Atom Bool))
-(= (noreduce-eq $A $B)
-   (== $A $B))
+;The reference stdlib's public evaluator entry is `interpret`, whose first
+;operand is held and whose Atom result is already final.  The full extracted
+;stdlib replaces this bootstrap equation with its source interpreter.  Before
+;that source is loaded, the native `metta` operation supplies the same typed
+;evaluation boundary; a function frame is required so the Atom result rule
+;does not return the `(metta ...)` call itself as inert data.
+;[source: LeaTTa@9ea9f9d MettaHyperonFull/Minimal/Stdlib.lean:4311-4336,
+;`interpret`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
+(: interpret (-> Atom Type SpaceType Atom))
+(= (interpret $atom $type $space)
+   (function
+     (chain (eval (metta $atom $type $space)) $result
+       (return $result))))
 
 ;;; Types ;;;
 
-(= (is-function (->)) (let $temp (cut) True))
-(= (is-function (-> $A $B)) (let $temp (cut) True))
-(= (is-function $X) False)
+;An arrow type is variadic.  Inspecting its first element handles every arity;
+;the old pair of fixed heads recognized only `(->)` and one-argument arrows,
+;so the ordinary `(-> Number Number Number)` function type was classified as
+;False by the source interpreter.
+;[source: MettaHyperonFull/Minimal/Stdlib.lean:4010-4038,
+;`is-function`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
+(: -> (-> (%Rest% Type) Type))
+(: is-function (-> Type Bool))
+(= (is-function $type)
+   (let $mtype (get-metatype $type)
+     (unify $mtype Expression
+       (let $size (size-atom $type)
+         (unify $size 0
+           False
+           (let ($head $tail) (decons-atom $type)
+             (unify $head -> True False))))
+       False)))
 
 ;get-type-space is a native builtin now: the engine's own get-type run
 ;with the selected space as context, upstream's selected-space spelling
@@ -291,27 +340,38 @@
 (: get-type-space (-> SpaceType Atom Atom))
 
 ;match-types is UNIFICATION with wildcards, not equality: %Undefined%
-;and Atom on either side match anything, and otherwise the two types
-;unify, bindings and all [source: LeaTTa Stdlib.lean, the corelib
-;match-types equation]. The library compared with ==, which missed every
-;one of those cases.
-(= (match-types $t1 $t2 $then $else)
-   (if (=alpha $t1 %Undefined%)
-       $then
-       (if (=alpha $t2 %Undefined%)
-           $then
-           (if (=alpha $t1 Atom)
-               $then
-               (if (=alpha $t2 Atom)
-                   $then
-                   (unify $t1 $t2 $then $else))))))
+;and Atom on either side match anything, and otherwise the two types unify,
+;bindings and all. The function frame is the reference's one-step boundary.
+;[source: MettaHyperonFull/Minimal/Stdlib.lean:4114-4125, `match-types`;
+;commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
+(= (match-types $type1 $type2 $then $else)
+   (function (eval (if-equal $type1 %Undefined%
+     (return $then)
+     (eval (if-equal $type2 %Undefined%
+       (return $then)
+       (eval (if-equal $type1 Atom
+         (return $then)
+         (eval (if-equal $type2 Atom
+           (return $then)
+           (unify $type1 $type2 (return $then) (return $else))))))))))))
 
 ;Upstream's parameter order: the fold accumulator FIRST, then the
 ;candidate type, then the wanted type [source: same file,
 ;(= (match-type-or $folded $next $type) ...)]. The library had the
 ;accumulator first but swapped the two types through its own helper.
 (= (match-type-or $folded $next $type)
-   (or $folded (match-types $next $type True False)))
+   (function
+     (chain (eval (match-types $next $type True False)) $matched
+       (chain (eval (or $folded $matched)) $or (return $or)))))
+
+;The fold used by type-cast is defined before its caller so the engine prelude's
+;single-pass compiler sees an executable function rather than a constructor.
+;foldl-atom's list parameter is Expression, so the collected declarations are
+;named before it reads them.
+(= (type-cast-holds $atom $type $space)
+   (let $declarations (collapse (get-type-space $space $atom))
+     (foldl-atom $declarations False $acc $declared
+        (match-type-or $acc $declared $type))))
 
 ;type-cast, upstream's contract: the atom when the cast holds, the flat
 ;(Error $atom BadType) when it does not. UNDECLARED ON PURPOSE, and the
@@ -335,17 +395,6 @@
          (if (type-cast-holds $atom $type $space)
              $atom
              (Error $atom BadType)))))
-
-;The fold upstream writes inline, named here because PeTTa is
-;applicative where the corelib chains; match-type-or does the wildcard
-;and unification reading per candidate, so an undeclared atom
-;(%Undefined%) casts to anything, which is upstream's answer too.
-;foldl-atom's list parameter is Expression, so the collected declarations are
-;NAMED before it reads them.
-(= (type-cast-holds $atom $type $space)
-   (let $declarations (collapse (get-type-space $space $atom))
-     (foldl-atom $declarations False $acc $declared
-        (match-type-or $acc $declared $type))))
 
 ;;; Documentation ;;;
 ;

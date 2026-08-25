@@ -198,6 +198,16 @@ metta_effect_classify(Module, Dispatch, Queue-Reads, Next-Reads) :-
 metta_effect_classify(Module, reduce(Template, _, _), Queue, Next) :- !,
     metta_effect_reduced(Module, Template, Queue, Next).
 
+%petta_dynamic_call/3 is the variable-head application door: the call it
+%reaches is decided by a value, which is exactly the case the reduce/3 walk
+%above refuses as higher-order, so it is classified by the same
+%reconstruction rather than refused under the dispatcher's own name
+%[tested: lib_tabling_purity:a_higher_order_call_is_refused_as_one;
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+metta_effect_classify(Module, petta_dynamic_call(Head, Args, _), Queue,
+                      Next) :- !,
+    metta_effect_reduced(Module, [Head|Args], Queue, Next).
+
 %The evaluation mask's result half is a CONDITIONAL reduce/3 over the value an
 %equation body handed back, so it is classified by that value and not by its
 %own name. Judging it by name refused `(= (past-tabled $x) $x)` as

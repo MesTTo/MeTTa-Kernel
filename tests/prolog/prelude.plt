@@ -105,12 +105,12 @@ test(unquote_evaluates_the_quoted) :-
     eval_string("(unquote (quote (+ 2 3)))", [5]).
 
 test(unquote_of_a_non_quote_stays_as_written) :-
-    %Upstream's NotReducible reading, PeTTa-encoded: the quote-wrapping
-    %catch-all keeps the call inert and printing as itself.
+    %Upstream's NotReducible reading: the missed equation is irreducible and
+    %the application boundary keeps the call inert and printing as itself.
     eval_string("(repr (unquote 42))", ["(unquote 42)"]).
 
 test(noreduce_eq_compares_unreduced) :-
-    %Atom parameters: (+ 1 1) stays as written, so it is NOT == 2.
+    %Atom parameters: (+ 1 1) stays as written, so it is not alpha-equal to 2.
     eval_string("(noreduce-eq (+ 1 1) 2)", [false]),
     eval_string("(noreduce-eq (+ 1 1) (+ 1 1))", [true]).
 

@@ -817,6 +817,17 @@ should have been nondeterministic loses answers with no sign that it did.
 load route: `LD_PRELOAD` in `run.sh`, which is right when the library must be
 present before the engine boots.
 
+The engine itself ships one C unit at this seam: `engine/reader.c`, the
+shipped-mode MeTTa reader, which `engine/parser.pl` loads from `reader.so`
+beside it and consults for every parse while no custom token class is
+registered. `check.sh` builds it with `swipl-ld -shared -O2`; without the
+artifact, or with `PETTA_C_READER=off` in the environment, every parse runs
+the Prolog grammar, which remains the reader's specification and is held
+equal to the C port by `tests/prolog/reader_c.plt` over the shipped corpus,
+an adversarial battery, and generated number spellings. A custom
+`register-token!` class always routes to the Prolog grammar, so a token
+extension never has to know the C reader exists.
+
 ### Hand back a handle, not a serialisation
 
 The expensive mistake at this boundary is converting your structure to text.

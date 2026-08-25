@@ -323,7 +323,7 @@ translate_args([X|Xs], Goals, [V|Vs]) :-
 
 translate_args_dl([], Goals, Goals, []).
 translate_args_dl([X|Xs], Goals0, Goals, [V|Vs]) :-
-    translate_expr_dl(X, Goals0, AfterExpr, V),
+    translate_eager_argument_dl(X, Goals0, AfterExpr, V),
     translate_args_dl(Xs, AfterExpr, Goals, Vs).
 
 %Build A ; B ; C ... from a list:
@@ -421,6 +421,343 @@ eval_metta_in_module(Module, Expr, Out) :-
     with_metta_module(Module,
                       ( translate_expr(Expr, Goals, Out),
                         call_goals_in_(Module, Goals) )).
+
+%A minimal `eval` is one equality step, not the full result-type continuation
+%used by an ordinary MeTTa call.  In particular, a `%Undefined%` equation
+%whose RHS is another call returns that call as its staged result.  A function
+%RHS is the one exception: the reference's `evalResult` opens that frame and
+%runs it until `return` before reporting the step.
+%
+%The retained clauses are the source equations before their RHSs were
+%compiled.  Reading them here therefore preserves the stage boundary without
+%duplicating the equation compiler.  Segment heads use their existing
+%one-sided matcher, and parsing the RHS before matching preserves contextual
+%splicing after the captured run arrives.
+%[source: MettaHyperonFull/Minimal/Interpreter.lean:420-448 and 3360-3380,
+%`evalResult` and `queryOp`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
+petta_minimal_equation_step(Module, [Fun|Args], Out) :-
+    function_evaluation_active,
+    atom(Fun),
+    \+ metta_grounded_token(Fun),
+    fun_meta_module(Module, Fun, _),
+    !,
+    (   petta_minimal_equation_body(Module, Fun, Args, Body)
+    *-> petta_minimal_equation_result(Module, Body, Out)
+    ;   Out = 'NotReducible'
+    ).
+
+petta_minimal_equation_body(Module, Fun, Args, Body) :-
+    dispatch_meta_clauses(Module, Fun, Clauses),
+    member(dispatch_clause(Head0, Body0, _), Clauses),
+    copy_term(Head0-Body0, Head-Body1),
+    (   petta_seq_present(Head)
+    ->  petta_seq_head_plan(Head, HeadPlan),
+        petta_seq_body_plan(Body1, BodyPlan),
+        petta_seq_head_match(HeadPlan, Args),
+        petta_seq_instantiate(BodyPlan, Body)
+    ;   Head = Args,
+        Body = Body1
+    ).
+
+petta_minimal_equation_result(Module, [function, Body], Out) :-
+    !,
+    call(Module:'function'(Body, Out)).
+petta_minimal_equation_result(_, Body, Body).
+
+%Execute one compiled sequence-head equation.  The head plan and body plan
+%share their Prolog variables, so matching a segment run also supplies both
+%the ordinary expression projection and every RHS splice.  Pattern matching
+%precedes head constraints, exactly as ordinary Prolog head unification
+%precedes the goals compiled from in-place annotations [tested:
+%tests/prolog/segment_equations.plt; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_segment_rule_result(Module, Fun, HeadPlan, BodyPlan, Args, Out) :-
+    petta_seq_head_match(HeadPlan, Args),
+    petta_segment_body_result(Module, Fun, BodyPlan, Out).
+
+petta_segment_body_result(Module, _, compiled(Goals, Value), Out) :-
+    call(Module:Goals),
+    Out = Value.
+petta_segment_body_result(Module, Fun, spliced(Prefix, Template), Out) :-
+    call(Module:Prefix),
+    petta_seq_instantiate(Template, Instantiated),
+    with_metta_module(Module,
+                      translator:petta_segment_spliced_result(Fun,
+                                                               Instantiated,
+                                                               Out)).
+
+%A splice makes the final expression shape depend on the matched run, so that
+%one body is translated after instantiation.  The same declared-result rule as
+%an ordinary equation still decides whether the constructed expression is
+%data or a computation [source: LeaTTa
+%MettaHyperonFull/Core/SeqRuntime.lean:95-104 and
+%MettaHyperonFull/Minimal/Interpreter.lean:3786-3799; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_segment_spliced_result(Fun, Instantiated, Out) :-
+    (   declared_output_type(Fun, 'Atom'),
+        \+ function_frame_body(Instantiated)
+    ->  Out = Instantiated
+    ;   current_metta_module(Module),
+        eval_metta_in_module(Module, Instantiated, Out)
+    ).
+
+%Calls whose actual arity differs from the written marker-bearing head cannot
+%name a Prolog predicate of that arity.  Retained equations supply the finite
+%set of candidate heads; reversing the asserta/1 metadata restores source
+%order, and the one-sided matcher supplies shortest-first splits within each
+%rule [tested: tests/prolog/segment_equations.plt;
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_segment_dispatch(Module, Fun, Args, Out) :-
+    fun_meta_module(Module, Fun, Owner),
+    findall(Head0-Body0,
+            ( fun_meta_clause(Owner, Fun, Head0, Body0),
+              petta_seq_present(Head0) ),
+            NewestFirst),
+    reverse(NewestFirst, Clauses),
+    member(Head0-Body0, Clauses),
+    copy_term(Head0-Body0, Head-Body),
+    with_metta_module(Module,
+                      translator:( petta_seq_head_plan(Head, HeadPlan),
+                                   translate_segment_body_plan(Fun, Head, Body,
+                                                               [], BodyPlan) )),
+    petta_segment_rule_result(Module, Fun, HeadPlan, BodyPlan, Args, Out).
+
+metta_segment_equation(Fun) :-
+    current_metta_module(Module),
+    metta_segment_equation_in(Module, Fun, _).
+
+metta_segment_equation_in(Module, Fun, Owner) :-
+    fun_meta_module(Module, Fun, Owner),
+    fun_meta_clause(Owner, Fun, Head, _),
+    petta_seq_present(Head),
+    !.
+
+%NotReducible is a control result, not an ordinary symbol result.  A normal
+%application consumes it by retaining the call as written.  `eval` installs
+%the one root allowed to observe the marker itself, which is what lets a
+%minimal-MeTTa `chain (eval ...)` distinguish an irreducible call from a value.
+petta_application_result(Written, Produced, Out) :-
+    petta_application_result(Written, Written, Produced, Out).
+
+%The source call identifies the active eval frame; the runtime call preserves
+%arguments that have already crossed their declared evaluation mask.  Those
+%are different for `(f (+ 1 2))`: a function that returns NotReducible keeps
+%`(f 3)`, while an explicit eval still recognizes the source `(f (+ 1 2))` as
+%its root and exposes the marker to chain.
+petta_application_result(Source, Runtime, Produced, Out) :-
+    Produced == 'NotReducible',
+    !,
+    (   Source = [Frame, _], nonvar(Frame), Frame == function
+    ->  Out = 'NotReducible'
+    ;   nb_current('$petta_not_reducible_root', Root),
+        Root == Source
+    ->  Out = 'NotReducible'
+    ;   Out = Runtime
+    ).
+petta_application_result(_, _, Produced, Produced).
+
+%The outer runnable consumes the marker too, but retains its own written
+%boundary.  Thus `!(eval (f))` keeps `(eval (f))`, while the same eval nested
+%in chain exposes the bare marker to the continuation.
+petta_boundary_result(Written, Produced, Out) :-
+    ( Produced == 'NotReducible' -> Out = Written ; Out = Produced ).
+
+:- meta_predicate with_not_reducible_root(+, 0).
+
+with_not_reducible_root(Root, Goal) :-
+    setup_call_cleanup(
+        install_not_reducible_root(Root, Saved),
+        Goal,
+        restore_not_reducible_root(Saved)).
+
+install_not_reducible_root(Root, saved(Previous)) :-
+    nb_current('$petta_not_reducible_root', Previous), !,
+    nb_linkval('$petta_not_reducible_root', Root).
+install_not_reducible_root(Root, none) :-
+    nb_linkval('$petta_not_reducible_root', Root).
+
+restore_not_reducible_root(saved(Previous)) :- !,
+    nb_linkval('$petta_not_reducible_root', Previous).
+restore_not_reducible_root(none) :-
+    nb_delete('$petta_not_reducible_root').
+
+%A function frame, unlike ordinary full evaluation, recognizes `(return X)`
+%before the return form's polymorphic declaration can evaluate X.  The flag is
+%scoped over both runtime translation and execution: a chain can produce the
+%return form several goals after it was compiled, and the frame must still be
+%active when that continuation arrives.
+petta_function_eval(Current, Next) :-
+    petta_function_eval(Current, Next, _).
+
+petta_function_eval(Current, Next, Status) :-
+    setup_call_cleanup(
+        install_function_evaluation(Saved),
+        petta_function_eval_status(Current, Next, Status),
+        restore_function_evaluation(Saved)).
+
+%A successful equality step that RETURNS the bare marker is different from a
+%query with no applicable equality.  petta_eval_step/2 intentionally presents
+%both as the marker to chain, so function asks the retained-equation door first
+%and carries this one bit of provenance into its frame loop.
+petta_function_eval_status(Current, Next, Status) :-
+    current_metta_module(Module),
+    ( petta_minimal_equation_step(Module, Current, Step)
+    *-> Next = Step,
+        Status = reduced
+    ;   petta_eval_step(Current, Next),
+        ( Next == 'NotReducible'
+        -> Status = 'not-reducible'
+        ;  Status = reduced
+        )
+    ).
+
+install_function_evaluation(saved(Previous)) :-
+    nb_current('$petta_function_evaluation', Previous), !,
+    nb_setval('$petta_function_evaluation', true).
+install_function_evaluation(none) :-
+    nb_setval('$petta_function_evaluation', true).
+
+restore_function_evaluation(saved(Previous)) :- !,
+    nb_setval('$petta_function_evaluation', Previous).
+restore_function_evaluation(none) :-
+    nb_delete('$petta_function_evaluation').
+
+function_evaluation_active :-
+    nb_current('$petta_function_evaluation', true).
+
+%Run the one reflected instruction handed to chain.  eval and evalc expose
+%their raw control result here; translating the whole `(eval X)` term through
+%the ordinary expression door would consume NotReducible at eval's own
+%application boundary before chain could inspect it.  A value that arrived
+%through chain's Atom parameter may reveal its head only at run time, so this
+%recognizer also covers that dynamic door.
+petta_chain_step([eval, Arg], Out) :- !,
+    petta_eval_step(Arg, Out).
+petta_chain_step([evalc, Arg, Space], Out) :- !,
+    petta_evalc_step(Arg, Space, Out).
+petta_chain_step(Nested, Out) :-
+    embedded_operation(Nested),
+    !,
+    current_metta_module(Module),
+    eval_metta_in_module(Module, Nested, Out).
+petta_chain_step(Nested, Nested).
+
+%A bare symbol is reduced only in value positions.  Scalar equality rules are
+%stored in the atomspace rather than compiled as predicates, so the ordinary
+%expression translator cannot see them.  Follow those rules to a fixpoint for
+%an eager argument, preserving every nondeterministic right-hand side.
+metta_evaluate_symbol(Symbol, Out) :-
+    metta_evaluate_symbol(Symbol, [], Out).
+
+metta_evaluate_symbol(Symbol, Seen, Out) :-
+    (   memberchk_eq(Symbol, Seen)
+    ->  Out = Symbol
+    ;   current_metta_space(Space),
+        (   match(Space, [=, Symbol, Body], Body, Body)
+        *-> metta_evaluate_symbol_body(Body, [Symbol|Seen], Out)
+        ;   Out = Symbol
+        )
+    ).
+
+metta_evaluate_symbol_body(Body, Seen, Out) :-
+    (   atom(Body)
+    ->  metta_evaluate_symbol(Body, Seen, Out)
+    ;   current_metta_module(Module),
+        eval_metta_in_module(Module, Body, Produced),
+        petta_application_result(Body, Produced, Out)
+    ).
+
+%Runtime twin of an eager argument translation.  It is used when a source
+%variable may arrive as either a scalar rewrite or an expression; literals
+%that cannot reduce pass through unchanged.
+petta_evaluate_argument(Value, Out) :-
+    (   var(Value)
+    ->  Out = Value
+    ;   atom(Value)
+    ->  metta_evaluate_symbol(Value, Out)
+    ;   is_list(Value)
+    ->  current_metta_module(Module),
+        eval_metta_in_module(Module, Value, Produced),
+        petta_application_result(Value, Produced, Out)
+    ;   Out = Value
+    ).
+
+translate_eager_argument_dl(X, Goals0, Goals, V) :-
+    (   var(X), held_head_variable(X)
+    ->  Goals0 = [petta_evaluate_argument(X, V)|Goals]
+    ;   var(X)
+    ->  V = X,
+        Goals0 = Goals
+    ;   atom(X)
+    ->  (   metta_symbol_has_rule(X)
+        ->  Goals0 = [metta_evaluate_symbol(X, V)|Goals]
+        ;   V = X,
+            Goals0 = Goals
+        )
+    ;   translate_expr_dl(X, Goals0, Goals, V)
+    ).
+
+%A literal without a scalar equation is already a value.  Settling that at
+%translation time keeps the ordinary symbol path goal-free; adding or removing
+%a scalar equation announces the same support-node change as a function, so a
+%stored caller and the runnable cache are rebuilt before this decision can go
+%stale [tested: conformance2:symbol_arguments_evaluate_for_declared_and_undeclared_functions;
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+metta_symbol_has_rule(Symbol) :-
+    once(metta_symbol_step(Symbol, _)).
+
+%`eval` applies one scalar equality rule.  It deliberately does not follow a
+%symbol chain or evaluate an expression on the right: those are subsequent
+%minimal steps and a surrounding full-evaluation context may perform them.
+metta_symbol_step(Symbol, Out) :-
+    current_metta_space(Space),
+    match(Space, [=, Symbol, Body], Body, Out).
+
+petta_eval_root_result(Module, Written, Produced, Out) :-
+    (   Produced == 'NotReducible'
+    ->  Out = Produced
+    ;   Written = [_|_],
+        \+ metta_reducible_head(Module, Written)
+    ->  Out = 'NotReducible'
+    ;   Out = Produced
+    ).
+
+%A call whose head arrived only at run time must be retranslated with its
+%arguments still written.  The resolved head's declared mask then makes the
+%same decisions as a source-written call.
+petta_dynamic_call(Head, Args, Out) :-
+    (   nonvar(Head), atom(Head)
+    ->  current_metta_module(Module),
+        eval_metta_in_module(Module, [Head|Args], Produced),
+        petta_application_result([Head|Args], Produced, Out)
+    ;   nonvar(Head), atomic(Head)
+    ->  translate_args(Args, Goals, Values),
+        current_metta_module(Module),
+        call_goals_in_(Module, Goals),
+        (   seam:grounded_apply(Head, Values, Applied)
+        ->  Out = Applied
+        ;   Out = [Head|Values]
+        )
+    ;   nonvar(Head)
+    ->  translate_args(Args, Goals, Values),
+        current_metta_module(Module),
+        call_goals_in_(Module, Goals),
+        reduce([Head|Values], Produced, _),
+        petta_application_result([Head|Args], [Head|Values], Produced, Out)
+    ;   translate_args(Args, Goals, Values),
+        current_metta_module(Module),
+        call_goals_in_(Module, Goals),
+        Out = [Head|Values]
+    ).
+
+%A collapse operand supplied through a masked variable is syntax only while
+%the enclosing equation compiles.  Evaluate the value that arrives, then
+%collect exactly the same alternatives as a written operand.
+collapse_runtime(Expr, Out) :-
+    current_metta_module(Module),
+    findall(Value,
+            ( eval_metta_in_module(Module, Expr, Produced),
+              petta_boundary_result(Expr, Produced, Value) ),
+            All),
+    petta_prune_empty(All, Out).
 
 %THE RESULT HALF of the arbiter's typed dispatch. A call whose declared result
 %is the metatype `Atom` answers AS PRODUCED and stops; every other declared
@@ -663,4 +1000,8 @@ declared_output_type(F, OutType) :- atom(F),
 									catch_recover(type_declaration(F, TypeChain), fail),
 									TypeChain = [->|Types],
 									append(_, [DeclaredOutType], Types),
-									DeclaredOutType == OutType.
+									declared_type_for_evaluation(DeclaredOutType, View),
+									View == OutType.
+
+declared_type_for_evaluation(Type, View) :-
+    ( type_position_modifier(Type, Metatype, _) -> View = Metatype ; View = Type ).

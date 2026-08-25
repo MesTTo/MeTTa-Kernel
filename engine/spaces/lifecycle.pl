@@ -196,6 +196,7 @@ metta_exec_module_name(Space, Module) :-
 :- dynamic space_restricted/2.
 :- dynamic space_grant/2.
 :- dynamic restricted_profile_known/2.
+:- dynamic '$petta_repaired_shadow_import'/4.
 
 %The chain, and why each link is where it is.
 %
@@ -241,9 +242,200 @@ ensure_metta_exec_module_locked(Space, Module) :-
     metta_exec_module_known(Space, Module), !.
 ensure_metta_exec_module_locked(Space, Module) :-
     metta_exec_module_base(Space, Base),
+    petta_capture_default_imports(Module),
     set_module(Module:base(Base)),
+    petta_refresh_repaired_shadow_imports(Module),
     assertz(metta_exec_module_known(Space, Module)),
     protect_engine_emitted(Module).
+
+%A compiled call keeps the procedure identity it resolved while a local
+%shadow existed. SWI's default-module walk is deliberately dynamic for a
+%fresh lookup, but abolish/1 does not retarget that already-compiled call: the
+%old identity raises existence_error while predicate_property/2 on the same
+%qualified head reports imported_from/1 and a direct call reaches the parent.
+%import/1 is SWI's supported interface for dynamically created modules, and
+%turns that same identity into a weak import. It is installed only for the
+%one local predicate being removed, not for every function visible to a
+%space. A later local definition removes the repair first, because asserting
+%through an explicit import would otherwise write into its source module
+%[source: SWI-Prolog Reference Manual, import/1 and abolish/1;
+% commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_abolish_local_predicate(Module, Name, Arity) :-
+    catch(abolish(Module:Name/Arity), _, true),
+    petta_restore_inherited_predicate(Module, Name, Arity).
+
+%A $-prefixed name is SWI or engine bookkeeping, never a written MeTTa
+%function ($x is variable syntax), so the shadow repair does not manage it at
+%all: materializing an import for tabling's $table_mode/3, whether its next
+%resolution came from system or from the engine's own tabled predicates in
+%user, blocked SWI from defining that module's local tabling state
+%('No permission to redefine built-in $table_mode/3')
+%[tested: test_tabling_control; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_restore_inherited_predicate(_, Name, _) :-
+    sub_atom(Name, 0, 1, _, '$'),
+    !.
+petta_restore_inherited_predicate(Module, Name, Arity) :-
+    retractall('$petta_repaired_shadow_import'(Module, Name, Arity, _)),
+    functor(Head, Name, Arity),
+    (   predicate_property(Module:Head, imported_from(Source)),
+        Source \== system,
+        \+ predicate_property(Module:Head, built_in),
+        catch(Module:import(Source:Name/Arity), _, fail)
+    ->  assertz('$petta_repaired_shadow_import'(Module, Name, Arity, Source))
+    ;   true
+    ).
+
+%Calling an inherited predicate can materialize a weak import even when the
+%space never defined that name.  A pooled execution module keeps the import
+%after its space life ends, while its next life may name a different parent.
+%Capture only imports whose source belongs to the standing default-module
+%chain: explicit engine imports live outside that chain and protect_engine_emitted/1
+%owns them.  The ordinary repair pass below then abolishes the old link after
+%set_module/1 changes the base and re-imports the name from the new chain.
+%[tested: test_a_recycled_child_name_may_choose_a_different_parent and
+%filereader_import_lifecycle:
+%a_repaired_shadow_import_follows_a_recycled_modules_new_parent;
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_capture_default_imports(Module) :-
+    (   current_module(Module)
+    ->  findall(Name-Arity-Source,
+                ( current_predicate(Module:Name/Arity),
+                  %system sits on every default chain, so without these three
+                  %filters the capture swept SWI's own bookkeeping ($table_mode
+                  %and friends) into the repair set, and re-importing a system
+                  %predicate blocked tabling from defining its local state:
+                  %'No permission to redefine built-in $table_mode/3'
+                  %[tested: test_tabling_control; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+                  \+ sub_atom(Name, 0, 1, _, '$'),
+                  functor(Head, Name, Arity),
+                  predicate_property(Module:Head, imported_from(Source)),
+                  Source \== Module,
+                  Source \== system,
+                  \+ predicate_property(Module:Head, built_in),
+                  default_module(Module, Source) ),
+                Imports0),
+        sort(Imports0, Imports),
+        forall(member(Name-Arity-Source, Imports),
+               (   '$petta_repaired_shadow_import'(Module, Name, Arity, _)
+               ->  true
+               ;   assertz('$petta_repaired_shadow_import'(Module, Name,
+                                                           Arity, Source)) ))
+    ;   true
+    ).
+
+%A pooled module may acquire a different parent in its next life. Explicit
+%imports outlive set_module/1, so each repair is rebound after the new base is
+%set and before any code is compiled in that life. The marker set contains
+%only names whose own shadow has needed this repair. It remains dormant while
+%a new local definition owns the name, so a failed transactional or source
+%load can restore the inherited link after rolling that definition back. This
+%keeps the repair dependency-directed rather than copying a parent's interface
+%into every child [tested:
+%test_a_recycled_child_name_may_choose_a_different_parent; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_refresh_repaired_shadow_imports(Module) :-
+    findall(Name-Arity,
+            '$petta_repaired_shadow_import'(Module, Name, Arity, _),
+            PIs0),
+    sort(PIs0, PIs),
+    forall(member(Name-Arity, PIs),
+           ( functor(Head, Name, Arity),
+             (   predicate_property(Module:Head, imported_from(_))
+             ->  catch(abolish(Module:Name/Arity), _, true)
+             ;   true
+             ),
+             petta_restore_inherited_predicate(Module, Name, Arity) )).
+
+%Called by the one ordinary equation/lambda assertion door. A repaired weak
+%import must be removed before assertz/2, or SWI follows the link and appends
+%the new clause to the ancestor rather than creating the requested local
+%shadow. The dependency row deliberately stays: it is dormant while the local
+%clause exists and is the rollback receipt that re-arms inheritance if a later
+%step of this load fails [tested:
+%filereader_import_lifecycle:
+%a_failed_local_redefinition_restores_the_repaired_inherited_call;
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_prepare_local_predicate(Module, Clause) :-
+    ( Clause = (Head :- _) -> true ; Head = Clause ),
+    functor(Head, Name, Arity),
+    (   '$petta_repaired_shadow_import'(Module, Name, Arity, _),
+        petta_existing_import(Module, Head, _)
+    ->  catch(abolish(Module:Name/Arity), _, true)
+    ;   true
+    ).
+
+%Before a definition registers itself as local, the registry indexes can
+%distinguish an inherited name from a fresh one without asking SWI to resolve
+%every fresh predicate through the module chain. Only an inherited name that
+%already has a materialized import needs the weak-link repair. Public atom
+%addition calls this before opening its transaction; the compiler repeats it
+%so source-loader and generated-clause doors share the same rule.
+petta_prepare_function_predicate(Module, Name, Arity) :-
+    (   fun_in(Module, Name)
+    ->  true
+    ;   petta_may_inherit_function(Module, Name),
+        functor(Head, Name, Arity),
+        petta_existing_import(Module, Head, Source),
+        \+ seam:engine_emitted(Name/Arity)
+    ->  catch(abolish(Module:Name/Arity), _, true),
+        (   '$petta_repaired_shadow_import'(Module, Name, Arity, _)
+        ->  true
+        ;   assertz('$petta_repaired_shadow_import'(Module, Name, Arity,
+                                                    Source))
+        )
+    ;   true
+    ).
+
+%fun_scoped/1 is the process-wide summary of definitions outside &self;
+%fun_in(Self, Name) is the shared tier that deliberately does not set that
+%summary; and builtin_fun/1 is the engine tier. A sibling-only fun_scoped/1
+%hit is harmless because petta_existing_import/3 below still requires an
+%actual import in this module. Fresh source names miss these indexed facts and
+%avoid the recursive fun_here_in/2 walk entirely.
+petta_may_inherit_function(Module, Name) :-
+    (   fun_scoped(Name)
+    ->  true
+    ;   metta_self_module(Self), Module \== Self, fun_in(Self, Name)
+    ->  true
+    ;   builtin_fun(Name)
+    ).
+
+%predicate_property/2 resolves missing predicates through the whole default
+%chain and autoloader.  The assertion door needs the narrower question "does
+%this module already hold an import link?".  These are the same two primitives
+%SWI's own autoload registry uses before inspecting its imported attribute, so
+%a fresh function name stays an indexed miss instead of paying a module walk
+%for every equation in a source load [source: SWI-Prolog
+%boot/autoload.pl:1061-1070; measured: source-load 1653096 to 1647100;
+%command=python bench.py --counter-only source-load; fixture=1000 fresh
+%equations; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_existing_import(Module, Head, Source) :-
+    '$c_current_predicate'(_, Module:Head),
+    '$get_predicate_attribute'(Module:Head, imported, Source).
+
+%Repair receipts survive both kinds of rollback used by the loader: native
+%transaction rollback and the first-load reference sweep. A local clause means
+%the dependency is dormant; otherwise repeating import/1 revives the exact
+%procedure identity even when a fresh default-module lookup already finds the
+%right ancestor [tested:
+%a_failed_local_redefinition_restores_the_repaired_inherited_call;
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_repair_shadow_imports :-
+    findall(Module-Name-Arity,
+            '$petta_repaired_shadow_import'(Module, Name, Arity, _),
+            Dependencies0),
+    sort(Dependencies0, Dependencies),
+    forall(member(Module-Name-Arity, Dependencies),
+           petta_repair_shadow_import(Module, Name, Arity)).
+
+petta_repair_shadow_import(Module, Name, Arity) :-
+    functor(Head, Name, Arity),
+    (   predicate_property(Module:Head, number_of_clauses(Clauses)),
+        \+ predicate_property(Module:Head, imported_from(_)),
+        Clauses > 0
+    ->  true
+    ;   catch(abolish(Module:Name/Arity), _, true),
+        petta_restore_inherited_predicate(Module, Name, Arity)
+    ).
 
 %Bind the engine's own emitted goals into this module so a MeTTa equation
 %cannot take one over. See seam:engine_emitted/1 (engine/translator.pl) for what
@@ -941,6 +1133,19 @@ compiled_predicate_arity(F, Module, Predicate, Arity) :-
 metta_add_atom(Space, Term, true) :- Term = [=, [FAtom|W], _], !,
                                      must_be(atom, FAtom),
                                      add_equation(Space, Term, FAtom, W).
+%A scalar equality changes whether an eager symbol position compiles to a
+%literal or a reduction step.  Its stored callers already publish symbol
+%mentions through the support graph, so the ordinary change announcement
+%rebuilds precisely those callers and evicts matching runnable templates.
+%[tested: conformance2:symbol_arguments_evaluate_for_declared_and_undeclared_functions;
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+metta_add_atom(Space, Term, true) :-
+    Term = [=, Scalar, _],
+    atom(Scalar),
+    !,
+    store_atom(Space, Term),
+    space_module(Space, Module),
+    announce_function_changed(Module, Scalar).
 %Type declarations are a multimap because distinct arrows and distinct data
 %types are meaningful. A variant-identical second row is not: every type walk
 %would enumerate it again. A direct source add is idempotent and warns while
@@ -999,7 +1204,7 @@ metta_add_atom(Space, Term, true) :- seam:foreign_space(Space), !,
                                      foreign_write(Space, add,
                                                    seam:foreign_add(Space, Term)).
 metta_add_atom(Space, Term, true) :- add_sexp(Space, Term, Ref),
-                                     record_source_assertion(Ref).
+                                     record_source_atom_assertion(Ref).
 
 existing_duplicate_declaration(Space, Term, First) :-
     \+ seam:foreign_space(Space),
@@ -1065,7 +1270,7 @@ store_atom(Space, Term) :- seam:foreign_space(Space), !,
                            foreign_write(Space, add,
                                          seam:foreign_add(Space, Term)).
 store_atom(Space, Term) :- add_sexp(Space, Term, Ref),
-                           record_source_assertion(Ref).
+                           record_source_atom_assertion(Ref).
 
 %An equation is the one atom whose storage and meaning cannot be separated, so
 %they are not: it compiles inside the transaction that stores it, wherever it is
@@ -1131,11 +1336,35 @@ add_equation(Space, Term, FAtom, W) :-
     seam:foreign_space(Space), !,
     refuse_ruleless_equation(Space, Term),
     space_module(Space, Module),
-    transaction(add_function_atom(provider, Space, Module, Term, FAtom, W)).
+    length(W, InputArity),
+    PredArity is InputArity + 1,
+    petta_prepare_function_predicate(Module, FAtom, PredArity),
+    petta_add_function_transaction(provider, Space, Module, Term, FAtom, W).
 add_equation(Space, Term, FAtom, W) :-
     space_module(Space, Module),
     ensure_native_storage_module(Space, Storage),
-    transaction(add_function_atom(Storage, Space, Module, Term, FAtom, W)).
+    length(W, InputArity),
+    PredArity is InputArity + 1,
+    petta_prepare_function_predicate(Module, FAtom, PredArity),
+    petta_add_function_transaction(Storage, Space, Module, Term, FAtom, W).
+
+%Only a name that has carried a repaired weak import needs post-transaction
+%validation. The overwhelmingly common equation add keeps the original one
+%transaction call, while the exceptional shadow-redefinition path repairs its
+%receipt on commit, failure, or exception [tested:
+%a_failed_local_redefinition_restores_the_repaired_inherited_call;
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+petta_add_function_transaction(Storage, Space, Module, Term, FAtom, W) :-
+    length(W, InputArity),
+    PredArity is InputArity + 1,
+    (   '$petta_repaired_shadow_import'(Module, FAtom, PredArity, _)
+    ->  call_cleanup(
+            transaction(
+                add_function_atom(Storage, Space, Module, Term, FAtom, W)),
+            petta_repair_emptied_shadows)
+    ;   transaction(
+            add_function_atom(Storage, Space, Module, Term, FAtom, W))
+    ).
 
 %Where the equation itself goes. `provider` is a foreign space, whose provider
 %owns its storage; anything else is a native storage module. transaction/1 wraps
@@ -1143,7 +1372,7 @@ add_equation(Space, Term, FAtom, W) :-
 %write is outside the database and stays written if the translation then fails.
 store_equation(provider, Space, Term) :- !, store_atom(Space, Term).
 store_equation(Storage, Space, Term) :- add_sexp_in(Storage, Space, Term, Ref),
-                                        record_source_assertion(Ref).
+                                        record_source_atom_assertion(Ref).
 
 %Everything a change to FAtom leaves stale, in one place because three callers
 %need exactly it: a new equation, a new declaration, and a removed equation.
@@ -1349,7 +1578,7 @@ clear_generated_predicate(Module, Name/Arity, Head) :-
     catch(retractall(Module:Head), _, true),
     (   current_transaction(_)
     ->  assertz('$petta_shadow_repair_pending'(Module, Name, Arity))
-    ;   catch(abolish(Module:Name/Arity), _, true)
+    ;   petta_abolish_local_predicate(Module, Name, Arity)
     ).
 
 metta_host_clear_tabling(Space, Module) :-

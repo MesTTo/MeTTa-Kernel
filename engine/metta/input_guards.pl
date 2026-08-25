@@ -144,10 +144,14 @@ prolog:error_message(petta_unbound_input(_, Position)) -->
                            ( grounded_list_view(List, View) -> length(View, Size) ; Size = [] ).
 'size-atom'(List, Size) :- length(List, Size).
 'car-atom'(Term, _) :- var(Term), !, refuse_unbound_input('car-atom', 1).
+'car-atom'([], ['Error', ['car-atom', []],
+                "car-atom expects a non-empty expression as an argument"]) :- !.
 'car-atom'([H|_], H) :- !.
 'car-atom'(Term, Out) :- grounded_list_view(Term, [H|_]), !, Out = H.
 'car-atom'(Term, []) :- \+ Term = [_|_].
 'cdr-atom'(Term, _) :- var(Term), !, refuse_unbound_input('cdr-atom', 1).
+'cdr-atom'([], ['Error', ['cdr-atom', []],
+                "cdr-atom expects a non-empty expression as an argument"]) :- !.
 'cdr-atom'([_|T], T) :- !.
 'cdr-atom'(Term, Out) :- grounded_list_view(Term, [_|T]), !, Out = T.
 'cdr-atom'(Term, []) :- \+ Term = [_|_].

@@ -24,9 +24,9 @@
      (reduce-within (reduce (fib 5))))))
 
 !(test (before-call-errors-ofc (before-quote) (before-eval) (before-reduce))
-       ; quote remains where the result itself is quoted. LeaTTa
-       ; types-meta/30_evaluation_control.metta pins noeval for a bare payload.
-       (before-call-errors-ofc (quote-before (quote (fib 5))) (eval-before (noeval (fib 5))) (reduce-before (noeval (fib 5)))))
+       ; Before fib exists, each control form retains its own irreducible call.
+       ; LeaTTa 9ea9f9d answers this exact expression with these three wrappers.
+       (before-call-errors-ofc (quote-before (quote (fib 5))) (eval-before (eval (fib 5))) (reduce-before (reduce (fib 5)))))
 !(test (compilefib)
        ((within (noeval (fib 5))) (call-within 5) (quote-within (quote (fib 5))) (eval-within 5) (reduce-within 5)))
 

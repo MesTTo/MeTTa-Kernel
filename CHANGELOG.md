@@ -187,6 +187,25 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - `atom-subst`, the reference's own one-variable substitution:
   `(atom-subst <value> <variable> <template>)` with all three operands as
   written and the result as produced.
+- Add sequence variables in equation heads: `(:seg $x)` matches one-sidedly
+  per the reference's own rule, a written `(:seg $x)` on the right-hand side
+  splices its bound run, a top-level segment spans call arities, splits
+  enumerate shortest-first, and a name may occur in both segment and
+  ordinary roles with the ordinary occurrence projecting the run's
+  expression.
+- Add `metta-thread`, the reference's typed full-evaluation instruction:
+  mask-directed argument evaluation, one minimal step per iteration, inert
+  collapse-bind carriers, and result finality deciding the loop exit.
+- Add the reference's `interpret` entry, `noreduce-eq`, and `(%Rest% T)`
+  variadic parameter types, with the arrow constructor itself declared
+  `(: -> (-> (%Rest% Type) Type))`.
+- Add the C reader: `engine/reader.c` parses shipped-mode sources in place
+  of the Prolog grammar whenever `engine/reader.so` is built beside it (a
+  100,000-atom parse drops from 26.5 million inferences and 795 ms to 7
+  inferences and 71 ms), with the Prolog grammar remaining the
+  specification, the custom-token path, and the fallback;
+  `tests/prolog/reader_c.plt` holds the two byte-equal over the shipped
+  corpus, an adversarial battery, and 250,000 generated number spellings.
 
 ### Changed
 
@@ -504,6 +523,30 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - A lambda no longer captures a variable its own body binds, so one closure
   applied to many elements no longer lets the first element's binding
   constrain the next.
+- Minimal MeTTa's NotReducible protocol is real end to end: `eval` is one
+  equality step whose raw three-way result only `chain`, `function`, and
+  `metta-thread` observe, every application boundary retains an irreducible
+  call as written, a function frame distinguishes a produced marker from an
+  irreducible body (`(Error (function <body>) NoReturn)`), and `reduce`,
+  `eval`, and `evalc` each retain their own written frame. `repeat`
+  terminates and the reference's strategy suite passes whole.
+- Bare-symbol arguments follow scalar equality rules to a fixpoint at eager
+  positions; a Grounded parameter refuses an evaluated argument of the
+  wrong type with `BadArgType`; a declared result decides re-entry and
+  never filters the produced value; a declared function called at an arity
+  no arrow presents answers `IncorrectNumberOfArguments`; a variable head
+  resolves at run time and applies its own mask to still-written arguments;
+  `car-atom` and `cdr-atom` of `()` answer the arbiter's exact `Error`
+  atoms; `collapse-bind` answers the public `((atom (bindings …)) …)`
+  carrier; polymorphic builtin results re-enter evaluation while numeric,
+  string, and grounded results stay direct; and `collapse` evaluates an
+  operand that arrived through a masked parameter.
+- The assert family compares result bags: order is ignored while duplicate
+  multiplicity counts, via directed `subtraction-atom` differences under
+  the new `noreduce-eq`. `if-error`, `return-on-error`, `match-types`, and
+  `is-function` ship the reference's own bodies (`return-on-error` keeps
+  one `return` for an enclosing frame at top level), and `unquote`'s
+  quote-wrapping catch-all retires.
 
 ### Removed
 
@@ -2780,6 +2823,22 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   the in-language `lib_measure`/`lib_soft` libraries are unchanged.
   `EmbeddingStore.matcher()` went with them; the custom_matchers example
   builds fuzzy, regex and semantic matchers on the public surface.
+- Fix the order-dependent take-atom import failure at its root: import
+  receipts are dependency-validated cache entries, reusable only while the
+  exact source load, digest, and every stored output remain live, so any
+  public removal makes the next `import!` rebuild the source contribution
+  instead of silently no-opping on a stale receipt. Dependent recompiles
+  keep their original load owners, first loads are atomic, failed loads
+  restore what they displaced, and removing a space-local shadow re-arms
+  already-compiled callers of the inherited definition, across pooled-space
+  recycling and both rollback kinds.
+- Fix an evaluation loop on grounded operations that cannot compute: the
+  retained written call (for example `!(< 1 a)`) is answered as data
+  instead of re-entering evaluation until the stack overflows.
+- Fix a user `arrow-arity` typing rule's refusal being overwritten by the
+  generic arity mismatch, SWI tabling being blocked in pooled spaces whose
+  shadow repair had captured `$table_mode/3`, and higher-order calls being
+  refused under the dispatcher's own name in the tabling purity walk.
 
 
 ## [1.0.5] - 2026-03-02

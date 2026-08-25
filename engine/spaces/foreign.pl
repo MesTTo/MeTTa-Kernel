@@ -1,6 +1,7 @@
 % Purpose: validate foreign-provider capabilities and route foreign and native space operations
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
+%   foreign transaction enlistment is a semidet user-context check even inside nested SWI transactions.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % Guarantees: match/4 dispatches a gap pattern by its wrapper alone, so an ordinary pattern reaches the clause it always reached [tested: tests/prolog/segments.plt:segments_costs_nothing; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
@@ -79,8 +80,8 @@ foreign_write(Space, Capability, Goal) :-
     %survives a rollback, and anything else is refused loudly, because
     %a foreign write silently surviving a rolled-back transaction was
     %the wrong answer this replaces.
-    (   current_transaction(_),
-        petta_in_user_transaction
+    (   petta_in_user_transaction,
+        once(current_transaction(_))
     ->  petta_writes(Space, Atomicity),
         (   Atomicity == transactional
         ->  petta_enlist_foreign(Space)
@@ -152,7 +153,7 @@ add_atoms_in_one_crossing(Space, Terms) :-
     ),
     forall(member(Term, Terms),
            ( add_sexp_in(Storage, Space, Term, Ref),
-             record_source_assertion(Ref) )),
+             record_source_atom_assertion(Ref) )),
     (   Space == '&petta'
     ->  forall(member(Term, Terms), petta_catalog_note_added(Term))
     ;   true
@@ -173,7 +174,10 @@ add_atoms_in_one_crossing(Space, Terms) :-
 %answering stale clauses. One door means the next such rule lands once
 %[tested specializer:string_run_equation_invalidates_specializations].
 compile_metta_equation(Module, Term, Clause, Ref) :-
-    Term = [=, [F|_], _],
+    Term = [=, [F|Inputs], _],
+    length(Inputs, InputArity),
+    PredArity is InputArity + 1,
+    petta_prepare_function_predicate(Module, F, PredArity),
     (   metta_self_module(Module) -> evict_prelude_definition(F) ; true ),
     register_fun_in(Module, F),
     %Stale specializations go FIRST, before this body compiles. They are
@@ -282,6 +286,7 @@ add_function_atom(Storage, Space, Module, Term, FAtom, W) :-
 :- multifile prolog:error_message//1.
 
 assert_function_clause(Module, Clause, Ref) :-
+    petta_prepare_local_predicate(Module, Clause),
     catch(assertz(Module:Clause, Ref),
           error(permission_error(modify, static_procedure, _), _),
           throw_builtin_redefinition(Module, Clause)).
@@ -595,7 +600,9 @@ reduced_for_space([=, Head, Body], [=, Head, ReducedBody]) :-
 %to store, so the written term is the only thing left to store.
 reduced_for_space(Term, Reduced) :-
     (   is_list(Term)
-    ->  (   once(eval(Term, Value))
+    ->  current_metta_module(Module),
+        (   once(( eval_metta_in_module(Module, Term, Value),
+                   Value \== 'Empty' ))
         ->  Reduced = Value
         ;   Reduced = Term
         )
@@ -637,6 +644,16 @@ metta_remove_atom(Space, Term, Removed) :- var(Term), !,
 metta_remove_atom(Space, Term, Removed) :- Term = [=, [F|Args], Body], !,
                                            remove_equation(Space, Term, F, Args,
                                                            Body, Removed).
+metta_remove_atom(Space, Term, Removed) :-
+    Term = [=, Scalar, _],
+    atom(Scalar),
+    !,
+    unstore_atom(Space, Term, Removed),
+    (   Removed == true
+    ->  space_module(Space, Module),
+        announce_function_changed(Module, Scalar)
+    ;   true
+    ).
 metta_remove_atom(Space, Term, Removed) :-
     Term = [':', Type, Marker],
     atom(Type),
@@ -866,7 +883,7 @@ remove_equation(Space, Term, F, Args, Body, Removed) :-
             %[tested: test_a_reload_that_fails_leaves_the_previous_definitions_standing].
             assertz('$petta_shadow_repair_pending'(Module, F, PredArity))
         ;   petta_repair_emptied_shadows,
-            catch(abolish(Module:F/PredArity), _, true)
+            petta_abolish_local_predicate(Module, F, PredArity)
         )
     ;   true
     ),
@@ -893,10 +910,11 @@ petta_repair_emptied_shadows :-
     forall(retract('$petta_shadow_repair_pending'(Module, F, PredArity)),
            (   functor(Head, F, PredArity),
                (   predicate_property(Module:Head, number_of_clauses(0))
-               ->  catch(abolish(Module:F/PredArity), _, true)
+               ->  petta_abolish_local_predicate(Module, F, PredArity)
                ;   true
                )
-           )).
+           )),
+    petta_repair_shadow_imports.
 
 %Where an atom comes out of, the counterpart of store_atom/2. Both answer
 %whether the store actually held it.
