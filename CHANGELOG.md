@@ -826,6 +826,19 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A flat Python call of a declared function now runs the same call-site
+  typed dispatch the engine's own form runs. Before this, `f(x)` on a
+  compiled function with plain arguments took a direct goal that skipped
+  the argument checks entirely: with `(: f (-> DemoPayload Atom))`
+  declared and a user typing rule installed, `!(f unknown)` answered the
+  rule's `TypingRuleRefusal` while `f(S.unknown)` and `m.eval(S.f(...))`
+  answered the raw clause, and `(+ 1 "x")` through `m.eval` raised where
+  the engine's form answers `(Error (+ 1 "x") (BadArgType 2 Number
+  String))`. The gate reads the same declaration walk every typed call
+  opens, so an undeclared function keeps its direct goal; the measured
+  price of the checks is +28 inferences per rerouted declared call,
+  re-pinned across the benchmark lanes with the attribution recorded in
+  their baselines.
 - `space += atom` and `space -= atom` inside a compiled body are the write
   doors: a local bound to `(context-space)` or `(new-space ...)`, or
   aliased from one, compiles its augmented assignment to `add-atom` and
