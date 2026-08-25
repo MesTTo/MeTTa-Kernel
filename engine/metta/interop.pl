@@ -439,9 +439,20 @@ ready_extension_space(Name, Options, Space) :-
            ready_capability_hook(Name, Space, Capability, Hook)),
     (   memberchk(check(true), Options)
     ->  ensure_conformance_kit,
-        metta_check_space_provider(Space, _)
+        user:metta_check_space_provider(Space, _)
     ;   true
     ).
+
+%The kit defines this in user when ensure_conformance_kit consults it,
+%one line above the only call; declared dynamic THERE so the static
+%engine load carries no undefined reference (SWI's own advice for a
+%predicate that arrives at runtime), and both the declaration and the
+%call name user explicitly because a bare local dynamic would SHADOW
+%the module-chain fallthrough and the readying's deferred goal failed
+%silently that way [measured 2026-08-25: the check(true) probe warned
+%"Initialization goal failed" with a local declaration and passes with
+%this one].
+:- dynamic user:metta_check_space_provider/2.
 
 extension_capability_hook(match, seam:foreign_match/3).
 extension_capability_hook(enumerate, seam:foreign_atoms/2).
@@ -474,7 +485,13 @@ prolog:error_message(petta_extension_no_hook(Name, Space, Capability, PI)) -->
        the hook or drop the capability'-[Name, Capability, Space, PI] ].
 
 ensure_conformance_kit :-
-    (   current_predicate(user:metta_check_space_provider/2)
+    %Clauses, not existence: the dynamic declaration above makes the
+    %predicate EXIST with zero clauses so the static engine load is
+    %clean, and an existence guard here would then never consult the
+    %kit - the checker present as a receipt with no payload.
+    (   predicate_property(user:metta_check_space_provider(_, _),
+                           number_of_clauses(N)),
+        N > 0
     ->  true
     ;   library(lib_conformance, Kit),
         user:consult(Kit)

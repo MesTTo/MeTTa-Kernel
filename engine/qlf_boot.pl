@@ -25,7 +25,10 @@
 %     appended to engine/translator/lowering.pl was invisible on the next
 %     boot until this purge ran].
 %   - a read-only tree stays correct: delete_file failures are absorbed
-%     and SWI falls back to source for absent .qlf.
+%     and SWI falls back to source for absent .qlf
+%     [assumed: exercised only by inspection of the catch sites below and
+%     SWI's own '$qlf_file' fallback; no lane boots a read-only checkout;
+%     commit=WORKTREE].
 % Decides:
 %   - freshness is transitive and coarse, the whole set against the
 %     newest source: a false purge costs one ~0.25s generating boot; a

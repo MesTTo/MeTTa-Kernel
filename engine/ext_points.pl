@@ -911,6 +911,10 @@ kind(with_metta_module/2, host_service).
 %declaration walk and the rule registry stay free to move.
 kind(metta_typed_dispatch_applies/2, host_service).
 
+%The declared source discipline of a context, (source Ctx Kind): the
+%conformance kit reads the declaration the enforcement reads instead
+%of trusting a caller's claim, so the read is a published service.
+kind(petta_source/2, service).
 kind(swrite/2, service).
 %Presentation text is deliberately distinct from the inverse writer. A host
 %or extension uses this only where lossless re-reading is not the contract
