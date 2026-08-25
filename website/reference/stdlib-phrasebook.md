@@ -6,7 +6,7 @@ spelling, and every row below ran on both sides: the MeTTa form on this engine a
 on LeaTTa, the conformance oracle, and the Python spelling here.
 
 The names and their types are LeaTTa's, measured against its built binary rather
-than transcribed: manifest 1.0.9 at commit `c0ed0df`, 382 declarations
+than transcribed: manifest 1.0.9 at commit `39c7c43`, 382 declarations
 over 380 distinct names. `bindings/python/tools/phrasebook.py` runs the
 rows and fails when a spelling stops answering what it says it answers.
 
@@ -25,21 +25,21 @@ Rows fall in five buckets, and the bucket is the honest part:
 - **internal** (199) &mdash; LeaTTa's mechanised interpreter, written in MeTTa; PeTTa writes its interpreter in Prolog, so these names are on neither surface
 - **absent** (45) &mdash; a user-facing operation with no Python spelling today: the residue
 
-Provenance: LeaTTa manifest 1.0.9 at commit `c0ed0df`, 382 declarations over 380 distinct names.
+Provenance: LeaTTa manifest 1.0.9 at commit `39c7c43`, 382 declarations over 380 distinct names.
 
 ## What the Python spelling costs
 
 Section 9e claims that a structure operation on an atom already held in Python
 costs no engine crossing at all. Measured over the rows that run both sides:
-the MeTTa forms cost 179,179 engine inferences and the Python spellings
-cost 8,322, and 89 of the 121 rows cost the engine EXACTLY
+the MeTTa forms cost 121,999 engine inferences and the Python spellings
+cost 28,878, and 87 of the 121 rows cost the engine EXACTLY
 NOTHING. `e[0]`, `e[1:]`, `len(e)`, `max([...])` and `S.f(1)` each read the same
 count as an empty measurement block, so the claim holds: the work never reaches
 the engine at all.
 
-`(car-atom (a b c))` costs 988 inferences on this
+`(car-atom (a b c))` costs 659 inferences on this
 engine against 0 for `e[0]`, and `(map-atom (1 2 3) $x (+ $x 1))` costs
-2,047 against 0 for the comprehension.
+1,487 against 0 for the comprehension.
 
 The other side of the same coin, so the comparison is not oversold. Most of a
 MeTTa row's cost is running one form at all: on a fresh engine an unreduced
@@ -223,8 +223,6 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(let $x 1 (+ $x 1))` | `x = 1 ⏎ x + 1` | `2` | dissolves |
 | `!(let* (($x 1) ($y 2)) (+ $x $y))` | `x = 1 ⏎ y = 2 ⏎ x + y` | `3` | dissolves |
 | `!(unify (f $x) (f a) $x nope)` | `assert metta.unify(S.f(S.a), S.f(V.x)) == {'x': S.a} ⏎ metta.unify(S.f(V.x), S.f(S.a), V.x, S.nope).one()` | `a` | method |
-| `!(superpose (a b))` | `[S.a, S.b]` | `a, b` | dissolves |
-| `!(unify (f $x) (f a) $x nope)` | `b = metta.unify(S.f(V.x), S.f(S.a)) ⏎ b['x'] if b is not None else S.nope` | `a` | method |
 | `!(superpose (a b))` | `space.add_tagged_fact(S.rate(1), S.choice(S.a)) ⏎ assert len(space.sample(S.choice(V.x), k=10, seed=7)) == 10 ⏎ [S.a, S.b]` | `a, b` | dissolves |
 | `!(collapse (superpose (a b)))` | `answers = [S.a, S.b] ⏎ tuple(answers)` | `(a b)` | dissolves |
 | `!(id 5)` | `5` | `5` | dissolves |
@@ -246,8 +244,6 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `let` `(-> Atom %Undefined% Atom %Undefined%)` &mdash; Assignment. It reads in MeTTa's own order, bind then use, which is why plain assignment and not the walrus is the taught spelling.
 - `let*` `(-> Expression Atom %Undefined%)` &mdash; A sequence of assignments; a statement sequence in a compiled body already chains into `let*`.
 - `unify` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; Structural unification. `metta.unify(a, b)` symmetrically answers one bindings mapping or `None`; `metta.unify(a, b, then, els)` evaluates the engine conditional, running `then` once per binding set and `els` only when none exists. A compiled body lowers the same four-argument call directly to the engine form.
-- `superpose` `(-> Expression %Undefined%)` &mdash; Nondeterminism has no primitive of its own because Python's iteration IS it: a list of values is a multiset of answers, and `yield` is the same act inside a compiled body.
-- `unify` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; Structural matching. `metta.unify(pattern, subject)` answers the bindings or `None`, so the four-argument form is that call with a conditional; in a compiled body Python's `match` statement lowers to this instruction. One friction: MeTTa's `unify` is symmetric while `metta.unify` is DIRECTIONAL, pattern first, so swapping the arguments answers `None` [measured 2026-08-22: `metta.unify(S.f(S.a), S.f(V.x))` is None].
 - `superpose` `(-> Expression %Undefined%)` &mdash; Nondeterminism has no primitive of its own because Python's iteration IS it: a list of values is a multiset of answers, and `yield` is the same act inside a compiled body. `space.sample(q, k=10, seed=7)` is the weighted choice door, with replacement and implicit `(rate n)` weights.
 - `collapse` `(-> Atom Atom)` &mdash; `list()` is the everyday spelling, materialising the answers; `tuple()` is the same act when you want MeTTa's own `( )` atom back, which is what collapse answers.
 - `id` `(-> $t $t)` &mdash; The identity function, which Python writes as the value itself.
@@ -257,15 +253,15 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `noeval` `(-> Atom Atom)` &mdash; The same point as `quote`: a built term is already unevaluated.
 - `unquote` `(-> %Undefined% %Undefined%)` &mdash; Reducing a quoted term is `m.eval`, primitive 4.
 - `gtry` `(-> Atom Atom Atom)` &mdash; LeaTTa's guarded try, the failure-to-identity combinator under the Stratego basis. PeTTa ships no strategy basis to build it on. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `check-alternatives` `(-> Atom Atom)` &mdash; LeaTTa's alternative-set check inside the Stratego basis.
-- `case-empty` `(-> Expression Atom)` &mdash; LeaTTa's own decomposition of `case`.
+- `_check-alternatives` `(-> Atom Atom)` &mdash; LeaTTa's alternative-set check inside the Stratego basis.
+- `_case-empty` `(-> Expression Atom)` &mdash; LeaTTa's own decomposition of `case`.
 - `case%` `(-> Atom Expression %Undefined%)` &mdash; LeaTTa's `%`-suffixed variant, the error-transparent twin of `case`. PeTTa ships no `%` family. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `let%` `(-> Atom %Undefined% Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `let`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `let*%` `(-> Expression Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `let*`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `unify%` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `unify`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `=%` `(-> $t $t %Undefined%)` &mdash; LeaTTa's error-transparent twin of `=`, the equation head itself. The form is shown but not run here: PeTTa does not declare the name.
 - `switch-minimal` `(-> Atom Expression Atom)` &mdash; LeaTTa's own decomposition of `switch`.
-- `switch-minimal%` `(-> Atom Expression Atom)` &mdash; LeaTTa's own decomposition of `switch`.
+- `_switch-minimal%` `(-> Atom Expression Atom)` &mdash; LeaTTa's own decomposition of `switch`.
 - `switch-internal` `(-> Atom Expression Atom)` &mdash; LeaTTa's own decomposition of `switch`.
 - `switch-internal%` `(-> Atom Expression Atom)` &mdash; LeaTTa's own decomposition of `switch`.
 - `case-empty-internal` `(-> Atom Atom)` &mdash; LeaTTa's own decomposition of `case`.
@@ -366,7 +362,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `trace!` `(-> %Undefined% Atom %Undefined%)` &mdash; `print` or `logging` beside the value; `m.trace()` is the engine's own reduction trace, a different and deeper thing.
 - `format-args` `(-> String Expression String)` &mdash; An f-string. MeTTa's `{}` holes are Python's own interpolation.
 - `print-alternatives!` `(-> Atom Expression (->))` &mdash; Python's `print` over the answers, which is what LeaTTa's assert family uses it for: showing what a form actually answered. The form is shown but not run here: PeTTa leaves the MeTTa call unreduced.
-- `print-alternatives-each!` `(-> Expression (->))` &mdash; LeaTTa's per-alternative half of the printer.
+- `_print-alternatives-each!` `(-> Expression (->))` &mdash; LeaTTa's per-alternative half of the printer.
 
 ## Testing
 
@@ -471,7 +467,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(get-type IncorrectNumberOfArguments)` | &mdash; | `ErrorDescription` | absent |
 | `!(if-error (Error a b) yes no)` | `e = S.Error(S.a, S.b) ⏎ S.yes if e[0] == S.Error else S.no` | `yes` | dissolves |
 | `!(return-on-error a b)` | `value = S.a ⏎ value if isinstance(value, metta.Expression) and value[0] == S.Error else S.b` | `b` | dissolves |
-| `!(separate-errors ((Error a b) c) ())` | `answers = [S.Error(S.a, S.b), S.c] ⏎ [a for a in answers if isinstance(a, metta.Expression) and a[0] == S.Error]` | `(Error a b)` | dissolves |
+| `!(_separate-errors ((Error a b) c) ())` | `answers = [S.Error(S.a, S.b), S.c] ⏎ [a for a in answers if isinstance(a, metta.Expression) and a[0] == S.Error]` | `(Error a b)` | dissolves |
 
 - `Error` `(-> Atom Atom ErrorType)` &mdash; An exception. A Python operation raises and the boundary maps the exception INTO this algebra rather than inventing a parallel one. The constructor itself never reduces, on either engine, which is correct.
 - `ErrorType` `Type` &mdash; The type an error atom carries, which on the Python side is the exception class.
@@ -480,7 +476,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `IncorrectNumberOfArguments` `ErrorDescription` &mdash; The arity error description, which Python's own `TypeError` is the image of. Same gap. The form is shown but not run here: PeTTa does not declare the name.
 - `if-error` `(-> Atom Atom Atom %Undefined%)` &mdash; `try`/`except`, or a conditional over the value. It is the railway combinator over Error atoms.
 - `return-on-error` `(-> Atom Atom %Undefined%)` &mdash; Early return, which is Python's own `return` inside an `if`. Indexing needs the guard because a leaf atom is not indexable here.
-- `separate-errors` `(-> Expression Expression Expression)` &mdash; Partitioning answers into errors and results, which is one comprehension per side. The form is shown but not run here: PeTTa leaves the call unreduced.
+- `_separate-errors` `(-> Expression Expression Expression)` &mdash; Partitioning answers into errors and results, which is one comprehension per side. The form is shown but not run here: PeTTa leaves the call unreduced.
 
 ## Rewriting strategies
 
@@ -506,8 +502,8 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `stratego-all` `(-> Atom Atom Atom)` &mdash; Stratego's `all(s)`, applying a strategy to every child. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `stratego-one` `(-> Atom Atom Atom)` &mdash; Stratego's `one(s)`, applying to one child. LeaTTa deliberately diverges from Stratego's committed choice by answering EVERY successful position through MeTTa's own nondeterminism. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `stratego-some` `(-> Atom Atom Atom)` &mdash; Stratego's `some(s)`, the third traversal primitive beside `all` and `one`: apply the strategy to every immediate child it succeeds on, keep each declining child as written, and fail when no child succeeded. The non-emptiness guard is the whole content, since `all` composed with `gtry` can never fail. A LeaTTa extension beyond corelib. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `stratego-all-tail` `(-> Atom Expression Expression)` &mdash; LeaTTa's internal tail recursion behind `stratego-all`.
-- `stratego-some-walk` `(-> Atom Expression Atom)` &mdash; LeaTTa's internal tail walk behind `stratego-some`, pairing the rebuilt tail with whether any member succeeded.
+- `_stratego-all-tail` `(-> Atom Expression Expression)` &mdash; LeaTTa's internal tail recursion behind `stratego-all`.
+- `_stratego-some-walk` `(-> Atom Expression Atom)` &mdash; LeaTTa's internal tail walk behind `stratego-some`, pairing the rebuilt tail with whether any member succeeded.
 - `eval-via-match` `(-> Atom %Undefined%)` &mdash; The one-step rewriting strategy the whole basis is specialised to. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `eval-via-unify` `(-> Atom %Undefined%)` &mdash; The unification-directed sibling of `eval-via-match`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `reduce-via-match` `(-> Atom Atom %Undefined%)` &mdash; The reduction form of the same strategy. The form is shown but not run here: PeTTa leaves the call unreduced.
@@ -551,8 +547,8 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `return` `(-> $t $t)` &mdash; The core's return, paired with `function`: it is what closes the frame, so it only ever appears inside one. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `collapse-bind` `(-> Atom Expression) | (TU Expression)` &mdash; The deep-tier collapse that keeps each alternative's BINDINGS, `((a (bindings ...)) ...)`. It belongs to the bindings-carrying tier, never to the surface; PeTTa's engine has the bindings carrier (`answer_bindings`) but not this instruction. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `superpose-bind` `(-> Expression Atom)` &mdash; The inverse of `collapse-bind`: it restores each alternative WITH its recorded bindings, which is a different operation from `superpose`. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `metta-call` `(-> Atom Type SpaceType Atom)` &mdash; LeaTTa's grounded-call step inside `metta`.
-- `metta-call-result` `(-> Atom Atom Type SpaceType Atom)` &mdash; LeaTTa's grounded-call continuation inside `metta`.
+- `_metta-call` `(-> Atom Type SpaceType Atom)` &mdash; LeaTTa's grounded-call step inside `metta`.
+- `_metta-call-result` `(-> Atom Atom Type SpaceType Atom)` &mdash; LeaTTa's grounded-call continuation inside `metta`.
 - `_minimal-foldl-atom` `(-> Expression Atom Variable Variable Atom SpaceType %Undefined%)` &mdash; LeaTTa's internal fold behind `foldl-atom`, declared twice in the manifest: once in the prelude and once in a built-in module registry.
 
 ## The mechanised interpreter
