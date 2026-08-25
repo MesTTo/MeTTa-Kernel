@@ -267,4 +267,36 @@ test(a_reset_releases_automatic_memo_analysis_state) :-
     assertion(\+ support_graph:support_memo_take_change(
                      p36_reset, p36_reset_fun)).
 
+% A node is a compound whose functor and first argument are the same for every
+% node of a kind in one module, so indexing the node term itself gives one
+% bucket per NODE KIND: asking whether a node is already dirty then walks a
+% quarter of the dirty set, and it is asked once per node an invalidation wave
+% reaches. Its hash sits in front of it for the reason the edge relation's does,
+% and this is asserted through predicate_property/2 for the same reason: the
+% index is what the change is about, and its quality is a fact the system
+% reports.
+test(the_dirty_set_indexes_by_key_and_not_by_node_kind) :-
+    dirty_index_speedup(Speedup),
+    assertion(Speedup > 100).
+
+dirty_index_speedup(Speedup) :-
+    Module = '$plunit_dirty_index',
+    forall(between(1, 500, I),
+           ( atom_concat(dix, I, Name),
+             forall(member(Node,
+                           [ function(Module, Name),
+                             function_view(Module, Name),
+                             compiled_function(Module, Name),
+                             type_marker(Module, Name) ]),
+                    support_graph:support_mark_dirty(Node)) )),
+    \+ support_graph:support_is_dirty(function(Module, dix_absent)),
+    findall(S,
+            ( catch(predicate_property(support_graph:support_dirty_node(_, _),
+                                       indexed(Indexes)), _, fail),
+              member(Index, Indexes),
+              get_dict(speedup, Index, S) ),
+            Speedups),
+    max_list([0|Speedups], Speedup),
+    support_graph:support_forget_module(Module).
+
 :- end_tests(support_graph).

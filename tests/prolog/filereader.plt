@@ -1016,6 +1016,161 @@ repair_excess(M, Excess) :-
 test(repairing_late_callers_costs_nothing_that_grows_with_the_program) :-
     repair_excess(200, Narrow),
     repair_excess(3200, Wide),
-    assertion(Wide < Narrow * 2.5).
+    %Deferred translation removed the load-time repair entirely, so both
+    %readings sit at zero plus measurement noise and either can go NEGATIVE,
+    %which flips a pure ratio. The absolute term keeps the flatness claim
+    %decidable in the zero regime while a return of the linear walk (211,336
+    %at the old M=12,800) still overwhelms it.
+    assertion(Wide < max(Narrow, 0) * 2.5 + 500).
 
 :- end_tests(filereader_late_definition_cost).
+
+% Registering a name asks SWI which predicates already carry it, and
+% current_predicate/1 with the arity unbound enumerates the predicate table.
+% Asked once per name that is a walk per name, so the batch asks once for all
+% of them. The two strategies are held together here rather than by sharing
+% code, because only the batch can be cheap and only the per-name form is cheap
+% for one name.
+:- begin_tests(filereader_signature_registration).
+
+probe_names(Count, Names) :-
+    findall(Name,
+            ( between(1, Count, Index),
+              atom_concat(sigprobe_absent_, Index, Name) ),
+            Fresh),
+    append([member, append, length, format, is_list], Fresh, Names0),
+    sort(Names0, Names).
+
+test(registering_a_batch_of_names_answers_what_asking_one_by_one_does) :-
+    probe_names(200, Names),
+    filereader:existing_predicate_arities(Names, Batched0),
+    sort(Batched0, Batched),
+    findall(Name-Arity,
+            ( member(Name, Names),
+              current_predicate(Name/Arity),
+              filereader:callable_as_written(Name, Arity) ),
+            OneByOne0),
+    sort(OneByOne0, OneByOne),
+    assertion(Batched == OneByOne),
+    assertion(Batched \== []).
+
+test(registering_new_names_costs_nothing_that_grows_with_their_number) :-
+    registration_cost(50, Narrow),
+    registration_cost(3200, Wide),
+    assertion(Wide < Narrow * 8).
+
+registration_cost(Count, Micros) :-
+    probe_names(Count, Names),
+    forall(between(1, 3, _), filereader:existing_predicate_arities(Names, _)),
+    T0 is cputime,
+    forall(between(1, 20, _), filereader:existing_predicate_arities(Names, _)),
+    T1 is cputime,
+    Micros is (T1 - T0) * 1000000 / 20.
+
+:- end_tests(filereader_signature_registration).
+
+% Deciding which declarations in a source name something the same source
+% defines used to walk an ordered list of the defined names once per
+% declaration.
+:- begin_tests(filereader_source_declaration_pass).
+
+test(checking_a_sources_declarations_costs_nothing_that_grows_with_the_source) :-
+    declaration_pass_cost(200, Narrow),
+    declaration_pass_cost(3200, Wide),
+    assertion(Wide < Narrow * 4).
+
+declaration_pass_cost(Count, Micros) :-
+    findall(Form,
+            ( between(1, Count, Index),
+              format(atom(Text), '(: dpc~w (-> Number))\n(= (dpc~w) ~w)',
+                     [Index, Index, Index]),
+              Form = Text ),
+            Forms),
+    atomic_list_concat(Forms, '\n', Source0),
+    atom_string(Source0, Source),
+    filereader:parse_metta_source_summary(Source, _, Sigs, Decls),
+    findall(F, member(F-_, Sigs), Names0),
+    sort(Names0, Names),
+    forall(between(1, 3, _),
+           ignore(filereader:refuse_untypable_from_summary(Names, Decls))),
+    T0 is cputime,
+    forall(between(1, 5, _),
+           ignore(filereader:refuse_untypable_from_summary(Names, Decls))),
+    T1 is cputime,
+    Micros is (T1 - T0) * 1000000 / (5 * Count).
+
+:- end_tests(filereader_source_declaration_pass).
+
+:- begin_tests(filereader_data_runs).
+
+%The run door and the per-atom door are one behaviour for plain data: the
+%same atoms in the same order, the same journal rows, and the same
+%withdrawal. The run door engages only under data_run/4's guards, silence
+%among them, so quietly/1 is what makes these tests exercise it; the loud
+%variant of the first test pins the per-form door to the same answer.
+
+quietly(Goal) :-
+    petta_engine_module(E),
+    setup_call_cleanup(asserta(E:silent(true), Ref), Goal, erase(Ref)).
+
+data_run_source(Prefix, S) :-
+    numlist(1, 40, Ns),
+    findall(T,
+            ( member(N, Ns), M is N mod 4,
+              format(atom(T), "(~w-fact~w ~w \"p\" 3.5)", [Prefix, M, N]) ),
+            Ts),
+    atomic_list_concat(Ts, '\n', A),
+    atom_string(A, S).
+
+stored_in_order(Head, Numbers) :-
+    findall(N, get_native_atom('&self', [Head, N|_]), Numbers).
+
+test(the_run_door_stores_what_the_per_atom_door_stores_in_order) :-
+    data_run_source(drq, Quiet),
+    quietly(filereader:process_metta_string(Quiet, _)),
+    data_run_source(drl, Loud),
+    filereader:process_metta_string(Loud, _),
+    stored_in_order('drq-fact1', ViaRun),
+    stored_in_order('drl-fact1', ViaForm),
+    assertion(ViaRun == [1, 5, 9, 13, 17, 21, 25, 29, 33, 37]),
+    assertion(ViaRun == ViaForm).
+
+test(a_mixed_stream_keeps_every_form_where_it_stood) :-
+    quietly(filereader:process_metta_string(
+        "(dm-a 1) (dm-a 2) (: dm-marker Number) (dm-a 3) (dm-a 4)", _)),
+    stored_in_order('dm-a', Ns),
+    assertion(Ns == [1, 2, 3, 4]),
+    findall(T, get_native_atom('&self', [':', 'dm-marker', T]), Ts),
+    assertion(Ts == ['Number']).
+
+test(the_run_door_journals_what_withdrawal_needs) :-
+    tmp_file_stream(text, File, Stream),
+    write(Stream, "(dj-run 1) (dj-run 2) (dj-run 3)"),
+    close(Stream),
+    quietly(filereader:metta_host_load_file(File, '&self', _)),
+    stored_in_order('dj-run', Before),
+    assertion(Before == [1, 2, 3]),
+    filereader:withdraw_source_load(File, '&self', Count),
+    assertion(Count =:= 3),
+    stored_in_order('dj-run', AfterWithdraw),
+    assertion(AfterWithdraw == []),
+    delete_file(File).
+
+test(a_bound_token_ends_the_fast_path_and_still_substitutes) :-
+    quietly(( filereader:process_metta_string("!(bind! dtok 41)", _),
+              filereader:process_metta_string(
+                  "(dt-holder dtok) (dt-holder 2)", _) )),
+    findall(A, get_native_atom('&self', ['dt-holder', A]), Held),
+    assertion(Held == [41, 2]),
+    quietly(filereader:process_metta_string(
+        "!(remove-atom &self (= dtok 41))", _)).
+
+test(scalars_and_variables_store_through_the_run_door) :-
+    quietly(filereader:process_metta_string(
+        "(ds-pair $x $x) (ds-pair a b)", _)),
+    findall(P-Q, get_native_atom('&self', ['ds-pair', P, Q]), Pairs),
+    assertion(Pairs = [_, a-b]),
+    Pairs = [V1-V2|_],
+    assertion(V1 == V2).
+
+:- end_tests(filereader_data_runs).

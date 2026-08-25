@@ -226,6 +226,31 @@ test(number_conversion_agrees_with_the_prolog_reader) :-
                     agree_sread(S) ),
                   Ints).
 
+test(the_parse_summary_agrees_with_the_prolog_walks) :-
+    expand_file_name('../../examples/*/*.metta', Fs1),
+    expand_file_name('../../examples/*/*/*.metta', Fs2),
+    expand_file_name('../../lib/*.metta', Fs3),
+    append([Fs1, Fs2, Fs3], Fs0),
+    msort(Fs0, Fs),
+    length(Fs, N),
+    aggregate_all(count,
+                  ( member(F, Fs),
+                    read_file_to_string(F, S, []),
+                    summary_agrees(S) ),
+                  N),
+    aggregate_all(count, adversarial_source(_), NA),
+    aggregate_all(count,
+                  ( adversarial_source(S), summary_agrees(S) ),
+                  NA).
+
+summary_agrees(S) :-
+    (   catch(parser:petta_c_parse_source(S, Forms, Sigs, Decls), _, fail)
+    ->  filereader:source_summary_of_forms(Forms, SpecSigs, SpecDecls),
+        Sigs =@= SpecSigs,
+        Decls =@= SpecDecls
+    ;   \+ catch(filereader:parse_metta_source_prolog(S, _), _, fail)
+    ).
+
 test(the_dispatching_door_answers_through_the_c_reader) :-
     filereader:parse_metta_source("(= (f $x) $x) !(g $y)", ViaDispatch),
     filereader:parse_metta_source_prolog("(= (f $x) $x) !(g $y)", ViaProlog),

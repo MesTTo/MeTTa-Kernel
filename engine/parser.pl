@@ -48,6 +48,13 @@
 %     mechanism states, not silently exempted policy values [tested:
 %     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
 %     commit=42b5d28232e75c32b20a1d5bf1f740fec134938d].
+%   - when engine/reader.so is present and no custom token class is
+%     registered, sread_mode/3 and sread_with_names_mode/4 answer through the
+%     C reader, whose results are variant-identical to this file's grammar
+%     over the whole shipped corpus, an adversarial battery, and generated
+%     number spellings, errors and failures included; PETTA_C_READER=off or
+%     a missing artifact keeps every parse on the grammar below [tested:
+%     reader_c in tests/prolog/reader_c.plt; commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
 % Owns resources:
 %   - metta_custom_reader_token/3 retains a host constructor until its pattern
 %     is replaced or unregistered [tested:
@@ -97,6 +104,7 @@
             petta_name_pairs/2,
             petta_c_reader_active/0,
             petta_c_parse_source/2,
+            petta_c_parse_source/4,
             'register-token!'/3,
             'unregister-token!'/2
           ]).
@@ -131,21 +139,28 @@ petta_try_load_c_reader :-
         petta_reader_artifact(SO),
         exists_file(SO),
         catch(load_foreign_library(SO), _, fail),
-        current_predicate(petta_c_parse_source/2)
+        %The FOREIGN arity, never the /2 wrapper below: a stale artifact
+        %registering an older arity must fall back whole rather than
+        %half-activate.
+        current_predicate(petta_c_parse_source/4)
     ->  assertz(petta_c_reader_active)
     ;   petta_c_reader_stub
     ).
 
 petta_c_reader_stub :-
-    (   current_predicate(petta_c_parse_source/2)
+    (   current_predicate(petta_c_parse_source/4)
     ->  true
-    ;   assertz((petta_c_parse_source(_, _) :- petta_c_reader_refuse)),
+    ;   assertz((petta_c_parse_source(_, _, _, _) :- petta_c_reader_refuse)),
         assertz((petta_c_sread(_, _, _) :- petta_c_reader_refuse))
     ).
 
+%The 2-ary spelling for a caller with no use for the summary.
+petta_c_parse_source(S, Forms) :-
+    petta_c_parse_source(S, Forms, _, _).
+
 petta_c_reader_refuse :-
     throw(error(existence_error(petta_c_reader, 'engine/reader.so'),
-                context(petta_c_parse_source/2,
+                context(petta_c_parse_source/4,
                         'build it: swipl-ld -shared -O2 -o engine/reader.so engine/reader.c'))).
 
 :- petta_try_load_c_reader.

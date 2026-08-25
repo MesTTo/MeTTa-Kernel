@@ -172,8 +172,10 @@ metta_host_fast_add_atoms(FA, Space) :-
     %Unconditional, because the only caller wraps this in a load context. A
     %fast load that reached here without one would be recorded under
     %nothing and so could never be replaced, and failing outright is the
-    %right way to find that out.
+    %right way to find that out. Ownership pins are skipped so the digest
+    %keys the load that is actually running, never a pinned owner.
     active_source_load(LoadId),
+    LoadId \= '$petta_owner_pin'(_),
     assertz(source_load_digest(LoadId, FA, ActualHash)),
     setup_call_cleanup(
         metta_host_fast_open(FA, read, In),
@@ -232,7 +234,8 @@ metta_host_digest_line(Atom, Line) :-
 %cost 113 inferences of every load].
 read_metta_source(Filename, S) :-
     read_source_text(Filename, S),
-    (   active_source_load(LoadId)
+    (   active_source_load(LoadId),
+        LoadId \= '$petta_owner_pin'(_)
     ->  metta_text_digest(S, Digest),
         assertz(source_load_digest(LoadId, Filename, Digest))
     ;   true
@@ -533,15 +536,77 @@ run_with_loading_marker(Marker, Goal) :-
 record_recompiled_source_assertion(Owners, Ref) :-
     forall(member(LoadId, Owners),
            assertz(source_load_assertion(LoadId, artifact, Ref))).
+%Both recorders unwrap the deferral door's ownership pin: a clause a force
+%materialises belongs to the source that DEFINED it, so the pin names that
+%closed load and the journal row lands there; a none owner journals
+%nowhere, exactly as its arrival did. The row keeps this tree's KIND
+%column either way.
 record_source_assertion(Ref) :-
-    active_source_load(LoadId), !,
-    assertz(source_load_assertion(LoadId, artifact, Ref)).
+    active_source_load(Load0), !,
+    (   Load0 = '$petta_owner_pin'(Load)
+    ->  (   Load == none
+        ->  true
+        ;   assertz(source_load_assertion(Load, artifact, Ref))
+        )
+    ;   assertz(source_load_assertion(Load0, artifact, Ref))
+    ).
 record_source_assertion(_).
 
 record_source_atom_assertion(Ref) :-
-    active_source_load(LoadId), !,
-    assertz(source_load_assertion(LoadId, stored, Ref)).
+    active_source_load(Load0), !,
+    (   Load0 = '$petta_owner_pin'(Load)
+    ->  (   Load == none
+        ->  true
+        ;   assertz(source_load_assertion(Load, stored, Ref))
+        )
+    ;   assertz(source_load_assertion(Load0, stored, Ref))
+    ).
 record_source_atom_assertion(_).
+
+%The same journal decision hoisted out of a run: the context lookup and the
+%owner-pin unwrap happen once, and the run's store loop journals each
+%reference against the answer with one indexed assert, or skips outright.
+%The two must stay one policy: journal_data_ref(L, R) for the L this
+%answers writes exactly the row record_source_atom_assertion(R) writes.
+journal_load_now(Load) :-
+    (   active_source_load(Load0)
+    ->  ( Load0 = '$petta_owner_pin'(L) -> Load = L ; Load = Load0 )
+    ;   Load = none
+    ).
+
+journal_data_ref(none, _) :- !.
+journal_data_ref(Load, Ref) :-
+    assertz(source_load_assertion(Load, stored, Ref)).
+
+%The load an assertion made RIGHT NOW would be charged to, or none. The
+%deferral door records this beside each waiting definition, because the
+%definition's clauses are only asserted when something first calls it, and
+%that can be inside a DIFFERENT load, on another thread, or nowhere at all.
+current_owning_source_load(Load) :-
+    (   active_source_load(Load0),
+        Load0 \= '$petta_owner_pin'(_)
+    ->  Load = Load0
+    ;   Load = none
+    ).
+
+%Run Goal with the source-load JOURNAL charging LOAD, whatever load is
+%active here and now. A deferred equation's compiled clause belongs to the
+%source that DEFINED it: journalled under the load that happened to force
+%it, a reload of that unrelated file withdrew the clause. Pinning the
+%CLOSED owning load is the point: its journal rows are exactly what
+%withdrawal walks when the OWNING file is reloaded, so the materialised
+%clauses leave with their definitions. A rollback for a closed load never
+%runs, so the pin cannot widen any failure. The pin is a MARKED term
+%asserted on top of the stack and erased by ITS OWN clause reference, the
+%discipline with_source_load keeps for its own marker; the journal writers
+%UNWRAP it with inline unification while the repair schedulers and the
+%recompile-pending context SKIP pins to the topmost real load.
+:- meta_predicate with_owning_source_load(+, 0).
+with_owning_source_load(Load, Goal) :-
+    setup_call_cleanup(
+        asserta(active_source_load('$petta_owner_pin'(Load)), Ref),
+        call(Goal),
+        erase(Ref)).
 
 %A receipt consults the source journal rather than the support graph because
 %its dependencies are physical source-load and clause-reference identities,
@@ -576,8 +641,14 @@ support_graph:support_assertion_records(Refs) :-
     (   source_recompile_owners(Owners)
     ->  forall(member(LoadId, Owners),
                assertz(source_load_support_assertions(LoadId, Refs)))
-    ;   active_source_load(LoadId)
-    ->  assertz(source_load_support_assertions(LoadId, Refs))
+    ;   active_source_load(Load0)
+    ->  (   Load0 = '$petta_owner_pin'(Load)
+        ->  (   Load == none
+            ->  true
+            ;   assertz(source_load_support_assertions(Load, Refs))
+            )
+        ;   assertz(source_load_support_assertions(Load0, Refs))
+        )
     ;   true
     ).
 

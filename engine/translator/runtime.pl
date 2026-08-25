@@ -439,6 +439,11 @@ petta_minimal_equation_step(Module, [Fun|Args], Out) :-
     function_evaluation_active,
     atom(Fun),
     \+ metta_grounded_token(Fun),
+    %The retained-equation door reads fun_meta rows, and a deferred
+    %function has none until its equations translate: unforced, a function
+    %frame decided NotReducible-with-no-equations where the arbiter's
+    %protocol wants one equality step over the source equations.
+    metta_ensure_compiled(Fun),
     fun_meta_module(Module, Fun, _),
     !,
     (   petta_minimal_equation_body(Module, Fun, Args, Body)

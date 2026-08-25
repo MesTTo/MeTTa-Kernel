@@ -132,6 +132,29 @@ build_c_extension_example() {
 }
 build_c_extension_example
 
+# Build the engine's C reader so every gate lane runs the shipping
+# configuration: the shipped-mode parse in C, the Prolog grammar as the
+# specification, the custom-token path, and the fallback. Without swipl-ld
+# the fallback configuration is what gets gated, and the note says so; with
+# swipl-ld present a build failure fails the gate rather than silently
+# gating the fallback.
+build_engine_reader() {
+    if ! command -v swipl-ld >/dev/null 2>&1 ||
+       ! command -v cc >/dev/null 2>&1 &&
+       ! command -v gcc >/dev/null 2>&1 &&
+       ! command -v clang >/dev/null 2>&1; then
+        echo "note: no C toolchain, the gate runs the Prolog reader fallback" >&2
+        return 0
+    fi
+    if [ ! -f "$HERE/engine/reader.so" ] ||
+       [ "$HERE/engine/reader.c" -nt "$HERE/engine/reader.so" ]; then
+        ( cd "$HERE/engine" && swipl-ld -shared -O2 -o reader.so reader.c ) ||
+            { echo "error: engine/reader.c failed to build; the C reader gates every lane" >&2
+              exit 1; }
+    fi
+}
+build_engine_reader
+
 # ---------------------------------------------------------------- GATE tier
 # Correctness. These must pass on every commit.
 

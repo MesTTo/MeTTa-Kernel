@@ -13,6 +13,22 @@
 %   - parse_metta_source/2 consumes comments in its grammars without building a
 %     stripped source copy [measured: 7,736,802 versus 8,874,582 inferences for
 %     twenty parses of 48,786 codes, 2026-08-15].
+%   - parse_metta_source/2 dispatches to the C reader (engine/reader.c via
+%     parser:petta_c_parse_source/4) when it is loaded and the shipped token
+%     classes are active, and parse_metta_source_prolog/2 stays the
+%     specification it is held to, variant-identical results over the corpus
+%     and adversarial battery [tested: reader_c in tests/prolog/reader_c.plt;
+%     commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
+%   - parse_metta_source_summary/4 carries the signature multiset and
+%     declaration pairs beside the forms, from the C reader's own walk or
+%     source_summary_of_forms/3's, and every pre-pass and the program-order
+%     context consume the summary instead of re-walking the source [tested:
+%     reader_c:the_parse_summary_agrees_with_the_prolog_walks;
+%     commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
+%   - a run of consecutive plain data atoms under a silent load with no
+%     bound tokens stores through spaces' run door with the identical
+%     atoms, order, journal rows and withdrawal the per-form door produces
+%     [tested: filereader_data_runs; commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
 %   - plain and gzip-compressed MeTTa sources are decoded as UTF-8 regardless
 %     of the process locale [tested:
 %     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
@@ -157,11 +173,18 @@
             record_source_assertion/1,
             record_source_atom_assertion/1,
             source_load_receipt_current/4,
+            with_owning_source_load/2,
+            current_owning_source_load/1,
             record_translated_from/3,
             forget_translated_from/3,
             forget_space_source_loads/1,
             recompile_function_impl/1,
             repair_after_late_registration/1,
+            %engine/spaces.pl's bulk program door registers a whole batch of
+            %equation signatures in one pass, for the reason the batch itself
+            %exists: asking the predicate table costs one walk of it whether
+            %one name is asked about or a million.
+            register_function_signatures/1,
             support_invalidate_function/1,
             support_invalidate_function_change/2,
             support_invalidate_definition/1,
@@ -196,6 +219,8 @@
             metta_host_run_source/4,
             metta_host_run_source_status/3,
             metta_host_load_file/3,
+            journal_load_now/1,
+            journal_data_ref/2,
             metta_host_read_forms/2,
             metta_host_save_fast/3,
             metta_host_load_fast/2,
@@ -225,7 +250,7 @@
 :- use_module(library(zlib)). % gzopen/3, .gz program files
 :- use_module(library(fastrw), [fast_read/2, fast_write/2]). % the fast cache
 :- use_module(library(memfile)). % the fast save's hashed payload buffer
-:- use_module(library(ordsets)). % ord_memberchk/2
+:- use_module(library(assoc), [ord_list_to_assoc/2, get_assoc/3]).
 :- use_module(library(pairs)). % group_pairs_by_key/2
 %Every compiled clause's source equation; asserted here and by
 %add-atom/3, read by removal and the tracer, so it must exist before
@@ -382,9 +407,9 @@ load_metta_source_groups_impl(Filename, Space, Groups) :-
 
 read_metta_source_groups(Filename, Space, Groups) :-
     read_metta_source(Filename, Source),
-    prepare_metta_source(Source, Forms),
-    with_source_program_order(
-        Forms,
+    prepare_metta_source(Source, Forms, Names),
+    with_named_program_order(
+        Names,
         with_runnable_variable_epochs(
             ( maplist(process_loader_form(Space), Forms, PerForm),
               !,
@@ -416,6 +441,18 @@ metta_answer_term(Term, Term).
 %error(metta_control_signal(syntax, M), context(petta, syntax)), the same
 %shape the limit guards throw, so a binding classifies the thrown term
 %rather than hunting rendered text.
+%The tagged parse that also hands back the summary, for the host door's
+%no-bindings path.
+metta_host_tagged_parse_summary(Source, Parsed, Sigs, Decls) :-
+    catch(parse_metta_source_summary(Source, Parsed, Sigs, Decls), Caught,
+          (   (   Caught = error(syntax_error(M), _)
+              ;   Caught = syntax_error(M)
+              )
+          ->  throw(error(metta_control_signal(syntax, M),
+                          context(petta, syntax)))
+          ;   throw(Caught)
+          )).
+
 metta_host_tagged_parse(Source, Parsed) :-
     catch(parse_metta_source(Source, Parsed), Caught,
           (   (   Caught = error(syntax_error(M), _)
@@ -447,14 +484,19 @@ metta_host_default_working_dir :-
 metta_host_run_source(Source0, Space, Bindings, Groups) :-
     metta_host_default_working_dir,
     ( string(Source0) -> Source = Source0 ; atom_string(Source0, Source) ),
-    metta_host_tagged_parse(Source, Parsed0),
     (   Bindings == []
-    ->  Parsed = Parsed0
-    ;   maplist(metta_host_substitute_form(Bindings), Parsed0, Parsed)
+    ->  %The parse summary is the PRE-substitution source's; a binding can
+        %rewrite any subterm, heads included, so the substituted branch
+        %below recomputes everything from the forms it actually runs.
+        metta_host_tagged_parse_summary(Source, Parsed, Sigs, Decls),
+        prepare_parsed_summary(Parsed, Sigs, Decls, Names)
+    ;   metta_host_tagged_parse(Source, Parsed0),
+        maplist(metta_host_substitute_form(Bindings), Parsed0, Parsed),
+        source_summary_of_forms(Parsed, Sigs, Decls),
+        prepare_parsed_summary(Parsed, Sigs, Decls, Names)
     ),
-    prepare_parsed_forms(Parsed),
-    with_source_program_order(
-        Parsed,
+    with_named_program_order(
+        Names,
         with_runnable_variable_epochs(
             metta_host_process_groups(Parsed, Space, Groups))),
     !.
@@ -567,25 +609,174 @@ process_metta_string(S, Results, Space) :-
     with_mutex(metta_loader,
                process_direct_metta_string(S, Results, Space)).
 process_direct_metta_string(S, Results, Space) :-
-    prepare_metta_source(S, ParsedForms),
-    with_source_program_order(
-        ParsedForms,
+    prepare_metta_source(S, ParsedForms, Names),
+    with_named_program_order(
+        Names,
         with_runnable_variable_epochs(
-            ( maplist(process_form(Space), ParsedForms, ResultsList), !,
+            ( process_forms(process_form(Space), Space, ParsedForms, ResultsList), !,
               append(ResultsList, Carried),
               maplist(metta_answer_term, Carried, Results) ))).
 process_loader_string(S, Results, Space) :-
-    prepare_metta_source(S, ParsedForms),
-    with_source_program_order(
-        ParsedForms,
+    prepare_metta_source(S, ParsedForms, Names),
+    with_named_program_order(
+        Names,
         with_runnable_variable_epochs(
-            ( maplist(process_loader_form(Space), ParsedForms, ResultsList), !,
+            ( process_forms(process_loader_form(Space), Space, ParsedForms,
+                            ResultsList), !,
               append(ResultsList, Carried),
               maplist(metta_answer_term, Carried, Results) ))).
 
+%A run of consecutive definitions goes through the space's bulk program door,
+%which registers their names in one pass and defers their translation. Anything
+%else ends the run and takes the per-form door where it stood, so the order the
+%file is written in is the order it happens in. The clause trace forces the
+%translation it exists to show, so a loud load keeps the per-form door too.
+%
+%Measured over a hundred thousand equations: 58.46us an equation through the
+%per-form door against 13.22 through the bulk one [measured 2026-08-24].
+:- meta_predicate process_forms(2, +, +, -).
+
+%A run contributes ONE empty result, not one per form: both callers flatten
+%the result list with append/2 before reading it, so a run's forms, none of
+%which is a runnable, are indistinguishable from a single non-runnable form
+%there. Building one [] per form cost the fun doorbench five inferences an
+%equation, two length/2, a maplist(=([])) cons and a run-long append
+%[measured 2026-08-24].
+process_forms(_, _, [], []) :- !.
+process_forms(PerForm, Space, [Form|Forms], [[]|Results]) :-
+    definition_run([Form|Forms], Space, Run, Rest),
+    Run = [_, _|_],
+    !,
+    add_definition_run(Space, Run),
+    process_forms(PerForm, Space, Rest, Results).
+process_forms(PerForm, Space, [Form|Forms], [[]|Results]) :-
+    data_run([Form|Forms], Space, Run, Rest),
+    Run = [_, _|_],
+    !,
+    store_data_atoms(Run, Space),
+    process_forms(PerForm, Space, Rest, Results).
+process_forms(PerForm, Space, [Form|Forms], [Result|Results]) :-
+    call(PerForm, Form, Result),
+    process_forms(PerForm, Space, Forms, Results).
+
+%A run of consecutive plain data atoms takes the run store, which decides
+%the run-invariants once; anything with per-atom semantics ends the run
+%where it stands. The guards are the ARRIVAL-time semantics the per-form
+%door would have applied to each atom, hoisted because nothing inside a
+%run can change them: printing is off (a loud load shows each atom from
+%the per-form door), the bound-token table is empty (bind! is a runnable
+%and a runnable ends every run), the space is native with idle hooks, and
+%'&petta' keeps its per-atom catalog checks. A '=' or ':' head has
+%per-atom meaning (definition, declaration) and ends the run too, so both
+%doors' plain-data behaviour, evict-nothing then store then journal, is
+%the same behaviour this run door performs
+%[tested: filereader_data_runs; commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
+data_run(Forms, Space, Run, Rest) :-
+    silent(true),
+    \+ metta_token(_, _),
+    \+ seam:foreign_space(Space),
+    Space \== '&petta',
+    petta_hook_claim_idle(Space),
+    metta_add_hooks_idle(Space),
+    data_prefix(Forms, Run, Rest),
+    Run \== [].
+
+data_prefix([parsed(expression, _, Term)|Forms], [Term|Run], Rest) :-
+    (   Term = [Head|_]
+    ->  Head \== (=),
+        Head \== (:)
+    ;   true
+    ),
+    !,
+    data_prefix(Forms, Run, Rest).
+data_prefix(Forms, [], Forms).
+
+%A definition is bulk-loadable while nothing about the form needs the per-form
+%door: the trace is off, and the space is the one the source was written
+%against, so rewrite_parsed_form/4 would be the identity on it.
+definition_run(Forms, Space, Run, Rest) :-
+    silent(true),
+    Space == '&self',
+    %ONE rewritten equation sends the WHOLE run back through the per-form
+    %door, in order, because the bulk door stores and translates the terms
+    %it is handed and the rewrite pipeline (bind! token substitution, the
+    %&self walk, seam:form_rewriter) is ARRIVAL-time semantics: a deferred
+    %equation mentioning a bound token compiled against the literal token
+    %where the eager door compiled the binding, so match_snapshot's visit
+    %removed from a space named '&snapshot' that was not the space its
+    %items live in, and the collapse answered nothing
+    %[measured 2026-08-24: examples/spaces/match_snapshot.metta].
+    %
+    %The fence itself hoists out of the prefix walk when both rewrite
+    %tables are EMPTY: with no seam:form_rewriter and no bound token,
+    %rewrite_parsed_form/4 on a '&self' form is the identity by its own
+    %three guards, so the per-form probe pair and the == fence prove the
+    %same thing once for the whole run. One registered rewriter or token
+    %keeps the per-form fence exactly as it stood; bind! is a runnable and
+    %ends every run, so neither table can change inside one
+    %[tested: filereader_data_runs, spaces_deferred_translation;
+    %commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
+    (   \+ seam:form_rewriter(_),
+        \+ metta_token(_, _)
+    ->  plain_definition_prefix(Forms, Run, Rest)
+    ;   definition_prefix(Forms, Space, Run, Rest)
+    ),
+    Run \== [].
+
+plain_definition_prefix([parsed(function, _, Term)|Forms], [Term|Run], Rest) :-
+    Term = [=, [F|_], _],
+    atom(F),
+    !,
+    plain_definition_prefix(Forms, Run, Rest).
+plain_definition_prefix(Forms, [], Forms).
+
+definition_prefix([parsed(function, FormStr, Term)|Forms], Space,
+                  [Term|Run], Rest) :-
+    Term = [=, [F|_], _],
+    atom(F),
+    rewrite_parsed_form(Space, FormStr, Term, Bound),
+    Bound == Term,
+    !,
+    definition_prefix(Forms, Space, Run, Rest).
+definition_prefix(Forms, _, [], Forms).
+
+add_definition_run(Space, Run) :-
+    metta_add_program_atoms(Space, Run, Names),
+    forall(member(F, Names), source_definition_arrived(F)).
+
 prepare_metta_source(S, ParsedForms) :-
-    parse_metta_source(S, ParsedForms),
-    prepare_parsed_forms(ParsedForms).
+    prepare_metta_source(S, ParsedForms, _).
+
+%The summary is the parse's by-product: which names this source defines, at
+%which arities, and which names it declares. The C reader hands all three
+%back from the one walk it already makes; the Prolog reader computes them by
+%the walks below, which stay the specification the C summary is held to
+%[tested: reader_c:the_parse_summary_agrees_with_the_prolog_walks;
+%commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3]. Before the summary, preparing a source walked every form
+%three more times, once per pre-pass, and those walks were 3.6 findall-bag
+%inferences per atom of the fun doorbench and a fifth of the data one.
+prepare_metta_source(S, ParsedForms, Names) :-
+    parse_metta_source_summary(S, ParsedForms, Sigs, Decls),
+    prepare_parsed_summary(ParsedForms, Sigs, Decls, Names).
+
+parse_metta_source_summary(S, ParsedForms, Sigs, Decls) :-
+    (   petta_c_reader_active,
+        metta_reader_mode(shipped)
+    ->  petta_c_parse_source(S, ParsedForms, Sigs, Decls)
+    ;   parse_metta_source_prolog(S, ParsedForms),
+        source_summary_of_forms(ParsedForms, Sigs, Decls)
+    ).
+
+source_summary_of_forms(Forms, Sigs, Decls) :-
+    findall(F-Arity,
+            ( member(parsed(function, _, [=, [F|Args], _]), Forms),
+              length(Args, InputArity),
+              Arity is InputArity + 1 ),
+            Sigs),
+    findall(Name-Type,
+            ( member(parsed(expression, _, [':', Name, Type]), Forms),
+              atom(Name) ),
+            Decls).
 
 %The signature pre-pass and the evaluation pass deliberately answer different
 %questions. The former lets metadata operations see every name in the source;
@@ -598,13 +789,18 @@ prepare_metta_source(S, ParsedForms) :-
 :- meta_predicate with_source_program_order(+, 0).
 
 with_source_program_order(ParsedForms, Goal) :-
-    gensym(source_program_, Id),
     findall(F, source_equation_name(ParsedForms, F), Names0),
     sort(Names0, Names),
-    (   Names == []
-    ->  call(Goal)
-    ;   with_source_definition_order(Id, Names, Goal)
-    ).
+    with_named_program_order(Names, Goal).
+
+%The same context from names already in hand: every hot door now carries the
+%parse summary, so the walk above serves only callers holding bare forms.
+:- meta_predicate with_named_program_order(+, 0).
+
+with_named_program_order([], Goal) :- !, call(Goal).
+with_named_program_order(Names, Goal) :-
+    gensym(source_program_, Id),
+    with_source_definition_order(Id, Names, Goal).
 
 with_source_definition_order(Id, Names, Goal) :-
     setup_call_cleanup(
@@ -649,6 +845,10 @@ flush_source_program_analysis_if_needed :-
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 flush_source_prefix_repairs :-
     active_source_load(LoadId),
+    %Backtrack past ownership pins to the load actually RUNNING: a pin
+    %carries a CLOSED load whose drain has already run, and repairs are
+    %scheduled under real loads only.
+    LoadId \= '$petta_owner_pin'(_),
     !,
     repair_support_invalidations(LoadId).
 flush_source_prefix_repairs.
@@ -664,8 +864,14 @@ flush_source_prefix_repairs.
 %defines: fun/1 was not asserted yet and memoize refused the name
 %[measured 2026-08-18: 193 of 200 examples agreed, all seven the same root].
 prepare_parsed_forms(ParsedForms) :-
-    refuse_untypable_source_declarations(ParsedForms),
-    register_parsed_signatures(ParsedForms),
+    source_summary_of_forms(ParsedForms, Sigs, Decls),
+    prepare_parsed_summary(ParsedForms, Sigs, Decls, _).
+
+prepare_parsed_summary(ParsedForms, Sigs, Decls, Names) :-
+    findall(F, member(F-_, Sigs), Names0),
+    sort(Names0, Names),
+    refuse_untypable_from_summary(Names, Decls),
+    register_function_signatures(Sigs),
     % Pinned git dependencies declared in this file are fetched before any of
     % its forms run (gitimport.pl).
     acquire_declared_dependencies(ParsedForms).
@@ -695,54 +901,46 @@ parse_metta_source_prolog(S, ParsedForms) :-
     metta_reader_mode(Mode),
     maplist(parse_form_with_mode(Mode), Forms, ParsedForms).
 
-%Every name this source defines by an equation, against every type this source
-%declares for it. refuse_untypable_declaration/3 in metta.pl holds the rule and
-%says why it refuses; this is the collector for the case that matters most,
-%the declaration and the definition written in one file.
-%
-%The pass is here rather than at registration because a source's declarations
-%do not reach the space until its forms are processed, which is AFTER
-%register_parsed_signatures/1; and here rather than after the load because by
-%then the file's own !(...) forms have already run and a rollback would be
-%undoing effects the author already saw. Declarations for names this source
-%does not define are left alone: the space has no equations to contradict them,
-%and space.lint() reads the whole space, so the cross-file case is named there.
-%
-%The pass costs 0.05% to 0.23% of the parse it follows [measured 2026-08-16:
-%376 inferences against 770,612 over greedy_chess.metta's 128 forms, 418
-%against 180,156 over lib_pln.metta's 82].
-refuse_untypable_source_declarations(ParsedForms) :-
-    findall(F, source_equation_name(ParsedForms, F), Defined0),
-    sort(Defined0, Defined),
-    Defined \== [],
-    findall(Name-Type, source_declaration(ParsedForms, Defined, Name, Type),
-            Declarations0),
+source_equation_name(ParsedForms, F) :-
+    member(parsed(function, _, [=, [F|_], _]), ParsedForms),
+    atom(F).
+
+source_declaration(ParsedForms, DefinedNames, Name, Type) :-
+    member(parsed(expression, _, [':', Name, Type]), ParsedForms),
+    atom(Name),
+    get_assoc(Name, DefinedNames, _).
+
+%Every name this source defines by an equation, against every type it
+%declares for that name; refuse_untypable_declaration/3 in metta.pl holds
+%the rule and says why it refuses. The pass runs here, at preparation,
+%because a source's declarations do not reach the space until its forms
+%are processed, and after the load its own !(...) forms have already run.
+%The names and declaration pairs are the parse summary's, so the pass no
+%longer walks the source at all. The defined names go through an ASSOC,
+%not ord_memberchk/2: the membership test runs once per declaration, an
+%ordered-list scan walks until it passes the name, and a source that
+%declares and defines the same N functions then pays N/8 comparisons per
+%declaration, quadratic in the file. That was measured at 5,250
+%comparisons over a 200-function source and 81,000 over an 800-function
+%one before the assoc first landed, and the growth test caught this pass
+%reintroducing it through ord_memberchk before it ever shipped
+%[tested: filereader_source_declaration_pass:checking_a_sources_declarations_costs_nothing_that_grows_with_the_source].
+refuse_untypable_from_summary(Names, Decls) :-
+    Names \== [],
+    Decls \== [],
+    findall(Name-defined, member(Name, Names), Defined0),
+    ord_list_to_assoc(Defined0, Defined),
+    include(summary_declaration_of_defined(Defined), Decls, Declarations0),
     Declarations0 \== [],
     !,
     keysort(Declarations0, Declarations),
     group_pairs_by_key(Declarations, Grouped),
     forall(member(Name-Types, Grouped),
            refuse_untypable_declaration(Name, Types)).
-refuse_untypable_source_declarations(_).
+refuse_untypable_from_summary(_, _).
 
-source_equation_name(ParsedForms, F) :-
-    member(parsed(function, _, [=, [F|_], _]), ParsedForms),
-    atom(F).
-
-source_declaration(ParsedForms, Defined, Name, Type) :-
-    member(parsed(expression, _, [':', Name, Type]), ParsedForms),
-    atom(Name),
-    ord_memberchk(Name, Defined).
-
-% Register the complete signature set before repairing callers.  Translating a
-% caller while only the first overload is visible can otherwise leave it stale.
-register_parsed_signatures(ParsedForms) :-
-    findall(F-Arity,
-            ( member(parsed(function, _, [=, [F|Args], _]), ParsedForms),
-              length(Args, InputArity),
-              Arity is InputArity + 1 ),
-            Signatures),
-    register_function_signatures(Signatures).
+summary_declaration_of_defined(Defined, Name-_) :-
+    get_assoc(Name, Defined, _).
 
 register_function_signature(F, Arity) :-
     register_function_signatures([F-Arity]).
@@ -774,22 +972,57 @@ register_function_signatures(Signatures0) :-
     findall(F, member(F-_, Signatures), Names0),
     sort(Names0, Names),
     findall(F, (member(F, Names), \+ fun(F)), NewFunNames),
-    forall(member(F, Names),
-           ( warn_if_executed_as_symbol(F),
-             ensure_fun_registered(F) )),
+    forall(member(F, Names), warn_if_executed_as_symbol(F)),
+    register_new_funs(NewFunNames),
     append(NewArityNames0, NewFunNames, RepairNames0),
     sort(RepairNames0, RepairNames),
     forall(member(F, RepairNames), repair_after_late_registration(F)).
 
-ensure_fun_registered(N) :- fun(N), !.
-ensure_fun_registered(N) :-
-    assertz(fun(N), FunRef),
-    record_source_assertion(FunRef),
-    forall(( current_predicate(N/Arity),
-             \+ (current_op(_, _, N), Arity =< 2) ),
-           ( arity(N, Arity) -> true
-             ; assertz(arity(N, Arity), ArityRef),
+%A name arriving as a MeTTa function may already be a Prolog predicate, and
+%every arity it has under that name is one this program can call, so each is
+%recorded. The question is asked for the whole batch at once because
+%current_predicate/1 with the arity unbound ENUMERATES the predicate table:
+%asking about one name costs 17.4us against this engine's 2,845 predicates,
+%where walking the table once and keeping the names wanted costs 416.9us and
+%answers any number of them. Per name that is a walk per name, so a source
+%defining a thousand new functions spent 14,625us asking against 752us for the
+%pass, and a million-function source would spend sixteen seconds
+%[measured 2026-08-24]. Below the crossover, about forty names, the per-name
+%form is still the cheaper one and is what runs; the two return the same
+%list [tested: registering_a_batch_of_names_answers_what_asking_one_by_one_does].
+register_new_funs([]) :- !.
+register_new_funs(NewFunNames) :-
+    forall(member(F, NewFunNames),
+           ( assertz(fun(F), FunRef),
+             record_source_assertion(FunRef) )),
+    existing_predicate_arities(NewFunNames, NameArities),
+    forall(member(F-Arity, NameArities),
+           ( arity(F, Arity) -> true
+             ; assertz(arity(F, Arity), ArityRef),
                record_source_assertion(ArityRef) )).
+
+existing_predicate_arities(Names, NameArities) :-
+    length(Names, Count),
+    (   Count > 40
+    ->  findall(N-wanted, member(N, Names), Wanted0),
+        ord_list_to_assoc(Wanted0, Wanted),
+        findall(N-Arity,
+                ( current_predicate(N/Arity),
+                  get_assoc(N, Wanted, _),
+                  callable_as_written(N, Arity) ),
+                NameArities)
+    ;   findall(N-Arity,
+                ( member(N, Names),
+                  current_predicate(N/Arity),
+                  callable_as_written(N, Arity) ),
+                NameArities)
+    ).
+
+%An operator of one or two arguments is written as an operator rather than
+%called, so the predicate SWI holds under that name is not the shape a MeTTa
+%call would take.
+callable_as_written(Name, Arity) :-
+    \+ ( current_op(_, _, Name), Arity =< 2 ).
 
 %An expression that already executed compiled F as plain data; that execution cannot
 %be repaired retroactively, so flag it when F now arrives through a parsed definition:
@@ -811,9 +1044,11 @@ repair_after_late_registration(F) :-
     ( support_view_module(F, _) -> schedule_definition_repair(F) ; true ).
 
 schedule_definition_repair(F) :-
-    active_source_load(LoadId), !,
-    ( source_load_repair(LoadId, F) -> true
-    ; assertz(source_load_repair(LoadId, F)) ).
+    active_source_load(Load0),
+    Load0 \= '$petta_owner_pin'(_),
+    !,
+    ( source_load_repair(Load0, F) -> true
+    ; assertz(source_load_repair(Load0, F)) ).
 schedule_definition_repair(F) :-
     repair_stale_definitions(F).
 
@@ -1048,7 +1283,15 @@ support_invalidate_definition(F) :-
 :- multifile support_graph:support_invalidation_action/1.
 support_graph:support_invalidation_action(compiled_function(Module, G)) :-
     supports(translated_form(_, _), compiled_function(Module, G)),
-    ( active_source_load(LoadId) -> Context = LoadId ; Context = immediate ),
+    %Skipping the ownership pins is what keeps a pending drainable: a pin
+    %carries a CLOSED load whose drain has already run, so a pending keyed by
+    %it would survive the process. The context is the load actually RUNNING,
+    %the topmost non-pin marker, or immediate.
+    (   active_source_load(Load0),
+        Load0 \= '$petta_owner_pin'(_)
+    ->  Context = Load0
+    ;   Context = immediate
+    ),
     ( support_recompile_pending(Context, Module, G) -> true
     ; assertz(support_recompile_pending(Context, Module, G)) ).
 
@@ -1128,8 +1371,7 @@ process_form(Space, parsed(function, FormStr, Term), []) :-
     %The one compile door (compile_metta_equation/4 in spaces.pl) carries
     %the eviction, registration, translation, provenance, and the complete
     %change notification this clause used to restate.
-    compile_metta_equation(Module, BoundTerm, _Clause, Ref),
-    print_function_form(FormStr, Ref),
+    store_metta_equation(Space, Module, Term, BoundTerm, FormStr),
     source_definition_arrived(F).
 process_form(_, In, _) :-
     throw(error(petta_translation_failed(In),
@@ -1170,8 +1412,7 @@ process_loader_form(Space, parsed(function, FormStr, Term), []) :-
     record_source_atom_assertion(SpaceRef),
     rewrite_parsed_form(Space, FormStr, Term, BoundTerm),
     space_module(Space, Module),
-    compile_metta_equation(Module, BoundTerm, _Clause, Ref),
-    print_function_form(FormStr, Ref),
+    store_metta_equation(Space, Module, Term, BoundTerm, FormStr),
     source_definition_arrived(F).
 process_loader_form(_, In, _) :-
     throw(error(petta_translation_failed(In),
@@ -1206,6 +1447,24 @@ print_runnable_form(FormStr, Goals) :-
     forall(member(G, Goals),
            ansi_format([fg(magenta)], "~@", [prolog_listing:portray_clause((:- G))])),
     ansi_format([fg(yellow)], "^^^^^^^^^^^^^^^^^^^^^^^~n", []).
+
+%An arriving equation is recorded and translated when something reaches it.
+%The clause trace is the only thing at load time that looks at the translated
+%clause, so it is the only thing that has to force the translation; everything
+%else a definition settles, the name being a function and the previous
+%definition being stale, defer_metta_equation/2 settles as the equation
+%arrives.
+%Equality by ==, never head unification: Term and BoundTerm both carry
+%variables, and unifying them can succeed by BINDING across the two where
+%the rewrite in fact changed the term.
+store_metta_equation(Space, Module, Term, BoundTerm, _) :-
+    silent(true),
+    Term == BoundTerm,
+    !,
+    defer_metta_equation(Space, Module, Term).
+store_metta_equation(_, Module, _, BoundTerm, FormStr) :-
+    compile_metta_equation(Module, BoundTerm, _Clause, Ref),
+    print_function_form(FormStr, Ref).
 
 print_function_form(_, _) :- silent(true), !.
 print_function_form(FormStr, Ref) :-

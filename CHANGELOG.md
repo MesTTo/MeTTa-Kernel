@@ -207,6 +207,27 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `tests/prolog/reader_c.plt` holds the two byte-equal over the shipped
   corpus, an adversarial battery, and 250,000 generated number spellings.
 
+- Add the store wave: a source's equations are registered when they arrive
+  and translated when something first reaches them, with the reachable set
+  falling out of the translator's own recursion (s(CASP)'s query-slice
+  shape). A deferred function is one marker row per (arity, owning load);
+  its equations stay in the space, which already indexes them, and SWI's
+  own undefined-predicate retry hook is the safety net under every door the
+  engine does not guard itself. Materialisation is interrupt-safe at every
+  inference: rows stand until their pair's clauses do, and each equation
+  commits clause, fun_meta, provenance and queued types as one transaction,
+  so a resource limit landing anywhere leaves the function callable.
+  Compiled clauses journal under the source that DEFINED them through an
+  ownership pin, so reloading an unrelated file that happened to force a
+  function no longer withdraws it. The bulk store door writes a batch of
+  data atoms at the mechanical floor (2.25us per atom against 61.39us per
+  compiled arrival) with one ordered pass, and the C reader hands back each
+  source's function-signature multiset and declaration pairs from the parse
+  walk the pre-passes used to repeat. `cons-atom` and `cons` compile inline
+  at direct call sites. The two list-constructor inlines, the per-name
+  batch collapse, and the duplicate-declaration store probe replace three
+  measured quadratic or linear-in-program costs with flat ones.
+
 ### Changed
 
 - The four oversized engine sources are reorganized into 21 cohesive plain

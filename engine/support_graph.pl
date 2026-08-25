@@ -26,7 +26,7 @@
 %     test_a_doubly_branching_recursion_is_tabled_automatically_and_a_tail_recursion_is_not;
 %     commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
 % Owns resources: supports/2, support_function_module/2,
-%   support_view_module/2, support_dirty_node/1, support_value/2,
+%   support_view_module/2, support_dirty_node/2, support_value/3,
 %   support_memo_rule/4 and support_memo_changed/2 are transactional dynamic
 %   state; support_forget/1, support_forget_module/1 and support_reset/0 release
 %   their indexes, edges, dirtiness markers and retained values.
@@ -127,8 +127,17 @@ support_edge_retractall(Support, Derived) :-
     retractall(supports(SupportKey, DerivedKey, Support, Derived)).
 :- dynamic support_function_module/2.
 :- dynamic support_view_module/2.
-:- dynamic support_dirty_node/1.
-:- dynamic support_value/2.
+%Keyed by a hash of the node for the reason supports/4 above is: a node is a
+%COMPOUND whose functor and first argument are the same for every node of a
+%kind in one module, `function('$petta_exec:&self', _)` for all of them, so
+%SWI's index puts a program's whole dirty set in one bucket and asking whether
+%a node is already dirty walks it. That made invalidation quadratic in the
+%number of nodes dirtied: asking cost 7.85us against a 2,000-node dirty set and
+%72.70us against an 8,000-node one, and it is asked once per node reached
+%[measured 2026-08-24]. The hash is unbound for a non-ground node, which is
+%what a module-wide pattern wants and correctly selects the scan.
+:- dynamic support_dirty_node/2.
+:- dynamic support_value/3.
 :- dynamic support_memo_rule/4.
 :- dynamic support_memo_changed/2.
 :- thread_local support_graph_locked/0.
@@ -517,8 +526,8 @@ support_forget_locked(Node) :-
     support_forget_memo_rule(Node),
     support_edge_retractall(Node, _),
     support_edge_retractall(_, Node),
-    retractall(support_dirty_node(Node)),
-    retractall(support_value(Node, _)),
+    support_dirty_retractall(Node),
+    support_value_retractall(Node),
     support_unindex_node_locked(Node).
 
 support_forget_memo_rule(translated_form(Module, Ref)) :-
@@ -550,8 +559,8 @@ support_forget_module_locked(Module) :-
     sort(Refs0, Refs),
     forall(member(Ref, Refs), erase(Ref)),
     forall(support_module_pattern(Module, Node),
-           ( retractall(support_dirty_node(Node)),
-             retractall(support_value(Node, _)) )),
+           ( support_dirty_retractall(Node),
+             support_value_retractall(Node) )),
     retractall(support_function_module(_, Module)),
     retractall(support_view_module(_, Module)),
     retractall(support_memo_rule(Module, _, _, _)),
@@ -647,7 +656,19 @@ support_invalidate_many_locked(Supports) :-
            true).
 
 support_mark_dirty(Node) :-
-    ( support_dirty_node(Node) -> true ; assertz(support_dirty_node(Node)) ).
+    term_hash(Node, NodeKey),
+    (   support_dirty_node(NodeKey, Node)
+    ->  true
+    ;   assertz(support_dirty_node(NodeKey, Node))
+    ).
+
+support_dirty_retractall(Node) :-
+    term_hash(Node, NodeKey),
+    retractall(support_dirty_node(NodeKey, Node)).
+
+support_value_retractall(Node) :-
+    term_hash(Node, NodeKey),
+    retractall(support_value(NodeKey, Node, _)).
 
 support_visit(Node, Seen, Nodes, Tail) :-
     add_nb_set(Node, Seen, New),
@@ -665,7 +686,8 @@ support_visit_list([Node|Nodes], Seen, Out, Tail) :-
     support_visit_list(Nodes, Seen, Rest, Tail).
 
 support_is_dirty(Node) :-
-    support_dirty_node(Node).
+    term_hash(Node, NodeKey),
+    support_dirty_node(NodeKey, Node).
 
 % Compute is called as call(Compute, FreshValue). A clean retained value is
 % returned without calling it. A changed value invalidates successors; an
@@ -676,18 +698,20 @@ support_stabilize(Derived, Compute, Value) :-
     support_atomic(support_stabilize_locked(Derived, Compute, Value)).
 
 support_stabilize_locked(Derived, _, Value) :-
-    \+ support_dirty_node(Derived),
-    support_value(Derived, Stored),
+    term_hash(Derived, DerivedKey),
+    \+ support_dirty_node(DerivedKey, Derived),
+    support_value(DerivedKey, Derived, Stored),
     !,
     copy_term(Stored, Value).
 support_stabilize_locked(Derived, Compute, Value) :-
+    term_hash(Derived, DerivedKey),
     call(Compute, Fresh),
-    (   support_value(Derived, Previous),
+    (   support_value(DerivedKey, Derived, Previous),
         Previous =@= Fresh
-    ->  retractall(support_dirty_node(Derived))
-    ;   retractall(support_value(Derived, _)),
-        assertz(support_value(Derived, Fresh)),
-        retractall(support_dirty_node(Derived)),
+    ->  retractall(support_dirty_node(DerivedKey, Derived))
+    ;   retractall(support_value(DerivedKey, Derived, _)),
+        assertz(support_value(DerivedKey, Derived, Fresh)),
+        retractall(support_dirty_node(DerivedKey, Derived)),
         support_invalidate_successors_locked(Derived)
     ),
     copy_term(Fresh, Value).
@@ -710,7 +734,7 @@ support_reset :-
         ( retractall(supports(_, _, _, _)),
           retractall(support_function_module(_, _)),
           retractall(support_view_module(_, _)),
-          retractall(support_dirty_node(_)),
-          retractall(support_value(_, _)),
+          retractall(support_dirty_node(_, _)),
+          retractall(support_value(_, _, _)),
           retractall(support_memo_rule(_, _, _, _)),
           retractall(support_memo_changed(_, _)) )).

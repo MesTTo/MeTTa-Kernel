@@ -5,8 +5,13 @@
  *   comments, $-variables with per-form identity, string literals with the
  *   five escapes, dcg/basics number//1 with boundary check, True/False,
  *   the quote-token fallback). Registered into module parser as
- *   petta_c_parse_source/2 and petta_c_sread/3 by parser.pl when this file's
- *   compiled reader.so sits beside it.
+ *   petta_c_parse_source/4 and petta_c_sread/3 by parser.pl when this file's
+ *   compiled reader.so sits beside it; the two extra arguments hand back the
+ *   source's function-signature multiset and its declaration pairs from the
+ *   same walk, the summaries filereader.pl's pre-passes used to re-walk the
+ *   whole form list for [tested:
+ *   reader_c:the_parse_summary_agrees_with_the_prolog_walks;
+ *   commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
  * Assumes: input text arrives as an SWI atom, string, or number
  *   (PL_get_nchars CVT_ATOM|CVT_STRING|CVT_NUMBER, REP_UTF8); the engine
  *   dispatches here only while metta_reader_mode(shipped) holds, so no
@@ -46,7 +51,7 @@
 #include <locale.h>
 
 static atom_t ATOM_expression, ATOM_function, ATOM_runnable, ATOM_none;
-static atom_t ATOM_true, ATOM_false, ATOM_eq;
+static atom_t ATOM_true, ATOM_false, ATOM_eq, ATOM_colon;
 static functor_t FUNCTOR_parsed3, FUNCTOR_parsed4;
 static functor_t FUNCTOR_error2, FUNCTOR_syntax_error1, FUNCTOR_minus2;
 static locale_t c_locale;
@@ -643,9 +648,12 @@ soft_fail:
 }
 
 /* Term = [=, [F|_], _] with atom(F): the function classification of
- * parse_form_with_mode/3, read off the built term. */
+ * parse_form_with_mode/3, read off the built term.  On success *f and
+ * *arity carry the signature register_parsed_signatures/1 used to walk
+ * the whole source for: F and the LENGTH of the head list [F|Args],
+ * which is InputArity + 1. */
 static int
-is_function_shape(term_t t)
+function_signature(term_t t, atom_t *f, long *arity)
 { term_t l = PL_copy_term_ref(t);
   term_t h = PL_new_term_ref();
   atom_t a;
@@ -656,12 +664,39 @@ is_function_shape(term_t t)
     return 0;
   { term_t hh = PL_new_term_ref();
     term_t ht = PL_copy_term_ref(h);
-    if ( !PL_get_list(ht, hh, ht) || !PL_get_atom(hh, &a) )
+    long n = 0;
+    if ( !PL_get_list(ht, hh, ht) || !PL_get_atom(hh, f) )
       return 0;
+    n = 1;
+    while ( PL_get_list(ht, hh, ht) )
+      n++;
+    if ( !PL_get_nil(ht) )
+      return 0;
+    *arity = n;
   }
   if ( !PL_get_list(l, h, l) )
     return 0;
   return PL_get_nil(l);
+}
+
+/* Term = [:, Name, Type] with atom(Name): the declaration pair
+ * source_declaration/4 used to walk the whole source for.  On success
+ * pair holds Name-Type. */
+static int
+declaration_pair(term_t t, term_t pair)
+{ term_t l = PL_copy_term_ref(t);
+  term_t name = PL_new_term_ref();
+  term_t type = PL_new_term_ref();
+  term_t h = PL_new_term_ref();
+  atom_t a;
+
+  if ( !PL_get_list(l, h, l) || !PL_get_atom(h, &a) || a != ATOM_colon )
+    return 0;
+  if ( !PL_get_list(l, name, l) || !PL_get_atom(name, &a) )
+    return 0;
+  if ( !PL_get_list(l, type, l) || !PL_get_nil(l) )
+    return 0;
+  return PL_cons_functor(pair, FUNCTOR_minus2, name, type);
 }
 
 /* The reader's final environment, newest first: E accumulates [N-V|E0]. */
@@ -697,7 +732,8 @@ put_names_list(ctx *c, term_t out)
  * nothing to remember between forms.] */
 static int
 build_parsed_form(term_t result, ctx *c, const unsigned char *text,
-                  size_t tlen, int runnable)
+                  size_t tlen, int runnable, term_t sig_tail,
+                  term_t decl_tail)
 { rd r = { text, tlen, 0, 1 };
   term_t termt, str, kind, built;
   int ok;
@@ -728,8 +764,30 @@ build_parsed_form(term_t result, ctx *c, const unsigned char *text,
     PL_put_atom(kind, ATOM_runnable);
     ok = PL_cons_functor(built, FUNCTOR_parsed4, kind, str, termt, names);
   } else
-  { PL_put_atom(kind, is_function_shape(termt) ? ATOM_function
-                                               : ATOM_expression);
+  { atom_t f;
+    long arity;
+    if ( function_signature(termt, &f, &arity) )
+    { term_t pair = PL_new_term_ref();
+      term_t ft = PL_new_term_ref();
+      term_t at = PL_new_term_ref();
+      term_t shead = PL_new_term_ref();
+      PL_put_atom(ft, f);
+      if ( !PL_put_int64(at, arity) ||
+           !PL_cons_functor(pair, FUNCTOR_minus2, ft, at) ||
+           !PL_unify_list(sig_tail, shead, sig_tail) ||
+           !PL_unify(shead, pair) )
+        return FALSE;
+      PL_put_atom(kind, ATOM_function);
+    } else
+    { term_t pair = PL_new_term_ref();
+      if ( declaration_pair(termt, pair) )
+      { term_t dhead = PL_new_term_ref();
+        if ( !PL_unify_list(decl_tail, dhead, decl_tail) ||
+             !PL_unify(dhead, pair) )
+          return FALSE;
+      }
+      PL_put_atom(kind, ATOM_expression);
+    }
     ok = PL_cons_functor(built, FUNCTOR_parsed3, kind, str, termt);
   }
   return ok && PL_unify(result, built);
@@ -740,12 +798,12 @@ build_parsed_form(term_t result, ctx *c, const unsigned char *text,
  * parse_form_with_mode/3.                                             */
 
 static foreign_t
-c_parse_source(term_t source, term_t out)
+c_parse_source(term_t source, term_t out, term_t sigs, term_t decls)
 { char *s;
   size_t len;
   rd r;
   ctx c;
-  term_t tail, head;
+  term_t tail, head, sig_tail, decl_tail;
   int rc = FALSE;
 
   if ( !PL_get_nchars(source, &len, &s,
@@ -760,6 +818,8 @@ c_parse_source(term_t source, term_t out)
   r.line = 1;
   tail = PL_copy_term_ref(out);
   head = PL_new_term_ref();
+  sig_tail = PL_copy_term_ref(sigs);
+  decl_tail = PL_copy_term_ref(decls);
 
   for ( ;; )
   { int sz;
@@ -853,13 +913,14 @@ c_parse_source(term_t source, term_t out)
       goto out;
     { fid_t fid = PL_open_foreign_frame();
       int ok = build_parsed_form(head, &c, r.s + fstart, fend - fstart,
-                                 runnable);
+                                 runnable, sig_tail, decl_tail);
       PL_close_foreign_frame(fid);
       if ( !ok )
         goto out;
     }
   }
-  rc = PL_unify_nil(tail);
+  rc = PL_unify_nil(tail) && PL_unify_nil(sig_tail) &&
+       PL_unify_nil(decl_tail);
 
 out:
   ctx_free(&c);
@@ -923,6 +984,7 @@ install_reader(void)
   ATOM_true = PL_new_atom("true");
   ATOM_false = PL_new_atom("false");
   ATOM_eq = PL_new_atom("=");
+  ATOM_colon = PL_new_atom(":");
   FUNCTOR_parsed3 = PL_new_functor(PL_new_atom("parsed"), 3);
   FUNCTOR_parsed4 = PL_new_functor(PL_new_atom("parsed"), 4);
   FUNCTOR_error2 = PL_new_functor(PL_new_atom("error"), 2);
@@ -930,7 +992,7 @@ install_reader(void)
   FUNCTOR_minus2 = PL_new_functor(PL_new_atom("-"), 2);
   c_locale = newlocale(LC_ALL_MASK, "C", (locale_t)0);
 
-  PL_register_foreign_in_module("parser", "petta_c_parse_source", 2,
+  PL_register_foreign_in_module("parser", "petta_c_parse_source", 4,
                                 c_parse_source, 0);
   PL_register_foreign_in_module("parser", "petta_c_sread", 3, c_sread, 0);
 }

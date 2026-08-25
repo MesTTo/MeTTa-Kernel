@@ -3020,3 +3020,208 @@ comma_goals(Conjunction, Goals) :-
     ).
 
 :- end_tests(spaces_drop_untables_first).
+
+% A declaration is swallowed as a duplicate only when a stored atom is its
+% VARIANT, and the probe that decides which declarations are worth comparing
+% must not decide the comparison itself: a store read unifies its pattern with
+% the stored atom, so a stored (: $x Number) comes back wearing the probe's own
+% name and reads as a variant of it. The five cases below are the whole
+% relation, and they are what the probe may not change.
+% The probes live in their own space, never '&self': two of them plant
+% variable-NAME declarations, and a stored (: $x Type) row is a declaration
+% for EVERY name by the wildcard-match contract, so leaking one into &self
+% types every function a later suite defines and retains their calls.
+:- begin_tests(spaces_duplicate_declarations).
+
+declaration_verdict(Term, Verdict) :-
+    (   spaces:existing_duplicate_declaration('&dup-suite', Term, First)
+    ->  Verdict = duplicate(First)
+    ;   Verdict = new
+    ).
+
+test(a_stored_declaration_more_general_than_the_one_arriving_is_not_its_duplicate,
+     [setup(spaces:metta_add_atom('&dup-suite', [':', _, 'DupProbeType'], _))]) :-
+    declaration_verdict([':', dup_probe_ground, 'DupProbeType'], Verdict),
+    assertion(Verdict == new).
+
+test(a_declaration_as_general_as_the_stored_one_is_its_duplicate,
+     [setup(spaces:metta_add_atom('&dup-suite', [':', _, 'DupVariantType'], _))]) :-
+    declaration_verdict([':', _, 'DupVariantType'], duplicate(First)),
+    assertion(First = [':', _, 'DupVariantType']).
+
+test(an_exact_repeat_is_a_duplicate_and_a_different_type_for_the_name_is_not,
+     [setup(spaces:metta_add_atom('&dup-suite', [':', dup_probe_named, 'DupNamedType'], _))]) :-
+    declaration_verdict([':', dup_probe_named, 'DupNamedType'], Repeat),
+    assertion(Repeat == duplicate([':', dup_probe_named, 'DupNamedType'])),
+    declaration_verdict([':', dup_probe_named, 'DupOtherType'], Other),
+    assertion(Other == new),
+    declaration_verdict([':', dup_probe_absent, 'DupNamedType'], Absent),
+    assertion(Absent == new).
+
+% Deciding that a new declaration is new used to walk every atom the space
+% holds, so a program's declarations cost time quadratic in its size.
+test(deciding_a_declaration_is_new_costs_nothing_that_grows_with_the_space) :-
+    declaration_probe_cost(400, Narrow),
+    declaration_probe_cost(6400, Wide),
+    assertion(Wide < Narrow * 4).
+
+declaration_probe_cost(Held, Micros) :-
+    metta_add_atom('&dup-suite', [':', dup_cost_seed, 'DupCostType'], _),
+    forall(between(1, Held, Index),
+           ( atom_concat(dup_cost_row, Index, Row),
+             metta_add_atom('&dup-suite', [Row, filler], _) )),
+    Rounds = 200,
+    forall(between(1, 20, _), \+ spaces:existing_duplicate_declaration(
+                                     '&dup-suite', [':', dup_cost_absent, 'DupCostType'], _)),
+    T0 is cputime,
+    forall(between(1, Rounds, _), \+ spaces:existing_duplicate_declaration(
+                                        '&dup-suite', [':', dup_cost_absent, 'DupCostType'], _)),
+    T1 is cputime,
+    Micros is (T1 - T0) * 1000000 / Rounds.
+
+:- end_tests(spaces_duplicate_declarations).
+
+% An equation is registered when it arrives and translated when something
+% reaches it. Nothing about that is visible to a program: the same answers, in
+% the same order, from the same doors. What changes is the cost of a batch,
+% because what an equation settles for its NAME is settled once for the batch
+% rather than once for the equation.
+:- begin_tests(spaces_deferred_translation).
+
+deferred_source(Count, Source) :-
+    findall(Text,
+            ( between(1, Count, Index),
+              format(atom(Text), '(= (dtf~w $x) (+ $x ~w))', [Index, Index]) ),
+            Forms),
+    atomic_list_concat(Forms, '\n', Joined),
+    atom_string(Joined, Source).
+
+test(a_deferred_function_answers_what_an_eagerly_compiled_one_does) :-
+    filereader:process_metta_string(
+        "(= (dt-one $x) (+ $x 1))\n(= (dt-two $x) (dt-one (dt-one $x)))", _),
+    filereader:process_metta_string("!(dt-two 40)", Answers),
+    assertion(Answers == [42]).
+
+%The force is interrupt-safe at EVERY inference: sweeping the budget lands
+%the inference-limit exception at each position inside the materialisation in
+%turn, the retract-findall gap and the mid-equation half-assert included, and
+%whatever the landing spot the function must still become callable. The first
+%deferral shape lost the rows to a limit that landed between its retracting
+%findall and its restoring catch, and the caller after it read "Unknown
+%procedure" [measured 2026-08-24: test_ladder_rungs_cross_the_async_seam,
+%armed by the C reader freeing the parse's share of a 60-inference budget].
+test(a_limit_landing_anywhere_inside_the_force_leaves_the_function_callable) :-
+    forall(between(1, 200, Budget),
+           ( format(atom(Name), 'dt-sweep~w', [Budget]),
+             format(atom(Def), '(= (~w $x) (+ $x 1))', [Name]),
+             filereader:process_metta_string(Def, _),
+             space_module('&self', Module),
+             Goal =.. [Name, 1, Out],
+             (   catch(call_with_inference_limit(call(Module:Goal), Budget,
+                                                 _),
+                       _,
+                       true)
+             ->  true
+             ;   true
+             ),
+             Retry =.. [Name, 2, RetryOut],
+             call(Module:Retry),
+             assertion(RetryOut == 3),
+             ( var(Out) -> true ; assertion(Out == 2) ) )).
+
+test(a_deferred_function_is_reachable_through_its_predicate) :-
+    filereader:process_metta_string("(= (dt-direct $x) (* $x 2))", _),
+    space_module('&self', Module),
+    Goal =.. ['dt-direct', 21, Out],
+    call(Module:Goal),
+    assertion(Out == 42).
+
+% The bulk door batches the work that belongs to a NAME and must not reorder
+% the atoms themselves: a space enumerates its clauses in the order they were
+% asserted, so get-atoms and match answer in that order, and MeTTa answer order
+% is observable. Held together by a differential rather than by shared code,
+% which is how spaces_batch_is_only_a_transport beside it holds the same
+% promise for the batch transport.
+test(the_bulk_door_stores_a_mixed_batch_in_the_order_the_per_atom_door_does) :-
+    Batch = [ [ordprobe, 1],
+              [=, [ordprobe_a], 1],
+              [ordprobe, 2],
+              [':', ordprobe_d, 'Number'],
+              [=, [ordprobe_b], 2],
+              [ordprobe, 3] ],
+    door_order(per_atom, Batch, PerAtom),
+    door_order(bulk, Batch, Bulk),
+    assertion(PerAtom == Bulk),
+    assertion(PerAtom \== []).
+
+door_order(Door, Batch, Order) :-
+    'new-space'(Space),
+    setup_call_cleanup(
+        (   Door == per_atom
+        ->  forall(member(Atom, Batch), metta_add_atom(Space, Atom, _))
+        ;   metta_add_program_atoms(Space, Batch)
+        ),
+        (   findall(Stored, 'get-atoms'(Space, Stored), All),
+            atoms_by_width(All, Order)
+        ),
+        metta_release_space(Space)).
+
+% Compared WITHIN each width rather than across the whole answer, because only
+% the first is a promise: get_native_atom/3 enumerates a space's predicates
+% through current_predicate/1 with the arity unbound, which is SWI's
+% predicate-table order and moves when unrelated predicates are created, while
+% order within one width is clause order and therefore insertion order.
+% keysort/2 is stable, so grouping does not itself reorder.
+atoms_by_width(Atoms, ByWidth) :-
+    findall(Width-Atom,
+            ( member(Atom, Atoms), atom_width(Atom, Width) ),
+            Pairs),
+    keysort(Pairs, Sorted),
+    group_pairs_by_key(Sorted, ByWidth).
+
+atom_width(Atom, Width) :-
+    ( is_list(Atom) -> length(Atom, Width) ; Width = 0 ).
+
+% The marker means "translate every equation of this function out of the
+% space", so a function whose clauses already stand must never be marked: the
+% standing ones would be translated a second time and answer twice.
+test(an_equation_joining_a_translated_function_answers_once) :-
+    filereader:process_metta_string(
+        "(= (dtjoin) a)\n(= (dtjoin) b)\n(= (dtjoin) c)", _),
+    filereader:process_metta_string("!(collapse (dtjoin))", Before),
+    assertion(Before == [[a, b, c]]),
+    filereader:process_metta_string("(= (dtjoin) d)", _),
+    filereader:process_metta_string("!(collapse (dtjoin))", After),
+    assertion(After == [[a, b, c, d]]).
+
+test(an_equation_added_to_a_translated_function_answers_once) :-
+    filereader:process_metta_string("(= (dtadd) p)", _),
+    filereader:process_metta_string("!(collapse (dtadd))", Before),
+    assertion(Before == [[p]]),
+    metta_add_atom('&self', [=, ['dtadd'], q], _),
+    filereader:process_metta_string("!(collapse (dtadd))", After),
+    assertion(After == [[p, q]]).
+
+test(a_deferred_equation_removed_before_it_translates_is_gone) :-
+    filereader:process_metta_string(
+        "(= (dt-gone) 1)\n(= (dt-gone) 2)", _),
+    metta_remove_atom('&self', [=, ['dt-gone'], 1], _),
+    filereader:process_metta_string("!(dt-gone)", Answers),
+    assertion(Answers == [2]).
+
+% Every equation of one function used to invalidate what the previous ones
+% compiled, so adding k of them cost time quadratic in k.
+test(adding_many_equations_to_one_function_costs_time_linear_in_their_number) :-
+    one_function_batch_cost(200, Narrow),
+    one_function_batch_cost(1600, Wide),
+    assertion(Wide < Narrow * 4).
+
+one_function_batch_cost(Count, Micros) :-
+    atom_concat(dt_bulk_, Count, Name),
+    findall([=, [Name, Index], Index], between(1, Count, Index), Equations),
+    T0 is cputime,
+    metta_add_program_atoms('&self', Equations),
+    T1 is cputime,
+    Micros is (T1 - T0) * 1000000 / Count.
+
+:- end_tests(spaces_deferred_translation).
