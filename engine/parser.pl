@@ -95,12 +95,56 @@
             metta_host_register_reader_token/2,
             metta_host_unregister_reader_token/1,
             petta_name_pairs/2,
+            petta_c_reader_active/0,
+            petta_c_parse_source/2,
             'register-token!'/3,
             'unregister-token!'/2
           ]).
 
 :- use_module(library(dcg/basics)). %atom//1, number//1, eos//0
 :- use_module(library(pcre)).
+:- use_module(library(shlib)).
+
+%The C reader rides beside this file as reader.c, compiled to reader.so by
+%check.sh or by hand with `swipl-ld -shared -O2 -o reader.so reader.c`. It is
+%a port of the SHIPPED grammar only, so the dispatches below consult it only
+%while metta_reader_mode(shipped) holds; the Prolog grammar in this file
+%remains the reader's specification, the custom-token path, and the fallback
+%wherever the artifact is absent, exactly the backends' artifact-presence
+%pattern. PETTA_C_READER=off keeps the Prolog reader even when the artifact
+%exists, which is what the differential suite and the fallback benchmarks
+%use. The stub clauses keep both foreign names defined for the engine's
+%undefined-predicate gate when the artifact is absent; the
+%petta_c_reader_active/0 guard on every dispatch means a stub is unreachable.
+:- dynamic petta_c_reader_active/0.
+:- dynamic petta_reader_artifact/1.
+:- prolog_load_context(directory, Dir),
+   directory_file_path(Dir, 'reader.so', SO),
+   assertz(petta_reader_artifact(SO)).
+
+petta_try_load_c_reader :-
+    (   \+ getenv('PETTA_C_READER', off),
+        petta_reader_artifact(SO),
+        exists_file(SO),
+        catch(load_foreign_library(SO), _, fail),
+        current_predicate(petta_c_parse_source/2)
+    ->  assertz(petta_c_reader_active)
+    ;   petta_c_reader_stub
+    ).
+
+petta_c_reader_stub :-
+    (   current_predicate(petta_c_parse_source/2)
+    ->  true
+    ;   assertz((petta_c_parse_source(_, _) :- petta_c_reader_refuse)),
+        assertz((petta_c_sread(_, _, _) :- petta_c_reader_refuse))
+    ).
+
+petta_c_reader_refuse :-
+    throw(error(existence_error(petta_c_reader, 'engine/reader.so'),
+                context(petta_c_parse_source/2,
+                        'build it: swipl-ld -shared -O2 -o engine/reader.so engine/reader.c'))).
+
+:- petta_try_load_c_reader.
 
 %The tokenizer is the reader seam upstream: an ordered mapping from a full
 %token regex to a constructor, searched newest first. These shipped rows are
@@ -213,14 +257,18 @@ sread_with_names(Text, Term, VarMap) :-
     sread_with_names_mode(Mode, Text, Term, VarMap).
 
 sread_with_names_mode(Mode, Text, Term, VarMap) :-
-    (   string(Text) -> S = Text ; atom_string(Text, S) ),
-    string_codes(S, Cs),
-    ( catch(phrase(sexpr_mode(Mode, Term, [], VarMap), Cs),
-            error(syntax_error(float_overflow), _),
-            metta_saturating_parse(sexpr_mode(Mode, Term, [], VarMap), Cs))
-      -> true
-       ; format(atom(Msg), 'Parse error in form: ~w', [S]),
-         throw(error(syntax_error(Msg), none)) ).
+    (   Mode == shipped,
+        petta_c_reader_active
+    ->  petta_c_sread(Text, Term, VarMap)
+    ;   ( string(Text) -> S = Text ; atom_string(Text, S) ),
+        string_codes(S, Cs),
+        ( catch(phrase(sexpr_mode(Mode, Term, [], VarMap), Cs),
+                error(syntax_error(float_overflow), _),
+                metta_saturating_parse(sexpr_mode(Mode, Term, [], VarMap), Cs))
+          -> true
+           ; format(atom(Msg), 'Parse error in form: ~w', [S]),
+             throw(error(syntax_error(Msg), none)) )
+    ).
 
 %Generate a MeTTa S-expression string from the Prolog list (inverse parsing).
 %A value outside the inverse domain is an error, never lossy display text.
@@ -600,8 +648,12 @@ sread(S, T) :-
     sread_mode(Mode, S, T).
 
 sread_mode(Mode, S, T) :-
-    atom_codes(S, Cs),
-    sread_codes_mode(Mode, Cs, S, T).
+    (   Mode == shipped,
+        petta_c_reader_active
+    ->  petta_c_sread(S, T, _)
+    ;   atom_codes(S, Cs),
+        sread_codes_mode(Mode, Cs, S, T)
+    ).
 
 sread_codes(Cs, Source, T) :-
     metta_reader_mode(Mode),

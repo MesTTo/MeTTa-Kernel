@@ -17,7 +17,9 @@
 ;The specification: "It evaluates the <atom> until it becomes (return <atom>).
 ;Then (function (return <atom>)) expression returns the <atom>."
 !(test (function (return 42)) 42)
-!(test (function (chain (+ 1 2) $x (return $x))) 3)
+;The chain binder receives the written atom at this instruction boundary.
+;LeaTTa 9ea9f9d answers the exact form with (+ 1 2), not 3.
+!(test (function (chain (+ 1 2) $x (return $x))) (noeval (+ 1 2)))
 
 ;`return` is deliberately not registered, so it survives evaluation as data.
 ;Registering it as the identity its (-> $t $t) signature suggests makes
@@ -26,10 +28,9 @@
 !(test (return 7) (return 7))
 
 ;A branch that ends without a return is the specification's own error, and it
-;carries the ORIGINAL body rather than wherever the walk stopped. The body is
-;an unreducible form because `test` evaluates its expected value too, so
-;(Error (+ 1 2) NoReturn) written out would have its (+ 1 2) reduced to 3.
-!(test (function (foo bar)) (Error (foo bar) NoReturn))
+;carries the ORIGINAL function frame rather than wherever the walk stopped.
+;LeaTTa 9ea9f9d answers this exact form with the same diagnostic.
+!(test (function (foo bar)) (Error (function (foo bar)) NoReturn))
 
 ;--------------------------------------------------------------- unify-mod
 ;The specification names two pieces of matching as future work. Both are here.
@@ -84,8 +85,11 @@
 !(test (collapse-bind (match &self (edge a $y) (found $y)))
        (((found b) (bindings (<- $v b))) ((found c) (bindings (<- $v c)))))
 
-;superpose-bind puts the rows back into the plan, one answer each.
-!(test (collapse (superpose-bind (collapse-bind (match &self (edge a $y) (found $y)))))
+;superpose-bind puts an already-built carrier back into the plan, one answer
+;per row. Expression parameters are held, so chain names collapse-bind's
+;result before handing it to superpose-bind.
+!(test (collapse (chain (collapse-bind (match &self (edge a $y) (found $y))) $rows
+                   (superpose-bind $rows)))
        ((found b) (found c)))
 
 ;And RESTORES that row's bindings while it does, which is the whole reason the

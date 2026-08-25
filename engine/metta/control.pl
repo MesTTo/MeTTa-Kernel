@@ -415,6 +415,125 @@ petta_evaluation_fuel(Limit) :-
                                                                 Space) ),
                                      evalc(Atom, Space, Out).
 
+%`metta-thread` enters the same full evaluator as `metta`, but its caller keeps
+%the Prolog variables bound along each nondeterministic branch. A function
+%frame marks its own calls so `eval` exposes one equation RHS. That mark must
+%not leak into the nested evaluator: the reference delegates `metta-thread` to
+%`mettaEval`, whose typed argument pass and result continuation run before the
+%next source-interpreter carrier is returned.
+%[source: MettaHyperonFull/Minimal/Interpreter.lean:6337-6351 and 7361-7524,
+%`mettaThreadStep` delegates to `mettaEval`; commit=WORKTREE]
+'metta-thread'(Atom, _Type, Space, Out) :-
+    (   'is-space'(Space, true)
+    ->  true
+    ;   throw_metta_type_error('metta-thread', 'SpaceType', Space)
+    ),
+    petta_metta_thread_eval(Atom, Space, Out).
+
+petta_metta_thread_eval(Atom, Space, Out) :-
+    petta_metta_thread_step(Atom, Space, Prepared, Step, Status),
+    (   Status == 'not-reducible'
+    ->  Out = Prepared
+    ;   Step == 'Empty'
+    ->  fail
+    ;   Step == Prepared
+    ->  Out = Prepared
+    ;   petta_metta_result_is_final(Prepared)
+    ->  Out = Step
+    ;   petta_metta_thread_eval(Step, Space, Out)
+    ).
+
+%`mettaEval` rejects an inapplicable call before running any operand.  For an
+%accepted atom-headed application it then evaluates exactly the positions in
+%argMask to a fixpoint and asks the minimal reducer to apply the prepared call.
+%Using reduce/3 here is load-bearing: feeding the prepared term back through
+%evalc/3 would evaluate an Atom-returned argument a second time.
+%[source: MettaHyperonFull/Minimal/Interpreter.lean:7375-7460,
+%`mettaEval`; commit=WORKTREE]
+petta_metta_thread_step(Carrier, _, Carrier, Carrier, 'not-reducible') :-
+    petta_collapse_bind_result(Carrier),
+    !.
+petta_metta_thread_step(Call, Space, Call, Step, Status) :-
+    Call = [Head|_],
+    atom(Head),
+    metta_special_form(Head),
+    !,
+    setup_call_cleanup(
+        petta_suspend_function_evaluation(Saved),
+        petta_evalc_step(Call, Space, Step),
+        petta_restore_function_evaluation(Saved)),
+    ( Step == 'NotReducible' -> Status = 'not-reducible' ; Status = reduced ).
+petta_metta_thread_step([Head|Args], Space, Prepared, Step, Status) :-
+    atom(Head),
+    !,
+    (   metta_bad_argument_error(Head, Args, Error)
+    *-> Prepared = [Head|Args],
+        Step = Error,
+        Status = reduced
+    ;   length(Args, Arity),
+        metta_runtime_argument_mask(Head, Arity, Mask),
+        petta_metta_thread_arguments(Args, Mask, Space, Values),
+        Prepared = [Head|Values],
+        space_module(Space, Module),
+        setup_call_cleanup(
+            petta_suspend_function_evaluation(Saved),
+            with_metta_module(Module, reduce(Prepared, Step, Status)),
+            petta_restore_function_evaluation(Saved))
+    ).
+petta_metta_thread_step(Atom, Space, Atom, Step, Status) :-
+    setup_call_cleanup(
+        petta_suspend_function_evaluation(Saved),
+        petta_evalc_step(Atom, Space, Step),
+        petta_restore_function_evaluation(Saved)),
+    ( Step == 'NotReducible' -> Status = 'not-reducible' ; Status = reduced ).
+
+petta_metta_thread_arguments([], _, _, []).
+petta_metta_thread_arguments([Arg|Args], [Evaluate|Mask], Space,
+                             [Value|Values]) :-
+    (   Evaluate == true
+    ->  petta_metta_thread_eval(Arg, Space, Value)
+    ;   Value = Arg
+    ),
+    petta_metta_thread_arguments(Args, Mask, Space, Values).
+
+%A nonempty collapse-bind carrier is an evaluated expression, even though its
+%public representation is an ordinary nested tuple.  Its exact shape is the
+%persistent mark: every row is `(atom bindings)` and every binding entry is a
+%decodable `<-` pair.  Keeping it inert is what lets a later superpose-bind
+%restore the row before evaluating the selected atom.
+%[source: MettaHyperonFull/Minimal/Interpreter.lean:3682-3700 and 7488-7492,
+%`isCollapseBindResult` and its `mettaEval` guard; commit=WORKTREE]
+petta_collapse_bind_result([Pair|Pairs]) :-
+    maplist(petta_collapse_bind_pair, [Pair|Pairs]).
+
+petta_collapse_bind_pair([_, [bindings|Entries]]) :-
+    maplist(petta_collapse_binding_entry, Entries).
+
+petta_collapse_binding_entry(['<-', Variable, _]) :-
+    var(Variable).
+petta_collapse_binding_entry(['<-', [':seg', Variable], Run]) :-
+    var(Variable),
+    is_list(Run).
+petta_collapse_binding_entry([seq, Variable]) :-
+    var(Variable).
+
+petta_suspend_function_evaluation(saved(Previous)) :-
+    nb_current('$petta_function_evaluation', Previous), !,
+    nb_setval('$petta_function_evaluation', false).
+petta_suspend_function_evaluation(none) :-
+    nb_setval('$petta_function_evaluation', false).
+
+petta_restore_function_evaluation(saved(Previous)) :- !,
+    nb_setval('$petta_function_evaluation', Previous).
+petta_restore_function_evaluation(none) :-
+    nb_delete('$petta_function_evaluation').
+
+petta_metta_result_is_final(Atom) :-
+    nonvar(Atom),
+    Atom = [Head|_],
+    atom(Head),
+    metta_runtime_returns_atom(Head).
+
 
 %A FRESH SPACE, which PeTTa did not have. Spaces here are named and created on
 %demand, so `(new-space)` reduced to nothing and `(bind! &s (new-space))` did
@@ -628,7 +747,14 @@ petta_set_state(Var, Value) :-
                  assertz(petta_state_value(Var, Stored)) )).
 
 %%% Eval: %%%
-%eval runs its goals in the current space's module, for the same reason
+%petta_eval_step exposes the evaluator's three-way control result.  eval/2 is
+%the ordinary engine door and consumes NotReducible by retaining the atom it
+%was asked to evaluate.  Keeping those roles separate lets chain, function,
+%and metta-thread inspect the marker without leaking it through direct eval/2
+%callers such as unquote [tested: metatype_mask:unquote_evaluates_its_operand;
+%commit=WORKTREE].
+%
+%The evaluator runs its goals in the current space's module, for the same reason
 %call_goals_in/2 and current_metta_space/1 exist: call/1 resolves a goal in the
 %module its clause was compiled in, so a module-blind call/1 reaches only user.
 %Without this, `!(eval (f 1))` on a function defined in any space other than
@@ -667,10 +793,35 @@ petta_set_state(Var, Value) :-
 %The test is ==/2 rather than unification, so an eval whose answer is still an
 %unbound variable is not mistaken for Empty; that is the same identity test
 %petta_prune_empty_answers/2 documents.
-eval(C0, Out) :- translate_runnable_expr(C0, Goals, Out),
-                 current_metta_module(Module),
-                 call_goals_in_(Module, Goals),
-                 Out \== 'Empty'.
+petta_eval_step(C0, Out) :-
+    with_not_reducible_root(C0, petta_eval_core(C0, Out)).
+
+petta_eval_core(C0, Out) :-
+    current_metta_module(Module),
+    %The soft cut commits to equation reduction as a mode, while retaining
+    %one answer per matching equation.  A hard cut here erased duplicate
+    %rules before `function` and `metta-thread` could observe them.
+    %[source: MettaHyperonFull/Minimal/Interpreter.lean:419-448,
+    %`evalResult`; commit=WORKTREE]
+    (   petta_minimal_equation_step(Module, C0, Step)
+    *-> Out = Step
+    ;   atomic(C0)
+    ->  (   atom(C0), metta_symbol_step(C0, Step)
+        *-> Out = Step
+        ;   Out = 'NotReducible'
+        )
+    ;   translate_runnable_expr(C0, Goals, Produced),
+        call_goals_in_(Module, Goals),
+        petta_eval_root_result(Module, C0, Produced, Out)
+    ),
+    Out \== 'Empty'.
+
+eval(C0, Out) :-
+    translate_runnable_expr(C0, Goals, Produced),
+    current_metta_module(Module),
+    call_goals_in_(Module, Goals),
+    petta_boundary_result(C0, Produced, Out),
+    Out \== 'Empty'.
 
 %evalc is eval in a space you name, the counterpart to context-space, which
 %reports the space eval is already running in. Naming the space is the only
@@ -690,11 +841,20 @@ eval(C0, Out) :- translate_runnable_expr(C0, Goals, Out),
 %Like eval, evalc takes the expression as written: &self inside it named
 %the space hosting the SOURCE (the reader pinned it there), not the space
 %evalc is aimed at, so there is nothing left to substitute at run time.
-evalc(C0, Space, Out) :- ( 'is-space'(Space, true)
-                          -> true
-                          ;  throw_metta_type_error(evalc, 'SpaceType', Space) ),
-                        space_module(Space, Module),
-                        with_metta_module(Module, eval(C0, Out)).
+petta_evalc_step(C0, Space, Out) :-
+    petta_evalc_module(Space, Module),
+    with_metta_module(Module, petta_eval_step(C0, Out)).
+
+petta_evalc_module(Space, Module) :-
+    (   'is-space'(Space, true)
+    ->  true
+    ;   throw_metta_type_error(evalc, 'SpaceType', Space)
+    ),
+    space_module(Space, Module).
+
+evalc(C0, Space, Out) :-
+    petta_evalc_module(Space, Module),
+    with_metta_module(Module, eval(C0, Out)).
 
 %Goals run in a named module, so a form run against a space reaches that
 %space's own equations. call/1 resolves in the module its clause was

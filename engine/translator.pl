@@ -267,6 +267,8 @@
             arrived_pairs/1,
             call_site_type_chains/2,
             fitting_type_chains/3,
+            metta_runtime_argument_mask/3,
+            metta_runtime_returns_atom/1,
             constrain_args/3,
             drop_unconstraining_types/3,
             letstar_to_rec_let/3,
@@ -279,6 +281,23 @@
             %filter and fold that applies it.
             written_lambda_closure/2,
             eval_metta_in_module/3,
+            petta_application_result/3,
+            petta_application_result/4,
+            petta_boundary_result/3,
+            petta_reduce_result/4,
+            with_not_reducible_root/2,
+            metta_symbol_step/2,
+            petta_eval_root_result/4,
+            metta_evaluate_symbol/2,
+            petta_evaluate_argument/2,
+            petta_dynamic_call/3,
+            petta_chain_step/2,
+            petta_minimal_equation_step/3,
+            collapse_runtime/2,
+            petta_function_eval/2,
+            petta_function_eval/3,
+            petta_segment_dispatch/4,
+            petta_segment_rule_result/6,
             %The result half of the evaluation mask lands in a compiled clause
             %body, so a space's execution module imports it from here exactly
             %as it imports reduce/3 and the two dispatch results.

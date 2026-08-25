@@ -1,6 +1,7 @@
 % Purpose: implement pre-add hooks, transforms, watchers, views, digests, and purity inventories
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
+%   an internal SWI transaction never impersonates the outermost user transaction coordinator.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -460,7 +461,7 @@ petta_writes(Ctx, Atomicity) :-
 :- meta_predicate petta_transaction(0).
 petta_transaction(Goal) :-
     term_variables(Goal, Vars),
-    (   current_transaction(_)
+    (   petta_in_user_transaction
     ->  transaction(petta_transaction_answers(Goal, Vars, Answers))
     ;   nb_setval('$petta_tx_enlisted', []),
         catch(( setup_call_cleanup(
@@ -478,11 +479,18 @@ petta_transaction(Goal) :-
             %an inherited definition; remove_equation/6 deferred the
             %predicate-level drop to the transaction's owner, which is
             %here for the user's (transaction ...) form.
-            petta_repair_emptied_shadows
+            true
         ;   forall(member(Space, Enlisted),
                    catch(seam:foreign_rollback(Space), RollbackError,
                          print_message(error, RollbackError)))
         ),
+        %A rolled-back local definition may also have replaced a repaired weak
+        %import. Its dependency row survives the rollback, so the same sweep
+        %re-arms that inherited procedure identity on every outcome [tested:
+        %filereader_import_lifecycle:
+        %a_failed_local_redefinition_restores_the_repaired_inherited_call;
+        %commit=WORKTREE].
+        petta_repair_emptied_shadows,
         (   Outcome == committed -> true
         ;   Outcome == failed -> fail
         ;   Outcome = threw(E), throw(E)
@@ -870,6 +878,8 @@ pure_engine_helper(satisfies_metatype).
 %neither hides a lasting effect from a cached caller.
 pure_engine_helper(dispatch_mismatch_result).
 pure_engine_helper(dispatch_no_match_result).
+pure_engine_helper(petta_application_result).
+pure_engine_helper(petta_boundary_result).
 
 pure_arithmetic('+').  pure_arithmetic('-').  pure_arithmetic('*').
 pure_arithmetic('/').  pure_arithmetic('%').  pure_arithmetic(min).

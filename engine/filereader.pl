@@ -149,11 +149,14 @@
             load_metta_source_groups/3,
             process_metta_string/3,
             parse_metta_source/2,
+            parse_metta_source_prolog/2,
             parsed_form_parts/4,
             metta_answer_term/2,
             metta_source_changed/1,
             run_with_loading_marker/2,
             record_source_assertion/1,
+            record_source_atom_assertion/1,
+            source_load_receipt_current/4,
             record_translated_from/3,
             forget_translated_from/3,
             forget_space_source_loads/1,
@@ -248,17 +251,19 @@ prolog:message(petta_source_replaced(CanonPath, Spaces, Atoms)) -->
 :- dynamic working_dir/1.
 :- dynamic compiled_metta_source/1.
 :- thread_local active_source_load/1.
-:- dynamic source_load_assertion/2.
+:- dynamic source_load_assertion/3.
 :- dynamic source_load_support_assertions/2.
 :- dynamic source_load_repair/2.
+:- thread_local source_recompile_owners/1.
 %What a file put where, so that loading it again can REPLACE that rather than
 %add to it. SWI states the rule this implements: "clauses are owned by the file
 %in which they are defined. This information is used to replace the old
 %definition after the file has been modified and is reloaded"
 %[source: SWI-Prolog 10.1 Reference Manual, consult/1]. Here the owned things
-%are whatever the load asserted, which source_load_assertion/2 already lists,
+%are whatever the load asserted, which source_load_assertion/3 already lists,
 %so the file only needs the key onto that list and the digest of the text it
-%was built from.
+%was built from. The row's kind distinguishes a stored source output from a
+%derived artifact without adding another per-atom journal fact.
 %
 %The list is KEPT as the per-assertion facts the load built it up as, rather
 %than collected into one clause holding a list of references. The collected
@@ -277,6 +282,10 @@ prolog:message(petta_source_replaced(CanonPath, Spaces, Atoms)) -->
 %decoded to nothing and erase/1 on it failed].
 :- dynamic metta_source_load/4. %metta_source_load(CanonPath, Space, LoadId, Digest)
 :- dynamic source_load_digest/3. %source_load_digest(LoadId, Filename, Digest)
+
+%Compatibility view for diagnostics and callers that only need ownership.
+source_load_assertion(LoadId, Ref) :-
+    source_load_assertion(LoadId, _, Ref).
 
 %SHA-256 of a text, from whichever library this build carries. library(crypto)
 %is OpenSSL's and a build without OpenSSL does not have it: the WebAssembly
@@ -620,11 +629,29 @@ source_definition_arrived(_).
 %before the next runnable, or once at source exit, rather than once per
 %equation.
 flush_source_program_analysis_if_needed :-
-    retract(source_compiled_definition(Id)),
+    (   retract(source_compiled_definition(Id))
+    ->  active_source_program(Id),
+        forall(seam:source_program_compiled, true)
+    ;   true
+    ),
+    flush_source_prefix_repairs.
+
+%A file load journals dependent recompilations until the source transaction
+%commits.  A runnable in that SAME file is earlier than the commit, however,
+%and must see every equation and declaration in its source prefix.  Drain only
+%the repairs produced by forms that have actually run; source_load_repair/2,
+%which the signature pre-pass records for definitions still pending later in
+%the file, remains deferred until run_source_repairs/1 at successful exit.
+%Without this distinction `(= (f) (g)) (= (g) 42) !(f)` executed f's stale
+%no-match clause and answered `(g)` after the real NotReducible boundary made
+%that compiled fallback observable [tested:
+%filereader_source_prefix:a_runnable_sees_repaired_forward_callers;
+%commit=WORKTREE].
+flush_source_prefix_repairs :-
+    active_source_load(LoadId),
     !,
-    active_source_program(Id),
-    forall(seam:source_program_compiled, true).
-flush_source_program_analysis_if_needed.
+    repair_support_invalidations(LoadId).
+flush_source_prefix_repairs.
 
 %Everything a source does BEFORE any of its own forms run, over forms already
 %parsed. It is named apart from prepare_metta_source/2 because the parse is
@@ -652,6 +679,17 @@ prepare_parsed_forms(ParsedForms) :-
 %turning a parsed file into a syntax error [reproduced 2026-08-15; it is what
 %plunit reported as 18 choicepoint warnings in parser.plt].
 parse_metta_source(S, ParsedForms) :-
+    (   petta_c_reader_active,
+        metta_reader_mode(shipped)
+    ->  petta_c_parse_source(S, ParsedForms)
+    ;   parse_metta_source_prolog(S, ParsedForms)
+    ).
+
+%The Prolog reader, which stays the specification the C reader in
+%engine/reader.c is held to: tests/prolog/reader_c.plt parses the whole
+%example corpus and an adversarial battery through both and requires
+%variant-identical forms and identical error terms.
+parse_metta_source_prolog(S, ParsedForms) :-
     string_codes(S, Codes),
     once(phrase(top_forms(Forms, 1), Codes)),
     metta_reader_mode(Mode),
@@ -759,11 +797,18 @@ warn_if_executed_as_symbol(F) :- \+ fun(F), symbol_head(F, runnable), !,
                                  format(user_error, "Warning: ~w is defined or imported after already being used; earlier expressions treat it as a plain symbol. Move the import or definition above the first use.~n", [F]).
 warn_if_executed_as_symbol(_).
 
-%A function arriving after its name was already compiled as plain data in stored
-%definitions: recompile those definitions from their source terms, so import order
-%cannot change what a definition means:
+%A function arriving after its name was already compiled as plain data in a
+%LIVE stored definition: recompile those definitions from their source terms,
+%so import order cannot change what a definition means. symbol_head/2 is a
+%historical diagnostic and deliberately survives removal; using it as the
+%repair index made every later reuse of that name schedule work after its last
+%dependent had gone. The support graph's view index is the exact live
+%dependency question and is already what the repair invalidates
+%[tested: filereader_source_rollback:late_registration_recompile_replaces_metadata,
+%filereader_late_definition_cost:repairing_late_callers_costs_nothing_that_grows_with_the_program;
+%commit=WORKTREE].
 repair_after_late_registration(F) :-
-    ( symbol_head(F, clause) -> schedule_definition_repair(F) ; true ).
+    ( support_view_module(F, _) -> schedule_definition_repair(F) ; true ).
 
 schedule_definition_repair(F) :-
     active_source_load(LoadId), !,
@@ -834,9 +879,14 @@ recompile_function_impl(G) :-
     repair_support_invalidations.
 
 recompile_function_in_module(Module, G) :-
-    findall(compiled(Ref, Term),
+    findall(compiled(Ref, SourceRef, Term, Owners),
             ( translated_equation_of(G, Ref, Term),
-              clause_property(Ref, module(Module)) ),
+              clause_property(Ref, module(Module)),
+              clause(translated_from(Ref, Term), true, SourceRef),
+              findall(LoadId,
+                      source_load_assertion(LoadId, artifact, Ref),
+                      Owners0),
+              sort(Owners0, Owners) ),
             Recorded),
     %The erase is also the LIVENESS TEST, and the rebuild runs only over what
     %it took out. A recorded reference can outlive its clause, because a
@@ -859,29 +909,46 @@ recompile_function_in_module(Module, G) :-
     %
     %The bookkeeping goes for every recorded reference either way; only the
     %rebuild is conditional.
-    forall(member(compiled(Ref, Term), Recorded),
-           forget_translated_from(Module, Ref, Term)),
-    findall(Term,
-            ( member(compiled(Ref, Term), Recorded),
+    forall(member(compiled(Ref, SourceRef, Term, _), Recorded),
+           ( retractall(source_load_assertion(_, artifact, Ref)),
+             retractall(source_load_assertion(_, artifact, SourceRef)),
+             forget_translated_from(Module, Ref, Term) )),
+    findall(rebuild(Term, Owners),
+            ( member(compiled(Ref, _, Term, Owners), Recorded),
               erase(Ref) ),
-            Terms),
-    forall(member(Term, Terms),
-           ( copy_term(Term, Fresh),
-             once(with_metta_module(Module,
-                                    translate_clause(Fresh, RawClause))),
-             %A rebuilt clause is the same equation, so it carries the same
-             %recursion fuel the compile door gave it. Re-translating without
-             %this left a recursive definition unbounded the moment anything
-             %it mentions changed, because the support graph recompiles a
-             %dependent through here rather than through compile_metta_equation
-             %[measured 2026-08-21: redefining a function the recursive
-             %equation mentions dropped petta_fuel_step/2 from the rebuilt
-             %clause body; commit=e8270f8551083f236ce5134ca299adf5347d6898].
-             petta_instrument_recursive_clause(Fresh, RawClause, Clause),
-             assertz(Module:Clause, NewRef),
-             record_source_assertion(NewRef),
-             record_translated_from(NewRef, Term, SourceRef),
-             record_source_assertion(SourceRef) )).
+            Rebuilds),
+    forall(member(rebuild(Term, Owners), Rebuilds),
+           with_source_recompile_owners(
+               Owners,
+               ( copy_term(Term, Fresh),
+                 once(with_metta_module(Module,
+                                        translate_clause(Fresh, RawClause))),
+                 %A rebuilt clause is the same equation, so it carries the same
+                 %recursion fuel the compile door gave it. Re-translating without
+                 %this left a recursive definition unbounded the moment anything
+                 %it mentions changed, because the support graph recompiles a
+                 %dependent through here rather than through compile_metta_equation
+                 %[measured 2026-08-21: redefining a function the recursive
+                 %equation mentions dropped petta_fuel_step/2 from the rebuilt
+                 %clause body; commit=e8270f8551083f236ce5134ca299adf5347d6898].
+                 petta_instrument_recursive_clause(Fresh, RawClause, Clause),
+                 assertz(Module:Clause, NewRef),
+                 record_recompiled_source_assertion(Owners, NewRef),
+                 record_translated_from(NewRef, Term, NewSourceRef),
+                 record_recompiled_source_assertion(Owners, NewSourceRef) ))).
+
+%A dependent recompile replaces an artifact; it does not transfer that
+%artifact to the source whose change triggered the repair. Keep the original
+%load owners active while the replacement clause, provenance row, and support
+%edges are published. An unowned runtime-added equation stays unowned
+%[tested:
+%filereader_source_reload:a_dependent_recompile_keeps_its_original_source_owner;
+%commit=WORKTREE].
+:- meta_predicate with_source_recompile_owners(+, 0).
+with_source_recompile_owners(Owners, Goal) :-
+    setup_call_cleanup(asserta(source_recompile_owners(Owners), ContextRef),
+                       call(Goal),
+                       erase(ContextRef)).
 
 % Compatibility name for the former name-index walk. Every compiled form now
 % records its supports at record_translated_from/3, so one indexed forward
@@ -1055,7 +1122,7 @@ process_form(Space, parsed(function, FormStr, Term), []) :-
     Arity is InputArity + 1,
     register_function_signature(F, Arity),
     add_sexp(Space, Term, SpaceRef),
-    record_source_assertion(SpaceRef),
+    record_source_atom_assertion(SpaceRef),
     space_module(Space, Module),
     rewrite_parsed_form(Space, FormStr, Term, BoundTerm),
     %The one compile door (compile_metta_equation/4 in spaces.pl) carries
@@ -1100,7 +1167,7 @@ process_loader_form(Space, parsed(runnable, FormStr, Term, Names), Result) :-
 process_loader_form(Space, parsed(function, FormStr, Term), []) :-
     Term = [=, [F|_], _],
     add_sexp(Space, Term, SpaceRef),
-    record_source_assertion(SpaceRef),
+    record_source_atom_assertion(SpaceRef),
     rewrite_parsed_form(Space, FormStr, Term, BoundTerm),
     space_module(Space, Module),
     compile_metta_equation(Module, BoundTerm, _Clause, Ref),

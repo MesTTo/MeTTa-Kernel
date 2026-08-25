@@ -1,6 +1,8 @@
 % Purpose: implement fast caches, source digests, transactional reload, and source assertion ownership.
 % Assumes: engine/filereader.pl consults this plain file while its owning module is the load context.
-% Guarantees: every definition retains engine/filereader.pl's implementation module and original load order.
+% Guarantees: every definition retains engine/filereader.pl's implementation module and original load order;
+%   each source load is atomic with every dependent recompile it triggers;
+%   source_load_receipt_current/4 accepts a receipt only while its source row, digest, and every tagged stored output remain current.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/filereader.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -332,7 +334,11 @@ with_source_load(CanonPath, Space, Goal) :-
           retractall(source_load_repair(LoadId, _)),
           retractall(support_recompile_pending(LoadId, _, _)),
           retractall(source_load_digest(LoadId, _, _)),
-          ( Catcher == exit -> true ; rollback_source_load(LoadId) ) )).
+          ( Catcher == exit -> true ; rollback_source_load(LoadId) ),
+          (   current_transaction(_)
+          ->  true
+          ;   petta_repair_emptied_shadows
+          ) )).
 
 publish_source_load(CanonPath, Space, LoadId) :-
     (   source_load_digest(LoadId, CanonPath, Digest)
@@ -418,8 +424,9 @@ metta_source_changed(CanonPath) :-
 %[source: SWI-Prolog 10.1 Reference Manual, section 4.3.2]. transaction/1
 %restores an erased clause the same way it discards an asserted one
 %[measured 2026-08-19: an erase inside a transaction that then throws left the
-%clause answering]. Only the reload path pays it; a first load has nothing to
-%protect and does not enter one
+%clause answering]. The reload path owns the outer transaction so withdrawal
+%and replacement commit together; with_source_load/3 supplies the same atomic
+%boundary for a first load, whose dependent repairs can replace older clauses
 %[tested: test_a_reload_that_fails_leaves_the_previous_definitions_standing].
 :- meta_predicate replacing_previous_load(+, +, 1, 0).
 replacing_previous_load(CanonPath, Space, LoadInto, Goal) :-
@@ -427,8 +434,10 @@ replacing_previous_load(CanonPath, Space, LoadInto, Goal) :-
     ->  replaced_source_spaces(CanonPath, Space, Replaced),
         (   Replaced == []
         ->  call(Goal)
-        ;   transaction(replace_source_load(CanonPath, Space, Replaced,
-                                            LoadInto, Goal)),
+        ;   call_cleanup(
+                transaction(replace_source_load(CanonPath, Space, Replaced,
+                                                LoadInto, Goal)),
+                petta_repair_emptied_shadows),
             %After the commit, because the repair drops predicate entries
             %and abolish/1 is not clause-level: remove_equation/6 records
             %what the withdrawal emptied, and only a function the load
@@ -479,7 +488,7 @@ replace_source_load(CanonPath, Space, Replaced, LoadInto, Goal) :-
 %already erased is why rollback_source_load/1 guards it.
 withdraw_source_load(CanonPath, Space, Count) :-
     retract(metta_source_load(CanonPath, Space, LoadId, _)),
-    findall(Ref, source_load_assertion(LoadId, Ref), Asserted),
+    findall(Ref, source_load_assertion(LoadId, _, Ref), Asserted),
     reverse(Asserted, Refs),
     findall(AtomSpace-Atom,
             ( member(Ref, Refs), stored_atom_of_ref(Ref, AtomSpace, Atom) ),
@@ -498,7 +507,7 @@ withdraw_source_load(CanonPath, Space, Count) :-
 %test_a_recycled_space_name_inherits_no_clauses_from_its_past_life].
 forget_space_source_loads(Space) :-
     forall(retract(metta_source_load(_, Space, LoadId, _)),
-           ( retractall(source_load_assertion(LoadId, _)),
+           ( retractall(source_load_assertion(LoadId, _, _)),
              retractall(source_load_support_assertions(LoadId, _)),
              retractall(source_load_digest(LoadId, _, _)) )).
 
@@ -521,15 +530,37 @@ run_with_loading_marker(Marker, Goal) :-
         Catcher,
         ( Catcher == exit -> true ; erase(Ref) )).
 
+record_recompiled_source_assertion(Owners, Ref) :-
+    forall(member(LoadId, Owners),
+           assertz(source_load_assertion(LoadId, artifact, Ref))).
 record_source_assertion(Ref) :-
     active_source_load(LoadId), !,
-    assertz(source_load_assertion(LoadId, Ref)).
+    assertz(source_load_assertion(LoadId, artifact, Ref)).
 record_source_assertion(_).
+
+record_source_atom_assertion(Ref) :-
+    active_source_load(LoadId), !,
+    assertz(source_load_assertion(LoadId, stored, Ref)).
+record_source_atom_assertion(_).
+
+%A receipt consults the source journal rather than the support graph because
+%its dependencies are physical source-load and clause-reference identities,
+%not derived logical nodes. An erased storage reference remains in the journal
+%and therefore makes the receipt stale after commit; a transaction rollback
+%preserves the reference and therefore preserves the receipt.
+source_load_receipt_current(CanonPath, Space, LoadId, Digest) :-
+    metta_source_load(CanonPath, Space, LoadId, Digest),
+    metta_source_digest(CanonPath, CurrentDigest),
+    CurrentDigest == Digest,
+    forall(source_load_assertion(LoadId, stored, Ref),
+           stored_atom_of_ref(Ref, _, _)).
 
 % Support edges created while a source is loading belong to that load just as
 % its executable and provenance clauses do. A failed load therefore erases
 % the graph rows it added instead of leaving stale dependencies behind.
 :- multifile support_graph:support_assertions_tracked/0.
+support_graph:support_assertions_tracked :-
+    source_recompile_owners(_).
 support_graph:support_assertions_tracked :-
     active_source_load(_).
 
@@ -542,7 +573,10 @@ support_graph:support_assertion_record(Ref) :-
 % bookkeeping while rollback still erases every clause precisely.
 :- multifile support_graph:support_assertion_records/1.
 support_graph:support_assertion_records(Refs) :-
-    (   active_source_load(LoadId)
+    (   source_recompile_owners(Owners)
+    ->  forall(member(LoadId, Owners),
+               assertz(source_load_support_assertions(LoadId, Refs)))
+    ;   active_source_load(LoadId)
     ->  assertz(source_load_support_assertions(LoadId, Refs))
     ;   true
     ).
@@ -577,16 +611,43 @@ repair_stale_definitions_batch(Functions) :-
 %and a failing erase/1 made forall/2 fail and took the whole withdrawal down
 %with it [measured 2026-08-19: it reported one atom and then failed].
 rollback_source_load(LoadId) :-
+    findall(F,
+            ( source_load_assertion(LoadId, stored, Ref),
+              stored_atom_of_ref(Ref, _, [=, [F|_], _]),
+              atom(F) ),
+            Functions0),
+    sort(Functions0, Functions),
     findall(Refs,
             retract(source_load_support_assertions(LoadId, Refs)),
             SupportGroups),
     forall(( member(Refs, SupportGroups), member(Ref, Refs) ),
            ( catch(erase(Ref), _, true) -> true ; true )),
-    findall(Ref, retract(source_load_assertion(LoadId, Ref)), Asserted),
+    findall(Ref, retract(source_load_assertion(LoadId, _, Ref)), Asserted),
     reverse(Asserted, Refs),
     forall(member(Ref, Refs),
            ( catch(erase(Ref), _, true) -> true ; true )),
-    support_prune_orphans.
+    support_prune_orphans,
+    repair_after_source_rollback(Functions).
+
+%A failed first load has no enclosing database transaction, yet one of its
+%definitions may already have made an older caller recompile.  Once the failed
+%definition is erased, invalidate its live function views again so those
+%callers rebuild against the restored registry.  A replacement load already
+%runs inside replacing_previous_load/4's transaction; its rollback restores
+%the old callers itself, and an inner repair would only be discarded with it.
+%Keeping this transaction around the dependency repair, instead of around the
+%whole source load, also keeps definitions visible to hyperpose worker threads
+%while a file's runnable forms execute [tested:
+%filereader_source_rollback:failed_late_definition_does_not_recompile_existing_callers;
+%examples/control/thin_forms.metta; commit=WORKTREE].
+repair_after_source_rollback([]) :- !.
+repair_after_source_rollback(_) :-
+    current_transaction(_),
+    !.
+repair_after_source_rollback(Functions) :-
+    transaction(
+        ( repair_stale_definitions_batch(Functions),
+          repair_support_invalidations )).
 
 rethrow_metta_file_error(_, Error) :- control_exception(Error), !,
                                       throw(Error).

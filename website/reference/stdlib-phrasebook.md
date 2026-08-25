@@ -1,13 +1,13 @@
 # The MeTTa standard library, in Python
 
 Every operation MeTTa's standard library declares, and what you write in Python
-instead. 136 of the 180 operations a program can call have a Python
+instead. 136 of the 181 operations a program can call have a Python
 spelling, and every row below ran on both sides: the MeTTa form on this engine and
 on LeaTTa, the conformance oracle, and the Python spelling here.
 
 The names and their types are LeaTTa's, measured against its built binary rather
-than transcribed: manifest 1.0.9 at commit `9ea9f9d`, 381 declarations
-over 379 distinct names. `bindings/python/tools/phrasebook.py` runs the
+than transcribed: manifest 1.0.9 at commit `c0ed0df`, 382 declarations
+over 380 distinct names. `bindings/python/tools/phrasebook.py` runs the
 rows and fails when a spelling stops answering what it says it answers.
 
 ## How to read a row
@@ -23,23 +23,23 @@ Rows fall in five buckets, and the bucket is the honest part:
 - **method** (21) &mdash; the concept is MeTTa's own, so it wears a metta name
 - **instruction** (0) &mdash; deep control that stays instruction-tier, reached by building the term at the `S.` door and reducing it
 - **internal** (199) &mdash; LeaTTa's mechanised interpreter, written in MeTTa; PeTTa writes its interpreter in Prolog, so these names are on neither surface
-- **absent** (44) &mdash; a user-facing operation with no Python spelling today: the residue
+- **absent** (45) &mdash; a user-facing operation with no Python spelling today: the residue
 
-Provenance: LeaTTa manifest 1.0.9 at commit `9ea9f9d`, 381 declarations over 379 distinct names.
+Provenance: LeaTTa manifest 1.0.9 at commit `c0ed0df`, 382 declarations over 380 distinct names.
 
 ## What the Python spelling costs
 
 Section 9e claims that a structure operation on an atom already held in Python
 costs no engine crossing at all. Measured over the rows that run both sides:
-the MeTTa forms cost 150,867 engine inferences and the Python spellings
-cost 6,960, and 90 of the 121 rows cost the engine EXACTLY
+the MeTTa forms cost 179,179 engine inferences and the Python spellings
+cost 8,092, and 90 of the 121 rows cost the engine EXACTLY
 NOTHING. `e[0]`, `e[1:]`, `len(e)`, `max([...])` and `S.f(1)` each read the same
 count as an empty measurement block, so the claim holds: the work never reaches
 the engine at all.
 
-`(car-atom (a b c))` costs 874 inferences on this
+`(car-atom (a b c))` costs 988 inferences on this
 engine against 0 for `e[0]`, and `(map-atom (1 2 3) $x (+ $x 1))` costs
-1,453 against 0 for the comprehension.
+2,047 against 0 for the comprehension.
 
 The other side of the same coin, so the comparison is not oversold. Most of a
 MeTTa row's cost is running one form at all: on a fresh engine an unreduced
@@ -284,6 +284,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(add-atom (context-space) (f 1)) ⏎ !(get-atoms (context-space))` | `space += S.f(1) ⏎ space.atoms()` | `(f 1)` | method |
 | `!(mod-space! stdlib)` | &mdash; | `&mod:corelib` | absent |
 | `!(module-space-no-deps (new-space))` | &mdash; | `&space-#0` | absent |
+| `!(get-deps stdlib)` | &mdash; | `()` | absent |
 
 - `add-atom` `(-> SpaceType Atom (->))` &mdash; `space += atom`, the container protocol. A plain Python tuple encodes to an expression on the way in, so a fact needs no builder ceremony.
 - `add-atoms` `(-> SpaceType Expression (->))` &mdash; The same `+=` door, once per fact: anything that yields tuples is a fact stream. One friction, measured: a LIST on the `+=` door writes one atom holding the list rather than one atom per element, so the row loops [measured 2026-08-22: `space += [(S.f, 1), (S.f, 2)]` stores `((f 1) (f 2))`; `space.add(a, b)` is the varargs door that does write both].
@@ -299,6 +300,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `context-space` `(-> SpaceType)` &mdash; The space a program is currently in, which in Python is the handle it holds; `metta.current_space()` is the door for code that did not receive one, and it follows Python's own `current_thread` and `current_task` convention, so the Python word wins over the instruction's name. The row asks both sides for the current space's atoms.
 - `mod-space!` `(-> Atom SpaceType)` &mdash; The space of a loaded module. PeTTa's module story is Python packaging, so the name has no image here. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `module-space-no-deps` `(-> SpaceType SpaceType)` &mdash; A module's own space without its dependencies. Same module story. The form is shown but not run here: PeTTa leaves the call unreduced.
+- `get-deps` `(-> Atom Atom)` &mdash; A loaded module's direct dependency names. Same module story: PeTTa's module story is Python packaging, so the name has no image here. The form is shown but not run here: PeTTa leaves the call unreduced.
 
 ## Types
 

@@ -54,7 +54,15 @@ translate_runnable_expr(C, Names, Goals, Out) :-
                                     [RuntimeNames|CollectedNames]),
     goals_list_to_conj(InnerGoals, Conj),
     NamedConj = petta_run_named(CollectedReaderNames, Conj, RuntimeNames),
-    FuelConj = petta_run_with_fuel(Value, FuelValue, NamedConj),
+    %This is the outer runnable boundary.  Keep its two identity tests inline:
+    %every eval crosses it, while only the exceptional NotReducible branch
+    %needs language-level work.  A helper call here added one counted Prolog
+    %inference to every otherwise constant-time native operation.
+    BoundaryConj = ( NamedConj,
+                     ( Value == 'NotReducible'
+                     -> BoundaryValue = C
+                     ;  BoundaryValue = Value ) ),
+    FuelConj = petta_run_with_fuel(BoundaryValue, FuelValue, BoundaryConj),
     (   Value == 'Empty'
     ->  Goals = [Out = []]
     ;   nonvar(Value)
@@ -214,9 +222,13 @@ dispatch_call_goal(Fun, Args, Out, Goal,
 %call that cannot unify with any head is the opposite decided case and needs
 %only the no-match policy. This keeps ordinary compiled recursion on the
 %engine's direct tail-call path.
-dispatch_call_goal_in(Module, Fun, _, _, Goal, Goal) :-
+dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal) :-
     \+ fun_meta_module(Module, Fun, _),
-    !.
+    !,
+    (   petta_dispatch_goal_exists(Module, Goal)
+    ->  PolicyGoal = Goal
+    ;   PolicyGoal = dispatch_no_match_result(Fun, Args, Out)
+    ).
 dispatch_call_goal_in(Module, Fun, Args, Out, Goal,
                       dispatch_policy_execute(Module, Fun, Args, Goal, Out)) :-
     (   dispatch_selection_override(Fun)
@@ -230,6 +242,16 @@ dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal) :-
     ;   PolicyGoal = dispatch_no_match_result(Fun, Args, Out)
     ).
 
+%A declaration can describe a data constructor without supplying an equation
+%or native predicate.  Such a call is irreducible; attempting the synthesized
+%Prolog goal merely fails and erases the value.  Native and host operations
+%still take their direct path whenever their predicate exists.
+%[source: vendor/hyperon/docs/minimal-metta.md:55-101, type constructors are
+%not reducible; commit=WORKTREE]
+petta_dispatch_goal_exists(Module, Goal) :-
+    functor(Goal, Predicate, Arity),
+    current_predicate(Module:Predicate/Arity).
+
 dispatch_selection_override(Fun) :-
     % policy-inventory-exempt: mechanism-internal; reason=these are the four axes whose nondefault values require the retained-clause interpreter instead of the compiled direct goal; evidence=engine/translator/lowering.pl:dispatch_selection_override/1
     member(Axis, ['EvaluationOrderEnum', 'FunctionResultEnum',
@@ -240,10 +262,15 @@ dispatch_selection_override(Fun) :-
 dispatch_head_covers(Module, Fun, Args, _) :-
     fun_meta_module(Module, Fun, Owner),
     fun_meta_clause(Owner, Fun, Head0, _),
-    copy_term(Head0, Head),
-    subsumes_term(Head, Args),
+    (   petta_seq_present(Head0)
+    ->  ground(Args),
+        petta_seq_head_matches(Head0, Args)
+    ;   copy_term(Head0, Head),
+        subsumes_term(Head, Args)
+    ),
     !.
-dispatch_head_covers(Module, _, Args, Goal) :-
+dispatch_head_covers(Module, Fun, Args, Goal) :-
+    \+ metta_segment_equation_in(Module, Fun, _),
     copy_term(Goal, Probe),
     catch_recover(clause(Module:Probe, _), fail),
     Probe =.. [_|All],
@@ -326,7 +353,7 @@ dispatch_selected_goal('OrderClause', 'ClauseFailNonDet', Module, _, _, Goal,
 dispatch_selected_goal(Order, ClauseMode, Module, Fun, Args, _, Out) :-
     dispatch_meta_clauses(Module, Fun, Clauses0),
     dispatch_ordered_clauses(Order, Module, Args, Clauses0, Clauses),
-    dispatch_clause_goal(ClauseMode, Module, Args, Clauses, Out).
+    dispatch_clause_goal(ClauseMode, Module, Fun, Args, Clauses, Out).
 
 dispatch_meta_clauses(Module, Fun, Clauses) :-
     fun_meta_module(Module, Fun, Owner),
@@ -376,18 +403,31 @@ dispatch_type_weight('_', 0) :- !.
 dispatch_type_weight('Atom', 0) :- !.
 dispatch_type_weight(_, 1).
 
-dispatch_clause_goal('ClauseFailDet', Module, Args, Clauses, Out) :-
+dispatch_clause_goal('ClauseFailDet', Module, Fun, Args, Clauses, Out) :-
     !,
     member(dispatch_clause(Head0, Body0, _), Clauses),
     copy_term(Head0-Body0, Head-Body),
-    Head = Args,
+    dispatch_retained_clause_match(Module, Fun, Head, Body, Args, Out, Goal),
     !,
-    eval_metta_in_module(Module, Body, Out).
-dispatch_clause_goal('ClauseFailNonDet', Module, Args, Clauses, Out) :-
+    call(Goal).
+dispatch_clause_goal('ClauseFailNonDet', Module, Fun, Args, Clauses, Out) :-
     member(dispatch_clause(Head0, Body0, _), Clauses),
     copy_term(Head0-Body0, Head-Body),
-    Head = Args,
-    eval_metta_in_module(Module, Body, Out).
+    dispatch_retained_clause_match(Module, Fun, Head, Body, Args, Out, Goal),
+    call(Goal).
+
+dispatch_retained_clause_match(Module, Fun, Head, Body, Args, Out, Goal) :-
+    (   petta_seq_present(Head)
+    ->  with_metta_module(Module,
+                          translator:( petta_seq_head_plan(Head, HeadPlan),
+                                       translate_segment_body_plan(Fun, Head,
+                                                                   Body, [],
+                                                                   BodyPlan) )),
+        petta_seq_head_match(HeadPlan, Args),
+        Goal = petta_segment_body_result(Module, Fun, BodyPlan, Out)
+    ;   Head = Args,
+        Goal = eval_metta_in_module(Module, Body, Out)
+    ).
 
 dispatch_failed_call(Module, Fun, Args, Out) :-
     (   dispatch_any_head_matches(Module, Fun, Args)
@@ -409,14 +449,26 @@ dispatch_any_head_matches(Module, Fun, Args, _) :-
     % equation head decides from its outer constructors, making map/fold over
     % N elements quadratic.
     % [measured: 2026-08-21, 4.10 seconds; command=/usr/bin/time -f 'hol_elapsed=%e maxrss=%M' timeout 300s sh run.sh --silent examples/performance/holbenchmark.metta; fixture=examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
-    unifiable(Head0, Args, _),
+    (   petta_seq_present(Head0)
+    ->  petta_seq_head_matches(Head0, Args)
+    ;   unifiable(Head0, Args, _)
+    ),
     !.
-dispatch_any_head_matches(Module, _, _, Goal) :-
+dispatch_any_head_matches(Module, Fun, _, Goal) :-
+    \+ metta_segment_equation_in(Module, Fun, _),
     copy_term(Goal, Probe),
     catch_recover(clause(Module:Probe, _), fail),
     !.
 
-dispatch_no_match('NoMatchOriginal', Fun, Args, [Fun|Args]).
+%An explicit eval frame observes the protocol marker.  Ordinary full
+%evaluation retains the call with the argument values dispatch actually saw;
+%keeping `[Fun|Args]` here is what turns `(u (+ 1 2))` into `(u 3)` rather
+%than losing the completed argument step.
+dispatch_no_match('NoMatchOriginal', Fun, Args, Out) :-
+    (   nb_current('$petta_not_reducible_root', _)
+    ->  Out = 'NotReducible'
+    ;   Out = [Fun|Args]
+    ).
 dispatch_no_match('NoMatchFail', _, _, _) :- fail.
 dispatch_no_match('NoMatchError', Fun, Args,
                   ['Error', [Fun|Args], 'NoMatchingClause']).
@@ -530,7 +582,7 @@ reduce([F|Args], Out, Status) :- !,
         (   ( Module == Self -> arity(F, Arity)
                               ; current_predicate(Module:F/Arity) ),
             \+ (Arity =< 2, current_op(_, _, F))
-        ->  resolve_dispatch(F, Args, Out, Goal),
+        ->  resolve_dispatch(F, Args, Produced, Goal),
             % A host or builtin function in &self has no retained equation and
             % therefore no dispatch policy to interpret. Avoiding the inherited
             % metadata search keeps the direct Prolog door at its measured
@@ -541,9 +593,18 @@ reduce([F|Args], Out, Status) :- !,
             (   Module == Self,
                 \+ fun_meta_clause(Module, F, _, _)
             ->  call(Module:Goal)
-            ;   dispatch_policy_execute(Module, F, Args, Goal, Out)
+            ;   dispatch_policy_execute(Module, F, Args, Goal, Produced)
             ),
-            Status = reduced
+            (   Produced == 'NotReducible'
+            ->  Out = [F|Args], Status = 'not-reducible'
+            ;   Out = Produced, Status = reduced
+            )
+        ;   metta_segment_equation_in(Module, F, _)
+        ->  petta_segment_dispatch(Module, F, Args, Produced),
+            (   Produced == 'NotReducible'
+            ->  Out = [F|Args], Status = 'not-reducible'
+            ;   Out = Produced, Status = reduced
+            )
         ;   incomplete_application_kind(F, Arity, partial)
         ->  Out = partial(F,Args),
             Status = reduced
@@ -600,6 +661,17 @@ reduce([F|Args], Out, Status) :- !,
     ).
 reduce(Culprit, _, _) :-
     throw_metta_type_error(reduce, list, Culprit).
+
+%`reduce` is an application boundary even though reduce/3 reports its status
+%beside the result rather than as the bare marker.  An irreducible operand
+%therefore retains the written `(reduce <operand>)`; returning the operand
+%alone silently consumed one layer of syntax and disagreed with the ordinary
+%unknown-call rule [measured 2026-08-24 against LeaTTa 9ea9f9d:
+%`!(reduce (unknown))` answers `(reduce (unknown))`; tested:
+%conformance2:reduce_retains_its_call_when_the_operand_is_irreducible;
+%commit=WORKTREE].
+petta_reduce_result(Written, _, 'not-reducible', [reduce, Written]) :- !.
+petta_reduce_result(_, Reduced, _, Reduced).
 
 %ONE COMPILED PREDICATE PER WRITTEN LAMBDA, however many times it is applied.
 %Compiling on every application asserted a fresh lambda_N/2 each time: 200
@@ -938,8 +1010,7 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
           ; is_list(HV) -> translate_args_dl(T, AfterHead, Goals, AVs),
                            Out = [HV|AVs]
           %Unknown head (var/compound) => runtime dispatch:
-          ; translate_args_dl(T, AfterHead, BeforeReduce, AVs),
-            BeforeReduce = [reduce([HV|AVs], Out, _)|Goals] )).
+          ; AfterHead = [petta_dynamic_call(HV, T, Out)|Goals] )).
 
 %A source's signature pre-pass makes a later equation's name visible before
 %the equation itself runs. That visibility is metadata, not a time machine:
@@ -1118,7 +1189,8 @@ data_head_masks(HV, Args, ArgTypes) :-
 %empty index is a silent loss rather than a slow start.
 index_builtin_masks :-
     index_masking_data_heads,
-    index_builtin_call_masks.
+    index_builtin_call_masks,
+    index_builtin_result_finality.
 
 index_masking_data_heads :-
     retractall(masking_data_head(_, _)),
@@ -1164,6 +1236,7 @@ masked_position_or_undefined(T, Masked) :-
 %one indexed failure for every ordinary builtin and the walk it guards is the
 %one that was already there.
 :- dynamic builtin_call_mask/2.
+:- dynamic builtin_result_finality/3.
 
 index_builtin_call_masks :-
     retractall(builtin_call_mask(_, _)),
@@ -1173,6 +1246,42 @@ index_builtin_call_masks :-
            ( builtin_call_mask(Name, Types)
              -> true
              ;  assertz(builtin_call_mask(Name, Types)) )).
+
+%Result evaluation is independent of the argument mask.  In particular `id`
+%has `(-> $t $t)`, masks no argument, and still has a non-Atom result that must
+%re-enter evaluation.  Keep the first declaration at each arity, matching the
+%reference's signature selection convention.
+index_builtin_result_finality :-
+    retractall(builtin_result_finality(_, _, _)),
+    forall(( seam:builtin_type_declaration(Name, [->|Types]),
+             append(Params, [Declared], Types),
+             length(Params, Arity) ),
+           ( builtin_result_finality(Name, Arity, _)
+             -> true
+             ;  declared_type_for_evaluation(Declared, View),
+                ( intrinsically_final_builtin_result(View)
+                -> Finality = final
+                ;  Finality = evaluated
+                ),
+                assertz(builtin_result_finality(Name, Arity, Finality)) )).
+
+%These result types contain no symbol that scalar equality can rewrite and no
+%expression head that can call a function.  Running their value through the
+%general result continuation is observably the identity, so arithmetic and
+%string primitives keep their direct output path.  Symbol, Bool, Expression,
+%Variable, Type, and polymorphic results deliberately stay evaluated.
+intrinsically_final_builtin_result(Type) :-
+    nonvar(Type),
+    memberchk_eq(Type, ['Atom', 'Number', 'BigInt', 'String', 'Grounded']).
+
+builtin_result_type(Fun, Args, ResultType) :-
+    (   metta_builtin_overridden(Fun)
+    ->  ResultType = 'Atom'
+    ;   length(Args, Arity),
+        builtin_result_finality(Fun, Arity, evaluated)
+    ->  ResultType = '%Undefined%'
+    ;   ResultType = 'Atom'
+    ).
 
 %`arrowParams ts arity` presents the declared parameters when the arrow fits
 %the call and falls back to the RAW post-arrow list when it does not, and the
@@ -1286,25 +1395,91 @@ refused_argument_call_dl(Fun, Chains, Args, IsPartial, Bound, Out, Goals0, Goals
 %The ordinary compilation of a call, extracted so the refusal above can wrap it
 %without re-entering the translator, which recursed into its own decision.
 functioncall_dl(Fun, Chains, Args, IsPartial, Bound, Out, Goals0, Goals) :-
-    (   typed_functioncall_dl(Fun, Chains, Args, IsPartial, Bound, Out,
-                              Goals0, Goals)
+    (   IsPartial
+    ->  WrittenHead = partial(Fun, Bound)
+    ;   WrittenHead = Fun
+    ),
+    WrittenCall = [WrittenHead|Args],
+    length(Args, NewArity),
+    length(Bound, BoundArity),
+    InputArity is NewArity + BoundArity,
+    ( metta_equation_call(Fun, InputArity) -> EquationCall = true
+    ; EquationCall = false
+    ),
+    (   (   EquationCall == true
+        ->  TypedPreCall = [( nonvar(Out) -> TypedOut = Out ; true )],
+            typed_functioncall_dl(Fun, Chains, Args, IsPartial, Bound,
+                                  TypedOut, RuntimeArgs, TypedPreCall, Goals0,
+                                  TypedTail),
+            TypedOut = Produced,
+            application_protocol_goal(WrittenCall,
+                                      [WrittenHead|RuntimeArgs], Produced,
+                                      Out, ApplicationGoal),
+            TypedTail = [ApplicationGoal|Goals]
+        ;   typed_functioncall_dl(Fun, Chains, Args, IsPartial, Bound, Out,
+                                  _RuntimeArgs, [], Goals0, TypedTail),
+            TypedTail = Goals
+        )
     ->  true
     ;   translate_call_args_dl(Fun, Args, Goals0, AfterArgs, AVs, Evaluated,
                                ResultType),
         ( IsPartial -> append(Bound, AVs, AllAVs) ; AllAVs = AVs ),
-        (   ( ResultType == '%Undefined%' ; ResultType == 'Expression' )
-        ->  masked_result_goal(Produced, Out, ResultGoal),
+        RuntimeCall = [WrittenHead|AVs],
+        (   EquationCall == true
+        ->  CallOut = RawProduced,
+            PreCallGoals = [( nonvar(Out)
+                            -> RawProduced = Out
+                            ;  true )],
+            application_protocol_goal(WrittenCall, RuntimeCall,
+                                      RawProduced, Out, ResultGoal),
             Continue = [ResultGoal]
-        ;   Produced = Out,
-            Continue = []
+        ;   (   ResultType == 'Atom'
+            ->  Finality = final
+            ;   Finality = evaluated
+            ),
+            (   Finality == final
+            ->  CallOut = Out,
+                PreCallGoals = [],
+                Continue = []
+            ;   PreCallGoals = [( nonvar(Out)
+                                -> RawProduced = Out
+                                ;  true )],
+                CallOut = RawProduced,
+                call_result_goal(WrittenCall, RuntimeCall, RawProduced,
+                                 Finality, Out, ResultGoal),
+                Continue = [ResultGoal]
+            )
         ),
         %The continuation is the CALL's tail rather than the guard's, so an
         %operand that already held an error still answers that error directly:
         %an error is the result, not a value to evaluate again.
-        build_call_or_partial_dl(Fun, AllAVs, Produced, CallGoals, Continue, []),
+        build_call_or_partial_dl(Fun, AllAVs, CallOut, RawCallGoals, Continue,
+                                 []),
+        append(PreCallGoals, RawCallGoals, CallGoals),
         undeclared_call_operands(Fun, Evaluated, Guarded),
         guard_error_arguments(Guarded, Out, CallGoals, AfterArgs, Goals)
     ).
+
+%Only a compiled MeTTa equation can return the language-level control atom
+%from its function frame.  Native Prolog predicates retain their relational
+%last argument: forms such as `(let $path (consult_global) ...)` bind that
+%argument before calling the predicate.  Detaching every native output into a
+%fresh protocol variable therefore called consult_global/1 with an unbound
+%path and broke imports.  Grounded operations report their own NoReduce status
+%through reduce/3; they do not encode it as the ordinary symbol result handled
+%here.
+metta_equation_call(Fun, InputArity) :-
+    current_metta_module(Module),
+    fun_meta_module(Module, Fun, Owner),
+    fun_meta_clause(Owner, Fun, Head, _),
+    (   length(Head, InputArity)
+    ;   petta_seq_present(Head)
+    ),
+    !.
+
+application_protocol_goal(Source, Runtime, Produced, Out,
+                          petta_application_result(Source, Runtime, Produced,
+                                                   Out)).
 
 %A declared result type that is not the metatype `Atom` sends the value it
 %produced back through evaluation; `Atom` answers it as produced. This is

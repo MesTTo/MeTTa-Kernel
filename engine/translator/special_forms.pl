@@ -150,14 +150,14 @@ guard_error_condition(Cond, CondValue, Out, Then, Else, Guarded) :-
 %builtin_argument_mask/3 fails on one indexed lookup for every builtin that
 %masks nothing, which is nearly all of them.
 translate_call_args_dl(Fun, Args, Goals0, Goals, AVs, Computed, ResultType) :-
+    builtin_result_type(Fun, Args, ResultType),
     %The index is asked INLINE, so a builtin that masks nothing, which is
     %nearly all of them, pays one indexed failure and no call.
     (   atom(Fun),
         builtin_call_mask(Fun, _),
-        builtin_argument_mask(Fun, Args, Types, ResultType)
+        builtin_argument_mask(Fun, Args, Types, _)
     ->  translate_masked_call_args_dl(Args, Types, Goals0, Goals, AVs, Computed)
-    ;   ResultType = 'Atom',
-        translate_call_args_dl(Args, Goals0, Goals, AVs, Computed)
+    ;   translate_call_args_dl(Args, Goals0, Goals, AVs, Computed)
     ).
 
 translate_masked_call_args_dl([], _, Goals, Goals, [], []).
@@ -167,7 +167,7 @@ translate_masked_call_args_dl([X|Xs], [T|Ts], Goals0, Goals, [V|Vs],
     ->  V = X,
         AfterExpr = Goals0,
         Computed = Rest
-    ;   translate_expr_dl(X, Goals0, AfterExpr, V),
+    ;   translate_eager_argument_dl(X, Goals0, AfterExpr, V),
         (   Goals0 == AfterExpr
         ->  Computed = Rest
         ;   nonvar(V)
@@ -181,7 +181,7 @@ translate_masked_call_args_dl([X|Xs], [T|Ts], Goals0, Goals, [V|Vs],
 
 translate_call_args_dl([], Goals, Goals, [], []).
 translate_call_args_dl([X|Xs], Goals0, Goals, [V|Vs], Computed) :-
-    translate_expr_dl(X, Goals0, AfterExpr, V),
+    translate_eager_argument_dl(X, Goals0, AfterExpr, V),
     (   Goals0 == AfterExpr
     ->  Computed = Rest
     ;   nonvar(V)
@@ -329,30 +329,33 @@ translate_special_dl(superpose, [Args], AfterHead, Goals, Out) :-
 %measures at parity [measured 2026-08-17: 24.7e9 against 12.0e9 net for
 %the identical example].
 translate_special_dl(collapse, [Expr], AfterHead, Goals, Out) :-
-    translate_expr_to_conj(Expr, Conj, ExprValue),
-    (   runnable_collapse_name_state(CollapseState, NameSlot)
-    ->  CollapseState = '$petta_name_state'(CollapseNames, PriorNames),
-        NameState = '$petta_name_state'(CollapseNames,
-                                        [CollapseRuntimeNames|PriorNames]),
-        NamedConj = petta_run_named(CollapseNames, Conj,
-                                    CollapseRuntimeNames),
-        (   ExprValue == 'Empty'
-        ->  AfterHead = [(Out = [], NameSlot = [])|Goals]
+    (   var(Expr)
+    ->  AfterHead = [collapse_runtime(Expr, Out)|Goals]
+    ;   translate_expr_to_conj(Expr, Conj, ExprValue),
+        (   runnable_collapse_name_state(CollapseState, NameSlot)
+        ->  CollapseState = '$petta_name_state'(CollapseNames, PriorNames),
+            NameState = '$petta_name_state'(CollapseNames,
+                                            [CollapseRuntimeNames|PriorNames]),
+            NamedConj = petta_run_named(CollapseNames, Conj,
+                                        CollapseRuntimeNames),
+            (   ExprValue == 'Empty'
+            ->  AfterHead = [(Out = [], NameSlot = [])|Goals]
+            ;   nonvar(ExprValue)
+            ->  AfterHead = [(findall('$petta_answer'(ExprValue, NameState),
+                                      NamedConj, Carried),
+                              petta_answer_terms(Carried, Out, NameSlot))|Goals]
+            ;   AfterHead = [(findall('$petta_answer'(ExprValue, NameState),
+                                      NamedConj, Carried0),
+                              petta_prune_empty_answers(Carried0, Carried),
+                              petta_answer_terms(Carried, Out, NameSlot))|Goals]
+            )
+        ;   ExprValue == 'Empty'
+        ->  AfterHead = [Out = []|Goals]
         ;   nonvar(ExprValue)
-        ->  AfterHead = [(findall('$petta_answer'(ExprValue, NameState),
-                                  NamedConj, Carried),
-                          petta_answer_terms(Carried, Out, NameSlot))|Goals]
-        ;   AfterHead = [(findall('$petta_answer'(ExprValue, NameState),
-                                  NamedConj, Carried0),
-                          petta_prune_empty_answers(Carried0, Carried),
-                          petta_answer_terms(Carried, Out, NameSlot))|Goals]
+        ->  AfterHead = [findall(ExprValue, Conj, Out)|Goals]
+        ;   AfterHead = [(findall(ExprValue, Conj, All),
+                          petta_prune_empty(All, Out))|Goals]
         )
-    ;   ExprValue == 'Empty'
-    ->  AfterHead = [Out = []|Goals]
-    ;   nonvar(ExprValue)
-    ->  AfterHead = [findall(ExprValue, Conj, Out)|Goals]
-    ;   AfterHead = [(findall(ExprValue, Conj, All),
-                      petta_prune_empty(All, Out))|Goals]
     ).
 translate_special_dl(cut, [], AfterHead, Goals, true) :-
     AfterHead = [(!)|Goals].
@@ -668,6 +671,15 @@ translate_special_dl(switch, [KeyExpr, PairsExpr], AfterHead, Goals, Out) :-
 
 translate_special_dl(let, Args, AfterHead, Goals, Out) :-
     translate_let_dl(Args, AfterHead, Goals, Out).
+%A function frame consumes the return form structurally.  Outside that frame
+%it remains an ordinary polymorphically typed call, whose argument evaluates:
+%with a -> b -> c, top-level `(return a)` is `(return c)`, while
+%`(function (chain (eval a) $x (return $x)))` returns b.
+translate_special_dl(return, [Value], AfterHead, Goals, Out) :-
+    function_evaluation_active,
+    !,
+    Out = [return, Value],
+    AfterHead = Goals.
 %CHAIN'S NESTED OPERAND IS ONE MINIMAL STEP, NOT AN EVALUATION, and that is the
 %whole difference between it and `let`. Its declared first parameter is `Atom`,
 %so the operand reaches the instruction as written
@@ -693,25 +705,30 @@ translate_special_dl(let, Args, AfterHead, Goals, Out) :-
 %[measured 2026-08-24].
 translate_special_dl(chain, [Nested, Binder, Template], AfterHead, Goals, Out) :-
     var(Binder),
-    nonvar(Nested),
-    \+ embedded_operation(Nested),
     !,
-    substitute_written_variable(Binder, Nested, Template, Substituted),
-    translate_expr_dl(Substituted, AfterHead, AfterTemplate, Value),
-    %chain's declared result is `%Undefined%`, so what the template produced
-    %re-enters evaluation. The substituted operand can land in a MASKED
-    %position of the template and survive there unreduced, and this is the step
-    %that then reduces it: `!(chain (+ 1 2) $x (cons-atom $x (b)))` builds
-    %`((+ 1 2) b)` and answers `(3 b)` [measured 2026-08-24 against LeaTTa
-    %9ea9f9d].
-    masked_result_goal(Value, Out, Goal),
-    AfterTemplate = [Goal|Goals].
-%A stepped operand takes the ordinary binding route, and the SAME `%Undefined%`
-%result rule applies to what the template produced: building a term and
-%evaluating it inside the template leaves the built term's own masked operands
-%unreduced until here.
-%`!(chain (cons-atom cons-atom ((+ 1 2) (b))) $t (eval $t))` is `(3 b)`
-%[measured 2026-08-24 against LeaTTa 9ea9f9d].
+    (   nonvar(Nested), \+ embedded_operation(Nested)
+    ->  substitute_written_variable(Binder, Nested, Template, Substituted),
+        translate_expr_dl(Substituted, AfterHead, AfterTemplate, Value),
+        %chain's declared result is `%Undefined%`, so what the template produced
+        %re-enters evaluation. The substituted operand can land in a MASKED
+        %position of the template and survive there unreduced, and this is the step
+        %that then reduces it: `!(chain (+ 1 2) $x (cons-atom $x (b)))` builds
+        %`((+ 1 2) b)` and answers `(3 b)` [measured 2026-08-24 against LeaTTa
+        %9ea9f9d].
+        masked_result_goal(Value, Out, Goal),
+        AfterTemplate = [Goal|Goals]
+    ;   %A stepped operand is the protocol observer: chain asks eval for one raw
+        %machine result, so an irreducible operand reaches its continuation as the
+        %bare NotReducible mark. An eval written in any ordinary expression
+        %context retains its own call instead.
+        AfterHead = [petta_chain_step(Nested, Binder)|AfterTemplate],
+        translate_expr_dl(Template, AfterTemplate, AfterResult, Value),
+        masked_result_goal(Value, Out, Goal),
+        AfterResult = [Goal|Goals]
+    ).
+%Malformed/non-variable binders retain the ordinary let-pattern behavior so
+%the existing language-level mismatch path, rather than translation, decides
+%their result.
 translate_special_dl(chain, Args, AfterHead, Goals, Out) :-
     translate_let_dl(Args, AfterHead, AfterTemplate, Value),
     masked_result_goal(Value, Out, Goal),
@@ -1000,17 +1017,21 @@ translate_special_dl(call, Args, _, _, _) :-
     refuse_uncompilable_seam(call, Args).
 translate_special_dl(reduce, [Expr], AfterHead, Goals, Out) :-
     ( Expr == []
-      -> Out = [],
-         AfterHead = Goals
+      -> ExprValue = [],
+         AfterHead = BeforeReduce
       ; var(Expr)
-      -> translate_expr_dl(Expr, AfterHead, BeforeReduce, ExprValue),
-         BeforeReduce = [reduce(ExprValue, Out, _)|Goals]
+      -> translate_expr_dl(Expr, AfterHead, BeforeReduce, ExprValue)
       ; Expr = [Function|Args],
         translate_args_dl(Args, AfterHead, BeforeReduce, ArgValues),
-        ExprValue = [Function|ArgValues],
-        BeforeReduce = [reduce(ExprValue, Out, _)|Goals] ).
+        ExprValue = [Function|ArgValues] ),
+    BeforeReduce = [reduce(ExprValue, Reduced, Status),
+                    petta_reduce_result(ExprValue, Reduced, Status, Out)|Goals].
+%petta_eval_step/2 exposes the raw NotReducible mark to chain and function.  As an
+%ordinary expression, however, eval is itself an application boundary and an
+%irreducible step retains `(eval <arg>)` as written.
 translate_special_dl(eval, [Arg], AfterHead, Goals, Out) :-
-    AfterHead = [eval(Arg, Out)|Goals].
+    AfterHead = [petta_eval_step(Arg, Produced),
+                 petta_boundary_result([eval, Arg], Produced, Out)|Goals].
 %evalc hands its first argument over unevaluated, exactly as eval does, or the
 %expression would already have been reduced in the calling space before the
 %space argument could select another one. The space itself is evaluated, so a
@@ -1019,7 +1040,22 @@ translate_special_dl(evalc, [Arg, Space], AfterHead, Goals, Out) :-
     translate_space_expr_dl(Space, AfterHead, BeforeEval, SpaceValue),
     translate_restricted_guard_dl(
         metta_require_current_capability(evalc, process),
-        [evalc(Arg, SpaceValue, Out)|Goals], BeforeEval).
+        [petta_evalc_step(Arg, SpaceValue, Produced),
+         petta_boundary_result([evalc, Arg, SpaceValue], Produced, Out)|Goals],
+        BeforeEval).
+%Like the reference's embedded operation, metta-thread receives the atom as
+%written and runs the nested full evaluator.  Compiling it as an ordinary call
+%first evaluates that operand and leaves only the inert wrapper for the source
+%interpreter to consume.
+%[source: MettaHyperonFull/Minimal/Interpreter.lean:6747-6755,
+%`symOpMettaThread`; commit=WORKTREE]
+translate_special_dl('metta-thread', [Arg, _Type, Space], AfterHead, Goals,
+                     Out) :-
+    translate_space_expr_dl(Space, AfterHead, BeforeThread, SpaceValue),
+    translate_restricted_guard_dl(
+        metta_require_current_capability('metta-thread', process),
+        ['metta-thread'(Arg, '%Undefined%', SpaceValue, Out)|Goals],
+        BeforeThread).
 %These kernel reads intentionally accept an unwritten atomic &name, so their
 %declarations cannot use a strict SpaceType parameter. Once an expression is
 %registered, however, it is an identity at this space-position just like the
@@ -1125,6 +1161,13 @@ petta_unify_decision(A, B, petta_match_atoms(Asked, B)) :-
     ),
     !,
     petta_seq_plan(A, B, Asked).
+petta_unify_decision(A, B, Decision) :-
+    lift_pattern_modifiers(A, LiftedA, GuardsA, false),
+    lift_pattern_modifiers(B, LiftedB, GuardsB, false),
+    append(GuardsA, GuardsB, Guards),
+    Guards \== [],
+    !,
+    goals_list_to_conj([petta_match_atoms(LiftedA, LiftedB)|Guards], Decision).
 petta_unify_decision(A, B, petta_match_atoms(A, B)).
 
 %The free half of the gap question: only a nonvar LIST can carry a gap, and
@@ -1228,7 +1271,7 @@ translate_let_dl([[__petta_typed_binding__, Pattern], Value, In],
     TypeGoals \== [],
     translate_expr_dl(ConstrainedPattern, AfterHead, AfterPattern,
                       PatternValue),
-    translate_expr_dl(Value, AfterPattern, AfterValue, ValueResult),
+    translate_eager_argument_dl(Value, AfterPattern, AfterValue, ValueResult),
     AfterValue = [unify_with_occurs_check(PatternValue, ValueResult)|AfterUnify],
     append(TypeGoals, AfterTypes, AfterUnify),
     translate_expr_dl(In, AfterTypes, Goals, Out).
@@ -1278,19 +1321,21 @@ translate_let_dl([[__petta_typed_binding__, Pattern], Value, In],
 %gap makes that difference visible: there is nothing to evaluate in `...`.
 translate_let_dl([Pattern, Value, In], AfterHead, Goals, Out) :-
     ( petta_seq_written(Pattern)
-      -> translate_expr_dl(Value, AfterHead, AfterValue, ValueResult),
+      -> translate_eager_argument_dl(Value, AfterHead, AfterValue, ValueResult),
          petta_pattern_match_goal(Pattern, ValueResult, Decide),
          AfterValue = [Decide|AfterUnify]
        ; shares_variable(Pattern, Value)
       -> translate_expr_dl(Pattern, AfterHead, AfterPattern, PatternValue),
-         translate_expr_dl(Value, AfterPattern, AfterValue, ValueResult),
+         translate_eager_argument_dl(Value, AfterPattern, AfterValue, ValueResult),
          AfterValue = [unify_with_occurs_check(PatternValue, ValueResult)|AfterUnify]
        ; ( var(Value)
            -> EarlyUnify = unify_with_occurs_check(PatternValue, ValueResult)
             ; EarlyUnify = (ValueResult = PatternValue) ),
-         AfterHead = [EarlyUnify|BeforePattern],
-         translate_expr_dl(Pattern, BeforePattern, AfterPattern, PatternValue),
-         translate_expr_dl(Value, AfterPattern, AfterUnify, ValueResult) ),
+         AfterHead = [EarlyUnify|BeforeValue],
+         translate_eager_argument_dl(Value, BeforeValue, BeforePattern,
+                                     ValueResult),
+         translate_expr_dl(Pattern, BeforePattern, AfterUnify,
+                           PatternValue) ),
     translate_expr_dl(In, AfterUnify, Goals, Out).
 
 %An occurs check whose left side is a variable that has appeared NOWHERE
@@ -1558,6 +1603,11 @@ build_call_or_partial_dl(Fun, AVs, Out, Goals0, Goals, Extra) :-
       -> resolve_dispatch(Fun, AVs, Out, Goal),
          dispatch_call_goal(Fun, AVs, Out, Goal, PolicyGoal),
          append([PolicyGoal|Extra], Goals, Goals0)
+    ; metta_segment_equation(Fun)
+      -> current_metta_module(Module),
+         Goal = petta_segment_dispatch(Module, Fun, AVs, Out),
+         dispatch_call_goal(Fun, AVs, Out, Goal, PolicyGoal),
+         append([PolicyGoal|Extra], Goals, Goals0)
     ; incomplete_application_kind(Fun, Arity, partial)
       -> Out = partial(Fun, AVs),
          Goals0 = Goals
@@ -1627,6 +1677,35 @@ masked_result_goal(Produced, Out,
                    ->  Out = Produced
                    ;   metta_masked_result(Produced, Out)
                    )).
+
+%Compiled equations cross petta_application_result/4 at their call site.
+%Native and grounded operations instead use reduce/3's status-carrying seam,
+%so this result continuation can retain the old scalar-fast shape: an Atom
+%result is final, and every other compound result re-enters evaluation.
+%[source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:7350-7361 and
+%7533-7564; tested: translator_evaluation_errors and conformance2;
+%commit=WORKTREE].
+call_result_goal(_, _, Produced, final, Out, (Out = Produced)).
+%A native operation that cannot compute answers its own runtime call, which
+%is minimal MeTTa's NoReduce for grounded operations. That answer is
+%irreducible by construction, so the continuation keeps it as data; sending it
+%back through evaluation re-ran the same operation and looped: `!(< 1 a)`
+%overflowed the stack re-translating `(< 1 a)` once per retained answer
+%[source: vendor/hyperon/docs/minimal-metta.md:55-101, grounded operations
+%returning NoReduce; tested: test_an_operation_that_cannot_compute_answers_rather_than_raising
+%and conformance2; commit=WORKTREE].
+%The retained-answer test sits on the non-atomic branch only: arithmetic and
+%string results are atomic and answer directly, so the hot all-scalar paths
+%pay nothing for the guard [measured 2026-08-25: testing equality before
+%atomicity cost let-heavy +4,000,162 and loop-1m +2,000,085 inferences, about
+%two per evaluated native call; this shape restored both pins exactly].
+call_result_goal(_, Runtime, Produced, evaluated, Out, Goal) :-
+    Goal = (   atomic(Produced)
+           ->  Out = Produced
+           ;   Produced == Runtime
+           ->  Out = Produced
+           ;   metta_masked_result(Produced, Out)
+           ).
 
 %The one head that is a FRAME rather than a value, so an Atom-returning
 %equation whose body is one still runs it.

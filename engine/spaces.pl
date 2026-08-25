@@ -97,6 +97,12 @@
 %   - Clearing a native space clears its import life without making wildcard
 %     atom removal touch that life [tested 2026-08-15:
 %     filereader_import_lifecycle].
+%   - Removing a space-local shadow installs one targeted weak import for the
+%     inherited definition, so already-compiled callers and fresh lookups
+%     agree after the removal and after a pooled module is rebased [tested:
+%     filereader_import_lifecycle:
+%     removing_a_local_shadow_rearms_an_already_compiled_inherited_call;
+%     commit=WORKTREE].
 %   - Dynamic function registration is atomic and failed source loads remove
 %     its asserted compiler state [tested 2026-08-14:
 %     change_hook_error_rolls_back_every_registration_write,
@@ -238,7 +244,12 @@
             %written. Both then hand match/4 and petta_match_atoms/2 the
             %wrapped pattern those two dispatch on, so a gap adds no goal name
             %the engine has to protect and no cost to a gap-free call.
+            petta_seq_body_plan/2,
             petta_seq_plan/3,
+            petta_seq_head_match/2,
+            petta_seq_head_matches/2,
+            petta_seq_head_plan/2,
+            petta_seq_instantiate/2,
             petta_seq_present/1,
             petta_seq_query_plan/2,
             petta_seq_unify/3,

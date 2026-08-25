@@ -38,14 +38,15 @@
 %Outside them the ask REFUSES, naming the rule. That is not caution: the
 %alternative is a search that does not terminate.
 %
-%ONE NAME MAY NOT PLAY BOTH ROLES. `(f (:seg $x) $x)` mixes the sequence and
-%the ordinary reading of one name and is refused across every fragment
+%ONE NAME MAY NOT PLAY BOTH ROLES in the general two-sided `unify` and space
+%query doors. `(f (:seg $x) $x)` is refused there across every fragment
 %[source: ai-python-conventions.md 3.3, "One name may not play both the
-%ordinary and the segment role; that mix refuses too"]. LeaTTa's one-sided
-%matcher instead gives such a name the expression projection of its run
-%[source: LeaTTa MettaHyperonFull/Core/SeqOneSided.lean, oneSidedBindRole];
-%refusing is the narrower of the two and never answers where the arbiter
-%would not.
+%ordinary and the segment role; that mix refuses too"]. An EQUATION HEAD is
+%the deliberate one-sided exception below: LeaTTa's one-sided matcher gives
+%the ordinary occurrence the expression projection of the finite run, and
+%petta_seq_head_match/2 does the same [source: LeaTTa
+%MettaHyperonFull/Core/SeqOneSided.lean:65-89, oneSidedBindRole;
+%commit=WORKTREE].
 %
 %DISTINCT `...` OCCURRENCES ARE DISTINCT VARIABLES [source: LeaTTa
 %MettaHyperonFull/Core/SeqSyntax.lean, SeqVar.anonymous, "two `...`
@@ -129,6 +130,82 @@ petta_seq_present_items(Items) :-
     ->  true
     ;   petta_seq_present_items(Rest)
     ).
+
+%%%% Equation-head matching and RHS substitution %%%%
+%
+%An equation head is always the pattern side of a ONE-SIDED match.  That
+%matters for a name used in both sequence and ordinary roles: general
+%two-sided sequence unification refuses that shape because it can be
+%infinitary, while the one-sided reference matcher binds the finite run and
+%projects its ordinary occurrence to the expression containing that run.
+%Prolog already has precisely that projection.  Binding the gap variable to
+%the run `[a,b]` makes a later ordinary occurrence of the same variable match
+%the expression `(a b)` [source: LeaTTa
+%MettaHyperonFull/Core/SeqOneSided.lean:65-89 and :445-461;
+%commit=WORKTREE].
+%
+%The plan is built while the equation is compiled, before any call can bind
+%its variables.  Only the written head is parsed.  The call is concrete syntax
+%at this boundary, so a marker-shaped argument remains data.
+petta_seq_head_plan(Pattern, '$petta_seq'(one_sided(left), Parsed)) :-
+    petta_seq_parse(Pattern, Parsed).
+
+petta_seq_body_plan(Body, Parsed) :-
+    petta_seq_parse(Body, Parsed).
+
+petta_seq_head_match('$petta_seq'(one_sided(left), Parsed), Subject) :-
+    %An equation head stores only the argument HEDGE, not an atom with its
+    %function head.  Enter the child-list matcher directly so the all-segment
+    %head can match the empty argument hedge; petta_seq_atoms/2 quite properly
+    %requires two nonempty expressions at its atom boundary [tested:
+    %tests/prolog/segment_equations.plt:top_level_segment_accepts_zero_arguments;
+    %commit=WORKTREE].
+    petta_seq_items(Parsed, Subject).
+
+%A coverage or applicability probe must not bind the live call or the retained
+%equation.  copy_term/2 preserves sharing inside each side, including the one
+%name that may occur as both `(:seg $x)` and ordinary `$x` in an equation head
+%[tested: tests/prolog/segment_equations.plt; commit=WORKTREE].
+petta_seq_head_matches(Pattern, Subject) :-
+    copy_term(Pattern-Subject, PatternCopy-SubjectCopy),
+    petta_seq_head_plan(PatternCopy, Plan),
+    once(petta_seq_head_match(Plan, SubjectCopy)).
+
+%RHS substitution is context-sensitive.  An ordinary `$x` keeps the bound run
+%as one expression; a written `(:seg $x)` child splices the run into its
+%surrounding expression.  Parse before the head match and instantiate after it,
+%so a marker arriving through a binding stays data and repeated written splice
+%occurrences keep sharing their one authoritative run [source: LeaTTa
+%MettaHyperonFull/Core/SeqSyntax.lean:300-314 and :343-367;
+%commit=WORKTREE].
+petta_seq_instantiate(Template, Instantiated) :-
+    (   nonvar(Template),
+        Template = [_|_]
+    ->  petta_seq_instantiate_items(Template, Instantiated)
+    ;   Instantiated = Template
+    ).
+
+petta_seq_instantiate_items(Items, Instantiated) :-
+    (   Items == []
+    ->  Instantiated = []
+    ;   nonvar(Items),
+        Items = [Item|Rest]
+    ->  petta_seq_instantiate_items(Rest, Tail),
+        (   nonvar(Item),
+            Item = '$petta_seg'(Run, Kind)
+        ->  (   is_list(Run)
+            ->  append(Run, Tail, Instantiated)
+            ;   petta_seq_open_gap(Kind, Run, Surface),
+                Instantiated = [Surface|Tail]
+            )
+        ;   petta_seq_instantiate(Item, Head),
+            Instantiated = [Head|Tail]
+        )
+    ;   Instantiated = Items
+    ).
+
+petta_seq_open_gap(anon, _, '...') :- !.
+petta_seq_open_gap(named, Var, [':seg', Var]).
 
 %The same question about an ALREADY PARSED side, which is what one conjunct
 %carries once its enclosing conjunction was parsed.

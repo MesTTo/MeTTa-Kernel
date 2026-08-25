@@ -509,6 +509,19 @@ seam:engine_emitted(metta_bad_argument_error/3).
 seam:engine_emitted(dispatch_mismatch_result/3).
 seam:engine_emitted(dispatch_no_match_result/3).
 seam:engine_emitted(dispatch_policy_execute/5).
+seam:engine_emitted(petta_application_result/3).
+seam:engine_emitted(petta_application_result/4).
+seam:engine_emitted(petta_boundary_result/3).
+seam:engine_emitted(petta_reduce_result/4).
+seam:engine_emitted(petta_eval_step/2).
+seam:engine_emitted(petta_evalc_step/3).
+seam:engine_emitted(petta_evaluate_argument/2).
+seam:engine_emitted(metta_evaluate_symbol/2).
+seam:engine_emitted(petta_dynamic_call/3).
+seam:engine_emitted(petta_chain_step/2).
+seam:engine_emitted(collapse_runtime/2).
+seam:engine_emitted(petta_segment_dispatch/4).
+seam:engine_emitted(petta_segment_rule_result/6).
 %The result half of the evaluation mask. engine/translator/special_forms.pl's
 %masked_result_goal/3 writes it into every compiled body whose declared result
 %re-enters evaluation, so a MeTTa function named metta_masked_result at two
@@ -631,67 +644,302 @@ translate_clause(Input, (Head :- BodyConj)) :- translate_clause(Input, (Head :- 
 
 %% translate_clause(+Equation, -Clause, +ConstrainArgs:boolean) is semidet.
 translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
+    Input = [=, [F|Args0], BodyExpr],
+    petta_seq_present(Args0),
+    !,
+    translate_equation_head(F, Args0, ConstrainArgs, Args1, GoalsPrefix),
+    record_fun_meta(F, Args1, BodyExpr),
+    petta_seq_head_plan(Args1, HeadPlan),
+    translate_segment_body_plan(F, Args1, BodyExpr, GoalsPrefix, BodyPlan),
+    same_length(Args1, CallArgs),
+    append(CallArgs, [Out], FinalArgs),
+    compiled_function_name(F, Predicate),
+    Head =.. [Predicate|FinalArgs],
+    length(FinalArgs, CompiledArity),
+    register_arity(F, CompiledArity),
+    current_metta_module(Module),
+    RawBody = petta_segment_rule_result(Module, F, HeadPlan, BodyPlan,
+                                        CallArgs, RawOut),
+    append(CallArgs, [RawOut], RawFinalArgs),
+    RawHead =.. [Predicate|RawFinalArgs],
+    merge_branch_returns(RawHead, RawBody, MergedRawBody),
+    normalize_equation_result(F, CallArgs, RawOut, Out, MergedRawBody,
+                              BodyConj0),
+    merge_branch_returns(Head, BodyConj0, BodyConj1),
+    demote_safe_occurs_checks(Head, BodyConj1, BodyConj, HasNegation),
+    (   HasNegation == found
+    ->  quantify_negations(Head, BodyConj)
+    ;   true
+    ).
+translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                Input = [=, [F|Args0], BodyExpr],
-                                               ( ConstrainArgs -> constrain_children(Args0, 1, [], Args1, GoalsA, Positions, []),
-                                                                  flatten(GoalsA,GoalsPrefix),
-                                                                  ( Positions == []
-                                                                    -> true
-                                                                     ; record_head_pattern_notes(F, Positions) )
-                                                                ; Args1 = Args0, GoalsPrefix = [] ),
+                                               translate_equation_head(F, Args0, ConstrainArgs,
+                                                                       Args1, GoalsPrefix),
                                                record_fun_meta(F, Args1, BodyExpr),
-                                               ( declared_output_type(F, 'Atom'),
-                                                 %An Atom-returning function answers its body AS
-                                                 %DATA, and `function` is the ONE head that still
-                                                 %runs. It is a frame rather than a value: its
-                                                 %whole job is to execute a plan until a `return`
-                                                 %and hand back the payload
-                                                 %[source: LeaTTa
-                                                 %MettaHyperonFull/Minimal/Interpreter.lean:348-368,
-                                                 %`functionFrame`]. Without it every equation the
-                                                 %reference's stdlib writes as
-                                                 %`(= (f $x) (function ...))` answers its own
-                                                 %source text, and the whole stratego family, with
-                                                 %`interpret` behind it, returned the unrun
-                                                 %`(function (chain ...))` term.
-                                                 %
-                                                 %Ten embedded heads were measured in this position
-                                                 %on LeaTTa 9ea9f9d on 2026-08-24, one probe each:
-                                                 %`function` answers its payload and `cons-atom`,
-                                                 %`chain`, `eval`, `unify`, `decons-atom`,
-                                                 %`collapse-bind`, `get-metatype`, `metta` and
-                                                 %arithmetic every one stay data.
-                                                 \+ function_frame_body(BodyExpr)
-                                                 -> GoalsBody = [],
-                                                    ExpOut = BodyExpr
-                                                  ; translate_expr(BodyExpr, GoalsBody0, ExpOut0),
-                                                    (   GoalsBody0 == []
-                                                    ->  equation_result_continuation(BodyExpr, ExpOut0,
-                                                                                     GoalsBody, ExpOut)
-                                                    ;   GoalsBody = GoalsBody0,
-                                                        ExpOut = ExpOut0 ) ),
+                                               translate_equation_body_result(F, Args1, BodyExpr,
+                                                                              GoalsBody, ExpOut),
                                                (  nonvar(ExpOut) , ExpOut = partial(Base,Bound)
                                                -> length(Bound, N),
                                                   MinimumArity is N + 1,
                                                   setof(A, (arity(Base, A), A > MinimumArity), [Arity|_]),
                                                   M is (Arity - N) - 1,
                                                   length(ExtraArgs, M), append(Bound, ExtraArgs, CallInArgs),
-                                                  resolve_dispatch(Base, CallInArgs, Out, Goal),
-                                                  dispatch_call_goal(Base, CallInArgs, Out, Goal, PolicyGoal),
+                                                  resolve_dispatch(Base, CallInArgs, RawOut, Goal),
+                                                  dispatch_call_goal(Base, CallInArgs, RawOut, Goal, PolicyGoal),
                                                   append(GoalsBody,[PolicyGoal],FinalGoals), append(Args1,ExtraArgs,HeadArgs),
                                                   drop_superseded_arity(F, Args1, HeadArgs)
-                                               ; FinalGoals= GoalsBody , HeadArgs = Args1, Out = ExpOut ),
+                                               ; FinalGoals= GoalsBody , HeadArgs = Args1, RawOut = ExpOut ),
                                                append(HeadArgs, [Out], FinalArgs),
                                                compiled_function_name(F, Predicate),
                                                Head =.. [Predicate|FinalArgs],
                                                length(FinalArgs, CompiledArity),
                                                register_arity(F, CompiledArity),
                                                append(GoalsPrefix, FinalGoals, Goals),
-                                               goals_list_to_conj(Goals, BodyConj0),
+                                               goals_list_to_conj(Goals, RawBodyConj),
+                                               append(HeadArgs, [RawOut], RawFinalArgs),
+                                               RawHead =.. [Predicate|RawFinalArgs],
+                                               merge_branch_returns(RawHead, RawBodyConj,
+                                                                    MergedRawBody),
+                                               normalize_equation_result(F, HeadArgs, RawOut, Out,
+                                                                         MergedRawBody, BodyConj0),
                                                merge_branch_returns(Head, BodyConj0, BodyConj1),
                                                demote_safe_occurs_checks(Head, BodyConj1, BodyConj, HasNegation),
                                                ( HasNegation == found
                                                  -> quantify_negations(Head, BodyConj)
                                                   ; true ).
+
+%A compiled equation owns the language boundary around its own result.  This
+%is the worker-wrapper split needed by recursive functions: a callee already
+%turns its bare NotReducible result into that callee's runtime call, so a body
+%whose tail is another compiled equation can pass the caller's output variable
+%straight through and remain a last call.  Every other tail receives the
+%ordinary protocol locally.  Keeping the transform branch-aware prevents one
+%post-call continuation being replayed at every recursive depth while a
+%nondeterministic generator enumerates its answers.
+%Result normalization needs a fresh raw result when the call runs forwards:
+%a bare NotReducible must become the runtime call rather than bind the public
+%result to the marker. The old clause was relational too, however, and a
+%caller may supply that public result to solve the body backwards. Constrain
+%the raw result before the body only in that mode. A self-tail fusion removes
+%RawOut from Normalized and therefore keeps its last-call path guard-free.
+%[source: MettaHyperonFull/Minimal/Interpreter.lean:7350-7361 and 7533-7564;
+%tested: tests/prolog/translator.plt:
+%a_recursive_generator_enumerates_in_time_linear_in_its_answers and
+%tests/prolog/conformance2.plt; commit=WORKTREE].
+normalize_equation_result(Fun, Args, RawOut, Out, RawBody, Body) :-
+    Runtime = [Fun|Args],
+    normalize_equation_tail(RawBody, RawOut, Runtime, Out, Normalized),
+    term_variables(Normalized, Variables),
+    (   variable_member(Variables, RawOut)
+    ->  Body = (( nonvar(Out) -> RawOut = Out ; true ), Normalized)
+    ;   Body = Normalized
+    ).
+%[tested:
+%bindings/python/tests/test_builtin_inputs.py::test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason;
+%commit=WORKTREE].
+
+%A directly covered self call has already crossed its own equation boundary.
+%Fuse both the caller-side protocol and this equation's outer protocol into
+%the callee output.  The direct generated goal is emitted only after the head
+%coverage proof, so no unmatched-call marker is lost.  Calls through a policy
+%wrapper and calls to another function retain both boundaries; that also keeps
+%mutually recursive cycles non-tail until the engine has SCC-wide fuel.
+normalize_equation_tail((Call0,
+                         petta_application_result(_, _, Produced, RawResult)),
+                        RawOut, [Caller|_], Out, Call) :-
+    RawResult == RawOut,
+    direct_self_equation_goal(Call0, Caller, Produced, Out, Call),
+    !.
+normalize_equation_tail((A, B), RawOut, Runtime, Out, (A, Normalized)) :- !,
+    normalize_equation_tail(B, RawOut, Runtime, Out, Normalized).
+normalize_equation_tail((Condition -> Then ; Else), RawOut, Runtime, Out,
+                        (Condition -> ThenNormalized ; ElseNormalized)) :- !,
+    normalize_equation_tail(Then, RawOut, Runtime, Out, ThenNormalized),
+    normalize_equation_tail(Else, RawOut, Runtime, Out, ElseNormalized).
+normalize_equation_tail((Condition *-> Then ; Else), RawOut, Runtime, Out,
+                        (Condition *-> ThenNormalized ; ElseNormalized)) :- !,
+    normalize_equation_tail(Then, RawOut, Runtime, Out, ThenNormalized),
+    normalize_equation_tail(Else, RawOut, Runtime, Out, ElseNormalized).
+normalize_equation_tail((Left ; Right), RawOut, Runtime, Out,
+                        (LeftNormalized ; RightNormalized)) :- !,
+    normalize_equation_tail(Left, RawOut, Runtime, Out, LeftNormalized),
+    normalize_equation_tail(Right, RawOut, Runtime, Out, RightNormalized).
+normalize_equation_tail((Condition -> Then), RawOut, Runtime, Out,
+                        (Condition -> ThenNormalized)) :- !,
+    normalize_equation_tail(Then, RawOut, Runtime, Out, ThenNormalized).
+normalize_equation_tail(Goal0, RawOut, Runtime, Out, Goal) :-
+    normalized_equation_tail_goal(Goal0, RawOut, Runtime, Out, Goal), !.
+normalize_equation_tail(Goal, RawOut, Runtime, Out,
+                        (Goal, petta_application_result(Runtime, Runtime,
+                                                        RawOut, Out))).
+
+%Direct generated predicates and the default dispatch wrapper both already
+%return an equation-normalized result.  Replacing only their identical final
+%output variable is a compile-time worker-tail fusion; native predicates and
+%all meta calls keep the explicit protocol above.
+normalized_equation_tail_goal(Goal0, RawOut, [Caller|_], Out, Goal) :-
+    nonvar(Goal0),
+    Goal0 =.. [Predicate|Arguments0],
+    append(Inputs, [Produced], Arguments0),
+    Produced == RawOut,
+    compiled_function_name(Fun, Predicate),
+    Fun == Caller,
+    length(Inputs, Arity),
+    metta_equation_call(Fun, Arity),
+    append(Inputs, [Out], Arguments),
+    Goal =.. [Predicate|Arguments].
+normalized_equation_tail_goal(
+    dispatch_policy_execute(Module, Fun, Args, Goal0, Produced), RawOut,
+    [Caller|_], Out,
+    dispatch_policy_execute(Module, Fun, Args, Goal, Out)) :-
+    Produced == RawOut,
+    Fun == Caller,
+    replace_goal_output(Goal0, RawOut, Out, Goal).
+
+replace_goal_output(Goal0, RawOut, Out, Goal) :-
+    nonvar(Goal0),
+    Goal0 =.. [Predicate|Arguments0],
+    append(Inputs, [Produced], Arguments0),
+    Produced == RawOut,
+    append(Inputs, [Out], Arguments),
+    Goal =.. [Predicate|Arguments].
+
+direct_self_equation_goal(Goal0, Caller, Produced, Out, Goal) :-
+    nonvar(Goal0),
+    Goal0 =.. [Predicate|Arguments0],
+    append(Inputs, [GoalOut], Arguments0),
+    GoalOut == Produced,
+    compiled_function_name(Fun, Predicate),
+    Fun == Caller,
+    length(Inputs, Arity),
+    metta_equation_call(Fun, Arity),
+    append(Inputs, [Out], Arguments),
+    Goal =.. [Predicate|Arguments].
+
+%Head annotations are constraints regardless of whether the structural pattern
+%also carries a sequence variable.  Keep their lowering and the pattern-note
+%side effect on one path so both equation compilers see the same head
+%[tested: tests/prolog/segment_equations.plt and
+%tests/prolog/translator.plt:translator_inplace_annotations;
+%commit=WORKTREE].
+translate_equation_head(F, Args0, true, Args1, GoalsPrefix) :-
+    !,
+    constrain_children(Args0, 1, [], Args1, GoalsA, Positions, []),
+    flatten(GoalsA, GoalsPrefix),
+    (   Positions == []
+    ->  true
+    ;   record_head_pattern_notes(F, Positions)
+    ).
+translate_equation_head(_, Args, false, Args, []).
+
+%An equation head containing `(:seg $x)` cannot be represented by Prolog's
+%fixed-arity head unification alone.  Compile its body exactly once, retain the
+%variables shared with the parsed head, and put the one-sided hedge match in
+%front of those goals.  Calls at the written arity take this ordinary compiled
+%clause; calls at another arity use petta_segment_dispatch/4 over the retained
+%source equations [tested: tests/prolog/segment_equations.plt;
+%commit=WORKTREE].
+translate_segment_body_plan(F, Args, BodyExpr, GoalsPrefix, BodyPlan) :-
+    (   petta_seq_present(BodyExpr)
+    ->  petta_seq_body_plan(BodyExpr, ParsedBody),
+        goals_list_to_conj(GoalsPrefix, PrefixConj),
+        BodyPlan = spliced(PrefixConj, ParsedBody)
+    ;   translate_equation_body_result(F, Args, BodyExpr, GoalsBody, ExpOut),
+        append(GoalsPrefix, GoalsBody, Goals),
+        goals_list_to_conj(Goals, GoalsConj),
+        BodyPlan = compiled(GoalsConj, ExpOut)
+    ).
+
+%The common result-rule compiler, shared by ordinary and segment heads.  An
+%Atom-returning function answers its body as data, except for the `function`
+%frame whose purpose is to execute a plan until `return`.  Every other result
+%keeps the existing continuation rule [source: LeaTTa
+%MettaHyperonFull/Minimal/Interpreter.lean:348-368 and :3786-3799;
+%commit=WORKTREE].
+translate_equation_body_result(F, Args, BodyExpr, GoalsBody, ExpOut) :-
+    (   declared_output_type(F, 'Atom'),
+        \+ function_frame_body(BodyExpr)
+    ->  GoalsBody = [],
+        ExpOut = BodyExpr
+    ;   translate_equation_body(F, Args, BodyExpr, GoalsBody0, ExpOut0),
+        (   GoalsBody0 == []
+        ->  equation_result_continuation(BodyExpr, ExpOut0, GoalsBody, ExpOut)
+        ;   GoalsBody = GoalsBody0,
+            ExpOut = ExpOut0
+        )
+    ).
+
+%A variable in an equation body normally denotes an argument value that the
+%caller's mask has already evaluated.  The exception is a head variable that
+%occurs only in held (`Atom`, `Variable` or `Expression`) positions.  Remember
+%those identities while compiling this one body so a later unmasked use can
+%perform the deferred evaluation.  Restricting the marker to that origin keeps
+%ordinary relational variables transparent to CLP operations and to the
+%purity analyser.
+translate_equation_body(Fun, Args, Body, Goals, Out) :-
+    held_head_variables(Fun, Args, Held),
+    setup_call_cleanup(
+        install_held_head_variables(Held, Saved),
+        translate_expr(Body, Goals, Out),
+        restore_held_head_variables(Saved)).
+
+held_head_variables(Fun, Args, Held) :-
+    length(Args, Arity),
+    findall(Index,
+            ( catch_recover(type_declaration(Fun, Chain), fail),
+              present_type_chain(Chain, Arity, [->|Presented]),
+              append(Types, [_], Presented),
+              nth1(Index, Types, Type),
+              non_evaluated_parameter_type(Type) ),
+            Masked0),
+    sort(Masked0, Masked),
+    findall(Index,
+            ( catch_recover(type_declaration(Fun, Chain), fail),
+              present_type_chain(Chain, Arity, [->|Presented]),
+              append(Types, [_], Presented),
+              nth1(Index, Types, Type),
+              \+ non_evaluated_parameter_type(Type) ),
+            Evaluated0),
+    sort(Evaluated0, Evaluated),
+    variables_at_positions(Args, Masked, MaskedVariables),
+    variables_at_positions(Args, Evaluated, EvaluatedVariables),
+    exclude(variable_member(EvaluatedVariables), MaskedVariables, Held).
+
+variables_at_positions(_, [], []).
+variables_at_positions(Args, [Index|Indices], Variables) :-
+    nth1(Index, Args, Argument),
+    term_variables(Argument, Here),
+    variables_at_positions(Args, Indices, Rest),
+    append_new_variables(Here, Rest, Variables).
+
+append_new_variables([], Variables, Variables).
+append_new_variables([Variable|Variables], Tail, Out) :-
+    ( variable_member(Tail, Variable)
+    -> append_new_variables(Variables, Tail, Out)
+    ;  Out = [Variable|More],
+       append_new_variables(Variables, Tail, More)
+    ).
+
+variable_member(Variables, Variable) :-
+    member(Candidate, Variables),
+    Candidate == Variable,
+    !.
+
+install_held_head_variables(Held, saved(Previous)) :-
+    nb_current('$petta_held_head_variables', Previous),
+    !,
+    nb_linkval('$petta_held_head_variables', Held).
+install_held_head_variables(Held, none) :-
+    nb_linkval('$petta_held_head_variables', Held).
+
+restore_held_head_variables(saved(Previous)) :- !,
+    nb_linkval('$petta_held_head_variables', Previous).
+restore_held_head_variables(none) :-
+    nb_delete('$petta_held_head_variables').
+
+held_head_variable(Variable) :-
+    nb_current('$petta_held_head_variables', Held),
+    variable_member(Held, Variable).
 
 %A BODY THAT COMPILED TO NO GOALS EVALUATED NOTHING, and a declared result
 %other than `Atom` says the answer re-enters evaluation, so that is where the

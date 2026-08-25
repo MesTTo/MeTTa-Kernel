@@ -24,24 +24,33 @@
 %findall COPIES its template and every branch has to keep sharing the caller's
 %Out and argument variables. Collecting them with findall compiled cleanly and
 %answered an unbound variable for every typed call.
-typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out, AfterHead, Goals) :-
+typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out,
+                      RuntimeArgs, BeforeCall, AfterHead, Goals) :-
     UniqueTypeChains \== [],
     length(T, NewInputArity),
     length(Bound, BoundArity),
     InputArity is BoundArity + NewInputArity,
     Arity is InputArity + 1,
-    (   incomplete_application_kind(Fun, Arity, ApplicationKind),
-        ApplicationKind == overapplied
+    (   declared_arity_misses_existing_equation(Fun, UniqueTypeChains,
+                                                 InputArity)
     ->  ( IsPartial -> append(Bound, T, Written) ; Written = T ),
+        RuntimeArgs = T,
+        AfterHead = [function_overapplication(Fun, Written, Out)|Goals]
+    ;   incomplete_application_kind(Fun, Arity, ApplicationKind),
+        ApplicationKind == overapplied,
+        \+ metta_segment_equation(Fun)
+    ->  ( IsPartial -> append(Bound, T, Written) ; Written = T ),
+        RuntimeArgs = T,
         AfterHead = [function_overapplication(Fun, Written, Out)|Goals]
     ;   fitting_type_chains(UniqueTypeChains, InputArity, Selection),
         ( IsPartial -> append(Bound, T, Written) ; Written = T ),
         (   Selection = refused(Rule, Reason)
         ->  Refusal = ['Error', [Fun|Written],
                        ['TypingRuleRefusal', Rule, Reason]],
+            RuntimeArgs = T,
             AfterHead = [Out = Refusal|Goals]
         ;   applicable_typed_branches(Selection, Fun, T, IsPartial, Bound,
-                                      Out, Branches),
+                                      Out, RuntimeArgs, BeforeCall, Branches),
             Branches \== [],
             first_applicable_branch(Branches,
                                     dispatch_mismatch_result(Fun, Written, Out),
@@ -49,6 +58,19 @@ typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out, AfterHead
             AfterHead = [Dispatch|Goals]
         )
     ).
+
+declared_arity_misses_existing_equation(Fun, Chains, InputArity) :-
+    presented_type_chains(Chains, InputArity, []),
+    %A refusal rule that declined this arity owns the answer: a user
+    %arrow-arity rule's (TypingRuleRefusal Name Reason) must not be
+    %overwritten by the generic count mismatch
+    %[tested: test_a_user_typing_rule_participates_like_a_shipped_one].
+    \+ type_chain_refusal(Chains, InputArity, _, _),
+    current_metta_module(Module),
+    fun_meta_module(Module, Fun, Owner),
+    fun_meta_clause(Owner, Fun, Head, _),
+    length(Head, InputArity),
+    !.
 
 %THE FIRST ARROW THAT ANSWERS IS THE ONE THAT ANSWERS, and the soft cut has to
 %sit on each branch rather than around all of them. A flat disjunction under
@@ -102,7 +124,7 @@ first_applicable_branch([Branch|Branches], Fallback, ( Branch *-> true ; Rest ))
 %kept distinct from that absence; otherwise filtering it out would select the
 %partial fallback and make an arrow-arity refusal behaviorally inert.
 fitting_type_chains(Chains, InputArity, Fitting) :-
-    include(type_chain_takes(InputArity), Chains, Exact),
+    presented_type_chains(Chains, InputArity, Exact),
     (   Exact \== []
     ->  Fitting = Exact
     ;   type_chain_refusal(Chains, InputArity, Rule, Reason)
@@ -110,12 +132,87 @@ fitting_type_chains(Chains, InputArity, Fitting) :-
     ;   Fitting = Chains
     ).
 
+%The full evaluator needs the same argument view as a compiled call, but it
+%applies that view at run time before asking reduce/3 for one minimal step.
+%The first signature decides, including the reference's raw-tail fallback for
+%an arity that the arrow does not present.  With no signature every position
+%evaluates.  Returning booleans keeps this boundary about evaluation only;
+%the ordinary typed dispatcher still owns every argument check and rejection.
+%[source: MettaHyperonFull/Minimal/Interpreter.lean:3760-3784 and 7394-7440,
+%`argMask` and the argument fold in `mettaEval`; commit=WORKTREE]
+metta_runtime_argument_mask(Fun, Arity, Mask) :-
+    metta_runtime_first_signature(Fun, Signature),
+    !,
+    metta_runtime_parameter_types(Signature, Arity, Types),
+    maplist(metta_runtime_parameter_evaluates, Types, Mask).
+metta_runtime_argument_mask(_, Arity, Mask) :-
+    length(Mask, Arity),
+    maplist(=(true), Mask).
+
+metta_runtime_first_signature(Fun, Signature) :-
+    call_site_type_chains(Fun, [Signature|_]), !.
+metta_runtime_first_signature(Fun, Signature) :-
+    catch_recover(seam:builtin_type_declaration(Fun, Signature), fail),
+    !.
+
+metta_runtime_parameter_types([->|Types], Arity, Parameters) :-
+    (   once(present_type_chain([->|Types], Arity, [->|Presented]))
+    ->  append(Parameters, [_], Presented)
+    ;   mask_prefix(Types, Arity, Parameters)
+    ).
+
+metta_runtime_parameter_evaluates(Type, false) :-
+    non_evaluated_parameter_type(Type), !.
+metta_runtime_parameter_evaluates(_, true).
+
+%Result finality is the other half of the same first-signature convention.
+%An Atom result is data even when its shape names another operation; every
+%other result re-enters the full evaluator.
+%[source: MettaHyperonFull/Minimal/Interpreter.lean:3786-3799 and 7451-7460,
+%`returnsAtom` and its use in `mettaEval`; commit=WORKTREE]
+metta_runtime_returns_atom(Fun) :-
+    metta_runtime_first_signature(Fun, [->|Types]),
+    append(_, [Declared], Types),
+    declared_type_for_evaluation(Declared, View),
+    View == 'Atom'.
+
 type_chain_takes(InputArity, [->|Types]) :-
-    length(Types, Count),
-    DeclaredInputArity is Count - 1,
-    current_metta_module(Module),
-    typing_rule_accepts(Module, 'arrow-arity', InputArity,
-                        DeclaredInputArity).
+    present_type_chain([->|Types], InputArity, _).
+
+presented_type_chains([], _, []).
+presented_type_chains([Chain|Chains], Arity, Presented) :-
+    (   present_type_chain(Chain, Arity, Expanded)
+    ->  Presented = [Expanded|Rest]
+    ;   Presented = Rest
+    ),
+    presented_type_chains(Chains, Arity, Rest).
+
+%A final `(%Rest% T)` formal absorbs every remaining argument and presents one
+%copy of T per position.  Fixed arrows retain the existing arity typing rule,
+%including provider refusals.
+present_type_chain([->|Types], InputArity, [->|Presented]) :-
+    append(Parameters, [Out], Types),
+    (   append(Fixed, [Rest], Parameters),
+        rest_parameter(Rest, Element)
+    ->  length(Fixed, FixedArity),
+        InputArity >= FixedArity,
+        RestArity is InputArity - FixedArity,
+        length(RestTypes, RestArity),
+        maplist(=(Element), RestTypes),
+        append(Fixed, RestTypes, PresentedParameters),
+        append(PresentedParameters, [Out], Presented)
+    ;   length(Parameters, DeclaredInputArity),
+        current_metta_module(Module),
+        typing_rule_accepts(Module, 'arrow-arity', InputArity,
+                            DeclaredInputArity),
+        Presented = Types
+    ).
+
+rest_parameter(Rest, Element) :-
+    nonvar(Rest),
+    Rest = [Marker, Element],
+    nonvar(Marker),
+    Marker == '%Rest%'.
 
 type_chain_refusal(Chains, InputArity, Rule, Reason) :-
     member([->|Types], Chains),
@@ -126,19 +223,21 @@ type_chain_refusal(Chains, InputArity, Rule, Reason) :-
                         DeclaredInputArity, Rule, Reason),
     !.
 
-applicable_typed_branches([], _, _, _, _, _, []).
+applicable_typed_branches([], _, _, _, _, _, _, _, []).
 applicable_typed_branches([TypeChain|Rest], Fun, T, IsPartial, Bound, Out,
-                          Branches) :-
+                          RuntimeArgs, BeforeCall, Branches) :-
     (   typed_functioncall_branch(Fun, TypeChain, T, [], IsPartial, Bound, Out,
-                                  BranchGoal)
+                                  RuntimeArgs, BeforeCall, BranchGoal)
     ->  Branches = [BranchGoal|More]
     ;   Branches = More
     ),
-    applicable_typed_branches(Rest, Fun, T, IsPartial, Bound, Out, More).
+    applicable_typed_branches(Rest, Fun, T, IsPartial, Bound, Out,
+                              RuntimeArgs, BeforeCall, More).
 
-typed_functioncall_branch(Fun, TypeChain, T, GsH, IsPartial, Bound, Out, BranchGoal) :-
+typed_functioncall_branch(Fun, TypeChain, T, GsH, IsPartial, Bound, Out,
+                          RuntimeArgs, BeforeCall, BranchGoal) :-
     TypeChain = [->|Xs],
-    append(ArgTypes0, [OutType], Xs), !,
+    append(ArgTypes0, [_OutType], Xs), !,
     drop_unconstraining_types(TypeChain, ArgTypes0, ArgTypes),
     metta_argument_type_origins(ArgTypes, ArgOrigins),
     argument_applicability_checks(T, ArgTypes, ArgOrigins, ApplicabilityChecks),
@@ -146,20 +245,12 @@ typed_functioncall_branch(Fun, TypeChain, T, GsH, IsPartial, Bound, Out, BranchG
     ( IsPartial -> append(Bound, AVsTmp0, AVsTmp) ; AVsTmp = AVsTmp0 ),
     append(GsH, ApplicabilityChecks, BeforeArgs),
     append(BeforeArgs, GsT2, InnerEval),
-    %The output check asks whether the result has the declared type, and
-    %nothing reads OutType afterwards, so one witness is the whole answer. A
-    %soft cut here instead enumerates every derivation and succeeds once per
-    %derivation, which repeats the call's answer: with (: (a b) (A B)) declared
-    %alongside (: a A) and (: b B), a function returning (a b) answered twice.
-    %The argument checks above keep their soft cut, because a shared type
-    %variable there does have to backtrack to find a consistent assignment.
-    ( (OutType == '%Undefined%' ; OutType == '_' ; OutType == 'Atom')
-       -> OutCheck = []
-        ; type_check_goal(Out, OutType,
-                          ( has_type(Out, OutType) -> true
-                          ; 'get-metatype'(Out, OutType) ),
-                          OutGoal),
-          OutCheck = [OutGoal] ),
+    %A declared result controls whether the produced atom re-enters evaluation;
+    %it is not a dynamic filter on the produced value.  The requested result
+    %type is checked by `metta`/`interpret` before dispatch.  Applying it here
+    %made every mismatching user result disappear, including the reference's
+    %`(-> Atom Variable)` function that deliberately returns 3.
+    OutCheck = [],
     %NO RESULT CONTINUATION IS EMITTED HERE, and the reason is that this engine
     %compiles where the arbiter steps. The arbiter's `eval` applies one equation
     %and hands the instantiated right-hand side to `returnsAtom`, which sends it
@@ -179,12 +270,13 @@ typed_functioncall_branch(Fun, TypeChain, T, GsH, IsPartial, Bound, Out, BranchG
     %failed check takes the whole branch down, which is how
     %`(needs-number (+ 1 "bad"))` answered nothing where the arbiter answers
     %the inner error atom.
-    place_type_checks(ArgTypes, OutType, ArgChecks, OutCheck, [], AfterEval, Extra),
+    place_type_checks(ArgTypes, '_', ArgChecks, OutCheck, [], AfterEval, Extra),
     typed_call_operands(Fun, Computed0, Guarded),
     build_call_or_partial_dl(Fun, AVsTmp, Out, CallGoals, [], Extra),
-    append(AfterEval, CallGoals, Checked),
+    append([AfterEval, BeforeCall, CallGoals], Checked),
     guard_error_arguments(Guarded, Out, Checked, AfterInnerEval, []),
-    append(InnerEval, AfterInnerEval, GoalsList),
+    append(InnerEval, AfterInnerEval, CallGoalsList),
+    GoalsList = [(RuntimeArgs = AVsTmp0)|CallGoalsList],
     goals_list_to_conj(GoalsList, BranchGoal).
 
 %evaluated_argument_values/3's typed twin. A parameter the evaluation mask
@@ -206,7 +298,19 @@ argument_applicability_checks(Args, Types, Origins, Checks) :-
     maplist(argument_applicability_check, Args, Types, Origins, Raw),
     goals_list_to_conj(Raw, Conj),
     Checks = [once(Conj)].
-argument_applicability_checks(_, _, _, []).
+argument_applicability_checks(Args, Types, Origins, Checks) :-
+    metatype_applicability_checks(Args, Types, Origins, Raw),
+    commit_checks(Raw, Checks).
+
+metatype_applicability_checks([], _, _, []).
+metatype_applicability_checks([Argument|Arguments], [Type|Types],
+                              [Origin|Origins], Checks) :-
+    (   Origin == metatype,
+        \+ unchecked_parameter_type(Type)
+    ->  Checks = [check_argument_type(Argument, Type, Origin)|Rest]
+    ;   Checks = Rest
+    ),
+    metatype_applicability_checks(Arguments, Types, Origins, Rest).
 
 argument_applicability_check(Argument, Type, Origin,
                              check_argument_type(Argument, Type, Origin)).
@@ -331,7 +435,7 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
          %The argument was not evaluated, so nothing at this position can hold
          %an error this call has to hand on: Computed skips it either way.
          Computed = More,
-         ( unchecked_parameter_type(T)
+         ( ( Origin == metatype ; unchecked_parameter_type(T) )
            -> AfterCheck = Checks0
            ;  declared_type_for_check(T, CheckType),
               metta_argument_type_origins([CheckType], [CheckOrigin]),
@@ -341,7 +445,7 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
               Checks0 = [MaskedGoal|AfterCheck] )
     ; ( T == 'SpaceType'
         -> translate_space_expr_dl(A, Goals0, AfterArg, AV)
-        ;  translate_expr_dl(A, Goals0, AfterArg, AV) ),
+        ;  translate_eager_argument_dl(A, Goals0, AfterArg, AV) ),
       (   Goals0 == AfterArg
       ->  Computed = More
       ;   nonvar(AV)
@@ -350,7 +454,8 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
       ->  Computed = More
       ;   Computed = [AV|More]
       ),
-      ( (T == '%Undefined%' ; T == '_' ; statically_typed_literal(AV, T))
+      ( ( Origin == metatype
+        ; T == '%Undefined%' ; T == '_' ; statically_typed_literal(AV, T))
         -> AfterCheck = Checks0
       ; type_check_goal(AV, T,
                         check_argument_type(AV, T, Origin),

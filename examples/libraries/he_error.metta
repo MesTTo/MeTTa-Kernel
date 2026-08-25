@@ -31,7 +31,9 @@
 !(test (if-error (Error 5 BadType) "Error!" "No error")
        "Error!")
 
+;At top level the reference's double return leaves one return instruction for
+;an enclosing function frame. LeaTTa 9ea9f9d answers this exact call likewise.
 !(test (return-on-error (Error 5 BadType) 6)
-       (Error 5 BadType))
+       (return (Error 5 BadType)))
 
 !(test (return-on-error 5 6) 6)
