@@ -31,6 +31,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   at the door. A handle refuses term positions, mixed adds, and batch
   scopes loudly; a missing library surfaces the engine's own existence
   error.
+- `Space.metta` answers the owning evaluation context, so a handle held
+  alone reaches the ruled creation door as `m.metta.space(name)` and
+  the context's other doors without the process default being assumed.
 - Add package-level `superpose`, ambient `match`, pre-add verdict builders,
   live container `view`, and the `spawn`, `race`, `every`, `channel`, and
   `par_map` coordination family.

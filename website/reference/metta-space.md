@@ -423,6 +423,11 @@ def add(self, *atoms: Any) -> None:
 > `(rule $_17902 $_17904)`, because a variable is an identity and not a
 > spelling. That is the right property for a logic engine and it is the
 > one thing about storage that surprises everybody once.
+>
+> A library IS knowledge, so the same door imports it: ``m += lib.he``
+> performs ``!(import! <m> (library lib_he))`` with this space as the
+> target. An import is an effect, so it refuses to hide inside an atom
+> batch or share a call with stored atoms.
 
 ### `Space.remove`
 
@@ -1944,6 +1949,19 @@ def runtime(self) -> Runtime:
 ```
 
 > The engine bridge itself, for callers going under the surface.
+
+### `Space.metta`
+
+```python
+def metta(self) -> MeTTa:
+```
+
+> The owning evaluation context, so a handle can reach every
+> context-level door: ``m.metta.space(S.kb)`` creates a sibling space
+> in THIS handle's own context rather than the process default, which
+> is the creation door the twins' known-issue asked for. The wrapper
+> is two slots over the same runtime, so answering it costs nothing
+> and two answers compare equal through the runtime they share.
 
 ## `MeTTa`
 
