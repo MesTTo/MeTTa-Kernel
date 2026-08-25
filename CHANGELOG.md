@@ -8,6 +8,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `Space.reacts(pattern, operation, priority=None)` and its async mirror now
+  expose the settled declaration spelling for `(on ...)`; `reaction(...)`
+  remains as a compatibility alias.
+
 - `metta.testing.from_pattern(pattern)` now generates ground pattern
   instantiations for property tests, preserving repeated named-variable
   identity and drawing anonymous occurrences independently.
