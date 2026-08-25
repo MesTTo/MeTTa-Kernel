@@ -11,6 +11,13 @@
 #   - the C extension example's cbump and handle shared objects are built in
 #     the worktree exactly as check.sh builds them, so a direct pytest run
 #     here exercises the same integration surface instead of skipping it.
+#   - engine/reader.so is built from the worktree's OWN reader.c exactly as
+#     check.sh builds it, so benchmarks and suites here measure the C-reader
+#     configuration the main gate measures: artifact presence alone moves
+#     file-load 8704891 to 722264 with zero code change, and a worktree
+#     without the artifact silently benchmarks the Prolog fallback against
+#     C-reader pins [measured 2026-08-25 on a detached scratch worktree,
+#     bench.py --counter-only, same commit both ways; commit=WORKTREE].
 # Fails when:
 #   - the main checkout has not been built. That is reported, because a
 #     worktree quietly running a SMALLER configuration than the tree it was
@@ -74,6 +81,24 @@ if [ -d "$ext" ]; then
         done
     else
         echo "worktree.sh: swipl-ld not found, the C extension example will skip" >&2
+    fi
+fi
+
+# The engine's C reader is gitignored build output with its own gate: parses
+# run in C only while engine/reader.so exists beside reader.c. Build it from
+# THIS tree's source (not a link from the main checkout, whose reader.c may
+# differ across commits), with check.sh's exact recipe and stance: a missing
+# toolchain notes the fallback, a build failure fails loudly.
+if [ -f "$HERE/engine/reader.c" ]; then
+    if command -v swipl-ld >/dev/null 2>&1; then
+        if [ ! -f "$HERE/engine/reader.so" ] ||
+           [ "$HERE/engine/reader.c" -nt "$HERE/engine/reader.so" ]; then
+            ( cd "$HERE/engine" && swipl-ld -shared -O2 -o reader.so reader.c ) ||
+                { echo "worktree.sh: engine/reader.c failed to build; suites here would measure the Prolog fallback against C-reader pins" >&2
+                  exit 1; }
+        fi
+    else
+        echo "worktree.sh: swipl-ld not found, this worktree runs the Prolog reader fallback and its counters will not compare against C-reader pins" >&2
     fi
 fi
 

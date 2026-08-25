@@ -8,6 +8,29 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Benchmark baselines are two-sided and configuration-stamped. A counter,
+  slope, or instruction reading that falls beyond the allowance now fails as
+  an unpinned improvement instead of passing silently, because a stale-high
+  pin masks real regressions up to its own margin: `file-load` sat pinned at
+  8,704,891 inferences while the tree measured 722,264, twelve-fold masking
+  headroom the one-sided check never surfaced. Every re-pin in
+  `benchmarks/baseline.json` and `benchmarks/extension-baseline.json` records
+  its measured mechanism beside the pin (the C reader's artifact gate, the
+  1d28398f capability flip, the typed-dispatch train, the identity wire's
+  codec saving, and the daeb3b5a dispatch-ownership door are this round's).
+  Both documents also carry a `counter_configuration` stamp (`c_reader`,
+  `c_extension`): comparisons refuse to run in a configuration other than the
+  one the pins were measured in, since artifact presence alone moves pins
+  with zero code change. The instruction checker verifies the stamp without
+  rewriting it, `worktree.sh` builds `engine/reader.so` from the worktree's
+  own source so an isolated tree measures the shipping configuration, and
+  the extension-cost gate fails on any pinned row nothing measured, pruning
+  such rows aloud on update - which restored the C foreign row (silently
+  absent since the tree partition moved the harness a directory deeper and
+  its artifact path stopped resolving) and retired the renamed
+  `raw-true` row. `EXTENDING.md`'s cost tables are regenerated from the
+  gated harness.
+
 - The engine boots through SWI's Quick Load Format: every engine and lib
   Prolog source compiles to a `.qlf` beside itself on the first boot and
   loads from it afterwards, taking a warm CLI boot from 0.19s to 0.07s

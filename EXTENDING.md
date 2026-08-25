@@ -44,14 +44,14 @@ than of the loop around it.
 
 | extension point | inferences/call | vs MeTTa | microseconds/call | vs MeTTa |
 |---|---|---|---|---|
-| C foreign predicate | 1.00 | 0.33x | 0.02 | 0.41x |
-| translator rule (a macro) | 2.00 | 0.67x | 0.04 | 0.79x |
-| Prolog grounded predicate | 2.00 | 0.67x | 0.04 | 0.78x |
-| ordinary MeTTa function | 3.00 | 1.00x | 0.05 | 1.00x |
-| `@m.define`, annotated | 3.00 | 1.00x | 0.05 | 1.06x |
-| `@m.define`, no annotations | 3.01 | 1.00x | 0.05 | 1.00x |
-| Python operation, `transport="raw"` | 6.00 | 2.00x | 0.87 | 16.71x |
-| Python operation, encoded | 13.01 | 4.33x | 1.99 | 38.34x |
+| translator rule (a macro) | 0.00 | 0.00x | 0.00 | 0.04x |
+| C foreign predicate | 1.00 | 0.25x | 0.02 | 0.23x |
+| Prolog grounded predicate | 2.00 | 0.50x | 0.03 | 0.36x |
+| ordinary MeTTa function | 4.00 | 1.00x | 0.10 | 1.00x |
+| `@m.define`, no annotations | 5.00 | 1.25x | 0.15 | 1.60x |
+| `@m.define`, annotated | 5.00 | 1.25x | 0.15 | 1.56x |
+| Python operation, `transport="raw"` | 6.00 | 1.50x | 1.00 | 10.28x |
+| Python operation, encoded | 13.00 | 3.25x | 3.79 | 38.98x |
 
 One run's output, not a best-of: the columns divide by each other, so mixing
 runs would give ratios no run measured. The inference column is exact and the
@@ -60,10 +60,10 @@ resolution and this box is rarely idle. Read the first for the comparison and
 the second for the order of magnitude.
 
 How much the second column moves is worth a number rather than a warning. The
-annotated `@m.define` row came out at 1.06x here and at 1.09x, 1.45x and 1.66x
-on other runs minutes apart, on a box at the same load, while its inference
-figure was 3.00 on every one. Any native-tier ratio here inside about 2x is
-timer noise.
+annotated `@m.define` row came out at 1.56x here and at 1.06x, 1.09x, 1.45x
+and 1.66x on other runs minutes apart, on a box at the same load, while its
+inference figure was identical on every one. Any native-tier ratio here
+inside about 2x is timer noise.
 
 Read both columns, because each one hides something.
 
@@ -76,14 +76,15 @@ write, which is what holds the row at this size. The pool rows go through
 the shipped `pool.admits` and `pool.capacity` surface, which claims
 the pool's pre-add hook with the `space-admission-verdict` judge; a space
 nothing claimed keeps the direct write path, which is why the plain row
-fell from 49.01 when the old global admission wrapper came off.
+fell from 49.01 to its current level when the old global admission wrapper
+came off.
 
 | write door | inferences/add | vs plain add |
 |---|---|---|
-| add-atom, no claims on the space | 29.01 | 1.00x |
-| add-atom through an accept-all pre-add hook | 39.02 | 1.34x |
-| add-atom into a pool with a declared admits type | 51.01 | 1.76x |
-| add-atom into a pool with a declared capacity | 60.01 | 2.07x |
+| add-atom, no claims on the space | 30.00 | 1.00x |
+| add-atom through an accept-all pre-add hook | 46.00 | 1.53x |
+| add-atom into a pool with a declared admits type | 58.00 | 1.93x |
+| add-atom into a pool with a declared capacity | 68.00 | 2.27x |
 
 The capacity row used to read 4569.69 at a thousand held atoms and grew
 with every one, because the bespoke check counted the pool by enumeration
@@ -92,7 +93,8 @@ count, updated only on that pool's accepted writes and reset by its removal
 and clear doors. The judge reads the indexed fact in 3.00 inferences, so the
 row's cost no longer depends on either the atom count or the number of stored
 arities. A pool with no capacity claim owns no counter, and a space with no
-hook claim never probes for one; the 29.01 plain row is therefore unchanged.
+hook claim never probes for one; the plain row pays nothing for the pool
+machinery.
 The admits and capacity rows also read their fixed contract heads directly,
 ground type witnesses take an indexed declaration hit before their exact
 fallback, and a compiled hook fire already in its declaring module skips the
@@ -128,14 +130,16 @@ and the declared type is known while compiling, so `number/1` goes in front of
 the general lookup.
 
 SWI compiles `number/1` to a VM instruction and does not count it as an
-inference. So the first column now says 3.00, the same as an ordinary MeTTa
-function, and **that is a fact about the counter rather than about the work**.
-The check still runs. Measured in retired instructions on a workload that is
-nothing but declared calls with unknown arguments, it is 6,390,131,589 with
-the specialisation and 9,219,256,868 without, so about 30% of that workload is
-still the checking. `check.sh` gates that number as the `typed-call` case, for
-exactly the reason this paragraph exists: the inference gate every other row
-relies on is blind here.
+inference. So the annotated row reads the same 5.00 as the unannotated one,
+and **that is a fact about the counter rather than about the work**. The
+check still runs. Measured in retired instructions on a workload that is
+nothing but declared calls with unknown arguments, the tree that landed the
+specialisation read 6,390,131,589 with it and 9,219,256,868 without, so
+about 30% of that workload was still the checking. `check.sh` gates that
+number as the `typed-call` case (7,737,766,959 at the current pin, each move
+recorded beside it in `benchmarks/baseline.json`), for exactly the reason
+this paragraph exists: the inference gate every other row relies on is blind
+here.
 
 So: declare types where you want the checking. It is much cheaper than it was
 and it is not free, a literal argument costs nothing, and a parameter you do
@@ -910,10 +914,10 @@ def classify(n):
     return "positive" if n else "zero"
 ```
 
-Those equations compile like any others, so the call costs what a hand-written
-MeTTa equation costs: 3.01 inferences against 3.00, which is a compiler result
-rather than a coincidence. There is no crossing at run time and no Python in
-the loop.
+Those equations compile like any others, so the call costs within one
+inference of a hand-written MeTTa equation: 5.00 against the hand-written
+4.00 in the table above, which is a compiler result rather than a
+coincidence. There is no crossing at run time and no Python in the loop.
 
 The subset is a real subset, and a construct outside it is refused by name and
 line rather than silently falling back to a Python operation. `_define_twins`
