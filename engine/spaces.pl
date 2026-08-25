@@ -182,6 +182,11 @@
             clear_foreign_atoms/1,
             clear_native_atoms/1,
             compile_metta_equation/4,
+            defer_metta_equation/3,
+            metta_add_program_atoms/2,
+            metta_add_program_atoms/3,
+            store_data_atoms/2,
+            metta_ensure_compiled/1,
             ensure_native_storage_module/2,
             foreign_provides/2,
             foreign_pushdown_class/3,
@@ -310,6 +315,7 @@
 :- petta_import_shared_registries(spaces).
 
 :- use_module(library(sandbox), [safe_goal/1]).
+:- use_module(library(assoc), [list_to_assoc/2, get_assoc/3, put_assoc/4]).
 
 % Storage modules are separate from execution modules. They inherit nothing,
 % so a user predicate cannot appear as a space atom, and unknown arities fail

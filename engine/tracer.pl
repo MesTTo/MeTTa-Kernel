@@ -100,9 +100,13 @@ metta_trace_wrap_once(Target) :-
       assertz(metta_trace_wrapped(Target)) ).
 
 %A function compiled while a trace is active must be wrapped before the next
-%form runs. process_form/3 fires this hook after installing every equation.
-:- multifile seam:function_changed/1.
-seam:function_changed(F) :-
+%form runs. The compiled-clause event, not the definition event: wrapping
+%needs the predicate, and under deferred translation function_changed fires
+%when the equation ARRIVES, which can be before any clause exists to wrap;
+%this one fires once per compiled equation, arrival-translated and
+%materialised alike.
+:- multifile seam:function_clauses_changed/1.
+seam:function_clauses_changed(F) :-
     with_mutex('$petta_trace_state',
                ( metta_trace_session
                  -> compiled_function_name(F, Predicate),

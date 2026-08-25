@@ -1056,6 +1056,10 @@ module_owns_function(Module, F) :- compiled_function_name(F, Predicate),
 %does not know still falls back to the enumeration, so this cannot report a
 %predicate absent that the scan would have found.
 compiled_predicate_arity(F, Module, Predicate, Arity) :-
+    %The question is about the compiled predicate, and a definition that has
+    %arrived without being translated has none yet. current_predicate/1 is not
+    %a call, so the undefined-predicate net does not fire for it.
+    metta_ensure_compiled(F),
     (   arity(F, _)
     ->  arity(F, Arity),
         current_predicate(Module:Predicate/Arity)
@@ -1206,11 +1210,27 @@ metta_add_atom(Space, Term, true) :- seam:foreign_space(Space), !,
 metta_add_atom(Space, Term, true) :- add_sexp(Space, Term, Ref),
                                      record_source_atom_assertion(Ref).
 
+%A variant of Term must UNIFY with a fresh copy of Term, so asking the store
+%for that copy decides the common case, a declaration nothing else in the space
+%matches, through the indexed read. The scan below is what the answer costs
+%when something does match, and it stays because the shape a variant test
+%needs is not the shape a store read gives: a read unifies its pattern with
+%the stored atom, so a stored (: $x Number) comes back as the probe
+%(: foo Number) and reads as a variant of it, which it is not. The scan
+%enumerates with an unbound pattern, where every atom arrives as written.
+%Without the probe every declaration added cost a walk of the whole space, so
+%a program's declarations cost time quadratic in its size: adding 200 of them
+%ran 79,600 variant tests and adding 800 ran 1,278,400, sixteen times the
+%tests for four times the program.
 existing_duplicate_declaration(Space, Term, First) :-
     \+ seam:foreign_space(Space),
     copy_term(Term, Probe),
+    once(get_native_atom(Space, Probe)),
+    stored_variant_declaration(Space, Term, First).
+
+stored_variant_declaration(Space, Term, First) :-
     get_native_atom(Space, Stored),
-    Stored =@= Probe,
+    Stored =@= Term,
     !,
     First = Stored.
 
@@ -1540,7 +1560,9 @@ metta_host_clear_space(Space) :-
         forall(member(Atom, Atoms), 'remove-atom'(Space, Atom, _))
     ),
     clear_native_atoms(Space),
-    clear_generated_predicates(Module).
+    clear_generated_predicates(Module),
+    retractall(deferred_metta_function(_, Module, Space, _, _, _)),
+    clear_module_translation_state(Module).
 
 %The equations above come out one per stored (= ...) atom, through
 %metta_remove_atom/3, so a predicate the compiler GENERATED with no stored

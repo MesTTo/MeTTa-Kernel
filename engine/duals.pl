@@ -406,6 +406,9 @@ dual_preconditions(Dual, Ensure) :-
 %which is the same rule metta_dual_goal/2 follows.
 metta_ensure_duals(Needed) :-
     current_metta_module(Module),
+    %A dual is built from the function's retained equations, and a deferred
+    %function has none readable until its equations translate.
+    forall(member(Fun/_, Needed), metta_ensure_compiled(Fun)),
     forall(member(Fun/Arity, Needed), ensure_dual(Fun, Arity, Module)).
 
 %Local holds the variables quantify_negations/3 found to occur nowhere but

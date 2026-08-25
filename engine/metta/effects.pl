@@ -283,7 +283,13 @@ metta_effect_named_call(Module, Name, Arity, Queue-Reads, Next-Reads) :-
         ->  Next = Queue
         ;   throw(error(metta_impure_goal(Name/Arity), none))
         )
-    ;   fun(Name), current_predicate(Module:Name/Arity)
+    ;   %A definition that has arrived without being translated has no
+        %predicate to find, and the walk below reads its clauses, so the
+        %question has to be asked of the translated function.
+        %current_predicate/1 is not a call, so the engine's
+        %undefined-predicate net does not fire for it.
+        fun(Name), metta_ensure_compiled(Name),
+        current_predicate(Module:Name/Arity)
     ->  Next = [Name/Arity|Queue]
     ;   metta_effect_inert(Name)
     ->  Next = Queue

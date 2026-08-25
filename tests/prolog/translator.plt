@@ -362,9 +362,13 @@ test(a_computed_self_reference_cannot_create_a_rational_tree,
 test(test_let_of_a_fresh_variable_does_not_walk_the_term) :-
     translate_expr([let, Bound, ['cons-atom', a, []], done], Goals, _),
     Bound = [a, deeply, nested, bound, term],
-    %Atom-valued builtins are final, so their relational output remains the
-    %fresh variable that the first plain unification binds.
-    Goals = [(Fresh = Bound), 'cons-atom'(a, [], Fresh)],
+    %The constructor compiles INLINE at the call site: the var/==/= tail-guard
+    %chain in place of the call, with the predicate itself as the cold branch.
+    Goals = [(Fresh = Bound), (   var([])  -> Fresh = [a]
+                              ;   [] == [] -> Fresh = [a]
+                              ;   [] = [_|_] -> Fresh = [a|[]]
+                              ;   'cons-atom'(a, [], Fresh)
+                              )],
     \+ ( member(Goal, Goals), nonvar(Goal),
          functor(Goal, unify_with_occurs_check, 2) ).
 
@@ -480,7 +484,11 @@ test(each_prolog_import_has_one_translation,
             translate_restricted([Importer, source, [imported_function]],
                                  Goals, Out),
             Solutions),
+    %The force travels ahead of the goal, because the importer is itself a
+    %MeTTa equation whose clauses may not have been translated when the
+    %emitted goal runs, and this special form calls it directly.
     Solutions = [[metta_require_current_capability(Importer, Capability),
+                  metta_ensure_compiled(Importer),
                   Goal]-_],
     space_operation_capability(Importer, Capability),
     functor(Goal, Importer, 3).
@@ -1552,6 +1560,7 @@ test(an_importer_name_list_stays_data,
              % The guard and operation keep the list intact: there is no call
              % to the registered name.
              Goals = [metta_require_current_capability(Importer, Capability),
+                      metta_ensure_compiled(Importer),
                       Goal],
              space_operation_capability(Importer, Capability),
              Goal =.. [Importer, "lib.pl", Names, _],

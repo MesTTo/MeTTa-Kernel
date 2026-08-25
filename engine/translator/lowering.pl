@@ -71,6 +71,27 @@ translate_runnable_expr(C, Names, Goals, Out) :-
                   petta_prune_empty_answers(All, Out))]
     ).
 
+%A function equation compiles in ITS OWN scope, never the enclosing
+%runnable's. The context below is installed for the span of one runnable
+%form's translation, but an equation can be translated INSIDE that span --
+%deferred equations materialise when a call site or the running form first
+%reaches them, and add-atom can carry an equation mid-run -- and an equation
+%body that aggregates then read the OUTER form's reader names, compiled the
+%petta_run_named carrier for them, and pushed a name slot into the outer
+%context with setarg/3, so the enclosing form's answers and names
+%misaligned. nb_linkval on both sides for the installer's reason: the
+%context term is mutated with setarg/3 and a copying nb_setval would
+%disconnect it.
+:- meta_predicate without_runnable_name_context(0).
+without_runnable_name_context(Goal) :-
+    (   nb_current('$petta_runnable_name_context', Context)
+    ->  setup_call_cleanup(
+            nb_delete('$petta_runnable_name_context'),
+            call(Goal),
+            nb_linkval('$petta_runnable_name_context', Context))
+    ;   call(Goal)
+    ).
+
 install_runnable_name_context(Context, saved(Previous)) :-
     nb_current('$petta_runnable_name_context', Previous), !,
     nb_linkval('$petta_runnable_name_context', Context).
@@ -222,25 +243,66 @@ dispatch_call_goal(Fun, Args, Out, Goal,
 %call that cannot unify with any head is the opposite decided case and needs
 %only the no-match policy. This keeps ordinary compiled recursion on the
 %engine's direct tail-call path.
+%The call site is where a deferred callee is asked for. Everything below
+%reads the callee's compiled equations to decide the shape of this call, and
+%a body compiled there asks the same of ITS callees, so the set of functions
+%that end up translated is the set reachable from whatever was run. That is
+%s(CASP)'s query slice arrived at by recursion rather than by walking a call
+%graph first [source: SWI-Prolog pack scasp, prolog/scasp/dyncall.pl,
+%scasp_query_clauses/2].
 dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal) :-
+    metta_ensure_compiled(Fun),
+    dispatch_call_goal_for(Module, Fun, Args, Out, Goal, PolicyGoal).
+
+%The two list constructors compile INLINE, because each is a rule holding the
+%proper-list invariant and a rule costs what a fact does not: the same tests
+%written at the call site run without the call, the frame or the head
+%unification, measured per call at 289 instructions:u for the rule against
+%the fact and 126 BELOW the fact for the inline form, with one inference
+%against two. The cold branch calls the predicate itself, so the refusal
+%answer and its provenance stay in ONE place. Only the DIRECT goal shape
+%inlines; a program that defines equations for either name has
+%fun_meta_module/3 rows, misses this clause, and gets the standard dispatch
+%analysis on its own definition. The inline table leads the clause, because
+%its first argument INDEXES on the goal's functor: a call site whose goal is
+%not one of the two constructors skips this clause inside the JIT index and
+%pays nothing.
+dispatch_call_goal_for(Module, Fun, _, _, Goal, Inline) :-
+    constructor_inline_goal(Goal, Inline),
+    \+ fun_meta_module(Module, Fun, _),
+    !.
+dispatch_call_goal_for(Module, Fun, Args, Out, Goal, PolicyGoal) :-
     \+ fun_meta_module(Module, Fun, _),
     !,
     (   petta_dispatch_goal_exists(Module, Goal)
     ->  PolicyGoal = Goal
     ;   PolicyGoal = dispatch_no_match_result(Fun, Args, Out)
     ).
-dispatch_call_goal_in(Module, Fun, Args, Out, Goal,
-                      dispatch_policy_execute(Module, Fun, Args, Goal, Out)) :-
+dispatch_call_goal_for(Module, Fun, Args, Out, Goal,
+                       dispatch_policy_execute(Module, Fun, Args, Goal, Out)) :-
     (   dispatch_selection_override(Fun)
     ;   \+ dispatch_head_covers(Module, Fun, Args, Goal),
         dispatch_any_head_matches(Module, Fun, Args, Goal)
     ),
     !.
-dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal) :-
+dispatch_call_goal_for(Module, Fun, Args, Out, Goal, PolicyGoal) :-
     (   dispatch_head_covers(Module, Fun, Args, Goal)
     ->  PolicyGoal = Goal
     ;   PolicyGoal = dispatch_no_match_result(Fun, Args, Out)
     ).
+
+constructor_inline_goal('cons-atom'(H, T, Out),
+    (   var(T)    -> Out = [H|T]
+    ;   T == []   -> Out = [H]
+    ;   T = [_|_] -> Out = [H|T]
+    ;   'cons-atom'(H, T, Out)
+    )).
+constructor_inline_goal(cons(H, T, Out),
+    (   var(T)    -> Out = [H|T]
+    ;   T == []   -> Out = [H]
+    ;   T = [_|_] -> Out = [H|T]
+    ;   cons(H, T, Out)
+    )).
 
 %A declaration can describe a data constructor without supplying an equation
 %or native predicate.  Such a call is irreducible; attempting the synthesized
@@ -491,8 +553,16 @@ dispatch_mismatch('MismatchFail', _, _, _) :- fail.
 dispatch_no_match_result(Fun, Args, Out) :-
     dispatch_policy_value(Fun, 'NoMatchEnum', Policy),
     dispatch_no_match(Policy, Fun, Args, Out).
-incomplete_application_kind(Fun, Arity, partial) :- ( arity(Fun, KnownArity), KnownArity >= Arity
-                                                     ; \+ arity(Fun, _) ), !.
+%The arity registry answers for a function that has been TRANSLATED, and a
+%deferred one has not been, so this asks for its equations first. The registry
+%cannot be filled from the equation heads alone: an eta-expanded body gives
+%the clause more arguments than its head has, so `(= (mp) (+))` compiles to
+%mp/3 while its head says mp/1; registering the head shape and skipping the
+%translation answered `(mp 1 1)` with the written expression.
+incomplete_application_kind(Fun, Arity, partial) :-
+    metta_ensure_compiled(Fun),
+    ( arity(Fun, KnownArity), KnownArity >= Arity
+    ; \+ arity(Fun, _) ), !.
 incomplete_application_kind(_, _, overapplied).
 
 %An overapplied call ANSWERS rather than raising, because a wrong arity is an
@@ -567,6 +637,12 @@ reduce([F|Args], Out, Status) :- !,
         ( fun(F), \+ fun_scoped(F) -> Module = Self
         ; current_metta_module(Module), fun_here_in(Module, F) )
     ->  % --- Case 1: callable predicate ---
+        %The reducer meets a function name that arrived as DATA, from a
+        %higher-order argument, a match answer or a constructed expression,
+        %so no call site named it and nothing has asked for its equations
+        %yet. This is the other end of the same door the call-site dispatch
+        %opens at compile time.
+        metta_ensure_compiled(F),
         length(Args, N),
         Arity is N + 1,
         %arity/2 rather than current_predicate/1, which is what

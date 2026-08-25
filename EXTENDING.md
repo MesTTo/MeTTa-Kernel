@@ -2354,7 +2354,15 @@ of its own and a function name alone does not identify a function.
 
 **`seam:function_changed/1` and `seam:function_removed/1`** are how any
 library keeps derived state coherent when equations change. The specializer,
-the tracer, the memo cache, tabling and the dual predicates all hang off them.
+the memo cache, tabling and the dual predicates all hang off them.
+
+**`seam:function_clauses_changed/1`** is the compiled-clause half of the same
+story. `function_changed` fires when a definition ARRIVES, and under deferred
+translation that can be before any clause exists: a source's equations are
+registered on arrival and compiled when something first reaches them. A
+consumer that needs the predicate itself — the tracer wraps compiled clauses,
+for example — hangs off this event instead, which fires once per compiled
+equation, arrival-translated and materialised alike.
 
 Three narrower events let an analysis avoid repeating work on every equation.
 `seam:function_call_graph_changed/2` carries a function and its execution

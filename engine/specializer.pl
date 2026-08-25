@@ -134,6 +134,7 @@ normalize_specialization_key(Term, Normalized) :-
 specialization_plan(HV, AVs, CleanBindSet, MetaList, HasDirectBenefit) :-
     call_may_specialize(AVs),
     current_metta_module(Module),
+    metta_ensure_compiled(HV),
     fun_meta_clauses(Module, HV, SourceMetaList),
     maplist(bind_specialization_clause(AVs), SourceMetaList,
             MetaList, BindingLists),

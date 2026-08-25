@@ -27,6 +27,12 @@
 typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out,
                       RuntimeArgs, BeforeCall, AfterHead, Goals) :-
     UniqueTypeChains \== [],
+    %The arity guard below reads fun_meta rows, and a deferred function has
+    %none until its equations translate: unforced, a declared 2-in name with
+    %a 1-in equation compiled the ordinary typed branch instead of the
+    %IncorrectNumberOfArguments refusal the arbiter pins. The dispatch
+    %stage's own force runs too late for this decision.
+    metta_ensure_compiled(Fun),
     length(T, NewInputArity),
     length(Bound, BoundArity),
     InputArity is BoundArity + NewInputArity,

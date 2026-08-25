@@ -60,6 +60,7 @@
             cache_policy_changed/1,
             function_call_graph_changed/2,
             function_changed/1,
+            function_clauses_changed/1,
             function_removed/1,
             source_program_compiled/0,
             backend_selftest/0,
@@ -277,6 +278,15 @@ kind(dispatch_call/4, ownership).
 %invalidation handler, 4001 on source-load's thousand equations].
 :- multifile function_changed/1.
 kind(function_changed/1, event).
+%The compiled half of the change story, run once per compiled equation AFTER
+%its clause and provenance are in place. function_changed above is the
+%DEFINITION event: it fires when an equation arrives whether or not the engine
+%has translated it yet, which under deferred translation can be well before
+%any clause exists. A handler that acts on the compiled predicate, wrapping it
+%the way the tracer does, listens here instead, because at definition time
+%there may be nothing to wrap and at materialisation time nothing else fires.
+:- multifile function_clauses_changed/1.
+kind(function_clauses_changed/1, event).
 :- multifile function_call_graph_changed/2.
 kind(function_call_graph_changed/2, event).
 :- multifile function_removed/1.
@@ -286,6 +296,7 @@ kind(cache_policy_changed/1, event).
 :- multifile source_program_compiled/0.
 kind(source_program_compiled/0, event).
 :- dynamic function_changed/1.
+:- dynamic function_clauses_changed/1.
 :- dynamic function_call_graph_changed/2.
 :- dynamic function_removed/1.
 :- dynamic cache_policy_changed/1.
@@ -1213,6 +1224,7 @@ declared(Action, Reference) :-
 dispatch_call(_, _, _, _) :- fail.
 cache_policy_changed(_).
 function_changed(_).
+function_clauses_changed(_).
 function_call_graph_changed(_, _).
 function_removed(_).
 source_program_compiled.

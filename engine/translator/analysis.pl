@@ -24,9 +24,77 @@ record_fun_meta(F, Args, Body) :-
     current_metta_module(Module),
     asserta(fun_meta_clause(Module, F, Args, Body), Ref),
     record_source_assertion(Ref),
-    fun_meta_types_for_new_clause(Module, F, Types),
+    (   nb_current('$petta_queued_equation_types', queued(QF, QTypes)),
+        QF == F
+    ->  Types = QTypes
+    ;   fun_meta_types_for_new_clause(Module, F, Types)
+    ),
     asserta(fun_meta_clause_types(Module, F, Args, Body, Types), TypeRef),
     record_source_assertion(TypeRef).
+
+%The arrow association above is an ARRIVAL-ORDER property: "the declarations
+%that appeared since the previous equation" is decided by when each equation
+%arrived among them, and under deferred translation every equation of a name
+%compiles at its first call, AFTER every declaration, so the live read handed
+%the first clause the whole set and every later clause inherited it. So the
+%association is CAPTURED where the equation arrives, one row per deferred
+%equation of a DECLARED name, and consumed first-in-first-out as the
+%store-order materialisation translates them. An undeclared name, which is
+%nearly every function of a bulk load, pays one indexed probe and writes
+%nothing.
+%
+%Limitation: removing one of a function's equations while the function is
+%still deferred leaves its queued row behind, so the LATER equations of an
+%interleaved-declaration function shift onto their removed sibling's group.
+:- dynamic deferred_equation_types/3.
+
+queue_deferred_equation_types(Module, F) :-
+    (   catch_recover(type_declaration_in(Module, F, _), fail)
+    ->  findall(Chain,
+                catch_recover(type_declaration_in(Module, F, Chain), fail),
+                Current0),
+        list_to_set(Current0, Current),
+        exclude(deferred_seen_chain(Module, F), Current, New),
+        (   New \== []
+        ->  Types = New
+        ;   last_queued_types_group(Module, F, Previous)
+        ->  Types = Previous
+        ;   Types = Current
+        ),
+        assertz(deferred_equation_types(F, Module, Types), Ref),
+        record_source_assertion(Ref)
+    ;   true
+    ).
+
+deferred_seen_chain(Module, F, Chain) :-
+    (   deferred_equation_types(F, Module, Group)
+    ;   fun_meta_clause_types(Module, F, _, _, Group)
+    ),
+    member(Seen, Group),
+    Seen =@= Chain,
+    !.
+
+last_queued_types_group(Module, F, Group) :-
+    (   findall(G, deferred_equation_types(F, Module, G), Groups),
+        Groups \== []
+    ->  last(Groups, Group)
+    ;   fun_meta_clause_types(Module, F, _, _, Group)
+    ->  true
+    ).
+
+%The consuming half: pop the oldest row and hold it where record_fun_meta/3
+%reads, for exactly one translation. Only the materialisation path wraps with
+%this, so an equation translated at ARRIVAL keeps the live read that is
+%correct for it and cannot eat a deferred sibling's row.
+:- meta_predicate materialize_with_queued_types(+, +, 0).
+materialize_with_queued_types(Module, F, Goal) :-
+    (   retract(deferred_equation_types(F, Module, Types))
+    ->  setup_call_cleanup(
+            b_setval('$petta_queued_equation_types', queued(F, Types)),
+            call(Goal),
+            nb_delete('$petta_queued_equation_types'))
+    ;   call(Goal)
+    ).
 
 %Associate each equation with the arrow declarations that appeared since the
 %previous equation for the same function. Source commonly writes an arrow and
@@ -55,6 +123,14 @@ fun_meta_type_is_new(Module, F, Chain) :-
 % module's, which is how Prolog resolves the clauses those equations became: a
 % named space sees &self's equations because its module is below &self's, and
 % stops there rather than gathering a sibling's too.
+%Whether F's equations have been translated into THIS module's clauses, which
+%is not what the module chain makes visible: it decides whether an arriving
+%equation joins clauses that already stand, and clauses inherited from a
+%parent are not this module's to join.
+metta_function_translated(Module, F) :-
+    fun_meta_clause(Module, F, _, _),
+    !.
+
 fun_meta_clauses(Module, F, Clauses) :-
     fun_meta_module(Module, F, Owner),
     findall(fun_meta(Args, Body),
@@ -167,6 +243,30 @@ clear_fun_meta(Module, F) :-
 %measurable on either, and where either lands relative to its pin on any one
 %tree is that tree's layout rather than this machinery [measured 2026-08-21:
 %bench.py file-load save-load-metta --counter-only, eight layouts each].
+%The authoring notes ALONE, run where an equation ARRIVES rather than where
+%it compiles, because the two separated: a deferred equation translates at
+%its first call, and a note that tells the author what their head just did
+%is worthless divorced from the moment they wrote it. The walk is the
+%head-compiler's own, so the note text cannot drift from what translation
+%will decide, and the memo inside note_head_pattern/5 keeps the
+%materialisation's second walk from printing twice. The member/2 prefilter
+%is the arrival path's zero-cost guard: a head of plain variables and atoms,
+%which is nearly every equation of a bulk load, cannot carry a note and
+%never reaches the walk.
+head_pattern_notes_for(Module, [=, [F|Args], _]) :-
+    (   member(Argument, Args),
+        compound(Argument)
+    ->  constrain_children(Args, 1, [], _, _, Positions, []),
+        (   Positions == []
+        ->  true
+        ;   forall(( member(head_position(RevPath, Label, Kind), Positions),
+                     head_pattern_reason(Module, F, RevPath, Label, Kind,
+                                         Reason) ),
+                   note_head_pattern(Module, F, RevPath, Label, Reason))
+        )
+    ;   true
+    ).
+
 record_head_pattern_notes(F, Positions) :-
     current_metta_module(Module),
     forall(( member(head_position(RevPath, Label, Kind), Positions),
@@ -518,6 +618,10 @@ seam:engine_emitted(petta_evalc_step/3).
 seam:engine_emitted(petta_evaluate_argument/2).
 seam:engine_emitted(metta_evaluate_symbol/2).
 seam:engine_emitted(petta_dynamic_call/3).
+%The prolog-import special form emits the deferral force ahead of its direct
+%goal, because the importer is itself a MeTTa equation whose clauses may not
+%exist yet when the emitted goal runs.
+seam:engine_emitted(metta_ensure_compiled/1).
 seam:engine_emitted(petta_dynamic_head_masks/1).
 seam:engine_emitted(petta_dynamic_value_call/4).
 seam:engine_emitted(petta_chain_step/2).
@@ -683,6 +787,7 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                (  nonvar(ExpOut) , ExpOut = partial(Base,Bound)
                                                -> length(Bound, N),
                                                   MinimumArity is N + 1,
+                                                  metta_ensure_compiled(Base),
                                                   setof(A, (arity(Base, A), A > MinimumArity), [Arity|_]),
                                                   M is (Arity - N) - 1,
                                                   length(ExtraArgs, M), append(Bound, ExtraArgs, CallInArgs),
@@ -1141,6 +1246,21 @@ cache_translated_form(Module, Key, Source, Goals, Out) :-
     forall(member(Symbol, Symbols),
            ( assertz(translated_form_mention(Symbol, Id), MentionRef),
              record_source_assertion(MentionRef) )).
+
+%The lifecycle sweep for one execution module, called when its space is
+%cleared or its pooled name is recycled. The cached translations are the
+%load-bearing part: a cached form's goals were COMPILED against this
+%module's predicates, and the sweep is about to abolish them, so the next
+%life of the name would run goals linked against a destroyed procedure and
+%raise "Unknown procedure" from a path the undefined-predicate hook never
+%sees. The queued type groups and the head-note memos are the same hygiene:
+%both memo arrival-order facts about definitions that died with the space,
+%and the next life must not inherit either.
+clear_module_translation_state(Module) :-
+    forall(retract(translated_form_cache(Module, _, Id, _, _, _)),
+           retractall(translated_form_mention(_, Id))),
+    retractall(deferred_equation_types(_, Module, _)),
+    retractall(head_pattern_note(Module, _, _, _, _)).
 
 install_translation_cache_hooks :- translation_cache_hook_ref(_, _), !.
 install_translation_cache_hooks :-

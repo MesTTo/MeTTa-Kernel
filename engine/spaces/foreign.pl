@@ -159,6 +159,245 @@ add_atoms_in_one_crossing(Space, Terms) :-
     ;   true
     ).
 
+%Many atoms of a PROGRAM in one crossing: the equations among them are
+%registered as they arrive and translated when something reaches them, so a
+%file of definitions costs storing and registering them rather than compiling
+%every one. metta_add_atom/3 per equation compiles it at once, which is the
+%right answer for the door one atom comes through and is 61.39us an atom over
+%a hundred thousand equations, against 2.25us to read them and put them in the
+%space [measured 2026-08-24]. The signature pass runs first for the reason
+%filereader.pl's register_parsed_signatures/1 gives, and once for the whole
+%batch because asking the predicate table costs one walk of it either way.
+%
+%Order is the batch's own: an atom that is not an equation goes through
+%metta_add_atom/3 exactly where it stood, so a declaration between two
+%equations still lands between them.
+%Three passes, not one loop, because what an equation settles divides in two:
+%its NAME is a function, of that arity, in this module, and whatever was
+%compiled against the name's previous definition is stale -- all of it once per
+%name; while the equation ITSELF has to be stored and recorded -- once per
+%equation. A function of ten equations pays the first once here and ten times
+%through the per-atom door.
+%The 2-ary door is the 3-ary one for a caller with no use for the names.
+%The names come back SORTED AND DISTINCT so a lifecycle pass that is
+%per-name by its own semantics (source_definition_arrived/1 retractalls by
+%name and sets a once-flag) walks two thousand names instead of twenty
+%thousand equations [measured 2026-08-24: the arrived walk was 5 of the 74
+%inferences each equation of the fun doorbench cost].
+metta_add_program_atoms(Space, Atoms) :-
+    metta_add_program_atoms(Space, Atoms, _).
+
+metta_add_program_atoms(Space, Atoms, Names) :-
+    (   seam:foreign_space(Space)
+    ;   \+ petta_hook_claim_idle(Space)
+    ;   \+ metta_add_hooks_idle(Space)
+    ),
+    !,
+    forall(member(Atom, Atoms), metta_add_atom(Space, Atom, _)),
+    findall(F, ( member([=, [F|_], _], Atoms), atom(F) ), Names0),
+    sort(Names0, Names).
+%A batch of DATA is not a program: it has nothing to register and nothing to
+%defer. Both halves of this clause answer to a pinned counter. The guard is
+%memberchk/2, which is C and costs five inferences over a twenty-thousand
+%atom miss where member/2 in a negation costs one per atom, and the
+%save-load-fast INFERENCE pin allows four total. The body is the PER-ATOM
+%store loop the fast door always had, not metta_add_atoms/2: the fast
+%loader's atoms fail the batch door's own store-only test, so the batch
+%door scans every atom and falls back to the same loop with the scan
+%wasted, +29.5e6 instructions:u on the 20,001-atom lane when first tried
+%[measured 2026-08-17: 4737359333 against 4707855603], -41e6 recovered by
+%the loop and +80k inferences avoided by the guard
+%[measured 2026-08-24, engine-only ten-load harness, same checkout].
+metta_add_program_atoms(Space, Atoms, []) :-
+    \+ memberchk([=|_], Atoms),
+    !,
+    store_data_atoms(Atoms, Space).
+
+metta_add_program_atoms(Space, Atoms, Names) :-
+    space_module(Space, Module),
+    ensure_native_storage_module(Space, Storage),
+    %ONE ORDERED PASS, each atom stored where it stood, and ONE walk.
+    %Partitioning the batch and storing every equation before every other
+    %atom was built and reverted: a space enumerates its clauses in the
+    %order they were asserted, so get-atoms and match answer in that order,
+    %and MeTTa answer order is observable. The same batch through the two
+    %doors then differed at `(= (a) 1) (: d Number) (= (b) 2)`, which the
+    %per-atom door answers in that order and the partitioned one answered
+    %with the declaration last [measured 2026-08-24]. What IS batched is the
+    %work belonging to a NAME rather than to an equation, which is where the
+    %saving was. The signature collection used to be its own findall over
+    %the batch, so a cache of a million data atoms beside one equation paid
+    %two extra classification steps per data atom, one in the findall's
+    %goal and one in the store dispatch: +20.9k inferences and +23e6
+    %instructions:u on the 20,001-atom save-load-fast lane against the
+    %direct loop [measured 2026-08-24]. The classification is written inline
+    %in one walk, so a data atom pays its recursion and its store and
+    %nothing else, the direct loop's own floor. Registration and the
+    %per-name notes follow the stores, which is the per-form door's own
+    %order per atom.
+    journal_load_now(Load),
+    store_program_atoms(Atoms, Storage, Space, Module, Load, none,
+                        Signatures0),
+    sort(Signatures0, Signatures),
+    findall(F, member(F-_, Signatures), Names0),
+    sort(Names0, Names),
+    register_function_signatures(Signatures),
+    forall(member(F, Names), note_metta_function(Module, F)),
+    %Marked LAST, after every equation is in the space: the marker says
+    %"translate me from the space", and a marker standing over a space that
+    %does not hold the equations yet would translate nothing and retract
+    %itself. The fresh functions are marked before any already-translated one
+    %is translated, so an equation translated here finds its batch siblings
+    %markable rather than absent.
+    %The whole batch's counts in one sorted pass, so the ownership ledger
+    %costs the batch one msort and one run-length walk: counting each
+    %signature's occurrences with its own member/2 walk over the batch made
+    %marking N one-equation functions cost N walks of N, and the load
+    %profile put 97 percent of a 12,000-equation load inside member_/3
+    %[measured 2026-08-24].
+    msort(Signatures0, SignatureRuns),
+    counted_signature_runs(SignatureRuns, CountedSignatures),
+    %The partition is taken ONCE, before either pass runs, because the first
+    %pass can flip it: a fresh name whose compiled predicate an inherited
+    %definition already answers translates AT ARRIVAL inside
+    %defer_metta_function/5, and metta_function_translated/2 is true from
+    %then on. Deciding the second pass by re-asking the flag re-translated
+    %exactly those names' equations, and `plus`, which shadows SWI's own
+    %plus/3, loaded four clauses from two equations and answered each let
+    %inversion twice per clause copy
+    %[measured 2026-08-24: examples/functions/invertpeanoplus.metta, eight
+    %answers where the pin holds one].
+    exclude(translated_counted_signature(Module), CountedSignatures,
+            FreshSignatures),
+    include(translated_counted_signature(Module), CountedSignatures,
+            StandingSignatures),
+    forall(member(counted(F, Arity, Count), FreshSignatures),
+           ( InputArity is Arity - 1,
+             defer_metta_function(Space, Module, F, InputArity, Count) )),
+    forall(member(counted(F, Arity, _), StandingSignatures),
+           ( InputArity is Arity - 1,
+             findall(Equation,
+                     ( member(Equation, Atoms),
+                       Equation = [=, [F|W], _],
+                       length(W, InputArity) ),
+                     Arriving),
+             mark_or_translate_equation(Space, Module, F, InputArity,
+                                        Arriving) )),
+    %Once per function rather than per equation, the same collapse the
+    %note_metta_function pass above already makes: every consumer of the
+    %arrival announcement is an invalidator, so a batch of a function's
+    %equations is one change to them.
+    forall(member(F, Names), announce_equation_arrival(Module, F)).
+
+%A run of data atoms with every run-invariant decided ONCE: the storage
+%module, the parametric-or-named clause shape, and the journal context with
+%its owner-pin unwrapped. What stays per atom is the mechanical core the
+%corebench harness priced at 1.09us against the 2.55us the dispatching walk
+%cost around it: build the clause term, assertz it with its reference, and
+%journal the reference [measured 2026-08-24: ai-tmp/wip/corebench.pl,
+%100,000 atoms, min of three]. Everything with per-atom SEMANTICS keeps the
+%per-atom door: a ':' declaration (duplicate warning, DontEvalType,
+%user-wins eviction, the recompile announce), an '=' head (the guard above,
+%defensively re-tested here), and the whole batch when the space is
+%'&petta', whose catalog checks are per-atom by contract. Foreign spaces
+%and busy hooks never reach this clause; the batch door's first clause
+%already routed them per atom.
+store_data_atoms(Atoms, Space) :-
+    (   Space == '&petta'
+    ->  forall(member(Atom, Atoms), metta_add_atom(Space, Atom, _))
+    ;   ensure_native_storage_module(Space, Storage),
+        (   Space = [_|_], space_parametric(Space)
+        ->  Shape = parametric
+        ;   Shape = named
+        ),
+        journal_load_now(Load),
+        store_data_atoms_(Atoms, Storage, Space, Shape, Load)
+    ).
+
+store_data_atoms_([], _, _, _, _).
+store_data_atoms_([Atom|Atoms], Storage, Space, Shape, Load) :-
+    (   Atom = [Rel|Args]
+    ->  (   ( Rel == (=) ; Rel == (:) )
+        ->  metta_add_atom(Space, Atom, _)
+        ;   (   Shape == parametric
+            ->  Term =.. ['$petta_parametric_atom', Rel|Args]
+            ;   Term =.. [Space, Rel|Args]
+            ),
+            assertz(Storage:Term, Ref),
+            journal_data_ref(Load, Ref)
+        )
+    ;   assertz(Storage:'$petta_native_scalar'(Atom), Ref),
+        journal_data_ref(Load, Ref)
+    ),
+    store_data_atoms_(Atoms, Storage, Space, Shape, Load).
+
+%The fused walk: classify, store, and collect the signature multiset in one
+%pass, the classification inline so it compiles to VM instructions and moves
+%no counter. An equation of a DERIVED name is left to the single-atom door,
+%whose first clause swallows an alpha-duplicate of a specialization the
+%space already holds; deciding that needs the stored equations and is what
+%makes a copied space reproduce itself rather than double.
+store_program_atoms([], _, _, _, _, _, []).
+store_program_atoms([Atom|Atoms], Storage, Space, Module, Load, Q0,
+                    Signatures) :-
+    (   Atom = [=, [F|W], _],
+        atom(F)
+    ->  equation_walk_class(Module, F, Q0, Q1, Class),
+        (   Class == ho
+        ->  metta_add_atom(Space, Atom, _),
+            Signatures = Rest
+        ;   add_sexp_in(Storage, Space, Atom, Ref),
+            journal_data_ref(Load, Ref),
+            head_pattern_notes_for(Module, Atom),
+            length(W, N),
+            Arity is N + 1,
+            Signatures = [F-Arity|Rest]
+        )
+    ;   metta_add_atom(Space, Atom, _),
+        (   Atom = [':'|_]
+        ->  Q1 = none
+        ;   Q1 = Q0
+        ),
+        Signatures = Rest
+    ),
+    store_program_atoms(Atoms, Storage, Space, Module, Load, Q1, Rest).
+
+%What the walk's per-name probes learned about the PREVIOUS equation's
+%name, the higher-order test now included: a batch
+%is runs of one function's equations back to back, so remembering one name
+%answers nine of every ten equations at one comparison where an AVL memo
+%of every name cost more than the probes it saved (4.6 inferences per
+%equation of assoc machinery against the 6 it replaced, measured on this
+%walk's own profile). A TRANSLATED or UNDECLARED name skips, while a
+%DECLARED name queues its one-row-per-equation FIFO exactly as the
+%deferral's consumption contract requires (materialize_with_queued_types/3
+%retracts one row per materialised equation). A ':' atom stored mid-walk
+%resets the memo to none, because a declaration between two equations is
+%precisely the visibility change the per-equation probe existed to observe
+%[tested: spaces_deferred_translation, lib_conformance;
+%commit=5655d2531fbeec85cbea1ec365010f338179f076].
+equation_walk_class(Module, F, Q0, Q, Class) :-
+    (   Q0 = q(F0, Class0), F0 == F
+    ->  Q = Q0,
+        Class = Class0,
+        (   Class0 == declared
+        ->  queue_deferred_equation_types(Module, F)
+        ;   true
+        )
+    ;   ho_specialization(Module, _, F)
+    ->  Class = ho,
+        Q = q(F, ho)
+    ;   metta_function_translated(Module, F)
+    ->  Class = plain,
+        Q = q(F, plain)
+    ;   catch_recover(type_declaration_in(Module, F, _), fail)
+    ->  queue_deferred_equation_types(Module, F),
+        Class = declared,
+        Q = q(F, declared)
+    ;   Class = plain,
+        Q = q(F, plain)
+    ).
+
 %Compile and register a dynamic equation as one database transaction. A
 %translation or change-hook error therefore leaves no stored atom, function
 %marker, arity, meta-clause, or executable clause behind.
@@ -174,36 +413,473 @@ add_atoms_in_one_crossing(Space, Terms) :-
 %answering stale clauses. One door means the next such rule lands once
 %[tested specializer:string_run_equation_invalidates_specializations].
 compile_metta_equation(Module, Term, Clause, Ref) :-
+    note_metta_equation(Module, Term),
+    translate_metta_equation(Module, Term, Clause, Ref).
+
+%What an arriving equation settles immediately: the name is a function, the
+%prelude's definition of it is gone, and everything compiled against the
+%PREVIOUS definition is stale. None of that needs the body translated, and
+%the claim is about the definition arriving rather than about the clause.
+%
+%Stale specializations go FIRST, before this body compiles. They are clones
+%of the PREVIOUS definition, and that is the whole content of the claim; a
+%clone this compilation creates for its own recursive call belongs to the NEW
+%definition and must survive. Invalidating afterwards abolished exactly those
+%clones while the clause naming them stood, so (= (f $g) (... (f (+ 2)) ...))
+%compiled a generic clause calling an empty predicate: the direct call
+%answered through its own specialization and a call that reached the generic
+%clause, (let $h (+ 1) (f $h)), silently answered NOTHING. Found by the
+%verify-specializations differential over examples/
+%[tested specializer:a_recursive_specialization_survives_its_compile].
+note_metta_equation(Module, Term) :-
+    Term = [=, [F|_], _],
+    note_metta_function(Module, F).
+
+note_metta_function(Module, F) :-
+    (   metta_self_module(Module) -> evict_prelude_definition(F) ; true ),
+    register_fun_in(Module, F),
+    prepare_specialization_invalidation(Module, F),
+    support_invalidate_function_change(Module, F).
+
+translate_metta_equation(Module, Term, Clause, Ref) :-
+    Term = [=, [F|_], _],
+    assert_translated_equation(Module, Term, Clause, Ref),
+    %The dependent-recompile hooks run AFTER the clause is in place, so
+    %a definition that mentions F recompiles against the new one.
+    announce_equation_arrival(Module, F).
+
+%The internal half of a translation, with no announcement: the clause, its
+%instrumentation, and its provenance records. Deferred materialisation calls
+%this alone, because the observers heard about the equation when it ARRIVED
+%and the engine catching up on its own bookkeeping is not a change. Announced
+%from here too, laziness was observable: the deferred translation of
+%table-stats itself, forced by the first !(table-stats ...) form, fired
+%seam:function_changed AFTER the table under measurement existed, and
+%lib_tabling's conservative hook abolished it, so the counters read zero
+%where the eager load read one [measured 2026-08-24:
+%examples/libraries/tabling_statistics.metta].
+assert_translated_equation(Module, Term, Clause, Ref) :-
     Term = [=, [F|Inputs], _],
+    %Mainline's shadow-repair pre-step is CLAUSE-level: under deferral the
+    %assert can run in a later module life than the arrival, and the weak
+    %import it removes must be removed before THIS assert, whichever life
+    %runs it.
     length(Inputs, InputArity),
     PredArity is InputArity + 1,
     petta_prepare_function_predicate(Module, F, PredArity),
-    (   metta_self_module(Module) -> evict_prelude_definition(F) ; true ),
-    register_fun_in(Module, F),
-    %Stale specializations go FIRST, before this body compiles. They are
-    %clones of the PREVIOUS definition, and that is the whole content of
-    %the claim; a clone this compilation creates for its own recursive
-    %call belongs to the NEW definition and must survive. Invalidating
-    %afterwards abolished exactly those clones while the clause naming
-    %them stood, so (= (f $g) (... (f (+ 2)) ...)) compiled a generic
-    %clause calling an empty predicate: the direct call answered through
-    %its own specialization and a call that reached the generic clause,
-    %(let $h (+ 1) (f $h)), silently answered NOTHING. Found by the
-    %verify-specializations differential over examples/
-    %[tested specializer:a_recursive_specialization_survives_its_compile].
-    prepare_specialization_invalidation(Module, F),
-    support_invalidate_function_change(Module, F),
-    once(with_metta_module(Module, translate_clause(Term, RawClause))),
+    without_runnable_name_context(
+        once(with_metta_module(Module, translate_clause(Term, RawClause)))),
     petta_instrument_recursive_clause(Term, RawClause, Clause),
     assert_function_clause(Module, Clause, Ref),
     record_source_assertion(Ref),
     record_translated_from(Ref, Term, SourceRef),
     record_source_assertion(SourceRef),
-    %The dependent-recompile hooks run AFTER the clause is in place, so
-    %a definition that mentions F recompiles against the new one.
+    forall(seam:function_clauses_changed(F), true).
+
+%Everything observers may see of "an equation of F arrived", in the order the
+%eager door has always fired it. Idempotent consumers only: the support-graph
+%repair drains a dirty set, seam:function_changed invalidates, and
+%announce_function_call_graph_changed consumes a prepared change mark, which
+%is why the bulk door may fire this once per function for a batch.
+announce_equation_arrival(Module, F) :-
     forall(support_repair_invalidations, true),
     forall(seam:function_changed(F), true),
     announce_function_call_graph_changed(Module, F).
+
+%A function whose equations have arrived and not been translated. The name
+%leads, not the module, because the question asked of this table is always "is
+%F waiting" with the rest along for the ride, and every space's functions
+%otherwise share one module-keyed bucket.
+%
+%A MARKER, and one per function rather than per equation: the equations are in
+%the space already, which indexes them by name, so copying each into a queue
+%would be a second program to keep in step with the first and one more database
+%write for every equation. Reading a whole function's equations back out of a
+%space holding a hundred thousand costs 0.94us; recording one equation costs
+%2.2us [measured 2026-08-24].
+%
+%One row per (arity, OWNING LOAD) rather than per arity alone, with the count
+%of equations it stands for, because a compiled clause has to be journalled
+%under the source that defined its equation and the loads can interleave on
+%one arity. The count is what lets the materialisation walk, which reads the
+%store in arrival order, hand each equation back to its own load: the first
+%Count of an arity belong to its first row's load, the next to the next
+%row's. The bulk door adds a whole batch's count in one write, so the
+%per-equation cost this table was built to avoid stays avoided.
+:- dynamic deferred_metta_function/6.
+:- dynamic metta_function_compiling/1.
+
+%Record the equation and translate it when something reaches it. This is
+%s(CASP)'s shape: its scasp/2 collects the clauses transitively reachable from
+%a query and compiles only those, leaving the rest of the program as stored
+%clauses that cost nothing until a query needs them
+%[source: SWI-Prolog pack scasp, prolog/scasp/dyncall.pl, scasp_query_clauses/2
+%and callee_closure/4]. The closure is not walked here because the translator
+%already walks it: compiling a call site to F asks for F, whose bodies compile
+%their own call sites, so the reachable set falls out of the recursion that
+%was going to happen anyway.
+defer_metta_equation(Space, Module, Term) :-
+    Term = [=, [F|W], _],
+    note_metta_equation(Module, Term),
+    head_pattern_notes_for(Module, Term),
+    (   metta_function_translated(Module, F)
+    ->  true
+    ;   queue_deferred_equation_types(Module, F)
+    ),
+    length(W, InputArity),
+    mark_or_translate_equation(Space, Module, F, InputArity, [Term]),
+    announce_equation_arrival(Module, F).
+
+%The marker means "translate every equation of F out of the space", so a
+%function whose clauses ALREADY stand must not be marked: the standing ones
+%would be translated a second time and the function would answer each of them
+%twice. Three equations of `ord` answered `a b c`, and one more arriving after
+%they were translated made it answer `a b c a b c d`
+%[measured 2026-08-24]. An equation joining standing clauses is therefore
+%translated where it arrives, which is what the eager door has always done
+%[tested: spaces_deferred_translation:an_equation_joining_a_translated_function_answers_once].
+%No announcement in either branch: the CALLER announces the arrival once,
+%whichever branch stored it, so an equation joining a translated function and
+%an equation deferred behind a marker cost observers the same one event.
+mark_or_translate_equation(Space, Module, F, InputArity, Arriving) :-
+    (   metta_function_translated(Module, F)
+    ->  forall(member(Equation, Arriving),
+               assert_translated_equation(Module, Equation, _, _))
+    ;   defer_metta_function(Space, Module, F, InputArity)
+    ).
+
+%Deferring is sound only while a call that has not been translated yet is
+%OBSERVABLE, and it stops being observable the moment the equation extends a
+%predicate that already answers. Every other door forces the translation before
+%it reads the function: a compiled call site through build_call_or_partial_dl/6,
+%a name met as data through reduce/3, and anything else through the
+%undefined-predicate hook below. That hook is the one with a precondition, and
+%this is it: SWI raises the existence error only when the predicate has no
+%definition at all, so an equation extending one that HAS a definition would sit
+%deferred while the old definition kept answering. A program extending get-type,
+%which compiles into the get_type_rule/2 the engine declares at boot, typed
+%`(f 2 4)` against the builtin rule alone and answered BadArgType where its own
+%rule makes 2 an EvenNumber [measured 2026-08-24:
+%examples/types/types_dependent.metta]. The same holds for a space that shadows
+%an engine builtin, where the inherited definition answers in place of the
+%arriving one, which is why the test is `defined` and not `number_of_clauses`.
+defer_metta_function(Space, Module, F, InputArity) :-
+    defer_metta_function(Space, Module, F, InputArity, 1).
+
+%Run-length encode a SORTED signature multiset: one counted(F, Arity, N) per
+%distinct signature, in order. Linear in the batch.
+translated_counted_signature(Module, counted(F, _, _)) :-
+    metta_function_translated(Module, F).
+
+counted_signature_runs([], []).
+counted_signature_runs([F-Arity|Rest], [counted(F, Arity, Count)|Counted]) :-
+    counted_signature_run(Rest, F-Arity, 1, Count, Remaining),
+    counted_signature_runs(Remaining, Counted).
+
+counted_signature_run([Signature|Rest], Signature, Sofar, Count, Remaining) :-
+    !,
+    Next is Sofar + 1,
+    counted_signature_run(Rest, Signature, Next, Count, Remaining).
+counted_signature_run(Rest, _, Count, Count, Rest).
+
+defer_metta_function(Space, Module, F, InputArity, _Count) :-
+    Arity is InputArity + 1,
+    compiled_function_name(F, Predicate),
+    visible_predicate_definition(Module, Predicate, Arity),
+    !,
+    translate_deferred_shape(Space, Module, F, InputArity).
+defer_metta_function(Space, Module, F, InputArity, Count) :-
+    current_owning_source_load(Load),
+    (   retract(deferred_metta_function(F, Module, Space, InputArity,
+                                        Load, Sofar))
+    ->  Total is Sofar + Count,
+        assertz(deferred_metta_function(F, Module, Space, InputArity,
+                                        Load, Total), Ref)
+    ;   assertz(deferred_metta_function(F, Module, Space, InputArity,
+                                        Load, Count), Ref)
+    ),
+    record_source_assertion(Ref).
+
+%current_predicate/1 per module of the inheritance chain, never
+%predicate_property/2 on the asking module: predicate_property RESOLVES the
+%name through the chain, and SWI caches that resolution as an import link, so
+%probing a name an inherited STATIC defines poisons the module against the
+%local shadow the translation is about to assert. Probing
+%predicate_property(m:send(_,_,_), defined) in a fresh module and then
+%asserting m:send/3 is a permission error on pce_principal's static send/3,
+%where the same assert with no probe before it succeeds; current_predicate/1
+%in the same experiment answers about the asked module alone, creates nothing,
+%and the assert after it succeeds [measured 2026-08-24]. It sees only LOCAL
+%definitions, not imports, which is the question anyway: get_type_rule/2 is
+%Self's own dynamic predicate and is found, and a name like send that only
+%XPCE's import chain would answer is not, so its equations defer and the call
+%site's forced translation asserts the shadow exactly as the eager door did.
+visible_predicate_definition(Module, Predicate, Arity) :-
+    default_module(Module, Inherited),
+    current_predicate(Inherited:Predicate/Arity),
+    !.
+
+%The NAME alone, not the name in a module: a call site compiles in the module
+%it is written in while the function it names may be defined in another, the
+%global fallback a name that is not scoped gets, and asking about the calling
+%module left that function untranslated and its call site compiled against an
+%empty predicate. Every module that is waiting to translate F translates it,
+%which is more than the one call site needs and never less
+%[tested: filereader_global_function_scope].
+%
+%The guard is re-entrancy, not memoisation: translating one equation's body
+%compiles its call sites, and a recursive function's body names ITSELF, which
+%would otherwise translate the rest of its equations from inside the first one
+%and assert them out of order. Held off, the recursive body compiles against
+%the clauses asserted so far, which is exactly what it saw when every equation
+%was translated as it arrived.
+%Translation runs under a mutex inside sig_atomic/1, which is the shape SWI's
+%own loader uses against the same hazard: '$mt_load_file'/4 wraps
+%with_mutex('$load_file', ...) in sig_atomic/1 so a signal delivered to a
+%loading thread cannot interrupt it half way [source: SWI-Prolog boot/init.pl,
+%'$mt_load_file'/4, /usr/lib/swi-prolog/boot/init.pl:2650].
+%
+%Both halves carry weight here. par-race stops its losing branch with
+%thread_signal(Thread, abort) [source: lib/lib_thread.pl, race_stop_/2], and a
+%branch aborted between translate_deferred_function/1 retracting the deferral
+%and its clauses arriving left the function neither deferred nor defined: the
+%NEXT call to it raised "Unknown procedure: slow/2" from a form that had
+%nothing to do with the race [measured 2026-08-24: examples/libraries/thread_lib.metta].
+%sig_atomic/1 defers the signal until the translation is whole
+%[measured 2026-08-24: a thread signalled abort inside sig_atomic/1 still
+%finished its work].
+%
+%The mutex is the other half. Without it a second thread reaching the same name
+%while the first was inside would read the compiling marker, conclude the work
+%was in hand and call a predicate whose clauses were still arriving. Serialising
+%is what SWI does for a file and costs nothing after the first call, because the
+%deferral is gone by then and this predicate stops at its first test.
+metta_ensure_compiled(F) :-
+    (   deferred_metta_function(F, _, _, _, _, _)
+    ->  sig_atomic(with_mutex(metta_deferred_translation,
+                              translate_when_still_deferred(F)))
+    ;   true
+    ).
+
+%Re-checked inside the mutex because the thread that held it may have been
+%translating this very name, in which case there is nothing left to do. The
+%compiling marker is the other exit: translating one equation's body compiles
+%its call sites, and a recursive function's body names ITSELF, which would
+%otherwise translate the rest of its equations from inside the first one and
+%assert them out of order. Held off, the recursive body compiles against the
+%clauses asserted so far, which is exactly what it saw when every equation was
+%translated as it arrived. A global marker is enough for a per-thread question
+%because the mutex admits one thread at a time, and SWI's mutexes are recursive,
+%so the nested force a body's own call sites make re-enters rather than blocks
+%[measured 2026-08-24: with_mutex(m, with_mutex(m, true)) succeeds].
+translate_when_still_deferred(F) :-
+    (   \+ deferred_metta_function(F, _, _, _, _, _)
+    ->  true
+    ;   metta_function_compiling(F)
+    ->  true
+    ;   setup_call_cleanup(
+            assertz(metta_function_compiling(F), Guard),
+            translate_deferred_function(F),
+            erase(Guard))
+    ).
+
+%The safety net under every OTHER door. SWI calls user:exception/3 before it
+%raises "unknown procedure", and `retry` makes the call happen again once the
+%definition is there, which is the same hook SWI's own autoloader hangs on
+%[source: SWI-Prolog 10.1 Reference Manual, exception/3]. So a deferred
+%function is translated by anything that reaches its predicate -- a compiled
+%goal, a host reaching into a space's execution module, a plain Prolog call --
+%and not only by the doors this engine knows to guard. It cannot loop:
+%translate_deferred_function/1 retracts the marker, so a second miss on the
+%same name finds nothing here and the ordinary error follows
+%[tested: translator_branch_returns:a_recursive_generator_enumerates_in_time_linear_in_its_answers].
+:- multifile user:exception/3.
+
+user:exception(undefined_predicate, Module:Name/_, retry) :-
+    deferred_metta_function(Name, Module, _, _, _, _),
+    !,
+    metta_ensure_compiled(Name).
+
+%The equations come back out of the space in the order they went in, which is
+%the order they were written, because a store read enumerates its clauses. An
+%equation removed while its function was still deferred is simply not there,
+%so the removal door has nothing of its own to undo.
+%
+%The rows are COPIED here and retracted per pair only after that pair's
+%clauses stand. A resource signal can land ANYWHERE inside a materialisation:
+%an inference-limited eval whose first duty is the force spends its budget on
+%translation, and the limit arrives as a synchronous exception sig_atomic/1
+%does not defer. The first shape of this predicate retracted the rows up
+%front and re-asserted them from a catch, and that lost the function twice
+%over: the limit could land between the retracting findall and the catch's
+%protection, and a limit that re-arms can kill the restoring handler itself.
+%Either way the next call answered "Unknown procedure" where its caller was
+%owed a limit error, armed by anything that shrinks the budget the parse
+%spends before the force [measured 2026-08-24: the C reader cut that parse
+%from ~150 inferences to 3 and test_ladder_rungs_cross_the_async_seam raised
+%exactly that]. With the rows standing until the work is whole there is
+%nothing to restore: a signal at ANY point leaves the pair deferred, the
+%equations that DID land are excused by their provenance rows on the retry,
+%and translate_missing_equations translates the rest, exactly once each
+%[tested: spaces_deferred_translation:a_limit_landing_anywhere_inside_the_force_leaves_the_function_callable].
+translate_deferred_function(F) :-
+    findall(deferred(Space, Module, InputArity, Load, Count),
+            deferred_metta_function(F, Module, Space, InputArity,
+                                    Load, Count),
+            Shapes),
+    translate_deferred_pairs(F, Shapes).
+
+translate_deferred_pairs(F, Shapes) :-
+    findall(Space-Module,
+            member(deferred(Space, Module, _, _, _), Shapes),
+            Pairs0),
+    list_to_set(Pairs0, Pairs),
+    forall(member(Space-Module, Pairs),
+           ( findall(InputArity-budget(Load, Count),
+                     member(deferred(Space, Module, InputArity, Load, Count),
+                            Shapes),
+                     Budgeted),
+             findall(InputArity, member(InputArity-_, Budgeted),
+                     InputArities0),
+             sort(InputArities0, InputArities),
+             translate_deferred_equations(Space, Module, F, InputArities,
+                                          Budgeted),
+             %Only now, with the pair's clauses standing, do its rows go: a
+             %signal before this line leaves the pair deferred and resumable.
+             retractall(deferred_metta_function(F, Module, Space, _, _, _)),
+             %The CALL-GRAPH event belongs here and not with the arrival: the
+             %graph is the calls the compiled bodies make, extracted as each
+             %clause is recorded, so before materialisation there is nothing
+             %to read and the take-change guard makes the arrival announcement
+             %a no-op. Skipped here too, the automatic-cache reconciliation
+             %never saw a deferred function become recursive, and the
+             %benchmark that pins automatic tabling measured the plain
+             %exponential in both modes [measured 2026-08-24:
+             %benchmarks/test_benchmarks.py::test_automatic_tabling_growth,
+             %automatic 90,408 inferences at n=12 against its 5,466 pin].
+             announce_function_call_graph_changed(Module, F) )).
+
+%ONE pass over the space in STORE order, all of F's waiting arities together,
+%because the order equations translate in is the order their call sites
+%DECIDE in. A body naming F at another arity compiles a real call when that
+%arity already has a translated head and the decided no-match dispatch when it
+%does not, exactly as the eager door does per arrival; materialising
+%arity-by-arity re-ordered that, so lib_pln's (= (PLN.Query $kb $term)
+%(PLN.Query $kb $term N)), written LAST in its file after the arities it
+%forwards to, translated FIRST and baked the no-match where the eager load
+%compiled the call [measured 2026-08-24]. The store enumerates in insertion
+%order, which is arrival order, which is the order the eager door compiled in,
+%so every such decision lands the way it always has, the unhealed forward
+%reference included: an equation naming a NOT-YET-ARRIVED arity of its own
+%name answers its written form under both doors, and the pinned corpus pins
+%that answer.
+translate_deferred_equations(Space, Module, F, InputArities, Budgeted) :-
+    findall([=, [F|W], Body],
+            ( get_native_atom(Space, [=, [F|W], Body]),
+              is_list(W),
+              length(W, InputArity),
+              memberchk(InputArity, InputArities) ),
+            Equations),
+    budget_queues(Budgeted, InputArities, Queues),
+    (   metta_function_translated(Module, F)
+    ->  translated_sources_of(Module, F, Stored),
+        translate_missing_equations(F, Equations, Module, Stored, Queues)
+    ;   translate_owned_equations(Equations, Module, F, Queues)
+    ).
+
+%One FIFO of budget(Load, Count) per arity, in row order, which is load
+%arrival order. The walk pops one unit per stored copy it passes, so each
+%equation is handed back to the load that stored it: the store appends, so a
+%load's copies of one arity are a contiguous run in exactly the order the
+%rows were written. An empty queue answers none, which journals nowhere; the
+%one way to reach it with equations still untranslated is the removal
+%limitation the deferral header records.
+budget_queues(Budgeted, InputArities, Queues) :-
+    findall(InputArity-Queue,
+            ( member(InputArity, InputArities),
+              findall(Budget, member(InputArity-Budget, Budgeted), Queue) ),
+            Pairs),
+    list_to_assoc(Pairs, Queues).
+
+pop_equation_load([=, [_|W], _], Queues0, Load, Queues) :-
+    length(W, InputArity),
+    (   get_assoc(InputArity, Queues0, [budget(Load, Count)|Rest])
+    ->  (   Count =< 1
+        ->  Remaining = Rest
+        ;   Left is Count - 1,
+            Remaining = [budget(Load, Left)|Rest]
+        ),
+        put_assoc(InputArity, Queues0, Remaining, Queues)
+    ;   Load = none,
+        Queues = Queues0
+    ).
+
+%One equation, one transaction, the same unit compile_metta_equation/4 already
+%commits atomically on the eager door: the clause, its fun_meta row, its
+%provenance, and the queued-type consumption land together or not at all. A
+%resource signal between any two of them otherwise leaves a half that poisons
+%the retry both ways: provenance without a clause is excused into "Unknown
+%procedure", a clause without provenance translates again and doubles its
+%answers.
+translate_owned_equations([], _, _, _).
+translate_owned_equations([Equation|Equations], Module, F, Queues0) :-
+    pop_equation_load(Equation, Queues0, Load, Queues),
+    transaction(
+        with_owning_source_load(Load,
+            materialize_with_queued_types(Module, F,
+                assert_translated_equation(Module, Equation, _, _)))),
+    translate_owned_equations(Equations, Module, F, Queues).
+
+%The second branch exists for one interleaving: a name's first arity defers, a
+%SECOND arity arrives whose compiled predicate an inherited definition already
+%answers, translates on arrival, and flips metta_function_translated/2 for the
+%NAME, so a later equation of the still-deferred first arity translates on
+%arrival too while the row and the earlier equations wait. The materialisation
+%pass then meets translated and untranslated equations together, and
+%re-translating a standing one would double its answers. Everywhere else the
+%name-level flag is still down, which proves NOTHING of F is translated, and
+%the enumeration translates unprobed: a probe here has to compare VARIANCE
+%against every provenance row, and unifying against the row table instead
+%skipped 29 of lib_nars's 51 `|-` rules, each one swallowed by an earlier
+%rule's open-variable row [measured 2026-08-24].
+translated_sources_of(Module, F, Stored) :-
+    findall(Source,
+            ( translated_from(Ref, Source),
+              Source = [=, [F|_], _],
+              clause_property(Ref, module(Module)) ),
+            Stored).
+
+%One provenance row excuses ONE stored copy, consumed as it matches, because
+%equations are a multiset: the same equation stored twice answers twice, so a
+%stored copy beyond its translated rows still translates. Variance decides a
+%match, never unification, for the reason above.
+translate_missing_equations(_, [], _, _, _).
+translate_missing_equations(F, [Equation|Equations], Module, Stored0,
+                            Queues0) :-
+    pop_equation_load(Equation, Queues0, Load, Queues),
+    (   select_variant_source(Equation, Stored0, Stored)
+    ->  true
+    ;   Stored = Stored0,
+        transaction(
+            with_owning_source_load(Load,
+                materialize_with_queued_types(Module, F,
+                    assert_translated_equation(Module, Equation, _, _))))
+    ),
+    translate_missing_equations(F, Equations, Module, Stored, Queues).
+
+select_variant_source(Equation, [Source|Rest], Rest) :-
+    Source =@= Equation,
+    !.
+select_variant_source(Equation, [Source|Rest], [Source|Kept]) :-
+    select_variant_source(Equation, Rest, Kept).
+
+translate_deferred_shape(Space, Module, F, InputArity) :-
+    length(Args, InputArity),
+    findall([=, [F|Args], Body],
+            get_native_atom(Space, [=, [F|Args], Body]),
+            Equations),
+    forall(member(Equation, Equations),
+           assert_translated_equation(Module, Equation, _, _)).
 
 %A recursive equation spends the same branch-local budget that runnable
 %limits own. The source tree supplies the cost because it is the stable unit:
@@ -264,10 +940,18 @@ petta_source_reduction_count([_|Arguments], Count) :- !,
 petta_source_reduction_count(_, 0).
 
 add_function_atom(Storage, Space, Module, Term, FAtom, W) :-
+    %Any equation of FAtom still waiting is translated BEFORE this one is
+    %stored, because the marker translates everything the space holds for
+    %FAtom and this equation is about to be one of them.
+    metta_ensure_compiled(FAtom),
     store_equation(Storage, Space, Term),
     length(W, N),
     Arity is N + 1,
     register_arity(FAtom, Arity),
+    %Translated as it arrives, not deferred like a source's equations: this is
+    %the door one equation comes through at a time, so there is no batch to
+    %amortise a deferral over, and a caller that adds an equation and then
+    %reads the space's module finds the clause where it has always been.
     compile_metta_equation(Module, Term, Clause, _Ref),
     maybe_print_compiled_clause("added function", Term, Clause).
 
