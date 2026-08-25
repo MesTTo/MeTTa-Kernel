@@ -4,7 +4,7 @@
 %   A host-owned numeric object satisfies a concrete Number requirement
 %   without changing its reported class chain [tested:
 %   test_numeric_objects_are_number_arguments_even_when_a_sibling_refuses;
-%   commit=WORKTREE].
+%   commit=a0f1cc5f15a15e5ca6958fe02a20be8832c7237f].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

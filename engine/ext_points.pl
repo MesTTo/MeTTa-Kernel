@@ -655,7 +655,7 @@ kind(grounded_applicable/1, ownership).
 %protocol: the owner recognizes its numeric objects, then evaluates with that
 %host's operator dispatch so reflected methods and result types are retained
 %[tested: test_numpy_numeric_family_keeps_python_result_types and
-%test_user_numeric_subclass_uses_its_own_operator; commit=WORKTREE].
+%test_user_numeric_subclass_uses_its_own_operator; commit=a0f1cc5f15a15e5ca6958fe02a20be8832c7237f].
 :- multifile grounded_numeric/1.
 kind(grounded_numeric/1, ownership).
 :- multifile grounded_numeric_operation/3.

@@ -3,7 +3,7 @@
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
 %   Python numeric objects reach their owning operator seam only after the
 %   native-number branch declines [tested:
-%   test_numpy_numeric_family_keeps_python_result_types; commit=WORKTREE].
+%   test_numpy_numeric_family_keeps_python_result_types; commit=a0f1cc5f15a15e5ca6958fe02a20be8832c7237f].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
