@@ -5,7 +5,8 @@
 % Guarantees: rank, join, composition, canonical operation reflection,
 %   fail-closed plans, cache-purity projection, and deprecation explanation
 %   agree.
-% [tested: tests/prolog/effects.plt; commit=WORKTREE]
+% [tested: tests/prolog/effects.plt;
+% commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0]
 
 :- ensure_loaded('../../engine/metta.pl').
 

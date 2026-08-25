@@ -7,7 +7,8 @@
 % bindings/python/tests/test_under_algebra.py; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
 % Guarantees: deprecated is a schema-checked catalog kind whose name, since,
 % and remedy fields remain ordinary queryable data [tested:
-% the_shipped_catalog_is_queryable_data; commit=WORKTREE].
+% the_shipped_catalog_is_queryable_data;
+% commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.
@@ -514,7 +515,7 @@ petta_vocabulary_value(Vocab, Value) :-
 %it a sixth public EffectClass member.
 %[tested:
 %effects_lattice:legacy_effect_spellings_map_but_cannot_enter_the_canonical_catalog;
-%commit=WORKTREE]
+%commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0]
 petta_effect_class_canonical(Value, Canonical) :-
     nonvar(Value),
     !,

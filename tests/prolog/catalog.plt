@@ -13,7 +13,8 @@
        removals, and same-name replacements [tested:
        algebra_descriptor_caches_follow_catalog_edits; commit=7ae3103aee78e947d23c5872e3db23c28ad7fe1c]
      - the deprecated kind is queryable with exact name, since, and remedy
-       fields [tested: the_shipped_catalog_is_queryable_data; commit=WORKTREE]
+       fields [tested: the_shipped_catalog_is_queryable_data;
+       commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0]
    Open Obligations:
      To Do: None
      Hacks: None

@@ -10,7 +10,8 @@
 %     commit=6917bef7ca902671999eafcae3a7a86db8f69723].
 %   - deprecation declarations are reflected by exact name and appear in an
 %     operation explanation with their since and remedy values [tested:
-%     a_deprecation_row_drives_lookup_and_explanation; commit=WORKTREE].
+%     a_deprecation_row_drives_lookup_and_explanation;
+%     commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -433,7 +434,7 @@ prolog:error_message(metta_impure_goal(Name/Arity)) -->
 %effects_lattice:effect_join_and_compose_choose_the_strongest_member,
 %effects_lattice:operation_effect_reflection_is_canonical_and_fail_closed,
 %effects_lattice:the_legacy_host_pure_boolean_maps_to_pure_structural;
-%commit=WORKTREE]
+%commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0]
 petta_effect_rank(Declared, Rank) :-
     spaces:petta_effect_class_canonical(Declared, Canonical),
     petta_effect_canonical_rank(Canonical, Rank).
