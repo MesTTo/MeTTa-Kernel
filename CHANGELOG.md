@@ -454,8 +454,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Remove the legacy `python.petta` wrapper and the root `PeTTa` and `HERE`
   exports. Use `MeTTa`, a `Space` receiver, or bare `metta.match()`.
 - Map Python operator words consistently across `S`, static `fn`, and bound
-  `space.fn` while keeping bracket names exact and refusing composite-only
-  `neg` and `floordiv` words.
+  `space.fn` while keeping bracket names exact. The settled `neg` word expands
+  to `(- 0 x)` at live and compiled call doors; unresolved `floordiv` remains
+  an explicit refusal.
 - Make space subscripts treat a head-shaped tuple as one pattern, complete
   expression arguments as a join, bulk `+=` as a stream of atoms, and
   pattern deletion as an all-match operation that raises `KeyError` when
