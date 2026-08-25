@@ -23,7 +23,14 @@ run_test() {
     # either never entered $output or was filtered back out below, and only a
     # !(test A B) mismatch (the one shape that prints "is ..., should ...")
     # ever survived to be shown.
-    output=$(sh run.sh "$f" 2>&1)
+    # A wall ceiling per example, because this lane green-masked two
+    # evaluator regressions that turned seconds-scale examples into
+    # half-hour crawls (invertpeanoplus and tilepuzzle, 2026-08-25): with
+    # no bound, a catastrophic slowdown still exits 0 and reads as OK.
+    # The slowest example clears 30s on a loaded box; 290 leaves room for
+    # contention while still failing anything in a different cost class,
+    # and timeout's exit 124 reaches the FAILURE block like any other red.
+    output=$(timeout 290 sh run.sh "$f" 2>&1)
     error=$?
     if [ "$error" -ne 0 ]; then
         echo "FAILURE in $f:"
