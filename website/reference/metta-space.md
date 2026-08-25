@@ -97,7 +97,10 @@ Source: `bindings/python/metta/_space.py`.
 >   - ``Space.answers`` can evaluate one ask against a theory value or through
 >     an explicit full-interpreter head without mutating the receiver [tested:
 >     test_answers_selects_a_theory_or_interpreter_per_ask;
->     commit=0d49980b03d507f9bae0354786ab826a146c20df]
+>     commit=7c4ddf46d4e23de8390a9f2baddbf96f7575da46]
+>   - ``Space.cast`` preserves the inherited one-argument atom cast while its
+>     two-argument form keeps explicit context-relative casting [tested:
+>     test_atom_cast_delegates_to_the_ambient_space; commit=WORKTREE]
 >   - callable doors cache live deprecation declarations until the next write
 >     and issue the catalog's since/remedy warning [tested:
 >     test_deprecation_catalog_rows_drive_warnings_and_explanations;
@@ -519,15 +522,14 @@ def take(self, pattern: Any, *, deadline: float | None = None) -> Atom:
 ### `Space.cast`
 
 ```python
-def cast(self, value: Any, type_: Any, /) -> Any:
+def cast(self, value: Any, type_: Any = ..., /) -> Any:
 ```
 
-> Answer value, narrowed to its Python-most spelling, when this
-> space's type discipline admits it as type_: the same acceptance
-> a typed call compiles, ':' declarations in this space and &self
-> in scope, protocol types included. A refused cast raises
-> metta.CastError naming the value's actual types, the loud
-> spelling of what a typed call does silently.
+> Cast this space atom ambiently with one argument, or answer value
+> narrowed by this space's type discipline with two arguments. The
+> explicit form has the same acceptance a typed call compiles, ':'
+> declarations here and &self in scope, protocol types included. A
+> refusal raises metta.CastError naming the value's actual types.
 
 ### `Space.trace`
 
