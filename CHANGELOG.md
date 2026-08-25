@@ -8,6 +8,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Reader-token registration and removal now accept compiled text
+  `re.Pattern` objects, translating `IGNORECASE`, `MULTILINE`, `DOTALL`, and
+  `VERBOSE` flags to the engine PCRE and refusing flags with no exact
+  translation. Anonymous-space representations now include the external
+  `file:line` that created the handle; named-space representations stay
+  compact, and async creation retains the submitting coroutine's location.
+
 - `metta.catalog` now names the queryable `&petta` reflection space, and
   `fresh()` now mints hygienic variables for library-authored patterns. These
   deliberate root additions raise the narrow public export count from 100 to
