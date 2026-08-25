@@ -8,6 +8,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `Space.answers(..., theory=...)` now evaluates one ask against a complete
+  atom-valued theory in an isolated scratch space, leaving the receiver
+  unchanged. `Space.answers(..., interpreter=...)` evaluates the corresponding
+  `(interpreter target %Undefined% receiver)` application for that ask. The
+  two selectors are mutually exclusive, a choice recorded here because both
+  otherwise claim the evaluation relation for the same cursor.
+
 - Call-site keywords on `Defined` values and bound `space.fn` functions now
   resolve to the known definition or operation signature and emit the
   positional MeTTa application. Bare symbols such as `S.head(x=value)` refuse

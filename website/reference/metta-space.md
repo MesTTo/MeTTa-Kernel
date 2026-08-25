@@ -94,6 +94,10 @@ Source: `bindings/python/metta/_space.py`.
 >     test_bound_function_namespace_validates_at_access,
 >     test_function_calls_pull_engine_answers_only_as_demanded;
 >     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
+>   - ``Space.answers`` can evaluate one ask against a theory value or through
+>     an explicit full-interpreter head without mutating the receiver [tested:
+>     test_answers_selects_a_theory_or_interpreter_per_ask;
+>     commit=WORKTREE]
 >   - builtin discovery is cached per logical space, with namespace reads
 >     comparing the engine's function generation and explicit Python mutation
 >     doors retaining eager invalidation [tested:
@@ -905,6 +909,8 @@ def answers(
     timeout: float | None = None,
     inferences: int | None = None,
     under: Any = _UNSET,
+    theory: Any | None = None,
+    interpreter: Any | None = None,
 ) -> Answers[Any]:
 ```
 
@@ -922,6 +928,20 @@ def answers(
 > order their annotated ``TaggedAnswer`` values before a slice pulls
 > its prefix. A surrounding ``metta.under(carrier)`` is used only when
 > this call does not pass an explicit carrier.
+>
+> ``theory=`` treats an atom or iterable of atoms as the complete
+> equational program for this ask. It installs that value in an isolated
+> scratch space on the first pull, evaluates there, and drops the space
+> when the view is exhausted or abandoned. The receiver is unchanged.
+> This mirrors reflective descent functions whose inputs are a reified
+> module and term [source:
+> https://maude.cs.illinois.edu/maude1/manual/maude-manual-html/maude-manual_24.html;
+> commit=WORKTREE].
+>
+> ``interpreter=`` instead evaluates the explicit full-interpreter
+> application ``(interpreter target %Undefined% receiver)`` for this ask.
+> The selectors are mutually exclusive because each decides what
+> evaluation relation the answer cursor runs.
 
 ### `Space.parallel`
 
