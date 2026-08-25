@@ -28,7 +28,7 @@
 %     and SWI falls back to source for absent .qlf
 %     [assumed: exercised only by inspection of the catch sites below and
 %     SWI's own '$qlf_file' fallback; no lane boots a read-only checkout;
-%     commit=WORKTREE].
+%     commit=a7db7299e025b17618cf22d5fe18ad3e9b2f64b1].
 % Decides:
 %   - freshness is transitive and coarse, the whole set against the
 %     newest source: a false purge costs one ~0.25s generating boot; a

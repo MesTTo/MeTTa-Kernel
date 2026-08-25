@@ -17,7 +17,7 @@
 #     file-load 8704891 to 722264 with zero code change, and a worktree
 #     without the artifact silently benchmarks the Prolog fallback against
 #     C-reader pins [measured 2026-08-25 on a detached scratch worktree,
-#     bench.py --counter-only, same commit both ways; commit=WORKTREE].
+#     bench.py --counter-only, same commit both ways; commit=f48e9d8e6fa62eeff46082b6f8584cfe44bc5b93].
 # Fails when:
 #   - the main checkout has not been built. That is reported, because a
 #     worktree quietly running a SMALLER configuration than the tree it was
