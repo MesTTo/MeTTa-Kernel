@@ -1,7 +1,7 @@
 <!--
 Purpose: map MeTTa concepts onto the canonical Python atom classes, contexts, handles, and result containers.
 Guarantees: every named Python door exists on the narrow public surface.
-[tested: npm run docs:build; commit=c34c9bf3e55a8425d3f251c3ad06c33bc9755a22]
+[tested: npm run docs:build; commit=WORKTREE]
 -->
 
 # Concepts and names
@@ -20,7 +20,7 @@ the answers `get-metatype` gives. Each kind is one Python class:
 | Symbol | `Symbol` | `S.name` | `"s"` |
 | Variable | `Variable` | `V.x` | `"v"` |
 | Expression | `Expression` | `Expression(...)` | `"e"` |
-| Grounded | `Grounded` | `ground(...)` or `G(...)` | `"g"`, `"n"` |
+| Grounded | `Grounded` | `ground(...)` or `G(...)` | `"g"`, `"n"`, `"b"`, `"p"`, `"o"`, `"h"` |
 
 `Atom` is the base class of all four, exactly as canon says the kinds
 are subtypes of Atom. The Python classes use the canonical names directly.
