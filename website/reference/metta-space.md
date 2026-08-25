@@ -42,6 +42,13 @@ Source: `bindings/python/metta/_space.py`.
 >     only their demanded prefix, while len counts inside the engine [tested:
 >     test_query_answers_complete_the_lazy_projection_protocol,
 >     test_query_single_unpack_pulls_at_most_two_answers; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - match and call answers accept explicit or scoped algebra carriers;
+>     counting uses engine aggregates and ordered carriers sort before slicing
+>     [tested:
+>     test_counting_counts_match_bag_duplicates_without_opening_a_row_cursor,
+>     test_counting_counts_duplicate_call_answers_inside_the_engine,
+>     test_ranked_and_tropical_slices_are_stable_best_prefixes;
+>     commit=WORKTREE]
 >   - ``Space.pre_add`` declares one compiled unary judge through the engine's
 >     existing pre-add hook [tested: test_pre_add_compiles_the_four_verdict_judge;
 >     commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
@@ -559,6 +566,7 @@ def match(
     limit: int | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
+    under: Any = _UNSET,
     into: _builtins.type | None = None,
 ) -> Any:
 ```
@@ -583,6 +591,17 @@ def match(
 > pulls one row, exact-one operations pull at most two, and slicing
 > retains an Answers view. ``len`` uses an engine-side aggregate when
 > no row has yet been pulled.
+>
+> ``under=`` interprets the same ask through an annotation algebra.
+> ``under=counting`` answers one integer computed by an engine
+> aggregate, including duplicate derivations without crossing their
+> rows into Python. Ordered carriers sort in their declared direction
+> before slicing, so ``m.match(q, under=ranked)[:3]`` is top-k and
+> ``under=tropical`` puts the cheapest annotation first. Other carriers
+> answer ``TaggedAnswer`` values with ``annotation``, ``why()`` and
+> ``under(other)``; the latter two reuse the retained derivation rather
+> than querying the space again. ``with metta.under(carrier)`` supplies
+> the carrier when this call has no explicit ``under=``.
 >
 > `into=Rows` explicitly chooses the eager Rows face. Other `into=`
 > values shape each row into a dataclass, NamedTuple, or
@@ -841,6 +860,7 @@ def answers(
     using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
+    under: Any = _UNSET,
 ) -> Answers[Any]:
 ```
 
@@ -851,6 +871,13 @@ def answers(
 > same held evaluation [tested:
 > test_function_calls_pull_engine_answers_only_as_demanded;
 > commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4].
+>
+> ``under=`` has the same carrier semantics as ``match``. In
+> particular, ``space.answers(call, under=counting).one()`` counts the
+> call's answer derivations inside the engine, and ordered carriers
+> order their annotated ``TaggedAnswer`` values before a slice pulls
+> its prefix. A surrounding ``metta.under(carrier)`` is used only when
+> this call does not pass an explicit carrier.
 
 ### `Space.parallel`
 
@@ -1690,6 +1717,7 @@ def algebra(
     laws: _abc.Iterable[str] = (),
     carrier: _abc.Iterable[Any] = (),
     requires: _abc.Iterable[str] = (),
+    order: Literal['ascending', 'descending'] | None = None,
 ) -> Atom:
 ```
 
@@ -1730,28 +1758,17 @@ def image(self, type_name: str, setting: ImageMode) -> Atom:
 > replaces the earlier one, so an attached provider reads one policy.
 > Use ``_`` as the type name for a context-wide fallback.
 
-### `Space.evaluate_algebra`
+### `Space.sample`
 
 ```python
-def evaluate_algebra(self, query: str | Atom, *, algebra: str, max_rounds: int = 64) -> Any:
+def sample(self, query: str | Atom, *, k: int = 10, seed: int = 7) -> list[Atom]:
 ```
 
-> Evaluate stored tagged facts and rules through one declared algebra.
-
-### `Space.sample_rates`
-
-```python
-def sample_rates(
-    self,
-    query: str | Atom,
-    *,
-    algebra: str,
-    draws: int,
-    seed: int,
-) -> tuple[Atom, ...]:
-```
-
-> Select tagged alternatives by their nonnegative ``(rate n)`` tags.
+> Choose ``k`` tagged alternatives with replacement by ``(rate n)``.
+>
+> The argument names and list result follow ``random.choices``. A local
+> seeded generator makes repeated calls reproducible without changing
+> Python's process-global random state.
 
 ### `Space.source`
 

@@ -39,6 +39,10 @@ Source: `bindings/python/metta/results.py`.
 >   - evaluation values and their caller-binding rows are parallel faces of one
 >     Answers cursor [tested: test_calls_keep_values_and_binding_rows;
 >     commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
+>   - private item replay lets a deferred algebra route preserve those rows
+>     without probing the engine when its Answers view is constructed [tested:
+>     test_tagged_derivations_flow_through_match_and_reinterpret_without_requery;
+>     commit=WORKTREE]
 >   - an Answers view crossing into a term observes exact-one cardinality and
 >     encodes that answer as the operand [tested:
 >     test_answer_views_observe_when_used_as_operands; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]

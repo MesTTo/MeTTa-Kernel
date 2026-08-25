@@ -8,6 +8,24 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Algebra annotations now travel through the query doors themselves.
+  `Space.match(..., under=carrier)` and
+  `Space.answers(call, under=carrier)` accept the shipped `counting`,
+  `tropical`, `prov`, `ranked`, and `prob` carrier objects or an arbitrary
+  declared algebra; `with metta.under(carrier)` supplies a task-local default.
+  Counting is an engine aggregate that preserves duplicate derivations without
+  materializing answer rows. Ordered carriers sort before an `Answers` slice,
+  making `match(..., under=ranked)[:k]` top-k and tropical order
+  cheapest-first. Annotated
+  answers retain their derivation for `.why()` and `.under(other)` without a
+  re-query. The real `metta.algebra` module is now also the constructor, while
+  the former `Space.evaluate_algebra` door is retired. `Space.sample(q, k=10,
+  seed=7)` replaces `sample_rates` with `random.choices` vocabulary: it returns
+  a list, samples with replacement, reads implicit `(rate n)` tags, and uses an
+  isolated seeded generator. Event folds now accept `into=State` for a running
+  gauge or `under=algebra` with no step body; the State store is process-shared,
+  individual accesses are thread-safe, compound read-modify-write is not
+  atomic, and cells remain outside events, history, and transactions.
 - Benchmark baselines are two-sided and configuration-stamped. A counter,
   slope, or instruction reading that falls beyond the allowance now fails as
   an unpinned improvement instead of passing silently, because a stale-high

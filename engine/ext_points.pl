@@ -1,6 +1,10 @@
 % Purpose: declare each engine extension seam, its direction and its cut
 %   semantics, and publish the predicates extensions and host bindings may call.
 % Guarantees:
+%   - host query carriers enter the engine-owned algebra scope and read its
+%     effective carrier and identity only through declared host services
+%     [tested: a_host_binding_calls_only_published_surface,
+%     test_the_host_service_scoreboard_matches_the_tree; commit=WORKTREE].
 %   - reader-token registration is an engine-owned host service, while token
 %     construction is claimed by the host that owns the registered callable;
 %     mapping introspection is an ordinary extension service [tested:
@@ -794,6 +798,14 @@ kind(translate_expr/3, host_service).
 kind(translate_cached_expr/3, host_service).
 kind(lift_pattern_modifiers/4, host_service).
 kind(petta_seq_query_plan/2, host_service).
+%A host query supplies one dynamic carrier around an engine-owned goal, then
+%reads the same effective carrier and its multiplicative identity when it
+%decodes or initializes answer annotations. These are doors into the algebra
+%policy, not host-side orchestration: keeping them published prevents a binding
+%from reproducing the scope stack, declaration fallback, or descriptor lookup.
+kind(petta_with_under/2, host_service).
+kind(petta_effective_algebra/2, host_service).
+kind(petta_algebra_one/2, host_service).
 %The host run and load surface: the grouped runner (with the
 %using-substitution folded in as Bindings), the status runner, the load
 %lifecycle and the manifest read, plus the reducible-head test the status

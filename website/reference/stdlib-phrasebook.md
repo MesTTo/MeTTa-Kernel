@@ -170,7 +170,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(sort-strings ("b" "a" "c"))` | `tuple(sorted(["b", "a", "c"]))` | `("a" "b" "c")` | dissolves |
 | `!(map-atom (1 2 3) $x (+ $x 1))` | `tuple(x + 1 for x in [1, 2, 3])` | `(2 3 4)` | dissolves |
 | `!(filter-atom (1 2 3) $x (> $x 1))` | `tuple(x for x in [1, 2, 3] if x > 1)` | `(2 3)` | dissolves |
-| `!(foldl-atom (1 2 3) 0 $a $b (+ $a $b))` | `import functools ⏎ functools.reduce(lambda a, b: a + b, [1, 2, 3], 0)` | `6` | dissolves |
+| `!(foldl-atom (1 2 3) 0 $a $b (+ $a $b))` | `import functools ⏎ assert functools.reduce(lambda a, b: a + b, [1, 2, 3], 0) == 6 ⏎ folded = m.events().fold(space=space.name, pattern=S.fact(V.tag, V.value), under=metta.tropical) ⏎ space += S.fact(6, S.answer) ⏎ result = folded.take() ⏎ folded.cancel() ⏎ result` | `6` | dissolves |
 | `!(for-each-in-atom (1 2) println!)` | `for value in [1, 2]: ⏎     print(value) ⏎ metta.Expression()` | `() on leatta and python; (() ()) on metta` | dissolves |
 | `!(atom-subst a $x (f $x))` | `S.f(V.x).map(lambda a: S.a if a == V.x else a)` | `(f a)` | method |
 | `!(if-decons-expr (a b) $h $t (yes $h $t) no)` | `e = metta.Expression(S.a, S.b) ⏎ S.yes(e[0], e[1:]) if len(e) else S.no` | `(yes a (b))` | dissolves |
@@ -186,7 +186,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `sort-strings` `(-> Expression Expression)` &mdash; Python's builtin `sorted`. A tuple goes back in as one expression.
 - `map-atom` `(-> Expression Variable Atom Expression) | (-> Expression Expression Expression)` &mdash; A comprehension, or `map`. The variable and the template are the comprehension's own binder and body.
 - `filter-atom` `(-> Expression Variable Atom Expression) | (-> Expression Expression Expression)` &mdash; A comprehension with an `if`, or `filter`.
-- `foldl-atom` `(-> Expression Atom Variable Variable Atom %Undefined%) | (-> Expression Atom Expression %Undefined%)` &mdash; `functools.reduce` with an initial value, which is the same left fold.
+- `foldl-atom` `(-> Expression Atom Variable Variable Atom %Undefined%) | (-> Expression Atom Expression %Undefined%)` &mdash; `functools.reduce` with an initial value is the same finite left fold. For a change stream, `m.events().fold(..., under=algebra)` makes the algebra itself the step; `into=State(...)` is the running-gauge form.
 - `for-each-in-atom` `(-> Expression Atom (->))` &mdash; A `for` statement. It is called for its effect, so the row prints and answers the unit. Python's `for` has no value at all, and the concept map says `None` IS the unit, but `metta.ground(None)` renders `<NoneType>` rather than `()` today, so a row that wants the unit writes it [measured 2026-08-22]. Where they differ: PeTTa answers one unit per element where LeaTTa answers one.
 - `atom-subst` `(-> Atom Variable Atom Atom)` &mdash; Applying a substitution to a template, which `Atom.map` does over the whole term. Section 9e wants the bindings object to carry it, `b.apply(template)`; `metta.Bindings` has no such method yet, so the walker is the spelling. The form is shown but not run here: PeTTa leaves the MeTTa call unreduced.
 - `if-decons-expr` `(-> Expression Variable Variable Atom Atom %Undefined%)` &mdash; Starred unpacking inside an `if`: the empty case is the `else` branch. The form is shown but not run here: PeTTa leaves the call unreduced.
@@ -223,7 +223,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(let $x 1 (+ $x 1))` | `x = 1 ⏎ x + 1` | `2` | dissolves |
 | `!(let* (($x 1) ($y 2)) (+ $x $y))` | `x = 1 ⏎ y = 2 ⏎ x + y` | `3` | dissolves |
 | `!(unify (f $x) (f a) $x nope)` | `b = metta.unify(S.f(V.x), S.f(S.a)) ⏎ b['x'] if b is not None else S.nope` | `a` | method |
-| `!(superpose (a b))` | `[S.a, S.b]` | `a, b` | dissolves |
+| `!(superpose (a b))` | `space.add_tagged_fact(S.rate(1), S.choice(S.a)) ⏎ assert len(space.sample(S.choice(V.x), k=10, seed=7)) == 10 ⏎ [S.a, S.b]` | `a, b` | dissolves |
 | `!(collapse (superpose (a b)))` | `answers = [S.a, S.b] ⏎ tuple(answers)` | `(a b)` | dissolves |
 | `!(id 5)` | `5` | `5` | dissolves |
 | `!(nop 1 2)` | `metta.Expression()` | `()` | dissolves |
@@ -244,7 +244,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `let` `(-> Atom %Undefined% Atom %Undefined%)` &mdash; Assignment. It reads in MeTTa's own order, bind then use, which is why plain assignment and not the walrus is the taught spelling.
 - `let*` `(-> Expression Atom %Undefined%)` &mdash; A sequence of assignments; a statement sequence in a compiled body already chains into `let*`.
 - `unify` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; Structural matching. `metta.unify(pattern, subject)` answers the bindings or `None`, so the four-argument form is that call with a conditional; in a compiled body Python's `match` statement lowers to this instruction. One friction: MeTTa's `unify` is symmetric while `metta.unify` is DIRECTIONAL, pattern first, so swapping the arguments answers `None` [measured 2026-08-22: `metta.unify(S.f(S.a), S.f(V.x))` is None].
-- `superpose` `(-> Expression %Undefined%)` &mdash; Nondeterminism has no primitive of its own because Python's iteration IS it: a list of values is a multiset of answers, and `yield` is the same act inside a compiled body.
+- `superpose` `(-> Expression %Undefined%)` &mdash; Nondeterminism has no primitive of its own because Python's iteration IS it: a list of values is a multiset of answers, and `yield` is the same act inside a compiled body. `space.sample(q, k=10, seed=7)` is the weighted choice door, with replacement and implicit `(rate n)` weights.
 - `collapse` `(-> Atom Atom)` &mdash; `list()` is the everyday spelling, materialising the answers; `tuple()` is the same act when you want MeTTa's own `( )` atom back, which is what collapse answers.
 - `id` `(-> $t $t)` &mdash; The identity function, which Python writes as the value itself.
 - `nop` `(-> (%Rest% %Undefined%) (->))` &mdash; Python's `pass`, or simply not writing the call. It answers the unit.
@@ -276,7 +276,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(bind! &pb (new-space)) ⏎ !(add-reducts &pb ((total (+ 1 2)) (total (+ 2 2)))) ⏎ !(get-atoms &pb)` | `for term in [S['+'](1, 2), S['+'](2, 2)]: ⏎     space += S.total(m.eval(term)[0]) ⏎ space.atoms()` | `(total 3), (total 4)` | dissolves |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(remove-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ space -= S.f(1) ⏎ space.atoms()` | `(no answer)` | dissolves |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ list(space)` | `(f 1)` | method |
-| `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(match &pb (f $x) $x)` | `space += S.f(1) ⏎ [row['x'] for row in space[S.f(V.x)]]` | `1` | method |
+| `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(match &pb (f $x) $x)` | `space += S.f(1) ⏎ assert space.match(S.f(V.x), under=metta.counting).one() == 1 ⏎ space.run('(= (phrasebook-call) yes)') ⏎ assert space.answers(S.phrasebook_call(), under=metta.counting).one() == 1 ⏎ with metta.under(metta.prov): ⏎     annotated = space.match(S.f(V.x)).one() ⏎ assert annotated.annotation == S.one ⏎ assert annotated.under(metta.counting).annotation == 1 ⏎ assert annotated.why() ⏎ declared = metta.algebra(S.phrasebook_max_plus, plus=max, times=lambda a, b: a + b, zero=-100, one=0, order='descending') ⏎ assert declared.name == 'phrasebook-max-plus' ⏎ [row['x'] for row in space[S.f(V.x)]]` | `1` | method |
 | `!(bind! &pb (new-space)) ⏎ !(match% &pb (f $x) $x)` | &mdash; | `(no answer)` | absent |
 | `!(get-atoms (new-space))` | `list(metta.space())` | `(no answer)` | method |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(get-atoms (fork-space &pb))` | `space += S.f(1) ⏎ space.copy().atoms()` | `(f 1)` | method |
@@ -292,7 +292,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `add-reducts` `(-> SpaceType %Undefined% (->))` &mdash; The plural of the same composition: evaluate, then write the answers. Where they differ: PeTTa stores both forms UNREDUCED where LeaTTa and the Python composition store `(total 3)` and `(total 4)`, the same non-reduction as `add-reduct`.
 - `remove-atom` `(-> SpaceType Atom (->))` &mdash; `space -= atom` removes THAT atom and never pattern-matches; `del space[pattern]` is the pattern form, and the pair is taught together.
 - `get-atoms` `(-> SpaceType Atom)` &mdash; `space.atoms()`, or `for atom in space` when you want to walk them.
-- `match` `(-> SpaceType Atom Atom %Undefined%)` &mdash; `space[pattern]` is the subscript door and `space.match(pattern)` the named one; the TEMPLATE is built in Python from the answer's bindings.
+- `match` `(-> SpaceType Atom Atom %Undefined%)` &mdash; `space[pattern]` is the subscript door and `space.match(pattern)` the named one; the TEMPLATE is built in Python from the answer's bindings. `under=counting|tropical|prov|ranked` changes the annotation algebra; `answers(call, under=...)` is its call twin, `with metta.under(...)` scopes the default, and an annotated answer exposes `.annotation`, `.why()` and `.under(other)` without a re-query. `metta.algebra(...)` constructs arbitrary carriers while remaining their namespace.
 - `match%` `(-> SpaceType Atom Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `match`. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `new-space` `(-> SpaceType)` &mdash; `metta.space()`. A constructor call is Python's own spelling for `make me a fresh one`, and the row asks the fresh space for its atoms because the NAME a space gets differs per engine.
 - `fork-space` `(-> SpaceType SpaceType)` &mdash; `space.copy()`, which answers an independent space: writing to the copy leaves the original alone [measured 2026-08-22]. The form is shown but not run here: PeTTa leaves the MeTTa call unreduced.
@@ -340,11 +340,11 @@ Python side does not move. Within one run the counts are exact: three fresh
 
 | MeTTa | Python | answers | bucket |
 |---|---|---|---|
-| `!(get-state (new-state 1))` | `state = metta.State[int](1, space=m) ⏎ state.value` | `1` | method |
+| `!(get-state (new-state 1))` | `state = metta.State[int](1, space=m) ⏎ def retain(cell, event): ⏎     cell.value += int(event.n) ⏎ folded = m.events().fold(retain, space=space.name, pattern=S.delta(V.n), into=state) ⏎ space += S.delta(0) ⏎ folded.cancel() ⏎ state.value` | `1` | method |
 | `!(let $c (new-state 5) (get-state $c))` | `state = metta.State[int](5, space=m) ⏎ state.value` | `5` | method |
 | `!(let $c (new-state 1) (get-state (change-state! $c 2)))` | `state = metta.State[int](1, space=m) ⏎ state.value = 2 ⏎ state.value` | `2` | method |
 
-- `new-state` `(-> $t (StateMonad $t))` &mdash; `metta.State[T](value, space=space)` creates the typed Python handle. The row reads `.value` because the engine cell itself is deliberately hidden behind that handle.
+- `new-state` `(-> $t (StateMonad $t))` &mdash; `metta.State[T](value, space=space)` creates the typed Python handle. The row reads `.value` because the engine cell itself is deliberately hidden behind that handle. An event `fold(..., into=state)` passes this same process-shared cell to its step; individual reads and writes are thread-safe, but a compound read-modify-write needs coordination.
 - `get-state` `(-> (StateMonad $tgso) $tgso)` &mdash; Reading the cell is the typed handle's `state.value` property.
 - `change-state!` `(-> (StateMonad $tcso) $tcso (StateMonad $tcso))` &mdash; Assigning `state.value` writes the same typed engine cell and reading it back returns the replacement.
 - `_new-state` `(-> $t Expression (StateMonad $t))` &mdash; LeaTTa's internal constructor behind `new-state`.

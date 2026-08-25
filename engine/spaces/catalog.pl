@@ -2,6 +2,9 @@
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
+% Guarantees: counting and tropical are ordinary catalog algebras, and each
+% ordered preset declares its best direction [tested:
+% bindings/python/tests/test_under_algebra.py; commit=WORKTREE].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.
@@ -1063,7 +1066,8 @@ petta_catalog_preset([vocabulary, 'image-mode', opaque, transparent, auto]).
 petta_catalog_preset([vocabulary, 'registry-image',
                       expression, symbol, handle, operations]).
 petta_catalog_preset([vocabulary, 'answer-policy', depth, fair, 'best-first']).
-petta_catalog_preset([vocabulary, semiring, bool, bag, set, ranked, prob, prov]).
+petta_catalog_preset([vocabulary, semiring, bool, bag, counting, set, ranked,
+                      tropical, prob, prov]).
 petta_catalog_preset([vocabulary, 'source-kind', linear, repeated, peek]).
 petta_catalog_preset([vocabulary, world, 'closed-world', 'open-world']).
 petta_catalog_preset([vocabulary, atomicity,
@@ -1197,8 +1201,9 @@ petta_catalog_preset([policy, 'reaction-order', agenda, declaration]).
 petta_catalog_preset([policy, 'save-format', save, metta]).
 petta_catalog_preset([policy, volatility, volatility, stable]).
 petta_catalog_preset([policy, determinism, determinism, nondet]).
-petta_catalog_preset([claim, semiring, ranked, ordered]).
-petta_catalog_preset([claim, semiring, prob, ordered]).
+petta_catalog_preset([claim, semiring, ranked, ordered, descending]).
+petta_catalog_preset([claim, semiring, tropical, ordered, ascending]).
+petta_catalog_preset([claim, semiring, prob, ordered, descending]).
 petta_catalog_preset([algebra, bool, max, '*', 0, 1,
                       [laws, 'combine-associative', 'combine-commutative',
                        'extend-associative', 'left-distributive',
@@ -1207,6 +1212,13 @@ petta_catalog_preset([algebra, bool, max, '*', 0, 1,
                        contraction],
                       [carrier], [requires]]).
 petta_catalog_preset([algebra, bag, '+', '*', 0, 1,
+                      [laws, 'combine-associative', 'combine-commutative',
+                       'extend-associative', 'left-distributive',
+                       'right-distributive', 'combine-zero-identity',
+                       'extend-one-identity', 'extend-zero-annihilates',
+                       contraction],
+                      [carrier], [requires]]).
+petta_catalog_preset([algebra, counting, '+', '*', 0, 1,
                       [laws, 'combine-associative', 'combine-commutative',
                        'extend-associative', 'left-distributive',
                        'right-distributive', 'combine-zero-identity',
@@ -1226,6 +1238,12 @@ petta_catalog_preset([algebra, ranked, max, '*', 0, 1,
                        'right-distributive', 'combine-zero-identity',
                        'extend-one-identity', 'extend-zero-annihilates',
                        contraction],
+                      [carrier], [requires]]).
+petta_catalog_preset([algebra, tropical, min, '+', infinity, 0,
+                      [laws, 'combine-associative', 'combine-commutative',
+                       'combine-idempotent', 'extend-associative',
+                       'left-distributive', 'right-distributive',
+                       'combine-zero-identity', 'extend-one-identity'],
                       [carrier], [requires]]).
 petta_catalog_preset([algebra, prob, '+', '*', 0, 1,
                       [laws, 'combine-associative', 'combine-commutative',
