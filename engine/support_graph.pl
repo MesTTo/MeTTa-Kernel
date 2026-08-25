@@ -29,7 +29,7 @@
 %     every remaining edge N times, while preserving cross-module symbol
 %     indexes that still have a live edge [tested:
 %     support_graph:forgetting_a_module_covers_every_node_shape_on_both_sides;
-%     commit=WORKTREE].
+%     commit=d843bb6d17a525c36afd21cab077d63b34447535].
 % Owns resources: supports/4, support_function_module/2,
 %   support_view_module/2, support_dirty_node/2, support_value/3,
 %   support_memo_rule/4 and support_memo_changed/2 are transactional dynamic

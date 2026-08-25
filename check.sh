@@ -32,7 +32,7 @@
 #     still takes a fresh measurement and promotes only deterministic pins
 #     [tested: env CHECK_PY=../../.venv-pypetta/bin/python
 #     GATE_ONLY=1 sh check.sh memory-scale-gate;
-#     commit=WORKTREE].
+#     commit=d843bb6d17a525c36afd21cab077d63b34447535].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
