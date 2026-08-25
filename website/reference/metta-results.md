@@ -59,6 +59,10 @@ Source: `bindings/python/metta/results.py`.
 >   - one(default=) distinguishes absence from multiplicity for both eager and
 >     lazy faces, while first without a default never returns None [tested:
 >     test_query_answers_complete_the_lazy_projection_protocol; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - zip and reversed retain their lawful Sequence behavior while recording
+>     advisory ordering evidence for Space.lint [tested:
+>     test_zip_over_unordered_answers_is_lawful_and_linted,
+>     test_reversed_over_unordered_answers_is_lawful_and_linted; commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

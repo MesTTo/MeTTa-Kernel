@@ -8,6 +8,24 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `Space.lint()` now reports nine advisory Python-first design mixes without
+  refusing execution: capital-data/lowercase-function role inversions,
+  interpreter-equation shadows, registered operations inside compiled loops,
+  module-level calls of defined functions, effectful operation calls during
+  rule construction, operations staged into laws, `zip` and `reversed` over
+  unordered `Answers`, and synchronous engine driving inside `async def`.
+  Each source-observed finding carries its authority and position, operation
+  findings carry the published five-rank effect, and both evidence and exact
+  `# metta: ok(<kind>)` acknowledgements are queryable in `&petta` until the
+  owning space is cleared.
+- Semantic refusals now carry a structured Python-reference or named MeTTa-law
+  ground. Comparison-term truthiness cites Python Language Reference section
+  6.10 and names `S.le(1, V.x) & S.le(V.x, 10)` as the chained-comparison
+  remedy; atom/plain ordering cites the rich-comparison data model.
+  Every `CompileError` derives a ground from its refused construct, and the
+  `refusal-grounds` gate plus its planted selftest keeps compiler, Python
+  data-model, and segment-fragment fences grounded.
+
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,
   fits constant through quadratic and capped-linear complexity families over

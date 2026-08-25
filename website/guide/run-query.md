@@ -1,7 +1,9 @@
 <!--
 Purpose: document Space execution, querying, controls, diagnostics, and result handling.
-Guarantees: examples use the narrow core and satellite-qualified specialist APIs.
-[tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
+Guarantees: examples use the narrow core and satellite-qualified specialist APIs;
+all public lint kinds and the named-intent convention are catalogued here.
+[tested: npm run docs:build and test_every_lint_kind_is_named_on_the_page_its_findings_link_to;
+commit=WORKTREE]
 -->
 
 # Run and query
@@ -534,7 +536,7 @@ A healthy space answers an empty list. A finding carries nine fields: `kind`, `s
 | severity | means | kinds |
 |---|---|---|
 | `error` | the program is wrong | `arrow-arity-mismatch`, `arity-mismatch`, `unbound-variable`, `type-mismatch` |
-| `warning` | almost certainly not what was meant | `declared-but-undefined`, `declaration-types-the-symbol`, `duplicate-equation`, `tabled-answer-order-read` |
+| `warning` | almost certainly not what was meant | `declared-but-undefined`, `declaration-types-the-symbol`, `duplicate-equation`, `tabled-answer-order-read`, `first-letter-role-convention`, `interpreter-equation-shadow`, `operation-crossing-in-loop`, `module-level-defined-call`, `effectful-operation-at-construction`, `operation-staged-in-law`, `unordered-answers-zip`, `unordered-answers-reversed`, `sync-engine-call-in-async` |
 | `information` | true and worth knowing | the seven simplifications, `inconsistent-arity`, `subsumed-equation` |
 | `hint` | a heuristic that can be wrong | `possibly-undefined-reference` |
 
@@ -549,15 +551,35 @@ for finding in m.lint():
 
 ### The catalogue
 
-**Declarations and definitions.** `declared-but-undefined` (an arrow nothing defines, so every call stays unreduced). `arrow-arity-mismatch` (the arrow's input count against the equations'). `declaration-types-the-symbol` (a declaration that is not an arrow, so it types the name and not a call to it). `inconsistent-arity` (one name defined at two arities with no arrow saying so). `duplicate-equation` (the same equation stored twice, up to variable renaming, answering every call twice). `subsumed-equation` (an equation that is a strict instance of another stored one, so every answer it gives the general equation gives too and calls on the overlap answer twice; the check is pairwise against single equations, Plotkin's reduction step, and redundancy through combinations of equations is not searched).
+**Declarations and definitions.** `declared-but-undefined` (an arrow nothing defines, so every call stays unreduced). `arrow-arity-mismatch` (the arrow's input count against the equations'). `declaration-types-the-symbol` (a declaration that is not an arrow, so it types the name and not a call to it). `inconsistent-arity` (one name defined at two arities with no arrow saying so). `duplicate-equation` (the same equation stored twice, up to variable renaming, answering every call twice). `subsumed-equation` (an equation that is a strict instance of another stored one, so every answer it gives the general equation gives too and calls on the overlap answer twice; the check is pairwise against single equations, Plotkin's reduction step, and redundancy through combinations of equations is not searched). `first-letter-role-convention` (a lowercase data head or capitalized function head). `interpreter-equation-shadow` (a lawful writable equation over a translator-owned head such as `eval`).
 
-**Calls.** `arity-mismatch` (an argument count no equation takes). `type-mismatch` (an argument whose `get-type` the arrow's input type refuses, which is the engine's own answer rather than a second type system). `possibly-undefined-reference`, the only `hint`, because an expression head that is no known function may be data on purpose; when a known name is one edit away it arrives with a `suggestion`.
+**Calls.** `arity-mismatch` (an argument count no equation takes). `type-mismatch` (an argument whose `get-type` the arrow's input type refuses, which is the engine's own answer rather than a second type system). `possibly-undefined-reference`, the only `hint`, because an expression head that is no known function may be data on purpose; when a known name is one edit away it arrives with a `suggestion`. `module-level-defined-call` (a defined function driven while its module imports; declarations at module level are allowed).
 
-**Bodies.** `unbound-variable` (a body variable the head never bound, exempting equations with their own binding forms). `duplicate-binder` (`let*` binding one name twice, where the second unifies rather than shadows, so write `==` if an equality constraint is meant).
+**Bodies.** `unbound-variable` (a body variable the head never bound, exempting equations with their own binding forms). `duplicate-binder` (`let*` binding one name twice, where the second unifies rather than shadows, so write `==` if an equality constraint is meant). `operation-crossing-in-loop` (a registered Python operation called per item in a compiled loop). `effectful-operation-at-construction` (a non-`pureStructural` ground operation fired while a rules bundle is built). `operation-staged-in-law` (an operation term stored in a law and crossed per application). `sync-engine-call-in-async` (a synchronous `run`, `match`, `eval`, `answers`, or defined-function call made directly by an `async def`; use `AsyncMeTTa`). The effect findings read the operation's published five-rank lattice value rather than guessing from its implementation.
 
 **Simplifications, each with an `autofix` where a rewrite exists.** `constant-if-true` and `constant-if-false` (the condition is literal, so only one branch can answer). `if-same-branches` (both branches the same expression, so the condition decides nothing). `if-true-false` (`(if c True False)` answers exactly what `c` answers). `superposed-single` (a superpose of one thing is that thing). `superposed-empty` (a superpose of nothing answers nothing, and every containing expression dies there; no autofix, because the fix is a decision).
 
-**Order.** `tabled-answer-order-read` (a `car-atom` or `index-atom` picking out of a collapse of a tabled function).
+**Order.** `tabled-answer-order-read` (a `car-atom` or `index-atom` picking out of a collapse of a tabled function). `unordered-answers-zip` (zipping `Answers` views as though their positions correspond). `unordered-answers-reversed` (reversing an `Answers` view as though its engine answer order has meaning). Both Python operations remain lawful and return their normal result; sorting by an explicit key or joining in the engine states the intended relation.
+
+### Acknowledge one intentional finding
+
+A lint never refuses execution. When a flagged mix is deliberate, put an exact named directive on the statement, or on the line immediately above it:
+
+```python
+for value in values:
+    # metta: ok(operation-crossing-in-loop)
+    total += registered_operation(value)
+```
+
+The directive suppresses only `operation-crossing-in-loop` at that statement. A different kind at the same place still appears. The acknowledgement is retained as data in `&petta`, not discarded as a comment:
+
+```metta
+(lint-intent &space operation-crossing-in-loop
+             "module.py" 12 4 13 13
+             "L9Z1-06; ai-python-first-revamp-discussion.md:5613-5618")
+```
+
+Source-observed events likewise appear as `(lint-evidence Space Kind Subject Path Line Column Authority)`. `clear()` retires both records with the owning space. The corresponding finding payload carries `file`, `line`, `column`, `authority`, and, for operation findings, the published `effect` rank.
 
 ### Lint a file, with line numbers
 
