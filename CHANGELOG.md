@@ -850,6 +850,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   price of the checks is +28 inferences per rerouted declared call,
   re-pinned across the benchmark lanes with the attribution recorded in
   their baselines.
+- `py-call` no longer hands a callee a janus `Box`: an opaque Python
+  object travelling through the shared goal-term route is unwrapped at
+  the argument boundary, the same law the raw-dispatch route already
+  applied, so three Python statements chained through an object between
+  them run as written instead of dying with `'Box' object has no
+  attribute ...` inside the callee.
 - `space += atom` and `space -= atom` inside a compiled body are the write
   doors: a local bound to `(context-space)` or `(new-space ...)`, or
   aliased from one, compiles its augmented assignment to `add-atom` and
