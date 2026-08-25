@@ -3,13 +3,30 @@ Purpose: teach canonical atom construction, operators, methods, pattern matching
 Guarantees: examples contain no superseded atom class or helper names, and
 plain atom sorting agrees with the explicit specialist key.
 [tested: npm run docs:build and test_plain_sorted_uses_the_engines_elementwise_order;
-commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
+commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 [tested: test_atom_comparisons_are_only_ordering; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
 -->
 
 # Atoms, operators, and term building
 
 Atoms are immutable Python values. `Symbol` is a MeTTa symbol, `Variable` is a variable, `Grounded` carries a host value, and `Expression` is an ordered expression. `S.likes` creates the symbol `likes`. `V.x` creates `$x`. Applying a symbol builds an expression without calling the engine.
+
+## S and V are name factories
+
+`S.edge(S.Ada, V.friend)` builds `(edge Ada $friend)`. `S.edge` mints the
+`edge` symbol, `S.Ada` mints the `Ada` symbol, and `V.friend` mints the
+`$friend` variable. Calling the head symbol then builds one `Expression`.
+
+Attribute names use Python spelling. An underscore maps to a MeTTa hyphen, so
+`S.parent_of` is `parent-of` and `V.next_value` is `$next-value`. Brackets
+preserve exact spelling: `S["parent_of"]` is `parent_of`, and
+`V["next_value"]` is `$next_value`. Use brackets for punctuation, keywords,
+and names whose underscores must remain underscores.
+
+`S` and `V` only construct atoms. They do not consult a space, resolve a
+function, or evaluate a term. The variable `V._` is anonymous: it can match a
+value but never creates a result column. A raw Python string is a grounded
+string, not a symbol, so use `S[name]` when the value must be a symbol.
 
 The first example builds a small family relation, joins over it, and evaluates a nondeterministic term:
 
@@ -24,6 +41,22 @@ check("first grandparent", (rows[0].gp, rows[0].gc), (S.Tom, S.Ann))
 # Evaluation is what ! runs, nondeterminism included.
 check("eval", m.eval(S.superpose(Expression(1, 2, 3))), [1, 2, 3])
 ```
+
+## Build terms, not source text
+
+`term = S.Order(7, 5)` builds `(Order 7 5)` on every supported Python
+version, including the 3.12 floor. Pass that atom to `m.eval(term)` or another
+atom-taking door. Do not assemble MeTTa source when the API accepts an atom.
+
+When a text-only door is unavoidable, build each atom first and render the
+finished term: `source = f"!{term}"` produces `!(Order 7 5)`, which
+`m.run(source)` can read. Python t-string syntax is available only on 3.14 and
+newer. It creates a `string.templatelib.Template`; `Space.run` accepts a
+`str`, not a `Template`. Treat a t-string as optional sugar for an integration
+that explicitly renders templates, not as the 3.12 term-construction path.
+
+See [where code runs](./where-code-runs.md) for the boundary between building
+an atom and evaluating it.
 
 Arithmetic and boolean operators on atoms build terms. Comparison operators
 compare atoms; comparison terms name their head explicitly. The full set:

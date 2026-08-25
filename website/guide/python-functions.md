@@ -2,7 +2,7 @@
 Purpose: explain Python operation registration, type declarations, context injection, and property tests.
 Guarantees: examples use Space.op, Space.define, and canonical atom constructors without compatibility aliases.
 [tested: npm run docs:build and test_define_wires_the_declarative_dance;
-commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
+commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 -->
 
 # Python functions as MeTTa functions
@@ -75,6 +75,22 @@ m.match(V.edge, into=Edge)            # rebuild each complete (Edge ...) atom
 Declaration is context-relative and immediate: an unregistrable class fails at the decorator, and its declarations land in the same space that owns the decorator. There is no process-global class registry or second root decorator.
 
 `cast` checks admission and narrows; it does not construct. Building instances from answers is `match(into=Edge)`, `rows.build(Edge)`, or `metta.convert.build(atom, Edge)`.
+
+Records update by replacement. On the Python 3.12 floor,
+`changed = edge.__replace__(b="new")` returns a new `Edge` and leaves `edge`
+unchanged. Constructing `Edge(edge.a, "new")` is the explicit longhand. Python
+3.13 adds the general spelling `copy.replace(edge, b="new")`; it uses the same
+`__replace__` protocol and also returns a new record. Projecting the replacement
+back to MeTTa produces a new constructor term rather than mutating a stored
+term.
+
+An attribute docstring written immediately after a field is source-only.
+`@m.define` reads that source and includes the field text in the emitted
+`(@doc ...)` atom. CPython does not attach the text to the runtime field. A
+slots field such as `Order.total` therefore has
+`Order.total.__doc__ is None`, and a plain field may have no class attribute at
+all. Read the emitted `@doc` data; do not use `field.__doc__` as the
+documentation door.
 
 ## Property-test what you build
 

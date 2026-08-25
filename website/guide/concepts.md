@@ -1,7 +1,7 @@
 <!--
 Purpose: map MeTTa concepts onto the canonical Python atom classes, contexts, handles, and result containers.
 Guarantees: every named Python door exists on the narrow public surface.
-[tested: npm run docs:build; commit=c34c9bf3e55a8425d3f251c3ad06c33bc9755a22]
+[tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 -->
 
 # Concepts and names
@@ -98,6 +98,17 @@ three readings. The triple is spelled the same at every door:
 `Rows.one()` demands exactly one row and raises naming the count; `Rows.first()`
 tolerates absence. Evaluation stays an ordinary list so its cardinality is
 visible to the caller.
+
+`collapse` strongly encapsulates the nondeterminism evaluated below its own
+operand. With two equations for `(many)`, a body written as
+`(= (collect-own $x) (collapse (many)))` returns one collection, `(one two)`.
+A body written as `(= (collect-argument $x) (collapse $x))` and called with
+`(collect-argument (many))` returns two singleton collections, `(one)` and
+`(two)`, because the argument choice is made before each function application.
+The boundary therefore collects the function body's own choices, not choices
+that already formed its arguments. An argument declared `Atom` arrives
+unevaluated; if that atom is evaluated under `collapse`, its choices are below
+the boundary and are collected there. Duplicate answers remain duplicates.
 
 The same axis settles the error story in one sentence: an
 `(Error ...)` answer stays data at every multiset door and raises

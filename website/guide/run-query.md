@@ -1,7 +1,7 @@
 <!--
 Purpose: document Space execution, querying, controls, diagnostics, and result handling.
 Guarantees: examples use the narrow core and satellite-qualified specialist APIs.
-[tested: npm run docs:build; commit=c34c9bf3e55a8425d3f251c3ad06c33bc9755a22]
+[tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 -->
 
 # Run and query
@@ -80,9 +80,16 @@ behavior, including infinity for `(/ 1.0 0.0)` and NaN for `(/ 0.0 0.0)`.
 
 The aggregation doors, `eval()` and `run()`, keep error atoms as data, exactly
 as the multiset semantics says. Query rows are bindings rather than evaluation
-answers, so a stored error record flows through every `Rows` door untouched.
+answers, so a stored error record flows through every `Rows` door untouched;
+`rows.raise_for_errors()` is the explicit bridge for callers who want the
+`raise_for_status` reading. It raises one error plainly and several as one
+`ExceptionGroup`.
 
-Query rows are bindings rather than evaluation answers, so a stored error record flows through every `Rows` door untouched; `rows.raise_for_errors()` is the explicit bridge for callers who want the `raise_for_status` reading, raising one error plainly and several as one `ExceptionGroup`.
+The group renders each `MettaResultError` with the `(Error ...)` atom it
+carries. Those leaf errors have no Python stack because the engine returned
+error values rather than raising Python exceptions on its branches. The group
+keeps the real traceback where the caller invoked `raise_for_errors()`; it
+does not fabricate a stack for any error atom.
 
 Two more things hold across the whole library. Every exception it raises on purpose carries machine-readable parts beside the message, the way `OSError.errno` does: `.atom`, `.space`, `.operation` and `.capability`, each `None` when the error has no such part. And an exception the library raises inside a Python callback, a space provider refusing a write for instance, crosses the engine and re-arrives as the very same object with its fields intact, rather than as a transcript of itself.
 
