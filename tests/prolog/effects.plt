@@ -3,7 +3,8 @@
 % Assumes: engine/metta.pl has initialized the &petta catalog and its native
 %   storage.
 % Guarantees: rank, join, composition, canonical operation reflection,
-%   fail-closed plans, and cache-purity projection agree.
+%   fail-closed plans, cache-purity projection, and deprecation explanation
+%   agree.
 % [tested: tests/prolog/effects.plt; commit=WORKTREE]
 
 :- ensure_loaded('../../engine/metta.pl').
@@ -102,6 +103,16 @@ test(operation_effect_reflection_is_canonical_and_fail_closed,
     petta_explain(['effect-reflected'], Explanation),
     findall(Effect, member([effect, Effect], Explanation), EffectRows),
     assertion(EffectRows == [writesState]).
+
+test(a_deprecation_row_drives_lookup_and_explanation,
+     [ cleanup(metta_remove_atom('&petta',
+                                 [deprecated, 'old-effect', '0.2.0',
+                                  [use, 'new-effect']], _)) ]) :-
+    add_sexp('&petta',
+             [deprecated, 'old-effect', '0.2.0', [use, 'new-effect']], _),
+    assertion(petta_deprecation('old-effect', '0.2.0', [use, 'new-effect'])),
+    petta_explain(['old-effect', value], Explanation),
+    assertion(member([deprecated, '0.2.0', [use, 'new-effect']], Explanation)).
 
 test(an_operation_plan_joins_reflected_members_and_refuses_an_unknown_one,
      [ cleanup(( effect_test_clear('effect-plan-pure'),

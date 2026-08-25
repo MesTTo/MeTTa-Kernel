@@ -8,6 +8,9 @@
 %     metta_effects:the_host_repeatability_question_fails_closed,
 %     metta_effects:the_host_repeatability_question_preserves_inference_limits;
 %     commit=6917bef7ca902671999eafcae3a7a86db8f69723].
+%   - deprecation declarations are reflected by exact name and appear in an
+%     operation explanation with their since and remedy values [tested:
+%     a_deprecation_row_drives_lookup_and_explanation; commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -856,6 +859,15 @@ petta_explain_op_item(Op, Args, ['on-error', Mode]) :-
     ).
 petta_explain_op_item(Op, _, [cache, Choice, Reason]) :-
     seam:automatic_cache_explanation(Op, Choice, Reason).
+petta_explain_op_item(Op, _, [deprecated, Since, Remedy]) :-
+    petta_deprecation(Op, Since, Remedy).
+
+%One declaration over one callable name. Keeping the values as terms is the
+%point: a version can be a symbol or grounded text, and the remedy can be a
+%call-shaped atom that both explain and a host warning render without a second
+%stringly registry.
+petta_deprecation(Name, Since, Remedy) :-
+    petta_contract_fact([deprecated, Name, Since, Remedy]), !.
 
 %(context Ctx closed-world|open-world) records what a context's absence
 %means. The mechanically checkable part gates: negation as failure reads

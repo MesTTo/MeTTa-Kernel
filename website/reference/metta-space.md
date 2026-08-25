@@ -98,6 +98,10 @@ Source: `bindings/python/metta/_space.py`.
 >     an explicit full-interpreter head without mutating the receiver [tested:
 >     test_answers_selects_a_theory_or_interpreter_per_ask;
 >     commit=0d49980b03d507f9bae0354786ab826a146c20df]
+>   - callable doors cache live deprecation declarations until the next write
+>     and issue the catalog's since/remedy warning [tested:
+>     test_deprecation_catalog_rows_drive_warnings_and_explanations;
+>     commit=WORKTREE]
 >   - builtin discovery is cached per logical space, with namespace reads
 >     comparing the engine's function generation and explicit Python mutation
 >     doors retaining eager invalidation [tested:

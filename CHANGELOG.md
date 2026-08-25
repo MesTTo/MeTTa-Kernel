@@ -2525,6 +2525,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   composition each documented in one line; and the deprecation policy
   stated: a surface removal warns with `DeprecationWarning` for one
   release before it goes.
+- Added `(deprecated name since remedy)` as queryable catalog data. Calling a
+  matching `Defined`, `space.fn` function, or composite operator now raises a
+  `DeprecationWarning` containing the catalog's version and positional remedy,
+  and `explain` reflects the same declaration. Removing the row retires the
+  warning immediately.
 - Added the thread-safety and serialization guarantees page: per type
   and per operation, what is atomic, what locks, and what a caller must
   serialize, Python's own documentation convention pointed at PeTTa.

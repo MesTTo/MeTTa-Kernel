@@ -5,6 +5,9 @@
 % Guarantees: counting and tropical are ordinary catalog algebras, and each
 % ordered preset declares its best direction [tested:
 % bindings/python/tests/test_under_algebra.py; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
+% Guarantees: deprecated is a schema-checked catalog kind whose name, since,
+% and remedy fields remain ordinary queryable data [tested:
+% the_shipped_catalog_is_queryable_data; commit=WORKTREE].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.
@@ -175,6 +178,7 @@ petta_catalog_head(policy).
 petta_catalog_head('routed-by-shape').
 petta_catalog_head('dispatch-default').
 petta_catalog_head('dispatch-policy').
+petta_catalog_head(deprecated).
 
 add_sexp_in(Module, [Family|Parameters], [Rel|Args], Ref) :-
     Space = [Family|Parameters],
@@ -1186,6 +1190,7 @@ petta_catalog_preset([kind, 'type-image', symbol,
 petta_catalog_preset([kind, effect, symbol, ['one-of', 'effect-class']]).
 petta_catalog_preset([kind, inverse, symbol]).
 petta_catalog_preset([kind, op, symbol, integer, ['one-of', 'op-kind']]).
+petta_catalog_preset([kind, deprecated, symbol, term, term]).
 petta_catalog_preset([kind, on, symbol, pattern, term, [optional, integer]]).
 petta_catalog_preset([kind, agenda, symbol, ['one-of', 'agenda-policy'],
                       [optional, symbol]]).

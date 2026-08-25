@@ -12,6 +12,8 @@
      - materialized annotation and algebra descriptors follow catalog adds,
        removals, and same-name replacements [tested:
        algebra_descriptor_caches_follow_catalog_edits; commit=7ae3103aee78e947d23c5872e3db23c28ad7fe1c]
+     - the deprecated kind is queryable with exact name, since, and remedy
+       fields [tested: the_shipped_catalog_is_queryable_data; commit=WORKTREE]
    Open Obligations:
      To Do: None
      Hacks: None
@@ -28,7 +30,9 @@ test(the_shipped_catalog_is_queryable_data) :-
     Spec == [symbol, pattern, ['one-of', fidelity],
              [optional, ['one-of', determinism]]],
     once('get-atoms'('&petta', [vocabulary, fidelity|Values])),
-    Values == ['Exact', 'Partial', 'Sound', 'Refuse'].
+    Values == ['Exact', 'Partial', 'Sound', 'Refuse'],
+    once('get-atoms'('&petta', [kind, deprecated|DeprecatedSpec])),
+    DeprecatedSpec == [symbol, term, term].
 
 test(a_malformed_shipped_declaration_is_refused_loudly,
      [error(petta_declaration_malformed([source, '&cat1', bogus], 2,
