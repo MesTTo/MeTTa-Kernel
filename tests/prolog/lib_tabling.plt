@@ -37,6 +37,7 @@ tabling_definitions("
 ").
 
 seam:foreign_space('&plt_tab_foreign').
+seam:foreign_capability('&plt_tab_foreign', enumerate).
 seam:foreign_atoms('&plt_tab_foreign', []).
 
 setup_tabling_suite :-

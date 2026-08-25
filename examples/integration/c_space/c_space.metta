@@ -60,17 +60,22 @@
      True)
 
 ;The seam's own proof harness, asked of the C provider: every declared
-;capability has clauses behind it, match over-approximation holds over
-;the one atom the store holds here, and no pushdown claim overreaches.
-;It RAISES on a violation, so the answer below is what a healthy
-;provider reports.
+;capability has clauses behind it, the match family holds over the one
+;atom the store holds here (the atom itself, each position opened to a
+;fresh variable, repeated-variable folds), the source discipline reads
+;as declared, a canary atom survives the add-enumerate-remove round trip
+;through the C-backed writes, and no pushdown claim overreaches. It
+;RAISES on a violation, so the answer below is what a healthy provider
+;reports.
 !(if (file-exists "./examples/integration/c_space/cstore.so")
      (test (check-space-provider &cstore)
            ("enumerate: declared, seam:foreign_atoms/2 has clauses"
             "add: declared, seam:foreign_add/2 has clauses"
             "remove: declared, seam:foreign_remove/3 has clauses"
             "clear: declared, seam:foreign_clear/1 has clauses"
-            "match: over-approximation holds over 1 atoms"
+            "match: over-approximation holds over 1 atoms and their pattern families"
+            "source: repeated, two enumerations agree"
+            "round trip: add then enumerate answers the atom, and remove takes it back"
             "pushdown: 0 of 1 patterns claimed exact, and are"
             "plan: not declared, so a conjunction takes the engine's split"))
      True)

@@ -84,7 +84,9 @@ test(a_theta_plan_row_binds_the_claimed_patterns) :-
 % reads one a Python answer carried across.
 :- multifile seam:foreign_space/1.
 :- multifile seam:foreign_match/3.
+:- multifile seam:foreign_capability/2.
 seam:foreign_space('&plunit_topk').
+seam:foreign_capability('&plunit_topk', match).
 seam:foreign_match('&plunit_topk', [scored, X], Options) :-
     nb_setval('$plunit_topk_options', Options),
     member(X-K, [a-0.5, b-0.9, c-0.1, d-0.7]),

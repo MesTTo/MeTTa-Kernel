@@ -19,17 +19,15 @@
 %provider class and the operation named, and it is the half a library author
 %is told to port INTO Prolog for speed
 %[tested: spaces_foreign_contract].
-%A space that declares NOTHING provides everything, which is what every
-%provider written before the declaration existed assumed.
-%
-%THE TRAP, and it is worth knowing before you extend the vocabulary: the
-%default stops the moment this space has ANY solution. Declaring one
-%capability is declaring the complete set, so a provider adding a sixth to the
-%five silently loses the five it did not restate. Python providers do not have
-%to think about it, because foreign.py projects the whole set at registration
-%from the protocols the provider implements
+%A space that declares NOTHING provides nothing, the safe answer P12.14
+%gave events, and the declaration means exactly what it says. The retired
+%default read the other way round and carried a trap its own definition
+%documented: it stopped the moment the space had ANY solution, so declaring
+%one capability was the act that took the other seven away. Python
+%providers never think about it, because foreign.py projects the whole set
+%at registration from the protocols the provider implements
 %[tested: test_a_python_providers_capabilities_reach_the_engine,
-%a_partial_declaration_declares_the_whole_set].
+%a_declaration_provides_exactly_what_it_says].
 %subscribe is the one capability no registration may claim on its own, and
 %that is P12.14's whole point: the other eight are questions about what a
 %provider implements, and this one is a promise about what its CONTEXT can
@@ -37,11 +35,17 @@
 %change on the server. So the (events ...) declaration decides it, whatever
 %a host registered, and a context that declares nothing is refused here
 %[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
+%Declaring nothing provides NOTHING, the same safe answer P12.14 gave
+%events. The retired default read the other way round: a space with no
+%foreign_capability/2 rows provided everything, so declaring one
+%capability was the act that took the other seven away, a trap its own
+%definition documented. Every in-tree provider declares (the Python tier
+%derives its declarations at registration; the audit of 2026-08-25 found
+%two test fixtures leaning on the default and gave them their true rows),
+%and an operation a space does not declare is refused naming the
+%capability, which is where an undeclared provider now finds out.
 foreign_provides(Space, Capability) :-
-    (   seam:foreign_capability(Space, _)
-    ->  seam:foreign_capability(Space, Capability)
-    ;   true
-    ),
+    seam:foreign_capability(Space, Capability),
     (   Capability == subscribe
     ->  petta_event_capability(Space, _, _)
     ;   true

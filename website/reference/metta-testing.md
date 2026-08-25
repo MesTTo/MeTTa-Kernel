@@ -191,6 +191,18 @@ def check_space_provider(provider, *, atoms_to_store=None, source='repeated') ->
 >
 > Raises AssertionError on the first violation, naming the provider class,
 > the operation and the atom.
+>
+> THE DOOR IS UNIVERSAL: a provider is any foreign substrate, not only a
+> Python object, and every substrate sits behind the space seam. Handed a
+> ``Space`` handle, this runs the engine's own checker
+> (lib/lib_conformance.pl's ``check-space-provider``), which holds the
+> same laws — capability reachability, the match pattern family, the
+> declared source discipline, the canary round trip, the pushdown claim —
+> asked through the seam, so a provider written in Prolog, C, or anything
+> else is held to one contract. The object form stays the
+> pre-registration half for Python authors; ``source=`` applies to it
+> alone, because a registered space carries its declared ``(source ...)``
+> class and the engine checker reads that instead of trusting a claim.
 
 ## `record_replay`
 

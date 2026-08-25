@@ -386,7 +386,99 @@ metta_extension(Name, Options) :-
     check_extension_requirements(Name, Options),
     declaring_file(File),
     retractall(metta_extension_info(Name, File, _)),
-    assertz(metta_extension_info(Name, File, Options)).
+    assertz(metta_extension_info(Name, File, Options)),
+    schedule_extension_readying(Name, Options).
+
+%The readying moment, the instant the Python tier has always had: at
+%registration foreign.py derives a provider's capabilities from the
+%protocols it implements and validates the base class, while a Prolog
+%provider became live because its file was consulted, with nothing
+%inspected, validated or recorded. The version check above and the
+%ownership row are two of the four things the audit found wanting that
+%instant; the spaces(...) option is the other two. An extension declaring
+%`spaces([&name, ...])` has each space validated WHEN ITS FILE FINISHES
+%LOADING (the directive conventionally sits above the hook clauses, so
+%validating inline would read an empty provider): the space is registered,
+%it declares at least one capability (declaring nothing provides nothing),
+%and every declared capability's hook has clauses behind it. `check(true)`
+%additionally runs the full conformance kit, lib/lib_conformance.pl's
+%metta_check_space_provider/2, loaded on demand.
+schedule_extension_readying(Name, Options) :-
+    (   memberchk(spaces(Spaces), Options)
+    ->  must_be(list, Spaces),
+        Deferred = ready_extension_spaces(Name, Options, Spaces),
+        (   prolog_load_context(source, _)
+        ->  initialization(Deferred)
+        ;   call(Deferred)
+        )
+    ;   true
+    ).
+
+ready_extension_spaces(Name, Options, Spaces) :-
+    forall(member(Space, Spaces),
+           ready_extension_space(Name, Options, Space)).
+
+ready_extension_space(Name, Options, Space) :-
+    (   seam:foreign_space(Space)
+    ->  true
+    ;   throw(error(petta_extension_space_unregistered(Name, Space),
+                    context(metta_extension/2,
+                            'the extension names a space it never \c
+                             registered: add a seam:foreign_space/1 \c
+                             clause for it')))
+    ),
+    (   seam:foreign_capability(Space, _)
+    ->  true
+    ;   throw(error(petta_extension_space_undeclared(Name, Space),
+                    context(metta_extension/2,
+                            'declaring nothing provides nothing: give the \c
+                             space its seam:foreign_capability/2 rows')))
+    ),
+    forall(( extension_capability_hook(Capability, Hook),
+             seam:foreign_capability(Space, Capability) ),
+           ready_capability_hook(Name, Space, Capability, Hook)),
+    (   memberchk(check(true), Options)
+    ->  ensure_conformance_kit,
+        metta_check_space_provider(Space, _)
+    ;   true
+    ).
+
+extension_capability_hook(match, seam:foreign_match/3).
+extension_capability_hook(enumerate, seam:foreign_atoms/2).
+extension_capability_hook(add, seam:foreign_add/2).
+extension_capability_hook(remove, seam:foreign_remove/3).
+extension_capability_hook(clear, seam:foreign_clear/1).
+
+ready_capability_hook(Name, Space, Capability, Module:Pred/Arity) :-
+    functor(Head, Pred, Arity),
+    (   catch(predicate_property(Module:Head, number_of_clauses(N)), _, fail),
+        N > 0
+    ->  true
+    ;   throw(error(petta_extension_no_hook(Name, Space, Capability,
+                                            Module:Pred/Arity),
+                    context(metta_extension/2,
+                            'the declared capability has no hook clauses \c
+                             behind it')))
+    ).
+
+:- multifile prolog:error_message//1.
+prolog:error_message(petta_extension_space_unregistered(Name, Space)) -->
+    [ 'extension ~w names ~w in spaces(...) and never registered it: \c
+       add a seam:foreign_space/1 clause for the space'-[Name, Space] ].
+prolog:error_message(petta_extension_space_undeclared(Name, Space)) -->
+    [ 'extension ~w readies ~w with no capability rows, and declaring \c
+       nothing provides nothing: give the space its \c
+       seam:foreign_capability/2 rows'-[Name, Space] ].
+prolog:error_message(petta_extension_no_hook(Name, Space, Capability, PI)) -->
+    [ 'extension ~w declares ~w for ~w and ~w has no clauses: implement \c
+       the hook or drop the capability'-[Name, Capability, Space, PI] ].
+
+ensure_conformance_kit :-
+    (   current_predicate(user:metta_check_space_provider/2)
+    ->  true
+    ;   library(lib_conformance, Kit),
+        user:consult(Kit)
+    ).
 
 check_extension_requirements(Name, Options) :-
     (   memberchk(requires(Major-Minor), Options)

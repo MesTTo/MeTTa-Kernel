@@ -129,16 +129,16 @@ test(the_capability_declaration_is_consulted) :-
     'add-atom'('&plunit_seam', [fact, f], _),
     assertion(was_reached(capability)).
 
-% The trap a vocabulary extender walks into: the "declares nothing means
-% everything" default stops at the FIRST solution, so declaring one capability
-% is declaring the complete set. The seam provider declares all five; a space
-% declaring one provides exactly that one.
-test(a_partial_declaration_declares_the_whole_set) :-
+% The retired trap, pinned the safe way round: a declaration provides
+% exactly what it says, and declaring nothing provides NOTHING, the same
+% answer P12.14 gave events. The seam provider declares all five and has
+% all five; an undeclared space has none, and finds out at the operation's
+% own refusal naming the capability.
+test(a_declaration_provides_exactly_what_it_says) :-
     forall(member(C, [add, remove, match, enumerate, clear]),
            assertion(foreign_provides('&plunit_seam', C))),
-    % A space nothing declares for still provides everything.
-    assertion(foreign_provides('&plunit_undeclared', add)),
-    assertion(foreign_provides('&plunit_undeclared', clear)).
+    assertion(\+ foreign_provides('&plunit_undeclared', add)),
+    assertion(\+ foreign_provides('&plunit_undeclared', clear)).
 
 test(clear_reaches_the_provider) :-
     'add-atom'('&plunit_seam', [fact, g], _),

@@ -33,6 +33,26 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   at the door. A handle refuses term positions, mixed adds, and batch
   scopes loudly; a missing library surfaces the engine's own existence
   error.
+- The conformance kit is universal: `check-space-provider`
+  (lib/lib_conformance.pl) now also holds a provider to the pattern-family
+  match law (every stored atom must be answered for itself, for each
+  position opened to a fresh variable, and for its repeated-variable
+  folds, asked through the engine's own match router), the declared
+  source discipline (a `repeated` provider's two enumerations must
+  agree, a `linear` one is not asked twice), and an add-enumerate-remove
+  canary round trip through the provider's own write hooks. The same
+  checker serves every substrate: `metta.testing.check_space_provider`
+  handed an engine `Space` handle dispatches to it through the seam, so
+  a provider whose clauses live in Prolog and whose store lives in C is
+  held to the same contract as a Python object.
+- Extensions have a readying moment: `:- metta_extension(name,
+  [spaces(['&s', ...])])` validates each named space when its file
+  finishes loading, refusing loudly (with the remedy in the message)
+  when the space was never registered, declares no capability, or
+  declares a capability whose seam hook has no clauses behind it.
+  `check(true)` additionally runs the full conformance kit at that
+  moment. The shipped cstore example and the demo provider fixture
+  declare their spaces.
 - Keyword arguments have a Python-authored spelling: `S.f(x, stop=8)`
   and a grounded head's call accept `**kwargs` and append the seam's
   `(Kwargs (name value) ...)` form, one mechanism at the builder for
@@ -263,6 +283,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- BREAKING: a foreign space provides only what it declares. A provider
+  with no `seam:foreign_capability/2` rows used to be treated as
+  providing everything, so a missing hook surfaced as a silent failure
+  inside a callback; now declaring nothing provides nothing, and every
+  operation on an undeclared capability is refused by name. Providers
+  must declare their capability rows; every shipped and fixture
+  provider now does.
 - A `Space` handle is a `Grounded` species: `isinstance(space, Grounded)`
   is true, matching the glossary's rule that a handle names a live
   engine object and crosses as the grounded atom it is. A handle still

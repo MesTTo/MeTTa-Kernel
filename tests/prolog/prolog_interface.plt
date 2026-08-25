@@ -395,6 +395,42 @@ test(unloading_an_extension_that_is_not_there_raises,
      [throws(error(existence_error(metta_extension, plunit_ex_absent), _))]) :-
     unregister_metta_extension(plunit_ex_absent).
 
+% The readying moment: an extension declaring spaces([...]) has each space
+% validated when its file finishes loading, and consult_global is a LOUD
+% loader, so the refusal arrives as petta_load_failed carrying the remedy
+% text rather than as a warning a host never sees. Each test pins one of the
+% three refusals by its remedy substring. The probe space names are unique
+% to this suite, so a clause a failed load leaves behind is inert.
+ready_refusal(Name, Body, Message) :-
+    tmp_file_stream(text, Path, Stream),
+    format(Stream, ":- metta_extension(~w, [version('1.0.0'), spaces(['&~w-space'])]).~n", [Name, Name]),
+    format(Stream, "~w", [Body]),
+    close(Stream),
+    catch(( consult_global(Path), Error = none ), Error, true),
+    catch(unregister_metta_extension(Name), _, true),
+    delete_file(Path),
+    assertion(subsumes_term(error(petta_load_failed(_), _), Error)),
+    Error = error(petta_load_failed(Report), _),
+    assertion(sub_atom(Report, _, _, _, Message)).
+
+test(readying_refuses_a_space_the_extension_never_registered) :-
+    ready_refusal(plunit_ready_ghost, "",
+                  'never registered it: add a seam:foreign_space/1 clause').
+
+test(readying_refuses_a_registered_space_with_no_capability_rows) :-
+    ready_refusal(plunit_ready_mute,
+                  ":- multifile seam:foreign_space/1.\nseam:foreign_space('&plunit_ready_mute-space').\n",
+                  'declaring nothing provides nothing').
+
+% The hook check is a whole-predicate clause count, because clause/2 on a
+% static multifile hook is a permission error under protect_static_code; it
+% therefore only bites while the hook has no clauses from ANY provider,
+% which holds in this suite's process for seam:foreign_clear/1.
+test(readying_refuses_a_declared_capability_with_no_hook_clauses) :-
+    ready_refusal(plunit_ready_hookless,
+                  ":- multifile seam:foreign_space/1.\n:- multifile seam:foreign_capability/2.\nseam:foreign_space('&plunit_ready_hookless-space').\nseam:foreign_capability('&plunit_ready_hookless-space', clear).\n",
+                  'has no clauses: implement the hook or drop the capability').
+
 % A library built on today's ext_points.pl will be loaded into a later engine,
 % and with nothing to check against a removed or renamed hook shows up as
 % silence. Erlang's NIF loader is the model: the major must match and the minor

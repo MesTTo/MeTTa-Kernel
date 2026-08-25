@@ -49,6 +49,7 @@
 :- discontiguous seam:foreign_capability/2.
 
 seam:foreign_space('&plunit_cycle_foreign').
+seam:foreign_capability('&plunit_cycle_foreign', match).
 seam:foreign_match('&plunit_cycle_foreign', [fact, X, X]) :-
     X = [g, X].
 
@@ -1275,11 +1276,14 @@ test(a_write_that_fails_is_an_error,
      [throws(error(petta_foreign_operation_failed('&plunit_broken_write', add), _))]) :-
     'add-atom'('&plunit_broken_write', [edge, x, y], _).
 
-% A space that declares nothing keeps every capability, which is what every
-% provider written before the declaration existed assumed.
-test(an_undeclared_space_provides_everything) :-
+% Declaring nothing provides NOTHING, the safe answer P12.14 gave events:
+% the retired default read the other way round, so declaring one capability
+% was the act that took the other seven away, a trap the definition itself
+% documented. An operation an undeclared space is asked for is refused
+% naming the capability, which is where such a provider now finds out.
+test(an_undeclared_space_provides_nothing) :-
     forall(member(C, [add, remove, match, enumerate, clear]),
-           assertion(foreign_provides('&plunit_undeclared', C))).
+           assertion(\+ foreign_provides('&plunit_undeclared', C))).
 
 :- end_tests(spaces_foreign_contract).
 
@@ -1930,6 +1934,7 @@ test(a_ruleless_foreign_space_still_takes_facts) :-
 % the lie the declared route must be able to outrank shape by shape.
 :- discontiguous seam:foreign_atoms/2.
 seam:foreign_space('&plunit_handles').
+seam:foreign_capability('&plunit_handles', C) :- member(C, [match, enumerate]).
 seam:foreign_atoms('&plunit_handles', Atom) :-
     member(Atom, [[edge, a, b], [edge, b, c], [edge, d, d], [secret, s1]]).
 seam:foreign_match('&plunit_handles', Pattern, _Options) :-
@@ -2049,7 +2054,9 @@ test(the_discipline_error_has_an_engine_message) :-
 % spaces:petta_match_erring/6 enforces the declared mode, where a Python
 % provider's tunnel past catch/3 makes the adapter hook do it instead.
 seam:foreign_space('&plunit_flaky').
+seam:foreign_capability('&plunit_flaky', C) :- member(C, [match, enumerate]).
 seam:foreign_space('&plunit_ctl').
+seam:foreign_capability('&plunit_ctl', match).
 seam:foreign_match('&plunit_ctl', _, _) :- throw(metta_host_interrupted).
 seam:foreign_match('&plunit_flaky', Pattern, _Options) :-
     (   Pattern = [edge, a, b]

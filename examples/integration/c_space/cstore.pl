@@ -19,7 +19,11 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- metta_extension(cstore_example, [version('1.0.0')]).
+%spaces([...]) is the readying moment: when this file finishes loading, the
+%engine confirms '&cstore' is registered, declares capabilities, and has a
+%clause behind every declared hook, so a mis-wired provider refuses at load
+%rather than failing silently inside a match.
+:- metta_extension(cstore_example, [version('1.0.0'), spaces(['&cstore'])]).
 
 :- use_module(library(shlib)).
 :- prolog_load_context(directory, Dir),

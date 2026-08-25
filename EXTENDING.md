@@ -1765,9 +1765,13 @@ seam:foreign_capability('&mine', Capability) :-
     member(Capability, [add, remove, match, enumerate]).
 ```
 
-The capabilities are `add`, `remove`, `match`, `enumerate` and `clear`. A space
-that declares nothing is taken to provide all five, so an existing provider
-needs no change; declaring buys two things.
+The capabilities are `add`, `remove`, `match`, `enumerate` and `clear`. A
+space declares what it provides and the declaration means exactly what it
+says: declaring nothing provides nothing, the same safe answer the events
+capability has always given, and an operation a space does not declare is
+refused naming the capability. (The old default read the other way round
+and carried a documented trap: declaring one capability silently withdrew
+the rest.) Declaring buys two further things.
 
 **Enumeration is enough.** A provider that declares `enumerate` and not `match`
 has its enumeration filtered by the engine for a bound pattern, instead of

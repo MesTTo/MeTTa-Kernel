@@ -3,7 +3,10 @@
 %
 % It declares an EXTENSION and exports nothing, which is the shape of a
 % provider-only file: metta_export is for functions and a provider has none.
-:- metta_extension(demo_provider, [version('1.0.0')]).
+% spaces([...]) is the readying moment: at load-end the engine confirms the
+% space is registered, declares capabilities, and has a clause behind every
+% declared hook.
+:- metta_extension(demo_provider, [version('1.0.0'), spaces(['&demo_provider'])]).
 
 :- multifile seam:foreign_space/1.
 :- multifile seam:foreign_atoms/2.

@@ -14,11 +14,15 @@
 !(import_prolog_functions_from_file "./examples/libraries/_fixtures/demo_provider.pl" ())
 
 ;The checks that ran, in order: one per declared capability, then the
-;over-approximation contract, then the pushdown claim.
+;match family (each position opened, repeated variables folded), the
+;source discipline, the round trip (not asked here: the provider declares
+;no add or remove), the pushdown claim, and the plan split.
 !(test (check-space-provider &demo_provider)
        ("match: declared, seam:foreign_match/3 has clauses"
         "enumerate: declared, seam:foreign_atoms/2 has clauses"
-        "match: over-approximation holds over 2 atoms"
+        "match: over-approximation holds over 2 atoms and their pattern families"
+        "source: repeated, two enumerations agree"
+        "round trip: not asked, the provider does not declare add, remove and enumerate together"
         "pushdown: 0 of 2 patterns claimed exact, and are"
         "plan: not declared, so a conjunction takes the engine's split"))
 
