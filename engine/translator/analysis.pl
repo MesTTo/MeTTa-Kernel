@@ -744,7 +744,7 @@ normalize_equation_result(Fun, Args, RawOut, Out, RawBody, Body) :-
     %call's own nonvar seed carries the peeled value inward.  Without this
     %the recursion generates candidates blind and `(let (plus $A (S Z))
     %(S (S (S (S Z)))) $A)` is exponential where it was structural; the
-    %boundary goal it pre-empts is pure unification for any non-marker
+    %boundary goal it preempts is pure unification for any non-marker
     %produced value, so forward calls are unchanged.
     ->  Body = (( nonvar(Out) -> RawOut = Out ; true ), Normalized)
     ;   Body = Normalized
