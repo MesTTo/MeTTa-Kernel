@@ -385,6 +385,21 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- The Python `+=` write door now classifies semantic scalars before fact
+  streams. A built `Expression`, bare atom, text value, mapping, or explicitly
+  grounded iterable is one atom; lists, generators, SQL-style iterables,
+  dataframe row protocols, and outer tuples of complete rows write one atom per
+  item. An empty stream writes nothing. Relative `S.admits(Type)` and
+  `S.capacity(n)` values route through the same contract installers as the
+  receiver methods, so the next disallowed write is refused. Admission and
+  capacity remain ordered conjunctive pre-add checks; this does not claim the
+  still-open general P14.23 conflict-merge algebra or classify reaction agenda
+  writes as merge conflicts.
+- A raw Python tuple now has transparent `Expression` equality and hashing in
+  both directions. Equal tuple and Expression values are interchangeable as
+  dict and set keys. `Grounded(tuple)` is the explicit opaque-identity spelling
+  and no longer compares equal to the raw tuple, preserving symmetry,
+  transitivity, and Python's equal-values-have-equal-hashes contract together.
 - Close the Python guide's documentation-law gaps with dedicated `S`/`V` and
   execution-location explainers, the strong `collapse` boundary, walrus
   call-time choice and its bound-generator analogy, the non-atomic
