@@ -70,6 +70,9 @@ Source: `bindings/python/metta/aio.py`.
 >   - async peek and take keep event-loop threads unblocked while the engine
 >     worker performs the synchronous Linda wait [tested:
 >     test_async_peek_and_take_mirror_the_space_handle; commit=4e2398075da67bb2cbcc123a9fc1e078ecac6fbf]
+>   - async match forwards the submitting task's scoped or explicit algebra,
+>     and sample mirrors the synchronous random.choices-shaped door [tested:
+>     test_aio_covers_the_whole_synchronous_surface; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
 > Owns:
 >   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
 >     engine until aclose(), stop(), or the atexit handler releases it [tested
@@ -261,12 +264,16 @@ async def match(
     limit: int | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
+    under: Any = _UNSET,
     into: _builtins.type | None = None,
 ) -> Any:
 ```
 
-> Match patterns with the synchronous surface's bounds, guard,
-> and into= row shaping.
+> Match patterns with synchronous bounds, carrier, guard, and shape.
+>
+> ``under=`` is resolved in the caller's copied ContextVar context and
+> executed on the owning worker, so a surrounding ``metta.under``
+> scope behaves the same across the async hop.
 
 ### `AsyncMeTTa.solve`
 
@@ -606,6 +613,7 @@ async def algebra(
     laws: Sequence[str] = (),
     carrier: Sequence[Any] = (),
     requires: Sequence[str] = (),
+    order: Literal['ascending', 'descending'] | None = None,
 ) -> Atom:
 ```
 
@@ -627,28 +635,13 @@ async def add_tagged_rule(self, tag: Any, head: Any, *premises: Any) -> Atom:
 
 > Store one algebra-threaded ordinary rule on the owning engine thread.
 
-### `AsyncMeTTa.evaluate_algebra`
+### `AsyncMeTTa.sample`
 
 ```python
-async def evaluate_algebra(self, query: str | Atom, *, algebra: str, max_rounds: int = 64) -> Any:
+async def sample(self, query: str | Atom, *, k: int = 10, seed: int = 7) -> list[Atom]:
 ```
 
-> Evaluate the general tagged-rule form on the owning engine thread.
-
-### `AsyncMeTTa.sample_rates`
-
-```python
-async def sample_rates(
-    self,
-    query: str | Atom,
-    *,
-    algebra: str,
-    draws: int,
-    seed: int,
-) -> tuple[Atom, ...]:
-```
-
-> Draw from declared rates on the owning engine thread.
+> Draw ``k`` rate-weighted choices on the owning engine thread.
 
 ### `AsyncMeTTa.capacity`
 
@@ -656,7 +649,7 @@ async def sample_rates(
 async def capacity(self, limit: int) -> Atom:
 ```
 
-No docstring is defined.
+> Declare the maximum concurrent work for this context.
 
 ### `AsyncMeTTa.context`
 
@@ -664,7 +657,7 @@ No docstring is defined.
 async def context(self, world: World) -> Atom:
 ```
 
-No docstring is defined.
+> Declare whether this context uses an open or closed world.
 
 ### `AsyncMeTTa.emits`
 
@@ -672,7 +665,7 @@ No docstring is defined.
 async def emits(self, policy: AnswerPolicy) -> Atom:
 ```
 
-No docstring is defined.
+> Declare this context's answer emission policy.
 
 ### `AsyncMeTTa.events`
 
@@ -703,7 +696,7 @@ async def handles(
 ) -> Atom:
 ```
 
-No docstring is defined.
+> Declare how this context handles one pattern shape.
 
 ### `AsyncMeTTa.image`
 
@@ -711,7 +704,7 @@ No docstring is defined.
 async def image(self, type_name: str, setting: ImageMode) -> Atom:
 ```
 
-No docstring is defined.
+> Declare whether one type crosses by value or identity.
 
 ### `AsyncMeTTa.merge`
 

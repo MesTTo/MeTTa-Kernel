@@ -502,6 +502,36 @@ petta_annotations_resolved([First, Second|Rest], Ctx, _) :-
                                          [First, Second|Rest]]),
                 none)).
 
+%A per-ask carrier is dynamically scoped around the held engine goal. It is
+%not a catalog mutation: nested evaluations inherit it, cleanup restores the
+%previous value on failure, exception, exhaustion, or cursor destruction, and
+%every persistent declaration remains unchanged for the next ask [tested:
+%bindings/python/tests/test_under_algebra.py; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
+:- meta_predicate petta_with_under(+, 0).
+
+petta_with_under(Algebra, Goal) :-
+    setup_call_cleanup(
+        petta_under_push(Algebra, Previous),
+        Goal,
+        petta_under_pop(Previous)).
+
+petta_under_push(Algebra, Previous) :-
+    (   nb_current('$petta_under_algebras', Old)
+    ->  Previous = some(Old)
+    ;   Old = [], Previous = none
+    ),
+    nb_setval('$petta_under_algebras', [Algebra|Old]).
+
+petta_under_pop(some(Previous)) :- !,
+    nb_setval('$petta_under_algebras', Previous).
+petta_under_pop(none) :-
+    catch(nb_delete('$petta_under_algebras'), _, true).
+
+petta_effective_algebra(_, Algebra) :-
+    nb_current('$petta_under_algebras', [Algebra|_]), !.
+petta_effective_algebra(Ctx, Algebra) :-
+    petta_annotations(Ctx, Algebra).
+
 petta_algebra_descriptor(Name, Combine, Extend, Zero, One, Laws,
                          Carrier, Requires) :-
     (   petta_algebra_descriptor_cache(Name, CachedCombine, CachedExtend,
@@ -526,7 +556,7 @@ petta_algebra_descriptor_fresh(Name, Combine, Extend, Zero, One, Laws,
                                            Laws, Carrier, Requires)).
 
 petta_algebra_one(Ctx, One) :-
-    petta_annotations(Ctx, Algebra),
+    petta_effective_algebra(Ctx, Algebra),
     petta_algebra_descriptor(Algebra, _, _, _, One, _, _, _).
 
 petta_algebra_law(Algebra, Law) :-
@@ -539,8 +569,17 @@ petta_algebra_law(Algebra, Law) :-
 %no engine edit, the same way Oracle's RELY constraint state is a declared
 %per-constraint fact its optimizer acts on.
 petta_annotations_ordered(Ctx) :-
-    petta_annotations(Ctx, Semiring),
+    petta_effective_algebra(Ctx, Semiring),
     petta_vocabulary_claim(semiring, Semiring, ordered).
+
+petta_algebra_order(Algebra, ascending) :-
+    petta_vocabulary_claim(semiring, Algebra, ascending), !.
+petta_algebra_order(_, descending).
+
+petta_annotations_order(Ctx, Direction) :-
+    petta_effective_algebra(Ctx, Algebra),
+    petta_vocabulary_claim(semiring, Algebra, ordered),
+    petta_algebra_order(Algebra, Direction).
 
 %A declared per-value fact: (claim Vocab Value Property...) rows carry any
 %number of properties, and a consumer asks for one.
@@ -618,7 +657,7 @@ petta_annotation(Ctx, K) :-
 %arbitrary declared operation goes through ordinary evaluation, so a grounded
 %tensor operation registered from Python is not a separate engine case.
 petta_k_extend(Ctx, K1, K2, K) :-
-    petta_annotations(Ctx, Algebra),
+    petta_effective_algebra(Ctx, Algebra),
     petta_algebra_descriptor(Algebra, _, Extend, _, One, _, _, _),
     (   K1 == One -> K = K2
     ;   K2 == One -> K = K1

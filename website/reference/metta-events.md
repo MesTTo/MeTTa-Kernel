@@ -57,6 +57,11 @@ Source: `bindings/python/metta/events.py`.
 >     in an event atom [tested:
 >     test_dispatch_through_the_index_delivers_the_same_subscribers_in_the_same_order;
 >     commit=6917bef7ca902671999eafcae3a7a86db8f69723]
+>   - fold can thread a running aggregate through a State cell or use a
+>     declared algebra merge as the whole step [tested:
+>     test_fold_into_state_updates_the_shared_engine_cell,
+>     test_fold_under_counting_and_tropical_uses_the_algebra_as_the_step;
+>     commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
 > Guarded by:
 >   - _FoldRegistry._lock protects fold state, the active runtime, delivery
 >     counts, and engine subscription snapshots [tested
@@ -146,12 +151,14 @@ class EventStream:
 ```python
 def fold(
     self,
-    step: Step,
+    step: Step | None = None,
     *,
     space: str,
     pattern: Any,
     on: str = 'add',
     state: Any = STATELESS,
+    into: Any = None,
+    under: Any = _UNSET,
 ) -> Fold:
 ```
 
@@ -165,6 +172,17 @@ def fold(
 > serialisation. Steps run synchronously, inside the write that caused
 > them, so a step may write back and an infinite add-triggers-add loop
 > is the author's own.
+>
+> `into=State(...)` hands that same cell to every step. The cell's
+> engine store is process-shared; each individual dynamic-store read
+> and mutex-guarded write is thread-safe, but a compound
+> read-modify-write such as ``cell.value += 1`` is not atomic. The fold
+> serializes its own deliveries, while other writers must use their own
+> coordination. State has no events, history, or transactions.
+>
+> With `under=algebra`, omit `step`: the algebra's merge and zero are the
+> complete fold, and an ordinary event contributes one. A normative
+> ``(fact tag proposition)`` event contributes its tag.
 
 ### `EventStream.folds`
 

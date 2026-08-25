@@ -4,18 +4,19 @@ Assumes: PeTTa, PyTorch, and the sibling ``pettorch`` package are importable.
 Guarantees: the result is the same live DLPack tensor whose backward pass
   reaches the source tag [tested:
   test_a_declared_gradient_algebra_propagates_derivatives_through_a_derivation;
-  commit=7ae3103aee78e947d23c5872e3db23c28ad7fe1c]
+  commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
 """
 
 import pettorch
 import torch
 
-from metta import MeTTa, S, V, decode, val
+from metta import MeTTa, S, V, ground, wire
 
 
 def main() -> None:
     """Print the propagated value and derivative from the worked derivation."""
-    metta = MeTTa()
+    context = MeTTa()
+    metta = context.self
     pettorch.install(metta)
     source = torch.tensor(2.0, requires_grad=True)
     scale = torch.tensor(3.0)
@@ -27,18 +28,16 @@ def main() -> None:
         zero=torch.tensor(0.0),
         one=one,
     )
-    with metta.new_space() as program:
-        program.add_tagged_fact(val(source), S.source(S.a))
-        program.add_tagged_fact(val(scale), S.scale(S.a))
-        program.add_tagged_rule(val(one), S.middle(V.x), S.source(V.x))
+    with context.space() as program:
+        program.add_tagged_fact(ground(source), S.source(S.a))
+        program.add_tagged_fact(ground(scale), S.scale(S.a))
+        program.add_tagged_rule(ground(one), S.middle(V.x), S.source(V.x))
         program.add_tagged_rule(
-            val(one), S.output(V.x), S.middle(V.x), S.scale(V.x)
+            ground(one), S.output(V.x), S.middle(V.x), S.scale(V.x)
         )
-        answer = program.evaluate_algebra(
-            S.output(S.a), algebra="gradient-demo"
-        ).answers[0]
-        result = decode(answer.tag)
-        program.register_op(lambda: result, name="gradient-demo-result", raw=False)
+        answer = program.match(S.output(S.a), under="gradient-demo").one()
+        result = wire.decode(answer.tag)
+        program.op(lambda: result, name="gradient-demo-result")
         program.run("(= (gradient-demo-model) (gradient-demo-result))")
         module = pettorch.MettaModule(program, "gradient-demo-model")
         consumed = module()

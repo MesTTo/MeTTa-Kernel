@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 42 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 187 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 188 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `bindings/python/tests/twins/**/*.py` | 219 Python twins of `examples/` programs across the corpus, each written with no MeTTa source text, answering alpha-equal to its original or explicitly declining a structured-residue form, and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/metta/vocabularies.py` | the catalog's value vocabularies as StrEnum classes, one per `(vocabulary ...)` row; each member IS its wire word and encodes as its symbol, and bare words stay the runtime escape hatch | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
@@ -31,7 +31,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 17 runnable Python programs, each printing checked claims | the `examples` gate lane |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/**/*.pl` | 34,205 lines: `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 998 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
+| `engine/**/*.pl` | 34,311 lines: `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 998 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 33 MeTTa libraries loaded with `!(import! &self (library lib_x))`; from Python the write door imports them, `m += lib.x` | `bindings/python/tests/test_library_door.py` |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -113,7 +113,9 @@ m.run(src, *, timeout=, inferences=)
                        -> list[list[Atom]], one inner list per ! directive
 m.eval(target, *, using=, timeout=, inferences=)
                                            -> list[Atom | Undefined]
-m.match(*patterns, where=, limit=, timeout=, inferences=, into=) -> answers
+m.match(*patterns, where=, limit=, timeout=, inferences=, under=, into=) -> Answers
+m.answers(target, *, using=, timeout=, inferences=, under=) -> Answers
+m.sample(query, *, k=10, seed=7) -> list[Atom]
 m.prepare(*patterns, where=) -> Prepared; .solve(given=...) many times, .columns
 m.parse(src) -> Atom
 m.register_token(pattern, constructor) -> None
@@ -134,6 +136,17 @@ Variables shared across query patterns join: `m.match(S.p(V.x,V.y), S.p(V.y,V.z)
 `where=` is a term the engine evaluates per match: `where=S[">="](V.n, 60) & S["<="](V.n, 70)`.
 `into=` builds fields by matching column names, or rebuilds a complete
 constructor expression captured in one column.
+
+`under=` changes the annotation algebra for either a relational match or a
+call. The default is a multiplicity-preserving bag. `under=counting` answers
+one derivation count through an engine aggregate and crosses no answer rows;
+`under=tropical` orders cheapest first; `under=ranked` orders highest first,
+so `m.match(q, under=ranked)[:3]` is top-k; and `under=prov` returns annotated
+answers whose `.why()` renders the retained derivation and whose
+`.under(other)` reinterprets that same derivation without querying again.
+`with metta.under(carrier):` supplies the task-local default and an explicit
+keyword wins. `m.sample(q, k=10, seed=7)` samples with replacement from
+implicit `(rate n)` tags using a local seeded generator.
 
 `with m.capture() as output:` collects printed text in `output.text` without
 changing either return shape. `with m.atomic():` makes each whole run one
@@ -353,18 +366,23 @@ declare_source(name, "linear"|"repeated"|"peek")     consumption discipline
 declare_writes(name, "transactional"|"atomic-single"|"best-effort")
 declare_context(name, "closed-world"|"open-world")   what absence means
 declare_on_error(name, pattern, "keep"|"empty"|"abort")
-declare_algebra(name, *, combine, extend, zero, one, laws=(), carrier=(), requires=())
+space.algebra(name, *, combine, extend, zero, one, laws=(), carrier=(),
+              requires=(), order=None)
         add one catalog algebra; equational laws are exhaustively checked over
         the finite carrier before they may license answer fusion
+metta.algebra(name, *, plus, times, zero, one, laws=(), carrier=(),
+              requires=(), order=None) -> DeclaredAlgebra
+        construct an arbitrary algebra through the callable `metta.algebra`
+        module; counting, tropical, prob, prov and ranked are shipped objects
 declare_annotations(name, algebra, *, capabilities=())
         choose any declared algebra for a space or operation; required
         capabilities are checked before the catalog row lands
 add_tagged_fact(tag, proposition)     store ordinary (fact tag proposition)
 add_tagged_rule(tag, head, *premises) store the generic threaded rule form
-evaluate_algebra(query, *, algebra, max_rounds=64)
-        return tagged answers and observable law-gated plan decisions
-sample_rates(query, *, algebra, draws, seed)
-        stable cumulative selection from nonnegative (rate n) tags
+match(query, under=algebra) / answers(call, under=algebra)
+        return annotated answers; these are the only public algebra evaluators
+sample(query, *, k=10, seed=7)
+        stable weighted selection from nonnegative `(rate n)` tags
 declare_admits(name, type_name)     only TYPE-carrying atoms enter
 declare_capacity(name, limit)       an add beyond LIMIT is refused loudly
 declare_reaction(name, pattern, operation, priority=)  stored as an (on ...) atom
@@ -511,7 +529,8 @@ errors: `throw_metta_type_error/3`, `rethrow_metta_operation_error/2`,
 `refuse_unbound_input/2`;
 context: `current_metta_module/1`, `current_metta_space/1`, `space_module/2`,
 `metta_module_space/2`, `petta_space_name/1`, and `eval_metta_in_module/3` to
-run an expression in the module a space compiles into;
+run an expression in the module a space compiles into, plus `petta_source/2`
+to read the declared consumption discipline of a context;
 native storage: `native_storage_module/2`, `native_storage_functor/2`,
 `ensure_native_storage_module/2` and `native_atom_clause/3`, the same doors an
 ordinary atom write uses, so a library that pre-generates a space's storage
@@ -577,8 +596,8 @@ exit on findings), `doc` (a name's `(@doc ...)`).
 compare in constant time, and only http/https schemes are accepted.
 
 `metta.events`: `m.events()` is the engine's stream of `(action, space, atom)`
-changes as a first-class object, and `EventStream.fold(step, space=,
-pattern=, on=, state=)` is the one way to consume it. A step is
+changes as a first-class object, and `EventStream.fold(step=None, space=,
+pattern=, on=, state=, into=, under=)` is the one way to consume it. A step is
 `(state, event) -> state`, run inside the write that caused the event;
 `Fold.take()` reads the accumulated state and resets it, `Fold.wait(timeout)`
 is the same read blocked on a condition variable, and `Fold.cancel()` ends
@@ -587,6 +606,12 @@ serialisation. `EventStream.publish(action, space, atom)` announces a change
 this process did not write, which is how a provider with its own channel
 delivers. The three shipped models are that fold with three steps: subscribe
 delivers, bridge writes, a declared `(on ...)` reaction evaluates.
+`into=State(...)` passes the same process-shared gauge cell to every step.
+Each individual store read and write is thread-safe, but compound
+read-modify-write needs coordination. State has no events, history, or
+transactions. With `under=algebra`, omit the step: zero initializes the fold,
+merge is its step, ordinary events contribute one, and `(fact tag value)`
+events contribute `tag`.
 
 `metta.subscribe`: `m.subscribe(pattern, callback, on="add", queue_max=10000)`
 is the delivering fold, run INSIDE the write that matched it; without a
@@ -619,11 +644,12 @@ benchmark gates (`benchmark_case`, `benchmark_counter_slope`,
 `metta.benchmarking`. `metta.pytest_plugin` gives the `metta` and
 `scratch_space` fixtures; `metta.ipython` gives `%%metta` in a notebook.
 
-These submodules and names, thirty-seven of them, load on first access rather than during
+These submodules and names, forty-two of them, load on first access rather than during
 `import metta`: `aio`, `algebra`, `arrays`, `boot`, `casting`, `channel`,
-`convert`, `derivation`, `events`, `every`, `foreign`, `integrate`, `lint`,
+`convert`, `counting`, `derivation`, `events`, `every`, `foreign`, `integrate`, `lint`,
 `manifest`, `par_map`, `parallel`, `paths`, `race`, `remote`, `rules`,
-`spaces`, `spawn`, `structures`, `subscribe`, `tables`, `testing`, `view`,
+`prob`, `prov`, `ranked`, `spaces`, `spawn`, `structures`, `subscribe`, `tables`,
+`testing`, `tropical`, `view`,
 `vocabularies`, `wire`, and the
 classes `Answer`, `Bindings`, `Defined`, `MeTTa`, `Space`, `SpaceProvider`,
 `State`, `equation`.

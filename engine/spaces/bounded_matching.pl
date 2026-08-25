@@ -3,6 +3,9 @@
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % Guarantees: petta_match_atoms/2 dispatches a gap operand by its wrapper alone, and a merged read routes a gap pattern while reading its declared policy from what the program wrote [tested: tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
+% Guarantees: an ordered carrier's declared ascending or descending direction
+% is applied before a top prefix is selected [tested:
+% test_ranked_and_tropical_slices_are_stable_best_prefixes; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% the bound the caller wrote, reaching the matcher %%%%
@@ -640,7 +643,7 @@ metta_top(Count, Goal, Out) :-
               call(Goal),
               b_getval('$petta_answer_k', Annotation) ),
             Pairs),
-    metta_top_best(Count, Pairs, Best),
+    metta_top_best(Ctx, Count, Pairs, Best),
     member(Out, Best).
 
 %The single-match form checks the context's declared order and decides the
@@ -654,7 +657,7 @@ metta_top_match(Count, Space, Pattern, OutPattern, Result) :-
     metta_take_count(top, Count),
     (   petta_annotations_ordered(Space)
     ->  true
-    ;   petta_annotations(Space, Semiring),
+    ;   petta_effective_algebra(Space, Semiring),
         throw(error(petta_top_unordered(Space, Semiring), none))
     ),
     (   nonvar(Space),
@@ -675,7 +678,7 @@ metta_top_match(Count, Space, Pattern, OutPattern, Result) :-
               Producer,
               b_getval('$petta_answer_k', Annotation) ),
             Pairs),
-    metta_top_best(Count, Pairs, Best),
+    metta_top_best(Space, Count, Pairs, Best),
     member(Result, Best).
 
 petta_top_pushable(Space, Pattern) :-
@@ -689,8 +692,14 @@ petta_top_pushable(Space, Pattern) :-
 
 %Best first, ties in emission order: sort/4 with @>= keeps duplicates and
 %is stable, so equal annotations keep the provider's own order.
-metta_top_best(Count, Pairs, Best) :-
-    sort(1, @>=, Pairs, Ordered),
+metta_top_best(Ctx, Count, Pairs, Best) :-
+    (   petta_annotations_order(Ctx, ascending)
+    ->  sort(1, @=<, Pairs, Ordered)
+    ;   sort(1, @>=, Pairs, Ordered)
+    ),
+    metta_top_prefix(Count, Ordered, Best).
+
+metta_top_prefix(Count, Ordered, Best) :-
     length(Ordered, Total),
     Keep is min(Count, Total),
     length(Prefix, Keep),
