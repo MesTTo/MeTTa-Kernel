@@ -39,17 +39,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   ecosystem and one-BLAS-GEMM programs are blocking rather than optional
   examples. The refreshed lockfile also drops the already-retired `orjson`
   extra and pre-3.12 resolution branches.
-- `@space.cache` now memoizes the complete answer bag instead of routing
-  through SWI set tabling, so repeated answers survive cache hits. Its
-  `cache_info()` reports per-definition entry and answer-occurrence counts,
-  and stacking it over `@space.op` refuses before registering a definition
-  while directing host-only memoization to `functools.cache` or
-  `functools.lru_cache`. The exact memo is a Prolog-level store rather than
-  the C-level answer trie, and that costs inferences: the 25th Fibonacci
-  number through `@space.cache` measured 1,622 inferences on the set table
-  and 11,433 on the exact memo, so the memoized-to-unmemoized ratio fell from
-  512x to 73x. Multiplicity is the language law and the trie was breaking it,
-  so the slower store is the correct one until the trie can carry a bag.
+- `@space.cache` now stores exact answer bags in generated SWI answer tries.
+  Each proof contributes one to a mode-directed `sum`, so the trie keeps one
+  copy of a distinct answer plus its occurrence count and replay expands that
+  count back into the observable bag. `cache_info()` still reports call-key
+  entries and answer occurrences, and stacking cache over `@space.op` still
+  refuses before registration. On 2026-08-26, fib(25) measured 2,548 cached
+  inferences against 830,770 uncached: 4.49x less work than the 11,433-
+  inference Prolog-list memo, 1.57x the old 1,622-inference set table, and a
+  restored uncached-to-cached ratio of 326x rather than 73x.
 - The lazy default-engine tier now exports `@metta.op(effect=...)`, forwarding
   the complete receiver operation contract and its required five-rank effect
   metadata.
