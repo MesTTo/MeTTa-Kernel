@@ -365,10 +365,12 @@ kind(foreign_space/1, ownership).
 %PREDICATE had clauses answered yes for every provider as soon as ANY
 %provider implemented it, so a declaration with nothing behind it stopped
 %being caught the day MORK gained its own clear hook. The predicate having
-%clauses is a receipt; a clause whose guard admits THIS space is the payload
-%[tested: conformance_catches_a_capability_with_no_hook and
-%readying_refuses_a_declared_capability_with_no_hook_clauses, both run under
-%`-- backends` where another provider's clause exists; commit=WORKTREE].
+%clauses is a receipt; a clause whose guard admits THIS space is the payload.
+%Both tests below run with a rival provider present, which is what makes
+%them able to tell the two questions apart
+%[tested: conformance_catches_a_capability_with_no_hook,
+%readying_refuses_a_declared_capability_with_no_hook_clauses;
+%commit=WORKTREE].
 :- multifile foreign_match/3.
 %A declared error mode's stream: like foreign_match/3, with the
 %mode enforced on the provider's own host, where its exceptions are
