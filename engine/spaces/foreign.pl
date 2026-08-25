@@ -375,7 +375,7 @@ store_program_atoms([Atom|Atoms], Storage, Space, Module, Load, Q0,
 %resets the memo to none, because a declaration between two equations is
 %precisely the visibility change the per-equation probe existed to observe
 %[tested: spaces_deferred_translation, lib_conformance;
-%commit=WORKTREE].
+%commit=5655d2531fbeec85cbea1ec365010f338179f076].
 equation_walk_class(Module, F, Q0, Q, Class) :-
     (   Q0 = q(F0, Class0), F0 == F
     ->  Q = Q0,
