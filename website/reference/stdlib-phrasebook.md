@@ -39,6 +39,7 @@ They stay separate so the differential coverage denominator remains exact.
 | `metta.catalog` | query the runtime catalog as the ordinary &petta space | `rows = metta.catalog.match(S.op(V.name, V.arity, V.kind))` |
 | `repr(space())` | show the file and line that minted an anonymous space | `origin = repr(metta.space())` |
 | `space.register_token(re.compile(pattern), constructor)` | register a compiled text regex while preserving supported flags | `space.register_token(re.compile(r'kg', re.I), parse_mass)` |
+| `testing.from_pattern(pattern)` | generate ground instances with repeated variable identity preserved | `instances = testing.from_pattern(S.edge(V.x, V.x))` |
 | `metta.speculate()` | scope each default-context execution as a discarded segment | `with metta.speculate(): ⏎     metta.run(source)` |
 | `space.reify()` | capture an immutable evaluable world value, distinct from listing atoms | `world = space.reify()` |
 | `world.eval(target)` | evaluate without touching the parent and return answers plus a successor world | `answers, successor = world.eval(target)` |

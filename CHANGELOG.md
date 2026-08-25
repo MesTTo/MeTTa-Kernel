@@ -8,6 +8,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `metta.testing.from_pattern(pattern)` now generates ground pattern
+  instantiations for property tests, preserving repeated named-variable
+  identity and drawing anonymous occurrences independently.
+
 - Reader-token registration and removal now accept compiled text
   `re.Pattern` objects, translating `IGNORECASE`, `MULTILINE`, `DOTALL`, and
   `VERBOSE` flags to the engine PCRE and refusing flags with no exact
