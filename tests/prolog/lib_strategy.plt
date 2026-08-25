@@ -5,12 +5,12 @@
 % Guarantees:
 %   - strategy-apply is admitted as a translator rule while a stored plan stays
 %     queryable data [tested: lib_strategy:stored_plans_lower_through_the_translator;
-%     commit=WORKTREE]
+%     commit=0d37dd6b24fe916e44cdbfb4efc6a1d5ffaf74aa]
 %   - left-biased choice, strict traversal, and TP/TU filtering retain their
 %     observable laws at the engine door [tested:
 %     lib_strategy:choice_uses_the_complete_left_result_bag,
 %     lib_strategy:traversals_keep_their_strict_order,
-%     lib_strategy:typed_schemes_filter_by_the_declared_arrow; commit=WORKTREE]
+%     lib_strategy:typed_schemes_filter_by_the_declared_arrow; commit=0d37dd6b24fe916e44cdbfb4efc6a1d5ffaf74aa]
 
 :- ensure_loaded('../../engine/metta.pl').
 

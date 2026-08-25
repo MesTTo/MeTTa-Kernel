@@ -26,7 +26,7 @@
 %     a translator rule's body is evaluated while the program is being compiled.
 %     The payloads of quote, noeval and Error are data rather than evaluated call
 %     positions, matching engine/support_graph.pl's source-call collector
-%     [tested: translator_confluence_selftest; commit=WORKTREE]. Two libraries that
+%     [tested: translator_confluence_selftest; commit=0d37dd6b24fe916e44cdbfb4efc6a1d5ffaf74aa]. Two libraries that
 %     register overlapping rules are unchecked today and the outcome is decided
 %     by assertion order: with (= (m2 a) (quote one)) before (= (m2 $x) (quote
 %     two)) the program answers one, and with the two lines swapped it answers
@@ -95,7 +95,7 @@
 %       of "no overlaps" cannot come from a detector that stopped detecting
 %       [tested: test_the_detector_is_run_against_its_own_planted_rule_sets], and
 %       it fails if quote, noeval or Error payloads enter the compile-time call
-%       closure [tested: translator_confluence_selftest; commit=WORKTREE].
+%       closure [tested: translator_confluence_selftest; commit=0d37dd6b24fe916e44cdbfb4efc6a1d5ffaf74aa].
 %     - termination is ESTABLISHED with the route that decided it, or the
 %       failure is NAMED with the step that failed. There is no third answer
 %       [tested: test_the_compile_time_rule_set_is_shown_terminating_or_the_failure_is_named].
