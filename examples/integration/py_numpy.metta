@@ -10,7 +10,11 @@
 ;as many words: its `(+ (abs -5) 10)` prints `np.int64(15)` rather than 15.
 !(test (py-dot (py-dot (np-abs -5) __class__) __name__) "int64")
 !(test ((py-dot (np-abs -5) item)) 5)
-!(+ (np-abs -5) 10)
+;The addition computes through Python's own operator and STAYS int64,
+;asserted by value and class rather than printed bare, because the two
+;host configurations render a live object differently while its value
+;and class are the claim.
+!(test ((py-dot (+ (np-abs -5) 10) item)) 15)
 !(test (py-dot (py-dot (+ (np-abs -5) 10) __class__) __name__) "int64")
 
 ;A Python expression as an argument, which is the tutorial's own line for it.
