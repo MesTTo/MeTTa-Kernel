@@ -852,7 +852,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   opens, so an undeclared function keeps its direct goal; the measured
   price of the checks is +28 inferences per rerouted declared call,
   re-pinned across the benchmark lanes with the attribution recorded in
-  their baselines.
+  their baselines. The gate also declines translator-rule-owned heads,
+  whose orientation gate (a bidirectional rewrite fires only when it
+  lowers the form's cost) and refusals live in translation: the derived
+  inverse of a bidirectional rule was blocked by cost through every
+  translated door and the direct goal rewrote it anyway. The whole
+  ownership question is the engine's own `metta_typed_dispatch_applies/2`
+  now, one published host service any binding's direct-call door can ask
+  instead of carrying its own copy of the disjunction.
 - `py-call` no longer hands a callee a janus `Box`: an opaque Python
   object travelling through the shared goal-term route is unwrapped at
   the argument boundary, the same law the raw-dispatch route already

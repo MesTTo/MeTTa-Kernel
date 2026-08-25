@@ -892,6 +892,11 @@ kind(petta_transport_failure/1, host_service).
 kind(sread_with_names/3, host_service).
 kind(unregister_metta_extension/1, host_service).
 kind(with_metta_module/2, host_service).
+%The dispatch-ownership question behind every host direct-call door: a
+%declared or rule-owned head declines the raw fast path (P14.32). One
+%engine-owned door instead of the two raw reads it wraps, so the
+%declaration walk and the rule registry stay free to move.
+kind(metta_typed_dispatch_applies/2, host_service).
 
 kind(swrite/2, service).
 %Presentation text is deliberately distinct from the inverse writer. A host
