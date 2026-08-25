@@ -38,7 +38,7 @@
 #     test_translation_drift_is_rejected,
 #     test_shown_output_drift_is_rejected,
 #     test_answer_multisets_ignore_order_and_alpha_names_but_keep_multiplicity;
-#     commit=WORKTREE].
+#     commit=8bfe05c3850776543ece25a85038242f10b1d841].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
