@@ -33,6 +33,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   at the door. A handle refuses term positions, mixed adds, and batch
   scopes loudly; a missing library surfaces the engine's own existence
   error.
+- Keyword arguments have a Python-authored spelling: `S.f(x, stop=8)`
+  and a grounded head's call accept `**kwargs` and append the seam's
+  `(Kwargs (name value) ...)` form, one mechanism at the builder for
+  every head, so a numpy-style call like `np_arange(start=2, stop=8)`
+  is writable as Python. Keyword parameter names are exact.
 - `Space.metta` answers the owning evaluation context, so a handle held
   alone reaches the ruled creation door as `m.metta.space(name)` and
   the context's other doors without the process default being assumed.
