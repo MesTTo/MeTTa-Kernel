@@ -94,7 +94,9 @@ Open Obligations:
 from __future__ import annotations
 
 import ast
+import os
 import re
+import subprocess
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -518,6 +520,50 @@ def source_problems(body: str) -> list[str]:
     return ["carries neither a date, a reference, nor a named document"]
 
 
+COMMIT = re.compile(r"\bcommit=([0-9a-zA-Z]+)")
+
+
+def commit_problems(sites: list[tuple[Path, int, str, str]]) -> tuple[list[str], int]:
+    """Check every pinned object ID, and count the WORKTREE placeholders.
+
+    A tag's commit= names the repository state that produced its evidence. A
+    commit that no longer resolves is an unbacked claim of the same kind the
+    rest of this file refuses, so it is a finding. WORKTREE is the legitimate
+    in-progress spelling, because a commit cannot contain its own object ID;
+    it is counted here and, under RELEASE=1, refused, so a release cannot
+    ship a tree whose evidence still points at an uncommitted worktree.
+    """
+    wanted: dict[str, list[str]] = {}
+    placeholders = 0
+    for path, line, tag, body in sites:
+        for oid in COMMIT.findall(body):
+            if oid == "WORKTREE":
+                placeholders += 1
+                continue
+            wanted.setdefault(oid, []).append(f"{path.relative_to(ROOT)}:{line}: {tag}")
+    problems = []
+    if wanted:
+        query = "".join(f"{oid}^{{commit}}\n" for oid in wanted)
+        result = subprocess.run(
+            ["git", "cat-file", "--batch-check"],
+            cwd=ROOT,
+            input=query,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        for oid, answer in zip(wanted, result.stdout.splitlines(), strict=False):
+            if " commit " not in f" {answer} ":
+                for site in wanted[oid]:
+                    problems.append(f"{site}: commit={oid} does not resolve to a commit")
+    if placeholders and os.environ.get("RELEASE") == "1":
+        problems.append(
+            f"{placeholders} evidence tag(s) still say commit=WORKTREE; a release "
+            f"pins each to the commit whose tree produced the evidence"
+        )
+    return problems, placeholders
+
+
 def claim_sites() -> list[tuple[Path, int, str, str]]:
     sites: list[tuple[Path, int, str, str]] = []
     for glob in SOURCES:
@@ -568,8 +614,11 @@ def untagged_guarantees() -> list[str]:
 def main() -> int:
     known, findings = gather()
     findings += untagged_guarantees()
+    sites = claim_sites()
+    pins, placeholders = commit_problems(sites)
+    findings += pins
     checked = 0
-    for path, line, tag, body in claim_sites():
+    for path, line, tag, body in sites:
         checked += 1
         if tag == "tested":
             problems = tested_problems(body, known)
@@ -583,7 +632,9 @@ def main() -> int:
         print(finding)
     print(
         f"{len(findings)} unbacked evidence tag(s) in {checked} claims, against "
-        f"{len(known.targets)} known test names in {len(known.runs)} files a runner executes"
+        f"{len(known.targets)} known test names in {len(known.runs)} files a runner "
+        f"executes; {placeholders} commit=WORKTREE placeholder(s) awaiting a "
+        f"provenance pin"
     )
     return 1 if findings else 0
 

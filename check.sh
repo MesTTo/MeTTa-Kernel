@@ -776,14 +776,25 @@ run GATE   phrasebook  sh -c "cd '$HERE' && '$PY' bindings/python/tools/phrasebo
 # real. This is the linter the scheme has always implied. It reads only, needs
 # no engine, and finishes in under a second, so it runs before anything that
 # can hang.
+#
+# It also reads the commit= half of every tag, which was unchecked until
+# 2026-08-26 because a token carrying an `=` never looked like a test name.
+# One citation was pinned to a full object ID sharing eight characters with a
+# real commit and nothing else. WORKTREE is the lawful in-progress spelling,
+# since a commit cannot contain its own object ID, so the run counts those and
+# RELEASE=1 refuses them: that is the cut-time check that a release does not
+# ship evidence pointing at an uncommitted worktree.
 run GATE evidence   "$PY" "$HERE/tests/check_evidence_tags.py"
 
 # The evidence gate is itself a claim, so it is checked the same way. A fixture
-# tree carries 15 planted citations, 6 that must be accepted and 9 that must be
+# tree carries 17 planted citations, 8 that must be accepted and 9 that must be
 # rejected, and the self-test asserts the exact line each finding lands on AND
 # that nothing else is reported. Nine mutations, each disabling exactly one
 # rule, were each caught with the right complaint and nothing else, which is
-# what stops the fixture passing vacuously [measured 2026-08-18: 0.07s].
+# what stops the fixture passing vacuously [measured 2026-08-18: 0.07s]. A
+# second fixture is a real repository with one commit, carrying a live pin, a
+# fabricated pin differing from it only in its tail, and a WORKTREE
+# placeholder; disabling either commit rule was caught [measured 2026-08-26].
 run GATE evidence-selftest "$PY" "$HERE/tests/check_evidence_selftest.py"
 
 # Every website/reference/metta-*.md page says "The entries below reproduce the

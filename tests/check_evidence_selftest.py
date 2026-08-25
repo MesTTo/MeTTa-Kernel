@@ -41,6 +41,7 @@ Open Obligations:
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -186,6 +187,81 @@ def run(root: Path) -> list[str]:
     return finished.stdout.splitlines()
 
 
+
+def commit_pin_complaints() -> list[str]:
+    """A commit= must name a real commit, and WORKTREE must not survive a release.
+
+    The fixture is a real repository with one commit, so the live object ID is
+    known and the fabricated one differs from it only in its tail: that is the
+    shape the check found in the tree on 2026-08-26, where a citation carried
+    a full object ID sharing eight characters with a real commit and nothing
+    else.
+    """
+    complaints = []
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        build(root, "pytest tests -q -p no:benchmark")
+        for command in (
+            ["git", "init", "-q"],
+            ["git", "add", "-A"],
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "fixture"],
+        ):
+            subprocess.run(command, cwd=root, check=True, capture_output=True)
+        live = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        fabricated = live[:8] + ("0" * (len(live) - 8) if live[8] != "0" else "1" * (len(live) - 8))
+
+        fixture = root / "engine/fixture.pl"
+        lines = fixture.read_text().splitlines()
+        head = lines.index("% Open Obligations:")
+        planted = [
+            f"%   - a live pin [{TAG} {WHEN}: test_collected; commit={live}].",
+            f"%   - a dangling pin [{TAG} {WHEN}: test_collected; commit={fabricated}].",
+            f"%   - an unresolved pin [{TAG} {WHEN}: test_collected; commit=WORKTREE].",
+        ]
+        at_live, at_dangling, at_worktree = head + 1, head + 2, head + 3
+        fixture.write_text("\n".join(lines[:head] + planted + lines[head:]) + "\n")
+
+        output = run(root)
+        for line, what, wanted in (
+            (at_live, "a live commit pin", False),
+            (at_dangling, "a dangling commit pin", True),
+        ):
+            reported = [
+                item for item in output
+                if item.startswith(f"engine/fixture.pl:{line}:") and "commit=" in item
+            ]
+            if wanted and not reported:
+                complaints.append(f"accepted {what}, which names no commit in the repository")
+            if not wanted and reported:
+                complaints.append(f"rejected {what}: {reported[0]}")
+        if not any("commit=WORKTREE placeholder" in item for item in output):
+            complaints.append("the report does not count commit=WORKTREE placeholders")
+
+        # The fixture plants rejected citations too, so this tree exits 1
+        # either way and the exit code says nothing. The refusal SENTENCE is
+        # what discriminates, and it must appear only under RELEASE=1.
+        refusal = "still say commit=WORKTREE"
+        released = subprocess.run(
+            [sys.executable, str(root / "tools/check_evidence_tags.py")],
+            cwd=root, capture_output=True, text=True, check=False,
+            env={**os.environ, "RELEASE": "1"},
+        )
+        if refusal not in released.stdout:
+            complaints.append(
+                f"RELEASE=1 accepted a tree with a commit=WORKTREE placeholder "
+                f"at engine/fixture.pl:{at_worktree}"
+            )
+        if any(refusal in item for item in output):
+            complaints.append(
+                "an ordinary run refuses commit=WORKTREE, which is the "
+                "in-progress spelling and must only fail a release"
+            )
+    return complaints
+
+
 def main() -> int:
     complaints = []
     with tempfile.TemporaryDirectory() as directory:
@@ -215,11 +291,14 @@ def main() -> int:
         if not any("no longer contains" in line for line in output):
             complaints.append("a collector whose anchor left the runner went unreported")
 
+    complaints += commit_pin_complaints()
+
     for complaint in complaints:
         print(complaint)
     print(
-        f"{len(complaints)} defect(s) in the evidence gate, "
-        f"over {len(CITATIONS)} planted citations and one moved anchor"
+        f"{len(complaints)} defect(s) in the evidence gate, over "
+        f"{len(CITATIONS)} planted citations, one moved anchor, and three "
+        f"commit pins"
     )
     return 1 if complaints else 0
 
