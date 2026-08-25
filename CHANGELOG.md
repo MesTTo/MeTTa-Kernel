@@ -8,6 +8,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `atom.cast(type_)` now delegates to `space.cast(atom, type_)` in the ambient
+  space, preserving space-relative type admission with the concise atom door.
+
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,
   fits constant through quadratic and capped-linear complexity families over
