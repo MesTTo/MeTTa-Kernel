@@ -13,7 +13,8 @@
 #   Usage: sh check.sh [name ...]     names: ruff mypy ty pylint perflint
 #                                            xenon refurb vulture slotscheck
 #                                            bandit deptry audit interrogate
-#                                            codespell imports jscpd prolog
+#                                            codespell imports imports-selftest
+#                                            jscpd prolog
 #                                            ciao-grade
 #                                            codec-doc leatta leatta-gate-selftest
 #                                            policy-inventory
@@ -44,6 +45,11 @@
 #     test_shown_output_drift_is_rejected,
 #     test_answer_multisets_ignore_order_and_alpha_names_but_keep_multiplicity;
 #     commit=8bfe05c3850776543ece25a85038242f10b1d841].
+#   - Python import contracts block module-level core-to-satellite and
+#     leaf-to-facade paths, and an adjacent scratch selftest plants
+#     metta._tokens -> metta._trace and requires the same command to reject it
+#     by name [tested: test_a_planted_module_level_import_is_rejected;
+#     commit=WORKTREE].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -825,23 +831,22 @@ run GATE llms       "$PY" "$HERE/bindings/python/tools/llmsdoc.py"
 run GATE slotscheck in_py "$PY" -m slotscheck -m metta
 run GATE vulture    in_py "$PY" -m vulture
 
+# Import Linter checks the runtime dependency graph. TYPE_CHECKING annotations
+# are excluded at the root, while four verified function-local crossings are
+# exact exceptions: the leaf facade/algebra calls and the core's two deferred
+# satellite calls. Unmatched exceptions are errors, so an import moving or
+# disappearing cannot leave stale policy behind.
+run GATE imports in_py "$PY" -c \
+    "from importlinter.cli import lint_imports_command; lint_imports_command()"
+
+# Copy the same config and package, prove the clean copy passes, then plant one
+# module-level core-to-satellite edge. The same command must exit nonzero and
+# name the planted route, so this lane proves the import gate discriminates.
+run GATE imports-selftest "$PY" "$HERE/tests/check_imports_selftest.py"
+
 # --------------------------------------------------------------- REPORT tier
 # Known backlog. Each entry names its section in the ledger and becomes a
 # GATE once that section is cleared.
-
-# The layering contracts in pyproject.toml. This ran as a GATE from the day
-# check.sh was written, and checked nothing the whole time: the command was
-# `python -m importlinter.cli lint_imports`, and importlinter.cli only defines
-# its click commands, so runpy imported the module, ran no command, printed
-# nothing and exited 0. Behind that silence 62 violations accumulated. The
-# invocation below calls the command object, which does exit nonzero, and
-# test_every_module_invocation_in_the_gate_reaches_an_entry_point now refuses
-# any `-m` target in this file that has no entry point. REPORT until the 62
-# are triaged: each is either a deliberate function-local satellite import,
-# which belongs in an ignore_imports entry with its reason, or a real
-# module-level layering break to fix.
-run REPORT imports  in_py "$PY" -c \
-    "from importlinter.cli import lint_imports_command; lint_imports_command()"
 
 # EXTENDING.md's cost table, remeasured and held to a committed baseline. It
 # was produced by a throwaway outside the repo that hardcoded an absolute path

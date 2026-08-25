@@ -8,6 +8,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Python import layering is blocking again. The contracts exclude
+  `TYPE_CHECKING`-only annotations, classify `_world` with the satellites,
+  and document the four exact function-local boundary crossings. An adjacent
+  planted-import selftest proves the production command rejects and names a
+  new module-level core-to-satellite edge.
 - `Space.lint()` now reports nine advisory Python-first design mixes without
   refusing execution: capital-data/lowercase-function role inversions,
   interpreter-equation shadows, registered operations inside compiled loops,
