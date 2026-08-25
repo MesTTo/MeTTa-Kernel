@@ -1,9 +1,10 @@
 # The MeTTa standard library, in Python
 
 Every operation MeTTa's standard library declares, and what you write in Python
-instead. 136 of the 181 operations a program can call have a Python
-spelling, and every row below ran on both sides: the MeTTa form on this engine and
-on LeaTTa, the conformance oracle, and the Python spelling here.
+instead. 147 of the 181 operations a program can call have a Python
+spelling, and every runnable row below was measured on this engine, on LeaTTa,
+the conformance oracle, and through the Python spelling here. A row names the
+equivalent oracle form when PeTTa's reified strategy application has another arity.
 
 The names and their types are LeaTTa's, measured against its built binary rather
 than transcribed: manifest 1.0.9 at commit `c0ed0df`, 382 declarations
@@ -20,10 +21,10 @@ is that row's own space.
 Rows fall in five buckets, and the bucket is the honest part:
 
 - **dissolves** (115) &mdash; Python already has the concept, so there is no metta name at all and the spelling is Python's own syntax, protocol or standard library
-- **method** (21) &mdash; the concept is MeTTa's own, so it wears a metta name
+- **method** (32) &mdash; the concept is MeTTa's own, so it wears a metta name
 - **instruction** (0) &mdash; deep control that stays instruction-tier, reached by building the term at the `S.` door and reducing it
 - **internal** (199) &mdash; LeaTTa's mechanised interpreter, written in MeTTa; PeTTa writes its interpreter in Prolog, so these names are on neither surface
-- **absent** (45) &mdash; a user-facing operation with no Python spelling today: the residue
+- **absent** (34) &mdash; a user-facing operation with no Python spelling today: the residue
 
 Provenance: LeaTTa manifest 1.0.9 at commit `c0ed0df`, 382 declarations over 380 distinct names.
 
@@ -31,15 +32,15 @@ Provenance: LeaTTa manifest 1.0.9 at commit `c0ed0df`, 382 declarations over 380
 
 Section 9e claims that a structure operation on an atom already held in Python
 costs no engine crossing at all. Measured over the rows that run both sides:
-the MeTTa forms cost 179,179 engine inferences and the Python spellings
-cost 8,092, and 90 of the 121 rows cost the engine EXACTLY
+the MeTTa forms cost 83,812,271 engine inferences and the Python spellings
+cost 86,980,801, and 90 of the 132 rows cost the engine EXACTLY
 NOTHING. `e[0]`, `e[1:]`, `len(e)`, `max([...])` and `S.f(1)` each read the same
 count as an empty measurement block, so the claim holds: the work never reaches
 the engine at all.
 
-`(car-atom (a b c))` costs 988 inferences on this
+`(car-atom (a b c))` costs 659 inferences on this
 engine against 0 for `e[0]`, and `(map-atom (1 2 3) $x (+ $x 1))` costs
-2,047 against 0 for the comprehension.
+1,487 against 0 for the comprehension.
 
 The other side of the same coin, so the comparison is not oversold. Most of a
 MeTTa row's cost is running one form at all: on a fresh engine an unreduced
@@ -231,7 +232,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(quote (+ 1 2))` | `S.quote(S['+'](1, 2))` | `(quote (+ 1 2))` | dissolves |
 | `!(noeval (+ 1 2))` | `S['+'](1, 2)` | `(+ 1 2)` | dissolves |
 | `!(unquote (quote (+ 1 2)))` | `m.eval(S['+'](1, 2))` | `3` | method |
-| `!(gtry id a)` | &mdash; | `a` | absent |
+| `!(gtry id a)` | `space += metta.lib.strategy ⏎ space.eval(S.gtry(metta.strategies.id, S.a))` | `a` | method |
 | `!(case% 2 ((1 one) (2 two)))` | &mdash; | `two` | absent |
 | `!(let% $x 1 (+ $x 1))` | &mdash; | `2` | absent |
 | `!(let*% (($x 1)) $x)` | &mdash; | `1` | absent |
@@ -252,7 +253,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `quote` `(-> Atom Atom)` &mdash; There is nothing to quote: building a term at the `S.` door never evaluates it, so the quoting question does not arise. `S.quote(x)` builds the term itself where a program needs the constructor.
 - `noeval` `(-> Atom Atom)` &mdash; The same point as `quote`: a built term is already unevaluated.
 - `unquote` `(-> %Undefined% %Undefined%)` &mdash; Reducing a quoted term is `m.eval`, primitive 4.
-- `gtry` `(-> Atom Atom Atom)` &mdash; LeaTTa's guarded try, the failure-to-identity combinator under the Stratego basis. PeTTa ships no strategy basis to build it on. The form is shown but not run here: PeTTa leaves the call unreduced.
+- `gtry` `(-> Atom Atom Atom)` &mdash; LeaTTa's guarded try is lib_strategy's binary failure-to-identity spelling. Python builds the same gtry atom and evaluates it in the space.
 - `check-alternatives` `(-> Atom Atom)` &mdash; LeaTTa's alternative-set check inside the Stratego basis.
 - `case-empty` `(-> Expression Atom)` &mdash; LeaTTa's own decomposition of `case`.
 - `case%` `(-> Atom Expression %Undefined%)` &mdash; LeaTTa's `%`-suffixed variant, the error-transparent twin of `case`. PeTTa ships no `%` family. The form is shown but not run here: PeTTa leaves the call unreduced.
@@ -313,13 +314,13 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `(: pbf (-> Number Number)) ⏎ (= (pbf $x) $x) ⏎ !(get-type pbf)` | `t = S['->'](S.Number, S.Number) ⏎ t` | `(-> Number Number)` | dissolves |
 | `(= (pbf $x) (+ $x 1)) ⏎ !(pbf 1)` | `space += metta.equation(S.pbf(V.x)).to(V.x + 1) ⏎ space.eval(S.pbf(1))[0]` | `2` | method |
 | `!(get-type &self)` | &mdash; | `SpaceType` | absent |
-| `!(get-type TP)` | &mdash; | `Type` | absent |
-| `!(get-type TU)` | &mdash; | `(-> Type Type)` | absent |
+| `!(get-type TP)` | `space += metta.lib.strategy ⏎ space.eval(S['get-type'](metta.strategies.TP))` | `Type` | method |
+| `!(get-type TU)` | `space += metta.lib.strategy ⏎ space.eval(S['get-type'](metta.strategies.TU))` | `(-> Type Type)` | method |
 | `!(get-type (Pair 1 2))` | &mdash; | `%Undefined%` | absent |
 | `!(get-type PairType)` | &mdash; | `%Undefined%` | absent |
 | `!(skel-swap-pair (Pair 1 2))` | &mdash; | `(skel-swap-pair (Pair 1 2))` | absent |
 | `!(skel-swap-pair-native (Pair 1 2))` | &mdash; | `(skel-swap-pair-native (Pair 1 2))` | absent |
-| `!(get-type ◁)` | &mdash; | `(-> Atom Type Atom Atom)` | absent |
+| `!(get-type ◁)` | `space += metta.lib.strategy ⏎ space.eval(S['get-type'](S['◁']))` | `(-> Atom Type Atom Atom)` | method |
 
 - `get-type` `(-> Atom %Undefined%)` &mdash; Declared types are space-relative, so `space.type(atom)` asks the space. Class declarations use the consolidated `@space.define` decorator.
 - `get-type-space` `(-> SpaceType Atom Atom)` &mdash; The same question asked of a named space through that handle's `space.type(atom)` method.
@@ -328,13 +329,13 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `->` `(-> (%Rest% Type) Type)` &mdash; Annotations. A parameter and return annotation on a decorated function emits the arrow, and `Callable[[int], int]` maps through the same one table; `S['->']` stays for a hand-built arrow.
 - `=` `(-> $t $t %Undefined%)` &mdash; The definitional decorator. `@m.define` compiles a function into equations, `metta.equation(lhs).to(rhs)` builds one by hand, and both land as ordinary `(= ...)` atoms a program can match.
 - `SpaceType` `Type` &mdash; The type of a space. PeTTa does not declare the name, so there is nothing for a Python type table to map to yet. The form is shown but not run here: PeTTa answers SpaceType for a space but does not declare the symbol itself.
-- `TP` `Type` &mdash; LeaTTa's type-preserving strategy type, Lämmel's TP. It arrives with the strategy basis or not at all. The form is shown but not run here: PeTTa does not declare the name.
-- `TU` `(-> Type Type)` &mdash; LeaTTa's type-unifying strategy type, Lämmel's TU. The form is shown but not run here: PeTTa does not declare the name.
+- `TP` `Type` &mdash; Lämmel's type-preserving strategy scheme, exported as the reified `metta.strategies.TP` symbol.
+- `TU` `(-> Type Type)` &mdash; Lämmel's type-unifying scheme constructor, exported as the reified `metta.strategies.TU` symbol.
 - `Pair` `(-> $ta $tb (PairType $ta $tb))` &mdash; A constructor from LeaTTa's `skel` demonstration module. PeTTa has no such module; a class decorated with `@space.define` declares its constructor in that space. The form is shown but not run here: PeTTa does not declare the name.
 - `PairType` `(-> $ta $tb Type)` &mdash; The parameterised type of `Pair`, from the same module. The form is shown but not run here: PeTTa does not declare the name.
 - `skel-swap-pair` `(-> (PairType $ta $tb) (PairType $tb $ta))` &mdash; The `skel` module's worked equation, LeaTTa's demonstration that a built-in module can ship both a MeTTa and a native implementation. The form is shown but not run here: PeTTa does not declare the name.
 - `skel-swap-pair-native` `(-> (PairType $ta $tb) (PairType $tb $ta))` &mdash; The native half of the same demonstration. The form is shown but not run here: PeTTa does not declare the name.
-- `◁` `(-> Atom Type Atom Atom)` &mdash; LeaTTa's typed strategy application operator, the selection half of the TP/TU layer. The form is shown but not run here: PeTTa does not declare the name.
+- `◁` `(-> Atom Type Atom Atom)` &mdash; The typed strategy-application atom selects the TP or TU scheme before running the named strategy.
 
 ## The state cell
 
@@ -482,25 +483,50 @@ Python side does not move. Within one run the counts are exact: three fresh
 
 | MeTTa | Python | answers | bucket |
 |---|---|---|---|
-| `(= strategy-a strategy-b) ⏎ !(try strategy-a)` | &mdash; | `strategy-b` | absent |
-| `(= strategy-a strategy-b) ⏎ (= strategy-b strategy-c) ⏎ !(repeat strategy-a)` | &mdash; | `strategy-c` | absent |
-| `(= strategy-a strategy-b) ⏎ (= (strategy-node strategy-b) strategy-bottomup-root) ⏎ !(topdown (strategy-node strategy-a))` | &mdash; | `(strategy-node strategy-b)` | absent |
-| `(= strategy-a strategy-b) ⏎ (= (strategy-node strategy-b) strategy-bottomup-root) ⏎ !(bottomup (strategy-node strategy-a))` | &mdash; | `strategy-bottomup-root` | absent |
-| `(= strategy-a strategy-b) ⏎ (= strategy-b strategy-c) ⏎ (= (strategy-node strategy-c) strategy-innermost-root) ⏎ !(innermost (strategy-node strategy-a))` | &mdash; | `strategy-innermost-root` | absent |
-| `!(stratego-all id (f a b))` | &mdash; | `(f a b)` | absent |
-| `!(stratego-one id (f a b))` | &mdash; | `(f a b), (f a b), (f a b)` | absent |
+| `(= (pb-try-step strategy-a) strategy-b) ⏎ (= (pb-try-step $x) Empty) ⏎ !(strategy-apply (try pb-try-step) strategy-a)` | `space += metta.lib.strategy ⏎ space.run('(= (pb-try-step strategy-a) strategy-b) (= (pb-try-step $x) Empty)') ⏎ space.eval(S['strategy-apply'](metta.strategies.try_(S['pb-try-step']), S['strategy-a']))` | `strategy-b` | method |
+| `(= (pb-repeat-step strategy-a) strategy-b) ⏎ (= (pb-repeat-step strategy-b) strategy-c) ⏎ (= (pb-repeat-step $x) Empty) ⏎ !(strategy-apply (repeat pb-repeat-step) strategy-a)` | `space += metta.lib.strategy ⏎ space.run('(= (pb-repeat-step strategy-a) strategy-b) (= (pb-repeat-step strategy-b) strategy-c) (= (pb-repeat-step $x) Empty)') ⏎ space.eval(S['strategy-apply'](metta.strategies.repeat(S['pb-repeat-step']), S['strategy-a']))` | `strategy-c` | method |
+| `(= (pb-topdown-step strategy-a) strategy-b) ⏎ (= (pb-topdown-step $x) Empty) ⏎ !(strategy-apply (topdown (try pb-topdown-step)) (strategy-node strategy-a))` | `space += metta.lib.strategy ⏎ space.run('(= (pb-topdown-step strategy-a) strategy-b) (= (pb-topdown-step $x) Empty)') ⏎ plan = metta.strategies.topdown(metta.strategies.try_(S['pb-topdown-step'])) ⏎ space.eval(S['strategy-apply'](plan, S['strategy-node'](S['strategy-a'])))` | `(strategy-node strategy-b)` | method |
+| `(= (pb-bottomup-step strategy-a) strategy-b) ⏎ (= (pb-bottomup-step (strategy-node strategy-b)) strategy-bottomup-root) ⏎ (= (pb-bottomup-step $x) Empty) ⏎ !(strategy-apply (bottomup (try pb-bottomup-step)) (strategy-node strategy-a))` | `space += metta.lib.strategy ⏎ space.run('(= (pb-bottomup-step strategy-a) strategy-b) (= (pb-bottomup-step (strategy-node strategy-b)) strategy-bottomup-root) (= (pb-bottomup-step $x) Empty)') ⏎ plan = metta.strategies.bottomup(metta.strategies.try_(S['pb-bottomup-step'])) ⏎ space.eval(S['strategy-apply'](plan, S['strategy-node'](S['strategy-a'])))` | `strategy-bottomup-root` | method |
+| `(= (pb-innermost-step strategy-a) strategy-b) ⏎ (= (pb-innermost-step strategy-b) strategy-c) ⏎ (= (pb-innermost-step (strategy-node strategy-c)) strategy-innermost-root) ⏎ (= (pb-innermost-step $x) Empty) ⏎ !(strategy-apply (innermost pb-innermost-step) (strategy-node strategy-a))` | `space += metta.lib.strategy ⏎ space.run('(= (pb-innermost-step strategy-a) strategy-b) (= (pb-innermost-step strategy-b) strategy-c) (= (pb-innermost-step (strategy-node strategy-c)) strategy-innermost-root) (= (pb-innermost-step $x) Empty)') ⏎ plan = metta.strategies.innermost(S['pb-innermost-step']) ⏎ space.eval(S['strategy-apply'](plan, S['strategy-node'](S['strategy-a'])))` | `strategy-innermost-root` | method |
+| `!(stratego-all id (f a b))` | `space += metta.lib.strategy ⏎ plan = metta.strategies.stratego_all(metta.strategies.id) ⏎ space.eval(S['strategy-apply'](plan, S.f(S.a, S.b)))` | `(f a b)` | method |
+| `!(stratego-one id (f a b))` | `space += metta.lib.strategy ⏎ plan = metta.strategies.stratego_one(metta.strategies.id) ⏎ space.eval(S['strategy-apply'](plan, S.f(S.a, S.b)))` | `(f a b), (f a b), (f a b)` | method |
 | `!(stratego-some id (f a b))` | &mdash; | `(f a b)` | absent |
 | `!(eval-via-match (+ 1 2))` | &mdash; | `3` | absent |
 | `!(eval-via-unify (+ 1 2))` | &mdash; | `3` | absent |
 | `!(reduce-via-match (+ 1 2) x)` | &mdash; | `(reduce-via-match (+ 1 2) x)` | absent |
 
-- `try` `TP | (-> Atom Atom)` &mdash; Stratego's `try(s) = s <+ id`, one rewriting step with failure turned into identity. LeaTTa ships the basis specialised to `eval-via-match`; PeTTa ships no strategy basis, and the ruling is that a `lib_strategy` PORTS LeaTTa's, so the Python side needs only the names. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `repeat` `TP | (-> Atom Atom)` &mdash; Stratego's `repeat(s) = try(s ; repeat(s))`, root steps to a normal form. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `topdown` `TP | (-> Atom Atom)` &mdash; Stratego's `topdown(s) = s ; all(topdown(s))`, preorder traversal. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `bottomup` `TP | (-> Atom Atom)` &mdash; Stratego's `bottomup(s) = all(bottomup(s)) ; s`, postorder traversal. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `innermost` `TP | (-> Atom Atom)` &mdash; Stratego's `innermost(s) = bottomup(try(s ; innermost(s)))`. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `stratego-all` `(-> Atom Atom Atom)` &mdash; Stratego's `all(s)`, applying a strategy to every child. The form is shown but not run here: PeTTa leaves the call unreduced.
-- `stratego-one` `(-> Atom Atom Atom)` &mdash; Stratego's `one(s)`, applying to one child. LeaTTa deliberately diverges from Stratego's committed choice by answering EVERY successful position through MeTTa's own nondeterminism. The form is shown but not run here: PeTTa leaves the call unreduced.
+PeTTa's complete shipped basis is reified below. Every plan cell is ordinary
+queryable atom data, and every row is exercised by
+`examples/libraries/strategy.metta` through the normal library runner.
+
+| public name | reified plan or MeTTa door | Python atom | law |
+|---|---|---|---|
+| `id` | `id` | `strategies.id` | `id(t) = t` |
+| `fail` | `fail` | `strategies.fail` | answers no result |
+| `seq` | `(seq s1 s2)` | `strategies.seq(s1, s2)` | `s2(s1(t))` |
+| `choice` | `(choice left right)` | `strategies.choice(left, right)` | complete left result bag, or `right(t)` only when that bag is empty |
+| `try` | `(try s)` | `strategies.try_(s)` | `choice(s, id)` |
+| `repeat` | `(repeat s)` | `strategies.repeat(s)` | `try(seq(s, repeat(s)))` |
+| `all` | `(all s)` | `strategies.all(s)` | apply `s` to every immediate child |
+| `one` | `(one s)` | `strategies.one(s)` | enumerate each successful one-child rewrite |
+| `topdown` | `(topdown s)` | `strategies.topdown(s)` | `seq(s, all(topdown(s)))` |
+| `bottomup` | `(bottomup s)` | `strategies.bottomup(s)` | `seq(all(bottomup(s)), s)` |
+| `innermost` | `(innermost s)` | `strategies.innermost(s)` | `bottomup(try(seq(s, innermost(s))))` |
+| `stratego-all` | `(stratego-all s)` | `strategies.stratego_all(s)` | public alias of `all(s)` |
+| `stratego-one` | `(stratego-one s)` | `strategies.stratego_one(s)` | public alias of `one(s)` |
+| `gtry` | direct call only | `S.gtry` | `gtry(s, t) = try(s)(t)` |
+| `strategy-apply` | `(strategy-apply s t)` | `S['strategy-apply'](s, t)` | translator-lowers to the atom `(strategy-eval s t)` |
+| `TP` | `TP` | `strategies.TP` | type-preserving strategy scheme |
+| `TU` | `(TU result-type)` | `strategies.TU(result_type)` | type-unifying strategy scheme |
+| `◁` | `(◁ s TP t)` or `(◁ s (TU r) t)` | `S['◁'](s, scheme, t)` | apply only when the declared strategy arrow fits the scheme |
+
+- `try` `TP | (-> Atom Atom)` &mdash; Stratego's `try(s) = s <+ id`. PeTTa reifies `s` in the plan and LeaTTa specialises the same law to one equality rewrite. LeaTTa oracle form: `(= strategy-a strategy-b) ⏎ !(try strategy-a)`.
+- `repeat` `TP | (-> Atom Atom)` &mdash; Stratego's `repeat(s) = try(s ; repeat(s))`, root steps to a normal form. LeaTTa oracle form: `(= strategy-a strategy-b) ⏎ (= strategy-b strategy-c) ⏎ !(repeat strategy-a)`.
+- `topdown` `TP | (-> Atom Atom)` &mdash; Stratego's `topdown(s) = s ; all(topdown(s))`, preorder traversal. LeaTTa oracle form: `(= strategy-a strategy-b) ⏎ (= (strategy-node strategy-b) strategy-bottomup-root) ⏎ !(topdown (strategy-node strategy-a))`.
+- `bottomup` `TP | (-> Atom Atom)` &mdash; Stratego's `bottomup(s) = all(bottomup(s)) ; s`, postorder traversal. LeaTTa oracle form: `(= strategy-a strategy-b) ⏎ (= (strategy-node strategy-b) strategy-bottomup-root) ⏎ !(bottomup (strategy-node strategy-a))`.
+- `innermost` `TP | (-> Atom Atom)` &mdash; Stratego's `innermost(s) = bottomup(try(s ; innermost(s)))`. LeaTTa oracle form: `(= strategy-a strategy-b) ⏎ (= strategy-b strategy-c) ⏎ (= (strategy-node strategy-c) strategy-innermost-root) ⏎ !(innermost (strategy-node strategy-a))`.
+- `stratego-all` `(-> Atom Atom Atom)` &mdash; Stratego's `all(s)`, applying a strategy to every immediate child.
+- `stratego-one` `(-> Atom Atom Atom)` &mdash; Stratego's `one(s)`, applying to one child. LeaTTa deliberately diverges from Stratego's committed choice by answering EVERY successful position through MeTTa's own nondeterminism.
 - `stratego-some` `(-> Atom Atom Atom)` &mdash; Stratego's `some(s)`, the third traversal primitive beside `all` and `one`: apply the strategy to every immediate child it succeeds on, keep each declining child as written, and fail when no child succeeded. The non-emptiness guard is the whole content, since `all` composed with `gtry` can never fail. A LeaTTa extension beyond corelib. The form is shown but not run here: PeTTa leaves the call unreduced.
 - `stratego-all-tail` `(-> Atom Expression Expression)` &mdash; LeaTTa's internal tail recursion behind `stratego-all`.
 - `stratego-some-walk` `(-> Atom Expression Atom)` &mdash; LeaTTa's internal tail walk behind `stratego-some`, pairing the rebuilt tail with whether any member succeeded.
