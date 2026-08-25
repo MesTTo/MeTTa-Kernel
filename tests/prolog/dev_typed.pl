@@ -76,6 +76,14 @@
 :- use_module(library(mavis)).
 :- use_module(library(apply), [maplist/3]).
 
+% The expansion only sees SOURCE. engine/qlf_boot.pl leaves .qlf beside every
+% engine unit, and an extensionless ensure_loaded resolves a fresh one
+% (boot/init.pl '$qlf_file'/5), which skips term_expansion and reports every
+% funnel as 0 inserted checks. The source flag is SWI's own bypass: its
+% '$qlf_file' clause loads the .pl whenever the flag is true, no artifact
+% deleted, nothing racing a concurrent warm boot.
+:- set_prolog_flag(source, true).
+
 %%%%%%%%%% The planted violation, and it is planted in BOTH directions %%%%%%%%%%
 
 % A mode line and a body that disagree with it the moment a caller passes a

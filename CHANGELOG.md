@@ -19,7 +19,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   source and the engine's unit files are consulted by umbrellas. A
   read-only tree skips generation and loads source unchanged. The
   `.qlf` files and version stamp are per-install build artifacts,
-  never shipped.
+  never shipped; the Node/WebAssembly host mounts sources only, and the
+  typed development build (`tests/prolog/dev_typed.pl`) sets SWI's
+  `source` flag so its expansion always sees the `.pl`.
 - Add the library import door: `m += lib.he` performs
   `!(import! <m> (library lib_he))` with the receiver as the target space.
   `metta.lib` is the catalog-generated namespace whose attribute map is the
