@@ -13,12 +13,22 @@
 %   - native equality does not walk a whole expression merely to classify it
 %     [tested: comparing_against_the_empty_expression_does_not_walk_the_other_operand;
 %     commit=fddb28afcb066271d1f0c78fad8b578b2ab65ccd].
+%   - relation rows bind indexed call arguments in one monotone argument walk,
+%     filter contradictory ground candidates, and terminal generator errors
+%     retain their Python class [tested: shim_relation_form; commit=6917bef7ca902671999eafcae3a7a86db8f69723].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
 :- consult('../../bindings/python/metta/shim.pl').
+
+%The bridge normally reaches the engine matcher here. This engineless codec
+%suite supplies its structural core so the relation-frame indexing can be
+%tested without changing the suite's load contract; test_ops.py exercises the
+%real matcher, including numeric promotion.
+petta_match_atoms(Left, Right) :-
+    unify_with_occurs_check(Left, Right).
 
 :- prolog_load_context(directory, TestDirectory),
    absolute_file_name('../../bindings/python', PythonBindingDirectory,
@@ -341,3 +351,35 @@ test(the_answer_errors_have_engine_messages) :-
     \+ sub_string(M2, _, _, _, "Unknown error term").
 
 :- end_tests(shim_answer_form).
+
+:- begin_tests(shim_relation_form).
+
+shim_relation_field(Index, [Index, ["s", "same"]]).
+
+test(a_positional_candidate_binds_call_arguments_and_answers_unit) :-
+    Args = [Origin, lyon],
+    once(petta_py_relation_result(
+             [[0, ["s", "paris"]], [1, ["s", "lyon"]]], Args, Result)),
+    assertion(Origin == paris),
+    assertion(Result == []).
+
+test(a_candidate_contradicting_a_ground_argument_is_filtered, [fail]) :-
+    petta_py_relation_result([[0, ["s", "paris"]], [1, ["s", "nice"]]],
+                             [paris, lyon], _).
+
+test(a_wide_candidate_walk_does_not_restart_with_nth0) :-
+    \+ ( clause(petta_py_relation_fields(_, _, _, _), Body4),
+         sub_term(Sub4, Body4), nonvar(Sub4), functor(Sub4, nth0, 3) ),
+    \+ ( clause(petta_py_relation_fields(_, _, _, _, _), Body5),
+         sub_term(Sub5, Body5), nonvar(Sub5), functor(Sub5, nth0, 3) ),
+    numlist(0, 4999, Indices),
+    maplist(shim_relation_field, Indices, Fields),
+    length(Args, 5000),
+    maplist(=(same), Args),
+    once(petta_py_relation_result(Fields, Args, [])).
+
+test(a_terminal_generator_error_keeps_its_python_class) :-
+    petta_py_stream_error(["x", "raise", "ValueError", planted], Error),
+    assertion(Error == error(python_error('ValueError', planted), none)).
+
+:- end_tests(shim_relation_form).

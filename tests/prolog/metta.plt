@@ -8,12 +8,42 @@
 %     validated, disabled by `none`, or refused before it can replace a
 %     working setting.
 %     [tested: interpreter_pragmas; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+%   - the host repeatability question accepts a known-pure body and fails
+%     closed on an unknown effect without disarming inference limits [tested:
+%     metta_effects:the_host_repeatability_question_fails_closed,
+%     metta_effects:the_host_repeatability_question_preserves_inference_limits;
+%     commit=6917bef7ca902671999eafcae3a7a86db8f69723].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
 %   Future Enhancements: None
 
 :- ensure_loaded('../../engine/metta.pl').
+
+:- begin_tests(metta_effects).
+
+repeatability_conjoin(Goal, Tail, (Goal, Tail)).
+
+test(the_host_repeatability_question_accepts_a_pure_body) :-
+    metta_host_goal_repeatable(metta_interp, true).
+
+test(the_host_repeatability_question_fails_closed, [fail]) :-
+    metta_host_goal_repeatable(metta_interp, writeln(an_effect)).
+
+test(the_host_repeatability_question_preserves_inference_limits) :-
+    length(Goals, 5000),
+    maplist(=(true), Goals),
+    foldl(repeatability_conjoin, Goals, true, Body),
+    call_with_inference_limit(
+        ( metta_host_goal_repeatable(metta_interp, Body)
+        -> Outcome = repeatable
+        ;  Outcome = declined ),
+        50,
+        Result),
+    assertion(var(Outcome)),
+    assertion(Result == inference_limit_exceeded).
+
+:- end_tests(metta_effects).
 
 :- begin_tests(metta_assertions).
 

@@ -19,6 +19,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   answer curve uses numeric payloads so its constant cursor-memory result is
   not confounded by the separately measured wire-name cache.
 
+- Python operations can be relations without a separate inverse: an encoded
+  generator's exact tuple yields are positional candidate bindings and exact
+  dict yields are sparse parameter-name bindings. The engine filters ground
+  arguments and binds free ones through the same implementation while
+  preserving duplicate answers. Effects fire exactly once per yielded
+  candidate searched, including candidates rejected by bound arguments;
+  `inverse=` remains available for a genuinely distinct backward
+  implementation. Package `unify` is now symmetric at two
+  arguments and exposes the engine's four-argument conditional both at
+  expression position and inside compiled bodies, closing the P14.36
+  directionality divergence.
 - Benchmark baselines are two-sided and configuration-stamped. A counter,
   slope, or instruction reading that falls beyond the allowance now fails as
   an unpinned improvement instead of passing silently, because a stale-high

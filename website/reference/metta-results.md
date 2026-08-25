@@ -48,6 +48,10 @@ Source: `bindings/python/metta/results.py`.
 >   - len on an untouched engine-backed Answers view uses its engine count door
 >     without populating the Python cache [tested:
 >     test_len_counts_an_unmaterialised_view_engine_side; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
+>   - a count source may decline a second evaluation, in which case len
+>     materializes the held cursor once [tested:
+>     test_effectful_relational_candidates_run_once_per_yield_on_fresh_list;
+>     commit=6917bef7ca902671999eafcae3a7a86db8f69723]
 >   - one(default=) distinguishes absence from multiplicity for both eager and
 >     lazy faces, while first without a default never returns None [tested:
 >     test_query_answers_complete_the_lazy_projection_protocol; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]

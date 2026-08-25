@@ -4,6 +4,11 @@
 %   eval/2 and native spaces, so this file loads engine AND shim, kept
 %   apart from python_surface.plt because shim hooks change which bridge
 %   answers the typing tests there.
+% Guarantees:
+%   - the Python repeatability bridge fails closed on an ordinary classifier
+%     refusal but never catches a control limit [tested:
+%     python_repeatability_control:the_bridge_preserves_inference_limits;
+%     commit=6917bef7ca902671999eafcae3a7a86db8f69723].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -11,6 +16,25 @@
 
 :- ensure_loaded('../../engine/metta.pl').
 :- initialization(consult('../../bindings/python/metta/shim.pl')).
+
+:- begin_tests(python_repeatability_control).
+
+repeatability_term_conjoin(Goal, Tail, [and, Goal, Tail]).
+
+test(the_bridge_preserves_inference_limits) :-
+    length(Goals, 5000),
+    maplist(=(true), Goals),
+    foldl(repeatability_term_conjoin, Goals, true, Term),
+    call_with_inference_limit(
+        ( petta_py_eval_repeatable('&petta', Term)
+        -> Outcome = repeatable
+        ;  Outcome = declined ),
+        50,
+        Result),
+    assertion(var(Outcome)),
+    assertion(Result == inference_limit_exceeded).
+
+:- end_tests(python_repeatability_control).
 
 :- begin_tests(python_answer_residue).
 

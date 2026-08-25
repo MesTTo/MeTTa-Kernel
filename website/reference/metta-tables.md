@@ -70,6 +70,10 @@ Source: `bindings/python/metta/tables.py`.
 >     objects as handles and projecting transparent objects [tested:
 >     test_an_opaque_blob_column_is_reached_by_a_lazy_path_without_crossing;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - fallback row deletion binds only the removal pattern after public
+>     ``unify`` becomes symmetric [tested:
+>     test_a_nonground_compound_downgrades_and_removal_still_unifies;
+>     commit=6917bef7ca902671999eafcae3a7a86db8f69723]
 > Decides:
 >   - declarations are trusted code, not user data: table and column
 >     names are interpolated into SQL, so a bridge declaration belongs in

@@ -32,7 +32,7 @@ Provenance: LeaTTa manifest 1.0.9 at commit `c0ed0df`, 382 declarations over 380
 Section 9e claims that a structure operation on an atom already held in Python
 costs no engine crossing at all. Measured over the rows that run both sides:
 the MeTTa forms cost 179,179 engine inferences and the Python spellings
-cost 8,092, and 90 of the 121 rows cost the engine EXACTLY
+cost 8,322, and 89 of the 121 rows cost the engine EXACTLY
 NOTHING. `e[0]`, `e[1:]`, `len(e)`, `max([...])` and `S.f(1)` each read the same
 count as an empty measurement block, so the claim holds: the work never reaches
 the engine at all.
@@ -222,7 +222,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(switch (+ 1 1) ((1 one) (2 two)))` | `match 1 + 1: ⏎     case 1: ⏎         answer = S.one ⏎     case 2: ⏎         answer = S.two ⏎ answer` | `two` | dissolves |
 | `!(let $x 1 (+ $x 1))` | `x = 1 ⏎ x + 1` | `2` | dissolves |
 | `!(let* (($x 1) ($y 2)) (+ $x $y))` | `x = 1 ⏎ y = 2 ⏎ x + y` | `3` | dissolves |
-| `!(unify (f $x) (f a) $x nope)` | `b = metta.unify(S.f(V.x), S.f(S.a)) ⏎ b['x'] if b is not None else S.nope` | `a` | method |
+| `!(unify (f $x) (f a) $x nope)` | `assert metta.unify(S.f(S.a), S.f(V.x)) == {'x': S.a} ⏎ metta.unify(S.f(V.x), S.f(S.a), V.x, S.nope).one()` | `a` | method |
 | `!(superpose (a b))` | `[S.a, S.b]` | `a, b` | dissolves |
 | `!(collapse (superpose (a b)))` | `answers = [S.a, S.b] ⏎ tuple(answers)` | `(a b)` | dissolves |
 | `!(id 5)` | `5` | `5` | dissolves |
@@ -243,7 +243,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `switch` `(-> %Undefined% Expression %Undefined%)` &mdash; Python's `match` statement again. `switch` differs from `case` only in evaluating its subject first, which a Python expression does anyway.
 - `let` `(-> Atom %Undefined% Atom %Undefined%)` &mdash; Assignment. It reads in MeTTa's own order, bind then use, which is why plain assignment and not the walrus is the taught spelling.
 - `let*` `(-> Expression Atom %Undefined%)` &mdash; A sequence of assignments; a statement sequence in a compiled body already chains into `let*`.
-- `unify` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; Structural matching. `metta.unify(pattern, subject)` answers the bindings or `None`, so the four-argument form is that call with a conditional; in a compiled body Python's `match` statement lowers to this instruction. One friction: MeTTa's `unify` is symmetric while `metta.unify` is DIRECTIONAL, pattern first, so swapping the arguments answers `None` [measured 2026-08-22: `metta.unify(S.f(S.a), S.f(V.x))` is None].
+- `unify` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; Structural unification. `metta.unify(a, b)` symmetrically answers one bindings mapping or `None`; `metta.unify(a, b, then, els)` evaluates the engine conditional, running `then` once per binding set and `els` only when none exists. A compiled body lowers the same four-argument call directly to the engine form.
 - `superpose` `(-> Expression %Undefined%)` &mdash; Nondeterminism has no primitive of its own because Python's iteration IS it: a list of values is a multiset of answers, and `yield` is the same act inside a compiled body.
 - `collapse` `(-> Atom Atom)` &mdash; `list()` is the everyday spelling, materialising the answers; `tuple()` is the same act when you want MeTTa's own `( )` atom back, which is what collapse answers.
 - `id` `(-> $t $t)` &mdash; The identity function, which Python writes as the value itself.
