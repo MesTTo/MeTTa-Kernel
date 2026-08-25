@@ -4,7 +4,7 @@
 %   state writes are refused while speculative or reified-world execution is
 %   active, including new-state and change-state!, while reads remain valid
 %   [tested: test_speculative_state_write_is_fenced,
-%   test_world_eval_fences_state_and_emits_nothing; commit=WORKTREE].
+%   test_world_eval_fences_state_and_emits_nothing; commit=3ded7552797b66d78e666141eb51f3bc14686bd2].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

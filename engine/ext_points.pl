@@ -6,7 +6,7 @@
 %     after the outer commit, and discarded on rollback [tested:
 %     test_events_publish_only_after_transaction_commit,
 %     test_rollback_and_outer_rollback_discard_every_buffered_event,
-%     test_speculative_execution_discards_its_event_segment; commit=WORKTREE].
+%     test_speculative_execution_discards_its_event_segment; commit=3ded7552797b66d78e666141eb51f3bc14686bd2].
 %   - reader-token registration is an engine-owned host service, while token
 %     construction is claimed by the host that owns the registered callable;
 %     mapping introspection is an ordinary extension service [tested:

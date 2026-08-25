@@ -6,11 +6,11 @@
 %   commit and discard it on every failed or thrown path [tested:
 %   test_events_publish_only_after_transaction_commit,
 %   test_rollback_and_outer_rollback_discard_every_buffered_event;
-%   commit=WORKTREE].
+%   commit=3ded7552797b66d78e666141eb51f3bc14686bd2].
 %   speculative calls create a provider savepoint, then roll it and their
 %   observation frame back on success, failure, and throw [tested:
 %   test_a_speculative_journal_write_is_neither_persisted_nor_published;
-%   commit=WORKTREE].
+%   commit=3ded7552797b66d78e666141eb51f3bc14686bd2].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

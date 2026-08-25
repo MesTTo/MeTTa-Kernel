@@ -16,7 +16,7 @@
 %   - nested observation frames publish in write order only at outer commit
 %     and discard their whole segment without callbacks
 %     [tested: a_frame_publishes_only_after_commit_in_write_order,
-%     an_outer_discard_drops_its_committed_inner_segment; commit=WORKTREE]
+%     an_outer_discard_drops_its_committed_inner_segment; commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
 %   - a library's own error term renders through prolog:error_message//1
 %     [tested 2026-08-16: ext_points_messages]
 % Open Obligations:
