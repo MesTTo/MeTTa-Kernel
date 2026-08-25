@@ -14,6 +14,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and stacking it over `@space.op` refuses before registering a definition
   while directing host-only memoization to `functools.cache` or
   `functools.lru_cache`.
+- The lazy default-engine tier now exports `@metta.op(effect=...)`, forwarding
+  the complete receiver operation contract and its required five-rank effect
+  metadata.
 
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,

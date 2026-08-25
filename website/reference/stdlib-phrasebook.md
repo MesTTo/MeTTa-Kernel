@@ -34,6 +34,7 @@ They stay separate so the differential coverage denominator remains exact.
 
 | public spelling | meaning | example |
 |---|---|---|
+| `@metta.op(effect=...)` | register a host callable in the lazy default engine with explicit effect metadata | `@metta.op(effect="pureStructural") ⏎ def double(value): ⏎     return value * 2` |
 | `metta.speculate()` | scope each default-context execution as a discarded segment | `with metta.speculate(): ⏎     metta.run(source)` |
 | `space.reify()` | capture an immutable evaluable world value, distinct from listing atoms | `world = space.reify()` |
 | `world.eval(target)` | evaluate without touching the parent and return answers plus a successor world | `answers, successor = world.eval(target)` |
