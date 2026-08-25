@@ -4,7 +4,7 @@
 #   while excluding annotations that cannot execute and naming every deferred boundary crossing.
 # Decides: metta._space is core; metta._world, metta._persistent, and public integration modules
 #   are satellites; TYPE_CHECKING-only imports do not form runtime dependencies.
-# [tested: cd bindings/python && PYTHONPATH=$PWD lint-imports; commit=WORKTREE]
+# [tested: cd bindings/python && PYTHONPATH=$PWD lint-imports; commit=350c0d9dbd3c78a4f779d6331e223e939b94c2c8]
 # Decides: NetworkX and NumPy are test-only infrastructure because the
 # blocking gallery executes them, while the core distribution remains
 # dependency-free of them.
@@ -463,7 +463,7 @@ allow_indirect_imports = false
 as_packages = false
 # Forbidden contracts remove exact ignored edges before checking indirect paths.
 # [source: https://github.com/seddonym/import-linter/blob/f544debbb0efe10092cd387032ea76b94a0acee0/docs/contract_types/forbidden.md;
-#   commit=WORKTREE]
+#   commit=350c0d9dbd3c78a4f779d6331e223e939b94c2c8]
 ignore_imports = [
     # Space.reify and Space.commit defer _world until those methods are called,
     # so importing the core does not load the filesystem/foreign-space helper.

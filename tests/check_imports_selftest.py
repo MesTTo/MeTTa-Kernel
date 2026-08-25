@@ -7,7 +7,8 @@ Guarantees:
   - the unmodified scratch tree keeps all three contracts, while a planted
     module-level metta._tokens -> metta._trace import exits nonzero and is
     named in the broken core contract [tested:
-    test_a_planted_module_level_import_is_rejected; commit=WORKTREE]
+    test_a_planted_module_level_import_is_rejected;
+    commit=350c0d9dbd3c78a4f779d6331e223e939b94c2c8]
 Fails when:
   - the gate command, contract names, or planted modules drift without this
     discrimination proof being updated

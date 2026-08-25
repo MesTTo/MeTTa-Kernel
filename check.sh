@@ -49,7 +49,7 @@
 #     leaf-to-facade paths, and an adjacent scratch selftest plants
 #     metta._tokens -> metta._trace and requires the same command to reject it
 #     by name [tested: test_a_planted_module_level_import_is_rejected;
-#     commit=WORKTREE].
+#     commit=350c0d9dbd3c78a4f779d6331e223e939b94c2c8].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
