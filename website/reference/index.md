@@ -1,7 +1,7 @@
 <!--
 Purpose: index the public Python modules and handle APIs documented by the generated reference pages.
-Guarantees: deleted module doors have no reference link and the Space handle is not presented as a module.
-[tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+Guarantees: deleted module doors have no reference link, the Space handle is not presented as a module, and the reified strategy satellite points to its executable phrasebook.
+[tested: npm run docs:build; commit=0d37dd6b24fe916e44cdbfb4efc6a1d5ffaf74aa]
 -->
 
 # API reference
@@ -28,6 +28,7 @@ These modules register Python behavior, translate structured objects, and enforc
 | [`metta.ops`](./metta-ops) | Python operation registration and type declarations |
 | [`metta.convert`](./metta-convert) | two-way object translation |
 | [`metta.casting`](./metta-casting) | runtime typecasting through the engine's types |
+| [`metta.strategies`](./stdlib-phrasebook#rewriting-strategies) | reified strategy constructors and TP/TU traversal schemes |
 
 ## Diagnostics
 

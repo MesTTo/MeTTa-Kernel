@@ -22,8 +22,11 @@
 %     two doors, the space's own (= Lhs Rhs) atoms and the engine's
 %     prelude_equation/2 register for the shipped tier
 %     whose left-hand side is rooted at one of those names, plus every equation
-%     reachable from their right-hand sides, because a translator rule's body
-%     is EVALUATED while the program is being compiled. Two libraries that
+%     reachable from the EVALUATED positions of their right-hand sides, because
+%     a translator rule's body is evaluated while the program is being compiled.
+%     The payloads of quote, noeval and Error are data rather than evaluated call
+%     positions, matching engine/support_graph.pl's source-call collector
+%     [tested: translator_confluence_selftest; commit=0d37dd6b24fe916e44cdbfb4efc6a1d5ffaf74aa]. Two libraries that
 %     register overlapping rules are unchecked today and the outcome is decided
 %     by assertion order: with (= (m2 a) (quote one)) before (= (m2 $x) (quote
 %     two)) the program answers one, and with the two lines swapped it answers
@@ -90,7 +93,9 @@
 %     - translator_confluence_selftest/0 fails unless the analysis puts each of
 %       five planted rule sets on the side its own shape predicts, so a report
 %       of "no overlaps" cannot come from a detector that stopped detecting
-%       [tested: test_the_detector_is_run_against_its_own_planted_rule_sets].
+%       [tested: test_the_detector_is_run_against_its_own_planted_rule_sets], and
+%       it fails if quote, noeval or Error payloads enter the compile-time call
+%       closure [tested: translator_confluence_selftest; commit=0d37dd6b24fe916e44cdbfb4efc6a1d5ffaf74aa].
 %     - termination is ESTABLISHED with the route that decided it, or the
 %       failure is NAMED with the step that failed. There is no third answer
 %       [tested: test_the_compile_time_rule_set_is_shown_terminating_or_the_failure_is_named].
@@ -223,10 +228,12 @@ prelude_rule_equation(Head, L ==> R) :-
     expr_term(Rhs, R).
 
 % The compile-time rule set: the registered names, closed under the equations
-% their right-hand sides reach. A translator rule's body runs at compile time,
-% so a function it calls is part of what has to terminate for compilation to
-% terminate; leaving those out would report on a rule set the compiler never
-% executes.
+% their executable right-hand-side positions reach. A translator rule's body
+% runs at compile time, so a function it calls is part of what has to terminate
+% for compilation to terminate; leaving those out would report on a rule set the
+% compiler never executes. quote/noeval payloads and Error diagnostics are data,
+% not calls. support_memo_call_head/2 uses the same boundary for the runtime
+% support graph, where counting a masked payload created false recursion.
 compile_time_rules(Space, Registered, Names, SpaceRules, PreludeRules) :-
     findall(N, user:translator_rule(N), Registered0),
     sort(Registered0, Registered),
@@ -253,12 +260,22 @@ reachable_names(Space, Frontier, Seen, Names) :-
         sort(Seen1, Seen2),
         reachable_names(Space, New, Seen2, Names) ).
 
+called_name(T, _) :- var(T), !, fail.
+called_name(T, _) :-
+    compound(T),
+    functor(T, Mask, _),
+    memberchk(Mask, [quote, noeval, 'Error']),
+    !,
+    fail.
 called_name(T, F) :-
-    sub_term(Sub, T),
-    nonvar(Sub),
-    compound(Sub),
-    functor(Sub, F, _),
+    compound(T),
+    functor(T, F, _),
     F \== '$expr'.
+called_name(T, F) :-
+    compound(T),
+    T =.. [_|Arguments],
+    member(Argument, Arguments),
+    called_name(Argument, F).
 
 %%%% The typing-rule family %%%%
 
@@ -870,13 +887,14 @@ translator_confluence_selftest :-
               Got \== Expected ),
             Wrong),
     planted_collection_seen,
+    planted_masked_payloads_stay_out_of_closure,
     planted_typing_overlap_seen,
     planted_refusing_rule_seen,
     (   Wrong == []
     ->  format("translator confluence selftest: ~d planted rule sets, each on \c
                 the side its shape predicts, the collection door reads the \c
-                prelude and typing registries, and a refusing rule is \c
-                counted~n", [5])
+                prelude and typing registries, masked payloads stay data, and \c
+                a refusing rule is counted~n", [5])
     ;   forall(member(N-E-G, Wrong),
                format("planted ~w: expected ~w, got ~w~n", [N, E, G])),
         halt(1) ).
@@ -907,6 +925,46 @@ planted_collection_seen :-
     halt(1).
 
 fixture_rule(L ==> _) :- functor(L, '$cfl_fixture', _).
+
+% The compiler evaluates the outer mask but not its payload. Plant an equation
+% behind each inert form and require the closure not to collect any of them.
+% The old sub_term/2 walk collected all three and made a strategy-apply
+% expansion pull the entire recursive runtime strategy evaluator into the
+% termination and critical-pair analysis.
+planted_masked_payloads_stay_out_of_closure :-
+    setup_call_cleanup(
+        ( assertz(user:translator_rule('$cfl_masks', [])),
+          assertz(user:prelude_equation(
+                      '$cfl_masks',
+                      ['=', ['$cfl_masks', _],
+                       ['$cfl_bundle',
+                        [noeval, ['$cfl_noeval_payload', _]],
+                        [quote, ['$cfl_quote_payload', _]],
+                        ['Error', ['$cfl_error_payload', _], "planted"]]])),
+          assertz(user:prelude_equation(
+                      '$cfl_noeval_payload',
+                      ['=', ['$cfl_noeval_payload', _], noeval_reached])),
+          assertz(user:prelude_equation(
+                      '$cfl_quote_payload',
+                      ['=', ['$cfl_quote_payload', _], quote_reached])),
+          assertz(user:prelude_equation(
+                      '$cfl_error_payload',
+                      ['=', ['$cfl_error_payload', _], error_reached])) ),
+        ( compile_time_rules('&self', _, Names, _, _),
+          memberchk('$cfl_masks', Names),
+          \+ memberchk('$cfl_noeval_payload', Names),
+          \+ memberchk('$cfl_quote_payload', Names),
+          \+ memberchk('$cfl_error_payload', Names) ),
+        ( retractall(user:translator_rule('$cfl_masks', _)),
+          retractall(user:prelude_equation('$cfl_masks', _)),
+          retractall(user:prelude_equation('$cfl_noeval_payload', _)),
+          retractall(user:prelude_equation('$cfl_quote_payload', _)),
+          retractall(user:prelude_equation('$cfl_error_payload', _)) )),
+    !.
+planted_masked_payloads_stay_out_of_closure :-
+    format("planted data masks: quote, noeval or Error payload entered the \c
+            compile-time call closure~n", []),
+    halt(1).
 
 % The gate refuses a conditional set rather than deciding one, so the thing it
 % branches on is checked here too: a planted rule whose right-hand side can

@@ -36,6 +36,7 @@ beside its definitions.
 | lib_roman | 36 | 0 |
 | lib_soft | 5 | 0 |
 | lib_spaces | 5 | 0 |
+| lib_strategy | 24 | 0 |
 | lib_string | 0 | 0 |
 | lib_tabling | 6 | 0 |
 | lib_thread | 35 | 0 |

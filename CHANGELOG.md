@@ -66,6 +66,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   law. Live `State` cells are fenced from speculative and persistent writes,
   while compiled `cell.value` reads and writes lower to the engine's state
   operations.
+- `lib_strategy` ships the Stratego-like rewriting basis as ordinary queryable
+  terms: `id`, `fail`, `seq`, left-biased `choice`, `try`, `repeat`, `all`,
+  `one`, strict `topdown` and `bottomup`, `innermost`, the `stratego-all` and
+  `stratego-one` spellings, and the TP/TU typed traversal schemes.
+  `strategy-apply` is a translator rule whose expansion remains an atom and
+  executes through the engine's rewrite machinery rather than a host callback.
+  The lazy `metta.strategies` satellite builds the same plans, spelling the
+  Python keyword as `try_`; import the basis with `m += lib.strategy`. The
+  executable phrasebook now covers 147 of 181 callable LeaTTa operations, and
+  `examples/libraries/strategy.metta` holds 35 assertions over the laws,
+  traversal order, failure, reification, and typed schemes. The translator
+  metatheory collector now treats `quote`, `noeval`, and `Error` payloads as
+  data, so runtime terms emitted by a translator rule do not become false
+  compile-time recursion edges.
 
 - Benchmark baselines are two-sided and configuration-stamped. A counter,
   slope, or instruction reading that falls beyond the allowance now fails as
