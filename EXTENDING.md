@@ -2205,6 +2205,39 @@ Nothing in the engine knows what makes a value applicable, which is the point.
 `((py-atom numpy.absolute) -5)` work; a bridge for something else claims its
 own.
 
+### Make a value numeric without converting it
+
+A host's numeric object may be a MeTTa `Number` without becoming a Prolog
+number. Keep recognition and execution in the host that owns the value:
+
+```prolog
+:- multifile seam:grounded_numeric/1.
+:- multifile seam:grounded_numeric_operation/3.
+
+seam:grounded_numeric(Value) :- my_numeric_object(Value).
+
+% seam:grounded_numeric_operation(Name, Arguments, Result)
+seam:grounded_numeric_operation(Name, Arguments, Result) :-
+    member(Value, Arguments),
+    my_numeric_object(Value), !,
+    my_numeric_call(Name, Arguments, Result).
+```
+
+`seam:grounded_numeric/1` is the admission question. The engine asks it only
+after the unchanged native `number/1` branch declines, once for each operand.
+When every operand is numeric and at least one belongs to a host,
+`seam:grounded_numeric_operation/3` receives the operation name and the whole
+argument list. The first owning provider supplies one result. A value no
+provider admits reaches the ordinary `BadArgType` answer with the same class
+walk and multiplicity it had before.
+
+Do the operation through the value's own protocol rather than converting it to
+a Prolog `float` or `integer`. The Python bridge recognizes `numbers.Number`
+and uses Python's reflected operators or the object's array namespace. Thus a
+NumPy scalar remains the same object at the transport boundary, and adding it
+produces the NumPy result type. Native arithmetic never consults either seam,
+so its existing fast path and inference count do not move.
+
 ### Give a value a structure, without giving up the value
 
 MeTTa names three things a grounded value may define for itself: "Grounded

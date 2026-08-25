@@ -113,6 +113,8 @@
             grounded_applicable/1,
             grounded_apply/3,
             grounded_class_type/2,
+            grounded_numeric/1,
+            grounded_numeric_operation/3,
             grounded_structure/2,
             grounded_text/2,
             grounded_type_names/2,
@@ -647,6 +649,17 @@ kind(grounded_apply/3, ownership).
 %callable by that name, and a name bound to 5 is not.
 :- multifile grounded_applicable/1.
 kind(grounded_applicable/1, ownership).
+
+%A grounded host value may participate in the language's numeric operations
+%without becoming a Prolog number. Admission and execution stay one provider
+%protocol: the owner recognizes its numeric objects, then evaluates with that
+%host's operator dispatch so reflected methods and result types are retained
+%[tested: test_numpy_numeric_family_keeps_python_result_types and
+%test_user_numeric_subclass_uses_its_own_operator; commit=a0f1cc5f15a15e5ca6958fe02a20be8832c7237f].
+:- multifile grounded_numeric/1.
+kind(grounded_numeric/1, ownership).
+:- multifile grounded_numeric_operation/3.
+kind(grounded_numeric_operation/3, ownership).
 
 %An operation with NO effect a cache could hide.
 %

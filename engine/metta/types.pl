@@ -1,6 +1,10 @@
 % Purpose: resolve scoped declarations, type compatibility, metatypes, and typed-call introspection
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
+%   A host-owned numeric object satisfies a concrete Number requirement
+%   without changing its reported class chain [tested:
+%   test_numeric_objects_are_number_arguments_even_when_a_sibling_refuses;
+%   commit=a0f1cc5f15a15e5ca6958fe02a20be8832c7237f].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -308,6 +312,7 @@ has_type(X, T) :- current_metta_module(Module),
 %and a cache it can search has to be non-backtrackable to survive the retry that
 %creates the duplicate in the first place, which puts the O(d) copy back.
 %Not asking twice is cheaper than any way of remembering the answer.
+has_type_in(_, X, T) :- metta_grounded_numeric_type(X, T), !.
 has_type_in(Module, X, T) :- has_type_derive(Module, X, T).
 
 

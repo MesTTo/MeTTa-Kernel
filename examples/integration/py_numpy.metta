@@ -8,9 +8,10 @@
 
 ;A numpy scalar stays a numpy object. That is what the tutorial shows too, in
 ;as many words: its `(+ (abs -5) 10)` prints `np.int64(15)` rather than 15.
-;Teaching `+` to accept one is a separate thing, the `py_ops` import.
 !(test (py-dot (py-dot (np-abs -5) __class__) __name__) "int64")
 !(test ((py-dot (np-abs -5) item)) 5)
+!(+ (np-abs -5) 10)
+!(test (py-dot (py-dot (+ (np-abs -5) 10) __class__) __name__) "int64")
 
 ;A Python expression as an argument, which is the tutorial's own line for it.
 !(bind! np-array (py-atom numpy.array))
