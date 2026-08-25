@@ -646,7 +646,7 @@ flush_source_program_analysis_if_needed :-
 %no-match clause and answered `(g)` after the real NotReducible boundary made
 %that compiled fallback observable [tested:
 %filereader_source_prefix:a_runnable_sees_repaired_forward_callers;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 flush_source_prefix_repairs :-
     active_source_load(LoadId),
     !,
@@ -806,7 +806,7 @@ warn_if_executed_as_symbol(_).
 %dependency question and is already what the repair invalidates
 %[tested: filereader_source_rollback:late_registration_recompile_replaces_metadata,
 %filereader_late_definition_cost:repairing_late_callers_costs_nothing_that_grows_with_the_program;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 repair_after_late_registration(F) :-
     ( support_view_module(F, _) -> schedule_definition_repair(F) ; true ).
 
@@ -943,7 +943,7 @@ recompile_function_in_module(Module, G) :-
 %edges are published. An unowned runtime-added equation stays unowned
 %[tested:
 %filereader_source_reload:a_dependent_recompile_keeps_its_original_source_owner;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 :- meta_predicate with_source_recompile_owners(+, 0).
 with_source_recompile_owners(Owners, Goal) :-
     setup_call_cleanup(asserta(source_recompile_owners(Owners), ContextRef),

@@ -1048,7 +1048,7 @@ translate_special_dl(evalc, [Arg, Space], AfterHead, Goals, Out) :-
 %first evaluates that operand and leaves only the inert wrapper for the source
 %interpreter to consume.
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:6747-6755,
-%`symOpMettaThread`; commit=WORKTREE]
+%`symOpMettaThread`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 translate_special_dl('metta-thread', [Arg, _Type, Space], AfterHead, Goals,
                      Out) :-
     translate_space_expr_dl(Space, AfterHead, BeforeThread, SpaceValue),
@@ -1684,7 +1684,7 @@ masked_result_goal(Produced, Out,
 %result is final, and every other compound result re-enters evaluation.
 %[source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:7350-7361 and
 %7533-7564; tested: translator_evaluation_errors and conformance2;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 call_result_goal(_, _, Produced, final, Out, (Out = Produced)).
 %A native operation that cannot compute answers its own runtime call, which
 %is minimal MeTTa's NoReduce for grounded operations. That answer is
@@ -1693,7 +1693,7 @@ call_result_goal(_, _, Produced, final, Out, (Out = Produced)).
 %overflowed the stack re-translating `(< 1 a)` once per retained answer
 %[source: vendor/hyperon/docs/minimal-metta.md:55-101, grounded operations
 %returning NoReduce; tested: test_an_operation_that_cannot_compute_answers_rather_than_raising
-%and conformance2; commit=WORKTREE].
+%and conformance2; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 %The retained-answer test sits on the non-atomic branch only: arithmetic and
 %string results are atomic and answer directly, so the hot all-scalar paths
 %pay nothing for the guard [measured 2026-08-25: testing equality before

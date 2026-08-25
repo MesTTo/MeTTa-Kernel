@@ -259,7 +259,7 @@ ensure_metta_exec_module_locked(Space, Module) :-
 %space. A later local definition removes the repair first, because asserting
 %through an explicit import would otherwise write into its source module
 %[source: SWI-Prolog Reference Manual, import/1 and abolish/1;
-% commit=WORKTREE].
+% commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_abolish_local_predicate(Module, Name, Arity) :-
     catch(abolish(Module:Name/Arity), _, true),
     petta_restore_inherited_predicate(Module, Name, Arity).
@@ -270,7 +270,7 @@ petta_abolish_local_predicate(Module, Name, Arity) :-
 %resolution came from system or from the engine's own tabled predicates in
 %user, blocked SWI from defining that module's local tabling state
 %('No permission to redefine built-in $table_mode/3')
-%[tested: test_tabling_control; commit=WORKTREE].
+%[tested: test_tabling_control; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_restore_inherited_predicate(_, Name, _) :-
     sub_atom(Name, 0, 1, _, '$'),
     !.
@@ -295,7 +295,7 @@ petta_restore_inherited_predicate(Module, Name, Arity) :-
 %[tested: test_a_recycled_child_name_may_choose_a_different_parent and
 %filereader_import_lifecycle:
 %a_repaired_shadow_import_follows_a_recycled_modules_new_parent;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_capture_default_imports(Module) :-
     (   current_module(Module)
     ->  findall(Name-Arity-Source,
@@ -305,7 +305,7 @@ petta_capture_default_imports(Module) :-
                   %and friends) into the repair set, and re-importing a system
                   %predicate blocked tabling from defining its local state:
                   %'No permission to redefine built-in $table_mode/3'
-                  %[tested: test_tabling_control; commit=WORKTREE].
+                  %[tested: test_tabling_control; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
                   \+ sub_atom(Name, 0, 1, _, '$'),
                   functor(Head, Name, Arity),
                   predicate_property(Module:Head, imported_from(Source)),
@@ -331,7 +331,7 @@ petta_capture_default_imports(Module) :-
 %load can restore the inherited link after rolling that definition back. This
 %keeps the repair dependency-directed rather than copying a parent's interface
 %into every child [tested:
-%test_a_recycled_child_name_may_choose_a_different_parent; commit=WORKTREE].
+%test_a_recycled_child_name_may_choose_a_different_parent; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_refresh_repaired_shadow_imports(Module) :-
     findall(Name-Arity,
             '$petta_repaired_shadow_import'(Module, Name, Arity, _),
@@ -353,7 +353,7 @@ petta_refresh_repaired_shadow_imports(Module) :-
 %step of this load fails [tested:
 %filereader_import_lifecycle:
 %a_failed_local_redefinition_restores_the_repaired_inherited_call;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_prepare_local_predicate(Module, Clause) :-
     ( Clause = (Head :- _) -> true ; Head = Clause ),
     functor(Head, Name, Arity),
@@ -407,7 +407,7 @@ petta_may_inherit_function(Module, Name) :-
 %for every equation in a source load [source: SWI-Prolog
 %boot/autoload.pl:1061-1070; measured: source-load 1653096 to 1647100;
 %command=python bench.py --counter-only source-load; fixture=1000 fresh
-%equations; commit=WORKTREE].
+%equations; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_existing_import(Module, Head, Source) :-
     '$c_current_predicate'(_, Module:Head),
     '$get_predicate_attribute'(Module:Head, imported, Source).
@@ -418,7 +418,7 @@ petta_existing_import(Module, Head, Source) :-
 %procedure identity even when a fresh default-module lookup already finds the
 %right ancestor [tested:
 %a_failed_local_redefinition_restores_the_repaired_inherited_call;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_repair_shadow_imports :-
     findall(Module-Name-Arity,
             '$petta_repaired_shadow_import'(Module, Name, Arity, _),
@@ -1138,7 +1138,7 @@ metta_add_atom(Space, Term, true) :- Term = [=, [FAtom|W], _], !,
 %mentions through the support graph, so the ordinary change announcement
 %rebuilds precisely those callers and evicts matching runnable templates.
 %[tested: conformance2:symbol_arguments_evaluate_for_declared_and_undeclared_functions;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 metta_add_atom(Space, Term, true) :-
     Term = [=, Scalar, _],
     atom(Scalar),
@@ -1353,7 +1353,7 @@ add_equation(Space, Term, FAtom, W) :-
 %transaction call, while the exceptional shadow-redefinition path repairs its
 %receipt on commit, failure, or exception [tested:
 %a_failed_local_redefinition_restores_the_repaired_inherited_call;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_add_function_transaction(Storage, Space, Module, Term, FAtom, W) :-
     length(W, InputArity),
     PredArity is InputArity + 1,

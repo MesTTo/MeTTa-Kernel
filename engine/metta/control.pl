@@ -422,7 +422,7 @@ petta_evaluation_fuel(Limit) :-
 %`mettaEval`, whose typed argument pass and result continuation run before the
 %next source-interpreter carrier is returned.
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:6337-6351 and 7361-7524,
-%`mettaThreadStep` delegates to `mettaEval`; commit=WORKTREE]
+%`mettaThreadStep` delegates to `mettaEval`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 'metta-thread'(Atom, _Type, Space, Out) :-
     (   'is-space'(Space, true)
     ->  true
@@ -449,7 +449,7 @@ petta_metta_thread_eval(Atom, Space, Out) :-
 %Using reduce/3 here is load-bearing: feeding the prepared term back through
 %evalc/3 would evaluate an Atom-returned argument a second time.
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:7375-7460,
-%`mettaEval`; commit=WORKTREE]
+%`mettaEval`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 petta_metta_thread_step(Carrier, _, Carrier, Carrier, 'not-reducible') :-
     petta_collapse_bind_result(Carrier),
     !.
@@ -502,7 +502,7 @@ petta_metta_thread_arguments([Arg|Args], [Evaluate|Mask], Space,
 %decodable `<-` pair.  Keeping it inert is what lets a later superpose-bind
 %restore the row before evaluating the selected atom.
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:3682-3700 and 7488-7492,
-%`isCollapseBindResult` and its `mettaEval` guard; commit=WORKTREE]
+%`isCollapseBindResult` and its `mettaEval` guard; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 petta_collapse_bind_result([Pair|Pairs]) :-
     maplist(petta_collapse_bind_pair, [Pair|Pairs]).
 
@@ -752,7 +752,7 @@ petta_set_state(Var, Value) :-
 %was asked to evaluate.  Keeping those roles separate lets chain, function,
 %and metta-thread inspect the marker without leaking it through direct eval/2
 %callers such as unquote [tested: metatype_mask:unquote_evaluates_its_operand;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 %
 %The evaluator runs its goals in the current space's module, for the same reason
 %call_goals_in/2 and current_metta_space/1 exist: call/1 resolves a goal in the
@@ -802,7 +802,7 @@ petta_eval_core(C0, Out) :-
     %one answer per matching equation.  A hard cut here erased duplicate
     %rules before `function` and `metta-thread` could observe them.
     %[source: MettaHyperonFull/Minimal/Interpreter.lean:419-448,
-    %`evalResult`; commit=WORKTREE]
+    %`evalResult`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
     (   petta_minimal_equation_step(Module, C0, Step)
     *-> Out = Step
     ;   atomic(C0)

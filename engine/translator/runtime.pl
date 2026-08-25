@@ -434,7 +434,7 @@ eval_metta_in_module(Module, Expr, Out) :-
 %one-sided matcher, and parsing the RHS before matching preserves contextual
 %splicing after the captured run arrives.
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:420-448 and 3360-3380,
-%`evalResult` and `queryOp`; commit=WORKTREE]
+%`evalResult` and `queryOp`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 petta_minimal_equation_step(Module, [Fun|Args], Out) :-
     function_evaluation_active,
     atom(Fun),
@@ -469,7 +469,7 @@ petta_minimal_equation_result(_, Body, Body).
 %the ordinary expression projection and every RHS splice.  Pattern matching
 %precedes head constraints, exactly as ordinary Prolog head unification
 %precedes the goals compiled from in-place annotations [tested:
-%tests/prolog/segment_equations.plt; commit=WORKTREE].
+%tests/prolog/segment_equations.plt; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_segment_rule_result(Module, Fun, HeadPlan, BodyPlan, Args, Out) :-
     petta_seq_head_match(HeadPlan, Args),
     petta_segment_body_result(Module, Fun, BodyPlan, Out).
@@ -490,7 +490,7 @@ petta_segment_body_result(Module, Fun, spliced(Prefix, Template), Out) :-
 %an ordinary equation still decides whether the constructed expression is
 %data or a computation [source: LeaTTa
 %MettaHyperonFull/Core/SeqRuntime.lean:95-104 and
-%MettaHyperonFull/Minimal/Interpreter.lean:3786-3799; commit=WORKTREE].
+%MettaHyperonFull/Minimal/Interpreter.lean:3786-3799; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_segment_spliced_result(Fun, Instantiated, Out) :-
     (   declared_output_type(Fun, 'Atom'),
         \+ function_frame_body(Instantiated)
@@ -504,7 +504,7 @@ petta_segment_spliced_result(Fun, Instantiated, Out) :-
 %set of candidate heads; reversing the asserta/1 metadata restores source
 %order, and the one-sided matcher supplies shortest-first splits within each
 %rule [tested: tests/prolog/segment_equations.plt;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_segment_dispatch(Module, Fun, Args, Out) :-
     fun_meta_module(Module, Fun, Owner),
     findall(Head0-Body0,
@@ -700,7 +700,7 @@ translate_eager_argument_dl(X, Goals0, Goals, V) :-
 %a scalar equation announces the same support-node change as a function, so a
 %stored caller and the runnable cache are rebuilt before this decision can go
 %stale [tested: conformance2:symbol_arguments_evaluate_for_declared_and_undeclared_functions;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 metta_symbol_has_rule(Symbol) :-
     once(metta_symbol_step(Symbol, _)).
 

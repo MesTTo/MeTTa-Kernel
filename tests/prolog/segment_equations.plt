@@ -10,7 +10,7 @@
 %   - one name can occur in segment and ordinary roles in an equation head
 %   - the compiled and variable-headed dynamic doors answer alike
 %   [source: LeaTTa MettaHyperonFull/Core/SeqOneSided.lean:65-89 and
-%   MettaHyperonFull/Core/SeqSyntax.lean:300-314; commit=WORKTREE]
+%   MettaHyperonFull/Core/SeqSyntax.lean:300-314; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

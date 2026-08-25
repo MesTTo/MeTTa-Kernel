@@ -725,7 +725,7 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:7350-7361 and 7533-7564;
 %tested: tests/prolog/translator.plt:
 %a_recursive_generator_enumerates_in_time_linear_in_its_answers and
-%tests/prolog/conformance2.plt; commit=WORKTREE].
+%tests/prolog/conformance2.plt; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 normalize_equation_result(Fun, Args, RawOut, Out, RawBody, Body) :-
     Runtime = [Fun|Args],
     normalize_equation_tail(RawBody, RawOut, Runtime, Out, Normalized),
@@ -736,7 +736,7 @@ normalize_equation_result(Fun, Args, RawOut, Out, RawBody, Body) :-
     ).
 %[tested:
 %bindings/python/tests/test_builtin_inputs.py::test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 
 %A directly covered self call has already crossed its own equation boundary.
 %Fuse both the caller-side protocol and this equation's outer protocol into
@@ -821,7 +821,7 @@ direct_self_equation_goal(Goal0, Caller, Produced, Out, Goal) :-
 %side effect on one path so both equation compilers see the same head
 %[tested: tests/prolog/segment_equations.plt and
 %tests/prolog/translator.plt:translator_inplace_annotations;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 translate_equation_head(F, Args0, true, Args1, GoalsPrefix) :-
     !,
     constrain_children(Args0, 1, [], Args1, GoalsA, Positions, []),
@@ -838,7 +838,7 @@ translate_equation_head(_, Args, false, Args, []).
 %front of those goals.  Calls at the written arity take this ordinary compiled
 %clause; calls at another arity use petta_segment_dispatch/4 over the retained
 %source equations [tested: tests/prolog/segment_equations.plt;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 translate_segment_body_plan(F, Args, BodyExpr, GoalsPrefix, BodyPlan) :-
     (   petta_seq_present(BodyExpr)
     ->  petta_seq_body_plan(BodyExpr, ParsedBody),
@@ -855,7 +855,7 @@ translate_segment_body_plan(F, Args, BodyExpr, GoalsPrefix, BodyPlan) :-
 %frame whose purpose is to execute a plan until `return`.  Every other result
 %keeps the existing continuation rule [source: LeaTTa
 %MettaHyperonFull/Minimal/Interpreter.lean:348-368 and :3786-3799;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 translate_equation_body_result(F, Args, BodyExpr, GoalsBody, ExpOut) :-
     (   declared_output_type(F, 'Atom'),
         \+ function_frame_body(BodyExpr)

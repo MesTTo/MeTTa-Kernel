@@ -247,7 +247,7 @@ dispatch_call_goal_in(Module, Fun, Args, Out, Goal, PolicyGoal) :-
 %Prolog goal merely fails and erases the value.  Native and host operations
 %still take their direct path whenever their predicate exists.
 %[source: vendor/hyperon/docs/minimal-metta.md:55-101, type constructors are
-%not reducible; commit=WORKTREE]
+%not reducible; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 petta_dispatch_goal_exists(Module, Goal) :-
     functor(Goal, Predicate, Arity),
     current_predicate(Module:Predicate/Arity).
@@ -669,7 +669,7 @@ reduce(Culprit, _, _) :-
 %unknown-call rule [measured 2026-08-24 against LeaTTa 9ea9f9d:
 %`!(reduce (unknown))` answers `(reduce (unknown))`; tested:
 %conformance2:reduce_retains_its_call_when_the_operand_is_irreducible;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_reduce_result(Written, _, 'not-reducible', [reduce, Written]) :- !.
 petta_reduce_result(_, Reduced, _, Reduced).
 

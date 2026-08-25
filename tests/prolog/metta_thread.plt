@@ -6,7 +6,7 @@
 %   - collapse-bind carriers remain inert and duplicate equation answers survive
 %   - the compiled equation-body door and runtime eval/2 door agree
 % [source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:3682-3700,
-%   7361-7524; commit=WORKTREE]
+%   7361-7524; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 
 :- ensure_loaded('../../engine/metta.pl').
 

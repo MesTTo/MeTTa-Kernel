@@ -639,7 +639,7 @@ rollback_source_load(LoadId) :-
 %whole source load, also keeps definitions visible to hyperpose worker threads
 %while a file's runnable forms execute [tested:
 %filereader_source_rollback:failed_late_definition_does_not_recompile_existing_callers;
-%examples/control/thin_forms.metta; commit=WORKTREE].
+%examples/control/thin_forms.metta; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 repair_after_source_rollback([]) :- !.
 repair_after_source_rollback(_) :-
     current_transaction(_),

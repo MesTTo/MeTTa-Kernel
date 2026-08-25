@@ -17,18 +17,18 @@
  *     strings, variant-identical terms, and name maps in the same
  *     newest-first order, over the whole example corpus and the adversarial
  *     battery [tested: reader_c in tests/prolog/reader_c.plt;
- *     commit=WORKTREE].
+ *     commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
  *   - both predicates raise the Prolog reader's own error shapes:
  *     error(syntax_error(MsgAtom), none) with the identical message text for
  *     a missing ')' and for a form that does not parse, and FAIL (not raise)
  *     where the Prolog splitter fails, a stray top-level ')'
  *     [tested: reader_c:the_error_shapes_match_the_prolog_reader;
- *     commit=WORKTREE].
+ *     commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
  *   - float literals saturate to inf/-inf past binary64 exactly as the
  *     engine's metta_saturating_parse/2 retry does, because strtod is the
  *     same correctly-rounded conversion number_codes/2 uses underneath
  *     [tested: reader_c:number_conversion_agrees_with_the_prolog_reader;
- *     commit=WORKTREE].
+ *     commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
  * Fails when: a custom reader token is registered; parser.pl then keeps every
  *   parse on the Prolog grammar, and this file is never consulted about it.
  * Owns resources: per-call heap scratch (child stack, variable environment,

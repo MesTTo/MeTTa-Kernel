@@ -46,7 +46,7 @@
 %the ordinary occurrence the expression projection of the finite run, and
 %petta_seq_head_match/2 does the same [source: LeaTTa
 %MettaHyperonFull/Core/SeqOneSided.lean:65-89, oneSidedBindRole;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 %
 %DISTINCT `...` OCCURRENCES ARE DISTINCT VARIABLES [source: LeaTTa
 %MettaHyperonFull/Core/SeqSyntax.lean, SeqVar.anonymous, "two `...`
@@ -142,7 +142,7 @@ petta_seq_present_items(Items) :-
 %the run `[a,b]` makes a later ordinary occurrence of the same variable match
 %the expression `(a b)` [source: LeaTTa
 %MettaHyperonFull/Core/SeqOneSided.lean:65-89 and :445-461;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 %
 %The plan is built while the equation is compiled, before any call can bind
 %its variables.  Only the written head is parsed.  The call is concrete syntax
@@ -159,13 +159,13 @@ petta_seq_head_match('$petta_seq'(one_sided(left), Parsed), Subject) :-
     %head can match the empty argument hedge; petta_seq_atoms/2 quite properly
     %requires two nonempty expressions at its atom boundary [tested:
     %tests/prolog/segment_equations.plt:top_level_segment_accepts_zero_arguments;
-    %commit=WORKTREE].
+    %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
     petta_seq_items(Parsed, Subject).
 
 %A coverage or applicability probe must not bind the live call or the retained
 %equation.  copy_term/2 preserves sharing inside each side, including the one
 %name that may occur as both `(:seg $x)` and ordinary `$x` in an equation head
-%[tested: tests/prolog/segment_equations.plt; commit=WORKTREE].
+%[tested: tests/prolog/segment_equations.plt; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_seq_head_matches(Pattern, Subject) :-
     copy_term(Pattern-Subject, PatternCopy-SubjectCopy),
     petta_seq_head_plan(PatternCopy, Plan),
@@ -177,7 +177,7 @@ petta_seq_head_matches(Pattern, Subject) :-
 %so a marker arriving through a binding stays data and repeated written splice
 %occurrences keep sharing their one authoritative run [source: LeaTTa
 %MettaHyperonFull/Core/SeqSyntax.lean:300-314 and :343-367;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 petta_seq_instantiate(Template, Instantiated) :-
     (   nonvar(Template),
         Template = [_|_]

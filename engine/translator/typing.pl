@@ -139,7 +139,7 @@ fitting_type_chains(Chains, InputArity, Fitting) :-
 %evaluates.  Returning booleans keeps this boundary about evaluation only;
 %the ordinary typed dispatcher still owns every argument check and rejection.
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:3760-3784 and 7394-7440,
-%`argMask` and the argument fold in `mettaEval`; commit=WORKTREE]
+%`argMask` and the argument fold in `mettaEval`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 metta_runtime_argument_mask(Fun, Arity, Mask) :-
     metta_runtime_first_signature(Fun, Signature),
     !,
@@ -169,7 +169,7 @@ metta_runtime_parameter_evaluates(_, true).
 %An Atom result is data even when its shape names another operation; every
 %other result re-enters the full evaluator.
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:3786-3799 and 7451-7460,
-%`returnsAtom` and its use in `mettaEval`; commit=WORKTREE]
+%`returnsAtom` and its use in `mettaEval`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 metta_runtime_returns_atom(Fun) :-
     metta_runtime_first_signature(Fun, [->|Types]),
     append(_, [Declared], Types),

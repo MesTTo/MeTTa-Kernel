@@ -106,7 +106,7 @@
 ;identity-preserving subtraction-atom.  Both must be empty, so `(a a b)` does
 ;not equal `(a b b)` even though their ordinary sets agree
 ;[source: LeaTTa@9ea9f9d MettaHyperonFull/Minimal/Stdlib.lean:364-438,
-;`bagDiffBy` and `assertResultsEqOp`; commit=WORKTREE].
+;`bagDiffBy` and `assertResultsEqOp`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 ;Only the comparison changes.  The public PeTTa contract remains the existing
 ;True answer on success and petta_assertion_failed exception on failure.
 (: assertEqualToResult (-> Atom Atom %Undefined%))
@@ -176,7 +176,7 @@
 ;Minimal `eval` stages an ordinary equation RHS but enters a returned function
 ;frame, so this reference body works through both native and reflected doors.
 ;[source: MettaHyperonFull/Minimal/Stdlib.lean:4015-4032, `if-error`;
-;commit=WORKTREE]
+;commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 (= (if-error $atom $then $else)
    (function (chain (eval (get-metatype $atom)) $meta
      (eval (if-equal $meta Expression
@@ -212,7 +212,7 @@
 
 ;Like if-error, this outer frame is the staging boundary consumed by eval.
 ;[source: MettaHyperonFull/Minimal/Stdlib.lean:4033-4043,
-;`return-on-error`; commit=WORKTREE]
+;`return-on-error`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 (= (return-on-error $atom $then)
    (function (eval (if-equal $atom Empty (return (return Empty))
      (eval (if-error $atom (return (return $atom))
@@ -271,7 +271,7 @@
 ;evaluation boundary; a function frame is required so the Atom result rule
 ;does not return the `(metta ...)` call itself as inert data.
 ;[source: LeaTTa@9ea9f9d MettaHyperonFull/Minimal/Stdlib.lean:4311-4336,
-;`interpret`; commit=WORKTREE]
+;`interpret`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 (: interpret (-> Atom Type SpaceType Atom))
 (= (interpret $atom $type $space)
    (function
@@ -285,7 +285,7 @@
 ;so the ordinary `(-> Number Number Number)` function type was classified as
 ;False by the source interpreter.
 ;[source: MettaHyperonFull/Minimal/Stdlib.lean:4010-4038,
-;`is-function`; commit=WORKTREE]
+;`is-function`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 (: -> (-> (%Rest% Type) Type))
 (: is-function (-> Type Bool))
 (= (is-function $type)
@@ -343,7 +343,7 @@
 ;and Atom on either side match anything, and otherwise the two types unify,
 ;bindings and all. The function frame is the reference's one-step boundary.
 ;[source: MettaHyperonFull/Minimal/Stdlib.lean:4114-4125, `match-types`;
-;commit=WORKTREE]
+;commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 (= (match-types $type1 $type2 $then $else)
    (function (eval (if-equal $type1 %Undefined%
      (return $then)

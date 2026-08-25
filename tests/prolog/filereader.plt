@@ -18,7 +18,7 @@
 %     contribution [tested:
 %     filereader_import_lifecycle:
 %     a_receipt_tracks_the_liveness_of_its_exact_stored_outputs;
-%     commit=WORKTREE].
+%     commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

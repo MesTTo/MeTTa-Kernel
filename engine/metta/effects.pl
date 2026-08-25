@@ -203,7 +203,7 @@ metta_effect_classify(Module, reduce(Template, _, _), Queue, Next) :- !,
 %above refuses as higher-order, so it is classified by the same
 %reconstruction rather than refused under the dispatcher's own name
 %[tested: lib_tabling_purity:a_higher_order_call_is_refused_as_one;
-%commit=WORKTREE].
+%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 metta_effect_classify(Module, petta_dynamic_call(Head, Args, _), Queue,
                       Next) :- !,
     metta_effect_reduced(Module, [Head|Args], Queue, Next).

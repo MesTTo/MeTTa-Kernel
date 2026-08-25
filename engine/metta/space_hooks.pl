@@ -489,7 +489,7 @@ petta_transaction(Goal) :-
         %re-arms that inherited procedure identity on every outcome [tested:
         %filereader_import_lifecycle:
         %a_failed_local_redefinition_restores_the_repaired_inherited_call;
-        %commit=WORKTREE].
+        %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
         petta_repair_emptied_shadows,
         (   Outcome == committed -> true
         ;   Outcome == failed -> fail

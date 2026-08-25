@@ -102,7 +102,7 @@
 %     agree after the removal and after a pooled module is rebased [tested:
 %     filereader_import_lifecycle:
 %     removing_a_local_shadow_rearms_an_already_compiled_inherited_call;
-%     commit=WORKTREE].
+%     commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 %   - Dynamic function registration is atomic and failed source loads remove
 %     its asserted compiler state [tested 2026-08-14:
 %     change_hook_error_rolls_back_every_registration_write,
