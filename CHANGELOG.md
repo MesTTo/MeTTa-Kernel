@@ -35,10 +35,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   under all five carriers, a validated journaled observed store, Linda
   coordination, immutable git-like worlds, symbolic tensor lowering to GEMM,
   and NetworkX expressed through the space and operation seams.
-  NetworkX and NumPy are now part of the `test` and `checks` extras because the
-  ecosystem and one-BLAS-GEMM programs are blocking rather than optional
-  examples. The refreshed lockfile also drops the already-retired `orjson`
-  extra and pre-3.12 resolution branches.
+  NetworkX and NumPy join the `test` and `checks` extras so the gate runs all
+  six, while the ecosystem and one-BLAS-GEMM programs skip where their package
+  is absent, the way every other integration example does. The refreshed
+  lockfile also drops the already-retired `orjson` extra and pre-3.12
+  resolution branches.
 - `@space.cache` now memoizes the complete answer bag instead of routing
   through SWI set tabling, so repeated answers survive cache hits. Its
   `cache_info()` reports per-definition entry and answer-occurrence counts,
