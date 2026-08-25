@@ -8,6 +8,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Compiled Python bodies now lower `assert condition[, reason]` to the
+  language's `(Error condition reason)` algebra, preserving generator
+  continuations. `del space[pattern]` snapshots and removes every match;
+  `space -= atom` on a `Space`-typed parameter removes one occurrence. Missing
+  removals remain Error answers.
+
 - `Space.reacts(pattern, operation, priority=None)` and its async mirror now
   expose the settled declaration spelling for `(on ...)`; `reaction(...)`
   remains as a compatibility alias.
