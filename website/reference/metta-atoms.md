@@ -3,6 +3,7 @@
 Source: `bindings/python/metta/atoms.py`.
 
 > Purpose: expose PeTTa atoms, the S/V/G factories, parsing, and matching.
+>
 > Guarantees:
 >   - order_key matches the engine's msort across every public atom kind,
 >     including float/integer ties, strings, opaque values, and the empty-list
@@ -38,6 +39,11 @@ Source: `bindings/python/metta/atoms.py`.
 >   - seg() builds the named segment and refuses anything but a Variable, since
 >     a non-variable second position is ordinary data to the engine [tested:
 >     test_seg_builds_a_named_segment; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb]
+>   - two-argument unify is symmetric and returns one normalized substitution
+>     over variables from either operand [tested:
+>     test_unify_binds_a_ground_term_and_pattern_in_both_orders,
+>     test_unify_binds_variables_from_both_operands,
+>     test_unify_path_compresses_long_alias_chains; commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -179,19 +185,21 @@ def order_key(atom: Atom) -> tuple:
 def substitute(atom: Any, bindings: Mapping[str, Atom]) -> Atom:
 ```
 
-> The atom with every bound variable replaced, unify's companion:
-> substitute(pattern, unify(pattern, atom)) is the matched instance.
-> An unbound variable stays itself, so a partial substitution is a
-> narrower pattern rather than an error.
+> The atom with every bound variable replaced. As unify's companion,
+> substitute(pattern, unify(pattern, atom)) is the matched instance. An
+> unbound variable stays itself, so a partial substitution is a narrower
+> pattern rather than an error.
 
 ## `unify`
 
 ```python
-def unify(pattern: Any, atom: Any) -> Mapping[str, Atom] | None:
+def unify(left: Any, right: Any) -> Mapping[str, Atom] | None:
 ```
 
-> Match a pattern against an atom, returning bindings or None.
+> Unify two atoms symmetrically, returning bindings or ``None``.
 >
-> One-way: variables on the pattern side bind; a variable on the atom side
-> matches only the same variable. No occurs check, matching SWI's default
-> and therefore the engine's.
+> Variables in either operand bind. The returned substitution is normalized,
+> so a chain such as ``x = y, y = a`` reports both names bound to ``a``.
+> Anonymous ``_`` occurrences remain fresh and bind nothing. This host
+> matcher retains its historical no-occurs-check behavior; four-argument
+> conditional unification is the engine form exposed by ``metta.unify``.

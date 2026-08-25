@@ -931,23 +931,46 @@ because its type is settled while the call site compiles. That is the right
 trade where you want the checking and the wrong one in an inner loop over
 values the compiler cannot see. See the note under the cost table.
 
-### Running a Python operation backwards
+### Relational generators and distinct inverses
 
-A Prolog predicate is bidirectional for free, because unification does not
-care which way a value flows: *Arguments are bidirectional* above is that
-story. A Python function is not. It runs forwards, and asked to run backwards
-it fails somewhere inside Python:
+A generator operation can state a relation once. Yield an exact tuple for a
+positional candidate row, or an exact dict keyed by parameter name for a
+sparse row. The engine unifies each candidate against the call, so the same
+body serves free, partially bound, and ground arguments:
 
-```metta
-!(let (concat $h $t) (1 2 3) ($h $t))
-; Python TypeError in (concat $_0 $_1)
-;   Value after * must be an iterable, not Var
-;   arguments 1, 2 were unbound, so the operation ran in a pattern position;
-;   a Python operation runs forwards only
+```python
+@m.op
+def route(origin, destination):
+    yield (S.paris, S.lyon)
+    yield (S.paris, S.lyon)       # multiplicity is data
+    yield {"destination": S.nice}  # origin is unconstrained
 ```
 
-Give it the backwards direction and it stands in that position like an
-equation does:
+```python
+all_routes = m.fn.route(V.origin, V.destination)
+list(all_routes)                  # [UNIT, UNIT, UNIT]
+list(all_routes.destination)      # [lyon, lyon, nice]
+
+from_paris = m.fn.route(S.paris, V.destination)
+list(from_paris.destination)      # [lyon, lyon, nice]
+
+to_lyon = m.fn.route(V.origin, S.lyon)
+list(to_lyon.origin)              # [paris, paris]
+```
+
+Every yielded occurrence is considered once. For an effectful generator, its
+effect therefore fires exactly once per candidate searched, including a
+candidate that a bound argument rejects. The third row above leaves its origin
+unbound, so its row projection contains the query's alpha-renamed origin
+variable. Ground arguments filter rows; variables bind through the engine
+matcher, including its custom grounded and space matching.
+`Answer(value=...)` is the explicit escape when an exact tuple or dict is one
+result value rather than a parameter row. Relational rows require encoded
+transport because raw arguments cannot carry unbound positions.
+
+`inverse=` serves a different shape: the forward operation produces a result,
+and a separate implementation recovers arguments from that result. Supply it
+when that backward algorithm is genuinely distinct:
 
 ```python
 m.register_op(
@@ -978,16 +1001,15 @@ m.register_op(lambda x: x * x, name="sq", inverse=roots)
 
 It runs only when the arguments are not ground and the result is, so a forward
 call never reaches it. An operation that declares no inverse compiles exactly
-the clause it compiled before, which is why this costs nothing to the
-operations that cannot serve the direction.
+the clause it compiled before. A relational generator needs no inverse because
+its tuple or dict rows already bind the arguments directly.
 
-Why supply it rather than derive it: a foreign function cannot be narrowed.
-Curry does not invert its own `external` functions either, and Prolog's own
-`plus/3` and `succ/2` are builtins with a hand-written implementation per
-mode. This is the same answer. `functions/invertfunction.metta` shows what you
-get for free when the function is a MeTTa equation instead, including solving
-`$X + 35 = 42` through a constraint while destructuring a list in the same
-pattern.
+Why an inverse can still be necessary: an arbitrary foreign function cannot
+be narrowed automatically. Curry does not invert its own `external` functions
+either, and Prolog's `plus/3` and `succ/2` use mode-aware implementations.
+`functions/invertfunction.metta` shows what an equation can derive instead,
+including solving `$X + 35 = 42` through a constraint while destructuring a
+list in the same pattern.
 
 ### Keep the Python when you rewrite it in Prolog
 

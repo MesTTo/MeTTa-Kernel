@@ -22,6 +22,10 @@ Source: `bindings/python/metta/spaces.py`.
 >     turns an added py-field atom into setattr [tested:
 >     test_a_query_joins_stored_atoms_with_live_object_fields;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - provider queries and bridge declarations retain directional pattern
+>     matching after public ``unify`` becomes symmetric [tested:
+>     test_mapped_repeated_variable_pattern_stays_sound;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

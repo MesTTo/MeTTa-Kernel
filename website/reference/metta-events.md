@@ -53,6 +53,10 @@ Source: `bindings/python/metta/events.py`.
 >   - subscribe, bridge and reaction are each expressible as a fold over this
 >     surface alone, with the same answers as the shipped models [tested
 >     test_subscribe_bridge_and_reaction_are_expressible_over_the_public_event_stream]
+>   - event delivery binds only the watching pattern and never variables stored
+>     in an event atom [tested:
+>     test_dispatch_through_the_index_delivers_the_same_subscribers_in_the_same_order;
+>     commit=WORKTREE]
 > Guarded by:
 >   - _FoldRegistry._lock protects fold state, the active runtime, delivery
 >     counts, and engine subscription snapshots [tested

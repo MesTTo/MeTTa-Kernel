@@ -16,6 +16,10 @@
 %     [tested: every_seam_kind_matches_its_direction,
 %     test_a_doubly_branching_recursion_is_tabled_automatically_and_a_tail_recursion_is_not;
 %     commit=9e7d5dc2cad810940e5386d52636ac6946df279d].
+%   - host repeatability asks one engine-owned effect-classification service
+%     rather than reaching the walk's private queue predicates [tested:
+%     a_host_binding_calls_only_published_surface,
+%     test_the_host_service_scoreboard_matches_the_tree; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -810,6 +814,10 @@ kind(metta_host_load_file/3, host_service).
 kind(metta_host_read_forms/2, host_service).
 kind(metta_host_with_stack_limit/2, host_service).
 kind(metta_host_function_generation/1, host_service).
+%A host may ask for a cardinality hint before opening a cursor. The engine owns
+%whether doing so would repeat an effect, so this one semidet question wraps
+%the shared effect walk and fails closed on unknown goals.
+kind(metta_host_goal_repeatable/2, host_service).
 kind(metta_reducible_head/2, host_service).
 %Proof tools may open only a dispatch route the engine identifies as its
 %shipped direct path. Every policy-sensitive route is executed engine-side and

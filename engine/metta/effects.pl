@@ -1,6 +1,13 @@
 % Purpose: classify compiled effects and manage memoization, dependencies, and bridge cascades
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
-% Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
+% Guarantees:
+%   - every definition retains engine/metta.pl's implementation module and original load order.
+%   - metta_host_goal_repeatable/2 exposes one fail-closed host question over
+%     the shared effect walk without consuming control limits, so bindings
+%     never reconstruct its private queue protocol [tested:
+%     metta_effects:the_host_repeatability_question_fails_closed,
+%     metta_effects:the_host_repeatability_question_preserves_inference_limits;
+%     commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -26,13 +33,23 @@ metta_effect_walk(Module, Roots, Reads) :-
     metta_effect_walk_(Module, Roots, [], [], Raw),
     sort(Raw, Reads).
 
+%One host-neutral question over one already-compiled goal. The internal body
+%classifier discovers direct reads and queues called predicates; the public
+%walk follows that queue. Any unknown goal or classifier failure means the
+%caller must consume its held cursor instead of evaluating a second time.
+metta_host_goal_repeatable(Module, Body) :-
+    catch_recover(
+        ( metta_effect_body(Module, Body, []-[], Roots-_),
+          metta_effect_walk(Module, Roots, _) ),
+        fail).
+
 metta_effect_walk_(_, [], _, Reads, Reads).
 metta_effect_walk_(Module, [PI|Rest], Seen, Reads0, Reads) :-
     memberchk(PI, Seen), !,
     metta_effect_walk_(Module, Rest, Seen, Reads0, Reads).
 metta_effect_walk_(Module, [Name/Arity|Rest], Seen, Reads0, Reads) :-
     functor(Head, Name, Arity),
-    findall(Body, catch(clause(Module:Head, Body), _, fail), Bodies),
+    findall(Body, catch_recover(clause(Module:Head, Body), fail), Bodies),
     foldl(metta_effect_body(Module), Bodies, Rest-Reads0, Next-Reads1),
     metta_effect_walk_(Module, Next, [Name/Arity|Seen], Reads1, Reads).
 

@@ -58,7 +58,7 @@ All comparisons answer Python booleans. **`x.eq(y)` builds the equality term `(=
 
 A symbol and a grounded string are different atoms. Use `S[name]` when a symbol name is not a Python identifier, `V[name]` for a variable, `ground(value)` or `G(value)` to carry a host object, and `Expression(...)` to build an expression from parts. `parse(source)` reads one form without evaluating it.
 
-Atoms expose `.vars`, `.map(transform)`, and `.alpha_eq(other)`; `unify(pattern, atom)` remains the relation between two atoms. A ground atom has no variables, so `not atom.vars` is the groundness test. See [`metta.atoms`](../reference/metta-atoms) for the specialist surface.
+Atoms expose `.vars`, `.map(transform)`, and `.alpha_eq(other)`. `unify(a, b)` is symmetric: variables in either atom bind, and it answers one normalized bindings mapping or `None`. The four-argument overload, `unify(a, b, then, els)`, evaluates MeTTa's conditional in the ambient space; a compiled body lowers the same spelling directly. A ground atom has no variables, so `not atom.vars` is the groundness test. See [`metta.atoms`](../reference/metta-atoms) for the specialist surface.
 
 ## Destructuring with match/case
 
@@ -78,7 +78,7 @@ match atom:
         pass                               # an unbound hole
 ```
 
-The correspondence is direct: `Expression([Symbol("edge"), a, b])` is `(edge $a $b)` with `a` and `b` as the captures, `*rest` is the tail a MeTTa `$xs` would take, and a literal like `Symbol("edge")` plays the ground-symbol role. What `case` does not do is unification: a repeated capture name is a Python error rather than an equality constraint, and nothing binds inside the atom. When you want real unification, ask for it, `unify(pattern, atom)` answers the bindings or `None`; `case` is for shape dispatch in Python code, `query` on a space is for knowledge.
+The correspondence is direct: `Expression([Symbol("edge"), a, b])` is `(edge $a $b)` with `a` and `b` as the captures, `*rest` is the tail a MeTTa `$xs` would take, and a literal like `Symbol("edge")` plays the ground-symbol role. What `case` does not do is unification: a repeated capture name is a Python error rather than an equality constraint, and nothing binds inside the atom. When you want real unification, ask for it, `unify(left, right)` answers the bindings or `None`; `case` is for shape dispatch in Python code, `query` on a space is for knowledge.
 
 ## Sorting atoms
 
