@@ -14,7 +14,24 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- ensure_loaded(metta).
+%The engine loads through SWI's Quick Load Format: engine/qlf_boot.pl
+%purges stale .qlf transitively first (its header carries the staleness
+%story and the read-only fallback), then qcompile(auto) during this one
+%load makes every engine source compile to a .qlf beside itself on the
+%first boot and load from it afterwards. Measured on this box: warm boot
+%0.08s against 0.19s from source, generation 0.24s once; the earlier
+%study measured the same idiom at 2.37x in instructions with
+%byte-identical output over 25 examples, re-checked 2026-08-25 at 5/5
+%byte-identical either way. The flag is scoped to this load and
+%restored, so a user program's own load_files never inherits it. The
+%.qlf files and engine/.qlf-stamp are build artifacts and .gitignored: a
+%committed .qlf whose mtime beats its source would shadow edits
+%silently, the exact hazard lib/lib_import.pl's cascade documents.
+:- ensure_loaded(qlf_boot).
+:- current_prolog_flag(qcompile, OldQcompile),
+   setup_call_cleanup(set_prolog_flag(qcompile, auto),
+                      ensure_loaded(metta),
+                      set_prolog_flag(qcompile, OldQcompile)).
 
 %Tokens the engine reads for itself, which are therefore not the file to run.
 %`backends` asks engine/metta.pl to load every native backend that is built; it is

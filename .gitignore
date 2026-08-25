@@ -34,3 +34,5 @@ ai-tmp-*
 # The Node binding fetches swipl-wasm with npm; it is a build input, not
 # source, and the same shape as any other node_modules in the tree.
 bindings/node/node_modules/
+*.qlf
+engine/.qlf-stamp

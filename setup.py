@@ -178,12 +178,21 @@ class build_py_with_runtime(build_py):
                 # Whatever sits in the working tree is copied verbatim, so an
                 # ignored __pycache__ would ship interpreter-specific bytecode
                 # inside a py3-none-any wheel, including orphans whose source
-                # was deleted.
+                # was deleted. The same class covers a dev tree's build
+                # artifacts: a shipped .qlf whose mtime beats the shipped
+                # source loads INSTEAD of it and ties the install to the
+                # builder's SWI version (engine/qlf_boot.pl regenerates them
+                # per install), and engine/reader.so is one machine's binary
+                # inside a py3-none-any wheel (the engine falls back to the
+                # Prolog grammar when it is absent).
                 shutil.copytree(
                     src,
                     dst,
                     dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns("__pycache__", "*.py[co]"),
+                    ignore=shutil.ignore_patterns(
+                        "__pycache__", "*.py[co]", "*.qlf", ".qlf-stamp",
+                        "*.so", "*.o",
+                    ),
                 )
             else:
                 dst.parent.mkdir(parents=True, exist_ok=True)

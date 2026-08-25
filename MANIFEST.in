@@ -2,6 +2,12 @@ recursive-include engine *
 recursive-include lib *
 recursive-exclude engine __pycache__ *.py[co]
 recursive-exclude lib __pycache__ *.py[co]
+# Build artifacts a dev tree carries: a shipped .qlf silently shadows the
+# shipped source and ties the install to the builder's SWI version
+# (engine/qlf_boot.pl regenerates per install), and a .so is one machine's
+# binary in a py3-none-any package.
+recursive-exclude engine *.qlf .qlf-stamp *.so *.o
+recursive-exclude lib *.qlf *.so *.o
 include bindings/python/helper.pl
 include CHANGELOG.md
 include CITATION.cff

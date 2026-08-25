@@ -8,6 +8,18 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- The engine boots through SWI's Quick Load Format: every engine and lib
+  Prolog source compiles to a `.qlf` beside itself on the first boot and
+  loads from it afterwards, taking a warm CLI boot from 0.19s to 0.07s
+  on the reference box (the study behind it measured 2.37x in
+  instructions with byte-identical output). Freshness is transitive:
+  `engine/qlf_boot.pl` purges the whole `.qlf` set when any engine or
+  lib source is newer or when the set was written by a different SWI
+  version, because SWI's own check covers only a `.qlf`'s immediate
+  source and the engine's unit files are consulted by umbrellas. A
+  read-only tree skips generation and loads source unchanged. The
+  `.qlf` files and version stamp are per-install build artifacts,
+  never shipped.
 - Add package-level `superpose`, ambient `match`, pre-add verdict builders,
   live container `view`, and the `spawn`, `race`, `every`, `channel`, and
   `par_map` coordination family.
