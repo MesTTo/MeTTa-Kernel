@@ -1,8 +1,10 @@
 # Purpose: Defines PeTTa packaging, dependencies, tool policy, and verification contracts.
 # Assumes: Packaging and gate commands run from the repository root with bindings/python importable.
-# Guarantees: Static import contracts keep the narrow core independent of optional satellites.
-# Decides: metta._space is core, while metta._persistent and public satellite modules are outside it.
-# [tested: PYTHONPATH=bindings/python lint-imports --config pyproject.toml; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+# Guarantees: Static import contracts keep the narrow core independent of optional satellites,
+#   while excluding annotations that cannot execute and naming every deferred boundary crossing.
+# Decides: metta._space is core; metta._world, metta._persistent, and public integration modules
+#   are satellites; TYPE_CHECKING-only imports do not form runtime dependencies.
+# [tested: cd bindings/python && PYTHONPATH=$PWD lint-imports; commit=350c0d9dbd3c78a4f779d6331e223e939b94c2c8]
 # Decides: NetworkX and NumPy are test-only infrastructure because the
 # blocking gallery executes them, while the core distribution remains
 # dependency-free of them.
@@ -349,6 +351,9 @@ DEP002 = [
 
 [tool.importlinter]
 root_package = "metta"
+# Import Linter 2.13 treats imports guarded by TYPE_CHECKING as runtime edges
+# unless this root option is enabled; these annotations never execute.
+exclude_type_checking_imports = true
 
 [[tool.importlinter.contracts]]
 name = "atoms is the base layer"
@@ -368,6 +373,15 @@ source_modules = [
     "metta.vocabularies",
 ]
 forbidden_modules = ["metta._space"]
+ignore_imports = [
+    # EventStream.fold reaches Space only when a carrier was supplied, so
+    # importing the event leaf does not load the core facade.
+    "metta.events -> metta._space",
+    # The same carrier branch defers the optional algebra implementation until
+    # fold is called with under=, leaving ordinary event imports independent.
+    "metta.events -> metta.algebra",
+]
+unmatched_ignore_imports_alerting = "error"
 
 [[tool.importlinter.contracts]]
 name = "core does not import satellites"
@@ -419,6 +433,9 @@ source_modules = [
     "metta.vocabularies",
 ]
 forbidden_modules = [
+    # _world is the deferred filesystem/foreign-space implementation reached
+    # only by Space.reify and Space.commit, so it belongs with the satellites.
+    "metta._world",
     "metta._persistent",
     "metta.aio",
     "metta.algebra",
@@ -444,3 +461,15 @@ forbidden_modules = [
 ]
 allow_indirect_imports = false
 as_packages = false
+# Forbidden contracts remove exact ignored edges before checking indirect paths.
+# [source: https://github.com/seddonym/import-linter/blob/f544debbb0efe10092cd387032ea76b94a0acee0/docs/contract_types/forbidden.md;
+#   commit=350c0d9dbd3c78a4f779d6331e223e939b94c2c8]
+ignore_imports = [
+    # Space.reify and Space.commit defer _world until those methods are called,
+    # so importing the core does not load the filesystem/foreign-space helper.
+    "metta._space -> metta._world",
+    # evaluate_answers.stream imports algebra only for annotated answers, so
+    # ordinary evaluation keeps the optional algebra satellite unloaded.
+    "metta._space_execution -> metta.algebra",
+]
+unmatched_ignore_imports_alerting = "error"
