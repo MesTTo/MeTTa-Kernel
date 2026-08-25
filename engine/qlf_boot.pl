@@ -29,11 +29,51 @@
 %     [assumed: exercised only by inspection of the catch sites below and
 %     SWI's own '$qlf_file' fallback; no lane boots a read-only checkout;
 %     commit=a7db7299e025b17618cf22d5fe18ad3e9b2f64b1].
+%   - the engine reads its own sources and writes its own output as UTF-8
+%     whatever the ambient locale says, and a .qlf set compiled under a
+%     different encoding is purged rather than served
+%     [tested: tests/test_engine_text_encoding.sh; commit=WORKTREE].
 % Decides:
 %   - freshness is transitive and coarse, the whole set against the
 %     newest source: a false purge costs one ~0.25s generating boot; a
 %     false keep would run stale engine code under a green-looking gate.
+%   - the engine's text encoding is its own, not the operator's: sources,
+%     the MeTTa corpus and the verdict marks are UTF-8 by construction, so
+%     a C locale gets UTF-8 output it may render as mojibake rather than
+%     an ASCII stream that escapes the marks the corpus greps for.
 :- module(petta_qlf_boot, []).
+
+%The engine's text encoding is UTF-8 by construction, not by locale. Six
+%engine and lib sources carry non-ASCII content (the test verdict marks in
+%metta/runtime.pl among them) and the whole MeTTa corpus is UTF-8, but SWI
+%derives its default file encoding from setlocale(), so a boot with LANG
+%unset reads those bytes as invalid and compiles each one to U+FFFD. The
+%artifact then OUTLIVES the locale: the .qlf set is written with the
+%replaced atoms, its mtime is newer than every source, and every later boot
+%under a correct locale loads the poisoned compile and prints three
+%replacement characters where the check mark belongs [measured 2026-08-26:
+%one `LC_ALL=C swipl -s engine/main.pl` boot on a purged tree, then an
+%ordinary run of examples/measure.metta, which read `. \357\277\275 x3`
+%against the source's intact `. \342\234\205`; sixteen verdict lines and
+%the whole pytest example lane failed on artifacts alone]. Three files
+%already carried their own `:- encoding(utf8).`, which is the same fix
+%applied one file at a time; this is that fix at the boot, where it covers
+%every file including the ones a later commit adds.
+:- set_prolog_flag(encoding, utf8).
+
+%The standard streams take the same pinning, because an ASCII output stream
+%does not fail, it ESCAPES: the same run under LC_ALL=C with a CORRECT .qlf
+%printed the six-character escape backslash-u-2-7-0-5 where test.sh and the
+%pytest example lane grep for the mark itself, so the corpus's own verdict
+%scan reads every passing check as absent. A host that hands the engine a
+%stream it may not reconfigure keeps its own, which is why the failure is
+%absorbed rather than aborting a boot.
+%
+%This file stays pure ASCII on purpose: it is READ before the flag it sets
+%takes effect, so a non-ASCII character here would be the one thing the fix
+%cannot protect.
+:- catch(( set_stream(user_output, encoding(utf8)),
+           set_stream(user_error, encoding(utf8)) ), _, true).
 
 qlf_glob_files(Here, Pattern, Files) :-
     atom_concat(Here, '/../', Root),
@@ -66,10 +106,19 @@ qlf_time_max([], Acc, Acc).
 qlf_time_max([T|Ts], Acc, Max) :-
     ( T > Acc -> qlf_time_max(Ts, T, Max) ; qlf_time_max(Ts, Acc, Max) ).
 
+%The stamp carries the ENCODING beside the version, because the two spoil a
+%.qlf set the same way and neither shows up in an mtime: a set compiled
+%while the flag read something other than utf8 holds replacement characters
+%for every non-ASCII atom, and its files are newer than every source. Both
+%are read back by unification against the live values, so a set written
+%before this field existed carries a one-argument term, fails to unify, and
+%is purged once - which is how a tree already poisoned repairs itself on its
+%next boot rather than needing a hand purge.
 qlf_stamp_ok(StampFile) :-
     current_prolog_flag(version, V),
+    current_prolog_flag(encoding, Enc),
     catch(setup_call_cleanup(open(StampFile, read, In),
-                             read(In, qlf_stamp(V)),
+                             read(In, qlf_stamp(V, Enc)),
                              close(In)),
           _, fail).
 
@@ -89,9 +138,10 @@ qlf_write_stamp(StampFile) :-
     (   qlf_stamp_ok(StampFile)
     ->  true
     ;   current_prolog_flag(version, V),
+        current_prolog_flag(encoding, Enc),
         atom_concat(StampFile, '.tmp', TmpFile),
         catch(( setup_call_cleanup(open(TmpFile, write, Out),
-                                   format(Out, 'qlf_stamp(~w).~n', [V]),
+                                   format(Out, 'qlf_stamp(~w, ~q).~n', [V, Enc]),
                                    close(Out)),
                 rename_file(TmpFile, StampFile) ),
               _, true)

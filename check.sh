@@ -241,6 +241,14 @@ run GATE shell-failure sh -c "cd '$HERE' && sh tests/test_example_runner_surface
 # It is the negative twin of the lane above: that one proves a FAILURE reports
 # its diagnostic, this one proves a failure is DETECTED at all.
 run GATE shell-oracle  sh -c "cd '$HERE' && sh tests/regression/test_example_runner.sh"
+# The third member of that family: the two above ask whether a failure is
+# detected and reported, and this one asks whether a PASS can be destroyed
+# before anyone reads it. One boot under a scrubbed locale compiles the
+# engine's verdict marks to replacement characters, writes them into the
+# .qlf set, and leaves every later boot serving the poison; the example
+# lanes then read sixteen passing checks as absent while every source byte
+# is intact.
+run GATE encoding     sh -c "cd '$HERE' && sh tests/test_engine_text_encoding.sh"
 run GATE examples     check_examples
 
 # The specializer's whole claim, asserted over the whole corpus rather than
