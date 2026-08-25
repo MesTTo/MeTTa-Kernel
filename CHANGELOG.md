@@ -20,6 +20,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   read-only tree skips generation and loads source unchanged. The
   `.qlf` files and version stamp are per-install build artifacts,
   never shipped.
+- Add the library import door: `m += lib.he` performs
+  `!(import! <m> (library lib_he))` with the receiver as the target space.
+  `metta.lib` is the catalog-generated namespace whose attribute map is the
+  `lib_` family prefix with underscores kept; `lib["exact_name"]` reaches a
+  library outside the family or one whose suffix Python cannot say
+  (`lib_import` strips to the keyword `import`), `lib.x.part` builds the
+  two-argument `(library x part)` form, and `lib(path)` is the
+  exact-module-form escape, taking a `pathlib.Path` whole and rendering it
+  at the door. A handle refuses term positions, mixed adds, and batch
+  scopes loudly; a missing library surfaces the engine's own existence
+  error.
 - Add package-level `superpose`, ambient `match`, pre-add verdict builders,
   live container `view`, and the `spawn`, `race`, `every`, `channel`, and
   `par_map` coordination family.
