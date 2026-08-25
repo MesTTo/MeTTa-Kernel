@@ -1,7 +1,7 @@
 <!--
 Purpose: show how Space +=, metta.tables.add, and Rows bridge tabular data in both directions.
 Guarantees: direct dataframe writes consume complete rows, while tables.add supplies a shared relation head.
-[tested: test_the_write_door_reads_each_dataframe_row_as_one_atom; commit=WORKTREE]
+[tested: test_the_write_door_reads_each_dataframe_row_as_one_atom; commit=012413efb73b4dd27c71354c7f654862f349c03f]
 -->
 
 # Dataframes
