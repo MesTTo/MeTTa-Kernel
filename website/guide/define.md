@@ -61,9 +61,17 @@ data and then `yield from` that value.
 
 ## Rules as ordinary atoms
 
-`@rules` gives each generator parameter a rule-local MeTTa variable. Calls to
-defined objects stage only while the generator is collected, so the result is
-a list of ordinary equation atoms you can inspect, match, and add:
+`@rules` gives each generator parameter a rule-local MeTTa variable, and
+calls inside the generator follow the staging split. A call whose arguments
+carry a rule variable stages, so the law holds the call term (`double(value)`
+yields `(double $value)`); a defined call with ground arguments runs at
+construction and embeds its single result (`fib(10)` embeds `55`, constant
+folding by construction; a ground call answering several results keeps its
+call term, preserving multiplicity). A registered operation follows the same
+split: a ground op call runs now, firing its effect exactly once, while an op
+call carrying a rule variable stages the op-call term, so the law crosses the
+host per application and no host code runs on a variable. The result is a
+list of ordinary equation atoms you can inspect, match, and add:
 
 ```python
 @rules

@@ -885,6 +885,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Rules bodies follow the full staging split: a defined call with ground
+  arguments now runs at construction and embeds its single result
+  (`fib(10)` embeds `55`; a many-answer ground call keeps its call term,
+  preserving multiplicity), and a registered operation called with a rule
+  variable stages the op-call term instead of running the host body on a
+  Variable atom - before this, the host effect fired at construction with
+  the variable in hand and the law inlined whatever the body happened to
+  build, so future edits to the operation never reached the law. A ground
+  op call still runs once at construction, which is the effect-visibility
+  rule beside it. `examples/integration/door_combinations.metta` and its
+  twin walk the whole nesting matrix cell by cell.
 - Python objects now retain identity across atom construction, space storage,
   registered-operation arguments and results, and engine answers. Only exact
   `bool`, `int`, `float`, and `str` values take native by-value wire terms;
