@@ -8,6 +8,11 @@ Run the self-checking corpus with:
 
     sh test.sh
 
+The Python-first executable gallery lives in
+`bindings/python/examples/gallery/`. Its six programs carry checked per-claim
+translation and output comments and run in the blocking `gallery` lane. They
+add no `examples/*.metta` files, so the MeTTa corpus count below is unchanged.
+
 `test.sh` discovers examples recursively. It excludes `_fixtures` and the six
 interactive, network-backed, or optional-dependency examples named in the
 runner. The merged corpus contains 226 examples that run in the shell suite.

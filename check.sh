@@ -20,7 +20,7 @@
 #                                            policy-inventory-selftest
 #                                            refusal-grounds
 #                                            refusal-grounds-selftest snippets
-#                                            pytest benchmarks instructions
+#                                            pytest gallery benchmarks instructions
 #                                            memory-scale memory-scale-gate
 #                                            shell examples leatta layering
 #          CHECK_PY=/path/to/python   pick the interpreter
@@ -38,6 +38,12 @@
 #     [tested: env CHECK_PY=../../.venv-pypetta/bin/python
 #     GATE_ONLY=1 sh check.sh memory-scale-gate;
 #     commit=d843bb6d17a525c36afd21cab077d63b34447535].
+#   - executable comments, bilingual doctests, and all six gallery programs
+#     run together as a blocking lane [tested: test_every_gallery_program_runs,
+#     test_translation_drift_is_rejected,
+#     test_shown_output_drift_is_rejected,
+#     test_answer_multisets_ignore_order_and_alpha_names_but_keep_multiplicity;
+#     commit=8bfe05c3850776543ece25a85038242f10b1d841].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -177,6 +183,7 @@ swipl -g halt -s "$HERE/engine/main.pl" -- backends >/dev/null 2>&1 || true
 # expansion [tested: test_the_pytest_lane_is_deterministic_under_load_protocol;
 # commit=dcfc20be4933c19140ccb5759291401d13058301].
 run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark -n 4 --dist loadfile --max-worker-restart=0"
+run GATE gallery      sh -c "cd '$PYDIR' && '$PY' -m pytest tests/test_executable_docs.py tests/test_gallery.py tests/test_twin_coverage.py::test_answer_multisets_ignore_order_and_alpha_names_but_keep_multiplicity -q --rootdir=. -c pyproject.toml"
 run GATE benchmarks   in_py "$PY" bench.py --counter-only --keep-going
 run GATE instructions in_py "$PY" -m benchmarks.check_instructions
 

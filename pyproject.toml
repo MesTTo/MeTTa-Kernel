@@ -3,6 +3,12 @@
 # Guarantees: Static import contracts keep the narrow core independent of optional satellites.
 # Decides: metta._space is core, while metta._persistent and public satellite modules are outside it.
 # [tested: PYTHONPATH=bindings/python lint-imports --config pyproject.toml; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+# Decides: NetworkX and NumPy are test-only infrastructure because the
+# blocking gallery executes them, while the core distribution remains
+# dependency-free of them.
+# [tested: test_optional_integrations_have_installable_extras,
+# test_minimal_version_matrix_installs_blocking_gallery_dependency;
+# commit=8bfe05c3850776543ece25a85038242f10b1d841]
 
 [build-system]
 requires = ["setuptools>=83"]
@@ -60,6 +66,8 @@ dataframes = [
 ]
 test = [
     "hypothesis>=6.165",
+    "networkx>=3.6,<4",
+    "numpy",
     "pytest>=8.4.2",
     "pytest-benchmark>=5.2",
     "pytest-xdist>=3.8,<4",
@@ -72,6 +80,8 @@ checks = [
     "import-linter>=2.13",
     "interrogate>=1.7",
     "mypy>=1.18",
+    "networkx>=3.6,<4",
+    "numpy",
     "perflint>=0.8",
     "pip-audit>=2.9",
     "pylint>=3.3,<4",

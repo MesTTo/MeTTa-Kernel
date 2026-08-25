@@ -116,9 +116,9 @@ jobs:
                       deptry interrogate codespell imports || true
 
   # The declared Python floor, tested rather than asserted.
-  # Minimal environments on purpose: no optional integration package is
-  # installed, because the suite must skip those cleanly rather than need
-  # them. Add a version here and it is covered from then on.
+  # Minimal environments on purpose: NetworkX and NumPy are the integration
+  # packages required because the blocking gallery executes them.
+  # Other optional integrations must still skip cleanly when absent.
   versions:
     runs-on: ubuntu-latest
     container:
@@ -140,7 +140,7 @@ jobs:
         run: |
           uv venv --python ${{ matrix.python }} /tmp/v
           uv pip install --python /tmp/v/bin/python --no-binary janus_swi \
-                         janus_swi pytest hypothesis
+                         janus_swi pytest hypothesis 'networkx>=3.6,<4' numpy
 
       - name: Suite on ${{ matrix.python }}
         env:

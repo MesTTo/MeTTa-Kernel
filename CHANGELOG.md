@@ -25,6 +25,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   Every `CompileError` derives a ground from its refused construct, and the
   `refusal-grounds` gate plus its planted selftest keeps compiler, Python
   data-model, and segment-fragment fences grounded.
+- Executable documentation now binds each gallery claim to adjacent `# ->`
+  emitted-MeTTa and `# =>` shown-output comments by Python token span. The
+  blocking `gallery` lane executes the named term, compares output as an
+  alpha-equivalent multiset, and proves both checks reject planted drift.
+  Emitted `@example` atoms now run through both their owning MeTTa definition
+  and Python twin under the same multiplicity-preserving comparison. Six
+  deterministic gallery programs cover multidirectional family relations
+  under all five carriers, a validated journaled observed store, Linda
+  coordination, immutable git-like worlds, symbolic tensor lowering to GEMM,
+  and NetworkX expressed through the space and operation seams.
+  NetworkX and NumPy are now part of the `test` and `checks` extras because the
+  ecosystem and one-BLAS-GEMM programs are blocking rather than optional
+  examples. The refreshed lockfile also drops the already-retired `orjson`
+  extra and pre-3.12 resolution branches.
 
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,
@@ -1031,6 +1045,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- Reconciled the phrasebook contract header so its algebra, immutable-world,
+  and strategy evidence survives together instead of shipping merge markers.
 
 - Reclaimed named MORK spaces on clear/drop and replaced the bridge's fixed
   4 GiB parser/query scratch reservations with demand-grown buffers. Joins
