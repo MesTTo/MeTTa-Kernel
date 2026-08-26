@@ -586,6 +586,55 @@ get_native_atom(Module, Space, Pattern) :-
     Head =.. [Space | Pattern],
     call(Module:Head),
     acyclic_term(Pattern).
+%A PARTIAL list with a bound head keeps the head's index too: the arity is
+%open, so one storage head cannot be built, but the held arities are a small
+%enumerable set and within each the first argument dispatches exactly as
+%above. Without this pair an open-tail probe fell to the clause/2 walk below
+%and read every stored atom: lib_tabling's `'get-atoms'('&petta', [tabled|_])`
+%existence check, run per compiled equation, cost the whole catalog per event,
+%23.7 inferences per held row over one tabling_fib load, linear from 74,268
+%inferences at +0 planted rows through 78,777 at +200 to 97,977 at +1,000
+%[measured: the three totals left; command=python - with MeTTa().space then
+%m.stats() around m.run(examples/libraries/tabling_fib.metta) after N
+%`!(add-atom &petta (visibility dummy-N PUBLIC))` writes, fresh process per
+%N; fixture=p14-integration with engine/reader.so; commit=WORKTREE]. A bound
+%head that is itself compound shares one principal functor across such rows
+%and degrades toward the walk only for that shape. The head decomposes into
+%FRESH arguments before unifying with the pattern, because =.. on the pattern
+%itself raised a raw type error for an improper tail such as [a|b] whenever
+%any clause reached it, a store-content-dependent accident the walk below
+%still carries for unbound heads; through this pair an improper tail is a
+%deterministic miss [tested: an_open_tail_probe_reads_through_the_head_index].
+get_native_atom(Module, [Family|Parameters], Pattern) :-
+    nonvar(Pattern),
+    Pattern = [Rel|_],
+    nonvar(Rel),
+    \+ is_list(Pattern),
+    Space = [Family|Parameters],
+    space_parametric(Space),
+    !,
+    current_predicate(Module:'$petta_parametric_atom'/Arity),
+    Arity >= 1,
+    functor(Head, '$petta_parametric_atom', Arity),
+    arg(1, Head, Rel),
+    call(Module:Head),
+    Head =.. [_|Args],
+    Args = Pattern,
+    acyclic_term(Pattern).
+get_native_atom(Module, Space, Pattern) :-
+    nonvar(Pattern),
+    Pattern = [Rel|_],
+    nonvar(Rel),
+    \+ is_list(Pattern),
+    !,
+    current_predicate(Module:Space/Arity),
+    Arity >= 1,
+    functor(Head, Space, Arity),
+    arg(1, Head, Rel),
+    call(Module:Head),
+    Head =.. [_|Args],
+    Args = Pattern,
+    acyclic_term(Pattern).
 get_native_atom(Module, [Family|Parameters], Pattern) :-
     \+ atomic(Pattern),
     Space = [Family|Parameters],

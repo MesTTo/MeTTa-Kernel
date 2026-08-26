@@ -1135,6 +1135,18 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- An open-tail, bound-head `get-atoms` pattern, the shape of the tabling
+  library's `(tabled ...)` existence probe, now reads through the store's
+  first-argument index per held arity instead of walking every stored atom,
+  and an improper tail concludes a deterministic miss instead of a
+  store-content-dependent `=../2` type error. The walk had made every
+  definition-change hook pay the whole `&petta` catalog: 23.7 inferences per
+  catalog row over one tabling_fib load, linear with planted rows (74,268
+  inferences at +0 rows, 78,777 at +200, 97,977 at +1,000) where the indexed
+  read is flat (61,945 / 61,639 / 61,639). The tabling_fib example dropped
+  16.7% from 73,800 to 61,464 inferences and its twin from 99,336 to 86,995;
+  every program that compiles definitions recovers its own share.
+
 - Generic definitions compile again: `def mid[T](x: T) -> T` places `T` in
   the PEP 695 type-parameter scope, which the annotation namespace now
   includes, and the eager Space-parameter probe treats an annotation it

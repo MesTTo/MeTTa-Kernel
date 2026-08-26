@@ -11,6 +11,12 @@
 %     layers, and declaration failures leave no partial relation [tested:
 %     spaces_inheritance;
 %     commit=755330de329ece49eddcfb7d6db3061c3350a0ca].
+%   - an open-tail bound-head 'get-atoms' probe reads through the store's
+%     first-argument index, answers the enumerate-and-filter bag, and costs
+%     the same on a hundredfold larger space, with an improper tail a
+%     deterministic miss [tested:
+%     spaces_cycles:an_open_tail_probe_reads_through_the_head_index;
+%     commit=WORKTREE].
 %   - restricted spaces select curated grant profiles and raw calls pass the
 %     sandbox boundary [tested: spaces_restricted_modules;
 %     commit=6a08901f4125c2536f5b4032daac9937f793870f].
@@ -150,6 +156,46 @@ test(a_selective_match_costs_the_same_on_a_hundredfold_larger_space,
     findall(R, match(Large, [fact, 10000], 10000, R), [10000]),
     missing_match_cost(Small, SmallCost),
     missing_match_cost(Large, LargeCost),
+    LargeCost == SmallCost.
+
+%The open-tail twin of the probe above: a bound head whose ARITY is unknown,
+%the shape lib_tabling's `'get-atoms'('&petta', [tabled|_])` declaration
+%check asks per compiled equation. The proper-list clause cannot serve it,
+%and until 2026-08-26 it fell to the clause/2 walk and cost every stored
+%atom per probe: 23.7 inferences per &petta catalog row over one tabling_fib
+%load, which the visibility catalog's rows turned into +6,783 inferences on
+%that example [source: engine/spaces/native_matching.pl, the open-tail
+%clause pair above the enumerating walk; commit=WORKTREE].
+open_tail_miss_cost(Space, Inferences) :-
+    forall(between(1, 200, _), \+ 'get-atoms'(Space, [missing_head|_])),
+    findall(Sample,
+            ( between(1, 3, _),
+              open_tail_miss_sample(Space, Sample) ),
+            Samples),
+    min_list(Samples, Inferences).
+
+open_tail_miss_sample(Space, Inferences) :-
+    garbage_collect,
+    statistics(inferences, I0),
+    forall(between(1, 500, _), \+ 'get-atoms'(Space, [missing_head|_])),
+    statistics(inferences, I1),
+    Inferences is I1 - I0.
+
+test(an_open_tail_probe_reads_through_the_head_index,
+     [ setup(forall(scale_size(Count), fill_scale_space(Count))),
+       cleanup(drop_scale_spaces) ]) :-
+    scale_space(100, Small),
+    scale_space(10000, Large),
+    %The read stays a read: the open-tail bag equals enumerate-and-filter.
+    findall(Atom, 'get-atoms'(Small, Atom), Everything),
+    findall([fact|Tail], 'get-atoms'(Small, [fact|Tail]), Reached),
+    msort(Everything, Sorted),
+    msort(Reached, Sorted),
+    length(Reached, 100),
+    %An improper tail is a deterministic miss, not a raw =../2 error.
+    \+ 'get-atoms'(Small, [fact|improper]),
+    open_tail_miss_cost(Small, SmallCost),
+    open_tail_miss_cost(Large, LargeCost),
     LargeCost == SmallCost.
 
 :- end_tests(spaces_cycles).
