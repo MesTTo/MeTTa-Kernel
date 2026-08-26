@@ -2465,6 +2465,46 @@ possible one. A handler reads `current_metta_module/1` to learn which module
 the call site is in, because a named space compiles its equations into a module
 of its own and a function name alone does not identify a function.
 
+### Tabling is the deep-control proof
+
+`lib/lib_tabling.pl` changes predicate execution, owns state below the
+evaluator, observes space writes, invalidates that state when equations change,
+and publishes control-plane rows. It does all of that as a library through the
+declared surfaces above. No tabling case is built into the evaluator.
+
+The ownership half uses the same mechanism as `lib_memo`. A declaration asks
+which module owns the predicate visible from the current call-site module,
+following SWI's `imported_from/1` when the function is inherited. It then
+installs one ground-headed `seam:dispatch_call/4` handler for the enabled name.
+The handler repeats that late-bound ownership question and returns the exact
+qualified predicate that was tabled. The declaration and execution paths
+therefore cannot drift into two module-name conventions.
+
+The table itself is `shared`. A Python `Answers` view holds a lazy cursor whose
+query runs in its own SWI engine, while a source run and a later statistics
+query may run in another. SWI's `table/1` `shared` option gives those engines
+one answer trie; `incremental` remains beside it for tables that read native
+spaces. A first live Python call consequently leaves one table, one answer and
+one completed call for the next door to observe, and a repeated call reuses
+that completed table.
+
+The remaining integration is ordinary declared traffic. `function_changed/1`
+and `function_removed/1` clear derived tables. `atom_removed/2` retires the
+indexed dispatch handler when its `(tabled ...)` row leaves `&petta`, including
+space-pool cleanup. The `(tabled space name arity)` and `(defined space name)`
+heads have catalog kinds, so malformed rows are rejected by the generic
+catalog validator. Every actual reflection add or remove must return the
+language's exact unit answer; failure is a named tabling error and a new table
+is rolled back with it.
+
+`tests/prolog/layering.pl` walks the exact `lib/lib_tabling.pl` source file as
+a contract node. Its four `reaches(lib_tabling, ...)` rows name the declared
+seam, context and effect services, space and storage services, ordinary atom
+doors, and the published writer. Adding a reach to another engine subsystem
+fails `layering.plt`. This is the executable boundary behind the extension
+claim: a third party can reproduce tabling-grade control with the published
+seams and SWI's public tabling API, without changing an engine file.
+
 **`seam:function_changed/1` and `seam:function_removed/1`** are how any
 library keeps derived state coherent when equations change. The specializer,
 the memo cache, tabling and the dual predicates all hang off them.

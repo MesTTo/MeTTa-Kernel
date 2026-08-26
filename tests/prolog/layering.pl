@@ -1,13 +1,15 @@
 % Purpose: hold the engine's layering contract and gate it, the way
-%     import-linter holds and gates the Python package's.
+%     import-linter holds and gates the Python package's. The exact
+%     lib/lib_tabling.pl source file is included as the deep-library proof:
+%     every engine subsystem it reaches must remain named here too.
 % Assumes:
 %     - the caller has consulted engine/metta.pl, because the walk reads the
 %       DATABASE rather than the sources
 %     - the working directory is tests/prolog
 % Guarantees:
-%     - every call from one engine subsystem into another is named in the
-%       contract below, or the lane exits nonzero naming caller, callee and
-%       the missing contract line
+%     - every call from one engine subsystem into another, and every call from
+%       lib_tabling into an engine subsystem, is named in the contract below,
+%       or the lane exits nonzero naming caller, callee and the missing line
 %     - a contract line no call needs any more is reported, so the allow-list
 %       cannot silently widen the surface as the engine changes
 %     - a cross-subsystem call into a subsystem that declares a module reaches
@@ -24,9 +26,9 @@
 %       is the residue this shares with every other static walk in the tree.
 % Decides:
 %     - a SUBSYSTEM is one engine/*.pl umbrella. A plain file below
-%       engine/<owner>/ belongs to engine/<owner>.pl. That is the unit the row names
-%       ("parser, translator, specializer, spaces, tracer, duals ... share one
-%       namespace") and the unit a module declaration can carry.
+%       engine/<owner>/ belongs to engine/<owner>.pl. The one reviewed library
+%       node is lib_tabling, attributed only from lib/lib_tabling.pl rather
+%       than widening the gate to every unrelated library.
 %     - the contract is an ALLOW-LIST, not a layer order, because the measured
 %       graph is one large cycle and a layer order over it would be a fiction.
 %       import-linter has both shapes; this is its `forbidden` contract with
@@ -71,6 +73,8 @@
 
 engine_directory(Directory) :- tree_directory('../../engine', Directory).
 
+tabling_source_file(File) :- absolute_file_name('../../lib/lib_tabling.pl', File).
+
 engine_subsystem_file(Base) :-
     source_file(File),
     engine_source_subsystem(File, Base).
@@ -85,6 +89,9 @@ engine_source_subsystem(File, Base) :-
     atomic_list_concat(Parts, '/', Relative),
     engine_relative_subsystem(Parts, Base).
 
+contract_source_subsystem(File, Base) :- engine_source_subsystem(File, Base).
+contract_source_subsystem(File, 'lib_tabling.pl') :- tabling_source_file(File).
+
 engine_relative_subsystem([Base], Base).
 engine_relative_subsystem([Owner, _|_], Base) :-
     file_name_extension(Owner, pl, Base).
@@ -92,18 +99,35 @@ engine_relative_subsystem([Owner, _|_], Base) :-
 subsystem_name(Base, Name) :- file_name_extension(Name, pl, Base).
 
 measure_layer_edges :-
+    ensure_loaded('../../lib/lib_tabling.pl'),
     retractall(layer_edge(_, _, _, _, _)),
-    extension_clauses(['../../engine'], References),
+    extension_clauses(['../../engine'], EngineReferences),
+    tabling_clause_references(TablingReferences),
+    append(EngineReferences, TablingReferences, RawReferences),
+    sort(RawReferences, References),
     walk_clause_edges(References, record_layer_edge),
     measure_write_edges.
 
-record_layer_edge(Callee, Caller, _Location) :-
-    catch(layer_edge_parts(Callee, Caller), _, fail), !.
+%surface_walk's directory collector deliberately accepts whole trees. This
+%proof asks for one exact third-party-shaped library, so select its clauses by
+%their recorded source file and retain the multifile file check the shared
+%collector uses.
+tabling_clause_references(References) :-
+    tabling_source_file(File),
+    findall(Reference,
+            ( source_file(Module:Head, File),
+              Module \== system,
+              catch(nth_clause(Module:Head, _, Reference), _, fail),
+              clause_property(Reference, file(File)) ),
+            References).
+
+record_layer_edge(Callee, Caller, Location) :-
+    catch(layer_edge_parts(Callee, Caller, Location), _, fail), !.
 record_layer_edge(_, _, _).
 
-layer_edge_parts(Callee, Caller) :-
-    engine_goal(Callee, CalleeFile, CalleeModule, CalleePI),
-    engine_goal(Caller, CallerFile, _, CallerPI),
+layer_edge_parts(Callee, Caller, Location) :-
+    caller_goal(Caller, Location, CallerFile, CallerPI),
+    callee_goal(Callee, CallerFile, CalleeFile, CalleeModule, CalleePI),
     CallerFile \== CalleeFile,
     (   layer_edge(CallerFile, CallerPI, CalleeFile, CalleeModule, CalleePI)
     ->  true
@@ -111,16 +135,53 @@ layer_edge_parts(Callee, Caller) :-
                            CalleePI))
     ).
 
+%A multifile head's predicate_property(file/1) names one contributing file,
+%not necessarily the clause being walked. The code walker supplies that
+%clause's exact source location, so caller ownership comes from it; otherwise
+%a callback implemented by lib_tabling is falsely attributed to ext_points
+%and its real library-to-engine reach disappears.
+caller_goal(Caller, Location, Base, PI) :-
+    get_dict(file, Location, File),
+    tabling_source_file(File),
+    Base = 'lib_tabling.pl',
+    caller_indicator(Caller, PI),
+    !.
+caller_goal(Caller, _, Base, PI) :- engine_goal(Caller, Base, _, PI).
+
+%For the reviewed library, a declared seam is owned by ext_points even when
+%predicate_property(file/1) happens to name one handler clause. Conversely,
+%loading the library must not make an engine call to atom_removed/2 look like
+%a new engine-to-library dependency merely because that is now its first
+%contributing clause.
+callee_goal(seam:Goal, 'lib_tabling.pl', 'ext_points.pl', seam, Name/Arity) :-
+    callable(Goal),
+    functor(Goal, Name, Arity),
+    seam:kind(Name/Arity, _),
+    !.
+callee_goal(Callee, CallerFile, Base, Definer, PI) :-
+    engine_goal(Callee, FoundBase, FoundDefiner, PI),
+    (   FoundBase == 'lib_tabling.pl',
+        CallerFile \== 'lib_tabling.pl',
+        Callee = seam:Goal,
+        callable(Goal),
+        seam:kind(PI, _)
+    ->  Base = 'ext_points.pl',
+        Definer = seam
+    ;   Base = FoundBase,
+        Definer = FoundDefiner
+    ).
+
 % implementation_module/1 first, so an imported name is attributed to the
-% module that defines it; file/1 then names the subsystem. A goal no engine
-% file defines is not an edge this contract is about and simply fails here.
+% module that defines it; file/1 then names the subsystem. A goal neither an
+% engine file nor the reviewed library defines is not an edge this contract is
+% about and simply fails here.
 engine_goal(Module:Goal, Base, Definer, Name/Arity) :-
     callable(Goal),
     functor(Goal, Name, Arity),
     functor(Probe, Name, Arity),
     predicate_property(Module:Probe, implementation_module(Definer)),
     predicate_property(Definer:Probe, file(File)),
-    engine_source_subsystem(File, Base).
+    contract_source_subsystem(File, Base).
 
 %%%% Measuring the database writes %%%%
 %
@@ -243,6 +304,10 @@ reaches(filereader, support_graph, 'a load records what its assertions support s
 reaches(filereader, translator, 'a load compiles the forms it read').
 reaches(kernel, metta, 'the kernel builtins are typed and refuse through the core\'s own vocabulary').
 reaches(kernel, spaces, 'the kernel builtins ask spaces about their atoms').
+reaches(lib_tabling, ext_points, 'declared ownership and event seams route tabled calls and retire their registrations').
+reaches(lib_tabling, metta, 'declared context, effect-walk and cache-policy services decide the executable owner and admissible table').
+reaches(lib_tabling, parser, 'the published writer renders a rejected reflection row in the language\'s syntax').
+reaches(lib_tabling, spaces, 'declared space, storage and module services resolve table dependencies; the ordinary atom doors store reflection rows').
 reaches(metta, ext_points, 'installs the atom-write wrappers when a handler exists').
 reaches(metta, filereader, 'import! and the file builtins are the loader\'s surface').
 reaches(metta, parser, 'sread, swrite and sdisplay are the core\'s text builtins').

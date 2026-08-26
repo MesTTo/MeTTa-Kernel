@@ -1158,6 +1158,23 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The tabling library rides the declared extension seams only, and its
+  tables are visible wherever the answers are: a `(tabled ...)` declaration
+  now tables `as shared` (checked native-space readers
+  `as (incremental, shared)`), so a live Python `Answers` cursor, the
+  source runner, and a later `(table-stats ...)` call all enter one answer
+  trie instead of a cursor-engine-private one that read as zeros. Calls
+  route through the same `dispatch_call` ownership seam the memo library
+  uses, reflection writes are checked and refuse loudly as
+  `petta_tabling_reflection_write_failed` with a rollback of the
+  just-installed table, and the library's exact engine reaches are pinned
+  in the layering contract. The statistics example counts two completed
+  calls after one completion and one invalidation re-evaluation, where the
+  old three included the extra private-engine path; the shared scope is
+  what SWI charges for cross-engine visibility, priced on the tabling
+  twins' budgets. EXTENDING.md walks the library as the proof that a
+  tabling-grade extension needs no engine changes.
+
 - The writable-specialization merge had resolved `benchmarks/baseline.json`
   to its branch's stale copy, reverting the typed-shadowing re-pins on
   twelve inference and three instruction rows and dropping their mechanism
