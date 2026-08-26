@@ -1,4 +1,6 @@
 #!/bin/sh
+# Purpose: Exercise specialization caching, name encoding, and generated-clause
+# contracts through the executable MeTTa and PlUnit regression fixtures.
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
@@ -46,15 +48,9 @@ timeout 15s sh "$ROOT/run.sh" "$ROOT/tests/regression/repro4_variant_normalizati
 status=$?
 set -e
 [ "$status" -eq 2 ] || { echo "repro4 expected current arithmetic instantiation error status 2, got $status"; cat "$log"; exit 1; }
-# The lambda's index is whatever boot-time compiles left (the engine
-# prelude's own foldl lambda advances the sequence), so both checks match
-# any index; the subject is the normalized `[_]` in the key.
-if grep -Eq 'app_Spec_\[partial\(lambda_[0-9]+,\[_[0-9]+\]\)\]' "$log"; then
-    echo "repro4 specialization key still contains fresh variable id"
-    cat "$log"
-    exit 1
-fi
-grep -Eq 'app_Spec_\[partial\(lambda_[0-9]+,\[_\]\)\]' "$log" || { echo "repro4 missing normalized specialization key"; cat "$log"; exit 1; }
+# The full identity is now encoded in a writable alphabet. PlUnit checks that
+# anonymous variables and collision-prone delimiter spellings remain stable.
+grep -Eq 'app_Spec_k[0-9a-fz]+' "$log" || { echo "repro4 missing encoded specialization key"; cat "$log"; exit 1; }
 
 # Generated-clause properties are checked in PlUnit, including per-clause
 # binding, absence of reduce/2, and recursive folding to the specialized name.

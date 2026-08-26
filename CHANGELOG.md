@@ -8,6 +8,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Specializations now mint collision-free names from MeTTa-writable text and
+  retain source-form equations for saving and digesting. Structured partial
+  applications no longer leak Prolog syntax into stored symbols, and saved
+  specialized programs reload with the same digest and behavior.
+- The twins report now compares each example and Python twin with
+  `Space.digest()` in separate processes. Digest refusals and absent results
+  are findings rather than silently falling back to equation walks; unequal
+  hashes carry a multiplicity-preserving canonical equation differential.
+  The seven historically divergent tutorial pairs now state the equations
+  they actually store or explicitly record that their content is identical.
 - `PersistentFactSpace(..., rename={"old": "new"})` now materializes a
   one-open journal migration before replay. Every named old head must occur,
   the rewritten journal is atomically installed and validated, and later

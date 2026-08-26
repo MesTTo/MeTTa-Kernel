@@ -19,6 +19,13 @@
 %     forward walk [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - Every specialization name is one writable MeTTa symbol; existing safe
+%     display names stay unchanged and unsafe structured keys receive a
+%     reversible canonical encoding. Internal partial/2 closures are retained
+%     as their MeTTa application syntax in the reflected equation, so the
+%     generated atom itself crosses the same text boundary [tested:
+%     specializer:specialization_names_are_writable_and_stable,
+%     test_a_specialized_program_saves_and_digests; commit=WORKTREE].
 % Guarded by: '$petta_specializer' serializes the existence check and the
 %   transaction that publishes a specialization.
 % Open Obligations:
@@ -87,7 +94,7 @@ maybe_specialize_call(HV, AVs, Out, Goal) :-
     length(AVs, N),
     Arity is N + 1,
     \+ ho_specialization_failed(HV, Arity, CleanBindSet),
-    format(atom(SpecName), "~w_Spec_~w", [HV, CleanBindSet]),
+    specialization_name(HV, CleanBindSet, SpecName),
     ( nb_current('$petta_spec_stack', Stack) -> true ; Stack = [] ),
     ( active_specialization(HV, Stack, ActiveKey, ActiveSpecName)
       -> CleanBindSet =@= ActiveKey,
@@ -118,6 +125,113 @@ restore_nb_state(Name, present(Value)) :- !, nb_setval(Name, Value).
 restore_nb_state(Name, absent) :-
     ( nb_current(Name, _) -> nb_delete(Name) ; true ).
 
+% Keep the established readable name for the injective singleton-atom case.
+% The delimiter cannot occur in HV and the closing bracket cannot occur in
+% Key, so two different pairs cannot produce the same display. A safe HV uses
+% `_Spec_k` plus its encoded key; a hostile HV uses the disjoint `petta_Spec_h`
+% prefix plus the encoded complete identity. The token-safe alphabet
+% `[0-9a-fz]` uses `z` between variable-width hexadecimal code points, making
+% the encoding reversible instead of relying on a collision-prone digest.
+% SWI's own tests establish that write_canonical/1 numbers variables and
+% quotes operator-sensitive and non-ASCII atoms independently of the active
+% operator table [source:
+% https://github.com/SWI-Prolog/swipl-devel/blob/f49d28558b5f1ade8348f254b5583117e773b2bb/tests/core/test_write.pl#L94-L131;
+% commit=WORKTREE].
+specialization_name(HV, CleanBindSet, SpecName) :-
+    (   legacy_specialization_name(HV, CleanBindSet, DisplayName)
+    ->  SpecName = DisplayName
+    ;   encoded_specialization_name(HV, CleanBindSet, SpecName),
+        (   metta_symbol_writable(SpecName)
+        ->  true
+        ;   throw(error(
+                representation_error(specialization_name),
+                context(specializer:specialization_name/3, SpecName)))
+        )
+    ).
+
+legacy_specialization_name(HV, [Key], DisplayName) :-
+    atom(HV),
+    atom(Key),
+    \+ sub_atom(HV, _, _, _, '_Spec_['),
+    \+ sub_atom(Key, _, _, _, ']'),
+    format(atom(DisplayName), "~w_Spec_[~w]", [HV, Key]),
+    metta_symbol_writable(DisplayName).
+
+encoded_specialization_name(HV, CleanBindSet, SpecName) :-
+    atom(HV),
+    metta_symbol_writable(HV),
+    \+ sub_atom(HV, _, _, _, '_Spec_k'), !,
+    encoded_term(CleanBindSet, EncodedKey),
+    atom_concat(HV, '_Spec_k', Prefix),
+    atom_concat(Prefix, EncodedKey, SpecName).
+encoded_specialization_name(HV, CleanBindSet, SpecName) :-
+    encoded_term(specialization(HV, CleanBindSet), EncodedIdentity),
+    atom_concat('petta_Spec_h', EncodedIdentity, SpecName).
+
+encoded_term(Term, Encoded) :-
+    copy_term(Term, CanonicalTerm),
+    numbervars(CanonicalTerm, 0, _, [singletons(true)]),
+    with_output_to(atom(Canonical), write_canonical(CanonicalTerm)),
+    atom_codes(Canonical, Codes),
+    maplist(hex_code, Codes, HexCodes),
+    atomic_list_concat(HexCodes, z, Encoded).
+
+hex_code(Code, Hex) :-
+    format(atom(Hex), '~16r', [Code]).
+
+% partial/2 is the evaluator's compiled closure, not a MeTTa grounded value.
+% The source form that constructs it is the incomplete application itself:
+% partial(+,[1]) comes from and must be reflected as `(+ 1)` in a body. A
+% specialized head does not need to re-state the binding already encoded in
+% its private name, and a written `(+ 1)` in head position is structural data,
+% not a closure. Restore those bound head positions as fresh variables so a
+% saved specialization compiles back to a clause its real callers can enter.
+specialization_storage_input(
+        SpecName,
+        storage_meta(SourceArgs, SourceBody, SourceVariables,
+                     StoredVariables),
+        [=, [SpecName|StoredArgs], StoredBody]) :-
+    specialization_storage_head(SourceArgs, SourceVariables,
+                                StoredVariables, StoredArgs),
+    bind_specialization_storage_variables(SourceVariables, StoredVariables),
+    specialization_storage_term(SourceBody, StoredBody).
+
+specialization_storage_head(Variable, SourceVariables, StoredVariables,
+                            Stored) :-
+    var(Variable), !,
+    (   storage_variable_source(Variable, SourceVariables,
+                                StoredVariables, Source),
+        nonvar(Source)
+    ->  true
+    ;   Stored = Variable
+    ).
+specialization_storage_head([Head|Tail], SourceVariables, StoredVariables,
+                            [StoredHead|StoredTail]) :- !,
+    specialization_storage_head(Head, SourceVariables, StoredVariables,
+                                StoredHead),
+    specialization_storage_head(Tail, SourceVariables, StoredVariables,
+                                StoredTail).
+specialization_storage_head(Term, _, _, Term).
+
+storage_variable_source(Variable, [Source|_], [Stored|_], Source) :-
+    Variable == Stored, !.
+storage_variable_source(Variable, [_|Sources], [_|StoredVariables], Source) :-
+    storage_variable_source(Variable, Sources, StoredVariables, Source).
+
+bind_specialization_storage_variables([], []).
+bind_specialization_storage_variables([Source|Sources], [Stored|StoredVars]) :-
+    ( nonvar(Source) -> Stored = Source ; true ),
+    bind_specialization_storage_variables(Sources, StoredVars).
+
+specialization_storage_term(Variable, Variable) :-
+    var(Variable), !.
+specialization_storage_term(partial(Base, Bound), Written) :- !,
+    maplist(specialization_storage_term, [Base|Bound], Written).
+specialization_storage_term([Head|Tail], [WrittenHead|WrittenTail]) :- !,
+    specialization_storage_term(Head, WrittenHead),
+    specialization_storage_term(Tail, WrittenTail).
+specialization_storage_term(Term, Term).
+
 % Build a stable, variant-normalized specialization key.
 %
 % This intentionally descends through arbitrary compound terms (including
@@ -135,7 +249,8 @@ specialization_plan(HV, AVs, CleanBindSet, MetaList, HasDirectBenefit) :-
     call_may_specialize(AVs),
     current_metta_module(Module),
     metta_ensure_compiled(HV),
-    fun_meta_clauses(Module, HV, SourceMetaList),
+    fun_meta_clauses(Module, HV, InternalMetaList),
+    paired_source_meta_clauses(Module, HV, InternalMetaList, SourceMetaList),
     maplist(bind_specialization_clause(AVs), SourceMetaList,
             MetaList, BindingLists),
     append(BindingLists, Bindings),
@@ -146,8 +261,53 @@ specialization_plan(HV, AVs, CleanBindSet, MetaList, HasDirectBenefit) :-
     BindSet \== [],
     normalize_specialization_key(BindSet, CleanBindSet).
 
-bind_specialization_clause(AVs, fun_meta(Args, Body),
-                           fun_meta(Args, Body), Bindings) :-
+% fun_meta_clause/4 retains the constrained representation used by compiled
+% matching. In particular, a written `(cons $x $xs)` head is represented as
+% the Prolog list cell `[$x|$xs]`. translated_from/2 retains the written
+% equation. Pair each retained clause with that source equation, then unify
+% their variables through constrain_args/3's normalized head. Specialization
+% can bind the compiled and written views together without guessing an inverse
+% for every head lowering.
+paired_source_meta_clauses(Module, HV, InternalMetaList, PairedMetaList) :-
+    translator:fun_meta_module(Module, HV, Owner),
+    findall(source_meta(SourceArgs, SourceBody),
+            ( translated_from(Ref, [=, [HV|SourceArgs], SourceBody]),
+              clause_property(Ref, module(Owner)) ),
+            SourceMetaList),
+    pair_source_meta_clauses(InternalMetaList, SourceMetaList,
+                             PairedMetaList, []).
+
+pair_source_meta_clauses([], Remaining, [], Remaining).
+pair_source_meta_clauses([InternalMeta|InternalMetas], SourceMetas0,
+                         [PairedMeta|PairedMetas], Remaining) :-
+    select(SourceMeta, SourceMetas0, SourceMetas),
+    align_source_meta_clause(InternalMeta, SourceMeta, PairedMeta), !,
+    pair_source_meta_clauses(InternalMetas, SourceMetas,
+                             PairedMetas, Remaining).
+
+align_source_meta_clause(fun_meta(InternalArgs, InternalBody),
+                         source_meta(SourceArgs, SourceBody),
+                         paired_meta(fun_meta(InternalArgs, InternalBody),
+                                     fun_meta(SourceArgs, SourceBody),
+                                     StoredMeta)) :-
+    term_variables(SourceArgs-SourceBody, SourceVariables),
+    copy_term(SourceVariables-(SourceArgs-SourceBody),
+              StoredVariables-(StoredArgs-StoredBody)),
+    StoredMeta = storage_meta(StoredArgs, StoredBody, SourceVariables,
+                              StoredVariables),
+    maplist(source_argument_internal_shape, SourceArgs, NormalizedArgs),
+    unify_with_occurs_check(NormalizedArgs-SourceBody,
+                            InternalArgs-InternalBody).
+
+source_argument_internal_shape(Source, Internal) :-
+    translator:constrain_args(Source, Internal, _).
+
+bind_specialization_clause(AVs,
+                           paired_meta(fun_meta(Args, Body), SourceMeta,
+                                       StoredMeta),
+                           paired_meta(fun_meta(Args, Body), SourceMeta,
+                                       StoredMeta),
+                           Bindings) :-
     ( same_length(AVs, Args)
       -> bind_specialization_args(AVs, Args, Body, 1, Bindings)
     ; Bindings = [] ).
@@ -250,9 +410,13 @@ specialize_call_locked(HV, CleanBindSet, MetaList, HasDirectBenefit,
       ( HasDirectBenefit == true
         -> nb_setval('$petta_spec_needed', true)
       ; true ),
-      maplist({SpecName}/[fun_meta(ArgsNorm,BodyExpr),clause_info(Input,Clause)]>>
-              ( Input = [=,[SpecName|ArgsNorm],BodyExpr],
-                translate_clause(Input,Clause,false) ),
+      maplist({SpecName}/[paired_meta(fun_meta(ArgsNorm,BodyExpr),
+                                      _SourceMeta,StoredMeta),
+                          clause_info(StoredInput,Clause)]>>
+              ( CompiledInput = [=,[SpecName|ArgsNorm],BodyExpr],
+                translate_clause(CompiledInput,Clause,false),
+                specialization_storage_input(SpecName, StoredMeta,
+                                             StoredInput) ),
               MetaList, ClauseInfos),
       nb_getval('$petta_spec_needed', true),
       forall(member(clause_info(Input, Clause), ClauseInfos),

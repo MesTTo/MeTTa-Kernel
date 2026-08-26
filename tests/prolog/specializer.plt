@@ -1,5 +1,10 @@
 % Purpose: verify higher-order specialization keys, per-clause bindings, and
 %   recursive folding directly against generated Prolog clauses.
+% Guarantees:
+%   - the name minter preserves established writable spellings and encodes a
+%     structured key when its display spelling is not one MeTTa symbol
+%     [tested: specializer:specialization_names_are_writable_and_stable;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -107,10 +112,14 @@ cleanup_two_bindings :-
         ['plunit-spec-p2', 'plunit-spec-dbl2', 'plunit-spec-inc2']).
 
 test(global_key_covers_every_specialized_argument_position,
-     [setup(setup_two_bindings), cleanup(cleanup_two_bindings)]) :-
+    [setup(setup_two_bindings), cleanup(cleanup_two_bindings)]) :-
     ho_specialization(_, 'plunit-spec-p2', SpecName),
-    SpecName ==
-        'plunit-spec-p2_Spec_[plunit-spec-inc2,plunit-spec-dbl2]',
+    specializer:specialization_name(
+        'plunit-spec-p2',
+        ['plunit-spec-inc2', 'plunit-spec-dbl2'],
+        ExpectedName),
+    SpecName == ExpectedName,
+    parser:metta_symbol_writable(SpecName),
     functor(Head, SpecName, 4),
     metta_self_module(Self),
     findall(Body, clause(Self:Head, Body), Bodies),
@@ -268,7 +277,7 @@ test(compound_partial_key_has_stable_anonymous_variables,
     %lambda among them) advance the shared sequence before this file
     %loads, so the index is whatever the boot left. Match the key by its
     %stable frame and recover the actual name from the output.
-    re_matchsub("app_Spec_\\[partial\\(lambda_\\d+,\\[_\\]\\)\\]",
+    re_matchsub("app_Spec_k[0-9a-fz]+",
                 Output, Sub, []),
     get_dict(0, Sub, SpecStr),
     atom_string(SpecName, SpecStr),
@@ -279,6 +288,33 @@ test(compound_partial_key_has_stable_anonymous_variables,
     functor(SpecHead, SpecName, 3),
     \+ clause(SpecHead, _),
     \+ get_native_atom('&self', [=, [SpecName|_], _]).
+
+test(specialization_names_are_writable_and_stable) :-
+    specializer:specialization_name(f, [g], 'f_Spec_[g]'),
+    specializer:specialization_name(
+        'map-flat', [partial(+,[1])], First),
+    specializer:specialization_name(
+        'map-flat', [partial(+,[1])], Again),
+    First == Again,
+    sub_atom(First, 0, _, _, 'map-flat_Spec_k'),
+    parser:metta_symbol_writable(First),
+    specializer:specialization_name(
+        'bad name', [partial('quoted key',[1])], Hostile),
+    sub_atom(Hostile, 0, _, _, 'petta_Spec_h'),
+    parser:metta_symbol_writable(Hostile),
+    First \== Hostile,
+    specializer:specialization_name(
+        app, [partial(lambda,[Variable])], VariableFirst),
+    specializer:specialization_name(
+        app, [partial(lambda,[AnotherVariable])], VariableAgain),
+    var(Variable),
+    var(AnotherVariable),
+    VariableFirst == VariableAgain,
+    specializer:specialization_name(a, ['b_Spec_[c]'], CollisionLeft),
+    specializer:specialization_name('a_Spec_[b', [c], CollisionRight),
+    CollisionLeft \== CollisionRight,
+    parser:metta_symbol_writable(CollisionLeft),
+    parser:metta_symbol_writable(CollisionRight).
 
 setup_named_space_specialization :-
     set_specializer_test_mode,
