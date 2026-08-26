@@ -210,27 +210,36 @@ def test_algebra_law_claims_are_derived_and_validated() -> None:
             seam_path,
             "petta_vocabulary_claim(semiring, Semiring, ordered).\n",
         )
+        # Each ordered semiring claims its direction beside orderedness:
+        # ranked and prob count down from the best, tropical up from the
+        # cheapest, mirroring the shipped catalog rows.
         good = [
-            {"semiring": "ranked", "laws": ["ordered"]},
-            {"semiring": "prob", "laws": ["ordered"]},
+            {"semiring": "ranked", "laws": ["ordered", "descending"]},
+            {"semiring": "prob", "laws": ["ordered", "descending"]},
+            {"semiring": "tropical", "laws": ["ordered", "ascending"]},
         ]
-        assert validate_algebra_laws(root, good, ["bool", "ranked", "prob"]) == []
+        declared = ["bool", "ranked", "prob", "tropical"]
+        assert validate_algebra_laws(root, good, declared) == []
         findings = validate_algebra_laws(
             root,
             [
                 {"semiring": "ranked", "laws": []},
+                {"semiring": "prob", "laws": ["ordered", "descending"]},
+                {"semiring": "tropical", "laws": ["ordered", "descending"]},
                 {"semiring": "missing", "laws": ["ordered"]},
             ],
-            ["bool", "ranked", "prob"],
+            declared,
         )
         _write(root, seam_path, "different_consumer.\n")
-        missing_seam = validate_algebra_laws(root, good, ["bool", "ranked", "prob"])
+        missing_seam = validate_algebra_laws(root, good, declared)
     assert findings == [
         "&petta: algebra law row names undeclared semiring 'missing'",
+        "&petta: semiring ranked is missing law descending",
         "&petta: semiring ranked is missing law ordered",
-        "&petta: semiring prob is missing law ordered",
+        "&petta: semiring tropical is missing law ascending",
+        "&petta: semiring tropical has unexpected law descending",
         "&petta: unexpected algebra law claims for semiring missing",
-    ]
+    ], findings
     assert missing_seam == [
         f"{seam_path}: implementation seam for algebra law claims no longer matches "
         f"{seam_pattern!r}"

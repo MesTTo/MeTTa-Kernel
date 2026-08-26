@@ -298,7 +298,10 @@ def validate_algebra_laws(
     for semiring, required in REQUIRED_ALGEBRA_LAWS.items():
         laws = observed.get(semiring, [])
         counts = Counter(laws)
-        for law in required:
+        # Sorted: with two required laws per semiring, frozenset iteration
+        # order would follow the per-process hash seed and the report order
+        # would flake.
+        for law in sorted(required):
             if counts[law] == 0:
                 findings.append(f"&petta: semiring {semiring} is missing law {law}")
             elif counts[law] != 1:

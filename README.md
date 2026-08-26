@@ -525,10 +525,10 @@ preview answers at `http://localhost:4173/PeTTa/` and the server root
 shows the site's 404 page. `npm run docs:dev` serves the same content
 live at `http://localhost:5173/PeTTa/`. The reference pages and the
 visuals are committed; after changing docstrings or the illustrations,
-regenerate them with `scripts/generate_reference.py` and
-`scripts/generate_visuals.py`, and `scripts/audit_snippets.py` verifies
-that every tutorial code fence is an exact excerpt from the repository's
-own sources.
+regenerate them with `bindings/python/tools/reference.py --write` and
+`website/scripts/generate_visuals.py`, and `website/scripts/audit_snippets.py`
+verifies that every tutorial code fence is an exact excerpt from the
+repository's own sources.
 
 ## Notebooks, Servers, Browser
 
