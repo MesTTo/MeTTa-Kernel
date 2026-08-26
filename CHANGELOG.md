@@ -37,6 +37,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   guard while passing the exponent gate, which is what proves the two gates are
   independent rather than one gate wearing two names. Their measured values are
   1.746 against a 1.25 bound, and 2.99x against a 1.10 bound at 0.999 exponent.
+- The scaling gate refuses a run whose ledger was recorded under a different
+  configuration, before it measures anything, and names the two remedies:
+  restore the configuration, or re-pin with `--record`. The C reader alone is
+  worth 10.58 to 10.86 times on the parse-forms family, [55248, 111250, 223254,
+  452062] inferences on the Prolog reader against [5222, 10422, 20822, 41624] on
+  the C one, and both routes hold the same class. Without the refusal the
+  constant guard would fire at ten times its bound and name a parser regression
+  where only the box differed. Running with `PETTA_C_READER=off` on a tree whose
+  ledger was pinned with `engine/reader.so` present now reports
+  `CONFIGURATION DRIFT c_reader` and exits 1.
 - Specializations now mint collision-free names from MeTTa-writable text and
   retain source-form equations for saving and digesting. Structured partial
   applications no longer leak Prolog syntax into stored symbols, and saved
