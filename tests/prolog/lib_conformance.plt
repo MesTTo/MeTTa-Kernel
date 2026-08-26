@@ -49,7 +49,10 @@ test(conformance_catches_a_false_exact_claim,
 % A declaration with nothing behind it surfaces as a silent failure inside a
 % callback; here it is a mistake named at check time.
 test(conformance_catches_a_capability_with_no_hook,
-     [throws(error(petta_conformance_no_hook('&plunit_conf_hookless', clear,
+     [condition(\+ ( predicate_property(seam:foreign_clear(_),
+                                       number_of_clauses(Count)),
+                       Count > 0 )),
+      throws(error(petta_conformance_no_hook('&plunit_conf_hookless', clear,
                                              seam:foreign_clear/1), _))]) :-
     metta_check_space_provider('&plunit_conf_hookless', _).
 

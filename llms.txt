@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 44 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 198 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 203 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `bindings/python/tests/twins/**/*.py` | 219 Python twins of `examples/` programs across the corpus, each written with no MeTTa source text, answering alpha-equal to its original or explicitly declining a structured-residue form, and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/metta/vocabularies.py` | the catalog's value vocabularies as StrEnum classes, one per `(vocabulary ...)` row; each member IS its wire word and encodes as its symbol, and bare words stay the runtime escape hatch | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
@@ -31,7 +31,7 @@ re-runs them.
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
 | `bindings/python/examples/*/*.py` | 23 runnable Python programs, each printing checked claims; the six under `gallery/` also check adjacent emitted-MeTTa and output comments plus bilingual `@example` atoms | the `examples` and `gallery` gate lanes |
 | `notebooks/tour.ipynb` | the notebook surface | the `notebook` lane |
-| `engine/**/*.pl` | 34,783 lines: `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 998 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
+| `engine/**/*.pl` | 35,361 lines: `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 998 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*.metta` | 34 MeTTa libraries loaded with `!(import! &self (library lib_x))`; from Python the write door imports them, `m += lib.x` | `bindings/python/tests/test_library_door.py` |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -538,9 +538,11 @@ source: `petta_source/2` for a context's declared source discipline,
 `parse_metta_source/2` with `parsed_form_parts/4` to take one form
 apart, `active_source_program/1` to detect a definition batch,
 `current_working_dir/1` for what a relative path resolves against,
-`observe/3` with `observation_begin/0`, `observation_commit/0` and
-`observation_discard/0` for the post-commit event stream a scope
-buffers and then publishes or drops, and
+`observe/3` with `observation_begin/0`, `observation_commit/0`,
+`observation_discard/0` and `observation_defer/2` for the post-commit event
+stream a scope buffers and then publishes or drops, `observation_defer/2`
+pairing a commit goal with its rollback so a launch happens only after the
+transaction commits, and
 `petta_source/2` to expose source metadata, and `petta_vocabulary_value/2` so a
 library validates an option against the same declared vocabulary the engine
 reads;

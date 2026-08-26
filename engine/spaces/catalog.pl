@@ -13,6 +13,9 @@
 % row after prelude registration, and internal classification does not remove
 % the callable [tested: every_shipped_callable_has_one_visibility;
 % commit=8779452fed89853c3f77c3469f7a6ec7b12e9efa].
+% Guarantees: async is a declared operation kind whose compiled result is a
+% FutureSpace [tested: test_an_async_operation_answers_a_future_space;
+% commit=39092863ae34184a9f955f185ff57c1ff177ec40].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.
@@ -1113,7 +1116,8 @@ petta_catalog_preset([vocabulary, 'effect-class',
                       pureStructural, readOnlyLookup,
                       nondeterministicReadOnly, writesState, oracleIO]).
 petta_catalog_preset([vocabulary, visibility, 'PUBLIC', 'INTERNAL']).
-petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
+petta_catalog_preset([vocabulary, 'op-kind', det, many, async,
+                      raw_det, raw_many]).
 petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
 %What a context promises about the change events it emits. The three
 %delivery words are messaging's own, at-most-once, at-least-once and the

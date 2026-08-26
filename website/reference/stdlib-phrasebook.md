@@ -49,6 +49,8 @@ They stay separate so the differential coverage denominator remains exact.
 | `space.register_token(re.compile(pattern), constructor)` | register a compiled text regex while preserving supported flags | `space.register_token(re.compile(r'kg', re.I), parse_mass)` |
 | `testing.from_pattern(pattern)` | generate ground instances with repeated variable identity preserved | `instances = testing.from_pattern(S.edge(V.x, V.x))` |
 | `space.reacts(pattern, operation)` | declare the space's (on ...) reaction using the settled word | `space.reacts(S.job(V.id), S.insert(S['&log'], S.seen(V.id)))` |
+| `@space.op(effect="oracleIO") ⏎ async def fetch(url: str) -> str: ...` | register a coroutine operation whose immediate answer is a FutureSpace | `future = space.eval(S.fetch("https://example.test"))[0] ⏎ answers = list(future.wait())` |
+| `(async-op <name> <future-space> launch\|landing)` | observe committed coroutine launch and landing records in &petta | `events = metta._at("&petta").subscribe( ⏎     S["async-op"](S.fetch, V.space, V.phase), callback ⏎ )` |
 | `metta.speculate()` | scope each default-context execution as a discarded segment | `with metta.speculate(): ⏎     metta.run(source)` |
 | `space.reify()` | capture an immutable evaluable world value, distinct from listing atoms | `world = space.reify()` |
 | `world.eval(target)` | evaluate without touching the parent and return answers plus a successor world | `answers, successor = world.eval(target)` |

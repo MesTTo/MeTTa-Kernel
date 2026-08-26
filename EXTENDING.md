@@ -50,8 +50,13 @@ than of the loop around it.
 | ordinary MeTTa function | 4.00 | 1.00x | 0.10 | 1.00x |
 | `@m.define`, no annotations | 5.00 | 1.25x | 0.15 | 1.60x |
 | `@m.define`, annotated | 5.00 | 1.25x | 0.15 | 1.56x |
-| Python operation, `transport="raw"` | 6.00 | 1.50x | 1.00 | 10.28x |
-| Python operation, encoded | 13.00 | 3.25x | 3.79 | 38.98x |
+| Python operation, `transport="raw"` | 12.00 | 3.00x | 1.05 | 10.00x |
+| Python operation, encoded | 19.00 | 4.75x | 3.93 | 37.48x |
+
+Six of each operation row's inferences are the scheduler admission probe:
+every operation call asks the effect/lane question that lets an `oracleIO`
+call detach onto an offload thread when it runs inside a scheduler, and the
+unscheduled call pays the same probe.
 
 One run's output, not a best-of: the columns divide by each other, so mixing
 runs would give ratios no run measured. The inference column is exact and the
@@ -152,12 +157,12 @@ single number above is its best case, on a one-argument integer:
 
 | argument | encoded | `transport="raw"` | ratio |
 |---|---|---|---|
-| integer | 13.00 | 6.00 | 2.17x |
-| flat, 4 items | 24.00 | 6.00 | 4.00x |
-| flat, 16 items | 48.00 | 6.00 | 8.00x |
-| flat, 64 items | 144.00 | 6.00 | 24.00x |
-| nested, depth 4 | 46.00 | 6.00 | 7.67x |
-| nested, depth 8 | 78.00 | 6.00 | 13.00x |
+| integer | 19.00 | 12.00 | 1.58x |
+| flat, 4 items | 30.00 | 12.00 | 2.50x |
+| flat, 16 items | 54.00 | 12.00 | 4.50x |
+| flat, 64 items | 150.00 | 12.00 | 12.50x |
+| nested, depth 4 | 52.00 | 12.00 | 4.33x |
+| nested, depth 8 | 84.00 | 12.00 | 7.00x |
 
 The raw path is **flat whatever the argument is**. The encoded one costs about
 two inferences per flat item and about eight per nesting level, so a 64-item

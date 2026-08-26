@@ -9,6 +9,10 @@
 %     and names pureStructural as its cache-safe class [tested:
 %     lib_memo_volatility:an_impure_refusal_names_the_canonical_effect_remedy;
 %     commit=WORKTREE].
+%   - Exact-cache invalidation advances a hidden table generation seen by
+%     already-live worker engines [tested:
+%     lib_memo_stats:invalidation_moves_a_live_worker_to_a_fresh_exact_table_generation;
+%     commit=39092863ae34184a9f955f185ff57c1ff177ec40].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -217,6 +221,48 @@ test(a_function_report_counts_answer_occurrences) :-
         Module,
         user:'get-memoize-stats'('plunit-exact-bag', Stats)),
     assertion(Stats == [[entries, 2], [answers, 6]]).
+
+plunit_exact_worker(Module, Requests, Replies) :-
+    repeat,
+    thread_get_message(Requests, Request),
+    (   Request == query
+    ->  findall(Answer,
+                with_metta_module(
+                    Module,
+                    reduce(['plunit-exact-bag', 1.3], Answer)),
+                Answers),
+        thread_send_message(Replies, answers(Answers)),
+        fail
+    ;   Request == stop,
+        !
+    ).
+
+test(invalidation_moves_a_live_worker_to_a_fresh_exact_table_generation,
+     [ cleanup(catch(
+           filereader:process_metta_string(
+               "!(remove-atom &plunit_exact_bag (= (plunit-exact-bag $x) a))",
+               _, '&plunit_exact_bag'), _, true)) ]) :-
+    space_module('&plunit_exact_bag', Module),
+    with_metta_module(Module,
+                      lib_memo:memoize_exact('plunit-exact-bag')),
+    setup_call_cleanup(
+        ( message_queue_create(Requests),
+          message_queue_create(Replies),
+          thread_create(plunit_exact_worker(Module, Requests, Replies),
+                        Worker, []) ),
+        ( thread_send_message(Requests, query),
+          thread_get_message(Replies, answers(First)),
+          msort(First, [a, a, b]),
+          filereader:process_metta_string(
+              "!(add-atom &plunit_exact_bag (= (plunit-exact-bag $x) a))",
+              _, '&plunit_exact_bag'),
+          thread_send_message(Requests, query),
+          thread_get_message(Replies, answers(Second)),
+          msort(Second, [a, a, a, b]) ),
+        ( thread_send_message(Requests, stop),
+          thread_join(Worker, _),
+          message_queue_destroy(Requests),
+          message_queue_destroy(Replies) )).
 
 :- end_tests(lib_memo_stats).
 
