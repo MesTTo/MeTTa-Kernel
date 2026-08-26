@@ -1135,6 +1135,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The callable doors' deprecation check no longer compiles a fresh goal
+  string per name: an empty catalog, the common case, is now one process-wide
+  apply-seam probe. The per-name read had cost 1,311 inferences on the first
+  call of each name (the parse twin read 391 before the deprecation catalog
+  landed and 1,679 after; it reads 404 now), which had silently inflated
+  nearly every twin budget. A deprecated name still warns with its
+  since/remedy declaration; only the empty-catalog fast path changed.
+
 - An open-tail, bound-head `get-atoms` pattern, the shape of the tabling
   library's `(tabled ...)` existence probe, now reads through the store's
   first-argument index per held arity instead of walking every stored atom,
