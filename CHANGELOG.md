@@ -1135,6 +1135,20 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The writable-specialization merge had resolved `benchmarks/baseline.json`
+  to its branch's stale copy, reverting the typed-shadowing re-pins on
+  twelve inference and three instruction rows and dropping their mechanism
+  comments. The comments are restored verbatim from the typed-shadowing
+  merge and every affected row is freshly measured and re-pinned; a stash
+  A/B confirmed the open-tail indexing fix moves none of them. The whole
+  twin corpus is re-priced in the same pass, with every movement beyond
+  layout attributed at its exact commit pair: the relational-candidate rows
+  (matespace-family and peano costs), the specialization merge's
+  per-translated-equation bookkeeping (the once/cut/curry class and roman),
+  the algebra-tower routing's unrecorded improvements (permutations,
+  he_minimalmetta), and the recoveries from the open-tail index and the
+  deprecation probe.
+
 - The callable doors' deprecation check no longer compiles a fresh goal
   string per name: an empty catalog, the common case, is now one process-wide
   apply-seam probe. The per-name read had cost 1,311 inferences on the first
