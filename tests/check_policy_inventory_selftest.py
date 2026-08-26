@@ -233,12 +233,12 @@ def test_algebra_law_claims_are_derived_and_validated() -> None:
         _write(root, seam_path, "different_consumer.\n")
         missing_seam = validate_algebra_laws(root, good, declared)
     assert findings == [
-        "&petta: algebra law row names undeclared semiring 'missing'",
-        "&petta: semiring ranked is missing law descending",
-        "&petta: semiring ranked is missing law ordered",
-        "&petta: semiring tropical is missing law ascending",
-        "&petta: semiring tropical has unexpected law descending",
-        "&petta: unexpected algebra law claims for semiring missing",
+        "&metta: algebra law row names undeclared semiring 'missing'",
+        "&metta: semiring ranked is missing law descending",
+        "&metta: semiring ranked is missing law ordered",
+        "&metta: semiring tropical is missing law ascending",
+        "&metta: semiring tropical has unexpected law descending",
+        "&metta: unexpected algebra law claims for semiring missing",
     ], findings
     assert missing_seam == [
         f"{seam_path}: implementation seam for algebra law claims no longer matches "

@@ -26,7 +26,7 @@ test(the_bridge_preserves_inference_limits) :-
     maplist(=(true), Goals),
     foldl(repeatability_term_conjoin, Goals, true, Term),
     call_with_inference_limit(
-        ( petta_py_eval_repeatable('&petta', Term)
+        ( petta_py_eval_repeatable('&metta', Term)
         -> Outcome = repeatable
         ;  Outcome = declined ),
         50,
@@ -118,8 +118,8 @@ seam:foreign_match('&plunit_topk', [scored, X], Options) :-
 
 :- begin_tests(answers_annotations).
 
-kappa_declare(Entry) :- 'add-atom'('&petta', Entry, _).
-kappa_retract(Entry) :- catch('remove-atom'('&petta', Entry, _), _, true).
+kappa_declare(Entry) :- 'add-atom'('&metta', Entry, _).
+kappa_retract(Entry) :- catch('remove-atom'('&metta', Entry, _), _, true).
 
 test(an_undeclared_annotation_is_refused_naming_the_declaration,
      [throws(error(petta_answer_annotation_undeclared('&plunit_kap', _), _))]) :-

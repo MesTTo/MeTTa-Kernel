@@ -238,7 +238,7 @@ def space_names(self) -> list[str]:
 ```
 
 > Every space name this engine registers, sorted: '&self' and
-> '&petta' from boot, every native space that has been written to,
+> '&metta' from boot, every native space that has been written to,
 > and every foreign space currently bound. Naming a space never
 > registers it, only writing or binding does, so a bind! token's
 > target appears here once something is stored under it.
@@ -1237,7 +1237,7 @@ def op(
 >         declarations=[parse("(arguments inspect-atom atoms)")],
 >     )
 >
-> The declaration is matchable in &petta and is retired with the
+> The declaration is matchable in &metta and is retired with the
 > operation. Raw transport refuses this declaration because it bypasses
 > the atom codec entirely.
 >
@@ -1807,7 +1807,7 @@ def handles(
 
 > Declare how faithfully a space answers queries of one shape.
 >
-> The declaration is one (handles ...) atom in &petta, and queries
+> The declaration is one (handles ...) atom in &metta, and queries
 > are routed by the most specific declared shape that matches:
 > Exact licenses pushing the caller's bound to the provider, Partial
 > and Sound stay candidates the engine re-unifies, and Refuse makes
@@ -1821,7 +1821,7 @@ def handles(
 > write: a new entry that can disagree with an existing one on some
 > query fails here, naming both, rather than on the first query
 > that falls into their overlap. The atom is returned; removing it
-> from &petta withdraws the declaration.
+> from &metta withdraws the declaration.
 
 ### `Space.annotations`
 

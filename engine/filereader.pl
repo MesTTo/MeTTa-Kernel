@@ -666,7 +666,7 @@ process_forms(PerForm, Space, [Form|Forms], [Result|Results]) :-
 %run can change them: printing is off (a loud load shows each atom from
 %the per-form door), the bound-token table is empty (bind! is a runnable
 %and a runnable ends every run), the space is native with idle hooks, and
-%'&petta' keeps its per-atom catalog checks. A '=' or ':' head has
+%'&metta' keeps its per-atom catalog checks. A '=' or ':' head has
 %per-atom meaning (definition, declaration) and ends the run too, so both
 %doors' plain-data behaviour, evict-nothing then store then journal, is
 %the same behaviour this run door performs
@@ -675,7 +675,7 @@ data_run(Forms, Space, Run, Rest) :-
     silent(true),
     \+ metta_token(_, _),
     \+ seam:foreign_space(Space),
-    Space \== '&petta',
+    Space \== '&metta',
     petta_hook_claim_idle(Space),
     metta_add_hooks_idle(Space),
     data_prefix(Forms, Run, Rest),

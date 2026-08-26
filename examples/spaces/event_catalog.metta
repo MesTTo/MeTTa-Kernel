@@ -10,16 +10,16 @@
 ;; context subscribable, with delivery drawn from messaging's own three
 ;; promises and order the second axis, because a channel may deliver every
 ;; write and still deliver them out of order.
-!(test (match &petta (vocabulary delivery $a $b $c) ($a $b $c))
+!(test (match &metta (vocabulary delivery $a $b $c) ($a $b $c))
        (at-most-once at-least-once per-write-exactly))
-!(test (match &petta (vocabulary event-order $a $b) ($a $b))
+!(test (match &metta (vocabulary event-order $a $b) ($a $b))
        (ordered unordered))
-!(test (match &petta (kind events $ctx $delivery $order) $delivery)
+!(test (match &metta (kind events $ctx $delivery $order) $delivery)
        (one-of delivery))
 
 ;; The value set is closed, so a promise nobody could act on is a loud error
 ;; at the write rather than an atom that never matches its consultation site.
-!(test (if-error (catch (add-atom &petta (events &feed eventually)))
+!(test (if-error (catch (add-atom &metta (events &feed eventually)))
                  refused admitted)
        refused)
 
@@ -28,22 +28,22 @@
 ;; about this engine rather than a promise a provider is making. explain says
 ;; so without anything having been declared.
 !(add-atom &native-events (reading 1))
-!(test (collapse (match &petta (events &native-events $d $o) declared)) ())
+!(test (collapse (match &metta (events &native-events $d $o) declared)) ())
 
 ;; Which reaction fires first is the second declaration, and its default is
 ;; STATED rather than accidental: declaration order is what the engine
 ;; produced before this was a policy at all, and the policy inventory now
 ;; says so. The other four words are production systems' own conflict
 ;; resolution vocabulary.
-!(test (match &petta (vocabulary agenda-policy $a $b $c $d $e) ($a $b $c $d $e))
+!(test (match &metta (vocabulary agenda-policy $a $b $c $d $e) ($a $b $c $d $e))
        (declaration recency specificity priority user))
-!(test (match &petta (policy reaction-order $knob $default) ($knob $default))
+!(test (match &metta (policy reaction-order $knob $default) ($knob $default))
        (agenda declaration))
-!(test (match &petta (kind agenda $ctx $policy $fn) $policy)
+!(test (match &metta (kind agenda $ctx $policy $fn) $policy)
        (one-of agenda-policy))
 
 ;; A reaction carries its own priority as an optional fifth field, so every
 ;; (on ...) written before the agenda existed keeps its meaning and reads
 ;; as 0.
-!(test (match &petta (kind on $ctx $pattern $op $priority) $priority)
+!(test (match &metta (kind on $ctx $pattern $op $priority) $priority)
        (optional integer))

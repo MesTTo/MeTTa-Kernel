@@ -26,7 +26,7 @@
 %     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
 %     commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
 %   - petta_handles_route/5 routes a query by the most specific matching
-%     (handles ...) entry in &petta, where specificity is pattern
+%     (handles ...) entry in &metta, where specificity is pattern
 %     subsumption first and adornment-set inclusion between renaming-equal
 %     patterns, disagreeing maximal ties throw petta_contract_conflict/4
 %     naming both entries and the query, and a context with no entries

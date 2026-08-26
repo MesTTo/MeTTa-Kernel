@@ -16,4 +16,4 @@ Nine doors watch a running system, each answering a different question. They are
 
 Three habits make them compose. Reach for `why()` before re-running a query with prints, because it already knows which conjunct answered nothing. Read `explain()` before profiling a slow foreign query, because the usual cause is a pattern that stopped pushing down, and that is visible without running anything. And when a number needs to be trusted, use `stats()` inferences rather than wall clock: the counter is deterministic on any machine, which is also why this repository gates its own benchmarks on it.
 
-The engine's own self-description is a space: [reflection](../live/reflection) reads the `&petta` contract atoms, so `explain`-style questions about what is declared, registered, and served are ordinary matches.
+The engine's own self-description is a space: [reflection](../live/reflection) reads the `&metta` contract atoms, so `explain`-style questions about what is declared, registered, and served are ordinary matches.

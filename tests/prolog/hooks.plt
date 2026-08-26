@@ -155,7 +155,7 @@ test(redeclaring_the_same_handler_is_idempotent,
      [ setup(setup_hooks), cleanup(cleanup_hooks) ]) :-
     metta_declare_hook(pre_add, '&hplt-pool', 'hplt-guard'),
     metta_declare_hook(pre_add, '&hplt-pool', 'hplt-guard'),
-    findall(H, 'get-atoms'('&petta', ['pre-add', '&hplt-pool', H]), Hs),
+    findall(H, 'get-atoms'('&metta', ['pre-add', '&hplt-pool', H]), Hs),
     assertion(Hs == ['hplt-guard']).
 
 test(undeclaring_frees_the_claim_for_a_new_claimant,
@@ -187,15 +187,15 @@ test(a_batch_into_a_hooked_space_consults_the_handler_per_atom,
     findall(A, 'get-atoms'('&hplt-batch', A), Atoms),
     assertion(Atoms == [[cooked, 1], [plain, 3]]).
 
-% The claim's contract atom mirrors into &petta, so reflection reads the
+% The claim's contract atom mirrors into &metta, so reflection reads the
 % hook the way it reads admits and capacity.
 test(the_claim_is_readable_as_a_contract_atom,
      [ setup(setup_hooks), cleanup(cleanup_hooks) ]) :-
     metta_declare_hook(pre_add, '&hplt-pool', 'hplt-guard'),
-    findall(H, 'get-atoms'('&petta', ['pre-add', '&hplt-pool', H]), Hs),
+    findall(H, 'get-atoms'('&metta', ['pre-add', '&hplt-pool', H]), Hs),
     assertion(Hs == ['hplt-guard']),
     metta_undeclare_hook(pre_add, '&hplt-pool'),
-    findall(H2, 'get-atoms'('&petta', ['pre-add', '&hplt-pool', H2]), Hs2),
+    findall(H2, 'get-atoms'('&metta', ['pre-add', '&hplt-pool', H2]), Hs2),
     assertion(Hs2 == []).
 
 % The MeTTa surface: declaring from source and refusing from source are
@@ -468,7 +468,7 @@ test(the_offered_atom_reaches_the_handler_as_itself) :-
 
 % ai-p12-design.md P12.4's acceptance: admits and capacity are sugar over
 % the general hook. The claim is an ordinary petta_hook_claim row visible
-% through the same registry and &petta contract atom as any user handler,
+% through the same registry and &metta contract atom as any user handler,
 % the judge is the prelude's space-admission-verdict equations, and the
 % bespoke wrapper family (petta_install_admission/0, petta_admission_check/2,
 % petta_admission_idle/1) is gone from the engine.
@@ -477,22 +477,22 @@ test(the_offered_atom_reaches_the_handler_as_itself) :-
 sugar_teardown(Pool) :-
     metta_undeclare_hook(pre_add, Pool),
     atom_concat('space-admission-guard-', Pool, Guard),
-    findall(T, 'get-atoms'('&petta', [admits, Pool, T]), Admits),
+    findall(T, 'get-atoms'('&metta', [admits, Pool, T]), Admits),
     forall(member(T, Admits),
-           ( metta_remove_atom('&petta', [admits, Pool, T], _) -> true ; true )),
-    findall(N, 'get-atoms'('&petta', [capacity, Pool, N]), Caps),
+           ( metta_remove_atom('&metta', [admits, Pool, T], _) -> true ; true )),
+    findall(N, 'get-atoms'('&metta', [capacity, Pool, N]), Caps),
     forall(member(N, Caps),
-           ( metta_remove_atom('&petta', [capacity, Pool, N], _) -> true ; true )),
+           ( metta_remove_atom('&metta', [capacity, Pool, N], _) -> true ; true )),
     (   metta_remove_atom('&self', [=, [Guard, _], _], _) -> true ; true ),
     clear_native_atoms(Pool).
 
 test(test_capacity_and_admits_are_sugar_over_the_general_hook_or_are_gone,
      [ cleanup(sugar_teardown('&as-pool1')) ]) :-
-    metta_add_atom('&petta', [admits, '&as-pool1', 'AsWidget'], _),
+    metta_add_atom('&metta', [admits, '&as-pool1', 'AsWidget'], _),
     petta_admission_claim('&as-pool1', '&self'),
     assertion(petta_hook_claim('&as-pool1', pre_add,
                                'space-admission-guard-&as-pool1', _)),
-    assertion(\+ \+ 'get-atoms'('&petta',
+    assertion(\+ \+ 'get-atoms'('&metta',
                                 ['pre-add', '&as-pool1',
                                  'space-admission-guard-&as-pool1'])),
     assertion(\+ current_predicate(petta_install_admission/0)),
@@ -533,14 +533,14 @@ test(the_sugar_claim_makes_a_user_claim_conflict_loudly,
 % fire still reaches the prelude's judge through the module chain.
 test(the_guard_equation_lives_in_the_declaring_space,
      [ cleanup(( metta_undeclare_hook(pre_add, '&as-pool3'),
-                 (   metta_remove_atom('&petta',
+                 (   metta_remove_atom('&metta',
                                        [admits, '&as-pool3', 'AsWidget'], _)
                  ->  true
                  ;   true
                  ),
                  clear_native_atoms('&as-decl'),
                  clear_native_atoms('&as-pool3') )) ]) :-
-    metta_add_atom('&petta', [admits, '&as-pool3', 'AsWidget'], _),
+    metta_add_atom('&metta', [admits, '&as-pool3', 'AsWidget'], _),
     petta_admission_claim('&as-pool3', '&as-decl'),
     assertion(\+ 'get-atoms'('&self',
                              [=, ['space-admission-guard-&as-pool3', _], _])),
@@ -564,8 +564,8 @@ test(a_typed_atom_enters_and_the_pool_bounds,
                  ->  true
                  ;   true
                  ) )) ]) :-
-    metta_add_atom('&petta', [admits, '&as-pool4', 'AsW'], _),
-    metta_add_atom('&petta', [capacity, '&as-pool4', 1], _),
+    metta_add_atom('&metta', [admits, '&as-pool4', 'AsW'], _),
+    metta_add_atom('&metta', [capacity, '&as-pool4', 1], _),
     metta_add_atom('&self', [:, 'as-w1', 'AsW'], _),
     metta_add_atom('&self', [:, 'as-w2', 'AsW'], _),
     petta_admission_claim('&as-pool4', '&self'),
@@ -594,7 +594,7 @@ test(the_sugar_judges_the_offered_atom_as_itself,
                  ;   true
                  ) )) ]) :-
     process_metta_string("(= (as-live) as-dead)\n(: (as-live) AsLiveW)", _),
-    metta_add_atom('&petta', [admits, '&as-pool5', 'AsLiveW'], _),
+    metta_add_atom('&metta', [admits, '&as-pool5', 'AsLiveW'], _),
     petta_admission_claim('&as-pool5', '&self'),
     metta_add_atom('&as-pool5', ['as-live'], _),
     findall(A, 'get-atoms'('&as-pool5', A), Atoms),
@@ -626,13 +626,13 @@ test(a_capacity_counter_is_installed_only_when_the_claim_has_a_capacity,
     petta_admission_claim('&as-counted1', '&self'),
     assertion(\+ petta_capacity_count('&as-counted1', _)),
     assertion(\+ spaces:petta_capacity_remove_hook('&as-counted1', _)),
-    metta_add_atom('&petta', [capacity, '&as-counted1', 10], _),
+    metta_add_atom('&metta', [capacity, '&as-counted1', 10], _),
     assertion(petta_capacity_count('&as-counted1', 0)),
     assertion(spaces:petta_capacity_remove_hook('&as-counted1', _)).
 
 test(the_capacity_counter_tracks_direct_adds_batches_removals_and_clears,
      [ cleanup(sugar_teardown('&as-counted2')) ]) :-
-    metta_add_atom('&petta', [capacity, '&as-counted2', 10], _),
+    metta_add_atom('&metta', [capacity, '&as-counted2', 10], _),
     petta_admission_claim('&as-counted2', '&self'),
     metta_add_atom('&as-counted2', [direct, one], _),
     metta_add_atoms('&as-counted2', [[batch, two], [batch, three]]),
@@ -649,14 +649,14 @@ test(the_capacity_counter_tracks_direct_adds_batches_removals_and_clears,
 test(capacity_counter_changes_roll_back_with_the_atoms,
      [ cleanup(sugar_teardown('&as-counted3')) ]) :-
     petta_admission_claim('&as-counted3', '&self'),
-    assertion(\+ transaction(( metta_add_atom('&petta',
+    assertion(\+ transaction(( metta_add_atom('&metta',
                                                [capacity, '&as-counted3', 10],
                                                _),
                                fail ))),
     assertion(\+ petta_capacity_count('&as-counted3', _)),
     assertion(\+ spaces:petta_capacity_remove_hook('&as-counted3', _)),
-    metta_add_atom('&petta', [capacity, '&as-counted3', 10], _),
-    assertion(\+ transaction(( metta_remove_atom('&petta',
+    metta_add_atom('&metta', [capacity, '&as-counted3', 10], _),
+    assertion(\+ transaction(( metta_remove_atom('&metta',
                                                   [capacity, '&as-counted3', 10],
                                                   _),
                                fail ))),
@@ -677,15 +677,15 @@ test(capacity_counter_changes_roll_back_with_the_atoms,
 
 test(capacity_redeclaration_recounts_writes_made_while_unbounded,
      [ cleanup(sugar_teardown('&as-counted4')) ]) :-
-    metta_add_atom('&petta', [capacity, '&as-counted4', 4], _),
+    metta_add_atom('&metta', [capacity, '&as-counted4', 4], _),
     petta_admission_claim('&as-counted4', '&self'),
     metta_add_atoms('&as-counted4', [[held, one], [held, two]]),
-    metta_remove_atom('&petta', [capacity, '&as-counted4', 4], Removed),
+    metta_remove_atom('&metta', [capacity, '&as-counted4', 4], Removed),
     assertion(Removed == true),
     assertion(\+ petta_capacity_count('&as-counted4', _)),
     assertion(\+ spaces:petta_capacity_remove_hook('&as-counted4', _)),
     metta_add_atom('&as-counted4', [held, three], _),
-    metta_add_atom('&petta', [capacity, '&as-counted4', 2], _),
+    metta_add_atom('&metta', [capacity, '&as-counted4', 2], _),
     assertion(petta_capacity_count('&as-counted4', 3)),
     assertion(spaces:petta_capacity_remove_hook('&as-counted4', _)),
     catch(metta_add_atom('&as-counted4', [refused, four], _), Error, true),
@@ -807,12 +807,12 @@ test(test_set_semantics_is_a_declared_rule_not_a_property_of_the_space,
 % visible in the registry as an ordinary pre-add claim.
 test(test_a_threadpool_is_a_space_of_spaces_with_its_bound_as_a_hook,
      [ cleanup(( metta_undeclare_hook(pre_add, '&tp-pool'),
-                 (   metta_remove_atom('&petta',
+                 (   metta_remove_atom('&metta',
                                        [admits, '&tp-pool', 'Space'], _)
                  ->  true
                  ;   true
                  ),
-                 (   metta_remove_atom('&petta',
+                 (   metta_remove_atom('&metta',
                                        [capacity, '&tp-pool', 2], _)
                  ->  true
                  ;   true
@@ -836,8 +836,8 @@ test(test_a_threadpool_is_a_space_of_spaces_with_its_bound_as_a_hook,
                  ->  true
                  ;   true
                  ) )) ]) :-
-    metta_add_atom('&petta', [admits, '&tp-pool', 'Space'], _),
-    metta_add_atom('&petta', [capacity, '&tp-pool', 2], _),
+    metta_add_atom('&metta', [admits, '&tp-pool', 'Space'], _),
+    metta_add_atom('&metta', [capacity, '&tp-pool', 2], _),
     metta_add_atom('&self', [:, '&tp-w1', 'Space'], _),
     metta_add_atom('&self', [:, '&tp-w2', 'Space'], _),
     metta_add_atom('&self', [:, '&tp-w3', 'Space'], _),

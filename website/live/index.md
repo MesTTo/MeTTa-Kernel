@@ -11,7 +11,7 @@ serve engines, and the event loop can keep running while the engine
 thinks. These pages cover the surface that keeps a system live.
 
 - [Standing queries](./standing-queries.md) watches a space and delivers matching writes.
-- [Reflection and steering](./reflection.md) reads the surface's own description from the `&petta` space.
+- [Reflection and steering](./reflection.md) reads the surface's own description from the `&metta` space.
 - [Web routes](./web-routes.md) builds FastAPI's routing semantics as facts and unification.
 - [Multi-shot solving](./multishot.md) grounds program parts incrementally and toggles externals between solves.
 - [Contexts and remotes](./contexts.md) connects spaces with bridge rules and engines with `metta.remote`.

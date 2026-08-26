@@ -159,10 +159,10 @@ test(a_selective_match_costs_the_same_on_a_hundredfold_larger_space,
     LargeCost == SmallCost.
 
 %The open-tail twin of the probe above: a bound head whose ARITY is unknown,
-%the shape lib_tabling's `'get-atoms'('&petta', [tabled|_])` declaration
+%the shape lib_tabling's `'get-atoms'('&metta', [tabled|_])` declaration
 %check asks per compiled equation. The proper-list clause cannot serve it,
 %and until 2026-08-26 it fell to the clause/2 walk and cost every stored
-%atom per probe: 23.7 inferences per &petta catalog row over one tabling_fib
+%atom per probe: 23.7 inferences per &metta catalog row over one tabling_fib
 %load, which the visibility catalog's rows turned into +6,783 inferences on
 %that example [source: engine/spaces/native_matching.pl, the open-tail
 %clause pair above the enumerating walk; commit=2b2d6f3e36d259e789ad7d977eebc3623b002970].
@@ -476,7 +476,7 @@ test(space_names_enumerate_the_registered_spaces,
     % The boot spaces, a written native space, and a foreign provider all
     % appear; a name nothing ever wrote does not, because registration is
     % a side effect of writing or binding, never of naming.
-    subtract(['&self', '&petta', '&plunit_names', '&plunit_enum_only'],
+    subtract(['&self', '&metta', '&plunit_names', '&plunit_enum_only'],
              Names, []),
     \+ memberchk('&plunit_never_written', Names),
     sort(Names, Names).
@@ -605,7 +605,7 @@ test(the_written_self_module_is_the_mapped_one) :-
     assertion(Default == Written).
 
 test(the_module_to_space_map_is_the_inverse) :-
-    forall(member(Space, ['&self', '&plunit_exec_inv', '&petta']),
+    forall(member(Space, ['&self', '&plunit_exec_inv', '&metta']),
            ( space_module(Space, Module),
              metta_module_space(Module, Back),
              assertion(Back == Space) )),
@@ -1802,7 +1802,7 @@ test(a_duplicate_declaration_batch_is_refused_before_storage,
 % own words, not a bespoke error.
 setup_batch_admission :-
     clear_native_atoms('&bt-pool'),
-    metta_add_atom('&petta', [capacity, '&bt-pool', 2], _),
+    metta_add_atom('&metta', [capacity, '&bt-pool', 2], _),
     petta_admission_claim('&bt-pool', '&self'),
     'add-atom'('&bt-pool', [a, 1], _),
     'add-atom'('&bt-pool', [a, 2], _).
@@ -1812,7 +1812,7 @@ setup_batch_admission :-
 % out of &self so the next setup's claim rewrites it fresh.
 cleanup_batch_admission :-
     metta_undeclare_hook(pre_add, '&bt-pool'),
-    metta_remove_atom('&petta', [capacity, '&bt-pool', 2], _),
+    metta_remove_atom('&metta', [capacity, '&bt-pool', 2], _),
     (   metta_remove_atom('&self',
                           [=, ['space-admission-guard-&bt-pool', _], _], _)
     ->  true
@@ -1993,8 +1993,8 @@ seam:foreign_pushdown('&plunit_handles', _, exact).
 
 :- begin_tests(spaces_handles_guard).
 
-guard_declare(Entry) :- 'add-atom'('&petta', Entry, _).
-guard_retract(Entry) :- catch('remove-atom'('&petta', Entry, _), _, true).
+guard_declare(Entry) :- 'add-atom'('&metta', Entry, _).
+guard_retract(Entry) :- catch('remove-atom'('&metta', Entry, _), _, true).
 
 test(a_declared_route_outranks_the_pushdown_method,
      [ setup(guard_declare([handles, '&plunit_handles', [edge, S, S], 'Sound'])),
@@ -2050,8 +2050,8 @@ test(a_declaration_conflict_surfaces_on_the_match_itself,
 % prolog flag: process-global, transaction-immune, reset only by
 % petta_source_reset/1, the door a fresh provider arrives through.
 
-source_declare(Entry) :- 'add-atom'('&petta', Entry, _).
-source_retract(Entry) :- catch('remove-atom'('&petta', Entry, _), _, true).
+source_declare(Entry) :- 'add-atom'('&metta', Entry, _).
+source_retract(Entry) :- catch('remove-atom'('&metta', Entry, _), _, true).
 
 test(a_linear_source_consumes_once_and_then_refuses,
      [ setup(( source_declare([source, '&plunit_handles', linear]),
@@ -2115,8 +2115,8 @@ seam:foreign_match('&plunit_flaky', Pattern, _Options) :-
 
 :- begin_tests(spaces_error_modes).
 
-erring_declare(Entry) :- 'add-atom'('&petta', Entry, _).
-erring_retract(Entry) :- catch('remove-atom'('&petta', Entry, _), _, true).
+erring_declare(Entry) :- 'add-atom'('&metta', Entry, _).
+erring_retract(Entry) :- catch('remove-atom'('&metta', Entry, _), _, true).
 
 test(the_undeclared_floor_aborts,
      [throws(error(type_error(backend, fell_over), _))]) :-
@@ -2882,20 +2882,20 @@ test(a_native_space_delivers_per_write_exactly_without_declaring_it) :-
     assertion(Order == ordered).
 
 test(a_standing_query_on_a_silent_context_is_refused_naming_the_capability,
-     [ cleanup(( metta_remove_atom('&petta',
+     [ cleanup(( metta_remove_atom('&metta',
                                    [subscription, '&plunit_events_loud',
                                     [fact, quiet], add], _),
-                 metta_remove_atom('&petta',
+                 metta_remove_atom('&metta',
                                    [on, '&plunit_events_loud', [fact, quiet],
                                     [insert, '&plunit-events-native', done]],
                                    _) )) ]) :-
-    catch('add-atom'('&petta',
+    catch('add-atom'('&metta',
                      [subscription, '&plunit_events_quiet', [fact, quiet], add],
                      _),
           error(Ball, _), true),
     assertion(Ball == petta_events_undeclared('&plunit_events_quiet',
                                               'be subscribed to')),
-    catch('add-atom'('&petta',
+    catch('add-atom'('&metta',
                      [on, '&plunit_events_quiet', [fact, quiet],
                       [insert, '&plunit-events-native', done]],
                      _),
@@ -2904,9 +2904,9 @@ test(a_standing_query_on_a_silent_context_is_refused_naming_the_capability,
                                                   'carry a reaction')),
     % The declared one takes both, so the refusal is about the promise and
     % not about the declaration shape.
-    'add-atom'('&petta',
+    'add-atom'('&metta',
                [subscription, '&plunit_events_loud', [fact, quiet], add], _),
-    'add-atom'('&petta',
+    'add-atom'('&metta',
                [on, '&plunit_events_loud', [fact, quiet],
                 [insert, '&plunit-events-native', done]], _).
 
@@ -2921,13 +2921,13 @@ test(a_standing_query_on_a_silent_context_is_refused_naming_the_capability,
 
 agenda_reset :-
     forall(petta_contract_fact([on, '&ag-src', P, O]),
-           metta_remove_atom('&petta', [on, '&ag-src', P, O], _)),
+           metta_remove_atom('&metta', [on, '&ag-src', P, O], _)),
     forall(petta_contract_fact([on, '&ag-src', P2, O2, N]),
-           metta_remove_atom('&petta', [on, '&ag-src', P2, O2, N], _)),
+           metta_remove_atom('&metta', [on, '&ag-src', P2, O2, N], _)),
     forall(petta_contract_fact([agenda, '&ag-src', Policy]),
-           metta_remove_atom('&petta', [agenda, '&ag-src', Policy], _)),
+           metta_remove_atom('&metta', [agenda, '&ag-src', Policy], _)),
     forall(petta_contract_fact([agenda, '&ag-src', P3, C3]),
-           metta_remove_atom('&petta', [agenda, '&ag-src', P3, C3], _)),
+           metta_remove_atom('&metta', [agenda, '&ag-src', P3, C3], _)),
     metta_host_clear_space('&ag-src'),
     metta_host_clear_space('&ag-log').
 
@@ -2935,9 +2935,9 @@ agenda_reset :-
 % the log READS as the firing order.
 agenda_two_reactions :-
     agenda_reset,
-    'add-atom'('&petta', [on, '&ag-src', [alert, _],
+    'add-atom'('&metta', [on, '&ag-src', [alert, _],
                           [insert, '&ag-log', broad]], _),
-    'add-atom'('&petta', [on, '&ag-src', [alert, kitchen],
+    'add-atom'('&metta', [on, '&ag-src', [alert, kitchen],
                           [insert, '&ag-log', narrow]], _),
     petta_install_bridges.
 
@@ -2958,32 +2958,32 @@ test(test_the_reaction_agenda_fires_in_the_declared_order,
     % other order, which is the whole claim: the order follows the
     % declaration rather than the assertion sequence.
     metta_host_clear_space('&ag-log'),
-    'add-atom'('&petta', [agenda, '&ag-src', recency], _),
+    'add-atom'('&metta', [agenda, '&ag-src', recency], _),
     agenda_fired(Recency),
     assertion(Recency == [narrow, broad]),
 
     % And a third: most specific first, OPS5's criterion, which puts
     % (alert kitchen) ahead of (alert $where) whatever their order.
-    metta_remove_atom('&petta', [agenda, '&ag-src', recency], _),
+    metta_remove_atom('&metta', [agenda, '&ag-src', recency], _),
     metta_host_clear_space('&ag-log'),
-    'add-atom'('&petta', [agenda, '&ag-src', specificity], _),
+    'add-atom'('&metta', [agenda, '&ag-src', specificity], _),
     agenda_fired(Specificity),
     assertion(Specificity == [narrow, broad]).
 
 test(a_declared_priority_outranks_declaration_order,
      [ setup(agenda_reset), cleanup(agenda_reset) ]) :-
-    'add-atom'('&petta', [on, '&ag-src', [alert, _],
+    'add-atom'('&metta', [on, '&ag-src', [alert, _],
                           [insert, '&ag-log', broad], 1], _),
-    'add-atom'('&petta', [on, '&ag-src', [alert, kitchen],
+    'add-atom'('&metta', [on, '&ag-src', [alert, kitchen],
                           [insert, '&ag-log', narrow], 9], _),
     petta_install_bridges,
-    'add-atom'('&petta', [agenda, '&ag-src', priority], _),
+    'add-atom'('&metta', [agenda, '&ag-src', priority], _),
     agenda_fired(Order),
     assertion(Order == [narrow, broad]).
 
 test(a_reaction_without_a_priority_still_fires_and_reads_as_zero,
      [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
-    'add-atom'('&petta', [agenda, '&ag-src', priority], _),
+    'add-atom'('&metta', [agenda, '&ag-src', priority], _),
     agenda_fired(Order),
     assertion(Order == [broad, narrow]),
     findall(N, petta_reaction('&ag-src', _, _, N), Priorities),
@@ -3003,13 +3003,13 @@ test(a_user_agenda_policy_scores_each_reaction,
         filereader:process_metta_string(
             "(= (ag-rank (on $ctx $pattern (insert $log narrow) $p)) 10)
              (= (ag-rank (on $ctx $pattern (insert $log broad) $p)) 1)", _)),
-    'add-atom'('&petta', [agenda, '&ag-src', user, 'ag-rank'], _),
+    'add-atom'('&metta', [agenda, '&ag-src', user, 'ag-rank'], _),
     agenda_fired(Order),
     assertion(Order == [narrow, broad]).
 
 test(a_user_agenda_policy_that_scores_nothing_says_so,
      [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
-    'add-atom'('&petta', [agenda, '&ag-src', user, 'ag-silent'], _),
+    'add-atom'('&metta', [agenda, '&ag-src', user, 'ag-silent'], _),
     catch('add-atom'('&ag-src', [alert, kitchen], _), error(Ball, _), true),
     assertion(Ball = petta_agenda_unscored('&ag-src', 'ag-silent', _)).
 

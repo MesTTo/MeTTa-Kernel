@@ -1,6 +1,6 @@
 % Purpose: prove the engine's five-rank effect lattice, compatibility
 %   projection, and reflected plan join.
-% Assumes: engine/metta.pl has initialized the &petta catalog and its native
+% Assumes: engine/metta.pl has initialized the &metta catalog and its native
 %   storage.
 % Guarantees: rank, join, composition, canonical operation reflection,
 %   fail-closed plans, complete embedded-operation coverage, native effect
@@ -21,14 +21,14 @@ seam:backend_builtin('planted-backend-write', writesState).
 
 effect_test_clear(Name) :-
     (   petta_contract_fact([effect, Name, Declared])
-    ->  'remove-atom'('&petta', [effect, Name, Declared], _),
+    ->  'remove-atom'('&metta', [effect, Name, Declared], _),
         effect_test_clear(Name)
     ;   petta_engine_module(Engine),
         retractall(Engine:metta_host_pure_operation(Name))
     ).
 
 effect_test_add(Name, Class) :-
-    'add-atom'('&petta', [effect, Name, Class], _).
+    'add-atom'('&metta', [effect, Name, Class], _).
 
 effect_test_host_pure_add(Name) :-
     petta_engine_module(Engine),
@@ -226,10 +226,10 @@ test(operation_effect_reflection_is_canonical_and_fail_closed,
     assertion(EffectRows == [writesState]).
 
 test(a_deprecation_row_drives_lookup_and_explanation,
-     [ cleanup(metta_remove_atom('&petta',
+     [ cleanup(metta_remove_atom('&metta',
                                  [deprecated, 'old-effect', '0.2.0',
                                   [use, 'new-effect']], _)) ]) :-
-    add_sexp('&petta',
+    add_sexp('&metta',
              [deprecated, 'old-effect', '0.2.0', [use, 'new-effect']], _),
     assertion(petta_deprecation('old-effect', '0.2.0', [use, 'new-effect'])),
     petta_explain(['old-effect', value], Explanation),
@@ -254,10 +254,10 @@ test(world_effect_coverage_composes_catalog_rows_to_the_strongest_rank,
      [ cleanup(forall(member(Row,
                              [[covers, '&effect-world', readOnlyLookup],
                               [covers, '&effect-world', writesState]]),
-                      metta_remove_atom('&petta', Row, _))) ]) :-
+                      metta_remove_atom('&metta', Row, _))) ]) :-
     assertion(petta_world_effect_coverage('&effect-world', pureStructural)),
-    add_sexp('&petta', [covers, '&effect-world', readOnlyLookup], _),
-    add_sexp('&petta', [covers, '&effect-world', writesState], _),
+    add_sexp('&metta', [covers, '&effect-world', readOnlyLookup], _),
+    add_sexp('&metta', [covers, '&effect-world', writesState], _),
     assertion(petta_world_effect_coverage('&effect-world', writesState)),
     assertion(petta_effect_covered(nondeterministicReadOnly, writesState)),
     assertion(\+ petta_effect_covered(oracleIO, writesState)).
@@ -273,7 +273,7 @@ test(compensation_declarations_require_an_effectful_operation,
                                  [=, ['effect-saga-reverse', _], done],
                                  [=, ['effect-saga-write', _], done],
                                  [=, ['effect-saga-pure', _], done]]),
-                         ( metta_remove_atom('&petta', Row, _)
+                         ( metta_remove_atom('&metta', Row, _)
                          -> true
                          ;  metta_remove_atom('&self', Row, _) )),
                  effect_test_clear('effect-saga-write'),
@@ -286,11 +286,11 @@ test(compensation_declarations_require_an_effectful_operation,
                    [=, ['effect-saga-write', _Value], done], true),
     metta_add_atom('&self',
                    [=, ['effect-saga-pure', _Operand], done], true),
-    add_sexp('&petta',
+    add_sexp('&metta',
              [compensates, 'effect-saga-write', 'effect-saga-reverse'], _),
     assertion(petta_compensation('effect-saga-write',
                                  'effect-saga-reverse')),
-    catch(( add_sexp('&petta',
+    catch(( add_sexp('&metta',
                      [compensates, 'effect-saga-pure',
                       'effect-saga-reverse'], _),
             Refused = false ),

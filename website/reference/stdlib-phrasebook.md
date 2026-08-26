@@ -44,13 +44,13 @@ They stay separate so the differential coverage denominator remains exact.
 | `S.neg(atom), fn.neg(atom), space.fn.neg(atom)` | build or evaluate unary negation through its canonical (- 0 atom) image | `term = S.neg(V.x) ⏎ assert term == S['-'](0, V.x)` |
 | `atom.cast(type_)` | admit an atom through the ambient space's type discipline | `with space: ⏎     person = S.Ann.cast('Person')` |
 | `fresh()` | mint a helper-local variable that cannot capture a caller's names | `private = fresh() ⏎ pattern = S.edge(private, V.value)` |
-| `metta.catalog` | query the runtime catalog as the ordinary &petta space | `rows = metta.catalog.match(S.op(V.name, V.arity, V.kind))` |
+| `metta.catalog` | query the runtime catalog as the ordinary &metta space | `rows = metta.catalog.match(S.op(V.name, V.arity, V.kind))` |
 | `repr(space())` | show the file and line that minted an anonymous space | `origin = repr(metta.space())` |
 | `space.register_token(re.compile(pattern), constructor)` | register a compiled text regex while preserving supported flags | `space.register_token(re.compile(r'kg', re.I), parse_mass)` |
 | `testing.from_pattern(pattern)` | generate ground instances with repeated variable identity preserved | `instances = testing.from_pattern(S.edge(V.x, V.x))` |
 | `space.reacts(pattern, operation)` | declare the space's (on ...) reaction using the settled word | `space.reacts(S.job(V.id), S.insert(S['&log'], S.seen(V.id)))` |
 | `@space.op(effect="oracleIO") ⏎ async def fetch(url: str) -> str: ...` | register a coroutine operation whose immediate answer is a FutureSpace | `future = space.eval(S.fetch("https://example.test"))[0] ⏎ answers = list(future.wait())` |
-| `(async-op <name> <future-space> launch\|landing)` | observe committed coroutine launch and landing records in &petta | `events = metta._at("&petta").subscribe( ⏎     S["async-op"](S.fetch, V.space, V.phase), callback ⏎ )` |
+| `(async-op <name> <future-space> launch\|landing)` | observe committed coroutine launch and landing records in &metta | `events = metta._at("&metta").subscribe( ⏎     S["async-op"](S.fetch, V.space, V.phase), callback ⏎ )` |
 | `metta.speculate()` | scope each default-context execution as a discarded segment | `with metta.speculate(): ⏎     metta.run(source)` |
 | `space.covers(effect)` | declare the strongest effect rank a reified world of this space admits | `space.covers(EffectClass.writesState)` |
 | `space.reify()` | capture an immutable evaluable world value, distinct from listing atoms | `world = space.reify()` |

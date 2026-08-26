@@ -229,7 +229,7 @@ resolve_dispatch(Fun, Args, Out, Goal) :-
       Goal =.. [Fun|DirectArgs]
     ).
 
-%The effective policy is late-bound from &petta, so adding or removing an
+%The effective policy is late-bound from &metta, so adding or removing an
 %override changes already-compiled call sites. spaces.pl materializes a
 %reference-validated lookup for this hot path; the catalog remains the only
 %authority and its write funnel invalidates the derived entry.
@@ -884,7 +884,7 @@ translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
 %
 %A rule that DECLINES with `(refuse Reason)` below is that same condition
 %failing in the rule's own words rather than a different kind of rule. The
-%words are published into &petta and the call falls through exactly as a body
+%words are published into &metta and the call falls through exactly as a body
 %with no answer does, which is why the report COUNTS the rules that can refuse:
 %the conditionality is the ruling above, and a refusal is where it is written
 %down [tested: test_a_translator_rule_can_decline_with_its_own_words;

@@ -15,7 +15,7 @@
 %     identity's canonical storage module
 %     [tested: a_parametric_space_read_resolves_to_its_private_predicate;
 %     commit=3c7bcde6a0670ec5c563584b26977b41cc727580]
-%   - a pureStructural effect declaration in &petta is the cache-purity claim [tested:
+%   - a pureStructural effect declaration in &metta is the cache-purity claim [tested:
 %     a_metta_side_effect_declaration_is_a_purity_claim; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
 %   - an inherited function is tabled and dispatched through its clause owner,
 %     and a refused catalog write rolls the table property back under one
@@ -80,15 +80,15 @@ test(an_inheriting_space_tables_the_visible_owner,
     assertion(Out == 2).
 
 %A declaration must not answer True after table/1 landed but its catalog row
-%was refused. Narrowing the declared kind makes the ordinary &petta write door
+%was refused. Narrowing the declared kind makes the ordinary &metta write door
 %reject exactly this row; lib_tabling must wrap the result in its named error
 %and remove the newly installed table before rethrowing it.
 test(a_failed_reflection_write_is_loud_and_transactional) :-
     GoodKind = [kind, tabled, symbol, symbol, integer],
     RefusingKind = [kind, tabled, integer, symbol, integer],
     setup_call_cleanup(
-        ( 'remove-atom'('&petta', GoodKind, []),
-          'add-atom'('&petta', RefusingKind, []) ),
+        ( 'remove-atom'('&metta', GoodKind, []),
+          'add-atom'('&metta', RefusingKind, []) ),
         ( catch(metta_tabled_decl(['plt-tab-plain', _], true), Error, true),
           assertion(Error = error(
               petta_tabling_reflection_write_failed(
@@ -101,8 +101,8 @@ test(a_failed_reflection_write_is_loud_and_transactional) :-
           assertion(\+ predicate_property(Self:Head, tabled)) ),
         ( metta_self_module(CleanupSelf),
           catch(untable(CleanupSelf:'plt-tab-plain'/2), _, true),
-          'remove-atom'('&petta', RefusingKind, []),
-          'add-atom'('&petta', GoodKind, []) )).
+          'remove-atom'('&metta', RefusingKind, []),
+          'add-atom'('&metta', GoodKind, []) )).
 
 % Tabling a function that reads a space is sound only when the table and the
 % storage predicates it reads both carry the incremental property, which
@@ -376,30 +376,30 @@ test(an_impure_goal_inside_a_catch_is_still_refused) :-
     tabling_refuses("(= (purity-caught $k) (catch (println! $k)))",
                     ['purity-caught', _], 'println!').
 
-%(cache Name unchecked) in &petta is the caller's declared acceptance of
+%(cache Name unchecked) in &metta is the caller's declared acceptance of
 %staleness: the walk is skipped and the table is PLAIN, not incremental,
 %because with reads unresolved there is nothing sound to invalidate on.
 test(an_unchecked_declaration_tables_an_impure_body,
      [cleanup(( metta_untabled_decl(['purity-unchecked', _], true),
-                'remove-atom'('&petta',
+                'remove-atom'('&metta',
                               [cache, 'purity-unchecked', unchecked], _) ))]) :-
     process_metta_string("(= (purity-unchecked $k) (let $i (println! $k) $k))", _),
-    process_metta_string("!(add-atom &petta (cache purity-unchecked unchecked))", _),
+    process_metta_string("!(add-atom &metta (cache purity-unchecked unchecked))", _),
     metta_tabled_decl(['purity-unchecked', _], Answer),
     assertion(Answer == true).
 
 %The bottom effect-class atom register_op accepts from Python, made from
 %inside the language instead: the walk reads
-%(effect Name pureStructural) out of &petta's own storage, and removal
+%(effect Name pureStructural) out of &metta's own storage, and removal
 %withdraws it.
 test(a_metta_side_effect_declaration_is_a_purity_claim,
-     [cleanup(catch('remove-atom'('&petta',
+     [cleanup(catch('remove-atom'('&metta',
                                   [effect, 'purity-eff', pureStructural], _),
                     _, true))]) :-
     assertion(\+ seam:pure_operation('purity-eff')),
-    process_metta_string("!(add-atom &petta (effect purity-eff pureStructural))", _),
+    process_metta_string("!(add-atom &metta (effect purity-eff pureStructural))", _),
     assertion(seam:pure_operation('purity-eff')),
-    'remove-atom'('&petta', [effect, 'purity-eff', pureStructural], _),
+    'remove-atom'('&metta', [effect, 'purity-eff', pureStructural], _),
     assertion(\+ seam:pure_operation('purity-eff')).
 
 :- end_tests(lib_tabling_purity).

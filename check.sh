@@ -581,7 +581,7 @@ run REPORT spec-status          "$PY" "$HERE/tests/check_spec_status.py"
 run GATE   spec-status-selftest "$PY" "$HERE/tests/check_spec_status_selftest.py"
 
 # Every engine decision axis is a live (policy axis knob default) row in
-# &petta, joined here to the code seam that consumes it. The second lane plants
+# &metta, joined here to the code seam that consumes it. The second lane plants
 # an unowned list, all four allowed exemptions, two malformed exemptions and
 # both authority-owned exclusions, so an empty report cannot pass vacuously.
 run GATE policy-inventory "$PY" "$HERE/tests/check_policy_inventory.py"

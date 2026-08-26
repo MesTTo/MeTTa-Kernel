@@ -657,7 +657,7 @@
 ; The judge itself is the engine builtin space-admission-verdict,
 ; Prolog-bodied by measurement: the same chain written here as equations
 ; cost 131.01 inferences per add against the builtin body, the two
-; collapse-over-match reads of &petta being the gap, and a pool is a
+; collapse-over-match reads of &metta being the gap, and a pool is a
 ; millions-of-adds surface (bindings/python/benchmarks/extension_cost.py's
 ; write-door table is the record). The declaration below is the half of
 ; its contract that lives at this level: the Atom mask keeps the offered

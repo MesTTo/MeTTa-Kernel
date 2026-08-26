@@ -156,7 +156,7 @@ add_atoms_in_one_crossing(Space, Terms) :-
     %The bulk door checks and notes contract subjects exactly as the
     %per-atom door does, once per batch head test rather than per space
     %test per atom; the whole batch is checked before any of it lands.
-    (   Space == '&petta'
+    (   Space == '&metta'
     ->  forall(member(Decl, Terms),
                (   petta_declaration_check(Decl),
                    petta_note_ctx_declared(Decl)
@@ -166,7 +166,7 @@ add_atoms_in_one_crossing(Space, Terms) :-
     forall(member(Term, Terms),
            ( add_sexp_in(Storage, Space, Term, Ref),
              record_source_atom_assertion(Ref) )),
-    (   Space == '&petta'
+    (   Space == '&metta'
     ->  forall(member(Term, Terms), petta_catalog_note_added(Term))
     ;   true
     ).
@@ -311,11 +311,11 @@ metta_add_program_atoms(Space, Atoms, Names) :-
 %per-atom door: a ':' declaration (duplicate warning, DontEvalType,
 %user-wins eviction, the recompile announce), an '=' head (the guard above,
 %defensively re-tested here), and the whole batch when the space is
-%'&petta', whose catalog checks are per-atom by contract. Foreign spaces
+%'&metta', whose catalog checks are per-atom by contract. Foreign spaces
 %and busy hooks never reach this clause; the batch door's first clause
 %already routed them per atom.
 store_data_atoms(Atoms, Space) :-
-    (   Space == '&petta'
+    (   Space == '&metta'
     ->  forall(member(Atom, Atoms), metta_add_atom(Space, Atom, _))
     ;   ensure_native_storage_module(Space, Storage),
         (   Space = [_|_], space_parametric(Space)
@@ -1478,10 +1478,10 @@ metta_host_remove_reported(Space, Term, Verdict) :-
 %absence, because storage shapes this cannot express (a foreign layout, an
 %atom that is not a list) still exist. Failure falls back to the
 %enumeration, so the semantics are the old ones exactly and only the cost
-%moves. Found because the contract ontology's 65 resident atoms in &petta
+%moves. Found because the contract ontology's 65 resident atoms in &metta
 %turned a get-atoms walk into +149 inferences per register-and-unregister
 %cycle on the register-op benchmark [measured 2026-08-18: a remove on an
-%80-atom &petta cost 303 inferences against 61 on a plain space, and the
+%80-atom &metta cost 303 inferences against 61 on a plain space, and the
 %engine-level remove path profiled flat].
 metta_host_removal_probe(Space, Pattern) :-
     Space = [_|_],

@@ -104,7 +104,7 @@ metta_declare_hook(Slot, Space, Handler) :-
                                       none))
                       )
                   ;   assertz(petta_hook_claim(Space, Slot, Handler, Module)),
-                      metta_add_atom('&petta', [SlotAtom, Space, Handler], _),
+                      metta_add_atom('&metta', [SlotAtom, Space, Handler], _),
                       %Compiled inside the same transaction, so a handler
                       %whose call site does not translate refuses the whole
                       %claim loudly at declaration instead of at the first
@@ -116,7 +116,7 @@ metta_declare_hook(Slot, Space, Handler) :-
 metta_undeclare_hook(Slot, Space) :-
     hook_slot_surface(Slot, SlotAtom),
     transaction(( (   retract(petta_hook_claim(Space, Slot, Handler, _))
-                  ->  metta_remove_atom('&petta', [SlotAtom, Space, Handler], _),
+                  ->  metta_remove_atom('&metta', [SlotAtom, Space, Handler], _),
                       petta_hook_drop_compiled(Space, Slot)
                   ;   true
                   ),
@@ -125,7 +125,7 @@ metta_undeclare_hook(Slot, Space) :-
                   ;   true
                   ) )).
 
-%(admits Pool Type) and (capacity Pool N) in &petta are data until a pool
+%(admits Pool Type) and (capacity Pool N) in &metta are data until a pool
 %is equipped: this writes the guard equation
 %  (= (space-admission-guard-<pool> $x) (space-admission-verdict <pool> $x))
 %into DECLARER's space and claims POOL's pre-add hook with it, so the
@@ -770,7 +770,7 @@ prolog:error_message(petta_events_undeclared(Space, Operation)) -->
 
 %%%% The handles route: declared fidelity per context and shape %%%%
 %
-%(handles Ctx Pattern Fidelity [Det]) atoms in &petta declare, per shape and
+%(handles Ctx Pattern Fidelity [Det]) atoms in &metta declare, per shape and
 %instantiation, how faithful a context's own filtering is. Entries are
 %patterns; a query is routed by the most specific entry that matches it,
 %where (in $x) in an entry position matches only a bound argument. Two
@@ -794,7 +794,7 @@ petta_shape_entry(Head, Ctx, Query, entry(Stripped, Paths, Entry, Payload)) :-
             forall(member(Position, Requirements), nonvar(Position)) ).
 
 %WHICH heads route by shape is catalog data, not a clause list here: a
-%(routed-by-shape Head [Key]) row in '&petta' plus the head's (kind ...)
+%(routed-by-shape Head [Key]) row in '&metta' plus the head's (kind ...)
 %row make spaces.pl's materializer compile these two predicates' clauses
 %for that head, the shipped handles, on-error and merge dispatch built by
 %the same walk from the presets as any third-party routed kind. (merge
@@ -853,7 +853,7 @@ petta_handles_route(Ctx, Query, Fidelity, Det) :-
 %137 through the catch-per-probe path]. The module name is computed once at
 %load through native_storage_module/2, the single source of that mapping.
 :- dynamic petta_contract_storage/1.
-:- native_storage_module('&petta', Module),
+:- native_storage_module('&metta', Module),
    assertz(petta_contract_storage(Module)).
 
 petta_handles_route(Ctx, Query, Entry, Fidelity, Det) :-

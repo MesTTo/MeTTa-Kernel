@@ -561,7 +561,7 @@ petta_metta_result_is_final(Atom) :-
 %[tested: space_handle_type:a_fresh_space_is_one_before_anything_is_written_to_it].
 %Naming a space still registers nothing, which is the property that keeps every
 %symbol in a space position from becoming one.
-'new-space'(Space) :- gensym('&petta-space-', Space),
+'new-space'(Space) :- gensym('&metta-space-', Space),
                       ensure_native_storage_module(Space, _).
 %The one-input form holds its Atom argument as written. A ground expression
 %there is an entity identifier, registered before either canonical module is

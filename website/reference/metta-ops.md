@@ -138,7 +138,7 @@ def register(
 > Additional declaration atoms are owned for
 > the operation's complete lifecycle: type atoms live in its declaration
 > space, while its canonical effect row and other policy atoms live in
-> &petta and can be matched there. Only ``pureStructural`` enters the
+> &metta and can be matched there. Only ``pureStructural`` enters the
 > compatibility allow-list for tabled or memoized bodies.
 
 ## `unregister`

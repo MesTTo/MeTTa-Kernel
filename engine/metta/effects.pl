@@ -949,7 +949,7 @@ metta_effect_plan_compile_arguments(Module, Head, Args, Compiled) :-
 %declaration recompiles affected callers through the support graph. Inspect
 %those retained source bodies for translator rules before the write. Ordinary
 %data remains a writesState operation and pays no compiler effect.
-metta_effect_plan_program_write(_, _, '&petta', _, Queue-Effects,
+metta_effect_plan_program_write(_, _, '&metta', _, Queue-Effects,
                                 Queue-['<catalog-policy-mutation>'-oracleIO|
                                       Effects]) :-
     !.
@@ -1796,7 +1796,7 @@ metta_forget_world_coverage(Ctx) :-
     findall([covers, Ctx, Declared],
             petta_contract_fact([covers, Ctx, Declared]),
             Rows),
-    forall(member(Row, Rows), metta_remove_atom('&petta', Row, _)).
+    forall(member(Row, Rows), metta_remove_atom('&metta', Row, _)).
 
 %One catalog lookup is the saga runner's only registry. The catalog checker
 %admits at most one row and verifies both operation names before this read.
@@ -1854,16 +1854,16 @@ seam:pure_operation(Name) :-
     \+ ( petta_fixed_operation_effect(Name, Fixed),
          Fixed \== pureStructural ).
 
-%One contract atom, read from &petta's native storage. An expression
-%[H|Args] is stored as '&petta'(H, Args...) in that space's storage module,
+%One contract atom, read from &metta's native storage. An expression
+%[H|Args] is stored as '&metta'(H, Args...) in that space's storage module,
 %the resolution the tabling walk documents; a space that has never been
 %written has no storage module yet, and that absence reads as "not declared".
 petta_contract_fact(Args) :-
-    native_storage_module('&petta', Module),
-    Goal =.. ['&petta'|Args],
+    native_storage_module('&metta', Module),
+    Goal =.. ['&metta'|Args],
     catch(call(Module:Goal), error(existence_error(procedure, _), _), fail).
 
-%The deliberate override: (cache Name unchecked) in &petta says the CALLER
+%The deliberate override: (cache Name unchecked) in &metta says the CALLER
 %accepts stale answers for this function. lib_tabling and lib_memo consult
 %it before their purity walk; an explicit non-pureStructural declaration
 %still refuses, because the author's NO outranks the caller's insistence.
@@ -2010,7 +2010,7 @@ petta_source_guard(Space) :-
     !.
 petta_source_guard(Space) :-
     (   petta_contract_storage(Module),
-        Module:'&petta'(source, Space, linear)
+        Module:'&metta'(source, Space, linear)
     ->  petta_space_flag_key('$petta_consumed:', Space, Key),
         (   current_prolog_flag(Key, consumed)
         ->  throw(error(petta_source_discipline(Space, linear), none))
@@ -2262,7 +2262,7 @@ petta_install_bridges :-
 %
 %Several reactions can match one write, and before this nothing in the tree
 %said which went first, so the answer was assertion order by accident. It is
-%a DECLARED policy now, (agenda <ctx> <policy> [<function>]) in '&petta',
+%a DECLARED policy now, (agenda <ctx> <policy> [<function>]) in '&metta',
 %with declaration as the stated default: the order they were declared, which
 %is what the accident used to produce.
 %

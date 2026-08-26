@@ -302,7 +302,7 @@ petta_capacity_admission_claim(Pool) :-
     petta_hook_claim(Pool, pre_add, Guard, _).
 
 petta_capacity_count_claim(Pool) :-
-    (   '$petta_atoms:&petta':'&petta'(capacity, Pool, _)
+    (   '$petta_atoms:&metta':'&metta'(capacity, Pool, _)
     ->  petta_capacity_count_install(Pool)
     ;   true
     ).
@@ -343,9 +343,9 @@ petta_capacity_remove_hook_install(Space) :-
         assertz(petta_capacity_remove_hook(Space, Ref))
     ).
 
-petta_capacity_remove_sexp('&petta', [Rel|Args], Removed) :- !,
-    (   native_storage_module_ready('&petta', Module)
-    ->  Term =.. ['&petta', Rel|Args],
+petta_capacity_remove_sexp('&metta', [Rel|Args], Removed) :- !,
+    (   native_storage_module_ready('&metta', Module)
+    ->  Term =.. ['&metta', Rel|Args],
         native_retract_one(Module:Term, Removed),
         (   Removed == true
         ->  petta_catalog_note_removed([Rel|Args])
@@ -353,7 +353,7 @@ petta_capacity_remove_sexp('&petta', [Rel|Args], Removed) :- !,
         )
     ;   Removed = false
     ),
-    petta_capacity_count_removed_known('&petta', Removed).
+    petta_capacity_count_removed_known('&metta', Removed).
 petta_capacity_remove_sexp(Space, [Rel|Args], Removed) :- !,
     (   native_storage_module_ready(Space, Module)
     ->  native_storage_functor(Space, Functor),
@@ -373,7 +373,7 @@ petta_capacity_counts_prune :-
     findall(Pool, petta_capacity_count(Pool, _), Pools0),
     sort(Pools0, Pools),
     forall(member(Pool, Pools),
-           (   '$petta_atoms:&petta':'&petta'(capacity, Pool, _)
+           (   '$petta_atoms:&metta':'&metta'(capacity, Pool, _)
            ->  true
            ;   petta_capacity_count_uninstall(Pool)
            )).
@@ -423,7 +423,7 @@ petta_capacity_count_recount(Space) :-
     ;   true
     ).
 
-petta_capacity_count_cleared('&petta') :-
+petta_capacity_count_cleared('&metta') :-
     !,
     with_mutex('$petta_capacity_count',
                transaction(( retractall(petta_capacity_count(_, _)),
@@ -590,13 +590,13 @@ get_native_atom(Module, Space, Pattern) :-
 %open, so one storage head cannot be built, but the held arities are a small
 %enumerable set and within each the first argument dispatches exactly as
 %above. Without this pair an open-tail probe fell to the clause/2 walk below
-%and read every stored atom: lib_tabling's `'get-atoms'('&petta', [tabled|_])`
+%and read every stored atom: lib_tabling's `'get-atoms'('&metta', [tabled|_])`
 %existence check, run per compiled equation, cost the whole catalog per event,
 %23.7 inferences per held row over one tabling_fib load, linear from 74,268
 %inferences at +0 planted rows through 78,777 at +200 to 97,977 at +1,000
 %[measured: the three totals left; command=python - with MeTTa().space then
 %m.stats() around m.run(examples/libraries/tabling_fib.metta) after N
-%`!(add-atom &petta (visibility dummy-N PUBLIC))` writes, fresh process per
+%`!(add-atom &metta (visibility dummy-N PUBLIC))` writes, fresh process per
 %N; fixture=p14-integration with engine/reader.so; commit=2b2d6f3e36d259e789ad7d977eebc3623b002970]. A bound
 %head that is itself compound shares one principal functor across such rows
 %and degrades toward the walk only for that shape. The head decomposes into

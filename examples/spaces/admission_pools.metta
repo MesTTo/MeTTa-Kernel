@@ -1,4 +1,4 @@
-;(admits <pool> <type>) and (capacity <pool> <n>) in &petta are data: a pool
+;(admits <pool> <type>) and (capacity <pool> <n>) in &metta are data: a pool
 ;is a space whose pre-add hook is claimed with a judge over them. The engine
 ;ships that judge as the builtin space-admission-verdict, Prolog-bodied by
 ;measurement, and this file is its executable specification: the same judge
@@ -14,7 +14,7 @@
 (: metta-admission-verdict (-> %Undefined% Atom %Undefined%))
 (= (metta-admission-verdict $pool $atom)
    (metta-admission-typed $pool $atom
-      (collapse (match &petta (admits $pool $type) $type))))
+      (collapse (match &metta (admits $pool $type) $type))))
 
 (: metta-admission-typed (-> %Undefined% Atom %Undefined% %Undefined%))
 (= (metta-admission-typed $pool $atom $types)
@@ -26,7 +26,7 @@
 
 (= (metta-admission-bounded $pool)
    (metta-admission-within $pool
-      (collapse (match &petta (capacity $pool $limit) $limit))))
+      (collapse (match &metta (capacity $pool $limit) $limit))))
 
 ;space-atom-count is the store's own clause bookkeeping, a property read per
 ;add rather than an enumeration of everything the pool holds.
@@ -38,8 +38,8 @@
            (refuse (pool-at-capacity (car-atom $limits))))))
 
 ;Contract atoms for one pool: Ticket-typed members, at most two of them.
-!(add-atom &petta (admits &metta-pool Ticket))
-!(add-atom &petta (capacity &metta-pool 2))
+!(add-atom &metta (admits &metta-pool Ticket))
+!(add-atom &metta (capacity &metta-pool 2))
 (: (ticket a) Ticket)
 (: (ticket b) Ticket)
 
@@ -66,7 +66,7 @@
               (metta-admission-verdict &metta-pool (stowaway 1)))
 !(assertEqual (space-admission-verdict &metta-pool (ticket a))
               (metta-admission-verdict &metta-pool (ticket a)))
-!(remove-atom &petta (capacity &metta-pool 2))
+!(remove-atom &metta (capacity &metta-pool 2))
 !(assertEqual (space-admission-verdict &metta-pool (ticket a))
               (metta-admission-verdict &metta-pool (ticket a)))
 !(test (space-admission-verdict &metta-pool (ticket a)) (accept))

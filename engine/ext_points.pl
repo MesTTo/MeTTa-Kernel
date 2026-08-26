@@ -510,7 +510,7 @@ kind(foreign_pushdown/3, ownership).
 %inexact (candidates must be re-unified, the pushdown of the caller's
 %bound is withheld) or refuse (this route must not serve now, loud at the
 %match and naming Why). An advisor typically reads its own kind's atoms
-%from '&petta', often through petta_shape_route/5, which is what lets a
+%from '&metta', often through petta_shape_route/5, which is what lets a
 %freshness or cost kind change routing with no kernel edit
 %[tested: a_route_cap_demotes_and_refuses_through_the_published_seam].
 %Declared metadata steering the router is the oldest optimizer discipline
@@ -602,7 +602,7 @@ kind(foreign_capability/2, declaration).
 %Delivery is at-most-once, at-least-once or per-write-exactly and Order is
 %ordered or unordered, the catalog's own `delivery` and `event-order`
 %vocabularies. The per-space door is the ordinary declaration atom,
-%(events <ctx> <delivery> <order>) in '&petta', which is what
+%(events <ctx> <delivery> <order>) in '&metta', which is what
 %Space.events(delivery, order) and a Python provider's registration write; this is
 %the same answer for a provider like MORK, whose spaces are every name
 %beginning &mork, so there is no one name to write the atom about. The two

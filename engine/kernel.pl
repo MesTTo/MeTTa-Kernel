@@ -89,10 +89,10 @@
 
 %(space-admission-verdict <pool> <atom>) is the shipped judge over the
 %(admits <pool> <type>) and (capacity <pool> <n>) contract atoms in
-%&petta, the handler petta_admission_claim/2's guard equation applies.
+%&metta, the handler petta_admission_claim/2's guard equation applies.
 %Prolog-bodied by measurement: the same chain written as prelude
 %equations cost 131.01 inferences per add against this body's, the two
-%collapse-over-match reads of &petta being the gap, and a pool is a
+%collapse-over-match reads of &metta being the gap, and a pool is a
 %millions-of-adds surface [measured 2026-08-20:
 %bindings/python/benchmarks/extension_cost.py write-door table, min of 3 runs].
 %The MeTTa-bodied chain runs on as executable documentation with a
@@ -105,14 +105,14 @@
 %petta_add_refused like any handler's. The Atom mask on the atom
 %parameter lives in engine/prelude.metta: the pool judges the offered atom
 %as itself [tested: the_sugar_judges_the_offered_atom_as_itself].
-%The two fixed contract heads read &petta's boot-created storage directly,
+%The two fixed contract heads read &metta's boot-created storage directly,
 %so an absent row still fails while the general =../catch wrapper is off
 %this per-add path.
 'space-admission-verdict'(Pool, Atom, Verdict) :-
-    (   '$petta_atoms:&petta':'&petta'(admits, Pool, Type),
+    (   '$petta_atoms:&metta':'&metta'(admits, Pool, Type),
         \+ has_declared_type(Atom, Type)
     ->  Verdict = [refuse, ['does-not-carry', Type]]
-    ;   '$petta_atoms:&petta':'&petta'(capacity, Pool, Limit),
+    ;   '$petta_atoms:&metta':'&metta'(capacity, Pool, Limit),
         %A foreign pool's atoms live with its provider, so its count is
         %the enumeration space-atom-count refuses to hide. A native capacity
         %claim owns an incremental dynamic count; the first decision after a

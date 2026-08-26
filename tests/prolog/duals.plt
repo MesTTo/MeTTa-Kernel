@@ -694,7 +694,7 @@ test(test_not_provable_honours_the_atom_mask_its_positive_path_honours,
                %The shipped no-match default became NoMatchOriginal at the
                %typing-cluster merge; this unit's collapse claim needs the
                %per-function fail policy the cluster's own callers adopted.
-               process_metta_string("!(add-atom &petta (dispatch-policy mask-hh NoMatchEnum NoMatchFail))", _) )),
+               process_metta_string("!(add-atom &metta (dispatch-policy mask-hh NoMatchEnum NoMatchFail))", _) )),
        cleanup(( remove_sexp('&self', [=, ['mask-dbl', _], _]),
                  remove_sexp('&self', [=, ['mask-hh', _], _]),
                  remove_sexp('&self', [':', 'mask-dbl', _]),

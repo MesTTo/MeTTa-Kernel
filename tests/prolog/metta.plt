@@ -1950,8 +1950,8 @@ test(the_translators_own_tables_are_read_from_it) :-
 % specific matching pattern, (in $x) marks a position that must arrive
 % bound, and two maximal entries that disagree are a loud conflict.
 
-handles_declare(Entry) :- 'add-atom'('&petta', Entry, _).
-handles_retract(Entry) :- catch('remove-atom'('&petta', Entry, _), _, true).
+handles_declare(Entry) :- 'add-atom'('&metta', Entry, _).
+handles_retract(Entry) :- catch('remove-atom'('&metta', Entry, _), _, true).
 
 test(strip_keeps_a_variable_headed_pair_entry) :-
     petta_adorn_strip([F, A], Stripped, Requirements),

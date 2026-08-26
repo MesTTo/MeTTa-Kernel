@@ -44,7 +44,7 @@
 %     [tested: test_overriding_a_protected_name_is_refused_with_the_name;
 %     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - a rule body answering (refuse Reason) DECLINES: the call carries on down
-%     the dispatch chain and the words are recorded and published into &petta
+%     the dispatch chain and the words are recorded and published into &metta
 %     [tested: test_a_translator_rule_can_decline_with_its_own_words;
 %     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - a declared cost prices every form headed by the rule's name and decides
@@ -514,21 +514,21 @@ install_inverse_equation(Source, Space, Equation) :-
 %expansion arrives, so a rule that does not refuse pays nothing for the
 %channel.
 %
-%The words are not lost. They are recorded here and published into &petta as
+%The words are not lost. They are recorded here and published into &metta as
 %an ordinary atom, where a program reads them with a match; printing them
 %would be noise for a rule that declines by design, and dropping them would
 %leave the author with a rewrite that did not happen and no reason.
 :- dynamic translator_rule_refusal/3.   %translator_rule_refusal(Name, Reason, Call)
 
 %The published atom is deduplicated against the REGISTER, which first-argument
-%indexing narrows to this rule's own rows, rather than against &petta, which
+%indexing narrows to this rule's own rows, rather than against &metta, which
 %would walk every atom in it once per decline and make a rule that declines
 %often quadratic in the size of the catalog.
 note_translator_rule_refusal(Name, Args, Reason) :-
     copy_term([Name|Args], Call),
     (   translator_rule_refusal(Name, Recorded, _), Recorded == Reason
     ->  true
-    ;   'add-atom'('&petta', ['translator-rule-refusal', Name, Reason], _)
+    ;   'add-atom'('&metta', ['translator-rule-refusal', Name, Reason], _)
     ),
     assertz(translator_rule_refusal(Name, Reason, Call)).
 

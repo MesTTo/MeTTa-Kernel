@@ -17,7 +17,7 @@ crm = metta.space("&crm")
 crm.image("Blob", "opaque")
 ```
 
-The resulting atom `(image &crm Blob opaque)` lives in `&petta` and has type
+The resulting atom `(image &crm Blob opaque)` lives in `&metta` and has type
 `ImageDecl`. Image policy is per type and per context. Another attached SQLite
 space can therefore choose `transparent` for `Blob` without changing `&crm`.
 The `_` type name supplies a fallback for types a context does not name.

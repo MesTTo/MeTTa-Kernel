@@ -1,6 +1,6 @@
 % Purpose: store MeTTa atoms, compile equations into per-space modules,
 %   route matching to native and foreign space providers, and validate
-%   '&petta' declarations against the self-describing catalog.
+%   '&metta' declarations against the self-describing catalog.
 % Assumes:
 %   - the removal funnel takes a space NAME rather than a handle, so
 %     metta_remove_atom/3, unstore_atom/3 and remove_equation/6 each take a
@@ -52,7 +52,7 @@
 %     inferences [measured: 270305 and 270307 inferences on 2026-08-15].
 %   - Native spaces preserve scalar atoms and expressions as distinct values
 %     [tested 2026-08-14: spaces_arbitrary_atoms].
-%   - A '&petta' declaration violating its declared (kind ...) row is a hard
+%   - A '&metta' declaration violating its declared (kind ...) row is a hard
 %     error at both write doors, naming the atom, the argument position and
 %     the argspec; a head with no kind row passes untouched
 %     [tested 2026-08-20: catalog_self_description].

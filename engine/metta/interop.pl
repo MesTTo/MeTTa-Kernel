@@ -573,7 +573,7 @@ record_metta_export(File, Parsed) :-
     ->  assertz(pending_metta_export(File, Name, arity(Arity)))
     %The two word lists are the catalog's volatility and determinism
     %vocabularies, consulted as data: a program that widens either row in
-    %'&petta' widens what this parser accepts, one authority.
+    %'&metta' widens what this parser accepts, one authority.
     ;   Term = [volatility, Name, Level], atom(Name),
         petta_vocabulary_value(volatility, Level)
     ->  declare_function_volatility(Name, Level)
@@ -585,7 +585,7 @@ record_metta_export(File, Parsed) :-
                             'an export is (: name (-> ...)), (export name arity), \c
                              (volatility name <a volatility vocabulary value>) or \c
                              (determinism name <a determinism vocabulary value>); \c
-                             both vocabularies are (vocabulary ...) rows in &petta')))
+                             both vocabularies are (vocabulary ...) rows in &metta')))
     ).
 
 %How much a caller may assume about a function's answers, and therefore what

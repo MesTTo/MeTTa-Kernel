@@ -62,7 +62,7 @@ native_storage_module_ready(Space, Module) :-
 petta_space_name(S) :- atom(S), sub_atom(S, 0, 1, _, '&'), !.
 petta_space_name(S) :- petta_space_operand(S).
 %HERE rather than beside petta_space_operand/1 below, because the two
-%directives that create &self's and &petta's storage modules run while this
+%directives that create &self's and &metta's storage modules run while this
 %file loads and a directive can only call what is already defined.
 
 ensure_native_storage_module(Space, Module) :-
@@ -101,12 +101,12 @@ ensure_native_storage_module_locked(Space, Module) :-
 %spaces_registration:rolled_back_first_write_keeps_storage_reusable].
 :- ensure_native_storage_module('&self', _).
 :- dynamic '$petta_atoms:&self':'&self'/3.
-%&petta too, at load: the contract read path probes it on every foreign
+%&metta too, at load: the contract read path probes it on every foreign
 %match, and against a module that does not exist yet each probe is a thrown
 %and caught existence error, 65 inferences where the created module's
 %unknown=fail flag answers the same miss in a handful [measured 2026-08-17:
 %petta_handles_route 136 to 30 inferences per miss].
-:- ensure_native_storage_module('&petta', _).
+:- ensure_native_storage_module('&metta', _).
 
 % Return the asserted clause reference so a source load can roll back every
 % atom it added if a later form fails.
@@ -118,15 +118,15 @@ add_sexp(Space, Term) :- add_sexp(Space, Term, _).
 %inferences per write over 200,000 writes].
 add_sexp('&self', Term, Ref) :- !, add_sexp_in('$petta_atoms:&self', '&self', Term, Ref).
 %The contract flag rides an indexed clause of its own, so an ordinary
-%add never even tests for '&petta': first-argument indexing dispatches
+%add never even tests for '&metta': first-argument indexing dispatches
 %past this clause for every other space at zero cost, where a guard
 %inside the shared funnel taxed every write (+26k on source-load's
 %counter, caught by the gate).
-add_sexp('&petta', Term, Ref) :- !,
+add_sexp('&metta', Term, Ref) :- !,
     petta_declaration_check(Term),
     petta_note_ctx_declared(Term),
-    ensure_native_storage_module('&petta', Module),
-    add_sexp_in(Module, '&petta', Term, Ref),
+    ensure_native_storage_module('&metta', Module),
+    add_sexp_in(Module, '&metta', Term, Ref),
     petta_catalog_note_added(Term).
 add_sexp(Space, Term, Ref) :- ensure_native_storage_module(Space, Module),
                               add_sexp_in(Module, Space, Term, Ref).
@@ -139,7 +139,7 @@ add_sexp(Space, Term, Ref) :- ensure_native_storage_module(Space, Module),
 :- dynamic petta_ctx_declared/1.
 
 %Monotone-conservative contract flag, set at the one funnel every native
-%'&petta' write passes: flag ABSENT proves no declaration has ever named
+%'&metta' write passes: flag ABSENT proves no declaration has ever named
 %the context, so the per-call guards below skip their probes outright;
 %flag PRESENT only means "run the real probes", so a declaration removed
 %or rolled back later costs nothing but the shortcut. The subject is
@@ -163,14 +163,14 @@ petta_note_ctx_declared(_).
 %in the same position, so every standing query flags its own space as
 %ctx-declared and the general flag can no longer say "this context declared
 %nothing about events". Without a flag the admission check walked the growing
-%'&petta' store on every subscription: one subscribe cost 983,768
+%'&metta' store on every subscription: one subscribe cost 983,768
 %instructions before the check existed, 1,093,524 with the check and 988,037
 %with the flag, so the capability costs 0.43% rather than 11.2% [measured
 %2026-08-21, instructions:u per subscribe, 1,000 standing queries against a
 %0-query baseline, min of 3].
 %
 %It is set from metta_check_catalog_semantics/3 rather than from the walk
-%above, and the difference is measured: that walk runs on EVERY '&petta'
+%above, and the difference is measured: that walk runs on EVERY '&metta'
 %write and its first argument is a list, so every clause added to it is one
 %inference on every write, which register-op's benchmark caught at +94 over
 %its declarations. The semantics check dispatches on the head ATOM, so a
@@ -218,7 +218,7 @@ add_sexp_in(Module, _, Atom, Ref) :-
 %%%% The catalog describes its own kinds %%%%
 %
 %Three declaration heads make the catalog self-describing, themselves
-%ordinary '&petta' atoms a program can match and remove:
+%ordinary '&metta' atoms a program can match and remove:
 %
 %    (vocabulary Name Value...)       a named value set, every value a symbol
 %    (claim Vocab Value Property...)  properties of one value, read where a
@@ -234,7 +234,7 @@ add_sexp_in(Module, _, Atom, Ref) :-
 %kind's row readable, a pattern is matched against queries and a term is
 %carried.
 %
-%The checker runs at the two doors every native '&petta' write passes, the
+%The checker runs at the two doors every native '&metta' write passes, the
 %per-atom funnel above and the bulk door below. A head with a declared kind
 %is validated positionally, and a violation is a hard error naming the atom,
 %the argument position and the argspec it missed, where the old behaviour
@@ -346,7 +346,7 @@ petta_dispatch_all_changed :-
     forall(dispatch_axis_vocabulary(Axis, _),
            petta_dispatch_default_changed(Axis)).
 
-%The removal twin, called by the '&petta' clause of remove_sexp below for
+%The removal twin, called by the '&metta' clause of remove_sexp below for
 %a row that actually left. A variable head means the caller removed by
 %pattern and anything may have gone, so everything derived is dropped and
 %rebuilt, which over-invalidates and never under-invalidates.
@@ -400,7 +400,7 @@ petta_catalog_note_removed(_).
 petta_cache_policy_changed(Function) :-
     forall(seam:cache_policy_changed(Function), true).
 
-%One catalog row as a list, whatever its arity: '&petta'(kind, handles,
+%One catalog row as a list, whatever its arity: '&metta'(kind, handles,
 %symbol, ...) reads back as [kind, handles, symbol, ...]. The walk over the
 %arities the storage module holds runs on catalog edits and cache misses,
 %never on a match path and never on the per-write fast path below.
@@ -408,14 +408,14 @@ petta_catalog_row(Row) :-
     petta_catalog_clause(Row, _).
 
 petta_catalog_clause([Rel|Args], Ref) :-
-    native_storage_module('&petta', Module),
-    current_predicate(Module:'&petta'/N),
+    native_storage_module('&metta', Module),
+    current_predicate(Module:'&metta'/N),
     N >= 1,
-    functor(Goal, '&petta', N),
-    Goal =.. ['&petta', Rel|Args],
+    functor(Goal, '&metta', N),
+    Goal =.. ['&metta', Rel|Args],
     clause(Module:Goal, true, Ref).
 
-%The write-path cache. The checker runs on every '&petta' write, and the
+%The write-path cache. The checker runs on every '&metta' write, and the
 %uncached lookup walks current_predicate over the storage arities, which
 %cost register-op +2,302 inferences and made its samples drift as the
 %bench's own writes created new arities [measured 2026-08-20: 42,632 to
@@ -435,7 +435,7 @@ petta_catalog_clause([Rel|Args], Ref) :-
 
 %A compiled call can ask four dispatch axes on every recursive step. Walking
 %the variadic catalog storage for each question makes the loop proportional
-%to the size of the whole catalog. This cache keeps &petta authoritative: the
+%to the size of the whole catalog. This cache keeps &metta authoritative: the
 %value carries the exact override or default clause reference that supplied
 %it, mutation callbacks forget affected keys, and a transaction rollback or
 %source withdrawal self-heals through the erased-reference check.
@@ -731,7 +731,7 @@ petta_check_catalog_semantics(compensates,
 
 %A standing query is a PROMISE about the watched context, so it is checked
 %against what that context declares it can deliver, here at the catalog
-%door every '&petta' write already passes rather than at one host's
+%door every '&metta' write already passes rather than at one host's
 %subscribe method. (subscription ...) is the reflection atom every
 %subscription writes before it activates and (on ...) is a declared
 %reaction, and both hear a context only through its change events, so a
@@ -1129,10 +1129,10 @@ petta_route_probes(global, Head, Module, _Ctx, Arities, Probes) :-
 
 petta_route_probe(Head, Module, Ctx, N, Module:Goal) :-
     length(Vars, N),
-    Goal =.. ['&petta', Head, Ctx, _Entry|Vars].
+    Goal =.. ['&metta', Head, Ctx, _Entry|Vars].
 petta_route_probe_global(Head, Module, N, Module:Goal) :-
     length(Vars, N),
-    Goal =.. ['&petta', Head, _Entry|Vars].
+    Goal =.. ['&metta', Head, _Entry|Vars].
 
 petta_probe_chain([Probe], (Probe -> true)) :- !.
 petta_probe_chain([Probe|Probes], (Probe -> true ; Chain)) :-
@@ -1147,7 +1147,7 @@ prolog:error_message(petta_declaration_malformed(Term, Position, Expected)) -->
       ;   ExpectedText = Expected
       ) },
     [ 'the declaration ~w does not fit its declared kind: argument ~w \c
-       expects ~w. Match (kind ~w $spec) in &petta to read the declared \c
+       expects ~w. Match (kind ~w $spec) in &metta to read the declared \c
        shape, or remove the kind row and redeclare it to widen the \c
        kind'-[TermText, Position, ExpectedText, Head] ].
 prolog:error_message(petta_duplicate_declaration(Space, Second, First)) -->
@@ -1155,7 +1155,7 @@ prolog:error_message(petta_duplicate_declaration(Space, Second, First)) -->
     [ 'the declaration ~w is a duplicate in ~w; the first declaration is ~w'-
       [SecondText, Space, FirstText] ].
 
-%The shipped catalog, as data. Every row becomes an ordinary '&petta' atom
+%The shipped catalog, as data. Every row becomes an ordinary '&metta' atom
 %when the directive below runs, matchable and removable like any other.
 %Vocabularies come first; (kind kind ...) enters while no kind row exists
 %to check it; every later row is validated by the self-description already
@@ -1418,7 +1418,7 @@ petta_builtin_visibility(Name, 'INTERNAL') :-
 petta_builtin_visibility(_, 'PUBLIC').
 
 %Run after the prelude has registered its equations. Materialising the rows
-%makes ordinary &petta matching, generators, and reflection share one source
+%makes ordinary &metta matching, generators, and reflection share one source
 %rather than teaching a second private-name list in each consumer.
 petta_publish_builtin_visibility :-
     findall(Name,
@@ -1431,7 +1431,7 @@ petta_publish_builtin_visibility :-
            (   petta_catalog_row([visibility, Name, _])
            ->  true
            ;   petta_builtin_visibility(Name, Visibility),
-               add_sexp('&petta', [visibility, Name, Visibility], _)
+               add_sexp('&metta', [visibility, Name, Visibility], _)
            )).
 
 %Presets land only where their subject has no row yet, which makes the
@@ -1451,4 +1451,4 @@ petta_catalog_preset_missing(Atom) :-
     \+ petta_catalog_row(Atom).
 
 :- forall(( petta_catalog_preset(Atom), petta_catalog_preset_missing(Atom) ),
-          add_sexp('&petta', Atom, _)).
+          add_sexp('&metta', Atom, _)).

@@ -31,7 +31,7 @@ and `oracleIO`; missing metadata refuses before registration and names all five
 remedies. Choose the strongest behavior the callable may perform. A generator
 or generator inverse must be at least `nondeterministicReadOnly`.
 
-Every operation reflects one canonical `(effect name class)` row in `&petta`.
+Every operation reflects one canonical `(effect name class)` row in `&metta`.
 `EffectClass.compose(step.effect for step in plan)` computes a composed plan's
 class from those reflected values by taking its strongest member. The retired
 input spellings remain accepted only for migration: `immutable` maps to

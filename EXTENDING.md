@@ -326,11 +326,11 @@ A refusal is a decline, not an error. The call carries on down the rest of the
 dispatch chain, and a rule with another equation tries that one, so
 `(strength (dose 5000) (unit mg))` answers `(grams 5)`.
 
-The reason does not disappear. It is published into `&petta`, so a program can
+The reason does not disappear. It is published into `&metta`, so a program can
 ask why a rewrite it expected did not happen:
 
 ```metta
-!(match &petta (translator-rule-refusal $rule $why) (refused $rule $why))
+!(match &metta (translator-rule-refusal $rule $why) (refused $rule $why))
 ```
 
 Every rule is already a conditional rewrite rule, because a rule's body is
@@ -1887,7 +1887,7 @@ the missing capability, instead of serving a watcher that quietly misses
 writes.
 
 A Python provider's answer is written for it, as the space's ordinary
-`(events <ctx> <delivery> <order>)` declaration in `&petta`, so a MeTTa program
+`(events <ctx> <delivery> <order>)` declaration in `&metta`, so a MeTTa program
 reads the promise the engine acts on. Use `seam:context_events/3` when you own
 a FAMILY of names rather than one, the way every `&mork` space belongs to one
 backend, and there is no single name to write the atom about. A native space
@@ -2382,7 +2382,7 @@ names all five choices. New code supplies it through `effect=`; existing
 `(effect name class)` declaration atoms remain a compatibility input. A
 generator, or an operation with a generator inverse, must be at least
 `nondeterministicReadOnly`. The operation's reflection always carries one
-canonical `(effect name class)` row in `&petta`.
+canonical `(effect name class)` row in `&metta`.
 
 Composition takes the strongest member. In Python,
 `EffectClass.compose(step.effect for step in plan)` computes that join from
@@ -2524,7 +2524,7 @@ that completed table.
 
 The remaining integration is ordinary declared traffic. `function_changed/1`
 and `function_removed/1` clear derived tables. `atom_removed/2` retires the
-indexed dispatch handler when its `(tabled ...)` row leaves `&petta`, including
+indexed dispatch handler when its `(tabled ...)` row leaves `&metta`, including
 space-pool cleanup. The `(tabled space name arity)` and `(defined space name)`
 heads have catalog kinds, so malformed rows are rejected by the generic
 catalog validator. Every actual reflection add or remove must return the
@@ -2691,10 +2691,10 @@ Matchers compose through ordinary MeTTa evaluation and nondeterminism,
 never through new syntax, because fixing one notion of closeness in the
 core would exclude every other.
 
-## 9. The contract: declarations in `&petta`, the extension story itself
+## 9. The contract: declarations in `&metta`, the extension story itself
 
 Everything above is a MECHANISM. What ties them into one seam is the
-contract: declarations are ordinary atoms in the `&petta` space, and the
+contract: declarations are ordinary atoms in the `&metta` space, and the
 engine routes queries by them. A backend attaches by declaring what it
 can do, not by the engine growing a case for it.
 
@@ -2736,7 +2736,7 @@ provider written before any of this keeps working unchanged.
 ### The catalog describes its own kinds, and yours
 
 Every row in the table above is an instance of a KIND, and the kinds are
-themselves rows in `&petta`:
+themselves rows in `&metta`:
 
 ```
 (vocabulary fidelity Exact Partial Sound Refuse)   ; a value set
@@ -2747,7 +2747,7 @@ themselves rows in `&petta`:
 (routed-by-shape handles)                          ; entries route by shape
 ```
 
-One generic checker validates every `&petta` write against the standing
+One generic checker validates every `&metta` write against the standing
 kind rows, and a violation is a hard error naming the atom, the argument
 position and the argspec it missed, where it used to sit silently and
 never match. A head with no kind row passes untouched, so your own kind
@@ -2804,7 +2804,7 @@ the conformance kit checks the derived claims the way the lens laws
 check a bidirectional transformation, the round-trip law now a named
 check. A provider takes a SCHEMA, any number of declarations, shapes
 answering together the way overlapping equations do; `tables.declare`
-writes them into `&petta` ctx-scoped, MeTTa source can add the same
+writes them into `&metta` ctx-scoped, MeTTa source can add the same
 atoms itself, and `TableBridge.from_context` reads them back, so a
 program carries its schema as knowledge and the attach is one line. Writing the consistency relation
 and deriving both directions is the bidirectional-transformations

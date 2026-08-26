@@ -242,7 +242,7 @@ petta_space_operand(S) :-
     space_parametric(S).
 
 
-%Every space name this engine registers: '&self' and '&petta' from load time,
+%Every space name this engine registers: '&self' and '&metta' from load time,
 %every atomic or parametric native space that new-space made or that has been
 %written to, and every foreign provider currently bound. Naming a space never
 %registers it, only creating it, writing to it or binding one does, so this is

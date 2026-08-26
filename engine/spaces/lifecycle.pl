@@ -113,9 +113,9 @@ remove_sexp(Space, Atom) :- remove_sexp(Space, Atom, _).
 %nothing in its text saying which it would get
 %[tested: spaces_removal_answers_unit_for_success_and_an_error_for_absence,
 %test_remove_atom_removes_one_occurrence_not_all].
-remove_sexp('&petta', [Rel|Args], Removed) :- !,
-    (   native_storage_module_ready('&petta', Module)
-    ->  Term =.. ['&petta', Rel|Args],
+remove_sexp('&metta', [Rel|Args], Removed) :- !,
+    (   native_storage_module_ready('&metta', Module)
+    ->  Term =.. ['&metta', Rel|Args],
         native_retract_one(Module:Term, Removed),
         (   Removed == true
         ->  petta_catalog_note_removed([Rel|Args])
@@ -726,7 +726,7 @@ metta_declare_parametric_space_locked(Space) :-
     (   space_parametric(Space)
     ->  true
     ;   transaction(( assertz(space_parametric(Space)),
-                      metta_add_atom('&petta', [parametric, Space], _),
+                      metta_add_atom('&metta', [parametric, Space], _),
                       ensure_native_storage_module(Space, _),
                       space_module(Space, _) ))
     ).
@@ -763,9 +763,9 @@ metta_declare_restricted_space_locked(Space, Grants) :-
         transaction(( assertz(space_restricted(Space, Grants)),
                       forall(member(Capability, Grants),
                              assertz(space_grant(Space, Capability))),
-                      metta_add_atom('&petta', [restricted, Space], _),
+                      metta_add_atom('&metta', [restricted, Space], _),
                       forall(member(Capability, Grants),
-                             metta_add_atom('&petta',
+                             metta_add_atom('&metta',
                                             [grants, Space, Capability], _)),
                       ensure_native_storage_module(Space, _),
                       space_module(Space, _) ))
@@ -864,7 +864,7 @@ metta_declare_space_parent_locked(Child, Parent) :-
     ;   space_parent_child_used(Child)
     ->  throw(error(petta_space_parent_after_use(Child), none))
     ;   transaction(( assertz(space_parent(Child, Parent)),
-                      metta_add_atom('&petta', [inherits, Child, Parent], _),
+                      metta_add_atom('&metta', [inherits, Child, Parent], _),
                       ensure_native_storage_module(Child, _),
                       space_module(Child, ChildModule),
                       space_module(Parent, ParentModule),
@@ -934,7 +934,7 @@ metta_forget_exec_module_parent(Space) :-
 
 metta_forget_space_parent(Child) :-
     (   retract(space_parent(Child, Parent))
-    ->  metta_remove_atom('&petta', [inherits, Child, Parent], _)
+    ->  metta_remove_atom('&metta', [inherits, Child, Parent], _)
     ;   true
     ).
 
@@ -942,15 +942,15 @@ metta_forget_space_restriction(Space) :-
     (   retract(space_restricted(Space, Grants))
     ->  forall(member(Capability, Grants),
                ( retractall(space_grant(Space, Capability)),
-                 metta_remove_atom('&petta',
+                 metta_remove_atom('&metta',
                                    [grants, Space, Capability], _) )),
-        metta_remove_atom('&petta', [restricted, Space], _)
+        metta_remove_atom('&metta', [restricted, Space], _)
     ;   true
     ).
 
 metta_forget_parametric_space(Space) :-
     (   space_parametric(Space)
-    ->  metta_remove_atom('&petta', [parametric, Space], _),
+    ->  metta_remove_atom('&metta', [parametric, Space], _),
         retractall(space_parametric(Space))
     ;   true
     ).
@@ -1631,14 +1631,14 @@ metta_host_clear_tabling(Space, Module) :-
            untable(Module:Name/Arity)),
     abolish_module_tables(Module),
     findall([tabled, Space, F, A],
-            'get-atoms'('&petta', [tabled, Space, F, A]),
+            'get-atoms'('&metta', [tabled, Space, F, A]),
             Facts),
-    forall(member(Fact, Facts), 'remove-atom'('&petta', Fact, _)).
+    forall(member(Fact, Facts), 'remove-atom'('&metta', Fact, _)).
 
 %Bulk cleanup of the reflection facts describing one space: every
-%(defined <Space> _) atom in &petta goes through the engine's own removal
+%(defined <Space> _) atom in &metta goes through the engine's own removal
 %funnel (hooks fire per fact), in ONE host crossing; the per-fact crossing
 %measured 10,000 calls and 64ms for 10,000 defines.
 metta_host_clear_defined(Space) :-
-    findall(F, 'get-atoms'('&petta', [defined, Space, F]), Fs),
-    forall(member(F, Fs), 'remove-atom'('&petta', [defined, Space, F], _)).
+    findall(F, 'get-atoms'('&metta', [defined, Space, F]), Fs),
+    forall(member(F, Fs), 'remove-atom'('&metta', [defined, Space, F], _)).

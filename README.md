@@ -203,12 +203,12 @@ facts behind an answer, and `m.why(pattern)` explains an empty match. A
 `%%metta` cell magic for the ordinary Python kernel ships as
 `%load_ext metta.ipython`.
 
-The library also describes itself into `&petta`, a space of its own:
+The library also describes itself into `&metta`, a space of its own:
 `(op name arity kind)` for every registered operation, `(defined space
 name)` for every `@define` function, `(subscription space pattern on)` for
 every standing query, each removed when its subject goes. It is an ordinary
 space, so MeTTa programs can query the library's whole surface, and the
-composition runs the other way too: a Python subscription on `&petta`
+composition runs the other way too: a Python subscription on `&metta`
 reacts to control atoms a MeTTa program writes there, which is steering the
 integration from inside MeTTa, no fork needed.
 
