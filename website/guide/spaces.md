@@ -1,6 +1,11 @@
 <!--
 Purpose: explain Space handles, journal-backed stores, composition, and external backing providers.
-Guarantees: examples use the public metta.space() and metta.attach() creation doors.
+Guarantees:
+  - examples use the public metta.space() and metta.attach() creation doors
+  - journal replay renames are documented as one-time migrations, and content
+    digests state that renamed heads change their hashes
+[tested: test_guides_keep_documentation_law_explainers,
+test_a_second_replay_does_not_reapply_the_rename; commit=WORKTREE]
 [tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
@@ -10,7 +15,7 @@ Guarantees: examples use the public metta.space() and metta.attach() creation do
 
 Spaces isolate stored atoms and equations. `(context-space)` names the space where the current code runs. `save(path)` writes serializable atoms and equations as loadable MeTTa source. `load(path)` loads a `.metta` file with the CLI's working-directory behavior. `save(path, format="fast")` writes the same atoms as a version-pinned binary cache instead, measured 10.4x faster than text over twenty thousand atoms, and `load` auto-detects it by its header; the header pins the exact SWI-Prolog version and carries a sha256 of the payload, so a version mismatch refuses with a re-save message and a corrupt payload, even one flipped byte, refuses on integrity before the binary reader sees any of it. The proof costs about six milliseconds on the twenty-thousand-atom corpus, and text stays the durable interchange format. A path ending `.gz` compresses either format through zlib on the engine side and gzip on the Python side, interchangeably: over the same twenty thousand atoms, text shrank 4.7x and the fast cache 5.1x, with load time within two milliseconds of the uncompressed file either way. `import!` and the CLI read `.metta.gz` programs under their ordinary names too, and a corrupt archive refuses loudly, naming the file.
 
-`digest()` names a space's content: one sha256 over every stored atom, equations included, canonicalized so insertion order and stored-variable names cannot change it. Two spaces agree on `digest()` exactly when `save()` would write the same content, in this process or another one, which makes it the cheap answer to "did anything change" and "are these two the same" without shipping the atoms:
+`digest()` names a space's content: one sha256 over every stored atom, equations included, canonicalized so insertion order and stored-variable names cannot change it. Two spaces agree on `digest()` exactly when `save()` would write the same content, in this process or another one, which makes it the cheap answer to "did anything change" and "are these two the same" without shipping the atoms. Renaming a stored head changes the atom and therefore changes the digest, even when every argument and multiplicity stays the same:
 
 ```python
         a.add(S.dg(1), S.dg(2))
@@ -26,7 +31,7 @@ When two digests disagree, `metta.spaces.diff(a, b)` says HOW: it answers `(only
 
 `m.copy()` goes the other way: this space's contents in a new anonymous space, cloned through the bulk door, so equations copy as equations and keep running, "a scratch space set up like production" in one line. `copy.copy(m)` answers the same through the copy protocol, and the clone is `space()`'s kind of handle, so dropping it returns the name.
 
-For facts that should persist as they change rather than at save points, `metta.space(backing={"edge": 2}, journal=path)` creates a schema-bound journal-backed store whose writes append to text and replay when a new process opens the same journal, `library(persistency)` underneath. `sync="flush"` asks for per-write crash survival; the default buffered mode is faster and closes cleanly when the handle is dropped. The resulting object is the same `Space` handle as every other backing, so query and write code does not depend on the persistence implementation. It is the event-store half of an event-sourcing page: the journal is the log, and subscriptions project changes into read models.
+For facts that should persist as they change rather than at save points, `metta.space(backing={"edge": 2}, journal=path)` creates a schema-bound journal-backed store whose writes append to text and replay when a new process opens the same journal, `library(persistency)` underneath. A schema rename is a one-time migration at that replay door: `PersistentFactSpace(path, {"new": 2}, rename={"old": "new"})` requires every old head to occur, validates the transformed actions, and atomically materializes the new journal before attachment. Omit `rename=` on the next open; repeating it refuses because the old name is now absent, and no write-time alias remains. `sync="flush"` asks for per-write crash survival; the default buffered mode is faster and closes cleanly when the handle is dropped. The resulting object is the same `Space` handle as every other backing, so query and write code does not depend on the persistence implementation. It is the event-store half of an event-sourcing page: the journal is the log, and subscriptions project changes into read models.
 
 ## A space is a Python container
 

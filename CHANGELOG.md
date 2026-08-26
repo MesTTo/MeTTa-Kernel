@@ -8,6 +8,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `PersistentFactSpace(..., rename={"old": "new"})` now materializes a
+  one-open journal migration before replay. Every named old head must occur,
+  the rewritten journal is atomically installed and validated, and later
+  opens omit the map instead of retaining a standing alias. The persistence
+  guide now states that the renamed atoms have different digests.
+- The twin documentation now records the operational depth split between a
+  recursive `.py` call and its compiled engine equation. A receipt lowers
+  Python's recursion limit to 80, proves both paths answer `fib(10) == 55`,
+  then observes `.py(100)` raise `RecursionError` while the engine answers the
+  same definition under its LCO and reduction-fuel regime.
 - Python import layering is blocking again. The contracts exclude
   `TYPE_CHECKING`-only annotations, classify `_world` with the satellites,
   and document the four exact function-local boundary crossings. An adjacent
