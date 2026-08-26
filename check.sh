@@ -848,6 +848,15 @@ run GATE vulture    in_py "$PY" -m vulture
 # exact exceptions: the leaf facade/algebra calls and the core's two deferred
 # satellite calls. Unmatched exceptions are errors, so an import moving or
 # disappearing cannot leave stale policy behind.
+#
+# Not `-m importlinter.cli`, which is how this lane was written from the day
+# check.sh existed until 2026-08-26 and why it checked nothing for that whole
+# time: that module only DEFINES its click commands, so runpy imported it, ran
+# no command, printed nothing and exited 0, while 62 real violations
+# accumulated behind the silence. Calling the command object is what makes the
+# lane able to fail, and
+# test_every_module_invocation_in_the_gate_reaches_an_entry_point refuses any
+# `-m` target in this file that has no entry point.
 run GATE imports in_py "$PY" -c \
     "from importlinter.cli import lint_imports_command; lint_imports_command()"
 

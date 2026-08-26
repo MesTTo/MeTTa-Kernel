@@ -24,6 +24,7 @@ Decides:
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -39,9 +40,25 @@ IMPORTS_COMMAND = (
 )
 
 
+#: Import Linter draws its report through rich, which colours when the
+#: environment asks for it. FORCE_COLOR=3 in a developer shell put escape
+#: sequences between "core does not import satellites" and "BROKEN", so the
+#: substring checks below failed on a tree where the gate itself was correct.
+#: The child is told not to colour, and the output is stripped anyway, so this
+#: lane reports on the layering rather than on the caller's terminal.
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _plain(completed: subprocess.CompletedProcess[str]) -> str:
+    return ANSI.sub("", completed.stdout + completed.stderr)
+
+
 def _run_imports(root: Path) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(root)
+    env["NO_COLOR"] = "1"
+    for forcing in ("FORCE_COLOR", "CLICOLOR_FORCE"):
+        env.pop(forcing, None)
     return subprocess.run(
         [sys.executable, "-c", IMPORTS_COMMAND],
         cwd=root,
@@ -68,7 +85,7 @@ def test_a_planted_module_level_import_is_rejected() -> None:
         )
 
         clean = _run_imports(scratch)
-        clean_output = clean.stdout + clean.stderr
+        clean_output = _plain(clean)
         assert clean.returncode == 0, clean_output
         assert "Contracts: 3 kept, 0 broken." in clean_output, clean_output
         print(
@@ -81,7 +98,7 @@ def test_a_planted_module_level_import_is_rejected() -> None:
             stream.write("\nimport metta._trace  # imports-selftest planted violation\n")
 
         broken = _run_imports(scratch)
-        broken_output = broken.stdout + broken.stderr
+        broken_output = _plain(broken)
         assert broken.returncode != 0, broken_output
         for expected in (
             "core does not import satellites BROKEN",
