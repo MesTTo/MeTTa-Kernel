@@ -25,7 +25,7 @@
 %     as their MeTTa application syntax in the reflected equation, so the
 %     generated atom itself crosses the same text boundary [tested:
 %     specializer:specialization_names_are_writable_and_stable,
-%     test_a_specialized_program_saves_and_digests; commit=WORKTREE].
+%     test_a_specialized_program_saves_and_digests; commit=5d93a44cf4820717163bbf8dfaf667ae14e5e4ee].
 % Guarded by: '$petta_specializer' serializes the existence check and the
 %   transaction that publishes a specialization.
 % Open Obligations:
@@ -136,7 +136,7 @@ restore_nb_state(Name, absent) :-
 % quotes operator-sensitive and non-ASCII atoms independently of the active
 % operator table [source:
 % https://github.com/SWI-Prolog/swipl-devel/blob/f49d28558b5f1ade8348f254b5583117e773b2bb/tests/core/test_write.pl#L94-L131;
-% commit=WORKTREE].
+% commit=5d93a44cf4820717163bbf8dfaf667ae14e5e4ee].
 specialization_name(HV, CleanBindSet, SpecName) :-
     (   legacy_specialization_name(HV, CleanBindSet, DisplayName)
     ->  SpecName = DisplayName

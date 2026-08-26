@@ -4,7 +4,7 @@
 %   - the name minter preserves established writable spellings and encodes a
 %     structured key when its display spelling is not one MeTTa symbol
 %     [tested: specializer:specialization_names_are_writable_and_stable;
-%     commit=WORKTREE].
+%     commit=5d93a44cf4820717163bbf8dfaf667ae14e5e4ee].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
