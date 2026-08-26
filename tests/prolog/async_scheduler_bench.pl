@@ -7,7 +7,7 @@
 %   - every parked worker announces readiness through a channel before thread
 %     count is sampled; no timing sleep decides whether a worker is counted
 %     [tested: swipl -q -f tests/prolog/async_scheduler_bench.pl -g bench -t halt;
-%     commit=WORKTREE].
+%     commit=39092863ae34184a9f955f185ff57c1ff177ec40].
 % Decides:
 %   - 200 cheap spawns expose fixed scheduler overhead, while 128 simultaneous
 %     waits make the dedicated-thread and M:N resource shapes distinguishable.

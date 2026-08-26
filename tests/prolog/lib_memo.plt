@@ -12,7 +12,7 @@
 %   - Exact-cache invalidation advances a hidden table generation seen by
 %     already-live worker engines [tested:
 %     lib_memo_stats:invalidation_moves_a_live_worker_to_a_fresh_exact_table_generation;
-%     commit=WORKTREE].
+%     commit=39092863ae34184a9f955f185ff57c1ff177ec40].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

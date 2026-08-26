@@ -40,7 +40,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   of five fresh SWI processes;
   command=`for iteration in 1 2 3 4 5; do swipl -q -f /tmp/codex-async/tests/prolog/async_scheduler_bench.pl -g bench -t halt 2>/dev/null | command grep '^cheap_ms='; done` in the candidate and base checkouts;
   fixture=candidate checkout against 6aa5a6785feaf39a7a2d4ab4a26817bc063aea92, 200 cheap spawns and 128 parked waits;
-  commit=WORKTREE]
+  commit=39092863ae34184a9f955f185ff57c1ff177ec40]
 
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,

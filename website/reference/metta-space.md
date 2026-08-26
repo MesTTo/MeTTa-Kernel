@@ -87,7 +87,7 @@ Source: `bindings/python/metta/_space.py`.
 >     policy and refuses an operation wrapper before definition registration
 >     [tested: test_a_cached_definition_preserves_duplicate_answers,
 >     test_cache_over_an_operation_refuses_before_definition_registration;
->     commit=WORKTREE]
+>     commit=39092863ae34184a9f955f185ff57c1ff177ec40]
 >   - encoded generator tuple and sparse-dict yields are relational candidate
 >     bindings in every call direction [tested:
 >     test_relational_tuple_candidates_unify_in_all_directions_without_changing_multiplicity,
@@ -1646,7 +1646,7 @@ def cache(
 >
 > Result order is unspecified but result multiplicity is observable.
 > ``a, a, b`` therefore remains ``a, a, b`` after caching [tested:
-> test_a_cached_definition_preserves_duplicate_answers; commit=WORKTREE].
+> test_a_cached_definition_preserves_duplicate_answers; commit=39092863ae34184a9f955f185ff57c1ff177ec40].
 
 ### `Space.type`
 

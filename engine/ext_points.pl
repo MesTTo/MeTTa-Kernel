@@ -10,14 +10,14 @@
 %     after the outer commit, and discarded on rollback [tested:
 %     test_events_publish_only_after_transaction_commit,
 %     test_rollback_and_outer_rollback_discard_every_buffered_event,
-%     test_speculative_execution_discards_its_event_segment; commit=WORKTREE].
+%     test_speculative_execution_discards_its_event_segment; commit=39092863ae34184a9f955f185ff57c1ff177ec40].
 %   - deferred commit callbacks run after earlier committed events even when a
 %     subscriber fails, while rollback runs every paired discard callback even
 %     when an earlier discard raises [tested:
 %     test_a_failed_launch_watcher_does_not_strand_committed_async_work,
 %     test_a_rolled_back_async_launch_never_starts_or_lands,
 %     every_deferred_discard_runs_before_the_first_error_is_rethrown;
-%     commit=WORKTREE].
+%     commit=39092863ae34184a9f955f185ff57c1ff177ec40].
 %   - reader-token registration is an engine-owned host service, while token
 %     construction is claimed by the host that owns the registered callable;
 %     mapping introspection is an ordinary extension service [tested:
@@ -962,7 +962,7 @@ kind(metta_typed_dispatch_applies/2, host_service).
 %representation [tested:
 %test_a_transaction_commits_async_launch_before_its_landing,
 %test_a_failed_launch_watcher_does_not_strand_committed_async_work,
-%test_a_rolled_back_async_launch_never_starts_or_lands; commit=WORKTREE].
+%test_a_rolled_back_async_launch_never_starts_or_lands; commit=39092863ae34184a9f955f185ff57c1ff177ec40].
 kind(observation_begin/0, service).
 kind(observation_commit/0, service).
 kind(observation_discard/0, service).

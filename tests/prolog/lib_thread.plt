@@ -12,7 +12,7 @@
 %     lib_thread:a_saturated_timer_pool_does_not_block_scheduler_deadlines,
 %     lib_thread:a_cancelled_scheduler_deadline_cannot_wake_its_task,
 %     lib_thread:full_channel_sends_suspend_engines_instead_of_all_carriers;
-%     commit=WORKTREE].
+%     commit=39092863ae34184a9f955f185ff57c1ff177ec40].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

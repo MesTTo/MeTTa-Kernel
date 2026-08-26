@@ -7,7 +7,7 @@
 % bindings/python/tests/test_under_algebra.py; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
 % Guarantees: async is a declared operation kind whose compiled result is a
 % FutureSpace [tested: test_an_async_operation_answers_a_future_space;
-% commit=WORKTREE].
+% commit=39092863ae34184a9f955f185ff57c1ff177ec40].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.

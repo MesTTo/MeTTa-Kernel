@@ -36,7 +36,7 @@ Source: `bindings/python/metta/ops.py`.
 >     future-space dispatch
 >     before registration changes any engine or registry state [tested:
 >     test_register_op_reads_co_flags_and_refuses_or_awaits;
->     commit=WORKTREE]
+>     commit=39092863ae34184a9f955f185ff57c1ff177ec40]
 >   - generator signatures supply positional and sparse-dict relation row names
 >     after injected engine parameters are removed [tested:
 >     test_sparse_relational_dict_candidates_bind_parameter_names;
@@ -70,7 +70,7 @@ Source: `bindings/python/metta/ops.py`.
 >     functools.wraps chains so mutually exclusive definition doors can refuse
 >     before mutation [tested:
 >     test_cache_over_an_operation_refuses_before_definition_registration;
->     commit=WORKTREE]
+>     commit=39092863ae34184a9f955f185ff57c1ff177ec40]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

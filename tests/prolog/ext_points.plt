@@ -20,7 +20,7 @@
 %     commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
 %   - rollback runs every deferred discard before rethrowing the first error
 %     [tested: every_deferred_discard_runs_before_the_first_error_is_rethrown;
-%     commit=WORKTREE]
+%     commit=39092863ae34184a9f955f185ff57c1ff177ec40]
 %   - a library's own error term renders through prolog:error_message//1
 %     [tested 2026-08-16: ext_points_messages]
 % Open Obligations:
