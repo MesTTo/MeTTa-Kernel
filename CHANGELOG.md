@@ -8,6 +8,45 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- A scaling gate now holds each benchmark family to its declared complexity
+  CLASS rather than to a constant, closing a hole every other pin in the tree
+  shares: they are single numbers at single input sizes, so a cost that turns
+  linear into quadratic stays invisible until it reaches the one pinned size.
+  `sh check.sh scaling` measures each family across a ladder, fits `y = a*x^b`
+  on the log of size against the log of inferences, and reports the exponent
+  with R-squared beside google/benchmark's model selection. Four independent
+  ways to fail keep the number honest: the exponent against the declared class,
+  a separate looser guard comparing every size against its pinned row so a
+  constant-factor loss inside the right class is still visible, a REFUSAL for
+  any size that did not stay on one route, and an answer check run outside the
+  measured region. Seeded with six families over the surfaces a class
+  regression could hide in today, the write door, the reader, the join planner,
+  the matcher, sequence variables and the MORK backend write path.
+  It gates on inferences, which are deterministic: all eight families returned
+  identical counts across three fresh processes at loadavg 3.40, again at 5.97,
+  and again inside the full gate with the machine between 10 and 21, so the
+  lane needs no quiet machine. `--selfcheck` asks the families about their own
+  engine-level invariants, which is where the checks that need an engine live so
+  the test file never boots one. `--paired` adds the retired
+  instruction curve for a family whose work crosses into C or Rust, where an
+  inference count is blind, and that lane is advisory.
+- The scaling gate ships two planted negative controls permanently, and fails
+  if either stops failing. One is genuinely quadratic while declared linear and
+  must trip the exponent gate and only that gate; the other costs exactly three
+  times its pinned row with its class untouched, and must trip the constant
+  guard while passing the exponent gate, which is what proves the two gates are
+  independent rather than one gate wearing two names. Their measured values are
+  1.746 against a 1.25 bound, and 2.99x against a 1.10 bound at 0.999 exponent.
+- The scaling gate refuses a run whose ledger was recorded under a different
+  configuration, before it measures anything, and names the two remedies:
+  restore the configuration, or re-pin with `--record`. The C reader alone is
+  worth 10.58 to 10.86 times on the parse-forms family, [55248, 111250, 223254,
+  452062] inferences on the Prolog reader against [5222, 10422, 20822, 41624] on
+  the C one, and both routes hold the same class. Without the refusal the
+  constant guard would fire at ten times its bound and name a parser regression
+  where only the box differed. Running with `PETTA_C_READER=off` on a tree whose
+  ledger was pinned with `engine/reader.so` present now reports
+  `CONFIGURATION DRIFT c_reader` and exits 1.
 - Specializations now mint collision-free names from MeTTa-writable text and
   retain source-form equations for saving and digesting. Structured partial
   applications no longer leak Prolog syntax into stored symbols, and saved
