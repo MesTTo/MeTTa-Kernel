@@ -19,7 +19,7 @@ re-runs them.
 | `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 44 plunit suites over the engine itself | the `plunit` gate lane |
-| `bindings/python/tests/*.py` | 206 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
+| `bindings/python/tests/*.py` | 207 files, blackbox, hypothesis-fuzzed | the `pytest` gate lane |
 | `bindings/python/tests/twins/**/*.py` | 219 Python twins of `examples/` programs across the corpus, each written with no MeTTa source text, answering alpha-equal to its original or explicitly declining a structured-residue form, and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `bindings/python/metta/vocabularies.py` | the catalog's value vocabularies as StrEnum classes, one per `(vocabulary ...)` row; each member IS its wire word and encodes as its symbol, and bare words stay the runtime escape hatch | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
@@ -38,6 +38,7 @@ re-runs them.
 | `backends/*/decider.pl` | globbed at boot; each integration's decider decides whether its own artefact is present | |
 | `bindings/*/decider.pl` | globbed at every boot; each seat's decider loads its bridge only where the bridge's substrate exists, so the engine names no host | |
 | `bindings/node/*.mjs` | the engine embedded in a Node process over swipl-wasm, the seam's second consumer. `bindings/node/bridge.pl` is its Prolog half and calls published surface only | the `node-binding` gate lane, and `bindings/python/tests/test_node_binding.py` answers the same corpus in both hosts |
+| `bindings/cetta/cetta.h`, `bindings/cetta/cetta.c` | the engine embedded in a C process through SWI's own foreign interface, the seam's third consumer and the only one IN the engine's process, so it reads `term_t` directly and has no wire codec. `bindings/cetta/bridge.pl` is its Prolog half and calls published surface only | the `c-binding` gate lane, and `bindings/python/tests/test_c_binding.py` requires this seat and the Python host to answer the same programs |
 | `EXTENDING.md`, `DEVELOPING.md` | writing an extension; working on the engine | |
 | `KERNEL.md` | every head the translator gives meaning to, core or derived, with the reason and the numbers | the `plunit` gate lane's `translator_derived_forms` and the `pytest` lane's corpus twin test |
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |

@@ -17,6 +17,16 @@ examples/integration/c_extension/*.so
 # The engine's C reader artifact, built by check.sh beside engine/reader.c
 engine/reader.so
 
+# The C binding's build products. cetta.c and cetta.h are the source; the
+# shared library, the examples, the suite and the parity driver are all built
+# by bindings/cetta/Makefile and are one machine's binaries.
+bindings/cetta/libcetta.so
+bindings/cetta/examples/hello
+bindings/cetta/examples/ops
+bindings/cetta/examples/stream
+bindings/cetta/tests/test_cetta
+bindings/cetta/kit/driver
+
 # The opt-in mypyc build (PETTA_USE_MYPYC=1), which writes extensions beside
 # the source they were built from. Shipping one would also SHADOW the pure
 # Python module for every later run in the checkout, so it is ignored and

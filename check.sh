@@ -374,6 +374,37 @@ not run without swipl-wasm" >&2
 }
 run GATE node-binding check_node_binding
 
+# The C binding, the seam's third consumer and the only one that is IN the
+# engine's process. A C main() calls PL_initialise, registers its foreign
+# predicates, and consults the engine; bindings/cetta/decider.pl sees
+# '$cetta_present'/0 and loads the bridge beside it. Because there is no
+# language boundary to cross, this seat reads engine terms directly and has no
+# wire codec, so the codec kit cannot gate it; what gates it instead is its own
+# C suite here and the cross-seat parity case in the pytest lane above, which
+# requires this binding and the Python host to answer the same programs.
+#
+# It needs a C compiler and SWI's development headers. Neither is fetched: a
+# gate that reaches the network is a gate that fails for a reason that is not
+# the tree, so a missing step is named and skipped, the same shape the C
+# extension example and the Node lane take.
+check_c_binding() {
+    binding="$HERE/bindings/cetta"
+    [ -d "$binding" ] || return 0
+    if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
+        echo "note: no C compiler found, the C binding suite will not run" >&2
+        return 0
+    fi
+    if [ ! -f "$(swipl --dump-runtime-variables 2>/dev/null \
+                  | sed -n 's/^PLBASE="\(.*\)";$/\1/p')/include/SWI-Prolog.h" ]; then
+        echo "note: SWI-Prolog development headers not found, the C binding \
+suite will not run" >&2
+        return 0
+    fi
+    ( cd "$binding" && make --quiet clean >/dev/null 2>&1
+      cd "$binding" && make --quiet test )
+}
+run GATE c-binding check_c_binding
+
 # Undefined predicates in the engine. Nothing checked the Prolog side before
 # this; SWI has had the check built in all along.
 #

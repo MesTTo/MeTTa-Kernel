@@ -8,6 +8,33 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- A C binding, `bindings/cetta`, so a C program can drive the engine: boot it,
+  build and read MeTTa terms as C values, run programs, pull answers one at a
+  time, and publish C functions the language calls. `cetta.h` is the whole
+  surface and `make test` runs its suite. It is the seam's third consumer and
+  the first one that is IN the engine's process: where the Python seat crosses
+  janus and the Node seat crosses WebAssembly, and both therefore encode every
+  term into the tagged arrays `CODEC.md` describes, this one reads `term_t`
+  directly and has no wire codec at all. That is also why the codec kit cannot
+  gate it, and `bindings/python/tests/test_c_binding.py` gates it instead by
+  requiring this seat and the Python host to answer the same programs with the
+  same groups, multiplicity, text and metatypes.
+  Ownership is carried by C's own type system rather than by documentation: a
+  function taking `const cetta_atom_t *` borrows and one taking a non-const
+  pointer steals, so a nested build like
+  `cetta_expr(3, cetta_sym("+"), cetta_int(1), cetta_int(2))` leaks nothing and
+  a failed inner constructor releases the siblings that succeeded. Answers are
+  stepped rather than drained, the shape `sqlite3_step()` gave C, so an endless
+  MeTTa generator is ordinary from C. A published function names one of the five
+  ranked effect classes, required rather than advisory, and reaches MeTTa
+  through C's own casing convention, so `word_count` publishes `word-count`
+  exactly as Python's `car_atom` reaches `car-atom`.
+  Being in-process also lets this seat settle a question the other two guess at:
+  an atom becomes a space reference when `metta_space_names/1` says it is one,
+  where the shipped Python and Node encoders hardcode `&self` and `&petta` and
+  therefore send a space the engine just created across as an ordinary symbol.
+  The divergence is pinned and explained in the parity test rather than hidden.
+
 - A scaling gate now holds each benchmark family to its declared complexity
   CLASS rather than to a constant, closing a hole every other pin in the tree
   shares: they are single numbers at single input sizes, so a cost that turns

@@ -1090,6 +1090,7 @@ a_backend_calls_only_published_surface :-
 % number in this comment.
 host_transport('../../bindings/python/metta/shim.pl', '../../bindings/python/metta').
 host_transport('../../bindings/node/bridge.pl', '../../bindings/node').
+host_transport('../../bindings/cetta/bridge.pl', '../../bindings/cetta').
 
 a_host_binding_calls_only_published_surface :-
     forall(host_transport(Entry, _), ensure_loaded(Entry)),
