@@ -268,6 +268,7 @@
             declared_output_type/2,
             uses_super/2,
             fun_meta_clauses/3,
+            fun_meta_module/3,
             clear_fun_meta/2,
             drop_fun_meta/4,
             arrived_pairs/1,

@@ -259,6 +259,7 @@ reaches(spaces, support_graph, 'a cleared space forgets the support edges of its
 reaches(spaces, translator, 'storing an equation compiles it').
 reaches(specializer, filereader, 'records and forgets the assertion of a generated specialization').
 reaches(specializer, metta, 'reads the module and space context and the type declarations it specializes over').
+reaches(specializer, parser, 'a minted specialization name must be a symbol the reader reads back').
 reaches(specializer, spaces, 'a specialization is stored and compiled into the space it belongs to').
 reaches(specializer, support_graph, 'a specialization is a derived artifact with support edges').
 reaches(specializer, translator, 'a specialization is a translated clause').

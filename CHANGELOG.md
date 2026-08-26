@@ -1135,6 +1135,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The engine layering contract names the specializer's reader edge, minted
+  specialization names being symbols the reader reads back, and `translator`
+  now exports `fun_meta_module/3`, the ownership question the specializer
+  already asked with a module qualifier. Both edges date to the
+  writable-specialization merge and had turned the layering suite red.
+
 - Named spaces now apply lexical name hiding to stored type declarations
   during dispatch. A local declaration set replaces inherited `&self`
   declaration rows, while a local definition with no declaration takes the
