@@ -596,6 +596,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   engine's internal Prolog predicate names keep their `petta_` prefix, 6,860
   of them, and the Node binding's own copy of the name is untouched pending
   its own pass.
+- A twin's pricing declarations now sit at the END of the file, under the `#:`
+  run that documents them, and a re-pin appends there. The chain never shrinks
+  and every merge adds a paragraph, so on top it buried the example the file
+  exists to show: `basics/identity.py` opened with 297 comment lines before its
+  first statement, and all 219 twins open with code now. The twins lane reads
+  the placement as a finding, and `twin_coverage.py --repin --reason ...`
+  measures min-of-three in fresh processes and writes the paragraph at the
+  bottom, refusing a top-heavy twin, an empirical envelope, and a move with no
+  stated mechanism.
 - The Python `+=` write door now classifies semantic scalars before fact
   streams. A built `Expression`, bare atom, text value, mapping, or explicitly
   grounded iterable is one atom; lists, generators, SQL-style iterables,
