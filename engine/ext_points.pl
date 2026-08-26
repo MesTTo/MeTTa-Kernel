@@ -10,7 +10,14 @@
 %     after the outer commit, and discarded on rollback [tested:
 %     test_events_publish_only_after_transaction_commit,
 %     test_rollback_and_outer_rollback_discard_every_buffered_event,
-%     test_speculative_execution_discards_its_event_segment; commit=3ded7552797b66d78e666141eb51f3bc14686bd2].
+%     test_speculative_execution_discards_its_event_segment; commit=WORKTREE].
+%   - deferred commit callbacks run after earlier committed events even when a
+%     subscriber fails, while rollback runs every paired discard callback even
+%     when an earlier discard raises [tested:
+%     test_a_failed_launch_watcher_does_not_strand_committed_async_work,
+%     test_a_rolled_back_async_launch_never_starts_or_lands,
+%     every_deferred_discard_runs_before_the_first_error_is_rethrown;
+%     commit=WORKTREE].
 %   - reader-token registration is an engine-owned host service, while token
 %     construction is claimed by the host that owns the registered callable;
 %     mapping introspection is an ordinary extension service [tested:
@@ -91,6 +98,7 @@
             observation_begin/0,
             observation_commit/0,
             observation_discard/0,
+            observation_defer/2,
             observe/3,
 
             % Declarations: fact tables the engine reads as data.
@@ -946,13 +954,19 @@ kind(with_metta_module/2, host_service).
 %declaration walk and the rule registry stay free to move.
 kind(metta_typed_dispatch_applies/2, host_service).
 
-%The post-commit stream's four services. Transaction owners open and finish
+%The post-commit stream's five services. Transaction owners open and finish
 %frames; a provider whose own durable channel reports a committed change may
-%enter it through observe/3. The frame stack is engine state, so extensions
-%call these names and never reach its thread-local representation.
+%enter it through observe/3. A launch that must happen only after commit uses
+%observation_defer/2 with paired commit and rollback goals. The frame stack is
+%engine state, so extensions call these names and never reach its thread-local
+%representation [tested:
+%test_a_transaction_commits_async_launch_before_its_landing,
+%test_a_failed_launch_watcher_does_not_strand_committed_async_work,
+%test_a_rolled_back_async_launch_never_starts_or_lands; commit=WORKTREE].
 kind(observation_begin/0, service).
 kind(observation_commit/0, service).
 kind(observation_discard/0, service).
+kind(observation_defer/2, service).
 kind(observe/3, service).
 
 %The declared source discipline of a context, (source Ctx Kind): the
@@ -1402,12 +1416,67 @@ observation_commit :-
         nb_setval('$petta_observation_frames', [Merged|Parents])
     ;   nb_setval('$petta_observation_frames', []),
         reverse(Current, Events),
-        maplist(observation_dispatch, Events)
+        observation_dispatch_committed(Events)
     ).
 
+%A subscriber failure remains the caller's error, but the state has already
+%committed. Run any later deferred commit callbacks before rethrowing so an
+%async launch cannot be stranded between its durable launch event and start.
+%Ordinary later events retain the established stop-on-first-failure behavior.
+observation_dispatch_committed([]).
+observation_dispatch_committed([Event|Events]) :-
+    catch(observation_dispatch(Event),
+          Error,
+          ( observation_dispatch_deferred(Events), throw(Error) )),
+    observation_dispatch_committed(Events).
+
+observation_dispatch_deferred([]).
+observation_dispatch_deferred([defer(Commit, Discard)|Events]) :- !,
+    catch(call(Commit), _, catch(call(Discard), _, true)),
+    observation_dispatch_deferred(Events).
+observation_dispatch_deferred([_|Events]) :-
+    observation_dispatch_deferred(Events).
+
 observation_discard :-
-    observation_take_frame(_, Rest, discard),
-    nb_setval('$petta_observation_frames', Rest).
+    observation_take_frame(Current, Rest, discard),
+    nb_setval('$petta_observation_frames', Rest),
+    reverse(Current, Events),
+    observation_rollback_all(Events, none).
+
+%Rollback owns cleanup, so one broken owner cannot strand every owner queued
+%after it. Preserve the old outward result after all callbacks have run: the
+%first exception wins, otherwise any failed callback makes the whole discard
+%fail. This is the same cleanup-then-rethrow discipline used by resource
+%unwinding and ExceptionGroup collectors, except callers here already have a
+%single-error contract.
+observation_rollback_all([], none) :- !.
+observation_rollback_all([], failed) :-
+    !,
+    fail.
+observation_rollback_all([], error(Error)) :-
+    !,
+    throw(Error).
+observation_rollback_all([Event|Events], First0) :-
+    catch(( observation_rollback(Event)
+          -> Outcome = none
+          ;  Outcome = failed ),
+          Error,
+          Outcome = error(Error)),
+    observation_first_failure(First0, Outcome, First),
+    observation_rollback_all(Events, First).
+
+observation_first_failure(none, Failure, Failure) :- !.
+observation_first_failure(First, _Later, First).
+
+:- meta_predicate observation_defer(0, 0).
+observation_defer(Commit, Discard) :-
+    must_be(callable, Commit),
+    must_be(callable, Discard),
+    (   observation_frames([Current|Parents])
+    ->  copy_term(defer(Commit, Discard), Deferred),
+        nb_setval('$petta_observation_frames', [[Deferred|Current]|Parents])
+    ;   call(Commit)
+    ).
 
 observe(Action, Space, Term) :-
     (   observation_frames([Current|Parents])
@@ -1434,6 +1503,14 @@ observation_dispatch(event(added, Space, Term)) :-
     forall(atom_added(Space, Term), true).
 observation_dispatch(event(removed, Space, Term)) :-
     forall(atom_removed(Space, Term), true).
+observation_dispatch(defer(Commit, Discard)) :-
+    catch(call(Commit),
+          Error,
+          ( catch(call(Discard), _, true), throw(Error) )).
+
+observation_rollback(event(_, _, _)).
+observation_rollback(defer(_, Discard)) :-
+    call(Discard).
 
 disable_atom_hook(added) :-
     write_door_module(metta_add_atom/3, Engine),

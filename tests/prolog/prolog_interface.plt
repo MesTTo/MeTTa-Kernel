@@ -424,9 +424,13 @@ test(readying_refuses_a_registered_space_with_no_capability_rows) :-
 
 % The hook check is a whole-predicate clause count, because clause/2 on a
 % static multifile hook is a permission error under protect_static_code; it
-% therefore only bites while the hook has no clauses from ANY provider,
-% which holds in this suite's process for seam:foreign_clear/1.
-test(readying_refuses_a_declared_capability_with_no_hook_clauses) :-
+% therefore only bites while the hook has no clauses from ANY provider. The
+% backend lane loads MORK's real clear hook, so this clause-absence witness is
+% inapplicable there rather than a failed product claim.
+test(readying_refuses_a_declared_capability_with_no_hook_clauses,
+     [condition(\+ ( predicate_property(seam:foreign_clear(_),
+                                       number_of_clauses(Count)),
+                       Count > 0 ))]) :-
     ready_refusal(plunit_ready_hookless,
                   ":- multifile seam:foreign_space/1.\n:- multifile seam:foreign_capability/2.\nseam:foreign_space('&plunit_ready_hookless-space').\nseam:foreign_capability('&plunit_ready_hookless-space', clear).\n",
                   'has no clauses: implement the hook or drop the capability').

@@ -8,6 +8,40 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- `@space.cache` now stores exact answer bags in generated SWI answer tries.
+  Each proof contributes one to a mode-directed `sum`, so the trie keeps one
+  copy of a distinct answer plus its occurrence count and replay expands that
+  count back into the observable bag. `cache_info()` still reports call-key
+  entries and answer occurrences, and stacking cache over `@space.op` still
+  refuses before registration. A hidden generation argument now makes
+  invalidation visible to already-live scheduler and pool engines whose SWI
+  answer tables are private to their thread. On 2026-08-26, fib(25) measured
+  2,548 cached
+  inferences against 830,770 uncached: 4.49x less work than the 11,433-
+  inference Prolog-list memo, 1.57x the old 1,622-inference set table, and a
+  restored uncached-to-cached ratio of 326x rather than 73x.
+
+- `spawn` now runs each computation as a suspended SWI engine and multiplexes
+  those engines over a bounded normal carrier pool. Space writes wake parked
+  engines without parking a carrier. Future awaits, empty channel receives and
+  full channel sends suspend their engines too. `oracleIO` operations use Go's
+  blocking-syscall shape: the engine detaches onto a transient offload thread,
+  leaving every bounded carrier free until the foreign call returns.
+  Coroutine functions registered with `@space.op(effect=...)` now answer a
+  typed `FutureSpace`; transaction commit publishes their launch before the
+  coroutine starts, and landing is a later event. Rollback discards an
+  unstarted launch. `@space.define` names this future-space route and
+  `aio.AsyncMeTTa.call` as its two async remedies. Context variables are
+  copied at every coordination and worker spawn door, including OS threads.
+  The bounded M:N path also removes the dedicated-thread launch cost for tiny
+  jobs: a min-of-five fresh-process probe of 200 `(+ 1 1)` spawns took 4.617 ms
+  versus 6.737 ms on the prior dedicated-thread face, 0.69 times as long. In
+  exchange, 128 parked waits held 9 OS threads instead of 131. [measured: min
+  of five fresh SWI processes;
+  command=`for iteration in 1 2 3 4 5; do swipl -q -f /tmp/codex-async/tests/prolog/async_scheduler_bench.pl -g bench -t halt 2>/dev/null | command grep '^cheap_ms='; done` in the candidate and base checkouts;
+  fixture=candidate checkout against 6aa5a6785feaf39a7a2d4ab4a26817bc063aea92, 200 cheap spawns and 128 parked waits;
+  commit=WORKTREE]
+
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,
   fits constant through quadratic and capped-linear complexity families over

@@ -16,7 +16,11 @@
 %   - nested observation frames publish in write order only at outer commit
 %     and discard their whole segment without callbacks
 %     [tested: a_frame_publishes_only_after_commit_in_write_order,
-%     an_outer_discard_drops_its_committed_inner_segment; commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
+%     an_outer_discard_drops_its_committed_inner_segment;
+%     commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
+%   - rollback runs every deferred discard before rethrowing the first error
+%     [tested: every_deferred_discard_runs_before_the_first_error_is_rethrown;
+%     commit=WORKTREE]
 %   - a library's own error term renders through prolog:error_message//1
 %     [tested 2026-08-16: ext_points_messages]
 % Open Obligations:
@@ -221,6 +225,23 @@ test(an_outer_discard_drops_its_committed_inner_segment,
     assertion(\+ plunit_seam_reached(_)),
     seam:observation_discard,
     assertion(\+ plunit_seam_reached(_)).
+
+test(every_deferred_discard_runs_before_the_first_error_is_rethrown,
+     [ setup(nb_setval('$plunit_later_discard_ran', false)),
+       cleanup(( catch(seam:observation_discard, _, true),
+                 nb_delete('$plunit_later_discard_ran') )) ]) :-
+    seam:observation_begin,
+    seam:observation_defer(
+        true,
+        throw(error(plunit_first_discard_failed, context(discard, first)))),
+    seam:observation_defer(
+        true,
+        nb_setval('$plunit_later_discard_ran', true)),
+    catch(seam:observation_discard, Error, true),
+    assertion(Error == error(plunit_first_discard_failed,
+                             context(discard, first))),
+    nb_getval('$plunit_later_discard_ran', LaterRan),
+    assertion(LaterRan == true).
 
 test(a_removed_atom_reaches_its_handler,
      [ setup(retractall(plunit_seam_reached(_))),

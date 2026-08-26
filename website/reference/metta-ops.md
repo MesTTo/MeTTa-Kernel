@@ -32,10 +32,11 @@ Source: `bindings/python/metta/ops.py`.
 >     [tested: test_each_remaining_annotation_shape_refuses_or_carries;
 >      commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - callable code flags, through partials, wrappers, bound methods, and
->     callable objects, classify generators and refuse coroutine functions
+>     callable objects, classify generators and route coroutine functions to
+>     future-space dispatch
 >     before registration changes any engine or registry state [tested:
 >     test_register_op_reads_co_flags_and_refuses_or_awaits;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>     commit=WORKTREE]
 >   - generator signatures supply positional and sparse-dict relation row names
 >     after injected engine parameters are removed [tested:
 >     test_sparse_relational_dict_candidates_bind_parameter_names;
@@ -65,6 +66,11 @@ Source: `bindings/python/metta/ops.py`.
 >     later Python owners share the declaration reference count
 >     [tested: test_a_duplicate_declaration_names_the_first_one;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>   - the returned staging wrapper carries its registration identity through
+>     functools.wraps chains so mutually exclusive definition doors can refuse
+>     before mutation [tested:
+>     test_cache_over_an_operation_refuses_before_definition_registration;
+>     commit=WORKTREE]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None

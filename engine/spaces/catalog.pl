@@ -5,6 +5,9 @@
 % Guarantees: counting and tropical are ordinary catalog algebras, and each
 % ordered preset declares its best direction [tested:
 % bindings/python/tests/test_under_algebra.py; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
+% Guarantees: async is a declared operation kind whose compiled result is a
+% FutureSpace [tested: test_an_async_operation_answers_a_future_space;
+% commit=WORKTREE].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.
@@ -1102,7 +1105,8 @@ petta_catalog_preset([vocabulary, 'cache-mode', unchecked, force, refuse]).
 petta_catalog_preset([vocabulary, 'effect-class',
                       pureStructural, readOnlyLookup,
                       nondeterministicReadOnly, writesState, oracleIO]).
-petta_catalog_preset([vocabulary, 'op-kind', det, many, raw_det, raw_many]).
+petta_catalog_preset([vocabulary, 'op-kind', det, many, async,
+                      raw_det, raw_many]).
 petta_catalog_preset([vocabulary, 'subscription-edge', add, remove, both]).
 %What a context promises about the change events it emits. The three
 %delivery words are messaging's own, at-most-once, at-least-once and the
