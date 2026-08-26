@@ -3,6 +3,10 @@
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % Guarantees: lift_pattern_modifiers/4 answers whether a pattern carries a sequence variable from the walk it already makes, and a case arm with one compiles to the gap matcher [tested: tests/prolog/translator.plt:the_walk_reports_a_written_gap, tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
+% Guarantees: result finality is read from the declaration set that governs
+% the function's owning space [tested:
+% lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
+% commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %Convert let* to recursive let. The singleton case is the recursive one over
@@ -1066,7 +1070,8 @@ next_lambda_name(Name) :- gensym(lambda_, Name).
 
 declared_output_type(F, OutType) :- atom(F),
 									nonvar(OutType),
-									catch_recover(type_declaration(F, TypeChain), fail),
+									catch_recover(
+									    governing_type_declaration(F, TypeChain), fail),
 									TypeChain = [->|Types],
 									append(_, [DeclaredOutType], Types),
 									declared_type_for_evaluation(DeclaredOutType, View),

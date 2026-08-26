@@ -1,6 +1,11 @@
 % Purpose: compile declared input and output types while preserving shared branch variables
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
+%   A named space's local binding cannot inherit a typed arity refusal, while
+%   an inherited typed meaning still owns its own wrong-arity refusal
+%   [tested: test_an_inherited_arrow_does_not_veto_a_local_definition,
+%   lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
+%   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -73,10 +78,26 @@ declared_arity_misses_existing_equation(Fun, Chains, InputArity) :-
     %[tested: test_a_user_typing_rule_participates_like_a_shipped_one].
     \+ type_chain_refusal(Chains, InputArity, _, _),
     current_metta_module(Module),
-    fun_meta_module(Module, Fun, Owner),
-    fun_meta_clause(Owner, Fun, Head, _),
-    length(Head, InputArity),
+    (   fun_meta_module(Module, Fun, Owner),
+        fun_meta_clause(Owner, Fun, Head, _),
+        length(Head, InputArity)
+    ;   inherited_stored_declaration_owns_arity(Module, Fun)
+    ),
     !.
+
+%A child with no binding of its own sees &self's declaration as the only typed
+%meaning in its lexical environment, so a call shape no arrow presents is an
+%arity error there. This is deliberately narrower than ordinary partial
+%application in &self: it answers only for a named module, an inherited stored
+%arrow, and no local declaration or function [tested:
+%test_an_inherited_arrow_does_not_veto_a_local_definition;
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
+inherited_stored_declaration_owns_arity(Module, Fun) :-
+    \+ metta_self_module(Module),
+    metta_module_space(Module, Space),
+    \+ match_stored(Space, [':', Fun, _], _, _),
+    \+ fun_in(Module, Fun),
+    match_stored('&self', [':', Fun, [->|_]], _, _).
 
 %THE FIRST ARROW THAT ANSWERS IS THE ONE THAT ANSWERS, and the soft cut has to
 %sit on each branch rather than around all of them. A flat disjunction under

@@ -19,6 +19,11 @@
 %     forward walk [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - A specialization copies only the source function's governing
+%     declarations, so an inherited arrow cannot become a local declaration
+%     on a specialization of an untyped shadow [tested:
+%     specializer_invalidation:an_untyped_local_shadow_does_not_type_its_specialization;
+%     commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Guarded by: '$petta_specializer' serializes the existence check and the
 %   transaction that publishes a specialization.
 % Open Obligations:
@@ -243,7 +248,7 @@ specialize_call_locked(HV, CleanBindSet, MetaList, HasDirectBenefit,
     record_specialization_support(Module, HV, SpecName),
     register_arity(SpecName, Arity),
     ( findall(TypeChain,
-              catch_recover(type_declaration(HV, TypeChain), fail),
+              catch_recover(governing_type_declaration(HV, TypeChain), fail),
               TypeChains),
       forall(member(TypeChain, TypeChains),
              add_sexp(Space, [':', SpecName, TypeChain])),

@@ -5,6 +5,11 @@
 %   without changing its reported class chain [tested:
 %   test_numeric_objects_are_number_arguments_even_when_a_sibling_refuses;
 %   commit=a0f1cc5f15a15e5ca6958fe02a20be8832c7237f].
+%   Dispatch declarations obey lexical name hiding while reporting keeps the
+%   complete in-scope declaration set [tested:
+%   test_an_inherited_arrow_does_not_veto_a_local_definition,
+%   lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
+%   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -59,6 +64,67 @@ type_declaration_in(Module, X, T) :- metta_module_space(Module, Space),
                                      ;   match_stored(Space, [':', X, T], T, _)
                                      ;   match_stored('&self', [':', X, T], T, _) ).
 
+%Call-site declarations are name lookup, not reporting. C++ unqualified
+%lookup chooses the nearest nonempty declaration set before overload
+%resolution; a declaration in an inner scope hides every outer overload even
+%when their arities differ [source: WG21 N4986 sections 6.5.1, 6.5.2 and
+%11.7.3; https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/n4986.pdf;
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]. Here the prelude is not an outer SPACE row and remains in
+%force. The selected stored tier is this space's declarations, or &self's only
+%when this space binds neither declarations nor a function of that name.
+%fun_in/2 is the arrival-time ownership bit: deferred equations set it before
+%fun_meta_clause/4 exists, so fun_meta_module/3 is too late for this decision.
+governing_type_declaration(X, T) :-
+    current_metta_module(Module),
+    governing_type_declaration_in(Module, X, T).
+
+governing_type_declaration_in(Module, X, T) :-
+    metta_self_module(Module),
+    !,
+    type_declaration_in(Module, X, T).
+governing_type_declaration_in(Module, X, T) :-
+    (   prelude_type_declaration(X, T)
+    ;   metta_module_space(Module, Space),
+        (   once(match_stored(Space, [':', X, _], _, _))
+        ->  match_stored(Space, [':', X, T], T, _)
+        ;   fun_in(Module, X)
+        ->  fail
+        ;   match_stored('&self', [':', X, T], T, _)
+        )
+    ).
+
+%An arriving equation owns its module before deferred compilation has made a
+%fun_meta row. Its retained OrderFittest types therefore come only from the
+%non-space prelude and declarations stored in that same space, never from an
+%inherited &self row [tested:
+%lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
+definition_type_declaration_in(_Module, X, T) :-
+    prelude_type_declaration(X, T).
+definition_type_declaration_in(Module, X, T) :-
+    metta_module_space(Module, Space),
+    match_stored(Space, [':', X, T], T, _).
+
+%Filter an already nonempty visible set. Keeping the emptiness test at the
+%caller means the extra ownership lookup is paid only by typed heads.
+governing_type_chains_in(Module, X, InScope, Unique) :-
+    (   InScope == []
+    ->  Unique = []
+    ;   metta_self_module(Module)
+    ->  list_to_set(InScope, Unique)
+    ;   findall(Local,
+                definition_type_declaration_in(Module, X, Local),
+                Local0),
+        list_to_set(Local0, Local),
+        (   Local \== []
+        ->  Selected = Local
+        ;   fun_in(Module, X)
+        ->  findall(Prelude, prelude_type_declaration(X, Prelude), Selected)
+        ;   Selected = InScope
+        ),
+        list_to_set(Selected, Unique)
+    ).
+
 %Whether a call to F from Module's view is OWNED by call-site machinery the
 %raw compiled clause knows nothing about, which is the question a host's
 %direct-call door must ask before bypassing translation. Two owners exist.
@@ -83,7 +149,8 @@ type_declaration_in(Module, X, T) :- metta_module_space(Module, Space),
 %direct-call door needs exactly this disjunction, and the shim used to
 %carry its own copy.
 metta_typed_dispatch_applies(Module, F) :-
-    (   catch_recover(type_declaration_in(Module, F, _), fail)
+    (   catch_recover(type_declaration_in(Module, F, _), fail),
+        catch_recover(governing_type_declaration_in(Module, F, _), fail)
     ->  true
     ;   translator_rules:translator_rule(F, _)
     ).

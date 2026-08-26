@@ -8,6 +8,10 @@
 % so under=counting cannot inherit bool's duplicate collapse [tested:
 % test_counting_counts_match_bag_duplicates_without_opening_a_row_cursor;
 % commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
+% Guarantees: the deferred equation walk associates only the owning space's
+% declarations with a local equation [tested:
+% spaces_deferred_translation:a_bulk_local_shadow_retains_no_inherited_order_types;
+% commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% The foreign seam's failure contract %%%%
@@ -398,7 +402,7 @@ equation_walk_class(Module, F, Q0, Q, Class) :-
     ;   metta_function_translated(Module, F)
     ->  Class = plain,
         Q = q(F, plain)
-    ;   catch_recover(type_declaration_in(Module, F, _), fail)
+    ;   catch_recover(definition_type_declaration_in(Module, F, _), fail)
     ->  queue_deferred_equation_types(Module, F),
         Class = declared,
         Q = q(F, declared)
@@ -1579,8 +1583,15 @@ remove_equation(Space, Term, F, Args, Body, Removed) :-
         )
     ;   true
     ),
-    announce_function_changed(Module, F),
+    %fun_in/2 is part of lexical declaration lookup, so withdraw the last
+    %local ownership row before recompiling callers. Repairing first compiled
+    %them against the local untyped tier and then exposed an inherited arrow
+    %without another invalidation [tested:
+    %lib_strategy:removing_a_local_shadow_recompiles_its_callers;
+    %commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]. The process-wide fun/1 row remains until the second
+    %phase below, preserving the existing call-to-data removal transition.
     ( module_owns_function(Module, F) -> true ; unregister_fun_in(Module, F) ),
+    announce_function_changed(Module, F),
     ( \+ function_still_defined(F)
       -> retractall(fun(F)), unregister_fun_everywhere(F),
          %announce_function_removed/1, not the bare event: fun(F) is false only now,

@@ -1,6 +1,11 @@
 % Purpose: lower runnable expressions, calls, arguments, and dispatch policies into Prolog goals
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
+%   Typed compilation resolves declarations from the nearest space that binds
+%   the head while type reporting remains additive across visible spaces
+%   [tested: test_an_inherited_arrow_does_not_veto_a_local_definition,
+%   lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
+%   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -584,7 +589,8 @@ function_overapplication(Fun, Arguments, Answer) :-
 metta_typed_head(Fun) :-
     atom(Fun),
     (   current_metta_module(Module),
-        catch_recover(type_declaration_in(Module, Fun, [->|_]), fail)
+        catch_recover(governing_type_declaration_in(Module, Fun, [->|_]),
+                      fail)
     ->  true
     ;   seam:builtin_type_declaration(Fun, [->|_])
     ).
@@ -1042,11 +1048,7 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
             ) % Check for type definition [:,HV,TypeChain]
             -> ( runtime_guarded_builtin_call(Fun)
                  -> UniqueTypeChains = [], EffectsPrecheck = true
-                  ; findall(TypeChain,
-                            catch_recover(type_declaration(Fun, TypeChain),
-                                          fail),
-                            TypeChains),
-                    list_to_set(TypeChains, UniqueTypeChains),
+                  ; collect_governing_type_chains(Fun, _, UniqueTypeChains),
                     ( effects_prechecked_nonruntime_builtin(Fun)
                     -> EffectsPrecheck = true
                     ;  EffectsPrecheck = false ) ),
@@ -1146,11 +1148,16 @@ runnable_head_awaits_its_definition(Fun) :-
 %
 %A constructor has no such gap, because there is no predicate underneath it to
 %disagree with the declaration.
-call_site_type_chains(Fun, UniqueTypeChains) :-
+collect_governing_type_chains(Fun, InScope, UniqueTypeChains) :-
     findall(TypeChain, catch_recover(type_declaration(Fun, TypeChain), fail),
-            TypeChains),
-    (   TypeChains \== []
-    ->  list_to_set(TypeChains, UniqueTypeChains)
+            InScope),
+    current_metta_module(Module),
+    governing_type_chains_in(Module, Fun, InScope, UniqueTypeChains).
+
+call_site_type_chains(Fun, UniqueTypeChains) :-
+    collect_governing_type_chains(Fun, InScope, Governing),
+    (   InScope \== []
+    ->  UniqueTypeChains = Governing
     ;   findall(Masked,
                 ( seam:builtin_type_declaration(Fun, Chain),
                   chain_masks_an_argument(Chain),
@@ -1184,8 +1191,8 @@ call_site_type_chains(Fun, UniqueTypeChains) :-
 %get_function_type/2 already lives with; a declaration written only into a
 %named space does not gate that space's data heads.
 data_head_answer_dl(HV, Written, AVs, Out, Goals0, Goals) :-
-    (   arrow_declared_data_head(HV),
-        \+ written_args_settled(HV, Written)
+    (   arrow_declared_data_head(HV, DeclarationTier),
+        \+ written_args_settled(DeclarationTier, HV, Written)
     ->  Goals0 = [( metta_bad_argument_error(HV, Written, Out)
                   *-> true
                   ;   Out = [HV|AVs]
@@ -1206,15 +1213,24 @@ data_head_answer_dl(HV, Written, AVs, Out, Goals0, Goals) :-
 %which is a static analysis removing exactly the redundant checks below].
 %
 %A written argument is SETTLED when its own boundary already decided it: it is
-%an application of an arrow-declared head whose single declared arrow returns
-%exactly the parameter type this call expects, at matching arity. That inner
-%application emits its own metta_bad_argument_error/3 through this same clause,
-%so the guarantee is established there and asking again cannot change it. The
-%direction is monotone-safe: type candidates are ADDITIVE, so a later get-type
-%extension can only add types to the value and never remove the one the declared
-%arrow gives.
-written_args_settled(HV, Written) :-
+%an application of an arrow-declared head whose single GOVERNING arrow returns
+%exactly the governing parameter type this call expects, at matching arity.
+%That inner application emits its own metta_bad_argument_error/3 through this
+%same clause, so the guarantee is established there and asking again cannot
+%change it. Both declaration reads use the lexical selector. Otherwise an
+%inherited outer Number arrow can settle an argument after a local String
+%declaration has hidden it, bypassing the local check [tested:
+%lib_strategy:settled_nested_arguments_use_the_governing_outer_arrow;
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]. Reporting remains additive, but this proof is about the
+%single declaration tier that controls dispatch.
+written_args_settled(self, HV, Written) :-
     '$petta_atoms:&self':'&self'(':', HV, Chain),
+    written_args_settled_by_chain(Chain, Written).
+written_args_settled(local(Space), HV, Written) :-
+    match_stored(Space, [':', HV, Chain], Chain, _),
+    written_args_settled_by_chain(Chain, Written).
+
+written_args_settled_by_chain(Chain, Written) :-
     nonvar(Chain),
     Chain = [->|Types],
     append(ParameterTypes, [_Result], Types),
@@ -1227,7 +1243,7 @@ written_arg_settled(Expected, Written) :-
     nonvar(Written),
     Written = [Head|Args],
     atom(Head),
-    findall(C, ( '$petta_atoms:&self':'&self'(':', Head, C),
+    findall(C, ( governing_type_declaration(Head, C),
                  nonvar(C), C = [->|_] ), [[->|InnerTypes]]),
     append(InnerParameters, [Result], InnerTypes),
     InnerParameters = [_|_],
@@ -1235,12 +1251,31 @@ written_arg_settled(Expected, Written) :-
     ground(Result),
     Result == Expected.
 
-arrow_declared_data_head(HV) :-
+arrow_declared_data_head(HV, DeclarationTier) :-
     atom(HV),
     '$petta_atoms:&self':'&self'(':', HV, Chain),
     nonvar(Chain),
     Chain = [->|_],
+    current_metta_module(Module),
+    inherited_data_head_arrow_tier(Module, HV, DeclarationTier),
     !.
+
+%The direct &self probe above remains first, so an ordinary data head pays the
+%same one indexed miss as before. Only a head that actually has an inherited
+%arrow asks the lexical ownership question [tested:
+%lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
+inherited_data_head_arrow_tier(Module, _, self) :-
+    metta_self_module(Module),
+    !.
+inherited_data_head_arrow_tier(Module, HV, DeclarationTier) :-
+    metta_module_space(Module, Space),
+    (   once(match_stored(Space, [':', HV, _], _, _))
+    ->  once(match_stored(Space, [':', HV, [->|_]], _, _)),
+        DeclarationTier = local(Space)
+    ;   \+ fun_in(Module, HV),
+        DeclarationTier = self
+    ).
 
 %A CONSTRUCTOR can mask too, and this is where the language's rule is wider
 %than "function": it is about what a head DECLARES, not about whether it has
