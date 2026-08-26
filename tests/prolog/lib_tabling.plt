@@ -17,6 +17,10 @@
 %     commit=3c7bcde6a0670ec5c563584b26977b41cc727580]
 %   - a pureStructural effect declaration in &petta is the cache-purity claim [tested:
 %     a_metta_side_effect_declaration_is_a_purity_claim; commit=6fbd5872cc0ff7abf9c99b90f915f8a31470a861]
+%   - an inherited function is tabled and dispatched through its clause owner,
+%     and a refused catalog write rolls the table property back under one
+%     named error [tested: an_inheriting_space_tables_the_visible_owner,
+%     a_failed_reflection_write_is_loud_and_transactional]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -52,6 +56,53 @@ setup_tabling_suite :-
 test(a_plain_function_tables) :-
     metta_tabled_decl(['plt-tab-plain', _], true),
     metta_untabled_decl(['plt-tab-plain', _], true).
+
+%The call-site module may only import the predicate. The same imported_from/1
+%ownership decision used by lib_memo must drive both the table declaration and
+%the universal dispatch seam, or the wrapper sits on a predicate execution
+%never enters.
+test(an_inheriting_space_tables_the_visible_owner,
+     [ cleanup(( space_module('&plt_tab_child', CleanupModule),
+                 catch(with_metta_module(
+                           CleanupModule,
+                           metta_untabled_decl(['plt-tab-plain', _], true)),
+                       _, true) )) ]) :-
+    space_module('&plt_tab_child', Child),
+    metta_self_module(Self),
+    with_metta_module(Child,
+                      metta_tabled_decl(['plt-tab-plain', _], true)),
+    assertion(metta_tabling_registration('plt-tab-plain', Self, 2)),
+    with_metta_module(
+        Child,
+        once(seam:dispatch_call('plt-tab-plain', [1], Out, Goal))),
+    assertion(Goal = Self:'plt-tab-plain'(1, Out)),
+    call(Goal),
+    assertion(Out == 2).
+
+%A declaration must not answer True after table/1 landed but its catalog row
+%was refused. Narrowing the declared kind makes the ordinary &petta write door
+%reject exactly this row; lib_tabling must wrap the result in its named error
+%and remove the newly installed table before rethrowing it.
+test(a_failed_reflection_write_is_loud_and_transactional) :-
+    GoodKind = [kind, tabled, symbol, symbol, integer],
+    RefusingKind = [kind, tabled, integer, symbol, integer],
+    setup_call_cleanup(
+        ( 'remove-atom'('&petta', GoodKind, []),
+          'add-atom'('&petta', RefusingKind, []) ),
+        ( catch(metta_tabled_decl(['plt-tab-plain', _], true), Error, true),
+          assertion(Error = error(
+              petta_tabling_reflection_write_failed(
+                  add,
+                  [tabled, _, 'plt-tab-plain', 1],
+                  exception(error(petta_declaration_malformed(_, _, _), _))),
+              _)),
+          metta_self_module(Self),
+          functor(Head, 'plt-tab-plain', 2),
+          assertion(\+ predicate_property(Self:Head, tabled)) ),
+        ( metta_self_module(CleanupSelf),
+          catch(untable(CleanupSelf:'plt-tab-plain'/2), _, true),
+          'remove-atom'('&petta', RefusingKind, []),
+          'add-atom'('&petta', GoodKind, []) )).
 
 % Tabling a function that reads a space is sound only when the table and the
 % storage predicates it reads both carry the incremental property, which

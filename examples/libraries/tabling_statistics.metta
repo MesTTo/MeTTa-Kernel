@@ -44,7 +44,8 @@
 
 ;Re-evaluation is on demand, so it takes a call. reevaluated LOWER than
 ;invalidated would be SWI deciding a dependency changed without changing this
-;table's answers, which is the incremental win rather than a rebuild.
+;table's answers, which is the incremental win rather than a rebuild. The
+;shared table has completed one original call and one re-evaluation call.
 !(test (sort-atom (collapse (reach a $y))) (b c))
 !(test (table-stats (reach $x $y))
-       ((tables 1) (answers 2) (complete-call 3) (invalidated 1) (reevaluated 1)))
+       ((tables 1) (answers 2) (complete-call 2) (invalidated 1) (reevaluated 1)))
