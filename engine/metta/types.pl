@@ -9,7 +9,7 @@
 %   complete in-scope declaration set [tested:
 %   test_an_inherited_arrow_does_not_veto_a_local_definition,
 %   lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
-%   commit=WORKTREE].
+%   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -69,7 +69,7 @@ type_declaration_in(Module, X, T) :- metta_module_space(Module, Space),
 %resolution; a declaration in an inner scope hides every outer overload even
 %when their arities differ [source: WG21 N4986 sections 6.5.1, 6.5.2 and
 %11.7.3; https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/n4986.pdf;
-%commit=WORKTREE]. Here the prelude is not an outer SPACE row and remains in
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]. Here the prelude is not an outer SPACE row and remains in
 %force. The selected stored tier is this space's declarations, or &self's only
 %when this space binds neither declarations nor a function of that name.
 %fun_in/2 is the arrival-time ownership bit: deferred equations set it before
@@ -98,7 +98,7 @@ governing_type_declaration_in(Module, X, T) :-
 %non-space prelude and declarations stored in that same space, never from an
 %inherited &self row [tested:
 %lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
-%commit=WORKTREE].
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 definition_type_declaration_in(_Module, X, T) :-
     prelude_type_declaration(X, T).
 definition_type_declaration_in(Module, X, T) :-

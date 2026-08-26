@@ -37,7 +37,7 @@
 %   - bulk ingestion does not attach an inherited arrow to a named space's
 %     local untyped equations [tested:
 %     spaces_deferred_translation:a_bulk_local_shadow_retains_no_inherited_order_types;
-%     commit=WORKTREE].
+%     commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

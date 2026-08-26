@@ -5,7 +5,7 @@
 %   an inherited typed meaning still owns its own wrong-arity refusal
 %   [tested: test_an_inherited_arrow_does_not_veto_a_local_definition,
 %   lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
-%   commit=WORKTREE].
+%   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -91,7 +91,7 @@ declared_arity_misses_existing_equation(Fun, Chains, InputArity) :-
 %application in &self: it answers only for a named module, an inherited stored
 %arrow, and no local declaration or function [tested:
 %test_an_inherited_arrow_does_not_veto_a_local_definition;
-%commit=WORKTREE].
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 inherited_stored_declaration_owns_arity(Module, Fun) :-
     \+ metta_self_module(Module),
     metta_module_space(Module, Space),

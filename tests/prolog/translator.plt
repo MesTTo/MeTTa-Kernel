@@ -34,7 +34,7 @@
 %   - bulk and single-atom ingestion apply the same definition-local type mask
 %     while an equation is arriving [tested:
 %     translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
-%     commit=WORKTREE].
+%     commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

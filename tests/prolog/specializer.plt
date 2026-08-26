@@ -3,7 +3,7 @@
 % Guarantees: a named-space specialization inherits only declarations that
 %   govern its local source function [tested:
 %   specializer_invalidation:an_untyped_local_shadow_does_not_type_its_specialization;
-%   commit=WORKTREE].
+%   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

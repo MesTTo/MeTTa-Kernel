@@ -11,7 +11,7 @@
 % Guarantees: the deferred equation walk associates only the owning space's
 % declarations with a local equation [tested:
 % spaces_deferred_translation:a_bulk_local_shadow_retains_no_inherited_order_types;
-% commit=WORKTREE].
+% commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% The foreign seam's failure contract %%%%
@@ -1588,7 +1588,7 @@ remove_equation(Space, Term, F, Args, Body, Removed) :-
     %them against the local untyped tier and then exposed an inherited arrow
     %without another invalidation [tested:
     %lib_strategy:removing_a_local_shadow_recompiles_its_callers;
-    %commit=WORKTREE]. The process-wide fun/1 row remains until the second
+    %commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]. The process-wide fun/1 row remains until the second
     %phase below, preserving the existing call-to-data removal transition.
     ( module_owns_function(Module, F) -> true ; unregister_fun_in(Module, F) ),
     announce_function_changed(Module, F),

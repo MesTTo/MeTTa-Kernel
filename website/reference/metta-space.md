@@ -125,7 +125,7 @@ Source: `bindings/python/metta/_space.py`.
 >     session definitions remain visible and are lexically shadowed by theory
 >     definitions [tested:
 >     test_an_inherited_arrow_does_not_veto_a_local_definition;
->     commit=WORKTREE]
+>     commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]
 >   - ``Space.cast`` preserves the inherited one-argument atom cast while its
 >     two-argument form keeps explicit context-relative casting [tested:
 >     test_atom_cast_delegates_to_the_ambient_space;

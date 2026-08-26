@@ -23,7 +23,7 @@
 %     declarations, so an inherited arrow cannot become a local declaration
 %     on a specialization of an untyped shadow [tested:
 %     specializer_invalidation:an_untyped_local_shadow_does_not_type_its_specialization;
-%     commit=WORKTREE].
+%     commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Guarded by: '$petta_specializer' serializes the existence check and the
 %   transaction that publishes a specialization.
 % Open Obligations:

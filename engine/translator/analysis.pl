@@ -5,7 +5,7 @@
 %   the equation's owning space [tested:
 %   spaces_deferred_translation:a_bulk_local_shadow_retains_no_inherited_order_types,
 %   translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
-%   commit=WORKTREE].
+%   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -316,7 +316,7 @@ head_pattern_reason(Module, DeclarationTier, F, RevPath, Label, label,
 %keeps the bulk and single-atom doors equivalent when an untyped local equation
 %hides an inherited mask [tested:
 %translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
-%commit=WORKTREE].
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 unevaluated_head_argument(definition_local, Module, F, Argument) :-
     catch_recover(definition_type_declaration_in(Module, F, [->|Xs]), fail),
     append(ArgTypes, [_], Xs),

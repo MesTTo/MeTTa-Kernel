@@ -6,7 +6,7 @@
 % Guarantees: result finality is read from the declaration set that governs
 % the function's owning space [tested:
 % lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
-% commit=WORKTREE].
+% commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %Convert let* to recursive let. The singleton case is the recursive one over

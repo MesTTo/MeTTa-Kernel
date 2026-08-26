@@ -16,7 +16,7 @@
 %     lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition,
 %     lib_strategy:settled_nested_arguments_use_the_governing_outer_arrow,
 %     lib_strategy:removing_a_local_shadow_recompiles_its_callers;
-%     commit=WORKTREE]
+%     commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]
 
 :- ensure_loaded('../../engine/metta.pl').
 

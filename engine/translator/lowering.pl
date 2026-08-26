@@ -5,7 +5,7 @@
 %   the head while type reporting remains additive across visible spaces
 %   [tested: test_an_inherited_arrow_does_not_veto_a_local_definition,
 %   lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
-%   commit=WORKTREE].
+%   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -1221,7 +1221,7 @@ data_head_answer_dl(HV, Written, AVs, Out, Goals0, Goals) :-
 %inherited outer Number arrow can settle an argument after a local String
 %declaration has hidden it, bypassing the local check [tested:
 %lib_strategy:settled_nested_arguments_use_the_governing_outer_arrow;
-%commit=WORKTREE]. Reporting remains additive, but this proof is about the
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]. Reporting remains additive, but this proof is about the
 %single declaration tier that controls dispatch.
 written_args_settled(self, HV, Written) :-
     '$petta_atoms:&self':'&self'(':', HV, Chain),
@@ -1264,7 +1264,7 @@ arrow_declared_data_head(HV, DeclarationTier) :-
 %same one indexed miss as before. Only a head that actually has an inherited
 %arrow asks the lexical ownership question [tested:
 %lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
-%commit=WORKTREE].
+%commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 inherited_data_head_arrow_tier(Module, _, self) :-
     metta_self_module(Module),
     !.
