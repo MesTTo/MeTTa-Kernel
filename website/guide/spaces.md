@@ -5,7 +5,7 @@ Guarantees:
   - journal replay renames are documented as one-time migrations, and content
     digests state that renamed heads change their hashes
 [tested: test_guides_keep_documentation_law_explainers,
-test_a_second_replay_does_not_reapply_the_rename; commit=WORKTREE]
+test_a_second_replay_does_not_reapply_the_rename; commit=ee43d4a0585593b4f40d0c3c0557db8214688829]
 [tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
 
