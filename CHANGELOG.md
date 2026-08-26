@@ -1158,6 +1158,34 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Loading the engine no longer lets SWI's `library(arithmetic)` judge a
+  host's arithmetic at compile time. `engine/metta.pl` imports
+  `library(listing)`, which loads `library(settings)`, which loads
+  `library(arithmetic)`, whose `system:goal_expansion/2` hook is consulted
+  for every module the process compiles and raises
+  `type_error(evaluable, F)` at COMPILE time for an expression SWI itself
+  compiles and raises on at run time -- and a raising expansion silently
+  drops the whole clause in flight: `tests/prolog/metta.plt` registered 233
+  tests instead of 234 in every configuration. The engine now repairs the
+  hook rather than dodging the load: at boot it replaces the unguarded
+  clause with one that defers an unknown evaluable to run time, and a
+  `prolog_listen/2` watcher re-applies the guard the moment anything
+  installs that clause again, a reload or a host loading
+  `library(arithmetic)` itself, so every configuration ends in the same
+  state. Declared `arithmetic_function/1` functions still expand and
+  evaluate, and `tests/prolog/static_checks.pl` proves the class invariant
+  against a planted throwing expander.
+- The plunit gate reports a suite that fails to LOAD. `swipl -t halt` exits
+  0 and `run_tests` only reports the tests that got registered, so a plunit
+  test whose body failed to compile did not run, did not fail and did not
+  appear in the count: `tests/prolog/metta.plt` reported 234 tests as 233
+  with a green lane above it.
+- The layering contract's subsystem attribution is deterministic again.
+  Adding the tabling library as a second case made
+  `contract_source_subsystem/2` two clauses over a variable first argument,
+  so every engine file left the tabling clause behind as a choicepoint and
+  `engine_goal/4` became nondeterministic; the two cases are exclusive and
+  now say so.
 - The tabling library rides the declared extension seams only, and its
   tables are visible wherever the answers are: a `(tabled ...)` declaration
   now tables `as shared` (checked native-space readers

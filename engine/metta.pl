@@ -337,6 +337,82 @@ register_metta_library_path(Alias, Directory0, true) :-
 :- use_module(library(random)).
 :- use_module(library(error)).
 :- use_module(library(listing)).
+%That import is why the guards below exist. library(listing) loads
+%library(settings) (listing.pl:46, its five layout settings), which loads
+%library(arithmetic) (settings.pl:54-56, env/1 and env/2), which installs an
+%UNGUARDED process-global hook, `system:goal_expansion(Math, MathGoal) :-
+%math_goal_expansion(Math, MathGoal)` (arithmetic.pl:319-320). system: is
+%consulted while compiling EVERY module, and the expander's one raise site is
+%a COMPILE-time type_error(evaluable, F) (do_expand_function/3's final clause,
+%arithmetic.pl:233-234) for an expression SWI itself compiles and raises on at
+%RUN time. A raising expansion does not just misreport: SWI drops the whole
+%term expansion in flight, so a host clause holding
+%`catch(_ is foo + 1, E, true)` vanished silently, and for a plunit test the
+%dropped expansion is BOTH the registration and the body --
+%tests/prolog/metta.plt:402 registered 233 tests instead of 234 in every
+%configuration [measured 2026-08-26]. The repair keeps the hook and removes
+%only that compile-time judgment: an unknown evaluable defers to run time,
+%where SWI's own error and message answer (metta.plt's metta_operation_errors
+%unit pins them). What the hook is FOR survives, arithmetic_function/1
+%functions still expand and evaluate, and nothing new is folded:
+%do_expand_function/3 maps function symbols and never evaluates, and an
+%identity expansion is discarded by boot/expand.pl's no-change rule
+%[measured 2026-08-26: with the guard, V is twice(21) answers 42 and
+%expand_goal leaves `_ is foo + 1` unchanged]. The guard runs twice over:
+%once now, for the chain the import above just loaded, and from a
+%prolog_listen/2 watcher for every later install -- a reload under make/0, or
+%a host that loaded library(arithmetic) before the engine and reloads it
+%after. system:goal_expansion/2 is dynamic, the watcher fires inside the
+%installing assert, and erasing the event's own clause there works
+%[measured 2026-08-26 on SWI 10: repaired-in-event, one guarded clause
+%standing, and the hazardous bare clause compiles]. The watcher must never
+%throw: an exception from a listener blocks the assert it observes, which
+%would silently strip the hook from a library legitimately installing it
+%[measured 2026-08-26: an arity-mismatched listener left
+%system:goal_expansion/2 with 0 clauses after loading library(arithmetic)].
+%tests/prolog/static_checks.pl holds the class canary, expanding
+%`_ is foo + 1` neither throws nor rewrites, proved against a planted
+%throwing expander, and check.sh's plunit lane fails any suite that prints
+%ERROR while loading, so a NEW compile-time refuser from any library fails
+%the gate even though this watcher knows only arithmetic's clause. A host
+%that wants upstream's compile-time diagnostic back can re-assert the
+%original clause after boot; the engine's contract is that an expression's
+%meaning is decided when it runs.
+guard_arithmetic_goal_expansion :-
+    forall(( clause(system:goal_expansion(A, B), Body, Ref),
+             unguarded_math_expansion_body(Body, A, B) ),
+           guard_arithmetic_goal_expansion_clause(Ref)).
+
+guard_arithmetic_goal_expansion(Action, Ref) :-
+    catch(( (   memberchk(Action, [assertz, asserta]),
+                clause(system:goal_expansion(A, B), Body, Ref),
+                unguarded_math_expansion_body(Body, A, B)
+            ->  guard_arithmetic_goal_expansion_clause(Ref)
+            ;   true
+            ) ),
+          _,
+          true).
+
+%The asserting context wraps a cross-module clause body, so the hook's body
+%arrives as arithmetic:math_goal_expansion/2 when arithmetic.pl loads it and
+%as user:arithmetic:math_goal_expansion/2 when a host's assertz re-installs
+%it [measured 2026-08-26: portrayed both from one process]. The guarded
+%replacement below arrives wrapped the same way, user:catch(...), and
+%unwrapping stops at a goal that is not math_goal_expansion/2, so the guard
+%never matches itself.
+unguarded_math_expansion_body(arithmetic:math_goal_expansion(A, B), A, B) :- !.
+unguarded_math_expansion_body(_:Inner, A, B) :-
+    unguarded_math_expansion_body(Inner, A, B).
+
+guard_arithmetic_goal_expansion_clause(Ref) :-
+    erase(Ref),
+    assertz(( system:goal_expansion(Math, MathGoal) :-
+                  catch(arithmetic:math_goal_expansion(Math, MathGoal),
+                        error(type_error(evaluable, _), _),
+                        fail) )).
+
+:- guard_arithmetic_goal_expansion,
+   prolog_listen(system:goal_expansion/2, guard_arithmetic_goal_expansion).
 :- use_module(library(aggregate)).
 %sub_term/2, which the saturating recovery uses to ask whether an erroring
 %arithmetic expression holds a float operand at all.

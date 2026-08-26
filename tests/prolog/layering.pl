@@ -89,8 +89,22 @@ engine_source_subsystem(File, Base) :-
     atomic_list_concat(Parts, '/', Relative),
     engine_relative_subsystem(Parts, Base).
 
-contract_source_subsystem(File, Base) :- engine_source_subsystem(File, Base).
-contract_source_subsystem(File, 'lib_tabling.pl') :- tabling_source_file(File).
+% The two subsystems a reviewed file can belong to are EXCLUSIVE: an engine
+% path never names lib/lib_tabling.pl. Said as two clauses over a variable
+% first argument, indexing cannot see that, so every engine file left the
+% tabling clause behind as a choicepoint and engine_goal/4 became nondet the
+% day this second case arrived. The gate reports that and the walks that call
+% engine_goal/4 inside forall/2 pay for it [measured 2026-08-26: with the two
+% clauses, plunit:call_det/2 answers false on contract_source_subsystem/2 and
+% true on every predicate under it, and check.sh's plunit lane failed on
+% layering.plt:116; the one call site, engine_goal/4 below, always has File
+% bound and there is exactly one answer either way].
+contract_source_subsystem(File, Base) :-
+    (   engine_source_subsystem(File, EngineBase)
+    ->  Base = EngineBase
+    ;   tabling_source_file(File),
+        Base = 'lib_tabling.pl'
+    ).
 
 engine_relative_subsystem([Base], Base).
 engine_relative_subsystem([Owner, _|_], Base) :-

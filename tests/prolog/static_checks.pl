@@ -108,6 +108,7 @@ main :-
     every_seam_declares_one_kind,
     every_seam_kind_matches_its_direction,
     no_cut_in_an_event_hook,
+    arithmetic_expansion_stays_at_run_time,
     retractall(silent(_)),
     assertz(silent(true)),
     representative_source(Source),
@@ -976,6 +977,63 @@ seam_direction_fault(Seam, Kind, Fault) :-
     \+ ( candidate_engine_module(Module), current_predicate(_, Module:Head) ),
     Fault = 'is published but not defined, so a caller reaching for it gets \c
              an existence error'.
+
+%%%% Arithmetic expansion stays at run time %%%%
+%
+% library(arithmetic) installs `system:goal_expansion(Math, MathGoal) :-
+% math_goal_expansion(Math, MathGoal)` (arithmetic.pl:319-320), consulted
+% while compiling EVERY module, and its one raise site is a COMPILE-time
+% type_error(evaluable, F) that drops the clause in flight --
+% tests/prolog/metta.plt registered 233 tests instead of 234 until
+% engine/metta.pl guarded that clause at boot and armed a prolog_listen/2
+% watcher for its reinstallation. Both of those know arithmetic's clause by
+% shape; this check holds the CLASS invariant on the loaded tree instead:
+% expanding a goal whose expression SWI compiles and raises on at RUN time
+% must neither throw nor rewrite, whatever library an import pulled in. The
+% plunit lane's load-ERROR detector is the paired net for the backends
+% configuration, which this file does not load. The plant is a throwing
+% expander of the same shape as the fault the check must catch.
+expansion_leaves_run_time_arithmetic(Report) :-
+    Probe = (_ is foo + 1),
+    catch(( expand_goal(Probe, Expanded),
+            (   Expanded =@= Probe
+            ->  Report = clean
+            ;   Report = rewrote(Expanded)
+            ) ),
+          Error,
+          Report = threw(Error)).
+
+arithmetic_expansion_stays_at_run_time :-
+    expansion_leaves_run_time_arithmetic(Report),
+    (   Report == clean
+    ->  (   setup_call_cleanup(
+                assertz(( system:goal_expansion(Math, _) :-
+                              Math = (_ is _),
+                              throw(error(type_error(evaluable, planted), _)) ),
+                        PlantRef),
+                expansion_leaves_run_time_arithmetic(Planted),
+                erase(PlantRef)),
+            Planted = threw(_)
+        ->  format("static: expanding a run-time arithmetic error neither \c
+                    throws nor rewrites, and the scan caught a planted \c
+                    compile-time expander~n", [])
+        ;   format(user_error,
+                   'the arithmetic-expansion check reported clean against a \c
+                    planted throwing expander, so its clean result says \c
+                    nothing~n', []),
+            fail
+        )
+    ;   format(user_error,
+               'arithmetic is being judged at compile time: expanding \c
+                `_ is foo + 1` gave ~q. A library loaded into this process \c
+                installed a process-global system:goal_expansion/2 that \c
+                refuses source SWI itself compiles. \c
+                guard_arithmetic_goal_expansion/0 in engine/metta.pl covers \c
+                library(arithmetic); this is a new expander -- guard it the \c
+                same way~n',
+               [Report]),
+        fail
+    ).
 
 %%%% A backend calls only published surface %%%%
 %

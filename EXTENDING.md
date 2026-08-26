@@ -1687,6 +1687,19 @@ whose artefact is missing loads nothing and says nothing, and one whose
 artefact is there and broken raises. Both of those are decisions your file
 makes, and no host has to implement either.
 
+One thing your file must NOT do: load a library that installs a
+process-global `system:goal_expansion/2` or `system:term_expansion/2` that
+can REFUSE source it does not understand. Those hooks run while compiling
+every module in the process, so an expander that raises silently drops other
+people's clauses. SWI's own `library(arithmetic)` does exactly this, and the
+engine repairs that one at boot and re-repairs it whenever it is installed
+again (`guard_arithmetic_goal_expansion/0` in `engine/metta.pl`, with a
+`prolog_listen/2` watcher). A benign rewriting expansion is fine; scope
+anything sharper inside your own module. `sh check.sh prolog-static` holds
+the canary, `_ is foo + 1` must expand to itself without an exception, and
+the plunit lane fails any suite that prints ERROR while it loads, so a leak
+of this class does not pass the gate.
+
 Two multifile hooks go with it, and both exist so the engine never has to name
 a backend:
 

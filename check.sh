@@ -691,6 +691,31 @@ check_plunit() {
         grep -B1 "succeeded with choicepoint" "$log"
         ok=1
     fi
+    # An error printed while a suite LOADS fails this gate, because the exit
+    # code above cannot see it: `-t halt` halts 0, run_tests only reports the
+    # tests that got registered, and a clause whose body raises during goal
+    # expansion is dropped along with the whole term expansion that produced
+    # it -- for a plunit test that is BOTH the 'unit test'/4 registration and
+    # the 'unit body'/2 clause, so the test does not run, does not fail, and
+    # does not appear in the count. metta.plt printed
+    # `Arithmetic: `foo' is not a function` at load and reported "All 233
+    # tests passed" while the intact file has 234, in the plain and the
+    # backends configuration alike, and nothing above detected it: the two
+    # checks this gate had were the exit code and the choicepoint scan.
+    #
+    # A grep rather than swipl's own --on-error=status, which counts the same
+    # errors but ALSO arms plunit: got_messages/2 and got_message/1
+    # (library/ext/plunit/plunit.pl:643-665) treat on_error==status as "fail
+    # any test that emits a message it did not declare", which turns the four
+    # deliberate refusals in prolog_interface.plt red [measured 2026-08-26:
+    # 88 suite runs, 85 rc=0 and 3 rc=1, against 0 lines matching ^ERROR in
+    # all 88 of the same runs without the flag].
+    if grep -q "^ERROR" "$log"; then
+        echo "plunit: a suite printed an error; a clause that fails to compile"
+        echo "is dropped silently and its test never runs:"
+        grep -A1 "^ERROR" "$log"
+        ok=1
+    fi
     rm -f "$log" "$out"
     return $ok
 }
