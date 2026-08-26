@@ -25,7 +25,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   It gates on inferences, which are deterministic: all eight families returned
   identical counts across three fresh processes at loadavg 3.40, again at 5.97,
   and again inside the full gate with the machine between 10 and 21, so the
-  lane needs no quiet machine. `--paired` adds the retired
+  lane needs no quiet machine. `--selfcheck` asks the families about their own
+  engine-level invariants, which is where the checks that need an engine live so
+  the test file never boots one. `--paired` adds the retired
   instruction curve for a family whose work crosses into C or Rust, where an
   inference count is blind, and that lane is advisory.
 - The scaling gate ships two planted negative controls permanently, and fails
