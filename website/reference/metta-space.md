@@ -78,10 +78,11 @@ Source: `bindings/python/metta/_space.py`.
 >     test_query_surfaces_share_column_order,
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms,
 >     test_the_python_remove_door_subtracts_one_copy; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - all fifteen declaration verbs use the atom head as the method name,
->     inject the receiver where it is the subject, and expose no ``declare_*``
->     aliases [tested: test_declarations_use_their_atom_heads_on_the_receiver,
->     test_m7_narrow_core_surface; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - all fifteen declaration heads use their settled receiver spellings,
+>     including ``reacts`` for ``(on ...)``; the former ``reaction`` spelling
+>     remains as a compatibility alias and no ``declare_*`` alias returns
+>     [tested: test_declarations_use_their_atom_heads_on_the_receiver and
+>     test_m7_narrow_core_surface; commit=0cfc68a483d8d64fb499e53bbe9a3cc63f68990f]
 >   - Expression recognizes Space as the one iterable Handle whose listing is
 >     collected as an assembly-order snapshot [tested:
 >     test_expression_of_a_space_is_an_assembly_order_snapshot; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
@@ -116,6 +117,18 @@ Source: `bindings/python/metta/_space.py`.
 >     test_bound_function_namespace_validates_at_access,
 >     test_function_calls_pull_engine_answers_only_as_demanded;
 >     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
+>   - ``Space.answers`` can evaluate one ask against a theory value or through
+>     an explicit full-interpreter head without mutating the receiver [tested:
+>     test_answers_selects_a_theory_or_interpreter_per_ask;
+>     commit=7c4ddf46d4e23de8390a9f2baddbf96f7575da46]
+>   - ``Space.cast`` preserves the inherited one-argument atom cast while its
+>     two-argument form keeps explicit context-relative casting [tested:
+>     test_atom_cast_delegates_to_the_ambient_space;
+>     commit=162214d7a703e9108dd2422f4f18f3b9c007d367]
+>   - callable doors cache live deprecation declarations until the next write
+>     and issue the catalog's since/remedy warning [tested:
+>     test_deprecation_catalog_rows_drive_warnings_and_explanations;
+>     commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0]
 >   - builtin discovery is cached per logical space, with namespace reads
 >     comparing the engine's function generation and explicit Python mutation
 >     doors retaining eager invalidation [tested:
@@ -130,6 +143,14 @@ Source: `bindings/python/metta/_space.py`.
 >     to the anonymous allocation pool [tested:
 >     test_a_named_space_drop_never_enters_the_anonymous_pool;
 >     commit=d843bb6d17a525c36afd21cab077d63b34447535]
+>   - compiled ``re.Pattern`` reader classes preserve supported semantic flags,
+>     reject untranslatable flags, and unregister through the same normalized
+>     key [tested: test_compiled_reader_patterns_preserve_flags_and_unregister;
+>     commit=50d1de4d0ead4a0c3997f9b2ef58631bbafaede3]
+>   - an anonymous space representation records the external file and line that
+>     created that life, while named-space representations remain stable
+>     [tested: test_anonymous_space_repr_carries_its_creation_site;
+>     commit=50d1de4d0ead4a0c3997f9b2ef58631bbafaede3]
 > Owns resources:
 >   - ``Space.save`` owns its sibling temporary file and removes it after every
 >     failed operation [tested: test_save_failure_preserves_existing_file;
@@ -435,7 +456,11 @@ def parse(self, source: str) -> Atom:
 ### `Space.register_token`
 
 ```python
-def register_token(self, pattern: str, constructor: Callable[[str], Any]) -> None:
+def register_token(
+    self,
+    pattern: str | _re.Pattern[str],
+    constructor: Callable[[str], Any],
+) -> None:
 ```
 
 > Register a full-token regex and its Atom constructor.
@@ -448,7 +473,7 @@ def register_token(self, pattern: str, constructor: Callable[[str], Any]) -> Non
 ### `Space.unregister_token`
 
 ```python
-def unregister_token(self, pattern: str) -> None:
+def unregister_token(self, pattern: str | _re.Pattern[str]) -> None:
 ```
 
 > Remove a reader-token class; an absent pattern is already removed.
@@ -522,15 +547,14 @@ def take(self, pattern: Any, *, deadline: float | None = None) -> Atom:
 ### `Space.cast`
 
 ```python
-def cast(self, value: Any, type_: Any, /) -> Any:
+def cast(self, value: Any, type_: Any = ..., /) -> Any:
 ```
 
-> Answer value, narrowed to its Python-most spelling, when this
-> space's type discipline admits it as type_: the same acceptance
-> a typed call compiles, ':' declarations in this space and &self
-> in scope, protocol types included. A refused cast raises
-> metta.CastError naming the value's actual types, the loud
-> spelling of what a typed call does silently.
+> Cast this space atom ambiently with one argument, or answer value
+> narrowed by this space's type discipline with two arguments. The
+> explicit form has the same acceptance a typed call compiles, ':'
+> declarations here and &self in scope, protocol types included. A
+> refusal raises metta.CastError naming the value's actual types.
 
 ### `Space.trace`
 
@@ -916,6 +940,8 @@ def answers(
     timeout: float | None = None,
     inferences: int | None = None,
     under: Any = _UNSET,
+    theory: Any | None = None,
+    interpreter: Any | None = None,
 ) -> Answers[Any]:
 ```
 
@@ -933,6 +959,20 @@ def answers(
 > order their annotated ``TaggedAnswer`` values before a slice pulls
 > its prefix. A surrounding ``metta.under(carrier)`` is used only when
 > this call does not pass an explicit carrier.
+>
+> ``theory=`` treats an atom or iterable of atoms as the complete
+> equational program for this ask. It installs that value in an isolated
+> scratch space on the first pull, evaluates there, and drops the space
+> when the view is exhausted or abandoned. The receiver is unchanged.
+> This mirrors reflective descent functions whose inputs are a reified
+> module and term [source:
+> https://maude.cs.illinois.edu/maude1/manual/maude-manual-html/maude-manual_24.html;
+> commit=0d49980b03d507f9bae0354786ab826a146c20df].
+>
+> ``interpreter=`` instead evaluates the explicit full-interpreter
+> application ``(interpreter target %Undefined% receiver)`` for this ask.
+> The selectors are mutually exclusive because each decides what
+> evaluation relation the answer cursor runs.
 
 ### `Space.parallel`
 
@@ -1926,14 +1966,14 @@ def agenda(self, policy: AgendaPolicy, function: str | None = None) -> Atom:
 > SCORES a reaction, highest first. Every policy breaks ties on
 > declaration order.
 >
->     alarms.reaction("(alert $w)", "(insert &log (all $w))")
->     alarms.reaction("(alert fire)", "(insert &log (fire))", priority=9)
+>     alarms.reacts("(alert $w)", "(insert &log (all $w))")
+>     alarms.reacts("(alert fire)", "(insert &log (fire))", priority=9)
 >     alarms.agenda("priority")
 
-### `Space.reaction`
+### `Space.reacts`
 
 ```python
-def reaction(self, pattern: str | Atom, operation: str | Atom, priority: int | None = None) -> Atom:
+def reacts(self, pattern: str | Atom, operation: str | Atom, priority: int | None = None) -> Atom:
 ```
 
 > Declare a reaction, stored as an (on ...) atom: when an atom
@@ -1952,6 +1992,14 @@ def reaction(self, pattern: str | Atom, operation: str | Atom, priority: int | N
 > spaces, while the bridge rule delivers Python-side to anything
 > with add and remove, an unregistered or remote target included.
 > Same multi-context-systems idea, two delivery tiers.
+
+### `Space.reaction`
+
+```python
+def reaction(self, pattern: str | Atom, operation: str | Atom, priority: int | None = None) -> Atom:
+```
+
+> Compatibility spelling for :meth:`reacts`; new code uses reacts.
 
 ### `Space.admits`
 

@@ -64,6 +64,47 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   locals, while unmarked host calls refuse with a file/caret span and name
   both `@metta.op` and `py(...)` remedies. `lint()` reports a
   `host-island-in-loop` warning for repeated crossings.
+- `Space.answers(..., theory=...)` now evaluates one ask against a complete
+  atom-valued theory in an isolated scratch space, leaving the receiver
+  unchanged. `Space.answers(..., interpreter=...)` evaluates the corresponding
+  `(interpreter target %Undefined% receiver)` application for that ask. The
+  two selectors are mutually exclusive, a choice recorded here because both
+  otherwise claim the evaluation relation for the same cursor.
+
+- Call-site keywords on `Defined` values and bound `space.fn` functions now
+  resolve to the known definition or operation signature and emit the
+  positional MeTTa application. Bare symbols such as `S.head(x=value)` refuse
+  with an explicit positional remedy instead of silently appending a generic
+  `(Kwargs ...)` term; grounded Python-call heads retain that transport form.
+
+- Compiled Python bodies now lower `assert condition[, reason]` to the
+  language's `(Error condition reason)` algebra, preserving generator
+  continuations. `del space[pattern]` snapshots and removes every match;
+  `space -= atom` on a `Space`-typed parameter removes one occurrence. Missing
+  removals remain Error answers.
+
+- `Space.reacts(pattern, operation, priority=None)` and its async mirror now
+  expose the settled declaration spelling for `(on ...)`; `reaction(...)`
+  remains as a compatibility alias.
+
+- `metta.testing.from_pattern(pattern)` now generates ground pattern
+  instantiations for property tests, preserving repeated named-variable
+  identity and drawing anonymous occurrences independently.
+
+- Reader-token registration and removal now accept compiled text
+  `re.Pattern` objects, translating `IGNORECASE`, `MULTILINE`, `DOTALL`, and
+  `VERBOSE` flags to the engine PCRE and refusing flags with no exact
+  translation. Anonymous-space representations now include the external
+  `file:line` that created the handle; named-space representations stay
+  compact, and async creation retains the submitting coroutine's location.
+
+- `metta.catalog` now names the queryable `&petta` reflection space, and
+  `fresh()` now mints hygienic variables for library-authored patterns. These
+  deliberate root additions raise the narrow public export count from 100 to
+  102.
+
+- `atom.cast(type_)` now delegates to `space.cast(atom, type_)` in the ambient
+  space, preserving space-relative type admission with the concise atom door.
 
 - `bindings/python/bench.py --memory-scale` measures memory and scaling in
   spawned fresh processes. It keeps min-of-three raw samples and noise bands,
@@ -503,8 +544,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Remove the legacy `python.petta` wrapper and the root `PeTTa` and `HERE`
   exports. Use `MeTTa`, a `Space` receiver, or bare `metta.match()`.
 - Map Python operator words consistently across `S`, static `fn`, and bound
-  `space.fn` while keeping bracket names exact and refusing composite-only
-  `neg` and `floordiv` words.
+  `space.fn` while keeping bracket names exact. The settled `neg` word expands
+  to `(- 0 x)` at live and compiled call doors; unresolved `floordiv` remains
+  an explicit refusal.
 - Make space subscripts treat a head-shaped tuple as one pattern, complete
   expression arguments as a join, bulk `+=` as a stream of atoms, and
   pattern deletion as an all-match operation that raises `KeyError` when
@@ -2557,6 +2599,15 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   composition each documented in one line; and the deprecation policy
   stated: a surface removal warns with `DeprecationWarning` for one
   release before it goes.
+- Added `(deprecated name since remedy)` as queryable catalog data. Calling a
+  matching `Defined`, `space.fn` function, or composite operator now raises a
+  `DeprecationWarning` containing the catalog's version and positional remedy,
+  and `explain` reflects the same declaration. Removing the row retires the
+  warning immediately.
+- Added `PUBLIC`/`INTERNAL` visibility rows for every shipped callable. The
+  generated `fn` stub, offline help, and standard-library reference now admit
+  only `PUBLIC` rows. Internal documentation and interpreter helpers remain
+  reachable through exact `S[name]` and `fn[name]` mentions.
 - Added the thread-safety and serialization guarantees page: per type
   and per operation, what is atomic, what locks, and what a caller must
   serialize, Python's own documentation convention pointed at PeTTa.

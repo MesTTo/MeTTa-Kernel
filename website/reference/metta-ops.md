@@ -73,8 +73,7 @@ Source: `bindings/python/metta/ops.py`.
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
->   Future Enhancements: keyword-argument call forms once PeTTa itself grows a
->     spelling for them; today MeTTa call sites are positional.
+>   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
 

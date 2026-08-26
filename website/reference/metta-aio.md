@@ -36,10 +36,11 @@ Source: `bindings/python/metta/aio.py`.
 >   - async head-named declaration methods reuse the catalog-generated policy aliases and
 >     own no duplicate Literal lists [tested: tests/check_policy_inventory.py;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - all fifteen synchronous declaration names have asynchronous head-named
->     mirrors and no ``declare_*`` aliases [tested:
+>   - all fifteen synchronous declaration heads have asynchronous mirrors,
+>     including ``reacts`` for ``(on ...)`` while ``reaction`` remains, and no
+>     ``declare_*`` aliases [tested:
 >     test_aio_covers_the_whole_synchronous_surface,
->     test_m7_narrow_core_surface; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>     test_m7_narrow_core_surface; commit=0cfc68a483d8d64fb499e53bbe9a3cc63f68990f]
 >   - async cast preserves a concrete target class as its static return type and
 >     keeps the target positional-only [tested
 >     test_target_type_overloads_preserve_the_requested_class,
@@ -52,17 +53,19 @@ Source: `bindings/python/metta/aio.py`.
 >     commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
 >   - reader-token registration and removal run on the owning engine worker and
 >     mirror the synchronous surface [tested:
->     test_aio_plain_methods_forward_on_the_worker; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+>     test_aio_plain_methods_forward_on_the_worker and
+>     test_async_anonymous_space_repr_keeps_the_submitting_site;
+>     commit=50d1de4d0ead4a0c3997f9b2ef58631bbafaede3]
 >   - async eval mirrors the synchronous single answer shape without a
 >     residuals flag [tested:
 >     test_a_not_reducible_answer_is_the_unreduced_term_with_no_flag;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 >   - async function handles consume the synchronous Answers surface on their
->     owning worker [tested: test_aio_structural_surface_behaves;
->     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
+>     owning worker, including the composite ``neg`` operator word [tested:
+>     test_aio_structural_surface_behaves; commit=8ec44dec3cafba5981e7cf712749cca0e1bdcc45]
 >   - async operation registration requires and forwards the canonical effect
 >     argument [tested: test_aio_declare_and_register_delegations_land;
->     commit=WORKTREE]
+>     commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 >   - execution-policy scopes cross the worker hop and never change awaited
 >     return shapes [tested:
 >     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
@@ -379,7 +382,11 @@ async def parse(self, source: str) -> Any:
 ### `AsyncMeTTa.register_token`
 
 ```python
-async def register_token(self, pattern: str, constructor: Callable[[str], Any]) -> None:
+async def register_token(
+    self,
+    pattern: str | _re.Pattern[str],
+    constructor: Callable[[str], Any],
+) -> None:
 ```
 
 > Register a full-lexeme reader class on the engine worker.
@@ -387,7 +394,7 @@ async def register_token(self, pattern: str, constructor: Callable[[str], Any]) 
 ### `AsyncMeTTa.unregister_token`
 
 ```python
-async def unregister_token(self, pattern: str) -> None:
+async def unregister_token(self, pattern: str | _re.Pattern[str]) -> None:
 ```
 
 > Remove a reader class from the engine worker.
@@ -745,6 +752,19 @@ async def on_error(
     subject_or_pattern: str | Atom,
     pattern_or_mode: str | Atom,
     mode: OnError | None = None,
+) -> Atom:
+```
+
+No docstring is defined.
+
+### `AsyncMeTTa.reacts`
+
+```python
+async def reacts(
+    self,
+    pattern: str | Atom,
+    operation: str | Atom,
+    priority: int | None = None,
 ) -> Atom:
 ```
 
