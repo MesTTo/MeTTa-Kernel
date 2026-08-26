@@ -1158,6 +1158,37 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Planning a specialization no longer metacalls a lambda once for each
+  position of a call argument. The plan grafts the call's argument onto a
+  fresh copy of the equation's head pattern, and that walk carried its
+  binding step as a yall lambda, so every position paid `'>>'/4`'s
+  `copy_term_nat` and its rebuilt goal, and the first plan in a process paid
+  the lambda machinery's one-time resolution on top. The
+  writable-specialization merge made the source-pairing step fail earlier for
+  functions whose retained clauses do not pair, which stopped the engine's own
+  boot from reaching the walk and moved that one-time cost onto the first user
+  equation that did: the first call of a defined function whose body holds
+  `once(match(...))` read 3,676 inferences where it had read about 2,208. The
+  walk is first-order now and costs 4.0 inferences per position against 17.0,
+  the same 3.6-to-4.7 ratio `tests/prolog/static_checks.pl`'s
+  `compile_time_helper('>>')` rule records for this defect in generated
+  bodies. That first call reads 2,163 with later calls unchanged at 423, and
+  the arrival cost of a match-bearing equation stays flat as the program
+  grows: 2,215 with 10, 40, 160 and 640 other translated equations in the
+  space. Across the 219 twinned examples, 64 run cheaper by 1,248 to 6,317
+  inferences and none runs measurably dearer: adding an inert never-called
+  clause of the same size to `engine/specializer.pl` moves the handful of
+  small movements in either direction by more than the change does, so those
+  are compiled-image placement, and the same inert clause leaves the
+  first-call probe at 3,676 exactly. Sixty of those twin budgets are re-pinned
+  here; the remaining four read differently across two rounds on one tree, so
+  they want an empirical band rather than a pin and are left alone. The
+  `let-heavy` counter row moves 16,015,029 to 16,014,990, three walked
+  positions at 13 inferences each, and is left for the merge's own pricing
+  pass over `bindings/python/benchmarks/baseline.json`. `metta_ensure_compiled/1`
+  in the plan, the suspected cause, measures 6 inferences per call over the 95
+  calls `examples/libraries/roman.metta` makes, and was not it.
+
 - The tabling library rides the declared extension seams only, and its
   tables are visible wherever the answers are: a `(tabled ...)` declaration
   now tables `as shared` (checked native-space readers
