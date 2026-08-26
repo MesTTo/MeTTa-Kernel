@@ -4,6 +4,10 @@
 %   Python numeric objects reach their owning operator seam only after the
 %   native-number branch declines [tested:
 %   test_numpy_numeric_family_keeps_python_result_types; commit=a0f1cc5f15a15e5ca6958fe02a20be8832c7237f].
+%   Operation argument checks consume the same lexical declaration set as
+%   compiled calls [tested:
+%   test_an_inherited_arrow_does_not_veto_a_local_definition;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -244,7 +248,7 @@ declared_type_for_check(Type, ValueType) :-
 
 metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins) :-
     current_metta_module(Module),
-    (   type_declaration_in(Module, Operation, Chain0)
+    (   governing_type_declaration_in(Module, Operation, Chain0)
     ;   \+ type_declaration_in(Module, Operation, _),
         seam:builtin_type_declaration(Operation, Chain0)
     ),

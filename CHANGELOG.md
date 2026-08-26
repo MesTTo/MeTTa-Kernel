@@ -1115,6 +1115,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Named spaces now apply lexical name hiding to stored type declarations
+  during dispatch. A local declaration set replaces inherited `&self`
+  declaration rows, while a local definition with no declaration takes the
+  untyped path. `get-type` reporting remains additive and still exposes
+  inherited declarations. A named space with no local binding retains the
+  inherited typed arity refusal, and same-owner wrong-arity calls retain their
+  existing refusal.
+
 - Reconciled the phrasebook contract header so its algebra, immutable-world,
   and strategy evidence survives together instead of shipping merge markers.
 

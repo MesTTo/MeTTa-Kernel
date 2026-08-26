@@ -34,6 +34,10 @@
 %     policy that scores nothing is a loud error rather than a rule that
 %     silently never fires
 %     [tested: spaces_reaction_agenda; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
+%   - bulk ingestion does not attach an inherited arrow to a named space's
+%     local untyped equations [tested:
+%     spaces_deferred_translation:a_bulk_local_shadow_retains_no_inherited_order_types;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -3160,6 +3164,33 @@ test(the_bulk_door_stores_a_mixed_batch_in_the_order_the_per_atom_door_does) :-
     door_order(bulk, Batch, Bulk),
     assertion(PerAtom == Bulk),
     assertion(PerAtom \== []).
+
+test(a_bulk_local_shadow_retains_no_inherited_order_types,
+     [ cleanup(( clear_native_atoms('&plunit_bulk_type_shadow'),
+                 metta_remove_atom(
+                     '&self',
+                     [':', 'plunit-bulk-type-shadow',
+                      [->, 'Number', 'Result']], _) )) ]) :-
+    Space = '&plunit_bulk_type_shadow',
+    'add-atom'('&self',
+               [':', 'plunit-bulk-type-shadow',
+                [->, 'Number', 'Result']], _),
+    metta_add_program_atoms(
+        Space,
+        [ [=, ['plunit-bulk-type-shadow', _X], first],
+          [=, ['plunit-bulk-type-shadow', _Y], second] ]),
+    space_module(Space, Module),
+    findall(Answer,
+            with_metta_module(
+                Module,
+                reduce(['plunit-bulk-type-shadow', wrong], Answer, _)),
+            Answers),
+    assertion(Answers == [first, second]),
+    findall(Types,
+            translator:fun_meta_clause_types(
+                Module, 'plunit-bulk-type-shadow', _, _, Types),
+            RetainedTypes),
+    assertion(RetainedTypes == [[], []]).
 
 door_order(Door, Batch, Order) :-
     'new-space'(Space),

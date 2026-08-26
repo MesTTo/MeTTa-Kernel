@@ -1,5 +1,9 @@
 % Purpose: verify higher-order specialization keys, per-clause bindings, and
 %   recursive folding directly against generated Prolog clauses.
+% Guarantees: a named-space specialization inherits only declarations that
+%   govern its local source function [tested:
+%   specializer_invalidation:an_untyped_local_shadow_does_not_type_its_specialization;
+%   commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -644,5 +648,47 @@ test(a_definition_in_another_space_does_not_double_an_answer,
     ho_specialization(BModule, 'plunit-two-map', SpecName),
     functor(SpecHead, SpecName, 3),
     aggregate_all(count, clause(BModule:SpecHead, _), 1).
+
+test(an_untyped_local_shadow_does_not_type_its_specialization,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( metta_remove_atom(
+                     '&self',
+                     [':', 'plunit-shadow-hof',
+                      [->, 'Atom', 'Number', 'Number']], _),
+                 clear_native_atoms('&plunit_spec_shadow'),
+                 space_module('&plunit_spec_shadow', M),
+                 forall(member(N, ['plunit-shadow-hof',
+                                   'plunit-shadow-inc',
+                                   'plunit-shadow-use']),
+                        ( specializer:invalidate_specializations(M, N),
+                          specializer:forget_symbol(M, N) )),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    Space = '&plunit_spec_shadow',
+    'add-atom'('&self',
+               [':', 'plunit-shadow-hof',
+                [->, 'Atom', 'Number', 'Number']], _),
+    'add-atom'(Space,
+               [=, ['plunit-shadow-inc', X], ['+', X, 1]], _),
+    'add-atom'(Space,
+               [=, ['plunit-shadow-hof', F, Y], [F, Y]], _),
+    'add-atom'(Space,
+               [=, ['plunit-shadow-use', Z],
+                ['plunit-shadow-hof', 'plunit-shadow-inc', Z]], _),
+    space_module(Space, Module),
+    findall(Answer,
+            with_metta_module(Module,
+                              reduce(['plunit-shadow-use', 1], Answer, _)),
+            Answers),
+    assertion(Answers == [2]),
+    ho_specialization(Module, 'plunit-shadow-hof', SpecName),
+    findall(Type,
+            with_metta_module(
+                Module, type_declaration('plunit-shadow-hof', Type)),
+            ReportingTypes),
+    assertion(ReportingTypes == [[->, 'Atom', 'Number', 'Number']]),
+    assertion(\+ with_metta_module(
+                     Module,
+                     governing_type_declaration('plunit-shadow-hof', _))),
+    assertion(\+ match_stored(Space, [':', SpecName, _], _, _)).
 
 :- end_tests(specializer_invalidation).

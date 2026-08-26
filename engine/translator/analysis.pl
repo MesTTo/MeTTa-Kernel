@@ -1,6 +1,11 @@
 % Purpose: retain function metadata, translation caches, symbol analysis, and callable-head discovery
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
+%   Deferred and eager equation metadata retain only declarations that govern
+%   the equation's owning space [tested:
+%   spaces_deferred_translation:a_bulk_local_shadow_retains_no_inherited_order_types,
+%   translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -49,9 +54,10 @@ record_fun_meta(F, Args, Body) :-
 :- dynamic deferred_equation_types/3.
 
 queue_deferred_equation_types(Module, F) :-
-    (   catch_recover(type_declaration_in(Module, F, _), fail)
+    (   catch_recover(definition_type_declaration_in(Module, F, _), fail)
     ->  findall(Chain,
-                catch_recover(type_declaration_in(Module, F, Chain), fail),
+                catch_recover(
+                    definition_type_declaration_in(Module, F, Chain), fail),
                 Current0),
         list_to_set(Current0, Current),
         exclude(deferred_seen_chain(Module, F), Current, New),
@@ -103,7 +109,8 @@ materialize_with_queued_types(Module, F, Goal) :-
 %dispatch remains the compiled Prolog path.
 fun_meta_types_for_new_clause(Module, F, Types) :-
     findall(Chain,
-            catch_recover(type_declaration_in(Module, F, Chain), fail),
+            catch_recover(governing_type_declaration_in(Module, F, Chain),
+                          fail),
             Current0),
     list_to_set(Current0, Current),
     include(fun_meta_type_is_new(Module, F), Current, New),
@@ -260,8 +267,8 @@ head_pattern_notes_for(Module, [=, [F|Args], _]) :-
         (   Positions == []
         ->  true
         ;   forall(( member(head_position(RevPath, Label, Kind), Positions),
-                     head_pattern_reason(Module, F, RevPath, Label, Kind,
-                                         Reason) ),
+                     head_pattern_reason(Module, definition_local, F,
+                                         RevPath, Label, Kind, Reason) ),
                    note_head_pattern(Module, F, RevPath, Label, Reason))
         )
     ;   true
@@ -270,14 +277,15 @@ head_pattern_notes_for(Module, [=, [F|Args], _]) :-
 record_head_pattern_notes(F, Positions) :-
     current_metta_module(Module),
     forall(( member(head_position(RevPath, Label, Kind), Positions),
-             head_pattern_reason(Module, F, RevPath, Label, Kind, Reason) ),
+             head_pattern_reason(Module, governing, F, RevPath, Label, Kind,
+                                 Reason) ),
            note_head_pattern(Module, F, RevPath, Label, Reason)).
 
-head_pattern_reason(_, _, _, _, type_annotation, type_annotation).
+head_pattern_reason(_, _, _, _, _, type_annotation, type_annotation).
 %THE LABEL QUESTION FIRST, and the order is what the two questions cost rather
 %than taste. head_meaning_route/3 reads Prolog facts, metta_special_form/1,
 %translator_rule/2 and fun/1, and fails at once for a label that means nothing,
-%which is what most compound head arguments hold. unevaluated_head_argument/2
+%which is what most compound head arguments hold. unevaluated_head_argument/4
 %reads a TYPE DECLARATION, and a name the prelude has not declared falls
 %through to a match against &self, so asking it first paid a space query for
 %every such label. Both goals are pure tests, so the order decides only what
@@ -287,10 +295,11 @@ head_pattern_reason(_, _, _, _, type_annotation, type_annotation).
 %the same either way [measured 2026-08-21: 500 equations in a fresh space,
 %minimum of three, 466,901 against 447,405 inferences over a 336,401-inference
 %plain-head control].
-head_pattern_reason(Module, F, RevPath, Label, label, defined_label(Route)) :-
+head_pattern_reason(Module, DeclarationTier, F, RevPath, Label, label,
+                    defined_label(Route)) :-
     head_meaning_route(Module, Label, Route),
     last(RevPath, Argument),
-    \+ unevaluated_head_argument(F, Argument).
+    \+ unevaluated_head_argument(DeclarationTier, Module, F, Argument).
 
 %A parameter carrying the evaluation mask receives its argument AS WRITTEN, so
 %a structural pattern at that position is exactly what the caller hands over
@@ -301,9 +310,20 @@ head_pattern_reason(Module, F, RevPath, Label, label, defined_label(Route)) :-
 %723 false findings the linter produced by asking a narrower question
 %[measured 2026-08-21]. The mask decides a whole argument, so it decides every
 %subterm inside it, which is why the OUTERMOST index of the path is the one
-%asked about.
-unevaluated_head_argument(F, Argument) :-
-    catch_recover(type_declaration(F, [->|Xs]), fail),
+%asked about. Bulk ingestion records the note before register_fun_in/2, so its
+%arrival-time question uses the equation owner's local declarations directly;
+%the compiler asks the governing selector after ownership is registered. This
+%keeps the bulk and single-atom doors equivalent when an untyped local equation
+%hides an inherited mask [tested:
+%translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
+%commit=WORKTREE].
+unevaluated_head_argument(definition_local, Module, F, Argument) :-
+    catch_recover(definition_type_declaration_in(Module, F, [->|Xs]), fail),
+    append(ArgTypes, [_], Xs),
+    nth1(Argument, ArgTypes, Type),
+    non_evaluated_parameter_type(Type).
+unevaluated_head_argument(governing, Module, F, Argument) :-
+    catch_recover(governing_type_declaration_in(Module, F, [->|Xs]), fail),
     append(ArgTypes, [_], Xs),
     nth1(Argument, ArgTypes, Type),
     non_evaluated_parameter_type(Type).
@@ -1007,7 +1027,7 @@ translate_equation_body(Fun, Args, Body, Goals, Out) :-
 held_head_variables(Fun, Args, Held) :-
     length(Args, Arity),
     findall(Index,
-            ( catch_recover(type_declaration(Fun, Chain), fail),
+            ( catch_recover(governing_type_declaration(Fun, Chain), fail),
               present_type_chain(Chain, Arity, [->|Presented]),
               append(Types, [_], Presented),
               nth1(Index, Types, Type),
@@ -1015,7 +1035,7 @@ held_head_variables(Fun, Args, Held) :-
             Masked0),
     sort(Masked0, Masked),
     findall(Index,
-            ( catch_recover(type_declaration(Fun, Chain), fail),
+            ( catch_recover(governing_type_declaration(Fun, Chain), fail),
               present_type_chain(Chain, Arity, [->|Presented]),
               append(Types, [_], Presented),
               nth1(Index, Types, Type),

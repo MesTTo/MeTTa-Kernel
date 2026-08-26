@@ -31,6 +31,10 @@
 %     decided about every head pattern position that is not plain structure
 %     [tested: translator_rule_matching, translator_head_pattern_notes;
 %     commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
+%   - bulk and single-atom ingestion apply the same definition-local type mask
+%     while an equation is arriving [tested:
+%     translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -2845,7 +2849,8 @@ head_note_source("(= (hpn-g $x) (inner $x))
 (= (hpn-deep (hpn-h (hpn-g $x))) $x)
 (= (hpn-plain (Cons $x $xs)) $x)
 (: hpn-lazy (-> Atom %Undefined%))
-(= (hpn-lazy (hpn-g $x)) $x)").
+(= (hpn-lazy (hpn-g $x)) $x)
+(: hpn-shadow-mask (-> Atom Result))").
 
 head_note_function('hpn-g').
 head_note_function('hpn-goal').
@@ -2865,6 +2870,8 @@ cleanup_head_notes :-
            ( 'remove-atom'('&self', [=, [F|_], _], _),
              forget_test_function(F) )),
     'remove-atom'('&self', [':', 'hpn-lazy', _], _),
+    'remove-atom'('&self', [':', 'hpn-shadow-mask', _], _),
+    retractall(head_pattern_note(_, 'hpn-shadow-mask', _, _, _)),
     retractall(silent(_)), assertz(silent(false)).
 
 recorded_notes(Notes) :-
@@ -2897,6 +2904,31 @@ test(an_evaluation_masked_argument_has_nothing_to_report,
      [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
     assertion(\+ head_pattern_note(_, 'hpn-lazy', _, _, _)),
     assertion(\+ head_pattern_note(_, 'hpn-plain', _, _, _)).
+
+shadow_note_through_door(Door, Notes) :-
+    'new-space'(Space),
+    space_module(Space, Module),
+    Equation = [=, ['hpn-shadow-mask', ['hpn-g', x]], hit],
+    setup_call_cleanup(
+        true,
+        (   (   Door == single
+            ->  metta_add_atom(Space, Equation, _)
+            ;   metta_add_program_atoms(Space, [Equation])
+            ),
+            findall(Path-Label-Reason,
+                    head_pattern_note(Module, 'hpn-shadow-mask', Path,
+                                      Label, Reason),
+                    Notes)
+        ),
+        metta_release_space(Space)).
+
+test(bulk_and_single_ingestion_use_the_same_definition_local_mask,
+     [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
+    shadow_note_through_door(single, Single),
+    shadow_note_through_door(bulk, Bulk),
+    Expected = [[1]-'hpn-g'-defined_label(function)],
+    assertion(Single == Expected),
+    assertion(Bulk == Expected).
 
 %The note as a reader sees it, rendered through the same DCG print_message/2
 %uses, so the test reads the message rather than a transcription of it.
