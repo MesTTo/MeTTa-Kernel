@@ -16,6 +16,9 @@
 %   - consulted source units are attributed to their umbrella subsystem rather
 %     than becoming accidental new layer nodes
 %     [tested: consulted_source_units_are_attributed_to_their_umbrella; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+%   - lib_tabling itself is in the measured graph and reaches exactly the four
+%     reviewed engine surfaces named by reaches/3
+%     [tested: lib_tabling_reaches_only_its_four_declared_surfaces]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -127,6 +130,21 @@ test(the_contract_names_every_subsystem_it_measures) :-
              assertion(reaches(Caller, Callee, _)) )),
     contract_components(Components),
     assertion(Components \== []).
+
+test(lib_tabling_reaches_only_its_four_declared_surfaces) :-
+    measured,
+    tabling_clause_references(References),
+    assertion(References \== []),
+    setof(Callee,
+          CallerPI^CalleePI^CalleeModule^CallerFile^CalleeFile^(
+              layer_edge(CallerFile, CallerPI, CalleeFile, CalleeModule,
+                         CalleePI),
+              subsystem_name(CallerFile, lib_tabling),
+              subsystem_name(CalleeFile, Callee)),
+          Callees),
+    assertion(Callees == [ext_points, metta, parser, spaces]),
+    forall(member(Callee, Callees),
+           assertion(reaches(lib_tabling, Callee, _))).
 
 test(scc_components) :-
     Nodes = [a, b, c, d],
