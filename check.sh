@@ -22,6 +22,7 @@
 #                                            refusal-grounds
 #                                            refusal-grounds-selftest snippets
 #                                            pytest gallery benchmarks instructions
+#                                            scaling
 #                                            memory-scale memory-scale-gate
 #                                            shell examples leatta layering
 #          CHECK_PY=/path/to/python   pick the interpreter
@@ -39,6 +40,11 @@
 #     [tested: env CHECK_PY=../../.venv-pypetta/bin/python
 #     GATE_ONLY=1 sh check.sh memory-scale-gate;
 #     commit=d843bb6d17a525c36afd21cab077d63b34447535].
+#   - the scaling lane gates the complexity CLASS of every declared family and
+#     carries two planted negative controls that it fails without
+#     [tested: test_the_planted_quadratic_fails_only_the_exponent_gate,
+#     test_the_planted_constant_factor_fails_only_the_growth_gate;
+#     commit=WORKTREE].
 #   - executable comments, bilingual doctests, and all six gallery programs
 #     run together as a blocking lane [tested: test_a_gallery_program_runs,
 #     test_the_gallery_is_exactly_the_six_ruled_programs,
@@ -193,6 +199,23 @@ run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:bench
 run GATE gallery      sh -c "cd '$PYDIR' && '$PY' -m pytest tests/test_executable_docs.py tests/test_gallery.py tests/test_twin_coverage.py::test_answer_multisets_ignore_order_and_alpha_names_but_keep_multiplicity -q --rootdir=. -c pyproject.toml"
 run GATE benchmarks   in_py "$PY" bench.py --counter-only --keep-going
 run GATE instructions in_py "$PY" -m benchmarks.check_instructions
+
+# The complexity CLASS, which every other pin here is structurally unable to
+# see: 32 of the 36 rows in baseline.json are one number at one input size. Each
+# family declares a class and a ladder, the exponent of a log-log fit is gated
+# against that class, and a separate looser guard on each size against its
+# pinned row catches a constant-factor loss the class hides. Two planted
+# controls ride along permanently and the lane fails if either stops failing:
+# one is quadratic while declared linear, the other costs three times its pinned
+# row with its class untouched.
+#
+# It gates on inferences, which are deterministic, so it needs no quiet box: all
+# eight families returned identical counts across three processes at loadavg
+# 3.40 and again at 5.97. The retired-instruction curve that LAW 2 wants beside
+# a family whose work crosses into C is `--paired`, and it is deliberately NOT
+# here: it needs a quiet box, and it is the evidence for a CHANGE that moves
+# work across the boundary rather than something every run should pay.
+run GATE scaling      in_py "$PY" -m benchmarks.scaling
 
 # Run the complete fresh-process, min-of-three instrument once and reuse its
 # verdict for the adjacent gate. The report includes process PSS/private/RSS/
