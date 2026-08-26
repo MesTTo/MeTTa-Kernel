@@ -3,7 +3,7 @@ Purpose: explain Python operation registration, compiled host islands, effect an
 Guarantees: examples classify every Space.op with a canonical EffectClass, use Space.define and canonical atom constructors without compatibility aliases, and mark every inline host crossing with py(expr).
 [tested: npm run docs:build, test_effect_class_is_the_public_five_rank_join_lattice,
 test_define_wires_the_declarative_dance, and test_guides_keep_documentation_law_explainers;
-commit=WORKTREE]
+commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 -->
 
 # Python functions as MeTTa functions

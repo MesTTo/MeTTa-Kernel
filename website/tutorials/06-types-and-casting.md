@@ -1,7 +1,7 @@
 <!--
 Purpose: explain MeTTa declarations, annotation-derived arrows, effect-classified operations, and checked casts.
 Guarantees: operation examples use the canonical Space.op decorator with required EffectClass metadata.
-[tested: npm run docs:build and test_every_effect_rank_registers_and_reflects; commit=WORKTREE]
+[tested: npm run docs:build and test_every_effect_rank_registers_and_reflects; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 -->
 
 # 06. Types and casting

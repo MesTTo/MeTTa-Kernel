@@ -378,7 +378,7 @@ kind(foreign_space/1, ownership).
 %them able to tell the two questions apart
 %[tested: conformance_catches_a_capability_with_no_hook,
 %readying_refuses_a_declared_capability_with_no_hook_clauses;
-%commit=WORKTREE].
+%commit=938744d2c4d718ea78358825b3079df7c20c9b16].
 :- multifile foreign_match/3.
 %A declared error mode's stream: like foreign_match/3, with the
 %mode enforced on the provider's own host, where its exceptions are
@@ -803,7 +803,7 @@ kind(grounded_text/2, ownership).
 %registration, and a builtin that is not classified cannot be registered at
 %all [tested: effects_lattice:every_native_builtin_has_exactly_one_reviewed_effect_profile,
 %effects_lattice:a_backend_declares_the_effect_of_the_builtin_it_registers;
-%commit=WORKTREE]. Saying it beside the registration rather than in a second
+%commit=16ffc0beff1dff8e6d42cb6c50ff010a22cfa0c0]. Saying it beside the registration rather than in a second
 %optional seam is deliberate: with arity 1 and a separate classification door,
 %MORK's three builtins registered and went unclassified, the fail-closed
 %oracleIO default hid it from every program, and only the plunit lane's
@@ -1155,7 +1155,7 @@ kind(match_foreign/4, service).
 %any member is unclassified. The effect walk remains the stricter cache door:
 %only pureStructural is inert there, while space reads are tracked explicitly.
 %[tested: effects_lattice:effect_services_are_published;
-%commit=WORKTREE]
+%commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 kind(petta_effect_rank/2, service).
 kind(petta_effect_join/3, service).
 kind(petta_effect_compose/2, service).

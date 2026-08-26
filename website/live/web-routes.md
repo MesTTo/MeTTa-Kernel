@@ -1,7 +1,7 @@
 <!--
 Purpose: explain the executable route-table example built from Space operations and canonical atoms.
 Guarantees: the shown router requires an effect class for every Space.op and uses canonical atom names.
-[tested: npm run docs:build and test_unclassified_operation_refuses_with_all_five_effect_remedies; commit=WORKTREE]
+[tested: npm run docs:build and test_unclassified_operation_refuses_with_all_five_effect_remedies; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 -->
 
 # Web routes

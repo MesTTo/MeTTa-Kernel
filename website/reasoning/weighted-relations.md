@@ -2,7 +2,7 @@
 Purpose: show weighted relations built on the general surface: an
 operation answering its classes with weights as annotations.
 Guarantees: the example uses space() and a nondeterministicReadOnly Space.op from the narrow surface.
-[tested: npm run docs:build and test_every_effect_rank_registers_and_reflects; commit=WORKTREE]
+[tested: npm run docs:build and test_every_effect_rank_registers_and_reflects; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 Open Obligations:
   To Do: None
   Hacks: None

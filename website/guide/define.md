@@ -4,7 +4,7 @@ Guarantees: examples use the narrow Space.define and Rules.lower doors.
 [tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 Purpose: teach Python-authored equations, rule sets, effect propagation, and lowering declarations.
 Guarantees: examples use the narrow Space.define and Rules.lower doors, and describe definition effects as a strongest-member join.
-[tested: npm run docs:build and test_a_definition_joins_every_called_operations_effect; commit=WORKTREE]
+[tested: npm run docs:build and test_a_definition_joins_every_called_operations_effect; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 -->
 
 # Write MeTTa in Python

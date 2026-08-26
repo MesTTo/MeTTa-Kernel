@@ -20,7 +20,7 @@
 %     effects_lattice:a_compiled_goal_plan_follows_raw_definitions_and_joins_operations,
 %     effects_lattice:world_coverage_joins_declared_ranks_and_defaults_to_structural,
 %     effects_lattice:compensation_declarations_require_an_effectful_operation;
-%     commit=WORKTREE].
+%     commit=173eeed021beb360b5e5f9f8461889e27190affc].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -834,7 +834,7 @@ petta_operation_plan_effect(Operations, Effect) :-
 %structural [tested:
 %effects_lattice:a_compiled_goal_plan_follows_raw_definitions_and_joins_operations,
 %effects_lattice:an_unclassified_bridge_and_dynamic_call_fail_closed_at_oracle_io;
-%commit=WORKTREE].
+%commit=173eeed021beb360b5e5f9f8461889e27190affc].
 metta_host_goal_effect_plan(Module,
                             (petta_effect_source_term(Source), Body),
                             Operations, Effect) :-
@@ -1844,7 +1844,7 @@ petta_compensation(Operation, Compensation) :-
 %restored to 3,933,747 and 4,808,680 by this split, with every other strategy
 %row inside 2%; command=python bindings/python/tools/phrasebook.py --cost with
 %STRATEGY_INFERENCES raised so the runaway guard does not truncate the reading;
-%fixture=this worktree with engine/reader.so; commit=WORKTREE]. The profile
+%fixture=this worktree with engine/reader.so; commit=173eeed021beb360b5e5f9f8461889e27190affc]. The profile
 %still binds one way: a catalog row cannot talk a fixed non-structural builtin
 %into the cache, which the base rule alone would have allowed [tested:
 %effects_lattice:the_cache_purity_seam_reads_declarations_under_the_native_floor].

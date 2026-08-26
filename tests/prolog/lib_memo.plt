@@ -8,7 +8,7 @@
 %   - An impure memo refusal points at the canonical effect declaration door
 %     and names pureStructural as its cache-safe class [tested:
 %     lib_memo_volatility:an_impure_refusal_names_the_canonical_effect_remedy;
-%     commit=WORKTREE].
+%     commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7].
 %   - Exact-cache invalidation advances a hidden table generation seen by
 %     already-live worker engines [tested:
 %     lib_memo_stats:invalidation_moves_a_live_worker_to_a_fresh_exact_table_generation;

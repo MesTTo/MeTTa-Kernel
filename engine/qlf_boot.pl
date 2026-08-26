@@ -32,7 +32,7 @@
 %   - the engine reads its own sources and writes its own output as UTF-8
 %     whatever the ambient locale says, and a .qlf set compiled under a
 %     different encoding is purged rather than served
-%     [tested: tests/test_engine_text_encoding.sh; commit=WORKTREE].
+%     [tested: tests/test_engine_text_encoding.sh; commit=bdb032a457597ef3b4a1e0d872f66f76bad362e4].
 % Decides:
 %   - freshness is transitive and coarse, the whole set against the
 %     newest source: a false purge costs one ~0.25s generating boot; a

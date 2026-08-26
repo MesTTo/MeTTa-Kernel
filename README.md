@@ -1,7 +1,7 @@
 <!--
 Purpose: introduce PeTTa, its narrow Python surface, and the commands needed to use and develop it.
 Guarantees: every Python code block executes against the documented public API.
-[tested: python -m pytest bindings/python/tests/test_readme.py -q; commit=WORKTREE]
+[tested: python -m pytest bindings/python/tests/test_readme.py -q; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 -->
 
 ## PeTTa

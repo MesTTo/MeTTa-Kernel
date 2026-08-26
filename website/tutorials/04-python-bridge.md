@@ -1,7 +1,7 @@
 <!--
 Purpose: introduce run, eval, query, and effect-classified Python operation registration.
 Guarantees: operation examples use the canonical Space.op decorator with required EffectClass metadata.
-[tested: npm run docs:build and test_unclassified_operation_refuses_with_all_five_effect_remedies; commit=WORKTREE]
+[tested: npm run docs:build and test_unclassified_operation_refuses_with_all_five_effect_remedies; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 -->
 
 # 04. The Python bridge

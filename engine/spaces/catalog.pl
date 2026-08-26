@@ -20,7 +20,7 @@
 % catalog rows; compensation is admitted only for writesState-or-stronger
 % operations and names one callable recovery operation [tested:
 % effects_lattice:compensation_declarations_require_an_effectful_operation,
-% test_a_structural_operation_cannot_declare_a_compensation; commit=WORKTREE].
+% test_a_structural_operation_cannot_declare_a_compensation; commit=173eeed021beb360b5e5f9f8461889e27190affc].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.

@@ -1,7 +1,7 @@
 <!--
 Purpose: connect in-memory routing, remote spaces, and multi-shot solving through the public narrow surface.
 Guarantees: examples use canonical atoms, effect-classified Space.op, context.space(), and metta.tables.add.
-[tested: npm run docs:build and test_unclassified_operation_refuses_with_all_five_effect_remedies; commit=WORKTREE]
+[tested: npm run docs:build and test_unclassified_operation_refuses_with_all_five_effect_remedies; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 -->
 
 # HTTP, routes, and solver loops
