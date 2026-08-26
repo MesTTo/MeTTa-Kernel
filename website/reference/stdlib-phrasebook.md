@@ -52,9 +52,12 @@ They stay separate so the differential coverage denominator remains exact.
 | `@space.op(effect="oracleIO") ⏎ async def fetch(url: str) -> str: ...` | register a coroutine operation whose immediate answer is a FutureSpace | `future = space.eval(S.fetch("https://example.test"))[0] ⏎ answers = list(future.wait())` |
 | `(async-op <name> <future-space> launch\|landing)` | observe committed coroutine launch and landing records in &petta | `events = metta._at("&petta").subscribe( ⏎     S["async-op"](S.fetch, V.space, V.phase), callback ⏎ )` |
 | `metta.speculate()` | scope each default-context execution as a discarded segment | `with metta.speculate(): ⏎     metta.run(source)` |
+| `space.covers(effect)` | declare the strongest effect rank a reified world of this space admits | `space.covers(EffectClass.writesState)` |
 | `space.reify()` | capture an immutable evaluable world value, distinct from listing atoms | `world = space.reify()` |
 | `world.eval(target)` | evaluate without touching the parent and return answers plus a successor world | `answers, successor = world.eval(target)` |
 | `space.commit(world)` | land the world's base-relative diff as ordinary post-commit writes and events | `space.commit(successor)` |
+| `space.compensates(operation, recovery)` | declare the operation that semantically reverses an effectful one | `space.compensates(charge, refund)` |
+| `space.saga(receipts)` | run forward steps whose committed (did ...) receipts drive reverse recovery | `with space.saga(receipts) as saga: ⏎     saga.run(S.charge(S.order_7))` |
 
 Provenance: LeaTTa manifest 1.0.9 at commit `39c7c43`, 382 declarations over 380 distinct names.
 

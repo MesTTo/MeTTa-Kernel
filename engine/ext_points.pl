@@ -102,7 +102,7 @@
             observe/3,
 
             % Declarations: fact tables the engine reads as data.
-            backend_builtin/1,
+            backend_builtin/2,
             builtin_type_declaration/2,
             context_events/3,
             engine_emitted/1,
@@ -787,13 +787,37 @@ kind(grounded_text/2, ownership).
 %provider; these two are the only things it needs that a Prolog provider does
 %not, and both exist so the ENGINE never has to know a backend by name.
 %
-%The builtins a backend's bridge provides. Declared by the file that DEFINES
-%them, so they exist exactly when the predicates behind them do: registering a
-%name whose predicate is absent records no arity, and every call to it then
-%compiles to a partial application. engine/metta.pl registers whatever is declared
-%here, and names nothing.
-:- multifile backend_builtin/1.
-kind(backend_builtin/1, declaration).
+%The builtins a backend's bridge provides, each WITH ITS EFFECT CLASS.
+%Declared by the file that DEFINES them, so they exist exactly when the
+%predicates behind them do: registering a name whose predicate is absent
+%records no arity, and every call to it then compiles to a partial
+%application. engine/metta.pl registers whatever is declared here, and names
+%nothing.
+%
+%The effect argument is not optional, because the alternative was measured and
+%it fails silently. A registered builtin joins builtin_fun/1, and every
+%builtin_fun/1 name needs a reviewed effect class before a world can decide
+%whether to admit it. The ENGINE cannot supply one: reviewing a predicate
+%means naming it, and naming a backend's predicate here is the one thing this
+%page promises a backend never forces. So the classification travels with the
+%registration, and a builtin that is not classified cannot be registered at
+%all [tested: effects_lattice:every_native_builtin_has_exactly_one_reviewed_effect_profile,
+%effects_lattice:a_backend_declares_the_effect_of_the_builtin_it_registers;
+%commit=WORKTREE]. Saying it beside the registration rather than in a second
+%optional seam is deliberate: with arity 1 and a separate classification door,
+%MORK's three builtins registered and went unclassified, the fail-closed
+%oracleIO default hid it from every program, and only the plunit lane's
+%backends configuration ever said so.
+%
+%Effect is one of the five ranked classes (pureStructural, readOnlyLookup,
+%nondeterministicReadOnly, writesState, oracleIO). Declare the WEAKEST class
+%that is honestly true of the predicate: it is what a world's coverage
+%declaration is checked against, so overstating it refuses programs that
+%should run and understating it admits ones that should not. A builtin whose
+%behaviour is decided by data at run time, or by a foreign library the engine
+%cannot bound, is oracleIO.
+:- multifile backend_builtin/2.
+kind(backend_builtin/2, declaration).
 
 %A backend's smoke test, run by engine/main.pl's demo. Every handler runs, so a
 %process with two backends tests both, and one with none tests nothing and says
@@ -874,6 +898,15 @@ kind(metta_host_function_generation/1, host_service).
 %whether doing so would repeat an effect, so this one semidet question wraps
 %the shared effect walk and fails closed on unknown goals.
 kind(metta_host_goal_repeatable/2, host_service).
+kind(metta_host_goal_effect_plan/4, host_service).
+%The three source-side projections of that same walk. A world must be able to
+%ask what a target WOULD do before translating it, what replaying a frozen
+%image compiles, and which operations a saga step can execute, and none of
+%those questions may be answered by re-walking the term in a host: the masks,
+%static refusals and staged boundaries the engine applies are the answer.
+kind(metta_host_source_effect_plan/4, host_service).
+kind(metta_host_source_compile_effect_plan/4, host_service).
+kind(metta_host_source_runtime_effect_plan/4, host_service).
 kind(metta_reducible_head/2, host_service).
 %Proof tools may open only a dispatch route the engine identifies as its
 %shipped direct path. Every policy-sensitive route is executed engine-side and
@@ -966,6 +999,10 @@ kind(petta_on_error_mode/3, host_service).
 kind(petta_source_reset/1, host_service).
 kind(petta_speculate/1, host_service).
 kind(petta_transaction/1, host_service).
+kind(petta_transaction_notified/3, host_service).
+kind(petta_world_effect_coverage/2, host_service).
+kind(petta_effect_covered/2, host_service).
+kind(petta_compensation/2, host_service).
 kind(petta_transport_failure/1, host_service).
 kind(petta_with_state_write_fence/1, host_service).
 kind(petta_live_state_cell/1, host_service).

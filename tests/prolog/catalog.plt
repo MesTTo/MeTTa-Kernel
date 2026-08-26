@@ -41,7 +41,11 @@ test(the_shipped_catalog_is_queryable_data) :-
     once('get-atoms'('&petta', [vocabulary, visibility|VisibilityValues])),
     VisibilityValues == ['PUBLIC', 'INTERNAL'],
     once('get-atoms'('&petta', [kind, visibility|VisibilitySpec])),
-    VisibilitySpec == [symbol, ['one-of', visibility]].
+    VisibilitySpec == [symbol, ['one-of', visibility]],
+    once('get-atoms'('&petta', [kind, covers|CoverageSpec])),
+    CoverageSpec == [term, ['one-of', 'effect-class']],
+    once('get-atoms'('&petta', [kind, compensates|CompensationSpec])),
+    CompensationSpec == [symbol, symbol].
 
 test(every_shipped_callable_has_one_visibility) :-
     findall(Name,

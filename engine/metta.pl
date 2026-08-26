@@ -384,6 +384,7 @@ guard_arithmetic_goal_expansion :-
            guard_arithmetic_goal_expansion_clause(Ref)).
 
 guard_arithmetic_goal_expansion(Action, Ref) :-
+    % policy-inventory-exempt: mechanism-internal; reason=the two clause-adding actions prolog_listen/2 reports are SWI's own event vocabulary rather than a knob an operator chooses between, and every other action it delivers is a retract or an erase, which cannot install the hook this watcher repairs; evidence=engine/metta.pl:guard_arithmetic_goal_expansion/2
     catch(( (   memberchk(Action, [assertz, asserta]),
                 clause(system:goal_expansion(A, B), Body, Ref),
                 unguarded_math_expansion_body(Body, A, B)

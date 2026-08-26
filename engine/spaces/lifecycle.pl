@@ -920,6 +920,7 @@ metta_release_space(Space) :-
                  transaction(( metta_forget_space_parent(Space),
                                metta_forget_space_restriction(Space),
                                metta_forget_parametric_space(Space),
+                               metta_forget_world_coverage(Space),
                                metta_forget_exec_module_parent(Space),
                                retractall(metta_exec_module_known(Space, _)),
                                retractall(native_storage_module_cache(Space, _)) ))

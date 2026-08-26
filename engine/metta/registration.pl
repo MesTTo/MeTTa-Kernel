@@ -595,4 +595,4 @@ unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
 %every call to it then compiled to a partial application, so (mm2-exec &mork 1)
 %answered (partial mm2-exec (&mork 1)) instead of running or failing. Declaring
 %the names beside the predicates is what makes that unable to happen again.
-:- forall(seam:backend_builtin(Name), register_builtin_fun(Name)).
+:- forall(seam:backend_builtin(Name, _), register_builtin_fun(Name)).

@@ -83,6 +83,10 @@ Source: `bindings/python/metta/aio.py`.
 >     on the owning worker while immutable atom snapshots remain directly
 >     readable [tested: test_async_worlds_stay_on_the_owning_worker;
 >     commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
+>   - async coverage, compensation declarations, and saga recovery keep their
+>     complete synchronous scope on one owning worker [tested:
+>     test_async_saga_and_world_coverage_stay_on_the_owning_worker;
+>     commit=WORKTREE]
 > Owns:
 >   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
 >     engine until aclose(), stop(), or the atexit handler releases it [tested
@@ -347,6 +351,30 @@ async def commit(self, world: AsyncWorld) -> None:
 ```
 
 > Commit an async world through the worker that produced it.
+
+### `AsyncMeTTa.covers`
+
+```python
+async def covers(self, effect: EffectClass | str) -> Atom:
+```
+
+> Declare reified-world effect coverage on the owning worker.
+
+### `AsyncMeTTa.compensates`
+
+```python
+async def compensates(self, operation: str, compensation: str) -> Atom:
+```
+
+> Declare one saga compensation on the owning worker.
+
+### `AsyncMeTTa.saga`
+
+```python
+def saga(self, receipts: AsyncMeTTa) -> AsyncSaga:
+```
+
+> Open an async saga whose complete scopes run on this worker.
 
 ### `AsyncMeTTa.drop`
 
@@ -1127,6 +1155,38 @@ def stop(self, timeout: float = DEFAULT_CLOSE_TIMEOUT) -> None:
 
 > Synchronous cleanup for code without a running event loop.
 
+## `AsyncSaga`
+
+```python
+class AsyncSaga:
+```
+
+> The awaitable context-manager twin of :class:`metta._saga.Saga`.
+
+### `AsyncSaga.run`
+
+```python
+async def run(self, target: Any) -> list[Atom]:
+```
+
+> Commit one forward step and its receipt on the owning worker.
+
+### `AsyncSaga.rollback`
+
+```python
+async def rollback(self) -> None:
+```
+
+> Run the pending reverse recovery plan on the owning worker.
+
+### `AsyncSaga.aclose`
+
+```python
+async def aclose(self) -> None:
+```
+
+> Cancel the synchronous receipt observer on the owning worker.
+
 ## `AsyncWorld`
 
 ```python
@@ -1164,6 +1224,14 @@ def diff(self, other: AsyncWorld) -> tuple[list[Atom], list[Atom]]:
 ```
 
 > Return ordered multiset extras between worlds from one worker.
+
+### `AsyncWorld.aclose`
+
+```python
+async def aclose(self) -> None:
+```
+
+> Release this world's retained program image on its worker.
 
 ## `connect`
 

@@ -326,6 +326,7 @@ reaches(metta, ext_points, 'installs the atom-write wrappers when a handler exis
 reaches(metta, filereader, 'import! and the file builtins are the loader\'s surface').
 reaches(metta, parser, 'sread, swrite and sdisplay are the core\'s text builtins').
 reaches(metta, spaces, 'the space builtins are the space subsystem\'s surface').
+reaches(metta, support_graph, 'a world admits a program write only after walking who its recompilation reaches').
 reaches(metta, translator, 'a runnable form is compiled before it runs').
 reaches(metta, translator_rules, 'add-translator-rule! is the rule registry\'s door').
 reaches(metta, type_rules, 'every type question resolves through the typing-rule registry').

@@ -1704,14 +1704,35 @@ Two multifile hooks go with it, and both exist so the engine never has to name
 a backend:
 
 ```prolog
-:- multifile seam:backend_builtin/1.   % a builtin your bridge provides
+:- multifile seam:backend_builtin/2.   % a builtin your bridge provides, and its effect
 :- multifile seam:backend_selftest/0.  % your smoke test, run by the CLI demo
+
+seam:backend_builtin('mine-add', writesState).
+seam:backend_builtin('mine-run', oracleIO).
 ```
 
-Declare `seam:backend_builtin/1` in the file that DEFINES the predicates, not
+Declare `seam:backend_builtin/2` in the file that DEFINES the predicates, not
 in `backends/mine.pl`, so the names exist exactly when the predicates do.
 Registering a name whose predicate is absent records no arity, and every call
 to it then compiles to a partial application rather than running or failing.
+
+The second argument is the builtin's effect class, and it is required. Your
+builtin becomes an ordinary `builtin_fun`, and a world's coverage declaration
+is checked against every operation it might run, so an unclassified builtin
+would have to take the engine's fail-closed `oracleIO` floor: safe, but it
+says "nobody looked" in the same voice as "reviewed and unbounded", and no
+world covering `writesState` could then call your writer. The engine cannot
+review it for you, because reviewing means naming, and naming your predicates
+here is the thing this page promises you never have to force. So the
+classification travels with the registration.
+
+Declare the WEAKEST of the five ranked classes that is honestly true:
+`pureStructural`, `readOnlyLookup`, `nondeterministicReadOnly`, `writesState`,
+`oracleIO`. Overstating refuses programs that should run; understating admits
+ones that should not. If what your builtin reaches is decided at run time by
+data, or by a foreign library the engine cannot bound, it is `oracleIO` — that
+is a review, not a default, and it is why MORK's `mm2-exec` is one while its
+two writers are `writesState`.
 
 MORK is one of these and used to be none of it. `'../backends/mork/mork_ffi/morkspaces'` was
 written into `engine/metta.pl`'s load list, in a second copy of that list behind

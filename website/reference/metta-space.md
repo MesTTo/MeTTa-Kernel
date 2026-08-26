@@ -33,6 +33,12 @@ Source: `bindings/python/metta/_space.py`.
 >     applies its base-relative diff through ordinary transaction and event
 >     doors [tested: test_world_eval_branches_without_touching_parent,
 >     test_commit_applies_the_world_diff_as_post_commit_events; commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
+>   - ``Space.covers`` and ``Space.compensates`` publish the two effect-safety
+>     declarations, while ``Space.saga`` builds recovery on the existing
+>     transaction and post-commit event doors [tested:
+>     test_world_coverage_admits_the_joined_plan,
+>     test_committed_effects_leave_queryable_receipts_and_failed_steps_leave_none;
+>     commit=WORKTREE]
 >   - named space construction accepts a space-name Symbol as well as its text
 >     spelling [tested: test_space_factory_accepts_a_name_symbol; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
 >   - a Symbol or ground Expression names a source-visible atomic or parametric
@@ -745,6 +751,28 @@ def transaction(self, target: Callable[[], _R] | Any, /) -> Any:
 > to hold across a block, and pretending otherwise would lie about
 > the isolation actually provided. transactional() is the
 > decorator twin.
+
+### `Space.saga`
+
+```python
+def saga(self, receipts: Space):
+```
+
+> Open a committed-receipt saga over this execution space.
+>
+> ``receipts`` is an ordinary space that stores ``(did op args result)``
+> atoms. Run each forward term with the returned context manager's
+> ``run`` method. A normal exit keeps its work and receipts; an
+> exceptional exit invokes declared compensations in reverse commit
+> order and removes each successfully recovered receipt.
+>
+>     with orders.saga(receipts) as saga:
+>         saga.run(S.charge(S.order_7))
+>
+> Operations ranked writesState or oracleIO leave receipts. Declare a
+> handler with ``compensates`` before recovery. Handlers receive the
+> quoted complete receipt and must be idempotent, because a failed
+> compensation remains queryable and is retried by ``rollback()``.
 
 ### `Space.solve`
 
@@ -1846,6 +1874,37 @@ def algebra(
 > named, ``carrier`` must be finite and the operation tables are checked
 > exhaustively before the catalog atom lands. ``contraction`` is the
 > explicit resource-reuse capability and has no equation to sample.
+
+### `Space.covers`
+
+```python
+def covers(self, effect: EffectClass | str) -> Atom:
+```
+
+> Declare the strongest effect this reified world can handle.
+>
+> Coverage is a catalog fact ``(covers <space> <effect>)``. World
+> evaluation always admits pureStructural plans. A stronger joined plan
+> runs only when this declaration is at least as strong; redeclaring
+> replaces the previous row atomically.
+>
+>     orders.covers("writesState")
+>     world = orders.reify()
+
+### `Space.compensates`
+
+```python
+def compensates(self, operation: str, compensation: str) -> Atom:
+```
+
+> Declare one recovery operation for an effectful operation.
+>
+> The catalog row is ``(compensates operation compensation)``. The
+> source operation must already be registered at writesState or
+> oracleIO, because weaker operations leave no saga receipt. The
+> recovery name must already be a host operation or compiled MeTTa
+> function. It receives the quoted complete ``(did ...)`` receipt.
+> Redeclaring replaces the old row atomically.
 
 ### `Space.add_tagged_fact`
 

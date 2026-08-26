@@ -16,6 +16,11 @@
 % Guarantees: async is a declared operation kind whose compiled result is a
 % FutureSpace [tested: test_an_async_operation_answers_a_future_space;
 % commit=39092863ae34184a9f955f185ff57c1ff177ec40].
+% Guarantees: world effect coverage and saga compensation are schema-checked
+% catalog rows; compensation is admitted only for writesState-or-stronger
+% operations and names one callable recovery operation [tested:
+% effects_lattice:compensation_declarations_require_an_effectful_operation,
+% test_a_structural_operation_cannot_declare_a_compensation; commit=WORKTREE].
 % [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.
@@ -695,6 +700,35 @@ petta_check_catalog_semantics('dispatch-policy', [Function, Axis, Value], Term) 
                                   'one override per function and dispatch axis; remove the old row first')
     ;   true
     ).
+%A compensation is useful only for an operation whose successful answer leaves
+%a saga receipt. The receipt threshold and this declaration threshold are the
+%same rank comparison, so a row cannot promise recovery for work the runner
+%will never journal. A recovery takes exactly the one quoted receipt the runner
+%passes. Host-operation rows record that MeTTa arity directly; a compiled
+%function records one more Prolog argument for its answer.
+petta_check_catalog_semantics(compensates,
+                              [Operation, Compensation], Term) :-
+    !,
+    petta_require_saga_effect(Operation, Term),
+    (   petta_saga_operation_callable(Operation)
+    ->  true
+    ;   petta_declaration_refused(
+            Term, 1,
+            'a registered host operation, native operation, or compiled MeTTa function')
+    ),
+    (   petta_saga_compensation_callable(Compensation)
+    ->  true
+    ;   petta_declaration_refused(
+            Term, 2,
+            'a registered host operation or compiled MeTTa function taking exactly one receipt')
+    ),
+    (   petta_catalog_row([compensates, Operation, _])
+    ->  petta_declaration_refused(
+            Term, 1,
+            'one compensation per operation; remove the old row first')
+    ;   true
+    ).
+
 %A standing query is a PROMISE about the watched context, so it is checked
 %against what that context declares it can deliver, here at the catalog
 %door every '&petta' write already passes rather than at one host's
@@ -718,6 +752,42 @@ petta_check_catalog_semantics(on, [Ctx|_], _) :-
     !,
     petta_require_events(Ctx, 'carry a reaction').
 petta_check_catalog_semantics(_, _, _).
+
+petta_require_saga_effect(Operation, Term) :-
+    petta_operation_effect(Operation, Effect),
+    !,
+    petta_effect_rank(Effect, Rank),
+    petta_effect_rank(writesState, ReceiptRank),
+    (   Rank >= ReceiptRank
+    ->  true
+    ;   petta_declaration_refused(
+            Term, 1,
+            'an operation ranked writesState or oracleIO, because weaker operations leave no saga receipt')
+    ).
+petta_require_saga_effect(_, Term) :-
+    petta_declaration_refused(
+        Term, 1, 'an operation with a declared effect class'),
+    fail.
+
+petta_saga_operation_callable(Name) :-
+    petta_catalog_row([op, Name, _, _]),
+    !.
+petta_saga_operation_callable(Name) :-
+    builtin_fun(Name),
+    !.
+petta_saga_operation_callable(Name) :-
+    fun(Name),
+    metta_ensure_compiled(Name),
+    arity(Name, Arity),
+    Arity > 0.
+
+petta_saga_compensation_callable(Name) :-
+    petta_catalog_row([op, Name, 1, _]),
+    !.
+petta_saga_compensation_callable(Name) :-
+    fun(Name),
+    metta_ensure_compiled(Name),
+    arity(Name, 2).
 
 petta_declared_algebra_requirements(Algebra, Required, _) :-
     petta_catalog_row([algebra, Algebra, _, _, _, _, _, _,
@@ -1205,6 +1275,8 @@ petta_catalog_preset([kind, image, symbol, symbol, ['one-of', 'image-mode']]).
 petta_catalog_preset([kind, 'type-image', symbol,
                       ['one-of', 'registry-image']]).
 petta_catalog_preset([kind, effect, symbol, ['one-of', 'effect-class']]).
+petta_catalog_preset([kind, covers, term, ['one-of', 'effect-class']]).
+petta_catalog_preset([kind, compensates, symbol, symbol]).
 petta_catalog_preset([kind, inverse, symbol]).
 petta_catalog_preset([kind, op, symbol, integer, ['one-of', 'op-kind']]).
 petta_catalog_preset([kind, deprecated, symbol, term, term]).
