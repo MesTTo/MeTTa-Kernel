@@ -1158,6 +1158,28 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Asking a lazy answer view how many answers it has no longer costs what
+  reading them costs. `space.answers(call, under=counting)` builds a view
+  whose only source is the scalar, so its count is that view's whole
+  evaluation and the effect-repeatability question cannot arise; it now asks
+  the engine to count directly instead of taking the guarded door, which had
+  been sending an effect-bearing goal through a materializing pass that
+  encoded and crossed every answer to reach a number nobody kept. `len()` on
+  a view that also holds a cursor keeps the guard, and when the goal is
+  effect-unsafe the count and the values now come from ONE evaluation that
+  holds its answers in the engine one step short of the wire: the length
+  crosses one integer, a later value demand encodes only the answers it
+  pulls, and the effects still fire exactly once, so `list()` cannot execute
+  an effect for its length hint and again for its values. Crossing an answer
+  costs 9.1 plus 8.0 per term node in engine inferences, measured over a
+  depth sweep, and that product is what a discarded length used to pay. Four
+  corpus twins are re-priced: `matespacefast` 324,566,172 to 74,483,636
+  (-77.1%), `matespace` 116,492,911 to 32,668,415 (-71.9%), `matespace2`
+  124,314,232 to 50,679,104 (-59.2%), and `peano` 2,396,435 to 2,033,218
+  (-15.2%). A carrier cursor answers an annotation beside every value, which
+  the holding evaluation does not carry, so its declined count still counts
+  through one materializing pass.
+
 - The tabling library rides the declared extension seams only, and its
   tables are visible wherever the answers are: a `(tabled ...)` declaration
   now tables `as shared` (checked native-space readers
