@@ -31,6 +31,14 @@
 %     generated atom itself crosses the same text boundary [tested:
 %     specializer:specialization_names_are_writable_and_stable,
 %     test_a_specialized_program_saves_and_digests; commit=5d93a44cf4820717163bbf8dfaf667ae14e5e4ee].
+%   - Planning a specialization grafts a call argument onto the equation's
+%     head pattern without metacalling anything per position, so an arriving
+%     equation pays no lambda machinery [tested:
+%     specializer:the_argument_walk_makes_no_metacall_per_position;
+%     commit=7e7cac85fee08c117032b2efa5a58a40f3b21365] [measured 2026-08-26: 4.0 inferences per position
+%     against the 17.0 the yall lambda it replaced cost; command=cd
+%     tests/prolog && swipl -g "set_test_options([format(log)]), run_tests"
+%     -t halt specializer.plt; commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
 % Guarded by: '$petta_specializer' serializes the existence check and the
 %   transaction that publishes a specialization.
 % Open Obligations:
@@ -605,7 +613,7 @@ specializable_vars(BodyExpr, Value, Arg, HoVars, Bindings) :-
     term_variables(Arg, Vars),
     maplist(variable_first_path(Arg), Vars, Paths),
     copy_term(Arg-Vars, ArgCopy-VarsCopy),
-    traverse_list([A,V]>>(nonvar(V) -> V = A ; true), ArgCopy, Value),
+    traverse_list(ArgCopy, Value),
     eligible_var_pairs(Vars, VarsCopy, Paths, BodyExpr, HoVars, Bindings).
 
 variable_first_path(Term, Var, Path) :-
@@ -622,8 +630,39 @@ variable_path(Term, Var, Prefix, Path) :-
     arg(Index, Term, Arg),
     variable_path(Arg, Var, [Index|Prefix], Path).
 
-traverse_list(Pred, From, Into) :- (is_list(From),is_list(Into) -> maplist(traverse_list(Pred),From,Into)
-                                                                 ; call(Pred, From, Into)).
+%Graft the call's argument onto the fresh copy of the equation's head
+%argument, position by position, stopping wherever either side stops being a
+%list. A position the call leaves unbound is left alone, and a length mismatch
+%fails the whole graft, which is what makes the enclosing plan skip that
+%argument.
+%
+%First-order on purpose. This carried the binding step as a yall lambda and
+%metacalled it once per position, which is the defect
+%tests/prolog/static_checks.pl states as compile_time_helper('>>') -- there
+%over GENERATED bodies, here in the translator's own plan path. '>>'/4
+%copy_term_nats the lambda and rebuilds the call with =../2 on every metacall,
+%and the first metacall in a process resolves that machinery once
+%[measured 2026-08-26: 23,940 inferences for the first metacall and 14 for
+%each later one, against 2 for a named predicate; command=swipl -g
+%"use_module(library(yall)), P = [A,V]>>(nonvar(V) -> V = A ; true),
+%statistics(inferences,I0), call(P,_,abc), statistics(inferences,I1)";
+%commit=7e7cac85fee08c117032b2efa5a58a40f3b21365]. Under deferred translation that one-time resolution landed
+%on whichever equation first reached a binding plan, so a user's first
+%match-bearing call paid it: the first call of a body holding
+%(once (match ...)) read 3,676 inferences with the lambda and 2,163 without,
+%second calls 423 either way, and the arrival cost of a match-bearing equation
+%stays flat as the program grows [measured 2026-08-26: 2,215 for that first
+%call with 10, 40, 160 and 640 other translated equations in the space;
+%commit=7e7cac85fee08c117032b2efa5a58a40f3b21365]
+%[tested: specializer:the_argument_walk_makes_no_metacall_per_position;
+%commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
+traverse_list(From, Into) :-
+    (   is_list(From), is_list(Into)
+    ->  maplist(traverse_list, From, Into)
+    ;   nonvar(Into)
+    ->  Into = From
+    ;   true
+    ).
 
 % Select and unify variables used as higher-order operands. The six-argument
 % form also retains their structural paths for the global specialization key.

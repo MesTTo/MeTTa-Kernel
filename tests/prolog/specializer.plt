@@ -9,6 +9,10 @@
 %     structured key when its display spelling is not one MeTTa symbol
 %     [tested: specializer:specialization_names_are_writable_and_stable;
 %     commit=5d93a44cf4820717163bbf8dfaf667ae14e5e4ee].
+%   - the plan's argument walk costs no metacall per position, so a call
+%     argument's size prices only the graft
+%     [tested: specializer:the_argument_walk_makes_no_metacall_per_position;
+%     commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -369,6 +373,41 @@ test(compiling_a_call_site_does_not_read_the_callee_equations) :-
     compile_call_site_cost(8, Narrow),
     compile_call_site_cost(512, Wide),
     assertion(Wide < Narrow * 2).
+
+% Planning a specialization grafts each call argument onto a fresh copy of the
+% equation's head pattern, one position at a time. That walk must not metacall
+% anything per position: a yall lambda passed as data costs a copy_term_nat of
+% the lambda and a =../2 rebuilt goal on EVERY call, which is the same defect
+% static_checks.pl's compile_time_helper('>>') rule forbids in a generated
+% body, and it also makes the first plan in a process pay the lambda's
+% one-time resolution. Over a ground list argument of 16 and 256 positions the
+% lambda cost 17.0 inferences per position and the first-order walk costs 4.0,
+% the 4.25x that rule's own note records as 3.6 to 4.7. The bound is stated on
+% the SLOPE, not on either point, so compiled-image layout cannot move it
+% [measured 2026-08-26: this test read 17 against the yall walk and 4 against
+% the first-order one, identical across runs; command=cd tests/prolog && swipl
+% -g "set_test_options([format(log)]), run_tests" -t halt specializer.plt;
+% commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
+argument_walk_cost(N, Per) :-
+    numlist(1, N, Positions),
+    Rounds = 50,
+    ( between(1, 5, _),
+      specializer:specializable_vars([ok], Positions, Positions, _, _),
+      fail ; true ),
+    statistics(inferences, Before),
+    ( between(1, Rounds, _),
+      specializer:specializable_vars([ok], Positions, Positions, _, _),
+      fail ; true ),
+    statistics(inferences, After),
+    statistics(inferences, Settle),
+    Overhead is Settle - After,
+    Per is ((After - Before) - Overhead) / Rounds.
+
+test(the_argument_walk_makes_no_metacall_per_position) :-
+    argument_walk_cost(16, Narrow),
+    argument_walk_cost(256, Wide),
+    PerPosition is (Wide - Narrow) / 240,
+    assertion(PerPosition =< 8).
 
 :- end_tests(specializer).
 
