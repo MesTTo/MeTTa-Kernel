@@ -1179,6 +1179,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `examples/reasoning/greedy_chess.metta` is skipped for the reason that is
+  true. It read "long-running, covered by benchmarks" and neither half held:
+  no benchmark in any baseline names it, and given its quit command it loads
+  all 2,821 lines, sets up the board and exits 0 in about a quarter second.
+  What it needs is a terminal. The file ends in `!(main_loop)`, whose
+  `(command-loop)` reads with `readln!/1` and recurses on anything but `q`,
+  and `read_line_to_string/2` answers `end_of_file` for every read once
+  stdin is at EOF, so under a runner the loop never ends rather than running
+  long: 17,973,938 lines in 120 seconds, one prompt and one refusal per
+  cycle, where a complete run prints 16,123 and stops. Both halves are now
+  checked, since a skip reason nothing checks is how the wrong one survived.
 - The `json-wire` benchmark measures the engine work it has always paid.
   `metta/_json.py` is the engine's codec, so `dumps` and `loads` each reach
   `library(json)` through janus and one round trip is two crossings and two
