@@ -597,7 +597,7 @@ get_native_atom(Module, Space, Pattern) :-
 %[measured: the three totals left; command=python - with MeTTa().space then
 %m.stats() around m.run(examples/libraries/tabling_fib.metta) after N
 %`!(add-atom &petta (visibility dummy-N PUBLIC))` writes, fresh process per
-%N; fixture=p14-integration with engine/reader.so; commit=WORKTREE]. A bound
+%N; fixture=p14-integration with engine/reader.so; commit=2b2d6f3e36d259e789ad7d977eebc3623b002970]. A bound
 %head that is itself compound shares one principal functor across such rows
 %and degrades toward the walk only for that shape. The head decomposes into
 %FRESH arguments before unifying with the pattern, because =.. on the pattern

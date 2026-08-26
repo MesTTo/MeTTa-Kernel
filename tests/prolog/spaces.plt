@@ -16,7 +16,7 @@
 %     the same on a hundredfold larger space, with an improper tail a
 %     deterministic miss [tested:
 %     spaces_cycles:an_open_tail_probe_reads_through_the_head_index;
-%     commit=WORKTREE].
+%     commit=2b2d6f3e36d259e789ad7d977eebc3623b002970].
 %   - restricted spaces select curated grant profiles and raw calls pass the
 %     sandbox boundary [tested: spaces_restricted_modules;
 %     commit=6a08901f4125c2536f5b4032daac9937f793870f].
@@ -165,7 +165,7 @@ test(a_selective_match_costs_the_same_on_a_hundredfold_larger_space,
 %atom per probe: 23.7 inferences per &petta catalog row over one tabling_fib
 %load, which the visibility catalog's rows turned into +6,783 inferences on
 %that example [source: engine/spaces/native_matching.pl, the open-tail
-%clause pair above the enumerating walk; commit=WORKTREE].
+%clause pair above the enumerating walk; commit=2b2d6f3e36d259e789ad7d977eebc3623b002970].
 open_tail_miss_cost(Space, Inferences) :-
     forall(between(1, 200, _), \+ 'get-atoms'(Space, [missing_head|_])),
     findall(Sample,
