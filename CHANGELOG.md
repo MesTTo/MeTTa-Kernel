@@ -1179,6 +1179,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The `json-wire` benchmark measures the engine work it has always paid.
+  `metta/_json.py` is the engine's codec, so `dumps` and `loads` each reach
+  `library(json)` through janus and one round trip is two crossings and two
+  Prolog passes; the case registered `engine=None` anyway, which pinned the
+  row at `"inferences": null` and made the comparator require it to stay
+  null. The heaviest crossing in the roster was therefore gated on retired
+  instructions alone, with 169,336,779 inferences a sample uncounted, more
+  than any other row in the file. The row now carries that pin, measured at
+  84,668 inferences a round trip and identical across three fresh
+  processes, and the pin defends the wiring: registering the row engine-free
+  again fails the lane instead of passing green.
 - A benchmark row's declared instruction noise band survives a re-pin.
   `BenchmarkBaseline.observe_instructions` took the band as a defaulted
   parameter and wrote that default into the row on every `--update`, and
