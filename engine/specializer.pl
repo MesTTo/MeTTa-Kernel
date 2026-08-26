@@ -35,10 +35,10 @@
 %     head pattern without metacalling anything per position, so an arriving
 %     equation pays no lambda machinery [tested:
 %     specializer:the_argument_walk_makes_no_metacall_per_position;
-%     commit=WORKTREE] [measured 2026-08-26: 4.0 inferences per position
+%     commit=7e7cac85fee08c117032b2efa5a58a40f3b21365] [measured 2026-08-26: 4.0 inferences per position
 %     against the 17.0 the yall lambda it replaced cost; command=cd
 %     tests/prolog && swipl -g "set_test_options([format(log)]), run_tests"
-%     -t halt specializer.plt; commit=WORKTREE].
+%     -t halt specializer.plt; commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
 % Guarded by: '$petta_specializer' serializes the existence check and the
 %   transaction that publishes a specialization.
 % Open Obligations:
@@ -646,16 +646,16 @@ variable_path(Term, Var, Prefix, Path) :-
 %each later one, against 2 for a named predicate; command=swipl -g
 %"use_module(library(yall)), P = [A,V]>>(nonvar(V) -> V = A ; true),
 %statistics(inferences,I0), call(P,_,abc), statistics(inferences,I1)";
-%commit=WORKTREE]. Under deferred translation that one-time resolution landed
+%commit=7e7cac85fee08c117032b2efa5a58a40f3b21365]. Under deferred translation that one-time resolution landed
 %on whichever equation first reached a binding plan, so a user's first
 %match-bearing call paid it: the first call of a body holding
 %(once (match ...)) read 3,676 inferences with the lambda and 2,163 without,
 %second calls 423 either way, and the arrival cost of a match-bearing equation
 %stays flat as the program grows [measured 2026-08-26: 2,215 for that first
 %call with 10, 40, 160 and 640 other translated equations in the space;
-%commit=WORKTREE]
+%commit=7e7cac85fee08c117032b2efa5a58a40f3b21365]
 %[tested: specializer:the_argument_walk_makes_no_metacall_per_position;
-%commit=WORKTREE].
+%commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
 traverse_list(From, Into) :-
     (   is_list(From), is_list(Into)
     ->  maplist(traverse_list, From, Into)

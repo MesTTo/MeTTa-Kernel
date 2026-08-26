@@ -12,7 +12,7 @@
 %   - the plan's argument walk costs no metacall per position, so a call
 %     argument's size prices only the graft
 %     [tested: specializer:the_argument_walk_makes_no_metacall_per_position;
-%     commit=WORKTREE].
+%     commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -387,7 +387,7 @@ test(compiling_a_call_site_does_not_read_the_callee_equations) :-
 % [measured 2026-08-26: this test read 17 against the yall walk and 4 against
 % the first-order one, identical across runs; command=cd tests/prolog && swipl
 % -g "set_test_options([format(log)]), run_tests" -t halt specializer.plt;
-% commit=WORKTREE].
+% commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
 argument_walk_cost(N, Per) :-
     numlist(1, N, Positions),
     Rounds = 50,
