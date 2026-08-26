@@ -1171,9 +1171,12 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 - Generic definitions compile again: `def mid[T](x: T) -> T` places `T` in
   the PEP 695 type-parameter scope, which the annotation namespace now
-  includes, and the eager Space-parameter probe treats an annotation it
-  cannot resolve as simply not a space handle instead of refusing the whole
-  definition. Both regressions came from the Space-annotation feature
+  includes, and the eager Space-parameter probe treats a STRUCTURED
+  annotation it cannot resolve (a subscripted domain builder) as simply not
+  a space handle instead of refusing the whole definition. A bare name that
+  resolves nowhere keeps the loud refusal, because `target: Space` with the
+  import missing must not silently turn the body's removal statements into
+  arithmetic. Both regressions came from the Space-annotation feature
   resolving every parameter annotation eagerly.
 
 - The engine layering contract names the specializer's reader edge, minted
