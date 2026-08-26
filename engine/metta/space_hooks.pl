@@ -470,24 +470,55 @@ petta_writes(Ctx, Atomicity) :-
 :- meta_predicate petta_transaction(0).
 petta_transaction(Goal) :-
     term_variables(Goal, Vars),
-    (   petta_in_user_transaction
-    ->  petta_nested_transaction(Goal, Vars, Answers)
-    ;   petta_outer_transaction(Goal, Vars, Answers)
-    ),
+    petta_transaction_run(Goal, Vars, Answers,
+                          Outcome, Foreign, Observation),
+    petta_transaction_result(Outcome, Foreign, Observation),
     member(Vars, Answers).
 
-petta_nested_transaction(Goal, Vars, Answers) :-
+%Run the same transaction while notifying an owner of the durable database
+%outcome before a foreign-commit or post-commit observer error is rethrown.
+%Saga bookkeeping uses this rather than inferring commit from an exception
+%class: KeyboardInterrupt, provider failures, and SubscriberError can all be
+%reported after the local transaction is already durable.
+:- meta_predicate petta_transaction_notified(0, 0, 0).
+petta_transaction_notified(Goal, Committed, RolledBack) :-
+    term_variables(Goal, Vars),
+    petta_transaction_prepare(Goal, Vars, Answers, Outcome, Completion),
+    petta_notify_transaction(Outcome, Committed, RolledBack, Notification),
+    petta_transaction_finish(Completion, Outcome, Foreign, Observation),
+    petta_notified_transaction_result(Notification, Outcome,
+                                      Foreign, Observation),
+    member(Vars, Answers).
+
+petta_transaction_run(Goal, Vars, Answers,
+                      Outcome, Foreign, Observation) :-
+    petta_transaction_prepare(Goal, Vars, Answers, Outcome, Completion),
+    petta_transaction_finish(Completion, Outcome, Foreign, Observation).
+
+%Separate the durable local decision from fallible post-commit work. The saga
+%notification runs between these phases, so a provider commit or observer that
+%raises BaseException cannot make committed receipt bookkeeping look rolled
+%back. Ordinary transactions use the same phases without a notification.
+petta_transaction_prepare(Goal, Vars, Answers, Outcome, Completion) :-
+    (   petta_in_user_transaction
+    ->  petta_nested_transaction_prepare(Goal, Vars, Answers,
+                                        Outcome, Completion)
+    ;   petta_outer_transaction_prepare(Goal, Vars, Answers,
+                                       Outcome, Completion)
+    ).
+
+petta_nested_transaction_prepare(Goal, Vars, Answers,
+                                 Outcome, nested) :-
     seam:observation_begin,
     catch(( transaction(petta_transaction_answers(Goal, Vars, Answers))
           -> Outcome = committed
           ;  Outcome = failed
           ),
           Error,
-          Outcome = threw(Error)),
-    petta_finish_observation(Outcome, Observation),
-    petta_transaction_result(Outcome, ok, Observation).
+          Outcome = threw(Error)).
 
-petta_outer_transaction(Goal, Vars, Answers) :-
+petta_outer_transaction_prepare(Goal, Vars, Answers,
+                                Outcome, outer(Enlisted)) :-
     seam:observation_begin,
     nb_setval('$petta_tx_enlisted', []),
     catch(( setup_call_cleanup(
@@ -498,7 +529,11 @@ petta_outer_transaction(Goal, Vars, Answers) :-
           Error,
           Outcome = threw(Error)),
     nb_getval('$petta_tx_enlisted', Enlisted),
-    nb_setval('$petta_tx_enlisted', []),
+    nb_setval('$petta_tx_enlisted', []).
+
+petta_transaction_finish(nested, Outcome, ok, Observation) :-
+    petta_finish_observation(Outcome, Observation).
+petta_transaction_finish(outer(Enlisted), Outcome, Foreign, Observation) :-
     petta_finish_foreign(Outcome, Enlisted, Foreign),
     petta_finish_observation(Outcome, Observation),
     %A rolled-back local definition may also have replaced a repaired weak
@@ -507,8 +542,25 @@ petta_outer_transaction(Goal, Vars, Answers) :-
     %filereader_import_lifecycle:
     %a_failed_local_redefinition_restores_the_repaired_inherited_call;
     %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-    petta_repair_emptied_shadows,
+    petta_repair_emptied_shadows.
+
+petta_notify_transaction(Outcome, Committed, RolledBack, Result) :-
+    catch(( (   Outcome == committed
+            ->  call(Committed)
+            ;   call(RolledBack)
+            )
+          ->  Result = ok
+          ;   Result = failed
+          ),
+          Error,
+          Result = threw(Error)).
+
+petta_notified_transaction_result(ok, Outcome, Foreign, Observation) :- !,
     petta_transaction_result(Outcome, Foreign, Observation).
+petta_notified_transaction_result(threw(Error), _, _, _) :- !,
+    throw(Error).
+petta_notified_transaction_result(failed, Outcome, _, _) :-
+    throw(error(petta_transaction_notification_failed(Outcome), _)).
 
 petta_finish_foreign(committed, Enlisted, Result) :- !,
     catch(( forall(member(Space, Enlisted), seam:foreign_commit(Space)),

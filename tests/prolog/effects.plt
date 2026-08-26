@@ -3,10 +3,9 @@
 % Assumes: engine/metta.pl has initialized the &petta catalog and its native
 %   storage.
 % Guarantees: rank, join, composition, canonical operation reflection,
-%   fail-closed plans, cache-purity projection, and deprecation explanation
-%   agree.
-% [tested: tests/prolog/effects.plt;
-% commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0]
+%   fail-closed plans, complete embedded-operation coverage, native effect
+%   floors, cache-purity projection, and deprecation explanation agree.
+% [tested: tests/prolog/effects.plt; commit=WORKTREE]
 
 :- ensure_loaded('../../engine/metta.pl').
 
@@ -24,6 +23,30 @@ effect_test_add(Name, Class) :-
 effect_test_host_pure_add(Name) :-
     petta_engine_module(Engine),
     assertz(Engine:metta_host_pure_operation(Name)).
+
+effect_test_interpreter_profile(
+    pureStructural,
+    [chain, 'cons-atom', 'decons-atom', function]).
+effect_test_interpreter_profile(
+    readOnlyLookup,
+    ['context-space', 'get-metatype', 'get-state', 'get-atoms',
+     'module-tree!', 'loaded-mods!',
+     'skel-swap-pair-native', 'fuzzy-match-space',
+     'fuzzy-match-context']).
+effect_test_interpreter_profile(
+    nondeterministicReadOnly,
+    [unify, 'unify%', 'superpose-bind']).
+effect_test_interpreter_profile(
+    writesState,
+    [eval, evalc, 'collapse-bind', metta, 'metta-thread', capture,
+     'pragma!', match, 'match%', 'get-type', 'get-type-space',
+     '_new-state', 'change-state!', 'new-space', 'new-mork-space',
+     'fork-space', 'add-atom', 'remove-atom', 'bind!',
+     'module-space-no-deps', 'print-mods!', 'println!', 'trace!', sealed]).
+effect_test_interpreter_profile(
+    oracleIO,
+    ['git-import!', 'git-module!', 'import!', 'import-into!',
+     'import-item!', include, 'mod-space!']).
 
 :- begin_tests(effects_lattice).
 
@@ -94,6 +117,73 @@ test(effect_join_and_compose_choose_the_strongest_member) :-
              petta_effect_join(A, BC, RightAssociated),
              assertion(LeftAssociated == RightAssociated) )).
 
+test(every_embedded_operation_has_exactly_one_reviewed_effect_profile) :-
+    findall(Name, translator:embedded_operation_head(Name), Embedded0),
+    sort(Embedded0, Embedded),
+    findall(Name,
+            ( effect_test_interpreter_profile(_, Names), member(Name, Names) ),
+            Profile0),
+    sort(Profile0, Profile),
+    assertion(Profile == Embedded),
+    forall(( effect_test_interpreter_profile(Expected, Names),
+             member(Name, Names) ),
+           ( findall(Effect, petta_operation_effect(Name, Effect), Effects),
+             assertion(Effects == [Expected]) )),
+    assertion(petta_operation_effect('get-deps', readOnlyLookup)).
+
+test(every_translator_special_form_has_a_canonical_effect_profile) :-
+    findall(Name, translator:metta_special_form_head(Name), Names0),
+    sort(Names0, Names),
+    forall(member(Name, Names),
+           ( findall(Effect, petta_operation_effect(Name, Effect), Effects),
+             assertion(Effects = [_]),
+             Effects = [Effect],
+             assertion(petta_effect_rank(Effect, _)) )),
+    assertion(petta_operation_effect(elapsed, oracleIO)),
+    assertion(petta_operation_effect(timeout, oracleIO)),
+    assertion(petta_operation_effect(annotation, readOnlyLookup)),
+    assertion(petta_operation_effect(explain, readOnlyLookup)),
+    assertion(petta_operation_effect(top, readOnlyLookup)).
+
+test(every_native_builtin_has_exactly_one_reviewed_effect_profile) :-
+    findall(Name,
+            ( builtin_fun(Name),
+              \+ petta_semantic_effect(Name, _),
+              \+ petta_builtin_effect_override(Name, _),
+              \+ petta_builtin_structural(Name) ),
+            Unreviewed0),
+    sort(Unreviewed0, Unreviewed),
+    assertion(Unreviewed == []),
+    forall(builtin_fun(Name),
+           ( findall(Effect, petta_operation_effect(Name, Effect), Effects),
+             assertion(Effects = [_]),
+             Effects = [Effect],
+             assertion(petta_effect_rank(Effect, _)) )),
+    forall(member(Name,
+                  ['Predicate', 'atom-subst', 'format-args',
+                   'noreduce-eq', 'pretty-atom', 'sort-strings', throw]),
+           assertion(petta_operation_effect(Name, pureStructural))),
+    assertion(petta_operation_effect('residual-goals', readOnlyLookup)),
+    assertion(petta_operation_effect(unique,
+                                     nondeterministicReadOnly)),
+    assertion(petta_operation_effect(assertaPredicate, writesState)),
+    assertion(petta_operation_effect(callPredicate, oracleIO)).
+
+test(native_effect_profiles_are_lower_bounds_on_catalog_declarations,
+     [ cleanup(( effect_test_clear('random-int'),
+                 effect_test_clear('add-atom') )) ]) :-
+    effect_test_add('random-int', pureStructural),
+    effect_test_add('add-atom', pureStructural),
+    assertion(petta_operation_effect('random-int', oracleIO)),
+    assertion(petta_operation_effect('add-atom', writesState)).
+
+test(lowered_semantic_groundings_keep_their_observable_cardinality) :-
+    forall(member(Name,
+                  [empty, hyperpose, 'near-match', superpose,
+                   'superpose-bind', unify, 'unify%']),
+           assertion(petta_operation_effect(
+               Name, nondeterministicReadOnly))).
+
 test(operation_effect_reflection_is_canonical_and_fail_closed,
     [ cleanup(( effect_test_clear('effect-reflected'),
                  effect_test_clear('effect-unclassified') )) ]) :-
@@ -129,6 +219,75 @@ test(an_operation_plan_joins_reflected_members_and_refuses_an_unknown_one,
                                           writesState)),
     assertion(\+ petta_operation_plan_effect(['effect-plan-pure',
                                                'effect-plan-missing'], _)).
+
+test(world_effect_coverage_composes_catalog_rows_to_the_strongest_rank,
+     [ cleanup(forall(member(Row,
+                             [[covers, '&effect-world', readOnlyLookup],
+                              [covers, '&effect-world', writesState]]),
+                      metta_remove_atom('&petta', Row, _))) ]) :-
+    assertion(petta_world_effect_coverage('&effect-world', pureStructural)),
+    add_sexp('&petta', [covers, '&effect-world', readOnlyLookup], _),
+    add_sexp('&petta', [covers, '&effect-world', writesState], _),
+    assertion(petta_world_effect_coverage('&effect-world', writesState)),
+    assertion(petta_effect_covered(nondeterministicReadOnly, writesState)),
+    assertion(\+ petta_effect_covered(oracleIO, writesState)).
+
+%Both names in the row must be callable when it is written: a compensation
+%for an operation nothing can run, or naming a recovery nothing can run, is a
+%dangling promise that only shows up during recovery. The forward operation
+%therefore carries a definition here as well as its effect declaration.
+test(compensation_declarations_require_an_effectful_operation,
+     [ cleanup(( forall(member(Row,
+                                [[compensates, 'effect-saga-write',
+                                  'effect-saga-reverse'],
+                                 [=, ['effect-saga-reverse', _], done],
+                                 [=, ['effect-saga-write', _], done],
+                                 [=, ['effect-saga-pure', _], done]]),
+                         ( metta_remove_atom('&petta', Row, _)
+                         -> true
+                         ;  metta_remove_atom('&self', Row, _) )),
+                 effect_test_clear('effect-saga-write'),
+                 effect_test_clear('effect-saga-pure') )) ]) :-
+    effect_test_add('effect-saga-write', writesState),
+    effect_test_add('effect-saga-pure', pureStructural),
+    metta_add_atom('&self',
+                   [=, ['effect-saga-reverse', _Receipt], done], true),
+    metta_add_atom('&self',
+                   [=, ['effect-saga-write', _Value], done], true),
+    metta_add_atom('&self',
+                   [=, ['effect-saga-pure', _Operand], done], true),
+    add_sexp('&petta',
+             [compensates, 'effect-saga-write', 'effect-saga-reverse'], _),
+    assertion(petta_compensation('effect-saga-write',
+                                 'effect-saga-reverse')),
+    catch(( add_sexp('&petta',
+                     [compensates, 'effect-saga-pure',
+                      'effect-saga-reverse'], _),
+            Refused = false ),
+          error(petta_declaration_malformed(_, 1, _), _),
+          Refused = true),
+    assertion(Refused == true),
+    assertion(\+ petta_contract_fact(
+                    [compensates, 'effect-saga-pure', _])).
+
+%A cache hides an ANSWER, so its question is narrower than a reified world's.
+%The reviewed native profile is a floor under both: it can refuse a cache, but
+%a control form it reports structural is not thereby something a cached result
+%may stand in for. Coupling the two moved lib_strategy's traversals by an
+%order of magnitude, which the seam clause's own note prices.
+test(the_cache_purity_seam_reads_declarations_under_the_native_floor,
+     [ cleanup(( effect_test_clear('random-int'),
+                 effect_test_clear('effect-floor-declared') )) ]) :-
+    forall(member(Control, [once, collapse, forall, chain, 'let*']),
+           ( assertion(petta_operation_effect(Control, pureStructural)),
+             assertion(\+ seam:pure_operation(Control)) )),
+    forall(member(Primitive, ['+', 'car-atom']),
+           assertion(seam:pure_operation(Primitive))),
+    effect_test_add('effect-floor-declared', pureStructural),
+    assertion(seam:pure_operation('effect-floor-declared')),
+    effect_test_add('random-int', pureStructural),
+    assertion(petta_operation_effect('random-int', oracleIO)),
+    assertion(\+ seam:pure_operation('random-int')).
 
 test(only_pure_structural_projects_to_the_cache_purity_seam,
      [ cleanup(( effect_test_clear('effect-seam-pure'),

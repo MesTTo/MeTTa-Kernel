@@ -861,6 +861,15 @@ kind(metta_host_function_generation/1, host_service).
 %whether doing so would repeat an effect, so this one semidet question wraps
 %the shared effect walk and fails closed on unknown goals.
 kind(metta_host_goal_repeatable/2, host_service).
+kind(metta_host_goal_effect_plan/4, host_service).
+%The three source-side projections of that same walk. A world must be able to
+%ask what a target WOULD do before translating it, what replaying a frozen
+%image compiles, and which operations a saga step can execute, and none of
+%those questions may be answered by re-walking the term in a host: the masks,
+%static refusals and staged boundaries the engine applies are the answer.
+kind(metta_host_source_effect_plan/4, host_service).
+kind(metta_host_source_compile_effect_plan/4, host_service).
+kind(metta_host_source_runtime_effect_plan/4, host_service).
 kind(metta_reducible_head/2, host_service).
 %Proof tools may open only a dispatch route the engine identifies as its
 %shipped direct path. Every policy-sensitive route is executed engine-side and
@@ -953,6 +962,10 @@ kind(petta_on_error_mode/3, host_service).
 kind(petta_source_reset/1, host_service).
 kind(petta_speculate/1, host_service).
 kind(petta_transaction/1, host_service).
+kind(petta_transaction_notified/3, host_service).
+kind(petta_world_effect_coverage/2, host_service).
+kind(petta_effect_covered/2, host_service).
+kind(petta_compensation/2, host_service).
 kind(petta_transport_failure/1, host_service).
 kind(petta_with_state_write_fence/1, host_service).
 kind(petta_live_state_cell/1, host_service).

@@ -25,6 +25,10 @@ Source: `bindings/python/metta/structures.py`.
 >     [measured 2026-08-19: register a, b; remove a; register c; the answer
 >     was c before b] [tested
 >     test_dispatch_through_the_index_delivers_the_same_subscribers_in_the_same_order]
+>   - MatchIndex indexes Handle atoms by identity without reading the payload
+>     slot that Handle deliberately leaves unset
+>     [tested test_matchindex_indexes_handles_without_unwrapping_them;
+>     commit=WORKTREE]
 >   - AlphaSet membership is alpha_eq membership [tested
 >     test_alphaset_is_alpha_membership]
 >   - LiveView holds exactly what the space holds for its pattern, through

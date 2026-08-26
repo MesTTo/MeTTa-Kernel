@@ -8,6 +8,27 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- Reified worlds now admit an evaluation only when its joined effect is
+  covered. `space.covers(effect)` is an ordinary `(covers <space> <effect>)`
+  catalog row; a world admits `pureStructural` without one and refuses
+  anything stronger before it allocates scratch state or runs a single
+  operation, naming the operation, its rank, the world's coverage and both
+  remedies. The plan is the engine's own walk of the target and of the frozen
+  image's compilation, so lowering a semantic head, hiding an operation behind
+  a translator rule, or returning it as a masked result cannot smuggle an
+  effect past the check, and a frozen image whose own equations compile
+  effectfully is refused in `reify()` before any successor exists.
+- `(did op args result)` receipts and compensating operations make the saga
+  discipline ordinary data. `space.compensates(operation, recovery)` is a
+  catalog row admitted only for `writesState`-or-stronger operations, and
+  `with space.saga(receipts) as saga:` runs forward steps whose successful
+  effectful answers commit one receipt atom each in the step's own
+  transaction. A normal exit keeps the work and its queryable receipts; an
+  exceptional exit resolves every declaration first, then compensates each
+  receipt in reverse commit order, removing it only after its handler's own
+  transaction commits, so a failed compensation keeps its receipt and is
+  retried by `rollback()`. `AsyncMeTTa` carries all three faces as complete
+  scopes on the owning worker.
 - Python import layering is blocking again. The contracts exclude
   `TYPE_CHECKING`-only annotations, classify `_world` with the satellites,
   and document the four exact function-local boundary crossings. An adjacent

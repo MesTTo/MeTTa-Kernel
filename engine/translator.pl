@@ -273,6 +273,20 @@
             arrived_pairs/1,
             call_site_type_chains/2,
             fitting_type_chains/3,
+            %The reified-world and saga planner in engine/metta/effects.pl
+            %asks the same questions translation asks itself: which written
+            %positions a declaration evaluates, which type views end an
+            %evaluation rather than re-entering it, and which heads the
+            %interpreter embeds. Reading the translator's own answers is what
+            %keeps admission and translation from drifting apart; a planner
+            %that recomputed them would BE the drift [tested:
+            %engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
+            builtin_argument_mask/4,
+            non_evaluated_parameter_type/1,
+            present_type_chain/3,
+            declared_type_for_evaluation/2,
+            intrinsically_final_builtin_result/1,
+            embedded_operation/1,
             metta_runtime_argument_mask/3,
             metta_runtime_returns_atom/1,
             constrain_args/3,
