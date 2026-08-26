@@ -116,6 +116,22 @@ SOURCES = (
     "tests/*.py",
 )
 
+# Commentless formats, scanned for PROVENANCE ONLY. A JSON baseline is exempt
+# from the obligation header, which is why it is not in SOURCES, but a
+# commentless format is not exempt from pinning its evidence: leaving these out
+# made the lane blind to a whole file type, and RELEASE=1 reported zero
+# placeholders on 2026-08-26 while baseline.json held four and
+# extension-baseline.json two, all of which survived the 305-tag sweep in
+# c918e7fd for exactly that reason.
+#
+# Only the commit half of the contract applies. Their re-pin comments are long
+# measurement prose written for a reader, and running the claim analysis over
+# it reads ordinary sentences as tags: scanning baseline.json under SOURCES
+# reported "tested: names goes", "names red", "names against" and "names read"
+# from one row's narrative. The pin check is a regex over commit= and cannot
+# make that mistake.
+PROVENANCE_SOURCES = ("bindings/python/benchmarks/*.json",)
+
 # Where a name may be defined. metta/_compliance.py holds real tests, shipped
 # for a provider author to inherit; they run here too, under each
 # SpaceComplianceSuite subclass, which is why the package is walked at all.
@@ -564,6 +580,18 @@ def commit_problems(sites: list[tuple[Path, int, str, str]]) -> tuple[list[str],
     return problems, placeholders
 
 
+def provenance_sites() -> list[tuple[Path, int, str, str]]:
+    """Commit pins in commentless formats, for the pin check and nothing else."""
+    sites: list[tuple[Path, int, str, str]] = []
+    for glob in PROVENANCE_SOURCES:
+        for path in sorted(ROOT.glob(glob)):
+            text = _text(path)
+            for line, body in enumerate(text.split("\n"), start=1):
+                if "commit=" in body:
+                    sites.append((path, line, "measured", body))
+    return sites
+
+
 def claim_sites() -> list[tuple[Path, int, str, str]]:
     sites: list[tuple[Path, int, str, str]] = []
     for glob in SOURCES:
@@ -615,7 +643,7 @@ def main() -> int:
     known, findings = gather()
     findings += untagged_guarantees()
     sites = claim_sites()
-    pins, placeholders = commit_problems(sites)
+    pins, placeholders = commit_problems(sites + provenance_sites())
     findings += pins
     checked = 0
     for path, line, tag, body in sites:
