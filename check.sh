@@ -44,7 +44,7 @@
 #     carries two planted negative controls that it fails without
 #     [tested: test_the_planted_quadratic_fails_only_the_exponent_gate,
 #     test_the_planted_constant_factor_fails_only_the_growth_gate;
-#     commit=WORKTREE].
+#     commit=906a4057ac57a340a3544ad909e829f851f35af3].
 #   - executable comments, bilingual doctests, and all six gallery programs
 #     run together as a blocking lane [tested: test_a_gallery_program_runs,
 #     test_the_gallery_is_exactly_the_six_ruled_programs,
