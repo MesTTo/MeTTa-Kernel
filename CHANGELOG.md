@@ -1179,6 +1179,19 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A benchmark row's declared instruction noise band survives a re-pin.
+  `BenchmarkBaseline.observe_instructions` took the band as a defaulted
+  parameter and wrote that default into the row on every `--update`, and
+  `benchmarks/check_instructions.py` passes none, so each re-pin rewrote the
+  1.0 default over whatever the row declared and left the comment beside it
+  describing a band the gate did not carry. Both declared widenings had been
+  reverted that way: typed-call's 5.0, raised for a code-layout swing
+  measured at 3.13%, and json-wire's 2.5, widened for one measured at 1.56%.
+  Each lane therefore stood gated inside its own measured noise, where it
+  goes red for layout and is then re-pinned past a real regression. The
+  count is measured and the band is declared, so an update now writes the
+  count alone and fills an absent band once; both values are restored and
+  neither pin moved.
 - Loading the engine no longer lets SWI's `library(arithmetic)` judge a
   host's arithmetic at compile time. `engine/metta.pl` imports
   `library(listing)`, which loads `library(settings)`, which loads
