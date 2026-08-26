@@ -1181,8 +1181,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   small movements in either direction by more than the change does, so those
   are compiled-image placement, and the same inert clause leaves the
   first-call probe at 3,676 exactly. Sixty of those twin budgets are re-pinned
-  here; the remaining four read differently across two rounds on one tree, so
-  they want an empirical band rather than a pin and are left alone. The
+  here. Three of the remaining four read differently across two full-lane
+  rounds on one tree, so a single measurement would be a coin toss and they
+  want an empirical band; the fourth, `libraries/thread_linda`, already
+  declares one instead of a pin. All four are left alone. The
   `let-heavy` counter row moves 16,015,029 to 16,014,990, three walked
   positions at 13 inferences each, and is left for the merge's own pricing
   pass over `bindings/python/benchmarks/baseline.json`. `metta_ensure_compiled/1`
