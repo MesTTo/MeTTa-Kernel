@@ -1180,6 +1180,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   the holding evaluation does not carry, so its declined count still counts
   through one materializing pass.
 
+  `list(view)` asks for an iterator before it asks for a length hint, so a
+  count source is now told whether the values are already wanted. Holding
+  answers to avoid a second evaluation buys nothing for a caller about to
+  read them, so that caller keeps the one materializing pass it always had.
+  The hint picks a route and never an answer: a Python that asked in the
+  other order would pay the holding evaluation rather than answer
+  differently.
+
 - The tabling library rides the declared extension seams only, and its
   tables are visible wherever the answers are: a `(tabled ...)` declaration
   now tables `as shared` (checked native-space readers
