@@ -780,6 +780,37 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   backend and host binding loaded and every hook file's clause heads as text,
   and proves itself against a planted provider before accepting a clean result.
 
+- **The metatype and type-candidate ladders are ordered by what they cost the
+  atom they decide most often.** `metatype_of/2` decided an ordinary symbol at
+  its twelfth clause, after a seam callback that leaves the engine, a
+  grounded-token lookup, a registry probe and a state-cell test. Five of its
+  clauses all answer `Grounded` and all cut, so no permutation of them can
+  change the answer for any term, which is a stronger argument than mutual
+  exclusivity and does not depend on it: `seam:host_object/1` is an open seam
+  and may claim a term that also spells a grounded token or a space handle.
+  They are now cheapest-first, and the seam, the only one that leaves the
+  engine, is last of the five. It cannot move past `list_shaped/1` or the
+  `Symbol` clause, which answer something else.
+  In `get_type_candidate/2`, `get_type_candidate_in/3` and
+  `scoped_type_candidate/4`, the tuple clause led with a negation whose goal
+  has a `[F|_]` head, so every symbol called it to have the head fail before
+  reaching the free test that says the term is not an expression at all. The
+  shape test leads now. Both are pure tests over a term the var clause has
+  already made nonvar, so the swap moves no solution and no answer order.
+  Measured through MeTTa, 200 evaluations each, minimum of three, with the
+  space-operand change already in place: `(get-metatype +)` 27050 to 26250,
+  `(get-metatype &self)` 29450 to 28650, `(get-type (undeclared other))`
+  146454 to 143256, `(get-type undeclared)` 90652 to 90254. Per call that is
+  `metatype_of/2` halved on a grounded token, 8 inferences to 4, and
+  `get_type_candidate/2` 12 to 10 on an undeclared symbol.
+  **No committed benchmark moves**, and the reason is worth recording rather
+  than leaving as a gap: `typed-call`, the workload named for this path, has
+  its declared-`Number` checks specialised to `number/1` while the call site
+  compiles, so it never reaches either ladder at run time. Nothing in
+  `bindings/python/benchmarks/` drives `metatype_of/2` or `get_type_candidate/2`
+  in a loop. The inert-clause perturbation control reads identically on every
+  workload above, so the movement is the change and not the layout.
+
 - **The Python suite is in chapter packages, the same 22 the examples use.**
   206 modules sat flat in one directory, which is a listing nobody reads and no
   order at all. They are now `bindings/python/tests/chNN_name/`, named in
