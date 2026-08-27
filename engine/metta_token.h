@@ -13,13 +13,13 @@
  *     codepoints metta_token_boundary(_, layout) lists, and
  *     metta_cp_boundary/1 additionally for '(' ')' and ';'
  *     [tested: parser_unicode_layout; reader_c and writer_c differentials;
- *     commit=WORKTREE].
+ *     commit=a9663314a626d6227ef948658b5de769992c0afa].
  *   - metta_token_is_number/3 answers for exactly the tokens dcg/basics'
  *     number//1 followed by parser.pl's number_ends//2 accepts whole, and
  *     sets *fracexp when a fraction or an exponent occurred, which is what
  *     decides integer against float in number_codes/2
  *     [tested: reader_c:number_conversion_agrees_with_the_prolog_reader;
- *     commit=WORKTREE].
+ *     commit=a9663314a626d6227ef948658b5de769992c0afa].
  * Fails when: a custom reader token is registered. Both callers are gated on
  *   metta_reader_mode(shipped) and never consult this header while a custom
  *   class could change what a token means.

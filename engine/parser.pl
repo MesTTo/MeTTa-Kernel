@@ -65,14 +65,14 @@
 %     `declined` and comes back here rather than being approximated, and
 %     METTA_C_WRITER=off or a missing artifact keeps every write on the DCG
 %     [tested: writer_c in tests/prolog/suites/reader/writer_c.plt;
-%     commit=WORKTREE].
+%     commit=a9663314a626d6227ef948658b5de769992c0afa].
 %   - the two STRICT writer modes are gated on metta_c_strict_writer/0, which
 %     is DERIVED from the custom-token registry and refreshed inside the same
 %     transaction that invalidates the writability table, so a registered
 %     class cannot leave the C writer answering the shipped writability
 %     question [tested: writer_c:a_registered_token_class_closes_the_strict_gate,
 %     writer_c:the_strict_gate_reopens_when_the_last_token_class_goes;
-%     commit=WORKTREE].
+%     commit=a9663314a626d6227ef948658b5de769992c0afa].
 % Owns resources:
 %   - metta_custom_reader_token/3 retains a host constructor until its pattern
 %     is replaced or unregistered [tested:

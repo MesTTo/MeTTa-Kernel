@@ -22,16 +22,16 @@
  *     exactly what phrase(swrite_numbered(P)) answers, byte for byte over
  *     the whole shipped corpus and an adversarial battery
  *     [tested: writer_c in tests/prolog/suites/reader/writer_c.plt;
- *     commit=WORKTREE].
+ *     commit=a9663314a626d6227ef948658b5de769992c0afa].
  *   - `unwritable(Bad)` names the same first offending subterm
  *     metta_unwritable_symbol/2 names, so parser.pl raises one error term
  *     from one place [tested: writer_c:the_refusal_names_the_same_culprit;
- *     commit=WORKTREE].
+ *     commit=a9663314a626d6227ef948658b5de769992c0afa].
  *   - every float leaf spells SWI's own shortest-round-trip digits, taken
  *     from the same PL_get_text(CVT_FLOAT) call number_codes/2 makes
  *     [source: swipl-devel src/pl-prims.c x_chars/4 calls PL_get_text with
  *     CVT_NUMBER, and src/os/pl-text.c's CVT_FLOAT branch calls
- *     format_float(buf, size, valFloat(w), 3, 'e'); commit=WORKTREE], so no
+ *     format_float(buf, size, valFloat(w), 3, 'e'); commit=a9663314a626d6227ef948658b5de769992c0afa], so no
  *     decimal conversion is reimplemented and no float can round differently
  *     here than in the Prolog writer.
  * Fails when: a term shape falls outside the ported fragment.  Every such
