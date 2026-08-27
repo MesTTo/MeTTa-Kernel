@@ -135,13 +135,14 @@ in_py() { ( cd "$PYDIR" && "$@" ); }
 #
 # The split each component's script draws is the deciders' one: a toolchain that
 # is ABSENT exits 0 with a note, because the engine falls back to the Prolog
-# reader and the C examples skip, and a build that is ATTEMPTED and FAILS exits
-# nonzero. Only the second is a gate failure, and for the reader it is fatal
-# rather than recorded: it gates every lane below.
+# reader and writer and the C examples skip, and a build that is ATTEMPTED and
+# FAILS exits nonzero. Only the second is a gate failure, and for the engine's
+# own units it is fatal rather than recorded: the C reader and the C writer
+# gate every lane below.
 sh "$HERE/examples/ch19-spaces-backed-by-anything/build.sh" ||
     echo "note: a chapter 19 C example failed to build" >&2
 sh "$HERE/engine/build.sh" || {
-    echo "error: engine/reader.c failed to build; the C reader gates every lane" >&2
+    echo "error: engine/reader.c or engine/writer.c failed to build; the C reader and writer gate every lane" >&2
     exit 1
 }
 

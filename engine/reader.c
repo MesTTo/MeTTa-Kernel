@@ -43,6 +43,7 @@
 
 #define _GNU_SOURCE                    /* strtod_l, newlocale */
 #include <SWI-Prolog.h>
+#include "metta_token.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -72,28 +73,9 @@ rd_eos(const rd *r)
 { return r->pos >= r->len;
 }
 
-static unsigned int
+static inline unsigned int
 rd_peek(const rd *r, int *sz)
-{ const unsigned char *s = r->s + r->pos;
-  size_t rem = r->len - r->pos;
-  unsigned char b = s[0];
-
-  if ( b < 0x80 )
-  { *sz = 1; return b;
-  }
-  if ( (b & 0xE0) == 0xC0 && rem >= 2 )
-  { *sz = 2; return ((unsigned)(b & 0x1F) << 6) | (s[1] & 0x3F);
-  }
-  if ( (b & 0xF0) == 0xE0 && rem >= 3 )
-  { *sz = 3; return ((unsigned)(b & 0x0F) << 12) | ((unsigned)(s[1] & 0x3F) << 6)
-                  | (s[2] & 0x3F);
-  }
-  if ( (b & 0xF8) == 0xF0 && rem >= 4 )
-  { *sz = 4; return ((unsigned)(b & 0x07) << 18) | ((unsigned)(s[1] & 0x3F) << 12)
-                  | ((unsigned)(s[2] & 0x3F) << 6) | (s[3] & 0x3F);
-  }
-  *sz = 1;                      /* cannot occur for REP_UTF8 output */
-  return b;
+{ return metta_utf8_decode(r->s + r->pos, r->len - r->pos, sz);
 }
 
 static inline void
@@ -103,25 +85,11 @@ rd_adv(rd *r, int sz, unsigned int cp)
     r->line++;
 }
 
-/* The 25 White_Space codepoints plus nothing else, metta_token_boundary's
- * layout rows verbatim. */
-static int
-cp_layout(unsigned int cp)
-{ if ( cp == 0x20 || cp == 0x09 || cp == 0x0A || cp == 0x0D )
-    return 1;
-  switch ( cp )
-  { case 0x0B: case 0x0C: case 0x85: case 0xA0: case 0x1680:
-    case 0x2028: case 0x2029: case 0x202F: case 0x205F: case 0x3000:
-      return 1;
-    default:
-      return cp >= 0x2000 && cp <= 0x200A;
-  }
-}
-
-static inline int
-cp_boundary(unsigned int cp)
-{ return cp == '(' || cp == ')' || cp == ';' || cp_layout(cp);
-}
+/* The boundary tables, the UTF-8 codec and the number-token matcher live in
+ * metta_token.h so this file and writer.c cannot drift apart about where a
+ * token ends or what reads back as a number. */
+#define cp_layout(cp)   metta_cp_layout(cp)
+#define cp_boundary(cp) metta_cp_boundary(cp)
 
 /* Layout plus semicolon comments; a comment ends only at LF or end of
  * input, source_layout//2 and metta_layout//0 alike. */
@@ -375,50 +343,7 @@ scan_token(rd *r)
   }
 }
 
-static inline int
-is_digit(unsigned char c)
-{ return c >= '0' && c <= '9';
-}
-
-/* dcg/basics number//1 followed by number_ends//2, as an anchored whole-token
- * match: [+-]? digits ('.' digits)? ([eE] [+-]? digits)?.  *fracexp says
- * whether a fraction or exponent occurred, which is what decides integer
- * against float in number_codes/2. */
-static int
-token_is_number(const unsigned char *t, size_t n, int *fracexp)
-{ size_t i = 0;
-
-  *fracexp = 0;
-  if ( i < n && (t[i] == '+' || t[i] == '-') )
-    i++;
-  if ( i >= n || !is_digit(t[i]) )
-    return 0;
-  while ( i < n && is_digit(t[i]) )
-    i++;
-  if ( i < n && t[i] == '.' )
-  { if ( i + 1 < n && is_digit(t[i + 1]) )
-    { *fracexp = 1;
-      i += 2;
-      while ( i < n && is_digit(t[i]) )
-        i++;
-    } else
-      return 0;
-  }
-  if ( i < n && (t[i] == 'e' || t[i] == 'E') )
-  { size_t j = i + 1;
-    if ( j < n && (t[j] == '+' || t[j] == '-') )
-      j++;
-    if ( j < n && is_digit(t[j]) )
-    { *fracexp = 1;
-      j++;
-      while ( j < n && is_digit(t[j]) )
-        j++;
-      i = j;
-    } else
-      return 0;
-  }
-  return i == n;
-}
+#define token_is_number(t, n, fracexp) metta_token_is_number(t, n, fracexp)
 
 static int
 put_number_token(term_t out, const unsigned char *t, size_t n, int fracexp)
