@@ -55,6 +55,24 @@
 %     number spellings, errors and failures included; METTA_C_READER=off or
 %     a missing artifact keeps every parse on the grammar below [tested:
 %     reader_c in tests/prolog/suites/reader/reader_c.plt; commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
+%   - when engine/writer.so is present, swrite/2, sdisplay/2,
+%     swrite_with_names/3, sdisplay_with_names/3, swrite_pretty/2, the two
+%     answer-group printers and metta_unwritable_symbol/2 answer through the C
+%     writer, whose strings are BYTE-identical to this file's DCG over the
+%     whole shipped corpus, an adversarial battery, every power of two in the
+%     binary64 range and generated symbol spellings, refusals and their
+%     culprits included; a term shape outside the ported fragment answers
+%     `declined` and comes back here rather than being approximated, and
+%     METTA_C_WRITER=off or a missing artifact keeps every write on the DCG
+%     [tested: writer_c in tests/prolog/suites/reader/writer_c.plt;
+%     commit=WORKTREE].
+%   - the two STRICT writer modes are gated on metta_c_strict_writer/0, which
+%     is DERIVED from the custom-token registry and refreshed inside the same
+%     transaction that invalidates the writability table, so a registered
+%     class cannot leave the C writer answering the shipped writability
+%     question [tested: writer_c:a_registered_token_class_closes_the_strict_gate,
+%     writer_c:the_strict_gate_reopens_when_the_last_token_class_goes;
+%     commit=WORKTREE].
 % Owns resources:
 %   - metta_custom_reader_token/3 retains a host constructor until its pattern
 %     is replaced or unregistered [tested:
@@ -62,7 +80,8 @@
 %     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 % Guarded by:
 %   - '$metta_reader_tokens' serializes registry replacement and removal; each
-%     mutation commits atomically with its writability-table invalidation.
+%     mutation commits atomically with its writability-table invalidation and
+%     with metta_c_strict_writer/0's refresh, the table's two derived readers.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -165,6 +184,81 @@ metta_c_reader_refuse :-
 
 :- metta_try_load_c_reader.
 
+%The C writer is the reader's other half and rides the same way: writer.c
+%beside this file, compiled to writer.so by engine/build.sh, loaded when it
+%is there and skipped when it is not. It ports swrite_mode//2's structural
+%emit, metta_finite_float_codes/2's layout and metta_unwritable_walk/2's
+%round-trip guard. The DCG below stays the specification, the custom-token
+%path and the fallback; METTA_C_WRITER=off keeps every write on it even where
+%the artifact exists, which is what the fallback measurements use.
+%
+%A shape outside the ported fragment answers `declined` rather than
+%approximate bytes, and the caller runs the DCG instead. writer.c's header
+%lists them: an improper list, a rational, a compound or an opaque host value
+%in display mode, more than 64 distinct variables in one term, and a float or
+%bignum whose SWI spelling outruns its scratch.
+%
+%With the artifact ABSENT the two names answer `declined` instead of raising,
+%which the reader's stubs cannot do because their answer is a parse. Absence
+%is then one more decline rather than a second mechanism, and every dispatch
+%below reads the same result term either way.
+%
+%Both gates are one DYNAMIC FACT each, not a probe. That is measured rather
+%than tidy: the guard rides every write, and asking metta_reader_mode/1 there
+%instead cost space-digest 60,002 inferences over 20,000 atoms
+%[measured 2026-08-28, bench.py --counter-only, artifact absent on both sides].
+%Retracting metta_c_writer_active/0 is also the kill switch, in the process,
+%which is how writer_c.plt takes its reference.
+:- dynamic metta_c_writer_active/0.
+:- dynamic metta_writer_artifact/1.
+:- prolog_load_context(directory, WriterDir),
+   directory_file_path(WriterDir, 'writer.so', WriterSO),
+   assertz(metta_writer_artifact(WriterSO)).
+
+metta_try_load_c_writer :-
+    (   \+ getenv('METTA_C_WRITER', off),
+        metta_writer_artifact(SO),
+        exists_file(SO),
+        catch(load_foreign_library(SO), _, fail),
+        %The FOREIGN arities, never a wrapper: a stale artifact registering
+        %older ones must fall back whole rather than half-activate.
+        current_predicate(metta_c_write/3),
+        current_predicate(metta_c_unwritable/2)
+    ->  assertz(metta_c_writer_active)
+    ;   metta_c_writer_stub
+    ).
+
+metta_c_writer_stub :-
+    (   current_predicate(metta_c_write/3)
+    ->  true
+    ;   assertz(metta_c_write(_, _, declined)),
+        assertz(metta_c_unwritable(_, declined))
+    ).
+
+:- metta_try_load_c_writer.
+
+%The C writer answers the two STRICT doors only while no custom token class
+%is registered, because whether a symbol's spelling reads back as that symbol
+%depends on the classes installed and writer.c implements the shipped answer.
+%The gate is DERIVED from the registry and refreshed wherever the registry
+%moves, beside the writability table's own invalidation, so a write reads one
+%fact instead of probing the registry.
+:- dynamic metta_c_strict_writer/0.
+
+metta_refresh_c_writer_gate :-
+    retractall(metta_c_strict_writer),
+    (   metta_c_writer_active,
+        \+ metta_custom_reader_token(_, _, _)
+    ->  assertz(metta_c_strict_writer)
+    ;   true
+    ).
+
+%One place turns a C answer into this file's own outcome: text, or the seam's
+%refusal with the culprit writer.c named. `declined` has no clause, so it
+%routes the call back to the DCG through the dispatch's own else branch.
+metta_c_string(written(String), String).
+metta_c_string(unwritable(Bad), _) :- metta_refuse_text(Bad).
+
 %The tokenizer is the reader seam upstream: an ordered mapping from a full
 %token regex to a constructor, searched newest first. These shipped rows are
 %the numeric and string literals the old DCG alternatives implemented. The
@@ -179,6 +273,11 @@ metta_shipped_reader_token('[+-]?[0-9]+([.][0-9]+)?[eE][+-]?[0-9]+', number).
 metta_shipped_reader_token('(?s)^".*"$', string).
 
 :- dynamic metta_custom_reader_token/3.
+
+%The strict writer's gate is opened here rather than beside its own loader
+%because it READS this registry, and a directive that runs before the
+%registry is declared has nothing to read.
+:- metta_refresh_c_writer_gate.
 
 %Choose once per source form. The shipped mode is a deterministic
 %specialization of the declared rows below; custom mode performs the ordered
@@ -210,6 +309,9 @@ metta_host_register_reader_token(Pattern, Constructor) :-
 metta_host_unregister_reader_token(Pattern) :-
     metta_unregister_reader_token(Pattern).
 
+%The writability table and the C writer's strict gate are the two things
+%DERIVED from this registry, and both are refreshed inside the mutation's own
+%transaction so neither can be read stale.
 metta_register_reader_token(Pattern0, Descriptor) :-
     metta_reader_token_pattern(Pattern0, Pattern),
     re_compile(Pattern, Regex, [anchored(true), endanchored(true)]),
@@ -218,7 +320,8 @@ metta_register_reader_token(Pattern0, Descriptor) :-
                              asserta(metta_custom_reader_token(Pattern,
                                                                Descriptor,
                                                                Regex)),
-                             abolish_table_subgoals(metta_symbol_writable(_)) ))).
+                             abolish_table_subgoals(metta_symbol_writable(_)),
+                             metta_refresh_c_writer_gate ))).
 
 metta_unregister_reader_token(Pattern0) :-
     metta_reader_token_pattern(Pattern0, Pattern),
@@ -227,7 +330,8 @@ metta_unregister_reader_token(Pattern0) :-
                ->  transaction(( retractall(metta_custom_reader_token(Pattern,
                                                                        _, _)),
                                   abolish_table_subgoals(
-                                      metta_symbol_writable(_)) ))
+                                      metta_symbol_writable(_)),
+                                  metta_refresh_c_writer_gate ))
                ;   true
                )).
 
@@ -291,7 +395,20 @@ sread_with_names_mode(Mode, Text, Term, VarMap) :-
 
 %Generate a MeTTa S-expression string from the Prolog list (inverse parsing).
 %A value outside the inverse domain is an error, never lossy display text.
+%
+%The C writer answers this in ONE walk where the DCG below takes five: the
+%round-trip guard, copy_term_nat/2, numbervars/3, the emit and string_codes/2.
+%Its refusal names the same culprit, so the error term keeps one definition
+%here.
 swrite(Term, String) :-
+    (   metta_c_strict_writer,
+        metta_c_write(Term, strict, Result),
+        Result \== declined
+    ->  metta_c_string(Result, String)
+    ;   swrite_prolog(Term, String)
+    ).
+
+swrite_prolog(Term, String) :-
     metta_text_writable(Term),
     stable_print_term(Term, Printable),
     phrase(swrite_numbered(Printable), Codes),
@@ -300,7 +417,19 @@ swrite(Term, String) :-
 %Display text is presentation, not serialization. It deliberately preserves
 %the old host repr path for repr/2 and consoles while swrite/2 stays an inverse
 %of sread/2 over every value it accepts.
+%
+%Display asks nothing about round-tripping, so no token class can change what
+%it should print and the artifact's own gate is the whole condition. The
+%answer is unified in the CALL rather than tested afterwards: a decline simply
+%does not unify with written(_) and the DCG runs.
 sdisplay(Term, String) :-
+    (   metta_c_writer_active,
+        metta_c_write(Term, display, written(Written))
+    ->  String = Written
+    ;   sdisplay_prolog(Term, String)
+    ).
+
+sdisplay_prolog(Term, String) :-
     stable_print_term(Term, Printable),
     phrase(sdisplay_numbered(Printable), Codes),
     string_codes(String, Codes).
@@ -312,8 +441,27 @@ sdisplay(Term, String) :-
 %line's sdisplay/2 answers already do.
 sdisplay_with_names(Term, Names, String) :-
     named_print_term(Term, Names, Printable),
-    phrase(sdisplay_numbered(Printable), Codes),
-    string_codes(String, Codes).
+    metta_printable_string(Printable, display, String).
+
+%Emit a term the naming pass already numbered. The C writer's numbered modes
+%read '$metta_variable'(N) and '$metta_named_variable'(A) as the variables
+%they stand for, which is what swrite_mode//2's first two clauses do, and a
+%declined shape falls through to those clauses.
+metta_printable_string(Printable, Mode, String) :-
+    (   metta_printable_writer_ready(Mode),
+        metta_c_write(Printable, Mode, Result),
+        Result \== declined
+    ->  metta_c_string(Result, String)
+    ;   metta_printable_mode(Mode, DcgMode),
+        phrase(swrite_mode(Printable, DcgMode), Codes),
+        string_codes(String, Codes)
+    ).
+
+metta_printable_writer_ready(display) :- !, metta_c_writer_active.
+metta_printable_writer_ready(_) :- metta_c_strict_writer.
+
+metta_printable_mode(strict_numbered, strict).
+metta_printable_mode(display, display).
 
 %Print one answer with the reader's Name-Var pairs. Term and Names are copied
 %as one template before numbering, the same identity-preserving shape findall
@@ -323,8 +471,7 @@ sdisplay_with_names(Term, Names, String) :-
 swrite_with_names(Term, Names, String) :-
     metta_text_writable(Term),
     named_print_term(Term, Names, Printable),
-    phrase(swrite_numbered(Printable), Codes),
-    string_codes(String, Codes).
+    metta_printable_string(Printable, strict_numbered, String).
 
 %Print a collected answer group. The carrier is internal to the runnable
 %collection boundary; accepting ordinary answers too keeps diagnostic clients
@@ -347,12 +494,22 @@ answer_tail_mode([Answer|Answers], Mode) -->
 
 answer_mode('$metta_answer'(Term, Names), Mode) --> !,
     { ( Mode == strict -> metta_text_writable(Term) ; true ),
-      named_print_term(Term, Names, Printable) },
-    swrite_mode(Printable, Mode).
+      named_print_term(Term, Names, Printable),
+      answer_codes(Printable, Mode, Codes) },
+    Codes.
 answer_mode(Term, Mode) -->
     { ( Mode == strict -> metta_text_writable(Term) ; true ),
-      stable_print_term(Term, Printable) },
-    swrite_mode(Printable, Mode).
+      stable_print_term(Term, Printable),
+      answer_codes(Printable, Mode, Codes) },
+    Codes.
+
+%One answer's own bytes, through the C writer where it answers and through
+%swrite_mode//2 where it declines. The group's parentheses and separators stay
+%in the DCG above, which is where the group's shape is defined.
+answer_codes(Printable, Mode, Codes) :-
+    ( Mode == strict -> WriterMode = strict_numbered ; WriterMode = display ),
+    metta_printable_string(Printable, WriterMode, String),
+    string_codes(String, Codes).
 
 %Retain the direct DCG entry points for parser clients.
 swrite_answer_group_(Answers) --> answer_group_mode(Answers, strict).
@@ -489,8 +646,7 @@ metta_pretty_children([C|Cs], Indent, Width) :-
     metta_pretty_children(Cs, Indent, Width).
 
 metta_inline_text(T, S) :-
-    phrase(swrite_numbered(T), Codes),
-    string_codes(S, Codes).
+    metta_printable_string(T, strict_numbered, S).
 
 swrite_numbered(Term) --> swrite_mode(Term, strict).
 sdisplay_numbered(Term) --> swrite_mode(Term, display).
@@ -1198,8 +1354,16 @@ metta_string_writable(String) :-
 %with the same consequence at the same four call sites, so it is answered here
 %rather than left for each of them to discover
 %[source: engine/ext_points.pl, the swrite/sread service contract].
+%The C writer answers this from the SAME walk it emits with, so the guard and
+%the printer here cannot disagree the way two separate walks can; a shape it
+%declines falls through to the walk below, which stays the specification.
 metta_unwritable_symbol(Term, Bad) :-
-    metta_unwritable_walk(Term, Bad), !.
+    (   metta_c_strict_writer,
+        metta_c_unwritable(Term, Result),
+        Result \== declined
+    ->  Result = unwritable(Bad)
+    ;   metta_unwritable_walk(Term, Bad), !
+    ).
 
 metta_unwritable_walk(Term, Bad) :-
     (   var(Term)

@@ -11,12 +11,13 @@
 #   - the C extension example's cbump and handle shared objects are built in
 #     the worktree exactly as check.sh builds them, so a direct pytest run
 #     here exercises the same integration surface instead of skipping it.
-#   - engine/reader.so is built from the worktree's OWN reader.c exactly as
-#     check.sh builds it, so benchmarks and suites here measure the C-reader
-#     configuration the main gate measures: artifact presence alone moves
-#     file-load 8704891 to 722264 with zero code change, and a worktree
-#     without the artifact silently benchmarks the Prolog fallback against
-#     C-reader pins [measured 2026-08-25 on a detached scratch worktree,
+#   - engine/reader.so and engine/writer.so are built from the worktree's OWN
+#     reader.c and writer.c through the same engine/build.sh check.sh drives,
+#     so benchmarks and suites here measure the C-reader and C-writer
+#     configuration the main gate measures: reader artifact presence alone
+#     moves file-load 8704891 to 722264 with zero code change, and a worktree
+#     without the artifacts silently benchmarks the Prolog fallbacks against
+#     C pins [measured 2026-08-25 on a detached scratch worktree,
 #     bench.py --counter-only, same commit both ways; commit=f48e9d8e6fa62eeff46082b6f8584cfe44bc5b93].
 # Fails when:
 #   - the main checkout has not been built. That is reported, because a
@@ -83,27 +84,17 @@ else
     echo "worktree.sh: swipl-ld not found, the chapter 19 C examples will skip" >&2
 fi
 
-# The engine's C reader is gitignored build output with its own gate: parses
-# run in C only while engine/reader.so exists beside reader.c. Build it from
-# THIS tree's source (not a link from the main checkout, whose reader.c may
-# differ across commits), with check.sh's exact recipe and stance: a missing
-# toolchain notes the fallback, a build failure fails loudly.
-if [ -f "$HERE/engine/reader.c" ]; then
-    if ! command -v swipl-ld >/dev/null 2>&1; then
-        echo "worktree.sh: swipl-ld not found, this worktree runs the Prolog reader fallback and its counters will not compare against C-reader pins" >&2
-    elif ! command -v cc >/dev/null 2>&1 &&
-         ! command -v gcc >/dev/null 2>&1 &&
-         ! command -v clang >/dev/null 2>&1; then
-        # swipl-ld drives a C compiler it does not carry; without one the
-        # build fails, so this rung notes the fallback the same way
-        # check.sh's consolidated build_engine_reader does.
-        echo "worktree.sh: swipl-ld found but no C compiler, this worktree runs the Prolog reader fallback and its counters will not compare against C-reader pins" >&2
-    elif [ ! -f "$HERE/engine/reader.so" ] ||
-         [ "$HERE/engine/reader.c" -nt "$HERE/engine/reader.so" ]; then
-        ( cd "$HERE/engine" && swipl-ld -shared -O2 -o reader.so reader.c ) ||
-            { echo "worktree.sh: engine/reader.c failed to build; suites here would measure the Prolog fallback against C-reader pins" >&2
-              exit 1; }
-    fi
+# The engine's C reader and C writer are gitignored build output with their
+# own gates: parses run in C only while engine/reader.so exists beside
+# reader.c, and writes only while engine/writer.so exists beside writer.c.
+# Build them from THIS tree's sources (not links from the main checkout, whose
+# reader.c and writer.c may differ across commits), through the same
+# engine/build.sh check.sh drives, with the same stance: a missing toolchain
+# notes the fallback, a build failure fails loudly.
+if [ -f "$HERE/engine/build.sh" ]; then
+    sh "$HERE/engine/build.sh" ||
+        { echo "worktree.sh: engine/build.sh failed; suites here would measure the Prolog fallbacks against C-reader and C-writer pins" >&2
+          exit 1; }
 fi
 
 # Warm the engine once so the Quick Load Format artifacts generate in a

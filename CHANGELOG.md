@@ -8,6 +8,96 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **The writer has a C implementation now, beside the reader's.** The reader
+  half of `engine/parser.pl` has had `engine/reader.c` since the compiled-reader
+  spike; the writer half had nothing, and writing is on every answer that
+  crosses to a host, every atom a space digest hashes, every atom a save
+  refuses or stores, and every line the MORK bridge sends. `engine/writer.c`
+  ports three Prolog layers into ONE walk: `swrite_mode//2`'s structural emit,
+  `metta_finite_float_codes/2`'s arbiter float layout, and
+  `metta_unwritable_walk/2`'s round-trip guard. The Prolog remains the
+  specification, the custom-token path and the fallback, exactly as it does for
+  the reader; `engine/build.sh` builds both units, `engine/.gitignore` ignores
+  both shared objects, and `METTA_C_WRITER=off` or an absent artifact keeps
+  every write on the DCG.
+
+  Measured in one worktree, the control being the same tree with `writer.c`,
+  `metta_token.h` and this branch's `parser.pl` removed and the engine
+  re-warmed, the MORK backend loaded on both sides:
+
+  | door, 3518 corpus forms | instructions:u | CPU |
+  |---|---|---|
+  | `swrite/2` | 772,513,255 to 123,419,377, 6.26x | 47.77ms to 6.68ms, 7.15x |
+  | `sdisplay/2` | 595,393,404 to 120,511,378, 4.94x | 35.84ms to 6.80ms, 5.27x |
+  | `metta_unwritable_symbol/2` | 174,350,260 to 105,304,395, 1.66x | 8.68ms to 6.06ms, 1.43x |
+  | `swrite_with_names/3` | 984,008,827 to 412,826,225, 2.38x | 61.71ms to 23.37ms, 2.64x |
+
+  and on the pinned benchmark rows, `space-digest` 1,400,321 to 920,299
+  inferences with 2,203,843,001 to 1,472,910,570 instructions:u,
+  `save-load-fast` 2,287,062 to 1,526,592 with 3,156,360,120 to 3,020,017,567,
+  `save-load-metta` 1,386,110 to 1,005,690 with 3,126,713,473 to 3,030,397,654,
+  and the `mork-write` scaling family halved at every size with its linear
+  class intact. `with_names` moves least because `named_print_term/3`'s copy,
+  numbering and epoch spellings stay in Prolog. Both meters are quoted because
+  foreign code retires no inferences: the counter alone once read a 526x win in
+  this tree over a 1.8x CPU loss, so a C path priced by inferences is priced by
+  the wrong instrument.
+
+  Three hazards decided the design.
+
+  FLOATS. Every float leaf takes SWI's own shortest-round-trip digits, from the
+  same `PL_get_text(CVT_FLOAT)` call `number_codes/2` makes, and reshapes them
+  into the arbiter's layout as text. Nothing re-derives a decimal: the digit
+  selection has a documented trap, where the closest candidate at a given
+  precision falls outside the rounding interval for 46 of the 2098 powers of
+  two, and the port sidesteps it by not doing that work. The lane checks every
+  power of two in the binary64 range and both signs, plus 40,000 random
+  magnitudes, plus `1.0`, `0.1`, `1e20`, `1e-320`, `-0.0`, `5e-324`, the
+  positional-to-scientific boundary at `1e16`, and the non-finite spellings.
+
+  ENCODING. The writer never asks the locale anything. It reads an atom's text
+  through `PL_atom_nchars` (in place when the atom is Latin-1 and ASCII, which
+  is every ordinary symbol) or `PL_atom_wchars`, transcodes to UTF-8 itself,
+  and classifies against `engine/metta_token.h`'s own tables rather than
+  `code_type/2`, whose whitespace class moves with the locale. The battery
+  carries the MM2 operators `＋` and `－`, Japanese and accented names, an
+  embedded NUL, and a symbol built around EVERY codepoint the engine's own
+  boundary table lists; the whole suite is run again under `LC_ALL=C` and
+  answers identically.
+
+  MEASUREMENT. Priced with `perf stat -e instructions:u` and CPU time,
+  minimum of three, both sides in the same worktree, because instruction
+  counts here are tree-location sensitive and inferences are blind across the
+  boundary. One correction landed from this: an early control read a
+  configuration WITHOUT the MORK backend, because `worktree.sh` had linked its
+  artifact from the main checkout and a sibling's rename left the link
+  dangling. That attributed 80,038 inferences of backend cost to a stale pin.
+  The artifacts are copied into the worktree now rather than linked, and
+  `benchmarks/configuration.py` carries `c_writer` so a tree without the
+  artifact can no longer compare against C-writer pins at all.
+
+  What the C path does NOT take, it hands back, and the Prolog writer answers
+  instead: an improper list, a rational, a non-marker compound or an opaque
+  host value in display mode, a term holding more than 64 distinct variables,
+  and a float or bignum whose SWI spelling outruns the file's scratch.
+  Approximate bytes are never emitted. `tests/prolog/suites/reader/writer_c.plt`
+  is the differential and it is two-sided: 3518 corpus forms and 213 adversarial
+  shapes through five modes each, 8 public doors over the same 3731 terms,
+  1880 distinct corpus symbols plus 143 generated spellings through the
+  writability question, 44,196 float spellings and 4,000 bignums; a decline
+  counter that fails if the C path stops answering the corpus; a planted
+  one-byte divergence that must be caught; and a check that the reference run
+  really leaves the C writer, because every reference in the file is the same
+  door with `parser:metta_c_writer_active/0` retracted. The planted divergence
+  was also done for real, by making the C emit two spaces between list elements
+  instead of one: 5 of the then-12 tests turned red on the first corpus form,
+  naming `ok("(+ 40 2)")` against `ok("(+  40  2)")`.
+
+  `engine/metta_token.h` is new and both C units include it: the 25-codepoint
+  whitespace table, the UTF-8 codec and the whole-token number matcher now have
+  ONE C transcription instead of one per direction, which is what
+  `metta_token_boundary/2`'s own comment asks for on the Prolog side.
+
 - **The example corpus's teaching order is now CHECKED.** The law is that a
   file may use only constructs introduced at or before its own number, and it
   was previously a statement in a design note that nothing enforced. Three
