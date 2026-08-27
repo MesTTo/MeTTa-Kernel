@@ -45,11 +45,33 @@ trap cleanup EXIT HUP INT TERM
 
 # A scratch copy, because the test compiles artifacts under a hostile locale
 # and must not leave them in the checkout it was run from.
-cp -a "$project_dir" "$probe/tree" 2>/dev/null || {
+#
+# A FILTERED copy, and the filter is what makes the lane runnable rather than
+# a tidiness preference. `cp -a` of the whole checkout moved 4.1 GiB, of which
+# 3.0 GiB is the MORK crate's Rust target/ intermediates and 0.5 GiB is .git;
+# where TMPDIR is a tmpfs the copy ran out of space and the lane reported
+# "could not copy the tree" for a reason that is nothing to do with the engine
+# [measured 2026-08-27: 3.0 GiB free in /tmp against a 4.1 GiB tree]. What is
+# excluded is version control, tool caches and build INTERMEDIATES; every
+# built backend library under target/release stays, because a probe that
+# quietly loads one backend fewer is a probe of a configuration nobody ships.
+tree="$probe/tree"
+mkdir -p "$tree"
+tar -C "$project_dir" -cf - \
+    --exclude=.git --exclude=.claude --exclude=./ai-tmp \
+    --exclude=__pycache__ --exclude=node_modules --exclude='*.egg-info' \
+    --exclude=.hypothesis --exclude=.mypy_cache --exclude=.pytest_cache \
+    --exclude=.ruff_cache --exclude=.benchmarks --exclude=.playwright-mcp \
+    --exclude=./build --exclude=./dist --exclude=./repos \
+    --exclude='target/debug' --exclude='target/*/deps' \
+    --exclude='target/*/build' --exclude='target/*/incremental' \
+    . 2>/dev/null | ( cd "$tree" && tar -xf - 2>/dev/null )
+# The pipeline's status is the extractor's, so it is not the oracle here.
+# What the copy is FOR is the thing to check: the engine and the example.
+if [ ! -f "$tree/engine/main.pl" ] || [ ! -f "$tree/run.sh" ]; then
     echo "FAIL: could not copy the tree to probe under" >&2
     exit 1
-}
-tree="$probe/tree"
+fi
 
 find "$tree/engine" "$tree/lib" -name '*.qlf' -delete 2>/dev/null || true
 rm -f "$tree/engine/.qlf-stamp"

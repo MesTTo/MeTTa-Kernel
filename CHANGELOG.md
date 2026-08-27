@@ -1461,6 +1461,17 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The `encoding` gate lane runs again on a checkout that has built the MORK
+  backend. It probes under a scratch copy of the tree, and the copy was
+  `cp -a` of the whole checkout: 4.1 GiB here, of which 3.0 GiB is the MORK
+  crate's Rust `target/` intermediates and 0.5 GiB is `.git`. Where `TMPDIR`
+  is a tmpfs the copy ran out of space, and the lane reported "could not copy
+  the tree to probe under", which reads as a broken test rather than as a
+  full disk. It copies through `tar` now, excluding version control, tool
+  caches and build intermediates, which is 37 MiB; every built backend
+  library under `target/release` is kept, and the MORK backend still loads in
+  the copy, because a probe that quietly loads one backend fewer would be
+  probing a configuration nobody ships.
 - The Node binding's own documentation said the number transport carries text
   "because the engine answers `False` to `(== 2 2.0)`". It answers **True**:
   numeric equality is by value across the integer/float constructors, following
