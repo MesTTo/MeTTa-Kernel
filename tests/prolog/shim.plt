@@ -30,6 +30,15 @@
 petta_match_atoms(Left, Right) :-
     unify_with_occurs_check(Left, Right).
 
+%The same, for the species question the `p` tag asks. The encoder consults
+%engine/spaces.pl's petta_space_operand/1, so engine-free it consults this:
+%the two spaces the engine holds from boot, which is what that predicate
+%answers in a fresh runtime. The codec's SHAPE is what this suite tests, and
+%test_r2_space_handle.py, test_codec_conformance.py and test_c_binding.py
+%exercise the real question against a live engine.
+petta_space_operand('&self').
+petta_space_operand('&petta').
+
 :- prolog_load_context(directory, TestDirectory),
    absolute_file_name('../../bindings/python', PythonBindingDirectory,
                       [relative_to(TestDirectory), file_type(directory)]),

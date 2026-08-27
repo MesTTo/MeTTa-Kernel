@@ -69,7 +69,7 @@ Two shapes break the two-element rule and both are named below: an outbound
 | `b` | term | "true" or "false" | a grounded boolean, written True and False in source |
 | `v` | term | text | a variable, the payload an identity within this term |
 | `e` | term | array of terms | an expression, its children in order; the empty one is unit |
-| `p` | term | ampersand-prefixed text | an executable space reference carried by its portable engine name |
+| `p` | term | ampersand-prefixed text | an executable space reference carried by its portable engine name; the tag is a species and an ampersand name that is no space keeps s |
 | `o` | term | host reference | a live host value crossing by reference, in process only |
 | `h` | term | registry id, and its printed text outbound | a native engine value held by reference |
 | `u` | frame | term and why | an answer whose truth is undefined under the well-founded semantics |
@@ -91,12 +91,57 @@ spell it, and they do not match each other.
 `["e", []]` is unit, the empty expression. It is not a missing value and not
 the empty string, which is `["g", ""]`.
 
-`["p", "&kb"]` carries an executable space reference by its engine name. Its
-payload is text beginning with `&`, because that prefix is how the engine
-distinguishes a space operand from every other atom. The name is portable;
-decoding resolves it to the receiving runtime's `Space` handle. A malformed
-payload is refused rather than becoming a symbol or silently naming another
-kind of term.
+`["p", "&kb"]` carries an executable space reference by its engine name. The
+name is portable; decoding resolves it to the receiving runtime's `Space`
+handle. A malformed payload is refused rather than becoming a symbol or
+silently naming another kind of term.
+
+## The question `p` asks, and what it costs
+
+`p` is a **species** tag, exactly as `s` and `n` and `b` are: it says what the
+atom IS, and a decoder builds a space handle from it where `s` builds a
+symbol. So the question an encoder must ask is the language's own species
+question, and the engine already owns it. `get-metatype` answers `Grounded`
+for a space and `Symbol` for a name that merely looks like one, and the clause
+that decides it is `petta_space_operand/1`
+(`engine/metta/types.pl`, `metatype_of(X, 'Grounded') :- atom(X),
+petta_space_operand(X)`). That is the test both shipped seats ask, so
+`get-metatype` and the wire cannot disagree about an atom.
+
+The payload is text beginning with `&`, which is how the engine mints a space
+name and what its doors require of one a program writes. A **parametric**
+space is named by a ground expression rather than an atom, and it crosses as
+that expression, `e`, because a `p` payload is text.
+
+**The ampersand alone decides nothing**, and this is the part a new binding
+gets wrong. `&not-a-space` reads as an ordinary atom; nothing has created a
+space under that name, so it crosses as `["s", "&not-a-space"]` and
+`get-metatype` calls it a `Symbol`. The engine reuses the `&` spelling for
+things that are not spaces at all: a `State` cell is `&state-#0`, which is
+`Grounded` for a different reason and is no space. An encoder that read the
+prefix instead of asking would send both across as space handles.
+
+There is a wider test next to it, `petta_space_name/1`, which is what the
+builtin `(is-space ...)` answers, and it is deliberately not this. It asks
+whether a space OPERATION may take this name, and because a space is created
+on demand the answer is yes for every `&` name, `&not-a-space` and `&state-#0`
+included. That is the right answer to "may I write here" and the wrong answer
+to "what is this".
+
+**The price, stated plainly.** A space's species depends on whether it exists,
+so the same atom crosses as `s` before anything creates a space under its name
+and as `p` afterwards. `metta.space("&kb")` in Python hands back a handle
+immediately, but the engine has no space under `&kb` until something writes to
+it, so `&kb` coming back out of an evaluation before that write is a `Symbol`.
+That is the engine's create-on-demand model showing through and it is what
+`get-metatype` reports too. A conformance corpus therefore has to name either
+a space that exists in every runtime, as `space-handle` does with `&self`, or
+one no runtime creates, as `symbol-ampersand` does.
+
+Both shipped seats ask this one question, per atom, and neither holds a list
+of names. The Python host asks it in `petta_py_encode/2` while encoding; the C
+seat, which has no wire and reads engine terms directly, asks it through
+`petta_c_space_operand/1` while decoding.
 
 ## Variables are identities, not names
 
@@ -329,6 +374,8 @@ restatement of one.
 | `symbol-non-ascii` | `"λ"` | `["s", "λ"]` | `"λ"` |
 | `symbol-hyphenated` | `"car-atom"` | `["s", "car-atom"]` | `"car-atom"` |
 | `space-handle` | `"&self"` | `["p", "&self"]` | `"&self"` |
+| `symbol-ampersand` | `"&not-a-space"` | `["s", "&not-a-space"]` | `"&not-a-space"` |
+| `space-in-expression` | `"(add-atom &self (f 1))"` | `["e", [["s", "add-atom"], ["p", "&self"], ["e", [["s", "f"], ["n", 1]]]]]` | `"(add-atom &self (f 1))"` |
 | `string` | `"\"hi\""` | `["g", "hi"]` | `"\"hi\""` |
 | `string-empty` | `"\"\""` | `["g", ""]` | `"\"\""` |
 | `string-escapes` | `"\"a\\\"b\\\\c\\nd\\te\\rf\""` | `["g", "a\"b\\c\nd\te\rf"]` | `"\"a\\\"b\\\\c\\nd\\te\\rf\""` |

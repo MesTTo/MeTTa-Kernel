@@ -928,6 +928,16 @@ kind(metta_reducible_head/2, host_service).
 kind(metta_host_dispatch_proof_step/6, host_service).
 %Grouped answers carry a reader-name state. Host codecs flatten that state for
 %their variable tag and use the same engine writer for host text.
+%
+%THE PAIR IS Name-Var, `-`/2 and not `=`/2, with Name an atom carrying no `$`,
+%and it is written down here because three bindings had to discover it by
+%experiment. sread_with_names/3 answers pairs of that shape, petta_name_pairs/2
+%flattens the grouped-answer state into the same shape, and both writers below
+%take it. Passing [] is legal and means "no names": the writer numbers the
+%variables instead, so a caller who wrote (f $x $x $y) gets (f $_0 $_0 $_1)
+%back [measured 2026-08-27: sread_with_names("(f $x $x $y)", T, M) binds M to
+%[y-_G1, x-_G2], swrite_with_names(T, M, S) gives "(f $x $x $y)" and
+%swrite_with_names(T, [], S) gives "(f $_0 $_0 $_1)"].
 kind(petta_name_pairs/2, host_service).
 kind(swrite_with_names/3, host_service).
 %The persistence surface moved engine-side the same day: the fast cache's
@@ -966,6 +976,16 @@ kind(metta_host_unregister_reader_token/1, host_service).
 %replaced get_native_atom/2, native_storage_module/2 and
 %metta_remove_atom/3 on this list (2026-08-20); the index-directed
 %existence probe is engine-internal now.
+%
+%THE VERDICT IS THE PLAIN BOOLEAN true OR false, and it is written down here
+%because a host cannot read it off the name: the first C implementation
+%guessed the atom `removed` and reported every successful removal as a miss,
+%silently, because a wrong guess still unifies with a fresh variable. true
+%means an atom matching the term was there and is not now; false means the
+%removal changed nothing, whether the space was empty of it or the provider
+%declined [measured 2026-08-27: add-atom then remove answers true, the same
+%removal repeated answers false, and a term never stored answers false;
+%source: engine/spaces/foreign.pl, metta_host_remove_reported/3].
 kind(metta_host_stored/2, host_service).
 kind(metta_host_remove_reported/3, host_service).
 %The native proof-leaf decoder keeps private module and predicate encodings
@@ -1002,6 +1022,15 @@ kind(match_foreign/5, host_service).
 kind(metta_add_atoms/2, host_service).
 kind(metta_source_declarations/2, host_service).
 kind(metta_space_names/1, host_service).
+%The same set as a TEST rather than a sorted list, and it is on this list
+%because a host CODEC needs it: the wire's `p` tag is a species tag, so an
+%encoder has to ask what the engine's own metatype_of/2 asks, which is this
+%[source: engine/metta/types.pl, metatype_of(X, 'Grounded') :- atom(X),
+%petta_space_operand(X)]. petta_space_name/1 below is the wider operand test
+%is-space/2 answers and is the wrong question here: it accepts any ampersand
+%name, including a State cell, where get-metatype answers Symbol or answers
+%Grounded for a different reason.
+kind(petta_space_operand/1, host_service).
 kind(metta_string_declarations/2, host_service).
 kind(metta_substitute_self/3, host_service).
 kind(metta_trace_source/4, host_service).
@@ -1062,6 +1091,8 @@ kind(swrite/2, service).
 %Presentation text is deliberately distinct from the inverse writer. A host
 %or extension uses this only where lossless re-reading is not the contract
 %[tested: every_seam_declares_one_kind, parser_display; commit=53686aed41e7ff02de69052198afdb537536cbdb].
+%sdisplay_with_names/3 takes the same Name-Var list swrite_with_names/3 does,
+%described above.
 kind(sdisplay/2, service).
 kind(sdisplay_with_names/3, service).
 kind(sread/2, service).

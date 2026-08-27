@@ -73,11 +73,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   ranked effect classes, required rather than advisory, and reaches MeTTa
   through C's own casing convention, so `word_count` publishes `word-count`
   exactly as Python's `car_atom` reaches `car-atom`.
-  Being in-process also lets this seat settle a question the other two guess at:
-  an atom becomes a space reference when `metta_space_names/1` says it is one,
-  where the shipped Python and Node encoders hardcode `&self` and `&petta` and
-  therefore send a space the engine just created across as an ordinary symbol.
-  The divergence is pinned and explained in the parity test rather than hidden.
+  Being in-process also lets this seat ask the engine directly which atoms are
+  space references, rather than hardcoding a pair of names the way the shipped
+  encoders did; the question both seats now ask is under Changed below.
 
 - A scaling gate now holds each benchmark family to its declared complexity
   CLASS rather than to a constant, closing a hole every other pin in the tree
@@ -654,6 +652,74 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   measured quadratic or linear-in-program costs with flat ones.
 
 ### Changed
+
+- Two published host services now state the SHAPES a caller has to know, which
+  were previously discoverable only by experiment. `metta_host_remove_reported/3`
+  answers the plain boolean `true` or `false`; the first C implementation
+  guessed the atom `removed` and reported every successful removal as a miss,
+  silently, because a wrong guess still unifies with a fresh variable. And the
+  name list `sread_with_names/3` answers, which `swrite_with_names/3`,
+  `sdisplay_with_names/3` and `petta_name_pairs/2` all take, is `Name-Var`
+  pairs, `-`/2 rather than `=`/2, with `Name` an atom carrying no `$`; passing
+  `[]` is legal and numbers the variables instead, so `(f $x $x $y)` comes back
+  as `(f $_0 $_0 $_1)`.
+
+- The wire codec's `p` tag now states which question it asks, and both shipped
+  seats ask the engine that one question. `p` is a **species** tag, so it
+  follows the engine's own species classifier: `metatype_of/2` decides a space
+  with `petta_space_operand/1`, and that is what an encoder asks, so
+  `get-metatype` and the wire cannot disagree about an atom. Before this the
+  Python encoder wrote `p` for exactly two hardcoded names, `&self` and
+  `&petta`, and the C seat rebuilt the whole `metta_space_names/1` registry per
+  answer, so the two halves of one codec disagreed: a space made by
+  `!(new-space)` crossed to Python as an ordinary `Symbol` and could not be used
+  as a space. `CODEC.md` has a section on the rule and its price.
+  The ampersand alone decides nothing, which is the part a new binding gets
+  wrong. `&not-a-space` crosses as `["s", "&not-a-space"]` because no space
+  exists under that name, and a `State` cell, `&state-#0`, is not a space
+  either. The wider `petta_space_name/1` test that `(is-space ...)` answers says
+  yes to both, because it asks whether a space operation may take the name, and
+  that is a different question from what the atom is.
+  The price is the other way round: a space's species depends on whether it
+  exists, so an atom crosses as `s` before anything creates a space under its
+  name and as `p` afterwards. That is the engine's create-on-demand model and
+  what `get-metatype` reports too.
+  The decoder got simpler with the encoder: Python used to keep its own set of
+  the space names `Space` had built and re-read an `s` payload against it, which
+  was a third answer to the question and missed every space MeTTa itself made.
+  The tag now decides alone. `tests/codec/corpus.json` gained `symbol-ampersand`
+  and `space-in-expression`, and the C seat dropped a per-answer space-name list
+  that cost a `findall`, `findall`, `append` and `sort` for every atom it
+  decoded.
+
+- A future space now exists from the moment its name is handed out, the same
+  way `(new-space)` creates before answering. `lib_thread.pl` says a future IS
+  a space, and it was not one until something wrote the first answer into it:
+  in that window `(get-metatype &future-1)` answered `Symbol`,
+  `m.space_names()` did not list it, and a host asking the engine what species
+  the atom was got told a symbol, so `!(spawn (+ 1 2))` and every `async`
+  operation handed Python a `Symbol` where a `FutureSpace` belongs. All four
+  doors that mint one, `spawn`, the async host operations, the pool submit and
+  the timer, share the fix, and the timer's own comment already said the
+  future exists from the moment it is scheduled.
+
+- `metta.space(...)` takes a `Space` back, so opening one is idempotent
+  instead of a `TypeError`. The door answers a `Space` and refused to accept
+  one, which only became reachable when an engine answer naming a space began
+  arriving as a `Space`: `metta.space(json_decode(text).one())` is how
+  `lib_json` and `lib_file` hand a decoded object's space to Python. A dropped
+  handle is still refused.
+
+- `metta.MeTTa().space()` now creates the space it hands back, so
+  `(get-type ...)` on a fresh anonymous handle is `SpaceType` and
+  `m.space_names()` lists it, matching `(new-space)` and what the arbiter
+  requires of it. It minted only a NAME before, so the handle Python returned
+  answered `%Undefined%` and metatype `Symbol` until something wrote to it,
+  and a term carrying it came home as a symbol. The `inherits=` and
+  `restricted=` forms are unchanged: their declarations create the storage
+  themselves and refuse a child that has already been used. Naming a space
+  still registers nothing, so `metta.space("&kb")` with an explicit name and
+  `Space("&kb")` are unchanged.
 
 - The Python `+=` write door now classifies semantic scalars before fact
   streams. A built `Expression`, bare atom, text value, mapping, or explicitly
@@ -1364,6 +1430,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   anywhere else message text is shown; it now reads "the evaluation passed its
   500 inference bound and was stopped". The wall-clock kind had the same gap and
   the same fix.
+- The C binding no longer says MeTTa tells `2` from `2.0` through `==`. It
+  does not: numeric equality is by VALUE across the integer and float
+  constructors, following LeaTTa's `Ground.equiv`, so `(== 2 2.0)` answers
+  True. What is true, and what the C seat's `CETTA_INT`/`CETTA_FLOAT` split
+  actually rests on, is that `2` and `2.0` are two ATOMS: a stored `(f 2.0)`
+  does not match the pattern `(f 2)`, and each prints as itself. `cetta.h` and
+  `bindings/cetta/kit/corpus.json` carried the wrong half of that.
 
 - `examples/reasoning/greedy_chess.metta` is skipped for the reason that is
   true. It read "long-running, covered by benchmarks" and neither half held:

@@ -238,10 +238,11 @@ def space_names(self) -> list[str]:
 ```
 
 > Every space name this engine registers, sorted: '&self' and
-> '&petta' from boot, every native space that has been written to,
-> and every foreign space currently bound. Naming a space never
-> registers it, only writing or binding does, so a bind! token's
-> target appears here once something is stored under it.
+> '&petta' from boot, every native space something created or wrote to,
+> and every foreign space currently bound. (new-space) and (spawn ...)
+> create, so their answers are here at once; naming a space never
+> registers it, so Space('&kb') is not here until a write, and a bind!
+> token's target appears once something is stored under it.
 
 ### `Space.drop`
 
@@ -2211,7 +2212,7 @@ def info(self) -> dict[str, str | None]:
 ```python
 def space(
     self,
-    name: str | None = None,
+    name: str | Symbol | Expression | Space | None = None,
     backing: Any = None,
     *,
     journal: str | os.PathLike[str] | None = None,
@@ -2221,10 +2222,13 @@ def space(
 
 > Create one native, provider-backed, remote, or journaled space.
 >
-> With no name, the engine mints an anonymous handle. A ``SpaceProvider``
-> backing is attached directly, an HTTP(S) URL becomes a remote provider,
-> and ``journal=`` constructs ``PersistentFactSpace`` from ``schema=`` or
-> a schema mapping supplied as ``backing``.
+> With no name, the engine mints an anonymous handle and creates the
+> space, so ``(get-type ...)`` on it is ``SpaceType`` before anything is
+> written. A ``Space`` reopens that same space, which is what an engine
+> answer naming one arrives as. A ``SpaceProvider`` backing is attached
+> directly, an HTTP(S) URL becomes a remote provider, and ``journal=``
+> constructs ``PersistentFactSpace`` from ``schema=`` or a schema mapping
+> supplied as ``backing``.
 
 ### `MeTTa.define`
 
