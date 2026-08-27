@@ -284,7 +284,18 @@ where an answer is expected, and a position asking for an atom refuses one.
 
     theta   ::= [[name, term], ...]      may be []
     residue ::= term | true              true means nothing was left over
-    k       ::= scalar | term | null     null means the degenerate annotation
+    k       ::= term | null              null means the degenerate annotation
+
+`k` is the answer's ALGEBRA CARRIER: what it weighs under the declared
+semiring, which is `3` under `counting`, a probability under `prob`, a cost
+under `tropical`, and a whole provenance expression under `prov`. The
+carrier may therefore be a plain ground value or a structured one, and that
+distinction is the ALGEBRA's rather than the wire's: both cross as an
+ordinary `term`, so `["n", "3"]` is a counting carrier and
+`["e", [["s", "plus"], ...]]` a provenance one. This line used to read
+`scalar | term | null`, naming a third alternative that a binding author
+would look for and not find: `scalar` was never defined here, and on the
+wire it is not a separate shape.
 
 `theta` binds the query's variables by name, and the names are the ones the
 encoder wrote for those variables, so binding by name is binding the
