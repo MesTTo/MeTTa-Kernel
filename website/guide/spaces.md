@@ -55,7 +55,7 @@ The in-place operators split by what their operand means. `m += x` is `add(x)` e
     m |= [S.note(1), "(note 2)"]
 ```
 
-`m.space_names()` lists every space the engine registers, sorted: `&self` and `&petta` from boot, every native space that has been written to, and every foreign space currently bound. Naming a space never registers it; writing does.
+`m.space_names()` lists every space the engine registers, sorted: `&self` and `&petta` from boot, every native space something created or wrote to, and every foreign space currently bound. `(new-space)` and `(spawn ...)` create, so their answers are listed at once. Naming a space never registers it; creating or writing does.
 
 ## Combinators: spaces composed from spaces
 

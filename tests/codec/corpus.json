@@ -28,7 +28,7 @@
     "b": {"class": "term", "payload": "\"true\" or \"false\"", "means": "a grounded boolean, written True and False in source"},
     "v": {"class": "term", "payload": "text", "means": "a variable, the payload an identity within this term"},
     "e": {"class": "term", "payload": "array of terms", "means": "an expression, its children in order; the empty one is unit"},
-    "p": {"class": "term", "payload": "ampersand-prefixed text", "means": "an executable space reference carried by its portable engine name"},
+    "p": {"class": "term", "payload": "ampersand-prefixed text", "means": "an executable space reference carried by its portable engine name; the tag is a species and an ampersand name that is no space keeps s"},
     "o": {"class": "term", "payload": "host reference", "means": "a live host value crossing by reference, in process only"},
     "h": {"class": "term", "payload": "registry id, and its printed text outbound", "means": "a native engine value held by reference"},
     "u": {"class": "frame", "payload": "term and why", "means": "an answer whose truth is undefined under the well-founded semantics"},
@@ -88,6 +88,22 @@
       "wire": ["p", "&self"],
       "written": "&self",
       "note": "An ampersand-prefixed engine name decodes as an executable space handle, not as an ordinary Symbol with the same spelling."
+    },
+    {
+      "id": "symbol-ampersand",
+      "tags": ["s"],
+      "text": "&not-a-space",
+      "wire": ["s", "&not-a-space"],
+      "written": "&not-a-space",
+      "note": "The ampersand alone does not make a space. A name no space exists under is a Symbol, which is what the engine's own get-metatype answers for it, and it is why p is a species rather than a spelling."
+    },
+    {
+      "id": "space-in-expression",
+      "tags": ["p", "s", "e"],
+      "text": "(add-atom &self (f 1))",
+      "wire": ["e", [["s", "add-atom"], ["p", "&self"], ["e", [["s", "f"], ["n", 1]]]]],
+      "written": "(add-atom &self (f 1))",
+      "note": "The species decision is per atom and applies inside an expression, not only at the root."
     },
     {
       "id": "string",

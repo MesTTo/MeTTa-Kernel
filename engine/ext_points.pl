@@ -1008,6 +1008,15 @@ kind(match_foreign/5, host_service).
 kind(metta_add_atoms/2, host_service).
 kind(metta_source_declarations/2, host_service).
 kind(metta_space_names/1, host_service).
+%The same set as a TEST rather than a sorted list, and it is on this list
+%because a host CODEC needs it: the wire's `p` tag is a species tag, so an
+%encoder has to ask what the engine's own metatype_of/2 asks, which is this
+%[source: engine/metta/types.pl, metatype_of(X, 'Grounded') :- atom(X),
+%petta_space_operand(X)]. petta_space_name/1 below is the wider operand test
+%is-space/2 answers and is the wrong question here: it accepts any ampersand
+%name, including a State cell, where get-metatype answers Symbol or answers
+%Grounded for a different reason.
+kind(petta_space_operand/1, host_service).
 kind(metta_string_declarations/2, host_service).
 kind(metta_substitute_self/3, host_service).
 kind(metta_trace_source/4, host_service).
