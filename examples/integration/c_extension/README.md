@@ -1,7 +1,7 @@
 # A C extension, end to end
 
 `cbump.c` is the smallest useful C foreign predicate: `c-bump(+X, -Y)`, inputs
-first and one output last, which is the calling convention PeTTa compiles every
+first and one output last, which is the calling convention MeTTa compiles every
 MeTTa function into.
 
 Build it, then run the example from the repository root:

@@ -363,7 +363,7 @@ metta_host_operation_value(Term, Text) :- swrite(Term, Text).
 %surface reads it too; only the rendering changes.
 %
 %prolog:message//1 is consulted before the formal-only
-%prolog:error_message//1, and this clause matches the context PeTTa's own
+%prolog:error_message//1, and this clause matches the context MeTTa's own
 %guards attach, so every other error SWI renders is untouched
 %[source: SWI-Prolog 10.1 boot/messages.pl, translate_message/1]
 %[tested: metta_operation_error_message].
@@ -378,7 +378,7 @@ metta_host_operation_value(Term, Text) :- swrite(Term, Text).
 %then renders every ordinary error of that formal. This clause was hijacking
 %all of them, which is where I16's "system:(is)/2: evaluable expected, found
 %(/ foo 0)" came from: a library predicate's is/2 type error was being
-%reported in PeTTa's operation vocabulary, naming an engine internal and a
+%reported in MeTTa's operation vocabulary, naming an engine internal and a
 %culprit the program never wrote [tested: metta_operation_errors,
 %an_unrelated_type_error_keeps_swi_s_own_message].
 metta_error_context(Context, Operation, Detail) :-

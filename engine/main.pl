@@ -1,4 +1,4 @@
-% Purpose: run the standalone PeTTa command-line entry point and display each
+% Purpose: run the standalone MeTTa command-line entry point and display each
 %   result from a requested MeTTa source file.
 % Guarantees:
 %   - command-line answers use sdisplay/2, so host-only values and non-finite

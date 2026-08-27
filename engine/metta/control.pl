@@ -15,7 +15,7 @@
 %an unsupported setting is a hard error rather than a successful no-op.
 %HE's own keys are type-check, interpreter and max-stack-depth
 %[source 2026-08-15: MeTTa HE stdlib reference, pragma!]. The two bounds are
-%PeTTa's, and are the ones this engine can actually enforce.
+%MeTTa's, and are the ones this engine can actually enforce.
 metta_pragma_key('max-time', 'bound every runnable by wall-clock seconds').
 metta_pragma_key('max-inferences', 'bound every runnable by inference count').
 metta_pragma_key('verify-specializations',
@@ -412,7 +412,7 @@ metta_evaluation_fuel(Limit) :-
 
 %%% MeTTa HE compatibility: %%%
 %HE's metta/3 is (-> Atom Type SpaceType Atom), "run the MeTTa interpreter on
-%an atom" in a named space. evalc/3 already is exactly that: PeTTa's eval is a
+%an atom" in a named space. evalc/3 already is exactly that: MeTTa's eval is a
 %full evaluation rather than minimal MeTTa's single rewriting step, which its
 %own comment records, so this is the HE spelling over it. The Type argument is
 %accepted and ignored, as it is for %Undefined% in HE.
@@ -547,7 +547,7 @@ metta_metta_result_is_final(Atom) :-
     metta_runtime_returns_atom(Head).
 
 
-%A FRESH SPACE, which PeTTa did not have. Spaces here are named and created on
+%A FRESH SPACE, which MeTTa did not have. Spaces here are named and created on
 %demand, so `(new-space)` reduced to nothing and `(bind! &s (new-space))` did
 %nothing at all: the program worked anyway because `&s` doubles as a name, and
 %that is an accident rather than a design. It answers a fresh unique name, so
@@ -585,7 +585,7 @@ metta_metta_result_is_final(Atom) :-
 %THE TOKEN FORM, which is what the specification says bind! is:
 %"(-> Symbol %Undefined% (->)) ... Registers a new token which is replaced with
 %an atom during the parsing of the rest of the program"
-%[source: metta-lang-docs/corelib-stdlib-reference.md, bind!]. PeTTa had only
+%[source: metta-lang-docs/corelib-stdlib-reference.md, bind!]. MeTTa had only
 %the state-cell form above, so `(bind! six 6)` FAILED SILENTLY and the language's
 %own idiom `(bind! abs (py-atom numpy.absolute))` then `(abs -5)` could not work.
 %
@@ -811,7 +811,7 @@ prolog:error_message(metta_state_write_fenced(Cell)) -->
 %module its clause was compiled in, so a module-blind call/1 reaches only user.
 %Without this, `!(eval (f 1))` on a function defined in any space other than
 %&self raised `call_goals/1: Unknown procedure: f/2` while the same `!(f 1)`
-%answered normally, and every named space PyPeTTa creates hit it. lib_he's
+%answered normally, and every named space pymetta creates hit it. lib_he's
 %`unify` and the ToResult asserts route their branches through eval, so they
 %failed there too [tested: test_per_space.py::test_eval_uses_the_spaces_own_equations].
 %There is no unset case any more: current_metta_module/1 answers &self's own
@@ -881,7 +881,7 @@ eval(C0, Out) :-
 %one, and everything else runs where it was written.
 %
 %The space argument selects the module the goals resolve in and nothing else.
-%PeTTa's eval is a full evaluation of compiled goals rather than the single
+%MeTTa's eval is a full evaluation of compiled goals rather than the single
 %rewriting step of minimal MeTTa, and evalc keeps that, so the two agree
 %everywhere except which space's equations answer
 %[source: LeaTTa stdlib.md, evalc's SpaceType is the "Space to

@@ -300,7 +300,7 @@ max(A,B,R)  :- ( integer(A), integer(B) -> R is max(A,B)
                        ; catch(R is max(A,B), E,
                                rethrow_metta_operation_error(max, E)) )
                 ; metta_operation_answer(max, [A, B], R) ).
-%exp/2 is PeTTa's own name for the same function exp-math names, so it refuses
+%exp/2 is MeTTa's own name for the same function exp-math names, so it refuses
 %the same way rather than being the one numeric operation that raises.
 exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
 :- use_module(library(clpfd)).
@@ -372,7 +372,7 @@ exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
 %[source: Sergio Antoy, "Curry: A Tutorial Introduction", draft 2025-04-17,
 %section 3.14.2, "predefined arithmetic operations like the addition + are
 %rigid. Thus, a call to + with a logic variable as an argument flounders"].
-%PeTTa's evaluator has no suspension to residuate into, so the two answers
+%MeTTa's evaluator has no suspension to residuate into, so the two answers
 %available here are to SOLVE it or to SAY SO, and this does both: it solves
 %where CLP(FD) is complete, and it names the reason where it is not.
 %
@@ -510,7 +510,7 @@ metta_float_unary_eval(Operation, Function, A, Out) :-
 'log-math'(Base, X, Out) :-
     metta_math_saturating_eval(
         'log-math', log(float(X)) / log(float(Base)), [Base, X], Out).
-%exp-math is retained under PeTTa's existing real-valued doctrine. LeaTTa's
+%exp-math is retained under this engine's existing real-valued doctrine. LeaTTa's
 %floatUn table does not include exp-math, so no LeaTTa attribution is made for
 %this operation; its integer and float spellings already share the host exp/1
 %path and its overflow recovery.
@@ -703,7 +703,7 @@ empty(_) :- fail.
 %is not one rather than building a term it could not print
 %[source: LeaTTa MettaHyperonFull/Core/Builtins.lean, Builtins.consAtom;
 %tests/regression/instruction_interp.metta pins native cons-atom and its mirror
-%rejecting `(cons-atom a 1)` alike]. PeTTa BUILT the improper cons instead, and
+%rejecting `(cons-atom a 1)` alike]. MeTTa BUILT the improper cons instead, and
 %then could not write it: `!(cons-atom a 1)` raised swrite/2's "cannot write 1
 %as MeTTa text because its printed form would read back as a different value".
 %
@@ -755,7 +755,7 @@ empty(_) :- fail.
 %and nothing in either program said why [source: lib/minimal_metta_lib.metta,
 %recorded there as C1b and C1d].
 %
-%The shape is the reference implementation's, because PeTTa had no considered
+%The shape is the reference implementation's, because MeTTa had no considered
 %answer here to keep: failing was the absence of a clause rather than a
 %decision. LeaTTa's conformance evidence pins it to the Rust interpreter,
 %lib/src/metta/interpreter.rs:1750-1758, which tests the empty case as an

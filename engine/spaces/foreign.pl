@@ -1076,10 +1076,10 @@ prolog:error_message(metta_builtin_redefinition(Name, Arity, Space)) -->
 %
 %A space is a NAME that is one, and metta_space_name/1 decides which. The doors
 %used to share a metta_space_argument/1 whose whole body was `atom(Space)`, on
-%the reading that PeTTa CANNOT reproduce the arbiter's
+%the reading that this engine CANNOT reproduce the arbiter's
 %`(add-atom not-a-space (bad add))` diagnostic: the two model spaces
 %differently, upstream's being a grounded atom wrapping a space object while
-%PeTTa's is a symbol, and a write to a name that does not exist yet creates it,
+%MeTTa's is a symbol, and a write to a name that does not exist yet creates it,
 %so `not-a-space` and a program's own fresh name looked like the same kind of
 %thing. That reading was wrong on its own terms, and the engine already
 %disagreed with it in three places: is-space/2 answers False for a name without

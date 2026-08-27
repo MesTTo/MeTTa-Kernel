@@ -1,4 +1,4 @@
-# Contributing to PeTTa
+# Contributing to MeTTa
 
 This page is the contract: what a contribution has to be, the one command that
 decides whether it is ready, and how a release happens. The mechanics around

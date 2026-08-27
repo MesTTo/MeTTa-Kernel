@@ -1,6 +1,6 @@
 # Changelog
 
-All notable user-facing changes to PeTTa are recorded here. The format follows
+All notable user-facing changes to MeTTa are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The history before
 1.0.5 remains available through the repository tags and release notes.
 
@@ -1146,7 +1146,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   contractive, staged fragment; use outside that fence is a named refusal.
   Grounded tensor tags keep their DLPack identity and autograd graph through
   multi-rule derivations for direct consumption by `pettorch.MettaModule`.
-  Five pinned Scallop README programs now ship as executable PeTTa witnesses
+  Five pinned Scallop README programs now ship as executable MeTTa witnesses
   with a feature-to-seam table and explicit filed gaps.
 - A ground expression can name a native space. For example,
   `!(new-space (cache &kb 100))` creates an isolated storage and execution
@@ -1754,7 +1754,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   retains a Python object reference instead of accepting Janus's eager tuple
   conversion.
 
-- Recorded integer overflow as a deliberate host-width divergence: PeTTa and
+- Recorded integer overflow as a deliberate host-width divergence: MeTTa and
   LeaTTa keep exact unbounded integer results where Hyperon's `i64` carrier
   answers `ArithmeticOverflow`.
 - `pragma!` now refuses unknown settings and the unsupported `type-check`,
@@ -2215,7 +2215,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
   Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
   interpreter over 29 shapes; every shape the two references agree on now
-  matches, and the three they disagree on keep the answer PeTTa already gave.
+  matches, and the three they disagree on keep the answer MeTTa already gave.
   Costs nothing on the hot path: a thousand-iteration `==` loop is 4487.45
   inferences before and after, because two numbers are settled inline.
 
@@ -2322,7 +2322,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 - `(atomically EXPR)`, the atomic block under the name the concurrency
   vocabulary uses for it: Haskell's STM spells it `atomically`, Clojure's
-  spells it `dosync`, and PeTTa's `transaction` is the same operation under
+  spells it `dosync`, and MeTTa's `transaction` is the same operation under
   the database name. It did not exist, so `!(atomically (+ 1 1))` answered
   `(atomically 2)`, an unknown head applied to its evaluated argument, rather
   than running anything atomically.
@@ -2936,7 +2936,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   reachable through exact `S[name]` and `fn[name]` mentions.
 - Added the thread-safety and serialization guarantees page: per type
   and per operation, what is atomic, what locks, and what a caller must
-  serialize, Python's own documentation convention pointed at PeTTa.
+  serialize, Python's own documentation convention pointed at MeTTa.
   Every claim is pinned by a named test, two of them new: bare threads
   sharing the home engine answer correctly under contention, and a
   `with m.limits(...)` block on the event loop bounds engine work on

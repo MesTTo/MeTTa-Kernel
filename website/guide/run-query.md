@@ -240,7 +240,7 @@ ordinary pattern and the reason to reach for it: `(:= $y)` with `$y` unbound
 matches nothing rather than everything.
 
 The gate is arity. Exactly two elements is the modifier; `(:= a b)` is three,
-so it stays ordinary data and matches structurally. That is not a PeTTa
+so it stays ordinary data and matches structurally. That is not a MeTTa
 convention, it is the reference's own registry rule, and it exists because
 three-element `(:= ...)` atoms already appear in real programs.
 

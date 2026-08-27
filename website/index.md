@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: "PeTTa Python"
+  name: "MeTTa Python"
   text: "Compose Python and MeTTa"
   tagline: "Learn the language, use the Python library, and inspect every public module."
   actions:
@@ -20,7 +20,7 @@ features:
   - title: Learn MeTTa from Python
     details: Follow eight graded tutorials from atoms and spaces through types, diagnostics, and graph views.
     link: /tutorials/01-atoms-and-expressions
-  - title: Build with PeTTa
+  - title: Build with MeTTa
     details: Use the guide for queries, Python operations, definitions, spaces, notebooks, and Pettorch.
     link: /guide/getting-started
   - title: Check the exact surface
@@ -32,9 +32,9 @@ features:
 
 If you know Python and have not used MeTTa, start with [Atoms and expressions](./tutorials/01-atoms-and-expressions). The eight tutorials build one concept at a time and use generated pictures of the terms they teach.
 
-If you already use PeTTa, open the [Guide](./guide/getting-started) for task-oriented explanations, [Integrations](./integrations/dataframes) for library boundaries, or the [API reference](./reference/) for exact signatures and source docstrings.
+If you already use MeTTa, open the [Guide](./guide/getting-started) for task-oriented explanations, [Integrations](./integrations/dataframes) for library boundaries, or the [API reference](./reference/) for exact signatures and source docstrings.
 
-MeTTa is built to be a lingua franca. Each PeTTa integration translates another paradigm's semantics into MeTTa's own: routing becomes unification over facts, multi-shot solving becomes parts and toggled truths, validation becomes declarations, tables become facts, and neural predicates become weighted relations. Once translated, the paradigms compose with each other in one substrate.
+MeTTa is built to be a lingua franca. Each MeTTa integration translates another paradigm's semantics into MeTTa's own: routing becomes unification over facts, multi-shot solving becomes parts and toggled truths, validation becomes declarations, tables become facts, and neural predicates become weighted relations. Once translated, the paradigms compose with each other in one substrate.
 
 The translation keeps the concepts visible. A web route is a fact a program can query. A subscription is a standing query over a space. An array keeps its host identity while operations follow the array API. A neural classifier answers the same weighted pairs that the measure algebra consumes.
 

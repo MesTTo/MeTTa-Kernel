@@ -18,7 +18,7 @@
 (= (later-in-alphabet $X $Y)
    (and (successor $X $Z) (later-in-alphabet $Z $Y)))
 
-;Alternative formulation of the previous function (still only with PeTTa though)
+;Alternative formulation of the previous function (still only with MeTTa though)
 ;(= (later-in-alphabet $X $Y)
 ;   (let $temp (successor $X $Z)
 ;        (later-in-alphabet $Z $Y)))

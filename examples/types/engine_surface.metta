@@ -38,7 +38,7 @@
 !(test (get-type size-atom) (-> Expression Number))
 !(test (get-type index-atom) (-> Expression Number Atom))
 
-;; PeTTa's own, with no dump entry to take.
+;; MeTTa's own, with no dump entry to take.
 ;sort-atom sorts a VALUE, so its parameter cannot carry the evaluation mask:
 ;the reference declares no type for it at all and its argument therefore
 ;evaluates [measured 2026-08-24: `!(get-type sort-atom)` is `%Undefined%` on

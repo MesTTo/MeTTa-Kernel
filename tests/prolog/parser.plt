@@ -188,7 +188,7 @@ test(comment_is_a_number_token_boundary) :-
 %CR, NEL and U+2028 [source 2026-08-21: LeaTTa
 %MettaHyperonFull/Runtime/Parser.lean:58, tokenizeAux comment branch at 66-67].
 %The row originally expected a reader change based on Hyperon's CR behavior;
-%the arbiter instead makes PeTTa's existing LF-only reader the conforming one.
+%the arbiter instead makes this engine's existing LF-only reader the conforming one.
 test(test_a_comment_terminates_on_the_class_the_arbiter_rules) :-
     sread("(a ; comment\n b)", LfTerm),
     LfTerm == [a, b],

@@ -604,7 +604,7 @@ metta_typed_head(Fun) :-
 % (1 2 3) double)` answered `((partial double (1)) ...)`. A builtin still
 % resolves, through the module's own inheritance from user.
 %The four evaluation outcomes of the Hyperon specification are value, Empty,
-%NotReducible and Error, and PeTTa already produces all four: an answer, a
+%NotReducible and Error, and MeTTa already produces all four: an answer, a
 %failed goal, a term handed back unevaluated, and a thrown error. Only the
 %third was unreportable, because the term it yields is indistinguishable from
 %data. reduce/3 carries which of the two happened and reduce/2 keeps its exact

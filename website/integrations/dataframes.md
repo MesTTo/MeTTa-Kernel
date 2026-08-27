@@ -6,7 +6,7 @@ Guarantees: direct dataframe writes consume complete rows, while tables.add supp
 
 # Dataframes
 
-PeTTa crosses the dataframe boundary in both directions. When each row already
+MeTTa crosses the dataframe boundary in both directions. When each row already
 contains its atom head, `m += frame` writes one complete row per atom through
 Polars `iter_rows()` or pandas `itertuples(index=False)`. When the dataframe
 contains only argument columns, `metta.tables.add(m, head, source)` supplies a

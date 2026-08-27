@@ -6,7 +6,7 @@ Guarantees: every named Python door exists on the narrow public surface.
 
 # Concepts and names
 
-MeTTa's own vocabulary, PeTTa's Python spelling of it, and the Python
+MeTTa's own vocabulary, this library's Python spelling of it, and the Python
 concept each maps onto. Every name on the surface is checked against
 this page, so if you know one column you can derive the other two.
 
@@ -82,7 +82,7 @@ import forms map onto MeTTa operations one for one:
 
 `sys.modules` is the registry of named spaces, and a module with a
 PEP 562 `__getattr__` is a namespace whose lookups are computed on
-demand, which PeTTa calls a foreign space.
+demand, which MeTTa calls a foreign space.
 
 ## The answer-cardinality axis
 
@@ -119,7 +119,7 @@ reading to the exception reading.
 ## Special symbols
 
 Three symbols the interpreter treats specially, and the words used for
-them everywhere in PeTTa:
+them everywhere in MeTTa:
 
 - `=` writes an **equation**; a function is a set of equations, and
   spaces that may hold them declare the `rules` capability;

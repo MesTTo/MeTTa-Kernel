@@ -11,7 +11,7 @@ base="$fixture/imports"
 mkdir -p "$source_repo" "$base"
 git -C "$source_repo" init -q
 git -C "$source_repo" config user.email test@example.invalid
-git -C "$source_repo" config user.name "PeTTa test"
+git -C "$source_repo" config user.name "MeTTa test"
 printf 'build artifact\n' > "$source_repo/payload.txt"
 printf '(= (fixture-core-result) core-git-ok)\n' > "$source_repo/module.metta"
 printf '.build-count\n.build-alt-count\n' > "$source_repo/.gitignore"

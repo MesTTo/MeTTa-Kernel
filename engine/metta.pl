@@ -1,4 +1,4 @@
-% Purpose: provide PeTTa's Prolog runtime, builtins, type system, evaluator,
+% Purpose: provide MeTTa's Prolog runtime, builtins, type system, evaluator,
 %   imports, function registration, and named-space execution context.
 % Guarantees:
 %   - Files below engine/metta/ are plain source units consulted into this

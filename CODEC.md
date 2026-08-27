@@ -2,7 +2,7 @@
 
 Every atom that leaves the engine, and every atom that reaches it from
 outside, crosses as a tagged array. This page is that format, written for
-somebody adding a binding in a language PeTTa has never been used from.
+somebody adding a binding in a language MeTTa has never been used from.
 Implement what is here, run `tests/codec/corpus.json` against your
 implementation, and your codec speaks what the two shipped ones speak.
 
@@ -128,7 +128,7 @@ and the corpus says which by asking the driver.
 
 ## Number and BigInt are exact, or refused
 
-PeTTa has two numeric types. A float and an integer in the inclusive signed
+MeTTa has two numeric types. A float and an integer in the inclusive signed
 i64 range have type `Number`. An integer below -9223372036854775808 or above
 9223372036854775807 has type `BigInt`. The reader uses the same signed decimal
 syntax for both, and SWI keeps every integer value unbounded underneath, so

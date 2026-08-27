@@ -22,7 +22,7 @@
 %
 %Without this, get-type consulted '&self' literally, and a declaration made in
 %any other space was invisible to it. That is not an edge case: every space
-%PyPeTTa creates is a named one, so `(: a A)` written there answered
+%pymetta creates is a named one, so `(: a A)` written there answered
 %'%Undefined%' no matter what.
 current_metta_space(Space) :- current_metta_module(Module),
                               metta_module_space(Module, Space).
@@ -1509,7 +1509,7 @@ metta_grounded_token('unique-atom'). metta_grounded_token('xor').
 %note above groundedTokens, read 2026-08-19]. Without it a name this engine has
 %no operation for reported Grounded, which is a claim it cannot make and which
 %contradicts the `no-such-operation` answer the same corpus pins: 33 of the 98
-%are LeaTTa or hyperon operations PeTTa does not ship [measured 2026-08-20].
+%are LeaTTa or hyperon operations this engine does not ship [measured 2026-08-20].
 %
 %Both of the engine's registers are asked, because a head has meaning here two
 %ways and fun/1 alone is not the question: 29 of the translator's special-form

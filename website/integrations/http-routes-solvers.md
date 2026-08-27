@@ -10,7 +10,7 @@ Three seams share space operations but do different jobs:
 
 - `web_routes.py` models FastAPI-shaped routing in memory. It does not import FastAPI and does not serve HTTP.
 - `metta.remote` serves and attaches spaces over HTTP.
-- `multishot_solving.py` maps clingo-shaped parts and externals onto PeTTa's space and evaluation surface. It is not a clingo binding or an ASP solver.
+- `multishot_solving.py` maps clingo-shaped parts and externals onto MeTTa's space and evaluation surface. It is not a clingo binding or an ASP solver.
 
 ## Model a route table in a space
 

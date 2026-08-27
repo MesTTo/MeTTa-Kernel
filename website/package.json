@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Documentation site for the PeTTa Python library.",
+  "description": "Documentation site for the MeTTa Python library.",
   "scripts": {
     "docs:dev": "vitepress dev",
     "docs:build": "vitepress build",

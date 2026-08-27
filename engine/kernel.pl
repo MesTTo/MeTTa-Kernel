@@ -12,7 +12,7 @@
 %   has_declared_type/2 and the refusal helpers from engine/metta.pl.
 % Guarantees: each head's own contract comment below, with its evidence.
 % Fails when: a caller wants stdlib-conforming vocabulary only; these
-%   names are PeTTa's, and a space may shadow any of them.
+%   names are MeTTa's, and a space may shadow any of them.
 % Guarantees: the four heads below are this subsystem's whole surface, and
 %   the module declaration is what makes that enforceable rather than
 %   advisory [tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named;

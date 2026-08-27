@@ -1,6 +1,6 @@
 # Security policy
 
-PeTTa is alpha software. Versions are `0.y.z`, every release is labelled
+MeTTa is alpha software. Versions are `0.y.z`, every release is labelled
 alpha, breaking changes are expected at each one, and there is no maintenance
 line beside the branch under development. A fix therefore lands on that branch
 and is carried by the next tag rather than being backported to an older one.

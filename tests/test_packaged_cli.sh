@@ -31,7 +31,7 @@ printf '!(import! &self (library lib_roman))\n!(map-flat (+ 1) (1 2 3))\n' \
 grep -Fxq '2' "$fixture/basic.log"
 grep -Fq '(2 3 4)' "$fixture/roman.log"
 
-# The runtime tree an installed PeTTa has to find, checked in the install
+# The runtime tree an installed MeTTa has to find, checked in the install
 # rather than in the checkout. backends/ is here because the engine GLOBS it on
 # every boot and expand_file_name/2 answers [] for a missing directory exactly
 # as it does for one holding no built backend: an unshipped seam and an unbuilt

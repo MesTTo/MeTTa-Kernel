@@ -243,7 +243,7 @@ metta_special_form_head(Name) :-
 %
 %Written for the linter, whose possibly-undefined-reference check asks "does
 %anything in the engine give this head meaning". Answering that with fun/1
-%alone reported 1623 findings over PeTTa/examples, 712 of them special forms
+%alone reported 1623 findings over this repository's examples/, 712 of them special forms
 %used correctly, `if` alone accounting for 378 [measured 2026-08-17]
 %[tested: test_calling_a_special_form_is_not_an_undefined_reference].
 metta_translated_head(Name) :- metta_special_form(Name), !.
@@ -905,7 +905,7 @@ translate_special_dl('|->', [Args, Body0], AfterHead, Goals, Out) :-
     %`apply:maplist_/3: Unknown procedure: 'local-double'/2` while the same
     %call written directly answered 42. That is every lambda form, `|->`,
     %`map-atom`, `filter-atom` and `foldl-atom`, unusable on a space-local
-    %function; and since every space PyPeTTa creates is a named one, it was
+    %function; and since every space pymetta creates is a named one, it was
     %the whole Python surface [tested: translator_lambda_space_scope].
     %
     %+10 inferences once per lambda COMPILED and nothing per call [measured

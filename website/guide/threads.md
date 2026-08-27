@@ -6,7 +6,7 @@ Guarantees: public names in the boundary table match the narrow surface.
 
 # Threads, tasks, and what pickles
 
-Python's own documentation states, per type, what is atomic, what locks, and what a caller must serialize. This page is that statement for PeTTa. Every claim on it is pinned by a named test in the suite, so the guarantees are enforced rather than intended.
+Python's own documentation states, per type, what is atomic, what locks, and what a caller must serialize. This page is that statement for MeTTa. Every claim on it is pinned by a named test in the suite, so the guarantees are enforced rather than intended.
 
 ## One process, one home engine
 

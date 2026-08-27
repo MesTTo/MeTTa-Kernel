@@ -1,4 +1,4 @@
-"""Purpose: copy the PeTTa runtime into wheels built from pyproject.toml, and
+"""Purpose: copy the MeTTa runtime into wheels built from pyproject.toml, and
   offer the wire codec as a compiled extension when a builder asks for one.
 Assumes:
   - PYMETTA_USE_MYPYC is unset for the wheel that ships, so the default build
@@ -117,7 +117,7 @@ def compiled_modules():
 # py3-none-any wheel can carry, because the engine GLOBS that directory on
 # every boot and EXTENDING.md tells an extension author "a backend is a file in
 # backends/". Without it the glob matches nothing, so the seam is simply absent
-# from an installed PeTTa and says so to nobody: expand_file_name/2 on a
+# from an installed MeTTa and says so to nobody: expand_file_name/2 on a
 # missing directory answers [] exactly as it does for a directory holding no
 # built backend. The files themselves are a dozen lines of Prolog that test for
 # their own artefact and load nothing when it is missing, which is the

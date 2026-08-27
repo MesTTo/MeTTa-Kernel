@@ -1,6 +1,6 @@
-# Extending PeTTa without forking it
+# Extending MeTTa without forking it
 
-PeTTa has nine extension points. You should not need to change the engine to
+MeTTa has nine extension points. You should not need to change the engine to
 add a feature, and you should not have to guess which mechanism to reach for.
 This page lists them in order of runtime cost, measured rather than asserted,
 and says what each one is actually for.
@@ -1056,10 +1056,10 @@ is compared answer by answer in order, and a twin that RAISES on a case
 requires the engine to answer nothing for it, which is the disagreement most
 worth catching: a reference with no answer and a fast side that invents one.
 
-### Building a fast library on PyPeTTa
+### Building a fast library on pymetta
 
 `op` is the extension point most people find first, and it is the
-slowest tier. If you are writing a library **on top of PyPeTTa** and its hot
+slowest tier. If you are writing a library **on top of pymetta** and its hot
 path is arithmetic, matching or list work, you do not have to pay for Python
 on every call. Ship Prolog and register it from Python:
 
@@ -2027,7 +2027,7 @@ that do not satisfy the predicate". Spark's DataSourceV2 draws the same line,
 as filters "that need to be evaluated after scanning" against those that do
 not. DataFusion's third rung, `Unsupported`, has no counterpart here: it exists
 because its planner decides whether to send a filter at all, and the pattern is
-the only thing a PeTTa provider is given.
+the only thing a MeTTa provider is given.
 
 A claim that is wrong costs answers, so `check_space_provider` tests it against
 your own output, matching every stored atom against itself and failing if a

@@ -102,7 +102,7 @@ grounded_name_case(and).
 grounded_name_case('sqrt-math').
 grounded_name_case('size-atom').
 grounded_name_case(superpose).       % a special form here, a token there
-grounded_name_case(nop).             % the same, since PeTTa's nop is variadic
+grounded_name_case(nop).             % the same, since MeTTa's nop is variadic
 grounded_name_case(match).
 grounded_name_case('add-atom').
 grounded_name_case('println!').
@@ -252,7 +252,7 @@ test(test_real_valued_math_treats_integer_and_float_operands_alike) :-
     'pow-math'(2, -2147483649, TooSmall),
     TooSmall == ['Error', ['pow-math', 2, -2147483649],
                  "power argument is too big, try using float value"],
-    %exp-math is PeTTa doctrine, not part of LeaTTa's floatUn table.
+    %exp-math is this engine's doctrine, not part of LeaTTa's floatUn table.
     'exp-math'(1, IntegerExp), 'exp-math'(1.0, FloatExp),
     IntegerExp =:= FloatExp.
 
@@ -395,7 +395,7 @@ test(control_exceptions_are_not_recontextualized) :-
 % SWI's own errors carry context(PI, _) with the second argument UNBOUND, so a
 % message clause that matched context(Operation, 'invalid MeTTa operation
 % argument') in its head BOUND that variable and then rendered every ordinary
-% type error in PeTTa's operation vocabulary. `X is foo+1` was reported as
+% type error in MeTTa's operation vocabulary. `X is foo+1` was reported as
 % "system:(is)/2: evaluable expected, found (/ foo 0)", naming an engine
 % internal and a culprit the program never wrote, which is exactly what an
 % extension author saw when their own predicate's is/2 refused a value.
@@ -422,7 +422,7 @@ test(a_metta_operation_error_still_names_the_operation) :-
 seam:grounded_type_names(_, _) :- plunit_break_type_bridge, throw(plunit_broken_bridge).
 
 % evalc's space argument selects the module the goals resolve in and nothing
-% else. PeTTa's eval is a full evaluation of compiled goals rather than
+% else. MeTTa's eval is a full evaluation of compiled goals rather than
 % minimal MeTTa's single rewriting step, and evalc keeps that, so the two
 % agree everywhere except which space's equations answer.
 :- begin_tests(metta_evalc,
@@ -1104,7 +1104,7 @@ test(every_registered_function_is_callable_or_a_special_form,
 
 %The tuple set operations remove by equality, not by unification. select/3
 %unified, so (subtraction-atom ($x) (a)) answered () and left $x bound to a
-%afterwards. PeTTa's formalisation removes with removeFirstEq, an == test:
+%afterwards. MeTTa's formalisation removes with removeFirstEq, an == test:
 %MeTTapedia/lean/mettapedia/leanPeTTa/StreamOps.lean.
 test(subtraction_keeps_an_unbound_element,
      [true(Out == [X])]) :-
@@ -2667,7 +2667,7 @@ test(a_nested_transaction_yields_every_solution_too) :-
 :- end_tests(transaction_answers).
 
 %The generated probe P1.7 and P1.8 ask for: every position the engine's own
-%type surface declares strict, on a builtin PeTTa defines, called with that
+%type surface declares strict, on a builtin MeTTa defines, called with that
 %position unbound and the rest filled. The table is guarded_input_position/3,
 %so this cannot go stale by hand: declaring a type for a new builtin adds a
 %row here in the same stroke.

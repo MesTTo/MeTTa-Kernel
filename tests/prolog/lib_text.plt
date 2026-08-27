@@ -314,9 +314,9 @@ test(scalars_decode_to_themselves) :-
     'json-decode'("\"plain\"", S), S == "plain",
     'json-decode'("42", N), N == 42.
 
-% PeTTa's booleans are lowercase, so JSON's literals map onto true/false
+% MeTTa's booleans are lowercase, so JSON's literals map onto true/false
 % rather than onto HE's capitalised spelling; the reader normalises True to
-% true anyway. Null has no PeTTa equivalent and stays as written.
+% true anyway. Null has no MeTTa equivalent and stays as written.
 test(the_three_literals_decode_to_pettas_own_atoms) :-
     'json-decode'("true", T), T == true,
     'json-decode'("false", F), F == false,

@@ -24,14 +24,14 @@ def _metta_python() -> Path:
     override = os.environ.get("METTA_PYTHON")
     candidates = [Path(override)] if override else [
         REPO / "python",
-        DEV / "PyPeTTa1" / "PeTTa" / "python",
-        DEV / "PeTTa" / "python",
+        DEV / "PyPeTTa1" / "MeTTa" / "python",
+        DEV / "MeTTa" / "python",
     ]
     for candidate in candidates:
         if (candidate / "metta" / "__init__.py").exists():
             return candidate
     raise RuntimeError(
-        "metta was not found; set METTA_PYTHON to a PeTTa checkout's "
+        "metta was not found; set METTA_PYTHON to a MeTTa checkout's "
         "python/ directory"
     )
 

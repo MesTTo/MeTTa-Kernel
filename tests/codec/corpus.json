@@ -2,7 +2,7 @@
   "version": 3,
   "grammar": "CODEC.md",
   "note": [
-    "The golden corpus for PeTTa's tagged wire codec. Hand-written from the",
+    "The golden corpus for MeTTa's tagged wire codec. Hand-written from the",
     "grammar in CODEC.md, not generated from any implementation, so passing it",
     "is evidence about an implementation rather than a restatement of one.",
     "Every value here was checked against the shipped codecs on 2026-08-20.",

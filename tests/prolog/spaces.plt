@@ -1886,7 +1886,7 @@ rule_case(higher_order, ["(= (fr-sq $x) (* $x $x))",
 % (empty) prunes the branch rather than answering something
 rule_case(empty, ["(= (fr-pos $x) (if (> $x 0) yes (empty)))"], "(fr-pos -1)").
 % The tutorial's own list spelling, and it is here because it once did not
-% work: `::` was briefly PeTTa's in-place type annotation, so (:: $x $xs) bound
+% work: `::` was briefly MeTTa's in-place type annotation, so (:: $x $xs) bound
 % $xs to the value's TYPE and the recursion did not terminate. The annotation
 % is plain `:`, told apart by position, and `::` is an ordinary constructor
 % like any other [source: metta-lang.dev/docs/learn, Recursion and control].

@@ -322,7 +322,7 @@ reported_scoped_type_answers(Space, X, Types) :-
                         'get-doc-space'(Space, Name, Doc).
 
 %Upstream's two-input operation. The unary overload above remains the raw-doc
-%convenience PeTTa already shipped; this arity is the formal family and follows
+%convenience MeTTa already shipped; this arity is the formal family and follows
 %the pinned stdlib equations field for field.
 'get-doc'(Space, _, _) :- var(Space), !,
                           refuse_unbound_input('get-doc', 1).

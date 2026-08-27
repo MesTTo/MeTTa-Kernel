@@ -1076,7 +1076,7 @@ compiled_predicate_arity(F, Module, Predicate, Arity) :-
 %[source: the language's Working with spaces].
 %
 %This reverses a deliberate earlier translation, recorded in
-%ai-todo-fast-libraries.md F11.3 as "HE's unit result `(->)` is PeTTa's `Bool`,
+%ai-todo-fast-libraries.md F11.3 as "HE's unit result `(->)` is MeTTa's `Bool`,
 %because every one of those operations answers `true`". That reasoning had the
 %direction backwards: it read the type off the implementation instead of
 %correcting the implementation to the type. The engine was already inconsistent

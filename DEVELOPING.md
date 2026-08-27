@@ -1,11 +1,11 @@
-# Developing PeTTa
+# Developing MeTTa
 
 Run commands in this guide from the repository root unless a command starts
 with `cd python`.
 
 ## Python environment
 
-PeTTa requires Python 3.11 or newer, SWI-Prolog 9.3 or newer, and a
+MeTTa requires Python 3.11 or newer, SWI-Prolog 9.3 or newer, and a
 `janus_swi` build linked against the installed SWI-Prolog library. Install the
 locked development environment with:
 

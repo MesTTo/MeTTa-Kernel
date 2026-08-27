@@ -2,7 +2,7 @@
 
 Source: `bindings/python/metta/atoms.py`.
 
-> Purpose: expose PeTTa atoms, the S/V/G factories, parsing, and matching.
+> Purpose: expose MeTTa atoms, the S/V/G factories, parsing, and matching.
 >
 > Guarantees:
 >   - order_key matches the engine's msort across every public atom kind,

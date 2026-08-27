@@ -528,7 +528,7 @@ metta_fixed_operation_effect(Name, Effect) :-
 %engine's existing reviewed primitive families, except for operations whose
 %answer cardinality is itself observable. The remaining named groups are the
 %interpreter profile proved by LeaTTa's Minimal/EffectSafety.lean, extended by
-%PeTTa's host bridges and operating-system doors.
+%MeTTa's host bridges and operating-system doors.
 %A backend's own builtin is reviewed by the backend, because the engine cannot
 %review a predicate it does not ship without naming it. The classification
 %arrives with the registration (seam:backend_builtin/2), so it is read here

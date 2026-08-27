@@ -45,7 +45,7 @@ Source: `bindings/python/metta/tables.py`.
 >     TEXT cell carrying the atom wire rather than the source parser [tested:
 >     test_a_row_value_becomes_an_atom_without_being_reparsed;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - a cell PeTTa wrote reads back as the atom it wrote, whatever the driver
+>   - a cell MeTTa wrote reads back as the atom it wrote, whatever the driver
 >     and the image catalog do to the database's own values: _is_atom_cell
 >     keeps the tag in the text domain, out of reach of a row_factory that
 >     adapts binary cells, and _ImageCodec answers it before any image

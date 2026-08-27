@@ -1,6 +1,6 @@
 # Pettorch
 
-Pettorch connects PyTorch to PeTTa through PeTTa's public integration surface. Arrays use `metta.arrays`, losses and optimizers use `metta.integrate`, and the package adds the behavior that is specific to PyTorch: autograd operations, module wrappers, training helpers, architecture reflection, and neural predicates.
+Pettorch connects PyTorch to MeTTa through this library's public integration surface. Arrays use `metta.arrays`, losses and optimizers use `metta.integrate`, and the package adds the behavior that is specific to PyTorch: autograd operations, module wrappers, training helpers, architecture reflection, and neural predicates.
 
 ## Install from the checkout
 
@@ -36,8 +36,8 @@ A wrapped PyTorch module lets MeTTa rules choose which model runs. `MettaModule`
 
 Reflection writes ordinary facts such as `nn-module`, `nn-child`, `nn-param`, `nn-param-shape`, and `nn-linear`. Rules can match model structure beside application facts.
 
-See the shared [`metta.arrays`](../reference/metta-arrays), [`metta.integrate`](../reference/metta-integrate), and [weighted relations](../reasoning/weighted-relations) pages for the PeTTa side of these seams.
+See the shared [`metta.arrays`](../reference/metta-arrays), [`metta.integrate`](../reference/metta-integrate), and [weighted relations](../reasoning/weighted-relations) pages for the MeTTa side of these seams.
 
 ## Repository status
 
-The audited pettorch checkout at commit `a501f6e` has no configured remote, and no separate public pettorch repository is currently available to link. The public [PeTTa repository](https://github.com/trueagi-io/PeTTa) describes pettorch as a sibling project. A pettorch URL should be added here only after that checkout has an actual public remote.
+The audited pettorch checkout at commit `a501f6e` has no configured remote, and no separate public pettorch repository is currently available to link. The public [MeTTa repository](https://github.com/trueagi-io/PeTTa) describes pettorch as a sibling project. A pettorch URL should be added here only after that checkout has an actual public remote.

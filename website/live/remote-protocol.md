@@ -9,7 +9,7 @@ Guarantees: comparisons distinguish eager core queries from remote satellite str
 `metta.remote.serve()` exposes spaces over HTTP and `attach()` consumes
 them, and the wire between them is small enough to implement in an
 afternoon in any language. This page is the contract for the other end:
-what a server must answer so that `(match &yours ...)` in a PeTTa
+what a server must answer so that `(match &yours ...)` in a MeTTa
 program reaches atoms your process holds.
 
 Two reference implementations ship in the repository under
@@ -134,7 +134,7 @@ server takes `--cursor-idle` and `--cursor-limit`.
 the contract fixes is the shape that makes deferring possible, so that
 a client can rely on it: a store holding ten atoms in an array has
 nothing to defer, and a gateway over a real query engine has everything
-to. PeTTa's own gateway defers: each cursor is an SWI engine holding the
+to. MeTTa's own gateway defers: each cursor is an SWI engine holding the
 join's state between pulls, so taking two answers costs two answers'
 work. Measured 2026-08-20 over real HTTP, 1,250 inferences for two
 answers whether the enumeration held ten or ten thousand, against 1,839
@@ -187,7 +187,7 @@ before writing the parsing half of a server; everything below is the
 HTTP half, which is this page's own.
 
 Two of its rules bite a gateway in particular, both about answering a
-different atom than the one you were given. PeTTa's numbers are exact at
+different atom than the one you were given. MeTTa's numbers are exact at
 any width, so a server whose JSON parser rounds past 2^53 must refuse
 the payload; the reference implementation answers 400 naming the
 literal. And an integer and a float are different atoms even at the same

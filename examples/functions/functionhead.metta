@@ -7,7 +7,7 @@
 ;we want to constrain an argument to be the return value of a function call:
 ;(see invertfunction.metta now to see that in pure form)
 (= (h_old $A $C)
-   (if (= $A (myfunc (10) $B)) ;= is also unification in PeTTa
+   (if (= $A (myfunc (10) $B)) ;= is also unification in MeTTa
        ($B $C)
        (empty)))
 

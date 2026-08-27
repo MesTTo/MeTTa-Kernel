@@ -38,7 +38,7 @@
 % Guarded by: '$metta_support_graph' serializes graph replacement,
 %   invalidation, stabilization and cleanup; support_graph_locked/0 makes
 %   callbacks into graph cleanup re-entrant in the owning thread.
-% Decides: PeTTa uses demand-driven support graphs with eager dirtiness and a
+% Decides: MeTTa uses demand-driven support graphs with eager dirtiness and a
 %   stabilization cutoff. Edges are stored supports(Support, Derived), so a
 %   mutation walks only the affected forward subgraph.
 % Open Obligations:

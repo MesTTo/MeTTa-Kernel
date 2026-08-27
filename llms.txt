@@ -1,4 +1,4 @@
-# PeTTa
+# MeTTa
 
 > MeTTa, Hyperon's AGI language, implemented in SWI-Prolog, with `metta` as its
 > Python surface. Atoms are Python values, spaces are queryable stores,

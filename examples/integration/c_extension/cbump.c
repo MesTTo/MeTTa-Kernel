@@ -1,7 +1,7 @@
 #include <SWI-Prolog.h>
 
 /* c-bump(+X, -Y) : Y is X + 1, following the compiled calling convention
-   PeTTa uses, inputs first and one output last. */
+   MeTTa uses, inputs first and one output last. */
 static foreign_t pl_c_bump(term_t x, term_t y)
 { int64_t v;
   if ( !PL_get_int64_ex(x, &v) ) return FALSE;

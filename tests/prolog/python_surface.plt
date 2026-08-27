@@ -164,7 +164,7 @@ test(a_python_object_is_typed_without_the_python_library) :-
 % bind! is a TOKEN registration, which is what the specification says it is:
 % "registers a new token which is replaced with an atom during the parsing of
 % the rest of the program" [source: metta-lang-docs/corelib-stdlib-reference.md].
-% PeTTa's bind! accepted only (new-state V) and FAILED SILENTLY on anything
+% MeTTa's bind! accepted only (new-state V) and FAILED SILENTLY on anything
 % else, so the language's own idiom could not work.
 test(a_bound_token_is_substituted_into_later_forms,
      [ cleanup(retractall(metta_token(_, _))) ]) :-
@@ -187,7 +187,7 @@ test(a_token_bound_to_a_callable_is_applied,
     process_metta_string("!(collapse (plunit-abs -5))", Answer),
     assertion(Answer == [[5]]).
 
-% The state form binds no token, because PeTTa models a state cell by NAME and
+% The state form binds no token, because MeTTa models a state cell by NAME and
 % substituting the name away would take get-state with it.
 test(the_state_form_still_makes_a_state_cell,
      [ cleanup(retractall(metta_token(_, _))) ]) :-

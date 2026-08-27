@@ -1,4 +1,4 @@
-"""Purpose: derive PeTTa's policy inventory from the running ``&metta``
+"""Purpose: derive MeTTa's policy inventory from the running ``&metta``
 catalog, join every row to its implementation seam, and reject closed policy
 lists that bypass both the catalog and the four explicit exemption reasons.
 

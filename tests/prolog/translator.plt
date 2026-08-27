@@ -2718,7 +2718,7 @@ test(a_colon_pattern_still_matches_stored_type_atoms,
 %THE THIRD COLLISION, and the reason the spelling is `:` rather than `::`.
 %`::` is what metta-lang.dev's tutorials use as an ordinary cons constructor,
 %in (= (length (:: $x $xs)) (+ 1 (length $xs))) and every list example after
-%it. While `::` was the annotation, a reader following those against PeTTa got
+%it. While `::` was the annotation, a reader following those against MeTTa got
 %$xs bound to the value's TYPE and a recursion that did not terminate: the
 %annotation quietly reinterpreted their data constructor.
 %
