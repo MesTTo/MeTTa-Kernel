@@ -1640,6 +1640,17 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The reduced-platform child's withhold reached the LOADER only. SWI's autoload
+  index is a cache of absolute paths, built on the first autoloaded call and
+  re-read at most once a minute, and the child's own `member/2` builds it
+  before the search paths are repointed. So a withheld library stayed callable
+  through the cached path while `use_module/1` could no longer find it, and the
+  child boot file's guarantee that `call_with_time_limit/2` is undefined there
+  was false: with pcre and zlib withheld, `call_with_time_limit/2` and
+  `concurrent_and/2` both resolved and `re_compile/3` ran. The child drops the
+  three cached facts after repointing, so the next autoload rebuilds the index
+  from the farms and the absence is real at call time as well as at load time.
+
 - **The Node binding mounts each backend's control file rather than the whole
   `backends/` tree, so a built checkout can boot it.** `boot()` copied every
   directory in `ENGINE_DIRS` into the WebAssembly image recursively, and
