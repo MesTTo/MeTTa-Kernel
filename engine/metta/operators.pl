@@ -589,7 +589,7 @@ metta_numeric_list(List) :- is_list(List), List \== [], maplist(number, List).
 %Both are always-loaded corelib operations rather than library ones, because
 %the arbiter's corpus calls them with no import
 %[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean, the corelib blocks].
-%They used to live in lib/lib_string.pl, where a program reached them only
+%They used to live in lib/lib_string/lib_string.pl, where a program reached them only
 %through (import! &self (library lib_string)) and where the formatter was a
 %plain {}-substitution rather than upstream's.
 %
@@ -698,7 +698,7 @@ superpose(L,X) :- member(X,L).
 empty(_) :- fail.
 
 %%% Lists / Tuples: %%%
-%The tail's declared type is Expression [source: lib/lib_builtin_types.metta,
+%The tail's declared type is Expression [source: lib/lib_builtin_types/lib_builtin_types.metta,
 %(: cons-atom (-> Atom Expression Atom))], and the arbiter refuses a tail that
 %is not one rather than building a term it could not print
 %[source: LeaTTa MettaHyperonFull/Core/Builtins.lean, Builtins.consAtom;
@@ -752,7 +752,7 @@ empty(_) :- fail.
 %vanishing: (chain (decons-atom ()) $l TEMPLATE) never runs its template and
 %the branch after it is unreachable. That cost the specification's own Turing
 %machine both of its blank-cell arms and mm-switch its "no case matched" arm,
-%and nothing in either program said why [source: lib/minimal_metta_lib.metta,
+%and nothing in either program said why [source: lib/minimal_metta_lib/minimal_metta_lib.metta,
 %recorded there as C1b and C1d].
 %
 %The shape is the reference implementation's, because MeTTa had no considered

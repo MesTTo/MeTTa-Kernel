@@ -16,7 +16,7 @@
 %%% Representation and parsing conversions: %%%
 id(X, X).
 %noeval is the Atom mask on both sides: the declaration in
-%lib/lib_builtin_types.metta stops the argument being reduced on the way in and
+%lib/lib_builtin_types/lib_builtin_types.metta stops the argument being reduced on the way in and
 %its Atom return type stops the answer being reduced on the way out, so the
 %body is the identity and the types are the whole implementation. That is how
 %the reference defines it [source: metta-lang-docs, types_basics/metatypes:

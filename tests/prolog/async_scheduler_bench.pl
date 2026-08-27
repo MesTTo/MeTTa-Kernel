@@ -1,7 +1,7 @@
 % Purpose: compare cheap spawn latency and parked-wait thread cost between the
 %   dedicated-thread future face and the suspended-engine M:N scheduler.
 % Assumes:
-%   - run from a MeTTa checkout root so engine/metta.pl and lib/lib_thread.pl
+%   - run from a MeTTa checkout root so engine/metta.pl and lib/lib_thread/lib_thread.pl
 %     select that checkout's implementation.
 % Guarantees:
 %   - every parked worker announces readiness through a channel before thread
@@ -13,7 +13,7 @@
 %     waits make the dedicated-thread and M:N resource shapes distinguishable.
 
 :- ensure_loaded('engine/metta.pl').
-:- initialization(consult('lib/lib_thread.pl')).
+:- initialization(consult('lib/lib_thread/lib_thread.pl')).
 :- initialization(
        process_metta_string("!(import! &self (library lib_thread))
                              (= (bench-wait $ready $n)

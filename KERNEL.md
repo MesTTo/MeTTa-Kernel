@@ -71,7 +71,7 @@ measured.
 | `progn` | derived, fused | `(let $_ $a $b)` chained. The rule form measured 188 compile-time inferences against 150 and adds one `unify_with_occurs_check/2` goal per call that the fused form does not emit [measured 2026-08-19] |
 | `prog1` | derived, fused | `(let $r $a (let $_ $b $r))`. 205 against 146, and two extra goals a call [measured 2026-08-19] |
 | `nop` | derived, fused | `progn`'s other half, `(let $_ $a (let $_ $b ()))`, and fused for `progn`'s reason: it takes any arity and a translator rule has a fixed one. Upstream cannot write it in MeTTa at all, says so at `stdlib.metta:608-609` and grounds it in Rust instead |
-| `once` | derived, fused | `(take 1 $e)` is the MeTTa spelling, and it answers the same thing over the whole corpus, 206 files with every answer group identical. It compiles to `metta_take/2` where the fused form compiles to Prolog's `once/1`, which costs 2 inferences a CALL: 454,152 against 354,122 over a 50,000-call loop, +28%, and 73 compile-time inferences against 36 [measured 2026-08-19]. The rule ships in `lib/lib_derived.metta` for a program that wants the smaller instruction set anyway |
+| `once` | derived, fused | `(take 1 $e)` is the MeTTa spelling, and it answers the same thing over the whole corpus, 206 files with every answer group identical. It compiles to `metta_take/2` where the fused form compiles to Prolog's `once/1`, which costs 2 inferences a CALL: 454,152 against 354,122 over a 50,000-call loop, +28%, and 73 compile-time inferences against 36 [measured 2026-08-19]. The rule ships in `lib/lib_derived/lib_derived.metta` for a program that wants the smaller instruction set anyway |
 | `take` | core, divergence | a bounded take over a generator, with a `match` special case that pushes the bound into the space query |
 | `top` | core, divergence | the same, ordered |
 | `test` | core, divergence | the corpus's own verdict form; needs the answer LIST unpruned, which `collapse` cannot give |
@@ -188,7 +188,7 @@ expressiveness. Each one's rule emits a goal the fused clause does not, and
 the numbers are beside them.
 
 `once` is the one whose rule is COMPLETE, since it has a single arity, so it
-ships in `lib/lib_derived.metta` and a program that wants the smaller
+ships in `lib/lib_derived/lib_derived.metta` and a program that wants the smaller
 instruction set imports it and pays the two inferences a call.
 `examples/ch20-extending-the-engine/20-01-translator-rules/08-derived_forms.metta` runs the swap and the swap back.
 `progn`, `prog1` and `nop` are variadic and a translator rule has a fixed

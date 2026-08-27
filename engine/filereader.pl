@@ -158,7 +158,7 @@
 %     concern, and three of the 4.006 a plain form costs are those walks
 %     [measured 2026-08-18: 60,024 inferences over 20,001 forms]. One merged
 %     walk would collect all three, but acquire_declared_dependencies/1
-%     belongs to lib/lib_gitimport.pl and takes the form list itself, so
+%     belongs to lib/lib_gitimport/lib_gitimport.pl and takes the form list itself, so
 %     merging changes a library's interface; left alone here for that reason.
 
 %The loader's surface: what the engine core asks of it, what a write records
@@ -254,7 +254,7 @@
 %without declaring THAT one, so it too resolves by global autoload today
 %[measured 2026-08-18: examples/ch08-data/08-03-the-shipped-libraries/04-regex_lib.metta under
 %NO_AUTOLOAD=1, existence_error(procedure,pcre:option/2)]. Same trap as
-%ugraphs.pl and clpb.pl (lib/lib_constraints.pl has both), same fix.
+%ugraphs.pl and clpb.pl (lib/lib_constraints/lib_constraints.pl has both), same fix.
 :- pcre:use_module(library(option), [option/2]).
 :- use_module(library(zlib)). % gzopen/3, .gz program files
 :- use_module(library(fastrw), [fast_read/2, fast_write/2]). % the fast cache

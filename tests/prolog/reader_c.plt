@@ -178,7 +178,7 @@ stress_source(Lambda) :-
 test(every_shipped_source_parses_identically_through_both_readers) :-
     expand_file_name('../../examples/*/*.metta', Fs1),
     expand_file_name('../../examples/*/*/*.metta', Fs2),
-    expand_file_name('../../lib/*.metta', Fs3),
+    expand_file_name('../../lib/*/*.metta', Fs3),
     append([Fs1, Fs2, Fs3], Fs0),
     msort(Fs0, Fs),
     length(Fs, N),
@@ -229,7 +229,7 @@ test(number_conversion_agrees_with_the_prolog_reader) :-
 test(the_parse_summary_agrees_with_the_prolog_walks) :-
     expand_file_name('../../examples/*/*.metta', Fs1),
     expand_file_name('../../examples/*/*/*.metta', Fs2),
-    expand_file_name('../../lib/*.metta', Fs3),
+    expand_file_name('../../lib/*/*.metta', Fs3),
     append([Fs1, Fs2, Fs3], Fs0),
     msort(Fs0, Fs),
     length(Fs, N),

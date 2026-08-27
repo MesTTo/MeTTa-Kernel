@@ -94,7 +94,7 @@
 
 %Constructive negation. Two builtins, the two goals the translator emits for
 %a negated call, the two questions it asks while compiling one, and the
-%comparison dual lib/lib_constraints.pl reads. The dual generator, the domain
+%comparison dual lib/lib_constraints/lib_constraints.pl reads. The dual generator, the domain
 %complement and the freeze/dif machinery are this subsystem's own
 %[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
 :- module(duals,
@@ -1244,7 +1244,7 @@ body_true(Expr, Goal) :-
 %What the generator narrows a variable TO belongs in the answer rather than
 %being quantified away. That is what MeTTa's own collapse-bind says an answer
 %is, one (value, bindings) pair per alternative [source:
-%lib/minimal_metta_lib.pl, and LeaTTa's ReduceResult.okBind], and it is the
+%lib/minimal_metta_lib/minimal_metta_lib.pl, and LeaTTa's ReduceResult.okBind], and it is the
 %constrained-answer framework this file already works in. So: collect the
 %narrowings, answer once per DISTINCT one with the dual quantified over just
 %that narrowing's values, and once more for the terms the generator narrows to
@@ -1361,7 +1361,7 @@ flatten_goals([G|Gs], Out) :-
 
 %A dual is a compiled summary of a function's equations, so it is stale the
 %moment they change. This is the hook the memo tables already use, for the
-%same reason [source: lib/lib_memo.pl, seam:function_changed/1].
+%same reason [source: lib/lib_memo/lib_memo.pl, seam:function_changed/1].
 %
 %Installed on the first dual rather than on load. The hook runs once per
 %compiled equation, so a resident handler is a tax on every program that

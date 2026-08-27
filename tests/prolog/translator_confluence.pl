@@ -75,7 +75,7 @@
 %       puts its ==> operator in `user` at priority 800. SWI's own ==> is the
 %       single-sided-unification rule operator at 1200, and no Prolog file in
 %       this tree writes one; the only other ==> is MeTTa data in
-%       lib/lib_nars.metta, which the character-level parser in engine/parser.pl
+%       lib/lib_nars/lib_nars.metta, which the character-level parser in engine/parser.pl
 %       reads without consulting Prolog's operator table [measured 2026-08-19].
 %     - a MeTTa expression is a proper list, so (f a b) has a first-order term
 %       reading f(a,b). expr_term/2 raises rather than guessing on anything
@@ -711,8 +711,8 @@ load_engine :-
     retractall(user:silent(_)),
     assertz(user:silent(true)).
 
-shipped_library('../../lib/lib_patrick.metta').
-shipped_library('../../lib/lib_spaces.metta').
+shipped_library('../../lib/lib_patrick/lib_patrick.metta').
+shipped_library('../../lib/lib_spaces/lib_spaces.metta').
 
 translator_confluence_report :-
     load_engine,

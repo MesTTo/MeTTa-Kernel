@@ -9,9 +9,9 @@
 %   Future Enhancements: None
 
 :- ensure_loaded('../../engine/metta.pl').
-:- initialization(consult('../../lib/lib_string.pl')).
-:- initialization(consult('../../lib/lib_file.pl')).
-:- initialization(consult('../../lib/lib_json.pl')).
+:- initialization(consult('../../lib/lib_string/lib_string.pl')).
+:- initialization(consult('../../lib/lib_file/lib_file.pl')).
+:- initialization(consult('../../lib/lib_json/lib_json.pl')).
 
 :- begin_tests(lib_string).
 

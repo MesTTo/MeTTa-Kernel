@@ -140,12 +140,12 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
         "annotations", "bool", "engine/metta/effects.pl", r"^metta_k_extend\("
     ),
     "storage": PolicySeam(
-        "config-memoize", "wtinylfu", "lib/lib_memo.pl", r"^memo_strategy\(wtinylfu\)"
+        "config-memoize", "wtinylfu", "lib/lib_memo/lib_memo.pl", r"^memo_strategy\(wtinylfu\)"
     ),
     "caching": PolicySeam(
         "cache",
         "automatic",
-        "lib/lib_memo.pl",
+        "lib/lib_memo/lib_memo.pl",
         r"^memo_automatic_function_decision\(",
     ),
     "typing": PolicySeam(

@@ -22,7 +22,7 @@
 ; own declarations, so a user redeclaration wins.
 ;
 ; The forms are Hyperon's standard vocabulary, promoted from
-; lib/lib_he.metta by the same route unify, add-reduct, add-atoms,
+; lib/lib_he/lib_he.metta by the same route unify, add-reduct, add-atoms,
 ; add-reducts and evalc took before them: standard library operations
 ; rather than compatibility shims, and a program should not have to
 ; import anything to reach them. The equations ARE the executable spec;
@@ -162,7 +162,7 @@
    (assertAlphaEqualToResult $A $B))
 
 ;Minimal MeTTa's three frame/carrier instructions are engine vocabulary. Their
-;Prolog bodies live in lib/minimal_metta_lib.pl because a function frame needs
+;Prolog bodies live in lib/minimal_metta_lib/minimal_metta_lib.pl because a function frame needs
 ;a bounded evaluation loop and collapse-bind must retain branch bindings.
 ;These declarations precede every equation whose RHS is a function frame so
 ;the form is held and entered as a frame instead of being compiled as a call.
@@ -304,7 +304,7 @@
 ;matched the literal &self and answered nothing for any named space.
 
 ;These two declarations are HERE rather than only in
-;lib/lib_builtin_types.metta because this is the register the CALL SITE
+;lib/lib_builtin_types/lib_builtin_types.metta because this is the register the CALL SITE
 ;reads. Asking for a type is a question about an expression, and the
 ;engine was answering it by running the expression first: an op that
 ;appends to a Python list fired on (get-type (metta-effectful)) and the

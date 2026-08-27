@@ -23,8 +23,8 @@ SOURCE_PATHS = [
     *(REPO / "bindings" / "python" / "examples").rglob("*.py"),
     *(REPO / "bindings" / "python" / "metta").glob("*.py"),
     *(REPO / "bindings" / "python" / "tests").glob("*.py"),
-    REPO / "lib" / "lib_measure.metta",
-    REPO / "lib" / "lib_soft.metta",
+    REPO / "lib" / "lib_measure" / "lib_measure.metta",
+    REPO / "lib" / "lib_soft" / "lib_soft.metta",
 ]
 FENCE = re.compile(r"^```[^\n]*\n(.*?)^```\s*$", re.MULTILINE | re.DOTALL)
 SHA256 = re.compile(r"[0-9a-f]{64}")

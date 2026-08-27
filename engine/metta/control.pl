@@ -827,7 +827,7 @@ rewrite_parsed_form(Space, FormStr, Term, Rewritten) :-
 %engine see different cells. Dynamic assertions are equally non-backtrackable
 %and visible to both engines. This also keeps the NAMED form working unchanged:
 %a plain symbol is a cell name too, so `(change-state! &openai_client V)` in
-%lib/lib_llm.metta still writes a cell nothing allocated, and the two spellings
+%lib/lib_llm/lib_llm.metta still writes a cell nothing allocated, and the two spellings
 %are one implementation rather than two.
 %
 %DIVERGENCE, measured and recorded rather than closed: the arbiter RENDERS a

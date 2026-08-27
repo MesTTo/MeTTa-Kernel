@@ -3,7 +3,7 @@
 %   network. The suite ran on every push and cloned github each time.
 % Assumes:
 %   - git is on PATH, which git-import! already requires
-%     [source: lib/lib_gitimport.pl, git_process/5]
+%     [source: lib/lib_gitimport/lib_gitimport.pl, git_process/5]
 % Guarantees:
 %   - the path it answers is a git repository whose HEAD holds fixture.metta,
 %     and no earlier checkout of it survives the call

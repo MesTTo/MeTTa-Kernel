@@ -27,7 +27,7 @@
 %   Future Enhancements: None
 
 :- ensure_loaded('../../engine/metta.pl').
-:- initialization(consult('../../lib/lib_tabling.pl')).
+:- initialization(consult('../../lib/lib_tabling/lib_tabling.pl')).
 
 % Real MeTTa functions, defined the way a program defines them, because the
 % declaration resolves the name to a compiled predicate and refuses one that

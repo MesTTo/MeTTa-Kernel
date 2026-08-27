@@ -191,10 +191,10 @@ every_seam_declares_one_kind :-
 % one provider's request and may cut after its ownership test, while an EVENT
 % or DECLARATION seam has every clause read and a cut in one of them silently
 % disables every clause loaded after it. Only the second kind is checked,
-% which is what makes the rule usable: lib/lib_redis.pl's cuts are correct
+% which is what makes the rule usable: lib/lib_redis/lib_redis.pl's cuts are correct
 % and stay.
 %
-% lib/lib_tabling.pl cut after metta_tabling_declared, a global condition
+% lib/lib_tabling/lib_tabling.pl cut after metta_tabling_declared, a global condition
 % rather than an ownership test. With tabling declared, engine/duals.pl's
 % invalidation handler was ordered after it and never ran, so a changed
 % function kept a stale dual and (not-provable (pq 2)) answered True and
@@ -249,7 +249,7 @@ source_scan_sees_a_planted_cut :-
 
 hook_source_file(File) :-
     member(Pattern, ['../../engine/*.pl', '../../engine/*/*.pl',
-                     '../../lib/*.pl', '../../bindings/python/metta/*.pl',
+                     '../../lib/*/*.pl', '../../bindings/python/metta/*.pl',
                      '../../backends/mork/mork_ffi/*.pl']),
     expand_file_name(Pattern, Files),
     member(File, Files).
@@ -301,7 +301,7 @@ source_stream_term(Stream, Term) :-
 %%%% No cut in a live hook clause %%%%
 %
 % The source scan reads every clause a file writes, including one a directive
-% asserts, and that is still not all of them. lib/lib_thread.pl installs a
+% asserts, and that is still not all of them. lib/lib_thread/lib_thread.pl installs a
 % seam:atom_added/2 handler from inside space_await_/4, Python
 % subscriptions install their own, and a body built at run time is in no file
 % to read. So the same rule is applied a second way, to the clauses that are
@@ -348,7 +348,7 @@ no_cut_in_a_live_hook_clause :-
     ).
 
 library_source(Library) :-
-    expand_file_name('../../lib/*.pl', Files),
+    expand_file_name('../../lib/*/*.pl', Files),
     member(Library, Files).
 
 % A scan that finds nothing and a scan that looks at nothing print the same
@@ -437,7 +437,7 @@ engine_source('../../engine/parser.pl').
 engine_source('../../engine/translator.pl').
 engine_source('../../engine/specializer.pl').
 engine_source('../../engine/filereader.pl').
-engine_source('../../lib/lib_gitimport.pl').
+engine_source('../../lib/lib_gitimport/lib_gitimport.pl').
 engine_source('../../engine/spaces.pl').
 engine_source('../../engine/tracer.pl').
 engine_source('../../engine/metta.pl').
@@ -650,7 +650,7 @@ corpus_equation_body(Body) :-
 % the program's own: it resolves in the program's space deliberately, and
 % protecting its name would be refusing the feature. In a compiled body it is
 % indistinguishable from one the translator wrote, so the equations that use
-% the hatch are skipped whole. lib/lib_tabling.metta is the shipped instance,
+% the hatch are skipped whole. lib/lib_tabling/lib_tabling.metta is the shipped instance,
 % and open_string/2 and load_files/2 reach compiled bodies through it
 % [measured 2026-08-19].
 writes_a_raw_prolog_goal(Form) :-

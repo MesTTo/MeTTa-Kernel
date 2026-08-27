@@ -195,12 +195,12 @@
 %
 %The cut rule follows from the kind rather than being a second list to keep.
 %In an OWNERSHIP seam a clause guarded by a test that establishes "this
-%request is mine" may cut freely, and lib/lib_redis.pl does:
+%request is mine" may cut freely, and lib/lib_redis/lib_redis.pl does:
 %redis_space_conn(Space, _) fails for a space redis does not own, so a later
 %provider's clauses are untouched, and the cut is a real optimisation there.
 %In an EVENT or DECLARATION seam every clause must stay reachable, so a cut
 %prunes that predicate's remaining clauses and silently disables every handler
-%loaded after it. lib/lib_tabling.pl cut after metta_tabling_declared, a
+%loaded after it. lib/lib_tabling/lib_tabling.pl cut after metta_tabling_declared, a
 %GLOBAL CONDITION rather than an ownership test: nothing about it says this
 %handler is the one that should answer. With tabling declared, duals.pl's
 %invalidation handler (asserted last, so ordered last) never ran and
@@ -428,7 +428,7 @@ kind(foreign_remove/3, ownership).
 kind(foreign_atoms/2, ownership).
 %Clear was the sixth of these all along and was declared nowhere: it lived in
 %bindings/python/metta/shim.pl, so a Prolog provider that implemented clear, as
-%lib/lib_redis.pl does, was reachable only when Python was in the process.
+%lib/lib_redis/lib_redis.pl does, was reachable only when Python was in the process.
 :- multifile foreign_clear/1.
 kind(foreign_clear/1, ownership).
 
@@ -1109,9 +1109,9 @@ kind(metta_symbol_writable/1, service).
 %with a caller outside the engine already. metta_requires/1 is the DECLARATION
 %a Prolog library writes at its top, read out of the source before the source
 %runs, so a library that cannot work on this build never loads;
-%lib/lib_thread.pl carries one. metta_require_platform/2 is the runtime guard a
+%lib/lib_thread/lib_thread.pl carries one. metta_require_platform/2 is the runtime guard a
 %library or a compiled body calls before doing work the platform cannot
-%support; lib/lib_gitimport.pl calls it and the compiler emits it into both
+%support; lib/lib_gitimport/lib_gitimport.pl calls it and the compiler emits it into both
 %(hyperpose ...) branches, which is why it is also a seam:engine_emitted/1
 %name.
 kind(metta_requires/1, service).
@@ -1133,7 +1133,7 @@ kind(metta_unwritable_symbol/2, service).
 %pair together).
 kind(metta_shape_route/5, service).
 %The event-capability door, for an extension that BLOCKS on a context's
-%changes rather than merely observing them: lib/lib_thread.pl's Linda pair
+%changes rather than merely observing them: lib/lib_thread/lib_thread.pl's Linda pair
 %parks a caller until an atom arrives, and parking on a context that
 %promises no events is a hang rather than a wait. Throws naming the context
 %and the caller's own word for what it wanted to do; succeeds silently for a
@@ -1141,7 +1141,7 @@ kind(metta_shape_route/5, service).
 %[tested: test_a_blocking_take_waits_for_a_matching_atom_and_removes_exactly_one].
 kind(metta_require_events/2, service).
 %The routing classifier and the capability probe, consulted by
-%lib/lib_conformance.pl: published for extensions, no longer part of the
+%lib/lib_conformance/lib_conformance.pl: published for extensions, no longer part of the
 %host transport's own list.
 kind(foreign_pushdown_class/3, service).
 kind(foreign_provides/2, service).
@@ -1188,10 +1188,10 @@ kind(current_metta_space/1, service).
 kind(metta_space_name/1, service).
 
 %EVALUATION IN A SPACE. space_module/2 above names the module a space compiles
-%into; this is what a library names it FOR. lib/lib_thread.pl runs a MeTTa
+%into; this is what a library names it FOR. lib/lib_thread/lib_thread.pl runs a MeTTa
 %expression on a worker thread eight different ways and every one of them
 %goes through here, because a thread inherits no context and the module has to
-%travel with the expression [source: lib/lib_thread.pl, par_map_/4 and its
+%travel with the expression [source: lib/lib_thread/lib_thread.pl, par_map_/4 and its
 %siblings].
 kind(eval_metta_in_module/3, service).
 
@@ -1199,7 +1199,7 @@ kind(eval_metta_in_module/3, service).
 %above. This is the other: which module a native space's atoms live in, which
 %functor answers them, and what clause one atom becomes. Published as a group
 %because a library that pre-generates a space's storage needs all three at
-%once and must use the SAME spelling add-atom uses -- lib/lib_import.pl
+%once and must use the SAME spelling add-atom uses -- lib/lib_import/lib_import.pl
 %converts a data file to Prolog facts ahead of time, and a second spelling of
 %the format would load clauses the space could never read, which is the defect
 %that file's own header records. ensure_native_storage_module/2 is the
@@ -1209,7 +1209,7 @@ kind(native_storage_functor/2, service).
 kind(ensure_native_storage_module/2, service).
 kind(native_atom_clause/3, service).
 %The match a foreign provider answers, published for the library that CHECKS
-%providers: lib/lib_conformance.pl runs a provider's own atoms back through it
+%providers: lib/lib_conformance/lib_conformance.pl runs a provider's own atoms back through it
 %to prove the over-approximation contract holds. match_foreign/5 is the host
 %transport's arity and is a host_service above; this is the four-argument
 %engine-side call an extension makes.
@@ -1242,7 +1242,7 @@ kind(recompile_function_impl/1, service).
 %engine/support_graph.pl (support_invalidation_action/1 and four more), so an
 %extension can already be CALLED by the graph; these are the three calls it
 %makes back to take part -- record an edge, invalidate from a changed input,
-%and drop a node. Declaring only the inbound half is what left lib/lib_memo.pl
+%and drop a node. Declaring only the inbound half is what left lib/lib_memo/lib_memo.pl
 %reaching into the graph's internals to do the outbound one.
 kind(support_record/2, service).
 kind(support_invalidate/1, service).
@@ -1257,7 +1257,7 @@ kind(parsed_form_parts/4, service).
 %Where a relative path resolves from. The bare working_dir/1 has a clause only
 %while a .metta load is active, so a library that reads a file from anywhere
 %else simply failed with no answer and no error; this is the one that falls
-%back to the process directory [source: lib/lib_import.pl, 'static-import!'/3].
+%back to the process directory [source: lib/lib_import/lib_import.pl, 'static-import!'/3].
 kind(current_working_dir/1, service).
 %Membership in a declared vocabulary, the question every consulting site asks.
 %A library validating its own option against a vocabulary the catalog declares
@@ -1265,7 +1265,7 @@ kind(current_working_dir/1, service).
 %accepted without editing the library.
 kind(metta_vocabulary_value/2, service).
 %The import lifecycle's marker. A library that performs an import of its own
-%(lib/lib_gitimport.pl's git-import!) has to run under the same marker, or a
+%(lib/lib_gitimport/lib_gitimport.pl's git-import!) has to run under the same marker, or a
 %failed load leaves behind the clauses the engine would have erased.
 kind(run_with_loading_marker/2, service).
 %The third error-vocabulary service, beside the two above. engine/kernel.pl's

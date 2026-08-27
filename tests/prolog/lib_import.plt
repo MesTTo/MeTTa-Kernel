@@ -19,7 +19,7 @@
 %   Future Enhancements: None
 
 :- ensure_loaded('../../engine/metta.pl').
-:- initialization(consult('../../lib/lib_import.pl')).
+:- initialization(consult('../../lib/lib_import/lib_import.pl')).
 
 % One form per line, no comments, no escapes and no runs of spaces were the
 % four assumptions the line-by-line converter made and the format does not

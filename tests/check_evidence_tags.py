@@ -106,8 +106,8 @@ from evidence_runners import ROOT, Execution, executed, prolog_loads
 
 SOURCES = (
     "engine/*.pl",
-    "lib/*.pl",
-    "lib/*.py",
+    "lib/*/*.pl",
+    "lib/*/*.py",
     "bindings/python/metta/*.py",
     "bindings/python/metta/*.pl",
     "bindings/python/examples/*.py",

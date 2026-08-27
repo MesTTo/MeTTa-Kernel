@@ -707,6 +707,18 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **Every shipped library has its own directory, MeTTa beside Prolog.**
+  `lib/` was a flat alphabetical listing of nearly sixty files in which
+  `lib_memo.metta`, `lib_memo.pl` and `lib_memo_doc.md` sat far apart and
+  nothing said they were one library. They are `lib/lib_memo/` now, and a
+  library is the folder. The resolver does the work: a module spec with no
+  directory component gets one, so `(library lib_roman)` reaches
+  `lib/lib_roman/lib_roman` and `library('lib_builtin_types.metta', P)` reaches
+  `lib/lib_builtin_types/lib_builtin_types.metta`, while a spec that already
+  names a directory is taken as written, which is what keeps the engine's own
+  `builtin_mods/skel.metta` shipped-module spelling working unchanged. Nothing
+  a PROGRAM writes changes: `!(import! &self (library lib_roman))` is the same
+  line it was.
 - **`examples/` is organised by reading order rather than by topic, and the
   order is in the path.** The thirteen topic folders (`basics/`, `control/`,
   `spaces/`, …) become twenty numbered chapter directories following the

@@ -260,7 +260,7 @@ engine_predicate(Name/Arity) :-
 %module system rather than a second reading of the declaration table
 %[measured 2026-08-22: asking the engine's module alone reported
 %support_forget/1, support_invalidate/1 and support_record/2 as unpublished
-%the moment engine/support_graph.pl became a module, with lib/lib_memo.pl
+%the moment engine/support_graph.pl became a module, with lib/lib_memo/lib_memo.pl
 %calling all three exactly as before].
 published_surface(Seam) :-
     seam:seam_home(Seam, Home),

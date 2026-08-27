@@ -407,7 +407,7 @@ metta_extension(Name, Options) :-
 %validating inline would read an empty provider): the space is registered,
 %it declares at least one capability (declaring nothing provides nothing),
 %and every declared capability's hook has clauses behind it. `check(true)`
-%additionally runs the full conformance kit, lib/lib_conformance.pl's
+%additionally runs the full conformance kit, lib/lib_conformance/lib_conformance.pl's
 %metta_check_space_provider/2, loaded on demand.
 schedule_extension_readying(Name, Options) :-
     (   memberchk(spaces(Spaces), Options)
@@ -561,7 +561,7 @@ refuse_incompatible_extension(Name, Major, Minor) :-
     ).
 
 %What a Prolog source needs from the PLATFORM, declared in the file that needs
-%it. lib/lib_thread.pl can do nothing at all without threads, and until now it
+%it. lib/lib_thread/lib_thread.pl can do nothing at all without threads, and until now it
 %said so by letting its own use_module fail and leaving SWI to print the
 %wreckage: the MeTTa import that pulled it in raised a wrapped transcript of
 %two source_sink errors rather than a refusal anyone could act on.

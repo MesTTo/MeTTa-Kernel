@@ -36,7 +36,7 @@
 :- use_module(library(process)).
 
 %The four files a WebAssembly SWI does not carry, by base name. thread_pool
-%goes with thread because lib/lib_thread.pl imports both and a build with one
+%goes with thread because lib/lib_thread/lib_thread.pl imports both and a build with one
 %and not the other is not a platform anybody ships.
 reduced_platform_withheld('thread.pl').
 reduced_platform_withheld('thread_pool.pl').

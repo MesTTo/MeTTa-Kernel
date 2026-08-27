@@ -665,7 +665,7 @@ run GATE   no-autoload  sh -c "cd '$HERE' && NO_AUTOLOAD=1 sh test.sh"
 # same four reaches the backend gate plants, through the same prover in
 # tests/prolog/surface_walk.pl, and names which door stopped firing. Verified
 # by mutation rather than assumed: with one planted call to
-# register_prolog_arities/1 in lib/lib_string.pl the lane exits 1 naming the
+# register_prolog_arities/1 in lib/lib_string/lib_string.pl the lane exits 1 naming the
 # library predicate, the engine internal and the remedy [measured 2026-08-21].
 check_library_surface() {
     cd "$HERE/tests/prolog" || return 1

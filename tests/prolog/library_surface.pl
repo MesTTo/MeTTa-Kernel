@@ -49,7 +49,7 @@ library_directories(['../../lib']).
 
 main :-
     consult('../../engine/metta.pl'),
-    forall(( expand_file_name('../../lib/*.pl', Files), member(File, Files) ),
+    forall(( expand_file_name('../../lib/*/*.pl', Files), member(File, Files) ),
            ensure_loaded(File)),
     library_directories(Directories),
     reaches_past_surface(Directories, Reaches0),
@@ -63,7 +63,7 @@ main :-
 %%%% engine function's name %%%%
 %
 % The .pl half above asks what a library CALLS. This asks what a library
-% NAMES, which is the same contract one tier down: lib/lib_pln.metta wrote
+% NAMES, which is the same contract one tier down: lib/lib_pln/lib_pln.metta wrote
 % (Evaluation (Predicate $x) ...) as PLN's predicate atom, and Predicate is the
 % engine's Prolog-interop builder, the one callPredicate and assertaPredicate
 % take their goal term from. A head-argument position holding a name the engine

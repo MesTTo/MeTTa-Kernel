@@ -244,7 +244,7 @@ so it stays ordinary data and matches structurally. That is not a MeTTa
 convention, it is the reference's own registry rule, and it exists because
 three-element `(:= ...)` atoms already appear in real programs.
 
-`unify-mod` in `lib/minimal_metta_lib.pl` has read `:=` all along; the engine's
+`unify-mod` in `lib/minimal_metta_lib/minimal_metta_lib.pl` has read `:=` all along; the engine's
 own `match` reads it too now. It costs nothing when you do not use it: the
 modifier is lifted while the call site compiles, so a pattern without one
 compiles to exactly what it always did.

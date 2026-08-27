@@ -67,10 +67,10 @@ the whole of it is `Space.op`, `Answer(value=..., k=...)` and
 few lines in your own code. The executable version of everything on this
 page is `bindings/python/examples/reasoning/custom_matchers.py`.
 
-The measure library, `lib/lib_measure.metta`, stays what it always was:
+The measure library, `lib/lib_measure/lib_measure.metta`, stays what it always was:
 pure MeTTa over explicit `(weight value)` pair data, with `ws-total`,
 `ws-normalize`, `ws-softmax`, `ws-best`, `ws-sample!` and friends.
-`lib/lib_soft.metta` extends it over terms. Both import with
+`lib/lib_soft/lib_soft.metta` extends it over terms. Both import with
 `!(import! (context-space) (library lib_measure))` and operate on pairs
 you build in the language; when you want an annotated operation's answers
 as pairs, `(pair (annotation) $answer)` is the bridge.

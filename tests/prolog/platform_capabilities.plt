@@ -103,7 +103,7 @@ test(metta_requires_refuses_a_capability_the_engine_does_not_declare,
     metta_requires(plunit_no_such_capability).
 
 test(a_source_declaration_is_read_without_running_the_source) :-
-    metta_source_declarations('../../lib/lib_thread.pl', Declarations),
+    metta_source_declarations('../../lib/lib_thread/lib_thread.pl', Declarations),
     assertion(memberchk(requires(concurrency), Declarations)).
 
 test(the_census_is_a_published_host_service) :-

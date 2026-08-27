@@ -533,7 +533,7 @@ constrain_children([C|Cs], I, Path, [O|Os], [G|Gs], Positions, Rest) :-
 %translatePredicate is the program's own and resolves in its space
 %deliberately, which is why open_string/2 and load_files/2 are absent even
 %though they reach compiled bodies [measured 2026-08-19:
-%lib/lib_tabling.metta writes both].
+%lib/lib_tabling/lib_tabling.metta writes both].
 %
 %The list is checked rather than trusted. tests/prolog/static_checks.pl
 %recompiles every equation in the corpus, reads the goals out of the bodies

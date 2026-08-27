@@ -223,7 +223,7 @@ metta_special_form(Name) :-
 
 %The same table, ENUMERABLE, because a reflection library wants the whole set
 %and metta_special_form/1 above is the bound-name question with a cut on it.
-%lib/lib_reflect.pl used to read clause(translate_special_dl(...), _) itself,
+%lib/lib_reflect/lib_reflect.pl used to read clause(translate_special_dl(...), _) itself,
 %which no surface walk can see -- the table is a term inside clause/2, not a
 %call -- and which answered for no forms at all the moment the compiler's
 %clauses stopped being in the module the library reads. Published as a service

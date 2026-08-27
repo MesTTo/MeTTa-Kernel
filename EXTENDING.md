@@ -362,7 +362,7 @@ counterparts of minimal MeTTa's structural instruction set, plus `if`, `case`,
 which.
 
 Every other head stays yours, including ones the compiler also gives a
-meaning: `lib/lib_derived.metta` registers a rule for `once` on purpose, and
+meaning: `lib/lib_derived/lib_derived.metta` registers a rule for `once` on purpose, and
 `examples/ch20-extending-the-engine/20-01-translator-rules/08-derived_forms.metta` swaps it in and back out. A rule that
 goes ahead of a compiler form or a builtin that way is recorded, and the
 confluence report prints it beside the name.
@@ -688,7 +688,7 @@ with the output slot written out:
 compiles the goal inline and leaves the variables bound for the rest of the
 form, which is why it appears inside a `progn`.
 
-Both are live in the tree: `lib/lib_tabling.metta`, `lib/lib_spaces.metta`,
+Both are live in the tree: `lib/lib_tabling/lib_tabling.metta`, `lib/lib_spaces/lib_spaces.metta`,
 `examples/ch20-extending-the-engine/20-02-metta-written-in-metta/01-callquoteevalreduce.metta` and
 `examples/ch20-extending-the-engine/20-03-prolog-underneath/01-translatepredicate.metta`.
 
@@ -725,7 +725,7 @@ Read that carefully, because the shape is the point. `consult_global/1` has one
 Prolog argument, which the convention makes the OUTPUT slot, so its MeTTa arity
 is zero and it is written `(consult_global)` with nothing in the parentheses.
 The `let` then unifies the path INTO that slot, which is how the value gets in.
-`lib/lib_import.metta` already relies on this.
+`lib/lib_import/lib_import.metta` already relies on this.
 
 The same fact runs the other way. A registered predicate can BIND a caller's
 unbound variable, and the binding escapes into the MeTTa program:
@@ -1530,7 +1530,7 @@ Prolog-hosted value participates by adding clauses to these seams.
 
 `seam:foreign_clear/1` is the sixth and is easy to miss: it lived in
 `bindings/python/metta/shim.pl` rather than beside the other five, so a Prolog provider
-that implemented `clear`, as `lib/lib_redis.pl` does, was reachable only when
+that implemented `clear`, as `lib/lib_redis/lib_redis.pl` does, was reachable only when
 Python happened to be in the process. It is declared with them now.
 
 The engine consults `seam:foreign_space/1` before reaching its own storage, so
@@ -1550,7 +1550,7 @@ derived from one declaration (`bindings/python/metta/tables.py` with
 (`bindings/python/examples/integration/typescript_space/`, which also documents
 the remote protocol itself; `metta.testing.GatewayComplianceSuite`
 certifies any implementation of that protocol by URL), and Redis
-(`lib/lib_redis.pl`).
+(`lib/lib_redis/lib_redis.pl`).
 
 **The seam is order-independent, and that is the point of it.** Every one of
 the operations above consults `seam:foreign_space/1` as a guard before
@@ -2533,14 +2533,14 @@ exactly what a performance library wants.
 
 **`seam:dispatch_call/4`** is consulted at every compiled call site,
 which makes it the seam for installing your OWN caching strategy rather than
-using `lib_memo`'s. `lib/lib_memo.pl` is one implementation of it, not the only
+using `lib_memo`'s. `lib/lib_memo/lib_memo.pl` is one implementation of it, not the only
 possible one. A handler reads `current_metta_module/1` to learn which module
 the call site is in, because a named space compiles its equations into a module
 of its own and a function name alone does not identify a function.
 
 ### Tabling is the deep-control proof
 
-`lib/lib_tabling.pl` changes predicate execution, owns state below the
+`lib/lib_tabling/lib_tabling.pl` changes predicate execution, owns state below the
 evaluator, observes space writes, invalidates that state when equations change,
 and publishes control-plane rows. It does all of that as a library through the
 declared surfaces above. No tabling case is built into the evaluator.
@@ -2570,7 +2570,7 @@ catalog validator. Every actual reflection add or remove must return the
 language's exact unit answer; failure is a named tabling error and a new table
 is rolled back with it.
 
-`tests/prolog/layering.pl` walks the exact `lib/lib_tabling.pl` source file as
+`tests/prolog/layering.pl` walks the exact `lib/lib_tabling/lib_tabling.pl` source file as
 a contract node. Its four `reaches(lib_tabling, ...)` rows name the declared
 seam, context and effect services, space and storage services, ordinary atom
 doors, and the published writer. Adding a reach to another engine subsystem
@@ -2736,7 +2736,7 @@ configuration, not for one that is broken.
 **A cut in one of these is a bug, and in the space hooks it is not.** The
 foreign-space hooks are dispatched by OWNERSHIP: exactly one provider answers,
 so a clause may cut after the guard that establishes the space is its own, and
-`lib/lib_redis.pl` does. The hooks above are EVENTS: every handler runs, the
+`lib/lib_redis/lib_redis.pl` does. The hooks above are EVENTS: every handler runs, the
 callers enumerate them with `forall/2`, and a cut in one clause silently
 disables every handler loaded after it. Write `( Condition -> Action ; true )`
 there, which keeps the guard and prunes nothing. A static check enforces the
@@ -2761,8 +2761,8 @@ runtime entirely.
 
 **Above unification, scored matching is a library convention.** A
 scoring matcher is a MeTTa function answering `(score value)` pairs,
-generating best-first when the candidate is unbound; `lib/lib_soft.metta`
-and `lib/lib_measure.metta` are that story, in user space on the
+generating best-first when the candidate is unbound; `lib/lib_soft/lib_soft.metta`
+and `lib/lib_measure/lib_measure.metta` are that story, in user space on the
 general seam, deliberately not in the engine or the Python package.
 Matchers compose through ordinary MeTTa evaluation and nondeterminism,
 never through new syntax, because fixing one notion of closeness in the

@@ -26,7 +26,7 @@
 %restored, so a user program's own load_files never inherits it. The
 %.qlf files and engine/.qlf-stamp are build artifacts and .gitignored: a
 %committed .qlf whose mtime beats its source would shadow edits
-%silently, the exact hazard lib/lib_import.pl's cascade documents.
+%silently, the exact hazard lib/lib_import/lib_import.pl's cascade documents.
 :- ensure_loaded(qlf_boot).
 %The retry is the torn-artifact recovery: concurrent FIRST boots can race
 %qcompile writing the same .qlf (SWI writes it in place), and a torn file

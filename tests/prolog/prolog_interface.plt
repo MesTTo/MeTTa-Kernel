@@ -77,7 +77,7 @@ test(a_registered_predicate_binds_a_callers_variable) :-
 
 % And the output slot takes an input, which is how a predicate whose single
 % argument is an INPUT is called at all: its MeTTa arity is zero, and a let
-% unifies the value into the slot. lib/lib_import.metta relies on this.
+% unifies the value into the slot. lib/lib_import/lib_import.metta relies on this.
 test(the_output_slot_takes_an_input) :-
     import_prolog_function('plunit-pi-is-b', _),
     process_metta_string("!(collapse (let b (plunit-pi-is-b) matched))", [Hit]),

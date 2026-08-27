@@ -2788,7 +2788,7 @@ test(every_protected_head_refuses) :-
 
 % The other half: a head the compiler also gives meaning to but does not
 % protect stays the program's to take over, and the register says what it
-% went ahead of. lib/lib_derived.metta ships exactly this rule for `once`.
+% went ahead of. lib/lib_derived/lib_derived.metta ships exactly this rule for `once`.
 test(an_unprotected_special_form_is_taken_over_and_the_register_says_so,
      [ cleanup(( 'remove-translator-rule!'(once, _),
                  retractall(translator_rule_override(once, _)) )) ]) :-

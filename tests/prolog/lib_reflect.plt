@@ -8,7 +8,7 @@
 %   Future Enhancements: None
 
 :- ensure_loaded('../../engine/metta.pl').
-:- initialization(consult('../../lib/lib_reflect.pl')).
+:- initialization(consult('../../lib/lib_reflect/lib_reflect.pl')).
 
 :- begin_tests(lib_reflect).
 

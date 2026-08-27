@@ -1,6 +1,6 @@
 % A handler on the compiled-call-site dispatch seam, in a file for the same
 % reason seam_provider.pl is: the hook is multifile and static, so it is
-% contributed by consulting. lib/lib_memo.pl is the real instance of this.
+% contributed by consulting. lib/lib_memo/lib_memo.pl is the real instance of this.
 %
 % It records and then FAILS, which is the contract: failing means "I have no
 % cached answer for this call", and the ordinary call proceeds.

@@ -1,6 +1,6 @@
 % Purpose: hold the engine's layering contract and gate it, the way
 %     import-linter holds and gates the Python package's. The exact
-%     lib/lib_tabling.pl source file is included as the deep-library proof:
+%     lib/lib_tabling/lib_tabling.pl source file is included as the deep-library proof:
 %     every engine subsystem it reaches must remain named here too.
 % Assumes:
 %     - the caller has consulted engine/metta.pl, because the walk reads the
@@ -27,7 +27,7 @@
 % Decides:
 %     - a SUBSYSTEM is one engine/*.pl umbrella. A plain file below
 %       engine/<owner>/ belongs to engine/<owner>.pl. The one reviewed library
-%       node is lib_tabling, attributed only from lib/lib_tabling.pl rather
+%       node is lib_tabling, attributed only from lib/lib_tabling/lib_tabling.pl rather
 %       than widening the gate to every unrelated library.
 %     - the contract is an ALLOW-LIST, not a layer order, because the measured
 %       graph is one large cycle and a layer order over it would be a fiction.
@@ -73,7 +73,7 @@
 
 engine_directory(Directory) :- tree_directory('../../engine', Directory).
 
-tabling_source_file(File) :- absolute_file_name('../../lib/lib_tabling.pl', File).
+tabling_source_file(File) :- absolute_file_name('../../lib/lib_tabling/lib_tabling.pl', File).
 
 engine_subsystem_file(Base) :-
     source_file(File),
@@ -90,7 +90,7 @@ engine_source_subsystem(File, Base) :-
     engine_relative_subsystem(Parts, Base).
 
 % The two subsystems a reviewed file can belong to are EXCLUSIVE: an engine
-% path never names lib/lib_tabling.pl. Said as two clauses over a variable
+% path never names lib/lib_tabling/lib_tabling.pl. Said as two clauses over a variable
 % first argument, indexing cannot see that, so every engine file left the
 % tabling clause behind as a choicepoint and engine_goal/4 became nondet the
 % day this second case arrived. The gate reports that and the walks that call
@@ -113,7 +113,7 @@ engine_relative_subsystem([Owner, _|_], Base) :-
 subsystem_name(Base, Name) :- file_name_extension(Name, pl, Base).
 
 measure_layer_edges :-
-    ensure_loaded('../../lib/lib_tabling.pl'),
+    ensure_loaded('../../lib/lib_tabling/lib_tabling.pl'),
     retractall(layer_edge(_, _, _, _, _)),
     extension_clauses(['../../engine'], EngineReferences),
     tabling_clause_references(TablingReferences),

@@ -247,7 +247,7 @@ get_atom_read_link(Space, Pattern) :-
 %scalars standing and a pooled name's next life would inherit them.
 %Clearing a foreign space is the provider's own operation, and it lived in
 %bindings/python/metta/shim.pl, so a Prolog provider that implemented clear (as
-%lib/lib_redis.pl does) was reachable only when Python was in the process:
+%lib/lib_redis/lib_redis.pl does) was reachable only when Python was in the process:
 %under run.sh the engine had no path to it at all. The shim now calls this.
 clear_foreign_atoms(Space) :-
     foreign_write(Space, clear, seam:foreign_clear(Space)).

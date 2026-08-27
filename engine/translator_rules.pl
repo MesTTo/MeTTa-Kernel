@@ -127,7 +127,7 @@
 %
 %Deliberately NOT protected: the prelude's eight derived forms, `once`,
 %`progn`, `prog1`, `nop`, `take`, `test` and the five space updates. A rule
-%for `once` is engine work that ships, in lib/lib_derived.metta, and
+%for `once` is engine work that ships, in lib/lib_derived/lib_derived.metta, and
 %examples/ch20-extending-the-engine/20-01-translator-rules/08-derived_forms.metta runs the swap and the swap back, so a
 %set wide enough to include every special form would refuse it
 %[tested: examples/ch20-extending-the-engine/20-01-translator-rules/08-derived_forms.metta].

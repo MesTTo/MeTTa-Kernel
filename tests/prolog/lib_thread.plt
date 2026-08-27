@@ -25,7 +25,7 @@
 % failed that way before the order was fixed. The same reason parser.plt uses
 % initialization/1 here rather than a bare ensure_loaded.
 :- ensure_loaded('../../engine/metta.pl').
-:- initialization(consult('../../lib/lib_thread.pl')).
+:- initialization(consult('../../lib/lib_thread/lib_thread.pl')).
 :- use_module(library(prolog_wrap)).
 :- initialization(
        process_metta_string("(= (t-inc $x) (+ $x 1))

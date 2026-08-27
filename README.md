@@ -395,10 +395,10 @@ annotation, declare its value algebra, and `(top k ...)` orders while
 `(annotation)` reads the degree beside its answer. Fuzzy, regex and
 semantic closeness are each a few lines on that surface;
 `bindings/python/examples/reasoning/custom_matchers.py` builds all three.
-`lib/lib_measure.metta` stays pure MeTTa over explicit `(weight value)`
+`lib/lib_measure/lib_measure.metta` stays pure MeTTa over explicit `(weight value)`
 pairs, annotated-disjunction shaped: `ws-normalize`, `ws-softmax` with a
 temperature, `ws-best`, `ws-top`, `ws-sample!`, `ws-collapse`,
-`ws-expect`; `lib/lib_soft.metta` extends it over terms with Sessa's weak
+`ws-expect`; `lib/lib_soft/lib_soft.metta` extends it over terms with Sessa's weak
 unification, structure crisp, symbols close to declared degrees
 (`pettaprove.link_store` materializes them from embeddings), variables
 binding as ever. `(pair (annotation) $answer)` bridges an annotated
@@ -466,7 +466,7 @@ and optimizers through `metta.integrate`, `MettaModule` running a MeTTa
 forward pass under autograd, architecture reflection as facts, and the
 neural predicate as an annotated relation on the same surface.
 Its docs, tests and torch examples travel with it. The CLI-reachable half
-stays here as `lib/lib_torch.metta`; see `examples/ch11-python-as-a-notation/08-torch_lib.metta`.
+stays here as `lib/lib_torch/lib_torch.metta`; see `examples/ch11-python-as-a-notation/08-torch_lib.metta`.
 
 ### Extension libraries
 

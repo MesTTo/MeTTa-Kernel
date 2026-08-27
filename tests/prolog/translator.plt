@@ -1883,7 +1883,7 @@ cleanup_builtin_type_declarations(Path, ParsedForms) :-
 %empty answer: each of the three still answers, and each answers what its own
 %operation says.
 test(builtin_type_import_keeps_runtime_refusals_visible) :-
-    once(( absolute_file_name('../../lib/lib_builtin_types.metta', Path,
+    once(( absolute_file_name('../../lib/lib_builtin_types/lib_builtin_types.metta', Path,
                               [access(read)]),
            filereader:read_metta_source(Path, Source),
            parse_metta_source(Source, ParsedForms) )),

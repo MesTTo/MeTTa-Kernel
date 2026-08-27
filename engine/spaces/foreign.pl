@@ -652,7 +652,7 @@ visible_predicate_definition(Module, Predicate, Arity) :-
 %'$mt_load_file'/4, /usr/lib/swi-prolog/boot/init.pl:2650].
 %
 %Both halves carry weight here. par-race stops its losing branch with
-%thread_signal(Thread, abort) [source: lib/lib_thread.pl, race_stop_/2], and a
+%thread_signal(Thread, abort) [source: lib/lib_thread/lib_thread.pl, race_stop_/2], and a
 %branch aborted between translate_deferred_function/1 retracting the deferral
 %and its clauses arriving left the function neither deferred nor defined: the
 %NEXT call to it raised "Unknown procedure: slow/2" from a form that had

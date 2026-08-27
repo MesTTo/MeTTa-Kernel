@@ -235,7 +235,7 @@
 %     Cost: +1.50% instructions:u on a bare boot (swipl -s engine/metta.pl,
 %     no backends), +0.54% with backends loaded too, +0.14% over a full
 %     example run that also exercises the opt-in libraries' own fixes
-%     (lib/lib_constraints.pl, lib/lib_memo.pl) [measured 2026-08-18:
+%     (lib/lib_constraints/lib_constraints.pl, lib/lib_memo/lib_memo.pl) [measured 2026-08-18:
 %     interleaved min-of-3, perf stat -e instructions:u, spread under
 %     0.003% within each side].
 %   - library(thread), library(time) and library(process) are optional: a
@@ -273,13 +273,37 @@
 %own first clause.
 :- encoding(utf8).
 :- use_module(library(filesex)).
+%A shipped library lives in its own DIRECTORY under lib/, named for the
+%library: lib/lib_memo/lib_memo.metta beside lib/lib_memo/lib_memo.pl and
+%lib/lib_memo/lib_memo_doc.md. A library is a MeTTa surface, the Prolog it
+%rides on and the prose that explains it, and a flat lib/ scattered those
+%three across an alphabetical listing of nearly sixty files.
+%
+%So a spec with no directory component gets one: `lib_memo` resolves to
+%lib/lib_memo/lib_memo and `lib_builtin_types.metta` to
+%lib/lib_builtin_types/lib_builtin_types.metta. A spec that already names a
+%directory is taken as written, which is what keeps builtin_mods/skel.metta,
+%the engine's own shipped-module spelling, resolving unchanged.
 library(X, Path) :- standard_library_path(Base),
-                    directory_file_path(Base, X, Path).
+                    library_within(X, Relative),
+                    directory_file_path(Base, Relative, Path).
+
+%A string reaches here from MeTTa source, `(library "builtin_mods/skel.pl")`,
+%and an atom from Prolog, so both spellings are normalised before the test.
+%file_name_extension/3 answers Stem=Name and Ext='' for a name with no
+%extension, which is why the extension-bearing and bare cases are one clause.
+library_within(Spec, Relative) :-
+    ( atom(Spec) -> Name = Spec ; atom_string(Name, Spec) ),
+    (   sub_atom(Name, _, _, _, '/')
+    ->  Relative = Name
+    ;   file_name_extension(Stem, _, Name),
+        directory_file_path(Stem, Name, Relative)
+    ).
 %A named library directory, git-fetched or registered. A library that
 %pip-installs is under neither: standard_library_path/1 is one directory,
 %<src>/../lib, so (library fast.pl) cannot reach a package's own files and a
 %downstream library has to pass absolute paths, which is what
-%lib/minimal_metta_lib.py does with os.path.dirname(os.path.abspath(__file__)).
+%lib/minimal_metta_lib/minimal_metta_lib.py does with os.path.dirname(os.path.abspath(__file__)).
 %
 %SWI already owns the answer. file_search_path/2 is a "dynamic multifile hook
 %predicate used to specify path aliases ... called by absolute_file_name/3 to
@@ -627,7 +651,7 @@ prolog:error_message(metta_platform_required(Form, Capability, Requires,
 %one, in the engine's own source, and fixing it here removes the secondary
 %failure too because the primary error it was papering over never occurs.
 :- use_module(library(gensym)).
-%library(process). Nothing in the engine calls into it; lib/lib_gitimport.pl
+%library(process). Nothing in the engine calls into it; lib/lib_gitimport/lib_gitimport.pl
 %does, and it loads later in this file, so the census row has to be decided
 %here where the rest of the platform's is.
 :- metta_platform_load(subprocess).
@@ -744,8 +768,9 @@ metta_import_shared_registries(Subsystem) :-
 
 :- ensure_loaded([parser, type_rules, translator, translator_rules,
                   support_graph, specializer, filereader,
-                  '../lib/lib_gitimport', spaces, tracer, duals, kernel,
-                  '../lib/lib_memo', '../lib/minimal_metta_lib']).
+                  '../lib/lib_gitimport/lib_gitimport', spaces, tracer,
+                  duals, kernel, '../lib/lib_memo/lib_memo',
+                  '../lib/minimal_metta_lib/minimal_metta_lib']).
 
 %A subsystem that declares a module gets THIS module as its base, so the calls
 %it makes the other way -- into the engine core, into another subsystem's
@@ -834,7 +859,7 @@ metta_import_shared_registries(Subsystem) :-
 %
 %Without this, `get-type` misreported the engine to every tool that reads it.
 %`!=` IS a builtin, IS registered and IS declared (: != (-> $a $b Bool)) in
-%lib/lib_builtin_types.metta, but with nothing loading that file
+%lib/lib_builtin_types/lib_builtin_types.metta, but with nothing loading that file
 %`(get-type !=)` answered %Undefined% for an operation that works. Nothing was
 %missing; the type surface was simply not connected, and a reader like the
 %metta-lsp port has no way to tell "this has no type" from "this has a type

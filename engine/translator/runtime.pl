@@ -922,7 +922,7 @@ metta_condition_holds(Closure, Item) :- call(Closure, Item, true).
 :- meta_predicate metta_condition_holds(2, ?).
 %(:= X) inside a match pattern is the match-by-EQUALITY modifier: the atom
 %matches only where it is already identical to X, so a free variable does not
-%match it. lib/minimal_metta_lib.pl has implemented it for unify-mod all along
+%match it. lib/minimal_metta_lib/minimal_metta_lib.pl has implemented it for unify-mod all along
 %and the engine's own match/4 did not know it, so the same modifier meant two
 %different things depending on which matcher read it.
 %

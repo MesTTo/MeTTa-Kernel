@@ -35,7 +35,7 @@
 %       scanned for the shape of one of this tree's predicates. That is not a
 %       refinement, it is most of the analysis: without it the report is 206
 %       rather than 24, and the 182 it adds are led by engine/duals.pl's 58 and
-%       lib/lib_memo.pl's 46, every one of them live [measured 2026-08-18]
+%       lib/lib_memo/lib_memo.pl's 46, every one of them live [measured 2026-08-18]
 %     - each door is worth what it claims, measured by disabling it and counting
 %       [measured 2026-08-18, against a baseline of 24]: the MeTTa dispatch root
 %       422, the janus root 235, the construct edge 206, the head half of it 40,
@@ -186,7 +186,7 @@ caller_indicator(Caller, Indicator) :- catch(qualified(Caller, Indicator), _, fa
 % plant it in a clause they generate, so it stands in no goal position and no
 % walk of call sites can see it:
 %
-%     lib/lib_memo.pl:125        Goal = cache_call(Fun, CallModule, Args, Out)
+%     lib/lib_memo/lib_memo.pl:125        Goal = cache_call(Fun, CallModule, Args, Out)
 %     engine/duals.pl:340           Negation = metta_negation(Local, ..., Out)
 %     engine/translator.pl:1026     foldall(agg_reduce(Acc, Value), ...)
 %
@@ -553,7 +553,7 @@ python_test_source(File) :-
 %%%% Loading the configuration that ships %%%%
 
 analysed_library(Base) :-
-    expand_file_name('../../lib/*.pl', Files),
+    expand_file_name('../../lib/*/*.pl', Files),
     member(File, Files),
     file_base_name(File, Name),
     file_name_extension(Base, pl, Name).
@@ -585,7 +585,7 @@ load_shipped_configuration(Unimported) :-
     consult('../../engine/metta.pl'),
     metta_host_set_silent(true),
     findall(Base, ( analysed_library(Base), \+ library_imports(Base) ), Unimported),
-    forall(( expand_file_name('../../lib/*.pl', Libraries), member(F, Libraries) ),
+    forall(( expand_file_name('../../lib/*/*.pl', Libraries), member(F, Libraries) ),
            ensure_loaded(F)),
     forall(( expand_file_name('../../backends/*.pl', Backends), member(F, Backends) ),
            ensure_loaded(F)),
