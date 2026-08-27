@@ -1592,6 +1592,17 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Two gate lanes were failing on a path rather than on what they check, both
+  left behind when the plunit suites were grouped. `check.sh`'s ciao-grade lane
+  ran `ciao_grade.plt` from `tests/prolog`, where the file is
+  `suites/seams/ciao_grade.plt`, so SWI reported a missing file. The
+  spec-status selftest ran its copy of the checker from `<tree>/tools/` while
+  the real file sits one directory deeper, so the copy read the wrong root and
+  could not find the fixture's spec; the same fixture also still spelled its
+  plunit lane `for suite in *.plt`, which the runner model no longer matches by
+  anchor, so the fixture's own planted FIXED case read OPEN. Every runner was
+  then swept for the same class, and none names a path that does not exist.
+
 - The notebook lane reads either shape of a stored `text/html` output. It
   compared the marker against whatever the JSON held, and nbformat stores a
   multiline string as a LIST of lines, so the check passed only while the
