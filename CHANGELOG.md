@@ -1592,6 +1592,26 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **The MORK shim is built with `swipl-ld`, removing the tree's only
+  `pkg-config` dependency.** `morklib.so` is loaded with `use_foreign_library/1`
+  (`morkspaces.pl:323`), so it is an extension loaded INTO SWI -- the same thing
+  `engine/reader.so` and the chapter 19 C examples are, and all of those already
+  build with `swipl-ld`, which ships with SWI-Prolog and is therefore present
+  wherever the engine is. Only this one script asked `pkg-config`, and not every
+  SWI build installs `swipl.pc`: where it is absent
+  `$(pkg-config --cflags --libs swipl)` expanded to nothing and `gcc` failed on
+  a missing `SWI-Prolog.h`, blaming the wrong thing.
+
+  `bindings/cetta` deliberately keeps `swipl --dump-runtime-variables`. It calls
+  `PL_initialise` (`cetta.c:1353`) and so EMBEDS SWI in a C program, the opposite
+  direction, which `swipl-ld` does not build. The two mechanisms are not
+  duplicates of each other; `pkg-config` was the only redundant one.
+
+  Measured 2026-08-28: both spellings produce a 15768-byte object exporting the
+  same ten symbols and the same install hook. The engine loads the rebuilt shim,
+  `seam:foreign_space('&mork')` answers, the 26 MORK tests pass, and `lib_mm2`
+  stores and queries atoms through it end to end.
+
 - **`build.sh` reported success it had not earned, and dirtied the tree doing
   it.** Four defects, all in 27 lines. It had no `set -e`, so a failed
   `cargo build` fell through to the next line and the run still ended by
