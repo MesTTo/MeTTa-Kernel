@@ -1523,6 +1523,20 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A proof tree no longer reports the engine counting its own recursion. Every
+  recursive equation compiles with a stack-depth charge in front of its body,
+  and the proof-tree meta-interpreter walked that charge as if it were part of
+  the program, so each recursive step read `builtin
+  system:b_getval('$metta_fuel_remaining',off)` and `builtin off==off` before
+  its real premises. In the notebook tour's own ancestor proof that was three
+  lines of engine plumbing against five of program. The charge still RUNS,
+  where the body would have run it, and contributes no node. It is recognised
+  through the generator that writes it rather than by a second spelling of the
+  goal, so a change to the charge cannot leave the recogniser behind; the
+  branch beside it is tied to the read by variable identity, because `clause/2`
+  decompiles and `Remaining is Limit - 2` reads back as `Remaining is Limit +
+  -2`.
+
 - `m.trace` takes the term every other door takes. `m.answers`, `m.eval`,
   `m.match`, `m.cast` and `m.derivation` all take a built term, and trace took
   only text, so the one door that exists to SHOW you a reduction was the one
