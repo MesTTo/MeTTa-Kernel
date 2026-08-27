@@ -311,7 +311,7 @@ metta_inference_budget_spent(_, Base, Inferences) :-
 %kwarg bound and a cursor budget all classify identically one level up.
 metta_inference_bound_exceeded(Limit) :-
     throw(error(metta_control_signal(inference_limit, Limit),
-                context(petta, inference_limit))).
+                context(metta, inference_limit))).
 
 %SWI's stack_limit is a changeable flag local to the calling thread. Its
 %push/pop pair is nestable and records absence as well as a prior value; the
