@@ -35,20 +35,46 @@
 :- use_module(library(readutil)).
 :- use_module(library(process)).
 
-%The four files a WebAssembly SWI does not carry, by base name. thread_pool
-%goes with thread because lib/lib_thread/lib_thread.pl imports both and a build with one
-%and not the other is not a platform anybody ships.
-reduced_platform_withheld('thread.pl').
-reduced_platform_withheld('thread_pool.pl').
-reduced_platform_withheld('time.pl').
-reduced_platform_withheld('process.pl').
+%The libraries a WebAssembly SWI does not carry, as library SPECS rather than
+%base names. thread_pool goes with thread because lib/lib_thread/lib_thread.pl
+%imports both and a build with one and not the other is not a platform anybody
+%ships.
+%
+%Adding a name here is now the WHOLE change. It used to be half of one: the
+%farm mirrored a hardcoded pair of directories, the main library and clib, and
+%the child re-added every other real directory to the search path, so a
+%withhold aimed anywhere else was silently ignored and the child resolved the
+%library from the real installation. SWI keeps its libraries in several
+%directories -- pcre in library/ext/pcre, zlib in library/ext/zlib, clpfd in
+%library/clp -- so that filter covered four names and would have quietly
+%passed a fifth [measured 2026-08-28: withholding pcre.pl changed nothing, the
+%child booting clean and reading as evidence that it had]. The directories are
+%derived from these libraries now, so a withhold either takes effect or the
+%build refuses.
+reduced_platform_withheld_library(thread).
+reduced_platform_withheld_library(thread_pool).
+reduced_platform_withheld_library(time).
+reduced_platform_withheld_library(process).
 
-%Where SWI keeps the two directories the withheld files live in: library(lists)
-%is in the main library directory and library(time) in the clib extension's.
-reduced_platform_directory(library, Directory) :-
-    reduced_platform_home(library(lists), Directory).
-reduced_platform_directory(clib, Directory) :-
-    reduced_platform_home(library(time), Directory).
+%The same set by base name, which is how mirror_reduced_directory/2 skips them.
+reduced_platform_withheld(File) :-
+    reduced_platform_withheld_library(Name),
+    file_name_extension(Name, pl, File).
+
+%Every distinct directory a withheld library lives in, paired with the farm
+%subdirectory that will stand in for it. The tag is positional rather than
+%meaningful: nothing outside this file and the manifest it writes needs to know
+%which farm mirrors which real directory.
+reduced_platform_directories(Pairs) :-
+    findall(Directory,
+            ( reduced_platform_withheld_library(Name),
+              reduced_platform_home(library(Name), Directory) ),
+            Directories0),
+    sort(Directories0, Directories),
+    findall(farm(Tag, Real),
+            ( nth1(Index, Directories, Real),
+              format(atom(Tag), 'farm~d', [Index]) ),
+            Pairs).
 
 reduced_platform_home(Spec, Directory) :-
     absolute_file_name(Spec, File,
@@ -57,10 +83,12 @@ reduced_platform_home(Spec, Directory) :-
 
 %Whether there is a full platform here to reduce. On a build that already
 %lacks the libraries every test that needs a child is skipped rather than
-%passing vacuously.
+%passing vacuously. Every withheld library must resolve, not just one per
+%directory, or a name whose file this platform does not have would be mirrored
+%away from nothing and the child would read as reduced when it was not.
 reduced_platform_buildable :-
-    forall(member(Which, [library, clib]),
-           reduced_platform_directory(Which, _)).
+    forall(reduced_platform_withheld_library(Name),
+           reduced_platform_home(library(Name), _)).
 
 %!  run_reduced_platform(-Out:list, -Err:list) is det.
 %
@@ -79,11 +107,25 @@ reduced_platform_root(Root) :-
 
 build_reduced_platform(Root) :-
     make_directory_path(Root),
-    forall(member(Which, [library, clib]),
-           ( reduced_platform_directory(Which, Real),
-             directory_file_path(Root, Which, Farm),
+    reduced_platform_directories(Pairs),
+    forall(member(farm(Tag, Real), Pairs),
+           ( directory_file_path(Root, Tag, Farm),
              make_directory_path(Farm),
-             mirror_reduced_directory(Real, Farm) )).
+             mirror_reduced_directory(Real, Farm) )),
+    write_reduced_manifest(Root, Pairs).
+
+%The child cannot derive the farm list: it must not resolve library(thread) to
+%find out where thread.pl lives, because the whole point is that it cannot. So
+%the parent writes what it built, as terms the child reads before it touches a
+%search path.
+write_reduced_manifest(Root, Pairs) :-
+    directory_file_path(Root, 'farms.pl', Manifest),
+    setup_call_cleanup(
+        open(Manifest, write, Stream, [encoding(utf8)]),
+        forall(member(farm(Tag, Real), Pairs),
+               ( directory_file_path(Root, Tag, Farm),
+                 format(Stream, '~q.~n', [reduced_farm(Farm, Real)]) )),
+        close(Stream)).
 
 %A symlink per entry, except INDEX.pl, which is COPIED. The autoloader reads
 %an index and then resolves its entries against the directory the index was
@@ -143,13 +185,26 @@ reduced_platform_lines(File, Lines) :-
 
 %delete_file/1 on a symlink unlinks the LINK; nothing here follows one into
 %SWI's own library, which a recursive delete would.
+%
+%What was BUILT rather than what was expected: this named the same hardcoded
+%pair the builder did, so a farm under any other name survived and left the
+%root non-empty, which delete_directory/1 then refused. Reading the root back
+%also cleans up after a build that failed part way, where a derived list would
+%name farms that were never created and miss ones that were.
 remove_reduced_platform(Root) :-
-    forall(member(Which, [library, clib]),
-           ( directory_file_path(Root, Which, Farm),
-             ( exists_directory(Farm) -> empty_reduced_directory(Farm) ; true ),
-             ( exists_directory(Farm) -> delete_directory(Farm) ; true ) )),
-    empty_reduced_directory(Root),
-    ( exists_directory(Root) -> delete_directory(Root) ; true ).
+    ( exists_directory(Root)
+    ->  directory_files(Root, Entries),
+        forall(( member(Entry, Entries),
+                 \+ memberchk(Entry, ['.', '..']),
+                 directory_file_path(Root, Entry, Farm),
+                 exists_directory(Farm),
+                 \+ read_link(Farm, _, _) ),
+               ( empty_reduced_directory(Farm),
+                 catch(delete_directory(Farm), _, true) )),
+        empty_reduced_directory(Root),
+        ( exists_directory(Root) -> delete_directory(Root) ; true )
+    ;   true
+    ).
 
 empty_reduced_directory(Directory) :-
     directory_files(Directory, Entries),

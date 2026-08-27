@@ -31,14 +31,25 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+%The farms come from the manifest the parent wrote, not from names spelled
+%here. This read two, `library` and `clib`, and re-added every OTHER real
+%directory to both aliases, so a library withheld from any third directory --
+%pcre, zlib and clpfd each live in one -- was resolved from the real
+%installation and the withhold did nothing at all. Reading what the parent
+%actually mirrored is what makes the reduction match the withheld list.
+%
+%The child cannot compute this itself: finding where thread.pl lives means
+%resolving library(thread), which is the very thing it must not be able to do.
 :- current_prolog_flag(argv, Argv),
    member(Arg, Argv),
    atom_concat('reduced-platform=', Root, Arg),
    !,
-   atom_concat(Root, '/library', Farm),
-   atom_concat(Root, '/clib', Clib),
-   exists_directory(Farm),
-   exists_directory(Clib),
+   atom_concat(Root, '/farms.pl', Manifest),
+   exists_file(Manifest),
+   consult(Manifest),
+   findall(Farm-Real, reduced_farm(Farm, Real), Farms),
+   Farms \== [],
+   forall(member(Farm-_, Farms), exists_directory(Farm)),
    retract((user:file_search_path(library, X)
             :- system:'$ext_library_directory'(X))),
    retract(user:file_search_path(library, swi(library))),
@@ -46,10 +57,12 @@
             :- '$autoload':'$ext_library_directory'(Y))),
    retract(user:file_search_path(autoload, swi(library))),
    forall(member(Alias, [library, autoload]),
-          ( assertz(user:file_search_path(Alias, Farm)),
-            assertz(user:file_search_path(Alias, Clib)),
+          ( forall(member(Farm-_, Farms), assertz(user:file_search_path(Alias, Farm))),
+            %Every real directory the parent did NOT mirror stays reachable; a
+            %mirrored one must not, or the farm is bypassed and the withhold is
+            %undone by the very list meant to preserve the rest of the platform.
             forall(( '$autoload':'$ext_library_directory'(Dir),
-                     \+ sub_atom(Dir, _, _, 0, '/clib') ),
+                     \+ memberchk(_-Dir, Farms) ),
                    assertz(user:file_search_path(Alias, Dir))) )).
 
 %Loaded only after the paths above are in force, which is the whole point of

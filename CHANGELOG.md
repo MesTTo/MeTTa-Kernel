@@ -1592,6 +1592,26 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **The reduced-platform harness could only withhold a library from two
+  directories, and silently ignored any other.** `tests/prolog/reduced_platform.pl`
+  builds a real SWI minus chosen libraries by mirroring directories with
+  symlinks, and it named exactly two: the main library and `clib`. The child
+  then re-added every OTHER real directory to both search-path aliases. SWI
+  keeps its libraries in several — `pcre` in `library/ext/pcre`, `zlib` in
+  `library/ext/zlib`, `clpfd` in `library/clp` — so a withhold aimed at any of
+  those did nothing at all and the child resolved the library from the real
+  installation. Measured: withholding `pcre.pl` produced a clean boot that
+  would have read as evidence the engine survives without it.
+
+  The directories are derived from the withheld libraries now, the parent
+  writes the farms it actually built to a manifest the child reads (the child
+  cannot derive them: resolving `library(thread)` is the very thing it must not
+  be able to do), and cleanup enumerates what was created rather than what was
+  expected. Three hardcoded copies of the same pair are gone. Withholding
+  `pcre` now does what it says: the child reports
+  `source_sink 'library(pcre)' does not exist` at `engine/metta.pl:481`, which
+  is the capability gap the census exists to name and does not yet cover.
+
 - **`checks` repeated six of `test`'s pins instead of saying it contains them.**
   The two extras overlapped exactly -- `hypothesis`, `networkx`, `numpy`,
   `pytest`, `pytest-benchmark`, `pytest-xdist`, identically pinned in both --
