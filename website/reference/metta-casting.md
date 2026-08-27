@@ -32,7 +32,7 @@ The entries below reproduce the source signatures and docstrings.
 ## `CastError`
 
 ```python
-class CastError(PettaError, TypeError):
+class CastError(MettaError, TypeError):
 ```
 
 > A cast the engine's type discipline refuses.

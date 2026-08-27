@@ -2590,10 +2590,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and `__cause__`, which is what the callback actually raised. Its message
   says the write was applied and names the one thing that undoes it, an
   enclosing atomic run or `(transaction ...)` scope, which rolls it back as
-  the error leaves the scope. It is a `PettaError`, so nothing that caught
+  the error leaves the scope. It is a `MettaError`, so nothing that caught
   these before stops doing so.
 
-  A rehydrated `PettaError` now keeps the `__cause__` it was raised with
+  A rehydrated `MettaError` now keeps the `__cause__` it was raised with
   instead of having it replaced by the Prolog term it crossed. The boundary
   is still reachable as `__context__`; what changed is that the diagnosis is
   no longer displaced by the plumbing.
@@ -3111,7 +3111,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   behind it: every space name the engine registers, sorted, `&self` and
   `&metta` from boot, every written native space, every bound foreign
   space. Naming a space never registers it; writing or binding does.
-- Added structured fields on the whole `PettaError` family, the way
+- Added structured fields on the whole `MettaError` family, the way
   `OSError.errno` rides beside its message: `.atom` (the MeTTa atom the
   error is about), `.space`, `.operation` and `.capability`, each None
   when the error has no such part, the message unchanged either way. A
@@ -3127,7 +3127,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `(Error ...)` records stay data through every Rows door; this is the
   explicit bridge, answering self when clean so it chains, raising one
   error plainly and several as one `ExceptionGroup`.
-- A `PettaError` raised inside a Python callback (a provider refusing a
+- A `MettaError` raised inside a Python callback (a provider refusing a
   write, a seam contract violation) now crosses the engine and
   re-arrives as the very same exception object, structured fields
   intact, instead of an `EngineError` holding a transcript of it. An op

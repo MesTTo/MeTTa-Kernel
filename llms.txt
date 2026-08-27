@@ -444,7 +444,7 @@ m.prolog()                    the engine's own interactive toplevel
 metta.engine().info() -> versions of metta, janus, swi_prolog, python, petta_path
 ```
 
-Errors: `PettaError` is the base, then `EngineError`, `MettaSyntaxError`,
+Errors: `MettaError` is the base, then `EngineError`, `MettaSyntaxError`,
 `CastError`, `CompileError`, `StrictError`, `SourceNotFound`,
 `MettaResultError`, `TransportFailure`, and `ResourceLimitError` with
 `TimeLimitError` and `InferenceLimitError` under it, plus `Interrupted`.
