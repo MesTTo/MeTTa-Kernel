@@ -1592,6 +1592,34 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **`git-import!` answered two different values depending on how many arguments
+  it was given.** Its three unpinned clauses answer `[]`, the unit every
+  effectful builtin in this engine answers -- `'import!'/3`, `'println!'/2` --
+  and the pinned five-argument clause alone answered `true`. So one program
+  importing a pinned dependency and then a library printed `True` for the first
+  and `()` for the second, and a caller passing the unit explicitly did not
+  match the head at all: it FAILED, with no error, because a failed goal is not
+  an error. The pinned clause now answers `[]` like its siblings, and
+  `tests/shell/test_git_import.sh` checks all four arities answer the same unit,
+  so the four cannot drift apart again.
+
+- **Three shell suites existed that nothing ran, and two had rotted.** `check.sh`
+  named 6 of the 10 scripts in `tests/shell/`; the rest were reachable only from
+  `.github/workflows/ci.yml`, which gates pull requests into `main` and
+  therefore never sees branch work. Measured on a clean control worktree at
+  `91e339cb`, so neither failure is caused by the build work beside it:
+  `test_loader_concurrency.sh` asserted into `translator_rule/1` after that
+  became a STATIC projection over the dynamic `translator_rule/2`
+  (`translator_rules.pl:173`), raising "No permission to modify static
+  procedure"; and `test_git_import.sh` passed a literal `true` in the MeTTa
+  result slot, which is the defect above. Both are fixed -- the first registers
+  through `translator_rule/2` with `[]` for "declared nothing", the second
+  passes the result slot UNBOUND, which is what a real caller does and what
+  keeps a suite from encoding a convention it is not about -- and all three are
+  now GATE lanes (`git-dependency`, `git-import`, `loader-threads`). Each
+  assertion in the concurrency suite was proved to still discriminate by
+  perturbing its expected context and watching its own distinct error appear.
+
 - **The MORK shim is built with `swipl-ld`, removing the tree's only
   `pkg-config` dependency.** `morklib.so` is loaded with `use_foreign_library/1`
   (`morkspaces.pl:323`), so it is an extension loaded INTO SWI -- the same thing

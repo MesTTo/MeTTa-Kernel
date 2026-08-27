@@ -1,4 +1,26 @@
 #!/bin/sh
+# Purpose: prove git-import! acquires, pins, builds and refuses correctly, over
+#   a Git remote this script builds locally so nothing here reaches a network.
+# Guarantees:
+#   - a pinned checkout lands at the exact SHA, detached, built once
+#   - build identity includes the build COMMAND, so two commands build twice
+#   - a repeat is idempotent and does not rebuild; a transition does
+#   - refusals are named and leave nothing behind: dirty state, an abbreviated
+#     or non-SHA revision, an unreachable SHA, a non-Git or wrong-origin target,
+#     and a build that fails
+#   - two processes racing one fresh target serialize
+#   - every arity answers the same unit
+# Assumes:
+#   - the result argument is passed UNBOUND. It is the MeTTa return slot, and
+#     writing a literal there couples this suite to a convention it is not
+#     about; passing `true` is what broke it silently when the unpinned forms
+#     settled on `[]`, since a head that does not match FAILS rather than
+#     raising. Nothing ran this file to notice: it is reached only from
+#     .github/workflows/ci.yml, which gates pull requests into main.
+# Open Obligations:
+#   To Do: None
+#   Hacks: None
+#   Future Enhancements: None
 set -eu
 
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
@@ -31,7 +53,7 @@ run_import() {
     build=$2
     import_base=$3
     sha=$4
-    swipl -q -g "consult('$project_dir/engine/main.pl'),'git-import!'('$url','$build','$import_base','$sha',true),halt"
+    swipl -q -g "consult('$project_dir/engine/main.pl'),'git-import!'('$url','$build','$import_base','$sha',_),halt"
 }
 
 # Fresh non-tip checkout and build.
@@ -43,7 +65,7 @@ test "$(cat "$target/.build-count")" = 1
 
 # An exact-SHA checkout without a matching build stamp must still be built.
 missing_stamp_base="$fixture/missing-stamp"
-swipl -q -g "consult('$project_dir/engine/main.pl'),'git-import!'('$remote','','$missing_stamp_base',true),halt"
+swipl -q -g "consult('$project_dir/engine/main.pl'),'git-import!'('$remote','','$missing_stamp_base',_),halt"
 test ! -e "$missing_stamp_base/fixture/.build-count"
 run_import "$remote" build.sh "$missing_stamp_base" "$second"
 test "$(cat "$missing_stamp_base/fixture/.build-count")" = 1
@@ -137,7 +159,28 @@ test "$(git -C "$fixture/concurrent/fixture" rev-parse HEAD)" = "$first"
 
 # URL-only behavior clones a local deterministic remote without lib_import.
 mkdir -p "$fixture/legacy"
-(cd "$fixture/legacy" && swipl -q -g "consult('$project_dir/engine/main.pl'),'git-import!'('$remote',true),halt")
+(cd "$fixture/legacy" && swipl -q -g "consult('$project_dir/engine/main.pl'),'git-import!'('$remote',_),halt")
 test -d "$fixture/legacy/repos/fixture/.git"
+
+# Every arity answers the SAME unit, which is what every effectful builtin in
+# this engine answers ('import!'/3, 'println!'/2). The pinned five-argument form
+# alone used to answer `true`, so one program printed `True` for a pinned import
+# and `()` for the library import beside it, and a caller passing the unit
+# explicitly did not match the head at all: it FAILED, silently, because a
+# failed goal is not an error. This is the check that keeps the four together.
+unit_base="$fixture/unit"
+for arity_call in \
+    "'$remote',R" \
+    "'$remote','',R" \
+    "'$remote','','$unit_base/a',R" \
+    "'$remote','','$unit_base/b','$first',R"
+do
+    answer=$(cd "$fixture" && swipl -q -g \
+        "consult('$project_dir/engine/main.pl'),'git-import!'($arity_call),print(R),nl,halt" 2>/dev/null | tail -1)
+    if [ "$answer" != "[]" ]; then
+        echo "git-import! answered '$answer' rather than the unit [] for: $arity_call" >&2
+        exit 1
+    fi
+done
 
 echo "commit-pinned git-import tests passed"

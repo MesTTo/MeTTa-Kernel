@@ -366,6 +366,19 @@ run GATE worktree sh -c "cd '$HERE' && sh tests/shell/test_worktree_configuratio
 # fingerprint check rather than a compile [measured 2026-08-28: 5.0s warm].
 run GATE build sh -c "cd '$HERE' && sh tests/shell/test_build_is_idempotent_and_anchored.sh"
 
+# Three shell suites that existed and nothing here ran. They were reachable only
+# from .github/workflows/ci.yml, which gates pull requests into main, so no
+# branch work ever ran them -- and two had rotted away from the engine by the
+# time anyone looked (2026-08-28): test_loader_concurrency asserted into
+# translator_rule/1 after it became a static projection over the dynamic
+# translator_rule/2, and test_git_import passed a literal `true` in the MeTTa
+# result slot after the unpinned forms settled on the unit `[]`, which does not
+# raise, it FAILS. That is the registration defect with its consequence
+# realised: a listed lane cannot rot, an unlisted suite can, and does.
+run GATE git-dependency sh -c "cd '$HERE' && sh tests/shell/test_git_dependency.sh"
+run GATE git-import     sh -c "cd '$HERE' && sh tests/shell/test_git_import.sh"
+run GATE loader-threads sh -c "cd '$HERE' && sh tests/shell/test_loader_concurrency.sh"
+
 # The Node binding, which is the seam's second consumer. It runs the engine in
 # a WebAssembly SWI inside a Node process, so it needs neither the SWI on this
 # machine nor janus. It is a TypeScript library, and its own suite covers the
