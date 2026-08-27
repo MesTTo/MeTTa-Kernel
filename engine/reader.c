@@ -21,7 +21,7 @@
  *     answers, parsed/3 and parsed/4 forms with byte-identical source
  *     strings, variant-identical terms, and name maps in the same
  *     newest-first order, over the whole example corpus and the adversarial
- *     battery [tested: reader_c in tests/prolog/reader_c.plt;
+ *     battery [tested: reader_c in tests/prolog/suites/reader/reader_c.plt;
  *     commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
  *   - both predicates raise the Prolog reader's own error shapes:
  *     error(syntax_error(MsgAtom), none) with the identical message text for

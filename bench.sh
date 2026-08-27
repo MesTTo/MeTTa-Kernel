@@ -44,7 +44,7 @@ echo "head: $(git -C "$HERE" rev-parse --short HEAD)  base: $(git -C "$HERE" rev
 # minus the interactive and hardware-bound files test.sh also skips.
 # Files that exist on both sides with different bytes are named, not
 # silently dropped; files only the base has would be lost coverage.
-# DERIVED from tests/example_skips.txt, the one definition every runner
+# DERIVED from tests/data/example_skips.txt, the one definition every runner
 # reads, but as BASENAMES rather than paths, and that difference is real
 # rather than an oversight: this harness compares against an upstream base
 # whose examples are flat where HEAD groups them into numbered chapter
@@ -52,7 +52,7 @@ echo "head: $(git -C "$HERE" rev-parse --short HEAD)  base: $(git -C "$HERE" rev
 # Matching on path here silently dropped 138 of 162 files once already.
 # HEAD's leaf names carry a two-digit reading-order prefix that the base's
 # do not, so the prefix comes off here and goes back on as a pattern below.
-SKIP=$(command grep -v '^#' "$HERE/tests/example_skips.txt" |
+SKIP=$(command grep -v '^#' "$HERE/tests/data/example_skips.txt" |
        awk 'NF {n = split($1, p, "/"); leaf = p[n];
                 sub(/^[0-9][0-9]-/, "", leaf); printf "%s ", leaf}')
 CORPUS="$WORK/corpus.txt"

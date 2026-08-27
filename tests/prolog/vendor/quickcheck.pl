@@ -337,7 +337,7 @@ subset_gen([H |Subset], [H | Set]) :- subset_gen(Subset, Set).
 %have failed into a binding type inference: `must_be(atom, Var)` succeeded and
 %left Var bound to '%Undefined%', so a variable-headed equation the engine
 %refuses was accepted and compiled [measured 2026-08-19,
-%tests/prolog/spaces.plt:a_variable_headed_equation_raises_either_way went red
+%tests/prolog/suites/spaces/spaces.plt:a_variable_headed_equation_raises_either_way went red
 %under the typed build and nowhere else].
 %
 %One declaration fixes it. Declaring has_type/2 multifile HERE gives the module

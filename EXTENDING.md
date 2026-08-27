@@ -754,7 +754,7 @@ So reach for `let` first, and for `callPredicate` only when the goal really has
 to be built at run time. Both directions are pinned:
 `the_output_slot_takes_an_input` and
 `a_registered_predicate_binds_a_callers_variable` in
-`tests/prolog/prolog_interface.plt`, the second asserting the exact bindings
+`tests/prolog/suites/host/prolog_interface.plt`, the second asserting the exact bindings
 that escape, `((a a!) (b b!) (c c!))`.
 
 ## 3. C foreign predicates: wrapping what is already native
@@ -832,7 +832,7 @@ beside it and consults for every parse while no custom token class is
 registered. `check.sh` builds it with `swipl-ld -shared -O2`; without the
 artifact, or with `METTA_C_READER=off` in the environment, every parse runs
 the Prolog grammar, which remains the reader's specification and is held
-equal to the C port by `tests/prolog/reader_c.plt` over the shipped corpus,
+equal to the C port by `tests/prolog/suites/reader/reader_c.plt` over the shipped corpus,
 an adversarial battery, and generated number spellings. A custom
 `register-token!` class always routes to the Prolog grammar, so a token
 extension never has to know the C reader exists.
@@ -1688,7 +1688,7 @@ under an `if` has to terminate. Going through the compiler gets all of them and
 every future one for free; a second evaluator would get them wrong one at a
 time. The suite pins this as a differential: the same eleven programs run in a
 native space and in a foreign one and must answer identically
-[`tests/prolog/spaces.plt`, `a_foreign_space_evaluates_exactly_as_a_native_one`].
+[`tests/prolog/suites/spaces/spaces.plt`, `a_foreign_space_evaluates_exactly_as_a_native_one`].
 
 Two things to know. A rule you hold BELONGS TO YOUR SPACE, exactly as a native
 named space's equations belong to it, so it is called from there:

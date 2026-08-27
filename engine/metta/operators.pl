@@ -2,7 +2,7 @@
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%% Arithmetic & Comparison: %%%
 %An arithmetic operand is a number. Everything else is refused here, before
@@ -434,7 +434,7 @@ metta_clp_finite(Unknowns) :-
 %reads the name from the term rather than from rendered text
 %(metta_host_operation_error/5), and the engine's own guard sweep checks every
 %guarded input position for exactly that
-%[tested: tests/prolog/metta.plt, every_builtin_refuses_an_unbound_input_by_name].
+%[tested: tests/prolog/suites/evaluation/metta.plt, every_builtin_refuses_an_unbound_input_by_name].
 metta_refuse_unsolved_arithmetic(Operation, Reason) :-
     throw(error(metta_unsolved_arithmetic(Operation, Reason),
                 context(Operation, 'while evaluating MeTTa operation'))).

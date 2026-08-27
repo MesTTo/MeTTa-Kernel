@@ -56,7 +56,7 @@
 %
 %Everything else is the graph's machinery: the dirty set, the stabilization
 %cutoff, the deferral flags and the walk. A caller that wants one says
-%support_graph: and means it, which is what tests/prolog/support_graph.plt now
+%support_graph: and means it, which is what tests/prolog/suites/translator/support_graph.plt now
 %does for support_replace/2 and support_stabilize/3
 %[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named,
 %test_every_seam_is_reached_under_its_module].

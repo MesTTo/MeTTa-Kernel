@@ -58,7 +58,7 @@ the Simplified BSD license. Their reviewed immutable revisions are
 The named planted test proves the collector reports a bad call as data:
 
     cd tests/prolog
-    swipl -q -g "run_tests(ciao_grade:test_the_ciao_grade_collects_a_planted_assertion_violation_as_data),halt" ciao_grade.plt
+    swipl -q -g "run_tests(ciao_grade:test_the_ciao_grade_collects_a_planted_assertion_violation_as_data),halt" suites/seams/ciao_grade.plt
 
 None of those five SWI checks reports UNREACHABILITY, so a predicate defined
 and never called was invisible to all of them, the way it was to `vulture` and
@@ -112,8 +112,8 @@ which arguments of the entry are ground, infer the rest through the call graph,
 filter every possibly-variable argument away, and hand the result to a
 termination method for rewriting. `engine/narrowing.pl` implements it,
 `engine/trs.pl` is the rewriting library underneath (an adaptation of Markus
-Triska's public-domain trs.pl), `tests/prolog/trs.plt` and
-`tests/prolog/narrowing.plt` cover both, and
+Triska's public-domain trs.pl), `tests/prolog/suites/translator/trs.plt` and
+`tests/prolog/suites/translator/narrowing.plt` cover both, and
 `bindings/python/tests/test_critical_pair_oracle.py` runs the critical-pair enumerator
 against the kernel-checked one in LeaTTa's `MeTTaILProofs/CPExecutable.lean`.
 
@@ -126,17 +126,28 @@ and a body is EVALUATED while the program compiles, which instantiates.
 Termination of narrowing does not follow from termination of rewriting, which
 is why the route above exists and why the two halves are not interchangeable.
 
-Run all PlUnit files directly with:
+The suites live under `suites/<group>/`, grouped by the engine unit each one
+tests: `reader/`, `translator/`, `evaluation/`, `spaces/`, `libraries/`,
+`host/`, `seams/`, `metatheory/`. Run all of them directly with:
 
     cd tests/prolog
-    for suite in *.plt; do
+    for suite in suites/*/*.plt; do
         swipl -g "set_test_options([format(log)]), run_tests" -t halt "$suite" || exit
     done
 
 Run one suite while working on it:
 
     cd tests/prolog
-    swipl -g "set_test_options([format(log)]), run_tests" -t halt translator.plt
+    swipl -g "set_test_options([format(log)]), run_tests" -t halt suites/translator/translator.plt
+
+Run it from `tests/prolog`, not from the group directory and not from the
+repository root. A suite writes paths at two depths and both are correct: a
+LOAD-time directive resolves against its own file, so it says
+`:- ensure_loaded('../../../../engine/metta.pl')`, while an
+`initialization(consult(...))` and anything a test body builds resolve against
+the WORKING DIRECTORY, so those say `'../../engine/metta.pl'`. Start from
+anywhere else and SWI reaches the load-time half through its deprecated
+working-directory fallback and warns on every suite.
 
 Suites consult `../../engine/metta.pl`, not `engine/main.pl`. `main.pl` owns the CLI
 initialization and would run it during a test. Keep stateful tests isolated with
@@ -148,11 +159,11 @@ restore them even when its body fails.
 The shell regressions exercise process behavior and multi-process state that a
 single PlUnit engine cannot represent:
 
-    sh tests/regression/test_specializer_regressions.sh
-    sh tests/regression/test_loader_concurrency.sh
-    sh tests/regression/test_git_dependency.sh
-    sh tests/test_git_import.sh
-    sh tests/test_packaged_cli.sh
+    sh tests/shell/test_specializer_regressions.sh
+    sh tests/shell/test_loader_concurrency.sh
+    sh tests/shell/test_git_dependency.sh
+    sh tests/shell/test_git_import.sh
+    sh tests/shell/test_packaged_cli.sh
 
 The full Python oracle runs from the repository root, not from `python/`:
 

@@ -2,8 +2,8 @@
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% Guarantees: match, unify and let classify a written gap pattern ONCE while the call site compiles and hand the plan to the door in a wrapper, so a gap-free form emits the goal it always emitted [tested: tests/prolog/segments.plt, examples/ch08-data/08-02-sequence-variables/01-segments.metta; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
-% [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% Guarantees: match, unify and let classify a written gap pattern ONCE while the call site compiles and hand the plan to the door in a wrapper, so a gap-free form emits the goal it always emitted [tested: tests/prolog/suites/reader/segments.plt, examples/ch08-data/08-02-sequence-variables/01-segments.metta; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
+% [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%% An evaluated operand that produced an Error finishes the call %%%
 %
@@ -1297,7 +1297,7 @@ translate_let_dl([[__metta_typed_binding__, Pattern], Value, In],
 %variables cannot fail an occurs check. The cycle is then built by the goals
 %that follow: (let $x (cons-atom $x ()) $x) was accepted and left $x bound to
 %a rational tree. The check was live only when the value needed no goals of
-%its own, which is the case tests/prolog/translator.plt covered.
+%its own, which is the case tests/prolog/suites/translator/translator.plt covered.
 %
 %Emitting it after the value's goals is not free. It then walks an
 %instantiated term on every let, and let is the third most called predicate in

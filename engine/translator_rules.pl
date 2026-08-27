@@ -36,7 +36,7 @@
 %     a computed expansion, an expansion not rooted at a symbol, an expansion
 %     that would leave a left-side variable unbound, a protected inverse head,
 %     and an inverse that is the rule itself
-%     [tested: tests/prolog/metta.plt, translator_rule_direction;
+%     [tested: tests/prolog/suites/evaluation/metta.plt, translator_rule_direction;
 %     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - add-translator-rule! REFUSES a protected_core_head/1 name with that name
 %     in the error term, and records what an accepted registration went ahead

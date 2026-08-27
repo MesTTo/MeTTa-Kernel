@@ -499,7 +499,7 @@ take_name(Rest, Sofar, Sofar, Rest).
 %
 % The Prolog half is SWI's own source cross-referencer, which reads a file
 % without loading it and resolves the call properly: it answers seq/3 for
-% tests/prolog/parser.plt:101's `phrase(seq([1, 2, 3]), Codes)`, arity and all.
+% tests/prolog/suites/reader/parser.plt:101's `phrase(seq([1, 2, 3]), Codes)`, arity and all.
 % A name scan of the same text was tried first and was wrong four times out of
 % thirteen, marking call_site_type_chains/2, 'collapse-bind'/2,
 % specializable_vars/4 and 'unify-mod'/5 on nothing but a mention in a comment
@@ -540,8 +540,8 @@ called_indicator(Called, Name/Arity) :-
 % process_metta_string/2 to do the analysis, and marking a predicate `[tests]`
 % because the analysis reads it would be the report talking about itself.
 prolog_test_source(File) :-
-    member(Pattern, ['../../tests/prolog/*.plt', '../../tests/prolog/*.pl',
-                     '../../tests/*.pl', '../../tests/performance/*.pl']),
+    member(Pattern, ['../../tests/prolog/suites/*/*.plt',
+                     '../../tests/prolog/*.pl', '../../tests/fixtures/*.pl']),
     expand_file_name(Pattern, Files),
     member(File, Files),
     \+ sub_atom(File, _, _, 0, 'reachability.pl').
@@ -684,7 +684,7 @@ relative_site(File, Line, Site) :-
 % names WHICH door stopped firing rather than only that one did.
 %
 % The fixture is written rather than checked in for the reason
-% tests/check_evidence_selftest.py gives about its own: a deliberately dead
+% tests/checks/check_evidence_selftest.py gives about its own: a deliberately dead
 % predicate committed under engine/ would be a finding of the real report forever.
 
 % One planted predicate per door, and three that must be REPORTED, because a

@@ -42,7 +42,7 @@
 %   authors' own tool and carries NO licence file, so it is used here only as
 %   an ORACLE: its published README session, run on its own AG01 3.12 example
 %   with the single declaration app(g,v), is reproduced by this file
-%   [tested: tests/prolog/narrowing.plt, the_published_tnt_example_is_reproduced].
+%   [tested: tests/prolog/suites/translator/narrowing.plt, the_published_tnt_example_is_reproduced].
 %
 %   Step 5 is trs.pl's rpo/5, a recursive path order. A path order needs a
 %   precedence, and searching all of them is n! * 2^n, so the precedence is
@@ -66,7 +66,7 @@
 %     not_established(Reason) and nothing else, so a rule set is never left in
 %     a third state. Route names the filtering, the filtered system and the
 %     order that decided; Reason names which step failed and on which rule or
-%     symbol [tested: tests/prolog/narrowing.plt].
+%     symbol [tested: tests/prolog/suites/translator/narrowing.plt].
 %   - the binding-time analysis reaches a fixpoint, because a mode only ever
 %     moves g -> v and the mode space is finite [source: paper, footnote 14].
 %   - the g/v mode alphabet is recorded as a mechanism-internal closed list,

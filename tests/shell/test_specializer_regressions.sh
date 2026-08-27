@@ -1,0 +1,59 @@
+#!/bin/sh
+# Purpose: Exercise specialization caching, name encoding, and generated-clause
+# contracts through the executable MeTTa and PlUnit regression fixtures.
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+PATH="$ROOT/../../local/swipl-9.3.36/bin:$PATH"
+export PATH
+TMPDIR=${TMPDIR:-/tmp}
+
+run_ok() {
+    name="$1"
+    file="$2"
+    log="$TMPDIR/metta-${name}-$$.log"
+    timeout 15s sh "$ROOT/run.sh" "$ROOT/$file" > "$log" 2>&1
+    printf '%s\n' "$log"
+}
+
+# Repeated failed specialization should be memoized: only the first call tries
+# wrap and pass.  Later calls should compile to direct fallback calls.
+log=$(run_ok repro1 tests/fixtures/repro1_failed_specialization_memo.metta)
+count=$(grep -c 'Not specialized' "$log" || true)
+[ "$count" -eq 2 ] || { echo "repro1 expected 2 failed-specialization attempts, got $count"; cat "$log"; exit 1; }
+
+# Binary branching failed-specialization cascade should be linear in chain depth,
+# not exponential.  For f1..f12 with f12 terminating, f1..f11 each fail once.
+log=$(run_ok repro2 tests/fixtures/repro2_exponential_failed_specialization.metta)
+count=$(grep -c 'Not specialized' "$log" || true)
+[ "$count" -eq 11 ] || { echo "repro2 expected 11 failed-specialization attempts, got $count"; cat "$log"; exit 1; }
+
+# Failed specializations must not leave observable type atoms in &self.
+log=$(run_ok repro3 tests/fixtures/repro3_failed_specialization_self_leak.metta)
+if grep -q ' (wrap_Spec_' "$log"; then
+    echo "repro3 leaked wrap_Spec_ into &self output"
+    cat "$log"
+    exit 1
+fi
+
+grep -q 'partial wrap' "$log" || { echo "repro3 missing parent wrap type output"; cat "$log"; exit 1; }
+
+# Variant-normalized names should not embed fresh Prolog variable ids inside
+# compound partial/2 keys.  This repro still has an unbound arithmetic variable
+# and may fail at runtime; the regression assertion is the stable specialization
+# key generated before the arithmetic error.
+log="$TMPDIR/metta-repro4-$$.log"
+set +e
+timeout 15s sh "$ROOT/run.sh" "$ROOT/tests/fixtures/repro4_variant_normalization.metta" > "$log" 2>&1
+status=$?
+set -e
+[ "$status" -eq 2 ] || { echo "repro4 expected current arithmetic instantiation error status 2, got $status"; cat "$log"; exit 1; }
+# The full identity is now encoded in a writable alphabet. PlUnit checks that
+# anonymous variables and collision-prone delimiter spellings remain stable.
+grep -Eq 'app_Spec_k[0-9a-fz]+' "$log" || { echo "repro4 missing encoded specialization key"; cat "$log"; exit 1; }
+
+# Generated-clause properties are checked in PlUnit, including per-clause
+# binding, absence of reduce/2, and recursive folding to the specialized name.
+(cd "$ROOT/tests/prolog" && swipl -q -s suites/translator/specializer.plt -g run_tests,halt)
+
+printf 'specializer regression checks passed\n'

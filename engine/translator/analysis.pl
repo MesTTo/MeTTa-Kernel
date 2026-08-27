@@ -7,7 +7,7 @@
 %   translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
 %   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 % Function source retained for higher-order specialization. Each equation is
 % one independently indexed fact, so compiling a new equation does not copy
@@ -856,9 +856,9 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
 %the raw result before the body only in that mode. A self-tail fusion removes
 %RawOut from Normalized and therefore keeps its last-call path guard-free.
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:7350-7361 and 7533-7564;
-%tested: tests/prolog/translator.plt:
+%tested: tests/prolog/suites/translator/translator.plt:
 %a_recursive_generator_enumerates_in_time_linear_in_its_answers and
-%tests/prolog/conformance2.plt; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+%tests/prolog/suites/seams/conformance2.plt; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 normalize_equation_result(Fun, Args, RawOut, Out, RawBody, Body) :-
     Runtime = [Fun|Args],
     normalize_equation_tail(RawBody, RawOut, Runtime, Out, Normalized),
@@ -966,8 +966,8 @@ direct_self_equation_goal(Goal0, Caller, Produced, Out, Goal) :-
 %Head annotations are constraints regardless of whether the structural pattern
 %also carries a sequence variable.  Keep their lowering and the pattern-note
 %side effect on one path so both equation compilers see the same head
-%[tested: tests/prolog/segment_equations.plt and
-%tests/prolog/translator.plt:translator_inplace_annotations;
+%[tested: tests/prolog/suites/reader/segment_equations.plt and
+%tests/prolog/suites/translator/translator.plt:translator_inplace_annotations;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 translate_equation_head(F, Args0, true, Args1, GoalsPrefix) :-
     !,
@@ -984,7 +984,7 @@ translate_equation_head(_, Args, false, Args, []).
 %variables shared with the parsed head, and put the one-sided hedge match in
 %front of those goals.  Calls at the written arity take this ordinary compiled
 %clause; calls at another arity use metta_segment_dispatch/4 over the retained
-%source equations [tested: tests/prolog/segment_equations.plt;
+%source equations [tested: tests/prolog/suites/reader/segment_equations.plt;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 translate_segment_body_plan(F, Args, BodyExpr, GoalsPrefix, BodyPlan) :-
     (   metta_seq_present(BodyExpr)

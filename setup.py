@@ -163,7 +163,7 @@ class build_py_with_runtime(build_py):
         # Emptied first, because copytree(dirs_exist_ok=True) only ever adds.
         # A resource dropped from RUNTIME_RESOURCES kept shipping out of a
         # stale build/ directory, and so did a source file deleted from engine/,
-        # which made tests/test_packaged_cli.sh green against a wheel the
+        # which made tests/shell/test_packaged_cli.sh green against a wheel the
         # current tree does not describe. Measured 2026-08-17: removing
         # backends/ from the map above and rebuilding produced a wheel that
         # still contained it, and the packaged gate passed; with this, the same

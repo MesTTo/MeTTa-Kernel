@@ -8,7 +8,7 @@
 #     happens to print, and the three failure shapes stay tellable apart there:
 #     a (test A B) mismatch by its is/should line, an assertEqual mismatch by
 #     "MeTTa assertion failed", a syntax error by "Syntax error"
-#     [tested tests/test_example_runner_surfaces_failures.sh]
+#     [tested tests/shell/test_example_runner_surfaces_failures.sh]
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -28,7 +28,7 @@ run_test() {
     # stdout at all. Capturing stdout only, the way this read before, left
     # every one of those shapes as a blank body under "FAILURE in $f:": the
     # file name and nothing about why.
-    # tests/test_example_runner_surfaces_failures.sh runs all three shapes and
+    # tests/shell/test_example_runner_surfaces_failures.sh runs all three shapes and
     # a passing file through this script AND through a copy of it with this
     # one redirection removed, so what the 2>&1 buys is measured rather than
     # asserted here.
@@ -69,11 +69,11 @@ else
 fi
 [ -s "$filelist" ] || { echo "test.sh: no examples found" >&2; exit 2; }
 
-# The skips come from tests/example_skips.txt, which is the one definition
+# The skips come from tests/data/example_skips.txt, which is the one definition
 # every runner reads. They used to be six basenames here and seven in
 # check.sh, two copies that disagreed, and matching on BASENAME silently
 # skips any future example that happens to share a name with one of these.
-SKIPS=$(command grep -v '^#' tests/example_skips.txt | awk 'NF {print $1}')
+SKIPS=$(command grep -v '^#' tests/data/example_skips.txt | awk 'NF {print $1}')
 
 while IFS= read -r f; do
     rel=${f#./}

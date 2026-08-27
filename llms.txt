@@ -15,7 +15,7 @@ re-runs them.
 
 | source | what it is | kept true by |
 |---|---|---|
-| `examples/**/*.metta` | 232 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/example_skips.txt` names the six that do not, each with its reason |
+| `examples/**/*.metta` | 232 executable programs, the semantics documentation. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/data/example_skips.txt` names the six that do not, each with its reason |
 | `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
 | `tests/prolog/*.plt` | 46 plunit suites over the engine itself | the `plunit` gate lane |
@@ -206,7 +206,7 @@ every declaration below is stored. The catalog describes its own kinds there:
 shipped choice. There is exactly one row for each of dispatch, order, merge,
 agenda, equality, errors, world, algebra, storage, typing, fidelity,
 source-kind, transaction-mode, atomicity, save-format, volatility, and
-determinism. `tests/check_policy_inventory.py` asks the running catalog for
+determinism. `tests/checks/check_policy_inventory.py` asks the running catalog for
 those rows and the semiring law claims, joins them to their implementation
 seams, and rejects multiline `member/2` or `memberchk/2` lists, Python
 `Literal[...]`, and Python list/set membership that bypass the catalog. The

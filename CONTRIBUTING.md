@@ -80,7 +80,7 @@ The Python suite runs from the repository root, with the root and the
 configuration made explicit:
 
 ```sh
-python -m pytest bindings/python/tests/ -q --rootdir=python -c bindings/python/pyproject.toml
+python -m pytest bindings/python/tests/ -q --rootdir=bindings/python -c bindings/python/pyproject.toml
 ```
 
 The engine's suites are PlUnit files under `tests/prolog/`. Run one from
@@ -152,7 +152,7 @@ than stating an unverified claim in the same voice as a measured fact. It is
 deliberately unchecked, because demanding evidence for it would push authors
 straight back into that voice.
 
-The other three are checked. `tests/check_evidence_tags.py` runs as the
+The other three are checked. `tests/checks/check_evidence_tags.py` runs as the
 `evidence` GATE lane, reads only, and needs no engine. It exists because
 thirteen `tested` claims in this tree named tests that had never existed in
 its history, and nothing anywhere would have said so.

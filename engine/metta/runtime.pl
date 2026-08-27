@@ -2,13 +2,13 @@
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees:
 %   - every definition retains engine/metta.pl's implementation module and original load order
-%     [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+%     [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 %   - assert/2 reports a failed assertion through print_message/2, so it lands on user_error and
 %     an embedded host's stdout carries only that host's own writes; test/3's is/should line is
 %     the one diagnostic here that stays on current_output, because it prints on success too
 %     [tested: test_a_failing_assertion_stays_off_the_hosts_stdout in
 %     bindings/python/tests/test_engine_diagnostics.py, test_the_c_binding_suite_passes in
-%     bindings/python/tests/test_c_binding.py, tests/test_example_runner_surfaces_failures.sh;
+%     bindings/python/tests/test_c_binding.py, tests/shell/test_example_runner_surfaces_failures.sh;
 %     commit=b7eb5734f476f8a8f5b6f16c1e71a67c72a57478]
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 

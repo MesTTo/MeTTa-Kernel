@@ -22,7 +22,7 @@
 %     effects_lattice:compensation_declarations_require_an_effectful_operation;
 %     commit=173eeed021beb360b5e5f9f8461889e27190affc].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% Walking a compiled body for the effects a cache would hide %%%%
 %

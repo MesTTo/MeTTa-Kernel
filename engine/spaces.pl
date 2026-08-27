@@ -18,7 +18,7 @@
 %   - Files below engine/spaces/ are plain source units consulted into this
 %     implementation module in their original order; storage predicates,
 %     provider seams, and lifecycle state retain their existing ownership
-%     [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
+%     [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
 %   - Every native space stores its atoms in a private data module that does
 %     not inherit user predicates [tested: spaces_storage_modules].
 %   - subscribe follows the (events ...) declaration rather than what a host
@@ -91,7 +91,7 @@
 %   - A gap pattern decides its certified-finite fragment once, at its call
 %     site or at the ask, and refuses outside the three Kutsia proved; a
 %     pattern with no gap reaches no predicate of the gap unit at all
-%     [tested: tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
+%     [tested: tests/prolog/suites/reader/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 %   - Removing one scoped get-type rule keeps sibling extension rules visible
 %     [tested 2026-08-15: spaces_type_extensions].
 %   - A second variant-identical type declaration is refused before storage,

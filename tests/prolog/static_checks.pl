@@ -983,7 +983,7 @@ seam_direction_fault(Seam, Kind, Fault) :-
 % math_goal_expansion(Math, MathGoal)` (arithmetic.pl:319-320), consulted
 % while compiling EVERY module, and its one raise site is a COMPILE-time
 % type_error(evaluable, F) that drops the clause in flight --
-% tests/prolog/metta.plt registered 233 tests instead of 234 until
+% tests/prolog/suites/evaluation/metta.plt registered 233 tests instead of 234 until
 % engine/metta.pl guarded that clause at boot and armed a prolog_listen/2
 % watcher for its reinstallation. Both of those know arithmetic's clause by
 % shape; this check holds the CLASS invariant on the loaded tree instead:

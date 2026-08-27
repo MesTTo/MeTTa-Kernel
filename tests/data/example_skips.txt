@@ -1,0 +1,38 @@
+# Examples the shell suites do not run, one PATH per line, then its reason.
+# Blank lines and lines starting with # are ignored.
+#
+# Why this file exists. The skip list used to be six basenames in test.sh
+# and seven in check.sh, two copies that already disagreed, and both
+# matched on BASENAME rather than path. Basename matching is latent
+# breakage: it silently skips any future example sharing a name with one
+# of these [measured 2026-08-18: 0 collisions among the 206 examples
+# discovery yields, so the exposure is real and not yet realised]. Every runner
+# reads this file now, and a skip carries the reason the two lists could
+# not.
+#
+# check.sh's seventh entry, import_error_broken.metta, is not here: it
+# lives under _fixtures/ and the runners' own find excludes that
+# directory, so the entry never matched anything [measured 2026-08-18].
+#
+# greedy_chess.metta read "long-running, covered by benchmarks" until
+# 2026-08-26 and neither half was true. It is not long-running: given its
+# quit command it loads all 2,821 lines, sets up the board and exits 0 in
+# 0.26, 0.27 and 0.27 seconds over three runs, printing 501,917 bytes
+# [measured 2026-08-26, printf 'q\n' | sh run.sh
+# examples/ch22-a-reasoner-you-can-serve/22-03-search/06-greedy_chess.metta]. And no benchmark names it; the
+# only artifact that does is an "upstream-timeout" row carrying no numbers
+# in tests/data/upstream-parity-baseline.json, whose harness no lane invokes.
+# What it needs is a terminal. The file ends in !(main_loop), whose
+# (command-loop) reads a command with readln!/1 and recurses on anything
+# but q, and readln!/1 is read_line_to_string/2, which answers end_of_file
+# for every read once stdin is at EOF. So under a runner the loop never
+# ends rather than running long: 17,973,938 lines in 120 seconds, one
+# prompt and one refusal per cycle, where the terminating run above prints
+# 16,123 and stops; then exit 124 [measured 2026-08-26, sh run.sh
+# examples/ch22-a-reasoner-you-can-serve/22-03-search/06-greedy_chess.metta < /dev/null].
+examples/ch14-seeing-your-program/02-repl.metta              needs an interactive terminal
+examples/ch11-python-as-a-notation/09-llm_cities.metta   needs a network and an API key
+examples/ch11-python-as-a-notation/07-torch.metta        needs torch installed
+examples/ch11-python-as-a-notation/08-torch_lib.metta    needs torch installed
+examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/07-git_import2.metta  clones from the network
+examples/ch22-a-reasoner-you-can-serve/22-03-search/06-greedy_chess.metta   needs an interactive terminal: its command loop never ends at EOF

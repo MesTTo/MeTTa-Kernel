@@ -10,7 +10,7 @@
 %   platform_capabilities:a_source_declaration_is_read_without_running_the_source;
 %   commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%% Prolog interop: %%%
 argv(K, _) :- var(K), !, refuse_unbound_input(argv, 1).

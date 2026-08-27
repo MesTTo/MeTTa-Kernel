@@ -3,7 +3,7 @@
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 %   foreign transaction enlistment is a semidet user-context check even inside nested SWI transactions.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% Guarantees: match/4 dispatches a gap pattern by its wrapper alone, so an ordinary pattern reaches the clause it always reached [tested: tests/prolog/segments.plt:segments_costs_nothing; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
+% Guarantees: match/4 dispatches a gap pattern by its wrapper alone, so an ordinary pattern reaches the clause it always reached [tested: tests/prolog/suites/reader/segments.plt:segments_costs_nothing; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % Guarantees: conjunction multiplicity reads the dynamically scoped algebra,
 % so under=counting cannot inherit bool's duplicate collapse [tested:
 % test_counting_counts_match_bag_duplicates_without_opening_a_row_cursor;
@@ -12,7 +12,7 @@
 % declarations with a local equation [tested:
 % spaces_deferred_translation:a_bulk_local_shadow_retains_no_inherited_order_types;
 % commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
-% [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% The foreign seam's failure contract %%%%
 %

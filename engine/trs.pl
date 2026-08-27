@@ -58,7 +58,7 @@
 %     way does not make two equal terms look different, while the peak's own
 %     variables stay distinguishable. rhs_vars_in_lhs/1 is the predicate that
 %     says whether a system has such rules at all
-%     [tested: tests/prolog/trs.plt,
+%     [tested: tests/prolog/suites/translator/trs.plt,
 %     an_invented_variable_does_not_make_a_pair_look_divergent].
 %   - overlaps/2 enumerates the same family as
 %     MeTTaILProofs.CPExecutable.criticalPairs: every ordered pair of rules at
@@ -73,7 +73,7 @@
 %   - critical_pairs/2, step/3, normal_form/3, rpo/5, completion/5,
 %     equations_trs/2 and equations_order/2 behave as the original does.
 %     equations_trs/2 turns the three group axioms into the documented 10-rule
-%     convergent system [tested: tests/prolog/trs.plt,
+%     convergent system [tested: tests/prolog/suites/translator/trs.plt,
 %     the_group_axioms_complete_to_the_documented_ten_rules].
 %   - normal_form/3 MAY NOT TERMINATE. That is the original's own wording and
 %     its counter-example is kept: with R = { a ==> a, f(X) ==> b } the term
@@ -81,12 +81,12 @@
 %     it reduces arguments first and a is its own reduct. Nothing here hides
 %     that behind a fuel parameter; bounded_join/4 is the bounded predicate and
 %     it says so in its name
-%     [tested: tests/prolog/trs.plt,
+%     [tested: tests/prolog/suites/translator/trs.plt,
 %     normal_form_loops_on_the_documented_counter_example].
 %   - overlaps/2 and critical_pairs/2 enumerate the SAME family, because
 %     critical_pairs/2 is a projection of overlaps/2 rather than a second
 %     enumerator
-%     [tested: tests/prolog/trs.plt, critical_pairs_is_a_projection_of_overlaps].
+%     [tested: tests/prolog/suites/translator/trs.plt, critical_pairs_is_a_projection_of_overlaps].
 % Decides:
 %   - a bound is an argument, never a constant. reachable_up_to/4,
 %     bounded_join/4 and confluence_check/3 all take their fuel from the

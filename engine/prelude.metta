@@ -643,7 +643,7 @@
 ; has-declared-type asks whether (: <atom> <type>) is declared, about the
 ; atom AS ITSELF: the first parameter carries the Atom mask so the question
 ; is asked of the unreduced atom, the way get-type asks
-; [tested: metta_has_declared_type in tests/prolog/metta.plt].
+; [tested: metta_has_declared_type in tests/prolog/suites/evaluation/metta.plt].
 (: has-declared-type (-> Atom %Undefined% Bool))
 
 ; space-contains asks whether the space holds an atom unifying with the
@@ -662,7 +662,7 @@
 ; write-door table is the record). The declaration below is the half of
 ; its contract that lives at this level: the Atom mask keeps the offered
 ; atom unreduced, so a pool judges the atom AS ITSELF
-; [tested: the_sugar_judges_the_offered_atom_as_itself in tests/prolog/hooks.plt].
+; [tested: the_sugar_judges_the_offered_atom_as_itself in tests/prolog/suites/spaces/hooks.plt].
 ; metta_admission_claim/2 writes a one-line guard equation,
 ;   (= (space-admission-guard-<pool> $x) (space-admission-verdict <pool> $x))
 ; into the declaring space and claims the pool's pre-add hook with it, so

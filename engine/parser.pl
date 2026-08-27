@@ -54,7 +54,7 @@
 %     over the whole shipped corpus, an adversarial battery, and generated
 %     number spellings, errors and failures included; METTA_C_READER=off or
 %     a missing artifact keeps every parse on the grammar below [tested:
-%     reader_c in tests/prolog/reader_c.plt; commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
+%     reader_c in tests/prolog/suites/reader/reader_c.plt; commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
 % Owns resources:
 %   - metta_custom_reader_token/3 retains a host constructor until its pattern
 %     is replaced or unregistered [tested:
@@ -72,7 +72,7 @@
 %either a MeTTa builtin, a declared seam, or a name another subsystem calls;
 %the DCG nonterminals, the token tables and the layout rules are the
 %implementation of those and stay inside. A caller that wants one says
-%parser: and means it, which tests/prolog/parser.plt does for the token
+%parser: and means it, which tests/prolog/suites/reader/parser.plt does for the token
 %grammar it exercises directly
 %[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
 :- module(parser,

@@ -4,7 +4,7 @@
 %   each source load is atomic with every dependent recompile it triggers;
 %   source_load_receipt_current/4 accepts a receipt only while its source row, digest, and every tagged stored output remain current.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/filereader.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% [tested: tests/prolog/suites/reader/filereader.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% The fast cache and the content digest %%%%
 %

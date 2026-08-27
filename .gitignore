@@ -4,15 +4,13 @@ build/
 dist/
 *.egg-info/
 __pycache__/
-# Python build artifacts
-bindings/python/HE/__pycache__
-bindings/python/metta/__pycache__
-python/__pycache__
-bindings/python/tests/__pycache__
 repos/
 
-# Compiled C extension example, built by check.sh when a compiler is present
-examples/ch19-spaces-backed-by-anything/19-03-a-builtin-in-c/*.so
+# The chapter 19 C examples' compiled objects, built by check.sh and
+# worktree.sh when a compiler is present. cstore.so was tracked until
+# 2026-08-27 because nothing built it, so one machine's binary rode in the
+# repository while its own README told a reader to compile it.
+examples/ch19-spaces-backed-by-anything/*/*.so
 
 # The engine's C reader artifact, built by check.sh beside engine/reader.c
 engine/reader.so
@@ -31,7 +29,6 @@ bindings/cetta/kit/driver
 # the source they were built from. Shipping one would also SHADOW the pure
 # Python module for every later run in the checkout, so it is ignored and
 # check.sh's own build is out of tree.
-python/*.so
 bindings/python/metta/*.so
 
 # Agent scratch: books, cloned prior art, gate logs, tree copies, working

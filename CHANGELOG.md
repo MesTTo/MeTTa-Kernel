@@ -707,6 +707,21 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **`tests/` is in folders by kind, and `tests/regression/` is gone.** Twenty
+  loose files at the top became `checks/` (the Python gate scripts, each with
+  the selftest that proves it can fail, plus the runner model), `shell/` (every
+  `test_*.sh`, absorbing the four that sat in `regression/`), `fixtures/` (the
+  specializer reproductions, the no-autoload boot, the two parity drivers) and
+  `data/` (`example_skips.txt` and the upstream parity baseline). The 46 plunit
+  suites are grouped under `tests/prolog/suites/<group>/` by the engine unit
+  each one tests. The `.pl` analysis machinery stays at `tests/prolog/`, which
+  is a judgement rather than an omission: `surface_walk.pl` is loaded by six of
+  them and five are both a script `check.sh` invokes and a library another
+  script loads, so a gates-versus-support split would be a false cut.
+  A suite two levels down writes paths at two depths, and `tests/README.md` and
+  `tests/prolog/README.md` say which is which: a load-time directive resolves
+  against its own file, a run-time goal against the working directory, which
+  the runner keeps at `tests/prolog`.
 - **Every shipped library has its own directory, MeTTa beside Prolog.**
   `lib/` was a flat alphabetical listing of nearly sixty files in which
   `lib_memo.metta`, `lib_memo.pl` and `lib_memo_doc.md` sat far apart and
@@ -1508,6 +1523,22 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A compiled object is no longer committed. `cstore.so`, the C-space example's
+  shared library, was tracked while its two siblings `cbump.so` and `handle.so`
+  were gitignored build products, and while the README beside it tells a reader
+  to compile it. It was tracked because nothing built it: `check.sh` named
+  `cbump` and `handle` by hand. Both `check.sh` and `worktree.sh` build every
+  `.c` under a chapter-19 section now, so a fourth needs no edit, and the fork's
+  corpus manifest pins the third object's existence the way it pins the other
+  two.
+- Three commands in the tree told a reader to run pytest with
+  `--rootdir=python`, the location the Python binding left in the P0.27
+  partition. That directory exists in a working checkout only because those
+  commands create it, holding nothing but tool caches, and
+  `test_documentation.py` pinned the wrong one so the gate endorsed it. They
+  name `bindings/python`, and the stale `python/` ignore rules go with it. The
+  evidence gate's own `$PYDIR` substitution read `python/` for the same reason;
+  no lane writes that shape today, so nothing had been lost yet.
 - The evidence gate reads an interpreter-led gate command as a command. Its
   own scheme says a `tested` tag carries either a test name or an exact gate
   command, and it knew one spelling of the second, `sh check.sh <lane>`.

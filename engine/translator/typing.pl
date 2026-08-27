@@ -7,7 +7,7 @@
 %   lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
 %   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %Type function call generation, returns function call plus typechecks for input and output:
 %Translate a call against every type declaration that fits it.

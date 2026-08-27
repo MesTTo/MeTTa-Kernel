@@ -33,8 +33,8 @@
 #     test_a_planted_closed_policy_list_is_reported_by_the_inventory_lane;
 #     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 #   - semantic refusals and the four-case planted discrimination selftest are
-#     GATE lanes [tested: tests/check_refusal_grounds.py,
-#     tests/check_refusal_grounds_selftest.py; commit=acb40f1912f131ae088083d1af29b4b283019bea].
+#     GATE lanes [tested: tests/checks/check_refusal_grounds.py,
+#     tests/checks/check_refusal_grounds_selftest.py; commit=acb40f1912f131ae088083d1af29b4b283019bea].
 #   - memory and scaling curves run once in REPORT-then-GATE order; GATE_ONLY
 #     still takes a fresh measurement and promotes only deterministic pins
 #     [tested: env CHECK_PY=../../.venv-pypetta/bin/python
@@ -125,24 +125,30 @@ run() {
 
 in_py() { ( cd "$PYDIR" && "$@" ); }
 
-# Build the C extension example so the examples gate exercises the C tier for
-# real rather than taking its skip branch. swipl-ld is part of SWI-Prolog, so
-# this is available wherever the engine is, but a toolchain can still be
-# missing; say so instead of letting the example quietly skip.
-build_c_extension_example() {
-    ext="$HERE/examples/ch19-spaces-backed-by-anything/19-03-a-builtin-in-c"
-    [ -d "$ext" ] || return 0
+# Build the chapter 19 C examples so the examples gate exercises the C tier
+# for real rather than taking their skip branches. swipl-ld is part of
+# SWI-Prolog, so this is available wherever the engine is, but a toolchain can
+# still be missing; say so instead of letting an example quietly skip.
+#
+# Every .c under a chapter-19 section, rather than a list of unit names:
+# cstore.so was COMMITTED for as long as nothing here built it, which put one
+# machine's compiled object in the repository and gave the C-space example a
+# binary its own README tells you to build. The rule is now the same for all
+# three, and a fourth needs no edit here.
+build_c_examples() {
     if ! command -v swipl-ld >/dev/null 2>&1; then
-        echo "note: swipl-ld not found, the C extension example will skip" >&2
+        echo "note: swipl-ld not found, the chapter 19 C examples will skip" >&2
         return 0
     fi
-    for unit in cbump handle; do
-        [ -f "$ext/$unit.c" ] || continue
-        ( cd "$ext" && swipl-ld -shared -o "$unit" "$unit.c" ) ||
-            { echo "note: the C extension example $unit failed to build" >&2; }
+    for source in "$HERE"/examples/ch19-*/*/*.c; do
+        [ -f "$source" ] || continue
+        directory=$(dirname "$source")
+        unit=$(basename "$source" .c)
+        ( cd "$directory" && swipl-ld -shared -o "$unit" "$unit.c" ) ||
+            { echo "note: the C example $unit failed to build" >&2; }
     done
 }
-build_c_extension_example
+build_c_examples
 
 # Build the engine's C reader so every gate lane runs the shipping
 # configuration: the shipped-mode parse in C, the Prolog grammar as the
@@ -261,7 +267,7 @@ run_example_corpus() {
 
 check_examples() {
     run_example_corpus &&
-        ( cd "$HERE" && sh tests/regression/test_specializer_regressions.sh )
+        ( cd "$HERE" && sh tests/shell/test_specializer_regressions.sh )
 }
 
 run GATE shell        run_example_corpus
@@ -274,7 +280,7 @@ run GATE shell        run_example_corpus
 # captured, so the block printed empty: the exit code still went nonzero and
 # the shell lane above still caught it, but a human reading a red run saw
 # the file name and nothing about why.
-run GATE shell-failure sh -c "cd '$HERE' && sh tests/test_example_runner_surfaces_failures.sh"
+run GATE shell-failure sh -c "cd '$HERE' && sh tests/shell/test_example_runner_surfaces_failures.sh"
 # Written 2026-08-15 in 68cffe2, the commit that REMOVED glyph-based gating, to
 # prove the runner's oracle is process status and not the assertion glyphs it
 # stopped reading. It was wired into nothing: not check.sh, test.sh, bench.sh,
@@ -282,7 +288,7 @@ run GATE shell-failure sh -c "cd '$HERE' && sh tests/test_example_runner_surface
 # exactly zero runs [measured 2026-08-18, found independently by two agents].
 # It is the negative twin of the lane above: that one proves a FAILURE reports
 # its diagnostic, this one proves a failure is DETECTED at all.
-run GATE shell-oracle  sh -c "cd '$HERE' && sh tests/regression/test_example_runner.sh"
+run GATE shell-oracle  sh -c "cd '$HERE' && sh tests/shell/test_example_runner.sh"
 # The third member of that family: the two above ask whether a failure is
 # detected and reported, and this one asks whether a PASS can be destroyed
 # before anyone reads it. One boot under a scrubbed locale compiles the
@@ -290,7 +296,7 @@ run GATE shell-oracle  sh -c "cd '$HERE' && sh tests/regression/test_example_run
 # .qlf set, and leaves every later boot serving the poison; the example
 # lanes then read sixteen passing checks as absent while every source byte
 # is intact.
-run GATE encoding     sh -c "cd '$HERE' && sh tests/test_engine_text_encoding.sh"
+run GATE encoding     sh -c "cd '$HERE' && sh tests/shell/test_engine_text_encoding.sh"
 run GATE examples     check_examples
 
 # The specializer's whole claim, asserted over the whole corpus rather than
@@ -310,12 +316,12 @@ run GATE examples     check_examples
 check_specialization_differential() {
     cd "$HERE" || return 1
     found=$(mktemp)
-    # tests/example_skips.txt is the one definition, read by every runner.
+    # tests/data/example_skips.txt is the one definition, read by every runner.
     # This used to carry its own seven basenames against test.sh's six, and
     # the seventh, import_error_broken.metta, never matched anything: it
     # lives under _fixtures/, which the find above excludes before any skip
     # is consulted [measured 2026-08-18].
-    METTA_SKIPS=$(command grep -v '^#' tests/example_skips.txt | awk 'NF {print $1}')
+    METTA_SKIPS=$(command grep -v '^#' tests/data/example_skips.txt | awk 'NF {print $1}')
     export METTA_SKIPS
     find examples -name '*.metta' ! -path '*_fixtures*' -print0 |
         xargs -0 -P "$(nproc 2>/dev/null || echo 4)" -I {} sh -c '
@@ -337,7 +343,7 @@ $1
     return 0
 }
 run GATE spec-differential check_specialization_differential
-run GATE packaged sh -c "cd '$HERE' && sh tests/test_packaged_cli.sh"
+run GATE packaged sh -c "cd '$HERE' && sh tests/shell/test_packaged_cli.sh"
 
 # A git worktree of this repository silently runs one backend fewer than the
 # checkout it was cut from: backends/mork/mork_ffi/target/ and backends/mork/mork_ffi/morklib.so are
@@ -346,7 +352,7 @@ run GATE packaged sh -c "cd '$HERE' && sh tests/test_packaged_cli.sh"
 # that never built it and wrong for a worktree of one that did. Every suite
 # then passes while testing less. worktree.sh links them; this shows the
 # difference in both directions [measured 2026-08-18: 0.21s].
-run GATE worktree sh -c "cd '$HERE' && sh tests/test_worktree_configuration.sh"
+run GATE worktree sh -c "cd '$HERE' && sh tests/shell/test_worktree_configuration.sh"
 
 # The Node binding, which is the seam's second consumer. It runs the engine in
 # a WebAssembly SWI inside a Node process, so it needs neither the SWI on this
@@ -563,11 +569,11 @@ check_dev_typed() {
     cd "$HERE/tests/prolog" || return 1
     ok=0
     swipl -q --on-error=status -g dev_typed_report -t 'halt(0)' dev_typed.pl || ok=1
-    for suite in *.plt; do
+    for suite in suites/*/*.plt; do
         [ -e "$suite" ] || continue
         # dev_typed.plt consults the engine itself; running it UNDER the
         # typed build would consult the engine twice into one session.
-        [ "$suite" = dev_typed.plt ] && continue
+        [ "$suite" = suites/seams/dev_typed.plt ] && continue
         swipl -q -g dev_typed_suites -t 'halt(0)' dev_typed.pl -- "$suite" || ok=1
     done
     return $ok
@@ -619,25 +625,25 @@ run GATE engine-integrity-selftest check_engine_integrity_selftest
 # heuristics were tried and each produced CONFIDENT WRONG verdicts, all three
 # recorded in the module's own docstring with the item that caught them, so
 # UNKNOWN is reported wherever a guess would be needed.
-run REPORT spec-status          "$PY" "$HERE/tests/check_spec_status.py"
+run REPORT spec-status          "$PY" "$HERE/tests/checks/check_spec_status.py"
 # Same split as evidence / prolog-reach: the report is forgiving, the proof
 # that it still discriminates is not. 17 planted cases, plus a FIXED item whose
 # file is deleted, confirmed OPEN, restored and confirmed FIXED again.
-run GATE   spec-status-selftest "$PY" "$HERE/tests/check_spec_status_selftest.py"
+run GATE   spec-status-selftest "$PY" "$HERE/tests/checks/check_spec_status_selftest.py"
 
 # Every engine decision axis is a live (policy axis knob default) row in
 # &metta, joined here to the code seam that consumes it. The second lane plants
 # an unowned list, all four allowed exemptions, two malformed exemptions and
 # both authority-owned exclusions, so an empty report cannot pass vacuously.
-run GATE policy-inventory "$PY" "$HERE/tests/check_policy_inventory.py"
-run GATE policy-inventory-selftest "$PY" "$HERE/tests/check_policy_inventory_selftest.py"
+run GATE policy-inventory "$PY" "$HERE/tests/checks/check_policy_inventory.py"
+run GATE policy-inventory-selftest "$PY" "$HERE/tests/checks/check_policy_inventory_selftest.py"
 
 # A semantic fence belongs to Python's data model or a named MeTTa law. The
 # first lane checks the central structured ground and every owned source site;
 # the second plants one omission in each mechanism so an empty scan cannot pass
 # vacuously.
-run GATE refusal-grounds "$PY" "$HERE/tests/check_refusal_grounds.py"
-run GATE refusal-grounds-selftest "$PY" "$HERE/tests/check_refusal_grounds_selftest.py"
+run GATE refusal-grounds "$PY" "$HERE/tests/checks/check_refusal_grounds.py"
+run GATE refusal-grounds-selftest "$PY" "$HERE/tests/checks/check_refusal_grounds_selftest.py"
 
 # Phase 11 moves &self's execution out of Prolog's `user` module. SWI's
 # autoloader resolves a missing import ANYWAY, so a module boundary can be
@@ -648,7 +654,7 @@ run GATE refusal-grounds-selftest "$PY" "$HERE/tests/check_refusal_grounds_selft
 # The flag cannot be set with -g: measured that `swipl -g "set_prolog_flag(
 # autoload,false)" -s FILE.pl` and the reverse order both see autoload=true
 # inside FILE.pl's own load-time directives, because -g goals run only after
-# every -s/-l file has finished loading. Hence tests/no_autoload_boot.pl, which
+# every -s/-l file has finished loading. Hence tests/fixtures/no_autoload_boot.pl, which
 # run.sh boots through when NO_AUTOLOAD=1 [measured 2026-08-19: 200/200].
 run GATE   no-autoload  sh -c "cd '$HERE' && NO_AUTOLOAD=1 sh test.sh"
 
@@ -743,7 +749,16 @@ check_plunit() {
     out=$(mktemp)
     # Redirect to a file rather than piping to tee: a pipeline's exit status is
     # the LAST command's, so swipl failing would be masked by tee succeeding.
-    for suite in *.plt; do
+    #
+    # The suites sit under suites/<group>/, grouped by the engine unit each
+    # one tests. A suite is named by its path from tests/prolog, which stays
+    # the working directory: an initialization goal resolves a relative path
+    # against the working directory at RUN time, so every
+    # `initialization(consult('../../engine/metta.pl'))` in a suite still
+    # names the engine, and so does every path a test body builds. The LOAD
+    # time directives are the other half and are file-relative, which is why
+    # `:- ensure_loaded('../../../../engine/metta.pl')` sits beside them.
+    for suite in suites/*/*.plt; do
         [ -e "$suite" ] || continue
         swipl -g "set_test_options([format(log)]), run_tests" -t halt "$suite" \
             >"$out" 2>&1 || ok=1
@@ -883,7 +898,7 @@ run GATE   phrasebook  sh -c "cd '$HERE' && '$PY' bindings/python/tools/phrasebo
 # since a commit cannot contain its own object ID, so the run counts those and
 # RELEASE=1 refuses them: that is the cut-time check that a release does not
 # ship evidence pointing at an uncommitted worktree.
-run GATE evidence   "$PY" "$HERE/tests/check_evidence_tags.py"
+run GATE evidence   "$PY" "$HERE/tests/checks/check_evidence_tags.py"
 
 # The evidence gate is itself a claim, so it is checked the same way. A fixture
 # tree carries 17 planted citations, 8 that must be accepted and 9 that must be
@@ -894,7 +909,7 @@ run GATE evidence   "$PY" "$HERE/tests/check_evidence_tags.py"
 # second fixture is a real repository with one commit, carrying a live pin, a
 # fabricated pin differing from it only in its tail, and a WORKTREE
 # placeholder; disabling either commit rule was caught [measured 2026-08-26].
-run GATE evidence-selftest "$PY" "$HERE/tests/check_evidence_selftest.py"
+run GATE evidence-selftest "$PY" "$HERE/tests/checks/check_evidence_selftest.py"
 
 # Every website/reference/metta-*.md page says "The entries below reproduce the
 # source signatures and docstrings", and across nineteen pages that promise was
@@ -956,7 +971,7 @@ run GATE imports in_py "$PY" -c \
 # Copy the same config and package, prove the clean copy passes, then plant one
 # module-level core-to-satellite edge. The same command must exit nonzero and
 # name the planted route, so this lane proves the import gate discriminates.
-run GATE imports-selftest "$PY" "$HERE/tests/check_imports_selftest.py"
+run GATE imports-selftest "$PY" "$HERE/tests/checks/check_imports_selftest.py"
 
 # --------------------------------------------------------------- REPORT tier
 # Known backlog. Each entry names its section in the ledger and becomes a

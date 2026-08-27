@@ -66,7 +66,7 @@ website.
 
 `test.sh` discovers examples recursively. It excludes `_fixtures` and the six
 interactive, network-backed, or optional-dependency examples named in
-`tests/example_skips.txt`, each with its reason.
+`tests/data/example_skips.txt`, each with its reason.
 The merged corpus contains 232 examples that run in the shell suite.
 That count is `len(example_parity.corpus())`, the corpus's one definition in
 `bindings/python/tools/example_parity.py`; the `pytest` gate lane fails the

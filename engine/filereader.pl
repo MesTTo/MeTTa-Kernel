@@ -4,7 +4,7 @@
 %   - source_lifecycle.pl is a plain source unit consulted into this module, so
 %     cache, digest, transactional reload, and assertion records retain their
 %     filereader predicate identities and load position
-%     [tested: tests/prolog/filereader.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
+%     [tested: tests/prolog/suites/reader/filereader.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
 %   - A parsed form that cannot translate is not reported as a syntax error
 %     [tested 2026-08-14: filereader_translation_errors].
 %   - top_forms//2 ignores comment text and keeps parentheses inside escaped
@@ -17,7 +17,7 @@
 %     parser:metta_c_parse_source/4) when it is loaded and the shipped token
 %     classes are active, and parse_metta_source_prolog/2 stays the
 %     specification it is held to, variant-identical results over the corpus
-%     and adversarial battery [tested: reader_c in tests/prolog/reader_c.plt;
+%     and adversarial battery [tested: reader_c in tests/prolog/suites/reader/reader_c.plt;
 %     commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
 %   - parse_metta_source_summary/4 carries the signature multiset and
 %     declaration pairs beside the forms, from the C reader's own walk or
@@ -358,7 +358,7 @@ source_load_assertion(LoadId, Ref) :-
 %the two agree byte for byte on the same text, so a digest one process wrote
 %is a digest the other reads, and metta_source_changed/1 cannot answer
 %differently because of which library answered
-%[tested: tests/prolog/filereader.plt, both_digest_providers_agree].
+%[tested: tests/prolog/suites/reader/filereader.plt, both_digest_providers_agree].
 :- if(exists_source(library(crypto))).
 :- use_module(library(crypto), [crypto_data_hash/3]).
 metta_text_digest(Text, Digest) :- crypto_data_hash(Text, Digest, [algorithm(sha256)]).
@@ -928,7 +928,7 @@ parse_metta_source(S, ParsedForms) :-
     ).
 
 %The Prolog reader, which stays the specification the C reader in
-%engine/reader.c is held to: tests/prolog/reader_c.plt parses the whole
+%engine/reader.c is held to: tests/prolog/suites/reader/reader_c.plt parses the whole
 %example corpus and an adversarial battery through both and requires
 %variant-identical forms and identical error terms.
 parse_metta_source_prolog(S, ParsedForms) :-
@@ -1162,7 +1162,7 @@ recompile_function_in_module(Module, G) :-
     %The erase is also the LIVENESS TEST, and the rebuild runs only over what
     %it took out. A recorded reference can outlive its clause, because a
     %compiled predicate can be retracted outside the engine's own door:
-    %tests/prolog/translator.plt's super cleanup takes back its `car-atom`
+    %tests/prolog/suites/translator/translator.plt's super cleanup takes back its `car-atom`
     %equations with a raw retractall. erase/1 FAILS on such a reference rather
     %than raising, so leaving it in the erase loop failed the whole repair and,
     %through it, the load_metta_file/2 that triggered the repair; and rebuilding

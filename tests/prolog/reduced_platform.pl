@@ -1,6 +1,6 @@
 % Purpose: build a real SWI installation minus library(thread),
 %   library(time) and library(process), boot the engine in a child process on
-%   it, and hand the transcript back to tests/prolog/platform_capabilities.plt.
+%   it, and hand the transcript back to tests/prolog/suites/seams/platform_capabilities.plt.
 % Assumes:
 %   - THIS platform carries the three libraries, so there is something to take
 %     away. reduced_platform_buildable/0 answers that, and every test that

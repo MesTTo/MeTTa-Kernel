@@ -5,7 +5,7 @@
 %   support state before its execution-module name can be reused [tested:
 %   test_a_recycled_mork_name_inherits_nothing; commit=d843bb6d17a525c36afd21cab077d63b34447535].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %The inverse of add_sexp_in/4, written here beside it for the same reason
 %metta_module_space/2 is written beside space_module/2: the mapping is

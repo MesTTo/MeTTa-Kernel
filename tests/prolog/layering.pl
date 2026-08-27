@@ -280,7 +280,7 @@ database_write(retractall(W), W).
 
 %!  reaches(?Caller, ?Callee, ?Why) is nondet.
 %
-%   Dynamic so tests/prolog/layering.plt can plant one line of each kind and
+%   Dynamic so tests/prolog/suites/seams/layering.plt can plant one line of each kind and
 %   read what the lane says about it, through with_planted_contract/2 below.
 %   Nothing at run time asserts here; the contract is these clauses.
 
@@ -580,7 +580,7 @@ layering_finding(Message) :-
            "tangle(~w) is declared and no longer exists; delete or shrink the \c
             line", [Members]).
 
-% Entry point named rather than main/0, so tests/prolog/layering.plt can load
+% Entry point named rather than main/0, so tests/prolog/suites/seams/layering.plt can load
 % this file for its own questions without running the lane. The gate consults
 % the engine itself, which the suite has already done its own way; that is the
 % shape tests/prolog/translator_confluence.pl uses for the same reason.

@@ -83,7 +83,7 @@
 ;;; the previous values come back on every exit path, and a bound that is
 ;;; not reached is invisible. Expiry is a CONTROL signal, so no catch can
 ;;; eat a budget, the same law the per-call kwargs follow; the expiring
-;;; case is pinned in tests/prolog/metta.plt where a throw is assertable.
+;;; case is pinned in tests/prolog/suites/evaluation/metta.plt where a throw is assertable.
 !(test (with-pragma! ((max-inferences 100000)) (+ 20 22)) 42)
 !(test (with-pragma! ((max-time 30) (max-inferences 100000)) (spin 100)) done)
 !(test (spin 2000) done)

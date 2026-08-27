@@ -73,7 +73,7 @@ Run the Python suite directly with the repository root and configuration made
 explicit:
 
 ```sh
-"$PY" -m pytest bindings/python/tests/ -q --rootdir=python -c bindings/python/pyproject.toml
+"$PY" -m pytest bindings/python/tests/ -q --rootdir=bindings/python -c bindings/python/pyproject.toml
 ```
 
 The gate runs test files in separate worker processes because each process

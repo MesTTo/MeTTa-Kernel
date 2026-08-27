@@ -2,12 +2,12 @@
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% Guarantees: lift_pattern_modifiers/4 answers whether a pattern carries a sequence variable from the walk it already makes, and a case arm with one compiles to the gap matcher [tested: tests/prolog/translator.plt:the_walk_reports_a_written_gap, tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
+% Guarantees: lift_pattern_modifiers/4 answers whether a pattern carries a sequence variable from the walk it already makes, and a case arm with one compiles to the gap matcher [tested: tests/prolog/suites/translator/translator.plt:the_walk_reports_a_written_gap, tests/prolog/suites/reader/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % Guarantees: result finality is read from the declaration set that governs
 % the function's owning space [tested:
 % lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
 % commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
-% [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %Convert let* to recursive let. The singleton case is the recursive one over
 %an empty rest, and writing it out as a third clause made the predicate
@@ -478,7 +478,7 @@ metta_minimal_equation_result(_, Body, Body).
 %the ordinary expression projection and every RHS splice.  Pattern matching
 %precedes head constraints, exactly as ordinary Prolog head unification
 %precedes the goals compiled from in-place annotations [tested:
-%tests/prolog/segment_equations.plt; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+%tests/prolog/suites/reader/segment_equations.plt; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 metta_segment_rule_result(Module, Fun, HeadPlan, BodyPlan, Args, Out) :-
     metta_seq_head_match(HeadPlan, Args),
     metta_segment_body_result(Module, Fun, BodyPlan, Out).
@@ -512,7 +512,7 @@ metta_segment_spliced_result(Fun, Instantiated, Out) :-
 %name a Prolog predicate of that arity.  Retained equations supply the finite
 %set of candidate heads; reversing the asserta/1 metadata restores source
 %order, and the one-sided matcher supplies shortest-first splits within each
-%rule [tested: tests/prolog/segment_equations.plt;
+%rule [tested: tests/prolog/suites/reader/segment_equations.plt;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 metta_segment_dispatch(Module, Fun, Args, Out) :-
     fun_meta_module(Module, Fun, Owner),
@@ -1051,7 +1051,7 @@ seam:pattern_modifier([Colon, Fresh, Type], Fresh,
     %variable [measured 2026-08-21, hypothesis SpaceStateMachine].
     nonvar(Colon), Colon == ':',
     %An annotation annotates a VARIABLE, so anything else in that position
-    %stays structural. Not a nicety: tests/prolog/duals.plt writes
+    %stays structural. Not a nicety: tests/prolog/suites/translator/duals.plt writes
     %`(= (pat-starts-a (: a $rest)) True)` as an ordinary cons-shaped pattern,
     %and without this gate it would be read as "the atom a has type $rest".
     var(Fresh).

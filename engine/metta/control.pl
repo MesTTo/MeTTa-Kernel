@@ -6,7 +6,7 @@
 %   [tested: test_speculative_state_write_is_fenced,
 %   test_world_eval_fences_state_and_emits_nothing; commit=3ded7552797b66d78e666141eb51f3bc14686bd2].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%% Interpreter pragmas: %%%
 :- dynamic metta_pragma/2.
@@ -363,7 +363,7 @@ metta_run_with_fuel(Value, Answer, Goal) :-
 %    reason it had been split was the fear that backtracking past a trailed
 %    b_setval/2 write, after the cleanup removed the variable, would resurrect a
 %    nearly-spent balance and starve the next runnable. It does not:
-%    tests/prolog/fuel.plt runs the shape that could do it, a scope whose body
+%    tests/prolog/suites/evaluation/fuel.plt runs the shape that could do it, a scope whose body
 %    writes the balance three times and whose caller then backtracks through
 %    every one of those writes after the close has run, and the variable reads
 %    `absent` or `off` afterwards either way. The manual says the

@@ -137,14 +137,14 @@ jobs:
         run: uv sync --locked --extra checks
 
       - name: Run Python tests
-        run: uv run pytest bindings/python/tests --rootdir=python -c bindings/python/pyproject.toml
+        run: uv run pytest bindings/python/tests --rootdir=bindings/python -c bindings/python/pyproject.toml
 
       - name: Run shell tests
         run: |
           sh test.sh
-          sh tests/test_git_import.sh
-          sh tests/regression/test_git_dependency.sh
-          sh tests/regression/test_loader_concurrency.sh
+          sh tests/shell/test_git_import.sh
+          sh tests/shell/test_git_dependency.sh
+          sh tests/shell/test_loader_concurrency.sh
 
   # 5) On push to main, rebuild & publish :latest only when Dockerfile changed
   publish-latest:

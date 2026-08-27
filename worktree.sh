@@ -7,7 +7,7 @@
 # Guarantees:
 #   - after this, `backends/mork/decider.pl` finds its artefact and the MORK backend
 #     loads, so the suites gate the same configuration in both trees
-#     [tested: tests/test_worktree_configuration.sh].
+#     [tested: tests/shell/test_worktree_configuration.sh].
 #   - the C extension example's cbump and handle shared objects are built in
 #     the worktree exactly as check.sh builds them, so a direct pytest run
 #     here exercises the same integration surface instead of skipping it.
@@ -71,17 +71,16 @@ echo "worktree.sh: linked $linked artefact(s) from $MAIN"
 # on every run; a worktree used for DIRECT suite runs needs them too, or the
 # example and its tests quietly skip. Same recipe, same tolerance for a
 # missing toolchain.
-ext="$HERE/examples/ch19-spaces-backed-by-anything/19-03-a-builtin-in-c"
-if [ -d "$ext" ]; then
-    if command -v swipl-ld >/dev/null 2>&1; then
-        for unit in cbump handle; do
-            [ -f "$ext/$unit.c" ] || continue
-            ( cd "$ext" && swipl-ld -shared -o "$unit" "$unit.c" ) ||
-                echo "worktree.sh: the C extension example $unit failed to build" >&2
-        done
-    else
-        echo "worktree.sh: swipl-ld not found, the C extension example will skip" >&2
-    fi
+if command -v swipl-ld >/dev/null 2>&1; then
+    for source in "$HERE"/examples/ch19-*/*/*.c; do
+        [ -f "$source" ] || continue
+        directory=$(dirname "$source")
+        unit=$(basename "$source" .c)
+        ( cd "$directory" && swipl-ld -shared -o "$unit" "$unit.c" ) ||
+            echo "worktree.sh: the C example $unit failed to build" >&2
+    done
+else
+    echo "worktree.sh: swipl-ld not found, the chapter 19 C examples will skip" >&2
 fi
 
 # The engine's C reader is gitignored build output with its own gate: parses

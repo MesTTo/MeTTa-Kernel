@@ -4,7 +4,7 @@
 %   - Files below engine/metta/ are plain source units consulted into this
 %     implementation module in their original order; builtin, runtime, and
 %     registration predicates retain their existing ownership and clause order
-%     [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
+%     [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
 %   - A built-in call covered by the effects cluster whose declared operand
 %     types already conflict is refused before operand evaluation; shallow
 %     compile-time checks inspect literals and declared return types without
@@ -388,7 +388,7 @@ register_metta_library_path(Alias, Directory0, true) :-
 %term expansion in flight, so a host clause holding
 %`catch(_ is foo + 1, E, true)` vanished silently, and for a plunit test the
 %dropped expansion is BOTH the registration and the body --
-%tests/prolog/metta.plt:402 registered 233 tests instead of 234 in every
+%tests/prolog/suites/evaluation/metta.plt:402 registered 233 tests instead of 234 in every
 %configuration [measured 2026-08-26]. The repair keeps the hook and removes
 %only that compile-time judgment: an unknown evaluable defers to run time,
 %where SWI's own error and message answer (metta.plt's metta_operation_errors
@@ -869,7 +869,7 @@ metta_import_shared_registries(Subsystem) :-
 %Loading the file into &self was tried first and it changes what every program
 %SEES OF ITS OWN SPACE: `(match &self (: $what $type) ...)` then answers 41
 %engine declarations alongside the program's own, which broke
-%tests/regression/repro3_failed_specialization_self_leak.metta immediately.
+%tests/fixtures/repro3_failed_specialization_self_leak.metta immediately.
 %The engine's types belong where the type system reads them and nowhere a
 %program enumerating its own atoms can trip over them.
 %

@@ -15,7 +15,7 @@
 %     corpus and re-stated here over generated values:
 %
 %       roundtrip     engine/parser.pl's header promises swrite/2 and sread/2 are
-%                     inverse. tests/prolog/parser.plt checks six hand-written
+%                     inverse. tests/prolog/suites/reader/parser.plt checks six hand-written
 %                     terms. This checks the same law over generated ones.
 %       symbol text   metta_symbol_writable/1 is supposed to answer EXACTLY
 %                     which spellings survive the text seam. parser.plt checks
