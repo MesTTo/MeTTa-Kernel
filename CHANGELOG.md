@@ -611,6 +611,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Changed
 
+- Two published host services now state the SHAPES a caller has to know, which
+  were previously discoverable only by experiment. `metta_host_remove_reported/3`
+  answers the plain boolean `true` or `false`; the first C implementation
+  guessed the atom `removed` and reported every successful removal as a miss,
+  silently, because a wrong guess still unifies with a fresh variable. And the
+  name list `sread_with_names/3` answers, which `swrite_with_names/3`,
+  `sdisplay_with_names/3` and `petta_name_pairs/2` all take, is `Name-Var`
+  pairs, `-`/2 rather than `=`/2, with `Name` an atom carrying no `$`; passing
+  `[]` is legal and numbers the variables instead, so `(f $x $x $y)` comes back
+  as `(f $_0 $_0 $_1)`.
+
 - The Python `+=` write door now classifies semantic scalars before fact
   streams. A built `Expression`, bare atom, text value, mapping, or explicitly
   grounded iterable is one atom; lists, generators, SQL-style iterables,
