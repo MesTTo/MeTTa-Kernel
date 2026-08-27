@@ -1592,6 +1592,39 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **`checks` repeated six of `test`'s pins instead of saying it contains them.**
+  The two extras overlapped exactly -- `hypothesis`, `networkx`, `numpy`,
+  `pytest`, `pytest-benchmark`, `pytest-xdist`, identically pinned in both --
+  and keeping them equal was a hand job with nothing checking it. `checks` is
+  `["pymetta[test]", ...]` now, the PEP 508 self-reference that exists for this,
+  and the six duplicates are gone. Measured: `uv lock` resolves the same 86
+  packages, `uv sync --locked --extra checks` still installs all six through the
+  reference, and the lockfile's own record collapses six `extra == 'checks'`
+  rows into one `pymetta[test]`. `test_optional_integrations_have_installable_extras`
+  asserts the RESOLVED sets now rather than the literal spellings, including the
+  superset relation itself, which is stronger than the six membership pairs it
+  replaced: those could all hold while a seventh pin drifted, and this cannot.
+
+- **`docstring-parser` was capped below the current release for no recorded
+  reason.** `>=0.17,<0.18` arrived with the typed-documentation work
+  (`bd23e0ee`) carrying no rationale, and 0.18.0 is now the latest release, so
+  the cap was handing users a resolver conflict. Measured rather than assumed:
+  the two names this library uses, `DocstringStyle` and `parse`, are present in
+  0.18.0 and parse identically, and the whole pytest gate passes against it.
+  The bound is gone; the lockfile still resolves 0.17.0, so what ships is
+  unchanged and what a user may install is no longer needlessly narrowed.
+  `janus-swi` has never carried an upper bound and this now matches it.
+
+- **`bindings/cetta` declared its build inputs in prose, and prose cannot
+  refuse.** The Makefile header named swipl, `libswipl` and a C11 compiler in
+  three sentences nothing read, so a tree without SWI's development files got
+  `PLBASE=""`, compiled against `-I/include`, and failed on a missing
+  `SWI-Prolog.h` with the true cause named nowhere. The three prerequisites are
+  checked now and each refuses by name with the package that supplies it.
+  `clean` is exempt, because removing build products needs no toolchain and a
+  machine that cannot build this should still be able to tidy up after one that
+  could.
+
 - **The engine classified a host's builtins by naming them, which is the one
   thing `EXTENDING.md` promises an extension author never has to force.**
   `seam:host_builtin/1` and `seam:backend_builtin/2` were one concept under two

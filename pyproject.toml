@@ -25,8 +25,21 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
+#: Runtime, by the test that decides it: delete one, ship the wheel, and a
+#: user's program stops working. Neither is imported by `import metta` --
+#: measured, both absent from sys.modules after it -- but `metta.ops` and
+#: `metta._space_definitions` reach `_documentation`, and that is mainstream
+#: use, not an optional feature.
+#: The `<0.18` cap on docstring-parser is gone as of 2026-08-28. It was
+#: introduced with the typed-documentation work (bd23e0ee) with no recorded
+#: reason and had come to exclude the CURRENT release: 0.18.0 is the latest.
+#: Measured against it rather than assumed -- the two names this library uses,
+#: DocstringStyle and parse, are present and parse identically, and the whole
+#: pytest gate passes on 0.18.0 -- so the bound was costing a user a resolver
+#: conflict and buying nothing. janus-swi has never carried an upper bound and
+#: this now matches it.
 dependencies = [
-    "docstring-parser>=0.17,<0.18",
+    "docstring-parser>=0.17",
     "janus-swi>=1.5.2",
 ]
 classifiers = [
@@ -75,22 +88,21 @@ test = [
     "pytest-benchmark>=5.2",
     "pytest-xdist>=3.8,<4",
 ]
+#: Everything `test` installs, plus the linters. Written as the self-reference
+#: PEP 508 gives for exactly this, rather than repeating six pins that then have
+#: to be kept equal by hand: `checks` is a strict superset of `test`, and saying
+#: so once is the only spelling where the two cannot drift.
 checks = [
+    "pymetta[test]",
     "bandit>=1.9",
     "codespell>=2.4",
     "deptry>=0.25",
-    "hypothesis>=6.165",
     "import-linter>=2.13",
     "interrogate>=1.7",
     "mypy>=1.18",
-    "networkx>=3.6,<4",
-    "numpy",
     "perflint>=0.8",
     "pip-audit>=2.9",
     "pylint>=3.3,<4",
-    "pytest>=8.4.2",
-    "pytest-benchmark>=5.2",
-    "pytest-xdist>=3.8,<4",
     "radon>=6.0",
     "refurb>=2.3",
     "ruff>=0.14",
