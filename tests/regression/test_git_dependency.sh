@@ -129,7 +129,7 @@ test ! -e "$spec_base_b/a"
 space_base="$fixture/base  with  spaces"
 swipl -q -g "consult('$ROOT/engine/main.pl'),acquire_git_dependency('file://$fixture/a.git','$a1','build.sh','$space_base'),halt"
 test "$(cat "$space_base/a/.build-count")" = 1
-test -f "$space_base/a/.git/petta-build-stamp"
+test -f "$space_base/a/.git/metta-build-stamp"
 
 # A failed transitive acquisition must not mark its parent as loaded.  Make the
 # leaf remote available only after the first attempt, then retry in the same

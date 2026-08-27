@@ -147,9 +147,9 @@ class build_py_with_runtime(build_py):
     def run(self):
         # A build_lib directory that is not a package of THIS build is debris
         # from a retired configuration, and build_py only ever adds, so it
-        # ships. Measured 2026-08-24: after the petta -> metta rename a stale
-        # build/lib/petta rode into the wheel beside metta and the packaged
-        # gate's own "retired petta module still imports" assertion caught the
+        # ships. Measured 2026-08-24: after the import package was renamed a
+        # stale build/lib copy under the old name rode into the wheel beside
+        # metta and the packaged gate's own retired-module assertion caught the
         # contaminated wheel. Same failure class the _runtime clearing below
         # already documents; this is the package-level half.
         build_root = Path(self.build_lib)

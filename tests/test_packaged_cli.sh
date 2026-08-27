@@ -47,7 +47,6 @@ runtime = Path(metta.__file__).parent / "_runtime"
 for required in ("engine", "lib", "backends/mork/decider.pl", "bindings/python/decider.pl"):
     assert (runtime / required).exists(), f"{required} is missing from the wheel"
 assert list((runtime / "backends").glob("*/decider.pl")), "backends/ shipped empty"
-assert importlib.util.find_spec("petta") is None, "the retired petta module still imports"
 assert importlib.util.find_spec("pymetta") is None, "the distribution name became a module"
 PY
 

@@ -401,8 +401,8 @@ hyperpose_pool_size(BranchCount, Jobs) :-
 %running in. They differ under inheritance, and this engine inherits: the
 %prelude's `(= (atomically $expr) (transaction (eval $expr)))` is compiled into
 %&self's module and shared by every space, so with eval/2 reading its call site
-%`!(collapse (atomically (petta-three)))` in a named space answered
-%((petta-three)) instead of ((1 2 3)) [measured 2026-08-21]. Logtalk threads
+%`!(collapse (atomically (metta-three)))` in a named space answered
+%((metta-three)) instead of ((1 2 3)) [measured 2026-08-21]. Logtalk threads
 %both fields through every compiled clause for this exact reason
 %(core.pl:25188); SWI's module system carries only the first, so Self stays in
 %the global until a compiled clause carries it, which is P11.7's argument to

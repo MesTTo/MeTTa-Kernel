@@ -56,7 +56,7 @@ git_fixture_commit(Dir) :-
     git_fixture_run(Dir, [init, '-q']),
     git_fixture_run(Dir, [add, 'fixture.metta']),
     git_fixture_run(Dir, ['-c', 'user.email=fixture@metta.invalid',
-                          '-c', 'user.name=petta fixture',
+                          '-c', 'user.name=metta fixture',
                           commit, '-q', '-m', 'fixture library']).
 
 git_fixture_run(Dir, Arguments) :-

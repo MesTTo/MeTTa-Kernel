@@ -160,7 +160,7 @@ engine_integrity_report :-
 planted("(= (plus $a $b) planted)",        plus/2,        report).
 planted("(= (plus $a) planted)",           plus/1,        silent).
 planted("(= (b_setval $a) planted)",       b_setval/1,    report).
-planted("(= (petta-own-name $a) planted)", 'petta-own-name'/1, silent).
+planted("(= (metta-own-name $a) planted)", 'metta-own-name'/1, silent).
 
 engine_integrity_selftest :-
     tmp_file(engine_integrity, Base),

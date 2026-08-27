@@ -106,8 +106,8 @@ test(a_refused_name_is_not_registered) :-
 % exists_file/1 guard in lib_import.metta used to swallow that, leaving a
 % missing file as silent failure with no answer and no error.
 test(a_missing_file_is_named,
-     [throws(error(existence_error(source_sink, '/nonexistent/petta/none.pl'), _))]) :-
-    consult_global('/nonexistent/petta/none.pl').
+     [throws(error(existence_error(source_sink, '/nonexistent/metta/none.pl'), _))]) :-
+    consult_global('/nonexistent/metta/none.pl').
 
 test(registering_the_same_name_twice_is_idempotent) :-
     import_prolog_function(plunit_pi_double, true),
@@ -697,7 +697,7 @@ tmp_dir_of_this_suite(Dir) :-
     ( getenv('TMPDIR', Dir) -> true ; Dir = '/tmp' ).
 
 test(a_library_path_that_is_not_a_directory_is_refused,
-     [throws(error(existence_error(directory, '/nonexistent/petta/libdir'), _))]) :-
-    register_metta_library_path(plunit_absent_pkg, '/nonexistent/petta/libdir', true).
+     [throws(error(existence_error(directory, '/nonexistent/metta/libdir'), _))]) :-
+    register_metta_library_path(plunit_absent_pkg, '/nonexistent/metta/libdir', true).
 
 :- end_tests(prolog_interface_namespacing).

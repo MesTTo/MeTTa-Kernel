@@ -1276,7 +1276,7 @@ test(builtin_exists_file) :-
     library('lib_builtin_types.metta', Present),
     'exists_file'(Present, Found),
     assertion(Found == true),
-    'exists_file'('/nonexistent/petta/definitely-not-here', Missing),
+    'exists_file'('/nonexistent/metta/definitely-not-here', Missing),
     assertion(Missing == false),
     %The declaration and the callable shape agree, which is the pairing that
     %was broken: get-type promised one input and the registration took none.

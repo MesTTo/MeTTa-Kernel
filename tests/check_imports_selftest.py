@@ -75,7 +75,7 @@ def test_a_planted_module_level_import_is_rejected() -> None:
     check_script = (ROOT / "check.sh").read_text(encoding="utf-8")
     assert IMPORTS_COMMAND in check_script
 
-    with tempfile.TemporaryDirectory(prefix="petta-imports-selftest-") as directory:
+    with tempfile.TemporaryDirectory(prefix="metta-imports-selftest-") as directory:
         scratch = Path(directory)
         shutil.copy2(ROOT / "pyproject.toml", scratch / "pyproject.toml")
         shutil.copytree(

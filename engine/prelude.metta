@@ -307,7 +307,7 @@
 ;lib/lib_builtin_types.metta because this is the register the CALL SITE
 ;reads. Asking for a type is a question about an expression, and the
 ;engine was answering it by running the expression first: an op that
-;appends to a Python list fired on (get-type (petta-effectful)) and the
+;appends to a Python list fired on (get-type (metta-effectful)) and the
 ;answer was Number, the type of what it returned. Every linter walk and
 ;every REPL inspection was invisibly effectful on a seam whose whole
 ;purpose is arbitrary effects.

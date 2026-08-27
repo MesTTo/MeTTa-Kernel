@@ -204,7 +204,7 @@ test(append_adds_without_truncating) :-
 % A missing file is an ERROR rather than a failure, so it can never be
 % mistaken for an empty file.
 test(reading_a_missing_file_raises) :-
-    catch('read-file!'("/nonexistent/petta/should-not-exist", _),
+    catch('read-file!'("/nonexistent/metta/should-not-exist", _),
           error(existence_error(source_sink, _), _), true).
 
 test(the_handle_surface_reads_and_seeks) :-
@@ -263,7 +263,7 @@ test(list_dir_finds_a_file_it_just_wrote) :-
     'delete-file!'(Path, true).
 
 test(listing_a_missing_directory_raises) :-
-    catch('list-dir!'("/nonexistent/petta/dir", _),
+    catch('list-dir!'("/nonexistent/metta/dir", _),
           error(existence_error(directory, _), _), true).
 
 % The mettafied reading: a file becomes queryable data rather than one string.
@@ -317,7 +317,7 @@ test(scalars_decode_to_themselves) :-
 % MeTTa's booleans are lowercase, so JSON's literals map onto true/false
 % rather than onto HE's capitalised spelling; the reader normalises True to
 % true anyway. Null has no MeTTa equivalent and stays as written.
-test(the_three_literals_decode_to_pettas_own_atoms) :-
+test(the_three_literals_decode_to_mettas_own_atoms) :-
     'json-decode'("true", T), T == true,
     'json-decode'("false", F), F == false,
     'json-decode'("null", U), U == 'Null'.

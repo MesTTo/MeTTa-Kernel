@@ -89,8 +89,8 @@ planted_violation(vanished_tangle,
 % The planted target is a name no module defines and the registry does not
 % declare, which is exactly the shape of the three real ones this caught.
 planted_violation(stray_write,
-                  [write_edge(parser, 'petta-not-owned'/7, sread/2)],
-                  ['parser:sread/2', 'petta-not-owned/7',
+                  [write_edge(parser, 'metta-not-owned'/7, sread/2)],
+                  ['parser:sread/2', 'metta-not-owned/7',
                    'metta_shared_registry/1']).
 
 % The export half needs a subsystem the engine LOADS and that declares a
@@ -100,9 +100,9 @@ planted_violation(stray_write,
 % contract line as well as the missing export.
 planted_violation(unexported_reach,
                   [reaches(metta, kernel, 'planted by the suite'),
-                   layer_edge('metta.pl', 'petta-probe'/1,
-                              'kernel.pl', kernel, 'petta-not-exported'/9)],
-                  ['does not export', 'petta-not-exported/9']).
+                   layer_edge('metta.pl', 'metta-probe'/1,
+                              'kernel.pl', kernel, 'metta-not-exported'/9)],
+                  ['does not export', 'metta-not-exported/9']).
 
 % The clean result above is a claim about a walk, so the walk is asked to prove
 % it can still see, one planted reach per way a call can hide. This is

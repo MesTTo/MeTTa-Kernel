@@ -48,7 +48,7 @@ def checkout() -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--petta-dir", type=Path, default=REPO)
+    parser.add_argument("--metta-dir", type=Path, default=REPO)
     parser.add_argument("--manifest", type=Path, default=None)
     parser.add_argument("--show", type=int, default=10)
     parser.add_argument("--timeout-scale", type=float, default=1.0)
@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         print("the manifest's normalization contract is not the generator's")
         return 1
 
-    petta_dir = arguments.petta_dir.resolve()
+    metta_dir = arguments.metta_dir.resolve()
     if arguments.manifest is None:
         # The generator's own verify_manifest, before any replay: the
         # per-entry loop below only sees PINNED entries, so an example with
@@ -105,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         # --manifest is a restricted replay.
         try:
             generator.verify_manifest(
-                petta_dir, manifest_path, require_revision=False
+                metta_dir, manifest_path, require_revision=False
             )
         except RuntimeError as error:
             print(f"  {error}")
@@ -122,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
         oracle = entry["oracle"]
         timeout = entry["timeout_seconds"] * arguments.timeout_scale
         exit_code, stdout, stderr = generator.run_oracle(
-            petta_dir, name, timeout
+            metta_dir, name, timeout
         )
         if exit_code != oracle["exit"]:
             mismatches.append(
@@ -135,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"forward corpus lane: {len(entries)} pinned entries replayed "
-        f"against {petta_dir.name}, {len(entries) - len(mismatches)} match, "
+        f"against {metta_dir.name}, {len(entries) - len(mismatches)} match, "
         f"{len(mismatches)} moved"
     )
     for line in mismatches[: arguments.show]:

@@ -27,7 +27,7 @@
 %sees a single payload byte.
 metta_host_fast_header(Header) :-
     current_prolog_flag(version_data, swi(Major, Minor, Patch, _)),
-    format(string(Header), 'PETTA-CACHE\tPETTA-FAST\t2\t~d.~d.~d',
+    format(string(Header), 'METTA-CACHE\tMETTA-FAST\t2\t~d.~d.~d',
            [Major, Minor, Patch]).
 
 %A cache whose path ends .gz reads and writes through zlib's stream;

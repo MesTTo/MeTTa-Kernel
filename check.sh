@@ -91,9 +91,9 @@ fi
 PYDIR="$HERE/bindings/python"
 WANT="$*"
 FAILED=''
-SUMMARY=$(mktemp "${TMPDIR:-/tmp}/petta-check.XXXXXX")
-MEMORY_SCALE_DATA=$(mktemp "${TMPDIR:-/tmp}/petta-memory-scale.XXXXXX")
-MEMORY_SCALE_STATUS=$(mktemp "${TMPDIR:-/tmp}/petta-memory-scale-status.XXXXXX")
+SUMMARY=$(mktemp "${TMPDIR:-/tmp}/metta-check.XXXXXX")
+MEMORY_SCALE_DATA=$(mktemp "${TMPDIR:-/tmp}/metta-memory-scale.XXXXXX")
+MEMORY_SCALE_STATUS=$(mktemp "${TMPDIR:-/tmp}/metta-memory-scale-status.XXXXXX")
 trap 'rm -f "$SUMMARY" "$MEMORY_SCALE_DATA" "$MEMORY_SCALE_STATUS"' EXIT
 
 # run TIER NAME COMMAND...
