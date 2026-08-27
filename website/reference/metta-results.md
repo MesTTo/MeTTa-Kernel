@@ -65,6 +65,9 @@ Source: `bindings/python/metta/results.py`.
 >   - one(default=) distinguishes absence from multiplicity for both eager and
 >     lazy faces, while first without a default never returns None [tested:
 >     test_query_answers_complete_the_lazy_projection_protocol; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
+>   - the eager table doors refuse term answers instead of taking an answer
+>     apart into columns, and both display faces render term answers as a
+>     bounded list [tested test_term_answers_never_render_as_a_binding_table]
 >   - zip and reversed retain their lawful Sequence behavior while recording
 >     advisory ordering evidence for Space.lint [tested:
 >     test_zip_over_unordered_answers_is_lawful_and_linted,

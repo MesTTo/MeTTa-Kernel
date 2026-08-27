@@ -1523,6 +1523,22 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- An evaluation answer no longer renders as a row of bindings. `Answers`
+  carries two faces, the values a call answered and the caller bindings behind
+  them, and its eager table doors reached the second by asserting that the
+  first was already a row. The assertion was a `cast`, which does nothing at
+  runtime, so an ATOM arrived at `Rows` and was taken apart by `tuple(atom)`:
+  the single answer `(g $p)` to a two-variable call became two cells under the
+  headers `x` and `y`, and `to_dicts()` read `{'x': 'g', 'y': '$p'}`, naming a
+  head symbol as a binding. Answers whose arity did not line up raised instead,
+  `to_dicts`, `table`, `build`, `to_df`, `to_pl` and `pipe` with a plain
+  `ValueError` and both notebook and terminal renderers from inside the display
+  machinery, so `m.answers(S.ancestor(S.Tom))` as a Jupyter cell's value was a
+  traceback rather than three ancestors. The table doors now refuse term
+  answers and name `.rows` as the door to the bindings, and the two display
+  faces list the answers, bounded by `config.display_rows` and pulled only that
+  far, so a cell holding an unbounded answer stream still renders.
+
 - A compiled object is no longer committed. `cstore.so`, the C-space example's
   shared library, was tracked while its two siblings `cbump.so` and `handle.so`
   were gitignored build products, and while the README beside it tells a reader
