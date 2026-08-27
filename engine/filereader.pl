@@ -150,7 +150,7 @@
 %     [tested: test_verbosity_is_a_published_engine_door,
 %     test_no_binding_carries_its_own_verbosity_setter in
 %     bindings/python/tests/test_engine_diagnostics.py,
-%     test_the_host_service_scoreboard_matches_the_tree; commit=WORKTREE].
+%     test_the_host_service_scoreboard_matches_the_tree; commit=562800cdac5d152f39fbd3b3c14c2d035ed18dea].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

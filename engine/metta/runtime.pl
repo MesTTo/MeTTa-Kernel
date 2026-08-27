@@ -9,7 +9,7 @@
 %     [tested: test_a_failing_assertion_stays_off_the_hosts_stdout in
 %     bindings/python/tests/test_engine_diagnostics.py, test_the_c_binding_suite_passes in
 %     bindings/python/tests/test_c_binding.py, tests/test_example_runner_surfaces_failures.sh;
-%     commit=WORKTREE]
+%     commit=b7eb5734f476f8a8f5b6f16c1e71a67c72a57478]
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 
 %%% Diagnostics / Testing: %%%
