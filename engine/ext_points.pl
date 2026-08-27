@@ -926,6 +926,16 @@ kind(metta_reducible_head/2, host_service).
 %shipped direct path. Every policy-sensitive route is executed engine-side and
 %reported opaque, keeping host derivations out of the six-axis implementation.
 kind(metta_host_dispatch_proof_step/6, host_service).
+%The stack-depth charge engine/spaces/foreign.pl's
+%metta_instrument_recursive_clause/3 writes in front of every recursive
+%equation's body, recognised in a clause body a host is walking. A proof tree
+%walks compiled clauses, meets the charge as ordinary goals, and would report
+%the engine counting its own recursion as a premise of the program. The
+%recognising is engine-side rather than a shape each binding spells again,
+%because every binding that walks clauses needs it and a second spelling drifts
+%the moment the charge changes
+%[tested: test_a_recursive_proof_omits_the_engine_stack_charge].
+kind(metta_host_stack_charge/3, host_service).
 %Grouped answers carry a reader-name state. Host codecs flatten that state for
 %their variable tag and use the same engine writer for host text.
 %

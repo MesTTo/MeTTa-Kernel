@@ -477,6 +477,39 @@ metta_fuel_step_goal(Culprit, Cost,
                            )
                        ) )).
 
+%The same charge, RECOGNISED in a compiled clause body a host is walking. A
+%proof tree walks clauses, meets the charge as ordinary goals, and reports the
+%engine counting its own recursion as a premise of the program: every recursive
+%step read `builtin system:b_getval('$metta_fuel_remaining',off)` and `builtin
+%off==off` before its real premises. The recogniser lives beside the generator
+%because a host that spells the charge's shape a second time drifts the moment
+%the charge changes, and because every binding that walks clauses needs it, not
+%only the first one to ask
+%[tested: test_a_recursive_proof_omits_the_engine_stack_charge].
+%
+%It hands the charge BACK rather than calling it. A compiled clause's body runs
+%in the module that defines the clause, which the caller knows and this
+%predicate does not.
+%
+%Only the FIRST conjunct is matched against the generator above, and the branch
+%beside it is tied to that conjunct by variable identity: it must test the very
+%variable the read bound. Matching the branch against the generated template
+%does not work, because clause/2 DECOMPILES and SWI's arithmetic instructions
+%do not regenerate the source spelling, `Remaining is Limit - Cost` reading
+%back as `Remaining is Limit + -2`
+%[measured 2026-08-27: subsumes_term over the read succeeds and over the branch
+%fails, swipl 10 clause/2 on a compiled recursive equation].
+%% metta_host_stack_charge(+Body, -Charge, -Premises) is semidet.
+metta_host_stack_charge(Body, (Read, Branch), Premises) :-
+    nonvar(Body),
+    Body = (Read, Branch, Premises),
+    metta_fuel_step_goal(_, _, (Template, _)),
+    subsumes_term(Template, Read),
+    Read = _:b_getval(_, Balance),
+    nonvar(Branch),
+    Branch = (Condition -> true ; _),
+    Condition == (Balance == off).
+
 %Off the step's own path, because a branch that ran out of fuel is recorded
 %once and then fails, while the step above runs on every reduction.
 metta_fuel_exhausted(Culprit) :-
