@@ -706,7 +706,7 @@ print_overlap(Rules, verdict(I, J, Pos, L, R, Kind)) :-
 % The shipped configuration, loaded quietly: the two libraries that register a
 % translator rule today.
 load_engine :-
-    set_prolog_flag(argv, [backends]),
+    set_prolog_flag(argv, [extensions]),
     user:consult('../../engine/metta.pl'),
     retractall(user:silent(_)),
     assertz(user:silent(true)).
@@ -721,7 +721,7 @@ translator_confluence_report :-
 
 % The same report over named MeTTa files instead of the shipped libraries,
 % which is what a caller planting an overlap needs. Read argv BEFORE
-% load_engine, which overwrites it so that engine/metta.pl globs the backends.
+% load_engine, which overwrites it so that engine/metta.pl reads the seats.
 translator_confluence_main :-
     current_prolog_flag(argv, Argv),
     (   Argv == []

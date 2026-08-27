@@ -431,7 +431,7 @@ has_type_derive(Module, X, T) :-
 %is not evidence of a Space. The directed BigInt-to-Number case is explicit
 %here too, so reflective and compiled call checks use the same operational rule
 %[tested:
-%bindings/python/tests/ch04_spaces_and_matching/test_answer_protocol.py::test_admission_types_the_pool].
+%extensions/python/tests/ch04_spaces_and_matching/test_answer_protocol.py::test_admission_types_the_pool].
 type_witness_in(Module, X, T) :-
     type_witness_direct(Module, X, T, Outcome),
     (   Outcome == found
@@ -1324,7 +1324,7 @@ scoped_super_type_rounds(Space, Frontier, Accumulated, Widened) :-
 %THROWS is the registrant's bug, and reading the throw as "no bridge answered"
 %ran the class walk instead: one broken protocol predicate silently destroyed
 %typing for every host object in the process, and get-type answered Box, the
-%envelope's own class, for all of them. bindings/python/metta/_ops.py says the rule in
+%envelope's own class, for all of them. extensions/python/metta/_ops.py says the rule in
 %as many words for the same probe on the Python side: "A broken probe is the
 %registrant's bug: surface it with the protocol's name attached, never as a
 %type quietly missing." The fallback is for a bridge that is ABSENT, which is
@@ -1344,7 +1344,7 @@ metta_grounded_type(X, T) :- ( seam:grounded_type_names(X, Names)
 %Number Number))` answered `(builtin_function_or_method)` through the library
 %and `(builtin_function_or_method (-> Number Number Number))` through run.sh
 %[measured 2026-08-18] [tested:
-%bindings/python/tests/ch11_python_as_a_notation/test_ops.py::test_a_declared_type_survives_the_library_being_loaded].
+%extensions/python/tests/ch11_python_as_a_notation/test_ops.py::test_a_declared_type_survives_the_library_being_loaded].
 %Two relations rather than one wider if-then-else, for the reason Sterling and
 %Shapiro give for lifting entitlement/2 out of pension/2: a cut that picks a
 %default correctly still prevents the alternatives being found [source: The Art

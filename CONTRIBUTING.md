@@ -80,7 +80,7 @@ The Python suite runs from the repository root, with the root and the
 configuration made explicit:
 
 ```sh
-python -m pytest bindings/python/tests/ -q --rootdir=bindings/python -c bindings/python/pyproject.toml
+python -m pytest extensions/python/tests/ -q --rootdir=extensions/python -c extensions/python/pyproject.toml
 ```
 
 The engine's suites are PlUnit files under `tests/prolog/`. Run one from

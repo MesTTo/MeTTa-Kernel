@@ -8,7 +8,7 @@ equivalent oracle form when this engine's reified strategy application has anoth
 
 The names and their types are LeaTTa's, measured against its built binary rather
 than transcribed: manifest 1.0.9 at commit `39c7c43`, 382 declarations
-over 380 distinct names. `bindings/python/tools/phrasebook.py` runs the
+over 380 distinct names. `extensions/python/tools/phrasebook.py` runs the
 rows and fails when a spelling stops answering what it says it answers.
 
 ## How to read a row

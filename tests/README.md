@@ -2,7 +2,7 @@
 
 Everything here is run by `check.sh`, which is the one gate. Nothing in this
 directory is a pytest module: the Python suite lives in
-`bindings/python/tests/` and is organised by the same 22-chapter spine the
+`extensions/python/tests/` and is organised by the same 22-chapter spine the
 examples use.
 
 | directory | what it holds |

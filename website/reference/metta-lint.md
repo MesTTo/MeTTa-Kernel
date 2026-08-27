@@ -1,6 +1,6 @@
 # `metta.lint`
 
-Source: `bindings/python/metta/lint.py`.
+Source: `extensions/python/metta/lint.py`.
 
 > Purpose: expose diagnostics for declarations, equations, and calls.
 > Guarantees:

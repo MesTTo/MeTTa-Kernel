@@ -94,7 +94,7 @@
 %equations cost 131.01 inferences per add against this body's, the two
 %collapse-over-match reads of &metta being the gap, and a pool is a
 %millions-of-adds surface [measured 2026-08-20:
-%bindings/python/benchmarks/extension_cost.py write-door table, min of 3 runs].
+%extensions/python/benchmarks/extension_cost.py write-door table, min of 3 runs].
 %The MeTTa-bodied chain runs on as executable documentation with a
 %differential in examples/ch15-writing-transactions-and-worlds/04-admission_pools.metta, and a space may
 %shadow this name like any builtin. Every declared admits type must be

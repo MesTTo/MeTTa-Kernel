@@ -108,18 +108,18 @@ SOURCES = (
     "engine/*.pl",
     "lib/*/*.pl",
     "lib/*/*.py",
-    "bindings/python/metta/*.py",
-    "bindings/python/metta/*.pl",
-    "bindings/python/examples/*.py",
-    "backends/mork/mork_ffi/*.pl",
-    "bindings/python/tools/*.py",
+    "extensions/python/metta/*.py",
+    "extensions/python/metta/*.pl",
+    "extensions/python/examples/*.py",
+    "extensions/mork/mork_ffi/*.pl",
+    "extensions/python/tools/*.py",
     "tests/checks/*.py",
     # The Node binding is TypeScript, and its sources make the same kind of
     # claim the Python ones do. Its Prolog half is here for the same reason
-    # bindings/python/metta/*.pl is.
-    "bindings/node/*.pl",
-    "bindings/node/src/*.ts",
-    "bindings/node/src/*/*.ts",
+    # extensions/python/metta/*.pl is.
+    "extensions/node/*.pl",
+    "extensions/node/src/*.ts",
+    "extensions/node/src/*/*.ts",
 )
 
 # Commentless formats, scanned for PROVENANCE ONLY. A JSON baseline is exempt
@@ -136,12 +136,12 @@ SOURCES = (
 # reported "tested: names goes", "names red", "names against" and "names read"
 # from one row's narrative. The pin check is a regex over commit= and cannot
 # make that mistake.
-PROVENANCE_SOURCES = ("bindings/python/benchmarks/*.json",)
+PROVENANCE_SOURCES = ("extensions/python/benchmarks/*.json",)
 
 # Where a name may be defined. metta/_compliance.py holds real tests, shipped
 # for a provider author to inherit; they run here too, under each
 # SpaceComplianceSuite subclass, which is why the package is walked at all.
-PYTHON_TREES = ("bindings/python/tests", "bindings/python/benchmarks", "bindings/python/metta", "tests")
+PYTHON_TREES = ("extensions/python/tests", "extensions/python/benchmarks", "extensions/python/metta", "tests")
 
 # The tag and everything up to its closing bracket, across newlines: a claim
 # listing three tests wraps, and a per-line scan reads the first line as an
@@ -398,7 +398,7 @@ def _node_targets(runs: dict[Path, Execution]) -> dict[str, list[Target]]:
     name a whole suite the way one may name a Python test module.
     """
     targets: dict[str, list[Target]] = {}
-    for path in sorted((ROOT / "bindings" / "node" / "test").glob("*.test.ts")):
+    for path in sorted((ROOT / "extensions" / "node" / "test").glob("*.test.ts")):
         resolved = path.resolve()
         fails = "node --test reports a failure" if resolved in runs else None
         note = "" if fails else "no lane runs it"
@@ -515,7 +515,7 @@ GATE_COMMAND = re.compile(r"\b(?:GATE_ONLY=1\s+)?sh\s+check\.sh\s+([a-z0-9-]+)")
 
 #: The other shape an exact gate command takes: an interpreter, the script it
 #: runs, and that script's own flags, as in
-#: `python bindings/python/tools/phrasebook.py --gate`. The lane above names a
+#: `python extensions/python/tools/phrasebook.py --gate`. The lane above names a
 #: LANE; this names the SCRIPT, and what makes it evidence is the same thing,
 #: that a GATE lane runs it.
 #:

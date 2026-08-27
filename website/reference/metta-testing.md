@@ -1,6 +1,6 @@
 # `metta.testing`
 
-Source: `bindings/python/metta/testing.py`.
+Source: `extensions/python/metta/testing.py`.
 
 > Purpose: hypothesis strategies for property-testing code built on this
 > library, the pandas.testing reading: the exact generators the library's own

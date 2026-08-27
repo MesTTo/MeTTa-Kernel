@@ -31,7 +31,7 @@ def _fixture(*, grounded_call: bool = True, central: bool = True, law: bool = Tr
     )
     _write(
         root,
-        "bindings/python/metta/errors.py",
+        "extensions/python/metta/errors.py",
         "def _compile_ground(construct):\n"
         "    return construct\n"
         "class CompileError(Exception):\n"
@@ -40,7 +40,7 @@ def _fixture(*, grounded_call: bool = True, central: bool = True, law: bool = Tr
     )
     _write(
         root,
-        "bindings/python/metta/refusal.py",
+        "extensions/python/metta/refusal.py",
         "def refuse():\n"
         f"    raise _grounded_type_error('fixture'{ground_argument})\n",
     )
@@ -70,7 +70,7 @@ def test_a_planted_semantic_type_error_without_ground_is_reported() -> None:
     finally:
         directory.cleanup()
     assert findings == [
-        "bindings/python/metta/refusal.py:2: semantic TypeError has no ground="
+        "extensions/python/metta/refusal.py:2: semantic TypeError has no ground="
     ]
 
 
@@ -82,7 +82,7 @@ def test_a_planted_noncentral_compile_error_ground_is_reported() -> None:
     finally:
         directory.cleanup()
     assert findings == [
-        "bindings/python/metta/errors.py: CompileError does not derive ground "
+        "extensions/python/metta/errors.py: CompileError does not derive ground "
         "from _compile_ground(construct)"
     ]
 

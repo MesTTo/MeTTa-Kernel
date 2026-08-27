@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
-PYTHON_PACKAGE = Path("bindings/python/metta")
+PYTHON_PACKAGE = Path("extensions/python/metta")
 ERRORS = PYTHON_PACKAGE / "errors.py"
 SEGMENTS = Path("engine/spaces/segment_matching.pl")
 PYTHON_CITATION = re.compile(r"Python Language Reference section\s+\d")
@@ -158,7 +158,7 @@ def scan_refusal_grounds(root: Path) -> tuple[list[str], GateCounts]:
 
 def runtime_ground_findings(root: Path) -> list[str]:
     """Exercise the constructors so data shape, not source spelling, is gated."""
-    package_parent = str(root / "bindings/python")
+    package_parent = str(root / "extensions/python")
     if package_parent not in sys.path:
         sys.path.insert(0, package_parent)
     from metta.errors import (

@@ -36,7 +36,7 @@ module puts it in scope: `swrite/2`, `space_module/2`, `current_metta_module/1`.
 
 ## What each one costs
 
-Measured by `bindings/python/benchmarks/extension_cost.py`, which `check.sh` re-runs as
+Measured by `extensions/python/benchmarks/extension_cost.py`, which `check.sh` re-runs as
 a GATE against a committed baseline, so these numbers cannot drift at all.
 Every tier is measured in one process against one driver shape, and the driver's own cost is measured
 separately and subtracted, so a row is the marginal cost of **one call** rather
@@ -822,7 +822,7 @@ predicate has more than one solution, that is `PL_retry`/`PL_foreign_control`
 with the `PL_FA_NONDETERMINISTIC` flag; a deterministic foreign predicate that
 should have been nondeterministic loses answers with no sign that it did.
 
-`backends/mork/mork_ffi/mork.c` is the worked example in this repo, and it shows the other
+`extensions/mork/mork_ffi/mork.c` is the worked example in this repo, and it shows the other
 load route: `LD_PRELOAD` in `run.sh`, which is right when the library must be
 present before the engine boots.
 
@@ -840,7 +840,7 @@ extension never has to know the C reader exists.
 ### Hand back a handle, not a serialisation
 
 The expensive mistake at this boundary is converting your structure to text.
-`backends/mork/mork_ffi/mork.c` does exactly that, and it is worth knowing what it costs:
+`extensions/mork/mork_ffi/mork.c` does exactly that, and it is worth knowing what it costs:
 reading MORK's answer for a single `(fact a 1)` costs **4.49us and 149
 inferences to parse**, against **0.37us and 2 inferences for the FFI call that
 produced it** [measured 2026-08-16]. The crossing is cheap. The text is not.
@@ -882,7 +882,7 @@ answers, so identity and mutation survive the round trip, and a Python function
 can unpack the structure through whatever accessors the extension registered.
 It used to arrive as its printed STRING, silently, which made the round trip
 impossible [measured 2026-08-17; pinned in
-`bindings/python/tests/ch19_spaces_backed_by_anything/test_c_handle_crossing.py`].
+`extensions/python/tests/ch19_spaces_backed_by_anything/test_c_handle_crossing.py`].
 `release()` retracts the engine-side registry entry that keeps the blob alive;
 a released handle raises by id instead of answering wrongly.
 
@@ -1492,7 +1492,7 @@ requirement.
 There are two ways in, and they differ in cost the same way tiers 2 and 3 do.
 
 **From Python**, implement the `SpaceProvider` protocol in
-`bindings/python/metta/foreign.py` and `register_space`. Every match crosses the janus
+`extensions/python/metta/foreign.py` and `register_space`. Every match crosses the janus
 boundary, which is right when the atoms live somewhere Python already talks to.
 `das.py`, `remote.py` and `persistent.py` are three real instances.
 
@@ -1529,13 +1529,13 @@ Prolog-hosted value participates by adding clauses to these seams.
 ```
 
 `seam:foreign_clear/1` is the sixth and is easy to miss: it lived in
-`bindings/python/metta/shim.pl` rather than beside the other five, so a Prolog provider
+`extensions/python/metta/shim.pl` rather than beside the other five, so a Prolog provider
 that implemented `clear`, as `lib/lib_redis/lib_redis.pl` does, was reachable only when
 Python happened to be in the process. It is declared with them now.
 
 The engine consults `seam:foreign_space/1` before reaching its own storage, so
 your clauses take the space over entirely, with no boundary crossing. This is
-how MORK plugs a Rust trie in underneath MeTTa: `backends/mork/mork_ffi/morkspaces.pl` is a
+how MORK plugs a Rust trie in underneath MeTTa: `extensions/mork/mork_ffi/morkspaces.pl` is a
 complete worked example, and `examples/ch19-spaces-backed-by-anything/19-02-a-space-in-c/` is the
 smallest one, a mutex-guarded C store behind four clauses, proven by
 the conformance kit inside its own example and driven concurrently by
@@ -1543,11 +1543,11 @@ the conformance kit inside its own example and driven concurrently by
 
 Worked instances now exist per language and per backend class, so start
 from the one nearest yours: C (`examples/ch19-spaces-backed-by-anything/19-02-a-space-in-c/`), SQL
-derived from one declaration (`bindings/python/metta/tables.py` with
-`bindings/python/examples/integration/sqlite_space.py`; DuckDB with pushdown in
+derived from one declaration (`extensions/python/metta/tables.py` with
+`extensions/python/examples/integration/sqlite_space.py`; DuckDB with pushdown in
 `duckdb_space.py` beside it), another MeTTa runtime as a subprocess
 (`cetta_space.py`), TypeScript over the wire
-(`bindings/python/examples/integration/typescript_space/`, which also documents
+(`extensions/python/examples/integration/typescript_space/`, which also documents
 the remote protocol itself; `metta.testing.GatewayComplianceSuite`
 certifies any implementation of that protocol by URL), and Redis
 (`lib/lib_redis/lib_redis.pl`).
@@ -1576,7 +1576,7 @@ Write it and `m.add(a, b, c)`, `add-atom` over a list, and any other bulk write
 reach you once with the list. Leave it out and you get one
 `seam:foreign_add/2` per atom, which is what every provider written before
 this gets. The write hooks are yours either way, exactly as they are for your
-per-atom add. `backends/mork/mork_ffi/morkspaces.pl` implements it by joining the atoms into
+per-atom add. `extensions/mork/mork_ffi/morkspaces.pl` implements it by joining the atoms into
 one payload that MORK parses itself.
 
 **A batch is a transport optimisation and never a semantic one.** Whatever the
@@ -1705,13 +1705,13 @@ answered itself, where the identical shape in a native named space answered
 ### Shipping a native backend
 
 A backend whose implementation is a shared library needs one thing a Prolog
-provider does not: somewhere to be loaded from. That is a folder in `backends/`
-carrying an `extension.pl`, a control file of FACTS the engine reads and never
-runs — PostgreSQL's control-file model, the same one the runtime import scan
-follows — and it is the whole mechanism.
+provider does not: somewhere to be loaded from. That is a folder in
+`extensions/` carrying an `extension.pl`, a control file of FACTS the engine
+reads and never runs — PostgreSQL's control-file model, the same one the
+runtime import scan follows — and it is the whole mechanism.
 
 ```prolog
-% backends/mine/extension.pl
+% extensions/mine/extension.pl
 title('Spaces on mine').
 needs(artefact('mine_ffi/target/release/libmine.so')).
 needs(predicate(open_shared_object/3)).
@@ -1727,18 +1727,28 @@ the engine ever loading it. A fact outside that vocabulary refuses loudly at
 read time, naming the file and the term — a control file that could smuggle a
 directive would be a script with extra steps.
 
-This used to be a `decider.pl` of imperative Prolog per seat, each hand-rolling
-its own `exists_file -> ensure_loaded ; true`. Declaring the needs instead
-means the refusal is named uniformly, an unmet prerequisite is a queryable
-record (`metta_extension_unmet/2`) rather than a silent branch, and
-`./metta list` answers without loading anything.
+`extensions/` holds every seat, and those two `entry/2` roles are the whole
+difference between them. A folder there is not a KIND of thing: it is a seat
+that may be loaded BY the engine, may load the engine itself, or both. This
+one declares only `entry(engine, _)`, so the engine consults it and it never
+runs anything; the Node seat declares only `entry(host, _)`, so the engine
+records the transport and its own runtime consults it; the Python seat
+declares both, in two files; the C seat declares both in one. Direction of
+control does not sort them either — the Node transport declares `atom-added`
+and `atom-removed`, which is the engine calling IT, and the Python seat is a
+host, a provider and a target at once. Until 2026-08-28 there were two folders
+here, one for the seats that drive the engine and one for the ones it
+consults, and a seat's first question was which of them it belonged in. There
+is no such question.
 
-The engine reads every control file in `backends/` when the host passes
-`backends`, which `run.sh`, the packaged CLI and the Python library all do. It
-knows none of them by name. **Not built is not an error and half built is**: a
-backend with an unmet need loads nothing and says nothing at boot, and one
-whose needs hold and whose entry is broken raises. The first decision is your
-control file's; the second needs no decision at all.
+The engine reads every control file in `extensions/` when the host passes
+`extensions`, which `run.sh`, the packaged CLI, the Python library and the C
+and Node hosts all do. It knows none of them by name, and a boot without the
+token reads none of them, which is the pure kernel. **Not built is not an
+error and half built is**: a seat with an unmet need loads nothing and says
+nothing at boot, and one whose needs hold and whose entry is broken raises.
+The first decision is your control file's; the second needs no decision at
+all.
 
 One thing your file must NOT do: load a library that installs a
 process-global `system:goal_expansion/2` or `system:term_expansion/2` that
@@ -1765,7 +1775,8 @@ seam:extension_builtin('mine-run', oracleIO).
 ```
 
 Declare `seam:extension_builtin/2` in the file that DEFINES the predicates, not
-in `backends/mine.pl`, so the names exist exactly when the predicates do.
+in `extensions/mine/extension.pl`, so the names exist exactly when the
+predicates do.
 Registering a name whose predicate is absent records no arity, and every call
 to it then compiles to a partial application rather than running or failing.
 
@@ -1787,14 +1798,14 @@ data, or by a foreign library the engine cannot bound, it is `oracleIO` — that
 is a review, not a default, and it is why MORK's `mm2-exec` is one while its
 two writers are `writesState`.
 
-MORK is one of these and used to be none of it. `'../backends/mork/mork_ffi/morkspaces'` was
+MORK is one of these and used to be none of it. `'../extensions/mork/mork_ffi/morkspaces'` was
 written into `engine/metta.pl`'s load list, in a second copy of that list behind
 an argv test, and its three builtin names into a second argv test further down,
 and `mork_test/0` was called by name from `engine/main.pl`. So a second native
 backend could not be added without editing the engine, which is the one thing
 this page promises you never have to do, and MORK reached the engine through a
 door no other provider had. It goes through the seam now like everyone else,
-and `backends/mork/extension.pl` is four facts.
+and `extensions/mork/extension.pl` is four facts.
 
 ### What you may call back
 
@@ -1849,7 +1860,7 @@ an engine internal rather than published surface
 
 This exists because MORK reached past the seam for years and nothing said so.
 It called `swrite/2` and `metta_unwritable_symbol/2` out of `engine/parser.pl`,
-wrapping the second under a private name of its own, and `bindings/python/metta/shim.pl`
+wrapping the second under a private name of its own, and `extensions/python/metta/shim.pl`
 had independently wrapped the same predicate under a different private name.
 Two extensions inventing two names for one undeclared dependency is what the
 problem looks like from the outside. They are declared now, in
@@ -2088,7 +2099,7 @@ pattern you called exact yields anything that does not match. It is the one
 claim in the seam that unification cannot cover for you: everything else you
 say is protected by the engine re-unifying, and this is the one that licenses
 you to stop early. The worked instance is
-`bindings/python/examples/integration/duckdb_space.py`, whose `pushdown` reads exactly
+`extensions/python/examples/integration/duckdb_space.py`, whose `pushdown` reads exactly
 the positions its `WHERE` clause covers and whose claim the kit confirms:
 `pushdown: 3 of 3 patterns claimed exact, and are`.
 
@@ -2325,7 +2336,7 @@ function name nor a partial application, so an ordinary MeTTa call never
 reaches it.
 
 Nothing in the engine knows what makes a value applicable, which is the point.
-`bindings/python/bridge.pl` claims Python callables, which is what makes
+`extensions/python/bridge.pl` claims Python callables, which is what makes
 `((py-atom numpy.absolute) -5)` work; a bridge for something else claims its
 own.
 
@@ -2401,7 +2412,7 @@ can reject on length alone, which is how matching `($x $y)` against a
 million-element host container costs one question rather than a million.
 
 A value with no structural reading simply has no clause here, and that is a real
-answer rather than a gap: `bindings/python/bridge.pl` gives one to Python sequences and
+answer rather than a gap: `extensions/python/bridge.pl` gives one to Python sequences and
 withholds it from a `dict`, a `set` and a `str`, following PEP 634's rule for
 which objects a sequence pattern may take apart.
 
@@ -2537,7 +2548,7 @@ seam:grounded_text(Obj, Text) :- my_object(Obj), my_render(Obj, Text).
 The writer has no other way to know. With no provider it falls back to the
 term's own text, so this is never required and can never fail a print, but that
 fallback names an address where the value could have named itself:
-`bindings/python/bridge.pl` answers with `repr`, which is why `(py-atom "[1, 2, 3]")`
+`extensions/python/bridge.pl` answers with `repr`, which is why `(py-atom "[1, 2, 3]")`
 displays `[1, 2, 3]` and a numpy array displays `array([1, 2, 3])`.
 
 ### The seams this page did not list
@@ -2776,7 +2787,7 @@ re-checks them, exactly as Hyperon's CustomMatch behaves. That is the
 point. An embedding matcher's "close enough" has no structural check
 even in principle, and a space is exactly such a value whose matcher is
 query. The bindings it yields are arbitrary by design, okBind
-semantics; `bindings/python/examples/integration/cetta_space.py`'s `CettaMatch`
+semantics; `extensions/python/examples/integration/cetta_space.py`'s `CettaMatch`
 is a worked instance whose bindings come from a different MeTTa
 runtime entirely.
 
@@ -2895,7 +2906,7 @@ The contract language is MeTTa on purpose, and it reaches the boundary
 itself: a backend's whole conversion can be ONE declaration relating
 the atom shape to the backend's shape, `(bridge (edge $a $b)
 (row edges (a $a) (b $b)))`, used in both directions the way any MeTTa
-pattern is. `bindings/python/metta/tables.py` derives a complete SQL provider
+pattern is. `extensions/python/metta/tables.py` derives a complete SQL provider
 from such atoms, WHERE from bound positions, the equalities repeated
 variables demand, INSERT from grounding, honest pushdown claims, and
 the conformance kit checks the derived claims the way the lens laws

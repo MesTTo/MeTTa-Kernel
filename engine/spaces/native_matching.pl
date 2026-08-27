@@ -246,7 +246,7 @@ get_atom_read_link(Space, Pattern) :-
 %predicates, so a caller that wipes only the space predicate would leave the
 %scalars standing and a pooled name's next life would inherit them.
 %Clearing a foreign space is the provider's own operation, and it lived in
-%bindings/python/metta/shim.pl, so a Prolog provider that implemented clear (as
+%extensions/python/metta/shim.pl, so a Prolog provider that implemented clear (as
 %lib/lib_redis/lib_redis.pl does) was reachable only when Python was in the process:
 %under run.sh the engine had no path to it at all. The shim now calls this.
 clear_foreign_atoms(Space) :-
@@ -260,7 +260,7 @@ clear_foreign_atoms(Space) :-
 %space [measured 2026-08-19, ai-tmp/spaces-p1/probe_p116h.pl]. Space names
 %are POOLED, so that is a previous life answering through a recycled name.
 %
-%It was masked rather than absent: bindings/python/metta/shim.pl's clear removes
+%It was masked rather than absent: extensions/python/metta/shim.pl's clear removes
 %equations through the removal funnel before calling this, so the Python door
 %was whole and the ENGINE's own door was not. Every other caller got the half
 %clear, and P1.14's reload will come through this one.
@@ -331,7 +331,7 @@ metta_capacity_count_uninstall(Space) :-
 %removals retain their old inference count instead of paying a failed counter
 %probe [measured: register-op 44334 inferences on 2026-08-21, min of 3;
 %command=cd python && python bench.py --counter-only --keep-going;
-%fixture=bindings/python/benchmarks/test_benchmarks.py::test_register_operation;
+%fixture=extensions/python/benchmarks/test_benchmarks.py::test_register_operation;
 %commit=819b139c7cdbdaa673f854713e8beb988eb12ead]. The clause and its reference are dynamic database state,
 %hence an enclosing transaction rolls their installation back with the claim.
 metta_capacity_remove_hook_install(Space) :-

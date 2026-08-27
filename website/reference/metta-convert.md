@@ -1,6 +1,6 @@
 # `metta.convert`
 
-Source: `bindings/python/metta/convert.py`.
+Source: `extensions/python/metta/convert.py`.
 
 > Purpose: public two-way conversion facade and registration API.
 > Guarantees:

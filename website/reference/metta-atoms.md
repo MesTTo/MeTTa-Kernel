@@ -1,6 +1,6 @@
 # `metta.atoms`
 
-Source: `bindings/python/metta/atoms.py`.
+Source: `extensions/python/metta/atoms.py`.
 
 > Purpose: expose MeTTa atoms, the S/V/G factories, parsing, and matching.
 >

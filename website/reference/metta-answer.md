@@ -1,6 +1,6 @@
 # `metta.answer`
 
-Source: `bindings/python/metta/answer.py`.
+Source: `extensions/python/metta/answer.py`.
 
 > Purpose: the explicit answer a provider or operation may yield in place
 > of a plain atom: bindings for the query's variables, an optional explicit

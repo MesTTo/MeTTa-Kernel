@@ -25,7 +25,7 @@ Fails when:
 Decides:
   - only ``metta_catalog_preset/1`` terms in ``engine/spaces.pl`` are catalog
     authority; unrelated closed lists in that file remain findings, while
-    ``bindings/python/metta/vocabularies.py`` is generated and excluded
+    ``extensions/python/metta/vocabularies.py`` is generated and excluded
 Open Obligations:
   To Do: None
   Hacks: None
@@ -74,11 +74,11 @@ CATALOG_PRESET = re.compile(
 SOURCE_ROOTS = (
     Path("engine"),
     Path("lib"),
-    Path("bindings/python/metta"),
+    Path("extensions/python/metta"),
 )
 EXCLUDED_PATHS = frozenset(
     {
-        Path("bindings/python/metta/vocabularies.py"),
+        Path("extensions/python/metta/vocabularies.py"),
     }
 )
 
@@ -173,7 +173,7 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
         "agenda", "declaration", "engine/metta/effects.pl", r"^metta_agenda_order\("
     ),
     "save-format": PolicySeam(
-        "save", "metta", "bindings/python/metta/_space_persistence.py", r'format == "fast"'
+        "save", "metta", "extensions/python/metta/_space_persistence.py", r'format == "fast"'
     ),
     "volatility": PolicySeam(
         "volatility", "stable", "engine/metta/interop.pl", r"^metta_function_cacheable\("

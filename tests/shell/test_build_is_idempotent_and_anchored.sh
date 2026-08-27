@@ -5,17 +5,18 @@
 #
 #   Every property here is a defect this file was written against. build.sh had
 #   no `set -e`, so a failed cargo build fell through to the next line; it
-#   resolved `../MORK` and `cd ./backends/...` against the CALLER's working
-#   directory, so running it by absolute path provisioned beside the caller; and
+#   resolved `../MORK` and a `cd` into the crate's directory against the
+#   CALLER's working directory, so running it by absolute path provisioned
+#   beside the caller; and
 #   its last four lines cloned faiss_ffi with no destination argument after two
-#   `cd`s, which landed a whole vendored checkout in backends/mork/faiss_ffi --
+#   `cd`s, which landed a whole vendored checkout in extensions/mork/faiss_ffi --
 #   a path no ignore rule covers, so one successful run dirtied `git status` and
 #   the next failed on "destination path already exists".
 # Guarantees:
 #   - two consecutive runs from a directory that is not the repository root both
 #     exit 0 and leave `git status --porcelain` byte-identical
-#   - backends/mork/faiss_ffi does not appear
-#   - backends/mork/mork_ffi/build.sh with no toolchain on PATH exits nonzero and
+#   - extensions/mork/faiss_ffi does not appear
+#   - extensions/mork/mork_ffi/build.sh with no toolchain on PATH exits nonzero and
 #     NAMES what it could not find, where it used to print
 #     "Successfully built mork_ffi" whatever happened
 # Fails when:
@@ -41,7 +42,7 @@ for sibling in MORK PathMap; do
         exit 0
     fi
 done
-if [ ! -e "$project_dir/backends/mork/mork_ffi/target/release/libmork_ffi.so" ]; then
+if [ ! -e "$project_dir/extensions/mork/mork_ffi/target/release/libmork_ffi.so" ]; then
     echo "skipped: no MORK build here, so a run would be a full compile rather than a re-run"
     exit 0
 fi
@@ -72,15 +73,15 @@ if [ "$before" != "$after" ]; then
     exit 1
 fi
 
-if [ -e "$project_dir/backends/mork/faiss_ffi" ]; then
-    echo "FAIL: backends/mork/faiss_ffi is back; the destination-less clone returned" >&2
+if [ -e "$project_dir/extensions/mork/faiss_ffi" ]; then
+    echo "FAIL: extensions/mork/faiss_ffi is back; the destination-less clone returned" >&2
     exit 1
 fi
 
 # The honesty half, and it needs no compiler precisely because it is about what
 # happens when there is none. /bin/sh by absolute path, because `PATH=... cmd`
 # applies to the lookup of cmd itself.
-if PATH=/nonexistent /bin/sh "$project_dir/backends/mork/mork_ffi/build.sh" \
+if PATH=/nonexistent /bin/sh "$project_dir/extensions/mork/mork_ffi/build.sh" \
        >"$elsewhere/toolless.log" 2>&1; then
     echo "FAIL: mork_ffi/build.sh reported success with no toolchain on PATH" >&2
     cat "$elsewhere/toolless.log" >&2

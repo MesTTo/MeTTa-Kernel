@@ -25,7 +25,7 @@
 %The POSITIONS are read off seam:builtin_type_declaration/2 rather than listed, so
 %declaring a type for a new builtin strengthens its guard in the same stroke
 %and the table and the guards cannot drift apart. The probe in
-%bindings/python/tests/ch10_errors_and_refusals/test_builtin_inputs.py enumerates the same table.
+%extensions/python/tests/ch10_errors_and_refusals/test_builtin_inputs.py enumerates the same table.
 %
 %Each guard is a LEADING clause on a var first argument, and it costs nothing
 %where it would be felt: 'car-atom'([1,2], _) is 2.0000 inferences per call

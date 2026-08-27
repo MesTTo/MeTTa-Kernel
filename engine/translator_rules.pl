@@ -62,7 +62,7 @@
 %     the declarations come from the registry lookup the caller already made
 %     [measured 2026-08-21: reading them again here cost 6 inferences on
 %     file-load and the projection translator_rule/1 cost 50,004 on
-%     alpha-unique; command=bindings/python/bench.py --counter-only;
+%     alpha-unique; command=extensions/python/bench.py --counter-only;
 %     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 % Decides:
 %   - a rule read both ways is applied only in the direction that strictly

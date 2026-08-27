@@ -11,7 +11,7 @@ the citation names a plunit unit now.
 Two ways of learning what a runner executes, because neither covers the other:
 
   literally    a path written into a runner is executed by it. check.sh names
-               tests/prolog/static_checks.pl and bindings/python/tools/reference.py this
+               tests/prolog/static_checks.pl and extensions/python/tools/reference.py this
                way, and reading the paths out needs no model of anything.
   by glob      pytest, the plunit loop and test.sh each select a whole tree.
                Nothing in the text names the files, so each of the three is
@@ -28,7 +28,7 @@ Assumes:
   - `:- initialization(main, main)` exits 1 when main fails, so a Prolog script
     named by a runner reports its failure [measured 2026-08-18: swipl 10 exits
     1 on `main :- fail.` and 0 on `main :- true.`]
-  - bindings/python/pyproject.toml leaves pytest's discovery at its documented defaults,
+  - extensions/python/pyproject.toml leaves pytest's discovery at its documented defaults,
     which PYTEST_DISCOVERY_KEYS re-checks on every run
     [source: https://docs.pytest.org/en/stable/explanation/goodpractices.html]
 Guarantees:
@@ -65,12 +65,12 @@ def _component_runners() -> tuple[str, ...]:
     this list was four hardcoded names. A lane the evidence model cannot see is
     a lane whose paths look unrun, so a claim citing a file only that lane runs
     reads as unbacked. Measured 2026-08-28: discovery restores exactly one file
-    to the executed model, bindings/node/test/atom.test.ts, and no tag cites it
+    to the executed model, extensions/node/test/atom.test.ts, and no tag cites it
     today -- so the exposure is latent rather than realised, and this exists to
     keep it that way as component lanes grow, not to repair a live break.
     """
     found = []
-    for pattern in ("engine/check.sh", "backends/*/check.sh", "bindings/*/check.sh"):
+    for pattern in ("engine/check.sh", "extensions/*/check.sh"):
         found += [str(p.relative_to(ROOT)) for p in sorted(ROOT.glob(pattern))]
     return tuple(found)
 
@@ -99,7 +99,7 @@ ONE_LINE_FUNCTION = re.compile(r"^([a-z_][a-z0-9_]*)\(\)\s*\{([^\n]*)\}[ \t]*$",
 PATHISH = re.compile(r"[$\w./{}-]*[\w}-]\.(?:py|pl|plt|sh|metta|ts)\b")
 # A lane that runs a package's own npm script runs that package's tests, and
 # the script NAME is the whole indirection: `npm run test` inside
-# bindings/node runs every bindings/node/test/*.test.ts, and nothing in the
+# extensions/node runs every extensions/node/test/*.test.ts, and nothing in the
 # lane's text is a path. Reading the indirection is what lets an evidence
 # claim written in a TypeScript source name a test in one of them; without it
 # those claims are unbacked because the checker cannot see the suite at all.
@@ -114,18 +114,18 @@ EXCLUSION = re.compile(
 SHELL_VARIABLES = (
     ("$HERE/", ""),
     ("${HERE}/", ""),
-    # check.sh sets PYDIR="$HERE/bindings/python". These read "python/",
+    # check.sh sets PYDIR="$HERE/extensions/python". These read "python/",
     # the pre-partition location, so any lane naming $PYDIR/<file> resolved
     # to a path that is not in the tree and its file read as unexecuted.
     # No lane writes that shape today, which is why nothing was lost yet.
-    ("$PYDIR/", "bindings/python/"),
+    ("$PYDIR/", "extensions/python/"),
     ("./", ""),
     ("$HERE", "."),
-    ("$PYDIR", "bindings/python"),
+    ("$PYDIR", "extensions/python"),
 )
 
 # pytest's discovery is documented rather than configured here, so the model
-# below is only right while bindings/python/pyproject.toml stays silent about it.
+# below is only right while extensions/python/pyproject.toml stays silent about it.
 PYTEST_DISCOVERY_KEYS = ("python_files", "python_classes", "python_functions", "testpaths")
 
 # A Prolog file a runner names pulls in whatever it loads, and those clauses
@@ -207,7 +207,7 @@ COLLECTORS = (
         tier="GATE",
         lane="pytest",
         anchor="pytest tests -q -p no:benchmark",
-        root="bindings/python/tests",
+        root="extensions/python/tests",
         patterns=("test_*.py", "*_test.py"),
         recursive=True,
     ),
@@ -358,10 +358,10 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
                 record(loaded, execution.tier, execution.runner)
                 pending.append(loaded)
 
-    configuration = ROOT / "bindings/python/pyproject.toml"
+    configuration = ROOT / "extensions/python/pyproject.toml"
     if not configuration.is_file():
         problems.append(
-            "bindings/python/pyproject.toml is absent, so whether pytest still discovers by its "
+            "extensions/python/pyproject.toml is absent, so whether pytest still discovers by its "
             "documented defaults cannot be read"
         )
         return runs, problems
@@ -369,7 +369,7 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
     for key in PYTEST_DISCOVERY_KEYS:
         if re.search(rf"^{key}\s*=", section.partition("\n[")[0], re.M):
             problems.append(
-                f"bindings/python/pyproject.toml sets pytest's {key}, so the collectors above "
+                f"extensions/python/pyproject.toml sets pytest's {key}, so the collectors above "
                 f"model a discovery this project no longer uses"
             )
     return runs, problems

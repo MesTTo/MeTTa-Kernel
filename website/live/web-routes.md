@@ -6,7 +6,7 @@ Guarantees: the shown router requires an effect class for every Space.op and use
 
 # Web routes
 
-Web routing translates into space operations, and the translation is small enough to be an example rather than a package module: `bindings/python/examples/integration/web_routes.py` builds FastAPI's routing semantics in some eighty lines on the core surface alone. An app is a space. Its route table is facts. A request is a term. Dispatch reads the facts back per request and unifies routes in registration order. Typed path converters run after the structural match, so a parameter refusing its type is a 422 while no matching route is a 404. Handlers are called by name through the engine, which is why a route a MeTTa program adds, naming an equation as its handler, serves through the very same table as the Python decorators.
+Web routing translates into space operations, and the translation is small enough to be an example rather than a package module: `extensions/python/examples/integration/web_routes.py` builds FastAPI's routing semantics in some eighty lines on the core surface alone. An app is a space. Its route table is facts. A request is a term. Dispatch reads the facts back per request and unifies routes in registration order. Typed path converters run after the structural match, so a parameter refusing its type is a 422 while no matching route is a 404. Handlers are called by name through the engine, which is why a route a MeTTa program adds, naming an equation as its handler, serves through the very same table as the Python decorators.
 
 The example's router, whole:
 

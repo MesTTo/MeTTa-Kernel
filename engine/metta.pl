@@ -134,34 +134,34 @@
 %     Symbol as an unknown name does [tested 2026-08-20: metta_metatypes].
 %   - metta_transaction/1 answers everything its body answers, and every
 %     answer's writes commit or roll back together [tested 2026-08-19:
-%     bindings/python/tests/ch15_writing_transactions_and_worlds/test_atomic_forms.py::test_a_transaction_preserves_every_answer_of_its_body].
+%     extensions/python/tests/ch15_writing_transactions_and_worlds/test_atomic_forms.py::test_a_transaction_preserves_every_answer_of_its_body].
 %   - Every guarded_input_position/3 refuses an unbound argument and names the
 %     MeTTa operation, so no builtin binds the caller's variable, invents an
 %     answer, runs away or reports a host predicate [tested 2026-08-19:
 %     builtin_input_guards:every_builtin_refuses_an_unbound_input_by_name,
-%     bindings/python/tests/ch10_errors_and_refusals/test_builtin_inputs.py::test_a_raising_builtin_names_the_metta_operation_not_the_host_predicate].
+%     extensions/python/tests/ch10_errors_and_refusals/test_builtin_inputs.py::test_a_raising_builtin_names_the_metta_operation_not_the_host_predicate].
 %   - ==/3 and !=/3 refuse two operands of known and different types and
 %     answer for every other pair, at no cost on two numbers [tested
 %     2026-08-19:
-%     bindings/python/tests/ch03_atoms_and_expressions/test_equality.py::test_cross_kind_equality_answers_what_the_arbiter_answers]
+%     extensions/python/tests/ch03_atoms_and_expressions/test_equality.py::test_cross_kind_equality_answers_what_the_arbiter_answers]
 %     [measured 2026-08-19: 4487.45 inferences per thousand-iteration loop,
 %     unchanged].
 %   - %Undefined% is consistent with every type in both directions, so a call
 %     site refuses only a PROVEN conflict, while has_declared_type/2 demands a
 %     witness for a contract [tested 2026-08-19:
-%     bindings/python/tests/ch09_types/test_gradual_typing.py::test_an_unknown_type_is_consistent_with_every_declared_type,
-%     bindings/python/tests/ch04_spaces_and_matching/test_answer_protocol.py::test_admission_types_the_pool].
+%     extensions/python/tests/ch09_types/test_gradual_typing.py::test_an_unknown_type_is_consistent_with_every_declared_type,
+%     extensions/python/tests/ch04_spaces_and_matching/test_answer_protocol.py::test_admission_types_the_pool].
 %   - An expression no arrow types reads element-wise, and the tuple it reads
 %     is %Undefined% as soon as one member's type is [tested 2026-08-19:
 %     metta_type_answers:a_tuple_with_an_untyped_member_is_undefined].
 %   - get-type/2 and get-type-space/3 answer from declarations without running
 %     the inspected expression, so inspection has no effects of its own
 %     [tested 2026-08-19:
-%     bindings/python/tests/ch09_types/test_type_inspection.py::test_get_type_does_not_run_its_arguments_effects].
+%     extensions/python/tests/ch09_types/test_type_inspection.py::test_get_type_does_not_run_its_arguments_effects].
 %   - get-type-space/3 reads only the selected space, and the upstream doc
 %     family builds @doc-formal answers from that scoped type and prose
 %     [tested 2026-08-20:
-%     bindings/python/tests/repository/test_doc_family.py::test_the_doc_family_answers_what_upstream_answers].
+%     extensions/python/tests/repository/test_doc_family.py::test_the_doc_family_answers_what_upstream_answers].
 %   - seam:builtin_type_declaration/2 rows are the union of lib_builtin_types.metta
 %     and the prelude's, with each row written once and evicted only by the
 %     register that wrote it [tested 2026-08-19:
@@ -199,7 +199,7 @@
 %   - metta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
 %     reading the message [tested 2026-08-19:
-%     bindings/python/tests/ch12_testing/test_assertion_failures.py::test_a_failing_assertion_is_a_different_exception_from_an_engine_fault].
+%     extensions/python/tests/ch12_testing/test_assertion_failures.py::test_a_failing_assertion_is_a_different_exception_from_an_engine_fault].
 %   - Runtime builtins reject prebound outputs that they would not produce
 %     [tested 2026-08-14: metta_builtin_outputs].
 %   - Function registration performed by a source load participates in that
@@ -217,7 +217,7 @@
 %   - Every seam:grounded_extra_type/2 clause is consulted whether or not a host
 %     bridge answers seam:grounded_type_names/2, so a (py-atom f Type)
 %     declaration survives the Python library being loaded [tested 2026-08-18:
-%     bindings/python/tests/ch11_python_as_a_notation/test_ops.py::test_a_declared_type_survives_the_library_being_loaded]
+%     extensions/python/tests/ch11_python_as_a_notation/test_ops.py::test_a_declared_type_survives_the_library_being_loaded]
 %     [measured 2026-08-18: +2 inferences per get-type on a Python object and
 %     0 on every other value].
 %   - register-token! and unregister-token! are ordinary registered builtins,
@@ -233,7 +233,7 @@
 %     supplied by autoload before now [measured 2026-08-18: NO_AUTOLOAD=1
 %     sh test.sh, 200/200 examples; run.sh's own header has the mechanism].
 %     Cost: +1.50% instructions:u on a bare boot (swipl -s engine/metta.pl,
-%     no backends), +0.54% with backends loaded too, +0.14% over a full
+%     no seats), +0.54% with the seats loaded too, +0.14% over a full
 %     example run that also exercises the opt-in libraries' own fixes
 %     (lib/lib_constraints/lib_constraints.pl, lib/lib_memo/lib_memo.pl) [measured 2026-08-18:
 %     interleaved min-of-3, perf stat -e instructions:u, spread under
@@ -506,11 +506,11 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %alarms and no subprocesses. An unconditional use_module there fails, SWI
 %prints an ERROR pair, the load carries on, and the only record of what was
 %lost is that text. A host then has to recover the census by parsing the
-%engine's stderr, which bindings/node does, and every next host on a reduced
+%engine's stderr, which extensions/node does, and every next host on a reduced
 %platform would write its own regex for the same knowledge.
 %
-%So the census is the rule bindings/cetta/decider.pl and
-%bindings/python/decider.pl already state for a SEAT, aimed at the platform:
+%So the census is the rule extensions/cetta/extension.pl and
+%extensions/python/extension.pl already state for a SEAT, aimed at the platform:
 %NOT PRESENT IS NOT AN ERROR, HALF PRESENT IS. A capability whose library is
 %there loads exactly as before, through the same directive in the same place;
 %one whose library is absent is RECORDED absent, and the forms resting on it
@@ -799,7 +799,7 @@ metta_import_shared_registries(Subsystem) :-
 
 %%%% Extensions: the control file, its vocabulary, and the loader %%%%
 %
-%A seat is a folder under bindings/ or backends/ carrying an extension.pl, a
+%A seat is a folder under extensions/ carrying an extension.pl, a
 %control file of FACTS the engine READS and never consults -- PostgreSQL's
 %control-file model, which this codebase already follows for runtime imports
 %(engine/metta/interop.pl reads a source's manifest without running it and says
@@ -836,6 +836,7 @@ metta_import_shared_registries(Subsystem) :-
 metta_extension_control_term(title(Title)) :- atom(Title).
 metta_extension_control_term(needs(Need)) :- metta_extension_need_shape(Need).
 metta_extension_control_term(entry(Role, File)) :-
+    % policy-inventory-exempt: mechanism-internal; reason=the two entry roles are the control file's own vocabulary, validated at read time like title/1 and needs/1, and not a value an operator chooses between: which of them a file carries says who does the loading, and the loader below consults exactly the engine ones and never the host ones; evidence=engine/metta.pl:metta_load_extension/1
     memberchk(Role, [engine, host]),
     atom(File).
 
@@ -902,44 +903,46 @@ metta_load_extensions(Pattern) :-
     msort(Found, Controls),
     forall(member(Control, Controls), metta_load_extension(Control)).
 
-%A host seat loads unconditionally and whether its bridge is usable is its own
-%control file's business, so the engine names no host and the next host is a
-%new seat folder with an extension.pl. Hosts load here, before the standard
-%library and the registry directive, so a bridge's declared builtins and seams
-%exist by the time anything reads them.
-:- prolog_load_context(directory, Src),
-   directory_file_path(Src, '../bindings/*/extension.pl', Pattern),
-   metta_load_extensions(Pattern).
-
-%%%% Native backends %%%%
+%One glob and one argv token for every seat, whatever role it plays. There
+%were two of each until 2026-08-28: `../extensions/*/extension.pl` loaded
+%unconditionally and `../extensions/*/extension.pl` behind a `backends` token,
+%and the split said that who DRIVES the engine and what the engine CONSULTS
+%are different kinds of thing. They are not: they are two roles a seat holds,
+%and entry/2 already names them, so the Python seat holds both while the Node
+%seat holds only host and MORK only engine. One folder, one glob, one token.
 %
-%A native backend is a space provider whose implementation is a shared library
-%rather than Prolog. Once loaded it is a foreign space like any other and this
-%file knows nothing more about it; what it needs from the engine is somewhere
-%to be loaded FROM, and that is all this does.
+%A tokenless boot is therefore the pure kernel: no seat is read and none is
+%recorded, which is a configuration the engine ships in and the plunit lane
+%runs. `extensions` is what run.sh, the packaged CLI, the Python library, the
+%C host and the Node host all pass.
 %
-%One backend used to be named here instead, twice: `'../backends/mork/mork_ffi/morkspaces'`
+%Seats load here, before the standard library and the registry directive, so a
+%seat's declared builtins and seams exist by the time anything reads them. The
+%order within the glob is msort's, and a seat that needs another names it with
+%needs(extension(Other)) rather than relying on it.
+%
+%One backend used to be named here instead, twice: `'../extensions/mork/mork_ffi/morkspaces'`
 %in a second copy of the whole load list, and its three builtin names in a
 %second argv test further down. So a second native backend could not be added
 %without editing this file, which is the one thing EXTENDING.md promises an
 %extension author never has to do, and MORK was reaching the engine through a
 %door no other provider had. It goes through the seam now like everyone else.
 %
-%A backend is an integration folder in backends/ with an extension.pl at its
-%top, the same control file a host seat carries: what it pulls in, where its
-%build artefacts are, and whether they are present at all is the backend's own
-%declaration, and the engine's loader is what reads it. A backend that is not
-%built loads nothing and says nothing, and one that is built and broken raises,
-%which is the split every host wants and none of them should have to implement.
+%A seat that is not built loads nothing and says nothing, and one that is built
+%and broken raises, which is the split every host wants and none of them should
+%have to implement. That is the control file's business rather than this
+%file's: what a seat pulls in, where its build artefacts are, and whether they
+%are present at all is its own declaration, and this only reads it.
 %
-%The engine's own position is fixed rather than the backend's: they load after
-%everything, because a provider is reached through seam:foreign_space/1 and
-%not through clause order. That was true before this change and is what made it
-%safe [verified 2026-08-16: moved, whole gate green including the MORK tests].
+%A native provider's position is fixed rather than its own: seats load after
+%everything else the engine defines, because a provider is reached through
+%seam:foreign_space/1 and not through clause order. That was true before this
+%change and is what made it safe [verified 2026-08-16: moved, whole gate green
+%including the MORK tests].
 :- prolog_load_context(directory, Src),
    current_prolog_flag(argv, Argv),
-   (   memberchk(backends, Argv)
-   ->  directory_file_path(Src, '../backends/*/extension.pl', Pattern),
+   (   memberchk(extensions, Argv)
+   ->  directory_file_path(Src, '../extensions/*/extension.pl', Pattern),
        metta_load_extensions(Pattern)
    ;   true
    ).
@@ -1256,8 +1259,8 @@ load_prelude_translator_rule(Name, Declarations, Src) :-
 %Keep this read-only host service after the loader predicates it does not call:
 %its clause layout then cannot perturb the save-load-metta hot path [measured 2026-08-23:
 %save-load-metta 9,223,648 inferences; command=METTA_BENCHMARK_COUNTERS=1
-%PYTHONPATH=bindings/python python -m pytest
-%-q bindings/python/benchmarks/test_benchmarks.py::test_save_load_metta;
+%PYTHONPATH=extensions/python python -m pytest
+%-q extensions/python/benchmarks/test_benchmarks.py::test_save_load_metta;
 %fixture=deterministic benchmark harness; commit=fc08223618651c122c7e3bfa9f269d03ff1c0932].
 metta_host_function_generation(Generation) :-
     predicate_property(fun(_), last_modified_generation(Generation)).

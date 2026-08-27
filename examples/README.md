@@ -76,7 +76,7 @@ interactive, network-backed, or optional-dependency examples named in
 `tests/data/example_skips.txt`, each with its reason.
 The merged corpus contains 232 examples that run in the shell suite.
 That count is `len(example_parity.corpus())`, the corpus's one definition in
-`bindings/python/tools/example_parity.py`; the `pytest` gate lane fails the
+`extensions/python/tools/example_parity.py`; the `pytest` gate lane fails the
 moment this sentence and the tree disagree.
 
 A `_fixtures/` directory sits beside the chapter that imports it and holds
@@ -85,6 +85,6 @@ including one, `git_fixture.pl`, that builds a throwaway local repository so
 the `git-import!` example exercises acquisition without a network.
 
 The Python-first executable gallery lives in
-`bindings/python/examples/gallery/`. Its six programs carry checked per-claim
+`extensions/python/examples/gallery/`. Its six programs carry checked per-claim
 translation and output comments and run in the blocking `gallery` lane. They
 add no `examples/**/*.metta` files, so the count above is unchanged.

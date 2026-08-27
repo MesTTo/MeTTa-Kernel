@@ -69,17 +69,17 @@ jobs:
       # The Node binding runs the engine in a WebAssembly SWI, so it needs node
       # and swipl-wasm and nothing else. Without this step check.sh's
       # node-binding lane says it cannot run and the conformance kit in
-      # bindings/python/tests/ch21_another_language_at_the_seam/test_node_binding.py
+      # extensions/python/tests/ch21_another_language_at_the_seam/test_node_binding.py
       # skips, which is a green run that tested the seam's second consumer not
       # at all.
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: bindings/node/package-lock.json
+          cache-dependency-path: extensions/node/package-lock.json
 
       - name: Install the Node binding's dependencies
-        run: npm ci --prefix bindings/node
+        run: npm ci --prefix extensions/node
 
       - name: Gate
         env:
@@ -155,7 +155,7 @@ jobs:
       - name: Suite on ${{ matrix.python }}
         env:
           HYPOTHESIS_PROFILE: ci
-        run: /tmp/v/bin/python -m pytest bindings/python/tests/ --rootdir=bindings/python -c bindings/python/pyproject.toml -q
+        run: /tmp/v/bin/python -m pytest extensions/python/tests/ --rootdir=extensions/python -c extensions/python/pyproject.toml -q
 
   # A wheel that boots in a clean environment is the only blackbox proof
   # that packaging works. The runtime resources setup.py copies into
@@ -175,10 +175,10 @@ jobs:
         # `python -m build` with no flag builds the sdist and then builds the
         # wheel FROM IT, which is the path PyPI takes and the one this job used
         # to skip. Measured 2026-08-23: `--wheel` alone succeeded while the full
-        # build died on `backends/mork/decider.pl`, because MANIFEST.in carried
-        # five fewer resources than setup.py's RUNTIME_RESOURCES maps into the
-        # wheel. test_packaging.py holds that invariant statically; this holds
-        # it for real.
+        # build died on the MORK seat's control file, because MANIFEST.in
+        # carried five fewer resources than setup.py's RUNTIME_RESOURCES maps
+        # into the wheel. test_packaging.py holds that invariant statically;
+        # this holds it for real.
         run: |
           python -m pip install --upgrade pip build
           python -m build
@@ -198,17 +198,18 @@ jobs:
           from metta import MeTTa
           m = MeTTa()
           assert m.run('!(+ 1 2)') == [[3]], m.run('!(+ 1 2)')
-          # The engine globs backends/*.pl on every boot, and expand_file_name
-          # answers [] for a missing directory exactly as it does for one
-          # holding no built backend. So an unshipped seam is indistinguishable
-          # from an unbuilt backend at run time and only a packaging check can
-          # tell them apart. It was unshipped until 2026-08-17.
+          # The engine globs extensions/*/extension.pl on every boot, and
+          # expand_file_name answers [] for a missing directory exactly as it
+          # does for one holding no built seat. So an unshipped seam is
+          # indistinguishable from an unbuilt seat at run time and only a
+          # packaging check can tell them apart. It was unshipped until
+          # 2026-08-17. The glob is spelled the way the engine spells it: the
+          # per-seat folders arrived in f2387fee and this assertion kept the
+          # older extensions/*.pl, which has matched nothing since.
           runtime = Path(metta.__file__).parent / '_runtime'
-          for required in ('engine', 'lib', 'backends', 'bindings'):
-              # the seat and backend deciders ride as files, checked exactly
-
+          for required in ('engine', 'lib', 'extensions'):
               assert (runtime / required).is_dir(), f'{required}/ missing from the wheel'
-          assert list((runtime / 'backends').glob('*.pl')), 'backends/ shipped empty'
+          assert list((runtime / 'extensions').glob('*/extension.pl')), 'extensions/ shipped empty'
           # The codec's golden corpus is data a third party reads out of an
           # installed tree to certify their own codec, so it ships or the kit
           # is checkout-only. Loaded rather than stat'ed, because a truncated

@@ -1,6 +1,6 @@
 # `metta.spaces`
 
-Source: `bindings/python/metta/spaces.py`.
+Source: `extensions/python/metta/spaces.py`.
 
 > Purpose: space views and combinators on the public seam. Object views,
 > union, readonly, mapped, and overlay are ordinary SpaceProvider instances;

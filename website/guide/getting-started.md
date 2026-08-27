@@ -61,7 +61,7 @@ runnable forms.
 The repository has thirteen self-verifying Python examples organised by topic. Run the first from the repository root:
 
 ```bash
-PYTHONPATH=bindings/python/examples python bindings/python/examples/basics/first_steps.py
+PYTHONPATH=extensions/python/examples python extensions/python/examples/basics/first_steps.py
 ```
 
 The installed wheel is a complete command-line tool too, `-m` fashion:

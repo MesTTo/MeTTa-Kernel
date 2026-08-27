@@ -243,6 +243,14 @@ dev_typed_suites :-
         halt(2)
     ;   true
     ),
+    %argv is BOTH this goal's input and the engine's, so the suite names are
+    %read first and replaced with the token before any suite is consulted. A
+    %suite's own load-time ensure_loaded of the engine is what boots it, and
+    %the engine reads argv while it loads to decide whether to read the seats'
+    %control files. Without this the typed run boots the pure kernel while the
+    %plunit lane beside it boots under `-- extensions`, so the two disagree on
+    %six suites for a reason that is the configuration rather than the types.
+    set_prolog_flag(argv, [extensions]),
     forall(member(Suite, Suites), consult(Suite)),
     ( run_tests -> true ; halt(1) ).
 

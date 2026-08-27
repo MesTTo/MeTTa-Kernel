@@ -1,13 +1,13 @@
 # `metta.Space`
 
-Source: `bindings/python/metta/_space.py`.
+Source: `extensions/python/metta/_space.py`.
 
 > Purpose: provide the narrow MeTTa context and context-relative Space handles.
 >
 > Assumes:
 >   - the six extracted ``_space_*`` modules own query, definition, execution,
 >     persistence, eager decoding, and diagnostic implementation [source:
->     bindings/python/metta/_space_query.py, _space_definitions.py,
+>     extensions/python/metta/_space_query.py, _space_definitions.py,
 >     _space_execution.py, _space_persistence.py, _space_objects.py, and
 >     _space_diagnostics.py; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 > Guarantees:

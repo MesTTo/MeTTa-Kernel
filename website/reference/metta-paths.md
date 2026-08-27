@@ -1,6 +1,6 @@
 # `metta.paths`
 
-Source: `bindings/python/metta/paths.py`.
+Source: `extensions/python/metta/paths.py`.
 
 > Purpose: build cycle-safe lazy structural paths for query patterns.
 > Guarantees:

@@ -19,10 +19,10 @@ BACKLOG = Path(__file__).with_name("snippet_backlog.tsv")
 BASELINE_SIZE = 72
 SOURCE_PATHS = [
     REPO / "README.md",
-    REPO / "bindings" / "python" / "examples" / "README.md",
-    *(REPO / "bindings" / "python" / "examples").rglob("*.py"),
-    *(REPO / "bindings" / "python" / "metta").glob("*.py"),
-    *(REPO / "bindings" / "python" / "tests").glob("*.py"),
+    REPO / "extensions" / "python" / "examples" / "README.md",
+    *(REPO / "extensions" / "python" / "examples").rglob("*.py"),
+    *(REPO / "extensions" / "python" / "metta").glob("*.py"),
+    *(REPO / "extensions" / "python" / "tests").glob("*.py"),
     REPO / "lib" / "lib_measure" / "lib_measure.metta",
     REPO / "lib" / "lib_soft" / "lib_soft.metta",
 ]

@@ -258,7 +258,7 @@ metta_call_with_inference_bound(Goal, Limit) :-
 %Those two are spent in the cursor's ENGINE, so no host-side counter sees
 %them: query-limit-guarded, which passes
 %inferences=50,000,000 over 5,000 rows, measures identically to its pin
-%[measured 2026-08-27: bindings/python/bench.py --counter-only; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
+%[measured 2026-08-27: extensions/python/bench.py --counter-only; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
 %
 %Keeping the check behind metta_inference_budget_spent/3 is also the CHEAPER
 %shape, which is not the obvious way round: writing the same test inline into
@@ -282,7 +282,7 @@ metta_call_with_inference_bound(Goal, Limit) :-
 %inference, where must_be/2 is two calls. A cursor is opened per query, so
 %those two showed up: must_be/2 in front of both arms moved query-limit-plain,
 %which takes no bound at all, from 29,307 to 29,505 and query-limit-guarded
-%from 32,207 to 32,405 [measured 2026-08-27: bindings/python/bench.py
+%from 32,207 to 32,405 [measured 2026-08-27: extensions/python/bench.py
 %--counter-only, min of three fresh processes; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
 %type_error/2 is reached only when the door was misused.
 metta_host_inference_budget(Goal, Inferences, Bounded) :-
@@ -390,7 +390,7 @@ metta_run_with_fuel(Value, Answer, Goal) :-
 %    7,388,289,387 to 7,271,301,502 (-1.58%), every other benchmark inside
 %    +/-0.13%
 %    [measured 2026-08-22: min-of-3 instructions:u; command=python -m
-%    benchmarks.check_instructions; fixture=bindings/python/benchmarks;
+%    benchmarks.check_instructions; fixture=extensions/python/benchmarks;
 %    commit=657ae9672c07b628f8a20c7fe39aa43e58b0014f].
 %
 %thread_initialization/1 rather than initialization/1 because b_getval/2 raises

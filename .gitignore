@@ -2,8 +2,8 @@
 #
 # Repository-wide rules only. A component's own build products are ignored by
 # that component's own .gitignore, so the rule sits beside the thing it
-# describes and travels with it: engine/, lib/, bindings/cetta/,
-# bindings/node/, bindings/python/, backends/mork/mork_ffi/ and
+# describes and travels with it: engine/, lib/, extensions/cetta/,
+# extensions/node/, extensions/python/, extensions/mork/mork_ffi/ and
 # examples/ch19-spaces-backed-by-anything/ each carry one. Six blocks lived
 # here until 2026-08-28 and named paths four directories away.
 #
@@ -41,6 +41,6 @@ ai-tmp-*
 .playwright-mcp/
 
 # Jupyter's autosave copies, written beside any notebook it opens. The shipped
-# notebook is bindings/python/notebooks/tour.ipynb and the gate re-executes it,
+# notebook is extensions/python/notebooks/tour.ipynb and the gate re-executes it,
 # so a reader who opens it produces these on the first edit.
 .ipynb_checkpoints/

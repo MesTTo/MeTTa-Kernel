@@ -6,7 +6,7 @@
 % unqualified meta-goals would acquire the wrong owner. Guarantees: counting
 % and tropical are ordinary catalog algebras, and each ordered preset declares
 % its best direction [tested:
-% bindings/python/tests/ch06_many_answers/test_under_algebra.py;
+% extensions/python/tests/ch06_many_answers/test_under_algebra.py;
 % commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]. Guarantees: deprecated is a
 % schema-checked catalog kind whose name, since, and remedy fields remain
 % ordinary queryable data [tested: the_shipped_catalog_is_queryable_data;
@@ -61,7 +61,7 @@ native_storage_module_ready(Space, Module) :-
 %on demand here, so the second half cannot be the registry, and the rule for it
 %is the engine's own: an atom beginning with `&`, which is what is-space/2
 %answers, what evalc/3 has enforced at its door since it was written, and what
-%bindings/python/metta/space.py enforces at the library's
+%extensions/python/metta/space.py enforces at the library's
 %[tested: space_argument_refusals].
 metta_space_name(S) :- atom(S), sub_atom(S, 0, 1, _, '&'), !.
 metta_space_name(S) :- metta_space_operand(S).

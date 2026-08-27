@@ -5,7 +5,7 @@ multifile clauses on the foreign-space seam and `&cstore` becomes an
 ordinary space: `add-atom`, `match`, `remove-atom` and `get-atoms` reach
 C with nothing engine-side knowing the backend exists. This is the
 smallest native instance of the seam whose full-scale instance is MORK
-(`backends/mork/decider.pl` and `backends/mork/mork_ffi/morkspaces.pl`).
+(`extensions/mork/extension.pl` and `extensions/mork/mork_ffi/morkspaces.pl`).
 
 Build it, then run the example from the repository root:
 
@@ -23,7 +23,7 @@ block drives concurrent writers against the store's mutex.
 
 The same provider file registers into Python (`m.register_prolog(path=...)`),
 which is what
-`bindings/python/tests/ch19_spaces_backed_by_anything/test_c_space.py` does
+`extensions/python/tests/ch19_spaces_backed_by_anything/test_c_space.py` does
 before driving it from a thread pool.
 
 ## What the provider declares, and what that costs
@@ -44,7 +44,7 @@ enumeration-filtering parses every stored line per query, about 140
 inferences each, which is `EXTENDING.md`'s own lesson that the crossing
 is cheap and the text is not. A store that wants fast bound queries
 declares `seam:foreign_match/3` and filters natively, which is exactly
-what `backends/mork/mork_ffi/morkspaces.pl` does; a structure that should never
+what `extensions/mork/mork_ffi/morkspaces.pl` does; a structure that should never
 become text at all crosses as an opaque handle instead, the
 `c_extension` example beside this one.
 

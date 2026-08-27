@@ -9,7 +9,7 @@
 
 :- ensure_loaded('../../../../engine/metta.pl').
 
-% A stand-in backend, declared exactly the way backends/mork's bridge declares
+% A stand-in backend, declared exactly the way extensions/mork's bridge declares
 % its own: one load-time multifile clause naming the builtin AND its effect
 % class, then the same registration the engine runs over those declarations.
 % It is what lets a_backend_declares_the_effect_of_the_builtin_it_registers
@@ -157,8 +157,9 @@ test(every_translator_special_form_has_a_canonical_effect_profile) :-
 
 % The other half of the same contract: the engine READS the classification a
 % backend registers instead of falling to its own floor. Planted against a
-% name no tree holds, so it says the same thing in the plain and the backends
-% configuration rather than passing vacuously wherever MORK is absent, and the
+% name no tree holds, so it says the same thing in the pure-kernel and the
+% loaded-seat configuration rather than passing vacuously wherever MORK is
+% absent, and the
 % planted class is writesState so a resolution that ignored the seam would
 % answer the oracleIO floor and fail loudly.
 % The plant arrives the way a real backend's declaration does, as a load-time
@@ -177,7 +178,7 @@ test(every_native_builtin_has_exactly_one_reviewed_effect_profile) :-
               % An extension's builtin is reviewed by that extension, in the same
               % fact that registers it. Without this the test asked the engine
               % to have reviewed a predicate it does not ship and cannot name:
-              % under `-- backends` it read
+              % under `-- extensions` it read
               % ['mm2-exec','mork-add-atoms','mork-flush'].
               \+ seam:extension_builtin(Name, _),
               \+ metta_builtin_structural(Name) ),

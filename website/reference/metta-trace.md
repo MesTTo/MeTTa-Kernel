@@ -1,6 +1,6 @@
 # `metta.trace`
 
-Source: `bindings/python/metta/_trace.py`.
+Source: `extensions/python/metta/_trace.py`.
 
 > Purpose: the reduction trace as Python objects. m.trace(term) runs
 > that term with every compiled MeTTa function wrapped engine-side, and

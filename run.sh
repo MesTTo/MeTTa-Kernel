@@ -1,12 +1,12 @@
 # Purpose: run a single MeTTa file (or the interactive demo with no file)
-#   through the engine, loading every native backend that is built.
+#   through the engine, with every seat whose declared needs hold.
 # Guarantees:
-#   - `backends` names none of them: which backends exist is backends/*.pl,
-#     and whether one is usable is that backend's own business. This script
-#     used to test for MORK's shared library and LD_PRELOAD it, which meant
-#     a second backend needed a second branch here; the backend opens its
-#     own library with global visibility, so the preload was never
-#     load-bearing.
+#   - `extensions` names none of them: which seats exist is
+#     extensions/*/extension.pl, and whether one is usable is that seat's own
+#     declaration. This script used to test for MORK's shared library and
+#     LD_PRELOAD it, which meant a second backend needed a second branch here;
+#     the backend opens its own library with global visibility, so the preload
+#     was never load-bearing.
 #   - NO_AUTOLOAD=1 boots with set_prolog_flag(autoload, false) already in
 #     effect before engine/main.pl, and so engine/metta.pl, ever loads, via
 #     tests/fixtures/no_autoload_boot.pl (a -g goal cannot do this: see that file's
@@ -23,4 +23,4 @@ if [ "${NO_AUTOLOAD:-}" = "1" ]; then
 else
     BOOT=$SCRIPT_DIR/engine/main.pl
 fi
-swipl --stack_limit=8g -q -s "$BOOT" -- "$@" backends
+swipl --stack_limit=8g -q -s "$BOOT" -- "$@" extensions

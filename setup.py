@@ -38,7 +38,7 @@ HERE = Path(__file__).resolve().parent
 # public surface over it. Every atom crossing the boundary passes through
 # both. Measured 2026-08-19, minimum of three instructions:u runs of the
 # wire-codec lane, 3457054691 interpreted against 2984812403 compiled, 1.16x.
-MYPYC_MODULES = ("bindings/python/metta/_atom_wire.py", "bindings/python/metta/atoms.py")
+MYPYC_MODULES = ("extensions/python/metta/_atom_wire.py", "extensions/python/metta/atoms.py")
 
 # _atoms_core.py is NOT in that list, and the reason is behaviour rather than
 # taste. An exclusion list with its reasons is mypy's own shape for this
@@ -77,7 +77,7 @@ MYPYC_MODULES = ("bindings/python/metta/_atom_wire.py", "bindings/python/metta/a
 # getset descriptor and breaks `case [head, *args]`, while annotating it
 # ClassVar or Final keeps the tuple.
 
-# --explicit-package-bases with MYPYPATH=bindings/python, the seat that
+# --explicit-package-bases with MYPYPATH=extensions/python, the seat that
 # holds metta, so mypy names each module metta.* and the compiled
 # extension never shadows the real one.
 # --no-warn-unused-configs, because the shared [tool.mypy] overrides here
@@ -106,22 +106,23 @@ def compiled_modules():
             "installed. Install it (pip install mypy) and build again, or "
             "unset PYMETTA_USE_MYPYC to build the pure-Python wheel."
         ) from None
-    os.environ["MYPYPATH"] = str(HERE / "bindings" / "python")
+    os.environ["MYPYPATH"] = str(HERE / "extensions" / "python")
     return mypycify([*MYPYC_FLAGS, *MYPYC_MODULES])
 
 # Runtime resources living outside the package that must ship inside the wheel,
 # mapped to their destination under metta/_runtime/ (preserving the engine/ and
 # lib/ sibling layout that metta.pl relies on for library_path).
 #
-# backends/ ships even though every backend in it needs a compiled artefact no
-# py3-none-any wheel can carry, because the engine GLOBS that directory on
-# every boot and EXTENDING.md tells an extension author "a backend is a file in
-# backends/". Without it the glob matches nothing, so the seam is simply absent
-# from an installed MeTTa and says so to nobody: expand_file_name/2 on a
-# missing directory answers [] exactly as it does for a directory holding no
-# built backend. The files themselves are a dozen lines of Prolog that test for
-# their own artefact and load nothing when it is missing, which is the
-# behaviour a wheel wants anyway.
+# The MORK seat's control file ships even though the backend it declares needs
+# a compiled artefact no py3-none-any wheel can carry, because the engine GLOBS
+# extensions/*/extension.pl on every boot and EXTENDING.md tells an extension
+# author that a seat is a folder there with a control file in it. Without one
+# the glob matches nothing, so the seam is simply absent from an installed
+# MeTTa and says so to nobody: expand_file_name/2 on a missing directory
+# answers [] exactly as it does for a directory holding no built seat. A
+# control file is a handful of facts declaring what the seat needs, and the
+# engine loads nothing when a need is unmet, which is the behaviour a wheel
+# wants anyway.
 #
 # tests/codec/ ships for a different reason: it is the codec's golden corpus,
 # the data metta.testing.check_codec reads, and a third party certifying their
@@ -131,13 +132,13 @@ def compiled_modules():
 RUNTIME_RESOURCES = {
     "engine": "engine",
     "lib": "lib",
-    "backends/mork/extension.pl": "backends/mork/extension.pl",
+    "extensions/mork/extension.pl": "extensions/mork/extension.pl",
     "tests/codec": "tests/codec",
-    "bindings/python/extension.pl": "bindings/python/extension.pl",
-    "bindings/python/bridge.pl": "bindings/python/bridge.pl",
-    "bindings/python/metta_py.py": "bindings/python/metta_py.py",
-    "bindings/python/helper.pl": "bindings/python/helper.pl",
-    "bindings/python/metta/shim.pl": "bindings/python/metta/shim.pl",
+    "extensions/python/extension.pl": "extensions/python/extension.pl",
+    "extensions/python/bridge.pl": "extensions/python/bridge.pl",
+    "extensions/python/metta_py.py": "extensions/python/metta_py.py",
+    "extensions/python/helper.pl": "extensions/python/helper.pl",
+    "extensions/python/metta/shim.pl": "extensions/python/metta/shim.pl",
 }
 
 
@@ -164,8 +165,8 @@ class build_py_with_runtime(build_py):
         # A resource dropped from RUNTIME_RESOURCES kept shipping out of a
         # stale build/ directory, and so did a source file deleted from engine/,
         # which made tests/shell/test_packaged_cli.sh green against a wheel the
-        # current tree does not describe. Measured 2026-08-17: removing
-        # backends/ from the map above and rebuilding produced a wheel that
+        # current tree does not describe. Measured 2026-08-17: removing the
+        # seat entry from the map above and rebuilding produced a wheel that
         # still contained it, and the packaged gate passed; with this, the same
         # edit fails the gate naming the missing directory. The whole tree is
         # generated, so there is nothing here to preserve.
