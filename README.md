@@ -63,13 +63,26 @@ Example run:
 
 ### MORK and FAISS spaces
 
-If MORK and FAISS is installed, execute `sh build.sh` to support MORK-based atom spaces and FAISS-based atom-vector spaces.
+`sh build.sh` builds the MORK backend, which gives you MORK-based atom spaces.
+The crate itself ships in this tree, at `backends/mork/mork_ffi`; what the
+script clones, beside the repository and at validated revisions, is what that
+crate builds against by relative path:
 
-The following projects are cloned and built by build.sh:
+**Repository:** [trueagi-io/MORK](https://github.com/trueagi-io/MORK)
 
-**Repository:** [mork_ffi](https://github.com/patham9/mork_ffi) dependent on [trueagi-io/mork](https://github.com/trueagi-io/mork)
+**Repository:** [Adam-Vandervorst/PathMap](https://github.com/Adam-Vandervorst/PathMap)
 
-**Repository:** [faiss_ffi](https://github.com/patham9/faiss_ffi) dependent on [facebookresearch/faiss](https://github.com/facebookresearch/faiss)
+FAISS-based atom-vector spaces come from a MeTTa library rather than a backend,
+so the engine fetches it when a program asks for it instead of the build script
+cloning it:
+
+```metta
+!(git-import! "https://github.com/patham9/faiss_ffi" "build.sh")
+```
+
+That line is `examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/07-git_import2.metta`,
+which lands the checkout under `repos/`. Its dependency is
+[facebookresearch/faiss](https://github.com/facebookresearch/faiss).
 
 ### Python library
 

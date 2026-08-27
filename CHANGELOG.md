@@ -1592,6 +1592,45 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **`build.sh` reported success it had not earned, and dirtied the tree doing
+  it.** Four defects, all in 27 lines. It had no `set -e`, so a failed
+  `cargo build` fell through to the next line and the run still ended by
+  printing `Successfully built mork_ffi` -- that message was unconditional, and
+  the `nm -D … | grep rust_mork` above it decided nothing because its exit
+  status was discarded. It resolved `../MORK` and `cd ./backends/…` against the
+  CALLER's working directory, so `sh /path/to/PeTTa/build.sh` provisioned beside
+  the caller instead of beside the checkout, where `run.sh` has anchored itself
+  with `SCRIPT_DIR` all along. It cloned the pinned siblings only when the
+  directory was ABSENT, so a MORK left on another revision was taken as correct
+  and produced an artefact built against an unvalidated tree with nothing said;
+  the revision is now checked on every run and a mismatch prints the `git -C …
+  checkout` line that restores it. And its last four lines cloned `faiss_ffi`
+  with no destination argument after two `cd`s, which landed a whole vendored
+  checkout in `backends/mork/faiss_ffi`, a path no ignore rule covers: one
+  successful run dirtied `git status` and the next failed on "destination path
+  already exists".
+
+  That faiss step is gone rather than repointed. `faiss_ffi` is a third-party
+  MeTTa library, not a backend in this tree, and the engine already fetches it
+  at a pinned revision through its own package manager --
+  `!(git-import! "https://github.com/patham9/faiss_ffi" "build.sh")`, which is
+  what `examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/07-git_import2.metta`
+  demonstrates and what put `repos/faiss_ffi` there. `README.md` and
+  `tests/prolog/README.md` said the script builds FAISS; they now say what it
+  does. Toolchain checks moved to the backend's own script, which names every
+  missing prerequisite at once instead of failing inside a compiler, and says by
+  name when `pkg-config` cannot answer for swipl rather than letting
+  `$(pkg-config …)` expand to nothing and blaming a missing `SWI-Prolog.h`.
+
+  `tests/shell/test_build_is_idempotent_and_anchored.sh` is the new GATE lane
+  behind all of it: two runs from a directory that is not the repository root,
+  both exit 0, `git status --porcelain` byte-identical, no
+  `backends/mork/faiss_ffi`, and the backend script exiting nonzero while naming
+  what it could not find when run with no toolchain on `PATH`. Each assertion
+  was proved to discriminate by planting the defect it exists for. It skips
+  rather than clones when the siblings or the build are absent, so it never
+  reaches the network [measured 2026-08-28: 5.0s against a warm build].
+
 - Two gate lanes were failing on a path rather than on what they check, both
   left behind when the plunit suites were grouped. `check.sh`'s ciao-grade lane
   ran `ciao_grade.plt` from `tests/prolog`, where the file is

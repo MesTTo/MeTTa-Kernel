@@ -13,9 +13,10 @@ so a successful run is not evidence that any particular one loaded. Check the
 one you care about by using it, which for MORK means adding an atom to
 `m.space("&mork")` and querying it back.
 
-Run `sh build.sh` to build the optional MORK and FAISS native backends. That
-script clones the pinned MORK and PathMap sources beside this repository, so it
-needs network access, Git, Rust, and a C toolchain.
+Run `sh build.sh` to build the optional MORK native backend. That script clones
+the pinned MORK and PathMap sources beside this repository, so it needs network
+access, Git, Rust, and a C toolchain. FAISS is a MeTTa library the engine
+fetches through `git-import!`, not a backend this script builds.
 
 The Python library and differential tests need a Python interpreter with
 `janus_swi` linked to the installed SWI version. Select it explicitly when the

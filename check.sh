@@ -356,6 +356,16 @@ run GATE packaged sh -c "cd '$HERE' && sh tests/shell/test_packaged_cli.sh"
 # difference in both directions [measured 2026-08-18: 0.21s].
 run GATE worktree sh -c "cd '$HERE' && sh tests/shell/test_worktree_configuration.sh"
 
+# build.sh itself, which nothing checked before: it had no `set -e`, resolved
+# its paths against the CALLER's working directory, and ended by cloning
+# faiss_ffi with no destination argument into backends/mork/faiss_ffi, a path no
+# ignore rule covers. So one run dirtied the tree and the next failed on
+# "destination path already exists", and a failed cargo build still reached a
+# line printing "Successfully built mork_ffi". The lane re-runs an already-built
+# tree and skips when there is nothing built to re-run, so it costs a cargo
+# fingerprint check rather than a compile [measured 2026-08-28: 5.0s warm].
+run GATE build sh -c "cd '$HERE' && sh tests/shell/test_build_is_idempotent_and_anchored.sh"
+
 # The Node binding, which is the seam's second consumer. It runs the engine in
 # a WebAssembly SWI inside a Node process, so it needs neither the SWI on this
 # machine nor janus. It is a TypeScript library, and its own suite covers the
