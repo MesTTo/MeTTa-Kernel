@@ -375,9 +375,9 @@ note_head_pattern(Module, F, RevPath, Label, Reason) :-
 %
 %The relational reading is not lost, it is written where it runs: a `let` in
 %the body says the same thing and answers the same answers
-%[tested: examples/functions/functionhead.metta,
-%examples/functions/functionhead2.metta,
-%examples/functions/functionhead3.metta].
+%[tested: examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/06-functionhead.metta,
+%examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/07-functionhead2.metta,
+%examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/08-functionhead3.metta].
 %% constrain_args(+Pattern, -Constrained, -Goals) is det.
 %The three-argument form for every caller that only wants the pattern: case
 %keys, typed lets and case duals all compile a pattern and none of them is an
@@ -451,13 +451,13 @@ constrain_args([Quote, Expr], [Quote, Expr], [], _, Positions, Positions) :-
 %     whose value slot is not a variable is data the walk does not look inside.
 %
 %[source: LeaTTa/ai-report-inplace-annotations.md, Design]. That is enough for
-%this corpus. examples/reasoning/nilbc.metta is a backward-chaining proof
+%this corpus. examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta is a backward-chaining proof
 %search whose subject matter IS `(: proof theorem)` terms, 134 of them, and
 %gate 2 covers every one whose value slot is an expression while gate 1 covers
 %its knowledge-base queries. It needed ONE clause changed, a base case that
 %destructures its query in the body instead of the head
 %[tested: translator_inplace_annotations, a_cons_list_is_ordinary_structure,
-%examples/reasoning/nilbc.metta].
+%examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta].
 constrain_args([Colon, Var, Type], Var,
                [(has_type(Var, Type) *-> true ; 'get-metatype'(Var, Type))],
                Path, [head_position(Path, ':', type_annotation)|Positions],
@@ -569,7 +569,7 @@ seam:engine_emitted(metta_negation/5).
 %engine shared one namespace and the base chain found it anyway; cutting
 %engine/duals.pl into a module made a compiled body raise
 %existence_error(procedure, '$metta_exec:&self':metta_dual_goal/2) instead
-%[measured 2026-08-22, on examples/reasoning/constructive_negation.metta].
+%[measured 2026-08-22, on examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/03-constructive_negation.metta].
 seam:engine_emitted(metta_dual_goal/2).
 seam:engine_emitted(metta_forall_c/2).
 seam:engine_emitted(metta_generator_forall/5).

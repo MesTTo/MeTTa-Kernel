@@ -1133,7 +1133,7 @@ metta_predicate_goal([F|Args], Term) :- Term =.. [F|Args].
 %Called unqualified it resolved in the engine's own module, so
 %`(callPredicate (Predicate (myAddMeTTa 241 $x)))` over a function the program
 %had just defined raised Unknown procedure
-%[tested: examples/integration/prologimport.metta].
+%[tested: examples/ch20-extending-the-engine/20-03-prolog-underneath/02-prologimport.metta].
 %
 %assertaPredicate/2 and its siblings deliberately do NOT follow: a clause a
 %MeTTa program asserts is host Prolog, it belongs in the host tier where

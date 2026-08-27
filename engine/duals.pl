@@ -208,7 +208,7 @@ metta_not_functor(X, Name, Arity) :-
 %is being called from this file, which is the engine's. Without the
 %declaration the call resolves here instead, and a dual over a function the
 %program defined raised Unknown procedure for it
-%[tested: examples/reasoning/constructive_negation.metta]. It was invisible
+%[tested: examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/03-constructive_negation.metta]. It was invisible
 %while &self compiled into this same module and would have bitten any named
 %space that used a dual; the declaration is the manual's own remedy
 %[source: SWI-Prolog 10.1 Reference Manual, chapter 6, defining a

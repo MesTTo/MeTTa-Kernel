@@ -252,7 +252,7 @@
 %pcre.pl declares four local :- autoload/2 lines (apply, error, dcg/basics,
 %lists) but reads its own Options list with option/2 (library(option))
 %without declaring THAT one, so it too resolves by global autoload today
-%[measured 2026-08-18: examples/libraries/regex_lib.metta under
+%[measured 2026-08-18: examples/ch08-data/08-03-the-shipped-libraries/04-regex_lib.metta under
 %NO_AUTOLOAD=1, existence_error(procedure,pcre:option/2)]. Same trap as
 %ugraphs.pl and clpb.pl (lib/lib_constraints.pl has both), same fix.
 :- pcre:use_module(library(option), [option/2]).
@@ -741,7 +741,7 @@ definition_run(Forms, Space, Run, Rest) :-
     %where the eager door compiled the binding, so match_snapshot's visit
     %removed from a space named '&snapshot' that was not the space its
     %items live in, and the collapse answered nothing
-    %[measured 2026-08-24: examples/spaces/match_snapshot.metta].
+    %[measured 2026-08-24: examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/04-match_snapshot.metta].
     %
     %The fence itself hoists out of the prefix walk when both rewrite
     %tables are EMPTY: with no seam:form_rewriter and no bound token,
@@ -1476,7 +1476,7 @@ print_runnable_form(FormStr, Goals) :-
     %section has that finding in full); with autoload=false the unqualified
     %spelling raised existence_error(procedure,ansi_term:portray_clause/1)
     %for EVERY runnable form this prints, i.e. most of the example corpus
-    %[measured 2026-08-18: examples/basics/math.metta under NO_AUTOLOAD=1].
+    %[measured 2026-08-18: examples/ch05-equations-and-evaluation/05-03-the-number-library/01-math.metta under NO_AUTOLOAD=1].
     %Naming the predicate's real home module sidesteps the gap in
     %ansi_term.pl entirely, rather than trying to patch a library this repo
     %does not ship.

@@ -243,7 +243,7 @@ the same variables, or one of them arrives unbound the other way round.
 
 `!(remove-translator-rule! unpack)` withdraws the derived equation with the
 rule, so the inverse never outlives the declaration that produced it.
-`examples/translation/translatorrule_direction.metta` runs all of this.
+`examples/ch20-extending-the-engine/20-01-translator-rules/02-translatorrule_direction.metta` runs all of this.
 
 ### Pricing a rule, and a conjunctive left side
 
@@ -285,7 +285,7 @@ compiles to the equation you would have written by hand, with the conjuncts as
 a `match` chain, and a call whose conjuncts do not match is a rule miss like
 any other. A conjunctive left side cannot be declared bidirectional: reading it
 backwards would have to assert the conjuncts it matched, which is a different
-operation. `examples/translation/translatorrule_cost.metta` runs all of this.
+operation. `examples/ch20-extending-the-engine/20-01-translator-rules/04-translatorrule_cost.metta` runs all of this.
 
 ### A variable the right side invents
 
@@ -342,7 +342,7 @@ unconditional system, it counts the rules of the set it is given that make
 their condition explicit by refusing and says so, and a set holding one is
 reported `NOT DECIDED` with its critical pairs listed as proof obligations
 rather than given a verdict it cannot support.
-`examples/translation/translatorrule_refusal.metta` runs all of this.
+`examples/ch20-extending-the-engine/20-01-translator-rules/07-translatorrule_refusal.metta` runs all of this.
 
 ### What a rule may not take over
 
@@ -363,7 +363,7 @@ which.
 
 Every other head stays yours, including ones the compiler also gives a
 meaning: `lib/lib_derived.metta` registers a rule for `once` on purpose, and
-`examples/libraries/derived_forms.metta` swaps it in and back out. A rule that
+`examples/ch20-extending-the-engine/20-01-translator-rules/08-derived_forms.metta` swaps it in and back out. A rule that
 goes ahead of a compiler form or a builtin that way is recorded, and the
 confluence report prints it beside the name.
 
@@ -384,7 +384,7 @@ the engine compiles `uses-macro` to
 The macro is gone. This is the right tool for new syntax, for control forms,
 and for anything where the shape is known when the program is written.
 
-Examples: `examples/translation/translatorrule.metta`,
+Examples: `examples/ch20-extending-the-engine/20-01-translator-rules/01-translatorrule.metta`,
 `translatorrule_for.metta`, `translatorrule_fib.metta`, and `lib_patrick.metta`
 and `lib_spaces.metta` in the library tree.
 
@@ -487,7 +487,7 @@ rule is deterministic where the plain function of the same equations would
 answer every way; when two clauses both apply, the order they were written in
 decides, which is what `translator_confluence.pl` reports on.
 
-`examples/translation/translatorrule_guard.metta` runs all of it.
+`examples/ch20-extending-the-engine/20-01-translator-rules/03-translatorrule_guard.metta` runs all of it.
 
 ## 2. Prolog grounded predicates: new primitives, native speed
 
@@ -689,8 +689,8 @@ compiles the goal inline and leaves the variables bound for the rest of the
 form, which is why it appears inside a `progn`.
 
 Both are live in the tree: `lib/lib_tabling.metta`, `lib/lib_spaces.metta`,
-`examples/translation/callquoteevalreduce.metta` and
-`examples/translation/translatepredicate.metta`.
+`examples/ch20-extending-the-engine/20-02-metta-written-in-metta/01-callquoteevalreduce.metta` and
+`examples/ch20-extending-the-engine/20-03-prolog-underneath/01-translatepredicate.metta`.
 
 **`(callPredicate (Predicate ...))` builds the goal term at run time** through
 `=../2` and meta-calls it, which costs about five inferences more than the two
@@ -867,7 +867,7 @@ static foreign_t pl_vector_new(term_t length, term_t out)
 !(vector-nth (vector-new 1000) 700)      ; 700
 ```
 
-`examples/integration/c_extension/handle.c` is the worked version, with its own
+`examples/ch19-spaces-backed-by-anything/19-03-a-builtin-in-c/handle.c` is the worked version, with its own
 example and README beside it. On a thousand-element vector, reading one element
 through the handle costs **0.1968us and 2.00 inferences**, while writing that
 vector as text costs **389.94us and 16,906 inferences** and reading it back
@@ -1018,7 +1018,7 @@ its tuple or dict rows already bind the arguments directly.
 Why an inverse can still be necessary: an arbitrary foreign function cannot
 be narrowed automatically. Curry does not invert its own `external` functions
 either, and Prolog's `plus/3` and `succ/2` use mode-aware implementations.
-`functions/invertfunction.metta` shows what an equation can derive instead,
+`ch08-data/08-01-atoms-lists-and-folds/06-invertfunction.metta` shows what an equation can derive instead,
 including solving `$X + 35 = 42` through a constraint while destructuring a
 list in the same pattern.
 
@@ -1536,13 +1536,13 @@ Python happened to be in the process. It is declared with them now.
 The engine consults `seam:foreign_space/1` before reaching its own storage, so
 your clauses take the space over entirely, with no boundary crossing. This is
 how MORK plugs a Rust trie in underneath MeTTa: `backends/mork/mork_ffi/morkspaces.pl` is a
-complete worked example, and `examples/integration/c_space/` is the
+complete worked example, and `examples/ch19-spaces-backed-by-anything/19-02-a-space-in-c/` is the
 smallest one, a mutex-guarded C store behind four clauses, proven by
 the conformance kit inside its own example and driven concurrently by
 `hyperpose` and a Python thread pool.
 
 Worked instances now exist per language and per backend class, so start
-from the one nearest yours: C (`examples/integration/c_space/`), SQL
+from the one nearest yours: C (`examples/ch19-spaces-backed-by-anything/19-02-a-space-in-c/`), SQL
 derived from one declaration (`bindings/python/metta/tables.py` with
 `bindings/python/examples/integration/sqlite_space.py`; DuckDB with pushdown in
 `duckdb_space.py` beside it), another MeTTa runtime as a subprocess

@@ -8,7 +8,7 @@
 %   through SWI's clause-indexing shape (the benchmark ledger records
 %   inert facts moving counts non-monotonically the same way), which is
 %   why twin budgets are pinned on the exact shipping tree [measured
-%   2026-08-25: examples/basics/identity.metta reads 2838 without this
+%   2026-08-25: examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/01-identity.metta reads 2838 without this
 %   file loaded and 2878 with it, under source and .qlf boots alike,
 %   with user-predicate count, the stamp file, and .qlf presence each
 %   ruled out by A/B].
@@ -53,7 +53,7 @@
 %under a correct locale loads the poisoned compile and prints three
 %replacement characters where the check mark belongs [measured 2026-08-26:
 %one `LC_ALL=C swipl -s engine/main.pl` boot on a purged tree, then an
-%ordinary run of examples/reasoning/measure.metta, which read `. \357\277\275 x3`
+%ordinary run of examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/01-measure.metta, which read `. \357\277\275 x3`
 %against the source's intact `. \342\234\205`; sixteen verdict lines and
 %the whole pytest example lane failed on artifacts alone]. Three files
 %already carried their own `:- encoding(utf8).`, which is the same fix

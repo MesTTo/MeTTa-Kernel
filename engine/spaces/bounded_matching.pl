@@ -122,7 +122,7 @@ match_routed(_, LComma, OutPattern, Result) :- LComma == [','], !,
 %one storage module, so the probe asks match/4 the same cheap question: has
 %this conjunct at most one match under the bindings so far. An inherited space
 %joins across the chain, `(new-space &child (inherits &parent))` in
-%examples/spaces/inherited_spaces.metta, and pays the same quadratic under skew
+%examples/ch19-spaces-backed-by-anything/19-01-spaces-of-your-own/01-inherited_spaces.metta, and pays the same quadratic under skew
 %without it. A read through the chain is a child-first multiset union and each
 %conjunct routes through it independently, so which conjunct is taken first
 %changes neither the rows nor how many times each appears.

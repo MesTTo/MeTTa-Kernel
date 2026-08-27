@@ -156,10 +156,12 @@ native_retract_one(Head, Removed) :-
 %&self used to compile into the module the ENGINE itself resolves in, and an
 %equation asserted there does not shadow a predicate of that name, it REPLACES
 %it for the rest of the process. Two shipped examples did exactly that
-%[measured 2026-08-19: examples/functions/invertpeanoplus.metta took
+%[measured 2026-08-19:
+%examples/ch07-control-flow/07-05-recursion/07-invertpeanoplus.metta took
 %user:plus/3 from imported_from(system) to a local definition, after which
-%plus(1,2,X) failed instead of answering 3; examples/libraries/
-%minimal_metta.metta did the same to user:rule/3]. Every gate stayed green
+%plus(1,2,X) failed instead of answering 3;
+%examples/ch20-extending-the-engine/20-02-metta-written-in-metta/04-minimal_metta.metta
+%did the same to user:rule/3]. Every gate stayed green
 %through both, because nothing that ran afterwards in those processes called
 %either predicate. tests/prolog/engine_integrity.pl is the check that would
 %not have let it stand, and it is a GATE at zero findings.

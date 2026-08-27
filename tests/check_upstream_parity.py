@@ -186,39 +186,39 @@ DISPATCH_HOP = (
 )
 
 WAIVERS = {
-    "examples/types/builin_types.metta": (
+    "examples/ch09-types/02-builin_types.metta": (
         "content growth, not machinery: this tree's lib_builtin_types.metta"
         " declares 326 lines against upstream's 49, and both the"
         " per-declaration import cost and the per-test get-type cost are at"
         " parity (measured 2026-08-17: import 90.6M over ~280 declarations"
         " here, 19.1M over 49 upstream; ~1.2M per get-type on both)"
     ),
-    "examples/basics/fib.metta": (GUARDED_ARITHMETIC),
-    "examples/integration/python_import.metta": (DISPATCH_HOP),
-    "examples/functions/specializecyclic.metta": (DISPATCH_HOP),
-    "examples/control/unify_eval_branches.metta": (METTA_IMPORT),
-    "examples/libraries/he_quoting.metta": (METTA_IMPORT),
-    "examples/libraries/he_error.metta": (METTA_IMPORT),
-    "examples/libraries/he_equalreduct.metta": (METTA_IMPORT),
-    "examples/libraries/lib_roman_pair_helpers.metta": (METTA_IMPORT),
-    "examples/libraries/library.metta": (METTA_IMPORT),
-    "examples/libraries/roman.metta": (METTA_IMPORT),
-    "examples/libraries/memo_dependency_invalidation.metta": (MEMO_IMPORT),
-    "examples/libraries/tabling_fib.metta": (
+    "examples/ch07-control-flow/07-05-recursion/02-fib.metta": (GUARDED_ARITHMETIC),
+    "examples/ch11-python-as-a-notation/03-python_import.metta": (DISPATCH_HOP),
+    "examples/ch05-equations-and-evaluation/05-02-changing-the-equations/06-specializecyclic.metta": (DISPATCH_HOP),
+    "examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/08-unify_eval_branches.metta": (METTA_IMPORT),
+    "examples/ch20-extending-the-engine/20-02-metta-written-in-metta/07-he_quoting.metta": (METTA_IMPORT),
+    "examples/ch10-errors-and-refusals/01-he_error.metta": (METTA_IMPORT),
+    "examples/ch12-testing/02-he_equalreduct.metta": (METTA_IMPORT),
+    "examples/ch08-data/08-01-atoms-lists-and-folds/14-lib_roman_pair_helpers.metta": (METTA_IMPORT),
+    "examples/ch08-data/08-03-the-shipped-libraries/01-library.metta": (METTA_IMPORT),
+    "examples/ch08-data/08-01-atoms-lists-and-folds/15-roman.metta": (METTA_IMPORT),
+    "examples/ch18-performance/18-02-memoisation-and-tabling/06-memo_dependency_invalidation.metta": (MEMO_IMPORT),
+    "examples/ch18-performance/18-02-memoisation-and-tabling/09-tabling_fib.metta": (
         "library content growth, the builin_types cause: our lib_tabling"
         " is a 66-line metta surface plus a 290-line Prolog invalidation"
         " lane against upstream's 11-line stub; the import alone measures"
         " 72.7M against upstream's 11.7M (2026-08-17), covering the whole"
         " flag"
     ),
-    "examples/libraries/memo_multi_answer.metta": (MEMO_IMPORT),
-    "examples/libraries/memo_per_arity.metta": (MEMO_IMPORT),
-    "examples/libraries/memo_same_name_multi_arity.metta": (MEMO_IMPORT),
-    "examples/libraries/memo_stats.metta": (MEMO_IMPORT),
-    "examples/libraries/memo_variant_nonground.metta": (MEMO_IMPORT),
-    "examples/reasoning/nars_direct.metta": (DISPATCH_HOP),
-    "examples/reasoning/pln_tuffy.metta": (DISPATCH_HOP),
-    "examples/performance/scale.metta": (
+    "examples/ch18-performance/18-02-memoisation-and-tabling/01-memo_multi_answer.metta": (MEMO_IMPORT),
+    "examples/ch18-performance/18-02-memoisation-and-tabling/03-memo_per_arity.metta": (MEMO_IMPORT),
+    "examples/ch18-performance/18-02-memoisation-and-tabling/04-memo_same_name_multi_arity.metta": (MEMO_IMPORT),
+    "examples/ch18-performance/18-02-memoisation-and-tabling/08-memo_stats.metta": (MEMO_IMPORT),
+    "examples/ch18-performance/18-02-memoisation-and-tabling/05-memo_variant_nonground.metta": (MEMO_IMPORT),
+    "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/08-nars_direct.metta": (DISPATCH_HOP),
+    "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/07-pln_tuffy.metta": (DISPATCH_HOP),
+    "examples/ch18-performance/18-01-larger-workloads/01-scale.metta": (
         "the add path's reload-erasure machinery, standing since before"
         " this session (flagged identically in the first baseline sweep):"
         " one million load-time add-atom calls each pay assertz/2 with a"
@@ -228,7 +228,7 @@ WAIVERS = {
         " The assertz/2-vs-assertz/1 4.4x per-call tick ratio deserves its"
         " own look, recorded in the survey ledger"
     ),
-    "examples/reasoning/newtons_method.metta": (
+    "examples/ch22-a-reasoner-you-can-serve/22-03-search/01-newtons_method.metta": (
         "library-load machinery: the example is 16 lines whose cost is the"
         " lib_memo import, and the engine's manifest pre-scan reads the"
         " whole .pl before running it (the documented read-before-run"
@@ -238,7 +238,7 @@ WAIVERS = {
         " safety pass, visible only where an import dominates a tiny"
         " example"
     ),
-    "examples/reasoning/pln_direct.metta": (
+    "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/05-pln_direct.metta": (
         "metta-library import machinery: the lib_pln import alone costs"
         " 310.7M here against upstream's 275.7M (measured 2026-08-17), and"
         " that +35M covers the example's whole +28M flag, so evaluation is"
@@ -246,14 +246,14 @@ WAIVERS = {
         " and change hooks, the documented 516-inferences-per-source-atom"
         " path"
     ),
-    "examples/reasoning/permutations.metta": (DISPATCH_HOP),
-    "examples/reasoning/tilepuzzle.metta": (DISPATCH_HOP),
-    "examples/reasoning/plntest.metta": (DISPATCH_HOP),
-    "examples/reasoning/plntestdirect.metta": (DISPATCH_HOP),
-    "examples/spaces/matespace.metta": (DISPATCH_HOP),
-    "examples/spaces/matespace2.metta": (DISPATCH_HOP),
-    "examples/performance/superpose_primes.metta": (DISPATCH_HOP),
-    "examples/spaces/fibadd.metta": (
+    "examples/ch06-many-answers/08-permutations.metta": (DISPATCH_HOP),
+    "examples/ch22-a-reasoner-you-can-serve/22-03-search/02-tilepuzzle.metta": (DISPATCH_HOP),
+    "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/03-plntest.metta": (DISPATCH_HOP),
+    "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/04-plntestdirect.metta": (DISPATCH_HOP),
+    "examples/ch22-a-reasoner-you-can-serve/22-03-search/03-matespace.metta": (DISPATCH_HOP),
+    "examples/ch22-a-reasoner-you-can-serve/22-03-search/04-matespace2.metta": (DISPATCH_HOP),
+    "examples/ch18-performance/18-01-larger-workloads/03-superpose_primes.metta": (DISPATCH_HOP),
+    "examples/ch22-a-reasoner-you-can-serve/22-03-search/05-fibadd.metta": (
         "the documented ISO-error-class arithmetic guards (the +2.1%"
         " scale.metta trade), density-proportional: a source-defined fib"
         " twin shows the same +6.8% net on both engines, ~70 instructions"

@@ -91,7 +91,7 @@
 %     100,000 calls, against 300,000 unguarded]; division's integer pair
 %     pays the catch too, because a non-divisible pair converts its result
 %     to float and can overflow doing it. Whole-corpus cost is
-%     +2.1% instructions on examples/performance/scale.metta
+%     +2.1% instructions on examples/ch18-performance/18-01-larger-workloads/01-scale.metta
 %     [measured 2026-08-15].
 %   - Python operation registration reaches the canonical `(effect Name Class)`
 %     atom consumed by operation reflection; exactly pureStructural projects
@@ -251,7 +251,7 @@
 %     1,067,019,910 with five inert rules, 1,063,925,775 -> 1,067,710,574 with
 %     ten; interleaved min-of-5, perf stat -e instructions:u, swipl -q -g halt
 %     -t halt -s engine/main.pl on twelve-character paths; boot inferences
-%     688,190 -> 690,780 and examples/basics/xor.metta identical at 9,289;
+%     688,190 -> 690,780 and examples/ch07-control-flow/07-01-if-and-booleans/09-xor.metta identical at 9,289;
 %     commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb].
 % Open Obligations:
 %   To Do: check.sh does not yet gate autoload=false; the exact line is
@@ -441,14 +441,14 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %namespace everything shared, and under NO_AUTOLOAD=1 with duals in a module
 %of its own a compiled dual raised
 %existence_error(procedure, '$metta_exec:&self':dif/2)
-%[measured 2026-08-22, on examples/reasoning/constructive_negation.metta].
+%[measured 2026-08-22, on examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/03-constructive_negation.metta].
 :- use_module(library(dif), [dif/2]).
 %The HOST TIER's Prolog predicates. A MeTTa program reaches Prolog through
 %callPredicate/2 and import_prolog_function/2, and both resolve in the space's
 %module, whose base chain ends here, so what this module holds is what a
 %program can call. These two arrived by accident until now: engine/filereader.pl
 %loaded library(pcre) and library(readutil) into the one namespace everything
-%shared, and examples/integration/prologimport.metta imports re_replace/4 and
+%shared, and examples/ch20-extending-the-engine/20-03-prolog-underneath/02-prologimport.metta imports re_replace/4 and
 %calls read_file_to_string/3 through that leak. Cutting the loader into a module
 %of its own would have withdrawn both from every MeTTa program without saying
 %so, which is a language change and not a refactoring, so they are imported
@@ -470,7 +470,7 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 :- use_module(library(ordsets), [ord_subtract/3]).
 %distinct/2, which 'defined-name'/1 and 'undocumented-space'/2 call to
 %dedupe function names read off a space's own equation atoms
-%[measured 2026-08-18: examples/libraries/doc_lib.metta under
+%[measured 2026-08-18: examples/ch08-data/08-03-the-shipped-libraries/08-doc_lib.metta under
 %NO_AUTOLOAD=1, existence_error(procedure,distinct/2)].
 :- use_module(library(solution_sequences)).
 
@@ -709,7 +709,7 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$metta_exec:').
 %left the function REGISTERED, so a call to it compiled as a call and raised
 %existence_error(procedure, '$metta_exec:&self':f/2) where the language says
 %the term is simply unreduced [measured 2026-08-22, on
-%examples/functions/functionremoval.metta].
+%examples/ch05-equations-and-evaluation/05-02-changing-the-equations/02-functionremoval.metta].
 %
 %So the four registries a subsystem writes are IMPORTED into every subsystem
 %module rather than inherited, which is what makes a write land on the one
@@ -935,7 +935,7 @@ load_builtin_type_surface :- index_builtin_masks.
 %an equation for a name the prelude owns, the prelude's clauses and
 %declarations for that name are evicted first, so the program's own
 %definition answers alone, exactly as it did before the name was
-%promoted (examples/types/matchtypes.metta defines its own match-types
+%promoted (examples/ch09-types/14-matchtypes.metta defines its own match-types
 %and must keep meaning ITS match-types). Additive answers would be the
 %non-exclusive-equations reading, but the prelude is engine vocabulary,
 %not part of the program, and the house rule everywhere else on this

@@ -47,11 +47,14 @@ echo "head: $(git -C "$HERE" rev-parse --short HEAD)  base: $(git -C "$HERE" rev
 # DERIVED from tests/example_skips.txt, the one definition every runner
 # reads, but as BASENAMES rather than paths, and that difference is real
 # rather than an oversight: this harness compares against an upstream base
-# whose examples are flat where HEAD groups them into topic folders, so it
-# resolves each file by basename anywhere under HEAD's tree. Matching on
-# path here silently dropped 138 of 162 files once already.
+# whose examples are flat where HEAD groups them into numbered chapter
+# folders, so it resolves each file by basename anywhere under HEAD's tree.
+# Matching on path here silently dropped 138 of 162 files once already.
+# HEAD's leaf names carry a two-digit reading-order prefix that the base's
+# do not, so the prefix comes off here and goes back on as a pattern below.
 SKIP=$(command grep -v '^#' "$HERE/tests/example_skips.txt" |
-       awk 'NF {n = split($1, p, "/"); printf "%s ", p[n]}')
+       awk 'NF {n = split($1, p, "/"); leaf = p[n];
+                sub(/^[0-9][0-9]-/, "", leaf); printf "%s ", leaf}')
 CORPUS="$WORK/corpus.txt"
 : > "$CORPUS"
 changed=''
@@ -60,11 +63,13 @@ ambiguous=''
 for f in "$BASE"/examples/*.metta; do
     name=$(basename "$f")
     case " $SKIP " in *" $name "*) continue ;; esac
-    # HEAD groups its examples into topic folders while the base keeps them
-    # flat, so resolve each base file by basename anywhere under HEAD's tree.
+    # HEAD groups its examples into numbered chapter folders while the base
+    # keeps them flat, so resolve each base file by basename anywhere under
+    # HEAD's tree, with or without HEAD's two-digit reading-order prefix.
     # Matching on the flat path alone silently dropped 138 of 162 files and
     # left the comparison claiming parity over a corpus it was not running.
-    matches=$(find "$HERE/examples" -name "$name" -type f | sort)
+    matches=$(find "$HERE/examples" -type f \
+                   \( -name "$name" -o -name "[0-9][0-9]-$name" \) | sort)
     count=$(printf '%s\n' "$matches" | command grep -c . || true)
     if [ "$count" -eq 0 ]; then
         baseonly="$baseonly $name"

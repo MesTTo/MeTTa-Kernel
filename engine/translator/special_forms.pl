@@ -2,7 +2,7 @@
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% Guarantees: match, unify and let classify a written gap pattern ONCE while the call site compiles and hand the plan to the door in a wrapper, so a gap-free form emits the goal it always emitted [tested: tests/prolog/segments.plt, examples/data/segments.metta; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
+% Guarantees: match, unify and let classify a written gap pattern ONCE while the call site compiles and hand the plan to the door in a wrapper, so a gap-free form emits the goal it always emitted [tested: tests/prolog/segments.plt, examples/ch08-data/08-02-sequence-variables/01-segments.metta; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % [tested: tests/prolog/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%% An evaluated operand that produced an Error finishes the call %%%
@@ -64,7 +64,7 @@ error_transparent_operation('throw').
 %exception as `(Error <type> <context>)` so a program can look inside it, which
 %is why `(car-atom (catch (divide 1 0)))` answers the symbol `Error` and
 %`(class-of (catch (divide 1 0)))` answers `ZeroDivisionError`
-%[examples/integration/py_surface.metta:151,159]. Its answer is DATA by
+%[examples/ch11-python-as-a-notation/04-py_surface.metta:151,159]. Its answer is DATA by
 %contract, not an evaluation that ended in error, so a consumer reads it
 %instead of handing it on.
 error_reifying_form('catch').
@@ -102,7 +102,7 @@ error_argument_chain([V|Vs], Out, Call, Chain) :-
 %The test READS the value and unifies nothing of it, which is what the `==`
 %is for. Unifying the head instead binds a variable an ordinary expression is
 %holding as data: `(\= (1 2 3) ($a 3 4))` answered `(Error 3 4)`, with `$a`
-%bound to the symbol Error, in examples/libraries/roman.metta. `V` itself
+%bound to the symbol Error, in examples/ch08-data/08-01-atoms-lists-and-folds/15-roman.metta. `V` itself
 %may be unbound, and then `V = [Head|_]` binds it and `Head == 'Error'` fails,
 %which undoes the binding, so no nonvar/1 guard is needed in front.
 error_atom_test(V, ( V = [Head|_], Head == 'Error' )).
@@ -800,7 +800,7 @@ translate_special_dl('forall', [Generator, Test], AfterHead, Goals, Out) :-
     %answering the unit value the specification types them with: a body of
     %`(add-atom &s (num $x))` answers `()`, which is an effect that happened and
     %not a failed test, and requiring `true` stopped the loop after one item
-    %[tested: examples/control/metta4_streams.metta].
+    %[tested: examples/ch07-control-flow/07-04-bounded-and-committed-searches/02-metta4_streams.metta].
     BeforeForall = [(forall(GeneratorGoal,
                             (reduce(TestList, Truth, _), Truth \== false))
                      -> Out = true
@@ -843,7 +843,7 @@ translate_special_dl('foldall', [Accumulator, Generator, InitialExpr],
 %foldl 1400004 -> 300004]. And it captured nothing, so (map-atom $l $x ($x $u))
 %answered ((a $_0) (b $_1)) while the same map written (map-atom $l (|-> ($x)
 %($x $u))) answered ((a $_0) (b $_0)). One spelling of one map, two answers.
-%examples/functions/lambda.metta settles which is right: it binds $k outside a lambda,
+%examples/ch08-data/08-01-atoms-lists-and-folds/05-lambda.metta settles which is right: it binds $k outside a lambda,
 %reads it inside, and expects the value, so capturing is the specified
 %behaviour and these forms now share the predicate that implements it.
 %THE LIST AND THE SEED CROSS AS WRITTEN, which is what their declared types
@@ -945,7 +945,7 @@ translate_special_dl('|->', [Args, Body0], AfterHead, Goals, Out) :-
 %were added, so their argument was reduced before they saw it, and
 %`(add-reduct &self (= (foo) (+ 3 4)))` reached add-reduct as `false`: `=` is
 %this engine's equality operator as well as a definition head, so reducing an
-%equation TESTS it [tested: examples/libraries/he_atomspace.metta].
+%equation TESTS it [tested: examples/ch20-extending-the-engine/20-02-metta-written-in-metta/08-he_atomspace.metta].
 %One clause each, and NOT one clause matching a list of names, because the
 %head here is the interface: metta_special_form/1 reads these clause heads to
 %decide what a special form is, so a variable in that position makes EVERY name
@@ -1269,7 +1269,7 @@ prolog:error_message(metta_seam_expansion_as_data(Rule, Seam)) -->
 
 %A Python-compiled typed let carries an internal marker around the same
 %in-place annotation used by an equation head. Source-level colon expressions
-%remain ordinary destructuring patterns, as used by reasoning/nilbc.metta;
+%remain ordinary destructuring patterns, as used by ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta;
 %shape alone cannot distinguish those data from a Python annotation.
 %The value must bind before its type premise runs: checking the fresh pattern
 %variable first accepts everything and then forgets the constraint. Untyped
@@ -1314,7 +1314,7 @@ translate_let_dl([[__metta_typed_binding__, Pattern], Value, In],
 %so that path retains its early occurs check [tested:
 %test_let_of_a_fresh_variable_does_not_walk_the_term]. Only a value that shares
 %a source variable pays for the late occurs check.
-%[measured 2026-08-21: examples/reasoning/tilepuzzle.metta, fresh-process
+%[measured 2026-08-21: examples/ch22-a-reasoner-you-can-serve/22-03-search/02-tilepuzzle.metta, fresh-process
 %m.stats() min of three, 29,633,848 before and 29,633,825 after].
 %A GAP PATTERN takes neither route. Both of them are unifications, and a
 %sequence variable is not one: it splits the value's children and answers once
@@ -1750,7 +1750,7 @@ call_result_goal(Written, _, Produced, final, Out, Goal) :-
 %caller by the SIZE of the callee's answer, which turned a breadth-first
 %search carrying its queue through SWI's foldl/4 quadratic: the fold's
 %result walk visited every held state once per iteration, 3.9x call growth
-%for 2x the iterations on examples/reasoning/tilepuzzle.metta.
+%for 2x the iterations on examples/ch22-a-reasoner-you-can-serve/22-03-search/02-tilepuzzle.metta.
 %[tested: translator_equations:a_function_call_result_is_not_rewalked_for_redexes,
 %conformance2:a_builtin_polymorphic_result_reenters_evaluation;
 %commit=44ea37314b24f799a2080901172db66a94cb7791].

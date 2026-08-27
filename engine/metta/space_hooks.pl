@@ -164,7 +164,7 @@ metta_install_space_hooks :-
         %import and leaves the definition alone, so every claimed write would
         %have gone straight past its guard [measured 2026-08-22: SWI reported
         %"Local definition of user:metta_add_atom/3 overrides weak import from
-        %spaces" and examples/spaces/pre_add_hooks.metta stored the raw atom].
+        %spaces" and examples/ch15-writing-transactions-and-worlds/03-pre_add_hooks.metta stored the raw atom].
         seam:write_door_module(metta_add_atom/3, Engine),
         %Unqualified body for the reason ext_points.pl's two wrappers give:
         %wrap_predicate/4 declares it `0` and SWI qualifies it with this

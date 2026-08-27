@@ -33,7 +33,7 @@ confident but WRONG verdict, never a merely-missed one:
      evidence of progress. Fixed by making PREDICATE and the generic half
      of IDENTIFIER purely informational: reported, never decisive.
   2. A cited FILE existing and GATE-tracked was read as FIXED-leaning.
-     Wrong for `engine/metta.pl` (P0.2b) and `examples/control/thin_forms.metta`
+     Wrong for `engine/metta.pl` (P0.2b) and `examples/ch17-concurrency-and-the-loop/04-thin_forms.metta`
      (P1.1): plunit `consult`s every engine file transitively and test.sh
      globs every one of the 200 existing examples unconditionally, so BOTH
      were already GATE-tracked before Phase 0 or Phase 1 ever touched them.
@@ -673,7 +673,7 @@ TEST_SHAPED_ROOTS = tuple(
 # swept in unconditionally, so "this file is under a test-shaped root and is
 # GATE-tracked" is true of EVERY existing test and EVERY one of the 200
 # existing examples, whether or not the citing item ever touched it.
-# `examples/control/thin_forms.metta` is P1.1's own worked example: the item
+# `examples/ch17-concurrency-and-the-loop/04-thin_forms.metta` is P1.1's own worked example: the item
 # CORRECTS its prose, it does not create the file, so the file already
 # existed and was already gate-tracked before Phase 1 ever started
 # [measured 2026-08-18: the earlier version called P1.1 FIXED on exactly

@@ -325,7 +325,7 @@ domain instead of raising:
 ```
 
 Integers only: CLP(FD) is a finite-domain solver, so `(#* 2 $x)` cannot answer
-`1/2`. `examples/basics/relational_arithmetic.metta` runs the whole family
+`1/2`. `examples/ch05-equations-and-evaluation/05-04-arithmetic-that-runs-backwards/02-relational_arithmetic.metta` runs the whole family
 forwards and backwards.
 
 Two more solvers sit beside it, in a library rather than in the engine:
@@ -347,7 +347,7 @@ engine's own `and`/`or`/`not`, which are generate-and-test over two values and
 cheaper until a formula constrains every variable at once; on "exactly one of
 N is true" the crossover is at twelve variables, and above it the gap grows
 without bound, 16,777,154 inferences against 289,037 at twenty.
-`examples/basics/constraint_domains.metta` has all of it.
+`examples/ch05-equations-and-evaluation/05-04-arithmetic-that-runs-backwards/03-constraint_domains.metta` has all of it.
 
 Constructive negation reads these, which is the payoff. Negate a rule whose
 body is a `#` bound and the answer is the opposite bound rather than an

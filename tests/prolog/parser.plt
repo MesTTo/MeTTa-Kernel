@@ -678,7 +678,7 @@ test(parser_command_ignores_brackets_inside_strings_and_comments) :-
     assertion(sread_command("(f \"a", incomplete)),
     assertion(sread_command("(f a) ; )))", complete([f, a]))).
 
-% The consequence the finding is really about: examples/basics/repl.metta
+% The consequence the finding is really about: examples/ch14-seeing-your-program/02-repl.metta
 % could not accept a multi-line form at all, because 'readln!'/1 is one
 % read_line_to_string then sread/2. 'read-form!'/1 buffers until the brackets
 % balance, and the DECISION it buffers on has no I/O in it, which is CPython's

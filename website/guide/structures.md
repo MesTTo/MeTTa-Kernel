@@ -69,4 +69,4 @@ with LiveView(m, S.alert(V.level)) as alerts:
 !(ft-to-list (ft-concat (ft-from-list (1 2 3)) (ft-from-list (4 5))))  ; (1 2 3 4 5)
 ```
 
-Every form carries `@doc` atoms, so `(help! ft-concat)` answers, and `examples/libraries/datastructures_fingertree.metta` runs the whole surface under the gate.
+Every form carries `@doc` atoms, so `(help! ft-concat)` answers, and `examples/ch08-data/08-03-the-shipped-libraries/02-datastructures_fingertree.metta` runs the whole surface under the gate.

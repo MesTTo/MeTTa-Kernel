@@ -413,7 +413,7 @@ metta_bad_argument([Declared|Rest], [Origin|Origins], [Argument|Arguments], N,
 %The types an ARGUMENT CHECK may read, which is not everything get-type
 %answers. A `get-type` EQUATION is a MeTTa program, and a program that types
 %its argument by COMPUTING on it re-enters the operation whose refusal asked:
-%examples/types/types_dependent.metta writes
+%examples/ch09-types/12-types_dependent.metta writes
 %`(= (get-type $x) (catch (if (=alpha (% $x 2) 0) EvenNumber)))`, so asking
 %get-type why `%` refused ran `%` again, and again
 %[reproduced 2026-08-19: 16,777,031 frames and the 8Gb stack limit].

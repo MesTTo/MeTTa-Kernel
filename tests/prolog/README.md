@@ -3,7 +3,7 @@
 The engine under `engine/` runs directly in SWI-Prolog. A pure Prolog run needs no
 build step:
 
-    swipl --stack_limit=8g -q -s engine/main.pl -- examples/basics/fib.metta silent
+    swipl --stack_limit=8g -q -s engine/main.pl -- examples/ch07-control-flow/07-05-recursion/02-fib.metta silent
 
 `sh run.sh` adds `backends`, which asks the engine to load every native backend
 that is built. There is no mode and no backend is named: the engine globs

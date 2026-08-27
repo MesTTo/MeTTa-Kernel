@@ -949,7 +949,7 @@ metta_condition_holds(Closure, Item) :- call(Closure, Item, true).
 %THE ARITY GATE IS COPIED, NOT INVENTED. The reference recognises a modifier
 %only at `Atom.expr [Atom.sym s, x]`, exactly two elements
 %[source: LeaTTa/MettaHyperonFull/Core/Modifiers.lean, registeredMod?], and
-%the reason is in this repository too: examples/libraries/minimal_metta.metta
+%the reason is in this repository too: examples/ch20-extending-the-engine/20-02-metta-written-in-metta/04-minimal_metta.metta
 %asserts that the THREE-element (:= a b) is ordinary data and matches the
 %pattern (:= $x $y) structurally. Recognising := by name alone would
 %reinterpret it [tested: translator_match_modifiers].

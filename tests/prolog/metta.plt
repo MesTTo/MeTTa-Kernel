@@ -1758,7 +1758,7 @@ test(switches_nest_and_unwind_in_order) :-
 % asking, and everything else falls through to `current_metta_module(Module),
 % fun_here_in(Module, F)`. A DATA CONSTRUCTOR is the common case rather than a
 % space-scoped function, which is worth writing down because the name of the
-% branch suggests otherwise: examples/performance/matespacefast.metta reduces
+% branch suggests otherwise: examples/ch18-performance/18-01-larger-workloads/05-matespacefast.metta reduces
 % (num (M $t)) and (M $t) at every node of a binary tree of depth 19, and that
 % is the whole of its 262,144 reads. The space-update capability check is a
 % second and separate reader, once per update. This test pins all three rates,
@@ -1767,8 +1767,8 @@ test(switches_nest_and_unwind_in_order) :-
 %
 % Measured over the shipped corpus, one process per example the way the corpus
 % lane runs one: 468,624 of 486,309 reads are on the evaluation path, and two
-% examples are almost all of it, examples/performance/matespacefast.metta with
-% 262,144 and examples/reasoning/nilbc.metta with 182,012, every one of
+% examples are almost all of it, examples/ch18-performance/18-01-larger-workloads/05-matespacefast.metta with
+% 262,144 and examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta with 182,012, every one of
 % matespacefast's attributed to reduce/3 [measured 2026-08-22].
 %
 % And priced, in the same unit both sides have to be compared in. One read
@@ -1832,7 +1832,7 @@ test(test_the_module_context_is_read_once_per_unresolved_dispatch_and_once_per_s
     % Three: reduce/3 asks once per runtime dispatch on an atom head that is
     % NOT a plain shared-tier function, and not at all for one that is. A data
     % constructor is the common case and it is the rate the corpus is almost
-    % entirely made of: examples/performance/matespacefast.metta reduces
+    % entirely made of: examples/ch18-performance/18-01-larger-workloads/05-matespacefast.metta reduces
     % (num (M $t)) and (M $t) at every node of a binary tree of depth 19, which
     % is where its 262,144 reads come from [measured 2026-08-22].
     metta_dispatch_reads([ctxfn, 1], FunctionReads),

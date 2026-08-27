@@ -208,7 +208,7 @@ add_sexp_in(Module, Space, [Rel|Args], Ref) :- !,
 %predicate rather than a marked rule inside the space: a marked rule makes
 %every clause of the space predicate a rule, so reading one back has to go
 %through clause/2, which walks the clause list instead of using SWI's clause
-%indexing. Measured on examples/spaces/matespace.metta, that cost 15.3x,
+%indexing. Measured on examples/ch22-a-reasoner-you-can-serve/22-03-search/03-matespace.metta, that cost 15.3x,
 %99.5 billion instructions against 1,520 billion. Keeping scalars in
 %the private scalar predicate leaves expressions as facts a direct indexed
 %call reaches.

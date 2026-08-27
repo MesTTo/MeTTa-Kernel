@@ -515,7 +515,7 @@ dispatch_any_head_matches(Module, Fun, Args, _) :-
     % copied an entire remaining list for each recursive step even though an
     % equation head decides from its outer constructors, making map/fold over
     % N elements quadratic.
-    % [measured: 2026-08-21, 4.10 seconds; command=/usr/bin/time -f 'hol_elapsed=%e maxrss=%M' timeout 300s sh run.sh --silent examples/performance/holbenchmark.metta; fixture=examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
+    % [measured: 2026-08-21, 4.10 seconds; command=/usr/bin/time -f 'hol_elapsed=%e maxrss=%M' timeout 300s sh run.sh --silent examples/ch18-performance/18-01-larger-workloads/02-holbenchmark.metta; fixture=examples/ch18-performance/18-01-larger-workloads/02-holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
     (   metta_seq_present(Head0)
     ->  metta_seq_head_matches(Head0, Args)
     ;   unifiable(Head0, Args, _)
@@ -835,7 +835,7 @@ translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
 %Expand one call through a translator rule. The rule is an ordinary MeTTa
 %equation, so it lives in the module of the space that wrote it: called
 %unqualified it resolved in the ENGINE's module and raised Unknown procedure
-%for every rule [tested: examples/libraries/patrick.metta].
+%for every rule [tested: examples/ch08-data/08-01-atoms-lists-and-folds/11-patrick.metta].
 %
 %A rule that does not APPLY fails here rather than raising, and the dispatch
 %above then carries on down the chain exactly as it does for a special form
@@ -1095,7 +1095,7 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
           %runs the site's own compiled argument goals and dispatches on the
           %finished values.  Leaving the tail written unconditionally made
           %every activation of a computed-head site re-enter the translator:
-          %examples/performance/matespacefast.metta ran translate_special_dl
+          %examples/ch18-performance/18-01-larger-workloads/05-matespacefast.metta ran translate_special_dl
           %10.49 million times for 1.57 million data pairs, four times its
           %pre-protocol wall clock, with the translation identical on every
           %pass because a call site's written tail never changes.
@@ -1143,7 +1143,7 @@ runnable_head_awaits_its_definition(Fun) :-
 %maplist/3 a list where it needs a goal. Those declarations describe the
 %argument a caller writes rather than the value the predicate receives, and
 %honouring them at every call site broke every one
-%[measured 2026-08-16: examples/functions/lambda.metta, maplist/3 called with
+%[measured 2026-08-16: examples/ch08-data/08-01-atoms-lists-and-folds/05-lambda.metta, maplist/3 called with
 %'[|]'/4].
 %
 %A constructor has no such gap, because there is no predicate underneath it to
@@ -1525,7 +1525,7 @@ refused_argument_call(Fun, Args) :-
 %a synthetic BadArgType during the full battery
 %[tested: bindings/python/tests/test_ops.py::test_a_name_prolog_owns_registers_and_leaves_prolog_alone,
 %bindings/python/tests/test_space_operation_errors.py::test_a_non_symbol_first_argument_is_refused_by_the_read_path,
-%examples/data/atomops.metta; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa]. format-args is the one effects
+%examples/ch08-data/08-01-atoms-lists-and-folds/07-atomops.metta; commit=8d0027a3942000c799daccb45bf0abe1b46b10aa]. format-args is the one effects
 %probe outside runtime_type_guarded/1; its first String operand is evaluated,
 %so the same ordering is required there, while its Expression operand remains
 %quoted by ordinary typed translation.

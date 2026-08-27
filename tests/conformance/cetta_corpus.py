@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.manifest is None:
         # The generator's own verify_manifest, before any replay: the
         # per-entry loop below only sees PINNED entries, so an example with
-        # no pin is invisible to it, and data/segments.metta rode through
+        # no pin is invisible to it, and ch08-data/08-02-sequence-variables/01-segments.metta rode through
         # three full gates that way before the freeze's count tripwire
         # caught it. verify_manifest holds membership against the
         # generator's own discovery, plus the source, run.sh, skip-list and

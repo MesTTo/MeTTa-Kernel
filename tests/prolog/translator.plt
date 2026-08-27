@@ -2530,7 +2530,7 @@ modifier_case("(match &self (plunit-mod-fact (:= c)) hit)",   []).
 modifier_case("(let $y (superpose ($z)) \c
                 (match &self (plunit-mod-fact (:= $y)) hit))", []).
 %THE ARITY GATE. Three elements stay data and match structurally, which
-%examples/libraries/minimal_metta.metta already asserts for unify-mod.
+%examples/ch20-extending-the-engine/20-02-metta-written-in-metta/04-minimal_metta.metta already asserts for unify-mod.
 modifier_case("(match &self (plunit-mod-holds (:= $m $n)) ($m $n))", [[p, q]]).
 
 test(a_match_pattern_honours_the_equality_modifier,
@@ -2690,7 +2690,7 @@ test(a_match_pattern_restricts_by_type,
 
 %THE COLLISION, and the reason the spelling is `:`. Reinterpreting `(: ...)`
 %would break a program whose subject matter IS type judgements, and this tree
-%has one: examples/reasoning/nilbc.metta is a backward-chaining proof search
+%has one: examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta is a backward-chaining proof search
 %using `(: $proof $theorem)` in exactly the nested head and match positions a
 %position gate would reinterpret. `(: ...)` still retrieves stored type atoms.
 %THE SECOND COLLISION, found by the gate catching it: an annotation annotates
@@ -2998,7 +2998,7 @@ test(translating_a_nested_form_costs_inferences_linear_in_its_depth) :-
 % recursion level through head-side unification. The boundary-result protocol
 % once moved that composition entirely behind the recursive call, and the
 % inverse direction turned exponential while every forward test stayed green;
-% examples/functions/invertpeanoplus.metta went from 0.2s to past 30 minutes.
+% examples/ch07-control-flow/07-05-recursion/07-invertpeanoplus.metta went from 0.2s to past 30 minutes.
 % The inference limit is the oracle because the broken shape exceeds any
 % bound and the structural one needs a few hundred.
 

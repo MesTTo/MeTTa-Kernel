@@ -750,7 +750,7 @@ call_may_specialize([Arg|Args]) :-
 %never found a named space's at all. A stale specialization then outlived the
 %equation it cloned and answered beside the new one: removing one of two
 %equations for a higher-order function gave (2 2 42) where (2) was asked for
-%[tested: examples/functions/functionremoval.metta,
+%[tested: examples/ch05-equations-and-evaluation/05-02-changing-the-equations/02-functionremoval.metta,
 %specializer:a_removed_equation_forgets_its_specialization].
 %
 %clause_property(module/1) is the filter that keeps this from erasing a

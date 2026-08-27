@@ -84,7 +84,7 @@ rm -f "$tree/engine/.qlf-stamp"
     exit 1
 }
 
-verdicts=$( cd "$tree" && sh run.sh examples/reasoning/measure.metta 2>/dev/null |
+verdicts=$( cd "$tree" && sh run.sh examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/01-measure.metta 2>/dev/null |
             grep ' should ' || true )
 if [ -z "$verdicts" ]; then
     echo "FAIL: the example printed no verdict lines at all, so this test" >&2
@@ -104,7 +104,7 @@ fi
 # The same run under a C locale reading a CORRECT set: an ASCII output
 # stream does not fail, it escapes, so this half of the property needs its
 # own check rather than riding on the one above.
-escaped=$( cd "$tree" && LC_ALL=C LANG=C sh run.sh examples/reasoning/measure.metta 2>/dev/null |
+escaped=$( cd "$tree" && LC_ALL=C LANG=C sh run.sh examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/01-measure.metta 2>/dev/null |
            grep ' should ' | grep -cv "$mark" || true )
 if [ "$escaped" != 0 ]; then
     echo "FAIL: $escaped verdict line(s) lost the mark when the RUN itself" >&2

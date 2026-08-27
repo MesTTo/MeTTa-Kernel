@@ -141,7 +141,7 @@ governing_type_chains_in(Module, X, InScope, Unique) :-
 %raw equation derived from a rule carries none of them -- !(twin 1 1) is
 %blocked by cost through every translated door and a raw call rewrote it
 %anyway [measured 2026-08-25,
-%examples/translation/translatorrule_direction.metta]. One indexed registry
+%examples/ch20-extending-the-engine/20-01-translator-rules/02-translatorrule_direction.metta]. One indexed registry
 %miss per ruleless head. Guarded because the door runs on every direct
 %call, including from a module whose space is already gone, and "no
 %dispatch owner" is that state's honest answer.

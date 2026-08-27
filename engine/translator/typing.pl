@@ -404,7 +404,7 @@ occurrence_count(Occurrences, Variable, Count) :-
 %and (= (testf at) t), the argument check binds $a to A and the answer t, of
 %type T, is then rejected. Both halves solve together after the call instead,
 %which is the only order in which a shared variable can be assigned
-%consistently [tested: examples/types/types.metta,
+%consistently [tested: examples/ch09-types/01-types.metta,
 %a_shared_type_variable_is_assigned_after_the_call].
 place_type_checks(ArgTypes, OutType, ArgChecks, OutCheck, InnerEval, Inner, Extra) :-
     term_variables(ArgTypes, ArgVars),

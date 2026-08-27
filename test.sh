@@ -48,7 +48,7 @@ run_test() {
     fi
     echo "OK: $f"
     # Filtered here and only here: a passing file has nothing else worth
-    # reading, and the unfiltered trace is long. examples/basics/math.metta
+    # reading, and the unfiltered trace is long. examples/ch05-equations-and-evaluation/05-03-the-number-library/01-math.metta
     # alone prints 273 lines for five (test ...) forms [measured 2026-08-18].
     assertions=$(printf '%s\n' "$output" | grep "is " | grep " should " || true)
     echo "$assertions"

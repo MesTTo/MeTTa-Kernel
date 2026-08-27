@@ -707,6 +707,30 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **`examples/` is organised by reading order rather than by topic, and the
+  order is in the path.** The thirteen topic folders (`basics/`, `control/`,
+  `spaces/`, …) become twenty numbered chapter directories following the
+  22-chapter spine that also orders the Python tests and the website, with
+  sections inside the large ones and a two-digit ordinal on every file, so
+  `examples/ch07-control-flow/07-02-case/03-caseconstrain.metta` says where it
+  sits without an index. The scheme is the Rust book's: `chNN-slug/` for a
+  chapter, a section repeating its chapter's number the way `listing-07-02`
+  does, and the leaf keeping the name it always had.
+  Two chapters are new content rather than a move. `ch01-getting-started`
+  teaches the evaluation first and the checking form second, and says plainly
+  that `test` is this implementation's rather than the language's, which
+  `KERNEL.md` has classified as a divergence all along while it was
+  nonetheless the first thing every reader met. `ch02-programming-a-family-tree`
+  is one program in four steps with everything forward-referenced, the recurring
+  worked project the spine asks for.
+  Every consumer moved with the corpus: `tests/example_skips.txt`, the 219
+  twins (whose paths mirror the examples by construction), the twin residue
+  table, the upstream parity baseline and its waivers, the engine and library
+  sources that cite an example in an evidence tag, `bench.sh`'s
+  basename resolution against the flat upstream base, `llms.txt`, the website
+  pages, and the C example directories with their sources and READMEs.
+  `CHANGELOG.md` is deliberately not rewritten: it is a dated record, and it
+  already carried paths renamed since.
 - Two published host services now state the SHAPES a caller has to know, which
   were previously discoverable only by experiment. `metta_host_remove_reported/3`
   answers the plain boolean `true` or `false`; the first C implementation

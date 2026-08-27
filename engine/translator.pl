@@ -166,7 +166,7 @@
 %   - Bindings handed over as a value bind the body exactly as the same
 %     bindings written out do, so `let*` under another name is an ordinary
 %     definition [tested 2026-08-19: translator_letstar_computed_bindings,
-%     examples/control/letstarcomputed.metta]. Writing them out is
+%     examples/ch07-control-flow/07-03-let-and-sequencing/04-letstarcomputed.metta]. Writing them out is
 %     unaffected: the 203-example corpus answers identically, group for
 %     group, and a call costs a flat 3 inferences at 2 and at 16 bindings
 %     against 62 and 370 for the same bindings handed over
@@ -201,11 +201,11 @@
 %     $B) $C) ($B $C))` no longer constrains its argument by running myfunc
 %     backwards; the constraint is written in the body, where `let` unifies
 %     the argument with what the call produces and answers the same answers
-%     [tested: examples/functions/functionhead.metta,
-%     examples/functions/functionhead2.metta,
-%     examples/functions/functionhead3.metta,
-%     examples/libraries/patrick.metta,
-%     examples/reasoning/tilepuzzle.metta].
+%     [tested: examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/06-functionhead.metta,
+%     examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/07-functionhead2.metta,
+%     examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/08-functionhead3.metta,
+%     examples/ch08-data/08-01-atoms-lists-and-folds/11-patrick.metta,
+%     examples/ch22-a-reasoner-you-can-serve/22-03-search/02-tilepuzzle.metta].
 %   - the DUAL of a let* whose bindings have not arrived is asked for.
 %     engine/duals.pl builds duals at compile time from the recorded MeTTa body,
 %     so bindings that arrive at run time have no dual, and (not-provable ...)

@@ -523,7 +523,7 @@ forget_space_source_loads(Space) :-
 %duration of a load, and this asserted filereader:imported_metta_source/2, so
 %the re-entry guard saw nothing, a mutually importing pair recursed 78,000
 %frames deep and SWI segfaulted on
-%examples/integration/import_duplicate_cycle.metta [measured 2026-08-22].
+%examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/03-import_duplicate_cycle.metta [measured 2026-08-22].
 :- meta_predicate run_with_loading_marker(:, 0).
 
 run_with_loading_marker(Marker, Goal) :-
@@ -710,7 +710,7 @@ rollback_source_load(LoadId) :-
 %whole source load, also keeps definitions visible to hyperpose worker threads
 %while a file's runnable forms execute [tested:
 %filereader_source_rollback:failed_late_definition_does_not_recompile_existing_callers;
-%examples/control/thin_forms.metta; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+%examples/ch17-concurrency-and-the-loop/04-thin_forms.metta; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 repair_after_source_rollback([]) :- !.
 repair_after_source_rollback(_) :-
     current_transaction(_),

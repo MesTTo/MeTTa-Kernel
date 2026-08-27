@@ -24,9 +24,9 @@
 %       the engine's own and two shipped equations replaced a predicate
 %       [measured 2026-08-19 on c7126f1, confirmed by running the file and
 %       re-asking SWI, not inferred: loading
-%       examples/functions/invertpeanoplus.metta took user:plus/3 from
+%       examples/ch07-control-flow/07-05-recursion/07-invertpeanoplus.metta took user:plus/3 from
 %       imported_from(system) to a local definition and plus(1,2,X) from
-%       answering 3 to failing; loading examples/libraries/minimal_metta.metta
+%       answering 3 to failing; loading examples/ch20-extending-the-engine/20-02-metta-written-in-metta/04-minimal_metta.metta
 %       took user:rule/3 from imported_from('$syspreds') to local]
 %     - engine_integrity_selftest/0 proves both halves. It plants four
 %       equations and asks the detector about the ENGINE's own module, where
@@ -92,7 +92,7 @@ equation_head([=, Head|_], Name, MettaArity) :-
 
 %A file under _fixtures/ is deliberately malformed input for a test that checks
 %the engine's own error handling, so it is skipped BY NAME rather than by
-%swallowing its syntax error: examples/integration/_fixtures/imports/
+%swallowing its syntax error: examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/_fixtures/imports/
 %import_error_broken.metta is one.
 corpus_file(Dirs, File) :-
     member(Dir, Dirs),

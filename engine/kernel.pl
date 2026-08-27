@@ -53,7 +53,7 @@
 %witnesses the type, in the module the call runs in, which for a hook
 %handler is the module captured when the claim was declared. The admission
 %contract's own question, exposed so a policy written in MeTTa can ask it;
-%examples/spaces/admission_pools.metta's metta-admission-typed does. A
+%examples/ch15-writing-transactions-and-worlds/04-admission_pools.metta's metta-admission-typed does. A
 %witness, never a consistency judgement: an atom nothing declares answers
 %False for every type, because "nothing says it is one" is not evidence
 %that it is.
@@ -96,7 +96,7 @@
 %millions-of-adds surface [measured 2026-08-20:
 %bindings/python/benchmarks/extension_cost.py write-door table, min of 3 runs].
 %The MeTTa-bodied chain runs on as executable documentation with a
-%differential in examples/spaces/admission_pools.metta, and a space may
+%differential in examples/ch15-writing-transactions-and-worlds/04-admission_pools.metta, and a space may
 %shadow this name like any builtin. Every declared admits type must be
 %carried, the witness reading has-declared-type states above; the
 %verdict names the FIRST violated contract in the general algebra's own

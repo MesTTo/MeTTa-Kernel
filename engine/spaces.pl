@@ -75,7 +75,7 @@
 %   - Effective dispatch values are cached by function and axis, validated
 %     against their catalog clause reference, and forgotten at every policy
 %     mutation [tested: test_every_dispatch_axis_is_readable_settable_and_defaulted,
-%     examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%     examples/ch18-performance/18-01-larger-workloads/02-holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - The policy catalog publishes exactly one knob and shipped default for
 %     each of the twenty engine decision axes, and the policy-inventory
 %     gate rejects a closed list that has neither a catalog row nor a strict

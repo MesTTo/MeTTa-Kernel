@@ -88,7 +88,7 @@ PATHISH = re.compile(r"[$\w./{}-]*[\w}-]\.(?:py|pl|plt|sh|metta|ts)\b")
 NPM_SCRIPT = re.compile(r"\bnpm\s+(?:run\s+(?:--silent\s+)?)?(?:test|typecheck|kit)\b")
 CD = re.compile(r"\bcd\s+(?:--\s+)?[\"']?([$\w./-]+)")
 # A path named to be LEFT OUT is not a path the runner executes. Reading these
-# as executions marked examples/integration/_fixtures/imports/
+# as executions marked examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/_fixtures/imports/
 # import_error_broken.metta as gated by the very lane that skips it.
 EXCLUSION = re.compile(
     r"(?:!\s+-path|-not\s+-path|--ignore|--exclude|--extend-exclude)(?:=|\s+)\S+"

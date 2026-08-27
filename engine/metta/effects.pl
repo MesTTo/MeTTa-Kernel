@@ -283,7 +283,7 @@ metta_effect_classify(_, Goal, _, _) :-
 %head as an unknown CALL, the way reduce/3's walk must, refused an equation
 %whose body is a constructor: `(Pair $a $b)` is not a call and
 %`(memoize! choose)` was refused as metta_impure_goal(Pair/3)
-%[tested: examples/libraries/memo_multi_answer.metta and its twin].
+%[tested: examples/ch18-performance/18-02-memoisation-and-tabling/01-memo_multi_answer.metta and its twin].
 metta_effect_masked_result(_, Template, Queue, Queue) :-
     ( var(Template) ; \+ Template = [_|_] ), !.
 metta_effect_masked_result(Module, [Head|Args], Queue, Next) :-

@@ -669,5 +669,5 @@
 ; enforcement rides the general one-claimant registry and a space may
 ; shadow the judge like any builtin. The same judge written in MeTTa runs
 ; as executable documentation, with a differential against this builtin,
-; in examples/spaces/admission_pools.metta.
+; in examples/ch15-writing-transactions-and-worlds/04-admission_pools.metta.
 (: space-admission-verdict (-> %Undefined% Atom %Undefined%))

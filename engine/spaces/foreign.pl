@@ -277,7 +277,7 @@ metta_add_program_atoms(Space, Atoms, Names) :-
     %exactly those names' equations, and `plus`, which shadows SWI's own
     %plus/3, loaded four clauses from two equations and answered each let
     %inversion twice per clause copy
-    %[measured 2026-08-24: examples/functions/invertpeanoplus.metta, eight
+    %[measured 2026-08-24: examples/ch07-control-flow/07-05-recursion/07-invertpeanoplus.metta, eight
     %answers where the pin holds one].
     exclude(translated_counted_signature(Module), CountedSignatures,
             FreshSignatures),
@@ -469,7 +469,7 @@ translate_metta_equation(Module, Term, Clause, Ref) :-
 %seam:function_changed AFTER the table under measurement existed, and
 %lib_tabling's conservative hook abolished it, so the counters read zero
 %where the eager load read one [measured 2026-08-24:
-%examples/libraries/tabling_statistics.metta].
+%examples/ch18-performance/18-02-memoisation-and-tabling/12-tabling_statistics.metta].
 assert_translated_equation(Module, Term, Clause, Ref) :-
     Term = [=, [F|Inputs], _],
     %Mainline's shadow-repair pre-step is CLAUSE-level: under deferral the
@@ -572,7 +572,7 @@ mark_or_translate_equation(Space, Module, F, InputArity, Arriving) :-
 %which compiles into the get_type_rule/2 the engine declares at boot, typed
 %`(f 2 4)` against the builtin rule alone and answered BadArgType where its own
 %rule makes 2 an EvenNumber [measured 2026-08-24:
-%examples/types/types_dependent.metta]. The same holds for a space that shadows
+%examples/ch09-types/12-types_dependent.metta]. The same holds for a space that shadows
 %an engine builtin, where the inherited definition answers in place of the
 %arriving one, which is why the test is `defined` and not `number_of_clauses`.
 defer_metta_function(Space, Module, F, InputArity) :-
@@ -656,7 +656,7 @@ visible_predicate_definition(Module, Predicate, Arity) :-
 %branch aborted between translate_deferred_function/1 retracting the deferral
 %and its clauses arriving left the function neither deferred nor defined: the
 %NEXT call to it raised "Unknown procedure: slow/2" from a form that had
-%nothing to do with the race [measured 2026-08-24: examples/libraries/thread_lib.metta].
+%nothing to do with the race [measured 2026-08-24: examples/ch17-concurrency-and-the-loop/01-thread_lib.metta].
 %sig_atomic/1 defers the signal until the translation is whole
 %[measured 2026-08-24: a thread signalled abort inside sig_atomic/1 still
 %finished its work].
@@ -1098,7 +1098,7 @@ prolog:error_message(metta_builtin_redefinition(Name, Arity, Space)) -->
 %metta_space_name/1 is the prefix rather than the registry: a fresh `&kb` is a
 %space the moment a program writes to it, and that capability is kept whole.
 %The one example that used a name without the prefix,
-%examples/spaces/add_atom_fun_space.metta, still returns a space name from a
+%examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/07-add_atom_fun_space.metta, still returns a space name from a
 %function and still lands its write there, spelled `&my_space_name`.
 %
 %The atom is ANSWERED rather than thrown, because that is what the arbiter

@@ -115,13 +115,13 @@ would leave the body untranslated and hand noeval itself back.
 Over the 201 corpus examples whose inference count is deterministic, moving
 those eight out of the compiler cost **-0.2313%** in total, 252,806,743
 inferences against 252,222,109. 199 examples got cheaper, the largest being
-`libraries/he_minimalmetta.metta` at -1.606%, because the six stream rewrites
+`ch20-extending-the-engine/20-02-metta-written-in-metta/05-he_minimalmetta.metta` at -1.606%, because the six stream rewrites
 used to run on every compound the translator walked. Two got dearer, both of
-them files that write the moved forms: `control/and_then_or_else.metta`
-+1.447% and `data/streamops.metta` +0.352%, all of it compile time.
-`performance/hyperpose_primes.metta` and `integration/git_import.metta` are
+them files that write the moved forms: `ch07-control-flow/07-01-if-and-booleans/10-and_then_or_else.metta`
++1.447% and `ch06-many-answers/09-streamops.metta` +0.352%, all of it compile time.
+`ch17-concurrency-and-the-loop/03-hyperpose_primes.metta` and `ch20-extending-the-engine/20-04-modules-and-the-catalog/06-git_import.metta` are
 excluded because their counts are not deterministic, the first running
-branches in threads and the second shelling out to git; `reasoning/tilepuzzle.metta`
+branches in threads and the second shelling out to git; `ch22-a-reasoner-you-can-serve/22-03-search/02-tilepuzzle.metta`
 is excluded because it runs for minutes. Every corpus answer is unchanged,
 group for group, and the conformance lane's per-area agreement is unchanged
 [measured 2026-08-19].
@@ -190,7 +190,7 @@ the numbers are beside them.
 `once` is the one whose rule is COMPLETE, since it has a single arity, so it
 ships in `lib/lib_derived.metta` and a program that wants the smaller
 instruction set imports it and pays the two inferences a call.
-`examples/libraries/derived_forms.metta` runs the swap and the swap back.
+`examples/ch20-extending-the-engine/20-01-translator-rules/08-derived_forms.metta` runs the swap and the swap back.
 `progn`, `prog1` and `nop` are variadic and a translator rule has a fixed
 arity, so a rule for any of them would rewrite some calls and leave the rest to
 the compiler, which is two compilations of one form rather than one. That is

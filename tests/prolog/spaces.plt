@@ -619,7 +619,7 @@ test(the_module_to_space_map_is_the_inverse) :-
 % names is held by the module the ENGINE resolves in, an equation for it is
 % accepted in &self, and what the engine holds is unchanged afterwards. Before
 % Phase 11 the arity-2 `plus` was accepted and DESTROYED the predicate, which
-% is what examples/functions/invertpeanoplus.metta did on every run
+% is what examples/ch07-control-flow/07-05-recursion/07-invertpeanoplus.metta did on every run
 % [measured 2026-08-19 on c7126f1].
 %
 % Two tables, because the two ways the engine can hold a name need different
@@ -1029,7 +1029,7 @@ test(a_skewed_join_costs_time_linear_in_the_edge_count) :-
 % 219,626,261 instructions at 200 edges rising to 13,818,604,870 at 1,600,
 % because every conjunct goes through the whole match dispatch and the read
 % chain for each row the loop reaches. `(new-space &child (inherits &parent))`
-% in examples/spaces/inherited_spaces.metta joins across the chain exactly so.
+% in examples/ch19-spaces-backed-by-anything/19-01-spaces-of-your-own/01-inherited_spaces.metta joins across the chain exactly so.
 inherited_join_cost(Half, Cost) :-
     atom_concat('&plunit_skew_parent', Half, Parent),
     atom_concat('&plunit_skew_child', Half, Child),

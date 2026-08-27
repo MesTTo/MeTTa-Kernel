@@ -130,7 +130,7 @@ in_py() { ( cd "$PYDIR" && "$@" ); }
 # this is available wherever the engine is, but a toolchain can still be
 # missing; say so instead of letting the example quietly skip.
 build_c_extension_example() {
-    ext="$HERE/examples/integration/c_extension"
+    ext="$HERE/examples/ch19-spaces-backed-by-anything/19-03-a-builtin-in-c"
     [ -d "$ext" ] || return 0
     if ! command -v swipl-ld >/dev/null 2>&1; then
         echo "note: swipl-ld not found, the C extension example will skip" >&2
@@ -705,7 +705,7 @@ check_translation_determinism() {
     # This upstream loader fixture is intentionally malformed. Its parent
     # example asserts that importing it reports the source error.
     find "$HERE/examples" -type f -name '*.metta' \
-        ! -path "$HERE/examples/integration/_fixtures/imports/import_error_broken.metta" -print |
+        ! -path "$HERE/examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/_fixtures/imports/import_error_broken.metta" -print |
     LC_ALL=C sort |
     while IFS= read -r file; do
         swipl -q --on-warning=status --on-error=status \
@@ -842,7 +842,7 @@ run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 1
 # ! naming a function defined LOWER DOWN in the same file failed there. Both
 # paths share prepare_parsed_forms/1 now and all seven pass either way, so
 # this is a GATE [measured 2026-08-18: 200/200 agree, verified on the merged
-# tree; 199 of the 200 by both ANSWERING and examples/libraries/minimal_metta.metta
+# tree; 199 of the 200 by both ANSWERING and examples/ch20-extending-the-engine/20-02-metta-written-in-metta/04-minimal_metta.metta
 # by both failing until its two library files were committed].
 #
 # It reads the engine through tests/conformance/leatta_run.pl, which already

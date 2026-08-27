@@ -77,9 +77,9 @@ relational_input_position('cons-atom', 2).
 %union-atom IS append/3, and a shipped library takes a list apart with it:
 %(= (mylast $x) (union-atom $xs ($x))) splits a list from the right by
 %leaving $xs open [source: lib/lib_roman.metta:80, exercised by
-%examples/libraries/roman.metta]. member and its two Bool-answering
+%examples/ch08-data/08-01-atoms-lists-and-folds/15-roman.metta]. member and its two Bool-answering
 %twins are Prolog's member/2 under a MeTTa name for the same reason, and
-%examples/reasoning/logicprogset.metta solves (member a $M) for $M.
+%examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/02-logicprogset.metta solves (member a $M) for $M.
 relational_input_position('union-atom', 1).
 relational_input_position('union-atom', 2).
 relational_input_position(member, 2).
@@ -307,7 +307,7 @@ intersect_counted([H|T], C0, Out) :-
 %non_list/1 is false for an unbound argument, which is load-bearing: lib_roman
 %calls (union-atom $xs ($x)) with $xs unbound to SPLIT a list, so append/3
 %must still be reached in its relational modes
-%[tested: metta_set_operations, examples/libraries/roman.metta].
+%[tested: metta_set_operations, examples/ch08-data/08-01-atoms-lists-and-folds/15-roman.metta].
 'union-atom'(A, B, Out) :- ( non_list(A) ; non_list(B) ), !, Out = [].
 'union-atom'(A, B, Out) :- append(A, B, Out).
 'intersection-atom'(A, B, _) :- ( var(A) -> refuse_unbound_input('intersection-atom', 1)

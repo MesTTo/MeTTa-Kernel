@@ -59,7 +59,7 @@ atom model and builds through queries, equations, types, and integrations.
 
 Example run:
 
-`time sh run.sh ./examples/reasoning/nars_tuffy.metta`
+`time sh run.sh ./examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/09-nars_tuffy.metta`
 
 ### MORK and FAISS spaces
 
@@ -466,7 +466,7 @@ and optimizers through `metta.integrate`, `MettaModule` running a MeTTa
 forward pass under autograd, architecture reflection as facts, and the
 neural predicate as an annotated relation on the same surface.
 Its docs, tests and torch examples travel with it. The CLI-reachable half
-stays here as `lib/lib_torch.metta`; see `examples/integration/torch_lib.metta`.
+stays here as `lib/lib_torch.metta`; see `examples/ch11-python-as-a-notation/08-torch_lib.metta`.
 
 ### Extension libraries
 

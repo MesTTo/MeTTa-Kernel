@@ -392,8 +392,8 @@ test(eviction_takes_the_prelude_docs_with_the_name,
     doc_eval("(collapse (get-doc type-cast))", [[]]).
 
 test(the_doc_example_still_speaks_for_the_library,
-     [condition(exists_file('../../examples/libraries/doc_lib.metta'))]) :-
-    load_metta_file('../../examples/libraries/doc_lib.metta', _).
+     [condition(exists_file('../../examples/ch08-data/08-03-the-shipped-libraries/08-doc_lib.metta'))]) :-
+    load_metta_file('../../examples/ch08-data/08-03-the-shipped-libraries/08-doc_lib.metta', _).
 
 :- end_tests(prelude_docs).
 

@@ -736,7 +736,7 @@ metta_saturating_parse(Grammar, Codes) :-
 %None, or raises [source: CPython, the code and codeop modules]. This is that
 %contract: complete(Term), incomplete, or a raise.
 %
-%Without it examples/basics/repl.metta could not accept a multi-line form at
+%Without it examples/ch14-seeing-your-program/02-repl.metta could not accept a multi-line form at
 %all, since 'readln!'/1 is one read_line_to_string then sread/2, and every
 %other console has to re-implement bracket counting. Which is not "just count
 %parens": a bracket inside a string or a comment must not count, and

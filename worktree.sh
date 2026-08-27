@@ -71,7 +71,7 @@ echo "worktree.sh: linked $linked artefact(s) from $MAIN"
 # on every run; a worktree used for DIRECT suite runs needs them too, or the
 # example and its tests quietly skip. Same recipe, same tolerance for a
 # missing toolchain.
-ext="$HERE/examples/integration/c_extension"
+ext="$HERE/examples/ch19-spaces-backed-by-anything/19-03-a-builtin-in-c"
 if [ -d "$ext" ]; then
     if command -v swipl-ld >/dev/null 2>&1; then
         for unit in cbump handle; do
