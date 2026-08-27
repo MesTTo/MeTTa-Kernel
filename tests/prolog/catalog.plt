@@ -55,7 +55,7 @@ test(every_shipped_callable_has_one_visibility) :-
             Callable0),
     sort(Callable0, Callable),
     findall(Name-Visibility,
-            petta_contract_fact([visibility, Name, Visibility]),
+            metta_contract_fact([visibility, Name, Visibility]),
             Rows0),
     sort(Rows0, Rows),
     findall(Name, member(Name-_, Rows), Visible0),
@@ -70,16 +70,16 @@ test(every_shipped_callable_has_one_visibility) :-
     assertion(memberchk('get-doc'-'PUBLIC', Rows)).
 
 test(a_malformed_shipped_declaration_is_refused_loudly,
-     [error(petta_declaration_malformed([source, '&cat1', bogus], 2,
+     [error(metta_declaration_malformed([source, '&cat1', bogus], 2,
                                         ['one-of', 'source-kind']))]) :-
     add_sexp('&metta', [source, '&cat1', bogus], _).
 
 test(a_missing_mandatory_argument_is_refused,
-     [error(petta_declaration_malformed([annotations, '&cat2'], 2, _))]) :-
+     [error(metta_declaration_malformed([annotations, '&cat2'], 2, _))]) :-
     add_sexp('&metta', [annotations, '&cat2'], _).
 
 test(a_surplus_argument_is_refused,
-     [error(petta_declaration_malformed([inverse, f, extra], 2, _))]) :-
+     [error(metta_declaration_malformed([inverse, f, extra], 2, _))]) :-
     add_sexp('&metta', [inverse, f, extra], _).
 
 test(an_optional_trailing_argument_may_be_omitted_or_given) :-
@@ -108,37 +108,37 @@ test(a_third_party_kind_is_declared_and_enforced,
     erase(Ref),
     catch(( add_sexp('&metta', ['cat-kind', '&thing', tepid], _),
             fail ),
-          error(petta_declaration_malformed(_, 2, ['one-of', 'cat-level']), _),
+          error(metta_declaration_malformed(_, 2, ['one-of', 'cat-level']), _),
           true).
 
 test(a_kind_naming_an_undeclared_vocabulary_is_refused,
-     [error(petta_declaration_malformed([kind, 'cat-orphan', symbol,
+     [error(metta_declaration_malformed([kind, 'cat-orphan', symbol,
                                          ['one-of', 'never-declared']],
                                         3, _))]) :-
     add_sexp('&metta', [kind, 'cat-orphan', symbol,
                         ['one-of', 'never-declared']], _).
 
 test(a_kind_with_a_nonsense_argspec_is_refused,
-     [error(petta_declaration_malformed([kind, 'cat-bad', wobbly], 2, _))]) :-
+     [error(metta_declaration_malformed([kind, 'cat-bad', wobbly], 2, _))]) :-
     add_sexp('&metta', [kind, 'cat-bad', wobbly], _).
 
 test(rest_anywhere_but_final_position_is_refused,
-     [error(petta_declaration_malformed(_, 2,
+     [error(metta_declaration_malformed(_, 2,
                                         'rest only in final position'))]) :-
     add_sexp('&metta', [kind, 'cat-rest', [rest, symbol], integer], _).
 
 test(a_second_kind_row_for_one_head_is_refused,
-     [error(petta_declaration_malformed([kind, source, symbol, term], 1,
+     [error(metta_declaration_malformed([kind, source, symbol, term], 1,
                                         _))]) :-
     add_sexp('&metta', [kind, source, symbol, term], _).
 
 test(a_second_vocabulary_row_for_one_name_is_refused,
-     [error(petta_declaration_malformed([vocabulary, fidelity, loose], 1,
+     [error(metta_declaration_malformed([vocabulary, fidelity, loose], 1,
                                         _))]) :-
     add_sexp('&metta', [vocabulary, fidelity, loose], _).
 
 test(a_claim_on_a_value_outside_its_vocabulary_is_refused,
-     [error(petta_declaration_malformed([claim, semiring, sideways, ordered],
+     [error(metta_declaration_malformed([claim, semiring, sideways, ordered],
                                         2, _))]) :-
     add_sexp('&metta', [claim, semiring, sideways, ordered], _).
 
@@ -170,9 +170,9 @@ test(a_third_party_shape_routed_kind_rides_the_one_router,
                      metta_remove_atom('&metta', A, _)))]) :-
     add_sexp('&metta', [freshness, '&fr', [edge, _A, _B], cached], _),
     add_sexp('&metta', [freshness, '&fr', [edge, [in, _C], _D], live], _),
-    petta_shape_route(freshness, '&fr', [edge, bound, _E], _, [Level]),
+    metta_shape_route(freshness, '&fr', [edge, bound, _E], _, [Level]),
     Level == live,
-    petta_shape_route(freshness, '&fr', [edge, _F, _G], _, [General]),
+    metta_shape_route(freshness, '&fr', [edge, _F, _G], _, [General]),
     General == cached.
 
 test(two_disagreeing_maximal_entries_conflict_loudly,
@@ -189,8 +189,8 @@ test(two_disagreeing_maximal_entries_conflict_loudly,
                                  ['one-of', 'hot-level']],
                                 [vocabulary, 'hot-level', hot, cold]]),
                      metta_remove_atom('&metta', A, _))),
-      error(petta_contract_conflict(_, _, _, _))]) :-
-    petta_shape_route(hotness, '&h', [p, r, q], _, _).
+      error(metta_contract_conflict(_, _, _, _))]) :-
+    metta_shape_route(hotness, '&h', [p, r, q], _, _).
 
 test(removing_the_routing_row_stops_the_route,
      [setup(( add_sexp('&metta', [vocabulary, 'wet-level', wet, dry], _),
@@ -203,12 +203,12 @@ test(removing_the_routing_row_stops_the_route,
                                  ['one-of', 'wet-level']],
                                 [vocabulary, 'wet-level', wet, dry]]),
                      metta_remove_atom('&metta', A, _)))]) :-
-    petta_shape_route(wetness, '&w', [w, 1], _, [wet]),
+    metta_shape_route(wetness, '&w', [w, 1], _, [wet]),
     metta_remove_atom('&metta', ['routed-by-shape', wetness], true),
-    \+ petta_shape_declared(wetness, '&w').
+    \+ metta_shape_declared(wetness, '&w').
 
 test(a_routing_row_without_its_kind_is_refused,
-     [error(petta_declaration_malformed(['routed-by-shape', 'never-kinded'],
+     [error(metta_declaration_malformed(['routed-by-shape', 'never-kinded'],
                                         1, _))]) :-
     add_sexp('&metta', ['routed-by-shape', 'never-kinded'], _).
 
@@ -216,7 +216,7 @@ test(a_routing_row_over_an_unroutable_kind_is_refused,
      [setup(add_sexp('&metta', [kind, 'flat-kind', symbol, symbol], _)),
       cleanup(metta_remove_atom('&metta', [kind, 'flat-kind', symbol, symbol],
                                 _)),
-      error(petta_declaration_malformed(['routed-by-shape', 'flat-kind'],
+      error(metta_declaration_malformed(['routed-by-shape', 'flat-kind'],
                                         1, _))]) :-
     add_sexp('&metta', ['routed-by-shape', 'flat-kind'], _).
 
@@ -248,13 +248,13 @@ test(a_route_cap_demotes_and_refuses_through_the_published_seam,
     assertz(user:cap_level(refuse)),
     catch(( foreign_pushdown_class('&cap1', [p, v], _),
             fail ),
-          error(petta_route_capped('&cap1', _, capped_by_test), _),
+          error(metta_route_capped('&cap1', _, capped_by_test), _),
           true),
     retractall(user:cap_level(_)),
     assertz(user:cap_level(sideways)),
     catch(( foreign_pushdown_class('&cap1', [p, v], _),
             fail ),
-          error(petta_route_cap_invalid('&cap1', sideways, _), _),
+          error(metta_route_cap_invalid('&cap1', sideways, _), _),
           true).
 
 %Orderedness is an independent claim in the catalog, so two third-party
@@ -284,11 +284,11 @@ test(a_claimed_ordered_value_orders_and_an_unclaimed_one_does_not,
                 append([vocabulary, semiring|Shipped], [cost, heap], Widened),
                 metta_remove_atom('&metta', Widened, _),
                 add_sexp('&metta', [vocabulary, semiring|Shipped], _) ))]) :-
-    petta_annotations_ordered('&ord1'),
-    \+ petta_annotations_ordered('&ord2').
+    metta_annotations_ordered('&ord1'),
+    \+ metta_annotations_ordered('&ord2').
 
 test(a_false_algebra_law_is_refused_before_the_catalog_row_lands,
-     [throws(error(petta_algebra_law_violation(
+     [throws(error(metta_algebra_law_violation(
                        p4_bad_zero, 'extend-zero-annihilates', _, _, _), _))]) :-
     add_sexp('&metta',
              [algebra, p4_bad_zero, min, min, 1, 0,
@@ -296,7 +296,7 @@ test(a_false_algebra_law_is_refused_before_the_catalog_row_lands,
              _).
 
 test(an_amplitude_context_without_the_whole_fragment_is_refused_by_name,
-     [throws(error(petta_amplitude_fragment_refused('&p4-amp', finite), _))]) :-
+     [throws(error(metta_amplitude_fragment_refused('&p4-amp', finite), _))]) :-
     add_sexp('&metta', [annotations, '&p4-amp', amplitude], _).
 
 test(algebra_descriptor_caches_follow_catalog_edits,
@@ -310,26 +310,26 @@ test(algebra_descriptor_caches_follow_catalog_edits,
                      ( metta_remove_atom('&metta', Row, _)
                      -> true
                      ;  true )))]) :-
-    petta_annotations('&p4-cache-context', bool),
+    metta_annotations('&p4-cache-context', bool),
     add_sexp('&metta',
              [algebra, 'p4-cache-algebra', '+', '*', 0, unit,
               [laws], [carrier], [requires]], _),
     add_sexp('&metta',
              [annotations, '&p4-cache-context', 'p4-cache-algebra'], _),
-    petta_annotations('&p4-cache-context', 'p4-cache-algebra'),
-    petta_algebra_descriptor('p4-cache-algebra', '+', '*', 0, unit,
+    metta_annotations('&p4-cache-context', 'p4-cache-algebra'),
+    metta_algebra_descriptor('p4-cache-algebra', '+', '*', 0, unit,
                              [laws], [carrier], [requires]),
     metta_remove_atom('&metta',
                       [annotations, '&p4-cache-context', 'p4-cache-algebra'],
                       true),
-    petta_annotations('&p4-cache-context', bool),
+    metta_annotations('&p4-cache-context', bool),
     metta_remove_atom('&metta',
                       [algebra, 'p4-cache-algebra', '+', '*', 0, unit,
                        [laws], [carrier], [requires]], true),
     add_sexp('&metta',
              [algebra, 'p4-cache-algebra', '+', '*', 0, replacement,
               [laws], [carrier], [requires]], _),
-    petta_algebra_descriptor('p4-cache-algebra', '+', '*', 0, replacement,
+    metta_algebra_descriptor('p4-cache-algebra', '+', '*', 0, replacement,
                              [laws], [carrier], [requires]).
 
 %The export parser's word lists are the catalog's volatility vocabulary,
@@ -349,7 +349,7 @@ test(the_export_parser_reads_the_volatility_vocabulary,
     metta_function_volatility('cat-vol-f', frozen),
     catch(( metta_export("(volatility cat-vol-g melty)"),
             fail ),
-          error(petta_export_form(_), _),
+          error(metta_export_form(_), _),
           true).
 
 %The bulk door refuses the whole batch before any of it lands.
@@ -357,7 +357,7 @@ test(the_bulk_door_checks_before_it_writes) :-
     catch(( metta_add_atoms('&metta', [[source, '&cat4', repeated],
                                        [source, '&cat5', wrong]]),
             fail ),
-          error(petta_declaration_malformed(_, _, _), _),
+          error(metta_declaration_malformed(_, _, _), _),
           true),
     \+ 'get-atoms'('&metta', [source, '&cat4', repeated]).
 

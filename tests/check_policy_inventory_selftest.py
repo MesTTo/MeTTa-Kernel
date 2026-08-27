@@ -112,7 +112,7 @@ def test_catalog_authority_and_generated_output_are_not_findings() -> None:
         _write(
             root,
             "engine/spaces.pl",
-            "petta_catalog_preset([fixture, memberchk(_, [catalog, owned])]).\n"
+            "metta_catalog_preset([fixture, memberchk(_, [catalog, owned])]).\n"
             "allowed(X) :- memberchk(X, [one, two]).\n",
         )
         _write(
@@ -208,7 +208,7 @@ def test_algebra_law_claims_are_derived_and_validated() -> None:
         _write(
             root,
             seam_path,
-            "petta_vocabulary_claim(semiring, Semiring, ordered).\n",
+            "metta_vocabulary_claim(semiring, Semiring, ordered).\n",
         )
         # Each ordered semiring claims its direction beside orderedness:
         # ranked and prob count down from the best, tropical up from the

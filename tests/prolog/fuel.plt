@@ -1,9 +1,9 @@
 % Purpose: PlUnit coverage for the branch-local evaluation fuel, and for the
 %   two SWI global-variable behaviours its single-global design depends on.
-% Assumes: engine/metta.pl is loaded, so petta_run_with_fuel/3,
-%   petta_open_fuel_scope/0, petta_close_fuel_scope/0 and
-%   petta_fuel_step_goal/3 are reachable; `$petta_fuel_remaining` is the one
-%   global they share. The charge is BUILT by petta_fuel_step_goal/3 and
+% Assumes: engine/metta.pl is loaded, so metta_run_with_fuel/3,
+%   metta_open_fuel_scope/0, metta_close_fuel_scope/0 and
+%   metta_fuel_step_goal/3 are reachable; `$metta_fuel_remaining` is the one
+%   global they share. The charge is BUILT by metta_fuel_step_goal/3 and
 %   written into each compiled clause, so these tests call the built goal,
 %   which is the thing the engine actually runs.
 % Guarantees:
@@ -31,51 +31,51 @@
 % ---------------------------------------------------------------- the mechanism
 
 test(a_step_charges_inside_a_scope_and_is_inert_outside_one) :-
-    petta_open_fuel_scope,
-    nb_setval('$petta_fuel_remaining', 1000),
+    metta_open_fuel_scope,
+    nb_setval('$metta_fuel_remaining', 1000),
     charge(probe, 7),
-    b_getval('$petta_fuel_remaining', Inside),
-    petta_close_fuel_scope,
-    b_getval('$petta_fuel_remaining', Closed),
+    b_getval('$metta_fuel_remaining', Inside),
+    metta_close_fuel_scope,
+    b_getval('$metta_fuel_remaining', Closed),
     charge(probe, 7),
-    b_getval('$petta_fuel_remaining', Outside),
+    b_getval('$metta_fuel_remaining', Outside),
     assertion(Inside == 993),
     assertion(Closed == off),
     assertion(Outside == off).
 
 test(a_step_spends_from_the_balance_it_inherited_on_a_sibling_branch) :-
-    petta_open_fuel_scope,
-    nb_setval('$petta_fuel_remaining', 1000),
+    metta_open_fuel_scope,
+    nb_setval('$metta_fuel_remaining', 1000),
     %A branch that spends and then fails leaves the balance it started with,
     %which is the whole reason the write is backtrackable.
     (   charge(first, 100), fail
     ;   true
     ),
-    b_getval('$petta_fuel_remaining', Restored),
-    petta_close_fuel_scope,
+    b_getval('$metta_fuel_remaining', Restored),
+    metta_close_fuel_scope,
     assertion(Restored == 1000).
 
 test(an_exhausted_branch_records_its_culprit_and_fails) :-
-    petta_open_fuel_scope,
-    nb_setval('$petta_fuel_remaining', 10),
+    metta_open_fuel_scope,
+    nb_setval('$metta_fuel_remaining', 10),
     (   charge(the_culprit, 9)
     ->  Charged = true
     ;   Charged = false
     ),
-    nb_getval('$petta_fuel_errors', Recorded),
-    petta_close_fuel_scope,
+    nb_getval('$metta_fuel_errors', Recorded),
+    metta_close_fuel_scope,
     assertion(Charged == false),
     assertion(Recorded == [the_culprit]).
 
 test(the_limit_is_read_on_the_first_step_rather_than_at_scope_open) :-
     setup_call_cleanup(
         true,
-        (   petta_open_fuel_scope,
-            b_getval('$petta_fuel_remaining', AtOpen),
+        (   metta_open_fuel_scope,
+            b_getval('$metta_fuel_remaining', AtOpen),
             'pragma!'('max-stack-depth', 500, _),
             charge(probe, 1),
-            b_getval('$petta_fuel_remaining', AfterStep),
-            petta_close_fuel_scope
+            b_getval('$metta_fuel_remaining', AfterStep),
+            metta_close_fuel_scope
         ),
         'pragma!'('max-stack-depth', none, _)),
     %`unstarted` at open is what lets a with-pragma! INSIDE the runnable set the
@@ -89,13 +89,13 @@ test(the_limit_is_read_on_the_first_step_rather_than_at_scope_open) :-
 %stops asking. So an inner run inside it spends the outer balance, and only the
 %cut puts the marker back to `off`.
 test(a_nested_run_reuses_the_scope_the_outer_one_opened) :-
-    once(petta_run_with_fuel(outer, Answer,
-                             ( b_getval('$petta_fuel_remaining', Open),
-                               nb_setval('$petta_plt_seen', Open),
-                               petta_run_with_fuel(inner, _, true) ))),
-    nb_getval('$petta_plt_seen', Seen),
-    nb_delete('$petta_plt_seen'),
-    b_getval('$petta_fuel_remaining', Afterwards),
+    once(metta_run_with_fuel(outer, Answer,
+                             ( b_getval('$metta_fuel_remaining', Open),
+                               nb_setval('$metta_plt_seen', Open),
+                               metta_run_with_fuel(inner, _, true) ))),
+    nb_getval('$metta_plt_seen', Seen),
+    nb_delete('$metta_plt_seen'),
+    b_getval('$metta_fuel_remaining', Afterwards),
     assertion(Answer == outer),
     assertion(Seen == unstarted),
     assertion(Afterwards == off).
@@ -109,19 +109,19 @@ test(a_nested_run_reuses_the_scope_the_outer_one_opened) :-
 % [source: SWI-Prolog 10.1 Reference Manual section 4.33, b_setval/2].
 
 test(a_deleted_global_is_not_resurrected_by_backtracking) :-
-    (   plt_fuel_scope(nb_delete('$petta_plt_probe')),
+    (   plt_fuel_scope(nb_delete('$metta_plt_probe')),
         fail
     ;   true
     ),
-    assertion(\+ nb_current('$petta_plt_probe', _)).
+    assertion(\+ nb_current('$metta_plt_probe', _)).
 
 test(an_off_sentinel_is_not_restored_over_by_backtracking) :-
-    (   plt_fuel_scope(nb_setval('$petta_plt_probe', off)),
+    (   plt_fuel_scope(nb_setval('$metta_plt_probe', off)),
         fail
     ;   true
     ),
-    nb_getval('$petta_plt_probe', Value),
-    nb_delete('$petta_plt_probe'),
+    nb_getval('$metta_plt_probe', Value),
+    nb_delete('$metta_plt_probe'),
     assertion(Value == off).
 
 :- end_tests(fuel).
@@ -131,11 +131,11 @@ test(an_off_sentinel_is_not_restored_over_by_backtracking) :-
 %after the close has run.
 %The charge exactly as a compiled clause carries it.
 charge(Culprit, Cost) :-
-    petta_fuel_step_goal(Culprit, Cost, Goal),
+    metta_fuel_step_goal(Culprit, Cost, Goal),
     call(Goal).
 
 plt_fuel_scope(Close) :-
-    setup_call_cleanup(nb_setval('$petta_plt_probe', 100),
+    setup_call_cleanup(nb_setval('$metta_plt_probe', 100),
                        ( member(N, [1, 2, 3]),
-                         b_setval('$petta_plt_probe', N) ),
+                         b_setval('$metta_plt_probe', N) ),
                        Close).

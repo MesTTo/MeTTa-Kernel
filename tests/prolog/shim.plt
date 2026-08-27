@@ -27,7 +27,7 @@
 %suite supplies its structural core so the relation-frame indexing can be
 %tested without changing the suite's load contract; test_ops.py exercises the
 %real matcher, including numeric promotion.
-petta_match_atoms(Left, Right) :-
+metta_match_atoms(Left, Right) :-
     unify_with_occurs_check(Left, Right).
 
 :- prolog_load_context(directory, TestDirectory),
@@ -76,7 +76,7 @@ wrong_class(['b', neither]).
 wrong_class(['b', 1]).
 wrong_class(['b', "maybe"]).
 
-% The decoder used to decide a tag by asking petta_py_tag/2 about each
+% The decoder used to decide a tag by asking metta_py_tag/2 about each
 % candidate in turn, so every clause carried its own copy of that question and
 % the shape of a wire term was never stated in one place. It is stated here
 % instead: nothing else in the tree tests the codec from the Prolog side, and
@@ -84,7 +84,7 @@ wrong_class(['b', "maybe"]).
 :- begin_tests(shim_wire_decoding).
 
 test(every_tag_decodes, [forall(decodes(Tag, Payload, Expected))]) :-
-    petta_py_decode([Tag, Payload], Term),
+    metta_py_decode([Tag, Payload], Term),
     Term == Expected.
 
 % janus delivers a Python str as either an atom or a string depending on the
@@ -92,38 +92,38 @@ test(every_tag_decodes, [forall(decodes(Tag, Payload, Expected))]) :-
 test(a_tag_may_arrive_as_an_atom_or_a_string,
      [forall(decodes(Tag, Payload, Expected))]) :-
     atom_string(Tag, TagString),
-    petta_py_decode([TagString, Payload], Term),
+    metta_py_decode([TagString, Payload], Term),
     Term == Expected.
 
 test(both_boolean_payload_spellings_decode,
      [forall(member(Payload-Expected,
                     [true-true, false-false, '@'(true)-true, '@'(false)-false,
                      "true"-true, "false"-false]))]) :-
-    petta_py_decode(['b', Payload], Term),
+    metta_py_decode(['b', Payload], Term),
     Term == Expected.
 
 test(a_payload_outside_its_tags_class_fails, [forall(wrong_class(Wire)), fail]) :-
-    petta_py_decode(Wire, _).
+    metta_py_decode(Wire, _).
 
 test(a_payload_outside_its_tags_class_fails_when_sharing,
      [forall(wrong_class(Wire)), fail]) :-
-    petta_py_decode_shared(Wire, _, _).
+    metta_py_decode_shared(Wire, _, _).
 
 test(a_variable_decodes_to_a_variable) :-
-    petta_py_decode(['v', "x"], Term),
+    metta_py_decode(['v', "x"], Term),
     var(Term).
 
 test(a_nested_expression_decodes_through) :-
-    petta_py_decode(['e', [['s', "f"], ['n', 1], ['e', [['s', "g"], ['n', 2]]]]],
+    metta_py_decode(['e', [['s', "f"], ['n', 1], ['e', [['s', "g"], ['n', 2]]]]],
                     Term),
     Term == [f, 1, [g, 2]].
 
 test(a_malformed_wire_term_fails, [forall(malformed(Wire)), fail]) :-
-    petta_py_decode(Wire, _).
+    metta_py_decode(Wire, _).
 
 test(a_malformed_wire_term_fails_when_sharing,
      [forall(malformed(Wire)), fail]) :-
-    petta_py_decode_shared(Wire, _, _).
+    metta_py_decode_shared(Wire, _, _).
 
 :- end_tests(shim_wire_decoding).
 
@@ -132,13 +132,13 @@ test(a_malformed_wire_term_fails_when_sharing,
 :- begin_tests(shim_wire_variable_sharing).
 
 test(one_name_decodes_to_one_variable) :-
-    petta_py_decode_shared(['e', [['v', "x"], ['v', "x"]]], Term, Bindings),
+    metta_py_decode_shared(['e', [['v', "x"], ['v', "x"]]], Term, Bindings),
     Term = [A, B],
     A == B,
     Bindings == ['x'-A].
 
 test(two_names_decode_to_two_variables) :-
-    petta_py_decode_shared(['e', [['v', "x"], ['v', "y"]]], Term, Bindings),
+    metta_py_decode_shared(['e', [['v', "x"], ['v', "y"]]], Term, Bindings),
     Term = [A, B],
     A \== B,
     length(Bindings, 2).
@@ -147,13 +147,13 @@ test(two_names_decode_to_two_variables) :-
 % treats $_ in source. Recording it would make two underscores constrain each
 % other, which is a wrong answer rather than an untidy one.
 test(anonymous_variables_never_share) :-
-    petta_py_decode_shared(['e', [['v', "_"], ['v', "_"]]], Term, Bindings),
+    metta_py_decode_shared(['e', [['v', "_"], ['v', "_"]]], Term, Bindings),
     Term = [A, B],
     A \== B,
     Bindings == [].
 
 test(a_name_shares_across_nesting) :-
-    petta_py_decode_shared(['e', [['v', "x"], ['e', [['s', "f"], ['v', "x"]]]]],
+    metta_py_decode_shared(['e', [['v', "x"], ['e', [['s', "f"], ['v', "x"]]]]],
                            Term, _),
     Term = [A, [f, B]],
     A == B.
@@ -162,7 +162,7 @@ test(a_name_shares_across_nesting) :-
 % unchanged, so the two halves cannot answer different terms.
 test(sharing_decodes_leaves_as_the_plain_decode_does,
      [forall(decodes(Tag, Payload, Expected))]) :-
-    petta_py_decode_shared([Tag, Payload], Term, Bindings),
+    metta_py_decode_shared([Tag, Payload], Term, Bindings),
     Term == Expected,
     Bindings == [].
 
@@ -194,13 +194,13 @@ python_truth_case([], false).
 python_truth_case([0], true).
 
 python_host_eq(Left, Right, Result) :-
-    petta_py_encode(Left, LeftWire),
-    petta_py_encode(Right, RightWire),
+    metta_py_encode(Left, LeftWire),
+    metta_py_encode(Right, RightWire),
     py_call(python_semantics_oracle:py_eq_wire(LeftWire, RightWire), Python),
     python_boolean_atom(Python, Result).
 
 python_host_truthy(Value, Result) :-
-    petta_py_encode(Value, Wire),
+    metta_py_encode(Value, Wire),
     py_call(python_semantics_oracle:py_truthy_wire(Wire), Python),
     python_boolean_atom(Python, Result).
 
@@ -209,27 +209,27 @@ python_boolean_atom('@'(false), false).
 
 test(the_native_and_host_equality_routes_agree,
      [forall(python_eq_case(Left, Right, Expected))]) :-
-    once(petta_py_native_eq(Left, Right, Native)),
+    once(metta_py_native_eq(Left, Right, Native)),
     python_host_eq(Left, Right, Host),
     Native == Expected,
     Host == Native.
 
 test(the_native_and_host_truth_routes_agree,
      [forall(python_truth_case(Value, Expected))]) :-
-    once(petta_py_native_truthy(Value, Native)),
+    once(metta_py_native_truthy(Value, Native)),
     python_host_truthy(Value, Host),
     Native == Expected,
     Host == Native.
 
 test(nan_is_not_equal_to_itself) :-
     NaN is nan,
-    once(petta_py_native_eq(NaN, NaN, false)).
+    once(metta_py_native_eq(NaN, NaN, false)).
 
 test(an_opaque_object_is_left_for_the_host, [fail]) :-
-    petta_py_native_eq('$opaque'(value), '$opaque'(value), _).
+    metta_py_native_eq('$opaque'(value), '$opaque'(value), _).
 
 test(an_opaque_objects_truth_is_left_for_the_host, [fail]) :-
-    petta_py_native_truthy('$opaque'(value), _).
+    metta_py_native_truthy('$opaque'(value), _).
 
 %is_list/1 is one inference however much C work it performs, so this defect
 %class needs a CPU-time test. A sixteen-times-wider operand gives a wide margin:
@@ -239,10 +239,10 @@ test(an_opaque_objects_truth_is_left_for_the_host, [fail]) :-
 native_empty_expression_comparison_cost(Length, Seconds) :-
     findall(e, between(1, Length, _), Expression),
     forall(between(1, 100, _),
-           petta_py_dispatch_eq(Expression, [], false)),
+           metta_py_dispatch_eq(Expression, [], false)),
     statistics(cputime, Before),
     forall(between(1, 5000, _),
-           petta_py_dispatch_eq(Expression, [], false)),
+           metta_py_dispatch_eq(Expression, [], false)),
     statistics(cputime, After),
     Seconds is After - Before.
 
@@ -257,7 +257,7 @@ test(comparing_against_the_empty_expression_does_not_walk_the_other_operand) :-
 
 % The explicit answer wire: ["a", Theta, Residue, K] with an optional
 % trailing value. Theta binds the query frame's variables BY NAME, the
-% names petta_py_encode/2 wrote, so these build the pattern first and ask
+% names metta_py_encode/2 wrote, so these build the pattern first and ask
 % for its variable's name the same way the encoder does.
 
 answer_name(Variable, Name) :- term_to_atom(Variable, A), atom_string(A, Name).
@@ -265,19 +265,19 @@ answer_name(Variable, Name) :- term_to_atom(Variable, A), atom_string(A, Name).
 test(theta_binds_the_pattern_variable_by_name) :-
     Pattern = [edge, a, Y],
     answer_name(Y, N),
-    petta_py_answer_match(["a", [[N, ["s", "b"]]], '@'(true), '@'(none)], Pattern, '&plunit_ctx'),
+    metta_py_answer_match(["a", [[N, ["s", "b"]]], '@'(true), '@'(none)], Pattern, '&plunit_ctx'),
     assertion(Y == b).
 
 test(the_atom_tag_spelling_is_accepted_too) :-
     Pattern = [edge, a, Y],
     answer_name(Y, N),
-    petta_py_answer_match([a, [[N, ["s", "b"]]], '@'(true), '@'(none)], Pattern, '&plunit_ctx'),
+    metta_py_answer_match([a, [[N, ["s", "b"]]], '@'(true), '@'(none)], Pattern, '&plunit_ctx'),
     assertion(Y == b).
 
 test(an_explicit_value_unifies_under_theta) :-
     Pattern = [edge, a, Y],
     answer_name(Y, N),
-    petta_py_answer_match(["a", [[N, ["s", "b"]]], '@'(true), '@'(none),
+    metta_py_answer_match(["a", [[N, ["s", "b"]]], '@'(true), '@'(none),
                            ["e", [["s", "edge"], ["s", "a"], ["s", "b"]]]],
                           Pattern, '&plunit_ctx'),
     assertion(Y == b).
@@ -285,13 +285,13 @@ test(an_explicit_value_unifies_under_theta) :-
 test(a_value_contradicting_theta_drops_the_answer, [fail]) :-
     Pattern = [edge, a, Y],
     answer_name(Y, N),
-    petta_py_answer_match(["a", [[N, ["s", "clash"]]], '@'(true), '@'(none),
+    metta_py_answer_match(["a", [[N, ["s", "clash"]]], '@'(true), '@'(none),
                            ["e", [["s", "edge"], ["s", "a"], ["s", "b"]]]],
                           Pattern, '&plunit_ctx').
 
 test(unknown_theta_names_stay_fresh_and_harmless) :-
     Pattern = [edge, a, Y],
-    petta_py_answer_match(["a", [["nobody", ["n", 3]]], '@'(true), '@'(none)],
+    metta_py_answer_match(["a", [["nobody", ["n", 3]]], '@'(true), '@'(none)],
                           Pattern, '&plunit_ctx'),
     assertion(var(Y)).
 
@@ -299,25 +299,25 @@ test(theta_values_may_alias_the_patterns_own_variables) :-
     Pattern = [edge, X, Y],
     answer_name(X, NX),
     answer_name(Y, NY),
-    petta_py_answer_match(["a", [[NY, ["v", NX]]], '@'(true), '@'(none)],
+    metta_py_answer_match(["a", [[NY, ["v", NX]]], '@'(true), '@'(none)],
                           Pattern, '&plunit_ctx'),
     assertion(X == Y).
 
 test(a_plain_wire_still_decodes_and_unifies) :-
     Pattern = [edge, a, Y],
-    petta_py_answer_match(["e", [["s", "edge"], ["s", "a"], ["s", "b"]]],
+    metta_py_answer_match(["e", [["s", "edge"], ["s", "a"], ["s", "b"]]],
                           Pattern, '&plunit_ctx'),
     assertion(Y == b).
 
 test(a_residue_under_a_pushed_bound_is_refused,
-     [throws(error(petta_answer_conditional_under_bound(_, _), _))]) :-
-    petta_py_answer_match(["a", [], ["e", [["s", "check"]]], '@'(none)],
+     [throws(error(metta_answer_conditional_under_bound(_, _), _))]) :-
+    metta_py_answer_match(["a", [], ["e", [["s", "check"]]], '@'(none)],
                           [edge, a, _], 2, '&plunit_ctx').
 
 test(an_op_result_without_a_value_is_unit) :-
     Args = [X],
     answer_name(X, N),
-    petta_py_answer_result(["a", [[N, ["n", 1]]], '@'(true), '@'(none)],
+    metta_py_answer_result(["a", [[N, ["n", 1]]], '@'(true), '@'(none)],
                            plunit_op, Args, Result),
     assertion(X == 1),
     assertion(Result == []).
@@ -325,7 +325,7 @@ test(an_op_result_without_a_value_is_unit) :-
 test(an_op_result_with_a_value_decodes_under_theta) :-
     Args = [X],
     answer_name(X, N),
-    petta_py_answer_result(["a", [[N, ["n", 1]]], '@'(true), '@'(none),
+    metta_py_answer_result(["a", [[N, ["n", 1]]], '@'(true), '@'(none),
                             ["e", [["s", "pair"], ["v", N], ["s", "done"]]]],
                            plunit_op, Args, Result),
     assertion(X == 1),
@@ -334,17 +334,17 @@ test(an_op_result_with_a_value_decodes_under_theta) :-
 test(a_plain_op_result_shares_the_argument_variable) :-
     Args = [X],
     answer_name(X, N),
-    petta_py_answer_result(["v", N], plunit_op, Args, Result),
+    metta_py_answer_result(["v", N], plunit_op, Args, Result),
     assertion(Result == X).
 
 test(the_answer_errors_have_engine_messages) :-
-    message_to_string(error(petta_answer_conditional_under_bound([edge, a, _],
+    message_to_string(error(metta_answer_conditional_under_bound([edge, a, _],
                                                                  [check]),
                             none), M1),
     once(sub_string(M1, _, _, _, "residue")),
     once(sub_string(M1, _, _, _, "Sound")),
     \+ sub_string(M1, _, _, _, "Unknown error term"),
-    message_to_string(error(petta_answer_annotation_undeclared('&c', 0.5), none),
+    message_to_string(error(metta_answer_annotation_undeclared('&c', 0.5), none),
                       M2),
     once(sub_string(M2, _, _, _, "annotation")),
     once(sub_string(M2, _, _, _, "ranked")),
@@ -358,28 +358,28 @@ shim_relation_field(Index, [Index, ["s", "same"]]).
 
 test(a_positional_candidate_binds_call_arguments_and_answers_unit) :-
     Args = [Origin, lyon],
-    once(petta_py_relation_result(
+    once(metta_py_relation_result(
              [[0, ["s", "paris"]], [1, ["s", "lyon"]]], Args, Result)),
     assertion(Origin == paris),
     assertion(Result == []).
 
 test(a_candidate_contradicting_a_ground_argument_is_filtered, [fail]) :-
-    petta_py_relation_result([[0, ["s", "paris"]], [1, ["s", "nice"]]],
+    metta_py_relation_result([[0, ["s", "paris"]], [1, ["s", "nice"]]],
                              [paris, lyon], _).
 
 test(a_wide_candidate_walk_does_not_restart_with_nth0) :-
-    \+ ( clause(petta_py_relation_fields(_, _, _, _), Body4),
+    \+ ( clause(metta_py_relation_fields(_, _, _, _), Body4),
          sub_term(Sub4, Body4), nonvar(Sub4), functor(Sub4, nth0, 3) ),
-    \+ ( clause(petta_py_relation_fields(_, _, _, _, _), Body5),
+    \+ ( clause(metta_py_relation_fields(_, _, _, _, _), Body5),
          sub_term(Sub5, Body5), nonvar(Sub5), functor(Sub5, nth0, 3) ),
     numlist(0, 4999, Indices),
     maplist(shim_relation_field, Indices, Fields),
     length(Args, 5000),
     maplist(=(same), Args),
-    once(petta_py_relation_result(Fields, Args, [])).
+    once(metta_py_relation_result(Fields, Args, [])).
 
 test(a_terminal_generator_error_keeps_its_python_class) :-
-    petta_py_stream_error(["x", "raise", "ValueError", planted], Error),
+    metta_py_stream_error(["x", "raise", "ValueError", planted], Error),
     assertion(Error == error(python_error('ValueError', planted), none)).
 
 :- end_tests(shim_relation_form).

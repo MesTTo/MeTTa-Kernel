@@ -41,7 +41,7 @@ metta_pragma_key(interpreter, 'HE spelling; accepted, NOT enforced').
 %(pragma! type-check -1) answers (); the plan's closed engine registry
 %deliberately makes a completely invented key a hard host-facing error here;
 %source: LeaTTa tests/semantics/eval-core/max-stack-depth-negative.metta].
-%`none` is the engine's own "unset" sentinel, which petta_restore_pragma/1
+%`none` is the engine's own "unset" sentinel, which metta_restore_pragma/1
 %passes back on every scope exit, so it is not a value to validate.
 'pragma!'('max-stack-depth', Value, Error) :-
     Value \== none,
@@ -102,21 +102,21 @@ set_metta_pragma(Key, Value) :-
 %answer cannot escape it.
 metta_with_pragmas(Settings, Goal, Value) :-
     must_be(list, Settings),
-    maplist(petta_pragma_pair, Settings, Pairs),
+    maplist(metta_pragma_pair, Settings, Pairs),
     setup_call_cleanup(
-        maplist(petta_apply_pragma, Pairs, Restores),
+        maplist(metta_apply_pragma, Pairs, Restores),
         %The global bounds wrap call_goals_in, one level above this body,
         %so the scope applies them itself: whatever bounds are in force
         %here, scoped ones included, bound this findall.
         run_under_pragmas(findall(Value, Goal, Values)),
         ( reverse(Restores, Undo),
-          maplist(petta_restore_pragma, Undo) )),
+          maplist(metta_restore_pragma, Undo) )),
     member(Value, Values).
 
-petta_pragma_pair([Key, ValueIn], Key-ValueIn) :- !,
+metta_pragma_pair([Key, ValueIn], Key-ValueIn) :- !,
     require_metta_pragma_key(Key, 'with-pragma!'/2),
     require_metta_pragma_value(Key, ValueIn, 'with-pragma!'/2).
-petta_pragma_pair(Other, _) :-
+metta_pragma_pair(Other, _) :-
     throw(error(domain_error(metta_pragma_setting, Other),
                 context('with-pragma!'/2,
                         'each setting is a (key value) pair'))).
@@ -126,11 +126,11 @@ require_metta_pragma_key(Key, Door) :-
     findall(K-D, metta_pragma_key(K, D), Known),
     throw(error(domain_error(metta_pragma_key, Key), context(Door, Known))).
 
-petta_apply_pragma(Key-Value, Key-Previous) :-
+metta_apply_pragma(Key-Value, Key-Previous) :-
     ( metta_pragma(Key, P) -> Previous = P ; Previous = none ),
     set_metta_pragma(Key, Value).
 
-petta_restore_pragma(Key-Previous) :-
+metta_restore_pragma(Key-Previous) :-
     set_metta_pragma(Key, Previous).
 
 %A bound costs nothing until one is set. call_goals_in/2 runs every runnable
@@ -155,16 +155,16 @@ bounding_pragma_set :-
     ).
 
 enable_metta_pragma_bounds :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     current_predicate_wrapper(Engine:call_goals_in(_, _), metta_pragma_bounds,
                               _, _), !.
 enable_metta_pragma_bounds :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     wrap_predicate(Engine:call_goals_in(_Module, _Goals), metta_pragma_bounds,
                    Wrapped, Engine:run_under_pragmas(Wrapped)).
 
 disable_metta_pragma_bounds :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     ( unwrap_predicate(Engine:call_goals_in/2, metta_pragma_bounds)
       -> true ; true ).
 
@@ -172,7 +172,7 @@ disable_metta_pragma_bounds :-
 %than baking them into the compiled clause, means a pragma set later applies
 %to everything after it and nothing before it.
 %Expiry throws the RESERVED limit envelopes, the exact shapes
-%petta_py_limited throws, so a pragma bound and a per-call kwarg bound
+%metta_py_limited throws, so a pragma bound and a per-call kwarg bound
 %classify identically one level up: TimeLimitError and
 %InferenceLimitError rather than a generic engine error.
 run_under_pragmas(Goal) :-
@@ -180,11 +180,11 @@ run_under_pragmas(Goal) :-
     ->  Timed = catch(call_with_time_limit(Seconds, Goal),
                       time_limit_exceeded,
                       throw(error(metta_control_signal(time_limit, Seconds),
-                                  context(petta, time_limit))))
+                                  context(metta, time_limit))))
     ;   Timed = Goal
     ),
     (   metta_pragma('max-inferences', Limit), integer(Limit), Limit > 0
-    ->  Inferred = petta_call_with_inference_bound(Timed, Limit)
+    ->  Inferred = metta_call_with_inference_bound(Timed, Limit)
     ;   Inferred = call(Timed)
     ),
     (   metta_pragma('stack-limit', StackBytes),
@@ -193,11 +193,11 @@ run_under_pragmas(Goal) :-
     ;   call(Inferred)
     ).
 
-petta_call_with_inference_bound(Goal, Limit) :-
+metta_call_with_inference_bound(Goal, Limit) :-
     call_with_inference_limit(Goal, Limit, Result),
     (   Result == inference_limit_exceeded
     ->  throw(error(metta_control_signal(inference_limit, Limit),
-                    context(petta, inference_limit)))
+                    context(metta, inference_limit)))
     ;   true
     ).
 
@@ -221,19 +221,19 @@ metta_host_with_stack_limit(StackBytes, Goal) :-
 %A positive max-stack-depth caps the same balance; zero and absence use the
 %LeaTTa runner's default 100000 fuel.
 %[tested: test_a_stack_depth_pragma_bounds_evaluation_instead_of_overflowing].
-:- meta_predicate petta_run_with_fuel(?, ?, 0).
+:- meta_predicate metta_run_with_fuel(?, ?, 0).
 
 %The test READS AND COMPARES IN ONE GOAL, b_getval/2 unifying the balance with
 %`off` rather than binding it and comparing after, which is the same inference
 %the nb_current/2 test cost and eight fewer over file-load's runnable forms than
 %the two-goal spelling. The value is always an atom or an integer, so the
 %unification cannot instantiate the variable the manual warns about.
-petta_run_with_fuel(Value, Answer, Goal) :-
-    (   b_getval('$petta_fuel_remaining', off)
+metta_run_with_fuel(Value, Answer, Goal) :-
+    (   b_getval('$metta_fuel_remaining', off)
     ->  setup_call_cleanup(
-            petta_open_fuel_scope,
-            petta_fuel_answer(Value, Answer, Goal),
-            petta_close_fuel_scope)
+            metta_open_fuel_scope,
+            metta_fuel_answer(Value, Answer, Goal),
+            metta_close_fuel_scope)
     ;   call(Goal),
         Answer = Value
     ).
@@ -261,8 +261,8 @@ petta_run_with_fuel(Value, Answer, Goal) :-
 %    xdist failures that had been blamed on the merge were a leaked
 %    `(pragma! max-stack-depth 20)`, which is engine-wide and outlives the MeTTa
 %    object that wrote it; SWI's own non-interactive tracer named the real
-%    cause, `trace(user:petta_evaluation_fuel/1, [call,exit])` printing
-%    `Exit: petta_evaluation_fuel(20)` inside a freshly built space, and the
+%    cause, `trace(user:metta_evaluation_fuel/1, [call,exit])` printing
+%    `Exit: metta_evaluation_fuel(20)` inside a freshly built space, and the
 %    conftest fixture _pragmas_are_not_left_set now fails the test that leaks
 %    one instead of the test that runs next
 %    [tested: fuel:a_deleted_global_is_not_resurrected_by_backtracking;
@@ -287,7 +287,7 @@ petta_run_with_fuel(Value, Answer, Goal) :-
 %new thread and on creating a Prolog engine through the C interface", which is
 %every way a thread can reach this engine, janus included
 %[source: SWI-Prolog 10.1 Reference Manual, thread_initialization/1].
-:- thread_initialization(nb_setval('$petta_fuel_remaining', off)).
+:- thread_initialization(nb_setval('$metta_fuel_remaining', off)).
 
 %False until an Atom-result masking operation answers a compound: only such
 %an answer can carry an unevaluated subterm PAST its own boundary (noeval
@@ -295,25 +295,25 @@ petta_run_with_fuel(Value, Answer, Goal) :-
 %non-masking result boundary skip the reducibility walk in the common case.
 %b_setval/2 trails, so a runnable's findall restores the base on its way
 %out and each nondeterministic branch carries only its own contamination.
-:- thread_initialization(nb_setval('$petta_masked_escape', false)).
+:- thread_initialization(nb_setval('$metta_masked_escape', false)).
 
-petta_open_fuel_scope :-
-    nb_setval('$petta_fuel_remaining', unstarted),
-    nb_setval('$petta_fuel_errors', []).
+metta_open_fuel_scope :-
+    nb_setval('$metta_fuel_remaining', unstarted),
+    nb_setval('$metta_fuel_errors', []).
 
-petta_close_fuel_scope :-
-    nb_delete('$petta_fuel_errors'),
-    nb_setval('$petta_fuel_remaining', off).
+metta_close_fuel_scope :-
+    nb_delete('$metta_fuel_errors'),
+    nb_setval('$metta_fuel_remaining', off).
 
-petta_fuel_answer(Value, Answer, Goal) :-
+metta_fuel_answer(Value, Answer, Goal) :-
     call(Goal),
     Answer = Value.
-petta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
-    nb_getval('$petta_fuel_errors', Reverse),
+metta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
+    nb_getval('$metta_fuel_errors', Reverse),
     reverse(Reverse, Errors),
     member(Culprit, Errors).
 
-%THE CHARGE IS BUILT, NOT CALLED. petta_instrument_recursive_clause/3 writes
+%THE CHARGE IS BUILT, NOT CALLED. metta_instrument_recursive_clause/3 writes
 %this goal into the clause it compiles instead of a call to a shared predicate,
 %which is worth a third of what the charge costs: a call cost six inferences per
 %charged reduction and the inlined goal costs four, and the same A/B on retired
@@ -350,26 +350,26 @@ petta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
 %recursive clause that space compiles. `system:` is one percent of the charge's
 %instructions and takes the name back off the engine's own path without taking
 %it away from the program.
-petta_fuel_step_goal(Culprit, Cost,
-                     ( system:b_getval('$petta_fuel_remaining', Current),
+metta_fuel_step_goal(Culprit, Cost,
+                     ( system:b_getval('$metta_fuel_remaining', Current),
                        (   Current == off
                        ->  true
                        ;   (   Current == unstarted
-                           ->  petta_evaluation_fuel(Limit)
+                           ->  metta_evaluation_fuel(Limit)
                            ;   Limit = Current
                            ),
                            Remaining is Limit - Cost,
                            (   Remaining =< Cost
-                           ->  petta_fuel_exhausted(Culprit)
-                           ;   system:b_setval('$petta_fuel_remaining', Remaining)
+                           ->  metta_fuel_exhausted(Culprit)
+                           ;   system:b_setval('$metta_fuel_remaining', Remaining)
                            )
                        ) )).
 
 %Off the step's own path, because a branch that ran out of fuel is recorded
 %once and then fails, while the step above runs on every reduction.
-petta_fuel_exhausted(Culprit) :-
-    nb_getval('$petta_fuel_errors', Errors),
-    nb_setval('$petta_fuel_errors', [Culprit|Errors]),
+metta_fuel_exhausted(Culprit) :-
+    nb_getval('$metta_fuel_errors', Errors),
+    nb_setval('$metta_fuel_errors', [Culprit|Errors]),
     fail.
 
 %%% A seeded scope, the declared alternative to a global generator %%%
@@ -391,9 +391,9 @@ petta_fuel_exhausted(Culprit) :-
 %the form after it still runs. The written body travels beside the seed VALUE
 %so the culprit names the call, which is the shape the arbiter pins for every
 %other rejected operand.
-:- meta_predicate petta_with_seed(?, ?, 0, ?).
+:- meta_predicate metta_with_seed(?, ?, 0, ?).
 
-petta_with_seed(Seed, Written, Goal, Out) :-
+metta_with_seed(Seed, Written, Goal, Out) :-
     (   integer(Seed)
     ->  random_property(state(Saved)),
         setup_call_cleanup(set_random(seed(Seed)),
@@ -402,7 +402,7 @@ petta_with_seed(Seed, Written, Goal, Out) :-
     ;   metta_operation_answer('with-seed', Written, Out)
     ).
 
-petta_evaluation_fuel(Limit) :-
+metta_evaluation_fuel(Limit) :-
     (   metta_pragma('max-stack-depth', Configured),
         integer(Configured),
         Configured > 0
@@ -440,19 +440,19 @@ petta_evaluation_fuel(Limit) :-
     ->  true
     ;   throw_metta_type_error('metta-thread', 'SpaceType', Space)
     ),
-    petta_metta_thread_eval(Atom, Space, Out).
+    metta_metta_thread_eval(Atom, Space, Out).
 
-petta_metta_thread_eval(Atom, Space, Out) :-
-    petta_metta_thread_step(Atom, Space, Prepared, Step, Status),
+metta_metta_thread_eval(Atom, Space, Out) :-
+    metta_metta_thread_step(Atom, Space, Prepared, Step, Status),
     (   Status == 'not-reducible'
     ->  Out = Prepared
     ;   Step == 'Empty'
     ->  fail
     ;   Step == Prepared
     ->  Out = Prepared
-    ;   petta_metta_result_is_final(Prepared)
+    ;   metta_metta_result_is_final(Prepared)
     ->  Out = Step
-    ;   petta_metta_thread_eval(Step, Space, Out)
+    ;   metta_metta_thread_eval(Step, Space, Out)
     ).
 
 %`mettaEval` rejects an inapplicable call before running any operand.  For an
@@ -462,20 +462,20 @@ petta_metta_thread_eval(Atom, Space, Out) :-
 %evalc/3 would evaluate an Atom-returned argument a second time.
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:7375-7460,
 %`mettaEval`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
-petta_metta_thread_step(Carrier, _, Carrier, Carrier, 'not-reducible') :-
-    petta_collapse_bind_result(Carrier),
+metta_metta_thread_step(Carrier, _, Carrier, Carrier, 'not-reducible') :-
+    metta_collapse_bind_result(Carrier),
     !.
-petta_metta_thread_step(Call, Space, Call, Step, Status) :-
+metta_metta_thread_step(Call, Space, Call, Step, Status) :-
     Call = [Head|_],
     atom(Head),
     metta_special_form(Head),
     !,
     setup_call_cleanup(
-        petta_suspend_function_evaluation(Saved),
-        petta_evalc_step(Call, Space, Step),
-        petta_restore_function_evaluation(Saved)),
+        metta_suspend_function_evaluation(Saved),
+        metta_evalc_step(Call, Space, Step),
+        metta_restore_function_evaluation(Saved)),
     ( Step == 'NotReducible' -> Status = 'not-reducible' ; Status = reduced ).
-petta_metta_thread_step([Head|Args], Space, Prepared, Step, Status) :-
+metta_metta_thread_step([Head|Args], Space, Prepared, Step, Status) :-
     atom(Head),
     !,
     (   metta_bad_argument_error(Head, Args, Error)
@@ -484,29 +484,29 @@ petta_metta_thread_step([Head|Args], Space, Prepared, Step, Status) :-
         Status = reduced
     ;   length(Args, Arity),
         metta_runtime_argument_mask(Head, Arity, Mask),
-        petta_metta_thread_arguments(Args, Mask, Space, Values),
+        metta_metta_thread_arguments(Args, Mask, Space, Values),
         Prepared = [Head|Values],
         space_module(Space, Module),
         setup_call_cleanup(
-            petta_suspend_function_evaluation(Saved),
+            metta_suspend_function_evaluation(Saved),
             with_metta_module(Module, reduce(Prepared, Step, Status)),
-            petta_restore_function_evaluation(Saved))
+            metta_restore_function_evaluation(Saved))
     ).
-petta_metta_thread_step(Atom, Space, Atom, Step, Status) :-
+metta_metta_thread_step(Atom, Space, Atom, Step, Status) :-
     setup_call_cleanup(
-        petta_suspend_function_evaluation(Saved),
-        petta_evalc_step(Atom, Space, Step),
-        petta_restore_function_evaluation(Saved)),
+        metta_suspend_function_evaluation(Saved),
+        metta_evalc_step(Atom, Space, Step),
+        metta_restore_function_evaluation(Saved)),
     ( Step == 'NotReducible' -> Status = 'not-reducible' ; Status = reduced ).
 
-petta_metta_thread_arguments([], _, _, []).
-petta_metta_thread_arguments([Arg|Args], [Evaluate|Mask], Space,
+metta_metta_thread_arguments([], _, _, []).
+metta_metta_thread_arguments([Arg|Args], [Evaluate|Mask], Space,
                              [Value|Values]) :-
     (   Evaluate == true
-    ->  petta_metta_thread_eval(Arg, Space, Value)
+    ->  metta_metta_thread_eval(Arg, Space, Value)
     ;   Value = Arg
     ),
-    petta_metta_thread_arguments(Args, Mask, Space, Values).
+    metta_metta_thread_arguments(Args, Mask, Space, Values).
 
 %A nonempty collapse-bind carrier is an evaluated expression, even though its
 %public representation is an ordinary nested tuple.  Its exact shape is the
@@ -515,32 +515,32 @@ petta_metta_thread_arguments([Arg|Args], [Evaluate|Mask], Space,
 %restore the row before evaluating the selected atom.
 %[source: MettaHyperonFull/Minimal/Interpreter.lean:3682-3700 and 7488-7492,
 %`isCollapseBindResult` and its `mettaEval` guard; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
-petta_collapse_bind_result([Pair|Pairs]) :-
-    maplist(petta_collapse_bind_pair, [Pair|Pairs]).
+metta_collapse_bind_result([Pair|Pairs]) :-
+    maplist(metta_collapse_bind_pair, [Pair|Pairs]).
 
-petta_collapse_bind_pair([_, [bindings|Entries]]) :-
-    maplist(petta_collapse_binding_entry, Entries).
+metta_collapse_bind_pair([_, [bindings|Entries]]) :-
+    maplist(metta_collapse_binding_entry, Entries).
 
-petta_collapse_binding_entry(['<-', Variable, _]) :-
+metta_collapse_binding_entry(['<-', Variable, _]) :-
     var(Variable).
-petta_collapse_binding_entry(['<-', [':seg', Variable], Run]) :-
+metta_collapse_binding_entry(['<-', [':seg', Variable], Run]) :-
     var(Variable),
     is_list(Run).
-petta_collapse_binding_entry([seq, Variable]) :-
+metta_collapse_binding_entry([seq, Variable]) :-
     var(Variable).
 
-petta_suspend_function_evaluation(saved(Previous)) :-
-    nb_current('$petta_function_evaluation', Previous), !,
-    nb_setval('$petta_function_evaluation', false).
-petta_suspend_function_evaluation(none) :-
-    nb_setval('$petta_function_evaluation', false).
+metta_suspend_function_evaluation(saved(Previous)) :-
+    nb_current('$metta_function_evaluation', Previous), !,
+    nb_setval('$metta_function_evaluation', false).
+metta_suspend_function_evaluation(none) :-
+    nb_setval('$metta_function_evaluation', false).
 
-petta_restore_function_evaluation(saved(Previous)) :- !,
-    nb_setval('$petta_function_evaluation', Previous).
-petta_restore_function_evaluation(none) :-
-    nb_delete('$petta_function_evaluation').
+metta_restore_function_evaluation(saved(Previous)) :- !,
+    nb_setval('$metta_function_evaluation', Previous).
+metta_restore_function_evaluation(none) :-
+    nb_delete('$metta_function_evaluation').
 
-petta_metta_result_is_final(Atom) :-
+metta_metta_result_is_final(Atom) :-
     nonvar(Atom),
     Atom = [Head|_],
     atom(Head),
@@ -552,7 +552,7 @@ petta_metta_result_is_final(Atom) :-
 %nothing at all: the program worked anyway because `&s` doubles as a name, and
 %that is an accident rather than a design. It answers a fresh unique name, so
 %the form means what it says and bind! has something to bind.
-:- dynamic petta_space_counter/1.
+:- dynamic metta_space_counter/1.
 
 %The space is REGISTERED here rather than at its first write, because a space
 %that has been created exists: `(chain (new-space) $s (get-type $s))` is
@@ -725,81 +725,81 @@ rewrite_parsed_form(Space, FormStr, Term, Rewritten) :-
 %it is a separate change from the parametric cell this row asked for
 %[source: the same file's MEASURED block, `[(State 6)]` where this answers
 %`[&state-#0]`].
-:- dynamic petta_state_counter/1, petta_state_value/2.
+:- dynamic metta_state_counter/1, metta_state_value/2.
 
 %State lives in a process-shared non-backtrackable store, so snapshot/1 cannot
 %undo it. A nesting counter is thread-local engine state: speculative entry
 %increments it, every exit restores the previous value, and direct or compiled
 %state heads consult the same fence before touching the store.
-:- meta_predicate petta_with_state_write_fence(0).
+:- meta_predicate metta_with_state_write_fence(0).
 
-petta_with_state_write_fence(Goal) :-
-    (   nb_current('$petta_state_write_fence', Previous)
+metta_with_state_write_fence(Goal) :-
+    (   nb_current('$metta_state_write_fence', Previous)
     ->  true
     ;   Previous = 0
     ),
     Current is Previous + 1,
     setup_call_cleanup(
-        nb_setval('$petta_state_write_fence', Current),
+        nb_setval('$metta_state_write_fence', Current),
         call(Goal),
-        nb_setval('$petta_state_write_fence', Previous)).
+        nb_setval('$metta_state_write_fence', Previous)).
 
-petta_state_write_fenced :-
-    nb_current('$petta_state_write_fence', Depth),
+metta_state_write_fenced :-
+    nb_current('$metta_state_write_fence', Depth),
     Depth > 0.
 
 %The journal admission door asks this exact engine fact. Prefixes are not
 %enough because named cells are valid too, and a dead generated name is plain
 %data once no state value remains under it.
-petta_live_state_cell(Cell) :-
+metta_live_state_cell(Cell) :-
     atom(Cell),
-    petta_state_value(Cell, _).
+    metta_state_value(Cell, _).
 
 'new-state'(_, _) :-
-    petta_state_write_fenced, !,
-    throw(error(petta_state_write_fenced('new-state'), none)).
+    metta_state_write_fenced, !,
+    throw(error(metta_state_write_fenced('new-state'), none)).
 'new-state'(Value, Cell) :-
-    petta_next_state_cell(Cell),
-    petta_set_state(Cell, Value).
+    metta_next_state_cell(Cell),
+    metta_set_state(Cell, Value).
 
-petta_next_state_cell(Cell) :-
-    with_mutex('$petta_state_cells',
-               ( ( retract(petta_state_counter(N)) -> true ; N = 0 ),
+metta_next_state_cell(Cell) :-
+    with_mutex('$metta_state_cells',
+               ( ( retract(metta_state_counter(N)) -> true ; N = 0 ),
                  Next is N + 1,
-                 assertz(petta_state_counter(Next)) )),
+                 assertz(metta_state_counter(Next)) )),
     atom_concat('&state-#', N, Cell).
 
-petta_state_cell(X) :- atom(X), atom_concat('&state-#', _, X).
+metta_state_cell(X) :- atom(X), atom_concat('&state-#', _, X).
 
 %change-state! ANSWERS THE CELL it wrote, which is what makes a write
 %composable: `(get-state (change-state! $c 2))` reads back what was just
 %written. It answered True before, which no upstream signature has.
 'change-state!'(Var, _, _) :-
-    petta_state_write_fenced, !,
-    throw(error(petta_state_write_fenced(Var), none)).
+    metta_state_write_fenced, !,
+    throw(error(metta_state_write_fenced(Var), none)).
 'change-state!'(Var, Value, Var) :-
-    catch(( must_be(atom, Var), petta_set_state(Var, Value) ), E,
+    catch(( must_be(atom, Var), metta_set_state(Var, Value) ), E,
           rethrow_metta_operation_error('change-state!', E)).
 'get-state'(Var, Value) :-
-    ( atom(Var), petta_state_value(Var, Value)
+    ( atom(Var), metta_state_value(Var, Value)
     -> true
     ; catch(nb_getval(Var, Value), E,
             rethrow_metta_operation_error('get-state', E)) ).
 
-petta_set_state(Var, Value) :-
+metta_set_state(Var, Value) :-
     copy_term(Value, Stored),
-    with_mutex('$petta_state_cells',
-               ( retractall(petta_state_value(Var, _)),
-                 assertz(petta_state_value(Var, Stored)) )).
+    with_mutex('$metta_state_cells',
+               ( retractall(metta_state_value(Var, _)),
+                 assertz(metta_state_value(Var, Stored)) )).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_state_write_fenced(Cell)) -->
+prolog:error_message(metta_state_write_fenced(Cell)) -->
     [ 'state cell ~w cannot be written during speculative or reified-world \c
        evaluation: its process-shared store is not backtrackable, so the \c
        write would escape the discarded state'-[Cell] ].
 
 %%% Eval: %%%
-%petta_eval_step exposes the evaluator's three-way control result.  eval/2 is
+%metta_eval_step exposes the evaluator's three-way control result.  eval/2 is
 %the ordinary engine door and consumes NotReducible by retaining the atom it
 %was asked to evaluate.  Keeping those roles separate lets chain, function,
 %and metta-thread inspect the marker without leaking it through direct eval/2
@@ -826,7 +826,7 @@ prolog:error_message(petta_state_write_fenced(Cell)) -->
 %the reader's work on every eval and found nothing.
 %
 %AN `Empty` RESULT IS NO RESULT, and eval is where a nested evaluation says so.
-%The runnable path already prunes it, through petta_prune_empty_answers/2, but
+%The runnable path already prunes it, through metta_prune_empty_answers/2, but
 %a nested `eval`, and therefore `evalc` and `metta` over it, handed the symbol
 %back as an ordinary value; a caller collecting those answers then saw one
 %where the arbiter sees none. Measured 2026-08-24 against LeaTTa 9ea9f9d with
@@ -844,18 +844,18 @@ prolog:error_message(petta_state_write_fenced(Cell)) -->
 %
 %The test is ==/2 rather than unification, so an eval whose answer is still an
 %unbound variable is not mistaken for Empty; that is the same identity test
-%petta_prune_empty_answers/2 documents.
-petta_eval_step(C0, Out) :-
-    with_not_reducible_root(C0, petta_eval_core(C0, Out)).
+%metta_prune_empty_answers/2 documents.
+metta_eval_step(C0, Out) :-
+    with_not_reducible_root(C0, metta_eval_core(C0, Out)).
 
-petta_eval_core(C0, Out) :-
+metta_eval_core(C0, Out) :-
     current_metta_module(Module),
     %The soft cut commits to equation reduction as a mode, while retaining
     %one answer per matching equation.  A hard cut here erased duplicate
     %rules before `function` and `metta-thread` could observe them.
     %[source: MettaHyperonFull/Minimal/Interpreter.lean:419-448,
     %`evalResult`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
-    (   petta_minimal_equation_step(Module, C0, Step)
+    (   metta_minimal_equation_step(Module, C0, Step)
     *-> Out = Step
     ;   atomic(C0)
     ->  (   atom(C0), metta_symbol_step(C0, Step)
@@ -864,7 +864,7 @@ petta_eval_core(C0, Out) :-
         )
     ;   translate_runnable_expr(C0, Goals, Produced),
         call_goals_in_(Module, Goals),
-        petta_eval_root_result(Module, C0, Produced, Out)
+        metta_eval_root_result(Module, C0, Produced, Out)
     ),
     Out \== 'Empty'.
 
@@ -872,7 +872,7 @@ eval(C0, Out) :-
     translate_runnable_expr(C0, Goals, Produced),
     current_metta_module(Module),
     call_goals_in_(Module, Goals),
-    petta_boundary_result(C0, Produced, Out),
+    metta_boundary_result(C0, Produced, Out),
     Out \== 'Empty'.
 
 %evalc is eval in a space you name, the counterpart to context-space, which
@@ -893,11 +893,11 @@ eval(C0, Out) :-
 %Like eval, evalc takes the expression as written: &self inside it named
 %the space hosting the SOURCE (the reader pinned it there), not the space
 %evalc is aimed at, so there is nothing left to substitute at run time.
-petta_evalc_step(C0, Space, Out) :-
-    petta_evalc_module(Space, Module),
-    with_metta_module(Module, petta_eval_step(C0, Out)).
+metta_evalc_step(C0, Space, Out) :-
+    metta_evalc_module(Space, Module),
+    with_metta_module(Module, metta_eval_step(C0, Out)).
 
-petta_evalc_module(Space, Module) :-
+metta_evalc_module(Space, Module) :-
     (   'is-space'(Space, true)
     ->  true
     ;   throw_metta_type_error(evalc, 'SpaceType', Space)
@@ -905,7 +905,7 @@ petta_evalc_module(Space, Module) :-
     space_module(Space, Module).
 
 evalc(C0, Space, Out) :-
-    petta_evalc_module(Space, Module),
+    metta_evalc_module(Space, Module),
     with_metta_module(Module, eval(C0, Out)).
 
 %Goals run in a named module, so a form run against a space reaches that

@@ -32,7 +32,7 @@
 %qcompile writing the same .qlf (SWI writes it in place), and a torn file
 %would otherwise hard-fail every later boot while looking fresh to the
 %purge. On any load error the whole .qlf set is purged and the load runs
-%once more from source; petta_qlf_boot:purge_all_qlf is the same purge the
+%once more from source; metta_qlf_boot:purge_all_qlf is the same purge the
 %staleness check uses. The gate's own runners warm the engine once before
 %their concurrent lanes, so this path is the safety net rather than the
 %common case.
@@ -42,7 +42,7 @@
        catch(ensure_loaded(metta),
              Error,
              ( print_message(warning, Error),
-               petta_qlf_boot:purge_all_qlf,
+               metta_qlf_boot:purge_all_qlf,
                ensure_loaded(metta) )),
        set_prolog_flag(qcompile, OldQcompile)).
 

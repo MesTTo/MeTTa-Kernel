@@ -108,7 +108,7 @@
 ;[source: LeaTTa@9ea9f9d MettaHyperonFull/Minimal/Stdlib.lean:364-438,
 ;`bagDiffBy` and `assertResultsEqOp`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 ;Only the comparison changes.  The public PeTTa contract remains the existing
-;True answer on success and petta_assertion_failed exception on failure.
+;True answer on success and metta_assertion_failed exception on failure.
 (: assertEqualToResult (-> Atom Atom %Undefined%))
 (= (assertEqualToResult $A $B)
    (let $Actual (collapse $A)
@@ -233,7 +233,7 @@
 ;its evaluated argument, rather than running anything atomically.
 ;
 ;It is sugar over (transaction ...), deliberately, so the two forms cannot
-;drift: every guarantee here is petta_transaction/1's, answer preservation
+;drift: every guarantee here is metta_transaction/1's, answer preservation
 ;and whole-set commit-or-rollback included, and there is one implementation
 ;of them.
 ;
@@ -663,7 +663,7 @@
 ; its contract that lives at this level: the Atom mask keeps the offered
 ; atom unreduced, so a pool judges the atom AS ITSELF
 ; [tested: the_sugar_judges_the_offered_atom_as_itself in tests/prolog/hooks.plt].
-; petta_admission_claim/2 writes a one-line guard equation,
+; metta_admission_claim/2 writes a one-line guard equation,
 ;   (= (space-admission-guard-<pool> $x) (space-admission-verdict <pool> $x))
 ; into the declaring space and claims the pool's pre-add hook with it, so
 ; enforcement rides the general one-claimant registry and a space may

@@ -72,8 +72,8 @@
 %observation beside it: an observer's answer is discarded and the store
 %does not move, which is the difference P12.2 names
 %[tested: a_post_add_hook_may_transform_while_the_event_pair_only_observes].
-:- dynamic petta_hook_claim/4.
-:- dynamic petta_space_hooks_installed/0.
+:- dynamic metta_hook_claim/4.
+:- dynamic metta_space_hooks_installed/0.
 
 hook_slot_surface(pre_add, 'pre-add').
 hook_slot_surface(post_add, 'post-add').
@@ -96,32 +96,32 @@ metta_declare_hook(Slot, Space, Handler) :-
     %The claim and its contract atom land together or not at all, the
     %declare_handles shape: a conflict thrown inside the transaction
     %rolls both back.
-    transaction(( (   petta_hook_claim(Space, Slot, Prior, _)
+    transaction(( (   metta_hook_claim(Space, Slot, Prior, _)
                   ->  (   Prior == Handler
                       ->  true
-                      ;   throw(error(petta_hook_conflict(Space, SlotAtom,
+                      ;   throw(error(metta_hook_conflict(Space, SlotAtom,
                                                           Prior, Handler),
                                       none))
                       )
-                  ;   assertz(petta_hook_claim(Space, Slot, Handler, Module)),
+                  ;   assertz(metta_hook_claim(Space, Slot, Handler, Module)),
                       metta_add_atom('&metta', [SlotAtom, Space, Handler], _),
                       %Compiled inside the same transaction, so a handler
                       %whose call site does not translate refuses the whole
                       %claim loudly at declaration instead of at the first
                       %write.
-                      petta_hook_compile(Space, Slot, Handler, Module)
+                      metta_hook_compile(Space, Slot, Handler, Module)
                   ) )),
-    petta_install_space_hooks.
+    metta_install_space_hooks.
 
 metta_undeclare_hook(Slot, Space) :-
     hook_slot_surface(Slot, SlotAtom),
-    transaction(( (   retract(petta_hook_claim(Space, Slot, Handler, _))
+    transaction(( (   retract(metta_hook_claim(Space, Slot, Handler, _))
                   ->  metta_remove_atom('&metta', [SlotAtom, Space, Handler], _),
-                      petta_hook_drop_compiled(Space, Slot)
+                      metta_hook_drop_compiled(Space, Slot)
                   ;   true
                   ),
                   (   Slot == pre_add
-                  ->  petta_capacity_count_uninstall(Space)
+                  ->  metta_capacity_count_uninstall(Space)
                   ;   true
                   ) )).
 
@@ -134,11 +134,11 @@ metta_undeclare_hook(Slot, Space) :-
 %touched keeps the direct write path. Idempotent per pool; a standing
 %foreign claim on the slot conflicts loudly, which is the one-claimant
 %rule doing its job [tested: hooks_admission_sugar].
-petta_admission_claim(Pool0, Declarer0) :-
+metta_admission_claim(Pool0, Declarer0) :-
     (   atom(Pool0) -> Pool = Pool0 ; atom_string(Pool, Pool0) ),
     (   atom(Declarer0) -> Declarer = Declarer0 ; atom_string(Declarer, Declarer0) ),
     atom_concat('space-admission-guard-', Pool, Guard),
-    (   petta_hook_claim(Pool, pre_add, Guard, _)
+    (   metta_hook_claim(Pool, pre_add, Guard, _)
     ->  true
     ;   space_module(Declarer, Module),
         with_metta_module(Module,
@@ -152,12 +152,12 @@ petta_admission_claim(Pool0, Declarer0) :-
                           ),
                           metta_declare_hook(pre_add, Pool, Guard) )))
     ),
-    petta_capacity_count_claim(Pool).
+    metta_capacity_count_claim(Pool).
 
-petta_install_space_hooks :-
-    (   petta_space_hooks_installed
+metta_install_space_hooks :-
+    (   metta_space_hooks_installed
     ->  true
-    ;   assertz(petta_space_hooks_installed),
+    ;   assertz(metta_space_hooks_installed),
         %The module the WRITE DOOR lives in, asked of SWI rather than assumed
         %to be this one: engine/spaces.pl has a module of its own since P11.7,
         %and wrap_predicate/4 on a name this module merely IMPORTS wraps the
@@ -170,10 +170,10 @@ petta_install_space_hooks :-
         %wrap_predicate/4 declares it `0` and SWI qualifies it with this
         %file's module, which is the engine's.
         (   wrap_predicate(Engine:metta_add_atom(Space, Term, R),
-                           petta_space_hook_guard, Wrapped,
-                           petta_space_hooked_add(Space, Term, R, Wrapped))
+                           metta_space_hook_guard, Wrapped,
+                           metta_space_hooked_add(Space, Term, R, Wrapped))
         ->  true
-        ;   throw(error(petta_atom_hook_install_failed(space_hooks), none))
+        ;   throw(error(metta_atom_hook_install_failed(space_hooks), none))
         ),
         %The compiled fire clauses below bake each handler's translated call
         %site, and a changed equation or declaration re-shapes what that
@@ -186,13 +186,13 @@ petta_install_space_hooks :-
         %four inferences on every compiled equation. If-then-else rather
         %than a cut, which is the event-seam law.
         assertz((seam:function_changed(_) :-
-                    (   petta_hook_compiled(_, _, _)
-                    ->  petta_hook_flush_compiled
+                    (   metta_hook_compiled(_, _, _)
+                    ->  metta_hook_flush_compiled
                     ;   true
                     ))),
         assertz((seam:function_removed(_) :-
-                    (   petta_hook_compiled(_, _, _)
-                    ->  petta_hook_flush_compiled
+                    (   metta_hook_compiled(_, _, _)
+                    ->  metta_hook_flush_compiled
                     ;   true
                     )))
     ).
@@ -205,7 +205,7 @@ petta_install_space_hooks :-
 %changes. The call site is translated once, here, and asserted as one
 %clause in the DECLARING module:
 %
-%    '$petta_hook_fire'(Space, Slot, Atom, Verdict) :- call_goals_in_(M, Goals)
+%    '$metta_hook_fire'(Space, Slot, Atom, Verdict) :- call_goals_in_(M, Goals)
 %
 %The body is call_goals_in_/2 over the translated goal list, not a
 %flattened conjunction, so a translated cut stays exactly as opaque as
@@ -216,65 +216,65 @@ petta_install_space_hooks :-
 %path's: same first-verdict law at the callers, same failure-is-stuck,
 %same nondeterminism underneath
 %[tested: hooks:a_compiled_fire_answers_what_the_eval_path_answers].
-:- dynamic petta_hook_compiled/3.
+:- dynamic metta_hook_compiled/3.
 
-petta_hook_compile(Space, Slot, Handler, Module) :-
+metta_hook_compile(Space, Slot, Handler, Module) :-
     with_metta_module(Module,
                       translate_expr([Handler, Atom], Goals, Verdict)),
-    assertz(Module:('$petta_hook_fire'(Space, Slot, Atom, Verdict) :-
+    assertz(Module:('$metta_hook_fire'(Space, Slot, Atom, Verdict) :-
                         call_goals_in_(Module, Goals)),
             Ref),
-    assertz(petta_hook_compiled(Space, Slot, Ref)).
+    assertz(metta_hook_compiled(Space, Slot, Ref)).
 
 %Fire through the compiled clause, healing lazily after a flush: the
 %mutex closes the race where two threads heal the same claim and the
 %second assert would double the clause.
-petta_hook_eval(Space, Slot, Handler, Module, Term, Verdict) :-
-    (   petta_hook_compiled(Space, Slot, _)
+metta_hook_eval(Space, Slot, Handler, Module, Term, Verdict) :-
+    (   metta_hook_compiled(Space, Slot, _)
     ->  true
-    ;   with_mutex('$petta_hook_compile',
-                   (   petta_hook_compiled(Space, Slot, _)
+    ;   with_mutex('$metta_hook_compile',
+                   (   metta_hook_compiled(Space, Slot, _)
                    ->  true
-                   ;   petta_hook_compile(Space, Slot, Handler, Module)
+                   ;   metta_hook_compile(Space, Slot, Handler, Module)
                    ))
     ),
     current_metta_module(Current),
     (   Current == Module
-    ->  call(Module:'$petta_hook_fire'(Space, Slot, Term, Verdict))
+    ->  call(Module:'$metta_hook_fire'(Space, Slot, Term, Verdict))
     ;   with_metta_module(Module,
-                          call(Module:'$petta_hook_fire'(Space, Slot, Term,
+                          call(Module:'$metta_hook_fire'(Space, Slot, Term,
                                                          Verdict)))
     ).
 
-petta_hook_drop_compiled(Space, Slot) :-
-    forall(retract(petta_hook_compiled(Space, Slot, Ref)),
+metta_hook_drop_compiled(Space, Slot) :-
+    forall(retract(metta_hook_compiled(Space, Slot, Ref)),
            catch(erase(Ref), _, true)).
 
-petta_hook_flush_compiled :-
-    forall(retract(petta_hook_compiled(_, _, Ref)),
+metta_hook_flush_compiled :-
+    forall(retract(metta_hook_compiled(_, _, Ref)),
            catch(erase(Ref), _, true)).
 
-petta_space_hooked_add(Space, Term, R, Wrapped) :-
-    (   petta_hook_granted_form(Space, Term)
+metta_space_hooked_add(Space, Term, R, Wrapped) :-
+    (   metta_hook_granted_form(Space, Term)
     ->  %The handler's own transformed output arriving through the
         %inner add below: decided on BOTH slots, not re-asked. The
         %marker names the space AND the term, so a bridge or event
         %firing a DIFFERENT hooked space mid-write still consults that
         %space's own handlers.
         call(Wrapped)
-    ;   petta_hook_pre_phase(Space, Term, R, Wrapped),
-        petta_hook_post_phase(Space, Term)
+    ;   metta_hook_pre_phase(Space, Term, R, Wrapped),
+        metta_hook_post_phase(Space, Term)
     ).
 
-petta_hook_pre_phase(Space, Term, R, Wrapped) :-
-    (   petta_hook_claim(Space, pre_add, Handler, Module)
-    ->  (   petta_hook_eval(Space, pre_add, Handler, Module, Term, Verdict)
-        ->  (   petta_capacity_count(Space, _)
-            ->  petta_hook_apply_counted(Verdict, Space, Handler, Term, R,
+metta_hook_pre_phase(Space, Term, R, Wrapped) :-
+    (   metta_hook_claim(Space, pre_add, Handler, Module)
+    ->  (   metta_hook_eval(Space, pre_add, Handler, Module, Term, Verdict)
+        ->  (   metta_capacity_count(Space, _)
+            ->  metta_hook_apply_counted(Verdict, Space, Handler, Term, R,
                                          Wrapped)
-            ;   petta_hook_apply(Verdict, Space, Handler, Term, R, Wrapped)
+            ;   metta_hook_apply(Verdict, Space, Handler, Term, R, Wrapped)
             )
-        ;   throw(error(petta_hook_stuck(Space, 'pre-add', Handler, Term),
+        ;   throw(error(metta_hook_stuck(Space, 'pre-add', Handler, Term),
                         none))
         )
     ;   call(Wrapped)
@@ -286,13 +286,13 @@ petta_hook_pre_phase(Space, Term, R, Wrapped) :-
 %drop wrote nothing, so in each of those cases there is no landed Term
 %to revise. A post error or stuck state undoes the write before it
 %propagates, so a failed hook leaves no atom behind.
-petta_hook_post_phase(Space, Term) :-
-    (   petta_hook_claim(Space, post_add, Handler, Module),
-        petta_hook_wrote_as_offered(Space, Term)
-    ->  catch(( (   petta_hook_eval(Space, post_add, Handler, Module, Term,
+metta_hook_post_phase(Space, Term) :-
+    (   metta_hook_claim(Space, post_add, Handler, Module),
+        metta_hook_wrote_as_offered(Space, Term)
+    ->  catch(( (   metta_hook_eval(Space, post_add, Handler, Module, Term,
                                     Verdict)
-                ->  petta_hook_post_apply(Verdict, Space, Handler, Term)
-                ;   throw(error(petta_hook_stuck(Space, 'post-add', Handler,
+                ->  metta_hook_post_apply(Verdict, Space, Handler, Term)
+                ;   throw(error(metta_hook_stuck(Space, 'post-add', Handler,
                                                  Term),
                                 none))
                 ) ),
@@ -309,33 +309,33 @@ petta_hook_post_phase(Space, Term) :-
 %hook may have transformed or dropped it, and then the post phase has
 %nothing to revise. Asked only on the doubly-hooked path, one membership
 %probe against the store.
-petta_hook_wrote_as_offered(Space, Term) :-
-    (   petta_hook_claim(Space, pre_add, _, _)
+metta_hook_wrote_as_offered(Space, Term) :-
+    (   metta_hook_claim(Space, pre_add, _, _)
     ->  \+ \+ 'get-atoms'(Space, Term)
     ;   true
     ).
 
-petta_hook_post_apply([accept], _, _, _) :- !.
-petta_hook_post_apply([accept, Term1], Space, _, Term) :- !,
+metta_hook_post_apply([accept], _, _, _) :- !.
+metta_hook_post_apply([accept, Term1], Space, _, Term) :- !,
     (   Term1 == Term
     ->  true
     ;   metta_remove_atom(Space, Term, _),
         setup_call_cleanup(
-            b_setval('$petta_hook_granted', granted(Space, Term1)),
+            b_setval('$metta_hook_granted', granted(Space, Term1)),
             metta_add_atom(Space, Term1, _),
-            b_setval('$petta_hook_granted', [])),
-        petta_capacity_count_added(Space, Term1)
+            b_setval('$metta_hook_granted', [])),
+        metta_capacity_count_added(Space, Term1)
     ).
 %The refusal's undo is the catch handler's, once for every error path.
-petta_hook_post_apply([refuse, Words], Space, _, Term) :- !,
-    throw(error(petta_add_refused(Space, Term, Words), none)).
-petta_hook_post_apply([drop], Space, _, Term) :- !,
+metta_hook_post_apply([refuse, Words], Space, _, Term) :- !,
+    throw(error(metta_add_refused(Space, Term, Words), none)).
+metta_hook_post_apply([drop], Space, _, Term) :- !,
     metta_remove_atom(Space, Term, _).
-petta_hook_post_apply(Got, Space, Handler, Term) :-
-    petta_hook_invalid_verdict('post-add', Got, Space, Handler, Term).
+metta_hook_post_apply(Got, Space, Handler, Term) :-
+    metta_hook_invalid_verdict('post-add', Got, Space, Handler, Term).
 
-petta_hook_granted_form(Space, Term) :-
-    catch(b_getval('$petta_hook_granted', granted(GSpace, GTerm)), _, fail),
+metta_hook_granted_form(Space, Term) :-
+    catch(b_getval('$metta_hook_granted', granted(GSpace, GTerm)), _, fail),
     GSpace == Space,
     GTerm == Term.
 
@@ -343,35 +343,35 @@ petta_hook_granted_form(Space, Term) :-
 %write path. A counted accept therefore knows it owns the fact and can update
 %without a second presence probe; the ordinary verdict algebra stays the
 %shared fallback for refusal, drop and malformed answers.
-petta_hook_apply_counted([accept], Space, _, Term, _, Wrapped) :- !,
+metta_hook_apply_counted([accept], Space, _, Term, _, Wrapped) :- !,
     call(Wrapped),
-    petta_capacity_count_added_known(Space, Term).
-petta_hook_apply_counted([accept, Term1], Space, _, Term, R, Wrapped) :- !,
+    metta_capacity_count_added_known(Space, Term).
+metta_hook_apply_counted([accept, Term1], Space, _, Term, R, Wrapped) :- !,
     (   Term1 == Term
     ->  call(Wrapped)
     ;   setup_call_cleanup(
-            b_setval('$petta_hook_granted', granted(Space, Term1)),
+            b_setval('$metta_hook_granted', granted(Space, Term1)),
             metta_add_atom(Space, Term1, R),
-            b_setval('$petta_hook_granted', []))
+            b_setval('$metta_hook_granted', []))
     ),
-    petta_capacity_count_added_known(Space, Term1).
-petta_hook_apply_counted(Verdict, Space, Handler, Term, R, Wrapped) :-
-    petta_hook_apply(Verdict, Space, Handler, Term, R, Wrapped).
+    metta_capacity_count_added_known(Space, Term1).
+metta_hook_apply_counted(Verdict, Space, Handler, Term, R, Wrapped) :-
+    metta_hook_apply(Verdict, Space, Handler, Term, R, Wrapped).
 
-petta_hook_apply([accept], _, _, _, _, Wrapped) :- !, call(Wrapped).
-petta_hook_apply([accept, Term1], Space, _, Term, R, Wrapped) :- !,
+metta_hook_apply([accept], _, _, _, _, Wrapped) :- !, call(Wrapped).
+metta_hook_apply([accept, Term1], Space, _, Term, R, Wrapped) :- !,
     (   Term1 == Term
     ->  call(Wrapped)
     ;   setup_call_cleanup(
-            b_setval('$petta_hook_granted', granted(Space, Term1)),
+            b_setval('$metta_hook_granted', granted(Space, Term1)),
             metta_add_atom(Space, Term1, R),
-            b_setval('$petta_hook_granted', []))
+            b_setval('$metta_hook_granted', []))
     ).
-petta_hook_apply([refuse, Words], Space, _, Term, _, _) :- !,
-    throw(error(petta_add_refused(Space, Term, Words), none)).
-petta_hook_apply([drop], _, _, _, true, _) :- !.
-petta_hook_apply(Got, Space, Handler, Term, _, _) :-
-    petta_hook_invalid_verdict('pre-add', Got, Space, Handler, Term).
+metta_hook_apply([refuse, Words], Space, _, Term, _, _) :- !,
+    throw(error(metta_add_refused(Space, Term, Words), none)).
+metta_hook_apply([drop], _, _, _, true, _) :- !.
+metta_hook_apply(Got, Space, Handler, Term, _, _) :-
+    metta_hook_invalid_verdict('pre-add', Got, Space, Handler, Term).
 
 %A residual handler call is the hook's existing stuck state, not a malformed
 %verdict. The fire remains an observer of evaluation; classification happens
@@ -380,10 +380,10 @@ petta_hook_apply(Got, Space, Handler, Term, _, _) :-
 %write, while this cold route leaves accepted writes unchanged.
 %[tested: hooks:an_unclaimed_request_is_a_stuck_state_that_says_so,
 %hooks:a_post_stuck_state_undoes_the_write; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
-petta_hook_invalid_verdict(Slot, Got, Space, Handler, Term) :-
+metta_hook_invalid_verdict(Slot, Got, Space, Handler, Term) :-
     (   Got =@= [Handler, Term]
-    ->  throw(error(petta_hook_stuck(Space, Slot, Handler, Term), none))
-    ;   throw(error(petta_hook_bad_verdict(Space, Handler, Term, Got), none))
+    ->  throw(error(metta_hook_stuck(Space, Slot, Handler, Term), none))
+    ;   throw(error(metta_hook_bad_verdict(Space, Handler, Term, Got), none))
     ).
 
 %The bulk door's question: a space with a claimed hook on either slot
@@ -391,8 +391,8 @@ petta_hook_invalid_verdict(Slot, Got, Space, Handler, Term) :-
 %the handler for every atom, and a pool's admission guard is one such
 %claim [tested: a_batch_into_a_hooked_space_consults_the_handler_per_atom,
 %a_batch_beyond_capacity_is_refused_like_lone_adds].
-petta_hook_claim_idle(Space) :-
-    \+ petta_hook_claim(Space, _, _, _).
+metta_hook_claim_idle(Space) :-
+    \+ metta_hook_claim(Space, _, _, _).
 
 %The MeTTa surface. Undeclaring is explicit and idempotent: the
 %one-claimant rule would otherwise leave no way to change a handler,
@@ -408,33 +408,33 @@ petta_hook_claim_idle(Space) :-
     metta_undeclare_hook(post_add, Space).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_bridge_cascade(Op)) -->
+prolog:error_message(metta_bridge_cascade(Op)) -->
     [ 'a bridge cascade passed depth 32 at ~q: bridges firing bridges \c
        must reach a fixed point, and this chain does not'-[Op] ].
-prolog:error_message(petta_bridge_unknown_op(Op)) -->
+prolog:error_message(metta_bridge_unknown_op(Op)) -->
     [ 'the bridge operation ~q is not a managed head; the heads are \c
        (insert Ctx Atom), (retract Ctx Atom) and (revise Ctx Old \c
        New)'-[Op] ].
-prolog:error_message(petta_hook_conflict(Space, Slot, Prior, Claimant)) -->
+prolog:error_message(metta_hook_conflict(Space, Slot, Prior, Claimant)) -->
     [ '~w already claims the ~w hook on ~w and ~w tried to claim it \c
        too; one claimant per name, checked when the claim is made, so \c
        undeclare the standing one first'-[Prior, Slot, Space, Claimant] ].
-prolog:error_message(petta_hook_stuck(Space, Slot, Handler, Term)) -->
+prolog:error_message(metta_hook_stuck(Space, Slot, Handler, Term)) -->
     [ 'the ~w hook on ~w is claimed by ~w, whose equations do not \c
        cover ~q; a request no rule covers is a stuck state that says \c
        so, so cover the shape or give the handler its own \c
        catch-all'-[Slot, Space, Handler, Term] ].
-prolog:error_message(petta_add_refused(Space, Term, Words)) -->
+prolog:error_message(metta_add_refused(Space, Term, Words)) -->
     [ '~w refused ~q: ~w'-[Space, Term, Words] ].
-prolog:error_message(petta_foreign_space_count(Space)) -->
+prolog:error_message(metta_foreign_space_count(Space)) -->
     [ '~w is a foreign space, so its atoms live with its provider and \c
        counting them is an enumeration there, not a native property read; \c
        ask the provider, or count what a match answers'-[Space] ].
-prolog:error_message(petta_hook_bad_verdict(Space, Handler, Term, Got)) -->
+prolog:error_message(metta_hook_bad_verdict(Space, Handler, Term, Got)) -->
     [ '~w answered ~q for ~q into ~w, which is none of (accept), \c
        (accept <atom>), (refuse <words>) or (drop)'-[Handler, Got,
                                                      Term, Space] ].
-prolog:error_message(petta_hook_cascade(Space, Handler)) -->
+prolog:error_message(metta_hook_cascade(Space, Handler)) -->
     [ 'the pre-add hook ~w on ~w transformed through depth 32: a \c
        transforming hook must reach a fixed point, and this chain does \c
        not'-[Handler, Space] ].
@@ -446,15 +446,15 @@ prolog:error_message(petta_hook_cascade(Space, Handler)) -->
 %writes only. Silence refuses a write inside a transaction loudly,
 %because the old behaviour, a foreign write surviving a rolled-back
 %transaction, was silent wrongness, not a floor worth keeping.
-petta_writes(Ctx, Atomicity) :-
-    (   petta_contract_fact([writes, Ctx, Declared])
+metta_writes(Ctx, Atomicity) :-
+    (   metta_contract_fact([writes, Ctx, Declared])
     ->  Atomicity = Declared
     ;   Atomicity = undeclared
     ).
 
 %The transaction form's runtime: SWI's transaction/1 for the engine's own
 %database, with foreign participation coordinated around it. Providers
-%enlist at their first write (petta_enlist_foreign/1, from
+%enlist at their first write (metta_enlist_foreign/1, from
 %foreign_write/3), and the registry is finished HERE: commit on success,
 %rollback on failure or throw. A nested transaction runs inside the
 %outer's registry, so providers see one begin and one finish per
@@ -466,13 +466,13 @@ petta_writes(Ctx, Atomicity) :-
 %abolished the earlier static predicate before the umbrella's publication
 %check ran [tested: `swipl -q -g "consult('engine/metta.pl'),
 %load_files('engine/metta.pl',[if(true)]),
-%current_predicate(user:petta_transaction/1),halt" -t halt`; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
-:- meta_predicate petta_transaction(0).
-petta_transaction(Goal) :-
+%current_predicate(user:metta_transaction/1),halt" -t halt`; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
+:- meta_predicate metta_transaction(0).
+metta_transaction(Goal) :-
     term_variables(Goal, Vars),
-    petta_transaction_run(Goal, Vars, Answers,
+    metta_transaction_run(Goal, Vars, Answers,
                           Outcome, Foreign, Observation),
-    petta_transaction_result(Outcome, Foreign, Observation),
+    metta_transaction_result(Outcome, Foreign, Observation),
     member(Vars, Answers).
 
 %Run the same transaction while notifying an owner of the durable database
@@ -480,71 +480,71 @@ petta_transaction(Goal) :-
 %Saga bookkeeping uses this rather than inferring commit from an exception
 %class: KeyboardInterrupt, provider failures, and SubscriberError can all be
 %reported after the local transaction is already durable.
-:- meta_predicate petta_transaction_notified(0, 0, 0).
-petta_transaction_notified(Goal, Committed, RolledBack) :-
+:- meta_predicate metta_transaction_notified(0, 0, 0).
+metta_transaction_notified(Goal, Committed, RolledBack) :-
     term_variables(Goal, Vars),
-    petta_transaction_prepare(Goal, Vars, Answers, Outcome, Completion),
-    petta_notify_transaction(Outcome, Committed, RolledBack, Notification),
-    petta_transaction_finish(Completion, Outcome, Foreign, Observation),
-    petta_notified_transaction_result(Notification, Outcome,
+    metta_transaction_prepare(Goal, Vars, Answers, Outcome, Completion),
+    metta_notify_transaction(Outcome, Committed, RolledBack, Notification),
+    metta_transaction_finish(Completion, Outcome, Foreign, Observation),
+    metta_notified_transaction_result(Notification, Outcome,
                                       Foreign, Observation),
     member(Vars, Answers).
 
-petta_transaction_run(Goal, Vars, Answers,
+metta_transaction_run(Goal, Vars, Answers,
                       Outcome, Foreign, Observation) :-
-    petta_transaction_prepare(Goal, Vars, Answers, Outcome, Completion),
-    petta_transaction_finish(Completion, Outcome, Foreign, Observation).
+    metta_transaction_prepare(Goal, Vars, Answers, Outcome, Completion),
+    metta_transaction_finish(Completion, Outcome, Foreign, Observation).
 
 %Separate the durable local decision from fallible post-commit work. The saga
 %notification runs between these phases, so a provider commit or observer that
 %raises BaseException cannot make committed receipt bookkeeping look rolled
 %back. Ordinary transactions use the same phases without a notification.
-petta_transaction_prepare(Goal, Vars, Answers, Outcome, Completion) :-
-    (   petta_in_user_transaction
-    ->  petta_nested_transaction_prepare(Goal, Vars, Answers,
+metta_transaction_prepare(Goal, Vars, Answers, Outcome, Completion) :-
+    (   metta_in_user_transaction
+    ->  metta_nested_transaction_prepare(Goal, Vars, Answers,
                                         Outcome, Completion)
-    ;   petta_outer_transaction_prepare(Goal, Vars, Answers,
+    ;   metta_outer_transaction_prepare(Goal, Vars, Answers,
                                        Outcome, Completion)
     ).
 
-petta_nested_transaction_prepare(Goal, Vars, Answers,
+metta_nested_transaction_prepare(Goal, Vars, Answers,
                                  Outcome, nested) :-
     seam:observation_begin,
-    catch(( transaction(petta_transaction_answers(Goal, Vars, Answers))
+    catch(( transaction(metta_transaction_answers(Goal, Vars, Answers))
           -> Outcome = committed
           ;  Outcome = failed
           ),
           Error,
           Outcome = threw(Error)).
 
-petta_outer_transaction_prepare(Goal, Vars, Answers,
+metta_outer_transaction_prepare(Goal, Vars, Answers,
                                 Outcome, outer(Enlisted)) :-
     seam:observation_begin,
-    nb_setval('$petta_tx_enlisted', []),
+    nb_setval('$metta_tx_enlisted', []),
     catch(( setup_call_cleanup(
-                b_setval('$petta_user_tx', true),
-                transaction(petta_transaction_answers(Goal, Vars, Answers)),
-                b_setval('$petta_user_tx', false))
+                b_setval('$metta_user_tx', true),
+                transaction(metta_transaction_answers(Goal, Vars, Answers)),
+                b_setval('$metta_user_tx', false))
         ->  Outcome = committed ; Outcome = failed ),
           Error,
           Outcome = threw(Error)),
-    nb_getval('$petta_tx_enlisted', Enlisted),
-    nb_setval('$petta_tx_enlisted', []).
+    nb_getval('$metta_tx_enlisted', Enlisted),
+    nb_setval('$metta_tx_enlisted', []).
 
-petta_transaction_finish(nested, Outcome, ok, Observation) :-
-    petta_finish_observation(Outcome, Observation).
-petta_transaction_finish(outer(Enlisted), Outcome, Foreign, Observation) :-
-    petta_finish_foreign(Outcome, Enlisted, Foreign),
-    petta_finish_observation(Outcome, Observation),
+metta_transaction_finish(nested, Outcome, ok, Observation) :-
+    metta_finish_observation(Outcome, Observation).
+metta_transaction_finish(outer(Enlisted), Outcome, Foreign, Observation) :-
+    metta_finish_foreign(Outcome, Enlisted, Foreign),
+    metta_finish_observation(Outcome, Observation),
     %A rolled-back local definition may also have replaced a repaired weak
     %import. Its dependency row survives the rollback, so the same sweep
     %re-arms that inherited procedure identity on every outcome [tested:
     %filereader_import_lifecycle:
     %a_failed_local_redefinition_restores_the_repaired_inherited_call;
     %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-    petta_repair_emptied_shadows.
+    metta_repair_emptied_shadows.
 
-petta_notify_transaction(Outcome, Committed, RolledBack, Result) :-
+metta_notify_transaction(Outcome, Committed, RolledBack, Result) :-
     catch(( (   Outcome == committed
             ->  call(Committed)
             ;   call(RolledBack)
@@ -555,19 +555,19 @@ petta_notify_transaction(Outcome, Committed, RolledBack, Result) :-
           Error,
           Result = threw(Error)).
 
-petta_notified_transaction_result(ok, Outcome, Foreign, Observation) :- !,
-    petta_transaction_result(Outcome, Foreign, Observation).
-petta_notified_transaction_result(threw(Error), _, _, _) :- !,
+metta_notified_transaction_result(ok, Outcome, Foreign, Observation) :- !,
+    metta_transaction_result(Outcome, Foreign, Observation).
+metta_notified_transaction_result(threw(Error), _, _, _) :- !,
     throw(Error).
-petta_notified_transaction_result(failed, Outcome, _, _) :-
-    throw(error(petta_transaction_notification_failed(Outcome), _)).
+metta_notified_transaction_result(failed, Outcome, _, _) :-
+    throw(error(metta_transaction_notification_failed(Outcome), _)).
 
-petta_finish_foreign(committed, Enlisted, Result) :- !,
+metta_finish_foreign(committed, Enlisted, Result) :- !,
     catch(( forall(member(Space, Enlisted), seam:foreign_commit(Space)),
             Result = ok ),
           Error,
           Result = threw(Error)).
-petta_finish_foreign(_, Enlisted, ok) :-
+metta_finish_foreign(_, Enlisted, ok) :-
     forall(member(Space, Enlisted),
            catch(seam:foreign_rollback(Space), RollbackError,
                  print_message(error, RollbackError))).
@@ -576,52 +576,52 @@ petta_finish_foreign(_, Enlisted, ok) :-
 %committed state on both sides of the seam. If a single-coordinator provider
 %commit throws, the engine transaction is already durable; its event segment
 %still publishes and the provider error remains the exception returned.
-petta_finish_observation(committed, Result) :- !,
+metta_finish_observation(committed, Result) :- !,
     catch(( seam:observation_commit, Result = ok ),
           Error,
           Result = threw(Error)).
-petta_finish_observation(_, ok) :-
+metta_finish_observation(_, ok) :-
     seam:observation_discard.
 
-petta_transaction_result(committed, threw(Error), _) :- !, throw(Error).
-petta_transaction_result(committed, ok, threw(Error)) :- !, throw(Error).
-petta_transaction_result(committed, ok, ok) :- !.
-petta_transaction_result(failed, _, _) :- !, fail.
-petta_transaction_result(threw(Error), _, _) :- throw(Error).
+metta_transaction_result(committed, threw(Error), _) :- !, throw(Error).
+metta_transaction_result(committed, ok, threw(Error)) :- !, throw(Error).
+metta_transaction_result(committed, ok, ok) :- !.
+metta_transaction_result(failed, _, _) :- !, fail.
+metta_transaction_result(threw(Error), _, _) :- throw(Error).
 
-%The discarded sibling of petta_transaction/1. snapshot/1 rolls back the
+%The discarded sibling of metta_transaction/1. snapshot/1 rolls back the
 %engine database, while a fresh enlistment registry makes the same
 %begin/rollback protocol cover foreign stores. Saving and restoring the outer
 %registry gives an enclosing user transaction a real provider savepoint when
 %the provider supports nested begin/rollback; an older provider that cannot
 %nest refuses before its speculative write rather than leaking one.
-:- meta_predicate petta_speculate(0).
-petta_speculate(Goal) :-
+:- meta_predicate metta_speculate(0).
+metta_speculate(Goal) :-
     seam:observation_begin,
-    (   nb_current('$petta_tx_enlisted', OuterEnlisted)
+    (   nb_current('$metta_tx_enlisted', OuterEnlisted)
     ->  true
     ;   OuterEnlisted = []
     ),
-    ( petta_in_user_transaction -> OuterFlag = true ; OuterFlag = false ),
-    nb_setval('$petta_tx_enlisted', []),
+    ( metta_in_user_transaction -> OuterFlag = true ; OuterFlag = false ),
+    nb_setval('$metta_tx_enlisted', []),
     catch(( setup_call_cleanup(
-                b_setval('$petta_user_tx', true),
+                b_setval('$metta_user_tx', true),
                 snapshot(Goal),
-                b_setval('$petta_user_tx', OuterFlag))
+                b_setval('$metta_user_tx', OuterFlag))
         ->  Outcome = succeeded
         ;   Outcome = failed
         ),
         Error,
         Outcome = threw(Error)),
-    nb_getval('$petta_tx_enlisted', Enlisted),
-    nb_setval('$petta_tx_enlisted', OuterEnlisted),
-    petta_finish_foreign(discarded, Enlisted, _),
+    nb_getval('$metta_tx_enlisted', Enlisted),
+    nb_setval('$metta_tx_enlisted', OuterEnlisted),
+    metta_finish_foreign(discarded, Enlisted, _),
     seam:observation_discard,
-    petta_speculate_result(Outcome).
+    metta_speculate_result(Outcome).
 
-petta_speculate_result(succeeded).
-petta_speculate_result(failed) :- !, fail.
-petta_speculate_result(threw(Error)) :- throw(Error).
+metta_speculate_result(succeeded).
+metta_speculate_result(failed) :- !, fail.
+metta_speculate_result(threw(Error)) :- throw(Error).
 
 %COLLECT, COMMIT, THEN REPLAY, which is what preserving a body's answers
 %costs. SWI's transaction/1 runs its goal as once/1 and cannot be made
@@ -642,13 +642,13 @@ petta_speculate_result(threw(Error)) :- throw(Error).
 %or roll back together, and the replay happens after the commit, so a consumer
 %that stops after the first answer cannot leave a transaction open. An
 %answerless body fails the guard, which rolls the transaction back and fails
-%petta_transaction/1 exactly as it did before.
+%metta_transaction/1 exactly as it did before.
 %
 %The cost is that the answers are materialized: a body with an unbounded
 %answer set exhausts the stack here where it used to yield once. That is the
 %honest price of atomicity over a whole answer set, and it raises a resource
 %error rather than silently answering a prefix.
-petta_transaction_answers(Goal, Vars, Answers) :-
+metta_transaction_answers(Goal, Vars, Answers) :-
     findall(Vars, Goal, Answers),
     Answers \== [].
 
@@ -658,26 +658,26 @@ petta_transaction_answers(Goal, Vars, Answers) :-
 %behaviour, which the foreign-rules suite pins. The flag is
 %backtrackable and thread-local; the outermost user transaction sets it,
 %a nested one runs inside it untouched.
-petta_in_user_transaction :-
-    catch(b_getval('$petta_user_tx', true), _, fail).
+metta_in_user_transaction :-
+    catch(b_getval('$metta_user_tx', true), _, fail).
 
-petta_enlist_foreign(Space) :-
-    nb_getval('$petta_tx_enlisted', Enlisted),
+metta_enlist_foreign(Space) :-
+    nb_getval('$metta_tx_enlisted', Enlisted),
     (   memberchk(Space, Enlisted)
     ->  true
     ;   seam:foreign_begin(Space),
-        nb_setval('$petta_tx_enlisted', [Space|Enlisted])
+        nb_setval('$metta_tx_enlisted', [Space|Enlisted])
     ).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_transaction_unsupported(Ctx, undeclared)) -->
+prolog:error_message(metta_transaction_unsupported(Ctx, undeclared)) -->
     [ 'a transaction wrote to ~w, which declares nothing about its \c
        writes. The write cannot be rolled back with the transaction, and \c
        silently keeping it is the wrong answer this error replaces. \c
        Declare (writes ~w transactional) for a provider with \c
        begin/commit/rollback, or (writes ~w best-effort) to accept \c
        partial application deliberately'-[Ctx, Ctx, Ctx] ].
-prolog:error_message(petta_transaction_unsupported(Ctx, 'atomic-single')) -->
+prolog:error_message(metta_transaction_unsupported(Ctx, 'atomic-single')) -->
     [ '~w declares (writes ~w atomic-single): single writes are atomic \c
        and transactions are not offered, so this transactional write is \c
        refused'-[Ctx, Ctx] ].
@@ -687,8 +687,8 @@ prolog:error_message(petta_transaction_unsupported(Ctx, 'atomic-single')) -->
 %the provider, since the first k of a best-first emission ARE the k
 %best. Distinct from (merge <pattern> <policy>), which is the ENGINE's
 %strategy for merging answers across several contexts.
-petta_emits(Ctx, Policy) :-
-    petta_contract_fact([emits, Ctx, Policy]).
+metta_emits(Ctx, Policy) :-
+    metta_contract_fact([emits, Ctx, Policy]).
 
 %%%% Subscribability as a declared capability (P12.14) %%%%
 %
@@ -719,16 +719,16 @@ petta_emits(Ctx, Policy) :-
 %Faces of Publish/Subscribe, ACM Computing Surveys 35(2), 2003, section
 %2.2: space, time and synchronization decoupling]
 %[tested: test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses].
-%petta_events_declared/1 is the shortcut and it comes first: a context no
+%metta_events_declared/1 is the shortcut and it comes first: a context no
 %(events ...) atom has ever named cannot have one, so the store probes are
 %skipped outright. Every standing query writes a (subscription <ctx> ...)
-%atom whose second argument is the space, so the general petta_ctx_declared
+%atom whose second argument is the space, so the general metta_ctx_declared
 %flag says yes for every watched space and could not do this job.
-petta_events(Ctx, Delivery, Order) :-
-    (   petta_events_declared(Ctx),
-        (   petta_contract_fact([events, Ctx, Delivery, Declared])
+metta_events(Ctx, Delivery, Order) :-
+    (   metta_events_declared(Ctx),
+        (   metta_contract_fact([events, Ctx, Delivery, Declared])
         ->  Order = Declared
-        ;   petta_contract_fact([events, Ctx, Delivery]),
+        ;   metta_contract_fact([events, Ctx, Delivery]),
             Order = unordered
         )
     ->  true
@@ -739,10 +739,10 @@ petta_events(Ctx, Delivery, Order) :-
 %engine's own guarantee; a foreign one answers its declaration, and a
 %foreign one without a declaration answers nothing, which is what the
 %refusal below reads.
-petta_event_capability(Space, Delivery, Order) :-
+metta_event_capability(Space, Delivery, Order) :-
     (   seam:foreign_space(Space)
-    ->  once(petta_events(Space, Delivery, Order))
-    ;   petta_events(Space, Delivery, Order)
+    ->  once(metta_events(Space, Delivery, Order))
+    ;   metta_events(Space, Delivery, Order)
     ->  true
     ;   Delivery = 'per-write-exactly',
         Order = ordered
@@ -751,14 +751,14 @@ petta_event_capability(Space, Delivery, Order) :-
 %Refuse an operation that needs change events on a context that promises
 %none. Operation is the caller's own word, so a blocking take and a
 %standing query each name themselves.
-petta_require_events(Space, Operation) :-
-    (   petta_event_capability(Space, _, _)
+metta_require_events(Space, Operation) :-
+    (   metta_event_capability(Space, _, _)
     ->  true
-    ;   throw(error(petta_events_undeclared(Space, Operation), none))
+    ;   throw(error(metta_events_undeclared(Space, Operation), none))
     ).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_events_undeclared(Space, Operation)) -->
+prolog:error_message(metta_events_undeclared(Space, Operation)) -->
     [ '~w cannot ~w: it declares no (events ~w <delivery>) capability, \c
        so nothing promises its changes reach a watcher. A context whose \c
        every write goes through this engine declares (events ~w \c
@@ -786,9 +786,9 @@ prolog:error_message(petta_events_undeclared(Space, Operation)) -->
 %is the atom its author can find. The payload is whatever follows the
 %shape in the declaration, [Fidelity, Det] for handles, [Mode] for
 %on-error; one algorithm routes every per-shape declaration head.
-petta_shape_entry(Head, Ctx, Query, entry(Stripped, Paths, Entry, Payload)) :-
-    petta_shape_fact(Head, Ctx, Entry, Payload),
-    petta_adorn_strip(Entry, Stripped, Requirements, Paths),
+metta_shape_entry(Head, Ctx, Query, entry(Stripped, Paths, Entry, Payload)) :-
+    metta_shape_fact(Head, Ctx, Entry, Payload),
+    metta_adorn_strip(Entry, Stripped, Requirements, Paths),
     subsumes_term(Stripped, Query),
     \+ \+ ( Stripped = Query,
             forall(member(Position, Requirements), nonvar(Position)) ).
@@ -801,10 +801,10 @@ petta_shape_entry(Head, Ctx, Query, entry(Stripped, Paths, Entry, Payload)) :-
 %<pattern> <policy>) is the ENGINE's strategy for merging answers across
 %several contexts, keyed by the query shape alone, which is what its
 %global route key means. The materialized fact clauses read through
-%petta_contract_fact/1 exactly as the hand-written ones did, one clause
+%metta_contract_fact/1 exactly as the hand-written ones did, one clause
 %per stored arity with omitted trailing optionals padded to none.
-:- dynamic petta_shape_fact/4.
-:- dynamic petta_shape_declared/2.
+:- dynamic metta_shape_fact/4.
+:- dynamic metta_shape_declared/2.
 
 %Strip (in $x) wrappers, collecting the subterms that must arrive bound and
 %the position path of each, root-to-leaf indices reversed. Requirements are
@@ -815,34 +815,34 @@ petta_shape_entry(Head, Ctx, Query, entry(Stripped, Paths, Entry, Payload)) :-
 %Offering tails was the bug this shape replaces, since a tail [X, Y] whose
 %head is an entry variable unifies with the marker pattern, binds X to in,
 %and mangles the entry into an open list that matches everything.
-petta_adorn_strip(Term, Stripped, Requirements) :-
-    petta_adorn_strip(Term, Stripped, Requirements, _).
-petta_adorn_strip(Term, Stripped, Requirements, Paths) :-
-    petta_adorn_strip(Term, [], Stripped, Requirements, Paths).
+metta_adorn_strip(Term, Stripped, Requirements) :-
+    metta_adorn_strip(Term, Stripped, Requirements, _).
+metta_adorn_strip(Term, Stripped, Requirements, Paths) :-
+    metta_adorn_strip(Term, [], Stripped, Requirements, Paths).
 
-petta_adorn_strip(Var, _, Var, [], []) :- var(Var), !.
-petta_adorn_strip(Term, Here, Inner, [Inner|Requirements], [Here|Paths]) :-
+metta_adorn_strip(Var, _, Var, [], []) :- var(Var), !.
+metta_adorn_strip(Term, Here, Inner, [Inner|Requirements], [Here|Paths]) :-
     Term = [Marker, Inner0], Marker == in, !,
-    petta_adorn_strip(Inner0, Here, Inner, Requirements, Paths).
-petta_adorn_strip(List, Here, Stripped, Requirements, Paths) :-
+    metta_adorn_strip(Inner0, Here, Inner, Requirements, Paths).
+metta_adorn_strip(List, Here, Stripped, Requirements, Paths) :-
     List = [_|_], !,
-    petta_adorn_strip_spine(List, 0, Here, Stripped, Requirements, Paths).
-petta_adorn_strip(Atom, _, Atom, [], []).
+    metta_adorn_strip_spine(List, 0, Here, Stripped, Requirements, Paths).
+metta_adorn_strip(Atom, _, Atom, [], []).
 
-petta_adorn_strip_spine(Var, _, _, Var, [], []) :- var(Var), !.
-petta_adorn_strip_spine([], _, _, [], [], []).
-petta_adorn_strip_spine([Head0|Tail0], Index, Here,
+metta_adorn_strip_spine(Var, _, _, Var, [], []) :- var(Var), !.
+metta_adorn_strip_spine([], _, _, [], [], []).
+metta_adorn_strip_spine([Head0|Tail0], Index, Here,
                         [Head|Tail], Requirements, Paths) :-
-    petta_adorn_strip(Head0, [Index|Here], Head, HeadReqs, HeadPaths),
+    metta_adorn_strip(Head0, [Index|Here], Head, HeadReqs, HeadPaths),
     Next is Index + 1,
-    petta_adorn_strip_spine(Tail0, Next, Here, Tail, TailReqs, TailPaths),
+    metta_adorn_strip_spine(Tail0, Next, Here, Tail, TailReqs, TailPaths),
     append(HeadReqs, TailReqs, Requirements),
     append(HeadPaths, TailPaths, Paths).
 
 %The route: most specific matching entry, coherence-checked among the
 %maximal ones. No entry means no claim, which is today's behaviour exactly.
-petta_handles_route(Ctx, Query, Fidelity, Det) :-
-    petta_handles_route(Ctx, Query, _, Fidelity, Det).
+metta_handles_route(Ctx, Query, Fidelity, Det) :-
+    metta_handles_route(Ctx, Query, _, Fidelity, Det).
 
 %The overwhelmingly common context has no such declarations and pays for
 %this on every foreign match, so the emptiness answer must be nearly free:
@@ -852,35 +852,35 @@ petta_handles_route(Ctx, Query, Fidelity, Det) :-
 %error [measured 2026-08-17: the guard at 15 inferences per miss against
 %137 through the catch-per-probe path]. The module name is computed once at
 %load through native_storage_module/2, the single source of that mapping.
-:- dynamic petta_contract_storage/1.
+:- dynamic metta_contract_storage/1.
 :- native_storage_module('&metta', Module),
-   assertz(petta_contract_storage(Module)).
+   assertz(metta_contract_storage(Module)).
 
-petta_handles_route(Ctx, Query, Entry, Fidelity, Det) :-
-    petta_shape_route(handles, Ctx, Query, Entry, [Fidelity, Det]).
+metta_handles_route(Ctx, Query, Entry, Fidelity, Det) :-
+    metta_shape_route(handles, Ctx, Query, Entry, [Fidelity, Det]).
 
 %Route one query through one declaration head: the most specific matching
 %entry, coherence-checked among the maximal ones, exactly evaluation's own
 %dispatch of a call against equation heads.
-petta_shape_route(Head, Ctx, Query, Entry, Payload) :-
-    petta_shape_declared(Head, Ctx),
-    findall(E, petta_shape_entry(Head, Ctx, Query, E), Entries),
+metta_shape_route(Head, Ctx, Query, Entry, Payload) :-
+    metta_shape_declared(Head, Ctx),
+    findall(E, metta_shape_entry(Head, Ctx, Query, E), Entries),
     Entries \== [],
-    petta_shape_maximal(Entries, Maximal),
+    metta_shape_maximal(Entries, Maximal),
     Maximal = [entry(_, _, Entry, Payload)|Rest],
     forall(member(entry(_, _, E2, P2), Rest),
            (   P2 == Payload
            ->  true
-           ;   throw(error(petta_contract_conflict(Ctx, Entry, E2, Query),
+           ;   throw(error(metta_contract_conflict(Ctx, Entry, E2, Query),
                            none))
            )).
 
 %The entries no other entry is strictly more specific than.
-petta_shape_maximal(Entries, Maximal) :-
+metta_shape_maximal(Entries, Maximal) :-
     findall(E,
             ( member(E, Entries),
               \+ ( member(Q, Entries),
-                   petta_shape_stricter(Q, E) ) ),
+                   metta_shape_stricter(Q, E) ) ),
             Maximal).
 
 %Q strictly more specific than P: a strictly narrower pattern, or the same
@@ -891,11 +891,11 @@ petta_shape_maximal(Entries, Maximal) :-
 %mode-indexed determinism declarations discriminate on modes. A narrower
 %pattern outranks any adornment difference, so requirements are compared
 %only between renaming-equal patterns, where paths line up positionally.
-petta_shape_stricter(entry(QP, _, _, _), entry(PP, _, _, _)) :-
+metta_shape_stricter(entry(QP, _, _, _), entry(PP, _, _, _)) :-
     \+ QP =@= PP,
     subsumes_term(PP, QP),
     \+ subsumes_term(QP, PP), !.
-petta_shape_stricter(entry(QP, QPaths, _, _), entry(PP, PPaths, _, _)) :-
+metta_shape_stricter(entry(QP, QPaths, _, _), entry(PP, PPaths, _, _)) :-
     QP =@= PP,
     sort(QPaths, QSorted),
     sort(PPaths, PSorted),
@@ -904,14 +904,14 @@ petta_shape_stricter(entry(QP, QPaths, _, _), entry(PP, PPaths, _, _)) :-
 
 %The declared error mode for one context and query shape; silence is
 %abort, which is exactly today's behaviour.
-petta_on_error_mode(Ctx, Query, Mode) :-
-    petta_ctx_declared(Ctx),
-    petta_shape_route('on-error', Ctx, Query, _, [Mode]).
+metta_on_error_mode(Ctx, Query, Mode) :-
+    metta_ctx_declared(Ctx),
+    metta_shape_route('on-error', Ctx, Query, _, [Mode]).
 
 %The declared cross-context merge strategy for one query shape; silence
 %is depth, which is exactly today's behaviour.
-petta_merge_route(Query, Policy) :-
-    petta_shape_route(merge, global, Query, _, [Policy]).
+metta_merge_route(Query, Policy) :-
+    metta_shape_route(merge, global, Query, _, [Policy]).
 
 %Transport failure is never any declared mode's to keep or empty: the
 %backend is ABSENT rather than wrong, retrying is the caller's decision,
@@ -921,14 +921,14 @@ petta_merge_route(Query, Policy) :-
 %What counts as a transport failure is the host's to say: the term shape
 %of a connection dying under a provider is host machinery, so the bridge
 %declares it and the engine only forwards the question.
-petta_transport_failure(Error) :- metta_host_transport_failure(Error).
+metta_transport_failure(Error) :- metta_host_transport_failure(Error).
 
 %A kept error as the answer it becomes: MeTTa's own (Error <culprit>
 %<reason>) shape, the culprit being the query pattern as asked, since the
 %failed attempt's bindings were undone with the throw. An error a HOST
 %threw renders through the bridge's own reason hook, which knows its
 %exception shapes; everything else renders through the message system.
-petta_error_answer(Pattern, Error, ['Error', Pattern, Reason]) :-
+metta_error_answer(Pattern, Error, ['Error', Pattern, Reason]) :-
     (   metta_host_error_reason(Error, Reason0)
     ->  Reason = Reason0
     ;   message_to_string(Error, Reason)
@@ -942,30 +942,30 @@ petta_error_answer(Pattern, Error, ['Error', Pattern, Reason]) :-
 %route throws its own conflict if the pair is a disagreeing tie. An overlap
 %one entry is strictly more specific over is not a conflict, which is why
 %routing decides rather than a bare overlap test.
-petta_handles_coherent(Ctx) :-
+metta_handles_coherent(Ctx) :-
     findall(Pattern-Requirements,
-            ( (   petta_contract_fact([handles, Ctx, Entry, _, _])
-              ;   petta_contract_fact([handles, Ctx, Entry, _])
+            ( (   metta_contract_fact([handles, Ctx, Entry, _, _])
+              ;   metta_contract_fact([handles, Ctx, Entry, _])
               ),
-              petta_adorn_strip(Entry, Pattern, Requirements) ),
+              metta_adorn_strip(Entry, Pattern, Requirements) ),
             Entries),
     forall(( append(_, [First|Rest], Entries), member(Second, Rest) ),
-           petta_handles_pair_coherent(Ctx, First, Second)).
+           metta_handles_pair_coherent(Ctx, First, Second)).
 
-petta_handles_pair_coherent(Ctx, P1-R1, P2-R2) :-
+metta_handles_pair_coherent(Ctx, P1-R1, P2-R2) :-
     \+ \+ (   P1 = P2
           ->  term_variables(R1-R2, Unbound),
-              maplist(=('$petta_bound'), Unbound),
-              petta_handles_route(Ctx, P1, _, _)
+              maplist(=('$metta_bound'), Unbound),
+              metta_handles_route(Ctx, P1, _, _)
           ;   true
           ).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_contract_conflict(Ctx, E1, E2, Witness)) -->
+prolog:error_message(metta_contract_conflict(Ctx, E1, E2, Witness)) -->
     [ 'two (handles ~w ...) entries match ~q and disagree: ~q and ~q. \c
        Make one more specific, or declare the overlap itself with its \c
        own entry'-[Ctx, Witness, E1, E2] ].
-prolog:error_message(petta_refused_shape(Ctx, Pattern, Entry)) -->
+prolog:error_message(metta_refused_shape(Ctx, Pattern, Entry)) -->
     [ '~w declares (handles ... ~q Refuse) and this query is that shape: \c
        ~q. The context cannot answer it, and the declaration makes that \c
        loud here rather than a silent partial answer later'-[Ctx, Entry,
@@ -990,12 +990,12 @@ pure_engine_helper(throw_metta_type_error).
 pure_engine_helper(rethrow_metta_operation_error).
 pure_engine_helper(non_list).
 pure_engine_helper(list_shaped).
-%The two halves of the charge petta_fuel_step_goal/3 writes into every
-%compiled recursive clause. They stand where petta_fuel_step/2 stood before
+%The two halves of the charge metta_fuel_step_goal/3 writes into every
+%compiled recursive clause. They stand where metta_fuel_step/2 stood before
 %the charge was inlined, and classifying them the same way is what keeps a
 %tabled recursive body cacheable across that change.
-pure_engine_helper(petta_evaluation_fuel).
-pure_engine_helper(petta_fuel_exhausted).
+pure_engine_helper(metta_evaluation_fuel).
+pure_engine_helper(metta_fuel_exhausted).
 pure_engine_helper(type_answers).
 pure_engine_helper(satisfies_metatype).
 %These two only choose the language-level residual, failure or Error value.
@@ -1003,8 +1003,8 @@ pure_engine_helper(satisfies_metatype).
 %neither hides a lasting effect from a cached caller.
 pure_engine_helper(dispatch_mismatch_result).
 pure_engine_helper(dispatch_no_match_result).
-pure_engine_helper(petta_application_result).
-pure_engine_helper(petta_boundary_result).
+pure_engine_helper(metta_application_result).
+pure_engine_helper(metta_boundary_result).
 
 pure_arithmetic('+').  pure_arithmetic('-').  pure_arithmetic('*').
 pure_arithmetic('/').  pure_arithmetic('%').  pure_arithmetic(min).
@@ -1056,4 +1056,4 @@ pure_inspection(has_type).       pure_inspection(metatype_of).
 'is-var'(A,R) :- var(A) -> R=true ; R=false.
 'is-ground'(A,R) :- ground(A) -> R=true ; R=false.
 'is-expr'(A,R) :- list_shaped(A) -> R=true ; R=false.
-'is-space'(A,R) :- petta_space_name(A) -> R=true ; R=false.
+'is-space'(A,R) :- metta_space_name(A) -> R=true ; R=false.

@@ -329,7 +329,7 @@ $1
                       --stack_limit=8g -q -s engine/main.pl -- "$1" backends \
                       silent </dev/null 2>&1) || true
             case "$out" in
-                *petta_specialization_disagrees*)
+                *metta_specialization_disagrees*)
                     printf "%s: %s\n" "$1" "$out" | head -3 ;;
             esac' _ {} > "$found" 2>&1
     if [ -s "$found" ]; then cat "$found"; rm -f "$found"; return 1; fi

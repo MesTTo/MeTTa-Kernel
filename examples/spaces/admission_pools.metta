@@ -52,12 +52,12 @@
 !(add-atom &metta-pool (ticket a))
 !(test (match &metta-pool (ticket $x) $x) a)
 !(test (repr (catch (add-atom &metta-pool (stowaway 1))))
-       "(Error (petta_add_refused &metta-pool (stowaway 1) (does-not-carry Ticket)) none)")
+       "(Error (metta_add_refused &metta-pool (stowaway 1) (does-not-carry Ticket)) none)")
 
 ;The bound holds: the second ticket fills the pool and the third is refused.
 !(add-atom &metta-pool (ticket b))
 !(test (repr (catch (add-atom &metta-pool (ticket a))))
-       "(Error (petta_add_refused &metta-pool (ticket a) (pool-at-capacity 2)) none)")
+       "(Error (metta_add_refused &metta-pool (ticket a) (pool-at-capacity 2)) none)")
 
 ;The differential, across the judge's three verdict classes: the shipped
 ;builtin and the MeTTa chain answer the same verdict for the same pool and

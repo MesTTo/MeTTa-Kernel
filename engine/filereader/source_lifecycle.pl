@@ -112,15 +112,15 @@ metta_host_fast_expect_header([Expected|Rest], In) :-
     get_byte(In, Actual),
     (   Actual =:= Expected
     ->  metta_host_fast_expect_header(Rest, In)
-    ;   throw(error(petta_fast_header_mismatch(Expected, Actual), none))
+    ;   throw(error(metta_fast_header_mismatch(Expected, Actual), none))
     ).
 
 metta_host_fast_read(In, File, Atoms) :-
     catch(fast_read(In, Read), Caught,
-          throw(error(petta_fast_read_failed(File, Caught), none))),
+          throw(error(metta_fast_read_failed(File, Caught), none))),
     (   is_list(Read)
     ->  Atoms = Read
-    ;   throw(error(petta_fast_payload_not_atom_list(File), none))
+    ;   throw(error(metta_fast_payload_not_atom_list(File), none))
     ).
 
 %After the version prefix: one tab, sixty-four hex digits, one newline.
@@ -131,7 +131,7 @@ metta_host_fast_expect_hash(In, File, Hash) :-
         forall(string_code(_, Hash, C),
                ( C >= 0'0, C =< 0'9 ; C >= 0'a, C =< 0'f ))
     ->  true
-    ;   throw(error(petta_fast_integrity_header(File), none))
+    ;   throw(error(metta_fast_integrity_header(File), none))
     ).
 
 %A cache is a file this door loaded, so it is replaced on a second load
@@ -167,7 +167,7 @@ metta_host_fast_add_atoms(FA, Space) :-
     atom_string(ActualHash, ActualHashText),
     (   ActualHashText == ExpectedHash
     ->  true
-    ;   throw(error(petta_fast_integrity_mismatch(FA), none))
+    ;   throw(error(metta_fast_integrity_mismatch(FA), none))
     ),
     %Unconditional, because the only caller wraps this in a load context. A
     %fast load that reached here without one would be recorded under
@@ -175,7 +175,7 @@ metta_host_fast_add_atoms(FA, Space) :-
     %right way to find that out. Ownership pins are skipped so the digest
     %keys the load that is actually running, never a pinned owner.
     active_source_load(LoadId),
-    LoadId \= '$petta_owner_pin'(_),
+    LoadId \= '$metta_owner_pin'(_),
     assertz(source_load_digest(LoadId, FA, ActualHash)),
     setup_call_cleanup(
         metta_host_fast_open(FA, read, In),
@@ -235,7 +235,7 @@ metta_host_digest_line(Atom, Line) :-
 read_metta_source(Filename, S) :-
     read_source_text(Filename, S),
     (   active_source_load(LoadId),
-        LoadId \= '$petta_owner_pin'(_)
+        LoadId \= '$metta_owner_pin'(_)
     ->  metta_text_digest(S, Digest),
         assertz(source_load_digest(LoadId, Filename, Digest))
     ;   true
@@ -317,7 +317,7 @@ load_imported_metta_source_groups_impl(Filename, Groups, Space) :-
 %
 %It is a wrapper rather than a fixed body because the Python library's load()
 %runs the same file through a reader of its own, to keep one answer group per
-%directive (petta_py_load/3 in bindings/python/metta/shim.pl), and a load that is not
+%directive (metta_py_load/3 in bindings/python/metta/shim.pl), and a load that is not
 %recorded here cannot be replaced later. Both doors, one lifecycle
 %[tested: test_both_doors_replace_a_files_definitions].
 %
@@ -340,7 +340,7 @@ with_source_load(CanonPath, Space, Goal) :-
           ( Catcher == exit -> true ; rollback_source_load(LoadId) ),
           (   current_transaction(_)
           ->  true
-          ;   petta_repair_emptied_shadows
+          ;   metta_repair_emptied_shadows
           ) )).
 
 publish_source_load(CanonPath, Space, LoadId) :-
@@ -440,12 +440,12 @@ replacing_previous_load(CanonPath, Space, LoadInto, Goal) :-
         ;   call_cleanup(
                 transaction(replace_source_load(CanonPath, Space, Replaced,
                                                 LoadInto, Goal)),
-                petta_repair_emptied_shadows),
+                metta_repair_emptied_shadows),
             %After the commit, because the repair drops predicate entries
             %and abolish/1 is not clause-level: remove_equation/6 records
             %what the withdrawal emptied, and only a function the load
             %did not refill is still a shadow to drop.
-            petta_repair_emptied_shadows
+            metta_repair_emptied_shadows
         )
     ;   call(Goal)
     ).
@@ -481,7 +481,7 @@ replace_source_load(CanonPath, Space, Replaced, LoadInto, Goal) :-
     sum_list(Counts, Withdrawn),
     retractall(compiled_metta_source(CanonPath)),
     print_message(informational,
-                  petta_source_replaced(CanonPath, Replaced, Withdrawn)),
+                  metta_source_replaced(CanonPath, Replaced, Withdrawn)),
     call(Goal),
     forall(( member(S, Replaced), S \== Space ), call(LoadInto, S)).
 
@@ -543,7 +543,7 @@ record_recompiled_source_assertion(Owners, Ref) :-
 %column either way.
 record_source_assertion(Ref) :-
     active_source_load(Load0), !,
-    (   Load0 = '$petta_owner_pin'(Load)
+    (   Load0 = '$metta_owner_pin'(Load)
     ->  (   Load == none
         ->  true
         ;   assertz(source_load_assertion(Load, artifact, Ref))
@@ -554,7 +554,7 @@ record_source_assertion(_).
 
 record_source_atom_assertion(Ref) :-
     active_source_load(Load0), !,
-    (   Load0 = '$petta_owner_pin'(Load)
+    (   Load0 = '$metta_owner_pin'(Load)
     ->  (   Load == none
         ->  true
         ;   assertz(source_load_assertion(Load, stored, Ref))
@@ -570,7 +570,7 @@ record_source_atom_assertion(_).
 %answers writes exactly the row record_source_atom_assertion(R) writes.
 journal_load_now(Load) :-
     (   active_source_load(Load0)
-    ->  ( Load0 = '$petta_owner_pin'(L) -> Load = L ; Load = Load0 )
+    ->  ( Load0 = '$metta_owner_pin'(L) -> Load = L ; Load = Load0 )
     ;   Load = none
     ).
 
@@ -584,7 +584,7 @@ journal_data_ref(Load, Ref) :-
 %that can be inside a DIFFERENT load, on another thread, or nowhere at all.
 current_owning_source_load(Load) :-
     (   active_source_load(Load0),
-        Load0 \= '$petta_owner_pin'(_)
+        Load0 \= '$metta_owner_pin'(_)
     ->  Load = Load0
     ;   Load = none
     ).
@@ -604,7 +604,7 @@ current_owning_source_load(Load) :-
 :- meta_predicate with_owning_source_load(+, 0).
 with_owning_source_load(Load, Goal) :-
     setup_call_cleanup(
-        asserta(active_source_load('$petta_owner_pin'(Load)), Ref),
+        asserta(active_source_load('$metta_owner_pin'(Load)), Ref),
         call(Goal),
         erase(Ref)).
 
@@ -642,7 +642,7 @@ support_graph:support_assertion_records(Refs) :-
     ->  forall(member(LoadId, Owners),
                assertz(source_load_support_assertions(LoadId, Refs)))
     ;   active_source_load(Load0)
-    ->  (   Load0 = '$petta_owner_pin'(Load)
+    ->  (   Load0 = '$metta_owner_pin'(Load)
         ->  (   Load == none
             ->  true
             ;   assertz(source_load_support_assertions(Load, Refs))

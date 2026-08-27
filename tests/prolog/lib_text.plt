@@ -180,21 +180,21 @@ test_path(Name, Path) :-
     atomic_list_concat([Dir, '/', Name], Path).
 
 test(write_then_read_round_trips) :-
-    test_path('petta_text_a.txt', Path),
+    test_path('metta_text_a.txt', Path),
     'write-file!'(Path, "one\ntwo\n", true),
     'read-file!'(Path, Content),
     Content == "one\ntwo\n",
     'delete-file!'(Path, true).
 
 test(file_lines_drops_the_trailing_empty_line) :-
-    test_path('petta_text_b.txt', Path),
+    test_path('metta_text_b.txt', Path),
     'write-file!'(Path, "one\ntwo\nthree\n", true),
     'file-lines!'(Path, Lines),
     Lines == ["one", "two", "three"],
     'delete-file!'(Path, true).
 
 test(append_adds_without_truncating) :-
-    test_path('petta_text_c.txt', Path),
+    test_path('metta_text_c.txt', Path),
     'write-file!'(Path, "one\n", true),
     'append-file!'(Path, "two\n", true),
     'file-lines!'(Path, Lines),
@@ -208,7 +208,7 @@ test(reading_a_missing_file_raises) :-
           error(existence_error(source_sink, _), _), true).
 
 test(the_handle_surface_reads_and_seeks) :-
-    test_path('petta_text_d.txt', Path),
+    test_path('metta_text_d.txt', Path),
     'write-file!'(Path, "abcdefgh", true),
     'file-open!'(Path, "r", Handle),
     'file-get-size!'(Handle, Size), Size == 8,
@@ -219,7 +219,7 @@ test(the_handle_surface_reads_and_seeks) :-
     'delete-file!'(Path, true).
 
 test(open_for_write_creates_the_file) :-
-    test_path('petta_text_e.txt', Path),
+    test_path('metta_text_e.txt', Path),
     'delete-file!'(Path, true),
     'file-open!'(Path, "wc", Handle),
     'file-write!'(Handle, "written", true),
@@ -229,25 +229,25 @@ test(open_for_write_creates_the_file) :-
 
 % HE's own rule: c demands w, so rc is refused rather than quietly reading.
 test(create_without_write_is_refused) :-
-    test_path('petta_text_f.txt', Path),
+    test_path('metta_text_f.txt', Path),
     catch('file-open!'(Path, "rc", _), error(domain_error(_, _), _), true).
 
 test(an_unknown_option_letter_is_refused) :-
-    test_path('petta_text_g.txt', Path),
+    test_path('metta_text_g.txt', Path),
     catch('file-open!'(Path, "z", _), error(domain_error(_, _), _), true).
 
 test(using_a_closed_handle_raises) :-
-    test_path('petta_text_h.txt', Path),
+    test_path('metta_text_h.txt', Path),
     'write-file!'(Path, "x", true),
     'file-open!'(Path, "r", Handle),
     'file-close!'(Handle, true),
     catch('file-read-to-string!'(Handle, _),
-          error(existence_error(petta_file_handle, _), _), true),
+          error(existence_error(metta_file_handle, _), _), true),
     'delete-file!'(Path, true).
 
 % A cleanup path should not have to check whether it already ran.
 test(closing_twice_is_not_an_error) :-
-    test_path('petta_text_i.txt', Path),
+    test_path('metta_text_i.txt', Path),
     'write-file!'(Path, "x", true),
     'file-open!'(Path, "r", Handle),
     'file-close!'(Handle, true),
@@ -255,11 +255,11 @@ test(closing_twice_is_not_an_error) :-
     'delete-file!'(Path, true).
 
 test(list_dir_finds_a_file_it_just_wrote) :-
-    test_path('petta_text_j.txt', Path),
+    test_path('metta_text_j.txt', Path),
     'write-file!'(Path, "x", true),
     tmp_test_dir(Dir),
     'list-dir!'(Dir, Entries),
-    memberchk("petta_text_j.txt", Entries),
+    memberchk("metta_text_j.txt", Entries),
     'delete-file!'(Path, true).
 
 test(listing_a_missing_directory_raises) :-
@@ -268,7 +268,7 @@ test(listing_a_missing_directory_raises) :-
 
 % The mettafied reading: a file becomes queryable data rather than one string.
 test(file_space_makes_the_lines_matchable) :-
-    test_path('petta_text_k.txt', Path),
+    test_path('metta_text_k.txt', Path),
     'write-file!'(Path, "alpha\nbeta\ngamma\n", true),
     'file-space!'(Path, Space),
     findall(N-T, 'get-atoms'(Space, [line, N, T]), Lines),
@@ -279,7 +279,7 @@ test(file_space_makes_the_lines_matchable) :-
 % The line number is kept because a space is unordered; without it the space
 % would be strictly less useful than the string it replaced.
 test(file_space_can_be_queried_by_line_number) :-
-    test_path('petta_text_l.txt', Path),
+    test_path('metta_text_l.txt', Path),
     'write-file!'(Path, "alpha\nbeta\n", true),
     'file-space!'(Path, Space),
     findall(T, 'get-atoms'(Space, [line, 2, T]), Found),

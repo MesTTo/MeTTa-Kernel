@@ -279,7 +279,7 @@ test(compound_partial_key_has_stable_anonymous_variables,
               true)),
     %The fixture's (+ $y $z) leaves the addend and the result both unbound,
     %which the arithmetic refusal names: two unknowns, no finite domain.
-    Error = error(petta_unsolved_arithmetic('+', unbounded_domain), _),
+    Error = error(metta_unsolved_arithmetic('+', unbounded_domain), _),
     %The subject here is the STABLE `_` in the variant key, not the
     %lambda's index: boot-time compiles (the engine prelude's own foldl
     %lambda among them) advance the shared sequence before this file
@@ -308,7 +308,7 @@ test(specialization_names_are_writable_and_stable) :-
     parser:metta_symbol_writable(First),
     specializer:specialization_name(
         'bad name', [partial('quoted key',[1])], Hostile),
-    sub_atom(Hostile, 0, _, _, 'petta_Spec_h'),
+    sub_atom(Hostile, 0, _, _, 'metta_Spec_h'),
     parser:metta_symbol_writable(Hostile),
     First \== Hostile,
     specializer:specialization_name(
@@ -501,7 +501,7 @@ test(a_recursive_specialization_survives_its_compile,
 % specialization's own atom found one, called erase/1 on it, and FAILED: every
 % caller of the removal failed with it, and dropping a Python space that had
 % specialized a higher-order function raised
-% "the engine refused petta_py_clear". And it removed the source atoms from
+% "the engine refused metta_py_clear". And it removed the source atoms from
 % '&self' by name while the specializer writes them into the space that
 % triggered it, so a named space kept the atoms of a specialization whose
 % clauses were gone.
@@ -574,7 +574,7 @@ test(the_verifier_runs_a_clone_in_its_own_module,
     SpecGoal =.. [SpecName, 'plunit-verify-inc', 1, Out],
     % Qualified the way a compiled clause in that module qualifies it, which
     % is what the meta_predicate declaration on the verifier produces.
-    specializer:petta_verified_specialization(SpecName, Module:SpecGoal),
+    specializer:metta_verified_specialization(SpecName, Module:SpecGoal),
     assertion(Out == 2),
     assertion(specializer:ho_specialization_agrees(SpecName)).
 

@@ -46,7 +46,7 @@ test(assertEqual_passes) :-
     eval_string("(assertEqual (+ 1 1) 2)", [true]).
 
 test(assertEqual_failure_raises,
-     [throws(error(petta_assertion_failed(_), _))]) :-
+     [throws(error(metta_assertion_failed(_), _))]) :-
     eval_string("(assertEqual 1 2)", _).
 
 test(assertAlphaEqual_renames_apart) :-
@@ -69,7 +69,7 @@ test(expected_set_is_not_evaluated) :-
     %((+ 1 1)) must FAIL the comparison instead.
     catch(( eval_string("(assertEqualToResult (+ 1 1) ((+ 1 1)))", _),
             Verdict = passed ),
-          error(petta_assertion_failed(_), _),
+          error(metta_assertion_failed(_), _),
           Verdict = failed),
     Verdict == failed.
 
@@ -83,7 +83,7 @@ test(assertIncludes_subset_passes) :-
     eval_string("(assertIncludes (superpose (1 2 3)) (2 1))", [true]).
 
 test(assertIncludes_missing_expectation_raises,
-     [throws(error(petta_assertion_failed(_), _))]) :-
+     [throws(error(metta_assertion_failed(_), _))]) :-
     eval_string("(assertIncludes (superpose (1 2)) (7))", _).
 
 test(msg_variants_delegate) :-

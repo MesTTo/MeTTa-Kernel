@@ -8,17 +8,17 @@
 :- multifile prolog:error_message//1.
 :- multifile prolog:message//1.
 
-prolog:error_message(petta_test_failed(Actual, Expected)) -->
+prolog:error_message(metta_test_failed(Actual, Expected)) -->
     [ 'MeTTa test failed: ~p does not match ~p'-[Actual, Expected] ].
 %The form is a MeTTa term, so it is rendered as MeTTa text. ~p on the Prolog
 %list prints `[==,[collapse,[eval,[+,1,1]]],[collapse,[eval,3]]]`, which is the
 %engine's storage and not what the program wrote. Nothing rendered a list here
 %until assert/2 began reporting its operand as WRITTEN rather than the True or
 %False it used to receive.
-prolog:error_message(petta_assertion_failed(Goal)) -->
+prolog:error_message(metta_assertion_failed(Goal)) -->
     { sdisplay(Goal, Written) },
     [ 'MeTTa assertion failed: ~w'-[Written] ].
-prolog:error_message(petta_test_no_answer) -->
+prolog:error_message(metta_test_no_answer) -->
     [ 'MeTTa test expression produced no answer'-[] ].
 
 %The three formals above are the program saying something FALSE, which is a
@@ -36,16 +36,16 @@ prolog:error_message(petta_test_no_answer) -->
 %Actual and Expected are handed out as WRITTEN MeTTa terms; a caller that
 %has to cross them to another language converts them itself, because the
 %conversion belongs to that boundary and not to the engine.
-petta_assertion_failure(error(petta_test_failed(Actual, Expected), _),
+metta_assertion_failure(error(metta_test_failed(Actual, Expected), _),
                         test, Actual, Expected).
-petta_assertion_failure(error(petta_test_no_answer, _), test, _, _).
-petta_assertion_failure(error(petta_assertion_failed(Goal), _), assert, Goal, _).
+metta_assertion_failure(error(metta_test_no_answer, _), test, _, _).
+metta_assertion_failure(error(metta_assertion_failed(Goal), _), assert, Goal, _).
 
-prolog:error_message(petta_not_a_prolog_module(File)) -->
+prolog:error_message(metta_not_a_prolog_module(File)) -->
     [ '~w is not a Prolog module, so its exports cannot be imported under \c
        other names. Add :- module(name, [pred/arity, ...]) at its top, or \c
        register it without renaming.'-[File] ].
-prolog:error_message(petta_not_exported(Module, Name, Exports)) -->
+prolog:error_message(metta_not_exported(Module, Name, Exports)) -->
     [ '~w does not export ~w, so it cannot be imported under another name. \c
        It exports ~q.'-[Module, Name, Exports] ].
 %The two names a Prolog registration cannot take, thrown by
@@ -61,26 +61,26 @@ prolog:error_message(permission_error(register, metta_special_form, Name)) -->
        registration under that name could never be reached. Pick another \c
        name, or reach the predicate with (call (~w ...)), which needs no \c
        registration.'-[Name, Name] ].
-prolog:error_message(petta_extension_api_mismatch(Name, Wanted, Ours)) -->
+prolog:error_message(metta_extension_api_mismatch(Name, Wanted, Ours)) -->
     [ '~w was written against extension seam ~w and this engine offers ~w. \c
        A major version differs, or the extension needs a hook this engine \c
        does not have yet.'-[Name, Wanted, Ours] ].
 %Thrown by refuse_untypable_declaration/3 above. The type is written back
 %through swrite/2 so the author sees the MeTTa they wrote rather than its
 %Prolog list.
-prolog:error_message(petta_untypable_declaration(Name, Type)) -->
+prolog:error_message(metta_untypable_declaration(Name, Type)) -->
     { swrite(Type, Written) },
     [ '(: ~w ~w) is not an arrow, so it types the symbol ~w and not a call \c
        to it: every (~w ...) compiles with no check at all, and a wrong \c
        argument surfaces wherever it finally breaks instead of here. Write \c
        (: ~w (-> ...)), or (: ~w %Undefined%) to say ~w is deliberately \c
        untyped.'-[Name, Written, Name, Name, Name, Name, Name] ].
-prolog:error_message(petta_export_form(Text)) -->
+prolog:error_message(metta_export_form(Text)) -->
     [ 'this is not an export declaration: ~w. An export is (: name (-> ...)) \c
        or (export name arity).'-[Text] ].
-prolog:error_message(petta_load_failed(Summary)) -->
+prolog:error_message(metta_load_failed(Summary)) -->
     [ 'the Prolog source did not load cleanly: ~w'-[Summary] ].
-prolog:error_message(petta_name_owned_by_source(Name, Owner)) -->
+prolog:error_message(metta_name_owned_by_source(Name, Owner)) -->
     [ '~w is already registered from ~w. Two libraries defining one name \c
        destroy each other\'s predicate, because a consulted file REPLACES a \c
        static one of the same name and SWI only warns. Rename yours, or \c
@@ -201,11 +201,11 @@ test(A,B,true) :- (A =@= B -> E = '✅' ; E = '❌'),
                   sdisplay(B, RB),
                   format("is ~w, should ~w. ~w ~n", [RA, RB, E]),
                   ( A =@= B -> true
-                  ; throw(error(petta_test_failed(A, B),
+                  ; throw(error(metta_test_failed(A, B),
                                 context(test/3, 'MeTTa test values differ'))) ).
 
 test_answer_value([], _) :-
-    throw(error(petta_test_no_answer,
+    throw(error(metta_test_no_answer,
                 context(test/3, 'expected a value but expression produced no answer'))).
 test_answer_value([Actual], Actual) :- !.
 test_answer_value(Results, Results).
@@ -237,12 +237,12 @@ test_answer_value(Results, Results).
 assert(Form, true) :-
     current_metta_module(Module),
     eval_metta_in_module(Module, Form, Produced),
-    petta_boundary_result(Form, Produced, Value),
+    metta_boundary_result(Form, Produced, Value),
     (   Value == true
     ->  true
     ;   sdisplay(Form, Written),
         format("Assertion failed: ~w~n", [Written]),
-        throw(error(petta_assertion_failed(Form),
+        throw(error(metta_assertion_failed(Form),
                     context(assert/2, 'MeTTa assertion failed')))
     ).
 
@@ -271,10 +271,10 @@ assert(Form, true) :-
 %Both clauses guard themselves rather than leaning on a cut, for the reason
 %match/4's last clause records: a proof walk enumerates clauses and calls each
 %body, where an earlier cut prunes nothing.
-'get-type-space'(Space, X, T) :- \+ petta_space_name(Space), !,
+'get-type-space'(Space, X, T) :- \+ metta_space_name(Space), !,
                                  space_argument_error('get-type-space',
                                                       [Space, X], T).
-'get-type-space'(Space, X, T) :- petta_space_name(Space),
+'get-type-space'(Space, X, T) :- metta_space_name(Space),
                                  reported_scoped_type_answers(Space, X, Types),
                                  member(T, Types).
 
@@ -518,7 +518,7 @@ undocumented(Name) :- current_metta_space(Space),
 %Python surface creates ("Unknown procedure" for a function the space
 %plainly defines). meta_predicate makes the call site wrap the goal
 %argument as Module:Goal, the manual's own maplist example.
-%petta_transaction/1 takes its declaration beside its clause in
+%metta_transaction/1 takes its declaration beside its clause in
 %space_hooks.pl; metta_take/2 and metta_top/3 do the same in spaces.pl,
 %because a meta_predicate directive above a predicate defined
 %in another file warns that it has no clauses. Baking the
@@ -547,7 +547,7 @@ metta_inferences(Limit, Goal, Value) :-
     call_with_inference_limit(findall(Value, Goal, Values), Limit, Result),
     (   Result == inference_limit_exceeded
     ->  throw(error(metta_control_signal(inference_limit, Limit),
-                    context(petta, inference_limit)))
+                    context(metta, inference_limit)))
     ;   true
     ),
     member(Value, Values).

@@ -508,7 +508,7 @@ take_name(Rest, Sofar, Sofar, Rest).
 % The Python half is the same string-literal scan the janus root uses, pointed
 % at bindings/python/tests, because a Python test names a Prolog goal as text exactly as
 % the library does: bindings/python/tests/test_properties.py:70 is
-% `rt.once("petta_py_swrite(W, Str)")`, which no Prolog reader will ever see.
+% `rt.once("metta_py_swrite(W, Str)")`, which no Prolog reader will ever see.
 named_by_a_test(Name/Arity) :-
     ( test_references_scanned -> true ; scan_test_references ),
     ( test_call(Name/Arity) -> true ; test_text_name(Name) ).
@@ -691,50 +691,50 @@ relative_site(File, Line, Site) :-
 % One planted predicate per door, and three that must be REPORTED, because a
 % probe in which everything is expected to survive cannot tell a working
 % analysis from one that marks the whole tree reachable.
-planted(defined,     'petta_reachability_planted_dead'/1,          reported).
-planted(dispatch,    'petta_reachability_planted_live'/1,          reachable).
-planted(call_edge,   'petta_reachability_planted_called'/0,        reachable).
-planted(seam,        'petta_reachability_planted_hook'/1,          reachable).
-planted(construct,   'petta_reachability_planted_built'/2,         reachable).
-planted(directive,   'petta_reachability_planted_directed'/1,      reachable).
-planted(janus,       'petta_reachability_planted_from_python'/1,   reachable).
+planted(defined,     'metta_reachability_planted_dead'/1,          reported).
+planted(dispatch,    'metta_reachability_planted_live'/1,          reachable).
+planted(call_edge,   'metta_reachability_planted_called'/0,        reachable).
+planted(seam,        'metta_reachability_planted_hook'/1,          reachable).
+planted(construct,   'metta_reachability_planted_built'/2,         reachable).
+planted(directive,   'metta_reachability_planted_directed'/1,      reachable).
+planted(janus,       'metta_reachability_planted_from_python'/1,   reachable).
 % The Python scan reads string LITERALS, so a name that appears only in a
 % comment must not rescue anything. Without this the janus door passes just as
 % well when the scanner degenerates to reading every identifier, which is the
 % reading that rescued minimal_metta_lib.pl's function/2 on a Python local.
-planted(python_text, 'petta_reachability_planted_commented'/1,     reported).
+planted(python_text, 'metta_reachability_planted_commented'/1,     reported).
 % A goal in goal position is a call and not a construction, so a lookalike at a
 % HIGHER arity must still be reported. This is the '=@=' shape: '=@='/2 is
 % called inside drop_fun_meta/3's once/1 at engine/translator.pl:71-73 and the
 % tree's own '=@='/3 is not, and reading that argument as data hides it.
-planted(goal_position, 'petta_reachability_planted_goal'/3,        reported).
+planted(goal_position, 'metta_reachability_planted_goal'/3,        reported).
 
 fixture_source("
-:- multifile 'petta_reachability_planted_hook'/1.
+:- multifile 'metta_reachability_planted_hook'/1.
 
-petta_reachability_planted_dead(_).
-petta_reachability_planted_commented(_).
-petta_reachability_planted_goal(_, _, _).
+metta_reachability_planted_dead(_).
+metta_reachability_planted_commented(_).
+metta_reachability_planted_goal(_, _, _).
 
-petta_reachability_planted_live(X) :- petta_reachability_planted_called, X = 1.
-petta_reachability_planted_called.
+metta_reachability_planted_live(X) :- metta_reachability_planted_called, X = 1.
+metta_reachability_planted_called.
 
-petta_reachability_planted_hook(_) :-
-    petta_reachability_planted_builder(_),
-    once(petta_reachability_planted_goal(1, 2)).
-petta_reachability_planted_builder(Goal) :-
-    Goal = petta_reachability_planted_built(1, 2).
-petta_reachability_planted_built(_, _).
-petta_reachability_planted_goal(_, _).
+metta_reachability_planted_hook(_) :-
+    metta_reachability_planted_builder(_),
+    once(metta_reachability_planted_goal(1, 2)).
+metta_reachability_planted_builder(Goal) :-
+    Goal = metta_reachability_planted_built(1, 2).
+metta_reachability_planted_built(_, _).
+metta_reachability_planted_goal(_, _).
 
-petta_reachability_planted_directed(_).
-:- ignore(petta_reachability_planted_directed(1)).
+metta_reachability_planted_directed(_).
+:- ignore(metta_reachability_planted_directed(1)).
 
-petta_reachability_planted_from_python(_).
+metta_reachability_planted_from_python(_).
 ").
 
-fixture_python("# petta_reachability_planted_commented is named in a COMMENT only
-GOAL = \"petta_reachability_planted_from_python(X)\"
+fixture_python("# metta_reachability_planted_commented is named in a COMMENT only
+GOAL = \"metta_reachability_planted_from_python(X)\"
 ").
 
 reachability_selftest :-
@@ -764,27 +764,27 @@ plant_fixture(Directory) :-
     retractall(python_entry_name_(_)),
     fixture_file(Directory, 'planted.pl', Source),
     consult(Source),
-    % petta_reachability_planted_live/1 stands for a name MeTTa can call, and
+    % metta_reachability_planted_live/1 stands for a name MeTTa can call, and
     % arity/2 is how the engine says so.
-    assertz(arity('petta_reachability_planted_live', 1)).
+    assertz(arity('metta_reachability_planted_live', 1)).
 
 remove_fixture(Directory) :-
     retractall(analysed_extra_directory(_)),
-    retractall(arity('petta_reachability_planted_live', 1)),
+    retractall(arity('metta_reachability_planted_live', 1)),
     retractall(python_entry_scanned),
     retractall(python_entry_name_(_)),
     forall(member(Name/Arity,
-                  ['petta_reachability_planted_dead'/1,
-                   'petta_reachability_planted_commented'/1,
-                   'petta_reachability_planted_live'/1,
-                   'petta_reachability_planted_called'/0,
-                   'petta_reachability_planted_builder'/1,
-                   'petta_reachability_planted_built'/2,
-                   'petta_reachability_planted_hook'/1,
-                   'petta_reachability_planted_goal'/2,
-                   'petta_reachability_planted_goal'/3,
-                   'petta_reachability_planted_directed'/1,
-                   'petta_reachability_planted_from_python'/1]),
+                  ['metta_reachability_planted_dead'/1,
+                   'metta_reachability_planted_commented'/1,
+                   'metta_reachability_planted_live'/1,
+                   'metta_reachability_planted_called'/0,
+                   'metta_reachability_planted_builder'/1,
+                   'metta_reachability_planted_built'/2,
+                   'metta_reachability_planted_hook'/1,
+                   'metta_reachability_planted_goal'/2,
+                   'metta_reachability_planted_goal'/3,
+                   'metta_reachability_planted_directed'/1,
+                   'metta_reachability_planted_from_python'/1]),
            ( functor(Head, Name, Arity),
              ( predicate_property(user:Head, dynamic) -> retractall(user:Head)
              ; true ),

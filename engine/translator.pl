@@ -217,7 +217,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 % Owns resources:
-%   - '$petta_translation_cache' serializes first publication and dependency
+%   - '$metta_translation_cache' serializes first publication and dependency
 %     eviction; translated_form_cache/6 and translated_form_mention/2 retain
 %     templates until a mentioned function changes or the process exits.
 
@@ -302,25 +302,25 @@
             %filter and fold that applies it.
             written_lambda_closure/2,
             eval_metta_in_module/3,
-            petta_application_result/3,
-            petta_application_result/4,
-            petta_boundary_result/3,
-            petta_reduce_result/4,
+            metta_application_result/3,
+            metta_application_result/4,
+            metta_boundary_result/3,
+            metta_reduce_result/4,
             with_not_reducible_root/2,
             metta_symbol_step/2,
-            petta_eval_root_result/4,
+            metta_eval_root_result/4,
             metta_evaluate_symbol/2,
-            petta_evaluate_argument/2,
-            petta_dynamic_call/3,
-            petta_dynamic_head_masks/1,
-            petta_dynamic_value_call/4,
-            petta_chain_step/2,
-            petta_minimal_equation_step/3,
+            metta_evaluate_argument/2,
+            metta_dynamic_call/3,
+            metta_dynamic_head_masks/1,
+            metta_dynamic_value_call/4,
+            metta_chain_step/2,
+            metta_minimal_equation_step/3,
             collapse_runtime/2,
-            petta_function_eval/2,
-            petta_function_eval/3,
-            petta_segment_dispatch/4,
-            petta_segment_rule_result/6,
+            metta_function_eval/2,
+            metta_function_eval/3,
+            metta_segment_dispatch/4,
+            metta_segment_rule_result/6,
             %The result half of the evaluation mask lands in a compiled clause
             %body, so a space's execution module imports it from here exactly
             %as it imports reduce/3 and the two dispatch results.

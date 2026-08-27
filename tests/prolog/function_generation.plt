@@ -1,6 +1,6 @@
 % Purpose: prove the host-visible function-catalogue generation contract.
 % Assumes:
-%   - petta_py_builtins/1 is the catalogue consumer and reads fun/1 plus the
+%   - metta_py_builtins/1 is the catalogue consumer and reads fun/1 plus the
 %     engine's static special-form service.
 % Guarantees:
 %   - the process-wide generation advances exactly when the fun/1 set can
@@ -12,7 +12,7 @@
 %   - plain evaluation and data writes are generation-neutral
 %     [tested: function_catalogue_generation; commit=4c9a794750103e0a3a2e9d883adde337ffb501f0]
 %   - runtime translator-rule addition and removal change neither generation
-%     nor petta_py_builtins/1's answer set [tested:
+%     nor metta_py_builtins/1's answer set [tested:
 %     translator_rules_are_catalogue_neutral; commit=4c9a794750103e0a3a2e9d883adde337ffb501f0]
 %   - a mutation in one engine thread is visible to a host read in another
 %     [tested: a_worker_mutation_is_visible_to_the_calling_thread;
@@ -40,7 +40,7 @@ write_generation_source(Stream, Name) :-
 
 test(the_shim_reads_the_engine_generation) :-
     metta_host_function_generation(Engine),
-    petta_py_function_generation(Shim),
+    metta_py_function_generation(Shim),
     assertion(Shim =:= Engine).
 
 test(a_fresh_registration_bumps_once_and_reregistration_does_not,
@@ -154,13 +154,13 @@ test(add_and_remove_leave_generation_and_builtins_unchanged,
     process_metta_string(
         "(= (p14-generation-translator $x) (noeval (translated $x)))", _),
     metta_host_function_generation(BeforeGeneration),
-    petta_py_builtins(BeforeBuiltins),
+    metta_py_builtins(BeforeBuiltins),
     'add-translator-rule!'('p14-generation-translator', _),
     metta_host_function_generation(AddedGeneration),
-    petta_py_builtins(AddedBuiltins),
+    metta_py_builtins(AddedBuiltins),
     'remove-translator-rule!'('p14-generation-translator', _),
     metta_host_function_generation(RemovedGeneration),
-    petta_py_builtins(RemovedBuiltins),
+    metta_py_builtins(RemovedBuiltins),
     assertion(AddedGeneration =:= BeforeGeneration),
     assertion(RemovedGeneration =:= BeforeGeneration),
     assertion(AddedBuiltins == BeforeBuiltins),

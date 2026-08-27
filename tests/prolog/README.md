@@ -211,7 +211,7 @@ ancestor rule recursed on the refusal, and the process hung
 Cuts still belong where they pay: keep the cut for ordinary execution and
 repeat its condition in the clauses below it. `match/4` reads
 `atom(Space), native_storage_module_cache(Space, Module), !` and its refusal
-clause reads `\+ petta_space_name(Space)`, so evaluation commits on the cut and
+clause reads `\+ metta_space_name(Space)`, so evaluation commits on the cut and
 a proof walk still reaches one answer.
 
 ## Change requirements

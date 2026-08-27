@@ -200,7 +200,7 @@ untypable_declarations(Types, Offender) :-
 %an unbound context unifies with anything.
 refuse_untypable_declaration(Name, Types) :-
     (   untypable_declarations(Types, Offender)
-    ->  throw(error(petta_untypable_declaration(Name, Offender), none))
+    ->  throw(error(metta_untypable_declaration(Name, Offender), none))
     ;   true ).
 
 %&self is always the engine's native space. Its fixed private storage module
@@ -217,7 +217,7 @@ refuse_untypable_declaration(Name, Types) :-
 %from exactly this route [source: LeaTTa
 %tests/semantics/types-meta/30_evaluation_control.metta].
 get_function_type([F|Args], T) :- nonvar(F),
-                                  (   '$petta_atoms:&self':'&self'(':', F, Chain0)
+                                  (   '$metta_atoms:&self':'&self'(':', F, Chain0)
                                   *-> true
                                   ;   seam:builtin_type_declaration(F, Chain0)
                                   ),
@@ -247,7 +247,7 @@ get_function_type_in(Module, [F|Args], T) :- \+ metta_self_module(Module),
 
 application_arrow_declared([F|_]) :-
     nonvar(F),
-    (   '$petta_atoms:&self':'&self'(':', F, [->, _|_])
+    (   '$metta_atoms:&self':'&self'(':', F, [->, _|_])
     ->  true
     ;   seam:builtin_type_declaration(F, [->, _|_])
     ).
@@ -300,7 +300,7 @@ reported_type_answers(Module, X, Types) :- type_answers(Module, X, Types).
 reported_rest_arrow(Module, F, Result) :-
     nonvar(F),
     (   metta_self_module(Module)
-    ->  (   '$petta_atoms:&self':'&self'(':', F,
+    ->  (   '$metta_atoms:&self':'&self'(':', F,
                                         [->, ['%Rest%', _], Result])
         *-> true
         ;   seam:builtin_type_declaration(F, [->, ['%Rest%', _], Result])
@@ -568,7 +568,7 @@ has_declared_type(X, T) :-
 
 direct_type_declaration_in(Module, X, T) :-
     metta_self_module(Module), !,
-    '$petta_atoms:&self':'&self'(':', X, T),
+    '$metta_atoms:&self':'&self'(':', X, T),
     acyclic_term(T).
 direct_type_declaration_in(Module, X, T) :-
     metta_module_space(Module, Space),
@@ -577,7 +577,7 @@ direct_type_declaration_in(Module, X, T) :-
         Head =.. [Functor, ':', X, T],
         call(Storage:Head),
         acyclic_term(T)
-    ;   '$petta_atoms:&self':'&self'(':', X, T),
+    ;   '$metta_atoms:&self':'&self'(':', X, T),
         acyclic_term(T)
     ).
 
@@ -924,9 +924,9 @@ type_candidate_in(Module, X, T) :- get_type_rule_in(Module, X, T).
 %3,047 of 15,206 profiled ticks, 20%. This is the same dynamic-extent state
 %with_metta_module/2 and push_dual_frame/3 already keep in a backtrackable
 %global, read with nb_current/2 exactly as current_metta_module/1 reads
-%'$petta_module'. The reader is a boolean test, so a saved-and-restored
+%'$metta_module'. The reader is a boolean test, so a saved-and-restored
 %boolean carries the nesting the clause count used to carry.
-metta_evaluating_type_rule :- nb_current('$petta_evaluating_type_rule', true).
+metta_evaluating_type_rule :- nb_current('$metta_evaluating_type_rule', true).
 
 get_type_rule_in(Module, X, T) :-
     \+ metta_reading_declared_types,
@@ -940,13 +940,13 @@ get_type_rule_in(Module, X, T) :-
     ).
 
 call_get_type_rule(Module, X, T) :-
-    (   nb_current('$petta_evaluating_type_rule', Previous)
+    (   nb_current('$metta_evaluating_type_rule', Previous)
     ->  true
     ;   Previous = false
     ),
-    b_setval('$petta_evaluating_type_rule', true),
+    b_setval('$metta_evaluating_type_rule', true),
     Module:get_type_rule(X, T),
-    b_setval('$petta_evaluating_type_rule', Previous).
+    b_setval('$metta_evaluating_type_rule', Previous).
 
 %The current upstream Number holds Integer(i64) and Float(f64), while its
 %tokenizer names an integer outside that capacity as the future BigInt case.
@@ -988,7 +988,7 @@ get_type_candidate(X, T) :- \+ application_arrow_declared(X),
                             (   tuple_fold(First, T)
                             ;   tuple_rest_types(has_type_in(Self), X, T)
                             ).
-get_type_candidate(X, T) :- '$petta_atoms:&self':'&self'(':', X, T),
+get_type_candidate(X, T) :- '$metta_atoms:&self':'&self'(':', X, T),
                             acyclic_term(T).
 get_type_candidate(X, T) :- seam:builtin_type_declaration(X, T).
 %A space handle's own type, which no declaration carries because no program
@@ -998,17 +998,17 @@ get_type_candidate(X, T) :- seam:builtin_type_declaration(X, T).
 %and context_space.metta, both STATUS conforms]. Last, like the engine's own
 %declarations above it, so a program that declares something about a handle is
 %still answered first [tested: space_handle_type].
-get_type_candidate(X, 'SpaceType') :- atom(X), petta_space_operand(X).
-get_type_candidate(X, T) :- petta_state_cell_type(X, T).
+get_type_candidate(X, 'SpaceType') :- atom(X), metta_space_operand(X).
+get_type_candidate(X, T) :- metta_state_cell_type(X, T).
 
 %A cell's type is PARAMETRIC in what it holds, which is the whole point of
 %`(StateMonad $t)`: the cell that holds 5 is `(StateMonad Number)` and the one
 %that holds "hi" is `(StateMonad String)`. The content's type is asked the same
 %way any other value's is, so a cell holding a declared symbol reports that
 %declaration [tested: test_a_state_cell_is_a_value_typed_by_what_it_holds].
-petta_state_cell_type(X, ['StateMonad', Held]) :-
-    petta_state_cell(X),
-    petta_state_value(X, Value),
+metta_state_cell_type(X, ['StateMonad', Held]) :-
+    metta_state_cell(X),
+    metta_state_value(X, Value),
     get_type_candidate(Value, Held).
 
 get_type_candidate_in(_, X, T) :- number(X), !, metta_numeric_type(X, T).
@@ -1035,8 +1035,8 @@ get_type_candidate_in(Module, X, T) :- \+ application_arrow_declared_in(Module, 
 
 get_type_candidate_in(Module, X, T) :- type_declaration_in(Module, X, T).
 get_type_candidate_in(_, X, T) :- seam:builtin_type_declaration(X, T).
-get_type_candidate_in(_, X, 'SpaceType') :- atom(X), petta_space_operand(X).
-get_type_candidate_in(_, X, T) :- petta_state_cell_type(X, T).
+get_type_candidate_in(_, X, 'SpaceType') :- atom(X), metta_space_operand(X).
+get_type_candidate_in(_, X, T) :- metta_state_cell_type(X, T).
 
 %A NONEMPTY expression no arrow types is read ELEMENT-WISE, and the tuple it reads is
 %%Undefined% as soon as one member's type is. Nothing is known about a tuple
@@ -1216,8 +1216,8 @@ scoped_type_candidate(Space, _, X, T) :-
     match_stored(Space, [':', X, T], T, _),
     acyclic_term(T).
 scoped_type_candidate(_, _, X, T) :- seam:builtin_type_declaration(X, T).
-scoped_type_candidate(_, _, X, 'SpaceType') :- atom(X), petta_space_operand(X).
-scoped_type_candidate(_, _, X, T) :- petta_state_cell_type(X, T).
+scoped_type_candidate(_, _, X, 'SpaceType') :- atom(X), metta_space_operand(X).
+scoped_type_candidate(_, _, X, T) :- metta_state_cell_type(X, T).
 
 scoped_function_type(Space, Module, [F|Args], T) :-
     nonvar(F),
@@ -1379,8 +1379,8 @@ metatype_of(X, 'Grounded') :- atom(X), metta_grounded_token(X),
 %`!(bind! &space-a (new-space))` both print `[Grounded]`
 %[source: LeaTTa tests/semantics/spaces/space_identity.metta, STATUS conforms]
 %[tested: space_handle_type].
-metatype_of(X, 'Grounded') :- atom(X), petta_space_operand(X), !.
-metatype_of(X, 'Grounded') :- petta_state_cell(X), !.
+metatype_of(X, 'Grounded') :- atom(X), metta_space_operand(X), !.
+metatype_of(X, 'Grounded') :- metta_state_cell(X), !.
 metatype_of([Family|Parameters], 'Grounded') :-
     Space = [Family|Parameters],
     space_parametric(Space),
@@ -1523,7 +1523,7 @@ metta_operation_admitted(Name) :- fun(Name), !.
 metta_operation_admitted(Name) :- metta_translated_head(Name), !.
 %`&self` reaches this through the space registry rather than through either
 %register, which is also how every space a program makes at runtime reaches it.
-metta_operation_admitted(Name) :- petta_space_operand(Name).
+metta_operation_admitted(Name) :- metta_space_operand(Name).
 
 %A parameter declared with a METATYPE accepts any atom of that kind, which is
 %what makes a variadic constructor declarable: a container has no fixed arity

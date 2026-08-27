@@ -110,9 +110,9 @@ term.
 That is why the conformance kit compares wire terms up to a bijection on
 `v` payloads and byte-exactly everywhere else. Both shipped encoders satisfy
 the law and they spell it differently, which is the point.
-`petta_py_encode/2` writes a process-local machine identity, so a variable
-comes out as something like `["v", "_18756"]`; `petta_py_encode_named/3` and
-`petta_py_parse/2`, which is what `metta.parse()` calls, write the source
+`metta_py_encode/2` writes a process-local machine identity, so a variable
+comes out as something like `["v", "_18756"]`; `metta_py_encode_named/3` and
+`metta_py_parse/2`, which is what `metta.parse()` calls, write the source
 name, so the same variable comes out as `["v", "x"]`. Sending a display name
 where an identity is wanted was measured breaking round-trip identity and
 aliasing two distinct answer variables that happened to share a spelling, so

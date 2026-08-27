@@ -43,7 +43,7 @@ in each:
               test_optional_surfaces_load_only_when_requested, so the rule
               would have been wrong twice and right never.
   .metta      a (test ...), (test-no-answer ...) or (assert* ...) form, which
-              test/3 throws petta_test_failed for [source: engine/metta.pl:2283].
+              test/3 throws metta_test_failed for [source: engine/metta.pl:2283].
   .sh         an exit path that can be nonzero.
 
 Does anything run it? evidence_runners.py answers that from the runners
@@ -174,7 +174,7 @@ PROLOG_ENTRY = re.compile(r":-\s*initialization\(\s*(\w+)\s*,\s*main\s*\)")
 # indented goal `test(1, 2, _)` in metta.plt and registered `1`, plus one
 # `<unit>:1` per unit, as though they were tests.
 PROLOG_TEST = re.compile(r"^test\(\s*(\w+)", re.M)
-# A MeTTa form whose failure stops the file: test/3 throws petta_test_failed.
+# A MeTTa form whose failure stops the file: test/3 throws metta_test_failed.
 METTA_ASSERTION = re.compile(r"\((?:test|test-no-answer|assert[\w-]*)[\s(]")
 SHELL_FAILURE = re.compile(r"\bexit\s+[1-9]|\breturn\s+[1-9]|\|\|\s*exit\b|^set -e", re.M)
 

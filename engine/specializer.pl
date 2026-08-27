@@ -39,7 +39,7 @@
 %     against the 17.0 the yall lambda it replaced cost; command=cd
 %     tests/prolog && swipl -g "set_test_options([format(log)]), run_tests"
 %     -t halt specializer.plt; commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
-% Guarded by: '$petta_specializer' serializes the existence check and the
+% Guarded by: '$metta_specializer' serializes the existence check and the
 %   transaction that publishes a specialization.
 % Open Obligations:
 %   To Do: None
@@ -65,15 +65,15 @@
             %holding it and the mode was simply broken from the cut until the
             %source half found it [measured 2026-08-22: !(twice inc 5) under the
             %pragma raised existence_error(procedure,
-            %'$petta_exec:&self':petta_verified_specialization/2)].
-            petta_verified_specialization/2
+            %'$metta_exec:&self':metta_verified_specialization/2)].
+            metta_verified_specialization/2
           ]).
 
 %This subsystem WRITES core registries -- engine/metta.pl owns fun/1,
 %arity/2 and the two shape tables -- and a base module makes a name
 %visible without making a write land on it, so they are imported rather
-%than inherited. See petta_shared_registry/1 in engine/metta.pl.
-:- petta_import_shared_registries(specializer).
+%than inherited. See metta_shared_registry/1 in engine/metta.pl.
+:- metta_import_shared_registries(specializer).
 
 :- dynamic ho_specialization/3.
 :- dynamic ho_specialization_failed/3.
@@ -108,21 +108,21 @@ maybe_specialize_call(HV, AVs, Out, Goal) :-
     Arity is N + 1,
     \+ ho_specialization_failed(HV, Arity, CleanBindSet),
     specialization_name(HV, CleanBindSet, SpecName),
-    ( nb_current('$petta_spec_stack', Stack) -> true ; Stack = [] ),
+    ( nb_current('$metta_spec_stack', Stack) -> true ; Stack = [] ),
     ( active_specialization(HV, Stack, ActiveKey, ActiveSpecName)
       -> CleanBindSet =@= ActiveKey,
          specialization_goal(ActiveSpecName, AVs, Out, Goal),
-         nb_setval('$petta_spec_needed', true)
-    ; capture_nb_state('$petta_spec_needed', PreviousNeeded),
+         nb_setval('$metta_spec_needed', true)
+    ; capture_nb_state('$metta_spec_needed', PreviousNeeded),
       setup_call_cleanup(
-          ( nb_setval('$petta_spec_needed', false),
-            nb_setval('$petta_spec_stack',
+          ( nb_setval('$metta_spec_needed', false),
+            nb_setval('$metta_spec_stack',
                       [specializing(HV, CleanBindSet, SpecName)|Stack]) ),
           specialize_call(HV, AVs, Out, Goal, CleanBindSet, MetaList,
                           HasDirectBenefit, SpecName, Arity),
-          ( nb_setval('$petta_spec_stack', Stack),
-            restore_nb_state('$petta_spec_needed', PreviousNeeded) )),
-      nb_setval('$petta_spec_needed', true)
+          ( nb_setval('$metta_spec_stack', Stack),
+            restore_nb_state('$metta_spec_needed', PreviousNeeded) )),
+      nb_setval('$metta_spec_needed', true)
     ).
 
 active_specialization(HV, [specializing(ActiveHV, Key, SpecName)|_],
@@ -141,7 +141,7 @@ restore_nb_state(Name, absent) :-
 % Keep the established readable name for the injective singleton-atom case.
 % The delimiter cannot occur in HV and the closing bracket cannot occur in
 % Key, so two different pairs cannot produce the same display. A safe HV uses
-% `_Spec_k` plus its encoded key; a hostile HV uses the disjoint `petta_Spec_h`
+% `_Spec_k` plus its encoded key; a hostile HV uses the disjoint `metta_Spec_h`
 % prefix plus the encoded complete identity. The token-safe alphabet
 % `[0-9a-fz]` uses `z` between variable-width hexadecimal code points, making
 % the encoding reversible instead of relying on a collision-prone digest.
@@ -179,7 +179,7 @@ encoded_specialization_name(HV, CleanBindSet, SpecName) :-
     atom_concat(Prefix, EncodedKey, SpecName).
 encoded_specialization_name(HV, CleanBindSet, SpecName) :-
     encoded_term(specialization(HV, CleanBindSet), EncodedIdentity),
-    atom_concat('petta_Spec_h', EncodedIdentity, SpecName).
+    atom_concat('metta_Spec_h', EncodedIdentity, SpecName).
 
 encoded_term(Term, Encoded) :-
     copy_term(Term, CanonicalTerm),
@@ -367,7 +367,7 @@ specialize_call(HV, AVs, Out, Goal, CleanBindSet, MetaList,
     %The mutex must be acquired before transaction/1 takes its snapshot. If
     %the order is reversed, a waiting transaction can still see the database
     %from before the first worker committed and publish a duplicate.
-    with_mutex('$petta_specializer',
+    with_mutex('$metta_specializer',
                transaction(specialize_call_locked(
                    HV, CleanBindSet, MetaList, HasDirectBenefit,
                    SpecName, Arity, Outcome))),
@@ -421,7 +421,7 @@ specialize_call_locked(HV, CleanBindSet, MetaList, HasDirectBenefit,
       forall(member(TypeChain, TypeChains),
              add_sexp(Space, [':', SpecName, TypeChain])),
       ( HasDirectBenefit == true
-        -> nb_setval('$petta_spec_needed', true)
+        -> nb_setval('$metta_spec_needed', true)
       ; true ),
       maplist({SpecName}/[paired_meta(fun_meta(ArgsNorm,BodyExpr),
                                       _SourceMeta,StoredMeta),
@@ -431,7 +431,7 @@ specialize_call_locked(HV, CleanBindSet, MetaList, HasDirectBenefit,
                 specialization_storage_input(SpecName, StoredMeta,
                                              StoredInput) ),
               MetaList, ClauseInfos),
-      nb_getval('$petta_spec_needed', true),
+      nb_getval('$metta_spec_needed', true),
       forall(member(clause_info(Input, Clause), ClauseInfos),
              ( asserta(Module:Clause, Ref),
                record_source_assertion(Ref),
@@ -456,8 +456,8 @@ specialize_call_locked(HV, CleanBindSet, MetaList, HasDirectBenefit,
 specialization_goal(SpecName, AVs, Out, Goal) :-
     append(AVs, [Out], CallArgs),
     Spec =.. [SpecName|CallArgs],
-    (   petta_verifying_specializations
-    ->  Goal = petta_verified_specialization(SpecName, Spec)
+    (   metta_verifying_specializations
+    ->  Goal = metta_verified_specialization(SpecName, Spec)
     ;   Goal = Spec
     ).
 
@@ -491,7 +491,7 @@ support_graph:support_invalidation_action(specialization(Module, SpecName)) :-
 %"validate every optimisation with a differential that runs it both
 %ways" from a thing tests must remember into a property the whole
 %example corpus asserts on every gate run.
-petta_verifying_specializations :-
+metta_verifying_specializations :-
     (   metta_pragma('verify-specializations', V), V \== false, V \== none
     ->  true
     ;   getenv('PETTA_VERIFY_SPECIALIZATIONS', Set), Set \== '0'
@@ -507,9 +507,9 @@ petta_verifying_specializations :-
 %existence_error for every specialization in the corpus, which is what
 %check.sh's spec-differential lane runs over
 %[tested: specializer_invalidation:the_verifier_runs_a_clone_in_its_own_module].
-:- meta_predicate petta_verified_specialization(?, 0),
-                  petta_check_specialization(?, 0).
-petta_verified_specialization(SpecName, Spec) :-
+:- meta_predicate metta_verified_specialization(?, 0),
+                  metta_check_specialization(?, 0).
+metta_verified_specialization(SpecName, Spec) :-
     (   ho_specialization_agrees(SpecName)
     ->  call(Spec)
     ;   ho_specialization_unverified(SpecName, _)
@@ -522,10 +522,10 @@ petta_verified_specialization(SpecName, Spec) :-
         %the marker holbenchmark's four specializations verify in under a
         %second, without it the same file did not finish in ninety
         %[measured 2026-08-18]. The specializer's own compile-time
-        %recursion guard ($petta_spec_stack) is the same pattern.
+        %recursion guard ($metta_spec_stack) is the same pattern.
         call(Spec)
     ;   setup_call_cleanup(assertz(ho_specialization_checking(SpecName)),
-                           petta_check_specialization(SpecName, Spec),
+                           metta_check_specialization(SpecName, Spec),
                            retractall(ho_specialization_checking(SpecName))),
         call(Spec)
     ).
@@ -542,7 +542,7 @@ petta_verified_specialization(SpecName, Spec) :-
 %says what it could not check, instead of being trusted or being
 %unbounded [source: Pnueli, Siegel and Singerman, Translation Validation,
 %TACAS 1998].
-petta_check_specialization(SpecName, Spec) :-
+metta_check_specialization(SpecName, Spec) :-
     %The module the specialization was compiled into, recovered from the
     %qualification the meta_predicate declaration above put on the way in.
     %Both sides of the comparison run there: the clone lives in that module,
@@ -552,8 +552,8 @@ petta_check_specialization(SpecName, Spec) :-
     copy_term(Args, SpecArgs),
     copy_term(Args, PlainArgs),
     SpecCopy =.. [SpecName|SpecArgs],
-    petta_specialization_generic(SpecName, PlainArgs, Generic),
-    petta_specialization_budget(Budget),
+    metta_specialization_generic(SpecName, PlainArgs, Generic),
+    metta_specialization_budget(Budget),
     %Both sides run with that module IN FORCE as well as qualified. The
     %generic side reaches reduce/3 for a higher-order argument, and reduce/3
     %resolves the name against current_metta_module/1: without the switch it
@@ -574,25 +574,25 @@ petta_check_specialization(SpecName, Spec) :-
         ),
         Error,
         (   control_exception(Error) -> throw(Error) ; Outcome = raised(Error) )),
-    petta_specialization_verdict(SpecName, Outcome).
+    metta_specialization_verdict(SpecName, Outcome).
 
-petta_specialization_verdict(SpecName, both(Specialized, Plain)) :-
+metta_specialization_verdict(SpecName, both(Specialized, Plain)) :-
     (   Specialized =@= Plain
     ->  assertz(ho_specialization_agrees(SpecName))
-    ;   throw(error(petta_specialization_disagrees(SpecName, Specialized, Plain),
-                    context(petta_verified_specialization/2,
+    ;   throw(error(metta_specialization_disagrees(SpecName, Specialized, Plain),
+                    context(metta_verified_specialization/2,
                             'a specialization answered differently from \c
                              the generic call')))
     ).
-petta_specialization_verdict(SpecName, unbounded) :-
+metta_specialization_verdict(SpecName, unbounded) :-
     assertz(ho_specialization_unverified(SpecName, inference_limit)).
-petta_specialization_verdict(SpecName, raised(Error)) :-
-    throw(error(petta_specialization_disagrees(SpecName, raised, Error),
-                context(petta_verified_specialization/2,
+metta_specialization_verdict(SpecName, raised(Error)) :-
+    throw(error(metta_specialization_disagrees(SpecName, raised, Error),
+                context(metta_verified_specialization/2,
                         'one side raised where the other answered'))).
 
 %The bound, in inferences, tunable for a deeper sweep.
-petta_specialization_budget(Budget) :-
+metta_specialization_budget(Budget) :-
     (   getenv('PETTA_VERIFY_BUDGET', Text), atom_number(Text, N), N > 0
     ->  Budget = N
     ;   Budget = 200000
@@ -601,7 +601,7 @@ petta_specialization_budget(Budget) :-
 %The generic twin of a specialized call: the same arguments through the
 %function the specialization was cloned from, which is exactly what would
 %have run had the plan been refused.
-petta_specialization_generic(SpecName, Args, Generic) :-
+metta_specialization_generic(SpecName, Args, Generic) :-
     ho_specialization(_, HV, SpecName), !,
     Generic =.. [HV|Args].
 

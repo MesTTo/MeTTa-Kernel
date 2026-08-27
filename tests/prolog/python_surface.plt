@@ -325,7 +325,7 @@ test(materializing_leaves_a_leaf_alone) :-
 test(a_value_that_contains_itself_says_so, [throws(_)]) :-
     'py-atom'("(lambda l: (l.append(l), l)[1])([])", Cyclic),
     'py-atom'("[1]", _),
-    petta_py_materialize(Cyclic, _).
+    metta_py_materialize(Cyclic, _).
 
 %%%% Text boundary %%%%
 
@@ -392,14 +392,14 @@ test(a_python_failure_holds_no_host_objects) :-
 %side [source: bindings/python/tests/test_control_signals.py].
 test(an_interrupt_is_not_converted_into_a_catchable_error,
      [forall(member(Class, ['KeyboardInterrupt', 'SystemExit']))]) :-
-    catch(petta_py_failure(['some-call'],
+    catch(metta_py_failure(['some-call'],
                            error(python_error(Class, none), none)),
           Thrown, true),
     assertion(Thrown == metta_host_interrupted),
     assertion(control_exception(Thrown)).
 
 test(an_engine_control_exception_passes_through_untouched) :-
-    catch(petta_py_failure(['some-call'], inference_limit_exceeded), Thrown, true),
+    catch(metta_py_failure(['some-call'], inference_limit_exceeded), Thrown, true),
     assertion(Thrown == inference_limit_exceeded).
 
 :- end_tests(python_readings).

@@ -499,7 +499,7 @@ caller_indicator(Goal, Name/Arity) :- callable(Goal), functor(Goal, Name, Arity)
 % has not declared shared. Measured on this tree, each caught after the fact
 % and now caught before it: engine/spaces.pl retracting the core's fun/1 left a
 % removed function REGISTERED, so a call to it stayed a call and raised
-% existence_error(procedure, '$petta_exec:&self':f/2) where the language says
+% existence_error(procedure, '$metta_exec:&self':f/2) where the language says
 % the term is unreduced; retracting the core's import_life/3 in the clear left
 % a cleared space unable to reload the file it had just forgotten; and
 % engine/specializer.pl retracting the core's arity/2 was the same defect one
@@ -521,14 +521,14 @@ owns_write(Module, Name/Arity) :-
 % module inheriting the engine as a base, which is the unsafe case the lane was
 % created to catch.
 owns_write(Module, Name/Arity) :-
-    petta_engine_module(Module),
+    metta_engine_module(Module),
     functor(Probe, Name, Arity),
     predicate_property(Module:Probe, imported_from(Owner)),
     predicate_property(Owner:Probe, dynamic).
 % engine/metta.pl's declared shared tables, which every subsystem imports and
 % may therefore write. The declaration is the review: adding a name there is a
 % visible edit, and this lane is what makes the alternative visible too.
-owns_write(_, PI) :- petta_shared_registry(PI).
+owns_write(_, PI) :- metta_shared_registry(PI).
 
 %!  layering_finding(-Message) is nondet.
 %
@@ -570,7 +570,7 @@ layering_finding(Message) :-
     format(atom(Message),
            "~w:~w writes ~w, which ~w does not own; a base module makes a name \c
             visible and not writable, so the write lands in ~w where nothing \c
-            reads it. Declare it with petta_shared_registry/1 in \c
+            reads it. Declare it with metta_shared_registry/1 in \c
             engine/metta.pl, or let its owner do the write",
            [Module, Caller, PI, Module, Module]).
 layering_finding(Message) :-

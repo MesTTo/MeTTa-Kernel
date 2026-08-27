@@ -534,7 +534,7 @@ the whole permitted inward surface
 (text: `swrite/2`, `sdisplay/2`, `sdisplay_with_names/3`, `sread/2`,
 `metta_symbol_writable/1`, `metta_unwritable_symbol/2`,
 `metta_reader_token_class/3`, `metta_reader_token_source/2`;
-source: `petta_source/2` for a context's declared source discipline,
+source: `metta_source/2` for a context's declared source discipline,
 `parse_metta_source/2` with `parsed_form_parts/4` to take one form
 apart, `active_source_program/1` to detect a definition batch,
 `current_working_dir/1` for what a relative path resolves against,
@@ -543,7 +543,7 @@ apart, `active_source_program/1` to detect a definition batch,
 stream a scope buffers and then publishes or drops, `observation_defer/2`
 pairing a commit goal with its rollback so a launch happens only after the
 transaction commits, and
-`petta_source/2` to expose source metadata, and `petta_vocabulary_value/2` so a
+`metta_source/2` to expose source metadata, and `metta_vocabulary_value/2` so a
 library validates an option against the same declared vocabulary the engine
 reads;
 compiler: `metta_special_form_head/1`, every head the translator gives special
@@ -555,24 +555,24 @@ silently the moment the translator became a module of its own, and
 errors: `throw_metta_type_error/3`, `rethrow_metta_operation_error/2`,
 `refuse_unbound_input/2`;
 context: `current_metta_module/1`, `current_metta_space/1`, `space_module/2`,
-`metta_module_space/2`, `petta_space_name/1`, and `eval_metta_in_module/3` to
-run an expression in the module a space compiles into, plus `petta_source/2`
+`metta_module_space/2`, `metta_space_name/1`, and `eval_metta_in_module/3` to
+run an expression in the module a space compiles into, plus `metta_source/2`
 to read the declared consumption discipline of a context;
 native storage: `native_storage_module/2`, `native_storage_functor/2`,
 `ensure_native_storage_module/2` and `native_atom_clause/3`, the same doors an
 ordinary atom write uses, so a library that pre-generates a space's storage
 writes the one format the space reads;
-effects and caching: `petta_effect_class_canonical/2`, `petta_effect_rank/2`,
-`petta_effect_join/3`, `petta_effect_compose/2`, `petta_operation_effect/2`,
-`petta_operation_plan_effect/2`, `metta_effect_walk/3`,
+effects and caching: `metta_effect_class_canonical/2`, `metta_effect_rank/2`,
+`metta_effect_join/3`, `metta_effect_compose/2`, `metta_operation_effect/2`,
+`metta_operation_plan_effect/2`, `metta_effect_walk/3`,
 `metta_function_cacheable/1`, and `metta_cache_unchecked/1`, with
 `support_record/2`, `support_invalidate/1` and `support_forget/1` for taking
 part in the support graph whose handler seams the engine already declares,
 plus `support_memo_sccs/2` and `support_memo_take_change/2` for its call-graph
 SCC view and changed-edge signal;
-foreign spaces: `petta_shape_route/5` for the routed view of any shape-routed
+foreign spaces: `metta_shape_route/5` for the routed view of any shape-routed
 declaration kind, `foreign_pushdown_class/3` and `foreign_provides/2`, the
-routing classifier and capability probe, `petta_require_events/2`, which
+routing classifier and capability probe, `metta_require_events/2`, which
 refuses a wait on a context that promises no change events, `match_foreign/4`
 for the library that checks a provider's contract, and
 `run_with_loading_marker/2` for a library that performs an import of its

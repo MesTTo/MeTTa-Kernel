@@ -47,84 +47,84 @@ seam:foreign_match('&lt-silent-foreign', [job, X]) :- X = quiet.
 
 %The scheduler probes enter through the public MeTTa wrapper because the
 %engine must encounter the wait while evaluating a spawned expression.
-petta_test_ensure_thread_surface :-
-    (   current_predicate('$petta_exec:&self':'peek-atom'/4)
+metta_test_ensure_thread_surface :-
+    (   current_predicate('$metta_exec:&self':'peek-atom'/4)
     ->  true
     ;   process_metta_string("!(import! &self (library lib_thread))", _)
     ).
 
-petta_test_scheduler_suspended(Space) :-
-    user:petta_future(Space, scheduler(Task), _),
-    user:petta_scheduler_task(Task, _, _, _, _, suspended(_)).
+metta_test_scheduler_suspended(Space) :-
+    user:metta_future(Space, scheduler(Task), _),
+    user:metta_scheduler_task(Task, _, _, _, _, suspended(_)).
 
-petta_test_all_scheduler_suspended(Spaces) :-
-    maplist(petta_test_scheduler_suspended, Spaces).
+metta_test_all_scheduler_suspended(Spaces) :-
+    maplist(metta_test_scheduler_suspended, Spaces).
 
-petta_test_cancel_future(Space) :-
+metta_test_cancel_future(Space) :-
     nonvar(Space), !,
     catch(thread_cancel(Space, _), _, true).
-petta_test_cancel_future(_).
+metta_test_cancel_future(_).
 
-petta_test_await_one(Space, Answer) :-
+metta_test_await_one(Space, Answer) :-
     once(thread_await(Space, Answer)).
 
-petta_test_spawn_await(Child, Parent) :-
+metta_test_spawn_await(Child, Parent) :-
     thread_spawn([await, Child], Parent).
 
-petta_test_send_wake(Channel) :-
+metta_test_send_wake(Channel) :-
     channel_send(Channel, wake, true).
 
-petta_test_fill_channel(Channel) :-
+metta_test_fill_channel(Channel) :-
     channel_send(Channel, first, true).
 
-petta_test_spawn_channel_recv(Channel, Future) :-
+metta_test_spawn_channel_recv(Channel, Future) :-
     thread_spawn([recv, Channel], Future).
 
-petta_test_spawn_channel_send(Channel, Future) :-
+metta_test_spawn_channel_send(Channel, Future) :-
     thread_spawn([send, Channel, second], Future).
 
-petta_test_close_channel(Channel) :-
+metta_test_close_channel(Channel) :-
     nonvar(Channel), !,
     catch(channel_close(Channel, _), _, true).
-petta_test_close_channel(_).
+metta_test_close_channel(_).
 
-petta_test_cancel_all(Spaces) :-
+metta_test_cancel_all(Spaces) :-
     nonvar(Spaces), !,
-    maplist(petta_test_cancel_future, Spaces).
-petta_test_cancel_all(_).
+    maplist(metta_test_cancel_future, Spaces).
+metta_test_cancel_all(_).
 
-petta_test_clear_scheduler_release :-
+metta_test_clear_scheduler_release :-
     forall(( 'get-atoms'('&self', Atom),
              \+ [scheduler_release, _] \= Atom ),
            'remove-atom'('&self', Atom, _)).
 
-petta_test_timer_dispatch_barrier(Wrapped, Reached, Release) :-
+metta_test_timer_dispatch_barrier(Wrapped, Reached, Release) :-
     thread_send_message(Reached, reached),
     thread_get_message(Release, go),
     call(Wrapped).
 
-petta_test_install_timer_barrier(Reached, Release) :-
+metta_test_install_timer_barrier(Reached, Release) :-
     wrap_predicate(
         timer_dispatch_(_, _, _, _, _),
-        '$petta_test_timer_cancel_race', Wrapped,
-        petta_test_timer_dispatch_barrier(
+        '$metta_test_timer_cancel_race', Wrapped,
+        metta_test_timer_dispatch_barrier(
             Wrapped, Reached, Release)).
 
-petta_test_remove_timer_barrier(Release) :-
+metta_test_remove_timer_barrier(Release) :-
     catch(thread_send_message(Release, go, [timeout(0)]), _, true),
     catch(unwrap_predicate(timer_dispatch_/5,
-                           '$petta_test_timer_cancel_race'), _, true).
+                           '$metta_test_timer_cancel_race'), _, true).
 
-petta_test_cancel_timer_thread(Space, Started, Finished) :-
+metta_test_cancel_timer_thread(Space, Started, Finished) :-
     thread_send_message(Started, started),
     thread_cancel(Space, Cancelled),
     thread_send_message(Finished, cancelled(Cancelled)).
 
-petta_test_deadline_cleanup(Task, Engine, Done) :-
+metta_test_deadline_cleanup(Task, Engine, Done) :-
     (   nonvar(Task)
-    ->  with_mutex('$petta_scheduler_deadlines',
-                   retractall(user:petta_scheduler_deadline(_, Task))),
-        retractall(user:petta_scheduler_task(Task, _, _, _, _, _))
+    ->  with_mutex('$metta_scheduler_deadlines',
+                   retractall(user:metta_scheduler_deadline(_, Task))),
+        retractall(user:metta_scheduler_task(Task, _, _, _, _, _))
     ;   true
     ),
     ( nonvar(Engine) -> catch(engine_destroy(Engine), _, true) ; true ),
@@ -230,7 +230,7 @@ test(a_settled_future_reports_settled) :-
     Answer == true.
 
 test(awaiting_an_unknown_future_is_an_existence_error) :-
-    catch(thread_await(999999, _), error(existence_error(petta_future, _), _),
+    catch(thread_await(999999, _), error(existence_error(metta_future, _), _),
           true).
 
 %Two unbound arithmetic operands raise a HOST instantiation error. Integer
@@ -267,98 +267,98 @@ test(a_future_with_no_answers_is_empty) :-
     Answers == [].
 
 test(a_future_terminal_outcome_is_single_assignment) :-
-    next_petta_handle(Number),
+    next_metta_handle(Number),
     future_space_name(Number, Space),
     message_queue_create(Done, [max_size(1)]),
     setup_call_cleanup(
-        assertz(user:petta_future(Space, none, Done)),
-        ( petta_future_complete(Space, Done, done),
-          petta_future_complete(Space, Done, cancelled),
+        assertz(user:metta_future(Space, none, Done)),
+        ( metta_future_complete(Space, Done, done),
+          metta_future_complete(Space, Done, cancelled),
           future_settle_(Space, Outcome),
           Outcome == done ),
-        ( retractall(user:petta_future(Space, _, _)),
-          retractall(user:petta_future_result(Space, _)),
+        ( retractall(user:metta_future(Space, _, _)),
+          retractall(user:metta_future_result(Space, _)),
           catch(message_queue_destroy(Done), _, true) )).
 
 test(a_suspended_engine_resumes_when_its_space_waker_fires,
-     [ setup(( petta_test_ensure_thread_surface,
-               petta_test_clear_scheduler_release )),
-       cleanup(petta_test_clear_scheduler_release) ]) :-
+     [ setup(( metta_test_ensure_thread_surface,
+               metta_test_clear_scheduler_release )),
+       cleanup(metta_test_clear_scheduler_release) ]) :-
     thread_spawn(['peek-atom', '&self', [scheduler_release, _], 10], Space),
     thread_wait(
-        petta_test_scheduler_suspended(Space),
-        [ wait_preds([petta_scheduler_task/6]), module(user), timeout(10) ]),
+        metta_test_scheduler_suspended(Space),
+        [ wait_preds([metta_scheduler_task/6]), module(user), timeout(10) ]),
     'add-atom'('&self', [scheduler_release, marker], _),
     once(thread_await(Space, Out)),
     Out == [scheduler_release, marker].
 
 test(spawned_engines_multiplex_over_bounded_carriers,
-     [ setup(( petta_test_ensure_thread_surface,
-               petta_test_clear_scheduler_release )),
-       cleanup(( maplist(petta_test_cancel_future, Spaces),
-                 petta_test_clear_scheduler_release )) ]) :-
+     [ setup(( metta_test_ensure_thread_surface,
+               metta_test_clear_scheduler_release )),
+       cleanup(( maplist(metta_test_cancel_future, Spaces),
+                 metta_test_clear_scheduler_release )) ]) :-
     length(Spaces, 12),
     maplist(thread_spawn(['peek-atom', '&self', [scheduler_release, _], 10]),
             Spaces),
     thread_wait(
-        petta_test_all_scheduler_suspended(Spaces),
-        [ wait_preds([petta_scheduler_task/6]), module(user), timeout(10) ]),
-    petta_scheduler_lane_size(normal, Carriers),
+        metta_test_all_scheduler_suspended(Spaces),
+        [ wait_preds([metta_scheduler_task/6]), module(user), timeout(10) ]),
+    metta_scheduler_lane_size(normal, Carriers),
     Carriers =< 4,
     length(Spaces, EngineCount),
     EngineCount > Carriers,
     'add-atom'('&self', [scheduler_release, multiplexed], _),
-    maplist(petta_test_await_one, Spaces, Answers),
+    maplist(metta_test_await_one, Spaces, Answers),
     maplist(=([scheduler_release, multiplexed]), Answers).
 
 test(cancelling_a_suspended_engine_releases_it_without_an_answer,
-     [ setup(( petta_test_ensure_thread_surface,
-               petta_test_clear_scheduler_release )),
-       cleanup(petta_test_clear_scheduler_release) ]) :-
+     [ setup(( metta_test_ensure_thread_surface,
+               metta_test_clear_scheduler_release )),
+       cleanup(metta_test_clear_scheduler_release) ]) :-
     thread_spawn(['peek-atom', '&self', [scheduler_release, _], 10], Space),
     thread_wait(
-        petta_test_scheduler_suspended(Space),
-        [ wait_preds([petta_scheduler_task/6]), module(user), timeout(10) ]),
-    user:petta_future(Space, scheduler(Task), _),
+        metta_test_scheduler_suspended(Space),
+        [ wait_preds([metta_scheduler_task/6]), module(user), timeout(10) ]),
+    user:metta_future(Space, scheduler(Task), _),
     thread_cancel(Space, Cancelled),
     assertion(Cancelled == true),
     findall(Answer, thread_await(Space, Answer), Answers),
     assertion(Answers == []),
     thread_settled(Space, Settled),
     assertion(Settled == true),
-    assertion(\+ user:petta_scheduler_task(Task, _, _, _, _, _)),
-    assertion(\+ user:petta_scheduler_deadline(_, Task)).
+    assertion(\+ user:metta_scheduler_task(Task, _, _, _, _, _)),
+    assertion(\+ user:metta_scheduler_deadline(_, Task)).
 
 test(awaiting_futures_suspends_engines_instead_of_all_carriers,
-     [ setup(( petta_test_ensure_thread_surface,
-               petta_test_clear_scheduler_release )),
-       cleanup(( petta_test_cancel_all(Children),
-                 petta_test_cancel_all(Parents),
-                 petta_test_clear_scheduler_release )) ]) :-
-    petta_scheduler_lane_size(normal, Carriers),
+     [ setup(( metta_test_ensure_thread_surface,
+               metta_test_clear_scheduler_release )),
+       cleanup(( metta_test_cancel_all(Children),
+                 metta_test_cancel_all(Parents),
+                 metta_test_clear_scheduler_release )) ]) :-
+    metta_scheduler_lane_size(normal, Carriers),
     length(Children, Carriers),
     maplist(thread_spawn(['peek-atom', '&self', [scheduler_release, _], 10]),
             Children),
     thread_wait(
-        petta_test_all_scheduler_suspended(Children),
-        [ wait_preds([petta_scheduler_task/6]), module(user), timeout(10) ]),
-    maplist(petta_test_spawn_await, Children, Parents),
+        metta_test_all_scheduler_suspended(Children),
+        [ wait_preds([metta_scheduler_task/6]), module(user), timeout(10) ]),
+    maplist(metta_test_spawn_await, Children, Parents),
     thread_wait(
-        petta_test_all_scheduler_suspended(Parents),
-        [ wait_preds([petta_scheduler_task/6]), module(user), timeout(10) ]),
+        metta_test_all_scheduler_suspended(Parents),
+        [ wait_preds([metta_scheduler_task/6]), module(user), timeout(10) ]),
     thread_spawn(['t-inc', 41], Cheap),
     once(thread_await(Cheap, 42)),
     'add-atom'('&self', [scheduler_release, awaited], _),
-    maplist(petta_test_await_one, Parents, Answers),
+    maplist(metta_test_await_one, Parents, Answers),
     maplist(=([scheduler_release, awaited]), Answers).
 
 test(cancelling_a_settled_future_is_false_and_creates_no_timer_tombstone) :-
     thread_spawn(['t-inc', 1], Space),
     thread_wait(thread_settled(Space, true),
                 [ module(user), timeout(10) ]),
-    aggregate_all(count, user:petta_timer_cancelled(_), Before),
+    aggregate_all(count, user:metta_timer_cancelled(_), Before),
     thread_cancel(Space, Cancelled),
-    aggregate_all(count, user:petta_timer_cancelled(_), After),
+    aggregate_all(count, user:metta_timer_cancelled(_), After),
     Cancelled == false,
     After == Before,
     findall(Answer, thread_await(Space, Answer), Answers),
@@ -383,16 +383,16 @@ test(cancelling_a_pending_timer_stops_it_firing) :-
     sleep(0.25),
     findall(A, 'get-atoms'(Space, A), Atoms),
     Atoms == [],
-    \+ user:petta_timer_cancelled(Space).
+    \+ user:metta_timer_cancelled(Space).
 
 test(cancelling_a_pending_timer_wakes_a_scheduled_awaiter,
-     [ cleanup(( petta_test_cancel_future(Timer),
-                 petta_test_cancel_future(Awaiter) )) ]) :-
+     [ cleanup(( metta_test_cancel_future(Timer),
+                 metta_test_cancel_future(Awaiter) )) ]) :-
     timer_after(30, ['t-inc', 41], Timer),
     thread_spawn([await, Timer], Awaiter),
     thread_wait(
-        petta_test_scheduler_suspended(Awaiter),
-        [ wait_preds([petta_scheduler_task/6]), module(user), timeout(10) ]),
+        metta_test_scheduler_suspended(Awaiter),
+        [ wait_preds([metta_scheduler_task/6]), module(user), timeout(10) ]),
     thread_cancel(Timer, Cancelled),
     Cancelled == true,
     findall(Answer, thread_await(Awaiter, Answer), Answers),
@@ -403,24 +403,24 @@ test(cancelling_a_pending_timer_wakes_a_scheduled_awaiter,
 test(timer_fire_and_cancel_have_one_atomic_transition) :-
     ensure_timer_service,
     current_metta_module(Module),
-    petta_capture_python_context(Context),
-    next_petta_handle(Number),
+    metta_capture_python_context(Context),
+    next_metta_handle(Number),
     future_space_name(Number, Space),
     message_queue_create(Done, [max_size(1)]),
-    assertz(user:petta_future(Space, none, Done)),
-    assertz(user:petta_timer_context(Space, once, Context)),
+    assertz(user:metta_future(Space, none, Done)),
+    assertz(user:metta_timer_context(Space, once, Context)),
     message_queue_create(Reached),
     message_queue_create(Release),
     message_queue_create(CancelStarted),
     message_queue_create(CancelFinished),
     setup_call_cleanup(
-        petta_test_install_timer_barrier(Reached, Release),
+        metta_test_install_timer_barrier(Reached, Release),
         ( empty_heap(Rest),
           Timer = timer(Space, Module, ['t-slow', finished], once, Context),
           thread_create(timer_fire_value_(Timer, Rest, _), FireThread, []),
           thread_get_message(Reached, reached),
           thread_create(
-              petta_test_cancel_timer_thread(
+              metta_test_cancel_timer_thread(
                   Space, CancelStarted, CancelFinished),
               CancelThread, []),
           thread_get_message(CancelStarted, started),
@@ -435,7 +435,7 @@ test(timer_fire_and_cancel_have_one_atomic_transition) :-
           ;   Early = cancelled(Cancelled)
           ),
           thread_join(CancelThread, CancelStatus),
-          user:petta_future(Space, Worker, Done),
+          user:metta_future(Space, Worker, Done),
           catch(thread_join(Worker, _), _, true),
           findall(Answer, 'get-atoms'(Space, Answer), Answers),
           FireStatus == true,
@@ -445,13 +445,13 @@ test(timer_fire_and_cancel_have_one_atomic_transition) :-
           ;   Cancelled == false,
               Answers == [finished]
           ),
-          \+ user:petta_timer_cancelled(Space) ),
-        ( petta_test_remove_timer_barrier(Release),
-          petta_test_cancel_future(Space),
-          retractall(user:petta_future(Space, _, _)),
-          retractall(user:petta_future_result(Space, _)),
-          retractall(user:petta_timer_context(Space, _, _)),
-          retractall(user:petta_timer_cancelled(Space)),
+          \+ user:metta_timer_cancelled(Space) ),
+        ( metta_test_remove_timer_barrier(Release),
+          metta_test_cancel_future(Space),
+          retractall(user:metta_future(Space, _, _)),
+          retractall(user:metta_future_result(Space, _)),
+          retractall(user:metta_timer_context(Space, _, _)),
+          retractall(user:metta_timer_cancelled(Space)),
           catch(message_queue_destroy(Done), _, true),
           catch(message_queue_destroy(Reached), _, true),
           catch(message_queue_destroy(Release), _, true),
@@ -471,23 +471,23 @@ test(every_fires_more_than_once_and_cancel_stops_it) :-
     Same == Ticks.
 
 test(a_repeating_timer_never_overlaps_its_own_invocations,
-     [ cleanup(( petta_test_cancel_future(Space),
-                 petta_test_cancel_future(Checkpoint) )) ]) :-
+     [ cleanup(( metta_test_cancel_future(Space),
+                 metta_test_cancel_future(Checkpoint) )) ]) :-
     timer_every(0.001, [sleep, 0.2], Space),
     timer_after(0.05, [true], Checkpoint),
     once(thread_await(Checkpoint, [true])),
-    petta_timer_pool(Pool),
+    metta_timer_pool(Pool),
     thread_pool_property(Pool, running(Running)),
     thread_pool_property(Pool, backlog(Backlog)),
     Running == 1,
     Backlog == 0.
 
 test(a_saturated_timer_pool_does_not_block_scheduler_deadlines,
-     [ setup(petta_test_ensure_thread_surface),
-       cleanup(( petta_test_cancel_all(Timers),
-                 petta_test_cancel_future(DeadlineFuture),
-                 petta_test_close_channel(Channel) )) ]) :-
-    petta_timer_pool(Pool),
+     [ setup(metta_test_ensure_thread_surface),
+       cleanup(( metta_test_cancel_all(Timers),
+                 metta_test_cancel_future(DeadlineFuture),
+                 metta_test_close_channel(Channel) )) ]) :-
+    metta_timer_pool(Pool),
     thread_pool_property(Pool, size(PoolSize)),
     Saturating is PoolSize + 1,
     length(Timers, Saturating),
@@ -542,43 +542,43 @@ test(a_channel_carries_a_term_between_threads) :-
     channel_close(Channel, true).
 
 test(using_an_unknown_channel_is_an_existence_error) :-
-    catch(channel_recv(999999, _), error(existence_error(petta_channel, _), _),
+    catch(channel_recv(999999, _), error(existence_error(metta_channel, _), _),
           true).
 
 test(empty_channel_receives_suspend_engines_instead_of_all_carriers,
-     [ setup(petta_test_ensure_thread_surface),
-       cleanup(( petta_test_cancel_all(Futures),
-                 maplist(petta_test_close_channel, Channels) )) ]) :-
-    petta_scheduler_lane_size(normal, Carriers),
+     [ setup(metta_test_ensure_thread_surface),
+       cleanup(( metta_test_cancel_all(Futures),
+                 maplist(metta_test_close_channel, Channels) )) ]) :-
+    metta_scheduler_lane_size(normal, Carriers),
     length(Channels, Carriers),
     maplist(channel_new, Channels),
-    maplist(petta_test_spawn_channel_recv, Channels, Futures),
+    maplist(metta_test_spawn_channel_recv, Channels, Futures),
     thread_wait(
-        petta_test_all_scheduler_suspended(Futures),
-        [ wait_preds([petta_scheduler_task/6]), module(user), timeout(10) ]),
+        metta_test_all_scheduler_suspended(Futures),
+        [ wait_preds([metta_scheduler_task/6]), module(user), timeout(10) ]),
     thread_spawn(['t-inc', 41], Cheap),
     once(thread_await(Cheap, 42)),
-    maplist(petta_test_send_wake, Channels),
-    maplist(petta_test_await_one, Futures, Answers),
+    maplist(metta_test_send_wake, Channels),
+    maplist(metta_test_await_one, Futures, Answers),
     maplist(=(wake), Answers).
 
 test(full_channel_sends_suspend_engines_instead_of_all_carriers,
-     [ setup(petta_test_ensure_thread_surface),
-       cleanup(( petta_test_cancel_all(Futures),
-                 maplist(petta_test_close_channel, Channels) )) ]) :-
-    petta_scheduler_lane_size(normal, Carriers),
+     [ setup(metta_test_ensure_thread_surface),
+       cleanup(( metta_test_cancel_all(Futures),
+                 maplist(metta_test_close_channel, Channels) )) ]) :-
+    metta_scheduler_lane_size(normal, Carriers),
     length(Channels, Carriers),
     maplist(channel_new(1), Channels),
-    maplist(petta_test_fill_channel, Channels),
-    maplist(petta_test_spawn_channel_send, Channels, Futures),
+    maplist(metta_test_fill_channel, Channels),
+    maplist(metta_test_spawn_channel_send, Channels, Futures),
     thread_wait(
-        petta_test_all_scheduler_suspended(Futures),
-        [ wait_preds([petta_scheduler_task/6]), module(user), timeout(10) ]),
+        metta_test_all_scheduler_suspended(Futures),
+        [ wait_preds([metta_scheduler_task/6]), module(user), timeout(10) ]),
     thread_spawn(['t-inc', 41], Cheap),
     once(thread_await(Cheap, 42)),
     maplist(channel_recv, Channels, Firsts),
     maplist(=(first), Firsts),
-    maplist(petta_test_await_one, Futures, Sent),
+    maplist(metta_test_await_one, Futures, Sent),
     maplist(=(true), Sent),
     maplist(channel_recv, Channels, Seconds),
     maplist(=(second), Seconds).
@@ -612,11 +612,11 @@ test(cancelling_a_scheduler_deadline_removes_its_heap_record) :-
     Size == 0.
 
 test(a_cancelled_scheduler_deadline_cannot_wake_its_task,
-     [ cleanup(petta_test_deadline_cleanup(Task, Engine, Done)) ]) :-
-    next_petta_handle(Task),
+     [ cleanup(metta_test_deadline_cleanup(Task, Engine, Done)) ]) :-
+    next_metta_handle(Task),
     engine_create(_, true, Engine),
     message_queue_create(Done, [max_size(1)]),
-    assertz(user:petta_scheduler_task(
+    assertz(user:metta_scheduler_task(
                 Task, Engine, '&deadline-test', Done, none,
                 suspended(normal))),
     get_time(Now),
@@ -626,12 +626,12 @@ test(a_cancelled_scheduler_deadline_cannot_wake_its_task,
     DeadlineToken = deadline(_, Timer),
     empty_heap(Rest),
     timer_fire_value_(Timer, Rest, Rest),
-    user:petta_scheduler_task(Task, Engine, '&deadline-test', Done, none,
+    user:metta_scheduler_task(Task, Engine, '&deadline-test', Done, none,
                               suspended(normal)).
 
 test(submitting_to_an_unknown_pool_is_an_existence_error) :-
     catch(pool_submit('$no_such_pool', [true], _),
-          error(existence_error(petta_thread_pool, _), _), true).
+          error(existence_error(metta_thread_pool, _), _), true).
 
 % --------------------------------------------------------- synchronisation
 
@@ -792,7 +792,7 @@ test(a_wakeup_to_a_departed_waiter_is_dropped,
 test(a_wait_on_a_context_with_no_events_is_refused_rather_than_parked) :-
     catch(space_take('&lt-silent-foreign', [job, _], 1, _),
           error(Ball, _), true),
-    assertion(Ball == petta_events_undeclared('&lt-silent-foreign',
+    assertion(Ball == metta_events_undeclared('&lt-silent-foreign',
                                               'be waited on')).
 
 'remove-all-atoms-of'(Space, Pattern) :-

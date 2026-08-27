@@ -601,7 +601,7 @@ A restricted space selects a curated execution base instead of `&self`:
 
 The curated base publishes computation but withholds file, process, and
 network operations. A missing operation raises
-`petta_space_capability_required(Space, Operation, Capability)` at runtime,
+`metta_space_capability_required(Space, Operation, Capability)` at runtime,
 so `catch` can observe it and Python receives `SpaceCapabilityError` with the
 same three fields. Grants are explicit and fixed at creation. Raw
 `translatePredicate` and `call` goals also pass SWI's `sandbox:safe_goal/1`;
@@ -1820,7 +1820,7 @@ refusal is generic unless you write one:
 :- multifile seam:foreign_refuse/2.
 
 seam:foreign_refuse('&mine', add) :-
-    throw(error(petta_readonly_space('&mine'), context(add, 'load it with the importer'))).
+    throw(error(metta_readonly_space('&mine'), context(add, 'load it with the importer'))).
 ```
 
 It THROWS rather than answering; reaching the end of it means the engine and
@@ -2442,7 +2442,7 @@ seam:effect_operation_name(my_dispatch(Name, Args, _), Name, Arity) :-
 
 The refusal above reads the goal it is refusing, and for a bridge that goal is
 yours and not the program's. Without this the Python bridge's refusal said
-`petta_py_dispatch_det/3` and advised declaring THAT pure: not a name any
+`metta_py_dispatch_det/3` and advised declaring THAT pure: not a name any
 author wrote, and not one a declaration could have matched, since the refusal
 never reached the operation's own name. Answer here and the message names what
 the program wrote and what `seam:pure_operation/1` will match.
@@ -2602,9 +2602,9 @@ the list honest. Today's list: `catch_recover/2`, `match_foreign/5`,
 `metta_host_unregister_reader_token/1`, `metta_reducible_head/2`,
 `metta_source_declarations/2`, `metta_space_names/1`,
 `metta_string_declarations/2`, `metta_substitute_self/3`,
-`metta_trace_source/4`, `petta_annotations/2`, `petta_contract_fact/1`,
-`petta_error_answer/3`, `petta_handles_coherent/1`, `petta_on_error_mode/3`,
-`petta_source_reset/1`, `petta_transaction/1`, `petta_transport_failure/1`,
+`metta_trace_source/4`, `metta_annotations/2`, `metta_contract_fact/1`,
+`metta_error_answer/3`, `metta_handles_coherent/1`, `metta_on_error_mode/3`,
+`metta_source_reset/1`, `metta_transaction/1`, `metta_transport_failure/1`,
 `sread_with_names/3`, `translate_expr/3`, `unregister_metta_extension/1` and
 `with_metta_module/2`. Shrinking this list is the shim-thinning work's
 scoreboard; growing it is a deliberate publication, not a drive-by.
@@ -2762,7 +2762,7 @@ on the next engine boot only where their subject has no row standing.
 router the shipped ones use: entries are patterns, queries route by the
 most specific matching entry with `(in $x)` adornments and loud
 coherence conflicts, all inherited, none reimplemented. Read the routed
-view back with the published service `petta_shape_route/5`.
+view back with the published service `metta_shape_route/5`.
 
 To make the engine ACT on your kind, ship exploitation rules riding the
 published seams. The routing seam is `seam:route_cap/4`: consulted
@@ -2777,9 +2777,9 @@ extension file:
 
 :- multifile seam:route_cap/4.
 seam:route_cap(Space, Pattern, inexact, freshness(cached)) :-
-    petta_shape_route(freshness, Space, Pattern, _, [cached]).
+    metta_shape_route(freshness, Space, Pattern, _, [cached]).
 seam:route_cap(Space, Pattern, refuse, freshness(stale)) :-
-    petta_shape_route(freshness, Space, Pattern, _, [stale]).
+    metta_shape_route(freshness, Space, Pattern, _, [stale]).
 ```
 
 With `(vocabulary freshness-level live cached stale)`,

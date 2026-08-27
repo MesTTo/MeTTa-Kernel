@@ -471,7 +471,7 @@ assert m.transaction(term) == []
 assert fact not in m
 ```
 
-Both forms use the same engine transaction as `petta_transaction/1`, so
+Both forms use the same engine transaction as `metta_transaction/1`, so
 foreign-space enlistment and nesting behave identically in both languages.
 Transactions nest, with an inner commit staying relative to its outer
 transaction. `m.transactional` is the callable decorator twin, one transaction

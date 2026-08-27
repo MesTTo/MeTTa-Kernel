@@ -91,7 +91,7 @@ planted_violation(vanished_tangle,
 planted_violation(stray_write,
                   [write_edge(parser, 'petta-not-owned'/7, sread/2)],
                   ['parser:sread/2', 'petta-not-owned/7',
-                   'petta_shared_registry/1']).
+                   'metta_shared_registry/1']).
 
 % The export half needs a subsystem the engine LOADS and that declares a
 % module. The rewriting and narrowing libraries beside it declare one and the

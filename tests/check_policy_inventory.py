@@ -23,7 +23,7 @@ Fails when:
   - an exemption is malformed, unknown, orphaned, or has no resolvable local
     evidence location
 Decides:
-  - only ``petta_catalog_preset/1`` terms in ``engine/spaces.pl`` are catalog
+  - only ``metta_catalog_preset/1`` terms in ``engine/spaces.pl`` are catalog
     authority; unrelated closed lists in that file remain findings, while
     ``bindings/python/metta/vocabularies.py`` is generated and excluded
 Open Obligations:
@@ -67,7 +67,7 @@ PROLOG_CLOSED_LIST = re.compile(
     re.DOTALL,
 )
 CATALOG_PRESET = re.compile(
-    r"^\s*petta_catalog_preset\s*\(\s*\[.*?\]\s*\)\s*\.",
+    r"^\s*metta_catalog_preset\s*\(\s*\[.*?\]\s*\)\s*\.",
     re.DOTALL | re.MULTILINE,
 )
 
@@ -94,7 +94,7 @@ REQUIRED_ALGEBRA_LAWS = {
 }
 ALGEBRA_LAW_SEAM = (
     "engine/metta/effects.pl",
-    r"^\s*petta_vocabulary_claim\(semiring,\s*Semiring,\s*ordered\)\.",
+    r"^\s*metta_vocabulary_claim\(semiring,\s*Semiring,\s*ordered\)\.",
 )
 
 
@@ -122,7 +122,7 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
         r"^reduce\(\[F\|Args\]",
     ),
     "merge": PolicySeam(
-        "merge", "depth", "engine/spaces/bounded_matching.pl", r"^petta_merged_match\("
+        "merge", "depth", "engine/spaces/bounded_matching.pl", r"^metta_merged_match\("
     ),
     "agenda": PolicySeam(
         "reduce", "depth-first", "engine/translator/lowering.pl", r"^reduce\(\[F\|Args\]"
@@ -131,13 +131,13 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
         "==", "structural-identity", "engine/metta/operators.pl", r"^'=='\(A,B,R\)"
     ),
     "errors": PolicySeam(
-        "on-error", "abort", "engine/metta/space_hooks.pl", r"^petta_on_error_mode\("
+        "on-error", "abort", "engine/metta/space_hooks.pl", r"^metta_on_error_mode\("
     ),
     "world": PolicySeam(
-        "context", "closed-world", "engine/metta/effects.pl", r"^petta_context_world\("
+        "context", "closed-world", "engine/metta/effects.pl", r"^metta_context_world\("
     ),
     "algebra": PolicySeam(
-        "annotations", "bool", "engine/metta/effects.pl", r"^petta_k_extend\("
+        "annotations", "bool", "engine/metta/effects.pl", r"^metta_k_extend\("
     ),
     "storage": PolicySeam(
         "config-memoize", "wtinylfu", "lib/lib_memo.pl", r"^memo_strategy\(wtinylfu\)"
@@ -152,25 +152,25 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
         "typing-rule", "strict", "engine/metta/terms.pl", r"^metta_types_match\("
     ),
     "fidelity": PolicySeam(
-        "handles", "Exact", "engine/metta/space_hooks.pl", r"^petta_handles_route\("
+        "handles", "Exact", "engine/metta/space_hooks.pl", r"^metta_handles_route\("
     ),
     "source-kind": PolicySeam(
-        "source", "repeated", "engine/metta/effects.pl", r"^petta_source\("
+        "source", "repeated", "engine/metta/effects.pl", r"^metta_source\("
     ),
     "transaction-mode": PolicySeam(
         "transaction",
         "all-answers",
         "engine/metta/space_hooks.pl",
-        r"^petta_transaction\(Goal\)",
+        r"^metta_transaction\(Goal\)",
     ),
     "atomicity": PolicySeam(
-        "writes", "transactional", "engine/spaces/foreign.pl", r"petta_in_user_transaction"
+        "writes", "transactional", "engine/spaces/foreign.pl", r"metta_in_user_transaction"
     ),
     "delivery": PolicySeam(
-        "events", "per-write-exactly", "engine/metta/space_hooks.pl", r"^petta_event_capability\("
+        "events", "per-write-exactly", "engine/metta/space_hooks.pl", r"^metta_event_capability\("
     ),
     "reaction-order": PolicySeam(
-        "agenda", "declaration", "engine/metta/effects.pl", r"^petta_agenda_order\("
+        "agenda", "declaration", "engine/metta/effects.pl", r"^metta_agenda_order\("
     ),
     "save-format": PolicySeam(
         "save", "metta", "bindings/python/metta/_space_persistence.py", r'format == "fast"'
@@ -186,10 +186,10 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
 QUERY = (
     "consult('engine/metta.pl'), use_module(library(http/json)), "
     "findall(_{axis:A,knob:K,default:D}, "
-    "        petta_catalog_row([policy,A,K,D]), Policies), "
+    "        metta_catalog_row([policy,A,K,D]), Policies), "
     "findall(_{semiring:S,laws:L}, "
-    "        petta_catalog_row([claim,semiring,S|L]), Laws), "
-    "petta_catalog_row([vocabulary,semiring|Semirings]), "
+    "        metta_catalog_row([claim,semiring,S|L]), Laws), "
+    "metta_catalog_row([vocabulary,semiring|Semirings]), "
     "json_write_dict(current_output, "
     "                _{policies:Policies,algebra_laws:Laws,semirings:Semirings}, "
     "                [width(0)])"

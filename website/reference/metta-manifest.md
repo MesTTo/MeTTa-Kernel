@@ -8,7 +8,7 @@ Source: `bindings/python/metta/manifest.py`.
 > booted space, so the deployment is queryable knowledge rather than dead
 > config.
 > Assumes:
->   - shim.pl petta_py_read_forms answers every form in a source without
+>   - shim.pl metta_py_read_forms answers every form in a source without
 >     compiling, storing, or running any [tested
 >     test_a_manifest_neither_runs_nor_defines]
 > Guarantees:

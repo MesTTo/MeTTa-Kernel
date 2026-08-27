@@ -33,7 +33,7 @@
 %   - every pattern the engine sends across a space seam is a writable MeTTa
 %     term, so a provider that writes the pattern to send it can: the
 %     type-marker probe used a partial [-> | Types] list and a MORK space
-%     answered `swrite/2: cannot write [->|'$petta_variable'(0)]`
+%     answered `swrite/2: cannot write [->|'$metta_variable'(0)]`
 %     [tested: spaces_seam_patterns; commit=c05f93baf8c6ecd483487efb72d7f8eb92c97809].
 %   - two conflicting reactions fire in the order each declared agenda policy
 %     names, a reaction with no declared priority reads as 0, and a user
@@ -463,8 +463,8 @@ test(naming_the_storage_module_does_not_claim_it,
     Atoms == [[fact, one]].
 
 test(an_occupied_storage_module_is_still_refused,
-     [ setup(assertz('$petta_atoms:&plunit_taken':squatter(1))),
-       cleanup(retractall('$petta_atoms:&plunit_taken':squatter(_))),
+     [ setup(assertz('$metta_atoms:&plunit_taken':squatter(1))),
+       cleanup(retractall('$metta_atoms:&plunit_taken':squatter(_))),
        throws(error(permission_error(create, native_space_storage, _), _)) ]) :-
     ensure_native_storage_module('&plunit_taken', _).
 
@@ -486,7 +486,7 @@ test(space_names_enumerate_the_registered_spaces,
 % three inferences on every space operation and four benchmarks saw it. Several
 % spellings of one decision is exactly how they drift apart, so this is the
 % guard, and it asks the DOORS rather than the spellings: each refuses exactly
-% the terms petta_space_name/1 refuses, over every kind of term a caller can
+% the terms metta_space_name/1 refuses, over every kind of term a caller can
 % hand it. A space that exists and has nothing to answer answers nothing, which
 % is not a refusal.
 read_door_refuses('get-atoms', Term, Refused) :-
@@ -506,7 +506,7 @@ test(the_read_doors_refuse_what_the_named_test_refuses,
      [ forall(( member(Term, ['&self', '&plunit_names', not_a_space, [], 0, 1.5,
                               "text", [a, b], f(x), _Unbound]),
                 member(Door, ['get-atoms', match]) )) ]) :-
-    ( petta_space_name(Term) -> Named = true ; Named = false ),
+    ( metta_space_name(Term) -> Named = true ; Named = false ),
     read_door_refuses(Door, Term, Refused),
     %Accepted by the named test exactly when the door does not refuse it.
     assertion(( Named == true, Refused == false
@@ -575,7 +575,7 @@ test(every_space_compiles_into_a_module_of_its_own) :-
     space_module('&self', Self),
     space_module('&plunit_exec_a', A),
     space_module('&plunit_exec_b', B),
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     assertion(Self \== A), assertion(A \== B), assertion(Self \== B),
     assertion(Self \== Engine),
     assertion(Self \== user),
@@ -586,7 +586,7 @@ test(every_space_compiles_into_a_module_of_its_own) :-
 % module's base from the first character of its name, which would have given a
 % `$`-prefixed one `system` and no way to reach the engine at all.
 test(the_chain_is_engine_then_self_then_space) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     space_module('&self', Self),
     space_module('&plunit_exec_chain', Space),
     assertion(import_module(Self, Engine)),
@@ -611,7 +611,7 @@ test(the_module_to_space_map_is_the_inverse) :-
              assertion(Back == Space) )),
     % It fails on a module that is not a space's rather than passing one
     % through, because every caller has one in hand.
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     assertion(\+ metta_module_space(Engine, _)),
     assertion(\+ metta_module_space(user, _)).
 
@@ -647,7 +647,7 @@ unshadow_in_self(Name, MettaArity, _Arity) :-
 
 test(an_imported_engine_name_is_free_in_a_space,
      [forall(engine_imports(Name, MettaArity))]) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     Arity is MettaArity + 1,
     functor(Probe, Name, Arity),
     predicate_property(Engine:Probe, imported_from(Owner)),
@@ -665,7 +665,7 @@ test(an_imported_engine_name_is_free_in_a_space,
 
 test(a_name_the_engine_defines_is_free_in_a_space,
      [forall(engine_defines(Name, MettaArity))]) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     Arity is MettaArity + 1,
     functor(Probe, Name, Arity),
     predicate_property(Engine:Probe, number_of_clauses(Before)),
@@ -688,11 +688,11 @@ assert_engine_emitted_name_is_protected(Name/Arity) :-
     MettaArity is Arity - 1,
     length(Args, MettaArity),
     catch('add-atom'('&self', [=, [Name|Args], plunit_captured], _), Error, true),
-    assertion(Error = error(petta_engine_goal_redefinition(Name, MettaArity, '&self'), _)),
+    assertion(Error = error(metta_engine_goal_redefinition(Name, MettaArity, '&self'), _)),
     message_to_string(Error, Text),
     assertion(sub_string(Text, _, _, _, "compiles into function bodies")),
     % and the engine's own goal is still the one a space resolves
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     space_module('&self', Self),
     functor(Head, Name, Arity),
     assertion(predicate_property(Self:Head, imported_from(_))),
@@ -713,7 +713,7 @@ test(test_every_engine_emitted_name_is_protected_by_derivation) :-
 test(an_engine_emitted_name_cannot_be_taken_in_a_named_space) :-
     catch('add-atom'('&plunit_emitted_probe', [=, [has_type, _], plunit_captured],
                      _), Error, true),
-    assertion(Error = error(petta_engine_goal_redefinition(has_type, 1,
+    assertion(Error = error(metta_engine_goal_redefinition(has_type, 1,
                                                            '&plunit_emitted_probe'), _)).
 
 % A space has two halves and clearing it used to empty one. Storage went and
@@ -905,12 +905,12 @@ test(test_adding_an_engine_export_changes_no_spaces_answers,
        % state test_a_declared_emitted_goal_the_engine_cannot_see_is_refused
        % below now refuses, which is how the stale cleanup was found at all.
        cleanup(( cleanup_p118,
-                 petta_engine_module(CleanupEngine),
+                 metta_engine_module(CleanupEngine),
                  retractall(seam:engine_emitted(p118_added_goal/2)),
                  retractall(seam:engine_emitted('p118-double'/2)),
                  abolish(CleanupEngine:p118_added_goal/2),
                  abolish(CleanupEngine:'p118-double'/2) )) ]) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     p118_answers(Before),
     p118_resolutions(ResolvedBefore),
     assertion(Before \== []),
@@ -944,7 +944,7 @@ test(test_adding_an_engine_export_changes_no_spaces_answers,
     assertz(seam:engine_emitted('p118-double'/2)),
     catch(protect_metta_exec_modules, Collision, true),
     assertion(nonvar(Collision)),
-    assertion(Collision = error(petta_engine_export_collision('p118-double', 1,
+    assertion(Collision = error(metta_engine_export_collision('p118-double', 1,
                                                               CollidingSpace, Engine), _)),
     assertion(memberchk(CollidingSpace, ['&p118_a', '&p118_b'])),
     message_to_string(Collision, CollisionText),
@@ -967,12 +967,12 @@ test(test_adding_an_engine_export_changes_no_spaces_answers,
 % sets [measured 2026-08-22].
 test(test_a_declared_emitted_goal_the_engine_cannot_see_is_refused,
      [ cleanup(retractall(seam:engine_emitted('p118-unreachable'/4))) ]) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     assertz(seam:engine_emitted('p118-unreachable'/4)),
     catch(protect_metta_exec_modules, Unreachable, true),
     assertion(nonvar(Unreachable)),
     assertion(Unreachable
-              = error(petta_engine_emitted_unreachable('p118-unreachable'/4,
+              = error(metta_engine_emitted_unreachable('p118-unreachable'/4,
                                                        Engine), _)),
     message_to_string(Unreachable, Text),
     assertion(sub_string(Text, _, _, _, "p118-unreachable/4")),
@@ -1219,7 +1219,7 @@ test(a_conjunction_keeps_each_row_annotation,
      [ setup(setup_snapshot_space), cleanup(cleanup_snapshot_space) ]) :-
     Space = '&plunit_snapshot',
     Pattern = [',', [snap_link, X, Y], [snap_link, Y, Z]],
-    findall(K, ( match(Space, Pattern, out, out), petta_annotation(K) ), Ks),
+    findall(K, ( match(Space, Pattern, out, out), metta_annotation(K) ), Ks),
     % Unannotated atoms read the semiring's 1, once per row rather than a
     % stale neighbour's value or nothing at all.
     assertion(Ks \== []),
@@ -1243,7 +1243,7 @@ test(self_may_shadow_a_builtin,
     with_metta_module(Self, reduce(['car-atom', [1, 2]], Shadowed, _)),
     assertion(Shadowed == nine),
     % The engine's own predicate is untouched, which is the whole point.
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     assertion(Engine:'car-atom'([1, 2], 1)).
 
 % Removing the shadow RESTORES the builtin. The erase used to leave an
@@ -1262,7 +1262,7 @@ test(removing_a_self_shadow_restores_the_builtin) :-
 % space rather than in &self alone. sort/2 is one of the four names still taken
 % at MeTTa arity 1 [measured 2026-08-19].
 test(prologs_protected_core_is_still_refused,
-     [throws(error(petta_builtin_redefinition(sort, 1, '&self'), _))]) :-
+     [throws(error(metta_builtin_redefinition(sort, 1, '&self'), _))]) :-
     'add-atom'('&self', [=, [sort, _], nine], _).
 
 test(the_refusal_names_the_protected_core) :-
@@ -1323,7 +1323,7 @@ test(an_undeclared_clear_is_refused,
 % A write either happened or it did not, so a provider that simply fails has
 % lost the caller's data with nothing said.
 test(a_write_that_fails_is_an_error,
-     [throws(error(petta_foreign_operation_failed('&plunit_broken_write', add), _))]) :-
+     [throws(error(metta_foreign_operation_failed('&plunit_broken_write', add), _))]) :-
     'add-atom'('&plunit_broken_write', [edge, x, y], _).
 
 % Declaring nothing provides NOTHING, the safe answer P12.14 gave events:
@@ -1370,7 +1370,7 @@ native_shape_case([]).
 
 test(native_storage_shapes_agree,
      [ cleanup(( clear_native_atoms('&plunit_shape'),
-                 abolish('$petta_atoms:&plunit_shape':'&plunit_shape'/3) )) ]) :-
+                 abolish('$metta_atoms:&plunit_shape':'&plunit_shape'/3) )) ]) :-
     forall(native_shape_case(Atom),
            ( add_sexp('&plunit_shape', Atom, Ref),
              clause_property(Ref, module(Module)),
@@ -1671,7 +1671,7 @@ test(a_partial_claim_leaves_the_rest_to_the_engine, [setup(fill_plan_spaces)]) :
 % engine plans Rest and never looks at the original patterns again.
 test(a_claim_that_drops_a_conjunct_is_refused,
      [ setup(fill_plan_spaces),
-       throws(error(petta_foreign_plan_is_not_a_partition('&plunit_plan', _, _, _), _)) ]) :-
+       throws(error(metta_foreign_plan_is_not_a_partition('&plunit_plan', _, _, _), _)) ]) :-
     'add-atom'('&plunit_plan', [lossy, a], _),
     rows('&plunit_plan', [',', [lossy, X], [tag, X, nothing]], X, _).
 
@@ -1788,7 +1788,7 @@ test(a_duplicate_declaration_batch_is_refused_before_storage,
     Space = '&bt-duplicate-declaration',
     Declaration = [':', 'bt-duplicate', [->, 'Number', 'Number']],
     catch(metta_add_atoms(Space, [Declaration, Declaration]), Error, true),
-    assertion(Error = error(petta_duplicate_declaration(
+    assertion(Error = error(metta_duplicate_declaration(
                                 Space, Declaration, Declaration), none)),
     findall(Atom, 'get-atoms'(Space, Atom), Atoms),
     assertion(Atoms == []).
@@ -1797,13 +1797,13 @@ test(a_duplicate_declaration_batch_is_refused_before_storage,
 % refusal its atoms meet arriving alone. The store-only crossing used to
 % write behind the admission door's back: a pool at capacity 2 held five
 % atoms after a three-atom batch landed unrefused [measured 2026-08-20].
-% The door is petta_admission_claim/2's guard on the general pre-add hook,
-% so the refusal arrives as the hook's petta_add_refused with the judge's
+% The door is metta_admission_claim/2's guard on the general pre-add hook,
+% so the refusal arrives as the hook's metta_add_refused with the judge's
 % own words, not a bespoke error.
 setup_batch_admission :-
     clear_native_atoms('&bt-pool'),
     metta_add_atom('&metta', [capacity, '&bt-pool', 2], _),
-    petta_admission_claim('&bt-pool', '&self'),
+    metta_admission_claim('&bt-pool', '&self'),
     'add-atom'('&bt-pool', [a, 1], _),
     'add-atom'('&bt-pool', [a, 2], _).
 
@@ -1823,7 +1823,7 @@ cleanup_batch_admission :-
 test(a_batch_beyond_capacity_is_refused_like_lone_adds,
      [ setup(setup_batch_admission),
        cleanup(cleanup_batch_admission),
-       throws(error(petta_add_refused('&bt-pool', [b, 1],
+       throws(error(metta_add_refused('&bt-pool', [b, 1],
                                       ['pool-at-capacity', 2]), _)) ]) :-
     metta_add_atoms('&bt-pool', [[b, 1], [b, 2]]).
 
@@ -1831,7 +1831,7 @@ test(a_refused_batch_leaves_the_state_lone_adds_leave,
      [ setup(setup_batch_admission),
        cleanup(cleanup_batch_admission) ]) :-
     catch(metta_add_atoms('&bt-pool', [[b, 1], [b, 2]]),
-          error(petta_add_refused('&bt-pool', _, ['pool-at-capacity', 2]), _),
+          error(metta_add_refused('&bt-pool', _, ['pool-at-capacity', 2]), _),
           true),
     findall(A, 'get-atoms'('&bt-pool', A), Atoms),
     assertion(Atoms == [[a, 1], [a, 2]]).
@@ -1968,7 +1968,7 @@ test(a_rule_holding_space_is_still_a_data_source) :-
     assertion(Ys == [b]).
 
 test(adding_a_rule_to_a_ruleless_foreign_space_is_refused,
-     [ throws(error(petta_foreign_space_holds_no_rules('&plunit_facts', _), _)) ]) :-
+     [ throws(error(metta_foreign_space_holds_no_rules('&plunit_facts', _), _)) ]) :-
     'add-atom'('&plunit_facts', [=, ['fr-never', _], 1], _).
 
 % And a plain atom still goes in, so the refusal is about equations and not
@@ -2010,7 +2010,7 @@ test(a_declared_route_outranks_the_pushdown_method,
 test(a_refuse_declaration_stops_the_match_before_the_provider,
      [ setup(guard_declare([handles, '&plunit_handles', [secret, _], 'Refuse'])),
        cleanup(guard_retract([handles, '&plunit_handles', [secret, _], 'Refuse'])),
-       throws(error(petta_refused_shape('&plunit_handles', _, _), _)) ]) :-
+       throws(error(metta_refused_shape('&plunit_handles', _, _), _)) ]) :-
     match('&plunit_handles', [secret, X], X, _).
 
 test(other_shapes_still_answer_beside_a_refusal,
@@ -2022,7 +2022,7 @@ test(other_shapes_still_answer_beside_a_refusal,
 test(a_join_with_a_refused_access_pattern_is_refused_at_plan_time,
      [ setup(guard_declare([handles, '&plunit_handles', [edge, [in, _], _], 'Refuse'])),
        cleanup(guard_retract([handles, '&plunit_handles', [edge, [in, _], _], 'Refuse'])),
-       throws(error(petta_refused_shape('&plunit_handles', _, _), _)) ]) :-
+       throws(error(metta_refused_shape('&plunit_handles', _, _), _)) ]) :-
     % The nested loop binds the second conjunct's subject per row, the
     % refused access pattern, so the whole join is refused before a row.
     match('&plunit_handles', [',', [edge, _X, Y], [edge, Y, _Z]], done, _).
@@ -2038,7 +2038,7 @@ test(a_declaration_conflict_surfaces_on_the_match_itself,
                guard_declare([handles, '&plunit_handles', [edge, _, b], 'Sound']) )),
        cleanup(( guard_retract([handles, '&plunit_handles', [edge, a, _], 'Exact']),
                  guard_retract([handles, '&plunit_handles', [edge, _, b], 'Sound']) )),
-       throws(error(petta_contract_conflict('&plunit_handles', _, _, _), _)) ]) :-
+       throws(error(metta_contract_conflict('&plunit_handles', _, _, _), _)) ]) :-
     match('&plunit_handles', [edge, a, b], done, _).
 
 :- end_tests(spaces_handles_guard).
@@ -2048,29 +2048,29 @@ test(a_declaration_conflict_surfaces_on_the_match_itself,
 % (source Ctx linear) makes a second physical touch of a drained source a
 % loud error where the floor answers a silently empty set. The mark is a
 % prolog flag: process-global, transaction-immune, reset only by
-% petta_source_reset/1, the door a fresh provider arrives through.
+% metta_source_reset/1, the door a fresh provider arrives through.
 
 source_declare(Entry) :- 'add-atom'('&metta', Entry, _).
 source_retract(Entry) :- catch('remove-atom'('&metta', Entry, _), _, true).
 
 test(a_linear_source_consumes_once_and_then_refuses,
      [ setup(( source_declare([source, '&plunit_handles', linear]),
-               petta_source_reset('&plunit_handles') )),
+               metta_source_reset('&plunit_handles') )),
        cleanup(( source_retract([source, '&plunit_handles', linear]),
-                 petta_source_reset('&plunit_handles') )) ]) :-
+                 metta_source_reset('&plunit_handles') )) ]) :-
     findall(V, match('&plunit_handles', [edge, a, V], V, _), Values),
     assertion(Values == [b]),
     catch(( match('&plunit_handles', [edge, a, _], _, _), Second = answered ),
-          error(petta_source_discipline('&plunit_handles', linear), _),
+          error(metta_source_discipline('&plunit_handles', linear), _),
           Second = refused),
     assertion(Second == refused).
 
 test(a_join_over_a_linear_source_refuses_the_inner_touch,
      [ setup(( source_declare([source, '&plunit_handles', linear]),
-               petta_source_reset('&plunit_handles') )),
+               metta_source_reset('&plunit_handles') )),
        cleanup(( source_retract([source, '&plunit_handles', linear]),
-                 petta_source_reset('&plunit_handles') )),
-       throws(error(petta_source_discipline('&plunit_handles', linear), _)) ]) :-
+                 metta_source_reset('&plunit_handles') )),
+       throws(error(metta_source_discipline('&plunit_handles', linear), _)) ]) :-
     findall(X-Z,
             match('&plunit_handles',
                   [',', [edge, X, Y], [edge, Y, Z]], X-Z, _),
@@ -2078,11 +2078,11 @@ test(a_join_over_a_linear_source_refuses_the_inner_touch,
 
 test(reset_makes_a_fresh_source,
      [ setup(( source_declare([source, '&plunit_handles', linear]),
-               petta_source_reset('&plunit_handles') )),
+               metta_source_reset('&plunit_handles') )),
        cleanup(( source_retract([source, '&plunit_handles', linear]),
-                 petta_source_reset('&plunit_handles') )) ]) :-
+                 metta_source_reset('&plunit_handles') )) ]) :-
     findall(V, match('&plunit_handles', [edge, a, V], V, _), First),
-    petta_source_reset('&plunit_handles'),
+    metta_source_reset('&plunit_handles'),
     findall(V, match('&plunit_handles', [edge, a, V], V, _), Second),
     assertion(First == Second).
 
@@ -2092,7 +2092,7 @@ test(the_undeclared_floor_pays_nothing_and_repeats) :-
     assertion(First == Second).
 
 test(the_discipline_error_has_an_engine_message) :-
-    message_to_string(error(petta_source_discipline('&c', linear), none), M),
+    message_to_string(error(metta_source_discipline('&c', linear), none), M),
     once(sub_string(M, _, _, _, "second")),
     once(sub_string(M, _, _, _, "linear")),
     \+ sub_string(M, _, _, _, "Unknown error term").
@@ -2101,7 +2101,7 @@ test(the_discipline_error_has_an_engine_message) :-
 
 % A Prolog-hosted provider whose match THROWS mid-stream: its exceptions
 % are ordinary catchable ones, so the engine's own fallback in
-% spaces:petta_match_erring/6 enforces the declared mode, where a Python
+% spaces:metta_match_erring/6 enforces the declared mode, where a Python
 % provider's tunnel past catch/3 makes the adapter hook do it instead.
 seam:foreign_space('&plunit_flaky').
 seam:foreign_capability('&plunit_flaky', C) :- member(C, [match, enumerate]).
@@ -2138,7 +2138,7 @@ test(a_control_signal_is_never_kept,
      [ setup(erring_declare(['on-error', '&plunit_ctl', [edge, _, _], keep])),
        cleanup(erring_retract(['on-error', '&plunit_ctl', [edge, _, _], keep])),
        throws(metta_host_interrupted) ]) :-
-    spaces:petta_match_erring(keep, '&plunit_ctl', [edge, a, _], [], out, _).
+    spaces:metta_match_erring(keep, '&plunit_ctl', [edge, a, _], [], out, _).
 
 :- end_tests(spaces_error_modes).
 
@@ -2152,19 +2152,19 @@ seam:custom_match(plunit_interval(Lo, Hi), Other) :-
 
 :- begin_tests(spaces_custom_match).
 
-test(ground_equality) :- petta_match_atoms(a, a).
-test(ground_difference, [fail]) :- petta_match_atoms(a, b).
-test(numeric_promotion) :- petta_match_atoms(1, 1.0).
-test(string_equality) :- petta_match_atoms("x", "x").
-test(string_difference, [fail]) :- petta_match_atoms("x", "y").
+test(ground_equality) :- metta_match_atoms(a, a).
+test(ground_difference, [fail]) :- metta_match_atoms(a, b).
+test(numeric_promotion) :- metta_match_atoms(1, 1.0).
+test(string_equality) :- metta_match_atoms("x", "x").
+test(string_difference, [fail]) :- metta_match_atoms("x", "y").
 test(occurs_check_rejects, [fail]) :-
-    petta_match_atoms(X, [f, X]).
+    metta_match_atoms(X, [f, X]).
 test(a_variable_binds, [true(X == [f, a])]) :-
-    petta_match_atoms(X, [f, a]).
+    metta_match_atoms(X, [f, a]).
 test(pointwise_bindings, [true(X-Y == a-b)]) :-
-    petta_match_atoms([f, X, b], [f, a, Y]).
+    metta_match_atoms([f, X, b], [f, a, Y]).
 test(arity_mismatch_fails, [fail]) :-
-    petta_match_atoms([f, a], [f, a, b]).
+    metta_match_atoms([f, a], [f, a, b]).
 %A cons cell and () never match, whichever side each is on, and whatever the
 %properness of the cons. Read as lists they differ at the first cell, and every
 %clause past the list branch decides by equality, which they fail too.
@@ -2172,7 +2172,7 @@ test(a_cons_never_matches_the_empty_list,
      [forall(member(Cons, [[a], [a,b], [[x],[y]], [a|b], [a,b|c],
                            ['Error',x], ['Error'|b], [[]], [1,2.5,"s"]])),
       fail]) :-
-    ( petta_match_atoms(Cons, []) ; petta_match_atoms([], Cons) ).
+    ( metta_match_atoms(Cons, []) ; metta_match_atoms([], Cons) ).
 
 %And deciding it must not WALK the cons. `(unify $l () ...)` is how a list is
 %walked to its end, so asking is_list/1 of the whole remaining list at every
@@ -2185,9 +2185,9 @@ test(a_cons_never_matches_the_empty_list,
 %as a single inference whatever the length of the list it walks.
 match_probe_cost(Length, Seconds) :-
     findall(e, between(1, Length, _), List),
-    forall(between(1, 100, _), \+ petta_match_atoms(List, [])),
+    forall(between(1, 100, _), \+ metta_match_atoms(List, [])),
     statistics(cputime, Before),
-    forall(between(1, 2000, _), \+ petta_match_atoms(List, [])),
+    forall(between(1, 2000, _), \+ metta_match_atoms(List, [])),
     statistics(cputime, After),
     Seconds is After - Before.
 
@@ -2197,21 +2197,21 @@ test(probing_a_cons_against_the_empty_list_does_not_walk_it) :-
     assertion(Wide < Narrow * 4).
 
 test(a_hook_accepts_inside_its_range, [nondet]) :-
-    petta_match_atoms(plunit_interval(1, 5), 3).
+    metta_match_atoms(plunit_interval(1, 5), 3).
 test(a_hook_rejects_outside_its_range, [fail]) :-
-    petta_match_atoms(plunit_interval(1, 5), 9).
+    metta_match_atoms(plunit_interval(1, 5), 9).
 test(the_grounded_side_is_handed_first, [nondet]) :-
     % the arbiter swaps arguments when the grounded operand is on the right
-    petta_match_atoms(3, plunit_interval(1, 5)).
+    metta_match_atoms(3, plunit_interval(1, 5)).
 test(a_variable_beats_the_hook, [true(V == plunit_interval(1, 5))]) :-
-    petta_match_atoms(V, plunit_interval(1, 5)).
+    metta_match_atoms(V, plunit_interval(1, 5)).
 test(a_space_operand_is_queried, [nondet]) :-
-    petta_match_atoms('&plunit_handles', [edge, a, B]),
+    metta_match_atoms('&plunit_handles', [edge, a, B]),
     B == b.
 test(a_space_with_no_match_fails, [fail]) :-
-    petta_match_atoms('&plunit_handles', [edge, q1, q2]).
+    metta_match_atoms('&plunit_handles', [edge, q1, q2]).
 test(an_unregistered_name_is_a_plain_symbol, [fail]) :-
-    petta_match_atoms('&plunit_never_registered', [edge, a, b]).
+    metta_match_atoms('&plunit_never_registered', [edge, a, b]).
 
 :- end_tests(spaces_custom_match).
 
@@ -2456,7 +2456,7 @@ test(a_never_written_space_holds_nothing) :-
     'space-atom-count'('&sac-virgin', N), N == 0.
 
 test(an_unbound_space_is_refused,
-     [ throws(error(petta_unbound_input('space-atom-count', 1), _)) ]) :-
+     [ throws(error(metta_unbound_input('space-atom-count', 1), _)) ]) :-
     'space-atom-count'(_, _).
 
 test(a_non_space_is_refused,
@@ -2464,7 +2464,7 @@ test(a_non_space_is_refused,
     'space-atom-count'(7, _).
 
 test(a_foreign_space_has_no_native_count,
-     [ throws(error(petta_foreign_space_count('&sac-foreign'), _)) ]) :-
+     [ throws(error(metta_foreign_space_count('&sac-foreign'), _)) ]) :-
     'space-atom-count'('&sac-foreign', _).
 
 :- end_tests(spaces_atom_count).
@@ -2488,11 +2488,11 @@ test(a_never_written_space_contains_nothing) :-
     'space-contains'('&sco-virgin', [x], R), R == false.
 
 test(an_unbound_space_is_refused,
-     [ throws(error(petta_unbound_input('space-contains', 1), _)) ]) :-
+     [ throws(error(metta_unbound_input('space-contains', 1), _)) ]) :-
     'space-contains'(_, [x], _).
 
 test(an_unbound_atom_is_refused,
-     [ throws(error(petta_unbound_input('space-contains', 2), _)) ]) :-
+     [ throws(error(metta_unbound_input('space-contains', 2), _)) ]) :-
     'space-contains'('&sco-pool', _, _).
 
 test(a_non_space_is_refused,
@@ -2559,14 +2559,14 @@ test(the_surface_constructor_returns_the_child_and_is_idempotent,
         Second),
     assertion(First == ['&inh-surface-child']),
     assertion(Second == ['&inh-surface-child']),
-    once(petta_contract_fact([inherits, '&inh-surface-child',
+    once(metta_contract_fact([inherits, '&inh-surface-child',
                               '&inh-surface-parent'])).
 
 test(a_different_parent_is_refused,
      [ cleanup(( catch(metta_release_space('&inh-conflict-child'), _, true),
                  catch(metta_release_space('&inh-conflict-first'), _, true),
                  catch(metta_release_space('&inh-conflict-second'), _, true) )),
-       throws(error(petta_space_parent_conflict('&inh-conflict-child',
+       throws(error(metta_space_parent_conflict('&inh-conflict-child',
                                                 '&inh-conflict-first',
                                                 '&inh-conflict-second'), _)) ]) :-
     metta_declare_space_parent('&inh-conflict-child', '&inh-conflict-first'),
@@ -2574,7 +2574,7 @@ test(a_different_parent_is_refused,
 
 test(a_cycle_is_named_before_the_already_used_refusal,
      [ cleanup(release_inheritance_pair('&inh-cycle-a', '&inh-cycle-b')),
-       throws(error(petta_space_parent_cycle('&inh-cycle-b',
+       throws(error(metta_space_parent_cycle('&inh-cycle-b',
                                              '&inh-cycle-a'), _)) ]) :-
     metta_declare_space_parent('&inh-cycle-a', '&inh-cycle-b'),
     metta_declare_space_parent('&inh-cycle-b', '&inh-cycle-a').
@@ -2582,7 +2582,7 @@ test(a_cycle_is_named_before_the_already_used_refusal,
 test(a_parent_declared_after_first_use_is_refused,
      [ cleanup(release_inheritance_pair('&inh-used-child',
                                         '&inh-used-parent')),
-       throws(error(petta_space_parent_after_use('&inh-used-child'), _)) ]) :-
+       throws(error(metta_space_parent_after_use('&inh-used-child'), _)) ]) :-
     add_sexp('&inh-used-child', [already, used]),
     metta_declare_space_parent('&inh-used-child', '&inh-used-parent').
 
@@ -2594,7 +2594,7 @@ test(an_outer_transaction_rolls_back_the_index_and_contract) :-
           rollback_probe,
           true),
     assertion(\+ space_parent('&inh-rollback-child', _)),
-    assertion(\+ petta_contract_fact([inherits, '&inh-rollback-child', _])),
+    assertion(\+ metta_contract_fact([inherits, '&inh-rollback-child', _])),
     assertion(\+ metta_exec_module_known('&inh-rollback-child', _)),
     assertion(\+ metta_exec_module_parent(_, _)),
     assertion(\+ native_storage_module_cache('&inh-rollback-child', _)).
@@ -2640,7 +2640,7 @@ test(canonical_modules_are_distinct_and_invert_exactly,
            ( nth1(Index, ExecModules, Exec),
              assertion(metta_module_space(Exec, Name)),
              assertion(space_parametric(Name)),
-             assertion(petta_space_operand(Name)) )),
+             assertion(metta_space_operand(Name)) )),
     assertion(Count == 4).
 
 test(storage_equations_types_and_mutation_are_instance_local,
@@ -2691,7 +2691,7 @@ test(the_surface_constructor_is_idempotent_and_reflected_once,
     Name = [cache, '&param-surface', 7],
     assertion(First == [Name]),
     assertion(Second == [Name]),
-    findall(true, petta_contract_fact([parametric, Name]), Rows),
+    findall(true, metta_contract_fact([parametric, Name]), Rows),
     assertion(Rows == [true]).
 
 test(release_clears_the_registry_storage_and_execution_life,
@@ -2703,7 +2703,7 @@ test(release_clears_the_registry_storage_and_execution_life,
     space_module(Name, Exec),
     metta_release_space(Name),
     assertion(\+ space_parametric(Name)),
-    assertion(\+ petta_contract_fact([parametric, Name])),
+    assertion(\+ metta_contract_fact([parametric, Name])),
     assertion(\+ native_storage_module_cache(Name, _)),
     assertion(\+ metta_exec_module_known(Name, _)),
     metta_declare_parametric_space(Name),
@@ -2736,7 +2736,7 @@ test(an_outer_transaction_rolls_back_every_parametric_index) :-
           rollback_probe,
           true),
     assertion(\+ space_parametric(Name)),
-    assertion(\+ petta_contract_fact([parametric, Name])),
+    assertion(\+ metta_contract_fact([parametric, Name])),
     assertion(\+ native_storage_module_cache(Name, _)),
     assertion(\+ metta_exec_module_known(Name, _)).
 
@@ -2757,14 +2757,14 @@ test(a_restricted_space_bases_on_the_curated_module,
 
 test(a_different_grant_set_is_refused,
      [ cleanup(release_restricted_space('&restricted-conflict')),
-       throws(error(petta_space_restriction_conflict('&restricted-conflict',
+       throws(error(metta_space_restriction_conflict('&restricted-conflict',
                                                       [file], [process]), _)) ]) :-
     metta_declare_restricted_space('&restricted-conflict', [file]),
     metta_declare_restricted_space('&restricted-conflict', [process]).
 
 test(a_missing_capability_names_the_space_operation_and_capability,
      [ cleanup(release_restricted_space('&restricted-refusal')),
-       throws(error(petta_space_capability_required('&restricted-refusal',
+       throws(error(metta_space_capability_required('&restricted-refusal',
                                                      exists_file, file), _)) ]) :-
     metta_declare_restricted_space('&restricted-refusal', []),
     space_module('&restricted-refusal', Module),
@@ -2779,7 +2779,7 @@ test(an_explicit_grant_publishes_only_its_capability,
                       metta_require_current_capability(exists_file, file)),
     catch(with_metta_module(Module,
                             metta_require_current_capability(argv, process)),
-          error(petta_space_capability_required('&restricted-file', argv,
+          error(metta_space_capability_required('&restricted-file', argv,
                                                  process), _),
           Refused = true),
     assertion(Refused == true).
@@ -2792,7 +2792,7 @@ test(the_sandbox_accepts_a_pure_raw_goal_and_rejects_file_access,
     catch(with_metta_module(Module,
                             metta_require_safe_goal(open('/tmp/nope', read,
                                                          _))),
-          error(petta_space_capability_required('&restricted-sandbox', open,
+          error(metta_space_capability_required('&restricted-sandbox', open,
                                                  file), _),
           Refused = true),
     assertion(Refused == true).
@@ -2809,7 +2809,7 @@ test(removing_an_ordinary_shadow_cannot_unpin_restricted_dispatch,
     space_module('&restricted-after-shadow', Module),
     catch(with_metta_module(Module,
                             reduce([exists_file, '/tmp'], _, _)),
-          error(petta_space_capability_required('&restricted-after-shadow',
+          error(metta_space_capability_required('&restricted-after-shadow',
                                                  exists_file, file), _),
           Refused = true),
     assertion(Refused == true).
@@ -2822,7 +2822,7 @@ test(a_failed_outer_transaction_leaves_no_restriction) :-
           true),
     assertion(\+ space_restricted('&restricted-rollback', _)),
     assertion(\+ spaces:space_grant('&restricted-rollback', _)),
-    assertion(\+ petta_contract_fact([restricted, '&restricted-rollback'])),
+    assertion(\+ metta_contract_fact([restricted, '&restricted-rollback'])),
     assertion(\+ metta_exec_module_known('&restricted-rollback', _)),
     assertion(\+ native_storage_module_cache('&restricted-rollback', _)).
 
@@ -2872,12 +2872,12 @@ test(a_declared_context_provides_subscribe_and_a_silent_one_does_not) :-
            assertion(foreign_provides('&plunit_events_quiet', C))).
 
 test(the_declaration_carries_its_delivery_and_order) :-
-    petta_event_capability('&plunit_events_loud', Delivery, Order),
+    metta_event_capability('&plunit_events_loud', Delivery, Order),
     assertion(Delivery == 'at-least-once'),
     assertion(Order == unordered).
 
 test(a_native_space_delivers_per_write_exactly_without_declaring_it) :-
-    petta_event_capability('&plunit-events-native', Delivery, Order),
+    metta_event_capability('&plunit-events-native', Delivery, Order),
     assertion(Delivery == 'per-write-exactly'),
     assertion(Order == ordered).
 
@@ -2893,14 +2893,14 @@ test(a_standing_query_on_a_silent_context_is_refused_naming_the_capability,
                      [subscription, '&plunit_events_quiet', [fact, quiet], add],
                      _),
           error(Ball, _), true),
-    assertion(Ball == petta_events_undeclared('&plunit_events_quiet',
+    assertion(Ball == metta_events_undeclared('&plunit_events_quiet',
                                               'be subscribed to')),
     catch('add-atom'('&metta',
                      [on, '&plunit_events_quiet', [fact, quiet],
                       [insert, '&plunit-events-native', done]],
                      _),
           error(Reaction, _), true),
-    assertion(Reaction == petta_events_undeclared('&plunit_events_quiet',
+    assertion(Reaction == metta_events_undeclared('&plunit_events_quiet',
                                                   'carry a reaction')),
     % The declared one takes both, so the refusal is about the promise and
     % not about the declaration shape.
@@ -2920,13 +2920,13 @@ test(a_standing_query_on_a_silent_context_is_refused_naming_the_capability,
 :- begin_tests(spaces_reaction_agenda).
 
 agenda_reset :-
-    forall(petta_contract_fact([on, '&ag-src', P, O]),
+    forall(metta_contract_fact([on, '&ag-src', P, O]),
            metta_remove_atom('&metta', [on, '&ag-src', P, O], _)),
-    forall(petta_contract_fact([on, '&ag-src', P2, O2, N]),
+    forall(metta_contract_fact([on, '&ag-src', P2, O2, N]),
            metta_remove_atom('&metta', [on, '&ag-src', P2, O2, N], _)),
-    forall(petta_contract_fact([agenda, '&ag-src', Policy]),
+    forall(metta_contract_fact([agenda, '&ag-src', Policy]),
            metta_remove_atom('&metta', [agenda, '&ag-src', Policy], _)),
-    forall(petta_contract_fact([agenda, '&ag-src', P3, C3]),
+    forall(metta_contract_fact([agenda, '&ag-src', P3, C3]),
            metta_remove_atom('&metta', [agenda, '&ag-src', P3, C3], _)),
     metta_host_clear_space('&ag-src'),
     metta_host_clear_space('&ag-log').
@@ -2939,7 +2939,7 @@ agenda_two_reactions :-
                           [insert, '&ag-log', broad]], _),
     'add-atom'('&metta', [on, '&ag-src', [alert, kitchen],
                           [insert, '&ag-log', narrow]], _),
-    petta_install_bridges.
+    metta_install_bridges.
 
 agenda_fired(Order) :-
     'add-atom'('&ag-src', [alert, kitchen], _),
@@ -2949,7 +2949,7 @@ test(test_the_reaction_agenda_fires_in_the_declared_order,
      [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
     % The default is STATED: declaration order, which is what the engine
     % used to produce by accident, and the catalog says so.
-    assertion(petta_catalog_row([policy, 'reaction-order', agenda,
+    assertion(metta_catalog_row([policy, 'reaction-order', agenda,
                                  declaration])),
     agenda_fired(Default),
     assertion(Default == [broad, narrow]),
@@ -2976,7 +2976,7 @@ test(a_declared_priority_outranks_declaration_order,
                           [insert, '&ag-log', broad], 1], _),
     'add-atom'('&metta', [on, '&ag-src', [alert, kitchen],
                           [insert, '&ag-log', narrow], 9], _),
-    petta_install_bridges,
+    metta_install_bridges,
     'add-atom'('&metta', [agenda, '&ag-src', priority], _),
     agenda_fired(Order),
     assertion(Order == [narrow, broad]).
@@ -2986,7 +2986,7 @@ test(a_reaction_without_a_priority_still_fires_and_reads_as_zero,
     'add-atom'('&metta', [agenda, '&ag-src', priority], _),
     agenda_fired(Order),
     assertion(Order == [broad, narrow]),
-    findall(N, petta_reaction('&ag-src', _, _, N), Priorities),
+    findall(N, metta_reaction('&ag-src', _, _, N), Priorities),
     assertion(Priorities == [0, 0]).
 
 % A user policy SCORES each reaction, so it cannot drop one, and a function
@@ -3011,7 +3011,7 @@ test(a_user_agenda_policy_that_scores_nothing_says_so,
      [ setup(agenda_two_reactions), cleanup(agenda_reset) ]) :-
     'add-atom'('&metta', [agenda, '&ag-src', user, 'ag-silent'], _),
     catch('add-atom'('&ag-src', [alert, kitchen], _), error(Ball, _), true),
-    assertion(Ball = petta_agenda_unscored('&ag-src', 'ag-silent', _)).
+    assertion(Ball = metta_agenda_unscored('&ag-src', 'ag-silent', _)).
 
 :- end_tests(spaces_reaction_agenda).
 
@@ -3019,7 +3019,7 @@ test(a_user_agenda_policy_that_scores_nothing_says_so,
 % A partial list is not one, and a provider that writes the pattern to send
 % it has no text for [-> | Types]: MORK refused exactly that and an ordinary
 % (: Name Type) declaration died with `swrite/2: cannot write
-% [->|'$petta_variable'(0)]`. The type-marker probe asks with a plain
+% [->|'$metta_variable'(0)]`. The type-marker probe asks with a plain
 % variable now and checks the arrow shape after the match.
 :- begin_tests(spaces_seam_patterns).
 

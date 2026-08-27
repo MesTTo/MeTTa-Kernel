@@ -55,7 +55,7 @@
 foreign_provides(Space, Capability) :-
     seam:foreign_capability(Space, Capability),
     (   Capability == subscribe
-    ->  petta_event_capability(Space, _, _)
+    ->  metta_event_capability(Space, _, _)
     ;   true
     ).
 
@@ -92,21 +92,21 @@ foreign_write(Space, Capability, Goal) :-
     %survives a rollback, and anything else is refused loudly, because
     %a foreign write silently surviving a rolled-back transaction was
     %the wrong answer this replaces.
-    (   petta_in_user_transaction,
+    (   metta_in_user_transaction,
         once(current_transaction(_))
-    ->  petta_writes(Space, Atomicity),
+    ->  metta_writes(Space, Atomicity),
         (   Atomicity == transactional
-        ->  petta_enlist_foreign(Space)
+        ->  metta_enlist_foreign(Space)
         ;   Atomicity == 'best-effort'
         ->  true
-        ;   throw(error(petta_transaction_unsupported(Space, Atomicity),
+        ;   throw(error(metta_transaction_unsupported(Space, Atomicity),
                         none))
         )
     ;   true
     ),
     (   call(Goal)
     ->  true
-    ;   throw(error(petta_foreign_operation_failed(Space, Capability),
+    ;   throw(error(metta_foreign_operation_failed(Space, Capability),
                     context(foreign_write/3,
                             'the provider refused the write without saying why')))
     ).
@@ -130,7 +130,7 @@ metta_add_atoms(Space, Terms) :-
     %through add_sexp_in/4
     %[tested: a_batch_into_a_hooked_space_consults_the_handler_per_atom,
     %a_batch_beyond_capacity_is_refused_like_lone_adds].
-    petta_hook_claim_idle(Space),
+    metta_hook_claim_idle(Space),
     atoms_store_only(Space, Terms),
     add_atoms_in_one_crossing(Space, Terms), !.
 metta_add_atoms(Space, Terms) :-
@@ -158,8 +158,8 @@ add_atoms_in_one_crossing(Space, Terms) :-
     %test per atom; the whole batch is checked before any of it lands.
     (   Space == '&metta'
     ->  forall(member(Decl, Terms),
-               (   petta_declaration_check(Decl),
-                   petta_note_ctx_declared(Decl)
+               (   metta_declaration_check(Decl),
+                   metta_note_ctx_declared(Decl)
                ))
     ;   true
     ),
@@ -167,7 +167,7 @@ add_atoms_in_one_crossing(Space, Terms) :-
            ( add_sexp_in(Storage, Space, Term, Ref),
              record_source_atom_assertion(Ref) )),
     (   Space == '&metta'
-    ->  forall(member(Term, Terms), petta_catalog_note_added(Term))
+    ->  forall(member(Term, Terms), metta_catalog_note_added(Term))
     ;   true
     ).
 
@@ -201,7 +201,7 @@ metta_add_program_atoms(Space, Atoms) :-
 
 metta_add_program_atoms(Space, Atoms, Names) :-
     (   seam:foreign_space(Space)
-    ;   \+ petta_hook_claim_idle(Space)
+    ;   \+ metta_hook_claim_idle(Space)
     ;   \+ metta_add_hooks_idle(Space)
     ),
     !,
@@ -332,13 +332,13 @@ store_data_atoms_([Atom|Atoms], Storage, Space, Shape, Load) :-
     ->  (   ( Rel == (=) ; Rel == (:) )
         ->  metta_add_atom(Space, Atom, _)
         ;   (   Shape == parametric
-            ->  Term =.. ['$petta_parametric_atom', Rel|Args]
+            ->  Term =.. ['$metta_parametric_atom', Rel|Args]
             ;   Term =.. [Space, Rel|Args]
             ),
             assertz(Storage:Term, Ref),
             journal_data_ref(Load, Ref)
         )
-    ;   assertz(Storage:'$petta_native_scalar'(Atom), Ref),
+    ;   assertz(Storage:'$metta_native_scalar'(Atom), Ref),
         journal_data_ref(Load, Ref)
     ),
     store_data_atoms_(Atoms, Storage, Space, Shape, Load).
@@ -478,10 +478,10 @@ assert_translated_equation(Module, Term, Clause, Ref) :-
     %runs it.
     length(Inputs, InputArity),
     PredArity is InputArity + 1,
-    petta_prepare_function_predicate(Module, F, PredArity),
+    metta_prepare_function_predicate(Module, F, PredArity),
     without_runnable_name_context(
         once(with_metta_module(Module, translate_clause(Term, RawClause)))),
-    petta_instrument_recursive_clause(Term, RawClause, Clause),
+    metta_instrument_recursive_clause(Term, RawClause, Clause),
     assert_function_clause(Module, Clause, Ref),
     record_source_assertion(Ref),
     record_translated_from(Ref, Term, SourceRef),
@@ -904,52 +904,52 @@ translate_deferred_shape(Space, Module, F, InputArity) :-
 %argument; its higher-order specialization owns the runnable call, so the
 %generic dispatch artifact is not charged as another recursive branch.
 %[tested: test_a_stack_depth_pragma_bounds_evaluation_instead_of_overflowing].
-petta_instrument_recursive_clause([=, [F|HeadArguments], Body],
+metta_instrument_recursive_clause([=, [F|HeadArguments], Body],
                                   (Head :- Goal),
                                   (Head :- Charge, Goal)) :-
     length(HeadArguments, Arity),
-    petta_source_calls_head(Body, F, Arity),
-    \+ petta_source_has_variable_head(Body),
+    metta_source_calls_head(Body, F, Arity),
+    \+ metta_source_has_variable_head(Body),
     Head =.. [_|Arguments],
     append(Inputs, [_Output], Arguments),
     \+ ( member(Input, Inputs), nonvar(Input), Input == quote ),
     !,
-    petta_fuel_culprit(F, Inputs, Culprit),
-    petta_source_reduction_count(Body, Nodes),
+    metta_fuel_culprit(F, Inputs, Culprit),
+    metta_source_reduction_count(Body, Nodes),
     Cost is max(1, (Nodes + 1) // 2),
     %Built rather than called: the charge is written into this clause, which is
     %a third of what it cost as a shared call, and the cost lands as a literal
     %because it is settled here.
-    petta_fuel_step_goal(Culprit, Cost, Charge).
-petta_instrument_recursive_clause(_, Clause, Clause).
+    metta_fuel_step_goal(Culprit, Cost, Charge).
+metta_instrument_recursive_clause(_, Clause, Clause).
 
-petta_fuel_culprit(_, [Only], Only) :- !.
-petta_fuel_culprit(F, Inputs, [F|Inputs]).
+metta_fuel_culprit(_, [Only], Only) :- !.
+metta_fuel_culprit(F, Inputs, [F|Inputs]).
 
-petta_source_calls_head([quote, _], _, _) :- !, fail.
-petta_source_calls_head([Head|Arguments], F, Arity) :-
+metta_source_calls_head([quote, _], _, _) :- !, fail.
+metta_source_calls_head([Head|Arguments], F, Arity) :-
     (   nonvar(Head), Head == F, length(Arguments, Arity)
     ->  true
     ;   member(Argument, Arguments),
-        petta_source_calls_head(Argument, F, Arity)
+        metta_source_calls_head(Argument, F, Arity)
     ).
 
-petta_source_has_variable_head(Term) :-
+metta_source_has_variable_head(Term) :-
     nonvar(Term),
     Term = [Head|Arguments],
     (   var(Head)
     ->  true
     ;   member(Argument, Arguments),
-        petta_source_has_variable_head(Argument)
+        metta_source_has_variable_head(Argument)
     ).
 
-petta_source_reduction_count(Term, 0) :- var(Term), !.
-petta_source_reduction_count([quote, _], 0) :- !.
-petta_source_reduction_count([_|Arguments], Count) :- !,
-    maplist(petta_source_reduction_count, Arguments, Counts),
+metta_source_reduction_count(Term, 0) :- var(Term), !.
+metta_source_reduction_count([quote, _], 0) :- !.
+metta_source_reduction_count([_|Arguments], Count) :- !,
+    maplist(metta_source_reduction_count, Arguments, Counts),
     sum_list(Counts, Nested),
     Count is Nested + 1.
-petta_source_reduction_count(_, 0).
+metta_source_reduction_count(_, 0).
 
 add_function_atom(Storage, Space, Module, Term, FAtom, W) :-
     %Any equation of FAtom still waiting is translated BEFORE this one is
@@ -982,7 +982,7 @@ add_function_atom(Storage, Space, Module, Term, FAtom, W) :-
 :- multifile prolog:error_message//1.
 
 assert_function_clause(Module, Clause, Ref) :-
-    petta_prepare_local_predicate(Module, Clause),
+    metta_prepare_local_predicate(Module, Clause),
     catch(assertz(Module:Clause, Ref),
           error(permission_error(modify, static_procedure, _), _),
           throw_builtin_redefinition(Module, Clause)).
@@ -998,10 +998,10 @@ throw_builtin_redefinition(Module, Clause) :-
     InputArity is Arity - 1,
     metta_module_space(Module, Space),
     (   seam:engine_emitted(Name/Arity)
-    ->  throw(error(petta_engine_goal_redefinition(Name, InputArity, Space),
+    ->  throw(error(metta_engine_goal_redefinition(Name, InputArity, Space),
                     context('=', 'the engine compiles this name into function \c
                                   bodies')))
-    ;   throw(error(petta_builtin_redefinition(Name, InputArity, Space),
+    ;   throw(error(metta_builtin_redefinition(Name, InputArity, Space),
                     context('=', 'a builtin cannot be redefined in this space')))
     ).
 
@@ -1010,31 +1010,31 @@ throw_builtin_redefinition(Module, Clause) :-
 %it. `rules` is a promise about what a space HOLDS rather than about which
 %methods a provider has, so no protocol can derive it and the message has to
 %say how to opt in [tested: test_a_space_without_rules_says_how_to_hold_one].
-prolog:error_message(petta_foreign_space_holds_no_rules(Space, Term)) -->
+prolog:error_message(metta_foreign_space_holds_no_rules(Space, Term)) -->
     { swrite(Term, TermText) },
     [ '~w does not hold rules, so ~w was refused rather than stored where it \c
        could never fire'-[Space, TermText], nl,
       '  a foreign space holds DATA unless it says otherwise; declare the \c
        rules capability on the provider to hold a program' ].
 
-prolog:error_message(petta_foreign_operation_failed(Space, Capability)) -->
+prolog:error_message(metta_foreign_operation_failed(Space, Capability)) -->
     [ 'the provider for ~w did not complete the ~w operation and gave no \c
        reason. A provider that cannot serve a request should raise, so the \c
        program can see why.'-[Space, Capability] ].
-prolog:error_message(petta_foreign_plan_is_not_a_partition(Space, Patterns,
+prolog:error_message(metta_foreign_plan_is_not_a_partition(Space, Patterns,
                                                           Claimed, Rest)) -->
     [ '~w claimed ~w and left ~w of the conjunction ~w, which do not partition \c
        it. A claim may take any subset and leave the rest, and may not drop a \c
        conjunct: the engine plans only what you leave, so a dropped pattern \c
        stops constraining the query and the join answers rows that were never \c
        asked for.'-[Space, Claimed, Rest, Patterns] ].
-prolog:error_message(petta_engine_goal_redefinition(Name, Arity, Space)) -->
+prolog:error_message(metta_engine_goal_redefinition(Name, Arity, Space)) -->
     [ '~w with ~w arguments is a name the engine itself compiles into function \c
        bodies, so no space can redefine it, ~w included.'-[Name, Arity, Space], nl,
       '  an equation for it would capture the engine\'s own goal in this \c
        space\'s compiled clauses rather than shadowing a function: rename it, \c
        or write the behaviour you want as a wrapper around it' ].
-prolog:error_message(petta_builtin_redefinition(Name, Arity, Space)) -->
+prolog:error_message(metta_builtin_redefinition(Name, Arity, Space)) -->
     [ '~w with ~w arguments is one of Prolog\'s protected core predicates, \c
        which no space can redefine, ~w included.'-[Name, Arity, Space], nl,
       '  every other builtin name is free: an equation for one compiles into \c
@@ -1061,7 +1061,7 @@ prolog:error_message(petta_builtin_redefinition(Name, Arity, Space)) -->
 %rollback, the storage modules, and the seam's removal hooks all ask "did the
 %store hold it" rather than "what does a program see".
 'remove-atom'(Space, Term, Result) :-
-    (   petta_space_name(Space)
+    (   metta_space_name(Space)
     ->  metta_remove_atom(Space, Term, Removed),
         (   Removed == true
         ->  Result = []
@@ -1074,7 +1074,7 @@ prolog:error_message(petta_builtin_redefinition(Name, Arity, Space)) -->
 
 %WHY THE DOORS ASK IT WHERE THEY DO, which is the decision this section makes.
 %
-%A space is a NAME that is one, and petta_space_name/1 decides which. The doors
+%A space is a NAME that is one, and metta_space_name/1 decides which. The doors
 %used to share a metta_space_argument/1 whose whole body was `atom(Space)`, on
 %the reading that PeTTa CANNOT reproduce the arbiter's
 %`(add-atom not-a-space (bad add))` diagnostic: the two model spaces
@@ -1095,7 +1095,7 @@ prolog:error_message(petta_builtin_redefinition(Name, Arity, Space)) -->
 %with every space-consuming operation resolving through `resolveSpace`
 %[source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:1565-1573,1621-1627].
 %What it does not have is creation on demand, which is why the second half of
-%petta_space_name/1 is the prefix rather than the registry: a fresh `&kb` is a
+%metta_space_name/1 is the prefix rather than the registry: a fresh `&kb` is a
 %space the moment a program writes to it, and that capability is kept whole.
 %The one example that used a name without the prefix,
 %examples/spaces/add_atom_fun_space.metta, still returns a space name from a
@@ -1114,7 +1114,7 @@ prolog:error_message(petta_builtin_redefinition(Name, Arity, Space)) -->
 %was already asking: a write reaches no storage module for a name that is not a
 %space, a read misses the storage lookup it was already making, and a
 %conjunctive match answers no rows. Only then, on a path that was going to
-%answer nothing, is petta_space_name/1 consulted to tell a space that is empty
+%answer nothing, is metta_space_name/1 consulted to tell a space that is empty
 %from a name that is not one. That is why metta_space_argument/1 is gone rather
 %than renamed: one shared test in front of every door is exactly the shape the
 %measurements refuse.
@@ -1135,7 +1135,7 @@ prolog:error_message(petta_builtin_redefinition(Name, Arity, Space)) -->
 %whether or not its output slot aliases an input.
 space_operation_error(Operation, Arguments, Reason, Error) :-
     copy_term(Arguments, Subject),
-    petta_note_copied_variables(Arguments, Subject),
+    metta_note_copied_variables(Arguments, Subject),
     Error = ['Error', [Operation|Subject], Reason].
 
 %A runnable installs its flat reader map only while its goals execute. The
@@ -1143,47 +1143,47 @@ space_operation_error(Operation, Arguments, Reason, Error) :-
 %copy a diagnostic subject can record the copied variable's spelling without
 %putting attributes on matcher variables
 %[tested: test_variable_names_survive_to_the_printer; commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
-:- meta_predicate petta_run_named(+, 0, -).
-petta_run_named(Names, Goal, Generated) :-
-    Context = '$petta_runtime_name_context'(Names, Generated, Generated),
+:- meta_predicate metta_run_named(+, 0, -).
+metta_run_named(Names, Goal, Generated) :-
+    Context = '$metta_runtime_name_context'(Names, Generated, Generated),
     setup_call_cleanup(
         install_runtime_name_context(Context, SavedContext),
         call(Goal),
         restore_runtime_name_context(SavedContext)).
 
 install_runtime_name_context(Context, saved(Previous)) :-
-    nb_current('$petta_runtime_name_context', Previous), !,
-    nb_linkval('$petta_runtime_name_context', Context).
+    nb_current('$metta_runtime_name_context', Previous), !,
+    nb_linkval('$metta_runtime_name_context', Context).
 install_runtime_name_context(Context, none) :-
-    nb_linkval('$petta_runtime_name_context', Context).
+    nb_linkval('$metta_runtime_name_context', Context).
 
 restore_runtime_name_context(saved(Previous)) :- !,
-    nb_linkval('$petta_runtime_name_context', Previous).
+    nb_linkval('$metta_runtime_name_context', Previous).
 restore_runtime_name_context(none) :-
-    nb_delete('$petta_runtime_name_context').
+    nb_delete('$metta_runtime_name_context').
 
-petta_note_copied_variables(Original, Copy) :-
-    nb_current('$petta_runtime_name_context', Context), !,
-    Context = '$petta_runtime_name_context'(Names, _, _),
+metta_note_copied_variables(Original, Copy) :-
+    nb_current('$metta_runtime_name_context', Context), !,
+    Context = '$metta_runtime_name_context'(Names, _, _),
     term_variables(Original, OriginalVars),
     term_variables(Copy, CopyVars),
-    petta_note_variable_pairs(OriginalVars, CopyVars, Names, Context).
-petta_note_copied_variables(_, _).
+    metta_note_variable_pairs(OriginalVars, CopyVars, Names, Context).
+metta_note_copied_variables(_, _).
 
-petta_note_variable_pairs([], [], _, _).
-petta_note_variable_pairs([Original|Originals], [Copy|Copies], Names, Context) :-
-    (   petta_reader_variable_name(Names, Original, Name)
+metta_note_variable_pairs([], [], _, _).
+metta_note_variable_pairs([Original|Originals], [Copy|Copies], Names, Context) :-
+    (   metta_reader_variable_name(Names, Original, Name)
     ->  arg(3, Context, Tail),
         Tail = [Name-Copy|Next],
         setarg(3, Context, Next)
     ;   true
     ),
-    petta_note_variable_pairs(Originals, Copies, Names, Context).
+    metta_note_variable_pairs(Originals, Copies, Names, Context).
 
-petta_reader_variable_name([Name-Variable|_], Original, Name) :-
+metta_reader_variable_name([Name-Variable|_], Original, Name) :-
     Variable == Original, !.
-petta_reader_variable_name([_|Names], Original, Name) :-
-    petta_reader_variable_name(Names, Original, Name).
+metta_reader_variable_name([_|Names], Original, Name) :-
+    metta_reader_variable_name(Names, Original, Name).
 
 %get-atoms is worded differently because upstream words it differently: it
 %takes ONE argument, so pinned `space.rs:143` says "its argument" where the
@@ -1248,7 +1248,7 @@ space_argument_error(Operation, Arguments, Error) :-
 %does not mean what it means there. It costs the test once per batch and not
 %once per atom.
 add_expression_to_space(Space, List, Result) :-
-    (   petta_space_name(Space)
+    (   metta_space_name(Space)
     ->  metta_add_atoms(Space, List), Result = []
     ;   List = [First|_]
     ->  space_argument_error('add-atom', [Space, First], Result)
@@ -1435,7 +1435,7 @@ stored_arrow_uses_type_in(Context, Function, Type) :-
 %list is not one. [-> | Types] with Types unbound is fine against the native
 %store, where matching is Prolog unification, and has no text at all for a
 %provider that writes the pattern to send it: MORK refused this one and the
-%refusal surfaced as `swrite/2: cannot write [->|'$petta_variable'(0)]` from
+%refusal surfaced as `swrite/2: cannot write [->|'$metta_variable'(0)]` from
 %an ordinary (: Name Type) declaration, reproduced by storing an equation in
 %&mork, removing it, and then declaring any type marker [measured 2026-08-21].
 %Asking with a plain variable and filtering here is the seam's own
@@ -1490,7 +1490,7 @@ metta_host_removal_probe(Space, Pattern) :-
     Pattern = [Head|Arguments],
     atom(Head),
     native_storage_module(Space, Module),
-    Goal =.. ['$petta_parametric_atom', Head|Arguments],
+    Goal =.. ['$metta_parametric_atom', Head|Arguments],
     call(Module:Goal),
     !.
 metta_host_removal_probe(Space, Pattern) :-
@@ -1577,9 +1577,9 @@ remove_equation(Space, Term, F, Args, Body, Removed) :-
             %survives a commit, and the owner of the outermost
             %transaction sweeps it afterwards
             %[tested: test_a_reload_that_fails_leaves_the_previous_definitions_standing].
-            assertz('$petta_shadow_repair_pending'(Module, F, PredArity))
-        ;   petta_repair_emptied_shadows,
-            petta_abolish_local_predicate(Module, F, PredArity)
+            assertz('$metta_shadow_repair_pending'(Module, F, PredArity))
+        ;   metta_repair_emptied_shadows,
+            metta_abolish_local_predicate(Module, F, PredArity)
         )
     ;   true
     ),
@@ -1601,7 +1601,7 @@ remove_equation(Space, Term, F, Args, Body, Removed) :-
       ; true ),
     ( Erased == false, Stored \== true -> Removed = false ; Removed = true ).
 
-:- dynamic '$petta_shadow_repair_pending'/3.
+:- dynamic '$metta_shadow_repair_pending'/3.
 
 %The deferred half of the emptied-shadow repair above: each pending row
 %names a function a committed transaction emptied. The recheck matters,
@@ -1609,15 +1609,15 @@ remove_equation(Space, Term, F, Args, Body, Removed) :-
 %refills it in the load, and only a function still empty at the sweep is
 %a shadow to drop. abolish refusing (a tabled shadow) leaves the old
 %behaviour, an empty local predicate.
-petta_repair_emptied_shadows :-
-    forall(retract('$petta_shadow_repair_pending'(Module, F, PredArity)),
+metta_repair_emptied_shadows :-
+    forall(retract('$metta_shadow_repair_pending'(Module, F, PredArity)),
            (   functor(Head, F, PredArity),
                (   predicate_property(Module:Head, number_of_clauses(0))
-               ->  petta_abolish_local_predicate(Module, F, PredArity)
+               ->  metta_abolish_local_predicate(Module, F, PredArity)
                ;   true
                )
            )),
-    petta_repair_shadow_imports.
+    metta_repair_shadow_imports.
 
 %Where an atom comes out of, the counterpart of store_atom/2. Both answer
 %whether the store actually held it.
@@ -1669,7 +1669,7 @@ unstore_atom(Space, Term, Removed) :- remove_sexp(Space, Term, Removed).
 %[tested: test_match_snapshots_rows_before_template_effects,
 %spaces_match_snapshot:a_conjunction_finds_every_row_before_any_template_runs].
 %An ANNOTATED space's rows carry their annotation as well as their bindings,
-%because that rides '$petta_answer_k' BACKTRACKABLY and findall would undo it:
+%because that rides '$metta_answer_k' BACKTRACKABLY and findall would undo it:
 %reset-call-read is metta_top/3's own idiom below, and the write after member/2
 %is what hands the row's k to the template that reads (annotation).
 %
@@ -1703,9 +1703,9 @@ unstore_atom(Space, Term, Removed) :- remove_sexp(Space, Term, Removed).
 %clause says for itself when it applies.
 match(Space, Pattern, OutPattern, Result) :-
     nonvar(Pattern),
-    Pattern = '$petta_seq'(Plan, Parsed),
+    Pattern = '$metta_seq'(Plan, Parsed),
     !,
-    petta_seq_space(Plan, Space, Parsed, OutPattern, Result).
+    metta_seq_space(Plan, Space, Parsed, OutPattern, Result).
 match([Family|Parameters], Pattern, OutPattern, Result) :-
     nonvar(Pattern),
     Pattern = [Comma|_],
@@ -1723,7 +1723,7 @@ match(Space, Pattern, OutPattern, Result) :- nonvar(Pattern), Pattern = [Comma|_
                                                                    Space, Pattern,
                                                                    OutPattern, Result)
                                              *-> true
-                                             ;   petta_space_name(Space)
+                                             ;   metta_space_name(Space)
                                              ->  fail
                                              ;   space_argument_error('match',
                                                                       [Space, Pattern,
@@ -1777,7 +1777,7 @@ match(Space, Pattern, OutPattern, Result) :-
 %clause of a predicate a proof can walk has to say for itself when it applies,
 %which is what the three clauses above already do.
 match(Space, Pattern, OutPattern, Result) :-
-    \+ petta_space_name(Space),
+    \+ metta_space_name(Space),
     space_argument_error('match', [Space, Pattern, OutPattern], Result).
 
 %The PRODUCER is handed in rather than built here, because the caller is where
@@ -1797,18 +1797,18 @@ match(Space, Pattern, OutPattern, Result) :-
 %metta_top/3 declare one because their goal is a MeTTa BODY.
 conjunctive_match(Producer, Space, Pattern, OutPattern, Result) :-
     term_variables(Pattern-OutPattern, Row),
-    (   petta_effective_algebra(Space, bool)
+    (   metta_effective_algebra(Space, bool)
     ->  findall(Row,
                 Producer,
                 Rows),
         member(Row, Rows)
-    ;   petta_algebra_one(Space, One),
+    ;   metta_algebra_one(Space, One),
         findall(Row-K,
-                ( b_setval('$petta_answer_k', One),
+                ( b_setval('$metta_answer_k', One),
                   Producer,
-                  b_getval('$petta_answer_k', K) ),
+                  b_getval('$metta_answer_k', K) ),
                 Rows),
         member(Row-K, Rows),
-        b_setval('$petta_answer_k', K)
+        b_setval('$metta_answer_k', K)
     ),
     Result = OutPattern.

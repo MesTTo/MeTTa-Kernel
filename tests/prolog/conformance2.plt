@@ -30,10 +30,10 @@ both_doors(Text, Expected) :-
 
 both_doors_raise_assertion(Text) :-
     catch(( compiled_answers(Text, _), Compiled = passed ),
-          error(petta_assertion_failed(_), _),
+          error(metta_assertion_failed(_), _),
           Compiled = failed),
     catch(( dynamic_answers(Text, _), Dynamic = passed ),
-          error(petta_assertion_failed(_), _),
+          error(metta_assertion_failed(_), _),
           Dynamic = failed),
     assertion(Compiled == failed),
     assertion(Dynamic == failed).
@@ -132,7 +132,7 @@ test(a_bare_not_reducible_result_retains_the_call_at_the_boundary) :-
 
 test(the_raw_step_exposes_the_marker_only_to_control_consumers) :-
     Term = ['c2-pl-unknown-call'],
-    findall(Answer, petta_eval_step(Term, Answer), Raw),
+    findall(Answer, metta_eval_step(Term, Answer), Raw),
     findall(Answer, eval(Term, Answer), Ordinary),
     assertion(Raw == ['NotReducible']),
     assertion(Ordinary == [Term]).

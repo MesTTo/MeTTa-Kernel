@@ -261,7 +261,7 @@ parse_translator_rule_declarations(Declared, Declarations) :-
     %rewriting a form.
     (   memberchk(left(_), Declarations),
         memberchk(direction(bidirectional), Declarations)
-    ->  throw(error(petta_uninvertible_rule(left, conjunctive_left_side),
+    ->  throw(error(metta_uninvertible_rule(left, conjunctive_left_side),
                     context('add-translator-rule!',
                             'a conjunctive left side cannot be read \c
                              backwards')))
@@ -286,7 +286,7 @@ refuse_repeated_declaration(Declarations) :-
     (   Repeated == []
     ->  true
     ;   sort(Repeated, [Kind|_]),
-        throw(error(petta_repeated_translator_rule_declaration(Kind),
+        throw(error(metta_repeated_translator_rule_declaration(Kind),
                     context('add-translator-rule!',
                             'a rule declares each thing once')))
     ).
@@ -321,7 +321,7 @@ register_translator_rule(Name, Declarations) :-
         %comparison engine/trs.pl already uses for exactly that reason.
         (   Existing =@= Declarations
         ->  true
-        ;   throw(error(petta_duplicate_translator_rule(Name, Existing),
+        ;   throw(error(metta_duplicate_translator_rule(Name, Existing),
                         context('add-translator-rule!',
                                 'a rule name identifies one declaration')))
         )
@@ -369,7 +369,7 @@ install_conjunctive_rule(Name, Declarations) :-
         Patterns = [Head|Conjuncts],
         (   nonvar(Head), Head = [Name|Arguments], is_list(Arguments)
         ->  true
-        ;   throw(error(petta_conjunctive_left_side(Name, Head),
+        ;   throw(error(metta_conjunctive_left_side(Name, Head),
                         context('add-translator-rule!',
                                 'the first pattern of a conjunctive left \c
                                  side is the call this rule rewrites, so it \c
@@ -383,7 +383,7 @@ install_conjunctive_rule(Name, Declarations) :-
         assertz(translator_rule_derived(Name, Space, Equation))
     ;   \+ memberchk(right(_), Declarations)
     ->  true
-    ;   throw(error(petta_conjunctive_left_side(Name, missing),
+    ;   throw(error(metta_conjunctive_left_side(Name, missing),
                     context('add-translator-rule!',
                             'a right side needs the left side it rewrites')))
     ).
@@ -392,7 +392,7 @@ require_declaration(Name, Wanted, Declarations) :-
     (   memberchk(Wanted, Declarations)
     ->  true
     ;   functor(Wanted, Kind, _),
-        throw(error(petta_conjunctive_left_side(Name, Kind),
+        throw(error(metta_conjunctive_left_side(Name, Kind),
                     context('add-translator-rule!',
                             'a left side needs the right side it rewrites \c
                              to')))
@@ -435,14 +435,14 @@ inverse_equation(Name, Equation, Inverse) :-
     Equation = [=, Lhs, Body],
     (   nonvar(Body), Body = [noeval, Rhs]
     ->  true
-    ;   throw(error(petta_uninvertible_rule(Name, computed_expansion),
+    ;   throw(error(metta_uninvertible_rule(Name, computed_expansion),
                     context('add-translator-rule!',
                             'a rule read backwards writes its expansion, as \c
                              (= Lhs (noeval Rhs))')))
     ),
     (   nonvar(Rhs), Rhs = [InvHead|InvArgs], atom(InvHead), is_list(InvArgs)
     ->  true
-    ;   throw(error(petta_uninvertible_rule(Name, expansion_is_not_a_form),
+    ;   throw(error(metta_uninvertible_rule(Name, expansion_is_not_a_form),
                     context('add-translator-rule!',
                             'the inverse rewrites the expansion, so the \c
                              expansion has to be a form with a symbol at its \c
@@ -464,7 +464,7 @@ inverse_equation(Name, Equation, Inverse) :-
     require_variables_covered(Name, RightVariables, LeftVariables),
     Inverse = [=, Rhs, [noeval, Lhs]],
     (   Inverse =@= Equation
-    ->  throw(error(petta_uninvertible_rule(Name, inverse_is_the_rule_itself),
+    ->  throw(error(metta_uninvertible_rule(Name, inverse_is_the_rule_itself),
                     context('add-translator-rule!',
                             'this rule is its own inverse, and a rewrite \c
                              between two forms of equal cost never fires')))
@@ -474,7 +474,7 @@ inverse_equation(Name, Equation, Inverse) :-
 require_variables_covered(Name, Needed, Available) :-
     (   forall(member(V, Needed), ( member(W, Available), W == V ))
     ->  true
-    ;   throw(error(petta_uninvertible_rule(Name, extra_variables),
+    ;   throw(error(metta_uninvertible_rule(Name, extra_variables),
                     context('add-translator-rule!',
                             'a rule read backwards needs the same variables \c
                              on both sides, or one of them arrives unbound')))
@@ -579,11 +579,11 @@ add_translator_form_cost(Term, Running, Total) :-
 
 :- multifile prolog:error_message//1.
 
-prolog:error_message(petta_duplicate_translator_rule(Name, Existing)) -->
+prolog:error_message(metta_duplicate_translator_rule(Name, Existing)) -->
     [ 'translator rule ~w already declares ~w'-[Name, Existing] ].
-prolog:error_message(petta_repeated_translator_rule_declaration(Kind)) -->
+prolog:error_message(metta_repeated_translator_rule_declaration(Kind)) -->
     [ 'the ~w declaration is written more than once'-[Kind] ].
-prolog:error_message(petta_uninvertible_rule(Name, Reason)) -->
+prolog:error_message(metta_uninvertible_rule(Name, Reason)) -->
     [ '~w cannot be read backwards: ~w'-[Name, Reason] ].
-prolog:error_message(petta_conjunctive_left_side(Name, What)) -->
+prolog:error_message(metta_conjunctive_left_side(Name, What)) -->
     [ 'the conjunctive left side of ~w is missing or misplaced its ~w'-[Name, What] ].

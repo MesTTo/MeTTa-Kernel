@@ -5,7 +5,7 @@
  *   comments, $-variables with per-form identity, string literals with the
  *   five escapes, dcg/basics number//1 with boundary check, True/False,
  *   the quote-token fallback). Registered into module parser as
- *   petta_c_parse_source/4 and petta_c_sread/3 by parser.pl when this file's
+ *   metta_c_parse_source/4 and metta_c_sread/3 by parser.pl when this file's
  *   compiled reader.so sits beside it; the two extra arguments hand back the
  *   source's function-signature multiset and its declaration pairs from the
  *   same walk, the summaries filereader.pl's pre-passes used to re-walk the
@@ -17,7 +17,7 @@
  *   dispatches here only while metta_reader_mode(shipped) holds, so no
  *   custom token registry needs consulting.
  * Guarantees:
- *   - petta_c_parse_source/2 answers exactly what parse_metta_source_prolog/2
+ *   - metta_c_parse_source/2 answers exactly what parse_metta_source_prolog/2
  *     answers, parsed/3 and parsed/4 forms with byte-identical source
  *     strings, variant-identical terms, and name maps in the same
  *     newest-first order, over the whole example corpus and the adversarial
@@ -794,7 +794,7 @@ build_parsed_form(term_t result, ctx *c, const unsigned char *text,
 }
 
 /* ------------------------------------------------------------------ */
-/* petta_c_parse_source(+Text, -ParsedForms): top_forms//2 fused with
+/* metta_c_parse_source(+Text, -ParsedForms): top_forms//2 fused with
  * parse_form_with_mode/3.                                             */
 
 static foreign_t
@@ -929,7 +929,7 @@ out:
 }
 
 /* ------------------------------------------------------------------ */
-/* petta_c_sread(+Text, -Term, -Names): sread_with_names_mode/4 for the
+/* metta_c_sread(+Text, -Term, -Names): sread_with_names_mode/4 for the
  * shipped grammar, one form consuming the whole input.                */
 
 static foreign_t
@@ -992,7 +992,7 @@ install_reader(void)
   FUNCTOR_minus2 = PL_new_functor(PL_new_atom("-"), 2);
   c_locale = newlocale(LC_ALL_MASK, "C", (locale_t)0);
 
-  PL_register_foreign_in_module("parser", "petta_c_parse_source", 4,
+  PL_register_foreign_in_module("parser", "metta_c_parse_source", 4,
                                 c_parse_source, 0);
-  PL_register_foreign_in_module("parser", "petta_c_sread", 3, c_sread, 0);
+  PL_register_foreign_in_module("parser", "metta_c_sread", 3, c_sread, 0);
 }

@@ -149,8 +149,8 @@ test(printing_named_variables_does_not_bind_or_strip_constraints) :-
     DomainAfter == DomainBefore.
 
 test(answer_group_uses_each_collected_side_map) :-
-    Answers = ['$petta_answer'([left, X], [x-X]),
-               '$petta_answer'([right, Y], [y-Y])],
+    Answers = ['$metta_answer'([left, X], [x-X]),
+               '$metta_answer'([right, Y], [y-Y])],
     parser:swrite_answer_group(Answers, Written),
     Written == "((left $x) (right $y))".
 

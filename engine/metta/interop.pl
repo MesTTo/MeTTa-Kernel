@@ -86,7 +86,7 @@ prolog_function_source(N, Source) :-
 %the whole process: registering a predicate named + made !(+ 1 2) answer
 %whatever the library said, and the only diagnostic was SWI's redefinition
 %warning on stderr, which no caller sees. The equation route already refuses
-%exactly this at spaces.pl through petta_builtin_redefinition/3, so this is
+%exactly this at spaces.pl through metta_builtin_redefinition/3, so this is
 %the same rule reaching the other road in rather than a new one.
 %
 %A translated head, because translator rules and translate_special_dl/5 are
@@ -116,7 +116,7 @@ refuse_reserved_registration(N) :-
 %and fun_in/2 says which module its clauses live in; neither says which tier
 %put them there, and without that a registration from one tier silently took
 %a name another tier owned. Registering a Prolog predicate over a live Python
-%operation replaced it, left petta_py_op_spec/3 still claiming the name, and
+%operation replaced it, left metta_py_op_spec/3 still claiming the name, and
 %wedged it for the life of the process: the operation could not be
 %unregistered, because retractall/1 on what was now a static predicate raised,
 %and could not be re-registered either.
@@ -150,7 +150,7 @@ refuse_other_tiers_name(Name, Tier) :-
 refuse_other_sources_name(Name, Source) :-
     (   metta_function_origin(Name, prolog, Owner),
         Owner \== unknown, Source \== unknown, Owner \== Source
-    ->  throw(error(petta_name_owned_by_source(Name, Owner),
+    ->  throw(error(metta_name_owned_by_source(Name, Owner),
                     context(refuse_other_sources_name/2,
                             'two Prolog sources claim one name')))
     ;   true
@@ -208,7 +208,7 @@ claim_over(Name, prolog, Detail, prolog, Detail) :- !,
     retractall(metta_function_origin(Name, _, _)),
     assertz(metta_function_origin(Name, prolog, Detail)).
 claim_over(Name, prolog, OwnerDetail, prolog, _) :- !,
-    throw(error(petta_name_owned_by_source(Name, OwnerDetail),
+    throw(error(metta_name_owned_by_source(Name, OwnerDetail),
                 context(claim_function_name/3,
                         'two Prolog sources claim one name'))).
 claim_over(Name, _, _, Tier, _) :-
@@ -310,11 +310,11 @@ metta_host_refuse_taken_name(Name, PredArity, Probe) :-
     ;   Owner = Base
     ),
     Arity is PredArity - 1,
-    throw(error(petta_op_name_taken(Name, Arity, PredArity, Owner),
+    throw(error(metta_op_name_taken(Name, Arity, PredArity, Owner),
                 context(metta_host_open_function/3, 'the name is not free'))).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_op_name_taken(Name, Arity, PredArity, Owner)) -->
+prolog:error_message(metta_op_name_taken(Name, Arity, PredArity, Owner)) -->
     [ 'registering ~w at ~w MeTTa argument(s) would assert into Prolog\'s \c
        ~w/~w, which ~w already owns in this process'-[Name, Arity, Name,
                                                       PredArity, Owner], nl,
@@ -376,7 +376,7 @@ prolog:error_message(petta_op_name_taken(Name, Arity, PredArity, Owner)) -->
 %The number moves when a seam a library can SEE changes: a hook removed or
 %renamed, a hook's arguments changed, a refusal added where none was. Adding
 %a hook moves the minor.
-%1-1: seam:route_cap/4 added, and petta_shape_route/5 published as a
+%1-1: seam:route_cap/4 added, and metta_shape_route/5 published as a
 %service (2026-08-20).
 metta_extension_api_version(1, 1).
 
@@ -421,7 +421,7 @@ ready_extension_spaces(Name, Options, Spaces) :-
 ready_extension_space(Name, Options, Space) :-
     (   seam:foreign_space(Space)
     ->  true
-    ;   throw(error(petta_extension_space_unregistered(Name, Space),
+    ;   throw(error(metta_extension_space_unregistered(Name, Space),
                     context(metta_extension/2,
                             'the extension names a space it never \c
                              registered: add a seam:foreign_space/1 \c
@@ -429,7 +429,7 @@ ready_extension_space(Name, Options, Space) :-
     ),
     (   seam:foreign_capability(Space, _)
     ->  true
-    ;   throw(error(petta_extension_space_undeclared(Name, Space),
+    ;   throw(error(metta_extension_space_undeclared(Name, Space),
                     context(metta_extension/2,
                             'declaring nothing provides nothing: give the \c
                              space its seam:foreign_capability/2 rows')))
@@ -471,7 +471,7 @@ extension_capability_hook(clear, seam:foreign_clear/1).
 ready_capability_hook(Name, Space, Capability, Module:Pred/Arity) :-
     (   ready_hook_admits(Module:Pred/Arity, Space)
     ->  true
-    ;   throw(error(petta_extension_no_hook(Name, Space, Capability,
+    ;   throw(error(metta_extension_no_hook(Name, Space, Capability,
                                             Module:Pred/Arity),
                     context(metta_extension/2,
                             'the declared capability has no hook clauses \c
@@ -513,14 +513,14 @@ ready_guard_admits((Guard, _)) :- !, catch(Guard, _, fail).
 ready_guard_admits(Guard) :- catch(Guard, _, fail).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_extension_space_unregistered(Name, Space)) -->
+prolog:error_message(metta_extension_space_unregistered(Name, Space)) -->
     [ 'extension ~w names ~w in spaces(...) and never registered it: \c
        add a seam:foreign_space/1 clause for the space'-[Name, Space] ].
-prolog:error_message(petta_extension_space_undeclared(Name, Space)) -->
+prolog:error_message(metta_extension_space_undeclared(Name, Space)) -->
     [ 'extension ~w readies ~w with no capability rows, and declaring \c
        nothing provides nothing: give the space its \c
        seam:foreign_capability/2 rows'-[Name, Space] ].
-prolog:error_message(petta_extension_no_hook(Name, Space, Capability, PI)) -->
+prolog:error_message(metta_extension_no_hook(Name, Space, Capability, PI)) -->
     [ 'extension ~w declares ~w for ~w and ~w has no clauses: implement \c
        the hook or drop the capability'-[Name, Capability, Space, PI] ].
 
@@ -547,7 +547,7 @@ refuse_incompatible_extension(Name, Major, Minor) :-
     metta_extension_api_version(OurMajor, OurMinor),
     (   Major =:= OurMajor, Minor =< OurMinor
     ->  true
-    ;   throw(error(petta_extension_api_mismatch(Name, Major-Minor,
+    ;   throw(error(metta_extension_api_mismatch(Name, Major-Minor,
                                                  OurMajor-OurMinor),
                     context(metta_extension/2,
                             'this engine does not offer the seam the \c
@@ -563,7 +563,7 @@ metta_export(Source) :-
 %consult; outside one, which is how a test or an inline snippet reaches here,
 %the exports are keyed on a name of their own so they still register.
 declaring_file(File) :-
-    ( prolog_load_context(source, Source) -> File = Source ; File = 'petta_inline' ).
+    ( prolog_load_context(source, Source) -> File = Source ; File = 'metta_inline' ).
 
 record_metta_export(File, Parsed) :-
     parsed_form_parts(Parsed, _, Text, Term),
@@ -575,12 +575,12 @@ record_metta_export(File, Parsed) :-
     %vocabularies, consulted as data: a program that widens either row in
     %'&metta' widens what this parser accepts, one authority.
     ;   Term = [volatility, Name, Level], atom(Name),
-        petta_vocabulary_value(volatility, Level)
+        metta_vocabulary_value(volatility, Level)
     ->  declare_function_volatility(Name, Level)
     ;   Term = [determinism, Name, Mode], atom(Name),
-        petta_vocabulary_value(determinism, Mode)
+        metta_vocabulary_value(determinism, Mode)
     ->  declare_function_determinism(Name, Mode)
-    ;   throw(error(petta_export_form(Text),
+    ;   throw(error(metta_export_form(Text),
                     context(metta_export/1,
                             'an export is (: name (-> ...)), (export name arity), \c
                              (volatility name <a volatility vocabulary value>) or \c
@@ -708,9 +708,9 @@ undo_declared_export(File, Name) :-
     ;   true
     ).
 
-%petta_inline is the name a declaration outside any load is keyed on, so there
+%metta_inline is the name a declaration outside any load is keyed on, so there
 %is no file to take back out.
-unload_declared_source('petta_inline') :- !.
+unload_declared_source('metta_inline') :- !.
 unload_declared_source(Source) :- catch(unload_file(Source), _, true).
 
 %The MeTTa arity is the type chain's length less one, and the predicate's is
@@ -780,7 +780,7 @@ unregister_metta_extension(Extension) :-
     %would report names that are no longer there.
     retractall(metta_file_export(File, _)),
     retractall(metta_extension_info(Extension, File, _)),
-    ( File == 'petta_inline' -> true ; catch(unload_file(File), _, true) ).
+    ( File == 'metta_inline' -> true ; catch(unload_file(File), _, true) ).
 
 %Its own predicate so the file is a head argument: read inline, the binding
 %happens in one branch of an if-then-else whose other branch throws, and SWI's
@@ -819,7 +819,7 @@ check_prolog_function_names(Names, Source, true) :-
 %Register every name, or none. Validating inside the registration loop left a
 %typo in the third name with the first two registered and callable, and the
 %list of what had taken died inside the exception, so the caller could not
-%learn what to undo. This is the shape petta_py_register_op_set already uses
+%learn what to undo. This is the shape metta_py_register_op_set already uses
 %one file over: probe every name first, touch state only after
 %[tested: a_typo_in_the_list_registers_nothing].
 import_prolog_functions(Names, true) :-
@@ -972,7 +972,7 @@ use_module_global(File, Renames) :-
     %which says what is wrong and not what to do about it.
     catch(loading_loudly(user:use_module(File, [])),
           error(domain_error(module_header, _), _),
-          throw(error(petta_not_a_prolog_module(File),
+          throw(error(metta_not_a_prolog_module(File),
                       context(use_module_global/2,
                               'renaming imports needs a module')))),
     module_exports_of(File, Module, Exports),
@@ -985,7 +985,7 @@ module_exports_of(File, Module, Exports) :-
                        [file_type(prolog), access(read), file_errors(fail)]),
     (   module_property(Module, file(Resolved))
     ->  module_property(Module, exports(Exports))
-    ;   throw(error(petta_not_a_prolog_module(File),
+    ;   throw(error(metta_not_a_prolog_module(File),
                     context(use_module_global/2,
                             'renaming imports needs a module')))
     ).
@@ -995,11 +995,11 @@ module_exports_of(File, Module, Exports) :-
 %guessing at one.
 renamed_import(Module, Exports, Rename, Name/Arity as To) :-
     rename_pair(Rename, From0, To0),
-    petta_name_atom(From0, Name),
-    petta_name_atom(To0, To),
+    metta_name_atom(From0, Name),
+    metta_name_atom(To0, To),
     (   memberchk(Name/Arity, Exports)
     ->  true
-    ;   throw(error(petta_not_exported(Module, Name, Exports),
+    ;   throw(error(metta_not_exported(Module, Name, Exports),
                     context(use_module_global/2,
                             'a rename names an export')))
     ).
@@ -1010,11 +1010,11 @@ renamed_import(Module, Exports, Rename, Name/Arity as To) :-
 rename_pair(From-To, From, To) :- !.
 rename_pair([From, To], From, To) :- !.
 rename_pair(Rename, _, _) :-
-    throw(error(type_error(petta_rename, Rename),
+    throw(error(type_error(metta_rename, Rename),
                 context(use_module_global/2,
                         'a rename is From-To or [From, To]'))).
 
-petta_name_atom(Name0, Name) :-
+metta_name_atom(Name0, Name) :-
     ( atom(Name0) -> Name = Name0 ; atom_string(Name, Name0) ).
 
 %The same load for source held in memory, which is how a library ships Prolog
@@ -1050,28 +1050,28 @@ consult_string_global(Name, Text) :-
 %singleton variables are a style note, and the redefinition warning that
 %matters is caught positively instead, by asking after the load whether each
 %name resolves where it should [tested: a_syntax_error_in_a_library_raises].
-:- thread_local petta_load_diagnostic/1, petta_watching_load/0.
+:- thread_local metta_load_diagnostic/1, metta_watching_load/0.
 :- multifile user:thread_message_hook/3.
 user:thread_message_hook(Term, error, _Lines) :-
-    petta_watching_load,
+    metta_watching_load,
     message_to_string(Term, Text),
-    assertz(petta_load_diagnostic(Text)),
+    assertz(metta_load_diagnostic(Text)),
     %Fail deliberately: SWI still prints the message with its full context,
     %and the throw below carries the summary a caller can act on.
     fail.
 
 :- meta_predicate loading_loudly(0).
 loading_loudly(Goal) :-
-    setup_call_cleanup(( retractall(petta_load_diagnostic(_)),
-                         assertz(petta_watching_load) ),
+    setup_call_cleanup(( retractall(metta_load_diagnostic(_)),
+                         assertz(metta_watching_load) ),
                        Goal,
-                       retractall(petta_watching_load)),
-    findall(Text, petta_load_diagnostic(Text), Diagnostics),
-    retractall(petta_load_diagnostic(_)),
+                       retractall(metta_watching_load)),
+    findall(Text, metta_load_diagnostic(Text), Diagnostics),
+    retractall(metta_load_diagnostic(_)),
     (   Diagnostics == []
     ->  true
     ;   atomic_list_concat(Diagnostics, '; ', Summary),
-        throw(error(petta_load_failed(Summary),
+        throw(error(metta_load_failed(Summary),
                     context(loading_loudly/1,
                             'the Prolog source reported an error while loading')))
     ).
@@ -1080,7 +1080,7 @@ loading_loudly(Goal) :-
 %the Prolog interop constructor's original meaning.
 metta_predicate_goal([Space|Pattern],
                      match(Space, Pattern, matched, matched)) :-
-    petta_space_name(Space), !.
+    metta_space_name(Space), !.
 metta_predicate_goal([F|Args], Term) :- Term =.. [F|Args].
 
 'Predicate'(Parts, _) :- var(Parts), !, refuse_unbound_input('Predicate', 1).
@@ -1218,7 +1218,7 @@ import_receipt_current(Space, CanonPath) :-
 
 import_cache_current(Space, CanonPath) :-
     imported_metta_source(Space, CanonPath),
-    (   petta_space_name(Space)
+    (   metta_space_name(Space)
     ->  ( import_life(Space, CanonPath, loading)
         ; import_receipt_current(Space, CanonPath) )
     ;   true
@@ -1244,7 +1244,7 @@ clear_import_state(Space, CanonPath) :-
 begin_import_attempt(Space, CanonPath) :-
     clear_import_state(Space, CanonPath),
     assertz(imported_metta_source(Space, CanonPath)),
-    (   petta_space_name(Space)
+    (   metta_space_name(Space)
     ->  assertz(import_life(Space, CanonPath, loading))
     ;   true
     ).
@@ -1253,7 +1253,7 @@ restore_import_state(Terms) :-
     forall(member(Term, Terms), assertz(Term)).
 
 finish_import_attempt(Space, CanonPath, _, exit) :- !,
-    (   petta_space_name(Space)
+    (   metta_space_name(Space)
     ->  retractall(import_life(Space, CanonPath, _)),
         assertz(import_life(Space, CanonPath, loaded))
     ;   true
@@ -1263,13 +1263,13 @@ finish_import_attempt(Space, CanonPath, Previous, _) :-
     restore_import_state(Previous).
 
 commit_import_receipt(Space, CanonPath) :-
-    petta_space_name(Space), !,
+    metta_space_name(Space), !,
     findall(LoadId-Digest,
             filereader:metta_source_load(CanonPath, Space, LoadId, Digest),
             Loads),
     (   Loads = [LoadId-Digest]
     ->  assertz(import_receipt(Space, CanonPath, LoadId, Digest))
-    ;   throw(error(petta_import_receipt_source_load(CanonPath, Space, Loads),
+    ;   throw(error(metta_import_receipt_source_load(CanonPath, Space, Loads),
                     context(import_when/4,
                             'a successful MeTTa import must publish exactly one source load before its receipt commits')))
     ).
@@ -1371,7 +1371,7 @@ resolve_module_form(Form, Path) :-
     nonvar(Form), Form = [library, Name], !,
     library(Name, Path).
 %The two-argument spelling names a registered alias and a file inside it,
-%`(library petta_fixture_lib fixture)`, and it reaches here for exactly the
+%`(library metta_fixture_lib fixture)`, and it reaches here for exactly the
 %reason the one-argument form does: the mask hands the whole form over, so
 %every shape a module name can take is resolved on this side.
 resolve_module_form(Form, Path) :-

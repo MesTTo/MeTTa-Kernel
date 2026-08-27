@@ -32,20 +32,20 @@
 
 ;A refusal carries the handler's own sentence to the caller.
 !(test (repr (catch (add-atom &pool (secret 1))))
-       "(Error (petta_add_refused &pool (secret 1) \"no secrets in this pool\") none)")
+       "(Error (metta_add_refused &pool (secret 1) \"no secrets in this pool\") none)")
 
 ;A claimed handler whose equations do not cover the atom is a stuck state
 ;that says so, naming the space, the slot, the handler and the atom. Nothing
 ;is silently admitted and nothing silently vanishes; a handler that wants a
 ;default writes its own catch-all equation, one visible line.
 !(test (repr (catch (add-atom &pool (uncovered 9))))
-       "(Error (petta_hook_stuck &pool pre-add guard (uncovered 9)) none)")
+       "(Error (metta_hook_stuck &pool pre-add guard (uncovered 9)) none)")
 
 ;One claimant per name, checked when the claim is made: a second claimant is
 ;refused with both named, never raced at call time.
 (= (other-guard $a) (accept))
 !(test (repr (catch (declare-pre-add! &pool other-guard)))
-       "(Error (petta_hook_conflict &pool pre-add guard other-guard) none)")
+       "(Error (metta_hook_conflict &pool pre-add guard other-guard) none)")
 
 ;Undeclaring is explicit and frees the claim; the space is direct again.
 !(undeclare-pre-add! &pool)

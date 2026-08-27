@@ -91,10 +91,10 @@ test(a_failed_reflection_write_is_loud_and_transactional) :-
           'add-atom'('&metta', RefusingKind, []) ),
         ( catch(metta_tabled_decl(['plt-tab-plain', _], true), Error, true),
           assertion(Error = error(
-              petta_tabling_reflection_write_failed(
+              metta_tabling_reflection_write_failed(
                   add,
                   [tabled, _, 'plt-tab-plain', 1],
-                  exception(error(petta_declaration_malformed(_, _, _), _))),
+                  exception(error(metta_declaration_malformed(_, _, _), _))),
               _)),
           metta_self_module(Self),
           functor(Head, 'plt-tab-plain', 2),
@@ -118,17 +118,17 @@ test(a_parametric_space_read_resolves_to_its_private_predicate,
     metta_declare_parametric_space(Space),
     native_storage_module(Space, Storage),
     metta_tabling_read(match, Space, [fact, _, _], Reads),
-    assertion(Reads == [Storage:'$petta_parametric_atom'/3]).
+    assertion(Reads == [Storage:'$metta_parametric_atom'/3]).
 
 test(tabling_refuses_unresolvable_reads) :-
     % A computed space: nothing here can say which storage predicate the
     % table would have to watch.
     catch(metta_tabled_decl(['plt-tab-computed', _], true), Computed, true),
-    assertion(Computed = error(petta_tabling_unresolved_read(_, _), _)),
+    assertion(Computed = error(metta_tabling_unresolved_read(_, _), _)),
     % A foreign space: its atoms do not live in an SWI dynamic predicate at
     % all, so no write to it could ever invalidate the table.
     catch(metta_tabled_decl(['plt-tab-foreign', _], true), Foreign, true),
-    assertion(Foreign = error(petta_tabling_foreign_space(_, '&plt_tab_foreign'), _)).
+    assertion(Foreign = error(metta_tabling_foreign_space(_, '&plt_tab_foreign'), _)).
 
 test(tabling_refuses_a_function_that_is_not_defined_yet,
      [throws(error(existence_error(metta_function, _), _))]) :-

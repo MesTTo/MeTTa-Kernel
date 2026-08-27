@@ -456,9 +456,9 @@ shallow_argument_types(true, ['Bool']) :- !.
 shallow_argument_types(false, ['Bool']) :- !.
 shallow_argument_types([H|_], Types) :-
     atom(H), !,
-    (   '$petta_atoms:&self':'&self'(':', H, _)
+    (   '$metta_atoms:&self':'&self'(':', H, _)
     ->  findall(Return,
-                ( '$petta_atoms:&self':'&self'(':', H, Chain),
+                ( '$metta_atoms:&self':'&self'(':', H, Chain),
                   nonvar(Chain), Chain = [->|Rest], last(Rest, Return) ),
                 Types),
         Types \== []
@@ -469,9 +469,9 @@ shallow_argument_types([H|_], Types) :-
     ).
 shallow_argument_types(X, Types) :-
     atom(X),
-    (   '$petta_atoms:&self':'&self'(':', X, _)
+    (   '$metta_atoms:&self':'&self'(':', X, _)
     ->  findall(Type,
-                ( '$petta_atoms:&self':'&self'(':', X, Type),
+                ( '$metta_atoms:&self':'&self'(':', X, Type),
                   \+ ( nonvar(Type), Type = [->|_] ) ),
                 Types),
         Types \== []
@@ -485,9 +485,9 @@ shallow_argument_types(X, Types) :-
 %which is the door data_head_answer_dl/6's note measures at +44% on a compile
 %path [measured 2026-08-19].
 shallow_declared_type(Name, Type) :-
-    '$petta_atoms:&self':'&self'(':', Name, Type).
+    '$metta_atoms:&self':'&self'(':', Name, Type).
 shallow_declared_type(Name, Type) :-
-    \+ '$petta_atoms:&self':'&self'(':', Name, _),
+    \+ '$metta_atoms:&self':'&self'(':', Name, _),
     seam:builtin_type_declaration(Name, Type).
 
 metta_argument_types_in(Module, Argument, Types) :-

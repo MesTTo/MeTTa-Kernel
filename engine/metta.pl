@@ -25,10 +25,10 @@
 %     than through the process locale [tested:
 %     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
 %     commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
-%   - petta_handles_route/5 routes a query by the most specific matching
+%   - metta_handles_route/5 routes a query by the most specific matching
 %     (handles ...) entry in &metta, where specificity is pattern
 %     subsumption first and adornment-set inclusion between renaming-equal
-%     patterns, disagreeing maximal ties throw petta_contract_conflict/4
+%     patterns, disagreeing maximal ties throw metta_contract_conflict/4
 %     naming both entries and the query, and a context with no entries
 %     fails in one indexed probe [tested 2026-08-17: metta_handles_route]
 %     [measured 2026-08-17: 15 inferences per undeclared-context miss].
@@ -132,7 +132,7 @@
 %     classifies a NAME by the arbiter's grounded-token table gated on this
 %     engine holding the operation, so a token nothing here answers to reports
 %     Symbol as an unknown name does [tested 2026-08-20: metta_metatypes].
-%   - petta_transaction/1 answers everything its body answers, and every
+%   - metta_transaction/1 answers everything its body answers, and every
 %     answer's writes commit or roll back together [tested 2026-08-19:
 %     bindings/python/tests/test_atomic_forms.py::test_a_transaction_preserves_every_answer_of_its_body].
 %   - Every guarded_input_position/3 refuses an unbound argument and names the
@@ -196,7 +196,7 @@
 %     max-stack-depth remains branch-local reduction fuel [tested:
 %     scoped_stack_limit,
 %     test_janus_stack_scope_restores_on_all_exits; commit=81c50d3ae4c03ddfd70ed3f1ff70e085cfee3978].
-%   - petta_assertion_failure/4 classifies the three assertion formals, so a
+%   - metta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
 %     reading the message [tested 2026-08-19:
 %     bindings/python/tests/test_assertion_failures.py::test_a_failing_assertion_is_a_different_exception_from_an_engine_fault].
@@ -300,14 +300,14 @@ library(X, Y, Path) :- Spec =.. [X, Y],
 %[tested: an_unresolvable_library_alias_raises].
 refuse_unresolved_library(Alias, File) :-
     findall(Directory, file_search_path(Alias, Directory), Directories),
-    throw(error(petta_unresolved_library(Alias, File, Directories),
+    throw(error(metta_unresolved_library(Alias, File, Directories),
                 context(library/3, 'no readable file of that name'))).
 
-prolog:error_message(petta_unresolved_library(Alias, File, [])) -->
+prolog:error_message(metta_unresolved_library(Alias, File, [])) -->
     [ '(library ~w ~w) does not resolve: nothing is registered under the \c
        alias ~w. Register the directory with register_metta_library_path, or \c
        import the file by path.'-[Alias, File, Alias] ].
-prolog:error_message(petta_unresolved_library(Alias, File, Directories)) -->
+prolog:error_message(metta_unresolved_library(Alias, File, Directories)) -->
     [ '(library ~w ~w) does not resolve: no readable ~w under ~w. Check the \c
        spelling, and that the file carries its extension.'
       -[Alias, File, File, Directories] ].
@@ -425,7 +425,7 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %arrive here by accident, through engine/duals.pl's own import into the one
 %namespace everything shared, and under NO_AUTOLOAD=1 with duals in a module
 %of its own a compiled dual raised
-%existence_error(procedure, '$petta_exec:&self':dif/2)
+%existence_error(procedure, '$metta_exec:&self':dif/2)
 %[measured 2026-08-22, on examples/reasoning/constructive_negation.metta].
 :- use_module(library(dif), [dif/2]).
 %The HOST TIER's Prolog predicates. A MeTTa program reaches Prolog through
@@ -443,7 +443,7 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 :- use_module(library(readutil), [read_file_to_string/3, read_line_to_string/2]).
 %The engine's own uses of the standard libraries, which autoload used to supply
 %into the one namespace every subsystem shared: alpha_list_to_set/2 buckets
-%alpha-variants through an assoc, petta_shape_stricter/2 compares two shapes'
+%alpha-variants through an assoc, metta_shape_stricter/2 compares two shapes'
 %sorted key sets, and metta_trace_source/4 reads the values off a pairs list.
 %Under NO_AUTOLOAD=1 each is an existence error at the first call rather than at
 %load, so the corpus finds them one example at a time; the complete list is what
@@ -514,10 +514,10 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %consults the engine into a module of its own, and asking rather than writing
 %is what makes that a supported thing rather than a silent breakage
 %[tested: metta_engine_module].
-:- dynamic petta_engine_module/1.
+:- dynamic metta_engine_module/1.
 :- prolog_load_context(module, EngineModule),
-   (   petta_engine_module(EngineModule) -> true
-   ;   assertz(petta_engine_module(EngineModule))
+   (   metta_engine_module(EngineModule) -> true
+   ;   assertz(metta_engine_module(EngineModule))
    ).
 
 %The module the base tier compiles into, written ONCE and read everywhere:
@@ -529,12 +529,12 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %and asserts the same answer into its cache; the plunit test named below is
 %what keeps the two from drifting
 %[tested: spaces_execution_modules:the_written_self_module_is_the_mapped_one].
-metta_self_module('$petta_exec:&self').
+metta_self_module('$metta_exec:&self').
 
 %And the prefix atomic-name mappings are built from, written once for the same
 %reason and read the same way. space_module/2 uses it for atomic spaces;
 %parametric spaces use their separately prefixed canonical term encoding.
-metta_exec_module_prefix('$petta_exec:').
+metta_exec_module_prefix('$metta_exec:').
 
 %And read for FREE. A one-clause fact still costs an inference per call, and
 %these are the hottest paths in the engine: reduce/3 reads it on every
@@ -550,8 +550,8 @@ metta_exec_module_prefix('$petta_exec:').
 %(`metta_self_module(Module), !` selects the &self clause of the type family)
 %and binding their variable at compile time would make every module answer
 %yes.
-goal_expansion(metta_self_module(Module), Module = '$petta_exec:&self').
-goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
+goal_expansion(metta_self_module(Module), Module = '$metta_exec:&self').
+goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$metta_exec:').
 
 %The seam module loads FIRST and with an EMPTY import list. First because
 %every file below declares or asks a seam; empty because `seam:` is the whole
@@ -571,7 +571,7 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 %retractall(arity(Name, _)) each made a second, private registry the moment
 %their files declared modules, and removing every clause of a function then
 %left the function REGISTERED, so a call to it compiled as a call and raised
-%existence_error(procedure, '$petta_exec:&self':f/2) where the language says
+%existence_error(procedure, '$metta_exec:&self':f/2) where the language says
 %the term is simply unreduced [measured 2026-08-22, on
 %examples/functions/functionremoval.metta].
 %
@@ -581,29 +581,29 @@ goal_expansion(metta_exec_module_prefix(Prefix), Prefix = '$petta_exec:').
 %make visible, and the layering lane fails on any OTHER name held by two
 %engine modules at once, so a fifth cannot arrive quietly
 %[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
-petta_shared_registry(fun/1).
-petta_shared_registry(arity/2).
-petta_shared_registry(petta_shape_fact/4).
-petta_shared_registry(petta_shape_declared/2).
+metta_shared_registry(fun/1).
+metta_shared_registry(arity/2).
+metta_shared_registry(metta_shape_fact/4).
+metta_shared_registry(metta_shape_declared/2).
 %engine/spaces.pl clears a space's import bookkeeping with the space, and pins
 %the restricted dispatch names; both tables are the core's.
-petta_shared_registry(import_life/3).
-petta_shared_registry(fun_scoped/1).
+metta_shared_registry(import_life/3).
+metta_shared_registry(fun_scoped/1).
 
-:- dynamic fun/1, arity/2, petta_shape_fact/4, petta_shape_declared/2,
+:- dynamic fun/1, arity/2, metta_shape_fact/4, metta_shape_declared/2,
             import_life/3, fun_scoped/1.
-:- forall(petta_shared_registry(Registry), export(Registry)).
+:- forall(metta_shared_registry(Registry), export(Registry)).
 
-%!  petta_import_shared_registries is det.
+%!  metta_import_shared_registries is det.
 %
 %   Import the four into the CALLING module. A subsystem that writes one calls
 %   this from a directive of its own, which is where the coupling is visible;
 %   the import has to happen while that file is loading, because a write
 %   compiled before it would already have made the subsystem a predicate of
 %   its own and import/1 then refuses with a name clash.
-petta_import_shared_registries(Subsystem) :-
-    petta_engine_module(Engine),
-    forall(petta_shared_registry(Registry),
+metta_import_shared_registries(Subsystem) :-
+    metta_engine_module(Engine),
+    forall(metta_shared_registry(Registry),
            Subsystem:import(Engine:Registry)).
 
 :- ensure_loaded([parser, type_rules, translator, translator_rules,
@@ -615,7 +615,7 @@ petta_import_shared_registries(Subsystem) :-
 %it makes the other way -- into the engine core, into another subsystem's
 %exports, into a MeTTa builtin -- resolve without an import cycle. SWI gives a
 %module file the base `user`, which is the right answer only while the engine
-%happens to be consulted there; petta_engine_module/1 above exists precisely
+%happens to be consulted there; metta_engine_module/1 above exists precisely
 %because a host may consult the engine into a module of its own, and the
 %subsystem modules have to follow it when it does.
 %
@@ -628,7 +628,7 @@ petta_import_shared_registries(Subsystem) :-
 
 :- prolog_load_context(directory, EngineSource),
    atom_concat(EngineSource, '/', EngineDirectory),
-   petta_engine_module(Engine),
+   metta_engine_module(Engine),
    forall(( source_file(SubsystemFile),
             sub_atom(SubsystemFile, 0, _, _, EngineDirectory),
             module_property(Subsystem, file(SubsystemFile)),
@@ -770,7 +770,7 @@ load_builtin_type_surface :- index_builtin_masks.
 %compiles as the call it is. The filereader solves the same problem with
 %a repair pass; the prelude is small enough to pre-register instead.
 :- dynamic prelude_type_declaration/2.
-:- dynamic petta_engine_src_dir/1.
+:- dynamic metta_engine_src_dir/1.
 :- dynamic prelude_owned/1.
 :- dynamic prelude_clause_ref/2.
 %Which names the prelude registered as TRANSLATOR RULES. A derived form ships
@@ -854,8 +854,8 @@ evict_prelude_declaration(Space, [':', Name, _]) :-
 evict_prelude_declaration(_, _).
 
 :- prolog_load_context(directory, Dir),
-   (   petta_engine_src_dir(_) -> true
-   ;   assertz(petta_engine_src_dir(Dir))
+   (   metta_engine_src_dir(_) -> true
+   ;   assertz(metta_engine_src_dir(Dir))
    ).
 
 %The prelude compiles SILENTLY whatever the session's verbosity: these
@@ -869,7 +869,7 @@ load_engine_prelude :-
                        erase(Ref)).
 
 load_engine_prelude_forms :-
-    petta_engine_src_dir(Dir),
+    metta_engine_src_dir(Dir),
     directory_file_path(Dir, 'prelude.metta', Path),
     (   exists_file(Path)
     ->  true
@@ -989,7 +989,7 @@ load_prelude_translator_rule(Name, Declarations, Src) :-
                     context(load_engine_prelude/0, Src)))
     ).
 
-%fun/1 is the exact mutable input petta_py_builtins/1 reads. SWI maintains a
+%fun/1 is the exact mutable input metta_py_builtins/1 reads. SWI maintains a
 %dynamic predicate's last_modified_generation for cache validation, including
 %transaction commit and rollback semantics, so no listener or generic
 %write-door flag exists and every mutation route keeps its original cost.
@@ -1012,5 +1012,5 @@ metta_host_function_generation(Generation) :-
 %been [tested: metta_published_surface:every_declared_seam_that_exists_is_exported].
 :- initialization((seam:publish_declared, protect_metta_exec_modules,
                    load_builtin_type_surface, load_engine_prelude,
-                   spaces:petta_publish_builtin_visibility,
+                   spaces:metta_publish_builtin_visibility,
                    retract_unrelated_system_arities)).

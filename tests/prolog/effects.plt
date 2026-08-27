@@ -20,10 +20,10 @@ seam:backend_builtin('planted-backend-write', writesState).
 :- register_builtin_fun('planted-backend-write').
 
 effect_test_clear(Name) :-
-    (   petta_contract_fact([effect, Name, Declared])
+    (   metta_contract_fact([effect, Name, Declared])
     ->  'remove-atom'('&metta', [effect, Name, Declared], _),
         effect_test_clear(Name)
-    ;   petta_engine_module(Engine),
+    ;   metta_engine_module(Engine),
         retractall(Engine:metta_host_pure_operation(Name))
     ).
 
@@ -31,7 +31,7 @@ effect_test_add(Name, Class) :-
     'add-atom'('&metta', [effect, Name, Class], _).
 
 effect_test_host_pure_add(Name) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     assertz(Engine:metta_host_pure_operation(Name)).
 
 effect_test_interpreter_profile(
@@ -66,42 +66,42 @@ test(the_five_effect_classes_are_ranked_in_catalog_order) :-
                nondeterministicReadOnly,
                writesState,
                oracleIO],
-    assertion(petta_contract_fact([vocabulary, 'effect-class'|Classes])),
+    assertion(metta_contract_fact([vocabulary, 'effect-class'|Classes])),
     findall(Class-Rank,
-            ( member(Class, Classes), petta_effect_rank(Class, Rank) ),
+            ( member(Class, Classes), metta_effect_rank(Class, Rank) ),
             Ranked),
     assertion(Ranked == [pureStructural-0,
                          readOnlyLookup-1,
                          nondeterministicReadOnly-2,
                          writesState-3,
                          oracleIO-4]),
-    findall(Class-Rank, petta_effect_rank(Class, Rank), Enumerated),
+    findall(Class-Rank, metta_effect_rank(Class, Rank), Enumerated),
     assertion(Enumerated == Ranked).
 
 test(legacy_effect_spellings_map_but_cannot_enter_the_canonical_catalog) :-
-    assertion(petta_effect_rank(immutable, 0)),
-    assertion(petta_effect_rank(stable, 1)),
-    assertion(petta_effect_rank(volatile, 4)),
+    assertion(metta_effect_rank(immutable, 0)),
+    assertion(metta_effect_rank(stable, 1)),
+    assertion(metta_effect_rank(volatile, 4)),
     forall(member(Legacy, [immutable, stable, volatile]),
            ( catch(( effect_test_add('effect-legacy-refused', Legacy),
                      Refused = none ),
-                   error(petta_declaration_malformed(_, 2,
+                   error(metta_declaration_malformed(_, 2,
                                                      ['one-of', 'effect-class']),
                          _),
                    Refused = Legacy),
              assertion(Refused == Legacy) )),
-    assertion(\+ petta_contract_fact([effect, 'effect-legacy-refused', _])).
+    assertion(\+ metta_contract_fact([effect, 'effect-legacy-refused', _])).
 
 test(effect_join_and_compose_choose_the_strongest_member) :-
-    assertion(petta_effect_compose([], pureStructural)),
-    assertion(petta_effect_join(readOnlyLookup,
+    assertion(metta_effect_compose([], pureStructural)),
+    assertion(metta_effect_join(readOnlyLookup,
                                 nondeterministicReadOnly,
                                 nondeterministicReadOnly)),
-    assertion(petta_effect_join(writesState,
+    assertion(metta_effect_join(writesState,
                                 nondeterministicReadOnly,
                                 writesState)),
-    assertion(petta_effect_join(volatile, readOnlyLookup, oracleIO)),
-    assertion(petta_effect_compose([pureStructural,
+    assertion(metta_effect_join(volatile, readOnlyLookup, oracleIO)),
+    assertion(metta_effect_compose([pureStructural,
                                     nondeterministicReadOnly,
                                     readOnlyLookup,
                                     writesState],
@@ -112,19 +112,19 @@ test(effect_join_and_compose_choose_the_strongest_member) :-
                writesState,
                oracleIO],
     forall(member(Class, Classes),
-           ( petta_effect_join(Class, Class, Idempotent),
+           ( metta_effect_join(Class, Class, Idempotent),
              assertion(Idempotent == Class),
-             petta_effect_join(pureStructural, Class, Identity),
+             metta_effect_join(pureStructural, Class, Identity),
              assertion(Identity == Class) )),
     forall(( member(Left, Classes), member(Right, Classes) ),
-           ( petta_effect_join(Left, Right, Joined),
-             petta_effect_join(Right, Left, Reverse),
+           ( metta_effect_join(Left, Right, Joined),
+             metta_effect_join(Right, Left, Reverse),
              assertion(Joined == Reverse) )),
     forall(( member(A, Classes), member(B, Classes), member(C, Classes) ),
-           ( petta_effect_join(A, B, AB),
-             petta_effect_join(AB, C, LeftAssociated),
-             petta_effect_join(B, C, BC),
-             petta_effect_join(A, BC, RightAssociated),
+           ( metta_effect_join(A, B, AB),
+             metta_effect_join(AB, C, LeftAssociated),
+             metta_effect_join(B, C, BC),
+             metta_effect_join(A, BC, RightAssociated),
              assertion(LeftAssociated == RightAssociated) )).
 
 test(every_embedded_operation_has_exactly_one_reviewed_effect_profile) :-
@@ -137,23 +137,23 @@ test(every_embedded_operation_has_exactly_one_reviewed_effect_profile) :-
     assertion(Profile == Embedded),
     forall(( effect_test_interpreter_profile(Expected, Names),
              member(Name, Names) ),
-           ( findall(Effect, petta_operation_effect(Name, Effect), Effects),
+           ( findall(Effect, metta_operation_effect(Name, Effect), Effects),
              assertion(Effects == [Expected]) )),
-    assertion(petta_operation_effect('get-deps', readOnlyLookup)).
+    assertion(metta_operation_effect('get-deps', readOnlyLookup)).
 
 test(every_translator_special_form_has_a_canonical_effect_profile) :-
     findall(Name, translator:metta_special_form_head(Name), Names0),
     sort(Names0, Names),
     forall(member(Name, Names),
-           ( findall(Effect, petta_operation_effect(Name, Effect), Effects),
+           ( findall(Effect, metta_operation_effect(Name, Effect), Effects),
              assertion(Effects = [_]),
              Effects = [Effect],
-             assertion(petta_effect_rank(Effect, _)) )),
-    assertion(petta_operation_effect(elapsed, oracleIO)),
-    assertion(petta_operation_effect(timeout, oracleIO)),
-    assertion(petta_operation_effect(annotation, readOnlyLookup)),
-    assertion(petta_operation_effect(explain, readOnlyLookup)),
-    assertion(petta_operation_effect(top, readOnlyLookup)).
+             assertion(metta_effect_rank(Effect, _)) )),
+    assertion(metta_operation_effect(elapsed, oracleIO)),
+    assertion(metta_operation_effect(timeout, oracleIO)),
+    assertion(metta_operation_effect(annotation, readOnlyLookup)),
+    assertion(metta_operation_effect(explain, readOnlyLookup)),
+    assertion(metta_operation_effect(top, readOnlyLookup)).
 
 % The other half of the same contract: the engine READS the classification a
 % backend registers instead of falling to its own floor. Planted against a
@@ -166,62 +166,62 @@ test(every_translator_special_form_has_a_canonical_effect_profile) :-
 % dynamic, which is itself part of the contract (a backend declares at load,
 % and nothing can install a builtin's effect class while a program runs).
 test(a_backend_declares_the_effect_of_the_builtin_it_registers) :-
-    assertion(petta_operation_effect('planted-backend-write', writesState)),
-    assertion(\+ petta_operation_effect('planted-backend-write', oracleIO)).
+    assertion(metta_operation_effect('planted-backend-write', writesState)),
+    assertion(\+ metta_operation_effect('planted-backend-write', oracleIO)).
 
 test(every_native_builtin_has_exactly_one_reviewed_effect_profile) :-
     findall(Name,
             ( builtin_fun(Name),
-              \+ petta_semantic_effect(Name, _),
-              \+ petta_builtin_effect_override(Name, _),
+              \+ metta_semantic_effect(Name, _),
+              \+ metta_builtin_effect_override(Name, _),
               % A backend's builtin is reviewed by the backend, in the same
               % fact that registers it. Without this the test asked the engine
               % to have reviewed a predicate it does not ship and cannot name:
               % under `-- backends` it read
               % ['mm2-exec','mork-add-atoms','mork-flush'].
               \+ seam:backend_builtin(Name, _),
-              \+ petta_builtin_structural(Name) ),
+              \+ metta_builtin_structural(Name) ),
             Unreviewed0),
     sort(Unreviewed0, Unreviewed),
     assertion(Unreviewed == []),
     forall(builtin_fun(Name),
-           ( findall(Effect, petta_operation_effect(Name, Effect), Effects),
+           ( findall(Effect, metta_operation_effect(Name, Effect), Effects),
              assertion(Effects = [_]),
              Effects = [Effect],
-             assertion(petta_effect_rank(Effect, _)) )),
+             assertion(metta_effect_rank(Effect, _)) )),
     forall(member(Name,
                   ['Predicate', 'atom-subst', 'format-args',
                    'noreduce-eq', 'pretty-atom', 'sort-strings', throw]),
-           assertion(petta_operation_effect(Name, pureStructural))),
-    assertion(petta_operation_effect('residual-goals', readOnlyLookup)),
-    assertion(petta_operation_effect(unique,
+           assertion(metta_operation_effect(Name, pureStructural))),
+    assertion(metta_operation_effect('residual-goals', readOnlyLookup)),
+    assertion(metta_operation_effect(unique,
                                      nondeterministicReadOnly)),
-    assertion(petta_operation_effect(assertaPredicate, writesState)),
-    assertion(petta_operation_effect(callPredicate, oracleIO)).
+    assertion(metta_operation_effect(assertaPredicate, writesState)),
+    assertion(metta_operation_effect(callPredicate, oracleIO)).
 
 test(native_effect_profiles_are_lower_bounds_on_catalog_declarations,
      [ cleanup(( effect_test_clear('random-int'),
                  effect_test_clear('add-atom') )) ]) :-
     effect_test_add('random-int', pureStructural),
     effect_test_add('add-atom', pureStructural),
-    assertion(petta_operation_effect('random-int', oracleIO)),
-    assertion(petta_operation_effect('add-atom', writesState)).
+    assertion(metta_operation_effect('random-int', oracleIO)),
+    assertion(metta_operation_effect('add-atom', writesState)).
 
 test(lowered_semantic_groundings_keep_their_observable_cardinality) :-
     forall(member(Name,
                   [empty, hyperpose, 'near-match', superpose,
                    'superpose-bind', unify, 'unify%']),
-           assertion(petta_operation_effect(
+           assertion(metta_operation_effect(
                Name, nondeterministicReadOnly))).
 
 test(operation_effect_reflection_is_canonical_and_fail_closed,
     [ cleanup(( effect_test_clear('effect-reflected'),
                  effect_test_clear('effect-unclassified') )) ]) :-
-    assertion(\+ petta_operation_effect('effect-unclassified', _)),
+    assertion(\+ metta_operation_effect('effect-unclassified', _)),
     effect_test_add('effect-reflected', pureStructural),
     effect_test_add('effect-reflected', writesState),
-    assertion(petta_operation_effect('effect-reflected', writesState)),
-    petta_explain(['effect-reflected'], Explanation),
+    assertion(metta_operation_effect('effect-reflected', writesState)),
+    metta_explain(['effect-reflected'], Explanation),
     findall(Effect, member([effect, Effect], Explanation), EffectRows),
     assertion(EffectRows == [writesState]).
 
@@ -231,8 +231,8 @@ test(a_deprecation_row_drives_lookup_and_explanation,
                                   [use, 'new-effect']], _)) ]) :-
     add_sexp('&metta',
              [deprecated, 'old-effect', '0.2.0', [use, 'new-effect']], _),
-    assertion(petta_deprecation('old-effect', '0.2.0', [use, 'new-effect'])),
-    petta_explain(['old-effect', value], Explanation),
+    assertion(metta_deprecation('old-effect', '0.2.0', [use, 'new-effect'])),
+    metta_explain(['old-effect', value], Explanation),
     assertion(member([deprecated, '0.2.0', [use, 'new-effect']], Explanation)).
 
 test(an_operation_plan_joins_reflected_members_and_refuses_an_unknown_one,
@@ -242,12 +242,12 @@ test(an_operation_plan_joins_reflected_members_and_refuses_an_unknown_one,
     effect_test_add('effect-plan-pure', pureStructural),
     effect_test_add('effect-plan-read', nondeterministicReadOnly),
     effect_test_add('effect-plan-write', writesState),
-    assertion(petta_operation_plan_effect([], pureStructural)),
-    assertion(petta_operation_plan_effect(['effect-plan-pure',
+    assertion(metta_operation_plan_effect([], pureStructural)),
+    assertion(metta_operation_plan_effect(['effect-plan-pure',
                                            'effect-plan-read',
                                            'effect-plan-write'],
                                           writesState)),
-    assertion(\+ petta_operation_plan_effect(['effect-plan-pure',
+    assertion(\+ metta_operation_plan_effect(['effect-plan-pure',
                                                'effect-plan-missing'], _)).
 
 test(world_effect_coverage_composes_catalog_rows_to_the_strongest_rank,
@@ -255,12 +255,12 @@ test(world_effect_coverage_composes_catalog_rows_to_the_strongest_rank,
                              [[covers, '&effect-world', readOnlyLookup],
                               [covers, '&effect-world', writesState]]),
                       metta_remove_atom('&metta', Row, _))) ]) :-
-    assertion(petta_world_effect_coverage('&effect-world', pureStructural)),
+    assertion(metta_world_effect_coverage('&effect-world', pureStructural)),
     add_sexp('&metta', [covers, '&effect-world', readOnlyLookup], _),
     add_sexp('&metta', [covers, '&effect-world', writesState], _),
-    assertion(petta_world_effect_coverage('&effect-world', writesState)),
-    assertion(petta_effect_covered(nondeterministicReadOnly, writesState)),
-    assertion(\+ petta_effect_covered(oracleIO, writesState)).
+    assertion(metta_world_effect_coverage('&effect-world', writesState)),
+    assertion(metta_effect_covered(nondeterministicReadOnly, writesState)),
+    assertion(\+ metta_effect_covered(oracleIO, writesState)).
 
 %Both names in the row must be callable when it is written: a compensation
 %for an operation nothing can run, or naming a recovery nothing can run, is a
@@ -288,16 +288,16 @@ test(compensation_declarations_require_an_effectful_operation,
                    [=, ['effect-saga-pure', _Operand], done], true),
     add_sexp('&metta',
              [compensates, 'effect-saga-write', 'effect-saga-reverse'], _),
-    assertion(petta_compensation('effect-saga-write',
+    assertion(metta_compensation('effect-saga-write',
                                  'effect-saga-reverse')),
     catch(( add_sexp('&metta',
                      [compensates, 'effect-saga-pure',
                       'effect-saga-reverse'], _),
             Refused = false ),
-          error(petta_declaration_malformed(_, 1, _), _),
+          error(metta_declaration_malformed(_, 1, _), _),
           Refused = true),
     assertion(Refused == true),
-    assertion(\+ petta_contract_fact(
+    assertion(\+ metta_contract_fact(
                     [compensates, 'effect-saga-pure', _])).
 
 %A cache hides an ANSWER, so its question is narrower than a reified world's.
@@ -309,14 +309,14 @@ test(the_cache_purity_seam_reads_declarations_under_the_native_floor,
      [ cleanup(( effect_test_clear('random-int'),
                  effect_test_clear('effect-floor-declared') )) ]) :-
     forall(member(Control, [once, collapse, forall, chain, 'let*']),
-           ( assertion(petta_operation_effect(Control, pureStructural)),
+           ( assertion(metta_operation_effect(Control, pureStructural)),
              assertion(\+ seam:pure_operation(Control)) )),
     forall(member(Primitive, ['+', 'car-atom']),
            assertion(seam:pure_operation(Primitive))),
     effect_test_add('effect-floor-declared', pureStructural),
     assertion(seam:pure_operation('effect-floor-declared')),
     effect_test_add('random-int', pureStructural),
-    assertion(petta_operation_effect('random-int', oracleIO)),
+    assertion(metta_operation_effect('random-int', oracleIO)),
     assertion(\+ seam:pure_operation('random-int')).
 
 test(only_pure_structural_projects_to_the_cache_purity_seam,
@@ -339,17 +339,17 @@ test(only_pure_structural_projects_to_the_cache_purity_seam,
 test(the_legacy_host_pure_boolean_maps_to_pure_structural,
      [ setup(effect_test_host_pure_add('effect-legacy-pure-bool')),
        cleanup(effect_test_clear('effect-legacy-pure-bool')) ]) :-
-    assertion(petta_operation_effect('effect-legacy-pure-bool',
+    assertion(metta_operation_effect('effect-legacy-pure-bool',
                                      pureStructural)),
     assertion(seam:pure_operation('effect-legacy-pure-bool')).
 
 test(effect_services_are_published) :-
-    forall(member(Service, [petta_effect_rank/2,
-                            petta_effect_join/3,
-                            petta_effect_compose/2,
-                            petta_effect_class_canonical/2,
-                            petta_operation_effect/2,
-                            petta_operation_plan_effect/2]),
+    forall(member(Service, [metta_effect_rank/2,
+                            metta_effect_join/3,
+                            metta_effect_compose/2,
+                            metta_effect_class_canonical/2,
+                            metta_operation_effect/2,
+                            metta_operation_plan_effect/2]),
            ( assertion(seam:kind(Service, service)),
              seam:seam_home(Service, Home),
              module_property(Home, exports(Exports)),

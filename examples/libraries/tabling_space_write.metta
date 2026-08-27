@@ -34,4 +34,4 @@
 ;rather than tabled without the guarantee.
 (= (bypattern $p) (match &self $p $p))
 !(test (repr (catch (tabled (bypattern $p))))
-       "(Error (petta_tabling_unresolved_read match $_0) none)")
+       "(Error (metta_tabling_unresolved_read match $_0) none)")

@@ -2051,7 +2051,7 @@ def reacts(self, pattern: str | Atom, operation: str | Atom, priority: int | Non
 > &lt;atom>) and (revise &lt;ctx> &lt;old> &lt;new>), engine-routed rules
 > going through the same write paths as direct writes. Declaring
 > installs the engine's write hook, which is why reactions go
-> through here or petta_install_bridges rather than a bare
+> through here or metta_install_bridges rather than a bare
 > add-atom.
 >
 > A subscription bridge is the NEIGHBOUR, not a special case of this:

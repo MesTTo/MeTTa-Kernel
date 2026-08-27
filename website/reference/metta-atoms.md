@@ -163,7 +163,7 @@ def parse(source: str) -> Atom:
 > contains Variable('x') rather than a machine name, and the same pattern built
 > with V.x compares equal.
 >
-> Crossed through apply() rather than once(). petta_py_parse/2 already has
+> Crossed through apply() rather than once(). metta_py_parse/2 already has
 > the functional shape, one ground input and one output, and every call that
 > passes source text to eval(), run() or match() parses first, so this is a
 > second crossing on top of the evaluation's own [measured 2026-08-16:

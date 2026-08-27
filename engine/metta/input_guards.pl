@@ -117,13 +117,13 @@ unguarded_input_position(_, _) :- fail.
 %The formal stays ISO so a MeTTa (catch ...) and the Python boundary can both
 %read it, exactly as throw_metta_type_error/3 keeps its own.
 refuse_unbound_input(Operation, Position) :-
-    throw(error(petta_unbound_input(Operation, Position),
+    throw(error(metta_unbound_input(Operation, Position),
                 context(Operation, 'invalid MeTTa operation argument'))).
 
 :- multifile prolog:error_message//1.
 %The operation's own name is the CONTEXT's to print, exactly as it is for
 %`+: number expected, found "s"`, so it is not repeated here.
-prolog:error_message(petta_unbound_input(_, Position)) -->
+prolog:error_message(metta_unbound_input(_, Position)) -->
     [ 'a value expected in argument ~w, found an unbound variable'-[Position] ].
 
 %%% Taking an expression apart, and the grounded values that also read as one.

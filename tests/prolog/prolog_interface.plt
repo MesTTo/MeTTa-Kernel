@@ -266,8 +266,8 @@ test(a_syntax_error_in_a_library_raises,
     format(Stream, "plunit_pi_bad(X, Y) :- Y is X * .~n", []),
     close(Stream),
     catch(consult_global(Path), Error, true),
-    assertion(Error = error(petta_load_failed(_), _)),
-    Error = error(petta_load_failed(Summary), _),
+    assertion(Error = error(metta_load_failed(_), _)),
+    Error = error(metta_load_failed(Summary), _),
     assertion(sub_string(Summary, _, _, _, "Syntax error")).
 
 :- end_tests(prolog_interface_refusals).
@@ -397,7 +397,7 @@ test(unloading_an_extension_that_is_not_there_raises,
 
 % The readying moment: an extension declaring spaces([...]) has each space
 % validated when its file finishes loading, and consult_global is a LOUD
-% loader, so the refusal arrives as petta_load_failed carrying the remedy
+% loader, so the refusal arrives as metta_load_failed carrying the remedy
 % text rather than as a warning a host never sees. Each test pins one of the
 % three refusals by its remedy substring. The probe space names are unique
 % to this suite, so a clause a failed load leaves behind is inert.
@@ -409,8 +409,8 @@ ready_refusal(Name, Body, Message) :-
     catch(( consult_global(Path), Error = none ), Error, true),
     catch(unregister_metta_extension(Name), _, true),
     delete_file(Path),
-    assertion(subsumes_term(error(petta_load_failed(_), _), Error)),
-    Error = error(petta_load_failed(Report), _),
+    assertion(subsumes_term(error(metta_load_failed(_), _), Error)),
+    Error = error(metta_load_failed(Report), _),
     assertion(sub_atom(Report, _, _, _, Message)).
 
 test(readying_refuses_a_space_the_extension_never_registered) :-
@@ -441,7 +441,7 @@ test(readying_refuses_a_declared_capability_with_no_hook_clauses,
 % must not be newer, or the load fails.
 test(an_extension_written_against_a_later_seam_is_refused,
      [ cleanup(delete_file(Path)),
-       throws(error(petta_extension_api_mismatch(plunit_future, 99-0, _), _)) ]) :-
+       throws(error(metta_extension_api_mismatch(plunit_future, 99-0, _), _)) ]) :-
     tmp_file_stream(text, Path, Stream),
     format(Stream, ":- metta_extension(plunit_future, [requires(99-0)]).~n", []),
     close(Stream),
@@ -521,7 +521,7 @@ test(two_sources_cannot_claim_one_name,
     assertion(First == 20),
     consult_global(PathB),
     catch(import_prolog_function('plunit-shared-norm', _), Error, true),
-    assertion(Error = error(petta_name_owned_by_source('plunit-shared-norm', _), _)).
+    assertion(Error = error(metta_name_owned_by_source('plunit-shared-norm', _), _)).
 
 test(the_same_source_may_register_again,
      [ setup(write_norm_library(20, Path)),
@@ -544,7 +544,7 @@ write_norm_library(Value, Path) :-
 % from then on:
 %
 %     A before B      : 20
-%     B refused       : petta_name_owned_by_source(...)
+%     B refused       : metta_name_owned_by_source(...)
 %     A AFTER refusal : 30      <- A was clobbered anyway
 %
 % The names are in hand before the load on this route, so the refusal belongs
@@ -559,7 +559,7 @@ test(a_name_another_source_owns_is_refused_before_the_load,
     import_prolog_function('plunit-shared-norm', _),
     catch(check_prolog_function_names(['plunit-shared-norm'], PathB, _),
           Error, true),
-    assertion(Error = error(petta_name_owned_by_source('plunit-shared-norm', PathA), _)),
+    assertion(Error = error(metta_name_owned_by_source('plunit-shared-norm', PathA), _)),
     % B never loaded, so A still answers its own number.
     reduce(['plunit-shared-norm', 1], Answer, _),
     assertion(Answer == 20).
@@ -592,7 +592,7 @@ test(a_second_source_claiming_a_name_never_loads,
     reduce(['plunit-declared-norm', 1], First, _),
     assertion(First == 20),
     catch(consult_global(PathB), Error, true),
-    assertion(Error = error(petta_name_owned_by_source('plunit-declared-norm', PathA), _)),
+    assertion(Error = error(metta_name_owned_by_source('plunit-declared-norm', PathA), _)),
     reduce(['plunit-declared-norm', 1], Second, _),
     assertion(Second == 20).
 
@@ -606,7 +606,7 @@ test(a_declaration_under_the_clauses_still_refuses,
                  delete_file(PathA), delete_file(PathB) )) ]) :-
     consult_global(PathA),
     catch(consult_global(PathB), Error, true),
-    assertion(Error = error(petta_name_owned_by_source('plunit-declared-norm', PathA), _)),
+    assertion(Error = error(metta_name_owned_by_source('plunit-declared-norm', PathA), _)),
     reduce(['plunit-declared-norm', 1], Answer, _),
     assertion(Answer == 20).
 
@@ -623,7 +623,7 @@ test(a_computed_declaration_is_refused_and_its_source_unloaded,
                  delete_file(PathA), delete_file(PathB) )) ]) :-
     consult_global(PathA),
     catch(consult_global(PathB), Error, true),
-    assertion(Error = error(petta_name_owned_by_source('plunit-declared-norm', PathA), _)),
+    assertion(Error = error(metta_name_owned_by_source('plunit-declared-norm', PathA), _)),
     % B's clauses went out with it, so nothing of B is left callable.
     assertion(\+ clause_from_file('plunit-declared-norm'/2, PathB)),
     % A still owns the name, and re-registering A is the documented recovery.
@@ -685,12 +685,12 @@ test(an_unresolvable_library_alias_raises,
     register_metta_library_path(plunit_lib_alias, Dir, _),
     % A registered alias, a file that is not under it.
     catch(library(plunit_lib_alias, 'nosuchfile.metta', _), Missing, true),
-    assertion(Missing = error(petta_unresolved_library(plunit_lib_alias,
+    assertion(Missing = error(metta_unresolved_library(plunit_lib_alias,
                                                        'nosuchfile.metta',
                                                        [_|_]), _)),
     % An alias nothing registered names itself rather than the file.
     catch(library(plunit_no_such_alias, 'thing.metta', _), Absent, true),
-    assertion(Absent = error(petta_unresolved_library(plunit_no_such_alias,
+    assertion(Absent = error(metta_unresolved_library(plunit_no_such_alias,
                                                       'thing.metta', []), _)).
 
 tmp_dir_of_this_suite(Dir) :-

@@ -369,7 +369,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   drop verdicts.
 - Add the lazy default-engine module tier for `define`, `cache`, `stats`,
   `limits`, `strict`, and `trace`, including scoped stack-byte limits
-  through `petta_py_limited/6`.
+  through `metta_py_limited/6`.
 - Add Python match-statement lowering to ordered MeTTa case towers and
   `functools.reduce` lowering for named and lambda reducers.
 - Add structured documentation emission for descriptions, parameters,
@@ -385,13 +385,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - `(with-pragma! ((stack-limit N)) Expr)` scopes SWI's combined stack byte
   ceiling for the expression and restores the previous value on every exit,
   distinct from the reduction-fuel `max-stack-depth` pragma. The host seam
-  `petta_py_limited/6` threads the same bound with a negative-value no-bound
-  sentinel; `petta_py_limited/5` is unchanged.
-- `petta_py_function_generation/1` exposes the process-global `fun/1`
+  `metta_py_limited/6` threads the same bound with a negative-value no-bound
+  sentinel; `metta_py_limited/5` is unchanged.
+- `metta_py_function_generation/1` exposes the process-global `fun/1`
   catalogue generation for cheap host cache invalidation. It reads SWI's own
   `last_modified_generation`, so definitions bump it, evaluation and data
   writes do not, and translator-rule changes are neutral because they do not
-  affect `petta_py_builtins/1`.
+  affect `metta_py_builtins/1`.
 - `@petta.rules` turns a generator whose parameters are rule-local variables
   into a list of ordinary equation atoms, and `equation(lhs).to(rhs)` keeps the
   two halves on one static Python type. Add the result with `m.add(*laws)`;
@@ -593,7 +593,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `&metta-conformance-`. A program written against the old name reads an
   ordinary empty space rather than the catalog, because nothing has shipped
   under `&petta`: every changelog entry naming it is still unreleased. The
-  engine's internal Prolog predicate names keep their `petta_` prefix, 6,860
+  engine's internal Prolog predicate names keep their `metta_` prefix, 6,860
   of them, and the Node binding's own copy of the name is untouched pending
   its own pass.
 - A twin's pricing declarations now sit at the END of the file, under the `#:`
@@ -688,7 +688,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   snapshot.
 - Move builtins-cache invalidation from every evaluation to generation
   comparison on function-namespace cache reads using
-  `petta_py_function_generation/1`. Removing the per-evaluation catalogue
+  `metta_py_function_generation/1`. Removing the per-evaluation catalogue
   sniff puts `py-method-call` at 1,503,497,066 instructions, below its
   1,508,773,364 acceptance ceiling.
 - `not-provable` costs inferences linear in the recursion depth of the goal
@@ -1372,7 +1372,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   trie instead of a cursor-engine-private one that read as zeros. Calls
   route through the same `dispatch_call` ownership seam the memo library
   uses, reflection writes are checked and refuse loudly as
-  `petta_tabling_reflection_write_failed` with a rollback of the
+  `metta_tabling_reflection_write_failed` with a rollback of the
   just-installed table, and the library's exact engine reaches are pinned
   in the layering contract. The statistics example counts two completed
   calls after one completion and one invalidation re-evaluation, where the
@@ -1790,7 +1790,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 - The control-signal error term is spelled `metta_control_signal(Kind,
   Detail)` and the host-interrupt signal `metta_host_interrupted`, in place
-  of the `petta_py_`-spelled names: the shapes are the engine's own and
+  of the `metta_py_`-spelled names: the shapes are the engine's own and
   cross every host boundary, not Python's alone. A program or tool matching
   the old spellings in raw error text must follow; the structured fields on
   the `petta.errors` classes are unchanged.
@@ -3018,7 +3018,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   or silence, in exactly the precedence the match uses; a conjunction
   line names what a planning provider claimed whole and what the engine
   joins; refused shapes report the refusing entry; stored spaces answer
-  the one true line. The engine door, `petta_py_explain`, preflights the
+  the one true line. The engine door, `metta_py_explain`, preflights the
   same refuse guard the match consults and answers claimed/rest as
   indexes so the caller's variable names survive rendering.
 - Added `petta.boot(manifest)`: deployment as knowledge. A manifest is a
@@ -3035,7 +3035,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   answered `Boot` handle owns the started servers and closes them, on
   the mid-way failure path too, while performed writes stand, the same
   law the engine's own guards follow. The engine door underneath,
-  `petta_py_read_forms`, reads a source's forms without compiling,
+  `metta_py_read_forms`, reads a source's forms without compiling,
   storing, or running any.
 - Added a reference page for `petta.tables`, which had none, and listed
   `petta.tables`, `petta.spaces`, and `petta.structures` in the module
@@ -3275,7 +3275,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   with the attribution in the benchmark ledger.
 - Added `m.transaction(callable)` and the `m.transactional` decorator:
   the Python door of the MeTTa `(transaction ...)` form, riding the
-  same `petta_transaction/1`, so foreign-space enlistment and nesting
+  same `metta_transaction/1`, so foreign-space enlistment and nesting
   behave identically in both languages. The callable runs now and its
   return value comes back identity-preserved; a raise is the one
   rollback trigger, re-raised as itself with the boundary in its chain,

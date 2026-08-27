@@ -35,7 +35,7 @@
 %   support_memo_rule/4 and support_memo_changed/2 are transactional dynamic
 %   state; support_forget/1, support_forget_module/1 and support_reset/0 release
 %   their indexes, edges, dirtiness markers and retained values.
-% Guarded by: '$petta_support_graph' serializes graph replacement,
+% Guarded by: '$metta_support_graph' serializes graph replacement,
 %   invalidation, stabilization and cleanup; support_graph_locked/0 makes
 %   callbacks into graph cleanup re-entrant in the owning thread.
 % Decides: PeTTa uses demand-driven support graphs with eager dirtiness and a
@@ -134,7 +134,7 @@ support_edge_retractall(Support, Derived) :-
 :- dynamic support_view_module/2.
 %Keyed by a hash of the node for the reason supports/4 above is: a node is a
 %COMPOUND whose functor and first argument are the same for every node of a
-%kind in one module, `function('$petta_exec:&self', _)` for all of them, so
+%kind in one module, `function('$metta_exec:&self', _)` for all of them, so
 %SWI's index puts a program's whole dirty set in one bucket and asking whether
 %a node is already dirty walks it. That made invalidation quadratic in the
 %number of nodes dirtied: asking cost 7.85us against a 2,000-node dirty set and
@@ -307,7 +307,7 @@ support_node(derived(Module, Key)) :-
 must_be_support_node(Node) :-
     (   support_node(Node)
     ->  true
-    ;   throw(error(domain_error(petta_support_node, Node),
+    ;   throw(error(domain_error(metta_support_node, Node),
                     context(support_graph,
                             'support nodes must be typed and module-qualified')))
     ).
@@ -315,7 +315,7 @@ must_be_support_node(Node) :-
 support_atomic(Goal) :-
     (   support_graph_locked
     ->  call(Goal)
-    ;   with_mutex('$petta_support_graph',
+    ;   with_mutex('$metta_support_graph',
                    setup_call_cleanup(
                        asserta(support_graph_locked, Ref),
                        support_transaction(Goal),
@@ -368,7 +368,7 @@ must_be_support_edge(edge(Support, Derived)) :-
     must_be_support_node(Support),
     must_be_support_node(Derived).
 must_be_support_edge(Edge) :-
-    throw(error(domain_error(petta_support_edge, Edge),
+    throw(error(domain_error(metta_support_edge, Edge),
                 context(support_graph,
                         'a support edge is edge(Support, Derived)'))).
 

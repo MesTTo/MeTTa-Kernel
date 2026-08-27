@@ -45,7 +45,7 @@ metta_arith_operands(A, B) :-
 %argument among integers solves for it, so (let 4 (- $x 1) $x) answers 5
 %and (unify 6 (* $x 2) ...) binds 3, the WAM plus/3 reading MeTTaLog
 %compiles to. The ground fast path is untouched and stays first;
-%petta_int_solve sits BEHIND the ground-number path, so ground floats
+%metta_int_solve sits BEHIND the ground-number path, so ground floats
 %never meet it (annotated-relation measured +1 inference per float op
 %with the solver between the paths, and par with it behind them
 %[measured 2026-08-18]); strings and the two-var case behave exactly as
@@ -57,8 +57,8 @@ metta_arith_operands(A, B) :-
 '+'(A,B,R)  :- ( integer(A), integer(B) -> R is A + B
                 ; number(A), number(B)
                   -> catch(R is A + B, E, metta_saturating_recover('+', A + B, R, E))
-                ; petta_int_solve('+', A, B, R, Verdict) -> Verdict == solved
-                ; petta_clp_operands(A, B, R) -> petta_clp_backward('+', A, B, R)
+                ; metta_int_solve('+', A, B, R, Verdict) -> Verdict == solved
+                ; metta_clp_operands(A, B, R) -> metta_clp_backward('+', A, B, R)
                 ; metta_arith_operands(A, B)
                   -> ( ( nonvar(A), \+ number(A)
                        ; nonvar(B), \+ number(B) )
@@ -69,8 +69,8 @@ metta_arith_operands(A, B) :-
 '-'(A,B,R)  :- ( integer(A), integer(B) -> R is A - B
                 ; number(A), number(B)
                   -> catch(R is A - B, E, metta_saturating_recover('-', A - B, R, E))
-                ; petta_int_solve('-', A, B, R, Verdict) -> Verdict == solved
-                ; petta_clp_operands(A, B, R) -> petta_clp_backward('-', A, B, R)
+                ; metta_int_solve('-', A, B, R, Verdict) -> Verdict == solved
+                ; metta_clp_operands(A, B, R) -> metta_clp_backward('-', A, B, R)
                 ; metta_arith_operands(A, B)
                   -> ( ( nonvar(A), \+ number(A)
                        ; nonvar(B), \+ number(B) )
@@ -81,8 +81,8 @@ metta_arith_operands(A, B) :-
 '*'(A,B,R)  :- ( integer(A), integer(B) -> R is A * B
                 ; number(A), number(B)
                   -> catch(R is A * B, E, metta_saturating_recover('*', A * B, R, E))
-                ; petta_int_solve('*', A, B, R, Verdict) -> Verdict == solved
-                ; petta_clp_operands(A, B, R) -> petta_clp_backward('*', A, B, R)
+                ; metta_int_solve('*', A, B, R, Verdict) -> Verdict == solved
+                ; metta_clp_operands(A, B, R) -> metta_clp_backward('*', A, B, R)
                 ; metta_arith_operands(A, B)
                   -> ( ( nonvar(A), \+ number(A)
                        ; nonvar(B), \+ number(B) )
@@ -99,8 +99,8 @@ metta_arith_operands(A, B) :-
                   -> catch(R is A / B, E,
                            metta_arithmetic_saturating_recovery(
                                '/', [A, B], A / B, E, R))
-                ; petta_int_solve('/', A, B, R, Verdict) -> Verdict == solved
-                ; petta_clp_operands(A, B, R) -> petta_clp_backward('/', A, B, R)
+                ; metta_int_solve('/', A, B, R, Verdict) -> Verdict == solved
+                ; metta_clp_operands(A, B, R) -> metta_clp_backward('/', A, B, R)
                 ; metta_arith_operands(A, B)
                   -> ( ( nonvar(A), \+ number(A)
                        ; nonvar(B), \+ number(B) )
@@ -115,22 +115,22 @@ metta_arith_operands(A, B) :-
 %path) and whether it solved (none: the mode fits but no integer answers
 %it, so the operator FAILS, the relational reading of (* $x 2) = 7).
 %plus/3 carries the additive family in C. Two unbound slots are past this
-%predicate's job and reach petta_clp_backward/4 below, beside the # family.
-petta_int_solve('+', A, B, R, solved) :-
+%predicate's job and reach metta_clp_backward/4 below, beside the # family.
+metta_int_solve('+', A, B, R, solved) :-
     ( var(A), integer(B), integer(R) -> plus(A, B, R)
     ; var(B), integer(A), integer(R) -> plus(A, B, R)
     ).
-petta_int_solve('-', A, B, R, solved) :-
+metta_int_solve('-', A, B, R, solved) :-
     ( var(A), integer(B), integer(R) -> plus(B, R, A)
     ; var(B), integer(A), integer(R) -> plus(B, R, A)
     ).
-petta_int_solve('*', A, B, R, Verdict) :-
+metta_int_solve('*', A, B, R, Verdict) :-
     ( var(A), integer(B), integer(R), B =\= 0
     ->  ( 0 =:= R mod B -> A is R // B, Verdict = solved ; Verdict = none )
     ; var(B), integer(A), integer(R), A =\= 0
     ->  ( 0 =:= R mod A -> B is R // A, Verdict = solved ; Verdict = none )
     ).
-petta_int_solve('/', A, B, R, Verdict) :-
+metta_int_solve('/', A, B, R, Verdict) :-
     ( var(A), integer(B), integer(R)
     ->  A is R * B, Verdict = solved
     ; var(B), integer(A), integer(R), R =\= 0
@@ -357,7 +357,7 @@ exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
 :- multifile prolog:error_message//1.
 %%%% past ONE unknown: CLP(FD) is the solver, and its own boundary is ours %%%%
 %
-%petta_int_solve/5 rearranges ONE unbound slot among integers. Two
+%metta_int_solve/5 rearranges ONE unbound slot among integers. Two
 %unbound slots, or one slot written twice, is a CONSTRAINT rather than a
 %rearrangement: 25 = X*X is nonlinear, and is/2 cannot run it in any mode at
 %all. The route past that is the one the domain's own literature names,
@@ -391,42 +391,42 @@ exp(Arg, R) :- metta_math_eval(exp, exp(Arg), [Arg], R).
 %every float, every single-unknown inversion and every non-numeric operand is
 %decided before this one, so nothing that answers today reaches it
 %[tested: test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason].
-petta_clp_operands(A, B, R) :-
-    petta_clp_slot(A), petta_clp_slot(B), petta_clp_slot(R).
+metta_clp_operands(A, B, R) :-
+    metta_clp_slot(A), metta_clp_slot(B), metta_clp_slot(R).
 
-petta_clp_slot(S) :- var(S), !.
-petta_clp_slot(S) :- integer(S).
+metta_clp_slot(S) :- var(S), !.
+metta_clp_slot(S) :- integer(S).
 
-%% petta_clp_backward(+Op, ?A, ?B, ?R) is nondet.
+%% metta_clp_backward(+Op, ?A, ?B, ?R) is nondet.
 %
 %Nondeterministic on purpose: 25 = X*X has TWO integer answers and a relation
 %answers both. label/1 yields them one at a time and in ascending order.
-petta_clp_backward(Op, A, B, R) :-
-    (   petta_clp_expression(Op, A, B, Expression)
+metta_clp_backward(Op, A, B, R) :-
+    (   metta_clp_expression(Op, A, B, Expression)
     ->  R #= Expression,
         term_variables([A, B, R], Unknowns),
         (   Unknowns == []
         ->  true
-        ;   petta_clp_finite(Unknowns)
+        ;   metta_clp_finite(Unknowns)
         ->  label(Unknowns)
-        ;   petta_refuse_unsolved_arithmetic(Op, unbounded_domain)
+        ;   metta_refuse_unsolved_arithmetic(Op, unbounded_domain)
         )
-    ;   petta_refuse_unsolved_arithmetic(Op, no_integer_relation)
+    ;   metta_refuse_unsolved_arithmetic(Op, no_integer_relation)
     ).
 
 %The three operations CLP(FD) models exactly. `/` is deliberately absent: this
 %engine's `/` answers a float on a non-divisible pair, so there is no integer
 %relation to post and no finite set of integers to search. Its own backward
-%mode for one unknown is petta_int_solve('/', ...) and is unaffected.
-petta_clp_expression('+', A, B, A + B).
-petta_clp_expression('-', A, B, A - B).
-petta_clp_expression('*', A, B, A * B).
+%mode for one unknown is metta_int_solve('/', ...) and is unaffected.
+metta_clp_expression('+', A, B, A + B).
+metta_clp_expression('-', A, B, A - B).
+metta_clp_expression('*', A, B, A * B).
 
 %fd_size/2 answers the atom `sup` for a domain with no bound, which is exactly
 %the case label/1 cannot enumerate, and answers a plain integer for a variable
 %that carries no CLP(FD) attribute at all only after one has been posted on
 %it; a variable the constraint left unconstrained still reads sup.
-petta_clp_finite(Unknowns) :-
+metta_clp_finite(Unknowns) :-
     forall(member(Unknown, Unknowns),
            ( fd_size(Unknown, Size), integer(Size) )).
 
@@ -435,11 +435,11 @@ petta_clp_finite(Unknowns) :-
 %(metta_host_operation_error/5), and the engine's own guard sweep checks every
 %guarded input position for exactly that
 %[tested: tests/prolog/metta.plt, every_builtin_refuses_an_unbound_input_by_name].
-petta_refuse_unsolved_arithmetic(Operation, Reason) :-
-    throw(error(petta_unsolved_arithmetic(Operation, Reason),
+metta_refuse_unsolved_arithmetic(Operation, Reason) :-
+    throw(error(metta_unsolved_arithmetic(Operation, Reason),
                 context(Operation, 'while evaluating MeTTa operation'))).
 
-prolog:error_message(petta_unsolved_arithmetic(Op, unbounded_domain)) -->
+prolog:error_message(metta_unsolved_arithmetic(Op, unbounded_domain)) -->
     [ '~w ran backwards with more than one unknown, and what the constraint \c
        leaves has no finite domain to search, so there is no answer to \c
        enumerate. Bound the unknowns first, for example with the CLP(FD) \c
@@ -448,7 +448,7 @@ prolog:error_message(petta_unsolved_arithmetic(Op, unbounded_domain)) -->
        over the integers is undecidable in general (Hilbert''s tenth \c
        problem), so this boundary is a theorem rather than an omission'
       -[Op] ].
-prolog:error_message(petta_unsolved_arithmetic(Op, unbound_operand)) -->
+prolog:error_message(metta_unsolved_arithmetic(Op, unbound_operand)) -->
     [ '~w needs a value it does not have: an operand is still unbound and \c
        this operation has no relation to solve for it. Only the integer \c
        relations +, - and * are solved for a missing operand, and only where \c
@@ -456,7 +456,7 @@ prolog:error_message(petta_unsolved_arithmetic(Op, unbound_operand)) -->
        domain to search. Bind the operand first, post the relation with the \c
        # (CLP(FD)) operators, or use clpq from lib_constraints for the \c
        rationals'-[Op] ].
-prolog:error_message(petta_unsolved_arithmetic(Op, no_integer_relation)) -->
+prolog:error_message(metta_unsolved_arithmetic(Op, no_integer_relation)) -->
     [ '~w ran backwards with more than one unknown, and only +, - and * have \c
        an integer relation to solve: ~w may answer a float, so there is no \c
        finite set of integers to search. Use // or div for integer division, \c
