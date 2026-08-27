@@ -736,6 +736,50 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **`metta_space_operand/1` reads the `&` prefix before it probes either space
+  registry.** It answers whether an atom names a space this engine can query,
+  and it sits on nine hot paths: both operand positions of the matcher's leaf,
+  `get-metatype`, the three type-candidate resolvers, operation admission, the
+  translator's space-expression test and the wire codec, which asks it of every
+  atom that crosses to a host. It answered by asking `seam:foreign_space/1` and
+  then the native storage registry, and it answers NO for every ordinary
+  symbol, which is almost every atom the engine touches. The prefix is not a
+  new assumption. It is the engine's own rule at every door that CREATES a
+  space, and this predicate was the one place that paid to re-discover it:
+  `metta_space_name/1` refuses any other spelling at the creation door,
+  `metta_require_space_name/2` refuses it at `new-space` and `inherits`,
+  `register_provider` refuses it at the Python door, both wire codecs refuse to
+  DECODE a space name without it, MORK's own ownership test is the same prefix,
+  and a `State` cell spells its handle the same way. Every
+  `seam:foreign_space/1` clause in the tree names a `&` atom. The second clause
+  gained the shape test its own registry already guarantees, `S = [_|_]`, since
+  a parametric space name is always a nonempty list.
+  Measured in the shipped Python configuration, 20,000 iterations against an
+  identical loop: `metta_space_operand/1` costs 3 inferences on an ordinary
+  symbol where it cost 8, and 4 on a number where it cost 6. The matcher leaf
+  `metta_match_atoms/2` costs 17 on two different symbols where it cost 27,
+  because it asks twice; `get-metatype` of a symbol costs 12 where it cost 17.
+  Through MeTTa, 200 evaluations each, minimum of three: `(unify a b ...)`
+  moved 35850 to 32850 (-8.37%), `(get-metatype sym)` 29650 to 27650 (-6.75%),
+  `(get-type (undeclared other))` 155454 to 146454 (-5.79%).
+  On the counter benchmarks, measured in one worktree on both sides:
+  save-load-metta 1386108 to 1286089 (-7.22%), foreign-match 788336 to 750338
+  and table-bridge-match 788338 to 750336 (-4.82%), save-load-fast 2287065 to
+  2187046 (-4.37%), py-method-call 2050730 to 2000732 (-2.44%),
+  annotated-relation 299894 to 294894 (-1.67%), alpha-unique -50, loop-1m -5,
+  and no row moved the other way. Each is an exact multiple of 5.00 inferences
+  per encoded atom, which is the mechanism rather than a coincidence.
+  The twin lane agrees: 126 of the 219 shipped twins get cheaper and not one
+  gets dearer. The gated pair is re-priced with the two-sided control its own
+  chain records, `03-spaces3` 252 to 242 and `01-identity` unchanged at 2826.
+  The prefix is now written into the seam's own declaration and into
+  `EXTENDING.md`, because `seam:foreign_space/1` is an open ownership seam: a
+  provider naming an atom without the prefix would be answered "no space" by
+  every one of those nine paths, quietly. `sh check.sh prolog-static` refuses
+  such a name by name, reading both the live database with every library,
+  backend and host binding loaded and every hook file's clause heads as text,
+  and proves itself against a planted provider before accepting a clean result.
+
 - **The Python suite is in chapter packages, the same 22 the examples use.**
   206 modules sat flat in one directory, which is a listing nobody reads and no
   order at all. They are now `bindings/python/tests/chNN_name/`, named in

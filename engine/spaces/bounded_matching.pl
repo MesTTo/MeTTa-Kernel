@@ -230,15 +230,52 @@ metta_match_all([X|Xs], [Y|Ys]) :-
 
 %Whether an operand names a space this engine can query: a foreign
 %provider or a native storage module. Both probes are indexed lookups.
+%
+%The '&' test in front of them is the engine's OWN space-name rule, applied
+%where it is cheapest instead of only where a space is created. It is not a
+%new assumption: metta_space_name/1 refuses any other spelling at the
+%creation door [source: engine/spaces/catalog.pl, metta_space_name/1],
+%metta_require_space_name/2 refuses it at new-space and inherits [source:
+%engine/spaces/lifecycle.pl], register_provider refuses it at the Python
+%door [source: bindings/python/metta/foreign.py, "a space name starts with
+%&"], both wire codecs refuse to decode any other spelling [source:
+%bindings/python/metta/shim.pl metta_py_decode_(p, ...) and
+%bindings/node/bridge.pl], MORK's own ownership test is the same prefix
+%[source: backends/mork/mork_ffi/morkspaces.pl, mork_owns_space/1], and a
+%state cell spells its handle the same way [source: engine/metta/control.pl,
+%metta_state_cell/1]. Every seam:foreign_space/1 clause in this tree names a
+%'&' atom, so the rule was already universal and this predicate was the one
+%place that paid to re-discover it.
+%
+%What it buys: an ordinary symbol - nearly every atom this engine ever tests
+%- fails here for one inference instead of paying both probes, on the nine
+%hot paths that ask [measured 2026-08-28 in the shipped Python configuration,
+%20,000 iterations against a bare loop: 8 inferences per non-space atom
+%before, 3 after; metta_match_atoms/2 asks twice per atom position].
+%
+%Limitation: seam:foreign_space/1 is an open ownership seam, so an extension
+%that adds a clause naming an atom without the prefix stops being seen as a
+%space here. That configuration is already broken upstream of this
+%predicate - neither wire codec can carry such a name - and the live-database
+%check in tests/prolog/static_checks.pl now refuses it by name rather than
+%letting it fail quietly [tested: every_foreign_space_is_an_ampersand_name].
 metta_space_operand(S) :-
     atom(S),
     !,
+    sub_atom(S, 0, 1, _, '&'),
     (   seam:foreign_space(S)
     ->  true
     ;   native_storage_module_cache(S, _)
     ).
+%A PARAMETRIC name is always a nonempty list: metta_require_parametric_space_name/1
+%refuses anything else at the only door that asserts space_parametric/1
+%[source: engine/spaces/lifecycle.pl]. Saying so here costs nothing - both
+%tests compile inline - and stops every number, string and non-list compound
+%the matcher meets from probing the table to be told what its shape already
+%said. engine/spaces/foreign.pl:321 already guards the same table this way.
 metta_space_operand(S) :-
     nonvar(S),
+    S = [_|_],
     space_parametric(S).
 
 

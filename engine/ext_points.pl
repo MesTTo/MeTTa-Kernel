@@ -357,6 +357,19 @@ kind(atom_removed/2, event).
 %the Prolog database, in a database, a dataframe, a service. match/4,
 %'add-atom'/3, 'remove-atom'/3 and 'get-atoms'/2 consult these hooks first
 %for a declared name; with no declarations nothing changes.
+%
+%THE NAME AN ATOMIC SPACE CARRIES BEGINS WITH '&'. That is the engine's rule
+%and not this seam's invention: metta_space_name/1 refuses any other spelling
+%at the door that CREATES a space, metta_require_space_name/2 refuses it at
+%new-space and inherits, the Python seat's register_provider refuses it before
+%it reaches here, and neither wire codec can decode a space name without it.
+%metta_space_operand/1 therefore tests the prefix before probing either
+%registry, which is what makes it cheap on the matcher, get-metatype, the
+%three type-candidate resolvers, operation admission, the translator and the
+%codec. A clause here naming an atom without the prefix is answered NO by all
+%of them, quietly, so tests/prolog/static_checks.pl scans the live database
+%and refuses one by name. A PARAMETRIC space is named by a nonempty ground
+%list instead and carries no prefix; the guard is on the atom case alone.
 :- multifile foreign_space/1.
 kind(foreign_space/1, ownership).
 
