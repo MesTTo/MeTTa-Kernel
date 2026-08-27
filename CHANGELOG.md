@@ -1322,6 +1322,48 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   match. `silent/1` now has one writer in the tree outside its own boot
   directive; the four Prolog gate harnesses and the one Python test that
   spelled the pair themselves go through the door too.
+- An `inferences=` budget now bounds a lazy cursor. It did nothing: draining
+  20,000 rows through `m.match()` or the cursor door under a budget of 5,000
+  returned all 20,000 rows, and so did every larger budget.
+  Two facts had been read backwards. An SWI engine has its OWN inference
+  counter and the thread that created it cannot see that counter, so a bound
+  placed around a pull charges the pull loop: 1,000 pulls of a goal costing
+  about 402 inferences each moved the calling thread's counter by 2,003, 0.50%
+  of the work. And `call_with_inference_limit/3` bounds inferences per SOLUTION
+  of its goal, which is what SWI's manual says, so a generator answering cheaply
+  forever is re-armed at every answer and never reaches it.
+  The budget is now built by `metta_host_inference_budget/3`, which keeps that
+  limiter, because it is the only bound that stops a resume which never yields
+  an answer at all, and adds the engine's own counter read against a base taken
+  when the goal starts. Spend is bounded by the budget plus one answer's cost,
+  except where a single answer overruns the whole budget on its own, which can
+  reach twice it. A cursor with no budget installs no wrapper and is unchanged;
+  a bounded cursor costs two engine inferences per answer, and those are spent
+  in the cursor's engine where no host-side counter sees them.
+  `m.stats()` is the other side of that fact and it now says so: it reads the
+  calling thread's counters, so it sees about 10.5% of what a lazy `match()`
+  cursor's engine actually spends. The evaluation cursor behind `answers()`
+  reports its engine's spend and is whole. Changing that for the match cursor
+  would change the hot pull's wire and is not in this change.
+
+- The C binding's cursor inference bound counts the engine's work. It metered
+  with `statistics/2` either side of each `cetta_answers_step()`, which reads
+  the CALLING thread's counter, and a cursor's engine is not in it: at a budget
+  of 20,000 that meter bought exactly 4,000 answers from a cheap generator and
+  exactly 4,000 from one whose answers cost 137x more, the same count for both.
+  It now builds the budget into the engine goal through
+  `metta_host_inference_budget/3` and buys 1,233 and 9. The old meter, the
+  per-cursor spend column and `petta_c_cursor_spent/2` are gone with it.
+  A C caller also now gets `CETTA_LIMIT` rather than `CETTA_ERROR` when a MeTTa
+  program spends its own `(pragma! max-inferences N)`, because the classifier
+  reads the engine's reserved limit envelope as well as this binding's own.
+
+- The engine's reserved limit envelope prints its bound instead of its term.
+  A program that spent `(pragma! max-inferences 500)` reported
+  `Unknown error term: metta_control_signal(inference_limit,500)` at the CLI and
+  anywhere else message text is shown; it now reads "the evaluation passed its
+  500 inference bound and was stopped". The wall-clock kind had the same gap and
+  the same fix.
 
 - `examples/reasoning/greedy_chess.metta` is skipped for the reason that is
   true. It read "long-running, covered by benchmarks" and neither half held:

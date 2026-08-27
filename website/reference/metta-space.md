@@ -1147,11 +1147,19 @@ def stats(self) -> _StatsBlock:
 >     s.gc_count, s.gc_freed, s.gc_time
 >     s.table_bytes       # answer-table bytes grown, tabling's memory
 >
-> The counters are the engine's statistics/2, and the engine is one
-> per process, so a block that runs other threads' engine work counts
-> that work too; the honest reading is "what the engine did while
-> this block ran". The z3py Solver.statistics() reading, on the
-> engine this library actually has.
+> The counters are SWI's statistics/2 read on the CALLING thread, so
+> a block that runs other threads' engine work counts that work too;
+> the honest reading is "what this thread saw the engine do while the
+> block ran". A lazy cursor is the exception, and a large one: its
+> goal runs in an SWI engine, an engine counts its own inferences,
+> and this thread cannot see them. Draining 20,000 rows through the
+> match cursor reports 40,049 inferences against about 381,000 the
+> cursor's engine really spent, 10.5% of the work; the real cost is
+> readable off the `inferences` budget, which does count the engine
+> [measured 2026-08-27]. The evaluation cursor behind `answers()`
+> does report its engine's spend, so that one is whole. The z3py
+> Solver.statistics() reading, on the engine this library actually
+> has.
 
 ### `Space.op`
 
