@@ -1600,8 +1600,9 @@ failure, the Python seat claims as it registers a provider, and MORK claims
 its namespace in a load-time directive because loading is when it goes live.
 Nothing on an operation's path calls any of this, and that is deliberate: a
 duplicate ownership test there would cost a second solution on every space
-operation [measured 2026-08-28: three space workloads, 2,000 operations each,
-identical inference counts over five runs before and after].
+operation [measured 2026-08-28: 2,000 MORK adds and a flush, 2,000 MORK
+matches, and a 2,000-atom native write-and-match read 256,979, 531,796 and
+78,028 inferences identically before and after, five runs each].
 
 ### Take a whole batch in one crossing
 

@@ -690,7 +690,7 @@ metta_builtin_effect_override('residual-goals', readOnlyLookup).
 %unbound input throws from inside whatever class it already carries. It is not
 %pureStructural, because the answer depends on which seats this process loaded
 %rather than on the argument alone, which is the same reason 'is-function' and
-%'has-declared-type' sit on this line.
+%'residual-goals' above are readOnlyLookup rather than structural.
 metta_builtin_effect_override('require-extension!', readOnlyLookup).
 
 metta_builtin_effect_override('alpha-unique', nondeterministicReadOnly).

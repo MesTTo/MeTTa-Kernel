@@ -977,7 +977,7 @@ metta_load_extensions(Pattern) :-
 %message text and its SQLSTATE quoted verbatim in
 %github.com/lesovsky/pgcenter/issues/104].
 %
-%Two things this says that Postgres's message does not, because needs/2 is
+%Two things this says that Postgres's message does not, because needs/1 is
 %DATA here and a preload list is not:
 %
 %  - the cause is TRANSITIVE. metta_extension_unmet/2 holds the seat's own
