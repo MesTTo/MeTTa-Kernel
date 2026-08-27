@@ -1592,6 +1592,21 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **The Node binding mounts each backend's control file rather than the whole
+  `backends/` tree, so a built checkout can boot it.** `boot()` copied every
+  directory in `ENGINE_DIRS` into the WebAssembly image recursively, and
+  `backends/` holds the MORK crate, whose Rust `target/` is 10,808 files and
+  3.2 GiB once `sh build.sh` has run. The image cannot hold that: the suite
+  reported 70 tests with 8 test files aborting on `FATAL ERROR: ... JavaScript
+  heap out of memory`, against 203 tests all passing with `target/` moved
+  aside, same commit both ways (measured 2026-08-28 at e80fd4c3). So the lane
+  was green only on a checkout that had never been built, which is the
+  configuration nobody ships. `mountControlFiles` writes
+  `backends/*/extension.pl` and nothing else, which is all the engine ever
+  opens there: a wasm build has no dynamic linking and no janus, so every
+  seat's needs are unmet and no `entry(engine, _)` is reachable. 203/203 with
+  `target/` present.
+
 - **A seat declares itself in a control file the engine reads, instead of a
   decider script the engine runs.** Every folder under `bindings/` and
   `backends/` used to carry a `decider.pl`, twelve lines of imperative Prolog
