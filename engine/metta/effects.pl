@@ -590,7 +590,6 @@ metta_semantic_effect('get-type-space', writesState).
 metta_semantic_effect('_new-state', writesState).
 metta_semantic_effect('change-state!', writesState).
 metta_semantic_effect('new-space', writesState).
-metta_semantic_effect('new-mork-space', writesState).
 metta_semantic_effect('fork-space', writesState).
 metta_semantic_effect('add-atom', writesState).
 metta_semantic_effect('remove-atom', writesState).

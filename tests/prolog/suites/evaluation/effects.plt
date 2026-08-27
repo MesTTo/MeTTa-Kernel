@@ -50,8 +50,7 @@ effect_test_interpreter_profile(
     writesState,
     [eval, evalc, 'collapse-bind', metta, 'metta-thread', capture,
      'pragma!', match, 'match%', 'get-type', 'get-type-space',
-     '_new-state', 'change-state!', 'new-space', 'new-mork-space',
-     'fork-space', 'add-atom', 'remove-atom', 'bind!',
+     '_new-state', 'change-state!', 'new-space', 'fork-space', 'add-atom', 'remove-atom', 'bind!',
      'module-space-no-deps', 'print-mods!', 'println!', 'trace!', sealed]).
 effect_test_interpreter_profile(
     oracleIO,

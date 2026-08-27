@@ -1837,7 +1837,6 @@ embedded_operation_head('_new-state').
 embedded_operation_head('get-state').
 embedded_operation_head('change-state!').
 embedded_operation_head('new-space').
-embedded_operation_head('new-mork-space').
 embedded_operation_head('fork-space').
 embedded_operation_head('add-atom').
 embedded_operation_head('remove-atom').

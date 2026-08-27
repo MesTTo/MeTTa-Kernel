@@ -1473,7 +1473,6 @@ metta_grounded_token('mod-space!').
 metta_grounded_token('module-space-no-deps').
 metta_grounded_token('module-tree!').
 metta_grounded_token('near-match').
-metta_grounded_token('new-mork-space').
 metta_grounded_token('new-space'). metta_grounded_token('nop').
 metta_grounded_token('not'). metta_grounded_token('or').
 metta_grounded_token('pow-math'). metta_grounded_token('pragma!').

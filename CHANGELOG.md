@@ -1696,6 +1696,18 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **`new-mork-space` is gone from the three tables that vouched for it,
+  because it never existed.** It was registered as a `writesState` semantic
+  effect, a grounded token, and a translator embedded-operation head -- a
+  reviewed, typed, compiler-known operation -- with no implementation anywhere
+  in the tree, so `(new-mork-space &z)` echoed itself while the effect table
+  claimed a reviewed writer. It is declaration drift: named MORK stores are
+  created on FIRST USE of `&mork:<name>` by design (the spaces guide records
+  the contract), so the creation form it anticipated was obsoleted before it
+  was built. The effects suite's reviewed profile is updated in the same
+  change, which is that pairing's drift gate doing its job -- it refused the
+  removal until the review record moved with it.
+
 - **A seatless engine crashed asking a question no seat was there to answer.**
   `engine/metta/space_hooks.pl` forwards two questions to a host -- is this
   error your transport dying, and how does your exception render as a MeTTa
