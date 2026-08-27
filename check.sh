@@ -21,6 +21,8 @@
 #                                            policy-inventory-selftest
 #                                            refusal-grounds
 #                                            refusal-grounds-selftest snippets
+#                                            cumulative-syntax
+#                                            cumulative-syntax-selftest
 #                                            pytest gallery benchmarks instructions
 #                                            scaling
 #                                            memory-scale memory-scale-gate

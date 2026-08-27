@@ -26,10 +26,17 @@ coordinate is unambiguous wherever you find it.
 
 **A file uses only what an earlier number introduced.** That is the law the
 whole ordering exists for, and it is checked rather than asserted:
-`tests/check_cumulative_syntax.py` reads every file's head-position forms
-through the engine's own parser and fails when one reaches forward.
-`tests/syntax_introductions.txt` is the table it reads, one row per
-construct, naming the coordinate that introduces it.
+`tests/checks/check_cumulative_syntax.py` reads every file's head-position
+forms through the engine's own parser and fails when one reaches forward.
+`tests/data/syntax_introductions.txt` is the table it reads, one row per
+construct, naming the coordinate that introduces it, and it is checked in
+rather than derived, because a table read out of the corpus would make the
+law true by definition. `tests/README.md` explains the three pieces.
+
+The lane carries a permanent negative control INSIDE this corpus,
+`ch01-getting-started/_fixtures/01-reaches-forward.metta`, a chapter-1 file
+using a chapter-15 and a chapter-22 construct, and fails if it ever stops
+catching it. Do not fix that file.
 
 Two chapters have no MeTTa examples of their own and so have no directory
 here: 13 (a queryable dataset) and 21 (another language at the seam) are
