@@ -1245,6 +1245,30 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- An `inferences=` budget now bounds a lazy cursor. It did nothing: draining
+  20,000 rows through `m.match()` or the cursor door under a budget of 5,000
+  returned all 20,000 rows, and so did every larger budget.
+  Two facts had been read backwards. An SWI engine has its OWN inference
+  counter and the thread that created it cannot see that counter, so a bound
+  placed around a pull charges the pull loop: 1,000 pulls of a goal costing
+  about 402 inferences each moved the calling thread's counter by 2,003, 0.50%
+  of the work. And `call_with_inference_limit/3` bounds inferences per SOLUTION
+  of its goal, which is what SWI's manual says, so a generator answering cheaply
+  forever is re-armed at every answer and never reaches it.
+  The budget is now built by `metta_host_inference_budget/3`, which keeps that
+  limiter, because it is the only bound that stops a resume which never yields
+  an answer at all, and adds the engine's own counter read against a base taken
+  when the goal starts. Spend is bounded by the budget plus one answer's cost,
+  except where a single answer overruns the whole budget on its own, which can
+  reach twice it. A cursor with no budget installs no wrapper and is unchanged;
+  a bounded cursor costs two engine inferences per answer, and those are spent
+  in the cursor's engine where no host-side counter sees them.
+  `m.stats()` is the other side of that fact and it now says so: it reads the
+  calling thread's counters, so it sees about 10.5% of what a lazy `match()`
+  cursor's engine actually spends. The evaluation cursor behind `answers()`
+  reports its engine's spend and is whole. Changing that for the match cursor
+  would change the hot pull's wire and is not in this change.
+
 - The engine's reserved limit envelope prints its bound instead of its term.
   A program that spent `(pragma! max-inferences 500)` reported
   `Unknown error term: metta_control_signal(inference_limit,500)` at the CLI and
