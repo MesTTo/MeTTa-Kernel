@@ -435,7 +435,7 @@ test(an_impure_refusal_names_the_canonical_effect_remedy) :-
 
 %The catalog's two profitability overrides are covered from Python, but every
 %function they are declared on there is recursive
-%[source: bindings/python/tests/ch18_performance/test_automatic_tabling.py
+%[source: extensions/python/tests/ch18_performance/test_automatic_tabling.py
 %test_automatic_cache_force_and_refuse_overrides, and the same in
 %test_an_impure_function_is_never_cached_automatically,
 %test_automatic_caching_preserves_multiplicity_and_answer_limit and

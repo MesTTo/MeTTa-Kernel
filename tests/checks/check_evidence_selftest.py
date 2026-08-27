@@ -119,11 +119,11 @@ done < "$filelist"
 """
 
 FILES = {
-    "bindings/python/pyproject.toml": '[tool.pytest.ini_options]\npythonpath = ["."]\n',
+    "extensions/python/pyproject.toml": '[tool.pytest.ini_options]\npythonpath = ["."]\n',
     ".github/workflows/checks.yml": "run: sh check.sh\n",
     ".github/workflows/ci.yml": "run: sh test.sh\n",
-    "bindings/python/tests/test_collected.py": "def test_collected():\n    assert True\n",
-    "bindings/python/tests/helpers.py": "def test_uncollected():\n    assert True\n",
+    "extensions/python/tests/test_collected.py": "def test_collected():\n    assert True\n",
+    "extensions/python/tests/helpers.py": "def test_uncollected():\n    assert True\n",
     "tests/checked.py": (
         "import sys\n\n\ndef main():\n    return 1\n\n\n"
         'if __name__ == "__main__":\n    sys.exit(main())\n'

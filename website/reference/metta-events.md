@@ -1,6 +1,6 @@
 # `metta.events`
 
-Source: `bindings/python/metta/events.py`.
+Source: `extensions/python/metta/events.py`.
 
 > Purpose: the public event stream.
 >

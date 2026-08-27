@@ -65,7 +65,7 @@ degree beside its answer. Nothing about scores is built into the library;
 the whole of it is `Space.op`, `Answer(value=..., k=...)` and
 `annotations`, so fuzzy, regex and semantic closeness are each a
 few lines in your own code. The executable version of everything on this
-page is `bindings/python/examples/reasoning/custom_matchers.py`.
+page is `extensions/python/examples/reasoning/custom_matchers.py`.
 
 The measure library, `lib/lib_measure/lib_measure.metta`, stays what it always was:
 pure MeTTa over explicit `(weight value)` pair data, with `ws-total`,

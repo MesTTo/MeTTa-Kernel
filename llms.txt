@@ -17,33 +17,32 @@ re-runs them.
 |---|---|---|
 | `examples/**/*.metta` | 232 executable programs, the semantics documentation, in 22 numbered chapters whose order is the order a reader meets each construct. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/data/example_skips.txt` names the six that do not, each with its reason |
 | `tests/data/syntax_introductions.txt` | the construct each example chapter introduces, so a file uses nothing it has not met | the `cumulative-syntax` gate lane, which also carries a permanent negative control it must keep catching |
-| `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `bindings/python/tools/reference.py` |
-| `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `bindings/python/tools/libdoc.py` |
-| `tests/prolog/suites/*/*.plt` | 46 plunit suites over the engine itself, grouped by the engine unit each one tests | the `plunit` gate lane |
-| `bindings/python/tests/*/test_*.py` | 206 files, blackbox, hypothesis-fuzzed, in the same 22 chapters `examples/` uses, plus `conformance/` for the arbiters and `repository/` for the tests whose subject is this repository | the `pytest` gate lane |
-| `bindings/python/tests/twins/**/*.py` | 219 Python twins of `examples/` programs across the corpus, each written with no MeTTa source text, answering alpha-equal to its original or explicitly declining a structured-residue form, and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
-| `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `bindings/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
-| `bindings/python/metta/vocabularies.py` | the catalog's value vocabularies as StrEnum classes, one per `(vocabulary ...)` row; each member IS its wire word and encodes as its symbol, and bare words stay the runtime escape hatch | `bindings/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
+| `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `extensions/python/tools/reference.py` |
+| `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `extensions/python/tools/libdoc.py` |
+| `tests/prolog/suites/*/*.plt` | 47 plunit suites over the engine itself, grouped by the engine unit each one tests | the `plunit` gate lane |
+| `extensions/python/tests/*/test_*.py` | 206 files, blackbox, hypothesis-fuzzed, in the same 22 chapters `examples/` uses, plus `conformance/` for the arbiters and `repository/` for the tests whose subject is this repository | the `pytest` gate lane |
+| `extensions/python/tests/twins/**/*.py` | 219 Python twins of `examples/` programs across the corpus, each written with no MeTTa source text, answering alpha-equal to its original or explicitly declining a structured-residue form, and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
+| `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `extensions/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
+| `extensions/python/metta/vocabularies.py` | the catalog's value vocabularies as StrEnum classes, one per `(vocabulary ...)` row; each member IS its wire word and encodes as its symbol, and bare words stay the runtime escape hatch | `extensions/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
 | `CHANGELOG.md` | every user-facing change, with the reasoning | |
 | `website/guide/*.md` | 15 pages of prose: concepts, run-query, spaces, atoms-terms, python-functions, define, structures, threads, observability, notebook, contract, getting-started, where-code-runs, pettorch | |
 | `website/tutorials/*.md` | 8 numbered lessons, atoms through graph-view | |
 | `website/integrations/*.md` | dataframes, pydantic, duckdb, SQLite blobs, arrays and embeddings, http routes | |
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
-| `bindings/python/examples/*/*.py` | 23 runnable Python programs, each printing checked claims; the six under `gallery/` also check adjacent emitted-MeTTa and output comments plus bilingual `@example` atoms | the `examples` and `gallery` gate lanes |
-| `bindings/python/notebooks/tour.ipynb` | the notebook surface, every structural argument a built term | the `notebook` lane |
-| `engine/**/*.pl` | 37,623 lines: `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 998 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
+| `extensions/python/examples/*/*.py` | 23 runnable Python programs, each printing checked claims; the six under `gallery/` also check adjacent emitted-MeTTa and output comments plus bilingual `@example` atoms | the `examples` and `gallery` gate lanes |
+| `extensions/python/notebooks/tour.ipynb` | the notebook surface, every structural argument a built term | the `notebook` lane |
+| `engine/**/*.pl` | 37,626 lines: `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 998 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
-| `lib/lib_*/lib_*.metta` | 34 MeTTa libraries loaded with `!(import! &self (library lib_x))`; from Python the write door imports them, `m += lib.x` | `bindings/python/tests/ch08_data/test_library_door.py` |
+| `lib/lib_*/lib_*.metta` | 34 MeTTa libraries loaded with `!(import! &self (library lib_x))`; from Python the write door imports them, `m += lib.x` | `extensions/python/tests/ch08_data/test_library_door.py` |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
-| `backends/*/extension.pl` | control files read at boot; the engine loads a backend's entry only when every declared need holds | |
-| `bindings/*/extension.pl` | control files read at every boot; a seat's engine entry loads only where its declared needs hold, so the engine names no host | |
-| `bindings/node/src/*.ts` | MeTTa as a TypeScript library, the engine embedded in a Node process over swipl-wasm and the seam's second consumer: interned atoms, spaces as collections, lazy thenable answers, a lowered-source `define`, a traced generator `define`, host `op`s the engine calls back into, and `using` scopes. `bindings/node/bridge.pl` is its Prolog half and calls published surface only | the `node-binding` gate lane, and `bindings/python/tests/ch21_another_language_at_the_seam/test_node_binding.py` answers the same corpus in both hosts |
-| `bindings/cetta/cetta.h`, `bindings/cetta/cetta.c` | the engine embedded in a C process through SWI's own foreign interface, the seam's third consumer and the only one IN the engine's process, so it reads `term_t` directly and has no wire codec. `bindings/cetta/bridge.pl` is its Prolog half and calls published surface only | the `c-binding` gate lane, and `bindings/python/tests/ch21_another_language_at_the_seam/test_c_binding.py` requires this seat and the Python host to answer the same programs |
+| `extensions/*/extension.pl` | one control file per seat, read when argv carries `extensions` and never read without it; a seat's `entry(engine, _)` loads only where its declared needs hold and its `entry(host, _)` is recorded for the seat's own runtime to consult, so the engine names neither a host nor a backend | |
+| `extensions/node/src/*.ts` | MeTTa as a TypeScript library, the engine embedded in a Node process over swipl-wasm and the seam's second consumer: interned atoms, spaces as collections, lazy thenable answers, a lowered-source `define`, a traced generator `define`, host `op`s the engine calls back into, and `using` scopes. `extensions/node/bridge.pl` is its Prolog half and calls published surface only | the `node-binding` gate lane, and `extensions/python/tests/ch21_another_language_at_the_seam/test_node_binding.py` answers the same corpus in both hosts |
+| `extensions/cetta/cetta.h`, `extensions/cetta/cetta.c` | the engine embedded in a C process through SWI's own foreign interface, the seam's third consumer and the only one IN the engine's process, so it reads `term_t` directly and has no wire codec. `extensions/cetta/bridge.pl` is its Prolog half and calls published surface only | the `c-binding` gate lane, and `extensions/python/tests/ch21_another_language_at_the_seam/test_c_binding.py` requires this seat and the Python host to answer the same programs |
 | `EXTENDING.md`, `DEVELOPING.md` | writing an extension; working on the engine | |
 | `KERNEL.md` | every head the translator gives meaning to, core or derived, with the reason and the numbers | the `plunit` gate lane's `translator_derived_forms` and the `pytest` lane's corpus twin test |
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |
-| `bindings/python/metta/*.py` | the library. `bindings/python/metta/_space.py` is the `MeTTa` context and the `Space` handle; a leading `_` means internal | |
+| `extensions/python/metta/*.py` | the library. `extensions/python/metta/_space.py` is the `MeTTa` context and the `Space` handle; a leading `_` means internal | |
 
 Counts measured 2026-08-26, each one re-checked by the `llms` gate lane on
 every run.
@@ -598,11 +597,16 @@ module: `function`, `function_view`, `specialization`, `memo`,
 The specializer, memo library, compiler, and language-policy registries use
 these same `supports(Support, Derived)` edges.
 
-`backends/*/extension.pl` is read at boot -- a control file of facts declaring
-what each backend needs, never a script -- and a backend's entry loads only when
-every need holds, so there is no backend "mode" to select and the engine
-names no backend. A MORK-backed store is one such backend, supplying `&mork` and
-`&mork:name`; it is present only when its shared library was built.
+`extensions/*/extension.pl` is read when argv carries `extensions` -- a control
+file of facts declaring what each seat needs, never a script -- and a seat's
+`entry(engine, _)` loads only when every need holds, so there is no backend
+"mode" to select and the engine names no seat. A boot without the token reads
+none of them, which is the pure kernel. `extensions/` holds every seat in one
+folder, told apart by the `entry/2` roles they declare rather than by where
+they sit: `entry(engine, File)` is a file the engine consults, `entry(host,
+File)` one the seat's own runtime consults, and a seat may declare both. A
+MORK-backed store is one such seat, supplying `&mork` and `&mork:name`; it is
+present only when its shared library was built.
 
 ## Apps, from source
 

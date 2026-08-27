@@ -13,7 +13,7 @@ what a server must answer so that `(match &yours ...)` in a MeTTa
 program reaches atoms your process holds.
 
 Two reference implementations ship in the repository under
-`bindings/python/examples/integration/typescript_space/`: a zero-dependency
+`extensions/python/examples/integration/typescript_space/`: a zero-dependency
 TypeScript server, and a variant whose atoms live in a MeTTaScript
 space, so two MeTTa engines meet through this one seam. Both pass the
 conformance kit through `attach()`.

@@ -736,6 +736,54 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **`bindings/` and `backends/` are one folder, `extensions/`, reached by one
+  glob behind one argv token.** The four seats keep their names:
+  `extensions/python`, `extensions/node`, `extensions/cetta`,
+  `extensions/mork`, so `metta_extension_loaded(python)` and every other record
+  reads as before. What goes is the claim the two folders made, that who DRIVES
+  the engine and what the engine CONSULTS are different kinds of thing. They
+  are two ROLES one seat may hold, and `entry/2` already named them: the Python
+  seat holds both, in two files; the C seat holds both in one; the Node seat
+  holds only `host`; MORK only `engine`. Direction of control does not sort
+  them either, since the Node transport declares `atom-added` and
+  `atom-removed`, which is the engine calling IT, and the Python seat is a
+  host, a provider and a target at once.
+
+  `engine/metta.pl` had two control-file globs, one unconditional and one
+  behind a `backends` token; it has one, `../extensions/*/extension.pl`, behind
+  a token renamed `extensions`. A boot with no token now reads no control file
+  at all, which is the pure kernel and a configuration the engine ships in;
+  `run.sh`, the packaged CLI, the Python library, the C host and the Node host
+  all pass the token, and `engine/main.pl` strips it from argv so
+  `swipl -s engine/main.pl -- extensions` still means the demo rather than a
+  file of that name.
+
+  Three consequences worth naming. The plunit lane runs each suite once under
+  the token instead of twice: the pair used to differ by the backends alone,
+  and six of the 39 suites cannot pass in the pure kernel because they test the
+  Python seat (measured 2026-08-28; the note in `check.sh` names them and the
+  `condition/1` that would buy them back). `tests/prolog/static_checks.pl` sets
+  the token before consulting the engine, and its unregistered-seat check reads
+  `entry(host, _)` off each control file rather than treating every folder as a
+  host binding, so MORK is not asked for a transport it does not have. And the
+  Node binding mounts each seat's control file rather than the seat tree, which
+  is now load-bearing rather than tidy: `extensions/` holds that binding's own
+  `node_modules`.
+
+  409 tracked files carried a path that moved. The sweep was written as an
+  explicit pattern list rather than a word replace, because "bindings" also
+  means VARIABLE BINDINGS throughout the engine's prose and
+  `examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/` is a
+  directory whose name ends in it; both are untouched.
+
+  Three lanes that had been reading a stale or absent claim are fixed on the
+  way, each the tree's own rather than this change's. The sdist job's wheel
+  check globbed the seat root for `*.pl`, a spelling the per-seat folders
+  retired in f2387fee, so it has matched nothing since and could not fail.
+  `llms.txt` claimed 46 plunit suites after `e80fd4c3` added a 47th. And the
+  `[engine, host]` role list `e80fd4c3` introduced carried no
+  `policy-inventory-exempt:` line, so that gate had a standing finding.
+
 - **The Python suite is in chapter packages, the same 22 the examples use.**
   206 modules sat flat in one directory, which is a listing nobody reads and no
   order at all. They are now `bindings/python/tests/chNN_name/`, named in

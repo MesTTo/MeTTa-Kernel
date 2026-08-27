@@ -8,9 +8,9 @@
 %     is/should line is the one diagnostic here that stays on current_output,
 %     because it prints on success too [tested:
 %     test_a_failing_assertion_stays_off_the_hosts_stdout in
-%     bindings/python/tests/ch10_errors_and_refusals/test_engine_diagnostics.py,
+%     extensions/python/tests/ch10_errors_and_refusals/test_engine_diagnostics.py,
 %     test_the_c_binding_suite_passes in
-%     bindings/python/tests/ch21_another_language_at_the_seam/test_c_binding.py,
+%     extensions/python/tests/ch21_another_language_at_the_seam/test_c_binding.py,
 %     tests/shell/test_example_runner_surfaces_failures.sh;
 %     commit=b7eb5734f476f8a8f5b6f16c1e71a67c72a57478]
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
@@ -42,7 +42,7 @@ prolog:error_message(metta_test_no_answer) -->
 %formals are the ENGINE's, so the two cannot drift: adding a fourth assertion
 %form and forgetting this predicate leaves that form unclassified here, where
 %it is read, rather than in a file the engine never loads [tested:
-%bindings/python/tests/ch12_testing/test_assertion_failures.py].
+%extensions/python/tests/ch12_testing/test_assertion_failures.py].
 %
 %Actual and Expected are handed out as WRITTEN MeTTa terms; a caller that
 %has to cross them to another language converts them itself, because the

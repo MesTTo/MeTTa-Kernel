@@ -1,7 +1,7 @@
 # Purpose: the single gate. Runs every static check, both test trees, the
 #   shell suites and the Prolog checks, and reports one table. Before this
 #   script the entry points were scattered (test.sh, tests/*.sh,
-#   tests/regression/, bindings/python/tests/, bench.sh) and nothing ran them all,
+#   tests/regression/, extensions/python/tests/, bench.sh) and nothing ran them all,
 #   so "the entire suite passes" could not be stated from one command.
 #
 #   Two tiers. GATE checks must pass and a failure exits nonzero. REPORT
@@ -90,7 +90,7 @@ if [ -f "$METTA_CHECK_PREFIX/pyvenv.cfg" ]; then
     export VIRTUAL_ENV PATH
 fi
 
-PYDIR="$HERE/bindings/python"
+PYDIR="$HERE/extensions/python"
 WANT="$*"
 FAILED=''
 SUMMARY=$(mktemp "${TMPDIR:-/tmp}/metta-check.XXXXXX")
@@ -155,7 +155,7 @@ sh "$HERE/engine/build.sh" || {
 # artifact set (engine/qlf_boot.pl carries the staleness and recovery
 # story). `|| true` because a boot problem belongs to the lanes, which
 # report it against their own expectations rather than at a warm-up.
-swipl -g halt -s "$HERE/engine/main.pl" -- backends >/dev/null 2>&1 || true
+swipl -g halt -s "$HERE/engine/main.pl" -- extensions >/dev/null 2>&1 || true
 
 # Each worker is a process with its own engine. Keeping one test file whole
 # preserves module fixtures, and a worker crash fails instead of being retried.
@@ -295,7 +295,7 @@ $1
 "*) exit 0 ;;
             esac
             out=$(METTA_VERIFY_SPECIALIZATIONS=1 timeout 120 swipl \
-                      --stack_limit=8g -q -s engine/main.pl -- "$1" backends \
+                      --stack_limit=8g -q -s engine/main.pl -- "$1" extensions \
                       silent </dev/null 2>&1) || true
             case "$out" in
                 *metta_specialization_disagrees*)
@@ -309,8 +309,8 @@ run GATE spec-differential check_specialization_differential
 run GATE packaged sh -c "cd '$HERE' && sh tests/shell/test_packaged_cli.sh"
 
 # A git worktree of this repository silently runs one backend fewer than the
-# checkout it was cut from: backends/mork/mork_ffi/target/ and backends/mork/mork_ffi/morklib.so are
-# gitignored build output, and backends/mork/decider.pl reads their absence as "this
+# checkout it was cut from: extensions/mork/mork_ffi/target/ and extensions/mork/mork_ffi/morklib.so are
+# gitignored build output, and extensions/mork/extension.pl reads their absence as "this
 # backend was not built" rather than as an error, which is right for a tree
 # that never built it and wrong for a worktree of one that did. Every suite
 # then passes while testing less. worktree.sh links them; this shows the
@@ -319,7 +319,7 @@ run GATE worktree sh -c "cd '$HERE' && sh tests/shell/test_worktree_configuratio
 
 # build.sh itself, which nothing checked before: it had no `set -e`, resolved
 # its paths against the CALLER's working directory, and ended by cloning
-# faiss_ffi with no destination argument into backends/mork/faiss_ffi, a path no
+# faiss_ffi with no destination argument into extensions/mork/faiss_ffi, a path no
 # ignore rule covers. So one run dirtied the tree and the next failed on
 # "destination path already exists", and a failed cargo build still reached a
 # line printing "Successfully built mork_ffi". The lane re-runs an already-built
@@ -341,8 +341,8 @@ run GATE git-import     sh -c "cd '$HERE' && sh tests/shell/test_git_import.sh"
 run GATE loader-threads sh -c "cd '$HERE' && sh tests/shell/test_loader_concurrency.sh"
 
 # Every component's own lanes, DISCOVERED. A component is a directory with a
-# check.sh, the same rule the engine applies to a decider and build.sh applies
-# to a build; adding a seat needs no edit here, which is the defect
+# check.sh, the same rule the engine applies to a control file and build.sh
+# applies to a build; adding a seat needs no edit here, which is the defect
 # ai-cetta-c-constraints.md C4 filed as "a new seat is three registrations, not
 # one folder".
 #
@@ -353,8 +353,7 @@ run GATE loader-threads sh -c "cd '$HERE' && sh tests/shell/test_loader_concurre
 # and one exit status, and keeps every lane's text where the evidence gate can
 # read it.
 for component_check in "$HERE"/engine/check.sh \
-                       "$HERE"/backends/*/check.sh \
-                       "$HERE"/bindings/*/check.sh; do
+                       "$HERE"/extensions/*/check.sh; do
     [ -f "$component_check" ] || continue
     . "$component_check"
 done
@@ -383,6 +382,16 @@ done
 # [measured 2026-08-22: six such names over engine/metta.pl and engine/tracer.pl
 # once the modules landed, all six reported here in one 4-second run, and the
 # corpus lane surfacing one of them per full pass].
+#
+# Run under `extensions`, the configuration every host boots, because that is
+# the configuration the question is about. Without the token the engine reads
+# no control file and this reports metta_host_error_reason/2 and
+# metta_host_transport_failure/1, which engine/metta/space_hooks.pl calls and
+# only extensions/python/bridge.pl declares multifile. That is a real gap in
+# every seatless process, the wasm host included, and it predates the seat
+# folders merging; closing it means the ENGINE declaring those two hooks, and
+# a seam it declares needs a seam:kind/2 row in engine/ext_points.pl, which is
+# a change to the seam contract rather than to a lane.
 PROLOG_KNOWN_UNDEFINED='mettafunc/2'
 check_prolog() {
     cd "$HERE" || return 1
@@ -390,7 +399,7 @@ check_prolog() {
         swipl -q -g "use_module(library(check)), \
                      set_prolog_flag(autoload, false), \
                      consult('engine/main.pl'), list_undefined, halt." \
-              -t 'halt(1)' 2>&1 \
+              -t 'halt(1)' -- extensions 2>&1 \
             | grep -E 'which is referenced by' \
             | grep -vE "$PROLOG_KNOWN_UNDEFINED"
     )
@@ -428,7 +437,8 @@ run GATE prolog-static check_prolog_static
 # vulture and jscpd read Python alone, and none of the SWI checks above reports
 # UNREACHABILITY: a predicate defined and never called is invisible to all of
 # them, across 22,791 lines of Prolog [measured 2026-08-19]. This walks every clause under engine/, lib/,
-# backends/, backends/mork/mork_ffi/ and bindings/python/metta/ with prolog_walk_code/1, adds a probe
+# extensions/mork/, extensions/mork/mork_ffi/ and extensions/python/metta/ with
+# prolog_walk_code/1, adds a probe
 # clause per directive, and adds an edge for every goal the engine BUILDS as a
 # term rather than calls, which is most of the analysis and not a refinement:
 # without it the 2026-08-18 report was 206 rather than 24; the tally stands at 19 [measured 2026-08-19].
@@ -676,12 +686,27 @@ run GATE prolog-determinism check_translation_determinism
 # parser or translator defect surfaced as a wrong example output with
 # nothing pointing at the cause.
 #
-# Every suite runs in each configuration the engine ships in. A bare swipl
-# invocation has an empty argv, so no backend loads and the suites booted an
-# engine nothing ships: run.sh, the packaged CLI and the Python library all
-# append `backends`. That gap hid a real failure,
-# spaces_storage_modules:matching_requires_a_named_space, which was green here
-# and red in what shipped.
+# Every suite runs under `extensions`, the configuration the engine ships in:
+# run.sh, the packaged CLI, the Python library, the C host and the Node host
+# all append it. A bare swipl invocation has an empty argv and reads no
+# control file at all, which is the pure kernel, and the suites used to boot
+# that; the gap hid a real failure,
+# spaces_storage_modules:matching_requires_a_named_space, green here and red
+# in what shipped.
+#
+# One run rather than two. Until the seat folders merged there were two
+# configurations to cover, because the host seats loaded unconditionally and
+# the native ones needed a token, so the pair differed by the backends alone.
+# One token covers every seat now, and the pure kernel is not a configuration
+# these suites are written against: measured 2026-08-28, all 39 suites pass
+# under `-- extensions` and six fail without it -- evaluation/metta.plt,
+# host/python_surface.plt, libraries/lib_tabling.plt, reader/parser.plt,
+# seams/extensions.plt and spaces/spaces.plt -- every one of them because the
+# Python seat's bridge is absent, which is what the pure kernel means.
+# Covering both would take a per-unit `condition(metta_extension_loaded(python))`,
+# plunit's own escape hatch, on those six; that is the price if the pure
+# kernel ever needs suite-level coverage rather than the boot-level coverage
+# seams/extensions.plt already gives it.
 # A leftover choicepoint fails this gate, not just prints. plunit has been
 # detecting them all along and nothing acted on the warning, which is a free
 # detector thrown away. Two of them were real defects rather than untidiness:
@@ -710,13 +735,8 @@ check_plunit() {
     # `:- ensure_loaded('../../../../engine/metta.pl')` sits beside them.
     for suite in suites/*/*.plt; do
         [ -e "$suite" ] || continue
-        swipl -g "set_test_options([format(log)]), run_tests" -t halt "$suite" \
-            >"$out" 2>&1 || ok=1
-        cat "$out"; cat "$out" >>"$log"
-        [ -d "$HERE/backends" ] || continue
-        echo "--- $suite (backends) ---"
         swipl -g "set_test_options([format(log)]), run_tests" \
-            -t halt "$suite" -- backends >"$out" 2>&1 || ok=1
+            -t halt "$suite" -- extensions >"$out" 2>&1 || ok=1
         cat "$out"; cat "$out" >>"$log"
     done
     if grep -q "succeeded with choicepoint" "$log"; then
@@ -732,9 +752,9 @@ check_plunit() {
     # the 'unit body'/2 clause, so the test does not run, does not fail, and
     # does not appear in the count. metta.plt printed
     # `Arithmetic: `foo' is not a function` at load and reported "All 233
-    # tests passed" while the intact file has 234, in the plain and the
-    # backends configuration alike, and nothing above detected it: the two
-    # checks this gate had were the exit code and the choicepoint scan.
+    # tests passed" while the intact file has 234, in both configurations the
+    # lane ran then, and nothing above detected it: the two checks this gate
+    # had were the exit code and the choicepoint scan.
     #
     # A grep rather than swipl's own --on-error=status, which counts the same
     # errors but ALSO arms plunit: got_messages/2 and got_message/1
@@ -793,7 +813,7 @@ run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 1
 # The example corpus is the executable semantics documentation, and until this
 # lane existed it only ever ran through the ENGINE: the examples gate below
 # invokes swipl on engine/main.pl, test.sh and test_metta_examples.py shell to
-# run.sh, and the plunit suites load engine/metta.pl without bindings/python/metta/shim.pl.
+# run.sh, and the plunit suites load engine/metta.pl without extensions/python/metta/shim.pl.
 # So the configuration users actually ship was gated by unit tests alone, and
 # defects lived there under green lanes: !(py-atom "()") answered () in the
 # engine and raised out of the library, and a declared type on a Python object
@@ -817,11 +837,11 @@ run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 1
 # !(superpose (1 2)) then !(superpose (3 2)), and comparing text reported the
 # engine's `true` against the library's `True` on 191 of 200 files, which is
 # a spelling and not an answer.
-run GATE   parity      sh -c "cd '$HERE' && '$PY' bindings/python/tools/example_parity.py"
-run REPORT twins       sh -c "cd '$HERE' && '$PY' bindings/python/tools/twin_coverage.py"
+run GATE   parity      sh -c "cd '$HERE' && '$PY' extensions/python/tools/example_parity.py"
+run REPORT twins       sh -c "cd '$HERE' && '$PY' extensions/python/tools/twin_coverage.py"
 
 # Every operation MeTTa's standard library declares, and what you write in
-# Python instead. The rows live in bindings/python/tools/phrasebook_entries.py,
+# Python instead. The rows live in extensions/python/tools/phrasebook_entries.py,
 # one per LeaTTa-declared name; the lane runs BOTH sides of each row and
 # compares three columns, the MeTTa form on LeaTTa as the oracle, the same form
 # on this engine, and the Python spelling here. The MeTTa column is frozen from
@@ -830,7 +850,7 @@ run REPORT twins       sh -c "cd '$HERE' && '$PY' bindings/python/tools/twin_cov
 # REPORT because it was proven to see: breaking one row's executable Python
 # column, `e[0]` to `e[1]`, produces three findings, against the recorded
 # answer, against this engine and against LeaTTa.
-run GATE   phrasebook  sh -c "cd '$HERE' && '$PY' bindings/python/tools/phrasebook.py --gate"
+run GATE   phrasebook  sh -c "cd '$HERE' && '$PY' extensions/python/tools/phrasebook.py --gate"
 
 # The obligation headers are the contract a library author reads, and a
 # [tested X] tag is the strongest evidence in the scheme. Thirteen of them
@@ -867,26 +887,26 @@ run GATE evidence-selftest "$PY" "$HERE/tests/checks/check_evidence_selftest.py"
 # reader checking MeTTa.run against the reference read a shape it had not had
 # for some time. They are generated now, so the promise holds by construction
 # and this asks only whether what is checked in is what the source says.
-run GATE reference  "$PY" "$HERE/bindings/python/tools/reference.py"
+run GATE reference  "$PY" "$HERE/extensions/python/tools/reference.py"
 
 # The MeTTa half of the same promise: metta-libraries.md reproduces each
 # library's own (@doc ...) atoms, and its coverage table is the burn-down
 # surface interrogate provides for the Python side.
-run GATE libdoc     "$PY" "$HERE/bindings/python/tools/libdoc.py"
+run GATE libdoc     "$PY" "$HERE/extensions/python/tools/libdoc.py"
 
 # The codec grammar and its conformance corpus are one authority, so CODEC.md's
 # tables are generated from tests/codec/corpus.json and this asks only whether
 # what is checked in is what the corpus says. Before the document existed, a new
 # binding reverse-engineered shim.pl, and the two shipped codecs disagreed about
 # six payloads with nothing to say which was right.
-run GATE codec-doc  "$PY" "$HERE/bindings/python/tools/codecdoc.py"
+run GATE codec-doc  "$PY" "$HERE/extensions/python/tools/codecdoc.py"
 
 # The catalog's value vocabularies and the binding's Literal types are one
 # authority: metta/vocabularies.py is generated from the engine's own
 # (vocabulary ...) rows, and this asks only whether what is checked in is
 # what the catalog says. Before it, the annotations surface advertised six
 # semirings while the engine acted on two, and nothing said which was right.
-run GATE vocab-sync "$PY" "$HERE/bindings/python/tools/vocabgen.py"
+run GATE vocab-sync "$PY" "$HERE/extensions/python/tools/vocabgen.py"
 
 # llms.txt is the file an agent reads INSTEAD of the tree, so a stale claim
 # there is believed rather than checked. It had gone stale exactly that way:
@@ -895,7 +915,7 @@ run GATE vocab-sync "$PY" "$HERE/bindings/python/tools/vocabgen.py"
 # name, path, count and vocabulary word in it is checked against the running
 # engine and the real tree here, and each of those five drift classes was
 # reproduced against this lane before it was wired in.
-run GATE llms       "$PY" "$HERE/bindings/python/tools/llmsdoc.py"
+run GATE llms       "$PY" "$HERE/extensions/python/tools/llmsdoc.py"
 
 # Structural checks with a clean baseline today, so a regression is a failure.
 run GATE slotscheck in_py "$PY" -m slotscheck -m metta
@@ -1022,10 +1042,10 @@ run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
 # look wrong, and its entries are bare names because codespell prunes a walked
 # directory by NAME, so a ./-prefixed skip stops matching the moment a runner
 # passes explicit paths.
-run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib bindings/python/metta bindings/python/bench.py bindings/python/examples bindings/python/notebooks bindings/python/tests bindings/python/tools engine lib backends examples tests website .github *.md"
+run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib extensions/python/metta extensions/python/bench.py extensions/python/examples extensions/python/notebooks extensions/python/tests extensions/python/tools engine lib extensions/mork examples tests website .github *.md"
 # The remaining clones are small facade, protocol, and test-fixture mirrors;
 # extracting them would couple layers or hide the local contract.
-run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' bindings/python/metta bindings/python/tests"
+run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' extensions/python/metta extensions/python/tests"
 
 # -------------------------------------------------------------------- report
 printf '\n================ summary ================\n'

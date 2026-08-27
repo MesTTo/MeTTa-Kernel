@@ -3,7 +3,7 @@
 Guarantees:
   - the Space reference is sourced from its private implementation module
     while retaining the public ``metta.Space`` title
-    [tested: python bindings/python/tools/reference.py; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
+    [tested: python extensions/python/tools/reference.py; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
   - deleted public module doors are not emitted as reference pages
     [tested: test_the_legacy_reference_generator_tracks_the_narrow_public_modules;
     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
@@ -31,22 +31,22 @@ class ModuleSpec:
 
 
 MODULES = (
-    ModuleSpec("metta.atoms", "bindings/python/metta/atoms.py"),
-    ModuleSpec("metta.Space", "bindings/python/metta/_space.py"),
-    ModuleSpec("metta.ops", "bindings/python/metta/ops.py"),
-    ModuleSpec("metta.convert", "bindings/python/metta/convert.py"),
-    ModuleSpec("metta.derivation", "bindings/python/metta/derivation.py"),
-    ModuleSpec("metta.subscribe", "bindings/python/metta/subscribe.py"),
-    ModuleSpec("metta.remote", "bindings/python/metta/remote.py"),
-    ModuleSpec("metta.aio", "bindings/python/metta/aio.py"),
-    ModuleSpec("metta.testing", "bindings/python/metta/testing.py"),
-    ModuleSpec("metta.lint", "bindings/python/metta/lint.py"),
-    ModuleSpec("metta.trace", "bindings/python/metta/_trace.py"),
-    ModuleSpec("metta.casting", "bindings/python/metta/casting.py"),
-    ModuleSpec("metta.foreign", "bindings/python/metta/foreign.py"),
-    ModuleSpec("metta.integrate", "bindings/python/metta/integrate.py"),
-    ModuleSpec("metta.arrays", "bindings/python/metta/arrays.py"),
-    ModuleSpec("metta.results", "bindings/python/metta/results.py"),
+    ModuleSpec("metta.atoms", "extensions/python/metta/atoms.py"),
+    ModuleSpec("metta.Space", "extensions/python/metta/_space.py"),
+    ModuleSpec("metta.ops", "extensions/python/metta/ops.py"),
+    ModuleSpec("metta.convert", "extensions/python/metta/convert.py"),
+    ModuleSpec("metta.derivation", "extensions/python/metta/derivation.py"),
+    ModuleSpec("metta.subscribe", "extensions/python/metta/subscribe.py"),
+    ModuleSpec("metta.remote", "extensions/python/metta/remote.py"),
+    ModuleSpec("metta.aio", "extensions/python/metta/aio.py"),
+    ModuleSpec("metta.testing", "extensions/python/metta/testing.py"),
+    ModuleSpec("metta.lint", "extensions/python/metta/lint.py"),
+    ModuleSpec("metta.trace", "extensions/python/metta/_trace.py"),
+    ModuleSpec("metta.casting", "extensions/python/metta/casting.py"),
+    ModuleSpec("metta.foreign", "extensions/python/metta/foreign.py"),
+    ModuleSpec("metta.integrate", "extensions/python/metta/integrate.py"),
+    ModuleSpec("metta.arrays", "extensions/python/metta/arrays.py"),
+    ModuleSpec("metta.results", "extensions/python/metta/results.py"),
 )
 
 DEFINITION_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)

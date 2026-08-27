@@ -8,7 +8,7 @@
 %   - `stack-limit` is a byte ceiling distinct from reduction fuel's
 %     `max-stack-depth` [tested: scoped_stack_limit; commit=81c50d3ae4c03ddfd70ed3f1ff70e085cfee3978]
 %   - loading this suite under the gate never runs the standalone CLI against
-%     the gate's argv [tested: scoped_stack_limit with argv backends;
+%     the gate's argv [tested: scoped_stack_limit with argv extensions;
 %     commit=4d6e1a458de31af0c779dc051b3892a35b17df69]
 % Fails when:
 %   - a caller expects one thread's temporary ceiling to mutate another
@@ -17,7 +17,7 @@
 %   - each scope owns one pushed Prolog flag and pops it on every exit path.
 
 :- ensure_loaded('../../../../engine/metta.pl').
-:- ensure_loaded('../../../../bindings/python/metta/shim.pl').
+:- ensure_loaded('../../../../extensions/python/metta/shim.pl').
 
 raised_stack_limit(Limit) :-
     current_prolog_flag(stack_limit, Current),

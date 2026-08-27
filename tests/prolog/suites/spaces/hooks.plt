@@ -27,7 +27,7 @@
 %   Future Enhancements: None
 
 :- ensure_loaded('../../../../engine/metta.pl').
-:- ensure_loaded('../../../../bindings/python/metta/shim.pl').
+:- ensure_loaded('../../../../extensions/python/metta/shim.pl').
 
 %Run MeTTa source and answer the result groups, swallowing the engine's
 %compilation printing, the duals.plt idiom.

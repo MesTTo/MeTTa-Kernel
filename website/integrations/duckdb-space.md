@@ -8,7 +8,7 @@ Guarantees: the guide contains no removed atom constructors or Space registratio
 
 A `SpaceProvider` lets an external store answer MeTTa matches. The DuckDB example maps each SQL table to a relation whose head is the table name and whose arguments follow the table's column order.
 
-`DuckDBSpace` belongs to `bindings/python/examples/integration/duckdb_space.py`. It is not exported by `metta`, and installing `pymetta` does not install a packaged DuckDB adapter. Copy or adapt the example when you want this integration.
+`DuckDBSpace` belongs to `extensions/python/examples/integration/duckdb_space.py`. It is not exported by `metta`, and installing `pymetta` does not install a packaged DuckDB adapter. Copy or adapt the example when you want this integration.
 
 ## Push ground positions into SQL
 

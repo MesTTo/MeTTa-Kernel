@@ -515,7 +515,7 @@ test(the_read_doors_refuse_what_the_named_test_refuses,
 :- end_tests(spaces_registration).
 
 % Two providers in the shape a library actually ships: one that enumerates and
-% nothing else, which bindings/python/metta/foreign.py explicitly says is enough, and
+% nothing else, which extensions/python/metta/foreign.py explicitly says is enough, and
 % one that declares an operation it does not implement.
 seam:foreign_space('&plunit_enum_only').
 seam:foreign_capability('&plunit_enum_only', enumerate).
@@ -719,7 +719,7 @@ test(an_engine_emitted_name_cannot_be_taken_in_a_named_space) :-
 % A space has two halves and clearing it used to empty one. Storage went and
 % the compiled clauses stayed, so a space holding NOTHING still answered its
 % own functions, and since space names are pooled that is a previous life
-% answering through a recycled name. It was masked by bindings/python/metta/shim.pl's
+% answering through a recycled name. It was masked by extensions/python/metta/shim.pl's
 % clear, which funnels equations through the removal path before calling the
 % engine's own door, so the Python surface was whole and every other caller
 % was not.
@@ -2306,7 +2306,7 @@ test(a_symbol_that_names_no_space_is_unchanged) :-
 %
 % A space here is a NAME, so what is refused is a name that is not one: the
 % rule is is-space/2's, an atom beginning with `&`, which evalc/3 has enforced
-% at its own door since it was written and which bindings/python/metta/space.py enforces
+% at its own door since it was written and which extensions/python/metta/space.py enforces
 % at the library's. The three doors below were the ones that did not, so
 % `(add-atom not-a-space (bad add))` silently made a space called
 % `not-a-space` while `(is-space not-a-space)` answered False in the same

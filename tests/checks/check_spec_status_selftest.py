@@ -78,7 +78,7 @@ while IFS= read -r f; do sh run.sh "$f" || exit 1; done < /tmp/fixture_filelist
 FILES = {
     ".github/workflows/checks.yml": "run: sh check.sh\n",
     ".github/workflows/ci.yml": "run: sh test.sh\n",
-    "bindings/python/pyproject.toml": '[tool.pytest.ini_options]\npythonpath = ["."]\n',
+    "extensions/python/pyproject.toml": '[tool.pytest.ini_options]\npythonpath = ["."]\n',
     "tests/known_good.sh": "#!/bin/sh\nexit 0\n",
     "tests/nested/deep_test.sh": "#!/bin/sh\nexit 0\n",
     "tests/data/example_skips.txt": "# path   reason\n",
@@ -88,8 +88,8 @@ FILES = {
         ":- end_tests(fixture_unit).\n\n"
         "coincidental_name :-\n    true.\n"
     ),
-    "bindings/python/tests/test_preexisting.py": "def test_preexisting():\n    assert True\n",
-    "bindings/python/tests/test_pinning.py": (
+    "extensions/python/tests/test_preexisting.py": "def test_preexisting():\n    assert True\n",
+    "extensions/python/tests/test_pinning.py": (
         "def test_the_specific_behavior_pins_it():\n    assert True\n"
     ),
     "engine/fixture_engine.pl": (
@@ -136,7 +136,7 @@ SPEC = """\
 | **P90.2** | build the never-built check | see item | `tests/never_built.sh` demonstrates it | X1 |
 | **P90.3** | make the widget faster | measured slow today | it answers quicker, no fixture named | X1 |
 | **P90.4** | reuse the existing predicate | see item | `preexisting_predicate/1` already covers this case | X1 |
-| **P90.5** | cover it in the fast tier's own suite | see item | `bindings/python/tests/test_preexisting.py` covers it | X1 |
+| **P90.5** | cover it in the fast tier's own suite | see item | `extensions/python/tests/test_preexisting.py` covers it | X1 |
 | **P90.6** | tighten the confidence floor | see item | the `preexisting-lane` GATE lane already catches this | X1 |
 | **P90.7** | The `promoted-lane` lane is promotable | see item | promoting it makes its files GATE | X1 |
 | **P90.8** | The `unpromoted-lane` lane exists | see item | promoting it makes its files GATE | X1 |

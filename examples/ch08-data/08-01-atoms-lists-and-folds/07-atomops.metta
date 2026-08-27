@@ -48,7 +48,7 @@
 ;
 ;if-error rather than the error term written out: the term carries the
 ;operation and the argument, and
-;bindings/python/tests/ch10_errors_and_refusals/test_builtin_inputs.py checks
+;extensions/python/tests/ch10_errors_and_refusals/test_builtin_inputs.py checks
 ;that naming over every guarded position at once, which is the claim. Here
 ;the claim is that the call REFUSES where it used to answer.
 !(test (if-error (catch (car-atom $unbound)) refused answered) refused)

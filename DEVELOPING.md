@@ -73,7 +73,7 @@ Run the Python suite directly with the repository root and configuration made
 explicit:
 
 ```sh
-"$PY" -m pytest bindings/python/tests/ -q --rootdir=bindings/python -c bindings/python/pyproject.toml
+"$PY" -m pytest extensions/python/tests/ -q --rootdir=extensions/python -c extensions/python/pyproject.toml
 ```
 
 The gate runs test files in separate worker processes because each process
@@ -88,11 +88,11 @@ step is missing and pass without it, so run this once to have them run for
 real:
 
 ```sh
-npm ci --prefix bindings/node
+npm ci --prefix extensions/node
 ```
 
 That enables the `node-binding` lane and the conformance corpus in
-`bindings/python/tests/ch21_another_language_at_the_seam/test_node_binding.py`,
+`extensions/python/tests/ch21_another_language_at_the_seam/test_node_binding.py`,
 which answers the same cases in the Node binding and in this library and
 compares the two.
 
@@ -106,7 +106,7 @@ directly, on a Node that has type stripping and, for `using`, Node 24.
 
 ## Python performance measurements
 
-`bindings/python/bench.py` is the benchmark entry point. It runs each selected case in
+`extensions/python/bench.py` is the benchmark entry point. It runs each selected case in
 a fresh process. The harness uses untimed setup and teardown for every round,
 performs warmup rounds, and compares committed counters before wall results.
 

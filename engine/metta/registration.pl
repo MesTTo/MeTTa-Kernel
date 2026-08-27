@@ -125,7 +125,7 @@ current_metta_module(Module) :-
 %out. It saved 4 inferences on every Python evaluation and cost 2 on every
 %annotated typed call, which is the wrong side of that trade: the crossing
 %happens once and the typed call happens in a loop. Measured 2026-08-16, the
-%@m.define annotated tier of bindings/python/benchmarks/extension_cost.py went 20.00 to
+%@m.define annotated tier of extensions/python/benchmarks/extension_cost.py went 20.00 to
 %22.00 with the test in place, against m.fn 68.00 to 64.00.
 %The argument is a MODULE, and refusing anything else is what keeps this
 %honest now that a space and its module are different atoms. They used to be

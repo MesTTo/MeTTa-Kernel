@@ -20,7 +20,7 @@
 %   - var_branches warnings are fatal for repository engine sources without
 %     attributing warnings from SWI's own libraries to the repository.
 %   - Every unqualified multifile seam declared anywhere under engine, lib,
-%     bindings/python/metta or backends/mork/mork_ffi has exactly one seam:kind/2 fact, so a new
+%     extensions/python/metta or extensions/mork/mork_ffi has exactly one seam:kind/2 fact, so a new
 %     seam cannot go quietly unchecked [measured 2026-08-17: 28 seams].
 %   - Each kind is declared the way its direction requires: a handler seam
 %     multifile so an extension can add clauses, a service not, so a caller
@@ -103,6 +103,11 @@
 :- initialization(main, main).
 
 main :-
+    %BEFORE the consult, because engine/metta.pl reads argv while it loads to
+    %decide whether to read the seats' control files, and both checks below
+    %walk what those files pull in. The same reason reachability.pl sets it,
+    %and the same reason the plunit lane appends it.
+    set_prolog_flag(argv, [extensions]),
     consult('../../engine/metta.pl'),
     check_project_var_branches,
     every_seam_declares_one_kind,
@@ -249,8 +254,8 @@ source_scan_sees_a_planted_cut :-
 
 hook_source_file(File) :-
     member(Pattern, ['../../engine/*.pl', '../../engine/*/*.pl',
-                     '../../lib/*/*.pl', '../../bindings/python/metta/*.pl',
-                     '../../backends/mork/mork_ffi/*.pl']),
+                     '../../lib/*/*.pl', '../../extensions/python/metta/*.pl',
+                     '../../extensions/mork/mork_ffi/*.pl']),
     expand_file_name(Pattern, Files),
     member(File, Files).
 
@@ -989,8 +994,8 @@ seam_direction_fault(Seam, Kind, Fault) :-
 % shape; this check holds the CLASS invariant on the loaded tree instead:
 % expanding a goal whose expression SWI compiles and raises on at RUN time
 % must neither throw nor rewrite, whatever library an import pulled in. The
-% plunit lane's load-ERROR detector is the paired net for the backends
-% configuration, which this file does not load. The plant is a throwing
+% plunit lane's load-ERROR detector is the paired net over what the suites
+% pull in, which is more than this file loads. The plant is a throwing
 % expander of the same shape as the fault the check must catch.
 expansion_leaves_run_time_arithmetic(Report) :-
     Probe = (_ is foo + 1),
@@ -1050,16 +1055,17 @@ arithmetic_expansion_stays_at_run_time :-
 % a backend calls as the LANGUAGE and builtin_fun/1 already enumerates.
 % Anything else in engine/ is an internal that can be renamed under the backend.
 %
-% Backends are discovered the way the engine discovers them, by consulting
-% backends/*/extension.pl (the same glob engine/metta.pl walks), so a backend
+% Backends are discovered the way the engine discovers them, by reading
+% extensions/*/extension.pl (the same glob engine/metta.pl walks), so a backend
 % that is not built loads nothing and is not scanned. That makes the count
 % load-bearing and it is printed for that reason: on a tree without the MORK
 % artefact this check reads zero backend clauses, which is the correct answer
-% and not the same as a clean one. The old backends/*.pl spelling predated the
-% per-backend folders and matched nothing, so the walk passed on zero clauses
-% with the artefact present.
+% and not the same as a clean one. The spelling before this one globbed the
+% seat root for .pl files directly, which predated the per-seat folders and
+% matched nothing, so the walk passed on zero clauses with the artefact
+% present.
 a_backend_calls_only_published_surface :-
-    forall(backend_entry(Control), metta_load_extension(Control)),
+    forall(seat_control(Control), metta_load_extension(Control)),
     backend_directories(Directories),
     reaches_past_surface(Directories, Reaches),
     (   Reaches == []
@@ -1077,7 +1083,7 @@ a_backend_calls_only_published_surface :-
 %%%% The host binding calls only published surface %%%%
 %
 % The backends' check aimed the other way down the same wire: what the HOST
-% BINDING's transport may call back. bindings/python/metta/shim.pl is the shipped
+% BINDING's transport may call back. extensions/python/metta/shim.pl is the shipped
 % transport, the host_service kind in engine/ext_points.pl is its measured,
 % declared list, and this walk keeps the list honest: a shim call to an
 % engine internal fails here naming the pair. The walker's own eyesight is
@@ -1087,25 +1093,36 @@ a_backend_calls_only_published_surface :-
 % clauses live in. A fact each, so the next binding is a line here rather than
 % a second copy of the walk, and so the count below is the tree's rather than a
 % number in this comment.
-host_transport('../../bindings/python/metta/shim.pl', '../../bindings/python/metta').
-host_transport('../../bindings/node/bridge.pl', '../../bindings/node').
-host_transport('../../bindings/cetta/bridge.pl', '../../bindings/cetta').
+host_transport('../../extensions/python/metta/shim.pl', '../../extensions/python/metta').
+host_transport('../../extensions/node/bridge.pl', '../../extensions/node').
+host_transport('../../extensions/cetta/bridge.pl', '../../extensions/cetta').
 
-%A binding directory with no host_transport/2 row above. The rows cannot be
-%DERIVED -- the Python seat's transport is metta/shim.pl while the Node and C
-%seats' is bridge.pl, and "declares seam clauses" does not discriminate either,
-%because bindings/python/bridge.pl declares eleven of them without being the
-%transport. So the list stays hand-written, and what changes is that leaving a
-%seat off it is now LOUD.
+%A seat that declares a host transport and has no host_transport/2 row above.
 %
-%That is the whole harm ai-cetta-c-constraints.md C4 named: the decider glob is
-%automatic, this fact is not, "and a seat absent from the first is silently
-%unchecked" -- the gate reporting "every one of 2 host bindings" and meaning it.
-%An unregistered seat is refused by name here rather than passing by absence.
+%WHICH seats need a row is read off the control files: an entry(host, _) row
+%IS the seat saying it has a transport its own runtime consults, so a seat
+%with no host role needs none and is not a host binding. That is what tells
+%MORK apart from the other three now that all four sit in one folder; before
+%the merge the folder did it, which is the same answer by a weaker means.
+%
+%The rows themselves still cannot be DERIVED, because what they carry is the
+%DIRECTORY the transport's clauses live in and entry/2 names only the file:
+%the Python seat's clauses are in metta/ beside shim.pl while the Node and C
+%seats' are at the seat's top. "Declares seam clauses" does not discriminate
+%either, because extensions/python/bridge.pl declares eleven of them without
+%being the transport. So the list stays hand-written, and what changes is that
+%leaving a seat off it is LOUD.
+%
+%That is the whole harm ai-cetta-c-constraints.md C4 named: the control-file
+%glob is automatic, this fact is not, "and a seat absent from the first is
+%silently unchecked" -- the gate reporting "every one of 2 host bindings" and
+%meaning it. An unregistered seat is refused by name here rather than passing
+%by absence.
 unregistered_host_binding(Directory) :-
-    expand_file_name('../../bindings/*', Candidates),
-    member(Directory, Candidates),
-    exists_directory(Directory),
+    seat_control(Control),
+    metta_extension_controls(Control, Controls),
+    memberchk(entry(host, _), Controls),
+    file_directory_name(Control, Directory),
     file_base_name(Directory, Name),
     \+ ( host_transport(_, Registered),
          file_base_name(Registered, RegisteredName),
@@ -1146,18 +1163,24 @@ a_host_binding_calls_only_published_surface :-
         fail
     ).
 
-%The engine's loader is the one door: it reads each backend's extension.pl,
-%checks its declared needs, and loads its entries exactly as a boot would, so
-%the walk examines the same clauses a real process gets rather than a second
-%hand-rolled load path that could drift from the first.
-backend_entry(Control) :-
-    expand_file_name('../../backends/*/extension.pl', Files),
+%Every seat's control file, the same glob engine/metta.pl reads. Both checks
+%above start here, because the two of them are the two ROLES a control file
+%declares rather than two kinds of seat: entry(engine, _) is what the engine
+%consults and entry(host, _) is what the seat's own runtime consults, and one
+%seat may declare both.
+%
+%The engine's loader is the one door: it reads the file, checks its declared
+%needs, and loads its entries exactly as a boot would, so the walk examines
+%the same clauses a real process gets rather than a second hand-rolled load
+%path that could drift from the first.
+seat_control(Control) :-
+    expand_file_name('../../extensions/*/extension.pl', Files),
     member(Control, Files).
 
-% backends/ holds the declaration and the implementation lives beside the
-% shared library it wraps, which is the split backends/mork/extension.pl exists to make,
+% The seat holds the declaration and the implementation lives beside the
+% shared library it wraps, which is the split extensions/mork/extension.pl exists to make,
 % so both are walked.
-backend_directories(['../../backends/mork', '../../backends/mork/mork_ffi']).
+backend_directories(['../../extensions/mork', '../../extensions/mork/mork_ffi']).
 
 % The eyesight proof is surface_walk.pl's, shared with the library gate, for
 % the reason the walk itself is shared: two callers proving the same walker two

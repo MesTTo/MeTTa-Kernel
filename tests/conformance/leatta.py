@@ -222,7 +222,7 @@ def observe(engine: Path, path: Path, timeout: float) -> tuple[list[str], str | 
                 "swipl", "--stack_limit=8g", "-q",
                 "-g", f'consult("{engine}/engine/metta.pl")',
                 "-s", str(engine / "tests/conformance/leatta_run.pl"),
-                "--", "--file", str(path), "backends",
+                "--", "--file", str(path), "extensions",
             ],
             capture_output=True, text=True, timeout=timeout, cwd=engine,
         )

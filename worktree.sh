@@ -5,9 +5,9 @@
 #   - run from inside the worktree that needs setting up, and the main
 #     checkout has been built (`sh build.sh`).
 # Guarantees:
-#   - after this, `backends/mork/decider.pl` finds its artefact and the MORK backend
-#     loads, so the suites gate the same configuration in both trees
-#     [tested: tests/shell/test_worktree_configuration.sh].
+#   - after this, the artefact `extensions/mork/extension.pl` declares is there
+#     and the MORK backend loads, so the suites gate the same configuration in
+#     both trees [tested: tests/shell/test_worktree_configuration.sh].
 #   - the C extension example's cbump and handle shared objects are built in
 #     the worktree exactly as check.sh builds them, so a direct pytest run
 #     here exercises the same integration surface instead of skipping it.
@@ -22,10 +22,11 @@
 #   - the main checkout has not been built. That is reported, because a
 #     worktree quietly running a SMALLER configuration than the tree it was
 #     cut from is the failure this script exists to prevent: a fresh
-#     worktree has no backends/mork/mork_ffi/target/ and no backends/mork/mork_ffi/morklib.so, both are
-#     gitignored build output, and `backends/mork/decider.pl` reads their absence as
-#     "this backend was not built" rather than as an error. Every suite then
-#     passes while testing one backend fewer.
+#     worktree has no extensions/mork/mork_ffi/target/ and no
+#     extensions/mork/mork_ffi/morklib.so, both are gitignored build output,
+#     and the artefact need in `extensions/mork/extension.pl` reads their
+#     absence as "this backend was not built" rather than as an error. Every
+#     suite then passes while testing one backend fewer.
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -45,20 +46,29 @@ if [ "$MAIN" = "$HERE" ]; then
 fi
 
 linked=0
-for artefact in backends/mork/mork_ffi/target backends/mork/mork_ffi/morklib.so; do
-    source="$MAIN/$artefact"
-    if [ ! -e "$source" ]; then
-        # A main checkout from before the tree partition holds the same
-        # build product at the crate's old top-level home; link across the
-        # rename rather than demanding a rebuild for a layout change.
-        legacy="$MAIN/mork_ffi/${artefact#backends/mork/mork_ffi/}"
-        if [ -e "$legacy" ]; then
-            source="$legacy"
-        else
-            echo "worktree.sh: $MAIN has no $artefact; run 'sh build.sh' there" >&2
-            echo "worktree.sh: without it this worktree runs one backend fewer" >&2
-            exit 1
+for artefact in extensions/mork/mork_ffi/target extensions/mork/mork_ffi/morklib.so; do
+    product=${artefact#extensions/mork/mork_ffi/}
+    source=''
+    # This product does not travel with git, which is the whole reason this
+    # script exists, so a main checkout sitting on an older commit than the
+    # worktree holds it under whatever path that commit used. It has moved
+    # twice already -- once when the crate went into its integration's folder,
+    # again when the seat folders merged -- so the crate directory is FOUND
+    # under the main checkout rather than named. Refusing to link across a
+    # layout change would demand a rebuild of a multi-gigabyte crate for a
+    # rename.
+    for candidate in "$MAIN/$artefact" \
+                     "$MAIN"/*/*/mork_ffi/"$product" \
+                     "$MAIN"/mork_ffi/"$product"; do
+        if [ -e "$candidate" ]; then
+            source=$candidate
+            break
         fi
+    done
+    if [ -z "$source" ]; then
+        echo "worktree.sh: $MAIN has no $artefact; run 'sh build.sh' there" >&2
+        echo "worktree.sh: without it this worktree runs one backend fewer" >&2
+        exit 1
     fi
     mkdir -p "$(dirname "$HERE/$artefact")"
     ln -sfn "$source" "$HERE/$artefact"
@@ -109,4 +119,4 @@ fi
 # Warm the engine once so the Quick Load Format artifacts generate in a
 # single process before any concurrent lane first-boots this tree
 # (engine/qlf_boot.pl carries the staleness and recovery story).
-swipl -g halt -s "$(dirname -- "$0")/engine/main.pl" -- backends >/dev/null 2>&1 || true
+swipl -g halt -s "$(dirname -- "$0")/engine/main.pl" -- extensions >/dev/null 2>&1 || true

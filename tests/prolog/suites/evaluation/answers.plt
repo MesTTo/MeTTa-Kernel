@@ -15,7 +15,7 @@
 %   Future Enhancements: None
 
 :- ensure_loaded('../../../../engine/metta.pl').
-:- initialization(consult('../../bindings/python/metta/shim.pl')).
+:- initialization(consult('../../extensions/python/metta/shim.pl')).
 
 :- begin_tests(python_repeatability_control).
 

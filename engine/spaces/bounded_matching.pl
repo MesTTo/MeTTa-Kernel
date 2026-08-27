@@ -522,7 +522,7 @@ metta_match_error_outcome(Error, keep, kept(Error)).
 
 %A bound pattern went straight to the match hook, so a provider that
 %implements only enumeration answered NOTHING to every real query while the
-%space demonstrably held matching atoms. bindings/python/metta/foreign.py states the
+%space demonstrably held matching atoms. extensions/python/metta/foreign.py states the
 %opposite contract for the same seam, in as many words: "An Enumerable
 %provider need not implement Matcher: enumeration is the correct default
 %candidate set". Porting a working Python provider to Prolog for speed, which

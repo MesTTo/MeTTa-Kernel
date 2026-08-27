@@ -381,7 +381,7 @@ dispatch_effective_axes(Fun, Order, ResultMode, ClauseMode, Exhaustion) :-
 %otherwise constant-space recursion. A non-default exhaustion, order, result,
 %or clause-failure policy uses the general interpreter below because it must
 %observe or replace the generated predicate's failure [tested:
-%bindings/python/tests/ch17_concurrency_and_the_loop/test_aio.py::test_aio_keeps_the_loop_live_while_the_engine_spins;
+%extensions/python/tests/ch17_concurrency_and_the_loop/test_aio.py::test_aio_keeps_the_loop_live_while_the_engine_spins;
 %commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 dispatch_fast_axes('OrderClause', 'Nondeterministic', 'ClauseFailNonDet',
                    'FailureOriginal').
@@ -784,7 +784,7 @@ metta_reduce_result(_, Reduced, _, Reduced).
 %alone, a lambda first applied in one space came back in another as a predicate
 %that space cannot see, and the application answered the unrun `(lambda_2 (0.0
 %x))` instead of the weight [tested:
-%bindings/python/tests/ch08_data/test_measure.py::test_ws_total_and_normalize].
+%extensions/python/tests/ch08_data/test_measure.py::test_ws_total_and_normalize].
 %
 %AND CHECKED BEFORE IT IS USED, rather than invalidated from every door that
 %can retire a compiled predicate. A space whose module is torn down leaves its
@@ -1523,8 +1523,8 @@ refused_argument_call(Fun, Args) :-
 %host may register an untyped operation called last over Prolog's same-named
 %predicate. Applying every declaration here replaced all three contracts with a
 %synthetic BadArgType during the full battery [tested:
-%bindings/python/tests/ch11_python_as_a_notation/test_ops.py::test_a_name_prolog_owns_registers_and_leaves_prolog_alone,
-%bindings/python/tests/ch04_spaces_and_matching/test_space_operation_errors.py::test_a_non_symbol_first_argument_is_refused_by_the_read_path,
+%extensions/python/tests/ch11_python_as_a_notation/test_ops.py::test_a_name_prolog_owns_registers_and_leaves_prolog_alone,
+%extensions/python/tests/ch04_spaces_and_matching/test_space_operation_errors.py::test_a_non_symbol_first_argument_is_refused_by_the_read_path,
 %examples/ch08-data/08-01-atoms-lists-and-folds/07-atomops.metta;
 %commit=8d0027a3942000c799daccb45bf0abe1b46b10aa]. format-args is the one
 %effects probe outside runtime_type_guarded/1; its first String operand is

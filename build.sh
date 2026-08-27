@@ -3,7 +3,7 @@
 #   directory, naming whatever it cannot find instead of continuing past it.
 # Assumes:
 #   - MORK and PathMap are checked out BESIDE this repository, because
-#     backends/mork/mork_ffi/Cargo.toml reaches them by relative path
+#     extensions/mork/mork_ffi/Cargo.toml reaches them by relative path
 #     (../../../../MORK/frontend and three more). They are cloned at the
 #     validated revisions when absent, which is the only reason this script
 #     writes outside the repository at all; it says so when it does.
@@ -58,7 +58,7 @@ provision() {
     if [ "$at" != "$pin" ]; then
         echo "build.sh: $directory is at $at," >&2
         echo "  not the validated $pin." >&2
-        echo "  backends/mork/mork_ffi builds against it by relative path, so this" >&2
+        echo "  extensions/mork/mork_ffi builds against it by relative path, so this" >&2
         echo "  would produce an artefact nothing in this tree has validated." >&2
         echo "  Restore the pin with:" >&2
         echo "    git -C $directory checkout $pin" >&2
@@ -75,14 +75,14 @@ provision PathMap https://github.com/Adam-Vandervorst/PathMap   4c84a8b40c7b6a7e
 # adding one needs no edit here, which is the same rule the engine already
 # applies to a decider.
 #
-# The engine goes first because bindings/cetta links against what it produces;
+# The engine goes first because extensions/cetta links against what it produces;
 # the rest are independent, and the glob's order is the msort the shell gives.
 # That is the whole dependency graph, declared here because it is two nodes
 # deep and a driver that pretended otherwise would be the recursive-make
 # mistake in miniature.
 failed=''
 for component in "$HERE/engine" \
-                 "$HERE"/backends/*/ "$HERE"/bindings/*/ \
+                 "$HERE"/extensions/*/ \
                  "$HERE"/examples/ch19-*/; do
     script="${component%/}/build.sh"
     [ -f "$script" ] || continue
@@ -104,6 +104,6 @@ fi
 # examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/07-git_import2.metta
 # demonstrates. This script used to clone it a second time, and because the
 # clone ran after two `cd`s with no destination argument it landed in
-# backends/mork/faiss_ffi: a path no ignore rule covers, so a successful build
+# extensions/mork/faiss_ffi: a path no ignore rule covers, so a successful build
 # left an untracked vendored clone in `git status`, and a second run failed on
 # "destination path already exists".

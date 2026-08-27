@@ -5,13 +5,15 @@ build step:
 
     swipl --stack_limit=8g -q -s engine/main.pl -- examples/ch07-control-flow/07-05-recursion/02-fib.metta silent
 
-`sh run.sh` adds `backends`, which asks the engine to load every native backend
-that is built. There is no mode and no backend is named: the engine globs
-`backends/*.pl`, and each of those files decides for itself whether its own
-artefact is there. A backend that is not built loads nothing and says nothing,
-so a successful run is not evidence that any particular one loaded. Check the
-one you care about by using it, which for MORK means adding an atom to
-`m.space("&mork")` and querying it back.
+The command above is the pure kernel: with no `extensions` token in argv the
+engine reads no seat at all. `sh run.sh` adds the token, which asks the engine
+to read every seat's control file and load what each declares. There is no mode
+and no seat is named: the engine globs `extensions/*/extension.pl`, and each of
+those files declares what its own seat needs. A seat whose needs are unmet
+loads nothing and says nothing, so a successful run is not evidence that any
+particular one loaded. Check the one you care about by using it, which for MORK
+means adding an atom to `m.space("&mork")` and querying it back, or by reading
+`metta_extension_loaded/1` and `metta_extension_unmet/2` off the live process.
 
 Run `sh build.sh` to build the optional MORK native backend. That script clones
 the pinned MORK and PathMap sources beside this repository, so it needs network
@@ -64,8 +66,8 @@ The named planted test proves the collector reports a bad call as data:
 None of those five SWI checks reports UNREACHABILITY, so a predicate defined
 and never called was invisible to all of them, the way it was to `vulture` and
 `jscpd`, which read only Python. `tests/prolog/reachability.pl` answers that
-question: it walks every clause under `engine/`, `lib/`, `backends/`, `backends/mork/mork_ffi/`
-and `bindings/python/metta/` with SWI's own `prolog_walk_code/1`, adds one probe clause
+question: it walks every clause under `engine/`, `lib/`, `extensions/mork/`, `extensions/mork/mork_ffi/`
+and `extensions/python/metta/` with SWI's own `prolog_walk_code/1`, adds one probe clause
 per directive, adds an edge for every goal the engine BUILDS as a term rather
 than calls, and reports what no root reaches.
 
@@ -76,7 +78,7 @@ than calls, and reports what no root reaches.
 The roots are read as data and each one is written down in the file's header:
 `arity/2` for a name MeTTa can call, a `multifile` declaration for a seam,
 the goals of a load-time directive, and a name appearing in a string literal
-in `bindings/python/metta/*.py` for an entry point Python reaches across janus. Tests
+in `extensions/python/metta/*.py` for an entry point Python reaches across janus. Tests
 are deliberately neither definitions nor callers, so a predicate only a test
 names is reported and marked `[tests]`.
 
@@ -115,7 +117,7 @@ termination method for rewriting. `engine/narrowing.pl` implements it,
 `engine/trs.pl` is the rewriting library underneath (an adaptation of Markus
 Triska's public-domain trs.pl), `tests/prolog/suites/translator/trs.plt` and
 `tests/prolog/suites/translator/narrowing.plt` cover both, and
-`bindings/python/tests/conformance/test_critical_pair_oracle.py` runs the critical-pair enumerator
+`extensions/python/tests/conformance/test_critical_pair_oracle.py` runs the critical-pair enumerator
 against the kernel-checked one in LeaTTa's `MeTTaILProofs/CPExecutable.lean`.
 
 WHAT EACH HALF COVERS: the confluence half covers REWRITING and the termination
@@ -168,7 +170,7 @@ single PlUnit engine cannot represent:
 
 The full Python oracle runs from the repository root, not from `python/`:
 
-    /path/to/python -m pytest bindings/python/tests/ -q --rootdir=python -c bindings/python/pyproject.toml
+    /path/to/python -m pytest extensions/python/tests/ -q --rootdir=python -c extensions/python/pyproject.toml
 
 `sh test.sh` runs the self-checking MeTTa examples (the corpus size is pinned in `examples/README.md`). It uses each process
 exit status as the verdict and prints the existing assertion lines unchanged.
@@ -217,8 +219,8 @@ earlier cut fires on every walk.
 The failure does not look like a wrong answer. A refusal clause added to
 `match/4` without its own guard answered BESIDE the rows a real space gave, an
 ancestor rule recursed on the refusal, and the process hung
-[reproduced 2026-08-20, `bindings/python/tests/ch14_seeing_your_program/test_derivation.py` and
-`bindings/python/tests/ch04_spaces_and_matching/test_space_operation_errors.py::test_a_proof_over_a_match_does_not_carry_the_refusal`].
+[reproduced 2026-08-20, `extensions/python/tests/ch14_seeing_your_program/test_derivation.py` and
+`extensions/python/tests/ch04_spaces_and_matching/test_space_operation_errors.py::test_a_proof_over_a_match_does_not_carry_the_refusal`].
 
 Cuts still belong where they pay: keep the cut for ordinary execution and
 repeat its condition in the clauses below it. `match/4` reads

@@ -317,7 +317,7 @@ load_imported_metta_source_groups_impl(Filename, Groups, Space) :-
 %
 %It is a wrapper rather than a fixed body because the Python library's load()
 %runs the same file through a reader of its own, to keep one answer group per
-%directive (metta_py_load/3 in bindings/python/metta/shim.pl), and a load that is not
+%directive (metta_py_load/3 in extensions/python/metta/shim.pl), and a load that is not
 %recorded here cannot be replaced later. Both doors, one lifecycle
 %[tested: test_both_doors_replace_a_files_definitions].
 %

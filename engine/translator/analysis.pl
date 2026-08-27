@@ -881,7 +881,7 @@ normalize_equation_result(Fun, Args, RawOut, Out, RawBody, Body) :-
     ;   Body = Normalized
     ).
 %[tested:
-%bindings/python/tests/ch10_errors_and_refusals/test_builtin_inputs.py::test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason,
+%extensions/python/tests/ch10_errors_and_refusals/test_builtin_inputs.py::test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason,
 %translator_equations:an_inverse_call_peels_a_constructor_result_structurally;
 %commit=44ea37314b24f799a2080901172db66a94cb7791].
 

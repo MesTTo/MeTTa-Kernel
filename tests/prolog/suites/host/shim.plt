@@ -21,7 +21,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
-:- consult('../../../../bindings/python/metta/shim.pl').
+:- consult('../../../../extensions/python/metta/shim.pl').
 
 %The bridge normally reaches the engine matcher here. This engineless codec
 %suite supplies its structural core so the relation-frame indexing can be
@@ -44,7 +44,7 @@ metta_space_operand('&petta').
 %lives beside the .pl machinery in tests/prolog, two levels up from a suite
 %group, and it is what the equality and truth tests call across the wire.
 :- prolog_load_context(directory, SuiteDirectory),
-   absolute_file_name('../../../../bindings/python', PythonBindingDirectory,
+   absolute_file_name('../../../../extensions/python', PythonBindingDirectory,
                       [relative_to(SuiteDirectory), file_type(directory)]),
    absolute_file_name('../..', PrologTestDirectory,
                       [relative_to(SuiteDirectory), file_type(directory)]),
@@ -80,7 +80,7 @@ malformed(['e', "notalist"]).
 % first two to symbols, the next two to a string and to a number-tagged
 % string, the variable to a fresh variable, and every unadmitted boolean
 % payload to `false`, which answers rather than fails.
-% bindings/python/metta/_atom_wire.py refuses all six.
+% extensions/python/metta/_atom_wire.py refuses all six.
 wrong_class(['s', 1]).
 wrong_class(['s', ["a"]]).
 wrong_class(['g', 1]).

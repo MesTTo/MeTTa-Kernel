@@ -1,7 +1,7 @@
 """Purpose: prove the blocking import-layering lane rejects a forbidden edge.
 
 Assumes:
-  - pyproject.toml and bindings/python/metta describe the tree checked by
+  - pyproject.toml and extensions/python/metta describe the tree checked by
     check.sh, and import-linter is installed in the selected interpreter
 Guarantees:
   - the unmodified scratch tree keeps all three contracts, while a planted
@@ -32,7 +32,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PYTHON_ROOT = ROOT / "bindings" / "python"
+PYTHON_ROOT = ROOT / "extensions" / "python"
 COMMAND_TIMEOUT_SECONDS = 290
 IMPORTS_COMMAND = (
     "from importlinter.cli import lint_imports_command; "

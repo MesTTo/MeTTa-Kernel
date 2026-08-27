@@ -1,6 +1,6 @@
 # `metta.manifest`
 
-Source: `bindings/python/metta/manifest.py`.
+Source: `extensions/python/metta/manifest.py`.
 
 > Purpose: deployment as knowledge. `metta.boot(path)` assembles an app
 > from a MeTTa manifest of `(boot ...)` forms, each a thin declaration over

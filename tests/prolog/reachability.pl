@@ -17,12 +17,13 @@
 %       requires every unqualified multifile seam to declare an
 %       seam:kind/2]
 %     - the Python half names its Prolog entry points as text, so a predicate
-%       named inside a string literal in bindings/python/metta/*.py is called across
-%       janus [source: bindings/python/metta/_engine.py, apply/2 and do/2 take the
+%       named inside a string literal in extensions/python/metta/*.py is called across
+%       janus [source: extensions/python/metta/_engine.py, apply/2 and do/2 take the
 %       predicate NAME and hand it to janus.apply_once/cmd]
 % Guarantees:
 %     - reachability_report/0 walks every clause of every predicate defined
-%       under engine/, lib/, backends/, backends/mork/mork_ffi/ and bindings/python/metta/, plus one probe
+%       under engine/, lib/, extensions/mork/, extensions/mork/mork_ffi/ and
+%       extensions/python/metta/, plus one probe
 %       clause per directive, and reports the predicates no root reaches
 %       [measured 2026-08-18: 1550 predicates, 2602 clauses, 6984 call and 760
 %       construct edges, 24 reported, 1.10s min of 3]
@@ -40,7 +41,7 @@
 %       [measured 2026-08-18, against a baseline of 24]: the MeTTa dispatch root
 %       422, the janus root 235, the construct edge 206, the head half of it 40,
 %       the directive probe 37, the seam root 31, the closure arity rule 26,
-%       `backends` in argv 26
+%       `extensions` in argv 26
 %     - reachability_selftest/0 fails unless the analysis puts each of nine
 %       planted predicates on the side its door predicts, three of them
 %       REPORTED, and names which door stopped firing [measured 2026-08-18:
@@ -72,7 +73,7 @@
 %       one of them before the walk's results are read.
 % Decides:
 %     - tests are neither definitions nor callers. tests/prolog/*.plt and
-%       bindings/python/tests/*.py are excluded from both sides, so a predicate only a
+%       extensions/python/tests/*.py are excluded from both sides, so a predicate only a
 %       test calls is REPORTED. That is the answer a dead-code lane owes: a
 %       helper kept alive by its own test is dead product code, and the report
 %       marks it `[tests]` rather than hiding it. Five of the 24 carry that mark
@@ -100,14 +101,20 @@
 
 %%%% What is analysed %%%%
 %
-% The five directories that ship Prolog. bindings/python/metta holds shim.pl, which is
+% The five directories that ship Prolog. extensions/python/metta holds shim.pl, which is
 % the Python library's own half of the engine and 2895 of the tree's 19423
 % Prolog lines; leaving it out would leave the largest single file unchecked.
+%
+% A seat is named a directory at a time rather than as extensions/ whole,
+% because in_analysed_tree/1 matches on a path PREFIX: the seat root would
+% pull each host's own bridge.pl into an analysis that has never covered one,
+% which is a change to what the report measures rather than to where the files
+% live.
 tree_directory_relative('../../engine').
 tree_directory_relative('../../lib').
-tree_directory_relative('../../backends').
-tree_directory_relative('../../backends/mork/mork_ffi').
-tree_directory_relative('../../bindings/python/metta').
+tree_directory_relative('../../extensions/mork').
+tree_directory_relative('../../extensions/mork/mork_ffi').
+tree_directory_relative('../../extensions/python/metta').
 
 % With the separator, so that a sibling named src_generated is not read as
 % being inside src. The same rule surface_walk.pl states for the same reason.
@@ -153,7 +160,7 @@ tree_predicate(Predicate) :- tree_predicate_index(_, Predicate).
 
 % Module-qualified throughout, unlike surface_walk.pl's indicator/2, which
 % strips the module because its question is about one module. Here a clause of
-% prolog:message//1 in bindings/python/metta/shim.pl and a user predicate of the same
+% prolog:message//1 in extensions/python/metta/shim.pl and a user predicate of the same
 % name are different nodes, and conflating them would rescue one through the
 % other.
 qualified(Module:Goal, Module:Name/Arity) :- !, plain(Goal, Name/Arity).
@@ -279,7 +286,7 @@ subterm(Term, Subterm) :-
 % clause walked twice.
 %
 % Filtered by the CLAUSE's own file, not the predicate's, because a multifile
-% seam is shared: prolog:message//1 has clauses in bindings/python/metta/shim.pl and six
+% seam is shared: prolog:message//1 has clauses in extensions/python/metta/shim.pl and six
 % more that arrive with library(prolog_xref), and walking those made the result
 % depend on which libraries this file happens to import [measured 2026-08-18: 27
 % clauses against 33]. A clause with no file is one something asserted at run
@@ -425,7 +432,7 @@ scan_python_entries :-
              \+ python_entry_name_(Name) ),
            assertz(python_entry_name_(Name))).
 
-python_source_directory('../../bindings/python/metta').
+python_source_directory('../../extensions/python/metta').
 python_source_directory(Directory) :- analysed_extra_directory(Directory).
 
 string_literal_name(File, Name) :-
@@ -506,8 +513,8 @@ take_name(Rest, Sofar, Sofar, Rest).
 % [measured 2026-08-18: 43 files, 761 called indicators, 0.12s].
 %
 % The Python half is the same string-literal scan the janus root uses, pointed
-% at bindings/python/tests, because a Python test names a Prolog goal as text exactly as
-% the library does: bindings/python/tests/ch03_atoms_and_expressions/test_properties.py:70 is
+% at extensions/python/tests, because a Python test names a Prolog goal as text exactly as
+% the library does: extensions/python/tests/ch03_atoms_and_expressions/test_properties.py:70 is
 % `rt.once("metta_py_swrite(W, Str)")`, which no Prolog reader will ever see.
 named_by_a_test(Name/Arity) :-
     ( test_references_scanned -> true ; scan_test_references ),
@@ -547,7 +554,7 @@ prolog_test_source(File) :-
     \+ sub_atom(File, _, _, 0, 'reachability.pl').
 
 python_test_source(File) :-
-    expand_file_name('../../bindings/python/tests/*.py', Files),
+    expand_file_name('../../extensions/python/tests/*.py', Files),
     member(File, Files).
 
 %%%% Loading the configuration that ships %%%%
@@ -573,23 +580,28 @@ library_companion(Base, Companion) :-
 % genuinely unreachable rather than merely unseen. That is reported, not
 % silently forgiven.
 load_shipped_configuration(Unimported) :-
-    % `backends` is what run.sh, the packaged CLI and the Python library all
-    % pass, and it has to be set BEFORE the engine loads: engine/metta.pl:179 reads
-    % argv to decide whether to glob backends/*.pl, and engine/metta.pl:4251 then
-    % registers each backend's own builtin names in the SAME consult. Loading
-    % the backends afterwards is too late for that directive, and it showed:
-    % 'mm2-exec'/3 and 'mork-flush'/2 were reported dead while
-    % backends/mork/mork_ffi/morkspaces.pl:257 declares both [measured 2026-08-18]. The
-    % plunit lane appends the same flag for the same reason.
-    set_prolog_flag(argv, [backends]),
+    % `extensions` is what run.sh, the packaged CLI, the Python library and the
+    % C and Node hosts all pass, and it has to be set BEFORE the engine loads:
+    % engine/metta.pl reads argv to decide whether to read the seats' control
+    % files, and a later directive in the SAME consult registers each seat's
+    % own builtin names. Loading the seats afterwards is too late for that
+    % directive, and it showed: 'mm2-exec'/3 and 'mork-flush'/2 were reported
+    % dead while extensions/mork/mork_ffi/morkspaces.pl:257 declares both
+    % [measured 2026-08-18]. The plunit lane appends the same flag for the same
+    % reason.
+    %
+    % The token is the whole seat load now. A second forall used to ensure_load
+    % the seat root's own .pl files here, a spelling that predated the per-seat
+    % folders and matched nothing on any tree it ever ran on; the loader the
+    % token arms reads every control file and consults exactly the entries
+    % whose needs hold, which is what a shipped configuration is.
+    set_prolog_flag(argv, [extensions]),
     consult('../../engine/metta.pl'),
     metta_host_set_silent(true),
     findall(Base, ( analysed_library(Base), \+ library_imports(Base) ), Unimported),
     forall(( expand_file_name('../../lib/*/*.pl', Libraries), member(F, Libraries) ),
            ensure_loaded(F)),
-    forall(( expand_file_name('../../backends/*.pl', Backends), member(F, Backends) ),
-           ensure_loaded(F)),
-    ensure_loaded('../../bindings/python/metta/shim.pl').
+    ensure_loaded('../../extensions/python/metta/shim.pl').
 
 %%%% The report %%%%
 

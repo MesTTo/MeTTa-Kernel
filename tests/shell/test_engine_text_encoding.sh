@@ -78,7 +78,7 @@ rm -f "$tree/engine/.qlf-stamp"
 
 # The poisoning boot: no locale at all, which is what a container, a cron
 # entry, or a CI runner with a scrubbed environment gives the engine.
-( cd "$tree" && LC_ALL=C LANG=C swipl -g halt -s engine/main.pl -- backends ) \
+( cd "$tree" && LC_ALL=C LANG=C swipl -g halt -s engine/main.pl -- extensions ) \
     >/dev/null 2>&1 || {
     echo "FAIL: the engine did not boot under LC_ALL=C" >&2
     exit 1
@@ -130,7 +130,7 @@ fi
 # before the fix carries: the next boot must purge rather than trust it.
 printf 'qlf_stamp(1).\n' > "$stamp"
 before=$(find "$tree/engine" -name '*.qlf' | wc -l)
-( cd "$tree" && swipl -g halt -s engine/main.pl -- backends ) >/dev/null 2>&1
+( cd "$tree" && swipl -g halt -s engine/main.pl -- extensions ) >/dev/null 2>&1
 if ! grep -q 'utf8' "$stamp"; then
     echo "FAIL: an old-shape stamp survived a boot, so a set compiled" >&2
     echo "      under another encoding would keep being served" >&2

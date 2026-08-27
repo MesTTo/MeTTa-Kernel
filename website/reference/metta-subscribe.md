@@ -1,6 +1,6 @@
 # `metta.subscribe`
 
-Source: `bindings/python/metta/subscribe.py`.
+Source: `extensions/python/metta/subscribe.py`.
 
 > Purpose: the two delivery models the library ships over the public event
 > stream. A subscription is the fold that DELIVERS, to a callback

@@ -1,6 +1,6 @@
 # `metta.aio`
 
-Source: `bindings/python/metta/aio.py`.
+Source: `extensions/python/metta/aio.py`.
 
 > Purpose: the same engine without blocking an event loop. AsyncMeTTa
 > proxies a MeTTa space onto one dedicated worker thread that holds an

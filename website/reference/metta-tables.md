@@ -1,6 +1,6 @@
 # `metta.tables`
 
-Source: `bindings/python/metta/tables.py`.
+Source: `extensions/python/metta/tables.py`.
 
 > Purpose: derive a whole table-backed space provider from MeTTa bridge
 > declarations, so the contract is rewrite rules and both directions of

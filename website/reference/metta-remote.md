@@ -1,6 +1,6 @@
 # `metta.remote`
 
-Source: `bindings/python/metta/remote.py`.
+Source: `extensions/python/metta/remote.py`.
 
 > Purpose: spaces across processes, the multi-context reading: each engine
 > is a context, serve() exposes its spaces over HTTP speaking the same tagged

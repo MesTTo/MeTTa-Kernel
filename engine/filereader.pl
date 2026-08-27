@@ -48,7 +48,7 @@
 %     same symbol [tested 2026-08-14: filereader_global_function_scope].
 %   - prepare_parsed_forms/1 is the ONE definition of what a source does before
 %     any of its own forms run, so a reader that parses for itself
-%     (bindings/python/metta/shim.pl does, to keep one answer group per directive) gets
+%     (extensions/python/metta/shim.pl does, to keep one answer group per directive) gets
 %     the same signature set registered up front, and the same refusal of a
 %     declaration that cannot type what the source defines, rather than a
 %     second copy of either [tested 2026-08-18:
@@ -68,7 +68,7 @@
 %   - That pass costs 31 inferences for a one-form source, identical across
 %     three different one-form sources, then 4.006 per plain form and 23.073
 %     per definition beyond it [measured 2026-08-18: interleaved A/B over
-%     eight benchmark lanes, bindings/python/benchmarks/baseline.json records each].
+%     eight benchmark lanes, extensions/python/benchmarks/baseline.json records each].
 %   - print_runnable_form/2 and print_function_form/2's trace output, and
 %     library(pcre)-backed regex, both work under autoload=false, not only
 %     under the engine's default [measured 2026-08-18: NO_AUTOLOAD=1 sh
@@ -149,7 +149,7 @@
 %     anything. No binding spells the retract-then-assert for itself
 %     [tested: test_verbosity_is_a_published_engine_door,
 %     test_no_binding_carries_its_own_verbosity_setter in
-%     bindings/python/tests/ch10_errors_and_refusals/test_engine_diagnostics.py,
+%     extensions/python/tests/ch10_errors_and_refusals/test_engine_diagnostics.py,
 %     test_the_host_service_scoreboard_matches_the_tree; commit=562800cdac5d152f39fbd3b3c14c2d035ed18dea].
 % Open Obligations:
 %   To Do: None
@@ -284,11 +284,11 @@ prolog:message(metta_source_replaced(CanonPath, Spaces, Atoms)) -->
                                       -> assertz(silent(true)) ; assertz(silent(false)) ).
 
 %The same decision for a host that has no command line to read. It is the
-%engine's because it is host-agnostic bookkeeping: bindings/python and
-%bindings/cetta each carried their own three-line copy under a private name
+%engine's because it is host-agnostic bookkeeping: extensions/python and
+%extensions/cetta each carried their own three-line copy under a private name
 %(metta_py_set_silent/1, petta_c_set_silent/1) and this file's export comment
 %named one of them, so the engine had a documented dependency on a binding's
-%internals. bindings/node needed no copy only because it owns its whole
+%internals. extensions/node needed no copy only because it owns its whole
 %process and can put `silent` in argv before boot, which a binding embedded in
 %a host it does not own cannot do (CeTTa C2, ai-cetta-c-constraints.md).
 %
@@ -891,7 +891,7 @@ flush_source_prefix_repairs.
 
 %Everything a source does BEFORE any of its own forms run, over forms already
 %parsed. It is named apart from prepare_metta_source/2 because the parse is
-%not the only door onto it: bindings/python/metta/shim.pl reads a source, rewrites the
+%not the only door onto it: extensions/python/metta/shim.pl reads a source, rewrites the
 %parsed forms when run() was given host values, and then processes them one by
 %one to keep a group of answers per directive, so it has to prepare the forms
 %that will actually RUN rather than the text they were read from. Skipping
@@ -1524,7 +1524,7 @@ print_function_form(FormStr, Ref) :-
 %test_every_unicode_whitespace_separates_top_level_forms]. Only "\n" counts a
 %line, here and in the Python locator, which counts source.count("\n"), so
 %LINE SEPARATOR and NEL are ordinary layout on both sides
-%[source: bindings/python/metta/_source_forms.py:80].
+%[source: extensions/python/metta/_source_forms.py:80].
 source_layout(LC0, LC2) --> ";", !, source_comment(LC0, LC2).
 source_layout(LC0, LC2) --> "\n", !,
                              { LC1 is LC0 + 1 },

@@ -42,7 +42,7 @@ EOF
 # so a new seat is a folder rather than an entry in three lists.
 components() {
     for candidate in "$HERE/engine" \
-                     "$HERE"/backends/*/ "$HERE"/bindings/*/ \
+                     "$HERE"/extensions/*/ \
                      "$HERE"/examples/ch19-*/; do
         directory=${candidate%/}
         [ -d "$directory" ] || continue
@@ -59,7 +59,7 @@ verb_list() {
         name=$(printf '%s' "$directory" | sed "s|^$HERE/||")
         [ -f "$directory/build.sh" ]   && build=yes   || build=-
         [ -f "$directory/check.sh" ]   && check=yes   || check=-
-        [ -f "$directory/extension.pl" ] && decider=yes || decider=-
+        [ -f "$directory/extension.pl" ] && control=yes || control=-
         # Asking is the point: a component present but unbuildable here says
         # WHICH prerequisite is missing, where the gate would silently skip it.
         # Every build.sh exits 0 with a note when its toolchain is absent, so
@@ -69,21 +69,21 @@ verb_list() {
             case "$name" in
                 engine|examples/ch19-*)
                     command -v swipl-ld >/dev/null 2>&1 && why=yes || why='no: swipl-ld' ;;
-                bindings/cetta)
+                extensions/cetta)
                     command -v make >/dev/null 2>&1 && command -v swipl >/dev/null 2>&1 &&
                         why=yes || why='no: make or swipl' ;;
-                bindings/node)
+                extensions/node)
                     if ! command -v npm >/dev/null 2>&1; then why='no: npm'
                     elif [ ! -d "$directory/node_modules" ]; then why='no: npm install'
                     else why=yes; fi ;;
-                backends/mork)
+                extensions/mork)
                     command -v cargo >/dev/null 2>&1 && why=yes || why='no: cargo' ;;
                 *) why='ask build.sh' ;;
             esac
         else
             why='-'
         fi
-        printf '%-42s %-7s %-7s %-8s %s\n' "$name" "$build" "$check" "$decider" "$why"
+        printf '%-42s %-7s %-7s %-8s %s\n' "$name" "$build" "$check" "$control" "$why"
     done
 }
 

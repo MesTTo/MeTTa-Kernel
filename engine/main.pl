@@ -47,14 +47,14 @@
        set_prolog_flag(qcompile, OldQcompile)).
 
 %Tokens the engine reads for itself, which are therefore not the file to run.
-%`backends` asks engine/metta.pl to load every native backend that is built; it is
-%stripped here for the same reason the silent flags are, so that a bare
-%`swipl -s engine/main.pl -- backends` still means the demo rather than a file
-%called "backends".
+%`extensions` asks engine/metta.pl to read every seat's control file and load
+%what each declares; it is stripped here for the same reason the silent flags
+%are, so that a bare `swipl -s engine/main.pl -- extensions` still means the
+%demo rather than a file called "extensions".
 is_engine_flag(silent).
 is_engine_flag('--silent').
 is_engine_flag('-s').
-is_engine_flag(backends).
+is_engine_flag(extensions).
 
 strip_engine_flags([], []).
 strip_engine_flags([Arg|Rest], Filtered) :-

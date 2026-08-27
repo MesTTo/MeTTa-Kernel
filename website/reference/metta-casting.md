@@ -1,6 +1,6 @@
 # `metta.casting`
 
-Source: `bindings/python/metta/casting.py`.
+Source: `extensions/python/metta/casting.py`.
 
 > Purpose: runtime typecasting against the engine's own type discipline.
 > cast(space, value, type) answers value, narrowed to its Python-most

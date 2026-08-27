@@ -707,7 +707,7 @@ metta_emits(Ctx, Policy) :-
 %and its contents still change on the server, so deriving "it can emit
 %events" from "it can be written" made a watcher hear this process's own
 %writes and silently miss every other one [source:
-%bindings/python/metta/remote.py, RemoteSpace.can_run; measured
+%extensions/python/metta/remote.py, RemoteSpace.can_run; measured
 %2026-08-19]. So a foreign context serves subscriptions when it declares
 %(events ...) and is refused when it does not, naming what is missing.
 %

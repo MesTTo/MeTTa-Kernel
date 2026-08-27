@@ -306,7 +306,7 @@ test(failed_late_definition_does_not_recompile_existing_callers,
 
 %The engine's own door onto a reload. The Python library's is tested from the
 %Python side in
-%bindings/python/tests/ch05_equations_and_evaluation/test_reload.py; what these
+%extensions/python/tests/ch05_equations_and_evaluation/test_reload.py; what these
 %hold is the state the engine keeps about a file, which no Python assertion can
 %see.
 :- begin_tests(filereader_source_reload).

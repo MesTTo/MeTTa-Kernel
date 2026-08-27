@@ -1,6 +1,6 @@
 # `metta.integrate`
 
-Source: `bindings/python/metta/integrate.py`.
+Source: `extensions/python/metta/integrate.py`.
 
 > Purpose: the interface any Python library implements to work deeply with
 > MeTTa, and the toolkit that makes implementing it a page of code rather than

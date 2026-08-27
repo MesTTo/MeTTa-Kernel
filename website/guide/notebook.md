@@ -1,6 +1,6 @@
 # Jupyter notebooks
 
-The executed [notebook tour](https://github.com/trueagi-io/PeTTa/blob/python-library/bindings/python/notebooks/tour.ipynb) starts with Python atoms, keeps Python and MeTTa in one session, and ends with a rendered derivation tree. Every structural argument in it is a built term; the one cell of MeTTa source is the `%%metta` cell, whose subject is that the two languages share a session.
+The executed [notebook tour](https://github.com/trueagi-io/PeTTa/blob/python-library/extensions/python/notebooks/tour.ipynb) starts with Python atoms, keeps Python and MeTTa in one session, and ends with a rendered derivation tree. Every structural argument in it is a built term; the one cell of MeTTa source is the `%%metta` cell, whose subject is that the two languages share a session.
 
 Load the extension in an ordinary Python kernel. `use(m)` points the cell magic at an existing `MeTTa` instance, so Python calls and MeTTa cells read and write the same space:
 

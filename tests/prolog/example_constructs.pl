@@ -30,9 +30,17 @@
 :- initialization(main, main).
 
 main :-
+    %The arguments are read BEFORE argv is replaced, because the engine reads
+    %argv while it LOADS to decide whether to read the seats' control files
+    %and the vocabulary below has to include the builtins a seat registers.
+    %Without the token this scanner boots the pure kernel and reports py-atom
+    %and its six siblings as rows in tests/data/syntax_introductions.txt that
+    %the engine does not publish, which is a fact about the boot rather than
+    %about the table.
+    current_prolog_flag(argv, Argv),
+    set_prolog_flag(argv, [extensions]),
     consult('../../engine/metta.pl'),
     metta_host_set_silent(true),
-    current_prolog_flag(argv, Argv),
     (   Argv == ['--vocabulary']
     ->  forall(vocabulary(Name), format("?VOCABULARY\t~w~n", [Name]))
     ;   forall(member(File, Argv), scan(File))

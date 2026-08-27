@@ -50,7 +50,7 @@
 %value. `(if-error (needs-number (+ 1 "bad")) caught missed)` answers `caught`
 %because if-error is listed here; short-circuiting its operand would answer the
 %error atom instead and leave the language with no way to handle one
-%[tested: bindings/python/tests/ch20_extending_the_engine/test_p3_typing_cluster.py::test_an_argument_type_fault_is_a_value_a_program_can_catch].
+%[tested: extensions/python/tests/ch20_extending_the_engine/test_p3_typing_cluster.py::test_an_argument_type_fault_is_a_value_a_program_can_catch].
 %
 %Upstream reaches the same place by declaring these operands `Atom`, which
 %stops the evaluation outright; this engine evaluates them and stops only the
@@ -513,7 +513,7 @@ translate_special_dl(transaction, [Expr], AfterHead, Goals, Out) :-
 %Racket's `parameterize` over `current-pseudo-random-generator` and Common
 %Lisp's `with-random-state`, the same shape metta/algebra.py already uses on
 %the Python side with random.Random(seed) rather than the module generator
-%[source: bindings/python/metta/algebra.py, "Draw a stable cumulative rate
+%[source: extensions/python/metta/algebra.py, "Draw a stable cumulative rate
 %selection using isolated seeded state"]. `set_random(seed(S))` alone would be
 %the global this refuses.
 %
