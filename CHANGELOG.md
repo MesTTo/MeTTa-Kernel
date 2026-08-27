@@ -1269,6 +1269,18 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   reports its engine's spend and is whole. Changing that for the match cursor
   would change the hot pull's wire and is not in this change.
 
+- The C binding's cursor inference bound counts the engine's work. It metered
+  with `statistics/2` either side of each `cetta_answers_step()`, which reads
+  the CALLING thread's counter, and a cursor's engine is not in it: at a budget
+  of 20,000 that meter bought exactly 4,000 answers from a cheap generator and
+  exactly 4,000 from one whose answers cost 137x more, the same count for both.
+  It now builds the budget into the engine goal through
+  `metta_host_inference_budget/3` and buys 1,233 and 9. The old meter, the
+  per-cursor spend column and `petta_c_cursor_spent/2` are gone with it.
+  A C caller also now gets `CETTA_LIMIT` rather than `CETTA_ERROR` when a MeTTa
+  program spends its own `(pragma! max-inferences N)`, because the classifier
+  reads the engine's reserved limit envelope as well as this binding's own.
+
 - The engine's reserved limit envelope prints its bound instead of its term.
   A program that spent `(pragma! max-inferences 500)` reported
   `Unknown error term: metta_control_signal(inference_limit,500)` at the CLI and
