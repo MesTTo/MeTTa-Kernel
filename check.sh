@@ -645,6 +645,21 @@ run GATE policy-inventory-selftest "$PY" "$HERE/tests/checks/check_policy_invent
 run GATE refusal-grounds "$PY" "$HERE/tests/checks/check_refusal_grounds.py"
 run GATE refusal-grounds-selftest "$PY" "$HERE/tests/checks/check_refusal_grounds_selftest.py"
 
+# The example corpus teaches in one order and the law says so: a file may use
+# only constructs introduced at or before its own number. The introduction
+# table is CHECKED IN, at tests/data/syntax_introductions.txt, because a table
+# derived from the corpus makes the law true by definition; held as data, the
+# same law catches a file moved earlier than the construct it needs.
+#
+# The first lane also carries a permanent negative control INSIDE the corpus,
+# examples/ch01-getting-started/_fixtures/01-reaches-forward.metta, a chapter-1
+# file using two chapter-15 and chapter-22 constructs, and fails if it stops
+# catching it. The second plants eight violations, one per rule, each asserted
+# against the words its own rule says, so a gate that catches the wrong thing
+# for the right input cannot pass.
+run GATE cumulative-syntax "$PY" "$HERE/tests/checks/check_cumulative_syntax.py"
+run GATE cumulative-syntax-selftest "$PY" "$HERE/tests/checks/check_cumulative_syntax_selftest.py"
+
 # Phase 11 moves &self's execution out of Prolog's `user` module. SWI's
 # autoloader resolves a missing import ANYWAY, so a module boundary can be
 # broken with every lane still green. Running the corpus with autoload off is

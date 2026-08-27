@@ -8,6 +8,35 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **The example corpus's teaching order is now CHECKED.** The law is that a
+  file may use only constructs introduced at or before its own number, and it
+  was previously a statement in a design note that nothing enforced. Three
+  pieces enforce it. `tests/prolog/example_constructs.pl` reads a `.metta` file
+  through the engine's own parser and keeps only the heads the engine
+  publishes, asking both `builtin_fun/1` and `metta_special_form_head/1`
+  because neither answers for the other: the first does not know `if` or
+  `case`, the second does not know `+` or the `#`-prefixed arithmetic family.
+  `tests/data/syntax_introductions.txt` holds the introduction table, 208 rows
+  in teaching order; it is checked in rather than derived, because a table
+  derived from the corpus makes the law true by definition and catches nothing.
+  `tests/checks/check_cumulative_syntax.py` compares them and also refuses a
+  stale row, a row placed before its earliest use, a row naming something the
+  language does not have, and a violation of the spine's measured dependency
+  floor, where every file using A also uses B and B is the more common, so B
+  may not be introduced after A. That floor holds over all 1,280 such pairs
+  today. `--write` regenerates the table, so accepting a deliberate change to
+  the order is one command and a reviewable diff.
+  The lane carries a permanent negative control INSIDE the corpus,
+  `examples/ch01-getting-started/_fixtures/01-reaches-forward.metta`, a
+  chapter-1 file using a chapter-15 and a chapter-22 construct, and fails if it
+  ever stops catching it. Its selftest plants eight violations, one per rule,
+  each asserted against the words its own rule says, because a gate that
+  catches the wrong thing for the right input is the failure that a plain
+  "something was reported" check misses.
+  `:` and `->` are outside all of this: the engine publishes them as neither a
+  builtin nor a special form, so the law does not reach type declarations, and
+  a hand-written second vocabulary would drift.
+
 - The evidence gate reads the Node binding too. `tests/check_evidence_tags.py`
   scans `bindings/node/*.pl` and `bindings/node/src/**/*.ts`, collects the
   names a `node --test` suite declares (its `describe` and `it` titles), and
