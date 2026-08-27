@@ -59,16 +59,16 @@
 
 ;;; Files. Written under a distinctive name so the concurrent example runner
 ;;; cannot collide with itself, and removed at the end.
-!(test (write-file! "/tmp/petta-text-example.txt" "one\ntwo\nthree\n") True)
-!(test (read-file! "/tmp/petta-text-example.txt") "one\ntwo\nthree\n")
+!(test (write-file! "/tmp/metta-text-example.txt" "one\ntwo\nthree\n") True)
+!(test (read-file! "/tmp/metta-text-example.txt") "one\ntwo\nthree\n")
 ;file-lines! drops the trailing empty line a final newline would produce.
-!(test (file-lines! "/tmp/petta-text-example.txt") ("one" "two" "three"))
-!(test (append-file! "/tmp/petta-text-example.txt" "four\n") True)
-!(test (file-lines! "/tmp/petta-text-example.txt") ("one" "two" "three" "four"))
+!(test (file-lines! "/tmp/metta-text-example.txt") ("one" "two" "three"))
+!(test (append-file! "/tmp/metta-text-example.txt" "four\n") True)
+!(test (file-lines! "/tmp/metta-text-example.txt") ("one" "two" "three" "four"))
 
 ;;; The handle surface is MeTTa HE's exactly: r read, w write, c create,
 ;;; a append, t truncate.
-!(test (let $h (file-open! "/tmp/petta-text-example.txt" "r")
+!(test (let $h (file-open! "/tmp/metta-text-example.txt" "r")
          (let $head (file-read-exact! $h 3)
            (let $_ (file-close! $h) $head)))
        "one")
@@ -77,12 +77,12 @@
 ;;; (line Number Text) atoms in a space, so the file is QUERYABLE with match
 ;;; rather than being one long string you then have to take apart. The line
 ;;; number is kept because a space is unordered.
-!(test (let $log (file-space! "/tmp/petta-text-example.txt")
+!(test (let $log (file-space! "/tmp/metta-text-example.txt")
          (collapse (match $log (line $n $t) ($n $t))))
        ((1 "one") (2 "two") (3 "three") (4 "four")))
 ;Asking for one line is a match, not a scan.
-!(test (let $log (file-space! "/tmp/petta-text-example.txt")
+!(test (let $log (file-space! "/tmp/metta-text-example.txt")
          (collapse (match $log (line 2 $t) $t)))
        ("two"))
 
-!(test (delete-file! "/tmp/petta-text-example.txt") True)
+!(test (delete-file! "/tmp/metta-text-example.txt") True)

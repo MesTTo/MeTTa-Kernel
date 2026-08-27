@@ -1,4 +1,4 @@
-"""Purpose: derive PeTTa's policy inventory from the running ``&petta``
+"""Purpose: derive MeTTa's policy inventory from the running ``&metta``
 catalog, join every row to its implementation seam, and reject closed policy
 lists that bypass both the catalog and the four explicit exemption reasons.
 
@@ -23,7 +23,7 @@ Fails when:
   - an exemption is malformed, unknown, orphaned, or has no resolvable local
     evidence location
 Decides:
-  - only ``petta_catalog_preset/1`` terms in ``engine/spaces.pl`` are catalog
+  - only ``metta_catalog_preset/1`` terms in ``engine/spaces.pl`` are catalog
     authority; unrelated closed lists in that file remain findings, while
     ``bindings/python/metta/vocabularies.py`` is generated and excluded
 Open Obligations:
@@ -67,7 +67,7 @@ PROLOG_CLOSED_LIST = re.compile(
     re.DOTALL,
 )
 CATALOG_PRESET = re.compile(
-    r"^\s*petta_catalog_preset\s*\(\s*\[.*?\]\s*\)\s*\.",
+    r"^\s*metta_catalog_preset\s*\(\s*\[.*?\]\s*\)\s*\.",
     re.DOTALL | re.MULTILINE,
 )
 
@@ -94,7 +94,7 @@ REQUIRED_ALGEBRA_LAWS = {
 }
 ALGEBRA_LAW_SEAM = (
     "engine/metta/effects.pl",
-    r"^\s*petta_vocabulary_claim\(semiring,\s*Semiring,\s*ordered\)\.",
+    r"^\s*metta_vocabulary_claim\(semiring,\s*Semiring,\s*ordered\)\.",
 )
 
 
@@ -122,7 +122,7 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
         r"^reduce\(\[F\|Args\]",
     ),
     "merge": PolicySeam(
-        "merge", "depth", "engine/spaces/bounded_matching.pl", r"^petta_merged_match\("
+        "merge", "depth", "engine/spaces/bounded_matching.pl", r"^metta_merged_match\("
     ),
     "agenda": PolicySeam(
         "reduce", "depth-first", "engine/translator/lowering.pl", r"^reduce\(\[F\|Args\]"
@@ -131,13 +131,13 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
         "==", "structural-identity", "engine/metta/operators.pl", r"^'=='\(A,B,R\)"
     ),
     "errors": PolicySeam(
-        "on-error", "abort", "engine/metta/space_hooks.pl", r"^petta_on_error_mode\("
+        "on-error", "abort", "engine/metta/space_hooks.pl", r"^metta_on_error_mode\("
     ),
     "world": PolicySeam(
-        "context", "closed-world", "engine/metta/effects.pl", r"^petta_context_world\("
+        "context", "closed-world", "engine/metta/effects.pl", r"^metta_context_world\("
     ),
     "algebra": PolicySeam(
-        "annotations", "bool", "engine/metta/effects.pl", r"^petta_k_extend\("
+        "annotations", "bool", "engine/metta/effects.pl", r"^metta_k_extend\("
     ),
     "storage": PolicySeam(
         "config-memoize", "wtinylfu", "lib/lib_memo.pl", r"^memo_strategy\(wtinylfu\)"
@@ -152,25 +152,25 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
         "typing-rule", "strict", "engine/metta/terms.pl", r"^metta_types_match\("
     ),
     "fidelity": PolicySeam(
-        "handles", "Exact", "engine/metta/space_hooks.pl", r"^petta_handles_route\("
+        "handles", "Exact", "engine/metta/space_hooks.pl", r"^metta_handles_route\("
     ),
     "source-kind": PolicySeam(
-        "source", "repeated", "engine/metta/effects.pl", r"^petta_source\("
+        "source", "repeated", "engine/metta/effects.pl", r"^metta_source\("
     ),
     "transaction-mode": PolicySeam(
         "transaction",
         "all-answers",
         "engine/metta/space_hooks.pl",
-        r"^petta_transaction\(Goal\)",
+        r"^metta_transaction\(Goal\)",
     ),
     "atomicity": PolicySeam(
-        "writes", "transactional", "engine/spaces/foreign.pl", r"petta_in_user_transaction"
+        "writes", "transactional", "engine/spaces/foreign.pl", r"metta_in_user_transaction"
     ),
     "delivery": PolicySeam(
-        "events", "per-write-exactly", "engine/metta/space_hooks.pl", r"^petta_event_capability\("
+        "events", "per-write-exactly", "engine/metta/space_hooks.pl", r"^metta_event_capability\("
     ),
     "reaction-order": PolicySeam(
-        "agenda", "declaration", "engine/metta/effects.pl", r"^petta_agenda_order\("
+        "agenda", "declaration", "engine/metta/effects.pl", r"^metta_agenda_order\("
     ),
     "save-format": PolicySeam(
         "save", "metta", "bindings/python/metta/_space_persistence.py", r'format == "fast"'
@@ -186,10 +186,10 @@ POLICY_SEAMS: dict[str, PolicySeam] = {
 QUERY = (
     "consult('engine/metta.pl'), use_module(library(http/json)), "
     "findall(_{axis:A,knob:K,default:D}, "
-    "        petta_catalog_row([policy,A,K,D]), Policies), "
+    "        metta_catalog_row([policy,A,K,D]), Policies), "
     "findall(_{semiring:S,laws:L}, "
-    "        petta_catalog_row([claim,semiring,S|L]), Laws), "
-    "petta_catalog_row([vocabulary,semiring|Semirings]), "
+    "        metta_catalog_row([claim,semiring,S|L]), Laws), "
+    "metta_catalog_row([vocabulary,semiring|Semirings]), "
     "json_write_dict(current_output, "
     "                _{policies:Policies,algebra_laws:Laws,semirings:Semirings}, "
     "                [width(0)])"
@@ -244,11 +244,11 @@ def validate_policy_rows(root: Path, rows: list[dict[str, str]]) -> list[str]:
     counts = Counter(axes)
     for axis in POLICY_SEAMS:
         if counts[axis] == 0:
-            findings.append(f"&petta: missing policy axis {axis}")
+            findings.append(f"&metta: missing policy axis {axis}")
         elif counts[axis] != 1:
-            findings.append(f"&petta: policy axis {axis} has {counts[axis]} rows, expected one")
+            findings.append(f"&metta: policy axis {axis} has {counts[axis]} rows, expected one")
     for axis in sorted(set(axes) - POLICY_SEAMS.keys()):
-        findings.append(f"&petta: unexpected policy axis {axis}")
+        findings.append(f"&metta: unexpected policy axis {axis}")
 
     for row in rows:
         axis = str(row.get("axis", ""))
@@ -259,7 +259,7 @@ def validate_policy_rows(root: Path, rows: list[dict[str, str]]) -> list[str]:
         default = str(row.get("default", ""))
         if (knob, default) != (seam.knob, seam.default):
             findings.append(
-                f"&petta: policy {axis} records knob={knob!r} default={default!r}; "
+                f"&metta: policy {axis} records knob={knob!r} default={default!r}; "
                 f"seam requires knob={seam.knob!r} default={seam.default!r}"
             )
         source = root / seam.path
@@ -289,10 +289,10 @@ def validate_algebra_laws(
             or not isinstance(laws, list)
             or not all(isinstance(law, str) for law in laws)
         ):
-            findings.append(f"&petta: malformed algebra law row {row!r}")
+            findings.append(f"&metta: malformed algebra law row {row!r}")
             continue
         if semiring not in semirings:
-            findings.append(f"&petta: algebra law row names undeclared semiring {semiring!r}")
+            findings.append(f"&metta: algebra law row names undeclared semiring {semiring!r}")
         observed.setdefault(semiring, []).extend(laws)
 
     for semiring, required in REQUIRED_ALGEBRA_LAWS.items():
@@ -303,15 +303,15 @@ def validate_algebra_laws(
         # would flake.
         for law in sorted(required):
             if counts[law] == 0:
-                findings.append(f"&petta: semiring {semiring} is missing law {law}")
+                findings.append(f"&metta: semiring {semiring} is missing law {law}")
             elif counts[law] != 1:
                 findings.append(
-                    f"&petta: semiring {semiring} has {counts[law]} claims for law {law}"
+                    f"&metta: semiring {semiring} has {counts[law]} claims for law {law}"
                 )
         for law in sorted(set(laws) - required):
-            findings.append(f"&petta: semiring {semiring} has unexpected law {law}")
+            findings.append(f"&metta: semiring {semiring} has unexpected law {law}")
     for semiring in sorted(set(observed) - REQUIRED_ALGEBRA_LAWS.keys()):
-        findings.append(f"&petta: unexpected algebra law claims for semiring {semiring}")
+        findings.append(f"&metta: unexpected algebra law claims for semiring {semiring}")
 
     path, pattern = ALGEBRA_LAW_SEAM
     source = root / path

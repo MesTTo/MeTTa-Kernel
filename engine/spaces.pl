@@ -1,6 +1,6 @@
 % Purpose: store MeTTa atoms, compile equations into per-space modules,
 %   route matching to native and foreign space providers, and validate
-%   '&petta' declarations against the self-describing catalog.
+%   '&metta' declarations against the self-describing catalog.
 % Assumes:
 %   - the removal funnel takes a space NAME rather than a handle, so
 %     metta_remove_atom/3, unstore_atom/3 and remove_equation/6 each take a
@@ -52,7 +52,7 @@
 %     inferences [measured: 270305 and 270307 inferences on 2026-08-15].
 %   - Native spaces preserve scalar atoms and expressions as distinct values
 %     [tested 2026-08-14: spaces_arbitrary_atoms].
-%   - A '&petta' declaration violating its declared (kind ...) row is a hard
+%   - A '&metta' declaration violating its declared (kind ...) row is a hard
 %     error at both write doors, naming the atom, the argument position and
 %     the argspec; a head with no kind row passes untouched
 %     [tested 2026-08-20: catalog_self_description].
@@ -147,8 +147,8 @@
 %     context-space returns the exact expression to their equations [tested:
 %     test_two_instances_of_a_parametric_space_answer_independently;
 %     commit=3c7bcde6a0670ec5c563584b26977b41cc727580].
-% Guarded by: '$petta_native_storage' serializes private module creation and
-%   publication in native_storage_module_cache/2; '$petta_capacity_count'
+% Guarded by: '$metta_native_storage' serializes private module creation and
+%   publication in native_storage_module_cache/2; '$metta_capacity_count'
 %   serializes installation and replacement of each incremental count.
 % Open Obligations:
 %   To Do: None
@@ -230,52 +230,52 @@
             native_storage_module/2,
             native_storage_module_cache/2,
             native_storage_module_ready/2,
-            petta_answer_terms/3,
-            petta_capacity_count/2,
-            petta_capacity_count_added/2,
-            petta_capacity_count_added_known/2,
-            petta_capacity_count_claim/1,
-            petta_capacity_count_install/1,
-            petta_capacity_count_uninstall/1,
-            petta_catalog_row/1,
-            petta_publish_builtin_visibility/0,
-            petta_dispatch_value/3,
-            petta_instrument_recursive_clause/3,
-            petta_match_atoms/2,
-            petta_prune_empty/2,
-            petta_prune_empty_answers/2,
-            petta_reader_variable_name/3,
-            petta_repair_emptied_shadows/0,
-            petta_run_named/3,
-            %The gap-pattern surface. The translator asks petta_seq_present/1
-            %while a call site compiles and petta_seq_plan/3 to parse and
-            %classify it there; the host query door asks petta_seq_plan/3 at
+            metta_answer_terms/3,
+            metta_capacity_count/2,
+            metta_capacity_count_added/2,
+            metta_capacity_count_added_known/2,
+            metta_capacity_count_claim/1,
+            metta_capacity_count_install/1,
+            metta_capacity_count_uninstall/1,
+            metta_catalog_row/1,
+            metta_publish_builtin_visibility/0,
+            metta_dispatch_value/3,
+            metta_instrument_recursive_clause/3,
+            metta_match_atoms/2,
+            metta_prune_empty/2,
+            metta_prune_empty_answers/2,
+            metta_reader_variable_name/3,
+            metta_repair_emptied_shadows/0,
+            metta_run_named/3,
+            %The gap-pattern surface. The translator asks metta_seq_present/1
+            %while a call site compiles and metta_seq_plan/3 to parse and
+            %classify it there; the host query door asks metta_seq_plan/3 at
             %the ask instead, because its pattern was built rather than
-            %written. Both then hand match/4 and petta_match_atoms/2 the
+            %written. Both then hand match/4 and metta_match_atoms/2 the
             %wrapped pattern those two dispatch on, so a gap adds no goal name
             %the engine has to protect and no cost to a gap-free call.
-            petta_seq_body_plan/2,
-            petta_seq_plan/3,
-            petta_seq_head_match/2,
-            petta_seq_head_matches/2,
-            petta_seq_head_plan/2,
-            petta_seq_instantiate/2,
-            petta_seq_present/1,
-            petta_seq_query_plan/2,
-            petta_seq_unify/3,
-            petta_space_name/1,
-            petta_space_operand/1,
-            petta_effect_class_canonical/2,
-            petta_vocabulary_value/2,
+            metta_seq_body_plan/2,
+            metta_seq_plan/3,
+            metta_seq_head_match/2,
+            metta_seq_head_matches/2,
+            metta_seq_head_plan/2,
+            metta_seq_instantiate/2,
+            metta_seq_present/1,
+            metta_seq_query_plan/2,
+            metta_seq_unify/3,
+            metta_space_name/1,
+            metta_space_operand/1,
+            metta_effect_class_canonical/2,
+            metta_vocabulary_value/2,
             protect_engine_emitted/1,
             protect_metta_exec_modules/0,
             %Shared tables engine/metta.pl reads and writes: the execution
             %module parent chain and four caches the contract vocabulary keeps.
             metta_exec_module_parent/2,
-            petta_algebra_descriptor_cache/8,
-            petta_annotations_cache/2,
-            petta_ctx_declared/1,
-            petta_events_declared/1,
+            metta_algebra_descriptor_cache/8,
+            metta_annotations_cache/2,
+            metta_ctx_declared/1,
+            metta_events_declared/1,
             %Emitted into compiled bodies: a bounded match and a bounded take
             %are goals the compiler writes, and neither was declared in
             %seam:engine_emitted/1 either.
@@ -290,7 +290,7 @@
             %appears in examples/ once, inside a comment].
             metta_top/3,
             metta_top_match/5,
-            petta_merged_match/3,
+            metta_merged_match/3,
             %The two removal funnels tests/prolog/ciao_grade.pl carries an
             %EXTERNAL Ciao-style assertion for. A predicate with a written
             %contract outside its own file is surface by that fact, and the
@@ -317,8 +317,8 @@
 %This subsystem WRITES core registries -- engine/metta.pl owns fun/1,
 %arity/2 and the two shape tables -- and a base module makes a name
 %visible without making a write land on it, so they are imported rather
-%than inherited. See petta_shared_registry/1 in engine/metta.pl.
-:- petta_import_shared_registries(spaces).
+%than inherited. See metta_shared_registry/1 in engine/metta.pl.
+:- metta_import_shared_registries(spaces).
 
 :- use_module(library(sandbox), [safe_goal/1]).
 :- use_module(library(assoc), [list_to_assoc/2, get_assoc/3, put_assoc/4]).
@@ -337,15 +337,15 @@ native_storage_module(Space, Module) :-
     native_storage_module_cache(Space, Module).
 native_storage_module(Space, Module) :-
     atom(Space), !,
-    atom_concat('$petta_atoms:', Space, Module).
+    atom_concat('$metta_atoms:', Space, Module).
 native_storage_module(Space, Module) :-
     space_parametric(Space),
     !,
     space_canonical_atom(Space, Encoded),
-    atom_concat('$petta_param_atoms:', Encoded, Module).
+    atom_concat('$metta_param_atoms:', Encoded, Module).
 
 native_storage_functor(Space, Functor) :- atom(Space), !, Functor = Space.
-native_storage_functor(Space, '$petta_parametric_atom') :-
+native_storage_functor(Space, '$metta_parametric_atom') :-
     space_parametric(Space),
     !.
 

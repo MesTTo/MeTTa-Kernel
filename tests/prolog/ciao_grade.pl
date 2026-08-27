@@ -25,19 +25,22 @@
 :- set_prolog_flag(runtime_checks, yes).
 :- set_prolog_flag(rtchecks_check, yes).
 
-:- type petta_boolean/1.
-
-petta_boolean(true).
-petta_boolean(false).
+% The engine's own metta_boolean/1 (engine/metta/operators.pl) IS this type, and
+% ciao_grade.plt loads the engine before it consults this file. Defining a second
+% copy here is not a duplicate but a REDEFINITION: both files load into `user`,
+% so SWI warns "Redefined static procedure metta_boolean/1" and DISCARDS the
+% engine's clauses, which would silently unhook same_intrinsic_kind/2; the lane
+% runs under --on-warning=status, so the warning also fails the gate.
+:- type metta_boolean/1.
 
 :- pred metta_remove_atom(Space, _, Removed)
-   : atm(Space) => petta_boolean(Removed) + semidet.
+   : atm(Space) => metta_boolean(Removed) + semidet.
 :- pred unstore_atom(Space, _, Removed)
-   : atm(Space) => petta_boolean(Removed) + semidet.
+   : atm(Space) => metta_boolean(Removed) + semidet.
 :- pred remove_equation(Space, _, Function, _, _, Removed)
-   : (atm(Space), atm(Function)) => petta_boolean(Removed) + semidet.
+   : (atm(Space), atm(Function)) => metta_boolean(Removed) + semidet.
 :- pred translate_clause(_, _, ConstrainArgs)
-   : petta_boolean(ConstrainArgs) + semidet.
+   : metta_boolean(ConstrainArgs) + semidet.
 
 % The planted contract belongs here rather than on an engine predicate. Its
 % body accepts every term, which makes the one bad call an rtchecks finding

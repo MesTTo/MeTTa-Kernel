@@ -30,7 +30,7 @@ command -v swipl >/dev/null || { echo "bench.sh: swipl not found" >&2; exit 2; }
 git -C "$HERE" rev-parse --verify "$BASE_REF^{commit}" >/dev/null || {
     echo "bench.sh: base ref $BASE_REF does not resolve" >&2; exit 2; }
 
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/petta-bench.XXXXXX")
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/metta-bench.XXXXXX")
 BASE="$WORK/base"
 OUT="$WORK/out"
 mkdir -p "$OUT/base" "$OUT/head"

@@ -41,7 +41,7 @@
 %     the MeTTa corpus and the verdict marks are UTF-8 by construction, so
 %     a C locale gets UTF-8 output it may render as mojibake rather than
 %     an ASCII stream that escapes the marks the corpus greps for.
-:- module(petta_qlf_boot, []).
+:- module(metta_qlf_boot, []).
 
 %The engine's text encoding is UTF-8 by construction, not by locale. Six
 %engine and lib sources carry non-ASCII content (the test verdict marks in

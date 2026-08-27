@@ -1,6 +1,6 @@
 # Changelog
 
-All notable user-facing changes to PeTTa are recorded here. The format follows
+All notable user-facing changes to MeTTa are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The history before
 1.0.5 remains available through the repository tags and release notes.
 
@@ -72,7 +72,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   three loads are guarded now, on the rule `bindings/cetta/decider.pl` and
   `bindings/python/decider.pl` already state for a seat: not present is not an
   error, half present is. Each guard records a capability fact, and
-  `petta_platform(Capability, Status, Requires, Costs)` is the published
+  `metta_platform(Capability, Status, Requires, Costs)` is the published
   `host_service` a host reads for the whole census, one row per capability with
   the platform library behind it and what its absence costs.
   Two families used to fail after boot, where no boot-time census could see
@@ -167,7 +167,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   452062] inferences on the Prolog reader against [5222, 10422, 20822, 41624] on
   the C one, and both routes hold the same class. Without the refusal the
   constant guard would fire at ten times its bound and name a parser regression
-  where only the box differed. Running with `PETTA_C_READER=off` on a tree whose
+  where only the box differed. Running with `METTA_C_READER=off` on a tree whose
   ledger was pinned with `engine/reader.so` present now reports
   `CONFIGURATION DRIFT c_reader` and exits 1.
 - Specializations now mint collision-free names from MeTTa-writable text and
@@ -224,7 +224,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   unordered `Answers`, and synchronous engine driving inside `async def`.
   Each source-observed finding carries its authority and position, operation
   findings carry the published five-rank effect, and both evidence and exact
-  `# metta: ok(<kind>)` acknowledgements are queryable in `&petta` until the
+  `# metta: ok(<kind>)` acknowledgements are queryable in `&metta` until the
   owning space is cleared.
 - Semantic refusals now carry a structured Python-reference or named MeTTa-law
   ground. Comparison-term truthiness cites Python Language Reference section
@@ -301,7 +301,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `file:line` that created the handle; named-space representations stay
   compact, and async creation retains the submitting coroutine's location.
 
-- `metta.catalog` now names the queryable `&petta` reflection space, and
+- `metta.catalog` now names the queryable `&metta` reflection space, and
   `fresh()` now mints hygienic variables for library-authored patterns. These
   deliberate root additions raise the narrow public export count from 100 to
   102.
@@ -374,7 +374,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `pureStructural < readOnlyLookup < nondeterministicReadOnly < writesState <
   oracleIO`. `EffectClass` compares in that order and composes a plan by taking
   its strongest member; registered operations and compiled definitions expose
-  the resulting canonical `(effect name class)` row in `&petta`. Registration
+  the resulting canonical `(effect name class)` row in `&metta`. Registration
   without effect metadata now refuses with all five remedies. New code supplies
   it through `effect=`; the retired declaration spellings
   remain accepted as input aliases and canonicalize conservatively:
@@ -492,7 +492,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   drop verdicts.
 - Add the lazy default-engine module tier for `define`, `cache`, `stats`,
   `limits`, `strict`, and `trace`, including scoped stack-byte limits
-  through `petta_py_limited/6`.
+  through `metta_py_limited/6`.
 - Add Python match-statement lowering to ordered MeTTa case towers and
   `functools.reduce` lowering for named and lambda reducers.
 - Add structured documentation emission for descriptions, parameters,
@@ -508,14 +508,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - `(with-pragma! ((stack-limit N)) Expr)` scopes SWI's combined stack byte
   ceiling for the expression and restores the previous value on every exit,
   distinct from the reduction-fuel `max-stack-depth` pragma. The host seam
-  `petta_py_limited/6` threads the same bound with a negative-value no-bound
-  sentinel; `petta_py_limited/5` is unchanged.
-- `petta_py_function_generation/1` exposes the process-global `fun/1`
+  `metta_py_limited/6` threads the same bound with a negative-value no-bound
+  sentinel; `metta_py_limited/5` is unchanged.
+- `metta_py_function_generation/1` exposes the process-global `fun/1`
   catalogue generation for cheap host cache invalidation. It reads SWI's own
   `last_modified_generation`, so definitions bump it, evaluation and data
   writes do not, and translator-rule changes are neutral because they do not
-  affect `petta_py_builtins/1`.
-- `@petta.rules` turns a generator whose parameters are rule-local variables
+  affect `metta_py_builtins/1`.
+- `@metta.rules` turns a generator whose parameters are rule-local variables
   into a list of ordinary equation atoms, and `equation(lhs).to(rhs)` keeps the
   two halves on one static Python type. Add the result with `m.add(*laws)`;
   `S["="](lhs, rhs)` remains the explicit longhand.
@@ -571,7 +571,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and what you write in Python instead, at
   `website/reference/stdlib-phrasebook.md`. 136 of 179 surface operations
   have a Python spelling; 115 of them dissolve into Python's own syntax,
-  protocols and standard library with no `petta` name at all, 16 wear one and
+  protocols and standard library with no `metta` name at all, 16 wear one and
   5 stay instruction-tier. The page is generated from rows that EXECUTE:
   the lane runs both sides of each row and compares three columns, the MeTTa
   form on LeaTTa as the oracle, the same form on this engine, and the Python
@@ -599,7 +599,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Compiled bodies carry MeTTa mentions directly: `S.name` and `V.name`
   lower into atoms by lexical identity with the total
   underscore-to-hyphen map (brackets stay exact), a body-minted `V.hole`
-  is a hole for a backwards call to fill, and `petta.fn` is an inert
+  is a hole for a backwards call to fill, and `metta.fn` is an inert
   package-root namespace generated from the engine catalog with a
   209-attribute lint-clean stub, so a hyphenated or banged callee is an
   ordinary Python attribute. Shadowed builders and host attributes
@@ -713,7 +713,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   guessed the atom `removed` and reported every successful removal as a miss,
   silently, because a wrong guess still unifies with a fresh variable. And the
   name list `sread_with_names/3` answers, which `swrite_with_names/3`,
-  `sdisplay_with_names/3` and `petta_name_pairs/2` all take, is `Name-Var`
+  `sdisplay_with_names/3` and `metta_name_pairs/2` all take, is `Name-Var`
   pairs, `-`/2 rather than `=`/2, with `Name` an atom carrying no `$`; passing
   `[]` is legal and numbers the variables instead, so `(f $x $x $y)` comes back
   as `(f $_0 $_0 $_1)`.
@@ -721,7 +721,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - The wire codec's `p` tag now states which question it asks, and both shipped
   seats ask the engine that one question. `p` is a **species** tag, so it
   follows the engine's own species classifier: `metatype_of/2` decides a space
-  with `petta_space_operand/1`, and that is what an encoder asks, so
+  with `metta_space_operand/1`, and that is what an encoder asks, so
   `get-metatype` and the wire cannot disagree about an atom. Before this the
   Python encoder wrote `p` for exactly two hardcoded names, `&self` and
   `&petta`, and the C seat rebuilt the whole `metta_space_names/1` registry per
@@ -731,7 +731,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   The ampersand alone decides nothing, which is the part a new binding gets
   wrong. `&not-a-space` crosses as `["s", "&not-a-space"]` because no space
   exists under that name, and a `State` cell, `&state-#0`, is not a space
-  either. The wider `petta_space_name/1` test that `(is-space ...)` answers says
+  either. The wider `metta_space_name/1` test that `(is-space ...)` answers says
   yes to both, because it asks whether a space operation may take the name, and
   that is a different question from what the atom is.
   The price is the other way round: a space's species depends on whether it
@@ -775,6 +775,58 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   still registers nothing, so `metta.space("&kb")` with an explicit name and
   `Space("&kb")` are unchanged.
 
+- The kernel's metadata space is `&metta`. It was `&petta`, which named this
+  implementation rather than the component the space belongs to, and the
+  component names are now settled: the kernel is `metta` and the Python
+  bindings are `pymetta`. Every surface that spells the space follows, 654
+  occurrences over 122 files, and that reaches the two names derived from it,
+  the `new-space` gensym prefix `&metta-space-` and the conformance library's
+  `&metta-conformance-`. A program written against the old name reads an
+  ordinary empty space rather than the catalog, because nothing has shipped
+  under `&petta`: every changelog entry naming it is still unreleased. The
+  engine's internal Prolog predicate names followed in the entry below, and the
+  Node binding's own copy of the name is untouched pending its own pass.
+- Nothing is spelled `petta` any more. The space rename above settled the
+  component names; this carries them through everything else, 8,233 renamed
+  runs over 552 files: 6,940 `petta_*` Prolog and Python identifiers over 1,169
+  distinct names, `PettaError` and the 66 files that raise or catch it, all 27
+  `PETTA_*` environment variables, 539 prose mentions, and the fixture symbols,
+  temporary-file prefixes and reserved atoms derived from the name
+  (`petta-three`, `.petta-save-`, `--petta-dir`, `PETTA-CACHE`, the
+  `'$petta_atoms:'` storage-module prefix, the `'$petta_answer'` wrapper).
+- **Environment variables are `METTA_*`, and the old spelling is not read.**
+  `METTA_PATH` replaces `PETTA_PATH`, `METTA_C_READER` replaces
+  `PETTA_C_READER`, and so on for all 27. There is no fallback: a shell or
+  script still exporting `PETTA_PATH` now configures nothing, silently, and
+  must be updated. The `MeTTa(petta_path=...)` keyword is `metta_path=` for the
+  same reason, so a caller passing the old keyword raises `TypeError` rather
+  than being quietly ignored.
+- `PettaError` is `MettaError`, joining `MettaSyntaxError`,
+  `MettaOperationError` and `MettaResultError`, which already spelled it that
+  way. Every subclass keeps its own name.
+- `EXTENDING.md` documented `PETTA_PROLOG` as the attribute an integration
+  package defines while `metta.integrate` has always read `METTA_PROLOG`, so
+  the documented recipe could not work. Both now say `METTA_PROLOG`.
+- Three names could not move mechanically, because the target already meant
+  something else. `petta_boolean/1` in the Ciao contract fixture is the same
+  two clauses as the engine's `metta_boolean/1`, and both files load into
+  `user`, so the rename would have made SWI discard the engine's definition
+  with a "Redefined static procedure" warning that also fails the lane; the
+  fixture now uses the engine's. `petta_py/3` is `metta_py_call/3`, because
+  `metta_py` is the Python module the same file names in
+  `py_call(metta_py:Goal, ...)`. The phrasebook's `petta_inferences` field is
+  `metta_fuel`, because it caps inferences where the recorded
+  `metta_inferences` counts them, and one spelling for both in one module is
+  a trap.
+- A twin's pricing declarations now sit at the END of the file, under the `#:`
+  run that documents them, and a re-pin appends there. The chain never shrinks
+  and every merge adds a paragraph, so on top it buried the example the file
+  exists to show: `basics/identity.py` opened with 297 comment lines before its
+  first statement, and all 219 twins open with code now. The twins lane reads
+  the placement as a finding, and `twin_coverage.py --repin --reason ...`
+  measures min-of-three in fresh processes and writes the paragraph at the
+  bottom, refusing a top-heavy twin, an empirical envelope, and a move with no
+  stated mechanism.
 - The Python `+=` write door now classifies semantic scalars before fact
   streams. A built `Expression`, bare atom, text value, mapping, or explicitly
   grounded iterable is one atom; lists, generators, SQL-style iterables,
@@ -858,7 +910,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   snapshot.
 - Move builtins-cache invalidation from every evaluation to generation
   comparison on function-namespace cache reads using
-  `petta_py_function_generation/1`. Removing the per-evaluation catalogue
+  `metta_py_function_generation/1`. Removing the per-evaluation catalogue
   sniff puts `py-method-call` at 1,503,497,066 instructions, below its
   1,508,773,364 acceptance ceiling.
 - `not-provable` costs inferences linear in the recursion depth of the goal
@@ -987,25 +1039,25 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - The Python surface narrows to a lazy core. `MeTTa` is the runtime
   context, 20 public attributes down from 90; its default space is
   `MeTTa().self` and storage and query verbs live on the `Space` handle.
-  `dir(petta)` answers 61 names down from 152, a fresh `import petta`
+  `dir(metta)` answers 61 names down from 152, a fresh `import metta`
   loads 9 modules down from 58 and takes 12ms down from 40, and every
   specialist surface (`algebra`, `arrays`, `events`, `wire`, `tables`,
   `paths`, `derivation`, `foreign`, `casting`, and the rest) loads on
   first access under PEP 562. Public atom types use complete Python
   class names: `Symbol`, `Variable`, `Expression`, `Grounded`. Deleted
   without aliases, each with its one door: `new_space`/`fresh_space`
-  (`petta.space()`), `count` (`len(space)`), `space_name` (`.name`),
+  (`metta.space()`), `count` (`len(space)`), `space_name` (`.name`),
   `register_op` (`op`), `run(using=)` (`with m.bind(...)`), `one`,
   `first` and `stream` (the answer API), `save(space, path)`
   (`space.save(path)`), `val`/root `encode` (`ground` and
-  `petta.wire`), `petta.das` and `petta.persistent`
-  (`petta.space(backing=...)` and `petta.space(journal=...)`),
-  `backend_info` (`petta.engine().info()`), and the root re-exports of
+  `metta.wire`), `metta.das` and `metta.persistent`
+  (`metta.space(backing=...)` and `metta.space(journal=...)`),
+  `backend_info` (`metta.engine().info()`), and the root re-exports of
   errors, protocols, events, and proof detail, which live on their
   satellites. Upstream's `python.petta` wrapper is unaffected.
 
 - The supported Python floor is 3.12, raised from 3.11. Every generic
-  declaration in `petta` now uses the type-parameter syntax the class shape
+  declaration in `metta` now uses the type-parameter syntax the class shape
   itself carries (`class Defined[**P, R]`, `def build[BuildT](...)`) instead
   of module-level `TypeVar` and `ParamSpec` assignments, and `pip` refuses
   3.11 rather than installing a package whose source it cannot parse.
@@ -1032,11 +1084,11 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   inferences against the term door's 536,577, +71.6%, a regression in the
   benchmark the example exists to run.
 - Reading a form that spans lines is now linear in the form's length rather
-  than quadratic, in the engine's `(read-form!)` and in the `petta repl` CLI
+  than quadratic, in the engine's `(read-form!)` and in the `metta repl` CLI
   alike. Both appended each new line to the whole buffered text and re-scanned
   all of it; the scanner state is now carried from one line to the next. One
   form of 1,600 lines cost 132,673,790,292 instructions and costs 1,497,495,105.
-- `petta repl` no longer hangs on two inputs the engine considers finished: a
+- `metta repl` no longer hangs on two inputs the engine considers finished: a
   backslash escaping a line break inside a string, which its check read as an
   unterminated string, and an over-closed buffer holding an unterminated string,
   where the stray bracket now ends the form so it errors rather than prompting.
@@ -1075,7 +1127,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   a provider's write methods. A foreign context says what its change events
   promise, through `m.declare_events(name, delivery, order)`, a Python
   provider's `delivers()`, a Prolog provider's `metta_context_events/3`, or
-  an `(events <ctx> <delivery> <order>)` atom in `&petta`; delivery is
+  an `(events <ctx> <delivery> <order>)` atom in `&metta`; delivery is
   `at-most-once`, `at-least-once` or `per-write-exactly` and order is
   `ordered` or `unordered`. A context that declares nothing is refused a
   subscription, a `bridge` and a `declare_reaction`, naming the missing
@@ -1177,8 +1229,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   favor of head-named receiver methods.
 - The legacy `python.petta` import path. The alias package that kept
   upstream's `import python.petta` resolving to the canonical modules is
-  gone, and `petta` is the only import path. Code spelling the upstream
-  checkout layout must import `petta` directly.
+  gone, and `metta` is the only import path. Code spelling the upstream
+  checkout layout must import `metta` directly.
 
 - The shipped translator rules' termination is now ESTABLISHED.
   `lib/lib_spaces.metta`'s `succeedsPredicate` writes two variables its head
@@ -1202,7 +1254,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - A translator rule can decline a match it cannot honour, with
   `(refuse Reason)`. The call carries on down the dispatch chain exactly as
   one whose head did not match, so a rule with another equation tries that
-  one, and the reason is published into `&petta` as
+  one, and the reason is published into `&metta` as
   `(translator-rule-refusal NAME REASON)` rather than lost. A refusal is a
   rule's own condition written where a reader can see it, so the confluence
   report counts the rules of a set that can refuse and reports such a set
@@ -1269,7 +1321,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   shipped example maps a `BLOB` column to a live `Blob` handle under
   `opaque`, lets a lazy path read one byte without projecting the payload,
   and demonstrates the structural crossing selected by `transparent`.
-- `petta.spaces.object_view(obj)` now presents live Python fields as
+- `metta.spaces.object_view(obj)` now presents live Python fields as
   `(py-field obj name value)` atoms on the ordinary foreign-space seam. The
   view composes with stored spaces for joins, observes later mutations, and
   turns added field atoms into `setattr` writes.
@@ -1285,7 +1337,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   missing engine operation; and `@` explicitly targets library-provided
   `matmul`. Grounded atoms keep the corresponding Python value operations.
 - Compiled definitions now expose AST-derived source spans, documentation,
-  lexical free variables, and purity. The facts reflect into `&petta`, replace
+  lexical free variables, and purity. The facts reflect into `&metta`, replace
   with a clause, and leave when its space is cleared.
 - Local annotated assignments in `@define` functions now compile to in-place
   MeTTa type claims. The value binds before the premise runs, and annotation
@@ -1293,7 +1345,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - `typing.Annotated` metadata now survives as matchable `(Annotated ...)`
   claims while the base type continues to control arrows, conversion, and
   engine-parameter injection.
-- All 44 names installed by `petta.arrays` now carry arity-accurate arrow
+- All 44 names installed by `metta.arrays` now carry arity-accurate arrow
   declarations, including defaulted and variadic call forms. The new
   `broadcast-shape` CLP(FD) relation checks or infers NumPy broadcasting
   shapes before an array is materialised.
@@ -1301,7 +1353,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   the same container hook as parameterized builtins. Buffer exporters project
   as zero-copy `Buffer` expressions that retain the original object together
   with shape, format, item size, dimensionality, strides, and access metadata.
-  Integration entry points may declare `PETTA_REQUIRES`; discovery installs
+  Integration entry points may declare `METTA_REQUIRES`; discovery installs
   them in topological order and refuses duplicate names, missing requirements,
   and dependency cycles by name.
 - Declared value algebras name `combine`, `extend`, `zero`, `one`, checked
@@ -1316,7 +1368,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   contractive, staged fragment; use outside that fence is a named refusal.
   Grounded tensor tags keep their DLPack identity and autograd graph through
   multi-rule derivations for direct consumption by `pettorch.MettaModule`.
-  Five pinned Scallop README programs now ship as executable PeTTa witnesses
+  Five pinned Scallop README programs now ship as executable MeTTa witnesses
   with a feature-to-seam table and explicit filed gaps.
 - A ground expression can name a native space. For example,
   `!(new-space (cache &kb 100))` creates an isolated storage and execution
@@ -1343,13 +1395,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `xlibrary@0.0.2` collect violations as `assrchk/1` data without adding a
   production engine dependency; a clean smoke and a planted bad call gate both
   directions.
-- The six function-dispatch decisions are catalog data in `&petta`:
+- The six function-dispatch decisions are catalog data in `&metta`:
   mismatch, no matching head, evaluation order, result determinism, failed
   clause handling, and exhaustion. Each has a shipped default and accepts a
   `(dispatch-policy <function> <axis> <value>)` override that takes effect on
   already-compiled calls. The conforming no-match default leaves the call
   unreduced.
-- `&petta` now publishes `(policy <axis> <knob> <default>)` rows for exactly
+- `&metta` now publishes `(policy <axis> <knob> <default>)` rows for exactly
   seventeen engine decision axes: dispatch, order, merge, agenda, equality,
   errors, world, algebra, storage, typing, fidelity, source kind, transaction
   mode, atomicity, save format, volatility, and determinism. The new
@@ -1399,7 +1451,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   question and 27 for a plain add.
 - `(space-admission-verdict <pool> <atom>)` is the shipped judge over the
   `(admits <pool> <type>)` and `(capacity <pool> <n>)` contract atoms in
-  `&petta`, answering the pre-add hook's own verdict algebra: `(accept)`,
+  `&metta`, answering the pre-add hook's own verdict algebra: `(accept)`,
   or `(refuse (does-not-carry <type>))` and
   `(refuse (pool-at-capacity <limit>))` naming the first violated
   contract. `declare_admits` and `declare_capacity` claim a pool's
@@ -1633,7 +1685,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   trie instead of a cursor-engine-private one that read as zeros. Calls
   route through the same `dispatch_call` ownership seam the memo library
   uses, reflection writes are checked and refuse loudly as
-  `petta_tabling_reflection_write_failed` with a rollback of the
+  `metta_tabling_reflection_write_failed` with a rollback of the
   just-installed table, and the library's exact engine reaches are pinned
   in the layering contract. The statistics example counts two completed
   calls after one completion and one invalidation re-evaluation, where the
@@ -1669,7 +1721,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   first-argument index per held arity instead of walking every stored atom,
   and an improper tail concludes a deterministic miss instead of a
   store-content-dependent `=../2` type error. The walk had made every
-  definition-change hook pay the whole `&petta` catalog: 23.7 inferences per
+  definition-change hook pay the whole `&metta` catalog: 23.7 inferences per
   catalog row over one tabling_fib load, linear with planted rows (74,268
   inferences at +0 rows, 78,777 at +200, 97,977 at +1,000) where the indexed
   read is flat (61,945 / 61,639 / 61,639). The tabling_fib example dropped
@@ -1799,7 +1851,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Stale build directories no longer ride into wheels. A build_lib
   directory that is not a package of the current build is removed before
   building, the package-level half of the clearing the bundled-runtime
-  tree already had; after the module rename a stale `build/lib/petta`
+  tree already had; after the module rename a stale `build/lib/metta`
   had shipped beside `metta` until the packaged gate's own assertion
   caught the contaminated wheel.
 - Data forms loaded from a file now pass through the declared pre-add
@@ -1993,9 +2045,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `typed`, `raw`, `pass_atoms`, or `pure` booleans: annotations derive type
   and evaluation-order claims, `transport="raw"` selects the raw `(op ...)`
   kind, and `declarations=` accepts lifecycle-owned `(arguments ...)`,
-  `(effect ...)`, type, and other policy atoms readable through `&petta`.
+  `(effect ...)`, type, and other policy atoms readable through `&metta`.
 
-- `petta.Atom` on a registered operation parameter is now documented as an
+- `metta.Atom` on a registered operation parameter is now documented as an
   evaluation-order contract: the callable receives the argument as written,
   while an unconstrained parameter receives its reduced value.
 
@@ -2015,7 +2067,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   retains a Python object reference instead of accepting Janus's eager tuple
   conversion.
 
-- Recorded integer overflow as a deliberate host-width divergence: PeTTa and
+- Recorded integer overflow as a deliberate host-width divergence: MeTTa and
   LeaTTa keep exact unbounded integer results where Hyperon's `i64` carrier
   answers `ArithmeticOverflow`.
 - `pragma!` now refuses unknown settings and the unsupported `type-check`,
@@ -2036,7 +2088,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   neither; `test_the_tree_partitions_by_seam` is the fence. The legacy
   `python.petta` import path still resolves to the canonical package
   through the unchanged `python/__init__.py` shim, installed wheels keep
-  the same layout under `petta/_runtime/`, and `PETTA_PATH` still names
+  the same layout under `metta/_runtime/`, and `METTA_PATH` still names
   a checkout root.
 - A finite float prints the arbiter's layout over the same
   shortest-round-trip digits: `1e16`, `0.00001` and `1.5e300` where SWI's
@@ -2051,10 +2103,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 - The control-signal error term is spelled `metta_control_signal(Kind,
   Detail)` and the host-interrupt signal `metta_host_interrupted`, in place
-  of the `petta_py_`-spelled names: the shapes are the engine's own and
+  of the `metta_py_`-spelled names: the shapes are the engine's own and
   cross every host boundary, not Python's alone. A program or tool matching
   the old spellings in raw error text must follow; the structured fields on
-  the `petta.errors` classes are unchanged.
+  the `metta.errors` classes are unchanged.
 
 - Repeated `eval` calls reuse their compiled Prolog goal template. Templates
   are variant-keyed per execution space and are evicted when any function or
@@ -2098,16 +2150,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   On the client side `RemoteSpace.stream(pattern, batch=...)` is the lazy
   door and `match()` stays the eager one, the split `m.stream()` and
   `m.query()` already make in-process, and
-  `petta.remote.attach(m, "&hq", url, batch=1)` puts an attached space's
+  `metta.remote.attach(m, "&hq", url, batch=1)` puts an attached space's
   matching on the lazy door so a MeTTa `once` over it stops the serving
   engine too. `serve()` takes `cursor_idle` and `cursor_limit`, which bound
   how long an untouched cursor survives and how many stay open at once, and
   both take their defaults from SWI's `library(pengines)`, whose
   create/ask/next/stop is the lifecycle's prior art. The TypeScript
   reference servers speak revision 3 as well, and
-  `petta.testing.GatewayComplianceSuite` certifies it.
+  `metta.testing.GatewayComplianceSuite` certifies it.
 
-- `petta.remote.Gateway` is the protocol's server side with no transport
+- `metta.remote.Gateway` is the protocol's server side with no transport
   under it: call it with `(operation, payload)` and it answers the reply
   dict, the shape `Transport` already has on the client side. `serve()`
   wraps one in the bundled HTTP server; mount one on the framework a
@@ -2476,7 +2528,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
   Measured 2026-08-19 on hyperon 0.2.10 and on the LeaTTa mechanised
   interpreter over 29 shapes; every shape the two references agree on now
-  matches, and the three they disagree on keep the answer PeTTa already gave.
+  matches, and the three they disagree on keep the answer MeTTa already gave.
   Costs nothing on the hot path: a thousand-iteration `==` loop is 4487.45
   inferences before and after, because two numbers are settled inline.
 
@@ -2514,9 +2566,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   interpreter, byte-identical across both, over fourteen shapes.
 
 - `(transaction ...)` answers everything its body answers. It used to answer
-  the first one only and say nothing: `!(collapse (petta-three))` with three
+  the first one only and say nothing: `!(collapse (metta-three))` with three
   equations for the name answered `(1 2 3)` and
-  `!(collapse (transaction (petta-three)))` answered `(1)`, because SWI's
+  `!(collapse (transaction (metta-three)))` answered `(1)`, because SWI's
   `transaction/1` runs its goal as `once/1`. Dropping answers is an opacity
   violation in the transactional-memory sense, since a reader of the result
   sees a state no serial run of the body produces.
@@ -2539,7 +2591,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - `get-type` and `get-type-space` no longer run the expression they are asked
   about. Asking for a type is a question about an expression, and the engine
   was answering it by running the expression first: an operation appending to
-  a Python list fired on `!(get-type (petta-effectful))`, taking a counter
+  a Python list fired on `!(get-type (metta-effectful))`, taking a counter
   from 0 to 1, and the answer was `Number`, the type of what it returned.
   Every linter walk and every REPL inspection was invisibly effectful on a
   seam whose whole purpose is arbitrary effects.
@@ -2583,7 +2635,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 - `(atomically EXPR)`, the atomic block under the name the concurrency
   vocabulary uses for it: Haskell's STM spells it `atomically`, Clojure's
-  spells it `dosync`, and PeTTa's `transaction` is the same operation under
+  spells it `dosync`, and MeTTa's `transaction` is the same operation under
   the database name. It did not exist, so `!(atomically (+ 1 1))` answered
   `(atomically 2)`, an unknown head applied to its evaluated argument, rather
   than running anything atomically.
@@ -2661,7 +2713,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   requires them to agree. Until this lane existed the corpus only ever ran
   through the engine: the `examples` gate invokes `swipl` on `engine/main.pl`,
   `test.sh` and `test_metta_examples.py` shell to `run.sh`, and the plunit
-  suites load `engine/metta.pl` without `bindings/python/petta/shim.pl`. So the
+  suites load `engine/metta.pl` without `bindings/python/metta/shim.pl`. So the
   configuration users ship was gated by unit tests alone, and defects lived
   there under green lanes.
 
@@ -2704,7 +2756,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `TimeLimitError` and `InferenceLimitError` like every other bounded call,
   and whatever the file completed before the stop stands.
 
-- `MeTTa.subscribe()` takes `queue_max=`, and `petta.SubscriberError` is
+- `MeTTa.subscribe()` takes `queue_max=`, and `metta.SubscriberError` is
   exported.
 
 - The reader separates atoms on every Unicode whitespace character now, not
@@ -2851,10 +2903,10 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and `__cause__`, which is what the callback actually raised. Its message
   says the write was applied and names the one thing that undoes it, an
   enclosing atomic run or `(transaction ...)` scope, which rolls it back as
-  the error leaves the scope. It is a `PettaError`, so nothing that caught
+  the error leaves the scope. It is a `MettaError`, so nothing that caught
   these before stops doing so.
 
-  A rehydrated `PettaError` now keeps the `__cause__` it was raised with
+  A rehydrated `MettaError` now keeps the `__cause__` it was raised with
   instead of having it replaced by the Prolog term it crossed. The boundary
   is still reachable as `__context__`; what changed is that the diagnosis is
   no longer displaced by the plumbing.
@@ -3087,9 +3139,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Rewrote `llms.txt` and gated it. The file an agent reads instead of the
   tree had gone stale in the way that matters most: it named
   `m.fresh_space()` and `m.value()` after both were renamed, documented
-  `petta.matching` and `petta.measure` after both were deleted, and
-  omitted the whole `declare_*` family, `petta.spaces`,
-  `petta.structures`, `petta.tables`, the manifest, the CLI and the
+  `metta.matching` and `metta.measure` after both were deleted, and
+  omitted the whole `declare_*` family, `metta.spaces`,
+  `metta.structures`, `metta.tables`, the manifest, the CLI and the
   concurrency surface. It now carries an index of every source of
   information in the repository beside the packed API, and
   `bindings/python/tools/llmsdoc.py` checks every name, path, count, special form,
@@ -3113,7 +3165,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 - Added a verification mode for the specializer, and a gate lane that
   runs it over the whole example corpus. Under
-  `PETTA_VERIFY_SPECIALIZATIONS` (or
+  `METTA_VERIFY_SPECIALIZATIONS` (or
   `(pragma! verify-specializations True)`) each specialization is run
   against the generic call the first time it fires and the complete
   answer lists are compared with variant equality, so a specialization
@@ -3131,7 +3183,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   every machine; `(with-pragma! (($key $value) ...) $expr)` scopes
   interpreter settings to one expression, restoring the previous values
   in reverse on every exit path; and `(pretty-atom $x)`, with
-  `petta.atoms.pretty(atom, width=78)` as its Python twin, lays a deep
+  `metta.atoms.pretty(atom, width=78)` as its Python twin, lays a deep
   term out over lines instead of one 135-character line, the two
   differentially pinned against each other. Bound expiry now throws the
   reserved limit envelopes, so a pragma bound classifies as
@@ -3151,9 +3203,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   deterministic walk recovers every form's exact line and column and
   refuses loudly if the reader and locator ever disagree, the
   subterm_positions philosophy with consumers paying and the compile
-  path paying nothing. `petta.lint.lint_file(path)` anchors each
+  path paying nothing. `metta.lint.lint_file(path)` anchors each
   finding to its source form through alpha-matching and carries
-  file/line/column in the payload; `python -m petta lint` prints
+  file/line/column in the payload; `python -m metta lint` prints
   `path:line:` findings; and the MeTTa library reference cites each
   `@doc` entry's source line.
 - Added the LSP diagnostic vocabulary to lint findings: `severity`
@@ -3182,7 +3234,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   so `help(Expr)` documents `children` in place; compliance suites that
   refuse a collectible `Test*` subclass with no `provider` or
   `gateway_url` fixture at class-definition time, where the traceback
-  points at the class; the `petta` logger namespace and `tqdm`
+  points at the class; the `metta` logger namespace and `tqdm`
   composition each documented in one line; and the deprecation policy
   stated: a surface removal warns with `DeprecationWarning` for one
   release before it goes.
@@ -3197,7 +3249,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   reachable through exact `S[name]` and `fn[name]` mentions.
 - Added the thread-safety and serialization guarantees page: per type
   and per operation, what is atomic, what locks, and what a caller must
-  serialize, Python's own documentation convention pointed at PeTTa.
+  serialize, Python's own documentation convention pointed at MeTTa.
   Every claim is pinned by a named test, two of them new: bare threads
   sharing the home engine answer correctly under contention, and a
   `with m.limits(...)` block on the event loop bounds engine work on
@@ -3208,9 +3260,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   package's one `threading.local` is deliberately thread-keyed because
   Prolog engines attach per OS thread.
 - Added the provider ecosystem's entry-point groups beside
-  `petta.integrations`: a package advertises a provider factory under
-  `petta.spaces` or the directory of sources it ships under
-  `petta.libraries`, and the app loads by NAME through
+  `metta.integrations`: a package advertises a provider factory under
+  `metta.spaces` or the directory of sources it ships under
+  `metta.libraries`, and the app loads by NAME through
   `integrate.entry_points(group)` (unloaded discovery) and
   `integrate.load_entry_point(name, *args, group=...)` (a callable
   target is a factory, called with your arguments; a non-callable one
@@ -3224,7 +3276,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `timeout` quiet seconds; a callback subscription refuses it, and bare
   `iter(sub)` stays deliberately absent because iteration that blocks
   should say so by name.
-- Added `petta.spaces.diff(a, b)`, what `digest()` cannot say: HOW two
+- Added `metta.spaces.diff(a, b)`, what `digest()` cannot say: HOW two
   spaces differ, as the multiset difference over enumeration with
   alpha-equivalent atoms counting as the same atom, digest's own
   equivalence; each side is a `MeTTa` handle or a provider and is
@@ -3241,14 +3293,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   page's coverage table is the burn-down surface, interrogate's role for
   the MeTTa side, and the gate holds the page current the way the
   Python reference gate does.
-- Added `python -m petta` subcommands on the library engine, the stdlib
+- Added `python -m metta` subcommands on the library engine, the stdlib
   "Command-line usage" chapter for the installed wheel: `run` prints
   each `!` answer group, `repl` is an interactive loop that reads
   multi-line forms (strings and comments included) and reports errors
   without dying, `serve` exposes spaces over HTTP with host/port/
   allowlist/token flags, `boot` assembles a `(boot ...)` manifest and
   blocks while its servers run, `lint` exits nonzero on findings, and
-  `doc` prints a name's `(@doc ...)` documentation. The bare `petta`
+  `doc` prints a name's `(@doc ...)` documentation. The bare `metta`
   console script keeps upstream's swipl-launcher contract exactly.
 - Added `examples/integration/networkx_space.py`: the metagraph reading
   made executable on the public surface alone. Any space's links view as
@@ -3265,7 +3317,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   an indented tree of its children. rich stays the caller's dependency:
   only rich itself calls the protocol methods.
 - Added engine injection into registered operations: a parameter
-  annotated `petta.MeTTa` is the framework's to fill, FastAPI's Depends
+  annotated `metta.MeTTa` is the framework's to fill, FastAPI's Depends
   read with the house convention that the annotation is the request. The
   engine injects itself bound to the calling context's space, so an
   operation invoked from a program running in &kb queries &kb; the slot
@@ -3279,37 +3331,37 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   or silence, in exactly the precedence the match uses; a conjunction
   line names what a planning provider claimed whole and what the engine
   joins; refused shapes report the refusing entry; stored spaces answer
-  the one true line. The engine door, `petta_py_explain`, preflights the
+  the one true line. The engine door, `metta_py_explain`, preflights the
   same refuse guard the match consults and answers claimed/rest as
   indexes so the caller's variable names survive rendering.
-- Added `petta.boot(manifest)`: deployment as knowledge. A manifest is a
+- Added `metta.boot(manifest)`: deployment as knowledge. A manifest is a
   MeTTa file of `(boot ...)` forms over a closed vocabulary, each sugar
   for exactly one existing call: `(load "rules.metta")` for `m.load`
   resolved against the manifest's directory, `(attach &crm "url")` for
-  `petta.remote.attach`, `(bridge &db <shape> <row>)` for a declared and
+  `metta.remote.attach`, `(bridge &db <shape> <row>)` for a declared and
   registered `TableBridge` (live connections cross through the
   `connections=` mapping, checked both directions), and
-  `(serve (&self &crm) 8700)` for `petta.remote.serve`. The whole
+  `(serve (&self &crm) 8700)` for `metta.remote.serve`. The whole
   manifest validates before anything performs, with every problem
   listed; forms perform in source order and each lands as its own
   `(boot ...)` atom, so the running app can query its own topology. The
   answered `Boot` handle owns the started servers and closes them, on
   the mid-way failure path too, while performed writes stand, the same
   law the engine's own guards follow. The engine door underneath,
-  `petta_py_read_forms`, reads a source's forms without compiling,
+  `metta_py_read_forms`, reads a source's forms without compiling,
   storing, or running any.
-- Added a reference page for `petta.tables`, which had none, and listed
-  `petta.tables`, `petta.spaces`, and `petta.structures` in the module
-  index tables they were missing from. `petta.tables` now also resolves
+- Added a reference page for `metta.tables`, which had none, and listed
+  `metta.tables`, `metta.spaces`, and `metta.structures` in the module
+  index tables they were missing from. `metta.tables` now also resolves
   lazily as a package attribute like its peer modules.
-- Added `@petta.record`, one decorator that makes a dataclass, NamedTuple,
+- Added `@metta.record`, one decorator that makes a dataclass, NamedTuple,
   or Enum a full citizen of the type story: two-way conversion registers
   at decoration (an unregistrable class fails right there), and the
   class's `(: ...)` declarations land in the default space the moment an
   engine exists, on the first `MeTTa()` construction otherwise, so the
   decorator runs at module import time without booting anything. The
   declared class then works as a `cast` and `query(into=)` target.
-  `petta.ops.class_declarations(cls)` exposes the emitted atoms, and
+  `metta.ops.class_declarations(cls)` exposes the emitted atoms, and
   every underlying registration call stays public for custom shapes.
 - Added the engine prelude: the Hyperon-Experimental vocabulary that lived
   in `lib_he` is part of the core engine now, compiled from
@@ -3370,9 +3422,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   dict into one grounded atom.
 - Added `m.space_names()` and the engine predicate `metta_space_names/1`
   behind it: every space name the engine registers, sorted, `&self` and
-  `&petta` from boot, every written native space, every bound foreign
+  `&metta` from boot, every written native space, every bound foreign
   space. Naming a space never registers it; writing or binding does.
-- Added structured fields on the whole `PettaError` family, the way
+- Added structured fields on the whole `MettaError` family, the way
   `OSError.errno` rides beside its message: `.atom` (the MeTTa atom the
   error is about), `.space`, `.operation` and `.capability`, each None
   when the error has no such part, the message unchanged either way. A
@@ -3388,7 +3440,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   `(Error ...)` records stay data through every Rows door; this is the
   explicit bridge, answering self when clean so it chains, raising one
   error plainly and several as one `ExceptionGroup`.
-- A `PettaError` raised inside a Python callback (a provider refusing a
+- A `MettaError` raised inside a Python callback (a provider refusing a
   write, a seam contract violation) now crosses the engine and
   re-arrives as the very same exception object, structured fields
   intact, instead of an `EngineError` holding a transcript of it. An op
@@ -3414,7 +3466,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   and documented as the watcher recipe: equations are atoms, so
   `subscribe("(= (f $x) $body)", callback, on="both")` fires on every
   equation added or removed, bindings included.
-- Added `petta.spaces`, combinators composing existing spaces into new
+- Added `metta.spaces`, combinators composing existing spaces into new
   ones with zero engine changes, each an ordinary provider on the public
   seam: `union(*spaces)` reads every member as one space and refuses
   writes by capability (rdflib's aggregate reading; a union of multisets
@@ -3427,8 +3479,8 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   take combinators, and overlay and mapped pass the conformance kit.
 - Added the ladder's sugar tier, every rung documented as sugar for the
   rung below and the long spelling never leaving. Module-level
-  `petta.run/query/add/remove/eval/fn/space` over one lazily created
-  default engine, `petta.default_engine()` the named escape hatch
+  `metta.run/query/add/remove/eval/fn/space` over one lazily created
+  default engine, `metta.default_engine()` the named escape hatch
   (random's and logging's shape). `with m.limits(timeout=,
   inferences=)` sets scoped default bounds, contextvars underneath so
   the scope is async-correct, per-call kwargs still overriding.
@@ -3442,7 +3494,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   discards, and a batch inside transaction() composes economy with
   atomicity. A shipped pytest plugin (pytest11 entry point) provides
   `metta` and `scratch_space` fixtures a project's conftest can
-  override, and `petta.testing` exports `ground_atoms()` and
+  override, and `metta.testing` exports `ground_atoms()` and
   `patterns()` beside the existing strategies, so anyone can fuzz
   their own provider the way the kit does.
 - Fixed a divergence the new ClosureView surfaced: the specializer
@@ -3453,7 +3505,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   maybe_specialize_call now refuses to specialize a tabled function,
   read from lib_tabling's own `(tabled ...)` reflection facts, one
   indexed probe at translate time.
-- Added `petta.structures`, data structures with MeTTa's semantics,
+- Added `metta.structures`, data structures with MeTTa's semantics,
   each implemented where it is fastest. The pure tier runs on the atom
   kernel and imports without janus in the process: `PatternMap` (a
   MutableMapping whose ground keys hash like dict keys and whose
@@ -3477,7 +3529,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   for programs written in MeTTa itself, every form @doc-documented,
   exercised under the gate by
   examples/libraries/datastructures_fingertree.metta.
-- Added `petta.atoms.substitute(atom, bindings)`, unify's companion:
+- Added `metta.atoms.substitute(atom, bindings)`, unify's companion:
   the atom with every bound variable replaced, so
   `substitute(pattern, unify(pattern, atom))` is the matched instance.
   The remote server's bounded match and the mapped combinator both
@@ -3536,7 +3588,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   with the attribution in the benchmark ledger.
 - Added `m.transaction(callable)` and the `m.transactional` decorator:
   the Python door of the MeTTa `(transaction ...)` form, riding the
-  same `petta_transaction/1`, so foreign-space enlistment and nesting
+  same `metta_transaction/1`, so foreign-space enlistment and nesting
   behave identically in both languages. The callable runs now and its
   return value comes back identity-preserved; a raise is the one
   rollback trigger, re-raised as itself with the boundary in its chain,
@@ -3554,7 +3606,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Added custom matching for grounded values, Hyperon's CustomMatch: any
   Python object whose class defines `match_` owns its matching logic
   inside `unify` with no registration, yielding bindings, values or
-  residues for the operand it met (`petta.foreign.CustomMatch`), and
+  residues for the operand it met (`metta.foreign.CustomMatch`), and
   Prolog-hosted values participate through the `metta_matchable_value/1`
   and `metta_custom_match/2` seams.
 - Added `&self` as the reserved token for the space the code lives in:
@@ -3568,7 +3620,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   symbol `Empty` is not returned among other results, pruned at every
   collapse and runnable aggregation, per minimal MeTTa.
 
-- Added the typed `petta` Python package for atoms, spaces, evaluation,
+- Added the typed `metta` Python package for atoms, spaces, evaluation,
   operations, queries, persistence, diagnostics, and engine controls.
 - Added async, remote, array, dataframe, DAS, foreign-space, and
   Python-object integration surfaces.
@@ -3599,7 +3651,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Added `metta_foreign_add_many/2` and the Python `BulkAdder` protocol, so a
   provider can take a whole batch in one crossing. MORK's bulk loader is now
   one implementer of it rather than a special case inside the Python bridge.
-- Added `petta.testing.SpaceComplianceSuite`, the engine's own space tests as a
+- Added `metta.testing.SpaceComplianceSuite`, the engine's own space tests as a
   class a provider author subclasses. Every test reads the provider's `can_run`
   and skips what it does not declare, and the run reports which capabilities
   were exercised; a provider that declares nothing fails rather than passing by
@@ -3619,14 +3671,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Added `control_exception/1` as an extension seam, so a library that raises its
   own cancellation or budget signal declares it and every recovery site in the
   engine lets it through instead of swallowing it.
-- Added `petta.Handle`, the identity carrier for native engine values: a C
+- Added `metta.Handle`, the identity carrier for native engine values: a C
   blob reaching Python arrives as an opaque atom that resolves back to the
   very same object, so mutation and accessor calls survive the round trip
   and a Python function can unpack the structure through its extension's
   own accessors. It used to arrive silently as its printed string, which
   made the round trip impossible. `release()` frees the engine-side
   registry entry; a released handle raises by id.
-- Added `petta.tables.TableBridge`, a complete table-backed space provider
+- Added `metta.tables.TableBridge`, a complete table-backed space provider
   derived from one MeTTa bridge declaration,
   `(bridge (edge $a $b) (row edges (a $a) (b $b)))`: WHERE from bound
   positions, the equalities repeated variables demand, INSERT from
@@ -3637,17 +3689,17 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   crosses in one request, the engine's own bulk-door law on the wire, so
   `m.space(name).add(a, b, c)` against an attached gateway is one
   crossing; `GET /health` now names the protocol revision.
-- Added `petta.testing.GatewayComplianceSuite`, the remote protocol's own
+- Added `metta.testing.GatewayComplianceSuite`, the remote protocol's own
   conformance suite: subclass it with a `gateway_url` fixture and any
   implementation, in any language, is certified against the documented
   operations, refusal ladder, wide-integer refusal, and the kit's match
   contract and round-trip law. It caught the MeTTaScript reference
   backend's unifier refusing rational-tree matches, which its server now
   covers with a soundness envelope.
-- Added schemas to `petta.tables`: a provider takes any number of bridge
+- Added schemas to `metta.tables`: a provider takes any number of bridge
   declarations, shapes answering together the way overlapping equations
   do, with a ground atom two shapes admit refused by name; declarations
-  can live ctx-scoped in `&petta` (`tables.declare`, or MeTTa source
+  can live ctx-scoped in `&metta` (`tables.declare`, or MeTTa source
   adding the same atoms), and `TableBridge.from_context` builds the
   provider from what the context declares.
 - Added the round-trip law to `check_space_provider`: with atoms stored
@@ -3715,7 +3767,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   was raised before and the rest were silently dropped after draining. A
   worker's `KeyboardInterrupt` still reaches the caller, grouped when it
   arrived beside other failures.
-- `petta.testing.check_space_provider`'s `atoms_to_store` now stores the
+- `metta.testing.check_space_provider`'s `atoms_to_store` now stores the
   atoms through the provider's own add, as its name always said, and
   refuses a provider that cannot add rather than comparing against
   contents that were never stored.
@@ -3788,7 +3840,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 - Made a dropped space release its integration installation records so a new
   space reusing the same name runs each installer again.
 
-- Removed `petta.measure` and `petta.matching`: scored matching is the
+- Removed `metta.measure` and `metta.matching`: scored matching is the
   general surface (`register_op` + `Answer(value=candidate, k=degree)` +
   `declare_annotations`), custom matching belongs to grounded values, and
   the in-language `lib_measure`/`lib_soft` libraries are unchanged.

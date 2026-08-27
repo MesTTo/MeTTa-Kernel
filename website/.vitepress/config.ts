@@ -1,5 +1,5 @@
 /*
-Purpose: configure the PeTTa documentation site's navigation, rendering, and project URL.
+Purpose: configure the MeTTa documentation site's navigation, rendering, and project URL.
 Guarantees: navigation advertises only live public Python modules and API pages.
 [tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 Open Obligations:
@@ -19,8 +19,8 @@ const mettaLanguage = {
 };
 
 export default defineConfig({
-  title: "PeTTa Python",
-  description: "Use PeTTa as a Python library and compose integrations through MeTTa.",
+  title: "MeTTa Python",
+  description: "Use MeTTa as a Python library and compose integrations through it.",
   base: "/PeTTa/",
   head: [
     ["link", { rel: "icon", type: "image/svg+xml", href: "/PeTTa/visuals/favicon.svg" }],

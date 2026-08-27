@@ -11,7 +11,7 @@ TMPDIR=${TMPDIR:-/tmp}
 run_ok() {
     name="$1"
     file="$2"
-    log="$TMPDIR/petta-${name}-$$.log"
+    log="$TMPDIR/metta-${name}-$$.log"
     timeout 15s sh "$ROOT/run.sh" "$ROOT/$file" > "$log" 2>&1
     printf '%s\n' "$log"
 }
@@ -42,7 +42,7 @@ grep -q 'partial wrap' "$log" || { echo "repro3 missing parent wrap type output"
 # compound partial/2 keys.  This repro still has an unbound arithmetic variable
 # and may fail at runtime; the regression assertion is the stable specialization
 # key generated before the arithmetic error.
-log="$TMPDIR/petta-repro4-$$.log"
+log="$TMPDIR/metta-repro4-$$.log"
 set +e
 timeout 15s sh "$ROOT/run.sh" "$ROOT/tests/regression/repro4_variant_normalization.metta" > "$log" 2>&1
 status=$?

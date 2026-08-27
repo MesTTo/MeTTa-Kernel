@@ -59,15 +59,15 @@ test(a_partial_application_remains_visible_in_test_output) :-
     Output == "is (partial + (1)), should (partial + (1)). ✅ \n".
 
 test(failing_test_is_catchable,
-     [throws(error(petta_test_failed(1, 2), _))]) :-
+     [throws(error(metta_test_failed(1, 2), _))]) :-
     test(1, 2, _).
 
 test(failing_assert_is_catchable,
-     [throws(error(petta_assertion_failed(fail), _))]) :-
+     [throws(error(metta_assertion_failed(fail), _))]) :-
     assert(fail, _).
 
 test(assertion_errors_have_engine_messages) :-
-    message_to_string(error(petta_test_failed(1, 2), none), Message),
+    message_to_string(error(metta_test_failed(1, 2), none), Message),
     sub_string(Message, _, _, _, "MeTTa test failed: 1 does not match 2"),
     \+ sub_string(Message, _, _, _, "Unknown error term").
 
@@ -102,7 +102,7 @@ grounded_name_case(and).
 grounded_name_case('sqrt-math').
 grounded_name_case('size-atom').
 grounded_name_case(superpose).       % a special form here, a token there
-grounded_name_case(nop).             % the same, since PeTTa's nop is variadic
+grounded_name_case(nop).             % the same, since MeTTa's nop is variadic
 grounded_name_case(match).
 grounded_name_case('add-atom').
 grounded_name_case('println!').
@@ -252,7 +252,7 @@ test(test_real_valued_math_treats_integer_and_float_operands_alike) :-
     'pow-math'(2, -2147483649, TooSmall),
     TooSmall == ['Error', ['pow-math', 2, -2147483649],
                  "power argument is too big, try using float value"],
-    %exp-math is PeTTa doctrine, not part of LeaTTa's floatUn table.
+    %exp-math is this engine's doctrine, not part of LeaTTa's floatUn table.
     'exp-math'(1, IntegerExp), 'exp-math'(1.0, FloatExp),
     IntegerExp =:= FloatExp.
 
@@ -395,7 +395,7 @@ test(control_exceptions_are_not_recontextualized) :-
 % SWI's own errors carry context(PI, _) with the second argument UNBOUND, so a
 % message clause that matched context(Operation, 'invalid MeTTa operation
 % argument') in its head BOUND that variable and then rendered every ordinary
-% type error in PeTTa's operation vocabulary. `X is foo+1` was reported as
+% type error in MeTTa's operation vocabulary. `X is foo+1` was reported as
 % "system:(is)/2: evaluable expected, found (/ foo 0)", naming an engine
 % internal and a culprit the program never wrote, which is exactly what an
 % extension author saw when their own predicate's is/2 refused a value.
@@ -422,7 +422,7 @@ test(a_metta_operation_error_still_names_the_operation) :-
 seam:grounded_type_names(_, _) :- plunit_break_type_bridge, throw(plunit_broken_bridge).
 
 % evalc's space argument selects the module the goals resolve in and nothing
-% else. PeTTa's eval is a full evaluation of compiled goals rather than
+% else. MeTTa's eval is a full evaluation of compiled goals rather than
 % minimal MeTTa's single rewriting step, and evalc keeps that, so the two
 % agree everywhere except which space's equations answer.
 :- begin_tests(metta_evalc,
@@ -1014,7 +1014,7 @@ test(translated_let_rejects_an_impossible_comparison_output) :-
 %not which operation wanted it; the no-mutation half is what this test is
 %really for and is unchanged.
 test(variable_removal_is_rejected_without_mutation,
-     [throws(error(petta_unbound_input('remove-translator-rule!', 1), _))]) :-
+     [throws(error(metta_unbound_input('remove-translator-rule!', 1), _))]) :-
     catch('remove-translator-rule!'(_, _), Error,
           ( findall(Rule, user:translator_rule(Rule), Rules),
             Rules == [first, second],
@@ -1040,9 +1040,9 @@ clear_python_test_module(Name) :-
        ; true ).
 
 exercise_python_import_setup_failure(Directory) :-
-    gensym(petta_cleanup_, Suffix),
-    format(atom(MainName), 'petta_cleanup_main_~w', [Suffix]),
-    format(atom(SiblingName), 'petta_cleanup_sibling_~w', [Suffix]),
+    gensym(metta_cleanup_, Suffix),
+    format(atom(MainName), 'metta_cleanup_main_~w', [Suffix]),
+    format(atom(SiblingName), 'metta_cleanup_sibling_~w', [Suffix]),
     file_name_extension(MainName, py, MainFile),
     file_name_extension(SiblingName, py, SiblingFile),
     directory_file_path(Directory, MainFile, MainPath),
@@ -1071,7 +1071,7 @@ exercise_python_import_setup_failure(Directory) :-
         clear_python_test_module(SiblingName)).
 
 test(setup_failure_restores_preexisting_sibling_module) :-
-    tmp_file(petta_python_import, Directory),
+    tmp_file(metta_python_import, Directory),
     setup_call_cleanup(make_directory(Directory),
                        exercise_python_import_setup_failure(Directory),
                        delete_directory_and_contents(Directory)).
@@ -1104,7 +1104,7 @@ test(every_registered_function_is_callable_or_a_special_form,
 
 %The tuple set operations remove by equality, not by unification. select/3
 %unified, so (subtraction-atom ($x) (a)) answered () and left $x bound to a
-%afterwards. PeTTa's formalisation removes with removeFirstEq, an == test:
+%afterwards. MeTTa's formalisation removes with removeFirstEq, an == test:
 %MeTTapedia/lean/mettapedia/leanPeTTa/StreamOps.lean.
 test(subtraction_keeps_an_unbound_element,
      [true(Out == [X])]) :-
@@ -1276,7 +1276,7 @@ test(builtin_exists_file) :-
     library('lib_builtin_types.metta', Present),
     'exists_file'(Present, Found),
     assertion(Found == true),
-    'exists_file'('/nonexistent/petta/definitely-not-here', Missing),
+    'exists_file'('/nonexistent/metta/definitely-not-here', Missing),
     assertion(Missing == false),
     %The declaration and the callable shape agree, which is the pairing that
     %was broken: get-type promised one input and the registration took none.
@@ -1795,7 +1795,7 @@ test(test_the_module_context_is_read_once_per_unresolved_dispatch_and_once_per_s
                                         context_eval_probe), _, true),
                  catch(unwrap_predicate(SelfModule:'ctx-grow'/2,
                                         context_eval_probe), _, true) )) ]) :-
-    petta_engine_module(ContextModule),
+    metta_engine_module(ContextModule),
     metta_self_module(SelfModule),
     process_metta_string("(= (ctx-sum $n) \c
                              (if (== $n 0) 0 (+ $n (ctx-sum (- $n 1)))))", _),
@@ -1835,9 +1835,9 @@ test(test_the_module_context_is_read_once_per_unresolved_dispatch_and_once_per_s
     % entirely made of: examples/performance/matespacefast.metta reduces
     % (num (M $t)) and (M $t) at every node of a binary tree of depth 19, which
     % is where its 262,144 reads come from [measured 2026-08-22].
-    petta_dispatch_reads([ctxfn, 1], FunctionReads),
+    metta_dispatch_reads([ctxfn, 1], FunctionReads),
     assertion(FunctionReads == 0),
-    petta_dispatch_reads(['CtxData', 1], DataReads),
+    metta_dispatch_reads(['CtxData', 1], DataReads),
     assertion(DataReads == 40).
 
 %Count reads of the module context that happen while Watched is on the stack.
@@ -1847,21 +1847,21 @@ test(test_the_module_context_is_read_once_per_unresolved_dispatch_and_once_per_s
 :- meta_predicate context_reads(+, 0, -, -).
 
 context_reads(Watched, Goal, Openings, Reads) :-
-    petta_engine_module(ContextModule),
-    nb_setval('$petta_context_reads', 0),
-    nb_setval('$petta_evaluating', 0),
-    nb_setval('$petta_evaluations', 0),
+    metta_engine_module(ContextModule),
+    nb_setval('$metta_context_reads', 0),
+    nb_setval('$metta_evaluating', 0),
+    nb_setval('$metta_evaluations', 0),
     setup_call_cleanup(
         ( wrap_predicate(Watched, context_eval_probe, Evaluated,
                          setup_call_cleanup(context_eval_enter, Evaluated,
                                             context_eval_exit)),
           wrap_predicate(ContextModule:current_metta_module(_),
                          context_read_probe, Inner,
-                         ( nb_getval('$petta_evaluating', Depth),
+                         ( nb_getval('$metta_evaluating', Depth),
                            (   Depth > 0
-                           ->  nb_getval('$petta_context_reads', Was),
+                           ->  nb_getval('$metta_context_reads', Was),
                                Now is Was + 1,
-                               nb_setval('$petta_context_reads', Now)
+                               nb_setval('$metta_context_reads', Now)
                            ;   true
                            ),
                            Inner )) ),
@@ -1869,41 +1869,41 @@ context_reads(Watched, Goal, Openings, Reads) :-
         ( catch(unwrap_predicate(ContextModule:current_metta_module/1,
                                  context_read_probe), _, true),
           context_unwrap(Watched) )),
-    nb_getval('$petta_evaluating', Balanced),
+    nb_getval('$metta_evaluating', Balanced),
     assertion(Balanced == 0),
-    nb_getval('$petta_evaluations', Openings),
-    nb_getval('$petta_context_reads', Reads).
+    nb_getval('$metta_evaluations', Openings),
+    nb_getval('$metta_context_reads', Reads).
 
 %Forty dispatches through the engine's runtime dispatcher, counting the reads.
 %reduce/3 is what a compiled body calls for a head it could not resolve at
 %compile time, so calling it here is the same door and not a proxy for one.
-petta_dispatch_reads(Term, Reads) :-
-    petta_engine_module(ContextModule),
-    nb_setval('$petta_context_reads', 0),
+metta_dispatch_reads(Term, Reads) :-
+    metta_engine_module(ContextModule),
+    nb_setval('$metta_context_reads', 0),
     setup_call_cleanup(
         wrap_predicate(ContextModule:current_metta_module(_),
                        context_read_probe, Inner,
-                       ( nb_getval('$petta_context_reads', Was),
+                       ( nb_getval('$metta_context_reads', Was),
                          Now is Was + 1,
-                         nb_setval('$petta_context_reads', Now),
+                         nb_setval('$metta_context_reads', Now),
                          Inner )),
         forall(between(1, 40, _), reduce(Term, _, _)),
         catch(unwrap_predicate(ContextModule:current_metta_module/1,
                                context_read_probe), _, true)),
-    nb_getval('$petta_context_reads', Reads).
+    nb_getval('$metta_context_reads', Reads).
 
 context_unwrap(Module:Head) :-
     functor(Head, Name, Arity),
     catch(unwrap_predicate(Module:Name/Arity, context_eval_probe), _, true).
 
 context_eval_enter :-
-    nb_getval('$petta_evaluating', D), D1 is D + 1,
-    nb_setval('$petta_evaluating', D1),
-    nb_getval('$petta_evaluations', N), N1 is N + 1,
-    nb_setval('$petta_evaluations', N1).
+    nb_getval('$metta_evaluating', D), D1 is D + 1,
+    nb_setval('$metta_evaluating', D1),
+    nb_getval('$metta_evaluations', N), N1 is N + 1,
+    nb_setval('$metta_evaluations', N1).
 context_eval_exit :-
-    nb_getval('$petta_evaluating', D), D1 is D - 1,
-    nb_setval('$petta_evaluating', D1).
+    nb_getval('$metta_evaluating', D), D1 is D - 1,
+    nb_setval('$metta_evaluating', D1).
 
 :- end_tests(metta_module_context).
 
@@ -1916,7 +1916,7 @@ context_eval_exit :-
 % is what lets a space stop being the first one.
 
 test(it_answers_exactly_one_module) :-
-    findall(Module, petta_engine_module(Module), Modules),
+    findall(Module, metta_engine_module(Module), Modules),
     assertion(Modules = [_]).
 
 % Checked against SWI rather than against the atom `user`, so the test says
@@ -1925,7 +1925,7 @@ test(it_answers_exactly_one_module) :-
 % gave the compiler a module, after which it is the translator's and reaches
 % the core as an import, which is a different and equally correct answer.
 test(it_names_the_module_the_engines_own_clauses_are_in) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     functor(Head, current_metta_module, 1),
     assertion(predicate_property(Engine:Head, defined)),
     assertion(\+ predicate_property(Engine:Head, imported_from(_))),
@@ -1940,7 +1940,7 @@ test(it_names_the_module_the_engines_own_clauses_are_in) :-
 test(the_translators_own_tables_are_read_from_it) :-
     assertion(metta_special_form(if)),
     assertion(metta_translated_head(collapse)),
-    assertion(\+ metta_special_form(petta_no_such_form)).
+    assertion(\+ metta_special_form(metta_no_such_form)).
 
 :- end_tests(metta_engine_module).
 
@@ -1950,27 +1950,27 @@ test(the_translators_own_tables_are_read_from_it) :-
 % specific matching pattern, (in $x) marks a position that must arrive
 % bound, and two maximal entries that disagree are a loud conflict.
 
-handles_declare(Entry) :- 'add-atom'('&petta', Entry, _).
-handles_retract(Entry) :- catch('remove-atom'('&petta', Entry, _), _, true).
+handles_declare(Entry) :- 'add-atom'('&metta', Entry, _).
+handles_retract(Entry) :- catch('remove-atom'('&metta', Entry, _), _, true).
 
 test(strip_keeps_a_variable_headed_pair_entry) :-
-    petta_adorn_strip([F, A], Stripped, Requirements),
+    metta_adorn_strip([F, A], Stripped, Requirements),
     assertion(Stripped == [F, A]),
     assertion(Requirements == []),
     assertion(var(F)).
 
 test(strip_keeps_the_symbol_in_as_data_mid_expression) :-
-    petta_adorn_strip([foo, in, X], Stripped, Requirements),
+    metta_adorn_strip([foo, in, X], Stripped, Requirements),
     assertion(Stripped == [foo, in, X]),
     assertion(Requirements == []).
 
 test(strip_collects_the_adorned_position) :-
-    petta_adorn_strip([edge, [in, A], B], Stripped, Requirements),
+    metta_adorn_strip([edge, [in, A], B], Stripped, Requirements),
     assertion(Stripped == [edge, A, B]),
     assertion(Requirements == [A]).
 
 test(strip_handles_a_nested_wrapper) :-
-    petta_adorn_strip([f, [in, [g, [in, X]]]], Stripped, Requirements),
+    metta_adorn_strip([f, [in, [g, [in, X]]]], Stripped, Requirements),
     assertion(Stripped == [f, [g, X]]),
     assertion(Requirements == [[g, X], X]).
 
@@ -1979,9 +1979,9 @@ test(route_picks_the_most_specific_entry,
                handles_declare([handles, '&plunit_hr', [edge, S, S], 'Sound']) )),
        cleanup(( handles_retract([handles, '&plunit_hr', [edge, _, _], 'Exact']),
                  handles_retract([handles, '&plunit_hr', [edge, S2, S2], 'Sound']) )) ]) :-
-    petta_handles_route('&plunit_hr', [edge, Q, Q], Repeated, _),
+    metta_handles_route('&plunit_hr', [edge, Q, Q], Repeated, _),
     assertion(Repeated == 'Sound'),
-    petta_handles_route('&plunit_hr', [edge, _, _], Distinct, _),
+    metta_handles_route('&plunit_hr', [edge, _, _], Distinct, _),
     assertion(Distinct == 'Exact').
 
 test(route_reads_the_det_slot_and_defaults_it,
@@ -1989,42 +1989,42 @@ test(route_reads_the_det_slot_and_defaults_it,
                handles_declare([handles, '&plunit_hr5', [q, _], 'Exact']) )),
        cleanup(( handles_retract([handles, '&plunit_hr5', [p, _], 'Exact', det]),
                  handles_retract([handles, '&plunit_hr5', [q, _], 'Exact']) )) ]) :-
-    petta_handles_route('&plunit_hr5', [p, _], _, DetP),
+    metta_handles_route('&plunit_hr5', [p, _], _, DetP),
     assertion(DetP == det),
-    petta_handles_route('&plunit_hr5', [q, _], _, DetQ),
+    metta_handles_route('&plunit_hr5', [q, _], _, DetQ),
     assertion(DetQ == none).
 
 test(route_fails_where_nothing_is_declared) :-
-    \+ petta_handles_route('&plunit_hr_nobody', [p, _], _, _).
+    \+ metta_handles_route('&plunit_hr_nobody', [p, _], _, _).
 
 test(disagreeing_maximal_entries_throw_a_conflict,
      [ setup(( handles_declare([handles, '&plunit_hrc', [edge, a, _], 'Exact']),
                handles_declare([handles, '&plunit_hrc', [edge, _, b], 'Sound']) )),
        cleanup(( handles_retract([handles, '&plunit_hrc', [edge, a, _], 'Exact']),
                  handles_retract([handles, '&plunit_hrc', [edge, _, b], 'Sound']) )),
-       throws(error(petta_contract_conflict('&plunit_hrc', _, _, _), _)) ]) :-
-    petta_handles_route('&plunit_hrc', [edge, a, b], _, _).
+       throws(error(metta_contract_conflict('&plunit_hrc', _, _, _), _)) ]) :-
+    metta_handles_route('&plunit_hrc', [edge, a, b], _, _).
 
 test(agreeing_maximal_entries_answer_their_shared_claim,
      [ setup(( handles_declare([handles, '&plunit_hra', [edge, a, _], 'Exact']),
                handles_declare([handles, '&plunit_hra', [edge, _, b], 'Exact']) )),
        cleanup(( handles_retract([handles, '&plunit_hra', [edge, a, _], 'Exact']),
                  handles_retract([handles, '&plunit_hra', [edge, _, b], 'Exact']) )) ]) :-
-    petta_handles_route('&plunit_hra', [edge, a, b], Fidelity, _),
+    metta_handles_route('&plunit_hra', [edge, a, b], Fidelity, _),
     assertion(Fidelity == 'Exact').
 
 test(an_adorned_entry_requires_the_bound_argument,
      [ setup(handles_declare([handles, '&plunit_hri', [edge, [in, _], _], 'Refuse'])),
        cleanup(handles_retract([handles, '&plunit_hri', [edge, [in, _], _], 'Refuse'])) ]) :-
-    petta_handles_route('&plunit_hri', [edge, bound, _], Bound, _),
+    metta_handles_route('&plunit_hri', [edge, bound, _], Bound, _),
     assertion(Bound == 'Refuse'),
-    \+ petta_handles_route('&plunit_hri', [edge, _, _], _, _).
+    \+ metta_handles_route('&plunit_hri', [edge, _, _], _, _).
 
 test(subsumption_never_binds_the_query,
      [ setup(handles_declare([handles, '&plunit_hrb', [edge, a, _], 'Exact'])),
        cleanup(handles_retract([handles, '&plunit_hrb', [edge, a, _], 'Exact'])) ]) :-
     % (edge $q b) is outside (edge a $y): routing it must not bind $q to a.
-    \+ petta_handles_route('&plunit_hrb', [edge, _Q, b], _, _).
+    \+ metta_handles_route('&plunit_hrb', [edge, _Q, b], _, _).
 
 test(coherence_accepts_specificity_resolved_overlaps,
      [ setup(( handles_declare([handles, '&plunit_hco', [edge, _, _], 'Exact']),
@@ -2033,15 +2033,15 @@ test(coherence_accepts_specificity_resolved_overlaps,
                  handles_retract([handles, '&plunit_hco', [edge, C2, C2], 'Sound']) )) ]) :-
     % The overlap exists and the repeated-variable entry wins it by
     % specificity, so there is no conflict to find.
-    petta_handles_coherent('&plunit_hco').
+    metta_handles_coherent('&plunit_hco').
 
 test(coherence_throws_on_a_disagreeing_tie,
      [ setup(( handles_declare([handles, '&plunit_hct', [edge, a, _], 'Exact']),
                handles_declare([handles, '&plunit_hct', [edge, _, b], 'Sound']) )),
        cleanup(( handles_retract([handles, '&plunit_hct', [edge, a, _], 'Exact']),
                  handles_retract([handles, '&plunit_hct', [edge, _, b], 'Sound']) )),
-       throws(error(petta_contract_conflict('&plunit_hct', _, _, _), _)) ]) :-
-    petta_handles_coherent('&plunit_hct').
+       throws(error(metta_contract_conflict('&plunit_hct', _, _, _), _)) ]) :-
+    metta_handles_coherent('&plunit_hct').
 
 test(the_scan_only_idiom_is_coherent_and_routes_by_adornment,
      [ setup(( handles_declare([handles, '&plunit_hcb', [edge, [in, _], _], 'Refuse']),
@@ -2051,14 +2051,14 @@ test(the_scan_only_idiom_is_coherent_and_routes_by_adornment,
     % The adorned entry matches strictly fewer queries, so it is the more
     % specific one: bound-subject lookups are refused, the free scan stays
     % exact, and the pair is coherent rather than a tie.
-    petta_handles_coherent('&plunit_hcb'),
-    petta_handles_route('&plunit_hcb', [edge, bound, _], Bound, _),
+    metta_handles_coherent('&plunit_hcb'),
+    metta_handles_route('&plunit_hcb', [edge, bound, _], Bound, _),
     assertion(Bound == 'Refuse'),
-    petta_handles_route('&plunit_hcb', [edge, _, _], Free, _),
+    metta_handles_route('&plunit_hcb', [edge, _, _], Free, _),
     assertion(Free == 'Exact').
 
 test(strip_reports_renaming_invariant_paths) :-
-    petta_adorn_strip([edge, [in, A], [in, B]], Stripped, Requirements, Paths),
+    metta_adorn_strip([edge, [in, A], [in, B]], Stripped, Requirements, Paths),
     assertion(Stripped == [edge, A, B]),
     assertion(Requirements == [A, B]),
     assertion(Paths == [[1], [2]]).
@@ -2070,11 +2070,11 @@ test(a_narrower_pattern_outranks_any_adornment,
                  handles_retract([handles, '&plunit_hcn', [edge, [in, _], _], 'Refuse']) )) ]) :-
     % A bound self-loop query falls under both; the repeated-variable
     % pattern is narrower than the adorned one, so its claim wins.
-    petta_handles_route('&plunit_hcn', [edge, a, a], Fidelity, _),
+    metta_handles_route('&plunit_hcn', [edge, a, a], Fidelity, _),
     assertion(Fidelity == 'Sound').
 
 test(the_conflict_error_names_both_entries) :-
-    message_to_string(error(petta_contract_conflict('&c', [edge, a, _],
+    message_to_string(error(metta_contract_conflict('&c', [edge, a, _],
                                                     [edge, _, b], [edge, a, b]),
                             none), Message),
     once(sub_string(Message, _, _, _, "disagree")),
@@ -2082,7 +2082,7 @@ test(the_conflict_error_names_both_entries) :-
     \+ sub_string(Message, _, _, _, "Unknown error term").
 
 test(the_refusal_error_names_the_space_and_shape) :-
-    message_to_string(error(petta_refused_shape('&c', [secret, s1],
+    message_to_string(error(metta_refused_shape('&c', [secret, s1],
                                                 [secret, [in, _]]), none),
                       Message),
     once(sub_string(Message, _, _, _, "Refuse")),
@@ -2613,26 +2613,26 @@ test(scoped_pragmas_preflight_all_values_before_changing_any_setting,
 
 :- end_tests(interpreter_pragmas).
 
-%petta_transaction/1 at the predicate level, where the answer set is a plain
+%metta_transaction/1 at the predicate level, where the answer set is a plain
 %Prolog one and no MeTTa reduction stands between the goal and the count.
 :- begin_tests(transaction_answers).
 
 :- dynamic tx_probe/1.
 
 test(a_transaction_yields_every_solution_of_its_goal) :-
-    findall(X, petta_transaction(member(X, [a,b,c])), Answers),
+    findall(X, metta_transaction(member(X, [a,b,c])), Answers),
     assertion(Answers == [a,b,c]).
 
 test(a_goal_with_no_solution_fails_the_transaction) :-
-    assertion(\+ petta_transaction(fail)),
-    assertion(\+ petta_transaction(member(_, []))).
+    assertion(\+ metta_transaction(fail)),
+    assertion(\+ metta_transaction(member(_, []))).
 
 %Every solution's writes are inside the one transaction, so they land
 %together or not at all. retractall/1 rather than a fixture, because a
 %rolled-back transaction must leave the store exactly as it found it.
 test(every_solution_writes_inside_the_one_transaction) :-
     retractall(tx_probe(_)),
-    findall(X, petta_transaction(( member(X, [1,2,3]),
+    findall(X, metta_transaction(( member(X, [1,2,3]),
                                    assertz(tx_probe(X)) )), Answers),
     assertion(Answers == [1,2,3]),
     findall(P, tx_probe(P), Written),
@@ -2641,7 +2641,7 @@ test(every_solution_writes_inside_the_one_transaction) :-
 
 test(a_failure_after_several_writes_undoes_all_of_them) :-
     retractall(tx_probe(_)),
-    assertion(\+ petta_transaction(( member(X, [1,2,3]),
+    assertion(\+ metta_transaction(( member(X, [1,2,3]),
                                      assertz(tx_probe(X)),
                                      fail ))),
     findall(P, tx_probe(P), Written),
@@ -2649,7 +2649,7 @@ test(a_failure_after_several_writes_undoes_all_of_them) :-
 
 test(a_throw_after_several_writes_undoes_all_of_them) :-
     retractall(tx_probe(_)),
-    catch(petta_transaction(( member(X, [1,2,3]),
+    catch(metta_transaction(( member(X, [1,2,3]),
                               assertz(tx_probe(X)),
                               throw(tx_boom) )),
           Thrown, true),
@@ -2660,14 +2660,14 @@ test(a_throw_after_several_writes_undoes_all_of_them) :-
 %A nested transaction runs inside the outer one and collects for the same
 %reason: SWI's transaction/1 is once-like at every depth.
 test(a_nested_transaction_yields_every_solution_too) :-
-    findall(X, petta_transaction(petta_transaction(member(X, [a,b]))),
+    findall(X, metta_transaction(metta_transaction(member(X, [a,b]))),
             Answers),
     assertion(Answers == [a,b]).
 
 :- end_tests(transaction_answers).
 
 %The generated probe P1.7 and P1.8 ask for: every position the engine's own
-%type surface declares strict, on a builtin PeTTa defines, called with that
+%type surface declares strict, on a builtin MeTTa defines, called with that
 %position unbound and the rest filled. The table is guarded_input_position/3,
 %so this cannot go stale by hand: declaring a type for a new builtin adds a
 %row here in the same stroke.
@@ -2757,11 +2757,11 @@ test(a_declaration_witnesses_and_absence_answers_false,
     'has-declared-type'(unheralded, 'HDT', R3), R3 == false.
 
 test(unbound_inputs_are_refused,
-     [ throws(error(petta_unbound_input('has-declared-type', 1), _)) ]) :-
+     [ throws(error(metta_unbound_input('has-declared-type', 1), _)) ]) :-
     'has-declared-type'(_, 'HDT', _).
 
 test(an_unbound_type_is_refused,
-     [ throws(error(petta_unbound_input('has-declared-type', 2), _)) ]) :-
+     [ throws(error(metta_unbound_input('has-declared-type', 2), _)) ]) :-
     'has-declared-type'('hdt-probe', _, _).
 
 :- end_tests(metta_has_declared_type).
@@ -2816,7 +2816,7 @@ plant(Text) :- process_metta_string(Text, _).
 uninvertible(Text, Name, Reason) :-
     plant(Text),
     catch('add-translator-rule!'(Name, [[direction, bidirectional]], _),
-          error(petta_uninvertible_rule(Name, Got), _),
+          error(metta_uninvertible_rule(Name, Got), _),
           true),
     Reason = Got.
 
@@ -2855,14 +2855,14 @@ test(an_unknown_declaration_is_refused,
     'add-translator-rule!'('p2b-unknown', [[speed, fast]], _).
 
 test(a_declaration_written_twice_is_refused,
-     [ throws(error(petta_repeated_translator_rule_declaration(direction), _)) ]) :-
+     [ throws(error(metta_repeated_translator_rule_declaration(direction), _)) ]) :-
     'add-translator-rule!'('p2b-twice',
                            [[direction, forward], [direction, bidirectional]], _).
 
 test(a_second_declaration_for_one_name_is_refused,
      [ setup('add-translator-rule!'('p2b-once-only', _)),
        cleanup('remove-translator-rule!'('p2b-once-only', _)),
-       throws(error(petta_duplicate_translator_rule('p2b-once-only', []), _)) ]) :-
+       throws(error(metta_duplicate_translator_rule('p2b-once-only', []), _)) ]) :-
     'add-translator-rule!'('p2b-once-only', [[direction, forward]], _).
 
 :- end_tests(translator_rule_direction).
@@ -2916,25 +2916,25 @@ test(a_declared_cost_prices_every_form_headed_by_the_name,
     assertion(Plain == 2).
 
 test(a_left_side_without_a_right_side_is_refused,
-     [ throws(error(petta_conjunctive_left_side('p2b-halfrule', right), _)) ]) :-
+     [ throws(error(metta_conjunctive_left_side('p2b-halfrule', right), _)) ]) :-
     'add-translator-rule!'('p2b-halfrule',
                            [[left, [['p2b-halfrule', _]]]], _).
 
 test(a_right_side_without_a_left_side_is_refused,
-     [ throws(error(petta_conjunctive_left_side('p2b-orphan', missing), _)) ]) :-
+     [ throws(error(metta_conjunctive_left_side('p2b-orphan', missing), _)) ]) :-
     'add-translator-rule!'('p2b-orphan', [[right, [answer]]], _).
 
 % The first pattern of a conjunctive left side is the call being rewritten, so
 % a left side rooted at somebody else's name would register a rule that can
 % never fire.
 test(a_left_side_rooted_elsewhere_is_refused,
-     [ throws(error(petta_conjunctive_left_side('p2b-misrooted',
+     [ throws(error(metta_conjunctive_left_side('p2b-misrooted',
                                                 [elsewhere, _]), _)) ]) :-
     'add-translator-rule!'('p2b-misrooted',
                            [[left, [[elsewhere, _]]], [right, [answer]]], _).
 
 test(a_conjunctive_left_side_cannot_be_read_backwards,
-     [ throws(error(petta_uninvertible_rule(left, conjunctive_left_side), _)) ]) :-
+     [ throws(error(metta_uninvertible_rule(left, conjunctive_left_side), _)) ]) :-
     'add-translator-rule!'('p2b-bothways',
                            [[left, [['p2b-bothways', _]]], [right, [answer]],
                             [direction, bidirectional]], _).

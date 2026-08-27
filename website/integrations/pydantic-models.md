@@ -6,7 +6,7 @@ Guarantees: examples construct atoms through the canonical Expression type.
 
 # Pydantic models both ways
 
-PeTTa projects structured Python values into constructor expressions, keeps the declarations that describe their fields, and rebuilds Python objects from those atoms. Pydantic models use the same seam as dataclasses and plain annotated classes.
+MeTTa projects structured Python values into constructor expressions, keeps the declarations that describe their fields, and rebuilds Python objects from those atoms. Pydantic models use the same seam as dataclasses and plain annotated classes.
 
 Start with a model whose fields are a string and a number:
 
@@ -48,7 +48,7 @@ def test_pydantic_alias_fields_rebuild(metta):
     assert isinstance(rebuilt, Wire) and rebuilt.internal == 7
 ```
 
-The integration uses Pydantic 2's `model_fields` and `model_validate(..., by_name=True)` APIs. Pydantic is optional and has no PeTTa packaging extra, so install Pydantic separately before using this path.
+The integration uses Pydantic 2's `model_fields` and `model_validate(..., by_name=True)` APIs. Pydantic is optional and has no MeTTa packaging extra, so install Pydantic separately before using this path.
 
 Projection refuses extra fields because dropping them would make the round trip lossy:
 

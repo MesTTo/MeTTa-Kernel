@@ -148,7 +148,7 @@ conjunct_goal(Module, [Family|Parameters], [Rel|PatArgs], Module:Goal) :-
     Space = [Family|Parameters],
     space_parametric(Space),
     !,
-    Goal =.. ['$petta_parametric_atom', Rel|PatArgs].
+    Goal =.. ['$metta_parametric_atom', Rel|PatArgs].
 conjunct_goal(Module, Space, [Rel|PatArgs], Module:Goal) :-
     Goal =.. [Space, Rel|PatArgs].
 
@@ -178,7 +178,7 @@ native_expression(Module, [Family|Parameters], Rel, PatArgs) :-
     Space = [Family|Parameters],
     space_parametric(Space),
     !,
-    Term =.. ['$petta_parametric_atom', Rel|PatArgs],
+    Term =.. ['$metta_parametric_atom', Rel|PatArgs],
     call(Module:Term),
     acyclic_term(PatArgs).
 native_expression(Module, Space, Rel, PatArgs) :-
@@ -189,7 +189,7 @@ native_expression(Module, Space, Rel, PatArgs) :-
 'get-atoms'(Space, Pattern) :- nonvar(Space),
                                seam:foreign_space(Space), !,
                                refuse_absent_capability(Space, enumerate),
-                               petta_source_guard(Space),
+                               metta_source_guard(Space),
                                seam:foreign_atoms(Space, Pattern).
 
 %Get all atoms in space, irregard of arity. A first argument that is not a
@@ -201,7 +201,7 @@ native_expression(Module, Space, Rel, PatArgs) :-
 %[tested: test_get_atoms_on_an_unbound_space_names_the_operation].
 %The storage lookup decides it here too, for match/4's reason: a read of a
 %space the engine holds pays nothing, and only an unknown name reaches
-%petta_space_name/1. get_native_atom/3 rather than /2 because the lookup /2
+%metta_space_name/1. get_native_atom/3 rather than /2 because the lookup /2
 %would repeat has already happened in the condition.
 'get-atoms'([Family|Parameters], Pattern) :-
     Space = [Family|Parameters],
@@ -218,7 +218,7 @@ native_expression(Module, Space, Rel, PatArgs) :-
             ->  get_inherited_atom(Space, Module, Pattern)
             ;   get_native_atom(Module, Space, Pattern)
             )
-        ;   petta_space_name(Space)
+        ;   metta_space_name(Space)
         ->  fail
         ;   space_argument_error('get-atoms', [Space], Pattern)
         )
@@ -236,7 +236,7 @@ get_atom_read_link(Space, Pattern) :-
     seam:foreign_space(Space),
     !,
     refuse_absent_capability(Space, enumerate),
-    petta_source_guard(Space),
+    metta_source_guard(Space),
     seam:foreign_atoms(Space, Pattern).
 get_atom_read_link(Space, Pattern) :-
     native_storage_module_ready(Space, Module),
@@ -288,41 +288,41 @@ clear_foreign_atoms(Space) :-
 %[tested: capacity_counter_changes_roll_back_with_the_atoms,
 %capacity_redeclaration_recounts_writes_made_while_unbounded;
 %commit=819b139c7cdbdaa673f854713e8beb988eb12ead].
-:- dynamic petta_capacity_count/2.
-:- dynamic petta_capacity_remove_hook/2.
+:- dynamic metta_capacity_count/2.
+:- dynamic metta_capacity_remove_hook/2.
 
-petta_capacity_contract_added(Pool) :-
-    (   petta_capacity_admission_claim(Pool)
-    ->  petta_capacity_count_install(Pool)
+metta_capacity_contract_added(Pool) :-
+    (   metta_capacity_admission_claim(Pool)
+    ->  metta_capacity_count_install(Pool)
     ;   true
     ).
 
-petta_capacity_admission_claim(Pool) :-
+metta_capacity_admission_claim(Pool) :-
     atom_concat('space-admission-guard-', Pool, Guard),
-    petta_hook_claim(Pool, pre_add, Guard, _).
+    metta_hook_claim(Pool, pre_add, Guard, _).
 
-petta_capacity_count_claim(Pool) :-
-    (   '$petta_atoms:&petta':'&petta'(capacity, Pool, _)
-    ->  petta_capacity_count_install(Pool)
+metta_capacity_count_claim(Pool) :-
+    (   '$metta_atoms:&metta':'&metta'(capacity, Pool, _)
+    ->  metta_capacity_count_install(Pool)
     ;   true
     ).
 
-petta_capacity_count_install(Space) :-
+metta_capacity_count_install(Space) :-
     (   seam:foreign_space(Space)
     ->  true
-    ;   with_mutex('$petta_capacity_count',
-                   transaction(( (   petta_capacity_count(Space, _)
+    ;   with_mutex('$metta_capacity_count',
+                   transaction(( (   metta_capacity_count(Space, _)
                                  ->  true
                                  ;   space_atom_count_uncached(Space, Count),
-                                     assertz(petta_capacity_count(Space, Count))
+                                     assertz(metta_capacity_count(Space, Count))
                                  ),
-                                 petta_capacity_remove_hook_install(Space) )))
+                                 metta_capacity_remove_hook_install(Space) )))
     ).
 
-petta_capacity_count_uninstall(Space) :-
-    with_mutex('$petta_capacity_count',
-               transaction(( retractall(petta_capacity_count(Space, _)),
-                             forall(retract(petta_capacity_remove_hook(Space,
+metta_capacity_count_uninstall(Space) :-
+    with_mutex('$metta_capacity_count',
+               transaction(( retractall(metta_capacity_count(Space, _)),
+                             forall(retract(metta_capacity_remove_hook(Space,
                                                                        Ref)),
                                     catch(erase(Ref), _, true)) ))).
 
@@ -334,106 +334,106 @@ petta_capacity_count_uninstall(Space) :-
 %fixture=bindings/python/benchmarks/test_benchmarks.py::test_register_operation;
 %commit=819b139c7cdbdaa673f854713e8beb988eb12ead]. The clause and its reference are dynamic database state,
 %hence an enclosing transaction rolls their installation back with the claim.
-petta_capacity_remove_hook_install(Space) :-
-    (   petta_capacity_remove_hook(Space, _)
+metta_capacity_remove_hook_install(Space) :-
+    (   metta_capacity_remove_hook(Space, _)
     ->  true
     ;   asserta((remove_sexp(Space, Term, Removed) :-
                     !,
-                    petta_capacity_remove_sexp(Space, Term, Removed)), Ref),
-        assertz(petta_capacity_remove_hook(Space, Ref))
+                    metta_capacity_remove_sexp(Space, Term, Removed)), Ref),
+        assertz(metta_capacity_remove_hook(Space, Ref))
     ).
 
-petta_capacity_remove_sexp('&petta', [Rel|Args], Removed) :- !,
-    (   native_storage_module_ready('&petta', Module)
-    ->  Term =.. ['&petta', Rel|Args],
+metta_capacity_remove_sexp('&metta', [Rel|Args], Removed) :- !,
+    (   native_storage_module_ready('&metta', Module)
+    ->  Term =.. ['&metta', Rel|Args],
         native_retract_one(Module:Term, Removed),
         (   Removed == true
-        ->  petta_catalog_note_removed([Rel|Args])
+        ->  metta_catalog_note_removed([Rel|Args])
         ;   true
         )
     ;   Removed = false
     ),
-    petta_capacity_count_removed_known('&petta', Removed).
-petta_capacity_remove_sexp(Space, [Rel|Args], Removed) :- !,
+    metta_capacity_count_removed_known('&metta', Removed).
+metta_capacity_remove_sexp(Space, [Rel|Args], Removed) :- !,
     (   native_storage_module_ready(Space, Module)
     ->  native_storage_functor(Space, Functor),
         Term =.. [Functor, Rel|Args],
         native_retract_one(Module:Term, Removed)
     ;   Removed = false
     ),
-    petta_capacity_count_removed_known(Space, Removed).
-petta_capacity_remove_sexp(Space, Atom, Removed) :-
+    metta_capacity_count_removed_known(Space, Removed).
+metta_capacity_remove_sexp(Space, Atom, Removed) :-
     (   native_storage_module_ready(Space, Module)
-    ->  native_retract_one(Module:'$petta_native_scalar'(Atom), Removed)
+    ->  native_retract_one(Module:'$metta_native_scalar'(Atom), Removed)
     ;   Removed = false
     ),
-    petta_capacity_count_removed_known(Space, Removed).
+    metta_capacity_count_removed_known(Space, Removed).
 
-petta_capacity_counts_prune :-
-    findall(Pool, petta_capacity_count(Pool, _), Pools0),
+metta_capacity_counts_prune :-
+    findall(Pool, metta_capacity_count(Pool, _), Pools0),
     sort(Pools0, Pools),
     forall(member(Pool, Pools),
-           (   '$petta_atoms:&petta':'&petta'(capacity, Pool, _)
+           (   '$metta_atoms:&metta':'&metta'(capacity, Pool, _)
            ->  true
-           ;   petta_capacity_count_uninstall(Pool)
+           ;   metta_capacity_count_uninstall(Pool)
            )).
 
-petta_capacity_count_added(Space, [=, [F|_], _]) :-
+metta_capacity_count_added(Space, [=, [F|_], _]) :-
     atom(F),
     !,
-    petta_capacity_count_recount(Space).
-petta_capacity_count_added(Space, _) :-
-    petta_capacity_count_delta(Space, 1).
+    metta_capacity_count_recount(Space).
+metta_capacity_count_added(Space, _) :-
+    metta_capacity_count_delta(Space, 1).
 
-petta_capacity_count_added_known(Space, [=, [F|_], _]) :-
+metta_capacity_count_added_known(Space, [=, [F|_], _]) :-
     atom(F),
     !,
-    petta_capacity_count_recount(Space).
-petta_capacity_count_added_known(Space, _) :-
-    petta_capacity_count_delta_known(Space, 1).
+    metta_capacity_count_recount(Space).
+metta_capacity_count_added_known(Space, _) :-
+    metta_capacity_count_delta_known(Space, 1).
 
-petta_capacity_count_removed_known(_, false) :- !.
-petta_capacity_count_removed_known(Space, true) :-
-    petta_capacity_count_delta_known(Space, -1).
+metta_capacity_count_removed_known(_, false) :- !.
+metta_capacity_count_removed_known(Space, true) :-
+    metta_capacity_count_delta_known(Space, -1).
 
-petta_capacity_count_delta(Space, Delta) :-
-    (   petta_capacity_count(Space, _)
-    ->  petta_capacity_count_delta_known(Space, Delta)
+metta_capacity_count_delta(Space, Delta) :-
+    (   metta_capacity_count(Space, _)
+    ->  metta_capacity_count_delta_known(Space, Delta)
     ;   true
     ).
 
-petta_capacity_count_delta_known(Space, Delta) :-
-    with_mutex('$petta_capacity_count',
-               transaction(( (   retract(petta_capacity_count(Space, Count0))
+metta_capacity_count_delta_known(Space, Delta) :-
+    with_mutex('$metta_capacity_count',
+               transaction(( (   retract(metta_capacity_count(Space, Count0))
                              ->  Count1 is Count0 + Delta,
                                  (   Count1 >= 0
                                  ->  Count = Count1
                                  ;   space_atom_count_uncached(Space, Count)
                                  ),
-                                 assertz(petta_capacity_count(Space, Count))
+                                 assertz(metta_capacity_count(Space, Count))
                              ;   true
                              ) ))).
 
-petta_capacity_count_recount(Space) :-
-    (   petta_capacity_count(Space, _)
-    ->  with_mutex('$petta_capacity_count',
+metta_capacity_count_recount(Space) :-
+    (   metta_capacity_count(Space, _)
+    ->  with_mutex('$metta_capacity_count',
                    ( space_atom_count_uncached(Space, Count),
-                     transaction(( retractall(petta_capacity_count(Space, _)),
-                                   assertz(petta_capacity_count(Space, Count)) )) ))
+                     transaction(( retractall(metta_capacity_count(Space, _)),
+                                   assertz(metta_capacity_count(Space, Count)) )) ))
     ;   true
     ).
 
-petta_capacity_count_cleared('&petta') :-
+metta_capacity_count_cleared('&metta') :-
     !,
-    with_mutex('$petta_capacity_count',
-               transaction(( retractall(petta_capacity_count(_, _)),
-                             forall(retract(petta_capacity_remove_hook(_, Ref)),
+    with_mutex('$metta_capacity_count',
+               transaction(( retractall(metta_capacity_count(_, _)),
+                             forall(retract(metta_capacity_remove_hook(_, Ref)),
                                     catch(erase(Ref), _, true)) ))).
-petta_capacity_count_cleared(Space) :-
-    (   petta_capacity_count(Space, _)
-    ->  with_mutex('$petta_capacity_count',
-                   transaction(( retractall(petta_capacity_count(Space, _)),
-                                 assertz(petta_capacity_count(Space, 0)) )))
+metta_capacity_count_cleared(Space) :-
+    (   metta_capacity_count(Space, _)
+    ->  with_mutex('$metta_capacity_count',
+                   transaction(( retractall(metta_capacity_count(Space, _)),
+                                 assertz(metta_capacity_count(Space, 0)) )))
     ;   true
     ).
 
@@ -449,11 +449,11 @@ petta_capacity_count_cleared(Space) :-
 %is an enumeration; hiding that would promise the wrong complexity class
 %[tested: spaces_atom_count:a_foreign_space_has_no_native_count].
 space_atom_count(Space, Count) :-
-    petta_capacity_count(Space, Count),
+    metta_capacity_count(Space, Count),
     !.
 space_atom_count(Space, Count) :-
     (   seam:foreign_space(Space)
-    ->  throw(error(petta_foreign_space_count(Space), none))
+    ->  throw(error(metta_foreign_space_count(Space), none))
     ;   space_atom_count_uncached(Space, Count)
     ).
 
@@ -481,10 +481,10 @@ clear_native_atoms(Space) :-
         forall(( current_predicate(Module:Functor/Arity),
                  functor(Head, Functor, Arity) ),
                retractall(Module:Head)),
-        retractall(Module:'$petta_native_scalar'(_))
+        retractall(Module:'$metta_native_scalar'(_))
     ;   SupportModule = none
     ),
-    petta_capacity_count_cleared(Space),
+    metta_capacity_count_cleared(Space),
     retractall(import_life(Space, _, _)),
     (   SupportModule \== none
     ->  support_forget_module(SupportModule)
@@ -542,7 +542,7 @@ metta_refuse_module_for_space(Space, Door) :-
     (   atom(Space),
         (   metta_exec_module_prefix(Prefix),
             sub_atom(Space, 0, _, _, Prefix)
-        ;   sub_atom(Space, 0, _, _, '$petta_param_exec:')
+        ;   sub_atom(Space, 0, _, _, '$metta_param_exec:')
         )
     ->  throw(error(type_error(metta_space_name, Space),
                     context(Door,
@@ -573,8 +573,8 @@ get_native_atom(Module, [Family|Parameters], Pattern) :-
     space_parametric(Space),
     !,
     length(Pattern, Arity),
-    functor(Head, '$petta_parametric_atom', Arity),
-    Head =.. ['$petta_parametric_atom'|Pattern],
+    functor(Head, '$metta_parametric_atom', Arity),
+    Head =.. ['$metta_parametric_atom'|Pattern],
     call(Module:Head),
     acyclic_term(Pattern).
 get_native_atom(Module, Space, Pattern) :-
@@ -590,13 +590,13 @@ get_native_atom(Module, Space, Pattern) :-
 %open, so one storage head cannot be built, but the held arities are a small
 %enumerable set and within each the first argument dispatches exactly as
 %above. Without this pair an open-tail probe fell to the clause/2 walk below
-%and read every stored atom: lib_tabling's `'get-atoms'('&petta', [tabled|_])`
+%and read every stored atom: lib_tabling's `'get-atoms'('&metta', [tabled|_])`
 %existence check, run per compiled equation, cost the whole catalog per event,
 %23.7 inferences per held row over one tabling_fib load, linear from 74,268
 %inferences at +0 planted rows through 78,777 at +200 to 97,977 at +1,000
 %[measured: the three totals left; command=python - with MeTTa().space then
 %m.stats() around m.run(examples/libraries/tabling_fib.metta) after N
-%`!(add-atom &petta (visibility dummy-N PUBLIC))` writes, fresh process per
+%`!(add-atom &metta (visibility dummy-N PUBLIC))` writes, fresh process per
 %N; fixture=p14-integration with engine/reader.so; commit=2b2d6f3e36d259e789ad7d977eebc3623b002970]. A bound
 %head that is itself compound shares one principal functor across such rows
 %and degrades toward the walk only for that shape. The head decomposes into
@@ -613,9 +613,9 @@ get_native_atom(Module, [Family|Parameters], Pattern) :-
     Space = [Family|Parameters],
     space_parametric(Space),
     !,
-    current_predicate(Module:'$petta_parametric_atom'/Arity),
+    current_predicate(Module:'$metta_parametric_atom'/Arity),
     Arity >= 1,
-    functor(Head, '$petta_parametric_atom', Arity),
+    functor(Head, '$metta_parametric_atom', Arity),
     arg(1, Head, Rel),
     call(Module:Head),
     Head =.. [_|Args],
@@ -640,10 +640,10 @@ get_native_atom(Module, [Family|Parameters], Pattern) :-
     Space = [Family|Parameters],
     space_parametric(Space),
     !,
-    current_predicate(Module:'$petta_parametric_atom'/Arity),
-    functor(Head, '$petta_parametric_atom', Arity),
+    current_predicate(Module:'$metta_parametric_atom'/Arity),
+    functor(Head, '$metta_parametric_atom', Arity),
     clause(Module:Head, true),
-    Head =.. ['$petta_parametric_atom'|Pattern].
+    Head =.. ['$metta_parametric_atom'|Pattern].
 get_native_atom(Module, Space, Pattern) :-
     \+ atomic(Pattern),
     current_predicate(Module:Space/Arity),
@@ -654,4 +654,4 @@ get_native_atom(Module, _, Pattern) :-
     get_native_scalar_atom_in(Module, Pattern).
 
 get_native_scalar_atom_in(Module, Pattern) :-
-    Module:'$petta_native_scalar'(Pattern).
+    Module:'$metta_native_scalar'(Pattern).

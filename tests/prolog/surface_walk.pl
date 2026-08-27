@@ -168,11 +168,11 @@ tree_directory(Relative, Directory) :-
 % Both callers used to assume `user`, which is where &self's compiled clauses
 % and the engine's own seams lived because nothing in the tree had given them
 % a module of their own. Phase 11 gives &self the execution module
-% '$petta_exec:&self' and every other space '$petta_exec:<Space>' beside it,
+% '$metta_exec:&self' and every other space '$metta_exec:<Space>' beside it,
 % each based on the module engine/metta.pl itself loaded into. A check that keeps
 % naming `user` then examines the one module nothing compiles into any more
 % and reports clean, which is the failure this section exists to close. The
-% survey planned a shared '$petta_core' under both; the engine's own module is
+% survey planned a shared '$metta_core' under both; the engine's own module is
 % that base as shipped, since nothing needed moving out of it
 % [source: engine/spaces.pl's spaces:metta_exec_module_base/2, and
 % ai-phase11-module-survey.md section 2.1, workspace root, for the plan].

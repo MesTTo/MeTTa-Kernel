@@ -149,8 +149,8 @@ test(printing_named_variables_does_not_bind_or_strip_constraints) :-
     DomainAfter == DomainBefore.
 
 test(answer_group_uses_each_collected_side_map) :-
-    Answers = ['$petta_answer'([left, X], [x-X]),
-               '$petta_answer'([right, Y], [y-Y])],
+    Answers = ['$metta_answer'([left, X], [x-X]),
+               '$metta_answer'([right, Y], [y-Y])],
     parser:swrite_answer_group(Answers, Written),
     Written == "((left $x) (right $y))".
 
@@ -188,7 +188,7 @@ test(comment_is_a_number_token_boundary) :-
 %CR, NEL and U+2028 [source 2026-08-21: LeaTTa
 %MettaHyperonFull/Runtime/Parser.lean:58, tokenizeAux comment branch at 66-67].
 %The row originally expected a reader change based on Hyperon's CR behavior;
-%the arbiter instead makes PeTTa's existing LF-only reader the conforming one.
+%the arbiter instead makes this engine's existing LF-only reader the conforming one.
 test(test_a_comment_terminates_on_the_class_the_arbiter_rules) :-
     sread("(a ; comment\n b)", LfTerm),
     LfTerm == [a, b],

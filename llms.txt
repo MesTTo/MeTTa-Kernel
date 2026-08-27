@@ -1,4 +1,4 @@
-# PeTTa
+# MeTTa
 
 > MeTTa, Hyperon's AGI language, implemented in SWI-Prolog, with `metta` as its
 > Python surface. Atoms are Python values, spaces are queryable stores,
@@ -49,7 +49,7 @@ every run.
 
 ## Install and first call
 
-`pip install .` (the runtime is bundled) or point `PETTA_PATH` at a clone.
+`pip install .` (the runtime is bundled) or point `METTA_PATH` at a clone.
 
 ```python
 from metta import MeTTa, S, V, G, ground, Expression, equation, rules, parse
@@ -197,7 +197,7 @@ variable renaming), `PatternMap` (a MutableMapping keyed by atoms),
 view kept current by the space's own writes), `ClosureView` (reachability over a
 stored relation), `TabledMap` (a computed cache that stays correct).
 
-`&petta` is the space in which the library describes itself, and it is where
+`&metta` is the space in which the library describes itself, and it is where
 every declaration below is stored. The catalog describes its own kinds there:
 `(kind head argspec...)` rows declare each declaration's shape,
 `(vocabulary name value...)` rows declare the value sets, and
@@ -215,13 +215,13 @@ arbiter-owned-language-law, codec-version-identity, or
 documented-collision-decision, with a reason and an existing local source line
 or symbol. Only catalog preset terms in `engine/spaces.pl` and the generated
 `metta.vocabularies` output are authority rather than independent lists. One
-generic checker validates every `&petta` write against them, a violation is a hard
+generic checker validates every `&metta` write against them, a violation is a hard
 error naming the atom, the position and the argspec, and a head with no kind
 row passes untouched, so third-party declaration kinds are ordinary data
 until their author declares a kind row for them.
 
 Function dispatch has six axes. Match `(dispatch-default $axis $value)` in
-`&petta` to read their shipped defaults, and add
+`&metta` to read their shipped defaults, and add
 `(dispatch-policy f NoMatchEnum NoMatchFail)` to override one axis for one
 function. The axes are `MismatchEnum`, `NoMatchEnum`, `EvaluationOrderEnum`,
 `FunctionResultEnum`, `ClauseFailedEnum`, and `OutOfClausesEnum`; each axis's
@@ -247,7 +247,7 @@ The ordered `EffectClass` members are `pureStructural`, `readOnlyLookup`,
 the strongest member: `EffectClass.compose(effects)` folds that join and an
 empty plan is `pureStructural`. Generators and generator inverses require at
 least `nondeterministicReadOnly`. Every registration publishes its canonical
-`(effect name class)` row in `&petta`; missing metadata refuses before engine
+`(effect name class)` row in `&metta`; missing metadata refuses before engine
 state changes and names all five remedies. The retired input spellings map as
 `immutable -> pureStructural`, `stable -> readOnlyLookup`, and
 `volatile -> oracleIO`. Only the canonical names appear in `EffectClass` and
@@ -281,7 +281,7 @@ is why an `Optional` return declares the value type. An unannotated callable
 makes no type claim. `(arguments name atoms)` asks for Atom wrappers after
 ordinary evaluation, while an `Atom` annotation receives the written term
 before evaluation. Only `(effect name pureStructural)` licenses caching. These
-policy atoms live in `&petta`; `(op name arity raw_det|raw_many)` records raw
+policy atoms live in `&metta`; `(op name arity raw_det|raw_many)` records raw
 transport.
 
 `@m.define` compiles the Python BODY into MeTTa equations. Calling the resulting
@@ -296,7 +296,7 @@ docstring, lexical free variables, and a conservative effect class. Those
 values are available on `Defined`; each clause joins the classes of the
 operations it calls, stacked clauses join again, and `source-span`,
 `free-variable`, and the resulting `effect ... <class>` atom reflect in
-`&petta`. Replacement and `clear()` retire stale facts. `Defined.pure` remains
+`&metta`. Replacement and `clear()` retire stale facts. `Defined.pure` remains
 the compatibility projection of
 `Defined.effect is EffectClass.pureStructural`.
 `@rules` executes a generator with one rule-local `Var` per parameter and
@@ -364,7 +364,7 @@ each is a `Space` method, so any space handle answers for its own view.
 
 ## Declarations: how a space behaves, written as atoms
 
-Each `m.declare_*` writes one atom into `&petta` and returns it; removing that
+Each `m.declare_*` writes one atom into `&metta` and returns it; removing that
 atom withdraws the declaration. Coherence is checked eagerly in the same
 transaction as the write, so a new entry that could disagree with an existing
 one fails there, naming both, rather than on the first query in their overlap.
@@ -442,10 +442,10 @@ m.stats()      with-block yielding .inferences (deterministic, gate on this),
 m.profile(src) -> (groups, EngineProfile), per predicate
 m.profile_extension(src, extension=, names=)  only YOUR functions
 m.prolog()                    the engine's own interactive toplevel
-metta.engine().info() -> versions of metta, janus, swi_prolog, python, petta_path
+metta.engine().info() -> versions of metta, janus, swi_prolog, python, metta_path
 ```
 
-Errors: `PettaError` is the base, then `EngineError`, `MettaSyntaxError`,
+Errors: `MettaError` is the base, then `EngineError`, `MettaSyntaxError`,
 `CastError`, `CompileError`, `StrictError`, `SourceNotFound`,
 `MettaResultError`, `TransportFailure`, and `ResourceLimitError` with
 `TimeLimitError` and `InferenceLimitError` under it, plus `Interrupted`.
@@ -505,7 +505,7 @@ so it computes compatible shapes, runs backwards to infer dimensions, and
 rejects incompatible shapes before a tensor is materialised.
 
 `metta.tables`: `declare(...)` writes one ctx-scoped bridge declaration into
-`&petta` and `TableBridge` derives every provider operation from it, so a
+`&metta` and `TableBridge` derives every provider operation from it, so a
 DB-API connection (the `Executes` slice) answers MeTTa matches.
 `metta.space(journal=path)` is journalled and crash-recovering, and
 `metta.space(backing=url)` mounts a remote store; both ride the one
@@ -535,7 +535,7 @@ the whole permitted inward surface
 (text: `swrite/2`, `sdisplay/2`, `sdisplay_with_names/3`, `sread/2`,
 `metta_symbol_writable/1`, `metta_unwritable_symbol/2`,
 `metta_reader_token_class/3`, `metta_reader_token_source/2`;
-source: `petta_source/2` for a context's declared source discipline,
+source: `metta_source/2` for a context's declared source discipline,
 `parse_metta_source/2` with `parsed_form_parts/4` to take one form
 apart, `active_source_program/1` to detect a definition batch,
 `current_working_dir/1` for what a relative path resolves against,
@@ -544,7 +544,7 @@ apart, `active_source_program/1` to detect a definition batch,
 stream a scope buffers and then publishes or drops, `observation_defer/2`
 pairing a commit goal with its rollback so a launch happens only after the
 transaction commits, and
-`petta_source/2` to expose source metadata, and `petta_vocabulary_value/2` so a
+`metta_source/2` to expose source metadata, and `metta_vocabulary_value/2` so a
 library validates an option against the same declared vocabulary the engine
 reads;
 compiler: `metta_special_form_head/1`, every head the translator gives special
@@ -556,8 +556,8 @@ silently the moment the translator became a module of its own, and
 errors: `throw_metta_type_error/3`, `rethrow_metta_operation_error/2`,
 `refuse_unbound_input/2`;
 context: `current_metta_module/1`, `current_metta_space/1`, `space_module/2`,
-`metta_module_space/2`, `petta_space_name/1`, and `eval_metta_in_module/3` to
-run an expression in the module a space compiles into, plus `petta_source/2`
+`metta_module_space/2`, `metta_space_name/1`, and `eval_metta_in_module/3` to
+run an expression in the module a space compiles into, plus `metta_source/2`
 to read the declared consumption discipline of a context;
 platform: `metta_requires/1` for a Prolog source to declare the platform
 capability it needs, so a build without it refuses the file at load instead of
@@ -568,17 +568,17 @@ native storage: `native_storage_module/2`, `native_storage_functor/2`,
 `ensure_native_storage_module/2` and `native_atom_clause/3`, the same doors an
 ordinary atom write uses, so a library that pre-generates a space's storage
 writes the one format the space reads;
-effects and caching: `petta_effect_class_canonical/2`, `petta_effect_rank/2`,
-`petta_effect_join/3`, `petta_effect_compose/2`, `petta_operation_effect/2`,
-`petta_operation_plan_effect/2`, `metta_effect_walk/3`,
+effects and caching: `metta_effect_class_canonical/2`, `metta_effect_rank/2`,
+`metta_effect_join/3`, `metta_effect_compose/2`, `metta_operation_effect/2`,
+`metta_operation_plan_effect/2`, `metta_effect_walk/3`,
 `metta_function_cacheable/1`, and `metta_cache_unchecked/1`, with
 `support_record/2`, `support_invalidate/1` and `support_forget/1` for taking
 part in the support graph whose handler seams the engine already declares,
 plus `support_memo_sccs/2` and `support_memo_take_change/2` for its call-graph
 SCC view and changed-edge signal;
-foreign spaces: `petta_shape_route/5` for the routed view of any shape-routed
+foreign spaces: `metta_shape_route/5` for the routed view of any shape-routed
 declaration kind, `foreign_pushdown_class/3` and `foreign_provides/2`, the
-routing classifier and capability probe, `petta_require_events/2`, which
+routing classifier and capability probe, `metta_require_events/2`, which
 refuses a wait on a context that promises no change events, `match_foreign/4`
 for the library that checks a provider's contract, and
 `run_with_loading_marker/2` for a library that performs an import of its
@@ -825,7 +825,7 @@ regression. Check `/proc/loadavg` before trusting any timing.
 `pettorch` connects PyTorch through `metta.arrays` and `metta.integrate` and
 adds autograd operations, module wrappers, training helpers and neural
 predicates; `website/guide/pettorch.md` is its page here.
-`petta-fabric-pc` projects a FabricPC predictive-coding network into a space, so
+`metta-fabric-pc` projects a FabricPC predictive-coding network into a space, so
 settling, attention and comparison are MeTTa rather than Python.
 Neither is a special case in the engine: both are ordinary users of
 `op`, `arrays.install`, `integrate.facts` and the provider seam.

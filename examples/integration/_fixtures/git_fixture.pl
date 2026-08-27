@@ -8,7 +8,7 @@
 %   - the path it answers is a git repository whose HEAD holds fixture.metta,
 %     and no earlier checkout of it survives the call
 %     [tested: examples/integration/git_import.metta]
-% Owns: <Base>/.sources/petta_fixture_lib and <Base>/petta_fixture_lib, both
+% Owns: <Base>/.sources/metta_fixture_lib and <Base>/metta_fixture_lib, both
 %   deleted and rebuilt per call. Nothing else may keep files there.
 % Open Obligations:
 %   To Do: None
@@ -18,7 +18,7 @@
 :- use_module(library(filesex)).
 :- use_module(library(process)).
 
-git_fixture_name(petta_fixture_lib).
+git_fixture_name(metta_fixture_lib).
 
 %Function-form convention, so MeTTa imports this as a one-argument function:
 %the base directory goes in, the clone URL comes out.
@@ -56,7 +56,7 @@ git_fixture_commit(Dir) :-
     git_fixture_run(Dir, [init, '-q']),
     git_fixture_run(Dir, [add, 'fixture.metta']),
     git_fixture_run(Dir, ['-c', 'user.email=fixture@metta.invalid',
-                          '-c', 'user.name=petta fixture',
+                          '-c', 'user.name=metta fixture',
                           commit, '-q', '-m', 'fixture library']).
 
 git_fixture_run(Dir, Arguments) :-
@@ -69,6 +69,6 @@ git_fixture_run(Dir, Arguments) :-
     process_wait(PID, Status),
     ( Status == exit(0)
       -> true
-    ; throw(error(petta_git_fixture_failed(Arguments, Status, Diagnostic),
+    ; throw(error(metta_git_fixture_failed(Arguments, Status, Diagnostic),
                   context(git_fixture_run/2,
                           'could not build the local git fixture'))) ).

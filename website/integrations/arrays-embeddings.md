@@ -6,7 +6,7 @@ Guarantees: synchronous examples use space(), ground(), Expression, and wire.dec
 
 # Arrays and embeddings
 
-PeTTa gives conforming array libraries one MeTTa operation vocabulary. DLPack recognizes array objects and transfers values between libraries. `array-api-compat` supplies the operation namespace. DLPack is not the operation API.
+This library gives conforming array libraries one MeTTa operation vocabulary. DLPack recognizes array objects and transfers values between libraries. `array-api-compat` supplies the operation namespace. DLPack is not the operation API.
 
 ## Use one operation set
 

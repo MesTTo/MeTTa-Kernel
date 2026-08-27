@@ -86,7 +86,7 @@ relational_input_position(member, 2).
 relational_input_position('is-member', 2).
 relational_input_position('is-alpha-member', 2).
 
-%A position PeTTa promises to refuse. A name lent to MeTTa from SWI (msort,
+%A position this engine promises to refuse. A name lent to MeTTa from SWI (msort,
 %append, sort, maplist, length) keeps Prolog's own relational behaviour and
 %its own errors, because under that name it IS the Prolog predicate; that is
 %a boundary rather than an omission, and imported_from/1 is where the engine
@@ -117,13 +117,13 @@ unguarded_input_position(_, _) :- fail.
 %The formal stays ISO so a MeTTa (catch ...) and the Python boundary can both
 %read it, exactly as throw_metta_type_error/3 keeps its own.
 refuse_unbound_input(Operation, Position) :-
-    throw(error(petta_unbound_input(Operation, Position),
+    throw(error(metta_unbound_input(Operation, Position),
                 context(Operation, 'invalid MeTTa operation argument'))).
 
 :- multifile prolog:error_message//1.
 %The operation's own name is the CONTEXT's to print, exactly as it is for
 %`+: number expected, found "s"`, so it is not repeated here.
-prolog:error_message(petta_unbound_input(_, Position)) -->
+prolog:error_message(metta_unbound_input(_, Position)) -->
     [ 'a value expected in argument ~w, found an unbound variable'-[Position] ].
 
 %%% Taking an expression apart, and the grounded values that also read as one.
@@ -157,7 +157,7 @@ prolog:error_message(petta_unbound_input(_, Position)) -->
 'cdr-atom'(Term, []) :- \+ Term = [_|_].
 decons(Term, _) :- var(Term), !, refuse_unbound_input(decons, 1).
 decons([H|T], [H|[T]]).
-%The same contract as 'cons-atom'/3 above, under PeTTa's own spelling and its
+%The same contract as 'cons-atom'/3 above, under MeTTa's own spelling and its
 %own declaration `(: cons (-> Atom Expression Expression))`. An unbound tail
 %still builds, which is what makes this the PATTERN constructor lib_roman
 %writes `(cons $x $xs)` with; a tail that is decidedly not an Expression is
@@ -237,7 +237,7 @@ member_alpha(X, [_|T]) :- member_alpha(X, T).
 
 %Remove the first element identical to X, keeping the rest in order. select/3
 %unifies instead, which both answers wrongly and binds the caller's variables:
-%(subtraction-atom ($x) (a)) came back () with $x bound to a. PeTTa's own
+%(subtraction-atom ($x) (a)) came back () with $x bound to a. MeTTa's own
 %formalisation removes by equality, in leanPeTTa/StreamOps.lean:
 %  removeFirstEq (x : Pattern) : List Pattern -> Option (List Pattern)
 %    | y :: ys => if y == x then some ys else ...

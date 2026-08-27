@@ -24,14 +24,14 @@ def _metta_python() -> Path:
     override = os.environ.get("METTA_PYTHON")
     candidates = [Path(override)] if override else [
         REPO / "python",
-        DEV / "PyPeTTa1" / "PeTTa" / "python",
-        DEV / "PeTTa" / "python",
+        DEV / "PyPeTTa1" / "MeTTa" / "python",
+        DEV / "MeTTa" / "python",
     ]
     for candidate in candidates:
         if (candidate / "metta" / "__init__.py").exists():
             return candidate
     raise RuntimeError(
-        "metta was not found; set METTA_PYTHON to a PeTTa checkout's "
+        "metta was not found; set METTA_PYTHON to a MeTTa checkout's "
         "python/ directory"
     )
 
@@ -53,7 +53,7 @@ def _pettagrapher_python() -> Path:
 METTA_PYTHON = _metta_python()
 PETTAGRAPHER_PYTHON = _pettagrapher_python()
 sys.path[:0] = [str(METTA_PYTHON), str(PETTAGRAPHER_PYTHON)]
-os.environ.setdefault("PETTA_PATH", str(METTA_PYTHON.parent))
+os.environ.setdefault("METTA_PATH", str(METTA_PYTHON.parent))
 
 import mettagrapher as pg
 from metta import MeTTa, S, V

@@ -27,26 +27,26 @@
 :- ensure_loaded('../../engine/metta.pl').
 
 %Read one MeTTa term and parse it as a pattern side. Both halves matter: sread
-%gives the surface the program wrote, and petta_seq_parse/2 is what decides
+%gives the surface the program wrote, and metta_seq_parse/2 is what decides
 %which markers in it are live gaps.
 parsed(Text, Parsed) :-
     sread(Text, Term),
-    spaces:petta_seq_parse(Term, Parsed).
+    spaces:metta_seq_parse(Term, Parsed).
 
 %Two sides of ONE read, so a name written on both shares its variable. Reading
 %them separately is the trap: `$x` in two sreads is two variables, and the
 %linearity and mixed-role rules both decide by identity.
 pair(Text, Left, Right) :-
     sread(Text, [_, LeftTerm, RightTerm]),
-    spaces:petta_seq_parse(LeftTerm, Left),
-    spaces:petta_seq_parse(RightTerm, Right).
+    spaces:metta_seq_parse(LeftTerm, Left),
+    spaces:metta_seq_parse(RightTerm, Right).
 
 %Every answer of one solver, as the runs its gaps took.
 runs(Case, Left, Right, Runs) :-
-    findall(Left, spaces:petta_seq_unify(Case, Left, Right), Runs).
+    findall(Left, spaces:metta_seq_unify(Case, Left, Right), Runs).
 
 refusal(Left, Right, Message) :-
-    catch(( spaces:petta_seq_classify(Left, Right, Case),
+    catch(( spaces:metta_seq_classify(Left, Right, Case),
             Message = admitted(Case) ),
           error(Error, _),
           message_text(Error, Message)).
@@ -74,8 +74,8 @@ test(both_spellings_parse_to_gaps) :-
     parsed('(A (:seg $x) D)', Named),
     Anonymous = ['A', AnonymousGap, 'D'],
     Named = ['A', NamedGap, 'D'],
-    AnonymousGap = '$petta_seg'(_, anon),
-    NamedGap = '$petta_seg'(_, named).
+    AnonymousGap = '$metta_seg'(_, anon),
+    NamedGap = '$metta_seg'(_, named).
 
 %A colon-seg expression whose second position is not a variable is ordinary
 %data, which is the recogniser's own condition.
@@ -87,7 +87,7 @@ test(a_bound_second_position_is_data) :-
 %MettaHyperonFull/Core/SeqSyntax.lean, parseSeqAtom].
 test(the_root_is_never_a_gap) :-
     sread('(:seg $r)', Term),
-    spaces:petta_seq_parse(Term, Parsed),
+    spaces:metta_seq_parse(Term, Parsed),
     Parsed = [':seg', Variable],
     var(Variable).
 
@@ -98,7 +98,7 @@ test(the_root_is_never_a_gap) :-
 %[source: LeaTTa MettaHyperonFull/Core/SeqSyntax.lean, parseConcreteAtom].
 test(a_marker_behind_a_variable_is_not_a_gap) :-
     sread('(A $p D)', Term),
-    \+ spaces:petta_seq_present(Term),
+    \+ spaces:metta_seq_present(Term),
     %And the door that answer selects still matches the marker as the atom it
     %is, which is what a program relying on the data reading needs.
     metta_add_atom('&j5late', ['A', '...', 'D'], _),
@@ -110,11 +110,11 @@ test(a_marker_behind_a_variable_is_not_a_gap) :-
 
 test(a_gap_free_pattern_reports_no_gap) :-
     sread('(A $x (inner b))', Term),
-    \+ spaces:petta_seq_present(Term).
+    \+ spaces:metta_seq_present(Term).
 
 test(a_nested_gap_is_reported) :-
     sread('(A (inner ...))', Term),
-    spaces:petta_seq_present(Term).
+    spaces:metta_seq_present(Term).
 
 :- end_tests(segments_parsing).
 
@@ -126,25 +126,25 @@ test(a_nested_gap_is_reported) :-
 test(a_gap_free_side_is_one_sided) :-
     parsed('(A ... D)', Left),
     sread('(A b c D)', Right),
-    spaces:petta_seq_classify(Left, Right, Case),
+    spaces:metta_seq_classify(Left, Right, Case),
     Case == one_sided(left).
 
 test(the_gap_free_side_may_be_either) :-
     pair('(pair (a b c) (a ... c))', Left, Right),
-    spaces:petta_seq_classify(Left, Right, Case),
+    spaces:metta_seq_classify(Left, Right, Case),
     Case == one_sided(right).
 
 %Kutsia Section 6.3: every gap the last child of its own expression.
 test(trailing_gaps_are_last_position) :-
     pair('(pair (f a (:seg $u)) (f a b (:seg $v)))', Left, Right),
-    spaces:petta_seq_classify(Left, Right, Case),
+    spaces:metta_seq_classify(Left, Right, Case),
     Case == last_position.
 
 %Kutsia Section 6.2: every gap a direct child of the root, every named gap
 %linear across the pair.
 test(root_level_linear_gaps_are_linear_shallow) :-
     pair('(pair (f (:seg $u) b) (f a (:seg $v)))', Left, Right),
-    spaces:petta_seq_classify(Left, Right, Case),
+    spaces:metta_seq_classify(Left, Right, Case),
     Case == linear_shallow.
 
 %The commuting equation Kutsia's Theorem 62 refutes: `X u = u X` has the family
@@ -188,8 +188,8 @@ test(splits_enumerate_shortest_first) :-
     parsed('($pre ... SEP ... $post)', Left),
     sread('(a b SEP c SEP d)', Right),
     findall(Run,
-            (   spaces:petta_seq_unify(one_sided(left), Left, Right),
-                Left = [_, '$petta_seg'(Run, _)|_]
+            (   spaces:metta_seq_unify(one_sided(left), Left, Right),
+                Left = [_, '$metta_seg'(Run, _)|_]
             ),
             Runs),
     Runs == [[b], [b, 'SEP', c]].
@@ -198,20 +198,20 @@ test(a_gap_takes_the_empty_run) :-
     parsed('(A ... D)', Left),
     sread('(A D)', Right),
     runs(one_sided(left), Left, Right, Answers),
-    Answers == [['A', '$petta_seg'([], anon), 'D']].
+    Answers == [['A', '$metta_seg'([], anon), 'D']].
 
 test(a_named_gap_answers_its_run_as_an_expression) :-
     parsed('(A (:seg $mid) D)', Left),
     sread('(A b c D)', Right),
-    Left = [_, '$petta_seg'(Run, _), _],
-    once(spaces:petta_seq_unify(one_sided(left), Left, Right)),
+    Left = [_, '$metta_seg'(Run, _), _],
+    once(spaces:metta_seq_unify(one_sided(left), Left, Right)),
     Run == [b, c].
 
 test(a_nested_gap_matches_below_the_root) :-
     parsed('(f (g ...) b)', Left),
     sread('(f (g 1 2) b)', Right),
     runs(one_sided(left), Left, Right, Answers),
-    Answers == [[f, [g, '$petta_seg'([1, 2], anon)], b]].
+    Answers == [[f, [g, '$metta_seg'([1, 2], anon)], b]].
 
 %A ground clash refutes wherever the split puts it.
 test(a_clash_refutes_every_split) :-
@@ -231,8 +231,8 @@ test(distinct_anonymous_gaps_do_not_constrain_each_other) :-
     parsed('(f ... g ...)', Left),
     sread('(f a g b c)', Right),
     findall(First-Second,
-            (   spaces:petta_seq_unify(one_sided(left), Left, Right),
-                Left = [_, '$petta_seg'(First, _), _, '$petta_seg'(Second, _)]
+            (   spaces:metta_seq_unify(one_sided(left), Left, Right),
+                Left = [_, '$metta_seg'(First, _), _, '$metta_seg'(Second, _)]
             ),
             Answers),
     Answers == [[a]-[b, c]].
@@ -242,8 +242,8 @@ test(distinct_anonymous_gaps_do_not_constrain_each_other) :-
 test(a_repeated_named_gap_takes_the_same_run) :-
     parsed('(f (:seg $x) g (:seg $x))', Left),
     sread('(f a b g a b)', Right),
-    Left = [_, '$petta_seg'(Run, _)|_],
-    once(spaces:petta_seq_unify(one_sided(left), Left, Right)),
+    Left = [_, '$metta_seg'(Run, _)|_],
+    once(spaces:metta_seq_unify(one_sided(left), Left, Right)),
     Run == [a, b].
 
 test(a_repeated_named_gap_refutes_a_different_run) :-
@@ -270,29 +270,29 @@ test(a_repeated_run_compares_the_engines_way) :-
 %MettaHyperonFull/Core/SeqRuntime.lean, SeqAtom.toSurface].
 test(a_trailing_gap_absorbs_the_remainder) :-
     pair('(pair (f a (:seg $u)) (f a b (:seg $v)))', Left, Right),
-    Left = [_, _, '$petta_seg'(Run, _)],
-    Right = [_, _, _, '$petta_seg'(Open, _)],
+    Left = [_, _, '$metta_seg'(Run, _)],
+    Right = [_, _, _, '$metta_seg'(Open, _)],
     %once/1 rather than findall/3, because the open remainder in the answer IS
     %the other gap's own variable and findall would copy that sharing away.
-    once(spaces:petta_seq_unify(last_position, Left, Right)),
+    once(spaces:metta_seq_unify(last_position, Left, Right)),
     Run = [b, [':seg', Same]],
     Same == Open.
 
 %Deterministic and unitary: Kutsia Section 6.3 answers once or not at all.
 test(the_last_position_procedure_answers_once) :-
     pair('(pair (f a (:seg $u)) (f a b (:seg $v)))', Left, Right),
-    findall(x, spaces:petta_seq_unify(last_position, Left, Right), Answers),
+    findall(x, spaces:metta_seq_unify(last_position, Left, Right), Answers),
     Answers == [x].
 
 test(a_trailing_gap_takes_the_empty_run) :-
     pair('(pair (f a b) (f a b (:seg $v)))', Left, Right),
-    Right = [_, _, _, '$petta_seg'(Run, _)],
-    findall(Run, spaces:petta_seq_unify(last_position, Left, Right), Answers),
+    Right = [_, _, _, '$metta_seg'(Run, _)],
+    findall(Run, spaces:metta_seq_unify(last_position, Left, Right), Answers),
     Answers == [[]].
 
 test(a_shorter_fixed_side_refutes) :-
     pair('(pair (f a b) (f a c (:seg $v)))', Left, Right),
-    findall(x, spaces:petta_seq_unify(last_position, Left, Right), Answers),
+    findall(x, spaces:metta_seq_unify(last_position, Left, Right), Answers),
     Answers == [].
 
 %LINEARITY IS NOT REQUIRED HERE. Kutsia Section 6.3 asks only that every gap be
@@ -304,9 +304,9 @@ test(a_shorter_fixed_side_refutes) :-
 test(a_repeated_gap_solves_its_stored_run_against_the_second_face) :-
     pair('(pair (f (g (:seg $x)) (h (:seg $x))) (f (g (:seg $y)) (h b)))',
          Left, Right),
-    Left = [_, [_, '$petta_seg'(Repeated, _)], _],
-    Right = [_, [_, '$petta_seg'(Once, _)], _],
-    once(spaces:petta_seq_unify(last_position, Left, Right)),
+    Left = [_, [_, '$metta_seg'(Repeated, _)], _],
+    Right = [_, [_, '$metta_seg'(Once, _)], _],
+    once(spaces:metta_seq_unify(last_position, Left, Right)),
     Repeated == [b],
     Once == [b].
 
@@ -314,20 +314,20 @@ test(a_repeated_gap_solves_its_stored_run_against_the_second_face) :-
 %nor linear has no certificate at all.
 test(a_repeated_root_gap_has_no_linear_shallow_certificate) :-
     pair('(pair (f (:seg $x) a) (f a (:seg $x)))', Left, Right),
-    spaces:petta_seq_gaps(Left, 0, LeftGaps, []),
-    spaces:petta_seq_gaps(Right, 0, RightGaps, []),
-    \+ spaces:petta_seq_linear_shallow(LeftGaps, RightGaps).
+    spaces:metta_seq_gaps(Left, 0, LeftGaps, []),
+    spaces:metta_seq_gaps(Right, 0, RightGaps, []),
+    \+ spaces:metta_seq_linear_shallow(LeftGaps, RightGaps).
 
 %The occurs check the calculus carries: a gap whose run mentions the gap
 %itself is a term containing itself, except for the trivial identity.
 test(a_self_referential_run_refutes) :-
     pair('(pair (f (:seg $u)) (f a (:seg $u)))', Left, Right),
-    findall(x, spaces:petta_seq_unify(last_position, Left, Right), Answers),
+    findall(x, spaces:metta_seq_unify(last_position, Left, Right), Answers),
     Answers == [].
 
 test(the_trivial_identity_holds) :-
     pair('(pair (f (:seg $u)) (f (:seg $u)))', Left, Right),
-    findall(x, spaces:petta_seq_unify(last_position, Left, Right), Answers),
+    findall(x, spaces:metta_seq_unify(last_position, Left, Right), Answers),
     Answers == [x].
 
 :- end_tests(segments_last_position).
@@ -338,36 +338,36 @@ test(the_trivial_identity_holds) :-
 %MettaHyperonFull/Core/SeqLinearShallow.lean, solveLinearShallow].
 test(two_root_gaps_solve_to_their_runs) :-
     pair('(pair (f (:seg $u) b) (f a (:seg $v)))', Left, Right),
-    Left = [_, '$petta_seg'(U, _), _],
-    Right = [_, _, '$petta_seg'(V, _)],
-    findall(U-V, spaces:petta_seq_unify(linear_shallow, Left, Right), Answers),
+    Left = [_, '$metta_seg'(U, _), _],
+    Right = [_, _, '$metta_seg'(V, _)],
+    findall(U-V, spaces:metta_seq_unify(linear_shallow, Left, Right), Answers),
     Answers == [[a]-[b]].
 
 test(a_gap_facing_a_longer_side_widens) :-
     pair('(pair (f (:seg $u) c) (f a b c))', Left, Right),
-    Left = [_, '$petta_seg'(U, _), _],
-    findall(U, spaces:petta_seq_unify(linear_shallow, Left, Right), Answers),
+    Left = [_, '$metta_seg'(U, _), _],
+    findall(U, spaces:metta_seq_unify(linear_shallow, Left, Right), Answers),
     Answers == [[a, b]].
 
 test(a_flex_flex_pair_relates_the_two_gaps) :-
     pair('(pair (f (:seg $u)) (f (:seg $v)))', Left, Right),
-    Left = [_, '$petta_seg'(U, _)],
-    findall(U, spaces:petta_seq_unify(linear_shallow, Left, Right), Answers),
+    Left = [_, '$metta_seg'(U, _)],
+    findall(U, spaces:metta_seq_unify(linear_shallow, Left, Right), Answers),
     Answers = [_|_].
 
 %Two gaps can absorb each other's fixed items, so a refutation needs a clash no
 %split can repair: both sides end in a settled child and they disagree.
 test(a_trailing_clash_refutes_every_widening) :-
     pair('(pair (f (:seg $u) a) (f (:seg $v) b))', Left, Right),
-    findall(x, spaces:petta_seq_unify(linear_shallow, Left, Right), Answers),
+    findall(x, spaces:metta_seq_unify(linear_shallow, Left, Right), Answers),
     Answers == [].
 
 %And the widening does relate two gaps across settled children when it can.
 test(gaps_absorb_each_others_settled_children) :-
     pair('(pair (f (:seg $u) (g a)) (f (g b) (:seg $v)))', Left, Right),
-    Left = [_, '$petta_seg'(U, _), _],
-    Right = [_, _, '$petta_seg'(V, _)],
-    findall(U-V, spaces:petta_seq_unify(linear_shallow, Left, Right), Answers),
+    Left = [_, '$metta_seg'(U, _), _],
+    Right = [_, _, '$metta_seg'(V, _)],
+    findall(U-V, spaces:metta_seq_unify(linear_shallow, Left, Right), Answers),
     Answers == [[[g, b]]-[[g, a]]].
 
 :- end_tests(segments_linear_shallow).
@@ -381,7 +381,7 @@ test(a_gap_query_reads_every_admissible_arity) :-
     metta_add_atom('&j5door', ['A', b, c, 'D'], _),
     metta_add_atom('&j5door', ['A', 'D'], _),
     metta_add_atom('&j5door', ['B', b, 'D'], _),
-    spaces:petta_seq_query_plan(['A', '...', 'D'], Asked),
+    spaces:metta_seq_query_plan(['A', '...', 'D'], Asked),
     findall(x, match('&j5door', Asked, x, x), Answers),
     length(Answers, Matched),
     Matched == 2,
@@ -394,7 +394,7 @@ test(a_gap_query_reads_every_admissible_arity) :-
 %residualUnderRigid].
 test(a_stored_marker_is_data) :-
     metta_add_atom('&j5stored', ['A', '...', 'D'], _),
-    spaces:petta_seq_query_plan(['A', '...', 'D'], Asked),
+    spaces:metta_seq_query_plan(['A', '...', 'D'], Asked),
     findall(x, match('&j5stored', Asked, x, x), Answers),
     Answers == [x],
     sread('(A ... D)', Literal),
@@ -406,12 +406,12 @@ test(a_stored_marker_is_data) :-
 %evaluates cannot stop a file from loading.
 test(a_refused_plan_throws_at_the_ask) :-
     sread('(f (:seg $m) $m)', Pattern),
-    spaces:petta_seq_query_plan(Pattern, Asked),
-    Asked = '$petta_seq'(refused(_), _),
+    spaces:metta_seq_query_plan(Pattern, Asked),
+    Asked = '$metta_seq'(refused(_), _),
     catch(( match('&j5refuse', Asked, x, x), Outcome = answered ),
           error(Error, _),
           Outcome = Error),
-    Outcome = petta_seq_outside_fragment(_, _, _, mixed_roles).
+    Outcome = metta_seq_outside_fragment(_, _, _, mixed_roles).
 
 :- end_tests(segments_space_door).
 

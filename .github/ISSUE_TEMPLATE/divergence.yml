@@ -59,7 +59,7 @@ body:
       required: true
 
   - type: textarea
-    id: petta-answer
+    id: metta-answer
     attributes:
       label: What this engine gives
       description: Verbatim, error text and all.

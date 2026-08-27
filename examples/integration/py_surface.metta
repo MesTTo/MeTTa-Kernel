@@ -9,7 +9,7 @@
 ;MeTTa's Python surface: py-atom RESOLVES where py-call APPLIES.
 ;
 ;This is hyperon-experimental's surface and what the language's own tutorials
-;teach. py-call is PeTTa's older spelling and still works exactly as it did;
+;teach. py-call is MeTTa's older spelling and still works exactly as it did;
 ;the difference is that baking the call into the operator means a Python
 ;function is never a value, so it cannot be held, passed or applied.
 ;
@@ -73,7 +73,7 @@
 
 ;`bind!` gives the atom a name, which is the idiom the tutorial writes. It is
 ;a TOKEN: the specification says bind! "registers a new token which is replaced
-;with an atom during the parsing of the rest of the program", and PeTTa's
+;with an atom during the parsing of the rest of the program", and MeTTa's
 ;bind! used to accept only (new-state V) and fail silently on anything else.
 !(bind! py-abs (py-atom "abs"))
 !(test (py-abs -5) 5)
@@ -83,7 +83,7 @@
 !(test greeting (Hello world))
 
 ;And a state cell is still a state cell: that form binds no token, because
-;PeTTa models a state by NAME and substituting the name away would take
+;MeTTa models a state by NAME and substituting the name away would take
 ;get-state with it.
 !(bind! counter (new-state 7))
 !(test (get-state counter) 7)

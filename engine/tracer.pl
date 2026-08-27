@@ -19,13 +19,13 @@
 %     a builtin, is skipped rather than raising out of the whole trace
 %     [tested 2026-08-16: test_a_foreign_predicate_does_not_break_tracing].
 % Owns:
-%   - metta_trace_source/4 removes every petta_tracer wrapper and state fact,
+%   - metta_trace_source/4 removes every metta_tracer wrapper and state fact,
 %     including after an event-limit error [tested 2026-08-14:
 %     tracer:event_limit_error_removes_every_wrapper].
 % Guarded by:
-%   - '$petta_trace_state' serializes trace sessions and wrapper changes
+%   - '$metta_trace_state' serializes trace sessions and wrapper changes
 %     [tested 2026-08-14: tracer:event_limit_error_removes_every_wrapper].
-%   - '$petta_trace_events' assigns event sequence numbers and enforces the
+%   - '$metta_trace_events' assigns event sequence numbers and enforces the
 %     event bound across hyperpose worker threads [tested 2026-08-14: tracer].
 % Open Obligations:
 %   To Do: None
@@ -88,11 +88,11 @@ metta_trace_wrap(Module:F/A) :-
     functor(Head, F, A),
     compiled_function_name(LogicalF, F),
     In is A - 1,
-    wrap_predicate(Module:Head, petta_tracer, Closure,
+    wrap_predicate(Module:Head, metta_tracer, Closure,
                    metta_trace_call(LogicalF, In, Head, Closure)).
 
 metta_trace_unwrap(Module:F/A) :-
-    catch(unwrap_predicate(Module:F/A, petta_tracer), _, true).
+    catch(unwrap_predicate(Module:F/A, metta_tracer), _, true).
 
 metta_trace_wrap_once(Target) :-
     ( metta_trace_wrapped(Target) -> true
@@ -107,7 +107,7 @@ metta_trace_wrap_once(Target) :-
 %materialised alike.
 :- multifile seam:function_clauses_changed/1.
 seam:function_clauses_changed(F) :-
-    with_mutex('$petta_trace_state',
+    with_mutex('$metta_trace_state',
                ( metta_trace_session
                  -> compiled_function_name(F, Predicate),
                     findall(Target,
@@ -122,12 +122,12 @@ metta_trace_call(F, In, Head, Closure) :-
     Head =.. [_|Args],
     length(InArgs, In),
     append(InArgs, [Out], Args),
-    ( nb_current('$petta_trace_depth', D) -> true ; D = 0 ),
+    ( nb_current('$metta_trace_depth', D) -> true ; D = 0 ),
     metta_trace_record(D, call, [F|InArgs], ''),
     D1 is D + 1,
-    b_setval('$petta_trace_depth', D1),
+    b_setval('$metta_trace_depth', D1),
     call(Closure),
-    b_setval('$petta_trace_depth', D),
+    b_setval('$metta_trace_depth', D),
     metta_trace_record(D, exit, [F|InArgs], Out).
 
 %An event carries the term, not the term's text. Written with swrite and
@@ -142,12 +142,12 @@ metta_trace_record(Depth, Kind, Term, Answer) :-
     term_variables(TermCopy-AnswerCopy, Variables),
     metta_trace_variable_names(Variables, 0, Names),
     Event = event(Depth, Kind, TermCopy, AnswerCopy, Names),
-    with_mutex('$petta_trace_events',
+    with_mutex('$metta_trace_events',
                ( metta_trace_next_seq(N),
                  metta_trace_limit(Max),
                  N1 is N + 1,
                  ( N1 > Max
-                   -> throw(error(resource_error(petta_trace_events(Max)),
+                   -> throw(error(resource_error(metta_trace_events(Max)),
                                   context(metta_trace_record/4,
                                           'the trace hit its max_events bound')))
                  ; retractall(metta_trace_next_seq(_)),
@@ -165,7 +165,7 @@ metta_trace_variable_names([Variable|Rest], Index, [Name-Variable|Names]) :-
     metta_trace_variable_names(Rest, Next, Names).
 
 metta_trace_begin(Max) :-
-    with_mutex('$petta_trace_state', metta_trace_begin_unlocked(Max)).
+    with_mutex('$metta_trace_state', metta_trace_begin_unlocked(Max)).
 
 metta_trace_begin_unlocked(Max) :-
     ( metta_trace_session
@@ -186,7 +186,7 @@ metta_trace_begin_unlocked(Max) :-
             ( metta_trace_end_unlocked, throw(Error) )) ).
 
 metta_trace_end :-
-    with_mutex('$petta_trace_state', metta_trace_end_unlocked).
+    with_mutex('$metta_trace_state', metta_trace_end_unlocked).
 
 metta_trace_end_unlocked :-
     findall(Target, metta_trace_wrapped(Target), Targets),
@@ -212,9 +212,9 @@ metta_trace_source(Source, Space, Max, Events) :-
                   context(metta_trace_source/4, 'max_events bound')))),
     setup_call_cleanup(
         metta_trace_begin(Max),
-        ( b_setval('$petta_trace_depth', 0),
+        ( b_setval('$metta_trace_depth', 0),
           process_metta_string(Source, _Results, Space),
-          with_mutex('$petta_trace_events',
+          with_mutex('$metta_trace_events',
                      findall(N-E, metta_trace_event(N, E), Pairs)),
           keysort(Pairs, Sorted),
           pairs_values(Sorted, Events) ),

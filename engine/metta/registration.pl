@@ -87,7 +87,7 @@ retract_unrelated_system_arities :-
 
 unrelated_system_predicate(N, Arity) :-
     functor(Head, N, Arity),
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     predicate_property(Engine:Head, built_in),
     seam:builtin_type_declaration(N, _),
     \+ declared_metta_arity(N, Arity).
@@ -103,7 +103,7 @@ declared_metta_arity(N, Arity) :-
 %predicate whose name is also an OPERATOR is the collision.
 imported_predicate(N, Arity) :-
     functor(Head, N, Arity),
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     predicate_property(Engine:Head, imported_from(_)).
 
 %Record each callable arity once, even when a function has many equations.
@@ -115,11 +115,11 @@ register_arity(N, Arity) :- ( arity(N, Arity) -> true
 %default is &self's, which is where a program that names no space writes.
 %
 %The default is a fact read rather than a constant unified, one inference
-%instead of none, because the alternative is writing '$petta_exec:&self' out
+%instead of none, because the alternative is writing '$metta_exec:&self' out
 %here and having two places that decide the name
 %[tested: metta_module_context:the_default_context_is_selfs_own_module].
 current_metta_module(Module) :-
-    ( nb_current('$petta_module', M) -> Module = M ; metta_self_module(Module) ).
+    ( nb_current('$metta_module', M) -> Module = M ; metta_self_module(Module) ).
 
 %Skipping the switch when Module is already in force was tried and taken back
 %out. It saved 4 inferences on every Python evaluation and cost 2 on every
@@ -143,9 +143,9 @@ with_metta_module(Module, Goal) :-
                              clauses are in; pass that, not the space')))
     ),
     current_metta_module(Previous),
-    setup_call_cleanup(b_setval('$petta_module', Module),
+    setup_call_cleanup(b_setval('$metta_module', Module),
                        Goal,
-                       b_setval('$petta_module', Previous)).
+                       b_setval('$metta_module', Previous)).
 
 %Control signals pass through every recovery catch: a caught abort, limit,
 %alarm, or interrupt is a stopped program pretending it succeeded. This is
@@ -232,19 +232,19 @@ metta_saturating_recover(Operation, Expression, Result, Error) :-
           Residual,
           rethrow_metta_operation_error(Operation, Residual)).
 metta_saturating_recover(Operation, _, _, Error) :-
-    petta_arithmetic_rethrow(Operation, Error).
+    metta_arithmetic_rethrow(Operation, Error).
 
 %is/2 raises a BARE instantiation error for an operand it does not have, and
 %that error names neither the operation's modes nor what to write instead: it
 %is SWI's, not the language's. Every backward query the engine CAN answer is
-%decided before an exception exists (petta_int_solve/5 for one unknown among
-%integers, petta_clp_backward/4 for the integer relations past it), so what
+%decided before an exception exists (metta_int_solve/5 for one unknown among
+%integers, metta_clp_backward/4 for the integer relations past it), so what
 %reaches here is a query outside both: a float operand, or an operation with
 %no relation to solve. It refuses by name
 %[tested: test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason].
-petta_arithmetic_rethrow(Operation, error(instantiation_error, _)) :- !,
-    petta_refuse_unsolved_arithmetic(Operation, unbound_operand).
-petta_arithmetic_rethrow(Operation, Error) :-
+metta_arithmetic_rethrow(Operation, error(instantiation_error, _)) :- !,
+    metta_refuse_unsolved_arithmetic(Operation, unbound_operand).
+metta_arithmetic_rethrow(Operation, Error) :-
     rethrow_metta_operation_error(Operation, Error).
 
 %Float zero division belongs to the IEEE retry, while integer zero division
@@ -269,7 +269,7 @@ metta_operation_recovery(Operation, Arguments,
     maplist(integer, Arguments), !,
     metta_error_atom(Operation, Arguments, 'DivisionByZero', Answer).
 metta_operation_recovery(Operation, _, Error, _) :-
-    petta_arithmetic_rethrow(Operation, Error).
+    metta_arithmetic_rethrow(Operation, Error).
 
 %Which evaluation faults license the retry. Overflow retries
 %unconditionally, because an ALL-INTEGER division can overflow in its float
@@ -373,7 +373,7 @@ metta_host_operation_value(Term, Text) :- swrite(Term, Text).
 %surface reads it too; only the rendering changes.
 %
 %prolog:message//1 is consulted before the formal-only
-%prolog:error_message//1, and this clause matches the context PeTTa's own
+%prolog:error_message//1, and this clause matches the context MeTTa's own
 %guards attach, so every other error SWI renders is untouched
 %[source: SWI-Prolog 10.1 boot/messages.pl, translate_message/1]
 %[tested: metta_operation_error_message].
@@ -381,24 +381,24 @@ metta_host_operation_value(Term, Text) :- swrite(Term, Text).
 %its type errors with an unbound context, which a head pattern would unify
 %with and claim, renaming every unrelated type error in the process
 %[tested: metta_operation_error_message:an_unrelated_type_error_is_untouched].
-%petta_error_context(+Context, -Operation, +Detail) reads a context term
+%metta_error_context(+Context, -Operation, +Detail) reads a context term
 %WITHOUT writing to it. Matching context(Operation, Detail) in the head looks
 %equivalent and is not: SWI's own errors carry context(PI, _) with the second
 %argument UNBOUND, so unifying a detail atom into it succeeds and the clause
 %then renders every ordinary error of that formal. This clause was hijacking
 %all of them, which is where I16's "system:(is)/2: evaluable expected, found
 %(/ foo 0)" came from: a library predicate's is/2 type error was being
-%reported in PeTTa's operation vocabulary, naming an engine internal and a
+%reported in MeTTa's operation vocabulary, naming an engine internal and a
 %culprit the program never wrote [tested: metta_operation_errors,
 %an_unrelated_type_error_keeps_swi_s_own_message].
-petta_error_context(Context, Operation, Detail) :-
+metta_error_context(Context, Operation, Detail) :-
     nonvar(Context),
     Context = context(Operation, Actual),
     nonvar(Actual),
     Actual == Detail.
 
 prolog:message(error(type_error(Expected, Culprit), Context)) -->
-    { petta_error_context(Context, Operation, 'invalid MeTTa operation argument'),
+    { metta_error_context(Context, Operation, 'invalid MeTTa operation argument'),
       swrite(Culprit, CulpritText) },
     [ '~w: ~w expected, found ~w'-[Operation, Expected, CulpritText] ].
 %The ISO formal stays existence_error(procedure, Name), so a program can catch
@@ -409,7 +409,7 @@ prolog:message(error(type_error(Expected, Culprit), Context)) -->
 %the missing arity as "not applied far enough", so the call compiles to a
 %partial application instead of failing.
 prolog:message(error(existence_error(procedure, Name), Context)) -->
-    { petta_error_context(Context, _, 'no Prolog predicate of that name is loaded') },
+    { metta_error_context(Context, _, 'no Prolog predicate of that name is loaded') },
     [ 'no predicate named ~w is loaded, so registering it would compile \c
        every call to it into a partial application rather than failing'-[Name] ].
 

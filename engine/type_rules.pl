@@ -129,7 +129,7 @@ valid_typing_rule_outcome([refuse, Reason]) :- nonvar(Reason).
         clear_translation_cache
     ;   member(Old, Existing), Old =@= Family-Actual-Expected-Outcome
     ->  true
-    ;   throw(error(petta_duplicate_typing_rule(Name, Existing),
+    ;   throw(error(metta_duplicate_typing_rule(Name, Existing),
                     context('add-typing-rule!'/6,
                             'a rule name identifies one declaration')))
     ).
@@ -162,7 +162,7 @@ require_typing_rule_outcome(Outcome) :-
                             'use accept, (refuse Reason), or defer')))
     ).
 
-prolog:error_message(petta_duplicate_typing_rule(Name, Existing)) -->
+prolog:error_message(metta_duplicate_typing_rule(Name, Existing)) -->
     [ 'typing rule ~w already names ~w'-[Name, Existing] ].
 
 % typing_rule_decision(+Module, +Family, ?Actual, ?Expected, -Outcome,

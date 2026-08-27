@@ -1,6 +1,6 @@
-# Extending PeTTa without forking it
+# Extending MeTTa without forking it
 
-PeTTa has nine extension points. You should not need to change the engine to
+MeTTa has nine extension points. You should not need to change the engine to
 add a feature, and you should not have to guess which mechanism to reach for.
 This page lists them in order of runtime cost, measured rather than asserted,
 and says what each one is actually for.
@@ -326,11 +326,11 @@ A refusal is a decline, not an error. The call carries on down the rest of the
 dispatch chain, and a rule with another equation tries that one, so
 `(strength (dose 5000) (unit mg))` answers `(grams 5)`.
 
-The reason does not disappear. It is published into `&petta`, so a program can
+The reason does not disappear. It is published into `&metta`, so a program can
 ask why a rewrite it expected did not happen:
 
 ```metta
-!(match &petta (translator-rule-refusal $rule $why) (refused $rule $why))
+!(match &metta (translator-rule-refusal $rule $why) (refused $rule $why))
 ```
 
 Every rule is already a conditional rewrite rule, because a rule's body is
@@ -601,7 +601,7 @@ A restricted space selects a curated execution base instead of `&self`:
 
 The curated base publishes computation but withholds file, process, and
 network operations. A missing operation raises
-`petta_space_capability_required(Space, Operation, Capability)` at runtime,
+`metta_space_capability_required(Space, Operation, Capability)` at runtime,
 so `catch` can observe it and Python receives `SpaceCapabilityError` with the
 same three fields. Grants are explicit and fixed at creation. Raw
 `translatePredicate` and `call` goals also pass SWI's `sandbox:safe_goal/1`;
@@ -830,7 +830,7 @@ The engine itself ships one C unit at this seam: `engine/reader.c`, the
 shipped-mode MeTTa reader, which `engine/parser.pl` loads from `reader.so`
 beside it and consults for every parse while no custom token class is
 registered. `check.sh` builds it with `swipl-ld -shared -O2`; without the
-artifact, or with `PETTA_C_READER=off` in the environment, every parse runs
+artifact, or with `METTA_C_READER=off` in the environment, every parse runs
 the Prolog grammar, which remains the reader's specification and is held
 equal to the C port by `tests/prolog/reader_c.plt` over the shipped corpus,
 an adversarial battery, and generated number spellings. A custom
@@ -1056,10 +1056,10 @@ is compared answer by answer in order, and a twin that RAISES on a case
 requires the engine to answer nothing for it, which is the disagreement most
 worth catching: a reference with no answer and a fast side that invents one.
 
-### Building a fast library on PyPeTTa
+### Building a fast library on pymetta
 
 `op` is the extension point most people find first, and it is the
-slowest tier. If you are writing a library **on top of PyPeTTa** and its hot
+slowest tier. If you are writing a library **on top of pymetta** and its hot
 path is arithmetic, matching or list work, you do not have to pay for Python
 on every call. Ship Prolog and register it from Python:
 
@@ -1212,10 +1212,10 @@ declares nothing keeps working, so this costs nothing until you use it.
 Three platform libraries are optional, because a real build can lack them: SWI
 compiled to WebAssembly, which the browser playground and the Node binding run
 on, has no `library(thread)`, no `library(time)` and no `library(process)`. The
-engine records what it found at boot, and `petta_platform/4` is the census:
+engine records what it found at boot, and `metta_platform/4` is the census:
 
 ```prolog
-?- forall(petta_platform(C, S, R, Costs), format("~w ~w ~w~n  ~w~n", [C,S,R,Costs])).
+?- forall(metta_platform(C, S, R, Costs), format("~w ~w ~w~n  ~w~n", [C,S,R,Costs])).
 concurrency present library(thread)
   (hyperpose ...), and lib_thread's par-map, spawn, await, channels, pools ...
 deadlines present library(time)
@@ -1389,7 +1389,7 @@ integration that ships Prolog and no Python setup names its files:
 
 ```python
 # in your package's __init__
-PETTA_PROLOG = ["fast.pl"]
+METTA_PROLOG = ["fast.pl"]
 ```
 
 `m.integrate(pettorch)` and `metta.integrate.discover(m)` then register the
@@ -1471,7 +1471,7 @@ A provider file declares an EXTENSION and exports nothing:
 declaration to write, and it is what makes the file loadable at all.
 `m.register_prolog(path=...)` accepts it and answers `()`, because it
 registered no functions. Ship it the way section 4 ships any `.pl`, by listing
-it in your package's `PETTA_PROLOG`.
+it in your package's `METTA_PROLOG`.
 
 A file that declares NEITHER is refused before it loads, which is worth
 knowing because it used to be refused AFTER: an author who wrote a provider,
@@ -1859,7 +1859,7 @@ refusal is generic unless you write one:
 :- multifile seam:foreign_refuse/2.
 
 seam:foreign_refuse('&mine', add) :-
-    throw(error(petta_readonly_space('&mine'), context(add, 'load it with the importer'))).
+    throw(error(metta_readonly_space('&mine'), context(add, 'load it with the importer'))).
 ```
 
 It THROWS rather than answering; reaching the end of it means the engine and
@@ -1926,7 +1926,7 @@ the missing capability, instead of serving a watcher that quietly misses
 writes.
 
 A Python provider's answer is written for it, as the space's ordinary
-`(events <ctx> <delivery> <order>)` declaration in `&petta`, so a MeTTa program
+`(events <ctx> <delivery> <order>)` declaration in `&metta`, so a MeTTa program
 reads the promise the engine acts on. Use `seam:context_events/3` when you own
 a FAMILY of names rather than one, the way every `&mork` space belongs to one
 backend, and there is no single name to write the atom about. A native space
@@ -2066,7 +2066,7 @@ that do not satisfy the predicate". Spark's DataSourceV2 draws the same line,
 as filters "that need to be evaluated after scanning" against those that do
 not. DataFusion's third rung, `Unsupported`, has no counterpart here: it exists
 because its planner decides whether to send a filter at all, and the pattern is
-the only thing a PeTTa provider is given.
+the only thing a MeTTa provider is given.
 
 A claim that is wrong costs answers, so `check_space_provider` tests it against
 your own output, matching every stored atom against itself and failing if a
@@ -2421,7 +2421,7 @@ names all five choices. New code supplies it through `effect=`; existing
 `(effect name class)` declaration atoms remain a compatibility input. A
 generator, or an operation with a generator inverse, must be at least
 `nondeterministicReadOnly`. The operation's reflection always carries one
-canonical `(effect name class)` row in `&petta`.
+canonical `(effect name class)` row in `&metta`.
 
 Composition takes the strongest member. In Python,
 `EffectClass.compose(step.effect for step in plan)` computes that join from
@@ -2481,7 +2481,7 @@ seam:effect_operation_name(my_dispatch(Name, Args, _), Name, Arity) :-
 
 The refusal above reads the goal it is refusing, and for a bridge that goal is
 yours and not the program's. Without this the Python bridge's refusal said
-`petta_py_dispatch_det/3` and advised declaring THAT pure: not a name any
+`metta_py_dispatch_det/3` and advised declaring THAT pure: not a name any
 author wrote, and not one a declaration could have matched, since the refusal
 never reached the operation's own name. Answer here and the message names what
 the program wrote and what `seam:pure_operation/1` will match.
@@ -2563,7 +2563,7 @@ that completed table.
 
 The remaining integration is ordinary declared traffic. `function_changed/1`
 and `function_removed/1` clear derived tables. `atom_removed/2` retires the
-indexed dispatch handler when its `(tabled ...)` row leaves `&petta`, including
+indexed dispatch handler when its `(tabled ...)` row leaves `&metta`, including
 space-pool cleanup. The `(tabled space name arity)` and `(defined space name)`
 heads have catalog kinds, so malformed rows are rejected by the generic
 catalog validator. Every actual reflection add or remove must return the
@@ -2642,9 +2642,9 @@ the list honest. Today's list: `catch_recover/2`, `match_foreign/5`,
 `metta_host_unregister_reader_token/1`, `metta_reducible_head/2`,
 `metta_source_declarations/2`, `metta_space_names/1`,
 `metta_string_declarations/2`, `metta_substitute_self/3`,
-`metta_trace_source/4`, `petta_annotations/2`, `petta_contract_fact/1`,
-`petta_error_answer/3`, `petta_handles_coherent/1`, `petta_on_error_mode/3`,
-`petta_source_reset/1`, `petta_transaction/1`, `petta_transport_failure/1`,
+`metta_trace_source/4`, `metta_annotations/2`, `metta_contract_fact/1`,
+`metta_error_answer/3`, `metta_handles_coherent/1`, `metta_on_error_mode/3`,
+`metta_source_reset/1`, `metta_transaction/1`, `metta_transport_failure/1`,
 `sread_with_names/3`, `translate_expr/3`, `unregister_metta_extension/1` and
 `with_metta_module/2`. Shrinking this list is the shim-thinning work's
 scoreboard; growing it is a deliberate publication, not a drive-by.
@@ -2768,10 +2768,10 @@ Matchers compose through ordinary MeTTa evaluation and nondeterminism,
 never through new syntax, because fixing one notion of closeness in the
 core would exclude every other.
 
-## 9. The contract: declarations in `&petta`, the extension story itself
+## 9. The contract: declarations in `&metta`, the extension story itself
 
 Everything above is a MECHANISM. What ties them into one seam is the
-contract: declarations are ordinary atoms in the `&petta` space, and the
+contract: declarations are ordinary atoms in the `&metta` space, and the
 engine routes queries by them. A backend attaches by declaring what it
 can do, not by the engine growing a case for it.
 
@@ -2813,7 +2813,7 @@ provider written before any of this keeps working unchanged.
 ### The catalog describes its own kinds, and yours
 
 Every row in the table above is an instance of a KIND, and the kinds are
-themselves rows in `&petta`:
+themselves rows in `&metta`:
 
 ```
 (vocabulary fidelity Exact Partial Sound Refuse)   ; a value set
@@ -2824,7 +2824,7 @@ themselves rows in `&petta`:
 (routed-by-shape handles)                          ; entries route by shape
 ```
 
-One generic checker validates every `&petta` write against the standing
+One generic checker validates every `&metta` write against the standing
 kind rows, and a violation is a hard error naming the atom, the argument
 position and the argspec it missed, where it used to sit silently and
 never match. A head with no kind row passes untouched, so your own kind
@@ -2839,7 +2839,7 @@ on the next engine boot only where their subject has no row standing.
 router the shipped ones use: entries are patterns, queries route by the
 most specific matching entry with `(in $x)` adornments and loud
 coherence conflicts, all inherited, none reimplemented. Read the routed
-view back with the published service `petta_shape_route/5`.
+view back with the published service `metta_shape_route/5`.
 
 To make the engine ACT on your kind, ship exploitation rules riding the
 published seams. The routing seam is `seam:route_cap/4`: consulted
@@ -2854,9 +2854,9 @@ extension file:
 
 :- multifile seam:route_cap/4.
 seam:route_cap(Space, Pattern, inexact, freshness(cached)) :-
-    petta_shape_route(freshness, Space, Pattern, _, [cached]).
+    metta_shape_route(freshness, Space, Pattern, _, [cached]).
 seam:route_cap(Space, Pattern, refuse, freshness(stale)) :-
-    petta_shape_route(freshness, Space, Pattern, _, [stale]).
+    metta_shape_route(freshness, Space, Pattern, _, [stale]).
 ```
 
 With `(vocabulary freshness-level live cached stale)`,
@@ -2881,7 +2881,7 @@ the conformance kit checks the derived claims the way the lens laws
 check a bidirectional transformation, the round-trip law now a named
 check. A provider takes a SCHEMA, any number of declarations, shapes
 answering together the way overlapping equations do; `tables.declare`
-writes them into `&petta` ctx-scoped, MeTTa source can add the same
+writes them into `&metta` ctx-scoped, MeTTa source can add the same
 atoms itself, and `TableBridge.from_context` reads them back, so a
 program carries its schema as knowledge and the attach is one line. Writing the consistency relation
 and deriving both directions is the bidirectional-transformations

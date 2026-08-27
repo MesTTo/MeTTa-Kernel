@@ -140,7 +140,7 @@ Tabling is the engine's own memoization: declare a function tabled, and every di
 
 Tabling changes what a function means, so the admission burden is yours: it is sound for a pure function whose equations and read spaces stay put while its tables live, whose callers never observe answer order or duplicates, and whose call modes stay bounded. Hyphenated and uppercase names work, repeated declarations are cumulative and idempotent, and a named space's functions instrument their own module. `(untabled ...)` removes the instrumentation, `(table-clear ...)` abolishes one function's cached answers and keeps the declaration, `(table-clear-all)` abolishes every table, and `s.table_bytes` from `m.stats()` watches the memory.
 
-Every live declaration is also a fact: `(tabled space name arity)` in the `&petta` reflection space, input arity, added on declare and removed on undeclare, so a program can ask what is memoized right now:
+Every live declaration is also a fact: `(tabled space name arity)` in the `&metta` reflection space, input arity, added on declare and removed on undeclare, so a program can ask what is memoized right now:
 
 ```python
     reflection = metta.reflection
@@ -150,7 +150,7 @@ Every live declaration is also a fact: `(tabled space name arity)` in the `&pett
     assert [row.a for row in reflection.match(pattern)] == [1]
 ```
 
-Tabling state dies with the space life. A dropped or cleared space takes its declarations, its tables, and its `&petta` records with it, so a pooled name's next life cannot be answered by a dead life's cache; the suite pins this by redefining a function in a reused space and requiring the new answer.
+Tabling state dies with the space life. A dropped or cleared space takes its declarations, its tables, and its `&metta` records with it, so a pooled name's next life cannot be answered by a dead life's cache; the suite pins this by redefining a function in a reused space and requiring the new answer.
 
 ## Put a type where it prunes
 
@@ -240,7 +240,7 @@ ordinary pattern and the reason to reach for it: `(:= $y)` with `$y` unbound
 matches nothing rather than everything.
 
 The gate is arity. Exactly two elements is the modifier; `(:= a b)` is three,
-so it stays ordinary data and matches structurally. That is not a PeTTa
+so it stays ordinary data and matches structurally. That is not a MeTTa
 convention, it is the reference's own registry rule, and it exists because
 three-element `(:= ...)` atoms already appear in real programs.
 
@@ -471,7 +471,7 @@ assert m.transaction(term) == []
 assert fact not in m
 ```
 
-Both forms use the same engine transaction as `petta_transaction/1`, so
+Both forms use the same engine transaction as `metta_transaction/1`, so
 foreign-space enlistment and nesting behave identically in both languages.
 Transactions nest, with an inner commit staying relative to its outer
 transaction. `m.transactional` is the callable decorator twin, one transaction
@@ -571,7 +571,7 @@ for value in values:
     total += registered_operation(value)
 ```
 
-The directive suppresses only `operation-crossing-in-loop` at that statement. A different kind at the same place still appears. The acknowledgement is retained as data in `&petta`, not discarded as a comment:
+The directive suppresses only `operation-crossing-in-loop` at that statement. A different kind at the same place still appears. The acknowledgement is retained as data in `&metta`, not discarded as a comment:
 
 ```metta
 (lint-intent &space operation-crossing-in-loop

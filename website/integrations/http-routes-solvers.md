@@ -10,7 +10,7 @@ Three seams share space operations but do different jobs:
 
 - `web_routes.py` models FastAPI-shaped routing in memory. It does not import FastAPI and does not serve HTTP.
 - `metta.remote` serves and attaches spaces over HTTP.
-- `multishot_solving.py` maps clingo-shaped parts and externals onto PeTTa's space and evaluation surface. It is not a clingo binding or an ASP solver.
+- `multishot_solving.py` maps clingo-shaped parts and externals onto MeTTa's space and evaluation surface. It is not a clingo binding or an ASP solver.
 
 ## Model a route table in a space
 
@@ -191,7 +191,7 @@ def test_remote_spaces_serve_attach_and_join(metta, tmp_path):
         assert local.run("!(collapse (match &hq (users 3 $n) $n))") == [[Expression()]]
         # A space outside the allowlist is refused with the remote's words.
         stray = remote.RemoteSpace(remote.connect(info["url"]), "&self")
-        with pytest.raises(PettaError):
+        with pytest.raises(MettaError):
             list(stray.match(S.anything(V.x)))
         attached.drop()
     finally:
@@ -215,7 +215,7 @@ def test_remote_auth_token_and_hook_requires_tls(metta):
         authorize=lambda headers: headers.get("x-tenant") == "acme",
     )
     try:
-        with pytest.raises(PettaError, match="credentials require an https URL"):
+        with pytest.raises(MettaError, match="credentials require an https URL"):
             remote.connect(server.url, token="s3cret", headers={"x-tenant": "acme"})
     finally:
         server.close()

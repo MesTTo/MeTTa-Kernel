@@ -320,7 +320,7 @@ test(the_dispatch_seam_is_consulted_at_a_call_site,
 test(a_library_error_term_renders_through_the_seam) :-
     % The seam IS a DCG, so calling it is the precise test of it.
     phrase(prolog:error_message(
-               petta_uncompilable_seam(translatePredicate, foo)),
+               metta_uncompilable_seam(translatePredicate, foo)),
            Parts),
     Parts = [Format-Arguments],
     format(string(Text), Format, Arguments),
@@ -363,7 +363,7 @@ test(every_declared_seam_that_exists_is_exported) :-
 % hooks use, which sees a clause arriving by consult as it sees one arriving by
 % assert.
 test(a_seam_declared_in_a_later_file_is_exported) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     module_property(Engine, exports(Before)),
     assertion(\+ memberchk(plunit_late_declared_service/1, Before)),
     % The fixture defines its service in the host module, so the engine's is
@@ -384,7 +384,7 @@ test(a_seam_declared_in_a_later_file_is_exported) :-
 % loaded, which is how a seam declared before its definition still ends up
 % exported; every_seam_kind_matches_its_direction fails on one that never is.
 test(a_declaration_without_a_definition_is_not_exported) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     assertion(\+ current_predicate(Engine:plunit_undefined_seam/3)),
     seam:publish(plunit_undefined_seam/3),
     module_property(Engine, exports(Exports)),
@@ -415,7 +415,7 @@ test(test_every_seam_is_reached_under_its_module) :-
     % named rather than tolerated: the translator emits it, so a space's
     % execution module imports it from the ENGINE's module and a copy in `seam`
     % would leave that import with nothing to find.
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     findall(Seam-Home,
             ( seam:kind(Seam, Kind),
               seam:clauses_from(Kind, extension),
@@ -469,6 +469,6 @@ test(a_service_is_reached_under_the_subsystem_that_defines_it) :-
 % lanes load; asking their question here without loading the walk keeps this
 % suite standalone.
 surface_published(Seam) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     module_property(Engine, exports(Exports)),
     memberchk(Seam, Exports).

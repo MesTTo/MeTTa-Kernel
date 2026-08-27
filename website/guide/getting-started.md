@@ -1,12 +1,12 @@
 <!--
-Purpose: install PeTTa and introduce its module primitives, runtime context, and Space handle.
+Purpose: install MeTTa and introduce its module primitives, runtime context, and Space handle.
 Guarantees: examples use the current narrow public surface.
 [tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
 -->
 
 # Install and first steps
 
-The `metta` module is the Python surface for the engine. Install the `pymetta` distribution from the repository root with `pip install .`. The runtime is bundled. To use a checkout in place, point `PETTA_PATH` at the repository tree.
+The `metta` module is the Python surface for the engine. Install the `pymetta` distribution from the repository root with `pip install .`. The runtime is bundled. To use a checkout in place, point `METTA_PATH` at the repository tree.
 
 The shortest spelling needs no instance at all: the module functions run over one lazily created default engine, `random`'s and `logging`'s own shape, and `metta.engine()` hands the context over the moment you want control.
 
@@ -46,9 +46,9 @@ m.match(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
 
 ## Python version floor
 
-PeTTa supports Python 3.12 and newer. The floor spelling builds terms directly,
+MeTTa supports Python 3.12 and newer. The floor spelling builds terms directly,
 such as `term = S.Order(7, 5)`, and reconstructs or calls `__replace__` on a
-PeTTa-defined record when one field changes. Those forms work on 3.12.
+MeTTa-defined record when one field changes. Those forms work on 3.12.
 
 Python 3.13 adds `copy.replace(edge, b="new")` as the general functional
 update spelling. Python 3.14 adds t-string syntax, which creates a structured
@@ -77,4 +77,4 @@ python -m metta doc car-atom             # a name's (@doc ...) documentation
 
 Each subcommand exits nonzero on failure, so all of them script. The bare `metta` console command keeps the direct-file launcher contract, running a file through `swipl` directly.
 
-Examples that need DuckDB, NumPy, or PyTorch skip when that optional dependency is absent. When something misbehaves, `metta.engine().info()` answers the PeTTa, janus, SWI-Prolog, and Python versions plus the consulted runtime tree in one dict, which is exactly what a bug report needs. The library logs under the `metta` namespace and installs a `NullHandler`, so it stays silent until your app configures it; `logging.getLogger("metta").setLevel(logging.DEBUG)` with a handler is the whole debug incantation. Continue with [atoms, operators, and term building](./atoms-terms).
+Examples that need DuckDB, NumPy, or PyTorch skip when that optional dependency is absent. When something misbehaves, `metta.engine().info()` answers the MeTTa, janus, SWI-Prolog, and Python versions plus the consulted runtime tree in one dict, which is exactly what a bug report needs. The library logs under the `metta` namespace and installs a `NullHandler`, so it stays silent until your app configures it; `logging.getLogger("metta").setLevel(logging.DEBUG)` with a handler is the whole debug incantation. Continue with [atoms, operators, and term building](./atoms-terms).

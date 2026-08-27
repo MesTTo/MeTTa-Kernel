@@ -1,5 +1,5 @@
 ; Purpose: transcribe the five pinned Scallop README examples as executable
-; PeTTa programs and assert the README's printed answers.
+; MeTTa programs and assert the README's printed answers.
 ; Guarantees: all five oracles pass through ordinary equations, folds,
 ; stratified not-provable, and set-valued uniqueness.
 ; Guarded by: test_the_scallop_readme_examples_answer_identically_through_the_seams

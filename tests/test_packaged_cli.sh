@@ -22,7 +22,7 @@ printf '!(import! &self (library lib_roman))\n!(map-flat (+ 1) (1 2 3))\n' \
 
 (
     cd "$fixture/unrelated cwd"
-    unset PETTA_PATH
+    unset METTA_PATH
     "$fixture/venv/bin/metta" "$fixture/basic.metta" > "$fixture/basic.log"
     "$fixture/venv/bin/metta" "$fixture/import.metta" > "$fixture/import.log"
     "$fixture/venv/bin/metta" "$fixture/roman.metta" > "$fixture/roman.log"
@@ -31,7 +31,7 @@ printf '!(import! &self (library lib_roman))\n!(map-flat (+ 1) (1 2 3))\n' \
 grep -Fxq '2' "$fixture/basic.log"
 grep -Fq '(2 3 4)' "$fixture/roman.log"
 
-# The runtime tree an installed PeTTa has to find, checked in the install
+# The runtime tree an installed MeTTa has to find, checked in the install
 # rather than in the checkout. backends/ is here because the engine GLOBS it on
 # every boot and expand_file_name/2 answers [] for a missing directory exactly
 # as it does for one holding no built backend: an unshipped seam and an unbuilt
@@ -47,7 +47,6 @@ runtime = Path(metta.__file__).parent / "_runtime"
 for required in ("engine", "lib", "backends/mork/decider.pl", "bindings/python/decider.pl"):
     assert (runtime / required).exists(), f"{required} is missing from the wheel"
 assert list((runtime / "backends").glob("*/decider.pl")), "backends/ shipped empty"
-assert importlib.util.find_spec("petta") is None, "the retired petta module still imports"
 assert importlib.util.find_spec("pymetta") is None, "the distribution name became a module"
 PY
 

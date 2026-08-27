@@ -3,7 +3,7 @@
 ;   the P3 dispatch default's residual call.
 ; [tested: examples/functions/functionhead2.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 ;Check out functionhead.metta!
-!(add-atom &petta (dispatch-policy small NoMatchEnum NoMatchFail))
+!(add-atom &metta (dispatch-policy small NoMatchEnum NoMatchFail))
 (= (living garfield) True)
 (= (being garfield) True)
 (= (small garfield) True)

@@ -9,6 +9,6 @@
 
 !(git-import! (git_fixture_url "./repos"))
 
-!(import! &self (library petta_fixture_lib fixture))
+!(import! &self (library metta_fixture_lib fixture))
 
 !(test (fixture-answer 14) 42)

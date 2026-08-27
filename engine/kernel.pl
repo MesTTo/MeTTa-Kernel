@@ -7,12 +7,12 @@
 %   walk's rows), the way every consulted engine file's builtins already
 %   work; the Atom masks live in engine/prelude.metta's declarations.
 % Assumes: consulted by engine/metta.pl alongside the other engine files;
-%   space_atom_count/2, petta_capacity_count/2 and
-%   petta_capacity_count_install/1 come from engine/spaces.pl,
+%   space_atom_count/2, metta_capacity_count/2 and
+%   metta_capacity_count_install/1 come from engine/spaces.pl,
 %   has_declared_type/2 and the refusal helpers from engine/metta.pl.
 % Guarantees: each head's own contract comment below, with its evidence.
 % Fails when: a caller wants stdlib-conforming vocabulary only; these
-%   names are PeTTa's, and a space may shadow any of them.
+%   names are MeTTa's, and a space may shadow any of them.
 % Guarantees: the four heads below are this subsystem's whole surface, and
 %   the module declaration is what makes that enforceable rather than
 %   advisory [tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named;
@@ -89,10 +89,10 @@
 
 %(space-admission-verdict <pool> <atom>) is the shipped judge over the
 %(admits <pool> <type>) and (capacity <pool> <n>) contract atoms in
-%&petta, the handler petta_admission_claim/2's guard equation applies.
+%&metta, the handler metta_admission_claim/2's guard equation applies.
 %Prolog-bodied by measurement: the same chain written as prelude
 %equations cost 131.01 inferences per add against this body's, the two
-%collapse-over-match reads of &petta being the gap, and a pool is a
+%collapse-over-match reads of &metta being the gap, and a pool is a
 %millions-of-adds surface [measured 2026-08-20:
 %bindings/python/benchmarks/extension_cost.py write-door table, min of 3 runs].
 %The MeTTa-bodied chain runs on as executable documentation with a
@@ -102,27 +102,27 @@
 %verdict names the FIRST violated contract in the general algebra's own
 %words, (refuse (does-not-carry <type>)) or
 %(refuse (pool-at-capacity <limit>)), so the refusal arrives as
-%petta_add_refused like any handler's. The Atom mask on the atom
+%metta_add_refused like any handler's. The Atom mask on the atom
 %parameter lives in engine/prelude.metta: the pool judges the offered atom
 %as itself [tested: the_sugar_judges_the_offered_atom_as_itself].
-%The two fixed contract heads read &petta's boot-created storage directly,
+%The two fixed contract heads read &metta's boot-created storage directly,
 %so an absent row still fails while the general =../catch wrapper is off
 %this per-add path.
 'space-admission-verdict'(Pool, Atom, Verdict) :-
-    (   '$petta_atoms:&petta':'&petta'(admits, Pool, Type),
+    (   '$metta_atoms:&metta':'&metta'(admits, Pool, Type),
         \+ has_declared_type(Atom, Type)
     ->  Verdict = [refuse, ['does-not-carry', Type]]
-    ;   '$petta_atoms:&petta':'&petta'(capacity, Pool, Limit),
+    ;   '$metta_atoms:&metta':'&metta'(capacity, Pool, Limit),
         %A foreign pool's atoms live with its provider, so its count is
         %the enumeration space-atom-count refuses to hide. A native capacity
         %claim owns an incremental dynamic count; the first decision after a
         %direct contract write installs it from the exact store count.
         (   seam:foreign_space(Pool)
         ->  aggregate_all(count, 'get-atoms'(Pool, _), Count)
-        ;   (   petta_capacity_count(Pool, Count)
+        ;   (   metta_capacity_count(Pool, Count)
             ->  true
-            ;   petta_capacity_count_install(Pool),
-                petta_capacity_count(Pool, Count)
+            ;   metta_capacity_count_install(Pool),
+                metta_capacity_count(Pool, Count)
             )
         ),
         Count >= Limit

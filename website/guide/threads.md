@@ -6,7 +6,7 @@ Guarantees: public names in the boundary table match the narrow surface.
 
 # Threads, tasks, and what pickles
 
-Python's own documentation states, per type, what is atomic, what locks, and what a caller must serialize. This page is that statement for PeTTa. Every claim on it is pinned by a named test in the suite, so the guarantees are enforced rather than intended.
+Python's own documentation states, per type, what is atomic, what locks, and what a caller must serialize. This page is that statement for MeTTa. Every claim on it is pinned by a named test in the suite, so the guarantees are enforced rather than intended.
 
 ## One process, one home engine
 
@@ -40,7 +40,7 @@ Functions compile into shared modules, so an attached engine sees what the home 
 
 `AsyncMeTTa` puts every engine call on one dedicated worker thread and serializes requests whole, aiosqlite's architecture, so two tasks never interleave inside an evaluation. Scoped state travels correctly: `with m.limits(...)` and `m.batch()` ride `contextvars`, each request copies the submitting task's context, and the worker runs inside it, so a with-block on the event loop bounds engine work happening on another thread (`test_aio_scoped_limits_cross_to_the_worker`). Interpreter shutdown attempts every worker and reports the failures together (`test_aio_shutdown_handler_attempts_every_worker`).
 
-The current-space context is not Python state at all: the engine tracks it in a Prolog global (`'$petta_module'`) set and restored around each evaluation, per engine and therefore per thread, so tasks sharing the aio worker cannot clobber each other's space. The one `threading.local` in the package is the per-thread lock choice above, and it is deliberately thread-keyed rather than a `ContextVar`: a Prolog engine attaches to an OS thread, so two tasks on one thread genuinely share one engine and must share its lock decision.
+The current-space context is not Python state at all: the engine tracks it in a Prolog global (`'$metta_module'`) set and restored around each evaluation, per engine and therefore per thread, so tasks sharing the aio worker cannot clobber each other's space. The one `threading.local` in the package is the per-thread lock choice above, and it is deliberately thread-keyed rather than a `ContextVar`: a Prolog engine attaches to an OS thread, so two tasks on one thread genuinely share one engine and must share its lock decision.
 
 ## Subscriptions, satellite cursors, finalizers
 

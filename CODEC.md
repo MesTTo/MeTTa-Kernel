@@ -2,7 +2,7 @@
 
 Every atom that leaves the engine, and every atom that reaches it from
 outside, crosses as a tagged array. This page is that format, written for
-somebody adding a binding in a language PeTTa has never been used from.
+somebody adding a binding in a language MeTTa has never been used from.
 Implement what is here, run `tests/codec/corpus.json` against your
 implementation, and your codec speaks what the two shipped ones speak.
 
@@ -103,9 +103,9 @@ atom IS, and a decoder builds a space handle from it where `s` builds a
 symbol. So the question an encoder must ask is the language's own species
 question, and the engine already owns it. `get-metatype` answers `Grounded`
 for a space and `Symbol` for a name that merely looks like one, and the clause
-that decides it is `petta_space_operand/1`
+that decides it is `metta_space_operand/1`
 (`engine/metta/types.pl`, `metatype_of(X, 'Grounded') :- atom(X),
-petta_space_operand(X)`). That is the test both shipped seats ask, so
+metta_space_operand(X)`). That is the test both shipped seats ask, so
 `get-metatype` and the wire cannot disagree about an atom.
 
 The payload is text beginning with `&`, which is how the engine mints a space
@@ -121,7 +121,7 @@ things that are not spaces at all: a `State` cell is `&state-#0`, which is
 `Grounded` for a different reason and is no space. An encoder that read the
 prefix instead of asking would send both across as space handles.
 
-There is a wider test next to it, `petta_space_name/1`, which is what the
+There is a wider test next to it, `metta_space_name/1`, which is what the
 builtin `(is-space ...)` answers, and it is deliberately not this. It asks
 whether a space OPERATION may take this name, and because a space is created
 on demand the answer is yes for every `&` name, `&not-a-space` and `&state-#0`
@@ -139,7 +139,7 @@ a space that exists in every runtime, as `space-handle` does with `&self`, or
 one no runtime creates, as `symbol-ampersand` does.
 
 Both shipped seats ask this one question, per atom, and neither holds a list
-of names. The Python host asks it in `petta_py_encode/2` while encoding; the C
+of names. The Python host asks it in `metta_py_encode/2` while encoding; the C
 seat, which has no wire and reads engine terms directly, asks it through
 `petta_c_space_operand/1` while decoding.
 
@@ -155,9 +155,9 @@ term.
 That is why the conformance kit compares wire terms up to a bijection on
 `v` payloads and byte-exactly everywhere else. Both shipped encoders satisfy
 the law and they spell it differently, which is the point.
-`petta_py_encode/2` writes a process-local machine identity, so a variable
-comes out as something like `["v", "_18756"]`; `petta_py_encode_named/3` and
-`petta_py_parse/2`, which is what `metta.parse()` calls, write the source
+`metta_py_encode/2` writes a process-local machine identity, so a variable
+comes out as something like `["v", "_18756"]`; `metta_py_encode_named/3` and
+`metta_py_parse/2`, which is what `metta.parse()` calls, write the source
 name, so the same variable comes out as `["v", "x"]`. Sending a display name
 where an identity is wanted was measured breaking round-trip identity and
 aliasing two distinct answer variables that happened to share a spelling, so
@@ -173,7 +173,7 @@ and the corpus says which by asking the driver.
 
 ## Number and BigInt are exact, or refused
 
-PeTTa has two numeric types. A float and an integer in the inclusive signed
+MeTTa has two numeric types. A float and an integer in the inclusive signed
 i64 range have type `Number`. An integer below -9223372036854775808 or above
 9223372036854775807 has type `BigInt`. The reader uses the same signed decimal
 syntax for both, and SWI keeps every integer value unbounded underneath, so

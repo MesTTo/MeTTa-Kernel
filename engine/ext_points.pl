@@ -365,7 +365,7 @@ kind(foreign_space/1, ownership).
 %hooks below obeys and which the conformance kit now depends on: a hook
 %clause takes the space as its FIRST argument and its body's LEADING goal is
 %the ownership test that decides whether this provider serves that space
-%(mork_owns_space/1, redis_space_conn/7, petta_py_foreign/1 are the three
+%(mork_owns_space/1, redis_space_conn/7, metta_py_foreign/1 are the three
 %shipped spellings). The guard is a pure lookup, so anything may call it to
 %ask "does this provider serve this space" without performing the operation.
 %
@@ -399,7 +399,7 @@ kind(foreign_begin/1, ownership).
 kind(foreign_commit/1, ownership).
 kind(foreign_rollback/1, ownership).
 %Custom matching for grounded values, Hyperon's CustomMatch: a host value
-%may carry its own matching logic, consulted by petta_match_atoms/2 when
+%may carry its own matching logic, consulted by metta_match_atoms/2 when
 %that value meets a non-variable operand inside `unify`. The hook
 %enumerates one solution per binding set, binding the other operand's
 %variables; failure means no match. Variables always bind the value
@@ -510,7 +510,7 @@ kind(foreign_pushdown/3, ownership).
 %inexact (candidates must be re-unified, the pushdown of the caller's
 %bound is withheld) or refuse (this route must not serve now, loud at the
 %match and naming Why). An advisor typically reads its own kind's atoms
-%from '&petta', often through petta_shape_route/5, which is what lets a
+%from '&metta', often through metta_shape_route/5, which is what lets a
 %freshness or cost kind change routing with no kernel edit
 %[tested: a_route_cap_demotes_and_refuses_through_the_published_seam].
 %Declared metadata steering the router is the oldest optimizer discipline
@@ -602,11 +602,11 @@ kind(foreign_capability/2, declaration).
 %Delivery is at-most-once, at-least-once or per-write-exactly and Order is
 %ordered or unordered, the catalog's own `delivery` and `event-order`
 %vocabularies. The per-space door is the ordinary declaration atom,
-%(events <ctx> <delivery> <order>) in '&petta', which is what
+%(events <ctx> <delivery> <order>) in '&metta', which is what
 %Space.events(delivery, order) and a Python provider's registration write; this is
 %the same answer for a provider like MORK, whose spaces are every name
 %beginning &mork, so there is no one name to write the atom about. The two
-%doors are read by one question, petta_event_capability/3, exactly as a
+%doors are read by one question, metta_event_capability/3, exactly as a
 %Prolog provider's foreign_capability/2 clauses and the Python
 %bridge's registered facts are read by one foreign_provides/2.
 %
@@ -639,7 +639,7 @@ kind(foreign_refuse/2, ownership).
 %
 %library(exceptions) says the same thing more directly, and was measured
 %rather than assumed. Written its way a recovery site is
-%catch(Goal, \+ petta_control_signal, _, Recover), the negated type its
+%catch(Goal, \+ metta_control_signal, _, Recover), the negated type its
 %is_exception/3 already supports, and it is behaviour-identical: ten balls,
 %errors and non-errors, control and ordinary, recovered or escaped the same
 %way both ways. It costs too much. catch/4 puts a freeze/2 on the ball at
@@ -730,7 +730,7 @@ kind(pure_operation/1, declaration).
 %
 %A bridge compiles a MeTTa operation into a call on its OWN dispatcher, so a
 %purity refusal that reads the goal's functor names the bridge rather than the
-%program: `(tabled (uses-size $k))` refused `petta_py_dispatch_det/3` and
+%program: `(tabled (uses-size $k))` refused `metta_py_dispatch_det/3` and
 %advised declaring THAT pure, which is neither something an author wrote nor
 %something that would help, since the refusal never reaches the operation's
 %name. A bridge that can recover the name answers here, and the refusal then
@@ -864,20 +864,20 @@ kind(catch_recover/2, host_service).
 kind(translate_expr/3, host_service).
 kind(translate_cached_expr/3, host_service).
 kind(lift_pattern_modifiers/4, host_service).
-kind(petta_seq_query_plan/2, host_service).
+kind(metta_seq_query_plan/2, host_service).
 %The callable doors' deprecation reads: the per-name row lookup, and the
 %emptiness probe the shim answers through the cheap apply seam so an empty
 %catalog costs one crossing per process rather than one goal-string read
 %per name.
-kind(petta_deprecation/3, host_service).
+kind(metta_deprecation/3, host_service).
 %A host query supplies one dynamic carrier around an engine-owned goal, then
 %reads the same effective carrier and its multiplicative identity when it
 %decodes or initializes answer annotations. These are doors into the algebra
 %policy, not host-side orchestration: keeping them published prevents a binding
 %from reproducing the scope stack, declaration fallback, or descriptor lookup.
-kind(petta_with_under/2, host_service).
-kind(petta_effective_algebra/2, host_service).
-kind(petta_algebra_one/2, host_service).
+kind(metta_with_under/2, host_service).
+kind(metta_effective_algebra/2, host_service).
+kind(metta_algebra_one/2, host_service).
 %The host run and load surface: the grouped runner (with the
 %using-substitution folded in as Bindings), the status runner, the load
 %lifecycle and the manifest read, plus the reducible-head test the status
@@ -931,14 +931,14 @@ kind(metta_host_dispatch_proof_step/6, host_service).
 %
 %THE PAIR IS Name-Var, `-`/2 and not `=`/2, with Name an atom carrying no `$`,
 %and it is written down here because three bindings had to discover it by
-%experiment. sread_with_names/3 answers pairs of that shape, petta_name_pairs/2
+%experiment. sread_with_names/3 answers pairs of that shape, metta_name_pairs/2
 %flattens the grouped-answer state into the same shape, and both writers below
 %take it. Passing [] is legal and means "no names": the writer numbers the
 %variables instead, so a caller who wrote (f $x $x $y) gets (f $_0 $_0 $_1)
 %back [measured 2026-08-27: sread_with_names("(f $x $x $y)", T, M) binds M to
 %[y-_G1, x-_G2], swrite_with_names(T, M, S) gives "(f $x $x $y)" and
 %swrite_with_names(T, [], S) gives "(f $_0 $_0 $_1)"].
-kind(petta_name_pairs/2, host_service).
+kind(metta_name_pairs/2, host_service).
 kind(swrite_with_names/3, host_service).
 %The persistence surface moved engine-side the same day: the fast cache's
 %save and integrity-checked load, the space digest, and the host-value
@@ -995,7 +995,7 @@ kind(metta_host_native_fact/4, host_service).
 %query (per-pattern classes with term origins, the plan's claimed and rest
 %indexes, refusals preflighted), so a host renders prose instead of
 %re-deriving routing precedence. foreign_pushdown_class/3,
-%petta_refuse_guard/2, refuse_lossy_plan/4, petta_handles_route/5 and
+%metta_refuse_guard/2, refuse_lossy_plan/4, metta_handles_route/5 and
 %foreign_provides/2 left this list with it (2026-08-20); the two that
 %extensions genuinely consult moved to the service list below.
 kind(metta_host_explain_match/3, host_service).
@@ -1026,29 +1026,29 @@ kind(metta_space_names/1, host_service).
 %because a host CODEC needs it: the wire's `p` tag is a species tag, so an
 %encoder has to ask what the engine's own metatype_of/2 asks, which is this
 %[source: engine/metta/types.pl, metatype_of(X, 'Grounded') :- atom(X),
-%petta_space_operand(X)]. petta_space_name/1 below is the wider operand test
+%metta_space_operand(X)]. metta_space_name/1 below is the wider operand test
 %is-space/2 answers and is the wrong question here: it accepts any ampersand
 %name, including a State cell, where get-metatype answers Symbol or answers
 %Grounded for a different reason.
-kind(petta_space_operand/1, host_service).
+kind(metta_space_operand/1, host_service).
 kind(metta_string_declarations/2, host_service).
 kind(metta_substitute_self/3, host_service).
 kind(metta_trace_source/4, host_service).
-kind(petta_annotations/2, host_service).
-kind(petta_contract_fact/1, host_service).
-kind(petta_error_answer/3, host_service).
-kind(petta_handles_coherent/1, host_service).
-kind(petta_on_error_mode/3, host_service).
-kind(petta_source_reset/1, host_service).
-kind(petta_speculate/1, host_service).
-kind(petta_transaction/1, host_service).
-kind(petta_transaction_notified/3, host_service).
-kind(petta_world_effect_coverage/2, host_service).
-kind(petta_effect_covered/2, host_service).
-kind(petta_compensation/2, host_service).
-kind(petta_transport_failure/1, host_service).
-kind(petta_with_state_write_fence/1, host_service).
-kind(petta_live_state_cell/1, host_service).
+kind(metta_annotations/2, host_service).
+kind(metta_contract_fact/1, host_service).
+kind(metta_error_answer/3, host_service).
+kind(metta_handles_coherent/1, host_service).
+kind(metta_on_error_mode/3, host_service).
+kind(metta_source_reset/1, host_service).
+kind(metta_speculate/1, host_service).
+kind(metta_transaction/1, host_service).
+kind(metta_transaction_notified/3, host_service).
+kind(metta_world_effect_coverage/2, host_service).
+kind(metta_effect_covered/2, host_service).
+kind(metta_compensation/2, host_service).
+kind(metta_transport_failure/1, host_service).
+kind(metta_with_state_write_fence/1, host_service).
+kind(metta_live_state_cell/1, host_service).
 kind(sread_with_names/3, host_service).
 kind(unregister_metta_extension/1, host_service).
 kind(with_metta_module/2, host_service).
@@ -1066,7 +1066,7 @@ kind(metta_typed_dispatch_applies/2, host_service).
 %knowledge and this is the read of it; the engine records it once, at the
 %guarded loads in engine/metta.pl, and the forms that rest on an absent
 %capability refuse by name from the same table.
-kind(petta_platform/4, host_service).
+kind(metta_platform/4, host_service).
 
 %The post-commit stream's five services. Transaction owners open and finish
 %frames; a provider whose own durable channel reports a committed change may
@@ -1086,7 +1086,7 @@ kind(observe/3, service).
 %The declared source discipline of a context, (source Ctx Kind): the
 %conformance kit reads the declaration the enforcement reads instead
 %of trusting a caller's claim, so the read is a published service.
-kind(petta_source/2, service).
+kind(metta_source/2, service).
 kind(swrite/2, service).
 %Presentation text is deliberately distinct from the inverse writer. A host
 %or extension uses this only where lossless re-reading is not the contract
@@ -1126,12 +1126,12 @@ kind(metta_unwritable_symbol/2, service).
 
 %THE CATALOG'S CONSULTATION SITES, published for extensions. A route-cap
 %advisor or any consumer of a declared kind reads the same routed view the
-%engine reads: petta_shape_route/5 answers the most specific coherent
+%engine reads: metta_shape_route/5 answers the most specific coherent
 %entry for a query under any shape-routed head, shipped or third-party,
-%and petta_contract_fact/1 is the raw row read beneath it (already a
+%and metta_contract_fact/1 is the raw row read beneath it (already a
 %host_service above; named here in prose so an extension author finds the
 %pair together).
-kind(petta_shape_route/5, service).
+kind(metta_shape_route/5, service).
 %The event-capability door, for an extension that BLOCKS on a context's
 %changes rather than merely observing them: lib/lib_thread.pl's Linda pair
 %parks a caller until an atom arrives, and parking on a context that
@@ -1139,7 +1139,7 @@ kind(petta_shape_route/5, service).
 %and the caller's own word for what it wanted to do; succeeds silently for a
 %context that can deliver, native spaces included
 %[tested: test_a_blocking_take_waits_for_a_matching_atom_and_removes_exactly_one].
-kind(petta_require_events/2, service).
+kind(metta_require_events/2, service).
 %The routing classifier and the capability probe, consulted by
 %lib/lib_conformance.pl: published for extensions, no longer part of the
 %host transport's own list.
@@ -1185,7 +1185,7 @@ kind(current_metta_space/1, service).
 %of the same question and is published as a builtin; this is the Prolog one,
 %and it is the test rather than a lookup, so an unbound or computed term is
 %refused instead of read as an empty space.
-kind(petta_space_name/1, service).
+kind(metta_space_name/1, service).
 
 %EVALUATION IN A SPACE. space_module/2 above names the module a space compiles
 %into; this is what a library names it FOR. lib/lib_thread.pl runs a MeTTa
@@ -1216,19 +1216,19 @@ kind(native_atom_clause/3, service).
 kind(match_foreign/4, service).
 
 %EFFECTS AND CACHING. The five classes, their order and their join live in the
-%engine, so libraries do not restate the lattice. petta_operation_effect/2
+%engine, so libraries do not restate the lattice. metta_operation_effect/2
 %returns the canonical reflected class for one registered operation;
-%petta_operation_plan_effect/2 joins a list of operation names and fails if
+%metta_operation_plan_effect/2 joins a list of operation names and fails if
 %any member is unclassified. The effect walk remains the stricter cache door:
 %only pureStructural is inert there, while space reads are tracked explicitly.
 %[tested: effects_lattice:effect_services_are_published;
 %commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
-kind(petta_effect_rank/2, service).
-kind(petta_effect_join/3, service).
-kind(petta_effect_compose/2, service).
-kind(petta_effect_class_canonical/2, service).
-kind(petta_operation_effect/2, service).
-kind(petta_operation_plan_effect/2, service).
+kind(metta_effect_rank/2, service).
+kind(metta_effect_join/3, service).
+kind(metta_effect_compose/2, service).
+kind(metta_effect_class_canonical/2, service).
+kind(metta_operation_effect/2, service).
+kind(metta_operation_plan_effect/2, service).
 kind(metta_effect_walk/3, service).
 kind(metta_function_cacheable/1, service).
 kind(metta_cache_unchecked/1, service).
@@ -1263,7 +1263,7 @@ kind(current_working_dir/1, service).
 %A library validating its own option against a vocabulary the catalog declares
 %reads the same table the engine reads, so a value the catalog gains is
 %accepted without editing the library.
-kind(petta_vocabulary_value/2, service).
+kind(metta_vocabulary_value/2, service).
 %The import lifecycle's marker. A library that performs an import of its own
 %(lib/lib_gitimport.pl's git-import!) has to run under the same marker, or a
 %failed load leaves behind the clauses the engine would have erased.
@@ -1394,7 +1394,7 @@ seam_home(Name/Arity, Home) :-
     functor(Head, Name, Arity),
     (   defined_in(seam, Head)
     ->  Home = seam
-    ;   petta_engine_module(Engine),
+    ;   metta_engine_module(Engine),
         implemented_in(Engine, Head, Home)
     ).
 
@@ -1464,7 +1464,7 @@ atom_hook_clause(removed, Ref) :- clause(atom_removed(_, _), _, Ref).
 %The wrapped predicate is the WRITE DOOR's, and the module is asked rather
 %than written: writing `user` here meant "the engine" in one breath and "the
 %host" in the next, and only the second reading survives Phase 11. Asking
-%petta_engine_module/1 was the right question only while every engine file
+%metta_engine_module/1 was the right question only while every engine file
 %shared that module. wrap_predicate/4 on a name a module merely IMPORTS wraps
 %the import and leaves the definition alone, so once engine/spaces.pl declared
 %a module of its own the wrapper would have watched a link the write door
@@ -1488,7 +1488,7 @@ enable_atom_hook(added) :-
     (   wrap_predicate(Engine:metta_add_atom(Space, Term, _Result), metta_atom_added_hooks, Wrapped,
                        run_atom_added_hooks(Wrapped, Space, Term))
     ->  true
-    ;   throw(error(petta_atom_hook_install_failed(added),
+    ;   throw(error(metta_atom_hook_install_failed(added),
                     context(enable_atom_hook/1,
                             'the write wrapper could not be installed')))
     ).
@@ -1500,13 +1500,13 @@ enable_atom_hook(removed) :-
     (   wrap_predicate(Engine:metta_remove_atom(Space, Term, Removed), metta_atom_removed_hooks, Wrapped,
                        run_atom_removed_hooks(Wrapped, Space, Term, Removed))
     ->  true
-    ;   throw(error(petta_atom_hook_install_failed(removed),
+    ;   throw(error(metta_atom_hook_install_failed(removed),
                     context(enable_atom_hook/1,
                             'the write wrapper could not be installed')))
     ).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_atom_hook_install_failed(Kind)) -->
+prolog:error_message(metta_atom_hook_install_failed(Kind)) -->
     [ 'the ~w-atom write wrapper could not be installed, so a handler asserted \c
        now would be removed again by prolog_listen/2 and never fire'-[Kind] ].
 
@@ -1514,7 +1514,7 @@ prolog:error_message(petta_atom_hook_install_failed(Kind)) -->
 %the engine's own module.
 write_door_module(Name/Arity, Module) :-
     functor(Head, Name, Arity),
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     predicate_property(Engine:Head, implementation_module(Module)).
 
 run_atom_added_hooks(Wrapped, Space, Term) :-
@@ -1535,14 +1535,14 @@ run_atom_removed_hooks(Wrapped, Space, Term, Removed) :-
 %multisets, so two identical writes are two ordinary events.
 observation_begin :-
     observation_frames(Frames),
-    nb_setval('$petta_observation_frames', [[]|Frames]).
+    nb_setval('$metta_observation_frames', [[]|Frames]).
 
 observation_commit :-
     observation_take_frame(Current, Rest, commit),
     (   Rest = [Parent|Parents]
     ->  append(Current, Parent, Merged),
-        nb_setval('$petta_observation_frames', [Merged|Parents])
-    ;   nb_setval('$petta_observation_frames', []),
+        nb_setval('$metta_observation_frames', [Merged|Parents])
+    ;   nb_setval('$metta_observation_frames', []),
         reverse(Current, Events),
         observation_dispatch_committed(Events)
     ).
@@ -1567,7 +1567,7 @@ observation_dispatch_deferred([_|Events]) :-
 
 observation_discard :-
     observation_take_frame(Current, Rest, discard),
-    nb_setval('$petta_observation_frames', Rest),
+    nb_setval('$metta_observation_frames', Rest),
     reverse(Current, Events),
     observation_rollback_all(Events, none).
 
@@ -1602,19 +1602,19 @@ observation_defer(Commit, Discard) :-
     must_be(callable, Discard),
     (   observation_frames([Current|Parents])
     ->  copy_term(defer(Commit, Discard), Deferred),
-        nb_setval('$petta_observation_frames', [[Deferred|Current]|Parents])
+        nb_setval('$metta_observation_frames', [[Deferred|Current]|Parents])
     ;   call(Commit)
     ).
 
 observe(Action, Space, Term) :-
     (   observation_frames([Current|Parents])
     ->  copy_term(event(Action, Space, Term), Event),
-        nb_setval('$petta_observation_frames', [[Event|Current]|Parents])
+        nb_setval('$metta_observation_frames', [[Event|Current]|Parents])
     ;   observation_dispatch(event(Action, Space, Term))
     ).
 
 observation_frames(Frames) :-
-    (   nb_current('$petta_observation_frames', Current)
+    (   nb_current('$metta_observation_frames', Current)
     ->  Frames = Current
     ;   Frames = []
     ).

@@ -373,7 +373,7 @@ test(an_undeclared_function_still_memoizes,
     assertion(metta_function_cacheable(plunit_memo_pure)),
     'memoize'(plunit_memo_pure, true).
 
-%(cache Name unchecked) in &petta is the caller's declared acceptance of
+%(cache Name unchecked) in &metta is the caller's declared acceptance of
 %staleness: the purity walk is skipped for that function, so an impure body
 %memoizes. The declaration is loud and queryable, which is what separates it
 %from the silent fail-open default this library used to have.
@@ -381,7 +381,7 @@ test(an_unchecked_declaration_memoizes_an_impure_body,
      [ setup(process_metta_string(
                  "(= (plunit-memo-unchecked $k) (let $i (println! $k) $k))", _)),
        cleanup(( catch('clear-memoize'('plunit-memo-unchecked', _), _, true),
-                 catch('remove-atom'('&petta',
+                 catch('remove-atom'('&metta',
                                      [cache, 'plunit-memo-unchecked', unchecked],
                                      _), _, true) )) ]) :-
     catch(( 'memoize'('plunit-memo-unchecked', _), Refused = none ),
@@ -389,7 +389,7 @@ test(an_unchecked_declaration_memoizes_an_impure_body,
           Refused = impure),
     assertion(Refused == impure),
     process_metta_string(
-        "!(add-atom &petta (cache plunit-memo-unchecked unchecked))", _),
+        "!(add-atom &metta (cache plunit-memo-unchecked unchecked))", _),
     'memoize'('plunit-memo-unchecked', true).
 
 %The precedence, pinned: a library's explicit volatile outranks the caller's
@@ -399,9 +399,9 @@ test(a_volatile_declaration_outranks_unchecked,
      [ setup(( import_prolog_function(plunit_memo_volatile, _),
                declare_function_volatility(plunit_memo_volatile, volatile),
                process_metta_string(
-                   "!(add-atom &petta (cache plunit_memo_volatile unchecked))", _) )),
+                   "!(add-atom &metta (cache plunit_memo_volatile unchecked))", _) )),
        cleanup(( retractall(user:metta_function_volatility(plunit_memo_volatile, _)),
-                 catch('remove-atom'('&petta',
+                 catch('remove-atom'('&metta',
                                      [cache, plunit_memo_volatile, unchecked],
                                      _), _, true),
                  release_function_name(plunit_memo_volatile),
@@ -447,7 +447,7 @@ test(an_impure_refusal_names_the_canonical_effect_remedy) :-
 :- begin_tests(memo_cache_override).
 
 forget_cache_override(Fun, Mode) :-
-    catch('remove-atom'('&petta', [cache, Fun, Mode], _), _, true).
+    catch('remove-atom'('&metta', [cache, Fun, Mode], _), _, true).
 
 cache_explanation(Fun, Choice-Reason) :-
     (   seam:automatic_cache_explanation(Fun, Choice, Reason)
@@ -464,7 +464,7 @@ test(a_force_declaration_memoizes_a_function_that_calls_nothing,
     cache_explanation('plunit-memo-forced', Before),
     assertion(Before == declined-'not-recursive'),
     process_metta_string(
-        "!(add-atom &petta (cache plunit-memo-forced force))", _),
+        "!(add-atom &metta (cache plunit-memo-forced force))", _),
     cache_explanation('plunit-memo-forced', Forced),
     assertion(Forced == forced-declaration),
     assertion(lib_memo:memo_automatic_enabled('plunit-memo-forced', _)),

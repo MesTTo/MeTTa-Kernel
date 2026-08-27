@@ -52,7 +52,7 @@
 %     registered, sread_mode/3 and sread_with_names_mode/4 answer through the
 %     C reader, whose results are variant-identical to this file's grammar
 %     over the whole shipped corpus, an adversarial battery, and generated
-%     number spellings, errors and failures included; PETTA_C_READER=off or
+%     number spellings, errors and failures included; METTA_C_READER=off or
 %     a missing artifact keeps every parse on the grammar below [tested:
 %     reader_c in tests/prolog/reader_c.plt; commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
 % Owns resources:
@@ -61,7 +61,7 @@
 %     test_a_registered_token_class_parses_like_a_shipped_one;
 %     commit=c1eaa36c7a2089801fe9da3cbec3fc02833d66fe].
 % Guarded by:
-%   - '$petta_reader_tokens' serializes registry replacement and removal; each
+%   - '$metta_reader_tokens' serializes registry replacement and removal; each
 %     mutation commits atomically with its writability-table invalidation.
 % Open Obligations:
 %   To Do: None
@@ -101,10 +101,10 @@
             metta_unwritable_symbol/2,
             metta_host_register_reader_token/2,
             metta_host_unregister_reader_token/1,
-            petta_name_pairs/2,
-            petta_c_reader_active/0,
-            petta_c_parse_source/2,
-            petta_c_parse_source/4,
+            metta_name_pairs/2,
+            metta_c_reader_active/0,
+            metta_c_parse_source/2,
+            metta_c_parse_source/4,
             'register-token!'/3,
             'unregister-token!'/2
           ]).
@@ -123,47 +123,47 @@
 %while metta_reader_mode(shipped) holds; the Prolog grammar in this file
 %remains the reader's specification, the custom-token path, and the fallback
 %wherever the artifact is absent, exactly the backends' artifact-presence
-%pattern. PETTA_C_READER=off keeps the Prolog reader even when the artifact
+%pattern. METTA_C_READER=off keeps the Prolog reader even when the artifact
 %exists, which is what the differential suite and the fallback benchmarks
 %use. The stub clauses keep both foreign names defined for the engine's
 %undefined-predicate gate when the artifact is absent; the
-%petta_c_reader_active/0 guard on every dispatch means a stub is unreachable.
-:- dynamic petta_c_reader_active/0.
-:- dynamic petta_reader_artifact/1.
+%metta_c_reader_active/0 guard on every dispatch means a stub is unreachable.
+:- dynamic metta_c_reader_active/0.
+:- dynamic metta_reader_artifact/1.
 :- prolog_load_context(directory, Dir),
    directory_file_path(Dir, 'reader.so', SO),
-   assertz(petta_reader_artifact(SO)).
+   assertz(metta_reader_artifact(SO)).
 
-petta_try_load_c_reader :-
-    (   \+ getenv('PETTA_C_READER', off),
-        petta_reader_artifact(SO),
+metta_try_load_c_reader :-
+    (   \+ getenv('METTA_C_READER', off),
+        metta_reader_artifact(SO),
         exists_file(SO),
         catch(load_foreign_library(SO), _, fail),
         %The FOREIGN arity, never the /2 wrapper below: a stale artifact
         %registering an older arity must fall back whole rather than
         %half-activate.
-        current_predicate(petta_c_parse_source/4)
-    ->  assertz(petta_c_reader_active)
-    ;   petta_c_reader_stub
+        current_predicate(metta_c_parse_source/4)
+    ->  assertz(metta_c_reader_active)
+    ;   metta_c_reader_stub
     ).
 
-petta_c_reader_stub :-
-    (   current_predicate(petta_c_parse_source/4)
+metta_c_reader_stub :-
+    (   current_predicate(metta_c_parse_source/4)
     ->  true
-    ;   assertz((petta_c_parse_source(_, _, _, _) :- petta_c_reader_refuse)),
-        assertz((petta_c_sread(_, _, _) :- petta_c_reader_refuse))
+    ;   assertz((metta_c_parse_source(_, _, _, _) :- metta_c_reader_refuse)),
+        assertz((metta_c_sread(_, _, _) :- metta_c_reader_refuse))
     ).
 
 %The 2-ary spelling for a caller with no use for the summary.
-petta_c_parse_source(S, Forms) :-
-    petta_c_parse_source(S, Forms, _, _).
+metta_c_parse_source(S, Forms) :-
+    metta_c_parse_source(S, Forms, _, _).
 
-petta_c_reader_refuse :-
-    throw(error(existence_error(petta_c_reader, 'engine/reader.so'),
-                context(petta_c_parse_source/4,
+metta_c_reader_refuse :-
+    throw(error(existence_error(metta_c_reader, 'engine/reader.so'),
+                context(metta_c_parse_source/4,
                         'build it: swipl-ld -shared -O2 -o engine/reader.so engine/reader.c'))).
 
-:- petta_try_load_c_reader.
+:- metta_try_load_c_reader.
 
 %The tokenizer is the reader seam upstream: an ordered mapping from a full
 %token regex to a constructor, searched newest first. These shipped rows are
@@ -213,7 +213,7 @@ metta_host_unregister_reader_token(Pattern) :-
 metta_register_reader_token(Pattern0, Descriptor) :-
     metta_reader_token_pattern(Pattern0, Pattern),
     re_compile(Pattern, Regex, [anchored(true), endanchored(true)]),
-    with_mutex('$petta_reader_tokens',
+    with_mutex('$metta_reader_tokens',
                transaction(( retractall(metta_custom_reader_token(Pattern, _, _)),
                              asserta(metta_custom_reader_token(Pattern,
                                                                Descriptor,
@@ -222,7 +222,7 @@ metta_register_reader_token(Pattern0, Descriptor) :-
 
 metta_unregister_reader_token(Pattern0) :-
     metta_reader_token_pattern(Pattern0, Pattern),
-    with_mutex('$petta_reader_tokens',
+    with_mutex('$metta_reader_tokens',
                (   metta_custom_reader_token(Pattern, _, _)
                ->  transaction(( retractall(metta_custom_reader_token(Pattern,
                                                                        _, _)),
@@ -277,8 +277,8 @@ sread_with_names(Text, Term, VarMap) :-
 
 sread_with_names_mode(Mode, Text, Term, VarMap) :-
     (   Mode == shipped,
-        petta_c_reader_active
-    ->  petta_c_sread(Text, Term, VarMap)
+        metta_c_reader_active
+    ->  metta_c_sread(Text, Term, VarMap)
     ;   ( string(Text) -> S = Text ; atom_string(Text, S) ),
         string_codes(S, Cs),
         ( catch(phrase(sexpr_mode(Mode, Term, [], VarMap), Cs),
@@ -345,7 +345,7 @@ answer_tail_mode([], _) --> [].
 answer_tail_mode([Answer|Answers], Mode) -->
     " ", answer_mode(Answer, Mode), answer_tail_mode(Answers, Mode).
 
-answer_mode('$petta_answer'(Term, Names), Mode) --> !,
+answer_mode('$metta_answer'(Term, Names), Mode) --> !,
     { ( Mode == strict -> metta_text_writable(Term) ; true ),
       named_print_term(Term, Names, Printable) },
     swrite_mode(Printable, Mode).
@@ -369,13 +369,13 @@ seq(Terms) --> { metta_text_writable(Terms),
 
 stable_print_term(Term, Printable) :-
     copy_term_nat(Term, Printable),
-    numbervars(Printable, 0, _, [functor_name('$petta_variable')]).
+    numbervars(Printable, 0, _, [functor_name('$metta_variable')]).
 
 named_print_term(Term, Names, Printable) :-
     copy_term_nat(Term-Names, Numbered-NumberedState),
     numbervars(Numbered-NumberedState, 0, _,
-               [functor_name('$petta_variable')]),
-    petta_name_pairs(NumberedState, NumberedNames),
+               [functor_name('$metta_variable')]),
+    metta_name_pairs(NumberedState, NumberedNames),
     numbered_variable_indices(Numbered, VariableIndices0),
     sort(VariableIndices0, VariableIndices),
     named_variable_spellings(NumberedNames, VariableIndices, Spellings),
@@ -384,26 +384,26 @@ named_print_term(Term, Names, Printable) :-
 %A source reader supplies a flat pair list. Nested collapse slots hold copied
 %name states, one per collected answer. Unfilled slots are numbered markers
 %after the copy and contribute nothing.
-petta_name_pairs(State, []) :- var(State), !.
-petta_name_pairs('$petta_name_state'(Base, Slots), Pairs) :- !,
-    petta_name_pairs(Base, BasePairs),
-    petta_name_pairs(Slots, SlotPairs),
+metta_name_pairs(State, []) :- var(State), !.
+metta_name_pairs('$metta_name_state'(Base, Slots), Pairs) :- !,
+    metta_name_pairs(Base, BasePairs),
+    metta_name_pairs(Slots, SlotPairs),
     append(BasePairs, SlotPairs, Pairs).
-petta_name_pairs([], []) :- !.
-petta_name_pairs([Entry|Rest], [Written-Var|Pairs]) :-
+metta_name_pairs([], []) :- !.
+metta_name_pairs([Entry|Rest], [Written-Var|Pairs]) :-
     nonvar(Entry),
-    Entry = '$petta_epoch_name'(Name, Epoch)-Var, !,
+    Entry = '$metta_epoch_name'(Name, Epoch)-Var, !,
     format(atom(Written), '~w#~d', [Name, Epoch]),
-    petta_name_pairs(Rest, Pairs).
-petta_name_pairs([Name-Var|Rest], [Name-Var|Pairs]) :- atom(Name), !,
-    petta_name_pairs(Rest, Pairs).
-petta_name_pairs([State|Rest], Pairs) :- !,
-    petta_name_pairs(State, StatePairs),
-    petta_name_pairs(Rest, RestPairs),
+    metta_name_pairs(Rest, Pairs).
+metta_name_pairs([Name-Var|Rest], [Name-Var|Pairs]) :- atom(Name), !,
+    metta_name_pairs(Rest, Pairs).
+metta_name_pairs([State|Rest], Pairs) :- !,
+    metta_name_pairs(State, StatePairs),
+    metta_name_pairs(Rest, RestPairs),
     append(StatePairs, RestPairs, Pairs).
-petta_name_pairs(_, []).
+metta_name_pairs(_, []).
 
-numbered_variable_indices('$petta_variable'(Index), [Index]) :- !.
+numbered_variable_indices('$metta_variable'(Index), [Index]) :- !.
 numbered_variable_indices([Head|Tail], Indices) :- !,
     numbered_variable_indices(Head, HeadIndices),
     numbered_variable_indices(Tail, TailIndices),
@@ -415,7 +415,7 @@ numbered_variable_indices(_, []).
 %variables. Repeated identical pairs collapse before epoch assignment.
 named_variable_spellings(Names, VariableIndices, Spellings) :-
     findall(Index-Name,
-            ( member(Name-'$petta_variable'(Index), Names),
+            ( member(Name-'$metta_variable'(Index), Names),
               atom(Name),
               memberchk(Index, VariableIndices) ),
             Raw),
@@ -445,8 +445,8 @@ named_variable_ordinal(Name, Index, [OtherIndex-OtherName|Rest], N0, Epoch) :-
         named_variable_ordinal(Name, Index, Rest, N1, Epoch)
     ).
 
-apply_named_variable_spellings('$petta_variable'(Index), Spellings,
-                               '$petta_named_variable'(Name)) :-
+apply_named_variable_spellings('$metta_variable'(Index), Spellings,
+                               '$metta_named_variable'(Name)) :-
     memberchk(Index-Name, Spellings), !.
 apply_named_variable_spellings([Head|Tail], Spellings, [NamedHead|NamedTail]) :-
     !,
@@ -465,38 +465,38 @@ swrite_pretty(Term, String) :- swrite_pretty(Term, 78, String).
 swrite_pretty(Term, Width, String) :-
     metta_text_writable(Term),
     stable_print_term(Term, Printable),
-    with_output_to(string(String), petta_pretty_print(Printable, 0, Width)).
+    with_output_to(string(String), metta_pretty_print(Printable, 0, Width)).
 
-petta_pretty_print(T, Indent, Width) :-
-    petta_inline_text(T, Inline),
+metta_pretty_print(T, Indent, Width) :-
+    metta_inline_text(T, Inline),
     string_length(Inline, L),
     Budget is Width - Indent,
     (   L =< Budget
     ->  write(Inline)
     ;   is_list(T), T = [H|Rest], Rest \== []
-    ->  petta_inline_text(H, HeadText),
+    ->  metta_inline_text(H, HeadText),
         format("(~w", [HeadText]),
         Sub is Indent + 2,
-        petta_pretty_children(Rest, Sub, Width),
+        metta_pretty_children(Rest, Sub, Width),
         write(")")
     ;   write(Inline)
     ).
 
-petta_pretty_children([], _, _).
-petta_pretty_children([C|Cs], Indent, Width) :-
+metta_pretty_children([], _, _).
+metta_pretty_children([C|Cs], Indent, Width) :-
     nl, tab(Indent),
-    petta_pretty_print(C, Indent, Width),
-    petta_pretty_children(Cs, Indent, Width).
+    metta_pretty_print(C, Indent, Width),
+    metta_pretty_children(Cs, Indent, Width).
 
-petta_inline_text(T, S) :-
+metta_inline_text(T, S) :-
     phrase(swrite_numbered(T), Codes),
     string_codes(S, Codes).
 
 swrite_numbered(Term) --> swrite_mode(Term, strict).
 sdisplay_numbered(Term) --> swrite_mode(Term, display).
 
-swrite_mode('$petta_named_variable'(Name), _) --> !, "$", atom(Name).
-swrite_mode('$petta_variable'(Index), _) --> !, "$_", { number_codes(Index, Cs) }, Cs.
+swrite_mode('$metta_named_variable'(Name), _) --> !, "$", atom(Name).
+swrite_mode('$metta_variable'(Index), _) --> !, "$_", { number_codes(Index, Cs) }, Cs.
 %The language spells its booleans `True` and `False`. metta_reader_default/2 maps both
 %onto Prolog's own true/false so a compiled guard calls them directly, and this
 %is the other half of that map: without it the round trip renamed the
@@ -668,8 +668,8 @@ sread(S, T) :-
 
 sread_mode(Mode, S, T) :-
     (   Mode == shipped,
-        petta_c_reader_active
-    ->  petta_c_sread(S, T, _)
+        metta_c_reader_active
+    ->  metta_c_sread(S, T, _)
     ;   atom_codes(S, Cs),
         sread_codes_mode(Mode, Cs, S, T)
     ).

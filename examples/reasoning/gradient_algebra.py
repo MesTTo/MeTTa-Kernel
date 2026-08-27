@@ -1,6 +1,6 @@
 """Purpose: carry a two-rule provenance derivative into a pettorch module.
 
-Assumes: PeTTa, PyTorch, and the sibling ``pettorch`` package are importable.
+Assumes: MeTTa, PyTorch, and the sibling ``pettorch`` package are importable.
 Guarantees: the result is the same live DLPack tensor whose backward pass
   reaches the source tag [tested:
   test_a_declared_gradient_algebra_propagates_derivatives_through_a_derivation;

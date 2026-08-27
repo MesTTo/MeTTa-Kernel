@@ -6,13 +6,13 @@ Guarantees: the guide contains no removed atom constructors or Space registratio
 
 # DuckDB as a space
 
-A `SpaceProvider` lets an external store answer PeTTa matches. The DuckDB example maps each SQL table to a relation whose head is the table name and whose arguments follow the table's column order.
+A `SpaceProvider` lets an external store answer MeTTa matches. The DuckDB example maps each SQL table to a relation whose head is the table name and whose arguments follow the table's column order.
 
 `DuckDBSpace` belongs to `bindings/python/examples/integration/duckdb_space.py`. It is not exported by `metta`, and installing `pymetta` does not install a packaged DuckDB adapter. Copy or adapt the example when you want this integration.
 
 ## Push ground positions into SQL
 
-The provider inspects the pattern before it asks DuckDB for rows. Grounded values and the `NULL` symbol become SQL predicates. Variables stay open. PeTTa still unifies every returned atom:
+The provider inspects the pattern before it asks DuckDB for rows. Grounded values and the `NULL` symbol become SQL predicates. Variables stay open. MeTTa still unifies every returned atom:
 
 ```python
     def match(self, pattern: Atom) -> Iterator[Atom]:
@@ -44,7 +44,7 @@ The provider inspects the pattern before it asks DuckDB for rows. Grounded value
             yield Expression([Symbol(table), *(_to_atom_value(v) for v in row)])
 ```
 
-Equality pushdown reduces the SQL work while preserving PeTTa's final structural check. A non-NULL symbol does not become a SQL text comparison because SQL text returns as a grounded string, not a symbol.
+Equality pushdown reduces the SQL work while preserving MeTTa's final structural check. A non-NULL symbol does not become a SQL text comparison because SQL text returns as a grounded string, not a symbol.
 
 ## Register the provider
 

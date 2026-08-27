@@ -33,8 +33,8 @@ stored_atom_of_ref(Ref, Space, Atom) :-
     native_storage_functor(Space, Functor),
     catch(clause(Stored, true, Ref), _, fail),
     strip_module(Stored, _, Head),
-    (   Name == '$petta_native_scalar'
-    ->  Head = '$petta_native_scalar'(Atom)
+    (   Name == '$metta_native_scalar'
+    ->  Head = '$metta_native_scalar'(Atom)
     ;   Name == Functor,
         Head =.. [_, Rel|Args],
         Atom = [Rel|Args]
@@ -44,7 +44,7 @@ stored_atom_of_ref(Ref, Space, Atom) :-
 %shape, and lib_import.pl's static-import! writes exactly this to a file so a
 %large data file can be qcompiled once instead of parsed every run. The two
 %used to disagree and it was invisible: the converter wrote '&self'(fact,a,1)
-%into USER while native atoms live in the storage module '$petta_atoms:&self',
+%into USER while native atoms live in the storage module '$metta_atoms:&self',
 %so a static import loaded clauses nothing could read and reported success
 %[tested: native_storage_shapes_agree,
 %import_facts_land_where_the_space_reads_them].
@@ -52,10 +52,10 @@ native_atom_clause([Family|Parameters], [Rel|Args], Term) :-
     Space = [Family|Parameters],
     space_parametric(Space),
     !,
-    Term =.. ['$petta_parametric_atom', Rel|Args].
+    Term =.. ['$metta_parametric_atom', Rel|Args].
 native_atom_clause(Space, [Rel|Args], Term) :- !,
     Term =.. [Space, Rel | Args].
-native_atom_clause(_, Atom, '$petta_native_scalar'(Atom)).
+native_atom_clause(_, Atom, '$metta_native_scalar'(Atom)).
 
 %Remove ONE atom that unifies with the requested value. Expressions and
 %scalars live in different predicates, so neither erases the other.
@@ -113,12 +113,12 @@ remove_sexp(Space, Atom) :- remove_sexp(Space, Atom, _).
 %nothing in its text saying which it would get
 %[tested: spaces_removal_answers_unit_for_success_and_an_error_for_absence,
 %test_remove_atom_removes_one_occurrence_not_all].
-remove_sexp('&petta', [Rel|Args], Removed) :- !,
-    (   native_storage_module_ready('&petta', Module)
-    ->  Term =.. ['&petta', Rel|Args],
+remove_sexp('&metta', [Rel|Args], Removed) :- !,
+    (   native_storage_module_ready('&metta', Module)
+    ->  Term =.. ['&metta', Rel|Args],
         native_retract_one(Module:Term, Removed),
         (   Removed == true
-        ->  petta_catalog_note_removed([Rel|Args])
+        ->  metta_catalog_note_removed([Rel|Args])
         ;   true
         )
     ;   Removed = false
@@ -128,7 +128,7 @@ remove_sexp([Family|Parameters], [Rel|Args], Removed) :-
     space_parametric(Space),
     !,
     (   native_storage_module_ready(Space, Module)
-    ->  Term =.. ['$petta_parametric_atom', Rel|Args],
+    ->  Term =.. ['$metta_parametric_atom', Rel|Args],
         native_retract_one(Module:Term, Removed)
     ;   Removed = false
     ).
@@ -140,7 +140,7 @@ remove_sexp(Space, [Rel|Args], Removed) :- !,
     ).
 remove_sexp(Space, Atom, Removed) :-
     (   native_storage_module_ready(Space, Module)
-    ->  native_retract_one(Module:'$petta_native_scalar'(Atom), Removed)
+    ->  native_retract_one(Module:'$metta_native_scalar'(Atom), Removed)
     ;   Removed = false
     ).
 
@@ -179,7 +179,7 @@ space_module(Space, Module) :-
     (   metta_exec_module_known(Space, Module)
     ->  true
     ;   metta_exec_module_name(Space, Module),
-        with_mutex('$petta_metta_exec',
+        with_mutex('$metta_metta_exec',
                    ensure_metta_exec_module_locked(Space, Module))
     ).
 
@@ -191,7 +191,7 @@ metta_exec_module_name(Space, Module) :-
     space_parametric(Space),
     !,
     space_canonical_atom(Space, Encoded),
-    atom_concat('$petta_param_exec:', Encoded, Module).
+    atom_concat('$metta_param_exec:', Encoded, Module).
 
 :- dynamic metta_exec_module_known/2.
 :- dynamic space_parent/2.
@@ -199,11 +199,11 @@ metta_exec_module_name(Space, Module) :-
 :- dynamic space_restricted/2.
 :- dynamic space_grant/2.
 :- dynamic restricted_profile_known/2.
-:- dynamic '$petta_repaired_shadow_import'/4.
+:- dynamic '$metta_repaired_shadow_import'/4.
 
 %The chain, and why each link is where it is.
 %
-%  system  ->  the ENGINE's module  ->  '$petta_exec:&self'  ->  every other
+%  system  ->  the ENGINE's module  ->  '$metta_exec:&self'  ->  every other
 %                                                                space
 %
 %&self's module inherits the engine's, so every builtin, every library
@@ -217,13 +217,13 @@ metta_exec_module_name(Space, Module) :-
 %module whose name starts with `$` the base `system` and every other name the
 %base `user`, and a module created by a :- module(...) FILE gets `user`
 %whatever its name; neither rule is stated in the manual, and the first one
-%alone makes '$petta_exec:&self' unable to see the engine at all
-%[measured 2026-08-19: '$petta_exec:&self':'add-atom'/3 raised
+%alone makes '$metta_exec:&self' unable to see the engine at all
+%[measured 2026-08-19: '$metta_exec:&self':'add-atom'/3 raised
 %existence_error on boot until the base was set explicitly]
 %[tested: spaces_execution_modules:the_chain_is_engine_then_self_then_space].
 metta_exec_module_base(Space, Base) :-
     (   Space == '&self'
-    ->  petta_engine_module(Base)
+    ->  metta_engine_module(Base)
     ;   space_restricted(Space, Grants)
     ->  ensure_restricted_profile(Grants, Base)
     ;   space_parent(Space, Parent)
@@ -232,7 +232,7 @@ metta_exec_module_base(Space, Base) :-
     ).
 
 %set_module/1 is idempotent and works on a module that already holds clauses
-%[measured 2026-08-19: import_module went [user] -> ['$petta_exec:&self'] in
+%[measured 2026-08-19: import_module went [user] -> ['$metta_exec:&self'] in
 %place and the module's own predicates still answered], so recovering a cache
 %fact a rolled-back transaction erased costs one redundant set and no repair,
 %the same shape ensure_native_storage_module_locked/2 uses above.
@@ -245,9 +245,9 @@ ensure_metta_exec_module_locked(Space, Module) :-
     metta_exec_module_known(Space, Module), !.
 ensure_metta_exec_module_locked(Space, Module) :-
     metta_exec_module_base(Space, Base),
-    petta_capture_default_imports(Module),
+    metta_capture_default_imports(Module),
     set_module(Module:base(Base)),
-    petta_refresh_repaired_shadow_imports(Module),
+    metta_refresh_repaired_shadow_imports(Module),
     assertz(metta_exec_module_known(Space, Module)),
     protect_engine_emitted(Module).
 
@@ -263,9 +263,9 @@ ensure_metta_exec_module_locked(Space, Module) :-
 %through an explicit import would otherwise write into its source module
 %[source: SWI-Prolog Reference Manual, import/1 and abolish/1;
 % commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-petta_abolish_local_predicate(Module, Name, Arity) :-
+metta_abolish_local_predicate(Module, Name, Arity) :-
     catch(abolish(Module:Name/Arity), _, true),
-    petta_restore_inherited_predicate(Module, Name, Arity).
+    metta_restore_inherited_predicate(Module, Name, Arity).
 
 %A $-prefixed name is SWI or engine bookkeeping, never a written MeTTa
 %function ($x is variable syntax), so the shadow repair does not manage it at
@@ -274,17 +274,17 @@ petta_abolish_local_predicate(Module, Name, Arity) :-
 %user, blocked SWI from defining that module's local tabling state
 %('No permission to redefine built-in $table_mode/3')
 %[tested: test_tabling_control; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-petta_restore_inherited_predicate(_, Name, _) :-
+metta_restore_inherited_predicate(_, Name, _) :-
     sub_atom(Name, 0, 1, _, '$'),
     !.
-petta_restore_inherited_predicate(Module, Name, Arity) :-
-    retractall('$petta_repaired_shadow_import'(Module, Name, Arity, _)),
+metta_restore_inherited_predicate(Module, Name, Arity) :-
+    retractall('$metta_repaired_shadow_import'(Module, Name, Arity, _)),
     functor(Head, Name, Arity),
     (   predicate_property(Module:Head, imported_from(Source)),
         Source \== system,
         \+ predicate_property(Module:Head, built_in),
         catch(Module:import(Source:Name/Arity), _, fail)
-    ->  assertz('$petta_repaired_shadow_import'(Module, Name, Arity, Source))
+    ->  assertz('$metta_repaired_shadow_import'(Module, Name, Arity, Source))
     ;   true
     ).
 
@@ -299,7 +299,7 @@ petta_restore_inherited_predicate(Module, Name, Arity) :-
 %filereader_import_lifecycle:
 %a_repaired_shadow_import_follows_a_recycled_modules_new_parent;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-petta_capture_default_imports(Module) :-
+metta_capture_default_imports(Module) :-
     (   current_module(Module)
     ->  findall(Name-Arity-Source,
                 ( current_predicate(Module:Name/Arity),
@@ -319,9 +319,9 @@ petta_capture_default_imports(Module) :-
                 Imports0),
         sort(Imports0, Imports),
         forall(member(Name-Arity-Source, Imports),
-               (   '$petta_repaired_shadow_import'(Module, Name, Arity, _)
+               (   '$metta_repaired_shadow_import'(Module, Name, Arity, _)
                ->  true
-               ;   assertz('$petta_repaired_shadow_import'(Module, Name,
+               ;   assertz('$metta_repaired_shadow_import'(Module, Name,
                                                            Arity, Source)) ))
     ;   true
     ).
@@ -335,9 +335,9 @@ petta_capture_default_imports(Module) :-
 %keeps the repair dependency-directed rather than copying a parent's interface
 %into every child [tested:
 %test_a_recycled_child_name_may_choose_a_different_parent; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-petta_refresh_repaired_shadow_imports(Module) :-
+metta_refresh_repaired_shadow_imports(Module) :-
     findall(Name-Arity,
-            '$petta_repaired_shadow_import'(Module, Name, Arity, _),
+            '$metta_repaired_shadow_import'(Module, Name, Arity, _),
             PIs0),
     sort(PIs0, PIs),
     forall(member(Name-Arity, PIs),
@@ -346,7 +346,7 @@ petta_refresh_repaired_shadow_imports(Module) :-
              ->  catch(abolish(Module:Name/Arity), _, true)
              ;   true
              ),
-             petta_restore_inherited_predicate(Module, Name, Arity) )).
+             metta_restore_inherited_predicate(Module, Name, Arity) )).
 
 %Called by the one ordinary equation/lambda assertion door. A repaired weak
 %import must be removed before assertz/2, or SWI follows the link and appends
@@ -357,11 +357,11 @@ petta_refresh_repaired_shadow_imports(Module) :-
 %filereader_import_lifecycle:
 %a_failed_local_redefinition_restores_the_repaired_inherited_call;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-petta_prepare_local_predicate(Module, Clause) :-
+metta_prepare_local_predicate(Module, Clause) :-
     ( Clause = (Head :- _) -> true ; Head = Clause ),
     functor(Head, Name, Arity),
-    (   '$petta_repaired_shadow_import'(Module, Name, Arity, _),
-        petta_existing_import(Module, Head, _)
+    (   '$metta_repaired_shadow_import'(Module, Name, Arity, _),
+        metta_existing_import(Module, Head, _)
     ->  catch(abolish(Module:Name/Arity), _, true)
     ;   true
     ).
@@ -372,17 +372,17 @@ petta_prepare_local_predicate(Module, Clause) :-
 %already has a materialized import needs the weak-link repair. Public atom
 %addition calls this before opening its transaction; the compiler repeats it
 %so source-loader and generated-clause doors share the same rule.
-petta_prepare_function_predicate(Module, Name, Arity) :-
+metta_prepare_function_predicate(Module, Name, Arity) :-
     (   fun_in(Module, Name)
     ->  true
-    ;   petta_may_inherit_function(Module, Name),
+    ;   metta_may_inherit_function(Module, Name),
         functor(Head, Name, Arity),
-        petta_existing_import(Module, Head, Source),
+        metta_existing_import(Module, Head, Source),
         \+ seam:engine_emitted(Name/Arity)
     ->  catch(abolish(Module:Name/Arity), _, true),
-        (   '$petta_repaired_shadow_import'(Module, Name, Arity, _)
+        (   '$metta_repaired_shadow_import'(Module, Name, Arity, _)
         ->  true
-        ;   assertz('$petta_repaired_shadow_import'(Module, Name, Arity,
+        ;   assertz('$metta_repaired_shadow_import'(Module, Name, Arity,
                                                     Source))
         )
     ;   true
@@ -391,10 +391,10 @@ petta_prepare_function_predicate(Module, Name, Arity) :-
 %fun_scoped/1 is the process-wide summary of definitions outside &self;
 %fun_in(Self, Name) is the shared tier that deliberately does not set that
 %summary; and builtin_fun/1 is the engine tier. A sibling-only fun_scoped/1
-%hit is harmless because petta_existing_import/3 below still requires an
+%hit is harmless because metta_existing_import/3 below still requires an
 %actual import in this module. Fresh source names miss these indexed facts and
 %avoid the recursive fun_here_in/2 walk entirely.
-petta_may_inherit_function(Module, Name) :-
+metta_may_inherit_function(Module, Name) :-
     (   fun_scoped(Name)
     ->  true
     ;   metta_self_module(Self), Module \== Self, fun_in(Self, Name)
@@ -411,7 +411,7 @@ petta_may_inherit_function(Module, Name) :-
 %boot/autoload.pl:1061-1070; measured: source-load 1653096 to 1647100;
 %command=python bench.py --counter-only source-load; fixture=1000 fresh
 %equations; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-petta_existing_import(Module, Head, Source) :-
+metta_existing_import(Module, Head, Source) :-
     '$c_current_predicate'(_, Module:Head),
     '$get_predicate_attribute'(Module:Head, imported, Source).
 
@@ -422,22 +422,22 @@ petta_existing_import(Module, Head, Source) :-
 %right ancestor [tested:
 %a_failed_local_redefinition_restores_the_repaired_inherited_call;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-petta_repair_shadow_imports :-
+metta_repair_shadow_imports :-
     findall(Module-Name-Arity,
-            '$petta_repaired_shadow_import'(Module, Name, Arity, _),
+            '$metta_repaired_shadow_import'(Module, Name, Arity, _),
             Dependencies0),
     sort(Dependencies0, Dependencies),
     forall(member(Module-Name-Arity, Dependencies),
-           petta_repair_shadow_import(Module, Name, Arity)).
+           metta_repair_shadow_import(Module, Name, Arity)).
 
-petta_repair_shadow_import(Module, Name, Arity) :-
+metta_repair_shadow_import(Module, Name, Arity) :-
     functor(Head, Name, Arity),
     (   predicate_property(Module:Head, number_of_clauses(Clauses)),
         \+ predicate_property(Module:Head, imported_from(_)),
         Clauses > 0
     ->  true
     ;   catch(abolish(Module:Name/Arity), _, true),
-        petta_restore_inherited_predicate(Module, Name, Arity)
+        metta_restore_inherited_predicate(Module, Name, Arity)
     ).
 
 %Bind the engine's own emitted goals into this module so a MeTTa equation
@@ -461,7 +461,7 @@ petta_repair_shadow_import(Module, Name, Arity) :-
 %instead, in the vocabulary of the two parties that collided
 %[tested: test_adding_an_engine_export_changes_no_spaces_answers].
 protect_engine_emitted(Module) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     forall(( seam:engine_emitted(PI), current_predicate(Engine:PI) ),
            ( Engine:export(PI), Module:import(Engine:PI) )).
 
@@ -469,12 +469,12 @@ refuse_engine_export_collision(Engine, Module, Culprit) :-
     ( Culprit = _:Name/Arity -> true ; Culprit = Name/Arity ),
     ( metta_module_space(Module, Space) -> true ; Space = Module ),
     InputArity is Arity - 1,
-    throw(error(petta_engine_export_collision(Name, InputArity, Space, Engine),
+    throw(error(metta_engine_export_collision(Name, InputArity, Space, Engine),
                 context(protect_engine_emitted/1,
                         'a name the engine emits collides with one this space \c
                          already defines'))).
 
-prolog:error_message(petta_engine_export_collision(Name, Arity, Space, Engine)) -->
+prolog:error_message(metta_engine_export_collision(Name, Arity, Space, Engine)) -->
     [ '~w with ~w arguments is a name ~w now compiles into function bodies, \c
        and ~w already defines a function of that name.'-[Name, Arity, Engine, Space], nl,
       '  the two cannot both have it: importing the engine\'s would capture \c
@@ -504,7 +504,7 @@ prolog:error_message(petta_engine_export_collision(Name, Arity, Space, Engine)) 
 %names the predicate indicator that was refused and the module it was refused
 %into.
 protect_metta_exec_modules :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     refuse_unreachable_engine_emitted(Engine),
     catch(forall(metta_exec_module_known(_, Module),
                  protect_engine_emitted(Module)),
@@ -520,7 +520,7 @@ protect_metta_exec_modules :-
 %skip it costs an existence_error at the first call of whatever form emits the
 %goal, in whichever space happens to reach it first, with nothing connecting
 %that error to the declaration [measured 2026-08-22: four such names after the
-%subsystem cuts, one of which -- petta_verified_specialization/2 behind
+%subsystem cuts, one of which -- metta_verified_specialization/2 behind
 %(pragma! verify-specializations true) -- no test in the tree reached].
 %Once per sweep rather than once per space build, which is the shape the
 %benchmark note above says costs nothing.
@@ -528,13 +528,13 @@ refuse_unreachable_engine_emitted(Engine) :-
     forall(seam:engine_emitted(PI),
            (   current_predicate(Engine:PI)
            ->  true
-           ;   throw(error(petta_engine_emitted_unreachable(PI, Engine),
+           ;   throw(error(metta_engine_emitted_unreachable(PI, Engine),
                            context(protect_metta_exec_modules/0,
                                    'a declared emitted goal is not reachable \c
                                     from the engine module')))
            )).
 
-prolog:error_message(petta_engine_emitted_unreachable(Name/Arity, Engine)) -->
+prolog:error_message(metta_engine_emitted_unreachable(Name/Arity, Engine)) -->
     [ '~w is declared in seam:engine_emitted/1 and ~w cannot see it, so no \c
        space module can either.'-[Name/Arity, Engine], nl,
       '  every compiled body holding that goal would raise existence_error at \c
@@ -553,7 +553,7 @@ prolog:error_message(petta_engine_emitted_unreachable(Name/Arity, Engine)) -->
 metta_module_space(Module, Space) :-
     metta_exec_module_known(Space, Module).
 
-restricted_core_module('$petta_restricted:core').
+restricted_core_module('$metta_restricted:core').
 
 space_capability(file).
 space_capability(process).
@@ -589,7 +589,7 @@ space_operation_capability('git-import!', network).
 restricted_profile_name([], Core) :- !, restricted_core_module(Core).
 restricted_profile_name(Grants, Module) :-
     atomic_list_concat(Grants, '+', Suffix),
-    atom_concat('$petta_restricted:', Suffix, Module).
+    atom_concat('$metta_restricted:', Suffix, Module).
 
 ensure_restricted_profile(Grants, Module) :-
     restricted_profile_known(Grants, Module),
@@ -647,7 +647,7 @@ restricted_dispatch_name(Name) :-
 publish_restricted_denials(Core) :-
     forall(( space_operation_capability(Name, Capability),
              arity(Name, Arity),
-             petta_engine_module(Engine),
+             metta_engine_module(Engine),
              current_predicate(Engine:Name/Arity) ),
            publish_restricted_denial(Core, Engine, Name, Arity, Capability)).
 
@@ -661,7 +661,7 @@ publish_restricted_denial(Core, Engine, Name, Arity, Capability) :-
 %builtins imported from libraries are included separately. Capability-bearing
 %names are withheld and published only by their grant profile.
 restricted_core_predicate(Name/Arity) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     current_predicate(Engine:Name/Arity),
     functor(Head, Name, Arity),
     predicate_property(Engine:Head, defined),
@@ -671,18 +671,18 @@ restricted_core_predicate(Name/Arity) :-
     builtin_fun(Name),
     \+ space_operation_capability(Name, _),
     arity(Name, Arity),
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     current_predicate(Engine:Name/Arity).
 
 publish_restricted_capability(Module, Capability) :-
     forall(( space_operation_capability(Name, Capability),
              arity(Name, Arity),
-             petta_engine_module(Engine),
+             metta_engine_module(Engine),
              current_predicate(Engine:Name/Arity) ),
            publish_restricted_pi(Module, Name/Arity)).
 
 publish_restricted_pi(Module, PI) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     PI = Name/Arity,
     functor(Head, Name, Arity),
     (   predicate_property(Engine:Head, imported_from(system))
@@ -698,7 +698,7 @@ publish_restricted_pi(Module, PI) :-
 %is idempotent and never duplicates its reflected contract atom.
 metta_declare_parametric_space(Space) :-
     metta_require_parametric_space_name(Space),
-    with_mutex('$petta_metta_exec',
+    with_mutex('$metta_metta_exec',
                metta_declare_parametric_space_locked(Space)).
 
 metta_require_parametric_space_name(Space) :-
@@ -726,7 +726,7 @@ metta_declare_parametric_space_locked(Space) :-
     (   space_parametric(Space)
     ->  true
     ;   transaction(( assertz(space_parametric(Space)),
-                      metta_add_atom('&petta', [parametric, Space], _),
+                      metta_add_atom('&metta', [parametric, Space], _),
                       ensure_native_storage_module(Space, _),
                       space_module(Space, _) ))
     ).
@@ -736,7 +736,7 @@ metta_declare_restricted_space(Space, Grants0) :-
     must_be(list, Grants0),
     maplist(metta_require_space_capability, Grants0),
     sort(Grants0, Grants),
-    with_mutex('$petta_metta_exec',
+    with_mutex('$metta_metta_exec',
                metta_declare_restricted_space_locked(Space, Grants)).
 
 metta_require_space_capability(Capability) :-
@@ -751,21 +751,21 @@ metta_declare_restricted_space_locked(Space, Grants) :-
     (   space_restricted(Space, Standing)
     ->  (   Standing == Grants
         ->  true
-        ;   throw(error(petta_space_restriction_conflict(Space, Standing,
+        ;   throw(error(metta_space_restriction_conflict(Space, Standing,
                                                           Grants), none))
         )
     ;   space_parent(Space, Parent)
-    ->  throw(error(petta_space_model_conflict(Space, inherits(Parent),
+    ->  throw(error(metta_space_model_conflict(Space, inherits(Parent),
                                                 restricted(Grants)), none))
     ;   space_parent_child_used(Space)
-    ->  throw(error(petta_space_restriction_after_use(Space), none))
+    ->  throw(error(metta_space_restriction_after_use(Space), none))
     ;   ensure_restricted_profile(Grants, _),
         transaction(( assertz(space_restricted(Space, Grants)),
                       forall(member(Capability, Grants),
                              assertz(space_grant(Space, Capability))),
-                      metta_add_atom('&petta', [restricted, Space], _),
+                      metta_add_atom('&metta', [restricted, Space], _),
                       forall(member(Capability, Grants),
-                             metta_add_atom('&petta',
+                             metta_add_atom('&metta',
                                             [grants, Space, Capability], _)),
                       ensure_native_storage_module(Space, _),
                       space_module(Space, _) ))
@@ -780,7 +780,7 @@ metta_require_current_capability(Operation, Capability) :-
     (   metta_restricted_exec_module(Module, Space)
     ->  (   space_grant(Space, Capability)
         ->  true
-        ;   throw(error(petta_space_capability_required(Space, Operation,
+        ;   throw(error(metta_space_capability_required(Space, Operation,
                                                          Capability), none))
         )
     ;   true
@@ -839,11 +839,11 @@ restricted_callable_name(F) :- builtin_fun(F).
 metta_declare_space_parent(Child, Parent) :-
     metta_require_space_name('new-space', Child),
     metta_require_space_name('new-space', Parent),
-    with_mutex('$petta_metta_exec',
+    with_mutex('$metta_metta_exec',
                metta_declare_space_parent_locked(Child, Parent)).
 
 metta_require_space_name(_, Space) :-
-    petta_space_name(Space),
+    metta_space_name(Space),
     !.
 metta_require_space_name(Operation, Space) :-
     throw(error(type_error('SpaceType', Space),
@@ -853,18 +853,18 @@ metta_declare_space_parent_locked(Child, Parent) :-
     (   space_parent(Child, Standing)
     ->  (   Standing == Parent
         ->  true
-        ;   throw(error(petta_space_parent_conflict(Child, Standing, Parent),
+        ;   throw(error(metta_space_parent_conflict(Child, Standing, Parent),
                         none))
         )
     ;   space_restricted(Child, Grants)
-    ->  throw(error(petta_space_model_conflict(Child, restricted(Grants),
+    ->  throw(error(metta_space_model_conflict(Child, restricted(Grants),
                                                 inherits(Parent)), none))
     ;   space_parent_cycle(Child, Parent)
-    ->  throw(error(petta_space_parent_cycle(Child, Parent), none))
+    ->  throw(error(metta_space_parent_cycle(Child, Parent), none))
     ;   space_parent_child_used(Child)
-    ->  throw(error(petta_space_parent_after_use(Child), none))
+    ->  throw(error(metta_space_parent_after_use(Child), none))
     ;   transaction(( assertz(space_parent(Child, Parent)),
-                      metta_add_atom('&petta', [inherits, Child, Parent], _),
+                      metta_add_atom('&metta', [inherits, Child, Parent], _),
                       ensure_native_storage_module(Child, _),
                       space_module(Child, ChildModule),
                       space_module(Parent, ParentModule),
@@ -905,7 +905,7 @@ space_read_chain_(Space, Seen, Each) :-
 
 metta_assert_space_releasable(Space) :-
     (   space_parent(Child, Space)
-    ->  throw(error(petta_space_parent_live_child(Space, Child), none))
+    ->  throw(error(metta_space_parent_live_child(Space, Child), none))
     ;   true
     ).
 
@@ -914,7 +914,7 @@ metta_assert_space_releasable(Space) :-
 %and its reflected atom transactionally and forget the module mapping so the
 %next space_module/2 call sets the persistent SWI module's new base.
 metta_release_space(Space) :-
-    with_mutex('$petta_metta_exec',
+    with_mutex('$metta_metta_exec',
                ( metta_assert_space_releasable(Space),
                  metta_host_clear_space(Space),
                  transaction(( metta_forget_space_parent(Space),
@@ -934,7 +934,7 @@ metta_forget_exec_module_parent(Space) :-
 
 metta_forget_space_parent(Child) :-
     (   retract(space_parent(Child, Parent))
-    ->  metta_remove_atom('&petta', [inherits, Child, Parent], _)
+    ->  metta_remove_atom('&metta', [inherits, Child, Parent], _)
     ;   true
     ).
 
@@ -942,49 +942,49 @@ metta_forget_space_restriction(Space) :-
     (   retract(space_restricted(Space, Grants))
     ->  forall(member(Capability, Grants),
                ( retractall(space_grant(Space, Capability)),
-                 metta_remove_atom('&petta',
+                 metta_remove_atom('&metta',
                                    [grants, Space, Capability], _) )),
-        metta_remove_atom('&petta', [restricted, Space], _)
+        metta_remove_atom('&metta', [restricted, Space], _)
     ;   true
     ).
 
 metta_forget_parametric_space(Space) :-
     (   space_parametric(Space)
-    ->  metta_remove_atom('&petta', [parametric, Space], _),
+    ->  metta_remove_atom('&metta', [parametric, Space], _),
         retractall(space_parametric(Space))
     ;   true
     ).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_space_parent_conflict(Child, Standing, Requested)) -->
+prolog:error_message(metta_space_parent_conflict(Child, Standing, Requested)) -->
     [ '~w already inherits from ~w, so it cannot also inherit from ~w; a \c
        space has one parent fixed before first use'-[Child, Standing,
                                                      Requested] ].
-prolog:error_message(petta_space_parent_cycle(Child, Parent)) -->
+prolog:error_message(metta_space_parent_cycle(Child, Parent)) -->
     [ 'making ~w inherit from ~w would create an inheritance cycle; space \c
        reads and execution bases must form an acyclic parent chain'-[Child,
                                                                       Parent] ].
-prolog:error_message(petta_space_parent_after_use(Child)) -->
+prolog:error_message(metta_space_parent_after_use(Child)) -->
     [ '~w has already been created, written, executed, or registered; declare \c
        its parent with (new-space ~w (inherits <parent>)) before first use'-[
        Child, Child] ].
-prolog:error_message(petta_space_parent_live_child(Parent, Child)) -->
+prolog:error_message(metta_space_parent_live_child(Parent, Child)) -->
     [ '~w cannot be dropped while live child ~w inherits from it; drop the \c
        child first so its relationship cannot follow a recycled parent name'-[
        Parent, Child] ].
-prolog:error_message(petta_space_restriction_conflict(Space, Standing,
+prolog:error_message(metta_space_restriction_conflict(Space, Standing,
                                                        Requested)) -->
     [ '~w is already restricted with grants ~q, so it cannot be redeclared \c
        with grants ~q; restriction is fixed at creation'-[Space, Standing,
                                                            Requested] ].
-prolog:error_message(petta_space_restriction_after_use(Space)) -->
+prolog:error_message(metta_space_restriction_after_use(Space)) -->
     [ '~w has already been created, written, executed, or registered; declare \c
        it restricted with new-space before first use'-[Space] ].
-prolog:error_message(petta_space_model_conflict(Space, Standing, Requested)) -->
+prolog:error_message(metta_space_model_conflict(Space, Standing, Requested)) -->
     [ '~w already has space model ~q, so it cannot also use ~q; inheritance \c
        and restriction are alternative execution bases'-[Space, Standing,
                                                            Requested] ].
-prolog:error_message(petta_space_capability_required(Space, Operation,
+prolog:error_message(metta_space_capability_required(Space, Operation,
                                                       Capability)) -->
     [ '~w cannot run ~w because its restricted base does not publish the ~w \c
        capability; grant it explicitly when the space is created'-[
@@ -1027,7 +1027,7 @@ prolog:error_message(petta_space_capability_required(Space, Operation,
 %[tested: builtin_survives_equation_removal].
 function_still_defined(F) :- builtin_fun(F), !.
 function_still_defined(F) :- compiled_function_name(F, Predicate),
-                             ( fun_in(Module, F) ; petta_engine_module(Module) ),
+                             ( fun_in(Module, F) ; metta_engine_module(Module) ),
                              compiled_predicate_arity(F, Module, Predicate, Arity),
                              functor(Head, Predicate, Arity),
                              predicate_property(Module:Head, number_of_clauses(_)),
@@ -1076,7 +1076,7 @@ compiled_predicate_arity(F, Module, Predicate, Arity) :-
 %[source: the language's Working with spaces].
 %
 %This reverses a deliberate earlier translation, recorded in
-%ai-todo-fast-libraries.md F11.3 as "HE's unit result `(->)` is PeTTa's `Bool`,
+%ai-todo-fast-libraries.md F11.3 as "HE's unit result `(->)` is MeTTa's `Bool`,
 %because every one of those operations answers `true`". That reasoning had the
 %direction backwards: it read the type off the implementation instead of
 %correcting the implementation to the type. The engine was already inconsistent
@@ -1101,7 +1101,7 @@ compiled_predicate_arity(F, Module, Predicate, Arity) :-
 'add-atom'(Space, Term, Result) :-
     (   atom(Space), metta_add_atom(Space, Term, _)
     ->  Result = []
-    ;   petta_space_name(Space)
+    ;   metta_space_name(Space)
     ->  fail
     ;   space_argument_error('add-atom', [Space, Term], Result)
     ).
@@ -1160,12 +1160,12 @@ metta_add_atom(Space, Term, true) :-
 %leaving the first row in place; the public batch preflight below stays strict
 %because accepting one duplicate in a batch would make that transport differ
 %from its promised all-or-nothing write. Host registrations that need exclusive
-%ownership use petta_py_add_strict_declaration/2 in shim.pl.
+%ownership use metta_py_add_strict_declaration/2 in shim.pl.
 metta_add_atom(Space, Term, true) :-
     Term = [':', _, _],
     existing_duplicate_declaration(Space, Term, First),
     !,
-    print_message(warning, petta_duplicate_declaration(Space, Term, First)).
+    print_message(warning, metta_duplicate_declaration(Space, Term, First)).
 % DontEvalType changes how every arrow parameter naming this type compiles,
 % even when the type symbol is not itself a function. Store first so repairs
 % observe the new marker, then invalidate its module-qualified support root.
@@ -1244,9 +1244,9 @@ first_variant_declaration(Term, [_|Declarations], First) :-
 
 ensure_new_batch_declaration(Space, Term, Earlier) :-
     (   existing_duplicate_declaration(Space, Term, First)
-    ->  throw(error(petta_duplicate_declaration(Space, Term, First), none))
+    ->  throw(error(metta_duplicate_declaration(Space, Term, First), none))
     ;   first_variant_declaration(Term, Earlier, First)
-    ->  throw(error(petta_duplicate_declaration(Space, Term, First), none))
+    ->  throw(error(metta_duplicate_declaration(Space, Term, First), none))
     ;   true
     ).
 
@@ -1362,15 +1362,15 @@ add_equation(Space, Term, FAtom, W) :-
     space_module(Space, Module),
     length(W, InputArity),
     PredArity is InputArity + 1,
-    petta_prepare_function_predicate(Module, FAtom, PredArity),
-    petta_add_function_transaction(provider, Space, Module, Term, FAtom, W).
+    metta_prepare_function_predicate(Module, FAtom, PredArity),
+    metta_add_function_transaction(provider, Space, Module, Term, FAtom, W).
 add_equation(Space, Term, FAtom, W) :-
     space_module(Space, Module),
     ensure_native_storage_module(Space, Storage),
     length(W, InputArity),
     PredArity is InputArity + 1,
-    petta_prepare_function_predicate(Module, FAtom, PredArity),
-    petta_add_function_transaction(Storage, Space, Module, Term, FAtom, W).
+    metta_prepare_function_predicate(Module, FAtom, PredArity),
+    metta_add_function_transaction(Storage, Space, Module, Term, FAtom, W).
 
 %Only a name that has carried a repaired weak import needs post-transaction
 %validation. The overwhelmingly common equation add keeps the original one
@@ -1378,14 +1378,14 @@ add_equation(Space, Term, FAtom, W) :-
 %receipt on commit, failure, or exception [tested:
 %a_failed_local_redefinition_restores_the_repaired_inherited_call;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-petta_add_function_transaction(Storage, Space, Module, Term, FAtom, W) :-
+metta_add_function_transaction(Storage, Space, Module, Term, FAtom, W) :-
     length(W, InputArity),
     PredArity is InputArity + 1,
-    (   '$petta_repaired_shadow_import'(Module, FAtom, PredArity, _)
+    (   '$metta_repaired_shadow_import'(Module, FAtom, PredArity, _)
     ->  call_cleanup(
             transaction(
                 add_function_atom(Storage, Space, Module, Term, FAtom, W)),
-            petta_repair_emptied_shadows)
+            metta_repair_emptied_shadows)
     ;   transaction(
             add_function_atom(Storage, Space, Module, Term, FAtom, W))
     ).
@@ -1490,7 +1490,7 @@ announce_function_removed(FAtom) :- support_invalidate_function(FAtom),
 refuse_ruleless_equation(Space, Term) :-
     (   foreign_provides(Space, rules)
     ->  true
-    ;   throw(error(petta_foreign_space_holds_no_rules(Space, Term),
+    ;   throw(error(metta_foreign_space_holds_no_rules(Space, Term),
                     context('add-atom'/3, 'the equation would never fire')))
     ).
 
@@ -1619,8 +1619,8 @@ clear_generated_predicates(Module) :-
 clear_generated_predicate(Module, Name/Arity, Head) :-
     catch(retractall(Module:Head), _, true),
     (   current_transaction(_)
-    ->  assertz('$petta_shadow_repair_pending'(Module, Name, Arity))
-    ;   petta_abolish_local_predicate(Module, Name, Arity)
+    ->  assertz('$metta_shadow_repair_pending'(Module, Name, Arity))
+    ;   metta_abolish_local_predicate(Module, Name, Arity)
     ).
 
 metta_host_clear_tabling(Space, Module) :-
@@ -1631,14 +1631,14 @@ metta_host_clear_tabling(Space, Module) :-
            untable(Module:Name/Arity)),
     abolish_module_tables(Module),
     findall([tabled, Space, F, A],
-            'get-atoms'('&petta', [tabled, Space, F, A]),
+            'get-atoms'('&metta', [tabled, Space, F, A]),
             Facts),
-    forall(member(Fact, Facts), 'remove-atom'('&petta', Fact, _)).
+    forall(member(Fact, Facts), 'remove-atom'('&metta', Fact, _)).
 
 %Bulk cleanup of the reflection facts describing one space: every
-%(defined <Space> _) atom in &petta goes through the engine's own removal
+%(defined <Space> _) atom in &metta goes through the engine's own removal
 %funnel (hooks fire per fact), in ONE host crossing; the per-fact crossing
 %measured 10,000 calls and 64ms for 10,000 defines.
 metta_host_clear_defined(Space) :-
-    findall(F, 'get-atoms'('&petta', [defined, Space, F]), Fs),
-    forall(member(F, Fs), 'remove-atom'('&petta', [defined, Space, F], _)).
+    findall(F, 'get-atoms'('&metta', [defined, Space, F]), Fs),
+    forall(member(F, Fs), 'remove-atom'('&metta', [defined, Space, F], _)).

@@ -14,7 +14,7 @@
 %     stripped source copy [measured: 7,736,802 versus 8,874,582 inferences for
 %     twenty parses of 48,786 codes, 2026-08-15].
 %   - parse_metta_source/2 dispatches to the C reader (engine/reader.c via
-%     parser:petta_c_parse_source/4) when it is loaded and the shipped token
+%     parser:metta_c_parse_source/4) when it is loaded and the shipped token
 %     classes are active, and parse_metta_source_prolog/2 stays the
 %     specification it is held to, variant-identical results over the corpus
 %     and adversarial battery [tested: reader_c in tests/prolog/reader_c.plt;
@@ -269,7 +269,7 @@
 
 :- multifile prolog:error_message//1.
 
-prolog:error_message(petta_translation_failed(Form)) -->
+prolog:error_message(metta_translation_failed(Form)) -->
     [ 'Could not translate MeTTa form: ~p'-[Form] ].
 
 %What a reload replaced, said rather than done quietly. It goes out at
@@ -277,7 +277,7 @@ prolog:error_message(petta_translation_failed(Form)) -->
 %caller silences deliberately with -q or verbose(silent) rather than by
 %accident.
 :- multifile prolog:message//1.
-prolog:message(petta_source_replaced(CanonPath, Spaces, Atoms)) -->
+prolog:message(metta_source_replaced(CanonPath, Spaces, Atoms)) -->
     { atomic_list_concat(Spaces, ' ', Named) },
     [ 'replaced ~w: ~w atom(s) withdrawn from ~w'-[CanonPath, Atoms, Named] ].
 :- current_prolog_flag(argv, Args), ( (memberchk(silent, Args) ; memberchk('--silent', Args) ; memberchk('-s', Args))
@@ -286,7 +286,7 @@ prolog:message(petta_source_replaced(CanonPath, Spaces, Atoms)) -->
 %The same decision for a host that has no command line to read. It is the
 %engine's because it is host-agnostic bookkeeping: bindings/python and
 %bindings/cetta each carried their own three-line copy under a private name
-%(petta_py_set_silent/1, petta_c_set_silent/1) and this file's export comment
+%(metta_py_set_silent/1, petta_c_set_silent/1) and this file's export comment
 %named one of them, so the engine had a documented dependency on a binding's
 %internals. bindings/node needed no copy only because it owns its whole
 %process and can put `silent` in argv before boot, which a binding embedded in
@@ -461,7 +461,7 @@ runnable_groups([Form|Forms], [Group|Rest], Groups) :-
 
 %The carrier is internal to grouped execution. Consumers that need the MeTTa
 %term itself use this seam rather than depending on the carrier functor.
-metta_answer_term('$petta_answer'(Term, _), Term) :- !.
+metta_answer_term('$metta_answer'(Term, _), Term) :- !.
 metta_answer_term(Term, Term).
 
 %%%% The host run and load surface %%%%
@@ -474,7 +474,7 @@ metta_answer_term(Term, Term).
 %again. Answers cross as raw terms; the codec stays each host's own.
 %
 %A reader failure crosses as the engine's reserved control envelope,
-%error(metta_control_signal(syntax, M), context(petta, syntax)), the same
+%error(metta_control_signal(syntax, M), context(metta, syntax)), the same
 %shape the limit guards throw, so a binding classifies the thrown term
 %rather than hunting rendered text.
 %The tagged parse that also hands back the summary, for the host door's
@@ -485,7 +485,7 @@ metta_host_tagged_parse_summary(Source, Parsed, Sigs, Decls) :-
               ;   Caught = syntax_error(M)
               )
           ->  throw(error(metta_control_signal(syntax, M),
-                          context(petta, syntax)))
+                          context(metta, syntax)))
           ;   throw(Caught)
           )).
 
@@ -495,7 +495,7 @@ metta_host_tagged_parse(Source, Parsed) :-
               ;   Caught = syntax_error(M)
               )
           ->  throw(error(metta_control_signal(syntax, M),
-                          context(petta, syntax)))
+                          context(metta, syntax)))
           ;   throw(Caught)
           )).
 
@@ -702,7 +702,7 @@ process_forms(PerForm, Space, [Form|Forms], [Result|Results]) :-
 %run can change them: printing is off (a loud load shows each atom from
 %the per-form door), the bound-token table is empty (bind! is a runnable
 %and a runnable ends every run), the space is native with idle hooks, and
-%'&petta' keeps its per-atom catalog checks. A '=' or ':' head has
+%'&metta' keeps its per-atom catalog checks. A '=' or ':' head has
 %per-atom meaning (definition, declaration) and ends the run too, so both
 %doors' plain-data behaviour, evict-nothing then store then journal, is
 %the same behaviour this run door performs
@@ -711,8 +711,8 @@ data_run(Forms, Space, Run, Rest) :-
     silent(true),
     \+ metta_token(_, _),
     \+ seam:foreign_space(Space),
-    Space \== '&petta',
-    petta_hook_claim_idle(Space),
+    Space \== '&metta',
+    metta_hook_claim_idle(Space),
     metta_add_hooks_idle(Space),
     data_prefix(Forms, Run, Rest),
     Run \== [].
@@ -796,9 +796,9 @@ prepare_metta_source(S, ParsedForms, Names) :-
     prepare_parsed_summary(ParsedForms, Sigs, Decls, Names).
 
 parse_metta_source_summary(S, ParsedForms, Sigs, Decls) :-
-    (   petta_c_reader_active,
+    (   metta_c_reader_active,
         metta_reader_mode(shipped)
-    ->  petta_c_parse_source(S, ParsedForms, Sigs, Decls)
+    ->  metta_c_parse_source(S, ParsedForms, Sigs, Decls)
     ;   parse_metta_source_prolog(S, ParsedForms),
         source_summary_of_forms(ParsedForms, Sigs, Decls)
     ).
@@ -884,7 +884,7 @@ flush_source_prefix_repairs :-
     %Backtrack past ownership pins to the load actually RUNNING: a pin
     %carries a CLOSED load whose drain has already run, and repairs are
     %scheduled under real loads only.
-    LoadId \= '$petta_owner_pin'(_),
+    LoadId \= '$metta_owner_pin'(_),
     !,
     repair_support_invalidations(LoadId).
 flush_source_prefix_repairs.
@@ -921,9 +921,9 @@ prepare_parsed_summary(ParsedForms, Sigs, Decls, Names) :-
 %turning a parsed file into a syntax error [reproduced 2026-08-15; it is what
 %plunit reported as 18 choicepoint warnings in parser.plt].
 parse_metta_source(S, ParsedForms) :-
-    (   petta_c_reader_active,
+    (   metta_c_reader_active,
         metta_reader_mode(shipped)
-    ->  petta_c_parse_source(S, ParsedForms)
+    ->  metta_c_parse_source(S, ParsedForms)
     ;   parse_metta_source_prolog(S, ParsedForms)
     ).
 
@@ -1081,7 +1081,7 @@ repair_after_late_registration(F) :-
 
 schedule_definition_repair(F) :-
     active_source_load(Load0),
-    Load0 \= '$petta_owner_pin'(_),
+    Load0 \= '$metta_owner_pin'(_),
     !,
     ( source_load_repair(Load0, F) -> true
     ; assertz(source_load_repair(Load0, F)) ).
@@ -1200,9 +1200,9 @@ recompile_function_in_module(Module, G) :-
                  %it mentions changed, because the support graph recompiles a
                  %dependent through here rather than through compile_metta_equation
                  %[measured 2026-08-21: redefining a function the recursive
-                 %equation mentions dropped petta_fuel_step/2 from the rebuilt
+                 %equation mentions dropped metta_fuel_step/2 from the rebuilt
                  %clause body; commit=e8270f8551083f236ce5134ca299adf5347d6898].
-                 petta_instrument_recursive_clause(Fresh, RawClause, Clause),
+                 metta_instrument_recursive_clause(Fresh, RawClause, Clause),
                  assertz(Module:Clause, NewRef),
                  record_recompiled_source_assertion(Owners, NewRef),
                  record_translated_from(NewRef, Term, NewSourceRef),
@@ -1324,7 +1324,7 @@ support_graph:support_invalidation_action(compiled_function(Module, G)) :-
     %it would survive the process. The context is the load actually RUNNING,
     %the topmost non-pin marker, or immediate.
     (   active_source_load(Load0),
-        Load0 \= '$petta_owner_pin'(_)
+        Load0 \= '$metta_owner_pin'(_)
     ->  Context = Load0
     ;   Context = immediate
     ),
@@ -1410,7 +1410,7 @@ process_form(Space, parsed(function, FormStr, Term), []) :-
     store_metta_equation(Space, Module, Term, BoundTerm, FormStr),
     source_definition_arrived(F).
 process_form(_, In, _) :-
-    throw(error(petta_translation_failed(In),
+    throw(error(metta_translation_failed(In),
                 context(process_form/3, 'could not translate MeTTa form'))).
 
 % The loader's own door: it records every asserted clause reference, so a
@@ -1451,7 +1451,7 @@ process_loader_form(Space, parsed(function, FormStr, Term), []) :-
     store_metta_equation(Space, Module, Term, BoundTerm, FormStr),
     source_definition_arrived(F).
 process_loader_form(_, In, _) :-
-    throw(error(petta_translation_failed(In),
+    throw(error(metta_translation_failed(In),
                 context(process_loader_form/3, 'could not translate MeTTa form'))).
 
 print_expression_form(_) :- silent(true), !.

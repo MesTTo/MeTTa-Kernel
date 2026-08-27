@@ -14,7 +14,7 @@ mkdir -p "$src_a" "$src_b"
 
 git -C "$src_b" init -q
 git -C "$src_b" config user.email test@example.invalid
-git -C "$src_b" config user.name "PeTTa test"
+git -C "$src_b" config user.name "MeTTa test"
 printf '(= (transfn) trans-ok)\n' > "$src_b/translib.metta"
 git -C "$src_b" add .
 git -C "$src_b" commit -qm b1
@@ -23,7 +23,7 @@ git clone -q --bare "$src_b" "$fixture/b.git"
 
 git -C "$src_a" init -q
 git -C "$src_a" config user.email test@example.invalid
-git -C "$src_a" config user.name "PeTTa test"
+git -C "$src_a" config user.name "MeTTa test"
 printf '(= (libfn $x) (libok $x))\n' > "$src_a/mylib.metta"
 printf '.build-count\n' > "$src_a/.gitignore"
 printf '#!/bin/sh\ncount=0\ntest ! -f .build-count || count=$(cat .build-count)\necho $((count + 1)) > .build-count\n' > "$src_a/build.sh"
@@ -129,7 +129,7 @@ test ! -e "$spec_base_b/a"
 space_base="$fixture/base  with  spaces"
 swipl -q -g "consult('$ROOT/engine/main.pl'),acquire_git_dependency('file://$fixture/a.git','$a1','build.sh','$space_base'),halt"
 test "$(cat "$space_base/a/.build-count")" = 1
-test -f "$space_base/a/.git/petta-build-stamp"
+test -f "$space_base/a/.git/metta-build-stamp"
 
 # A failed transitive acquisition must not mark its parent as loaded.  Make the
 # leaf remote available only after the first attempt, then retry in the same
@@ -138,7 +138,7 @@ retry_leaf_src="$fixture/retry_leaf_src"
 mkdir -p "$retry_leaf_src"
 git -C "$retry_leaf_src" init -q
 git -C "$retry_leaf_src" config user.email test@example.invalid
-git -C "$retry_leaf_src" config user.name "PeTTa test"
+git -C "$retry_leaf_src" config user.name "MeTTa test"
 printf '(= (retry-leaf-result) retry-ok)\n' > "$retry_leaf_src/retry.metta"
 git -C "$retry_leaf_src" add .
 git -C "$retry_leaf_src" commit -qm retry-leaf
@@ -152,7 +152,7 @@ retry_parent_base_b="$fixture/retry-parent-b"
 mkdir -p "$retry_parent_src"
 git -C "$retry_parent_src" init -q
 git -C "$retry_parent_src" config user.email test@example.invalid
-git -C "$retry_parent_src" config user.name "PeTTa test"
+git -C "$retry_parent_src" config user.name "MeTTa test"
 printf '(git-dependency "file://%s" "%s" "" "%s")\n' \
     "$fixture/retry-leaf.git" "$retry_leaf_sha" "$retry_leaf_base" \
     > "$retry_parent_src/deps.metta"

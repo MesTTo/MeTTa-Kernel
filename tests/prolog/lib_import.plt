@@ -80,7 +80,7 @@ check_awkward_conversion(_, Stem) :-
     clear_import_space.
 
 % The converter wrote '&self'(fact,a,1) into USER, while native atoms live in
-% the storage module '$petta_atoms:&self'. Every clause loaded, nothing could
+% the storage module '$metta_atoms:&self'. Every clause loaded, nothing could
 % read them, and the import reported success.
 test(import_facts_land_where_the_space_reads_them) :-
     with_import_dir(where, "(fact a 1)\n", check_facts_are_readable).
@@ -112,7 +112,7 @@ test(import_removes_a_partial_conversion) :-
 check_partial_removed(Dir, Stem) :-
     import_space(Space),
     catch('static-import!'(Space, Stem, true), Error, true),
-    assertion(Error = error(petta_static_import_form(_, _), _)),
+    assertion(Error = error(metta_static_import_form(_, _), _)),
     atomic_list_concat([Dir, '/', Stem, '.pl'], PlFile),
     assertion(\+ exists_file(PlFile)),
     findall(A, 'get-atoms'(Space, A), Atoms),

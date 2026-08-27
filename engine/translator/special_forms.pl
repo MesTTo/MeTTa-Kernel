@@ -135,7 +135,7 @@ guard_error_condition(Cond, CondValue, Out, Then, Else, Guarded) :-
 %a literal, or an existing partial. `Goals0 == AfterExpr` is that question
 %asked exactly, in one inline comparison; a second walk asking it from the
 %source term instead cost source-load 14,000 inferences and handle-round-trip
-%54,000 [measured 2026-08-22, PETTA_BENCHMARK_COUNTERS=1, min of three].
+%54,000 [measured 2026-08-22, METTA_BENCHMARK_COUNTERS=1, min of three].
 %
 %An operand headed by an error-REIFYING form is left out: its value is data by
 %contract. That test is paid only by an argument that did emit goals, which is
@@ -243,7 +243,7 @@ metta_special_form_head(Name) :-
 %
 %Written for the linter, whose possibly-undefined-reference check asks "does
 %anything in the engine give this head meaning". Answering that with fun/1
-%alone reported 1623 findings over PeTTa/examples, 712 of them special forms
+%alone reported 1623 findings over this repository's examples/, 712 of them special forms
 %used correctly, `if` alone accounting for 378 [measured 2026-08-17]
 %[tested: test_calling_a_special_form_is_not_an_undefined_reference].
 metta_translated_head(Name) :- metta_special_form(Name), !.
@@ -333,28 +333,28 @@ translate_special_dl(collapse, [Expr], AfterHead, Goals, Out) :-
     ->  AfterHead = [collapse_runtime(Expr, Out)|Goals]
     ;   translate_expr_to_conj(Expr, Conj, ExprValue),
         (   runnable_collapse_name_state(CollapseState, NameSlot)
-        ->  CollapseState = '$petta_name_state'(CollapseNames, PriorNames),
-            NameState = '$petta_name_state'(CollapseNames,
+        ->  CollapseState = '$metta_name_state'(CollapseNames, PriorNames),
+            NameState = '$metta_name_state'(CollapseNames,
                                             [CollapseRuntimeNames|PriorNames]),
-            NamedConj = petta_run_named(CollapseNames, Conj,
+            NamedConj = metta_run_named(CollapseNames, Conj,
                                         CollapseRuntimeNames),
             (   ExprValue == 'Empty'
             ->  AfterHead = [(Out = [], NameSlot = [])|Goals]
             ;   nonvar(ExprValue)
-            ->  AfterHead = [(findall('$petta_answer'(ExprValue, NameState),
+            ->  AfterHead = [(findall('$metta_answer'(ExprValue, NameState),
                                       NamedConj, Carried),
-                              petta_answer_terms(Carried, Out, NameSlot))|Goals]
-            ;   AfterHead = [(findall('$petta_answer'(ExprValue, NameState),
+                              metta_answer_terms(Carried, Out, NameSlot))|Goals]
+            ;   AfterHead = [(findall('$metta_answer'(ExprValue, NameState),
                                       NamedConj, Carried0),
-                              petta_prune_empty_answers(Carried0, Carried),
-                              petta_answer_terms(Carried, Out, NameSlot))|Goals]
+                              metta_prune_empty_answers(Carried0, Carried),
+                              metta_answer_terms(Carried, Out, NameSlot))|Goals]
             )
         ;   ExprValue == 'Empty'
         ->  AfterHead = [Out = []|Goals]
         ;   nonvar(ExprValue)
         ->  AfterHead = [findall(ExprValue, Conj, Out)|Goals]
         ;   AfterHead = [(findall(ExprValue, Conj, All),
-                          petta_prune_empty(All, Out))|Goals]
+                          metta_prune_empty(All, Out))|Goals]
         )
     ).
 translate_special_dl(cut, [], AfterHead, Goals, true) :-
@@ -435,12 +435,12 @@ translate_special_dl(take, [CountExpr, Expr], AfterHead, Goals, Out) :-
 %(annotation): the current answer's annotation, the k the seam carried
 %with the last answer produced in this derivation, 1 outside any.
 translate_special_dl(annotation, [], AfterHead, Goals, Out) :-
-    AfterHead = [petta_annotation(Out)|Goals].
+    AfterHead = [metta_annotation(Out)|Goals].
 %(explain Query): the seam's route for Query, answered as atoms rather
 %than run. The query arrives UNEVALUATED, like quote's argument, because
 %the route is a fact about the expression, not about its answers.
 translate_special_dl(explain, [Query], AfterHead, Goals, Out) :-
-    AfterHead = [petta_explain(Query, Out)|Goals].
+    AfterHead = [metta_explain(Query, Out)|Goals].
 %(top K Expr): the K BEST of Expr by answer annotation, in the context's
 %declared semiring order, where take is any K. The same shape decision:
 %exactly one match over one space is the form that can check the context's
@@ -503,7 +503,7 @@ translate_special_dl(elapsed, [Expr], AfterHead, Goals, Out) :-
     AfterHead = [metta_elapsed(Conj, Value, Out)|Goals].
 translate_special_dl(transaction, [Expr], AfterHead, Goals, Out) :-
     translate_expr_to_conj(Expr, Conj, Out),
-    AfterHead = [petta_transaction(Conj)|Goals].
+    AfterHead = [metta_transaction(Conj)|Goals].
 
 %A SEED IS A SCOPE, not a global setting, so the sequence a program depends on
 %is the one written beside it rather than whatever the process did earlier.
@@ -526,9 +526,9 @@ translate_special_dl('with-seed', [SeedExpr, Body], AfterHead, Goals, Out) :-
     build_branch(BodyConj, BodyValue, Out, BodyBranch),
     Written = [SeedValue, Body],
     (   SeedConj == true
-    ->  AfterHead = [petta_with_seed(SeedValue, Written, BodyBranch, Out)|Goals]
+    ->  AfterHead = [metta_with_seed(SeedValue, Written, BodyBranch, Out)|Goals]
     ;   AfterHead = [( SeedConj,
-                       petta_with_seed(SeedValue, Written, BodyBranch,
+                       metta_with_seed(SeedValue, Written, BodyBranch,
                                        Out) )|Goals]
     ).
 
@@ -587,7 +587,7 @@ translate_special_dl(if, [Cond, Then, Else], AfterHead, Goals, Out) :-
 %Atom, so the two operands cross unevaluated exactly as quote's argument
 %does, and only the selected branch runs [source: LeaTTa
 %tests/semantics/matching/unify_branch_evaluation.metta, branch markers
-%measured 2026-08-11]. Every solution of petta_match_atoms/2 is one
+%measured 2026-08-11]. Every solution of metta_match_atoms/2 is one
 %binding set and instantiates its own then-branch answer; the soft cut
 %runs the else-branch exactly when no binding set exists. Bindings made
 %by the match flow into the branch through the shared variables, which
@@ -611,7 +611,7 @@ translate_special_dl(unify, [A, B, Then, Else], AfterHead, Goals, Out) :-
     translate_expr_to_conj(Else, ElseConj, ElseValue),
     unify_branch(Then, ThenConj, ThenValue, Out, ThenBranch),
     unify_branch(Else, ElseConj, ElseValue, Out, ElseBranch),
-    petta_unify_decision(A, B, Decide),
+    metta_unify_decision(A, B, Decide),
     AfterHead = [(Decide *-> ThenBranch ; ElseBranch)|Goals].
 
 %case reads its cases as syntax, so a cases argument that is still a variable
@@ -733,7 +733,7 @@ translate_special_dl(chain, [Nested, Binder, Template], AfterHead, Goals, Out) :
         %machine result, so an irreducible operand reaches its continuation as the
         %bare NotReducible mark. An eval written in any ordinary expression
         %context retains its own call instead.
-        AfterHead = [petta_chain_step(Nested, Binder)|AfterTemplate],
+        AfterHead = [metta_chain_step(Nested, Binder)|AfterTemplate],
         translate_expr_dl(Template, AfterTemplate, AfterResult, Value),
         masked_result_goal(Value, Out, Goal),
         AfterResult = [Goal|Goals]
@@ -917,7 +917,7 @@ translate_special_dl('|->', [Args, Body0], AfterHead, Goals, Out) :-
     %`apply:maplist_/3: Unknown procedure: 'local-double'/2` while the same
     %call written directly answered 42. That is every lambda form, `|->`,
     %`map-atom`, `filter-atom` and `foldl-atom`, unusable on a space-local
-    %function; and since every space PyPeTTa creates is a named one, it was
+    %function; and since every space pymetta creates is a named one, it was
     %the whole Python surface [tested: translator_lambda_space_scope].
     %
     %+10 inferences once per lambda COMPILED and nothing per call [measured
@@ -973,24 +973,24 @@ translate_special_dl('new-space', [Space], AfterHead, Goals, Out) :-
         ['new-space'(Space, Out)|Goals], AfterHead).
 %A literal (superpose (&a &b ...)) space argument is the multi-context
 %idiom, and the SHAPE decides it at translation exactly as take's bound
-%does: those queries route through petta_merged_match/3, where the
+%does: those queries route through metta_merged_match/3, where the
 %declared (merge <pattern> <policy>) chooses the strategy. A computed
 %space expression keeps the space-after-space path.
 translate_special_dl(match, [SpaceExpr, Pattern0, Body], AfterHead, Goals,
                      Out) :-
     SpaceExpr = [superpose, SpaceList],
     is_list(SpaceList), SpaceList = [_, _|_],
-    forall(member(Space, SpaceList), petta_space_name(Space)), !,
+    forall(member(Space, SpaceList), metta_space_name(Space)), !,
     lift_pattern_modifiers(Pattern0, Pattern, Guards, Segments),
-    petta_seq_query_pattern(Segments, Pattern, Asked),
-    append([petta_merged_match(SpaceList, Asked, Out)|Guards], AfterMatch,
+    metta_seq_query_pattern(Segments, Pattern, Asked),
+    append([metta_merged_match(SpaceList, Asked, Out)|Guards], AfterMatch,
            AfterHead),
     translate_expr_dl(Body, AfterMatch, Goals, Out).
 translate_special_dl(match, [SpaceExpr, Pattern0, Body], AfterHead, Goals,
                      Out) :-
     translate_space_expr_dl(SpaceExpr, AfterHead, BeforeMatch, Space),
     lift_pattern_modifiers(Pattern0, Pattern, Guards, Segments),
-    petta_seq_query_pattern(Segments, Pattern, Asked),
+    metta_seq_query_pattern(Segments, Pattern, Asked),
     %The template and the result are DISTINCT variables. Fused, the
     %answer-shaped refusal of match/4's last clause could never surface: the
     %body had already bound the one variable, the Error atom failed to unify
@@ -1037,13 +1037,13 @@ translate_special_dl(reduce, [Expr], AfterHead, Goals, Out) :-
         translate_args_dl(Args, AfterHead, BeforeReduce, ArgValues),
         ExprValue = [Function|ArgValues] ),
     BeforeReduce = [reduce(ExprValue, Reduced, Status),
-                    petta_reduce_result(ExprValue, Reduced, Status, Out)|Goals].
-%petta_eval_step/2 exposes the raw NotReducible mark to chain and function.  As an
+                    metta_reduce_result(ExprValue, Reduced, Status, Out)|Goals].
+%metta_eval_step/2 exposes the raw NotReducible mark to chain and function.  As an
 %ordinary expression, however, eval is itself an application boundary and an
 %irreducible step retains `(eval <arg>)` as written.
 translate_special_dl(eval, [Arg], AfterHead, Goals, Out) :-
-    AfterHead = [petta_eval_step(Arg, Produced),
-                 petta_boundary_result([eval, Arg], Produced, Out)|Goals].
+    AfterHead = [metta_eval_step(Arg, Produced),
+                 metta_boundary_result([eval, Arg], Produced, Out)|Goals].
 %evalc hands its first argument over unevaluated, exactly as eval does, or the
 %expression would already have been reduced in the calling space before the
 %space argument could select another one. The space itself is evaluated, so a
@@ -1052,8 +1052,8 @@ translate_special_dl(evalc, [Arg, Space], AfterHead, Goals, Out) :-
     translate_space_expr_dl(Space, AfterHead, BeforeEval, SpaceValue),
     translate_restricted_guard_dl(
         metta_require_current_capability(evalc, process),
-        [petta_evalc_step(Arg, SpaceValue, Produced),
-         petta_boundary_result([evalc, Arg, SpaceValue], Produced, Out)|Goals],
+        [metta_evalc_step(Arg, SpaceValue, Produced),
+         metta_boundary_result([evalc, Arg, SpaceValue], Produced, Out)|Goals],
         BeforeEval).
 %Like the reference's embedded operation, metta-thread receives the atom as
 %written and runs the nested full evaluator.  Compiling it as an ordinary call
@@ -1158,37 +1158,37 @@ translate_special_dl('catch', [Expr], AfterHead, Goals, Out) :-
 %compiles." The result rides in a WRAPPER the two existing doors dispatch on,
 %so a gap-free pattern is handed over untouched and adds no goal name every
 %space would have to import.
-petta_seq_query_pattern(false, Pattern, Pattern).
-petta_seq_query_pattern(true, Pattern, Asked) :-
-    petta_seq_query_plan(Pattern, Asked).
+metta_seq_query_pattern(false, Pattern, Pattern).
+metta_seq_query_pattern(true, Pattern, Asked) :-
+    metta_seq_query_plan(Pattern, Asked).
 
 %unify is the ONE door whose two operands are both syntax: they are typed Atom
 %and cross unevaluated, so both sides can carry a written gap and the pair can
 %land in either two-sided fragment. Every other door faces a VALUE on one side,
 %which is data and therefore gap-free, so it is one_sided by construction.
-petta_unify_decision(A, B, petta_match_atoms(Asked, B)) :-
-    (   petta_seq_written(A)
+metta_unify_decision(A, B, metta_match_atoms(Asked, B)) :-
+    (   metta_seq_written(A)
     ->  true
-    ;   petta_seq_written(B)
+    ;   metta_seq_written(B)
     ),
     !,
-    petta_seq_plan(A, B, Asked).
-petta_unify_decision(A, B, Decision) :-
+    metta_seq_plan(A, B, Asked).
+metta_unify_decision(A, B, Decision) :-
     lift_pattern_modifiers(A, LiftedA, GuardsA, false),
     lift_pattern_modifiers(B, LiftedB, GuardsB, false),
     append(GuardsA, GuardsB, Guards),
     Guards \== [],
     !,
-    goals_list_to_conj([petta_match_atoms(LiftedA, LiftedB)|Guards], Decision).
-petta_unify_decision(A, B, petta_match_atoms(A, B)).
+    goals_list_to_conj([metta_match_atoms(LiftedA, LiftedB)|Guards], Decision).
+metta_unify_decision(A, B, metta_match_atoms(A, B)).
 
 %The free half of the gap question: only a nonvar LIST can carry a gap, and
 %nonvar/1 with =/2 compile inline, so an operand that is a variable, a symbol
 %or a number never reaches the walk.
-petta_seq_written(Operand) :-
+metta_seq_written(Operand) :-
     nonvar(Operand),
     Operand = [_|_],
-    petta_seq_present(Operand).
+    metta_seq_present(Operand).
 
 %Both seams take exactly one argument: the goal to compile, written as a list
 %whose head names the Prolog predicate. Reporting the argument rather than only
@@ -1204,14 +1204,14 @@ petta_seq_written(Operand) :-
 %compiled, and nothing in `(= (f (g $x)) $x)` says that the caller's `(g 3)`
 %will have been evaluated to something else before it arrives.
 :- multifile prolog:message//1.
-prolog:message(petta_head_pattern_note(Fun, Path, Label, type_annotation)) -->
+prolog:message(metta_head_pattern_note(Fun, Path, Label, type_annotation)) -->
     { head_pattern_position_text(Path, Where) },
     [ 'the head of (= (~w ...) ...) constrains ~w with the in-place \c
        annotation on ~w, so that position compiled to a type premise GOAL \c
        rather than to structure. The equation this function stores no longer \c
        holds its whole head, which is why a dual cannot be built \c
        for it.'-[Fun, Where, Label] ].
-prolog:message(petta_head_pattern_note(Fun, Path, Label, defined_label(Route)))
+prolog:message(metta_head_pattern_note(Fun, Path, Label, defined_label(Route)))
     -->
     { head_pattern_position_text(Path, Where),
       head_meaning_route_text(Route, Because) },
@@ -1234,7 +1234,7 @@ head_meaning_route_text(translated,
 
 refuse_uncompilable_seam(Form, Args) :-
     ( Args = [Goal] -> Offender = Goal ; Offender = Args ),
-    throw(error(petta_uncompilable_seam(Form, Offender),
+    throw(error(metta_uncompilable_seam(Form, Offender),
                 context(Form/1, 'a Prolog seam compiles one goal'))).
 
 %The same mistake reaches the translator by a second route that the clauses
@@ -1245,22 +1245,22 @@ refuse_uncompilable_seam(Form, Args) :-
 refuse_seam_expanded_to_data(Rule, Out) :-
     (   nonvar(Out), Out = [Seam|_],
         ( Seam == translatePredicate ; Seam == call )
-    ->  throw(error(petta_seam_expansion_as_data(Rule, Seam),
+    ->  throw(error(metta_seam_expansion_as_data(Rule, Seam),
                     context(Rule, 'a translator rule expanded to data')))
     ;   true ).
 
-prolog:error_message(petta_uncompilable_seam(Form, Offender)) -->
+prolog:error_message(metta_uncompilable_seam(Form, Offender)) -->
     [ '~w compiles one Prolog goal and needs it written as a list naming the \c
        predicate, as (~w (name $arg ...)), but it was given ~p. A translator \c
        rule that builds this form in Prolog returns it directly; quoting it \c
        there yields a list the translator can only read as data.'-[Form, Form,
                                                                    Offender] ].
-prolog:error_message(petta_call_to_own_import(Name)) -->
+prolog:error_message(metta_call_to_own_import(Name)) -->
     [ 'this runnable imports ~w and calls it, and a runnable is compiled \c
        whole before any of it runs, so the call compiles while ~w is still \c
        unregistered and answers the expression instead of the value. Put the \c
        import in its own runnable, before the one that calls it.'-[Name, Name] ].
-prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
+prolog:error_message(metta_seam_expansion_as_data(Rule, Seam)) -->
     [ 'the translator rule ~w expanded to a ~w form left as data, which \c
        nothing can compile. A rule written in MeTTa evaluates its own quote \c
        and expands to what quote returned; a rule that builds the form in \c
@@ -1277,7 +1277,7 @@ prolog:error_message(petta_seam_expansion_as_data(Rule, Seam)) -->
 %test_an_annotated_binding_emits_its_claim,
 %translator_typed_let:a_source_colon_pair_stays_a_pattern;
 %commit=c3c8ea60516dc1f45620bbe4dba3b78993ee22e3].
-translate_let_dl([[__petta_typed_binding__, Pattern], Value, In],
+translate_let_dl([[__metta_typed_binding__, Pattern], Value, In],
                  AfterHead, Goals, Out) :-
     constrain_args(Pattern, ConstrainedPattern, TypeGoals),
     TypeGoals \== [],
@@ -1332,9 +1332,9 @@ translate_let_dl([[__petta_typed_binding__, Pattern], Value, In],
 %2026-08-24, ai-tmp/J5-let.metta]. A pattern is matched, not evaluated, and a
 %gap makes that difference visible: there is nothing to evaluate in `...`.
 translate_let_dl([Pattern, Value, In], AfterHead, Goals, Out) :-
-    ( petta_seq_written(Pattern)
+    ( metta_seq_written(Pattern)
       -> translate_eager_argument_dl(Value, AfterHead, AfterValue, ValueResult),
-         petta_pattern_match_goal(Pattern, ValueResult, Decide),
+         metta_pattern_match_goal(Pattern, ValueResult, Decide),
          AfterValue = [Decide|AfterUnify]
        ; shares_variable(Pattern, Value)
       -> translate_expr_dl(Pattern, AfterHead, AfterPattern, PatternValue),
@@ -1565,7 +1565,7 @@ translate_space_update_dl(Operation, [SpaceExpr, Atom], AfterHead, Goals,
 %not list shape alone.
 translate_space_expr_dl(SpaceExpr, Goals0, Goals, Space) :-
     nonvar(SpaceExpr),
-    petta_space_operand(SpaceExpr), !,
+    metta_space_operand(SpaceExpr), !,
     Space = SpaceExpr,
     Goals0 = Goals.
 translate_space_expr_dl(SpaceExpr, Goals0, Goals, Space) :-
@@ -1627,7 +1627,7 @@ build_call_or_partial_dl(Fun, AVs, Out, Goals0, Goals, Extra) :-
          append([PolicyGoal|Extra], Goals, Goals0)
     ; metta_segment_equation(Fun)
       -> current_metta_module(Module),
-         Goal = petta_segment_dispatch(Module, Fun, AVs, Out),
+         Goal = metta_segment_dispatch(Module, Fun, AVs, Out),
          dispatch_call_goal(Fun, AVs, Out, Goal, PolicyGoal),
          append([PolicyGoal|Extra], Goals, Goals0)
     ; incomplete_application_kind(Fun, Arity, partial)
@@ -1700,7 +1700,7 @@ masked_result_goal(Produced, Out,
                    ;   metta_masked_result(Produced, Out)
                    )).
 
-%Compiled equations cross petta_application_result/4 at their call site.
+%Compiled equations cross metta_application_result/4 at their call site.
 %Native and grounded operations instead use reduce/3's status-carrying seam,
 %so this result continuation can retain the old scalar-fast shape: an Atom
 %result is final, and every other compound result re-enters evaluation.
@@ -1720,7 +1720,7 @@ call_result_goal(Written, _, Produced, final, Out, Goal) :-
         masked_smuggler_head(Fun)
     ->  Goal = ( Out = Produced,
                  (   compound(Produced)
-                 ->  system:b_setval('$petta_masked_escape', true)
+                 ->  system:b_setval('$metta_masked_escape', true)
                  ;   true
                  ) )
     ;   Goal = (Out = Produced)
@@ -1764,7 +1764,7 @@ call_result_goal(Written, Runtime, Produced, evaluated, Out, Goal) :-
                ->  Out = Produced
                ;   Produced == Runtime
                ->  Out = Produced
-               ;   system:b_getval('$petta_masked_escape', true)
+               ;   system:b_getval('$metta_masked_escape', true)
                ->  metta_masked_result(Produced, Out)
                ;   Out = Produced
                )

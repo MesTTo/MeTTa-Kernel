@@ -43,7 +43,7 @@ test(a_taken_name_refuses_before_any_write,
     metta_host_open_function('zzz-owned', prolog, 1).
 
 test(the_protected_core_refuses_naming_the_owner,
-     [ throws(error(petta_op_name_taken(sort, 1, 2, system), _)) ]) :-
+     [ throws(error(metta_op_name_taken(sort, 1, 2, system), _)) ]) :-
     % sort/2 is SWI's protected core: no module may redefine it, so the
     % probe's assert raises and the refusal names the owning module.
     metta_host_open_function(sort, python, 2).

@@ -141,10 +141,10 @@ shadow_report(Shadows, Equations) :-
 % the same door, so a check that stops reading the table fails here rather than
 % at the next library to collide.
 planted_library_shadow_is_named :-
-    sread("(= (petta-planted-shadow ((Evaluation (Predicate $x)) $t)) $x)", Form),
+    sread("(= (metta-planted-shadow ((Evaluation (Predicate $x)) $t)) $x)", Form),
     retractall(translator:head_pattern_note(_, _, _, _, _)),
     catch(translate_clause(Form, _), _, true),
-    translator:head_pattern_note(_, 'petta-planted-shadow', _, 'Predicate',
+    translator:head_pattern_note(_, 'metta-planted-shadow', _, 'Predicate',
                                  defined_label(_)),
     retractall(translator:head_pattern_note(_, _, _, _, _)).
 

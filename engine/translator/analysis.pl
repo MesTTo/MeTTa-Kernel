@@ -29,7 +29,7 @@ record_fun_meta(F, Args, Body) :-
     current_metta_module(Module),
     asserta(fun_meta_clause(Module, F, Args, Body), Ref),
     record_source_assertion(Ref),
-    (   nb_current('$petta_queued_equation_types', queued(QF, QTypes)),
+    (   nb_current('$metta_queued_equation_types', queued(QF, QTypes)),
         QF == F
     ->  Types = QTypes
     ;   fun_meta_types_for_new_clause(Module, F, Types)
@@ -96,9 +96,9 @@ last_queued_types_group(Module, F, Group) :-
 materialize_with_queued_types(Module, F, Goal) :-
     (   retract(deferred_equation_types(F, Module, Types))
     ->  setup_call_cleanup(
-            b_setval('$petta_queued_equation_types', queued(F, Types)),
+            b_setval('$metta_queued_equation_types', queued(F, Types)),
             call(Goal),
-            nb_delete('$petta_queued_equation_types'))
+            nb_delete('$metta_queued_equation_types'))
     ;   call(Goal)
     ).
 
@@ -337,7 +337,7 @@ note_head_pattern(Module, F, RevPath, Label, Reason) :-
     ;   assertz(head_pattern_note(Module, F, Path, Label, Reason), Ref),
         record_source_assertion(Ref),
         print_message(informational,
-                      petta_head_pattern_note(F, Path, Label, Reason))
+                      metta_head_pattern_note(F, Path, Label, Reason))
     ).
 
 %An equation head is a PATTERN, matched, and this walk builds it. The only
@@ -568,7 +568,7 @@ seam:engine_emitted(metta_negation/5).
 %arity one would have captured every dual's calls. Nothing said so while the
 %engine shared one namespace and the base chain found it anyway; cutting
 %engine/duals.pl into a module made a compiled body raise
-%existence_error(procedure, '$petta_exec:&self':metta_dual_goal/2) instead
+%existence_error(procedure, '$metta_exec:&self':metta_dual_goal/2) instead
 %[measured 2026-08-22, on examples/reasoning/constructive_negation.metta].
 seam:engine_emitted(metta_dual_goal/2).
 seam:engine_emitted(metta_forall_c/2).
@@ -583,7 +583,7 @@ seam:engine_emitted(dif/2).
 %Four more this file emits and never declared. They reached a space's module
 %through the base chain while the whole engine shared one namespace, and the
 %module cut turned each into
-%existence_error(procedure, '$petta_exec:&self':<name>) on the corpus.
+%existence_error(procedure, '$metta_exec:&self':<name>) on the corpus.
 seam:engine_emitted(agg_reduce/4).
 seam:engine_emitted(hyperpose_branch/4).
 seam:engine_emitted(hyperpose_runtime/2).
@@ -605,55 +605,55 @@ seam:engine_emitted(metta_take_match/5).
 %The corpus-recompile check above could not see these, because it reads goals
 %out of equations the SHIPPED corpus compiles and no shipped equation uses
 %either form; the benchmark suite does, and reported
-%existence_error(procedure, '$petta_exec:&pyspace_1':metta_top/3) the moment
+%existence_error(procedure, '$metta_exec:&pyspace_1':metta_top/3) the moment
 %engine/spaces.pl became a module. What found the third one before anything ran
 %it is the source half added beside that check, which reads what this file
 %CONSTRUCTS rather than what a corpus happens to reach
 %[measured 2026-08-22; tested: static_checks:every_emitted_goal_is_reachable].
 seam:engine_emitted(metta_top/3).
 seam:engine_emitted(metta_top_match/5).
-seam:engine_emitted(petta_merged_match/3).
+seam:engine_emitted(metta_merged_match/3).
 %engine/specializer.pl's, written into a specialized call's body when
 %(pragma! verify-specializations true) is set.
-seam:engine_emitted(petta_verified_specialization/2).
+seam:engine_emitted(metta_verified_specialization/2).
 seam:engine_emitted(metta_require_current_capability/2).
 seam:engine_emitted(metta_require_safe_goal/1).
 seam:engine_emitted(metta_require_space_update_capability/2).
-seam:engine_emitted(petta_match_atoms/2).
-seam:engine_emitted(petta_answer_terms/3).
-seam:engine_emitted(petta_prune_empty/2).
-seam:engine_emitted(petta_prune_empty_answers/2).
-seam:engine_emitted(petta_run_named/3).
-seam:engine_emitted(petta_run_with_fuel/3).
-seam:engine_emitted(petta_transaction/1).
-seam:engine_emitted(petta_with_seed/4).
+seam:engine_emitted(metta_match_atoms/2).
+seam:engine_emitted(metta_answer_terms/3).
+seam:engine_emitted(metta_prune_empty/2).
+seam:engine_emitted(metta_prune_empty_answers/2).
+seam:engine_emitted(metta_run_named/3).
+seam:engine_emitted(metta_run_with_fuel/3).
+seam:engine_emitted(metta_transaction/1).
+seam:engine_emitted(metta_with_seed/4).
 seam:engine_emitted(switch_runtime/3).
-seam:engine_emitted(petta_evaluation_fuel/1).
-seam:engine_emitted(petta_fuel_exhausted/1).
+seam:engine_emitted(metta_evaluation_fuel/1).
+seam:engine_emitted(metta_fuel_exhausted/1).
 seam:engine_emitted(function_overapplication/3).
 seam:engine_emitted(metta_bad_argument_error/3).
 seam:engine_emitted(dispatch_mismatch_result/3).
 seam:engine_emitted(dispatch_no_match_result/3).
 seam:engine_emitted(dispatch_policy_execute/5).
-seam:engine_emitted(petta_application_result/3).
-seam:engine_emitted(petta_application_result/4).
-seam:engine_emitted(petta_boundary_result/3).
-seam:engine_emitted(petta_reduce_result/4).
-seam:engine_emitted(petta_eval_step/2).
-seam:engine_emitted(petta_evalc_step/3).
-seam:engine_emitted(petta_evaluate_argument/2).
+seam:engine_emitted(metta_application_result/3).
+seam:engine_emitted(metta_application_result/4).
+seam:engine_emitted(metta_boundary_result/3).
+seam:engine_emitted(metta_reduce_result/4).
+seam:engine_emitted(metta_eval_step/2).
+seam:engine_emitted(metta_evalc_step/3).
+seam:engine_emitted(metta_evaluate_argument/2).
 seam:engine_emitted(metta_evaluate_symbol/2).
-seam:engine_emitted(petta_dynamic_call/3).
+seam:engine_emitted(metta_dynamic_call/3).
 %The prolog-import special form emits the deferral force ahead of its direct
 %goal, because the importer is itself a MeTTa equation whose clauses may not
 %exist yet when the emitted goal runs.
 seam:engine_emitted(metta_ensure_compiled/1).
-seam:engine_emitted(petta_dynamic_head_masks/1).
-seam:engine_emitted(petta_dynamic_value_call/4).
-seam:engine_emitted(petta_chain_step/2).
+seam:engine_emitted(metta_dynamic_head_masks/1).
+seam:engine_emitted(metta_dynamic_value_call/4).
+seam:engine_emitted(metta_chain_step/2).
 seam:engine_emitted(collapse_runtime/2).
-seam:engine_emitted(petta_segment_dispatch/4).
-seam:engine_emitted(petta_segment_rule_result/6).
+seam:engine_emitted(metta_segment_dispatch/4).
+seam:engine_emitted(metta_segment_rule_result/6).
 %The result half of the evaluation mask. engine/translator/special_forms.pl's
 %masked_result_goal/3 writes it into every compiled body whose declared result
 %re-enters evaluation, so a MeTTa function named metta_masked_result at two
@@ -777,11 +777,11 @@ translate_clause(Input, (Head :- BodyConj)) :- translate_clause(Input, (Head :- 
 %% translate_clause(+Equation, -Clause, +ConstrainArgs:boolean) is semidet.
 translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
     Input = [=, [F|Args0], BodyExpr],
-    petta_seq_present(Args0),
+    metta_seq_present(Args0),
     !,
     translate_equation_head(F, Args0, ConstrainArgs, Args1, GoalsPrefix),
     record_fun_meta(F, Args1, BodyExpr),
-    petta_seq_head_plan(Args1, HeadPlan),
+    metta_seq_head_plan(Args1, HeadPlan),
     translate_segment_body_plan(F, Args1, BodyExpr, GoalsPrefix, BodyPlan),
     same_length(Args1, CallArgs),
     append(CallArgs, [Out], FinalArgs),
@@ -790,7 +790,7 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
     length(FinalArgs, CompiledArity),
     register_arity(F, CompiledArity),
     current_metta_module(Module),
-    RawBody = petta_segment_rule_result(Module, F, HeadPlan, BodyPlan,
+    RawBody = metta_segment_rule_result(Module, F, HeadPlan, BodyPlan,
                                         CallArgs, RawOut),
     append(CallArgs, [RawOut], RawFinalArgs),
     RawHead =.. [Predicate|RawFinalArgs],
@@ -892,7 +892,7 @@ normalize_equation_result(Fun, Args, RawOut, Out, RawBody, Body) :-
 %wrapper and calls to another function retain both boundaries; that also keeps
 %mutually recursive cycles non-tail until the engine has SCC-wide fuel.
 normalize_equation_tail((Call0,
-                         petta_application_result(_, _, Produced, RawResult)),
+                         metta_application_result(_, _, Produced, RawResult)),
                         RawOut, [Caller|_], Out, Call) :-
     RawResult == RawOut,
     direct_self_equation_goal(Call0, Caller, Produced, Out, Call),
@@ -917,7 +917,7 @@ normalize_equation_tail((Condition -> Then), RawOut, Runtime, Out,
 normalize_equation_tail(Goal0, RawOut, Runtime, Out, Goal) :-
     normalized_equation_tail_goal(Goal0, RawOut, Runtime, Out, Goal), !.
 normalize_equation_tail(Goal, RawOut, Runtime, Out,
-                        (Goal, petta_application_result(Runtime, Runtime,
+                        (Goal, metta_application_result(Runtime, Runtime,
                                                         RawOut, Out))).
 
 %Direct generated predicates and the default dispatch wrapper both already
@@ -983,12 +983,12 @@ translate_equation_head(_, Args, false, Args, []).
 %fixed-arity head unification alone.  Compile its body exactly once, retain the
 %variables shared with the parsed head, and put the one-sided hedge match in
 %front of those goals.  Calls at the written arity take this ordinary compiled
-%clause; calls at another arity use petta_segment_dispatch/4 over the retained
+%clause; calls at another arity use metta_segment_dispatch/4 over the retained
 %source equations [tested: tests/prolog/segment_equations.plt;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 translate_segment_body_plan(F, Args, BodyExpr, GoalsPrefix, BodyPlan) :-
-    (   petta_seq_present(BodyExpr)
-    ->  petta_seq_body_plan(BodyExpr, ParsedBody),
+    (   metta_seq_present(BodyExpr)
+    ->  metta_seq_body_plan(BodyExpr, ParsedBody),
         goals_list_to_conj(GoalsPrefix, PrefixConj),
         BodyPlan = spliced(PrefixConj, ParsedBody)
     ;   translate_equation_body_result(F, Args, BodyExpr, GoalsBody, ExpOut),
@@ -1073,19 +1073,19 @@ variable_member(Variables, Variable) :-
     !.
 
 install_held_head_variables(Held, saved(Previous)) :-
-    nb_current('$petta_held_head_variables', Previous),
+    nb_current('$metta_held_head_variables', Previous),
     !,
-    nb_linkval('$petta_held_head_variables', Held).
+    nb_linkval('$metta_held_head_variables', Held).
 install_held_head_variables(Held, none) :-
-    nb_linkval('$petta_held_head_variables', Held).
+    nb_linkval('$metta_held_head_variables', Held).
 
 restore_held_head_variables(saved(Previous)) :- !,
-    nb_linkval('$petta_held_head_variables', Previous).
+    nb_linkval('$metta_held_head_variables', Previous).
 restore_held_head_variables(none) :-
-    nb_delete('$petta_held_head_variables').
+    nb_delete('$metta_held_head_variables').
 
 held_head_variable(Variable) :-
-    nb_current('$petta_held_head_variables', Held),
+    nb_current('$metta_held_head_variables', Held),
     variable_member(Held, Variable).
 
 %A BODY THAT COMPILED TO NO GOALS EVALUATED NOTHING, and a declared result
@@ -1310,7 +1310,7 @@ translate_runnable_expr_cached(Module, Key, Source, Template, Goals, Out) :-
 
 invalidate_translated_forms(Symbol) :-
     (   translated_form_mention(Symbol, _)
-    ->  with_mutex('$petta_translation_cache',
+    ->  with_mutex('$metta_translation_cache',
                    invalidate_translated_forms_locked(Symbol))
     ;   true
     ).
@@ -1330,7 +1330,7 @@ uninstall_idle_translation_cache_hooks :-
     ).
 
 clear_translation_cache :-
-    with_mutex('$petta_translation_cache',
+    with_mutex('$metta_translation_cache',
                ( retractall(translated_form_cache(_, _, _, _, _, _)),
                  retractall(translated_form_mention(_, _)),
                  uninstall_idle_translation_cache_hooks )).

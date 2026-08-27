@@ -5,7 +5,7 @@
 %   errors and failures included, and generated number spellings must convert
 %   to identical values bit for bit.
 %
-%   The whole suite is conditioned on parser:petta_c_reader_active: a box
+%   The whole suite is conditioned on parser:metta_c_reader_active: a box
 %   without the built artifact runs the Prolog reader everywhere and this
 %   suite reports its tests as skipped. check.sh builds engine/reader.so
 %   before the plunit lane wherever swipl-ld exists, so the gate exercises
@@ -22,7 +22,7 @@
 % into the test output.
 :- ensure_loaded('../../engine/metta.pl').
 
-:- begin_tests(reader_c, [condition(parser:petta_c_reader_active)]).
+:- begin_tests(reader_c, [condition(parser:metta_c_reader_active)]).
 
 %Outcome capture: success value, error term, or failure, so a differential
 %case compares all three the same way.
@@ -48,7 +48,7 @@ reader_sread_prolog(S, T, Names) :-
 
 agree_full(S) :-
     reader_outcome(filereader:parse_metta_source_prolog(S, P), P, OP),
-    reader_outcome(parser:petta_c_parse_source(S, C), C, OC),
+    reader_outcome(parser:metta_c_parse_source(S, C), C, OC),
     (   OP =@= OC
     ->  true
     ;   format(user_error, "full-source disagreement:~n  prolog: ~q~n  c: ~q~n",
@@ -58,7 +58,7 @@ agree_full(S) :-
 
 agree_sread(S) :-
     reader_outcome(reader_sread_prolog(S, T1, N1), T1-N1, OP),
-    reader_outcome(parser:petta_c_sread(S, T2, N2), T2-N2, OC),
+    reader_outcome(parser:metta_c_sread(S, T2, N2), T2-N2, OC),
     (   OP =@= OC
     ->  true
     ;   format(user_error, "sread disagreement:~n  prolog: ~q~n  c: ~q~n",
@@ -204,10 +204,10 @@ test(generated_stress_shapes_agree_through_both_doors) :-
                   N).
 
 test(the_error_shapes_match_the_prolog_reader) :-
-    catch(parser:petta_c_parse_source("x\n (a b", _), E1, true),
+    catch(parser:metta_c_parse_source("x\n (a b", _), E1, true),
     E1 = error(syntax_error(M1), none),
     M1 == 'missing \')\', starting at line 2:\na b',
-    catch(parser:petta_c_sread("(a))", _, _), E2, true),
+    catch(parser:metta_c_sread("(a))", _, _), E2, true),
     E2 = error(syntax_error(M2), none),
     M2 == 'Parse error in form: (a))'.
 
@@ -244,7 +244,7 @@ test(the_parse_summary_agrees_with_the_prolog_walks) :-
                   NA).
 
 summary_agrees(S) :-
-    (   catch(parser:petta_c_parse_source(S, Forms, Sigs, Decls), _, fail)
+    (   catch(parser:metta_c_parse_source(S, Forms, Sigs, Decls), _, fail)
     ->  filereader:source_summary_of_forms(Forms, SpecSigs, SpecDecls),
         Sigs =@= SpecSigs,
         Decls =@= SpecDecls

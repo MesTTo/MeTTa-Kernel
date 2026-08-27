@@ -39,8 +39,8 @@
 ;;; sleep answers True, so it sequences with let like any other side effect.
 !(test (sleep 0.01) True)
 
-;;; MeTTa HE's metta/3 interprets an atom in a named space. PeTTa's evalc
-;;; already is that, since PeTTa's eval is full evaluation rather than minimal
+;;; MeTTa HE's metta/3 interprets an atom in a named space. MeTTa's evalc
+;;; already is that, since MeTTa's eval is full evaluation rather than minimal
 ;;; MeTTa's single rewriting step, so the two agree.
 !(test (metta (+ 1 2) %Undefined% &self) 3)
 !(test (evalc (+ 1 2) &self) 3)

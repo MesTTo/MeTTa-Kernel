@@ -36,27 +36,27 @@
 :- ensure_loaded(reduced_platform).
 
 %The plant is written into the ENGINE's module by name. A bare assertz inside
-%a plunit unit creates a private petta_platform_absent/1 in that unit's own
+%a plunit unit creates a private metta_platform_absent/1 in that unit's own
 %module, where the census cannot see it, and every refusal test then passes
 %vacuously by never refusing: measured here as `no_exception` on
 %a_planted_absence_refuses_by_name_and_states_its_cost. This is the same trap
 %engine/metta.pl records for its four shared registries.
 plant_absent(Capability) :-
-    petta_engine_module(Engine),
-    assertz(Engine:petta_platform_absent(Capability)).
+    metta_engine_module(Engine),
+    assertz(Engine:metta_platform_absent(Capability)).
 
 unplant_absent(Capability) :-
-    petta_engine_module(Engine),
-    retractall(Engine:petta_platform_absent(Capability)).
+    metta_engine_module(Engine),
+    retractall(Engine:metta_platform_absent(Capability)).
 
 :- begin_tests(platform_capabilities).
 
 test(the_census_agrees_with_what_resolves) :-
     findall(Capability-Status,
-            petta_platform(Capability, Status, _, _),
+            metta_platform(Capability, Status, _, _),
             Rows),
     assertion(Rows \== []),
-    forall(petta_platform(Capability, Status, Requires, Costs),
+    forall(metta_platform(Capability, Status, Requires, Costs),
            ( assertion(( exists_source(Requires)
                        -> Status == present
                        ;  Status == absent )),
@@ -67,7 +67,7 @@ test(the_census_agrees_with_what_resolves) :-
            assertion(memberchk(Named-_, Rows))).
 
 test(a_present_capability_refuses_nothing) :-
-    forall(petta_platform(Capability, present, _, _),
+    forall(metta_platform(Capability, present, _, _),
            metta_require_platform(plunit_probe, Capability)).
 
 % The planted absence is the whole point: this box has all three, so without
@@ -76,14 +76,14 @@ test(a_present_capability_refuses_nothing) :-
 test(a_planted_absence_refuses_by_name_and_states_its_cost,
      [ setup(plant_absent(deadlines)),
        cleanup(unplant_absent(deadlines)),
-       throws(error(petta_platform_required('(timeout N Expr)', deadlines,
+       throws(error(metta_platform_required('(timeout N Expr)', deadlines,
                                             library(time), _), _)) ]) :-
     metta_require_platform('(timeout N Expr)', deadlines).
 
 test(a_planted_absence_reads_back_as_absent,
      [ setup(plant_absent(deadlines)),
        cleanup(unplant_absent(deadlines)) ]) :-
-    petta_platform(deadlines, Status, Requires, Costs),
+    metta_platform(deadlines, Status, Requires, Costs),
     assertion(Status == absent),
     assertion(Requires == library(time)),
     assertion(sub_atom(Costs, _, _, _, 'timeout')).
@@ -98,7 +98,7 @@ test(a_planted_absence_names_its_cost_in_the_message,
            assertion(sub_string(Text, _, _, _, Fragment))).
 
 test(metta_requires_refuses_a_capability_the_engine_does_not_declare,
-     [ throws(error(existence_error(petta_platform_capability,
+     [ throws(error(existence_error(metta_platform_capability,
                                     plunit_no_such_capability), _)) ]) :-
     metta_requires(plunit_no_such_capability).
 
@@ -107,10 +107,10 @@ test(a_source_declaration_is_read_without_running_the_source) :-
     assertion(memberchk(requires(concurrency), Declarations)).
 
 test(the_census_is_a_published_host_service) :-
-    assertion(seam:kind(petta_platform/4, host_service)),
-    petta_engine_module(Engine),
+    assertion(seam:kind(metta_platform/4, host_service)),
+    metta_engine_module(Engine),
     module_property(Engine, exports(Exports)),
-    assertion(memberchk(petta_platform/4, Exports)).
+    assertion(memberchk(metta_platform/4, Exports)).
 
 :- end_tests(platform_capabilities).
 

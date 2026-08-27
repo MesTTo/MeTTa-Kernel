@@ -133,7 +133,7 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install PyPeTTa
+      - name: Install pymetta
         run: uv sync --locked --extra checks
 
       - name: Run Python tests

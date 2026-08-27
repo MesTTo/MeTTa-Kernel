@@ -194,7 +194,7 @@ class Space(Handle):
 
 > A space bound to the engine: the way in from Python.
 >
-> PeTTa keeps one engine per process; every context shares it. The
+> MeTTa keeps one engine per process; every context shares it. The
 > default space is &self, the space the CLI itself uses, so source pasted
 > from a .metta file behaves identically here. Two ``MeTTa().self`` handles
 > therefore see the same &self state. Use ``MeTTa().space()`` when
@@ -1108,7 +1108,7 @@ def eval_status(
 >
 > `value` means an equation, builtin or special form applied.
 > `not-reducible` means no rule applied, so the answer is the term
-> itself, which is what PeTTa does with any head it cannot call.
+> itself, which is what MeTTa does with any head it cannot call.
 > `empty` means the goal produced no answer at all, and its atom is
 > None. Reading the last two as the same thing is the mistake this
 > exists to prevent: an unevaluated term and a pruned branch look
@@ -1246,7 +1246,7 @@ def op(
 >         declarations=[parse("(arguments inspect-atom atoms)")],
 >     )
 >
-> The declaration is matchable in &petta and is retired with the
+> The declaration is matchable in &metta and is retired with the
 > operation. Raw transport refuses this declaration because it bypasses
 > the atom codec entirely.
 >
@@ -1816,7 +1816,7 @@ def handles(
 
 > Declare how faithfully a space answers queries of one shape.
 >
-> The declaration is one (handles ...) atom in &petta, and queries
+> The declaration is one (handles ...) atom in &metta, and queries
 > are routed by the most specific declared shape that matches:
 > Exact licenses pushing the caller's bound to the provider, Partial
 > and Sound stay candidates the engine re-unifies, and Refuse makes
@@ -1830,7 +1830,7 @@ def handles(
 > write: a new entry that can disagree with an existing one on some
 > query fails here, naming both, rather than on the first query
 > that falls into their overlap. The atom is returned; removing it
-> from &petta withdraws the declaration.
+> from &metta withdraws the declaration.
 
 ### `Space.annotations`
 
@@ -2060,7 +2060,7 @@ def reacts(self, pattern: str | Atom, operation: str | Atom, priority: int | Non
 > &lt;atom>) and (revise &lt;ctx> &lt;old> &lt;new>), engine-routed rules
 > going through the same write paths as direct writes. Declaring
 > installs the engine's write hook, which is why reactions go
-> through here or petta_install_bridges rather than a bare
+> through here or metta_install_bridges rather than a bare
 > add-atom.
 >
 > A subscription bridge is the NEIGHBOUR, not a special case of this:
@@ -2181,7 +2181,7 @@ def metta(self) -> MeTTa:
 class MeTTa:
 ```
 
-> One PeTTa evaluation context; context-relative operations use Space.
+> One MeTTa evaluation context; context-relative operations use Space.
 
 ### `MeTTa.self`
 
@@ -2205,7 +2205,7 @@ def runtime(self) -> Runtime:
 def info(self) -> dict[str, str | None]:
 ```
 
-> Return backend versions and the consulted PeTTa runtime tree.
+> Return backend versions and the consulted MeTTa runtime tree.
 
 ### `MeTTa.space`
 

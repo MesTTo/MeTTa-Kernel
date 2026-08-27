@@ -59,7 +59,7 @@
 %     corpus route sees a translation rule only when an example uses the form;
 %     this one sees every rule. Four real defects on the tree it was written
 %     for, none of them reachable from examples/: metta_top/3, metta_top_match/5,
-%     petta_merged_match/3 and petta_verified_specialization/2
+%     metta_merged_match/3 and metta_verified_specialization/2
 %     [measured 2026-08-22: 39 constructed goals, 4 unreachable before the
 %     exports, 0 after].
 %   - Six of the seven checks prove themselves non-vacuous against a planted
@@ -751,9 +751,9 @@ every_engine_emitted_goal_is_protected :-
 % half could reach [measured 2026-08-22]: metta_top/3 and metta_top_match/5,
 % behind (top k ...), which appears in examples/ only inside a comment and which
 % the benchmark suite caught as existence_error(procedure,
-% '$petta_exec:&pyspace_1':metta_top/3); petta_merged_match/3, behind a literal
+% '$metta_exec:&pyspace_1':metta_top/3); metta_merged_match/3, behind a literal
 % (match (superpose (&a &b)) ...), which nothing in the tree ran at all; and
-% petta_verified_specialization/2, behind (pragma! verify-specializations true),
+% metta_verified_specialization/2, behind (pragma! verify-specializations true),
 % which had been broken outright since engine/specializer.pl became a module.
 % Over engine MODULES rather than engine files, so a clause an extension or
 % this check itself ASSERTS into one is read too. An asserted clause has no
@@ -790,7 +790,7 @@ constructed_goal(Name/Arity) :-
     % The head's ARGUMENTS as well as the body, because SWI folds a leading
     % `Arg = Term` body goal into head unification and the constructed term
     % then lives in the head [measured 2026-08-22: an asserted
-    % (h(C) :- C = petta_capacity_remove_sexp(_,_,_)) reads back with the body
+    % (h(C) :- C = metta_capacity_remove_sexp(_,_,_)) reads back with the body
     % `true`]. The head's own functor is skipped, since a predicate's head is
     % not something it constructs.
     (   constructed_subterm(Body, Sub)
@@ -826,7 +826,7 @@ assert_shaped(asserta(_, _)).
 engine_defined(PI) :- engine_defined_in(PI, _).
 
 space_module_sees(Name/Arity) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     functor(Head, Name, Arity),
     catch(predicate_property(Engine:Head, defined), _, fail).
 
@@ -841,7 +841,7 @@ unreachable_constructed_goals(Constructed, Blind) :-
 % deliberately does not export, so it is the real shape rather than an invented
 % one. It is asserted rather than written into a file, which is why the scan
 % above reads engine MODULES instead of engine files.
-planted_unreachable_goal(petta_capacity_remove_sexp/3).
+planted_unreachable_goal(metta_capacity_remove_sexp/3).
 
 with_planted_emitter(Goal) :-
     planted_unreachable_goal(Name/Arity),

@@ -9,7 +9,7 @@
 %       [source: engine/spaces.pl, spaces:throw_builtin_redefinition/2 computes
 %       InputArity is Arity - 1 to say it back in MeTTa's terms]
 %     - space_module('&self', M) names the module `&self` compiles into and
-%       petta_engine_module/1 names the module the engine's own clauses are in.
+%       metta_engine_module/1 names the module the engine's own clauses are in.
 %       Both are ASKED rather than written, so this follows the topology
 %       instead of pinning one [source: engine/spaces.pl, engine/metta.pl]
 % Guarantees:
@@ -61,7 +61,7 @@
 %bought and the reason this walk is COMPUTED rather than assumed: the day
 %something re-bases a space's module onto the engine's chain, this says so.
 engine_resolves_through(Module) :-
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     module_or_ancestor(Engine, [], Module).
 
 module_or_ancestor(Module, _, Module).
@@ -73,7 +73,7 @@ module_or_ancestor(Module, Seen, Ancestor) :-
 
 %A name the module already holds, by whatever route. built_in and nothing
 %wider, which is the same test the Python door performs before registering an
-%operation [source: bindings/python/metta/shim.pl, petta_py_probe_op_name/2].
+%operation [source: bindings/python/metta/shim.pl, metta_py_probe_op_name/2].
 module_holds(Module, Name, Arity, Owner) :-
     functor(Head, Name, Arity),
     predicate_property(Module:Head, built_in),
@@ -138,7 +138,7 @@ engine_integrity_report :-
     length(Found, Count),
     corpus_scale(Dirs, Files, Equations),
     (   Count =:= 0
-    ->  petta_engine_module(Engine),
+    ->  metta_engine_module(Engine),
         format("engine integrity: no shipped equation replaces an engine \c
                 predicate, over ~w equations in ~w files~n", [Equations, Files]),
         format("  &self compiles into ~q; the engine resolves in ~q, which \c
@@ -160,7 +160,7 @@ engine_integrity_report :-
 planted("(= (plus $a $b) planted)",        plus/2,        report).
 planted("(= (plus $a) planted)",           plus/1,        silent).
 planted("(= (b_setval $a) planted)",       b_setval/1,    report).
-planted("(= (petta-own-name $a) planted)", 'petta-own-name'/1, silent).
+planted("(= (metta-own-name $a) planted)", 'metta-own-name'/1, silent).
 
 engine_integrity_selftest :-
     tmp_file(engine_integrity, Base),
@@ -181,7 +181,7 @@ plant_corpus(Dir) :-
 selftest_in(Dir) :-
     %Half one, the DETECTOR: asked about the engine's own module, where every
     %answer is known, each planted equation has to land on the side predicted.
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     collisions(Engine, [Dir], InEngine),
     findall(Name/MA, member(Name/MA-_-_, InEngine), Reported0),
     sort(Reported0, Reported),

@@ -2,7 +2,7 @@
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% Guarantees: petta_match_atoms/2 dispatches a gap operand by its wrapper alone, and a merged read routes a gap pattern while reading its declared policy from what the program wrote [tested: tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
+% Guarantees: metta_match_atoms/2 dispatches a gap operand by its wrapper alone, and a merged read routes a gap pattern while reading its declared policy from what the program wrote [tested: tests/prolog/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
 % Guarantees: an ordered carrier's declared ascending or descending direction
 % is applied before a top prefix is selected [tested:
 % test_ranked_and_tropical_slices_are_stable_best_prefixes; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
@@ -59,7 +59,7 @@ bounded_conjunction(Bound, Space, Pattern) :-
     nonvar(Pattern),
     Pattern = [Comma|_],
     Comma == ',',
-    petta_space_name(Space).
+    metta_space_name(Space).
 
 %THE ENGINE'S OWN READ of a space, the counterpart of get_native_atom/2 behind
 %'get-atoms'/2 and there for the same reason: its callers hold a space name the
@@ -190,13 +190,13 @@ routed_selective_conjunct(Space, Conjuncts, Best, Rest) :-
 %none either, so every ordinary unify, let and case pays exactly what it did
 %[measured 2026-08-24: 100,000 calls through three such guards cost 400,002
 %inferences against 400,003 through none].
-petta_match_atoms(L, R) :-
+metta_match_atoms(L, R) :-
     nonvar(L),
-    L = '$petta_seq'(Plan, Parsed),
+    L = '$metta_seq'(Plan, Parsed),
     !,
-    petta_seq_unify(Plan, Parsed, R).
-petta_match_atoms(L, R) :- L == R, !.
-petta_match_atoms(L, R) :- ( var(L) ; var(R) ), !,
+    metta_seq_unify(Plan, Parsed, R).
+metta_match_atoms(L, R) :- L == R, !.
+metta_match_atoms(L, R) :- ( var(L) ; var(R) ), !,
                            unify_with_occurs_check(L, R).
 %A cons cell and () never match, and deciding that must not WALK the cons.
 %Every route below reaches the same failure: read as lists they differ at the
@@ -210,43 +210,43 @@ petta_match_atoms(L, R) :- ( var(L) ; var(R) ), !,
 %Confirmed rather than argued: over 26 cases spanning proper, improper,
 %partial, error-shaped and mixed-type cons cells in both operand positions,
 %every one already failed.
-petta_match_atoms(L, R) :- L == [], nonvar(R), R = [_|_], !, fail.
-petta_match_atoms(L, R) :- R == [], nonvar(L), L = [_|_], !, fail.
-petta_match_atoms(L, R) :- is_list(L), is_list(R), !,
-                           petta_match_all(L, R).
-petta_match_atoms(L, R) :- petta_space_operand(L), !, match(L, R, [], _).
-petta_match_atoms(L, R) :- petta_space_operand(R), !, match(R, L, [], _).
-petta_match_atoms(L, R) :- seam:matchable_value(L), !,
+metta_match_atoms(L, R) :- L == [], nonvar(R), R = [_|_], !, fail.
+metta_match_atoms(L, R) :- R == [], nonvar(L), L = [_|_], !, fail.
+metta_match_atoms(L, R) :- is_list(L), is_list(R), !,
+                           metta_match_all(L, R).
+metta_match_atoms(L, R) :- metta_space_operand(L), !, match(L, R, [], _).
+metta_match_atoms(L, R) :- metta_space_operand(R), !, match(R, L, [], _).
+metta_match_atoms(L, R) :- seam:matchable_value(L), !,
                            seam:custom_match(L, R).
-petta_match_atoms(L, R) :- seam:matchable_value(R), !,
+metta_match_atoms(L, R) :- seam:matchable_value(R), !,
                            seam:custom_match(R, L).
-petta_match_atoms(L, R) :- number(L), number(R), !, L =:= R.
-petta_match_atoms(L, R) :- L == R.
+metta_match_atoms(L, R) :- number(L), number(R), !, L =:= R.
+metta_match_atoms(L, R) :- L == R.
 
-petta_match_all([], []).
-petta_match_all([X|Xs], [Y|Ys]) :-
-    petta_match_atoms(X, Y),
-    petta_match_all(Xs, Ys).
+metta_match_all([], []).
+metta_match_all([X|Xs], [Y|Ys]) :-
+    metta_match_atoms(X, Y),
+    metta_match_all(Xs, Ys).
 
 %Whether an operand names a space this engine can query: a foreign
 %provider or a native storage module. Both probes are indexed lookups.
-petta_space_operand(S) :-
+metta_space_operand(S) :-
     atom(S),
     !,
     (   seam:foreign_space(S)
     ->  true
     ;   native_storage_module_cache(S, _)
     ).
-petta_space_operand(S) :-
+metta_space_operand(S) :-
     nonvar(S),
     space_parametric(S).
 
 
-%Every space name this engine registers: '&self' and '&petta' from load time,
+%Every space name this engine registers: '&self' and '&metta' from load time,
 %every atomic or parametric native space that new-space made or that has been
 %written to, and every foreign provider currently bound. Naming a space never
 %registers it, only creating it, writing to it or binding one does, so this is
-%the same set petta_space_operand/1 accepts. sort/2 makes the answer stable and
+%the same set metta_space_operand/1 accepts. sort/2 makes the answer stable and
 %duplicate-free.
 metta_space_names(Names) :-
     findall(S, native_storage_module_cache(S, _), Native),
@@ -264,62 +264,62 @@ metta_space_names(Names) :-
 %it, which turned `!(let $b (is-alpha-member (1 $x) ...) $x)`'s unbound
 %answer into nothing
 %[tested translated_success_leaves_the_query_variable_unbound].
-petta_prune_empty(All, Kept) :-
+metta_prune_empty(All, Kept) :-
     (   \+ memberchk('Empty', All)
     ->  Kept = All
-    ;   petta_member_empty_(All)
-    ->  petta_drop_empty_(All, Kept)
+    ;   metta_member_empty_(All)
+    ->  metta_drop_empty_(All, Kept)
     ;   Kept = All
     ).
 
-petta_member_empty_([X|Xs]) :-
+metta_member_empty_([X|Xs]) :-
     (   X == 'Empty'
     ->  true
-    ;   petta_member_empty_(Xs)
+    ;   metta_member_empty_(Xs)
     ).
 
-petta_drop_empty_([], []).
-petta_drop_empty_([X|Xs], Kept) :-
+metta_drop_empty_([], []).
+metta_drop_empty_([X|Xs], Kept) :-
     (   X == 'Empty'
-    ->  petta_drop_empty_(Xs, Kept)
+    ->  metta_drop_empty_(Xs, Kept)
     ;   Kept = [X|Kept1],
-        petta_drop_empty_(Xs, Kept1)
+        metta_drop_empty_(Xs, Kept1)
     ).
 
 %The runnable collector carries each answer beside its reader names. Prune on
 %the answer slot while retaining the side map for every surviving answer.
-%This mirrors petta_prune_empty/2's identity test, so a free answer variable
+%This mirrors metta_prune_empty/2's identity test, so a free answer variable
 %is not mistaken for Empty [tested: test_variable_names_survive_to_the_printer;
 %commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
-petta_prune_empty_answers(All, Kept) :-
-    (   \+ memberchk('$petta_answer'('Empty', _), All)
+metta_prune_empty_answers(All, Kept) :-
+    (   \+ memberchk('$metta_answer'('Empty', _), All)
     ->  Kept = All
-    ;   petta_member_empty_answer_(All)
-    ->  petta_drop_empty_answers_(All, Kept)
+    ;   metta_member_empty_answer_(All)
+    ->  metta_drop_empty_answers_(All, Kept)
     ;   Kept = All
     ).
 
-petta_member_empty_answer_(['$petta_answer'(X, _)|Xs]) :-
+metta_member_empty_answer_(['$metta_answer'(X, _)|Xs]) :-
     (   X == 'Empty'
     ->  true
-    ;   petta_member_empty_answer_(Xs)
+    ;   metta_member_empty_answer_(Xs)
     ).
 
-petta_drop_empty_answers_([], []).
-petta_drop_empty_answers_(['$petta_answer'(X, Names)|Xs], Kept) :-
+metta_drop_empty_answers_([], []).
+metta_drop_empty_answers_(['$metta_answer'(X, Names)|Xs], Kept) :-
     (   X == 'Empty'
-    ->  petta_drop_empty_answers_(Xs, Kept)
-    ;   Kept = ['$petta_answer'(X, Names)|Kept1],
-        petta_drop_empty_answers_(Xs, Kept1)
+    ->  metta_drop_empty_answers_(Xs, Kept)
+    ;   Kept = ['$metta_answer'(X, Names)|Kept1],
+        metta_drop_empty_answers_(Xs, Kept1)
     ).
 
 %Unwrap a nested collapse for evaluation while retaining each copied name
 %state in the enclosing runnable's side map. Term and state came out of one
 %findall template, so their variables still share identity here.
-petta_answer_terms([], [], []).
-petta_answer_terms(['$petta_answer'(Term, Names)|Answers],
+metta_answer_terms([], [], []).
+metta_answer_terms(['$metta_answer'(Term, Names)|Answers],
                    [Term|Terms], [Names|NameStates]) :-
-    petta_answer_terms(Answers, Terms, NameStates).
+    metta_answer_terms(Answers, Terms, NameStates).
 
 
 %A foreign provider enumerates candidates. Unification against the pattern
@@ -365,7 +365,7 @@ refuse_lossy_plan(Space, Patterns, Claimed, Rest) :-
     msort(Both, Sorted),
     (   msort(Patterns, Sorted)
     ->  true
-    ;   throw(error(petta_foreign_plan_is_not_a_partition(Space, Patterns,
+    ;   throw(error(metta_foreign_plan_is_not_a_partition(Space, Patterns,
                                                           Claimed, Rest),
                     context(match/4,
                             'a claim must partition the conjunction')))
@@ -377,20 +377,20 @@ refuse_lossy_plan(Space, Patterns, Claimed, Rest) :-
 %query, never per answer. Handles entries describe MATCH shapes, so a
 %conjunction is decomposed and each conjunct asked on its own; offering the
 %raw [','|_] term instead let an ($f ...) entry capture the comma itself.
-petta_refuse_guard(Space, _) :-
-    \+ petta_ctx_declared(Space),
+metta_refuse_guard(Space, _) :-
+    \+ metta_ctx_declared(Space),
     !.
-petta_refuse_guard(Space, Pattern) :-
+metta_refuse_guard(Space, Pattern) :-
     (   nonvar(Pattern), Pattern = [Comma|Conjuncts], Comma == ','
-    ->  \+ \+ petta_refuse_guard_conjuncts(Conjuncts, Space)
+    ->  \+ \+ metta_refuse_guard_conjuncts(Conjuncts, Space)
     ;   %The route is computed with fidelity UNBOUND and tested after, so
         %the coherence check inside it runs on every consultation; asking
         %for 'Refuse' directly would fail out before two disagreeing
         %entries are compared, and the conflict would surface only under a
         %bound instead of on every match.
-        petta_handles_route(Space, Pattern, Entry, Fidelity, _),
+        metta_handles_route(Space, Pattern, Entry, Fidelity, _),
         Fidelity == 'Refuse'
-    ->  throw(error(petta_refused_shape(Space, Pattern, Entry), none))
+    ->  throw(error(metta_refused_shape(Space, Pattern, Entry), none))
     ;   true
     ).
 
@@ -401,16 +401,16 @@ petta_refuse_guard(Space, Pattern) :-
 %plan time, while a refusal keyed to a literal VALUE can only fire on a
 %direct query where the value is visible. The double negation above undoes
 %the marker bindings; a throw passes through it.
-petta_refuse_guard_conjuncts([], _).
-petta_refuse_guard_conjuncts([Conjunct|Rest], Space) :-
-    petta_refuse_guard(Space, Conjunct),
+metta_refuse_guard_conjuncts([], _).
+metta_refuse_guard_conjuncts([Conjunct|Rest], Space) :-
+    metta_refuse_guard(Space, Conjunct),
     term_variables(Conjunct, Vars),
-    maplist(=('$petta_bound'), Vars),
-    petta_refuse_guard_conjuncts(Rest, Space).
+    maplist(=('$metta_bound'), Vars),
+    metta_refuse_guard_conjuncts(Rest, Space).
 
 match_foreign(Space, Pattern, OutPattern, Result) :-
-    petta_refuse_guard(Space, Pattern),
-    petta_negation_world_guard(Space),
+    metta_refuse_guard(Space, Pattern),
+    metta_negation_world_guard(Space),
     foreign_route(Space, Route),
     match_foreign_routed(Space, Route, Pattern, [], OutPattern, Result).
 
@@ -431,20 +431,20 @@ match_foreign_routed(Space, Route, [Comma|Conjuncts], _, OutPattern, Result) :-
 match_foreign_routed(Space, Route, [Comma|[Head|Tail]], _, OutPattern, Result) :-
     Comma == ',', !,
     match_foreign_routed(Space, Route, Head, [], conj, conj),
-    petta_annotation(Space, HeadK),
+    metta_annotation(Space, HeadK),
     match_foreign_routed(Space, Route, [','|Tail], [], OutPattern, Result),
     %The declared extend operation threads annotations along the join. Its
     %declared one combines without a write, so an unannotated join stays cheap;
     %the LAST conjunct combines with nothing, since the base case that
     %follows it contributes no answer of its own.
-    petta_algebra_one(Space, One),
+    metta_algebra_one(Space, One),
     (   HeadK == One
     ->  true
     ;   Tail == []
     ->  true
-    ;   petta_annotation(Space, TailK),
-        petta_k_extend(Space, HeadK, TailK, RowK),
-        b_setval('$petta_answer_k', RowK)
+    ;   metta_annotation(Space, TailK),
+        metta_k_extend(Space, HeadK, TailK, RowK),
+        b_setval('$metta_answer_k', RowK)
     ).
 %An unbound pattern is enumeration whichever way the space answers matches, so
 %it asks for that capability on its own rather than riding the route.
@@ -455,23 +455,23 @@ match_foreign_routed(Space, _, PatternVar, _, OutPattern, Result) :-
     %provider, not at the conjunction entry: a join's inner conjunct is
     %its own touch per outer row, and that second touch of a drained
     %linear source is exactly what must be loud.
-    petta_source_guard(Space),
+    metta_source_guard(Space),
     seam:foreign_atoms(Space, PatternVar),
     acyclic_term(OutPattern),
     Result = OutPattern.
 match_foreign_routed(Space, match, Pattern, Options, OutPattern, Result) :- !,
     licensed_options(Space, Pattern, Options, Licensed),
-    petta_source_guard(Space),
-    (   petta_on_error_mode(Space, Pattern, Mode),
+    metta_source_guard(Space),
+    (   metta_on_error_mode(Space, Pattern, Mode),
         Mode \== abort
-    ->  petta_match_erring(Mode, Space, Pattern, Licensed, OutPattern, Result)
+    ->  metta_match_erring(Mode, Space, Pattern, Licensed, OutPattern, Result)
     ;   seam:foreign_match(Space, Pattern, Licensed),
         acyclic_term(OutPattern),
         Result = OutPattern
     ).
 
 match_foreign_routed(Space, enumerate, Pattern, _, OutPattern, Result) :-
-    petta_source_guard(Space),
+    metta_source_guard(Space),
     seam:foreign_atoms(Space, Candidate),
     Candidate = Pattern,
     acyclic_term(OutPattern),
@@ -494,7 +494,7 @@ match_foreign_routed(Space, enumerate, Pattern, _, OutPattern, Result) :-
 %is Prolog throws ordinary catchable exceptions, and the fallback below
 %handles those here; catch/3 keeps the goal's choice points, so streamed
 %answers survive the wrapping.
-petta_match_erring(Mode, Space, Pattern, Licensed, OutPattern, Result) :-
+metta_match_erring(Mode, Space, Pattern, Licensed, OutPattern, Result) :-
     (   seam:foreign_erring(Space, Pattern, Licensed, Mode, Item)
     *-> (   Item == answer
         ->  acyclic_term(OutPattern),
@@ -505,20 +505,20 @@ petta_match_erring(Mode, Space, Pattern, Licensed, OutPattern, Result) :-
     ;   catch(( seam:foreign_match(Space, Pattern, Licensed),
                 Outcome = answer ),
               Error,
-              petta_match_error_outcome(Error, Mode, Outcome)),
+              metta_match_error_outcome(Error, Mode, Outcome)),
         (   Outcome == answer
         ->  acyclic_term(OutPattern),
             Result = OutPattern
         ;   Outcome = kept(E),
-            petta_error_answer(Pattern, E, Result)
+            metta_error_answer(Pattern, E, Result)
         )
     ).
 
-petta_match_error_outcome(Error, _, _) :-
+metta_match_error_outcome(Error, _, _) :-
     control_exception(Error), !, throw(Error).
-petta_match_error_outcome(Error, _, _) :-
-    petta_transport_failure(Error), !, throw(Error).
-petta_match_error_outcome(Error, keep, kept(Error)).
+metta_match_error_outcome(Error, _, _) :-
+    metta_transport_failure(Error), !, throw(Error).
+metta_match_error_outcome(Error, keep, kept(Error)).
 
 %A bound pattern went straight to the match hook, so a provider that
 %implements only enumeration answered NOTHING to every real query while the
@@ -538,8 +538,8 @@ petta_match_error_outcome(Error, keep, kept(Error)).
 %Unification and the engine's own bound stay here whatever the provider does,
 %so an option cannot make an answer wrong, only cheaper.
 match_foreign(Space, Pattern, Options, OutPattern, Result) :-
-    petta_refuse_guard(Space, Pattern),
-    petta_negation_world_guard(Space),
+    metta_refuse_guard(Space, Pattern),
+    metta_negation_world_guard(Space),
     foreign_route(Space, Route),
     match_foreign_routed(Space, Route, Pattern, Options, OutPattern, Result).
 
@@ -591,7 +591,7 @@ metta_take(Count, Goal) :-
 %The bound reaches the PROVIDER only when the expression is exactly one match
 %over one space. Across a join the bound belongs to the joined rows, and an
 %outer match truncated at N loses the rows its later candidates would have
-%joined to; that is the rule petta_py_query_limit_all/5 already follows for
+%joined to; that is the rule metta_py_query_limit_all/5 already follows for
 %m.match(limit=), and this is the same rule at the MeTTa level rather than a
 %second one.
 %
@@ -625,7 +625,7 @@ metta_take_count(Form, Count) :-
 %Two bounds, two specifications. take k is "at most k, no promise which",
 %correct for unordered contexts. top k is the k best in the context's
 %declared semiring order, the operation a vector index actually
-%implements. Each answer's annotation rides '$petta_answer_k',
+%implements. Each answer's annotation rides '$metta_answer_k',
 %backtrackably: the seam sets it per explicit answer and the default 1
 %is restored on redo, so an unannotated answer between two annotated
 %ones reads 1 rather than a stale neighbour.
@@ -637,11 +637,11 @@ metta_take_count(Form, Count) :-
 metta_top(Count, Goal, Out) :-
     metta_take_count(top, Count),
     current_metta_space(Ctx),
-    petta_algebra_one(Ctx, One),
+    metta_algebra_one(Ctx, One),
     findall(Annotation-Out,
-            ( b_setval('$petta_answer_k', One),
+            ( b_setval('$metta_answer_k', One),
               call(Goal),
-              b_getval('$petta_answer_k', Annotation) ),
+              b_getval('$metta_answer_k', Annotation) ),
             Pairs),
     metta_top_best(Ctx, Count, Pairs, Best),
     member(Out, Best).
@@ -655,14 +655,14 @@ metta_top(Count, Goal, Out) :-
 %ordering happens after collection.
 metta_top_match(Count, Space, Pattern, OutPattern, Result) :-
     metta_take_count(top, Count),
-    (   petta_annotations_ordered(Space)
+    (   metta_annotations_ordered(Space)
     ->  true
-    ;   petta_effective_algebra(Space, Semiring),
-        throw(error(petta_top_unordered(Space, Semiring), none))
+    ;   metta_effective_algebra(Space, Semiring),
+        throw(error(metta_top_unordered(Space, Semiring), none))
     ),
     (   nonvar(Space),
         seam:foreign_space(Space)
-    ->  (   petta_top_pushable(Space, Pattern)
+    ->  (   metta_top_pushable(Space, Pattern)
         ->  Options = [limit(Count)]
         ;   Options = []
         ),
@@ -672,28 +672,28 @@ metta_top_match(Count, Space, Pattern, OutPattern, Result) :-
         %first k by emission order, the all-ties reading.
         Producer = match(Space, Pattern, OutPattern, Result)
     ),
-    petta_algebra_one(Space, One),
+    metta_algebra_one(Space, One),
     findall(Annotation-Result,
-            ( b_setval('$petta_answer_k', One),
+            ( b_setval('$metta_answer_k', One),
               Producer,
-              b_getval('$petta_answer_k', Annotation) ),
+              b_getval('$metta_answer_k', Annotation) ),
             Pairs),
     metta_top_best(Space, Count, Pairs, Best),
     member(Result, Best).
 
-petta_top_pushable(Space, Pattern) :-
+metta_top_pushable(Space, Pattern) :-
     %A cap below exact, or a cap refusal, declines the pushdown here and
     %lets the match itself surface the loud error, so (top k) never pushes
     %a bound an advisor has withdrawn the licence for.
-    catch(( petta_handles_route(Space, Pattern, 'Exact', _),
-            petta_route_cap_apply(Space, Pattern, exact, exact) ),
+    catch(( metta_handles_route(Space, Pattern, 'Exact', _),
+            metta_route_cap_apply(Space, Pattern, exact, exact) ),
           _, fail),
-    petta_emits(Space, 'best-first').
+    metta_emits(Space, 'best-first').
 
 %Best first, ties in emission order: sort/4 with @>= keeps duplicates and
 %is stable, so equal annotations keep the provider's own order.
 metta_top_best(Ctx, Count, Pairs, Best) :-
-    (   petta_annotations_order(Ctx, ascending)
+    (   metta_annotations_order(Ctx, ascending)
     ->  sort(1, @=<, Pairs, Ordered)
     ;   sort(1, @>=, Pairs, Ordered)
     ),
@@ -707,14 +707,14 @@ metta_top_prefix(Count, Ordered, Best) :-
     findall(Out, member(_-Out, Prefix), Best).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_top_unordered(Ctx, Semiring)) -->
+prolog:error_message(metta_top_unordered(Ctx, Semiring)) -->
     [ '(top k ...) asks for the k BEST and ~w declares the ~w semiring, \c
        which carries no order. Declare (annotations ~w ranked) if this \c
        context annotates its answers, or use (take k ...) for any \c
        k'-[Ctx, Semiring, Ctx] ].
 
 %What the seam already decided for a query, shown to a host without running
-%it: refusal preflighted through the same petta_refuse_guard that
+%it: refusal preflighted through the same metta_refuse_guard that
 %match_foreign consults, per-pattern classes through foreign_pushdown_class
 %with each pattern asked standalone, and the conjunction claim through the
 %same guarded seam:foreign_plan call the execution commits to, the
@@ -729,11 +729,11 @@ metta_host_explain_match(Space, Patterns, Report) :-
     ->  Report = explain(stored, [], [], [])
     ;   ( Patterns = [Whole] -> true ; Whole = [','|Patterns] ),
         catch(
-            ( \+ \+ petta_refuse_guard(Space, Whole),
+            ( \+ \+ metta_refuse_guard(Space, Whole),
               maplist(metta_host_explain_class(Space), Patterns, Classes),
               metta_host_explain_plan(Space, Patterns, ClaimedIdx, RestIdx),
               Report = explain(foreign, Classes, ClaimedIdx, RestIdx) ),
-            error(petta_refused_shape(_, _, Entry), _),
+            error(metta_refused_shape(_, _, Entry), _),
             Report = explain(refused, [Entry], [], []))
     ).
 
@@ -741,7 +741,7 @@ metta_host_explain_class(Space, Pattern, class(Class, Origin)) :-
     catch(
         ( foreign_pushdown_class(Space, Pattern, Class),
           metta_host_explain_origin(Space, Pattern, Origin) ),
-        error(petta_refused_shape(_, _, Refusing), _),
+        error(metta_refused_shape(_, _, Refusing), _),
         ( Class = refused,
           Origin = refused(Refusing) )).
 
@@ -749,7 +749,7 @@ metta_host_explain_class(Space, Pattern, class(Class, Origin)) :-
 %declared (handles ...) entry outranks the provider's method, and silence
 %is the closed-world inexact.
 metta_host_explain_origin(Space, Pattern, Origin) :-
-    (   petta_handles_route(Space, Pattern, Entry, Fidelity, Det)
+    (   metta_handles_route(Space, Pattern, Entry, Fidelity, Det)
     ->  Origin = declared(Entry, Fidelity, Det)
     ;   seam:foreign_pushdown(Space, Pattern, _)
     ->  Origin = provider
@@ -780,10 +780,10 @@ metta_host_explain_index(Patterns, Term, Index) :-
 %candidates are re-unified.
 foreign_pushdown_class(Space, Pattern, Class) :-
     foreign_pushdown_declared_class(Space, Pattern, Declared),
-    petta_route_cap_apply(Space, Pattern, Declared, Class).
+    metta_route_cap_apply(Space, Pattern, Declared, Class).
 
 foreign_pushdown_declared_class(Space, Pattern, Class) :-
-    (   petta_handles_route(Space, Pattern, Entry, Fidelity, _Det)
+    (   metta_handles_route(Space, Pattern, Entry, Fidelity, _Det)
     ->  %A declared (handles ...) entry outranks the provider's own method:
         %the declaration is the author's claim, checked by its lanes, and
         %the method stays as the dynamic floor for the undeclared. Exact
@@ -791,7 +791,7 @@ foreign_pushdown_declared_class(Space, Pattern, Class) :-
         %re-unification, today's inexact; Refuse is the author's NO and it
         %is loud, the same precedence volatile has over unchecked.
         (   Fidelity == 'Exact'  -> Class = exact
-        ;   Fidelity == 'Refuse' -> throw(error(petta_refused_shape(Space,
+        ;   Fidelity == 'Refuse' -> throw(error(metta_refused_shape(Space,
                                                                     Pattern,
                                                                     Entry),
                                                 none))
@@ -811,17 +811,17 @@ foreign_pushdown_declared_class(Space, Pattern, Class) :-
 %the probe's work is repeated inside findall, which is accepted, advisors
 %being rare and the fold running only at route classification, never per
 %answer.
-petta_route_cap_apply(Space, Pattern, Class0, Class) :-
+metta_route_cap_apply(Space, Pattern, Class0, Class) :-
     (   \+ seam:route_cap(Space, Pattern, _, _)
     ->  Class = Class0
     ;   findall(Cap-Why, seam:route_cap(Space, Pattern, Cap, Why), Caps),
         (   member(BadCap-BadWhy, Caps),
-            % policy-inventory-exempt: mechanism-internal; reason=exact inexact and refuse are the route-advisor fold states rather than a user policy vocabulary; evidence=engine/spaces/bounded_matching.pl:petta_route_cap_apply/4
+            % policy-inventory-exempt: mechanism-internal; reason=exact inexact and refuse are the route-advisor fold states rather than a user policy vocabulary; evidence=engine/spaces/bounded_matching.pl:metta_route_cap_apply/4
             \+ memberchk(BadCap, [exact, inexact, refuse])
-        ->  throw(error(petta_route_cap_invalid(Space, BadCap, BadWhy),
+        ->  throw(error(metta_route_cap_invalid(Space, BadCap, BadWhy),
                         none))
         ;   member(refuse-Why, Caps)
-        ->  throw(error(petta_route_capped(Space, Pattern, Why), none))
+        ->  throw(error(metta_route_capped(Space, Pattern, Why), none))
         ;   memberchk(inexact-_, Caps)
         ->  Class = inexact
         ;   Class = Class0
@@ -829,12 +829,12 @@ petta_route_cap_apply(Space, Pattern, Class0, Class) :-
     ).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_route_capped(Space, Pattern, Why)) -->
+prolog:error_message(metta_route_capped(Space, Pattern, Why)) -->
     { swrite(Pattern, PatternText) },
     [ 'a route advisor refuses ~w for ~w: ~w. The cap rides \c
        seam:route_cap/4; remove the advisor''s reason or its declaration \c
        to route again'-[Space, PatternText, Why] ].
-prolog:error_message(petta_route_cap_invalid(Space, Cap, Why)) -->
+prolog:error_message(metta_route_cap_invalid(Space, Cap, Why)) -->
     [ 'a route advisor for ~w answered the cap ~w (why: ~w), outside \c
        exact, inexact and refuse; an unknown cap would silently advise \c
        nothing, so it is an error in the advisor'-[Space, Cap, Why] ].
@@ -854,92 +854,92 @@ prolog:error_message(petta_route_cap_invalid(Space, Cap, Why)) -->
 %program wrote rather than from the wrapper, so `(merge <pattern> fair)`
 %selects the same policy for a gap query as for any other. The read itself
 %keeps the wrapper, which is what routes it to the gap door inside match/4.
-petta_merged_match(Spaces, Pattern, Out) :-
+metta_merged_match(Spaces, Pattern, Out) :-
     (   nonvar(Pattern),
-        Pattern = '$petta_seq'(_, Declared)
+        Pattern = '$metta_seq'(_, Declared)
     ->  Route = Declared
     ;   Route = Pattern
     ),
-    (   petta_merge_route(Route, Policy)
-    ->  petta_merged_match_(Policy, Spaces, Pattern, Out)
+    (   metta_merge_route(Route, Policy)
+    ->  metta_merged_match_(Policy, Spaces, Pattern, Out)
     ;   member(Space, Spaces),
         match(Space, Pattern, Out, Out)
     ).
 
-petta_merged_match_(depth, Spaces, Pattern, Out) :-
+metta_merged_match_(depth, Spaces, Pattern, Out) :-
     member(Space, Spaces),
     match(Space, Pattern, Out, Out).
-petta_merged_match_(fair, Spaces, Pattern, Out) :-
-    maplist(petta_match_engine(Pattern, Out), Spaces, Engines),
+metta_merged_match_(fair, Spaces, Pattern, Out) :-
+    maplist(metta_match_engine(Pattern, Out), Spaces, Engines),
     setup_call_cleanup(true,
-                       petta_round_robin(Engines, Pattern-Out),
-                       maplist(petta_engine_done, Engines)).
-petta_merged_match_('best-first', Spaces, Pattern, Out) :-
+                       metta_round_robin(Engines, Pattern-Out),
+                       maplist(metta_engine_done, Engines)).
+metta_merged_match_('best-first', Spaces, Pattern, Out) :-
     forall(member(Space, Spaces),
-           (   petta_emits(Space, 'best-first')
+           (   metta_emits(Space, 'best-first')
            ->  true
-           ;   throw(error(petta_merge_unordered(Space, Pattern), none))
+           ;   throw(error(metta_merge_unordered(Space, Pattern), none))
            )),
-    maplist(petta_scored_engine(Pattern, Out), Spaces, Engines),
+    maplist(metta_scored_engine(Pattern, Out), Spaces, Engines),
     setup_call_cleanup(true,
-                       petta_best_merge(Engines, Pattern-Out),
-                       maplist(petta_engine_done, Engines)).
+                       metta_best_merge(Engines, Pattern-Out),
+                       maplist(metta_engine_done, Engines)).
 
-petta_match_engine(Pattern, Out, Space, Engine) :-
+metta_match_engine(Pattern, Out, Space, Engine) :-
     engine_create(Pattern-Out, match(Space, Pattern, Out, Out), Engine).
 
-petta_scored_engine(Pattern, Out, Space, Engine) :-
-    petta_algebra_one(Space, One),
+metta_scored_engine(Pattern, Out, Space, Engine) :-
+    metta_algebra_one(Space, One),
     engine_create(K-(Pattern-Out),
-                  ( b_setval('$petta_answer_k', One),
+                  ( b_setval('$metta_answer_k', One),
                     match(Space, Pattern, Out, Out),
-                    b_getval('$petta_answer_k', K) ),
+                    b_getval('$metta_answer_k', K) ),
                   Engine).
 
-petta_engine_done(Engine) :-
+metta_engine_done(Engine) :-
     catch(engine_destroy(Engine), _, true).
 
-petta_round_robin([], _) :- fail.
-petta_round_robin([Engine|Engines], Template) :-
+metta_round_robin([], _) :- fail.
+metta_round_robin([Engine|Engines], Template) :-
     (   engine_next(Engine, Answer)
     ->  (   Answer = Template
         ;   append(Engines, [Engine], Rotated),
-            petta_round_robin(Rotated, Template)
+            metta_round_robin(Rotated, Template)
         )
-    ;   petta_round_robin(Engines, Template)
+    ;   metta_round_robin(Engines, Template)
     ).
 
 %One lookahead per stream; deliver the best, refill that stream. Each
 %stream is itself best-first by declaration, so the maximum of the
 %lookaheads is the maximum of everything unseen.
-petta_best_merge(Engines, Template) :-
-    foldl(petta_prime_engine, Engines, [], Primed),
-    petta_best_merge_(Primed, Template).
+metta_best_merge(Engines, Template) :-
+    foldl(metta_prime_engine, Engines, [], Primed),
+    metta_best_merge_(Primed, Template).
 
-petta_prime_engine(Engine, Primed0, Primed) :-
+metta_prime_engine(Engine, Primed0, Primed) :-
     (   engine_next(Engine, Answer)
     ->  Primed = [Engine-Answer|Primed0]
     ;   Primed = Primed0
     ).
 
-petta_best_merge_([], _) :- fail.
-petta_best_merge_(Primed, Template) :-
+metta_best_merge_([], _) :- fail.
+metta_best_merge_(Primed, Template) :-
     Primed = [_|_],
-    foldl(petta_better_head, Primed, none, Engine-Best),
+    foldl(metta_better_head, Primed, none, Engine-Best),
     selectchk(Engine-Best, Primed, Rest),
     Best = _-Answer0,
     (   Answer0 = Template
-    ;   petta_prime_engine(Engine, Rest, Refilled),
-        petta_best_merge_(Refilled, Template)
+    ;   metta_prime_engine(Engine, Rest, Refilled),
+        metta_best_merge_(Refilled, Template)
     ).
 
-petta_better_head(Engine-(K-Answer), none, Engine-(K-Answer)) :- !.
-petta_better_head(Engine-(K-Answer), _-(BestK-_), Engine-(K-Answer)) :-
+metta_better_head(Engine-(K-Answer), none, Engine-(K-Answer)) :- !.
+metta_better_head(Engine-(K-Answer), _-(BestK-_), Engine-(K-Answer)) :-
     K @> BestK, !.
-petta_better_head(_, Best, Best).
+metta_better_head(_, Best, Best).
 
 :- multifile prolog:error_message//1.
-prolog:error_message(petta_merge_unordered(Ctx, Pattern)) -->
+prolog:error_message(metta_merge_unordered(Ctx, Pattern)) -->
     [ 'a best-first merge over ~q needs every context emitting best \c
        first, and ~w declares no (emits ~w best-first): merging ordered \c
        streams is only sound when each stream is ordered'-[Pattern, Ctx,

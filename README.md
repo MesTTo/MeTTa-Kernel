@@ -1,10 +1,10 @@
 <!--
-Purpose: introduce PeTTa, its narrow Python surface, and the commands needed to use and develop it.
+Purpose: introduce MeTTa, its narrow Python surface, and the commands needed to use and develop it.
 Guarantees: every Python code block executes against the documented public API.
 [tested: python -m pytest bindings/python/tests/test_readme.py -q; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 -->
 
-## PeTTa
+## MeTTa
 
 Efficient MeTTa language implementation in Prolog.
 
@@ -16,7 +16,7 @@ rather than in an issue.
 
 ### Lineage
 
-PeTTa is Patrick Hammer's MeTTa implementation. Its canonical repository is
+This is Patrick Hammer's MeTTa implementation. Its canonical repository is
 [trueagi-io/PeTTa](https://github.com/trueagi-io/PeTTa), begun under
 [patham9/PeTTa](https://github.com/patham9/PeTTa), where the Wiki still
 lives. The `python-library` branch develops the `metta` Python module on
@@ -75,7 +75,7 @@ The following projects are cloned and built by build.sh:
 
 The `metta` module is a full Python surface for the engine. The runtime is
 bundled, so nothing else needs a checkout. You can also use it in place from a
-clone with `PETTA_PATH` pointing at the tree. Install optional integrations by
+clone with `METTA_PATH` pointing at the tree. Install optional integrations by
 feature:
 
 ```bash
@@ -99,8 +99,8 @@ logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("metta").setLevel(logging.DEBUG)
 ```
 
-The same settings accept `PETTA_STACK_LIMIT`, `PETTA_HEARTBEAT_INTERVAL`,
-`PETTA_DECLARATION_LIMIT` and `PETTA_DISPLAY_ROWS` as positive decimal
+The same settings accept `METTA_STACK_LIMIT`, `METTA_HEARTBEAT_INTERVAL`,
+`METTA_DECLARATION_LIMIT` and `METTA_DISPLAY_ROWS` as positive decimal
 integers. Set `metta.config.stack_limit` and
 `metta.config.heartbeat_interval` before creating the first engine when you
 configure them in Python. The package installs only a `NullHandler`, so
@@ -203,12 +203,12 @@ facts behind an answer, and `m.why(pattern)` explains an empty match. A
 `%%metta` cell magic for the ordinary Python kernel ships as
 `%load_ext metta.ipython`.
 
-The library also describes itself into `&petta`, a space of its own:
+The library also describes itself into `&metta`, a space of its own:
 `(op name arity kind)` for every registered operation, `(defined space
 name)` for every `@define` function, `(subscription space pattern on)` for
 every standing query, each removed when its subject goes. It is an ordinary
 space, so MeTTa programs can query the library's whole surface, and the
-composition runs the other way too: a Python subscription on `&petta`
+composition runs the other way too: a Python subscription on `&metta`
 reacts to control atoms a MeTTa program writes there, which is steering the
 integration from inside MeTTa, no fork needed.
 
@@ -250,7 +250,7 @@ The `@m.define` decorator compiles a Python function into MeTTa equations,
 read as syntax and lowered deterministically. It exists because fluency is
 real: people and language models alike write Python readily and
 s-expressions haltingly, and the compiled subset lets that fluency produce
-PeTTa programs.
+MeTTa programs.
 
 ```python
 @m.define
@@ -534,15 +534,15 @@ repository's own sources.
 
 ### Jupyter Notebook Support
 
-A Jupyter kernel for PeTTa is available in a separate repository for interactive MeTTa development in notebooks.
+A Jupyter kernel is available in a separate repository for interactive MeTTa development in notebooks.
 
 **Repository:** [trueagi-io/jupyter-petta-kernel](https://github.com/trueagi-io/jupyter-petta-kernel)
 
 Quick install:
 
 ```bash
-# Set PETTA_PATH to this PeTTa installation
-export PETTA_PATH=/path/to/PeTTa
+# Set METTA_PATH to this installation
+export METTA_PATH=/path/to/checkout
 
 # Clone and install the kernel
 git clone https://github.com/trueagi-io/jupyter-petta-kernel.git
@@ -562,7 +562,7 @@ Please see the [MettaWamJam README](https://github.com/trueagi-io/MettaWamJam/bl
 
 ### MeTTa in WASM
 
-Since Swi-Prolog can be compiled to Web Assembly, one can embed PeTTa into websites.
+Since Swi-Prolog can be compiled to Web Assembly, one can embed MeTTa into websites.
 
 Please see [Execution-in-browser](https://github.com/patham9/PeTTa/wiki/Execution-in-browser) for more information.
 

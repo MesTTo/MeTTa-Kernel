@@ -426,14 +426,14 @@ metta_negation(Local, _, True, Dual, Out) :-
     %reads its silence as a truth value, which is the unsound step the
     %closed-world gate refuses. Backtrackable, so nesting and redo
     %restore themselves.
-    b_setval('$petta_in_negation', true),
+    b_setval('$metta_in_negation', true),
     (   call(True),
         Out0 = false
     ;   ( var(Local) -> Quantified = [] ; Quantified = Local ),
         metta_forall_c(Quantified, Dual),
         Out0 = true
     ),
-    b_setval('$petta_in_negation', false),
+    b_setval('$metta_in_negation', false),
     Out = Out0.
 
 %A variable that occurs only inside a negated goal is existential there, so it
@@ -476,18 +476,18 @@ strip_negations(Term, '$negation_site'(Out), [Term|Sites], Sites) :-
 %shared and loses its universal quantification [tested:
 %duals_quantification:a_top_level_query_quantifies_the_same_way;
 %commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
-strip_negations('$petta_answer'(Value, _),
-                '$petta_answer'(StrippedValue, '$petta_names'), Sites0, Sites) :-
+strip_negations('$metta_answer'(Value, _),
+                '$metta_answer'(StrippedValue, '$metta_names'), Sites0, Sites) :-
     !,
     strip_negations(Value, StrippedValue, Sites0, Sites).
-strip_negations(petta_run_named(_, Goal, _),
-                petta_run_named('$petta_names', StrippedGoal, '$petta_names'),
+strip_negations(metta_run_named(_, Goal, _),
+                metta_run_named('$metta_names', StrippedGoal, '$metta_names'),
                 Sites0, Sites) :-
     !,
     strip_negations(Goal, StrippedGoal, Sites0, Sites).
-strip_negations(petta_answer_terms(Carried, Values, _),
-                petta_answer_terms(StrippedCarried, StrippedValues,
-                                   '$petta_names'), Sites0, Sites) :-
+strip_negations(metta_answer_terms(Carried, Values, _),
+                metta_answer_terms(StrippedCarried, StrippedValues,
+                                   '$metta_names'), Sites0, Sites) :-
     !,
     strip_negations(Carried, StrippedCarried, Sites0, Sites1),
     strip_negations(Values, StrippedValues, Sites1, Sites).
@@ -648,7 +648,7 @@ dual_name(Fun, DualName) :- atom_concat('not-', Fun, DualName).
 ensure_dual(Fun, InputArity, Module) :-
     (   dual_ready(Fun, InputArity, Module)
     ->  true
-    ;   with_mutex('$petta_duals',
+    ;   with_mutex('$metta_duals',
                    ensure_dual_locked(Fun, InputArity, Module))
     ).
 
@@ -1378,7 +1378,7 @@ flatten_goals([G|Gs], Out) :-
 install_dual_hooks :-
     (   dual_hooks_installed
     ->  true
-    ;   with_mutex('$petta_duals', install_dual_hooks_locked)
+    ;   with_mutex('$metta_duals', install_dual_hooks_locked)
     ).
 
 install_dual_hooks_locked :-
@@ -1395,7 +1395,7 @@ install_dual_hooks_locked :-
 %publishes: a drop racing a build could erase half of one.
 drop_duals_of(Fun) :-
     (   dual_ready(Fun, _, _)
-    ->  with_mutex('$petta_duals', drop_duals_of_locked(Fun))
+    ->  with_mutex('$metta_duals', drop_duals_of_locked(Fun))
     ;   true
     ).
 

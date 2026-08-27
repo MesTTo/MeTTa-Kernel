@@ -3,7 +3,7 @@
 Source: `bindings/python/metta/integrate.py`.
 
 > Purpose: the interface any Python library implements to work deeply with
-> PeTTa, and the toolkit that makes implementing it a page of code rather than
+> MeTTa, and the toolkit that makes implementing it a page of code rather than
 > a project. An integration is a module with install_metta(m), an object with
 > name and install(m), or an entry point in the metta.integrations group; the
 > toolkit covers the capabilities an integration is made of: bulk operations
@@ -127,7 +127,7 @@ def load_entry_point(name: str, /, *args: Any, group: str = SPACES_GROUP, **kwar
 def discover(m) -> list[str]:
 ```
 
-> Install advertised integrations after satisfying PETTA_REQUIRES.
+> Install advertised integrations after satisfying METTA_REQUIRES.
 
 ## `module_ops`
 

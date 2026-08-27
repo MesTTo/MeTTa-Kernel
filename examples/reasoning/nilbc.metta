@@ -562,7 +562,7 @@
 ;;     weq wim tt a2 tt tze tpl tt tt a1 mp mp $.
 ;;
 ;; Benchmarks (AMD Ryzen 9 5950X):
-;; - PeTTa: 93ms
+;; - MeTTa: 93ms
 ;; - HE: 4m40.962s
 !(test
   (bc &kbh (fromNumber 5)

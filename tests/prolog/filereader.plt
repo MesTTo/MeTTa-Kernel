@@ -50,11 +50,11 @@ cleanup_new_lambdas(Before) :-
 :- begin_tests(filereader_translation_errors).
 
 test(an_untranslatable_form_is_not_reported_as_invalid_syntax,
-     [throws(error(petta_translation_failed(unhandled_form), _))]) :-
+     [throws(error(metta_translation_failed(unhandled_form), _))]) :-
     filereader:process_form('&self', unhandled_form, _).
 
 test(translation_error_has_an_engine_message) :-
-    message_to_string(error(petta_translation_failed(unhandled_form), none),
+    message_to_string(error(metta_translation_failed(unhandled_form), none),
                       Message),
     once(sub_string(Message, _, _, _, "Could not translate MeTTa form")),
     \+ sub_string(Message, _, _, _, "Unknown error term").
@@ -215,7 +215,7 @@ test(failed_load_removes_compiler_state_and_generated_lambdas) :-
     setup_call_cleanup(
         true,
         ( catch(filereader:load_metta_file(Path, _), Error, true),
-          Error = error(petta_unsolved_arithmetic('+', unbounded_domain), _),
+          Error = error(metta_unsolved_arithmetic('+', unbounded_domain), _),
           flag('$gs_lambda_', LambdaNumber, LambdaNumber),
           format(atom(GeneratedLambda), 'lambda_~d', [LambdaNumber]),
           test_lambda_functions(AfterLambdas),
@@ -290,7 +290,7 @@ test(failed_late_definition_does_not_recompile_existing_callers,
     setup_call_cleanup(
         true,
         ( catch(filereader:load_metta_file(Path, _), Error, true),
-          Error = error(petta_unsolved_arithmetic('+', unbounded_domain), _),
+          Error = error(metta_unsolved_arithmetic('+', unbounded_domain), _),
           filereader:process_metta_string("!(plunit-rollback-caller 41)", Results),
           aggregate_all(count,
                         translator:fun_meta_clause(_, 'plunit-rollback-caller', _, _),
@@ -852,13 +852,13 @@ test(an_arrow_declaration_compiles_the_check_a_non_arrow_one_cannot) :-
     \+ sub_string(BareText, _, _, _, "check_argument_type").
 
 test(a_non_arrow_declaration_for_a_function_is_refused,
-     [throws(error(petta_untypable_declaration('plunit-untypable-inc',
+     [throws(error(metta_untypable_declaration('plunit-untypable-inc',
                                                'Number'), _))]) :-
     compiled_call_goals("(: plunit-untypable-inc Number)", _).
 
 test(the_refusal_names_the_declaration_and_the_arrow_to_write) :-
     message_to_string(
-        error(petta_untypable_declaration(inc, ['List', 'Number']), none),
+        error(metta_untypable_declaration(inc, ['List', 'Number']), none),
         Message),
     once(sub_string(Message, _, _, _, "(: inc (List Number))")),
     once(sub_string(Message, _, _, _, "(: inc (-> ...))")),
@@ -1110,7 +1110,7 @@ declaration_pass_cost(Count, Micros) :-
 %variant of the first test pins the per-form door to the same answer.
 
 quietly(Goal) :-
-    petta_engine_module(E),
+    metta_engine_module(E),
     setup_call_cleanup(asserta(E:silent(true), Ref), Goal, erase(Ref)).
 
 data_run_source(Prefix, S) :-

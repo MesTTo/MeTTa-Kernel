@@ -107,8 +107,8 @@
 ;not equal `(a b b)` even though their ordinary sets agree
 ;[source: LeaTTa@9ea9f9d MettaHyperonFull/Minimal/Stdlib.lean:364-438,
 ;`bagDiffBy` and `assertResultsEqOp`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-;Only the comparison changes.  The public PeTTa contract remains the existing
-;True answer on success and petta_assertion_failed exception on failure.
+;Only the comparison changes.  The public MeTTa contract remains the existing
+;True answer on success and metta_assertion_failed exception on failure.
 (: assertEqualToResult (-> Atom Atom %Undefined%))
 (= (assertEqualToResult $A $B)
    (let $Actual (collapse $A)
@@ -233,7 +233,7 @@
 ;its evaluated argument, rather than running anything atomically.
 ;
 ;It is sugar over (transaction ...), deliberately, so the two forms cannot
-;drift: every guarantee here is petta_transaction/1's, answer preservation
+;drift: every guarantee here is metta_transaction/1's, answer preservation
 ;and whole-set commit-or-rollback included, and there is one implementation
 ;of them.
 ;
@@ -307,7 +307,7 @@
 ;lib/lib_builtin_types.metta because this is the register the CALL SITE
 ;reads. Asking for a type is a question about an expression, and the
 ;engine was answering it by running the expression first: an op that
-;appends to a Python list fired on (get-type (petta-effectful)) and the
+;appends to a Python list fired on (get-type (metta-effectful)) and the
 ;answer was Number, the type of what it returned. Every linter walk and
 ;every REPL inspection was invisibly effectful on a seam whose whole
 ;purpose is arbitrary effects.
@@ -403,7 +403,7 @@
 ;answers with no import and a program's own (@doc ...) atoms stay the
 ;program's. Descriptions follow the pinned corelib's where it has them.
 
-;The unary get-doc is PeTTa's raw-document convenience. The two-input arrow
+;The unary get-doc is MeTTa's raw-document convenience. The two-input arrow
 ;and the four helpers are upstream's formal family. Atom keeps each documented
 ;subject and prose part unevaluated while the engine joins them with the type
 ;from the selected space [source: hyperon-experimental@3f76dc4,
@@ -496,7 +496,7 @@
   (@params ((@param "Atom to be casted") (@param "Type to cast atom to") (@param "Context atomspace")))
   (@return "Atom if casting is successful, (Error ... BadType) otherwise"))
 (@doc type-cast-holds
-  (@desc "Whether any declared type of the atom in the space unifies with the requested type; type-cast's fold, named because PeTTa is applicative where the corelib chains")
+  (@desc "Whether any declared type of the atom in the space unifies with the requested type; type-cast's fold, named because MeTTa is applicative where the corelib chains")
   (@params ((@param "Atom") (@param "Requested type") (@param "Context atomspace")))
   (@return "True or False"))
 (@doc get-type-space
@@ -504,7 +504,7 @@
   (@params ((@param "Space to select") (@param "Atom to type")))
   (@return "The type, as get-type answers it in that space"))
 (@doc get-doc
-  (@desc "Returns formal documentation for an atom or function in a selected space; the one-argument PeTTa overload returns the raw (@doc ...) atom")
+  (@desc "Returns formal documentation for an atom or function in a selected space; the one-argument MeTTa overload returns the raw (@doc ...) atom")
   (@params ((@param "The space to search") (@param "The atom or function to document")))
   (@return "An (@doc-formal ...) atom"))
 (@doc get-doc-atom
@@ -657,13 +657,13 @@
 ; The judge itself is the engine builtin space-admission-verdict,
 ; Prolog-bodied by measurement: the same chain written here as equations
 ; cost 131.01 inferences per add against the builtin body, the two
-; collapse-over-match reads of &petta being the gap, and a pool is a
+; collapse-over-match reads of &metta being the gap, and a pool is a
 ; millions-of-adds surface (bindings/python/benchmarks/extension_cost.py's
 ; write-door table is the record). The declaration below is the half of
 ; its contract that lives at this level: the Atom mask keeps the offered
 ; atom unreduced, so a pool judges the atom AS ITSELF
 ; [tested: the_sugar_judges_the_offered_atom_as_itself in tests/prolog/hooks.plt].
-; petta_admission_claim/2 writes a one-line guard equation,
+; metta_admission_claim/2 writes a one-line guard equation,
 ;   (= (space-admission-guard-<pool> $x) (space-admission-verdict <pool> $x))
 ; into the declaring space and claims the pool's pre-add hook with it, so
 ; enforcement rides the general one-claimant registry and a space may

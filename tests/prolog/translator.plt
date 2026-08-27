@@ -210,14 +210,14 @@ test(test_a_hyperpose_worker_inherits_its_space_context_structurally,
     % re-introduced save-and-restore would pass the two checks above and cost
     % every worker eight inferences again, which is what this reads off the
     % shipped clause rather than trusting.
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     clause(Engine:hyperpose_branch(M, G, Res, Out), Body),
-    assertion(Body =@= ( b_setval('$petta_module', M),
+    assertion(Body =@= ( b_setval('$metta_module', M),
                          call(M:G), Out = Res )),
 
     % and the binding is measurably cheaper than the switch it replaces, asked
     % of both on the same box in the same process.
-    clause_cost(b_setval('$petta_module', Module), Binding),
+    clause_cost(b_setval('$metta_module', Module), Binding),
     clause_cost(with_metta_module(Module, true), Switch),
     assertion(Binding < Switch).
 
@@ -718,7 +718,7 @@ test(a_shadow_of_a_builtin_reaches_the_engines_own,
     metta_self_module(Self),
     with_metta_module(Self, reduce(['car-atom', [1, 2, 3]], Out, _)),
     assertion(Out == [mine, 1]),
-    petta_engine_module(Engine),
+    metta_engine_module(Engine),
     assertion(Engine:'car-atom'([1, 2, 3], 1)).
 
 % Resolved at COMPILE time, so nothing above to reach is an error where the
@@ -840,17 +840,17 @@ test(representative_forms_each_have_one_translation,
 
 test(variable_heads_are_not_bound_to_a_special_form) :-
     % The emitted branch resolves the head first, at run time: a head that
-    % masks an argument takes the written tail through petta_dynamic_call,
+    % masks an argument takes the written tail through metta_dynamic_call,
     % and every other head dispatches on the site's precompiled values.
     % Keeping the helper's head variable shared is what makes the decision
     % happen at runtime without binding it to any special form during
     % translation.
     translate_expr([Head, 1], Goals, _),
     var(Head),
-    Goals = [( petta_dynamic_head_masks(Head)
-             -> petta_dynamic_call(Head, [1], _)
+    Goals = [( metta_dynamic_head_masks(Head)
+             -> metta_dynamic_call(Head, [1], _)
              ;  _,
-                petta_dynamic_value_call(Head, [1], [1], _)
+                metta_dynamic_value_call(Head, [1], [1], _)
              )].
 
 % nop takes any number of arguments and answers unit at all of them, which is
@@ -910,7 +910,7 @@ malformed_seam([call]).
 
 test(malformed_seam_is_refused,
      [ forall(malformed_seam(Expr)),
-       throws(error(petta_uncompilable_seam(_, _), _)) ]) :-
+       throws(error(metta_uncompilable_seam(_, _), _)) ]) :-
     translate_expr(Expr, _, _).
 
 :- end_tests(translator_special_dispatch).
@@ -1266,17 +1266,17 @@ test(no_bindings_at_all_is_still_the_body) :-
 :- begin_tests(translator_typed_let).
 
 test(a_number_binding_accepts_a_number) :-
-    process_metta_string("!(let (__petta_typed_binding__ (: $x Number)) 7 $x)", Answers),
+    process_metta_string("!(let (__metta_typed_binding__ (: $x Number)) 7 $x)", Answers),
     assertion(Answers == [7]).
 
 test(a_number_binding_rejects_a_known_string) :-
-    process_metta_string("!(let (__petta_typed_binding__ (: $x Number)) \"nope\" $x)", Answers),
+    process_metta_string("!(let (__metta_typed_binding__ (: $x Number)) \"nope\" $x)", Answers),
     assertion(Answers == []).
 
 test(a_metatype_binding_uses_the_same_fallback_as_a_typed_head) :-
-    process_metta_string("!(let (__petta_typed_binding__ (: $x Symbol)) hello $x)", Symbols),
+    process_metta_string("!(let (__metta_typed_binding__ (: $x Symbol)) hello $x)", Symbols),
     assertion(Symbols == [hello]),
-    process_metta_string("!(let (__petta_typed_binding__ (: $x Expression)) (noeval (pair 1 2)) $x)",
+    process_metta_string("!(let (__metta_typed_binding__ (: $x Expression)) (noeval (pair 1 2)) $x)",
                          Expressions),
     assertion(Expressions == [[pair, 1, 2]]).
 
@@ -1816,7 +1816,7 @@ empty_form_translation([case, 1, []], [fail], _).
 empty_form_translation(
     [reduce, []],
     [reduce([], Reduced, Status),
-     petta_reduce_result([], Reduced, Status, Out)],
+     metta_reduce_result([], Reduced, Status, Out)],
     Out).
 empty_form_translation([progn], [], []).
 
@@ -1923,7 +1923,7 @@ test(one_empty_expression_answer_is_a_value) :-
     Output == "is (), should (). ✅ \n".
 
 test(no_answer_is_not_an_empty_expression,
-     [throws(error(petta_test_no_answer, _))]) :-
+     [throws(error(metta_test_no_answer, _))]) :-
     translate_expr([test, [empty], []], Goals, _),
     translator:goals_list_to_conj(Goals, Goal),
     call(Goal).
@@ -1936,7 +1936,7 @@ test(explicit_no_answer_assertion_keeps_the_existing_output) :-
     Output == "is (), should (). ✅ \n".
 
 test(explicit_no_answer_rejects_an_empty_value,
-     [throws(error(petta_test_failed([[]], []), _))]) :-
+     [throws(error(metta_test_failed([[]], []), _))]) :-
     translate_expr(['test-no-answer', [noeval, []]], Goals, _),
     translator:goals_list_to_conj(Goals, Goal),
     with_output_to(string(_), call(Goal)).
@@ -2210,7 +2210,7 @@ own_import_runnable(Importer, Expr) :-
 
 test(a_call_to_a_name_this_runnable_imports_is_refused,
      [ forall(own_import_runnable(_, Expr)),
-       throws(error(petta_call_to_own_import('plunit-own-import'), _)) ]) :-
+       throws(error(metta_call_to_own_import('plunit-own-import'), _)) ]) :-
     translate_runnable_expr(Expr, _, _).
 
 test(the_import_alone_is_fine) :-
@@ -2718,7 +2718,7 @@ test(a_colon_pattern_still_matches_stored_type_atoms,
 %THE THIRD COLLISION, and the reason the spelling is `:` rather than `::`.
 %`::` is what metta-lang.dev's tutorials use as an ordinary cons constructor,
 %in (= (length (:: $x $xs)) (+ 1 (length $xs))) and every list example after
-%it. While `::` was the annotation, a reader following those against PeTTa got
+%it. While `::` was the annotation, a reader following those against MeTTa got
 %$xs bound to the value's TYPE and a recursion that did not terminate: the
 %annotation quietly reinterpreted their data constructor.
 %
@@ -2939,17 +2939,17 @@ note_text(Term, Text) :-
     !.
 
 test(the_note_names_the_position_the_label_and_why) :-
-    note_text(petta_head_pattern_note(t, [1], ':', type_annotation), Goal),
+    note_text(metta_head_pattern_note(t, [1], ':', type_annotation), Goal),
     assertion(sub_string(Goal, _, _, _, "head argument 1")),
     assertion(sub_string(Goal, _, _, _, "annotation on :")),
     assertion(sub_string(Goal, _, _, _, "GOAL")),
-    note_text(petta_head_pattern_note(f, [1, 2], g, defined_label(function)),
+    note_text(metta_head_pattern_note(f, [1, 2], g, defined_label(function)),
               Label),
     assertion(sub_string(Label, _, _, _, "head argument 1, subterm 2")),
     assertion(sub_string(Label, _, _, _, "against (g ...)")),
     assertion(sub_string(Label, _, _, _, "g has equations here")),
     assertion(sub_string(Label, _, _, _, "matched STRUCTURALLY")),
-    note_text(petta_head_pattern_note(k, [3], if, defined_label(translated)),
+    note_text(metta_head_pattern_note(k, [3], if, defined_label(translated)),
               Special),
     assertion(sub_string(Special, _, _, _, "head argument 3")),
     assertion(sub_string(Special, _, _, _,
@@ -3057,7 +3057,7 @@ test(a_masking_builtin_result_keeps_the_reducibility_walk) :-
 test(a_non_masking_builtin_boundary_is_flag_guarded) :-
     translator:call_result_goal([id, x], [id, x], P, evaluated, _, Goal),
     assertion(( sub_term(G, Goal), nonvar(G),
-                G = b_getval('$petta_masked_escape', true) )),
+                G = b_getval('$metta_masked_escape', true) )),
     assertion(\+ ( sub_term(G2, Goal), nonvar(G2),
                    G2 = metta_masked_result(P, _),
                    \+ sub_term(b_getval(_, _), Goal) )).

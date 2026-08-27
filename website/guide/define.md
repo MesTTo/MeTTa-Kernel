@@ -146,7 +146,7 @@ the derived `effect`; `pure` remains the compatibility projection that is true
 only for `pureStructural`. Its `doc` comes from `ast.get_docstring`, so mutating
 the function object's `__doc__` cannot change the source claim.
 
-The same facts are ordinary data in `&petta`:
+The same facts are ordinary data in `&metta`:
 
 ```metta
 (source-span &my-space checked "example.py" 10 0 13 17)

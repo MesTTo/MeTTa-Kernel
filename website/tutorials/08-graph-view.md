@@ -8,7 +8,7 @@ Pettagrapher uses shape and color for syntax roles. Symbols use neutral nodes. V
 
 The selected `(fact 4)` root has the label `24`. A label describes the result associated with that exact term; it does not change the atom or execute it. The highlighted `if` is also a visual directive, not a MeTTa type declaration.
 
-Pettagrapher accepts real PeTTa atoms. Call `pettagrapher.graph_svg` for a raw SVG or `graph_page` for a self-contained HTML page. `term_svg` uses nested blocks instead of connected nodes. `space_page` lists stored atoms, `derivation_page` draws proof trees, and `reduction_page` turns `m.trace` events into an animated HTML page.
+Pettagrapher accepts real MeTTa atoms. Call `pettagrapher.graph_svg` for a raw SVG or `graph_page` for a self-contained HTML page. `term_svg` uses nested blocks instead of connected nodes. `space_page` lists stored atoms, `derivation_page` draws proof trees, and `reduction_page` turns `m.trace` events into an animated HTML page.
 
 ## Watch a reduction run
 

@@ -36,14 +36,14 @@ test(conformance_passes_a_conforming_provider) :-
 % under-approximating never is. A provider that filters too eagerly answers an
 % empty set in production with nothing to say why.
 test(conformance_catches_an_under_approximating_matcher,
-     [throws(error(petta_conformance_under_approximates('&plunit_conf_eager',
+     [throws(error(metta_conformance_under_approximates('&plunit_conf_eager',
                                                         [edge, a, b]), _))]) :-
     metta_check_space_provider('&plunit_conf_eager', _).
 
 % The one claim in the seam that costs answers, so the kit tests it rather
 % than trusting it.
 test(conformance_catches_a_false_exact_claim,
-     [throws(error(petta_conformance_false_exact('&plunit_conf_liar', _, _), _))]) :-
+     [throws(error(metta_conformance_false_exact('&plunit_conf_liar', _, _), _))]) :-
     metta_check_space_provider('&plunit_conf_liar', _).
 
 % A declaration with nothing behind it surfaces as a silent failure inside a
@@ -52,19 +52,19 @@ test(conformance_catches_a_capability_with_no_hook,
      [condition(\+ ( predicate_property(seam:foreign_clear(_),
                                        number_of_clauses(Count)),
                        Count > 0 )),
-      throws(error(petta_conformance_no_hook('&plunit_conf_hookless', clear,
+      throws(error(metta_conformance_no_hook('&plunit_conf_hookless', clear,
                                              seam:foreign_clear/1), _))]) :-
     metta_check_space_provider('&plunit_conf_hookless', _).
 
 test(conformance_refuses_a_space_that_is_not_foreign,
-     [throws(error(petta_conformance_not_foreign('&plunit_conf_absent'), _))]) :-
+     [throws(error(metta_conformance_not_foreign('&plunit_conf_absent'), _))]) :-
     metta_check_space_provider('&plunit_conf_absent', _).
 
 % The pattern family: the self-match passes for a ground-only matcher, and
 % a position opened to a fresh variable is where it dies in production, so
 % it dies here instead, naming the pattern.
 test(conformance_catches_a_ground_only_matcher,
-     [throws(error(petta_conformance_family_missed('&plunit_conf_groundonly',
+     [throws(error(metta_conformance_family_missed('&plunit_conf_groundonly',
                                                    _, _, _), _))]) :-
     metta_check_space_provider('&plunit_conf_groundonly', _).
 
@@ -72,14 +72,14 @@ test(conformance_catches_a_ground_only_matcher,
 % and must say so.
 test(conformance_catches_a_source_that_drains,
      [setup(flag(plunit_conf_drain_reads, _, 0)),
-      throws(error(petta_conformance_source_disagrees('&plunit_conf_drain',
+      throws(error(metta_conformance_source_disagrees('&plunit_conf_drain',
                                                       repeated), _))]) :-
     metta_check_space_provider('&plunit_conf_drain', _).
 
 % Add then enumerate is identity on the stored atom; a provider whose add
 % drops the atom still answers the call, and firing alone would pass.
 test(conformance_catches_an_add_that_drops,
-     [throws(error(petta_conformance_round_trip('&plunit_conf_dropadd', _),
+     [throws(error(metta_conformance_round_trip('&plunit_conf_dropadd', _),
                    _))]) :-
     metta_check_space_provider('&plunit_conf_dropadd', _).
 

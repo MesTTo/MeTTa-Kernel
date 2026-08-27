@@ -62,7 +62,7 @@
 %matches rather than prose, with the engine's own message text after it so a
 %refusal that stops naming its cost is visible in the failure.
 reduced_platform_report :-
-    forall(petta_platform(Capability, Status, Requires, _),
+    forall(metta_platform(Capability, Status, Requires, _),
            format("platform ~w ~w ~q~n", [Capability, Status, Requires])),
     answer(plain, "!(+ 1 2)"),
     refusal(timeout, "!(timeout 5 (+ 1 2))"),

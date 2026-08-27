@@ -29,7 +29,7 @@ Source: `bindings/python/metta/tables.py`.
 > round-trip laws are what check_space_provider verifies against the
 > derived claims.
 >
-> Declarations may live in &petta, ctx-scoped like every other contract
+> Declarations may live in &metta, ctx-scoped like every other contract
 > atom: `declare(m, "&crm", "(bridge (edge $a $b) (row edges ...))")`
 > writes `(bridge &crm (edge $a $b) (row edges ...))` there, MeTTa source
 > can add the same atom itself, and `TableBridge.from_context(m, "&crm",
@@ -45,7 +45,7 @@ Source: `bindings/python/metta/tables.py`.
 >     TEXT cell carrying the atom wire rather than the source parser [tested:
 >     test_a_row_value_becomes_an_atom_without_being_reparsed;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - a cell PeTTa wrote reads back as the atom it wrote, whatever the driver
+>   - a cell MeTTa wrote reads back as the atom it wrote, whatever the driver
 >     and the image catalog do to the database's own values: _is_atom_cell
 >     keeps the tag in the text domain, out of reach of a row_factory that
 >     adapts binary cells, and _ImageCodec answers it before any image
@@ -141,7 +141,7 @@ def from_context(cls, m: Any, name: str, connection: Executes) -> TableBridge:
 ```
 
 > The provider for every `(bridge <name> <shape> <row>)` atom in
-> &petta, so a schema declared from MeTTa source, or by declare()
+> &metta, so a schema declared from MeTTa source, or by declare()
 > below, becomes a provider in one line.
 
 ### `TableBridge.atoms`
@@ -222,5 +222,5 @@ No docstring is defined.
 def declare(m: Any, name: str, declaration: Atom | str) -> Atom:
 ```
 
-> Write one ctx-scoped bridge declaration into &petta, where explain
+> Write one ctx-scoped bridge declaration into &metta, where explain
 > and any program can read the schema, and from_context will.

@@ -12,7 +12,7 @@
 (= (read_file_to_string_functionized $filename)
    (read_file_to_string_functionized $filename ()))
 
-;Loading a PeTTa-internal predicate that follows function form convention:
+;Loading a MeTTa-internal predicate that follows function form convention:
 !(import_prolog_function process_metta_string)
 
 ;Process the file string without the !(test (fib 30) 832040) call:

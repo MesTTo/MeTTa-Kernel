@@ -9,7 +9,7 @@
 ;   Input:     User's commands and moves from console.
 ;   Output:    Chess board displayed to console with computer's move.
 ;
-;   10/25      Modified for chess tutorial running under PeTTa.
+;   10/25      Modified for chess tutorial running under MeTTa.
 ;
 ;**********************************************************************
 ; * Redistribution and use in source and binary forms, with or without
@@ -2585,7 +2585,7 @@
     ; else keep playing
     (progn 
     ; prompt for x/y location
-    ; temporary change for PeTTa test, enter eg ((1 2) (1 3))
+    ; temporary change for MeTTa test, enter eg ((1 2) (1 3))
     ;(let $coord (prompt-for-move) ())
     (let $coord (readln!) ())
     (let $f (nth 1 $coord) ())

@@ -19,7 +19,7 @@ translate_cached_expr(C, Goals, Out) :-
         translation_template(C, Template, Key),
         (   translated_form_hit(Module, Key, C, Goals, Out)
         ->  true
-        ;   with_mutex('$petta_translation_cache',
+        ;   with_mutex('$metta_translation_cache',
                        translate_runnable_expr_cached(Module, Key, C,
                                                       Template, Goals, Out))
         )
@@ -48,17 +48,17 @@ translate_runnable_expr(C, Goals, Out) :-
 %commit=916def0562c211143bb91cd0bd8b2c9dac7ab4fa].
 %% translate_runnable_expr(+Expression, +Names, -Goals, -Answers) is det.
 translate_runnable_expr(C, Names, Goals, Out) :-
-    Context = '$petta_name_context'(Names, []),
+    Context = '$metta_name_context'(Names, []),
     setup_call_cleanup(
         install_runnable_name_context(Context, SavedContext),
         translate_runnable_expr(C, InnerGoals, Value),
         restore_runnable_name_context(SavedContext)),
     arg(1, Context, CollectedReaderNames),
     arg(2, Context, CollectedNames),
-    NameState = '$petta_name_state'(CollectedReaderNames,
+    NameState = '$metta_name_state'(CollectedReaderNames,
                                     [RuntimeNames|CollectedNames]),
     goals_list_to_conj(InnerGoals, Conj),
-    NamedConj = petta_run_named(CollectedReaderNames, Conj, RuntimeNames),
+    NamedConj = metta_run_named(CollectedReaderNames, Conj, RuntimeNames),
     %This is the outer runnable boundary.  Keep its two identity tests inline:
     %every eval crosses it, while only the exceptional NotReducible branch
     %needs language-level work.  A helper call here added one counted Prolog
@@ -67,13 +67,13 @@ translate_runnable_expr(C, Names, Goals, Out) :-
                      ( Value == 'NotReducible'
                      -> BoundaryValue = C
                      ;  BoundaryValue = Value ) ),
-    FuelConj = petta_run_with_fuel(BoundaryValue, FuelValue, BoundaryConj),
+    FuelConj = metta_run_with_fuel(BoundaryValue, FuelValue, BoundaryConj),
     (   Value == 'Empty'
     ->  Goals = [Out = []]
     ;   nonvar(Value)
-    ->  Goals = [findall('$petta_answer'(FuelValue, NameState), FuelConj, Out)]
-    ;   Goals = [(findall('$petta_answer'(FuelValue, NameState), FuelConj, All),
-                  petta_prune_empty_answers(All, Out))]
+    ->  Goals = [findall('$metta_answer'(FuelValue, NameState), FuelConj, Out)]
+    ;   Goals = [(findall('$metta_answer'(FuelValue, NameState), FuelConj, All),
+                  metta_prune_empty_answers(All, Out))]
     ).
 
 %A function equation compiles in ITS OWN scope, never the enclosing
@@ -82,68 +82,68 @@ translate_runnable_expr(C, Names, Goals, Out) :-
 %deferred equations materialise when a call site or the running form first
 %reaches them, and add-atom can carry an equation mid-run -- and an equation
 %body that aggregates then read the OUTER form's reader names, compiled the
-%petta_run_named carrier for them, and pushed a name slot into the outer
+%metta_run_named carrier for them, and pushed a name slot into the outer
 %context with setarg/3, so the enclosing form's answers and names
 %misaligned. nb_linkval on both sides for the installer's reason: the
 %context term is mutated with setarg/3 and a copying nb_setval would
 %disconnect it.
 :- meta_predicate without_runnable_name_context(0).
 without_runnable_name_context(Goal) :-
-    (   nb_current('$petta_runnable_name_context', Context)
+    (   nb_current('$metta_runnable_name_context', Context)
     ->  setup_call_cleanup(
-            nb_delete('$petta_runnable_name_context'),
+            nb_delete('$metta_runnable_name_context'),
             call(Goal),
-            nb_linkval('$petta_runnable_name_context', Context))
+            nb_linkval('$metta_runnable_name_context', Context))
     ;   call(Goal)
     ).
 
 install_runnable_name_context(Context, saved(Previous)) :-
-    nb_current('$petta_runnable_name_context', Previous), !,
-    nb_linkval('$petta_runnable_name_context', Context).
+    nb_current('$metta_runnable_name_context', Previous), !,
+    nb_linkval('$metta_runnable_name_context', Context).
 install_runnable_name_context(Context, none) :-
-    nb_linkval('$petta_runnable_name_context', Context).
+    nb_linkval('$metta_runnable_name_context', Context).
 
 restore_runnable_name_context(saved(Previous)) :- !,
-    nb_linkval('$petta_runnable_name_context', Previous).
+    nb_linkval('$metta_runnable_name_context', Previous).
 restore_runnable_name_context(none) :-
-    nb_delete('$petta_runnable_name_context').
+    nb_delete('$metta_runnable_name_context').
 
 %Record a compile-time freshening beside the reader map. sealed creates true
 %Prolog variables before the runnable findall exists; extending the map here
 %lets that findall copy the fresh variable and its source spelling together.
 runnable_note_copied_variables([], []).
 runnable_note_copied_variables([Original|Originals], [Copy|Copies]) :-
-    (   nb_current('$petta_runnable_name_context', Context),
-        Context = '$petta_name_context'(Names, _),
-        petta_reader_variable_name(Names, Original, Name)
+    (   nb_current('$metta_runnable_name_context', Context),
+        Context = '$metta_name_context'(Names, _),
+        metta_reader_variable_name(Names, Original, Name)
     ->  next_runnable_variable_epoch(Epoch),
         runnable_variable_base_name(Name, BaseName),
-        EpochName = '$petta_epoch_name'(BaseName, Epoch),
+        EpochName = '$metta_epoch_name'(BaseName, Epoch),
         arg(1, Context, CurrentNames),
         setarg(1, Context, [EpochName-Copy|CurrentNames])
     ;   true
     ),
     runnable_note_copied_variables(Originals, Copies).
 
-runnable_variable_base_name('$petta_epoch_name'(Name, _), Name) :- !.
+runnable_variable_base_name('$metta_epoch_name'(Name, _), Name) :- !.
 runnable_variable_base_name(Name, Name).
 
 next_runnable_variable_epoch(Epoch) :-
-    (   nb_current('$petta_runnable_variable_epoch', Epoch)
+    (   nb_current('$metta_runnable_variable_epoch', Epoch)
     ->  Next is Epoch + 1,
-        nb_setval('$petta_runnable_variable_epoch', Next)
+        nb_setval('$metta_runnable_variable_epoch', Next)
     ;   Epoch = 0,
-        nb_setval('$petta_runnable_variable_epoch', 1)
+        nb_setval('$metta_runnable_variable_epoch', 1)
     ).
 
 :- meta_predicate with_runnable_variable_epochs(0).
 with_runnable_variable_epochs(Goal) :-
-    (   nb_current('$petta_runnable_variable_epoch', _)
+    (   nb_current('$metta_runnable_variable_epoch', _)
     ->  call(Goal)
     ;   setup_call_cleanup(
-            nb_setval('$petta_runnable_variable_epoch', 0),
+            nb_setval('$metta_runnable_variable_epoch', 0),
             call(Goal),
-            nb_delete('$petta_runnable_variable_epoch'))
+            nb_delete('$metta_runnable_variable_epoch'))
     ).
 
 %Snapshot the names produced by already translated inner collapses, then add a
@@ -151,9 +151,9 @@ with_runnable_variable_epochs(Goal) :-
 %the deterministic translation pass; no run-time variable receives an
 %attribute or mutable payload.
 runnable_collapse_name_state(State, Slot) :-
-    nb_current('$petta_runnable_name_context', Context),
-    Context = '$petta_name_context'(Names, PriorSlots),
-    State = '$petta_name_state'(Names, PriorSlots),
+    nb_current('$metta_runnable_name_context', Context),
+    Context = '$metta_name_context'(Names, PriorSlots),
+    State = '$metta_name_state'(Names, PriorSlots),
     setarg(2, Context, [Slot|PriorSlots]).
 
 %A runnable is compiled WHOLE before any of it runs, so a registration inside
@@ -176,7 +176,7 @@ refuse_call_to_own_import(Expr) :-
     (   member(Name, Names),
         \+ fun_here(Name),
         calls_head(Expr, Name)
-    ->  throw(error(petta_call_to_own_import(Name),
+    ->  throw(error(metta_call_to_own_import(Name),
                     context(translate_runnable_expr/3,
                             'a runnable compiles before it runs')))
     ;   true
@@ -229,12 +229,12 @@ resolve_dispatch(Fun, Args, Out, Goal) :-
       Goal =.. [Fun|DirectArgs]
     ).
 
-%The effective policy is late-bound from &petta, so adding or removing an
+%The effective policy is late-bound from &metta, so adding or removing an
 %override changes already-compiled call sites. spaces.pl materializes a
 %reference-validated lookup for this hot path; the catalog remains the only
 %authority and its write funnel invalidates the derived entry.
 dispatch_policy_value(Fun, Axis, Value) :-
-    petta_dispatch_value(Fun, Axis, Value).
+    metta_dispatch_value(Fun, Axis, Value).
 
 dispatch_call_goal(Fun, Args, Out, Goal,
                    PolicyGoal) :-
@@ -279,7 +279,7 @@ dispatch_call_goal_for(Module, Fun, _, _, Goal, Inline) :-
 dispatch_call_goal_for(Module, Fun, Args, Out, Goal, PolicyGoal) :-
     \+ fun_meta_module(Module, Fun, _),
     !,
-    (   petta_dispatch_goal_exists(Module, Goal)
+    (   metta_dispatch_goal_exists(Module, Goal)
     ->  PolicyGoal = Goal
     ;   PolicyGoal = dispatch_no_match_result(Fun, Args, Out)
     ).
@@ -315,7 +315,7 @@ constructor_inline_goal(cons(H, T, Out),
 %still take their direct path whenever their predicate exists.
 %[source: vendor/hyperon/docs/minimal-metta.md:55-101, type constructors are
 %not reducible; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
-petta_dispatch_goal_exists(Module, Goal) :-
+metta_dispatch_goal_exists(Module, Goal) :-
     functor(Goal, Predicate, Arity),
     current_predicate(Module:Predicate/Arity).
 
@@ -323,15 +323,15 @@ dispatch_selection_override(Fun) :-
     % policy-inventory-exempt: mechanism-internal; reason=these are the four axes whose nondefault values require the retained-clause interpreter instead of the compiled direct goal; evidence=engine/translator/lowering.pl:dispatch_selection_override/1
     member(Axis, ['EvaluationOrderEnum', 'FunctionResultEnum',
                   'ClauseFailedEnum', 'OutOfClausesEnum']),
-    petta_catalog_row(['dispatch-policy', Fun, Axis, _]),
+    metta_catalog_row(['dispatch-policy', Fun, Axis, _]),
     !.
 
 dispatch_head_covers(Module, Fun, Args, _) :-
     fun_meta_module(Module, Fun, Owner),
     fun_meta_clause(Owner, Fun, Head0, _),
-    (   petta_seq_present(Head0)
+    (   metta_seq_present(Head0)
     ->  ground(Args),
-        petta_seq_head_matches(Head0, Args)
+        metta_seq_head_matches(Head0, Args)
     ;   copy_term(Head0, Head),
         subsumes_term(Head, Args)
     ),
@@ -484,14 +484,14 @@ dispatch_clause_goal('ClauseFailNonDet', Module, Fun, Args, Clauses, Out) :-
     call(Goal).
 
 dispatch_retained_clause_match(Module, Fun, Head, Body, Args, Out, Goal) :-
-    (   petta_seq_present(Head)
+    (   metta_seq_present(Head)
     ->  with_metta_module(Module,
-                          translator:( petta_seq_head_plan(Head, HeadPlan),
+                          translator:( metta_seq_head_plan(Head, HeadPlan),
                                        translate_segment_body_plan(Fun, Head,
                                                                    Body, [],
                                                                    BodyPlan) )),
-        petta_seq_head_match(HeadPlan, Args),
-        Goal = petta_segment_body_result(Module, Fun, BodyPlan, Out)
+        metta_seq_head_match(HeadPlan, Args),
+        Goal = metta_segment_body_result(Module, Fun, BodyPlan, Out)
     ;   Head = Args,
         Goal = eval_metta_in_module(Module, Body, Out)
     ).
@@ -516,8 +516,8 @@ dispatch_any_head_matches(Module, Fun, Args, _) :-
     % equation head decides from its outer constructors, making map/fold over
     % N elements quadratic.
     % [measured: 2026-08-21, 4.10 seconds; command=/usr/bin/time -f 'hol_elapsed=%e maxrss=%M' timeout 300s sh run.sh --silent examples/performance/holbenchmark.metta; fixture=examples/performance/holbenchmark.metta; commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
-    (   petta_seq_present(Head0)
-    ->  petta_seq_head_matches(Head0, Args)
+    (   metta_seq_present(Head0)
+    ->  metta_seq_head_matches(Head0, Args)
     ;   unifiable(Head0, Args, _)
     ),
     !.
@@ -532,7 +532,7 @@ dispatch_any_head_matches(Module, Fun, _, Goal) :-
 %keeping `[Fun|Args]` here is what turns `(u (+ 1 2))` into `(u 3)` rather
 %than losing the completed argument step.
 dispatch_no_match('NoMatchOriginal', Fun, Args, Out) :-
-    (   nb_current('$petta_not_reducible_root', _)
+    (   nb_current('$metta_not_reducible_root', _)
     ->  Out = 'NotReducible'
     ;   Out = [Fun|Args]
     ).
@@ -604,7 +604,7 @@ metta_typed_head(Fun) :-
 % (1 2 3) double)` answered `((partial double (1)) ...)`. A builtin still
 % resolves, through the module's own inheritance from user.
 %The four evaluation outcomes of the Hyperon specification are value, Empty,
-%NotReducible and Error, and PeTTa already produces all four: an answer, a
+%NotReducible and Error, and MeTTa already produces all four: an answer, a
 %failed goal, a term handed back unevaluated, and a thrown error. Only the
 %third was unreportable, because the term it yields is indistinguishable from
 %data. reduce/3 carries which of the two happened and reduce/2 keeps its exact
@@ -682,7 +682,7 @@ reduce([F|Args], Out, Status) :- !,
             ;   Out = Produced, Status = reduced
             )
         ;   metta_segment_equation_in(Module, F, _)
-        ->  petta_segment_dispatch(Module, F, Args, Produced),
+        ->  metta_segment_dispatch(Module, F, Args, Produced),
             (   Produced == 'NotReducible'
             ->  Out = [F|Args], Status = 'not-reducible'
             ;   Out = Produced, Status = reduced
@@ -752,8 +752,8 @@ reduce(Culprit, _, _) :-
 %`!(reduce (unknown))` answers `(reduce (unknown))`; tested:
 %conformance2:reduce_retains_its_call_when_the_operand_is_irreducible;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-petta_reduce_result(Written, _, 'not-reducible', [reduce, Written]) :- !.
-petta_reduce_result(_, Reduced, _, Reduced).
+metta_reduce_result(Written, _, 'not-reducible', [reduce, Written]) :- !.
+metta_reduce_result(_, Reduced, _, Reduced).
 
 %ONE COMPILED PREDICATE PER WRITTEN LAMBDA, however many times it is applied.
 %Compiling on every application asserted a fresh lambda_N/2 each time: 200
@@ -884,7 +884,7 @@ translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
 %
 %A rule that DECLINES with `(refuse Reason)` below is that same condition
 %failing in the rule's own words rather than a different kind of rule. The
-%words are published into &petta and the call falls through exactly as a body
+%words are published into &metta and the call falls through exactly as a body
 %with no answer does, which is why the report COUNTS the rules that can refuse:
 %the conditionality is the ruling above, and a refusal is where it is written
 %down [tested: test_a_translator_rule_can_decline_with_its_own_words;
@@ -1090,7 +1090,7 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
           %Unknown head (var/compound) => runtime dispatch.  The tail is
           %compiled HERE, once, and the emitted branch decides at run time
           %which view the resolved head gets: a head that masks an argument
-          %takes the written tail through petta_dynamic_call/3, which
+          %takes the written tail through metta_dynamic_call/3, which
           %translates under the mask exactly as before, and every other head
           %runs the site's own compiled argument goals and dispatches on the
           %finished values.  Leaving the tail written unconditionally made
@@ -1101,10 +1101,10 @@ translate_expr_dl([H|T], Goals0, Goals, Out) :-
           %pass because a call site's written tail never changes.
           ; translate_args_dl(T, ValueGoalList, [], AVs),
             goals_list_to_conj(ValueGoalList, ValueGoals),
-            AfterHead = [( petta_dynamic_head_masks(HV)
-                         -> petta_dynamic_call(HV, T, Out)
+            AfterHead = [( metta_dynamic_head_masks(HV)
+                         -> metta_dynamic_call(HV, T, Out)
                          ;  ValueGoals,
-                            petta_dynamic_value_call(HV, T, AVs, Out)
+                            metta_dynamic_value_call(HV, T, AVs, Out)
                          )|Goals] )).
 
 %A source's signature pre-pass makes a later equation's name visible before
@@ -1224,7 +1224,7 @@ data_head_answer_dl(HV, Written, AVs, Out, Goals0, Goals) :-
 %commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]. Reporting remains additive, but this proof is about the
 %single declaration tier that controls dispatch.
 written_args_settled(self, HV, Written) :-
-    '$petta_atoms:&self':'&self'(':', HV, Chain),
+    '$metta_atoms:&self':'&self'(':', HV, Chain),
     written_args_settled_by_chain(Chain, Written).
 written_args_settled(local(Space), HV, Written) :-
     match_stored(Space, [':', HV, Chain], Chain, _),
@@ -1253,7 +1253,7 @@ written_arg_settled(Expected, Written) :-
 
 arrow_declared_data_head(HV, DeclarationTier) :-
     atom(HV),
-    '$petta_atoms:&self':'&self'(':', HV, Chain),
+    '$metta_atoms:&self':'&self'(':', HV, Chain),
     nonvar(Chain),
     Chain = [->|_],
     current_metta_module(Module),
@@ -1326,7 +1326,7 @@ index_builtin_masks :-
 %so no walk runs at its own call site, and the written material it hands on
 %is what a later non-masking boundary must evaluate (`noeval` feeding `id`
 %is the arbiter's pinned case).  Every such producer sets
-%'$petta_masked_escape' when it answers a compound; every non-masking
+%'$metta_masked_escape' when it answers a compound; every non-masking
 %boundary consults the flag before paying for the reducibility walk.
 :- dynamic builtin_result_smuggler/1.
 
@@ -1622,12 +1622,12 @@ metta_equation_call(Fun, InputArity) :-
     fun_meta_module(Module, Fun, Owner),
     fun_meta_clause(Owner, Fun, Head, _),
     (   length(Head, InputArity)
-    ;   petta_seq_present(Head)
+    ;   metta_seq_present(Head)
     ),
     !.
 
 application_protocol_goal(Source, Runtime, Produced, Out,
-                          petta_application_result(Source, Runtime, Produced,
+                          metta_application_result(Source, Runtime, Produced,
                                                    Out)).
 
 %A declared result type that is not the metatype `Atom` sends the value it

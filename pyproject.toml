@@ -1,4 +1,4 @@
-# Purpose: Defines PeTTa packaging, dependencies, tool policy, and verification contracts.
+# Purpose: Defines MeTTa packaging, dependencies, tool policy, and verification contracts.
 # Assumes: Packaging and gate commands run from the repository root with bindings/python importable.
 # Guarantees: Static import contracts keep the narrow core independent of optional satellites,
 #   while excluding annotations that cannot execute and naming every deferred boundary crossing.
@@ -20,7 +20,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pymetta"
 dynamic = ["version"]
-description = "MeTTa in Python on the PeTTa engine"
+description = "MeTTa in Python, on a SWI-Prolog engine"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -30,7 +30,7 @@ dependencies = [
     "janus-swi>=1.5.2",
 ]
 classifiers = [
-    # PeTTa is alpha because MeTTa is, and this is that statement in PyPI's own
+    # This is alpha because MeTTa is, and this is that statement in PyPI's own
     # vocabulary, so an installer reading nothing but the metadata is told what
     # SECURITY.md and CONTRIBUTING.md tell a reader.
     "Development Status :: 3 - Alpha",

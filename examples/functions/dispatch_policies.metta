@@ -6,7 +6,7 @@
 (= (only-a A) hit)
 
 !(test (only-a B) (only-a B))
-!(add-atom &petta (dispatch-policy only-a NoMatchEnum NoMatchFail))
+!(add-atom &metta (dispatch-policy only-a NoMatchEnum NoMatchFail))
 !(test (collapse (only-a B)) ())
-!(remove-atom &petta (dispatch-policy only-a NoMatchEnum NoMatchFail))
+!(remove-atom &metta (dispatch-policy only-a NoMatchEnum NoMatchFail))
 !(test (only-a B) (only-a B))

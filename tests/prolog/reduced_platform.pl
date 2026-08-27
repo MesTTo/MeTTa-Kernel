@@ -73,7 +73,7 @@ run_reduced_platform(Out, Err) :-
                        remove_reduced_platform(Root)).
 
 reduced_platform_root(Root) :-
-    tmp_file(petta_reduced_platform, Base),
+    tmp_file(metta_reduced_platform, Base),
     current_prolog_flag(pid, Pid),
     format(atom(Root), '~w-~w', [Base, Pid]).
 
