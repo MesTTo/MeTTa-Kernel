@@ -135,7 +135,7 @@ guard_error_condition(Cond, CondValue, Out, Then, Else, Guarded) :-
 %a literal, or an existing partial. `Goals0 == AfterExpr` is that question
 %asked exactly, in one inline comparison; a second walk asking it from the
 %source term instead cost source-load 14,000 inferences and handle-round-trip
-%54,000 [measured 2026-08-22, PETTA_BENCHMARK_COUNTERS=1, min of three].
+%54,000 [measured 2026-08-22, METTA_BENCHMARK_COUNTERS=1, min of three].
 %
 %An operand headed by an error-REIFYING form is left out: its value is data by
 %contract. That test is paid only by an argument that did emit goals, which is

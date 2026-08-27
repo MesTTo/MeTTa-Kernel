@@ -830,7 +830,7 @@ The engine itself ships one C unit at this seam: `engine/reader.c`, the
 shipped-mode MeTTa reader, which `engine/parser.pl` loads from `reader.so`
 beside it and consults for every parse while no custom token class is
 registered. `check.sh` builds it with `swipl-ld -shared -O2`; without the
-artifact, or with `PETTA_C_READER=off` in the environment, every parse runs
+artifact, or with `METTA_C_READER=off` in the environment, every parse runs
 the Prolog grammar, which remains the reader's specification and is held
 equal to the C port by `tests/prolog/reader_c.plt` over the shipped corpus,
 an adversarial battery, and generated number spellings. A custom
@@ -1350,7 +1350,7 @@ integration that ships Prolog and no Python setup names its files:
 
 ```python
 # in your package's __init__
-PETTA_PROLOG = ["fast.pl"]
+METTA_PROLOG = ["fast.pl"]
 ```
 
 `m.integrate(pettorch)` and `metta.integrate.discover(m)` then register the
@@ -1432,7 +1432,7 @@ A provider file declares an EXTENSION and exports nothing:
 declaration to write, and it is what makes the file loadable at all.
 `m.register_prolog(path=...)` accepts it and answers `()`, because it
 registered no functions. Ship it the way section 4 ships any `.pl`, by listing
-it in your package's `PETTA_PROLOG`.
+it in your package's `METTA_PROLOG`.
 
 A file that declares NEITHER is refused before it loads, which is worth
 knowing because it used to be refused AFTER: an author who wrote a provider,

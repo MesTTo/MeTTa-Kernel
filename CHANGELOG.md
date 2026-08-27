@@ -44,7 +44,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   452062] inferences on the Prolog reader against [5222, 10422, 20822, 41624] on
   the C one, and both routes hold the same class. Without the refusal the
   constant guard would fire at ten times its bound and name a parser regression
-  where only the box differed. Running with `PETTA_C_READER=off` on a tree whose
+  where only the box differed. Running with `METTA_C_READER=off` on a tree whose
   ledger was pinned with `engine/reader.so` present now reports
   `CONFIGURATION DRIFT c_reader` and exits 1.
 - Specializations now mint collision-free names from MeTTa-writable text and
@@ -1131,7 +1131,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   the same container hook as parameterized builtins. Buffer exporters project
   as zero-copy `Buffer` expressions that retain the original object together
   with shape, format, item size, dimensionality, strides, and access metadata.
-  Integration entry points may declare `PETTA_REQUIRES`; discovery installs
+  Integration entry points may declare `METTA_REQUIRES`; discovery installs
   them in topological order and refuses duplicate names, missing requirements,
   and dependency cycles by name.
 - Declared value algebras name `combine`, `extend`, `zero`, `one`, checked
@@ -1775,7 +1775,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   neither; `test_the_tree_partitions_by_seam` is the fence. The legacy
   `python.petta` import path still resolves to the canonical package
   through the unchanged `python/__init__.py` shim, installed wheels keep
-  the same layout under `petta/_runtime/`, and `PETTA_PATH` still names
+  the same layout under `petta/_runtime/`, and `METTA_PATH` still names
   a checkout root.
 - A finite float prints the arbiter's layout over the same
   shortest-round-trip digits: `1e16`, `0.00001` and `1.5e300` where SWI's
@@ -2852,7 +2852,7 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 - Added a verification mode for the specializer, and a gate lane that
   runs it over the whole example corpus. Under
-  `PETTA_VERIFY_SPECIALIZATIONS` (or
+  `METTA_VERIFY_SPECIALIZATIONS` (or
   `(pragma! verify-specializations True)`) each specialization is run
   against the generic call the first time it fires and the complete
   answer lists are compared with variant equality, so a specialization

@@ -1,6 +1,6 @@
 """Purpose: run the lawless, rate, linear, and amplitude algebra witnesses.
 
-Assumes: execute with PeTTa's documented Python environment and ``PETTA_PATH``.
+Assumes: execute with PeTTa's documented Python environment and ``METTA_PATH``.
 Guarantees:
   - the lawless witness uses ``algebra`` plus ordinary tagged facts
     [tested: test_a_declared_algebra_without_laws_answers_in_order_and_unfused;

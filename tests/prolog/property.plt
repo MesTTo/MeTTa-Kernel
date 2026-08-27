@@ -10,8 +10,8 @@
 %   Run one suite on its own:
 %     swipl -g run_tests -t halt property.plt
 %   Widen locally, which the gate deliberately does not do:
-%     PETTA_PROPERTY_TESTS=10000 swipl -g run_tests -t halt property.plt
-%     PETTA_PROPERTY_SEED=random swipl -g run_tests -t halt property.plt
+%     METTA_PROPERTY_TESTS=10000 swipl -g run_tests -t halt property.plt
+%     METTA_PROPERTY_SEED=random swipl -g run_tests -t halt property.plt
 % Guarantees:
 %   - a failing law throws quickcheck's counter_example carrying the shrunken
 %     value, so the test output names the term that broke it rather than only
@@ -115,17 +115,17 @@ test(a_different_seed_generates_different_terms) :-
 % The gate's own numbers, unless the environment overrides them, in which case
 % the override is the thing under test and the default is not.
 test(the_gate_runs_a_fixed_seed_and_a_fixed_count) :-
-    ( getenv('PETTA_PROPERTY_SEED', _) -> true ; property_seed(20260819) ),
-    ( getenv('PETTA_PROPERTY_TESTS', _) -> true ; property_test_count(100) ).
+    ( getenv('METTA_PROPERTY_SEED', _) -> true ; property_seed(20260819) ),
+    ( getenv('METTA_PROPERTY_TESTS', _) -> true ; property_test_count(100) ).
 
 test(the_environment_widens_the_run) :-
     setup_call_cleanup(
-        ( ( getenv('PETTA_PROPERTY_TESTS', Saved) -> true ; Saved = none ),
-          setenv('PETTA_PROPERTY_TESTS', '7') ),
+        ( ( getenv('METTA_PROPERTY_TESTS', Saved) -> true ; Saved = none ),
+          setenv('METTA_PROPERTY_TESTS', '7') ),
         property_test_count(Count),
         ( Saved == none
-          -> unsetenv('PETTA_PROPERTY_TESTS')
-          ;  setenv('PETTA_PROPERTY_TESTS', Saved) )),
+          -> unsetenv('METTA_PROPERTY_TESTS')
+          ;  setenv('METTA_PROPERTY_TESTS', Saved) )),
     Count == 7.
 
 :- end_tests(property_lane_determinism).

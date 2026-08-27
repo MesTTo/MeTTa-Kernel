@@ -127,7 +127,7 @@ def load_entry_point(name: str, /, *args: Any, group: str = SPACES_GROUP, **kwar
 def discover(m) -> list[str]:
 ```
 
-> Install advertised integrations after satisfying PETTA_REQUIRES.
+> Install advertised integrations after satisfying METTA_REQUIRES.
 
 ## `module_ops`
 

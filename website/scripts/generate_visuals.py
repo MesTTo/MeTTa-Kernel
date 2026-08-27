@@ -53,7 +53,7 @@ def _pettagrapher_python() -> Path:
 METTA_PYTHON = _metta_python()
 PETTAGRAPHER_PYTHON = _pettagrapher_python()
 sys.path[:0] = [str(METTA_PYTHON), str(PETTAGRAPHER_PYTHON)]
-os.environ.setdefault("PETTA_PATH", str(METTA_PYTHON.parent))
+os.environ.setdefault("METTA_PATH", str(METTA_PYTHON.parent))
 
 import mettagrapher as pg
 from metta import MeTTa, S, V

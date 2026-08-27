@@ -75,7 +75,7 @@ The following projects are cloned and built by build.sh:
 
 The `metta` module is a full Python surface for the engine. The runtime is
 bundled, so nothing else needs a checkout. You can also use it in place from a
-clone with `PETTA_PATH` pointing at the tree. Install optional integrations by
+clone with `METTA_PATH` pointing at the tree. Install optional integrations by
 feature:
 
 ```bash
@@ -99,8 +99,8 @@ logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("metta").setLevel(logging.DEBUG)
 ```
 
-The same settings accept `PETTA_STACK_LIMIT`, `PETTA_HEARTBEAT_INTERVAL`,
-`PETTA_DECLARATION_LIMIT` and `PETTA_DISPLAY_ROWS` as positive decimal
+The same settings accept `METTA_STACK_LIMIT`, `METTA_HEARTBEAT_INTERVAL`,
+`METTA_DECLARATION_LIMIT` and `METTA_DISPLAY_ROWS` as positive decimal
 integers. Set `metta.config.stack_limit` and
 `metta.config.heartbeat_interval` before creating the first engine when you
 configure them in Python. The package installs only a `NullHandler`, so
@@ -541,8 +541,8 @@ A Jupyter kernel for PeTTa is available in a separate repository for interactive
 Quick install:
 
 ```bash
-# Set PETTA_PATH to this PeTTa installation
-export PETTA_PATH=/path/to/PeTTa
+# Set METTA_PATH to this PeTTa installation
+export METTA_PATH=/path/to/PeTTa
 
 # Clone and install the kernel
 git clone https://github.com/trueagi-io/jupyter-petta-kernel.git

@@ -81,10 +81,10 @@ command -v "$PY" >/dev/null 2>&1 || { echo "check.sh: no python found (set CHECK
 # numpy.absolute through numpy after alignment; command=sh check.sh no-autoload
 # parity; fixture=inherited MCP VIRTUAL_ENV with CHECK_PY auto-selected;
 # commit=d90a3c9620e56e42d3a2f5982b4353da8423e873].
-PETTA_CHECK_PREFIX=$(dirname "$(dirname "$PY")")
-if [ -f "$PETTA_CHECK_PREFIX/pyvenv.cfg" ]; then
-    VIRTUAL_ENV="$PETTA_CHECK_PREFIX"
-    PATH="$PETTA_CHECK_PREFIX/bin:$PATH"
+METTA_CHECK_PREFIX=$(dirname "$(dirname "$PY")")
+if [ -f "$METTA_CHECK_PREFIX/pyvenv.cfg" ]; then
+    VIRTUAL_ENV="$METTA_CHECK_PREFIX"
+    PATH="$METTA_CHECK_PREFIX/bin:$PATH"
     export VIRTUAL_ENV PATH
 fi
 
@@ -294,7 +294,7 @@ run GATE encoding     sh -c "cd '$HERE' && sh tests/test_engine_text_encoding.sh
 run GATE examples     check_examples
 
 # The specializer's whole claim, asserted over the whole corpus rather than
-# trusted: under PETTA_VERIFY_SPECIALIZATIONS every specialization is run
+# trusted: under METTA_VERIFY_SPECIALIZATIONS every specialization is run
 # against the generic call the first time it fires and the complete answer
 # lists are compared with variant equality, so a specialization that answers
 # differently throws instead of being believed. This is the workspace rule
@@ -315,17 +315,17 @@ check_specialization_differential() {
     # the seventh, import_error_broken.metta, never matched anything: it
     # lives under _fixtures/, which the find above excludes before any skip
     # is consulted [measured 2026-08-18].
-    PETTA_SKIPS=$(command grep -v '^#' tests/example_skips.txt | awk 'NF {print $1}')
-    export PETTA_SKIPS
+    METTA_SKIPS=$(command grep -v '^#' tests/example_skips.txt | awk 'NF {print $1}')
+    export METTA_SKIPS
     find examples -name '*.metta' ! -path '*_fixtures*' -print0 |
         xargs -0 -P "$(nproc 2>/dev/null || echo 4)" -I {} sh -c '
             case "
-$PETTA_SKIPS
+$METTA_SKIPS
 " in *"
 $1
 "*) exit 0 ;;
             esac
-            out=$(PETTA_VERIFY_SPECIALIZATIONS=1 timeout 120 swipl \
+            out=$(METTA_VERIFY_SPECIALIZATIONS=1 timeout 120 swipl \
                       --stack_limit=8g -q -s engine/main.pl -- "$1" backends \
                       silent </dev/null 2>&1) || true
             case "$out" in

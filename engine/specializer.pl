@@ -494,7 +494,7 @@ support_graph:support_invalidation_action(specialization(Module, SpecName)) :-
 metta_verifying_specializations :-
     (   metta_pragma('verify-specializations', V), V \== false, V \== none
     ->  true
-    ;   getenv('PETTA_VERIFY_SPECIALIZATIONS', Set), Set \== '0'
+    ;   getenv('METTA_VERIFY_SPECIALIZATIONS', Set), Set \== '0'
     ).
 
 %Answers exactly what the specialization answers, after establishing once
@@ -593,7 +593,7 @@ metta_specialization_verdict(SpecName, raised(Error)) :-
 
 %The bound, in inferences, tunable for a deeper sweep.
 metta_specialization_budget(Budget) :-
-    (   getenv('PETTA_VERIFY_BUDGET', Text), atom_number(Text, N), N > 0
+    (   getenv('METTA_VERIFY_BUDGET', Text), atom_number(Text, N), N > 0
     ->  Budget = N
     ;   Budget = 200000
     ).

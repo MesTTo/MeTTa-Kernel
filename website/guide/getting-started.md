@@ -6,7 +6,7 @@ Guarantees: examples use the current narrow public surface.
 
 # Install and first steps
 
-The `metta` module is the Python surface for the engine. Install the `pymetta` distribution from the repository root with `pip install .`. The runtime is bundled. To use a checkout in place, point `PETTA_PATH` at the repository tree.
+The `metta` module is the Python surface for the engine. Install the `pymetta` distribution from the repository root with `pip install .`. The runtime is bundled. To use a checkout in place, point `METTA_PATH` at the repository tree.
 
 The shortest spelling needs no instance at all: the module functions run over one lazily created default engine, `random`'s and `logging`'s own shape, and `metta.engine()` hands the context over the moment you want control.
 

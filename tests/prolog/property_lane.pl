@@ -47,7 +47,7 @@
 %       the pack's own extension point [source: vendor/quickcheck.pl].
 % Guarantees:
 %     - a gate run is deterministic: the seed and the test count are fixed
-%       constants unless PETTA_PROPERTY_SEED or PETTA_PROPERTY_TESTS override
+%       constants unless METTA_PROPERTY_SEED or METTA_PROPERTY_TESTS override
 %       them [tested: property_lane_determinism].
 %     - property_lane_selftest/0 fails unless each of the five plants is caught
 %       and the shipped printer and reader are not, so "100 tests OK" cannot
@@ -63,8 +63,8 @@
 % Decides:
 %     - the gate seed is 20260819 and the gate runs 100 cases per law, which is
 %       quickcheck's own default. Widening locally is
-%       `PETTA_PROPERTY_TESTS=10000 swipl -g run_tests -t halt property.plt`,
-%       and PETTA_PROPERTY_SEED=random draws a fresh seed per run.
+%       `METTA_PROPERTY_TESTS=10000 swipl -g run_tests -t halt property.plt`,
+%       and METTA_PROPERTY_SEED=random draws a fresh seed per run.
 %     - generated terms are at most 3 deep and 4 wide. Depth is what costs, and
 %       the laws here are about the reader, the writer and the special-form
 %       dispatch, none of which has a rule that only fires below depth 3.
@@ -99,7 +99,7 @@
 % generator is process-global. So one set_random/1 before the call fixes the
 % whole call, and the wrapper is the whole mechanism.
 property_seed(Seed) :-
-    (   getenv('PETTA_PROPERTY_SEED', Text)
+    (   getenv('METTA_PROPERTY_SEED', Text)
     ->  (   Text == random
         ->  Seed = random
         ;   atom_number(Text, Seed)
@@ -108,7 +108,7 @@ property_seed(Seed) :-
     ).
 
 property_test_count(Count) :-
-    (   getenv('PETTA_PROPERTY_TESTS', Text)
+    (   getenv('METTA_PROPERTY_TESTS', Text)
     ->  atom_number(Text, Count)
     ;   Count = 100
     ).

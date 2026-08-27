@@ -48,7 +48,7 @@ every run.
 
 ## Install and first call
 
-`pip install .` (the runtime is bundled) or point `PETTA_PATH` at a clone.
+`pip install .` (the runtime is bundled) or point `METTA_PATH` at a clone.
 
 ```python
 from metta import MeTTa, S, V, G, ground, Expression, equation, rules, parse
@@ -441,7 +441,7 @@ m.stats()      with-block yielding .inferences (deterministic, gate on this),
 m.profile(src) -> (groups, EngineProfile), per predicate
 m.profile_extension(src, extension=, names=)  only YOUR functions
 m.prolog()                    the engine's own interactive toplevel
-metta.engine().info() -> versions of metta, janus, swi_prolog, python, petta_path
+metta.engine().info() -> versions of metta, janus, swi_prolog, python, metta_path
 ```
 
 Errors: `MettaError` is the base, then `EngineError`, `MettaSyntaxError`,

@@ -52,7 +52,7 @@
 %     registered, sread_mode/3 and sread_with_names_mode/4 answer through the
 %     C reader, whose results are variant-identical to this file's grammar
 %     over the whole shipped corpus, an adversarial battery, and generated
-%     number spellings, errors and failures included; PETTA_C_READER=off or
+%     number spellings, errors and failures included; METTA_C_READER=off or
 %     a missing artifact keeps every parse on the grammar below [tested:
 %     reader_c in tests/prolog/reader_c.plt; commit=d1093b8bbf5d36b18a3a36fd2536eadc5d04fea3].
 % Owns resources:
@@ -123,7 +123,7 @@
 %while metta_reader_mode(shipped) holds; the Prolog grammar in this file
 %remains the reader's specification, the custom-token path, and the fallback
 %wherever the artifact is absent, exactly the backends' artifact-presence
-%pattern. PETTA_C_READER=off keeps the Prolog reader even when the artifact
+%pattern. METTA_C_READER=off keeps the Prolog reader even when the artifact
 %exists, which is what the differential suite and the fallback benchmarks
 %use. The stub clauses keep both foreign names defined for the engine's
 %undefined-predicate gate when the artifact is absent; the
@@ -135,7 +135,7 @@
    assertz(metta_reader_artifact(SO)).
 
 metta_try_load_c_reader :-
-    (   \+ getenv('PETTA_C_READER', off),
+    (   \+ getenv('METTA_C_READER', off),
         metta_reader_artifact(SO),
         exists_file(SO),
         catch(load_foreign_library(SO), _, fail),

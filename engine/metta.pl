@@ -995,7 +995,7 @@ load_prelude_translator_rule(Name, Declarations, Src) :-
 %write-door flag exists and every mutation route keeps its original cost.
 %Keep this read-only host service after the loader predicates it does not call:
 %its clause layout then cannot perturb the save-load-metta hot path [measured 2026-08-23:
-%save-load-metta 9,223,648 inferences; command=PETTA_BENCHMARK_COUNTERS=1
+%save-load-metta 9,223,648 inferences; command=METTA_BENCHMARK_COUNTERS=1
 %PYTHONPATH=bindings/python python -m pytest
 %-q bindings/python/benchmarks/test_benchmarks.py::test_save_load_metta;
 %fixture=deterministic benchmark harness; commit=fc08223618651c122c7e3bfa9f269d03ff1c0932].

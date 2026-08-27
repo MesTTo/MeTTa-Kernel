@@ -22,7 +22,7 @@ printf '!(import! &self (library lib_roman))\n!(map-flat (+ 1) (1 2 3))\n' \
 
 (
     cd "$fixture/unrelated cwd"
-    unset PETTA_PATH
+    unset METTA_PATH
     "$fixture/venv/bin/metta" "$fixture/basic.metta" > "$fixture/basic.log"
     "$fixture/venv/bin/metta" "$fixture/import.metta" > "$fixture/import.log"
     "$fixture/venv/bin/metta" "$fixture/roman.metta" > "$fixture/roman.log"
