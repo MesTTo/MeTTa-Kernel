@@ -1592,6 +1592,36 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **`check.sh` discovers each component's lanes instead of listing them, and
+  one `metta` CLI replaces five root scripts.** The gate named
+  `bindings/node`'s lane and `bindings/cetta`'s lane in its own body, which is
+  the defect `ai-cetta-c-constraints.md` C4 filed as "a new seat is three
+  registrations, not one folder". Those lanes live in
+  `bindings/node/check.sh` and `bindings/cetta/check.sh` now, and the gate
+  SOURCES every `engine/check.sh`, `backends/*/check.sh` and
+  `bindings/*/check.sh` it finds.
+
+  Sourced rather than executed, deliberately: executing them would make each
+  component report its own status, and a driver that loses a child's exit code
+  is exactly how a red lane reads green. Sourcing keeps one `run`, one summary
+  table and one exit status.
+
+  That move had a trap under it. `tests/checks/evidence_runners.py` models which
+  files a lane executes by READING the gate's text, from a hardcoded tuple of
+  four scripts, so a lane that leaves `check.sh` leaves that model too and its
+  files read as unrun. The tuple discovers component scripts now. Measured: it
+  restores exactly one file, `bindings/node/test/atom.test.ts`, and no evidence
+  tag cites that file today -- so this closes a latent gap as component lanes
+  grow rather than repairing a live break.
+
+  `./metta` carries the verbs: `build`, `check`, `test`, `run`, `bench` and
+  `list`. Each delegates to the script that already existed, which stays
+  runnable on its own because CI and the documentation invoke them directly.
+  `list` is the one that pays for itself -- it reports every component, which
+  contract files it carries, and whether it can build HERE with the missing
+  prerequisite named -- and it builds nothing to answer, verified by deleting
+  `engine/reader.so` and confirming `list` leaves it deleted.
+
 - **Every component now ignores its own build products and builds itself.**
   The root `.gitignore` carried six blocks naming paths in other components --
   the chapter 19 objects, `engine/reader.so`, five `bindings/cetta` products,

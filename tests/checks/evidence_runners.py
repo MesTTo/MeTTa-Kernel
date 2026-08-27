@@ -58,15 +58,33 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
+def _component_runners() -> tuple[str, ...]:
+    """Every component's own check.sh, discovered the way check.sh sources them.
+
+    A component's lanes moved out of the root gate into its own directory, and
+    this list was four hardcoded names. A lane the evidence model cannot see is
+    a lane whose paths look unrun, so a claim citing a file only that lane runs
+    reads as unbacked. Measured 2026-08-28: discovery restores exactly one file
+    to the executed model, bindings/node/test/atom.test.ts, and no tag cites it
+    today -- so the exposure is latent rather than realised, and this exists to
+    keep it that way as component lanes grow, not to repair a live break.
+    """
+    found = []
+    for pattern in ("engine/check.sh", "backends/*/check.sh", "bindings/*/check.sh"):
+        found += [str(p.relative_to(ROOT)) for p in sorted(ROOT.glob(pattern))]
+    return tuple(found)
+
+
 # Every script that runs part of this repository. check.sh is the gate; test.sh
 # is reached from it and owns the example corpus; the two workflows run check.sh
-# and, in ci.yml's case, three shell suites it does not.
+# and, in ci.yml's case, three shell suites it does not; and each component's
+# own check.sh, which the gate SOURCES so its lanes share one summary.
 RUNNERS = (
     "check.sh",
     "test.sh",
     ".github/workflows/checks.yml",
     ".github/workflows/ci.yml",
-)
+) + _component_runners()
 
 # `run TIER NAME COMMAND...`, check.sh's own lane declaration, and the shell
 # functions those lanes call. A lane's text is the command plus the body of

@@ -340,77 +340,25 @@ run GATE git-dependency sh -c "cd '$HERE' && sh tests/shell/test_git_dependency.
 run GATE git-import     sh -c "cd '$HERE' && sh tests/shell/test_git_import.sh"
 run GATE loader-threads sh -c "cd '$HERE' && sh tests/shell/test_loader_concurrency.sh"
 
-# The Node binding, which is the seam's second consumer. It runs the engine in
-# a WebAssembly SWI inside a Node process, so it needs neither the SWI on this
-# machine nor janus. It is a TypeScript library, and its own suite covers the
-# atom algebra, the codec, the boot inventory, the lazy answer surface, the
-# three definition doors, the scopes and the extension tier. The conformance
-# corpus is compared against the Python host by
-# bindings/python/tests/ch21_another_language_at_the_seam/test_node_binding.py,
-# in the pytest lane above.
+# Every component's own lanes, DISCOVERED. A component is a directory with a
+# check.sh, the same rule the engine applies to a decider and build.sh applies
+# to a build; adding a seat needs no edit here, which is the defect
+# ai-cetta-c-constraints.md C4 filed as "a new seat is three registrations, not
+# one folder".
 #
-# swipl-wasm is an npm dependency and this does not fetch it: a gate that
-# reaches the network is a gate that fails for a reason that is not the tree.
-# It says which step is missing instead, the same shape the C extension example
-# above takes when swipl-ld is absent.
-check_node_binding() {
-    binding="$HERE/bindings/node"
-    [ -d "$binding" ] || return 0
-    if ! command -v node >/dev/null 2>&1; then
-        echo "note: node not found, the Node binding suite will not run" >&2
-        return 0
-    fi
-    if [ ! -d "$binding/node_modules/swipl-wasm" ]; then
-        echo "note: run 'npm ci' in bindings/node, the Node binding suite will \
-not run without swipl-wasm" >&2
-        return 0
-    fi
-    # The binding is TypeScript, and this COMPILES it and runs the build rather
-    # than running the sources. Node's own type stripping would be the shorter
-    # route, but a distro build is often compiled without it
-    # (`node -p process.config.variables.node_use_amaro` answers false on
-    # Debian and Ubuntu), and a gate that only ran on the official build would
-    # not run at all on the machine that most needs it. The build also
-    # downlevels `using`, which Node 22's V8 does not carry.
-    # The path is spelled out rather than reached through $binding because the
-    # evidence gate models which files a lane runs by reading this text, and it
-    # resolves $HERE/ and not a local variable. Without the literal it cannot
-    # see bindings/node/test/*.test.ts at all, and every evidence claim naming
-    # one of those tests reads as unbacked.
-    ( cd "$HERE/bindings/node" && npm run --silent typecheck && npm run --silent test )
-}
-run GATE node-binding check_node_binding
+# SOURCED rather than executed, deliberately. Executing them would make each
+# component responsible for reporting its own status, and a driver that loses a
+# child's exit code is exactly how a red lane reads green -- the pipeline hazard
+# this repository already records. Sourcing keeps one `run`, one summary table
+# and one exit status, and keeps every lane's text where the evidence gate can
+# read it.
+for component_check in "$HERE"/engine/check.sh \
+                       "$HERE"/backends/*/check.sh \
+                       "$HERE"/bindings/*/check.sh; do
+    [ -f "$component_check" ] || continue
+    . "$component_check"
+done
 
-# The C binding, the seam's third consumer and the only one that is IN the
-# engine's process. A C main() calls PL_initialise, registers its foreign
-# predicates, and consults the engine; bindings/cetta/decider.pl sees
-# '$cetta_present'/0 and loads the bridge beside it. Because there is no
-# language boundary to cross, this seat reads engine terms directly and has no
-# wire codec, so the codec kit cannot gate it; what gates it instead is its own
-# C suite here and the cross-seat parity case in the pytest lane above, which
-# requires this binding and the Python host to answer the same programs.
-#
-# It needs a C compiler and SWI's development headers. Neither is fetched: a
-# gate that reaches the network is a gate that fails for a reason that is not
-# the tree, so a missing step is named and skipped, the same shape the C
-# extension example and the Node lane take.
-check_c_binding() {
-    binding="$HERE/bindings/cetta"
-    [ -d "$binding" ] || return 0
-    if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
-        echo "note: no C compiler found, the C binding suite will not run" >&2
-        return 0
-    fi
-    if [ ! -f "$(swipl --dump-runtime-variables 2>/dev/null \
-                  | sed -n 's/^PLBASE="\(.*\)";$/\1/p')/include/SWI-Prolog.h" ]; then
-        echo "note: SWI-Prolog development headers not found, the C binding \
-suite will not run" >&2
-        return 0
-    fi
-    ( cd "$binding" && make --quiet clean >/dev/null 2>&1
-      cd "$binding" && make --quiet test )
-}
-run GATE c-binding check_c_binding
 
 # Undefined predicates in the engine. Nothing checked the Prolog side before
 # this; SWI has had the check built in all along.
