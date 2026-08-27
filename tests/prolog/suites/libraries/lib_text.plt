@@ -351,4 +351,25 @@ test(dict_space_refuses_an_entry_that_is_not_a_pair) :-
 test(malformed_json_raises_rather_than_answering_empty) :-
     catch('json-decode'("{not json", _), _, true).
 
+% Both of these came with engine/json_codec.pl, the one JSON door this file
+% and the Python binding's wire codec now share.
+test(trailing_content_after_a_document_is_refused) :-
+    catch('json-decode'("{\"a\": 1} {\"b\": 2}", _),
+          error(syntax_error(json(trailing_content)), _),
+          true),
+    'json-decode'("{\"a\": 1}  \n\t ", Space),
+    findall(One, 'get-value'(Space, a, One), Ones), Ones == [1].
+
+test(encoding_answers_one_line) :-
+    numlist(1, 60, Numbers),
+    'json-encode'(Numbers, Text),
+    \+ sub_string(Text, _, _, _, "\n"),
+    'json-decode'(Text, Back), Back == Numbers.
+
+test(a_non_finite_number_cannot_be_encoded) :-
+    Infinite is inf,
+    catch('json-encode'([Infinite], _),
+          error(domain_error(finite_number, _), _),
+          true).
+
 :- end_tests(lib_json).

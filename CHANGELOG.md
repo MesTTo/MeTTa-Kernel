@@ -8,6 +8,79 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **JSON is answered in C, and library(json) stays the specification.**
+  `engine/json_codec.c` reads and writes JSON directly to and from Prolog
+  terms, behind `engine/json_codec.pl`, the one JSON door this repository now
+  uses: the Python binding's network codec and `lib/lib_json`'s MeTTa surface
+  both go through it, so there is still exactly ONE JSON implementation for
+  the whole system, which is why `orjson` was removed in the first place.
+
+  The cost it removes was measured before it was written. SWI's
+  `library(json)` is mostly Prolog -- only four of its predicates are foreign,
+  `json_read_number/3`, `json_skip_ws/3`, `json_write_string/2` and
+  `json_write_indent/3` -- and its reader takes strings apart one character at
+  a time: an SWI profile of `json_read_dict/3` over the shipped 25,017-byte
+  `json-wire` payload puts 35.1% of self time in `system:get_code/2` and 21.2%
+  in `json:json_string_codes/3`, and draining that document through
+  `get_code/2` alone costs 689 of decode's 1,424 microseconds. Its dict door
+  also parses the whole document into the classic `json(Pairs)` shape and then
+  converts that to dicts. Measured on the shipped payload, per call, minimum of
+  five windows: reading a dict 1,313.5 to 117.0 microseconds (11.2x), writing
+  one 894.9 to 156.3 (5.7x), reading the classic shape 1,211.6 to 136.8
+  (8.9x), writing it 809.7 to 177.3 (4.6x). End to end the `json-wire` round
+  trip falls from 2,627.85 to 482.97 microseconds of process CPU, 5.44x, and
+  its retired instructions from 125,984,226,952 to 22,670,111,346 -- not the
+  33x that row's comment recorded, and not reachable: the janus crossing alone
+  is 207.77 of those microseconds, so a free codec would still leave a ceiling
+  of 12.6x. CPython's own C-accelerated `json` does the same round trip in
+  137.52 microseconds without crossing anything.
+
+  The MeTTa surface gains less, because less of its cost is JSON:
+  `(json-decode ...)` of the same document falls from 3,186.3 to 2,224.0
+  microseconds, 1.43x, since minting a space per object and adding an atom
+  per pair is 89% of what is left; `(json-encode ...)` falls from 1,884.1 to
+  717.3, 2.63x.
+
+  Nothing here approximates. The C path answers a document EXACTLY as
+  `library(json)` answers it or it FAILS, and a failure is the seam's signal to
+  run the Prolog implementation, so every JSON error term, message and stream
+  position is the one this repository has always produced. What it declines is
+  pinned as its own test: a lone surrogate, a number outside strict JSON syntax
+  (`01` and `1.`, which Prolog's own number parser reads its own way), a
+  trailing comma, text after the value, a duplicate key, nesting past 1,000,
+  a non-finite or rational number, and any term the writer does not recognise.
+  Numbers are converted by SWI itself wherever exactness is at stake:
+  `PL_put_term_from_chars` for an unbounded integer, exactly as SWI's own
+  `json_read_number/3` does, and `PL_get_nchars(CVT_NUMBER)` for writing, which
+  is the same `format_float()` call `write/1` makes -- 300,000 random doubles
+  and 12 edge cases produced identical text through both.
+
+  `tests/prolog/suites/libraries/json_codec.plt` is the gate, and it compares
+  the two implementations inside ONE process rather than against a remembered
+  answer: 125 hand-written documents covering structure, every escape, the
+  surrogate cases, the number boundaries and the hazard set, plus 800 generated
+  documents whose strings draw from control characters, the two escaped
+  characters, ASCII, Latin-1, the basic plane and the astral plane, each read
+  and written through both paths in both shapes. It also pins which documents
+  the C path ANSWERS, because a C path that quietly declined everything would
+  satisfy every agreement test in the file while measuring nothing. The same
+  comparison over all 318 files of `nst/JSONTestSuite` reports zero
+  disagreements in either shape or either direction, and the C reader answers
+  93 of its 95 must-accept files (the two it declines are the duplicate-key
+  cases this codec refuses anyway).
+
+  Two of `library(json)`'s own extension points would break that agreement if
+  anything used them: `json_dict_pairs/2` replaces a dict's key order and
+  `json_write_hook/4` replaces how a term is emitted, and the C writer knows
+  neither. A process that defines one gets the Prolog writer for everything
+  rather than two writers that disagree.
+
+  `METTA_C_JSON=off`, or a missing `engine/json_codec.so`, keeps every
+  conversion on `library(json)`; both configurations run green.
+
+  `engine/build.sh` now discovers the C units beside it instead of naming
+  `reader.c`, so a second one needs no edit there.
+
 - **The example corpus's teaching order is now CHECKED.** The law is that a
   file may use only constructs introduced at or before its own number, and it
   was previously a statement in a design note that nothing enforced. Three
@@ -735,6 +808,32 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   measured quadratic or linear-in-program costs with flat ones.
 
 ### Changed
+
+- **Two lanes stopped measuring what they named, because the JSON they were
+  standing on moved into C.** Both counted inferences, and inferences are
+  blind across a foreign boundary.
+
+  `test_two_answers_cross_the_wire_without_the_third_being_computed` compared
+  the lazy door against the eager one twice, and what made those comparisons
+  true was the CLIENT decoding the reply with `library(json)`: an eager reply
+  carrying ten thousand atoms cost 1,490,407 inferences to read where two
+  atoms cost 1,250. With `engine/json_codec.c` the same run reads 77 for both
+  eager sizes, so the counter stopped seeing reply volume and both
+  comparisons went vacuous, then red. They count atoms now, which is what
+  they were always about and what no codec can blind. The claim the counter
+  can still see, that two answers cost the same whatever is behind them,
+  stays in inferences.
+
+  `test_the_json_wire_row_is_not_registered_engine_free` put a floor under one
+  round trip's inference count, and that floor was the Prolog codec's own
+  size. A trip is 72 inferences now and 84,725 under `METTA_C_JSON=off`, both
+  of them engine work. It measures the SCALING instead: ten trips cost about
+  ten times one, which an engine-free codec cannot do at any magnitude.
+
+- `lib_json`'s `json-encode` answers one line rather than `library(json)`'s
+  default `width(72)` layout, and `json-decode` refuses text after the
+  document. Both follow from the two callers sharing `engine/json_codec.pl`;
+  the compact form is what the network codec has always produced.
 
 - **`bindings/` and `backends/` are one folder, `extensions/`, reached by one
   glob behind one argv token.** The four seats keep their names:
@@ -1639,6 +1738,44 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- **A worktree provisions every engine C artefact, not the reader by name.**
+  `worktree.sh` compiled `engine/reader.c` and nothing else, so the day the
+  engine gained a second C unit a worktree set up with it would have run that
+  unit's Prolog fallback while its counters were compared against pins
+  measured in C: `json-wire` reads 178,013 inferences with
+  `engine/json_codec.so` and 169,336,779 without. It runs `engine/build.sh`
+  now, which discovers what is beside it, and
+  `tests/shell/test_worktree_configuration.sh` checks the property rather
+  than a file name, so a third artefact is covered without another edit.
+
+- **A JSON document with a key named `py` lost that key.** The network
+  decoder passed `tag(py)` to `json_read_dict/3` under a comment saying it made
+  read dicts cross janus the way written ones arrive. `tag/1` does not do that.
+  It names the object KEY whose value becomes the decoded dict's tag, and that
+  pair is then REMOVED: `{"py": "x", "a": 1}` decoded to `{'a': 1}`, silently,
+  in both directions of a round trip. Nothing needed the option -- an ordinary
+  object has no such key, so the tag stayed unbound either way, and janus makes
+  a Python dict of a tagged and an untagged dict alike, measured both ways. The
+  option is gone and the key survives.
+
+- **The `json-wire` benchmark's wall figure was the removed `orjson` path's.**
+  It read 7.741356699261814e-05 seconds a round trip, 77.4 microseconds, which
+  is what `orjson` cost; the engine codec that replaced it on 2026-08-17 costs
+  2,811.68, so the advisory number sat 36x adrift while the counters beside it
+  were re-pinned four times. Re-measured with the rest.
+
+- **`lib_json` encoded a document over many lines.** `json-encode` used
+  `atom_json_term/3` with library(json)'s default `width(72)`, which switches
+  to a vertical layout once a value passes 72 columns: the shipped `json-wire`
+  payload came back as 32,643 characters of tab-indented text where the
+  document itself is 25,017. It answers one line now, the same text the network
+  codec produces for the same value, and anything already inside 72 columns is
+  unchanged because library(json) was already laying those out horizontally.
+
+- **`json-decode` ignored whatever followed the document.** `(json-decode "1 2")`
+  answered 1. The network codec has always refused a second value in one text;
+  both go through the same door now, so both refuse it.
 
 - **A seatless engine crashed asking a question no seat was there to answer.**
   `engine/metta/space_hooks.pl` forwards two questions to a host -- is this
