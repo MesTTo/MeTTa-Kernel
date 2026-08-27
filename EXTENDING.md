@@ -1750,6 +1750,41 @@ nothing at boot, and one whose needs hold and whose entry is broken raises.
 The first decision is your control file's; the second needs no decision at
 all.
 
+#### Saying that a library rests on a seat
+
+A seat loads at boot. A `lib/` module loads when a program imports it. When
+the second rests on the first, say so in its first form:
+
+```metta
+!(require-extension! mork)
+```
+
+It answers the unit and costs one indexed lookup when the seat is loaded.
+When it is not, it refuses and the message is TRANSITIVE — it names the
+extension, why that extension is not loaded, and the command that clears it:
+
+```
+'lib/lib_mm2/lib_mm2.metta': extension mork is required and not loaded:
+artefact extensions/mork/mork_ffi/target/release/libmork_ffi.so is absent
+(run extensions/mork/build.sh) (while loading MeTTa file)
+```
+
+The requiring file comes from the loader's own frame rather than from the
+form, so a require typed at a REPL names only what is missing. A need of kind
+`extension(Other)` is followed into `Other`'s own cause, so a chain two seats
+deep is one message; the walk carries a seen list and reports a cycle instead
+of looping.
+
+`lib/lib_mm2/lib_mm2.metta` is the shipped case. It is five operators over
+`&mork` calling MORK's own builtins, and before this door existed it had zero
+presence checks: on a tree where the FFI was never built, each of the five
+failed at call time with nothing naming the cause. PostgreSQL has the same
+two-half split and answers it the same way — `pg_stat_statements` is a
+preloaded C module plus a per-database `CREATE EXTENSION`, and the second
+without the first raises `pg_stat_statements must be loaded via
+shared_preload_libraries`. What this adds is that `needs/1` is data, so the
+cause can be followed and the message can end in the remedy.
+
 One thing your file must NOT do: load a library that installs a
 process-global `system:goal_expansion/2` or `system:term_expansion/2` that
 can REFUSE source it does not understand. Those hooks run while compiling

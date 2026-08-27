@@ -587,6 +587,10 @@ space_operation_capability(import_prolog_functions_from_module, process).
 space_operation_capability(import_prolog_functions_from_module_pred, process).
 space_operation_capability(register_metta_library_path, file).
 space_operation_capability('git-import!', network).
+%A require answers from the loader's records where it can and stats the seat
+%directory where it cannot, which is a file read however small, so a restricted
+%space needs the same grant `exists_file` needs to ask the same question.
+space_operation_capability('require-extension!', file).
 
 restricted_profile_name([], Core) :- !, restricted_core_module(Core).
 restricted_profile_name(Grants, Module) :-
