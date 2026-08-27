@@ -78,13 +78,16 @@
 %     declaring itself a meta-predicate, which is why the walk is SWI's now
 %     and its four doors are asserted as real clauses and walked for real.
 %   - Two of those five, the compile-time-helper walk and the live-hook scan,
-%     plant into a SECOND module as well as the one &self compiles into today,
-%     one created at runtime and named and classed the way a Phase 11
+%     plant through a SECOND module as well as the one &self compiles into
+%     today, one created at runtime and named and classed the way a Phase 11
 %     execution module will be, and both plants have to be found for the
 %     check to accept a clean result. That is the module-agnostic discovery
 %     proved against two topologies at once, not just asserted
 %     [measured 2026-08-19: no_compile_time_helper_in_a_compiled_body and
-%     no_cut_in_a_live_hook_clause below].
+%     no_cut_in_a_live_hook_clause below]. The live-hook scan's PAIR is two
+%     clause references and not two modules holding a clause each, because the
+%     seam it plants is module-qualified; the note above that check carries the
+%     measurement and what the plant does and does not prove.
 % Fails when:
 %   - a function is compiled into a space whose storage is FOREIGN (backed by
 %     an external provider such as MORK) rather than native. The module
@@ -364,12 +367,29 @@ library_source(Library) :-
 % A second, DIFFERENT space is planted alongside &self, created at runtime and
 % given its execution module by space_module/2 exactly as a real one is, and
 % registered as a known space the same way (engine/spaces.pl's
-% native_storage_module_cache/2). Seeing both is the two-space proof: one
-% plant lands in &self's module and the other in a module that did not exist
-% when this file was loaded, and the walk has to find both without being told
-% where either one is. The plant asks space_module/2 for the module rather
-% than using the space's own name: those were the same atom for every space
-% but &self before Phase 11, and are different atoms for all of them now.
+% native_storage_module_cache/2), so candidate_engine_module/1 has to discover
+% a module that did not exist when this file was loaded. The plant asks
+% space_module/2 for the module rather than using the space's own name: those
+% were the same atom for every space but &self before Phase 11, and are
+% different atoms for all of them now.
+%
+% WHAT THE TWO PLANTS PROVE, measured rather than assumed: both CLAUSES land
+% in module `seam`, because Planted is already qualified and SWI resolves
+% M1:(M2:Head) to M2. The discovery half is still exercised -- the walk
+% enumerates the runtime-created module and reaches the seam's clauses through
+% it -- but the pair is two clause REFERENCES that distinct/2 has to keep
+% apart, not two modules holding a clause each
+% [measured 2026-08-28: after both asserts, module seam holds
+% [true, user:(!,fail), user:(!,fail)] and each execution module holds none].
+%
+% The removal is by clause REFERENCE. assertz/1 stores the body of a clause
+% whose head resolves to another module qualified with the CALLING context, so
+% the clause above is stored as `user:(!,fail)` and
+% retract((Module:Planted :- (!, fail))) cannot match it. That retract led a
+% cleanup CONJUNCTION, and setup_call_cleanup/3 ignores a cleanup that fails,
+% so both planted cuts and the fixture's storage row survived every run: the
+% space-name scan below reported the fixture as a registered space with no '&'
+% prefix, which is how this was found [measured 2026-08-28].
 live_scan_sees_a_planted_cut :-
     aggregate_all(count, live_hook_clause(_, _), Live),
     Planted = seam:function_removed(_),
@@ -377,23 +397,23 @@ live_scan_sees_a_planted_cut :-
     Fixture = '$static-check-fixture:&hook-probe',
     space_module(Fixture, FixtureModule),
     setup_call_cleanup(
-        ( assertz((TodayModule:Planted :- (!, fail))),
+        ( assertz((TodayModule:Planted :- (!, fail)), TodayRef),
           assertz(native_storage_module_cache(Fixture, unused)),
-          assertz((FixtureModule:Planted :- (!, fail))) ),
+          assertz((FixtureModule:Planted :- (!, fail)), FixtureRef) ),
         aggregate_all(count,
                       ( live_hook_clause(_, Body), cut_in_clause_scope(Body) ),
                       Seen),
-        ( retract((TodayModule:Planted :- (!, fail))),
+        ( erase(TodayRef),
           retractall(native_storage_module_cache(Fixture, _)),
-          retract((FixtureModule:Planted :- (!, fail))) )),
+          erase(FixtureRef) )),
     (   Seen >= 2
     ->  format("static: no cut in any of ~d live clauses of the seams whose \c
-                kind says every clause runs, and the scan saw a planted \c
-                cut in today's module and in a second, runtime-created \c
-                one~n", [Live])
+                kind says every clause runs, and the scan saw both cuts \c
+                planted through today's module and through a second, \c
+                runtime-created one~n", [Live])
     ;   format(user_error,
-               'the live hook scan saw ~d of 2 planted cuts across two \c
-                modules, so its clean result says nothing~n', [Seen]),
+               'the live hook scan saw ~d of 2 planted cuts, so its clean \c
+                result says nothing~n', [Seen]),
         fail
     ).
 

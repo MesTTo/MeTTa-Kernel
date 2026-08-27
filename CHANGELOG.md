@@ -1592,6 +1592,29 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **`static_checks.pl`'s live-hook plant is removed by clause reference, so it
+  stops surviving the run that planted it.** The check plants two cut-bearing
+  clauses of `seam:function_removed/1` and one storage-registry row, proves the
+  scan sees them, and removes them in a cleanup conjunction led by
+  `retract((Module:Planted :- (!, fail)))`. That retract could never match.
+  `assertz/1` qualifies the body of a clause whose head resolves to another
+  module with the CALLING context, so the clause is stored as `user:(!,fail)`,
+  and `setup_call_cleanup/3` ignores a cleanup that fails, so the conjunction
+  stopped at its first goal. Every run therefore left both planted cuts live on
+  a seam whose kind says every clause runs, and a space named
+  `$static-check-fixture:&hook-probe` in the storage registry, for the whole of
+  the rest of that run. Both are taken by the reference `assertz/2` returns now.
+  The same measurement corrects what the pair proves: both clauses land in
+  module `seam`, because the planted head is already module-qualified and SWI
+  resolves `M1:(M2:Head)` to `M2`, so the pair is two clause references
+  `distinct/2` has to keep apart rather than two modules holding a clause each.
+  The module-agnostic discovery half is unchanged, since the walk still has to
+  find the runtime-created execution module to reach them
+  [measured 2026-08-28: after both asserts, module `seam` holds
+  `[true, user:(!,fail), user:(!,fail)]` and each execution module holds none].
+  Found by the new registered-space-name scan, which reported the leaked
+  fixture as a space registered without the `&` prefix.
+
 - **A seat declares itself in a control file the engine reads, instead of a
   decider script the engine runs.** Every folder under `bindings/` and
   `backends/` used to carry a `decider.pl`, twelve lines of imperative Prolog
