@@ -2843,6 +2843,21 @@ process, with `get-type` answering the envelope's own class for all of them.
 The fallback exists for a bridge that is ABSENT, which is ordinary
 configuration, not for one that is broken.
 
+**`seam:host_transport_failure/1` and `seam:host_error_reason/2`** are the two
+questions the engine asks about a host's OWN exceptions. The first says whether
+an error term is your transport dying — the backend absent rather than wrong,
+so no declared keep-or-empty mode owns it and retrying is the caller's
+decision; the Python bridge's one clause matches its janus
+`python_error('TransportFailure', _)` wrapping. The second renders your
+exception as the reason inside a MeTTa `(Error <culprit> <reason>)` answer,
+for shapes only your bridge can read (a live exception object, say); an error
+no host claims renders through SWI's message system instead. Declare clauses
+for your own exception shapes only. Both are declared by the ENGINE, so a
+process with no host loaded answers no at one failed lookup — they were
+user-module hooks only the Python bridge declared once, and every seatless
+process, the WebAssembly host included, paid an `existence_error` where "no"
+was the answer.
+
 **A cut in one of these is a bug, and in the space hooks it is not.** The
 foreign-space hooks are dispatched by OWNERSHIP: exactly one provider answers,
 so a clause may cut after the guard that establishes the space is its own, and
