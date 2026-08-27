@@ -242,7 +242,8 @@
 %     build without one records the capability absent through
 %     petta_platform/4 and loads without an error, and every form that rests
 %     on it refuses by name saying what the absence costs [tested:
-%     platform_capabilities, platform_capabilities_reduced]. Cost: between
+%     platform_capabilities, platform_capabilities_reduced;
+%     commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb]. Cost: between
 %     +0.25% and +0.44% instructions:u on a boot, the range being the
 %     measurement's own layout sensitivity, which an inert padding block that
 %     neither side executes moves by about the same amount [measured
@@ -250,7 +251,8 @@
 %     1,067,019,910 with five inert rules, 1,063,925,775 -> 1,067,710,574 with
 %     ten; interleaved min-of-5, perf stat -e instructions:u, swipl -q -g halt
 %     -t halt -s engine/main.pl on twelve-character paths; boot inferences
-%     688,190 -> 690,780 and examples/basics/xor.metta identical at 9,289].
+%     688,190 -> 690,780 and examples/basics/xor.metta identical at 9,289;
+%     commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb].
 % Open Obligations:
 %   To Do: check.sh does not yet gate autoload=false; the exact line is
 %     `run GATE   no-autoload  sh -c "cd '$HERE' && NO_AUTOLOAD=1 sh

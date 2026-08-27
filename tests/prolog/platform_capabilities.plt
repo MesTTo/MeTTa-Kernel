@@ -21,7 +21,8 @@
 %     a_pragma_bound_refuses_by_name_when_deadlines_are_absent,
 %     hyperpose_refuses_by_name_when_concurrency_is_absent,
 %     a_library_that_declares_an_absent_capability_never_loads,
-%     git_import_refuses_by_name_when_subprocess_is_absent]
+%     git_import_refuses_by_name_when_subprocess_is_absent;
+%     commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb]
 % Fails when:
 %   - this platform is itself missing one of the three. The reduced unit is
 %     conditional on there being something to take away, and says so rather

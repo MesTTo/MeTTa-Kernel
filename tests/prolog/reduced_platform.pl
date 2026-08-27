@@ -9,7 +9,8 @@
 %     use_module and through the separate `autoload` alias for an autoloaded
 %     call, and both have to be repointed or the second finds what the first
 %     hid [measured 2026-08-27: with only the `library` alias repointed,
-%     (timeout 5 (+ 1 2)) answered 3 and process_create/3 ran git]
+%     (timeout 5 (+ 1 2)) answered 3 and process_create/3 ran git;
+%     commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb]
 % Guarantees:
 %   - the farm is a symlink mirror, so building it copies one file (INDEX.pl)
 %     and links the rest; cleanup unlinks the links and never follows one

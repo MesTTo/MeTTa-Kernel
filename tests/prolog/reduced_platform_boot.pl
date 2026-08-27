@@ -4,10 +4,9 @@
 %   suite can assert on them. Run as a child process by
 %   tests/prolog/reduced_platform.pl; never loaded by a suite directly.
 % Assumes:
-%   - argv carries the two farm directories built by
-%     reduced_platform:build_reduced_library/3, as `-- <library farm>
-%     <clib farm> [silent]`, and the engine source is two directories above
-%     this file
+%   - argv carries `reduced-platform=<root>` for the root
+%     reduced_platform:build_reduced_platform/1 built, holding a `library` and
+%     a `clib` farm, and the engine source is two directories above this file
 %   - the farms mirror SWI's library and clib extension directories by
 %     symlink, minus thread.pl, thread_pool.pl, time.pl and process.pl, and
 %     carry a COPIED INDEX.pl rather than a symlinked one, so the autoloader
@@ -15,7 +14,7 @@
 %     [measured 2026-08-27: with INDEX.pl symlinked, SWI resolved
 %     call_with_time_limit/2 to the real /usr/lib/swi-prolog tree and
 %     (timeout 5 (+ 1 2)) answered 3 on a platform that was supposed to
-%     have no library(time)]
+%     have no library(time); commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb]
 % Guarantees:
 %   - the four file_search_path/2 clauses that reach SWI's own library tree,
 %     two under the `library` alias and two under `autoload`, are replaced by
