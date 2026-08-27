@@ -707,6 +707,25 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **The notebook tour lives under the Python binding and is written in built
+  terms.** `notebooks/tour.ipynb` sat at the repository root while everything
+  else about the Python surface was under `bindings/python/`; it is
+  `bindings/python/notebooks/tour.ipynb` now, beside the `examples/`, `tests/`
+  and `tools/` it demonstrates. Its old form reached the engine through
+  `m.run("""...""")` in nine of fourteen cells, which is the one thing this
+  surface exists not to make you do: a string has to be parsed before it is
+  anything, and it is opaque to the editor, the type checker and `grep` until
+  then. Every structural argument is now a term the notebook builds, `m +=
+  S.Parent(S[older], S[younger])`, `m.match(S.Parent(V.parent, V.child))`,
+  `m.cast(S.Tom, S.Person)`, `m.trace(S["generation-score"](3))`,
+  `equation(S.ancestor(V.x)).to(fn.match(...))`, and the one cell that is still
+  MeTTa source is the `%%metta` cell, whose whole subject is that a MeTTa cell
+  and a Python cell share one session. The tour also gained the two cells the
+  library had grown past: `m.answers(...)` listing a bag of answers, and a
+  derivation picked by the answer it proves, so the proof shown is the one the
+  recursive equation reaches. Cells now carry the `id` nbformat has required
+  since 4.5.
+
 - **`tests/` is in folders by kind, and `tests/regression/` is gone.** Twenty
   loose files at the top became `checks/` (the Python gate scripts, each with
   the selftest that proves it can fail, plus the runner model), `shell/` (every
@@ -1522,6 +1541,13 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- The notebook lane reads either shape of a stored `text/html` output. It
+  compared the marker against whatever the JSON held, and nbformat stores a
+  multiline string as a LIST of lines, so the check passed only while the
+  shipped notebook happened to have been written by something that was not
+  nbformat. Saving the tour once from Jupyter would have turned the lane red
+  with nothing wrong.
 
 - A proof tree no longer reports the engine counting its own recursion. Every
   recursive equation compiles with a stack-depth charge in front of its body,

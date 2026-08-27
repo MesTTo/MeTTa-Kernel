@@ -56,3 +56,8 @@ engine/.qlf-stamp
 # were committed by accident on 2026-08-21 as part of an unrelated merge;
 # they are session debris, not a deliverable.
 .playwright-mcp/
+
+# Jupyter's autosave copies, written beside any notebook it opens. The shipped
+# notebook is bindings/python/notebooks/tour.ipynb and the gate re-executes it,
+# so a reader who opens it produces these on the first edit.
+.ipynb_checkpoints/

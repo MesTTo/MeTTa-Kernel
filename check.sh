@@ -1072,7 +1072,7 @@ run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
 # look wrong, and its entries are bare names because codespell prunes a walked
 # directory by NAME, so a ./-prefixed skip stops matching the moment a runner
 # passes explicit paths.
-run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib bindings/python/metta bindings/python/bench.py bindings/python/examples bindings/python/tests bindings/python/tools engine lib backends examples tests website notebooks .github *.md"
+run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib bindings/python/metta bindings/python/bench.py bindings/python/examples bindings/python/notebooks bindings/python/tests bindings/python/tools engine lib backends examples tests website .github *.md"
 # The remaining clones are small facade, protocol, and test-fixture mirrors;
 # extracting them would couple layers or hide the local contract.
 run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**,**/HE/**' bindings/python/metta bindings/python/tests"
