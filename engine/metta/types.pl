@@ -518,7 +518,11 @@ type_witness_direct(Module, X, T, Outcome) :-
 %against its own tuple type -4, which is the case this exists for. The two
 %unifications lead because they are inlined and decide the atom case at once,
 %where is_list/1 is a call costing two inferences on its own
-%[source: EXTENDING.md:1221-1230]. The arrow probe comes before the two list
+%[source: EXTENDING.md, "Dispatching on a value's type": is_list/1, is_dict/1
+%and blob/2 cost two inferences each where var/1, atom/1 and the rest are
+%inlined. Cited by section rather than by line: the line range this named
+%pointed at the platform census, two sections earlier, and drifted again when
+%that census grew]. The arrow probe comes before the two list
 %walks because an application is the shape that reaches here and is not a
 %tuple: after it, arrow-against-list costs 18 rather than 24. Running
 %tuple_positions_hold/3 before it instead costs 66, so the probe is cheaper

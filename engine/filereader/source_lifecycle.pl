@@ -30,11 +30,17 @@ metta_host_fast_header(Header) :-
     format(string(Header), 'METTA-CACHE\tMETTA-FAST\t2\t~d.~d.~d',
            [Major, Minor, Patch]).
 
-%A cache whose path ends .gz reads and writes through zlib's stream;
-%Python's gzip module accepts the same files and vice versa.
+%A file whose path ends .gz reads and writes through zlib's stream; Python's
+%gzip module accepts the same files and vice versa. Every .gz the engine opens
+%comes through here -- the cache's own reads and writes, and read_source_text/2
+%below for a .gz PROGRAM -- so this is the one place the compressed-sources
+%capability is required, and the refusal names the FILE, which is the part of
+%it a user can act on. A path that does not end .gz pays nothing: the guard is
+%inside the branch that needs it.
 metta_host_fast_open(File, Mode, Stream) :-
     (   file_name_extension(_, gz, File)
-    ->  gzopen(File, Mode, Stream, [type(binary)])
+    ->  metta_require_platform(File, 'compressed-sources'),
+        gzopen(File, Mode, Stream, [type(binary)])
     ;   open(File, Mode, Stream, [type(binary)])
     ).
 
@@ -64,8 +70,19 @@ metta_host_atom_carries_object(Term) :-
 %metta_unwritable_symbol/2 is the grammar's own answer to the second, so
 %asking it is what keeps this from holding a second copy of the delimiter
 %rules; the copy it replaced missed three classes.
+%
+%One of the two doors the fast cache has, and the capability is required at
+%each, before anything is read or written. The refusal names the FILE rather
+%than a MeTTa form because there is no MeTTa form: a binding calls these, and
+%the path is the part of the request its caller can act on. Refusing rather
+%than quietly writing something else is the point -- a save that answered
+%saved(N) after writing a text file would be a receipt for a payload that is
+%not there, and a fast cache is bytes only fastrw can read, so there is
+%nothing to fall back to. What DEGRADES on a build without this is the engine,
+%which never reads a cache of its own accord and so loads and runs unchanged.
 metta_host_save_fast(File, Space, Result) :-
     ( atom(File) -> FA = File ; atom_string(FA, File) ),
+    metta_require_platform(FA, 'fast-cache'),
     findall(Atom, 'get-atoms'(Space, Atom), Atoms),
     (   member(ObjectAtom, Atoms),
         metta_host_atom_carries_object(ObjectAtom)
@@ -139,8 +156,13 @@ metta_host_fast_expect_hash(In, File, Hash) :-
 %its own for that: the format already carries the sha256 of its payload,
 %the same question metta_source_digest/2 asks of a source's text
 %[tested test_loading_a_fast_cache_twice_leaves_one_copy].
+%
+%The other door. The guard is above absolute_file_name/3 on purpose: on a
+%build without the capability there is no cache to have been written either,
+%so the honest complaint is the missing capability and not the missing file.
 metta_host_load_fast(File, Space) :-
     ( atom(File) -> FA = File ; atom_string(FA, File) ),
+    metta_require_platform(FA, 'fast-cache'),
     absolute_file_name(FA, CanonPath, [access(read)]),
     import_when(true, Space, CanonPath,
                 replacing_previous_load(CanonPath, Space,
@@ -241,9 +263,16 @@ read_metta_source(Filename, S) :-
     ;   true
     ).
 
+%The .gz branch opens through metta_host_fast_open/3 rather than calling
+%gzopen/3 itself, so the engine has ONE gzip door and the capability is
+%required in one place. The stream it hands back is binary and this sets the
+%encoding on it, which is what the text-mode open did anyway: both routes read
+%the same UTF-8 [measured 2026-08-28: a source holding é, ö and an emoji reads
+%identically through gzopen/3 plus set_stream and through gzopen/4 with
+%type(binary) plus the same set_stream].
 read_source_text(Filename, S) :-
     ( file_name_extension(_, gz, Filename)
-      -> catch(setup_call_cleanup(gzopen(Filename, read, In),
+      -> catch(setup_call_cleanup(metta_host_fast_open(Filename, read, In),
                                   ( set_stream(In, encoding(utf8)),
                                     read_string(In, _, S) ),
                                   close(In)),

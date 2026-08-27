@@ -110,7 +110,12 @@
           ]).
 
 :- use_module(library(dcg/basics)). %atom//1, number//1, eos//0
-:- use_module(library(pcre)).
+%re_compile/3 for a registered token class's pattern and re_match/3 for
+%matching one. A census load rather than a bare use_module, because
+%library(pcre) is an SWI package a build can leave out and this file was one
+%of four that printed SWI's own source_sink error when it did. Narrow, so
+%pcre's other names stay out of this module.
+:- metta_platform_load(regex, [re_compile/3, re_match/3]).
 %shlib exists to load reader.so, and an embedding that cannot load shared
 %objects at all (the node binding's sandbox refuses the module itself) must
 %still boot: the reader seam already treats a failed foreign load as "use
@@ -210,7 +215,14 @@ metta_host_register_reader_token(Pattern, Constructor) :-
 metta_host_unregister_reader_token(Pattern) :-
     metta_unregister_reader_token(Pattern).
 
+%The one place a token class is compiled, so the one place the regex
+%capability is required: both doors above reach it, and a build without
+%library(pcre) can register no class at all. Nothing else in this file needs
+%the guard -- metta_reader_token_resolution/3's re_match/3 runs only over
+%metta_custom_reader_token/3, which is dynamic, starts empty, and can only
+%gain a row through here.
 metta_register_reader_token(Pattern0, Descriptor) :-
+    metta_require_platform('(register-token! ...)', regex),
     metta_reader_token_pattern(Pattern0, Pattern),
     re_compile(Pattern, Regex, [anchored(true), endanchored(true)]),
     with_mutex('$metta_reader_tokens',

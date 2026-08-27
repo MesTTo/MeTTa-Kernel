@@ -1,10 +1,11 @@
 % Purpose: build a real SWI installation minus library(thread),
-%   library(time) and library(process), boot the engine in a child process on
-%   it, and hand the transcript back to tests/prolog/suites/seams/platform_capabilities.plt.
+%   library(time) and library(process), and minus any EXTRA libraries a test
+%   names, boot the engine in a child process on it, and hand the transcript
+%   back to tests/prolog/suites/seams/platform_capabilities.plt.
 % Assumes:
-%   - THIS platform carries the three libraries, so there is something to take
-%     away. reduced_platform_buildable/0 answers that, and every test that
-%     needs a child is conditional on it.
+%   - THIS platform carries the withheld libraries, so there is something to
+%     take away. reduced_platform_buildable/1 answers that for a given extra
+%     set, and every test that needs a child is conditional on it.
 %   - swipl resolves library(Name) through user:file_search_path/2 for a
 %     use_module and through the separate `autoload` alias for an autoloaded
 %     call, and both have to be repointed or the second finds what the first
@@ -23,7 +24,7 @@
 %     platform: nothing here changes THIS process's search paths, but the
 %     child's boot file does, which is why it is a separate file.
 % Owns resources:
-%   - one temporary directory per run_reduced_platform/2 call, named for this
+%   - one temporary directory per run_reduced_platform/3 call, named for this
 %     process, removed by that call whether the child succeeded or not
 % Open Obligations:
 %   To Do: None
@@ -34,11 +35,23 @@
 :- use_module(library(lists)).
 :- use_module(library(readutil)).
 :- use_module(library(process)).
+:- use_module(library(error), [must_be/2]).
+%The gzip fixture the child imports, written on THIS side of the fork because
+%a child without zlib could never produce one. Conditional, because a parent
+%without zlib can still run every other reduced test: the fixture is then not
+%written and the child skips the probe that needs it.
+:- ( exists_source(library(zlib))
+   -> use_module(library(zlib), [gzopen/3])
+   ;  true
+   ).
 
 %The libraries a WebAssembly SWI does not carry, as library SPECS rather than
 %base names. thread_pool goes with thread because lib/lib_thread/lib_thread.pl
 %imports both and a build with one and not the other is not a platform anybody
-%ships.
+%ships. This is the DEFAULT set and it stays that: a build missing one of
+%these is a build somebody ships, where a build missing pcre or zlib is a
+%hypothetical the tests construct one library at a time through the Extra
+%argument of run_reduced_platform/3.
 %
 %Adding a name here is now the WHOLE change. It used to be half of one: the
 %farm mirrored a hardcoded pair of directories, the main library and clib, and
@@ -56,18 +69,28 @@ reduced_platform_withheld_library(thread_pool).
 reduced_platform_withheld_library(time).
 reduced_platform_withheld_library(process).
 
-%The same set by base name, which is how mirror_reduced_directory/2 skips them.
-reduced_platform_withheld(File) :-
-    reduced_platform_withheld_library(Name),
+%The default set plus whatever a caller adds. A TEST names extra libraries to
+%withhold; the default set stays what a WebAssembly build is missing, so the
+%suite's existing child is unchanged and a new capability gets a child of its
+%own rather than a wider default nobody asked for.
+reduced_platform_withheld_libraries(Extra, Names) :-
+    must_be(list, Extra),
+    findall(Name, reduced_platform_withheld_library(Name), Default),
+    append(Default, Extra, Both),
+    sort(Both, Names).
+
+%The same set by base name, which is how mirror_reduced_directory/3 skips them.
+reduced_platform_withheld(Names, File) :-
+    member(Name, Names),
     file_name_extension(Name, pl, File).
 
 %Every distinct directory a withheld library lives in, paired with the farm
 %subdirectory that will stand in for it. The tag is positional rather than
 %meaningful: nothing outside this file and the manifest it writes needs to know
 %which farm mirrors which real directory.
-reduced_platform_directories(Pairs) :-
+reduced_platform_directories(Names, Pairs) :-
     findall(Directory,
-            ( reduced_platform_withheld_library(Name),
+            ( member(Name, Names),
               reduced_platform_home(library(Name), Directory) ),
             Directories0),
     sort(Directories0, Directories),
@@ -87,16 +110,27 @@ reduced_platform_home(Spec, Directory) :-
 %directory, or a name whose file this platform does not have would be mirrored
 %away from nothing and the child would read as reduced when it was not.
 reduced_platform_buildable :-
-    forall(reduced_platform_withheld_library(Name),
+    reduced_platform_buildable([]).
+
+reduced_platform_buildable(Extra) :-
+    reduced_platform_withheld_libraries(Extra, Names),
+    forall(member(Name, Names),
            reduced_platform_home(library(Name), _)).
 
 %!  run_reduced_platform(-Out:list, -Err:list) is det.
+%!  run_reduced_platform(+Extra:list, -Out:list, -Err:list) is det.
 %
 %   Boot the engine on the reduced platform and answer its two transcripts as
-%   lists of strings, one per line.
+%   lists of strings, one per line. Extra names libraries to withhold BESIDE
+%   the default set, so one capability can be taken away at a time and the
+%   engine's answer read on its own.
 run_reduced_platform(Out, Err) :-
+    run_reduced_platform([], Out, Err).
+
+run_reduced_platform(Extra, Out, Err) :-
+    reduced_platform_withheld_libraries(Extra, Names),
     reduced_platform_root(Root),
-    setup_call_cleanup(build_reduced_platform(Root),
+    setup_call_cleanup(build_reduced_platform(Root, Names),
                        boot_reduced_platform(Root, Out, Err),
                        remove_reduced_platform(Root)).
 
@@ -105,14 +139,37 @@ reduced_platform_root(Root) :-
     current_prolog_flag(pid, Pid),
     format(atom(Root), '~w-~w', [Base, Pid]).
 
-build_reduced_platform(Root) :-
+build_reduced_platform(Root, Names) :-
     make_directory_path(Root),
-    reduced_platform_directories(Pairs),
+    reduced_platform_directories(Names, Pairs),
     forall(member(farm(Tag, Real), Pairs),
            ( directory_file_path(Root, Tag, Farm),
              make_directory_path(Farm),
-             mirror_reduced_directory(Real, Farm) )),
-    write_reduced_manifest(Root, Pairs).
+             mirror_reduced_directory(Names, Real, Farm) )),
+    write_reduced_manifest(Root, Pairs),
+    write_reduced_fixtures(Root).
+
+%The two source files the child imports, beside the farms it boots on. Both
+%carry one equation apiece, so an import that lands answers a number and an
+%import that is refused answers nothing: that is the difference between a
+%capability the child lost and a load path it never had.
+%
+%The compressed one is written here because writing it needs the very library
+%the child may be missing. A parent without zlib writes only the plain file
+%and the child's compressed probe reports that it had nothing to read.
+write_reduced_fixtures(Root) :-
+    directory_file_path(Root, 'plain.metta', Plain),
+    setup_call_cleanup(open(Plain, write, Out, [encoding(utf8)]),
+                       format(Out, '(= (round-trip) 7)~n', []),
+                       close(Out)),
+    (   current_predicate(gzopen/3)
+    ->  directory_file_path(Root, 'compressed.metta.gz', Gz),
+        setup_call_cleanup(gzopen(Gz, write, GzOut),
+                           ( set_stream(GzOut, encoding(utf8)),
+                             format(GzOut, '(= (compressed-answer) 11)~n', []) ),
+                           close(GzOut))
+    ;   true
+    ).
 
 %The child cannot derive the farm list: it must not resolve library(thread) to
 %find out where thread.pl lives, because the whole point is that it cannot. So
@@ -131,11 +188,11 @@ write_reduced_manifest(Root, Pairs) :-
 %an index and then resolves its entries against the directory the index was
 %found in, and it resolves a symlinked index against the directory the link
 %POINTS AT, which is the real library and has everything.
-mirror_reduced_directory(Real, Farm) :-
+mirror_reduced_directory(Names, Real, Farm) :-
     directory_files(Real, Entries),
     forall(( member(Entry, Entries),
              \+ memberchk(Entry, ['.', '..']),
-             \+ reduced_platform_withheld(Entry) ),
+             \+ reduced_platform_withheld(Names, Entry) ),
            mirror_reduced_entry(Real, Farm, Entry)).
 
 mirror_reduced_entry(Real, Farm, 'INDEX.pl') :- !,

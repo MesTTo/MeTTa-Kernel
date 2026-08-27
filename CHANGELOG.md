@@ -63,6 +63,40 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   differ: a need that failed, a seat whose control file is there on a boot
   that carried no `extensions` token (the pure kernel), and a name with no
   control file at all.
+- **The platform census covers the engine's SWI packages: `regex`,
+  `compressed-sources` and `fast-cache`.** `metta_platform/4` answered for
+  `concurrency`, `deadlines` and `subprocess`; the four packages
+  `engine/filereader.pl` and `engine/parser.pl` loaded unconditionally were
+  outside it, so an SWI without one of them failed with SWI's own error and
+  nothing said what was lost. Withholding `library(pcre)` printed four ERROR
+  pairs, one per unguarded load, and an `(import! &self (library lib_regex))`
+  came back wrapped in a transcript of the loader's `source_sink` error.
+  Each capability now loads through the census and refuses by name where its
+  absence bites: `regex` at the library's own `metta_requires(regex)`
+  declaration, at `(register-token! ...)`, and at
+  `(import_prolog_function re_replace)`, which used to answer "no predicate
+  named re_replace is loaded, so registering it would compile every call to it
+  into a partial application rather than failing" and now names the capability
+  as well, because the census records the names its own load could not import;
+  `compressed-sources` at the one gzip door every `.gz` read and write goes
+  through, naming the file, with a plain path paying nothing; `fast-cache` at
+  the two host doors the cache has. A row may rest on several libraries, which
+  is what `fast-cache` needs, and `present` means every one of them resolved.
+  What an absence costs differs by row and the census says so: `regex` takes
+  forms away, compression takes one file FORMAT away while the same program
+  uncompressed still loads, and the fast cache takes no MeTTa form at all,
+  because the engine never reads a cache of its own accord and a build without
+  it loads, runs and reparses exactly as a build with it does when no cache was
+  written.
+
+- The reduced-platform harness takes libraries away one set at a time.
+  `run_reduced_platform/3` withholds EXTRA libraries beside the default four,
+  so a capability can be tested on a real SWI that genuinely lacks its library
+  rather than on a planted absence; the default set stays the WebAssembly four,
+  and `tests/prolog/suites/seams/platform_capabilities.plt` memoizes one child
+  boot per set. The child now decides each probe from the census, so one report
+  serves every set and a guard that stops firing reads as `unexpected` instead
+  of passing quietly.
 
 - **The example corpus's teaching order is now CHECKED.** The law is that a
   file may use only constructs introduced at or before its own number, and it
@@ -1724,6 +1758,16 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   rendering. The `prolog` lane runs TOKENLESS again as the regression gate:
   it is the one lane that checks the pure kernel, it is what exposed this,
   and the token it was given as a workaround would have hidden the next one.
+- The reduced-platform child's withhold reached the LOADER only. SWI's autoload
+  index is a cache of absolute paths, built on the first autoloaded call and
+  re-read at most once a minute, and the child's own `member/2` builds it
+  before the search paths are repointed. So a withheld library stayed callable
+  through the cached path while `use_module/1` could no longer find it, and the
+  child boot file's guarantee that `call_with_time_limit/2` is undefined there
+  was false: with pcre and zlib withheld, `call_with_time_limit/2` and
+  `concurrent_and/2` both resolved and `re_compile/3` ran. The child drops the
+  three cached facts after repointing, so the next autoload rebuilds the index
+  from the farms and the absence is real at call time as well as at load time.
 
 - **The Node binding mounts each backend's control file rather than the whole
   `backends/` tree, so a built checkout can boot it.** `boot()` copied every

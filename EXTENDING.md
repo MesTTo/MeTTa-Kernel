@@ -1209,10 +1209,12 @@ declares nothing keeps working, so this costs nothing until you use it.
 :- use_module(library(thread)).
 ```
 
-Three platform libraries are optional, because a real build can lack them: SWI
-compiled to WebAssembly, which the browser playground and the Node binding run
-on, has no `library(thread)`, no `library(time)` and no `library(process)`. The
-engine records what it found at boot, and `metta_platform/4` is the census:
+Every platform library the engine loads is optional, because a real build can
+lack them: SWI compiled to WebAssembly, which the browser playground and the
+Node binding run on, has no `library(thread)`, no `library(time)` and no
+`library(process)`, and an SWI built without its pcre, zlib, fastrw or memfile
+packages lacks the rest. The engine records what it found at boot, and
+`metta_platform/4` is the census:
 
 ```prolog
 ?- forall(metta_platform(C, S, R, Costs), format("~w ~w ~w~n  ~w~n", [C,S,R,Costs])).
@@ -1222,7 +1224,22 @@ deadlines present library(time)
   (timeout N Expr) and (pragma! max-time N); a wall-clock bound has to ...
 subprocess present library(process)
   (git-import! ...), and anything else that starts a program
+regex present library(pcre)
+  lib_regex, so (re-match ...), (re-find ...), (re-captures ...) ...
+compressed-sources present library(zlib)
+  reading or writing a .gz program or space file; the same content ...
+fast-cache present [library(fastrw),library(memfile)]
+  saving a space in the fast binary format and loading one back; every ...
 ```
+
+A row rests on one library or on several, and the status is `present` only
+when every one of them resolves. What an absence COSTS is the row's own text
+and it varies: `regex` takes forms away, so those forms refuse; the `.gz`
+reader loses a file format, so a compressed path refuses naming the file while
+the same program uncompressed loads; and the fast cache costs no MeTTa form at
+all, because the engine never reads a cache of its own accord, so a build
+without it loads, runs, and reparses each source exactly as a build with it
+does when no cache was written.
 
 If your library cannot work without one of those, say so at the top of the file
 that imports it. The engine reads the declaration out of your source *before it
