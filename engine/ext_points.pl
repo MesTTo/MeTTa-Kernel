@@ -894,6 +894,13 @@ kind(metta_host_load_file/3, host_service).
 kind(metta_host_read_forms/2, host_service).
 kind(metta_host_with_stack_limit/2, host_service).
 kind(metta_host_function_generation/1, host_service).
+%Setting the engine-wide print-suppression flag. engine/filereader.pl decides
+%it from argv at load time and an embedded host has no argv, so two seats had each
+%written the same retract-then-assert under a private name and the engine's own
+%export comment named one of them. This is that seat-agnostic bookkeeping,
+%engine-side once (CeTTa C2, which filed the duplication as an engine finding
+%rather than fixing it in the third binding).
+kind(metta_host_set_silent/1, host_service).
 %A host may ask for a cardinality hint before opening a cursor. The engine owns
 %whether doing so would repeat an effect, so this one semidet question wraps
 %the shared effect walk and fails closed on unknown goals.

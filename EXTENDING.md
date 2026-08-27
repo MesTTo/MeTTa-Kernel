@@ -2598,7 +2598,7 @@ the list honest. Today's list: `catch_recover/2`, `match_foreign/5`,
 `metta_host_register_reader_token/2`,
 `metta_host_remove_reported/3`, `metta_host_run_source/4`,
 `metta_host_run_source_status/3`, `metta_host_save_fast/3`,
-`metta_host_stored/2`, `metta_host_substitute/3`,
+`metta_host_set_silent/1`, `metta_host_stored/2`, `metta_host_substitute/3`,
 `metta_host_unregister_reader_token/1`, `metta_reducible_head/2`,
 `metta_source_declarations/2`, `metta_space_names/1`,
 `metta_string_declarations/2`, `metta_substitute_self/3`,
@@ -2608,6 +2608,11 @@ the list honest. Today's list: `catch_recover/2`, `match_foreign/5`,
 `sread_with_names/3`, `translate_expr/3`, `unregister_metta_extension/1` and
 `with_metta_module/2`. Shrinking this list is the shim-thinning work's
 scoreboard; growing it is a deliberate publication, not a drive-by.
+`metta_host_set_silent/1` is the one row whose ADDITION shrank the floor: it
+sets the engine's print-suppression flag, which `engine/filereader.pl` decides
+from `argv` at load time and an embedded host therefore cannot reach, and the
+Python and C seats had each written the same retract-then-assert privately
+before it existed.
 
 Registering an operation is four of those calls, the engine's own protocol
 rather than bookkeeping a binding restates: `metta_host_open_function(Name,

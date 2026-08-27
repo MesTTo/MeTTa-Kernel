@@ -1245,6 +1245,40 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A failing MeTTa assertion no longer writes to the stdout of the process that
+  embeds the engine. `assert/2` reported through a bare `format/2`, which goes
+  to `current_output`, and for a host that embeds SWI in its own process that
+  is the host's own stdout: an embedded caller could not suppress it, and
+  redirecting output the host owns to hide it is worse than the problem. The
+  print dates from upstream, where this predicate ended in `halt(1)` and the
+  print was the only report there would ever be; the commit that made the
+  failure a catchable exception left the print behind, and it has been a
+  duplicate of the exception's own rendering since. It now goes through
+  `print_message/2`, so it lands on `user_error`, renders through the one
+  `prolog:error_message//1` clause the engine already had for that formal, and
+  can be intercepted with `message_hook/3` by a host that wants only the
+  exception. Reporting and then throwing is deliberate and is what SWI's own
+  `assertion/1` does: a ball can be swallowed by any `catch/3` up the stack.
+  `test/3`'s `is ..., should ...` line stays on stdout, because that one prints
+  on success too and is a trace of a check that ran rather than a failure
+  report; `test.sh` tells the failure shapes apart by exactly that difference,
+  and `tests/test_example_runner_surfaces_failures.sh` now runs all three
+  shapes through the runner and through a copy of it with the stdout+stderr
+  capture removed, so what that capture buys is measured rather than described.
+
+- Engine verbosity has a published door, `metta_host_set_silent/1`, so a host
+  with no command line to read stops reaching into engine internals for it.
+  `engine/filereader.pl` decides `silent/1` from `argv` at load time, which an
+  embedded host has none of, and the Python and C seats had each written the
+  same retract-then-assert under a private name while the engine's own export
+  comment named the first of them. Both copies are gone, the engine's comment
+  names the service instead, the service carries a `seam:kind/2` declaration
+  like every other host-facing predicate, and it refuses a non-boolean before
+  it retracts anything rather than leaving every reader on a value none of them
+  match. `silent/1` now has one writer in the tree outside its own boot
+  directive; the four Prolog gate harnesses and the one Python test that
+  spelled the pair themselves go through the door too.
+
 - `examples/reasoning/greedy_chess.metta` is skipped for the reason that is
   true. It read "long-running, covered by benchmarks" and neither half held:
   no benchmark in any baseline names it, and given its quit command it loads

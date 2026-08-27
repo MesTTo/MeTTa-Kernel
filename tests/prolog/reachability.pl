@@ -583,8 +583,7 @@ load_shipped_configuration(Unimported) :-
     % plunit lane appends the same flag for the same reason.
     set_prolog_flag(argv, [backends]),
     consult('../../engine/metta.pl'),
-    retractall(silent(_)),
-    assertz(silent(true)),
+    metta_host_set_silent(true),
     findall(Base, ( analysed_library(Base), \+ library_imports(Base) ), Unimported),
     forall(( expand_file_name('../../lib/*.pl', Libraries), member(F, Libraries) ),
            ensure_loaded(F)),

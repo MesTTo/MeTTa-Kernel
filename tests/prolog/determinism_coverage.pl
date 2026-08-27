@@ -30,8 +30,7 @@
 % What the list is for is deciding, once, which each one is.
 main :-
     consult('../../engine/metta.pl'),
-    retractall(silent(_)),
-    assertz(silent(true)),
+    metta_host_set_silent(true),
     load_reported_libraries,
     findall(Name/Arity, undeclared_library_predicate(Name, Arity), Undeclared0),
     sort(Undeclared0, Undeclared),
