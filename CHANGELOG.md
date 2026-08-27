@@ -1266,6 +1266,19 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   shapes through the runner and through a copy of it with the stdout+stderr
   capture removed, so what that capture buys is measured rather than described.
 
+- Engine verbosity has a published door, `metta_host_set_silent/1`, so a host
+  with no command line to read stops reaching into engine internals for it.
+  `engine/filereader.pl` decides `silent/1` from `argv` at load time, which an
+  embedded host has none of, and the Python and C seats had each written the
+  same retract-then-assert under a private name while the engine's own export
+  comment named the first of them. Both copies are gone, the engine's comment
+  names the service instead, the service carries a `seam:kind/2` declaration
+  like every other host-facing predicate, and it refuses a non-boolean before
+  it retracts anything rather than leaving every reader on a value none of them
+  match. `silent/1` now has one writer in the tree outside its own boot
+  directive; the four Prolog gate harnesses and the one Python test that
+  spelled the pair themselves go through the door too.
+
 - `examples/reasoning/greedy_chess.metta` is skipped for the reason that is
   true. It read "long-running, covered by benchmarks" and neither half held:
   no benchmark in any baseline names it, and given its quit command it loads
