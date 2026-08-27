@@ -1472,6 +1472,16 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The evidence gate reads an interpreter-led gate command as a command. Its
+  own scheme says a `tested` tag carries either a test name or an exact gate
+  command, and it knew one spelling of the second, `sh check.sh <lane>`.
+  `python bindings/python/tools/phrasebook.py --gate` was split into words
+  instead, and the leading `python` was looked up as a test NAME. It resolved,
+  because `python` was the stem of a shipped example, so two phrasebook claims
+  were backed by an unrelated MeTTa program for as long as they had been
+  written. The checker now recognises `python`, `swipl` or `node` followed by
+  a script path, and asks the same question it asks of a lane name: does a
+  GATE lane run it. `tests/check_evidence_selftest.py` plants both directions.
 - The `encoding` gate lane runs again on a checkout that has built the MORK
   backend. It probes under a scratch copy of the tree, and the copy was
   `cp -a` of the whole checkout: 4.1 GiB here, of which 3.0 GiB is the MORK

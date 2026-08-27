@@ -74,6 +74,12 @@ CITATIONS = (
      "obligation-header scheme accepts beside a test name"),
     (False, "GATE_ONLY=1 sh check.sh no-such-lane",
      "a gate command naming a lane check.sh does not run"),
+    (True, "python tests/checked.py --gate",
+     "the interpreter-led shape of the same thing: a script a GATE lane runs, "
+     "with the script's own flags after it"),
+    (False, "python tests/printer.py --gate",
+     "an interpreter-led command naming a script that cannot fail, which the "
+     "word split used to read as a test named `python`"),
 )
 
 CHECK_SH = """\

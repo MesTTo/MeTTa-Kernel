@@ -513,6 +513,22 @@ def resolve(token: str, known: Evidence) -> list[Target] | str:
 #: failing to know its own scheme.
 GATE_COMMAND = re.compile(r"\b(?:GATE_ONLY=1\s+)?sh\s+check\.sh\s+([a-z0-9-]+)")
 
+#: The other shape an exact gate command takes: an interpreter, the script it
+#: runs, and that script's own flags, as in
+#: `python bindings/python/tools/phrasebook.py --gate`. The lane above names a
+#: LANE; this names the SCRIPT, and what makes it evidence is the same thing,
+#: that a GATE lane runs it.
+#:
+#: Without this the body was split into words, and the leading interpreter was
+#: read as a test NAME. Two such claims passed for as long as they had been
+#: written because `python` happened to be the stem of a shipped example,
+#: examples/integration/python.metta, so a phrasebook claim was backed by an
+#: unrelated MeTTa program; renaming that file to carry its reading-order
+#: number is what exposed it [measured 2026-08-27].
+SCRIPT_COMMAND = re.compile(
+    r"\b(?:python3?|swipl|node)\s+((?:[\w.-]+/)*[\w.-]+\.(?:py|pl|mjs|ts))\b"
+)
+
 #: How check.sh names a lane, so a command naming a lane that does not exist is
 #: still a finding.
 CHECK_LANE = re.compile(r"^run\s+(?:GATE|REPORT)\s+([a-z0-9-]+)", re.MULTILINE)
@@ -523,19 +539,27 @@ def gate_lanes() -> frozenset[str]:
     return frozenset(CHECK_LANE.findall(_text(ROOT / "check.sh")))
 
 
-def gate_command_problems(body: str) -> list[str] | None:
+def gate_command_problems(body: str, known: Evidence) -> list[str] | None:
     """None when the body is not a gate command; otherwise what is wrong with it."""
     match = GATE_COMMAND.search(body)
+    if match is not None:
+        lane = match.group(1)
+        if lane in gate_lanes():
+            return []
+        return [f"names the check.sh lane {lane}, which check.sh does not run"]
+    match = SCRIPT_COMMAND.search(body)
     if match is None:
         return None
-    lane = match.group(1)
-    if lane in gate_lanes():
-        return []
-    return [f"names the check.sh lane {lane}, which check.sh does not run"]
+    where = match.group(1)
+    found = resolve(where, known)
+    if isinstance(found, str):
+        return [found]
+    verdicts = [target_problem(where, target, known) for target in found]
+    return [verdicts[0]] if verdicts and all(verdicts) else []
 
 
 def tested_problems(body: str, known: Evidence) -> list[str]:
-    command = gate_command_problems(body)
+    command = gate_command_problems(body, known)
     if command is not None:
         return command
     stripped = DATE.sub("", body)
