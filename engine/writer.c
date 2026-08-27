@@ -475,8 +475,10 @@ emit_integer(wctx *c, term_t t)
  * and then chooses among five branches on KK, the exponent making the value
  * 0.D * 10^KK.  The five branches and their bounds are the ones LeaTTa's
  * RyuLean4/Runtime.lean:371-396 pins and CeTTa reaches the same way
- * [source: /home/user/Dev/PyPeTTa1/CeTTa/src/atom.c, cetta_format_float,
- * whose closing branch table is this one character for character; that
+ * [source: CeTTa src/atom.c, cetta_format_float, at
+ * MesTTo/CeTTa@0ca2f4bad47205174608d7af54dd12a4c12b2e0b, reached through
+ * CETTA_PATH the way tests/conformance/cetta.py reaches the fork; its
+ * closing branch table is this one character for character, and that
  * file selects its own digits by trial and records that the closest
  * candidate is outside the rounding interval for 46 of the 2098 powers of
  * two, which is exactly the reason the digits here come from SWI rather
@@ -746,7 +748,8 @@ emit_leaf(wctx *c, term_t t, int type)
 /* The walk.  Iterative with an explicit frame stack, so nesting depth is
  * bounded by the heap and never by the native C stack, the shape CeTTa's
  * atom_print_mode uses for the same reason
- * [source: /home/user/Dev/PyPeTTa1/CeTTa/src/atom.c, AtomPrintStack].    */
+ * [source: CeTTa src/atom.c, AtomPrintStack, at
+ * MesTTo/CeTTa@0ca2f4bad47205174608d7af54dd12a4c12b2e0b].              */
 
 static int
 emit_term(wctx *c, term_t t0)
