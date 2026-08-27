@@ -8,6 +8,49 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- The Node binding is now a TypeScript LIBRARY rather than a transport, the
+  sibling of the Python `metta` package. Atoms are interned, so `===`, `Set`
+  and `Map` are structural without any of them being reimplemented; `S`, `V`,
+  `G`, `_`, `seg` and `fn` are the name doors, and a TypeScript identifier
+  reaches the meaning layer through TypeScript's own casing, so `S.carAtom` is
+  `car-atom` and `function balanceOf` installs `balance-of`. The map fires only
+  on a plain lowerCamelCase identifier, so `Number`, `%Undefined%`, `prime?`
+  and `car-atom` are each exactly themselves.
+  An ask is lazy and thenable: `for await` streams it, `await` collapses it,
+  `.one()` is exactly-one and `.find()` is at-most-one, and leaving a loop early
+  closes the cursor, so an unbounded generator is safe to walk. A deadline is
+  `AbortSignal` in the options position.
+  A space is a collection and means by `add`, `delete`, `has`, `size` and
+  `clear` what `Set` means by them; `match` answers rows keyed by the pattern's
+  own variable names, and a space is named by an ATOM, so a parametric space is
+  a handle like any other.
+  Three definition doors. A plain function's own source is LOWERED into one
+  equation, so `function findDivisor(n, d) { if (d * d > n) return n; ... }`
+  becomes `(= (find-divisor $n $d) (if (> (* $d $d) $n) $n ...))` and a call
+  costs no host crossing at all, while the same body still runs in TypeScript.
+  A generator body is TRACED once with symbolic arguments, where `yield*` asks
+  a goal and `yield` emits an answer, so a conjunction becomes a nest of matches
+  and several emissions become several clauses. And `op` keeps host code as
+  host code: a plain body answers once, a generator body is nondeterminism from
+  JavaScript pulled one answer at a time, and an async body is awaited from the
+  middle of a reduction.
+  `using` carries the resource-shaped constructs: `m.limits({ stack })`,
+  `m.stats()` with the inferences, crossings and replays counters, and
+  `m.world(space)`, a draft that commits its whole delta inside one engine
+  transaction and restores for free. Live queries, a state cell, the schema
+  door with Standard Schema interop, and the library tier round out the
+  surface.
+  A host operation reaches JavaScript through SWI's own engine coroutine,
+  `engine_yield/1` and `engine_post/2`, rather than through `library(wasm)`'s
+  `:=`, whose JavaScript half dereferences a bare `window` and therefore
+  raises on every call under Node. The coroutine needs no globals and no `eval`,
+  and it is what lets an operation be asynchronous.
+  `bridge.pl` gains the job protocol behind all of it, the `o` tag for a live
+  host value crossing by reference (so `G(x)` comes back as `x` itself), the
+  space and registration verbs, and admission queues for a watch. Every
+  predicate it calls is still published surface, which
+  `tests/prolog/static_checks.pl` checks.
+
 - A C binding, `bindings/cetta`, so a C program can drive the engine: boot it,
   build and read MeTTa terms as C values, run programs, pull answers one at a
   time, and publish C functions the language calls. `cetta.h` is the whole
@@ -1244,6 +1287,16 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- The Node binding's own documentation said the number transport carries text
+  "because the engine answers `False` to `(== 2 2.0)`". It answers **True**:
+  numeric equality is by value across the integer/float constructors, following
+  LeaTTa's `Ground.equiv`, as `engine/metta/operators.pl` states and an engine
+  test already covers. The conclusion the documentation drew was right and only
+  its evidence was wrong, so the reason is now the one that holds: 2 and 2.0 are
+  different ATOMS, which `=alpha`, a `case` pattern and `subtraction-atom` each
+  show, and identity is what a codec has to preserve. `bindings/cetta/kit/corpus.json`
+  still carries the same stale reason.
 
 - `examples/reasoning/greedy_chess.metta` is skipped for the reason that is
   true. It read "long-running, covered by benchmarks" and neither half held:

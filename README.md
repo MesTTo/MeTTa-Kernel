@@ -566,25 +566,41 @@ Since Swi-Prolog can be compiled to Web Assembly, one can embed PeTTa into websi
 
 Please see [Execution-in-browser](https://github.com/patham9/PeTTa/wiki/Execution-in-browser) for more information.
 
-### MeTTa in Node
+### MeTTa in TypeScript
 
 `bindings/node/` runs the engine inside a Node process over the same WebAssembly
-build, so a JavaScript program needs no SWI-Prolog on the machine and no socket:
+build, so a TypeScript program needs no SWI-Prolog on the machine and no socket.
+It is the sibling of the Python library: atoms, spaces, the three definition
+doors, worlds and scopes, spelled the way TypeScript spells things.
 
-```js
-import { boot } from "./bindings/node/index.mjs";
+```ts
+import { metta, S, type Term, V } from "./bindings/node/src/index.ts";
 
-const metta = await boot();
-const [answers] = metta.run("(= (double $x) (* $x 2))\n!(double 21)");
-console.log(answers.map(String));   // [ '42' ]
+const m = await metta();
+m.add(S.parent(S.tom, S.bob), S.parent(S.bob, S.ann));
 
-// Answers arrive one at a time, so an unbounded generator is usable.
-metta.run("(= (from $n) (superpose ($n (from (+ $n 1)))))");
-for await (const answer of metta.stream("(from 1)")) {
-  if (answer.text === "5") break;
+// Rows are keyed by the pattern's own variable names.
+for await (const { child } of m.match(S.parent(S.tom, V.child))) {
+  console.log(String(child));                  // bob
 }
+
+// An ordinary TypeScript function becomes ONE equation the engine holds, so a
+// call costs no host crossing at all.
+const twice = m.define(function twice(n: number): number { return n * 2; });
+await twice(21).one();                         // 42
+
+// A generator body is traced into clauses; `yield*` asks, `yield` emits.
+const grandparent = m.define(function* grandparent(x: Term) {
+  const { y } = yield* m.match(S.parent(x, V.y));
+  const { z } = yield* m.match(S.parent(y, V.z));
+  return z;
+});
+
+// And a TypeScript function the engine calls back into, from the middle of a
+// reduction, awaited if it answers with a promise.
+m.op(async function fetchJson(url: string) { return (await fetch(url)).json(); });
 ```
 
-See [bindings/node/README.md](bindings/node/README.md) for what the WebAssembly
-build does not carry and how the binding is held to the same conformance corpus
-the Python library answers.
+See [bindings/node/README.md](bindings/node/README.md) for the whole surface,
+what the WebAssembly build does not carry, and how the binding is held to the
+same conformance corpus the Python library answers.

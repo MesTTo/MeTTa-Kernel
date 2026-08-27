@@ -91,10 +91,17 @@ real:
 npm ci --prefix bindings/node
 ```
 
-That enables the `node-binding` lane, which is `node --test` over the Node
-binding's own suite, and the conformance corpus in
-`bindings/python/tests/test_node_binding.py`, which answers the same cases in the Node
-binding and in this library and compares the two.
+That enables the `node-binding` lane and the conformance corpus in
+`bindings/python/tests/test_node_binding.py`, which answers the same cases in
+the Node binding and in this library and compares the two.
+
+The binding is TypeScript, and `npm ci` builds it through the package's own
+`prepare` script. Both lanes run the BUILD rather than the sources, because a
+distro Node is often compiled without type stripping
+(`node -p process.config.variables.node_use_amaro` answers false on Debian and
+Ubuntu) and a lane that only ran on the official build would not run at all on
+the machine that most needs it. `npm run test:source` runs the sources
+directly, on a Node that has type stripping and, for `using`, Node 24.
 
 ## Python performance measurements
 

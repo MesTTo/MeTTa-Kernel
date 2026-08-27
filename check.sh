@@ -350,9 +350,11 @@ run GATE worktree sh -c "cd '$HERE' && sh tests/test_worktree_configuration.sh"
 
 # The Node binding, which is the seam's second consumer. It runs the engine in
 # a WebAssembly SWI inside a Node process, so it needs neither the SWI on this
-# machine nor janus, and its own suite covers the boot inventory, the codec and
-# the lazy answer surface. The conformance corpus is compared against the
-# Python host by bindings/python/tests/test_node_binding.py, in the pytest lane above.
+# machine nor janus. It is a TypeScript library, and its own suite covers the
+# atom algebra, the codec, the boot inventory, the lazy answer surface, the
+# three definition doors, the scopes and the extension tier. The conformance
+# corpus is compared against the Python host by
+# bindings/python/tests/test_node_binding.py, in the pytest lane above.
 #
 # swipl-wasm is an npm dependency and this does not fetch it: a gate that
 # reaches the network is a gate that fails for a reason that is not the tree.
@@ -370,7 +372,19 @@ check_node_binding() {
 not run without swipl-wasm" >&2
         return 0
     fi
-    ( cd "$binding" && node --test 'test/*.test.mjs' )
+    # The binding is TypeScript, and this COMPILES it and runs the build rather
+    # than running the sources. Node's own type stripping would be the shorter
+    # route, but a distro build is often compiled without it
+    # (`node -p process.config.variables.node_use_amaro` answers false on
+    # Debian and Ubuntu), and a gate that only ran on the official build would
+    # not run at all on the machine that most needs it. The build also
+    # downlevels `using`, which Node 22's V8 does not carry.
+    # The path is spelled out rather than reached through $binding because the
+    # evidence gate models which files a lane runs by reading this text, and it
+    # resolves $HERE/ and not a local variable. Without the literal it cannot
+    # see bindings/node/test/*.test.ts at all, and every evidence claim naming
+    # one of those tests reads as unbacked.
+    ( cd "$HERE/bindings/node" && npm run --silent typecheck && npm run --silent test )
 }
 run GATE node-binding check_node_binding
 
