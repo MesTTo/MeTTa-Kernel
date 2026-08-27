@@ -1592,6 +1592,18 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **A host binding missing from `host_transport/2` is refused by name instead
+  of passing by absence.** The published-surface walk read a hand-written list
+  of three rows, and a seat left off it was silently unchecked -- the gate
+  reported "every one of 2 host bindings" before the third was added, and meant
+  it. The rows themselves cannot be derived: the Python seat's transport is
+  `metta/shim.pl` where the Node and C seats' is `bridge.pl`, and "declares
+  seam clauses" does not discriminate either, because `bindings/python/bridge.pl`
+  declares eleven without being the transport. So the list stays, and the check
+  now refuses any `bindings/*` directory with no row, naming it and what goes
+  unchecked. Proven two-sided: a planted fourth seat directory fails the check
+  by name and its removal restores the pass.
+
 - **`check.sh` discovers each component's lanes instead of listing them, and
   one `metta` CLI replaces five root scripts.** The gate named
   `bindings/node`'s lane and `bindings/cetta`'s lane in its own body, which is

@@ -1091,7 +1091,43 @@ host_transport('../../bindings/python/metta/shim.pl', '../../bindings/python/met
 host_transport('../../bindings/node/bridge.pl', '../../bindings/node').
 host_transport('../../bindings/cetta/bridge.pl', '../../bindings/cetta').
 
+%A binding directory with no host_transport/2 row above. The rows cannot be
+%DERIVED -- the Python seat's transport is metta/shim.pl while the Node and C
+%seats' is bridge.pl, and "declares seam clauses" does not discriminate either,
+%because bindings/python/bridge.pl declares eleven of them without being the
+%transport. So the list stays hand-written, and what changes is that leaving a
+%seat off it is now LOUD.
+%
+%That is the whole harm ai-cetta-c-constraints.md C4 named: the decider glob is
+%automatic, this fact is not, "and a seat absent from the first is silently
+%unchecked" -- the gate reporting "every one of 2 host bindings" and meaning it.
+%An unregistered seat is refused by name here rather than passing by absence.
+unregistered_host_binding(Directory) :-
+    expand_file_name('../../bindings/*', Candidates),
+    member(Directory, Candidates),
+    exists_directory(Directory),
+    file_base_name(Directory, Name),
+    \+ ( host_transport(_, Registered),
+         file_base_name(Registered, RegisteredName),
+         %The registered directory is either the seat itself or a directory
+         %inside it, which is why this compares against the seat's own name and
+         %the registered path rather than the two paths directly.
+         (   RegisteredName == Name
+         ;   sub_atom(Registered, _, _, _, Name)
+         ) ).
+
 a_host_binding_calls_only_published_surface :-
+    findall(Unregistered, unregistered_host_binding(Unregistered), Missing),
+    (   Missing == []
+    ->  true
+    ;   forall(member(Seat, Missing),
+               format(user_error,
+                      'the host binding ~w has no host_transport/2 row in \c
+                       tests/prolog/static_checks.pl, so nothing checks that \c
+                       its transport calls only published surface~n',
+                      [Seat])),
+        fail
+    ),
     forall(host_transport(Entry, _), ensure_loaded(Entry)),
     findall(Directory, host_transport(_, Directory), Directories),
     reaches_past_surface(Directories, Reaches),
