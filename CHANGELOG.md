@@ -1640,6 +1640,23 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **A seatless engine crashed asking a question no seat was there to answer.**
+  `engine/metta/space_hooks.pl` forwards two questions to a host -- is this
+  error your transport dying, and how does your exception render as a MeTTa
+  `(Error ...)` reason -- through hooks that only the Python bridge declared
+  `multifile`, under the old `metta_host_` spelling. In every process without
+  that seat, the WebAssembly host and the pure kernel included, the calls
+  raised `existence_error` where "no" was the answer. Both hooks are seam-module
+  seams now, `seam:host_transport_failure/1` and `seam:host_error_reason/2`,
+  declared by the ENGINE (the caller) in `engine/ext_points.pl` with their
+  `kind(_, ownership)` rows, and the old spellings are gone rather than
+  aliased -- the seam-module suite's own doctrine, which rejected a first
+  version of this fix that declared them user-module with the abolished
+  prefix. A hook with no clauses now fails cleanly into the message-system
+  rendering. The `prolog` lane runs TOKENLESS again as the regression gate:
+  it is the one lane that checks the pure kernel, it is what exposed this,
+  and the token it was given as a workaround would have hidden the next one.
+
 - **The Node binding mounts each backend's control file rather than the whole
   `backends/` tree, so a built checkout can boot it.** `boot()` copied every
   directory in `ENGINE_DIRS` into the WebAssembly image recursively, and

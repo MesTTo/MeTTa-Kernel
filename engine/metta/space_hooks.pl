@@ -920,8 +920,18 @@ metta_merge_route(Query, Policy) :-
 %visible, and re-raises under this one name.
 %What counts as a transport failure is the host's to say: the term shape
 %of a connection dying under a provider is host machinery, so the bridge
-%declares it and the engine only forwards the question.
-metta_transport_failure(Error) :- metta_host_transport_failure(Error).
+%declares WHAT matches and the engine only forwards the question.
+%
+%The seam module declares the hook, because the engine is the caller: it
+%used to be a user-module metta_host_transport_failure/1 that only the
+%Python bridge declared multifile, so every seatless process -- the
+%WebAssembly host, the pure kernel -- raised
+%existence_error(procedure, metta_host_transport_failure/1) where "no" was
+%the answer. A hook with no clauses is a question every host declined; a
+%hook with no declaration is a crash, and a metta_host_ prefix is the
+%namespace doing the module's job, which is the spelling the seam module
+%abolished.
+metta_transport_failure(Error) :- seam:host_transport_failure(Error).
 
 %A kept error as the answer it becomes: MeTTa's own (Error <culprit>
 %<reason>) shape, the culprit being the query pattern as asked, since the
@@ -929,7 +939,7 @@ metta_transport_failure(Error) :- metta_host_transport_failure(Error).
 %threw renders through the bridge's own reason hook, which knows its
 %exception shapes; everything else renders through the message system.
 metta_error_answer(Pattern, Error, ['Error', Pattern, Reason]) :-
-    (   metta_host_error_reason(Error, Reason0)
+    (   seam:host_error_reason(Error, Reason0)
     ->  Reason = Reason0
     ;   message_to_string(Error, Reason)
     ).

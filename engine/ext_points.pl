@@ -150,6 +150,8 @@
             % engine's own predicates, reached under the subsystem that
             % defines them.
             host_add_hooks_idle/2,
+            host_transport_failure/1,
+            host_error_reason/2,
             host_import/1,
             host_object/1,
             host_reader_token_construct/3,
@@ -666,6 +668,22 @@ kind(control_exception/1, declaration).
 %declared here because every seam is.
 :- multifile host_add_hooks_idle/2.
 kind(host_add_hooks_idle/2, ownership).
+
+%Whether an error term is a host's transport dying, and how a host's own
+%error renders as a MeTTa (Error ...) reason. Both are the host's to answer
+%for its own exception shapes, so both are ownership. They used to be
+%user-module hooks spelled metta_host_transport_failure/1 and
+%metta_host_error_reason/2, declared multifile only by the Python bridge, so
+%every seatless process -- the WebAssembly host, the pure kernel -- paid an
+%existence_error where "no" was the answer; and the spelling carried the
+%metta_host_ namespace this module exists to replace. The engine declares
+%them HERE now, the module carries the namespace, and a hook with no clauses
+%is a question every host declined, which fails cleanly into the
+%message-system rendering at the call site (engine/metta/space_hooks.pl).
+:- multifile host_transport_failure/1.
+kind(host_transport_failure/1, ownership).
+:- multifile host_error_reason/2.
+kind(host_error_reason/2, ownership).
 :- multifile host_remove_hooks_idle/2.
 kind(host_remove_hooks_idle/2, ownership).
 

@@ -383,15 +383,15 @@ done
 # once the modules landed, all six reported here in one 4-second run, and the
 # corpus lane surfacing one of them per full pass].
 #
-# Run under `extensions`, the configuration every host boots, because that is
-# the configuration the question is about. Without the token the engine reads
-# no control file and this reports metta_host_error_reason/2 and
-# metta_host_transport_failure/1, which engine/metta/space_hooks.pl calls and
-# only extensions/python/bridge.pl declares multifile. That is a real gap in
-# every seatless process, the wasm host included, and it predates the seat
-# folders merging; closing it means the ENGINE declaring those two hooks, and
-# a seam it declares needs a seam:kind/2 row in engine/ext_points.pl, which is
-# a change to the seam contract rather than to a lane.
+# Runs TOKENLESS, the pure kernel, deliberately: this is the one lane that
+# checks the engine with no seat loaded, and it is what found the engine
+# calling two hooks only the Python bridge declared multifile
+# (metta_host_transport_failure/1 and metta_host_error_reason/2), an
+# existence_error in every seatless process, the wasm host included. The
+# engine declares both now, beside their callers in
+# engine/metta/space_hooks.pl with seam:kind/2 rows in engine/ext_points.pl,
+# and this lane running tokenless is the regression gate on that: reintroduce
+# an engine call to a hook only a seat declares and this reports it.
 PROLOG_KNOWN_UNDEFINED='mettafunc/2'
 check_prolog() {
     cd "$HERE" || return 1
@@ -399,7 +399,7 @@ check_prolog() {
         swipl -q -g "use_module(library(check)), \
                      set_prolog_flag(autoload, false), \
                      consult('engine/main.pl'), list_undefined, halt." \
-              -t 'halt(1)' -- extensions 2>&1 \
+              -t 'halt(1)' 2>&1 \
             | grep -E 'which is referenced by' \
             | grep -vE "$PROLOG_KNOWN_UNDEFINED"
     )
