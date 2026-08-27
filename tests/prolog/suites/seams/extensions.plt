@@ -14,6 +14,13 @@
 %     [tested: a_host_entry_is_never_loaded_by_the_engine]
 %   - needs(extension(Other)) holds exactly when Other loaded first
 %     [tested: an_extension_need_follows_the_loaded_record]
+%   - require-extension! passes a loaded seat silently and refuses an unloaded
+%     one naming the seat, its unmet need, the artefact path and the build
+%     command, following a need of kind extension(Other) into Other's own
+%     cause [tested: a_require_of_a_loaded_seat_passes,
+%     a_require_names_the_seat_and_its_unmet_need,
+%     a_require_diagnoses_transitively_down_to_the_build_command,
+%     a_require_of_an_unknown_name_says_so]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -160,5 +167,123 @@ test(a_host_entry_is_never_loaded_by_the_engine,
 test(the_shipped_seats_are_on_the_record) :-
     assertion(user:metta_extension_loaded(python)),
     assertion(user:metta_extension_unmet(cetta, predicate('$cetta_present'/0))).
+
+%%%% The require door %%%%
+%
+%Every record these read and write is user-qualified for the reason the header
+%above gives: the loader's tables live in the engine's module, and a bare
+%assertz here would make a plunit-local shadow that the door never reads.
+
+%The refusal message, as a host would read it. message_to_string/2 rather than
+%the term, because the whole point of the door is what the text says: a term
+%assertion would pass on a message that had stopped naming the artefact.
+require_refusal(Name, Text) :-
+    catch(( 'require-extension!'(Name, _), fail ),
+          Error,
+          message_to_string(Error, Text)).
+
+test(a_require_of_a_loaded_seat_passes, [cleanup(cleanup_scratch_seat)]) :-
+    assertz(user:metta_extension_loaded(require_probe_seat)),
+    'require-extension!'(require_probe_seat, Unit),
+    assertion(Unit == []).
+
+cleanup_scratch_seat :-
+    retractall(user:metta_extension_loaded(require_probe_seat)),
+    retractall(user:metta_extension_unmet(require_probe_seat, _)),
+    retractall(user:metta_extension_unmet(require_probe_backing, _)).
+
+test(a_require_names_the_seat_and_its_unmet_need,
+     [cleanup(cleanup_scratch_seat)]) :-
+    assertz(user:metta_extension_unmet(require_probe_seat,
+                prolog_library(no_such_library_exists_here))),
+    require_refusal(require_probe_seat, Text),
+    assertion(sub_string(Text, _, _, _, "require_probe_seat")),
+    assertion(sub_string(Text, _, _, _, "no_such_library_exists_here")),
+    assertion(sub_string(Text, _, _, _, "not loaded")).
+
+%The transitive arm, and the one the shipped case needs: a seat whose only
+%unmet need is another seat reports the OTHER seat's cause, down to the
+%artefact path and the command that builds it.
+test(a_require_diagnoses_transitively_down_to_the_build_command,
+     [cleanup(cleanup_scratch_seat)]) :-
+    assertz(user:metta_extension_unmet(require_probe_seat,
+                extension(require_probe_backing))),
+    assertz(user:metta_extension_unmet(require_probe_backing,
+                artefact('ffi/target/release/libprobe.so'))),
+    require_refusal(require_probe_seat, Text),
+    assertion(sub_string(Text, _, _, _, "require_probe_seat")),
+    assertion(sub_string(Text, _, _, _, "require_probe_backing")),
+    assertion(sub_string(Text, _, _, _,
+        "artefact extensions/require_probe_backing/ffi/target/release/libprobe.so is absent")).
+
+%A seat's records, saved and put back exactly. The two cases below stage what
+%an unbuilt tree would hold for a SHIPPED seat, so they must not decide what
+%that seat's real state was: a tree with MORK built and one without both run
+%this file, and a cleanup that simply asserted `loaded` would tell the second
+%one a lie for every test after it.
+save_seat_records(Name, records(Loaded, Unmet)) :-
+    (   user:metta_extension_loaded(Name) -> Loaded = true ; Loaded = false ),
+    findall(Need, user:metta_extension_unmet(Name, Need), Unmet).
+
+restore_seat_records(Name, records(Loaded, Unmet)) :-
+    retractall(user:metta_extension_loaded(Name)),
+    retractall(user:metta_extension_unmet(Name, _)),
+    (   Loaded == true -> assertz(user:metta_extension_loaded(Name)) ; true ),
+    forall(member(Need, Unmet),
+           assertz(user:metta_extension_unmet(Name, Need))).
+
+stage_unbuilt_mork :-
+    retractall(user:metta_extension_loaded(mork)),
+    retractall(user:metta_extension_unmet(mork, _)),
+    assertz(user:metta_extension_unmet(mork,
+                artefact('mork_ffi/target/release/libmork_ffi.so'))).
+
+%The shipped seat, staged as an unbuilt tree would have recorded it: mork
+%carries a build.sh, so its artefact need names the command.
+test(a_shipped_seats_artefact_need_names_its_build_command,
+     [ setup(save_seat_records(mork, Records)),
+       cleanup(restore_seat_records(mork, Records)) ]) :-
+    stage_unbuilt_mork,
+    require_refusal(mork, Text),
+    assertion(sub_string(Text, _, _, _,
+        "artefact extensions/mork/mork_ffi/target/release/libmork_ffi.so is absent")),
+    assertion(sub_string(Text, _, _, _, "run extensions/mork/build.sh")).
+
+%A name with no control file is a different answer from a seat that failed a
+%need, and it has to be: the remedy for one is a build and for the other is a
+%spelling.
+test(a_require_of_an_unknown_name_says_so) :-
+    require_refusal(no_such_extension_anywhere, Text),
+    assertion(sub_string(Text, _, _, _,
+        "there is no extensions/no_such_extension_anywhere/extension.pl")).
+
+test(a_require_refuses_an_unbound_name_by_its_own_name) :-
+    catch(( 'require-extension!'(_, _), fail ), Error, true),
+    assertion(Error = error(metta_unbound_input('require-extension!', 1), _)).
+
+%The whole composition, through a real file load, which is the only place the
+%requiring side is named: the door throws with an uncontexted error and the
+%file loader wraps it in the file, so one message carries who asked, what is
+%missing, why, and the command that clears it. Asserting it here is what stops
+%a later context change from silently dropping the file half.
+test(a_require_in_a_file_names_the_file_the_seat_and_the_remedy,
+     [ setup(save_seat_records(mork, Records)),
+       cleanup(( catch(delete_file(Source), _, true),
+                 restore_seat_records(mork, Records) )) ]) :-
+    tmp_file(require_in_file, Base),
+    file_name_extension(Base, metta, Source),
+    setup_call_cleanup(open(Source, write, Out),
+                       format(Out, '!(require-extension! mork)~n', []),
+                       close(Out)),
+    stage_unbuilt_mork,
+    catch(( load_imported_metta_file(Source, _, '&self'), fail ),
+          Error,
+          message_to_string(Error, Text)),
+    assertion(sub_string(Text, _, _, _, "require_in_file")),
+    assertion(sub_string(Text, _, _, _, "extension mork is required")),
+    assertion(sub_string(Text, _, _, _,
+        "artefact extensions/mork/mork_ffi/target/release/libmork_ffi.so is absent")),
+    assertion(sub_string(Text, _, _, _, "run extensions/mork/build.sh")),
+    assertion(sub_string(Text, _, _, _, "while loading MeTTa file")).
 
 :- end_tests(extension_control_files).

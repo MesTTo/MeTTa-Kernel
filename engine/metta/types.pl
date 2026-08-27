@@ -1482,6 +1482,7 @@ metta_grounded_token('print-mods!').
 metta_grounded_token('println!').
 metta_grounded_token('register-module!').
 metta_grounded_token('rem-trunc').
+metta_grounded_token('require-extension!').
 metta_grounded_token('remove-atom').
 metta_grounded_token('round-math').
 metta_grounded_token('sealed'). metta_grounded_token('sin-math').

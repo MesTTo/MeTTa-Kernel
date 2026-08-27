@@ -939,13 +939,178 @@ metta_load_extensions(Pattern) :-
 %seam:foreign_space/1 and not through clause order. That was true before this
 %change and is what made it safe [verified 2026-08-16: moved, whole gate green
 %including the MORK tests].
+%Where the seats live, recorded once at load time because a RUNTIME reader has
+%no load context to compute it from and the require door below is one: the
+%diagnosis has to tell "there is no seat by that name" from "this boot read no
+%seat at all", and only the directory answers that. The same shape
+%standard_library_path/1 uses for lib/ further up this file, and the glob below
+%reads the fact rather than repeating the path.
+:- dynamic metta_extensions_path/1.
 :- prolog_load_context(directory, Src),
-   current_prolog_flag(argv, Argv),
+   directory_file_path(Src, '../extensions', Extensions),
+   asserta(metta_extensions_path(Extensions)).
+
+:- current_prolog_flag(argv, Argv),
    (   memberchk(extensions, Argv)
-   ->  directory_file_path(Src, '../extensions/*/extension.pl', Pattern),
+   ->  metta_extensions_path(Directory),
+       directory_file_path(Directory, '*/extension.pl', Pattern),
        metta_load_extensions(Pattern)
    ;   true
    ).
+
+%%%% require-extension!: the named refusal for the half that is missing %%%%
+%
+%A `lib/` module that rests on a seat states it here, and the engine answers by
+%NAME when the seat is not there. lib/lib_mm2/lib_mm2.metta is the case: five
+%operators over `&mork` calling MORK's own builtins, with no presence check, so
+%on a tree where the FFI was never built each of them failed at call time with
+%nothing naming the cause.
+%
+%PostgreSQL has the identical two-half split and the identical failure, and it
+%answers by name: pg_stat_statements is a preloaded C module (the hooks, in
+%shared_preload_libraries) plus a per-database CREATE EXTENSION (the views),
+%and running the second half without the first raises
+%`pg_stat_statements must be loaded via shared_preload_libraries`, SQLSTATE
+%55000, object_not_in_prerequisite_state
+%[source: postgresql.org/docs/current/pgstatstatements.html, "The module must
+%be loaded by adding pg_stat_statements to shared_preload_libraries"; the
+%message text and its SQLSTATE quoted verbatim in
+%github.com/lesovsky/pgcenter/issues/104].
+%
+%Two things this says that Postgres's message does not, because needs/1 is
+%DATA here and a preload list is not:
+%
+%  - the cause is TRANSITIVE. metta_extension_unmet/2 holds the seat's own
+%    unmet need, and a need of kind extension(Other) is followed into Other's
+%    diagnosis, so mm2 -> mork -> the absent artefact is one message rather
+%    than three sessions. The walk carries a seen list, so a needs cycle
+%    reports rather than loops. This is `nix why-depends` and apt's recursive
+%    `Depends: X but it is not going to be installed` in the small.
+%  - it ends in the REMEDY, the seat's own build.sh where the seat has one.
+%
+%What it deliberately does NOT do is name the requiring side in its own text.
+%The file loader already composes that around any error whose context is
+%`none`, and measuring it is what settled the shape: a form raising
+%error(probe_reason(deep), none) inside an imported file renders as
+%`'ai-tmp/probe_inner.metta': probe reason deep (while loading MeTTa file)`
+%[measured 2026-08-28, engine/filereader/source_lifecycle.pl's
+%rethrow_metta_file_error/2, which rethrows a CONTEXTED error unchanged and
+%wraps an uncontexted one in the file]. So the inner message names what is
+%missing and the frame names who asked, which is PostgreSQL's own MESSAGE and
+%CONTEXT split and Node's `Cannot find module` plus `Require stack`. Naming the
+%file inside the message too would print it twice, and a require typed at a
+%REPL has no requiring file to name at all.
+metta_require_extension(Name) :-
+    (   metta_extension_loaded(Name)
+    ->  true
+    ;   metta_extension_cause(Name, Cause),
+        throw(error(metta_extension_required(Name, Cause), none))
+    ).
+
+%Why a seat is not loaded, in one term. The records answer first, because the
+%loader wrote them; the filesystem answers only what no record can, which is
+%whether a seat by that name exists at all.
+%
+%  unmet(Needs)  the loader read the control file and these needs failed
+%  unread        the control file is there and this boot never read it, which
+%                is the tokenless pure kernel rather than anything missing
+%  unknown       no extensions/<Name>/extension.pl exists
+metta_extension_cause(Name, unmet(Needs)) :-
+    findall(Need, metta_extension_unmet(Name, Need), Needs),
+    Needs = [_|_], !.
+metta_extension_cause(Name, Cause) :-
+    metta_extension_seat_file(Name, 'extension.pl', Control, _),
+    (   exists_file(Control)
+    ->  Cause = unread
+    ;   Cause = unknown
+    ).
+
+%A file inside a seat, both ways: the path to open, and the path to SAY. The
+%said one is written from the recorded directory's own basename rather than
+%from the word `extensions`, so the engine names no seat folder of its own and
+%the message follows a rename of the folder
+%[tested: test_the_tree_partitions_by_seam].
+metta_extension_seat_file(Name, Relative, Path, Said) :-
+    metta_extensions_path(Directory),
+    directory_file_path(Directory, Name, Seat),
+    directory_file_path(Seat, Relative, Path),
+    file_base_name(Directory, Root),
+    atomic_list_concat([Root, Name, Relative], '/', Said).
+
+%The cause as text. Seen carries the seats already being explained, so the
+%extension arm below can follow a need into its own cause without looping.
+metta_extension_cause_text(_, Name, unread, Text) :-
+    metta_extension_seat_file(Name, 'extension.pl', _, Said),
+    format(atom(Text),
+           '~w is there and no seat was read on this boot, because the engine \c
+            reads the seats only when its argv carries the `extensions` token',
+           [Said]).
+metta_extension_cause_text(_, Name, unknown, Text) :-
+    metta_extension_seat_file(Name, 'extension.pl', _, Said),
+    format(atom(Text), 'there is no ~w', [Said]).
+metta_extension_cause_text(Seen, Name, unmet(Needs), Text) :-
+    findall(Reason,
+            ( member(Need, Needs),
+              metta_extension_need_reason(Seen, Name, Need, Reason) ),
+            Reasons),
+    atomic_list_concat(Reasons, ', and ', Text).
+
+%One unmet need of Seat, said with the remedy that clears it. The paths are
+%tree-relative rather than absolute because they are what the reader types.
+%needs(extension(Other)) is the recursive arm and the reason this is a walk at
+%all: Other's own cause is read the same way, under Seen.
+metta_extension_need_reason(_, Seat, artefact(Relative), Reason) :-
+    metta_extension_seat_file(Seat, Relative, _, Said),
+    metta_extension_build_remedy(Seat, Remedy),
+    format(atom(Reason), 'artefact ~w is absent~w', [Said, Remedy]).
+metta_extension_need_reason(_, _, prolog_library(Library), Reason) :-
+    format(atom(Reason),
+           'the Prolog library ~w is not on this build\'s library search path',
+           [Library]).
+metta_extension_need_reason(_, _, predicate(Indicator), Reason) :-
+    format(atom(Reason),
+           'the predicate ~w is not defined in this process, so whatever \c
+            registers it has not run here',
+           [Indicator]).
+metta_extension_need_reason(Seen, _, extension(Other), Reason) :-
+    (   memberchk(Other, Seen)
+    ->  format(atom(Reason),
+               'extension ~w, which is already being explained above: the \c
+                needs graph has a cycle',
+               [Other])
+    ;   metta_extension_loaded(Other)
+    ->  format(atom(Reason),
+               'extension ~w, which IS loaded, so the record is stale',
+               [Other])
+    ;   metta_extension_cause(Other, Cause),
+        metta_extension_cause_text([Other|Seen], Other, Cause, Inner),
+        format(atom(Reason), 'extension ~w, which is not loaded because ~w',
+               [Other, Inner])
+    ).
+
+%The seat's own build script, when it ships one, so the message ends where the
+%reader can act. Refinement R1 of ai-plan-component-self-containment.md pairs
+%this with each build.sh verifying the artefact needs it declares, which is
+%what keeps the two from naming different paths.
+metta_extension_build_remedy(Seat, Remedy) :-
+    metta_extension_seat_file(Seat, 'build.sh', Script, Said),
+    (   exists_file(Script)
+    ->  format(atom(Remedy), ' (run ~w)', [Said])
+    ;   Remedy = ''
+    ).
+
+:- multifile prolog:error_message//1.
+prolog:error_message(metta_extension_required(Name, Cause)) -->
+    { metta_extension_cause_text([Name], Name, Cause, Text) },
+    [ 'extension ~w is required and not loaded: ~w'-[Name, Text] ].
+
+%The MeTTa spelling. It answers the unit `[]` like every other builtin whose
+%point is what it lets the rest of the file assume, and its first argument is
+%guarded because a declared Symbol position is [tested:
+%builtin_input_guards:every_builtin_refuses_an_unbound_input_by_name].
+'require-extension!'(Name, _) :- var(Name), !,
+                                 refuse_unbound_input('require-extension!', 1).
+'require-extension!'(Name, []) :- metta_require_extension(Name).
 
 :- consult('metta/terms.pl').
 :- consult('metta/operators.pl').

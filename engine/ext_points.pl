@@ -1053,6 +1053,25 @@ kind(metta_declare_space_parent/2, host_service).
 kind(metta_declare_restricted_space/2, host_service).
 kind(metta_assert_space_releasable/1, host_service).
 kind(metta_release_space/1, host_service).
+%WHO OWNS A SPACE NAME, taken at the moment a provider goes live rather than
+%discovered later as a wrong answer. seam:foreign_space/1 above is a CONDITION
+%on a name, so it cannot be enumerated and no provider can see its peers; the
+%three shipped providers therefore each kept a private registry and two of
+%them matching one name resolved by clause order. These take and give back an
+%extent -- a name, or a namespace as prefix(P), because MORK's ownership
+%genuinely is `every name beginning &mork` -- and refuse a second claim naming
+%both owners. metta_space_claim/2 is the table itself, so `metta list` and the
+%conformance kit can read the ownership map they could not have before.
+%
+%A door and not a check: nothing on a space operation's path calls these, for
+%the reason engine/spaces/foreign.pl's own section records, that one shared
+%test in front of every space door moved four benchmarks
+%[measured 2026-08-20]. metta_release_space/1 above is a different verb on
+%purpose -- it ends a space's life, where these end one provider's claim on
+%its name.
+kind(metta_claim_space/2, host_service).
+kind(metta_disclaim_space/2, host_service).
+kind(metta_space_claim/2, host_service).
 %The builtin-refusal classification: operation, kind, expected and culprit
 %read from the error term the engine's own throwers shape, absence left
 %unbound for the host to map to its None (2026-08-20).

@@ -683,6 +683,15 @@ metta_builtin_effect_override(unquote, pureStructural).
 
 metta_builtin_effect_override('is-function', readOnlyLookup).
 metta_builtin_effect_override('residual-goals', readOnlyLookup).
+%A require reads the loader's own records, stats the seat directory when no
+%record answers, and either succeeds with nothing changed or throws. Reading
+%engine state IS readOnlyLookup, and the throw does not raise the class: a
+%refusal is not an effect on the world, and every builtin that refuses an
+%unbound input throws from inside whatever class it already carries. It is not
+%pureStructural, because the answer depends on which seats this process loaded
+%rather than on the argument alone, which is the same reason 'is-function' and
+%'residual-goals' above are readOnlyLookup rather than structural.
+metta_builtin_effect_override('require-extension!', readOnlyLookup).
 
 metta_builtin_effect_override('alpha-unique', nondeterministicReadOnly).
 metta_builtin_effect_override(documented, nondeterministicReadOnly).

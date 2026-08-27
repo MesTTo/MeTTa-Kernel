@@ -8,6 +8,62 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **Space ownership is engine data, and a second claim on a live name is
+  refused naming both owners.** `seam:foreign_space/1` is a CONDITION on a
+  name rather than a list, so nobody could see a collision: the engine could
+  not enumerate claimed names, and a provider could not see its peers without
+  naming them, which is the one thing the seam exists to prevent. The three
+  shipped providers each kept a private registry — `mork_owns_space/1`,
+  `metta_py_foreign/1`, `redis_space_conn/7` — and two of them matching one
+  name resolved by clause order, which is `msort` over folder names, so an
+  atom landed in whichever store loaded first with nothing said.
+  `metta_claim_space/2` and `metta_disclaim_space/2` are the missing half, and
+  `metta_space_claim/2` is the table, enumerable at last. A claim's extent is
+  a name or a whole namespace as `prefix(P)`, because MORK's ownership
+  genuinely is `every name beginning &mork` with no per-name attach point;
+  two extents collide when they intersect. Linux's char-device registry is the
+  same object and settled it the same way, a claim being a range, a duplicate
+  `-EBUSY`, and `/proc/devices` the enumeration (`fs/char_dev.c`,
+  `__register_chrdev_region`). Redis claims in `redis-attach` before it opens a
+  socket and releases at `redis-detach`, the Python seat claims as it registers
+  a provider and releases as it unregisters, and MORK claims its namespace when
+  its provider loads. A same-owner re-claim is idempotent, releasing a claim
+  that is not there passes, and releasing another owner's refuses.
+  Nothing on a space operation's path reads any of it: the door is for
+  claim-time refusal and enumeration, and three space workloads of 2,000
+  operations each cost identical inferences before and after.
+
+- **`!(require-extension! mork)` — a library says which seat it rests on, and
+  the refusal is transitive.** A `lib/` module that is the on-demand half of a
+  boot-loaded seat had no way to say so, and `lib/lib_mm2/lib_mm2.metta` is the
+  case: five operators over `&mork` calling MORK's own builtins with zero
+  presence checks, so on a tree where the FFI was never built each of the five
+  failed at call time with nothing naming the cause. That is exactly
+  PostgreSQL's `pg_stat_statements` shape — a preloaded C module plus a
+  per-database `CREATE EXTENSION` — and Postgres answers the broken half by
+  name (`pg_stat_statements must be loaded via shared_preload_libraries`).
+  `require-extension!` is that answer here. It answers the unit when the seat
+  is loaded and otherwise refuses with the cause read out of the loader's own
+  `metta_extension_unmet/2` records, followed as far as the needs graph goes:
+  a need of kind `extension(Other)` is resolved into `Other`'s own cause, so a
+  chain two seats deep is one message, and the walk carries a seen list so a
+  cycle is reported rather than looped. The message ends in the remedy, the
+  seat's own `build.sh`:
+
+  ```
+  'lib/lib_mm2/lib_mm2.metta': extension mork is required and not loaded:
+  artefact extensions/mork/mork_ffi/target/release/libmork_ffi.so is absent
+  (run extensions/mork/build.sh) (while loading MeTTa file)
+  ```
+
+  The requiring file comes from the file loader's own frame rather than from
+  the form, which is PostgreSQL's MESSAGE-and-CONTEXT split and Node's
+  `Cannot find module` plus `Require stack`; a require typed at a REPL names
+  only what is missing. Three causes are told apart because their remedies
+  differ: a need that failed, a seat whose control file is there on a boot
+  that carried no `extensions` token (the pure kernel), and a name with no
+  control file at all.
+
 - **The example corpus's teaching order is now CHECKED.** The law is that a
   file may use only constructs introduced at or before its own number, and it
   was previously a statement in a design note that nothing enforced. Three

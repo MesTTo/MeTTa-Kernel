@@ -1561,6 +1561,49 @@ engine's whenever your file loads first, which makes the engine's own
 instantiation guards unreachable. MORK did that and `(get-atoms $any)`
 answered from MORK rather than refusing. Moving to this seam is what fixed it.
 
+#### Take the name, so a second provider cannot
+
+`seam:foreign_space/1` is a CONDITION on a name, which means it answers "is
+this one yours" and nothing else: the engine cannot enumerate claimed names
+and you cannot see your peers without naming them. So two providers whose
+clauses both matched one name resolved by clause order, and an atom landed in
+whichever store loaded first with nothing said.
+
+Take the name through the engine when your provider goes live, and give it
+back when it stops:
+
+```prolog
+metta_claim_space('&shared', redis)          % this name is mine
+metta_claim_space(prefix('&mork'), mork)     % every name under this one is
+metta_disclaim_space('&shared', redis)       % and here it is back
+metta_space_claim(Extent, Owner)             % the table, enumerable
+```
+
+A claim that meets a live claim of another owner refuses naming both and the
+remedy; one that meets only your own succeeds, so a re-registration and a
+narrower claim by the same provider both pass. Releasing a claim that is not
+there passes too, because a teardown may run twice; releasing someone else's
+refuses.
+
+`prefix(P)` is there because ownership is sometimes genuinely a namespace.
+MORK's is: every space beginning `&mork` is its, each `&mork:<name>` store is
+created on first use, and there is no per-name attach point an exact claim
+could hang on. Claiming `&mork` alone would leave every named store unclaimed,
+which is exactly the collision the door exists to catch. Linux's char-device
+registry is the same shape and settled it the same way — a claim is a RANGE,
+a duplicate is `-EBUSY`, and `/proc/devices` enumerates the table
+(`fs/char_dev.c`, `__register_chrdev_region`).
+
+Where to put the call: at your ATTACH point, whatever that is. `lib_redis`
+claims in `redis-attach` before it opens a socket and releases on any later
+failure, the Python seat claims as it registers a provider, and MORK claims
+its namespace in a load-time directive because loading is when it goes live.
+Nothing on an operation's path calls any of this, and that is deliberate: a
+duplicate ownership test there would cost a second solution on every space
+operation [measured 2026-08-28: 2,000 MORK adds and a flush, 2,000 MORK
+matches, and a 2,000-atom native write-and-match read 256,979, 531,796 and
+78,028 inferences identically before and after, five runs each].
+
 ### Take a whole batch in one crossing
 
 A seventh hook is optional, and it exists because one crossing per atom is the
@@ -1749,6 +1792,41 @@ error and half built is**: a seat with an unmet need loads nothing and says
 nothing at boot, and one whose needs hold and whose entry is broken raises.
 The first decision is your control file's; the second needs no decision at
 all.
+
+#### Saying that a library rests on a seat
+
+A seat loads at boot. A `lib/` module loads when a program imports it. When
+the second rests on the first, say so in its first form:
+
+```metta
+!(require-extension! mork)
+```
+
+It answers the unit and costs one indexed lookup when the seat is loaded.
+When it is not, it refuses and the message is TRANSITIVE — it names the
+extension, why that extension is not loaded, and the command that clears it:
+
+```
+'lib/lib_mm2/lib_mm2.metta': extension mork is required and not loaded:
+artefact extensions/mork/mork_ffi/target/release/libmork_ffi.so is absent
+(run extensions/mork/build.sh) (while loading MeTTa file)
+```
+
+The requiring file comes from the loader's own frame rather than from the
+form, so a require typed at a REPL names only what is missing. A need of kind
+`extension(Other)` is followed into `Other`'s own cause, so a chain two seats
+deep is one message; the walk carries a seen list and reports a cycle instead
+of looping.
+
+`lib/lib_mm2/lib_mm2.metta` is the shipped case. It is five operators over
+`&mork` calling MORK's own builtins, and before this door existed it had zero
+presence checks: on a tree where the FFI was never built, each of the five
+failed at call time with nothing naming the cause. PostgreSQL has the same
+two-half split and answers it the same way — `pg_stat_statements` is a
+preloaded C module plus a per-database `CREATE EXTENSION`, and the second
+without the first raises `pg_stat_statements must be loaded via
+shared_preload_libraries`. What this adds is that `needs/1` is data, so the
+cause can be followed and the message can end in the remedy.
 
 One thing your file must NOT do: load a library that installs a
 process-global `system:goal_expansion/2` or `system:term_expansion/2` that

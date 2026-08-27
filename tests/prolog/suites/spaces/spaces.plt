@@ -1337,6 +1337,94 @@ test(an_undeclared_space_provides_nothing) :-
 
 :- end_tests(spaces_foreign_contract).
 
+:- begin_tests(spaces_claim_door).
+
+% seam:foreign_space/1 is a CONDITION on a name, so the engine cannot
+% enumerate claimed names and a provider cannot see its peers. Two providers
+% whose clauses both matched one name therefore resolved by clause order,
+% which is msort over folder names, and an atom landed in whichever store
+% loaded first with nothing said. These cases are the other half: ownership
+% taken through an engine door, so the SECOND claim is a refusal.
+
+claim_probe_release :-
+    forall(member(Owner, [probe_one, probe_two]),
+           forall(member(Extent, ['&probe-claim', prefix('&probe-ns')]),
+                  catch(metta_disclaim_space(Extent, Owner), _, true))).
+
+test(two_owners_claiming_one_name_refuse_naming_both,
+     [cleanup(claim_probe_release)]) :-
+    metta_claim_space('&probe-claim', probe_one),
+    catch(( metta_claim_space('&probe-claim', probe_two), fail ),
+          Error,
+          message_to_string(Error, Text)),
+    assertion(Error = error(metta_space_claimed('&probe-claim', probe_two,
+                                                '&probe-claim', probe_one), _)),
+    assertion(sub_string(Text, _, _, _, "probe_two cannot claim")),
+    assertion(sub_string(Text, _, _, _, "probe_one already claims")),
+    assertion(sub_string(Text, _, _, _, "metta_disclaim_space")).
+
+test(a_released_name_is_claimable_again, [cleanup(claim_probe_release)]) :-
+    metta_claim_space('&probe-claim', probe_one),
+    metta_disclaim_space('&probe-claim', probe_one),
+    metta_claim_space('&probe-claim', probe_two),
+    assertion(metta_space_claim('&probe-claim', probe_two)),
+    assertion(\+ metta_space_claim('&probe-claim', probe_one)).
+
+test(the_same_owner_reclaiming_is_idempotent, [cleanup(claim_probe_release)]) :-
+    metta_claim_space('&probe-claim', probe_one),
+    metta_claim_space('&probe-claim', probe_one),
+    findall(O, metta_space_claim('&probe-claim', O), Owners),
+    assertion(Owners == [probe_one]).
+
+% The extent that MORK's ownership actually is: a namespace rather than a
+% name. A claim inside it collides even though no exact row holds the name,
+% which is the collision an exact-only table would have missed for every
+% &mork:<store> a program creates.
+test(a_name_inside_a_claimed_namespace_is_refused,
+     [cleanup(claim_probe_release)]) :-
+    metta_claim_space(prefix('&probe-ns'), probe_one),
+    catch(( metta_claim_space('&probe-ns:left', probe_two), fail ),
+          error(metta_space_claimed('&probe-ns:left', probe_two,
+                                    prefix('&probe-ns'), probe_one), _),
+          true).
+
+test(a_namespace_over_a_claimed_name_is_refused,
+     [cleanup(claim_probe_release)]) :-
+    metta_claim_space('&probe-ns:left', probe_two),
+    catch(( metta_claim_space(prefix('&probe-ns'), probe_one), fail ),
+          error(metta_space_claimed(prefix('&probe-ns'), probe_one,
+                                    '&probe-ns:left', probe_two), _),
+          true).
+
+% Releasing somebody else's claim is the corruption the door exists to
+% prevent, so it refuses; releasing one that is not there is a teardown
+% running twice, so it passes.
+test(releasing_another_owners_claim_is_refused,
+     [cleanup(claim_probe_release)]) :-
+    metta_claim_space('&probe-claim', probe_one),
+    catch(( metta_disclaim_space('&probe-claim', probe_two), fail ),
+          error(metta_space_disclaimed('&probe-claim', probe_two, probe_one), _),
+          true),
+    assertion(metta_space_claim('&probe-claim', probe_one)).
+
+test(releasing_a_claim_that_is_not_there_passes) :-
+    metta_disclaim_space('&probe-never-claimed', probe_one).
+
+% The shipped provider, read off this process's own table, BOTH ways: MORK
+% claims the NAMESPACE when its provider loads, because mork_owns_space/1 is a
+% prefix test and a named store is created on first use so there is no
+% per-name attach point, and a tree where the FFI was never built loads that
+% provider not at all and therefore claims nothing. Asserting only the first
+% half would make this file pass on one machine and fail on the other, which
+% is the shape a shipped-seat assertion has to avoid.
+test(the_shipped_backend_claims_its_namespace_exactly_when_it_loads) :-
+    (   metta_extension_loaded(mork)
+    ->  assertion(metta_space_claim(prefix('&mork'), mork))
+    ;   assertion(\+ metta_space_claim(prefix('&mork'), _))
+    ).
+
+:- end_tests(spaces_claim_door).
+
 :- begin_tests(spaces_native_shape).
 
 test(a_rational_tree_candidate_is_never_a_match_answer,
