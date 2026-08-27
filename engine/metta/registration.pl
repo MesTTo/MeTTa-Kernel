@@ -185,6 +185,16 @@ control_exception(error(metta_control_signal(inference_limit, _), _)).
 :- multifile prolog:error_message//1.
 prolog:error_message(metta_control_signal(syntax, Detail)) -->
     [ 'MeTTa syntax error: ~w'-[Detail] ].
+%The two bound kinds had no rendering at all, so a program that spent its own
+%(pragma! max-inferences N) printed `Unknown error term:
+%metta_control_signal(inference_limit,500)` at the CLI [measured 2026-08-27 on
+%!(with-pragma! ((max-inferences 500)) (spin 1000000)); commit=WORKTREE]. Every
+%seat that shows message text reads these, the C binding included, so they say
+%which bound stopped the work and what it was set to.
+prolog:error_message(metta_control_signal(inference_limit, Limit)) -->
+    [ 'the evaluation passed its ~w inference bound and was stopped'-[Limit] ].
+prolog:error_message(metta_control_signal(time_limit, Seconds)) -->
+    [ 'the evaluation passed its ~w second bound and was stopped'-[Seconds] ].
 control_exception(error(resource_error(_), _)).
 
 %A result past binary64 SATURATES to the IEEE value instead of raising,

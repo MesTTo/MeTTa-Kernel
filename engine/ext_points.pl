@@ -893,6 +893,13 @@ kind(metta_host_run_source_status/3, host_service).
 kind(metta_host_load_file/3, host_service).
 kind(metta_host_read_forms/2, host_service).
 kind(metta_host_with_stack_limit/2, host_service).
+%An inference budget over a goal an engine will RESUME, which is knowledge a
+%host cannot hold correctly on its own: the engine counts its own inferences
+%and the host thread cannot see them, so a bound placed around engine_next/2
+%charges the host's pull loop. Two seats wrote that bound independently and
+%both made the same mistake, which is why the wrapper is built here and handed
+%back rather than described. engine/metta/control.pl carries the measurements.
+kind(metta_host_inference_budget/3, host_service).
 kind(metta_host_function_generation/1, host_service).
 %A host may ask for a cardinality hint before opening a cursor. The engine owns
 %whether doing so would repeat an effect, so this one semidet question wraps

@@ -1245,6 +1245,13 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The engine's reserved limit envelope prints its bound instead of its term.
+  A program that spent `(pragma! max-inferences 500)` reported
+  `Unknown error term: metta_control_signal(inference_limit,500)` at the CLI and
+  anywhere else message text is shown; it now reads "the evaluation passed its
+  500 inference bound and was stopped". The wall-clock kind had the same gap and
+  the same fix.
+
 - `examples/reasoning/greedy_chess.metta` is skipped for the reason that is
   true. It read "long-running, covered by benchmarks" and neither half held:
   no benchmark in any baseline names it, and given its quit command it loads

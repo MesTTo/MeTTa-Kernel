@@ -196,10 +196,120 @@ run_under_pragmas(Goal) :-
 petta_call_with_inference_bound(Goal, Limit) :-
     call_with_inference_limit(Goal, Limit, Result),
     (   Result == inference_limit_exceeded
-    ->  throw(error(metta_control_signal(inference_limit, Limit),
-                    context(petta, inference_limit)))
+    ->  petta_inference_bound_exceeded(Limit)
     ;   true
     ).
+
+%%% A cumulative inference budget for a goal an engine will resume %%%
+%
+%READ THIS BEFORE PLACING A CURSOR'S INFERENCE BOUND. Two host bindings wrote
+%this bound independently and both got it wrong the same way, so the mechanism
+%is published here once instead of being re-derived per seat.
+%
+%Bounded is a goal to hand to engine_create/3. It must be installed INSIDE the
+%goal the engine runs. A bound placed around engine_next/2 on the host side
+%measures the host's own pull loop and not the engine: an SWI engine has its
+%own inference counter and the host thread cannot see it. Measured 2026-08-27
+%on this box, 1,000 pulls of a goal costing about 402 inferences each: the host
+%counter moved by 2,003, 0.50% of the work, while statistics(inferences, I)
+%read inside the engine goal grew by exactly 403,000
+%[measured 2026-08-27: ai-tmp/proto_counters.pl; commit=WORKTREE].
+%A host-side meter therefore reports a total that tracks the budget by
+%construction, whatever the engine is doing, which looks like a working meter
+%in a sweep and is out by about 200x
+%[measured 2026-08-27: ai-tmp/proto_cetta_design.pl reports 1,001 spent under a
+%1,000 budget while the engine really spent 201,507; commit=WORKTREE].
+%
+%Two bounds, because a budget over a resumable goal has two ways to be
+%escaped and neither one covers the other:
+%
+%  - call_with_inference_limit/3 bounds inferences PER SOLUTION of Goal, which
+%    is what SWI's manual says, so a generator answering cheaply forever never
+%    reaches it. It is kept because it is the only bound that stops a resume
+%    that never yields at all, where a check placed after a solution never runs.
+%  - the counter read against a base taken when the goal starts is the
+%    cumulative spend, so many cheap answers are bounded too. It fires at the
+%    first solution after the budget is passed.
+%
+%The base matters even though an engine's counter starts near zero: this same
+%wrapper is used on goals a host drives with findall/3 on its own thread,
+%where the counter has been growing since the process started and a raw
+%comparison would fire before the goal ran
+%[measured 2026-08-27: ai-tmp/cb_proto_hostthread.pl, where the un-based check
+%fires on every budget below the process-lifetime counter; commit=WORKTREE].
+%
+%Spend is bounded by the budget plus one answer's cost. The one case that
+%costs more is an answer that on its own overruns the whole budget after
+%earlier answers have spent most of it: the per-solution limiter then allows
+%one further budget's worth, so the ceiling is twice the budget.
+%
+%Only a POSITIVE Inferences is a budget. Zero and negative are both no bound
+%and install no wrapper at all, so an unbounded cursor pays nothing for the
+%feature; one rule covers the Python seat's -1 and the C seat's 0 without
+%either converting.
+%
+%The bounded path costs TWO inferences per answer over the per-solution
+%limiter alone, and it is two whatever an answer costs, so the fraction is the
+%number to be careful with: 0.49% where an answer costs 407 inferences, 7.4%
+%where it costs 27, 28.6% where it costs 7
+%[measured 2026-08-27: ai-tmp/cb_shipped_overhead.pl, draining 20,000 answers
+%at each cost; commit=WORKTREE]. Those two are spent in the cursor's ENGINE, so
+%no host-side counter sees them: query-limit-guarded, which passes
+%inferences=50,000,000 over 5,000 rows, measures identically to its pin
+%[measured 2026-08-27: bindings/python/bench.py --counter-only; commit=WORKTREE].
+%
+%Keeping the check behind petta_inference_budget_spent/3 is also the CHEAPER
+%shape, which is not the obvious way round: writing the same test inline into
+%the built term costs three inferences per answer rather than two, because the
+%clause head does the outcome discrimination that the inline form pays an
+%if-then-else and a compound arithmetic comparison for [measured 2026-08-27:
+%ai-tmp/cb_shipped_overhead.pl compares the two directly; commit=WORKTREE].
+%
+%The budget belongs to the resumable entity, which is the same place wasmtime
+%puts Store fuel and BEAM puts a process's reduction count
+%[source: https://docs.rs/wasmtime/latest/wasmtime/struct.Store.html#method.set_fuel].
+%
+%Goal is qualified by the CALLER's module and stays in the built conjunction
+%rather than moving inside a helper. A helper taking it would call it in the
+%ENGINE's module, which is not where a host binding's predicates live once a
+%host consults the engine into a module of its own.
+:- meta_predicate metta_host_inference_budget(0, +, -).
+
+%The type test is integer/1 in a condition rather than must_be/2 as a goal,
+%and it costs nothing: integer/1 compiles to a VM instruction that retires no
+%inference, where must_be/2 is two calls. A cursor is opened per query, so
+%those two showed up: must_be/2 in front of both arms moved query-limit-plain,
+%which takes no bound at all, from 29,307 to 29,505 and query-limit-guarded
+%from 32,207 to 32,405 [measured 2026-08-27: bindings/python/bench.py
+%--counter-only, min of three fresh processes; commit=WORKTREE]. type_error/2
+%is reached only when the door was misused.
+metta_host_inference_budget(Goal, Inferences, Bounded) :-
+    (   \+ integer(Inferences)
+    ->  type_error(integer, Inferences)
+    ;   Inferences =< 0
+    ->  Bounded = Goal
+    ;   Bounded = ( statistics(inferences, Base),
+                    call_with_inference_limit(Goal, Inferences, Outcome),
+                    petta_inference_budget_spent(Outcome, Base, Inferences) )
+    ).
+
+%Takes no goal, so no module travels with it and it may be called from
+%whatever module the engine stamped on the term above.
+petta_inference_budget_spent(inference_limit_exceeded, _, Inferences) :-
+    !,
+    petta_inference_bound_exceeded(Inferences).
+petta_inference_budget_spent(_, Base, Inferences) :-
+    statistics(inferences, Now),
+    (   Now - Base > Inferences
+    ->  petta_inference_bound_exceeded(Inferences)
+    ;   true
+    ).
+
+%The one spelling of the reserved envelope, so a pragma bound, a per-call
+%kwarg bound and a cursor budget all classify identically one level up.
+petta_inference_bound_exceeded(Limit) :-
+    throw(error(metta_control_signal(inference_limit, Limit),
+                context(petta, inference_limit))).
 
 %SWI's stack_limit is a changeable flag local to the calling thread. Its
 %push/pop pair is nestable and records absence as well as a prior value; the
