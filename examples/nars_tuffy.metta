@@ -1,1 +1,0 @@
-reasoning/nars_tuffy.metta

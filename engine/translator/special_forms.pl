@@ -843,7 +843,7 @@ translate_special_dl('foldall', [Accumulator, Generator, InitialExpr],
 %foldl 1400004 -> 300004]. And it captured nothing, so (map-atom $l $x ($x $u))
 %answered ((a $_0) (b $_1)) while the same map written (map-atom $l (|-> ($x)
 %($x $u))) answered ((a $_0) (b $_0)). One spelling of one map, two answers.
-%examples/lambda.metta settles which is right: it binds $k outside a lambda,
+%examples/functions/lambda.metta settles which is right: it binds $k outside a lambda,
 %reads it inside, and expects the value, so capturing is the specified
 %behaviour and these forms now share the predicate that implements it.
 %THE LIST AND THE SEED CROSS AS WRITTEN, which is what their declared types

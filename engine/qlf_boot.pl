@@ -53,7 +53,7 @@
 %under a correct locale loads the poisoned compile and prints three
 %replacement characters where the check mark belongs [measured 2026-08-26:
 %one `LC_ALL=C swipl -s engine/main.pl` boot on a purged tree, then an
-%ordinary run of examples/measure.metta, which read `. \357\277\275 x3`
+%ordinary run of examples/reasoning/measure.metta, which read `. \357\277\275 x3`
 %against the source's intact `. \342\234\205`; sixteen verdict lines and
 %the whole pytest example lane failed on artifacts alone]. Three files
 %already carried their own `:- encoding(utf8).`, which is the same fix

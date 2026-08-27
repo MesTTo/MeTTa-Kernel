@@ -1218,6 +1218,17 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Removed
 
+- The two dozen flat aliases at the top of `examples/` are gone, along with
+  `examples/_fixtures`. Each was a symlink into a topic folder, kept when the
+  corpus was first grouped so that older paths still resolved; none of them
+  was a program of its own, and every runner already skipped them, `test.sh`
+  through `find -type f` and `example_parity.corpus()` through an explicit
+  `is_symlink()` filter. What still read them now names the file: the encoding
+  lane and `test_metta_examples.py` run `examples/reasoning/measure.metta`
+  rather than `examples/measure.metta`, and the `README` links the real paths.
+  The upstream parity baseline loses its 24 duplicate entries, which measured
+  the same bytes twice under two names.
+
 - The namespace call-form aliases: `S("x")`, `V("x")` and `fn("name")` were
   synonyms for attribute access and are gone; `S.x` / `S["exact name"]` and
   `fn.car_atom` / `fn["car-atom"]` are the two doors, one mechanism each.

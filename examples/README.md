@@ -18,10 +18,9 @@ interactive, network-backed, or optional-dependency examples named in the
 runner. The merged corpus contains 226 examples that run in the shell suite.
 That count is `len(example_parity.corpus())`, the corpus's one definition in
 `bindings/python/tools/example_parity.py`; the `pytest` gate lane fails the moment
-this sentence and the tree disagree. Selected root paths remain as symlink
-aliases for package differential tests and existing documentation. Each
-canonical source file lives in one topic folder, and recursive discovery
-does not run an alias twice.
+this sentence and the tree disagree. Every program lives in exactly one
+folder and is named by its path; the two dozen flat aliases that used to sit
+at the top of this directory are gone.
 
 | folder | subject |
 |---|---|

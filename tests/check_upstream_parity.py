@@ -194,7 +194,6 @@ WAIVERS = {
         " here, 19.1M over 49 upstream; ~1.2M per get-type on both)"
     ),
     "examples/basics/fib.metta": (GUARDED_ARITHMETIC),
-    "examples/fib.metta": (GUARDED_ARITHMETIC),
     "examples/integration/python_import.metta": (DISPATCH_HOP),
     "examples/functions/specializecyclic.metta": (DISPATCH_HOP),
     "examples/control/unify_eval_branches.metta": (METTA_IMPORT),
@@ -217,7 +216,6 @@ WAIVERS = {
     "examples/libraries/memo_same_name_multi_arity.metta": (MEMO_IMPORT),
     "examples/libraries/memo_stats.metta": (MEMO_IMPORT),
     "examples/libraries/memo_variant_nonground.metta": (MEMO_IMPORT),
-    "examples/python_import.metta": (DISPATCH_HOP),
     "examples/reasoning/nars_direct.metta": (DISPATCH_HOP),
     "examples/reasoning/pln_tuffy.metta": (DISPATCH_HOP),
     "examples/performance/scale.metta": (

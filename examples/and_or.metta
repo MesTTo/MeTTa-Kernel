@@ -1,1 +1,0 @@
-basics/and_or.metta

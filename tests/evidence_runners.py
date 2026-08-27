@@ -181,8 +181,6 @@ COLLECTORS = (
     ),
     # test.sh runs each example under run.sh and fails the lane on a nonzero
     # exit, which is what makes an example's own !(test ...) forms evidence.
-    # Its find is `-type f`, which does not follow a symlink, so the two dozen
-    # flat-layout links in examples/ are not a second run of their targets.
     Collector(
         runner="test.sh",
         tier="GATE",
