@@ -101,9 +101,9 @@ reduced_platform_report :-
     forall(metta_platform(Capability, Status, Requires, _),
            format("platform ~w ~w ~q~n", [Capability, Status, Requires])),
     answer(plain, "!(+ 1 2)"),
-    %These four capabilities are absent in EVERY child this harness builds,
-    %because the default withheld set is what takes them away, so each of
-    %these is a refusal outright rather than a capability_probe/3. The git one
+    %The three capabilities the default withheld set takes away are absent in
+    %EVERY child this harness builds, so each of these five forms is a refusal
+    %outright rather than a capability_probe/3. The git one
     %has to stay that way: its present-branch would start a clone against the
     %network, which is not something a test may do on a build that can.
     refusal(timeout, "!(timeout 5 (+ 1 2))"),

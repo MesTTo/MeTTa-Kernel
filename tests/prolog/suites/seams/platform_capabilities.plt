@@ -167,9 +167,9 @@ test(the_regex_library_declares_what_it_rests_on) :-
     metta_source_declarations('../../lib/lib_regex/lib_regex.pl', Declarations),
     assertion(memberchk(requires(regex), Declarations)).
 
-% The three guard points the regex row added, each with the capability
-% planted absent, because this box has pcre and would otherwise take none of
-% them. The reduced unit below takes the library away for real.
+% The guard points the regex row added, each with the capability planted
+% absent, because this box has pcre and would otherwise take none of them.
+% The reduced unit below takes the library away for real.
 test(a_planted_absence_refuses_a_token_class_by_name,
      [ setup(plant_absent(regex)),
        cleanup(unplant_absent(regex)),
