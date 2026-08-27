@@ -478,7 +478,8 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %so, which is a language change and not a refactoring, so they are imported
 %here deliberately instead [measured 2026-08-22: the example raised "no
 %predicate named re_replace is loaded" the moment the loader stopped sharing].
-:- use_module(library(pcre), [re_replace/4]).
+%re_replace/4 is the other one and it moved into the census block below, since
+%library(pcre) is optional and the re-export has to be too.
 :- use_module(library(readutil), [read_file_to_string/3, read_line_to_string/2]).
 %The engine's own uses of the standard libraries, which autoload used to supply
 %into the one namespace every subsystem shared: alpha_list_to_set/2 buckets
@@ -500,7 +501,7 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 
 %%%%%%%%%% What this platform carries %%%%%%%%%%
 %
-%Three of the loads in this block are OPTIONAL, and a build without them is a
+%Some of the loads in this block are OPTIONAL, and a build without them is a
 %real build rather than a broken one: SWI compiled to WebAssembly, which is
 %what the browser playground and the Node binding run on, ships no threads, no
 %alarms and no subprocesses. An unconditional use_module there fails, SWI
@@ -509,6 +510,18 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %engine's stderr, which extensions/node does, and every next host on a reduced
 %platform would write its own regex for the same knowledge.
 %
+%The same is true of the SWI PACKAGES the engine loads, which are built
+%against system libraries and can be left out of a build one at a time: pcre,
+%zlib, fastrw and memfile were each unconditional here, and withholding pcre
+%alone printed four ERROR pairs -- engine/metta.pl, engine/parser.pl,
+%engine/filereader.pl and lib/lib_regex/lib_regex.pl, one per unguarded load
+%-- while an (import! &self (library lib_regex)) came back wrapped in a
+%transcript of SWI's own source_sink error [measured 2026-08-28 through
+%tests/prolog/reduced_platform.pl's extra-withheld set]. They are rows here
+%now, so the kernel's platform dependencies are a list a host can READ rather
+%than prose in a comment. Rows, not eight of them: a capability is the thing a
+%USER loses, so the two libraries the fast cache needs are one row.
+%
 %So the census is the rule extensions/cetta/extension.pl and
 %extensions/python/extension.pl already state for a SEAT, aimed at the platform:
 %NOT PRESENT IS NOT AN ERROR, HALF PRESENT IS. A capability whose library is
@@ -516,6 +529,20 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %one whose library is absent is RECORDED absent, and the forms resting on it
 %refuse by name saying what the absence costs instead of raising
 %existence_error(procedure, call_with_time_limit/2) from the interior.
+%
+%What a row costs is not always a REFUSAL. concurrency, deadlines, subprocess
+%and regex each name forms a program cannot run at all without them, so those
+%forms refuse. compressed-sources costs one FILE FORMAT: a .gz program refuses
+%naming the file, and the same program uncompressed loads, which is CPython's
+%answer for the same absence [source: CPython 3.14.4
+%tarfile.TarFile.gzopen, `except ImportError: raise CompressionError("gzip
+%module is not available") from None`, rather than letting the missing import
+%error out of the interior]. fast-cache costs no MeTTa form at all: the
+%engine's own loading never reads a cache, so a build without it boots, runs,
+%and reparses every source exactly as a build with it does when no cache was
+%written. Its two doors still refuse by name rather than half-working, because
+%a binary payload only fastrw can read has nothing to fall back TO -- what
+%degrades is the engine, not the door.
 %
 %The guard is a directive rather than SWI's :- if/:- endif conditional
 %compilation, and the difference is load-bearing under .qlf: a conditional
@@ -560,20 +587,89 @@ metta_platform_capability(deadlines, library(time),
 metta_platform_capability(subprocess, library(process),
                           '(git-import! ...), and anything else that starts \c
                            a program').
+metta_platform_capability(regex, library(pcre),
+                          'lib_regex, so (re-match ...), (re-find ...), \c
+                           (re-captures ...), (re-split ...), \c
+                           (re-replace ...) and (re-replace-all ...); \c
+                           (register-token! ...) for a reader class of your \c
+                           own; and importing re_replace as a Prolog \c
+                           function. lib_text''s plain string forms still \c
+                           work').
+metta_platform_capability('compressed-sources', library(zlib),
+                          'reading or writing a .gz program or space file; \c
+                           the same content uncompressed still loads').
+%One capability over two libraries, because engine/filereader.pl imports both
+%and the cache is what a user loses when either goes. The row is CONSERVATIVE
+%about fastrw and deliberately so: fast_read/2 and fast_write/2 are SWI core
+%builtins that library(fastrw) only re-exports, so a build missing fastrw.pl
+%alone would still have the machinery [measured 2026-08-28: with the engine
+%loaded and autoload off, filereader:fast_read/2 reports
+%imported_from(system), and /usr/lib/swi-prolog/library/fastrw.pl defines
+%only the /1 wrappers and fast_write_to_string/3]. The engine's load is what
+%the census speaks for, and the engine loads both.
+metta_platform_capability('fast-cache', [library(fastrw), library(memfile)],
+                          'saving a space in the fast binary format and \c
+                           loading one back; every load reads its source \c
+                           and parses it, which is what a load without a \c
+                           cache does anyway, so nothing else changes').
 
 %What the boot found missing. Empty on a full platform, which is what makes
 %every read below one failing call on a dynamic predicate with no clauses.
 :- dynamic metta_platform_absent/1.
 
+%A name a capability would have published and could not. Recorded from the
+%import list the load asked for, so it needs no second list to fall out of
+%date, and read by the one door a MeTTa program reaches a Prolog predicate
+%through: import_prolog_function/2 used to answer "no predicate named
+%re_replace is loaded", which is true and says nothing about why.
+:- dynamic metta_platform_absent_name/2.
+
 %The load and the census in one act, so the two cannot disagree: what is
 %recorded absent is exactly what failed to import. The catch is narrow, on the
 %spec it just tried, so a library that IS there and breaks while loading still
 %raises and stops the boot, which is the half-present half of the rule.
+%
+%The import lands in the module being LOADED rather than in this file's,
+%because the census now serves engine/parser.pl and engine/filereader.pl too
+%and each needs the names where its own calls are [measured 2026-08-28, with
+%autoload off so a resolution is an import and not the index answering: a bare
+%use_module/1 inside this clause puts pcre in THIS module and the calling
+%module reaches it only by inheritance, while Into:use_module/2 puts it in the
+%caller's]. Outside a load there is no such module and the engine's own is the
+%only sensible target; nothing calls these at run time today.
 metta_platform_load(Capability) :-
+    metta_platform_load(Capability, except([])).
+
+%except([]) rather than a separate import-everything clause: SWI reads it as
+%"every exported name minus none", which is what use_module/1 does [measured
+%2026-08-28: re_replace/4, re_match/2 and re_compile/3 all imported]. A narrow
+%list belongs to a single-library capability; a capability resting on several
+%libraries takes them whole.
+metta_platform_load(Capability, Imports) :-
     metta_platform_capability(Capability, Requires, _),
-    catch(use_module(Requires),
-          error(existence_error(source_sink, Requires), _),
-          metta_platform_lost(Capability)).
+    (   prolog_load_context(module, Into)
+    ->  true
+    ;   metta_engine_module(Into)
+    ),
+    forall(metta_platform_spec(Requires, Spec),
+           catch(Into:use_module(Spec, Imports),
+                 error(existence_error(source_sink, Spec), _),
+                 metta_platform_lost(Capability, Imports))).
+
+%A row names one library or several. The walk is this file's own rather than
+%member/2, because the first census directive runs above this file's
+%use_module(library(lists)) and would then need autoload to supply it, which
+%is the one thing the NO_AUTOLOAD=1 lane exists to catch; engine/qlf_boot.pl
+%carries qlf_member/2 for the same reason.
+metta_platform_spec(Requires, Spec) :-
+    (   is_list(Requires)
+    ->  metta_platform_member(Requires, Spec)
+    ;   Spec = Requires
+    ).
+
+metta_platform_member([Spec|_], Spec).
+metta_platform_member([_|Rest], Spec) :-
+    metta_platform_member(Rest, Spec).
 
 %Idempotent because a reload under make/0 runs the directives again.
 metta_platform_lost(Capability) :-
@@ -581,6 +677,16 @@ metta_platform_lost(Capability) :-
     ->  true
     ;   assertz(metta_platform_absent(Capability))
     ).
+
+%except([]) holds no Name/Arity pairs, so a whole-library load records the
+%capability and no names, which is right: nothing published them by name.
+metta_platform_lost(Capability, Imports) :-
+    metta_platform_lost(Capability),
+    forall(metta_platform_member(Imports, Name/_),
+           (   metta_platform_absent_name(Name, Capability)
+           ->  true
+           ;   assertz(metta_platform_absent_name(Name, Capability))
+           )).
 
 %!  metta_platform(?Capability, ?Status, ?Requires, ?Costs) is nondet.
 %
@@ -655,6 +761,28 @@ prolog:error_message(metta_platform_required(Form, Capability, Requires,
 %does, and it loads later in this file, so the census row has to be decided
 %here where the rest of the platform's is.
 :- metta_platform_load(subprocess).
+%library(pcre), the HOST TIER re-export the block above this file's imports
+%describes: re_replace/4 and nothing else, so a MeTTa program's
+%(import_prolog_function re_replace) finds a predicate. The import list is
+%what makes the absence say so by name -- metta_platform_lost/2 records
+%re_replace against the regex capability, and refuse_absent_prolog_function/1
+%reads that instead of answering "no predicate named re_replace is loaded"
+%[tested: platform_capabilities:a_re_export_lost_with_its_capability_refuses_by_name].
+:- metta_platform_load(regex, [re_replace/4]).
+%pcre.pl declares four local :- autoload/2 lines (apply, error, dcg/basics,
+%lists) but reads its own Options list with option/2 (library(option))
+%without declaring THAT one, so it too resolves by global autoload today
+%[measured 2026-08-18: examples/ch08-data/08-03-the-shipped-libraries/04-regex_lib.metta under
+%NO_AUTOLOAD=1, existence_error(procedure,pcre:option/2)]. Same trap as
+%ugraphs.pl and clpb.pl (lib/lib_constraints/lib_constraints.pl has both), same
+%fix. It sat in engine/filereader.pl beside a pcre import that file never
+%called into; the patch belongs with the load that actually brings pcre in,
+%and it is conditional because on a build without pcre there is no such module
+%to patch and naming one would create an empty module of that name.
+:- (   metta_platform(regex, present, _, _)
+   ->  pcre:use_module(library(option), [option/2])
+   ;   true
+   ).
 
 %Which module the ENGINE's own predicates live in, asked of SWI at load time
 %rather than written down. Two different jobs were both spelled `user` and

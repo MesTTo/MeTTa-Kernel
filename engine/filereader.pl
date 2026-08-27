@@ -248,17 +248,24 @@
 :- use_module(library(dcg/basics), [eos//0, digits//1, number//1,
                                     string//1, string_without//2]).
 :- use_module(library(ansi_term)). % terminal-aware diagnostic colors
-:- use_module(library(pcre)). % re_replace/4
-%pcre.pl declares four local :- autoload/2 lines (apply, error, dcg/basics,
-%lists) but reads its own Options list with option/2 (library(option))
-%without declaring THAT one, so it too resolves by global autoload today
-%[measured 2026-08-18: examples/ch08-data/08-03-the-shipped-libraries/04-regex_lib.metta under
-%NO_AUTOLOAD=1, existence_error(procedure,pcre:option/2)]. Same trap as
-%ugraphs.pl and clpb.pl (lib/lib_constraints/lib_constraints.pl has both), same fix.
-:- pcre:use_module(library(option), [option/2]).
-:- use_module(library(zlib)). % gzopen/3, .gz program files
-:- use_module(library(fastrw), [fast_read/2, fast_write/2]). % the fast cache
-:- use_module(library(memfile)). % the fast save's hashed payload buffer
+%library(pcre) was loaded here, and the pcre:option/2 patch with it, for a
+%re_replace/4 this file has never called: the import dated from the loader
+%sharing one namespace with everything else, and engine/metta.pl re-exports
+%re_replace/4 for MeTTa programs itself. Both moved there, beside the census
+%row that decides whether pcre is here at all.
+%
+%The two below are census loads, so this file's own platform dependencies are
+%declared where the code that needs them is, and a build without one is
+%recorded rather than reported by SWI. gzopen/4 is the only name this module
+%wants out of zlib, and naming it keeps the import as narrow as it was.
+:- metta_platform_load('compressed-sources', [gzopen/4]).
+%The fast cache: fastrw for the payload, memfile for the buffer the payload is
+%hashed from. One capability over two libraries, so a build with one of them
+%is recorded the same as a build with neither, which is what it can actually
+%do. Whole rather than narrow, because one import list cannot be right for two
+%different libraries; the widening reaches this module only, and a MeTTa
+%program's base chain ends at the engine's module rather than here.
+:- metta_platform_load('fast-cache').
 :- use_module(library(assoc), [ord_list_to_assoc/2, get_assoc/3]).
 :- use_module(library(pairs)). % group_pairs_by_key/2
 %Every compiled clause's source equation; asserted here and by

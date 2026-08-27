@@ -868,9 +868,18 @@ prolog_function_name_list(Names, Context) :-
                     context(Context, 'the names to register')))
     ).
 
+%A name the engine re-exports from an OPTIONAL platform library is absent for
+%a reason, and "no Prolog predicate of that name is loaded" is true without
+%being useful: it reads as a typo when the answer is that this build has no
+%pcre. The census recorded which names its own load could not import, so this
+%asks it before falling back to the general refusal, and every capability the
+%engine re-exports names through gets the same answer without a second list
+%[tested: platform_capabilities:a_re_export_lost_with_its_capability_refuses_by_name].
 refuse_absent_prolog_function(N) :-
     (   current_predicate(N/_)
     ->  true
+    ;   metta_platform_absent_name(N, Capability)
+    ->  metta_require_platform(N, Capability)
     ;   throw(error(existence_error(procedure, N),
                     context(import_prolog_functions/2,
                             'no Prolog predicate of that name is loaded')))
