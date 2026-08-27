@@ -1592,6 +1592,33 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **A seat declares itself in a control file the engine reads, instead of a
+  decider script the engine runs.** Every folder under `bindings/` and
+  `backends/` used to carry a `decider.pl`, twelve lines of imperative Prolog
+  whose whole body was one hand-rolled `exists_file -> ensure_loaded ; true`.
+  Each carries an `extension.pl` now: facts only -- `title/1`, `needs/1`
+  (`artefact`, `prolog_library`, `predicate`, `extension`), `entry/2` keyed by
+  who loads it (`engine` or `host`) -- READ with `read_term/3` and never
+  consulted, which is PostgreSQL's control-file model and the one the runtime
+  import scan already follows in those words (`engine/metta/interop.pl`). A
+  fact outside the vocabulary refuses loudly naming the file and the term,
+  proven by a planted directive that is refused and does not run.
+
+  What this buys over the deciders: an unmet prerequisite is a queryable
+  record (`metta_extension_unmet/2`) with the need named, instead of a silent
+  `; true` branch -- the C seat on a non-C boot now reads
+  `cetta: predicate($cetta_present/0)` where before it read as nothing at all;
+  the Node seat, which had NO decider because its host consults the transport
+  itself, gets a first-class identity through `entry(host, ...)` without the
+  engine ever loading it; and the `entry/2` roles dissolve the seat naming
+  split where `bridge.pl` meant the engine-loaded file in the Python seat and
+  the host-consulted file in the Node and C seats. Boot behaviour is
+  byte-identical: the same seats load under the same conditions, verified by
+  the full pytest lane (2605 passed), plunit, the packaged wheel installed
+  into a fresh venv, the worktree comparison, and a new
+  `suites/seams/extensions.plt` covering the reader's refusal, every unmet-need
+  kind, entry loading, host-entry exclusion, and the dependency need.
+
 - **A host binding missing from `host_transport/2` is refused by name instead
   of passing by absence.** The published-surface walk read a hand-written list
   of three rows, and a seat left off it was silently unchecked -- the gate

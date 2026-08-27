@@ -131,9 +131,9 @@ def compiled_modules():
 RUNTIME_RESOURCES = {
     "engine": "engine",
     "lib": "lib",
-    "backends/mork/decider.pl": "backends/mork/decider.pl",
+    "backends/mork/extension.pl": "backends/mork/extension.pl",
     "tests/codec": "tests/codec",
-    "bindings/python/decider.pl": "bindings/python/decider.pl",
+    "bindings/python/extension.pl": "bindings/python/extension.pl",
     "bindings/python/bridge.pl": "bindings/python/bridge.pl",
     "bindings/python/metta_py.py": "bindings/python/metta_py.py",
     "bindings/python/helper.pl": "bindings/python/helper.pl",

@@ -17,14 +17,15 @@ include SECURITY.md
 # the SDIST too, or `pip install` from PyPI fails: `python -m build` builds the
 # wheel FROM the sdist, so a resource the sdist drops is a resource the wheel
 # build cannot find. Measured 2026-08-23: five of the nine mapped resources were
-# absent and `python -m build` died on the first, `backends/mork/decider.pl`,
+# absent and `python -m build` died on the first of them (then spelled
+# `backends/mork/decider.pl`),
 # while `python -m build --wheel` succeeded because it reads the working tree
 # directly. CI only ever ran the second, so the path every installer takes was
 # the one path never exercised. test_packaging.py derives its check from
 # RUNTIME_RESOURCES itself so this cannot drift again.
-include backends/mork/decider.pl
+include backends/mork/extension.pl
 recursive-include tests/codec *
-include bindings/python/decider.pl
+include bindings/python/extension.pl
 include bindings/python/bridge.pl
 include bindings/python/metta_py.py
 recursive-exclude tests/codec __pycache__ *.py[co]

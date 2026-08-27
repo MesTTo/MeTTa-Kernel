@@ -1051,7 +1051,7 @@ arithmetic_expansion_stays_at_run_time :-
 % Anything else in engine/ is an internal that can be renamed under the backend.
 %
 % Backends are discovered the way the engine discovers them, by consulting
-% backends/*/decider.pl (the same glob engine/metta.pl walks), so a backend
+% backends/*/extension.pl (the same glob engine/metta.pl walks), so a backend
 % that is not built loads nothing and is not scanned. That makes the count
 % load-bearing and it is printed for that reason: on a tree without the MORK
 % artefact this check reads zero backend clauses, which is the correct answer
@@ -1059,7 +1059,7 @@ arithmetic_expansion_stays_at_run_time :-
 % per-backend folders and matched nothing, so the walk passed on zero clauses
 % with the artefact present.
 a_backend_calls_only_published_surface :-
-    forall(backend_entry(Entry), ensure_loaded(Entry)),
+    forall(backend_entry(Control), metta_load_extension(Control)),
     backend_directories(Directories),
     reaches_past_surface(Directories, Reaches),
     (   Reaches == []
@@ -1146,12 +1146,16 @@ a_host_binding_calls_only_published_surface :-
         fail
     ).
 
-backend_entry(Entry) :-
-    expand_file_name('../../backends/*/decider.pl', Files),
-    member(Entry, Files).
+%The engine's loader is the one door: it reads each backend's extension.pl,
+%checks its declared needs, and loads its entries exactly as a boot would, so
+%the walk examines the same clauses a real process gets rather than a second
+%hand-rolled load path that could drift from the first.
+backend_entry(Control) :-
+    expand_file_name('../../backends/*/extension.pl', Files),
+    member(Control, Files).
 
 % backends/ holds the declaration and the implementation lives beside the
-% shared library it wraps, which is the split backends/mork/decider.pl exists to make,
+% shared library it wraps, which is the split backends/mork/extension.pl exists to make,
 % so both are walked.
 backend_directories(['../../backends/mork', '../../backends/mork/mork_ffi']).
 

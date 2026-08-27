@@ -1705,26 +1705,40 @@ answered itself, where the identical shape in a native named space answered
 ### Shipping a native backend
 
 A backend whose implementation is a shared library needs one thing a Prolog
-provider does not: somewhere to be loaded from. That is a file in `backends/`,
-named after the backend, and it is the whole mechanism.
+provider does not: somewhere to be loaded from. That is a folder in `backends/`
+carrying an `extension.pl`, a control file of FACTS the engine reads and never
+runs — PostgreSQL's control-file model, the same one the runtime import scan
+follows — and it is the whole mechanism.
 
 ```prolog
-% backends/mine.pl
-:- prolog_load_context(directory, Dir),
-   directory_file_path(Dir, '../mine_ffi/target/release/libmine.so', Artefact),
-   (   exists_file(Artefact)
-   ->  directory_file_path(Dir, '../mine_ffi/minespaces.pl', Backend),
-       ensure_loaded(Backend)
-   ;   true
-   ).
+% backends/mine/extension.pl
+title('Spaces on mine').
+needs(artefact('mine_ffi/target/release/libmine.so')).
+needs(predicate(open_shared_object/3)).
+entry(engine, 'mine_ffi/minespaces.pl').
 ```
 
-The engine loads every file in `backends/` when the host passes `backends`,
-which `run.sh`, the packaged CLI and the Python library all do. It knows none
-of them by name. **Not built is not an error and half built is**: a backend
-whose artefact is missing loads nothing and says nothing, and one whose
-artefact is there and broken raises. Both of those are decisions your file
-makes, and no host has to implement either.
+`needs/1` takes `artefact(Relative)` for a build product, `prolog_library(L)`
+for a library the seat rests on, `predicate(Name/Arity)` for a platform door or
+a host marker, and `extension(Other)` for another seat. `entry(engine, File)`
+is what the engine consults when every need holds; `entry(host, File)` records
+a file the seat's own runtime consults instead, so tooling can see it without
+the engine ever loading it. A fact outside that vocabulary refuses loudly at
+read time, naming the file and the term — a control file that could smuggle a
+directive would be a script with extra steps.
+
+This used to be a `decider.pl` of imperative Prolog per seat, each hand-rolling
+its own `exists_file -> ensure_loaded ; true`. Declaring the needs instead
+means the refusal is named uniformly, an unmet prerequisite is a queryable
+record (`metta_extension_unmet/2`) rather than a silent branch, and
+`./metta list` answers without loading anything.
+
+The engine reads every control file in `backends/` when the host passes
+`backends`, which `run.sh`, the packaged CLI and the Python library all do. It
+knows none of them by name. **Not built is not an error and half built is**: a
+backend with an unmet need loads nothing and says nothing at boot, and one
+whose needs hold and whose entry is broken raises. The first decision is your
+control file's; the second needs no decision at all.
 
 One thing your file must NOT do: load a library that installs a
 process-global `system:goal_expansion/2` or `system:term_expansion/2` that
@@ -1780,7 +1794,7 @@ and `mork_test/0` was called by name from `engine/main.pl`. So a second native
 backend could not be added without editing the engine, which is the one thing
 this page promises you never have to do, and MORK reached the engine through a
 door no other provider had. It goes through the seam now like everyone else,
-and `backends/mork/decider.pl` is 12 lines.
+and `backends/mork/extension.pl` is four facts.
 
 ### What you may call back
 

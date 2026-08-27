@@ -797,18 +797,119 @@ metta_import_shared_registries(Subsystem) :-
           set_module(Subsystem:base(Engine))).
 
 
-%A host is a seat's decider file under bindings/, the backends split one
-%directory over: the
-%decider file loads unconditionally and whether its bridge is usable is its
-%own business, so the engine names no host and the next host is a new
-%seat folder with a decider.pl. Hosts load here, before the standard library and the registry
-%directive, so a bridge's declared builtins and seams exist by the time
-%anything reads them.
+%%%% Extensions: the control file, its vocabulary, and the loader %%%%
+%
+%A seat is a folder under bindings/ or backends/ carrying an extension.pl, a
+%control file of FACTS the engine READS and never consults -- PostgreSQL's
+%control-file model, which this codebase already follows for runtime imports
+%(engine/metta/interop.pl reads a source's manifest without running it and says
+%so in those words). Each seat used to carry a decider.pl instead, twelve lines
+%of imperative Prolog whose whole body was one hand-rolled needs check; the
+%checks are the engine's now, so a refusal is named uniformly, an unmet
+%prerequisite is a queryable record rather than a silent `; true` branch, and
+%`metta list` can answer without loading anything.
+%
+%The vocabulary, validated at read time -- a fact outside it refuses loudly
+%naming the file and the term, because a control file that can smuggle a
+%directive is a script with extra steps:
+%
+%   title(Atom)              what this seat is, one line
+%   needs(artefact(Rel))     a build product, relative to the seat's folder
+%   needs(prolog_library(L)) exists_source(library(L))
+%   needs(predicate(N/A))    current_predicate(N/A): a host marker the way the
+%                            C seat registers '$cetta_present'/0 before it
+%                            consults the engine, or a platform door the way
+%                            the WASM build lacks open_shared_object/3
+%   needs(extension(Other))  that seat loaded first
+%   entry(engine, Rel)       the engine consults it here, at boot
+%   entry(host, Rel)         the seat's own runtime consults it; recorded so
+%                            tooling can derive the transport list, loaded by
+%                            the host and never by this glob
+%
+%Every need met -> every entry(engine, _) is loaded, in the control file's
+%order, and the seat is recorded loaded. Any need unmet -> nothing loads,
+%nothing prints, and the unmet need is recorded: not built is not an error,
+%and half built still is, because a met-needs entry that raises still raises.
+:- dynamic metta_extension_loaded/1.
+:- dynamic metta_extension_unmet/2.
+
+metta_extension_control_term(title(Title)) :- atom(Title).
+metta_extension_control_term(needs(Need)) :- metta_extension_need_shape(Need).
+metta_extension_control_term(entry(Role, File)) :-
+    memberchk(Role, [engine, host]),
+    atom(File).
+
+metta_extension_need_shape(artefact(Relative)) :- atom(Relative).
+metta_extension_need_shape(prolog_library(Library)) :- atom(Library).
+metta_extension_need_shape(predicate(Name/Arity)) :- atom(Name), integer(Arity).
+metta_extension_need_shape(extension(Name)) :- atom(Name).
+
+%The same read-without-running shape interop.pl's manifest scan uses, with the
+%opposite policy on a bad term: the import scan goes quiet because the consult
+%behind it reports properly, and there is no consult behind this one, so HERE
+%the reader is the only thing that will ever speak.
+metta_extension_controls(File, Controls) :-
+    setup_call_cleanup(open(File, read, In),
+                       metta_extension_read(In, File, Controls),
+                       close(In)).
+
+metta_extension_read(In, File, Controls) :-
+    read_term(In, Term, [variable_names(_)]),
+    (   Term == end_of_file
+    ->  Controls = []
+    ;   (   metta_extension_control_term(Term)
+        ->  true
+        ;   throw(error(domain_error(extension_control_term, Term),
+                        context(File, 'an extension.pl holds only title/1, \c
+                                       needs/1 and entry/2 facts')))
+        ),
+        Controls = [Term|Rest],
+        metta_extension_read(In, File, Rest)
+    ).
+
+metta_extension_need_met(_, prolog_library(Library)) :-
+    exists_source(library(Library)).
+metta_extension_need_met(_, predicate(Name/Arity)) :-
+    current_predicate(Name/Arity).
+metta_extension_need_met(Directory, artefact(Relative)) :-
+    directory_file_path(Directory, Relative, Artefact),
+    exists_file(Artefact).
+metta_extension_need_met(_, extension(Name)) :-
+    metta_extension_loaded(Name).
+
+metta_load_extension(Control) :-
+    file_directory_name(Control, Directory),
+    file_base_name(Directory, Name),
+    metta_extension_controls(Control, Controls),
+    findall(Need, ( member(needs(Need), Controls),
+                    \+ metta_extension_need_met(Directory, Need) ),
+            Unmet),
+    (   Unmet == []
+    ->  forall(member(entry(engine, Relative), Controls),
+               ( directory_file_path(Directory, Relative, Entry),
+                 ensure_loaded(Entry) )),
+        (   metta_extension_loaded(Name) -> true
+        ;   assertz(metta_extension_loaded(Name))
+        )
+    ;   forall(member(Need, Unmet),
+               (   metta_extension_unmet(Name, Need) -> true
+               ;   assertz(metta_extension_unmet(Name, Need))
+               ))
+    ).
+
+metta_load_extensions(Pattern) :-
+    expand_file_name(Pattern, Found),
+    msort(Found, Controls),
+    forall(member(Control, Controls), metta_load_extension(Control)).
+
+%A host seat loads unconditionally and whether its bridge is usable is its own
+%control file's business, so the engine names no host and the next host is a
+%new seat folder with an extension.pl. Hosts load here, before the standard
+%library and the registry directive, so a bridge's declared builtins and seams
+%exist by the time anything reads them.
 :- prolog_load_context(directory, Src),
-   directory_file_path(Src, '../bindings/*/decider.pl', Pattern),
-   expand_file_name(Pattern, Found),
-   msort(Found, Files),
-   forall(member(File, Files), ensure_loaded(File)).
+   directory_file_path(Src, '../bindings/*/extension.pl', Pattern),
+   metta_load_extensions(Pattern).
 
 %%%% Native backends %%%%
 %
@@ -824,12 +925,12 @@ metta_import_shared_registries(Subsystem) :-
 %extension author never has to do, and MORK was reaching the engine through a
 %door no other provider had. It goes through the seam now like everyone else.
 %
-%A backend is an integration folder in backends/ with a decider.pl at its
-%top. Loading one is consulting that decider, and
-%what it pulls in, where its build artefacts are, and whether they are present
-%at all is the backend's own business: a backend that is not built loads
-%nothing and says nothing, and one that is built and broken raises, which is
-%the split every host wants and none of them should have to implement.
+%A backend is an integration folder in backends/ with an extension.pl at its
+%top, the same control file a host seat carries: what it pulls in, where its
+%build artefacts are, and whether they are present at all is the backend's own
+%declaration, and the engine's loader is what reads it. A backend that is not
+%built loads nothing and says nothing, and one that is built and broken raises,
+%which is the split every host wants and none of them should have to implement.
 %
 %The engine's own position is fixed rather than the backend's: they load after
 %everything, because a provider is reached through seam:foreign_space/1 and
@@ -838,10 +939,8 @@ metta_import_shared_registries(Subsystem) :-
 :- prolog_load_context(directory, Src),
    current_prolog_flag(argv, Argv),
    (   memberchk(backends, Argv)
-   ->  directory_file_path(Src, '../backends/*/decider.pl', Pattern),
-       expand_file_name(Pattern, Found),
-       msort(Found, Files),
-       forall(member(File, Files), ensure_loaded(File))
+   ->  directory_file_path(Src, '../backends/*/extension.pl', Pattern),
+       metta_load_extensions(Pattern)
    ;   true
    ).
 

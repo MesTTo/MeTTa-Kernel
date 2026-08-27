@@ -38,8 +38,8 @@ EOF
 }
 
 # A component is a directory carrying at least one of the contract files. The
-# same glob the engine uses for a decider and build.sh uses for a build, so a
-# new seat is a folder rather than an entry in three lists.
+# same glob the engine uses for a control file and build.sh uses for a build,
+# so a new seat is a folder rather than an entry in three lists.
 components() {
     for candidate in "$HERE/engine" \
                      "$HERE"/backends/*/ "$HERE"/bindings/*/ \
@@ -47,19 +47,19 @@ components() {
         directory=${candidate%/}
         [ -d "$directory" ] || continue
         if [ -f "$directory/build.sh" ] || [ -f "$directory/check.sh" ] ||
-           [ -f "$directory/decider.pl" ]; then
+           [ -f "$directory/extension.pl" ]; then
             printf '%s\n' "$directory"
         fi
     done
 }
 
 verb_list() {
-    printf '%-42s %-7s %-7s %-8s %s\n' COMPONENT BUILD CHECK DECIDER 'BUILDABLE HERE'
+    printf '%-42s %-7s %-7s %-8s %s\n' COMPONENT BUILD CHECK CONTROL 'BUILDABLE HERE'
     components | while IFS= read -r directory; do
         name=$(printf '%s' "$directory" | sed "s|^$HERE/||")
         [ -f "$directory/build.sh" ]   && build=yes   || build=-
         [ -f "$directory/check.sh" ]   && check=yes   || check=-
-        [ -f "$directory/decider.pl" ] && decider=yes || decider=-
+        [ -f "$directory/extension.pl" ] && decider=yes || decider=-
         # Asking is the point: a component present but unbuildable here says
         # WHICH prerequisite is missing, where the gate would silently skip it.
         # Every build.sh exits 0 with a note when its toolchain is absent, so

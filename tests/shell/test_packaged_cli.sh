@@ -44,9 +44,9 @@ import metta
 import importlib.util
 
 runtime = Path(metta.__file__).parent / "_runtime"
-for required in ("engine", "lib", "backends/mork/decider.pl", "bindings/python/decider.pl"):
+for required in ("engine", "lib", "backends/mork/extension.pl", "bindings/python/extension.pl"):
     assert (runtime / required).exists(), f"{required} is missing from the wheel"
-assert list((runtime / "backends").glob("*/decider.pl")), "backends/ shipped empty"
+assert list((runtime / "backends").glob("*/extension.pl")), "backends/ shipped empty"
 assert importlib.util.find_spec("pymetta") is None, "the distribution name became a module"
 PY
 
