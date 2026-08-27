@@ -2,13 +2,17 @@
 
 Source: `bindings/python/metta/_trace.py`.
 
-> Purpose: the reduction trace as Python objects. m.trace(source) runs
-> source with every compiled MeTTa function wrapped engine-side, and
+> Purpose: the reduction trace as Python objects. m.trace(term) runs
+> that term with every compiled MeTTa function wrapped engine-side, and
 > answers TraceEvent records: a call carries the term entering reduction
 > at its nesting depth, the matching exit carries the answer, and a call
 > with no exit is a reduction that failed. Tracing wraps and unwraps per
-> run, so it costs nothing when off; the source executes for real, writes
-> included, exactly like a run.
+> run, so it costs nothing when off; what is traced executes for real,
+> writes included, exactly like a run.
+> Guarantees:
+>   - a term and the source that spells it trace identically, so the one
+>     door that shows a reduction takes the argument every other door
+>     takes [tested test_trace_takes_the_term_every_other_door_takes]
 > Open Obligations:
 >   To Do: None
 >   Hacks: None
@@ -29,10 +33,10 @@ class TraceEvent:
 ## `trace`
 
 ```python
-def trace(space, source: str, max_events: int = 1000000) -> list[TraceEvent]:
+def trace(space, source: Atom | str, max_events: int = 1000000) -> list[TraceEvent]:
 ```
 
-> Run source in this space under the engine's reduction trace.
+> Run a term, or source, in this space under the engine's reduction trace.
 >
 > max_events bounds the recording: past it the trace raises instead
 > of accumulating without limit, the same shape as the timeout and

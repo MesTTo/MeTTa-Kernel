@@ -1523,6 +1523,15 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `m.trace` takes the term every other door takes. `m.answers`, `m.eval`,
+  `m.match`, `m.cast` and `m.derivation` all take a built term, and trace took
+  only text, so the one door that exists to SHOW you a reduction was the one
+  door that made you write the program a second time as a string.
+  `m.trace(S.fib(10))` now reads like the rest of the surface. The tracer runs
+  source, so a term is written with the surface's own writer and prefixed with
+  the `!` that makes it runnable; a string is passed through untouched, `!`
+  included or not, so every call written before this means what it meant.
+
 - An evaluation answer no longer renders as a row of bindings. `Answers`
   carries two faces, the values a call answered and the caller bindings behind
   them, and its eager table doors reached the second by asserting that the
