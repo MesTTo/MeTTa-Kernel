@@ -2,7 +2,12 @@
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order;
 %   a named-space MeTTa import is reusable only while its committed source receipt validates its life,
-%   digest, source-load identity, and exact stored-output references.
+%   digest, source-load identity, and exact stored-output references;
+%   a Prolog source declaring `:- metta_requires(Capability)` for a platform
+%   capability this build does not have is refused before it loads, naming the
+%   capability, its platform library and what the absence costs
+%   [tested: platform_capabilities_reduced:a_library_that_declares_an_absent_capability_never_loads,
+%   platform_capabilities:a_source_declaration_is_read_without_running_the_source].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -554,6 +559,33 @@ refuse_incompatible_extension(Name, Major, Minor) :-
                              extension was written against')))
     ).
 
+%What a Prolog source needs from the PLATFORM, declared in the file that needs
+%it. lib/lib_thread.pl can do nothing at all without threads, and until now it
+%said so by letting its own use_module fail and leaving SWI to print the
+%wreckage: the MeTTa import that pulled it in raised a wrapped transcript of
+%two source_sink errors rather than a refusal anyone could act on.
+%
+%The declaration is read the way an export is, out of the source and BEFORE
+%the source runs (refuse_unloadable_source/2 below), which is the whole reason
+%that scan exists: a directive that throws is reported and the load carries
+%on. So a library that cannot work here never loads, and the import refuses
+%naming the capability, the platform library behind it and what its absence
+%costs. This is npm's `engines` field and Python's `Requires-Python`, read out
+%of the metadata rather than discovered by running the package.
+%
+%The directive body is the same check again, for a source SWI consults
+%directly, outside the engine's import door, where no scan runs.
+metta_requires(Capability) :-
+    must_be(atom, Capability),
+    (   petta_platform_capability(Capability, _, _)
+    ->  true
+    ;   throw(error(existence_error(petta_platform_capability, Capability),
+                    context(metta_requires/1,
+                            'the engine declares no capability of that name')))
+    ),
+    declaring_file(File),
+    metta_require_platform(File, Capability).
+
 metta_export(Source) :-
     declaring_file(File),
     parse_metta_source(Source, ParsedForms),
@@ -851,10 +883,10 @@ refuse_absent_prolog_function(N) :-
 %itself where register_fun/1 cannot see it: the arities never register and every
 %call to it compiles to a partial application instead. In &self the load module
 %already is user, so this states that behaviour rather than adding a rule.
-consult_global(File) :- refuse_claimed_source_exports(File),
+consult_global(File) :- refuse_unloadable_source_file(File),
                         loading_loudly(user:consult(File)),
                         register_pending_exports.
-use_module_global(File) :- refuse_claimed_source_exports(File),
+use_module_global(File) :- refuse_unloadable_source_file(File),
                            loading_loudly(user:use_module(File)),
                            register_pending_exports.
 
@@ -883,31 +915,38 @@ use_module_global(File) :- refuse_claimed_source_exports(File),
 %register_declared_exports_or_undo/1 still catches after the load, with the
 %rollback that is all that is left by then
 %[tested: a_second_source_claiming_a_name_never_loads].
-refuse_claimed_source_exports(Spec) :-
+refuse_unloadable_source_file(Spec) :-
     (   absolute_file_name(Spec, File,
                            [file_type(prolog), access(read), file_errors(fail)])
     ->  setup_call_cleanup(open(File, read, In),
-                           refuse_claimed_stream_exports(In, File),
+                           refuse_unloadable_source(In, File),
                            close(In))
     ;   true
     ).
 
-refuse_claimed_string_exports(Name, Text) :-
+refuse_unloadable_source_text(Name, Text) :-
     setup_call_cleanup(open_string(Text, In),
-                       refuse_claimed_stream_exports(In, Name),
+                       refuse_unloadable_source(In, Name),
                        close(In)).
 
-refuse_claimed_stream_exports(In, File) :-
+%Two refusals off one read of the manifest. The PLATFORM one comes first: a
+%source whose capability this build does not have cannot work at all, so
+%whether its names are free is a question about a file that is never going to
+%load [tested: platform_capabilities_reduced:a_library_that_declares_an_absent_capability_never_loads].
+refuse_unloadable_source(In, File) :-
     canonical_prolog_source(File, Source),
     read_declarations(In, Declarations),
+    forall(member(requires(Capability), Declarations),
+           metta_require_platform(Source, Capability)),
     findall(Name, member(export(Name), Declarations), Names),
     forall(member(Name, Names), refuse_reserved_registration(Name)),
     forall(member(Name, Names), refuse_other_tiers_name(Name, prolog)),
     forall(member(Name, Names), refuse_other_sources_name(Name, Source)).
 
 %Everything a source DECLARES, read without running it: export(Name) for each
-%name it publishes and extension(Name) for each extension it joins. Both
-%consumers of the scan filter this rather than reading the file twice.
+%name it publishes, extension(Name) for each extension it joins, and
+%requires(Capability) for each platform capability it cannot work without.
+%Every consumer of the scan filters this rather than reading the file twice.
 metta_source_declarations(Spec, Declarations) :-
     (   absolute_file_name(Spec, File,
                            [file_type(prolog), access(read), file_errors(fail)])
@@ -940,6 +979,8 @@ read_one_declaration(In, Declarations) :-
 
 declaration_of((:- metta_extension(Name, _)), [extension(Name)]) :-
     atom(Name), !.
+declaration_of((:- metta_requires(Capability)), [requires(Capability)]) :-
+    atom(Capability), !.
 declaration_of((:- metta_export(Text)), Names) :-
     ( string(Text) ; atom(Text) ),
     !,
@@ -1025,7 +1066,7 @@ petta_name_atom(Name0, Name) :-
 %named is freed, and the second registration then erased the first library's
 %clauses [source: SWI-Prolog 10.1 Reference Manual, load_files/2, stream/1].
 consult_string_global(Name, Text) :-
-    refuse_claimed_string_exports(Name, Text),
+    refuse_unloadable_source_text(Name, Text),
     setup_call_cleanup(open_string(Text, In),
                        loading_loudly(user:load_files(Name, [stream(In)])),
                        close(In)),

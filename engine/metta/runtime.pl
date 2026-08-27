@@ -530,7 +530,13 @@ undocumented(Name) :- current_metta_space(Space),
 %[source: SWI-Prolog 10.1 manual, ch. 6 defining a meta-predicate;
 %measured 2026-08-18; tested spaces:wrapper_forms_run_in_named_spaces].
 
+%The platform check comes FIRST, before the operand is even type-checked: on a
+%build without library(time) there is no bound to apply, and the alternative
+%is existence_error(procedure, call_with_time_limit/2) raised from here, which
+%names a Prolog predicate a MeTTa author never wrote
+%[tested: platform_capabilities_reduced:a_bounded_form_refuses_by_name_when_deadlines_are_absent].
 metta_timeout(Seconds, Goal, Value) :-
+    metta_require_platform('(timeout N Expr)', deadlines),
     must_be(number, Seconds),
     call_with_time_limit(Seconds, findall(Value, Goal, Values)),
     member(Value, Values).

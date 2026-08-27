@@ -177,7 +177,8 @@ disable_metta_pragma_bounds :-
 %InferenceLimitError rather than a generic engine error.
 run_under_pragmas(Goal) :-
     (   metta_pragma('max-time', Seconds), number(Seconds), Seconds > 0
-    ->  Timed = catch(call_with_time_limit(Seconds, Goal),
+    ->  metta_require_platform('(pragma! max-time N)', deadlines),
+        Timed = catch(call_with_time_limit(Seconds, Goal),
                       time_limit_exceeded,
                       throw(error(metta_control_signal(time_limit, Seconds),
                                   context(petta, time_limit))))

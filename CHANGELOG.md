@@ -8,6 +8,50 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- The engine now declares what its platform can do, so a host asks instead of
+  guessing. `library(thread)`, `library(time)` and `library(process)` are
+  optional on a real build: SWI compiled to WebAssembly, which the browser
+  playground and the Node binding run on, ships none of them. Loading them
+  unconditionally failed there, SWI printed an `ERROR:` pair, the load carried
+  on, and the only record of the loss was that text, which is why the Node
+  binding parses the engine's boot transcript against a hand-kept table. The
+  three loads are guarded now, on the rule `bindings/cetta/decider.pl` and
+  `bindings/python/decider.pl` already state for a seat: not present is not an
+  error, half present is. Each guard records a capability fact, and
+  `petta_platform(Capability, Status, Requires, Costs)` is the published
+  `host_service` a host reads for the whole census, one row per capability with
+  the platform library behind it and what its absence costs.
+  Two families used to fail after boot, where no boot-time census could see
+  them, and both refuse by name now with the cost stated: `(timeout N Expr)`
+  and `(pragma! max-time N)` (deadlines, `library(time)`), and `(hyperpose ...)`
+  plus the whole `lib_thread` family of `par-map`, `spawn`, `await`, channels,
+  pools and blocking `take-atom` (concurrency, `library(thread)`). `git-import!`
+  and `git-dependency` refuse the same way when `library(process)` is absent.
+  A Prolog library says what it needs with `:- metta_requires(Capability)` at
+  its top, read out of the source before the source runs, the way its exports
+  already are, so a library that cannot work on this build never loads and the
+  import refuses rather than the file half-loading; `lib/lib_thread.pl` carries
+  one. This is npm's `engines` field and Python's `Requires-Python`, read from
+  the metadata rather than discovered by running the package.
+  Checked on a platform that genuinely lacks all three rather than a mocked
+  one: `tests/prolog/reduced_platform.pl` mirrors SWI's library directories by
+  symlink minus those four files and boots the engine against them in a child
+  process, where `exists_source/1` is false for each and
+  `call_with_time_limit/2` does not exist. On that platform the engine now
+  loads without writing a single error line, still evaluates, and every
+  affected form refuses naming the capability, the library and the cost
+  [tested: tests/prolog/platform_capabilities.plt, 16 tests].
+  Boot costs between 0.25% and 0.44% more instructions for it, and running a
+  program costs nothing: `examples/basics/xor.metta` retires the same 9,289
+  inferences either way, and boot inferences move from 688,190 to 690,780. The
+  range on the boot figure is the measurement's own layout sensitivity rather
+  than a range in the cost, which an inert padding block that neither side
+  executes moves by about as much. A first version probed each library with
+  `exists_source/1` before loading it, which resolves the same file name twice
+  on a build that has it; that cost 6,271,103 instructions on its own and is
+  gone, because `use_module/1` raises for exactly the missing spec and the
+  recovery is the census row.
+
 - A C binding, `bindings/cetta`, so a C program can drive the engine: boot it,
   build and read MeTTa terms as C values, run programs, pull answers one at a
   time, and publish C functions the language calls. `cetta.h` is the whole

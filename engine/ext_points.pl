@@ -1014,6 +1014,16 @@ kind(with_metta_module/2, host_service).
 %engine-owned door instead of the two raw reads it wraps, so the
 %declaration walk and the rule registry stay free to move.
 kind(metta_typed_dispatch_applies/2, host_service).
+%What this build's PLATFORM carries: every capability, whether it is present,
+%the platform library it rests on and what its absence costs. A host on a
+%reduced platform (SWI compiled to WebAssembly has no threads, alarms or
+%subprocesses) has to know this to say what it cannot run, and until it was
+%published the only record was SWI's stderr during boot, which
+%bindings/node parses against a hand-kept table. A census is engine
+%knowledge and this is the read of it; the engine records it once, at the
+%guarded loads in engine/metta.pl, and the forms that rest on an absent
+%capability refuse by name from the same table.
+kind(petta_platform/4, host_service).
 
 %The post-commit stream's five services. Transaction owners open and finish
 %frames; a provider whose own durable channel reports a committed change may
@@ -1049,6 +1059,18 @@ kind(parse_metta_source/2, service).
 kind(metta_reader_token_class/3, service).
 kind(metta_reader_token_source/2, service).
 kind(metta_symbol_writable/1, service).
+
+%The other two halves of the platform census, both engine-defined and both
+%with a caller outside the engine already. metta_requires/1 is the DECLARATION
+%a Prolog library writes at its top, read out of the source before the source
+%runs, so a library that cannot work on this build never loads;
+%lib/lib_thread.pl carries one. metta_require_platform/2 is the runtime guard a
+%library or a compiled body calls before doing work the platform cannot
+%support; lib/lib_gitimport.pl calls it and the compiler emits it into both
+%(hyperpose ...) branches, which is why it is also a seam:engine_emitted/1
+%name.
+kind(metta_requires/1, service).
+kind(metta_require_platform/2, service).
 
 %Every head the compiler gives a special meaning to, enumerable. A reflection
 %library wants the SET, and reading engine/translator.pl's clause table for it

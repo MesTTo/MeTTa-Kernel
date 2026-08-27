@@ -1202,6 +1202,45 @@ silence. Erlang's NIF loader is the model: the major must match and the minor
 must not be newer, or the load fails, naming both versions. A library that
 declares nothing keeps working, so this costs nothing until you use it.
 
+### Say what platform you need
+
+```prolog
+:- metta_requires(concurrency).
+:- use_module(library(thread)).
+```
+
+Three platform libraries are optional, because a real build can lack them: SWI
+compiled to WebAssembly, which the browser playground and the Node binding run
+on, has no `library(thread)`, no `library(time)` and no `library(process)`. The
+engine records what it found at boot, and `petta_platform/4` is the census:
+
+```prolog
+?- forall(petta_platform(C, S, R, Costs), format("~w ~w ~w~n  ~w~n", [C,S,R,Costs])).
+concurrency present library(thread)
+  (hyperpose ...), and lib_thread's par-map, spawn, await, channels, pools ...
+deadlines present library(time)
+  (timeout N Expr) and (pragma! max-time N); a wall-clock bound has to ...
+subprocess present library(process)
+  (git-import! ...), and anything else that starts a program
+```
+
+If your library cannot work without one of those, say so at the top of the file
+that imports it. The engine reads the declaration out of your source *before it
+runs the source*, the same scan that reads your `metta_export` block, so an
+import on a build without the capability refuses naming the capability, the
+library and what its absence costs, and your file never half-loads. Declaring
+nothing keeps working, and a capability name the engine does not know is
+refused where you wrote it rather than at the first call.
+
+For a decision your own code makes at run time, ask the census, or call
+`metta_require_platform(Form, Capability)` to refuse in the engine's own words:
+
+```prolog
+my_parallel_map(Goal, In, Out) :-
+    metta_require_platform('(my-par-map f xs)', concurrency),
+    concurrent_maplist(Goal, In, Out).
+```
+
 ### Prove your provider before your users do
 
 ```python
