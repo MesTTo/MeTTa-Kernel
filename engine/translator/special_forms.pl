@@ -454,17 +454,29 @@ translate_special_dl(top, [CountExpr, Expr], AfterHead, Goals, Out) :-
     ;   Ordered = metta_top(Count, Conj, Out)
     ),
     AfterCount = [Ordered|Goals].
+%The platform guard is EMITTED rather than asked here, because a compile-time
+%refusal would stop a program from LOADING over a branch it may never run:
+%MeTTa's model is that an unreached expression costs nothing, and defining
+%(= (f) (hyperpose ...)) is not running it. Emitted, the refusal arrives when
+%the form is evaluated, which is where concurrent_and/3's existence error
+%would otherwise arrive naming a Prolog predicate nobody wrote. It is one goal
+%on a form that starts threads, and it is
+%seam:engine_emitted/1-declared like every other name the compiler writes
+%[tested: platform_capabilities_reduced:hyperpose_refuses_by_name_when_concurrency_is_absent].
 translate_special_dl(hyperpose, [List], AfterHead, Goals, Out) :-
+    Guard = metta_require_platform('(hyperpose ...)', concurrency),
     ( nonvar(List), is_list(List)
       -> build_hyperpose_branches(List, Branches),
          length(Branches, BranchCount),
          hyperpose_pool_size(BranchCount, Jobs),
          current_metta_module(Module),
-         AfterHead = [concurrent_and(member((Goal, Result), Branches),
+         AfterHead = [Guard,
+                      concurrent_and(member((Goal, Result), Branches),
                                      hyperpose_branch(Module, Goal, Result,
                                                       Out),
                                      [threads(Jobs)])|Goals]
-      ; translate_expr_dl(List, AfterHead, BeforeHyperpose, ListValue),
+      ; AfterHead = [Guard|AfterGuard],
+        translate_expr_dl(List, AfterGuard, BeforeHyperpose, ListValue),
         BeforeHyperpose = [hyperpose_runtime(ListValue, Out)|Goals] ).
 translate_special_dl(with_mutex, [Mutex, Expr], AfterHead, Goals, Out) :-
     translate_expr_to_conj(Expr, Conj, Out),

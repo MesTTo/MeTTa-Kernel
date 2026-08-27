@@ -62,6 +62,49 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   space and registration verbs, and admission queues for a watch. Every
   predicate it calls is still published surface, which
   `tests/prolog/static_checks.pl` checks.
+- The engine now declares what its platform can do, so a host asks instead of
+  guessing. `library(thread)`, `library(time)` and `library(process)` are
+  optional on a real build: SWI compiled to WebAssembly, which the browser
+  playground and the Node binding run on, ships none of them. Loading them
+  unconditionally failed there, SWI printed an `ERROR:` pair, the load carried
+  on, and the only record of the loss was that text, which is why the Node
+  binding parses the engine's boot transcript against a hand-kept table. The
+  three loads are guarded now, on the rule `bindings/cetta/decider.pl` and
+  `bindings/python/decider.pl` already state for a seat: not present is not an
+  error, half present is. Each guard records a capability fact, and
+  `petta_platform(Capability, Status, Requires, Costs)` is the published
+  `host_service` a host reads for the whole census, one row per capability with
+  the platform library behind it and what its absence costs.
+  Two families used to fail after boot, where no boot-time census could see
+  them, and both refuse by name now with the cost stated: `(timeout N Expr)`
+  and `(pragma! max-time N)` (deadlines, `library(time)`), and `(hyperpose ...)`
+  plus the whole `lib_thread` family of `par-map`, `spawn`, `await`, channels,
+  pools and blocking `take-atom` (concurrency, `library(thread)`). `git-import!`
+  and `git-dependency` refuse the same way when `library(process)` is absent.
+  A Prolog library says what it needs with `:- metta_requires(Capability)` at
+  its top, read out of the source before the source runs, the way its exports
+  already are, so a library that cannot work on this build never loads and the
+  import refuses rather than the file half-loading; `lib/lib_thread.pl` carries
+  one. This is npm's `engines` field and Python's `Requires-Python`, read from
+  the metadata rather than discovered by running the package.
+  Checked on a platform that genuinely lacks all three rather than a mocked
+  one: `tests/prolog/reduced_platform.pl` mirrors SWI's library directories by
+  symlink minus those four files and boots the engine against them in a child
+  process, where `exists_source/1` is false for each and
+  `call_with_time_limit/2` does not exist. On that platform the engine now
+  loads without writing a single error line, still evaluates, and every
+  affected form refuses naming the capability, the library and the cost
+  [tested: tests/prolog/platform_capabilities.plt, 16 tests].
+  Boot costs between 0.25% and 0.44% more instructions for it, and running a
+  program costs nothing: `examples/basics/xor.metta` retires the same 9,289
+  inferences either way, and boot inferences move from 688,190 to 690,780. The
+  range on the boot figure is the measurement's own layout sensitivity rather
+  than a range in the cost, which an inert padding block that neither side
+  executes moves by about as much. A first version probed each library with
+  `exists_source/1` before loading it, which resolves the same file name twice
+  on a build that has it; that cost 6,271,103 instructions on its own and is
+  gone, because `use_module/1` raises for exactly the missing spec and the
+  recovery is the census row.
 
 - A C binding, `bindings/cetta`, so a C program can drive the engine: boot it,
   build and read MeTTa terms as C values, run programs, pull answers one at a
@@ -84,11 +127,9 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   ranked effect classes, required rather than advisory, and reaches MeTTa
   through C's own casing convention, so `word_count` publishes `word-count`
   exactly as Python's `car_atom` reaches `car-atom`.
-  Being in-process also lets this seat settle a question the other two guess at:
-  an atom becomes a space reference when `metta_space_names/1` says it is one,
-  where the shipped Python and Node encoders hardcode `&self` and `&petta` and
-  therefore send a space the engine just created across as an ordinary symbol.
-  The divergence is pinned and explained in the parity test rather than hidden.
+  Being in-process also lets this seat ask the engine directly which atoms are
+  space references, rather than hardcoding a pair of names the way the shipped
+  encoders did; the question both seats now ask is under Changed below.
 
 - A scaling gate now holds each benchmark family to its declared complexity
   CLASS rather than to a constant, closing a hole every other pin in the tree
@@ -665,6 +706,74 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   measured quadratic or linear-in-program costs with flat ones.
 
 ### Changed
+
+- Two published host services now state the SHAPES a caller has to know, which
+  were previously discoverable only by experiment. `metta_host_remove_reported/3`
+  answers the plain boolean `true` or `false`; the first C implementation
+  guessed the atom `removed` and reported every successful removal as a miss,
+  silently, because a wrong guess still unifies with a fresh variable. And the
+  name list `sread_with_names/3` answers, which `swrite_with_names/3`,
+  `sdisplay_with_names/3` and `petta_name_pairs/2` all take, is `Name-Var`
+  pairs, `-`/2 rather than `=`/2, with `Name` an atom carrying no `$`; passing
+  `[]` is legal and numbers the variables instead, so `(f $x $x $y)` comes back
+  as `(f $_0 $_0 $_1)`.
+
+- The wire codec's `p` tag now states which question it asks, and both shipped
+  seats ask the engine that one question. `p` is a **species** tag, so it
+  follows the engine's own species classifier: `metatype_of/2` decides a space
+  with `petta_space_operand/1`, and that is what an encoder asks, so
+  `get-metatype` and the wire cannot disagree about an atom. Before this the
+  Python encoder wrote `p` for exactly two hardcoded names, `&self` and
+  `&petta`, and the C seat rebuilt the whole `metta_space_names/1` registry per
+  answer, so the two halves of one codec disagreed: a space made by
+  `!(new-space)` crossed to Python as an ordinary `Symbol` and could not be used
+  as a space. `CODEC.md` has a section on the rule and its price.
+  The ampersand alone decides nothing, which is the part a new binding gets
+  wrong. `&not-a-space` crosses as `["s", "&not-a-space"]` because no space
+  exists under that name, and a `State` cell, `&state-#0`, is not a space
+  either. The wider `petta_space_name/1` test that `(is-space ...)` answers says
+  yes to both, because it asks whether a space operation may take the name, and
+  that is a different question from what the atom is.
+  The price is the other way round: a space's species depends on whether it
+  exists, so an atom crosses as `s` before anything creates a space under its
+  name and as `p` afterwards. That is the engine's create-on-demand model and
+  what `get-metatype` reports too.
+  The decoder got simpler with the encoder: Python used to keep its own set of
+  the space names `Space` had built and re-read an `s` payload against it, which
+  was a third answer to the question and missed every space MeTTa itself made.
+  The tag now decides alone. `tests/codec/corpus.json` gained `symbol-ampersand`
+  and `space-in-expression`, and the C seat dropped a per-answer space-name list
+  that cost a `findall`, `findall`, `append` and `sort` for every atom it
+  decoded.
+
+- A future space now exists from the moment its name is handed out, the same
+  way `(new-space)` creates before answering. `lib_thread.pl` says a future IS
+  a space, and it was not one until something wrote the first answer into it:
+  in that window `(get-metatype &future-1)` answered `Symbol`,
+  `m.space_names()` did not list it, and a host asking the engine what species
+  the atom was got told a symbol, so `!(spawn (+ 1 2))` and every `async`
+  operation handed Python a `Symbol` where a `FutureSpace` belongs. All four
+  doors that mint one, `spawn`, the async host operations, the pool submit and
+  the timer, share the fix, and the timer's own comment already said the
+  future exists from the moment it is scheduled.
+
+- `metta.space(...)` takes a `Space` back, so opening one is idempotent
+  instead of a `TypeError`. The door answers a `Space` and refused to accept
+  one, which only became reachable when an engine answer naming a space began
+  arriving as a `Space`: `metta.space(json_decode(text).one())` is how
+  `lib_json` and `lib_file` hand a decoded object's space to Python. A dropped
+  handle is still refused.
+
+- `metta.MeTTa().space()` now creates the space it hands back, so
+  `(get-type ...)` on a fresh anonymous handle is `SpaceType` and
+  `m.space_names()` lists it, matching `(new-space)` and what the arbiter
+  requires of it. It minted only a NAME before, so the handle Python returned
+  answered `%Undefined%` and metatype `Symbol` until something wrote to it,
+  and a term carrying it came home as a symbol. The `inherits=` and
+  `restricted=` forms are unchanged: their declarations create the storage
+  themselves and refuse a child that has already been used. Naming a space
+  still registers nothing, so `metta.space("&kb")` with an explicit name and
+  `Space("&kb")` are unchanged.
 
 - The Python `+=` write door now classifies semantic scalars before fact
   streams. A built `Expression`, bare atom, text value, mapping, or explicitly
@@ -1307,8 +1416,89 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
   test already covers. The conclusion the documentation drew was right and only
   its evidence was wrong, so the reason is now the one that holds: 2 and 2.0 are
   different ATOMS, which `=alpha`, a `case` pattern and `subtraction-atom` each
-  show, and identity is what a codec has to preserve. `bindings/cetta/kit/corpus.json`
-  still carries the same stale reason.
+  show, and identity is what a codec has to preserve.
+- A failing MeTTa assertion no longer writes to the stdout of the process that
+  embeds the engine. `assert/2` reported through a bare `format/2`, which goes
+  to `current_output`, and for a host that embeds SWI in its own process that
+  is the host's own stdout: an embedded caller could not suppress it, and
+  redirecting output the host owns to hide it is worse than the problem. The
+  print dates from upstream, where this predicate ended in `halt(1)` and the
+  print was the only report there would ever be; the commit that made the
+  failure a catchable exception left the print behind, and it has been a
+  duplicate of the exception's own rendering since. It now goes through
+  `print_message/2`, so it lands on `user_error`, renders through the one
+  `prolog:error_message//1` clause the engine already had for that formal, and
+  can be intercepted with `message_hook/3` by a host that wants only the
+  exception. Reporting and then throwing is deliberate and is what SWI's own
+  `assertion/1` does: a ball can be swallowed by any `catch/3` up the stack.
+  `test/3`'s `is ..., should ...` line stays on stdout, because that one prints
+  on success too and is a trace of a check that ran rather than a failure
+  report; `test.sh` tells the failure shapes apart by exactly that difference,
+  and `tests/test_example_runner_surfaces_failures.sh` now runs all three
+  shapes through the runner and through a copy of it with the stdout+stderr
+  capture removed, so what that capture buys is measured rather than described.
+
+- Engine verbosity has a published door, `metta_host_set_silent/1`, so a host
+  with no command line to read stops reaching into engine internals for it.
+  `engine/filereader.pl` decides `silent/1` from `argv` at load time, which an
+  embedded host has none of, and the Python and C seats had each written the
+  same retract-then-assert under a private name while the engine's own export
+  comment named the first of them. Both copies are gone, the engine's comment
+  names the service instead, the service carries a `seam:kind/2` declaration
+  like every other host-facing predicate, and it refuses a non-boolean before
+  it retracts anything rather than leaving every reader on a value none of them
+  match. `silent/1` now has one writer in the tree outside its own boot
+  directive; the four Prolog gate harnesses and the one Python test that
+  spelled the pair themselves go through the door too.
+- An `inferences=` budget now bounds a lazy cursor. It did nothing: draining
+  20,000 rows through `m.match()` or the cursor door under a budget of 5,000
+  returned all 20,000 rows, and so did every larger budget.
+  Two facts had been read backwards. An SWI engine has its OWN inference
+  counter and the thread that created it cannot see that counter, so a bound
+  placed around a pull charges the pull loop: 1,000 pulls of a goal costing
+  about 402 inferences each moved the calling thread's counter by 2,003, 0.50%
+  of the work. And `call_with_inference_limit/3` bounds inferences per SOLUTION
+  of its goal, which is what SWI's manual says, so a generator answering cheaply
+  forever is re-armed at every answer and never reaches it.
+  The budget is now built by `metta_host_inference_budget/3`, which keeps that
+  limiter, because it is the only bound that stops a resume which never yields
+  an answer at all, and adds the engine's own counter read against a base taken
+  when the goal starts. Spend is bounded by the budget plus one answer's cost,
+  except where a single answer overruns the whole budget on its own, which can
+  reach twice it. A cursor with no budget installs no wrapper and is unchanged;
+  a bounded cursor costs two engine inferences per answer, and those are spent
+  in the cursor's engine where no host-side counter sees them.
+  `m.stats()` is the other side of that fact and it now says so: it reads the
+  calling thread's counters, so it sees about 10.5% of what a lazy `match()`
+  cursor's engine actually spends. The evaluation cursor behind `answers()`
+  reports its engine's spend and is whole. Changing that for the match cursor
+  would change the hot pull's wire and is not in this change.
+
+- The C binding's cursor inference bound counts the engine's work. It metered
+  with `statistics/2` either side of each `cetta_answers_step()`, which reads
+  the CALLING thread's counter, and a cursor's engine is not in it: at a budget
+  of 20,000 that meter bought exactly 4,000 answers from a cheap generator and
+  exactly 4,000 from one whose answers cost 137x more, the same count for both.
+  It now builds the budget into the engine goal through
+  `metta_host_inference_budget/3` and buys 1,233 and 9. The old meter, the
+  per-cursor spend column and `petta_c_cursor_spent/2` are gone with it.
+  A C caller also now gets `CETTA_LIMIT` rather than `CETTA_ERROR` when a MeTTa
+  program spends its own `(pragma! max-inferences N)`, because the classifier
+  reads the engine's reserved limit envelope as well as this binding's own.
+
+- The engine's reserved limit envelope prints its bound instead of its term.
+  A program that spent `(pragma! max-inferences 500)` reported
+  `Unknown error term: metta_control_signal(inference_limit,500)` at the CLI and
+  anywhere else message text is shown; it now reads "the evaluation passed its
+  500 inference bound and was stopped". The wall-clock kind had the same gap and
+  the same fix.
+- The C binding no longer says MeTTa tells `2` from `2.0` through `==`. It
+  does not: numeric equality is by VALUE across the integer and float
+  constructors, following LeaTTa's `Ground.equiv`, so `(== 2 2.0)` answers
+  True. What is true, and what the C seat's `CETTA_INT`/`CETTA_FLOAT` split
+  actually rests on, is that `2` and `2.0` are two ATOMS: a stored `(f 2.0)`
+  does not match the pattern `(f 2)`, and each prints as itself. `cetta.h` and
+  `bindings/cetta/kit/corpus.json` carried the wrong half of that.
 
 - `examples/reasoning/greedy_chess.metta` is skipped for the reason that is
   true. It read "long-running, covered by benchmarks" and neither half held:

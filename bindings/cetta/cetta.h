@@ -35,8 +35,12 @@
  *     the caller owns. Every accessor returns a borrowed pointer valid only
  *     while its parent lives. There are no other rules to remember.
  *   - a MeTTa Number splits into CETTA_INT and CETTA_FLOAT here, because C
- *     has two types where the wire codec has one tag, and MeTTa tells 2 from
- *     2.0 apart. Values outside int64 and rationals get their own kinds
+ *     has two types where the wire codec has one tag, and 2 and 2.0 are two
+ *     ATOMS: a stored (f 2.0) does not match the pattern (f 2), and each
+ *     prints as itself [measured 2026-08-27]. Equality is the other question
+ *     and compares by VALUE, so (== 2 2.0) answers True; a seat that folded
+ *     the two kinds together on the strength of that would lose the match and
+ *     the printed text. Values outside int64 and rationals get their own kinds
  *     rather than being rounded into one that fits; see cetta_kind_t.
  *   - the last error is thread-local and read with cetta_errmsg(), the shape
  *     dlerror() and strerror() already established for C, so a function that
@@ -397,23 +401,25 @@ typedef struct cetta_limits {
 /* Bounds for every later call on this runtime. Passing NULL clears them.
 
    On a lazy cursor the INFERENCE bound is a CUMULATIVE budget for the whole
-   cursor: the engine's own counter is read before and after every step and the
-   deltas are added up, so a cursor stops once it has spent what it was given,
-   however many steps that took. Measured 2026-08-27 on an endless generator:
-   budgets of 1,000 / 5,000 / 20,000 / 100,000 stopped after spending 1,004 /
-   5,004 / 20,004 / 100,004
-   [tested: tests/test_cetta.c, test_a_bound_stops_a_runaway_and_says_so;
-   commit=0c544dba163996ab34fec1cb574f5f4faf8b53f0].
+   cursor: the budget is built into the goal the cursor's engine runs, and that
+   engine counts its own inferences, so a cursor stops once it has spent what
+   it was given however many steps that took. Spend is bounded by the budget
+   plus one answer's cost; an answer that on its own overruns the whole budget
+   is the one case that can reach twice it. Measured 2026-08-27 over two
+   endless generators under one budget of 20,000, one answering cheaply and one
+   burning a hundred reductions per answer: 1,233 answers of the first arrived
+   and 9 of the second
+   [tested: tests/test_cetta.c, test_a_bound_stops_a_runaway_and_says_so].
 
    The WALL bound applies per step, so time spent between steps, while the
    caller is doing something else, does not count against it.
 
    An eager cetta_run() or cetta_load() is bounded as one call, both ways.
 
-   The inference counter is the engine's, and the engine is one per process, so
-   a cursor stepped while another thread is also evaluating charges that work
-   to whichever cursor happened to be stepping. That is the same reading
-   cetta_stats() carries and the same one the Python seat's counters carry. */
+   A cursor's budget counts that cursor's engine and nothing else, so work
+   another thread does while it is stepping is not charged to it. cetta_stats()
+   is a different reading: it reports the CALLING thread's counters, which do
+   not include what a cursor's engine spent. */
 CETTA_API cetta_status_t cetta_set_limits(cetta_t *runtime,
                                           const cetta_limits_t *limits);
 

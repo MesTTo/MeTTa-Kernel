@@ -238,6 +238,21 @@
 %     (lib/lib_constraints.pl, lib/lib_memo.pl) [measured 2026-08-18:
 %     interleaved min-of-3, perf stat -e instructions:u, spread under
 %     0.003% within each side].
+%   - library(thread), library(time) and library(process) are optional: a
+%     build without one records the capability absent through
+%     petta_platform/4 and loads without an error, and every form that rests
+%     on it refuses by name saying what the absence costs [tested:
+%     platform_capabilities, platform_capabilities_reduced;
+%     commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb]. Cost: between
+%     +0.25% and +0.44% instructions:u on a boot, the range being the
+%     measurement's own layout sensitivity, which an inert padding block that
+%     neither side executes moves by about the same amount [measured
+%     2026-08-27: 1,062,764,116 -> 1,067,395,694 unpadded, 1,064,396,538 ->
+%     1,067,019,910 with five inert rules, 1,063,925,775 -> 1,067,710,574 with
+%     ten; interleaved min-of-5, perf stat -e instructions:u, swipl -q -g halt
+%     -t halt -s engine/main.pl on twelve-character paths; boot inferences
+%     688,190 -> 690,780 and examples/basics/xor.metta identical at 9,289;
+%     commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb].
 % Open Obligations:
 %   To Do: check.sh does not yet gate autoload=false; the exact line is
 %     `run GATE   no-autoload  sh -c "cd '$HERE' && NO_AUTOLOAD=1 sh
@@ -458,10 +473,128 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %[measured 2026-08-18: examples/libraries/doc_lib.metta under
 %NO_AUTOLOAD=1, existence_error(procedure,distinct/2)].
 :- use_module(library(solution_sequences)).
-:- use_module(library(thread)).
-%alarm/4 and remove_alarm/1, which metta_timeout/2 uses instead of
-%call_with_time_limit/2 so a bounded goal keeps its answers.
-:- use_module(library(time)).
+
+%%%%%%%%%% What this platform carries %%%%%%%%%%
+%
+%Three of the loads in this block are OPTIONAL, and a build without them is a
+%real build rather than a broken one: SWI compiled to WebAssembly, which is
+%what the browser playground and the Node binding run on, ships no threads, no
+%alarms and no subprocesses. An unconditional use_module there fails, SWI
+%prints an ERROR pair, the load carries on, and the only record of what was
+%lost is that text. A host then has to recover the census by parsing the
+%engine's stderr, which bindings/node does, and every next host on a reduced
+%platform would write its own regex for the same knowledge.
+%
+%So the census is the rule bindings/cetta/decider.pl and
+%bindings/python/decider.pl already state for a SEAT, aimed at the platform:
+%NOT PRESENT IS NOT AN ERROR, HALF PRESENT IS. A capability whose library is
+%there loads exactly as before, through the same directive in the same place;
+%one whose library is absent is RECORDED absent, and the forms resting on it
+%refuse by name saying what the absence costs instead of raising
+%existence_error(procedure, call_with_time_limit/2) from the interior.
+%
+%The guard is a directive rather than SWI's :- if/:- endif conditional
+%compilation, and the difference is load-bearing under .qlf: a conditional
+%compilation block is decided while the file COMPILES and only the taken
+%branch reaches the .qlf, so a .qlf built where a library exists would carry a
+%bare use_module and no census at all. A directive is stored in the .qlf and
+%re-run on every load, census included [measured 2026-08-27: a directive's
+%assertz reappears from a .qlf whose source file has been moved away]. The
+%import lands where the bare directive's did, because use_module/1 imports
+%into the module its CALLER's clause belongs to and that is this file's
+%[measured 2026-08-27: consulted into a module of its own, call_with_time_limit/2
+%imported_from(time) there and absent from user].
+%
+%And the guard is the LOAD ITSELF rather than a question asked before it.
+%exists_source/1 in front of use_module/1 is the shape the two seat deciders
+%use, it was written that way first, and it resolves the same file name twice
+%on every build that HAS the library: a resolution walks every directory on
+%the library search path against four file-type extensions, and the three
+%probes cost 6,271,103 instructions, 0.37% of a bare boot, for an answer the
+%load was about to compute anyway [measured 2026-08-27: 64,860,419
+%instructions:u for a process that runs the three probes against 58,589,316
+%for the same process without them; command=perf stat -e instructions:u swipl
+%-q -g true -t halt; fixture=/tmp/capprobe/cost.pl]. use_module/1 raises
+%existence_error(source_sink, Spec) for exactly the missing spec and prints
+%nothing when it is caught, so the recovery IS the census row and a present
+%capability pays nothing at all.
+%
+%One row per capability: its name, the platform library it rests on, and what
+%a build without it cannot do. The cost text is what a refused user reads, so
+%it names MeTTa forms rather than the Prolog predicates behind them. These
+%names are the PLATFORM's, and deliberately not the restricted-space grants of
+%engine/spaces/lifecycle.pl (file, process, network), which answer the other
+%question: whether a space is ALLOWED to do something this build can do.
+petta_platform_capability(concurrency, library(thread),
+                          '(hyperpose ...), and lib_thread\'s par-map, spawn, \c
+                           await, channels, pools and blocking take-atom; \c
+                           this build evaluates on one thread').
+petta_platform_capability(deadlines, library(time),
+                          '(timeout N Expr) and (pragma! max-time N); a \c
+                           wall-clock bound has to come from the host \c
+                           instead').
+petta_platform_capability(subprocess, library(process),
+                          '(git-import! ...), and anything else that starts \c
+                           a program').
+
+%What the boot found missing. Empty on a full platform, which is what makes
+%every read below one failing call on a dynamic predicate with no clauses.
+:- dynamic petta_platform_absent/1.
+
+%The load and the census in one act, so the two cannot disagree: what is
+%recorded absent is exactly what failed to import. The catch is narrow, on the
+%spec it just tried, so a library that IS there and breaks while loading still
+%raises and stops the boot, which is the half-present half of the rule.
+petta_platform_load(Capability) :-
+    petta_platform_capability(Capability, Requires, _),
+    catch(use_module(Requires),
+          error(existence_error(source_sink, Requires), _),
+          petta_platform_lost(Capability)).
+
+%Idempotent because a reload under make/0 runs the directives again.
+petta_platform_lost(Capability) :-
+    (   petta_platform_absent(Capability)
+    ->  true
+    ;   assertz(petta_platform_absent(Capability))
+    ).
+
+%!  petta_platform(?Capability, ?Status, ?Requires, ?Costs) is nondet.
+%
+%   The census a host reads: every capability, whether this build has it, the
+%   platform library it rests on, and what its absence costs. Enumerable, so a
+%   host asks for the whole set in one call, and unifiable, so
+%   petta_platform(C, absent, R, Costs) is exactly the loss list a binding
+%   used to recover from the boot transcript.
+petta_platform(Capability, Status, Requires, Costs) :-
+    petta_platform_capability(Capability, Requires, Costs),
+    (   petta_platform_absent(Capability)
+    ->  Status = absent
+    ;   Status = present
+    ).
+
+%What a form that cannot work without a capability calls before it tries.
+%Form is the MeTTa spelling or the source the user wrote, because that is the
+%only part of the failure they can act on.
+metta_require_platform(Form, Capability) :-
+    (   petta_platform_absent(Capability)
+    ->  petta_platform_capability(Capability, Requires, Costs),
+        throw(error(petta_platform_required(Form, Capability, Requires, Costs),
+                    none))
+    ;   true
+    ).
+
+:- multifile prolog:error_message//1.
+prolog:error_message(petta_platform_required(Form, Capability, Requires,
+                                             Costs)) -->
+    [ '~w is refused: this build does not have the ~w capability, because ~w \c
+       is absent. What that costs: ~w.'-[Form, Capability, Requires, Costs] ].
+
+%library(thread), for concurrent_and/3 under (hyperpose ...).
+:- petta_platform_load(concurrency).
+%library(time), for call_with_time_limit/2, which metta_timeout/3 wraps around
+%a findall so a bounded goal keeps every answer; engine/metta/runtime.pl's own
+%block records why raw alarm/4 was rejected there.
+:- petta_platform_load(deadlines).
 %wrap_predicate/4, for making the pragma bound free when no bound is set.
 :- use_module(library(prolog_wrap)).
 %library(thread) does not declare its own dependency on option/2, and nothing
@@ -494,7 +627,10 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %one, in the engine's own source, and fixing it here removes the secondary
 %failure too because the primary error it was papering over never occurs.
 :- use_module(library(gensym)).
-:- use_module(library(process)).
+%library(process). Nothing in the engine calls into it; lib/lib_gitimport.pl
+%does, and it loads later in this file, so the census row has to be decided
+%here where the rest of the platform's is.
+:- petta_platform_load(subprocess).
 
 %Which module the ENGINE's own predicates live in, asked of SWI at load time
 %rather than written down. Two different jobs were both spelled `user` and

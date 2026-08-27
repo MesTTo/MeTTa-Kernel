@@ -893,7 +893,21 @@ kind(metta_host_run_source_status/3, host_service).
 kind(metta_host_load_file/3, host_service).
 kind(metta_host_read_forms/2, host_service).
 kind(metta_host_with_stack_limit/2, host_service).
+%An inference budget over a goal an engine will RESUME, which is knowledge a
+%host cannot hold correctly on its own: the engine counts its own inferences
+%and the host thread cannot see them, so a bound placed around engine_next/2
+%charges the host's pull loop. Two seats wrote that bound independently and
+%both made the same mistake, which is why the wrapper is built here and handed
+%back rather than described. engine/metta/control.pl carries the measurements.
+kind(metta_host_inference_budget/3, host_service).
 kind(metta_host_function_generation/1, host_service).
+%Setting the engine-wide print-suppression flag. engine/filereader.pl decides
+%it from argv at load time and an embedded host has no argv, so two seats had each
+%written the same retract-then-assert under a private name and the engine's own
+%export comment named one of them. This is that seat-agnostic bookkeeping,
+%engine-side once (CeTTa C2, which filed the duplication as an engine finding
+%rather than fixing it in the third binding).
+kind(metta_host_set_silent/1, host_service).
 %A host may ask for a cardinality hint before opening a cursor. The engine owns
 %whether doing so would repeat an effect, so this one semidet question wraps
 %the shared effect walk and fails closed on unknown goals.
@@ -914,6 +928,16 @@ kind(metta_reducible_head/2, host_service).
 kind(metta_host_dispatch_proof_step/6, host_service).
 %Grouped answers carry a reader-name state. Host codecs flatten that state for
 %their variable tag and use the same engine writer for host text.
+%
+%THE PAIR IS Name-Var, `-`/2 and not `=`/2, with Name an atom carrying no `$`,
+%and it is written down here because three bindings had to discover it by
+%experiment. sread_with_names/3 answers pairs of that shape, petta_name_pairs/2
+%flattens the grouped-answer state into the same shape, and both writers below
+%take it. Passing [] is legal and means "no names": the writer numbers the
+%variables instead, so a caller who wrote (f $x $x $y) gets (f $_0 $_0 $_1)
+%back [measured 2026-08-27: sread_with_names("(f $x $x $y)", T, M) binds M to
+%[y-_G1, x-_G2], swrite_with_names(T, M, S) gives "(f $x $x $y)" and
+%swrite_with_names(T, [], S) gives "(f $_0 $_0 $_1)"].
 kind(petta_name_pairs/2, host_service).
 kind(swrite_with_names/3, host_service).
 %The persistence surface moved engine-side the same day: the fast cache's
@@ -952,6 +976,16 @@ kind(metta_host_unregister_reader_token/1, host_service).
 %replaced get_native_atom/2, native_storage_module/2 and
 %metta_remove_atom/3 on this list (2026-08-20); the index-directed
 %existence probe is engine-internal now.
+%
+%THE VERDICT IS THE PLAIN BOOLEAN true OR false, and it is written down here
+%because a host cannot read it off the name: the first C implementation
+%guessed the atom `removed` and reported every successful removal as a miss,
+%silently, because a wrong guess still unifies with a fresh variable. true
+%means an atom matching the term was there and is not now; false means the
+%removal changed nothing, whether the space was empty of it or the provider
+%declined [measured 2026-08-27: add-atom then remove answers true, the same
+%removal repeated answers false, and a term never stored answers false;
+%source: engine/spaces/foreign.pl, metta_host_remove_reported/3].
 kind(metta_host_stored/2, host_service).
 kind(metta_host_remove_reported/3, host_service).
 %The native proof-leaf decoder keeps private module and predicate encodings
@@ -988,6 +1022,15 @@ kind(match_foreign/5, host_service).
 kind(metta_add_atoms/2, host_service).
 kind(metta_source_declarations/2, host_service).
 kind(metta_space_names/1, host_service).
+%The same set as a TEST rather than a sorted list, and it is on this list
+%because a host CODEC needs it: the wire's `p` tag is a species tag, so an
+%encoder has to ask what the engine's own metatype_of/2 asks, which is this
+%[source: engine/metta/types.pl, metatype_of(X, 'Grounded') :- atom(X),
+%petta_space_operand(X)]. petta_space_name/1 below is the wider operand test
+%is-space/2 answers and is the wrong question here: it accepts any ampersand
+%name, including a State cell, where get-metatype answers Symbol or answers
+%Grounded for a different reason.
+kind(petta_space_operand/1, host_service).
 kind(metta_string_declarations/2, host_service).
 kind(metta_substitute_self/3, host_service).
 kind(metta_trace_source/4, host_service).
@@ -1014,6 +1057,16 @@ kind(with_metta_module/2, host_service).
 %engine-owned door instead of the two raw reads it wraps, so the
 %declaration walk and the rule registry stay free to move.
 kind(metta_typed_dispatch_applies/2, host_service).
+%What this build's PLATFORM carries: every capability, whether it is present,
+%the platform library it rests on and what its absence costs. A host on a
+%reduced platform (SWI compiled to WebAssembly has no threads, alarms or
+%subprocesses) has to know this to say what it cannot run, and until it was
+%published the only record was SWI's stderr during boot, which
+%bindings/node parses against a hand-kept table. A census is engine
+%knowledge and this is the read of it; the engine records it once, at the
+%guarded loads in engine/metta.pl, and the forms that rest on an absent
+%capability refuse by name from the same table.
+kind(petta_platform/4, host_service).
 
 %The post-commit stream's five services. Transaction owners open and finish
 %frames; a provider whose own durable channel reports a committed change may
@@ -1038,6 +1091,8 @@ kind(swrite/2, service).
 %Presentation text is deliberately distinct from the inverse writer. A host
 %or extension uses this only where lossless re-reading is not the contract
 %[tested: every_seam_declares_one_kind, parser_display; commit=53686aed41e7ff02de69052198afdb537536cbdb].
+%sdisplay_with_names/3 takes the same Name-Var list swrite_with_names/3 does,
+%described above.
 kind(sdisplay/2, service).
 kind(sdisplay_with_names/3, service).
 kind(sread/2, service).
@@ -1049,6 +1104,18 @@ kind(parse_metta_source/2, service).
 kind(metta_reader_token_class/3, service).
 kind(metta_reader_token_source/2, service).
 kind(metta_symbol_writable/1, service).
+
+%The other two halves of the platform census, both engine-defined and both
+%with a caller outside the engine already. metta_requires/1 is the DECLARATION
+%a Prolog library writes at its top, read out of the source before the source
+%runs, so a library that cannot work on this build never loads;
+%lib/lib_thread.pl carries one. metta_require_platform/2 is the runtime guard a
+%library or a compiled body calls before doing work the platform cannot
+%support; lib/lib_gitimport.pl calls it and the compiler emits it into both
+%(hyperpose ...) branches, which is why it is also a seam:engine_emitted/1
+%name.
+kind(metta_requires/1, service).
+kind(metta_require_platform/2, service).
 
 %Every head the compiler gives a special meaning to, enumerable. A reflection
 %library wants the SET, and reading engine/translator.pl's clause table for it

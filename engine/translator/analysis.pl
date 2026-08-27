@@ -588,6 +588,12 @@ seam:engine_emitted(agg_reduce/4).
 seam:engine_emitted(hyperpose_branch/4).
 seam:engine_emitted(hyperpose_runtime/2).
 seam:engine_emitted(metta_condition_holds/2).
+%The platform guard both hyperpose branches carry, so a build without
+%library(thread) refuses (hyperpose ...) by name instead of raising
+%existence_error(procedure, concurrent_and/3) from inside the compiled body.
+%Declared for the same reason as the four above: it is a goal the compiler
+%writes, and a MeTTa function of that name at one argument would take it.
+seam:engine_emitted(metta_require_platform/2).
 %engine/spaces.pl defines these two and the compiler emits them: a bounded
 %match and a bounded take, both written into the clause a limited query
 %compiles to.

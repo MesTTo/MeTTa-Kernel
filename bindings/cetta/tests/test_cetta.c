@@ -299,6 +299,13 @@ static void test_spaces_store_and_query(cetta_t *m)
   cetta_space_free(kb);
 }
 
+/* The answer to `!(id x)`, whose whole form comes back because (id x) is
+   irreducible here, so the argument is its last child. */
+static const cetta_atom_t *carried_argument(const cetta_atom_t *got)
+{ return cetta_kind(got) == CETTA_EXPR ? cetta_child(got, cetta_len(got) - 1)
+                                       : got;
+}
+
 static void test_a_user_space_decodes_as_a_space(cetta_t *m)
 { cetta_answers_t *answers;
   CASE("a space the engine made decodes as CETTA_SPACE, not a symbol");
@@ -308,15 +315,24 @@ static void test_a_user_space_decodes_as_a_space(cetta_t *m)
   CHECK(cetta_name(cetta_answers_atom(answers))[0] == '&');
   cetta_answers_free(answers);
 
+  /* The ampersand alone decides nothing: `p` is a species and this name is
+     no space, which is what the engine's own get-metatype answers for it.
+     CODEC.md states the rule. */
   CASE("an ampersand name that is no space stays a symbol");
   CHECK(cetta_run(m, "!(id &not-a-space)\n", &answers) == CETTA_OK);
-  if ( cetta_answers_step(answers) == CETTA_ROW )
-  { const cetta_atom_t *got = cetta_answers_atom(answers);
-    /* (id x) is irreducible here, so the answer is the whole form. */
-    const cetta_atom_t *arg = cetta_kind(got) == CETTA_EXPR
-                            ? cetta_child(got, cetta_len(got) - 1) : got;
-    CHECK(cetta_kind(arg) == CETTA_SYMBOL);
-  }
+  CHECK(cetta_answers_step(answers) == CETTA_ROW);
+  CHECK(cetta_kind(carried_argument(cetta_answers_atom(answers)))
+        == CETTA_SYMBOL);
+  cetta_answers_free(answers);
+
+  /* A State cell wears the same &-handle spelling a space does and is not
+     one. The wider is-space/2 test calls it a space; this seat asks the
+     species question instead and gets the symbol its own text spells. */
+  CASE("a State cell is not decoded as a space");
+  CHECK(cetta_run(m, "!(new-state 5)\n", &answers) == CETTA_OK);
+  CHECK(cetta_answers_step(answers) == CETTA_ROW);
+  CHECK(cetta_kind(cetta_answers_atom(answers)) == CETTA_SYMBOL);
+  CHECK(strncmp(cetta_name(cetta_answers_atom(answers)), "&state-#", 8) == 0);
   cetta_answers_free(answers);
 }
 
@@ -532,42 +548,105 @@ static void test_variable_identity_survives_the_round_trip(cetta_t *m)
   cetta_release(different);
 }
 
-static void test_a_bound_stops_a_runaway_and_says_so(cetta_t *m)
+/* Drain a bounded cursor over `head` applied to 0 and answer how many rows
+   arrived. The ceiling is a BACKSTOP, not the mechanism under test: the bound
+   should stop these long before it. It is here so that a broken bound FAILS in
+   seconds instead of hanging the gate, which is what happened while C16 was
+   still open: one check.sh run sat on this case for 18 minutes and two more
+   gate runs piled up behind it.
+
+   The message is copied out here rather than read by the caller: every door
+   clears the last error on entry, so releasing the cursor erases what stopped
+   it. */
+static int rows_before_the_bound(cetta_t *m, const char *head,
+                                 cetta_status_t *status, char *said,
+                                 size_t said_size)
 { cetta_answers_t *answers = NULL;
-  cetta_atom_t *goal;
-  cetta_limits_t bounded = {0}, none = {0};
+  cetta_atom_t *goal = cetta_expr(2, cetta_sym(head), cetta_int(0));
   int pulled = 0;
 
+  *status = CETTA_OK;
+  said[0] = '\0';
+  CHECK(cetta_eval(cetta_self(m), goal, &answers) == CETTA_OK);
+  while ( pulled < 200000 &&
+          (*status = cetta_answers_step(answers)) == CETTA_ROW ) pulled++;
+  CHECK(pulled < 200000);
+  if ( cetta_errmsg() ) snprintf(said, said_size, "%s", cetta_errmsg());
+  cetta_answers_free(answers);
+  cetta_release(goal);
+  return pulled;
+}
+
+static void test_a_bound_stops_a_runaway_and_says_so(cetta_t *m)
+{ cetta_answers_t *answers = NULL;
+  cetta_limits_t bounded = {0}, none = {0};
+  cetta_status_t cheap_status, dear_status;
+  char cheap_said[256], dear_said[256];
+  int cheap, dear;
+
   CASE("an inference bound stops an endless evaluation as CETTA_LIMIT");
-  /* Sized from the measurement, not guessed: an answer of (from $n) costs
-     roughly 40 engine inferences, so 20,000 buys a few hundred answers and
-     then stops. The budget is CUMULATIVE across steps because it is installed
-     inside the engine; a bound wrapped around one step would see almost none
-     of the work [measured 2026-08-27: at 100 and at 2,000 the bound fired, at
-     200,000 it had not fired after 5,001 pulls]. */
+  /* Defined while nothing is bounded, and beside (from $n) which
+     test_eval_is_lazy already installed. */
+  answers = NULL;
+  CHECK(cetta_run(m,
+                  "(= (burn $n) (if (== $n 0) 0 (burn (- $n 1))))\n"
+                  "(= (slow $n) (superpose ((burn 100) (slow (+ $n 1)))))\n",
+                  &answers) == CETTA_OK);
+  cetta_answers_free(answers);
+
   bounded.inferences = 20000;
   CHECK(cetta_set_limits(m, &bounded) == CETTA_OK);
 
-  /* (from 0) never ends. Drained rather than taken from, so only the bound
-     can stop it; without one this case does not return at all. */
-  goal = cetta_expr(2, cetta_sym("from"), cetta_int(0));
-  CHECK(cetta_eval(cetta_self(m), goal, &answers) == CETTA_OK);
-  { cetta_status_t status = CETTA_OK;
-    /* The ceiling is a BACKSTOP, not the mechanism under test: the bound
-       should stop this long before 200,000 answers. It is here so that a
-       broken bound FAILS this case in seconds instead of hanging the gate,
-       which is what happened while C16 was still open: one check.sh run sat
-       on this case for 18 minutes and two more gate runs piled up behind it. */
-    while ( pulled < 200000 &&
-            (status = cetta_answers_step(answers)) == CETTA_ROW ) pulled++;
-    CHECK(pulled < 200000);
-    CHECK(status == CETTA_LIMIT);
-    /* A bound is not a fault, and the words say which bound it was. */
-    CHECK(cetta_errmsg() && strstr(cetta_errmsg(), "inference") != NULL);
+  /* Two endless generators under ONE budget. (from 0) answers cheaply;
+     (slow 0) burns a hundred reductions per answer. Neither ends, so only the
+     bound can stop them.
+
+     The row COUNTS are what decides this case, and the discriminating question
+     is whether they move with what an answer costs. A meter outside the engine
+     charges a fixed amount per pull, so it buys the same number of rows for
+     both however much work the engine did; this file used to hold one, and it
+     bought 4,000 rows of each at this budget, a ratio of exactly 1.0. A budget
+     built into the engine goal buys what the answers really cost: 1,233 rows
+     of (from) against 9 of (slow), 137x apart
+     [measured 2026-08-27: ai-tmp/cb_cetta_probe.c both ways; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
+     The 10x threshold sits an order of magnitude above the meter this replaces
+     and an order below what was measured. */
+  cheap = rows_before_the_bound(m, "from", &cheap_status,
+                                cheap_said, sizeof cheap_said);
+  dear = rows_before_the_bound(m, "slow", &dear_status,
+                               dear_said, sizeof dear_said);
+  CHECK(cheap_status == CETTA_LIMIT);
+  CHECK(dear_status == CETTA_LIMIT);
+  CHECK(cheap > 0);
+  CHECK(dear > 0);
+  CHECK(cheap > 10 * dear);
+  /* A bound is not a fault, and the words say which bound it was. */
+  CHECK(strstr(cheap_said, "inference") != NULL);
+  CHECK(strstr(dear_said, "inference") != NULL);
+
+  CASE("a budget the first answer cannot afford stops before any row");
+  bounded.inferences = 500;
+  CHECK(cetta_set_limits(m, &bounded) == CETTA_OK);
+  CHECK(rows_before_the_bound(m, "slow", &dear_status,
+                              dear_said, sizeof dear_said) == 0);
+  CHECK(dear_status == CETTA_LIMIT);
+
+  CASE("a budget above the whole cost drains instead of stopping");
+  /* Finite this time, because "drains" is the assertion. 200 answers of
+     (from) cost about 3,000 engine inferences, well inside this budget. A
+     bound that fires here would be firing on work that was never done. */
+  bounded.inferences = 2000000;
+  CHECK(cetta_set_limits(m, &bounded) == CETTA_OK);
+  answers = NULL;
+  CHECK(cetta_run(m, "!(take 200 (from 0))\n", &answers) == CETTA_OK);
+  { int drained = 0;
+    while ( cetta_answers_step(answers) == CETTA_ROW ) drained++;
+    CHECK(drained == 200);
   }
-  CHECK(pulled > 0);
   cetta_answers_free(answers);
-  cetta_release(goal);
+
+  bounded.inferences = 20000;
+  CHECK(cetta_set_limits(m, &bounded) == CETTA_OK);
 
   CASE("the same bound applied to a whole run");
   answers = NULL;
@@ -623,6 +702,28 @@ static void test_the_counters_measure_engine_work(cetta_t *m)
   }
 }
 
+static void test_verbosity_reaches_the_engines_own_door(cetta_t *m)
+{ bool was;
+
+  /* cetta_set_verbose() records the new setting only when the Prolog call
+     came back CETTA_OK, so a round trip that reports back what was just set
+     is proof the call ran. It is worth its own case because the predicate it
+     reaches moved: bridge.pl used to define petta_c_set_silent/1 in `user`,
+     and this now calls engine/filereader.pl's metta_host_set_silent/1, which
+     reaches `user` by EXPORT rather than by being defined there (C2). If that
+     import ever stopped resolving, call_bridge would fail and the reads below
+     would keep answering the old value.
+
+     Whether the engine then keeps its diagnostics off this process's stdout
+     is asserted where a test can see a file descriptor after the process has
+     flushed it: bindings/python/tests/test_c_binding.py's
+     test_the_c_binding_suite_passes reads THIS binary's streams. */
+  CASE("cetta_set_verbose reaches the engine's published verbosity door");
+  was = cetta_set_verbose(m, true);
+  CHECK(cetta_set_verbose(m, false) == true);
+  CHECK(cetta_set_verbose(m, was) == false);
+}
+
 static void test_reopening_is_the_same_runtime(cetta_t *m)
 { cetta_t *again = NULL;
   CASE("a second open hands back the one runtime this process has");
@@ -660,6 +761,7 @@ int main(void)
   test_variable_identity_survives_the_round_trip(m);
   test_a_bound_stops_a_runaway_and_says_so(m);
   test_the_counters_measure_engine_work(m);
+  test_verbosity_reaches_the_engines_own_door(m);
   test_reopening_is_the_same_runtime(m);
 
   printf("%d checks, %d failures\n", checks, failures);

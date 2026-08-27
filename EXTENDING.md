@@ -1202,6 +1202,45 @@ silence. Erlang's NIF loader is the model: the major must match and the minor
 must not be newer, or the load fails, naming both versions. A library that
 declares nothing keeps working, so this costs nothing until you use it.
 
+### Say what platform you need
+
+```prolog
+:- metta_requires(concurrency).
+:- use_module(library(thread)).
+```
+
+Three platform libraries are optional, because a real build can lack them: SWI
+compiled to WebAssembly, which the browser playground and the Node binding run
+on, has no `library(thread)`, no `library(time)` and no `library(process)`. The
+engine records what it found at boot, and `petta_platform/4` is the census:
+
+```prolog
+?- forall(petta_platform(C, S, R, Costs), format("~w ~w ~w~n  ~w~n", [C,S,R,Costs])).
+concurrency present library(thread)
+  (hyperpose ...), and lib_thread's par-map, spawn, await, channels, pools ...
+deadlines present library(time)
+  (timeout N Expr) and (pragma! max-time N); a wall-clock bound has to ...
+subprocess present library(process)
+  (git-import! ...), and anything else that starts a program
+```
+
+If your library cannot work without one of those, say so at the top of the file
+that imports it. The engine reads the declaration out of your source *before it
+runs the source*, the same scan that reads your `metta_export` block, so an
+import on a build without the capability refuses naming the capability, the
+library and what its absence costs, and your file never half-loads. Declaring
+nothing keeps working, and a capability name the engine does not know is
+refused where you wrote it rather than at the first call.
+
+For a decision your own code makes at run time, ask the census, or call
+`metta_require_platform(Form, Capability)` to refuse in the engine's own words:
+
+```prolog
+my_parallel_map(Goal, In, Out) :-
+    metta_require_platform('(my-par-map f xs)', concurrency),
+    concurrent_maplist(Goal, In, Out).
+```
+
 ### Prove your provider before your users do
 
 ```python
@@ -2592,13 +2631,14 @@ the list honest. Today's list: `catch_recover/2`, `match_foreign/5`,
 `metta_host_clear_defined/1`, `metta_host_clear_space/1`,
 `metta_host_digest/2`, `metta_host_drop_function/2`,
 `metta_host_explain_match/3`, `metta_host_fast_header/1`,
-`metta_host_forget_function/1`, `metta_host_load_fast/2`,
+`metta_host_forget_function/1`, `metta_host_inference_budget/3`,
+`metta_host_load_fast/2`,
 `metta_host_load_file/3`, `metta_host_open_function/3`,
 `metta_host_operation_error/5`, `metta_host_read_forms/2`,
 `metta_host_register_reader_token/2`,
 `metta_host_remove_reported/3`, `metta_host_run_source/4`,
 `metta_host_run_source_status/3`, `metta_host_save_fast/3`,
-`metta_host_stored/2`, `metta_host_substitute/3`,
+`metta_host_set_silent/1`, `metta_host_stored/2`, `metta_host_substitute/3`,
 `metta_host_unregister_reader_token/1`, `metta_reducible_head/2`,
 `metta_source_declarations/2`, `metta_space_names/1`,
 `metta_string_declarations/2`, `metta_substitute_self/3`,
@@ -2608,6 +2648,43 @@ the list honest. Today's list: `catch_recover/2`, `match_foreign/5`,
 `sread_with_names/3`, `translate_expr/3`, `unregister_metta_extension/1` and
 `with_metta_module/2`. Shrinking this list is the shim-thinning work's
 scoreboard; growing it is a deliberate publication, not a drive-by.
+`metta_host_set_silent/1` is the one row whose ADDITION shrank the floor: it
+sets the engine's print-suppression flag, which `engine/filereader.pl` decides
+from `argv` at load time and an embedded host therefore cannot reach, and the
+Python and C seats had each written the same retract-then-assert privately
+before it existed.
+
+**Bounding a lazy cursor, and where the bound has to go.** If your binding
+offers a cursor with an inference budget, call
+`metta_host_inference_budget(Goal, Inferences, Bounded)` and hand `Bounded` to
+`engine_create/3`. Do not write the bound yourself, and in particular do not
+put it around `engine_next/2` on your own side.
+
+An SWI engine has its OWN inference counter and the thread that created it
+cannot see that counter. So `statistics/2` either side of a pull measures your
+pull loop and nothing the engine did: 1,000 pulls of a goal costing about 402
+inferences each move the calling thread's counter by 2,003, half a percent of
+the work. A meter built that way reports a total that tracks the budget by
+construction, which looks like a working meter in a sweep and stops nothing.
+Two of this repository's bindings shipped that meter independently before the
+service existed.
+
+Placing the bound inside the goal is necessary and not sufficient, which is the
+second half of why this is published rather than described.
+`call_with_inference_limit/3` bounds inferences for each SOLUTION of its goal,
+so it is re-armed at every answer and a generator answering cheaply forever
+never reaches it. The service keeps that limiter, because it is the only bound
+that stops a resume which never yields an answer at all, and adds the engine's
+own counter read against a base taken when the goal starts, which is the
+cumulative budget the per-solution contract cannot express.
+
+A non-positive `Inferences` means no bound and installs no wrapper, so an
+unbounded cursor pays nothing; a bounded one costs two engine inferences per
+answer. `Goal` is qualified with your module, so it may name your binding's own
+predicates. The service raises the engine's reserved
+`metta_control_signal(inference_limit, N)` envelope, the same one a program's
+own `(pragma! max-inferences N)` raises, so classify that shape rather than
+inventing a second one.
 
 Registering an operation is four of those calls, the engine's own protocol
 rather than bookkeeping a binding restates: `metta_host_open_function(Name,

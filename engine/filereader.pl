@@ -143,6 +143,14 @@
 %     once for repair [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - silent/1 has exactly one writer outside the load-time argv directive,
+%     metta_host_set_silent/1, which every host with no command line to read
+%     goes through and which refuses a non-boolean before it retracts
+%     anything. No binding spells the retract-then-assert for itself
+%     [tested: test_verbosity_is_a_published_engine_door,
+%     test_no_binding_carries_its_own_verbosity_setter in
+%     bindings/python/tests/test_engine_diagnostics.py,
+%     test_the_host_service_scoreboard_matches_the_tree; commit=562800cdac5d152f39fbd3b3c14c2d035ed18dea].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -203,16 +211,16 @@
             source_pending_definition/2,
             translated_from/2,
             working_dir/1,
-            %The engine-wide print-suppression flag. It is set from the command
-            %line right below, and by a host through petta_py_set_silent/1, and
-            %READ by engine/translator.pl, engine/specializer.pl and
-            %engine/metta.pl as well as by the three printers here, so there has
-            %to be exactly one of it. Left off this list the module cut made two:
-            %a host set user:silent/1 while this file kept reading its own, and
-            %the engine printed every compiled goal it was told to suppress,
-            %which cost 379 inferences on every run through the Python door
+            %The engine-wide print-suppression flag, READ by
+            %engine/translator.pl, engine/specializer.pl and engine/metta.pl as
+            %well as by the three printers here, so there has to be exactly one
+            %of it. Left off this list the module cut made two: a host set
+            %user:silent/1 while this file kept reading its own, and the engine
+            %printed every compiled goal it was told to suppress, which cost
+            %379 inferences on every run through the Python door
             %[measured 2026-08-22: 625 per run before the cut, 1004 after, and
-            %625 again with this line].
+            %625 again with this line]. The command line decides it right
+            %below; a host decides it through metta_host_set_silent/1.
             silent/1,
 
             % Host services: the engine defines them, a binding calls them.
@@ -226,6 +234,7 @@
             metta_host_load_fast/2,
             metta_host_fast_header/1,
             metta_host_digest/2,
+            metta_host_set_silent/1,
             metta_host_substitute/3
           ]).
 
@@ -273,6 +282,33 @@ prolog:message(petta_source_replaced(CanonPath, Spaces, Atoms)) -->
     [ 'replaced ~w: ~w atom(s) withdrawn from ~w'-[CanonPath, Atoms, Named] ].
 :- current_prolog_flag(argv, Args), ( (memberchk(silent, Args) ; memberchk('--silent', Args) ; memberchk('-s', Args))
                                       -> assertz(silent(true)) ; assertz(silent(false)) ).
+
+%The same decision for a host that has no command line to read. It is the
+%engine's because it is host-agnostic bookkeeping: bindings/python and
+%bindings/cetta each carried their own three-line copy under a private name
+%(petta_py_set_silent/1, petta_c_set_silent/1) and this file's export comment
+%named one of them, so the engine had a documented dependency on a binding's
+%internals. bindings/node needed no copy only because it owns its whole
+%process and can put `silent` in argv before boot, which a binding embedded in
+%a host it does not own cannot do (CeTTa C2, ai-cetta-c-constraints.md).
+%
+%retractall before assertz, because silent/1 already has a clause by the time
+%any host calls this: the directive above asserted one at load. Two
+%contradictory clauses would leave every reader on whichever came first,
+%which is the bug both private copies were written to avoid and neither
+%wrote down as a reason.
+%
+%must_be/2 rather than asserting whatever arrives. Every reader asks
+%silent(true), so silent(yes) is not "verbose" but "silently not silent", a
+%wrong answer with no symptom. A published door is where that gets refused;
+%the private copies each skipped the check and had no caller to protect them
+%from [source: SWI-Prolog 10.1.13, where set_prolog_flag(debug, maybe) raises
+%type_error(bool, maybe) rather than storing it].
+metta_host_set_silent(Silent) :-
+    must_be(boolean, Silent),
+    retractall(silent(_)),
+    assertz(silent(Silent)).
+
 :- dynamic working_dir/1.
 :- dynamic compiled_metta_source/1.
 :- thread_local active_source_load/1.

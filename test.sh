@@ -5,7 +5,10 @@
 # Guarantees:
 #   - a failing example's real diagnostic reaches the "FAILURE in $f:" block,
 #     stdout and stderr both, rather than only the lines a passing (test A B)
-#     happens to print [tested tests/test_example_runner_surfaces_failures.sh]
+#     happens to print, and the three failure shapes stay tellable apart there:
+#     a (test A B) mismatch by its is/should line, an assertEqual mismatch by
+#     "MeTTa assertion failed", a syntax error by "Syntax error"
+#     [tested tests/test_example_runner_surfaces_failures.sh]
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -14,15 +17,21 @@
 run_test() {
     f="$1"
     echo "Running $f"
-    # 2>&1: an assertEqual mismatch throws through assert/2, which prints
-    # "Assertion failed: ..." to STDOUT but reports the uncaught exception to
-    # STDERR ("... MeTTa assertion failed ..."), and a syntax error or an
-    # undefined predicate never prints an is/should line at all. Capturing
-    # stdout only, the way this read before, meant every one of those failure
-    # shapes showed as a blank body under "FAILURE in $f:": the diagnostic
-    # either never entered $output or was filtered back out below, and only a
-    # !(test A B) mismatch (the one shape that prints "is ..., should ...")
-    # ever survived to be shown.
+    # 2>&1, because only ONE failure shape says anything on stdout. A
+    # !(test A B) mismatch prints "is ..., should ..." there, and does so
+    # because test/3 prints that line on success too: it is a trace of a check
+    # that RAN, not a failure report. Every other shape is diagnosed on stderr
+    # alone. An assertEqual mismatch reports "MeTTa assertion failed" through
+    # print_message/2 -- it used to print "Assertion failed: ..." to stdout as
+    # well, which an embedded host could neither suppress nor separate from its
+    # own output -- and a syntax error or an undefined predicate never touches
+    # stdout at all. Capturing stdout only, the way this read before, left
+    # every one of those shapes as a blank body under "FAILURE in $f:": the
+    # file name and nothing about why.
+    # tests/test_example_runner_surfaces_failures.sh runs all three shapes and
+    # a passing file through this script AND through a copy of it with this
+    # one redirection removed, so what the 2>&1 buys is measured rather than
+    # asserted here.
     # A wall ceiling per example, because this lane green-masked two
     # evaluator regressions that turned seconds-scale examples into
     # half-hour crawls (invertpeanoplus and tilepuzzle, 2026-08-25): with

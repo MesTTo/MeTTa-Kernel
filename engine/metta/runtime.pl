@@ -1,8 +1,16 @@
 % Purpose: provide test diagnostics, assertions, formatting, timing, and bounded execution helpers
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
-% Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
+% Guarantees:
+%   - every definition retains engine/metta.pl's implementation module and original load order
+%     [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+%   - assert/2 reports a failed assertion through print_message/2, so it lands on user_error and
+%     an embedded host's stdout carries only that host's own writes; test/3's is/should line is
+%     the one diagnostic here that stays on current_output, because it prints on success too
+%     [tested: test_a_failing_assertion_stays_off_the_hosts_stdout in
+%     bindings/python/tests/test_engine_diagnostics.py, test_the_c_binding_suite_passes in
+%     bindings/python/tests/test_c_binding.py, tests/test_example_runner_surfaces_failures.sh;
+%     commit=b7eb5734f476f8a8f5b6f16c1e71a67c72a57478]
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% [tested: tests/prolog/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%% Diagnostics / Testing: %%%
 :- multifile prolog:error_message//1.
@@ -234,14 +242,38 @@ test_answer_value(Results, Results).
 %nondeterministic in the operand's answers, so a form with several answers is
 %checked once per answer, which is what the caller's own argument evaluation
 %did before.
+%
+%The failure is REPORTED through print_message/2 and then thrown. It used to
+%be `format("Assertion failed: ~w~n", [Written])`, which upstream wrote when
+%this predicate ended in halt(1) and the print was the only report there would
+%ever be (2cd191b0). 12232d25 replaced the halt with the throw below and left
+%the format behind, so from then on the report went to current_output -- for a
+%host that embeds SWI in its own process, that host's stdout, which it cannot
+%suppress and must not have written to (CeTTa C12; ai-cetta-c-constraints.md).
+%print_message/2 puts it on user_error, renders it through the ONE
+%prolog:error_message//1 clause at the top of this file rather than a second
+%spelling of the same sentence, and makes it interceptable: a host that wants
+%only the ball takes the message with message_hook/3.
+%
+%Reporting AND throwing is deliberate, and is what SWI's own assertion/1 does
+%[source: SWI-Prolog 10.1.13 library/debug.pl:391-397,
+%prolog_debug:assertion_failed/2, which calls print_message(error,
+%assertion_failed(Reason, G)) and then throws]. A ball can be
+%swallowed by any catch/3 up the stack, and an assertion that says nothing
+%when that happens is not an assertion. When the ball IS reported the two
+%lines say the same thing, which is the price.
+%
+%The is/should line stays test/3's alone. That one prints on success too, so
+%it is a trace of a check that RAN rather than a failure report, and tests/
+%test_example_runner_surfaces_failures.sh reads the difference: a failing
+%assert is now diagnosed on stderr only, exactly like a syntax error.
 assert(Form, true) :-
     current_metta_module(Module),
     eval_metta_in_module(Module, Form, Produced),
     petta_boundary_result(Form, Produced, Value),
     (   Value == true
     ->  true
-    ;   sdisplay(Form, Written),
-        format("Assertion failed: ~w~n", [Written]),
+    ;   print_message(error, error(petta_assertion_failed(Form), _)),
         throw(error(petta_assertion_failed(Form),
                     context(assert/2, 'MeTTa assertion failed')))
     ).
@@ -530,7 +562,13 @@ undocumented(Name) :- current_metta_space(Space),
 %[source: SWI-Prolog 10.1 manual, ch. 6 defining a meta-predicate;
 %measured 2026-08-18; tested spaces:wrapper_forms_run_in_named_spaces].
 
+%The platform check comes FIRST, before the operand is even type-checked: on a
+%build without library(time) there is no bound to apply, and the alternative
+%is existence_error(procedure, call_with_time_limit/2) raised from here, which
+%names a Prolog predicate a MeTTa author never wrote
+%[tested: platform_capabilities_reduced:a_bounded_form_refuses_by_name_when_deadlines_are_absent].
 metta_timeout(Seconds, Goal, Value) :-
+    metta_require_platform('(timeout N Expr)', deadlines),
     must_be(number, Seconds),
     call_with_time_limit(Seconds, findall(Value, Goal, Values)),
     member(Value, Values).

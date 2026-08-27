@@ -238,10 +238,11 @@ def space_names(self) -> list[str]:
 ```
 
 > Every space name this engine registers, sorted: '&self' and
-> '&petta' from boot, every native space that has been written to,
-> and every foreign space currently bound. Naming a space never
-> registers it, only writing or binding does, so a bind! token's
-> target appears here once something is stored under it.
+> '&petta' from boot, every native space something created or wrote to,
+> and every foreign space currently bound. (new-space) and (spawn ...)
+> create, so their answers are here at once; naming a space never
+> registers it, so Space('&kb') is not here until a write, and a bind!
+> token's target appears once something is stored under it.
 
 ### `Space.drop`
 
@@ -1147,11 +1148,19 @@ def stats(self) -> _StatsBlock:
 >     s.gc_count, s.gc_freed, s.gc_time
 >     s.table_bytes       # answer-table bytes grown, tabling's memory
 >
-> The counters are the engine's statistics/2, and the engine is one
-> per process, so a block that runs other threads' engine work counts
-> that work too; the honest reading is "what the engine did while
-> this block ran". The z3py Solver.statistics() reading, on the
-> engine this library actually has.
+> The counters are SWI's statistics/2 read on the CALLING thread, so
+> a block that runs other threads' engine work counts that work too;
+> the honest reading is "what this thread saw the engine do while the
+> block ran". A lazy cursor is the exception, and a large one: its
+> goal runs in an SWI engine, an engine counts its own inferences,
+> and this thread cannot see them. Draining 20,000 rows through the
+> match cursor reports 40,049 inferences against about 381,000 the
+> cursor's engine really spent, 10.5% of the work; the real cost is
+> readable off the `inferences` budget, which does count the engine
+> [measured 2026-08-27]. The evaluation cursor behind `answers()`
+> does report its engine's spend, so that one is whole. The z3py
+> Solver.statistics() reading, on the engine this library actually
+> has.
 
 ### `Space.op`
 
@@ -2203,7 +2212,7 @@ def info(self) -> dict[str, str | None]:
 ```python
 def space(
     self,
-    name: str | None = None,
+    name: str | Symbol | Expression | Space | None = None,
     backing: Any = None,
     *,
     journal: str | os.PathLike[str] | None = None,
@@ -2213,10 +2222,13 @@ def space(
 
 > Create one native, provider-backed, remote, or journaled space.
 >
-> With no name, the engine mints an anonymous handle. A ``SpaceProvider``
-> backing is attached directly, an HTTP(S) URL becomes a remote provider,
-> and ``journal=`` constructs ``PersistentFactSpace`` from ``schema=`` or
-> a schema mapping supplied as ``backing``.
+> With no name, the engine mints an anonymous handle and creates the
+> space, so ``(get-type ...)`` on it is ``SpaceType`` before anything is
+> written. A ``Space`` reopens that same space, which is what an engine
+> answer naming one arrives as. A ``SpaceProvider`` backing is attached
+> directly, an HTTP(S) URL becomes a remote provider, and ``journal=``
+> constructs ``PersistentFactSpace`` from ``schema=`` or a schema mapping
+> supplied as ``backing``.
 
 ### `MeTTa.define`
 
