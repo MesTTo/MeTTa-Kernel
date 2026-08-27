@@ -78,7 +78,14 @@ ONE_LINE_FUNCTION = re.compile(r"^([a-z_][a-z0-9_]*)\(\)\s*\{([^\n]*)\}[ \t]*$",
 
 # A path written into a runner. Anchored on a suffix this repository executes,
 # so `$SUMMARY` and `*.plt` are not mistaken for files.
-PATHISH = re.compile(r"[$\w./{}-]*[\w}-]\.(?:py|pl|plt|sh|metta)\b")
+PATHISH = re.compile(r"[$\w./{}-]*[\w}-]\.(?:py|pl|plt|sh|metta|ts)\b")
+# A lane that runs a package's own npm script runs that package's tests, and
+# the script NAME is the whole indirection: `npm run test` inside
+# bindings/node runs every bindings/node/test/*.test.ts, and nothing in the
+# lane's text is a path. Reading the indirection is what lets an evidence
+# claim written in a TypeScript source name a test in one of them; without it
+# those claims are unbacked because the checker cannot see the suite at all.
+NPM_SCRIPT = re.compile(r"\bnpm\s+(?:run\s+(?:--silent\s+)?)?(?:test|typecheck|kit)\b")
 CD = re.compile(r"\bcd\s+(?:--\s+)?[\"']?([$\w./-]+)")
 # A path named to be LEFT OUT is not a path the runner executes. Reading these
 # as executions marked examples/integration/_fixtures/imports/
@@ -274,6 +281,12 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
                 for directory in directories:
                     if (candidate := directory / spent).is_file():
                         record(candidate.resolve(), tier, lane)
+            if NPM_SCRIPT.search(lane_text):
+                for directory in directories:
+                    if not (directory / "package.json").is_file():
+                        continue
+                    for suite in sorted((directory / "test").glob("*.test.ts")):
+                        record(suite.resolve(), tier, lane)
                         break
 
     for collector in COLLECTORS:

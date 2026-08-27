@@ -8,6 +8,18 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Added
 
+- The evidence gate reads the Node binding too. `tests/check_evidence_tags.py`
+  scans `bindings/node/*.pl` and `bindings/node/src/**/*.ts`, collects the
+  names a `node --test` suite declares (its `describe` and `it` titles), and
+  `tests/evidence_runners.py` models the npm indirection, so a lane running
+  `npm run test` inside a package is understood to run that package's
+  `test/*.test.ts`. A `node --test` case names itself in PROSE rather than in
+  an identifier, so a claim may now QUOTE the name it points at and the
+  quoted name may wrap across lines the way any comment does. Without all
+  three, every evidence claim in the binding read as unbacked and the gate
+  that exists because thirteen claims once named tests that had never existed
+  could not see a whole binding.
+
 - The Node binding is now a TypeScript LIBRARY rather than a transport, the
   sibling of the Python `metta` package. Atoms are interned, so `===`, `Set`
   and `Map` are structural without any of them being reimplemented; `S`, `V`,

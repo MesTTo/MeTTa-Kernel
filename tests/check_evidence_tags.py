@@ -114,6 +114,12 @@ SOURCES = (
     "backends/mork/mork_ffi/*.pl",
     "bindings/python/tools/*.py",
     "tests/*.py",
+    # The Node binding is TypeScript, and its sources make the same kind of
+    # claim the Python ones do. Its Prolog half is here for the same reason
+    # bindings/python/metta/*.pl is.
+    "bindings/node/*.pl",
+    "bindings/node/src/*.ts",
+    "bindings/node/src/*/*.ts",
 )
 
 # Commentless formats, scanned for PROVENANCE ONLY. A JSON baseline is exempt
@@ -146,6 +152,15 @@ PYTHON_TREES = ("bindings/python/tests", "bindings/python/benchmarks", "bindings
 CLAIM = re.compile(
     r"\[(tested|measured|source)[:\s]([^\]]*)\]", re.IGNORECASE | re.DOTALL
 )
+# A `node --test` case names itself in prose: `it("...")` and `describe("...")`
+# each register one, which is what an evidence claim in a TypeScript source
+# points at.
+NODE_TEST = re.compile(r"""^\s*(?:it|describe)\(\s*["'`]([^"'`]+)["'`]""", re.M)
+# A name written in prose, quoted so the splitter takes it whole. It may WRAP,
+# because a claim sits in a comment and a comment is wrapped like any other
+# prose, so the match spans newlines and the name's whitespace is normalised
+# to the single spaces the test's own title carries.
+QUOTED_NAME = re.compile(r'"([^"]{4,}?)"', re.DOTALL)
 COMMENT_PREFIX = re.compile(r"^[ \t]*[%#*]*[ \t]*", re.MULTILINE)
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?::[A-Za-z_][A-Za-z0-9_]*)*$")
@@ -374,12 +389,33 @@ def _prolog_targets(reports: dict[Path, str]) -> dict[str, list[Target]]:
     return targets
 
 
+def _node_targets(runs: dict[Path, Execution]) -> dict[str, list[Target]]:
+    """Every name a `node --test` suite declares: its describes and its its.
+
+    A TypeScript suite names its cases in prose rather than in identifiers, so
+    the name a claim points at is the STRING, and both `describe` and `it`
+    register one. The file itself is a target too, which is what lets a claim
+    name a whole suite the way one may name a Python test module.
+    """
+    targets: dict[str, list[Target]] = {}
+    for path in sorted((ROOT / "bindings" / "node" / "test").glob("*.test.ts")):
+        resolved = path.resolve()
+        fails = "node --test reports a failure" if resolved in runs else None
+        note = "" if fails else "no lane runs it"
+        for name in NODE_TEST.findall(_text(path)):
+            targets.setdefault(name, []).append(Target("node", path, resolved, fails, note))
+        targets.setdefault(path.name, []).append(Target("node", path, resolved, fails, note))
+    return targets
+
+
 def gather() -> tuple[Evidence, list[str]]:
     """Every name a claim may legitimately point at, and what backs it."""
     runs, problems = executed()
     reports = _prolog_reports()
     targets = _python_targets(runs)
     for name, found in _prolog_targets(reports).items():
+        targets.setdefault(name, []).extend(found)
+    for name, found in _node_targets(runs).items():
         targets.setdefault(name, []).extend(found)
     for path in sorted((ROOT / "examples").rglob("*.metta")):
         targets.setdefault(path.stem, []).append(file_target(path, reports))
@@ -407,6 +443,10 @@ def file_target(path: Path, reports: dict[Path, str]) -> Target:
             "prolog", path, resolved, why or None,
             "it has no plunit test, no entry goal, and nothing loads it",
         )
+    if path.suffix == ".ts":
+        if NODE_TEST.search(text):
+            return Target("node", path, resolved, "node --test reports a failure")
+        return Target("node", path, resolved, None, "it declares no test")
     if path.suffix == ".py":
         if re.search(r"^\s*(?:async\s+)?def\s+test", text, re.M):
             return Target("python", path, resolved, "pytest reports a failure")
@@ -500,8 +540,13 @@ def tested_problems(body: str, known: Evidence) -> list[str]:
         return command
     stripped = DATE.sub("", body)
     problems = []
-    for token in re.split(r"[\s,;]+", stripped):
-        token = token.strip(" :.'\"`()")
+    # A `node --test` case names itself in PROSE, so a claim that points at one
+    # has to be able to quote it. The quoted segments are taken whole and
+    # removed before the rest is split on whitespace, which is what keeps
+    # "makes === structural" one name instead of three words that are none.
+    quoted = [" ".join(found.split()) for found in QUOTED_NAME.findall(stripped)]
+    for token in [*quoted, *re.split(r"[\s,;]+", QUOTED_NAME.sub(" ", stripped))]:
+        token = token.strip(" :.'`()") if token in quoted else token.strip(" :.'\"`()")
         if not token or token.lower() in PROSE:
             continue
         found = resolve(token, known)
