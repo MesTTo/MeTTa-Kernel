@@ -6,6 +6,14 @@ dist/
 __pycache__/
 repos/
 
+# pytest-benchmark's store. Every other tool cache in this tree self-ignores
+# (ruff, pytest, mypy and Hypothesis each write a .gitignore holding `*` inside
+# the directory they create), which is why none of them is listed here and none
+# has ever appeared in git status. pytest-benchmark does not, so this one needs
+# saying. It is empty today and git does not track an empty directory, so the
+# gap is invisible until the first --benchmark-autosave run writes into it.
+.benchmarks/
+
 # The chapter 19 C examples' compiled objects, built by check.sh and
 # worktree.sh when a compiler is present. cstore.so was tracked until
 # 2026-08-27 because nothing built it, so one machine's binary rode in the
