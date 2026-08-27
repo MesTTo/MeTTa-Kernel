@@ -1256,6 +1256,14 @@ All notable user-facing changes to PeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The C binding no longer says MeTTa tells `2` from `2.0` through `==`. It
+  does not: numeric equality is by VALUE across the integer and float
+  constructors, following LeaTTa's `Ground.equiv`, so `(== 2 2.0)` answers
+  True. What is true, and what the C seat's `CETTA_INT`/`CETTA_FLOAT` split
+  actually rests on, is that `2` and `2.0` are two ATOMS: a stored `(f 2.0)`
+  does not match the pattern `(f 2)`, and each prints as itself. `cetta.h` and
+  `bindings/cetta/kit/corpus.json` carried the wrong half of that.
+
 - `examples/reasoning/greedy_chess.metta` is skipped for the reason that is
   true. It read "long-running, covered by benchmarks" and neither half held:
   no benchmark in any baseline names it, and given its quit command it loads
