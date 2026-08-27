@@ -1,0 +1,12 @@
+# The C reader, built beside reader.c by engine/build.sh (and by check.sh when
+# it needs the shipping configuration). One machine's binary: the engine falls
+# back to the Prolog grammar when it is absent, so it is never shipped.
+reader.so
+
+# SWI's Quick Load Format artifacts. They generate lazily on first boot and are
+# tied to the SWI version that wrote them, which is why a wheel must not carry
+# one: a shipped .qlf whose mtime beats the shipped source loads INSTEAD of it
+# (setup.py's RUNTIME_RESOURCES excludes both, and engine/qlf_boot.pl
+# regenerates them per install).
+*.qlf
+.qlf-stamp

@@ -1592,6 +1592,29 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **Every component now ignores its own build products and builds itself.**
+  The root `.gitignore` carried six blocks naming paths in other components --
+  the chapter 19 objects, `engine/reader.so`, five `bindings/cetta` products,
+  `bindings/python/metta/*.so`, `bindings/node/node_modules/` and `*.qlf` --
+  so a rule lived four directories from the thing it described. Five new
+  per-component files (`engine/`, `lib/`, `bindings/cetta/`,
+  `bindings/python/`, `examples/ch19-*/`) join the two that already existed,
+  and the root file keeps only repository-wide rules with a header saying so.
+  Verified with `git check-ignore -v` over 17 products: every one resolves to
+  its own component's file, and the repository-wide ones to the root.
+
+  `check.sh` also stopped being the build system. It compiled the chapter 19 C
+  examples and `engine/reader.so` inline, at script top level, which made a
+  script named for checking the only way to produce two artifacts. Both moved
+  into `engine/build.sh` and `examples/ch19-*/build.sh`, joined by
+  `backends/mork/build.sh`, `bindings/cetta/build.sh` and
+  `bindings/node/build.sh`, and the root `build.sh` DISCOVERS them by glob
+  rather than naming one: a new component is a directory with a `build.sh`,
+  which is the rule the engine already applies to a decider. Each script draws
+  the deciders' split -- an ABSENT toolchain exits 0 with a note, an ATTEMPTED
+  build that FAILS exits nonzero -- and the driver collects failures and names
+  them, so no script has to report success it did not earn.
+
 - **The reduced-platform harness could only withhold a library from two
   directories, and silently ignored any other.** `tests/prolog/reduced_platform.pl`
   builds a real SWI minus chosen libraries by mirroring directories with

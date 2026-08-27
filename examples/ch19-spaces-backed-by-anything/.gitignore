@@ -1,0 +1,5 @@
+# The chapter's C examples, compiled by their section's own build.sh (and by
+# check.sh and worktree.sh when a compiler is present). cstore.so was TRACKED
+# until 2026-08-27 because nothing built it, so one machine's binary rode in
+# the repository while its own README told a reader to compile it.
+*/*.so

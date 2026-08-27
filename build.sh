@@ -69,9 +69,33 @@ provision() {
 provision MORK    https://github.com/trueagi-io/MORK            dd224fd7ced92ca9cfdacd399398dabb609e8faa
 provision PathMap https://github.com/Adam-Vandervorst/PathMap   4c84a8b40c7b6a7ecb54e009a70f0c5abbc1b60f
 
-# Each backend's own script owns its toolchain check, so this one tests only
-# what IT uses (git, above) and delegates the rest.
-( cd "$HERE/backends/mork/mork_ffi" && sh build.sh )
+# Every component that can build itself, DISCOVERED rather than listed. Each
+# owns its own toolchain check, so this one tests only what IT uses (git,
+# above) and delegates the rest. A component is a directory with a build.sh;
+# adding one needs no edit here, which is the same rule the engine already
+# applies to a decider.
+#
+# The engine goes first because bindings/cetta links against what it produces;
+# the rest are independent, and the glob's order is the msort the shell gives.
+# That is the whole dependency graph, declared here because it is two nodes
+# deep and a driver that pretended otherwise would be the recursive-make
+# mistake in miniature.
+failed=''
+for component in "$HERE/engine" \
+                 "$HERE"/backends/*/ "$HERE"/bindings/*/ \
+                 "$HERE"/examples/ch19-*/; do
+    script="${component%/}/build.sh"
+    [ -f "$script" ] || continue
+    name=$(printf '%s' "${component%/}" | sed "s|^$HERE/||")
+    echo "build.sh: $name"
+    if ! sh "$script"; then
+        failed="$failed $name"
+    fi
+done
+if [ -n "$failed" ]; then
+    echo "build.sh: these components failed to build:$failed" >&2
+    exit 1
+fi
 
 # faiss_ffi is NOT built here. It is a third-party MeTTa library, not a backend
 # in this tree, and the engine already fetches it at a pinned revision through

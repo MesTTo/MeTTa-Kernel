@@ -1,43 +1,32 @@
-*.py[cod]
+# What this file holds, and what it does not.
+#
+# Repository-wide rules only. A component's own build products are ignored by
+# that component's own .gitignore, so the rule sits beside the thing it
+# describes and travels with it: engine/, lib/, bindings/cetta/,
+# bindings/node/, bindings/python/, backends/mork/mork_ffi/ and
+# examples/ch19-spaces-backed-by-anything/ each carry one. Six blocks lived
+# here until 2026-08-28 and named paths four directories away.
+#
+# Tool caches are absent deliberately and must stay absent: ruff, pytest, mypy,
+# Hypothesis and import-linter each write a .gitignore containing `*` INSIDE
+# the cache directory they create, which is why none of them has ever appeared
+# in `git status`.
 
+*.py[cod]
+__pycache__/
+*.egg-info/
 build/
 dist/
-*.egg-info/
-__pycache__/
+
+# The engine's own dependency directory, where lib/lib_gitimport's `git-import!`
+# puts a checkout it fetched at a pinned revision, alongside a .lock per
+# dependency. Acquired, never authored.
 repos/
 
-# pytest-benchmark's store. Every other tool cache in this tree self-ignores
-# (ruff, pytest, mypy and Hypothesis each write a .gitignore holding `*` inside
-# the directory they create), which is why none of them is listed here and none
-# has ever appeared in git status. pytest-benchmark does not, so this one needs
-# saying. It is empty today and git does not track an empty directory, so the
-# gap is invisible until the first --benchmark-autosave run writes into it.
+# pytest-benchmark's store, the one tool cache that does NOT self-ignore. It is
+# empty today and git does not track an empty directory, so the gap stayed
+# invisible until the first --benchmark-autosave run wrote into it.
 .benchmarks/
-
-# The chapter 19 C examples' compiled objects, built by check.sh and
-# worktree.sh when a compiler is present. cstore.so was tracked until
-# 2026-08-27 because nothing built it, so one machine's binary rode in the
-# repository while its own README told a reader to compile it.
-examples/ch19-spaces-backed-by-anything/*/*.so
-
-# The engine's C reader artifact, built by check.sh beside engine/reader.c
-engine/reader.so
-
-# The C binding's build products. cetta.c and cetta.h are the source; the
-# shared library, the examples, the suite and the parity driver are all built
-# by bindings/cetta/Makefile and are one machine's binaries.
-bindings/cetta/libcetta.so
-bindings/cetta/examples/hello
-bindings/cetta/examples/ops
-bindings/cetta/examples/stream
-bindings/cetta/tests/test_cetta
-bindings/cetta/kit/driver
-
-# The opt-in mypyc build (PYMETTA_USE_MYPYC=1), which writes extensions beside
-# the source they were built from. Shipping one would also SHADOW the pure
-# Python module for every later run in the checkout, so it is ignored and
-# check.sh's own build is out of tree.
-bindings/python/metta/*.so
 
 # Agent scratch: books, cloned prior art, gate logs, tree copies, working
 # ledgers. Never released, and skipped by .codespellrc for the same reason;
@@ -45,12 +34,6 @@ bindings/python/metta/*.so
 ai-tmp/
 ai-*.md
 ai-tmp-*
-
-# The Node binding fetches swipl-wasm with npm; it is a build input, not
-# source, and the same shape as any other node_modules in the tree.
-bindings/node/node_modules/
-*.qlf
-engine/.qlf-stamp
 
 # Browser-automation scratch. Four of these console logs and page snapshots
 # were committed by accident on 2026-08-21 as part of an unrelated merge;

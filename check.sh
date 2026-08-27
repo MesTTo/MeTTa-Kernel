@@ -127,62 +127,23 @@ run() {
 
 in_py() { ( cd "$PYDIR" && "$@" ); }
 
-# Build the chapter 19 C examples so the examples gate exercises the C tier
-# for real rather than taking their skip branches. swipl-ld is part of
-# SWI-Prolog, so this is available wherever the engine is, but a toolchain can
-# still be missing; say so instead of letting an example quietly skip.
+# The gate does not BUILD anything any more; it asks each component to build
+# itself, through the same build.sh the repository's own build.sh drives. This
+# file used to compile the chapter 19 C examples and engine/reader.so inline,
+# which made a script named for checking the only way to produce two artifacts,
+# and put a compiler invocation in the middle of a lane list.
 #
-# Every .c under a chapter-19 section, rather than a list of unit names:
-# cstore.so was COMMITTED for as long as nothing here built it, which put one
-# machine's compiled object in the repository and gave the C-space example a
-# binary its own README tells you to build. The rule is now the same for all
-# three, and a fourth needs no edit here.
-build_c_examples() {
-    if ! command -v swipl-ld >/dev/null 2>&1; then
-        echo "note: swipl-ld not found, the chapter 19 C examples will skip" >&2
-        return 0
-    fi
-    for source in "$HERE"/examples/ch19-*/*/*.c; do
-        [ -f "$source" ] || continue
-        directory=$(dirname "$source")
-        unit=$(basename "$source" .c)
-        ( cd "$directory" && swipl-ld -shared -o "$unit" "$unit.c" ) ||
-            { echo "note: the C example $unit failed to build" >&2; }
-    done
+# The split each component's script draws is the deciders' one: a toolchain that
+# is ABSENT exits 0 with a note, because the engine falls back to the Prolog
+# reader and the C examples skip, and a build that is ATTEMPTED and FAILS exits
+# nonzero. Only the second is a gate failure, and for the reader it is fatal
+# rather than recorded: it gates every lane below.
+sh "$HERE/examples/ch19-spaces-backed-by-anything/build.sh" ||
+    echo "note: a chapter 19 C example failed to build" >&2
+sh "$HERE/engine/build.sh" || {
+    echo "error: engine/reader.c failed to build; the C reader gates every lane" >&2
+    exit 1
 }
-build_c_examples
-
-# Build the engine's C reader so every gate lane runs the shipping
-# configuration: the shipped-mode parse in C, the Prolog grammar as the
-# specification, the custom-token path, and the fallback. Without swipl-ld
-# the fallback configuration is what gets gated, and the note says so; with
-# swipl-ld present a build failure fails the gate rather than silently
-# gating the fallback.
-build_engine_reader() {
-    # Two fallback rungs, tested as SEPARATE ifs: shell && and || bind with
-    # equal precedence left to right, so the earlier one-expression spelling
-    # mishandled "swipl-ld missing, compiler present" and tried the build
-    # anyway. An earlier duplicate of this function without the compiler
-    # rung also ran FIRST and exited 1 before this one was defined, which
-    # is why there is exactly one definition and one call now.
-    if ! command -v swipl-ld >/dev/null 2>&1; then
-        echo "note: swipl-ld not found, the gate runs the Prolog reader fallback" >&2
-        return 0
-    fi
-    if ! command -v cc >/dev/null 2>&1 &&
-       ! command -v gcc >/dev/null 2>&1 &&
-       ! command -v clang >/dev/null 2>&1; then
-        echo "note: swipl-ld found but no C compiler, the gate runs the Prolog reader fallback" >&2
-        return 0
-    fi
-    if [ ! -f "$HERE/engine/reader.so" ] ||
-       [ "$HERE/engine/reader.c" -nt "$HERE/engine/reader.so" ]; then
-        ( cd "$HERE/engine" && swipl-ld -shared -O2 -o reader.so reader.c ) ||
-            { echo "error: engine/reader.c failed to build; the C reader gates every lane" >&2
-              exit 1; }
-    fi
-}
-build_engine_reader
 
 # ---------------------------------------------------------------- GATE tier
 # Correctness. These must pass on every commit.
