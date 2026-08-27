@@ -1410,13 +1410,18 @@ test(releasing_another_owners_claim_is_refused,
 test(releasing_a_claim_that_is_not_there_passes) :-
     metta_disclaim_space('&probe-never-claimed', probe_one).
 
-% The shipped provider, read off this process's own table. MORK claims the
-% NAMESPACE because mork_owns_space/1 is a prefix test and a named store is
-% created on first use, so there is no per-name attach point; the Python seat
-% claims exact names as it registers them, and this asserts the shape rather
-% than a count, which a boot with no Python providers registered would fail.
-test(the_shipped_backend_claims_its_namespace) :-
-    assertion(metta_space_claim(prefix('&mork'), mork)).
+% The shipped provider, read off this process's own table, BOTH ways: MORK
+% claims the NAMESPACE when its provider loads, because mork_owns_space/1 is a
+% prefix test and a named store is created on first use so there is no
+% per-name attach point, and a tree where the FFI was never built loads that
+% provider not at all and therefore claims nothing. Asserting only the first
+% half would make this file pass on one machine and fail on the other, which
+% is the shape a shipped-seat assertion has to avoid.
+test(the_shipped_backend_claims_its_namespace_exactly_when_it_loads) :-
+    (   metta_extension_loaded(mork)
+    ->  assertion(metta_space_claim(prefix('&mork'), mork))
+    ;   assertion(\+ metta_space_claim(prefix('&mork'), _))
+    ).
 
 :- end_tests(spaces_claim_door).
 

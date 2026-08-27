@@ -216,14 +216,34 @@ test(a_require_diagnoses_transitively_down_to_the_build_command,
     assertion(sub_string(Text, _, _, _,
         "artefact extensions/require_probe_backing/ffi/target/release/libprobe.so is absent")).
 
-%The shipped seat, read off this process's own records rather than staged:
-%mork carries a build.sh, so its artefact need names the command.
-test(a_shipped_seats_artefact_need_names_its_build_command,
-     [cleanup(( retractall(user:metta_extension_unmet(mork, _)),
-                assertz(user:metta_extension_loaded(mork)) ))]) :-
+%A seat's records, saved and put back exactly. The two cases below stage what
+%an unbuilt tree would hold for a SHIPPED seat, so they must not decide what
+%that seat's real state was: a tree with MORK built and one without both run
+%this file, and a cleanup that simply asserted `loaded` would tell the second
+%one a lie for every test after it.
+save_seat_records(Name, records(Loaded, Unmet)) :-
+    (   user:metta_extension_loaded(Name) -> Loaded = true ; Loaded = false ),
+    findall(Need, user:metta_extension_unmet(Name, Need), Unmet).
+
+restore_seat_records(Name, records(Loaded, Unmet)) :-
+    retractall(user:metta_extension_loaded(Name)),
+    retractall(user:metta_extension_unmet(Name, _)),
+    (   Loaded == true -> assertz(user:metta_extension_loaded(Name)) ; true ),
+    forall(member(Need, Unmet),
+           assertz(user:metta_extension_unmet(Name, Need))).
+
+stage_unbuilt_mork :-
     retractall(user:metta_extension_loaded(mork)),
+    retractall(user:metta_extension_unmet(mork, _)),
     assertz(user:metta_extension_unmet(mork,
-                artefact('mork_ffi/target/release/libmork_ffi.so'))),
+                artefact('mork_ffi/target/release/libmork_ffi.so'))).
+
+%The shipped seat, staged as an unbuilt tree would have recorded it: mork
+%carries a build.sh, so its artefact need names the command.
+test(a_shipped_seats_artefact_need_names_its_build_command,
+     [ setup(save_seat_records(mork, Records)),
+       cleanup(restore_seat_records(mork, Records)) ]) :-
+    stage_unbuilt_mork,
     require_refusal(mork, Text),
     assertion(sub_string(Text, _, _, _,
         "artefact extensions/mork/mork_ffi/target/release/libmork_ffi.so is absent")),
@@ -247,17 +267,15 @@ test(a_require_refuses_an_unbound_name_by_its_own_name) :-
 %missing, why, and the command that clears it. Asserting it here is what stops
 %a later context change from silently dropping the file half.
 test(a_require_in_a_file_names_the_file_the_seat_and_the_remedy,
-     [ cleanup(( catch(delete_file(Source), _, true),
-                 retractall(user:metta_extension_unmet(mork, _)),
-                 assertz(user:metta_extension_loaded(mork)) )) ]) :-
+     [ setup(save_seat_records(mork, Records)),
+       cleanup(( catch(delete_file(Source), _, true),
+                 restore_seat_records(mork, Records) )) ]) :-
     tmp_file(require_in_file, Base),
     file_name_extension(Base, metta, Source),
     setup_call_cleanup(open(Source, write, Out),
                        format(Out, '!(require-extension! mork)~n', []),
                        close(Out)),
-    retractall(user:metta_extension_loaded(mork)),
-    assertz(user:metta_extension_unmet(mork,
-                artefact('mork_ffi/target/release/libmork_ffi.so'))),
+    stage_unbuilt_mork,
     catch(( load_imported_metta_file(Source, _, '&self'), fail ),
           Error,
           message_to_string(Error, Text)),
