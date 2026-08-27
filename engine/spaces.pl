@@ -205,6 +205,13 @@
             metta_add_atoms/2,
             metta_add_hooks_idle/1,
             metta_assert_space_releasable/1,
+            %The claim door, and the table it keeps. A provider takes a space
+            %name (or a namespace, as prefix(P)) when it goes live and gives
+            %it back when it stops, so ownership is engine data instead of
+            %three private registries that cannot see each other.
+            metta_claim_space/2,
+            metta_disclaim_space/2,
+            metta_space_claim/2,
             metta_declare_parametric_space/1,
             metta_declare_restricted_space/2,
             metta_declare_space_parent/2,

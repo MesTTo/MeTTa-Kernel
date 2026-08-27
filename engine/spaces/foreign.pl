@@ -14,6 +14,144 @@
 % commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
 % [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
+%%%% Who owns a space name: the claim door %%%%
+%
+%seam:foreign_space/1 asks "is this space yours" and every provider answers it
+%from a PRIVATE registry of its own -- mork_owns_space/1 in
+%extensions/mork/mork_ffi/morkspaces.pl, metta_py_foreign/1 in
+%extensions/python/metta/shim.pl, redis_space_conn/7 in
+%lib/lib_redis/lib_redis.pl. So no party can see a collision. The engine
+%cannot enumerate claimed names, because each clause is a CONDITION on a name
+%and not a list, and a provider cannot see its peers without naming them,
+%which is the one thing the seam exists to prevent. Two providers matching one
+%name then resolve by CLAUSE ORDER, which is msort over folder names, and an
+%atom lands in whichever store loaded first with nothing said.
+%
+%This is the missing half: ownership as engine data, taken at the moment a
+%provider goes live, so a second claim is refused BY NAME instead of
+%discovered later as a wrong answer.
+%
+%Linux's char-device registry is the same object and the closest prior art,
+%because its claims are RANGES rather than points and it still keeps one
+%table: __register_chrdev_region() walks the major's chain, refuses -EBUSY
+%when the requested minor range overlaps a live one, records
+%char_device_struct{major, baseminor, minorct, name} -- the extent beside the
+%OWNER's name -- and /proc/devices enumerates it, with
+%unregister_chrdev_region() the symmetric release
+%[source: Linux fs/char_dev.c, __register_chrdev_region and chrdev_show].
+%register_filesystem() and sqlite3_create_module() are the point-only version
+%of the same move: a provider registers its NAME when it loads and instances
+%follow.
+%
+%THE EXTENT IS A NAME OR A NAMESPACE, and it has to be, because MORK's claim
+%genuinely is a namespace: mork_owns_space/1 is a prefix test, a `&mork:<name>`
+%store is created on first use, and there is no per-name attach point to hang
+%an exact claim on. Recording `&mork` alone would leave every `&mork:<name>`
+%unclaimed, which is precisely the collision this door exists to catch. So a
+%claim is either the atom itself or prefix(P), two extents collide when they
+%INTERSECT, and both live in one first-argument-indexed table: an exact lookup
+%is one indexed probe and `prefix(_)` selects only the namespace rows.
+%
+%THE HOT PATH IS UNTOUCHED. Nothing below is called by an operation; the door
+%is consulted when a provider takes or gives up a name, and read for
+%enumeration. That is deliberate rather than incidental -- the section further
+%down this file records four benchmarks moving when one shared test was put in
+%front of every space door [measured 2026-08-20], and a duplicate ownership
+%test on the operation path would cost a second solution on every space
+%operation for an answer seam:foreign_space/1 already gives.
+:- dynamic metta_space_claim/2.
+
+%Two extents collide when some name lies in both. Written once, used by the
+%claim and by nothing else, because a resolution path that asked this would be
+%the hot-path cost the section above refuses.
+metta_space_extents_meet(One, Other) :- One == Other, !.
+metta_space_extents_meet(prefix(One), prefix(Other)) :- !,
+    (   sub_atom(One, 0, _, _, Other)
+    ;   sub_atom(Other, 0, _, _, One)
+    ), !.
+metta_space_extents_meet(prefix(Prefix), Name) :- !,
+    atom(Name), sub_atom(Name, 0, _, _, Prefix).
+metta_space_extents_meet(Name, prefix(Prefix)) :-
+    atom(Name), sub_atom(Name, 0, _, _, Prefix).
+
+%A live claim of ANOTHER owner that this one would collide with. Split by
+%shape rather than scanned whole, so the common case -- a provider taking one
+%more name -- is one indexed probe plus the namespace rows, and only a
+%namespace claim, which each provider makes once at load, walks the names.
+%SWI's clause indexing hashes the first argument's principal functor, so
+%prefix(_) selects the namespace rows and an atom selects its own.
+metta_space_conflict(Extent, Owner, Extent, Other) :-
+    atom(Extent),
+    metta_space_claim(Extent, Other),
+    Other \== Owner.
+metta_space_conflict(Extent, Owner, prefix(Prefix), Other) :-
+    metta_space_claim(prefix(Prefix), Other),
+    Other \== Owner,
+    metta_space_extents_meet(Extent, prefix(Prefix)).
+metta_space_conflict(prefix(Prefix), Owner, Name, Other) :-
+    metta_space_claim(Name, Other),
+    atom(Name),
+    Other \== Owner,
+    metta_space_extents_meet(prefix(Prefix), Name).
+
+%!  metta_claim_space(+Extent, +Owner) is det.
+%
+%   Take a space name, or a whole namespace as prefix(P), for Owner. A claim
+%   that meets a live claim of a DIFFERENT owner refuses naming both; one that
+%   meets only this owner's own claims succeeds, so a re-registration and a
+%   narrower claim by the same provider are both idempotent.
+%
+%Under a mutex, because check-then-assert is the shape a race defeats and a
+%claim can arrive from any thread: a Python worker registering a provider runs
+%this on its own thread. Two owners both passing the conflict test and both
+%asserting is exactly the silent double ownership the door exists to end, so
+%the window is closed rather than argued about. It costs a lock on a path
+%taken once per space per provider. Nothing takes this mutex while holding
+%another, and lib_redis's own metta_redis_spaces is taken OUTSIDE it, so there
+%is one order and no cycle.
+metta_claim_space(Extent, Owner) :-
+    with_mutex('$metta_space_claim', metta_claim_space_(Extent, Owner)).
+
+metta_claim_space_(Extent, Owner) :-
+    (   once(metta_space_conflict(Extent, Owner, Held, Other))
+    ->  throw(error(metta_space_claimed(Extent, Owner, Held, Other), none))
+    ;   metta_space_claim(Extent, Owner)
+    ->  true
+    ;   assertz(metta_space_claim(Extent, Owner))
+    ).
+
+%!  metta_disclaim_space(+Extent, +Owner) is det.
+%
+%   Give the claim back. Releasing a claim that is not there succeeds, because
+%   a teardown path may run twice and Linux's own unregister_chrdev_region()
+%   is void for the same reason; releasing one that belongs to somebody ELSE
+%   refuses, because that is the corruption this door exists to prevent rather
+%   than a repeat of a tidy-up.
+metta_disclaim_space(Extent, Owner) :-
+    with_mutex('$metta_space_claim', metta_disclaim_space_(Extent, Owner)).
+
+metta_disclaim_space_(Extent, Owner) :-
+    (   metta_space_claim(Extent, Other),
+        Other \== Owner
+    ->  throw(error(metta_space_disclaimed(Extent, Owner, Other), none))
+    ;   retractall(metta_space_claim(Extent, Owner))
+    ).
+
+:- multifile prolog:error_message//1.
+prolog:error_message(metta_space_claimed(Extent, Owner, Held, Other)) -->
+    { metta_space_extent_text(Extent, Wanted),
+      metta_space_extent_text(Held, Taken) },
+    [ '~w cannot claim ~w: ~w already claims ~w. Release the existing claim \c
+       first with metta_disclaim_space/2.'-[Owner, Wanted, Other, Taken] ].
+prolog:error_message(metta_space_disclaimed(Extent, Owner, Other)) -->
+    { metta_space_extent_text(Extent, Wanted) },
+    [ '~w cannot release ~w: it is ~w\'s claim.'-[Owner, Wanted, Other] ].
+
+metta_space_extent_text(prefix(Prefix), Text) :- !,
+    format(atom(Text), 'every space name under ~w', [Prefix]).
+metta_space_extent_text(Name, Text) :-
+    format(atom(Text), 'space ~w', [Name]).
+
 %%%% The foreign seam's failure contract %%%%
 %
 %A declared provider that does not answer an operation is the registrant's

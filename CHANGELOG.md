@@ -8,6 +8,31 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **Space ownership is engine data, and a second claim on a live name is
+  refused naming both owners.** `seam:foreign_space/1` is a CONDITION on a
+  name rather than a list, so nobody could see a collision: the engine could
+  not enumerate claimed names, and a provider could not see its peers without
+  naming them, which is the one thing the seam exists to prevent. The three
+  shipped providers each kept a private registry — `mork_owns_space/1`,
+  `metta_py_foreign/1`, `redis_space_conn/7` — and two of them matching one
+  name resolved by clause order, which is `msort` over folder names, so an
+  atom landed in whichever store loaded first with nothing said.
+  `metta_claim_space/2` and `metta_disclaim_space/2` are the missing half, and
+  `metta_space_claim/2` is the table, enumerable at last. A claim's extent is
+  a name or a whole namespace as `prefix(P)`, because MORK's ownership
+  genuinely is `every name beginning &mork` with no per-name attach point;
+  two extents collide when they intersect. Linux's char-device registry is the
+  same object and settled it the same way, a claim being a range, a duplicate
+  `-EBUSY`, and `/proc/devices` the enumeration (`fs/char_dev.c`,
+  `__register_chrdev_region`). Redis claims in `redis-attach` before it opens a
+  socket and releases at `redis-detach`, the Python seat claims as it registers
+  a provider and releases as it unregisters, and MORK claims its namespace when
+  its provider loads. A same-owner re-claim is idempotent, releasing a claim
+  that is not there passes, and releasing another owner's refuses.
+  Nothing on a space operation's path reads any of it: the door is for
+  claim-time refusal and enumeration, and three space workloads of 2,000
+  operations each cost identical inferences before and after.
+
 - **`!(require-extension! mork)` — a library says which seat it rests on, and
   the refusal is transitive.** A `lib/` module that is the on-demand half of a
   boot-loaded seat had no way to say so, and `lib/lib_mm2/lib_mm2.metta` is the

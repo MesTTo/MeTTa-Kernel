@@ -1561,6 +1561,48 @@ engine's whenever your file loads first, which makes the engine's own
 instantiation guards unreachable. MORK did that and `(get-atoms $any)`
 answered from MORK rather than refusing. Moving to this seam is what fixed it.
 
+#### Take the name, so a second provider cannot
+
+`seam:foreign_space/1` is a CONDITION on a name, which means it answers "is
+this one yours" and nothing else: the engine cannot enumerate claimed names
+and you cannot see your peers without naming them. So two providers whose
+clauses both matched one name resolved by clause order, and an atom landed in
+whichever store loaded first with nothing said.
+
+Take the name through the engine when your provider goes live, and give it
+back when it stops:
+
+```prolog
+metta_claim_space('&shared', redis)          % this name is mine
+metta_claim_space(prefix('&mork'), mork)     % every name under this one is
+metta_disclaim_space('&shared', redis)       % and here it is back
+metta_space_claim(Extent, Owner)             % the table, enumerable
+```
+
+A claim that meets a live claim of another owner refuses naming both and the
+remedy; one that meets only your own succeeds, so a re-registration and a
+narrower claim by the same provider both pass. Releasing a claim that is not
+there passes too, because a teardown may run twice; releasing someone else's
+refuses.
+
+`prefix(P)` is there because ownership is sometimes genuinely a namespace.
+MORK's is: every space beginning `&mork` is its, each `&mork:<name>` store is
+created on first use, and there is no per-name attach point an exact claim
+could hang on. Claiming `&mork` alone would leave every named store unclaimed,
+which is exactly the collision the door exists to catch. Linux's char-device
+registry is the same shape and settled it the same way — a claim is a RANGE,
+a duplicate is `-EBUSY`, and `/proc/devices` enumerates the table
+(`fs/char_dev.c`, `__register_chrdev_region`).
+
+Where to put the call: at your ATTACH point, whatever that is. `lib_redis`
+claims in `redis-attach` before it opens a socket and releases on any later
+failure, the Python seat claims as it registers a provider, and MORK claims
+its namespace in a load-time directive because loading is when it goes live.
+Nothing on an operation's path calls any of this, and that is deliberate: a
+duplicate ownership test there would cost a second solution on every space
+operation [measured 2026-08-28: three space workloads, 2,000 operations each,
+identical inference counts over five runs before and after].
+
 ### Take a whole batch in one crossing
 
 A seventh hook is optional, and it exists because one crossing per atom is the
