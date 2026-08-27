@@ -33,6 +33,15 @@
 %     of the process locale [tested:
 %     filereader_source_reload:a_source_is_utf8_independent_of_the_locale;
 %     commit=18b1135167d60396c41e63e42ded2f66d0eb1900].
+%   - the compressed-sources and fast-cache capabilities are declared here
+%     through engine/metta.pl's census, so a build without library(zlib),
+%     library(fastrw) or library(memfile) records the capability absent and
+%     boots without an ERROR line, a .gz path refuses naming the file, and
+%     both fast-cache doors refuse naming the capability [tested:
+%     platform_capabilities_reduced:the_engine_boots_silently_without_zlib,
+%     platform_capabilities_reduced:a_gz_source_refuses_by_name_when_compression_is_absent,
+%     platform_capabilities_reduced:the_engine_boots_silently_without_the_fast_cache,
+%     platform_capabilities_reduced:both_fast_cache_doors_refuse_by_name_when_it_is_absent].
 %   - Loader diagnostics contain ANSI escapes only on terminal streams
 %     [tested 2026-08-14: filereader_terminal_output].
 %   - A type declaration that cannot type a function the same source defines
@@ -249,10 +258,10 @@
                                     string//1, string_without//2]).
 :- use_module(library(ansi_term)). % terminal-aware diagnostic colors
 %library(pcre) was loaded here, and the pcre:option/2 patch with it, for a
-%re_replace/4 this file has never called: the import dated from the loader
-%sharing one namespace with everything else, and engine/metta.pl re-exports
-%re_replace/4 for MeTTa programs itself. Both moved there, beside the census
-%row that decides whether pcre is here at all.
+%re_replace/4 whose last call left on 2025-12-05, when 0c317ceb moved comment
+%stripping out of a regex and into the grammar; the import outlived it, and
+%engine/metta.pl re-exports re_replace/4 for MeTTa programs itself. Both moved
+%there, beside the census row that decides whether pcre is here at all.
 %
 %The two below are census loads, so this file's own platform dependencies are
 %declared where the code that needs them is, and a build without one is

@@ -19,9 +19,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   Each capability now loads through the census and refuses by name where its
   absence bites: `regex` at the library's own `metta_requires(regex)`
   declaration, at `(register-token! ...)`, and at
-  `(import_prolog_function re_replace)`, which used to answer "no Prolog
-  predicate of that name is loaded" and now names the capability, because the
-  census records the names its own load could not import;
+  `(import_prolog_function re_replace)`, which used to answer "no predicate
+  named re_replace is loaded, so registering it would compile every call to it
+  into a partial application rather than failing" and now names the capability
+  as well, because the census records the names its own load could not import;
   `compressed-sources` at the one gzip door every `.gz` read and write goes
   through, naming the file, with a plain path paying nothing; `fast-cache` at
   the two host doors the cache has. A row may rest on several libraries, which
