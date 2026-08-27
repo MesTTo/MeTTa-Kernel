@@ -1297,7 +1297,7 @@ kind(grounded_extra_type/2, declaration).
 %consulted either way, because a declaration seam is additive and reading
 %this one as owning the whole answer silently dropped every declared type
 %in the shipped configuration
-%[tested: bindings/python/tests/test_ops.py::test_a_declared_type_survives_the_library_being_loaded].
+%[tested: bindings/python/tests/ch11_python_as_a_notation/test_ops.py::test_a_declared_type_survives_the_library_being_loaded].
 :- multifile grounded_type_names/2.
 kind(grounded_type_names/2, ownership).
 

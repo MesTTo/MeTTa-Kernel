@@ -50,7 +50,7 @@
 %value. `(if-error (needs-number (+ 1 "bad")) caught missed)` answers `caught`
 %because if-error is listed here; short-circuiting its operand would answer the
 %error atom instead and leave the language with no way to handle one
-%[tested: bindings/python/tests/test_p3_typing_cluster.py::test_an_argument_type_fault_is_a_value_a_program_can_catch].
+%[tested: bindings/python/tests/ch20_extending_the_engine/test_p3_typing_cluster.py::test_an_argument_type_fault_is_a_value_a_program_can_catch].
 %
 %Upstream reaches the same place by declaring these operands `Atom`, which
 %stops the evaluation outright; this engine evaluates them and stops only the

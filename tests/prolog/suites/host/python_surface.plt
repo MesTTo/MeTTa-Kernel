@@ -18,12 +18,13 @@
 %     a_value_prints_according_to_its_default_reading; commit=0c1bd4c2faadc1c4fc97cc9d2caa084907d20072]
 % Fails when:
 %   - the claim is about the SHIPPED configuration. plunit consults
-%     engine/metta.pl and never bindings/python/metta/shim.pl, so no host bridge answers
-%     seam:grounded_type_names/2 here and anything the shim's presence changes is
-%     invisible. That cost a real defect: the declared-type test below was
-%     green while the shipped library dropped the declaration
+%     engine/metta.pl and never bindings/python/metta/shim.pl, so no host
+%     bridge answers seam:grounded_type_names/2 here and anything the shim's
+%     presence changes is invisible. That cost a real defect: the declared-type
+%     test below was green while the shipped library dropped the declaration
 %     [measured 2026-08-18]. A claim of that kind needs a library-door test
-%     beside it, in bindings/python/tests/test_ops.py or another pytest module.
+%     beside it, in bindings/python/tests/ch11_python_as_a_notation/test_ops.py
+%     or another pytest module.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -138,12 +139,13 @@ test(a_keyword_value_is_evaluated) :-
 % seam:grounded_extra_type/2 extension point that already existed for exactly this.
 %
 % This suite is ONE CONFIGURATION. plunit loads engine/metta.pl without
-% bindings/python/metta/shim.pl, so no host bridge answers seam:grounded_type_names/2 here
-% and this test only ever exercised the branch where none does. The
-% declaration was being dropped in the shipped one for as long as this was
-% green [measured 2026-08-18]. Its counterpart at the library door is
-% bindings/python/tests/test_ops.py, test_a_declared_type_survives_the_library_being_loaded,
-% and the pair is the claim: neither alone says the feature works.
+% bindings/python/metta/shim.pl, so no host bridge answers
+% seam:grounded_type_names/2 here and this test only ever exercised the branch
+% where none does. The declaration was being dropped in the shipped one for as
+% long as this was green [measured 2026-08-18]. Its counterpart at the library
+% door is bindings/python/tests/ch11_python_as_a_notation/test_ops.py,
+% test_a_declared_type_survives_the_library_being_loaded, and the pair is the
+% claim: neither alone says the feature works.
 test(a_declared_type_is_reported_beside_the_objects_own) :-
     'py-atom'(len, ['->', 'Atom', 'Number'], Obj),
     findall(T, get_type_candidate(Obj, T), Types),
@@ -389,7 +391,8 @@ test(a_python_failure_holds_no_host_objects) :-
 %A signal is NOT a failure. An interrupt, a time limit and an inference limit
 %have to stay uncatchable, and KeyboardInterrupt reaches this code as an
 %ordinary python_error, so converting it would reopen the hole from the Python
-%side [source: bindings/python/tests/test_control_signals.py].
+%side [source:
+%bindings/python/tests/ch07_control_flow/test_control_signals.py].
 test(an_interrupt_is_not_converted_into_a_catchable_error,
      [forall(member(Class, ['KeyboardInterrupt', 'SystemExit']))]) :-
     catch(metta_py_failure(['some-call'],

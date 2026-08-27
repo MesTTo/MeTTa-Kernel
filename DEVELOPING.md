@@ -92,8 +92,9 @@ npm ci --prefix bindings/node
 ```
 
 That enables the `node-binding` lane and the conformance corpus in
-`bindings/python/tests/test_node_binding.py`, which answers the same cases in
-the Node binding and in this library and compares the two.
+`bindings/python/tests/ch21_another_language_at_the_seam/test_node_binding.py`,
+which answers the same cases in the Node binding and in this library and
+compares the two.
 
 The binding is TypeScript, and `npm ci` builds it through the package's own
 `prepare` script. Both lanes run the BUILD rather than the sources, because a

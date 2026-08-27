@@ -1,27 +1,31 @@
-% Purpose: own native storage modules and enforce the self-describing policy and capability catalog
-% Assumes: engine/spaces.pl consults this plain file while its owning module is the load context.
-% Guarantees: every definition retains engine/spaces.pl's implementation module and original load order.
-% Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
-% Guarantees: counting and tropical are ordinary catalog algebras, and each
-% ordered preset declares its best direction [tested:
-% bindings/python/tests/test_under_algebra.py; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
-% Guarantees: deprecated is a schema-checked catalog kind whose name, since,
-% and remedy fields remain ordinary queryable data [tested:
-% the_shipped_catalog_is_queryable_data;
-% commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0].
-% Guarantees: every shipped callable receives one PUBLIC or INTERNAL visibility
-% row after prelude registration, and internal classification does not remove
-% the callable [tested: every_shipped_callable_has_one_visibility;
-% commit=8779452fed89853c3f77c3469f7a6ec7b12e9efa].
-% Guarantees: async is a declared operation kind whose compiled result is a
-% FutureSpace [tested: test_an_async_operation_answers_a_future_space;
-% commit=39092863ae34184a9f955f185ff57c1ff177ec40].
-% Guarantees: world effect coverage and saga compensation are schema-checked
-% catalog rows; compensation is admitted only for writesState-or-stronger
-% operations and names one callable recovery operation [tested:
+% Purpose: own native storage modules and enforce the self-describing policy
+% and capability catalog Assumes: engine/spaces.pl consults this plain file
+% while its owning module is the load context. Guarantees: every definition
+% retains engine/spaces.pl's implementation module and original load order.
+% Fails when: loaded directly or from another module; internal state and
+% unqualified meta-goals would acquire the wrong owner. Guarantees: counting
+% and tropical are ordinary catalog algebras, and each ordered preset declares
+% its best direction [tested:
+% bindings/python/tests/ch06_many_answers/test_under_algebra.py;
+% commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]. Guarantees: deprecated is a
+% schema-checked catalog kind whose name, since, and remedy fields remain
+% ordinary queryable data [tested: the_shipped_catalog_is_queryable_data;
+% commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0]. Guarantees: every shipped
+% callable receives one PUBLIC or INTERNAL visibility row after prelude
+% registration, and internal classification does not remove the callable
+% [tested: every_shipped_callable_has_one_visibility;
+% commit=8779452fed89853c3f77c3469f7a6ec7b12e9efa]. Guarantees: async is a
+% declared operation kind whose compiled result is a FutureSpace [tested:
+% test_an_async_operation_answers_a_future_space;
+% commit=39092863ae34184a9f955f185ff57c1ff177ec40]. Guarantees: world effect
+% coverage and saga compensation are schema-checked catalog rows; compensation
+% is admitted only for writesState-or-stronger operations and names one
+% callable recovery operation [tested:
 % effects_lattice:compensation_declarations_require_an_effectful_operation,
-% test_a_structural_operation_cannot_declare_a_compensation; commit=173eeed021beb360b5e5f9f8461889e27190affc].
-% [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+% test_a_structural_operation_cannot_declare_a_compensation;
+% commit=173eeed021beb360b5e5f9f8461889e27190affc]. [tested:
+% tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl;
+% commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 :- dynamic native_storage_module_cache/2.
 :- dynamic space_parametric/1.

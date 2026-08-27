@@ -423,15 +423,15 @@ has_type_derive(Module, X, T) :-
           ;   T = '%Undefined%'
           ) ).
 
-%A WITNESS that X has type T, which is the other question a caller can ask
-%and is not the same one. has_type_in/3 asks whether X's type is CONSISTENT
-%with T and lets an unknown through, because a call site may not refuse what
-%it cannot prove wrong. A gate asks whether X is KNOWN to be a T, and an
-%unknown must not pass one: `(admits &pool Space)` is a contract, and an atom
-%nothing declares is not evidence of a Space. The directed BigInt-to-Number
-%case is explicit here too, so reflective and compiled call checks use the same
-%operational rule
-%[tested: bindings/python/tests/test_answer_protocol.py::test_admission_types_the_pool].
+%A WITNESS that X has type T, which is the other question a caller can ask and
+%is not the same one. has_type_in/3 asks whether X's type is CONSISTENT with T
+%and lets an unknown through, because a call site may not refuse what it cannot
+%prove wrong. A gate asks whether X is KNOWN to be a T, and an unknown must not
+%pass one: `(admits &pool Space)` is a contract, and an atom nothing declares
+%is not evidence of a Space. The directed BigInt-to-Number case is explicit
+%here too, so reflective and compiled call checks use the same operational rule
+%[tested:
+%bindings/python/tests/ch04_spaces_and_matching/test_answer_protocol.py::test_admission_types_the_pool].
 type_witness_in(Module, X, T) :-
     type_witness_direct(Module, X, T, Outcome),
     (   Outcome == found
@@ -1333,23 +1333,22 @@ metta_grounded_type(X, T) :- ( seam:grounded_type_names(X, Names)
                                -> member(N, Names),
                                   ( atom(N) -> T = N ; atom_string(T, N) )
                              ; seam:grounded_class_type(X, T) ).
-%A protocol the object satisfies may name a type too, and so may a
-%(py-atom f Type) declaration, both through seam:grounded_extra_type/2, so a
-%declared (-> DLTensor ...) holds for every array library at once. This is a
-%DECLARATION seam, where every clause has to stay reachable, and not an
-%ownership one [source: engine/ext_points.pl, seam:every_clause_runs/1]. It
-%used to hang off the class walk, which is the ELSE arm above, and
-%the shipped library answers the bridge for every Python object: the arm was
-%dead in that configuration and a declared type was accepted and then
-%dropped. `(py-atom math.pow (-> Number Number Number))` answered
-%`(builtin_function_or_method)` through the library and
-%`(builtin_function_or_method (-> Number Number Number))` through run.sh
-%[measured 2026-08-18]
-%[tested: bindings/python/tests/test_ops.py::test_a_declared_type_survives_the_library_being_loaded].
+%A protocol the object satisfies may name a type too, and so may a (py-atom f
+%Type) declaration, both through seam:grounded_extra_type/2, so a declared (->
+%DLTensor ...) holds for every array library at once. This is a DECLARATION
+%seam, where every clause has to stay reachable, and not an ownership one
+%[source: engine/ext_points.pl, seam:every_clause_runs/1]. It used to hang off
+%the class walk, which is the ELSE arm above, and the shipped library answers
+%the bridge for every Python object: the arm was dead in that configuration and
+%a declared type was accepted and then dropped. `(py-atom math.pow (-> Number
+%Number Number))` answered `(builtin_function_or_method)` through the library
+%and `(builtin_function_or_method (-> Number Number Number))` through run.sh
+%[measured 2026-08-18] [tested:
+%bindings/python/tests/ch11_python_as_a_notation/test_ops.py::test_a_declared_type_survives_the_library_being_loaded].
 %Two relations rather than one wider if-then-else, for the reason Sterling and
 %Shapiro give for lifting entitlement/2 out of pension/2: a cut that picks a
-%default correctly still prevents the alternatives being found
-%[source: The Art of Prolog 2nd ed, 11.5 "Default Rules", pp 206-207].
+%default correctly still prevents the alternatives being found [source: The Art
+%of Prolog 2nd ed, 11.5 "Default Rules", pp 206-207].
 metta_grounded_type(X, T) :- seam:grounded_extra_type(X, T).
 
 %Computed from the VALUE and then unified, rather than dispatched on the answer.

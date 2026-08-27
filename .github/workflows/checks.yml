@@ -66,11 +66,12 @@ jobs:
             fi
           done
 
-      # The Node binding runs the engine in a WebAssembly SWI, so it needs
-      # node and swipl-wasm and nothing else. Without this step check.sh's
+      # The Node binding runs the engine in a WebAssembly SWI, so it needs node
+      # and swipl-wasm and nothing else. Without this step check.sh's
       # node-binding lane says it cannot run and the conformance kit in
-      # bindings/python/tests/test_node_binding.py skips, which is a green run that
-      # tested the seam's second consumer not at all.
+      # bindings/python/tests/ch21_another_language_at_the_seam/test_node_binding.py
+      # skips, which is a green run that tested the seam's second consumer not
+      # at all.
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

@@ -736,6 +736,27 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **The Python suite is in chapter packages, the same 22 the examples use.**
+  206 modules sat flat in one directory, which is a listing nobody reads and no
+  order at all. They are now `bindings/python/tests/chNN_name/`, named in
+  Python's own casing, so `ch04_spaces_and_matching` holds the space and match
+  tests and browsing the directory is reading the teaching order. Two packages
+  are deliberately not chapters: `conformance/`, the arbiters and oracles that
+  decide what MeTTa MEANS, where a finding says this engine disagrees with an
+  authority rather than that a feature broke, and `repository/`, the tests
+  whose subject is this repository rather than the language. Chapters 2 and 22
+  have no package, because what they teach is a whole program and the examples
+  corpus carries it.
+  `bindings/python/tests/data/`, three fixtures outside any scheme, is
+  `fixtures/`, the name the repository's own test tree already uses.
+  A module one directory down counts one more parent, so 58 `Path(__file__)`
+  chains were rewritten; a chain rooted at something that did not move, such as
+  `EXAMPLES_ROOT.parents[2]`, keeps its count. 92 citations of a moved module
+  across 58 files were repointed, most of them evidence tags in engine sources.
+  `CHANGELOG.md` was left alone: an entry records what was true at its release,
+  which is also why the examples reorganisation earlier in this series left its
+  own seven example-path citations as they were.
+
 - **The notebook tour lives under the Python binding and is written in built
   terms.** `notebooks/tour.ipynb` sat at the repository root while everything
   else about the Python surface was under `bindings/python/`; it is

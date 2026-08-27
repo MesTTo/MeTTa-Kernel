@@ -7,7 +7,8 @@
 % the provider gives are the answers the engine reports, and that they equal
 % what the split produces. A provider's actual strategy is invisible to the
 % engine by design, so a fast one would test nothing extra here. MORK's real
-% worst-case-optimal join is exercised from bindings/python/tests/test_mork_space.py,
+% worst-case-optimal join is exercised from
+% bindings/python/tests/ch19_spaces_backed_by_anything/test_mork_space.py,
 % which skips when the native library is not built.
 :- multifile seam:foreign_space/1.
 :- multifile seam:foreign_atoms/2.

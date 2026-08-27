@@ -114,7 +114,7 @@ termination method for rewriting. `engine/narrowing.pl` implements it,
 `engine/trs.pl` is the rewriting library underneath (an adaptation of Markus
 Triska's public-domain trs.pl), `tests/prolog/suites/translator/trs.plt` and
 `tests/prolog/suites/translator/narrowing.plt` cover both, and
-`bindings/python/tests/test_critical_pair_oracle.py` runs the critical-pair enumerator
+`bindings/python/tests/conformance/test_critical_pair_oracle.py` runs the critical-pair enumerator
 against the kernel-checked one in LeaTTa's `MeTTaILProofs/CPExecutable.lean`.
 
 WHAT EACH HALF COVERS: the confluence half covers REWRITING and the termination
@@ -216,8 +216,8 @@ earlier cut fires on every walk.
 The failure does not look like a wrong answer. A refusal clause added to
 `match/4` without its own guard answered BESIDE the rows a real space gave, an
 ancestor rule recursed on the refusal, and the process hung
-[reproduced 2026-08-20, `bindings/python/tests/test_derivation.py` and
-`bindings/python/tests/test_space_operation_errors.py::test_a_proof_over_a_match_does_not_carry_the_refusal`].
+[reproduced 2026-08-20, `bindings/python/tests/ch14_seeing_your_program/test_derivation.py` and
+`bindings/python/tests/ch04_spaces_and_matching/test_space_operation_errors.py::test_a_proof_over_a_match_does_not_carry_the_refusal`].
 
 Cuts still belong where they pay: keep the cut for ordinary execution and
 repeat its condition in the clauses below it. `match/4` reads

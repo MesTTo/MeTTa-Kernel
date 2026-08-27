@@ -772,7 +772,8 @@ forget_symbol(Module, Name) :-
     %retracting it left translated_from/2 pointing at a dead reference, and
     %remove_equation/6 then found that reference, called erase/1 on it and
     %FAILED, so removing the specialization's own atom failed and every caller
-    %of it failed with it [tested: bindings/python/tests/test_import_reuse.py::
+    %of it failed with it [tested:
+    %bindings/python/tests/ch19_spaces_backed_by_anything/test_import_reuse.py::
     %test_import_translation_leaves_variable_heads_dynamic].
     forall(member(R, Refs),
            (   translated_from(R, Term)

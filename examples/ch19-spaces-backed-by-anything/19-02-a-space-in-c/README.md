@@ -21,10 +21,10 @@ skips. With the artefact present it also proves itself: the conformance
 kit runs inside the example (`check-space-provider`), and a `hyperpose`
 block drives concurrent writers against the store's mutex.
 
-The same provider file registers into Python
-(`m.register_prolog(path=...)`), which is what
-`bindings/python/tests/test_c_space.py` does before driving it from a thread
-pool.
+The same provider file registers into Python (`m.register_prolog(path=...)`),
+which is what
+`bindings/python/tests/ch19_spaces_backed_by_anything/test_c_space.py` does
+before driving it from a thread pool.
 
 ## What the provider declares, and what that costs
 

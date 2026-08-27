@@ -202,7 +202,7 @@ swipl -g halt -s "$HERE/engine/main.pl" -- backends >/dev/null 2>&1 || true
 # expansion [tested: test_the_pytest_lane_is_deterministic_under_load_protocol;
 # commit=dcfc20be4933c19140ccb5759291401d13058301].
 run GATE pytest       sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark -n 4 --dist loadfile --max-worker-restart=0"
-run GATE gallery      sh -c "cd '$PYDIR' && '$PY' -m pytest tests/test_executable_docs.py tests/test_gallery.py tests/test_twin_coverage.py::test_answer_multisets_ignore_order_and_alpha_names_but_keep_multiplicity -q --rootdir=. -c pyproject.toml"
+run GATE gallery      sh -c "cd '$PYDIR' && '$PY' -m pytest tests/repository/test_executable_docs.py tests/repository/test_gallery.py tests/repository/test_twin_coverage.py::test_answer_multisets_ignore_order_and_alpha_names_but_keep_multiplicity -q --rootdir=. -c pyproject.toml"
 run GATE benchmarks   in_py "$PY" bench.py --counter-only --keep-going
 run GATE instructions in_py "$PY" -m benchmarks.check_instructions
 
@@ -360,7 +360,8 @@ run GATE worktree sh -c "cd '$HERE' && sh tests/shell/test_worktree_configuratio
 # atom algebra, the codec, the boot inventory, the lazy answer surface, the
 # three definition doors, the scopes and the extension tier. The conformance
 # corpus is compared against the Python host by
-# bindings/python/tests/test_node_binding.py, in the pytest lane above.
+# bindings/python/tests/ch21_another_language_at_the_seam/test_node_binding.py,
+# in the pytest lane above.
 #
 # swipl-wasm is an npm dependency and this does not fetch it: a gate that
 # reaches the network is a gate that fails for a reason that is not the tree.

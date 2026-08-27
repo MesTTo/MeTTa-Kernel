@@ -875,16 +875,16 @@ costs **919.35us and 44,600** [measured 2026-08-16]. The handle's cost is flat
 in the structure's size and the text's is linear, the same shape as raw transport
 against the encoded path in the argument-size table above.
 
-The handle crosses to Python too, by reference. A blob reaching the
-Python boundary arrives as `metta.Handle`, an opaque atom carrying a
-registry id and the blob's own printed text; hand it back and the very
-same native object answers, so identity and mutation survive the round
-trip, and a Python function can unpack the structure through whatever
-accessors the extension registered. It used to arrive as its printed
-STRING, silently, which made the round trip impossible [measured
-2026-08-17; pinned in `bindings/python/tests/test_c_handle_crossing.py`].
-`release()` retracts the engine-side registry entry that keeps the blob
-alive; a released handle raises by id instead of answering wrongly.
+The handle crosses to Python too, by reference. A blob reaching the Python
+boundary arrives as `metta.Handle`, an opaque atom carrying a registry id and
+the blob's own printed text; hand it back and the very same native object
+answers, so identity and mutation survive the round trip, and a Python function
+can unpack the structure through whatever accessors the extension registered.
+It used to arrive as its printed STRING, silently, which made the round trip
+impossible [measured 2026-08-17; pinned in
+`bindings/python/tests/ch19_spaces_backed_by_anything/test_c_handle_crossing.py`].
+`release()` retracts the engine-side registry entry that keeps the blob alive;
+a released handle raises by id instead of answering wrongly.
 
 Two things the blob interface asks of you. `PL_BLOB_NOCOPY` means SWI keeps the
 pointer you hand `PL_unify_blob`, so hand it heap memory and not the address of

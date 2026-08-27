@@ -134,34 +134,34 @@
 %     Symbol as an unknown name does [tested 2026-08-20: metta_metatypes].
 %   - metta_transaction/1 answers everything its body answers, and every
 %     answer's writes commit or roll back together [tested 2026-08-19:
-%     bindings/python/tests/test_atomic_forms.py::test_a_transaction_preserves_every_answer_of_its_body].
+%     bindings/python/tests/ch15_writing_transactions_and_worlds/test_atomic_forms.py::test_a_transaction_preserves_every_answer_of_its_body].
 %   - Every guarded_input_position/3 refuses an unbound argument and names the
 %     MeTTa operation, so no builtin binds the caller's variable, invents an
 %     answer, runs away or reports a host predicate [tested 2026-08-19:
 %     builtin_input_guards:every_builtin_refuses_an_unbound_input_by_name,
-%     bindings/python/tests/test_builtin_inputs.py::test_a_raising_builtin_names_the_metta_operation_not_the_host_predicate].
+%     bindings/python/tests/ch10_errors_and_refusals/test_builtin_inputs.py::test_a_raising_builtin_names_the_metta_operation_not_the_host_predicate].
 %   - ==/3 and !=/3 refuse two operands of known and different types and
 %     answer for every other pair, at no cost on two numbers [tested
 %     2026-08-19:
-%     bindings/python/tests/test_equality.py::test_cross_kind_equality_answers_what_the_arbiter_answers]
+%     bindings/python/tests/ch03_atoms_and_expressions/test_equality.py::test_cross_kind_equality_answers_what_the_arbiter_answers]
 %     [measured 2026-08-19: 4487.45 inferences per thousand-iteration loop,
 %     unchanged].
 %   - %Undefined% is consistent with every type in both directions, so a call
 %     site refuses only a PROVEN conflict, while has_declared_type/2 demands a
 %     witness for a contract [tested 2026-08-19:
-%     bindings/python/tests/test_gradual_typing.py::test_an_unknown_type_is_consistent_with_every_declared_type,
-%     bindings/python/tests/test_answer_protocol.py::test_admission_types_the_pool].
+%     bindings/python/tests/ch09_types/test_gradual_typing.py::test_an_unknown_type_is_consistent_with_every_declared_type,
+%     bindings/python/tests/ch04_spaces_and_matching/test_answer_protocol.py::test_admission_types_the_pool].
 %   - An expression no arrow types reads element-wise, and the tuple it reads
 %     is %Undefined% as soon as one member's type is [tested 2026-08-19:
 %     metta_type_answers:a_tuple_with_an_untyped_member_is_undefined].
 %   - get-type/2 and get-type-space/3 answer from declarations without running
 %     the inspected expression, so inspection has no effects of its own
 %     [tested 2026-08-19:
-%     bindings/python/tests/test_type_inspection.py::test_get_type_does_not_run_its_arguments_effects].
+%     bindings/python/tests/ch09_types/test_type_inspection.py::test_get_type_does_not_run_its_arguments_effects].
 %   - get-type-space/3 reads only the selected space, and the upstream doc
 %     family builds @doc-formal answers from that scoped type and prose
 %     [tested 2026-08-20:
-%     bindings/python/tests/test_doc_family.py::test_the_doc_family_answers_what_upstream_answers].
+%     bindings/python/tests/repository/test_doc_family.py::test_the_doc_family_answers_what_upstream_answers].
 %   - seam:builtin_type_declaration/2 rows are the union of lib_builtin_types.metta
 %     and the prelude's, with each row written once and evicted only by the
 %     register that wrote it [tested 2026-08-19:
@@ -199,7 +199,7 @@
 %   - metta_assertion_failure/4 classifies the three assertion formals, so a
 %     harness tells a false claim from a broken engine by TYPE rather than by
 %     reading the message [tested 2026-08-19:
-%     bindings/python/tests/test_assertion_failures.py::test_a_failing_assertion_is_a_different_exception_from_an_engine_fault].
+%     bindings/python/tests/ch12_testing/test_assertion_failures.py::test_a_failing_assertion_is_a_different_exception_from_an_engine_fault].
 %   - Runtime builtins reject prebound outputs that they would not produce
 %     [tested 2026-08-14: metta_builtin_outputs].
 %   - Function registration performed by a source load participates in that
@@ -217,7 +217,7 @@
 %   - Every seam:grounded_extra_type/2 clause is consulted whether or not a host
 %     bridge answers seam:grounded_type_names/2, so a (py-atom f Type)
 %     declaration survives the Python library being loaded [tested 2026-08-18:
-%     bindings/python/tests/test_ops.py::test_a_declared_type_survives_the_library_being_loaded]
+%     bindings/python/tests/ch11_python_as_a_notation/test_ops.py::test_a_declared_type_survives_the_library_being_loaded]
 %     [measured 2026-08-18: +2 inferences per get-type on a Python object and
 %     0 on every other value].
 %   - register-token! and unregister-token! are ordinary registered builtins,

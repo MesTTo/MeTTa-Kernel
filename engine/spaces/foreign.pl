@@ -1773,7 +1773,8 @@ match(Space, Pattern, OutPattern, Result) :-
 %calling each body through call/1, where a cut in an earlier body cannot prune
 %this clause. Written without the guard, every match against a real space grew
 %a second answer, the refusal, and `(anc-d $x $y)` recursed on it until the
-%process hung [reproduced 2026-08-20: bindings/python/tests/test_derivation.py]. Every
+%process hung [reproduced 2026-08-20:
+%bindings/python/tests/ch14_seeing_your_program/test_derivation.py]. Every
 %clause of a predicate a proof can walk has to say for itself when it applies,
 %which is what the three clauses above already do.
 match(Space, Pattern, OutPattern, Result) :-

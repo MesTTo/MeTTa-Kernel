@@ -497,14 +497,15 @@ storing an atom that never comes back.
 
 Running the corpus against the TypeScript reference server, which shares no
 code with this package, turned up three divergences on first contact and all
-three are pinned in `bindings/python/tests/test_codec_typescript.py`. Two share one
-cause: `isWireAtom` validates the `g` tag with `case "g": return true`, so
-`["g", 1]` and `["g", {"a": 1}]` are both stored there and both refused by
-the metta-side codecs. The third is the number model: `JSON.stringify(1.0)`
-writes `1`, so `["n", 1.0]` comes back as `["n", 1]`, and `1.0` and `1` are
-different atoms. The first two are a check that server does not make; the
-third is a limit any implementation over a single-Number-type JSON parser
-has to answer for. That server is a reference implementation under
+three are pinned in
+`bindings/python/tests/ch21_another_language_at_the_seam/test_codec_typescript.py`.
+Two share one cause: `isWireAtom` validates the `g` tag with `case "g": return
+true`, so `["g", 1]` and `["g", {"a": 1}]` are both stored there and both
+refused by the metta-side codecs. The third is the number model:
+`JSON.stringify(1.0)` writes `1`, so `["n", 1.0]` comes back as `["n", 1]`, and
+`1.0` and `1` are different atoms. The first two are a check that server does
+not make; the third is a limit any implementation over a single-Number-type
+JSON parser has to answer for. That server is a reference implementation under
 `bindings/python/examples/` rather than one of the two shipped codecs, so the
 divergences are recorded rather than patched here.
 

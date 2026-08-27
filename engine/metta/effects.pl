@@ -933,7 +933,7 @@ metta_effect_plan_compile_source(Module, [Head|Args], State0, State) :-
 metta_effect_plan_compile_arguments(_, function, [_], []).
 metta_effect_plan_compile_arguments(_, '|->', [_, Body], [Body]).
 metta_effect_plan_compile_arguments(_, Operation, [Space, _], [Space]) :-
-% policy-inventory-exempt: mechanism-internal; reason=the five space updates whose SPACE operand compiles, a shape of the operation rather than a policy value a catalog vocabulary could own; evidence=bindings/python/tests/test_worlds.py:test_program_write_compilation_is_included_in_world_admission
+% policy-inventory-exempt: mechanism-internal; reason=the five space updates whose SPACE operand compiles, a shape of the operation rather than a policy value a catalog vocabulary could own; evidence=bindings/python/tests/ch15_writing_transactions_and_worlds/test_worlds.py:test_program_write_compilation_is_included_in_world_admission
     memberchk(Operation,
               ['add-atom', 'remove-atom', 'add-atoms',
                'add-reduct', 'add-reducts']).
@@ -954,7 +954,7 @@ metta_effect_plan_program_write(_, _, '&metta', _, Queue-Effects,
                                       Effects]) :-
     !.
 metta_effect_plan_program_write(Module, Operation, Space, Payload, State0, State) :-
-% policy-inventory-exempt: mechanism-internal; reason=the two space updates whose payload is a LIST of writes rather than one, which is a shape of the operation, not a policy; evidence=bindings/python/tests/test_worlds.py:test_reducing_space_writes_plan_the_expression_they_execute
+% policy-inventory-exempt: mechanism-internal; reason=the two space updates whose payload is a LIST of writes rather than one, which is a shape of the operation, not a policy; evidence=bindings/python/tests/ch15_writing_transactions_and_worlds/test_worlds.py:test_reducing_space_writes_plan_the_expression_they_execute
     memberchk(Operation, ['add-atoms', 'add-reducts']),
     is_list(Payload),
     !,
@@ -981,7 +981,7 @@ metta_effect_plan_program_subject([':', Name, _], Name, declaration) :-
 
 metta_effect_plan_new_program_source(Module, Operation, equation,
                                      [=, _, Body], State0, State) :-
-% policy-inventory-exempt: mechanism-internal; reason=the two space updates that ADD a definition, the only ones whose payload the compiler then reads; evidence=bindings/python/tests/test_worlds.py:test_program_write_compilation_is_included_in_world_admission
+% policy-inventory-exempt: mechanism-internal; reason=the two space updates that ADD a definition, the only ones whose payload the compiler then reads; evidence=bindings/python/tests/ch15_writing_transactions_and_worlds/test_worlds.py:test_program_write_compilation_is_included_in_world_admission
     memberchk(Operation, ['add-atom', 'add-atoms']),
     !,
     metta_effect_plan_compile_source(Module, Body, State0, State).
@@ -1214,7 +1214,7 @@ metta_effect_plan_classify(Module, Goal, State0, State) :-
     functor(Goal, Name, Arity),
     metta_effect_plan_named_call(Module, Name, Arity, State0, State).
 metta_effect_plan_classify(_, Goal, State, State) :-
-% policy-inventory-exempt: mechanism-internal; reason=Prolog's three control leaves, which the language fixes; evidence=bindings/python/tests/test_worlds.py:test_a_typed_structural_chain_is_not_falsely_refused
+% policy-inventory-exempt: mechanism-internal; reason=Prolog's three control leaves, which the language fixes; evidence=bindings/python/tests/ch15_writing_transactions_and_worlds/test_worlds.py:test_a_typed_structural_chain_is_not_falsely_refused
     memberchk(Goal, [true, fail, !]),
     !.
 metta_effect_plan_classify(Module, Goal, State0, State) :-
@@ -1403,7 +1403,7 @@ metta_effect_plan_source_special_arguments(_, Operation,
                                            [_, _, Then, Else],
                                            [metta_evaluated_source_root(Then),
                                             metta_evaluated_source_root(Else)]) :-
-% policy-inventory-exempt: mechanism-internal; reason=the three builtins whose two possible branches the planner walks, mirroring the translator's own clauses rather than a catalog vocabulary; evidence=bindings/python/tests/test_worlds.py:test_native_control_profiles_keep_pure_calls_and_nested_effects_distinct
+% policy-inventory-exempt: mechanism-internal; reason=the three builtins whose two possible branches the planner walks, mirroring the translator's own clauses rather than a catalog vocabulary; evidence=bindings/python/tests/ch15_writing_transactions_and_worlds/test_worlds.py:test_native_control_profiles_keep_pure_calls_and_nested_effects_distinct
     memberchk(Operation, ['if-equal', 'if-equal2', 'match-types']).
 metta_effect_plan_source_special_arguments(_, 'if-error',
                                            [Expression, Then, Else],
@@ -1535,14 +1535,14 @@ metta_effect_plan_source_special_arguments(_, Operation, [Space, Payload],
                                            [metta_evaluated_source_root(Space),
                                             metta_program_write(Operation, Space,
                                                                 Payload)]) :-
-% policy-inventory-exempt: mechanism-internal; reason=the three space updates whose payload is written data, mirroring the translator's argument masks rather than any policy; evidence=bindings/python/tests/test_worlds.py:test_program_write_compilation_is_included_in_world_admission
+% policy-inventory-exempt: mechanism-internal; reason=the three space updates whose payload is written data, mirroring the translator's argument masks rather than any policy; evidence=bindings/python/tests/ch15_writing_transactions_and_worlds/test_worlds.py:test_program_write_compilation_is_included_in_world_admission
     memberchk(Operation, ['add-atom', 'remove-atom', 'add-atoms']).
 metta_effect_plan_source_special_arguments(_, Operation, [Space, Payload],
                                            [metta_evaluated_source_root(Space),
                                             metta_evaluated_source_root(Payload),
                                             metta_program_write(Operation, Space,
                                                                 Payload)]) :-
-% policy-inventory-exempt: mechanism-internal; reason=the two reducing space updates, whose payload is evaluated before it is written; evidence=bindings/python/tests/test_worlds.py:test_reducing_space_writes_plan_the_expression_they_execute
+% policy-inventory-exempt: mechanism-internal; reason=the two reducing space updates, whose payload is evaluated before it is written; evidence=bindings/python/tests/ch15_writing_transactions_and_worlds/test_worlds.py:test_reducing_space_writes_plan_the_expression_they_execute
     memberchk(Operation, ['add-reduct', 'add-reducts']).
 metta_effect_plan_source_special_arguments(_, 'new-space', [Space], []) :-
     is_list(Space).
@@ -1907,11 +1907,12 @@ metta_annotations_resolved([First, Second|Rest], Ctx, _) :-
                                          [First, Second|Rest]]),
                 none)).
 
-%A per-ask carrier is dynamically scoped around the held engine goal. It is
-%not a catalog mutation: nested evaluations inherit it, cleanup restores the
+%A per-ask carrier is dynamically scoped around the held engine goal. It is not
+%a catalog mutation: nested evaluations inherit it, cleanup restores the
 %previous value on failure, exception, exhaustion, or cursor destruction, and
 %every persistent declaration remains unchanged for the next ask [tested:
-%bindings/python/tests/test_under_algebra.py; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
+%bindings/python/tests/ch06_many_answers/test_under_algebra.py;
+%commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
 :- meta_predicate metta_with_under(+, 0).
 
 metta_with_under(Algebra, Goal) :-

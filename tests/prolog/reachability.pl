@@ -507,7 +507,7 @@ take_name(Rest, Sofar, Sofar, Rest).
 %
 % The Python half is the same string-literal scan the janus root uses, pointed
 % at bindings/python/tests, because a Python test names a Prolog goal as text exactly as
-% the library does: bindings/python/tests/test_properties.py:70 is
+% the library does: bindings/python/tests/ch03_atoms_and_expressions/test_properties.py:70 is
 % `rt.once("metta_py_swrite(W, Str)")`, which no Prolog reader will ever see.
 named_by_a_test(Name/Arity) :-
     ( test_references_scanned -> true ; scan_test_references ),
