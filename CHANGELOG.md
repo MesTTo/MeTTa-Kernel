@@ -1592,6 +1592,40 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **The engine classified a host's builtins by naming them, which is the one
+  thing `EXTENDING.md` promises an extension author never has to force.**
+  `seam:host_builtin/1` and `seam:backend_builtin/2` were one concept under two
+  names, and the ARITY was the damage: `metta_builtin_effect/2` reads a
+  builtin's effect class from that seam, so a backend could declare one and a
+  host had nowhere to put one. The seven `py-*` builtins were therefore
+  classified by a list of their names inside `engine/metta/effects.pl` --
+  `metta_builtin_effect_override('py-list', oracleIO)` and six siblings -- which
+  is exactly the shape MORK stopped needing when `backend_builtin/2` grew its
+  second argument, and exactly what `host_builtin/1`'s own comment said did not
+  exist ("no list inside the engine names a host").
+
+  Both seams are now `seam:extension_builtin/2`, declared by hosts and backends
+  alike, and the seven rows are gone from the engine. The classifications
+  themselves do not change -- all seven stay `oracleIO`, which is honest,
+  because each crosses into a Python runtime the engine cannot bound, and
+  `py-list`/`py-tuple`/`py-dict` only look structural: they build a live object
+  whose IDENTITY is observable, so two calls with equal arguments answer
+  distinct objects. What changes is that the review lives with the code it
+  reviews, and a second host binding gets the same door instead of an engine
+  edit.
+
+- **The guard for that property existed and two scope filters hid the
+  violation.** `test_no_code_in_the_engine_names_a_host` globbed `engine/*.pl`,
+  one level, while the engine's code also lives in `engine/metta/`,
+  `engine/spaces/`, `engine/translator/` and `engine/filereader/`: 18 files
+  scanned of 40. Its token pattern was `\bpy_|\bpython|\bjanus`, which cannot
+  match `'py-list'`, because MeTTa spells names with hyphens and Prolog does
+  not. Both filters were load-bearing and the defect needed both to survive.
+  Measured against the tree before the fix: 7 offenders with the scan root and
+  the pattern corrected, 0 with either left as it was. The scan is now
+  recursive and includes `py-`, which is what makes the property checkable
+  rather than merely stated.
+
 - **`git-import!` answered two different values depending on how many arguments
   it was given.** Its three unpinned clauses answer `[]`, the unit every
   effectful builtin in this engine answers -- `'import!'/3`, `'println!'/2` --

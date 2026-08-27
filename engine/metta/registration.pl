@@ -587,22 +587,23 @@ unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
                           'add-typing-rule!', 'remove-typing-rule!', argv,
                           register_metta_library_path,
                           dif, 'residual-goals']).
-%A HOST's builtins register the same way, from the host bridge's own
-%seam:host_builtin/1 declarations rather than from a list here that would
-%name the host: the bridge loads earlier in this file's own load order, so
-%its facts exist by the time this directive runs, and an engine with no
-%host loaded registers nothing.
-:- forall(seam:host_builtin(Name), register_builtin_fun(Name)).
-
-%A backend's own builtins, registered here because this is where the engine's
-%are and the order matters. The NAMES are the backend's: it declares them in
-%the file that defines them, so they exist exactly when the predicates behind
-%them do. That conditionality used to be an argv test in this file, which meant
-%the engine had to know both that MORK had builtins and what they were called.
+%An EXTENSION's own builtins -- a host bridge's and a backend's alike --
+%register here, from that extension's own seam:extension_builtin/2 declarations
+%rather than from a list here that would name it. This was two directives over
+%two seams, seam:host_builtin/1 and seam:backend_builtin/2, which differed only
+%in whether they carried an effect class; the merged seam carries one for
+%everybody. Every extension loads earlier in this file's own load order, so its
+%facts exist by the time this directive runs, and an engine with none loaded
+%registers nothing.
+%
+%The NAMES are the extension's: it declares them in the file that DEFINES them,
+%so they exist exactly when the predicates behind them do. That conditionality
+%used to be an argv test in this file, which meant the engine had to know both
+%that MORK had builtins and what they were called.
 %
 %Registering a name whose predicate is absent records no arity, and
 %incomplete_application_kind/3 reads "no arity" as "not applied far enough":
 %every call to it then compiled to a partial application, so (mm2-exec &mork 1)
 %answered (partial mm2-exec (&mork 1)) instead of running or failing. Declaring
 %the names beside the predicates is what makes that unable to happen again.
-:- forall(seam:backend_builtin(Name, _), register_builtin_fun(Name)).
+:- forall(seam:extension_builtin(Name, _), register_builtin_fun(Name)).

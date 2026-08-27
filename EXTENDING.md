@@ -1743,14 +1743,14 @@ Two multifile hooks go with it, and both exist so the engine never has to name
 a backend:
 
 ```prolog
-:- multifile seam:backend_builtin/2.   % a builtin your bridge provides, and its effect
+:- multifile seam:extension_builtin/2.  % a builtin your extension provides, and its effect
 :- multifile seam:backend_selftest/0.  % your smoke test, run by the CLI demo
 
-seam:backend_builtin('mine-add', writesState).
-seam:backend_builtin('mine-run', oracleIO).
+seam:extension_builtin('mine-add', writesState).
+seam:extension_builtin('mine-run', oracleIO).
 ```
 
-Declare `seam:backend_builtin/2` in the file that DEFINES the predicates, not
+Declare `seam:extension_builtin/2` in the file that DEFINES the predicates, not
 in `backends/mine.pl`, so the names exist exactly when the predicates do.
 Registering a name whose predicate is absent records no arity, and every call
 to it then compiles to a partial application rather than running or failing.
@@ -2708,15 +2708,22 @@ already decided for a query without running it, as one term report
 indexes, refusals preflighted), so a transport renders prose instead of
 re-deriving routing precedence.
 
-**`seam:host_builtin/1`, `seam:host_import/1`, `seam:form_rewriter/1` and
+**`seam:extension_builtin/2`, `seam:host_import/1`, `seam:form_rewriter/1` and
 `seam:host_object/1`** are how a whole HOST plugs in, and the shipped Python
 bridge is their one worked example. `seam:host_object/1` answers whether a
 value is a live object of the bridge at all, the question in front of every
 grounded-type lookup, so an engine with no host loaded answers no at one
-failed lookup and never initializes anything. `seam:host_builtin/1` declares the bridge's own operations
-(`py-call`, `py-atom` and their family there); the engine's registry
-directive registers whatever was declared, so no list inside the engine
-names a host. `seam:host_import/1` lets a bridge CLAIM an import whose
+failed lookup and never initializes anything. `seam:extension_builtin/2` declares the bridge's own operations
+and their effect class (`py-call`, `py-atom` and their family there, all
+`oracleIO` because each one crosses into a Python runtime the engine cannot
+bound); the engine's registry directive registers whatever was declared, so no
+list inside the engine names a host. It is the same seam a native backend uses,
+for the same reason — see "Shipping a native backend" above. It was
+`seam:host_builtin/1`, carrying a name and no class, until 2026-08-28: because
+`metta_builtin_effect/2` reads the class from this seam, a host had nowhere to
+put one, and the seven `py-*` builtins were classified by a list of their names
+inside `engine/metta/effects.pl` instead — precisely the list this paragraph
+says does not exist. `seam:host_import/1` lets a bridge CLAIM an import whose
 source is its own kind of file and perform the whole job itself, lifecycle
 included, through the same published `import_when/4` the engine uses; with
 no host loaded, or none claiming, every import is a MeTTa import.

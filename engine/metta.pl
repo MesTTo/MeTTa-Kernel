@@ -1048,7 +1048,7 @@ load_engine_prelude_forms :-
     findall(Owned, prelude_owned(Owned), OwnedBefore),
     %Arity registers in pass one WITH the name: a registered name with no
     %recorded arity compiles a later call site as a partial application
-    %(the backends note beside seam:backend_builtin/1 records the same
+    %(the backends note beside seam:extension_builtin/2 records the same
     %trap), and type-cast calls type-cast-check before pass two reaches
     %its equation.
     forall(( member(parsed(function, _, [=, [FAtom|W], _]), Forms),

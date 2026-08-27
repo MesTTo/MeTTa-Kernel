@@ -15,8 +15,8 @@
 % It is what lets a_backend_declares_the_effect_of_the_builtin_it_registers
 % fail in the plain configuration too, instead of passing vacuously wherever
 % no backend artefact is built.
-:- multifile seam:backend_builtin/2.
-seam:backend_builtin('planted-backend-write', writesState).
+:- multifile seam:extension_builtin/2.
+seam:extension_builtin('planted-backend-write', writesState).
 :- register_builtin_fun('planted-backend-write').
 
 effect_test_clear(Name) :-
@@ -174,12 +174,12 @@ test(every_native_builtin_has_exactly_one_reviewed_effect_profile) :-
             ( builtin_fun(Name),
               \+ metta_semantic_effect(Name, _),
               \+ metta_builtin_effect_override(Name, _),
-              % A backend's builtin is reviewed by the backend, in the same
+              % An extension's builtin is reviewed by that extension, in the same
               % fact that registers it. Without this the test asked the engine
               % to have reviewed a predicate it does not ship and cannot name:
               % under `-- backends` it read
               % ['mm2-exec','mork-add-atoms','mork-flush'].
-              \+ seam:backend_builtin(Name, _),
+              \+ seam:extension_builtin(Name, _),
               \+ metta_builtin_structural(Name) ),
             Unreviewed0),
     sort(Unreviewed0, Unreviewed),

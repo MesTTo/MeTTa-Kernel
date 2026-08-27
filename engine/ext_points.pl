@@ -102,13 +102,12 @@
             observe/3,
 
             % Declarations: fact tables the engine reads as data.
-            backend_builtin/2,
+            extension_builtin/2,
             builtin_type_declaration/2,
             context_events/3,
             engine_emitted/1,
             foreign_capability/2,
             grounded_extra_type/2,
-            host_builtin/1,
             automatic_cache_explanation/3,
             pure_operation/1,
             route_cap/4,
@@ -816,8 +815,20 @@ kind(grounded_text/2, ownership).
 %should run and understating it admits ones that should not. A builtin whose
 %behaviour is decided by data at run time, or by a foreign library the engine
 %cannot bound, is oracleIO.
-:- multifile backend_builtin/2.
-kind(backend_builtin/2, declaration).
+%This is the seam for a HOST bridge's builtins too, and used to be two: a
+%backend declared seam:backend_builtin/2 carrying its effect class, and a host
+%declared seam:host_builtin/1 carrying only a name. One concept in two names
+%with two arities, and the arity was the damage. metta_builtin_effect/2 reads
+%the class from this seam, so a host had nowhere to put one, and the seven
+%py-* builtins were classified by a list of their NAMES inside
+%engine/metta/effects.pl instead -- the exact thing the paragraph above and
+%host_builtin/1's own comment ("no list inside the engine names a host")
+%promised an extension author never has to force, and the thing MORK stopped
+%doing when backend_builtin/2 was introduced. Extensions of both kinds declare
+%here now, so the review lives with the code it reviews and a new seat needs no
+%engine edit.
+:- multifile extension_builtin/2.
+kind(extension_builtin/2, declaration).
 
 %A backend's smoke test, run by engine/main.pl's demo. Every handler runs, so a
 %process with two backends tests both, and one with none tests nothing and says
@@ -1309,11 +1320,8 @@ kind(grounded_type_names/2, ownership).
 :- multifile grounded_class_type/2.
 kind(grounded_class_type/2, ownership).
 
-%A host bridge's own builtins, registered by the engine's registry directive
-%from these declarations, so no list inside the engine names a host: the
-%bridge declares, the engine registers whatever was declared.
-:- multifile host_builtin/1.
-kind(host_builtin/1, declaration).
+%A host bridge's own builtins are seam:extension_builtin/2, declared beside a
+%backend's for the same reason and with the same effect class. See its comment.
 
 %A host claims an import whose source is its own kind of file and performs
 %the whole job itself, lifecycle included, through the published

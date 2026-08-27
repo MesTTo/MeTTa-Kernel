@@ -531,7 +531,7 @@ metta_fixed_operation_effect(Name, Effect) :-
 %MeTTa's host bridges and operating-system doors.
 %A backend's own builtin is reviewed by the backend, because the engine cannot
 %review a predicate it does not ship without naming it. The classification
-%arrives with the registration (seam:backend_builtin/2), so it is read here
+%arrives with the registration (seam:extension_builtin/2), so it is read here
 %rather than defaulted: without it MORK's three builtins fell to the oracleIO
 %floor below, which is SAFE but says "nobody looked" in the same voice as
 %"reviewed and unbounded".
@@ -539,7 +539,7 @@ metta_builtin_effect(Name, Effect) :-
     builtin_fun(Name),
     (   metta_builtin_effect_override(Name, Reviewed)
     ->  Effect = Reviewed
-    ;   seam:backend_builtin(Name, Declared)
+    ;   seam:extension_builtin(Name, Declared)
     ->  Effect = Declared
     ;   metta_builtin_structural(Name)
     ->  Effect = pureStructural
@@ -780,13 +780,6 @@ metta_builtin_effect_override('import!', oracleIO).
 metta_builtin_effect_override(include, oracleIO).
 metta_builtin_effect_override(library, oracleIO).
 metta_builtin_effect_override('parse-command', oracleIO).
-metta_builtin_effect_override('py-atom', oracleIO).
-metta_builtin_effect_override('py-call', oracleIO).
-metta_builtin_effect_override('py-dict', oracleIO).
-metta_builtin_effect_override('py-dot', oracleIO).
-metta_builtin_effect_override('py-iter', oracleIO).
-metta_builtin_effect_override('py-list', oracleIO).
-metta_builtin_effect_override('py-tuple', oracleIO).
 metta_builtin_effect_override('random-float', oracleIO).
 metta_builtin_effect_override('random-int', oracleIO).
 metta_builtin_effect_override('read-form!', oracleIO).
