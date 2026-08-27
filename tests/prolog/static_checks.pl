@@ -62,7 +62,14 @@
 %     metta_merged_match/3 and metta_verified_specialization/2
 %     [measured 2026-08-22: 39 constructed goals, 4 unreachable before the
 %     exports, 0 after].
-%   - Six of the seven checks prove themselves non-vacuous against a planted
+%   - Every space name the live database registers, over the engine, every
+%     library, every backend and every host binding, is an ATOM carrying the
+%     '&' prefix that metta_space_operand/1 refuses an atom without. The seam
+%     it reads is open, so a provider can name a space every door that CREATES
+%     one would have refused, and the result would be a quiet no rather than an
+%     error [tested: `sh check.sh prolog-static` against
+%     tests/prolog/unprefixed_space_provider.pl].
+%   - Seven of the eight checks prove themselves non-vacuous against a planted
 %     offender before a clean result is accepted, and report WHICH plant
 %     stopped firing rather than only that one did. This is not ceremony, and
 %     every one of them has been wrong, the seam-direction probe within minutes
@@ -78,13 +85,16 @@
 %     declaring itself a meta-predicate, which is why the walk is SWI's now
 %     and its four doors are asserted as real clauses and walked for real.
 %   - Two of those five, the compile-time-helper walk and the live-hook scan,
-%     plant into a SECOND module as well as the one &self compiles into today,
-%     one created at runtime and named and classed the way a Phase 11
+%     plant through a SECOND module as well as the one &self compiles into
+%     today, one created at runtime and named and classed the way a Phase 11
 %     execution module will be, and both plants have to be found for the
 %     check to accept a clean result. That is the module-agnostic discovery
 %     proved against two topologies at once, not just asserted
 %     [measured 2026-08-19: no_compile_time_helper_in_a_compiled_body and
-%     no_cut_in_a_live_hook_clause below].
+%     no_cut_in_a_live_hook_clause below]. The live-hook scan's PAIR is two
+%     clause references and not two modules holding a clause each, because the
+%     seam it plants is module-qualified; the note above that check carries the
+%     measurement and what the plant does and does not prove.
 % Fails when:
 %   - a function is compiled into a space whose storage is FOREIGN (backed by
 %     an external provider such as MORK) rather than native. The module
@@ -127,7 +137,8 @@ main :-
     a_host_binding_calls_only_published_surface,
     no_cut_in_a_live_hook_clause,
     every_engine_emitted_goal_is_protected,
-    every_emitted_goal_is_reachable.
+    every_emitted_goal_is_reachable,
+    every_registered_space_name_is_an_ampersand_atom.
 
 %%%% Every seam declares one kind %%%%
 %
@@ -369,12 +380,29 @@ library_source(Library) :-
 % A second, DIFFERENT space is planted alongside &self, created at runtime and
 % given its execution module by space_module/2 exactly as a real one is, and
 % registered as a known space the same way (engine/spaces.pl's
-% native_storage_module_cache/2). Seeing both is the two-space proof: one
-% plant lands in &self's module and the other in a module that did not exist
-% when this file was loaded, and the walk has to find both without being told
-% where either one is. The plant asks space_module/2 for the module rather
-% than using the space's own name: those were the same atom for every space
-% but &self before Phase 11, and are different atoms for all of them now.
+% native_storage_module_cache/2), so candidate_engine_module/1 has to discover
+% a module that did not exist when this file was loaded. The plant asks
+% space_module/2 for the module rather than using the space's own name: those
+% were the same atom for every space but &self before Phase 11, and are
+% different atoms for all of them now.
+%
+% WHAT THE TWO PLANTS PROVE, measured rather than assumed: both CLAUSES land
+% in module `seam`, because Planted is already qualified and SWI resolves
+% M1:(M2:Head) to M2. The discovery half is still exercised -- the walk
+% enumerates the runtime-created module and reaches the seam's clauses through
+% it -- but the pair is two clause REFERENCES that distinct/2 has to keep
+% apart, not two modules holding a clause each
+% [measured 2026-08-28: after both asserts, module seam holds
+% [true, user:(!,fail), user:(!,fail)] and each execution module holds none].
+%
+% The removal is by clause REFERENCE. assertz/1 stores the body of a clause
+% whose head resolves to another module qualified with the CALLING context, so
+% the clause above is stored as `user:(!,fail)` and
+% retract((Module:Planted :- (!, fail))) cannot match it. That retract led a
+% cleanup CONJUNCTION, and setup_call_cleanup/3 ignores a cleanup that fails,
+% so both planted cuts and the fixture's storage row survived every run: the
+% space-name scan below reported the fixture as a registered space with no '&'
+% prefix, which is how this was found [measured 2026-08-28].
 live_scan_sees_a_planted_cut :-
     aggregate_all(count, live_hook_clause(_, _), Live),
     Planted = seam:function_removed(_),
@@ -382,23 +410,23 @@ live_scan_sees_a_planted_cut :-
     Fixture = '$static-check-fixture:&hook-probe',
     space_module(Fixture, FixtureModule),
     setup_call_cleanup(
-        ( assertz((TodayModule:Planted :- (!, fail))),
+        ( assertz((TodayModule:Planted :- (!, fail)), TodayRef),
           assertz(native_storage_module_cache(Fixture, unused)),
-          assertz((FixtureModule:Planted :- (!, fail))) ),
+          assertz((FixtureModule:Planted :- (!, fail)), FixtureRef) ),
         aggregate_all(count,
                       ( live_hook_clause(_, Body), cut_in_clause_scope(Body) ),
                       Seen),
-        ( retract((TodayModule:Planted :- (!, fail))),
+        ( erase(TodayRef),
           retractall(native_storage_module_cache(Fixture, _)),
-          retract((FixtureModule:Planted :- (!, fail))) )),
+          erase(FixtureRef) )),
     (   Seen >= 2
     ->  format("static: no cut in any of ~d live clauses of the seams whose \c
-                kind says every clause runs, and the scan saw a planted \c
-                cut in today's module and in a second, runtime-created \c
-                one~n", [Live])
+                kind says every clause runs, and the scan saw both cuts \c
+                planted through today's module and through a second, \c
+                runtime-created one~n", [Live])
     ;   format(user_error,
-               'the live hook scan saw ~d of 2 planted cuts across two \c
-                modules, so its clean result says nothing~n', [Seen]),
+               'the live hook scan saw ~d of 2 planted cuts, so its clean \c
+                result says nothing~n', [Seen]),
         fail
     ).
 
@@ -1210,4 +1238,142 @@ backend_scan_sees_a_planted_reach :-
                    [Seen, Total, Missed]),
             fail
         )
+    ).
+
+%%%% Every registered space name is an ampersand atom %%%%
+%
+% metta_space_operand/1 refuses an atom without the '&' prefix before it
+% probes either registry, which is what makes it 3 inferences on an ordinary
+% symbol instead of 8 on the nine hot paths that ask it
+% [source: engine/spaces/bounded_matching.pl]. The prefix is the engine's own
+% rule at every door that CREATES a space -- metta_space_name/1,
+% metta_require_space_name/2, register_provider in the Python seat, and both
+% wire decoders -- but seam:foreign_space/1 is an open ownership seam, so a
+% provider can name a space those doors would have refused. The consequence is
+% not an error: the matcher, get-metatype, the three type-candidate resolvers,
+% operation admission, the translator and the codec would all quietly answer
+% that the name is no space. This scan is what turns that into a refusal.
+%
+% Checked twice over, for the reason the cut checks above are: neither reading
+% sees the other's names. The LIVE reading enumerates the seam after every
+% library, backend and host binding has loaded, which is the only way to see a
+% name a provider registered at run time, but a provider whose clause head is a
+% VARIABLE answers no name at all when asked with the argument unbound, so
+% enumeration cannot reach it. The SOURCE reading is the other half: it reads
+% every hook file's seam:foreign_space/1 clause heads as text, so a provider
+% file this configuration never loads is still checked, and a run-time provider
+% whose head names its space is checked before it is ever consulted. What
+% remains outside both is a rule that computes its names, and each of the two
+% in this tree carries the prefix in its own guard: mork_owns_space/1 tests
+% '&mork' and metta_py_register_foreign/3 is fed by a Python door that refuses
+% any other spelling.
+%
+% A parametric space is named by a nonempty list rather than an atom and
+% reaches metta_space_operand/1's second clause, which the prefix does not
+% guard, so atom/1 below is the scan's subject and not an oversight.
+registered_space_name(Name) :-
+    distinct(Name, (   seam:foreign_space(Name)
+                   ;   native_storage_module_cache(Name, _)
+                   )).
+
+% The clause heads a hook file writes, whether or not this configuration
+% loaded the file. Every head is counted, because the count is what proves the
+% file discovery and the reading still reach real seam:foreign_space/1 clauses;
+% only an ATOM head is judged, because a variable head is a rule that computes
+% its names at run time and is the live reading's business. Every clause in the
+% four hook directories is of the second kind today, which is why the count and
+% the judgement are separated rather than folded together.
+declared_space_clause(File, Name) :-
+    hook_source_file(File),
+    source_term(File, Term),
+    foreign_space_clause_head(Term, Name).
+
+declared_space_name(File, Name) :-
+    declared_space_clause(File, Name),
+    atom(Name).
+
+foreign_space_clause_head(Term, Name) :-
+    nonvar(Term),
+    Term \= (:- _),
+    (   Term = (Head :- _)
+    ->  true
+    ;   Head = Term
+    ),
+    nonvar(Head),
+    (   Head = seam:foreign_space(Name)
+    ->  true
+    ;   Head = foreign_space(Name)
+    ).
+
+unprefixed_space_name(live, Name) :-
+    registered_space_name(Name),
+    atom(Name),
+    \+ sub_atom(Name, 0, 1, _, '&').
+unprefixed_space_name(File, Name) :-
+    declared_space_name(File, Name),
+    \+ sub_atom(Name, 0, 1, _, '&').
+
+every_registered_space_name_is_an_ampersand_atom :-
+    findall(Where-Name, unprefixed_space_name(Where, Name), Offenders0),
+    sort(Offenders0, Offenders),
+    (   Offenders == []
+    ->  aggregate_all(count, registered_space_name(_), Registered),
+        aggregate_all(count, declared_space_clause(_, _), Declared),
+        space_name_scan_sees_a_planted_name(Registered, Declared)
+    ;   forall(member(Where-Name, Offenders),
+               format(user_error,
+                      'the space ~q, in ~w, is named without the & prefix \c
+                       metta_space_operand/1 requires before it probes either \c
+                       registry~nevery matcher, metatype, type-candidate and \c
+                       codec question about it answers no~nname it with the \c
+                       prefix, which is what every door that creates a space \c
+                       already demands~n', [Name, Where])),
+        fail
+    ).
+
+% A scan that finds nothing and a scan that looks at nothing print the same
+% line, and this one has two readings to prove.
+%
+% The LIVE half is proved by a real provider, consulted and then unloaded. It
+% is a FILE rather than assertz'd clauses because seam:foreign_space/1 is
+% multifile and STATIC, the same constraint seam_provider.pl records, and
+% unload_file/1 is how ext_points.plt removes one again.
+%
+% The SOURCE half is proved the way source_scan_sees_a_planted_cut above
+% proves its own: a count, which is what a changed directory list would
+% silently break, and a planted TERM through the recogniser in both shapes a
+% provider writes, a bare fact and a guarded rule. A planted FILE is not
+% available here without leaving a bad provider inside engine/, lib/,
+% bindings/python/metta/ or backends/, which is the shipped tree.
+space_name_scan_sees_a_planted_name(Registered, Declared) :-
+    absolute_file_name('unprefixed_space_provider', File,
+                       [file_type(prolog), access(read)]),
+    setup_call_cleanup(
+        user:consult(File),
+        findall(Name, unprefixed_space_name(live, Name), Planted),
+        unload_file(File)),
+    Fact = seam:foreign_space('static-check-source-name-without-ampersand'),
+    Rule = (seam:foreign_space('static-check-source-rule-without-ampersand')
+                :- some_guard),
+    aggregate_all(count,
+                  ( member(Term, [Fact, Rule]),
+                    foreign_space_clause_head(Term, Read),
+                    atom(Read),
+                    \+ sub_atom(Read, 0, 1, _, '&') ),
+                  SeenInSource),
+    (   Planted == ['static-check-space-without-ampersand'],
+        Declared >= 1,
+        SeenInSource =:= 2
+    ->  format("static: all ~d registered space names carry the & prefix \c
+                metta_space_operand/1 requires, and none of the ~d \c
+                seam:foreign_space/1 clause heads the sources write names one \c
+                without it; the scan saw a planted provider the live reading \c
+                enumerates and a planted head of each shape the source \c
+                reading reads~n", [Registered, Declared])
+    ;   format(user_error,
+               'the space-name scan enumerated ~q where the planted provider \c
+                was the only expected answer, read ~d source-declared names, \c
+                and recognised ~d of 2 planted heads, so its clean result \c
+                says nothing~n', [Planted, Declared, SeenInSource]),
+        fail
     ).

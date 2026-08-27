@@ -1528,6 +1528,17 @@ boundary, which is right when the atoms live somewhere Python already talks to.
 :- multifile seam:foreign_clear/1.     % empty the space
 ```
 
+Name your space with a leading `&`, as `&mork` and `&plunit_seam` do. That is
+the engine's rule for every atomic space name and not a convention: the door
+that creates a space refuses any other spelling, `new-space` refuses it,
+`register_provider` refuses it on the Python side, and neither wire codec can
+carry it. `metta_space_operand/1` reads the prefix before it asks either
+registry, so a provider that skips it is answered "no space" by the matcher,
+`get-metatype`, the type-candidate resolvers, the translator and the codec,
+without an error anywhere. `sh check.sh prolog-static` scans the loaded
+database and refuses such a name by name. A **parametric** space is named by a
+ground expression rather than an atom and carries no prefix.
+
 Two more seams carry custom matching, Hyperon's CustomMatch: a grounded
 value may own its matching logic, consulted by `(unify ...)` when the
 value meets a non-variable operand. `seam:matchable_value/1` says a

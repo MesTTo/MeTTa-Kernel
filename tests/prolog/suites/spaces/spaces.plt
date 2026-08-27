@@ -2381,6 +2381,65 @@ test(a_symbol_that_names_no_space_is_unchanged) :-
 
 :- end_tests(space_handle_type).
 
+% metta_space_operand/1 is the species question nine hot paths ask, and its
+% ATOM clause tests the '&' prefix before it probes either registry, which is
+% what makes an ordinary symbol cost 3 inferences there instead of 8. These
+% pin both halves of that arrangement, because only both together keep the
+% answer a fact about the HANDLE rather than about the spelling: the prefix is
+% NECESSARY, so a symbol without it is no operand, and it is NOT SUFFICIENT,
+% so an ampersand name nothing has created is no operand either. The second
+% half is the distinction CODEC.md's `p` tag rests on and the one a cheap
+% prefix test would break if it replaced the registry probe rather than
+% guarding it. The parametric clause is covered by spaces_parametric above,
+% which asserts metta_space_operand/1 of a LIST name and is the reason the
+% prefix guard is written on the atom clause alone.
+:- begin_tests(space_operand_prefix).
+
+test(the_spaces_created_at_load_are_operands) :-
+    assertion(metta_space_operand('&self')),
+    assertion(metta_space_operand('&metta')).
+
+test(an_ampersand_name_nothing_created_is_no_operand) :-
+    assertion(\+ metta_space_operand('&plunit-operand-never-created')),
+    findall(M, 'get-metatype'('&plunit-operand-never-created', M), Metatypes),
+    assertion(Metatypes == ['Symbol']).
+
+test(a_name_without_the_prefix_is_no_operand) :-
+    assertion(\+ metta_space_operand('plunit-operand-ordinary-symbol')),
+    assertion(\+ metta_space_operand(self)).
+
+% new-space is where the prefix the guard relies on is minted, so the name it
+% answers is checked here rather than assumed.
+test(a_fresh_space_is_an_operand_and_carries_the_prefix) :-
+    'new-space'(Space),
+    assertion(metta_space_operand(Space)),
+    assertion(sub_atom(Space, 0, 1, _, '&')).
+
+% A State cell spells its handle with the same '&', and is Grounded for its
+% own reason rather than by being a space. The prefix admitting it to the
+% registry probe and the probe answering no is exactly the arrangement.
+test(a_state_cell_carries_the_prefix_and_is_still_no_operand) :-
+    'new-state'(41, Cell),
+    assertion(metta_state_cell(Cell)),
+    assertion(sub_atom(Cell, 0, 1, _, '&')),
+    assertion(\+ metta_space_operand(Cell)),
+    findall(M, 'get-metatype'(Cell, M), Metatypes),
+    assertion(Metatypes == ['Grounded']).
+
+test(a_value_that_is_no_name_at_all_is_no_operand) :-
+    assertion(\+ metta_space_operand(42)),
+    assertion(\+ metta_space_operand("&self")),
+    assertion(\+ metta_space_operand(f(a))),
+    assertion(\+ metta_space_operand([])).
+
+% An unbound operand reaches the second clause, whose nonvar/1 stops it. It
+% must fail rather than enumerate the parametric registry, because the
+% translator asks this of a space EXPRESSION before deciding to evaluate it.
+test(an_unbound_operand_fails_without_enumerating) :-
+    assertion(\+ metta_space_operand(_)).
+
+:- end_tests(space_operand_prefix).
+
 % A first argument that is not a space is refused BY NAME, with upstream's own
 % text and the call that failed as the subject, and as an ANSWER rather than a
 % throw so a collapse can hold it

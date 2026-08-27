@@ -962,6 +962,80 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   `llms.txt` claimed 46 plunit suites after `e80fd4c3` added a 47th. And the
   `[engine, host]` role list `e80fd4c3` introduced carried no
   `policy-inventory-exempt:` line, so that gate had a standing finding.
+- **`metta_space_operand/1` reads the `&` prefix before it probes either space
+  registry.** It answers whether an atom names a space this engine can query,
+  and it sits on nine hot paths: both operand positions of the matcher's leaf,
+  `get-metatype`, the three type-candidate resolvers, operation admission, the
+  translator's space-expression test and the wire codec, which asks it of every
+  atom that crosses to a host. It answered by asking `seam:foreign_space/1` and
+  then the native storage registry, and it answers NO for every ordinary
+  symbol, which is almost every atom the engine touches. The prefix is not a
+  new assumption. It is the engine's own rule at every door that CREATES a
+  space, and this predicate was the one place that paid to re-discover it:
+  `metta_space_name/1` refuses any other spelling at the creation door,
+  `metta_require_space_name/2` refuses it at `new-space` and `inherits`,
+  `register_provider` refuses it at the Python door, both wire codecs refuse to
+  DECODE a space name without it, MORK's own ownership test is the same prefix,
+  and a `State` cell spells its handle the same way. Every
+  `seam:foreign_space/1` clause in the tree names a `&` atom. The second clause
+  gained the shape test its own registry already guarantees, `S = [_|_]`, since
+  a parametric space name is always a nonempty list.
+  Measured in the shipped Python configuration, 20,000 iterations against an
+  identical loop: `metta_space_operand/1` costs 3 inferences on an ordinary
+  symbol where it cost 8, and 4 on a number where it cost 6. The matcher leaf
+  `metta_match_atoms/2` costs 17 on two different symbols where it cost 27,
+  because it asks twice; `get-metatype` of a symbol costs 12 where it cost 17.
+  Through MeTTa, 200 evaluations each, minimum of three: `(unify a b ...)`
+  moved 35850 to 32850 (-8.37%), `(get-metatype sym)` 29650 to 27650 (-6.75%),
+  `(get-type (undeclared other))` 155454 to 146454 (-5.79%).
+  On the counter benchmarks, measured in one worktree on both sides:
+  save-load-metta 1386108 to 1286089 (-7.22%), foreign-match 788336 to 750338
+  and table-bridge-match 788338 to 750336 (-4.82%), save-load-fast 2287065 to
+  2187046 (-4.37%), py-method-call 2050730 to 2000732 (-2.44%),
+  annotated-relation 299894 to 294894 (-1.67%), alpha-unique -50, loop-1m -5,
+  and no row moved the other way. Each is an exact multiple of 5.00 inferences
+  per encoded atom, which is the mechanism rather than a coincidence.
+  The twin lane agrees: 126 of the 219 shipped twins get cheaper and not one
+  gets dearer. The gated pair is re-priced with the two-sided control its own
+  chain records, `03-spaces3` 252 to 242 and `01-identity` unchanged at 2826.
+  The prefix is now written into the seam's own declaration and into
+  `EXTENDING.md`, because `seam:foreign_space/1` is an open ownership seam: a
+  provider naming an atom without the prefix would be answered "no space" by
+  every one of those nine paths, quietly. `sh check.sh prolog-static` refuses
+  such a name by name, reading both the live database with every library,
+  backend and host binding loaded and every hook file's clause heads as text,
+  and proves itself against a planted provider before accepting a clean result.
+
+- **The metatype and type-candidate ladders are ordered by what they cost the
+  atom they decide most often.** `metatype_of/2` decided an ordinary symbol at
+  its twelfth clause, after a seam callback that leaves the engine, a
+  grounded-token lookup, a registry probe and a state-cell test. Five of its
+  clauses all answer `Grounded` and all cut, so no permutation of them can
+  change the answer for any term, which is a stronger argument than mutual
+  exclusivity and does not depend on it: `seam:host_object/1` is an open seam
+  and may claim a term that also spells a grounded token or a space handle.
+  They are now cheapest-first, and the seam, the only one that leaves the
+  engine, is last of the five. It cannot move past `list_shaped/1` or the
+  `Symbol` clause, which answer something else.
+  In `get_type_candidate/2`, `get_type_candidate_in/3` and
+  `scoped_type_candidate/4`, the tuple clause led with a negation whose goal
+  has a `[F|_]` head, so every symbol called it to have the head fail before
+  reaching the free test that says the term is not an expression at all. The
+  shape test leads now. Both are pure tests over a term the var clause has
+  already made nonvar, so the swap moves no solution and no answer order.
+  Measured through MeTTa, 200 evaluations each, minimum of three, with the
+  space-operand change already in place: `(get-metatype +)` 27050 to 26250,
+  `(get-metatype &self)` 29450 to 28650, `(get-type (undeclared other))`
+  146454 to 143256, `(get-type undeclared)` 90652 to 90254. Per call that is
+  `metatype_of/2` halved on a grounded token, 8 inferences to 4, and
+  `get_type_candidate/2` 12 to 10 on an undeclared symbol.
+  **No committed benchmark moves**, and the reason is worth recording rather
+  than leaving as a gap: `typed-call`, the workload named for this path, has
+  its declared-`Number` checks specialised to `number/1` while the call site
+  compiles, so it never reaches either ladder at run time. Nothing in
+  `bindings/python/benchmarks/` drives `metatype_of/2` or `get_type_candidate/2`
+  in a loop. The inert-clause perturbation control reads identically on every
+  workload above, so the movement is the change and not the layout.
 
 - **The Python suite is in chapter packages, the same 22 the examples use.**
   206 modules sat flat in one directory, which is a listing nobody reads and no
@@ -1872,6 +1946,28 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   opens there: a wasm build has no dynamic linking and no janus, so every
   seat's needs are unmet and no `entry(engine, _)` is reachable. 203/203 with
   `target/` present.
+- **`static_checks.pl`'s live-hook plant is removed by clause reference, so it
+  stops surviving the run that planted it.** The check plants two cut-bearing
+  clauses of `seam:function_removed/1` and one storage-registry row, proves the
+  scan sees them, and removes them in a cleanup conjunction led by
+  `retract((Module:Planted :- (!, fail)))`. That retract could never match.
+  `assertz/1` qualifies the body of a clause whose head resolves to another
+  module with the CALLING context, so the clause is stored as `user:(!,fail)`,
+  and `setup_call_cleanup/3` ignores a cleanup that fails, so the conjunction
+  stopped at its first goal. Every run therefore left both planted cuts live on
+  a seam whose kind says every clause runs, and a space named
+  `$static-check-fixture:&hook-probe` in the storage registry, for the whole of
+  the rest of that run. Both are taken by the reference `assertz/2` returns now.
+  The same measurement corrects what the pair proves: both clauses land in
+  module `seam`, because the planted head is already module-qualified and SWI
+  resolves `M1:(M2:Head)` to `M2`, so the pair is two clause references
+  `distinct/2` has to keep apart rather than two modules holding a clause each.
+  The module-agnostic discovery half is unchanged, since the walk still has to
+  find the runtime-created execution module to reach them
+  [measured 2026-08-28: after both asserts, module `seam` holds
+  `[true, user:(!,fail), user:(!,fail)]` and each execution module holds none].
+  Found by the new registered-space-name scan, which reported the leaked
+  fixture as a space registered without the `&` prefix.
 
 - **A seat declares itself in a control file the engine reads, instead of a
   decider script the engine runs.** Every folder under `bindings/` and

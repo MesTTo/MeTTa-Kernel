@@ -984,9 +984,18 @@ get_type_candidate([Family|Parameters], 'SpaceType') :-
     space_parametric(Space),
     !.
 get_type_candidate(X, T) :- get_function_type(X,T).
-get_type_candidate(X, T) :- \+ application_arrow_declared(X),
-                            X = [_|_],
+%The shape test leads the negation, which is free: X is nonvar by the time
+%this clause is reached (the var clause above cuts), so `X = [_|_]` and
+%is_list/1 are pure tests that bind nothing outside X's own skeleton, and
+%reordering pure tests against each other cannot change which solutions this
+%clause produces or the order it produces them in. It changes only what an
+%ATOM pays to leave: application_arrow_declared/1's head is [F|_], so the
+%negation used to call it and have the head fail on every symbol this ladder
+%enumerates [measured 2026-08-28: 1 of the 11 inferences an undeclared symbol
+%spent in get_type_candidate/2].
+get_type_candidate(X, T) :- X = [_|_],
                             is_list(X),
+                            \+ application_arrow_declared(X),
                             metta_self_module(Self),
                             tuple_first_in(X, Self, First),
                             (   tuple_fold(First, T)
@@ -1028,9 +1037,13 @@ get_type_candidate_in(_, [Family|Parameters], 'SpaceType') :-
     space_parametric(Space),
     !.
 get_type_candidate_in(Module, X, T) :- get_function_type_in(Module, X, T).
-get_type_candidate_in(Module, X, T) :- \+ application_arrow_declared_in(Module, X),
-                                       X = [_|_],
+%Shape before negation, for the reason get_type_candidate/2's twin above
+%records: both are pure tests over a term the var clause has already made
+%nonvar, so the swap moves no solution and only stops a symbol calling
+%application_arrow_declared_in/2 to have its [F|_] head fail.
+get_type_candidate_in(Module, X, T) :- X = [_|_],
                                        is_list(X),
+                                       \+ application_arrow_declared_in(Module, X),
                                        tuple_first_in(X, Module, First),
                                        (   tuple_fold(First, T)
                                        ;   tuple_rest_types(has_type_in(Module),
@@ -1211,10 +1224,15 @@ scoped_type_candidate(_, _, [Family|Parameters], 'SpaceType') :-
     !.
 scoped_type_candidate(Space, Module, X, T) :-
     scoped_function_type(Space, Module, X, T).
+%Shape before negation, the third instance of the swap get_type_candidate/2
+%records. It is worth more here than in either twin: the negated goal is
+%scoped_function_type/4, which reads the selected space through
+%match_stored/4, so an atom used to pay a space read to prove it is not an
+%application before the free test that says it is not even an expression.
 scoped_type_candidate(Space, Module, X, T) :-
-    \+ scoped_function_type(Space, Module, X, _),
     X = [_|_],
     is_list(X),
+    \+ scoped_function_type(Space, Module, X, _),
     tuple_types_scoped(Space, Module, X, T).
 scoped_type_candidate(Space, _, X, T) :-
     match_stored(Space, [':', X, T], T, _),
@@ -1371,7 +1389,23 @@ metatype_of(X, 'Grounded') :- number(X), !.
 metatype_of(X, 'Grounded') :- string(X), !.
 metatype_of(true,  'Grounded') :- !.
 metatype_of(false, 'Grounded') :- !.
-metatype_of(X, 'Grounded') :- seam:host_object(X), !.
+%THE FIVE CLAUSES BELOW ARE COST-ORDERED, WHICH IS FREE BECAUSE THEY AGREE.
+%Every one of them answers 'Grounded' and every one of them cuts, so no
+%permutation of them can change the answer for any term: whichever fires
+%first ends the call with the same second argument. That is stronger than
+%mutual exclusivity and does not depend on it, which matters because
+%seam:host_object/1 is an open ownership seam and an extension may claim a
+%term that also spells a grounded token, a space handle or a state cell.
+%They are therefore ordered by what they cost an ordinary SYMBOL, the atom
+%this ladder decides most often, cheapest first: an indexed table lookup, one
+%prefix test, one prefix test, a head that does not unify, and last the seam,
+%which is the only one that leaves the engine
+%[measured 2026-08-28 in the shipped Python configuration, 20,000 iterations:
+%metatype_of(+) 8 inferences before and 4 after; the ordinary-symbol answer is
+%unchanged at 11 because a symbol still fails every one of them].
+%The order below CANNOT be extended past list_shaped/1 or the 'Symbol'
+%clause: those answer something else, so a term claimed by the seam and
+%shaped like a list would change its metatype.
 metatype_of(X, 'Grounded') :- atom(X), metta_grounded_token(X),
                               metta_operation_admitted(X), !.
 %A SPACE HANDLE is a value and not a name that happens to spell one, which is
@@ -1388,6 +1422,7 @@ metatype_of([Family|Parameters], 'Grounded') :-
     Space = [Family|Parameters],
     space_parametric(Space),
     !.
+metatype_of(X, 'Grounded') :- seam:host_object(X), !.
 metatype_of(X, 'Expression') :- list_shaped(X), !. % e.g., (+ 1 2), (a b)
 metatype_of(X, 'Symbol') :- atom(X), !.            % e.g., a
 metatype_of(_, 'Grounded').                        % e.g., partial(f,[1]), f(1)
