@@ -213,12 +213,12 @@ petta_call_with_inference_bound(Goal, Limit) :-
 %on this box, 1,000 pulls of a goal costing about 402 inferences each: the host
 %counter moved by 2,003, 0.50% of the work, while statistics(inferences, I)
 %read inside the engine goal grew by exactly 403,000
-%[measured 2026-08-27: ai-tmp/proto_counters.pl; commit=WORKTREE].
+%[measured 2026-08-27: ai-tmp/proto_counters.pl; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
 %A host-side meter therefore reports a total that tracks the budget by
 %construction, whatever the engine is doing, which looks like a working meter
 %in a sweep and is out by about 200x
 %[measured 2026-08-27: ai-tmp/proto_cetta_design.pl reports 1,001 spent under a
-%1,000 budget while the engine really spent 201,507; commit=WORKTREE].
+%1,000 budget while the engine really spent 201,507; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
 %
 %Two bounds, because a budget over a resumable goal has two ways to be
 %escaped and neither one covers the other:
@@ -236,7 +236,7 @@ petta_call_with_inference_bound(Goal, Limit) :-
 %where the counter has been growing since the process started and a raw
 %comparison would fire before the goal ran
 %[measured 2026-08-27: ai-tmp/cb_proto_hostthread.pl, where the un-based check
-%fires on every budget below the process-lifetime counter; commit=WORKTREE].
+%fires on every budget below the process-lifetime counter; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
 %
 %Spend is bounded by the budget plus one answer's cost. The one case that
 %costs more is an answer that on its own overruns the whole budget after
@@ -253,17 +253,18 @@ petta_call_with_inference_bound(Goal, Limit) :-
 %number to be careful with: 0.49% where an answer costs 407 inferences, 7.4%
 %where it costs 27, 28.6% where it costs 7
 %[measured 2026-08-27: ai-tmp/cb_shipped_overhead.pl, draining 20,000 answers
-%at each cost; commit=WORKTREE]. Those two are spent in the cursor's ENGINE, so
-%no host-side counter sees them: query-limit-guarded, which passes
+%at each cost; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
+%Those two are spent in the cursor's ENGINE, so no host-side counter sees
+%them: query-limit-guarded, which passes
 %inferences=50,000,000 over 5,000 rows, measures identically to its pin
-%[measured 2026-08-27: bindings/python/bench.py --counter-only; commit=WORKTREE].
+%[measured 2026-08-27: bindings/python/bench.py --counter-only; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
 %
 %Keeping the check behind petta_inference_budget_spent/3 is also the CHEAPER
 %shape, which is not the obvious way round: writing the same test inline into
 %the built term costs three inferences per answer rather than two, because the
 %clause head does the outcome discrimination that the inline form pays an
 %if-then-else and a compound arithmetic comparison for [measured 2026-08-27:
-%ai-tmp/cb_shipped_overhead.pl compares the two directly; commit=WORKTREE].
+%ai-tmp/cb_shipped_overhead.pl compares the two directly; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
 %
 %The budget belongs to the resumable entity, which is the same place wasmtime
 %puts Store fuel and BEAM puts a process's reduction count
@@ -281,8 +282,8 @@ petta_call_with_inference_bound(Goal, Limit) :-
 %those two showed up: must_be/2 in front of both arms moved query-limit-plain,
 %which takes no bound at all, from 29,307 to 29,505 and query-limit-guarded
 %from 32,207 to 32,405 [measured 2026-08-27: bindings/python/bench.py
-%--counter-only, min of three fresh processes; commit=WORKTREE]. type_error/2
-%is reached only when the door was misused.
+%--counter-only, min of three fresh processes; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
+%type_error/2 is reached only when the door was misused.
 metta_host_inference_budget(Goal, Inferences, Bounded) :-
     (   \+ integer(Inferences)
     ->  type_error(integer, Inferences)

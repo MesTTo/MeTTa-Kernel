@@ -188,7 +188,7 @@ prolog:error_message(metta_control_signal(syntax, Detail)) -->
 %The two bound kinds had no rendering at all, so a program that spent its own
 %(pragma! max-inferences N) printed `Unknown error term:
 %metta_control_signal(inference_limit,500)` at the CLI [measured 2026-08-27 on
-%!(with-pragma! ((max-inferences 500)) (spin 1000000)); commit=WORKTREE]. Every
+%!(with-pragma! ((max-inferences 500)) (spin 1000000)); commit=6da1b0dacc500fc7691a66722ba58f52ab2df081]. Every
 %seat that shows message text reads these, the C binding included, so they say
 %which bound stopped the work and what it was set to.
 prolog:error_message(metta_control_signal(inference_limit, Limit)) -->
