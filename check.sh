@@ -479,7 +479,7 @@ check_ciao_grade() {
     cd "$HERE/tests/prolog" || return 1
     swipl -q --on-warning=status --on-error=status \
         -g "set_test_options([format(log)]), run_tests" \
-        -t halt ciao_grade.plt
+        -t halt suites/seams/ciao_grade.plt
 }
 run GATE ciao-grade check_ciao_grade
 

@@ -65,7 +65,7 @@ run GATE promoted-lane echo promoted
 run REPORT unpromoted-lane echo unpromoted
 run GATE preexisting-lane echo preexisting
 run GATE pytest sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark"
-run GATE plunit sh -c "cd '$HERE/tests/prolog' && for suite in *.plt; do swipl -g run_tests -t halt \\"$suite\\"; done"
+run GATE plunit sh -c "cd '$HERE/tests/prolog' && for suite in suites/*/*.plt; do swipl -g run_tests -t halt \\"$suite\\"; done"
 run GATE shell sh -c "cd \\"$HERE\\" && sh test.sh"
 """
 
@@ -82,7 +82,7 @@ FILES = {
     "tests/known_good.sh": "#!/bin/sh\nexit 0\n",
     "tests/nested/deep_test.sh": "#!/bin/sh\nexit 0\n",
     "tests/data/example_skips.txt": "# path   reason\n",
-    "tests/prolog/suite.plt": (
+    "tests/prolog/suites/fixture/suite.plt": (
         ":- begin_tests(fixture_unit).\n\n"
         "test(a_pinning_plunit_test) :-\n    1 =:= 1.\n\n"
         ":- end_tests(fixture_unit).\n\n"
@@ -175,8 +175,12 @@ def build(root: Path) -> None:
     (root / "test.sh").write_text(TEST_SH, encoding="utf-8")
     (root / ".git").mkdir(exist_ok=True)
 
-    tools = root / "tools"
-    tools.mkdir(exist_ok=True)
+    # The copy sits one directory deeper than the tree root, exactly as
+    # tests/checks/ does under this repository, because check_spec_status.py
+    # derives ROOT from its own position: a copy in <root>/tools/ makes it
+    # read <root>/.. as ROOT and look for the spec one level too far out.
+    tools = root / "tools" / "checks"
+    tools.mkdir(parents=True, exist_ok=True)
     for module in ("check_spec_status.py", "evidence_runners.py", "check_evidence_tags.py"):
         shutil.copy(HERE / module, tools / module)
 
@@ -184,7 +188,7 @@ def build(root: Path) -> None:
 def run(root: Path) -> dict:
     """Run the copied checker against `root` and parse its --json output."""
     finished = subprocess.run(
-        [sys.executable, str(root / "tools/check_spec_status.py"), "--json"],
+        [sys.executable, str(root / "tools/checks/check_spec_status.py"), "--json"],
         capture_output=True,
         text=True,
         check=False,
