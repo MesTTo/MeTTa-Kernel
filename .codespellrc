@@ -24,7 +24,17 @@ skip = *.lock,*.pyc,*.svg,package-lock.json,.git,node_modules,__pycache__,build,
 #   tokens live in lib/src/metta/runner/stdlib/arithmetics.rs, which
 #   engine/parser.pl and tests/prolog/parser.plt cite for what upstream does with
 #   a literal past binary64.
-ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo,anc,checkking,zar,reduct,reducts,arithmetics,buildt
+# ans: the Node seat's own name for an Answers handle, in extensions/node's
+#   README and src/answers.ts, where it is the bound variable of every example.
+#   Rewording twelve call sites to satisfy a dictionary would be the tail wagging
+#   the dog, and the cost of the entry is that a genuine "ans" for "and" now goes
+#   unreported, which is a typo this tree has never made.
+# asSync: engine.ts's sync counterpart of asAsync, one pair reading
+#   Symbol.iterator and Symbol.asyncIterator off the same holder. Renaming
+#   either would break the symmetry that makes the pair readable.
+# derails: the word, used correctly. "resolving a .qlf instead of the .pl
+#   derails the load" is not "details".
+ignore-words-list = intensional,dout,sourcee,notin,ba,nd,som,te,fo,anc,checkking,zar,reduct,reducts,arithmetics,buildt,ans,assync,derails
 # Whole LINES that are known and stay unreported, matched verbatim. This is for
 # vendored third-party source under tests/prolog/vendor, where a typo is
 # upstream's text and correcting it would fork the file away from the copy its

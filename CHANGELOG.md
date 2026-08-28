@@ -2184,6 +2184,16 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   The upstream comparison keeps its behaviour and its diagnostics under the name
   that says what it does, `tests/upstream_bench.sh`.
 
+- **The `codespell` lane reads the Node and C seats, which it never did.** Its
+  path list was written when those two folders were `bindings/` and never
+  followed them, so two seats' sources and both their READMEs were the only
+  shipped text nothing spell-checked. Widening it found three words, all of them
+  deliberate and now named in `.codespellrc` with their reasons: `ans`, the Node
+  seat's own name for an `Answers` handle across twelve call sites; `asSync`,
+  the sync counterpart of `asAsync` where one pair reads `Symbol.iterator` and
+  `Symbol.asyncIterator` off the same holder; and `derails`, which is the word,
+  used correctly.
+
 - `metta list` shows TEST and BENCH beside BUILD and CHECK. A component that
   has tests or benchmarks but no script to run them keeps them reachable only
   by whoever knows the path, and the four columns are what make that gap
