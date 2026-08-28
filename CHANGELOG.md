@@ -2382,6 +2382,37 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **A C program could run the engine's previous compile, and fixing that made
+  its boot 10% cheaper.** `mt_open()` consulted `engine/metta.pl` directly. The
+  engine's units are consulted by umbrellas, so `engine/spaces/foreign.pl`
+  compiles into `engine/spaces.qlf` and SWI's staleness check, which compares an
+  artifact against its immediate source, never sees a unit edit. This was the
+  only host seat with that hole: the Python seat consults `engine/main.pl`,
+  which loads the purge, and the Node seat mounts engine sources with the `.qlf`
+  files excluded and boots from source by construction. `mt_open()` now consults
+  `engine/qlf_boot.pl` first.
+  The counters moved more than the fix needed, and each move has its own arm.
+  Boot reads 1,961,745,924 retired instructions with neither, 1,735,389,090 with
+  `encoding(utf8)` alone and 1,761,836,831 with the whole of `qlf_boot`: the
+  flag is worth −11.5% and the purge machinery costs about 26M of it back, plus
+  6,955 inferences for globbing the artifact set and reading its stamp. The
+  reason the flag matters here and nowhere else is that this seat consults the
+  umbrella with an explicit `.pl`, so it is read from SOURCE, and without the
+  flag that read goes through the locale's multibyte conversion.
+  `error-ball` improves 1.70% and `term-in` costs 0.46% more, and neither is the
+  flag: both sit within 0.05% under the encoding arm and move only under the
+  whole of `qlf_boot`, which also pins `user_output` and `user_error` to UTF-8.
+  One writes error text through those streams and the other runs the C writer
+  through `metta_c_show`.
+  `extensions/mork/bench.sh` gained the same freshness the other way round: one
+  unmeasured `engine/main.pl` boot before the measurement, which is the line
+  `check.sh` already runs before its lanes. Both halves of it are load-bearing
+  and each fails differently. Loading the purge inside
+  `extensions/mork/benchmarks/workload.pl` puts it in the MEASURED process,
+  worth +25,600 instructions on `mork-native-match-first-500`; purging without
+  regenerating measures a source boot, which moves `mork-batch-add-500` by
+  −3.6%. The workload declares its exemption in place.
+
 - **A red row in the C benchmark could not tell you whether it was about this
   seat's tree.** A C host boots with the `extensions` token, so every seat whose
   declared needs hold loads into the process being measured, and a seat's Prolog
