@@ -64,9 +64,22 @@ run GATE deep-test sh -c "cd \\"$HERE\\" && sh tests/nested/deep_test.sh"
 run GATE promoted-lane echo promoted
 run REPORT unpromoted-lane echo unpromoted
 run GATE preexisting-lane echo preexisting
-run GATE pytest sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark"
 run GATE plunit sh -c "cd '$HERE/tests/prolog' && for suite in suites/*/*.plt; do swipl -g run_tests -t halt \\"$suite\\"; done"
 run GATE shell sh -c "cd \\"$HERE\\" && sh test.sh"
+
+for component_check in "$HERE"/engine/check.sh "$HERE"/extensions/*/check.sh; do
+    [ -f "$component_check" ] || continue
+    . "$component_check"
+done
+"""
+
+# The pytest lane is the Python component's and lives in that component's own
+# check.sh, sourced by the root gate above. The fixture mirrors the split so
+# the checker is proven against the shape the tree has: with the lane written
+# into the root file instead, this passed while the real tree's pytest anchor
+# had already stopped resolving.
+PYTHON_CHECK_SH = """\
+run GATE pytest sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark"
 """
 
 TEST_SH = """\
@@ -172,6 +185,9 @@ def build(root: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
     (root / "check.sh").write_text(CHECK_SH, encoding="utf-8")
+    component = root / "extensions/python/check.sh"
+    component.parent.mkdir(parents=True, exist_ok=True)
+    component.write_text(PYTHON_CHECK_SH, encoding="utf-8")
     (root / "test.sh").write_text(TEST_SH, encoding="utf-8")
     (root / ".git").mkdir(exist_ok=True)
 

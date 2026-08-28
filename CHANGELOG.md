@@ -1031,6 +1031,25 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **The Python component owns its own gate lanes, in
+  `extensions/python/check.sh`.** The root `check.sh` carried 80 lanes and the
+  largest block of them had a subject that was not the root: `pytest`,
+  `gallery`, `benchmarks`, `instructions`, `scaling`, the two memory-scale
+  lanes, `packaged`, `parity`, `twins`, `phrasebook`, `extcost`, `determinism`
+  and the whole static-analysis tier, twenty-eight in all. `extensions/node`
+  and `extensions/cetta` already owned theirs, SOURCED rather than executed by
+  the root driver's discovery loop, which is what keeps one `run`, one summary
+  table and one exit status; the Python component owned none, so `metta list`
+  read `-` under CHECK for the component carrying the most lanes in the gate.
+  The three shell functions those lanes call move with them,
+  `memory_scale_report`, `memory_scale_gate` and `check_determinism_coverage`,
+  while `run`, `in_py`, `$PY`, `$PYDIR`, `$HERE` and the two memory-scale
+  temporaries stay with the root driver, whose EXIT trap is what removes them.
+  Nothing a lane does changes: the two files reassemble the previous
+  `check.sh` line for line, the 80 names and their tiers are identical, and
+  `sh check.sh <lane>` still selects any of them, which is the door
+  `.github/workflows/checks.yml` uses.
+
 - **The repository is MeTTa Kernel, and no name it owns is spelled `petta` any
   more.** The Python module rename left the spelling behind in places that were
   never swept: the project URLs and CITATION metadata, the CI container image,
@@ -2090,6 +2109,26 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- **Four readers modelled "the gate" as one file, so each stopped seeing its
+  own subject the moment a lane moved out of that file.**
+  `tests/checks/evidence_runners.py` pinned its pytest collector to
+  `check.sh`, so relocating that one lane dropped all 202 pytest files out of
+  the executed model and turned 1,080 backed evidence claims unbacked in a
+  single step: 575 executed files before, 373 with the field stale.
+  `check_evidence_tags.gate_lanes` read the root file alone, so the
+  `sh check.sh mypy ty` citation in `metta/_rules.py` was reported as naming a
+  lane the gate does not run. `check_imports_selftest` asserted its command
+  appears in `check.sh`, which reads a lane RELOCATION as command drift. And
+  `test_packaging`'s `python -m` entry-point scan fell from 18 targets to 1
+  and went on passing, which is the shape of a check that can no longer fail.
+  `evidence_runners.gate_scripts()` is the single answer to which files are
+  the gate now, and the three repository-root checkers read it. All three were
+  ALREADY blind to `node-binding` and `c-binding`, because those components
+  took their own lanes first: 52 lanes were visible reading `check.sh` alone,
+  against the gate's 82. Both selftest fixtures build a component `check.sh`
+  of their own now, so the split is the shape they prove against rather than
+  one they happen to avoid.
 
 - **The gate tested artefacts it had not built, so a verdict depended on how
   recently someone had built by hand.** `check.sh` built exactly two things

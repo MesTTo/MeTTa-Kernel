@@ -102,7 +102,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from evidence_runners import ROOT, Execution, executed, prolog_loads
+from evidence_runners import ROOT, Execution, executed, gate_scripts, prolog_loads
 
 SOURCES = (
     "engine/*.pl",
@@ -535,8 +535,20 @@ CHECK_LANE = re.compile(r"^run\s+(?:GATE|REPORT)\s+([a-z0-9-]+)", re.MULTILINE)
 
 
 def gate_lanes() -> frozenset[str]:
-    """Every lane name check.sh runs."""
-    return frozenset(CHECK_LANE.findall(_text(ROOT / "check.sh")))
+    """Every lane name the gate runs, the root driver's and each component's.
+
+    `sh check.sh <lane>` still names all of them, because the root driver
+    SOURCES every component's check.sh and its `run` filters on the argument
+    list, so a lane's file says nothing about whether the command works.
+    Reading the root file alone said otherwise the moment a lane moved into a
+    component, and it said it about a lane the gate runs [measured 2026-08-28:
+    `sh check.sh mypy ty` in extensions/python/metta/_rules.py:13 read as
+    naming a lane check.sh does not run, one commit after mypy moved into
+    extensions/python/check.sh].
+    """
+    return frozenset(
+        lane for script in gate_scripts() for lane in CHECK_LANE.findall(_text(script))
+    )
 
 
 def gate_command_problems(body: str, known: Evidence) -> list[str] | None:
@@ -546,7 +558,7 @@ def gate_command_problems(body: str, known: Evidence) -> list[str] | None:
         lane = match.group(1)
         if lane in gate_lanes():
             return []
-        return [f"names the check.sh lane {lane}, which check.sh does not run"]
+        return [f"names the check.sh lane {lane}, which the gate does not run"]
     match = SCRIPT_COMMAND.search(body)
     if match is None:
         return None
