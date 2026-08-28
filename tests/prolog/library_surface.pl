@@ -48,6 +48,7 @@
 library_directories(['../../lib']).
 
 main :-
+    consult('../../engine/qlf_boot.pl'),
     consult('../../engine/metta.pl'),
     forall(( expand_file_name('../../lib/*/*.pl', Files), member(File, Files) ),
            ensure_loaded(File)),

@@ -52,6 +52,7 @@
 %   Future Enhancements: None
 
 :- use_module(library(filesex)).
+:- ensure_loaded('../../engine/qlf_boot.pl').
 :- ensure_loaded('../../engine/metta.pl').
 
 %The modules the ENGINE resolves its own goals in: the module its clauses are

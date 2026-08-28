@@ -8,6 +8,7 @@
 % [source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:3682-3700,
 %   7361-7524; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 :- begin_tests(metta_thread).

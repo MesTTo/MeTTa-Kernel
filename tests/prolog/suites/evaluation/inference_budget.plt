@@ -33,6 +33,7 @@
 % who moves the meter back outside, or who drops the per-solution limiter as
 % redundant, fails here rather than in a host binding's timing.
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 % About 402 inferences per answer, so a budget buys a countable number of them.

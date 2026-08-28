@@ -29,6 +29,7 @@
 % `get-atoms` does, and a gate would demand a declaration for its own sake.
 % What the list is for is deciding, once, which each one is.
 main :-
+    consult('../../engine/qlf_boot.pl'),
     consult('../../engine/metta.pl'),
     metta_host_set_silent(true),
     load_reported_libraries,

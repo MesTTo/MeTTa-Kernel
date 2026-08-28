@@ -18,6 +18,7 @@
 %     lib_strategy:removing_a_local_shadow_recompiles_its_callers;
 %     commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 strategy_eval_string(Text, Results) :-

@@ -12,6 +12,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 :- consult('../../ciao_grade.pl').
 :- use_module(library(prolog_pack), [pack_property/2]).

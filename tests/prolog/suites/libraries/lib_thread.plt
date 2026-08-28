@@ -24,6 +24,7 @@
 % user:'t-inc'/2 dies on `Unknown procedure: (+)/3`. Eighteen of these tests
 % failed that way before the order was fixed. The same reason parser.plt uses
 % initialization/1 here rather than a bare ensure_loaded.
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 :- initialization(consult('../../lib/lib_thread/lib_thread.pl')).
 :- use_module(library(prolog_wrap)).

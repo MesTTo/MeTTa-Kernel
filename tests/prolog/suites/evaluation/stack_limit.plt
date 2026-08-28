@@ -16,6 +16,7 @@
 % Owns resources:
 %   - each scope owns one pushed Prolog flag and pops it on every exit path.
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 :- ensure_loaded('../../../../extensions/python/metta/shim.pl').
 

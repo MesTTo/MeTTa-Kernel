@@ -118,6 +118,7 @@ main :-
     %walk what those files pull in. The same reason reachability.pl sets it,
     %and the same reason the plunit lane appends it.
     set_prolog_flag(argv, [extensions]),
+    consult('../../engine/qlf_boot.pl'),
     consult('../../engine/metta.pl'),
     check_project_var_branches,
     every_seam_declares_one_kind,

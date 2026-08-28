@@ -49,6 +49,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 :- dynamic plunit_storage_added_event/2.

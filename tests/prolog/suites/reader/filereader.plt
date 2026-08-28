@@ -25,6 +25,7 @@
 %   Future Enhancements: None
 
 :- encoding(utf8).
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 test_lambda_functions(Functions) :-

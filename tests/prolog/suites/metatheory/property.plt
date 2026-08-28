@@ -31,6 +31,7 @@
 
 % The engine through metta.pl, not main.pl, whose initialization(main, main)
 % fires on consult and prints its demo into the test output.
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 :- begin_tests(property_lane_laws).

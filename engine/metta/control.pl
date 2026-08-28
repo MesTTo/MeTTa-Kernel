@@ -468,10 +468,21 @@ metta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
 %charged reduction and the inlined goal costs four, and the same A/B on retired
 %instructions reads 8,364,337,018 against 5,495,296,785 over three million
 %steps, -34.3%
-%[measured 2026-08-22: 6 and 4 inferences, -34.3% instructions:u, min-of-3;
-%command=swipl ai-tmp/p14e-step-ab4.pl; fixture=20000 and 3000000 iterations;
-%commit=be17bf27ac3fd74b5f5c00e430e924529a54f560]. The cost is a compile-time constant per clause, so it lands
-%as a literal in the subtraction.
+%[source: extensions/python/benchmarks/baseline.json, which records the same
+%6-to-4 and the -34.3% across twenty-five rows re-pinned by this change, each
+%naming the method -- the instruction figure is the CHARGE IN ISOLATION against
+%a loop with it removed, which is why a whole workload moves by how much of it
+%is charged reduction instead: loop-1m -30.8%, let-heavy -14.07% instructions,
+%typed-call -7.12%, source-load -1 inference; commit=WORKTREE].
+%Re-measured 2026-08-29 through the engine rather than in isolation: a
+%recursive equation costs 12 inferences per reduction as it ships, 14 with the
+%same body behind a shared call, and 8 with the instrumenter's first clause
+%failing so no charge is written, so the charge is 4 built in and 6 called
+%[measured 2026-08-29: toggling metta_fuel_step_goal/3 between the built
+%conjunction and a call to a predicate holding it; fixture=(= (count $n) (if
+%(== $n 0) done (count (- $n 1)))) driven at 20,000 and 40,000 and read as a
+%two-point slope; commit=WORKTREE]. The cost is a compile-time constant per
+%clause, so it lands as a literal in the subtraction.
 %
 %Eleven shapes of this body were raced before settling on it, and every one that
 %reads a global costs the same six inferences as a call, so the `unstarted`
@@ -486,10 +497,17 @@ metta_fuel_answer(_, ['Error', Culprit, 'StackOverflow'], _) :-
 %them is a global-variable or trail entry point, so the C body would have to
 %call b_setval/2 back through PL_call_predicate and pay a query setup on top of
 %the write it was trying to avoid
-%[measured 2026-08-22: v1..v5 all 6.0 inferences, cell +2.0% instructions:u,
-%472 exported functions none of them a gvar or trail entry point;
-%command=swipl ai-tmp/p14e-step-ab2.pl, swipl ai-tmp/p14e-step-ab3.pl, nm -D
-%/usr/lib/swi-prolog/lib/x86_64-linux/libswipl.so.10.1.13; commit=be17bf27ac3fd74b5f5c00e430e924529a54f560].
+%[measured 2026-08-29: 472 exported T symbols and none matching gvar, global
+%variable, b_setval, b_getval, nb_setval or trail; command=nm -D --defined-only
+%/usr/lib/swi-prolog/lib/x86_64-linux/libswipl.so.10 | awk '$2=="T"';
+%commit=WORKTREE].
+%The eleven shapes and the b_getval/setarg cell were raced on 2026-08-22 in a
+%harness that was not kept, so their figures cannot be re-derived from this
+%tree; they are recorded as the REASONING behind the shipped body rather than
+%as evidence for it, and what the shipped body costs is measured above
+%[assumed: v1..v5 at 6.0 inferences and the cell at +2.0% instructions are
+%unverifiable here, because ai-tmp/p14e-step-ab2.pl and ai-tmp/p14e-step-ab3.pl
+%were scratch files that no commit holds; commit=WORKTREE].
 %THE TWO GLOBAL OPERATIONS ARE MODULE-QUALIFIED, and that is not decoration.
 %A compiled clause lives in its space's own execution module, and an equation
 %for a builtin's name is a LOCAL SHADOW there rather than a refusal, which is

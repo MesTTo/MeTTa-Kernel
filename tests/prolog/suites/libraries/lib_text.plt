@@ -8,6 +8,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 :- initialization(consult('../../lib/lib_string/lib_string.pl')).
 :- initialization(consult('../../lib/lib_file/lib_file.pl')).

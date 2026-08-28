@@ -24,6 +24,7 @@
 %   - SWI's last_modified_generation property is maintained by the dynamic
 %     database and shared by all engine threads.
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 :- ensure_loaded('../../../../extensions/python/metta/shim.pl').
 

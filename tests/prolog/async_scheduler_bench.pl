@@ -12,6 +12,7 @@
 %   - 200 cheap spawns expose fixed scheduler overhead, while 128 simultaneous
 %     waits make the dedicated-thread and M:N resource shapes distinguishable.
 
+:- ensure_loaded('engine/qlf_boot.pl').
 :- ensure_loaded('engine/metta.pl').
 :- initialization(consult('lib/lib_thread/lib_thread.pl')).
 :- initialization(

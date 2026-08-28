@@ -585,6 +585,7 @@ layering_finding(Message) :-
 % the engine itself, which the suite has already done its own way; that is the
 % shape tests/prolog/translator_confluence.pl uses for the same reason.
 layering_gate :-
+    consult('../../engine/qlf_boot.pl'),
     consult('../../engine/metta.pl'),
     measure_layer_edges,
     findall(Message, layering_finding(Message), Findings),

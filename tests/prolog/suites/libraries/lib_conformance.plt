@@ -18,6 +18,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 :- initialization(consult('../../lib/lib_conformance/lib_conformance.pl')).
 :- initialization(user:consult('conformance_providers')).

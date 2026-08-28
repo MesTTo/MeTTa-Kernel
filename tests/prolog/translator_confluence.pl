@@ -707,6 +707,7 @@ print_overlap(Rules, verdict(I, J, Pos, L, R, Kind)) :-
 % translator rule today.
 load_engine :-
     set_prolog_flag(argv, [extensions]),
+    user:consult('../../engine/qlf_boot.pl'),
     user:consult('../../engine/metta.pl'),
     retractall(user:silent(_)),
     assertz(user:silent(true)).

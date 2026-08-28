@@ -2382,6 +2382,33 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **A suite could pass against the previous compile of whatever unit it was
+  testing.** The engine's units are consulted by umbrellas, so
+  `engine/spaces/foreign.pl` is compiled into `engine/spaces.qlf` and there is
+  no `engine/spaces/foreign.qlf` at all. SWI's own staleness check compares an
+  artifact against its immediate source, so editing a unit leaves the
+  umbrella's `.qlf` fresh by mtime and the OLD code is served.
+  `engine/qlf_boot.pl` is the purge written for exactly this, and its header has
+  said so since 2026-08-25, but only `engine/main.pl` and `engine/bench.pl`
+  load it. Every one of the sixty files that loads `engine/metta.pl` directly
+  reached neither: forty-four plunit suites and fourteen analysis scripts.
+  `check.sh` warms one boot through `main.pl` before its lanes, so the gate was
+  never affected. What was affected is the two workflows that skip it and that
+  `tests/README.md` documents: one suite run by hand, and `engine/test.sh` on
+  its own. Measured by planting a `format/2` directive in
+  `engine/spaces/foreign.pl` after a full boot: a suite run the old way does not
+  see it, the same suite loading `engine/qlf_boot.pl` first does, and both exit
+  0 either way. It cost this session an A/B that read a 0.0000 difference
+  between two variants of a predicate, because both runs executed the same
+  stale compile.
+  Every direct loader now loads the purge first, with the same relative prefix
+  so the pair resolves from one directory, and
+  `tests/checks/check_qlf_freshness.py` refuses a new one that does not. It has
+  an in-place door, `% qlf-freshness-exempt: <why>`, for a file that means to
+  measure the artifact set rather than use it. The selftest plants a missing
+  purge, a late one and a mismatched prefix, and neutering the gate turns all
+  three red plus the by-name exemption case.
+
 - **A cursor budget's documented cost was half its real one, and the real one
   came down by a quarter once it was measured.** `engine/metta/control.pl`
   recorded the cumulative inference budget as costing two inferences per

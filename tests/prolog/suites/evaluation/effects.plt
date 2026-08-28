@@ -7,6 +7,7 @@
 %   floors, cache-purity projection, and deprecation explanation agree.
 % [tested: tests/prolog/effects.plt; commit=173eeed021beb360b5e5f9f8461889e27190affc]
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 % A stand-in backend, declared exactly the way extensions/mork's bridge declares

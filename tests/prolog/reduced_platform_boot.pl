@@ -90,6 +90,7 @@
 
 %Loaded only after the paths above are in force, which is the whole point of
 %this file: an engine consulted before them would find every library it wanted.
+:- ensure_loaded('../../engine/qlf_boot.pl').
 :- ensure_loaded('../../engine/metta.pl').
 
 :- initialization(reduced_platform_report, main).

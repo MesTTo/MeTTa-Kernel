@@ -11,6 +11,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 %The clpfd operators, in/2 and \/ among them, so duals_domain_coverage below

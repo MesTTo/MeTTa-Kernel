@@ -596,6 +596,7 @@ load_shipped_configuration(Unimported) :-
     % token arms reads every control file and consults exactly the entries
     % whose needs hold, which is what a shipped configuration is.
     set_prolog_flag(argv, [extensions]),
+    consult('../../engine/qlf_boot.pl'),
     consult('../../engine/metta.pl'),
     metta_host_set_silent(true),
     findall(Base, ( analysed_library(Base), \+ library_imports(Base) ), Unimported),

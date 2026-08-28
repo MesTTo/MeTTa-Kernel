@@ -34,10 +34,22 @@ directive, `:- ensure_loaded(...)`, against its own file, and a RUN-time goal,
 WORKING DIRECTORY. The runner keeps that directory at `tests/prolog`, so a
 suite two levels down writes
 
+    :- ensure_loaded('../../../../engine/qlf_boot.pl').     % freshness first
     :- ensure_loaded('../../../../engine/metta.pl').        % file-relative
     :- initialization(consult('../../engine/metta.pl')).    % cwd-relative
 
-and both name the same file. Run one suite by hand the way `check.sh` does,
+and both name the same file.
+
+**`qlf_boot.pl` comes first, and it is not optional.** The engine's units are
+consulted by umbrellas, so `engine/spaces/foreign.pl`'s clauses are compiled
+into `engine/spaces.qlf` and SWI's own staleness check compares that artifact
+against `engine/spaces.pl` alone. Edit a unit and the umbrella stays fresh by
+mtime, so a suite loading `engine/metta.pl` directly gets the OLD code and
+passes against it. `engine/main.pl` loads the purge that defeats this, and
+`check.sh` warms one boot through it before any lane, but a suite run by hand
+or through `engine/test.sh` alone reaches neither. Loading `qlf_boot.pl` before
+the engine makes each suite correct on its own; `tests/checks/check_qlf_freshness.py`
+refuses a loader that omits it. Run one suite by hand the way `check.sh` does,
 from `tests/prolog`:
 
     cd tests/prolog && swipl -g "set_test_options([format(log)]), run_tests" \

@@ -565,6 +565,7 @@ prop_translate_clause(Equation:metta_equation) :- property_translate_clause_is_a
 % `swipl -q -g property_lane_selftest -t 'halt(0)' property_lane.pl` from
 % tests/prolog, which is how check.sh runs every other selftest here.
 property_lane_selftest :-
+    consult('../../engine/qlf_boot.pl'),
     consult('../../engine/metta.pl'),
     findall(Plant-Verdict,
             ( property_plant_feature(Plant, _),

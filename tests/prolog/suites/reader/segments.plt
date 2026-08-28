@@ -24,6 +24,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 %Read one MeTTa term and parse it as a pattern side. Both halves matter: sread

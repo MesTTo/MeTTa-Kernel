@@ -24,6 +24,7 @@
 %   Hacks: None
 %   Future Enhancements: None
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 user:'plunit-pi-tag'(X, Y) :- member(X, [a, b, c]), atom_concat(X, '!', Y).

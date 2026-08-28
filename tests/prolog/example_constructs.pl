@@ -39,6 +39,7 @@ main :-
     %about the table.
     current_prolog_flag(argv, Argv),
     set_prolog_flag(argv, [extensions]),
+    consult('../../engine/qlf_boot.pl'),
     consult('../../engine/metta.pl'),
     metta_host_set_silent(true),
     (   Argv == ['--vocabulary']

@@ -1,5 +1,6 @@
 % Purpose: verify runnable translation caching, variant keys, and invalidation.
 
+:- ensure_loaded('../../../../engine/qlf_boot.pl').
 :- ensure_loaded('../../../../engine/metta.pl').
 
 :- begin_tests(translation_cache).

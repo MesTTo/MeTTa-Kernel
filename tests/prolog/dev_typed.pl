@@ -259,7 +259,8 @@ dev_typed_suites :-
 dev_typed_engine :-
     (   current_predicate(user:swrite/2)
     ->  true
-    ;   consult('../../engine/metta.pl')
+    ;   consult('../../engine/qlf_boot.pl'),
+        consult('../../engine/metta.pl')
     ).
 
 % The funnels annotated so far. Named here rather than discovered, because

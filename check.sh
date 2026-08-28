@@ -259,6 +259,18 @@ run GATE policy-inventory-selftest "$PY" "$HERE/tests/checks/check_policy_invent
 run GATE refusal-grounds "$PY" "$HERE/tests/checks/check_refusal_grounds.py"
 run GATE refusal-grounds-selftest "$PY" "$HERE/tests/checks/check_refusal_grounds_selftest.py"
 
+# A suite that loads engine/metta.pl reads the engine's COMPILED artifacts, and
+# SWI's staleness check covers a .qlf's immediate source only. The engine's
+# units are consulted by umbrellas, so engine/spaces/foreign.pl compiles into
+# engine/spaces.qlf and an edit to it leaves that artifact fresh by mtime: the
+# suite then passes against the previous compile. engine/qlf_boot.pl is the
+# purge that defeats it, the warm-up above runs it for every lane here, and
+# this gate is for the runs that do not come through here at all -- one suite
+# by hand, or engine/test.sh on its own, which is how the hazard was found.
+# The selftest plants a missing purge, a late one and a mismatched prefix.
+run GATE qlf-freshness "$PY" "$HERE/tests/checks/check_qlf_freshness.py"
+run GATE qlf-freshness-selftest "$PY" "$HERE/tests/checks/check_qlf_freshness_selftest.py"
+
 # Conformance against the semantics arbiter. LeaTTa is a mechanised MeTTa whose
 # tests/semantics corpus carries, in every file, the answers its interpreter
 # printed verbatim and the pinned hyperon build they were checked against. This
