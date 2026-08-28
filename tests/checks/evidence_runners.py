@@ -59,7 +59,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 def _component_runners() -> tuple[str, ...]:
-    """Every component's own check.sh, discovered the way check.sh sources them.
+    """Every component's own check.sh, test.sh and bench.sh, discovered.
 
     A component's lanes moved out of the root gate into its own directory, and
     this list was four hardcoded names. A lane the evidence model cannot see is
@@ -68,9 +68,23 @@ def _component_runners() -> tuple[str, ...]:
     to the executed model, extensions/node/test/atom.test.ts, and no tag cites it
     today -- so the exposure is latent rather than realised, and this exists to
     keep it that way as component lanes grow, not to repair a live break.
+
+    test.sh and bench.sh are here for the same reason and are not latent. A
+    component's check.sh lane CALLS them, so the npm script, the interpreter
+    and the case table live in the called script rather than in the lane, and
+    reading only the lane loses every extensions/node/test/*.test.ts the
+    node-binding lane runs -- which is exactly what that lane's own comment
+    warned about before test.sh existed.
     """
     found = []
-    for pattern in ("engine/check.sh", "extensions/*/check.sh"):
+    for pattern in (
+        "engine/check.sh",
+        "engine/test.sh",
+        "engine/bench.sh",
+        "extensions/*/check.sh",
+        "extensions/*/test.sh",
+        "extensions/*/bench.sh",
+    ):
         found += [str(p.relative_to(ROOT)) for p in sorted(ROOT.glob(pattern))]
     return tuple(found)
 
@@ -307,7 +321,11 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
             lane_text = EXCLUSION.sub(" ", lane_text)
             # A bare `static_checks.pl` is a path relative to whatever the lane
             # last changed into, so every directory it enters is a candidate.
-            directories = (ROOT,) + tuple(
+            # The runner's OWN directory is one too: a component script sets
+            # $HERE to its own folder and enters it, so extensions/node/test.sh
+            # `cd "$HERE" && npm run test` resolves against extensions/node and
+            # not against the root the root gate's $HERE means.
+            directories = (ROOT, (ROOT / runner).parent) + tuple(
                 candidate
                 for target in CD.findall(lane_text)
                 if (spent := _literal(target)) is not None
@@ -324,9 +342,17 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
                 for directory in directories:
                     if not (directory / "package.json").is_file():
                         continue
+                    # EVERY suite, which is what the npm script runs. The break
+                    # ends the DIRECTORY search at the package the lane entered.
+                    # Under the suite loop, where an insertion left it on
+                    # 2026-08-27 by landing above an existing break, it recorded
+                    # the first file alphabetically and every other one read as
+                    # run by nothing [measured 2026-08-28: the model held
+                    # extensions/node/test/atom.test.ts alone out of the ten
+                    # then in the tree, and holds all eleven now].
                     for suite in sorted((directory / "test").glob("*.test.ts")):
                         record(suite.resolve(), tier, lane)
-                        break
+                    break
 
     for collector in COLLECTORS:
         text = texts.get(collector.runner)

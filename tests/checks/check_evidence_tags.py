@@ -136,7 +136,11 @@ SOURCES = (
 # reported "tested: names goes", "names red", "names against" and "names read"
 # from one row's narrative. The pin check is a regex over commit= and cannot
 # make that mistake.
-PROVENANCE_SOURCES = ("extensions/python/benchmarks/*.json",)
+# Discovered rather than named, the way evidence_runners finds a component's
+# scripts: a seat that grows its own benchmarks grows its own baseline, and a
+# hardcoded list would leave that seat's commit pins unchecked in the same
+# silence this lane exists to end.
+PROVENANCE_SOURCES = ("extensions/*/benchmarks/*.json",)
 
 # Where a name may be defined. metta/_compliance.py holds real tests, shipped
 # for a provider author to inherit; they run here too, under each
