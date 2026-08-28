@@ -37,6 +37,12 @@ Guarantees:
     [tested 2026-08-18: tests/checks/check_evidence_selftest.py]
   - a declared collector whose anchor has left its runner is reported instead
     of being applied [tested 2026-08-18: tests/checks/check_evidence_selftest.py]
+  - gate_scripts() answers the root driver AND every component check.sh it
+    sources, so a lane that moved into a component is still the gate's lane;
+    both selftests build a fixture whose pytest lane lives in a component and
+    fail if it stops resolving [tested 2026-08-28:
+    tests/checks/check_evidence_selftest.py,
+    tests/checks/check_spec_status_selftest.py]
 Fails when:
   - a Prolog file is handed to swipl by a Python script rather than by a
     runner or by another Prolog file's consult. tests/conformance/leatta_run.pl
@@ -99,6 +105,27 @@ RUNNERS = (
     ".github/workflows/checks.yml",
     ".github/workflows/ci.yml",
 ) + _component_runners()
+
+
+def gate_scripts() -> tuple[Path, ...]:
+    """Every check.sh the gate runs: the root driver and each component's.
+
+    `sh check.sh <lane>` names any of their lanes, because the root driver
+    sources the components and its `run` filters on the argument list, so which
+    file a lane sits in is not a property a caller can observe. Three readers
+    asked the root file alone and each read a lane living in a component as a
+    lane the gate does not run: check_evidence_tags.gate_lanes,
+    check_spec_status._lane_tiers and check_imports_selftest._gate_text. All
+    three were blind to node-binding and c-binding before any of this, since
+    those components took their own lanes first [measured 2026-08-28: 52 lanes
+    visible reading check.sh alone, against the gate's 82].
+    """
+    return tuple(
+        ROOT / runner
+        for runner in RUNNERS
+        if runner.endswith("check.sh") and (ROOT / runner).is_file()
+    )
+
 
 # `run TIER NAME COMMAND...`, check.sh's own lane declaration, and the shell
 # functions those lanes call. A lane's text is the command plus the body of
@@ -216,8 +243,14 @@ class Collector:
 
 
 COLLECTORS = (
+    # The pytest lane is the Python component's, and lives in that component's
+    # own check.sh. Naming the root gate here read as "the lane no longer
+    # contains its anchor" the moment the lane moved, which dropped all 202
+    # pytest files out of the executed model and turned 1080 backed claims
+    # unbacked in one step [measured 2026-08-28: 575 executed files before the
+    # move, 373 with this field stale, 575 again once it names the component].
     Collector(
-        runner="check.sh",
+        runner="extensions/python/check.sh",
         tier="GATE",
         lane="pytest",
         anchor="pytest tests -q -p no:benchmark",

@@ -10,9 +10,10 @@ above it. So the guarantees in check_evidence_tags.py's own header are tested
 here, against planted violations, and not by the gate run that finds nothing.
 
 The tree is written from scratch each time under a temporary directory: a
-check.sh with both tiers, a test.sh with the example corpus, one plunit suite,
-one gate script, one example, one collected pytest module, and the orphans and
-mutes that are supposed to be rejected. The checker is copied into <tree>/tools/checks
+check.sh with both tiers, the Python component's own check.sh that the root one
+sources, a test.sh with the example corpus, one plunit suite, one gate script,
+one example, one collected pytest module, and the orphans and mutes that are
+supposed to be rejected. The checker is copied into <tree>/tools/checks
 rather than <tree>/tests, because its own SOURCES reads tests/*.py and a copy
 sitting there would have its docstring read as claims about a tree it is only
 visiting.
@@ -83,23 +84,36 @@ CITATIONS = (
 )
 
 CHECK_SH = """\
-run() {{ :; }}
-in_py() {{ ( cd "$PYDIR" && "$@" ); }}
+run() { :; }
+in_py() { ( cd "$PYDIR" && "$@" ); }
 
-check_plunit() {{
+check_plunit() {
     cd "$HERE/tests/prolog" || return 1
     for suite in suites/*/*.plt; do
         swipl -g "run_tests" -t halt "$suite" || return 1
     done
-}}
+}
 run GATE plunit check_plunit
-run GATE pytest sh -c "cd '$PYDIR' && '$PY' -m {pytest_anchor} -n auto"
 run GATE shell sh -c "cd '$HERE' && sh test.sh"
 run GATE gate-script sh -c "cd '$HERE/tests/prolog' && swipl gate_script.pl"
 run GATE checked sh -c "cd '$HERE' && '$PY' tests/checked.py"
 run GATE printer sh -c "cd '$HERE' && '$PY' tests/printer.py"
 run GATE mute sh -c "cd '$HERE' && swipl tests/orphan/mute.pl"
 run REPORT reported sh -c "cd '$HERE' && swipl tests/orphan/reported.pl"
+
+for component_check in "$HERE"/engine/check.sh "$HERE"/extensions/*/check.sh; do
+    [ -f "$component_check" ] || continue
+    . "$component_check"
+done
+"""
+
+# The pytest lane is the Python component's and sits in that component's own
+# check.sh, sourced by the root gate above. The fixture mirrors the split so the
+# collector is proven against the shape the tree actually has: with the lane
+# written into the root file instead, the collector passed here while the real
+# model had already stopped seeing every pytest file.
+PYTHON_CHECK_SH = """\
+run GATE pytest sh -c "cd '$PYDIR' && '$PY' -m {pytest_anchor} -n auto"
 """
 
 TEST_SH = """\
@@ -161,7 +175,10 @@ def build(root: Path, pytest_anchor: str) -> dict[str, int]:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
-    (root / "check.sh").write_text(CHECK_SH.format(pytest_anchor=pytest_anchor))
+    (root / "check.sh").write_text(CHECK_SH)
+    component = root / "extensions/python/check.sh"
+    component.parent.mkdir(parents=True, exist_ok=True)
+    component.write_text(PYTHON_CHECK_SH.format(pytest_anchor=pytest_anchor))
     (root / "test.sh").write_text(TEST_SH)
 
     # Two levels down, mirroring the real tests/checks/ so the checker's own

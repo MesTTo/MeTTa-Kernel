@@ -167,7 +167,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import check_evidence_tags as evidence_tags
-from evidence_runners import COLLECTORS, LANE, ROOT, Execution, executed
+from evidence_runners import COLLECTORS, LANE, ROOT, Execution, executed, gate_scripts
 
 
 def _main_checkout(here: Path) -> Path:
@@ -603,11 +603,19 @@ def _index_python() -> dict[str, list[tuple[Path, int, str]]]:
     return index
 
 
-def _lane_tiers(check_sh: Path) -> dict[str, str]:
-    if not check_sh.is_file():
-        return {}
-    text = check_sh.read_text(encoding="utf-8", errors="replace")
-    return {name: tier for tier, name, _ in LANE.findall(text)}
+def _lane_tiers() -> dict[str, str]:
+    """Every lane the gate declares, and the tier it runs in.
+
+    Root and components alike: a lane's tier is not changed by which file
+    carries it, and an item anchored on a lane the root gate no longer spells
+    would otherwise read UNKNOWN rather than FIXED [measured 2026-08-28: 28 of
+    the 80 lanes moved into extensions/python/check.sh in one commit].
+    """
+    tiers: dict[str, str] = {}
+    for script in gate_scripts():
+        text = script.read_text(encoding="utf-8", errors="replace")
+        tiers |= {name: tier for tier, name, _ in LANE.findall(text)}
+    return tiers
 
 
 @dataclass(frozen=True)
@@ -634,7 +642,7 @@ def gather_tree_facts() -> TreeFacts:
         p.read_text(encoding="utf-8", errors="replace") for p in _files(IMPLEMENTATION_DIRS, "*.pl")
     ] + [p.read_text(encoding="utf-8", errors="replace") for p in _files(IMPLEMENTATION_DIRS, "*.py")]
     return TreeFacts(
-        lanes=_lane_tiers(ROOT / "check.sh"),
+        lanes=_lane_tiers(),
         runs=runs,
         evidence=evidence,
         prolog_defs=_index_prolog(),

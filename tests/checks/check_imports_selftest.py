@@ -2,7 +2,8 @@
 
 Assumes:
   - pyproject.toml and extensions/python/metta describe the tree checked by
-    check.sh, and import-linter is installed in the selected interpreter
+    the gate's `imports` lane, which lives in extensions/python/check.sh, and
+    import-linter is installed in the selected interpreter
 Guarantees:
   - the unmodified scratch tree keeps all three contracts, while a planted
     module-level metta._tokens -> metta._trace import exits nonzero and is
@@ -31,6 +32,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from evidence_runners import gate_scripts
+
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON_ROOT = ROOT / "extensions" / "python"
 COMMAND_TIMEOUT_SECONDS = 290
@@ -47,6 +50,17 @@ IMPORTS_COMMAND = (
 #: The child is told not to colour, and the output is stripped anyway, so this
 #: lane reports on the layering rather than on the caller's terminal.
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _gate_text() -> str:
+    """The whole gate's text, the root driver's and every component's.
+
+    What this proves is that the command below is the LANE's own, so it follows
+    the lane rather than the file: reading check.sh alone said the command had
+    drifted the moment the `imports` lane moved into extensions/python/check.sh,
+    when the command had not changed at all.
+    """
+    return "\n".join(script.read_text(encoding="utf-8") for script in gate_scripts())
 
 
 def _plain(completed: subprocess.CompletedProcess[str]) -> str:
@@ -72,8 +86,7 @@ def _run_imports(root: Path) -> subprocess.CompletedProcess[str]:
 
 def test_a_planted_module_level_import_is_rejected() -> None:
     """Require one forbidden edge to turn the same clean command red by name."""
-    check_script = (ROOT / "check.sh").read_text(encoding="utf-8")
-    assert IMPORTS_COMMAND in check_script
+    assert IMPORTS_COMMAND in _gate_text()
 
     with tempfile.TemporaryDirectory(prefix="metta-imports-selftest-") as directory:
         scratch = Path(directory)
