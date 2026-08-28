@@ -1,7 +1,7 @@
 <!--
 Purpose: introduce the seat model and route to one area per shipped extension.
 Guarantees: every folder under extensions/ carrying an extension.pl has an area
-  here [tested: test_every_extension_has_a_site_area; commit=WORKTREE]
+  here [tested: test_every_extension_has_a_site_area; commit=057cc60ec553c5820f95ee361f1fad057467f3c3]
 -->
 
 # Extensions
