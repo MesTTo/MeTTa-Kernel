@@ -2275,6 +2275,20 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   `Symbol.asyncIterator` off the same holder; and `derails`, which is the word,
   used correctly.
 
+- **Python outside the Python seat is linted, which nothing did.** Every lint
+  lane runs with `extensions/python` as its root, so the benchmark drivers the
+  other components grew shipped with no linter reaching them: `engine/bench.py`,
+  `extensions/node/benchmarks/` and `extensions/cetta/benchmarks/`. The new
+  `ruff-drivers` lane found eight real findings across three files, among them
+  an exception class with no `Error` suffix and five `noqa` directives naming
+  rules this configuration does not enable. It asks `git ls-files` what to lint
+  rather than walking the tree, because a walk finds vendored build output
+  nothing here owns: `extensions/mork/mork_ffi/target/` alone carries a
+  generated jemalloc script with five findings, and what the repository TRACKS
+  is the answer to what it is responsible for. The engine's benchmark driver is
+  in the evidence gate's source list too, where `engine/*.py` had been missing
+  beside `engine/*.pl`; adding it exposed one unbacked claim immediately.
+
 - `metta list` shows TEST and BENCH beside BUILD and CHECK. A component that
   has tests or benchmarks but no script to run them keeps them reachable only
   by whoever knows the path, and the four columns are what make that gap

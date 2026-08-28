@@ -106,6 +106,10 @@ from evidence_runners import ROOT, Execution, executed, gate_scripts, prolog_loa
 
 SOURCES = (
     "engine/*.pl",
+    # The engine's benchmark driver is Python and makes the same kind of claim
+    # its Prolog neighbours do. Without this line its tags were invisible: the
+    # lane counted two placeholders in the tree where there were four.
+    "engine/*.py",
     "lib/*/*.pl",
     "lib/*/*.py",
     "extensions/python/metta/*.py",
@@ -140,7 +144,7 @@ SOURCES = (
 # scripts: a seat that grows its own benchmarks grows its own baseline, and a
 # hardcoded list would leave that seat's commit pins unchecked in the same
 # silence this lane exists to end.
-PROVENANCE_SOURCES = ("extensions/*/benchmarks/*.json",)
+PROVENANCE_SOURCES = ("extensions/*/benchmarks/*.json", "engine/*.json")
 
 # Where a name may be defined. metta/_compliance.py holds real tests, shipped
 # for a provider author to inherit; they run here too, under each

@@ -42,7 +42,10 @@ Guarantees:
 Owns resources:
   - each swipl process is run to completion with an explicit timeout and its
     output captured; a timeout is reported as a failed case rather than
-    raised past the loop.
+    raised past the loop
+    [source: engine/bench.py's _run, whose subprocess.run passes
+    capture_output=True and timeout=TIMEOUT and whose except clause turns
+    subprocess.TimeoutExpired into a returned failure].
 Open Obligations:
   To Do: None
   Hacks: None
@@ -64,8 +67,12 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT / "extensions" / "python"))
 
-from benchmarks.configuration import counter_configuration  # noqa: E402  -- the harness lives in the sibling component and the path above is what makes it importable
-from metta.testing import BenchmarkBaseline, measure_instructions  # noqa: E402  -- same
+# E402 on both: the sys.path line above is what makes either importable, so
+# these cannot precede it. isort's own grouping puts the sibling component's
+# module before metta, which pyproject declares first-party.
+from benchmarks.configuration import counter_configuration  # noqa: E402
+
+from metta.testing import BenchmarkBaseline, measure_instructions  # noqa: E402
 
 BASELINE = HERE / "bench-baseline.json"
 BENCH = HERE / "bench.pl"
@@ -96,20 +103,23 @@ def _command(goal: str) -> list[str]:
 
 
 def _goal(name: str) -> str:
-    """bench_run for one case: module-qualified, and quoted because a bare
-    parse-prolog reads as a term rather than an atom.
+    """bench_run for one case, module-qualified and quoted.
+
+    A bare parse-prolog reads as a term rather than an atom.
     """
     return f"metta_bench:bench_run('{name}')"
 
 
-class CaseFailure(Exception):
+class CaseFailureError(Exception):
     """One case could not be measured; the run continues and reports it."""
 
 
 def _run(goal: str) -> str:
     """Run one swipl process and return its standard output."""
     try:
-        finished = subprocess.run(  # noqa: S603  -- the argument vector is built here from a fixed executable name and a case name from bench.pl's own table
+        # The argument vector is built here from a fixed executable name and
+        # a case name out of bench.pl's own table, never from input.
+        finished = subprocess.run(
             _command(goal),
             capture_output=True,
             text=True,
@@ -118,11 +128,11 @@ def _run(goal: str) -> str:
         )
     except subprocess.TimeoutExpired as expired:
         msg = f"{goal} exceeded its {TIMEOUT:g} second limit"
-        raise CaseFailure(msg) from expired
+        raise CaseFailureError(msg) from expired
     if finished.returncode != 0:
         detail = (finished.stderr or finished.stdout).strip()
         msg = f"{goal} exited with status {finished.returncode}: {detail}"
-        raise CaseFailure(msg)
+        raise CaseFailureError(msg)
     return finished.stdout
 
 
@@ -149,7 +159,7 @@ def describe() -> tuple[dict[str, tuple[str, int]], tuple[str, ...]]:
             sources.append(source["path"])
     if not cases or not sources:
         msg = f"bench_describe answered no cases or no sources:\n{output}"
-        raise CaseFailure(msg)
+        raise CaseFailureError(msg)
     return cases, tuple(sources)
 
 
@@ -190,7 +200,7 @@ def counter_samples(name: str) -> tuple[list[int], float, float]:
             reading = _fields(line, "metta-bench") or reading
         if reading is None or reading.get("case") != name:
             msg = f"{name} printed no metta-bench line:\n{output}"
-            raise CaseFailure(msg)
+            raise CaseFailureError(msg)
         inferences.append(int(reading["inferences"]))
         cpu.append(float(reading["cputime"]))
         wall.append(float(reading["walltime"]))
@@ -244,11 +254,13 @@ def observe(
     )
 
 
-def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901  -- the loop keeps measurement, reporting and the keep-going contract together, and splitting them would hide which failures were collected
+# The loop keeps measurement, reporting and the keep-going contract together;
+# splitting them would hide which failures were collected.
+def main(argv: Sequence[str] | None = None) -> int:
     """Measure the selected cases against engine/bench-baseline.json."""
     try:
         cases, sources = describe()
-    except (CaseFailure, OSError) as unreadable:
+    except (CaseFailureError, OSError) as unreadable:
         print(f"engine/bench.sh: cannot read the case table: {unreadable}", file=sys.stderr)
         return 2
     known = tuple(sorted(cases))
@@ -291,7 +303,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901  -- the loop k
             file=sys.stderr,
         )
         return 2
-    except (CaseFailure, OSError) as unusable:
+    except (CaseFailureError, OSError) as unusable:
         print(f"engine/bench.sh: cannot measure this tree: {unusable}", file=sys.stderr)
         return 2
 
@@ -307,7 +319,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901  -- the loop k
         # records as having masked four stale pins for days.
         except (
             AssertionError,
-            CaseFailure,
+            CaseFailureError,
             FileNotFoundError,
             KeyError,
             RuntimeError,

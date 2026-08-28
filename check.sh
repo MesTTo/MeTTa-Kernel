@@ -856,6 +856,34 @@ run GATE llms       "$PY" "$HERE/extensions/python/tools/llmsdoc.py"
 # remaining entries and calls anything outside it UNTRACKED, so the baseline
 # cannot grow silently. Promote this lane when the remaining count reaches zero.
 run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
+# Python that lives OUTSIDE the Python seat. Every lint lane in
+# extensions/python/check.sh runs with that directory as its root, so the
+# benchmark drivers the other components grew -- engine/bench.py,
+# extensions/node/benchmarks/, extensions/cetta/benchmarks/ -- were shipping
+# with no linter reaching them at all. Widening found eight real findings across
+# three files, including an exception class with no Error suffix and five noqa
+# directives naming rules this configuration does not enable.
+#
+# DISCOVERED rather than listed, the same rule the build and the component lanes
+# follow: a component that grows a driver is covered without an edit here. ruff
+# resolves the repository's own pyproject.toml by walking up from each file, so
+# the seat's configuration decides, and the paths are literal so the evidence
+# gate can model what this lane covers.
+# TRACKED files, asked of git rather than walked. A walk finds vendored build
+# output nothing here owns: extensions/mork/mork_ffi/target/ alone carries a
+# generated jemalloc test script with five findings in it, and every ignore
+# pattern that hides it is one more thing to keep true. What the repository
+# tracks is the answer to what the repository is responsible for.
+check_component_python() {
+    found=$(cd "$HERE" && git ls-files -- 'engine/*.py' 'extensions/*/*.py' \
+                'extensions/*/*/*.py' 'examples/ch19-*/*.py' |
+            grep -v '^extensions/python/')
+    [ -n "$found" ] || return 0
+    # shellcheck disable=SC2086  -- the list is newline-separated paths this
+    # tree owns, and word splitting is how they reach ruff as arguments.
+    ( cd "$HERE" && "$PY" -m ruff check $found )
+}
+run GATE   ruff-drivers check_component_python
 # The site itself renders, which nothing ran before this: three config headers
 # and every page's own header claim `[tested: npm run docs:build]` and no lane
 # had ever run it. The build is what decides a dead internal link, and the
