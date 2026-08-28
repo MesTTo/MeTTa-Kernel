@@ -112,8 +112,16 @@ done
 # collector is proven against the shape the tree actually has: with the lane
 # written into the root file instead, the collector passed here while the real
 # model had already stopped seeing every pytest file.
+#
+# The lane DELEGATES to the seat's test.sh, and the pytest command lives there,
+# which is why the collector anchors on that file. The fixture mirrors that too:
+# anchoring on the lane's own text passed here while the real model saw nothing.
 PYTHON_CHECK_SH = """\
-run GATE pytest sh -c "cd '$PYDIR' && '$PY' -m {pytest_anchor} -n auto"
+run GATE pytest env CHECK_PY="$PY" sh "$HERE/extensions/python/test.sh"
+"""
+
+PYTHON_TEST_SH = """\
+exec "$PY" -m {pytest_anchor} -n auto
 """
 
 TEST_SH = """\
@@ -178,7 +186,10 @@ def build(root: Path, pytest_anchor: str) -> dict[str, int]:
     (root / "check.sh").write_text(CHECK_SH)
     component = root / "extensions/python/check.sh"
     component.parent.mkdir(parents=True, exist_ok=True)
-    component.write_text(PYTHON_CHECK_SH.format(pytest_anchor=pytest_anchor))
+    component.write_text(PYTHON_CHECK_SH)
+    (component.parent / "test.sh").write_text(
+        PYTHON_TEST_SH.format(pytest_anchor=pytest_anchor)
+    )
     (root / "test.sh").write_text(TEST_SH)
 
     # Two levels down, mirroring the real tests/checks/ so the checker's own

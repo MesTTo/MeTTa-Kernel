@@ -249,8 +249,12 @@ COLLECTORS = (
     # pytest files out of the executed model and turned 1080 backed claims
     # unbacked in one step [measured 2026-08-28: 575 executed files before the
     # move, 373 with this field stale, 575 again once it names the component].
+    # The anchor follows the command, not the lane. The pytest invocation moved
+    # out of the lane and into the seat's own test.sh, so that the gate and a
+    # developer run one file; anchoring on the lane's text here would have
+    # dropped all 202 test files out of this model the moment it did.
     Collector(
-        runner="extensions/python/check.sh",
+        runner="extensions/python/test.sh",
         tier="GATE",
         lane="pytest",
         anchor="pytest tests -q -p no:benchmark",

@@ -2289,6 +2289,20 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   in the evidence gate's source list too, where `engine/*.py` had been missing
   beside `engine/*.pl`; adding it exposed one unbacked claim immediately.
 
+- **The Python seat carries `test.sh` and `bench.sh`, so every component runs
+  its own tests and benchmarks the way the gate does.** The Node and C seats
+  gained both this session and the Python seat, which owns 206 test files and
+  every committed counter baseline, had neither: its parallel configuration
+  lived in the lane alone, so a developer typing `pytest` by hand got different
+  settings from the ones that make the run correct, and `sh bench.sh` reached
+  every suite except the largest. A new check names that class of gap rather
+  than leaving it to be noticed: a component owning a test directory must ship
+  the script that runs it, and one shipping a benchmark suite must ship the
+  baseline it is measured against
+  [tested: test_a_component_that_owns_tests_ships_the_script_that_runs_them,
+  test_a_component_that_ships_a_benchmark_suite_ships_its_baseline]. It found
+  the Python seat on its first run.
+
 - `metta list` shows TEST and BENCH beside BUILD and CHECK. A component that
   has tests or benchmarks but no script to run them keeps them reachable only
   by whoever knows the path, and the four columns are what make that gap
