@@ -77,9 +77,11 @@ def main() -> int:
         # The two entry points are exempt by NAME, and the exemption has to be
         # real: they load the purge as a module, which the path pattern cannot
         # see. A wrong name here would silence a file that should be checked.
-        for entry in ("engine/main.pl", "engine/bench.pl"):
-            if _complaints(root, ENGINE, entry):
-                defects.append(f"{entry} should be exempt by name and was not")
+        defects.extend(
+            f"{entry} should be exempt by name and was not"
+            for entry in ("engine/main.pl", "engine/bench.pl")
+            if _complaints(root, ENGINE, entry)
+        )
         if not _complaints(root, ENGINE, "engine/other.pl"):
             defects.append("the by-name exemption is too wide: engine/other.pl passed")
 

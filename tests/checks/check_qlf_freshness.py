@@ -1,5 +1,6 @@
-"""Purpose: refuse a file that loads the engine without first loading the purge
-that makes the engine's compiled artifacts honest.
+"""Purpose: refuse an engine loader that skips the stale-artifact purge.
+
+The purge is what makes the engine's compiled artifacts honest.
 
 Assumes:
   - ``engine/qlf_boot.pl`` is the purge, and loading it runs
