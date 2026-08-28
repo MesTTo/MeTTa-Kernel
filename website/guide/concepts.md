@@ -63,7 +63,7 @@ named space is any other `&name`. The current context resolves the way
 
 A space of expressions is also a knowledge graph, links connecting
 atoms including other links, and that reading needs no engine support:
-[`examples/integration/networkx_space.py`](https://github.com/trueagi-io/PeTTa/blob/main/extensions/python/examples/integration/networkx_space.py)
+[`examples/integration/networkx_space.py`](https://github.com/MesTTo/MeTTa-Kernel/blob/main/extensions/python/examples/integration/networkx_space.py)
 views any space as a networkx graph on the public surface alone, runs
 an algorithm no match can express, and writes the answer back as atoms.
 

@@ -141,7 +141,7 @@ one no runtime creates, as `symbol-ampersand` does.
 Both shipped seats ask this one question, per atom, and neither holds a list
 of names. The Python host asks it in `metta_py_encode/2` while encoding; the C
 seat, which has no wire and reads engine terms directly, asks it through
-`petta_c_space_operand/1` while decoding.
+`metta_c_space_operand/1` while decoding.
 
 ## Variables are identities, not names
 

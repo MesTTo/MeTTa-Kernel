@@ -17,7 +17,7 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/patham9/petta-ci:latest
+      image: ghcr.io/mestto/metta-kernel-ci:latest
     steps:
       - uses: actions/checkout@v4
 
@@ -93,7 +93,7 @@ jobs:
   report:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/patham9/petta-ci:latest
+      image: ghcr.io/mestto/metta-kernel-ci:latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -125,7 +125,7 @@ jobs:
   versions:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/patham9/petta-ci:latest
+      image: ghcr.io/mestto/metta-kernel-ci:latest
     strategy:
       fail-fast: false
       matrix:
@@ -163,7 +163,7 @@ jobs:
   wheel:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/patham9/petta-ci:latest
+      image: ghcr.io/mestto/metta-kernel-ci:latest
     steps:
       - uses: actions/checkout@v4
 

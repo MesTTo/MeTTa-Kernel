@@ -58,7 +58,7 @@ check("captured print output", "(hello world)" in output.text)
 check("the answers still arrive beside it", groups[1], [3])
 ```
 
-After the block, `s.inferences`, `s.cputime`, `s.walltime`, `s.gc_count`, `s.gc_freed`, and `s.gc_time` carry what the block spent. The full runnable example is [`operations/engine_controls.py`](https://github.com/trueagi-io/PeTTa/blob/main/extensions/python/examples/operations/engine_controls.py).
+After the block, `s.inferences`, `s.cputime`, `s.walltime`, `s.gc_count`, `s.gc_freed`, and `s.gc_time` carry what the block spent. The full runnable example is [`operations/engine_controls.py`](https://github.com/MesTTo/MeTTa-Kernel/blob/main/extensions/python/examples/operations/engine_controls.py).
 
 Control signals hold everywhere, by engine design: a bound, a Ctrl-C, or an `interrupt()` cannot be eaten by the evaluation it is stopping, not even by a program's own `(catch ...)`. That is the same reasoning that puts `KeyboardInterrupt` outside `Exception` in Python.
 

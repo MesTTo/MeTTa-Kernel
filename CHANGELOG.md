@@ -8,6 +8,18 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **One area per extension on the site, each publishing that seat's own
+  documentation from its own folder.** `/extensions/` introduces the seat model
+  — a folder carrying an `extension.pl`, with the two `entry/2` roles saying
+  which direction it faces — and each of the four seats has an area:
+  `/extensions/node` and `/extensions/cetta` include the READMEs those folders
+  already ship, `/extensions/mork` includes a README that seat did not have,
+  and `/extensions/python` routes to the tutorials, guide, integrations,
+  live-systems, reasoning and reference sections, which are that seat's
+  documentation and always were. Adding a seat and forgetting its page is now a
+  failing check rather than an omission nobody sees
+  [tested: test_every_extension_has_a_site_area].
+
 - **The site publishes the engine documents: `EXTENDING.md`, `KERNEL.md`,
   `CODEC.md` and `DEVELOPING.md` are an Engine section rather than files you
   only meet by browsing the repository.** Everything the site carried was
@@ -1018,6 +1030,21 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   measured quadratic or linear-in-program costs with flat ones.
 
 ### Changed
+
+- **The repository is MeTTa Kernel, and no name it owns is spelled `petta` any
+  more.** The Python module rename left the spelling behind in places that were
+  never swept: the project URLs and CITATION metadata, the CI container image,
+  the site's project-hosting base path, `metta_c_set_silent/1` in the engine's
+  own comment and in two tests, `CODEC.md`'s `metta_c_space_operand/1`, and a
+  test beacon string. `&petta` went with them, and that one was not a rename but
+  a correction: the engine's boot spaces measure `['&metta', '&self']`, so the
+  public `Space.space_names` docstring, the guide page reproducing it and the
+  engine-free `shim.plt` fixture had all been stating a space that does not
+  exist. What is deliberately NOT renamed is every name belonging to something
+  else: the upstream repositories this one forked from, which the lineage
+  section exists to record, `../PeTTa-base` and the prose comparing against
+  upstream, and the sibling packages `pettagrapher`, `pettaprove` and
+  `jupyter-petta-kernel`.
 
 - **Two lanes stopped measuring what they named, because the JSON they were
   standing on moved into C.** Both counted inferences, and inferences are

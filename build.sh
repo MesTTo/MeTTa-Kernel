@@ -11,7 +11,7 @@
 #   - running it twice does what running it once does, and leaves
 #     `git status --porcelain` unchanged
 #     [tested: tests/shell/test_build_is_idempotent_and_anchored.sh]
-#   - it runs the same from any working directory, so `sh /path/to/PeTTa/build.sh`
+#   - it runs the same from any working directory, so `sh /path/to/MeTTa-Kernel/build.sh`
 #     provisions beside THIS checkout rather than beside the caller
 #     [tested: tests/shell/test_build_is_idempotent_and_anchored.sh]
 #   - every exit is honest. This used to have no `set -e`, so a failed cargo

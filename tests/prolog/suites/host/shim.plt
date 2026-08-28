@@ -37,7 +37,7 @@ metta_match_atoms(Left, Right) :-
 %test_r2_space_handle.py, test_codec_conformance.py and test_c_binding.py
 %exercise the real question against a live engine.
 metta_space_operand('&self').
-metta_space_operand('&petta').
+metta_space_operand('&metta').
 
 %Both directories are resolved against THIS FILE rather than against the
 %working directory, because a load-time directive is. python_semantics_oracle

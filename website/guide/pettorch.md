@@ -40,4 +40,4 @@ See the shared [`metta.arrays`](../reference/metta-arrays), [`metta.integrate`](
 
 ## Repository status
 
-The audited pettorch checkout at commit `a501f6e` has no configured remote, and no separate public pettorch repository is currently available to link. The public [MeTTa repository](https://github.com/trueagi-io/PeTTa) describes pettorch as a sibling project. A pettorch URL should be added here only after that checkout has an actual public remote.
+The audited pettorch checkout at commit `a501f6e` has no configured remote, and no separate public pettorch repository is currently available to link. The public [MeTTa repository](https://github.com/MesTTo/MeTTa-Kernel) describes pettorch as a sibling project. A pettorch URL should be added here only after that checkout has an actual public remote.

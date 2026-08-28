@@ -302,7 +302,7 @@ prolog:message(metta_source_replaced(CanonPath, Spaces, Atoms)) -->
 %The same decision for a host that has no command line to read. It is the
 %engine's because it is host-agnostic bookkeeping: extensions/python and
 %extensions/cetta each carried their own three-line copy under a private name
-%(metta_py_set_silent/1, petta_c_set_silent/1) and this file's export comment
+%(metta_py_set_silent/1, metta_c_set_silent/1) and this file's export comment
 %named one of them, so the engine had a documented dependency on a binding's
 %internals. extensions/node needed no copy only because it owns its whole
 %process and can put `silent` in argv before boot, which a binding embedded in

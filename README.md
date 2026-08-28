@@ -4,11 +4,10 @@ Guarantees: every Python code block executes against the documented public API.
 [tested: python -m pytest extensions/python/tests/repository/test_readme.py -q; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 -->
 
-## MeTTa
+## MeTTa Kernel
 
 Efficient MeTTa language implementation in Prolog.
 
-Please check out the [Wiki](https://github.com/patham9/PeTTa/wiki) for more information.
 Contributor setup, gates, and measurement rules are in [DEVELOPING.md](DEVELOPING.md),
 and what a contribution has to be is in [CONTRIBUTING.md](CONTRIBUTING.md).
 Report a vulnerability privately, the way [SECURITY.md](SECURITY.md) describes,
@@ -16,10 +15,11 @@ rather than in an issue.
 
 ### Lineage
 
-This is Patrick Hammer's MeTTa implementation. Its canonical repository is
+MeTTa Kernel builds on Patrick Hammer's MeTTa implementation, whose repository is
 [trueagi-io/PeTTa](https://github.com/trueagi-io/PeTTa), begun under
-[patham9/PeTTa](https://github.com/patham9/PeTTa), where the Wiki still
-lives. The `python-library` branch develops the `metta` Python module on
+[patham9/PeTTa](https://github.com/patham9/PeTTa), where its
+[Wiki](https://github.com/patham9/PeTTa/wiki) still lives and stays worth
+reading. The `python-library` branch develops the `metta` Python module on
 top of the engine: the engine's behaviour is the upstream contract, held by
 a gate that runs every shipped example through both the engine and the
 library and requires identical verdicts, and the Python surface is this
@@ -47,7 +47,7 @@ rows = m.match(S.Parent(S.Tom, V.child))
 assert rows.to_dicts() == [{"child": "Bob"}]
 ```
 
-The [Python guide](https://trueagi-io.github.io/PeTTa/guide/) starts with the
+The [Python guide](https://mestto.github.io/MeTTa-Kernel/guide/) starts with the
 atom model and builds through queries, equations, types, and integrations.
 
 ### Dependencies
@@ -533,10 +533,10 @@ npm run docs:build
 npm run docs:preview
 ```
 
-The site is built for project hosting under the `/PeTTa/` path, so the
-preview answers at `http://localhost:4173/PeTTa/` and the server root
+The site is built for project hosting under the `/MeTTa-Kernel/` path, so the
+preview answers at `http://localhost:4173/MeTTa-Kernel/` and the server root
 shows the site's 404 page. `npm run docs:dev` serves the same content
-live at `http://localhost:5173/PeTTa/`. The reference pages and the
+live at `http://localhost:5173/MeTTa-Kernel/`. The reference pages and the
 visuals are committed; after changing docstrings or the illustrations,
 regenerate them with `extensions/python/tools/reference.py --write` and
 `website/scripts/generate_visuals.py`, and `website/scripts/audit_snippets.py`

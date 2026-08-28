@@ -25,9 +25,9 @@ const mettaLanguage = {
 export default defineConfig({
   title: "MeTTa Python",
   description: "Use MeTTa as a Python library and compose integrations through it.",
-  base: "/PeTTa/",
+  base: "/MeTTa-Kernel/",
   head: [
-    ["link", { rel: "icon", type: "image/svg+xml", href: "/PeTTa/visuals/favicon.svg" }],
+    ["link", { rel: "icon", type: "image/svg+xml", href: "/MeTTa-Kernel/visuals/favicon.svg" }],
   ],
   // localhost examples in docstrings are unreachable at build time by nature
   ignoreDeadLinks: [/^https?:\/\/localhost/],
@@ -52,9 +52,10 @@ export default defineConfig({
       { text: "Reasoning", link: "/reasoning/" },
       { text: "Integrations", link: "/integrations/" },
       { text: "Live systems", link: "/live/" },
+      { text: "Extensions", link: "/extensions/" },
       { text: "Engine", link: "/engine/" },
       { text: "Reference", link: "/reference/" },
-      { text: "GitHub", link: "https://github.com/trueagi-io/PeTTa" },
+      { text: "GitHub", link: "https://github.com/MesTTo/MeTTa-Kernel" },
     ],
     sidebar: [
       {
@@ -123,6 +124,16 @@ export default defineConfig({
           { text: "Deployment as knowledge", link: "/live/boot" },
           { text: "The remote space protocol", link: "/live/remote-protocol" },
           { text: "The loop stays live", link: "/live/async" },
+        ],
+      },
+      {
+        text: "Extensions",
+        link: "/extensions/",
+        items: [
+          { text: "Python", link: "/extensions/python" },
+          { text: "Node", link: "/extensions/node" },
+          { text: "C", link: "/extensions/cetta" },
+          { text: "MORK", link: "/extensions/mork" },
         ],
       },
       {
@@ -205,7 +216,7 @@ export default defineConfig({
       },
     ],
     search: { provider: "local" },
-    socialLinks: [{ icon: "github", link: "https://github.com/trueagi-io/PeTTa" }],
+    socialLinks: [{ icon: "github", link: "https://github.com/MesTTo/MeTTa-Kernel" }],
     footer: {
       message: "Released under the MIT License.",
       copyright: "MesTTo",

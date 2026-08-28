@@ -5,8 +5,8 @@ type: software
 authors:
   - family-names: "Hammer"
     given-names: "Patrick"
-repository-code: "https://github.com/trueagi-io/PeTTa"
-url: "https://github.com/trueagi-io/PeTTa"
+repository-code: "https://github.com/MesTTo/MeTTa-Kernel"
+url: "https://github.com/MesTTo/MeTTa-Kernel"
 license: MIT
 keywords:
   - MeTTa

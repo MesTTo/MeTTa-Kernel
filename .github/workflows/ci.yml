@@ -54,7 +54,7 @@ jobs:
       - name: Compute image ref
         id: compute
         run: |
-          echo "image=ghcr.io/patham9/petta-ci" >> $GITHUB_OUTPUT
+          echo "image=ghcr.io/mestto/metta-kernel-ci" >> $GITHUB_OUTPUT
           echo "tag=pr-${{ github.event.number || github.run_id }}" >> $GITHUB_OUTPUT
 
       - name: Login to GHCR
@@ -106,7 +106,7 @@ jobs:
       - name: Resolve image
         id: resolve
         run: |
-          DEFAULT="ghcr.io/patham9/petta-ci:latest"
+          DEFAULT="ghcr.io/mestto/metta-kernel-ci:latest"
           if [ "${{ needs.build-image.outputs.pushed }}" = "true" ]; then
             echo "image=${{ needs.build-image.outputs.image }}:${{ needs.build-image.outputs.tag }}" >> $GITHUB_OUTPUT
           else
@@ -165,7 +165,7 @@ jobs:
         with:
           context: .
           file: .github/ci/Dockerfile
-          tags: ghcr.io/patham9/petta-ci:latest
+          tags: ghcr.io/mestto/metta-kernel-ci:latest
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
