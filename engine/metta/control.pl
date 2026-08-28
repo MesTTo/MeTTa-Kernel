@@ -254,7 +254,7 @@ metta_call_with_inference_bound(Goal, Limit) :-
 %and the three is the same whatever an answer costs. So the fraction is the
 %number to be careful with: 0.74% where an answer costs 407 inferences, 9.68%
 %at 31, 49.95% at 6 [tested: tests/prolog/suites/evaluation/inference_budget.plt,
-%the_cumulative_check_costs_three_inferences_per_answer; commit=WORKTREE].
+%the_cumulative_check_costs_three_inferences_per_answer; commit=a8ea956cecbe8af67a7dd340f00c74dd94dbfb7c].
 %
 %This said TWO until 2026-08-28 and was wrong, in the direction that makes a
 %cost look affordable. The figure came from the C seat's ORIGINAL host-side
@@ -269,7 +269,7 @@ metta_call_with_inference_bound(Goal, Limit) :-
 %holds its pin within the four-inference allowance, where a host-visible
 %per-answer charge would move it by 5,000
 %[tested: extensions/python/bench.py --counter-only query-limit-guarded
-%query-limit-plain; commit=WORKTREE].
+%query-limit-plain; commit=a8ea956cecbe8af67a7dd340f00c74dd94dbfb7c].
 %
 %Keeping the check behind metta_inference_budget_spent/3 is also the CHEAPER
 %shape, which is not the obvious way round: the clause HEAD discriminates the
@@ -277,7 +277,7 @@ metta_call_with_inference_bound(Goal, Limit) :-
 %where the same test written inline into the built term pays a comparison for
 %it and costs four per answer rather than three
 %[source: SWI-Prolog 10 Reference Manual, Indexing databases,
-%https://www.swi-prolog.org/pldoc/man?section=jitindex; commit=WORKTREE].
+%https://www.swi-prolog.org/pldoc/man?section=jitindex; commit=a8ea956cecbe8af67a7dd340f00c74dd94dbfb7c].
 %
 %The budget belongs to the resumable entity, which is the same place wasmtime
 %puts Store fuel and BEAM puts a process's reduction count
@@ -313,14 +313,14 @@ metta_host_inference_budget(Goal, Inferences, Bounded) :-
 %THE COMMON OUTCOME IS THE `then` BRANCH, the same rule masked_result_goal/3
 %is written to and for the same measured reason [source:
 %engine/translator/special_forms.pl, masked_result_goal/3, where reversing two
-%branches cost 1.05% of a million-call loop; commit=WORKTREE]. SWI charges an
+%branches cost 1.05% of a million-call loop; commit=a8ea956cecbe8af67a7dd340f00c74dd94dbfb7c]. SWI charges an
 %if-then-else one more inference when its condition fails than when it
 %succeeds, and the condition here fails on every answer that is within budget,
 %which is nearly all of them. Spelling it `> -> throw ; true` instead costs
 %four inferences per answer rather than three, measured identically at answer
 %costs of 407, 31 and 6 [tested:
 %tests/prolog/suites/evaluation/inference_budget.plt,
-%the_cumulative_check_costs_three_inferences_per_answer; commit=WORKTREE].
+%the_cumulative_check_costs_three_inferences_per_answer; commit=a8ea956cecbe8af67a7dd340f00c74dd94dbfb7c].
 %The two forms are equivalent because integer comparison is total: exactly one
 %of `>` and `=<` holds for the same pair.
 %
@@ -333,7 +333,7 @@ metta_host_inference_budget(Goal, Inferences, Bounded) :-
 %order: `> -> throw ; true` and `=< -> throw ; true` both consult for
 %1,418,538, and `=< -> true ; throw` and `> -> true ; throw` both for
 %1,418,553 [measured 2026-08-28: consult of engine/metta.pl, all four variants
-%in one run; commit=WORKTREE].
+%in one run; commit=a8ea956cecbe8af67a7dd340f00c74dd94dbfb7c].
 metta_inference_budget_spent(inference_limit_exceeded, _, Inferences) :-
     !,
     metta_inference_bound_exceeded(Inferences).
