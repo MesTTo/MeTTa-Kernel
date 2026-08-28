@@ -2382,6 +2382,45 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **A red row in the C benchmark could not tell you whether it was about this
+  seat's tree.** A C host boots with the `extensions` token, so every seat whose
+  declared needs hold loads into the process being measured, and a seat's Prolog
+  joins the engine's shared multifile seams rather than sitting beside them: the
+  Node bridge's own `seam:foreign_space/1` cost one inference on every space
+  operation, consulted by the matcher, the type resolvers, the translator and
+  the codec. So a seat edited since the pin was taken can move a counter here
+  with no change in this seat at all, and the row reads as a regression in the
+  wrong tree. `counter_configuration` recorded which seats LOAD and nothing
+  about what they contain, so nothing said otherwise.
+  A failing row now names any loaded seat whose declared Prolog differs from
+  HEAD, following `entry/2` out of each `extension.pl` and the loads those files
+  make inside their own seat. Against HEAD rather than a stamp in the baseline,
+  deliberately: a stamp would REFUSE every comparison while a sibling seat is
+  being worked on, which is a false failure this seat would be inventing, and it
+  would need re-pinning where this needs nothing. It is read only when a row has
+  already failed, and it answers the question a reader of a red row actually
+  has.
+  The occasion for it was an attribution that turned out to be wrong, which is
+  worth recording next to the fix: `cursor-step` and `term-in` sat outside their
+  0.1% instruction band with inferences exactly on pin, reverting every file of
+  this seat left them equally red, and the Node bridge had just gone from 5 to
+  18 seam clause heads. On a quieter box both returned to within 0.010% of a pin
+  taken before any of that: they are multi-modal, with gaps near 0.1% that
+  straddle their own band. A control that removes your own change separates
+  "mine" from "not mine" and says nothing about which of the others it was.
+
+- **Two C benchmark rows carried a band narrower than their own measured
+  noise.** `measurement_conditions` recorded a battery-minimum spread reaching
+  0.129% and then concluded that the instruction pins "held through every load
+  level seen here", while `cursor-step` and `term-in` carried the 0.1% default.
+  A band below the noise floor must go red for no cause, and both did. Their
+  minima cluster in two modes 0.127% and 0.113% apart, each mode stable within
+  itself across three to seven consecutive batteries, inferences exactly on pin
+  throughout, and both modes reproduce with every file of this seat reverted, so
+  the modes are layout rather than work. Each row now declares 0.15% beside that
+  measurement; the other four held at 0.1% and keep it. The widened band still
+  fails: a planted 0.2% regression reds it.
+
 - **A suite could pass against the previous compile of whatever unit it was
   testing.** The engine's units are consulted by umbrellas, so
   `engine/spaces/foreign.pl` is compiled into `engine/spaces.qlf` and there is
