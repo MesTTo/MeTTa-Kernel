@@ -7,7 +7,7 @@
 # ai-* is the workspace's own marker for agent scratch, local plans, todos and
 # handoff notes. Skipping the prefix rather than each file keeps a new note
 # from blocking a push over a typo in something that never ships.
-skip = *.lock,*.pyc,*.svg,package-lock.json,.git,node_modules,__pycache__,build,dist,target,repos,ai-*,HE,pymetta.egg-info
+skip = *.lock,*.pyc,*.svg,package-lock.json,.git,node_modules,__pycache__,build,dist,target,repos,ai-*,pymetta.egg-info
 # intensional: NARS distinguishes intensional from extensional inheritance,
 #   so every hit in lib_nars.metta is the correct term.
 # DOut, SourceE: Prolog variable names in translator.pl and shim.pl.

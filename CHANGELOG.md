@@ -1769,6 +1769,21 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Removed
 
+- **`extensions/python/HE/`, the Hyperon-Experimental bridge.** Three files
+  registered a grounded atom inside upstream Hyperon so that
+  `!(metta (fib 10))` there evaluated on this engine and returned its answers
+  as a `superpose`, with `compileme.metta` and `hyperonexperimental.metta` as
+  the demo. Its purpose was upstream interop, which carries no weight here any
+  more, and nothing ran it: `hyperon` is not a dependency, no test imports it,
+  and it was the only directory in the Python tree excluded from `ruff`,
+  `interrogate`, `bandit`, `deptry`, `jscpd` and `codespell` at once. The
+  rename to the `metta` module had also cost it the distinctness it was built
+  for — upstream still carries it as `pettamorph.py` registering a `petta`
+  token, while ours had become `mettamorph.py` registering `metta`, colliding
+  by name with MeTTa-Morph's own extension module and with minimal MeTTa's own
+  `metta` instruction. All six tool exclusions and the `check_spec_status.py`
+  scan entry go with it.
+
 - The two dozen flat aliases at the top of `examples/` are gone, along with
   `examples/_fixtures`. Each was a symlink into a topic folder, kept when the
   corpus was first grouped so that older paths still resolved; none of them

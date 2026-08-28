@@ -130,7 +130,7 @@ pythonpath = ["."]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-extend-exclude = ["HE", "examples/**/_common.py"]
+extend-exclude = ["examples/**/_common.py"]
 
 [tool.ruff.lint]
 # Refurb owns these newer rules. Ruff must preserve their targeted ``noqa``
@@ -270,7 +270,7 @@ follow_imports = "skip"
 
 [tool.interrogate]
 fail-under = 80
-exclude = ["tests", "HE", "examples", "build"]
+exclude = ["tests", "examples", "build"]
 ignore-init-method = true
 ignore-init-module = true
 ignore-magic = true
@@ -320,7 +320,7 @@ ignore_names = ["exc_type", "exc_val", "exc_tb", "tb", "exc"]
 ignore = ["FURB123", "FURB149", "FURB138", "FURB107", "FURB140", "FURB184"]
 
 [tool.bandit]
-exclude_dirs = ["tests", "HE", "build"]
+exclude_dirs = ["tests", "build"]
 
 # _compliance.py and _gateway_compliance.py are pytest suites that happen to
 # ship: their asserts ARE the contract a space provider or gateway is held to,
@@ -335,7 +335,7 @@ known_first_party = [
     "metta", "example_parity", "twin_coverage", "phrasebook", "phrasebook_entries",
     "alpha",
 ]
-extend_exclude = ["HE", "examples", "build", "bench.py", "benchmarks"]
+extend_exclude = ["examples", "build", "bench.py", "benchmarks"]
 optional_dependencies_dev_groups = ["test", "checks"]
 
 # Every one of these is imported, and none of them by a statement a static

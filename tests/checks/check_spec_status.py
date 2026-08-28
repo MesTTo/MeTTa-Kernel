@@ -505,7 +505,7 @@ def extract_code_spans(row: SpecRow) -> list[str]:
 # ------------------------------------------------------------- tree facts
 PROLOG_DIRS = ("engine", "lib", "extensions/mork", "extensions/mork/mork_ffi", "extensions/python/metta", "tests")
 METTA_DIRS = ("lib", "examples", "extensions/python/examples", "tests")
-PYTHON_DIRS = ("extensions/python/metta", "extensions/python/tools", "extensions/python/examples", "extensions/python/benchmarks", "extensions/python/HE")
+PYTHON_DIRS = ("extensions/python/metta", "extensions/python/tools", "extensions/python/examples", "extensions/python/benchmarks")
 IMPLEMENTATION_DIRS = ("engine", "lib", "extensions/mork", "extensions/mork/mork_ffi", "extensions/python/metta")
 
 PROLOG_CLAUSE_HEAD = re.compile(r"^([a-z][A-Za-z0-9_]*)\(", re.MULTILINE)
