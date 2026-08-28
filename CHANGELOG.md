@@ -70,6 +70,48 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   deciding counter is not the default one cannot ship a file that states the
   opposite of its own rule.
 
+- **The engine has a benchmark suite of its own, measured with no host in the
+  process: `sh engine/bench.sh`.** The only benchmark suite in this tree was
+  `extensions/python/benchmarks/`, and every case in it reaches the engine
+  through the Python host, so an engine change's cost could only be observed
+  with a host's cost added to it and a reader or translator regression arrived
+  diluted by whatever the harness spent around it. Each sample here is a fresh
+  `swipl -g "metta_bench:bench_run(<case>)" -t halt engine/bench.pl` and
+  nothing else. Seven cases, each with its own committed pin in
+  `engine/bench-baseline.json` and its own paragraph there saying why that
+  workload: `boot` loads the engine the way `engine/main.pl` does, `parse` and
+  `parse-prolog` read `engine/prelude.metta` 25 times through the shipped door
+  and through `parse_metta_source_prolog/2`, `translate` compiles
+  `lib/lib_pln/lib_pln.metta`'s 77 equations over 49 names, `match` and
+  `match-skew` run the selective and the skewed query shapes
+  `examples/ch18-performance/18-01-larger-workloads/01-scale.metta` defines
+  over a space its own `addK` fills with 50,000 atoms, and `evaluate` runs
+  `map-flat` over `(range 50000)` from that chapter's `02-holbenchmark.metta`.
+  The workloads are the tree's own text rather than strings invented for a
+  benchmark, and the baseline digests every one of them, so editing a corpus
+  file REFUSES the comparison naming the file instead of reporting a move the
+  engine did not make.
+
+  Inferences decide, because they are deterministic under load: every case read
+  an identical count in all three samples of three consecutive runs at loadavg
+  10.8 to 13.3. `perf stat -e instructions:u` rides along as the second
+  counter, measured over the same region through perf's control descriptors so
+  it excludes the boot every case would otherwise carry; the `parse` case needs
+  it, since with `engine/reader.so` present that door retires 152 inferences
+  for 25 reads and the work is all in C. Wall time is recorded and decides
+  nothing. Comparison, the two-sided band, the configuration stamp and the
+  atomic re-pin are `metta.testing`'s, imported rather than reimplemented, so
+  there is one baseline format and one regression protocol across the
+  repository. `sh engine/bench.sh --update-baseline` re-pins and prints what
+  moved and by how much
+  [tested: engine/bench.sh].
+
+- **`engine/check.sh`, which did not exist.** The root gate's component loop
+  names `"$HERE"/engine/check.sh` first and `[ -f ... ] || continue` had been
+  swallowing its absence, so the largest component was the one with no lanes of
+  its own. It carries the `engine-bench` lane
+  [tested: engine/bench.sh].
+
 - **One area per extension on the site, each publishing that seat's own
   documentation from its own folder.** `/extensions/` introduces the seat model
   — a folder carrying an `extension.pl`, with the two `entry/2` roles saying

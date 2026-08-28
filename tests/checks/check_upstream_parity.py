@@ -18,9 +18,12 @@ on 1.05e9 [measured 2026-08-17], far under the 500k absolute allowance.
 Assumes:
   - the upstream checkout at ../PeTTa-base is read-only and pinned, so its
     numbers freeze into the baseline; --rebaseline re-measures everything
-    [source: PyPeTTa1/CLAUDE.md, PeTTa-base scope].
-  - perf_event_paranoid permits instructions:u without privileges here
-    [source: PyPeTTa1/PeTTa/CLAUDE.md, Measurement].
+    [assumed: the sibling checkout is a reference copy nothing in this
+    repository writes to, which this tool relies on and cannot enforce].
+  - perf_event_paranoid permits instructions:u without privileges
+    [source: /proc/sys/kernel/perf_event_paranoid, which reads -1 on the
+    machine these numbers were taken on; a stricter value makes
+    measure_instructions fail loudly rather than silently skip].
 Decides: the allowances. Cross-engine, 2% + 500k instructions; within-tree,
   2% + 200 inferences. An example whose three runs disagree on inferences
   is nondeterministic and excluded with its status printed.

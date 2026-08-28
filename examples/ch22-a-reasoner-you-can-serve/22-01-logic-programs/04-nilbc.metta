@@ -94,8 +94,6 @@
 
 ;; Base cases
 
-;; Claude Opus 4.1 rewrote the variable names :D
-
 ;; Match the knowledge base
 ;;
 ;; The query is destructured in the BODY rather than in the head. A head
