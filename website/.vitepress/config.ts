@@ -5,7 +5,7 @@ Guarantees:
     [tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
   - every page in the site is reachable from this navigation, so a written page
     cannot ship findable only by search
-    [tested: test_every_site_page_is_reachable_from_the_navigation; commit=WORKTREE]
+    [tested: test_every_site_page_is_reachable_from_the_navigation; commit=a7d2f292004fe06d7671b7931cfc2ce4620b7b35]
 Open Obligations:
   To Do: None
   Hacks: None

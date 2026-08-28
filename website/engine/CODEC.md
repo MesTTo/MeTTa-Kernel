@@ -8,7 +8,7 @@ Assumes: EXTENDING.md's closing table links CODEC.md as a sibling, so this page
   carries the source file's own name and that relative link resolves here too.
 Guarantees: the page is exactly the committed CODEC.md, whose tables the
   codec-doc gate regenerates from tests/codec/corpus.json
-  [tested: test_every_site_include_resolves; commit=WORKTREE]
+  [tested: test_every_site_include_resolves; commit=a7d2f292004fe06d7671b7931cfc2ce4620b7b35]
 -->
 
 <!--@include: ../../CODEC.md-->

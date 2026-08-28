@@ -4,7 +4,7 @@ Purpose: route readers to the four engine-level documents the repository keeps
 Assumes: each page here includes its root document rather than copying it, so
   this index describes documents whose text lives one directory up from the site.
 Guarantees: every document named here has a page in this section
-  [tested: test_every_site_page_is_reachable_from_the_navigation; commit=WORKTREE]
+  [tested: test_every_site_page_is_reachable_from_the_navigation; commit=a7d2f292004fe06d7671b7931cfc2ce4620b7b35]
 -->
 
 # The engine
