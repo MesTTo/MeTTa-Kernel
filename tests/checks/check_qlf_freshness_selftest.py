@@ -5,7 +5,7 @@ Guarantees:
     resolves from a different directory each fail on their own, while a
     correct loader, a declared exemption and the two exempt-by-name entry
     points pass [tested: tests/checks/check_qlf_freshness_selftest.py;
-    commit=WORKTREE]
+    commit=62b310ed73dfe13f24cc1bd149af3c68ba2dff0e]
 Fails when:
   - run from a directory the check's own ROOT cannot be derived from; it
     imports the gate rather than re-implementing its patterns, so the two

@@ -9,7 +9,7 @@ Assumes:
 Guarantees:
   - every file loading ``engine/metta.pl`` loads ``engine/qlf_boot.pl`` first,
     or declares an exemption in place
-    [tested: tests/checks/check_qlf_freshness_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_qlf_freshness_selftest.py; commit=62b310ed73dfe13f24cc1bd149af3c68ba2dff0e]
 Fails when:
   - a loader is added without the purge, which is silent otherwise: the suite
     passes, against the previous compile of whatever unit was edited
