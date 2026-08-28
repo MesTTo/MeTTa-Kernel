@@ -71,4 +71,24 @@ if [ "$after" != loaded ]; then
     exit 1
 fi
 
-echo "ok: a worktree runs one backend fewer until worktree.sh links it"
+# The backend is one of the artefacts a worktree lacks; the engine's own C is
+# the other, and it is checked the same way rather than by naming a file,
+# because an artefact this test did not know about is the same hole with a new
+# name. Skipped where nothing can build C at all, which is the one case
+# worktree.sh reports rather than fails.
+if command -v swipl-ld >/dev/null 2>&1 &&
+   { command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1 ||
+     command -v clang >/dev/null 2>&1; }; then
+    for source in "$tree"/engine/*.c; do
+        [ -f "$source" ] || continue
+        unit=${source%.c}
+        if [ ! -f "$unit.so" ]; then
+            echo "FAIL: worktree.sh left $(basename "$unit").c without its .so," >&2
+            echo "      so this worktree runs that unit's Prolog fallback while" >&2
+            echo "      its counters are compared against pins measured in C" >&2
+            exit 1
+        fi
+    done
+fi
+
+echo "ok: a worktree runs one backend fewer, and no engine C, until worktree.sh provisions it"

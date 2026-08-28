@@ -11,14 +11,18 @@
 #   - the C extension example's cbump and handle shared objects are built in
 #     the worktree exactly as check.sh builds them, so a direct pytest run
 #     here exercises the same integration surface instead of skipping it.
-#   - engine/reader.so and engine/writer.so are built from the worktree's OWN
-#     reader.c and writer.c through the same engine/build.sh check.sh drives,
-#     so benchmarks and suites here measure the C-reader and C-writer
-#     configuration the main gate measures: reader artifact presence alone
-#     moves file-load 8704891 to 722264 with zero code change, and a worktree
-#     without the artifacts silently benchmarks the Prolog fallbacks against
-#     C pins [measured 2026-08-25 on a detached scratch worktree,
-#     bench.py --counter-only, same commit both ways; commit=f48e9d8e6fa62eeff46082b6f8584cfe44bc5b93].
+#   - every engine C artefact is built from the worktree's OWN source through
+#     engine/build.sh, exactly as check.sh builds them, so benchmarks and
+#     suites here measure the configuration the main gate measures: artifact
+#     presence alone moves file-load 8704891 to 722264 with zero code change,
+#     and a worktree without the artifact silently benchmarks the Prolog
+#     fallback against C pins [measured 2026-08-25 on a detached scratch
+#     worktree, bench.py --counter-only, same commit both ways;
+#     commit=f48e9d8e6fa62eeff46082b6f8584cfe44bc5b93]. It builds them ALL
+#     rather than naming reader.c, because a second artefact that this script
+#     did not know about is the same hole with a new name: json-wire reads
+#     178013 inferences with engine/json_codec.so and 169336779 without
+#     [measured 2026-08-28; commit=ddc48b3f48247e3db4bb9758d25767f3793d623f].
 # Fails when:
 #   - the main checkout has not been built. That is reported, because a
 #     worktree quietly running a SMALLER configuration than the tree it was
@@ -94,16 +98,25 @@ else
     echo "worktree.sh: swipl-ld not found, the chapter 19 C examples will skip" >&2
 fi
 
-# The engine's C reader and C writer are gitignored build output with their
-# own gates: parses run in C only while engine/reader.so exists beside
-# reader.c, and writes only while engine/writer.so exists beside writer.c.
-# Build them from THIS tree's sources (not links from the main checkout, whose
-# reader.c and writer.c may differ across commits), through the same
-# engine/build.sh check.sh drives, with the same stance: a missing toolchain
-# notes the fallback, a build failure fails loudly.
-if [ -f "$HERE/engine/build.sh" ]; then
+# The engine's C artefacts are gitignored build output, each with its own
+# presence gate: parses run in C only while engine/reader.so exists beside
+# reader.c, and JSON only while engine/json_codec.so exists beside
+# json_codec.c. Build them from THIS tree's sources (not a link from the main
+# checkout, whose sources may differ across commits) through the same
+# engine/build.sh check.sh runs, so a worktree cannot end up one C artefact
+# short of the tree it was cut from. A missing toolchain notes the fallback; a
+# build that is attempted and fails is fatal.
+if ! command -v swipl-ld >/dev/null 2>&1; then
+    echo "worktree.sh: swipl-ld not found, this worktree runs the engine's Prolog implementations and its counters will not compare against pins measured with the C ones" >&2
+elif ! command -v cc >/dev/null 2>&1 &&
+     ! command -v gcc >/dev/null 2>&1 &&
+     ! command -v clang >/dev/null 2>&1; then
+    # swipl-ld drives a C compiler it does not carry; without one the build
+    # fails, so this rung notes the fallback the way engine/build.sh does.
+    echo "worktree.sh: swipl-ld found but no C compiler, this worktree runs the engine's Prolog implementations and its counters will not compare against pins measured with the C ones" >&2
+else
     sh "$HERE/engine/build.sh" ||
-        { echo "worktree.sh: engine/build.sh failed; suites here would measure the Prolog fallbacks against C-reader and C-writer pins" >&2
+        { echo "worktree.sh: an engine C artefact failed to build; suites here would measure a Prolog fallback against pins measured with the C one" >&2
           exit 1; }
 fi
 

@@ -1,9 +1,8 @@
-# The C reader and the C writer, built beside reader.c and writer.c by
-# engine/build.sh (and by check.sh when it needs the shipping configuration).
-# One machine's binaries: the engine falls back to the Prolog grammar and the
-# Prolog writer when they are absent, so neither is ever shipped.
-reader.so
-writer.so
+# The engine's C artifacts, built beside their .c by engine/build.sh (and by
+# check.sh when it needs the shipping configuration). One machine's binaries:
+# the engine falls back to the Prolog implementation each one accelerates when
+# it is absent, so they are never shipped.
+*.so
 
 # SWI's Quick Load Format artifacts. They generate lazily on first boot and are
 # tied to the SWI version that wrote them, which is why a wheel must not carry
