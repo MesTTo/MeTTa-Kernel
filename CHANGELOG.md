@@ -8,6 +8,31 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **The C seat carries its own `test.sh` and `bench.sh`, and the gate calls the
+  same two files a developer does.** `extensions/cetta/test.sh` builds from
+  clean and runs the C suite plus the three examples, which is exactly what the
+  `c-binding` lane now invokes; `extensions/cetta/bench.sh` builds and runs a
+  new `c-bench` lane over six workloads a C host actually pays for: the process
+  boot to a usable engine, one `cetta_answers_step`, a term crossing in each
+  direction through `cetta_show` and `cetta_parse`, an add-and-match pair, and
+  an engine error rendered back to C as words. Both lanes keep the seat's skip
+  protocol, so a missing compiler, missing SWI headers, missing `perf` or a
+  Python that cannot import `metta` is named and skipped rather than failed.
+
+- **Counter pins that survive a foreign boundary: `measure_counters`,
+  `observe_measurement`, and the `INSTRUCTIONS` and `CPU_SECONDS` metrics.**
+  Inference counters are blind across the C boundary because foreign code
+  retires no inferences at all, and this tree has the failure on record: a C
+  wire encoder measured 526x faster on the inference counter while CPU time
+  said it was 1.8x SLOWER. `measure_counters` runs one `perf stat` for several
+  events and returns each run's counters and its standard output;
+  `observe_measurement` gives CPU time the same two-sided declared band
+  instructions already had, so a drop still fails as a stale pin. Every C-seat
+  case is decided by `instructions:u` and CPU time PAIRED. A baseline document
+  now also takes its policy prose from its runner's source, so a seat whose
+  deciding counter is not the default one cannot ship a file that states the
+  opposite of its own rule.
+
 - **One area per extension on the site, each publishing that seat's own
   documentation from its own folder.** `/extensions/` introduces the seat model
   — a folder carrying an `extension.pl`, with the two `entry/2` roles saying

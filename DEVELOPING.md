@@ -150,6 +150,19 @@ Sibling packages should import `BenchmarkBaseline`, `benchmark_case`,
 `count_atoms`, and `measure_instructions` from `metta.testing`. Do not copy the
 harness into another repository.
 
+A package measuring across a FOREIGN boundary needs two more of them, because
+the inference counter is blind there: foreign code retires no inferences, and a
+C wire encoder in this tree once measured 526x faster on that counter while CPU
+time said it was 1.8x slower. `measure_counters` runs a command under `perf
+stat` for several events at once and hands back each run's counters and its
+standard output, and `BenchmarkBaseline.observe_measurement` pins any of them
+against a declared two-sided band. The two declarations that exist are
+`INSTRUCTIONS` and `CPU_SECONDS`; pair them, and never let inferences decide
+alone. `extensions/cetta/benchmarks/bench.py` is the worked example, and a seat
+whose counters are not the default ones passes its own `policies` to
+`BenchmarkBaseline` so the committed file states its own rule rather than the
+default seat's.
+
 For a focused engine profile, use `MeTTa.profile()`:
 
 ```python
