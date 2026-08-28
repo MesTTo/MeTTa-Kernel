@@ -139,12 +139,46 @@ in_py() { ( cd "$PYDIR" && "$@" ); }
 # FAILS exits nonzero. Only the second is a gate failure, and for the engine's
 # own units it is fatal rather than recorded: the C reader and the C writer
 # gate every lane below.
-sh "$HERE/examples/ch19-spaces-backed-by-anything/build.sh" ||
-    echo "note: a chapter 19 C example failed to build" >&2
-sh "$HERE/engine/build.sh" || {
-    echo "error: engine/reader.c or engine/writer.c failed to build; the C reader and writer gate every lane" >&2
-    exit 1
-}
+#
+# DISCOVERED, and every component rather than two. It used to name the engine
+# and the chapter 19 examples and nothing else, so a change to a component the
+# gate does not build was TESTED AGAINST A STALE ARTEFACT: the Node seat's
+# TypeScript is compiled by `npm ci` through the package's prepare script and by
+# extensions/node/build.sh, neither of which any lane runs, so after the
+# petta-to-metta rename the pytest lane at the top of this file ran the OLD
+# compiled bridge against the NEW bridge.pl and failed, while the `build` lane
+# 160 lines below rebuilt it and made the NEXT run pass. A gate whose verdict
+# depends on how recently someone built by hand is not a gate.
+#
+# The same discovery build.sh uses, and the same order, because extensions/cetta
+# links against what the engine produces. Provisioning is deliberately NOT run
+# here: build.sh clones the two pinned dependencies when they are absent, and a
+# gate that reaches the network fails for reasons that are not the tree.
+#
+# Each build's output is CAPTURED and printed only when it fails. A successful
+# cargo build alone emits 7,457 lines of warnings from a vendored dependency,
+# which would bury the lane list under compiler noise about code this
+# repository does not own; a FAILED build prints in full, because that is the
+# one time the text is the answer.
+for component in "$HERE/engine" \
+                 "$HERE"/extensions/*/ \
+                 "$HERE"/examples/ch19-*/; do
+    script="${component%/}/build.sh"
+    [ -f "$script" ] || continue
+    name=$(printf '%s' "${component%/}" | sed "s|^$HERE/||")
+    build_log=$(mktemp "${TMPDIR:-/tmp}/metta-build.XXXXXX")
+    if ! sh "$script" >"$build_log" 2>&1; then
+        cat "$build_log" >&2
+        # The engine's own units are fatal rather than recorded: the C reader
+        # and the C writer gate every lane below. Everything else degrades to a
+        # slower or absent configuration its own lanes already report on.
+        if [ "$name" = engine ]; then
+            echo "error: engine/reader.c or engine/writer.c failed to build; the C reader and writer gate every lane" >&2
+            exit 1
+        fi
+        echo "note: $name failed to build; its lanes report against that" >&2
+    fi
+done
 
 # ---------------------------------------------------------------- GATE tier
 # Correctness. These must pass on every commit.

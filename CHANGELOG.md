@@ -2091,6 +2091,29 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **The gate tested artefacts it had not built, so a verdict depended on how
+  recently someone had built by hand.** `check.sh` built exactly two things
+  before its lanes, the engine's C units and the chapter 19 examples, and named
+  both by path. Every other component's artefacts were whatever was lying
+  around: the Node seat's TypeScript is compiled by `npm ci` through the
+  package's `prepare` script and by `extensions/node/build.sh`, and NO lane runs
+  either, so after the petta-to-metta rename the `pytest` lane near the top of
+  the file ran the OLD compiled bridge against the NEW `bridge.pl` and failed —
+  while the `build` lane 160 lines below rebuilt it, which is why the next run
+  passed with nothing changed. The pre-lane block is the same discovery
+  `build.sh` uses now, in the same order, so every component is current before
+  any lane reads it. Provisioning is deliberately not run there, because it
+  clones two pinned dependencies when they are absent and a gate that reaches
+  the network fails for reasons that are not the tree. Each build's output is
+  captured and printed only on failure: a successful cargo build alone emits
+  7,457 lines of warnings about a vendored dependency, and burying the lane list
+  under them would trade one silent failure for another.
+
+- `metta list` shows TEST and BENCH beside BUILD and CHECK. A component that
+  has tests or benchmarks but no script to run them keeps them reachable only
+  by whoever knows the path, and the four columns are what make that gap
+  visible instead of inferred.
+
 - **`new-mork-space` is gone from the three tables that vouched for it,
   because it never existed.** It was registered as a `writesState` semantic
   effect, a grounded token, and a translator embedded-operation head -- a

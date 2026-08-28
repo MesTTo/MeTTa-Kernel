@@ -54,11 +54,18 @@ components() {
 }
 
 verb_list() {
-    printf '%-42s %-7s %-7s %-8s %s\n' COMPONENT BUILD CHECK CONTROL 'BUILDABLE HERE'
+    printf '%-40s %-6s %-6s %-5s %-6s %-8s %s\n' \
+           COMPONENT BUILD CHECK TEST BENCH CONTROL 'BUILDABLE HERE'
     components | while IFS= read -r directory; do
         name=$(printf '%s' "$directory" | sed "s|^$HERE/||")
         [ -f "$directory/build.sh" ]   && build=yes   || build=-
         [ -f "$directory/check.sh" ]   && check=yes   || check=-
+        # The other two contract files the header names. A component that has
+        # tests or benchmarks but no script to run them keeps them reachable
+        # only through whoever happens to know the path, which is what these
+        # columns are for: the gap is visible rather than inferred.
+        [ -f "$directory/test.sh" ]    && test=yes    || test=-
+        [ -f "$directory/bench.sh" ]   && bench=yes   || bench=-
         [ -f "$directory/extension.pl" ] && control=yes || control=-
         # Asking is the point: a component present but unbuildable here says
         # WHICH prerequisite is missing, where the gate would silently skip it.
@@ -83,7 +90,8 @@ verb_list() {
         else
             why='-'
         fi
-        printf '%-42s %-7s %-7s %-8s %s\n' "$name" "$build" "$check" "$control" "$why"
+        printf '%-40s %-6s %-6s %-5s %-6s %-8s %s\n' \
+               "$name" "$build" "$check" "$test" "$bench" "$control" "$why"
     done
 }
 
