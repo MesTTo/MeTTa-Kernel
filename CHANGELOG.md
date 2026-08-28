@@ -8,6 +8,47 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **C source lowers into MeTTa equations, and the C seat takes its structs
+  seriously.** Two things the surface was missing.
+  `mt_lower(m, (twice $x), (* 2 $x))` installs an EQUATION whose body is C
+  tokens the compiler saw. That is a different door from `mt_def`, which
+  publishes a function the engine CALLS and which must therefore declare an
+  effect class because nothing can be seen of what it does. An equation is
+  MeTTa: the engine reads it, type-checks it, specialises it, and it is an
+  atom in the space, so `mt_match(mt_self(m), E("=", E("poly", V("x")),
+  V("body")))` finds it where the same query against an `mt_def` name finds
+  nothing. A lowered call also crosses into no host at all.
+  The mechanism is the preprocessor. Python lowers by reading a function's
+  `__code__` and Node by reading its `toString()`; C has neither at run time
+  but has `#`, which is access to the program's own source at the one moment C
+  offers it. Nesting survives, so
+  `mt_lower(m, (fib $n), (if (< $n 2) $n (+ (fib (- $n 1)) (fib (- $n 2)))))`
+  is one line and unbalanced parentheses are a compile error rather than a
+  runtime one. Parameterise a body by its operators and it expands to C in one
+  mode and MeTTa in the other, so one function is callable from both, which is
+  what the other seats' twins buy. What stays out of reach is lowering an
+  ARBITRARY existing C function: the body has to be written in the neutral
+  form. The seat's constraints ledger had recorded lowering as impossible in
+  C; that entry is corrected in place, because it was written after checking
+  the run-time route and not the compile-time one.
+  Alongside it, four places where C's own struct idioms were going unused. An
+  answer is a record, so `mt_rows` binds an `mt_row` carrying the atom, the
+  engine's own text, the group and the cursor, which retires `mt_group`,
+  `mt_answer_text` and a second walk macro; `mt_each` keeps binding the atom
+  alone, the split the Python seat draws between iterating `Answers` and
+  iterating `Rows`. `mt_all` answers an `mt_list` of items and length rather
+  than an array plus an out-parameter. `mt_ratio_of` answers an `mt_ratio`
+  rather than filling two out-parameters. `mt_limit` takes its limits by value,
+  so a compound literal says it at the call site and `(mt_limits){0}` means
+  what a NULL meant.
+  And four C features the surface should have been using: every door that
+  hands back a resource is now `warn_unused_result`, so ignoring a cursor or
+  an atom is a compile-time warning rather than a leak; `static_assert` checks
+  the invariants that were previously only asserted in comments; the header
+  `#error`s without C11 rather than expanding to a hundred unrelated
+  diagnostics; and `make test` now checks that every `MT_API` declaration has
+  a definition, which caught six functions removed by an over-wide edit.
+
 - **The C seat's surface is rebuilt out of C's own idioms, and its verbs are
   now `mt_`.** The first surface worked and was unpleasant to write, because it
   was a transcription: a hand-counted arity stood in for Python's `*args`, an
