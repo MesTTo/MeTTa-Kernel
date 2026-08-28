@@ -18,7 +18,7 @@ Assumes:
 Guarantees:
   - the deciding counter is inferences, taken from three fresh processes that
     perf is NOT watching, so a machine with no perf still gates
-    [tested: engine/bench.sh; commit=WORKTREE].
+    [tested: engine/bench.sh; commit=c41b54d69e951882e5075393f851a33438247372].
   - retired instructions are measured over the same region and not over the
     process, through perf's control descriptors, so a case's instruction pin
     excludes the engine boot that every case would otherwise carry
@@ -29,7 +29,7 @@ Guarantees:
     benchmarks/configuration.py decides comparability by, PLUS a digest of
     every corpus file the cases read, so editing a workload REFUSES the
     comparison instead of reporting a move the engine did not make
-    [tested: engine/bench.sh; commit=WORKTREE].
+    [tested: engine/bench.sh; commit=c41b54d69e951882e5075393f851a33438247372].
   - every selected case is measured and every failure is reported before the
     nonzero exit, so one regression cannot hide another
     [source: extensions/python/benchmarks/check_instructions.py, whose

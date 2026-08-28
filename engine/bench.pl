@@ -31,10 +31,10 @@
 % Guarantees:
 %   - every case CHECKS its own result before its counters are printed, so a
 %     case that stopped doing its work fails instead of reporting a cheaper
-%     number [tested: engine/bench.sh; commit=WORKTREE].
+%     number [tested: engine/bench.sh; commit=c41b54d69e951882e5075393f851a33438247372].
 %   - the measured region excludes setup and excludes the check, and when perf
 %     supplies its control descriptors the enabled window brackets exactly the
-%     same region [tested: engine/bench.sh; commit=WORKTREE].
+%     same region [tested: engine/bench.sh; commit=c41b54d69e951882e5075393f851a33438247372].
 %   - the inference delta is identical whether or not the run is under perf,
 %     because the control writes sit OUTSIDE the counter reads
 %     [measured 2026-08-28: every case identical across three plain runs and
