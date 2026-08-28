@@ -8,6 +8,46 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **The MORK backend owns tests, lanes and benchmarks of its own.** It had
+  none: what tested it lived in
+  `extensions/python/tests/ch19_spaces_backed_by_anything/test_mork_space.py`
+  and `tests/prolog/suites/seams/extensions.plt`, so the seat could be present
+  and broken in a configuration neither of those exercised. It now carries
+  `check.sh` (three lanes the root gate discovers and sources), `test.sh` and
+  `bench.sh`. `tests/mork_seat.plt` holds twenty-five tests over the three
+  declared builtins, the claim over the `&mork` namespace, and the discipline
+  that makes a space this seat does not own leave every ownership seam and
+  every builtin by FAILING rather than refusing, so the next provider's clause
+  runs. `tests/test_missing_artefacts.sh` boots a real engine over a seat
+  pointed at an artefact that is genuinely absent, rather than staging the
+  records an unbuilt tree would hold, and requires the boot to write zero bytes
+  to both streams and `!(require-extension! mork)` to name the seat, the file
+  and the build command.
+
+- **`extensions/mork/bench.sh`, ten cases at three sizes against a committed
+  baseline, deciding on `instructions:u` inside perf's own control window.**
+  The window is what makes the numbers usable: measured as whole-process
+  differences instead, one operation read +1,592,533 instructions under an
+  inherited environment, +774,281 under `LC_ALL=C` and -714,626 under
+  `LC_ALL=C.UTF-8`, three stable modes selected by the environment block rather
+  than by any work. Inside the window the same operation repeats within 0.018%,
+  and thirty of the thirty-one committed rows move under 0.25% across four
+  runs. The suite answers what a storage backend has to answer, which is a
+  comparison: the batch door is worth three of the per-atom door at every size,
+  MORK costs a flat 2.2x a native space to write and 10.9x to enumerate, and a
+  selective query splits by which position is bound. A bound first argument is
+  a path prefix and costs a flat 10.3x; a bound last argument is a constraint
+  MORK can only check after walking, and that one goes 46.6x, 133.8x and 611.5x
+  as the space grows 500, 2000, 8000.
+
+  Inference counts are pinned beside those, as the Prolog-side cost they
+  honestly are, and CPU seconds are recorded through the harness's new
+  `BenchmarkBaseline.observe_cpu`. The pairing is not decoration: SWI's
+  inference counter retires nothing for work inside the Rust library, and this
+  suite has the demonstration in one row. `mork-match-first` and
+  `mork-match-last` both read 133 inferences per query at 8000 atoms while CPU
+  reads 7.4 microseconds against 342.7.
+
 - **One area per extension on the site, each publishing that seat's own
   documentation from its own folder.** `/extensions/` introduces the seat model
   — a folder carrying an `extension.pl`, with the two `entry/2` roles saying
@@ -2090,6 +2130,19 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- **`extensions/mork/extension.pl` declares BOTH shared objects, so a
+  half-built tree stops reporting a backend that is not there.**
+  `morkspaces.pl` opens `libmork_ffi.so` for its global symbols and then loads
+  `morklib.so` for `mork/3` itself, and it throws when either is missing. SWI
+  prints a load-time directive that throws and carries on consulting, though,
+  so `ensure_loaded/1` still succeeded and the loader still recorded the seat
+  LOADED. A tree carrying only the declared artefact therefore answered every
+  call with `Unknown procedure: mork/3`, on every boot, quietly; twelve of the
+  seat's own tests raise there and twelve pass. With both declared it answers
+  exactly as an unbuilt tree does, and `tests/mork_seat.plt` carries the
+  invariant under it, unconditioned: a seat on the record has a working backend
+  behind it.
 
 - **`new-mork-space` is gone from the three tables that vouched for it,
   because it never existed.** It was registered as a `writesState` semantic
