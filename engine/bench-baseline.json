@@ -3,66 +3,66 @@
     "boot": {
       "inferences": 612598,
       "instruction_noise_percent": 1.0,
-      "instructions": 854123646,
+      "instructions": 832676733,
       "measures": "Loading engine/metta under qcompile(auto), which is engine/main.pl's own second load directive run inside the counters; the freshness decision engine/qlf_boot.pl makes is in setup, deliberately, because its cost is the number of .qlf files on this disk and not the engine, and one extra file moved this case 6 inferences past the harness's 4-inference allowance [measured 2026-08-28]. Both names are spelled without the .pl, which is what makes SWI take engine/metta.qlf when it is fresh: named with the extension the case compiled the umbrella from source every run and read 1,416,424 inferences, against 612,738 for the load every `sh run.sh` performs. Every host and every gate pays this before anything else happens and nothing else in the tree measures it alone. The .qlf set is warm, which engine/bench.py guarantees by booting once before it samples: the boot that GENERATES the set reads 3,129,543 inferences against 612,598 for the boot that loads it. The check after the region evaluates !(+ 1 2), so this pins a USABLE engine and not merely a loaded one. ONE MORE THING TO KNOW BEFORE READING A MOVE HERE: this count includes the benchmark file's own predicate set. Appending one inert fact to engine/bench.pl moves it from 612,598 to 612,740 and moves evaluate from 4,276,161 to 4,276,145; ten facts move it to 612,896 and evaluate to 4,276,097; removing them moves both back, twice over. The same boot with no benchmark file in the process at all reads 612,610. Putting the cases in their own module did not change that, so it is the process's predicate set and not the `user` namespace [measured 2026-08-28]. An edit to engine/bench.pl therefore re-pins boot and evaluate, and the --update-baseline output says by how much. Nothing else in this suite shows it: parse, parse-prolog, translate, match and match-skew were unchanged across every one of those states.",
       "operations": 1,
       "unit": "boot",
-      "wall_seconds_per_operation": 0.065971
+      "wall_seconds_per_operation": 0.062634
     },
     "evaluate": {
       "inferences": 4276161,
       "instruction_noise_percent": 1.0,
-      "instructions": 3210689823,
+      "instructions": 3210693678,
       "measures": "map-flat (+ 1) over (range 50000), from examples/ch18-performance/18-01-larger-workloads/02-holbenchmark.metta, the corpus's own reduction kernel run at a twentieth of the size its own !(test ...) uses so the case stays under a third of a second. Pure rewriting: one let and one cons per element, no space write and no I/O, 85.5 inferences per element. The pragma raising the evaluator's 100,000-reduction fuel is in setup, the way the corpus file raises it for its own million-element run. This row shares the boot row's one sensitivity: appending an inert fact to engine/bench.pl moves it 16 inferences, ten facts move it 64, and removing them moves it back. The other five cases do not move at all under the same edits, byte for byte [measured 2026-08-28]. So an edit to the benchmark file re-pins exactly boot and evaluate, and the --update-baseline output says by how much.",
       "operations": 50000,
       "unit": "reduction",
-      "wall_seconds_per_operation": 4.94122e-06
+      "wall_seconds_per_operation": 5.00536e-06
     },
     "match": {
       "inferences": 342002,
       "instruction_noise_comment": "3.0 rather than the 1.0 every other row here carries, because this row's retired-instruction count holds a SECOND MODE about 2.3% above the first in roughly one sample in five, while nothing logical moves: across eight consecutive runs the region read 342,002 inferences, 7 garbage collections and exactly 3,850,336 bytes freed, every time [measured 2026-08-28]. Min-of-three keeps the decided value stable to 0.003% across independent triples, so the band exists for the case where a triple draws the high mode more than once, not because the workload varies. It is the shortest region here that walks a 50,000-atom store, which is the difference from parse, a shorter region over 36KB of text that reads 0.003%. A move in this row of a few percent is the machine until the inference counter agrees, and the inference counter does not move with layout or load at all.",
       "instruction_noise_percent": 3.0,
-      "instructions": 244247232,
+      "instructions": 244109751,
       "measures": "200 rounds of the three SELECTIVE query shapes examples/ch18-performance/18-01-larger-workloads/01-scale.metta defines, 600 queries in all, against a space its own addK filled with 50,000 (r K (mod K 10)) atoms: (q-first 7) binds the first column, (q-both 42 2) binds both, and (q-rel r) leaves the relation itself a variable. Each answers exactly one row out of 50,000, so this is the store telling index shapes apart rather than scanning: 570.0 inferences per query, flat in the size of the space. Setup runs one round of each shape first; a query is idempotent so that changes nothing about what the region measures, and it moves the runnable template each query text compiles on first use, and the stack growth the first answer forces, outside it. Without the warm-up and at a tenth of the rounds the instruction count held two modes 1.0% to 2.7% apart across triples with the inference count identical throughout [measured 2026-08-28]; with both, the spread is 0.019%. The measured region is the engine's source door end to end, so it includes reading each query's own short text, which with the C reader is about 2 inferences of the 570; the parse cases are what attribute a move in it.",
       "operations": 600,
       "unit": "query",
-      "wall_seconds_per_operation": 2.9791666666666665e-05
+      "wall_seconds_per_operation": 2.902833333333333e-05
     },
     "match-skew": {
       "inferences": 310522,
       "instruction_noise_percent": 1.0,
-      "instructions": 542165914,
+      "instructions": 542159659,
       "measures": "20 rounds of the same file's (q-second 3), the query whose bound column is the one the store does not index: 5,000 of the 50,000 atoms answer it, against one row for every selective shape. 15,526 inferences per query, 3.1 per answered row, so what this pins is fan-out while the match case beside it holds the point-lookup cost fixed. Same space, same setup and the same warm-up round, so the pair isolates skew from everything else.",
       "operations": 20,
       "unit": "query",
-      "wall_seconds_per_operation": 0.00121915
+      "wall_seconds_per_operation": 0.0012817500000000001
     },
     "parse": {
       "inferences": 152,
       "instruction_noise_percent": 1.0,
-      "instructions": 109342057,
+      "instructions": 109340484,
       "measures": "engine/prelude.metta, 35,973 bytes and 117 forms, read 25 times through parse_metta_source/2. It is the exact text every boot parses, so the reader is measured on its production input rather than on a string invented for a benchmark. With engine/reader.so present the work happens in C and retires almost no inferences: 152 for 25 rounds is the dispatch and nothing else, so the INSTRUCTION pin is this case's real gate and the inference pin only catches the shipped door falling back. parse-prolog stands beside it for that reason.",
       "operations": 25,
       "unit": "parse",
-      "wall_seconds_per_operation": 0.00018872
+      "wall_seconds_per_operation": 0.00018724
     },
     "parse-prolog": {
       "inferences": 3006359,
       "instruction_noise_percent": 1.0,
-      "instructions": 1749919045,
+      "instructions": 1749905275,
       "measures": "The same 25 rounds over the same text through parse_metta_source_prolog/2, the whole-source walk tests/prolog/suites/reader/reader_c.plt holds the C reader to through agree_full/1. Read what that measures carefully: on a tree carrying engine/reader.so the PROLOG half of this predicate is the form SPLITTER, top_forms//2, because each split form's term then goes through sread_mode/3, which takes metta_c_sread/3 while the artifact is active [source: engine/parser.pl:836-842]. So this pins the splitter and the walk around it at 120,254 inferences per read of the prelude, and it is the only inference-decided reader pin in the suite, because the shipped door's own 152 is dispatch and nothing else. With METTA_C_READER=off the same predicate reads 202,635 per parse, 1.685x, constant across rounds, because the per-form term reads move onto the Prolog grammar as well [measured 2026-08-28]; that is a different configuration with its own stamp, and this baseline refuses to compare against it. The per-form Prolog grammar itself is differentially tested by the same suite's agree_sread/1, which drives parser:sexpr_mode//4 directly and so does not go through that dispatch.",
       "operations": 25,
       "unit": "parse",
-      "wall_seconds_per_operation": 0.00273964
+      "wall_seconds_per_operation": 0.00280932
     },
     "translate": {
       "inferences": 855931,
       "instruction_noise_percent": 1.0,
-      "instructions": 619729518,
+      "instructions": 617470988,
       "measures": "Compiling lib/lib_pln/lib_pln.metta into Prolog clauses: 82 forms, 77 of them equations over 49 names, no runnable form and no import, which makes it the largest pure-equation library in the tree. Loading it registers the names with their translation DEFERRED, so the measured region is metta_ensure_compiled/1 over the 49 names read out of the parse and the reader and the loader are already paid for. The count is identical with the C reader on and off, 855,930 either way [measured 2026-08-28], which is what a translator-only measurement should be.",
       "operations": 49,
       "unit": "function",
-      "wall_seconds_per_operation": 0.0008718775510204082
+      "wall_seconds_per_operation": 0.0008683673469387754
     }
   },
   "counter_configuration": {
@@ -81,5 +81,8 @@
   "instruction_policy": "perf instructions:u minimum of three, one percent noise allowance unless a row declares its own beside the measurement that justified it",
   "measurement_notes": "Pinned 2026-08-28 on an AMD Ryzen 9 9950X at loadavg 9-11 with a full gate running. Inferences decide and are unaffected by that load: every case read the same count in all three samples of every run, 0.0000% spread. instructions:u is the second counter, measured over the same region through perf's control descriptors so it excludes the engine boot every case would otherwise carry; its spread across independent triples was 0.000% to 0.197%, inside the 1.0% band each row declares. wall_seconds_per_operation is ADVISORY and decides nothing: it was taken under that load and is recorded so a change can be read beside the counters, never so it can fail a run.",
   "schema": 1,
-  "workload_sources": "counter_configuration.workloads digests every corpus file the cases read. Editing one changes the measured work, so a differing digest REFUSES the comparison naming the file instead of reporting a move the engine did not make. Re-pin with `sh engine/bench.sh --update-baseline` after a deliberate workload change."
+  "workload_sources": "counter_configuration.workloads digests every corpus file the cases read. Editing one changes the measured work, so a differing digest REFUSES the comparison naming the file instead of reporting a move the engine did not make. Re-pin with `sh engine/bench.sh --update-baseline` after a deliberate workload change.",
+  "measurement": {
+    "checkout_location": "RE-PINNED 2026-08-28 in the MAIN checkout. These instruction counts are sensitive to where the checkout sits, because a boot resolves a path for every ensure_loaded and every .qlf lookup and a longer prefix multiplies across all of them. Measured both ways, same commit and same command: the boot case reads 853,856,877 from a worktree at <repo>/.claude/worktrees/agent-<id> (72 characters) and 832,667,280 from the repository root (30 characters), 2.51% apart, with the inference count identical at 612,598 in both. The first pins were taken in a worktree and read as a 2.5% improvement here. Re-pin where the gate runs, which is the main checkout; a pin taken in a worktree describes that worktree."
+  }
 }

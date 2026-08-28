@@ -77,8 +77,16 @@ done
 # the checker is proven against the shape the tree has: with the lane written
 # into the root file instead, this passed while the real tree's pytest anchor
 # had already stopped resolving.
+# Each lane DELEGATES to its component's own test.sh, and the command lives
+# there, which is where the collectors anchor. The fixture mirrors that too:
+# with the command written into the lane, this passed while the real tree's
+# anchors had already moved.
 PYTHON_CHECK_SH = """\
-run GATE pytest sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark"
+run GATE pytest env CHECK_PY="$PY" sh "$HERE/extensions/python/test.sh"
+"""
+
+PYTHON_TEST_SH = """\
+exec "$PY" -m pytest tests -q -p no:benchmark
 """
 
 # The plunit lane is the engine component's, for the same reason. P90.11 is what
@@ -87,7 +95,12 @@ run GATE pytest sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark"
 # the root would go on reporting FIXED while the real tree's plunit anchor had
 # already stopped resolving.
 ENGINE_CHECK_SH = """\
-run GATE plunit sh -c "cd '$HERE/tests/prolog' && for suite in suites/*/*.plt; do swipl -g run_tests -t halt \\"$suite\\"; done"
+run GATE plunit sh "$HERE/engine/test.sh"
+"""
+
+ENGINE_TEST_SH = """\
+cd "$HERE/tests/prolog" || exit 1
+for suite in suites/*/*.plt; do swipl -g run_tests -t halt "$suite"; done
 """
 
 TEST_SH = """\
@@ -195,7 +208,9 @@ def build(root: Path) -> None:
     (root / "check.sh").write_text(CHECK_SH, encoding="utf-8")
     for name, content in (
         ("extensions/python/check.sh", PYTHON_CHECK_SH),
+        ("extensions/python/test.sh", PYTHON_TEST_SH),
         ("engine/check.sh", ENGINE_CHECK_SH),
+        ("engine/test.sh", ENGINE_TEST_SH),
     ):
         component = root / name
         component.parent.mkdir(parents=True, exist_ok=True)
