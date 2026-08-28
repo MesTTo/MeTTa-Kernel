@@ -1019,6 +1019,31 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **The Node and C seats spell what they own `metta`.** The Python rename
+  stopped at its own module: `metta` shipped with `metta_py_*` transport
+  predicates while the other two seats still said `petta`, so one seam carried
+  two spellings for one idea and the odd one out was whichever seat you had
+  open. `PettaError` is `MettaError`, 92 occurrences, joining the Python
+  seat's own `MettaError` with no alias left behind. The transport families
+  follow: 61 `metta_node_*` names over 304 occurrences, and 35 `metta_c_*`
+  names over 102. The npm package is `metta-node`, its two symbol
+  descriptions are `metta.atom` and `metta.goal`, the checkout mounts at
+  `/metta` inside the WebAssembly filesystem, and `wire.ts` names `&metta`,
+  which is the space the engine has answered since the metadata space moved.
+
+  Each seat's two halves moved in one step because no compiler can see between
+  them. `src/engine.ts` names eight bridge predicates as query strings and
+  `cetta.c` names twenty through `PL_predicate`, `call_bridge` and
+  `space_call`, so a literal left behind is an existence error at run time
+  rather than a build failure. `CODEC.md` cited one of the twenty and follows
+  here for the same reason.
+
+  What did not move: the two `github.com/trueagi-io/PeTTa` URLs in the package
+  manifest, and ten lines of prose naming the PeTTa project and the engine
+  these seats embed, spread over both READMEs, the package description, three
+  file headers and three doc comments. Those name the repository and its
+  implementation, which is not something a binding owns.
+
 - **Two lanes stopped measuring what they named, because the JSON they were
   standing on moved into C.** Both counted inferences, and inferences are
   blind across a foreign boundary.
