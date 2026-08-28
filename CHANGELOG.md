@@ -8,6 +8,49 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **The C seat's surface is rebuilt out of C's own idioms, and its verbs are
+  now `mt_`.** The first surface worked and was unpleasant to write, because it
+  was a transcription: a hand-counted arity stood in for Python's `*args`, an
+  out-parameter plus a status code stood in for a return value and an
+  exception, and a two-call step-then-read stood in for an iterator. C has its
+  own answers to all three and they are old, so this is those, combined.
+  The same program, before and after, went from 43 statements to 20.
+  `mt_expr("edge", "a", 1, 2.5, V("y"))` counts its own arguments through
+  `__VA_ARGS__` and coerces each child by its C type through `_Generic`, so no
+  call site carries a length that can drift and no child names a constructor.
+  A bare C string in term position is a SYMBOL, which is the one judgement
+  here: MeTTa writes a symbol bare and a string quoted, and in C everything is
+  quoted, so the default is the one MeTTa writes bare.
+  Producers return their value and errors are `errno`-shaped, set on failure
+  and not cleared on success, so a run of calls is checked once with `mt_ok()`
+  rather than one `if` per call. `mt_each` walks a cursor and closes it however
+  the loop is left, `break` included; `mt_one`, `mt_first`, `mt_all` and
+  `mt_one_int/_float/_truth/_name` take answers without a walk, with `one` and
+  `first` drawing the same line the Python seat draws between `one()` and
+  `first()`. `mt_add`, `mt_del`, `mt_eval`, `mt_match`, `mt_atoms`, `mt_count`
+  and `mt_wipe` each take a runtime, meaning its `&self`, or a space, chosen by
+  `_Generic` the way `tgmath.h` chooses. Reading returns the value the way
+  `atoi` does and promotes only where it is lossless, so `mt_float` of an Int
+  is that integer while `mt_int` of a Float does not round and an Int past 2^53
+  is refused rather than mangled. `mt_show` writes into a per-thread rotating
+  buffer so it drops into `printf` with no free, which is `strerror`'s
+  contract. `mt_def` takes one designated-initializer struct, so the effect
+  class is readable at the call site instead of being the third of five
+  positional arguments. `MT_AUTO` releases on scope exit where GCC and Clang
+  have the cleanup attribute, and `MT_SHORTHAND` opts in to `S/V/T/N/R/B/E`.
+  `mt_bound(it, "y")` answers what the pattern's `$y` reached in this answer,
+  under the name the caller wrote rather than a child index, which is what the
+  Python seat spells `row.y`; `mt_do(m, src)` runs for effect and discards.
+  The prefix is `mt_` and the runtime type is `metta`, because six characters
+  typed constantly is its own kind of friction and C's own libraries answer
+  that with two to four (`gl`, `vk`, `nk_`, `sg_`, `lua_`). The artefact keeps
+  the seat's name, `libcetta.so` and `cetta.h`, which is the split the Python
+  seat already makes between the dist `pymetta` and the module `metta`. The
+  names that cross to the Prolog half, the four `$cetta_*` foreign predicates,
+  the `cetta_object` blob type and the `cetta_operation_failed` error term,
+  keep the seat's spelling because they are a contract with `bridge.pl` rather
+  than part of the C prefix.
+
 - **The Node seat carries `test.sh` and `bench.sh`, so its tests run standalone
   and its surface is measured for the first time.** `check.sh`'s `node-binding`
   lane now calls `extensions/node/test.sh`, which is the same command a
