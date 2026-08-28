@@ -8,6 +8,43 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **The Node seat carries `test.sh` and `bench.sh`, so its tests run standalone
+  and its surface is measured for the first time.** `check.sh`'s `node-binding`
+  lane now calls `extensions/node/test.sh`, which is the same command a
+  developer runs by hand, and a new `node-bench` lane calls
+  `extensions/node/bench.sh`. Both keep the seat's skip protocol and neither
+  fetches or builds: an absent `node_modules`, an unmade TypeScript build or a
+  Python that cannot import `metta.testing` each print the command that
+  supplies it and exit 0, because a gate that reaches the network fails for a
+  reason that is not the tree. `bench.sh` measures six workloads —
+  interned atom construction, the wire codec out and back, a query returning
+  two thousand rows, that same ask abandoned after twenty of them, a lowered
+  `define`d call, and a generator `op` the engine pulls two thousand times —
+  and holds each to a committed pin in `extensions/node/benchmarks/
+  baseline.json` through the shared `BenchmarkBaseline`, so one baseline format
+  and one regression protocol cover every component
+  [tested: sh check.sh node-binding node-bench].
+
+  Which counter decides is a property of the case. Inferences decide wherever
+  the engine does the work, read back through the bridge: those four rows read
+  the same number in all nine samples of three consecutive runs on a loaded
+  box. Where the work is on the TypeScript side the engine's counter cannot
+  move at all, so `perf stat -e instructions:u` decides instead, and the three
+  cases that straddle the wire pin both because each counter sees one half.
+  `answers-lazy` is the sharp one: bridge.pl reports what a job spent as that
+  job's LAST event, so an abandoned job reports nothing, and its inference pin
+  of ZERO is a statement that the ask really was abandoned — a lazy path that
+  began draining would report `query-rows`' 282,622.
+
+  A Node process is not deterministic enough to gate on retired instructions
+  unaided, so the instruction rows run under `--predictable
+  --predictable-gc-schedule --liftoff-only` and the baseline's configuration
+  stamp records them beside the swipl-wasm version, the V8 version, the
+  execution route and the seat census. Bare, one engine workload spread 29.5%
+  across four rounds; `--liftoff-only` alone took it to 2.6%, naming the
+  mechanism as TurboFan tiering swipl-wasm up on background threads inside the
+  measured window, and the full set reaches 0.03%.
+
 - **One area per extension on the site, each publishing that seat's own
   documentation from its own folder.** `/extensions/` introduces the seat model
   — a folder carrying an `extension.pl`, with the two `entry/2` roles saying
@@ -2090,6 +2127,22 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- **The evidence gate sees a component's `test.sh` and `bench.sh`, and every
+  suite an npm script runs rather than the first one alphabetically.**
+  `tests/checks/evidence_runners.py` discovered each component's `check.sh` but
+  not the scripts that check.sh calls, so moving the Node seat's npm invocation
+  into `test.sh` would have dropped all ten `extensions/node/test/*.test.ts`
+  out of the executed model and left every evidence claim naming one of them
+  unbacked. A runner's own directory is a candidate base now, which is what
+  lets a component script's `cd "$HERE"` resolve to its own folder instead of
+  to the root the root gate's `$HERE` means. Separately, the npm-script block
+  added on 2026-08-27 landed directly above an existing `break` and captured
+  it, so it recorded one suite and stopped: the model held `atom.test.ts` alone
+  and holds all eleven now. `tests/checks/check_evidence_tags.py` reads every
+  seat's benchmark baseline for commit pins rather than only the Python seat's,
+  so a seat that grows its own benchmarks does not grow unchecked provenance
+  [tested: sh check.sh evidence].
 
 - **`new-mork-space` is gone from the three tables that vouched for it,
   because it never existed.** It was registered as a `writesState` semantic
