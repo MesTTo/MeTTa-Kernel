@@ -18,6 +18,7 @@ These modules define atoms, spaces, queries, and the rows returned to Python.
 | [`metta.paths`](./metta-paths) | lazy attributes and keys inside opaque handles |
 | [`metta.Space`](./metta-space) | the space handle returned by `metta.space()` |
 | [`metta.results`](./metta-results) | query rows and tables |
+| [`metta.answer`](./metta-answer) | the explicit answer a provider yields: bindings, value, residue, annotation |
 
 ## Definition
 

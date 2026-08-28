@@ -1036,6 +1036,36 @@ run GATE   interrogate in_py "$PY" -m interrogate metta
 # remaining entries and calls anything outside it UNTRACKED, so the baseline
 # cannot grow silently. Promote this lane when the remaining count reaches zero.
 run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
+# The site itself renders, which nothing ran before this: three config headers
+# and every page's own header claim `[tested: npm run docs:build]` and no lane
+# had ever run it. The build is what decides a dead internal link, and the
+# engine section leans on two VitePress features a file check cannot see -- the
+# @include that publishes EXTENDING.md, KERNEL.md, CODEC.md and DEVELOPING.md
+# without a second copy, and the rewrites that publish them under this site's
+# own lowercase spelling while the sources keep their own names so their
+# relative links resolve.
+#
+# It does not fetch: a gate that reaches the network fails for a reason that is
+# not the tree, which is the rule the Node lanes already follow, so this says
+# which step is missing and passes without it. What it CANNOT skip is the
+# structure: test_every_site_include_resolves and
+# test_every_site_page_is_reachable_from_the_navigation run in the pytest lane
+# on every machine, node or no node.
+check_docs_site() {
+    site="$HERE/website"
+    [ -d "$site" ] || return 0
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "note: npm not found, the documentation site will not be built" >&2
+        return 0
+    fi
+    if [ ! -d "$site/node_modules/vitepress" ]; then
+        echo "note: run 'npm ci --prefix website', the documentation site will \
+not be built without vitepress" >&2
+        return 0
+    fi
+    npm run --prefix "$site" docs:build
+}
+run GATE   docs        check_docs_site
 # Every source path the project ships, and clean, so this gates. It used to
 # read the engine, lib and README alone, which left the docs and examples a reader
 # meets first unchecked: widening it turned up 27 more spellings against the

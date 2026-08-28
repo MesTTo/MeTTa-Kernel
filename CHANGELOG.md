@@ -8,6 +8,38 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **The site publishes the engine documents: `EXTENDING.md`, `KERNEL.md`,
+  `CODEC.md` and `DEVELOPING.md` are an Engine section rather than files you
+  only meet by browsing the repository.** Everything the site carried was
+  written from the Python surface looking in; how to extend the engine, which
+  forms the translator gives meaning to, the wire an atom crosses on, and how
+  to work on the repository were reachable only from a checkout. The four pages
+  INCLUDE their root documents through VitePress's `@include` rather than
+  copying them, so there is still one copy of each and the published text is
+  the committed one — which matters most for `EXTENDING.md`, whose cost table
+  the `extcost` gate pins, and `KERNEL.md`, whose head tables the `plunit`
+  lane's `translator_derived_forms` suite keeps true. Each page carries its
+  source document's own file name, so the relative links those documents write
+  between themselves resolve with no edit to the sources, and a `rewrites`
+  entry publishes it under this site's lowercase spelling
+  (`/engine/extending`). Five pages that shipped reachable only through the
+  search box are in the navigation now: `guide/contract.md`,
+  `integrations/sqlite-blobs.md`, and the generated reference pages for
+  `metta.paths`, `metta.events` and `metta.answer`, the last of which the
+  reference index had lost as well.
+- **The documentation site is a gate lane, `docs`.** Three config headers and
+  every page header claimed `[tested: npm run docs:build]` and no lane had ever
+  run it, so a dead internal link could ship. It does not fetch — the rule the
+  Node lanes already follow — and says which step is missing instead when npm
+  or `website/node_modules` is absent. Two checks in the `pytest` lane hold the
+  structure on every machine, node or no node: every `@include` resolves, which
+  VitePress itself does not check (its include is fail-open, so a renamed
+  source publishes an EMPTY page under a green build), and every page is
+  reachable from the navigation. A page that is unlisted on purpose says
+  `navigation: false` in its own frontmatter and the check passes; the
+  exemption lives in the page rather than in a list, so it is visible to
+  whoever opens it and leaves when the page does.
+
 - **Space ownership is engine data, and a second claim on a live name is
   refused naming both owners.** `seam:foreign_space/1` is a CONDITION on a
   name rather than a list, so nobody could see a collision: the engine could

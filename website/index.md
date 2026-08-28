@@ -47,4 +47,4 @@ The translation keeps the concepts visible. A web route is a fact a program can 
 | routes and handlers | facts plus unification in registration order |
 | model outputs | weighted relations over classes |
 
-Start with [the tutorials](./tutorials/01-atoms-and-expressions), then use the sidebar to move into deeper guides, reasoning tools, integrations, live systems, and reference pages.
+Start with [the tutorials](./tutorials/01-atoms-and-expressions), then use the sidebar to move into deeper guides, reasoning tools, integrations, live systems, and reference pages. [The engine](./engine/) is the other direction: the extension points and what each costs, the forms the translator gives meaning to, the wire every atom crosses on, and how to work on the repository itself.

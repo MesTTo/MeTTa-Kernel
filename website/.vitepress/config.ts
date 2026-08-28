@@ -1,7 +1,11 @@
 /*
 Purpose: configure the MeTTa documentation site's navigation, rendering, and project URL.
-Guarantees: navigation advertises only live public Python modules and API pages.
-[tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
+Guarantees:
+  - navigation advertises only live public Python modules and API pages
+    [tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
+  - every page in the site is reachable from this navigation, so a written page
+    cannot ship findable only by search
+    [tested: test_every_site_page_is_reachable_from_the_navigation; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -28,6 +32,16 @@ export default defineConfig({
   // localhost examples in docstrings are unreachable at build time by nature
   ignoreDeadLinks: [/^https?:\/\/localhost/],
   cleanUrls: true,
+  // The four engine pages carry their source documents' own file names, so the
+  // relative links those documents write between themselves (EXTENDING.md's
+  // closing table links CODEC.md) resolve here with no edit to the sources.
+  // The published URL follows this site's spelling instead of the repository's.
+  rewrites: {
+    "engine/EXTENDING.md": "engine/extending.md",
+    "engine/KERNEL.md": "engine/kernel.md",
+    "engine/CODEC.md": "engine/codec.md",
+    "engine/DEVELOPING.md": "engine/developing.md",
+  },
   markdown: {
     languages: [mettaLanguage],
   },
@@ -38,6 +52,7 @@ export default defineConfig({
       { text: "Reasoning", link: "/reasoning/" },
       { text: "Integrations", link: "/integrations/" },
       { text: "Live systems", link: "/live/" },
+      { text: "Engine", link: "/engine/" },
       { text: "Reference", link: "/reference/" },
       { text: "GitHub", link: "https://github.com/trueagi-io/PeTTa" },
     ],
@@ -68,6 +83,7 @@ export default defineConfig({
           { text: "Python functions in MeTTa", link: "/guide/python-functions" },
           { text: "Write MeTTa in Python", link: "/guide/define" },
           { text: "Spaces", link: "/guide/spaces" },
+          { text: "The contract: how backends attach", link: "/guide/contract" },
           { text: "Data structures", link: "/guide/structures" },
           { text: "Threads, tasks, and pickling", link: "/guide/threads" },
           { text: "Observability", link: "/guide/observability" },
@@ -89,6 +105,7 @@ export default defineConfig({
         items: [
           { text: "Dataframes", link: "/integrations/dataframes" },
           { text: "DuckDB as a space", link: "/integrations/duckdb-space" },
+          { text: "SQLite BLOB images", link: "/integrations/sqlite-blobs" },
           { text: "Pydantic models both ways", link: "/integrations/pydantic-models" },
           { text: "Arrays and embeddings", link: "/integrations/arrays-embeddings" },
           { text: "HTTP, routes, and solver loops", link: "/integrations/http-routes-solvers" },
@@ -109,6 +126,16 @@ export default defineConfig({
         ],
       },
       {
+        text: "Engine",
+        link: "/engine/",
+        items: [
+          { text: "Extending the engine", link: "/engine/extending" },
+          { text: "The kernel", link: "/engine/kernel" },
+          { text: "The wire codec", link: "/engine/codec" },
+          { text: "Developing", link: "/engine/developing" },
+        ],
+      },
+      {
         text: "Reference",
         collapsed: true,
         items: [
@@ -118,8 +145,10 @@ export default defineConfig({
             collapsed: true,
             items: [
               { text: "metta.atoms", link: "/reference/metta-atoms" },
+              { text: "metta.paths", link: "/reference/metta-paths" },
               { text: "metta.Space", link: "/reference/metta-space" },
               { text: "metta.results", link: "/reference/metta-results" },
+              { text: "metta.answer", link: "/reference/metta-answer" },
             ],
           },
           {
@@ -157,6 +186,7 @@ export default defineConfig({
               { text: "metta.remote", link: "/reference/metta-remote" },
               { text: "metta.spaces", link: "/reference/metta-spaces" },
               { text: "metta.aio", link: "/reference/metta-aio" },
+              { text: "metta.events", link: "/reference/metta-events" },
               { text: "metta.subscribe", link: "/reference/metta-subscribe" },
               { text: "metta.foreign", link: "/reference/metta-foreign" },
               { text: "metta.integrate", link: "/reference/metta-integrate" },
