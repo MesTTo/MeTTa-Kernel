@@ -200,12 +200,17 @@ The Python API exposes the same engine deltas through `m.stats()` and exposes
 SWI profiler samples through `m.profile(source)`. Use the profiler to locate
 work, then use `statistics/2` or `m.stats()` for the A/B claim.
 
-`sh bench.sh [BASE_REF]` compares stdout and exit codes against a Git base and
-reports min-of-N wall time plus `instructions:u` when `perf` is available. It
-is not a blocking gate. Check its printed corpus count and every base-only
-warning before treating it as whole-corpus evidence. The topical examples tree
-keeps selected root compatibility aliases, so the current root-glob benchmark
-does not cover every canonical example.
+`sh tests/upstream_bench.sh [BASE_REF]` compares stdout and exit codes against a
+Git base and reports min-of-N wall time plus `instructions:u` when `perf` is
+available. It is not a blocking gate. Check its printed corpus count and every
+base-only warning before treating it as whole-corpus evidence. The topical
+examples tree keeps selected root compatibility aliases, so its root-glob does
+not cover every canonical example.
+
+`sh bench.sh` is the other one, and it answers a different question: it
+discovers every component's own `bench.sh` and runs each suite against its
+committed baselines, so a regression is named against a pin rather than against
+another revision. `metta bench` is that script.
 
 ## Every clause says when it applies
 

@@ -2109,6 +2109,19 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   7,457 lines of warnings about a vendored dependency, and burying the lane list
   under them would trade one silent failure for another.
 
+- **`bench.sh` is the benchmark suite now, and `metta bench` runs it.** The name
+  belonged to the upstream comparison, which runs the shared example corpus
+  against a Git base ref on both engines and answers a different question: is
+  this revision slower than that one. What was missing is the question a
+  baseline answers, is this case slower than its pin, and there was nowhere for
+  a component's own suite to live. Root `bench.sh` discovers `engine/bench.sh`
+  and `extensions/<seat>/bench.sh` the same way `build.sh` and `check.sh`
+  discover their component scripts, runs every suite even after one fails so a
+  run says how many regressed rather than stopping at the first, and passes its
+  arguments through so `--update-baseline` reaches each component's own updater.
+  The upstream comparison keeps its behaviour and its diagnostics under the name
+  that says what it does, `tests/upstream_bench.sh`.
+
 - `metta list` shows TEST and BENCH beside BUILD and CHECK. A component that
   has tests or benchmarks but no script to run them keeps them reachable only
   by whoever knows the path, and the four columns are what make that gap

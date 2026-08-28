@@ -29,7 +29,7 @@ metta <verb> [argument ...]
   check [lane ...]        run the gate, or only the named lanes
   test  [file ...]        run the MeTTa example corpus, or the named examples
   run   <file>            run one MeTTa file through the engine
-  bench [name ...]        run the benchmark suite
+  bench [argument ...]    run every component's benchmark suite against its baselines
   list                    what components exist, and what each can do here
 
   Environment: GATE_ONLY=1 for check's blocking tier only; CHECK_PY to pick the
