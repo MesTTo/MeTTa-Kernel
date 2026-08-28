@@ -2388,6 +2388,17 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   test_a_component_that_ships_a_benchmark_suite_ships_its_baseline]. It found
   the Python seat on its first run.
 
+- **The engine carries `test.sh`, the last empty cell in the contract.** The
+  plunit lane's body moved into it whole, which matters because that body is
+  where the run's trustworthiness lives: the redirect that keeps swipl's exit
+  status out of a pipeline, the working directory the suites' relative paths
+  resolve against, the choicepoint scan, and the load-time error scan that
+  catches a test which never ran at all. A developer had none of that, and the
+  documented way to run one suite by hand still does not. The collector follows
+  the loop, which also ends an ambiguity the engine-lane move reported: the
+  anchor used to match twice inside `check.sh`, so removing either loop alone
+  went undetected.
+
 - `metta list` shows TEST and BENCH beside BUILD and CHECK. A component that
   has tests or benchmarks but no script to run them keeps them reachable only
   by whoever knows the path, and the four columns are what make that gap

@@ -269,8 +269,12 @@ COLLECTORS = (
     # files with this field naming the component, 537 with it left on the root
     # -- 47 of the 49 .plt suites, the eight shipped libraries their bodies
     # consult, and nine tests/prolog providers, 64 files in all].
+    # The loop moved into the engine's own test.sh, so the gate and a developer
+    # run one body; the collector follows the loop rather than the lane. It also
+    # ends an ambiguity: the anchor used to match twice inside check.sh, in this
+    # lane and in dev-typed's, so removing either loop alone went undetected.
     Collector(
-        runner="engine/check.sh",
+        runner="engine/test.sh",
         tier="GATE",
         lane="plunit",
         anchor="for suite in suites/*/*.plt",

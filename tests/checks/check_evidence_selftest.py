@@ -121,14 +121,22 @@ exec "$PY" -m {pytest_anchor} -n auto
 # same consequence: a root-file copy of it would leave this fixture proving a
 # shape the tree does not have, while the real model quietly lost 47 of the 49
 # suites and the 17 files only they load.
+# The engine's lane DELEGATES to its own test.sh, and the plunit loop lives
+# there, which is why the collector anchors on that file. The fixture mirrors
+# the split for the same reason the Python one does: with the loop written into
+# the lane, this selftest would prove a shape the tree no longer has.
 ENGINE_CHECK_SH = """\
 check_plunit() {
-    cd "$HERE/tests/prolog" || return 1
-    for suite in suites/*/*.plt; do
-        swipl -g "run_tests" -t halt "$suite" || return 1
-    done
+    sh "$HERE/engine/test.sh"
 }
 run GATE plunit check_plunit
+"""
+
+ENGINE_TEST_SH = """\
+cd "$HERE/tests/prolog" || exit 1
+for suite in suites/*/*.plt; do
+    swipl -g "run_tests" -t halt "$suite" || exit 1
+done
 """
 
 TEST_SH = """\
@@ -200,6 +208,7 @@ def build(root: Path, pytest_anchor: str) -> dict[str, int]:
         ("extensions/python/check.sh", PYTHON_CHECK_SH),
         ("extensions/python/test.sh", PYTHON_TEST_SH.format(pytest_anchor=pytest_anchor)),
         ("engine/check.sh", ENGINE_CHECK_SH),
+        ("engine/test.sh", ENGINE_TEST_SH),
     ):
         component = root / name
         component.parent.mkdir(parents=True, exist_ok=True)
