@@ -2298,6 +2298,25 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **Five engine sources read as mojibake under a C locale, and one of them is
+  the engine's own test-verdict mark.** `engine/qlf_boot.pl` forces UTF-8 for a
+  boot that goes through `engine/main.pl`, and two files already declared their
+  own encoding, but a direct `swipl engine/metta.pl` never reaches that
+  forcing — and that is the boot every perf-measured child performs, because
+  `measure_instructions` builds its environment from a small allowlist carrying
+  no locale. The cost is not the warning. Measured on a minimal pair, the same
+  file with and without the declaration: `atom_length('✅', L)` answers **1**
+  with it and **3** without, so `runtime.pl`'s
+  `test(A,B,true) :- (A =@= B -> E = '✅' ; E = '❌')` built a three-character
+  mojibake atom instead of the mark it names. `:- encoding(utf8).` now leads
+  `engine/metta/runtime.pl`, `engine/metta/space_hooks.pl`,
+  `engine/filereader/source_lifecycle.pl`,
+  `engine/translator/special_forms.pl` and `lib/lib_import/lib_import.pl`,
+  ahead of every non-ASCII byte rather than merely near the top: SWI decodes
+  the file as a stream, so a declaration placed after the first such byte is
+  already too late, which is what the first attempt got wrong when the ω in
+  `space_hooks.pl`'s header comment kept warning from line 42.
+
 <<<<<<< HEAD
 - **Four readers modelled "the gate" as one file, so each stopped seeing its
   own subject the moment a lane moved out of that file.**
