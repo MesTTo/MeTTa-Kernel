@@ -210,16 +210,15 @@ metta_call_with_inference_bound(Goal, Limit) :-
 %Bounded is a goal to hand to engine_create/3. It must be installed INSIDE the
 %goal the engine runs. A bound placed around engine_next/2 on the host side
 %measures the host's own pull loop and not the engine: an SWI engine has its
-%own inference counter and the host thread cannot see it. Measured 2026-08-27
-%on this box, 1,000 pulls of a goal costing about 402 inferences each: the host
-%counter moved by 2,003, 0.50% of the work, while statistics(inferences, I)
-%read inside the engine goal grew by exactly 403,000
-%[measured 2026-08-27: ai-tmp/proto_counters.pl; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
-%A host-side meter therefore reports a total that tracks the budget by
-%construction, whatever the engine is doing, which looks like a working meter
-%in a sweep and is out by about 200x
-%[measured 2026-08-27: ai-tmp/proto_cetta_design.pl reports 1,001 spent under a
-%1,000 budget while the engine really spent 201,507; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
+%own inference counter and the host thread cannot see it, so a host-side meter
+%reports a total that tracks the budget by CONSTRUCTION whatever the engine is
+%doing, which looks like a working meter in a sweep [tested: tests/prolog/suites/evaluation/inference_budget.plt,
+%an_engine_counts_its_own_work_and_the_creating_thread_does_not, where 200
+%answers grow the engine's counter by over 40,000 while the creating thread's
+%grows by under a tenth of that; commit=23082258ab5a278998c967274c5b22e0ce391a47]. The case that rules the shape out
+%asks five times the budget to buy several times the answers, which a fixed
+%per-pull charge cannot do [tested: tests/prolog/suites/evaluation/inference_budget.plt, a_budget_is_cumulative_across_resumes;
+%commit=23082258ab5a278998c967274c5b22e0ce391a47].
 %
 %Two bounds, because a budget over a resumable goal has two ways to be
 %escaped and neither one covers the other:
@@ -235,9 +234,10 @@ metta_call_with_inference_bound(Goal, Limit) :-
 %The base matters even though an engine's counter starts near zero: this same
 %wrapper is used on goals a host drives with findall/3 on its own thread,
 %where the counter has been growing since the process started and a raw
-%comparison would fire before the goal ran
-%[measured 2026-08-27: ai-tmp/cb_proto_hostthread.pl, where the un-based check
-%fires on every budget below the process-lifetime counter; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
+%comparison would fire before the goal ran [tested: tests/prolog/suites/evaluation/inference_budget.plt,
+%a_budget_charges_a_host_thread_goal_for_its_own_work, which sets that
+%precondition up by spending past the budget before the goal starts;
+%commit=23082258ab5a278998c967274c5b22e0ce391a47].
 %
 %Spend is bounded by the budget plus one answer's cost. The one case that
 %costs more is an answer that on its own overruns the whole budget after
@@ -249,23 +249,35 @@ metta_call_with_inference_bound(Goal, Limit) :-
 %feature; one rule covers the Python seat's -1 and the C seat's 0 without
 %either converting.
 %
-%The bounded path costs TWO inferences per answer over the per-solution
-%limiter alone, and it is two whatever an answer costs, so the fraction is the
-%number to be careful with: 0.49% where an answer costs 407 inferences, 7.4%
-%where it costs 27, 28.6% where it costs 7
-%[measured 2026-08-27: ai-tmp/cb_shipped_overhead.pl, draining 20,000 answers
-%at each cost; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
-%Those two are spent in the cursor's ENGINE, so no host-side counter sees
-%them: query-limit-guarded, which passes
-%inferences=50,000,000 over 5,000 rows, measures identically to its pin
-%[measured 2026-08-27: extensions/python/bench.py --counter-only; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
+%The bounded path costs THREE inferences per answer over the per-solution
+%limiter alone, plus one for the base read taken once when the goal starts,
+%and the three is the same whatever an answer costs. So the fraction is the
+%number to be careful with: 0.74% where an answer costs 407 inferences, 9.68%
+%at 31, 49.95% at 6 [tested: tests/prolog/suites/evaluation/inference_budget.plt,
+%the_cumulative_check_costs_three_inferences_per_answer; commit=WORKTREE].
+%
+%This said TWO until 2026-08-28 and was wrong, in the direction that makes a
+%cost look affordable. The figure came from the C seat's ORIGINAL host-side
+%meter, which made two statistics/2 calls per pull, and a count of instrumentation
+%calls was carried across into this file as a count of inferences when the
+%mechanism moved into the engine. Nothing re-measured it, because nothing here
+%could: the number had no test. It has one now, and the three derived
+%percentages moved with it.
+%
+%Those three are spent in the cursor's ENGINE, so no host-side counter sees
+%them: query-limit-guarded passes inferences=50,000,000 over 5,000 rows and
+%holds its pin within the four-inference allowance, where a host-visible
+%per-answer charge would move it by 5,000
+%[tested: extensions/python/bench.py --counter-only query-limit-guarded
+%query-limit-plain; commit=WORKTREE].
 %
 %Keeping the check behind metta_inference_budget_spent/3 is also the CHEAPER
-%shape, which is not the obvious way round: writing the same test inline into
-%the built term costs three inferences per answer rather than two, because the
-%clause head does the outcome discrimination that the inline form pays an
-%if-then-else and a compound arithmetic comparison for [measured 2026-08-27:
-%ai-tmp/cb_shipped_overhead.pl compares the two directly; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
+%shape, which is not the obvious way round: the clause HEAD discriminates the
+%limiter's own outcome through first-argument indexing, which retires nothing,
+%where the same test written inline into the built term pays a comparison for
+%it and costs four per answer rather than three
+%[source: SWI-Prolog 10 Reference Manual, Indexing databases,
+%https://www.swi-prolog.org/pldoc/man?section=jitindex; commit=WORKTREE].
 %
 %The budget belongs to the resumable entity, which is the same place wasmtime
 %puts Store fuel and BEAM puts a process's reduction count
@@ -297,14 +309,39 @@ metta_host_inference_budget(Goal, Inferences, Bounded) :-
 
 %Takes no goal, so no module travels with it and it may be called from
 %whatever module the engine stamped on the term above.
+%
+%THE COMMON OUTCOME IS THE `then` BRANCH, the same rule masked_result_goal/3
+%is written to and for the same measured reason [source:
+%engine/translator/special_forms.pl, masked_result_goal/3, where reversing two
+%branches cost 1.05% of a million-call loop; commit=WORKTREE]. SWI charges an
+%if-then-else one more inference when its condition fails than when it
+%succeeds, and the condition here fails on every answer that is within budget,
+%which is nearly all of them. Spelling it `> -> throw ; true` instead costs
+%four inferences per answer rather than three, measured identically at answer
+%costs of 407, 31 and 6 [tested:
+%tests/prolog/suites/evaluation/inference_budget.plt,
+%the_cumulative_check_costs_three_inferences_per_answer; commit=WORKTREE].
+%The two forms are equivalent because integer comparison is total: exactly one
+%of `>` and `=<` holds for the same pair.
+%
+%It is paid for ONCE AT LOAD. A clause whose if-then-else holds `true` in the
+%then-branch and a real goal in the else compiles for 15 inferences less than
+%the other way round, so this shape costs the engine's boot 15 and every
+%bounded cursor one per answer less: break-even at fifteen answers, which is
+%fewer than a bounded cursor exists to draw. Attributed by a four-variant A/B
+%holding file position constant, which separates the operator from the branch
+%order: `> -> throw ; true` and `=< -> throw ; true` both consult for
+%1,418,538, and `=< -> true ; throw` and `> -> true ; throw` both for
+%1,418,553 [measured 2026-08-28: consult of engine/metta.pl, all four variants
+%in one run; commit=WORKTREE].
 metta_inference_budget_spent(inference_limit_exceeded, _, Inferences) :-
     !,
     metta_inference_bound_exceeded(Inferences).
 metta_inference_budget_spent(_, Base, Inferences) :-
     statistics(inferences, Now),
-    (   Now - Base > Inferences
-    ->  metta_inference_bound_exceeded(Inferences)
-    ;   true
+    (   Now - Base =< Inferences
+    ->  true
+    ;   metta_inference_bound_exceeded(Inferences)
     ).
 
 %The one spelling of the reserved envelope, so a pragma bound, a per-call

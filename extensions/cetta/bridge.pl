@@ -21,7 +21,7 @@
 %     spent that many, cumulatively across pulls, because the budget is built
 %     into the engine goal by metta_host_inference_budget/3 [tested:
 %     tests/test_cetta.c, test_a_bound_stops_a_runaway_and_says_so;
-%     commit=6da1b0dacc500fc7691a66722ba58f52ab2df081]
+%     commit=23082258ab5a278998c967274c5b22e0ce391a47]
 %   - metta_c_close/1 is idempotent
 %   - no answer is encoded, tagged, or stringified on the way out: the C half
 %     receives the engine's own term. This seat is in-process with the engine
@@ -187,27 +187,33 @@ metta_c_answer_parts(Term, Term, [], Text) :-
 % instead, with statistics/2 either side of each engine_next/2 and the deltas
 % accumulated on the cursor, and that does not work: an engine counts its own
 % inferences and this thread cannot see them, so those deltas are the pull
-% loop. Replayed against a workload costing about 402 inferences per answer,
-% the meter reported 1,001 spent under a 1,000 budget while the engine had
-% really spent 201,507, and 100,002 under 100,000 against 20,150,410
-% [measured 2026-08-27: ai-tmp/proto_cetta_design.pl; commit=6da1b0dacc500fc7691a66722ba58f52ab2df081].
+% loop, an order of magnitude or more below what the engine is spending
+% [tested: tests/prolog/suites/evaluation/inference_budget.plt,
+% an_engine_counts_its_own_work_and_the_creating_thread_does_not;
+% commit=23082258ab5a278998c967274c5b22e0ce391a47].
 %
-% The sweep recorded here as evidence, 1,000 stopping at 1,004 and 100,000 at
-% 100,004, is what that looks like from inside: a constant four-inference
-% overshoot at every scale is a fixed charge per pull, so the reported total
-% tracks the budget by construction whatever the engine is doing. It was a
-% correct measurement of the wrong counter.
+% The sweep this file once carried as evidence, 1,000 stopping at 1,004 and
+% 100,000 at 100,004, is what that looks like from inside: a constant
+% four-inference overshoot at every scale is a fixed charge per pull, so the
+% reported total tracks the budget by construction whatever the engine is
+% doing. It was a correct measurement of the wrong counter, and the case that
+% now rules that shape out asks five times the budget to buy several times the
+% answers, which a per-pull charge cannot do [tested:
+% tests/prolog/suites/evaluation/inference_budget.plt,
+% a_budget_is_cumulative_across_resumes; commit=23082258ab5a278998c967274c5b22e0ce391a47].
 %
-% The earlier sweep in the same note is sound and still worth keeping: an
+% The other half of the original diagnosis was sound and mis-explained. An
 % engine goal wrapped in call_with_inference_limit/3 ALONE fired at budgets of
 % 500, 1,000 and 2,000 and never fired at 5,000, 10,000 or 20,000 over the same
-% endless generator. A cumulative budget cannot behave that way. The reason is
-% not that the limiter fails to cross engine_next/2, which is what this note
+% endless generator, and a cumulative budget cannot behave that way. The reason
+% is not that the limiter fails to cross engine_next/2, which is what this note
 % concluded; it is that SWI bounds inferences per SOLUTION of the goal, so a
 % generator answering cheaply forever is re-armed at every answer and never
-% reaches it. The published wrapper keeps that limiter, because it is the only
-% one of the two bounds that stops a resume which never yields at all, and adds
-% the cumulative check the per-solution contract cannot express.
+% reaches it [tested: tests/prolog/suites/evaluation/inference_budget.plt,
+% the_bare_limiter_does_not_bound_a_generator; commit=23082258ab5a278998c967274c5b22e0ce391a47]. The published
+% wrapper keeps that limiter, because it is the only one of the two bounds that
+% stops a resume which never yields at all, and adds the cumulative check the
+% per-solution contract cannot express.
 %
 % The wall bound stays per pull, so time between pulls, while the host is doing
 % something else, cannot count against it.

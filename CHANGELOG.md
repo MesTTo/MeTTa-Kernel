@@ -2382,6 +2382,38 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **A cursor budget's documented cost was half its real one, and the real one
+  came down by a quarter once it was measured.** `engine/metta/control.pl`
+  recorded the cumulative inference budget as costing two inferences per
+  answer over the per-solution limiter alone, with three percentages derived
+  from that figure. It cost four. Two independent harnesses agree, one driving
+  an SWI engine and one driving `findall/3` on the calling thread, identically
+  at answer costs of 407, 31 and 6.
+  The wrong number has a traceable origin: the C seat's original host-side
+  meter made two `statistics/2` CALLS per pull, and a count of instrumentation
+  calls was carried across into the engine as a count of inferences when the
+  mechanism moved inside the engine goal. Nothing re-measured it because
+  nothing could, since the number had no test.
+  It also turned out to be reducible. Four semantically identical shapes were
+  raced, and the one that spells the comparison so the COMMON outcome is the
+  then-branch costs three rather than four: SWI charges an if-then-else one
+  more inference when its condition fails than when it succeeds, and
+  within-budget is the common case. That is one inference off every answer of
+  every bounded cursor, in both seats. Three is the floor for this shape, since
+  the two-inference variant drops the throw and merely fails, which would end a
+  spent cursor quietly instead of reporting its bound.
+  No pinned count moves, which is why it went unnoticed for so long: the charge
+  is spent inside the cursor's own engine, where no host counter sees it.
+  `query-limit-guarded` passes `inferences=50,000,000` over 5,000 rows and
+  holds its pin, where a host-visible per-answer charge would move it by 5,000.
+  Both facts are now tests rather than comments, in
+  `tests/prolog/suites/evaluation/inference_budget.plt`. The cost test asserts
+  the affine relation `Delta = 3 * Answers + 1` rather than dividing, so a
+  charge that is not a fixed constant fails instead of rounding into one; the
+  mechanism behind it is pinned separately by a probe that holds no copy of
+  shipped logic and so cannot drift out of step with it. Six evidence tags that
+  cited deleted scratch files under `ai-tmp/` now cite those tests instead.
+
 - **Five engine sources read as mojibake under a C locale, and one of them is
   the engine's own test-verdict mark.** `engine/qlf_boot.pl` forces UTF-8 for a
   boot that goes through `engine/main.pl`, and two files already declared their
