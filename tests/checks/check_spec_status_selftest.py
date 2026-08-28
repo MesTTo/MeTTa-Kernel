@@ -64,7 +64,6 @@ run GATE deep-test sh -c "cd \\"$HERE\\" && sh tests/nested/deep_test.sh"
 run GATE promoted-lane echo promoted
 run REPORT unpromoted-lane echo unpromoted
 run GATE preexisting-lane echo preexisting
-run GATE plunit sh -c "cd '$HERE/tests/prolog' && for suite in suites/*/*.plt; do swipl -g run_tests -t halt \\"$suite\\"; done"
 run GATE shell sh -c "cd \\"$HERE\\" && sh test.sh"
 
 for component_check in "$HERE"/engine/check.sh "$HERE"/extensions/*/check.sh; do
@@ -80,6 +79,15 @@ done
 # had already stopped resolving.
 PYTHON_CHECK_SH = """\
 run GATE pytest sh -c "cd '$PYDIR' && '$PY' -m pytest tests -q -p no:benchmark"
+"""
+
+# The plunit lane is the engine component's, for the same reason. P90.11 is what
+# rides on it: `a_pinning_plunit_test` reads FIXED only because a GATE lane's
+# collector sweeps the suite holding it in, so a fixture that kept the lane at
+# the root would go on reporting FIXED while the real tree's plunit anchor had
+# already stopped resolving.
+ENGINE_CHECK_SH = """\
+run GATE plunit sh -c "cd '$HERE/tests/prolog' && for suite in suites/*/*.plt; do swipl -g run_tests -t halt \\"$suite\\"; done"
 """
 
 TEST_SH = """\
@@ -185,9 +193,13 @@ def build(root: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
     (root / "check.sh").write_text(CHECK_SH, encoding="utf-8")
-    component = root / "extensions/python/check.sh"
-    component.parent.mkdir(parents=True, exist_ok=True)
-    component.write_text(PYTHON_CHECK_SH, encoding="utf-8")
+    for name, content in (
+        ("extensions/python/check.sh", PYTHON_CHECK_SH),
+        ("engine/check.sh", ENGINE_CHECK_SH),
+    ):
+        component = root / name
+        component.parent.mkdir(parents=True, exist_ok=True)
+        component.write_text(content, encoding="utf-8")
     (root / "test.sh").write_text(TEST_SH, encoding="utf-8")
     (root / ".git").mkdir(exist_ok=True)
 

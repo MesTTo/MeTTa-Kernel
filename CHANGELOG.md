@@ -1135,6 +1135,50 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **The engine owns its own gate lanes, in `engine/check.sh`, and the root gate
+  now carries only lanes whose subject is the repository.** Twenty-nine move,
+  beside the `engine-bench` lane the component already had: the example corpus
+  in both its lanes (`shell`, `examples`), the three oracles that prove its
+  runner detects a failure, reports it, and does not have a pass destroyed
+  under it (`shell-oracle`, `shell-failure`, `encoding`), the specializer
+  differential, the three shell suites only `ci.yml` used to run
+  (`git-dependency`, `git-import`, `loader-threads`), the Prolog analyses
+  (`prolog`, `ciao-grade`, `prolog-static`, `prolog-reach` and its selftest,
+  `prolog-metatheory`, the three `translator-confluence` lanes, both
+  `dev-typed` lanes, both `engine-integrity` lanes), the corpus law
+  (`cumulative-syntax` and its selftest), `no-autoload`, `lib-surface`,
+  `layering`, `prolog-determinism` and `plunit`. `extensions/python`, `extensions/node` and `extensions/cetta`
+  already owned theirs, SOURCED rather than executed by the root driver's
+  discovery loop, which is what keeps one `run`, one summary table and one exit
+  status.
+
+  The seventeen shell functions those lanes call move with them, from
+  `run_example_corpus` to `check_plunit`, and no function is reached by both a
+  moved lane and a lane that stays. `run`, `in_py`, `$PY`, `$PYDIR` and `$HERE`
+  stay with the root driver, which is what sourcing makes available; `run` is
+  called from all four component scripts and `in_py` from the Python one.
+  Nothing a lane does changes: what the root keeps and the four regions the
+  component gains reassemble the previous `check.sh` line for line, the 86 lane
+  names and their tiers are identical, and `sh check.sh <lane>` still selects
+  any of them, which is the door `.github/workflows/checks.yml` uses.
+
+  What stays at the root is what the root is the subject of: the conformance
+  arbiters (`leatta`, `cetta`, `cetta-corpus`), the generated-documentation
+  lanes (`reference`, `libdoc`, `codec-doc`, `vocab-sync`, `llms`, `snippets`,
+  `docs`), the readers that model the gate's own shape (`evidence`,
+  `spec-status` and their selftests), `policy-inventory`, `refusal-grounds`,
+  `codespell`, `jscpd`, `ruff-drivers`, `build` and `worktree`.
+
+  `tests/checks/evidence_runners.py`'s plunit collector names the component
+  now, the same field the pytest collector needed when the Python lanes moved.
+  Left on the root it reports the anchor as gone and the suites drop out of the
+  executed model carrying the files only they load: 601 executed files with the
+  field naming the component, 537 with it stale, the difference being 47 of the
+  49 `.plt` suites, the eight shipped libraries their bodies consult and nine
+  `tests/prolog` providers. Both selftest fixtures build an `engine/check.sh` of
+  their own now, so the split is the shape they prove against
+  [tested: sh check.sh evidence evidence-selftest spec-status-selftest].
+
 - **The Python component owns its own gate lanes, in
   `extensions/python/check.sh`.** The root `check.sh` carried 80 lanes and the
   largest block of them had a subject that was not the root: `pytest`,

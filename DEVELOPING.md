@@ -187,7 +187,8 @@ but cannot decide the claim.
 
 The engine-side build, PlUnit, shell regression, and measurement
 instructions live in `tests/prolog/README.md`, which is in this tree.
-`check.sh` remains the authoritative list of engine-side gate commands.
+`engine/check.sh` is the authoritative list of engine-side gate commands, and
+the root `check.sh` sources it, so `sh check.sh <lane>` still names any of them.
 
 ## Change requirements
 

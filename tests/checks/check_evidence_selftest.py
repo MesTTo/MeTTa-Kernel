@@ -10,13 +10,13 @@ above it. So the guarantees in check_evidence_tags.py's own header are tested
 here, against planted violations, and not by the gate run that finds nothing.
 
 The tree is written from scratch each time under a temporary directory: a
-check.sh with both tiers, the Python component's own check.sh that the root one
-sources, a test.sh with the example corpus, one plunit suite, one gate script,
-one example, one collected pytest module, and the orphans and mutes that are
-supposed to be rejected. The checker is copied into <tree>/tools/checks
-rather than <tree>/tests, because its own SOURCES reads tests/*.py and a copy
-sitting there would have its docstring read as claims about a tree it is only
-visiting.
+check.sh with both tiers, the engine and Python components' own check.sh files
+that the root one sources, a test.sh with the example corpus, one plunit suite,
+one gate script, one example, one collected pytest module, and the orphans and
+mutes that are supposed to be rejected. The checker is copied into
+<tree>/tools/checks rather than <tree>/tests, because its own SOURCES reads
+tests/*.py and a copy sitting there would have its docstring read as claims
+about a tree it is only visiting.
 
 Every citation is built from a TAG variable instead of being written out. A
 literal one in this file is a claim about THIS repository as far as the gate is
@@ -87,13 +87,6 @@ CHECK_SH = """\
 run() { :; }
 in_py() { ( cd "$PYDIR" && "$@" ); }
 
-check_plunit() {
-    cd "$HERE/tests/prolog" || return 1
-    for suite in suites/*/*.plt; do
-        swipl -g "run_tests" -t halt "$suite" || return 1
-    done
-}
-run GATE plunit check_plunit
 run GATE shell sh -c "cd '$HERE' && sh test.sh"
 run GATE gate-script sh -c "cd '$HERE/tests/prolog' && swipl gate_script.pl"
 run GATE checked sh -c "cd '$HERE' && '$PY' tests/checked.py"
@@ -114,6 +107,20 @@ done
 # model had already stopped seeing every pytest file.
 PYTHON_CHECK_SH = """\
 run GATE pytest sh -c "cd '$PYDIR' && '$PY' -m {pytest_anchor} -n auto"
+"""
+
+# The plunit lane is the engine component's, for the same reason and with the
+# same consequence: a root-file copy of it would leave this fixture proving a
+# shape the tree does not have, while the real model quietly lost 47 of the 49
+# suites and the 17 files only they load.
+ENGINE_CHECK_SH = """\
+check_plunit() {
+    cd "$HERE/tests/prolog" || return 1
+    for suite in suites/*/*.plt; do
+        swipl -g "run_tests" -t halt "$suite" || return 1
+    done
+}
+run GATE plunit check_plunit
 """
 
 TEST_SH = """\
@@ -176,9 +183,13 @@ def build(root: Path, pytest_anchor: str) -> dict[str, int]:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
     (root / "check.sh").write_text(CHECK_SH)
-    component = root / "extensions/python/check.sh"
-    component.parent.mkdir(parents=True, exist_ok=True)
-    component.write_text(PYTHON_CHECK_SH.format(pytest_anchor=pytest_anchor))
+    for name, content in (
+        ("extensions/python/check.sh", PYTHON_CHECK_SH.format(pytest_anchor=pytest_anchor)),
+        ("engine/check.sh", ENGINE_CHECK_SH),
+    ):
+        component = root / name
+        component.parent.mkdir(parents=True, exist_ok=True)
+        component.write_text(content)
     (root / "test.sh").write_text(TEST_SH)
 
     # Two levels down, mirroring the real tests/checks/ so the checker's own

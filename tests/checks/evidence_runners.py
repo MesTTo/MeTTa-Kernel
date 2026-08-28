@@ -258,8 +258,15 @@ COLLECTORS = (
         patterns=("test_*.py", "*_test.py"),
         recursive=True,
     ),
+    # The plunit lane is the engine component's, and lives in that component's
+    # own check.sh. Same field and the same cost as the pytest collector above:
+    # left naming the root, the anchor reads as gone and the suites drop out
+    # carrying the files only they load [measured 2026-08-28: 601 executed
+    # files with this field naming the component, 537 with it left on the root
+    # -- 47 of the 49 .plt suites, the eight shipped libraries their bodies
+    # consult, and nine tests/prolog providers, 64 files in all].
     Collector(
-        runner="check.sh",
+        runner="engine/check.sh",
         tier="GATE",
         lane="plunit",
         anchor="for suite in suites/*/*.plt",
