@@ -38,17 +38,38 @@ PURGE = re.compile(r"(?:ensure_loaded|consult)\('([^']*)engine/qlf_boot(?:\.pl)?
 
 #: These two load the purge as a module (``:- ensure_loaded(qlf_boot).``) from
 #: inside engine/, which the path pattern above cannot see and does not need to.
-EXEMPT_BY_NAME = {"engine/main.pl", "engine/bench.pl"}
+EXEMPT_BY_NAME = {
+    #: These load the purge as a module (``:- ensure_loaded(qlf_boot).``) from
+    #: inside engine/, which the path pattern above cannot see and does not need.
+    "engine/main.pl",
+    "engine/bench.pl",
+    #: This one has nothing to purge: it mounts the engine's sources into a
+    #: WebAssembly filesystem with *.qlf and .qlf-stamp filtered out, so it
+    #: boots from source by construction and no artifact can go stale under it.
+    "extensions/node/src/engine.ts",
+}
 
 #: The door. A file that means to load the engine WITHOUT the purge says so on
 #: its own line, with the reason beside it, rather than in a list here.
 EXEMPTION = re.compile(r"%\s*qlf-freshness-exempt:\s*(\S.*)")
 
 
-def tracked_prolog_files() -> list[Path]:
-    """Every tracked .pl and .plt, so an untracked scratch file is not a gate."""
+#: A loader is not always Prolog. extensions/cetta/cetta.c builds its consult
+#: as a C string and the Node seat builds one in TypeScript, so walking *.pl
+#: alone would let a HOST SEAT drop the purge without a word -- which is
+#: exactly where it matters most, since a seat's users are not reading the
+#: engine's test suite.
+LOADER_GLOBS = ("*.pl", "*.plt", "*.c", "*.ts")
+
+#: A comment marker per language, so prose naming the two files is not read as
+#: a load. The engine's own writing names them constantly.
+COMMENT_STARTS = ("%", "//", "*", "/*", "#")
+
+
+def tracked_loader_files() -> list[Path]:
+    """Every tracked file that could carry an engine load, in any language."""
     listed = subprocess.run(
-        ["git", "ls-files", "-z", "*.pl", "*.plt"],
+        ["git", "ls-files", "-z", *LOADER_GLOBS],
         cwd=ROOT, capture_output=True, text=True, check=True,
     ).stdout
     return [ROOT / name for name in listed.split("\0") if name]
@@ -61,7 +82,7 @@ def first_match_line(text: str, pattern: re.Pattern[str]) -> tuple[int, str] | N
     engine's own prose names both files constantly.
     """
     for number, line in enumerate(text.splitlines(), start=1):
-        if line.lstrip().startswith("%"):
+        if line.lstrip().startswith(COMMENT_STARTS):
             continue
         found = pattern.search(line)
         if found:
@@ -84,10 +105,17 @@ def complaints_for(path: Path) -> list[str]:
     engine_line, engine_prefix = engine
     purge = first_match_line(text, PURGE)
     if purge is None:
+        #: The remedy is spelled in the file's OWN language, because it is the
+        #: door: a Prolog directive printed into a C file reads as a gate that
+        #: does not know what it is looking at.
+        remedy = {
+            ".pl": f"`:- ensure_loaded('{engine_prefix}engine/qlf_boot.pl').`",
+            ".plt": f"`:- ensure_loaded('{engine_prefix}engine/qlf_boot.pl').`",
+        }.get(path.suffix, f"a consult of '{engine_prefix}engine/qlf_boot.pl'")
         return [
             f"{relative}:{engine_line} loads the engine without the purge; add "
-            f"`:- ensure_loaded('{engine_prefix}engine/qlf_boot.pl').` above it, "
-            f"or write `% qlf-freshness-exempt: <why>` in this file"
+            f"{remedy} above it, or write "
+            f"`qlf-freshness-exempt: <why>` in a comment in this file"
         ]
     purge_line, purge_prefix = purge
     if purge_line > engine_line:
@@ -109,7 +137,7 @@ def main() -> int:
     """Report every loader that could read a stale compile."""
     complaints: list[str] = []
     loaders = 0
-    for path in tracked_prolog_files():
+    for path in tracked_loader_files():
         text_has_engine = ENGINE.search(path.read_text(encoding="utf-8"))
         if text_has_engine:
             loaders += 1

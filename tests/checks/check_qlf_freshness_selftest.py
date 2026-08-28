@@ -50,36 +50,53 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as name:
         root = Path(name)
 
+        prolog = "tests/prolog/planted.pl"
+        #: A host seat builds its consult as a C string, which is where the rule
+        #: matters most and where a Prolog-only walk would see nothing.
+        c = "extensions/seat/host.c"
+        c_engine = "snprintf(b, n, \"consult('%s/engine/metta.pl')\", path);\n"
+        c_purge = "snprintf(b, n, \"consult('%s/engine/qlf_boot.pl')\", path);\n"
+
         cases = [
-            # (label, body, must_complain)
-            ("no purge at all", ENGINE, True),
-            ("purge after the engine", ENGINE + PURGE, True),
-            ("purge from another directory",
+            # (label, path, body, must_complain)
+            ("no purge at all", prolog, ENGINE, True),
+            ("purge after the engine", prolog, ENGINE + PURGE, True),
+            ("purge from another directory", prolog,
              ":- ensure_loaded('../../../engine/qlf_boot.pl').\n" + ENGINE, True),
-            ("purge first, same prefix", PURGE + ENGINE, False),
-            ("declared exemption",
+            ("purge first, same prefix", prolog, PURGE + ENGINE, False),
+            ("declared exemption", prolog,
              "% qlf-freshness-exempt: measures the artifact set itself\n" + ENGINE,
              False),
             # A file that never loads the engine is not this gate's business.
-            ("no engine load", ":- use_module(library(lists)).\n", False),
+            ("no engine load", prolog, ":- use_module(library(lists)).\n", False),
             # The engine's own prose names both files constantly; a comment is
             # not a load, and reading it as one would fail every unit.
-            ("engine named only in a comment",
+            ("engine named only in a comment", prolog,
              "% consult('../../engine/metta.pl') is what main.pl does.\n", False),
+            ("C loader without the purge", c, c_engine, True),
+            ("C loader with the purge first", c, c_purge + c_engine, False),
+            ("C comment naming the engine", c,
+             "// consult('%s/engine/metta.pl') is what mt_open does.\n", False),
         ]
-        for label, body, must_complain in cases:
-            got = _complaints(root, body)
+        for label, path, body, must_complain in cases:
+            got = _complaints(root, body, path)
             if must_complain and not got:
                 defects.append(f"the gate stayed quiet on a planted defect: {label}")
             if not must_complain and got:
                 defects.append(f"the gate complained about a correct file ({label}): {got[0]}")
+            #: The remedy is the door, so it has to arrive in the file's own
+            #: language; a Prolog directive printed into a C file is a gate that
+            #: does not know what it is looking at.
+            if must_complain and got and path.endswith(".c") and "ensure_loaded" in got[0]:
+                defects.append(f"the C remedy is spelled as a Prolog directive: {label}")
 
-        # The two entry points are exempt by NAME, and the exemption has to be
-        # real: they load the purge as a module, which the path pattern cannot
-        # see. A wrong name here would silence a file that should be checked.
+        # The entry points are exempt by NAME, and each exemption has to be
+        # real: two load the purge as a module, which the path pattern cannot
+        # see, and one mounts engine sources with the .qlf files excluded.
+        exempt = ("engine/main.pl", "engine/bench.pl", "extensions/node/src/engine.ts")
         defects.extend(
             f"{entry} should be exempt by name and was not"
-            for entry in ("engine/main.pl", "engine/bench.pl")
+            for entry in exempt
             if _complaints(root, ENGINE, entry)
         )
         if not _complaints(root, ENGINE, "engine/other.pl"):
@@ -89,7 +106,8 @@ def main() -> int:
         for line in defects:
             print(line, file=sys.stderr)
         return 1
-    print("qlf-selftest: 0 defect(s), over 7 planted loaders and 3 exemption cases")
+    print(f"qlf-selftest: 0 defect(s), over {len(cases)} planted loaders "
+          f"and {len(exempt) + 1} exemption cases")
     return 0
 
 

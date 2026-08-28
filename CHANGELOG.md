@@ -2382,6 +2382,19 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **The freshness gate read only Prolog, and the loader that mattered most is
+  C.** `extensions/cetta/cetta.c` builds its consult as a C string and the Node
+  seat builds one in TypeScript, so a walk over `*.pl` alone would let a HOST
+  SEAT drop the purge without a word, which is where it matters most: a seat's
+  users are not reading the engine's test suite. The walk now covers `*.c` and
+  `*.ts` as well, and skips each language's comment markers because the engine's
+  own prose names both files constantly. The remedy it prints is spelled in the
+  file's own language; a Prolog directive printed into a C file is a gate that
+  does not know what it is looking at, and the selftest fails if it is. Sixty-two
+  loaders now, and `extensions/node/src/engine.ts` is exempt by name for a real
+  reason: it mounts the engine's sources with `*.qlf` and `.qlf-stamp` filtered
+  out, so it boots from source and no artifact can go stale under it.
+
 - **A C program could run the engine's previous compile, and fixing that made
   its boot 10% cheaper.** `mt_open()` consulted `engine/metta.pl` directly. The
   engine's units are consulted by umbrellas, so `engine/spaces/foreign.pl`
