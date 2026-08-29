@@ -31,5 +31,13 @@ built is. A library that rests on one says so with
 `!(require-extension! <name>)` and gets a refusal that names the missing half
 and ends in the command that builds it.
 
-[Extending the engine](../engine/EXTENDING.md) is the other half of this story:
+## Adding one
+
+[The contract for adding an extension](./adding.md) is what to put in the
+folder: the control file's vocabulary, the five scripts and the exit rule they
+share, where tests, examples and benchmarks go, and the three independent
+choices a seat should offer — which direction it faces, whether a definition is
+called or lowered, and what a value crosses as.
+
+[Extending the engine](../engine/EXTENDING.md) is the other half of that story:
 the nine extension points a seat is built out of, and what each one costs.

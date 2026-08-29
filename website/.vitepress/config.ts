@@ -130,6 +130,7 @@ export default defineConfig({
         text: "Extensions",
         link: "/extensions/",
         items: [
+          { text: "Adding an extension", link: "/extensions/adding" },
           { text: "Python", link: "/extensions/python" },
           { text: "Node", link: "/extensions/node" },
           { text: "C", link: "/extensions/cetta" },
