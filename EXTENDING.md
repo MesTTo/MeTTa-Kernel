@@ -72,6 +72,48 @@ inside about 2x is timer noise.
 
 Read both columns, because each one hides something.
 
+### Three choices, and none of them is the other two
+
+The table above prices ONE of three decisions you make when something crosses
+between MeTTa and a host language. They are independent, and reading the table
+without separating them is how a reader concludes that the fast choice and the
+translated choice are the same choice. They are not.
+
+| the choice | its poles | what already names it |
+|---|---|---|
+| who calls whom | the host drives, or the engine calls out | `entry(host, File)` and `entry(engine, File)` in a seat's `extension.pl` |
+| where the body lives | CALLED, or LOWERED | nothing yet; `mt_lower` and "lowered-source define" are the far end's name in two seats |
+| what a value crosses as | transparent, or opaque | the `registry-image` vocabulary, and `py-atom`'s metatype argument |
+
+**Where the body lives** is what this table prices. A CALLED definition is a
+host function the engine can only call: it must be TOLD its effect class,
+because the engine cannot see inside it, and its body stays in the host
+language and stays late-bound. A LOWERED definition is compiled into equations,
+which the engine reads, specialises, matches on and reasons about. Each seat
+spells the pair its own way, and it is one idea:
+
+| seat | called | lowered |
+|---|---|---|
+| Python | `m.op` | `@m.define` |
+| C | `mt_def` | `mt_lower` |
+| TypeScript | `op` | `define` |
+
+**What a value crosses as** is the third choice and is where the words
+*transparent* and *opaque* belong. They describe an IMAGE, not a definition: a
+transparent value is translated into MeTTa structure, and an opaque one is
+carried whole as a blob the engine holds and does not read. `py-atom` takes the
+choice as an argument, `Expression` for a snapshot and `Grounded` for the live
+reference, and holding a blob is a first-class thing to do rather than a
+lesser one: it keeps host identity and skips a translation that may not be
+wanted. An iterator is always opaque, because measuring one drains it.
+
+The two are orthogonal, which is the part worth stating outright. A LOWERED
+body can take an OPAQUE argument, and a CALLED host function can be handed a
+TRANSPARENT one. So do not read "lowered" as "transparent", and do not reach
+for the words *opaque* and *transparent* to describe how a definition was
+installed. This document made that mistake once and it is why this section
+exists.
+
 The write door has its own table, in the same harness against the same
 committed baseline: what an `add-atom` costs once something claims the
 space it writes into. The hook row is the price of consulting an
