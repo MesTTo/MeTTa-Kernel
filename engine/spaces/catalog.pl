@@ -752,9 +752,30 @@ metta_check_catalog_semantics(events, [Ctx|_], _) :-
 metta_check_catalog_semantics(subscription, [Ctx|_], _) :-
     !,
     metta_require_events(Ctx, 'be subscribed to').
+%A reaction row installs the write hook it needs, the way a capacity row
+%installs its admission counter. It was the one declaration whose side effect
+%stayed on the HOST: every binding had to call metta_install_bridges/0 after
+%writing the row, the Python seat does it inside a goal string, and a binding
+%whose Prolog is statically checked could not do it at all. Doing it here makes
+%the row self-sufficient in every seat and takes an engine internal off the
+%host-service floor rather than adding one to it.
+%
+%HERE and not in metta_catalog_note_added/1, for the reason the events flag
+%above is here: that walk takes a LIST, so a clause added to it is one
+%inference on every '&metta' write, measured at +10 on the identity twin's
+%pinned budget. This dispatches on the head atom, so a clause for one head
+%costs the other heads nothing.
+%
+%Before the row lands rather than after, which is what this pass is, and that
+%is sound: the hook reads reaction rows when it FIRES, so installing it for a
+%row whose store then failed leaves an idempotent hook that finds nothing. The
+%measured property is unchanged because the TRIGGER is unchanged -- bridges
+%install when a reaction is declared and not before, so an engine with no
+%reaction keeps the direct write path and its cost.
 metta_check_catalog_semantics(on, [Ctx|_], _) :-
     !,
-    metta_require_events(Ctx, 'carry a reaction').
+    metta_require_events(Ctx, 'carry a reaction'),
+    metta_install_bridges.
 metta_check_catalog_semantics(_, _, _).
 
 metta_require_saga_effect(Operation, Term) :-

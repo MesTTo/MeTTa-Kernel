@@ -92,6 +92,318 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   keep the seat's spelling because they are a contract with `bridge.pl` rather
   than part of the C prefix.
 
+- **The Node seat gains spaces implemented in TypeScript, proof trees, the
+  reflection verbs, the coordination family and twenty-five subpath satellites.**
+  The seat was a faithful core; this makes it a library.
+
+  A space's atoms can now live wherever a program keeps them. `m.attach(name,
+  backing)` reads a `Map`, an array, a `Set` or a plain object as a live view —
+  read afresh per query, with no publication step — and anything with a shape
+  of its own implements `SpaceProvider` and only the methods its backend has.
+  Capabilities are DERIVED from those methods, so what a provider cannot do is
+  refused by name and its own refusal sentence reaches the caller;
+  subscribability is declared rather than derived, because whether a store can
+  emit change events is a fact about the store. It rides the engine's published
+  `seam:foreign_*` ownership seam over the same trampoline a host operation
+  uses, so no new transport was invented for it
+  [tested: "answers enumeration, matching and writes through the engine"].
+  `metta-node/spaces` composes them: `union`, `readOnly`, `overlay`, `mapped`,
+  `diff`, `objectView`.
+
+  `m.why(target)` answers the first proof of an answer and `m.derivation` every
+  proof, as a tree whose nodes are a discriminated union on `kind` — which is
+  what TypeScript has instead of the four dataclasses the Python side needs, so
+  a `switch` over one is exhaustive and the compiler proves it. The
+  meta-interpreter is ported from the Python seat's own, cut, soft cut and
+  stack charge included [tested: "reads a proof tree as a discriminated union"].
+
+  Beside them: `doc`, `solve`, `cast`, `forms`, `trace`, `disassemble`,
+  `runStatus`, the engine's own runtime counters, `m.strict()` and
+  `m.limits({ inferences })`. The strict scope runs its source ONCE and judges
+  it from what it did, rather than running it to judge it and again to keep it,
+  which is what a two-pass strict scope would do to every write inside it
+  [tested: "refuses an unreduced directive inside a strict scope, running the
+  source once"].
+
+  The coordination family is the platform's own concurrency, because the
+  engine's `library(thread)` is absent from a WebAssembly build: `race`,
+  `merge`, `parMap` (bounded, input-ordered), `every`, a `Channel` with
+  backpressure, and `spawn`. Standing queries get `subscribe` and `LiveView`,
+  which counts multiplicity because a space is a multiset.
+
+  Twenty-five subpaths carry the rest, so an unimported one costs nothing:
+  `/ambient` is a lazily booted default engine for a program that wants no
+  setup line; `/structures` has `AlphaSet`, `PatternMap` and a discrimination
+  tree over atoms; `/matching` is unification and alpha keys with no engine at
+  all; `/testing` has seeded generators and a shrinking property runner;
+  `/vocabularies` publishes all 32 of the engine's closed value sets as
+  TypeScript unions, checked against a booted `&metta` rather than against a
+  copy [tested: "every vocabulary here matches the engine's own"]; and
+  `/strategies`, `/paths`, `/parallel`, `/subscribe`, `/derivation`,
+  `/provider` and `/wire` carry the rest.
+
+  The seat also gains a command line (`metta-node run|eval|why|repl|doc|forms`)
+  and an error FAMILY: one named subclass per condition under `MettaError`,
+  each with its own stable `code`, so a caller narrows by class or switches on
+  the code and the two agree.
+
+  Two defects were found and fixed on the way. `Engine.encodeValue` never
+  consulted the `ATOM_OF` key, so an operation answering a bare name answered a
+  live JavaScript function; and `roundTrip` renamed every variable, because the
+  decoder built a name table the encoder was never handed. Both are in
+  `ai-node-typescript-constraints.md` with how they were measured.
+
+- **The Node seat closes the rest of the distance to the Python package: how a
+  host type crosses, how a library integrates, and a value that owns its own
+  matching.** The gap was found by a name-by-name diff of the two surfaces
+  rather than from memory, and what remains absent is absent for a stated
+  reason rather than an unstated one.
+
+  A registration now names one of four IMAGES, and the four are the engine's
+  own: `registry-image` is one of the vocabularies generated from a booted
+  engine, so `IMAGES` cannot drift from what the engine knows. `expression` is
+  the shaped default; `symbol` crosses as a bare name, which is how an enum
+  wants to read, and it runs BACKWARDS too — a bare symbol carries no
+  constructor to look up, so every symbol registration is offered the name in
+  turn and the first whose `fromAtom` answers claims it; `handle` and
+  `operations` cross by reference [tested: "crosses a symbol-image type as a
+  bare name, both ways"]. `autoImage(value)` is the rung beneath a declared
+  image, `"transparent"` or `"opaque"` in constant time, and an ITERATOR is
+  always opaque because measuring or converting one drains it, which is a side
+  effect no image choice is allowed to have.
+
+  A package now advertises itself in its own `package.json`, under
+  `metta.integrations`, `metta.spaces` or `metta.libraries`, which is the
+  ecosystem's own convention rather than a new one. `entryPoints(group)`
+  answers the advertised names UNLOADED, so discovery imports nothing and the
+  app keeps deciding what loads; two packages advertising one name refuse
+  rather than resolving by read order. `discover()` returns integrations in
+  INSTALL order from what each `requires`, so a library built on another does
+  not have to tell its users the right order by hand, and a cycle refuses
+  naming its members [tested: "installs an integration after what it requires,
+  and refuses a cycle"]. Beside them `wrapCallable` and `wrapObject` take one
+  function or exactly the methods named, and `installReflectionOps` adds
+  `(js-attr $o $n)` and the two-mode relation `(js-field $o $n)`, which answers
+  a `(name value)` pair whether the name arrives bound or unbound — the second
+  mode being what a function cannot offer and a relation can.
+
+  A host value can own its matching, Hyperon's `CustomMatch`: a class with a
+  `[CUSTOM_MATCH](other)` method, registered per engine, decides for itself
+  what it unifies with, in either operand order, while a variable still binds
+  the value whole without consulting it [tested: "decides its own matches once
+  it is registered, in either operand order"]. Registration is what turns the
+  seam on. Until the first call the matcher carries NO clause for host-owned
+  matching, and `define-call` measures 238505 inferences either way, unchanged
+  from its pin. That is the difference from the Python seat, which can afford
+  an always-present probe because its crossing is a function call; here it is a
+  coroutine yield and `seam:matchable_value/1` sits on the matcher's
+  ground-comparison path, the hottest there is.
+
+  `EmbeddingStore` puts vectors under keys and searches them from MeTTa, with
+  map semantics on write and one contiguous row-major buffer rebuilt lazily
+  after one, each row's norm beside it. A zero or non-finite vector is refused
+  at the door, because cosine similarity has no answer for either and a
+  silently empty ranking is worse than a refusal.
+
+  `definitionFacts(m, fn)` reads what a definition says about itself without
+  defining it: the free names, the span, a block comment, and the effect. It
+  asks the LOWERING which names a body could not bind itself, because the
+  lowering must decide that to compile at all, so the answer is the one the
+  equations were built from rather than a second walk that could disagree. The
+  effect is the join over the heads the engine declares one for, `unresolved`
+  names the rest, and `pure` is conservative: a body reaching an unresolved
+  head is never called pure however pure the rest of it reads.
+
+- **Fixed: `superpose-bind` accepted a malformed binding carrier and answered
+  the value anyway.** `(superpose-bind ((42 ()) (43 ())))` answered `42` and
+  `43`, where the presented-core oracle answers one
+  `(Error (superpose-bind ...) "superpose-bind: expected an encoded bindings
+  value")` per malformed row. The implementation took the first element of a
+  two-element row and restored its second only if it happened to look like a
+  carrier, so `()`, `nonsense` and `(bindings junk)` all passed silently.
+
+  A two-element row IS a `collapse-bind` pair, and its second element now has
+  to decode: an expression headed by `bindings` whose every entry is one of the
+  three shapes the oracle's decoder takes -- `(<- $x v)`, `(<- (:seg $n) (...))`
+  or `(seq $n)`. Row shapes that are not two-element pairs keep their old
+  readings, because those are the shapes the oracle also passes through: a
+  one-or-more-element expression answers its head, and a non-expression answers
+  itself.
+
+  The sequence-variable entry shapes are accepted although this engine produces
+  neither, because refusing what the oracle accepts is as much a divergence as
+  accepting what it refuses -- checked against its own `--min` door, which
+  takes `(bindings (seq $n))` and refuses `(bindings (seq x))`, a segment name
+  being a variable. The conformance corpus grew from 25 programs to 36, pinning
+  every shape that was wrong.
+
+- **A reaction row installs its own write hook, so declaring one works in every
+  seat.** `(on <ctx> <pattern> <op>)` was the one declaration whose side effect
+  stayed on the HOST: every binding had to call `metta_install_bridges/0` after
+  writing the row, the Python seat does it inside a runtime goal string, and a
+  binding whose Prolog is statically checked could not do it at all.
+  `metta_check_catalog_semantics/3`'s `on` clause now does it, which is the
+  same shape a capacity row already had and takes an engine internal OFF the
+  host-service floor rather than adding one to it.
+
+  It is there and not in `metta_catalog_note_added/1` for the reason that
+  file's own note gives for the events flag: the note walk takes a LIST, so a
+  clause added to it is one inference on every `&metta` write, measured at +10
+  on the identity twin. The semantics check dispatches on the head ATOM, so a
+  clause for one head costs the other heads nothing, and the capability costs
+  two inferences per declaration and nothing per ordinary write.
+
+  With the door open, `Space.reacts` and `Space.agenda` land on the Node side.
+  The five agenda policies are a production system's conflict-resolution
+  strategies under their usual names, and the test proves the policy does the
+  work rather than passing by luck: a reaction WITH a priority is a five-item
+  row and one without is four, and the engine reads five-item rows first, so a
+  mixed pair is already in priority order before any policy runs. Giving both
+  reactions a priority makes declaration order and priority order differ.
+
+- **A saga, for undoing what has already committed.** `metta-node/saga` records
+  a `(did op args result)` receipt per effectful step and compensates in
+  reverse by the `(compensates ...)` rows a program declared. Only operations
+  whose DECLARED effect is `writesState` or stronger earn a receipt, because a
+  read has nothing to undo. A failed step commits none; `rollback` preflights
+  every receipt against a declared compensation before undoing anything; and a
+  failed compensation keeps its receipt and every receipt before it, so a retry
+  resumes rather than restarts.
+
+  The step is not itself atomic here, and the reason is the one C42 records:
+  Python runs each step inside an engine transaction through a host callable,
+  and this seat cannot, because it reaches JavaScript by SUSPENDING the engine
+  and `engine_yield/1` cannot unwind through a transaction. What remains is the
+  classical saga, which is the mechanism sagas exist to provide [source:
+  Garcia-Molina and Salem, "Sagas", SIGMOD 1987]. The capture costs one null
+  read per operation crossing and no benchmark row moved.
+
+- **A space can declare what it is, hash what it holds, run a term atomically,
+  and teach the reader a notation.** Found by writing the surface triage down as
+  a table and CHECKING each claimed counterpart rather than asserting it: five
+  did not exist, and a whole family had been waved through. Four of the five
+  vocabularies these declarations use were already generated in
+  `vocabularies.ts`, so the seat published the words with no door to say them
+  with.
+
+  `handles(pattern, fidelity)` declares how faithfully a space answers one
+  query shape, keyed by SHAPE so a second declaration adds a row and queries
+  route by the most specific match: `Exact` licenses pushing the caller's bound
+  to the provider, `Partial` and `Sound` stay candidates the engine re-unifies,
+  and `Refuse` makes the query a loud error instead of a silent partial answer.
+  `covers`, `writes` and `emits` are keyed by space and REPLACE, because two
+  rows saying different things about one space is not a stronger claim but an
+  unanswerable one.
+
+  `digest()` is a sha256 of the content through the engine's own
+  canonicalization, so two spaces agree exactly when they hold the same atoms
+  up to alpha, in any insertion order and in any process; a space holding a
+  live host reference is refused rather than hashed.
+
+  `capacity(n)` bounds the space through the engine's own admission gate, and
+  it is sugar for the claim rather than a consequence of the row, deliberately:
+  the pre-add hook takes ONE claimant, and
+  `examples/ch15-.../04-admission_pools.metta` writes its own admission judge,
+  which a row that claimed the shipped one would lock out. `m.libraryPath`
+  registers a directory of sources under an alias, mounting it first because
+  the engine runs in a WebAssembly filesystem that cannot see this process's.
+
+  `transaction(term)` runs one term atomically. The body is a term rather than
+  a callable, and the engine states the reason rather than this entry guessing
+  it: `engine_yield/1 cannot unwind through` a transaction, because this seat
+  reaches JavaScript by SUSPENDING the engine where the Python seat makes a
+  direct call. Passing a callable refuses with that reason.
+
+  `metta-node/tokens` extends the READER: a full-token regex and the function
+  that turns a matching lexeme into an atom, with the callable never leaving
+  the host. Worth building rather than recording as unavailable because the
+  engine's own platform census reports `regex: present (library(pcre))` for
+  this build -- the same census that says `concurrency: absent`, which is the
+  evidence behind every thread-shaped exclusion this seat records.
+
+  Beside them `Channel.tryReceive()` and `Channel.queued`, the non-blocking
+  take a caller polling several sources needs.
+
+- **Fixed: a conjunction over a space implemented in TypeScript lost every
+  answer but the first.** The seat's job held ONE pending iterator for a
+  streaming host operation, so a second stream opened before the first was
+  drained replaced it and the first could never be resumed. The engine's own
+  split opens an inner enumeration while the outer one is suspended, so every
+  conjunction over a provider answered its first row and stopped. A native
+  space answered all three rows of a three-edge cycle throughout, with no error
+  anywhere, which is what made it silent.
+
+  Every stream now carries an identity: the host mints an id, keeps the
+  iterator in a map, and the bridge names the id in each pull.
+  `extensions/node/src/parallel.ts` already multiplexes live iterators this
+  way, so the shape was in-tree rather than invented. A stream the engine cut
+  rather than drained is released when the job closes, with `return()` called
+  on it so a generator body's own `finally` runs.
+
+  It was found while wiring the planner seam below, not by looking for it. The
+  seat's whole provider conformance suite is single-pattern, which is why it
+  passed [tested: "answers a conjunction over a provider needing two live
+  enumerations at once"].
+
+- **A TypeScript provider can claim a whole conjunction, so its own join is
+  reachable.** `seam:foreign_plan/5` is a published extension point this seat
+  had never wired, and without it every conjunction is split one pattern at a
+  time and re-dispatched per outer row. That is a nested-loop plan, and a
+  nested-loop plan cannot reach the AGM bound however fast the backend is: for
+  the triangle `R(x,y), S(y,z), T(z,x)` with each relation of size N the bound
+  is N^1.5, and no join plan achieves it. So this is not a tuning knob; it is
+  the difference between a backend being allowed to be asymptotically better
+  and not being allowed to.
+
+  A provider implements `plan(patterns)` and answers which patterns it took BY
+  POSITION, plus one row per solution, or nothing to decline. Positions are
+  what makes this seat's version simpler than the Python one: a pattern encoded
+  to a host and back is a COPY, so a join variable shared across two patterns
+  would split in two and the claim would silently lose answers. Python matches
+  each returned wire against the wire it sent to undo that, and the engine
+  carries a partition check for it; here the partition is exact by
+  construction, because positions never leave the engine.
+
+  Wiring it exposed a capability the seat had been reporting wrongly. It
+  derived `plan` from a provider's `pushdown` method, but those are two
+  different seams: `foreign_pushdown/3` classifies how exactly a provider
+  filters ONE pattern, and `plan` is the engine's and Python's word for the
+  whole-conjunction join. `pushdown` now has its own capability, and `rules`
+  joins as a declared promise that a space's atoms include equations, which no
+  method list can derive. `checkSpaceProvider` gains a check that holds a
+  planner's claim to the join it replaced, computed by nested loops over the
+  space's own atoms, because a claim is EXACT and there is no cheap re-check
+  for a join.
+
+- **The Node benchmark's instruction rows stop moving when unrelated source
+  grows.** Every instruction pin in `extensions/node/benchmarks/baseline.json`
+  is re-measured under a fourth V8 flag, `--expose-gc`, with
+  `benchmarks/sampler.ts` collecting the heap to a fixed point at the end of
+  setup, outside the measured window.
+
+  The three flags already there make a run reproducible against ITSELF, at
+  0.027 percent spread. They do not make it reproducible against a CHANGED
+  PROGRAM: `--predictable-gc-schedule` is deterministic given the same
+  allocation sequence, and the startup heap is part of that sequence, so
+  growing any module the benchmark loads shifted where a collection landed
+  inside the window. Measured by a probe that cannot possibly do work — four
+  kilobytes of INERT COMMENTS added to `src/theory.ts` moved `host-op` from
+  900018262 to 933434511, a 3.7 percent phantom regression from text nothing
+  executes. Against the settled heap the same probe moves the whole suite at
+  most 0.18 percent, and `host-op` 0.016 percent. This is the layout-bias class
+  Mytkowicz et al. name, and a settled starting heap is the cheap half of
+  Stabilizer's answer to it [source: Mytkowicz, Diwan, Hauswirth and Sweeney,
+  "Producing Wrong Data Without Doing Anything Obviously Wrong!", ASPLOS 2009;
+  Curtsinger and Berger, "Stabilizer", ASPLOS 2013].
+
+  Every instruction row moved once and every inference row stayed identical,
+  which is the signature of the measurement rather than the work. The rows that
+  went UP now carry the collections their own allocation causes instead of
+  inheriting an accidental share of the startup heap's. The seat's benchmark
+  driver also now names its OWN remedy when the configuration stamp drifts: the
+  shared harness suggests a `--update-baseline` flag that belongs to another
+  seat's command line, and here only a whole-suite `--update` restamps.
+
 - **The Node seat carries `test.sh` and `bench.sh`, so its tests run standalone
   and its surface is measured for the first time.** `check.sh`'s `node-binding`
   lane now calls `extensions/node/test.sh`, which is the same command a
@@ -2523,6 +2835,17 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   mechanism behind it is pinned separately by a probe that holds no copy of
   shipped logic and so cannot drift out of step with it. Six evidence tags that
   cited deleted scratch files under `ai-tmp/` now cite those tests instead.
+
+- **A seam clause that always fails still cost a frame, once per space
+  operation.** The Node bridge's `seam:foreign_space/1` clause was consulted by
+  the matcher, the type resolvers, the translator and the codec on every space
+  operation, and cost one inference each time whether or not any provider
+  existed. Measured by bisecting `bridge.pl` section by section against the
+  seat's own `define-call` benchmark: 239,005 inferences with the clause
+  against 238,505 without it, exactly one per call. The bridge carries no
+  clause now and asserts the space NAME on registration, so a program with no
+  provider pays nothing; `host-op` and `query-rows` improved with it
+  [tested: sh extensions/node/bench.sh].
 
 - **Five engine sources read as mojibake under a C locale, and one of them is
   the engine's own test-verdict mark.** `engine/qlf_boot.pl` forces UTF-8 for a

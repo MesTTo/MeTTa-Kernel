@@ -29,7 +29,7 @@
 
 import { type Atom, type Term, expr, fresh, space, sym, toAtom } from "../atom.ts";
 import { type Plan, type Row, isGoalRequest } from "../answers.ts";
-import { MettaError } from "../errors.ts";
+import { CompileError, MettaError } from "../errors.ts";
 
 /** One goal the body asked, and the name its answer was bound to. */
 export interface TracedGoal {
@@ -101,7 +101,7 @@ export function trace(body: Body, params: readonly Atom[], name: string): Clause
     sent = undefined;
   }
   if (clauses.length === 0) {
-    throw new MettaError(
+    throw new CompileError(
       `${name} emits nothing: a body answers with yield or with return`,
       { code: "ERR_METTA_TRACE" },
     );
@@ -141,7 +141,7 @@ export function nest(clause: Clause): Atom {
 function explain(error: unknown, name: string): unknown {
   const coded = error as { code?: string };
   if (coded.code !== "ERR_METTA_UNSUPPORTED") return error;
-  return new MettaError(
+  return new CompileError(
     `${name} branched on a binding while it was being traced: a traced body ` +
       `builds one equation, so the values in it are variables and not numbers. ` +
       `Write the comparison as a term (If(gt(x, 0), ...)), or define the body as ` +

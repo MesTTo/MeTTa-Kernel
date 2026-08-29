@@ -50,7 +50,7 @@ import {
   sym,
   variable,
 } from "./atom.ts";
-import { MettaError } from "./errors.ts";
+import { MettaError, WireError } from "./errors.ts";
 
 /** The tags this binding speaks. `h` is the engine's own blob and is refused here. */
 export type Tag = "s" | "v" | "n" | "g" | "b" | "e" | "p" | "o";
@@ -70,7 +70,7 @@ export type Wire =
 export type Transport = readonly [string, unknown];
 
 function wireError(message: string): MettaError {
-  return new MettaError(message, { code: "ERR_METTA_WIRE" });
+  return new WireError(message);
 }
 
 /**
