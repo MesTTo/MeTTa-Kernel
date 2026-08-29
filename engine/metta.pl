@@ -522,7 +522,7 @@ guard_arithmetic_goal_expansion_clause(Ref) :-
 %than prose in a comment. Rows, not eight of them: a capability is the thing a
 %USER loses, so the two libraries the fast cache needs are one row.
 %
-%So the census is the rule extensions/cetta/extension.pl and
+%So the census is the rule extensions/cmetta/extension.pl and
 %extensions/python/extension.pl already state for a SEAT, aimed at the platform:
 %NOT PRESENT IS NOT AN ERROR, HALF PRESENT IS. A capability whose library is
 %there loads exactly as before, through the same directive in the same place;
@@ -945,7 +945,7 @@ metta_import_shared_registries(Subsystem) :-
 %   needs(artefact(Rel))     a build product, relative to the seat's folder
 %   needs(prolog_library(L)) exists_source(library(L))
 %   needs(predicate(N/A))    current_predicate(N/A): a host marker the way the
-%                            C seat registers '$cetta_present'/0 before it
+%                            C seat registers '$cmetta_present'/0 before it
 %                            consults the engine, or a platform door the way
 %                            the WASM build lacks open_shared_object/3
 %   needs(extension(Other))  that seat loaded first

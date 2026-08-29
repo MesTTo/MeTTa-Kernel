@@ -362,6 +362,13 @@ class Server:
 ```
 
 > This engine's spaces, served. close() stops accepting.
+>
+> A context manager, because it owns a socket, an accept thread and an
+> engine worker, which is more than any other handle in this library and
+> exactly the shape Python spells `with`. `metta.space()` and
+> `metta.aio.connect()` are already `with`-able; a server that had to be
+> closed by hand was the one resource whose leak on an exception path was
+> silent.
 
 ### `Server.close`
 

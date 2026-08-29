@@ -167,7 +167,7 @@ test(a_host_entry_is_never_loaded_by_the_engine,
 %seat's marker is honestly unmet, because this process is not the C host.
 test(the_shipped_seats_are_on_the_record) :-
     assertion(user:metta_extension_loaded(python)),
-    assertion(user:metta_extension_unmet(cetta, predicate('$cetta_present'/0))).
+    assertion(user:metta_extension_unmet(cmetta, predicate('$cmetta_present'/0))).
 
 %%%% The require door %%%%
 %

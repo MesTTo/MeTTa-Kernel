@@ -110,7 +110,7 @@ for anything the engine's own class tests do not claim, so a value it cannot
 read is an ordinary MeTTa value with no engine change at all: it can be stored,
 matched, passed and handed back. A C `mt_object` prints through its own write
 callback and answers `Grounded` to `get-metatype` on that clause alone
-[measured 2026-08-29 through `extensions/cetta`].
+[measured 2026-08-29 through `extensions/cmetta`].
 
 **What is not done is the TYPE.** `get_type_candidate/2` reaches a host object
 through `seam:host_object/1` and by no other clause, and the difference is
@@ -154,14 +154,14 @@ and both ship:
 |---|---|---|---|
 | make one | `mt_object(v, "Type", release)` | return the object; `py-atom <e> Grounded` from MeTTa | `G(value)`, any non-primitive |
 | read it back | `mt_value`, `mt_type` | the object itself | the object itself, `===` |
-| what carries it | blob `cetta_object` | an SWI blob | an id atom |
+| what carries it | blob `cmetta_object` | an SWI blob | an id atom |
 | declares `host_object/1` | no | yes | yes |
 
 **Round-trip identity is not the same question as wrapping identity, and you
 must answer the second yourself.** Round trip holds everywhere: the value that
 comes back is the one you put in, and a C pointer stored in a space and matched
 out again is the very same pointer [tested:
-`extensions/cetta/tests/test_cetta.c`, "a live C value crosses MeTTa and comes
+`extensions/cmetta/tests/test_cmetta.c`, "a live C value crosses MeTTa and comes
 back the same object"]. Wrapping the same value TWICE is where the seats differ.
 Node interns by identity through a `WeakMap`, so `G(x) === G(x)` for one object
 and the engine-side handle table holds one entry per object. Python answers
@@ -200,7 +200,7 @@ failure costs one indexed lookup.
 **If your objects can be CALLED, say so.** `seam:grounded_applicable/1` answers
 whether a value is applicable and `seam:grounded_apply/3` applies it, which is
 how `($f 2)` works wherever the atom lands. The C seat's pair is two clauses over
-`blob(Obj, cetta_object)`, and it is what C answers to a Python callable being
+`blob(Obj, cmetta_object)`, and it is what C answers to a Python callable being
 an atom.
 
 **Why bother.** Reading one element of a thousand-element vector through a

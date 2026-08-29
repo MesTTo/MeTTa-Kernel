@@ -515,10 +515,68 @@ numbers them by first occurrence because an engine variable carries no name,
 while a binding holding its own atoms prints the name it read. Neither is
 wrong and a binding should expect its own.
 
+## What the codec costs
+
+A codec's cost is the term's SIZE, not a constant per crossing, and that is the
+one performance fact a binding author has to design around. Encoding walks
+every node; carrying a reference does not walk anything.
+
+Measured on the in-process Python seat, one list returned per crossing, built
+once so what is priced is the crossing rather than the construction
+[measured 2026-08-29, `cd extensions/python && python -m benchmarks.axes`]:
+
+| elements | encoded, instructions | encoded, inferences | by reference, instructions | by reference, inferences |
+|---|---|---|---|---|
+| 1 | 73,514 | 21.32 | 24,613 | 12.31 |
+| 10 | 161,979 | 57.32 | 24,543 | 12.31 |
+| 100 | 1,042,933 | 417.31 | 24,475 | 12.31 |
+| 1,000 | 10,270,349 | 4,017.31 | 24,521 | 12.31 |
+
+The encoded column is exactly four inferences per element plus a fixed 17.3.
+The reference column is flat. At a thousand elements that is 419 times the
+instructions, so the choice between them is a complexity class rather than a
+constant factor.
+
+That is what the `o` and `h` tags are for, and it is also their limit. Both
+carry a value the receiving end never reads, so **only an in-process encoding
+can use them**: they are outside the core profile precisely because a wire
+cannot hold a live reference. A codec speaking the core five over a socket
+always pays the walk, and a binding that wants the flat column has to be in the
+same process as the engine.
+
+The Node seat pins the wire legs themselves, and those figures are the whole
+round trip rather than one direction [PINNED 2026-08-28,
+`extensions/node/benchmarks/baseline.json`]. Fifty thousand atoms out through
+`wireFromAtom` and `toTransport` and back through `fromTransport` and
+`atomFromWire` cost 3,237,788,053 retired instructions, about 64,756 per atom
+round trip. Twenty thousand interned expressions cost 3,418,787,433, about
+170,939 per iteration; each iteration mints the expression TWICE so the run
+exercises the table's miss path and its hit path, so the per-construction
+figure is about half that. That seat runs SWI compiled to WebAssembly, so read
+both as that runtime's numbers rather than as native ones.
+
+**Inferences cannot decide a codec change, and this is where that bites
+hardest.** Foreign code retires no inferences at all, so a codec moved from
+Prolog into C looks free on the counter every other part of this engine is
+measured by. A C wire encoder in this tree measured 526x faster on inferences
+while CPU time said it was 1.8x SLOWER. The two wire rows above therefore pin
+instructions and leave inferences null, because the engine is never asked; the
+`host-op` row, whose cost is genuinely split across the boundary, pins both and
+lets them decide different halves, at 40.61 inferences and about 449,008
+instructions per yield over 2,000 yields. If you are changing a codec, measure
+retired instructions or CPU seconds and pair them, as DEVELOPING.md requires.
+
+Two cheaper things are worth knowing before optimising the walk. A refusal
+costs nothing, so validating a payload's class is not a reason to skip
+validation. And the corpus is the cheap way to find a divergence: running it
+against the TypeScript reference server turned up three on first contact, which
+is less work than discovering them from a stored atom that never came back.
+
 ## Related pages
 
 `website/live/remote-protocol.md` is the HTTP protocol the JSON wire rides
 on, the five operations and their refusal ladder.
 `extensions/python/examples/integration/typescript_space/README.md` is the reference
-server. `EXTENDING.md` section 5 is the in-process space seam, which carries
-atoms without a wire at all.
+server. `EXTENDING.md` section 6 is the in-process space seam, which carries
+atoms without a wire at all, and its opening cost tables price the three axes a
+crossing chooses between.

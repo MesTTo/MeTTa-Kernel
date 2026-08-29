@@ -1,7 +1,7 @@
 # Developing MeTTa
 
 Run commands in this guide from the repository root unless a command starts
-with `cd python`.
+with `cd extensions/python`.
 
 ## Python environment
 
@@ -104,35 +104,56 @@ Ubuntu) and a lane that only ran on the official build would not run at all on
 the machine that most needs it. `npm run test:source` runs the sources
 directly, on a Node that has type stripping and, for `using`, Node 24.
 
-## Python performance measurements
+## Performance measurements
 
-`extensions/python/bench.py` is the benchmark entry point. It runs each selected case in
-a fresh process. The harness uses untimed setup and teardown for every round,
-performs warmup rounds, and compares committed counters before wall results.
+### Which counter decides
+
+Pick the counter from where the work happens, not from what is convenient.
+
+| the work | what decides it | why |
+|---|---|---|
+| inside the engine | `MeTTa.stats().inferences`, min of three | deterministic: five runs of one workload gave the same count while wall clock swung 6.9% |
+| no engine involved | retired instructions, min of three | there is no inference to count |
+| across a host boundary | instructions AND CPU seconds, paired | foreign code retires NO inferences, so the inference counter is blind |
+| anything | not wall clock | it moves with scheduler load and CPU frequency |
+
+The third row is the one that has been got wrong. A C wire encoder in this tree
+measured **526x faster on inferences while CPU time said it was 1.8x slower**,
+because the work had moved to where the counter cannot see it. `measure_counters`
+runs a command under `perf stat` for several events at once and hands back each
+run's counters and its standard output, and
+`BenchmarkBaseline.observe_measurement` pins any of them against a declared
+two-sided band. The two declarations that exist are `INSTRUCTIONS` and
+`CPU_SECONDS`; pair them, and never let inferences decide alone.
+`extensions/cmetta/benchmarks/bench.py` is the worked example, and a seat whose
+counters are not the default ones passes its own `policies` to
+`BenchmarkBaseline` so the committed file states its own rule rather than the
+default seat's.
+
+Before trusting any timing at all, check the box is quiet: `cat /proc/loadavg`
+and `ps -eo pcpu,pid,comm --sort=-pcpu | head`. Two false results in this
+repository, `pln_roman "+97%"` and `permutations "+16%"`, were both a busy
+machine rather than a code change.
+
+### Running the benchmarks
+
+`extensions/python/bench.py` is the entry point. It runs each selected case in a
+fresh process, with untimed setup and teardown per round, warmup rounds, and
+committed counters compared before any wall result.
 
 ```sh
-cd python
+cd extensions/python
 "$PY" bench.py --list
 "$PY" bench.py --counter-only query-2k-rows wire-codec
-```
-
-Engine-backed cases are decided by the minimum of three
-`MeTTa.stats().inferences` samples. Engine-free cases are decided by the
-minimum of three retired instruction samples:
-
-```sh
-cd python
-"$PY" -m benchmarks.check_instructions
+"$PY" -m benchmarks.check_instructions          # the engine-free cases
 ```
 
 The instruction check runs `perf stat -e instructions:u` around only the
-workload. It hard-errors if `perf`, event permission, control pipes, or output
-parsing fail. Do not substitute elapsed time for either deciding counter.
-Short wall measurements move with scheduler load and CPU frequency. They are
-advisory and can be recorded separately:
+workload, and hard-errors if `perf`, event permission, control pipes, or output
+parsing fail. Wall results are advisory and recorded separately:
 
 ```sh
-cd python
+cd extensions/python
 "$PY" bench.py query-2k-rows --json benchmarks/local.json
 "$PY" bench.py query-2k-rows --compare-wall
 ```
@@ -141,36 +162,52 @@ Update committed baselines only after reviewing the workload and recording at
 least three before and after counter samples:
 
 ```sh
-cd python
+cd extensions/python
 "$PY" bench.py query-2k-rows --update-baseline
 "$PY" -m benchmarks.check_instructions wire-codec --update
 ```
 
+Two benchmarks answer questions about the extension surface specifically.
+`benchmarks/extension_cost.py` prices every extension point per call and is a
+GATE against `extension-baseline.json`, so its numbers are the ones
+`EXTENDING.md` publishes and they cannot drift. `benchmarks/axes.py` prices the
+two crossing axes that table does not: which side DRIVES the crossing, and
+whether a value crosses transparent or opaque.
+
+```sh
+cd extensions/python
+"$PY" -m benchmarks.extension_cost            # --update to re-pin
+"$PY" -m benchmarks.axes                      # --list for the case names
+```
+
+The axes harness drives ONE case per process and refuses a second, because two
+`MeTTa()` handles share one engine and one `&self`: a second case installs its
+driver's head again, the recursion then leaves a choice point per level, and a
+deep drive runs out of stack instead of measuring anything. That failure looks
+from outside like a run that never finishes, so the refusal is loud.
+
+Its published instruction figures are a recorded run and its inference figures
+are held by `tests/ch18_performance/test_axes.py`, which asserts an axis's
+class AND its published rate: an opaque crossing flat in the value's size, a
+transparent one linear and at four inferences an element, and the engine-out
+row still agreeing with the gated extension-cost table. Assert both, because a
+class alone admits any constant and a rate alone does not notice a change of
+class. That split is the general shape to copy. Pin what is deterministic,
+record what is not, and say in the document which is which.
+
 Sibling packages should import `BenchmarkBaseline`, `benchmark_case`,
-`count_atoms`, and `measure_instructions` from `metta.testing`. Do not copy the
-harness into another repository.
+`count_atoms`, `measure_instructions`, and `measure_counters` from
+`metta.testing`. Do not copy the harness into another repository.
 
-A package measuring across a FOREIGN boundary needs two more of them, because
-the inference counter is blind there: foreign code retires no inferences, and a
-C wire encoder in this tree once measured 526x faster on that counter while CPU
-time said it was 1.8x slower. `measure_counters` runs a command under `perf
-stat` for several events at once and hands back each run's counters and its
-standard output, and `BenchmarkBaseline.observe_measurement` pins any of them
-against a declared two-sided band. The two declarations that exist are
-`INSTRUCTIONS` and `CPU_SECONDS`; pair them, and never let inferences decide
-alone. `extensions/cetta/benchmarks/bench.py` is the worked example, and a seat
-whose counters are not the default ones passes its own `policies` to
-`BenchmarkBaseline` so the committed file states its own rule rather than the
-default seat's.
-
-For a focused engine profile, use `MeTTa.profile()`:
+### Profiling one workload
 
 ```python
 groups, profile = metta.profile("!(query-expression)")
 print(profile.samples, profile.ticks, profile.top(10))
 ```
 
-For a Python-driven block, use the same inference counter directly:
+`MeTTa.profile()` samples ticks, so profile something that runs. For a
+Python-driven block, read the inference counter directly:
 
 ```python
 with metta.stats() as stats:
@@ -178,10 +215,21 @@ with metta.stats() as stats:
 print(stats.inferences)
 ```
 
-A performance change must include a fixed workload, its unit and operation
-count, a minimum of three before and after deciding-counter samples, and a
-regression test or committed baseline. Wall time may accompany those results
-but cannot decide the claim.
+`m.profile_extension(...)` is the narrower question, of the functions one
+extension registered, which is costing and whether anything went in wrong; its
+calls and redos are counted exactly while its ticks are sampled.
+`EXTENDING.md` documents its columns.
+
+### What a performance change must carry
+
+A fixed workload, its unit and operation count, a minimum of three before and
+after samples of the DECIDING counter for that workload, and a regression test
+or committed baseline. Wall time may accompany those results and cannot decide
+the claim. Optimisation targets a complexity class rather than a percentage, so
+name the current and target complexity before changing anything and measure at
+input sizes large enough to separate them; the axes benchmark is shaped that
+way deliberately, sweeping four value sizes because one size would report a
+linear cost as a constant factor.
 
 ## Engine contributor tests
 

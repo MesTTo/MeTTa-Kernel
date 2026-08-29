@@ -1313,6 +1313,54 @@ def op(
 > refused by name in a cached body, loudly, rather than cached and
 > quietly wrong.
 
+### `Space.pure`
+
+```python
+def pure(self, fn: Callable | None = None, /, **options: Any) -> Any:
+```
+
+> An operation whose answer depends only on its arguments.
+>
+>     @m.pure
+>     def double(x: int) -> int:
+>         return 2 * x
+>
+> The cache-safe class, and the only one memoization and tabling admit
+> without an explicit policy.
+
+### `Space.reads`
+
+```python
+def reads(self, fn: Callable | None = None, /, **options: Any) -> Any:
+```
+
+> An operation that reads stable state without changing it.
+
+### `Space.writes`
+
+```python
+def writes(self, fn: Callable | None = None, /, **options: Any) -> Any:
+```
+
+> An operation that changes engine or host state.
+
+### `Space.io`
+
+```python
+def io(self, fn: Callable | None = None, /, **options: Any) -> Any:
+```
+
+> An operation that observes an external oracle.
+>
+> A clock, randomness, a network, a file, another runtime.
+>
+>     @m.io
+>     def now() -> float:
+>         return time.time()
+>
+> The fail-closed top of the lattice. Declare it when what the operation
+> reaches is decided at run time or by a library the engine cannot bound.
+
 ### `Space.unregister_op`
 
 ```python
@@ -2100,13 +2148,18 @@ def capacity(self, limit: int) -> Atom:
 
 > Bound a pool: an add beyond LIMIT atoms is refused loudly.
 
-### `Space.writes`
+### `Space.atomicity`
 
 ```python
-def writes(self, atomicity: Atomicity) -> Atom:
+def atomicity(self, atomicity: Atomicity) -> Atom:
 ```
 
 > Declare what a space's writes promise inside a transaction.
+>
+> Named for what it declares rather than for the atom it stores, which
+> stays `(writes <ctx> ...)`: `writes` on a Space is the effect
+> decorator for an OPERATION, and one object cannot spell two concepts
+> one way.
 >
 > transactional providers implement metta.foreign.Transactional and
 > are committed or rolled back WITH the engine's transaction;

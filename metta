@@ -76,7 +76,7 @@ verb_list() {
             case "$name" in
                 engine|examples/ch19-*)
                     command -v swipl-ld >/dev/null 2>&1 && why=yes || why='no: swipl-ld' ;;
-                extensions/cetta)
+                extensions/cmetta)
                     command -v make >/dev/null 2>&1 && command -v swipl >/dev/null 2>&1 &&
                         why=yes || why='no: make or swipl' ;;
                 extensions/node)

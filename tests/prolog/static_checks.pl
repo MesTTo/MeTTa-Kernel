@@ -1124,7 +1124,7 @@ a_backend_calls_only_published_surface :-
 % number in this comment.
 host_transport('../../extensions/python/metta/shim.pl', '../../extensions/python/metta').
 host_transport('../../extensions/node/bridge.pl', '../../extensions/node').
-host_transport('../../extensions/cetta/bridge.pl', '../../extensions/cetta').
+host_transport('../../extensions/cmetta/bridge.pl', '../../extensions/cmetta').
 
 %A seat that declares a host transport and has no host_transport/2 row above.
 %
@@ -1142,7 +1142,7 @@ host_transport('../../extensions/cetta/bridge.pl', '../../extensions/cetta').
 %being the transport. So the list stays hand-written, and what changes is that
 %leaving a seat off it is LOUD.
 %
-%That is the whole harm ai-cetta-c-constraints.md C4 named: the control-file
+%That is the whole harm ai-cmetta-c-constraints.md C4 named: the control-file
 %glob is automatic, this fact is not, "and a seat absent from the first is
 %silently unchecked" -- the gate reporting "every one of 2 host bindings" and
 %meaning it. An unregistered seat is refused by name here rather than passing

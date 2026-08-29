@@ -2,7 +2,7 @@
 #
 # Repository-wide rules only. A component's own build products are ignored by
 # that component's own .gitignore, so the rule sits beside the thing it
-# describes and travels with it: engine/, lib/, extensions/cetta/,
+# describes and travels with it: engine/, lib/, extensions/cmetta/,
 # extensions/node/, extensions/python/, extensions/mork/mork_ffi/ and
 # examples/ch19-spaces-backed-by-anything/ each carry one. Six blocks lived
 # here until 2026-08-28 and named paths four directories away.

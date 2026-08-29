@@ -126,6 +126,52 @@ is excluded because it runs for minutes. Every corpus answer is unchanged,
 group for group, and the conformance lane's per-area agreement is unchanged
 [measured 2026-08-19].
 
+## What fusing a head costs, and what moving one costs
+
+This page's shrink target is a performance claim, so here is the shape of the
+evidence behind it. A head in the compiler and the same head as a prelude rule
+differ in three measurable places, and a proposal to move one has to say which
+of them it changes.
+
+**Compile time.** A rule is consulted while the translator walks the program,
+so it is paid once per compiled site and it is paid by every source, including
+sources that never write the form. `progn` measured 188 compile-time inferences
+as a rule against 150 fused, `prog1` 205 against 146, and `once` 73 against 36.
+The corpus-wide figure is the one that matters, because it nets that cost
+against what the compiler stops doing: moving the prelude's eight heads out
+cost **-0.2313%** over the 201 corpus examples whose inference count is
+deterministic, 252,806,743 against 252,222,109, and 199 of the 201 got cheaper.
+
+**Run time.** A rule that expands to a form the compiler already handles well
+emits the same goals, and six of the eight prelude heads are byte-identical in
+their compiled output. A rule that expands to a DIFFERENT form pays whatever
+that form costs on every call: `once` compiles to `metta_take/2` as a rule and
+to Prolog's `once/1` when fused, which is 2 inferences a call, 454,152 against
+354,122 over a 50,000-call loop, **+28%**.
+
+**Expressiveness.** A translator rule has a fixed arity, so a variadic head
+cannot be one rule. `progn`, `prog1` and `nop` are variadic, and a rule for any
+of them would rewrite some calls and leave the rest to the compiler, which is
+two compilations of one form rather than one. That is not a cost to weigh, it
+is a blocker to solve first.
+
+So the decision rule is: move a head when its rule emits the same goals, keep
+it fused when the rule's expansion is a form that costs more per call, and
+treat a variadic head as blocked until the arity problem is answered. `once` is
+the case where all three are known, which is why its rule ships in
+`lib/lib_derived/lib_derived.metta` rather than being switched on by default: a
+program that wants the smaller instruction set imports it and pays the two
+inferences a call knowingly.
+
+Two measurement rules apply to any such claim, and both have caught a wrong one
+here. Read inferences rather than wall clock, because they are deterministic
+while wall clock on this box swings several percent on the same workload. And
+exclude the examples whose counts are not deterministic:
+`ch17-concurrency-and-the-loop/03-hyperpose_primes.metta` runs branches in
+threads and `ch20-extending-the-engine/20-04-modules-and-the-catalog/06-git_import.metta`
+shells out to git, so neither can be part of a total that is compared against
+another total.
+
 ## Numeric ground types
 
 `Number` and `BigInt` are the two numeric types. A float and an integer from

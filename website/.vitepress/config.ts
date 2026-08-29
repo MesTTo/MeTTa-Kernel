@@ -6,6 +6,11 @@ Guarantees:
   - every page in the site is reachable from this navigation, so a written page
     cannot ship findable only by search
     [tested: test_every_site_page_is_reachable_from_the_navigation; commit=a7d2f292004fe06d7671b7931cfc2ce4620b7b35]
+  - code renders in the theme pair ./highlighting.mjs builds, which is the most
+    colourful bundled pair that still reads on the background VitePress paints
+    a code block with, and which colours the two Python scopes no theme rules
+    on [measured 2026-08-29: node scripts/measure_highlighting.mjs;
+    commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -14,6 +19,8 @@ Open Obligations:
 
 import { readFileSync } from "node:fs";
 import { defineConfig } from "vitepress";
+
+import { darkTheme, lightTheme } from "./highlighting.mjs";
 
 const mettaLanguage = {
   ...JSON.parse(readFileSync(new URL("./metta.tmLanguage.json", import.meta.url), "utf8")),
@@ -44,6 +51,11 @@ export default defineConfig({
   },
   markdown: {
     languages: [mettaLanguage],
+    // ./highlighting.mjs carries the measurement these were chosen on and the
+    // two Python scope rules it adds; `node scripts/measure_highlighting.mjs`
+    // reprints the comparison, and with no arguments it measures the objects
+    // rendered with rather than the themes they were built from.
+    theme: { light: lightTheme, dark: darkTheme },
   },
   themeConfig: {
     nav: [
@@ -126,15 +138,40 @@ export default defineConfig({
           { text: "The loop stays live", link: "/live/async" },
         ],
       },
+      // Each seat is named by its PRODUCT, which is what a reader searches for
+      // and what the package registries carry, rather than by its technology.
+      // A host seat is a section with its own page and tutorial; MORK is a
+      // storage backend, so it has no tutorial and stays one entry.
       {
         text: "Extensions",
         link: "/extensions/",
         items: [
           { text: "Adding an extension", link: "/extensions/adding" },
-          { text: "Python", link: "/extensions/python" },
-          { text: "Node", link: "/extensions/node" },
-          { text: "C", link: "/extensions/cetta" },
-          { text: "MORK", link: "/extensions/mork" },
+          {
+            text: "PyMeTTa",
+            link: "/extensions/python/",
+            items: [
+              { text: "The seat", link: "/extensions/python/" },
+              { text: "Tutorial", link: "/extensions/python/tutorial" },
+            ],
+          },
+          {
+            text: "MeTTa-node",
+            link: "/extensions/node/",
+            items: [
+              { text: "The seat", link: "/extensions/node/" },
+              { text: "Tutorial", link: "/extensions/node/tutorial" },
+            ],
+          },
+          {
+            text: "CMeTTa",
+            link: "/extensions/cmetta/",
+            items: [
+              { text: "The seat", link: "/extensions/cmetta/" },
+              { text: "Tutorial", link: "/extensions/cmetta/tutorial" },
+            ],
+          },
+          { text: "MORK", link: "/extensions/mork/" },
         ],
       },
       {

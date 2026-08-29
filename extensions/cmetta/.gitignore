@@ -1,0 +1,11 @@
+# This binding's build products. cmetta.c and cmetta.h are the source; the shared
+# library, the four examples, the C suite, the parity driver and the benchmark
+# driver are all built by the Makefile here and are one machine's binaries.
+libcmetta.so
+examples/hello
+examples/ops
+examples/stream
+examples/lower
+tests/test_cmetta
+kit/driver
+benchmarks/cases

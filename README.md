@@ -1,286 +1,108 @@
 <!--
-Purpose: introduce MeTTa, its narrow Python surface, and the commands needed to use and develop it.
-Guarantees: every Python code block executes against the documented public API.
-[tested: python -m pytest extensions/python/tests/repository/test_readme.py -q; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
+Purpose: declare what MeTTa Kernel is and what it does, through examples.
+Guarantees: every Python block executes, each in a namespace of its own
+[tested: python -m pytest extensions/python/tests/repository/test_readme.py -q]
 -->
 
-## MeTTa Kernel
+# MeTTa Kernel
 
-Efficient MeTTa language implementation in Prolog.
+MeTTa, implemented in Prolog and C. One engine, three surfaces: Python,
+TypeScript, C.
 
-Contributor setup, gates, and measurement rules are in [DEVELOPING.md](DEVELOPING.md),
-and what a contribution has to be is in [CONTRIBUTING.md](CONTRIBUTING.md).
-Report a vulnerability privately, the way [SECURITY.md](SECURITY.md) describes,
-rather than in an issue.
+Python is the complete one and everything below is Python unless it says
+otherwise.
 
-### Lineage
-
-MeTTa Kernel builds on Patrick Hammer's MeTTa implementation, whose repository is
-[trueagi-io/PeTTa](https://github.com/trueagi-io/PeTTa), begun under
-[patham9/PeTTa](https://github.com/patham9/PeTTa), where its
-[Wiki](https://github.com/patham9/PeTTa/wiki) still lives and stays worth
-reading. The `python-library` branch develops the `metta` Python module on
-top of the engine: the engine's behaviour is the upstream contract, held by
-a gate that runs every shipped example through both the engine and the
-library and requires identical verdicts, and the Python surface is this
-branch's own. `extensions/mork/mork_ffi/` vendors
-[patham9/mork_ffi](https://github.com/patham9/mork_ffi) over
-[trueagi-io/mork](https://github.com/trueagi-io/mork) for the optional
-MORK backend.
-Release changes are recorded in [CHANGELOG.md](CHANGELOG.md). Citation metadata
-is available in [CITATION.cff](CITATION.cff).
-
-### Python quick start
-
-From a checkout, install the Python package and run a query:
+## Install
 
 ```bash
-python -m pip install .
+sudo apt install swi-prolog          # macOS: brew install swi-prolog
+                                     # Windows: winget install SWI-Prolog.SWI-Prolog
+pip install 'pymetta[engine]'
 ```
 
-```python
-from metta import S, V, space
+`pymetta` installs and imports without SWI-Prolog. The `engine` extra adds the
+bridge. Without it the first engine call names the command for your platform.
 
-m = space()
-m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
-rows = m.match(S.Parent(S.Tom, V.child))
-assert rows.to_dicts() == [{"child": "Bob"}]
-```
+Requires SWI-Prolog 9.3+ and Python 3.12+.
 
-The [Python guide](https://mestto.github.io/MeTTa-Kernel/guide/) starts with the
-atom model and builds through queries, equations, types, and integrations.
+## The representation
 
-### Dependencies
-
-- SWI-Prolog >= 9.3.x
-- Python >= 3.12 (for janus Python interop)
-
-### Usage
-
-Example run:
-
-`time sh run.sh ./examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/09-nars_tuffy.metta`
-
-### MORK and FAISS spaces
-
-`sh build.sh` builds the MORK backend, which gives you MORK-based atom spaces.
-The crate itself ships in this tree, at `extensions/mork/mork_ffi`; what the
-script clones, beside the repository and at validated revisions, is what that
-crate builds against by relative path:
-
-**Repository:** [trueagi-io/MORK](https://github.com/trueagi-io/MORK)
-
-**Repository:** [Adam-Vandervorst/PathMap](https://github.com/Adam-Vandervorst/PathMap)
-
-FAISS-based atom-vector spaces come from a MeTTa library rather than a backend,
-so the engine fetches it when a program asks for it instead of the build script
-cloning it:
+Everything is an atom, and there are four kinds. This is how MeTTa writes
+them:
 
 ```metta
-!(git-import! "https://github.com/patham9/faiss_ffi" "build.sh")
+Tom                  ; a symbol, a name that denotes itself
+$x                   ; a variable
+42                   ; a grounded value: a number, a string, a host object
+(Parent Tom Bob)     ; an expression, atoms in order
 ```
 
-That line is `examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/07-git_import2.metta`,
-which lands the checkout under `repos/`. Its dependency is
-[facebookresearch/faiss](https://github.com/facebookresearch/faiss).
-
-### Python library
-
-The `metta` module is a full Python surface for the engine. The runtime is
-bundled, so nothing else needs a checkout. You can also use it in place from a
-clone with `METTA_PATH` pointing at the tree. Install optional integrations by
-feature:
-
-```bash
-pip install "pymetta[arrays]"       # array API, NumPy, and FAISS
-pip install "pymetta[dataframes]"   # pandas and polars result conversion
-```
-
-Configure process-wide limits before creating the first engine. Stack and
-heartbeat settings freeze after startup because SWI-Prolog owns them for the
-process. Declaration and row-display limits remain live:
+Python builds the same four, without parsing anything. A symbol comes from
+`S`, a variable from `V`, and applying a symbol builds an expression:
 
 ```python
-import logging
-import metta
+from metta import S, V
 
-metta.config.configure(
-    declaration_limit=256,
-    display_rows=50,
-)
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger("metta").setLevel(logging.DEBUG)
+term = S.Parent(S.Tom, S.Bob)
+assert str(term) == "(Parent Tom Bob)"
+assert str(S.f(V.x) & S.g(V.x)) == "(and (f $x) (g $x))"
+assert str(S[">="](V.age, 18)) == "(>= $age 18)"
 ```
 
-The same settings accept `METTA_STACK_LIMIT`, `METTA_HEARTBEAT_INTERVAL`,
-`METTA_DECLARATION_LIMIT` and `METTA_DISPLAY_ROWS` as positive decimal
-integers. Set `metta.config.stack_limit` and
-`metta.config.heartbeat_interval` before creating the first engine when you
-configure them in Python. The package installs only a `NullHandler`, so
-applications choose where `metta.*` lifecycle and recovery records go.
+Strings are for text. A name comes from its factory, a function from its own
+Python name, a space from its handle.
 
-Atoms are Python values. `S.likes` is the symbol `likes`, `V.x` is the
-variable `$x`, and applying a symbol builds an expression, so structure never
-costs an engine call. Operators build terms too: `V.age >= 18` is the
-expression `(>= $age 18)` and `&`, `|`, `~` compose the boolean terms,
-while arithmetic on grounded values stays ordinary Python arithmetic:
+## Spaces and queries
+
+A space holds atoms and equations. Queries join, guard, bound and explain.
 
 ```python
 from metta import S, V, space
 
 m = space()
-m.run("(= (foo) boo) !(foo)")        # [[Symbol('boo')]]
-m.run("!(+ 40 2)")                   # [[Grounded(42)]]
-
 m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
-m.match(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
-# Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
-```
 
-`term.map(transform)` rebuilds an atom tree from the leaves upward.
-Its iterative walk handles deeply nested terms without a Python recursion
-limit, and leaves unchanged expression objects intact.
+assert m.match(S.Parent(S.Tom, V.child)).to_dicts() == [{"child": "Bob"}]
 
-`metta.engine().self` names the shared `&self` space. Use `metta.space()` to
-create an anonymous handle, or `with metta.space() as scratch:` when the
-space should be dropped on leaving the block.
-`load()` adds a program to the current space and keeps what is already there.
+# A conjunction is a join.
+assert m.match(S.Parent(V.x, V.y), S.Parent(V.y, V.z)).to_dicts() == [
+    {"x": "Tom", "y": "Bob", "z": "Ann"}
+]
 
-`run` returns one list of answers per `!` directive, computed by the engine's
-own reader, compiler and evaluator, so pasted CLI programs behave
-identically; a differential suite in `extensions/python/tests` holds the library to the
-CLI's output program by program. Grounded answers compare as their Python
-values, symbols stay symbols, and a Python object stored in a space comes
-back as the very same object.
-
-Python functions become MeTTa functions with a decorator. Each registration
-declares its effect as `pureStructural`, `readOnlyLookup`,
-`nondeterministicReadOnly`, `writesState`, or `oracleIO`; a composed plan takes
-the strongest class. Annotations become type declarations in the engine's own
-idiom. A TypeVar declares
-parametrically, so `def first_of(items: Sequence[A]) -> A` is
-`(: first-of (-> Expression $a))`. A Union declares one arrow per member,
-and the members superpose the way the checker already reads repeated
-declarations. `Callable[[int], int]` declares the arrow `(-> Number Number)`
-and `tuple[int, str]` the elementwise `(Number String)`. A dataclass, Enum
-or plain class in a signature becomes a declared type of its own, its
-constructor arrow read from the field annotations. A generator is
-nondeterministic, and returning None answers nothing, which is why an
-Optional return declares the value type:
-
-```python
-@m.op(effect="pureStructural")
-def double(x: int) -> int:
-    return 2 * x                     # !(double 21) -> 42
-
-@m.op(effect="nondeterministicReadOnly")
-def upto(n: int):
-    yield from range(1, n + 1)       # !(collapse (upto 3)) -> (1 2 3)
-```
-
-`m.unregister_op(name)` removes every arity registered under that name.
-
-Queries carry guards, bounds, assumptions and preparation. A `where=` term
-is evaluated by the engine per match, `limit=` bounds the answers,
-`assuming` holds facts for a block alone, and `prepare` wires a query once
-to solve many times, with `given=` facts existing for that call only:
-
-```python
 m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
-m.match(S.Age(V.p, V.n), where=S[">="](V.n, 60) & S["<="](V.n, 70))
-# Rows[p, n]([Row(p=Symbol('Tom'), n=Grounded(62))])
+assert m.match(S.Age(V.p, V.n), where=S[">="](V.n, 60)).to_dicts() == [
+    {"p": "Tom", "n": 62}
+]
+assert len(m.match(S.Age(V.p, V.n), limit=1)) == 1
 
+# Facts for one block only.
 with m.assuming(S.Parent(S.Ann, S.Zoe)):
-    m.match(S.Parent(S.Ann, V.c))    # Rows[c]([Row(c=Symbol('Zoe'))])
+    assert m.match(S.Parent(S.Ann, V.c)).to_dicts() == [{"c": "Zoe"}]
 
+# A prepared statement: the shape and its columns build once, then every
+# solve() reuses them. given= adds facts for one solve and leaves nothing.
 grand = m.prepare(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
-grand.solve()
-# Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
+assert grand.solve().to_dicts() == [{"x": "Tom", "y": "Bob", "z": "Ann"}]
+assert len(grand.solve(given=[S.Parent(S.Ann, S.Zoe)])) == 2
 ```
 
-An empty result returned directly by `match()` retains its patterns. Call
-`rows.why()` to distinguish a pattern miss, an incompatible join, and a
-`where` guard that rejected every joined row. The explanation reads the
-space's current state.
+`m.eval(term)` evaluates a built term and answers every answer. `m.run(source)`
+is the door for whole MeTTa programs as text, which is what source files are;
+prefer building the term when you have one, because a built term is knowledge
+already and a string has to be parsed before it is.
+`rows.why()` explains an empty match. `m.derivation(atom)` builds the proof
+tree behind an answer.
 
-Tables cross both ways on the same reading: `metta.tables.add(m, head, source)`
-reads any tabular source by the interface it offers (polars `iter_rows`,
-pandas `itertuples`, a mapping of columns, any iterable of rows) into
-`(head v1 .. vn)` facts, and `rows.table()` answers the dict of columns
-every DataFrame constructor takes.
+## Writing MeTTa in Python
 
-Named spaces isolate both stored atoms and equations, each space compiling
-into its own module; `(context-space)` names the space the current code runs
-in. `m.derivation(atom)` builds proof trees naming the equations and stored
-facts behind an answer, and `m.why(pattern)` explains an empty match. A
-`%%metta` cell magic for the ordinary Python kernel ships as
-`%load_ext metta.ipython`.
-
-The library also describes itself into `&metta`, a space of its own:
-`(op name arity kind)` for every registered operation, `(defined space
-name)` for every `@define` function, `(subscription space pattern on)` for
-every standing query, each removed when its subject goes. It is an ordinary
-space, so MeTTa programs can query the library's whole surface, and the
-composition runs the other way too: a Python subscription on `&metta`
-reacts to control atoms a MeTTa program writes there, which is steering the
-integration from inside MeTTa, no fork needed.
-
-### Two more paradigms in the common tongue, as examples
-
-MeTTa is built to be a lingua franca, and the examples folder carries two
-whole paradigms translated into it on the core surface alone, deliberately
-as examples rather than package modules, since the point is what the core
-already carries. `extensions/python/examples/integration/web_routes.py` builds FastAPI's
-routing semantics in some eighty lines: an app is a space, the route table
-is facts, a request is a term, dispatch is unification in registration
-order, path parameters are typed variables, the 404 is the absence of a
-match and the 422 a parameter refusing its type, and a MeTTa program
-extends the running table by adding a `(route ...)` fact whose handler is
-an equation. `extensions/python/examples/integration/multishot_solving.py` builds clingo's
-multi-shot solving (Gebser et al., arXiv 1705.09811) in two short classes:
-a part is a parameterized program template grounded once per
-instantiation, an external is a truth toggled between solves, and the
-incremental loop grounds one more step and solves again while the world
-persists. Both examples verify themselves in the test suite.
-
-### Examples
-
-`extensions/python/examples/` holds thirteen runnable, self-verifying integrations,
-grouped by basics, operations, data, integration, reasoning, and live systems.
-They run from first steps through SQL spaces, array interoperability, evolution
-in a space, PLN, standing queries as actors, custom matchers,
-FastAPI-shaped web routes and clingo-shaped multi-shot solving; the test
-suite runs them all, so the folder cannot drift. The torch examples
-(attention as matching, FabricPC, deep routing) travel with the pettorch
-repository. Start there. The engine-side
-libraries this work added (`lib_measure`, `lib_soft`) test themselves in
-the engine's own convention, `examples/*.metta` with `!(test ...)`, run by
-both `test.sh` and the python suite.
-
-### Writing MeTTa in Python
-
-The `@m.define` decorator compiles a Python function into MeTTa equations,
-read as syntax and lowered deterministically. It exists because fluency is
-real: people and language models alike write Python readily and
-s-expressions haltingly, and the compiled subset lets that fluency produce
-MeTTa programs.
+`@m.define` reads the function's source and lowers it into MeTTa equations.
+Clauses stack the way MeTTa equations do.
 
 ```python
-@m.define
-def fact(n):
-    if n == 0:
-        return 1
-    return n * fact(n - 1)
+from metta import space
 
-m.run("!(fact 5)")       # [[Grounded(120)]]
-fact.py(5)               # 120: the ordinary Python twin, kept callable
-```
+m = space()
 
-Clauses stack the way MeTTa equations do, with a literal default reading as
-the head pattern and the compiler deriving the first-match guards the
-stacked Python means:
-
-```python
 @m.define
 def fib(n=0):
     return 0
@@ -291,316 +113,434 @@ def fib(n=1):
 
 @m.define
 def fib(n):
-    return fib(n - 1) + fib(n - 2)   # m.run("!(fib 10)") -> [[55]]
+    return fib(n - 1) + fib(n - 2)
+
+assert fib(10) == [55]           # callable from Python, answers a list
+assert fib.py(10) == 55          # and the Python twin stays callable
 ```
 
-Annotations declare types. Engine functions remain available through ordinary
-MeTTa evaluation on the space handle.
+The equations are readable, so you can see exactly what your Python became:
 
-The subset is Python as Python means it. Rebinding works (`x = x + 1`
-compiles through static single assignment), `while` and `for` become their
-own tail-recursive equations running in constant stack, nested defs
-lambda-lift, a generator compiles to nondeterminism (each yield one
-answer, `yield from` and `for` included), a lambda to the engine's own
-`|->`, comprehensions (several `for` clauses too) to `map-atom` and
-`filter-atom`, and `match(parent(gp, mid), ...)` to a match against the
-running space, lowercase pattern names binding as variables. Semantics are
-exact where the engine's functions differ from Python's: truthiness
-decides every test, `and`/`or` answer the deciding operand, `==` holds
-across `4 == 4.0`, `in` is membership and substring, indexing and slices
-take Python's negatives, `round` banks, f-strings format; each definition
-lists the runtime-backed operations it leaned on as `.runtime_ops`. Both
-decorators share one naming policy: an implicit Python name maps underscores
-to MeTTa hyphens, while `name=` preserves its authored spelling exactly.
-Anything
-outside the subset is a refusal naming the construct, the line, and what
-to write instead, never a silent fallback; a body only the engine can run
-(a match, a constructor) gets a twin that says so instead of a NameError.
-Every other definition keeps its Python twin callable as `.py`, stacked
-clauses dispatching first-match; a CSmith-style fuzzer generates random
-programs in the subset and holds engine and twin to identical answers.
+```python
+from metta import space
 
-### Integrating any library
+m = space()
 
-`metta.integrate` is the interface a Python library implements to work
-deeply with the engine, and the toolkit that makes it a page of code. The
-frame behind it: MeTTa's own semantics subsume the concepts libraries are
-made of, so integration means mapping onto them rather than inventing
-machinery.
+@m.define
+def fact(n):
+    if n == 0:
+        return 1
+    return n * fact(n - 1)
+
+assert str(fact.head) == "(fact $n)"
+assert str(fact.body) == "(if (py-eq $n 0) 1 (* $n (fact (- $n 1))))"
+assert fact(5) == [120]
+```
+
+The subset is Python as Python means it: rebinding compiles through static
+single assignment, `while` and `for` become tail-recursive equations in
+constant stack, a generator compiles to nondeterminism, a lambda to `|->`,
+comprehensions to `map-atom` and `filter-atom`. Anything outside the subset is
+refused by name and line, never a silent fallback.
+
+## What it does that a library cannot
+
+A function you wrote forwards runs backwards. `solve` takes the answer and
+asks for the argument:
+
+```python
+from metta import S, V, space
+
+m = space()
+
+@m.define
+def double(x):
+    return 2 * x
+
+assert double(5) == [10]                  # forwards, and callable from Python
+assert m.solve(10, S.double(V.x)).x == 5  # backwards, no second definition
+assert m.solve(5, V.p + 2).p == 3         # every operator solves for its slot
+assert m.solve(12, V.q * 4).q == 3
+```
+
+Many answers is the normal case rather than an error:
+
+```python
+from metta import S, space
+
+m = space()
+assert sorted(a.value for a in m.eval(S.superpose((1, 2, 3)))) == [1, 2, 3]
+```
+
+The program is data. An equation is an atom, so adding one at run time changes
+what the program means, and the equations are queryable like anything else:
+
+```python
+from metta import S, V, space
+
+m = space()
+m.add(S["="](S.price(V.x), 10))           # an equation is an atom you add
+assert m.eval(S.price(S.apple)) == [10]
+
+m.add(S["="](S.price(S.apple), 3))        # a second one, at run time
+assert sorted(a.value for a in m.eval(S.price(S.apple))) == [3, 10]
+
+heads = {str(row.head) for row in m.match(S["="](V.head, V.body))}
+assert "(price apple)" in heads           # the program can read itself
+```
+
+Everything below builds on those three: the space holds both the facts and the
+program, evaluation is matching, and nothing is closed to inspection.
+
+## Where that leads: a hypothesis nobody wrote down
+
+In 1986 Swanson found that fish oil might treat Raynaud's syndrome. No paper
+said so. One literature reported that fish oil lowers blood viscosity; another,
+which did not cite the first, reported that raised blood viscosity aggravates
+Raynaud's. The conclusion followed from the two together, was stated by
+neither, and went unnoticed partly because the two literatures did not share
+vocabulary.
+
+That problem needs both halves of a neurosymbolic system, which is why it is
+the example. This is `extensions/python/examples/reasoning/literature_discovery.py`,
+which the gate runs:
+
+```python
+import torch
+from metta import TRUE, G, S, V, counting, prov, space
+from metta.arrays import EmbeddingStore
+
+m = space()
+
+# Two literatures that never cite each other, and a red herring. Each claim
+# carries the paper it came from. Nothing here states a conclusion.
+for paper, agent, verb, target in [
+    ("p1", "omega-3", "lowers", "blood-viscosity"),
+    ("p2", "blood-viscosity", "aggravates", "raynaud"),
+    ("p4", "omega-3", "lowers", "platelet-aggregation"),
+    ("p5", "platelet-aggregation", "aggravates", "raynaud"),
+    ("p3", "aspirin", "lowers", "inflammation"),
+]:
+    m.add_tagged_fact(S[paper], S.reports(S[agent], S[verb], S[target]))
+
+# Swanson's ABC rule, tagged like any other source.
+m.add_tagged_rule(
+    S.abc,
+    S.suggests(V.agent, V.condition),
+    S.reports(V.agent, S.lowers, V.factor),
+    S.reports(V.factor, S.aggravates, V.condition),
+)
+
+TERMS = {"omega-3": [0.90, 0.10, 0.0], "fish-oil": [0.88, 0.16, 0.0],
+         "aspirin": [0.10, 0.90, 0.0], "blood-viscosity": [0.0, 0.10, 0.90]}
+store = EmbeddingStore(m, name="terms", mirror=False)
+for term, vector in TERMS.items():
+    store.add(S[term], torch.tensor(vector))
+
+class Like:
+    """Unifies with whatever the embedding puts within `floor`. `match_` is the
+    whole interface: no registration, and it composes with `unify`."""
+    def __init__(self, key, floor=0.95):
+        self.key, self.floor = key, floor
+    def match_(self, other):
+        for key, score in store.ranked(self.key, len(TERMS)):
+            if str(key) == str(other) and float(score) >= self.floor:
+                yield other
+
+near_fish_oil = S.unify(G(Like(S.fish_oil)), V.agent, TRUE, S.superpose(()))
+
+# Symbolically there is nothing. No paper contains the phrase.
+assert m.match(S.reports(S.fish_oil, S.lowers, V.factor)).to_dicts() == []
+
+# The same corpus, asked with a term the embedding can place. The join is the
+# engine's; deciding that fish-oil IS omega-3 is the tensor's.
+found = m.match(S.suggests(V.agent, S.raynaud), where=near_fish_oil, under=prov).one()
+assert str(found.value) == "(suggests omega-3 raynaud)"
+
+# How much independent support? The same question under a different algebra.
+assert m.match(S.suggests(S["omega-3"], S.raynaud), under=counting).one() == 2
+
+# Which papers? A provenance polynomial: `times` is joint use, `plus` is an
+# alternative derivation. Read it as "the rule with p1 and p2, or with p4 and p5".
+assert str(found.annotation) == (
+    "(plus (times (times abc p1) p2) (times (times abc p4) p5))"
+)
+assert all(name in found.why().render() for name in ("abc", "p1", "p2", "p4", "p5"))
+```
+
+The answer is not a plausible sentence. It is a derivation naming `abc`, `p1`
+and `p2`, which a reader can go and check.
+
+And the evidence is algebra rather than bookkeeping. The same question under
+`counting` says how many independent literature paths support the hypothesis;
+under `prov` it says which papers, as a polynomial. Neither costs a line of
+tracking code, because tags compose through the join the way the join composes
+[Green, Karvounarakis and Tannen, *Provenance semirings*, PODS 2007].
+
+Neither half of this works alone. A language model does not do reliable
+multi-hop chaining and cannot show its working; a symbolic prover cannot cross
+a vocabulary gap where two names share nothing but their meaning. The embedding
+decides what unifies, the engine decides what follows, and the answer carries
+its own citations. The neural gate, the tagged rule and the semiring are all in
+that one query, and none of them is a plugin: they are the same seam.
+
+## Three axes
+
+A crossing between Python and the engine makes three independent choices.
+
+| axis | poles | how you say it |
+|---|---|---|
+| where the body lives | CALLED, or LOWERED | `@m.pure` and friends, or `@m.define` |
+| what the body may observe | pure, reads, writes, io | the decorator's name |
+| what a value crosses as | transparent, or opaque | `transport="encoded"` or `"raw"` |
+
+The first two are different questions and are easy to run together. Where the
+body lives decides whether Python runs at all. What it may observe decides
+whether the engine may cache it.
+
+```python
+from metta import space
+
+m = space()
+
+# CALLED: the body stays Python and the engine calls it. The decorator says
+# what it may observe, which is the only thing the engine cannot see for
+# itself.
+@m.pure
+def called(x: int) -> int:
+    return x + 1
+
+# LOWERED: the body becomes MeTTa equations. No Python at run time, and no
+# effect to declare, because now the engine can read the code.
+@m.define
+def lowered(x):
+    return x + 1
+
+assert list(m.fn.called(41)) == [42]
+assert lowered(41) == [42]
+assert lowered.effect == "pureStructural"      # derived, not declared
+```
+
+Four decorators, ordered, each admitting everything below it. Only `pure` may
+be cached, memoised or tabled.
+
+| decorator | what it may observe or change |
+|---|---|
+| `@m.pure` | nothing but its arguments; same answer forever |
+| `@m.reads` | state that can change, without changing it |
+| `@m.writes` | engine or host state |
+| `@m.io` | an external oracle: clock, randomness, network, file |
+
+There is no `nondet`: a generator IS nondeterministic, so the registration
+works that out from the function and lifts the class itself.
+
+```python
+import metta
+from metta import S, V, space
+
+m = space()
+
+@m.pure
+def upto(n: int):
+    yield from range(1, n + 1)
+
+assert sorted(a.value for a in m.fn.upto(3)) == [1, 2, 3]
+
+lifted = metta.reflection.match(S.effect(S.upto, V.e))
+assert [str(row.e) for row in lifted] == ["nondeterministicReadOnly"]
+```
+
+`transport="raw"` composes with any of them and is 1.6x cheaper, at the cost of
+the symbol/string distinction: symbols reach a raw operation as plain strings.
+
+Measured, per crossing: letting the engine call out costs 19,557 retired
+instructions against 96,771 for the host driving in, so a loop over many items
+belongs in MeTTa. A transparent value costs four inferences per element and an
+opaque one costs 12.31 whatever the size, so at a thousand elements the gap is
+419x and still growing. `EXTENDING.md` prices all three and
+`extensions/python/benchmarks/axes.py` reproduces the numbers.
+
+## Async
+
+```python
+import asyncio
+import metta
+from metta import S, V
+
+async def main():
+    async with await metta.aio.connect() as m:
+        await m.add(S.edge(S.a, S.b))
+        rows = await m.match(S.edge(V.x, V.y))
+        return rows.to_dicts()
+
+assert asyncio.run(main()) == [{"x": "a", "y": "b"}]
+```
+
+The engine runs on its own thread and every door is awaitable.
+
+## Parallel evaluation
+
+```python
+import metta
+from metta import G, S, space
+
+m = space()
+
+# Branches on real threads. The answers come back as a list, so `collapse` has
+# nothing to do here and the order is not fixed.
+assert sorted(a.value for a in m.parallel(G(1) + 1, G(2) + 2)) == [2, 4]
+
+@m.define
+def double(x):
+    return 2 * x
+
+# A parallel MAP is a different promise: it keeps the input's order, where
+# the fan-out above answers in completion order.
+assert str(m.eval(metta.par_map(S.double, (1, 2, 3)))[0]) == "(2 4 6)"
+```
+
+`lib_thread` also carries futures (`spawn` answers a space), `await`, channels
+with backpressure, pools, Linda-style waits and locks.
+
+## Across processes
+
+`serve` publishes this engine's spaces over HTTP; `attach` registers another
+engine's space here as an ordinary space, so a query crosses the network the
+way it crosses into a database.
+
+```python
+from metta import S, space, remote
+
+m = space()
+m.add(S.edge(S.a, S.b))
+
+with remote.serve(m, spaces=[m.name]) as server:
+    server.url          # another process attaches to this
+```
+
+```python
+import metta
+from metta import S, V, space, remote
+
+server_space = space()
+server_space.add(S.edge(S.a, S.b), S.edge(S.b, S.c))
+
+# In ONE process the transport is a Gateway: janus holds the GIL across a
+# Prolog call, so an HTTP attach here is refused with this remedy named.
+client = space()
+remote.attach(client, "&warehouse", remote.Gateway(server_space, [server_space.name]),
+              server_space.name)
+edges = metta.space("&warehouse").match(S.edge(V.x, V.y))
+assert edges.to_dicts() == [{"x": "a", "y": "b"}, {"x": "b", "y": "c"}]
+```
+
+Bearer tokens, TLS and a per-request authorization hook are arguments to
+`serve`. Answers stream a chunk at a time, so taking two answers costs two
+answers' work whatever the space holds.
+
+## Standing queries
+
+A subscription is a query that stays, delivered inside the write that matched
+it.
+
+```python
+from metta import S, V, space
+
+m = space()
+seen = []
+m.subscribe(S.Alarm(V.what), seen.append)
+m.add(S.Alarm(S.fire))
+
+assert [str(event.atom) for event in seen] == ["(Alarm fire)"]
+assert str(seen[0].bindings["what"]) == "fire"
+```
+
+## Spaces backed by anything
+
+A space provider puts atoms wherever they already live: a SQL table, a
+dataframe, a service, another engine. The engine keeps unification, so a
+provider may over-approximate and stay correct.
+
+```python
+import metta
+from metta import S, V
+from metta.foreign import SpaceProvider
+
+class Rows(SpaceProvider):
+    def __init__(self, rows):
+        self.rows = rows
+
+    def atoms(self):
+        return [S.user(i, name) for i, name in self.rows]
+
+metta.attach("&catalogue", Rows([(1, "Ada"), (2, "Bob")]))
+rows = metta.space("&catalogue").match(S.user(V.id, V.name))
+assert rows.to_dicts() == [{"id": 1, "name": "Ada"}, {"id": 2, "name": "Bob"}]
+```
+
+Bound positions reach the provider as its `WHERE` clause, and a provider that
+declares its filtering exact is handed the caller's bound to push down.
+Worked instances ship for SQLite, DuckDB, Redis, C and TypeScript.
+
+## Integrating a library
+
+MeTTa's semantics already subsume what libraries are made of, so integration is
+a mapping rather than machinery.
 
 | the library has | it becomes |
 |---|---|
-| functions, methods | grounded MeTTa functions; a call is a reduction |
+| functions, methods | grounded functions; a call is a reduction |
 | objects with state | grounded atoms with identity |
 | tables, frames, indexes | spaces; a query is a match |
-| dispatch (routes, handlers) | equations over one head; the catch-all is the 404 |
+| dispatch (routes, handlers) | equations over one head |
 | generators, search, retrieval | nondeterminism; each yield one answer |
 | schemas, records, enums | constructor expressions and `(: ...)` declarations |
-| configuration, structure | facts that rules match over |
-
-The toolkit covers each row: `module_ops(m, math, ["sqrt", "gcd"])`
-registers callables in bulk; `wrap_object` turns an instance's methods into
-operations (a Python None answers True, the engine's convention for an
-effect); `register_type` teaches the two-way translator in the pytree shape
-(Enums become symbols with declarations, dataclasses and pydantic models
-become constructor expressions, all by default, a model rebuilding through
-itself so validation runs where pydantic runs it); `register_object_type` makes a protocol a
-type; `install_reflection_ops` gives `(py-field $obj $name)` in both modes,
-enumeration included; and a `SpaceProvider` implements a space in Python, so
-`(match &db (users $id $name) ...)` runs against a database with bound
-positions pushed down as a WHERE clause while the engine keeps unification,
-and therefore soundness, for itself. The worked SQL instance lives whole
-in `extensions/python/examples/integration/duckdb_space.py`, deliberately as an example: a
-DuckDB provider is a page of code on this interface. A package advertises itself through the
-`metta.integrations` entry-point group, and `m.integrate(module)` installs
-anything defining `install_metta(m)`. Declare an integration in package
-metadata like this:
-
-Installation is idempotent for one live space. `space.drop()` releases that
-record with the stored facts, so a later space using the same name installs
-again.
-
-Process-wide extension registrations have exact removal counterparts.
-Use `convert.unregister_type`, `integrate.unregister_object_type`,
-`integrate.unregister_repr`, and `integrate.unregister_reflector` with the
-same objects passed at registration. Protocol atom formatters pair
-`integrate.register_repr` with `integrate.unregister_repr`. Removing a
-registration that is not live raises `KeyError`.
-
-```toml
-[project.entry-points."metta.integrations"]
-my-library = "my_library.metta"
-```
-
-The library ships no built-in integration of its own; sibling packages
-publish into that group from their own manifests and `m.discover()`
-finds them.
-
-This leans on Python's metaprogramming the way SQLAlchemy and Pydantic do:
-introspected signatures become arities and types, the AST becomes equations,
-protocols become types, and entry points become discovery.
-
-Beyond operations and spaces, the surface carries: `@m.define` on an Enum,
-dataclass or NamedTuple, which declares the class into a space with constructor
-declarations and one accessor equation per field; `m.type(atom)`, which reads
-the atom's declared type; `rows.build(col, Person)`, which rebuilds
-answers as instances and preserves `Person` for type checkers;
-`rows.to_dicts()` returning one plain mapping per answer;
-`with m.bind(df=df): m.run(...)`, naming host values by bare symbol with
-identity intact; `m.subscribe(pattern,
-callback)`, a standing query delivered inside the very write that matched
-it (or queued for `drain()`), which is the actors-and-pub-sub reading of a
-space; `m.save(path)` writing a space back as loadable source, with
-`m.load(path)` adding that source rather than replacing current atoms; and
-`metta.current_space()`, callable from inside any operation to learn the
-space whose program called it.
-
-### Custom matching
-
-Matching is open the way MeTTa itself says it is: a grounded value can
-define its own matching logic. Any Python object whose class defines
-`match_` participates in `(unify ...)` with no registration, yielding
-bindings for the operand it met, and a space operand routes through the
-engine's own match, which is how `(unify &self (friend $who Alice) $who
-no-friends)` answers each friend. Scored matching is an ordinary
-operation: answer each candidate with the degree as the answer's
-annotation, declare its value algebra, and `(top k ...)` orders while
-`(annotation)` reads the degree beside its answer. Fuzzy, regex and
-semantic closeness are each a few lines on that surface;
-`extensions/python/examples/reasoning/custom_matchers.py` builds all three.
-`lib/lib_measure/lib_measure.metta` stays pure MeTTa over explicit `(weight value)`
-pairs, annotated-disjunction shaped: `ws-normalize`, `ws-softmax` with a
-temperature, `ws-best`, `ws-top`, `ws-sample!`, `ws-collapse`,
-`ws-expect`; `lib/lib_soft/lib_soft.metta` extends it over terms with Sessa's weak
-unification, structure crisp, symbols close to declared degrees
-(`pettaprove.link_store` materializes them from embeddings), variables
-binding as ever. `(pair (annotation) $answer)` bridges an annotated
-operation's answers into that pair world when you want them there.
-`extensions/python/bench.py` runs the pytest-benchmark suite. `--list` prints its named
-cases and `--counter-only` runs the deterministic regression gate without
-using wall time. The gate uses `--keep-going`, so every case reports before a
-failure exits. Engine cases compare the minimum of three `stats().inferences`
-samples with `extensions/python/benchmarks/baseline.json`; join and let cases also compare
-inference growth between two fixed workload sizes.
-`extensions/python/benchmarks/check_instructions.py` measures the Python codecs and the
-primitive-heavy let, digest, alpha-unique, sort, source-load, Python-method,
-and space-name paths with `perf stat -e instructions:u`. Setup is outside the
-counted interval. Wall results remain advisory and can be written with `--json`.
-
-On top of that closeness sits a prover, `pettaprove.prove`, layered
-BESIDE the core in its own repository because it is built entirely on
-the public surface: backward
-chaining where every unification is soft, the reading of End-to-End
-Differentiable Proving (Rocktaschel and Riedel 2017) and IBM's Braid. A
-goal proves through stored facts, through `=` rules whose bodies prove in
-turn, through conjunction goals conjunct by conjunct, and through ground
-guards the engine itself evaluates; degrees aggregate by minimum, every
-step must clear the threshold, and the answer is a `Proof` carrying the
-substitutions, the aggregate similarity and every step:
 
 ```python
-import pettaprove as soft
+import math
 from metta import space
+from metta.integrate import module_ops
 
-k = space()
-k.add(S["parent-of"](S.homer, S.bart), S["father-of"](S.abe, S.homer))
-k.run("(= (grandpa-of $x $y) (and (father-of $x $z) (parent-of $z $y)))")
-soft.similar(k, "grandpa-of", "grandfather-of", 0.9)
-
-proof = soft.prove(k, S["grandfather-of"](V.who, S.bart))
-proof.substitutions["who"], proof.similarity     # (Symbol('abe'), 0.9)
+m = space()
+module_ops(m, math, ["sqrt", "gcd"], effect="pureStructural")
+assert list(m.fn.sqrt(16.0)) == [4.0]
 ```
 
-`grandfather-of` never appears in the knowledge, only `grandpa-of` does;
-the declared similarity carries the proof across, and `proof.steps` names
-every rule, fact and guard on the way.
+A package advertises itself through the `metta.integrations` entry-point group,
+and `m.discover()` finds it.
 
-### Arrays: every DLPack library, one operation set
-
-`metta.arrays` carries tensors for every library speaking the standard
-protocols, not one: recognition is DLPack (`__dlpack__`), semantics are the
-Python array API standard through array-api-compat, so the same MeTTa
-functions serve NumPy, PyTorch, CuPy, JAX and whatever conforms next.
-`install(m, default=numpy)` chooses only what the constructors build in;
-every other operation dispatches on its argument's own library, a mixed
-call converts the right operand through `from_dlpack`, `(t-as $x numpy)`
-converts on request, and `get-type` of any array answers its own classes
-plus `DLTensor`, the protocol type, so one declared
-`(-> DLTensor DLTensor DLTensor)` holds across libraries. The embedding
-store and its nondeterministic `(name-knn $q $k)` retrieval live here too,
-running on whichever library the vectors arrived from.
-
-### PeTTorch
-
-The PyTorch integration lives in its own repository beside this one,
-`pettorch`, built on the metta module's public surface: the whole tensor
-set through `metta.arrays` with torch as the constructor default, losses
-and optimizers through `metta.integrate`, `MettaModule` running a MeTTa
-forward pass under autograd, architecture reflection as facts, and the
-neural predicate as an annotated relation on the same surface.
-Its docs, tests and torch examples travel with it. The CLI-reachable half
-stays here as `lib/lib_torch/lib_torch.metta`; see `examples/ch11-python-as-a-notation/08-torch_lib.metta`.
-
-### Extension libraries
-
-Please check out [Extension libraries](https://github.com/trueagi-io/PeTTa/wiki/Extension-libraries) for a set of extension libraries that can be invoked from MeTTa files directly from the git repository.
-
-### Git dependencies
-
-A file can declare the repositories it needs as plain forms:
-
-```metta
-(git-dependency "https://example/repo.git" "0123456789abcdef0123456789abcdef01234567")
-!(import! &self (library repo somelib))
-```
-
-Declarations are satisfied after the file is parsed and before any of its forms
-run, so the checkout exists when the import resolves. The commit must be a full
-40-character SHA; the checkout is verified against it on every run and retargeted
-when the pin changes, so a fresh clone and a machine with an existing checkout
-behave identically. Optional third and fourth values give a build command and a
-base directory: `(git-dependency url rev "build.sh" "./repos")`. A dependency can
-declare its own dependencies in a `deps.metta` file at its repository root, and
-these are acquired transitively.
-
-For dynamic acquisition, the core `git-import!` primitive supports URL-only,
-URL/build-command, and
-URL/build-command/base-directory forms. For a reproducible detached checkout,
-pass a fourth input in the order URL, build command, base directory, commit:
-
-```metta
-!(git-import! "https://example/repo.git" "" "./repos" "0123456789abcdef0123456789abcdef01234567")
-```
-
-Pinned imports accept only a full 40-character hexadecimal commit SHA;
-abbreviated SHAs, branches, and tags are rejected.
-
-The first argument of the three-argument `library` form is the repository name.
-It resolves through the exact canonical checkout registered by Git acquisition,
-including when a custom base directory is used.
-
-### The website
-
-`website/` is a VitePress site that teaches the Python library: eight
-tutorials that assume Python and no MeTTa, feature guides, integration
-walkthroughs, live-system pages, and a generated API reference, with
-pettagrapher renders as the illustrations. Build and preview it locally:
+## Command line
 
 ```bash
-cd website
-npm install
-npm run docs:build
-npm run docs:preview
+python -m metta run program.metta        # run files, print each ! answer group
+python -m metta repl                     # interactive loop
+python -m metta serve kb.metta --port 8700
+python -m metta lint program.metta       # nonzero exit on findings
+python -m metta doc car-atom
 ```
 
-The site is built for project hosting under the `/MeTTa-Kernel/` path, so the
-preview answers at `http://localhost:4173/MeTTa-Kernel/` and the server root
-shows the site's 404 page. `npm run docs:dev` serves the same content
-live at `http://localhost:5173/MeTTa-Kernel/`. The reference pages and the
-visuals are committed; after changing docstrings or the illustrations,
-regenerate them with `extensions/python/tools/reference.py --write` and
-`website/scripts/generate_visuals.py`, and `website/scripts/audit_snippets.py`
-verifies that every tutorial code fence is an exact excerpt from the
-repository's own sources.
+## TypeScript
 
-## Notebooks, Servers, Browser
-
-### Jupyter Notebook Support
-
-A Jupyter kernel is available in a separate repository for interactive MeTTa development in notebooks.
-
-**Repository:** [trueagi-io/jupyter-petta-kernel](https://github.com/trueagi-io/jupyter-petta-kernel)
-
-Quick install:
-
-```bash
-# Set METTA_PATH to this installation
-export METTA_PATH=/path/to/checkout
-
-# Clone and install the kernel
-git clone https://github.com/trueagi-io/jupyter-petta-kernel.git
-cd jupyter-petta-kernel
-./install.sh
-```
-
-Please see the [jupyter-petta-kernel README](https://github.com/trueagi-io/jupyter-petta-kernel/blob/main/README.md) for detailed installation instructions and usage.
-
-### MeTTa server
-
-A HTTP server running MeTTa code is also available:
-
-**Repository:** [MettaWamJam](https://github.com/trueagi-io/MettaWamJam)
-
-Please see the [MettaWamJam README](https://github.com/trueagi-io/MettaWamJam/blob/main/README.md) for detailed installation instructions and usage.
-
-### MeTTa in WASM
-
-Since Swi-Prolog can be compiled to Web Assembly, one can embed MeTTa into websites.
-
-Please see [Execution-in-browser](https://github.com/patham9/PeTTa/wiki/Execution-in-browser) for more information.
-
-### MeTTa in TypeScript
-
-`extensions/node/` runs the engine inside a Node process over the same WebAssembly
-build, so a TypeScript program needs no SWI-Prolog on the machine and no socket.
-It is the sibling of the Python library: atoms, spaces, the three definition
-doors, worlds and scopes, spelled the way TypeScript spells things.
+`extensions/node/` runs the engine inside Node over WebAssembly, so no
+SWI-Prolog on the machine and no socket. The same three axes, spelled the way
+TypeScript spells things. This is `extensions/node/examples/readme-snippet.ts`,
+which the gate runs:
 
 ```ts
-import { metta, S, type Term, V } from "./extensions/node/src/index.ts";
+import { metta, S, type Term, V } from "metta-node";
 
 const m = await metta();
 m.add(S.parent(S.tom, S.bob), S.parent(S.bob, S.ann));
 
 // Rows are keyed by the pattern's own variable names.
 for await (const { child } of m.match(S.parent(S.tom, V.child))) {
-  console.log(String(child));                  // bob
+  console.log(String(child));                   // bob
 }
 
-// An ordinary TypeScript function becomes ONE equation the engine holds, so a
-// call costs no host crossing at all.
+// LOWERED: an ordinary function becomes one equation the engine holds, so the
+// call crosses into no host at all.
 const twice = m.define(function twice(n: number): number { return n * 2; });
-await twice(21).one();                         // 42
+console.log(String(await twice(21).one()));     // 42
 
 // A generator body is traced into clauses; `yield*` asks, `yield` emits.
 const grandparent = m.define(function* grandparent(x: Term) {
@@ -608,12 +548,103 @@ const grandparent = m.define(function* grandparent(x: Term) {
   const { z } = yield* m.match(S.parent(y, V.z));
   return z;
 });
+console.log(String(await grandparent(S.tom).one()));   // ann
 
-// And a TypeScript function the engine calls back into, from the middle of a
-// reduction, awaited if it answers with a promise.
+// CALLED: a function the engine calls back into mid-reduction, awaited when it
+// answers with a promise. Its effect is read off the function, not declared.
 m.op(async function fetchJson(url: string) { return (await fetch(url)).json(); });
+console.log(m.effectOf("fetch-json"));          // oracleIO
+
+m.dispose();
 ```
 
-See [extensions/node/README.md](extensions/node/README.md) for the whole surface,
-what the WebAssembly build does not carry, and how the binding is held to the
-same conformance corpus the Python library answers.
+## C
+
+`extensions/cmetta/` embeds the engine through SWI's foreign interface. It has
+the same two definition doors, and C reaches the lowered one through the
+preprocessor: Python lowers by reading a function's `__code__` and Node by
+reading its `toString()`, while `#` is C's own access to its source. From
+`extensions/cmetta/examples/lower.c`:
+
+```c
+#define MT_SHORTHAND
+#include <cmetta.h>
+
+/* CALLED: the engine crosses into C, so the effect class must be declared. */
+mt_def(m, (mt_op){ .name = "triple", .arity = 1,
+                   .effect = MT_PURE, .fn = op_triple });
+
+/* LOWERED: C tokens the compiler already saw, installed as equations. No
+   quoting, no escaped newlines, and unbalanced parentheses are a COMPILE
+   error rather than a runtime one. */
+mt_lower(m, (twice $x), (* 2 $x));
+mt_lower(m, (fib $n), (if (< $n 2) $n
+                          (+ (fib (- $n 1)) (fib (- $n 2)))));
+
+/* One body, two languages: the operators are parameters, so the same source
+   expands to C in one mode and to MeTTa tokens in the other. */
+#define POLY(ADD, MUL, x)  ADD(MUL(3, x), 1)
+static int64_t poly(int64_t x) { return POLY(C_ADD, C_MUL, x); }
+mt_lower(m, (poly $x), POLY(M_ADD, M_MUL, $x));
+```
+
+`examples/` beside it carries `hello`, `ops`, `lower` and `stream`, each built
+and run by the gate.
+
+## Backends
+
+`sh build.sh` builds the MORK backend, which gives MORK-backed atom spaces over
+[trueagi-io/MORK](https://github.com/trueagi-io/MORK) and
+[Adam-Vandervorst/PathMap](https://github.com/Adam-Vandervorst/PathMap). FAISS
+atom-vector spaces come from a MeTTa library the engine fetches on request:
+
+```metta
+!(git-import! "https://github.com/patham9/faiss_ffi" "build.sh")
+```
+
+## Conformance
+
+The semantics are LeaTTa's and the MeTTa Standard's. LeaTTa is a mechanised
+specification of MeTTa; where it and hyperon-experimental disagree, this engine
+follows LeaTTa.
+
+So answers differ from hyperon-experimental in places. The reason is usually a
+defect in hyperon-experimental rather than a choice here, and LeaTTa is where
+those differences are catalogued.
+
+## What the examples show
+
+`extensions/python/examples/language-feature-examples/` is 219 runnable
+programs, each the idiomatic Python for one MeTTa example, and the gate runs
+every one. They are the depth this page only samples:
+
+| chapter | what it demonstrates |
+|---|---|
+| arithmetic that runs backwards | `+ - * /` as relations, then CLP(FD) constraints when rearrangement runs out, then a named refusal |
+| changing the equations | a program that specialises and removes its own definitions at run time |
+| many answers | superposition, collapse, bounded and committed searches |
+| types | parametric, recursive and dependent types |
+| a reasoner you can serve | constructive negation, a dependently-typed backward chainer, PLN deduction, weak unification, the Scallop programs |
+| performance | a million atoms across five index shapes, memoisation and tabling, four million-step kernels |
+| transactions and worlds | a counter five threads share, state cells, arbitrary MeTTa at the write door, admission pools |
+| events and standing queries | subscriptions delivered inside the write that matched them |
+| spaces backed by anything | a space in C, a builtin in C, SQL and DuckDB providers |
+| extending the engine | translator rules, MeTTa written in MeTTa, Prolog underneath |
+
+## Documentation
+
+- [EXTENDING.md](EXTENDING.md), nine extension points ordered by measured cost.
+- [KERNEL.md](KERNEL.md), which forms the translator gives meaning to, and why.
+- [CODEC.md](CODEC.md), the wire every atom crosses on.
+- [DEVELOPING.md](DEVELOPING.md), gates and measurement rules.
+- [CONTRIBUTING.md](CONTRIBUTING.md), what a contribution has to be.
+- [SECURITY.md](SECURITY.md), how to report a vulnerability privately.
+- [CHANGELOG.md](CHANGELOG.md), what changed.
+
+`extensions/python/examples/` holds runnable, self-verifying integrations that
+the test suite runs, so they cannot drift.
+
+### Licence
+
+MIT. See [LICENSE](LICENSE) for the notices it carries, and
+[CITATION.cff](CITATION.cff) for citation metadata.

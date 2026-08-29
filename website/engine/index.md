@@ -17,20 +17,20 @@ crosses on, and how to work on the repository itself.
 Each page is the repository document of the same name, published here rather
 than copied, so the version you read is the committed one.
 
-- [Extending the engine](./EXTENDING.md) is the map of nine extension points,
+- [Extending the engine](./extending) is the map of nine extension points,
   ordered by measured cost. A translator rule, a C foreign predicate and a
   Prolog grounded predicate all cost about what a MeTTa function costs; a Python
   operation costs the janus crossing. The page also covers reader token classes,
   space providers, atom hooks, custom matchers, and the `extension.pl` control
   file that makes a folder under `extensions/` a seat the engine reads.
-- [The kernel](./KERNEL.md) is the ledger of the 58 heads the translator gives a
+- [The kernel](./kernel) is the ledger of the 58 heads the translator gives a
   meaning of their own, each classified against minimal MeTTa's state-free
   structural core as a counterpart, a follow-up, or a divergence this engine
   chose. A head fused into the compiler rather than expressed as a prelude rule
   has to say what the fusion buys, with numbers.
-- [The wire codec](./CODEC.md) is the tagged form every atom crosses in, and
+- [The wire codec](./codec) is the tagged form every atom crosses in, and
   what a new binding in a new language has to implement.
-- [Developing](./DEVELOPING.md) is the contributor side: the interpreter and
+- [Developing](./developing) is the contributor side: the interpreter and
   SWI-Prolog versions, `check.sh` and what its two tiers mean, and the
   measurement rules that decide whether a performance claim is evidence.
 

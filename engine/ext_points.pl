@@ -947,7 +947,7 @@ kind(metta_host_function_generation/1, host_service).
 %it from argv at load time and an embedded host has no argv, so two seats had each
 %written the same retract-then-assert under a private name and the engine's own
 %export comment named one of them. This is that seat-agnostic bookkeeping,
-%engine-side once (CeTTa C2, which filed the duplication as an engine finding
+%engine-side once (CMeTTa C2, which filed the duplication as an engine finding
 %rather than fixing it in the third binding).
 kind(metta_host_set_silent/1, host_service).
 %A host may ask for a cardinality hint before opening a cursor. The engine owns

@@ -10,6 +10,7 @@
     "docs:preview": "vitepress preview"
   },
   "devDependencies": {
+    "shiki": "2.5.0",
     "vitepress": "^1.6.3"
   }
 }

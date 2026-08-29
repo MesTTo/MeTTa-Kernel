@@ -20,10 +20,17 @@ so the engine records the transport and never loads it. MORK declares only
 
 | seat | what it is | roles |
 |---|---|---|
-| [Python](./python.md) | the `metta` library, and the engine reaching Python through janus | engine + host |
-| [Node](./node.md) | MeTTa in TypeScript, the engine on swipl-wasm inside Node | host |
-| [C](./cetta.md) | the engine embedded in a C process through SWI's foreign interface | engine + host |
-| [MORK](./mork.md) | spaces on a Rust trie, over the FFI | engine |
+| [PyMeTTa](./python/) | the `metta` library, and the engine reaching Python through janus | engine + host |
+| [MeTTa-node](./node/) | MeTTa in TypeScript, the engine on swipl-wasm inside Node | host |
+| [CMeTTa](./cmetta/) | the engine embedded in a C process through SWI's foreign interface | engine + host |
+| [MORK](./mork/) | spaces on a Rust trie, over the FFI | engine |
+
+The first three are hosts: you write a program in that language and it drives
+the engine, so each carries a tutorial beside its page.
+[PyMeTTa](./python/tutorial.md), [MeTTa-node](./node/tutorial.md) and
+[CMeTTa](./cmetta/tutorial.md) each start from an empty directory and end at a
+running program. MORK is a storage backend rather than a host, so there is no
+program to write in it and its folder holds one page.
 
 A seat whose declared needs are unmet loads nothing and says nothing, because
 not built is not an error. A seat that is built and broken raises, because half
@@ -36,8 +43,8 @@ and ends in the command that builds it.
 [The contract for adding an extension](./adding.md) is what to put in the
 folder: the control file's vocabulary, the five scripts and the exit rule they
 share, where tests, examples and benchmarks go, and the three independent
-choices a seat should offer — which direction it faces, whether a definition is
+choices a seat should offer: which direction it faces, whether a definition is
 called or lowered, and what a value crosses as.
 
-[Extending the engine](../engine/EXTENDING.md) is the other half of that story:
+[Extending the engine](../engine/extending) is the other half of that story:
 the nine extension points a seat is built out of, and what each one costs.

@@ -157,6 +157,94 @@ jobs:
           HYPOTHESIS_PROFILE: ci
         run: /tmp/v/bin/python -m pytest extensions/python/tests/ --rootdir=extensions/python -c extensions/python/pyproject.toml -q
 
+  # macOS and Windows, which the container jobs above cannot reach: they run
+  # inside a Linux image that already has SWI-Prolog, so nothing there has ever
+  # exercised the two platforms a reader is most likely to be on. Verified by
+  # hand on 2026-08-29 against a Mac mini (macOS 26.4.1, arm64) and a Windows
+  # laptop (Python 3.12.10); this is that, kept.
+  #
+  # The order is the point. A plain install runs FIRST, before SWI-Prolog
+  # exists on the runner, because that is the state a new user is in and the
+  # one that used to end in another package's build error: thirty lines of
+  # traceback ending in `RuntimeError: Failed to find SWI-Prolog components`,
+  # and on Windows `The system was unable to find the specified registry key
+  # or value`. It must now install cleanly and refuse at the first engine call
+  # with words of ours. Only then is SWI installed and the engine extra added.
+  platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            python: "3.12"
+          - os: macos-latest
+            python: "3.14"
+          - os: windows-latest
+            python: "3.12"
+          - os: windows-latest
+            python: "3.14"
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Build the wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+
+      # No SWI-Prolog yet, deliberately.
+      - name: A plain install succeeds without SWI-Prolog
+        run: |
+          python -m venv plain
+          case "${{ runner.os }}" in Windows) BIN=plain/Scripts ;; *) BIN=plain/bin ;; esac
+          "$BIN/python" -m pip install --quiet --no-cache-dir dist/*.whl
+          # Refuses at the first engine call, in our words, naming the fix.
+          "$BIN/python" - <<'PY'
+          from metta import MeTTa
+          try:
+              MeTTa()
+          except Exception as error:                     # noqa: BLE001
+              text = str(error)
+              assert "SWI-Prolog" in text, text
+              assert "pymetta[engine]" in text, text
+              print("refused as designed:", text.splitlines()[0])
+          else:
+              raise SystemExit("the engine started with no SWI-Prolog installed")
+          PY
+
+      - name: Install SWI-Prolog
+        run: |
+          case "${{ runner.os }}" in
+            macOS)   brew install swi-prolog ;;
+            Windows) choco install swi-prolog --no-progress -y
+                     # choco puts swipl under Program Files; the bridge's build
+                     # reads the registry, and the CLI needs to be findable.
+                     echo "/c/Program Files/swipl/bin" >> "$GITHUB_PATH" ;;
+          esac
+
+      - name: The engine extra boots and round-trips JSON
+        run: |
+          python -m venv full
+          case "${{ runner.os }}" in Windows) BIN=full/Scripts ;; *) BIN=full/bin ;; esac
+          "$BIN/python" -m pip install --quiet --no-cache-dir "$(echo dist/*.whl)[engine]"
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE/$BIN/python" - <<'PY'
+          from metta import MeTTa, _json
+          answer = MeTTa().space().run("!(+ 1 2)")
+          assert answer == [[3]], answer
+          # The codec reaches this side through the engine's own alias, and an
+          # installed layout is where a relative path stopped resolving.
+          assert _json.loads(_json.dumps({"a": [1, 2]})) == {"a": [1, 2]}
+          print("engine and codec answer on", __import__("platform").platform())
+          PY
+
   # A wheel that boots in a clean environment is the only blackbox proof
   # that packaging works. The runtime resources setup.py copies into
   # metta/_runtime are exactly what a fresh install has to find.
@@ -190,7 +278,10 @@ jobs:
         # environment, which is what a user without a matching wheel gets.
         run: |
           python -m venv /tmp/wheeltest
-          /tmp/wheeltest/bin/pip install --no-binary :all: dist/*.tar.gz
+          # [engine] because the bridge to SWI-Prolog is an extra: a plain
+          # install is the one that must not fail on a machine without SWI,
+          # and this job boots the engine, so it needs the bridge.
+          /tmp/wheeltest/bin/pip install --no-binary :all: "$(echo dist/*.tar.gz)[engine]"
           cd /tmp
           /tmp/wheeltest/bin/python -c "
           from pathlib import Path

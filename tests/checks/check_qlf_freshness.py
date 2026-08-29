@@ -54,7 +54,7 @@ EXEMPT_BY_NAME = {
 EXEMPTION = re.compile(r"%\s*qlf-freshness-exempt:\s*(\S.*)")
 
 
-#: A loader is not always Prolog. extensions/cetta/cetta.c builds its consult
+#: A loader is not always Prolog. extensions/cmetta/cmetta.c builds its consult
 #: as a C string and the Node seat builds one in TypeScript, so walking *.pl
 #: alone would let a HOST SEAT drop the purge without a word -- which is
 #: exactly where it matters most, since a seat's users are not reading the

@@ -75,7 +75,7 @@ provision PathMap https://github.com/Adam-Vandervorst/PathMap   4c84a8b40c7b6a7e
 # adding one needs no edit here, which is the same rule the engine already
 # applies to a decider.
 #
-# The engine goes first because extensions/cetta links against what it produces;
+# The engine goes first because extensions/cmetta links against what it produces;
 # the rest are independent, and the glob's order is the msort the shell gives.
 # That is the whole dependency graph, declared here because it is two nodes
 # deep and a driver that pretended otherwise would be the recursive-make

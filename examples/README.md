@@ -88,3 +88,20 @@ The Python-first executable gallery lives in
 `extensions/python/examples/gallery/`. Its six programs carry checked per-claim
 translation and output comments and run in the blocking `gallery` lane. They
 add no `examples/**/*.metta` files, so the count above is unchanged.
+
+## Origins
+
+142 of the 251 programs here derive from the MeTTa examples of the project at
+https://github.com/patham9/PeTTa, MIT licensed, at commit
+`43705f5d9ff8958ffe7f0aa6777fb8477f2401f2` (2026-07-24). They were reorganised
+into the reading order above, and some were edited. Thirteen people wrote them
+there, most of them Patrick Hammer; the rest are credited file by file, because
+naming only the most prolific contributor would miscredit the others. The other
+109 examples were written for this repository.
+
+`ORIGINS.tsv` names every derived file beside the upstream file it came from,
+how much of the original body survives with comments ignored, and who wrote it
+upstream. That list is derived rather than remembered:
+`extensions/python/tools/example_origins.py --write` recomputes it by comparing
+bodies against the upstream checkout, and the same tool without `--write`
+answers nonzero when the committed list has stopped describing the directory.

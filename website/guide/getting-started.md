@@ -6,7 +6,9 @@ Guarantees: examples use the current narrow public surface.
 
 # Install and first steps
 
-The `metta` module is the Python surface for the engine. Install the `pymetta` distribution from the repository root with `pip install .`. The runtime is bundled. To use a checkout in place, point `METTA_PATH` at the repository tree.
+The `metta` module is the Python surface for the engine. MeTTa runs on SWI-Prolog, which is a program rather than a Python package, so it is installed first and pip cannot do it for you: `sudo apt install swi-prolog`, `brew install swi-prolog`, or `winget install SWI-Prolog.SWI-Prolog`. Then `pip install 'pymetta[engine]'`, or `pip install '.[engine]'` from a checkout. The runtime is bundled; only the engine underneath it is not. To use a checkout in place, point `METTA_PATH` at the repository tree.
+
+`pymetta` without the `engine` extra installs and imports on a machine that has no SWI-Prolog, and the first engine call names the two commands above. That is what the extra is for: the bridge compiles against whichever SWI-Prolog is present, so requiring it would make a plain install fail inside another package's build.
 
 The shortest spelling needs no instance at all: the module functions run over one lazily created default engine, `random`'s and `logging`'s own shape, and `metta.engine()` hands the context over the moment you want control.
 
@@ -14,8 +16,8 @@ The shortest spelling needs no instance at all: the module functions run over on
 import metta
 
 metta.add("(parent Tom Bob)")
-metta.match("(parent Tom $x)")       # Rows[x]([Row(x=Symbol('Bob'))])
-metta.run("!(+ 40 2)")               # [[42]]
+metta.match("(parent Tom $x)")       # [Row(x=Bob)]
+metta.run("!(+ 40 2)")               # [[Grounded(42)]]
 ```
 
 Every module function is one line over the default context's `Space` handle. The rungs, each sugar for the one below it:
@@ -34,12 +36,12 @@ Create a `Space` handle, run source, then move between source terms and Python a
 from metta import S, V, space
 
 m = space()
-m.run("(= (foo) boo) !(foo)")        # [[Symbol('boo')]]
-m.run("!(+ 40 2)")                   # [[42]]
+m.run("(= (foo) boo) !(foo)")        # [[boo]]
+m.run("!(+ 40 2)")                   # [[Grounded(42)]]
 
 m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
 m.match(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
-# Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
+# [Row(x=Tom, y=Bob, z=Ann)]
 ```
 
 `run` uses the engine's reader, compiler, and evaluator. It returns one answer list for each `!` directive. Grounded answers compare as Python values. Symbols stay symbols. Stored Python objects return as the same objects.

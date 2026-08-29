@@ -38,9 +38,21 @@ license-files = ["LICENSE"]
 #: pytest gate passes on 0.18.0 -- so the bound was costing a user a resolver
 #: conflict and buying nothing. janus-swi has never carried an upper bound and
 #: this now matches it.
+#: janus-swi is NOT here, and that is the whole of what makes a failed install
+#: legible. It is the bridge to SWI-Prolog, it has no wheel on Linux or macOS,
+#: and its sdist refuses to build when SWI is absent -- inside pip's isolated
+#: subprocess, before any of this package exists. So requiring it meant
+#: `pip install pymetta` on a machine without SWI died in someone else's
+#: setup.py: measured 2026-08-29 on macOS 26.4.1 and on Windows, thirty lines
+#: of traceback ending in `RuntimeError: Failed to find SWI-Prolog components`,
+#: and on Windows `The system was unable to find the specified registry key`.
+#: Nothing of ours ran, so nothing of ours could explain it.
+#: As an extra, `pip install pymetta` always succeeds and the FIRST engine call
+#: raises _engine._no_engine's refusal, which names the platform's install
+#: command and the reinstall that follows it. The engine is a program rather
+#: than a Python package either way; this only decides who gets to say so.
 dependencies = [
     "docstring-parser>=0.17",
-    "janus-swi>=1.5.2",
 ]
 classifiers = [
     # This is alpha because MeTTa is, and this is that statement in PyPI's own
@@ -68,6 +80,12 @@ metta = "metta.pytest_plugin"
 metta = "metta.cli:main"
 
 [project.optional-dependencies]
+#: The bridge to SWI-Prolog. Named so `pip install pymetta[engine]` is one
+#: command for a reader who already has SWI, while a plain install stays the
+#: one that cannot fail before this package can speak for itself.
+engine = [
+    "janus-swi>=1.5.2",
+]
 arrays = [
     "array-api-compat",
     "faiss-cpu",

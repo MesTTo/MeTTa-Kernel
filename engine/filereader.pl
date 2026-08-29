@@ -301,12 +301,12 @@ prolog:message(metta_source_replaced(CanonPath, Spaces, Atoms)) -->
 
 %The same decision for a host that has no command line to read. It is the
 %engine's because it is host-agnostic bookkeeping: extensions/python and
-%extensions/cetta each carried their own three-line copy under a private name
+%extensions/cmetta each carried their own three-line copy under a private name
 %(metta_py_set_silent/1, metta_c_set_silent/1) and this file's export comment
 %named one of them, so the engine had a documented dependency on a binding's
 %internals. extensions/node needed no copy only because it owns its whole
 %process and can put `silent` in argv before boot, which a binding embedded in
-%a host it does not own cannot do (CeTTa C2, ai-cetta-c-constraints.md).
+%a host it does not own cannot do (CMeTTa C2, ai-cmetta-c-constraints.md).
 %
 %retractall before assertz, because silent/1 already has a clause by the time
 %any host calls this: the directive above asserted one at load. Two

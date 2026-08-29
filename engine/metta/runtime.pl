@@ -260,7 +260,7 @@ test_answer_value(Results, Results).
 %ever be (2cd191b0). 12232d25 replaced the halt with the throw below and left
 %the format behind, so from then on the report went to current_output -- for a
 %host that embeds SWI in its own process, that host's stdout, which it cannot
-%suppress and must not have written to (CeTTa C12; ai-cetta-c-constraints.md).
+%suppress and must not have written to (CMeTTa C12; ai-cmetta-c-constraints.md).
 %print_message/2 puts it on user_error, renders it through the ONE
 %prolog:error_message//1 clause at the top of this file rather than a second
 %spelling of the same sentence, and makes it interceptable: a host that wants

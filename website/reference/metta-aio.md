@@ -827,10 +827,10 @@ async def source(self, kind: SourceKind) -> Atom:
 
 No docstring is defined.
 
-### `AsyncMeTTa.writes`
+### `AsyncMeTTa.atomicity`
 
 ```python
-async def writes(self, atomicity: Atomicity) -> Atom:
+async def atomicity(self, atomicity: Atomicity) -> Atom:
 ```
 
 No docstring is defined.
@@ -853,6 +853,38 @@ async def op(
 ```
 
 > Register a callable through the single short operation door.
+
+### `AsyncMeTTa.pure`
+
+```python
+async def pure(self, fn: Callable, /, **options: Any) -> Callable:
+```
+
+> An operation whose answer depends only on its arguments.
+
+### `AsyncMeTTa.reads`
+
+```python
+async def reads(self, fn: Callable, /, **options: Any) -> Callable:
+```
+
+> An operation that reads stable state without changing it.
+
+### `AsyncMeTTa.writes`
+
+```python
+async def writes(self, fn: Callable, /, **options: Any) -> Callable:
+```
+
+> An operation that changes engine or host state.
+
+### `AsyncMeTTa.io`
+
+```python
+async def io(self, fn: Callable, /, **options: Any) -> Callable:
+```
+
+> An operation that observes an external oracle.
 
 ### `AsyncMeTTa.define`
 

@@ -150,7 +150,7 @@ in_py() { ( cd "$PYDIR" && "$@" ); }
 # 160 lines below rebuilt it and made the NEXT run pass. A gate whose verdict
 # depends on how recently someone built by hand is not a gate.
 #
-# The same discovery build.sh uses, and the same order, because extensions/cetta
+# The same discovery build.sh uses, and the same order, because extensions/cmetta
 # links against what the engine produces. Provisioning is deliberately NOT run
 # here: build.sh clones the two pinned dependencies when they are absent, and a
 # gate that reaches the network fails for reasons that are not the tree.
@@ -214,7 +214,7 @@ run GATE build sh -c "cd '$HERE' && sh tests/shell/test_build_is_idempotent_and_
 # Every component's own lanes, DISCOVERED. A component is a directory with a
 # check.sh, the same rule the engine applies to a control file and build.sh
 # applies to a build; adding a seat needs no edit here, which is the defect
-# ai-cetta-c-constraints.md C4 filed as "a new seat is three registrations, not
+# ai-cmetta-c-constraints.md C4 filed as "a new seat is three registrations, not
 # one folder".
 #
 # SOURCED rather than executed, deliberately. Executing them would make each
@@ -297,7 +297,7 @@ run GATE   leatta-gate-selftest "$PY" "$HERE/tests/conformance/leatta_gate_selft
 # skip the route loudly; divergences outside the pin report and never
 # block; with the fork absent this reports that and passes, the leatta
 # lane's own absence policy.
-run GATE   cetta        "$PY" "$HERE/tests/conformance/cetta.py" --timeout 25 --show 12
+run GATE   cetta         "$PY" "$HERE/tests/conformance/cetta.py" --timeout 25 --show 12
 
 # The forward half: the fork pins this engine's whole example corpus as
 # normalized oracles, and every entry replays through the CURRENT tree
@@ -305,7 +305,7 @@ run GATE   cetta        "$PY" "$HERE/tests/conformance/cetta.py" --timeout 25 --
 # fails here with the entry named, and the remedy is a deliberate
 # re-freeze in the fork with the cause recorded. Absent fork: reports
 # and passes, the same policy as the lanes above.
-run GATE   cetta-corpus "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 10
+run GATE   cetta-corpus  "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 10
 
 # The obligation headers are the contract a library author reads, and a
 # [tested X] tag is the strongest evidence in the scheme. Thirteen of them
@@ -384,7 +384,7 @@ run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
 # Python that lives OUTSIDE the Python seat. Every lint lane in
 # extensions/python/check.sh runs with that directory as its root, so the
 # benchmark drivers the other components grew -- engine/bench.py,
-# extensions/node/benchmarks/, extensions/cetta/benchmarks/ -- were shipping
+# extensions/node/benchmarks/, extensions/cmetta/benchmarks/ -- were shipping
 # with no linter reaching them at all. Widening found eight real findings across
 # three files, including an exception class with no Error suffix and five noqa
 # directives naming rules this configuration does not enable.
@@ -446,7 +446,7 @@ run GATE   docs        check_docs_site
 # look wrong, and its entries are bare names because codespell prunes a walked
 # directory by NAME, so a ./-prefixed skip stops matching the moment a runner
 # passes explicit paths.
-run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib extensions/python/metta extensions/python/bench.py extensions/python/examples extensions/python/notebooks extensions/python/tests extensions/python/tools engine lib extensions/mork extensions/node extensions/cetta examples tests website .github *.md"
+run GATE   codespell   sh -c "cd '$HERE' && '$PY' -m codespell_lib extensions/python/metta extensions/python/bench.py extensions/python/examples extensions/python/notebooks extensions/python/tests extensions/python/tools engine lib extensions/mork extensions/node extensions/cmetta examples tests website .github *.md"
 # The remaining clones are small facade, protocol, and test-fixture mirrors;
 # extracting them would couple layers or hide the local contract.
 run REPORT jscpd       sh -c "cd '$HERE' && npx --yes jscpd --reporters ai --format python --min-lines 8 --ignore '**/__pycache__/**' extensions/python/metta extensions/python/tests"

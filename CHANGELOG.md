@@ -8,6 +8,112 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **A worked literature-based discovery, which is the case neither half of a
+  neurosymbolic system answers alone.**
+  `extensions/python/examples/reasoning/literature_discovery.py` reproduces
+  Swanson's 1986 result: fish oil may treat Raynaud's syndrome, a conclusion no
+  paper in the corpus states. One literature says fish oil lowers blood
+  viscosity, another says raised blood viscosity aggravates Raynaud's, and the
+  two never cite each other.
+  The CHAIN is symbolic, a join a language model does not do reliably and
+  cannot show its working for. The vocabulary GAP is neural: the query asks
+  about `fish-oil` where every paper says `omega-3`, and no symbolic machinery
+  closes that. A class defining `match_` owns its matching inside `unify`, so a
+  torch embedding decides what unifies with no registration and the query is
+  otherwise an ordinary one.
+  The evidence is algebra rather than bookkeeping. Claims and the rule carry
+  tags, so the same question under `counting` answers how many independent
+  literature paths support the hypothesis (two, through different mechanisms)
+  and under `prov` answers which papers, as the polynomial
+  `(plus (times (times abc p1) p2) (times (times abc p4) p5))`, whose product
+  is joint use and whose sum is alternative derivation
+  [Green, Karvounarakis and Tannen, PODS 2007]. `why().render()` prints the
+  same derivation for a reader who wants to check it.
+  Recorded while writing it: a tagged rule participates in the ANNOTATED layer,
+  so a query over one names the algebra it wants. The example says so rather
+  than working around it, because a discovered hypothesis without its evidence
+  is not worth having.
+
+- **The examples that came from another project are credited, per file and by
+  measurement.** 142 of the 251 programs in `examples/` derive from the MeTTa
+  sources of https://github.com/patham9/PeTTa at
+  `43705f5d9ff8958ffe7f0aa6777fb8477f2401f2`, MIT licensed; the other 109 were
+  written here. `examples/ORIGINS.tsv` names each derived file beside the file
+  it came from, how much of the upstream body survives with comments ignored,
+  and who wrote it there.
+  Per FILE, because the obvious version of this is wrong: thirteen people wrote
+  those files, and attributing all 142 to the most prolific of them would
+  miscredit Roman Treutlein, Nil Geisweiller, Zar Goertzel and ten others whose
+  examples are in this directory.
+  The list is derived rather than remembered.
+  `extensions/python/tools/example_origins.py` recomputes it by comparing
+  bodies against the upstream checkout, so a citation cannot quietly stop
+  describing the tree, and `test_examples_attribution.py` fails when it does.
+  It replaces a README lineage section, and the check that pinned it, which
+  framed this repository as a fork; the narrower obligation, that other
+  people's work stays credited, is the part that survives.
+
+- **The five effect classes are four decorators, so the classification is a
+  name and not a string.** `@m.pure`, `@m.reads`, `@m.writes` and `@m.io` each
+  are `m.op` with `effect` filled in, so `transport=`, `name=` and every other
+  argument compose with them and there is one mechanism wearing four faces.
+  `m.op(effect=...)` stays as the longhand.
+  Four rather than five, because `nondeterministicReadOnly` is not something an
+  author should have to say: a generator IS nondeterministic and the
+  registration already decided that from the function's own code flags. It now
+  LIFTS a read-only declaration to that rank instead of refusing it with a
+  message telling the author to restate what the library had just worked out.
+  The lift only ever raises the rank, so it widens the answer-count claim and
+  never weakens an effect claim, and it happens BEFORE the catalog is built so
+  the reflected `(effect ...)` row carries the lifted class. Lifting after it
+  would leave a generator reflected as `pureStructural`, which is cacheable,
+  which is a wrong answer rather than a wordier one. The join that does it is
+  the one the async path already used for its own derived floor, generalised
+  to take the floor as an argument.
+- **`remote.Server` is a context manager.** It owns a socket, an accept thread
+  and an engine worker, which is more than any other handle in this library and
+  exactly the shape `with` exists for. `metta.space()` and
+  `metta.aio.connect()` were already `with`-able; the server, the one whose
+  leak on an exception path was silent, was not.
+
+- **The two crossing axes nobody had measured now have numbers, and the numbers
+  have an oracle.** `EXTENDING.md` named three independent axes and its cost
+  table priced exactly one of them, so a reader choosing between the other two
+  was choosing blind. `extensions/python/benchmarks/axes.py` prices both, each
+  figure a difference against the same loop with the work removed. Which side
+  DRIVES the crossing: 19,557 retired instructions and 12.03 inferences per
+  crossing with the engine calling out to a Python `op`, against 96,771 and
+  108.07 with the host driving in through `space.eval`, so letting the engine
+  call out is about five times cheaper and a loop over many items belongs in
+  MeTTa. Two facts fell out of that. The engine-out row reproduces the gated
+  extension-cost table's 12.00 independently, which is a cross-check between
+  two harnesses; and the source-text door costs the same as the built-term
+  door here, so at this call shape the parse is not what costs, the re-entry
+  is.
+  What a value crosses AS is a complexity class rather than a constant, and the
+  fit says so rather than the ratio: fitted by the same `power_fit` the scaling
+  gate uses, the transparent ladder's pair slopes climb 0.43, 0.86, 0.98 toward
+  1 while the opaque ladder fits an exponent of exactly 0.0 and reports no
+  R-squared, which is what a flat curve does. In plain terms four inferences per
+  element plus a fixed 17.3, against 12.31 whatever the size, so a thousand-element
+  value costs 419 times the instructions to translate and the gap keeps growing.
+  `tests/ch18_performance/test_axes.py` holds all of it: the opaque exponent,
+  the transparent rate AND its class, since a class assertion alone would admit
+  a transparent path costing a hundred inferences an element, and the
+  agreement with the gated table. The harness drives one case per process and
+  REFUSES a second, because two `MeTTa()` handles share one engine and a second
+  case installs a driver head twice, which measures a choice point rather than
+  a crossing and looks from outside like a run that never finishes.
+- **Every engine document now has a performance section.** `CODEC.md` gains what
+  a codec costs, that the cost is the term's SIZE rather than a constant, that
+  `o` and `h` are the flat column and only an in-process encoding can use them,
+  and the counter warning that bites hardest there: a C wire encoder in this
+  tree measured 526x faster on inferences while CPU said 1.8x slower.
+  `KERNEL.md` gains what fusing a head costs against moving it, separating
+  compile time from run time from the variadic-arity blocker, so its shrink
+  target reads as a decision rule. `DEVELOPING.md`'s measurement section is
+  rewritten around a table of which counter decides which kind of work.
+
 - **The extension contract now says how a value crosses opaquely, which was the
   one axis it named and never explained.** `extensions/README.md` described
   transparent against opaque and then left the reader to find the mechanism, so
@@ -110,10 +216,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   The prefix is `mt_` and the runtime type is `metta`, because six characters
   typed constantly is its own kind of friction and C's own libraries answer
   that with two to four (`gl`, `vk`, `nk_`, `sg_`, `lua_`). The artefact keeps
-  the seat's name, `libcetta.so` and `cetta.h`, which is the split the Python
+  the seat's name, `libcmetta.so` and `cmetta.h`, which is the split the Python
   seat already makes between the dist `pymetta` and the module `metta`. The
-  names that cross to the Prolog half, the four `$cetta_*` foreign predicates,
-  the `cetta_object` blob type and the `cetta_operation_failed` error term,
+  names that cross to the Prolog half, the four `$cmetta_*` foreign predicates,
+  the `cmetta_object` blob type and the `cmetta_operation_failed` error term,
   keep the seat's spelling because they are a contract with `bridge.pl` rather
   than part of the C prefix.
 
@@ -467,12 +573,12 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   measured window, and the full set reaches 0.03%.
 
 - **The C seat carries its own `test.sh` and `bench.sh`, and the gate calls the
-  same two files a developer does.** `extensions/cetta/test.sh` builds from
+  same two files a developer does.** `extensions/cmetta/test.sh` builds from
   clean and runs the C suite plus the three examples, which is exactly what the
-  `c-binding` lane now invokes; `extensions/cetta/bench.sh` builds and runs a
+  `c-binding` lane now invokes; `extensions/cmetta/bench.sh` builds and runs a
   new `c-bench` lane over six workloads a C host actually pays for: the process
-  boot to a usable engine, one `cetta_answers_step`, a term crossing in each
-  direction through `cetta_show` and `cetta_parse`, an add-and-match pair, and
+  boot to a usable engine, one `cmetta_answers_step`, a term crossing in each
+  direction through `cmetta_show` and `cmetta_parse`, an add-and-match pair, and
   an engine error rendered back to C as words. Both lanes keep the seat's skip
   protocol, so a missing compiler, missing SWI headers, missing `perf` or a
   Python that cannot import `metta` is named and skipped rather than failed.
@@ -577,7 +683,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   documentation from its own folder.** `/extensions/` introduces the seat model
   — a folder carrying an `extension.pl`, with the two `entry/2` roles saying
   which direction it faces — and each of the four seats has an area:
-  `/extensions/node` and `/extensions/cetta` include the READMEs those folders
+  `/extensions/node` and `/extensions/cmetta` include the READMEs those folders
   already ship, `/extensions/mork` includes a README that seat did not have,
   and `/extensions/python` routes to the tutorials, guide, integrations,
   live-systems, reasoning and reference sections, which are that seat's
@@ -958,7 +1064,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   unconditionally failed there, SWI printed an `ERROR:` pair, the load carried
   on, and the only record of the loss was that text, which is why the Node
   binding parses the engine's boot transcript against a hand-kept table. The
-  three loads are guarded now, on the rule `bindings/cetta/decider.pl` and
+  three loads are guarded now, on the rule `bindings/cmetta/decider.pl` and
   `bindings/python/decider.pl` already state for a seat: not present is not an
   error, half present is. Each guard records a capability fact, and
   `metta_platform(Capability, Status, Requires, Costs)` is the published
@@ -995,9 +1101,9 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   gone, because `use_module/1` raises for exactly the missing spec and the
   recovery is the census row.
 
-- A C binding, `bindings/cetta`, so a C program can drive the engine: boot it,
+- A C binding, `bindings/cmetta`, so a C program can drive the engine: boot it,
   build and read MeTTa terms as C values, run programs, pull answers one at a
-  time, and publish C functions the language calls. `cetta.h` is the whole
+  time, and publish C functions the language calls. `cmetta.h` is the whole
   surface and `make test` runs its suite. It is the seam's third consumer and
   the first one that is IN the engine's process: where the Python seat crosses
   janus and the Node seat crosses WebAssembly, and both therefore encode every
@@ -1007,9 +1113,9 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   requiring this seat and the Python host to answer the same programs with the
   same groups, multiplicity, text and metatypes.
   Ownership is carried by C's own type system rather than by documentation: a
-  function taking `const cetta_atom_t *` borrows and one taking a non-const
+  function taking `const cmetta_atom_t *` borrows and one taking a non-const
   pointer steals, so a nested build like
-  `cetta_expr(3, cetta_sym("+"), cetta_int(1), cetta_int(2))` leaks nothing and
+  `cmetta_expr(3, cmetta_sym("+"), cmetta_int(1), cmetta_int(2))` leaks nothing and
   a failed inner constructor releases the siblings that succeeded. Answers are
   stepped rather than drained, the shape `sqlite3_step()` gave C, so an endless
   MeTTa generator is ordinary from C. A published function names one of the five
@@ -1596,6 +1702,52 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **The README is rewritten to declare rather than explain, and to run.** It
+  goes representation first (the four atom kinds, in MeTTa and then in Python),
+  through spaces and queries and `@define`, to what the engine does that a
+  library cannot: a function written forwards run backwards through `solve`,
+  many answers as the normal case, and equations as atoms a program can add and
+  query at run time. Then the three axes, async, parallelism, HTTP, providers,
+  and the TypeScript and C seats showing the same two definition doors.
+  Every Python block executes, and each now runs in a namespace of its OWN, so
+  a reader can copy any one of them; they used to share one namespace in order,
+  which meant a block could depend on one further up the page without saying
+  so. The blocks build terms rather than passing MeTTa source strings, because
+  `m.run` is the door for whole programs as text and a built term is knowledge
+  already, which is the library's own rule about strings applied to its own
+  front page.
+
+- **`Space.writes` now declares an OPERATION's effect, and the space's write
+  contract is `Space.atomicity`.** The two were one name for two concepts on
+  one object: `(writes <ctx> transactional|atomic-single|best-effort)` is a
+  claim about a space's write door, while the effect decorator classifies one
+  operation. mypyc found it, because the decorator's callable argument and the
+  contract's `Atomicity` cannot be the same parameter. The stored atom keeps
+  its `writes` head; the method is named for what it declares.
+
+- **The C seat is CMeTTa, because CeTTa is a different thing.** `extensions/
+  cetta/` becomes `extensions/cmetta/`, with `cmetta.c`, `cmetta.h`,
+  `libcmetta.so` and every identifier inside it (`cmetta_dispatch`,
+  `pl_cmetta_apply`, `CMETTA_*`). The two names were one letter apart and named
+  two different projects: **CMeTTa** is this repository's own C seat, a C
+  program that drives the engine through SWI's foreign interface, sibling to
+  the Python and Node seats. **CeTTa** is the vendored upstream C substrate, a
+  fork of another author's runtime kept in a sibling checkout outside this
+  repository, which this repository does not contain and only compares itself
+  against.
+  That second one is why the rename is careful rather than mechanical.
+  `tests/conformance/cetta.py`, `cetta_corpus.py`, `cetta_fences.txt` and
+  `cetta_shared_fragment.txt` all keep their names, because they replay the
+  conformance corpus through THE FORK's C core and resolve it through
+  `CETTA_PATH`; so do the two Python tests that drive them. A first pass
+  renamed those too and broke the lane, which is the tell that a rename over a
+  name with two meanings has to read each use rather than match a pattern. The
+  engine's citations of the seat's constraint ledger move with it: `CeTTa C2`
+  and `CeTTa C12` are now `CMeTTa C2` and `CMeTTa C12`, and the ledger itself
+  is `ai-cmetta-c-constraints.md`.
+  History is not rewritten: entries above this one keep the spelling they
+  shipped with.
+
 - **The Python twin corpus is called what it is and sits where it belongs:
   `extensions/python/examples/language-feature-examples/`.** 219 files that
   answer the whole shipped MeTTa corpus in Python lived under
@@ -1653,7 +1805,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   `prolog-metatheory`, the three `translator-confluence` lanes, both
   `dev-typed` lanes, both `engine-integrity` lanes), the corpus law
   (`cumulative-syntax` and its selftest), `no-autoload`, `lib-surface`,
-  `layering`, `prolog-determinism` and `plunit`. `extensions/python`, `extensions/node` and `extensions/cetta`
+  `layering`, `prolog-determinism` and `plunit`. `extensions/python`, `extensions/node` and `extensions/cmetta`
   already owned theirs, SOURCED rather than executed by the root driver's
   discovery loop, which is what keeps one `run`, one summary table and one exit
   status.
@@ -1669,7 +1821,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   any of them, which is the door `.github/workflows/checks.yml` uses.
 
   What stays at the root is what the root is the subject of: the conformance
-  arbiters (`leatta`, `cetta`, `cetta-corpus`), the generated-documentation
+  arbiters (`leatta`, `cmetta`, `cmetta-corpus`), the generated-documentation
   lanes (`reference`, `libdoc`, `codec-doc`, `vocab-sync`, `llms`, `snippets`,
   `docs`), the readers that model the gate's own shape (`evidence`,
   `spec-status` and their selftests), `policy-inventory`, `refusal-grounds`,
@@ -1691,7 +1843,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   `gallery`, `benchmarks`, `instructions`, `scaling`, the two memory-scale
   lanes, `packaged`, `parity`, `twins`, `phrasebook`, `extcost`, `determinism`
   and the whole static-analysis tier, twenty-eight in all. `extensions/node`
-  and `extensions/cetta` already owned theirs, SOURCED rather than executed by
+  and `extensions/cmetta` already owned theirs, SOURCED rather than executed by
   the root driver's discovery loop, which is what keeps one `run`, one summary
   table and one exit status; the Python component owned none, so `metta list`
   read `-` under CHECK for the component carrying the most lanes in the gate.
@@ -1733,7 +1885,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
   Each seat's two halves moved in one step because no compiler can see between
   them. `src/engine.ts` names eight bridge predicates as query strings and
-  `cetta.c` names twenty through `PL_predicate`, `call_bridge` and
+  `cmetta.c` names twenty through `PL_predicate`, `call_bridge` and
   `space_call`, so a literal left behind is an existence error at run time
   rather than a build failure. `CODEC.md` cited one of the twenty and follows
   here for the same reason.
@@ -1773,7 +1925,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 - **`bindings/` and `backends/` are one folder, `extensions/`, reached by one
   glob behind one argv token.** The four seats keep their names:
-  `extensions/python`, `extensions/node`, `extensions/cetta`,
+  `extensions/python`, `extensions/node`, `extensions/cmetta`,
   `extensions/mork`, so `metta_extension_loaded(python)` and every other record
   reads as before. What goes is the claim the two folders made, that who DRIVES
   the engine and what the engine CONSULTS are different kinds of thing. They
@@ -2791,6 +2943,46 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **Attaching a space this process serves refuses immediately instead of
+  hanging for the whole transport timeout.** Janus holds the GIL across a
+  Prolog call, so while one thread is inside an evaluation no other thread can
+  run Prolog whatever engine it attached, and an attached space is only ever
+  matched from inside an evaluation. Measured before the fix: the client timed
+  out after 30 seconds, the serving side then died on a broken pipe, and the
+  caller saw `the engine could not accept this call's inputs`, which names
+  none of it. `attach` now refuses at the door and names the transport that
+  does work in one process, the `Gateway` that runs on the calling thread.
+  The guard is on the address, so an ordinary remote URL still attaches, and a
+  plain HTTP call to the same server from OUTSIDE an evaluation was measured
+  answering in 0.00s and is not refused.
+
+- **Four engine documents said things that were no longer true, and one of them
+  contradicted itself.** `EXTENDING.md` section 4 stated the annotated
+  `@m.define` row costs 11.00 inferences as a current fact, while the cost
+  table three hundred lines above says 11.00 was the reading BEFORE the
+  compiler specialised the check and that the row now reads the same 5.00 as
+  the unannotated one, because SWI compiles `number/1` to a VM instruction it
+  does not count. A reader who found section 4 first concluded annotating costs
+  more than twice what it does. `DEVELOPING.md` told a contributor to
+  `cd python` in five places, which has not existed since the tree partition
+  moved it to `extensions/python`, so every measurement command in that section
+  failed on the first line. `CODEC.md` sent a binding author to "EXTENDING.md
+  section 5" for the in-process space seam, which is section 6; section 5 is
+  reader token classes. And a CHANGELOG entry cited an absolute workspace path
+  for the vendored CeTTa checkout, which the tracked-path check refuses.
+- **The engine documents were rewritten for density.** The same rule was being
+  re-derived in full at every site that needed it: the cut rule (event seams
+  run every handler through `forall/2`, ownership seams may cut after a guard
+  that proves the request is theirs) was explained twice at full length, the
+  partial-application trap four times, the `limit` pushdown story twice. Each
+  is now stated once and referred to. The `extension.pl` control-file
+  vocabulary is handed to `extensions/README.md`, which owns that contract,
+  rather than duplicated. Verified against what the page is actually held to:
+  all 55 seams declared in `engine/ext_points.pl` still appear, both cost
+  tables keep the headers and row labels `test_the_extension_cost_tables_match_the_committed_pins`
+  parses, and the two headings `engine/metta/types.pl` and
+  `engine/ext_points.pl` cite BY TEXT survive verbatim.
+
 - **A call whose input the engine could not accept failed the NEXT call
   instead of its own.** A Python string carrying an unpaired surrogate -- what
   every `surrogateescape` decode produces, so any filename whose bytes are not
@@ -2853,7 +3045,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   `test_json_codec_encodes_a_shared_value_reached_twice`].
 
 - **The freshness gate read only Prolog, and the loader that mattered most is
-  C.** `extensions/cetta/cetta.c` builds its consult as a C string and the Node
+  C.** `extensions/cmetta/cmetta.c` builds its consult as a C string and the Node
   seat builds one in TypeScript, so a walk over `*.pl` alone would let a HOST
   SEAT drop the purge without a word, which is where it matters most: a seat's
   users are not reading the engine's test suite. The walk now covers `*.c` and
@@ -3089,7 +3281,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 - **Python outside the Python seat is linted, which nothing did.** Every lint
   lane runs with `extensions/python` as its root, so the benchmark drivers the
   other components grew shipped with no linter reaching them: `engine/bench.py`,
-  `extensions/node/benchmarks/` and `extensions/cetta/benchmarks/`. The new
+  `extensions/node/benchmarks/` and `extensions/cmetta/benchmarks/`. The new
   `ruff-drivers` lane found eight real findings across three files, among them
   an exception class with no `Error` suffix and five `noqa` directives naming
   rules this configuration does not enable. It asks `git ls-files` what to lint
@@ -3288,7 +3480,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   What this buys over the deciders: an unmet prerequisite is a queryable
   record (`metta_extension_unmet/2`) with the need named, instead of a silent
   `; true` branch -- the C seat on a non-C boot now reads
-  `cetta: predicate($cetta_present/0)` where before it read as nothing at all;
+  `cmetta: predicate($cmetta_present/0)` where before it read as nothing at all;
   the Node seat, which had NO decider because its host consults the transport
   itself, gets a first-class identity through `entry(host, ...)` without the
   engine ever loading it; and the `entry/2` roles dissolve the seat naming
@@ -3314,10 +3506,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 - **`check.sh` discovers each component's lanes instead of listing them, and
   one `metta` CLI replaces five root scripts.** The gate named
-  `bindings/node`'s lane and `bindings/cetta`'s lane in its own body, which is
-  the defect `ai-cetta-c-constraints.md` C4 filed as "a new seat is three
+  `bindings/node`'s lane and `bindings/cmetta`'s lane in its own body, which is
+  the defect `ai-cmetta-c-constraints.md` C4 filed as "a new seat is three
   registrations, not one folder". Those lanes live in
-  `bindings/node/check.sh` and `bindings/cetta/check.sh` now, and the gate
+  `bindings/node/check.sh` and `bindings/cmetta/check.sh` now, and the gate
   SOURCES every `engine/check.sh`, `backends/*/check.sh` and
   `bindings/*/check.sh` it finds.
 
@@ -3344,10 +3536,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 - **Every component now ignores its own build products and builds itself.**
   The root `.gitignore` carried six blocks naming paths in other components --
-  the chapter 19 objects, `engine/reader.so`, five `bindings/cetta` products,
+  the chapter 19 objects, `engine/reader.so`, five `bindings/cmetta` products,
   `bindings/python/metta/*.so`, `bindings/node/node_modules/` and `*.qlf` --
   so a rule lived four directories from the thing it described. Five new
-  per-component files (`engine/`, `lib/`, `bindings/cetta/`,
+  per-component files (`engine/`, `lib/`, `bindings/cmetta/`,
   `bindings/python/`, `examples/ch19-*/`) join the two that already existed,
   and the root file keeps only repository-wide rules with a header saying so.
   Verified with `git check-ignore -v` over 17 products: every one resolves to
@@ -3357,7 +3549,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   examples and `engine/reader.so` inline, at script top level, which made a
   script named for checking the only way to produce two artifacts. Both moved
   into `engine/build.sh` and `examples/ch19-*/build.sh`, joined by
-  `backends/mork/build.sh`, `bindings/cetta/build.sh` and
+  `backends/mork/build.sh`, `bindings/cmetta/build.sh` and
   `bindings/node/build.sh`, and the root `build.sh` DISCOVERS them by glob
   rather than naming one: a new component is a directory with a `build.sh`,
   which is the rule the engine already applies to a decider. Each script draws
@@ -3408,7 +3600,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   unchanged and what a user may install is no longer needlessly narrowed.
   `janus-swi` has never carried an upper bound and this now matches it.
 
-- **`bindings/cetta` declared its build inputs in prose, and prose cannot
+- **`bindings/cmetta` declared its build inputs in prose, and prose cannot
   refuse.** The Makefile header named swipl, `libswipl` and a C11 compiler in
   three sentences nothing read, so a tree without SWI's development files got
   `PLBASE=""`, compiled against `-I/include`, and failed on a missing
@@ -3490,8 +3682,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   `$(pkg-config --cflags --libs swipl)` expanded to nothing and `gcc` failed on
   a missing `SWI-Prolog.h`, blaming the wrong thing.
 
-  `bindings/cetta` deliberately keeps `swipl --dump-runtime-variables`. It calls
-  `PL_initialise` (`cetta.c:1353`) and so EMBEDS SWI in a C program, the opposite
+  `bindings/cmetta` deliberately keeps `swipl --dump-runtime-variables`. It calls
+  `PL_initialise` (`cmetta.c:1353`) and so EMBEDS SWI in a C program, the opposite
   direction, which `swipl-ld` does not build. The two mechanisms are not
   duplicates of each other; `pkg-config` was the only redundant one.
 
@@ -3701,14 +3893,14 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   would change the hot pull's wire and is not in this change.
 
 - The C binding's cursor inference bound counts the engine's work. It metered
-  with `statistics/2` either side of each `cetta_answers_step()`, which reads
+  with `statistics/2` either side of each `cmetta_answers_step()`, which reads
   the CALLING thread's counter, and a cursor's engine is not in it: at a budget
   of 20,000 that meter bought exactly 4,000 answers from a cheap generator and
   exactly 4,000 from one whose answers cost 137x more, the same count for both.
   It now builds the budget into the engine goal through
   `metta_host_inference_budget/3` and buys 1,233 and 9. The old meter, the
   per-cursor spend column and `petta_c_cursor_spent/2` are gone with it.
-  A C caller also now gets `CETTA_LIMIT` rather than `CETTA_ERROR` when a MeTTa
+  A C caller also now gets `CMETTA_LIMIT` rather than `CMETTA_ERROR` when a MeTTa
   program spends its own `(pragma! max-inferences N)`, because the classifier
   reads the engine's reserved limit envelope as well as this binding's own.
 
@@ -3721,10 +3913,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 - The C binding no longer says MeTTa tells `2` from `2.0` through `==`. It
   does not: numeric equality is by VALUE across the integer and float
   constructors, following LeaTTa's `Ground.equiv`, so `(== 2 2.0)` answers
-  True. What is true, and what the C seat's `CETTA_INT`/`CETTA_FLOAT` split
+  True. What is true, and what the C seat's `CMETTA_INT`/`CMETTA_FLOAT` split
   actually rests on, is that `2` and `2.0` are two ATOMS: a stored `(f 2.0)`
-  does not match the pattern `(f 2)`, and each prints as itself. `cetta.h` and
-  `bindings/cetta/kit/corpus.json` carried the wrong half of that.
+  does not match the pattern `(f 2)`, and each prints as itself. `cmetta.h` and
+  `bindings/cmetta/kit/corpus.json` carried the wrong half of that.
 
 - `examples/reasoning/greedy_chess.metta` is skipped for the reason that is
   true. It read "long-running, covered by benchmarks" and neither half held:

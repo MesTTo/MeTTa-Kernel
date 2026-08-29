@@ -1,0 +1,165 @@
+# Origins of the MeTTa examples.
+#
+# License: MIT
+# Source: https://github.com/patham9/PeTTa
+# Commit: 43705f5d9ff8958ffe7f0aa6777fb8477f2401f2
+# Date: 2026-07-24
+#
+# The 142 example programs listed below derive from that project's MeTTa
+# sources. The search covers every .metta file it ships, not only its examples
+# directory, because crediting too widely is the safe direction for an
+# attribution. They were reorganised into the reading order this directory uses,
+# and some were edited. Each row names the file it came from, how much of the
+# upstream body survives with comments ignored (1.0 being unchanged), and who
+# wrote it there, most commits first.
+#
+# Credited across those files, 13 authors:
+# Carlo Nucera, DagmawiKK, Leul Negash, MikeArchbold, Nil Geisweiller, Patrick Hammer, Peter Isaev, Roman Treutlein, Tewobsta Seyoum Assefa, Vitaly Bogdanov, Zar Goertzel, ermijermy, yabets.
+#
+# The other 109 examples in this directory were written here.
+#
+# Regenerate with: python extensions/python/tools/example_origins.py --write
+#
+# ours	upstream	body-retained	upstream-authors
+examples/ch03-atoms-and-expressions/01-comments.metta	examples/comments.metta	1.0	Patrick Hammer
+examples/ch03-atoms-and-expressions/02-string.metta	examples/string.metta	1.0	Patrick Hammer
+examples/ch03-atoms-and-expressions/03-string_comments.metta	examples/test_string_comments.metta	0.978	Patrick Hammer
+examples/ch03-atoms-and-expressions/04-repr.metta	examples/repr.metta	1.0	Patrick Hammer; Nil Geisweiller; Roman Treutlein
+examples/ch03-atoms-and-expressions/05-parse.metta	examples/parse.metta	0.986	Nil Geisweiller; Leul Negash
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/01-spaces.metta	examples/spaces.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/02-spaces2.metta	examples/spaces2.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/03-spaces3.metta	examples/spaces3.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/04-spaces_find.metta	examples/spaces_find.metta	0.975	Patrick Hammer
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/05-spaces_succeedspredicate.metta	examples/spaces_succeedspredicate.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/06-spaces_removeallatoms.metta	examples/spaces_removeallatoms.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/07-add_atom_fun_space.metta	examples/add_atom_fun_space.metta	0.995	Roman Treutlein
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/08-spacefunction.metta	examples/spacefunction.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/09-selfprog.metta	examples/selfprog.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/01-matchsingle.metta	examples/matchsingle.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/02-matchnested.metta	examples/matchnested.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/03-matchnested2.metta	examples/matchnested2.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/05-constanthead.metta	examples/constanthead.metta	1.0	Patrick Hammer
+examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/06-listhead.metta	examples/listhead.metta	1.0	Patrick Hammer; Peter Isaev
+examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/08-unify_eval_branches.metta	examples/test_unify_eval_branches.metta	0.995	Zar Goertzel
+examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/01-identity.metta	examples/identity.metta	1.0	Patrick Hammer
+examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/02-twostage.metta	examples/twostage.metta	1.0	Patrick Hammer
+examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/04-partialdef.metta	examples/partialdef.metta	1.0	Roman Treutlein
+examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/05-smartdispatch.metta	examples/smartdispatch.metta	1.0	Patrick Hammer
+examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/06-functionhead.metta	examples/functionhead.metta	0.933	Patrick Hammer
+examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/07-functionhead2.metta	examples/functionhead2.metta	0.885	Patrick Hammer
+examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/08-functionhead3.metta	examples/functionhead3.metta	0.95	Patrick Hammer
+examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/09-multicall.metta	examples/multicall.metta	1.0	Patrick Hammer
+examples/ch05-equations-and-evaluation/05-02-changing-the-equations/02-functionremoval.metta	examples/functionremoval.metta	1.0	Patrick Hammer
+examples/ch05-equations-and-evaluation/05-02-changing-the-equations/03-functionremovalspec.metta	examples/functionremovalspec.metta	1.0	Patrick Hammer
+examples/ch05-equations-and-evaluation/05-02-changing-the-equations/04-specialize.metta	examples/specialize.metta	0.859	Roman Treutlein; Patrick Hammer
+examples/ch05-equations-and-evaluation/05-02-changing-the-equations/05-specialize_recursive_wrap.metta	examples/specialize_recursive_wrap.metta	1.0	Roman Treutlein
+examples/ch05-equations-and-evaluation/05-02-changing-the-equations/06-specializecyclic.metta	examples/specializecyclic.metta	1.0	Patrick Hammer; Roman Treutlein
+examples/ch05-equations-and-evaluation/05-02-changing-the-equations/07-specializefunctiontypes.metta	examples/specializefunctiontypes.metta	1.0	Patrick Hammer
+examples/ch06-many-answers/01-superpose_nested.metta	examples/superpose_nested.metta	1.0	Patrick Hammer
+examples/ch06-many-answers/02-casenew.metta	examples/casenew.metta	1.0	Patrick Hammer
+examples/ch06-many-answers/03-collapse.metta	examples/collapse.metta	1.0	Patrick Hammer
+examples/ch06-many-answers/04-supercollapse.metta	examples/supercollapse.metta	1.0	Patrick Hammer
+examples/ch06-many-answers/05-empty.metta	examples/empty.metta	1.0	Patrick Hammer
+examples/ch06-many-answers/06-once.metta	examples/once.metta	1.0	Patrick Hammer
+examples/ch06-many-answers/07-tests.metta	examples/tests.metta	1.0	Patrick Hammer
+examples/ch06-many-answers/08-permutations.metta	examples/permutations.metta	1.0	Patrick Hammer; Roman Treutlein
+examples/ch06-many-answers/09-streamops.metta	examples/streamops.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-01-if-and-booleans/01-ifsimple.metta	examples/ifsimple.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-01-if-and-booleans/02-if.metta	examples/if.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-01-if-and-booleans/03-if2.metta	examples/if2.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-01-if-and-booleans/04-if3.metta	examples/if3.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-01-if-and-booleans/05-if4.metta	examples/if4.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-01-if-and-booleans/07-and_or.metta	examples/and_or.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-01-if-and-booleans/08-booleansolver.metta	examples/booleansolver.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-01-if-and-booleans/09-xor.metta	examples/xor.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-02-case/01-case.metta	examples/case.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-02-case/02-case2.metta	examples/case2.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-02-case/03-caseconstrain.metta	examples/caseconstrain.metta	1.0	Roman Treutlein
+examples/ch07-control-flow/07-02-case/04-caseempty.metta	examples/caseempty.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-02-case/06-ifcasenondet.metta	examples/ifcasenondet.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-02-case/07-let_superpose_if_case.metta	examples/let_superpose_if_case.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-03-let-and-sequencing/01-letstar.metta	examples/letstar.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-03-let-and-sequencing/02-letlet.metta	examples/letlet.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-03-let-and-sequencing/03-letext.metta	examples/letext.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-03-let-and-sequencing/05-metta4_prog.metta	examples/metta4_prog.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-03-let-and-sequencing/06-chain.metta	examples/chain.metta	1.0	yabets
+examples/ch07-control-flow/07-03-let-and-sequencing/07-eval.metta	examples/eval.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-04-bounded-and-committed-searches/01-forall.metta	examples/forall.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-04-bounded-and-committed-searches/02-metta4_streams.metta	examples/metta4_streams.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-04-bounded-and-committed-searches/04-cut.metta	examples/cut.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-04-bounded-and-committed-searches/05-foldall.metta	examples/foldall.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-04-bounded-and-committed-searches/06-foldallmatch.metta	examples/foldallmatch.metta	1.0	Patrick Hammer; Carlo Nucera; Roman Treutlein
+examples/ch07-control-flow/07-04-bounded-and-committed-searches/07-foldallspacecount.metta	examples/foldallspacecount.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-05-recursion/01-factorial.metta	examples/factorial.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-05-recursion/02-fib.metta	examples/fib.metta	0.835	Patrick Hammer
+examples/ch07-control-flow/07-05-recursion/03-fibsmart.metta	examples/fibsmart.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-05-recursion/04-fibsmartimport.metta	examples/fibsmartimport.metta	0.977	Patrick Hammer
+examples/ch07-control-flow/07-05-recursion/05-iter.metta	examples/iter.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-05-recursion/06-peano.metta	examples/peano.metta	1.0	Patrick Hammer
+examples/ch07-control-flow/07-05-recursion/07-invertpeanoplus.metta	examples/invertpeanoplus.metta	1.0	Patrick Hammer
+examples/ch08-data/08-01-atoms-lists-and-folds/01-nestedcons.metta	examples/nestedcons.metta	1.0	Patrick Hammer
+examples/ch08-data/08-01-atoms-lists-and-folds/02-holfunctions.metta	examples/holfunctions.metta	1.0	Patrick Hammer
+examples/ch08-data/08-01-atoms-lists-and-folds/03-holfunctions_intrinsicop.metta	examples/holfunctions_intrinsicop.metta	0.856	Patrick Hammer
+examples/ch08-data/08-01-atoms-lists-and-folds/05-lambda.metta	examples/lambda.metta	1.0	Patrick Hammer; Roman Treutlein; Carlo Nucera
+examples/ch08-data/08-01-atoms-lists-and-folds/06-invertfunction.metta	examples/invertfunction.metta	1.0	Patrick Hammer; Peter Isaev
+examples/ch08-data/08-01-atoms-lists-and-folds/08-alpha_member.metta	examples/is_alpha_member_test.metta	1.0	Tewobsta Seyoum Assefa
+examples/ch08-data/08-01-atoms-lists-and-folds/10-multiset_operations.metta	examples/multiset_operations.metta	1.0	Leul Negash; Patrick Hammer
+examples/ch08-data/08-01-atoms-lists-and-folds/11-patrick.metta	examples/patrick_test.metta	0.967	Patrick Hammer
+examples/ch08-data/08-01-atoms-lists-and-folds/12-patrick_iterate_fib.metta	examples/patrick_iterate_fib.metta	1.0	Patrick Hammer
+examples/ch08-data/08-01-atoms-lists-and-folds/13-patrick_iterate_quad.metta	examples/patrick_iterate_quad.metta	1.0	Patrick Hammer
+examples/ch08-data/08-01-atoms-lists-and-folds/14-lib_roman_pair_helpers.metta	examples/lib_roman_pair_helpers.metta	0.966	Roman Treutlein
+examples/ch08-data/08-01-atoms-lists-and-folds/15-roman.metta	examples/roman_test.metta	0.995	Roman Treutlein; Patrick Hammer
+examples/ch08-data/08-03-the-shipped-libraries/01-library.metta	examples/library.metta	1.0	Roman Treutlein
+examples/ch09-types/01-types.metta	examples/types.metta	1.0	Patrick Hammer; Roman Treutlein
+examples/ch09-types/02-builin_types.metta	examples/builin_types.metta	0.996	Nil Geisweiller
+examples/ch09-types/04-outputtype.metta	examples/outputtype.metta	0.883	Patrick Hammer
+examples/ch09-types/05-meta_types.metta	examples/meta_types.metta	1.0	Patrick Hammer
+examples/ch09-types/08-parametric_types.metta	examples/parametric_types.metta	1.0	Patrick Hammer
+examples/ch09-types/09-recursive_types.metta	examples/recursive_types.metta	1.0	Patrick Hammer
+examples/ch09-types/10-recursive_types2.metta	examples/recursive_types2.metta	1.0	Patrick Hammer
+examples/ch09-types/14-matchtypes.metta	examples/matchtypes.metta	1.0	Patrick Hammer
+examples/ch11-python-as-a-notation/01-python.metta	examples/python.metta	0.805	Patrick Hammer; Vitaly Bogdanov
+examples/ch11-python-as-a-notation/03-python_import.metta	examples/python_import.metta	0.964	Patrick Hammer
+examples/ch11-python-as-a-notation/07-torch.metta	examples/torch.metta	1.0	Patrick Hammer
+examples/ch11-python-as-a-notation/09-llm_cities.metta	examples/llm_cities.metta	0.986	Patrick Hammer
+examples/ch12-testing/02-he_equalreduct.metta	examples/he_equalreduct.metta	0.973	Patrick Hammer
+examples/ch15-writing-transactions-and-worlds/01-mutex_and_transaction.metta	examples/mutex_and_transaction.metta	1.0	Patrick Hammer
+examples/ch17-concurrency-and-the-loop/03-hyperpose_primes.metta	examples/hyperpose_primes.metta	1.0	Patrick Hammer; ermijermy
+examples/ch18-performance/18-01-larger-workloads/01-scale.metta	examples/scale.metta	1.0	Patrick Hammer
+examples/ch18-performance/18-01-larger-workloads/03-superpose_primes.metta	examples/superpose_primes.metta	0.93	Patrick Hammer
+examples/ch18-performance/18-01-larger-workloads/04-peanofast.metta	examples/peanofast.metta	1.0	Patrick Hammer
+examples/ch18-performance/18-01-larger-workloads/05-matespacefast.metta	examples/matespacefast.metta	1.0	Patrick Hammer
+examples/ch18-performance/18-02-memoisation-and-tabling/01-memo_multi_answer.metta	examples/test_memo_multi_answer.metta	1.0	DagmawiKK
+examples/ch18-performance/18-02-memoisation-and-tabling/02-memo_aggregate.metta	examples/test_memo_aggregate.metta	1.0	DagmawiKK
+examples/ch18-performance/18-02-memoisation-and-tabling/03-memo_per_arity.metta	examples/test_memo_per_arity.metta	1.0	DagmawiKK
+examples/ch18-performance/18-02-memoisation-and-tabling/04-memo_same_name_multi_arity.metta	examples/test_memo_same_name_multi_arity.metta	1.0	DagmawiKK
+examples/ch18-performance/18-02-memoisation-and-tabling/05-memo_variant_nonground.metta	examples/test_memo_variant_nonground.metta	1.0	DagmawiKK
+examples/ch18-performance/18-02-memoisation-and-tabling/06-memo_dependency_invalidation.metta	examples/test_memo_dependency_invalidation.metta	1.0	DagmawiKK
+examples/ch18-performance/18-02-memoisation-and-tabling/08-memo_stats.metta	examples/test_memo_stats.metta	1.0	DagmawiKK
+examples/ch18-performance/18-02-memoisation-and-tabling/09-tabling_fib.metta	examples/tabling_fib.metta	0.89	Patrick Hammer
+examples/ch20-extending-the-engine/20-01-translator-rules/01-translatorrule.metta	examples/translatorrule.metta	0.982	Patrick Hammer
+examples/ch20-extending-the-engine/20-01-translator-rules/05-translatorrule_for.metta	examples/translatorrule_for.metta	0.961	Patrick Hammer; Carlo Nucera
+examples/ch20-extending-the-engine/20-01-translator-rules/06-translatorrule_fib.metta	examples/translatorrule_fib.metta	1.0	Patrick Hammer
+examples/ch20-extending-the-engine/20-02-metta-written-in-metta/02-callquoteevalreduce2.metta	examples/callquoteevalreduce2.metta	1.0	Patrick Hammer
+examples/ch20-extending-the-engine/20-02-metta-written-in-metta/03-myinterpreter.metta	examples/myinterpreter.metta	1.0	Carlo Nucera; Patrick Hammer
+examples/ch20-extending-the-engine/20-02-metta-written-in-metta/05-he_minimalmetta.metta	examples/he_minimalmetta.metta	0.895	Patrick Hammer
+examples/ch20-extending-the-engine/20-02-metta-written-in-metta/06-he_evaluation.metta	examples/he_evaluation.metta	0.862	Patrick Hammer
+examples/ch20-extending-the-engine/20-02-metta-written-in-metta/07-he_quoting.metta	examples/he_quoting.metta	0.979	Patrick Hammer
+examples/ch20-extending-the-engine/20-02-metta-written-in-metta/08-he_atomspace.metta	examples/he_atomspace.metta	0.956	Patrick Hammer
+examples/ch20-extending-the-engine/20-02-metta-written-in-metta/10-he_math.metta	examples/he_math.metta	0.905	Patrick Hammer; Leul Negash
+examples/ch20-extending-the-engine/20-03-prolog-underneath/01-translatepredicate.metta	examples/translatepredicate.metta	1.0	Patrick Hammer
+examples/ch20-extending-the-engine/20-03-prolog-underneath/02-prologimport.metta	examples/prologimport.metta	0.967	Patrick Hammer
+examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/07-git_import2.metta	examples/git_import2.metta	1.0	Roman Treutlein
+examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/02-logicprogset.metta	examples/logicprogset.metta	1.0	Patrick Hammer
+examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta	examples/nilbc.metta	0.998	Patrick Hammer; Nil Geisweiller
+examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/03-plntest.metta	examples/plntest.metta	1.0	Patrick Hammer
+examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/04-plntestdirect.metta	examples/plntestdirect.metta	1.0	Patrick Hammer
+examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/06-pln_roman.metta	examples/pln_roman.metta	0.922	Patrick Hammer
+examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/07-pln_tuffy.metta	examples/pln_tuffy.metta	0.997	Patrick Hammer
+examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/09-nars_tuffy.metta	examples/nars_tuffy.metta	0.995	Patrick Hammer
+examples/ch22-a-reasoner-you-can-serve/22-03-search/01-newtons_method.metta	examples/newtons_method.metta	1.0	DagmawiKK
+examples/ch22-a-reasoner-you-can-serve/22-03-search/02-tilepuzzle.metta	examples/tilepuzzle.metta	0.994	Patrick Hammer; Peter Isaev
+examples/ch22-a-reasoner-you-can-serve/22-03-search/03-matespace.metta	examples/matespace.metta	1.0	Patrick Hammer
+examples/ch22-a-reasoner-you-can-serve/22-03-search/04-matespace2.metta	examples/matespace2.metta	1.0	Patrick Hammer
+examples/ch22-a-reasoner-you-can-serve/22-03-search/05-fibadd.metta	examples/fibadd.metta	0.899	Patrick Hammer
+examples/ch22-a-reasoner-you-can-serve/22-03-search/06-greedy_chess.metta	examples/greedy_chess.metta	1.0	Patrick Hammer; MikeArchbold
