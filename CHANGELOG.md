@@ -1596,6 +1596,51 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **The Python twin corpus is called what it is and sits where it belongs:
+  `extensions/python/examples/language-feature-examples/`.** 219 files that
+  answer the whole shipped MeTTa corpus in Python lived under
+  `extensions/python/tests/twins/`, where the word `twins` said what they are
+  RELATIVE to something else and `tests/` said they were test modules. Neither
+  is true from a reader's side: what they are is the language's features, shown
+  as examples, in Python, which is why a reader goes to them at all. They move
+  beside the topical examples and the folder says so. The path transform that
+  addresses a file by its example's own path is unchanged, mirroring
+  `examples/` directory for directory, so `twin_coverage.py` finds all 219 with
+  no orphans.
+  Two consumers changed shape rather than just their paths. The
+  examples runner globs `*.py` RECURSIVELY, so it would have run each of the
+  219 as a standalone program: each defines `twin(m)` and verifies nothing when
+  executed alone, so the runner names and skips the folder, and the README
+  beside it says why. And `ruff` covered the corpus only because `tests/**` was
+  one of its three arguments, so the lane now names the corpus directly and
+  `pyproject.toml` carries the per-file ignores that used to reach it through
+  `tests/**` -- a language-feature example MIRRORS its MeTTa original, and
+  `SIM210` on `05-if4.py` is a request to stop mirroring
+  `(if (== 42 42) True False)`. The lane is not widened to all of `examples/`,
+  which would newly fail on 184 findings in the topical examples that predate
+  this and belong to their own burn-down.
+  `extensions/node/example/` becomes `extensions/node/examples/` in the same
+  breath, so every seat spells the directory the same way, and
+  `extensions/README.md` states the convention: a seat that mirrors the corpus
+  puts it in `examples/language-feature-examples/`. The Node and C seats answer
+  the shipped corpus from the Python side today and ship no folder of their own.
+
+- **`run()` crosses on the predicate door, and stops re-parsing its own goal.**
+  `_direct_run` built the text `metta_py_run(Src, Space, Groups)` and called
+  `Runtime.must`, so janus re-parsed that goal on every directive, while
+  `metta_py_run/3` was already shaped for janus's functional convention --
+  ground inputs then one output -- which is the door `evaluate()` beside it has
+  used since `1ec64474`. `space.run("!(+ 1 2)")` falls from 28.47 to 25.29
+  microseconds of process CPU, -11.2%, and from 436.00 to 431.00 inferences a
+  directive, exactly -5.00 and exactly reproducible; the `run-source` wall
+  figure falls 35.85 to 25.77, -28.1%. The door was chosen by census rather
+  than by reading: of 950 engine calls in ordinary work (200 adds, 200 evals,
+  100 matches, 50 runs), 900 were already on the predicate door and all 50
+  stragglers were `run()`. Priced on its own the door is 4.24x, 1.162 against
+  0.274 microseconds on a trivial call, and the goal-string door's cost tracks
+  its TEXT LENGTH at 5.75 ns a character over identical work. Eight baselines
+  and the four automatic-tabling pins move at that one rate, each recording it.
+
 - **The engine owns its own gate lanes, in `engine/check.sh`, and the root gate
   now carries only lanes whose subject is the repository.** Twenty-nine move,
   beside the `engine-bench` lane the component already had: the example corpus
@@ -2450,6 +2495,33 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Removed
 
+- **`extensions/python/lowerings/`, a seam home nothing ever moved into.** The
+  folder held one README and no content. It was created by the tree partition
+  as the place the Python seat would keep translator rules whose bodies LOWER a
+  MeTTa form into a faster shape, so a satellite PyMeTTa repository would carry
+  them with it. Three things were true of it and stayed true: every lowering in
+  the tree belongs to the ENGINE (23 in `engine/translator_rules.pl`, eight in
+  `engine/prelude.metta`) or to a LIBRARY, because a translator rule rewrites a
+  MeTTa form and that is language-level work; nothing globbed the folder, so a
+  file dropped there would not have loaded, since `extension.pl` declares only
+  `bridge.pl` and `metta/shim.pl`; and the `.metta` file it described is the
+  rung BELOW the door this seat already ships, `@rules`, which registers the
+  same `add-translator-rule!` from a checked Python generator. The seat's
+  performance work has never been shaped like a form that compiles badly -- it
+  went to the crossing every time, to the predicate door, the C reader and the
+  C JSON codec -- so the folder was a bet on a repository split, for content
+  that had not been needed, in a format the seat does not use.
+
+- **The test-corpus counts in `llms.txt`.** How many blackbox test files,
+  plunit suites or Python twins the tree carries tells a CONSUMER nothing it
+  can act on, and the numbers churn: adding one seam regression turned the
+  `llms` gate lane red for a figure no reader had wanted. They are gone from
+  the document and from `llmsdoc.py`, for the reason already recorded there
+  against the engine line count. The rows stay, because WHERE the tests live
+  and what shape they take is the part that helps, and that does not move with
+  a file. The lane still fails on a planted wrong count, so nothing was
+  weakened.
+
 - **`extensions/python/HE/`, the Hyperon-Experimental bridge.** Three files
   registered a grounded atom inside upstream Hyperon so that
   `!(metta (fib 10))` there evaluated on this engine and returned its answers
@@ -2718,6 +2790,67 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- **A call whose input the engine could not accept failed the NEXT call
+  instead of its own.** A Python string carrying an unpaired surrogate -- what
+  every `surrogateescape` decode produces, so any filename whose bytes are not
+  UTF-8 -- raised janus's bare `SystemError`, and the Python exception it set
+  stayed PENDING in the engine: the next call, however unrelated, raised it as
+  its own, and the call after that was clean. On the remote server that made
+  one peer's malformed payload fail a different peer's request. All four doors
+  (`once`, `apply`, `do`, `iter`) now make the failure local, the way a
+  database client discards a connection's pending results after a framing
+  error rather than letting the next statement read them: one sacrificial goal
+  absorbs the pending error, then the call raises for its OWN input, naming
+  where in the structure the text sits (`Value['answers'][1]['x']` contains an
+  unpaired surrogate at position 0). Nothing is spent on the succeeding path.
+  Reproduced on the public surface first: at the previous tip
+  `space.run("!(+ 1 <lone surrogate>)")` raised `SystemError` and poisoned the
+  next `run` [tested: `test_text_with_no_utf8_encoding_is_refused_by_kind`,
+  `test_a_refused_crossing_does_not_fail_the_next_call`,
+  `test_no_door_leaves_the_next_call_carrying_the_refusal`].
+
+- **`space.eval` handed back janus's own exception class instead of the
+  caller's.** The predicate doors (`apply_once`, `cmd`) leave a Python
+  exception raised inside the engine pending where the goal-string door clears
+  it, and the next janus call on that path is janus's own
+  `PrologError.__str__`, which runs `message_to_string/2` to render the very
+  error being classified. The classifier died on the pending error and the
+  caller received a raw `janus_swi.janus.PrologError`. `eval` has crossed on
+  the predicate door since `1ec64474`, and nothing caught this because the test
+  that pins the contract drives `run()`, which sat on the other door: measured
+  at the previous tip with both files untouched, `run` raised `MettaError` and
+  `eval` raised `janus_swi.janus.PrologError` for the same provider refusal.
+  `Runtime._resynchronise` absorbs the pending error before classifying, and
+  the sibling test drives the same refusal through the term door [tested:
+  `test_an_enumeration_refuses_answers_through_the_term_door_too`].
+
+- **A value that contained itself took the process down.**
+  `metta._json.dumps({'a': 1, 'self': <itself>})` was SIGSEGV, core dumped,
+  exit 139. Every other door hands a Python container over BOXED, as
+  `['o', Box(...)]`, and a boxed object crosses by reference without being
+  walked; this door passes its value transparently, so janus converts it by
+  recursing through it and a container holding itself takes the C stack. A
+  payload nested 20,000 deep crashes identically with no cycle. A C stack
+  overflow cannot be caught from Python, so unlike the two above this cannot be
+  recovered from after the fact and has to be refused before the call, which is
+  a cost on the succeeding path and was priced rather than assumed: a universal
+  guard on every container-carrying call measured +15.5% on the hot path and
+  was rejected; on this one transparent door it measures +88.9 microseconds,
+  16.8%, back to back in one process against the same call with the guard
+  neutralised. Kept on by default with no opt-out, which is the tradeoff
+  CPython's own `json` makes, where `check_circular` defaults to True and every
+  caller pays it. Detection is by the CURRENT PATH rather than by everything
+  visited, because a value merely REACHED twice is a DAG and legal -- a
+  visited-set reading rejects `{'a': shared, 'b': shared}` -- which is why
+  `bridge.pl`'s `metta_py_cycle_check/3` passes its ancestors down as `Seen`
+  and `json.dumps` keeps the same thing in `markers`. Recursive rather than a
+  manual stack, 55.23 against 84.04 microseconds, which also puts the depth
+  hazard behind the same mechanism: Python raises a catchable `RecursionError`
+  exactly where janus raises SIGSEGV [tested:
+  `test_json_codec_refuses_a_value_that_contains_itself`,
+  `test_json_codec_refuses_a_value_nested_too_deeply`,
+  `test_json_codec_encodes_a_shared_value_reached_twice`].
 
 - **The freshness gate read only Prolog, and the loader that mattered most is
   C.** `extensions/cetta/cetta.c` builds its consult as a C string and the Node

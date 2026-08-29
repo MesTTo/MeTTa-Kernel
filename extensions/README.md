@@ -223,13 +223,25 @@ one.
 | `test.sh` | your tests, the same entry the gate uses | if you own tests |
 | `bench.sh` | your suite against committed pins | if you own benchmarks |
 | `tests/` | tests whose subject is this seat | yes |
-| `examples/` | runnable programs a reader can copy | yes for a host seat |
+| `examples/` | runnable programs a reader can copy, plural | yes for a host seat |
+| `examples/language-feature-examples/` | the shipped MeTTa corpus written again in this host, one file per example | if the seat mirrors the corpus |
 | `benchmarks/` | the suite plus `baseline.json` | yes if `bench.sh` exists |
 | `kit/` | the codec conformance corpus and its driver | for a host seat with a wire |
 
-The tree is not yet uniform on two of these: the Node seat spells its
-directories `test/` and `example/` in the singular, and the Python seat ships no
-`README.md`. Follow the plural, and write the README.
+The tree is not yet uniform on two of these: the Node seat spells its test
+directory `test/` in the singular, and the Python seat ships no `README.md`.
+Follow the plural, and write the README.
+
+`language-feature-examples/` is where a seat proves it can express the whole
+language rather than a chosen tour of it. The Python seat carries one, 219 files
+mirroring `examples/` path for path, each defining `twin(m)` and pinned to an
+inference budget that `tools/twin_coverage.py` measures; the Node and C seats
+answer the shipped corpus from the Python side instead, through
+`extensions/python/tests/ch21_another_language_at_the_seam/`, so neither ships
+a folder of its own yet. A seat that grows one puts it here, under `examples/`,
+because it IS examples: the same programs a reader already knows, in a
+different host. Say in the folder's README how they run, since a corpus driven
+by a tool is not a corpus you execute file by file.
 
 ## The five scripts, and the one rule they share
 

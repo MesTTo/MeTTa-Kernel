@@ -177,6 +177,14 @@ max-complexity = 15
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "BLE", "PLW", "SIM", "RUF059", "PLC0415"]
+# A language-feature example mirrors ITS MeTTa example's program, so the
+# simplifications ruff offers there are requests to stop mirroring it:
+# 05-if4.metta really does read `(if (== 42 42) True False)`, and its Python
+# has to as well or the file no longer answers the program it names. The
+# corpus carried these ignores through `tests/**` while it lived under that
+# directory; the entry is spelled out now that it sits beside the other
+# examples.
+"examples/language-feature-examples/**" = ["S", "BLE", "PLW", "SIM", "RUF059", "PLC0415"]
 "bench.py" = ["S", "PLW"]
 "metta/__init__.py" = ["PLW0603", "PTH"]
 

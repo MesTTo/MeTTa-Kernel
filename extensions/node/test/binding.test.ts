@@ -109,7 +109,7 @@ describe("running a program", () => {
   });
 
   it("runs a .metta file from disk", () => {
-    const groups = m.loadFile(join(packageRoot, "example", "streaming.metta"));
+    const groups = m.loadFile(join(packageRoot, "examples", "streaming.metta"));
     assert.deepEqual(groups.map((group) => group.texts), [["(1 2 3)"]]);
   });
 
