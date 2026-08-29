@@ -8,6 +8,31 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **The extension contract now says how a value crosses opaquely, which was the
+  one axis it named and never explained.** `extensions/README.md` described
+  transparent against opaque and then left the reader to find the mechanism, so
+  it has a section for it: what the engine already does (`metatype_of/2`'s last
+  clause answers `Grounded` for anything it cannot classify, so a handle is an
+  ordinary MeTTa value with no engine change), what it does not
+  (`get_type_candidate/2` reaches a host object through `seam:host_object/1` and
+  by no other clause, which is why a C `mt_object` answers `%Undefined%` to
+  `get-type` where a Python object answers `[datetime, date, Grounded]`), and
+  which of the two handle shapes buys which. A blob is `atomic` and not `atom`,
+  which is exactly the pre-test in front of the seam, so it can carry a type; an
+  id-shaped atom fails that pre-test, and what the seam buys there is the
+  metatype, without which the handle reads as an ordinary `Symbol`.
+  It also separates two things the axis had run together. Round-trip identity
+  holds in all three seats. WRAPPING identity does not: Node interns through a
+  `WeakMap` so `G(x) === G(x)`, Python answers `True` for two `py-atom` reads of
+  one object, and C allocates a box per `mt_object` call, so two wraps of one
+  pointer answer `False` to `==` and fail to `unify`. The C seat's own README
+  now says so where its users will read it.
+  And it corrects a conflation: `opaque`/`transparent` is the `image-mode`
+  vocabulary that `(image <context> <Type> <mode>)` sets, while `registry-image`
+  is `expression`/`symbol`/`handle`/`operations`, what a registered type
+  presents through `(type-image <Type> <image>)`. The file named the second
+  while describing the first.
+
 - **C source lowers into MeTTa equations, and the C seat takes its structs
   seriously.** Two things the surface was missing.
   `mt_lower(m, (twice $x), (* 2 $x))` installs an EQUATION whose body is C

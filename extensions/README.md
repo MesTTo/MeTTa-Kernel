@@ -78,17 +78,138 @@ This is the axis `EXTENDING.md`'s cost table prices: 0.15 microseconds lowered
 against 1.05 called, or 3.93 called through the wire codec. Offer both. A seat
 with only the called door taxes its users 26x for writing the obvious thing.
 
-**3. What a VALUE crosses as**, transparent or opaque. This is a declared engine
-vocabulary, `(vocabulary registry-image expression symbol handle operations)`,
-and it is NOT the axis above wearing other words. Transparent means translated
-into MeTTa structure; opaque means carried whole as a blob the engine holds and
-does not read. Opaque is first class: it keeps host identity and skips a
-translation that may not be wanted, and an iterator is always opaque because
-measuring one drains it. `py-atom` takes the choice as an argument, `Expression`
-for a snapshot and `Grounded` for the live reference.
+**3. What a VALUE crosses as**, transparent or opaque, and it is NOT the axis
+above wearing other words. Transparent means translated into MeTTa structure;
+opaque means carried whole, as a handle the engine holds and does not read.
+Opaque is first class: it keeps host identity and skips a translation that may
+not be wanted, and an iterator is always opaque because measuring one drains it.
+`py-atom` takes the choice as an argument, `Expression` for a snapshot and
+`Grounded` for the live reference.
+
+Two declared vocabularies sit under this axis and they are easy to confuse.
+`image-mode` is `opaque`, `transparent`, `auto`, and it is what
+`(image <context> <Type> <mode>)` sets per context. `registry-image` is
+`expression`, `symbol`, `handle`, `operations`, and it is what a REGISTERED type
+presents, one `(type-image <Type> <image>)` atom per registration. The first
+answers "does this cross whole"; the second answers "what shape does the engine
+see when it does not". Both are `metta_catalog_preset` rows in
+`engine/spaces/catalog.pl`, so a word outside either refuses by name.
 
 A lowered body can take an opaque argument, and a called host function can be
 handed a transparent one. Do not couple them.
+
+## Carrying a value opaquely
+
+Axis 3's opaque half is the one with machinery behind it, so here is the
+machinery. `EXTENDING.md` covers the C worked example and the blob interface
+itself; this covers what YOUR SEAT must declare for its own values to cross,
+which is a folder question and lands differently in each of the three.
+
+**Most of it is already done.** `metatype_of/2`'s last clause answers `Grounded`
+for anything the engine's own class tests do not claim, so a value it cannot
+read is an ordinary MeTTa value with no engine change at all: it can be stored,
+matched, passed and handed back. A C `mt_object` prints through its own write
+callback and answers `Grounded` to `get-metatype` on that clause alone
+[measured 2026-08-29 through `extensions/cetta`].
+
+**What is not done is the TYPE.** `get_type_candidate/2` reaches a host object
+through `seam:host_object/1` and by no other clause, and the difference is
+visible:
+
+| | `get-metatype` | `get-type` |
+|---|---|---|
+| C `mt_object`, no `host_object` clause | `Grounded` | `%Undefined%` |
+| Python object, with one | `Grounded` | `[datetime, date, Grounded]` |
+
+Declaring the clause is what makes your values TYPED to MeTTa, and
+`EXTENDING.md` names it as one of the four seams by which a whole host plugs in,
+with the Python bridge as the worked example. Leaving it out is survivable and
+the C seat currently does: its values are grounded, storable and matchable, and
+`%Undefined%` is what `get-type` says about them. That is a decision to make on
+purpose rather than one to inherit by omission, and it costs a table row in your
+seat's own prose either way.
+
+The Python row is the shipped class walk [tested: `metta_object_types`]. The C
+row is measured and has no test behind it, deliberately: pinning `%Undefined%`
+would make this seat's typelessness a contract, and it is a decision still open
+[measured 2026-08-29: the same two questions asked of `mt_object` and of
+`(let $o (py-atom "...datetime(2020,1,1)" Grounded) (get-type $o))`].
+
+**Which shape your handle takes decides what the seam buys you.** There are two,
+and both ship:
+
+- **an SWI blob**, which the C and Python seats use. It is `atomic` and not
+  `atom`, which is exactly the pre-test `get_type_candidate/2` applies before
+  consulting the seam, so a blob with a `host_object` clause reaches
+  `metta_grounded_type/2` and gets a real type.
+- **an atom-shaped id**, which the Node seat uses: `'$metta_node_object#7'`,
+  with the object held on its side. An atom fails that pre-test, so no type
+  arrives this way. What the seam buys here is the METATYPE: without the clause
+  `metatype_of/2` would reach its `atom(X)` case first and call your handle a
+  `Symbol`, which is the bridge's own reason for having one.
+
+**The seats' spellings**, since this is the axis a reader comes here to compare:
+
+| | C | Python | Node |
+|---|---|---|---|
+| make one | `mt_object(v, "Type", release)` | return the object; `py-atom <e> Grounded` from MeTTa | `G(value)`, any non-primitive |
+| read it back | `mt_value`, `mt_type` | the object itself | the object itself, `===` |
+| what carries it | blob `cetta_object` | an SWI blob | an id atom |
+| declares `host_object/1` | no | yes | yes |
+
+**Round-trip identity is not the same question as wrapping identity, and you
+must answer the second yourself.** Round trip holds everywhere: the value that
+comes back is the one you put in, and a C pointer stored in a space and matched
+out again is the very same pointer [tested:
+`extensions/cetta/tests/test_cetta.c`, "a live C value crosses MeTTa and comes
+back the same object"]. Wrapping the same value TWICE is where the seats differ.
+Node interns by identity through a `WeakMap`, so `G(x) === G(x)` for one object
+and the engine-side handle table holds one entry per object. Python answers
+`True` to `==` for two `py-atom` reads of one object. C does not intern:
+`mt_eq` compares the box `mt_object` allocates per call, so two calls on one
+pointer answer `False` to `==` and fail to `unify` [measured 2026-08-29, the C
+and Python answers; the Node behaviour is read from `extensions/node/src/atom.ts`,
+`byReference`].
+
+Which way to go follows from the shape you chose. An id-shaped handle is backed
+by a table on your side, so interning keeps that table one entry per object
+instead of one per crossing, which is Node's stated reason for the `WeakMap`. A
+blob has no such table and is released by SWI's own garbage collector, so not
+interning costs no memory; what it costs is that two wraps of one value are two
+MeTTa values that compare unequal. Either way, say which in your seat's own
+prose, and wrap once and pass the atom.
+
+**Own the lifetime.** A blob's release callback is where the structure is freed
+when SWI garbage-collects the handle, and without one every handle leaks.
+`PL_BLOB_NOCOPY` means SWI keeps the pointer you hand it, so hand it heap memory
+and never the address of a local. On the Python side `release()` retracts the
+registry entry keeping the blob alive, and a released handle raises by id rather
+than answering wrongly.
+
+**`host_object/1` is an OWNERSHIP seam, which sets three rules.** The first
+success claims the value, so recognise only your own and let everything else
+fail. It may cut after that test, unlike an event seam, and
+`no_cut_in_an_event_hook` checks the distinction rather than banning cuts. And
+it sits in front of every grounded-type lookup, so its cost is paid at each of
+them and not once per seat. What that is worth is measured on the sibling
+ownership seam: the Node bridge's `seam:foreign_space/1` cost exactly one
+inference on every space operation whether or not any provider existed, 239,005
+against 238,505 on that seat's `define-call` benchmark. Write the guard so a
+failure costs one indexed lookup.
+
+**If your objects can be CALLED, say so.** `seam:grounded_applicable/1` answers
+whether a value is applicable and `seam:grounded_apply/3` applies it, which is
+how `($f 2)` works wherever the atom lands. The C seat's pair is two clauses over
+`blob(Obj, cetta_object)`, and it is what C answers to a Python callable being
+an atom.
+
+**Why bother.** Reading one element of a thousand-element vector through a
+handle costs 0.1968us and 2.00 inferences; writing that vector as text costs
+389.94us and 16,906 inferences and reading it back costs 919.35us and 44,600
+[measured 2026-08-16]. The handle's cost is flat in the structure's size and the
+text's is linear. `EXTENDING.md` has the C worked example and
+`examples/ch19-spaces-backed-by-anything/19-03-a-builtin-in-c/` the runnable
+one.
 
 ## The folder
 
@@ -191,6 +312,12 @@ Named, so you know what turns red rather than discovering it:
   baseline; every seat ships an `llms.txt`.
 - `test_every_extension_has_a_site_area`: every seat has a page under
   `website/extensions/`.
+- `every_seam_declares_one_kind` and `every_seam_kind_matches_its_direction`:
+  a seam clause you contribute, `seam:host_object/1` among them, is declared
+  with one kind and on the right side of the wire.
+- `no_cut_in_an_event_hook`: your cut is allowed in an ownership seam and
+  refused in an event or declaration one, which is the distinction that keeps
+  a later-loaded clause reachable.
 - the `evidence` lane: every claim in a header names a test a runner executes.
 - the `codespell`, `ruff-drivers` and `docs` lanes reach your files.
 - your own lanes, from `check.sh`, sourced into the same summary table.
