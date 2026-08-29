@@ -132,7 +132,7 @@ test(a_drop_verdict_skips_the_write_and_the_caller_sees_success,
      [ setup(setup_hooks), cleanup(cleanup_hooks) ]) :-
     metta_declare_hook(pre_add, '&hplt-pool', 'hplt-guard'),
     'add-atom'('&hplt-pool', [dup, 3], Result),
-    assertion(Result == []),
+    assertion(Result == true),
     findall(A, 'get-atoms'('&hplt-pool', A), Atoms),
     assertion(Atoms == []).
 
@@ -314,7 +314,7 @@ test(a_post_drop_removes_the_landed_atom_and_the_caller_sees_success,
      [ setup(setup_hooks), cleanup(cleanup_hooks) ]) :-
     metta_declare_hook(post_add, '&hplt-post', 'hplt-guard'),
     'add-atom'('&hplt-post', [dup, 3], Result),
-    assertion(Result == []),
+    assertion(Result == true),
     findall(A, 'get-atoms'('&hplt-post', A), Atoms),
     assertion(Atoms == []).
 

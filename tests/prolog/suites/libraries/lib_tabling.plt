@@ -88,8 +88,8 @@ test(a_failed_reflection_write_is_loud_and_transactional) :-
     GoodKind = [kind, tabled, symbol, symbol, integer],
     RefusingKind = [kind, tabled, integer, symbol, integer],
     setup_call_cleanup(
-        ( 'remove-atom'('&metta', GoodKind, []),
-          'add-atom'('&metta', RefusingKind, []) ),
+        ( 'remove-atom'('&metta', GoodKind, true),
+          'add-atom'('&metta', RefusingKind, true) ),
         ( catch(metta_tabled_decl(['plt-tab-plain', _], true), Error, true),
           assertion(Error = error(
               metta_tabling_reflection_write_failed(
@@ -102,8 +102,8 @@ test(a_failed_reflection_write_is_loud_and_transactional) :-
           assertion(\+ predicate_property(Self:Head, tabled)) ),
         ( metta_self_module(CleanupSelf),
           catch(untable(CleanupSelf:'plt-tab-plain'/2), _, true),
-          'remove-atom'('&metta', RefusingKind, []),
-          'add-atom'('&metta', GoodKind, []) )).
+          'remove-atom'('&metta', RefusingKind, true),
+          'add-atom'('&metta', GoodKind, true) )).
 
 % Tabling a function that reads a space is sound only when the table and the
 % storage predicates it reads both carry the incremental property, which

@@ -1076,19 +1076,19 @@ compiled_predicate_arity(F, Module, Predicate, Arity) :-
     ;   current_predicate(Module:Predicate/Arity)
     ).
 
-%The UNIT value, not true. `add-atom` is typed `(-> spaceType Atom (->))` and
-%`(->)` IS the unit type, which the language also says in prose: "bind! returns
-%the unit value () similar to println! or add-atom"
-%[source: the language's Working with spaces].
+%`true`, the effect answer of the whole family; see the note above 'println!'/2
+%in engine/metta/runtime.pl for the list and the check that holds it together.
+%The declaration moved with the clause: `add-atom` is typed
+%`(-> SpaceType Atom Bool)` in lib/lib_builtin_types/lib_builtin_types.metta
+%[source: PeTTa@ae66fa8 src/spaces.pl:10,24, both clauses `'add-atom'(Space,
+%Term, true)`; measured 2026-08-29, the unit answer alone was the first
+%difference in 32 of its 157 examples].
 %
-%This reverses a deliberate earlier translation, recorded in
-%ai-todo-fast-libraries.md F11.3 as "HE's unit result `(->)` is MeTTa's `Bool`,
-%because every one of those operations answers `true`". That reasoning had the
-%direction backwards: it read the type off the implementation instead of
-%correcting the implementation to the type. The engine was already inconsistent
-%with itself, `trace!` answering `()` beside these answering `true`, and the
-%arbiter's spaces corpus disagreed on every file
-%[tested: an_effectful_operation_answers_unit].
+%This restores the translation ai-todo-fast-libraries.md F11.3 recorded as
+%"HE's unit result `(->)` is MeTTa's `Bool`, because every one of those
+%operations answers `true`", which a later change reversed to follow Hyperon's
+%unit type instead. Upstream PeTTa is the arbiter on this branch and it answers
+%`true`, so the reversal is undone rather than argued with.
 %The write itself decides whether the first argument is a space: a name that is
 %not one reaches no storage module, so nothing is written and this refuses.
 %Asking BEFORE the write cost an inference on every add
@@ -1101,12 +1101,12 @@ compiled_predicate_arity(F, Module, Predicate, Arity) :-
     space_parametric(Space),
     !,
     (   metta_add_atom(Space, Term, _)
-    ->  Result = []
+    ->  Result = true
     ;   fail
     ).
 'add-atom'(Space, Term, Result) :-
     (   atom(Space), metta_add_atom(Space, Term, _)
-    ->  Result = []
+    ->  Result = true
     ;   metta_space_name(Space)
     ->  fail
     ;   space_argument_error('add-atom', [Space, Term], Result)

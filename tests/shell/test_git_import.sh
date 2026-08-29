@@ -162,12 +162,14 @@ mkdir -p "$fixture/legacy"
 (cd "$fixture/legacy" && swipl -q -g "consult('$project_dir/engine/main.pl'),'git-import!'('$remote',_),halt")
 test -d "$fixture/legacy/repos/fixture/.git"
 
-# Every arity answers the SAME unit, which is what every effectful builtin in
-# this engine answers ('import!'/3, 'println!'/2). The pinned five-argument form
-# alone used to answer `true`, so one program printed `True` for a pinned import
-# and `()` for the library import beside it, and a caller passing the unit
-# explicitly did not match the head at all: it FAILED, silently, because a
-# failed goal is not an error. This is the check that keeps the four together.
+# Every arity answers the SAME `true`, which is what every effectful builtin in
+# this engine answers ('import!'/3, 'println!'/2, 'add-atom'/3); the note above
+# 'println!'/2 in engine/metta/runtime.pl carries the family and its source.
+# The arities used to disagree, one answering `true` and the rest unit, so one
+# program printed two different things for two imports side by side and a
+# caller passing the answer explicitly did not match the head at all: it
+# FAILED, silently, because a failed goal is not an error. This is the check
+# that keeps them together.
 unit_base="$fixture/unit"
 for arity_call in \
     "'$remote',R" \
@@ -177,8 +179,8 @@ for arity_call in \
 do
     answer=$(cd "$fixture" && swipl -q -g \
         "consult('$project_dir/engine/main.pl'),'git-import!'($arity_call),print(R),nl,halt" 2>/dev/null | tail -1)
-    if [ "$answer" != "[]" ]; then
-        echo "git-import! answered '$answer' rather than the unit [] for: $arity_call" >&2
+    if [ "$answer" != "true" ]; then
+        echo "git-import! answered '$answer' rather than true for: $arity_call" >&2
         exit 1
     fi
 done

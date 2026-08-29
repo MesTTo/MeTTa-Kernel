@@ -54,7 +54,7 @@
 ;; names one and the older spelling keeps working; what the parametric cell
 ;; adds is that (new-state V) answers a cell you can pass and write through.
 !(test (get-type new-state) (-> $t (StateMonad $t)))
-!(test (get-type change-state!) (-> (StateMonad $t) $t (StateMonad $t)))
+!(test (get-type change-state!) (-> (StateMonad $t) $t Bool))
 !(test (get-type get-state) (-> (StateMonad $t) $t))
 !(test (get-type (new-state 5)) (StateMonad Number))
 !(test (get-type (new-state "hi")) (StateMonad String))

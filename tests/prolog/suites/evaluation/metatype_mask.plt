@@ -68,8 +68,13 @@ mask_row("(car-atom (((+ 1 2)) b))",     [[3]]).
 % cdr-atom's Expression result re-enters evaluation for the same reason.
 mask_row("(cdr-atom (a (+ 1 2)))",       [[3]]).
 % chain holds its nested operand as written and its %Undefined% result
-% re-enters, so the two together answer the sum.
-mask_row("(chain (+ 1 2) $x (quote $x))", [[quote, ['+', 1, 2]]]).
+% re-enters, so the two together answer the sum. The quote does not change
+% that: it is an evaluation BARRIER, so `(quote $x)` answers the held
+% `(+ 1 2)` with no wrapper, and chain's re-entering result then evaluates it.
+% This row read [[quote, ['+', 1, 2]]] while quote was a value
+% [measured 2026-08-29, upstream answers 3 for both spellings, byte-identical:
+% ai-tmp/chain.metta under PeTTa@ae66fa8 and under this engine].
+mask_row("(chain (+ 1 2) $x (quote $x))", [3]).
 mask_row("(chain (+ 1 2) $x $x)",         [3]).
 mask_row("(chain (+ 1 2) $x (cons-atom $x (b)))", [[3, b]]).
 % let evaluates its value, which is the whole difference between the two.
@@ -150,12 +155,23 @@ test(a_lambda_does_not_capture_a_binder_of_its_own_body) :-
         Answers),
     assertion(Answers == [[[q, [1]], [q, []]]]).
 
-% unquote EVALUATES its operand, `(-> %Undefined% %Undefined%)` in the
-% reference's own prelude, which is what lets the quote arrive from a
-% computation rather than only from source.
-test(unquote_evaluates_its_operand) :-
-    both_doors("(unquote (car-atom ((quote (+ 1 2)))))", [3]),
-    both_doors("(unquote (cdr-atom (a b)))", [[unquote, [b]]]),
+% unquote HOLDS its operand: `(: unquote (-> Atom %Undefined%))` in
+% engine/prelude.metta, so the argument arrives unreduced and the written
+% `(quote X)` reaches the head `(= (unquote (quote $A)) ...)`. A quote that
+% would have to be COMPUTED first therefore never reaches that head, and the
+% call stays inert through the second clause.
+%
+% This is upstream's own signature and its own three answers, byte-identical
+% [source: PeTTa@ae66fa8 lib/lib_he.metta:64-67; measured 2026-08-29 with
+% ai-tmp/petta-align/uq.metta run under both engines, same three lines].
+%
+% The operand was `%Undefined%` here until the quote barrier landed, and these
+% rows read [3] and [[unquote, [b]]]: an evaluating operand let the quote
+% arrive from a computation, which upstream does not do.
+test(unquote_holds_its_operand) :-
+    both_doors("(unquote (car-atom ((quote (+ 1 2)))))",
+               [[unquote, ['car-atom', [[quote, ['+', 1, 2]]]]]]),
+    both_doors("(unquote (cdr-atom (a b)))", [[unquote, ['cdr-atom', [a, b]]]]),
     both_doors("(unquote 42)", [[unquote, 42]]).
 
 :- end_tests(metatype_mask).

@@ -8,7 +8,7 @@
 
 !(test (chain (+ 2 3) $x (* $x 2)) 10)
 
-;println! answers the UNIT value, which is what the specification types it
-;with, so mapping it over six items answers six units rather than six trues.
+;println! answers `true`, the answer every operation that runs for an effect
+;gives here, so mapping it over six items answers six of them.
 !(test (for-each-in-atom (1 3 5 62 2 5) println!)
-       (() () () () () ()))
+       (true true true true true true))

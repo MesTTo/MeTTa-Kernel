@@ -53,16 +53,24 @@ test(deep, [forall(between(1, 6, Depth))]) :-
 nest(0, leaf) :- !.
 nest(N, [node, Inner]) :- M is N - 1, nest(M, Inner).
 
-%The language's booleans are spelled `True` and `False`. The reader maps both
-%onto Prolog's own true/false so a compiled guard can call them directly, and
-%the writer maps them back: without that half the round trip renamed the
-%language's own constants, `!(== 1 2)` answering `false` where the arbiter
-%answers `False` [source: LeaTTa tests/semantics/grounded/07-partial-core.metta
-%and 04-boolean.metta, both STATUS conforms].
-test(booleans_print_in_the_languages_own_spelling) :-
+%A boolean is WRITTEN `true` and `false`. The reader accepts `True` and `False`
+%as well and maps both onto Prolog's own true/false, so a compiled guard can
+%call them directly and a source file may spell them either way; this is the
+%canonical form they come back as, and it is upstream PeTTa's
+%[source: PeTTa@ae66fa8 src/parser.pl:76-78 maps the capitalised pair on READ
+%and carries no write-side inverse]. engine/writer.c emits the same two words,
+%so the C writer and the DCG agree.
+test(booleans_print_in_the_engines_own_spelling) :-
     swrite(true, T), swrite(false, F),
     swrite([pair, true, false], Pair),
-    T == "True", F == "False", Pair == "(pair True False)".
+    T == "true", F == "false", Pair == "(pair true false)".
+
+%Both spellings still READ to the same boolean, which is what makes the
+%canonical choice above a spelling rather than a change of meaning.
+test(both_boolean_spellings_read_alike) :-
+    sread("True", A), sread("true", B),
+    sread("False", C), sread("false", D),
+    A == true, B == true, C == false, D == false.
 
 test(booleans_round_trip) :- roundtrip([pair, true, false]).
 

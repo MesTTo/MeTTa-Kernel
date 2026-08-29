@@ -984,7 +984,7 @@ expected_outputs(clp_different, [true]).
 %`True`, not `true`: repr/2 is swrite/2, which writes the language's own
 %spelling of the boolean the reader mapped onto Prolog's
 %[tested: parser_roundtrip:booleans_print_in_the_languages_own_spelling].
-expected_outputs(representation, ["True"]).
+expected_outputs(representation, ["true"]).
 
 test(prebound_outputs_must_be_producible,
      [forall(wrong_prebound_output(Goal)), fail]) :-
@@ -2337,14 +2337,14 @@ test(skel_admits_both_tiers_and_is_idempotent,
     process_metta_string("!(get-metatype skel-swap-pair-native)", Before),
     assertion(Before == ['Symbol']),
     process_metta_string("!(import! &self skel)", Imported),
-    assertion(Imported == [[]]),
+    assertion(Imported == [true]),
     process_metta_string("!(skel-swap-pair (Pair a b))", Equation),
     assertion(Equation == [['Pair', b, a]]),
     process_metta_string("!(skel-swap-pair-native (Pair a b))", Native),
     assertion(Native == [['Pair', b, a]]),
     %A repeated import is a no-op and does not duplicate the equation.
     process_metta_string("!(import! &self skel)", Again),
-    assertion(Again == [[]]),
+    assertion(Again == [true]),
     process_metta_string("!(skel-swap-pair (Pair a b))", Once),
     assertion(Once == [['Pair', b, a]]),
     %The two tiers report what they are.

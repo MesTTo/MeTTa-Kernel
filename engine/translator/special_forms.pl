@@ -1125,10 +1125,24 @@ translate_special_dl(super, [Call], AfterHead, Goals, Out) :-
     resolve_dispatch(Fun, ArgValues, Out, Goal),
     AfterArgs = [dispatch_policy_execute(Parent, Fun, ArgValues, Goal, Out)|Goals].
 
-%Quote is a value headed by the ordinary symbol `quote`. Its Atom argument is
-%held and the wrapper survives; a consumer that wants the payload must match
-%or evaluate that value explicitly.
-translate_special_dl(quote, [Expr], Goals, Goals, [quote, Expr]).
+%Quote is an EVALUATION BARRIER, not a data constructor: `(quote X)` answers X
+%itself, unevaluated, and the wrapper does not survive. `!(quote (+ 1 2))`
+%answers `(+ 1 2)` rather than `(quote (+ 1 2))`
+%[source: PeTTa@ae66fa8 src/translator.pl:320, `HV == quote, T = [Expr] ->
+%Out = Expr`].
+%
+%The library's own unquote needs it that way round. lib_he writes
+%`(= (unquote $A) (quote (unquote $A)))`, whose body would re-enter that same
+%rule for ever if the quote were a value; stripping makes the body mean
+%"answer `(unquote $A)` and stop". Measured 2026-08-29 on upstream's
+%examples/he_quoting.metta, where `(repr (unquote 42))` is `"(unquote 42)"`
+%and a surviving wrapper answered `"(quote (unquote 42))"` instead.
+%
+%The wrapper survived here until this change, so a consumer had to strip it.
+%Written `(quote X)` forms in SOURCE are untouched: engine/metta/effects.pl's
+%plan reader still matches `[quote, Source]`, because that reads what a program
+%WROTE rather than what evaluating it answers.
+translate_special_dl(quote, [Expr], Goals, Goals, Expr).
 %not-provable keeps its head literal and evaluates its arguments, exactly as
 %an ordinary call does. Which function is being negated has to be known
 %without running it, because the answer comes from that function's dual rather
@@ -1247,9 +1261,12 @@ refuse_uncompilable_seam(Form, Args) :-
 
 %The same mistake reaches the translator by a second route that the clauses
 %above cannot see. A rule whose expansion is built in Prolog returns the form
-%itself. A malformed bare seam can therefore survive translation as data and
-%is refused here. A quote around it is a valid inert quote value instead
-%[tested translator.plt:quoted_seam_expansion_stays_inert].
+%itself. A malformed bare seam can therefore survive translation as data and is
+%refused here. A quote around it is refused too, and used not to be: quote was
+%a value then, so the wrapper survived and marked the form as data on purpose.
+%It is an evaluation barrier now and does not survive, so there is no marker
+%left to read [tested
+%translator.plt:a_quoted_seam_expansion_is_refused_like_a_bare_one].
 refuse_seam_expanded_to_data(Rule, Out) :-
     (   nonvar(Out), Out = [Seam|_],
         ( Seam == translatePredicate ; Seam == call )

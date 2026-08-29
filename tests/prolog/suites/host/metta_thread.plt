@@ -47,14 +47,32 @@ add_form(Text) :-
 test(eager_arguments_reach_a_fixpoint_and_atom_arguments_stay_written) :-
     add_form("(: c2-thread-choice (-> Bool Atom %Undefined%))"),
     add_form("(= (c2-thread-choice False $held) (quote $held))"),
+    %The eager Bool argument reaches its fixpoint, so the False branch runs.
+    %What this row then sees is what happens AFTER the hold: quote is an
+    %evaluation barrier, so the body answers the bare `(+ 1 2)`, and this
+    %function's %Undefined% result sends that back through evaluation. Hence 3.
     both_doors(
         "(metta-thread (c2-thread-choice (if-equal Number Atom True (if-equal Number Grounded True False)) (+ 1 2)) %Undefined% &self)",
+        [3]),
+    %That the argument really did arrive WRITTEN is one declaration away: a
+    %function whose result is `Atom` does not have its body translated, so the
+    %same body answers the held term itself rather than its value
+    %[source: PeTTa@ae66fa8 src/translator.pl:25-28].
+    add_form("(: c2-thread-written (-> Bool Atom Atom))"),
+    add_form("(= (c2-thread-written False $held) (quote $held))"),
+    both_doors(
+        "(metta-thread (c2-thread-written False (+ 1 2)) %Undefined% &self)",
         [[quote, ['+', 1, 2]]]).
 
 test(a_prepared_call_does_not_evaluate_an_atom_result_twice) :-
     add_form("(: c2-thread-hold (-> Atom Atom))"),
     add_form("(= (c2-thread-hold $value) $value)"),
     add_form("(: c2-thread-observe (-> %Undefined% Atom))"),
+    %The quote SURVIVES here, and that is the declared-result rule rather than
+    %the barrier: a function whose result is `Atom` does not have its body
+    %translated at all, so the body comes back as written
+    %[source: PeTTa@ae66fa8 src/translator.pl:25-28, the
+    %`declared_output_type(F, 'Atom')` branch].
     add_form("(= (c2-thread-observe $value) (quote $value))"),
     both_doors(
         "(metta-thread (c2-thread-observe (c2-thread-hold (+ 1 2))) %Undefined% &self)",

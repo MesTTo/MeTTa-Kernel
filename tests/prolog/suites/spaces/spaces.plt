@@ -213,23 +213,28 @@ arbitrary_space('&plunit_arbitrary_atoms').
 % The engine also disagreed with ITSELF. Removing an EQUATION already reported
 % truthfully, so two of the three paths were honest and the plain-atom one was
 % not, with the information one builtin away.
-%The four operations the specification types with `(->)`, the unit type, and
-%what each answers. `trace!` already answered unit and the other four answered
-%`true`, so the engine disagreed with itself and with the arbiter's whole
-%spaces corpus.
-test(an_effectful_operation_answers_unit,
+%The operations that run for an EFFECT, and the one answer they share. The
+%engine used to disagree with itself here: these four answered unit while the
+%catalogue declared two of them Bool. They answer `true` now, which is
+%upstream PeTTa's answer and what the catalogue already said
+%[source: PeTTa@ae66fa8 src/spaces.pl:10,24 and src/metta.pl:212,265].
+%This is the list, so an operation joining the family without answering `true`
+%fails here rather than drifting quietly.
+test(an_effectful_operation_answers_true,
      [ setup(cleanup_arbitrary_space), cleanup(cleanup_arbitrary_space) ]) :-
     arbitrary_space(Space),
     'add-atom'(Space, [unit, probe], Added),
-    assertion(Added == []),
+    assertion(Added == true),
     'remove-atom'(Space, [unit, probe], Gone),
-    assertion(Gone == []),
+    assertion(Gone == true),
     with_output_to(string(_), 'println!'(quiet, Printed)),
-    assertion(Printed == []),
+    assertion(Printed == true),
     'bind!'('&plunit-unit-cell', ['new-state', 1], Bound),
-    assertion(Bound == []),
-    %Unit is an Expression of size 0 and it is NOT the boolean, which is the
-    %distinction that makes it a value rather than a failure.
+    assertion(Bound == true),
+    'change-state!'('&plunit-unit-cell', 2, Changed),
+    assertion(Changed == true),
+    %Unit remains a VALUE the language can hold, an Expression of size 0, and
+    %it is still not the boolean; what changed is that no effect answers it.
     'get-metatype'([], Meta),
     assertion(Meta == 'Expression'),
     assertion([] \== true).
@@ -239,16 +244,22 @@ test(spaces_removal_answers_unit_for_success_and_an_error_for_absence,
     arbitrary_space(Space),
     add_sexp(Space, [pair, 1, 2]),
     add_sexp(Space, lonely),
-    % Unit for a removal that happened and an error for one that found
-    % nothing. The language's own complaint is what asks for the second half,
-    % "if the given atom is not in the space, remove-atom currently neither
-    % raises a error nor returns the empty result", and upstream carries the
-    % same question unanswered as the TODO at stdlib/space.rs:219. The arbiter
-    % rules it: LeaTTa Hyperon-Hacks-Register row 15, error for absence and
-    % unit for success, SATISFIED in Metta.Minimal.removeAtomStep. This test
-    % used to assert unit for all three.
+    % `true` for a removal that happened and an error for one that found
+    % nothing. The success answer is the effect answer every operation of that
+    % family gives (see the note above 'println!'/2 in
+    % engine/metta/runtime.pl).
+    %
+    % TODO(petta-alignment): upstream answers `true` for the ABSENT case too,
+    % and its remove_sexp is retractall/1, so it also removes EVERY matching
+    % occurrence where this removes one
+    % [source: PeTTa@ae66fa8 src/spaces.pl:6-7,44; measured 2026-08-29,
+    % ai-tmp/petta-align/absent.metta and multi.metta]. Both halves are
+    % divergences rather than supersets and are due to change, in their own
+    % commit: the one-occurrence law is also written into
+    % website/live/remote-protocol.md and eight removal tests, so it moves as
+    % one piece rather than piecemeal here.
     'remove-atom'(Space, [pair, 1, 2], Present),
-    assertion(Present == []),
+    assertion(Present == true),
     'remove-atom'(Space, [pair, 1, 2], Repeated),
     assertion(Repeated = ['Error', ['remove-atom', Space, [pair, 1, 2]], _]),
     'remove-atom'(Space, [never, there], Absent),
@@ -271,11 +282,11 @@ test(spaces_removal_answers_unit_for_success_and_an_error_for_absence,
     add_sexp(Space, [twice, x]),
     add_sexp(Space, [twice, x]),
     'remove-atom'(Space, [twice, x], One),
-    assertion(One == []),
+    assertion(One == true),
     findall(A, get_native_atom(Space, A), Half),
     assertion(Half == [[twice, x]]),
     'remove-atom'(Space, [twice, x], Other),
-    assertion(Other == []),
+    assertion(Other == true),
     findall(B, get_native_atom(Space, B), Left),
     assertion(Left == []),
     % And the two rulings compose: once the copies are gone the next removal
@@ -1178,7 +1189,7 @@ test(a_conjunction_finds_every_row_before_any_template_runs,
     Space = '&plunit_snapshot',
     Pattern = [',', [snap_link, X, Y], [snap_link, Y, Z], [snap_link, Z, X]],
     findall(X-Y, ( match(Space, Pattern, out, out),
-                   'remove-atom'(Space, [snap_link, X, Y], []),
+                   'remove-atom'(Space, [snap_link, X, Y], true),
                    'add-atom'(Space, [snap_link, Y, X], _) ),
             Rewritten),
     % Three loop rotations, all of them, and the fourth link is not in a loop.
@@ -2045,7 +2056,7 @@ an_equation_stops_answering_when_removed(Space) :-
     findall(A, with_metta_module(Module, reduce(['fr-gone'], A, _)), Before),
     assertion(Before == [here]),
     'remove-atom'(Space, [=, ['fr-gone'], here], Answered),
-    assertion(Answered == []),
+    assertion(Answered == true),
     findall(A, with_metta_module(Module, reduce(['fr-gone'], A, _)), After),
     assertion(After == [['fr-gone']]).
 
@@ -2491,7 +2502,7 @@ test(a_name_that_is_not_a_space_is_refused_by_name,
 test(a_fresh_ampersand_name_is_still_created_by_writing_to_it,
      [cleanup(clear_native_atoms('&plunit-fresh-write'))]) :-
     process_metta_string("!(add-atom &plunit-fresh-write (canary 1))", Added),
-    assertion(Added == [[]]),
+    assertion(Added == [true]),
     process_metta_string("!(match &plunit-fresh-write (canary $x) $x)", Found),
     assertion(Found == [1]).
 

@@ -29,8 +29,8 @@
 !(test (collapse (match &self (tx-rolled $x) $x)) ())
 
 ;A body that succeeds keeps its writes. The transaction answers whatever its
-;body did, and add-atom answers the unit value the specification types it with.
-!(test (collapse (transaction (add-atom &self (tx-kept a)))) (()))
+;body did, and add-atom answers `true`, the effect answer.
+!(test (collapse (transaction (add-atom &self (tx-kept a)))) (true))
 !(test (collapse (match &self (tx-kept $x) $x)) (a))
 
 ;"whatever its body did" means EVERY answer, not the first one. The body runs
@@ -44,7 +44,7 @@
 !(test (collapse (transaction (tx-three))) (1 2 3))
 !(test (collapse (transaction (superpose ((add-atom &self (tx-each 1))
                                           (add-atom &self (tx-each 2))))))
-       (() ()))
+       (true true))
 !(test (collapse (match &self (tx-each $x) $x)) (1 2))
 
 ;--------------------------------------------------------- atomically

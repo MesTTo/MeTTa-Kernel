@@ -665,16 +665,27 @@ sdisplay_numbered(Term) --> swrite_mode(Term, display).
 
 swrite_mode('$metta_named_variable'(Name), _) --> !, "$", atom(Name).
 swrite_mode('$metta_variable'(Index), _) --> !, "$_", { number_codes(Index, Cs) }, Cs.
-%The language spells its booleans `True` and `False`. metta_reader_default/2 maps both
-%onto Prolog's own true/false so a compiled guard calls them directly, and this
-%is the other half of that map: without it the round trip renamed the
-%language's own constants and `!(== 1 2)` answered `false` where the arbiter
-%answers `False` [source: LeaTTa tests/semantics/grounded/07-partial-core.metta,
-%04-boolean.metta]. It also closes a seam: extensions/python/metta already writes `True`,
-%which extensions/python/tools/example_parity.py had to compare around
-%[tested: parser_roundtrip:booleans_print_in_the_languages_own_spelling].
-swrite_mode(true, _)  --> !, "True".
-swrite_mode(false, _) --> !, "False".
+%A boolean is WRITTEN in the engine's own spelling, `true` and `false`.
+%metta_reader_default/2 accepts `True` and `False` as well and maps both onto
+%Prolog's true/false, so a compiled guard calls them directly and a source file
+%may spell them either way; this is the canonical form they come back as.
+%
+%Reading and writing stay inverse under it. There is no separate symbol named
+%`true`: the reader turns that text into the boolean, so writing the boolean as
+%`true` reads back as the same boolean. The atom `'True'` remains unwritable as
+%a plain symbol for the same reason it always was, since its text would read
+%back as the boolean rather than as itself; metta_symbol_writable/1 below still
+%refuses it, as does symbol_writable() in engine/writer.c.
+%
+%This is upstream PeTTa's spelling, which is the arbiter on this branch
+%[source: PeTTa@ae66fa8 src/parser.pl:76-78 maps `True`/`False` on READ and
+%carries no write-side inverse, so `swrite` answers Prolog's own `true`;
+%measured 2026-08-29 over its 157-example corpus, where the spelling alone
+%accounted for 79 of 156 differing files]
+%[tested: parser_roundtrip:booleans_print_in_the_engines_own_spelling;
+%commit=WORKTREE].
+swrite_mode(true, _)  --> !, "true".
+swrite_mode(false, _) --> !, "false".
 swrite_mode(Num, _)   --> { integer(Num) }, !, { number_codes(Num, Cs) }, Cs.
 swrite_mode(Num, strict) --> { float(Num), metta_number_writable(Num) }, !,
                               { metta_float_codes(Num, Cs) }, Cs.

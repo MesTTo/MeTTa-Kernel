@@ -1472,8 +1472,7 @@ test(an_in_place_annotation_is_still_a_constraint) :-
                                      ;  Gs = [translatePredicate,
                                               [plus, A, B, Out]] ) )),
                         assertz(( user:plunit_x4_quoted(Out, Gs) :-
-                                     Gs = [quote, [translatePredicate,
-                                                   [=, Out, 42]]] )),
+                                     Gs = [quote, [plunit_inert, Out, 42]] )),
                         assertz(user:translator_rule(plunit_x4_add, [])),
                         assertz(user:translator_rule(plunit_x4_quoted, [])) )),
                  cleanup(( retractall(user:translator_rule(plunit_x4_add, _)),
@@ -1494,10 +1493,32 @@ test(a_prolog_rule_emits_a_goal_when_it_cannot_fold) :-
     once(plus(A, B, V)),
     V == 13.
 
-test(quoted_seam_expansion_stays_inert) :-
+%The expansion is inert because quote compiles NOTHING inside it: Goals is
+%empty and the payload comes back as written. The `quote` head does not survive
+%into the result, because a body's quote is an evaluation barrier rather than a
+%value [source: PeTTa@ae66fa8 src/translator.pl:320].
+test(quoted_expansion_stays_inert) :-
     translate_expr([plunit_x4_quoted, Out], Goals, Result),
     Goals == [],
-    Result == [quote, [translatePredicate, [=, Out, 42]]].
+    Result == [plunit_inert, Out, 42].
+
+%A quote no longer MARKS a seam form as data on purpose, because it does not
+%survive to be read as a marker. So a rule expanding to a quoted
+%translatePredicate is refused exactly as a bare one is, and the refusal's own
+%message is the accurate account of why: a rule written in MeTTa evaluates its
+%own quote and expands to what quote returned. This capability existed while
+%quote was a value; it is gone with the barrier, and nothing upstream has it
+%either [source: PeTTa@ae66fa8 has neither quote-as-value nor this refusal].
+test(a_quoted_seam_expansion_is_refused_like_a_bare_one,
+     [ setup(( assertz(( user:plunit_x4_qseam(Out, Gs) :-
+                            Gs = [quote, [translatePredicate,
+                                          [=, Out, 42]]] )),
+               assertz(user:translator_rule(plunit_x4_qseam, [])) )),
+       cleanup(( retractall(user:translator_rule(plunit_x4_qseam, _)),
+                 abolish(user:plunit_x4_qseam/2) )),
+       throws(error(metta_seam_expansion_as_data(plunit_x4_qseam,
+                                                 translatePredicate), _)) ]) :-
+    translate_expr([plunit_x4_qseam, _Out], _Goals, _Result).
 
 :- end_tests(translator_prolog_authored_rules).
 
@@ -1867,11 +1888,14 @@ test(an_unknown_head_remains_inert_data) :-
     Goals == [],
     Out == [plunit_inert_head, 1].
 
+%Inert means NOT COMPILED and not run: the call comes back as the data it was
+%written as, and the (empty) goals raise nothing. The wrapper is gone because
+%quote is a barrier, not a constructor.
 test(quote_keeps_an_invalid_builtin_call_inert) :-
     translate_expr([quote, ['+', 1, undefined_sym]], Goals, Out),
     metta_self_module(Self),
     call_goals_in_(Self, Goals),
-    Out == [quote, ['+', 1, undefined_sym]].
+    Out == ['+', 1, undefined_sym].
 
 cleanup_builtin_type_declarations(Path, ParsedForms) :-
     forall(member(parsed(expression, _, Term), ParsedForms),
@@ -2742,15 +2766,28 @@ test(a_cons_list_is_ordinary_structure,
 
 :- begin_tests(translator_quote_scope).
 
-%One compiler, both sides of the `=`. A body's `(quote X)` holds X and compiles
-%nothing inside it, and the sharpest way to say a pattern's quote does the same
-%is to compile the same quoted term in each position and demand the same term
-%back. Measured before the pattern walk stopped descending: `(cons 1 2)` inside
-%a pattern's quote became the improper list `[1|2]`, and `(: $x Number)` became
-%a type premise goal with the pattern reduced to `[quote, A]`, so the head
-%matched `(quote 5)` and refused the quoted annotation it was written for.
-%Neither shape is one a body's quote can produce, so a head written to match
-%what a body writes could not.
+%The two sides of the `=` do DIFFERENT things with a quote, and that is the
+%law rather than a defect. A body's quote is an EVALUATION BARRIER: `(quote X)`
+%compiles nothing inside it and answers X itself, with no wrapper left
+%[source: PeTTa@ae66fa8 src/translator.pl:320]. A head's quote is literal
+%STRUCTURE, because a pattern is matched rather than evaluated and there is no
+%evaluation for a barrier to stop; upstream's head walk is constrain_args/3,
+%which gives `quote` no special meaning at all [source: PeTTa@ae66fa8
+%src/translator.pl:18-22].
+%
+%The two meet in USE exactly when the parameter is declared `Atom`, so the
+%argument arrives unreduced and the written `(quote X)` reaches the pattern.
+%That is how the shipped `unquote` works: `(: unquote (-> Atom %Undefined%))`
+%with the head `(= (unquote (quote $A)) ...)` in engine/prelude.metta, and it
+%is why `(unquote (quote (+ 1 2)))` is 3 while a quoted head on an ordinary
+%(evaluating) parameter never matches, in this engine and upstream alike
+%[measured 2026-08-29, ai-tmp/petta-align/qscope.metta].
+%
+%The pattern walk must still DESCEND into a quoted head. Measured before it
+%did: `(cons 1 2)` inside a pattern's quote became the improper list `[1|2]`,
+%and `(: $x Number)` became a type premise goal with the pattern reduced to
+%`[quote, A]`, so the head matched `(quote 5)` and refused the quoted
+%annotation it was written for.
 quote_scope_payload("(cons 1 2)").
 quote_scope_payload("(: $x Number)").
 quote_scope_payload("(g $x)").
@@ -2758,22 +2795,27 @@ quote_scope_payload("(h (g 1))").
 quote_scope_payload("$x").
 quote_scope_payload("(foo bar)").
 
-test(a_quoted_pattern_holds_what_a_quoted_body_holds,
+test(a_quoted_body_answers_its_payload_and_a_quoted_head_holds_the_wrapper,
      [ forall(quote_scope_payload(Text)),
        setup(( retractall(silent(_)), assertz(silent(true)) )),
        cleanup(( forget_test_function('qs-body'),
                  forget_test_function('qs-head'),
                  retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    sread(Text, Payload),
     format(atom(BodySource), "(= (qs-body) (quote ~w))", [Text]),
     sread(BodySource, BodyEquation),
     translate_clause(BodyEquation, (BodyHead :- Body)),
     BodyHead =.. [_, BodyValue],
     call(Body),
+    %The barrier: the payload comes back, the wrapper does not.
+    assertion(BodyValue =@= Payload),
     format(atom(HeadSource), "(= (qs-head (quote ~w)) matched)", [Text]),
     sread(HeadSource, HeadEquation),
     translate_clause(HeadEquation, (CompiledHead :- _)),
     CompiledHead =.. [_, HeadPattern, _],
-    assertion(HeadPattern =@= BodyValue).
+    %The pattern: the wrapper is structure, and the walk descended into it
+    %rather than leaving the payload mangled or reduced to a bare variable.
+    assertion(HeadPattern =@= [quote, Payload]).
 
 %The scope is one argument wide on both sides. `translator:translate_special_dl/5` gives
 %`quote` meaning at arity one only, so `(quote a b)` is ordinary data in a body

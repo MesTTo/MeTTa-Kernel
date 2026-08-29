@@ -49,8 +49,12 @@ test(a_repeated_eval_reuses_one_translated_template,
 test(variant_calls_share_a_template_without_sharing_call_variables,
      [ setup(clear_translation_cache_test_state),
        cleanup(clear_translation_cache_test_state) ]) :-
-    translate_cached_expr([quote, X], [], [quote, X]),
-    translate_cached_expr([quote, Y], [], [quote, Y]),
+    %`(quote V)` is the cheapest form that compiles to no goals at all, which
+    %is why it is the probe here. It answers its PAYLOAD, the quote being an
+    %evaluation barrier rather than a wrapper, so the template's value is the
+    %variable itself.
+    translate_cached_expr([quote, X], [], X),
+    translate_cached_expr([quote, Y], [], Y),
     X = first,
     var(Y),
     aggregate_all(count,
@@ -62,9 +66,9 @@ test(a_numbervars_literal_cannot_alias_a_real_variable_key,
        cleanup(clear_translation_cache_test_state) ]) :-
     translate_cached_expr([quote, _], _, VariableValue),
     translate_cached_expr([quote, '$VAR'(0)], _, LiteralValue),
-    VariableValue = [quote, Variable],
+    VariableValue = Variable,
     var(Variable),
-    LiteralValue == [quote, '$VAR'(0)],
+    LiteralValue == '$VAR'(0),
     aggregate_all(count,
                   translator:translated_form_cache(_, _, _, _, _, _),
                   2).

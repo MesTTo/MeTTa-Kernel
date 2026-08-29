@@ -1387,11 +1387,10 @@ import_load_needed(changed, Space, CanonPath) :-
     import_load_needed(not_loaded, Space, CanonPath).
 
 
-%The UNIT value, for the reason add-atom and pragma! answer it: importing is
-%an effect and `()` is what the arbiter records for every one of its module
-%transcripts [source: LeaTTa tests/semantics/modules/18-direct-import-control
-%and 20-cycle-control, both `[()]`].
-'import!'(Space0, File, []) :-
+%`true`, the effect answer add-atom and the rest of the family give; see the
+%note above 'println!'/2 in engine/metta/runtime.pl
+%[source: PeTTa@ae66fa8 src/metta.pl, where 'import!' answers true].
+'import!'(Space0, File, true) :-
     resolve_space_form(Space0, Space),
     metta_require_space_update_capability('import!', Space),
     importer_helper(Space, File).

@@ -18,9 +18,9 @@
 !(test (collapse (match &self (, (link $x $y)
                                 (link $y $z)
                                 (link $z $x))
-                             (let () (remove-atom &self (link $x $y))
-                                     (add-atom &self (link $y $x)))))
-       (() () ()))
+                             (let $_ (remove-atom &self (link $x $y))
+                                      (add-atom &self (link $y $x)))))
+       (true true true))
 
 ;The four atoms upstream prints, as a set: reversing one link and stopping,
 ;which is what running the templates during enumeration does, would leave
@@ -37,8 +37,8 @@
 !(add-atom &snapshot (item alpha))
 !(add-atom &snapshot (item beta))
 
-(= (visit alpha) (let () (remove-atom &snapshot (item beta)) alpha))
-(= (visit beta) (let () (remove-atom &snapshot (item alpha)) beta))
+(= (visit alpha) (let $_ (remove-atom &snapshot (item beta)) alpha))
+(= (visit beta) (let $_ (remove-atom &snapshot (item alpha)) beta))
 
 !(test (collapse (match &snapshot (item $x) (visit $x))) (alpha beta))
 

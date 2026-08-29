@@ -115,9 +115,22 @@ prolog:error_message(permission_error(register, metta_function, Name)) -->
 %readable dump. Data in, data out; the printing stays println!'s job.
 'pretty-atom'(Term, String) :- swrite_pretty(Term, String).
 
-'println!'(Arg, Unit) :- sdisplay(Arg, RArg),
-                        format('~w~n', [RArg]),
-                        Unit = [].
+%An operation that ran for its EFFECT answers `true`, the engine's convention
+%for the whole family: add-atom, remove-atom, bind!, change-state!, import!,
+%git-import! and the translator-rule pair all answer it.
+%tests/prolog/suites/spaces/spaces.plt's an_effectful_operation_answers_true
+%holds the list, so an operation joining the family without answering `true`
+%fails there rather than drifting quietly; the effect PROFILES are inventoried
+%separately in tests/prolog/suites/evaluation/effects.plt.
+%
+%This is upstream PeTTa's answer and it is also what this tree's OWN catalogue
+%already declared: `(: println! (-> %Undefined% Bool))` in
+%lib/lib_builtin_types/lib_builtin_types.metta said Bool while the clause here
+%answered unit, so the two disagreed until now
+%[source: PeTTa@ae66fa8 src/metta.pl:212, `'println!'(Arg, true)`]
+%[tested: effect_answers:every_effectful_builtin_answers_true; commit=WORKTREE].
+'println!'(Arg, true) :- sdisplay(Arg, RArg),
+                         format('~w~n', [RArg]).
 
 %One line, one form. A form spanning two lines is a syntax error here, which
 %is why 'read-form!'/1 exists beside it.

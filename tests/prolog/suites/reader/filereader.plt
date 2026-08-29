@@ -620,7 +620,7 @@ test(a_receipt_tracks_the_liveness_of_its_exact_stored_outputs) :-
     Equation = [=, ['plunit-import-receipt', X], [quote, X]],
     setup_call_cleanup(
         true,
-        ( user:'import!'(Space, Path, []),
+        ( user:'import!'(Space, Path, true),
           user:import_receipt(Space, Path, LoadId, Digest),
           user:import_receipt_current(Space, Path),
           filereader:metta_source_load(Path, Space, LoadId, Digest),
@@ -629,14 +629,14 @@ test(a_receipt_tracks_the_liveness_of_its_exact_stored_outputs) :-
                  Stored =@= Equation )),
           catch(
               transaction(
-                  ( user:'remove-atom'(Space, Equation, []),
+                  ( user:'remove-atom'(Space, Equation, true),
                     throw(plunit_receipt_rollback) )),
               plunit_receipt_rollback,
               true),
           user:import_receipt_current(Space, Path),
-          user:'remove-atom'(Space, Equation, []),
+          user:'remove-atom'(Space, Equation, true),
           \+ user:import_receipt_current(Space, Path),
-          user:'import!'(Space, Path, []),
+          user:'import!'(Space, Path, true),
           user:import_receipt_current(Space, Path),
           aggregate_all(
               count,

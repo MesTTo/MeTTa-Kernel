@@ -649,10 +649,15 @@ emit_atom(wctx *c, term_t t)
 
   if ( !PL_get_atom(t, &a) )
     return W_ERROR;
+  /* The engine's canonical boolean spelling, matching swrite_mode/2 in
+     engine/parser.pl. The reader accepts True/False too and maps both here,
+     so this is the form they come back as. symbol_writable() above still
+     refuses a SYMBOL spelled True or False, whose text would read back as
+     the boolean rather than as itself. */
   if ( a == ATOM_true )
-    return ob_put(&c->out, "True", 4) ? W_OK : W_ERROR;
+    return ob_put(&c->out, "true", 4) ? W_OK : W_ERROR;
   if ( a == ATOM_false )
-    return ob_put(&c->out, "False", 5) ? W_OK : W_ERROR;
+    return ob_put(&c->out, "false", 5) ? W_OK : W_ERROR;
   if ( !atom_utf8(c, a, &s, &n) )
     return PL_exception(0) ? W_ERROR : W_DECLINE;
   if ( c->mode != MODE_DISPLAY && !symbol_writable(s, n) )

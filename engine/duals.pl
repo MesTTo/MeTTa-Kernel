@@ -925,9 +925,24 @@ body_form_dual('and-then', [P, Q], Module, Local, Goal) :-
     body_form_dual(and, [P, Q], Module, Local, Goal).
 body_form_dual('or-else', [P, Q], Module, Local, Goal) :-
     body_form_dual(or, [P, Q], Module, Local, Goal).
-%quote constructs a value headed by quote. That value is never the literal
-%True atom, independently of its unevaluated payload.
-body_form_dual(quote, [_], _, _Local, true).
+%quote is an EVALUATION BARRIER: `(quote P)` answers P itself, unevaluated. So
+%the form IS the literal True exactly when P is WRITTEN as True, and the dual
+%is that syntactic test. P is not evaluated on either side, which is what makes
+%a syntactic test the right one here rather than a proof about P.
+%
+%This read `body_form_dual(quote, [_], _, _Local, true)` while quote built a
+%value headed by quote, which could never be the True atom whatever its
+%payload. The barrier removed the wrapper and with it that guarantee, and the
+%unconditional success then contradicted evaluation:
+%`!(not-provable (quote True))` answered [false, true], two answers for one
+%ground query, where `!(not-provable True)` answers [false]
+%[measured 2026-08-29; tested:
+%duals_connectives:a_quote_is_transparent_to_constructive_negation].
+body_form_dual(quote, [P], _, _Local, Goal) :-
+    (   P == true
+    ->  Goal = fail
+    ;   Goal = true
+    ).
 %(not P) is True exactly when P is False, so it is not True exactly when P is
 %True. No third case survives, because a non-boolean P raises before it gets
 %here.

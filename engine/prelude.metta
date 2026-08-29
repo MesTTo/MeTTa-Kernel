@@ -251,18 +251,27 @@
 
 ;;; Quoting ;;;
 
-;Upstream's single clause suffices now that a missed equation carries the
-;NotReducible protocol and the application boundary retains the written call.
-;The operand EVALUATES, `(: unquote (-> %Undefined% %Undefined%))` in the
-;arbiter's own prelude, and that is what lets the quote arrive from a
-;computation rather than only from source: `!(unquote (car-atom ((quote
-;(+ 1 2)))))` is 3 there and was the whole unreduced call here
-;[measured 2026-08-24 against LeaTTa 9ea9f9d]. The two clauses below are
-;unaffected by the change, because a `(quote ...)` operand evaluates to itself:
-;quote's declared `Atom` result is what makes its answer final.
-(: unquote (-> %Undefined% %Undefined%))
+;The operand is `Atom`, so it arrives UNREDUCED and the written `(quote X)`
+;reaches the head below. That is load-bearing now that quote is an evaluation
+;barrier rather than a value: an operand that evaluated would hand this `X`
+;with the wrapper already gone, the first clause would not match, and
+;`(unquote (quote (+ 1 2)))` would answer `(unquote (+ 1 2))` instead of 3
+;[source: PeTTa@ae66fa8 lib/lib_he.metta:64-67; measured 2026-08-29 on
+;examples/ch20-extending-the-engine/20-02-metta-written-in-metta/07-he_quoting.metta].
+;
+;The operand used to be `%Undefined%`, which let the quote arrive from a
+;COMPUTATION rather than only from source, so `!(unquote (car-atom ((quote
+;(+ 1 2)))))` answered 3 here. Upstream leaves that call inert and this engine
+;now does too: the same input has to give the same answer, so the extra reach
+;is not a superset to keep.
+;
+;The second clause is the inert fallback. Its body relies on the barrier as
+;well: `(quote (unquote $A))` answers `(unquote $A)` and stops, where a quote
+;that built a value would send this same rule round again.
+(: unquote (-> Atom %Undefined%))
 (= (unquote (quote $A))
    (let $cut (cut) (eval $A)))
+(= (unquote $A) (quote (unquote $A)))
 
 ;The reference stdlib's public evaluator entry is `interpret`, whose first
 ;operand is held and whose Atom result is already final.  The full extracted

@@ -1202,7 +1202,7 @@ prolog:error_message(metta_builtin_redefinition(Name, Arity, Space)) -->
     (   metta_space_name(Space)
     ->  metta_remove_atom(Space, Term, Removed),
         (   Removed == true
-        ->  Result = []
+        ->  Result = true
         ;   space_operation_error('remove-atom', [Space, Term],
                                   "remove-atom: atom is not in the space",
                                   Result)
@@ -1387,10 +1387,10 @@ space_argument_error(Operation, Arguments, Error) :-
 %once per atom.
 add_expression_to_space(Space, List, Result) :-
     (   metta_space_name(Space)
-    ->  metta_add_atoms(Space, List), Result = []
+    ->  metta_add_atoms(Space, List), Result = true
     ;   List = [First|_]
     ->  space_argument_error('add-atom', [Space, First], Result)
-    ;   Result = []
+    ;   Result = true
     ).
 
 %The plural forms take ONE expression holding the atoms, which is the shape the

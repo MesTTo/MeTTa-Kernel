@@ -50,8 +50,10 @@ test(symbol_arguments_evaluate_for_declared_and_undeclared_functions,
     add_form("(= (c2-pl-symbol-caller) (c2-pl-symbol c2-pl-before))"),
     add_form("(= (c2-pl-open $x) (quote $x))"),
     add_form("(= c2-pl-before c2-pl-after)"),
-    both_doors("(c2-pl-symbol-caller)", [[quote, 'c2-pl-after']]),
-    both_doors("(c2-pl-open c2-pl-before)", [[quote, 'c2-pl-after']]).
+    %`(quote $x)` is a BARRIER, so the body answers what $x is bound to with
+    %no wrapper left; the point of the row is which value that is.
+    both_doors("(c2-pl-symbol-caller)", ['c2-pl-after']),
+    both_doors("(c2-pl-open c2-pl-before)", ['c2-pl-after']).
 
 test(a_grounded_parameter_checks_the_evaluated_argument_type) :-
     add_form("(: c2-pl-grounded (-> Grounded %Undefined%))"),
@@ -73,8 +75,10 @@ test(an_open_equation_result_is_not_the_not_reducible_marker) :-
 test(a_rest_atom_parameter_holds_every_variadic_argument) :-
     add_form("(: c2-pl-rest (-> Symbol (%Rest% Atom) %Undefined%))"),
     add_form("(= (c2-pl-rest $tag $x $y $z) (quote ($tag $x $y $z)))"),
+    %The barrier is what keeps the three variadic arguments AS WRITTEN here:
+    %the wrapper goes, the held arguments do not.
     both_doors("(c2-pl-rest keep (+ 1 2) (+ 3 4) (+ 5 6))",
-               [[quote, [keep, ['+', 1, 2], ['+', 3, 4], ['+', 5, 6]]]]).
+               [[keep, ['+', 1, 2], ['+', 3, 4], ['+', 5, 6]]]).
 
 test(a_declared_wrong_arity_is_an_error) :-
     add_form("(: c2-pl-arity (-> Atom Atom %Undefined%))"),
@@ -128,8 +132,13 @@ test(a_bare_not_reducible_result_retains_the_call_at_the_boundary) :-
     add_form("(: c2-pl-nr (-> Atom Atom))"),
     add_form("(= (c2-pl-nr $x) NotReducible)"),
     both_doors("(c2-pl-nr q)", [['c2-pl-nr', q]]),
-    both_doors("(chain (eval (c2-pl-nr q)) $r (quote $r))",
-               [[quote, 'NotReducible']]).
+    %An ORDINARY expression is the observation now, not a quote. chain's
+    %%Undefined% result re-enters evaluation, so a body that answered the bare
+    %`NotReducible` would hand that marker straight back to the protocol and
+    %the call would be retained again; a head with no equations holds it where
+    %the reader can see it. The quote used to do this because it was a value.
+    both_doors("(chain (eval (c2-pl-nr q)) $r (c2-pl-held $r))",
+               [['c2-pl-held', 'NotReducible']]).
 
 test(the_raw_step_exposes_the_marker_only_to_control_consumers) :-
     Term = ['c2-pl-unknown-call'],
@@ -149,8 +158,8 @@ test(a_function_returned_marker_uses_the_same_protocol) :-
     assertion(DirectMarker == [[function, ['c2-pl-frame-body-nr']]]),
     both_doors("(function (c2-pl-frame-no-rule))",
                [['Error', [function, ['c2-pl-frame-no-rule']], 'NoReturn']]),
-    both_doors("(chain (eval (c2-pl-frame-nr q)) $r (quote $r))",
-               [[quote, 'NotReducible']]).
+    both_doors("(chain (eval (c2-pl-frame-nr q)) $r (c2-pl-held $r))",
+               [['c2-pl-held', 'NotReducible']]).
 
 test(a_tail_call_retains_the_innermost_irreducible_call) :-
     add_form("(= (c2-pl-tail Z) NotReducible)"),

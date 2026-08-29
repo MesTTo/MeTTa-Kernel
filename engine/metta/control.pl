@@ -795,7 +795,11 @@ metta_metta_result_is_final(Atom) :-
 %with any other value. `(bind! s (new-state 7))` then `(get-state s)` still
 %answers 7, now by substituting the cell for the name rather than by using the
 %name as the cell [tested: test_a_state_cell_is_a_value_typed_by_what_it_holds].
-'bind!'(Var, Value, []) :-
+%`true`, the effect answer every operation in this family gives; see the note
+%above 'println!'/2 in engine/metta/runtime.pl for the family and its list
+%[source: PeTTa@ae66fa8 src/metta.pl:264, where `bind!` on a new-state form
+%delegates to 'change-state!'/3 and hands back its `true`].
+'bind!'(Var, Value, true) :-
     ( atom(Var)
       -> true
       ;  throw(error(type_error(symbol, Var),
@@ -971,13 +975,21 @@ metta_next_state_cell(Cell) :-
 
 metta_state_cell(X) :- atom(X), atom_concat('&state-#', _, X).
 
-%change-state! ANSWERS THE CELL it wrote, which is what makes a write
-%composable: `(get-state (change-state! $c 2))` reads back what was just
-%written. It answered True before, which no upstream signature has.
+%change-state! answers `true`, the effect answer of its family; see the note
+%above 'println!'/2 in engine/metta/runtime.pl
+%[source: PeTTa@ae66fa8 src/metta.pl:265, `'change-state!'(Var, Value, true)`;
+%measured 2026-08-29, its examples/state.metta prints `true` for
+%`!(change-state! state active)`].
+%
+%It answered THE CELL it wrote between commit 657ae967 and this change, to make
+%a write composable as `(get-state (change-state! $c 2))`. That composition is
+%gone with the cell: the write is an effect and its answer says only that the
+%effect happened, so a reader names the cell it wants. Nothing in the arbiter's
+%corpus wrote the composed form.
 'change-state!'(Var, _, _) :-
     metta_state_write_fenced, !,
     throw(error(metta_state_write_fenced(Var), none)).
-'change-state!'(Var, Value, Var) :-
+'change-state!'(Var, Value, true) :-
     catch(( must_be(atom, Var), metta_set_state(Var, Value) ), E,
           rethrow_metta_operation_error('change-state!', E)).
 'get-state'(Var, Value) :-

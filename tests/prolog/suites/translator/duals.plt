@@ -317,10 +317,22 @@ short_circuit_setup :-
     ;   metta("(= (sc-yes) True)\n(= (sc-no) False)")
     ).
 
-%A quote value is not the literal True atom, even when its inert payload is
-%True, so its constructive negation succeeds in both cases.
-test(a_quote_value_is_never_the_literal_true_atom) :-
-    metta_answer("!(not-provable (quote True))", true),
+%A quote is a BARRIER rather than a value, so `(quote X)` IS X and there is no
+%wrapper for constructive negation to see. The row used to read
+%`(not-provable (quote True))` answering true "even when its inert payload is
+%True", which was a property of quote-as-value and is gone with it
+%[source: PeTTa@ae66fa8 src/translator.pl:320].
+%
+%The wrapped and the bare spelling therefore answer ALIKE, which is the whole
+%content of the barrier here. engine/duals.pl's body_form_dual/5 for quote used
+%to succeed unconditionally, on the reasoning that a quote value can never be
+%the True atom; with no wrapper that reasoning is gone, and leaving it in place
+%made this query answer both false and true at once
+%[measured 2026-08-29, before and after engine/duals.pl's quote clause moved to
+%the written-payload test].
+test(a_quote_is_transparent_to_constructive_negation) :-
+    metta_answer("!(not-provable (quote True))", false),
+    metta_answer("!(not-provable True)", false),
     metta_answer("!(not-provable (quote other))", true).
 
 :- end_tests(duals_connectives).
