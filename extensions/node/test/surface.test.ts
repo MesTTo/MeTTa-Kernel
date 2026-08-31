@@ -195,11 +195,11 @@ describe("a restricted space", () => {
     // all, so asking about one proves only that nothing refused.
     assert.deepEqual(
       (await reader.eval(S.exists_file("/metta/bridge.pl"))).map(String),
-      ["True"],
+      ["true"],
     );
     assert.deepEqual(
       (await reader.eval(S.exists_file("/metta/nothing-here"))).map(String),
-      ["False"],
+      ["false"],
       "the capability let it run and it answered truthfully",
     );
   });

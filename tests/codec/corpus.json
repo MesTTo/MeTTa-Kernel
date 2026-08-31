@@ -25,7 +25,7 @@
     "s": {"class": "term", "payload": "text", "means": "a symbol: a name that denotes itself"},
     "g": {"class": "term", "payload": "text", "means": "a grounded value carried as text; a string crosses this way"},
     "n": {"class": "term", "payload": "exact integer or float", "means": "a grounded Number or BigInt; signed-i64 width fixes an integer's language type"},
-    "b": {"class": "term", "payload": "\"true\" or \"false\"", "means": "a grounded boolean, written True and False in source"},
+    "b": {"class": "term", "payload": "\"true\" or \"false\"", "means": "a grounded boolean; the engine writes true and false, and reads True and False as the same two constants"},
     "v": {"class": "term", "payload": "text", "means": "a variable, the payload an identity within this term"},
     "e": {"class": "term", "payload": "array of terms", "means": "an expression, its children in order; the empty one is unit"},
     "p": {"class": "term", "payload": "ampersand-prefixed text", "means": "an executable space reference carried by its portable engine name; the tag is a species and an ampersand name that is no space keeps s"},
@@ -273,23 +273,23 @@
       "tags": ["b"],
       "text": "True",
       "wire": ["b", "true"],
-      "written": "True",
-      "note": "The language spells its booleans True and False; the payload is the lowercase text. The two spellings are not a drift: the payload names the value, the text form names the constant."
+      "written": "true",
+      "note": "A boolean is WRITTEN in the engine's own spelling, `true`, which is also the wire payload; the reader accepts `True` as well and maps it to the same constant."
     },
     {
       "id": "boolean-false",
       "tags": ["b"],
       "text": "False",
       "wire": ["b", "false"],
-      "written": "False"
+      "written": "false"
     },
     {
       "id": "boolean-lowercase-source",
       "tags": ["b"],
       "text": "true",
       "wire": ["b", "true"],
-      "written": "True",
-      "note": "The reader maps both spellings onto the one constant, so lowercase source READS as the boolean and WRITES back capitalised. The term round-trips; the text does not, which is the one place the two forms are not inverse."
+      "written": "true",
+      "note": "The reader maps both spellings onto the one constant and the writer answers the lowercase one, so lowercase source round-trips in both the term and the text; `True` reads to the same value and comes back as `true`."
     },
     {
       "id": "variable",
@@ -327,7 +327,7 @@
       "tags": ["s", "g", "n", "b", "v", "e"],
       "text": "(() \"s\" 1 True $v)",
       "wire": ["e", [["e", []], ["g", "s"], ["n", 1], ["b", "true"], ["v", "v"]]],
-      "written": {"engine": "(() \"s\" 1 True $_0)", "python": "(() \"s\" 1 True $v)"},
+      "written": {"engine": "(() \"s\" 1 true $_0)", "python": "(() \"s\" 1 True $v)"},
       "note": "One expression holding a child of every core kind plus a boolean."
     },
     {

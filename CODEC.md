@@ -66,7 +66,7 @@ Two shapes break the two-element rule and both are named below: an outbound
 | `s` | term | text | a symbol: a name that denotes itself |
 | `g` | term | text | a grounded value carried as text; a string crosses this way |
 | `n` | term | exact integer or float | a grounded Number or BigInt; signed-i64 width fixes an integer's language type |
-| `b` | term | "true" or "false" | a grounded boolean, written True and False in source |
+| `b` | term | "true" or "false" | a grounded boolean; the engine writes true and false, and reads True and False as the same two constants |
 | `v` | term | text | a variable, the payload an identity within this term |
 | `e` | term | array of terms | an expression, its children in order; the empty one is unit |
 | `p` | term | ampersand-prefixed text | an executable space reference carried by its portable engine name; the tag is a species and an ampersand name that is no space keeps s |
@@ -260,10 +260,11 @@ accepts lowercase source, so `true` reads as the boolean and writes back as
 `True`; the term round-trips and the text does not.
 
 The engine's writer prints a non-finite float as `inf`, `-inf` or `NaN`, the
-arbiter's spellings, and a rational as `1r3`. Each of those reads back as a
-SYMBOL of that spelling rather than as the number, so the value prints
-faithfully and still does not round-trip, which is why the text seam refuses
-the whole class rather than storing something that comes back different.
+forms Hyperon's Rust `f64` Display prints, and a rational as `1r3`. Each of
+those reads back as a SYMBOL of that spelling rather than as the number, so
+the value prints faithfully and still does not round-trip, which is why the
+text seam refuses the whole class rather than storing something that comes
+back different.
 
 `sread_with_names/3` is the reader a binding wants: it reads one form and
 answers the variable names it bound, which is what makes
@@ -407,14 +408,14 @@ restatement of one.
 | `float-infinity` |  | `["n", {"$float": "inf"}]` | `"inf"` |
 | `float-negative-infinity` |  | `["n", {"$float": "-inf"}]` | `"-inf"` |
 | `float-nan` |  | `["n", {"$float": "nan"}]` | `"NaN"` |
-| `boolean-true` | `"True"` | `["b", "true"]` | `"True"` |
-| `boolean-false` | `"False"` | `["b", "false"]` | `"False"` |
-| `boolean-lowercase-source` | `"true"` | `["b", "true"]` | `"True"` |
+| `boolean-true` | `"True"` | `["b", "true"]` | `"true"` |
+| `boolean-false` | `"False"` | `["b", "false"]` | `"false"` |
+| `boolean-lowercase-source` | `"true"` | `["b", "true"]` | `"true"` |
 | `variable` | `"$x"` | `["v", "x"]` | engine `"$_0"` / python `"$x"` |
 | `expression-empty` | `"()"` | `["e", []]` | `"()"` |
 | `expression` | `"(likes Ada Coffee)"` | `["e", [["s", "likes"], ["s", "Ada"], ["s", "Coffee"]]]` | `"(likes Ada Coffee)"` |
 | `expression-nested` | `"(a (b (c d)))"` | `["e", [["s", "a"], ["e", [["s", "b"], ["e", [["s", "c"], ["s", "d"]]]]]]]` | `"(a (b (c d)))"` |
-| `expression-every-tag` | `"(() \"s\" 1 True $v)"` | `["e", [["e", []], ["g", "s"], ["n", 1], ["b", "true"], ["v", "v"]]]` | engine `"(() \"s\" 1 True $_0)"` / python `"(() \"s\" 1 True $v)"` |
+| `expression-every-tag` | `"(() \"s\" 1 True $v)"` | `["e", [["e", []], ["g", "s"], ["n", 1], ["b", "true"], ["v", "v"]]]` | engine `"(() \"s\" 1 true $_0)"` / python `"(() \"s\" 1 True $v)"` |
 | `expression-repeated-variable` | `"(f $x $x)"` | `["e", [["s", "f"], ["v", "x"], ["v", "x"]]]` | engine `"(f $_0 $_0)"` / python `"(f $x $x)"` |
 | `expression-distinct-variables` | `"(f $x $y)"` | `["e", [["s", "f"], ["v", "x"], ["v", "y"]]]` | engine `"(f $_0 $_1)"` / python `"(f $x $y)"` |
 | `equation` | `"(= (double $x) (* $x 2))"` | `["e", [["s", "="], ["e", [["s", "double"], ["v", "x"]]], ["e", [["s", "*"], ["v", "x"], ["n", 2]]]]]` | engine `"(= (double $_0) (* $_0 2))"` / python `"(= (double $x) (* $x 2))"` |

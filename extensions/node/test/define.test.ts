@@ -85,8 +85,8 @@ describe("a lowered body", () => {
       { name: "prime?" },
     );
     assert.equal(isPrime.head, "prime?");
-    assert.equal(String(await isPrime(53537257).one()), "True");
-    assert.equal(String(await isPrime(91).one()), "False");
+    assert.equal(String(await isPrime(53537257).one()), "true");
+    assert.equal(String(await isPrime(91).one()), "false");
   });
 
   it("costs no host crossing per call, because the whole body is in the engine", async () => {
