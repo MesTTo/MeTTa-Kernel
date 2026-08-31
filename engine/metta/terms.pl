@@ -650,6 +650,12 @@ metta_operation_refusal('sqrt-math', _, "sqrt-math expects one argument: number"
 metta_operation_refusal('abs-math', _, "abs-math expects one argument: number").
 metta_operation_refusal('pow-math', _,
     "pow-math expects two arguments: number (base) and number (power)").
+metta_operation_refusal('bit-shift-left', _,
+    "bit-shift-left expects two arguments: integer (value) and \c
+     non-negative integer (count)").
+metta_operation_refusal('bit-shift-right', _,
+    "bit-shift-right expects two arguments: integer (value) and \c
+     non-negative integer (count)").
 metta_operation_refusal('log-math', _,
     "log-math expects two arguments: base (number) and input value (number)").
 metta_operation_refusal(Operation, _, Message) :-

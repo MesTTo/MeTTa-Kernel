@@ -486,6 +486,50 @@ metta_pow_math_numeric(A, B, Out) :-
                   'pow-math', Expression, [A, B], Error, Out))
     ).
 
+%Bit shift, which is NOT part of the math.h family above and is not named
+%`-math` for that reason: those wrap C library functions over binary64, while
+%this is an exact operation on integers and nothing else. `bit-shift-left` and
+%`bit-shift-right` are Clojure's spelling, which is the Lisp family's, and the
+%`bit-` prefix is load-bearing HERE specifically because `and`, `or` and `xor`
+%in this engine are BOOLEAN: without it a reader has no way to tell which
+%family a bitwise operation joined.
+%
+%The count must be a NON-NEGATIVE integer, which SWI does not require: `1 << -1`
+%evaluates to 0 there, silently reinterpreting a left shift as a right one
+%[measured 2026-08-31 on SWI 10.1.13]. Python raises on a negative count and
+%this refuses, because a silent 0 is the shape a caller cannot see is wrong.
+%A float earns the ordinary argument refusal rather than being truncated, which
+%is SWI's own type_error(integer, 1.5) turned into the engine's answer shape.
+%
+%A count large enough to exhaust memory is NOT turned into an answer, which is
+%where this parts company with pow-math above: that one bounds its exponent to
+%signed i32 and answers "power argument is too big" because SWI's ** requires
+%it, a mechanical constraint rather than a policy. Shift has no such bound, and
+%an (Error ...) atom for a resource exhaustion would let a program that asked
+%for a terabyte carry on as though it had asked a question. The stack limit
+%contains it and the error stays a host error
+%[measured 2026-08-31: !(bit-shift-left 1 100000000000) under --stack-limit=256m
+%throws resource_error(stack)].
+'bit-shift-left'(A, B, Out) :-
+    metta_bit_shift('bit-shift-left', <<, A, B, Out).
+
+'bit-shift-right'(A, B, Out) :-
+    metta_bit_shift('bit-shift-right', >>, A, B, Out).
+
+metta_bit_shift(Operation, Functor, A, B, Out) :-
+    (   integer(A), integer(B)
+    ->  (   B < 0
+        ->  metta_error_atom(
+                Operation, [A, B],
+                "shift count must not be negative", Out)
+        ;   Expression =.. [Functor, A, B],
+            catch(Out is Expression, Error,
+                  metta_math_saturating_recovery(
+                      Operation, Expression, [A, B], Error, Out))
+        )
+    ;   metta_operation_answer(Operation, [A, B], Out)
+    ).
+
 metta_float_unary_eval(Operation, Function, A, Out) :-
     Expression =.. [Function, float(A)],
     metta_math_saturating_eval(Operation, Expression, [A], Out).

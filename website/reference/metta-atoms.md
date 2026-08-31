@@ -196,15 +196,25 @@ def order_key(atom: Atom) -> tuple:
 def substitute(atom: Any, bindings: Mapping[str, Atom]) -> Atom:
 ```
 
-> The atom with every bound variable replaced. As unify's companion,
-> substitute(pattern, unify(pattern, atom)) is the matched instance. An
-> unbound variable stays itself, so a partial substitution is a narrower
-> pattern rather than an error.
+> The atom with every bound VARIABLE replaced, keyed by variable name.
+>
+> The internal primitive, for callers that hold names rather than atoms: a
+> result row's columns, and ``_match``'s directional bindings. An unbound
+> variable stays itself, so a partial substitution is a narrower pattern
+> rather than an error.
+>
+> ``Atom.subs`` is the public door and the one implementation. It is keyed by
+> ATOM because a bare name cannot say which kind it means on a surface that
+> has both: this function reads ``{"x": ...}`` as the VARIABLE $x while
+> ``using=`` at the evaluation doors reads the same mapping as the SYMBOL x
+> [measured 2026-08-31, on the source door and the term door alike]. Two
+> meanings for one spelling is fine inside the library, where each caller
+> knows which it holds, and is not something to publish.
 
 ## `unify`
 
 ```python
-def unify(left: Any, right: Any) -> Mapping[str, Atom] | None:
+def unify(left: Any, right: Any) -> Mapping[Atom, Atom] | None:
 ```
 
 > Unify two atoms symmetrically, returning bindings or ``None``.
@@ -214,3 +224,8 @@ def unify(left: Any, right: Any) -> Mapping[str, Atom] | None:
 > Anonymous ``_`` occurrences remain fresh and bind nothing. This host
 > matcher retains its historical no-occurs-check behavior; four-argument
 > conditional unification is the engine form exposed by ``metta.unify``.
+>
+> Keyed by the VARIABLES themselves, which is what ``Atom.subs`` accepts, so
+> a substitution this produces is one the library can apply. A bare name
+> cannot say whether it means a variable or a symbol, and this language has
+> both: ``using={"x": 5}`` at the evaluation doors means the SYMBOL x.

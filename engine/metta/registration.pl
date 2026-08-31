@@ -522,6 +522,8 @@ runtime_type_guarded('#\\=').
 runtime_type_guarded('#=<').
 runtime_type_guarded('#>=').
 runtime_type_guarded('pow-math').
+runtime_type_guarded('bit-shift-left').
+runtime_type_guarded('bit-shift-right').
 runtime_type_guarded('sqrt-math').
 runtime_type_guarded('abs-math').
 runtime_type_guarded('log-math').
@@ -640,6 +642,7 @@ unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
                           'pow-math', 'sqrt-math', 'sort-atom','abs-math', 'log-math', 'exp-math', 'trunc-math', 'ceil-math',
                           'floor-math', 'round-math', 'sin-math', 'cos-math', 'tan-math', 'asin-math','random-int','random-float',
                           'acos-math', 'atan-math', 'isnan-math', 'isinf-math', 'min-atom', 'max-atom',
+                          'bit-shift-left', 'bit-shift-right',
                           'foldl-atom', 'map-atom', 'filter-atom','current-time','format-time', 'context-space', library, exists_file,
                           'format-args', 'sort-strings', include,
                           sleep, 'pragma!', metta, 'metta-thread',

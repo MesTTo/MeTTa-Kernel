@@ -1133,6 +1133,7 @@ pure_arithmetic('log-math').   pure_arithmetic('pow-math').
 pure_arithmetic('round-math'). pure_arithmetic('sin-math').
 pure_arithmetic('sqrt-math').  pure_arithmetic('tan-math').
 pure_arithmetic('trunc-math').
+pure_arithmetic('bit-shift-left').  pure_arithmetic('bit-shift-right').
 
 pure_comparison('<').  pure_comparison('>').  pure_comparison('<=').
 pure_comparison('>=').  pure_comparison('==').  pure_comparison('!=').

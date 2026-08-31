@@ -71,7 +71,8 @@ compare atoms; comparison terms name their head explicitly. The full set:
 | `x ** y` | `(pow-math x y)` | | `x.le(y)` | `(<= x y)` |
 | `x // y` | `(floor-math (/ x y))` | | `x.gt(y)` | `(> x y)` |
 | `x @ y` | `(matmul x y)` | | `x.ge(y)` | `(>= x y)` |
-| `-x` | `(- 0 x)` | | `abs(x)` | `(abs-math x)` |
+| `x << y` | `(bit-shift-left x y)` | | `-x` | `(- 0 x)` |
+| `x >> y` | `(bit-shift-right x y)` | | `abs(x)` | `(abs-math x)` |
 | `x.eq(y)` | `(== x y)` | | `x.ne(y)` | `(not (== x y))` |
 
 Reflected forms work too: `1 + V.x` builds `(+ 1 $x)`.
@@ -80,10 +81,19 @@ The specialist immutable `metta.atoms.OPERATOR_LOWERINGS` table records these
 lowerings. A row is a builtin symbol, a composite template, a provided name, a
 reserved Python spelling, a sorting spelling, or an explicit absence. `matmul` is provided: `@`
 always builds that stable name, and a library supplies its MeTTa definition.
-Left and right shift are absent because MeTTa has no integer-shift operation;
-`x << y` and `x >> y` raise a message naming that fact instead of Python's
-generic unsupported-operands error. Grounded values keep Python semantics, so
-`Grounded(3) << 2` answers `12` rather than building a term.
+Every Python binary operator lowers; there is no hole left in the table. Left
+and right shift were the last two, and they were absent because MeTTa had no
+shift: the answer to a missing semantic is the semantic, so
+`bit-shift-left` and `bit-shift-right` are engine operations now. They are
+named for Clojure's spelling rather than the `-math` family, because that
+suffix marks this engine's C `math.h` functions over binary64 and shift is
+exact and integer-only, and because `and`, `or` and `xor` above are BOOLEAN
+here so the `bit-` prefix is what tells a reader which family the operation
+joined. The count must be a non-negative integer: SWI evaluates `1 << -1` to
+`0`, silently reading a left shift as a right one, and this refuses instead.
+`Grounded` builds the term too, as it does for every other lowering:
+`Grounded(3) << 2` is `(bit-shift-left 3 2)`, the same way `Grounded(7) // 2`
+is `(floor-math (/ 7 2))`.
 
 All comparisons answer Python booleans. **`x.eq(y)` builds the equality term `(== x y)`, while `==` itself compares atoms structurally.** The same split holds for ordering: `x.lt(y)`, `x.le(y)`, `x.gt(y)` and `x.ge(y)` build relations, while the four rich comparison operators compare the engine's standard atom order. The bracket door `S["<"](x, y)` spells the same term for a head outside identifier grammar. Atoms are dict keys, test comparands, and sortable values, so Python comparison operators never become terms.
 

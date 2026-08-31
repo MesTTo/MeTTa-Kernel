@@ -407,7 +407,14 @@ def profile_extension(
 ### `Space.save`
 
 ```python
-def save(self, path: str | os.PathLike[str], format: SaveFormat = SaveFormat.metta) -> int:
+def save(
+    self,
+    path: str | os.PathLike[str],
+    *,
+    format: SaveFormat = SaveFormat.metta,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> int:
 ```
 
 > Write every stored atom of this space, equations included, as
@@ -418,6 +425,17 @@ def save(self, path: str | os.PathLike[str], format: SaveFormat = SaveFormat.met
 > atomically replaces the target, so a failed save leaves the old file
 > intact. Atoms carrying live host objects cannot survive either file
 > and are refused.
+>
+> `timeout` (seconds) and `inferences` (engine steps) bound the save with
+> the engine's own guards, exactly as they bound load(). Every part of a
+> save is linear in the space -- the enumeration, the unwritable-atom
+> scan and the fast writer -- so this is the unbounded engine work those
+> guards exist to bound, and the atomic replace above already makes a
+> stopped save safe: the sibling is never moved into place.
+>
+> There is no `format` on load(), and that is not an omission. When you
+> save, the file does not exist and something has to say which of the two
+> to write; when you load, load() reads which it is, `.gz` included.
 
 ### `Space.load`
 
@@ -1025,11 +1043,20 @@ def eval(
 > value; evaluate through eval() when it matters.
 >
 > `using` binds named host values into the term before it evaluates,
-> exactly as it does for run(): `m.eval("(decide $x)", using={"x":
+> exactly as it does for run(): `m.eval("(decide x)", using={"x":
 > tensor})` hands the tensor itself to the rule, by identity, rather
-> than a printed form of it. The evaluation doors take the same
+> than a printed form of it. The name is the SYMBOL x and not the
+> variable $x, on this door and the source door alike; the example here
+> wrote `$x` and did not work [measured 2026-08-31]. The evaluation doors take the same
 > vocabulary the source door takes, so reaching for a term instead
 > of source text costs no change of spelling.
+>
+> A key may be a NAME or an ATOM. A name means the symbol of that name,
+> which is what the engine's own substitution matches and what run()
+> takes. An atom means exactly that atom, so `using={V.x: 5}` fills a
+> VARIABLE hole -- the one substitution `unify` reports and the one no
+> door could apply, because a variable crosses the wire as ['v', 'x']
+> where a symbol crosses as ['s', 'x'] and the engine matches names.
 >
 > `timeout` (seconds) and `inferences` (engine steps) bound the call,
 > raising TimeLimitError or InferenceLimitError when hit. A surrounding
@@ -1196,6 +1223,8 @@ def eval_status(
     using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
+    theory: Any | None = None,
+    interpreter: Any | None = None,
 ) -> list[tuple[str, Atom | Undefined | None]]:
 ```
 
@@ -1217,7 +1246,17 @@ def eval_status(
 > `using` binds host values into the term exactly as it does for
 > eval(), and it has to: the substitution lands BEFORE the
 > reducibility question, so the status of an evaluation that binds
-> anything was unaskable without it.
+> anything was unaskable without it. Name keys mean symbols and atom
+> keys mean themselves, so `using={V.x: 5}` fills a variable hole.
+>
+> `theory` and `interpreter` are eval()'s own, and mean the same here.
+> This is the door that says which evaluation path produced an answer, so
+> being unable to point it at an alternative evaluation relation was the
+> sharpest form of the gap: `m.eval_status(target, interpreter=my_eval)`
+> is how you see whether an explicit interpreter reduced a term or handed
+> it back. `under=` is deliberately NOT here: a carrier annotates every
+> answer with an algebra value, so it would make a status row a triple
+> rather than the pair it is, which is a question about what a status IS.
 
 ### `Space.run_status`
 
@@ -1438,6 +1477,11 @@ def pure(self, fn: Callable | None = None, /, **options: Any) -> Any:
 > cache-safe, which is the whole reason it is lifted out of this class
 > [tested: test_a_generator_is_lifted_to_the_nondeterministic_rank;
 > commit=7e5091540a8dc0903bcee24f3e5b8b85a19f805f].
+>
+> Every ``op`` keyword applies: ``name``, ``arities``,
+> ``declarations``, ``inverse`` and ``transport``. They arrive as
+> ``**options`` and forward unchanged, so the signature above shows
+> the mechanism and this line shows the surface.
 
 ### `Space.reads`
 
@@ -1446,6 +1490,11 @@ def reads(self, fn: Callable | None = None, /, **options: Any) -> Any:
 ```
 
 > An operation that reads stable state without changing it.
+>
+> Every ``op`` keyword applies: ``name``, ``arities``,
+> ``declarations``, ``inverse`` and ``transport``. They arrive as
+> ``**options`` and forward unchanged, so the signature above shows
+> the mechanism and this line shows the surface.
 
 ### `Space.writes`
 
@@ -1454,6 +1503,11 @@ def writes(self, fn: Callable | None = None, /, **options: Any) -> Any:
 ```
 
 > An operation that changes engine or host state.
+>
+> Every ``op`` keyword applies: ``name``, ``arities``,
+> ``declarations``, ``inverse`` and ``transport``. They arrive as
+> ``**options`` and forward unchanged, so the signature above shows
+> the mechanism and this line shows the surface.
 
 ### `Space.io`
 
@@ -1471,6 +1525,11 @@ def io(self, fn: Callable | None = None, /, **options: Any) -> Any:
 >
 > The fail-closed top of the lattice. Declare it when what the operation
 > reaches is decided at run time or by a library the engine cannot bound.
+>
+> Every ``op`` keyword applies: ``name``, ``arities``,
+> ``declarations``, ``inverse`` and ``transport``. They arrive as
+> ``**options`` and forward unchanged, so the signature above shows
+> the mechanism and this line shows the surface.
 
 ### `Space.unregister_op`
 
@@ -1761,6 +1820,7 @@ def derivation(
     target: Any,
     depth: int | None = None,
     *,
+    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
 ) -> list[Any]:
@@ -1776,6 +1836,14 @@ def derivation(
 > Truncated nodes when its budget ends, so an empty list means no proof.
 > `timeout` and `inferences` guard the whole search. An evaluation error
 > inside a proof surfaces as itself rather than as an empty proof list.
+>
+> `using` binds host values into the term, for the reason eval_status
+> needs it: the substitution lands BEFORE the search, so the proof of an
+> evaluation that binds anything was unaskable. Name keys mean symbols
+> and atom keys mean themselves, so `using={V.x: 5}` fills a variable
+> hole. It takes no `theory` or
+> `interpreter`, because a meta-interpreted diagnostic does not select an
+> evaluation relation.
 
 ### `Space.why`
 
@@ -2419,6 +2487,13 @@ def space(
 > ``journal=`` constructs ``PersistentFactSpace`` from ``schema=`` or
 > a schema mapping supplied as the backing. ``sync`` paces the
 > journal and means nothing without one, so it refuses alone.
+>
+> ``inherits``, ``restricted`` and ``grants`` choose the space MODEL and
+> are independent of whether the space is named. MeTTa's own
+> ``!(new-space &locked (restricted))`` names a restricted space, and
+> ``metta.space(S.locked, restricted=True)`` is that call. Declaring a
+> model on a name that already carries the same one is a no-op; a
+> different one raises, because a space cannot have two models.
 
 ### `MeTTa.define`
 

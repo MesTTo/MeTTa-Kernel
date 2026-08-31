@@ -235,7 +235,14 @@ async def load(
 ### `AsyncMeTTa.save`
 
 ```python
-async def save(self, path: str, format: SaveFormat = SaveFormat.metta) -> int:
+async def save(
+    self,
+    path: str,
+    *,
+    format: SaveFormat = SaveFormat.metta,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> int:
 ```
 
 > Save this space and return the number of stored atoms.
@@ -557,6 +564,7 @@ async def derivation(
     target: Any,
     depth: int | None = None,
     *,
+    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
 ) -> Any:
@@ -596,10 +604,11 @@ async def space(
 
 > Create or open one space through this connection's worker.
 >
-> An omitted name creates an anonymous space. A provider supplied as
-> ``backing`` is attached to the resulting handle. The connection owns
-> the worker; returned spaces borrow it, so closing one does not stop
-> the connection.
+> An omitted name creates an anonymous space. ``inherits``, ``restricted``
+> and ``grants`` choose the space MODEL and apply to a named space as
+> well as an anonymous one. A provider supplied as ``backing`` is
+> attached to the resulting handle. The connection owns the worker;
+> returned spaces borrow it, so closing one does not stop the connection.
 
 ### `AsyncMeTTa.first`
 
@@ -667,6 +676,8 @@ async def eval_status(
     using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
+    theory: Any | None = None,
+    interpreter: Any | None = None,
 ) -> list:
 ```
 
