@@ -1299,7 +1299,7 @@ metta_seq_written(Operand) :-
 %same complaint the two clauses around this one answer, and engine/duals.pl
 %reads the note to decide it cannot dualise the head
 %[tested: duals_refusals:a_functional_pattern_head_has_no_dual;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 prolog:message(metta_head_pattern_note(Fun, Path, Label, functional_pattern)) -->
     { head_pattern_position_text(Path, Where) },
     [ 'the head of (= (~w ...) ...) holds the call (~w ...) at ~w, so that \c

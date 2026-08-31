@@ -120,7 +120,7 @@ remove_sexp(Space, Atom) :- remove_sexp(Space, Atom, _).
 %nothing in its text saying which it would get
 %[tested: spaces_arbitrary_atoms:spaces_removal_answers_true_and_drains_every_occurrence,
 %test_an_absent_equation_removal_answers_true,
-%test_a_persistent_space_drains_like_a_native_one; commit=WORKTREE].
+%test_a_persistent_space_drains_like_a_native_one; commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 remove_sexp('&metta', [Rel|Args], Removed) :- !,
     (   native_storage_module_ready('&metta', Module)
     ->  Term =.. ['&metta', Rel|Args],
@@ -297,7 +297,7 @@ metta_abolish_local_predicate(Module, Name, Arity) :-
 %user, blocked SWI from defining that module's local tabling state
 %('No permission to redefine built-in $table_mode/3')
 %[tested: test_a_drop_untables_before_it_removes_any_clause,
-%test_an_equation_change_does_not_pay_for_a_dropped_table; commit=WORKTREE].
+%test_an_equation_change_does_not_pay_for_a_dropped_table; commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 metta_restore_inherited_predicate(_, Name, _) :-
     sub_atom(Name, 0, 1, _, '$'),
     !.
@@ -334,7 +334,7 @@ metta_capture_default_imports(Module) :-
                   %'No permission to redefine built-in $table_mode/3'
                   %[tested:
                   %filereader_import_lifecycle:the_capture_pass_refuses_swi_and_engine_bookkeeping;
-                  %commit=WORKTREE].
+                  %commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
                   \+ sub_atom(Name, 0, 1, _, '$'),
                   functor(Head, Name, Arity),
                   predicate_property(Module:Head, imported_from(Source)),

@@ -264,7 +264,7 @@ metta_match_all([X|Xs], [Y|Ys]) :-
 %check in tests/prolog/static_checks.pl now refuses it by name rather than
 %letting it fail quietly
 %[tested: tests/prolog/static_checks.pl:every_registered_space_name_is_an_ampersand_atom;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 metta_space_operand(S) :-
     atom(S),
     !,

@@ -168,7 +168,7 @@ metta_with_pragmas(Settings, Goal, Value) :-
 %[measured 2026-08-31: swipl -g "consult('engine/qlf_boot.pl'),
 %consult('engine/metta.pl')" with the planted clause, both ways round;
 %tested: scoped_stack_limit:a_restore_that_fails_still_restores_the_rest;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 metta_restore_pragmas([], _).
 metta_restore_pragmas([Pair|Rest], First) :-
     (   catch(metta_restore_pragma(Pair), Error, true)
@@ -1167,7 +1167,7 @@ prolog:error_message(metta_state_write_fenced(Cell)) -->
 %answered `(eval done)` and `(eval ())` until then].  Keeping the two roles
 %separate lets function and metta-thread inspect the marker without leaking it
 %through direct eval/2 callers such as unquote
-%[tested: metatype_mask:unquote_holds_its_operand; commit=WORKTREE].
+%[tested: metatype_mask:unquote_holds_its_operand; commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 %
 %The evaluator runs its goals in the current space's module, for the same reason
 %call_goals_in/2 and current_metta_space/1 exist: call/1 resolves a goal in the

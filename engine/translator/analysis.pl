@@ -309,7 +309,7 @@ record_head_pattern_notes(F, Positions) :-
 %notes to decide which heads it cannot dualise, and a constraint it cannot
 %see is one it would silently claim past
 %[tested: duals_refusals:a_functional_pattern_head_has_no_dual;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 head_pattern_reason(_, _, _, _, _, functional_pattern, functional_pattern).
 %THE LABEL QUESTION FIRST, and the order is what the two questions cost rather
 %than taste. head_meaning_route/3 reads Prolog facts, metta_special_form/1,
@@ -999,7 +999,7 @@ direct_self_equation_goal(Goal0, Caller, Produced, Out, Goal) :-
 %side effect on one path so both equation compilers see the same head
 %[tested: tests/prolog/suites/reader/segment_equations.plt and
 %tests/prolog/suites/translator/translator.plt:an_in_place_annotation_is_still_a_constraint;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 %THE ONE DOOR THAT INVERTS. Every other constrain_args/3 caller compiles a
 %pattern that is not an equation head -- case keys, typed lets, case duals,
 %the specializer's normalized head -- and a functional pattern there would

@@ -20,8 +20,9 @@ Guarantees:
   - each of the seven planted shapes lands on the side the pass documents, and
     the pass reports the declined ones with a reason
     [tested: tests/checks/check_pin_provenance_selftest.py]
-  - a placeholder outside the evidence gate's own globs is neither rewritten
-    nor reported, so the pass and the gate cover the same files
+  - a placeholder outside the evidence gate's own globs is REPORTED and fails
+    the run, and is never rewritten: the pass writes only where the gate reads,
+    and says so loudly where the gate does not
     [tested: tests/checks/check_pin_provenance_selftest.py]
   - --check exits 1 while pins remain and 0 once they are resolved, and a
     commit that does not resolve is refused before any file changes
@@ -120,7 +121,66 @@ PLANTS = (
         [2],
         [],
     ),
-    # Outside every glob check_evidence_tags reads, so the pass must not see it.
+    # A seat's build file, keyed by NAME because a Makefile has no suffix.
+    (
+        "extensions/plant/Makefile",
+        [
+            "# Purpose: a fixture build file.",
+            f"# Guarantees: its install lane proves it [{TAG} {WHEN}: a case; {WORD}].",
+            "all:",
+            f"\t@echo '{WORD}'",
+        ],
+        [2],
+        [4],
+    ),
+    # The Node consumer's class, and the C program a seat's install lane
+    # compiles: both carried a real pin on 2026-08-31 that no glob reached.
+    (
+        "extensions/plant/tools/plant.mjs",
+        [
+            "/* Purpose: a fixture consumer.",
+            f" * Guarantees: the dist lane boots it [{TAG} {WHEN}: a case; {WORD}].",
+            " */",
+            f'export const emitted = "{WORD}";',
+            f"// The line half [{TAG} {WHEN}: a case; {WORD}].",
+        ],
+        [2, 5],
+        [4],
+    ),
+    (
+        "extensions/plant/tests/plant.c",
+        [
+            "/* Purpose: a fixture consumer program.",
+            f" * Guarantees: the install lane compiles it [{TAG} {WHEN}: a case; {WORD}].",
+            " */",
+            f'static const char *emitted = "{WORD}";',
+        ],
+        [2],
+        [4],
+    ),
+    # Prose WRAPS, and a backtick span wraps with it. Line 5's mention sits
+    # inside a span opened on line 4, which a per-line backtick count reads as
+    # unbalanced and rewrites: DEVELOPING.md's own explanation is this shape.
+    (
+        "engine/plant_wrap.pl",
+        [
+            "% Purpose: a fixture whose prose wraps.",
+            f"%   While working, write `{WORD}`, which names no tree yet.",
+            f"%   A real pin reads [{TAG} {WHEN}: a_plunit_test; {WORD}].",
+            "%   The span below opens here: `[tested: <name>;",
+            f"%   {WORD}]` and closes on this line, one span over two lines.",
+            # A run of one closes only on a run of ONE, so the run of three is
+            # skipped and this mention sits inside one span. A ``(`+)...\1``
+            # regex instead pairs the ticks off two at a time, leaving the
+            # mention between two spans and rewriting it as a pin.
+            f"%   Opens `A```{WORD} and closes` here.",
+        ],
+        [3],
+        [2, 5, 6],
+    ),
+    # Outside every glob check_evidence_tags reads. The pass must not REWRITE
+    # it, and must report it: an unscanned pin is a claim nothing would ever
+    # resolve, which is the defect the out-of-glob net exists to catch.
     (
         "extensions/python/tests/plant.py",
         [f"#: An unscanned pin [{TAG} {WHEN}: test_collected; {WORD}]."],
@@ -197,8 +257,9 @@ def complaints() -> list[str]:
         )
 
         resolved = run(root, "--commit", live)
-        if resolved.returncode != 0:
-            found.append(f"the pass exited {resolved.returncode}: {resolved.stderr.strip()}")
+        unscanned = ""
+        if resolved.returncode == 0:
+            found.append("the pass exited 0 with a pin outside the gate's globs, wanted nonzero")
         for name, lines, rewritten, declined in PLANTS:
             text = (root / name).read_text().splitlines()
             found.extend(
@@ -213,14 +274,24 @@ def complaints() -> list[str]:
                 if f"{name}:{line}: left alone" not in resolved.stdout:
                     found.append(f"{name}:{line} was left alone without saying why")
             if not rewritten and not declined and len(lines) == 1:
+                unscanned = name
                 if WORD not in text[0]:
                     found.append(f"{name} is outside the gate's globs and was rewritten anyway")
-                if name in resolved.stdout:
-                    found.append(f"{name} is outside the gate's globs and was reported anyway")
+                if f"{name}: 1 pin(s) OUTSIDE" not in resolved.stdout:
+                    found.append(f"{name} is outside the gate's globs and went unreported")
 
+        # An unscanned pin fails the run on its own, with every other pin
+        # already resolved: without this the net could report and still exit 0,
+        # which is the silence it exists to end.
         again = run(root, "--check")
-        if again.returncode != 0:
-            found.append(f"--check exited {again.returncode} on a resolved tree, wanted 0")
+        if again.returncode != 1:
+            found.append(
+                f"--check exited {again.returncode} with an unscanned pin outstanding, wanted 1"
+            )
+        (root / unscanned).unlink()
+        cleared = run(root, "--check")
+        if cleared.returncode != 0:
+            found.append(f"--check exited {cleared.returncode} on a resolved tree, wanted 0")
     return found
 
 

@@ -487,7 +487,7 @@ metta_writes(Ctx, Atomicity) :-
 %abolished is reported as a host_service published but not defined
 %[tested: tests/prolog/static_checks.pl:check_project_var_branches,
 %tests/prolog/static_checks.pl:every_seam_kind_matches_its_direction;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 :- meta_predicate metta_transaction(0).
 metta_transaction(Goal) :-
     term_variables(Goal, Vars),

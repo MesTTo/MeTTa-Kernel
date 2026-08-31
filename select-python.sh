@@ -14,7 +14,7 @@
 #     'docstring_parser'" when a developer ran it directly, while the same file
 #     passed under check.sh, which exports the variable
 #     [measured 2026-08-31: sh engine/test.sh exits 1 with 18 failures and
-#     VIRTUAL_ENV=... sh engine/test.sh exits 0 with none; commit=WORKTREE]
+#     VIRTUAL_ENV=... sh engine/test.sh exits 0 with none; commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8]
 #   - $PY is EMPTY when no interpreter answers, and what that means is the
 #     caller's to say: a test lane refuses, a benchmark lane skips, and
 #     engine/test.sh only ever wanted the exported environment

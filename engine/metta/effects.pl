@@ -5,7 +5,7 @@
 % Guarantees:
 %   - every definition retains engine/metta.pl's implementation module and
 %     original load order [tested: tests/prolog/suites/evaluation/metta.plt,
-%     tests/prolog/static_checks.pl; commit=WORKTREE].
+%     tests/prolog/static_checks.pl; commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 %   - metta_host_goal_repeatable/2 exposes one fail-closed host question over
 %     the shared effect walk without consuming control limits, so bindings
 %     never reconstruct its private queue protocol [tested:
@@ -22,7 +22,7 @@
 %     effects_lattice:a_compiled_goal_plan_follows_raw_definitions_and_joins_operations,
 %     effects_lattice:world_effect_coverage_composes_catalog_rows_to_the_strongest_rank,
 %     effects_lattice:compensation_declarations_require_an_effectful_operation;
-%     commit=WORKTREE].
+%     commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -139,7 +139,7 @@ metta_effect_construct(dispatch_policy_execute(_, _, _, Goal, _), [Goal]).
 %a qualifier where a space-local equation of the same name must not capture the
 %goal, which the inlined fuel charge relies on
 %[tested: lib_tabling_purity:an_impure_goal_is_refused_inside_every_wrapper;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 metta_effect_construct(_:Goal, [Goal]).
 %Anything else that CALLS one of its arguments, read from SWI's own
 %meta_predicate declaration rather than from a list here. This clause is last,
@@ -840,7 +840,7 @@ metta_operation_plan_effect(Operations, Effect) :-
 %structural [tested:
 %effects_lattice:a_compiled_goal_plan_follows_raw_definitions_and_joins_operations,
 %effects_lattice:an_unclassified_bridge_and_dynamic_call_fail_closed_at_oracle_io;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 metta_host_goal_effect_plan(Module,
                             (metta_effect_source_term(Source), Body),
                             Operations, Effect) :-

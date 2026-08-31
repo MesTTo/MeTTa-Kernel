@@ -143,6 +143,15 @@ SOURCES = (
     "extensions/cmetta/*.c",
     "extensions/cmetta/*.h",
     "extensions/cmetta/*.pl",
+    # The three classes pin_provenance's out-of-scope net caught on 2026-08-31,
+    # each carrying a real pin that nothing read and nothing would ever resolve:
+    # a seat's build file, the C program a seat's install lane compiles, and the
+    # Node consumer that proves dist/. Written per-seat rather than per-file so a
+    # seat that grows one of these grows its coverage with it, which is the rule
+    # _c_targets already follows for the cases inside these same suites.
+    "extensions/*/Makefile",
+    "extensions/*/tests/*.c",
+    "extensions/*/tools/*.mjs",
 )
 
 # Commentless formats, scanned for PROVENANCE ONLY. A JSON baseline is exempt
@@ -205,6 +214,10 @@ C_TEST = re.compile(r"^static\s+\w[\w *]*?\btest_(\w+)\s*\(", re.MULTILINE)
 # by being called from there.
 C_MAIN = re.compile(r"^int\s+main\s*\([^)]*\)\s*\{(.*?)^\}", re.MULTILINE | re.DOTALL)
 C_CALL = re.compile(r"\btest_(\w+)\s*\(")
+# A Makefile target opens in column 1 and is followed by `:`, which `:=` is not:
+# a variable assignment names sources without compiling them, and reading one as
+# a target would put every source under whichever variable mentioned it.
+MAKE_TARGET = re.compile(r"^([A-Za-z][\w.-]*)\s*:(?!=)")
 # A name written in prose, quoted so the splitter takes it whole. It may WRAP,
 # because a claim sits in a comment and a comment is wrapped like any other
 # prose, so the match spans newlines and the name's whitespace is normalised
@@ -494,6 +507,33 @@ def _node_targets(runs: dict[Path, Execution]) -> dict[str, list[Target]]:
     return targets
 
 
+def _c_runner(makefile: str, source: Path) -> str:
+    """The seat script that reaches this .c, read off the seat's own Makefile.
+
+    A seat's tests/ holds more than its unit suite. extensions/cmetta/tests/
+    holds test_cmetta.c, which `make test` builds through TESTS, and
+    install_consumer.c, which ONLY `make install-check` compiles, from the
+    c-install lane. Attributing both to the seat's test.sh said the consumer
+    was covered by a lane that never opens it, so deleting c-install would have
+    left its claim reading as backed [measured 2026-08-31: install_consumer.c
+    resolved to test.sh with "the C suite exits nonzero", while
+    `TESTS := tests/test_cmetta` is the whole of what the test target builds].
+
+    A recipe line naming the source decides, because that is the line that
+    compiles it; a source no recipe names is reached the ordinary way, through
+    the test target, and stays with test.sh.
+    """
+    owner = None
+    for line in makefile.splitlines():
+        if matched := MAKE_TARGET.match(line):
+            owner = matched.group(1)
+        elif line.startswith("\t") and source.name in line:
+            # Every seat lane other than the suite lives in the seat's check.sh,
+            # which the root driver sources, so that is what runs this target.
+            return "test.sh" if owner in (None, "test") else "check.sh"
+    return "test.sh"
+
+
 def _c_targets(runs: dict[Path, Execution]) -> dict[str, list[Target]]:
     """Every case a seat's C suite declares, and whether main() runs it.
 
@@ -511,10 +551,17 @@ def _c_targets(runs: dict[Path, Execution]) -> dict[str, list[Target]]:
         text = _text(path)
         body = C_MAIN.search(text)
         called = set(C_CALL.findall(body.group(1))) if body else set()
-        runner = (path.parent.parent / "test.sh").resolve()
+        seat = path.parent.parent
+        recipe = seat / "Makefile"
+        runner = (seat / _c_runner(_text(recipe) if recipe.is_file() else "", path)).resolve()
         run = runs.get(runner)
+        reports = (
+            "the C suite exits nonzero on the first failing check"
+            if runner.name == "test.sh"
+            else "a failed lane makes check.sh exit nonzero"
+        )
         for name in C_TEST.findall(text):
-            why = "the C suite exits nonzero on the first failing check" if run else None
+            why = reports if run else None
             note = "" if run else "no lane runs its suite"
             if name not in called:
                 why, note = None, "main() does not call it, so the binary never runs it"
@@ -522,9 +569,7 @@ def _c_targets(runs: dict[Path, Execution]) -> dict[str, list[Target]]:
                 Target("c", path, runner, why, note)
             )
         targets.setdefault(path.name, []).append(
-            Target("c", path, runner,
-                   "the C suite exits nonzero on the first failing check" if run else None,
-                   "" if run else "no lane runs its suite")
+            Target("c", path, runner, reports if run else None, "" if run else "no lane runs its suite")
         )
     return targets
 
@@ -557,6 +602,14 @@ def file_target(path: Path, reports: dict[Path, str]) -> Target:
             return Target("example", path, resolved, "a test form throws when it does not match")
         return Target("example", path, resolved, None, "it holds no (test ...) or (assert ...) form")
     if path.suffix == ".sh":
+        if resolved in {script.resolve() for script in gate_scripts()}:
+            # A component's check.sh is SOURCED by the root driver, never
+            # executed, so it has no `exit` of its own: its lanes report through
+            # `run`, and the root turns a failed lane into the gate's nonzero
+            # exit. Reading it for an exit of its own declared every component
+            # check file unable to fail, which is what left the first three
+            # claims naming one unbacked [measured 2026-08-31].
+            return Target("shell", path, resolved, "a failed lane makes check.sh exit nonzero")
         if SHELL_FAILURE.search(text):
             return Target("shell", path, resolved, "the suite exits nonzero")
         return Target("shell", path, resolved, None, "it never exits nonzero")

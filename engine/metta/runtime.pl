@@ -126,7 +126,7 @@ prolog:error_message(permission_error(register, metta_function, Name)) -->
 %answered unit, so the two disagreed until now
 %[source: PeTTa@ae66fa8 src/metta.pl:212, `'println!'(Arg, true)`]
 %[tested: spaces_arbitrary_atoms:an_effectful_operation_answers_true;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 'println!'(Arg, true) :- sdisplay(Arg, RArg),
                          format('~w~n', [RArg]).
 
@@ -566,7 +566,7 @@ undocumented(Name) :- current_metta_space(Space),
 %the engine's own clause answers instead. The arity is ours, so
 %retract_unrelated_system_arities/0 leaves it alone: its test is
 %predicate_property(built_in), and a redefined predicate is not built_in
-%[tested: builtin_exists_file_reverse_mode; commit=WORKTREE].
+%[tested: builtin_exists_file_reverse_mode; commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 %
 %An UNBOUND slot is the under-applied call rather than the reverse-mode one,
 %and it answers the same partial application every other under-applied

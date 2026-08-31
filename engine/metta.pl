@@ -906,7 +906,7 @@ metta_import_shared_registries(Subsystem) :-
 %false and metta_mbr_artifact naming engine/translator/mbr.so on a purged tree,
 %true and naming engine/mbr.so after one boot warmed the .qlf set;
 %tested: tests/prolog/static_checks.pl, no_unit_computes_its_own_directory;
-%commit=WORKTREE]. That check refuses the shape for every unit below this
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8]. That check refuses the shape for every unit below this
 %directory and self-tests against a planted occurrence, so a clean result is
 %not a vacuous one.
 %

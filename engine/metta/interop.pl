@@ -146,7 +146,7 @@ prolog_function_source(N, DeclaredArity, Source) :-
 %a_reserved_name_is_refused_before_the_source_loads,
 %a_special_form_name_is_refused,
 %test_registering_any_translator_compiled_head_is_refused_by_name;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 refuse_reserved_registration(N) :-
     (   builtin_fun(N)
     ->  throw(error(permission_error(register, metta_builtin, N),
@@ -987,7 +987,7 @@ ensure_loaded_global(File) :- refuse_unloadable_source_file(File),
 %(load_files user ((Predicate (stream $S))))
 %[tested:
 %prolog_interface_namespacing:a_host_loader_called_from_metta_loads_into_the_process_tier;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 host_process_tier_loader(consult, 1, consult_global).
 host_process_tier_loader(use_module, 1, use_module_global).
 host_process_tier_loader(ensure_loaded, 1, ensure_loaded_global).

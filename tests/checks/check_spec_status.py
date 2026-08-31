@@ -937,7 +937,7 @@ def resolve_identifier(anchor: Anchor, facts: TreeFacts) -> Verdict:
     `test_` anchor, and that is what decides them, so excluding units costs no
     verdict and drops two false witnesses [measured 2026-08-31: adding
     "plunit-unit" to this set changes no FIXED/OPEN/UNKNOWN verdict and only
-    moves P1.14 and P12.16 onto the library-shaped name; commit=WORKTREE].
+    moves P1.14 and P12.16 onto the library-shaped name; commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
     """
     token = anchor.token
     candidates = [token] + ([token.rsplit(".", 1)[-1]] if "." in token else [])

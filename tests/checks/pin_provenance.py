@@ -22,9 +22,11 @@ than per byte:
                 The distinction is `ast`'s, not a regex's.
   .pl .plt      a placeholder is a pin when a `%` opens a comment before it on
                 its line, which is where all 218 of this tree's Prolog pins sit.
-  .sh           the same rule with `#`.
-  .ts .c .h     the same rule with `//`, plus `/* ... */` blocks. The C seat
-                writes its whole contract in one leading `/* ... */`, so the
+  .sh .mk       the same rule with `#`, and a Makefile by NAME, since it
+  Makefile      carries the same contract header its neighbours do and has no
+                suffix at all to key on.
+  .ts .mjs      the same rule with `//`, plus `/* ... */` blocks. The C seat
+  .c .h         writes its whole contract in one leading `/* ... */`, so the
                 block half is not a fallback there but the usual case.
   .json         commentless, so the measurement prose is the only place a pin
                 can be, and every placeholder in one is a pin. This is the rule
@@ -34,13 +36,23 @@ Anything else is REFUSED by name rather than guessed at, and every occurrence
 the pass declines is printed with its reason, so a file class that starts
 carrying pins is visible the first time rather than silently skipped.
 
+That refusal only ever spoke for a file the gate's globs REACHED, though, and a
+file outside them was not refused, it was invisible: on 2026-08-31 a Makefile, a
+.mjs and a .c under a seat's tests/ each carried a real pin and --check still
+exited 0, which would have shipped three claims naming the word WORKTREE as
+their evidence tree forever. `unscanned` is the net under that. It asks git for
+the file list instead of a glob, so the next class is caught the first time it
+carries a pin rather than the first time somebody thinks to add its glob.
+
 Assumes: it is run from a checkout of this repository, with git on PATH.
 Guarantees:
   - a placeholder in a comment, a docstring or a JSON measurement is rewritten,
     and one in a non-docstring string literal or a backticked mention is not
     [tested: tests/checks/check_pin_provenance_selftest.py]
   - the scan covers exactly the files check_evidence_tags reads, because it
-    imports that module's own globs rather than restating them
+    imports that module's own globs rather than restating them, and a tracked
+    file carrying a pin OUTSIDE those globs is reported and fails the run
+    rather than being rewritten or ignored
     [tested: tests/checks/check_pin_provenance_selftest.py]
   - --check writes nothing and exits 1 when any pin would be rewritten, which
     is the same condition RELEASE=1 refuses on
@@ -63,6 +75,7 @@ import ast
 import re
 import subprocess
 import sys
+from functools import cache
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -77,6 +90,30 @@ from check_evidence_tags import (  # noqa: E402  -- HERE must be on the path fir
 
 TOKEN = re.compile(rf"\bcommit={re.escape(PLACEHOLDER)}\b")
 BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
+BLANK_LINE = re.compile(r"\n[ \t]*\n")
+
+#: Which comment rule each file class uses. Keyed on the whole PATH rather than
+#: on the suffix alone, because a Makefile carries the same contract header its
+#: neighbours do and has no suffix at all to key on.
+PERCENT_COMMENT = (".pl", ".plt")
+HASH_COMMENT = (".sh", ".mk")
+SLASH_COMMENT = (".ts", ".mjs", ".c", ".h")
+MAKEFILE_NAMES = ("Makefile", "GNUmakefile")
+
+
+def _grammar(path: Path) -> str | None:
+    """The comment rule this file's class implies, or None to refuse it."""
+    if path.suffix == ".py":
+        return "py"
+    if path.suffix in PERCENT_COMMENT:
+        return "%"
+    if path.suffix in HASH_COMMENT or path.name in MAKEFILE_NAMES:
+        return "#"
+    if path.suffix in SLASH_COMMENT:
+        return "//"
+    if path.suffix == ".json":
+        return "json"
+    return None
 
 
 def _docstring_spans(text: str) -> list[tuple[int, int]]:
@@ -122,26 +159,67 @@ def _docstring_spans(text: str) -> list[tuple[int, int]]:
     return spans
 
 
+@cache
+def _code_spans(text: str) -> tuple[tuple[int, int], ...]:
+    r"""Byte spans of every inline code span, CommonMark's rule.
+
+    A span opens on a run of backticks and closes on the next run of EXACTLY
+    that length, and it may wrap across lines but never across a blank line
+    [source: https://spec.commonmark.org/0.31.2/#code-spans].
+
+    Wrapping is why this is not a per-line backtick count. Prose wraps and a
+    mention wraps with it: DEVELOPING.md's own explanation of the scheme opens
+    its span on one line and closes it on the next, so a line-local count read
+    that line as unbalanced and called the mention a pin.
+
+    Run LENGTH is why this is not a ``(`+)...\1`` regex either. A backreference
+    matches that many backticks anywhere, including the first few of a LONGER
+    run, so a single-tick span would close inside a double-tick one. This is the
+    same delimiter-length walk check_spec_status.split_table_row runs for the
+    same rule, written separately because that one splits cells and this one
+    wants spans.
+    """
+    spans: list[tuple[int, int]] = []
+    position, end = 0, len(text)
+    opened, fence = -1, 0
+    while position < end:
+        if text[position] != "`":
+            # A code span cannot contain a blank line, so an opener still
+            # waiting at one was never a span and is abandoned there.
+            if opened >= 0 and BLANK_LINE.match(text, position):
+                opened, fence = -1, 0
+            position += 1
+            continue
+        run = position
+        while run < end and text[run] == "`":
+            run += 1
+        length = run - position
+        if opened < 0:
+            opened, fence = position, length
+        elif length == fence:
+            spans.append((opened, run))
+            opened, fence = -1, 0
+        position = run
+    return tuple(spans)
+
+
 def _backticked(text: str, at: int) -> bool:
-    """Whether the placeholder at `at` sits inside a backtick span on its line.
+    """Whether the placeholder at `at` sits inside an inline code span.
 
     `commit=WORKTREE` in backticks is the word being DISCUSSED. Three of the
     twelve sites the hand sweep damaged were exactly that: prose in a docstring
     and in a corpus README explaining what the re-pin tool writes.
     """
-    start = text.rfind("\n", 0, at) + 1
-    end = text.find("\n", at)
-    line = text[start : end if end != -1 else len(text)]
-    return line.count("`", 0, at - start) % 2 == 1
+    return any(low <= at < high for low, high in _code_spans(text))
 
 
 def sites(path: Path, text: str) -> list[tuple[int, int, str | None]]:
     """Every placeholder in one file as (offset, line, reason it is declined)."""
-    suffix = path.suffix
+    grammar = _grammar(path)
     found = []
-    if suffix == ".py":
+    if grammar == "py":
         skip = _docstring_spans(text)
-    elif suffix in (".ts", ".c", ".h"):
+    elif grammar == "//":
         skip = [match.span() for match in BLOCK_COMMENT.finditer(text)]
     else:
         skip = []
@@ -151,26 +229,61 @@ def sites(path: Path, text: str) -> list[tuple[int, int, str | None]]:
         reason: str | None = None
         if _backticked(text, at):
             reason = "a backticked mention of the placeholder, not a pin"
-        elif suffix == ".py":
+        elif grammar == "py":
             if any(low <= at < high for low, high in skip):
                 reason = "a string literal that is not a docstring: this code emits or matches pins"
-        elif suffix in (".pl", ".plt", ".sh"):
-            marker = "%" if suffix != ".sh" else "#"
+        elif grammar in ("%", "#"):
             head = text[text.rfind("\n", 0, at) + 1 : at]
-            if marker not in head:
-                reason = f"no {marker} opens a comment before it on its line"
-        elif suffix in (".ts", ".c", ".h"):
+            if grammar not in head:
+                reason = f"no {grammar} opens a comment before it on its line"
+        elif grammar == "//":
             head = text[text.rfind("\n", 0, at) + 1 : at]
             if "//" not in head and not any(low <= at < high for low, high in skip):
                 reason = "neither // nor a /* */ block opens a comment around it"
-        elif suffix != ".json":
-            reason = f"{suffix} has no comment rule here; add one rather than guessing"
+        elif grammar is None:
+            reason = f"{path.suffix or path.name} has no comment rule here; add one rather than guessing"
         found.append((at, line, reason))
     return found
 
 
-def scan() -> list[tuple[Path, list[tuple[int, int, str | None]], str]]:
-    """Every file the evidence gate reads that holds a placeholder."""
+def unscanned(seen: set[Path]) -> list[tuple[Path, int]]:
+    """Tracked files holding a real pin that the gate's globs never visited.
+
+    The per-file refusal in `sites` only speaks for a file the globs REACHED,
+    so a pin in a class nobody listed was not refused, it was invisible: on
+    2026-08-31 extensions/cmetta/Makefile, extensions/node/tools/dist-consumer.mjs
+    and extensions/cmetta/tests/install_consumer.c each carried one and --check
+    still exited 0, which would have shipped three claims whose evidence tree is
+    named as the word WORKTREE forever.
+
+    Widening the globs fixes those three; this fixes the CLASS, because it asks
+    git for the file list rather than a glob and so catches the next new file
+    class the first time it carries a pin. A backticked mention is skipped here
+    for the same reason it is skipped there: DEVELOPING.md and the corpus README
+    both spell the placeholder while explaining it.
+    """
+    listed = subprocess.run(
+        ["git", "grep", "-l", "--untracked", "--", f"commit={PLACEHOLDER}"],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    missed = []
+    for name in listed.stdout.split():
+        path = (ROOT / name).resolve()
+        if path in seen or not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        pins = sum(1 for m in TOKEN.finditer(text) if not _backticked(text, m.start()))
+        if pins:
+            missed.append((path, pins))
+    return missed
+
+
+def scan() -> tuple[list[tuple[Path, list[tuple[int, int, str | None]], str]], set[Path]]:
+    """Every file the evidence gate reads that holds a placeholder.
+
+    Returns the visited set alongside the hits, because what was NOT visited is
+    the question `unscanned` answers and only this walk knows it.
+    """
     seen: set[Path] = set()
     out = []
     for glob in (*SOURCES, *PROVENANCE_SOURCES):
@@ -184,7 +297,7 @@ def scan() -> list[tuple[Path, list[tuple[int, int, str | None]], str]]:
             found = sites(path, text)
             if found:
                 out.append((path, found, text))
-    return out
+    return out, seen
 
 
 def resolve(commit: str) -> str:
@@ -217,7 +330,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     arguments = parser.parse_args(argv)
 
-    found = scan()
+    found, seen = scan()
+    missed = unscanned(seen)
     pins = [(path, [item for item in items if item[2] is None], text) for path, items, text in found]
     declined = [
         (path, line, reason) for path, items, _ in found for _, line, reason in items if reason
@@ -241,12 +355,19 @@ def main(argv: list[str] | None = None) -> int:
 
     for path, line, reason in declined:
         print(f"{path.relative_to(ROOT)}:{line}: left alone, {reason}")
+    for path, pins_missed in missed:
+        print(
+            f"{path.relative_to(ROOT)}: {pins_missed} pin(s) OUTSIDE the evidence gate's globs, "
+            f"so nothing reads this file's claims and nothing would ever resolve them; "
+            f"add its glob to check_evidence_tags.SOURCES"
+        )
     print(
         f"{total} pin(s) {'awaiting' if arguments.check else 'resolved'}, "
-        f"{len(declined)} occurrence(s) left alone, over "
+        f"{len(declined)} occurrence(s) left alone, "
+        f"{len(missed)} file(s) outside the globs, over "
         f"{len(found)} file(s) carrying the placeholder"
     )
-    return 1 if arguments.check and total else 0
+    return 1 if (arguments.check and total) or missed else 0
 
 
 if __name__ == "__main__":

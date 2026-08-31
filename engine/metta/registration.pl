@@ -100,7 +100,7 @@ register_prolog_arities(N) :-
 %once x is in sys.modules, and CREATE TABLE IF NOT EXISTS says the same of a
 %name that already denotes what was asked for
 %[tested: a_builtin_the_engine_still_backs_is_a_no_op,
-%a_builtin_whose_clauses_moved_is_refused; commit=WORKTREE].
+%a_builtin_whose_clauses_moved_is_refused; commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 %
 %A name registered AFTER this pass, by an extension or a host, has no row and
 %is refused exactly as before: the engine cannot say a claim is idempotent

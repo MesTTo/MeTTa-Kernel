@@ -147,7 +147,7 @@ merge_branch_returns(Head, Body0, Body) :-
 %fails, so an activation step that stops running reads as a suite with fewer
 %tests rather than as a failure
 %[tested: mbr_c_fallback:the_c_analyzer_is_active_exactly_when_its_artifact_loads;
-%commit=WORKTREE].
+%commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8].
 %
 %[assumed 2026-08-31: the reason this comment previously gave for the named
 %directive -- that the former anonymous compound directive "ran only while
