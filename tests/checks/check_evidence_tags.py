@@ -218,6 +218,15 @@ C_CALL = re.compile(r"\btest_(\w+)\s*\(")
 # a variable assignment names sources without compiling them, and reading one as
 # a target would put every source under whichever variable mentioned it.
 MAKE_TARGET = re.compile(r"^([A-Za-z][\w.-]*)\s*:(?!=)")
+# How a PROGRAM reports failure, as against a suite: it sets its own exit
+# status. `throw` is deliberately not a signal, because every library source
+# throws and reading that as evidence would back a claim naming any file at all;
+# setting process.exitCode or calling process.exit is something only a program
+# does, and extensions/node/tools/dist-consumer.mjs is one.
+NODE_EXIT = re.compile(r"process\.exitCode\s*=\s*[1-9]|process\.exit\(\s*[1-9]")
+# The C equivalent, read only where main() exists and the file declares no case,
+# so a helper returning 1 in a suite cannot stand in for the suite running.
+C_EXIT = re.compile(r"\breturn\s+[1-9]|\bexit\s*\(\s*[1-9]|\bEXIT_FAILURE\b")
 # A name written in prose, quoted so the splitter takes it whole. It may WRAP,
 # because a claim sits in a comment and a comment is wrapped like any other
 # prose, so the match spans newlines and the name's whitespace is normalised
@@ -593,6 +602,44 @@ def gather() -> tuple[Evidence, list[str]]:
     return Evidence(targets, runs, frozenset(files), reports), problems
 
 
+def _node_file(path: Path, text: str, resolved: Path) -> Target:
+    """A .ts or .mjs file's own way of failing: a declared case, or an exit.
+
+    A seat ships both. test/*.test.ts declare cases node --test collects, while
+    tools/dist-consumer.mjs is a PROGRAM whose whole body is the check and which
+    reports by setting its exit status.
+    """
+    if NODE_TEST.search(text):
+        return Target("node", path, resolved, "node --test reports a failure")
+    if NODE_EXIT.search(text):
+        return Target("node", path, resolved, "the program exits nonzero")
+    return Target("node", path, resolved, None, "it declares no test and sets no exit status")
+
+
+def _c_file(path: Path, text: str, resolved: Path) -> Target:
+    """A .c file's own way of failing, the same two the .py branch models.
+
+    A SUITE declares test_ cases and main() dispatches them, and a case main
+    never calls is dead the way an uncollected pytest function is. A PROGRAM
+    declares no cases at all: main() IS the check and it fails by exiting
+    nonzero, which is what extensions/cmetta/tests/install_consumer.c does.
+    Reading every .c as a suite said that consumer ran nothing, and contradicted
+    _c_targets, which had already attributed it to the lane that compiles it, so
+    one file answered two ways depending on how a claim spelled it
+    [measured 2026-08-31].
+
+    The exit is read from main()'s BODY, not the file, because a helper
+    returning 1 is not the program reporting a failure.
+    """
+    body = C_MAIN.search(text)
+    if body is not None and C_CALL.search(body.group(1)):
+        return Target("c", path, resolved, "the C suite exits nonzero on the first failing check")
+    if body is not None and not C_TEST.search(text) and C_EXIT.search(body.group(1)):
+        return Target("c", path, resolved, "the program exits nonzero")
+    return Target("c", path, resolved, None,
+                  "its main() calls no test_ case, so the binary runs none")
+
+
 def file_target(path: Path, reports: dict[Path, str]) -> Target:
     """What a claim naming a whole file gets: the file's own way of failing."""
     text = _text(path)
@@ -619,21 +666,10 @@ def file_target(path: Path, reports: dict[Path, str]) -> Target:
             "prolog", path, resolved, why or None,
             "it has no plunit test, no entry goal, and nothing loads it",
         )
-    if path.suffix == ".ts":
-        if NODE_TEST.search(text):
-            return Target("node", path, resolved, "node --test reports a failure")
-        return Target("node", path, resolved, None, "it declares no test")
+    if path.suffix in (".ts", ".mjs"):
+        return _node_file(path, text, resolved)
     if path.suffix == ".c":
-        # A C suite's runner is its own main(): a case reaches the binary by
-        # being called from there, and the binary stops the seat's test.sh on
-        # the first failing CHECK. A .c file that declares a case main never
-        # calls declares nothing that runs.
-        body = C_MAIN.search(text)
-        if body is not None and C_CALL.search(body.group(1)):
-            return Target("c", path, resolved,
-                          "the C suite exits nonzero on the first failing check")
-        return Target("c", path, resolved, None,
-                      "its main() calls no test_ case, so the binary runs none")
+        return _c_file(path, text, resolved)
     if path.suffix == ".py":
         if re.search(r"^\s*(?:async\s+)?def\s+test", text, re.MULTILINE):
             return Target("python", path, resolved, "pytest reports a failure")

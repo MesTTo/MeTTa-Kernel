@@ -137,7 +137,7 @@ ONE_LINE_FUNCTION = re.compile(r"^([a-z_][a-z0-9_]*)\(\)\s*\{([^\n]*)\}[ \t]*$",
 
 # A path written into a runner. Anchored on a suffix this repository executes,
 # so `$SUMMARY` and `*.plt` are not mistaken for files.
-PATHISH = re.compile(r"[$\w./{}-]*[\w}-]\.(?:py|pl|plt|sh|metta|ts)\b")
+PATHISH = re.compile(r"[$\w./{}-]*[\w}-]\.(?:py|pl|plt|sh|metta|ts|mjs|c)\b")
 # A lane that runs a package's own npm script runs that package's tests, and
 # the script NAME is the whole indirection: `npm run test` inside
 # extensions/node runs every extensions/node/test/*.test.ts, and nothing in the
@@ -150,6 +150,49 @@ NPM_SCRIPT = re.compile(r"\bnpm\s+(?:run\s+(?:--silent\s+)?)?(?:test|typecheck|k
 # a claim names is reached through a Makefile this model does not read. The
 # npm rule above is the same shape for the same reason.
 MAKE_TEST = re.compile(r"\bmake\b[^\n]*\btest\b")
+# Everything a lane's `make` line asks for. A target is a bare word: `--quiet`
+# is preceded by a dash, `$HERE` by a dollar, and every segment of a path by a
+# slash, so none of them read as one. The result is intersected with the
+# Makefile's own target names before it is believed.
+MAKE_CALL = re.compile(r"\bmake\b([^\n]*)")
+MAKE_WORD = re.compile(r"""(?<![-\w/$."'])([a-z][\w-]*)(?![\w/-])""")
+# A Makefile target opens in column 1 and is followed by `:`, which `:=` is not.
+MAKE_RULE = re.compile(r"^([A-Za-z][\w.-]*)\s*:(?!=)")
+
+
+def make_owner(makefile: str, name: str) -> str | None:
+    """The Makefile target whose recipe names this file, or None for the default.
+
+    A seat's tests/ holds more than its unit suite. extensions/cmetta/tests/
+    holds test_cmetta.c, which `make test` builds through TESTS, and
+    install_consumer.c, which ONLY `make install-check` compiles. Recording
+    every tests/*.c as run by the lane that runs `make test` said the consumer
+    was executed by a lane that never opens it, so deleting the c-install lane
+    would have left a claim naming it still reading as backed
+    [measured 2026-08-31: `TESTS := tests/test_cmetta` is the whole of what the
+    test target builds].
+
+    A recipe line naming the file decides, because that is the line compiling
+    it. A file no recipe names is built the ordinary way, through the target's
+    own prerequisite variables, and belongs to the default.
+    """
+    owner = None
+    for line in makefile.splitlines():
+        if matched := MAKE_RULE.match(line):
+            owner = matched.group(1)
+        elif line.startswith("\t") and name in line:
+            return owner
+    return None
+
+
+def make_requests(lane_text: str, makefile: str) -> set[str]:
+    """Targets this lane asks make for, kept to ones the Makefile defines."""
+    defined = {matched.group(1) for line in makefile.splitlines()
+               if (matched := MAKE_RULE.match(line))}
+    asked: set[str] = set()
+    for tail in MAKE_CALL.findall(lane_text):
+        asked |= set(MAKE_WORD.findall(tail))
+    return asked & defined
 CD = re.compile(r"\bcd\s+(?:--\s+)?[\"']?([$\w./-]+)")
 # A path named to be LEFT OUT is not a path the runner executes. Reading these
 # as executions marked examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/_fixtures/imports/
@@ -406,13 +449,23 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
                     for suite in sorted((directory / "test").glob("*.test.ts")):
                         record(suite.resolve(), tier, lane)
                     break
-            if MAKE_TEST.search(lane_text):
-                for directory in directories:
-                    if not (directory / "Makefile").is_file():
-                        continue
-                    for suite in sorted((directory / "tests").glob("*.c")):
-                        record(suite.resolve(), tier, lane)
+            for directory in directories:
+                recipe = directory / "Makefile"
+                if not recipe.is_file():
+                    continue
+                wanted = make_requests(lane_text, recipe.read_text(encoding="utf-8"))
+                if not wanted:
                     break
+                # A source belongs to the target whose recipe compiles it, and
+                # one no recipe names belongs to `test`, which builds it through
+                # its own prerequisites. The lane records only what IT asked for,
+                # so the install lane owns install_consumer.c and the suite lane
+                # owns test_cmetta.c instead of both owning everything.
+                owners = recipe.read_text(encoding="utf-8")
+                for suite in sorted((directory / "tests").glob("*.c")):
+                    if (make_owner(owners, suite.name) or "test") in wanted:
+                        record(suite.resolve(), tier, lane)
+                break
 
     for collector in COLLECTORS:
         text = texts.get(collector.runner)
