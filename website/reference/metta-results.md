@@ -228,6 +228,22 @@ def why(self) -> str:
 > query will do before it runs; the guide's observability page maps
 > the family.
 
+### `Rows.into`
+
+```python
+def into(self, cls: type) -> list:
+```
+
+> Each row as one ``cls``, matched by field name.
+>
+> ``match(..., into=cls)`` is sugar for this and says so: the
+> conversion was only ever reachable through that keyword, so a
+> prepared query's solve(), or any other Rows, could not ask for it
+> even though rows_into() never cared where the rows came from
+> [measured 2026-08-31]. build(cls) is the neighbouring door and a
+> different question: it rebuilds ONE column of complete constructor
+> expressions, where this maps every column onto a field.
+
 ### `Rows.build`
 
 ```python
@@ -328,6 +344,14 @@ def rows(self) -> Answers[Row]:
 ```
 
 > The caller-binding row paired with each evaluation answer.
+
+### `Answers.into`
+
+```python
+def into(self, cls: type) -> list:
+```
+
+> Materialize, then convert through Rows.into.
 
 ### `Answers.build`
 
