@@ -54,6 +54,15 @@ relational_builtin('#*').   relational_builtin('#div').
 relational_builtin('#mod'). relational_builtin('#min').
 relational_builtin('#max'). relational_builtin('#<').
 relational_builtin('#>').   relational_builtin('#//').
+%The two comparisons and the two equalities join them for the same reason, and
+%they arrived here the moment lib_builtin_types declared their types on
+%2026-08-31: declaring a type enrols a name in the guard probe, and the probe
+%reported (#= $x 1) binding its own input to 1 and (#=< $x 1) answering true.
+%Both are the constraint doing its job -- posting a relation over an unbound
+%domain variable is what the family is for -- so what was missing was the
+%classification, not a guard [tested: builtin_input_guards:every_builtin_refuses_an_unbound_input_by_name].
+relational_builtin('#=').   relational_builtin('#\\=').
+relational_builtin('#=<').  relational_builtin('#>=').
 
 %One POSITION can be relational where the rest of the predicate is not, and
 %the type surface cannot say so because it names a type and not a mode.

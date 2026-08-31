@@ -20,6 +20,16 @@
 seam:extension_builtin('planted-backend-write', writesState).
 :- register_builtin_fun('planted-backend-write').
 
+% A bridge's own dispatch goal, planted the way the backend builtin above is.
+% The engine knows no bridge by name and asks seam:effect_operation_name/3 to
+% recover the operation behind one [source: engine/ext_points.pl,
+% effect_operation_name/3]. No bridge is loaded in the plain configuration, so
+% the fail-closed rule -- a recovered operation with no (effect ...) row is
+% oracleIO -- has nothing to fire on unless the suite supplies one.
+:- multifile seam:effect_operation_name/3.
+seam:effect_operation_name(plunit_unclassified_bridge_dispatch(_, _),
+                           'plunit-unclassified-bridge-op', 2).
+
 effect_test_clear(Name) :-
     (   metta_contract_fact([effect, Name, Declared])
     ->  'remove-atom'('&metta', [effect, Name, Declared], _),
@@ -355,5 +365,73 @@ test(effect_services_are_published) :-
              seam:seam_home(Service, Home),
              module_property(Home, exports(Exports)),
              assertion(memberchk(Service, Exports)) )).
+
+%THE PLAN A HOST GETS FOR ONE COMPILED GOAL, and what makes it answerable at
+%all: neither definition below publishes an (effect ...) summary, so the only
+%route to add-atom's writesState is to FOLLOW the raw definitions --
+%plunit-plan-caller into plunit-plan-writer and then into the operation that
+%one calls. The join is the lattice's own, so a body reaching a pure and a
+%writing operation answers the stronger of the two rather than either.
+effect_plan_head('plunit-plan-writer').
+effect_plan_head('plunit-plan-caller').
+effect_plan_head('plunit-plan-pure').
+effect_plan_head('plunit-plan-both').
+
+effect_plan_definitions :-
+    process_metta_string(
+        "(= (plunit-plan-writer $a) (add-atom &plunit-plan-space (row $a)))\n\c
+         (= (plunit-plan-caller $a) (plunit-plan-writer $a))\n\c
+         (= (plunit-plan-pure $a) (+ $a 1))\n\c
+         (= (plunit-plan-both $a) (let $x (+ $a 1) (plunit-plan-writer $x)))",
+        _).
+
+effect_plan_cleanup :-
+    forall(effect_plan_head(Head),
+           'remove-atom'('&self', [=, [Head|_], _], _)).
+
+%The same two steps a host takes: translate the term, then hand the compiled
+%body back with its source term in front, which is the shape
+%metta_host_goal_effect_plan/4's first clause reads
+%[source: extensions/python/metta/shim.pl, metta_py_world_effect_plan/4].
+effect_goal_plan(Term, Operations, Effect) :-
+    metta_self_module(Module),
+    with_metta_module(Module,
+                      ( translator:translate_cached_expr(Term, Goals, _),
+                        translator:goals_list_to_conj(Goals, Compiled) )),
+    metta_host_goal_effect_plan(Module,
+                                (metta_effect_source_term(Term), Compiled),
+                                Operations, Effect).
+
+test(a_compiled_goal_plan_follows_raw_definitions_and_joins_operations,
+     [ setup(effect_plan_definitions), cleanup(effect_plan_cleanup) ]) :-
+    effect_goal_plan(['plunit-plan-caller', 1], Written, WrittenEffect),
+    assertion(Written == [['add-atom', writesState]]),
+    assertion(WrittenEffect == writesState),
+    effect_goal_plan(['plunit-plan-pure', 1], Pure, PureEffect),
+    assertion(Pure == [[+, pureStructural]]),
+    assertion(PureEffect == pureStructural),
+    effect_goal_plan(['plunit-plan-both', 1], Both, BothEffect),
+    assertion(memberchk([+, pureStructural], Both)),
+    assertion(memberchk(['add-atom', writesState], Both)),
+    assertion(BothEffect == writesState).
+
+%FAIL CLOSED, both ways an unclassified grounded call can arrive. A bridge
+%dispatch whose recovered operation has no declaration is oracleIO under that
+%operation's OWN name, so the row a host reads names what the program wrote;
+%a goal the walk cannot see at all is oracleIO under <dynamic-operation>.
+%Neither may pass as pureStructural, which is what a reified world admits
+%without any coverage row.
+test(an_unclassified_bridge_and_dynamic_call_fail_closed_at_oracle_io) :-
+    assertion(\+ metta_operation_effect('plunit-unclassified-bridge-op', _)),
+    metta_self_module(Module),
+    metta_host_goal_effect_plan(
+        Module, plunit_unclassified_bridge_dispatch(a, b),
+        BridgeOperations, BridgeEffect),
+    assertion(BridgeOperations == [['plunit-unclassified-bridge-op', oracleIO]]),
+    assertion(BridgeEffect == oracleIO),
+    metta_host_goal_effect_plan(Module, _Unseen,
+                                DynamicOperations, DynamicEffect),
+    assertion(DynamicOperations == [['<dynamic-operation>', oracleIO]]),
+    assertion(DynamicEffect == oracleIO).
 
 :- end_tests(effects_lattice).

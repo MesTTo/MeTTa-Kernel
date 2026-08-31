@@ -751,7 +751,7 @@ call_may_specialize([Arg|Args]) :-
 %equation it cloned and answered beside the new one: removing one of two
 %equations for a higher-order function gave (2 2 42) where (2) was asked for
 %[tested: examples/ch05-equations-and-evaluation/05-02-changing-the-equations/02-functionremoval.metta,
-%specializer:a_removed_equation_forgets_its_specialization].
+%specializer_invalidation:a_removed_equation_forgets_its_specialization].
 %
 %clause_property(module/1) is the filter that keeps this from erasing a
 %PARENT's clauses: clause/3 sees inherited ones through the base chain, and a

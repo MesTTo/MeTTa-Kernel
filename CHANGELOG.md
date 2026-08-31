@@ -8,6 +8,31 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **The C binding installs.** `make install` puts a versioned
+  `libcmetta.so.0.1.0` with its `libcmetta.so.0` and `libcmetta.so` links, the
+  header, a `cmetta.pc` for pkg-config, and the engine tree under `$PREFIX`,
+  with `DESTDIR` staging for a packager. Until now everything built in the
+  checkout and every consumer was assumed to be in it: a caller outside had to
+  hand-roll `-I`, `-L` and an rpath, and there was no soname, so nothing could
+  express which release it had linked against.
+
+  The installed library is a different build from the in-tree one, because it
+  bakes the INSTALLED engine's directory rather than this checkout's. That is
+  the same bargain `setup.py` makes copying the runtime into the wheel, and
+  `$METTA_PATH` still overrides it. `.qlf` files are left out for the reason
+  `MANIFEST.in` already gives — a shipped one shadows the source it came from
+  and pins the install to the builder's SWI version — while the compiled `.so`
+  artifacts go in, unlike the platform-independent wheel's, because this
+  install is for one platform by construction.
+
+  `make install-check` is the proof and a gate lane runs it: it installs under
+  a real prefix, compiles `tests/install_consumer.c` against nothing but
+  `pkg-config --cflags --libs cmetta`, and runs it with `METTA_PATH` unset and
+  no rpath into the checkout. Writing that check found a defect in the install
+  itself: the baked path is a make VARIABLE, so `make install PREFIX=/a`
+  followed by `PREFIX=/b` shipped /a's path inside /b's library. The
+  configuration is a prerequisite now, and two prefixes bake two paths.
+
 - **A worked literature-based discovery, which is the case neither half of a
   neurosymbolic system answers alone.**
   `extensions/python/examples/reasoning/literature_discovery.py` reproduces
@@ -2874,6 +2899,23 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Removed
 
+- **`lib_llm` is gone** (user ruling, 2026-08-31: "i disagree with lib llm ...
+  later on i will build a library on top of pymetta for llm stuff, so yeah i
+  dont want it"). It shipped four provider selectors, a chat call and an
+  embedding call over the OpenAI and OpenRouter APIs. What went with it: the
+  library, `examples/ch11-python-as-a-notation/09-llm_cities.metta` and its
+  skip-list entry, and the mentions in `EXTENDING.md`, `llms.txt` and the
+  generated library reference. `tests/conformance/petta/lib/lib_llm.metta` is
+  UNTOUCHED, because that tree is upstream's own and the conformance lane
+  compares against it as it is.
+
+  Worth recording because it was measured on the way out: `!(import! &self
+  (library lib_llm))` RAISED on a machine with no `OPENAI_API_KEY`, because a
+  top-level form built an OpenAI client at import rather than at first call.
+  Upstream's own copy reads its key inside each call over plain `urllib`, so
+  this was ours. The replacement rides the Python surface, where an LLM is an
+  ordinary grounded value and needs no library of its own.
+
 - **`extensions/python/lowerings/`, a seam home nothing ever moved into.** The
   folder held one README and no content. It was created by the tree partition
   as the place the Python seat would keep translator rules whose bodies LOWER a
@@ -3169,6 +3211,134 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- **Five working constraint operators were invisible to the type surface.**
+  The engine implements and registers `#//`, `#=`, `#\=`, `#=<` and `#>=`
+  alongside the nine `#` operators `lib_builtin_types` declares, and all five
+  evaluate correctly, but none carried a type: `(get-type #<)` answered
+  `(-> Number Number Bool)` while `(get-type #=)`, `(get-type #>=)` and
+  `(get-type #//)` each answered `%Undefined%`. Anything derived from the type
+  surface — checking, `get-type`, the generated library reference — could not
+  see them. They are declared now, and each answers its arrow.
+
+  Declaring them was enough to find a second gap, because a declared type
+  enrols a name in the engine's own input-guard probe: it reported `(#= $x 1)`
+  binding its own input and `(#=< $x 1)` answering true, where every guarded
+  builtin refuses an unbound argument by name. Both are the constraint doing
+  its job, so the four join the relational family `#+` and its siblings were
+  already in. The classification was what was missing, not a guard.
+
+  Found by asking a different question: comparing this engine's whole callable
+  surface against upstream PeTTa's, 309 names through the engine's own
+  `engine-knows/2` rather than by reading source. All 32 of upstream's
+  translator special forms are here, `once` among them.
+
+- **The C branch-return analyzer was silently absent on every cold tree.** A
+  unit consulted into an umbrella has its directives stored in the UMBRELLA's
+  `.qlf`, so `prolog_load_context(directory, D)` in
+  `engine/translator/runtime.pl` answered `engine/translator/` while
+  `translator.pl` was being consulted and `engine/` once `translator.qlf`
+  served it. `build.sh` writes `engine/mbr.so`, so a boot with no `.qlf` on
+  disk looked one directory too deep, found nothing, and ran the Prolog pass
+  with the artifact sitting beside it. Nothing said so: the differential suite
+  is CONDITIONED on the analyzer being active, so it skipped rather than
+  failed, and `sh engine/test.sh` ran 5 tests on a cold tree and 8 on a warm
+  one with no other difference. The engine's own source directory is recorded
+  once by the umbrella, whose load context is `engine/` in both modes, and the
+  unit reads that. A static rule now refuses the shape for every file below
+  `engine/`, with the top-level files exempt for the reason that makes them
+  safe.
+
+- **The Python binding no longer takes a variable's stack address as its
+  identity.** `metta_py_encode/2` spelled a variable with `term_to_atom/2`,
+  and SWI derives that spelling from the cell's stack offset:
+  `iref = ((Word)p - (Word)gBase)*2` [source:
+  `swipl-9.3.33/src/pl-write.c:127-140`, `var_name_ptr()`]. An offset moves
+  when the cell moves and is handed to whatever lands there next, so the name
+  this boundary used as an identity was neither stable nor unique, and both
+  directions bit:
+  - one variable crossed under two names inside a single encode.
+    `Space.derivation` of a five-deep `(fact 5)` returned
+    `(= (fact $_17642) (if (> $_17642 0) (* $_17642 (fact (- $_2528 1))) 1))`,
+    whose free `$_2528` is not the variable the head binds, so substituting
+    the call left `(- $_2528 1)` and evaluating it raised the CLP(FD) refusal
+    instead of answering. One held cell answered `_9162` before a collection
+    and `_32` after;
+  - two variables crossed under one name. That is the P14.4 residue entry
+    `answers that carry different variables arriving in Python under
+    different names`, and it is now retired: a match over two separately
+    sealed rules answered `($_56584 ok)` twice and now answers `($_1 ok)` and
+    `($_2 ok)`, so `m.eval` and the row door agree with `collapse`, which
+    gathers in the engine and always kept them apart;
+  - an operation's decode table was rebuilt from the arguments AFTER the
+    crossing while the names Python held had been written BEFORE it, so a
+    collection anywhere in encode-call-decode stopped a returned variable
+    resolving to the caller's.
+
+  A name is now MINTED from a session counter and recorded in a map threaded
+  through the encode. The map is what keeps one cell on one name inside a
+  crossing, which the printed form could not; the counter is what keeps two
+  cells apart across crossings, which numbering a term's own variables could
+  not. Every decode that has to find the caller's variable again is handed
+  the map the encoder built rather than rebuilding one:
+  `metta_py_encode_arguments/3` encodes a call's arguments under one map and
+  hands it to the reply's decode, an inverse's answered tuple decodes under
+  one table, and a query row's columns share one. The engine is unchanged;
+  this was the binding disagreeing with the convention `engine/writer.c` and
+  `engine/tracer.pl` already hold, that a variable's identity is answerable
+  only by comparison and never by where it sits [tested:
+  `shim_wire_variable_sharing`, `shim_answer_form`, `shim_relation_form`,
+  `python_answer_residue`,
+  `test_two_answers_carrying_different_variables_arrive_under_different_names`,
+  `test_two_rows_carrying_different_variables_stay_different`,
+  `test_a_recursive_proofs_equation_keeps_one_variable_per_source_variable`,
+  `test_an_inverse_answers_one_variable_in_two_positions`].
+
+  The Node binding's `metta_node_encode/3` still spells a variable the same
+  way and has the same exposure; it is not changed here.
+
+- **The space conformance kit compares two atoms renamed apart.**
+  `metta.testing`'s `_same_atom/2` compared printed forms, which answers only
+  while a stored atom prints the same on two crossings. Its own docstring says
+  a variable's name does not survive storage, and `_renamed_apart/1` beside it
+  already normalises an enumeration for exactly that reason; the comparison
+  now uses it. A provider whose store hands the same atom back under a
+  different variable spelling read as a store that had changed under the kit
+  [tested: `test_mapped_passes_the_conformance_kit`].
+
+- **A scoped `with-pragma!` puts every setting back, whatever happened to the
+  ones before it.** The scope armed its restore on `setup_call_cleanup/3`'s
+  SETUP, which SWI runs before the cleanup exists: a two-key scope whose second
+  write raised left the first key set engine-wide with nothing to put it back.
+  The undo list is now read before any write and the writes happen inside the
+  protected region, and the restore itself is total, where `maplist/2` used to
+  abandon every key after the first one that raised or failed. The scope's own
+  error still outranks a restore failure, which is reported beside it rather
+  than replacing it, the rule try-with-resources and `ExitStack` keep. Neither
+  path is reachable through a public door today, because no key's write can
+  fail; planting a raise for the second key of a two-key scope leaves
+  `max-stack-depth` set under the old spelling and nothing set under this one.
+
+- **A citation may name the file beside the one that wrote it.** The evidence
+  lane resolved a claim's path only against the repository root, so
+  `extensions/cmetta/cmetta.h` citing `tests/test_cmetta.c` -- the file next to
+  it, and what a reader of that seat types -- read as naming nothing. A path now
+  resolves from the root first and from the citing file's own directory second.
+
+- **The C seat's claims are checked.** `extensions/cmetta/*.c`, `*.h` and `*.pl`
+  join the evidence lane's scan, which reads a C case as a `static <type>
+  test_<name>(...)` function that `main()` CALLS: one it merely defines is dead
+  in the way an uncollected pytest function is, and is reported the same way.
+  The runner model follows the seat's `test.sh` through `make test` to the
+  sources it builds. Twenty-one claims in that seat's header had carried commit
+  pins and named tests with nothing reading them.
+
+- **The example emptying a space no longer reaches nine chapters forward.**
+  `examples/ch04-.../06-spaces_removeallatoms.metta` used `car-atom`, which
+  chapter 7 introduces, to show that the removed operation no longer reduces. It
+  compares the collapsed call to the call itself instead, which says the same
+  thing in chapter 4's vocabulary and stays true in a host's own home space,
+  where comparing printed text froze whichever name that world uses.
 
 - **Cancelling around an acquisition releases what the worker finished.**
   `asyncio` delivers a cancellation at an await point, and `metta.aio` awaits

@@ -112,8 +112,8 @@ def read_coordinate(text: str) -> Coordinate:
 
 def run_scanner(*arguments: str) -> str:
     """The scanner's stdout, run from tests/prolog as every Prolog gate is."""
-    finished = subprocess.run(  # noqa: S603 -- the argument vector is this file's own
-        ["swipl", SCANNER, *arguments],  # noqa: S607 -- swipl is on PATH for every Prolog lane
+    finished = subprocess.run(
+        ["swipl", SCANNER, *arguments],
         cwd=SCANNER_DIRECTORY,
         capture_output=True,
         text=True,

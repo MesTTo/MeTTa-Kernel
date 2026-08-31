@@ -210,8 +210,8 @@ metta_int_solve('/', A, B, R, Verdict) :-
 %guard_error_arguments/5, which is also why these two clauses are total --
 %their answer is `true` or `false` for every pair that reaches them, a fact
 %the translator's clean-result elisions rely on
-%[tested: test_an_error_operand_is_handed_on, which drives the full
-%pipeline; source: engine/translator/special_forms.pl].
+%[tested: test_an_error_operand_is_handed_on, which drives the full pipeline]
+%[source: engine/translator/special_forms.pl].
 %The guard the declaration above states, enforced at the predicate's own door
 %rather than through typed dispatch, which is what runtime_type_guarded/1
 %means and what keeps the cost near zero: the common case is two literals and

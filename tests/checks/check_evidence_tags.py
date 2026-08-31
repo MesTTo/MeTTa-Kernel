@@ -106,10 +106,22 @@ from evidence_runners import ROOT, Execution, executed, gate_scripts, prolog_loa
 
 SOURCES = (
     "engine/*.pl",
+    # The engine is mostly its SUBDIRECTORIES: 22 of its 42 Prolog files sit
+    # one or two levels down, control.pl, space_hooks.pl, effects.pl and
+    # translator/analysis.pl among them, and a single-level glob left every
+    # claim and every commit pin in them unread.
+    "engine/*/*.pl",
+    "engine/*/*/*.pl",
     # The engine's benchmark driver is Python and makes the same kind of claim
     # its Prolog neighbours do. Without this line its tags were invisible: the
     # lane counted two placeholders in the tree where there were four.
     "engine/*.py",
+    # The engine has C of its own -- the reader, the writer, the JSON codec
+    # and the branch-return analysis -- whose headers make the same kind of
+    # claim, and each seat's control file declares what that seat needs.
+    "engine/*.c",
+    "engine/*.h",
+    "extensions/*/extension.pl",
     "lib/*/*.pl",
     "lib/*/*.py",
     "extensions/python/metta/*.py",
@@ -124,6 +136,13 @@ SOURCES = (
     "extensions/node/*.pl",
     "extensions/node/src/*.ts",
     "extensions/node/src/*/*.ts",
+    # The C seat, whose header IS its contract: 21 of its claims carried
+    # commit pins and named tests while nothing read them, because C was the
+    # one shipped language missing from this list. Its Prolog half joins for
+    # the same reason the other two seats' halves are here.
+    "extensions/cmetta/*.c",
+    "extensions/cmetta/*.h",
+    "extensions/cmetta/*.pl",
 )
 
 # Commentless formats, scanned for PROVENANCE ONLY. A JSON baseline is exempt
@@ -144,7 +163,21 @@ SOURCES = (
 # scripts: a seat that grows its own benchmarks grows its own baseline, and a
 # hardcoded list would leave that seat's commit pins unchecked in the same
 # silence this lane exists to end.
-PROVENANCE_SOURCES = ("extensions/*/benchmarks/*.json", "engine/*.json")
+#
+# The shell runners are here for the pin half and not yet for the claim half.
+# They carry measured claims like any other file -- check.sh's own VIRTUAL_ENV
+# note is one -- and their commit pins went unchecked and, worse, unresolvable
+# by the provenance pass, whose scope is this list. Their Guarantees blocks are
+# a burn-down of 34 untagged claims recorded in
+# ai-code-organisation-and-fixes.md rather than a gate today, which is the same
+# staging every REPORT lane in check.sh follows.
+PROVENANCE_SOURCES = (
+    "extensions/*/benchmarks/*.json",
+    "engine/*.json",
+    "*.sh",
+    "engine/*.sh",
+    "extensions/*/*.sh",
+)
 
 # Where a name may be defined. metta/_compliance.py holds real tests, shipped
 # for a provider author to inherit; they run here too, under each
@@ -163,7 +196,15 @@ CLAIM = re.compile(
 # A `node --test` case names itself in prose: `it("...")` and `describe("...")`
 # each register one, which is what an evidence claim in a TypeScript source
 # points at.
-NODE_TEST = re.compile(r"""^\s*(?:it|describe)\(\s*["'`]([^"'`]+)["'`]""", re.M)
+NODE_TEST = re.compile(r"""^\s*(?:it|describe)\(\s*["'`]([^"'`]+)["'`]""", re.MULTILINE)
+# A C suite names its cases in identifiers, not in prose: `static void
+# test_<name>(...)` defined at the top level. Being defined is not being run,
+# which is why the caller set below matters as much as this pattern.
+C_TEST = re.compile(r"^static\s+\w[\w *]*?\btest_(\w+)\s*\(", re.MULTILINE)
+# main()'s body, which is the C suite's runner: a case reaches the binary only
+# by being called from there.
+C_MAIN = re.compile(r"^int\s+main\s*\([^)]*\)\s*\{(.*?)^\}", re.MULTILINE | re.DOTALL)
+C_CALL = re.compile(r"\btest_(\w+)\s*\(")
 # A name written in prose, quoted so the splitter takes it whole. It may WRAP,
 # because a claim sits in a comment and a comment is wrapped like any other
 # prose, so the match spans newlines and the name's whitespace is normalised
@@ -172,8 +213,19 @@ QUOTED_NAME = re.compile(r'"([^"]{4,}?)"', re.DOTALL)
 COMMENT_PREFIX = re.compile(r"^[ \t]*[%#*]*[ \t]*", re.MULTILINE)
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?::[A-Za-z_][A-Za-z0-9_]*)*$")
+#: What makes a token READ as a name rather than as the sentence around it.
+#: A claim's prose sits in the same brackets as its names, and PROSE cannot
+#: list every English word an author might use: one claim in
+#: engine/metta/control.pl contributed "answers", "grow", "counter",
+#: "creating", "grows" and "tenth", and one in extensions/cmetta/bridge.pl
+#: contributed "reports", "row" and "present". A name in this tree carries an
+#: underscore, a colon, a dot, a slash, a digit or a hyphen; a bare lowercase
+#: word does not, and is read as prose UNLESS the tree defines it, which is
+#: what keeps a single-word example name like `quiet` checkable and a
+#: mistyped one the price.
+NAME_SHAPED = re.compile(r"[_:./0-9-]")
 REFERENCE = re.compile(r"https?://|\w+\.\w+:\d+|\w+/[\w./-]+")
-SUFFIXES = (".py", ".pl", ".plt", ".metta", ".sh")
+SUFFIXES = (".py", ".pl", ".plt", ".metta", ".sh", ".c")
 
 # `translator.plt:malformed_seam_is_refused` and
 # `test_per_space.py::test_eval_uses_the_spaces_own_equations` name a file and
@@ -196,10 +248,10 @@ PROLOG_ENTRY = re.compile(r":-\s*initialization\(\s*(\w+)\s*,\s*main\s*\)")
 # every clause head. The looser `^\s*test\(` this replaced also matched the
 # indented goal `test(1, 2, _)` in metta.plt and registered `1`, plus one
 # `<unit>:1` per unit, as though they were tests.
-PROLOG_TEST = re.compile(r"^test\(\s*(\w+)", re.M)
+PROLOG_TEST = re.compile(r"^test\(\s*(\w+)", re.MULTILINE)
 # A MeTTa form whose failure stops the file: test/3 throws metta_test_failed.
 METTA_ASSERTION = re.compile(r"\((?:test|test-no-answer|assert[\w-]*)[\s(]")
-SHELL_FAILURE = re.compile(r"\bexit\s+[1-9]|\breturn\s+[1-9]|\|\|\s*exit\b|^set -e", re.M)
+SHELL_FAILURE = re.compile(r"\bexit\s+[1-9]|\breturn\s+[1-9]|\|\|\s*exit\b|^set -e", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -376,8 +428,25 @@ def _prolog_reports() -> dict[Path, str]:
     return reports
 
 
+def _prolog_test_units(text: str) -> Iterator[tuple[str | None, str]]:
+    """Every plunit test in a file, with the unit it is written inside.
+
+    `None` for a test outside any unit, which plunit does not run and which
+    stays reportable rather than silently attaching to whichever unit came
+    first.
+    """
+    unit: str | None = None
+    for line in text.splitlines():
+        if opened := re.match(r"^:-\s*begin_tests\(\s*(\w+)", line):
+            unit = opened.group(1)
+        elif re.match(r"^:-\s*end_tests\(", line):
+            unit = None
+        elif started := re.match(r"^test\(\s*(\w+)", line):
+            yield unit, started.group(1)
+
+
 def _prolog_targets(reports: dict[Path, str]) -> dict[str, list[Target]]:
-    """plunit units and tests, and the named checks a Prolog script runs."""
+    """Plunit units and tests, and the named checks a Prolog script runs."""
     targets: dict[str, list[Target]] = {}
     for path in sorted((ROOT / "tests").rglob("*.pl*")):
         text = _text(path)
@@ -385,13 +454,22 @@ def _prolog_targets(reports: dict[Path, str]) -> dict[str, list[Target]]:
         why = reports[run_path]
         note = "" if why else "it has no plunit test, no entry goal, and nothing loads it"
         units = re.findall(r"begin_tests\(\s*(\w+)", text)
-        named = [("plunit", unit) for unit in units]
-        for name in PROLOG_TEST.findall(text):
-            named += [("plunit", key) for key in [name, *(f"{u}:{name}" for u in units)]]
+        named = [("plunit-unit", unit) for unit in units]
+        # Each test paired with the unit it is ACTUALLY in, walked in order.
+        # Registering the cross-product -- every test under every unit in the
+        # file -- made `unit:name` resolve for any unit the file happens to
+        # contain, so a citation could name the wrong one and pass. Four in
+        # this tree did, and one written on 2026-08-31 was among them: a
+        # reader who followed `shim_answer_form:one_variable_in_two_columns...`
+        # would open the wrong unit and not find it.
+        for unit, name in _prolog_test_units(text):
+            named += [("plunit", name)]
+            if unit is not None:
+                named += [("plunit", f"{unit}:{name}")]
         # A check the gate runs as a script rather than as a plunit test is
         # evidence too: static_checks.pl is one, and its checks are named
         # predicates. A name worth registering carries arguments or a body.
-        named += [("prolog", n) for n in re.findall(r"^([a-z]\w*)\s*(?::-|\()", text, re.M)]
+        named += [("prolog", n) for n in re.findall(r"^([a-z]\w*)\s*(?::-|\()", text, re.MULTILINE)]
         for kind, name in named:
             targets.setdefault(name, []).append(Target(kind, path, run_path, why or None, note))
     return targets
@@ -416,6 +494,41 @@ def _node_targets(runs: dict[Path, Execution]) -> dict[str, list[Target]]:
     return targets
 
 
+def _c_targets(runs: dict[Path, Execution]) -> dict[str, list[Target]]:
+    """Every case a seat's C suite declares, and whether main() runs it.
+
+    C was the one shipped language missing from this lane, so the C seat's
+    header carried claims naming its own tests and nothing read them. A C suite
+    has no collector: `main()` IS the runner, so a `static void test_x(void)`
+    that main does not call is dead in exactly the way an uncollected pytest
+    function is, and is reported the same way.
+
+    Discovered rather than named, the same way evidence_runners finds a
+    component's scripts: a seat that grows a C suite grows its own cases.
+    """
+    targets: dict[str, list[Target]] = {}
+    for path in sorted(ROOT.glob("extensions/*/tests/*.c")):
+        text = _text(path)
+        body = C_MAIN.search(text)
+        called = set(C_CALL.findall(body.group(1))) if body else set()
+        runner = (path.parent.parent / "test.sh").resolve()
+        run = runs.get(runner)
+        for name in C_TEST.findall(text):
+            why = "the C suite exits nonzero on the first failing check" if run else None
+            note = "" if run else "no lane runs its suite"
+            if name not in called:
+                why, note = None, "main() does not call it, so the binary never runs it"
+            targets.setdefault(f"test_{name}", []).append(
+                Target("c", path, runner, why, note)
+            )
+        targets.setdefault(path.name, []).append(
+            Target("c", path, runner,
+                   "the C suite exits nonzero on the first failing check" if run else None,
+                   "" if run else "no lane runs its suite")
+        )
+    return targets
+
+
 def gather() -> tuple[Evidence, list[str]]:
     """Every name a claim may legitimately point at, and what backs it."""
     runs, problems = executed()
@@ -424,6 +537,8 @@ def gather() -> tuple[Evidence, list[str]]:
     for name, found in _prolog_targets(reports).items():
         targets.setdefault(name, []).extend(found)
     for name, found in _node_targets(runs).items():
+        targets.setdefault(name, []).extend(found)
+    for name, found in _c_targets(runs).items():
         targets.setdefault(name, []).extend(found)
     for path in sorted((ROOT / "examples").rglob("*.metta")):
         targets.setdefault(path.stem, []).append(file_target(path, reports))
@@ -455,8 +570,19 @@ def file_target(path: Path, reports: dict[Path, str]) -> Target:
         if NODE_TEST.search(text):
             return Target("node", path, resolved, "node --test reports a failure")
         return Target("node", path, resolved, None, "it declares no test")
+    if path.suffix == ".c":
+        # A C suite's runner is its own main(): a case reaches the binary by
+        # being called from there, and the binary stops the seat's test.sh on
+        # the first failing CHECK. A .c file that declares a case main never
+        # calls declares nothing that runs.
+        body = C_MAIN.search(text)
+        if body is not None and C_CALL.search(body.group(1)):
+            return Target("c", path, resolved,
+                          "the C suite exits nonzero on the first failing check")
+        return Target("c", path, resolved, None,
+                      "its main() calls no test_ case, so the binary runs none")
     if path.suffix == ".py":
-        if re.search(r"^\s*(?:async\s+)?def\s+test", text, re.M):
+        if re.search(r"^\s*(?:async\s+)?def\s+test", text, re.MULTILINE):
             return Target("python", path, resolved, "pytest reports a failure")
         if re.search(r"raise SystemExit|sys\.exit\((?!0\))", text):
             return Target("python", path, resolved, "the script exits nonzero")
@@ -485,31 +611,69 @@ def target_problem(token: str, target: Target, known: Evidence) -> str | None:
     return None
 
 
-def resolve(token: str, known: Evidence) -> list[Target] | str:
+def _path_in(token: str, where: Path | None) -> Path | None:
+    """The file a claim's path token names, from the root or from its own seat.
+
+    A path is read the way its READER would read it. cmetta.h sits in
+    extensions/cmetta/ and cites `tests/test_cmetta.c`, which is exactly the
+    file beside it and exactly what a reader of that seat types; resolving only
+    against the repository root called ten such citations unbacked on the day
+    the C seat first came under this lane. Root first, so a repository-relative
+    spelling keeps its meaning, and the citing file's own directory second.
+    """
+    candidate = ROOT / token
+    if candidate.is_file():
+        return candidate
+    if where is not None:
+        beside = where.parent / token
+        if beside.is_file():
+            return beside
+    return None
+
+
+def resolve(token: str, known: Evidence, where: Path | None = None) -> list[Target] | str:
     """The targets a claim's token names, or why it names none."""
     qualified = QUALIFIED.match(token)
     if qualified is not None:
-        where, name = qualified.groups()
-        basename = Path(where).name
+        spelling, name = qualified.groups()
+        basename = Path(spelling).name
         found = [
             target
             for target in known.targets.get(name, [])
-            if target.path.name == basename or target.path == ROOT / where
+            if target.path.name == basename or target.path == _path_in(spelling, where)
         ]
         if found:
             return found
-        if basename in known.files or (ROOT / where).is_file():
-            return f"names {name}, which is not in {where}"
-        return f"names the path {where}, which is not in the tree"
+        if basename in known.files or _path_in(spelling, where) is not None:
+            return f"names {name}, which is not in {spelling}"
+        return f"names the path {spelling}, which is not in the tree"
     if "/" in token or token.endswith(SUFFIXES):
-        path = ROOT / token
-        if not path.is_file():
+        path = _path_in(token, where)
+        if path is None:
             return f"names the path {token}, which is not in the tree"
         return [file_target(path, known.reports)]
     if not IDENTIFIER.match(token):
         return []
-    found = known.targets.get(token) or known.targets.get(token.split(":")[-1])
-    return found or f"names {token}, which is not a test in the tree"
+    # A `unit:test` whose UNIT the tree knows is answered by that pair alone.
+    # Falling back to the bare name let a citation name the right test under
+    # the wrong unit and pass, which sends a reader to a unit the test is not
+    # in; four in this tree did. The fallback stays for every other colon
+    # shape -- a module-qualified predicate, say -- where the prefix names no
+    # unit.
+    if ":" in token:
+        unit, _, bare = token.rpartition(":")
+        if any(target.kind == "plunit-unit" for target in known.targets.get(unit, [])):
+            if paired := known.targets.get(token):
+                return paired
+            if bare in known.targets:
+                return f"names {bare}, which is a test but not one in {unit}"
+            return f"names {token}, which is not a test in the tree"
+    found = known.targets.get(token) or known.targets.get(token.rsplit(":", maxsplit=1)[-1])
+    if found:
+        return found
+    if not NAME_SHAPED.search(token):
+        return []
+    return f"names {token}, which is not a test in the tree"
 
 
 #: The obligation-header scheme documents a tested tag as carrying either a
@@ -578,7 +742,7 @@ def gate_command_problems(body: str, known: Evidence) -> list[str] | None:
     return [verdicts[0]] if verdicts and all(verdicts) else []
 
 
-def tested_problems(body: str, known: Evidence) -> list[str]:
+def tested_problems(body: str, known: Evidence, where: Path | None = None) -> list[str]:
     command = gate_command_problems(body, known)
     if command is not None:
         return command
@@ -593,7 +757,7 @@ def tested_problems(body: str, known: Evidence) -> list[str]:
         token = token.strip(" :.'`()") if token in quoted else token.strip(" :.'\"`()")
         if not token or token.lower() in PROSE:
             continue
-        found = resolve(token, known)
+        found = resolve(token, known, where)
         if isinstance(found, str):
             problems.append(found)
             continue
@@ -605,7 +769,7 @@ def tested_problems(body: str, known: Evidence) -> list[str]:
     return problems
 
 
-def measured_problems(body: str, known: Evidence) -> list[str]:
+def measured_problems(body: str, known: Evidence, where: Path | None = None) -> list[str]:
     problems = []
     if not DATE.search(body):
         problems.append("carries no YYYY-MM-DD date, so the claim cannot go stale")
@@ -615,7 +779,7 @@ def measured_problems(body: str, known: Evidence) -> list[str]:
     # name nothing for as long as it had been written.
     nested = re.split(r"\btested\b", body, maxsplit=1)
     if len(nested) == 2:
-        problems.extend(tested_problems(nested[1], known))
+        problems.extend(tested_problems(nested[1], known, where))
     return problems
 
 
@@ -626,6 +790,16 @@ def source_problems(body: str) -> list[str]:
 
 
 COMMIT = re.compile(r"\bcommit=([0-9a-zA-Z]+)")
+
+#: The lawful in-progress spelling of a commit pin, spelled ONCE here and
+#: referenced everywhere else, including by the self-test, which imports it.
+#: A provenance sweep resolves every pin in the tree to an object ID by
+#: replacing this word, and on 2026-08-31 one reached into the messages
+#: below and into the self-test's planted fixture: the checker still tested
+#: the word while the self-test planted an object ID, so the two halves
+#: disagreed about what a placeholder is and the RELEASE=1 rule went
+#: untested. One occurrence of the word cannot desynchronise from itself.
+PLACEHOLDER = "WORKTREE"
 
 
 def commit_problems(sites: list[tuple[Path, int, str, str]]) -> tuple[list[str], int]:
@@ -642,7 +816,7 @@ def commit_problems(sites: list[tuple[Path, int, str, str]]) -> tuple[list[str],
     placeholders = 0
     for path, line, tag, body in sites:
         for oid in COMMIT.findall(body):
-            if oid == "WORKTREE":
+            if oid == PLACEHOLDER:
                 placeholders += 1
                 continue
             wanted.setdefault(oid, []).append(f"{path.relative_to(ROOT)}:{line}: {tag}")
@@ -663,7 +837,7 @@ def commit_problems(sites: list[tuple[Path, int, str, str]]) -> tuple[list[str],
                     problems.append(f"{site}: commit={oid} does not resolve to a commit")
     if placeholders and os.environ.get("RELEASE") == "1":
         problems.append(
-            f"{placeholders} evidence tag(s) still say commit=57f21ba9edf94bcf28cde11f938bce2c241a3709; a release "
+            f"{placeholders} evidence tag(s) still say commit={PLACEHOLDER}; a release "
             f"pins each to the commit whose tree produced the evidence"
         )
     return problems, placeholders
@@ -709,7 +883,7 @@ def untagged_guarantees() -> list[str]:
     block = re.compile(
         r"Guarantees:\n(.*?)\n(?:%|#|\s)*?"
         r"(?:Guarded by|Owns|Decides|Open Obligations|Fails when|Assumes):",
-        re.S,
+        re.DOTALL,
     )
     findings: list[str] = []
     for glob in SOURCES:
@@ -738,9 +912,9 @@ def main() -> int:
     for path, line, tag, body in sites:
         checked += 1
         if tag == "tested":
-            problems = tested_problems(body, known)
+            problems = tested_problems(body, known, path)
         elif tag == "measured":
-            problems = measured_problems(body, known)
+            problems = measured_problems(body, known, path)
         else:
             problems = source_problems(body)
         for problem in problems:
@@ -750,7 +924,7 @@ def main() -> int:
     print(
         f"{len(findings)} unbacked evidence tag(s) in {checked} claims, against "
         f"{len(known.targets)} known test names in {len(known.runs)} files a runner "
-        f"executes; {placeholders} commit=57f21ba9edf94bcf28cde11f938bce2c241a3709 placeholder(s) awaiting a "
+        f"executes; {placeholders} commit={PLACEHOLDER} placeholder(s) awaiting a "
         f"provenance pin"
     )
     return 1 if findings else 0

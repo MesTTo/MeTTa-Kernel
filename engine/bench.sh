@@ -57,15 +57,11 @@ if ! command -v swipl >/dev/null 2>&1; then
     exit 0
 fi
 
-# The same interpreter list check.sh picks from, so a bare run and a gated run
-# choose the same one.
-PY=${CHECK_PY:-}
+# The same interpreter check.sh picks, and the same exported environment, so a
+# bare run and a gated run choose the same one.
+METTA_ROOT="$ROOT"
+. "$ROOT/select-python.sh"
 if [ -z "$PY" ]; then
-    for candidate in "$HOME/Dev/.venv-pypetta/bin/python" "$ROOT/.venv/bin/python" python3; do
-        if command -v "$candidate" >/dev/null 2>&1; then PY="$candidate"; break; fi
-    done
-fi
-if ! command -v "$PY" >/dev/null 2>&1; then
     echo "engine/bench.sh: no python found (set CHECK_PY); the engine benchmark \
 suite will not run" >&2
     exit 0

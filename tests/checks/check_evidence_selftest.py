@@ -50,12 +50,20 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+
+sys.path.insert(0, str(HERE))
+from check_evidence_tags import PLACEHOLDER  # noqa: E402  -- HERE must be on the path first
+
 TAG = "tested"
 WHEN = "2026-08-18"
 
 # (accepted, what the citation names, why it is written this way)
 CITATIONS = (
     (True, "a_plunit_test", "a plunit test in a suite the plunit lane globs"),
+    (True, "a_unit:a_plunit_test", "the same test named with the unit it is in"),
+    (False, "b_unit:a_plunit_test",
+     "the same test named with a unit it is NOT in, which resolved until the "
+     "pairing stopped being a cross-product"),
     (True, "test_collected", "a pytest function in a module the pytest lane collects"),
     (True, "kept", "an example test.sh runs, holding a test form"),
     (True, "checked_thing", "a predicate the gate script's entry goal reaches"),
@@ -68,6 +76,12 @@ CITATIONS = (
     (False, "tests/orphan/reported.pl", "a script only a REPORT lane runs"),
     (False, "test_uncollected", "a pytest function in a module pytest does not collect"),
     (True, "loaded_check", "a predicate in a file the gate script loads, which has no entry"),
+    (True, "test_a_c_case_main_runs",
+     "a C case its suite's main() calls, reached through a Makefile the "
+     "runner model cannot read and a seat test.sh that can"),
+    (False, "test_a_c_case_main_forgot",
+     "a C case defined beside it that main() never calls, which is the C "
+     "suite's version of an uncollected pytest function"),
     (False, "skipped", "an example holding a test form that the skip list drops"),
     (False, "no_such_thing_at_all", "a name the tree does not define"),
     (True, "GATE_ONLY=1 sh check.sh plunit",
@@ -125,6 +139,18 @@ exec "$PY" -m {pytest_anchor} -n auto
 # there, which is why the collector anchors on that file. The fixture mirrors
 # the split for the same reason the Python one does: with the loop written into
 # the lane, this selftest would prove a shape the tree no longer has.
+# The C seat's lane delegates to its own test.sh, which delegates again to a
+# Makefile. The fixture mirrors both hops, because the model reads shell text
+# and cannot read a Makefile: with the binary named in the lane instead, this
+# would prove a shape no seat has.
+CMETTA_CHECK_SH = """\
+run GATE c-binding sh "$HERE/extensions/cmetta/test.sh"
+"""
+
+CMETTA_TEST_SH = """\
+exec make --quiet -C "$HERE" test
+"""
+
 ENGINE_CHECK_SH = """\
 check_plunit() {
     sh "$HERE/engine/test.sh"
@@ -166,9 +192,15 @@ FILES = {
         'if __name__ == "__main__":\n    sys.exit(main())\n'
     ),
     "tests/printer.py": 'print("a number")\n',
+    # TWO units, because the interesting citation names one of them. A test
+    # used to be registered under every unit in its file, so `b_unit:...`
+    # resolved for a test written in a_unit and a reader was sent to the wrong
+    # place; four citations in the tree were doing exactly that.
     "tests/prolog/suites/a_group/suite.plt": (
         ":- begin_tests(a_unit).\n\ntest(a_plunit_test) :-\n    1 =:= 1.\n\n"
-        ":- end_tests(a_unit).\n"
+        ":- end_tests(a_unit).\n\n"
+        ":- begin_tests(b_unit).\n\ntest(b_plunit_test) :-\n    2 =:= 2.\n\n"
+        ":- end_tests(b_unit).\n"
     ),
     "tests/prolog/gate_script.pl": (
         ":- ensure_loaded(loaded_helper).\n:- initialization(main, main).\n\n"
@@ -182,6 +214,13 @@ FILES = {
     "tests/orphan/mute.pl": "report :-\n    format('a number~n').\n",
     "tests/orphan/reported.pl": (
         ":- initialization(main, main).\n\nmain :-\n    format('findings~n').\n"
+    ),
+    "extensions/cmetta/Makefile": "test:\n\t./tests/c_suite\n",
+    "extensions/cmetta/tests/c_suite.c": (
+        "#include <stdio.h>\n\n"
+        "static void test_a_c_case_main_runs(void)\n{ printf(\"ran\\n\");\n}\n\n"
+        "static void test_a_c_case_main_forgot(void)\n{ printf(\"never\\n\");\n}\n\n"
+        "int main(void)\n{ test_a_c_case_main_runs();\n  return 0;\n}\n"
     ),
     "examples/kept.metta": "!(test (+ 1 2) 3)\n",
     "examples/quiet.metta": "!(+ 1 2)\n",
@@ -209,6 +248,8 @@ def build(root: Path, pytest_anchor: str) -> dict[str, int]:
         ("extensions/python/test.sh", PYTHON_TEST_SH.format(pytest_anchor=pytest_anchor)),
         ("engine/check.sh", ENGINE_CHECK_SH),
         ("engine/test.sh", ENGINE_TEST_SH),
+        ("extensions/cmetta/check.sh", CMETTA_CHECK_SH),
+        ("extensions/cmetta/test.sh", CMETTA_TEST_SH),
     ):
         component = root / name
         component.parent.mkdir(parents=True, exist_ok=True)
@@ -250,6 +291,48 @@ def run(root: Path) -> list[str]:
 
 
 
+def seat_relative_path_complaints() -> list[str]:
+    """A path in a citation is read from the root AND from the citing file.
+
+    A seat's header cites the file beside it the way a reader of that seat
+    would type it: cmetta.h sits in extensions/cmetta/ and names
+    `tests/test_cmetta.c`. Resolving only against the repository root called
+    ten such citations unbacked on the day the C seat first came under this
+    lane, which is why the rule exists and why the negative control below
+    matters as much as the positive one.
+    """
+    complaints = []
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        build(root, "pytest tests -q -p no:benchmark")
+        header = root / "extensions/cmetta/fixture.h"
+        header.write_text(
+            "/* Purpose: a fixture beside the C suite.\n"
+            " * Guarantees:\n"
+            f" *   - the suite next door backs this [{TAG} {WHEN}: tests/c_suite.c].\n"
+            f" *   - this one names a suite that is not there [{TAG} {WHEN}: tests/absent.c].\n"
+            " * Open Obligations:\n"
+            " *   To Do: None\n"
+            " *   Hacks: None\n"
+            " *   Future Enhancements: None\n"
+            " */\n"
+        )
+        output = run(root)
+        # Only what this header said: the citation table's own plants name the
+        # same suite from engine/fixture.pl, and one of them is meant to be
+        # reported.
+        mine = [line for line in output if line.startswith("extensions/cmetta/fixture.h:")]
+        beside = [line for line in mine if "tests/c_suite.c" in line]
+        missing = [line for line in mine if "tests/absent.c" in line]
+        if beside:
+            complaints.append(f"rejected a path beside its citing file: {beside[0]}")
+        if not missing:
+            complaints.append(
+                "accepted tests/absent.c, which is beside nothing and under no root"
+            )
+    return complaints
+
+
 def commit_pin_complaints() -> list[str]:
     """A commit= must name a real commit, and WORKTREE must not survive a release.
 
@@ -281,7 +364,7 @@ def commit_pin_complaints() -> list[str]:
         planted = [
             f"%   - a live pin [{TAG} {WHEN}: test_collected; commit={live}].",
             f"%   - a dangling pin [{TAG} {WHEN}: test_collected; commit={fabricated}].",
-            f"%   - an unresolved pin [{TAG} {WHEN}: test_collected; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].",
+            f"%   - an unresolved pin [{TAG} {WHEN}: test_collected; commit={PLACEHOLDER}].",
         ]
         at_live, at_dangling, at_worktree = head + 1, head + 2, head + 3
         fixture.write_text("\n".join(lines[:head] + planted + lines[head:]) + "\n")
@@ -299,13 +382,13 @@ def commit_pin_complaints() -> list[str]:
                 complaints.append(f"accepted {what}, which names no commit in the repository")
             if not wanted and reported:
                 complaints.append(f"rejected {what}: {reported[0]}")
-        if not any("commit=57f21ba9edf94bcf28cde11f938bce2c241a3709 placeholder" in item for item in output):
-            complaints.append("the report does not count commit=57f21ba9edf94bcf28cde11f938bce2c241a3709 placeholders")
+        if not any(f"commit={PLACEHOLDER} placeholder" in item for item in output):
+            complaints.append(f"the report does not count commit={PLACEHOLDER} placeholders")
 
         # The fixture plants rejected citations too, so this tree exits 1
         # either way and the exit code says nothing. The refusal SENTENCE is
         # what discriminates, and it must appear only under RELEASE=1.
-        refusal = "still say commit=57f21ba9edf94bcf28cde11f938bce2c241a3709"
+        refusal = f"still say commit={PLACEHOLDER}"
         released = subprocess.run(
             [sys.executable, str(root / "tools/checks/check_evidence_tags.py")],
             cwd=root, capture_output=True, text=True, check=False,
@@ -313,12 +396,12 @@ def commit_pin_complaints() -> list[str]:
         )
         if refusal not in released.stdout:
             complaints.append(
-                f"RELEASE=1 accepted a tree with a commit=57f21ba9edf94bcf28cde11f938bce2c241a3709 placeholder "
+                f"RELEASE=1 accepted a tree with a commit={PLACEHOLDER} placeholder "
                 f"at engine/fixture.pl:{at_worktree}"
             )
         if any(refusal in item for item in output):
             complaints.append(
-                "an ordinary run refuses commit=57f21ba9edf94bcf28cde11f938bce2c241a3709, which is the "
+                f"an ordinary run refuses commit={PLACEHOLDER}, which is the "
                 "in-progress spelling and must only fail a release"
             )
     return complaints
@@ -353,14 +436,15 @@ def main() -> int:
         if not any("no longer contains" in line for line in output):
             complaints.append("a collector whose anchor left the runner went unreported")
 
+    complaints += seat_relative_path_complaints()
     complaints += commit_pin_complaints()
 
     for complaint in complaints:
         print(complaint)
     print(
         f"{len(complaints)} defect(s) in the evidence gate, over "
-        f"{len(CITATIONS)} planted citations, one moved anchor, and three "
-        f"commit pins"
+        f"{len(CITATIONS)} planted citations, one moved anchor, three commit "
+        f"pins and a path cited from beside its own file"
     )
     return 1 if complaints else 0
 

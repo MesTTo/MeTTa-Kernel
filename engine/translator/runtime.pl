@@ -128,17 +128,36 @@ merge_branch_returns(Head, Body0, Body) :-
 :- catch(use_module(library(shlib)), _, true).
 :- dynamic metta_c_mbr_active/0.
 :- dynamic metta_mbr_artifact/1.
-:- prolog_load_context(directory, MbrDir),
-   directory_file_path(MbrDir, 'mbr.so', MbrSo),
+%The ENGINE's directory, not this file's. A unit consulted into an umbrella has
+%its directives stored in the umbrella's .qlf, so prolog_load_context(directory,
+%D) here answered engine/translator/ on a source boot and engine/ once
+%translator.qlf served it: build.sh writes engine/mbr.so, so a cold tree looked
+%one directory too deep, found nothing, and ran the Prolog pass with the
+%artifact sitting on disk. metta_engine_src_dir/1 is recorded by the umbrella
+%itself, whose own load context is engine/ in both modes.
+:- metta_engine_src_dir(EngineDir),
+   directory_file_path(EngineDir, 'mbr.so', MbrSo),
    assertz(metta_mbr_artifact(MbrSo)).
 
 %Keep the load in a named directive, matching parser.pl's reader and writer
-%loaders. Besides making the artifact path inspectable, this preserves the
-%activation step when translator.pl is served from translator.qlf; the former
-%anonymous compound directive ran only while that QLF was compiled, leaving a
-%later engine process on the Prolog fallback despite a present mbr.so [tested:
-%swipl -q -g "ensure_loaded('engine/qlf_boot.pl'),ensure_loaded('engine/metta'),translator:metta_c_mbr_active,halt";
-%commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
+%loaders. It makes the artifact path inspectable as metta_mbr_artifact/1 and
+%the activation a predicate a test can call, which is what lets the artifact
+%and the flag be checked against each other: mbr_c_differential below is
+%CONDITIONED on metta_c_mbr_active/0, and plunit SKIPS a unit whose condition
+%fails, so an activation step that stops running reads as a suite with fewer
+%tests rather than as a failure
+%[tested: mbr_c_fallback:the_c_analyzer_is_active_exactly_when_its_artifact_loads;
+%commit=WORKTREE].
+%
+%[assumed 2026-08-31: the reason this comment previously gave for the named
+%directive -- that the former anonymous compound directive "ran only while
+%that QLF was compiled" -- is not reproducible. An anonymous compound
+%directive of the same shape was planted in a sandbox copy, the QLF set was
+%regenerated, and a QLF-served boot still activated, because SWI stores a
+%directive in the QLF and re-runs it on load. No committed revision of this
+%file holds that anonymous form, so the shape that failed cannot be recovered
+%from history either; what a source boot demonstrably loses is the artifact
+%PATH recorded above, not the directive.]
 metta_try_load_c_mbr :-
    (   \+ getenv('METTA_C_MBR', off),
        metta_mbr_artifact(MbrSo),
@@ -787,7 +806,7 @@ metta_application_result(_, _, Produced, Produced).
 %predicate is the most expensive spelling of "off" SWI offers: the miss costs
 %2 inferences and about 420 instructions through clause selection, per
 %boundary crossing, at 11 crossings per py-method-call
-%[measured: 2/2/4/2 inferences and 11.216G/12.396G/15.416G/11.216G
+%[measured 2026-08-31: 2/2/4/2 inferences and 11.216G/12.396G/15.416G/11.216G
 % instructions:u per 10M calls for a static fast body, a 1-clause dynamic
 % fast body, the inline empty-table gate and a compile_predicates body;
 % command=swipl ai-tmp/door_cost_probe.pl and perf stat -e instructions:u

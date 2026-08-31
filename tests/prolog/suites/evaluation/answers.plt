@@ -44,61 +44,76 @@ test(the_bridge_preserves_inference_limits) :-
 % one closure. The wires here are hand-built exactly as janus delivers
 % them, so this runs without Python in the process.
 
-residue_name(Variable, Name) :- term_to_atom(Variable, A), atom_string(A, Name).
+% The names the encoder wrote, read out of the map it hands back, which is
+% what the crossing itself passes to the decode.
+residue_table(Term, Table) :- metta_py_encode(Term, [], Table, _).
+
+residue_name(Table, Variable, Name) :-
+    metta_py_var_name(Table, Variable, Written),
+    atom_string(Written, Name).
 
 test(a_true_condition_holds_and_a_false_one_drops) :-
     Pattern1 = [edge, a, Y1],
-    residue_name(Y1, N1),
+    residue_table(Pattern1, T1),
+    residue_name(T1, Y1, N1),
     metta_py_answer_match(["a", [[N1, ["n", 5]]], '@'(true), '@'(none)],
-                          Pattern1, '&plunit_resk'),
+                          Pattern1, T1, '&plunit_resk'),
     assertion(Y1 == 5),
     Pattern2 = [edge, a, Y2],
-    residue_name(Y2, N2),
+    residue_table(Pattern2, T2),
+    residue_name(T2, Y2, N2),
     metta_py_answer_match(
         ["a", [[N2, ["n", 5]]],
          ["e", [["s", ">"], ["v", N2], ["n", 3]]], '@'(none)],
-        Pattern2, '&plunit_resk'),
+        Pattern2, T2, '&plunit_resk'),
     assertion(Y2 == 5),
     Pattern3 = [edge, a, Y3],
-    residue_name(Y3, N3),
+    residue_table(Pattern3, T3),
+    residue_name(T3, Y3, N3),
     \+ metta_py_answer_match(
         ["a", [[N3, ["n", 2]]],
          ["e", [["s", ">"], ["v", N3], ["n", 3]]], '@'(none)],
-        Pattern3, '&plunit_resk').
+        Pattern3, T3, '&plunit_resk').
 
 test(a_match_residue_composes_one_closure_per_solution) :-
     'add-atom'('&plunit_resk', [allowed, b], _),
     'add-atom'('&plunit_resk', [allowed, d], _),
     Pattern = [edge, a, Y],
-    residue_name(Y, N),
+    residue_table(Pattern, Table),
+    residue_name(Table, Y, N),
     findall(Y,
             metta_py_answer_match(
                 ["a", [],
                  ["e", [["s", "match"], ["s", "&plunit_resk"],
                         ["e", [["s", "allowed"], ["v", N]]], ["v", N]]],
                  '@'(none)],
-                Pattern, '&plunit_resk'),
+                Pattern, Table, '&plunit_resk'),
             Values),
     assertion(Values == [b, d]).
 
 test(a_nonreducing_residue_answers_itself_and_holds) :-
     Pattern = [edge, a, Y],
-    residue_name(Y, N),
+    residue_table(Pattern, Table),
+    residue_name(Table, Y, N),
     metta_py_answer_match(
         ["a", [[N, ["s", "kept"]]],
          ["e", [["s", "plunit-no-equation"], ["s", "q"]]], '@'(none)],
-        Pattern, '&plunit_resk'),
+        Pattern, Table, '&plunit_resk'),
     assertion(Y == kept).
 
 test(a_theta_plan_row_binds_the_claimed_patterns) :-
     Claimed = [[edge, X, Y], [edge, Y, Z]],
-    residue_name(X, NX), residue_name(Y, NY), residue_name(Z, NZ),
+    metta_py_encode_arguments(Claimed, _, Table),
+    residue_name(Table, X, NX),
+    residue_name(Table, Y, NY),
+    residue_name(Table, Z, NZ),
     metta_py_plan_rows(Claimed,
                        [metta_answer('&plunit_resk',
                                      ["a",
                                       [[NX, ["s", a]], [NY, ["s", b]],
                                        [NZ, ["s", c]]],
-                                      '@'(true), '@'(none)])]),
+                                      '@'(true), '@'(none)])],
+                       Table),
     assertion(Claimed == [[edge, a, b], [edge, b, c]]).
 
 :- end_tests(python_answer_residue).
@@ -125,14 +140,14 @@ kappa_retract(Entry) :- catch('remove-atom'('&metta', Entry, _), _, true).
 test(an_undeclared_annotation_is_refused_naming_the_declaration,
      [throws(error(metta_answer_annotation_undeclared('&plunit_kap', _), _))]) :-
     metta_py_answer_match(["a", [], '@'(true), 0.5],
-                          [edge, a, _], '&plunit_kap').
+                          [edge, a, _], [], '&plunit_kap').
 
 test(a_declared_annotation_is_admitted_and_rides_the_answer,
      [ setup(kappa_declare([annotations, '&plunit_kap', ranked])),
        cleanup(kappa_retract([annotations, '&plunit_kap', ranked])) ]) :-
     b_setval('$metta_answer_k', 1),
     metta_py_answer_match(["a", [], '@'(true), 0.8],
-                          [edge, a, _], '&plunit_kap'),
+                          [edge, a, _], [], '&plunit_kap'),
     b_getval('$metta_answer_k', K),
     assertion(K == 0.8).
 

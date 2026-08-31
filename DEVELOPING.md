@@ -246,3 +246,29 @@ updates its public documentation in the same commit. Reproduce a defect before
 changing it. Keep commits independently buildable. A change is ready only when
 the direct relevant tests and `GATE_ONLY=1 sh check.sh` both pass with the
 intended interpreter.
+
+## Evidence tags and their commit pins
+
+A claim in a file's header carries the evidence behind it, and the evidence
+names the repository state that produced it: `[tested: <test name>;
+commit=<object ID>]`. While you are working, write `commit=WORKTREE`. A commit
+cannot contain its own object ID, so the pin is resolved afterwards: commit the
+functional, tested state as A, then resolve every placeholder to A's ID in a
+provenance-only commit B.
+
+Resolve them with the pass, never by hand:
+
+```sh
+python tests/checks/pin_provenance.py --check          # what is still open
+python tests/checks/pin_provenance.py --commit <A>     # resolve them to A
+```
+
+It rewrites a placeholder only where the file's own grammar says the text is a
+comment, and prints every occurrence it declined with the reason. A hand sweep
+does not know that difference: one on 2026-08-31 rewrote twelve string
+literals, which made the twin re-pin tool start writing a stale object ID into
+every twin it priced and silently disabled the release check that refuses
+unresolved pins.
+
+`RELEASE=1 python tests/checks/check_evidence_tags.py` is the cut-time check
+that no placeholder survived.

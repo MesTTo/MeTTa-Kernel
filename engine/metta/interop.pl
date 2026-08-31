@@ -142,8 +142,11 @@ prolog_function_source(N, DeclaredArity, Source) :-
 %installed when it is not
 %metta_translated_head/1 is the translator's own registry, so a rule added at
 %run time is covered without another hand-maintained list
-%[tested: a_builtin_name_is_refused, a_special_form_name_is_refused,
-%test_registering_any_translator_compiled_head_is_refused_by_name].
+%[tested: a_builtin_whose_clauses_moved_is_refused,
+%a_reserved_name_is_refused_before_the_source_loads,
+%a_special_form_name_is_refused,
+%test_registering_any_translator_compiled_head_is_refused_by_name;
+%commit=WORKTREE].
 refuse_reserved_registration(N) :-
     (   builtin_fun(N)
     ->  throw(error(permission_error(register, metta_builtin, N),
@@ -982,7 +985,9 @@ ensure_loaded_global(File) :- refuse_unloadable_source_file(File),
 %does not describe it and nothing here pretends otherwise; load_files/2 is
 %already written with its target module named, as lib_tabling.metta does with
 %(load_files user ((Predicate (stream $S))))
-%[tested: a_host_loader_called_from_metta_loads_into_the_process_tier].
+%[tested:
+%prolog_interface_namespacing:a_host_loader_called_from_metta_loads_into_the_process_tier;
+%commit=WORKTREE].
 host_process_tier_loader(consult, 1, consult_global).
 host_process_tier_loader(use_module, 1, use_module_global).
 host_process_tier_loader(ensure_loaded, 1, ensure_loaded_global).

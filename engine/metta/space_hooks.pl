@@ -480,9 +480,14 @@ metta_writes(Ctx, Atomicity) :-
 %The meta declaration stays in the same source unit as the clause. When it
 %lived in runtime.pl after this extraction, reconsulting that later unit
 %abolished the earlier static predicate before the umbrella's publication
-%check ran [tested: `swipl -q -g "consult('engine/metta.pl'),
-%load_files('engine/metta.pl',[if(true)]),
-%current_predicate(user:metta_transaction/1),halt" -t halt`; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
+%check ran. tests/prolog/static_checks.pl is where that shows now:
+%check_project_var_branches reloads every engine source with if(true), and
+%every_seam_kind_matches_its_direction then asks whether each published
+%engine seam is still DEFINED, so a metta_transaction/1 the reload
+%abolished is reported as a host_service published but not defined
+%[tested: tests/prolog/static_checks.pl:check_project_var_branches,
+%tests/prolog/static_checks.pl:every_seam_kind_matches_its_direction;
+%commit=WORKTREE].
 :- meta_predicate metta_transaction(0).
 metta_transaction(Goal) :-
     term_variables(Goal, Vars),

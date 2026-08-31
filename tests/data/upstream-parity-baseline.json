@@ -778,9 +778,6 @@
  "examples/ch11-python-as-a-notation/08-torch_lib.metta": {
   "status": "upstream-error"
  },
- "examples/ch11-python-as-a-notation/09-llm_cities.metta": {
-  "status": "upstream-error"
- },
  "examples/ch12-testing/01-he_assert.metta": {
   "status": "upstream-error"
  },

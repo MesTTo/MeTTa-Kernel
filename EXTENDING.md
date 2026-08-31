@@ -924,7 +924,7 @@ def my_op(x):
 This is how you reach NumPy, PyTorch, an LLM, a database, or anything else
 Python can see. It costs the janus crossing, so it earns its price when the
 work on the other side is substantial and loses it when the operation is
-trivial. `lib_llm`, `lib_torch` and the `arrays` integration are all this.
+trivial. `lib_torch` and the `arrays` integration are both this.
 
 ### Writing logic in Python: use `@m.define`, not `op`
 

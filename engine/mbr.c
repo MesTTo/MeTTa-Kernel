@@ -19,8 +19,8 @@
  *     up to variance and the same binding set, over the translator suite's
  *     generator fuzzer and the whole example corpus under
  *     METTA_C_MBR=differential [tested:
- *     translator:merge_branch_returns/3 callers in
- *     tests/prolog/suites/translator/translator.plt].
+ *     mbr_c_differential:the_c_and_prolog_analyzers_agree_on_every_canonical_shape,
+ *     mbr_c_differential:six_hundred_generated_control_spines_agree].
  *   - never binds a variable: the rewrite shares the caller's terms, and the
  *     bindings list carries the variables themselves for the caller to bind.
  * Fails when: more than MBR_MAX_VARS distinct variables appear (the Prolog

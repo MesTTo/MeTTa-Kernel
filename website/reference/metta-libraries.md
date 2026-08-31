@@ -9,7 +9,7 @@ beside its definitions.
 
 | library | names | documented |
 |---|---|---|
-| lib_builtin_types | 185 | 0 |
+| lib_builtin_types | 190 | 0 |
 | lib_combinatorics | 6 | 0 |
 | lib_conformance | 1 | 0 |
 | lib_constraints | 5 | 0 |
@@ -23,7 +23,6 @@ beside its definitions.
 | lib_he | 0 | 0 |
 | lib_import | 2 | 2 |
 | lib_json | 0 | 0 |
-| lib_llm | 8 | 0 |
 | lib_measure | 16 | 0 |
 | lib_memo | 0 | 0 |
 | lib_mm2 | 5 | 0 |

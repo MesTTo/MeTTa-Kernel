@@ -743,4 +743,53 @@ test(a_library_path_that_is_not_a_directory_is_refused,
      [throws(error(existence_error(directory, '/nonexistent/metta/libdir'), _))]) :-
     register_metta_library_path(plunit_absent_pkg, '/nonexistent/metta/libdir', true).
 
+% WHERE A FILE A MeTTa PROGRAM LOADS PUTS ITS PREDICATES. A host loader takes
+% its target namespace from the CONTEXT MODULE of the call, and a runnable's
+% context module is its space's execution module, so a program that registered
+% SWI's own consult and wrote it inside a named space loaded the file into
+% '$metta_exec:&<space>': the directives ran and the call succeeded, so the
+% load looked like it had worked, while register_fun/1 could not see the
+% predicates and no other space could call them. The three one-file loaders
+% are mapped to the engine's own funnels instead, and a load is a PROCESS-tier
+% event whatever scope asked for it.
+%
+% The space here is a NAMED one, not &self, because in &self the load module
+% already is the engine's and the test would pass without the mapping.
+test(a_host_loader_called_from_metta_loads_into_the_process_tier,
+     [ setup(( tmp_file_stream(text, Path, Stream),
+               format(Stream, "plunit_process_tier_marker(loaded).~n", []),
+               close(Stream) )),
+       cleanup(( metta_engine_module(Engine),
+                 catch(abolish(Engine:plunit_process_tier_marker/1), _, true),
+                 forget_pi_name(consult),
+                 release_function_name(consult),
+                 delete_file(Path) )) ]) :-
+    % The MeTTa door, because the claim is about a loader called FROM MeTTa.
+    process_metta_string("!(import_prolog_function consult)", [true]),
+    'new-space'(Space),
+    space_module(Space, SpaceModule),
+    % The zero-input spelling lib_import.metta writes: the engine reads a
+    % registered predicate's LAST argument as the output, so a let* pattern
+    % variable already holding the path passes it IN.
+    format(string(Source), "!(let* (($f \"~w\") ($f (consult))) $f)", [Path]),
+    with_metta_module(SpaceModule, process_metta_string(Source, Answers)),
+    assertion(Answers \== []),
+    metta_engine_module(Engine),
+    assertion(current_predicate(Engine:plunit_process_tier_marker/1)),
+    assertion(\+ predicate_property(Engine:plunit_process_tier_marker(_),
+                                    imported_from(_))),
+    % and NOT a definition of the space that asked for it, which is the whole
+    % failure: the space module may only INHERIT the name.
+    assertion(\+ ( current_predicate(SpaceModule:plunit_process_tier_marker/1),
+                   \+ predicate_property(SpaceModule:plunit_process_tier_marker(_),
+                                         imported_from(_)) )),
+    % One mapping per one-file loader, read at the lowering that applies it.
+    forall(member(Loader-Funnel, [consult-consult_global,
+                                  use_module-use_module_global,
+                                  ensure_loaded-ensure_loaded_global]),
+           ( translator:resolve_dispatch(Loader, [], Out, Goal),
+             Expected =.. [Funnel, Out],
+             assertion(Goal == Expected) )),
+    metta_release_space(Space).
+
 :- end_tests(prolog_interface_namespacing).

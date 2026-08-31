@@ -262,7 +262,9 @@ metta_match_all([X|Xs], [Y|Ys]) :-
 %space here. That configuration is already broken upstream of this
 %predicate - neither wire codec can carry such a name - and the live-database
 %check in tests/prolog/static_checks.pl now refuses it by name rather than
-%letting it fail quietly [tested: every_foreign_space_is_an_ampersand_name].
+%letting it fail quietly
+%[tested: tests/prolog/static_checks.pl:every_registered_space_name_is_an_ampersand_atom;
+%commit=WORKTREE].
 metta_space_operand(S) :-
     atom(S),
     !,

@@ -213,7 +213,8 @@ def split_table_row(inner: str) -> list[str]:
     """Cells of one GFM table row, `inner` being the text between the outer
     pipes. A `|` counts as a delimiter unless it is escaped `\\|` or sits
     inside a run of backticks matched by an equal-length closing run, per
-    the CommonMark table extension and code-span rules."""
+    the CommonMark table extension and code-span rules.
+    """
     cells: list[str] = []
     current: list[str] = []
     i, n = 0, len(inner)
@@ -251,7 +252,8 @@ def split_table_row(inner: str) -> list[str]:
 class SpecRow:
     """One item row: its id, source line, and its "item"/"acceptance"-shaped
     cell texts. `evidence_text` is kept for display only and never mined for
-    anchors (see module docstring)."""
+    anchors (see module docstring).
+    """
 
     id: str
     line: int
@@ -353,7 +355,8 @@ def parse_items(text: str) -> tuple[dict[str, list[SpecRow]], list[str]]:
     """Every `P<phase>.<n>` item the spec's tables define, keyed by id (more
     than one entry means the spec itself defines that id more than once),
     plus structural warnings (a row whose cell count does not match its
-    table's header, which this tool skips rather than misaligns)."""
+    table's header, which this tool skips rather than misaligns).
+    """
     items: dict[str, list[SpecRow]] = {}
     warnings: list[str] = []
     warnings.extend(orphan_rows(text))
@@ -433,7 +436,8 @@ class Anchor:
 
 def classify_token(token: str) -> str | None:
     """Which anchor kind a backtick span names, or None for prose, an
-    operator symbol, a MeTTa runtime expression, or a variable."""
+    operator symbol, a MeTTa runtime expression, or a variable.
+    """
     token = token.strip()
     if not token or any(c.isspace() for c in token):
         return None
@@ -493,7 +497,8 @@ def extract_code_spans(row: SpecRow) -> list[str]:
     """Every backtick span in `row`'s item/acceptance text that looks like
     Prolog or Python code rather than a name. Unlike `Anchor`, a code span
     carries no provenance: `resolve_code_span` treats an item- and an
-    acceptance-column snippet identically, so there is nothing to carry."""
+    acceptance-column snippet identically, so there is nothing to carry.
+    """
     spans = []
     for source in (row.item_text, row.acceptance_text):
         for span in BACKTICK.findall(source):
@@ -523,7 +528,8 @@ WHITESPACE = re.compile(r"\s+")
 def _read_paren_arity(text: str, open_idx: int) -> int:
     """Argument count of the `(...)` starting at `text[open_idx]`, skipping
     nested brackets and quoted atoms/strings so a comma inside `'a,b'` is
-    not counted. Returns -1 if the group never closes (truncated file)."""
+    not counted. Returns -1 if the group never closes (truncated file).
+    """
     depth, arity, i, n, quote = 0, 1, open_idx, len(text), None
     while i < n:
         ch = text[i]
@@ -621,7 +627,8 @@ def _lane_tiers() -> dict[str, str]:
 @dataclass(frozen=True)
 class TreeFacts:
     """Everything gathered from the repository once, up front, and handed to
-    every `resolve_*` function; nothing below this point reads a file."""
+    every `resolve_*` function; nothing below this point reads a file.
+    """
 
     lanes: dict[str, str]
     runs: dict[Path, Execution]
@@ -635,7 +642,8 @@ class TreeFacts:
 def gather_tree_facts() -> TreeFacts:
     """Everything the verdict engine asks the repository for, computed once.
     Every piece here is a plain read: file globs, regex scans, and the two
-    sibling modules' own (also read-only) `executed()`/`gather()`."""
+    sibling modules' own (also read-only) `executed()`/`gather()`.
+    """
     runs, _problems = executed()
     evidence, _problems2 = evidence_tags.gather()
     impl_chunks = [
@@ -747,13 +755,15 @@ _TRANSIENT = frozenset({".git", "__pycache__", ".claude", "ai-tmp", "build", ".v
 
 def _transient(parts: tuple[str, ...]) -> bool:
     """Whether a path lies in a directory that is a COPY of the tree or
-    scratch beside it, rather than the tree itself."""
+    scratch beside it, rather than the tree itself.
+    """
     return any(part in _TRANSIENT for part in parts)
 
 
 def _shown_path(location: Path) -> str:
     """`location` relative to whichever SEARCH_ROOTS entry contains it, so
-    a report line never leaks this machine's absolute layout."""
+    a report line never leaks this machine's absolute layout.
+    """
     for label, root in (("", ROOT), ("WORKSPACE/", WORKSPACE), ("WORKSPACE/../", WORKSPACE.parent)):
         if location.is_relative_to(root):
             return f"{label}{location.relative_to(root)}"
@@ -768,7 +778,8 @@ def _file_outcome(path: Path, facts: TreeFacts) -> tuple[str | None, str]:
     path that only a REPORT lane reaches is OPEN (named but not yet gated,
     per this project's own V1: not done until the gate is green); anything
     under an implementation root, blanket-swept, or untracked by any
-    runner, is neutral."""
+    runner, is neutral.
+    """
     if path.is_dir():
         return None, "exists as a directory"
     execution = facts.runs.get(path.resolve())
@@ -861,7 +872,8 @@ def resolve_predicate(anchor: Anchor, facts: TreeFacts) -> Verdict:
     SWI or library builtin the fix CALLS (P1.13's `retract/1`) rather than
     a symbol it DEFINES. Neither direction moves an item's verdict; both
     are still reported, so a human reading `--id` output sees what this
-    tool saw."""
+    tool saw.
+    """
     name, _, cited_arity = anchor.token.partition("/")
     name = name.split(":")[-1]
     found = facts.prolog_defs.get(name, [])
@@ -914,6 +926,18 @@ def resolve_identifier(anchor: Anchor, facts: TreeFacts) -> Verdict:
     hand-written identifiers this project names FOR the behaviour they pin
     (`test_the_grouping_is_preserved`), which is a different, much lower
     collision risk, so those stay bidirectional.
+
+    A plunit UNIT is deliberately NOT in that set, though every test inside
+    one is. A unit is named for the MODULE it covers rather than for a single
+    behaviour, which puts it back in the `quote` fixture's collision class: of
+    the three unit-only names this spec cites, `lib_tabling` and `lib_thread`
+    appear in P1.14's and P12.16's problem text meaning the LIBRARIES
+    lib/lib_tabling and lib/lib_thread, and only P1.30's
+    `parser_nonfinite_print` means the unit. All three items also cite a
+    `test_` anchor, and that is what decides them, so excluding units costs no
+    verdict and drops two false witnesses [measured 2026-08-31: adding
+    "plunit-unit" to this set changes no FIXED/OPEN/UNKNOWN verdict and only
+    moves P1.14 and P12.16 onto the library-shaped name; commit=WORKTREE].
     """
     token = anchor.token
     candidates = [token] + ([token.rsplit(".", 1)[-1]] if "." in token else [])
@@ -931,6 +955,15 @@ def resolve_identifier(anchor: Anchor, facts: TreeFacts) -> Verdict:
                 return Verdict("fixed", f"`{token}` is a known, GATE-run pytest/plunit test")
             return Verdict("open", f"`{token}`: {problems[0]}")
         kinds = sorted({t.kind for t in resolved})
+        if "plunit-unit" in kinds:
+            # Not the broad sweep: a unit is a real, hand-written name, and
+            # saying otherwise sends a reader looking for a stray fixture.
+            return Verdict(
+                None,
+                f"`{token}` names a plunit UNIT rather than one of its tests, and a unit "
+                f"is named for the module it covers, so this may be that module's own "
+                f"name in prose; name a test inside it to decide this item",
+            )
         return Verdict(
             None,
             f"`{token}` matches only {kinds} in check_evidence_tags' broad sweep "
@@ -959,7 +992,8 @@ def resolve_code_span(snippet: str, facts: TreeFacts) -> Verdict:
     clause body, not a bare name) matching verbatim after whitespace is
     stripped is unlikely to be a coincidence, so a MATCH is real FIXED-
     leaning evidence. A miss proves nothing (formatting drift, a renamed
-    variable), so it stays neutral rather than becoming a false OPEN."""
+    variable), so it stays neutral rather than becoming a false OPEN.
+    """
     normalized = WHITESPACE.sub("", snippet)
     if normalized and normalized in facts.implementation_text:
         return Verdict("fixed", f"the exact code `{snippet}` appears verbatim in {', '.join(IMPLEMENTATION_DIRS)}")
@@ -993,7 +1027,8 @@ class ItemStatus:
 def _evaluate_ambiguous(rows: list[SpecRow], facts: TreeFacts) -> ItemStatus:
     """The spec itself defines this id more than once (Phase 4's own
     P4.1-P4.7 duplication): report each row's own leaning for a human to
-    disambiguate, but never guess which row governs."""
+    disambiguate, but never guess which row governs.
+    """
     per_row = []
     for row in rows:
         row_verdicts = [resolve_anchor(a, facts) for a in extract_anchors(row)]
@@ -1011,7 +1046,8 @@ def _evaluate_single(row: SpecRow, facts: TreeFacts) -> ItemStatus:
     """OPEN if any anchor is OPEN, else FIXED if any is FIXED, else UNKNOWN
     -- naming whether any anchor was found at all, since that distinction
     (no anchor named vs. anchors named but all inconclusive) is itself part
-    of this tool's honesty about what it can decide."""
+    of this tool's honesty about what it can decide.
+    """
     anchors = extract_anchors(row)
     verdicts = [(a, resolve_anchor(a, facts)) for a in anchors]
     code_verdicts = [(s, resolve_code_span(s, facts)) for s in extract_code_spans(row)]
@@ -1037,7 +1073,8 @@ def _evaluate_single(row: SpecRow, facts: TreeFacts) -> ItemStatus:
 
 def evaluate_item(rows: list[SpecRow], facts: TreeFacts) -> ItemStatus:
     """One id's verdict: `_evaluate_ambiguous` if the spec defines the id
-    more than once, otherwise `_evaluate_single`."""
+    more than once, otherwise `_evaluate_single`.
+    """
     if len(rows) > 1:
         return _evaluate_ambiguous(rows, facts)
     return _evaluate_single(rows[0], facts)
@@ -1052,7 +1089,8 @@ def _phase_key(item_id: str) -> tuple[int, str]:
 def _select_ids(statuses: dict[str, ItemStatus], phase: str | None, only_id: str | None) -> list[str]:
     """Every id to report, sorted by phase then number, narrowed by
     --phase/--id. Raises `KeyError(only_id)` if --id names an unknown id,
-    for `main` to turn into a clean error rather than an empty report."""
+    for `main` to turn into a clean error rather than an empty report.
+    """
     selected = sorted(statuses, key=_phase_key)
     if phase:
         prefix = phase if phase.startswith("P") else f"P{phase}"
@@ -1067,7 +1105,8 @@ def _select_ids(statuses: dict[str, ItemStatus], phase: str | None, only_id: str
 def _json_payload(spec: Path, items: dict[str, list[SpecRow]], warnings: list[str],
                    statuses: dict[str, ItemStatus], selected: list[str]) -> dict:
     """The --json shape: enough for a script (or check_spec_status_selftest.py)
-    to assert on exact verdicts without parsing the human-readable report."""
+    to assert on exact verdicts without parsing the human-readable report.
+    """
     return {
         "spec": str(spec),
         "total_rows": sum(len(v) for v in items.values()),
@@ -1088,7 +1127,8 @@ def _json_payload(spec: Path, items: dict[str, list[SpecRow]], warnings: list[st
 
 def _print_report(statuses: dict[str, ItemStatus], selected: list[str], verbose: bool) -> None:
     """One line per item (`id  STATUS  reason`), or full detail under
-    --id/--phase (`verbose`): every reason on its own line."""
+    --id/--phase (`verbose`): every reason on its own line.
+    """
     for item_id in selected:
         s = statuses[item_id]
         if verbose:
@@ -1104,7 +1144,8 @@ def _print_report(statuses: dict[str, ItemStatus], selected: list[str], verbose:
 
 def _print_summary(items: dict[str, list[SpecRow]], warnings: list[str], statuses: dict[str, ItemStatus]) -> None:
     """The closing tally: how many ids, how many duplicated, and -- the
-    number this task asked for -- how many of them this tool can decide."""
+    number this task asked for -- how many of them this tool can decide.
+    """
     for warning in warnings:
         print(f"WARNING (spec table): {warning}")
 
@@ -1131,7 +1172,8 @@ def _print_summary(items: dict[str, list[SpecRow]], warnings: list[str], statuse
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: parse the spec, ask the tree, print one line per
-    item (or one item's full detail under --id), then a summary."""
+    item (or one item's full detail under --id), then a summary.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--spec", type=Path, default=SPEC_DEFAULT, help="path to ai-spec-execution.md")
     parser.add_argument("--id", dest="only_id", help="report on a single item id, verbosely")

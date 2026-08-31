@@ -894,6 +894,32 @@ metta_import_shared_registries(Subsystem) :-
     forall(metta_shared_registry(Registry),
            Subsystem:import(Engine:Registry)).
 
+%WHERE THE ENGINE'S OWN SOURCE LIVES, recorded before any unit loads because
+%a unit CANNOT compute it. prolog_load_context(directory, D) answers the
+%directory of the file being loaded, and a unit consulted into an umbrella has
+%its directives stored in the UMBRELLA's .qlf, so the same directive in
+%engine/translator/runtime.pl answered engine/translator/ on a source boot and
+%engine/ once translator.qlf served it. That is how the C branch-return
+%analyzer came to be looked for at engine/translator/mbr.so, found missing, and
+%silently replaced by the Prolog pass on every cold tree, which made its
+%differential suite skip rather than fail [measured 2026-08-31: metta_c_mbr_active
+%false and metta_mbr_artifact naming engine/translator/mbr.so on a purged tree,
+%true and naming engine/mbr.so after one boot warmed the .qlf set;
+%tested: tests/prolog/static_checks.pl, no_unit_computes_its_own_directory;
+%commit=WORKTREE]. That check refuses the shape for every unit below this
+%directory and self-tests against a planted occurrence, so a clean result is
+%not a vacuous one.
+%
+%This file is the umbrella, so ITS load context is engine/ in both modes, and
+%that is the whole reason the fact is asserted here rather than beside each
+%consumer. The guard keeps a host that already set it, which is what lets an
+%embedded engine name its own tree.
+:- dynamic metta_engine_src_dir/1.
+:- prolog_load_context(directory, Dir),
+   (   metta_engine_src_dir(_) -> true
+   ;   assertz(metta_engine_src_dir(Dir))
+   ).
+
 :- ensure_loaded([parser, type_rules, translator, translator_rules,
                   support_graph, specializer, filereader,
                   '../lib/lib_gitimport/lib_gitimport', spaces, tracer,
@@ -1326,7 +1352,6 @@ load_builtin_type_surface :- index_builtin_masks.
 %compiles as the call it is. The filereader solves the same problem with
 %a repair pass; the prelude is small enough to pre-register instead.
 :- dynamic prelude_type_declaration/2.
-:- dynamic metta_engine_src_dir/1.
 :- dynamic prelude_owned/1.
 :- dynamic prelude_clause_ref/2.
 %Which names the prelude registered as TRANSLATOR RULES. A derived form ships
@@ -1408,11 +1433,6 @@ evict_prelude_declaration(Space, [':', Name, _]) :-
     !,
     retract_prelude_declarations(Name).
 evict_prelude_declaration(_, _).
-
-:- prolog_load_context(directory, Dir),
-   (   metta_engine_src_dir(_) -> true
-   ;   assertz(metta_engine_src_dir(Dir))
-   ).
 
 %The prelude compiles SILENTLY whatever the session's verbosity: these
 %are engine internals loading at boot, and a --verbose user asking to see

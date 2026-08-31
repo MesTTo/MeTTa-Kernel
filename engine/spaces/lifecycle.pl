@@ -118,8 +118,9 @@ remove_sexp(Space, Atom) :- remove_sexp(Space, Atom, _).
 %argument honestly, so a MeTTa program branching on (remove-atom $space $atom)
 %was correct against two of the three and wrong against the third, with
 %nothing in its text saying which it would get
-%[tested: spaces_removal_answers_unit_for_success_and_an_error_for_absence,
-%test_remove_atom_removes_one_occurrence_not_all].
+%[tested: spaces_arbitrary_atoms:spaces_removal_answers_true_and_drains_every_occurrence,
+%test_an_absent_equation_removal_answers_true,
+%test_a_persistent_space_drains_like_a_native_one; commit=WORKTREE].
 remove_sexp('&metta', [Rel|Args], Removed) :- !,
     (   native_storage_module_ready('&metta', Module)
     ->  Term =.. ['&metta', Rel|Args],
@@ -295,7 +296,8 @@ metta_abolish_local_predicate(Module, Name, Arity) :-
 %resolution came from system or from the engine's own tabled predicates in
 %user, blocked SWI from defining that module's local tabling state
 %('No permission to redefine built-in $table_mode/3')
-%[tested: test_tabling_control; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+%[tested: test_a_drop_untables_before_it_removes_any_clause,
+%test_an_equation_change_does_not_pay_for_a_dropped_table; commit=WORKTREE].
 metta_restore_inherited_predicate(_, Name, _) :-
     sub_atom(Name, 0, 1, _, '$'),
     !.
@@ -330,7 +332,9 @@ metta_capture_default_imports(Module) :-
                   %and friends) into the repair set, and re-importing a system
                   %predicate blocked tabling from defining its local state:
                   %'No permission to redefine built-in $table_mode/3'
-                  %[tested: test_tabling_control; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+                  %[tested:
+                  %filereader_import_lifecycle:the_capture_pass_refuses_swi_and_engine_bookkeeping;
+                  %commit=WORKTREE].
                   \+ sub_atom(Name, 0, 1, _, '$'),
                   functor(Head, Name, Arity),
                   predicate_property(Module:Head, imported_from(Source)),
@@ -1751,8 +1755,10 @@ metta_host_clear_space(Space) :-
 %what it erased while it still runs. And clearing unmuted runs the removal
 %funnel's super recompilation over a world that is dying, which resolved
 %super inside a half-dead world and threw
-%[tested: test_dropping_a_space_reclaims_its_atoms; measured 2026-08-31:
-%post_gc_atom_count 20008 -> 6 at 10,000 atoms; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
+%[tested: test_dropping_a_space_reclaims_its_atoms;
+%commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
+%[measured 2026-08-31: post_gc_atom_count 20008 -> 6 at 10,000 atoms;
+%commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 metta_clear_space_for_release(Space) :-
     setup_call_cleanup(nb_setval('$metta_space_releasing', true),
                        metta_host_clear_space(Space),

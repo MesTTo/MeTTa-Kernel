@@ -615,7 +615,7 @@ get_native_atom(Module, Space, Pattern) :-
 %existence check, run per compiled equation, cost the whole catalog per event,
 %23.7 inferences per held row over one tabling_fib load, linear from 74,268
 %inferences at +0 planted rows through 78,777 at +200 to 97,977 at +1,000
-%[measured: the three totals left; command=python - with MeTTa().space then
+%[measured 2026-08-26: the three totals left; command=python - with MeTTa().space then
 %m.stats() around m.run(examples/ch18-performance/18-02-memoisation-and-tabling/09-tabling_fib.metta) after N
 %`!(add-atom &metta (visibility dummy-N PUBLIC))` writes, fresh process per
 %N; fixture=p14-integration with engine/reader.so; commit=2b2d6f3e36d259e789ad7d977eebc3623b002970]. A bound

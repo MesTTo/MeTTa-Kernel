@@ -131,9 +131,9 @@ def gate_scripts() -> tuple[Path, ...]:
 # functions those lanes call. A lane's text is the command plus the body of
 # every function it reaches, so a path written inside check_prolog_static
 # belongs to the GATE lane that calls it.
-LANE = re.compile(r"^run\s+(GATE|REPORT)\s+(\S+)\s+(.*)$", re.M)
-FUNCTION = re.compile(r"^([a-z_][a-z0-9_]*)\(\)\s*\{\n(.*?)^\}", re.M | re.S)
-ONE_LINE_FUNCTION = re.compile(r"^([a-z_][a-z0-9_]*)\(\)\s*\{([^\n]*)\}[ \t]*$", re.M)
+LANE = re.compile(r"^run\s+(GATE|REPORT)\s+(\S+)\s+(.*)$", re.MULTILINE)
+FUNCTION = re.compile(r"^([a-z_][a-z0-9_]*)\(\)\s*\{\n(.*?)^\}", re.MULTILINE | re.DOTALL)
+ONE_LINE_FUNCTION = re.compile(r"^([a-z_][a-z0-9_]*)\(\)\s*\{([^\n]*)\}[ \t]*$", re.MULTILINE)
 
 # A path written into a runner. Anchored on a suffix this repository executes,
 # so `$SUMMARY` and `*.plt` are not mistaken for files.
@@ -145,6 +145,11 @@ PATHISH = re.compile(r"[$\w./{}-]*[\w}-]\.(?:py|pl|plt|sh|metta|ts)\b")
 # claim written in a TypeScript source name a test in one of them; without it
 # those claims are unbacked because the checker cannot see the suite at all.
 NPM_SCRIPT = re.compile(r"\bnpm\s+(?:run\s+(?:--silent\s+)?)?(?:test|typecheck|kit)\b")
+# The C seat's equivalent. Its test.sh runs `make -C <seat> test`, and the
+# Makefile's test target builds tests/*.c and runs the binary, so the source
+# a claim names is reached through a Makefile this model does not read. The
+# npm rule above is the same shape for the same reason.
+MAKE_TEST = re.compile(r"\bmake\b[^\n]*\btest\b")
 CD = re.compile(r"\bcd\s+(?:--\s+)?[\"']?([$\w./-]+)")
 # A path named to be LEFT OUT is not a path the runner executes. Reading these
 # as executions marked examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/_fixtures/imports/
@@ -401,6 +406,13 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
                     for suite in sorted((directory / "test").glob("*.test.ts")):
                         record(suite.resolve(), tier, lane)
                     break
+            if MAKE_TEST.search(lane_text):
+                for directory in directories:
+                    if not (directory / "Makefile").is_file():
+                        continue
+                    for suite in sorted((directory / "tests").glob("*.c")):
+                        record(suite.resolve(), tier, lane)
+                    break
 
     for collector in COLLECTORS:
         text = texts.get(collector.runner)
@@ -441,7 +453,7 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
         return runs, problems
     section = configuration.read_text().partition("[tool.pytest.ini_options]")[2]
     for key in PYTEST_DISCOVERY_KEYS:
-        if re.search(rf"^{key}\s*=", section.partition("\n[")[0], re.M):
+        if re.search(rf"^{key}\s*=", section.partition("\n[")[0], re.MULTILINE):
             problems.append(
                 f"extensions/python/pyproject.toml sets pytest's {key}, so the collectors above "
                 f"model a discovery this project no longer uses"

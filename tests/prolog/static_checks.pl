@@ -139,7 +139,79 @@ main :-
     no_cut_in_a_live_hook_clause,
     every_engine_emitted_goal_is_protected,
     every_emitted_goal_is_reachable,
-    every_registered_space_name_is_an_ampersand_atom.
+    every_registered_space_name_is_an_ampersand_atom,
+    no_unit_computes_its_own_directory.
+
+%%%% A unit below engine/ cannot compute its own directory %%%%
+%
+% prolog_load_context(directory, D) answers the directory of the file being
+% LOADED, and a unit consulted into an umbrella has its directives stored in
+% the UMBRELLA's .qlf. The same directive in engine/translator/runtime.pl
+% therefore answered engine/translator/ while translator.pl was consulted and
+% engine/ once translator.qlf served it, which is how the C branch-return
+% analyzer came to be looked for at engine/translator/mbr.so, found missing,
+% and silently replaced by the Prolog pass on every cold tree: its differential
+% suite skipped rather than failed, so nothing said so
+% [measured 2026-08-31: artifact=engine/translator/mbr.so active=no on a purged
+% tree and artifact=engine/mbr.so active=yes on a warm one, the same source
+% both times].
+%
+% A top-level engine/*.pl file is EXEMPT, because its own load context is
+% engine/ in both modes -- which is exactly why engine/metta.pl is where
+% metta_engine_src_dir/1 is recorded, and what a unit reads instead.
+% prolog_load_context(source, _) inside a predicate BODY asks a different
+% question, which file a directive is running in, at run time; this refuses
+% only the directory form.
+no_unit_computes_its_own_directory :-
+    findall(File-Line,
+            ( nested_engine_unit(File),
+              read_file_to_string(File, Text, []),
+              load_context_directory_line(Text, Line) ),
+            Found),
+    (   Found == []
+    ->  (   load_context_directory_line(
+                "foo :- prolog_load_context(directory, D), bar(D).", _),
+            \+ load_context_directory_line(
+                "foo :- prolog_load_context(source, S), bar(S).", _)
+        ->  format("static: no unit below engine/ resolves a path from its own \c
+                    load context, and the scan sees a planted one~n", [])
+        ;   format(user_error,
+                   'the load-context scan reported clean but does not see a \c
+                    planted prolog_load_context(directory, _), so its clean \c
+                    result says nothing~n', []),
+            fail
+        )
+    ;   forall(member(File-Line, Found),
+               format(user_error,
+                      '~w:~w resolves a path from prolog_load_context(directory, \c
+                       _), which answers this unit\'s directory on a source boot \c
+                       and the umbrella\'s once the .qlf serves it. Read \c
+                       metta_engine_src_dir/1 instead~n', [File, Line])),
+        fail
+    ).
+
+nested_engine_unit(File) :-
+    member(Pattern, ['../../engine/*/*.pl', '../../engine/*/*/*.pl']),
+    expand_file_name(Pattern, Files),
+    member(File, Files).
+
+% The line NUMBER, so the report names a place rather than a file. A comment
+% line is not code: every occurrence in this tree that is not a call sits in
+% prose explaining why the call is wrong, and reporting those would make the
+% explanation the defect.
+load_context_directory_line(Text, Line) :-
+    split_string(Text, "\n", "", Lines),
+    nth1(Line, Lines, One),
+    \+ comment_line(One),
+    sub_string(One, _, _, _, "prolog_load_context(directory").
+
+% A comment is a line that OPENS with %, not any line holding one: refusing
+% every line with a % in it would let `:- prolog_load_context(directory, D). %
+% why` through, which is the shape a reader most expects to be caught.
+comment_line(Line) :-
+    normalize_space(string(Trimmed), Line),
+    sub_string(Trimmed, 0, 1, _, "%").
+
 
 %%%% Every seam declares one kind %%%%
 %

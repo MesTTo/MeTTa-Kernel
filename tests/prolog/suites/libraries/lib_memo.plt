@@ -184,6 +184,39 @@ test(an_inheriting_space_shares_the_one_cache,
     findall(R, with_metta_module(Module, reduce([isoshared, 1], R)), [8]),
     findall(R, with_metta_module(Self, reduce([isoshared, 1], R)), [8]).
 
+%WHERE A DECLARATION LANDS, all four branches of the rule, because only the
+%last one moved and a test that pins one branch cannot say the others held.
+%A declaration may PRECEDE the equations it governs, which is how the
+%aggregate example writes it: !(memoize choices) and then the three
+%(= (choices $x) ...) alternatives. The rule used to fall back to &self
+%whenever the speaking module held no equations for the name YET, so a
+%forward declaration from a space landed in a module the program never wrote
+%to, and the definitions then compiled into the speaking one.
+test(a_declaration_lands_in_the_module_that_is_speaking,
+     [ setup(( memo_iso_shared(Text),
+               sread(Text, Term),
+               'add-atom'('&self', Term, _) )),
+       cleanup(( memo_iso_shared(CleanupText),
+                 sread(CleanupText, CleanupTerm),
+                 'remove-atom'('&self', CleanupTerm, _) )) ]) :-
+    space_module('&memo_iso', Iso),
+    metta_self_module(Self),
+    Iso \== Self,
+    %&self speaking about its own function: &self.
+    with_metta_module(Self, memo_scope_module(isocalc, HomeSaysHome)),
+    %A space speaking about a function IT defines: itself.
+    with_metta_module(Iso, memo_scope_module(isocalc, IsoSaysIso)),
+    %A space speaking about a function only &self defines: &self, which is
+    %the case the fallback exists for and the one an inheriting space needs.
+    with_metta_module(Iso, memo_scope_module(isoshared, IsoSaysHome)),
+    %A space speaking about a name neither module defines yet: itself. This
+    %is the forward declaration, and this branch is the one that moved.
+    with_metta_module(Iso, memo_scope_module(isoforward, IsoSaysForward)),
+    HomeSaysHome == Self,
+    IsoSaysIso == Iso,
+    IsoSaysHome == Self,
+    IsoSaysForward == Iso.
+
 :- end_tests(memo_space_isolation).
 
 

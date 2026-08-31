@@ -5,7 +5,7 @@
 # Commit: 43705f5d9ff8958ffe7f0aa6777fb8477f2401f2
 # Date: 2026-07-24
 #
-# The 144 example programs listed below derive from that project's MeTTa
+# The 143 example programs listed below derive from that project's MeTTa
 # sources. The search covers every .metta file it ships, not only its examples
 # directory, because crediting too widely is the safe direction for an
 # attribution. They were reorganised into the reading order this directory uses,
@@ -31,7 +31,7 @@ examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/02-spac
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/03-spaces3.metta	examples/spaces3.metta	1.0	Patrick Hammer
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/04-spaces_find.metta	examples/spaces_find.metta	0.975	Patrick Hammer
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/05-spaces_succeedspredicate.metta	examples/spaces_succeedspredicate.metta	1.0	Patrick Hammer
-examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/06-spaces_removeallatoms.metta	examples/spaces_removeallatoms.metta	0.937	Patrick Hammer
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/06-spaces_removeallatoms.metta	examples/spaces_removeallatoms.metta	0.969	Patrick Hammer
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/07-add_atom_fun_space.metta	examples/add_atom_fun_space.metta	0.753	Roman Treutlein
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/08-spacefunction.metta	examples/spacefunction.metta	1.0	Patrick Hammer
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/09-selfprog.metta	examples/selfprog.metta	1.0	Patrick Hammer
@@ -123,7 +123,6 @@ examples/ch09-types/14-matchtypes.metta	examples/matchtypes.metta	1.0	Patrick Ha
 examples/ch11-python-as-a-notation/01-python.metta	examples/python.metta	0.805	Patrick Hammer; Vitaly Bogdanov
 examples/ch11-python-as-a-notation/03-python_import.metta	examples/python_import.metta	0.964	Patrick Hammer
 examples/ch11-python-as-a-notation/07-torch.metta	examples/torch.metta	1.0	Patrick Hammer
-examples/ch11-python-as-a-notation/09-llm_cities.metta	examples/llm_cities.metta	0.986	Patrick Hammer
 examples/ch12-testing/02-he_equalreduct.metta	examples/he_equalreduct.metta	0.973	Patrick Hammer
 examples/ch15-writing-transactions-and-worlds/01-mutex_and_transaction.metta	examples/mutex_and_transaction.metta	1.0	Patrick Hammer
 examples/ch17-concurrency-and-the-loop/03-hyperpose_primes.metta	examples/hyperpose_primes.metta	1.0	Patrick Hammer; ermijermy

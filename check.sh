@@ -67,28 +67,18 @@
 set -u
 
 HERE=$(cd -- "$(dirname -- "$0")" && pwd)
-PY=${CHECK_PY:-}
-if [ -z "$PY" ]; then
-    for candidate in "$HOME/Dev/.venv-pypetta/bin/python" "$HERE/.venv/bin/python" python3; do
-        if command -v "$candidate" >/dev/null 2>&1; then PY="$candidate"; break; fi
-    done
-fi
-command -v "$PY" >/dev/null 2>&1 || { echo "check.sh: no python found (set CHECK_PY)" >&2; exit 2; }
-
-# SWI's Janus bridge follows VIRTUAL_ENV, not the Python executable selected
-# above. An inherited environment from another tool therefore made the shell
-# and parity lanes load that tool's empty Python installation while their
-# Python-side commands used $PY. Point child processes at the same interpreter
-# whenever it is a virtual environment [measured: py_numpy resolves
-# numpy.absolute through numpy after alignment; command=sh check.sh no-autoload
-# parity; fixture=inherited MCP VIRTUAL_ENV with CHECK_PY auto-selected;
+# The interpreter, and the environment SWI's Janus bridge reads to find the
+# same one. Both live in select-python.sh, sourced by every runner in the tree,
+# because Janus follows VIRTUAL_ENV rather than the executable a script chose:
+# an inherited environment from another tool made the shell and parity lanes
+# load that tool's empty Python installation while their Python-side commands
+# used $PY [measured: py_numpy resolves numpy.absolute through numpy after
+# alignment; command=sh check.sh no-autoload parity; fixture=inherited MCP
+# VIRTUAL_ENV with CHECK_PY auto-selected;
 # commit=d90a3c9620e56e42d3a2f5982b4353da8423e873].
-METTA_CHECK_PREFIX=$(dirname "$(dirname "$PY")")
-if [ -f "$METTA_CHECK_PREFIX/pyvenv.cfg" ]; then
-    VIRTUAL_ENV="$METTA_CHECK_PREFIX"
-    PATH="$METTA_CHECK_PREFIX/bin:$PATH"
-    export VIRTUAL_ENV PATH
-fi
+METTA_ROOT="$HERE"
+. "$HERE/select-python.sh"
+[ -n "$PY" ] || { echo "check.sh: no python found (set CHECK_PY)" >&2; exit 2; }
 
 PYDIR="$HERE/extensions/python"
 WANT="$*"
@@ -343,6 +333,19 @@ run GATE evidence   "$PY" "$HERE/tests/checks/check_evidence_tags.py"
 # fabricated pin differing from it only in its tail, and a WORKTREE
 # placeholder; disabling either commit rule was caught [measured 2026-08-26].
 run GATE evidence-selftest "$PY" "$HERE/tests/checks/check_evidence_selftest.py"
+
+# The other half of the provenance rule. A commit cannot contain its own object
+# ID, so the scheme writes the work as commit A and resolves every placeholder
+# to A's ID in a provenance-only commit B. That resolution was a hand sweep
+# until 2026-08-31, when one reached into twelve STRING LITERALS: the twin
+# re-pin tool started writing a stale object ID into every twin it priced, and
+# this lane's own neighbour stopped testing its RELEASE=1 rule because the
+# self-test planted an ID where the gate tested for the word. Nothing said so,
+# because a resolvable ID is exactly what the gate wants to see.
+# tests/checks/pin_provenance.py is that pass, deciding per file class from
+# each language's own grammar, and this lane plants one of every shape to prove
+# it can tell a pin from the code that writes one.
+run GATE provenance-pin-selftest "$PY" "$HERE/tests/checks/check_pin_provenance_selftest.py"
 
 # Every website/reference/metta-*.md page says "The entries below reproduce the
 # source signatures and docstrings", and across nineteen pages that promise was

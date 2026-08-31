@@ -1,6 +1,6 @@
 % Purpose: parse, classify and solve expression-child gap patterns (sequence variables) inside LeaTTa's three certified-finite fragments
 % Assumes: engine/spaces.pl consults this plain file while its owning module is the load context; metta_match_atoms/2 decides one atom position.
-% Guarantees: a pattern the program wrote without a gap never reaches any predicate here, so a gap-free ask pays nothing [tested: tests/prolog/suites/reader/segments.plt:a_gap_free_match_costs_what_it_did].
+% Guarantees: a pattern the program wrote without a gap never reaches any predicate here, so a gap-free ask pays nothing [tested: tests/prolog/suites/reader/segments.plt:segments_costs_nothing; commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % Decides: an ask outside the three proved-finite fragments REFUSES by throwing rather than searching an infinitary space.
 % [tested: tests/prolog/suites/reader/segments.plt; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb]
@@ -158,8 +158,8 @@ metta_seq_head_match('$metta_seq'(one_sided(left), Parsed), Subject) :-
     %function head.  Enter the child-list matcher directly so the all-segment
     %head can match the empty argument hedge; metta_seq_atoms/2 quite properly
     %requires two nonempty expressions at its atom boundary [tested:
-    %tests/prolog/suites/reader/segment_equations.plt:top_level_segment_accepts_zero_arguments;
-    %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+    %tests/prolog/suites/reader/segment_equations.plt:top_level_segment_accepts_zero_arguments_and_wider_arities;
+    %commit=WORKTREE].
     metta_seq_items(Parsed, Subject).
 
 %A coverage or applicability probe must not bind the live call or the retained

@@ -249,7 +249,8 @@ def run(root: Path) -> dict:
 
 def main() -> int:
     """Build the fixture tree(s), run the real checker, and diff its output
-    against every planted case; this function's assertions ARE the test."""
+    against every planted case; this function's assertions ARE the test.
+    """
     complaints: list[str] = []
 
     with tempfile.TemporaryDirectory() as directory:

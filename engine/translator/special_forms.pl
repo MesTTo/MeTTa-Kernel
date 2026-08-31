@@ -1298,7 +1298,8 @@ metta_seq_written(Operand) :-
 %caller's argument has to equal. Nothing in the source says so, which is the
 %same complaint the two clauses around this one answer, and engine/duals.pl
 %reads the note to decide it cannot dualise the head
-%[tested: duals_refusals:a_head_holding_a_call_has_no_dual].
+%[tested: duals_refusals:a_functional_pattern_head_has_no_dual;
+%commit=WORKTREE].
 prolog:message(metta_head_pattern_note(Fun, Path, Label, functional_pattern)) -->
     { head_pattern_position_text(Path, Where) },
     [ 'the head of (= (~w ...) ...) holds the call (~w ...) at ~w, so that \c

@@ -1345,6 +1345,39 @@ test(builtin_exists_file) :-
     catch('exists_file'(5, _), error(Formal, _), true),
     assertion(nonvar(Formal)).
 
+%THE SAME TEST READ BACKWARDS, which is the only spelling upstream has: the
+%engine takes a registered predicate's LAST argument as the output, so
+%(exists_file) hands its one argument back, and a let* binding whose pattern
+%variable already holds a path passes that path IN. lib_import.metta guards a
+%file this way before consulting it [source: PeTTa-upstream/lib/lib_import.metta:3].
+%
+%The arity has to be OURS for that to survive the boot.
+%retract_unrelated_system_arities/0 drops an arity whose predicate is
+%built_in, and SWI's exists_file/1 is; the engine's redefinition is not, which
+%is what keeps arity(exists_file, 1) after the sweep. Inheriting SWI's instead
+%made !(exists_file) abort the runnable with "Arguments are not sufficiently
+%instantiated".
+test(builtin_exists_file_reverse_mode) :-
+    metta_engine_module(Engine),
+    assertion(\+ predicate_property(Engine:exists_file(_), built_in)),
+    assertion(Engine:arity(exists_file, 1)),
+    library('lib_builtin_types.metta', Present),
+    format(string(PresentSource),
+           "!(let* (($f \"~w\") ($f (exists_file))) $f)", [Present]),
+    process_metta_string(PresentSource, PresentAnswers),
+    assertion(PresentAnswers = [_]),
+    PresentAnswers = [Answered],
+    text_to_string(Answered, AnsweredText),
+    text_to_string(Present, PresentText),
+    assertion(AnsweredText == PresentText),
+    %A path that is not there answers NOTHING rather than a false: the
+    %binding it would have to satisfy is the path itself.
+    process_metta_string(
+        "!(let* (($f \"/nonexistent/metta/definitely-not-here\") \c
+                 ($f (exists_file))) $f)",
+        MissingAnswers),
+    assertion(MissingAnswers == []).
+
 %The table has exactly two legitimate sources: the file, and the engine
 %prelude's declarations. Stated as a SET identity rather than as
 %file + ledger == table, because the two sources are allowed to OVERLAP and

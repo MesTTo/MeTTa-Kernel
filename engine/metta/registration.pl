@@ -99,7 +99,8 @@ register_prolog_arities(N) :-
 %exists to catch. This is import's ordinary idempotence: `import x` is a no-op
 %once x is in sys.modules, and CREATE TABLE IF NOT EXISTS says the same of a
 %name that already denotes what was asked for
-%[tested: a_registration_of_an_unchanged_builtin_is_a_no_op].
+%[tested: a_builtin_the_engine_still_backs_is_a_no_op,
+%a_builtin_whose_clauses_moved_is_refused; commit=WORKTREE].
 %
 %A name registered AFTER this pass, by an extension or a host, has no row and
 %is refused exactly as before: the engine cannot say a claim is idempotent

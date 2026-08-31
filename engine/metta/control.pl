@@ -107,15 +107,77 @@ set_metta_pragma(Key, Value) :-
 metta_with_pragmas(Settings, Goal, Value) :-
     must_be(list, Settings),
     maplist(metta_pragma_pair, Settings, Pairs),
-    setup_call_cleanup(
-        maplist(metta_apply_pragma, Pairs, Restores),
-        %The global bounds wrap call_goals_in, one level above this body,
-        %so the scope applies them itself: whatever bounds are in force
-        %here, scoped ones included, bound this findall.
-        run_under_pragmas(findall(Value, Goal, Values)),
-        ( reverse(Restores, Undo),
-          maplist(metta_restore_pragma, Undo) )),
+    %Read every previous value BEFORE writing any of them, and arm the restore
+    %on a cleanup rather than on a setup. setup_call_cleanup/3 calls its
+    %cleanup only once Setup has SUCCEEDED, so applying the pragmas inside
+    %Setup left a scope of two keys with the first one applied and nothing to
+    %put it back when writing the second raised: set_metta_pragma/2 recompiles
+    %the chargeless functions, which is a real goal that can fail rather than a
+    %bare assert [source: SWI-Prolog manual, setup_call_cleanup/3, "If Setup
+    %succeeds, Cleanup will be called exactly once"]. call_cleanup/2 arms the
+    %restore first and the writes then happen inside the protected region, so
+    %a scope interrupted part-way through still leaves the engine as it found
+    %it.
+    maplist(metta_pragma_previous, Pairs, Restores),
+    reverse(Restores, Undo),
+    %The bounded region is deterministic -- findall/3 collects every answer and
+    %the only choice point is the member/2 below, which runs after the restore
+    %-- so the three exits an if-then-else names here are all of them, and
+    %writing them out is what lets the goal's own exception outrank a failure
+    %to put a setting back. setup_call_cleanup/3 cannot express that ordering:
+    %its cleanup gets no say in which error the caller sees.
+    %
+    %The global bounds wrap call_goals_in, one level above this body, so the
+    %scope applies them itself: whatever bounds are in force here, scoped ones
+    %included, bound this findall.
+    (   catch(( maplist(metta_apply_pragma, Pairs),
+                run_under_pragmas(findall(Value, Goal, Values)) ),
+              Raised, true)
+    ->  Answered = true
+    ;   Answered = false
+    ),
+    metta_restore_pragmas(Undo, Unrestored),
+    (   nonvar(Raised)
+    ->  %The scope's own error is what the caller asked about. A restore that
+        %also failed is reported beside it rather than replacing it, which is
+        %the suppressed-exception rule try-with-resources and ExitStack keep.
+        ( nonvar(Unrestored)
+        -> print_message(error, Unrestored)
+        ;  true ),
+        throw(Raised)
+    ;   nonvar(Unrestored)
+    ->  throw(Unrestored)
+    ;   Answered == true
+    ),
     member(Value, Values).
+
+%Every key, whatever the one before it did. maplist/2 stops at the first
+%exception AND at the first failure, and either one left the rest of the
+%scope's settings in force, which is the same leak the reading above prevents
+%one level up: a cleanup that gives up half-way is not a cleanup. The FIRST
+%problem is the one reported, because it is the one with a cause; the later
+%ones are usually its consequences.
+%
+%Neither this nor the arming above is reachable through a public door TODAY:
+%no key's write can fail, measured 2026-08-31 by driving set_metta_pragma/2
+%with foo, -1 and 1.5 for max-stack-depth, all three of which are accepted
+%without a word. The shape is here because the alternative is correct only by
+%that accident. Planting a raise in set_metta_pragma/2 for the second key of a
+%two-key scope leaves max-stack-depth set at 5 under the setup_call_cleanup
+%spelling this replaced and leaves nothing set under this one
+%[measured 2026-08-31: swipl -g "consult('engine/qlf_boot.pl'),
+%consult('engine/metta.pl')" with the planted clause, both ways round;
+%tested: scoped_stack_limit:a_restore_that_fails_still_restores_the_rest;
+%commit=WORKTREE].
+metta_restore_pragmas([], _).
+metta_restore_pragmas([Pair|Rest], First) :-
+    (   catch(metta_restore_pragma(Pair), Error, true)
+    ->  true
+    ;   Error = error(metta_pragma_not_restored(Pair),
+                      context(metta_restore_pragmas/2, 'the restore failed'))
+    ),
+    ( nonvar(Error), var(First) -> First = Error ; true ),
+    metta_restore_pragmas(Rest, First).
 
 metta_pragma_pair([Key, ValueIn], Key-ValueIn) :- !,
     require_metta_pragma_key(Key, 'with-pragma!'/2),
@@ -130,8 +192,10 @@ require_metta_pragma_key(Key, Door) :-
     findall(K-D, metta_pragma_key(K, D), Known),
     throw(error(domain_error(metta_pragma_key, Key), context(Door, Known))).
 
-metta_apply_pragma(Key-Value, Key-Previous) :-
-    ( metta_pragma(Key, P) -> Previous = P ; Previous = none ),
+metta_pragma_previous(Key-_, Key-Previous) :-
+    ( metta_pragma(Key, P) -> Previous = P ; Previous = none ).
+
+metta_apply_pragma(Key-Value) :-
     set_metta_pragma(Key, Value).
 
 metta_restore_pragma(Key-Previous) :-
@@ -1001,9 +1065,9 @@ rewrite_parsed_form(Space, FormStr, Term, Rewritten) :-
 %A thread-local nb_setval store made the main evaluator and a held SWI answer
 %engine see different cells. Dynamic assertions are equally non-backtrackable
 %and visible to both engines. This also keeps the NAMED form working unchanged:
-%a plain symbol is a cell name too, so `(change-state! &openai_client V)` in
-%lib/lib_llm/lib_llm.metta still writes a cell nothing allocated, and the two spellings
-%are one implementation rather than two.
+%a plain symbol is a cell name too, so `(change-state! &some-name V)` still
+%writes a cell nothing allocated, and the two spellings are one implementation
+%rather than two.
 %
 %DIVERGENCE, measured and recorded rather than closed: the arbiter RENDERS a
 %cell as `(State <value>)` and this engine renders it as its handle, `&state-#0`,
@@ -1103,7 +1167,7 @@ prolog:error_message(metta_state_write_fenced(Cell)) -->
 %answered `(eval done)` and `(eval ())` until then].  Keeping the two roles
 %separate lets function and metta-thread inspect the marker without leaking it
 %through direct eval/2 callers such as unquote
-%[tested: metatype_mask:unquote_evaluates_its_operand].
+%[tested: metatype_mask:unquote_holds_its_operand; commit=WORKTREE].
 %
 %The evaluator runs its goals in the current space's module, for the same reason
 %call_goals_in/2 and current_metta_space/1 exist: call/1 resolves a goal in the

@@ -580,7 +580,8 @@ metta_types_match(Left, Right) :-
 %argument: a differential over every pair drawn from the shipped vocabulary,
 %run with no user rule and again with one registered, so the fast path is
 %checked for agreement AND for standing aside
-%[tested: typing_rules:the_shipped_fast_path_answers_what_the_registry_answers].
+%[tested: test_the_shipped_fast_path_answers_what_the_registry_answers;
+%commit=WORKTREE].
 metta_types_match_in(Module, Left, Right) :-
     (   metta_user_typing_rule_present(Module)
     ->  typing_rule_accepts(Module, ordinary, Left, Right)
@@ -633,7 +634,9 @@ metta_derived_types_match_in(Module, Left, Right) :-
 %there [measured 2026-08-30 against PeTTa@ae66fa8]. This engine ANSWERS where
 %upstream raises, which is the choice metta_operation_answer/3 above records,
 %and the answer names the operation and its operands
-%[tested: examples/he_error.metta].
+%[tested: metta_operation_errors:arithmetic_answers_a_non_number_argument_rather_than_raising,
+%metta_operation_errors:divide_names_its_two_operands,
+%examples/ch10-errors-and-refusals/01-he_error.metta; commit=WORKTREE].
 metta_operation_refusal('/', Arguments,
                         "Divide expects two numbers: dividend and divisor") :-
     metta_numeric_operands_settled(Arguments).

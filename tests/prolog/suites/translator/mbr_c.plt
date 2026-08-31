@@ -88,6 +88,34 @@ test(the_public_door_answers_past_the_c_variable_cap) :-
     Value == Out,
     Body == PublicBody.
 
+%THE ARTIFACT AND THE FLAG HAVE TO AGREE, and until this nothing asserted it.
+%The differential unit below is CONDITIONED on translator:metta_c_mbr_active/0
+%and plunit SKIPS a unit whose condition fails, so an activation step that
+%stops running reads as a suite with fewer tests rather than as a failure.
+%This is the unconditioned half: METTA_C_MBR=off and an artifact that will not
+%load are the only two reasons the C analyzer may be off, and when it is on
+%the analyzer must be the FOREIGN predicate rather than the failing stub
+%engine/translator/runtime.pl installs in its place.
+%
+%metta_mbr_artifact/1's path is boot-mode dependent, engine/translator/mbr.so
+%while translator.pl is being consulted and engine/mbr.so once translator.qlf
+%serves it, so a cold source boot legitimately takes the last branch with
+%engine/mbr.so on disk; engine/translator/runtime.pl records that as a known
+%issue. The gate warms the QLF set before this lane runs, so there the present
+%artifact and the active flag are the branch under test.
+test(the_c_analyzer_is_active_exactly_when_its_artifact_loads) :-
+    assertion(translator:metta_mbr_artifact(_)),
+    translator:metta_mbr_artifact(Artifact),
+    functor(Analyze, metta_c_mbr_analyze, 4),
+    (   getenv('METTA_C_MBR', off)
+    ->  assertion(\+ translator:metta_c_mbr_active)
+    ;   exists_file(Artifact)
+    ->  assertion(translator:metta_c_mbr_active),
+        assertion(predicate_property(translator:Analyze, foreign))
+    ;   assertion(\+ translator:metta_c_mbr_active),
+        assertion(\+ predicate_property(translator:Analyze, foreign))
+    ).
+
 :- end_tests(mbr_c_fallback).
 
 :- begin_tests(mbr_c_differential,

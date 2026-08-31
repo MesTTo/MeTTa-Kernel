@@ -818,6 +818,53 @@ test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
           retractall(user:imported_metta_source(Space, Path)),
           delete_file(Path) )).
 
+% WHAT THE CAPTURE PASS MAY PUT IN THE REPAIR SET. A pooled execution module
+% keeps a materialized import after its space life ends, and `system` sits on
+% every default module chain, so the capture runs over names that are not the
+% space's business at all. Sweeping SWI's own bookkeeping in and re-importing
+% it on the next life is what blocked tabling from defining that module's
+% local state ('No permission to redefine built-in $table_mode/3').
+%
+% The candidate has to be planted, and the plant is exactly the state
+% metta_restore_inherited_predicate/3 leaves behind: import/1 puts the name in
+% the module's OWN table, which is the only way the capture's
+% current_predicate/1 enumeration can reach it -- an inherited name is
+% invisible to that enumeration, and a $-named inherited one doubly so.
+% $skip_list/3 is SWI's, is $-named, is imported from system and is built_in,
+% so one candidate answers all three refusals. import/1 warns that a system
+% predicate is not exported and imports it anyway, which is the warning in
+% this suite's log and not a fault.
+%
+% metta_capture_default_imports/1 is called directly rather than through a
+% release-and-reuse cycle, because the cycle is what
+% a_repaired_shadow_import_follows_a_recycled_modules_new_parent above already
+% drives; here the pass itself is the subject.
+test(the_capture_pass_refuses_swi_and_engine_bookkeeping,
+     [ cleanup(catch(user:metta_release_space('&plunit_capture_filters'),
+                     _, true)) ]) :-
+    Space = '&plunit_capture_filters',
+    user:metta_add_atom(Space, [=, ['plunit-capture-first'], first], true),
+    user:space_module(Space, Module),
+    Module:import(system:'$skip_list'/3),
+    functor(Planted, '$skip_list', 3),
+    assertion(( current_predicate(Module:Enumerated/3),
+                Enumerated == '$skip_list' )),
+    assertion(predicate_property(Module:Planted, imported_from(system))),
+    assertion(predicate_property(Module:Planted, built_in)),
+    assertion(default_module(Module, system)),
+    retractall(spaces:'$metta_repaired_shadow_import'(Module, _, _, _)),
+    spaces:metta_capture_default_imports(Module),
+    findall(Name/Arity-Source,
+            spaces:'$metta_repaired_shadow_import'(Module, Name, Arity, Source),
+            Captured),
+    % The pass ran, so an empty answer is not what makes the rest true.
+    assertion(Captured \== []),
+    forall(member(Name/Arity-Source, Captured),
+           ( assertion(\+ sub_atom(Name, 0, 1, _, '$')),
+             assertion(Source \== system),
+             functor(Head, Name, Arity),
+             assertion(\+ predicate_property(Module:Head, built_in)) )).
+
 :- end_tests(filereader_import_lifecycle).
 
 :- begin_tests(filereader_untypable_declaration).

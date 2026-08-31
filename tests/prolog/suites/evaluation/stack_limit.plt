@@ -87,4 +87,26 @@ test(a_nonpositive_byte_limit_is_refused,
      [throws(error(domain_error(metta_pragma_value, ['stack-limit', 0]), _))]) :-
     metta_with_pragmas([['stack-limit', 0]], true, _).
 
+%A scope's restore has to be TOTAL. maplist/2 over the undo list stops at the
+%first key that raises or fails, and every key after it stays in force for the
+%rest of the process, which is exactly the engine-wide leak the scoped form
+%exists to prevent. Driven here directly, because no key's WRITE can fail
+%today -- set_metta_pragma/2 accepts foo, -1 and 1.5 for max-stack-depth
+%without a word -- so the only way to reach the path from a test is to hand
+%the loop a pair it cannot restore.
+test(a_restore_that_fails_still_restores_the_rest,
+     [ setup(( set_metta_pragma('max-stack-depth', 5),
+               set_metta_pragma('max-inferences', 7) )),
+       cleanup(( set_metta_pragma('max-stack-depth', none),
+                 set_metta_pragma('max-inferences', none) )) ]) :-
+    metta_restore_pragmas([not_a_pair,
+                           'max-stack-depth'-none,
+                           'max-inferences'-none],
+                          First),
+    %Every key after the bad one came back,
+    \+ metta_pragma('max-stack-depth', _),
+    \+ metta_pragma('max-inferences', _),
+    %and the first problem is the one reported, with the pair that caused it.
+    First = error(metta_pragma_not_restored(not_a_pair), _).
+
 :- end_tests(scoped_stack_limit).

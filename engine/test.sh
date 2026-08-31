@@ -21,6 +21,13 @@ set -u
 
 HERE=$(cd -- "$(dirname -- "$0")" && pwd)/..
 
+# The suites drive Python through Janus, which follows VIRTUAL_ENV rather than
+# any interpreter this script picks, so a run BY HAND has to export the same
+# environment the gate does or shim.plt's 18 scalar-semantics cases fail on a
+# missing module that is installed in the checkout's own virtual environment.
+METTA_ROOT="$HERE"
+. "$HERE/select-python.sh"
+
 run_plunit() {
     cd "$HERE/tests/prolog" || return 1
     ok=0

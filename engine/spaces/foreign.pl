@@ -572,7 +572,7 @@ equation_walk_class(Module, F, Q0, Q, Class) :-
 %invalidate_specializations, so an equation added by a string run or a
 %compile-mode load left a prior specialization of the same name
 %answering stale clauses. One door means the next such rule lands once
-%[tested specializer:string_run_equation_invalidates_specializations].
+%[tested specializer_invalidation:string_run_equation_invalidates_specializations].
 compile_metta_equation(Module, Term, Clause, Ref) :-
     note_metta_equation(Module, Term),
     translate_metta_equation(Module, Term, Clause, Ref).
@@ -591,7 +591,7 @@ compile_metta_equation(Module, Term, Clause, Ref) :-
 %answered through its own specialization and a call that reached the generic
 %clause, (let $h (+ 1) (f $h)), silently answered NOTHING. Found by the
 %verify-specializations differential over examples/
-%[tested specializer:a_recursive_specialization_survives_its_compile].
+%[tested specializer_invalidation:a_recursive_specialization_survives_its_compile].
 note_metta_equation(Module, Term) :-
     Term = [=, [F|_], _],
     note_metta_function(Module, F).
@@ -1956,8 +1956,9 @@ match(Space, Pattern, OutPattern, Result) :- nonvar(Pattern), Pattern = [Comma|_
 %native storage cache row -- ENFORCED, not assumed: prefix claims seed no
 %rows, and metta_claim_space/2 retracts the row for an atom-name claim, so a
 %space created native and claimed later cannot answer from its stale native
-%module [tested: test_view_is_a_live_queryable_space, which measured exactly
-%that stale answer before the claim door forgot the row].
+%module. test_view_is_a_live_queryable_space measured exactly that stale
+%answer before the claim door forgot the row
+%[tested: test_view_is_a_live_queryable_space].
 match(Space, Pattern, OutPattern, Result) :-
     atom(Space),
     native_storage_module_cache(Space, Module), !,

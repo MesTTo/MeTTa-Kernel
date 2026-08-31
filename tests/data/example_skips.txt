@@ -31,7 +31,6 @@
 # 16,123 and stops; then exit 124 [measured 2026-08-26, sh run.sh
 # examples/ch22-a-reasoner-you-can-serve/22-03-search/06-greedy_chess.metta < /dev/null].
 examples/ch14-seeing-your-program/02-repl.metta              needs an interactive terminal
-examples/ch11-python-as-a-notation/09-llm_cities.metta   needs a network and an API key
 examples/ch11-python-as-a-notation/07-torch.metta        needs torch installed
 examples/ch11-python-as-a-notation/08-torch_lib.metta    needs torch installed
 examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/07-git_import2.metta  clones from the network
