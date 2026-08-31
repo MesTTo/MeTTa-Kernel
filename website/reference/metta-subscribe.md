@@ -100,6 +100,8 @@ def subscribe(
     on: str = 'add',
     *,
     queue_max: int = SUBSCRIPTION_QUEUE_MAX,
+    guard: Atom | None = None,
+    judge: Callable[[Atom], bool] | None = None,
 ) -> Subscription:
 ```
 

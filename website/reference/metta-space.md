@@ -872,6 +872,7 @@ def watch(
     pattern: Any,
     *,
     on: str = 'add',
+    where: Any | None = None,
     deadline: float | None = None,
     queue_max: int | None = None,
 ):
@@ -1693,6 +1694,7 @@ def subscribe(
     callback: Callable | None = None,
     *,
     on: str = 'add',
+    where: Any | None = None,
     queue_max: int | None = None,
 ):
 ```

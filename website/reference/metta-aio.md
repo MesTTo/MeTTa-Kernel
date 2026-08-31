@@ -1213,6 +1213,7 @@ def subscribe(
     pattern: Any,
     *,
     on: str = 'add',
+    where: Any | None = None,
     queue_max: int = SUBSCRIPTION_QUEUE_MAX,
 ) -> _AsyncSubscription:
 ```
@@ -1234,6 +1235,7 @@ def watch(
     pattern: Any,
     *,
     on: str = 'add',
+    where: Any | None = None,
     deadline: float | None = None,
     queue_max: int = SUBSCRIPTION_QUEUE_MAX,
 ) -> _AsyncSubscription:
