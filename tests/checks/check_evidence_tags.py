@@ -189,7 +189,13 @@ PROVENANCE_SOURCES = (
     # half is a burn-down rather than a gate: reading them as SOURCES reports
     # 414 unbacked tags over 4,770 claims, most of them citations left behind
     # by a rename [measured 2026-08-31].
+    # The corpus nests two, three and four directories deep (ch09's twins sit
+    # at chapter level, ch07's inside a section), so all three depths are
+    # named; the out-of-glob net found the missing two on 2026-09-01, 46
+    # files' pins unread.
+    "extensions/python/examples/*/*/*.py",
     "extensions/python/examples/*/*/*/*.py",
+    "extensions/python/examples/*/*/*/*/*.py",
     "extensions/python/tests/*/*.py",
     "extensions/*/benchmarks/*.json",
     "engine/*.json",
