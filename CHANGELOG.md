@@ -19,6 +19,14 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   operand agreeing under one substitution. What `add` accepts, `remove`
   now takes back (bare symbols and grounded values included), and `-=`
   drains every unifying occurrence as its docstring always promised.
+- **The MeTTa context speaks its space's protocols, and `-=` reads what
+  `+=` writes.** The context's generated mirror now carries the container
+  and write faces (`+=`, `-=`, `|=`, `in`, `len`, iteration, subscript
+  match, `del m[pattern]`), delegating each to the process home with the
+  in-place trio answering the context itself; and `-=` classifies its
+  operand exactly as `+=` does, so a fact stream one door stores the
+  other drains in one transactional crossing, where before a tuple of
+  rows quietly read as one never-matching pattern.
 
 ### Fixed
 
