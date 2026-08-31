@@ -688,7 +688,7 @@ def match(
 > evaluated per join and required true, so restrictions a pattern
 > cannot spell (an inequality) compose onto the match:
 >
->     m.match(S.person(V.name, V.age), where=V.age >= 18)
+>     m.match(S.person(V.name, V.age), where=S[">="](V.age, 18))
 >
 > `limit` bounds the answers, the engine stopping at the count
 > rather than trimming afterwards. `timeout` (seconds) and
@@ -1345,6 +1345,15 @@ def pure(self, fn: Callable | None = None, /, **options: Any) -> Any:
 >
 > The cache-safe class, and the only one memoization and tabling admit
 > without an explicit policy.
+>
+> A GENERATOR written this way is lifted to `nondeterministicReadOnly`,
+> because a generator is nondeterministic whatever it declares, and the
+> registration reads that off the function rather than asking. The lift
+> only ever raises the rank, so it widens the answer-count claim and
+> never weakens the effect claim -- but it does mean a generator is not
+> cache-safe, which is the whole reason it is lifted out of this class
+> [tested: test_a_generator_is_lifted_to_the_nondeterministic_rank;
+> commit=7e5091540a8dc0903bcee24f3e5b8b85a19f805f].
 
 ### `Space.reads`
 
