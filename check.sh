@@ -355,6 +355,17 @@ run GATE provenance-pin-selftest "$PY" "$HERE/tests/checks/check_pin_provenance_
 # and this asks only whether what is checked in is what the source says.
 run GATE reference  "$PY" "$HERE/extensions/python/tools/reference.py"
 
+# KERNEL.md is the engine's ledger of which translator head is primitive and
+# which is derived, and it requires every derived form still fused into the
+# compiler to say why. The library had 110 public doors and no such ledger, so
+# a door that became expressible by another could sit there indefinitely: ten
+# declaration doors did, each rewriting a helper's body longhand and each
+# losing the loop and the transaction that helper has, which left a stale
+# `(emits &s fair)` row surviving a redeclaration [measured 2026-08-31]. The
+# classification is derived from the code, so this asks only whether every
+# derived door says what it buys.
+run GATE ledger     "$PY" "$HERE/extensions/python/tools/ledger.py"
+
 # The MeTTa half of the same promise: metta-libraries.md reproduces each
 # library's own (@doc ...) atoms, and its coverage table is the burn-down
 # surface interrogate provides for the Python side.
