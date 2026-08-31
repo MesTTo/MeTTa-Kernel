@@ -516,6 +516,45 @@ metta_pow_math_numeric(A, B, Out) :-
 'bit-shift-right'(A, B, Out) :-
     metta_bit_shift('bit-shift-right', >>, A, B, Out).
 
+%The rest of Clojure's bitwise family, exact integer operations exactly as
+%the shifts above: bit-and, bit-or, bit-xor and bit-not over SWI's own /\,
+%\/, xor and \. They complete the family the bit- prefix opened, and the
+%compiled Python surface lowers &, |, ^ and ~ to them, so an integer mask
+%pays no host crossing. A non-integer earns the ordinary argument refusal;
+%none of these can overflow, since the result is bounded by its operands.
+'bit-and'(A, B, Out) :- metta_bit_binary('bit-and', /\, A, B, Out).
+'bit-or'(A, B, Out)  :- metta_bit_binary('bit-or', \/, A, B, Out).
+'bit-xor'(A, B, Out) :- metta_bit_binary('bit-xor', xor, A, B, Out).
+
+'bit-not'(A, Out) :-
+    (   integer(A)
+    ->  Out is \ A
+    ;   metta_operation_answer('bit-not', [A], Out)
+    ).
+
+metta_bit_binary(Operation, Functor, A, B, Out) :-
+    (   integer(A), integer(B)
+    ->  Expression =.. [Functor, A, B],
+        Out is Expression
+    ;   metta_operation_answer(Operation, [A, B], Out)
+    ).
+
+%Python's floored division, which no existing head carries: floor-math over
+%(/ a b) answers binary64 where two integers floor-divide to an integer, and
+%SWI's div IS that floor. Two integers answer an integer, a float operand
+%answers the floored quotient as a float, and a zero divisor answers Error
+%data the way integer division does, so the answer stays in the algebra.
+'floor-div'(A, B, Out) :-
+    (   number(A), number(B)
+    ->  (   B =:= 0
+        ->  metta_error_atom('floor-div', [A, B], 'DivisionByZero', Out)
+        ;   integer(A), integer(B)
+        ->  Out is A div B
+        ;   Out is float(floor(A / B))
+        )
+    ;   metta_operation_answer('floor-div', [A, B], Out)
+    ).
+
 metta_bit_shift(Operation, Functor, A, B, Out) :-
     (   integer(A), integer(B)
     ->  (   B < 0

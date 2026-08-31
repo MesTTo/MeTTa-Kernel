@@ -656,6 +656,12 @@ metta_operation_refusal('bit-shift-left', _,
 metta_operation_refusal('bit-shift-right', _,
     "bit-shift-right expects two arguments: integer (value) and \c
      non-negative integer (count)").
+metta_operation_refusal('bit-and', _, "bit-and expects two integers").
+metta_operation_refusal('bit-or', _, "bit-or expects two integers").
+metta_operation_refusal('bit-xor', _, "bit-xor expects two integers").
+metta_operation_refusal('bit-not', _, "bit-not expects one argument: integer").
+metta_operation_refusal('floor-div', _,
+    "floor-div expects two arguments: number (dividend) and number (divisor)").
 metta_operation_refusal('log-math', _,
     "log-math expects two arguments: base (number) and input value (number)").
 metta_operation_refusal(Operation, _, Message) :-

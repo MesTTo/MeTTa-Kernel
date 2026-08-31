@@ -7,7 +7,8 @@
 !(test ";" ";")
 
 ; Test 1: Semicolon constant (from set.mm)
-; LeaTTa types-meta/30_evaluation_control.metta pins quote as a wrapper value.
+; quote is an evaluation barrier under upstream PeTTa, the arbiter: both
+; sides of this test evaluate to ";", so the pair agrees.
 !(test (quote ";") (quote ";"))
 
 ; Test 2: String with semicolon in the middle

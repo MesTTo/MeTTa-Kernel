@@ -264,7 +264,14 @@ No docstring is defined.
 def add(self, atom: Atom) -> None:
 ```
 
-No docstring is defined.
+> Store one atom on the serving side.
+>
+> A transport TIMEOUT means UNKNOWN, not failed: the server may
+> still be processing the request when the client stops waiting, so
+> a mutation behind a timeout can have committed. Exactly-once
+> delivery needs idempotency keys and server-side deduplication,
+> which the remote protocol does not carry yet; until it does,
+> re-checking with a read is the caller's disambiguation.
 
 ### `RemoteSpace.add_many`
 

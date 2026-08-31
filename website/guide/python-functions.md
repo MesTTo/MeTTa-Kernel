@@ -79,10 +79,13 @@ See [`metta.ops`](../reference/metta-ops) for annotation mapping and registratio
 
 ## Cross into Python inside a compiled body
 
-A compiled `@m.define` body is an atom program. It does not silently call a
-Python global or method. Use an operation when the host behavior has a reusable
-name. Use `py(expr)` for a small visible island that belongs at that one call
-site:
+A compiled `@m.define` body is an atom program, and anything in it the
+vocabulary does not lower natively crosses as a HOST ISLAND: an applicable
+grounded atom holding the author's own expression, run once per engine
+application. Nothing is hidden — the island sits in the equation as data,
+and `m.lint()` sees it — and nothing host-side runs at decoration time.
+Use an operation when the host behavior has a reusable name. Use `py(expr)`
+when you want the boundary SPELLED at that one call site:
 
 ```python
 from metta import py
@@ -98,10 +101,14 @@ engine application with that application's current `url`, and the definition's
 derived effect is `oracleIO`. Outside a compiled body, `py(value)` is an
 identity function, so `status.py(url)` remains the ordinary Python twin.
 
-An unmarked call such as `requests.get(url)` refuses at decoration time. The
-diagnostic names the source file, shows a caret under the callee, and offers the
-two legal boundaries: extract an `@metta.op(effect=...)`, or wrap the local
-expression in `py(...)`.
+An unmarked call such as `requests.get(url)` islands exactly as the marked
+form does: the same expression, the same application-time run, the same
+`oracleIO` classification. What still refuses at decoration time is a name
+that resolves NOWHERE — a typo is Python's own NameError ground, and a
+compile-time refusal beats a runtime one. The two named boundaries remain
+the better spellings where they fit: an `@metta.op(effect=...)` gives the
+behavior a reusable name, and `py(...)` marks a one-off crossing as chosen
+rather than incidental.
 
 `m.lint()` reports `host-island-in-loop` when an island sits in a `for`,
 `while`, or comprehension body. Each iteration crosses the engine/host

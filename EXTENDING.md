@@ -42,14 +42,14 @@ marginal cost of **one call** rather than of the loop around it.
 
 | extension point | inferences/call | vs MeTTa | microseconds/call | vs MeTTa |
 |---|---|---|---|---|
-| C foreign predicate | 1.00 | 0.33x | 0.02 | 0.33x |
-| translator rule (a macro) | 2.00 | 0.67x | 0.04 | 0.66x |
-| Prolog grounded predicate | 2.00 | 0.67x | 0.04 | 0.63x |
-| @m.define, no annotations | 3.00 | 1.00x | 0.06 | 1.08x |
-| @m.define, annotated | 3.00 | 1.00x | 0.12 | 1.92x |
+| C foreign predicate | 1.00 | 0.33x | 0.02 | 0.31x |
+| Prolog grounded predicate | 2.00 | 0.67x | 0.04 | 0.64x |
+| translator rule (a macro) | 2.00 | 0.67x | 0.06 | 0.97x |
+| @m.define, no annotations | 3.00 | 1.00x | 0.07 | 1.11x |
+| @m.define, annotated | 3.00 | 1.00x | 0.10 | 1.59x |
 | ordinary MeTTa function | 3.00 | 1.00x | 0.06 | 1.00x |
-| Python operation, transport="raw" | 12.00 | 4.00x | 1.11 | 18.37x |
-| Python operation, encoded | 19.00 | 6.33x | 3.86 | 64.19x |
+| Python operation, transport="raw" | 12.00 | 4.00x | 1.12 | 17.72x |
+| Python operation, encoded | 20.00 | 6.67x | 3.87 | 61.08x |
 
 Six of each operation row's inferences are the scheduler admission probe: every
 operation call asks the effect and lane question that lets an `oracleIO` call
@@ -59,7 +59,7 @@ the same probe.
 This is one run's output, not a best-of, because the columns divide by each
 other and mixing runs would give ratios no run measured. The inference column
 is exact; the microsecond column is not, because the four native tiers land
-near the timer's resolution. The annotated `@m.define` row came out at 1.56x
+near the timer's resolution. The annotated `@m.define` row came out at 1.59x
 here and at 1.06x, 1.09x, 1.45x and 1.66x on runs minutes apart at the same
 load, while its inference figure was identical every time. Any native-tier
 ratio inside about 2x is timer noise.
@@ -190,10 +190,10 @@ pre-add hook with the `space-admission-verdict` judge.
 
 | write door | inferences/add | vs plain add | microseconds/add | vs plain add |
 |---|---|---|---|---|
-| add-atom, no claims on the space | 30.00 | 1.00x | 1.52 | 1.00x |
-| add-atom through an accept-all pre-add hook | 47.00 | 1.57x | 2.32 | 1.53x |
-| add-atom into a pool with a declared admits type | 57.00 | 1.90x | 2.48 | 1.63x |
-| add-atom into a pool with a declared capacity | 67.00 | 2.23x | 4.43 | 2.91x |
+| add-atom, no claims on the space | 30.00 | 1.00x | 1.43 | 1.00x |
+| add-atom through an accept-all pre-add hook | 47.00 | 1.57x | 2.26 | 1.58x |
+| add-atom into a pool with a declared admits type | 57.00 | 1.90x | 2.34 | 1.63x |
+| add-atom into a pool with a declared capacity | 67.00 | 2.23x | 4.70 | 3.28x |
 
 A space nothing claimed keeps the direct write path, which is what holds the
 plain row where it is. The capacity row used to read 4569.69 at a thousand held
@@ -251,12 +251,12 @@ term, so the single number above is its best case, on a one-argument integer:
 
 | argument | encoded | `transport="raw"` | ratio |
 |---|---|---|---|
-| integer | 19.00 | 12.00 | 1.58x |
-| flat, 4 items | 30.00 | 12.00 | 2.50x |
-| flat, 16 items | 54.00 | 12.00 | 4.50x |
-| flat, 64 items | 150.00 | 12.00 | 12.50x |
-| nested, depth 4 | 52.00 | 12.00 | 4.33x |
-| nested, depth 8 | 84.00 | 12.00 | 7.00x |
+| integer | 20.00 | 12.00 | 1.67x |
+| flat, 4 items | 31.00 | 12.00 | 2.58x |
+| flat, 16 items | 55.00 | 12.00 | 4.58x |
+| flat, 64 items | 151.00 | 12.00 | 12.58x |
+| nested, depth 4 | 63.00 | 12.00 | 5.25x |
+| nested, depth 8 | 103.00 | 12.00 | 8.58x |
 
 The raw path is **flat whatever the argument is**. The encoded one costs about
 two inferences per flat item and about eight per nesting level, so a 64-item

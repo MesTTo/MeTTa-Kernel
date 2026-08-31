@@ -1516,6 +1516,11 @@ metta_grounded_token('new-space'). metta_grounded_token('nop').
 metta_grounded_token('not'). metta_grounded_token('or').
 metta_grounded_token('bit-shift-left').
 metta_grounded_token('bit-shift-right').
+metta_grounded_token('bit-and').
+metta_grounded_token('bit-or').
+metta_grounded_token('bit-xor').
+metta_grounded_token('bit-not').
+metta_grounded_token('floor-div').
 metta_grounded_token('pow-math'). metta_grounded_token('pragma!').
 metta_grounded_token('print-alternatives!').
 metta_grounded_token('print-mods!').

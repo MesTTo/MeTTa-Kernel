@@ -162,3 +162,64 @@ oracleIO`, the same law `EffectClass.compose` exposes for any operation plan.
 An unclassified or host-observable call is classified conservatively rather
 than making the fact disappear. Replacing a clause replaces these facts, and
 clearing the definition space removes them.
+
+## Exceptions, on the engine's own error algebra
+
+`try`, `except`, `else`, `finally` and `raise` compile onto the algebra the
+engine already has: `raise` produces an error through the prelude's `throw`,
+so it finishes the enclosing call and travels exactly as an engine-raised
+error; the try body runs under `catch`, which reifies a host exception and
+passes every other value through; `if-error` splits the lanes; each arm asks
+`except`, the class test that walks MRO names, so a custom hierarchy matches
+exactly as `isinstance` would; and an unmatched error re-throws past the
+rest, which is how Python skips it. `raise ValueError("why")` stays data —
+the term `(throw (ValueError "why"))` — and `except ValueError as e` binds
+`error-payload`'s answer, a live instance when one can be reconstructed, so
+`str(e)` reads as Python's would.
+
+```python
+@m.define
+def guarded(x):
+    try:
+        return 10 // x
+    except ZeroDivisionError:
+        return S.Undefined
+```
+
+`finally` runs on every exit — success, a matched arm, an unmatched error,
+a return — in Python's own order, before anything after the try continues.
+Two loud edges: a `finally` that reads a name the try rebinds refuses
+(the settled binding is not visible there), and `nonlocal` refuses because
+a stored equation outlives the frame it would write.
+
+## Dicts and sets are spaces
+
+A dict literal lowers to `lib_dict`'s own image: a SPACE of `(key value)`
+atoms, built by `dict-space`, which the library's header measured against
+an opaque handle, a live view, and a native type before choosing. The
+library imports itself with the definition. `d[k]` is `get-value`, `k in d`
+is `dict-has` (a total True/False), `d[k] = v` is `dict-put`'s
+replace-or-insert, `del d[k]` is `dict-remove`, `len(d)` is `dict-size`,
+and `.keys()`, `.values()`, `.items()`, `.get()` are `get-keys`,
+`dict-values`, `dict-pairs` and `get-value`. A set is a dict to `True`,
+Python's own kinship, and `{k: f(k) for k in ...}` builds the pair
+expression `dict-space` reads back. Every space door works on one — a dict
+is matchable, mutable through `+=`, and queryable like anything else. A
+missing key answers NOTHING, the space's own reading of absence; a dict
+the Python side keeps mutating belongs behind `py({...})` or `view`.
+
+## Pragmas and aliases
+
+`global name` is a pragma: reads and writes go through the definition
+module's own dict, carried into the equation as a grounded reference, so
+a compiled write is visible to the module and a module rebind is visible
+to the next application. `type X = int` is a rewrite rule, exactly as it
+reads: the alias becomes an equation on its own name (a union alias
+becomes several clauses, the language's own nondeterministic rewrite),
+and annotations after it mention the alias. The bitwise operators and
+`//` lower to the engine's exact integer family — `bit-and`, `bit-or`,
+`bit-xor`, `bit-not`, `bit-shift-left`, `bit-shift-right`, `floor-div` —
+so none of them crosses into Python at all. And `alpha(x, y)` is the
+`=alpha` test under the nearest name Python can spell, the same rung
+`eq()` takes for `==`; `Atom.alpha()` builds the same term on the atom
+tier, and `fn["=alpha"]` stays the exact door.

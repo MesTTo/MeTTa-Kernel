@@ -429,7 +429,17 @@ metta_negation(Local, _, True, Dual, Out) :-
     b_setval('$metta_in_negation', true),
     (   call(True),
         Out0 = false
-    ;   ( var(Local) -> Quantified = [] ; Quantified = Local ),
+    ;   %Only what is STILL a variable quantifies. The translation cache
+        %generalises a ground argument into a template variable, so a cache
+        %hit arrives here with that slot of Local bound to the caller's
+        %constant: (not-provable (band 40)) held Local=[40], and a forall
+        %over a bound "local" failed where the uncached runnable, whose
+        %analysis saw the ground call, answered True. Filtering to the
+        %unbound slots recomputes the instance's own quantifier set: a
+        %position that is ground in THIS call was never a source variable
+        %of this call [measured 2026-09-01, the constructive-negation twin
+        %against its own directive].
+        ( var(Local) -> Quantified = [] ; include(var, Local, Quantified) ),
         metta_forall_c(Quantified, Dual),
         Out0 = true
     ),

@@ -91,6 +91,14 @@ exact and integer-only, and because `and`, `or` and `xor` above are BOOLEAN
 here so the `bit-` prefix is what tells a reader which family the operation
 joined. The count must be a non-negative integer: SWI evaluates `1 << -1` to
 `0`, silently reading a left shift as a right one, and this refuses instead.
+The rest of the family arrived with the compiled surface: `bit-and`,
+`bit-or`, `bit-xor` and `bit-not` are the exact integer operations SWI's
+own `/\`, `\/`, `xor` and `\` carry, and `floor-div` is SWI's `div`,
+Python's floored quotient exactly — two integers answer an integer, a float
+operand answers the floored quotient as a float, and a zero divisor answers
+the same `DivisionByZero` error data integer division answers. A compiled
+body's `&`, `|`, `^`, `~`, `<<`, `>>` and `//` lower to these heads, so an
+integer mask pays no host crossing.
 `Grounded` builds the term too, as it does for every other lowering:
 `Grounded(3) << 2` is `(bit-shift-left 3 2)`, the same way `Grounded(7) // 2`
 is `(floor-math (/ 7 2))`.

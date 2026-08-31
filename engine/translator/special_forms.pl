@@ -1676,6 +1676,16 @@ unify_branch(_, Conj, Value, Out, Branch) :-
 %rather than extending this list.
 variable_capturing_form(sealed).
 variable_capturing_form('|->').
+%not-provable snapshots term_variables(Expr) at translate time and derives
+%its universal-quantifier set from them, so a literal abstracted into the
+%skeleton becomes a phantom source variable: the cached template of
+%(not-provable (band 40)) held Local=[40], and the negation quantified over
+%a constant. The runtime filter in duals.pl now keeps only what is still a
+%variable, and this row removes the generalisation at its source: a
+%negation's compilation reads more than the shape of its argument
+%[measured 2026-09-01, the constructive-negation twin against its own
+%directive].
+variable_capturing_form('not-provable').
 
 %THE EMBEDDED-OPERATION VOCABULARY, transcribed from the reference's own list
 %rather than inferred: the twelve reflected minimal forms plus the interpreter

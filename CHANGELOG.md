@@ -8,6 +8,85 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **`transfer` moves atoms between spaces, and the write family is
+  variadic.** `a.transfer(x, y, to=b)` moves one unifying occurrence of
+  each atom in one transactional engine crossing, counting the found, so
+  a mid-move failure rolls both sides back and nothing is lost between
+  spaces. `remove` gained the same variadic face and the same count;
+  `eval` batches the way evaluation batches — several terms, one
+  crossing, one answer group per term in run()'s own grouping, one bind
+  scope over the lot; and `unify` is SIMULTANEOUS when variadic, every
+  operand agreeing under one substitution. What `add` accepts, `remove`
+  now takes back (bare symbols and grounded values included), and `-=`
+  drains every unifying occurrence as its docstring always promised.
+
+### Fixed
+
+- **`AsyncMeTTa.define` forwards `prolog=` and `name=` on every shape**
+  instead of silently discarding the Prolog source when a function rides
+  the same call, or the name on the prolog-only form.
+- **An abandoned `FutureSpace` warns instead of spinning silently**: the
+  garbage collector emits asyncio's kind of ResourceWarning when a future
+  dies unobserved, while waited, settled and cancelled futures stay
+  silent; the computation itself keeps Python's own future semantics.
+- **`Space.drop` closes an owned provider even when unregistration
+  raises**, so a failing foreign provider cannot leak its connection.
+- **Compile refusals render their file, function, line and an exact
+  caret** for every statement wall, not only expression walls: the
+  compiler derives the coordinates once at its boundary from the held
+  source, and the caret gutter is width-matched to the number gutter,
+  fixing a one-column misalignment every rendered caret had.
+- **A remote mutation's timeout is documented as UNKNOWN, not failed**:
+  the server may commit after the client stops waiting, and the provider
+  door now says so; exactly-once delivery via idempotency keys is the
+  ledgered follow-up.
+
+- **Python's try, raise, dicts, sets, type aliases and the global pragma
+  compile.** A compiled body now carries `try`/`except`/`else`/`finally` on
+  the engine's own error algebra — `raise` produces through the prelude's
+  `throw`, `catch` reifies the host lane, `if-error` splits, the new
+  `except` runtime test walks MRO names so custom hierarchies match as
+  `isinstance` would, and `error-payload` hands `as e` a live instance — a
+  dict literal lowers to lib_dict's dict-space (a SPACE of `(key value)`
+  atoms, with `d[k]`, `in`, `d[k] = v`, `del`, `len`, `.keys()` and the
+  comprehensions riding the library's own doors, and every space operation
+  lawful on the result), a set is a dict to True, `type X = int` becomes
+  the rewrite rule it reads as, and `global` reads and writes the
+  definition module through a grounded reference. Bindings inside a try
+  trap error data and produce it, so an assignment whose right side errors
+  aborts to the arms exactly as Python's raise would.
+
+- **The bitwise family and floored division are engine operations.**
+  `bit-and`, `bit-or`, `bit-xor` and `bit-not` complete the family the
+  shifts opened, exact integer operations on SWI's own instructions, and
+  `floor-div` is SWI's `div`, Python's floored quotient exactly, with the
+  same DivisionByZero error data integer division answers. A compiled
+  body's `&`, `|`, `^`, `~`, `<<`, `>>` and `//` lower to these heads and
+  pay no host crossing.
+
+- **Unknown host expressions island instead of refusing.** What the
+  compile vocabulary does not lower natively — an unregistered call, a
+  host attribute read, a method on a local, keywords against a host
+  callable — crosses as the same visible application-time island `py(...)`
+  spells, with nothing executed at decoration time and the loud refusal
+  kept for names that resolve nowhere. The lint layer records implicit
+  islands under the author's own spelling.
+
+- **`alpha` is the =alpha spelling.** `alpha(x, y)` in compiled bodies,
+  `Atom.alpha(y)` on the atom tier (beside `eq`/`ne`, the same
+  nearest-relative rung), and `fn["=alpha"]` remains the exact door;
+  `alpha_eq` still answers the immediate Python-side check.
+
+- **The MeTTa context is the third generated mirror.** The context tier's
+  doors — `run`, `load`, `eval`, `match`, `add`, `remove`, `define`, `op`,
+  `stats`, `limits`, `trace`, `speculate` and the rest — are generated
+  from Space with signatures, overloads and docstrings carried verbatim,
+  replacing a hand-written subset typed `(*args: Any) -> Any` that erased
+  every overload and missed doors (a context that could define but not
+  eval). The root's lazy exports gained their static faces, so
+  `metta.MeTTa` and its siblings type-check under py.typed instead of
+  reading as Any.
+
 - **A cursor pulls a chunk of answers per engine crossing.** The lazy doors,
   `stream()` and every iterated `Answers`, crossed the Python/Prolog boundary
   once per answer, and the crossing cost as much as a plain enumeration's

@@ -16,7 +16,7 @@
 # Credited across those files, 13 authors:
 # Carlo Nucera, DagmawiKK, Leul Negash, MikeArchbold, Nil Geisweiller, Patrick Hammer, Peter Isaev, Roman Treutlein, Tewobsta Seyoum Assefa, Vitaly Bogdanov, Zar Goertzel, ermijermy, yabets.
 #
-# The other 106 examples in this directory were written here.
+# The other 107 examples in this directory were written here.
 #
 # Regenerate with: python extensions/python/tools/example_origins.py --write
 #

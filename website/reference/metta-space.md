@@ -538,11 +538,16 @@ def add(self, *atoms: Any) -> None:
 ### `Space.remove`
 
 ```python
-def remove(self, atom: Any) -> bool:
+def remove(self, atom: Any, *more: Any) -> bool | int:
 ```
 
 > Remove ONE unifying occurrence and say whether one was there,
 > which is Python's own `list.remove` grain.
+>
+> Variadic like `add` and `transfer`: several atoms ride one engine
+> crossing inside one transaction, and the answer counts the found,
+> so the one-atom call still reads as the truth value it always
+> was.
 >
 > The MeTTa door is coarser and deliberately so: `remove-atom`, and
 > therefore `space -= atom`, drains EVERY unifying occurrence and
@@ -556,6 +561,24 @@ def remove(self, atom: Any) -> bool:
 > A bare variable is the remove-everything reading a multiset space
 > gives it, each atom leaving through its own proper path, equations
 > and their compiled clauses included.
+
+### `Space.transfer`
+
+```python
+def transfer(self, *atoms: Any, to: Space) -> int:
+```
+
+> Move ONE unifying occurrence of each atom into another space.
+>
+> Variadic and atomic: however many atoms ride the call, one engine
+> transaction moves them in one crossing, so a mid-move failure
+> rolls every side back and nothing is lost between the spaces. The
+> answer counts the moved; an absent atom moves nothing and counts
+> nothing, which is ``remove``'s own found-reporting grain, so the
+> one-atom call still reads as a truth value. The longhand stays
+> reachable: a :meth:`transaction` around ``remove`` and ``add``
+> says the same thing one atom at a time. :meth:`take` is the
+> WAITING kin for a pattern.
 
 ### `Space.atoms`
 
@@ -1020,13 +1043,13 @@ def prepare(self, *patterns: Any, where: Any | None = None) -> Prepared:
 def eval(
     self,
     target: Any,
-    *,
+    *more: Any,
     timeout: float | None = None,
     inferences: int | None = None,
     under: Any = _UNSET,
     theory: Any | None = None,
     interpreter: Any | None = None,
-) -> list[Atom | Undefined]:
+) -> list[Atom | Undefined] | list[list[Atom | Undefined]]:
 ```
 
 > Evaluate a term, returning every answer.
@@ -1034,6 +1057,11 @@ def eval(
 > This is what !(...) runs, minus the printing: the engine's
 > translate_expr over the term, then its goals. Nondeterminism means
 > the list can hold any number of answers, including none.
+>
+> Variadic, and that is how evaluation BATCHES: several terms ride
+> one engine crossing and the answer is one group per term in call
+> order, run()'s own grouping carried to the term door. One term
+> keeps its flat list, so the scalar reading never changes shape.
 >
 > Every answer carries its truth: an answer that is undefined under
 > Well Founded Semantics (a tabled loop through tnot, reachable via
@@ -2486,21 +2514,13 @@ def space(
 > model on a name that already carries the same one is a no-op; a
 > different one raises, because a space cannot have two models.
 
-### `MeTTa.define`
+### `MeTTa.fn`
 
 ```python
-def define(self, *args: Any, **kwargs: Any) -> Any:
+def fn(self) -> _FunctionNamespace:
 ```
 
-> Define in ``&self``; derived as ``self.define(...)``.
-
-### `MeTTa.op`
-
-```python
-def op(self, *args: Any, **kwargs: Any) -> Any:
-```
-
-> Ground a callable in ``&self``; derived as ``self.op(...)``.
+> The bound function namespace of this context's self space.
 
 ### `MeTTa.unregister_op`
 
@@ -2509,14 +2529,6 @@ def unregister_op(self, name: str) -> None:
 ```
 
 > Release an operation installed through :meth:`op`.
-
-### `MeTTa.limits`
-
-```python
-def limits(self, **kwargs: Any) -> ScopedLimits:
-```
-
-> Scope resource bounds across this context.
 
 ### `MeTTa.capture`
 
@@ -2534,14 +2546,6 @@ def atomic(self) -> ScopedExecution:
 
 > Scope source execution to committing transactions.
 
-### `MeTTa.speculative`
-
-```python
-def speculative(self) -> ScopedExecution:
-```
-
-> Scope source execution to discarded snapshots.
-
 ### `MeTTa.transaction`
 
 ```python
@@ -2550,21 +2554,690 @@ def transaction(self, target: Any, /) -> Any:
 
 > Run one callable or term in an engine transaction.
 
+### `MeTTa.run`
+
+```python
+def run(
+    self,
+    source: str,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> list[list[Atom]]:
+```
+
+> Run MeTTa source: one list of answers per ! directive.
+>
+> The pipeline is the engine's own reader, compiler and evaluator, so
+> the answers are exactly what the CLI would print, kept grouped per
+> directive instead of flattened. Equations and facts in the source
+> land in this space.
+>
+> `bind()` names Python values the source refers to by bare symbol,
+> the way DuckDB reads a local dataframe by its variable name:
+>
+>     with m.bind({"graph": my_graph}):
+>         m.run("!(py-len graph)")
+>
+> Each named symbol substitutes to its value (objects by identity),
+> after reading, before anything runs. It is a BLOCK rather than a
+> keyword because a binding mapping is the kind of value that grows,
+> and a block grows down the page where a keyword has to fit beside
+> everything else on the call. Every target door reads the same scope,
+> so one block covers a run(), an eval() and an answers() together.
+>
+> `timeout` (seconds) and `inferences` (engine steps) bound the call
+> with the engine's own guards; passing either raises TimeLimitError
+> or InferenceLimitError when the bound is hit, and whatever the
+> source completed before the stop, writes included, stands.
+>
+> `with m.capture() as output` collects printed text in `output.text`
+> without changing this method's return shape. `with m.atomic()`
+> and `with m.speculative()` scope execution policy without boolean
+> combinations on each call. Atomic commits or rolls
+> back each complete source; speculative answers and discards its
+> writes. Both cover engine state; Python side effects and subscription
+> callbacks already fired stay where they happened.
+>
+> A term the engine hands back unevaluated is an ordinary MeTTa value,
+> not a failure: `!(hello world)` answers `(hello world)` and that is
+> the whole of hello world in this language. eval_status() reports
+> which answers reduced and which did not, as data, for a caller who
+> wants to decide about it.
+> Runs against this context's self space.
+
+### `MeTTa.load`
+
+```python
+def load(
+    self,
+    path: str | os.PathLike[str],
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> list[list[Atom]]:
+```
+
+> Add a text program or trusted fast cache to this space.
+>
+> This is a consult, so it always loads and what it loads REPLACES
+> what the same file put in this space before. Edit the file, load it
+> again, and the space holds the new definitions and not both; the
+> engine says on stderr which file it replaced and how many atoms
+> went. Atoms from other sources, and ones you added yourself, stay.
+> A load that raises leaves the previous definitions standing, so a
+> broken edit costs nothing but the error.
+>
+> `!(import! &self path)` is the other door and loads a file that is
+> new or edited, skipping one that is neither. The two agree on what
+> a reload means and differ only in whether an unchanged file runs
+> again, which is SWI's consult/1 against its if(changed).
+>
+> A .gz path is detected and read through the decompressed bytes.
+>
+> `timeout` (seconds) and `inferences` (engine steps) bound the load
+> with the engine's own guards, raising TimeLimitError or
+> InferenceLimitError. A load is all or nothing: a stop takes back
+> everything the file had put in a space, the same way a load that
+> fails on a bad form does, because a file the space holds half of is
+> not a file it can replace later. run() is the entry point that
+> keeps finished work when a bound stops it. This is the one most
+> likely to be handed code the caller did not write, since a file can
+> carry `!` directives and an import graph, so it takes the same pair
+> its siblings take.
+> Runs against this context's self space.
+
+### `MeTTa.match`
+
+```python
+def match(
+    self,
+    *patterns: Any,
+    where: Any | None = None,
+    limit: int | None = None,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    under: Any = _UNSET,
+    into: _builtins.type | None = None,
+) -> Any:
+```
+
+> Lazily match patterns against this space as one conjunction.
+>
+> Variables shared between patterns join, the engine's own match/4
+> doing the joining. Columns are the variable names in first
+> appearance order. `where` is a guard term over the same variables,
+> evaluated per join and required true, so restrictions a pattern
+> cannot spell (an inequality) compose onto the match:
+>
+>     m.match(S.person(V.name, V.age), where=V.age.ge(18))
+>
+> `limit` bounds the answers, the engine stopping at the count
+> rather than trimming afterwards. `timeout` (seconds) and
+> `inferences` (engine steps) bound the whole call, raising
+> TimeLimitError or InferenceLimitError when hit, for joins whose
+> size is not known in advance.
+>
+> The returned Answers view pulls only what Python observes. ``bool``
+> pulls one row, exact-one operations pull at most two, and slicing
+> retains an Answers view. ``len`` uses an engine-side aggregate when
+> no row has yet been pulled.
+>
+> ``under=`` interprets the same ask through an annotation algebra.
+> ``under=counting`` answers one integer computed by an engine
+> aggregate, including duplicate derivations without crossing their
+> rows into Python. Ordered carriers sort in their declared direction
+> before slicing, so ``m.match(q, under=ranked)[:3]`` is top-k and
+> ``under=tropical`` puts the cheapest annotation first. Other carriers
+> answer ``TaggedAnswer`` values with ``annotation``, ``why()`` and
+> ``under(other)``; the latter two reuse the retained derivation rather
+> than querying the space again. ``with metta.under(carrier)`` supplies
+> the carrier when this call has no explicit ``under=``.
+>
+> `into=Rows` explicitly chooses the eager Rows face. Other `into=`
+> values shape each row into a dataclass, NamedTuple, or
+> TypedDict matched by field name, sqlite3's row_factory reading:
+> `m.match(S.edge(V.a, V.b), into=Edge)` answers `list[Edge]`,
+> and Rows stays the default so nothing is lost. A one-variable query
+> whose column holds complete constructor expressions rebuilds those
+> expressions instead: `m.match(V.edge, into=Edge)`.
+>
+>     m.match(S.Edge(V.x, V.y), S.Edge(V.y, V.z))
+> Runs against this context's self space.
+
+### `MeTTa.add`
+
+```python
+def add(self, *atoms: Any) -> None:
+```
+
+> Add atoms to this space, one engine round-trip for the lot.
+> An (= ...) atom compiles as an equation. Every Atom shape the engine's
+> add-atom accepts crosses unchanged, including a bare Symbol, Grounded
+> value, and empty Expression; a free Variable receives the engine's own
+> insufficient-instantiation refusal.
+>
+> A variable's NAME is not stored. `(rule $x $y)` reads back as
+> `(rule $_17902 $_17904)`, because a variable is an identity and not a
+> spelling. That is the right property for a logic engine and it is the
+> one thing about storage that surprises everybody once.
+>
+> A library IS knowledge, so the same door imports it: ``m += lib.he``
+> performs ``!(import! <m> (library lib_he))`` with this space as the
+> target. An import is an effect, so it refuses to hide inside an atom
+> batch or share a call with stored atoms.
+> Runs against this context's self space.
+
+### `MeTTa.remove`
+
+```python
+def remove(self, atom: Any, *more: Any) -> bool | int:
+```
+
+> Remove ONE unifying occurrence and say whether one was there,
+> which is Python's own `list.remove` grain.
+>
+> Variadic like `add` and `transfer`: several atoms ride one engine
+> crossing inside one transaction, and the answer counts the found,
+> so the one-atom call still reads as the truth value it always
+> was.
+>
+> The MeTTa door is coarser and deliberately so: `remove-atom`, and
+> therefore `space -= atom`, drains EVERY unifying occurrence and
+> answers True either way, because that is upstream's law
+> [source: engine/spaces/foreign.pl, remove_matching_atoms/2] and
+> because `-=` is Python's in-place difference, which is total.
+> `del m[pattern]` drains too and raises when nothing matched, as
+> Python's `del` does. This method is the one door that reports
+> absence, so the distinction the MeTTa door gave up is still here.
+>
+> A bare variable is the remove-everything reading a multiset space
+> gives it, each atom leaving through its own proper path, equations
+> and their compiled clauses included.
+> Runs against this context's self space.
+
+### `MeTTa.eval`
+
+```python
+def eval(
+    self,
+    target: Any,
+    *more: Any,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    under: Any = _UNSET,
+    theory: Any | None = None,
+    interpreter: Any | None = None,
+) -> list[Atom | Undefined] | list[list[Atom | Undefined]]:
+```
+
+> Evaluate a term, returning every answer.
+>
+> This is what !(...) runs, minus the printing: the engine's
+> translate_expr over the term, then its goals. Nondeterminism means
+> the list can hold any number of answers, including none.
+>
+> Variadic, and that is how evaluation BATCHES: several terms ride
+> one engine crossing and the answer is one group per term in call
+> order, run()'s own grouping carried to the term door. One term
+> keeps its flat list, so the scalar reading never changes shape.
+>
+> Every answer carries its truth: an answer that is undefined under
+> Well Founded Semantics (a tabled loop through tnot, reachable via
+> translatePredicate or injected Prolog) arrives as an Undefined
+> holding the answer and the delay condition that makes it
+> undefined, never as an ordinary-looking value. A term to which no
+> rule applies is the ordinary answer itself; `eval_status()` names
+> that path `not-reducible`. run() does not carry the third truth
+> value; evaluate through eval() when it matters.
+>
+> `bind()` binds named host values into the term before it evaluates,
+> exactly as it does for run(): inside `with m.bind({"x": tensor})`,
+> `m.eval("(decide x)")` hands the tensor itself to the rule, by
+> identity, rather than a printed form of it. The name is the SYMBOL x
+> and not the variable $x, on this door and the source door alike. The evaluation doors take the same
+> vocabulary the source door takes, so reaching for a term instead
+> of source text costs no change of spelling.
+>
+> A key may be a NAME or an ATOM. A name means the symbol of that name,
+> which is what the engine's own substitution matches and what run()
+> takes. An atom means exactly that atom, so `bind({V.x: 5})` fills a
+> VARIABLE hole -- the one substitution `unify` reports and the one no
+> door could apply, because a variable crosses the wire as ['v', 'x']
+> where a symbol crosses as ['s', 'x'] and the engine matches names.
+>
+> `timeout` (seconds) and `inferences` (engine steps) bound the call,
+> raising TimeLimitError or InferenceLimitError when hit. A surrounding
+> `capture()` scope collects printed text without changing the list.
+>
+> `under`, `theory` and `interpreter` are answers()' three, and mean
+> exactly what they mean there; this door is that one materialised. A
+> surrounding `with metta.under(carrier)` reaches here too, which it did
+> not before: match() and answers() both honoured such a scope while
+> eval() ignored it in silence.
+> Runs against this context's self space.
+
+### `MeTTa.solve`
+
+```python
+def solve(self, pattern: Any, subject: Any) -> Any:
+```
+
+> Run relational ``let`` and return bindings keyed by its variables.
+>
+> ``solve(4, V.x - 1).x`` places the known value on let's pattern side,
+> lets the arithmetic relation solve backwards, and projects ``x``.
+> The answer template is derived from the pattern's variables followed
+> by any new subject variables, so either relational direction can
+> introduce the bindings and the third hand-written ``let`` argument
+> disappears.
+> Runs against this context's self space.
+
+### `MeTTa.doc`
+
+```python
+def doc(self, atom: Any) -> Atom:
+```
+
+> Return this space's structured ``get-doc`` answer for one subject.
+>
+> The answer is the ``(@doc ...)`` atom the engine holds for the
+> subject, whether it was documented in MeTTa source or built from a
+> Python docstring:
+>
+>     m.doc(S.area)
+>     # (@doc-formal (@item area) (@kind function) (@desc "Circle area.") ...)
+>
+> A subject with no documentation raises, exactly as ``type`` raises
+> for a subject ``get-type`` cannot answer.
+> Runs against this context's self space.
+
+### `MeTTa.define`
+
+```python
+def define(
+    self,
+    fn: Callable[..., Any] | None = None,
+    *,
+    prolog: str | os.PathLike[str] | None = None,
+    name: str | None = None,
+    accessors: bool = True,
+    methods: bool = True,
+) -> Any:
+```
+
+> Compile a Python function into MeTTa equations, decorator-style.
+>
+> With `prolog=`, the Prolog file is registered and becomes the
+> function, and the Python stays as the reference twin rather than
+> being compiled:
+>
+>     @m.define(prolog=Path(__file__).parent / "fast.pl")
+>     def vec_dot(a, b):
+>         return sum(x * y for x, y in zip(a, b))
+>
+>     m.eval("(vec-dot (1 2) (3 4))")[0] # the Prolog answer
+>     vec_dot.py((1, 2), (3, 4))          # the reference answers
+>
+> Rewriting a defined function in Prolog for speed used to mean
+> deleting the Python and the differential oracle with it. Here both
+> are declared together and `metta.testing.check_twin` proves they
+> agree on ground inputs. The file must register the function's own
+> MeTTa name and at the twin's arity, inputs then one output, and
+> says so if it does not; its `metta_export` declaration owns the
+> types, so annotations on the Python are documentation only.
+>
+> Written for whoever is fluent in Python rather than s-expressions:
+> the body is read as syntax and lowered deterministically, refusals
+> name the construct, the line and what to write instead, and the
+> original stays reachable as .py, a twin the equations can be checked
+> against on any ground input.
+>
+>     @m.define
+>     def add_one(n):
+>         return n + 1
+>
+>     add_one(5)                  # [6], evaluated by the engine
+>     S.add_one(5)                # (add_one 5), staged as data
+>     add_one.py(5)               # 6, ordinary Python
+>
+> The equation's implicit name applies the factories' total mechanical
+> map, replacing each underscore with a hyphen. ``name=`` is the exact
+> quoted-name escape for punctuation that map cannot preserve:
+>
+>     @m.define(name="add-one")
+>     def add_one(n):
+>         return n + 1
+>
+> This is rung 4 of the naming ladder applied to the definition door
+> itself: ``def not_provable`` lands as ``not-provable``. An authored
+> MeTTa underscore therefore uses explicit ``name="not_provable"``.
+>
+> A generator compiles to nondeterminism (each yield one answer), a
+> lambda to the engine's own |->, a comprehension to map-atom and
+> filter-atom, and match(Pattern(x, y), template) to a match against
+> the running space, lowercase free names in the pattern binding as
+> variables.
+> Runs against this context's self space.
+
+### `MeTTa.op`
+
+```python
+def op(
+    self,
+    fn: Callable | None = None,
+    *,
+    name: str | None = None,
+    transport: Literal['encoded', 'raw'] = 'encoded',
+    effect: EffectClass | str | None = None,
+    declarations: Iterable[Atom] = (),
+    arities: list[int] | None = None,
+    inverse: Callable | None = None,
+) -> Any:
+```
+
+> Register a Python callable as a MeTTa function, decorator-style.
+>
+>     @m.op(effect=EffectClass.pureStructural)
+>     def double(x: int) -> int:
+>         return 2 * x                    # !(double 21) -> 42
+>
+>     @m.op(effect=EffectClass.nondeterministicReadOnly)
+>     def neighbours(n: int):
+>         yield n - 1                     # a generator is nondeterministic
+>         yield n + 1
+>
+> An implicit Python name maps underscores to MeTTa hyphens. ``name=``
+> is exact, for source vocabularies that deliberately use underscores.
+>
+> A name must read back as one MeTTa symbol. A space, parenthesis,
+> quote, comment opener, variable spelling, number, boolean, or another
+> registered reader token is refused before any registry changes, with
+> the name and the conflicting character in the error.
+>
+> Annotations become ordinary `(: ...)` declarations. An unannotated
+> callable makes no type claim. `transport="raw"` skips wire encoding
+> both ways and is reflected as raw_det or raw_many in `(op ...)`;
+> symbols then reach Python as strings, so encoded transport is the
+> fidelity-preserving default. unregister_op(name) removes every
+> registered arity and every declaration the registration owns.
+>
+> An `Atom` parameter changes evaluation order. The declaration tells
+> the compiler to pass the argument as written, before it reduces:
+>
+>     @m.op(effect=EffectClass.pureStructural)
+>     def anyatom(term: Atom) -> Atom:
+>         return term
+>
+>     # with (= (side) 42), !(anyatom (side)) answers (side)
+>
+> An unconstrained parameter receives the evaluated value instead, so
+> the otherwise identical `def anyval(term): return term` answers 42.
+> Use `Atom` only when the operation deliberately implements syntax or
+> a control form; it is not just a static hint.
+>
+> An encoded generator may instead yield exact tuples as positional
+> relation rows, or exact dicts keyed by parameter name as sparse rows.
+> The engine unifies each candidate against the written call, so one
+> implementation serves free, partially bound, and ground arguments:
+>
+>     @m.op
+>     def route(origin, destination):
+>         yield (S.paris, S.lyon)
+>         yield {"destination": S.nice}  # origin is unconstrained
+>
+>     # route(V.origin, S.lyon).rows[0].origin == S.paris
+>
+> Each matching occurrence answers unit and duplicate yields remain
+> duplicate answers. Use `Answer(value=...)` when an exact tuple or dict
+> is the result value rather than a parameter row. Relational rows
+> require encoded transport; raw calls cannot carry unbound argument
+> positions.
+>
+> When evaluation order stays ordinary but the callable needs the
+> resulting Atom wrappers, declare that policy as data:
+>
+>     m.op(
+>         inspect_atom,
+>         name="inspect-atom",
+>         effect=EffectClass.pureStructural,
+>         declarations=[parse("(arguments inspect-atom atoms)")],
+>     )
+>
+> The declaration is matchable in &metta and is retired with the
+> operation. Raw transport refuses this declaration because it bypasses
+> the atom codec entirely.
+>
+> The cost ladder, measured on the maintained box in inferences per
+> call, explains the transport choice:
+>
+>     native MeTTa function            9.11   the floor
+>     transport="raw"                10.11   opaque handles, near-native
+>     encoded                        17.11   encoded values
+>     encoded, typed literal         17.11   the check hoists to compile
+>     py-call, dotted                 22.11   the ad-hoc escape hatch
+>
+> The ergonomic default (encoded, typed) costs about 1.7x raw on the
+> counter and more on wall clock, since encoding walks the value both
+> ways; a registered raw operation measured 0.85us against 2.26us
+> encoded. Bulk data should stay opaque: one transparent 64-float
+> crossing costs 330 inferences where the handle costs 10.
+>
+> `inverse=` remains the distinct-output form. Use it when the forward
+> operation returns a result and a separate callable must recover the
+> arguments from that result:
+>
+>     m.op(
+>         cons,
+>         name="cons",
+>         inverse=uncons,
+>         effect=EffectClass.pureStructural,
+>     )
+>     # !(let (cons $h $t) (1 2 3) ($h $t))  ->  (1 (2 3))
+>
+> It takes the result and returns the arguments, as a tuple, or the
+> bare value at arity one; a generator enumerates every preimage, and
+> None or NotReducible means there is none. It runs only when the arguments
+> are not ground and the result is, so a forward call never reaches it,
+> and an operation without one compiles exactly what it did before.
+>
+> A parameter annotated `metta.MeTTa` is the framework's to fill,
+> FastAPI's Depends read with the house convention that the
+> annotation is the request. The engine injects itself bound to the
+> CALLING context's space, so an operation invoked from a program
+> running in &kb queries &kb; the slot never counts toward MeTTa
+> arities or the declared arrow, and only operations that ask pay
+> the weaving:
+>
+>     @m.op(effect=EffectClass.nondeterministicReadOnly)
+>     def related(term, engine: metta.MeTTa):
+>         for row in engine.match(Expression(S.link, term, V.x)):
+>             yield row[0]
+>
+> Every operation declares its strongest observable effect. The five
+> ordered choices are ``pureStructural``, ``readOnlyLookup``,
+> ``nondeterministicReadOnly``, ``writesState``, and ``oracleIO``:
+>
+>     m.op(
+>         len,
+>         name="size",
+>         effect=EffectClass.pureStructural,
+>     )
+>     # (= (count-of $x) (size $x))  is cacheable
+>
+> It is an allow-list on purpose. An operation that does not say so is
+> refused by name in a cached body, loudly, rather than cached and
+> quietly wrong.
+> Runs against this context's self space.
+
+### `MeTTa.pure`
+
+```python
+def pure(self, fn: Callable | None = None, /, **options: Any) -> Any:
+```
+
+> An operation whose answer depends only on its arguments.
+>
+>     @m.pure
+>     def double(x: int) -> int:
+>         return 2 * x
+>
+> The cache-safe class, and the only one memoization and tabling admit
+> without an explicit policy.
+>
+> A GENERATOR written this way is lifted to `nondeterministicReadOnly`,
+> because a generator is nondeterministic whatever it declares, and the
+> registration reads that off the function rather than asking. The lift
+> only ever raises the rank, so it widens the answer-count claim and
+> never weakens the effect claim -- but it does mean a generator is not
+> cache-safe, which is the whole reason it is lifted out of this class
+> [tested: test_a_generator_is_lifted_to_the_nondeterministic_rank;
+> commit=7e5091540a8dc0903bcee24f3e5b8b85a19f805f].
+>
+> Every ``op`` keyword applies: ``name``, ``arities``,
+> ``declarations``, ``inverse`` and ``transport``. They arrive as
+> ``**options`` and forward unchanged, so the signature above shows
+> the mechanism and this line shows the surface.
+> Runs against this context's self space.
+
+### `MeTTa.reads`
+
+```python
+def reads(self, fn: Callable | None = None, /, **options: Any) -> Any:
+```
+
+> An operation that reads stable state without changing it.
+>
+> Every ``op`` keyword applies: ``name``, ``arities``,
+> ``declarations``, ``inverse`` and ``transport``. They arrive as
+> ``**options`` and forward unchanged, so the signature above shows
+> the mechanism and this line shows the surface.
+> Runs against this context's self space.
+
+### `MeTTa.writes`
+
+```python
+def writes(self, fn: Callable | None = None, /, **options: Any) -> Any:
+```
+
+> An operation that changes engine or host state.
+>
+> Every ``op`` keyword applies: ``name``, ``arities``,
+> ``declarations``, ``inverse`` and ``transport``. They arrive as
+> ``**options`` and forward unchanged, so the signature above shows
+> the mechanism and this line shows the surface.
+> Runs against this context's self space.
+
+### `MeTTa.io`
+
+```python
+def io(self, fn: Callable | None = None, /, **options: Any) -> Any:
+```
+
+> An operation that observes an external oracle.
+>
+> A clock, randomness, a network, a file, another runtime.
+>
+>     @m.io
+>     def now() -> float:
+>         return time.time()
+>
+> The fail-closed top of the lattice. Declare it when what the operation
+> reaches is decided at run time or by a library the engine cannot bound.
+>
+> Every ``op`` keyword applies: ``name``, ``arities``,
+> ``declarations``, ``inverse`` and ``transport``. They arrive as
+> ``**options`` and forward unchanged, so the signature above shows
+> the mechanism and this line shows the surface.
+> Runs against this context's self space.
+
 ### `MeTTa.stats`
 
 ```python
 def stats(self) -> _StatsBlock:
 ```
 
-> Measure engine counters across a block.
+> The engine's own counters over a with-block, as deltas.
+>
+>     with m.stats() as s:
+>         m.match(S.edge(V.x, V.y), S.edge(V.y, V.z))
+>     s.inferences        # engine steps the block spent
+>     s.cputime           # engine CPU seconds
+>     s.walltime          # wall seconds, Python's clock
+>     s.gc_count, s.gc_freed, s.gc_time
+>     s.table_bytes       # answer-table bytes grown, tabling's memory
+>
+> The counters are SWI's statistics/2 read on the CALLING thread, so
+> a block that runs other threads' engine work counts that work too;
+> the honest reading is "what this thread saw the engine do while the
+> block ran". A lazy cursor is the exception, and a large one: its
+> goal runs in an SWI engine, an engine counts its own inferences,
+> and this thread cannot see them. Draining 20,000 rows through the
+> match cursor reports 40,049 inferences against about 381,000 the
+> cursor's engine really spent, 10.5% of the work; the real cost is
+> readable off the `inferences` budget, which does count the engine
+> [measured 2026-08-27]. The evaluation cursor behind `answers()`
+> does report its engine's spend, so that one is whole. The z3py
+> Solver.statistics() reading, on the engine this library actually
+> has.
+> Runs against this context's self space.
+
+### `MeTTa.limits`
+
+```python
+def limits(
+    self,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    stack: int | None = None,
+) -> ScopedLimits:
+```
+
+> Scoped default bounds for every call in the with-block:
+>
+>     with m.limits(inferences=1_000_000, timeout=2.0):
+>         m.match(...)      # bounded without saying so again
+>
+> decimal.localcontext's shape, contextvars underneath, so the
+> scope is async-correct and per-task. A per-call timeout= or
+> inferences= still overrides, which is the whole ladder: one
+> block replaces the parameter forest, and the forest remains
+> for whoever wants per-call control.
+>
+> stack= is SWI's combined stack ceiling in BYTES, the bound a
+> runaway recursion hits as a StackOverflow error atom. It is NOT
+> MeTTa's reduction depth: that is the max-stack-depth pragma,
+> `(with-pragma! ((max-stack-depth N)) expr)`, which counts
+> reduction steps and is scoped in the program text.
+> Runs against this context's self space.
+
+### `MeTTa.speculate`
+
+```python
+def speculate(self) -> ScopedExecution:
+```
+
+> Run each source against a snapshot and discard its writes.
+>
+> Runs against this context's self space.
 
 ### `MeTTa.trace`
 
 ```python
-def trace(self, source: Atom | str, *, max_events: int = 10000):
+def trace(self, source: Atom | str, max_events: int = 1000000):
 ```
 
-> Trace a term, or source, in ``&self``.
+> Run a TERM, or source, under the engine's reduction trace and
+> answer TraceEvent records: what entered reduction at which depth,
+> what it answered, and which reductions failed (a call with no
+> exit). `m.trace(S.fib(10))` is the ordinary spelling, the same
+> argument `answers` and `eval` take; a string is still a string.
+> What is traced executes for real, writes included, like run();
+> the wrap exists only while tracing, so untraced calls pay
+> nothing. max_events bounds the recording, raising past it rather
+> than accumulating a long run's trace without limit.
+> Runs against this context's self space.
 
 ### `MeTTa.register_prolog`
 

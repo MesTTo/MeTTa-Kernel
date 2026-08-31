@@ -1134,6 +1134,9 @@ pure_arithmetic('round-math'). pure_arithmetic('sin-math').
 pure_arithmetic('sqrt-math').  pure_arithmetic('tan-math').
 pure_arithmetic('trunc-math').
 pure_arithmetic('bit-shift-left').  pure_arithmetic('bit-shift-right').
+pure_arithmetic('bit-and').  pure_arithmetic('bit-or').
+pure_arithmetic('bit-xor').  pure_arithmetic('bit-not').
+pure_arithmetic('floor-div').
 
 pure_comparison('<').  pure_comparison('>').  pure_comparison('<=').
 pure_comparison('>=').  pure_comparison('==').  pure_comparison('!=').
