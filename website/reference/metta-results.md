@@ -432,3 +432,32 @@ def first(self, *, default: Any = _MISSING) -> Any:
 ```
 
 > Return the first decoded value, or the caller's explicit default.
+
+### `Answers.close`
+
+```python
+def close(self) -> None:
+```
+
+> Release the engine cursor this view holds, now rather than later.
+>
+>     with metta.answers(S.fact(V.n)) as rows:
+>         for row in rows:
+>             if enough(row):
+>                 break
+>
+> A lazy view owns a cursor and the engine behind it, and a view that is
+> abandoned part-way holds both until the collector runs. `Space` has
+> owned a resource and said so from the start, with `drop()` and the
+> `with` form; this is the same vocabulary for the other type that owns
+> one, which had only a finalizer.
+>
+> The finalizer stays as the backstop, and being only a backstop is the
+> point: a `__del__` runs during interpreter shutdown with module globals
+> already cleared, which is how an abandoned cursor printed
+> "Exception ignored ... catching classes that do not inherit from
+> BaseException" out of a torn-down module [measured 2026-08-31].
+>
+> Closing twice is a no-op, as it is for `drop()`. Answers already pulled
+> stay readable, because they are cached values rather than engine state;
+> only what has NOT been pulled is given up.

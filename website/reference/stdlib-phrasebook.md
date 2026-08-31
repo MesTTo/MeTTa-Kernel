@@ -3,14 +3,14 @@
 Every operation MeTTa's standard library declares, and what you write in Python
 instead. 147 of the 181 operations a program can call have a Python
 spelling, and every runnable row below was measured on this engine and
-through the Python spelling here. A row names the equivalent oracle form
+through the Python spelling here. A row names the equivalent unary form
 when this engine's reified strategy application has another arity.
 
 The rows carry this engine's own names and types, 380 distinct names,
 and `extensions/python/tools/phrasebook.py` runs them and fails when a
-spelling stops answering what it says it answers. The oracle column
-measured against a second engine until 2026-08-30; PeTTa is the arbiter
-now and `tests/conformance/petta.py` is the lane that gates on it.
+spelling stops answering what it says it answers. A third column
+measured against a second engine until 2026-08-31; upstream PeTTa is the
+arbiter and `tests/conformance/petta.py` is the lane that gates on it.
 
 ## How to read a row
 
@@ -24,21 +24,21 @@ Rows fall in five buckets, and the bucket is the honest part:
 - **dissolves** (115) &mdash; Python already has the concept, so there is no metta name at all and the spelling is Python's own syntax, protocol or standard library
 - **method** (32) &mdash; the concept is MeTTa's own, so it wears a metta name
 - **instruction** (0) &mdash; deep control that stays instruction-tier, reached by building the term at the `S.` door and reducing it
-- **internal** (199) &mdash; LeaTTa's mechanised interpreter, written in MeTTa; this engine writes its interpreter in Prolog, so these names are on neither surface
+- **internal** (199) &mdash; a mechanised interpreter's own names, written in MeTTa; this engine writes its interpreter in Prolog, so these names are on neither surface
 - **absent** (34) &mdash; a user-facing operation with no Python spelling today: the residue
 
 ## Python-first additions
 
 These faces implement the Python-first execution model and therefore have no
-LeaTTa standard-library declaration to occupy one of the manifest rows above.
-They stay separate so the differential coverage denominator remains exact.
+standard-library declaration to occupy one of the rows above.
+They stay separate so the coverage denominator remains exact.
 
 | public spelling | meaning | example |
 |---|---|---|
 | `@metta.op(effect=...)` | register a host callable in the lazy default engine with explicit effect metadata | `@metta.op(effect="pureStructural") ⏎ def double(value): ⏎     return value * 2` |
 | `py(expr)` | mark one compiled-body expression for application-time host execution | `@metta.define ⏎ def status(url): ⏎     return py(requests.get(url).status_code)` |
 | `metta.catalog.add(S.deprecated(name, since, remedy))` | warn at callable doors and carry the same retirement into explain | `metta.catalog.add(S.deprecated(S.old, S['0.2.0'], S.use(S.new)))` |
-| `space.answers(term, theory=laws); space.answers(term, interpreter=interpret)` | select a complete theory value or full interpreter for one ask | `answers = space.answers(query, theory=rules)` |
+| `space.answers(term, theory=laws); space.answers(term, interpreter=interpret)` | select a theory, a full interpreter, or both, for one ask | `answers = space.answers(query, theory=rules)` |
 | `defined(right=value, left=value); space.fn.op(right=value, left=value)` | place call-site keywords in a known definition or operation signature | `answer = relation(destination=S.Bob, source=S.Ada)` |
 | `assert condition, reason` | continue on truth or answer (Error condition reason) from a compiled body | `@space.define ⏎ def positive(x): ⏎     assert x > 0, 'positive' ⏎     return x` |
 | `del space[pattern]; space -= atom` | remove every pattern match or one exact occurrence inside a compiled body | `del target[S.edge(V.x, V.y)] ⏎ target -= S.marker` |
@@ -60,7 +60,7 @@ They stay separate so the differential coverage denominator remains exact.
 | `space.compensates(operation, recovery)` | declare the operation that semantically reverses an effectful one | `space.compensates(charge, refund)` |
 | `space.saga(receipts)` | run forward steps whose committed (did ...) receipts drive reverse recovery | `with space.saga(receipts) as saga: ⏎     saga.run(S.charge(S.order_7))` |
 
-Provenance: LeaTTa manifest 1.0.9 at commit `39c7c43`, 382 declarations over 380 distinct names.
+Provenance: 380 distinct stdlib names, each with one row.
 
 ## What the Python spelling costs
 
@@ -97,7 +97,7 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(+ 1 2)` | `1 + 2` | `3` | dissolves |
 | `!(- 5 2)` | `5 - 2` | `3` | dissolves |
 | `!(* 3 4)` | `3 * 4` | `12` | dissolves |
-| `!(/ 7 2)` | `7 / 2` | `3 on leatta; 3.5 on metta and python` | dissolves |
+| `!(/ 7 2)` | `7 / 2` | `3.5` | dissolves |
 | `!(% -7 3)` | `-7 % 3` | `2` | dissolves |
 | `!(div-floor -7 2)` | `-7 // 2` | `-4` | dissolves |
 | `!(mod-floor -7 2)` | `-7 % 2` | `1` | dissolves |
@@ -109,8 +109,8 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `+` `(-> Number Number Number)` &mdash; Python's own operator. On atoms the same operator builds `(+ ...)` instead of computing, which is how a compiled body reaches the MeTTa function.
 - `-` `(-> Number Number Number)` &mdash; Python's own operator.
 - `*` `(-> Number Number Number)` &mdash; Python's own operator.
-- `/` `(-> Number Number Number)` &mdash; Python's `/` is true division, and so is this engine's. LeaTTa's integer `/` is EUCLIDEAN by its own ruling, so `(/ 7 2)` is 3 there and 3.5 here; on floats all three agree. Where they differ: LeaTTa answers 3 (Euclidean integer division), this engine and Python 3.5.
-- `%` `(-> Number Number Number)` &mdash; Python's own operator. Both take the sign of the divisor for a positive divisor; LeaTTa's is Euclidean, so a NEGATIVE divisor parts them and `mod-floor` is the name for Python's convention.
+- `/` `(-> Number Number Number)` &mdash; Python's `/` is true division, and so is this engine's. An integer `/` is EUCLIDEAN by its own ruling, so `(/ 7 2)` is 3 there and 3.5 here; on floats all three agree.
+- `%` `(-> Number Number Number)` &mdash; Python's own operator. Both take the sign of the divisor for a positive divisor; a Euclidean `%` differs on a NEGATIVE divisor, which parts them and `mod-floor` is the name for Python's convention.
 - `div-floor` `(-> Number Number Number)` &mdash; Python's `//` IS floored division, so the name has no Python spelling of its own. The form is shown but not run here: this engine implements neither the floored nor the truncating division family.
 - `mod-floor` `(-> Number Number Number)` &mdash; Python's `%` IS the floored remainder, sign of the divisor. The form is shown but not run here: this engine implements neither the floored nor the truncating division family.
 - `div-trunc` `(-> Number Number Number)` &mdash; Truncating division is `math.trunc` over the true quotient; Python's `//` would floor instead, which differs on negatives. The form is shown but not run here: this engine implements neither the floored nor the truncating division family.
@@ -152,10 +152,10 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(asin-math 0)` | `import math ⏎ math.asin(0)` | `0.0` | dissolves |
 | `!(acos-math 1)` | `import math ⏎ math.acos(1)` | `0.0` | dissolves |
 | `!(atan-math 0)` | `import math ⏎ math.atan(0)` | `0.0` | dissolves |
-| `!(ceil-math 2.1)` | `import math ⏎ math.ceil(2.1)` | `3.0 on leatta; 3 on metta and python` | dissolves |
-| `!(floor-math 2.9)` | `import math ⏎ math.floor(2.9)` | `2.0 on leatta; 2 on metta and python` | dissolves |
-| `!(round-math 2.5)` | `import math ⏎ math.floor(2.5 + 0.5)` | `3.0 on leatta; 3 on metta and python` | dissolves |
-| `!(trunc-math 2.9)` | `import math ⏎ math.trunc(2.9)` | `2.0 on leatta; 2 on metta and python` | dissolves |
+| `!(ceil-math 2.1)` | `import math ⏎ math.ceil(2.1)` | `3` | dissolves |
+| `!(floor-math 2.9)` | `import math ⏎ math.floor(2.9)` | `2` | dissolves |
+| `!(round-math 2.5)` | `import math ⏎ math.floor(2.5 + 0.5)` | `3` | dissolves |
+| `!(trunc-math 2.9)` | `import math ⏎ math.trunc(2.9)` | `2` | dissolves |
 | `!(isnan-math 1)` | `import math ⏎ math.isnan(1)` | `False` | dissolves |
 | `!(isinf-math 1)` | `import math ⏎ math.isinf(1)` | `False` | dissolves |
 
@@ -169,10 +169,10 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `asin-math` `(-> Number Number)` &mdash; `math.asin`.
 - `acos-math` `(-> Number Number)` &mdash; `math.acos`.
 - `atan-math` `(-> Number Number)` &mdash; `math.atan`.
-- `ceil-math` `(-> Number Number)` &mdash; `math.ceil`, which answers an integer in Python 3 where LeaTTa keeps the float. Where they differ: LeaTTa answers 3.0 and keeps the float; this engine and Python answer 3.
-- `floor-math` `(-> Number Number)` &mdash; `math.floor`, the same integer-against-float difference as `ceil-math`. Where they differ: LeaTTa answers 2.0 and keeps the float; this engine and Python answer 2.
-- `round-math` `(-> Number Number)` &mdash; NOT Python's `round`: `round` breaks a tie to the EVEN neighbour, so `round(2.5)` is 2 where MeTTa answers 3. Half away from zero is `math.floor(x + 0.5)` for a positive number. Where they differ: LeaTTa answers 3.0 and keeps the float; this engine and Python answer 3.
-- `trunc-math` `(-> Number Number)` &mdash; `math.trunc`, or `int` on a float. Where they differ: LeaTTa answers 2.0 and keeps the float; this engine and Python answer 2.
+- `ceil-math` `(-> Number Number)` &mdash; `math.ceil`, which answers an integer in Python 3 where a float-preserving float.
+- `floor-math` `(-> Number Number)` &mdash; `math.floor`, the same integer-against-float difference as `ceil-math`.
+- `round-math` `(-> Number Number)` &mdash; NOT Python's `round`: `round` breaks a tie to the EVEN neighbour, so `round(2.5)` is 2 where MeTTa answers 3. Half away from zero is `math.floor(x + 0.5)` for a positive number.
+- `trunc-math` `(-> Number Number)` &mdash; `math.trunc`, or `int` on a float.
 - `isnan-math` `(-> Number Bool)` &mdash; `math.isnan`.
 - `isinf-math` `(-> Number Bool)` &mdash; `math.isinf`.
 
@@ -200,13 +200,13 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(decons-atom (f a b))` | `e = metta.Expression(S.f, S.a, S.b) ⏎ head, *tail = e ⏎ (head, tuple(tail))` | `(f (a b))` | dissolves |
 | `!(size-atom (a b c))` | `e = metta.Expression(S.a, S.b, S.c) ⏎ len(e)` | `3` | dissolves |
 | `!(index-atom (a b c) 1)` | `e = metta.Expression(S.a, S.b, S.c) ⏎ e[1]` | `b` | dissolves |
-| `!(max-atom (1 2 3))` | `max([1, 2, 3])` | `3.0 on leatta; 3 on metta and python` | dissolves |
-| `!(min-atom (1 2 3))` | `min([1, 2, 3])` | `1.0 on leatta; 1 on metta and python` | dissolves |
+| `!(max-atom (1 2 3))` | `max([1, 2, 3])` | `3` | dissolves |
+| `!(min-atom (1 2 3))` | `min([1, 2, 3])` | `1` | dissolves |
 | `!(sort-strings ("b" "a" "c"))` | `tuple(sorted(["b", "a", "c"]))` | `("a" "b" "c")` | dissolves |
 | `!(map-atom (1 2 3) $x (+ $x 1))` | `tuple(x + 1 for x in [1, 2, 3])` | `(2 3 4)` | dissolves |
 | `!(filter-atom (1 2 3) $x (> $x 1))` | `tuple(x for x in [1, 2, 3] if x > 1)` | `(2 3)` | dissolves |
 | `!(foldl-atom (1 2 3) 0 $a $b (+ $a $b))` | `import functools ⏎ assert functools.reduce(lambda a, b: a + b, [1, 2, 3], 0) == 6 ⏎ folded = m.events().fold(space=space.name, pattern=S.fact(V.tag, V.value), under=metta.tropical) ⏎ space += S.fact(6, S.answer) ⏎ result = folded.take() ⏎ folded.cancel() ⏎ result` | `6` | dissolves |
-| `!(for-each-in-atom (1 2) println!)` | `for value in [1, 2]: ⏎     print(value) ⏎ metta.Expression()` | `() on leatta and python; (True True) on metta` | dissolves |
+| `!(for-each-in-atom (1 2) println!)` | `for value in [1, 2]: ⏎     print(value) ⏎ metta.Expression()` | `(True True) on metta; () on python` | dissolves |
 | `!(atom-subst a $x (f $x))` | `S.f(V.x).map(lambda a: S.a if a == V.x else a)` | `(f a)` | method |
 | `!(if-decons-expr (a b) $h $t (yes $h $t) no)` | `e = metta.Expression(S.a, S.b) ⏎ S.yes(e[0], e[1:]) if len(e) else S.no` | `(yes a (b))` | dissolves |
 
@@ -216,13 +216,13 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `decons-atom` `(-> Expression Atom)` &mdash; Starred unpacking, which is the same act in one line: `head, *tail = e`.
 - `size-atom` `(-> Expression Number)` &mdash; `len`. Both count CHILDREN, so `(f a b)` is 3 either way.
 - `index-atom` `(-> Expression Number Atom)` &mdash; Indexing again, with the index you want.
-- `max-atom` `(-> %Undefined% Number)` &mdash; Python's builtin `max` over the children. Where they differ: LeaTTa answers 3.0 and keeps the float; this engine and Python answer 3.
-- `min-atom` `(-> %Undefined% Number)` &mdash; Python's builtin `min` over the children. Where they differ: LeaTTa answers 1.0 and keeps the float; this engine and Python answer 1.
+- `max-atom` `(-> %Undefined% Number)` &mdash; Python's builtin `max` over the children.
+- `min-atom` `(-> %Undefined% Number)` &mdash; Python's builtin `min` over the children.
 - `sort-strings` `(-> Expression Expression)` &mdash; Python's builtin `sorted`. A tuple goes back in as one expression.
 - `map-atom` `(-> Expression Variable Atom Expression) | (-> Expression Expression Expression)` &mdash; A comprehension, or `map`. The variable and the template are the comprehension's own binder and body.
 - `filter-atom` `(-> Expression Variable Atom Expression) | (-> Expression Expression Expression)` &mdash; A comprehension with an `if`, or `filter`.
 - `foldl-atom` `(-> Expression Atom Variable Variable Atom %Undefined%) | (-> Expression Atom Expression %Undefined%)` &mdash; `functools.reduce` with an initial value is the same finite left fold. For a change stream, `m.events().fold(..., under=algebra)` makes the algebra itself the step; `into=State(...)` is the running-gauge form.
-- `for-each-in-atom` `(-> Expression Atom (->))` &mdash; A `for` statement. It is called for its effect, so the row prints and answers the unit. Python's `for` has no value at all, and the concept map says `None` IS the unit, but `metta.ground(None)` renders `<NoneType>` rather than `()` today, so a row that wants the unit writes it [measured 2026-08-22]. Where they differ: this engine answers one unit per element where LeaTTa answers one.
+- `for-each-in-atom` `(-> Expression Atom (->))` &mdash; A `for` statement. It is called for its effect, so the row prints and answers the unit. Python's `for` has no value at all, and the concept map says `None` IS the unit, but `metta.ground(None)` renders `<NoneType>` rather than `()` today, so a row that wants the unit writes it [measured 2026-08-22]. Where they differ: this engine answers one unit per element.
 - `atom-subst` `(-> Atom (:Atom Variable) Atom Atom)` &mdash; Applying a substitution to a template, which `Atom.map` does over the whole term. Section 9e wants the bindings object to carry it, `b.apply(template)`; `metta.Bindings` has no such method yet, so the walker is the spelling. The form is shown but not run here: this engine leaves the MeTTa call unreduced.
 - `if-decons-expr` `(-> Expression Variable Variable Atom Atom %Undefined%)` &mdash; Starred unpacking inside an `if`: the empty case is the `else` branch. The form is shown but not run here: this engine leaves the call unreduced.
 
@@ -257,42 +257,42 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(switch (+ 1 1) ((1 one) (2 two)))` | `match 1 + 1: ⏎     case 1: ⏎         answer = S.one ⏎     case 2: ⏎         answer = S.two ⏎ answer` | `two` | dissolves |
 | `!(let $x 1 (+ $x 1))` | `x = 1 ⏎ x + 1` | `2` | dissolves |
 | `!(let* (($x 1) ($y 2)) (+ $x $y))` | `x = 1 ⏎ y = 2 ⏎ x + y` | `3` | dissolves |
-| `!(unify (f $x) (f a) $x nope)` | `assert metta.unify(S.f(S.a), S.f(V.x)) == {'x': S.a} ⏎ metta.unify(S.f(V.x), S.f(S.a), V.x, S.nope).one()` | `a` | method |
+| `!(unify (f $x) (f a) $x nope)` | `assert metta.unify(S.f(S.a), S.f(V.x)) == {V.x: S.a} ⏎ metta.unify(S.f(V.x), S.f(S.a), V.x, S.nope).one()` | `a` | method |
 | `!(superpose (a b))` | `space.add_tagged_fact(S.rate(1), S.choice(S.a)) ⏎ assert len(space.sample(S.choice(V.x), k=10, seed=7)) == 10 ⏎ [S.a, S.b]` | `a, b` | dissolves |
 | `!(collapse (superpose (a b)))` | `answers = [S.a, S.b] ⏎ tuple(answers)` | `(a b)` | dissolves |
 | `!(id 5)` | `5` | `5` | dissolves |
 | `!(nop 1 2)` | `metta.Expression()` | `()` | dissolves |
 | `!(if-equal a a yes no)` | `S.yes if S.a == S.a else S.no` | `yes` | dissolves |
-| `!(quote (+ 1 2))` | `S['+'](1, 2)` | `(quote (+ 1 2)) on leatta; (+ 1 2) on metta and python` | dissolves |
+| `!(quote (+ 1 2))` | `S['+'](1, 2)` | `(+ 1 2)` | dissolves |
 | `!(noeval (+ 1 2))` | `S['+'](1, 2)` | `(+ 1 2)` | dissolves |
 | `!(unquote (quote (+ 1 2)))` | `m.eval(S['+'](1, 2))` | `3` | method |
 | `!(gtry id a)` | `space += metta.lib.strategy ⏎ space.eval(S.gtry(metta.strategies.id, S.a))` | `a` | method |
-| `!(case% 2 ((1 one) (2 two)))` | &mdash; | `two` | absent |
-| `!(let% $x 1 (+ $x 1))` | &mdash; | `2` | absent |
-| `!(let*% (($x 1)) $x)` | &mdash; | `1` | absent |
-| `!(unify% (f a) (f $x) $x nope)` | &mdash; | `a` | absent |
-| `!(get-type =%)` | &mdash; | `(-> $t#0 $t#0 %Undefined%)` | absent |
+| `!(case% 2 ((1 one) (2 two)))` | &mdash; | &mdash; | absent |
+| `!(let% $x 1 (+ $x 1))` | &mdash; | &mdash; | absent |
+| `!(let*% (($x 1)) $x)` | &mdash; | &mdash; | absent |
+| `!(unify% (f a) (f $x) $x nope)` | &mdash; | &mdash; | absent |
+| `!(get-type =%)` | &mdash; | &mdash; | absent |
 
 - `if` `(-> Bool Atom Atom $t)` &mdash; Python's own `if`, and its conditional expression where a value is wanted. Both arms stay unevaluated in MeTTa because the parameters are Atom-typed, which is exactly what Python's own short-circuit does.
 - `case` `(-> Atom Expression %Undefined%)` &mdash; Python's `match` statement. A bare variable arm is `case _`.
 - `switch` `(-> %Undefined% Expression %Undefined%)` &mdash; Python's `match` statement again. `switch` differs from `case` only in evaluating its subject first, which a Python expression does anyway.
 - `let` `(-> Atom %Undefined% Atom %Undefined%)` &mdash; Assignment. It reads in MeTTa's own order, bind then use, which is why plain assignment and not the walrus is the taught spelling.
 - `let*` `(-> Expression Atom %Undefined%)` &mdash; A sequence of assignments; a statement sequence in a compiled body already chains into `let*`.
-- `unify` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; Structural unification. `metta.unify(a, b)` symmetrically answers one bindings mapping or `None`; `metta.unify(a, b, then, els)` evaluates the engine conditional, running `then` once per binding set and `els` only when none exists. A compiled body lowers the same four-argument call directly to the engine form.
+- `unify` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; Structural unification. `metta.unify(a, b)` symmetrically answers one substitution keyed by the VARIABLES, which is what `atom.subs` takes, or `None`; `metta.unify(a, b, then, els)` evaluates the engine conditional, running `then` once per binding set and `els` only when none exists. A compiled body lowers the same four-argument call directly to the engine form.
 - `superpose` `(-> Expression %Undefined%)` &mdash; Nondeterminism has no primitive of its own because Python's iteration IS it: a list of values is a multiset of answers, and `yield` is the same act inside a compiled body. `space.sample(q, k=10, seed=7)` is the weighted choice door, with replacement and implicit `(rate n)` weights.
 - `collapse` `(-> Atom Atom)` &mdash; `list()` is the everyday spelling, materialising the answers; `tuple()` is the same act when you want MeTTa's own `( )` atom back, which is what collapse answers.
 - `id` `(-> $t $t)` &mdash; The identity function, which Python writes as the value itself.
 - `nop` `(-> (%Rest% %Undefined%) (->))` &mdash; Python's `pass`, or simply not writing the call. It answers the unit.
 - `if-equal` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; A conditional expression over `==`.
-- `quote` `(-> Atom Atom)` &mdash; There is nothing to quote: building a term at the `S.` door never evaluates it, so the quoting question does not arise. `S.quote(x)` builds the term itself where a program needs the constructor. Where they differ: LeaTTa answers (quote (+ 1 2)) and keeps the wrapper; this engine and Python answer (+ 1 2), which is upstream's own lowering, `Out = Expr` [source: PeTTa@ae66fa8 src/translator.pl:320-322].
+- `quote` `(-> Atom Atom)` &mdash; There is nothing to quote: building a term at the `S.` door never evaluates it, so the quoting question does not arise. `S.quote(x)` builds the term itself where a program needs the constructor. Where they differ: a wrapper-keeping quote answers (quote (+ 1 2)); this engine and Python answer (+ 1 2), which is upstream's own lowering, `Out = Expr` [source: PeTTa@ae66fa8 src/translator.pl:320-322].
 - `noeval` `(-> Atom Atom)` &mdash; The same point as `quote`: a built term is already unevaluated.
 - `unquote` `(-> %Undefined% %Undefined%)` &mdash; Reducing a quoted term is `m.eval`, primitive 4.
-- `gtry` `(-> Atom Atom Atom)` &mdash; LeaTTa's guarded try is lib_strategy's binary failure-to-identity spelling. Python builds the same gtry atom and evaluates it in the space.
-- `case%` `(-> Atom Expression %Undefined%)` &mdash; LeaTTa's `%`-suffixed variant, the error-transparent twin of `case`. This engine ships no `%` family. The form is shown but not run here: this engine leaves the call unreduced.
-- `let%` `(-> Atom %Undefined% Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `let`. The form is shown but not run here: this engine leaves the call unreduced.
-- `let*%` `(-> Expression Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `let*`. The form is shown but not run here: this engine leaves the call unreduced.
-- `unify%` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `unify`. The form is shown but not run here: this engine leaves the call unreduced.
-- `=%` `(-> $t $t %Undefined%)` &mdash; LeaTTa's error-transparent twin of `=`, the equation head itself. The form is shown but not run here: this engine does not declare the name.
+- `gtry` `(-> Atom Atom Atom)` &mdash; the guarded try is lib_strategy's binary failure-to-identity spelling. Python builds the same gtry atom and evaluates it in the space.
+- `case%` `(-> Atom Expression %Undefined%)` &mdash; the `%`-suffixed variant, the error-transparent twin of `case`. This engine ships no `%` family. The form is shown but not run here: this engine leaves the call unreduced.
+- `let%` `(-> Atom %Undefined% Atom %Undefined%)` &mdash; the error-transparent twin of `let`. The form is shown but not run here: this engine leaves the call unreduced.
+- `let*%` `(-> Expression Atom %Undefined%)` &mdash; the error-transparent twin of `let*`. The form is shown but not run here: this engine leaves the call unreduced.
+- `unify%` `(-> Atom Atom Atom Atom %Undefined%)` &mdash; the error-transparent twin of `unify`. The form is shown but not run here: this engine leaves the call unreduced.
+- `=%` `(-> $t $t %Undefined%)` &mdash; the error-transparent twin of `=`, the equation head itself. The form is shown but not run here: this engine does not declare the name.
 
 ## Spaces
 
@@ -305,23 +305,23 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(remove-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ space -= S.f(1) ⏎ space.atoms()` | `(no answer)` | dissolves |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ list(space)` | `(f 1)` | method |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(match &pb (f $x) $x)` | `space += S.f(1) ⏎ assert space.match(S.f(V.x), under=metta.counting).one() == 1 ⏎ space.run('(= (phrasebook-call) yes)') ⏎ assert space.answers(S.phrasebook_call(), under=metta.counting).one() == 1 ⏎ with metta.under(metta.prov): ⏎     annotated = space.match(S.f(V.x)).one() ⏎ assert annotated.annotation == S.one ⏎ assert annotated.under(metta.counting).annotation == 1 ⏎ assert annotated.why() ⏎ declared = metta.algebra(S.phrasebook_max_plus, plus=max, times=lambda a, b: a + b, zero=-100, one=0, order='descending') ⏎ assert declared.name == 'phrasebook-max-plus' ⏎ [row['x'] for row in space[S.f(V.x)]]` | `1` | method |
-| `!(bind! &pb (new-space)) ⏎ !(match% &pb (f $x) $x)` | &mdash; | `(no answer)` | absent |
+| `!(bind! &pb (new-space)) ⏎ !(match% &pb (f $x) $x)` | &mdash; | &mdash; | absent |
 | `!(get-atoms (new-space))` | `list(metta.space())` | `(no answer)` | method |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(get-atoms (fork-space &pb))` | `space += S.f(1) ⏎ space.copy().atoms()` | `(f 1)` | method |
 | `!(add-atom &self (f 1)) ⏎ !(get-atoms &self)` | `space += S.f(1) ⏎ space.atoms()` | `(f 1)` | dissolves |
 | `!(add-atom (context-space) (f 1)) ⏎ !(get-atoms (context-space))` | `space += S.f(1) ⏎ space.atoms()` | `(f 1)` | method |
-| `!(mod-space! stdlib)` | &mdash; | `&mod:corelib` | absent |
-| `!(module-space-no-deps (new-space))` | &mdash; | `&space-#0` | absent |
-| `!(get-deps stdlib)` | &mdash; | `()` | absent |
+| `!(mod-space! stdlib)` | &mdash; | &mdash; | absent |
+| `!(module-space-no-deps (new-space))` | &mdash; | &mdash; | absent |
+| `!(get-deps stdlib)` | &mdash; | &mdash; | absent |
 
 - `add-atom` `(-> SpaceType Atom (->))` &mdash; `space += atom`, the container protocol. A plain Python tuple encodes to an expression on the way in, so a fact needs no builder ceremony. Bare symbols, grounded values, and empty expressions cross when engine `add-atom` accepts them too.
 - `add-atoms` `(-> SpaceType Expression (->))` &mdash; The same `+=` door, once per fact: anything that yields tuples is a fact stream. Lists, outer tuples of rows, generators, SQL cursors, and dataframe row iterators each write one atom per yielded item; a built Expression is always one atom.
-- `add-reduct` `(-> SpaceType %Undefined% (->))` &mdash; There is no second door: `+=` adds what you give it, so adding a REDUCT is explicit composition, `space += m.eval(term)[0]`. Bare grounded answers use that door directly; this row wraps the evaluated sum only to retain its `total` relation head. Where they differ: This engine stores `(total (+ 1 2))` UNREDUCED where LeaTTa and the Python composition both store `(total 3)`: this engine's add-reduct does not reduce inside an expression whose head has no equations.
-- `add-reducts` `(-> SpaceType %Undefined% (->))` &mdash; The plural of the same composition: evaluate, then write the answers. Where they differ: This engine stores both forms UNREDUCED where LeaTTa and the Python composition store `(total 3)` and `(total 4)`, the same non-reduction as `add-reduct`.
+- `add-reduct` `(-> SpaceType %Undefined% (->))` &mdash; There is no second door: `+=` adds what you give it, so adding a REDUCT is explicit composition, `space += m.eval(term)[0]`. Bare grounded answers use that door directly; this row wraps the evaluated sum only to retain its `total` relation head. Where they differ: This engine stores `(total (+ 1 2))` UNREDUCED where the Python composition both store `(total 3)`: this engine's add-reduct does not reduce inside an expression whose head has no equations.
+- `add-reducts` `(-> SpaceType %Undefined% (->))` &mdash; The plural of the same composition: evaluate, then write the answers. Where they differ: This engine stores both forms UNREDUCED where the Python composition store `(total 3)` and `(total 4)`, the same non-reduction as `add-reduct`.
 - `remove-atom` `(-> SpaceType Atom Bool)` &mdash; Drains every atom that unifies and answers True either way. `space -= atom` is this door, because `-=` is Python's in-place difference and set difference is total; `space.remove(atom)` is the one-occurrence grain, Python's own `list.remove`, and reports whether it found one; `del space[pattern]` raises when the pattern matches nothing, as Python's `del` does.
 - `get-atoms` `(-> SpaceType Atom)` &mdash; `space.atoms()`, or `for atom in space` when you want to walk them.
 - `match` `(-> SpaceType Atom Atom %Undefined%)` &mdash; `space[pattern]` is the subscript door and `space.match(pattern)` the named one; the TEMPLATE is built in Python from the answer's bindings. `under=counting|tropical|prov|ranked` changes the annotation algebra; `answers(call, under=...)` is its call twin, `with metta.under(...)` scopes the default, and an annotated answer exposes `.annotation`, `.why()` and `.under(other)` without a re-query. `metta.algebra(...)` constructs arbitrary carriers while remaining their namespace.
-- `match%` `(-> SpaceType Atom Atom %Undefined%)` &mdash; LeaTTa's error-transparent twin of `match`. The form is shown but not run here: this engine leaves the call unreduced.
+- `match%` `(-> SpaceType Atom Atom %Undefined%)` &mdash; the error-transparent twin of `match`. The form is shown but not run here: this engine leaves the call unreduced.
 - `new-space` `(-> SpaceType)` &mdash; `metta.space()`. A constructor call is Python's own spelling for `make me a fresh one`, and the row asks the fresh space for its atoms because the NAME a space gets differs per engine.
 - `fork-space` `(-> SpaceType SpaceType)` &mdash; `space.copy()`, which answers an independent space: writing to the copy leaves the original alone [measured 2026-08-22]. The form is shown but not run here: this engine leaves the MeTTa call unreduced.
 - `&self` `SpaceType` &mdash; The space you are in, which in Python is the handle you already hold: `m` for the engine's own space, `space` for a named one. A name spelt as a symbol is what a Python binding is for.
@@ -340,13 +340,13 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(is-function (-> Number Number))` | `t = S['->'](S.Number, S.Number) ⏎ t[0] == S['->']` | `True` | dissolves |
 | `(: pbf (-> Number Number)) ⏎ (= (pbf $x) $x) ⏎ !(get-type pbf)` | `t = S['->'](S.Number, S.Number) ⏎ t` | `(-> Number Number)` | dissolves |
 | `(= (pbf $x) (+ $x 1)) ⏎ !(pbf 1)` | `space += metta.equation(S.pbf(V.x)).to(V.x + 1) ⏎ space.eval(S.pbf(1))[0]` | `2` | method |
-| `!(get-type &self)` | &mdash; | `SpaceType` | absent |
+| `!(get-type &self)` | &mdash; | &mdash; | absent |
 | `!(get-type TP)` | `space += metta.lib.strategy ⏎ space.eval(S['get-type'](metta.strategies.TP))` | `Type` | method |
 | `!(get-type TU)` | `space += metta.lib.strategy ⏎ space.eval(S['get-type'](metta.strategies.TU))` | `(-> Type Type)` | method |
-| `!(get-type (Pair 1 2))` | &mdash; | `%Undefined%` | absent |
-| `!(get-type PairType)` | &mdash; | `%Undefined%` | absent |
-| `!(skel-swap-pair (Pair 1 2))` | &mdash; | `(skel-swap-pair (Pair 1 2))` | absent |
-| `!(skel-swap-pair-native (Pair 1 2))` | &mdash; | `(Error (skel-swap-pair-native (Pair 1 2)) StackOverflow)` | absent |
+| `!(get-type (Pair 1 2))` | &mdash; | &mdash; | absent |
+| `!(get-type PairType)` | &mdash; | &mdash; | absent |
+| `!(skel-swap-pair (Pair 1 2))` | &mdash; | &mdash; | absent |
+| `!(skel-swap-pair-native (Pair 1 2))` | &mdash; | &mdash; | absent |
 | `!(get-type ◁)` | `space += metta.lib.strategy ⏎ space.eval(S['get-type'](S['◁']))` | `(-> Atom Type Atom Atom)` | method |
 
 - `get-type` `(-> Atom %Undefined%)` &mdash; Declared types are space-relative, so `space.type(atom)` asks the space. Class declarations use the consolidated `@space.define` decorator.
@@ -358,9 +358,9 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `SpaceType` `Type` &mdash; The type of a space. This engine does not declare the name, so there is nothing for a Python type table to map to yet. The form is shown but not run here: this engine answers SpaceType for a space but does not declare the symbol itself.
 - `TP` `Type` &mdash; Lämmel's type-preserving strategy scheme, exported as the reified `metta.strategies.TP` symbol.
 - `TU` `(-> Type Type)` &mdash; Lämmel's type-unifying scheme constructor, exported as the reified `metta.strategies.TU` symbol.
-- `Pair` `(-> $ta $tb (PairType $ta $tb))` &mdash; A constructor from LeaTTa's `skel` demonstration module. This engine has no such module; a class decorated with `@space.define` declares its constructor in that space. The form is shown but not run here: this engine does not declare the name.
+- `Pair` `(-> $ta $tb (PairType $ta $tb))` &mdash; A constructor from the `skel` demonstration module. This engine has no such module; a class decorated with `@space.define` declares its constructor in that space. The form is shown but not run here: this engine does not declare the name.
 - `PairType` `(-> $ta $tb Type)` &mdash; The parameterised type of `Pair`, from the same module. The form is shown but not run here: this engine does not declare the name.
-- `skel-swap-pair` `(-> (PairType $ta $tb) (PairType $tb $ta))` &mdash; The `skel` module's worked equation, LeaTTa's demonstration that a built-in module can ship both a MeTTa and a native implementation. The form is shown but not run here: this engine does not declare the name.
+- `skel-swap-pair` `(-> (PairType $ta $tb) (PairType $tb $ta))` &mdash; The `skel` module's worked equation, the demonstration that a built-in module can ship both a MeTTa and a native implementation. The form is shown but not run here: this engine does not declare the name.
 - `skel-swap-pair-native` `(-> (PairType $ta $tb) (PairType $tb $ta))` &mdash; The native half of the same demonstration. The form is shown but not run here: this engine does not declare the name.
 - `◁` `(-> Atom Type Atom Atom)` &mdash; The typed strategy-application atom selects the TP or TU scheme before running the named strategy.
 
@@ -380,58 +380,58 @@ Python side does not move. Within one run the counts are exact: three fresh
 
 | MeTTa | Python | answers | bucket |
 |---|---|---|---|
-| `!(println! hello)` | `print('hello') ⏎ metta.TRUE` | `() on leatta; True on metta and python` | dissolves |
+| `!(println! hello)` | `print('hello') ⏎ metta.TRUE` | `True` | dissolves |
 | `!(trace! hello (+ 1 2))` | `print('hello') ⏎ 1 + 2` | `3` | dissolves |
 | `!(format-args "{} and {}" (a b))` | `a, b = S.a, S.b ⏎ f'{a} and {b}'` | `"a and b"` | dissolves |
 | `!(print-alternatives! subject (a b))` | `print(S.subject, [S.a, S.b]) ⏎ metta.Expression()` | `()` | dissolves |
 
-- `println!` `(-> %Undefined% Bool)` &mdash; Python's `print`. It answers True rather than unit, which is upstream's own answer: `'println!'(Arg, true)` [source: PeTTa@ae66fa8 src/metta.pl:212]. Where they differ: LeaTTa answers (); this engine and Python answer True, which is upstream's own `'println!'(Arg, true)` [source: PeTTa@ae66fa8 src/metta.pl:212].
+- `println!` `(-> %Undefined% Bool)` &mdash; Python's `print`. It answers True rather than unit, which is upstream's own answer: `'println!'(Arg, true)` [source: PeTTa@ae66fa8 src/metta.pl:212]. Where they differ: this engine and Python answer True, which is upstream's own `'println!'(Arg, true)` [source: PeTTa@ae66fa8 src/metta.pl:212].
 - `trace!` `(-> %Undefined% Atom %Undefined%)` &mdash; `print` or `logging` beside the value; `m.trace()` is the engine's own reduction trace, a different and deeper thing.
 - `format-args` `(-> String Expression String)` &mdash; An f-string. MeTTa's `{}` holes are Python's own interpolation.
-- `print-alternatives!` `(-> Atom Expression (->))` &mdash; Python's `print` over the answers, which is what LeaTTa's assert family uses it for: showing what a form actually answered. The form is shown but not run here: this engine leaves the MeTTa call unreduced.
+- `print-alternatives!` `(-> Atom Expression (->))` &mdash; Python's `print` over the answers, which is what the assert family uses it for: showing what a form actually answered. The form is shown but not run here: this engine leaves the MeTTa call unreduced.
 
 ## Testing
 
 | MeTTa | Python | answers | bucket |
 |---|---|---|---|
-| `!(assert (== 1 1))` | `assert 1 == 1 ⏎ True` | `() on leatta; True on metta and python` | dissolves |
-| `!(assertEqual (+ 1 1) 2)` | `assert m.eval(S['+'](1, 1))[0] == 2 ⏎ True` | `() on leatta; True on metta and python` | dissolves |
-| `!(assertEqualMsg (+ 1 1) 2 "sums")` | `assert m.eval(S['+'](1, 1))[0] == 2, 'sums' ⏎ True` | `() on leatta; True on metta and python` | dissolves |
-| `!(assertAlphaEqual (f $x) (f $y))` | `assert S.f(V.x).alpha_eq(S.f(V.y)) ⏎ True` | `() on leatta; True on metta and python` | dissolves |
-| `!(assertAlphaEqualMsg (f $x) (f $y) "renaming")` | `assert S.f(V.x).alpha_eq(S.f(V.y)), 'renaming' ⏎ True` | `() on leatta; True on metta and python` | dissolves |
-| `!(assertEqualToResult (superpose (1 2)) (1 2))` | `assert m.eval(S.superpose(metta.Expression(1, 2))) == [1, 2] ⏎ True` | `() on leatta; True on metta and python` | dissolves |
-| `!(assertEqualToResultMsg (superpose (1 2)) (1 2) "both")` | `assert m.eval(S.superpose(metta.Expression(1, 2))) == [1, 2], 'both' ⏎ True` | `() on leatta; True on metta and python` | dissolves |
-| `!(assertAlphaEqualToResult (f $x) ((f $y)))` | `assert m.eval(S.f(V.x))[0].alpha_eq(S.f(V.y)) ⏎ True` | `() on leatta; True on metta and python` | dissolves |
-| `!(assertAlphaEqualToResultMsg (f $x) ((f $y)) "renaming")` | `assert m.eval(S.f(V.x))[0].alpha_eq(S.f(V.y)), 'renaming' ⏎ True` | `() on leatta; True on metta and python` | dissolves |
-| `!(assertIncludes (superpose (a b)) (a))` | `assert S.a in m.eval(S.superpose(metta.Expression(S.a, S.b))) ⏎ True` | `() on leatta; True on metta and python` | dissolves |
+| `!(assert (== 1 1))` | `assert 1 == 1 ⏎ True` | `True` | dissolves |
+| `!(assertEqual (+ 1 1) 2)` | `assert m.eval(S['+'](1, 1))[0] == 2 ⏎ True` | `True` | dissolves |
+| `!(assertEqualMsg (+ 1 1) 2 "sums")` | `assert m.eval(S['+'](1, 1))[0] == 2, 'sums' ⏎ True` | `True` | dissolves |
+| `!(assertAlphaEqual (f $x) (f $y))` | `assert S.f(V.x).alpha_eq(S.f(V.y)) ⏎ True` | `True` | dissolves |
+| `!(assertAlphaEqualMsg (f $x) (f $y) "renaming")` | `assert S.f(V.x).alpha_eq(S.f(V.y)), 'renaming' ⏎ True` | `True` | dissolves |
+| `!(assertEqualToResult (superpose (1 2)) (1 2))` | `assert m.eval(S.superpose(metta.Expression(1, 2))) == [1, 2] ⏎ True` | `True` | dissolves |
+| `!(assertEqualToResultMsg (superpose (1 2)) (1 2) "both")` | `assert m.eval(S.superpose(metta.Expression(1, 2))) == [1, 2], 'both' ⏎ True` | `True` | dissolves |
+| `!(assertAlphaEqualToResult (f $x) ((f $y)))` | `assert m.eval(S.f(V.x))[0].alpha_eq(S.f(V.y)) ⏎ True` | `True` | dissolves |
+| `!(assertAlphaEqualToResultMsg (f $x) ((f $y)) "renaming")` | `assert m.eval(S.f(V.x))[0].alpha_eq(S.f(V.y)), 'renaming' ⏎ True` | `True` | dissolves |
+| `!(assertIncludes (superpose (a b)) (a))` | `assert S.a in m.eval(S.superpose(metta.Expression(S.a, S.b))) ⏎ True` | `True` | dissolves |
 
-- `assert` `(-> Atom (->))` &mdash; Python's own `assert`. A twin or a test states its claims this way and the run proves them, because a false assertion raises. Where they differ: LeaTTa answers the unit `()` where this engine answers True.
-- `assertEqual` `(-> Atom Atom (->))` &mdash; `assert a == b`, and pytest's own assertion rewriting prints the halves. Where they differ: LeaTTa answers the unit `()` where this engine answers True.
-- `assertEqualMsg` `(-> Atom Atom Atom (->))` &mdash; `assert a == b, message`, which is Python's own second argument. Where they differ: LeaTTa answers the unit `()` where this engine answers True.
-- `assertAlphaEqual` `(-> Atom Atom (->))` &mdash; `assert a.alpha_eq(b)`: the assertion is Python's, the relation is MeTTa's. Where they differ: LeaTTa answers the unit `()` where this engine answers True.
-- `assertAlphaEqualMsg` `(-> Atom Atom Atom (->))` &mdash; The same with Python's assertion message. Where they differ: LeaTTa answers the unit `()` where this engine answers True.
-- `assertEqualToResult` `(-> Atom Atom (->))` &mdash; The right-hand side is a LIST of expected answers rather than one, which is `assert list(answers) == [...]`. Where they differ: LeaTTa answers the unit `()` where this engine answers True.
-- `assertEqualToResultMsg` `(-> Atom Atom Atom (->))` &mdash; The same with Python's assertion message. Where they differ: LeaTTa answers the unit `()` where this engine answers True.
-- `assertAlphaEqualToResult` `(-> Atom Atom (->))` &mdash; The answer-list form compared modulo renaming. Where they differ: LeaTTa answers the unit `()` where this engine answers True.
-- `assertAlphaEqualToResultMsg` `(-> Atom Atom Atom (->))` &mdash; The same with Python's assertion message. Where they differ: LeaTTa answers the unit `()` where this engine answers True.
-- `assertIncludes` `(-> Atom Expression (->))` &mdash; Python's own `in`. Where they differ: LeaTTa answers the unit `()` where this engine answers True.
+- `assert` `(-> Atom (->))` &mdash; Python's own `assert`. A twin or a test states its claims this way and the run proves them, because a false assertion raises.
+- `assertEqual` `(-> Atom Atom (->))` &mdash; `assert a == b`, and pytest's own assertion rewriting prints the halves.
+- `assertEqualMsg` `(-> Atom Atom Atom (->))` &mdash; `assert a == b, message`, which is Python's own second argument.
+- `assertAlphaEqual` `(-> Atom Atom (->))` &mdash; `assert a.alpha_eq(b)`: the assertion is Python's, the relation is MeTTa's.
+- `assertAlphaEqualMsg` `(-> Atom Atom Atom (->))` &mdash; The same with Python's assertion message.
+- `assertEqualToResult` `(-> Atom Atom (->))` &mdash; The right-hand side is a LIST of expected answers rather than one, which is `assert list(answers) == [...]`.
+- `assertEqualToResultMsg` `(-> Atom Atom Atom (->))` &mdash; The same with Python's assertion message.
+- `assertAlphaEqualToResult` `(-> Atom Atom (->))` &mdash; The answer-list form compared modulo renaming.
+- `assertAlphaEqualToResultMsg` `(-> Atom Atom Atom (->))` &mdash; The same with Python's assertion message.
+- `assertIncludes` `(-> Atom Expression (->))` &mdash; Python's own `in`.
 
 ## Documentation
 
 | MeTTa | Python | answers | bucket |
 |---|---|---|---|
-| `!(get-doc &self +)` | `def slug(title): ⏎     'Make a title into a slug.' ⏎ slug.__doc__` | `(@doc-formal (@item +) (@kind function) (@type (-> Number Number Number)) (@desc "Sums two numbers") (@params ((@param (@type Number) (@desc "Addend")) (@param (@type Number) (@desc "Augend")))) (@return (@type Number) (@desc "Sum"))) on leatta; (no answer) on metta; "Make a title into a slug." on python` | dissolves |
-| `!(@doc pbf (@desc "adds one"))` | `def pbf(x): ⏎     'adds one' ⏎ pbf.__doc__` | `(@doc pbf (@desc "adds one")) on leatta and metta; "adds one" on python` | dissolves |
-| `!(@desc "adds one")` | `'adds one'` | `(@desc "adds one") on leatta and metta; "adds one" on python` | dissolves |
-| `!(@param "the addend")` | `'the addend'` | `(@param "the addend") on leatta and metta; "the addend" on python` | dissolves |
-| `!(@params ((@param "the addend")))` | `['the addend']` | `(@params ((@param "the addend"))) on leatta and metta; "the addend" on python` | dissolves |
-| `!(@return "the sum")` | `'the sum'` | `(@return "the sum") on leatta and metta; "the sum" on python` | dissolves |
-| `!(@type Number)` | `def pbf(x: int) -> int: ⏎     'adds one' ⏎ pbf.__annotations__['return']` | `(@type Number) on leatta and metta; "int" on python` | dissolves |
-| `!(@item pbf)` | `S.pbf` | `(@item pbf) on leatta and metta; pbf on python` | dissolves |
-| `!(@doc-formal (@item pbf) (@kind function) (@type (-> Number Number)) (@desc "adds one"))` | `def pbf(x: int) -> int: ⏎     'adds one' ⏎ (pbf.__annotations__['return'], pbf.__doc__)` | `(@doc-formal (@item pbf) (@kind function) (@type (-> Number Number)) (@desc "adds one")) on leatta and metta; ("int" "adds one") on python` | dissolves |
-| `!(help! +)` | `def pbf(x): ⏎     'adds one' ⏎ pbf.__doc__` | `() on leatta; "adds one" on python` | dissolves |
+| `!(get-doc &self +)` | `def slug(title): ⏎     'Make a title into a slug.' ⏎ slug.__doc__` | `(no answer) on metta; "Make a title into a slug." on python` | dissolves |
+| `!(@doc pbf (@desc "adds one"))` | `def pbf(x): ⏎     'adds one' ⏎ pbf.__doc__` | `(@doc pbf (@desc "adds one")) on metta; "adds one" on python` | dissolves |
+| `!(@desc "adds one")` | `'adds one'` | `(@desc "adds one") on metta; "adds one" on python` | dissolves |
+| `!(@param "the addend")` | `'the addend'` | `(@param "the addend") on metta; "the addend" on python` | dissolves |
+| `!(@params ((@param "the addend")))` | `['the addend']` | `(@params ((@param "the addend"))) on metta; "the addend" on python` | dissolves |
+| `!(@return "the sum")` | `'the sum'` | `(@return "the sum") on metta; "the sum" on python` | dissolves |
+| `!(@type Number)` | `def pbf(x: int) -> int: ⏎     'adds one' ⏎ pbf.__annotations__['return']` | `(@type Number) on metta; "int" on python` | dissolves |
+| `!(@item pbf)` | `S.pbf` | `(@item pbf) on metta; pbf on python` | dissolves |
+| `!(@doc-formal (@item pbf) (@kind function) (@type (-> Number Number)) (@desc "adds one"))` | `def pbf(x: int) -> int: ⏎     'adds one' ⏎ (pbf.__annotations__['return'], pbf.__doc__)` | `(@doc-formal (@item pbf) (@kind function) (@type (-> Number Number)) (@desc "adds one")) on metta; ("int" "adds one") on python` | dissolves |
+| `!(help! +)` | `def pbf(x): ⏎     'adds one' ⏎ pbf.__doc__` | `"adds one"` | dissolves |
 
-- `get-doc` `(-> SpaceType Atom %Undefined%)` &mdash; Python's builtin `help`, over the docstring a decorated function already carries. This engine answers nothing here because no documentation atoms are written yet, which is the doc-vocabulary gap. Where they differ: LeaTTa answers the full `@doc-formal` structure for `+`; this engine answers nothing, because nothing emits documentation atoms.
+- `get-doc` `(-> SpaceType Atom %Undefined%)` &mdash; Python's builtin `help`, over the docstring a decorated function already carries. This engine answers nothing here because no documentation atoms are written yet, which is the doc-vocabulary gap. Where they differ: the mechanised interpreter answers the full `@doc-formal` structure for `+`; this engine answers nothing, because nothing emits documentation atoms.
 - `@doc` `(-> Atom DocDescription DocInformal) | (-> Atom DocDescription DocParameters DocReturnInformal DocInformal)` &mdash; A docstring. One docstring is meant to feed both worlds: Python's `help` and the engine's `get-doc`, once the emission lands. Where they differ: the MeTTa side is a CONSTRUCTOR and stays unreduced on both engines, which is correct; the Python side shows the same text.
 - `@desc` `(-> String DocDescription)` &mdash; The description line of a docstring. Where they differ: the MeTTa side is a constructor and stays unreduced, correctly.
 - `@param` `(-> String DocParameterInformal) | (-> DocType DocDescription DocParameter)` &mdash; One parameter's line in a docstring, which the docstring convention already carries. Where they differ: the MeTTa side is a constructor and stays unreduced, correctly.
@@ -440,22 +440,22 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `@type` `(-> Type DocType)` &mdash; The type shown in documentation, which annotations already supply. Where they differ: the MeTTa side is a constructor and stays unreduced, correctly.
 - `@item` `(-> Atom DocItem)` &mdash; The subject a documentation record is about, which in Python is the object the docstring hangs on. Where they differ: the MeTTa side is a constructor and stays unreduced, correctly.
 - `@doc-formal` `(-> DocItem DocKindFunction DocType DocDescription DocParameters DocReturn DocFormal) | (-> DocItem DocKindAtom DocType DocDescription DocFormal) | (-> DocItem DocKindFunction DocType DocDescription DocFormal)` &mdash; The whole documentation record, which a typed and docstringed Python function already is: signature plus prose in one place. Where they differ: the MeTTa side is a constructor and stays unreduced, correctly.
-- `help!` `(-> Atom (->)) | (-> (->))` &mdash; Python's builtin `help`, which is the same act on the same docstring. Where they differ: LeaTTa prints the documentation and answers the unit; this engine leaves the call unreduced because it declares no documentation. The form is shown but not run here: this engine leaves the call unreduced.
+- `help!` `(-> Atom (->)) | (-> (->))` &mdash; Python's builtin `help`, which is the same act on the same docstring. Where they differ: the mechanised interpreter prints the documentation and answers the unit; this engine leaves the call unreduced because it declares no documentation. The form is shown but not run here: this engine leaves the call unreduced.
 
 ## Modules and imports
 
 | MeTTa | Python | answers | bucket |
 |---|---|---|---|
-| `!(import! &self (library lib_he)) ⏎ !(unify (f a) (f $x) $x nope)` | `import math ⏎ S[math.__name__]` | `a on leatta and metta; math on python` | dissolves |
-| `!(import-into! (new-space) (library lib_he))` | &mdash; | `(Error (import-into! &space-#0 (library lib_he)) import-into!: module must be a symbol)` | absent |
-| `!(import-item! &self (library lib_he) unify)` | &mdash; | `(Error (import-item! &self (library lib_he) unify) import-item! expects (import-item! <dest> <module> <item>))` | absent |
-| `!(get-metatype include)` | `import pathlib, tempfile ⏎ path = pathlib.Path(tempfile.mkdtemp()) / 'inc.metta' ⏎ path.write_text('(= (pbi) 7)\n') ⏎ space.load(str(path)) ⏎ space.eval(S.pbi())[0]` | `Grounded on leatta and metta; 7 on python` | method |
-| `!(get-metatype git-import!)` | `import importlib ⏎ S[importlib.import_module('json').__name__]` | `Grounded on leatta and metta; json on python` | method |
-| `!(get-metatype git-module!)` | &mdash; | `Grounded` | absent |
-| `!(get-metatype register-module!)` | &mdash; | `Grounded` | absent |
+| `!(import! &self (library lib_he)) ⏎ !(unify (f a) (f $x) $x nope)` | `import math ⏎ S[math.__name__]` | `a on metta; math on python` | dissolves |
+| `!(import-into! (new-space) (library lib_he))` | &mdash; | &mdash; | absent |
+| `!(import-item! &self (library lib_he) unify)` | &mdash; | &mdash; | absent |
+| `!(get-metatype include)` | `import pathlib, tempfile ⏎ path = pathlib.Path(tempfile.mkdtemp()) / 'inc.metta' ⏎ path.write_text('(= (pbi) 7)\n') ⏎ space.load(str(path)) ⏎ space.eval(S.pbi())[0]` | `Grounded on metta; 7 on python` | method |
+| `!(get-metatype git-import!)` | `import importlib ⏎ S[importlib.import_module('json').__name__]` | `Grounded on metta; json on python` | method |
+| `!(get-metatype git-module!)` | &mdash; | &mdash; | absent |
+| `!(get-metatype register-module!)` | &mdash; | &mdash; | absent |
 | `!(print-mods!)` | `import sys ⏎ print(len(sys.modules), 'modules') ⏎ metta.Expression()` | `()` | dissolves |
-| `!(loaded-mods!)` | `import sys ⏎ S['json'] if 'json' in sys.modules else S.absent` | `(corelib builtin:skel) on leatta; json on python` | dissolves |
-| `!(module-tree!)` | `import importlib.metadata ⏎ S[importlib.metadata.requires.__name__]` | `(top corelib stdlib skel) on leatta; requires on python` | dissolves |
+| `!(loaded-mods!)` | `import sys ⏎ S['json'] if 'json' in sys.modules else S.absent` | `json` | dissolves |
+| `!(module-tree!)` | `import importlib.metadata ⏎ S[importlib.metadata.requires.__name__]` | `requires` | dissolves |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ space.atoms()` | `(f 1)` | dissolves |
 
 - `import!` `(-> Atom Atom (->))` &mdash; Python's own `import`, and for a MeTTa library the boot manifest or `m.load(path)`. The module catalog IS Python packaging. Where they differ: MeTTa imports a MeTTa library into a space where Python imports a Python module into a namespace.
@@ -476,9 +476,9 @@ Python side does not move. Within one run the counts are exact: three fresh
 |---|---|---|---|
 | `!(Error a b)` | `S.Error(S.a, S.b)` | `(Error a b)` | dissolves |
 | `!(get-type (Error a b))` | `S.ErrorType` | `ErrorType` | dissolves |
-| `!(get-type BadType)` | &mdash; | `(-> Type Type ErrorDescription)` | absent |
-| `!(get-type BadArgType)` | &mdash; | `(-> Number Type Type ErrorDescription)` | absent |
-| `!(get-type IncorrectNumberOfArguments)` | &mdash; | `ErrorDescription` | absent |
+| `!(get-type BadType)` | &mdash; | &mdash; | absent |
+| `!(get-type BadArgType)` | &mdash; | &mdash; | absent |
+| `!(get-type IncorrectNumberOfArguments)` | &mdash; | &mdash; | absent |
 | `!(if-error (Error a b) yes no)` | `e = S.Error(S.a, S.b) ⏎ S.yes if e[0] == S.Error else S.no` | `yes` | dissolves |
 | `!(return-on-error a b)` | `value = S.a ⏎ value if isinstance(value, metta.Expression) and value[0] == S.Error else S.b` | `b` | dissolves |
 | `!(_separate-errors ((Error a b) c) ())` | `answers = [S.Error(S.a, S.b), S.c] ⏎ [a for a in answers if isinstance(a, metta.Expression) and a[0] == S.Error]` | `(Error a b)` | dissolves |
@@ -503,10 +503,10 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `(= (pb-innermost-step strategy-a) strategy-b) ⏎ (= (pb-innermost-step strategy-b) strategy-c) ⏎ (= (pb-innermost-step (strategy-node strategy-c)) strategy-innermost-root) ⏎ (= (pb-innermost-step $x) Empty) ⏎ !(strategy-apply (innermost pb-innermost-step) (strategy-node strategy-a))` | `space += metta.lib.strategy ⏎ space.run('(= (pb-innermost-step strategy-a) strategy-b) (= (pb-innermost-step strategy-b) strategy-c) (= (pb-innermost-step (strategy-node strategy-c)) strategy-innermost-root) (= (pb-innermost-step $x) Empty)') ⏎ plan = metta.strategies.innermost(S['pb-innermost-step']) ⏎ space.eval(S['strategy-apply'](plan, S['strategy-node'](S['strategy-a'])))` | `strategy-innermost-root` | method |
 | `!(stratego-all id (f a b))` | `space += metta.lib.strategy ⏎ plan = metta.strategies.stratego_all(metta.strategies.id) ⏎ space.eval(S['strategy-apply'](plan, S.f(S.a, S.b)))` | `(f a b)` | method |
 | `!(stratego-one id (f a b))` | `space += metta.lib.strategy ⏎ plan = metta.strategies.stratego_one(metta.strategies.id) ⏎ space.eval(S['strategy-apply'](plan, S.f(S.a, S.b)))` | `(f a b), (f a b), (f a b)` | method |
-| `!(stratego-some id (f a b))` | &mdash; | `(f a b)` | absent |
-| `!(eval-via-match (+ 1 2))` | &mdash; | `3` | absent |
-| `!(eval-via-unify (+ 1 2))` | &mdash; | `3` | absent |
-| `!(reduce-via-match (+ 1 2) x)` | &mdash; | `(reduce-via-match (+ 1 2) x)` | absent |
+| `!(stratego-some id (f a b))` | &mdash; | &mdash; | absent |
+| `!(eval-via-match (+ 1 2))` | &mdash; | &mdash; | absent |
+| `!(eval-via-unify (+ 1 2))` | &mdash; | &mdash; | absent |
+| `!(reduce-via-match (+ 1 2) x)` | &mdash; | &mdash; | absent |
 
 MeTTa's complete shipped basis is reified below. Every plan cell is ordinary
 queryable atom data, and every row is exercised by
@@ -533,14 +533,14 @@ queryable atom data, and every row is exercised by
 | `TU` | `(TU result-type)` | `strategies.TU(result_type)` | type-unifying strategy scheme |
 | `◁` | `(◁ s TP t)` or `(◁ s (TU r) t)` | `S['◁'](s, scheme, t)` | apply only when the declared strategy arrow fits the scheme |
 
-- `try` `TP | (-> Atom Atom)` &mdash; Stratego's `try(s) = s <+ id`. This engine reifies `s` in the plan and LeaTTa specialises the same law to one equality rewrite. LeaTTa oracle form: `(= strategy-a strategy-b) ⏎ !(try strategy-a)`.
-- `repeat` `TP | (-> Atom Atom)` &mdash; Stratego's `repeat(s) = try(s ; repeat(s))`, root steps to a normal form. LeaTTa oracle form: `(= strategy-a strategy-b) ⏎ (= strategy-b strategy-c) ⏎ !(repeat strategy-a)`.
-- `topdown` `TP | (-> Atom Atom)` &mdash; Stratego's `topdown(s) = s ; all(topdown(s))`, preorder traversal. LeaTTa oracle form: `(= strategy-a strategy-b) ⏎ (= (strategy-node strategy-b) strategy-bottomup-root) ⏎ !(topdown (strategy-node strategy-a))`.
-- `bottomup` `TP | (-> Atom Atom)` &mdash; Stratego's `bottomup(s) = all(bottomup(s)) ; s`, postorder traversal. LeaTTa oracle form: `(= strategy-a strategy-b) ⏎ (= (strategy-node strategy-b) strategy-bottomup-root) ⏎ !(bottomup (strategy-node strategy-a))`.
-- `innermost` `TP | (-> Atom Atom)` &mdash; Stratego's `innermost(s) = bottomup(try(s ; innermost(s)))`. LeaTTa oracle form: `(= strategy-a strategy-b) ⏎ (= strategy-b strategy-c) ⏎ (= (strategy-node strategy-c) strategy-innermost-root) ⏎ !(innermost (strategy-node strategy-a))`.
+- `try` `TP | (-> Atom Atom)` &mdash; Stratego's `try(s) = s <+ id`. This engine reifies `s` in the plan and the mechanised interpreter specialises the same law to one equality rewrite. Unary form: `(= strategy-a strategy-b) ⏎ !(try strategy-a)`.
+- `repeat` `TP | (-> Atom Atom)` &mdash; Stratego's `repeat(s) = try(s ; repeat(s))`, root steps to a normal form. Unary form: `(= strategy-a strategy-b) ⏎ (= strategy-b strategy-c) ⏎ !(repeat strategy-a)`.
+- `topdown` `TP | (-> Atom Atom)` &mdash; Stratego's `topdown(s) = s ; all(topdown(s))`, preorder traversal. Unary form: `(= strategy-a strategy-b) ⏎ (= (strategy-node strategy-b) strategy-bottomup-root) ⏎ !(topdown (strategy-node strategy-a))`.
+- `bottomup` `TP | (-> Atom Atom)` &mdash; Stratego's `bottomup(s) = all(bottomup(s)) ; s`, postorder traversal. Unary form: `(= strategy-a strategy-b) ⏎ (= (strategy-node strategy-b) strategy-bottomup-root) ⏎ !(bottomup (strategy-node strategy-a))`.
+- `innermost` `TP | (-> Atom Atom)` &mdash; Stratego's `innermost(s) = bottomup(try(s ; innermost(s)))`. Unary form: `(= strategy-a strategy-b) ⏎ (= strategy-b strategy-c) ⏎ (= (strategy-node strategy-c) strategy-innermost-root) ⏎ !(innermost (strategy-node strategy-a))`.
 - `stratego-all` `(-> Atom Atom Atom)` &mdash; Stratego's `all(s)`, applying a strategy to every immediate child.
-- `stratego-one` `(-> Atom Atom Atom)` &mdash; Stratego's `one(s)`, applying to one child. LeaTTa deliberately diverges from Stratego's committed choice by answering EVERY successful position through MeTTa's own nondeterminism.
-- `stratego-some` `(-> Atom Atom Atom)` &mdash; Stratego's `some(s)`, the third traversal primitive beside `all` and `one`: apply the strategy to every immediate child it succeeds on, keep each declining child as written, and fail when no child succeeded. The non-emptiness guard is the whole content, since `all` composed with `gtry` can never fail. A LeaTTa extension beyond corelib. The form is shown but not run here: this engine leaves the call unreduced.
+- `stratego-one` `(-> Atom Atom Atom)` &mdash; Stratego's `one(s)`, applying to one child. the mechanised interpreter deliberately diverges from Stratego's committed choice by answering EVERY successful position through MeTTa's own nondeterminism.
+- `stratego-some` `(-> Atom Atom Atom)` &mdash; Stratego's `some(s)`, the third traversal primitive beside `all` and `one`: apply the strategy to every immediate child it succeeds on, keep each declining child as written, and fail when no child succeeded. The non-emptiness guard is the whole content, since `all` composed with `gtry` can never fail. A the mechanised interpreter extension beyond corelib. The form is shown but not run here: this engine leaves the call unreduced.
 - `eval-via-match` `(-> Atom %Undefined%)` &mdash; The one-step rewriting strategy the whole basis is specialised to. The form is shown but not run here: this engine leaves the call unreduced.
 - `eval-via-unify` `(-> Atom %Undefined%)` &mdash; The unification-directed sibling of `eval-via-match`. The form is shown but not run here: this engine leaves the call unreduced.
 - `reduce-via-match` `(-> Atom Atom %Undefined%)` &mdash; The reduction form of the same strategy. The form is shown but not run here: this engine leaves the call unreduced.
@@ -549,14 +549,14 @@ queryable atom data, and every row is exercised by
 
 | MeTTa | Python | answers | bucket |
 |---|---|---|---|
-| `!(fuzzy-match (f a) ((f a) (f b)) 1)` | &mdash; | `(fuzzy-result (cost 0) (f a)), (fuzzy-result (cost 1) (f b))` | absent |
-| `!(fuzzy-match-space (new-space) (f a) ((f a)) 1)` | &mdash; | `(fuzzy-result (cost 0 0 0) (f a))` | absent |
-| `!(fuzzy-match-context (new-space) (new-space) (f a) ((f a)) 1)` | &mdash; | `(fuzzy-result (cost 0 0 0 0) (f a))` | absent |
-| `!(near-match (f a) ((f a) (f b)) 1)` | &mdash; | `(near-match (f a) ((f a) (f b)) 1)` | absent |
-| `!(sealed ($x) ($x $y))` | `m.eval(S.sealed(metta.Expression(V.x), metta.Expression(V.x, V.y)))[0]` | `($x $y#0) on leatta and metta; ($_v0 $_v1) on python` | method |
-| `!(capture (+ 1 2))` | &mdash; | `3` | absent |
+| `!(fuzzy-match (f a) ((f a) (f b)) 1)` | &mdash; | &mdash; | absent |
+| `!(fuzzy-match-space (new-space) (f a) ((f a)) 1)` | &mdash; | &mdash; | absent |
+| `!(fuzzy-match-context (new-space) (new-space) (f a) ((f a)) 1)` | &mdash; | &mdash; | absent |
+| `!(near-match (f a) ((f a) (f b)) 1)` | &mdash; | &mdash; | absent |
+| `!(sealed ($x) ($x $y))` | `m.eval(S.sealed(metta.Expression(V.x), metta.Expression(V.x, V.y)))[0]` | `($x $y#0) on metta; ($_v0 $_v1) on python` | method |
+| `!(capture (+ 1 2))` | &mdash; | &mdash; | absent |
 
-- `fuzzy-match` `(-> Atom Expression Number Atom)` &mdash; LeaTTa's cost-bounded approximate matcher, answering each candidate with its cost. MeTTa has `metta.structures` for many-to-one matching and no approximate matcher. The form is shown but not run here: this engine leaves the call unreduced.
+- `fuzzy-match` `(-> Atom Expression Number Atom)` &mdash; the cost-bounded approximate matcher, answering each candidate with its cost. MeTTa has `metta.structures` for many-to-one matching and no approximate matcher. The form is shown but not run here: this engine leaves the call unreduced.
 - `fuzzy-match-space` `(-> SpaceType Atom Expression Number Atom)` &mdash; The same over a space's atoms. The form is shown but not run here: this engine leaves the call unreduced.
 - `fuzzy-match-context` `(-> SpaceType SpaceType Atom Expression Number Atom)` &mdash; The same with a separate cost-declaration space. The form is shown but not run here: this engine leaves the call unreduced.
 - `near-match` `(-> Atom Expression Atom Atom)` &mdash; The nearest-candidate form of the same family. The form is shown but not run here: this engine leaves the call unreduced.
@@ -571,10 +571,10 @@ queryable atom data, and every row is exercised by
 | `!(evalc (+ 1 2) &self)` | `space.eval(S['+'](1, 2))` | `3` | method |
 | `!(metta (+ 1 2) %Undefined% &self)` | `m.eval(S['+'](1, 2))` | `3` | method |
 | `!(chain (+ 1 2) $x (foo $x))` | `x = m.eval(S['+'](1, 2))[0] ⏎ S.foo(x)` | `(foo 3)` | dissolves |
-| `!(function (return 5))` | &mdash; | `5` | absent |
-| `!(function (return (+ 2 3)))` | &mdash; | `(+ 2 3)` | absent |
-| `!(collapse-bind (superpose (a b)))` | &mdash; | `((a (bindings)) (b (bindings)))` | absent |
-| `!(superpose-bind ((a (bindings))))` | &mdash; | `a` | absent |
+| `!(function (return 5))` | &mdash; | &mdash; | absent |
+| `!(function (return (+ 2 3)))` | &mdash; | &mdash; | absent |
+| `!(collapse-bind (superpose (a b)))` | &mdash; | &mdash; | absent |
+| `!(superpose-bind ((a (bindings))))` | &mdash; | &mdash; | absent |
 
 - `eval` `(-> Atom Atom)` &mdash; ONE step. `m.eval(term)` is the same one step and answers every result, and `space.eval(term)` is `evalc`, the same step in a named space.
 - `evalc` `(-> Atom SpaceType Atom)` &mdash; One step WITH an explicit context space, which is `space.eval(term)`: the signature IS term plus space.

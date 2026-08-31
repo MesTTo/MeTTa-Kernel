@@ -351,7 +351,6 @@ async def eval(
     self,
     target: Any,
     *,
-    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
     under: Any = _UNSET,
@@ -376,7 +375,6 @@ async def one(
     self,
     target: Any,
     *,
-    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
 ) -> Any:
@@ -447,7 +445,6 @@ async def drop(self) -> None:
 async def profile(
     self,
     source: str,
-    using: dict[str, Any] | None = None,
     *,
     timeout: float | None = None,
     inferences: int | None = None,
@@ -564,7 +561,6 @@ async def derivation(
     target: Any,
     depth: int | None = None,
     *,
-    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
 ) -> Any:
@@ -617,7 +613,6 @@ async def first(
     self,
     target: Any,
     *,
-    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
 ) -> Any:
@@ -633,14 +628,6 @@ async def parallel(self, *targets: Any, timeout: float | None = None) -> list:
 
 > Evaluate every target concurrently inside the engine.
 
-### `AsyncMeTTa.hyperpose`
-
-```python
-async def hyperpose(self, *targets: Any, timeout: float | None = None) -> list:
-```
-
-> parallel() under its MeTTa name.
-
 ### `AsyncMeTTa.integrate`
 
 ```python
@@ -655,7 +642,6 @@ async def integrate(self, target: Any) -> str:
 async def profile_extension(
     self,
     source: str,
-    using: dict[str, Any] | None = None,
     *,
     extension: str | None = None,
     names: Sequence[str] | None = None,
@@ -673,7 +659,6 @@ async def eval_status(
     self,
     target: Any,
     *,
-    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
     theory: Any | None = None,
@@ -859,19 +844,6 @@ No docstring is defined.
 
 ```python
 async def reacts(
-    self,
-    pattern: str | Atom,
-    operation: str | Atom,
-    priority: int | None = None,
-) -> Atom:
-```
-
-No docstring is defined.
-
-### `AsyncMeTTa.reaction`
-
-```python
-async def reaction(
     self,
     pattern: str | Atom,
     operation: str | Atom,

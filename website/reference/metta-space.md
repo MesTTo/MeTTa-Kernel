@@ -308,13 +308,18 @@ def run(
 > directive instead of flattened. Equations and facts in the source
 > land in this space.
 >
-> `using` names Python values the source refers to by bare symbol,
+> `bind()` names Python values the source refers to by bare symbol,
 > the way DuckDB reads a local dataframe by its variable name:
 >
->     m.run("!(py-len graph)", using={"graph": my_graph})
+>     with m.bind({"graph": my_graph}):
+>         m.run("!(py-len graph)")
 >
 > Each named symbol substitutes to its value (objects by identity),
-> after reading, before anything runs.
+> after reading, before anything runs. It is a BLOCK rather than a
+> keyword because a binding mapping is the kind of value that grows,
+> and a block grows down the page where a keyword has to fit beside
+> everything else on the call. Every target door reads the same scope,
+> so one block covers a run(), an eval() and an answers() together.
 >
 > `timeout` (seconds) and `inferences` (engine steps) bound the call
 > with the engine's own guards; passing either raises TimeLimitError
@@ -341,7 +346,6 @@ def run(
 def profile(
     self,
     source: str,
-    using: dict[str, Any] | None = None,
     *,
     timeout: float | None = None,
     inferences: int | None = None,
@@ -367,7 +371,6 @@ def profile(
 def profile_extension(
     self,
     source: str,
-    using: dict[str, Any] | None = None,
     *,
     extension: str | None = None,
     names: _abc.Sequence[str] | None = None,
@@ -1018,7 +1021,6 @@ def eval(
     self,
     target: Any,
     *,
-    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
     under: Any = _UNSET,
@@ -1042,18 +1044,17 @@ def eval(
 > that path `not-reducible`. run() does not carry the third truth
 > value; evaluate through eval() when it matters.
 >
-> `using` binds named host values into the term before it evaluates,
-> exactly as it does for run(): `m.eval("(decide x)", using={"x":
-> tensor})` hands the tensor itself to the rule, by identity, rather
-> than a printed form of it. The name is the SYMBOL x and not the
-> variable $x, on this door and the source door alike; the example here
-> wrote `$x` and did not work [measured 2026-08-31]. The evaluation doors take the same
+> `bind()` binds named host values into the term before it evaluates,
+> exactly as it does for run(): inside `with m.bind({"x": tensor})`,
+> `m.eval("(decide x)")` hands the tensor itself to the rule, by
+> identity, rather than a printed form of it. The name is the SYMBOL x
+> and not the variable $x, on this door and the source door alike. The evaluation doors take the same
 > vocabulary the source door takes, so reaching for a term instead
 > of source text costs no change of spelling.
 >
 > A key may be a NAME or an ATOM. A name means the symbol of that name,
 > which is what the engine's own substitution matches and what run()
-> takes. An atom means exactly that atom, so `using={V.x: 5}` fills a
+> takes. An atom means exactly that atom, so `bind({V.x: 5})` fills a
 > VARIABLE hole -- the one substitution `unify` reports and the one no
 > door could apply, because a variable crosses the wire as ['v', 'x']
 > where a symbol crosses as ['s', 'x'] and the engine matches names.
@@ -1075,7 +1076,6 @@ def answers(
     self,
     target: Any,
     *,
-    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
     under: Any = _UNSET,
@@ -1112,9 +1112,22 @@ def answers(
 > commit=0d49980b03d507f9bae0354786ab826a146c20df].
 >
 > ``interpreter=`` instead evaluates the explicit full-interpreter
-> application ``(interpreter target %Undefined% receiver)`` for this ask.
-> The selectors are mutually exclusive because each decides what
-> evaluation relation the answer cursor runs.
+> application ``(interpreter target %Undefined% space)`` for this ask,
+> which is the shape MeTTa's own evaluation function has: it says
+> "reduce with YOURS rather than the engine's".
+>
+> The two COMPOSE, and are the head and the third argument of one
+> application rather than rival answers to one question: with both, the
+> interpreter is handed the theory's space, so it interprets the theory
+> [measured 2026-08-31: an interpreter tracing its delegate answered
+> `(Traced base)` alone and `(Traced left), (Traced right)` over a
+> two-equation theory]. They used to refuse together.
+>
+> The INTERPRETER must declare its first parameter `Atom`, MeTTa's own
+> way to receive an argument unevaluated, or the engine reduces the
+> target before the interpreter ever sees it; and its RETURN metatype
+> `%Undefined%`, or the interpreter's own answer is not reduced either.
+> `(: e (-> Atom Atom Atom %Undefined%))` is the declaration.
 
 ### `Space.parallel`
 
@@ -1156,18 +1169,6 @@ def parallel(self, *targets: Any, timeout: float | None = None) -> list[Atom | U
 > million [measured 2026-08-15]. An unenforceable bound is worse than
 > an absent one, so eval() over a `superpose` is the way to bound this
 > work by inferences, at the cost of running it on one core.
-
-### `Space.hyperpose`
-
-```python
-def hyperpose(self, *targets: Any, timeout: float | None = None) -> list[Atom | Undefined]:
-```
-
-> parallel(), under the language's own name.
->
-> (hyperpose ...) is the engine form this runs, so the Python
-> surface reads MeTTa-natively; a thread pool is a space whose
-> atoms are spaces, and this is how one is exercised from Python.
 
 ### `Space.pool`
 
@@ -1220,7 +1221,6 @@ def eval_status(
     self,
     target: Any,
     *,
-    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
     theory: Any | None = None,
@@ -1820,7 +1820,6 @@ def derivation(
     target: Any,
     depth: int | None = None,
     *,
-    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
 ) -> list[Any]:
@@ -2276,14 +2275,6 @@ def reacts(self, pattern: str | Atom, operation: str | Atom, priority: int | Non
 > spaces, while the bridge rule delivers Python-side to anything
 > with add and remove, an unregistered or remote target included.
 > Same multi-context-systems idea, two delivery tiers.
-
-### `Space.reaction`
-
-```python
-def reaction(self, pattern: str | Atom, operation: str | Atom, priority: int | None = None) -> Atom:
-```
-
-> Compatibility spelling for :meth:`reacts`; new code uses reacts.
 
 ### `Space.admits`
 
