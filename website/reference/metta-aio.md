@@ -564,10 +564,18 @@ async def derivation(
 
 > Build a bounded derivation tree for one target.
 
+### `AsyncMeTTa.reducible`
+
+```python
+async def reducible(self, target: Any) -> bool:
+```
+
+> Whether a head reduces here, asked without evaluating anything.
+
 ### `AsyncMeTTa.why`
 
 ```python
-async def why(self, pattern: Any) -> str:
+async def why(self, pattern: Any, *, where: Any | None = None) -> str:
 ```
 
 > Explain why a pattern is not currently reducible.
@@ -656,6 +664,7 @@ async def eval_status(
     self,
     target: Any,
     *,
+    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
 ) -> list:
@@ -936,6 +945,25 @@ async def io(self, fn: Callable, /, **options: Any) -> Callable:
 
 > An operation that observes an external oracle.
 
+### `AsyncMeTTa.cache`
+
+```python
+async def cache(
+    self,
+    fn: Callable | None = None,
+    /,
+    *,
+    name: str | None = None,
+    unchecked: bool = False,
+) -> Any:
+```
+
+> Define and memoize on the worker, the sync door's cache decorator.
+>
+> The memo stores every answer occurrence, and the returned handle
+> carries cache_clear() and cache_info() as synchronous doors the way
+> define's handle carries its own.
+
 ### `AsyncMeTTa.rules`
 
 ```python
@@ -984,25 +1012,6 @@ async def define(
 > because the ladder does not shrink from one surface to another: an
 > async caller installing `prime?` or an authored underscore had no
 > door for it while the synchronous define did [measured 2026-08-31].
-
-### `AsyncMeTTa.cache`
-
-```python
-async def cache(
-    self,
-    fn: Callable | None = None,
-    /,
-    *,
-    name: str | None = None,
-    unchecked: bool = False,
-) -> Any:
-```
-
-> Define and memoize on the worker, the sync door's cache decorator.
->
-> The memo stores every answer occurrence, and the returned handle
-> carries cache_clear() and cache_info() as synchronous doors the way
-> define's handle carries its own.
 
 ### `AsyncMeTTa.type`
 
@@ -1104,14 +1113,6 @@ def speculative(self):
 ```
 
 > Answer awaited runs while discarding their engine writes.
-
-### `AsyncMeTTa.strict`
-
-```python
-def strict(self):
-```
-
-> Refuse unreduced directives in awaited runs within the block.
 
 ### `AsyncMeTTa.batch`
 

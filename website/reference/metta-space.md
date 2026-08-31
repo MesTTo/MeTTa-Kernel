@@ -327,20 +327,18 @@ def run(
 > source completed before the stop, writes included, stands.
 >
 > `with m.capture() as output` collects printed text in `output.text`
-> without changing this method's return shape. `with m.atomic()`,
-> `with m.speculative()`, and `with m.strict()` scope execution policy
-> without boolean combinations on each call. Atomic commits or rolls
+> without changing this method's return shape. `with m.atomic()`
+> and `with m.speculative()` scope execution policy without boolean
+> combinations on each call. Atomic commits or rolls
 > back each complete source; speculative answers and discards its
 > writes. Both cover engine state; Python side effects and subscription
 > callbacks already fired stay where they happened.
 >
-> A strict scope requires every directive to reduce, raising
-> StrictError on one the engine hands back unevaluated. It is opt-in,
-> because an unreduced term is an ordinary MeTTa value: a bare data
-> constructor is refused under strict for the same reason a bare
-> typo is, since neither reduces. An empty answer is allowed, being
-> the pruned branch that (empty) and an unmatched match produce.
-> eval_status() reports the same paths without refusing anything.
+> A term the engine hands back unevaluated is an ordinary MeTTa value,
+> not a failure: `!(hello world)` answers `(hello world)` and that is
+> the whole of hello world in this language. eval_status() reports
+> which answers reduced and which did not, as data, for a caller who
+> wants to decide about it.
 
 ### `Space.profile`
 
@@ -942,14 +940,6 @@ def speculative(self) -> ScopedExecution:
 
 > Run each source against a snapshot and discard its writes.
 
-### `Space.strict`
-
-```python
-def strict(self) -> ScopedExecution:
-```
-
-> Refuse any run directive the engine returns unreduced.
-
 ### `Space.batch`
 
 ```python
@@ -1049,8 +1039,6 @@ def eval(
 > `timeout` (seconds) and `inferences` (engine steps) bound the call,
 > raising TimeLimitError or InferenceLimitError when hit. A surrounding
 > `capture()` scope collects printed text without changing the list.
-> In a `strict()` scope an unreduced term raises StrictError while a
-> genuinely empty branch still returns no answers.
 >
 > `under`, `theory` and `interpreter` are answers()' three, and mean
 > exactly what they mean there; this door is that one materialised. A
@@ -1183,6 +1171,26 @@ def pool(self, workers: int | None = None) -> Any:
 > Reach for `parallel()` instead when the fan-out is a MeTTa expression
 > rather than a Python loop; the two compose.
 
+### `Space.reducible`
+
+```python
+def reducible(self, target: Any) -> bool:
+```
+
+> Whether a head reduces here, asked without evaluating anything.
+>
+>     m.reducible(S.double(4))     # True
+>     m.reducible(S.Point(1, 2))   # False, nothing applies to that head
+>
+> The same head test eval_status() uses, published on its own because a
+> caller who wants to DECIDE about an unreduced term should not have to
+> run the term to find out. That decision is the caller's: a term
+> nothing applies to is its own answer, which is ordinary MeTTa and how
+> `!(hello world)` works, so there is no scope here that refuses one.
+>
+> The Node seat has had m.reducible() since it existed; this seat had
+> only eval_status(), which evaluates to tell you [measured 2026-08-31].
+
 ### `Space.eval_status`
 
 ```python
@@ -1190,6 +1198,7 @@ def eval_status(
     self,
     target: Any,
     *,
+    using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
 ) -> list[tuple[str, Atom | Undefined | None]]:
@@ -1209,6 +1218,11 @@ def eval_status(
 > exists to prevent: an unevaluated term and a pruned branch look
 > alike from the answers alone. An error is not a status here,
 > because it arrives as an exception.
+>
+> `using` binds host values into the term exactly as it does for
+> eval(), and it has to: the substitution lands BEFORE the
+> reducibility question, so the status of an evaluation that binds
+> anything was unaskable without it.
 
 ### `Space.run_status`
 
@@ -1771,13 +1785,27 @@ def derivation(
 ### `Space.why`
 
 ```python
-def why(self, pattern: Any) -> str:
+def why(self, pattern: Any, *, where: Any | None = None) -> str:
 ```
 
 > Why a pattern matches nothing here, in words.
 >
 > Checks the cheap explanations in order: unknown function, wrong
-> arity, no stored atoms with that head. Honest when it cannot tell.
+> arity, no stored atoms with that head. Honest when it cannot tell,
+> and honest about the PREMISE too: a pattern that does match is a
+> question with a false premise, and this refuses it the way
+> Answers.why() always did rather than answering it. Asking why
+> `(job $id $pri)` matched nothing, when it matches two atoms, used to
+> answer "2 job atom(s) exist here but none unifies with it"
+> [measured 2026-08-31].
+>
+> `where` is match()'s guard, and asking with one is where the answer
+> gets interesting: a query can be empty because the pattern found
+> nothing OR because the guard rejected everything it found, and only
+> the guarded question can tell you which.
+>
+> One implementation, because there were two and they agreed word for
+> word on every genuine miss while disagreeing about the premise.
 
 ### `Space.define`
 
@@ -2491,14 +2519,6 @@ def speculative(self) -> ScopedExecution:
 ```
 
 > Scope source execution to discarded snapshots.
-
-### `MeTTa.strict`
-
-```python
-def strict(self) -> ScopedExecution:
-```
-
-> Scope source execution to reject unreduced directives.
 
 ### `MeTTa.transaction`
 

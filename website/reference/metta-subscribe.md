@@ -100,12 +100,24 @@ def subscribe(
     on: str = 'add',
     *,
     queue_max: int = SUBSCRIPTION_QUEUE_MAX,
-    guard: Atom | None = None,
-    judge: Callable[[Atom], bool] | None = None,
+    admits: Callable[[Event], bool] | None = None,
 ) -> Subscription:
 ```
 
 No docstring is defined.
+
+## `guard_admits`
+
+```python
+def guard_admits(guard: Atom, evaluate: Callable[[Atom], Any]) -> Callable[[Event], bool]:
+```
+
+> A where-guard as one admission test over an event.
+>
+> The guard is instantiated under the event's own bindings and required
+> true, which is match()'s rule for the same word. It is built here because
+> this module owns the instantiation, and handed the evaluation door because
+> evaluating a term needs the Space and this module sits below it.
 
 ## `bridge`
 
