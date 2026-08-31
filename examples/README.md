@@ -91,7 +91,7 @@ add no `examples/**/*.metta` files, so the count above is unchanged.
 
 ## Origins
 
-144 of the 250 programs here derive from the MeTTa examples of the project at
+143 of the 249 programs here derive from the MeTTa examples of the project at
 https://github.com/patham9/PeTTa, MIT licensed, at commit
 `43705f5d9ff8958ffe7f0aa6777fb8477f2401f2` (2026-07-24). They were reorganised
 into the reading order above, and some were edited. Thirteen people wrote them

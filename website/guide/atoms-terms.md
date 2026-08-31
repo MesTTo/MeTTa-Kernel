@@ -67,10 +67,10 @@ compare atoms; comparison terms name their head explicitly. The full set:
 | `x - y` | `(- x y)` | | `x \| y` | `(or x y)` |
 | `x * y` | `(* x y)` | | `x ^ y` | `(xor x y)` |
 | `x / y` | `(/ x y)` | | `~x` | `(not x)` |
-| `x % y` | `(% x y)` | | `S["<"](x, y)` | `(< x y)` |
-| `x ** y` | `(pow-math x y)` | | `S["<="](x, y)` | `(<= x y)` |
-| `x // y` | `(floor-math (/ x y))` | | `S[">"](x, y)` | `(> x y)` |
-| `x @ y` | `(matmul x y)` | | `S[">="](x, y)` | `(>= x y)` |
+| `x % y` | `(% x y)` | | `x.lt(y)` | `(< x y)` |
+| `x ** y` | `(pow-math x y)` | | `x.le(y)` | `(<= x y)` |
+| `x // y` | `(floor-math (/ x y))` | | `x.gt(y)` | `(> x y)` |
+| `x @ y` | `(matmul x y)` | | `x.ge(y)` | `(>= x y)` |
 | `-x` | `(- 0 x)` | | `abs(x)` | `(abs-math x)` |
 | `x.eq(y)` | `(== x y)` | | `x.ne(y)` | `(not (== x y))` |
 
@@ -85,7 +85,7 @@ Left and right shift are absent because MeTTa has no integer-shift operation;
 generic unsupported-operands error. Grounded values keep Python semantics, so
 `Grounded(3) << 2` answers `12` rather than building a term.
 
-All comparisons answer Python booleans. **`x.eq(y)` builds the equality term `(== x y)`, while `==` itself compares atoms structurally.** The explicit `S["<"]`, `S["<="]`, `S[">"]`, and `S[">="]` heads build relations; the four rich comparison operators compare the engine's standard atom order. Atoms are dict keys, test comparands, and sortable values, so Python comparison operators never become terms.
+All comparisons answer Python booleans. **`x.eq(y)` builds the equality term `(== x y)`, while `==` itself compares atoms structurally.** The same split holds for ordering: `x.lt(y)`, `x.le(y)`, `x.gt(y)` and `x.ge(y)` build relations, while the four rich comparison operators compare the engine's standard atom order. The bracket door `S["<"](x, y)` spells the same term for a head outside identifier grammar. Atoms are dict keys, test comparands, and sortable values, so Python comparison operators never become terms.
 
 `Grounded` arithmetic and comparisons against raw Python values keep Python value semantics. Comparing one atom with another uses atom identity for equality and the engine order for all four ordering operations.
 

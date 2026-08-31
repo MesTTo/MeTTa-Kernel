@@ -688,7 +688,7 @@ def match(
 > evaluated per join and required true, so restrictions a pattern
 > cannot spell (an inequality) compose onto the match:
 >
->     m.match(S.person(V.name, V.age), where=S[">="](V.age, 18))
+>     m.match(S.person(V.name, V.age), where=V.age.ge(18))
 >
 > `limit` bounds the answers, the engine stopping at the count
 > rather than trimming afterwards. `timeout` (seconds) and
@@ -721,6 +721,47 @@ def match(
 > expressions instead: `m.match(V.edge, into=Edge)`.
 >
 >     m.match(S.Edge(V.x, V.y), S.Edge(V.y, V.z))
+
+### `Space.stream`
+
+```python
+def stream(
+    self,
+    *patterns: Any,
+    where: Any | None = None,
+    limit: int | None = None,
+    timeout: float | None = None,
+    inferences: int | None = None,
+    under: Any = _UNSET,
+) -> Cursor:
+```
+
+> match(), pulled: the same conjunction and guard, answered one
+> row at a time through a cursor the engine holds open.
+>
+>     with m.stream(S.edge(V.a, V.b), S.edge(V.b, V.c)) as rows:
+>         for row in rows:
+>             if wanted(row):
+>                 break            # nothing further is even joined
+>
+> The join's state lives inside an SWI engine between pulls, each
+> pull is one ordinary call, and unrelated calls interleave freely,
+> so a huge join costs one row of work per row actually taken where
+> match() computes and decodes every answer up front. `timeout`
+> bounds each pull's wall time; `inferences` is one budget for the
+> cursor's whole engine work, spent across pulls, and the cursor
+> stops on the answer that passes it. Because the budget counts the
+> cursor's own engine, it is not the number ``stats()`` reports for
+> the same work: ``stats()`` reads the calling thread's counters,
+> which see the pull loop rather than the engine. The cursor
+> enumerates under the engine's logical update view: writes made
+> after the first pull are not seen by this cursor.
+>
+> `limit` and `under` mean what they mean on match(), because this is
+> match() and the cursor underneath already carried both. What this
+> door does NOT take is match()'s `into=`, and that is a real
+> difference rather than an omission: `into` builds a container out of
+> every row, which is the one thing a cursor exists not to do.
 
 ### `Space.assuming`
 
@@ -813,10 +854,21 @@ def solve(self, pattern: Any, subject: Any) -> Any:
 ### `Space.watch`
 
 ```python
-def watch(self, pattern: Any, *, on: str = 'add', deadline: float | None = None):
+def watch(
+    self,
+    pattern: Any,
+    *,
+    on: str = 'add',
+    deadline: float | None = None,
+    queue_max: int | None = None,
+):
 ```
 
 > Yield matching changes, raising Timeout after each quiet deadline.
+>
+> `queue_max` bounds the subscription underneath, the same bound
+> subscribe() takes; a watch could not name it before, though the
+> subscription it builds always had one.
 
 ### `Space.limits`
 

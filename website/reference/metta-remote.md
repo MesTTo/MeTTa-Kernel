@@ -109,7 +109,7 @@ class RemoteCursor:
 > A remote answer stream: `/ask` opened it, `/next` pulls the next
 > chunk, `/stop` releases it.
 >
-> MeTTa.stream()'s Cursor with a wire under it, and the same discipline:
+> Space.stream()'s Cursor with a wire under it, and the same discipline:
 > iterate it, close() it, or leave its with-block. Exhaustion releases
 > the server's cursor and stays ordinary iterator exhaustion; an
 > explicit close is the separate state that refuses further pulls.

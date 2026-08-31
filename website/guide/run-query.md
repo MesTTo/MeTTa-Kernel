@@ -14,7 +14,7 @@ Queries also accept guards, answer bounds, temporary assumptions, and prepared s
 
 ```python
 m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
-m.match(S.Age(V.p, V.n), where=S["and"](S[">="](V.n, 60), S["<="](V.n, 70)))
+m.match(S.Age(V.p, V.n), where=metta.and_(V.n.ge(60), V.n.le(70)))
 # Rows[p, n]([Row(p=Symbol('Tom'), n=Grounded(62))])
 
 with m.assuming(S.Parent(S.Ann, S.Zoe)):

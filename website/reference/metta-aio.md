@@ -923,6 +923,7 @@ async def define(
     /,
     *,
     prolog: str | os.PathLike[str] | None = None,
+    name: str | None = None,
     accessors: bool = True,
     methods: bool = True,
 ) -> Any:
@@ -931,6 +932,11 @@ async def define(
 > Compile a Python function into equations on the worker. The
 > returned handle's own calls are synchronous doors; evaluate
 > through fn(name) or run() from async code.
+>
+> `name=` is the naming ladder's exact-spelling rung, and it is here
+> because the ladder does not shrink from one surface to another: an
+> async caller installing `prime?` or an authored underscore had no
+> door for it while the synchronous define did [measured 2026-08-31].
 
 ### `AsyncMeTTa.cache`
 
@@ -1135,8 +1141,10 @@ def stream(
     self,
     *patterns: Any,
     where: Any | None = None,
+    limit: int | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
+    under: Any = _UNSET,
 ) -> _AsyncCursor:
 ```
 
@@ -1179,11 +1187,18 @@ def watch(
     pattern: Any,
     *,
     on: str = 'add',
+    deadline: float | None = None,
     queue_max: int = SUBSCRIPTION_QUEUE_MAX,
 ) -> _AsyncSubscription:
 ```
 
-> Observe matching writes as the async-native event iterator.
+> Observe matching writes, raising Timeout after each quiet deadline.
+>
+> The synchronous watch()'s meaning, which this door carried the NAME of
+> without: it was subscribe() under a second name, same signature and
+> same body, so an async caller had no way to say "stop waiting after
+> this long" that peek() and take() both give them
+> [measured 2026-08-31].
 
 ### `AsyncMeTTa.fn`
 
